@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useId,
   useRef,
   useState,
@@ -10,6 +11,8 @@ import {
 } from "react";
 import { X, Maximize2, Minimize2 } from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { acquireSurface, captureFocusOrigin, restoreFocusOrigin, type FocusOrigin, type SurfaceLease } from "@/lib/ui/surface-state";
+import { useDialogFocusScope } from "./dialog-focus-scope";
 
 interface DialogProps {
   open: boolean;
@@ -32,48 +35,6 @@ const FIRST_FIELD =
  * the last focused element and the button of the menu that held it are kept
  * here as they happen.
  */
-interface FocusOrigin {
-  target: HTMLElement;
-  menuButton: HTMLElement | null;
-}
-
-let lastFocus: FocusOrigin | null = null;
-
-function originOf(target: HTMLElement): FocusOrigin {
-  const menu = target.closest('[role="menu"]');
-  return {
-    target,
-    menuButton:
-      menu?.parentElement?.querySelector<HTMLElement>('[aria-haspopup="menu"]') ?? null,
-  };
-}
-
-if (typeof document !== "undefined") {
-  document.addEventListener("focusin", (event) => {
-    if (event.target instanceof HTMLElement) lastFocus = originOf(event.target);
-  });
-}
-
-function focusOrigin(): FocusOrigin | null {
-  const active = document.activeElement;
-  if (active instanceof HTMLElement && active !== document.body) {
-    return lastFocus?.target === active ? lastFocus : originOf(active);
-  }
-  // Focus fell to the body because its element left the page (a menu item).
-  // An element still on the page lost focus on purpose: leave it alone.
-  return lastFocus && !lastFocus.target.isConnected ? lastFocus : null;
-}
-
-/** The control that opened the dialog, else its menu's button, else nothing. */
-function returnFocus(origin: FocusOrigin | null) {
-  for (const el of [origin?.target, origin?.menuButton]) {
-    if (el?.isConnected) {
-      el.focus();
-      return;
-    }
-  }
-}
-
 export function Dialog({
   open,
   onClose,
@@ -87,6 +48,10 @@ export function Dialog({
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [expanded, setExpanded] = useState(false);
+  const scope = useDialogFocusScope();
+  const ownLease = useRef<SurfaceLease | null>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
 
   const handleClose = useCallback(() => onClose(), [onClose]);
 
@@ -97,21 +62,24 @@ export function Dialog({
   // first run, and the cleanup that a re-run follows does nothing.
   const origin = useRef<FocusOrigin | null | undefined>(undefined);
   const openRuns = useRef(0);
-  useEffect(() => {
-    if (!open) return;
+  useLayoutEffect(() => {
+    if (!open || scope) return;
     const run = ++openRuns.current;
-    if (origin.current === undefined) origin.current = focusOrigin();
+    if (origin.current === undefined) origin.current = captureFocusOrigin();
+    const lease = acquireSurface(() => closeRef.current());
+    ownLease.current = lease;
     return () => {
+      lease.release();
       queueMicrotask(() => {
         if (openRuns.current !== run) return;
         const target = origin.current;
         origin.current = undefined;
-        returnFocus(target ?? null);
+        restoreFocusOrigin(target ?? null);
       });
     };
-  }, [open]);
+  }, [open, scope]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = dialogRef.current;
     if (!el) return;
     if (open && !el.open) {
@@ -149,7 +117,7 @@ export function Dialog({
       aria-describedby={description ? descriptionId : undefined}
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        if ((scope ?? ownLease.current)?.isTop()) onClose();
       }}
       className={`dialog-enter glass m-auto w-full overflow-hidden border-0 bg-transparent p-0 outline-none open:flex open:flex-col text-fg-primary backdrop:glass-veil transition-[max-width] duration-200 ease-out ${sizeClass}`}
       onClick={(e) => {

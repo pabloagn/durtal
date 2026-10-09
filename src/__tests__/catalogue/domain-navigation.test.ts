@@ -17,9 +17,9 @@ import {
   isSectionActive,
 } from "@/lib/navigation";
 import { ADD, GO_TO } from "@/lib/shortcuts/shortcuts";
-import PerfumesLayout from "@/app/perfumes/layout";
-import FilmsLayout from "@/app/films/layout";
-import PaintingsLayout from "@/app/paintings/layout";
+import PerfumesLayout from "@/app/(catalogue)/perfumes/layout";
+import FilmsLayout from "@/app/(catalogue)/films/layout";
+import PaintingsLayout from "@/app/(catalogue)/paintings/layout";
 
 
 describe("reading navigation (SLN-448)", () => {

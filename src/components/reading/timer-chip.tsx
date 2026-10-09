@@ -48,9 +48,9 @@ export function useStopTimer() {
 export type TimerChipLayout = "expanded" | "rail" | "phone";
 
 export function TimerChip({ layout }: { layout: TimerChipLayout }) {
-  const { timer, elapsed, checkMinutes, pause, resume, setDiscarding } = useTimer();
+  const { timer, elapsed, checkMinutes, pause, resume, setDiscarding, availability } = useTimer();
   const stop = useStopTimer();
-  if (!timer) return null;
+  if (!timer || availability !== "ready") return null;
   const paused = !!timer.pausedAt;
   const ask = !paused && shouldAsk(elapsed, checkMinutes);
   const name = `Timer for ${timer.title}, ${durationSpoken(elapsed)}${paused ? ", paused" : ""}`;
@@ -243,7 +243,7 @@ const clockOf = (d: Date) => d.toLocaleTimeString("en-GB", { hour: "2-digit", mi
 
 /** The forgotten-timer question, "Stop it and start this one", and the discard question */
 export function TimerAlerts() {
-  const { timer, elapsed, checkMinutes, conflict, setConflict, setPendingStart, discarding, setDiscarding, discard } = useTimer();
+  const { timer, elapsed, checkMinutes, conflict, setConflict, setPendingStart, discarding, setDiscarding, discard, availability } = useTimer();
   const stop = useStopTimer();
   const [asking, setAsking] = useState(false);
   const [at, setAt] = useState("");
@@ -251,7 +251,7 @@ export function TimerAlerts() {
 
   // On open, focus and a visible tab (each loads the timer again): ask about a forgotten timer
   useEffect(() => {
-    if (!timer || timer.pausedAt) return setAsking(false);
+    if (!timer || timer.pausedAt || availability !== "ready") return setAsking(false);
     const seconds = elapsed;
     if (!isForgotten(seconds, checkMinutes)) return;
     let still: { sessionId: string; until: number } | null = null;
@@ -264,9 +264,9 @@ export function TimerAlerts() {
     setAsking(true);
     // Only when the timer loads again, not on every tick
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timer]);
+  }, [timer, availability]);
 
-  if (!timer) return null;
+  if (!timer || availability !== "ready") return null;
   const suggested = suggestedStop(timer, checkMinutes);
 
   function stillReading() {

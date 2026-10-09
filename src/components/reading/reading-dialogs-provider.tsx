@@ -1,154 +1,219 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import dynamic from "next/dynamic";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { usePreference } from "@/lib/hooks/use-preference";
 import { READING_HOME_KEY } from "@/lib/preferences";
+import { isUuid } from "@/lib/utils/uuid";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { getReadingDialogData, pauseReading, resumeReading } from "@/lib/actions/reading";
 import { showError, type ReadingPageData } from "./reading-client";
-import { ReadingDialogSwitch, type DialogRequest, type ReadingDialog, type ReadingDialogProps, type StopRequest } from "./reading-provider";
+import type { DialogRequest, ReadingDialog, ReadingDialogProps, StopRequest } from "./reading-dialog-types";
+import type { ReadingDialogHostProps } from "./reading-dialog-host";
 import type { PickerPurpose } from "@/lib/reading/book-picker";
 import type { NoteEdit } from "@/lib/actions/reading-notes";
 import type { NoteKind } from "@/lib/reading/constants";
+import { acquireSurface, captureFocusOrigin, restoreFocusOrigin, type FocusOrigin, type SurfaceLease } from "@/lib/ui/surface-state";
+import { DialogFocusScope } from "@/components/ui/dialog-focus-scope";
 
-/*
- * The reading dialogs from any page (SLN-448): the palette, the hub, the
- * dashboard and a book page's `then`. A dialog loads its book's data when it
- * opens; a dialog on a reading sends the fingerprint its caller holds, so a
- * reading that changed elsewhere gets the server's reload message.
- */
-
-const BookPicker = dynamic(() => import("./book-picker").then((m) => m.BookPicker));
-
-/** A reading as a page holds it: enough to open a dialog on it */
-export interface ReadingRef {
-  workId: string;
-  readingId: string;
-  fingerprint: string;
-}
-
+export interface ReadingRef { workId: string; readingId: string; fingerprint: string }
 export type ReadingDialogsRequest =
   | { kind: "start" | "past"; workId: string; editionId?: string | null }
-  /** A quote or a note on a book (SLN-453), on its open reading when given */
   | { kind: "note"; workId: string; readingId?: string | null; noteKind?: NoteKind; note?: NoteEdit }
   | ({ kind: Exclude<ReadingDialog, "start" | "past" | "note">; prefill?: string; timer?: StopRequest } & ReadingRef);
-
 interface ReadingDialogsValue {
-  /** Opens a dialog for a book, once its data has loaded */
-  open: (request: ReadingDialogsRequest) => Promise<void>;
-  /** Opens the book picker, then the dialog it was opened for */
-  pick: (purpose: PickerPurpose) => void;
-  /** Pause or resume without a dialog */
-  setPaused: (paused: boolean, reading: ReadingRef) => Promise<void>;
+  open(request: ReadingDialogsRequest): Promise<void>;
+  pick(purpose: PickerPurpose): void;
+  setPaused(paused: boolean, reading: ReadingRef): Promise<void>;
 }
-
 const ReadingDialogsContext = createContext<ReadingDialogsValue | null>(null);
-
 export function useReadingDialogs() {
   const value = useContext(ReadingDialogsContext);
   if (!value) throw new Error("useReadingDialogs needs ReadingDialogsProvider");
   return value;
 }
-
-/** The "I'm at" home to rank copies by */
-const homeIdOf = (stored: string | null) => (stored && stored !== "none" ? stored : null);
-
-interface Opened {
-  data: ReadingPageData;
-  /** The open dialog; null once it closed */
+const homeIdOf = (value: unknown) => typeof value === "string" && isUuid(value) ? value : null;
+type Intent = { request: ReadingDialogsRequest } | { picker: PickerPurpose } | { continuation: DialogRequest; workId: string };
+interface Display {
+  generation: number;
+  hostKey: number;
+  home: string | null;
+  origin: FocusOrigin | null;
+  lease: SurfaceLease;
+  intent: Intent;
+  data: ReadingPageData | null;
   request: DialogRequest | null;
+  Host: ComponentType<ReadingDialogHostProps> | null;
+  error: boolean;
+}
+
+let hostImport: Promise<typeof import("./reading-dialog-host")> | null = null;
+function loadDialogHost() {
+  if (!hostImport) hostImport = import("./reading-dialog-host").catch((error: unknown) => {
+    hostImport = null;
+    throw error;
+  });
+  return hostImport;
+}
+
+/** Native modal while either code or data loads; the facade already owns focus. */
+export function PendingDialog({ failed, close, retry }: { failed: boolean; close(): void; retry(): void }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    if (!element.open) element.showModal();
+    element.querySelector<HTMLButtonElement>("button")?.focus();
+    return () => { if (element.open) element.close(); };
+  }, []);
+  return <dialog ref={ref} aria-label={failed ? "Reading action unavailable" : "Loading reading action"} onCancel={(event) => { event.preventDefault(); close(); }} className="glass m-auto max-w-md rounded-sm p-6 text-fg-primary">
+    <p role={failed ? "alert" : "status"}>{failed ? "This reading action could not load." : "Loading reading action…"}</p>
+    <div className="mt-4 flex gap-4">
+      {failed && <button type="button" onClick={retry} className="underline pointer-coarse:min-h-11">Retry</button>}
+      <button type="button" onClick={close} className="underline pointer-coarse:min-h-11">Close</button>
+    </div>
+  </dialog>;
 }
 
 export function ReadingDialogsProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  // The book stays loaded after its dialog closes, so a dialog can open the next one
-  const [opened, setOpened] = useState<Opened | null>(null);
-  const [picking, setPicking] = useState<PickerPurpose | null>(null);
+  const [display, setDisplay] = useState<Display | null>(null);
   const [storedHome, setStoredHome] = usePreference<string | null>(READING_HOME_KEY, null);
-  const workId = opened?.data.workId ?? null;
-  const homeId = homeIdOf(storedHome);
-
-  // After a write: the page, the activity timeline, and the loaded book
-  const changed = useCallback(() => {
-    router.refresh();
-    triggerActivityRefresh();
-    if (!workId) return;
-    getReadingDialogData(workId, homeId)
-      .then((data) => setOpened((now) => (now && now.data.workId === workId ? { ...now, data } : now)))
-      .catch(() => undefined);
-  }, [router, workId, homeId]);
-
-  const open = useCallback(
-    async (request: ReadingDialogsRequest) => {
-      try {
-        const data = await getReadingDialogData(request.workId, homeId);
-        if (request.kind === "note")
-          return setOpened({
-            data,
-            request: { kind: "note", readingId: request.readingId ?? undefined, noteKind: request.noteKind, note: request.note },
-          });
-        if (!("readingId" in request)) return setOpened({ data, request: { kind: request.kind, editionId: request.editionId ?? undefined } });
-        const row = data.rows.find((r) => r.reading.id === request.readingId);
-        if (!row) {
-          toast.error("This reading no longer exists");
-          return router.refresh();
+  const generation = useRef(0);
+  const current = useRef<Display | null>(null);
+  const lastOrigin = useRef<FocusOrigin | null>(null);
+  const live = useRef(true);
+  const close = useCallback(() => {
+    const previous = current.current;
+    const expected = ++generation.current;
+    current.current = null;
+    previous?.lease.release();
+    lastOrigin.current = previous?.origin ?? null;
+    setDisplay(null);
+    queueMicrotask(() => {
+      if (generation.current !== expected) return;
+      restoreFocusOrigin(previous?.origin ?? null);
+      lastOrigin.current = null;
+    });
+  }, []);
+  const commit = useCallback((next: Display) => {
+    if (!live.current || generation.current !== next.generation) return;
+    current.current = next;
+    setDisplay(next);
+  }, []);
+  const load = useCallback(async (pending: Display) => {
+    try {
+      const [module, data] = await Promise.all([
+        loadDialogHost(),
+        "request" in pending.intent ? getReadingDialogData(pending.intent.request.workId, pending.home)
+          : "continuation" in pending.intent ? getReadingDialogData(pending.intent.workId, pending.home) : Promise.resolve(null),
+      ]);
+      if (!live.current || generation.current !== pending.generation) return;
+      let request: DialogRequest | null = "continuation" in pending.intent ? pending.intent.continuation : null;
+      if ("request" in pending.intent && data) {
+        const intent = pending.intent.request;
+        if (intent.kind === "note") request = { kind: "note", readingId: intent.readingId ?? undefined, noteKind: intent.noteKind, note: intent.note };
+        else if (!("readingId" in intent)) request = { kind: intent.kind, editionId: intent.editionId ?? undefined };
+        else {
+          const row = data.rows.find((item) => item.reading.id === intent.readingId);
+          if (!row) { toast.error("This reading no longer exists"); router.refresh(); close(); return; }
+          // The immutable caller snapshot remains the stale-write check.
+          data.rows = data.rows.map((item) => item === row ? { ...item, fingerprint: intent.fingerprint } : item);
+          request = { kind: intent.kind, readingId: intent.readingId, prefill: intent.prefill, timer: intent.timer };
         }
-        // The caller's fingerprint, not the fresh one: a stale page must not save
-        const rows = data.rows.map((r) => (r === row ? { ...r, fingerprint: request.fingerprint } : r));
-        setOpened({ data: { ...data, rows }, request: { kind: request.kind, readingId: request.readingId, prefill: request.prefill, timer: request.timer } });
-      } catch (err) {
-        showError(err, () => router.refresh());
       }
-    },
-    [router, homeId],
-  );
-
-  const setPaused = useCallback(
-    async (paused: boolean, reading: ReadingRef) => {
-      try {
-        const input = { readingId: reading.readingId, fingerprint: reading.fingerprint };
-        if (paused) await pauseReading(input);
-        else await resumeReading(input);
-        toast.success(paused ? "Paused" : "Resumed");
-        router.refresh();
-        triggerActivityRefresh();
-      } catch (err) {
-        showError(err, () => router.refresh());
-      }
-    },
-    [router],
-  );
-
-  const pick = useCallback((purpose: PickerPurpose) => setPicking(purpose), []);
-
+      commit({ ...pending, data, request, Host: module.ReadingDialogHost });
+    } catch (error) {
+      if (!live.current || generation.current !== pending.generation) return;
+      console.error("[reading] Dialog could not load:", error);
+      commit({ ...pending, error: true });
+    }
+  }, [close, commit, router]);
+  const begin = useCallback((intent: Intent) => {
+    const previous = current.current;
+    const origin = previous?.origin ?? lastOrigin.current ?? captureFocusOrigin();
+    previous?.lease.release();
+    const next: Display = {
+      generation: ++generation.current, hostKey: generation.current, home: homeIdOf(storedHome), origin,
+      lease: acquireSurface(close, origin), intent, data: null, request: null, Host: null, error: false,
+    };
+    current.current = next;
+    setDisplay(next);
+    return load(next);
+  }, [close, load, storedHome]);
+  const open = useCallback((request: ReadingDialogsRequest) => {
+    // Snapshot selected quote, timer and fingerprint before the first await.
+    return begin({ request: structuredClone(request) });
+  }, [begin]);
+  const pick = useCallback((purpose: PickerPurpose) => { void begin({ picker: purpose }); }, [begin]);
+  const setPaused = useCallback(async (paused: boolean, reading: ReadingRef) => {
+    const input = { readingId: reading.readingId, fingerprint: reading.fingerprint };
+    try {
+      if (paused) await pauseReading(input); else await resumeReading(input);
+      toast.success(paused ? "Paused" : "Resumed"); router.refresh(); triggerActivityRefresh();
+    } catch (error) { showError(error, () => router.refresh()); }
+  }, [router]);
+  useEffect(() => {
+    live.current = true;
+    return () => {
+      live.current = false;
+      const previous = current.current;
+      const expected = ++generation.current;
+      previous?.lease.release();
+      queueMicrotask(() => { if (!live.current && generation.current === expected) restoreFocusOrigin(previous?.origin ?? null); });
+    };
+  }, []);
+  const changed = useCallback((expected: number) => {
+    router.refresh(); triggerActivityRefresh();
+    const before = current.current;
+    if (!before?.data || before.generation !== expected) return;
+    void getReadingDialogData(before.data.workId, before.home).then((data) => {
+      const latest = current.current;
+      if (live.current && latest?.generation === expected && generation.current === expected) commit({ ...latest, data });
+    }).catch((error: unknown) => {
+      const latest = current.current;
+      if (!live.current || latest?.generation !== expected || generation.current !== expected) return;
+      console.error("[reading] Dialog reload failed:", error);
+      commit({ ...latest, error: true });
+    });
+  }, [commit, router]);
+  const continuation = useCallback((expected: number, request: DialogRequest) => {
+    const before = current.current;
+    if (!before?.data || before.generation !== expected) return;
+    const next: Display = {
+      ...before, generation: ++generation.current, hostKey: generation.current,
+      intent: { continuation: structuredClone(request), workId: before.data.workId },
+      request: null, data: null, Host: null, error: false,
+    };
+    commit(next);
+    void load(next);
+  }, [commit, load]);
   const value = useMemo(() => ({ open, pick, setPaused }), [open, pick, setPaused]);
-
-  const request = opened?.request ?? null;
-  const home =
-    storedHome && opened && (storedHome === "none" || opened.data.homes.some((h) => h.id === storedHome)) ? storedHome : null;
-  const props: ReadingDialogProps | null =
-    opened && request
-      ? {
-          data: opened.data,
-          row: request.readingId ? (opened.data.rows.find((r) => r.reading.id === request.readingId) ?? null) : null,
-          request,
-          home,
-          setHome: (next) => setStoredHome(next),
-          onClose: () => setOpened((now) => (now ? { ...now, request: null } : now)),
-          changed,
-          // A dialog that opens the next one (the last page opens Finish) stays on its book
-          open: (next) => setOpened((now) => (now ? { ...now, request: next } : now)),
-        }
-      : null;
-
-  return (
-    <ReadingDialogsContext.Provider value={value}>
-      {children}
-      {props && <ReadingDialogSwitch {...props} />}
-      {picking && <BookPicker purpose={picking} onClose={() => setPicking(null)} />}
-    </ReadingDialogsContext.Provider>
-  );
+  const props: ReadingDialogProps | null = display?.data && display.request ? {
+    data: display.data,
+    row: display.request.readingId ? display.data.rows.find((row) => row.reading.id === display.request!.readingId) ?? null : null,
+    request: display.request,
+    home: typeof storedHome === "string" && (storedHome === "none" || display.data.homes.some((home) => home.id === storedHome)) ? storedHome : null,
+    setHome: (next) => {
+      const before = current.current;
+      if (before?.generation !== display.generation) return;
+      setStoredHome(next);
+      commit({ ...before, generation: ++generation.current, home: homeIdOf(next) });
+    },
+    onClose: () => { if (current.current?.generation === display.generation) close(); },
+    changed: () => changed(display.generation),
+    open: (next) => continuation(display.generation, next),
+  } : null;
+  const Host = display?.Host;
+  return <ReadingDialogsContext.Provider value={value}>
+    {children}
+    {display && <DialogFocusScope.Provider value={display.lease}>
+      {Host && !display.error ? <Host key={display.hostKey} dialog={props} picker={"picker" in display.intent ? display.intent.picker : null} onClose={close} onFailure={(error) => {
+        if (generation.current !== display.generation) return;
+        console.error("[reading] Dialog renderer failed:", error);
+        commit({ ...display, error: true });
+      }} /> : <PendingDialog failed={display.error} close={close} retry={() => { void begin(display.intent); }} />}
+    </DialogFocusScope.Provider>}
+  </ReadingDialogsContext.Provider>;
 }

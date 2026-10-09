@@ -28,12 +28,30 @@ boundaries retain user-invoked retry and safe library links. All fallbacks use
 the existing theme and shared fonts, with no automatic retry or disclosure
 of privileged server error details.
 
-The reviewed route inventory at `626f4870` contains 184 catalogue move
-candidates and 58 retained files. Only 26 of 103 app module references need
-rewriting. The catalogue route move and provider split are still pending:
-the owner-edited library filters require a separately reviewed preservation
-commit, and SLN-454 must accept the actual-settings bootstrap and pending
-dialog/focus/generation contracts before provider changes.
+After the accepted SLN-454 receipt and owner preservation review, 184 catalogue
+files moved into `(catalogue)`, preserving all 60 page URLs. The four added
+fallback files remain at their global/reader locations. The owner UI test adds
+one catalogue import to the original inventory: 27 references were adapted.
+The reader root contains only the shared document foundation. Its dynamic page
+loads the book, plugins and `ReaderRuntimeV1` in parallel. Persisted timer
+settings and the running timer form a ready/unavailable envelope; failures
+never become a default interval or a successful empty timer. The page seeds
+only the home preference through the narrow provider, preserving `none`, and
+passes the existing appearance cookie directly to its preference hook for SSR.
+
+The reading-dialog facade imports its renderer only on invocation, shares an
+in-flight import, snapshots caller fingerprints/notes/home/focus and fences
+display loads and continuations by generation. Loading and failure use a native
+modal with Close/Retry. A shared surface stack guards both catalogue shortcuts
+and reader input, including book frames, and returns focus through one owner.
+The palette and timer-alert renderers load when needed; the invoked palette
+host remains mounted so catalogue creation dialogs can outlive the palette.
+
+The seeded timer skips a redundant mount read. Focus/visibility reads coalesce,
+and mutation generations prevent old reads from overwriting a saved timer.
+Failed reads stay explicit, reject `refresh()` and disable unsafe changes;
+confirmed disappearance alone produces the stopped-elsewhere message. A running
+timer retains its real one-second display interval for later performance proof.
 
 SLN-507 owns the worker, caches, OfflineStore and replay. SLN-509 supplies the
 baked build identity. SLN-502 supplies PDF range/cancellation/canvas bounds.
@@ -41,14 +59,21 @@ This ticket introduces no schema, migration or dependency.
 
 ## Completion Notes
 
-Preparation only. The six owner files were captured and hashed into a
-read-only preservation proposal; the patch passes `git apply --check` against
-the managed checkout at `94140915`. The primary checkout and manual server
-remain untouched, and none of those owner changes has been incorporated.
+Source implementation is in progress. The six exact owner snapshots were
+committed separately as `e2528b91` at `94140915` and normally merged as
+`3ed87f30` before the route move. Their primary bytes/status remain unchanged;
+the moved filters retain their bytes, and the owner UI test receives only the
+reviewed mechanical import change. Author/committer is Pablo Aguirre.
 
-No installs, build, typecheck, full suite, Docker, benchmark or native browser
-check has run for this source checkpoint. The available installed Next type
+All 124 tests in 13 focused owner/proxy/CSP, dialog/timer/input/status and new
+provider-concurrency files passed with one worker and zero skips, using the
+existing matching dependency tree. This is not full-suite or database evidence.
+No install, build, typecheck, full suite, Docker, benchmark or native browser
+check has run. The available installed Next type
 declares `globalNotFound`, but actual default-build and HTTP-status validation
 remain required. No current performance pass or completed deployment is
-claimed. The historical phone failures remain 2,527 ms for a cold 5 MB EPUB,
+claimed. Tracker subscription readiness awaits root/SLN-493 review of an
+explicit barrier proposal; the current plugin registry has no SLN-454 tracker.
+SLN-502/507/509 integration and every acceptance gate remain outstanding.
+The historical phone failures remain 2,527 ms for a cold 5 MB EPUB,
 3,764 ms for a cold 300 MB PDF and 1,493 ms for ordinary reopen.

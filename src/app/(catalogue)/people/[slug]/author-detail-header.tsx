@@ -15,7 +15,7 @@ import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { ExportMenu } from "@/components/shared/export-menu";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { ProtectedImageWrapper } from "@/components/shared/protected-image";
-import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
+import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
 import { deleteAuthor } from "@/lib/actions/authors";
 import { nationalityFilterHref } from "@/lib/utils/nationality-param";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";

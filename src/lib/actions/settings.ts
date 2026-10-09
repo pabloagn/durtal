@@ -111,6 +111,15 @@ export async function getAppSettings(): Promise<AppSettings> {
   }
 }
 
+/** Reader features require the persisted value; absence is a retryable failure. */
+export async function getPersistedReaderSettings(): Promise<Pick<AppSettings, "readingTimerCheckMinutes">> {
+  const row = await readSettingsRow();
+  if (!row) throw new Error("Reader settings are unavailable");
+  const result = appSettingsInputSchema.shape.readingTimerCheckMinutes.safeParse(row.readingTimerCheckMinutes);
+  if (!result.success || result.data === undefined) throw new Error("Reader timer setting is invalid");
+  return { readingTimerCheckMinutes: result.data };
+}
+
 type Saved = { ok: true; settings: AppSettings } | { ok: false; error: string };
 
 /**

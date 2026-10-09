@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
+import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { AddToCollectionDialog } from "@/components/books/add-to-collection-dialog";
 import { MatchAgainDialog } from "@/components/books/match-again-dialog";

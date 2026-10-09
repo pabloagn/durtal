@@ -6,7 +6,7 @@ import {
   newWorkDraft,
   wizardBookInput,
   workInput,
-} from "@/app/library/new/wizard-model";
+} from "@/app/(catalogue)/library/new/wizard-model";
 import { EMPTY_INSTANCE } from "@/components/books/instance-form";
 import type { SearchResult } from "@/lib/api/types";
 import { wizardBookSchema } from "@/lib/validations/wizard";

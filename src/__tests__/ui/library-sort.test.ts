@@ -2,7 +2,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { LibraryFilters } from "@/app/library/filters";
+import { LibraryFilters } from "@/app/(catalogue)/library/filters";
 import { EntityFilters } from "@/components/shared/entity-filters";
 import { LIBRARY_SORT_COOKIE, parseLibrarySortPreference } from "@/lib/library/sort-preference";
 import { readCookie } from "@/lib/utils/preference-cookies";

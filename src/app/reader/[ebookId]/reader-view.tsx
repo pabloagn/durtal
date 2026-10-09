@@ -10,6 +10,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { ReaderBridgeProvider } from "@/components/reader/bridge";
+import { hasOpenSurface } from "@/lib/ui/surface-state";
 import {
   ReaderNotice,
   resumeNoticeText,
@@ -102,7 +103,7 @@ function samePlace(a: DurtalLocator | null, b: DurtalLocator | null): boolean {
   );
 }
 
-const isBlocked = () => !!document.querySelector("dialog[open], [cmdk-root]");
+const isBlocked = () => hasOpenSurface() || !!document.querySelector("dialog[open], [cmdk-root]");
 
 /**
  * The reading view (eBooks sub-issue 3): the engine in the page, the input
@@ -119,6 +120,7 @@ type ReaderViewProps = {
   deviceId: string | null;
   backHref: string;
   plugins: { id: string; node: ReactNode }[];
+  settingsCookie?: string | null;
 };
 export function ReaderView(props: ReaderViewProps) {
   const [attempt, setAttempt] = useState(0);
@@ -157,12 +159,13 @@ function ReaderSession({
   backHref,
   bridge,
   onRetry,
+  settingsCookie,
 }: ReaderViewProps & { bridge: ReaderBridgeController; onRetry(): void }) {
   const openingPlace = ownPlace ?? devicePlace ?? otherPlace;
   const place = openingPlace?.locator ?? null;
   // The engine's code starts downloading as the view first renders, not after it mounts
   if (typeof window !== "undefined" && file) void preloadFoliate(file.format);
-  const { settings, setSettings, resetSettings } = useReaderSettings();
+  const { settings, setSettings, resetSettings } = useReaderSettings(settingsCookie);
   const bookRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<ReaderEngine | null>(null);
   const [status, setStatus] = useState<Status>(

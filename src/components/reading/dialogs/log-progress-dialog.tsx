@@ -135,9 +135,13 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
   const stepLabel = (n: number) => (unit === "minutes" || (coarse && segment === "time") ? `+${n} min` : unit === "percent" || (coarse && segment === "percent") ? `+${n}%` : `+${n}`);
 
   async function stop() {
+    if (timerContext && timerContext.availability !== "ready") {
+      toast.error("The timer is unavailable. Retry before changing it.");
+      return;
+    }
     setSaving(true);
     try {
-      const result = await stopTimer({
+      const write = () => stopTimer({
         sessionId: stopping!.sessionId,
         ...(stopping!.endedAt ? { endedAt: new Date(stopping!.endedAt) } : {}),
         ...(preview?.send ?? {}),
@@ -145,14 +149,15 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
         ...(preview?.behind ? { goingBack } : {}),
         ...(session ? { editionId: session.id, format: otherFormat ?? r.format } : {}),
       });
-      onClose();
+      const result = timerContext ? await timerContext.runMutation(write) : await write();
+      if (!result.reachedEnd) onClose();
       changed();
-      await timerContext?.refresh();
       undoToast(`Saved ${durationWords(result.session.durationSeconds ?? stopSeconds)}${preview ? ` · ${preview.done}` : ""}`, async () => {
         try {
-          await undoStopTimer({ sessionId: stopping!.sessionId, fingerprint: result.reading.fingerprint, undo: result.undo });
+          const undo = () => undoStopTimer({ sessionId: stopping!.sessionId, fingerprint: result.reading.fingerprint, undo: result.undo });
+          if (timerContext) await timerContext.runMutation(undo);
+          else await undo();
           changed();
-          await timerContext?.refresh();
         } catch (err) {
           showError(err, changed);
         }
@@ -166,11 +171,15 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
       if (result.reachedEnd) open({ kind: "finish", readingId: r.id, finishedOn: result.session.readOn, reachedEnd: true });
     } catch (err) {
       // Stopped or discarded on another device: said in words, since a production build hides the server's message
-      const now = await timerContext?.refresh();
-      if (timerContext && now?.sessionId !== stopping!.sessionId) {
-        toast.error(TIMER_GONE);
-        onClose();
-      } else showError(err, changed);
+      try {
+        const now = await timerContext?.refresh();
+        if (timerContext && now?.sessionId !== stopping!.sessionId) {
+          toast.error(TIMER_GONE);
+          onClose();
+        } else showError(err, changed);
+      } catch {
+        toast.error("The timer is unavailable. Retry before changing it.");
+      }
     } finally {
       setSaving(false);
     }
@@ -199,7 +208,7 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
         ...(session ? { editionId: session.id, format: otherFormat ?? r.format } : {}),
         timeZone: browserZone(),
       });
-      onClose();
+      if (!result.reachedEnd) onClose();
       changed();
       undoToast(preview.done, async () => {
         try {
