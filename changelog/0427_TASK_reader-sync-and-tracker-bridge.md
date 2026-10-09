@@ -23,3 +23,8 @@ SLN-493 adds cross-device opening/resume offers and the reader's typed plugin br
 ## Completion Notes
 
 Source checkpoint only. `pnpm exec vitest run src/__tests__/reader`: 148 tests in 20 files passed, zero skipped. `pnpm typecheck`, scoped reader lint (zero warnings/errors) and `git diff --check` pass. These are focused source checks only. Full local/database/Python, production/Docker/CI, native two-device/browser matrix, alignment/design/page weight/performance and source-map/served-chunk provenance remain pending an explicit heavy-work slot and final-head independent review. No runtime evidence is claimed yet. Existing phone opening performance misses remain SLN-553 scope.
+
+
+### Source review correction
+
+Forward Tab now enters Copy only from a book document. Subsequent Tab presses in the host toolbar retain native traversal through plugin actions and out of the toolbar. The focused view/input/bridge batch passes 31 tests in 3 files with zero skips; the new regression explicitly allows second Tab, two plugin actions and exit. Native focus movement remains pending the heavy-work slot. Typecheck without incremental cache writes, explicit non-ignored lint of both changed TypeScript files, and diff checks pass.

@@ -307,7 +307,14 @@ function ReaderSession({
         return true;
       },
       selectionTab: (event) => {
-        if (!selectionRef.current?.keyboard || event.shiftKey) return;
+        // Only take focus when entering from the book document. Once in the
+        // host toolbar, native Tab must reach plugin actions and leave it.
+        if (
+          event.currentTarget === document ||
+          !selectionRef.current?.keyboard ||
+          event.shiftKey
+        )
+          return;
         const button =
           selectionToolbarRef.current?.querySelector<HTMLButtonElement>(
             "button",

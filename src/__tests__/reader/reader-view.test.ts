@@ -15,6 +15,7 @@ vi.mock("@/components/reader/contents-dialog", () => ({
 vi.mock("@/components/reader/settings-dialog", () => ({
   SettingsDialog: () => null,
 }));
+import { ReaderSlotFill } from "@/components/reader/bridge";
 import { ReaderView } from "@/app/reader/[ebookId]/reader-view";
 import type { ReaderPlace } from "@/lib/reader/sync/places";
 import { place } from "./fixtures/places";
@@ -35,6 +36,14 @@ const own = place(),
       pageLabel: "212",
     },
   });
+function ToolbarActions() {
+  return h(
+    ReaderSlotFill,
+    { slot: "selection-actions" },
+    h("button", { type: "button" }, "Plugin action one"),
+    h("button", { type: "button" }, "Plugin action two"),
+  );
+}
 const report = vi.fn();
 beforeEach(() => {
   (
@@ -94,7 +103,10 @@ const render = (
         otherPlace,
         deviceId: "mac",
         backHref: "/library",
-        plugins: [{ id: "probe", node: h(ProbePlugin, { data: { report } }) }],
+        plugins: [
+          { id: "probe", node: h(ProbePlugin, { data: { report } }) },
+          { id: "actions", node: h(ToolbarActions) },
+        ],
       }),
     );
     if (vi.isFakeTimers()) await vi.advanceTimersByTimeAsync(10);
@@ -291,5 +303,53 @@ describe("reader view with a real bridge and fake engine", () => {
     expect(host.querySelector<HTMLElement>('[role="toolbar"]')!.hidden).toBe(
       true,
     );
+  });
+  it("allows second Tab, both plugin actions and exit after keyboard selection entry", async () => {
+    await render();
+    const doc = document.implementation.createHTMLDocument("book");
+    act(() => fake.emit("document", { doc }));
+    act(() =>
+      fake.emit("selection", {
+        text: "Quote",
+        locator: own.locator,
+        rect: { left: 20, top: 200, right: 200, bottom: 220 },
+        keyboard: true,
+      }),
+    );
+    const tabFrom = (target: EventTarget) => {
+      const event = new KeyboardEvent("keydown", {
+        key: "Tab",
+        bubbles: true,
+        cancelable: true,
+      });
+      act(() => target.dispatchEvent(event));
+      return event;
+    };
+    expect(tabFrom(doc).defaultPrevented).toBe(true);
+    const copy = button("Copy");
+    expect(document.activeElement).toBe(copy);
+    expect(tabFrom(copy).defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(copy);
+    const actions = [button("Plugin action one"), button("Plugin action two")];
+    expect([
+      ...host.querySelector('[role="toolbar"]')!.querySelectorAll("button"),
+    ]).toEqual([copy, ...actions]);
+    // happy-dom has no native Tab default action. Move focus as the browser
+    // would, then prove the reader neither cancels traversal nor refocuses Copy.
+    for (const action of actions) {
+      action.focus();
+      expect(tabFrom(action).defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(action);
+    }
+    const outside = document.createElement("button");
+    document.body.append(outside);
+    try {
+      outside.focus();
+      expect(tabFrom(outside).defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(outside);
+    } finally {
+      outside.remove();
+    }
+    expect(fake.engine.clearSelection).not.toHaveBeenCalled();
   });
 });
