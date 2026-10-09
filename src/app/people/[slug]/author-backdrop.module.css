@@ -1,0 +1,14 @@
+/* Fixed CSS-pixel scale: neither image zoom nor viewport/DPR stretches grain.
+   Soft light keeps black black and highlights intact, with neutral midtones.
+   The parent's isolation limits blending to its image; the scrim and bottom
+   gradient above this layer attenuate it and dissolve it into the plain page. */
+.grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("/textures/author-backdrop-grain.svg");
+  background-size: 512px 512px;
+  background-repeat: repeat;
+  mix-blend-mode: soft-light;
+  opacity: 0.35;
+}
