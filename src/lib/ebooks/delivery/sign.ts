@@ -100,3 +100,20 @@ export function signedDerivedUrlBase(now = Date.now(), storedKey?: string): Sign
   const query = `Policy=${cloudFrontBase64(Buffer.from(text, "utf8"))}&Key-Pair-Id=${keyPairId}&Signature=${signature(text, key)}`;
   return { base, query, expiresAt: new Date(expires * 1000) };
 }
+
+/** One signature for canonical gold covers only: no original bytes or manifests. */
+export function signedGoldCoverBase(now = Date.now()): SignedDerivedBase {
+  const { url, keyPairId, key } = cdn();
+  const expires = signatureExpiry(now);
+  const text = JSON.stringify({
+    Statement: [240, 400, 800].map((width) => ({
+      Resource: `${url}/gold/ebooks/*/*/*/derived/v2/*/cover-${width}.webp`,
+      Condition: { DateLessThan: { "AWS:EpochTime": expires } },
+    })),
+  });
+  return {
+    base: `${url}/`,
+    query: `Policy=${cloudFrontBase64(Buffer.from(text, "utf8"))}&Key-Pair-Id=${keyPairId}&Signature=${signature(text, key)}`,
+    expiresAt: new Date(expires * 1000),
+  };
+}

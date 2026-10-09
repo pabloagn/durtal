@@ -13,14 +13,14 @@ type Params = { params: Promise<{ fileId: string }> };
 const notFound = () => NextResponse.json({ error: "Not found" }, { status: 404 });
 
 /** The headers of every answer: the URL names the file, and a file's bytes never change */
-function fileHeaders(file: CatalogueFile): Record<string, string> {
+function fileHeaders(file: CatalogueFile, download = false): Record<string, string> {
   return {
     "Accept-Ranges": "bytes",
     ETag: `"${file.sha256}"`,
     "Cache-Control": "private, max-age=31536000, immutable",
     // The type of its format, never one a row could hold otherwise (no HTML or SVG)
     "Content-Type": contentTypeFor(file.format),
-    "Content-Disposition": "inline",
+    "Content-Disposition": download ? `attachment; filename="ebook-${file.id}.${file.format === "other" ? "bin" : file.format}"` : "inline",
     "X-Content-Type-Options": "nosniff",
   };
 }
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   try {
     const file = await deliverable(params);
     if (file instanceof NextResponse) return file;
-    const headers = fileHeaders(file);
+    const headers = fileHeaders(file, req.nextUrl.searchParams.get("download") === "1");
     if (etagMatches(req.headers.get("if-none-match"), headers.ETag)) {
       return new NextResponse(null, { status: 304, headers });
     }
@@ -86,7 +86,7 @@ export async function HEAD(req: NextRequest, { params }: Params) {
   try {
     const file = await deliverable(params);
     if (file instanceof NextResponse) return new NextResponse(null, { status: file.status });
-    const headers = fileHeaders(file);
+    const headers = fileHeaders(file, req.nextUrl.searchParams.get("download") === "1");
     if (etagMatches(req.headers.get("if-none-match"), headers.ETag)) {
       return new NextResponse(null, { status: 304, headers });
     }

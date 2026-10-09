@@ -125,7 +125,7 @@ export default async function ReaderPage(props: PageProps) {
           .filter((f) => f.id !== file?.id)
           .map((f) => ({ id: f.id, label: formatLabel(f.format) }))}
         place={(book.place?.locator as DurtalLocator | undefined) ?? null}
-        backHref={book.workSlug ? `/library/${book.workSlug}` : "/library"}
+        backHref={`/ebooks/${book.id}`}
         plugins={plugins}
       />
     </>
