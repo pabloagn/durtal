@@ -692,7 +692,10 @@ export async function getWorksByAuthorId(
 ) {
   // Get work IDs for this author
   const authorWorks = await db.query.workAuthors.findMany({
-    where: eq(workAuthors.authorId, authorId),
+    where: and(
+      eq(workAuthors.authorId, authorId),
+      inArray(workAuthors.role, ["author", "co_author"]),
+    ),
     columns: { workId: true },
   });
 
