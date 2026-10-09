@@ -41,6 +41,18 @@ export function remapPosition(percent: number | null, totals: Totals) {
   };
 }
 
+/** Normalize a reading's primary unit; the other counters are derived caches. */
+export function positionInUnit(position: Position, unit: ReadingUnit, totals: Totals) {
+  const given = unit === "percent" && position.percent != null ? { percent: position.percent }
+    : unit === "minutes" && position.minutes != null ? { minutes: position.minutes, percent: position.percent }
+    : unit === "pages" && position.page != null ? { page: position.page, percent: position.percent }
+    : position;
+  const percent = percentOf(given, totals);
+  return { ...remapPosition(percent, totals),
+    ...(given.page != null ? { page: given.page } : {}),
+    ...(given.minutes != null ? { minutes: given.minutes } : {}) };
+}
+
 /** Whether an absolute, single-unit edit differs from the reading's effective place. */
 export function positionChanges(given: Position | undefined, current: Position) {
   if (given?.page != null) return given.page !== current.page;

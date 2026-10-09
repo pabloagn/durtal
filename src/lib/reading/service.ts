@@ -28,7 +28,7 @@ import { readingDay, readingPeriodStart } from "./dates";
 import { readingDayStartHour } from "./day";
 import { stopProblem, stopTimes, TIMER_GONE } from "./timer";
 import { getAppSettings } from "@/lib/actions/settings";
-import { formatMinutes, percentOf, positionChanges, remapPosition } from "./positions";
+import { formatMinutes, percentOf, positionChanges, positionInUnit, remapPosition } from "./positions";
 import { duplicateVerdicts, type ExistingReading } from "./duplicates";
 import {
   createReadingSchema,
@@ -138,25 +138,23 @@ export function planPositions(reading: Reading, ordered: Session[]) {
     });
     prev = { page: s.endPage, percent: s.endPercent, minutes: s.endMinutes, chapter: s.endChapter };
     prevEdition = s.editionId;
-    // Session totals stay historical; a position in this same edition uses the
-    // reading's revised page total. Apply that share to the reader-behind rule too.
-    const endPercent = s.editionId === reading.editionId && s.endPage != null
-      && reading.totalPages != null && s.pagesTotal !== reading.totalPages
+    // Percent-tracked readings keep the raw share. Audio sessions keep native
+    // minutes; print sessions keep pages in their own edition. Other counters
+    // are derived, so stale page/minute caches cannot override that authority.
+    const rawPercent = reading.unit === "percent" && s.endPercent != null;
+    const audioMinutes = !rawPercent && (s.format === "audio" || reading.unit === "minutes" && s.format === reading.format) && s.endMinutes != null;
+    const pagePercent = s.editionId === reading.editionId && s.endPage != null
+      && reading.totalPages != null && (s.pagesTotal !== reading.totalPages || s.endPercent == null)
       ? percentOf({ page: s.endPage }, reading) : s.endPercent;
-    if (s.source === "reader" && endPercent != null && position.percent != null && endPercent < position.percent) continue;
+    const pageMapped = remapPosition(pagePercent, reading);
+    const end = rawPercent ? remapPosition(s.endPercent, reading)
+      : audioMinutes ? positionInUnit({ minutes: s.endMinutes, percent: s.endPercent }, "minutes", reading)
+      : s.editionId === reading.editionId
+        ? { ...pageMapped, page: s.endPage ?? pageMapped.page, minutes: pageMapped.minutes ?? s.endMinutes }
+        : remapPosition(s.endPercent, reading);
+    if (s.source === "reader" && end.percent != null && position.percent != null && end.percent < position.percent) continue;
     lastPositionSession = s;
-    if (s.editionId === reading.editionId) {
-      const mapped = remapPosition(endPercent, reading);
-      position = {
-        page: s.endPage ?? mapped.page,
-        percent: endPercent,
-        minutes: s.endMinutes ?? mapped.minutes,
-        chapter: s.endChapter ?? position.chapter,
-      };
-    } else {
-      const mapped = remapPosition(s.endPercent, reading);
-      position = { page: mapped.page, percent: s.endPercent, minutes: mapped.minutes, chapter: s.endChapter ?? position.chapter };
-    }
+    position = { ...end, chapter: s.endChapter ?? position.chapter };
   }
   // Chapter is also editable on the reading: an explicit unknown chapter stays unknown
   // while the latest log has none. Deleting that log can reveal an earlier named chapter.
@@ -652,19 +650,16 @@ export function recomputeQueries(
   sessions: Session[],
   now = new Date(),
   includeClosed = false,
-  normalizeTotals = false,
 ) {
   const ordered = sessionOrder(sessions);
   const plan = planPositions(reading, ordered);
-  const position = normalizeTotals && ordered.at(-1)?.editionId === reading.editionId
-    ? { ...plan.position, percent: percentOf(plan.position, reading) } : plan.position;
   return [
     ...startUpdates(d, ordered, plan.starts),
     d
       .update(readings)
       .set({
         ...(isOpenStatus(reading.status) || includeClosed
-          ? positionValues(position)
+          ? positionValues(plan.position)
           : {}),
         updatedAt: now,
       })

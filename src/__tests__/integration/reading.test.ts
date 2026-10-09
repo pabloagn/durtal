@@ -785,6 +785,38 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       expect(await counted(workId)).toBe(140);
     });
 
+    it("keeps native audio minutes across duration, chapter and metadata edits when a page cache also exists", async () => {
+      const workId = await book("Sequential audio totals");
+      const editionId = await edition(workId, 600);
+      const reading = await startReading({ workId, editionId, format: "audio", unit: "minutes", totalMinutes: 600 });
+      const last = await log(reading.id, { minutes: 300, durationSeconds: 1200, note: "Keep", readOn: "2026-09-02" });
+      expect(last.reading).toMatchObject({ currentMinutes: 300, currentPage: 300, currentPercent: 50 });
+      const before = await q(`select id, source, format, read_on, duration_seconds, note, pages_total, end_page, end_percent, end_minutes, created_at from reading_sessions where id = $1`, [last.session.id]);
+      const history = await q(`select * from reading_status_history where reading_id = $1 order by id`, [reading.id]);
+      const longer = await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), totalMinutes: 1200 });
+      expect(longer).toMatchObject({ currentMinutes: 300, currentPage: 150, currentPercent: 25 });
+      for (const chapter of ["II", null]) {
+        const changed = await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), currentChapter: chapter });
+        expect(changed).toMatchObject({ currentMinutes: 300, currentPage: 150, currentPercent: 25, currentChapter: chapter });
+        const metadata = await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), rating: 4 });
+        expect(metadata).toMatchObject({ currentMinutes: 300, currentPage: 150, currentPercent: 25, currentChapter: chapter });
+        expect(await q(`select id, source, format, read_on, duration_seconds, note, pages_total, end_page, end_percent, end_minutes, created_at from reading_sessions where id = $1`, [last.session.id])).toEqual(before);
+        expect(await q(`select * from reading_status_history where reading_id = $1 order by id`, [reading.id])).toEqual(history);
+      }
+    });
+
+    it("keeps raw-percent authority across revised totals, chapter and metadata edits", async () => {
+      const workId = await book("Sequential percent totals");
+      const editionId = await edition(workId, 600);
+      const reading = await startReading({ workId, editionId, format: "audio", unit: "percent", totalMinutes: 600 });
+      await log(reading.id, { percent: 50, readOn: "2026-09-02" });
+      await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), totalPages: 1200, totalMinutes: 1200 });
+      const chapter = await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), currentChapter: "II" });
+      expect(chapter).toMatchObject({ currentPage: 600, currentMinutes: 600, currentPercent: 50, currentChapter: "II" });
+      const metadata = await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), rating: 4 });
+      expect(metadata).toMatchObject({ currentPage: 600, currentMinutes: 600, currentPercent: 50 });
+    });
+
     it("keeps the revised current share during later chapter-only saves without altering an ignored reader log", async () => {
       const { reading } = await started({ pages: 600 });
       await log(reading.id, { page: 300, readOn: "2026-09-02" });

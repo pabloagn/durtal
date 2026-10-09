@@ -26,6 +26,7 @@ import {
   formatMinutes,
   percentOf,
   positionChanges,
+  positionInUnit,
   remapPosition,
 } from "@/lib/reading/positions";
 import { showError } from "../reading-client";
@@ -180,18 +181,18 @@ export function EditReadingDialog({
   const totals = { totalPages: newTotal, totalMinutes: parseLength(length) };
   const startEdited = startTouched;
   const parsedStart = startPosition(startText, startUnit, totals);
-  const parsedCurrent = startPosition(currentText, currentUnit, totals);
-  const currentGiven = { page: parsedCurrent.value.startPage, percent: parsedCurrent.value.startPercent, minutes: parsedCurrent.value.startMinutes };
   const effectiveCurrent = editionSwitched ? remapPosition(r.currentPercent, totals)
-    : { page: r.currentPage, minutes: r.currentMinutes,
-      percent: percentOf({ page: r.currentPage, minutes: r.currentMinutes, percent: r.currentPercent }, totals) };
+    : positionInUnit({ page: r.currentPage, minutes: r.currentMinutes, percent: r.currentPercent }, r.unit, totals);
+  const effectiveCurrentText = currentTouched ? currentText : editPositionText(effectiveCurrent, currentUnit);
+  const parsedCurrent = startPosition(effectiveCurrentText, currentUnit, totals);
+  const currentGiven = { page: parsedCurrent.value.startPage, percent: parsedCurrent.value.startPercent, minutes: parsedCurrent.value.startMinutes };
   const currentEdited = currentTouched && positionChanges(currentGiven, effectiveCurrent);
   const sessionlessStart = { page: parsedStart.value.startPage, percent: parsedStart.value.startPercent, minutes: parsedStart.value.startMinutes };
   const sessionlessCurrent = { ...remapPosition(percentOf(sessionlessStart, totals), totals),
     ...(sessionlessStart.page !== undefined ? { page: sessionlessStart.page } : {}),
     ...(sessionlessStart.minutes !== undefined ? { minutes: sessionlessStart.minutes } : {}) };
   const currentDisplay = !row!.sessionCount && !done ? editPositionText(sessionlessCurrent, currentUnit)
-    : !currentTouched && currentUnit === "percent" ? editPositionText(effectiveCurrent, currentUnit) : currentText;
+    : effectiveCurrentText;
 
   // A page count that is not a whole number above 0 is an error, never a cleared count
   const totalError =
@@ -202,9 +203,9 @@ export function EditReadingDialog({
           (row!.sessionCount > 0 || done) &&
           !currentEdited &&
           newTotal !== null &&
-          r.currentPage !== null &&
-          newTotal < r.currentPage
-        ? `You are on p. ${r.currentPage}; the book cannot have ${newTotal} pages`
+          effectiveCurrent.page !== null &&
+          newTotal < effectiveCurrent.page
+        ? `You are on p. ${effectiveCurrent.page}; the book cannot have ${newTotal} pages`
         : null;
   const lengthError =
     format === "audio" && length.trim() && parseLength(length) === null
@@ -215,9 +216,9 @@ export function EditReadingDialog({
     newTotal &&
     newTotal !== r.totalPages &&
     !currentEdited &&
-    r.currentPage !== null &&
+    effectiveCurrent.page !== null &&
     (row!.sessionCount > 0 || done)
-      ? `p. ${r.currentPage} of ${newTotal} · ${Math.round(percentOf({ page: r.currentPage }, { totalPages: newTotal }) ?? 0)}%`
+      ? `p. ${effectiveCurrent.page} of ${newTotal} · ${Math.round(effectiveCurrent.percent ?? 0)}%`
       : null;
 
   const startError = startText.trim()
@@ -226,7 +227,7 @@ export function EditReadingDialog({
   const currentError =
     !row!.sessionCount && currentEdited
       ? "Log progress once before editing the current position"
-      : !row!.sessionCount ? null : currentText.trim()
+      : !row!.sessionCount ? null : effectiveCurrentText.trim()
         ? parsedCurrent.error
         : "Enter a current position";
   const chapterError =

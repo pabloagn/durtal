@@ -308,8 +308,9 @@ describe("Edit reading", () => {
   });
 
   it("submits an explicitly re-entered percent under a larger total, and the session helper moves to that revised place", async () => {
-    const effective = { ...row, reading: { ...reading, totalPages: 600, currentPage: 300, currentPercent: 50, unit: "percent" } };
+    const effective = { ...row, reading: { ...reading, totalPages: 600, currentPage: 300, currentPercent: 50, unit: "pages" } };
     act(() => root.render(createElement(EditReadingDialog, props({ row: effective as never, request: { kind: "edit", readingId: "r1" } }))));
+    choose("Current unit", "Percent");
     type(field("Pages to read"), "1200");
     expect(field("Current position").value).toBe("25");
     type(field("Current position"), "49");
@@ -324,13 +325,40 @@ describe("Edit reading", () => {
   });
 
   it("normalizes an untouched percent under a revised total without submitting a chapter-only position correction", async () => {
-    const effective = { ...row, reading: { ...reading, totalPages: 600, currentPage: 300, currentPercent: 50, currentChapter: "I", unit: "percent" } };
+    const effective = { ...row, reading: { ...reading, totalPages: 600, currentPage: 300, currentPercent: 50, currentChapter: "I", unit: "pages" } };
     act(() => root.render(createElement(EditReadingDialog, props({ row: effective as never, request: { kind: "edit", readingId: "r1" } }))));
+    choose("Current unit", "Percent");
     type(field("Pages to read"), "1200");
     expect(field("Current position").value).toBe("25");
     type(field("Current chapter"), "II");
     await submit();
     expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalPages: 1200, currentChapter: "II" });
+  });
+
+  it("keeps a true percent-tracked reading's raw percentage when totals change", async () => {
+    const effective = { ...row, reading: { ...reading, totalPages: 600, currentPage: 300, currentPercent: 50, unit: "percent" } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: effective as never, request: { kind: "edit", readingId: "r1" } }))));
+    type(field("Pages to read"), "1200");
+    expect(field("Current position").value).toBe("50");
+    expect(host.textContent).toContain("p. 600 of 1200 · 50%");
+    type(field("Pages to read"), "200");
+    expect(host.textContent).toContain("p. 100 of 200 · 50%");
+    choose("Current unit", "Page");
+    expect(field("Current position").value).toBe("100");
+    type(field("Current chapter"), "II");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalPages: 200, currentChapter: "II" });
+  });
+
+  it("shows native-minute normalization when audio also has a cached page equivalent", async () => {
+    const audio = { ...row, reading: { ...reading, format: "audio", unit: "minutes", totalPages: 600, totalMinutes: 600, currentPage: 300, currentMinutes: 300, currentPercent: 50 } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: audio as never, request: { kind: "edit", readingId: "r1" } }))));
+    choose("Current unit", "Percent");
+    type(field("Audio length"), "20:00");
+    expect(field("Current position").value).toBe("25");
+    type(field("Current chapter"), "II");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalMinutes: 1200, currentChapter: "II" });
   });
 
   it.each([false, true])("does not submit unchanged current fields for a chapter-only edit (touched=%s)", async (touched) => {

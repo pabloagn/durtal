@@ -26,7 +26,7 @@ import { sanitizeCommentHtml } from "@/lib/utils/sanitize";
 import { isOpenStatus, type ReadingFormat, type ReadingStatus } from "@/lib/reading/constants";
 import { formatReadingDate, readingDay, readingPeriodStart } from "@/lib/reading/dates";
 import { readingDayStartHour, readingToday } from "@/lib/reading/day";
-import { percentOf, positionChanges, remapPosition } from "@/lib/reading/positions";
+import { positionChanges, positionInUnit, remapPosition } from "@/lib/reading/positions";
 import { countedPagesSql, readingOrdinalSql } from "@/lib/reading/summary";
 import { progressEvent, readingEvent } from "@/lib/reading/activity";
 import type { PacePriors, PaceReading, PaceSession } from "@/lib/reading/pace";
@@ -731,10 +731,10 @@ export async function updateReading(input: UpdateReadingInput) {
       ? completePosition(patch.currentPosition, totals)
       : startGiven && !sessionOrder(sessions).length && isOpenStatus(reading.status)
         ? completePosition(startGiven, totals)
-        : { page: reading.currentPage, minutes: reading.currentMinutes };
+        : positionInUnit({ page: reading.currentPage, minutes: reading.currentMinutes, percent: reading.currentPercent }, reading.unit, totals);
     const start = startGiven
       ? completePosition(startGiven, totals)
-      : { page: reading.startPage, minutes: reading.startMinutes };
+      : positionInUnit({ page: reading.startPage, minutes: reading.startMinutes, percent: reading.startPercent }, reading.unit, totals);
     if (
       totals.totalPages != null &&
       ((current.page ?? 0) > totals.totalPages ||
@@ -749,27 +749,8 @@ export async function updateReading(input: UpdateReadingInput) {
     );
     Object.assign(values, {
       ...totals,
-      currentPercent: percentOf(
-        {
-          page: reading.currentPage,
-          minutes: reading.currentMinutes,
-          percent: reading.currentPercent,
-        },
-        totals,
-      ),
-      startPercent:
-        reading.startPage != null ||
-        reading.startMinutes != null ||
-        reading.startPercent != null
-          ? percentOf(
-              {
-                page: reading.startPage,
-                minutes: reading.startMinutes,
-                percent: reading.startPercent,
-              },
-              totals,
-            )
-          : null,
+      ...positionValues({ ...current, chapter: reading.currentChapter }),
+      startPage: start.page, startPercent: start.percent, startMinutes: start.minutes,
     });
   }
   if (patch.locationId !== undefined) {
@@ -863,12 +844,10 @@ export async function updateReading(input: UpdateReadingInput) {
           patch.currentChapter,
         )
       : null;
-  const normalizeTotals = !editionChanged && (patch.totalPages !== undefined || patch.totalMinutes !== undefined);
   if ((isOpenStatus(reading.status) && (startGiven || correction)) || currentCorrection) {
     const ordered = sessionOrder(correction?.sessions ?? sessions);
     const position = planPositions(nextReading, ordered).position;
-    Object.assign(values, positionValues(normalizeTotals && ordered.at(-1)?.editionId === nextReading.editionId
-      ? { ...position, percent: percentOf(position, totals) } : position));
+    Object.assign(values, positionValues(position));
   }
   if (patch.currentChapter !== undefined)
     values.currentChapter = patch.currentChapter;
@@ -910,7 +889,6 @@ export async function updateReading(input: UpdateReadingInput) {
             correction?.sessions ?? sessions,
             now,
             !!currentCorrection,
-            normalizeTotals,
           )
         : []),
       ...(startGiven && !sessionOrder(sessions).length
