@@ -30,7 +30,7 @@ export const HELPERS = `window.__ia = {
   focusShows(el) {
     // Transitions would still show the focused look right after the blur
     const still = document.createElement('style');
-    still.textContent = '*, *::before, *::after { transition: none !important; animation: none !important; }';
+    still.textContent = '*, *::before, *::after { transition: none !important; }';
     document.head.append(still);
     const own = (e) => {
       const look = [this.ring(e)];
