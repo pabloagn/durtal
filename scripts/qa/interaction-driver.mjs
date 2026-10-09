@@ -147,6 +147,12 @@ export async function createDriver(name) {
       ...(name === "chromium" && process.env.CHROME
         ? { executablePath: process.env.CHROME }
         : {}),
+      ...(name === "firefox" && process.env.FIREFOX
+        ? { executablePath: process.env.FIREFOX }
+        : {}),
+      ...(name === "webkit" && process.env.WEBKIT
+        ? { executablePath: process.env.WEBKIT }
+        : {}),
       ...(name === "firefox"
         ? {
             firefoxUserPrefs: {
