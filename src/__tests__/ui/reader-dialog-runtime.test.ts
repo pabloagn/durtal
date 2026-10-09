@@ -24,7 +24,7 @@ vi.mock("@/components/reading/reading-dialog-host", () => ({
   ); },
 }));
 import { ReadingDialogsProvider, useReadingDialogs } from "@/components/reading/reading-dialogs-provider";
-import { handleSurfaceEscape, hasOpenSurface } from "@/lib/ui/surface-state";
+import { acquireSurface, handleSurfaceEscape, hasOpenSurface } from "@/lib/ui/surface-state";
 
 function deferred<T>() {
   let resolve!: (value: T) => void; let reject!: (error: Error) => void;
@@ -125,5 +125,15 @@ describe("the invocation-only reader dialog facade", () => {
     await act(async () => { await dialogs.open({ kind: "past", workId: "one" }); });
     act(() => { old.onClose(); old.open({ kind: "finish", readingId: "r1" }); });
     expect(host.querySelector("[data-request]")?.textContent).toContain("past");
+  });
+
+  it("inherits the palette opener through an immediate pending-dialog transfer", async () => {
+    actions.getReadingDialogData.mockResolvedValue(book("one"));
+    const lease = acquireSurface(() => {});
+    const palette = document.createElement("div"); palette.setAttribute("cmdk-root", "");
+    const field = document.createElement("input"); palette.append(field); document.body.append(palette); field.focus();
+    await act(async () => { lease.release(); const opening = dialogs.open({ kind: "start", workId: "one" }); palette.remove(); await opening; });
+    await act(async () => { click("Close rendered"); await Promise.resolve(); });
+    expect(document.activeElement).toBe(trigger); expect(hasOpenSurface()).toBe(false);
   });
 });

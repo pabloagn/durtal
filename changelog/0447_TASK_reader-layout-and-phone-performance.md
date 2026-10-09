@@ -65,7 +65,7 @@ committed separately as `e2528b91` at `94140915` and normally merged as
 the moved filters retain their bytes, and the owner UI test receives only the
 reviewed mechanical import change. Author/committer is Pablo Aguirre.
 
-All 124 tests in 13 focused owner/proxy/CSP, dialog/timer/input/status and new
+All 125 tests in 13 focused owner/proxy/CSP, dialog/timer/input/status and new
 provider-concurrency files passed with one worker and zero skips, using the
 existing matching dependency tree. This is not full-suite or database evidence.
 No install, build, typecheck, full suite, Docker, benchmark or native browser
