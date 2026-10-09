@@ -22,6 +22,9 @@ an offline app, durable storage or runtime integration.
   chronological claims; exact operation/revision/body/device acknowledgments;
   bounded annotation batches and lifecycle bytes; individual ignored-result
   handling; authentication/device blocking and visible-only retry decisions.
+  A blocked head stops every replay trigger until explicit authentication
+  reconciliation with the same device and exact operation/attempt snapshot;
+  unblocking preserves its original sequence, body and timestamp.
 - `download-policy.ts`: trusted unsigned delivery identity for accepted gold and
   legacy paths; app/CDN aliases; size/hash/cancellation verification decisions;
   exact storage reserve arithmetic and unknown-estimate states.
@@ -37,7 +40,7 @@ an offline app, durable storage or runtime integration.
 
 ## Completion Notes
 
-Pure checkpoint only. Focused offline policy tests: 65 passed, 0 skipped.
+Pure checkpoint only. Focused offline policy tests: 69 passed, 0 skipped.
 Repository TypeScript check and focused ESLint passed. Full database suites,
 production/Docker builds, CI, browser audits, performance, trusted gestures,
 byte hashing/storage implementation, cold-open network-zero acceptance,

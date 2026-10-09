@@ -5,6 +5,7 @@ import {
   matchesClaim,
   OUTBOX_CLAIM_MS,
   planReplayClaim,
+  reconcileBlocked,
   releaseClaim,
   replayDelay,
   replayOutcome,
@@ -130,6 +131,92 @@ describe("claim and exact acknowledgment policies", () => {
     });
     if (reclaimed.kind !== "claim") throw new Error("Expected reclaimed claim");
     expect(matchesClaim(reclaimed.rows[0], result.references[0])).toBe(false);
+  });
+  it.each([401, 403])(
+    "keeps the head blocked after authentication refusal %i across replay triggers",
+    (status) => {
+      const original = position(1, 0.6),
+        next = annotations(2);
+      const result = claim([original, next]);
+      if (result.kind !== "claim") throw new Error("Expected claim");
+      const blocked = releaseClaim(
+        result.rows[0],
+        result.references[0],
+        replayOutcome(status) === "blocked",
+      );
+      expect(blocked).toMatchObject({
+        state: "blocked",
+        claim: null,
+        attempts: 1,
+      });
+      expect(blocked.mutation).toBe(original.mutation);
+      for (const trigger of [
+        { ...options, token: "visibility" },
+        { ...options, token: "reachability", nowMs: NOW + 300_000 },
+        { ...options, token: "device", currentDeviceId: OTHER },
+        {
+          ...options,
+          token: "lifecycle",
+          visible: false,
+          mode: "lifecycle" as const,
+        },
+      ])
+        expect(planReplayClaim([next, blocked], trigger)).toEqual({
+          kind: "stop",
+          reason: "blocked",
+        });
+      expect(blocked.state).toBe("blocked");
+    },
+  );
+  it("explicit reconciliation restores the original head without changing its order or body", () => {
+    const original = position(1, 0.6),
+      next = annotations(2);
+    const result = claim([original, next]);
+    if (result.kind !== "claim") throw new Error("Expected claim");
+    const blocked = releaseClaim(result.rows[0], result.references[0], true);
+    const reference = { ...result.references[0], attempts: blocked.attempts };
+    const waiting = reconcileBlocked(blocked, reference, DEVICE);
+    expect(waiting).toEqual({ ...blocked, state: "waiting" });
+    expect(waiting.mutation).toBe(original.mutation);
+    const resumed = claim([next, waiting], { token: "after-reconciliation" });
+    if (resumed.kind !== "claim") throw new Error("Expected reconciled claim");
+    expect(resumed.rows.map((row) => row.seq)).toEqual([1]);
+    expect(resumed.json).toBe(result.json);
+    expect(matchesClaim(resumed.rows[0], result.references[0])).toBe(false);
+    expect(blocked.state).toBe("blocked");
+  });
+  it("refuses stale reconciliation, changed mutations and unresolved device identity", () => {
+    const result = claim([position(1, 0.6)]);
+    if (result.kind !== "claim") throw new Error("Expected claim");
+    const blocked = releaseClaim(result.rows[0], result.references[0], true);
+    const reference = { ...result.references[0], attempts: blocked.attempts };
+    for (const changed of [
+      { ...reference, seq: 2 },
+      { ...reference, operationId: "old" },
+      { ...reference, revision: 2 },
+      { ...reference, ebookId: OTHER },
+      { ...reference, fileId: OTHER },
+      { ...reference, deviceId: OTHER },
+      { ...reference, wireJson: "{}" },
+      { ...reference, attempts: 0 },
+    ])
+      expect(reconcileBlocked(blocked, changed, DEVICE)).toBe(blocked);
+    for (const device of [null, OTHER])
+      expect(reconcileBlocked(blocked, reference, device)).toBe(blocked);
+    expect(reconcileBlocked(result.rows[0], reference, DEVICE)).toBe(
+      result.rows[0],
+    );
+    const waiting = reconcileBlocked(blocked, reference, DEVICE);
+    const retried = claim([waiting], { token: "retry" });
+    if (retried.kind !== "claim") throw new Error("Expected retry claim");
+    const blockedAgain = releaseClaim(
+      retried.rows[0],
+      retried.references[0],
+      true,
+    );
+    expect(reconcileBlocked(blockedAgain, reference, DEVICE)).toBe(
+      blockedAgain,
+    );
   });
   it("does not skip a head belonging to a missing/changed device", () => {
     const rows = [position(1, 0.6, { deviceId: OTHER }), position(2, 0.4)];

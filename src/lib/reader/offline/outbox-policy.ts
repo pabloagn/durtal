@@ -27,6 +27,9 @@ export interface OperationReference {
   deviceId: string;
   wireJson: string;
 }
+export type BlockedOperationReference = Omit<OperationReference, "token"> & {
+  attempts: number;
+};
 const ordered = (rows: readonly OutboxRow[]) => {
   const result = [...rows].sort((a, b) => a.seq - b.seq);
   if (
@@ -107,6 +110,7 @@ export type ClaimPlan =
         | "unreachable"
         | "empty"
         | "busy"
+        | "blocked"
         | "lifecycle_body_too_large"
         | "device_identity_missing"
         | "device_identity_changed";
@@ -140,6 +144,7 @@ export function planReplayClaim(
   const sorted = ordered(rows);
   if (!sorted.length) return { kind: "stop", reason: "empty" };
   const first = sorted[0];
+  if (first.state === "blocked") return { kind: "stop", reason: "blocked" };
   if (first.claim && first.claim.expiresAt > options.nowMs)
     return { kind: "stop", reason: "busy" };
   const device = deviceReplayPolicy(
@@ -238,6 +243,14 @@ export function matchesClaim(
   return (
     row.state === "claimed" &&
     row.claim?.token === reference.token &&
+    matchesOperation(row, reference)
+  );
+}
+function matchesOperation(
+  row: OutboxRow,
+  reference: Omit<OperationReference, "token">,
+): boolean {
+  return (
     row.seq === reference.seq &&
     row.mutation.operationId === reference.operationId &&
     row.mutation.revision === reference.revision &&
@@ -246,6 +259,24 @@ export function matchesClaim(
     row.mutation.deviceId === reference.deviceId &&
     mutationWireJson(row.mutation) === reference.wireJson
   );
+}
+/** Explicitly reconcile authentication before calling this inside a transaction.
+ * Visibility, reachability and device probes alone must never unblock a row.
+ * The attempt snapshot prevents an old reconciliation from clearing a new block.
+ */
+export function reconcileBlocked(
+  row: OutboxRow,
+  reference: BlockedOperationReference,
+  currentDeviceId: string | null,
+): OutboxRow {
+  if (
+    row.state !== "blocked" ||
+    row.attempts !== reference.attempts ||
+    !matchesOperation(row, reference) ||
+    deviceReplayPolicy(row.mutation.deviceId, currentDeviceId) !== "ready"
+  )
+    return row;
+  return { ...row, state: "waiting" };
 }
 export function releaseClaim(
   row: OutboxRow,
