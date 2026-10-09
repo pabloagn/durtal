@@ -311,6 +311,8 @@ export const makeFB2 = async blob => {
             return {
                 ids, title, titles, load: () => url,
                 createDocument: () => new DOMParser().parseFromString(str, MIME.XHTML),
+                // Durtal patch 6 (VENDORED.md): reuse serialized text without parsing another DOM.
+                loadText: () => str,
                 // doo't count image data as it'd skew the size too much
                 size: blob.size - Array.from(el.querySelectorAll('[src]'),
                     el => el.getAttribute('src')?.length ?? 0)
@@ -321,9 +323,9 @@ export const makeFB2 = async blob => {
 
     const idMap = new Map()
     book.sections = sectionData.map((section, index) => {
-        const { ids, load, createDocument, size, linear, titles } = section
+        const { ids, load, createDocument, loadText, size, linear, titles } = section
         for (const id of ids) if (id) idMap.set(id, index)
-        return { id: index, load, createDocument, size, linear, subitems: titles }
+        return { id: index, load, createDocument, loadText, size, linear, subitems: titles }
     })
 
     book.toc = sectionData.map(({ title, titles }, index) => {
