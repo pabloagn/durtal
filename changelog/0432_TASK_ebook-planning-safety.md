@@ -72,3 +72,23 @@ Reports/cache/input copies are isolated and private. The disposable wrapper
 binds the installed postgres:16 image and runs the full existing zero-skip
 suite. These harnesses have not executed; independent harness review and
 separate execution approval remain required.
+
+Harness review requested revisions to 7217545c57c3afecf1ae1e8113987dbb96c57b0c.
+The rejected manifest b5558ab317163a0638e47281b6642635ae9ce512f2f868fafd01c703c2d2222f
+stays at /private/tmp/durtal-sln494-pooled-proof-7217545c/manifest.json unchanged.
+Live target identity is now derived privately from the separately approved full
+URL hash; the immutable historical loopback plan only establishes input/object
+provenance. Work cannot spend the reserved after-snapshot request/byte/time
+capacity. Finally captures catalogue and storage independently, with progressive
+explicit incomplete evidence persisted before awaits. Graceful signals stop
+work; the wrapper reserves cleanup then termination inside the hard bound and
+preserves partial evidence after external failure. Passing requires complete,
+unchanged before/after results and completed planning/guards. Local-only guard
+tests cover target separation, exhausted budgets, failed snapshots/planning,
+hung work, cleanup failure and hard timeout. Implementation SOURCE_APPROVE at
+44f0fbca690669772b6f1d973c122a4b0dc2cac5 remains unchanged. Revised harness and
+manifest still require independent review; no live proof has executed.
+
+Revised harness verification: 10/10 TypeScript guard cases and 6/6 pure Python
+guard cases passed. Application and harness TypeScript checks and targeted
+harness/test ESLint passed. Passed implementation gates were not rerun.

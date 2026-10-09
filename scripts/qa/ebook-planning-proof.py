@@ -6,7 +6,7 @@ The manifest and its printed SHA-256 are the concrete review boundary. Execution
 requires both, a clean exact source checkout, unchanged inputs and runtime.
 
 prepare --mode disposable --source SHA --postgres-image-id sha256:HEX --report-dir DIR
-prepare --mode pooled --source SHA --database-fingerprint HEX --legacy-prefix PREFIX
+prepare --mode pooled --source SHA --legacy-prefix PREFIX
         --source-inventory FILE --approved-plan FILE --object-inventory FILE
         --roundtrip-evidence FILE --database-url-sha256 HEX --report-dir DIR
 execute --manifest FILE --manifest-sha256 HEX
@@ -104,6 +104,14 @@ def write_json(path, value):
         stream.write(json.dumps(value, indent=2, ensure_ascii=False) + "\n")
 
 
+def private_target(env_dir, expected_hash):
+    # Only these non-secret fingerprints reach stdout. dotenv values stay in the child.
+    program = """import { readPrivateTarget } from './scripts/qa/ebook-proof-control.ts';
+const {fingerprint,urlHash}=readPrivateTarget(process.argv[1],process.argv[2]);
+process.stdout.write(JSON.stringify({fingerprint,urlHash}));"""
+    return json.loads(command("node", "--import", "tsx", "--input-type=module", "-e", program, str(env_dir), expected_hash))
+
+
 def prepare(args):
     report = args.report_dir.resolve()
     evidence = {}
@@ -121,7 +129,7 @@ def prepare(args):
     if len(originals) != len(set(originals)):
         raise ValueError("Original inputs must be distinct")
     if args.mode == "pooled":
-        if len(originals) != 3 or not re.fullmatch(r"[a-f0-9]{64}", args.database_url_sha256 or "") or not re.fullmatch(r"[a-f0-9]{16}", args.database_fingerprint or ""):
+        if len(originals) != 3 or not re.fullmatch(r"[a-f0-9]{64}", args.database_url_sha256 or "") :
             raise ValueError("Pooled proof needs the original three files, 21 reviewed keys and database fingerprint")
         if args.legacy_prefix and not re.fullmatch(r"(?:[a-z0-9][a-z0-9._-]*/)+", args.legacy_prefix):
             raise ValueError("Invalid legacy prefix")
@@ -139,7 +147,7 @@ def prepare(args):
     manifest = {"version": 1, "mode": args.mode, "source": source(args.source),
                 "runtime": runtime(), "reportDir": str(report), "originalFiles": originals,
                 "inputs": inputs(originals, limits["files"], limits["inputBytes"]),
-                "databaseFingerprint": args.database_fingerprint,
+                "databaseFingerprint": None,
                 "postgresImageId": args.postgres_image_id, "legacyPrefix": args.legacy_prefix,
                 "aws": {"profile": "durtal-personal", "account": "608240934043",
                         "region": "eu-north-1", "bucket": "durtal"},
@@ -149,8 +157,13 @@ def prepare(args):
         if evidence["approved_plan"]["sha256"] != "86ddd46d41e7cff1281bdfe18d43531b40b2473b6faa5d3a75935781818c415f":
             raise ValueError("Approved SLN-569 plan differs")
         plan = json.loads(args.approved_plan.read_text())
-        if plan["target"]["database"] != args.database_fingerprint or plan["target"]["prefix"] != args.legacy_prefix:
-            raise ValueError("Original plan target differs")
+        if plan["target"]["prefix"] != args.legacy_prefix:
+            raise ValueError("Historical storage prefix differs")
+        target = private_target(Path("/Users/pabloaguirre/personal/durtal"), args.database_url_sha256)
+        if args.database_fingerprint and target["fingerprint"] != args.database_fingerprint:
+            raise ValueError("Fresh private pooled fingerprint differs")
+        manifest["databaseFingerprint"] = target["fingerprint"]
+        manifest["historicalPlanDatabase"] = {"fingerprint": plan["target"]["database"], "purpose": "input/object provenance only"}
         expected = sorted(({"path": item["path"], "bytes": item["bytes"], "mtimeNs": str(item["mtimeNs"]), "sha256": item["sha256"]} for item in approved), key=lambda item: item["path"])
         if manifest["inputs"]["files"] != expected:
             raise ValueError("Original three files differ from approved evidence")
@@ -180,6 +193,11 @@ def prepare(args):
         manifest.update(objectKeys=keys, reviewedObjects=objects, reviewedDownloads=downloads,
                         evidence=evidence, databaseUrlSha256=args.database_url_sha256,
                         envDir="/Users/pabloaguirre/personal/durtal")
+        manifest["cleanupReserve"] = {"seconds": args.cleanup_seconds, "terminationSeconds": 5,
+                                      "requests": args.cleanup_requests, "downloadBytes": sum(item["bytes"] for item in downloads)}
+        reserve = manifest["cleanupReserve"]
+        if reserve["seconds"] <= 0 or reserve["seconds"] + 5 >= limits["seconds"] or not 0 < reserve["requests"] < limits["requests"] or reserve["downloadBytes"] <= 0 or reserve["downloadBytes"] * 2 > limits["downloadBytes"]:
+            raise ValueError("Insufficient bounded cleanup capacity")
     if report.exists() and any(report.iterdir()):
         raise ValueError("Evidence needs a new or empty private directory")
     report.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -187,6 +205,47 @@ def prepare(args):
     path = report / "manifest.json"
     write_json(path, manifest)
     print(f"Prepared only: {path}\nManifest SHA-256: {file_hash(path)}")
+
+
+def wait_for_proof(child, started, seconds, reserve=None):
+    """Stop pooled work early, retaining cleanup time inside the hard bound."""
+    termination = reserve["terminationSeconds"] if reserve else 5
+    cutoff = started + seconds - termination
+    work_cutoff = cutoff - reserve["seconds"] if reserve else cutoff
+    timed_out = False
+    try:
+        return child.wait(timeout=max(0, work_cutoff - time.monotonic())), timed_out, False
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        child.send_signal(signal.SIGTERM)
+    try:
+        return child.wait(timeout=max(0, cutoff - time.monotonic())), timed_out, False
+    except subprocess.TimeoutExpired:
+        os.killpg(child.pid, signal.SIGKILL)
+        try:
+            child.wait(timeout=max(0, started + seconds - time.monotonic()))
+        except subprocess.TimeoutExpired:
+            pass
+        return 1, timed_out, True
+
+
+def evidence_status(report):
+    try:
+        before = json.loads((report / "before.json").read_text())
+        after = json.loads((report / "after.json").read_text())
+        complete = all(value[kind]["status"] == "complete" for value in (before, after) for kind in ("catalogue", "storage"))
+        unchanged = complete and all(before[kind]["value"]["sha256"] == after[kind]["value"]["sha256"] for kind in ("catalogue", "storage"))
+        return {"evidenceComplete": complete, "unchanged": unchanged}
+    except Exception:
+        return {"evidenceComplete": False, "unchanged": False}
+
+
+def missing_snapshots(report, reason):
+    # External termination or failed initialization can prevent the child from
+    # reaching finally. Preserve any progressive evidence it already wrote.
+    for name in ("before.json", "after.json"):
+        if not (report / name).exists():
+            write_json(report / name, {kind: {"status": "incomplete", "reason": reason} for kind in ("catalogue", "storage")})
 
 
 def execute(args):
@@ -225,33 +284,48 @@ def execute(args):
     attempt = report / "attempt.json"
     write_json(attempt, outcome)
     child = None
+    timed_out = False
+    hard_stopped = False
+    if manifest["mode"] == "pooled":
+        argv += ["--hard-deadline-ms", str(int((time.time() + bounds["seconds"]) * 1000))]
     try:
         child = subprocess.Popen(argv, cwd=ROOT, env=env, start_new_session=True,
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        try:
-            code = child.wait(timeout=bounds["seconds"])
-        except subprocess.TimeoutExpired:
-            outcome["reason"] = "Reviewed time bound exceeded"
-            code = 1
-        if code == 0:
+        code, timed_out, hard_stopped = wait_for_proof(child, started, bounds["seconds"], manifest.get("cleanupReserve"))
+        if timed_out:
+            outcome["reason"] = "Work deadline reached; bounded cleanup requested"
+        if code == 0 and (not timed_out or manifest["mode"] == "pooled"):
             if source(manifest["source"]["commit"]) != manifest["source"] or runtime() != manifest["runtime"]:
                 raise ValueError("Source/runtime changed during proof")
             if inputs(manifest["originalFiles"], bounds["files"], bounds["inputBytes"]) != manifest["inputs"]:
                 raise ValueError("Inputs changed during proof")
+            if manifest["mode"] == "pooled":
+                child_result = json.loads((report / "pooled-result.json").read_text())
+                state = evidence_status(report)
+                if not state["evidenceComplete"] or not state["unchanged"] or not child_result.get("zeroMutationVerified") or child_result.get("manifestSha256") != args.manifest_sha256:
+                    raise ValueError("Complete unchanged evidence is required")
             outcome["status"] = "passed"
         return 0 if outcome["status"] == "passed" else 1
     finally:
         if child:
-            # Includes a native inspector or credential CLI still in this group.
+            # On parent interruption, still allow the child to enter after
+            # capture, but never wait beyond the pre-reserved hard deadline.
+            if child.poll() is None:
+                child.send_signal(signal.SIGTERM)
+                reserve = manifest.get("cleanupReserve", {"terminationSeconds": 5})
+                try:
+                    child.wait(timeout=max(0, started + bounds["seconds"] - reserve["terminationSeconds"] - time.monotonic()))
+                except subprocess.TimeoutExpired:
+                    hard_stopped = True
             try:
-                os.killpg(child.pid, signal.SIGTERM)
-                if child.poll() is None:
-                    child.wait(timeout=5)
+                os.killpg(child.pid, signal.SIGKILL) # Also stops leftover native/CLI children.
             except ProcessLookupError:
                 pass
-            except subprocess.TimeoutExpired:
-                os.killpg(child.pid, signal.SIGKILL)
-                child.wait()
+        if manifest["mode"] == "pooled":
+            missing_snapshots(report, "external_stop_or_failed_initialization")
+            outcome.update(evidence_status(report))
+            outcome["zeroMutationVerified"] = outcome["status"] == "passed" and outcome["evidenceComplete"] and outcome["unchanged"]
+        outcome.update(gracefulStopRequested=timed_out, hardStopped=hard_stopped)
         outcome["elapsedSeconds"] = round(time.monotonic() - started, 2)
         write_json(report / "result.json", outcome)
         print(f"Proof {outcome['status']}: {report / 'result.json'}")
@@ -271,6 +345,8 @@ def main():
     p.add_argument("--postgres-image-id")
     p.add_argument("--legacy-prefix", default="")
     p.add_argument("--include-text", action="store_true")
+    p.add_argument("--cleanup-seconds", type=int, default=90)
+    p.add_argument("--cleanup-requests", type=int, default=80)
     for name, default in (("files", 300), ("input-bytes", 512 * 1024**2), ("objects", 2000),
                           ("download-bytes", 128 * 1024**2), ("requests", 10000),
                           ("database-rows", 100000), ("database-bytes", 64 * 1024**2), ("seconds", 900)):
