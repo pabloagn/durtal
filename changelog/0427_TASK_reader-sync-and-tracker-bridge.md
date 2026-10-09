@@ -28,3 +28,7 @@ Source checkpoint only. `pnpm exec vitest run src/__tests__/reader`: 148 tests i
 ### Source review correction
 
 Forward Tab now enters Copy only from a book document. Subsequent Tab presses in the host toolbar retain native traversal through plugin actions and out of the toolbar. The focused view/input/bridge batch passes 31 tests in 3 files with zero skips; the new regression explicitly allows second Tab, two plugin actions and exit. Native focus movement remains pending the heavy-work slot. Typecheck without incremental cache writes, explicit non-ignored lint of both changed TypeScript files, and diff checks pass.
+
+### Storage merge acceptance — 9 October 2026
+
+Normally merged SLN-569 main `94140915` into the reader branch; verified-gold/native-readable filtering and per-device history selection are both retained. The first full local run on combined source `ae7bf3a5` completed all 323 files: 3,498 tests passed, one reader-sync fixture test failed, zero skipped; all Python checks passed. That fixture used a noncanonical `files/<hash>.<format>` key, correctly refused by the merged delivery validation. It now uses `ebookFileKey`, with the existing history assertions and application validation unchanged. Fresh final-source full-suite, default production/Docker and native acceptance remain pending. No migration, dependency change or live operation.

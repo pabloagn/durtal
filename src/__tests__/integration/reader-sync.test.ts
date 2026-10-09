@@ -38,6 +38,7 @@ vi.mock("@/lib/db", () => ({
   ),
 }));
 import { readReaderBook } from "@/lib/ebooks/delivery/reader-book";
+import { ebookFileKey } from "@/lib/ebooks/keys";
 import {
   allDevicePositions,
   savePosition,
@@ -68,7 +69,7 @@ describe.skipIf(!url)("reader sync", () => {
     const sha = randomUUID().replaceAll("-", "").repeat(2);
     const [row] =
       await c`insert into ebook_files(ebook_id, sha256, format, size_bytes, content_type, s3_key, status)
-      values (${ebookId}, ${sha}, ${format}, 1000, 'application/octet-stream', ${`files/${sha}.${format}`}, 'stored') returning id`;
+      values (${ebookId}, ${sha}, ${format}, 1000, 'application/octet-stream', ${ebookFileKey(sha, format)}, 'stored') returning id`;
     return { id: row.id as string, sha };
   };
   const body = (file: { id: string; sha: string }, fraction: number, at = T0) =>
