@@ -62,10 +62,22 @@ reader checkpoint `626f4870e072e33948dccf7f8e3d8f5db44986c7`.
 ## Completion Notes
 
 Partial checkpoint only. No UI, route, database writer, IndexedDB driver, engine
-decoration, navigation integration, migration or deployment is implemented here.
-SLN-499 and SLN-497 must land before effectful integration. Migration
-`0083_ebook_annotations_search` is reserved; its minimal retired-ID ledger and
-per-book cursor schema require exact independent review before generation.
+decoration, navigation integration, generated migration or deployment is implemented
+here. Proposed Drizzle declarations and hand-written review SQL for reserved 0083
+add note/locator/metadata bounds, a quote binding epoch, live trigram and sync
+indexes, permanent retired IDs and per-book microsecond cursors. Docs 02 matches
+the proposal. Exact SQL review and dump rehearsal are prerequisites to generation;
+no migration journal/snapshot or live schema was changed.
+Effectful integration will consume the actual reviewed SLN-493/499 navigation
+and SLN-497 library source through normal merges, and SLN-507's concrete injected
+store when it exists. Current observed SLN-499 committed checkpoint is
+`9a69cfd3309a91daf2fefb46cef411b3c4a5c1b9`; its pending accepted-fix edits are not
+copied. SLN-497 is `742b190b440b86b127331689dbb3f1b00df67d71`. No concrete shared
+SLN-507 store is available yet; its pure policy files do not authorize a second
+annotation replayer. Migration `0083_ebook_annotations_search` is reserved;
+`scripts/review/0083_deferred_quote_contract.sql` separately drafts the composed
+operations gated on 0087's actual note FK/book guard. Both SQL proposals need
+exact independent review and later native concurrency/rollback/retention tests.
 
 Full local database tests, production/browser tests, render/accessibility audits,
 page-weight/performance rows, final exact-source review and CI remain mandatory
@@ -78,3 +90,14 @@ microsecond cursors, pending reset conflicts, shared quote-matching budgets,
 whole-range exports and colour contrast. These are pure policy tests; they do not
 prove IndexedDB atomicity or actual cross-tab/network behavior. `pnpm typecheck`
 passed. Focused ESLint passed with `--no-ignore` to include all new tests.
+
+Schema review snapshot: `scripts/review/0083_schema_snapshot.json` is serialized
+from the actual Drizzle table declarations by the read-only
+`capture-0083-declarations.ts`; it is explicitly not Drizzle migration metadata.
+No `drizzle-kit`, database connection, migration generation or SQL execution was
+used. It records types, string timestamp columns, constraints, FK names and index
+expressions. The proposed SQL has not been PostgreSQL-compiled or rehearsed yet;
+native concurrency/rollback coverage and existing-locator dump preflight remain
+required after exact review. The proposed declarations pass `pnpm typecheck`
+and focused ESLint. Historic pure checkpoints `c3c9aae6` and `7da122cd` remain
+unchanged ancestors.

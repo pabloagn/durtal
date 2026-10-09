@@ -163,7 +163,12 @@ export {
 // ── eBooks ───────────────────────────────────────────────────────────────────
 export { ebooks, ebooksRelations, ebookFiles, ebookFilesRelations } from "./ebooks";
 export { ebookPositions, ebookPositionsRelations } from "./ebook-positions";
-export { ebookAnnotations, ebookAnnotationsRelations } from "./ebook-annotations";
+export {
+  ebookAnnotations,
+  ebookAnnotationsRelations,
+  ebookAnnotationRetiredIds,
+  ebookAnnotationCursors,
+} from "./ebook-annotations";
 export {
   ebookIngestRuns,
   ebookIngestRunsRelations,

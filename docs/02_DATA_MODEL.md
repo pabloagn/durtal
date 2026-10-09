@@ -2285,7 +2285,7 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | Reference | `languages`, `countries`, `centuries`, `work_types`, `contribution_types`, `sources`, `series` | — |
 | Publishing | `publishing_houses`, `publisher_specialties`, `publisher_isbn_prefixes`, `ignored_publisher_names`, `publisher_auto_decisions`, `publisher_hierarchy_changes`, `edition_enrichments` | `publishing_house_specialties` |
 | Location | `locations`, `sub_locations` | — |
-| eBooks | `ebooks`, `ebook_files`, `ebook_positions`, `ebook_annotations`, `ebook_ingest_runs`, `ebook_ingest_items` | — |
+| eBooks | `ebooks`, `ebook_files`, `ebook_positions`, `ebook_annotations`, `ebook_annotation_retired_ids` (proposed), `ebook_annotation_cursors` (proposed), `ebook_ingest_runs`, `ebook_ingest_items` | — |
 | Settings | `app_settings` | — |
 | Organization | `collections` | `collection_editions` |
 | Media | `media`, `gallery_layouts` | — |
@@ -2571,27 +2571,79 @@ SLN-493 reads all file/device rows ordered by `client_updated_at`. The page quer
 
 ### `ebook_annotations`
 
-Highlights (with notes) and bookmarks. Created empty; sub-issue 11 writes them.
+Highlights, notes and bookmarks. SLN-500's declarations below are proposed for
+reserved migration `0083_ebook_annotations_search`; it is not generated or applied.
+The existing table comes from 0076/0080. Exact review SQL is in
+`scripts/review/0083_ebook_annotations_search.sql`.
 
-| Column | Type | Constraints |
-|---|---|---|
-| `id` | UUID | PK, auto |
-| `ebook_id` | UUID | NOT NULL, FK → `ebooks.id`, RESTRICT |
-| `file_id` | UUID | NOT NULL; FK (`file_id`, `ebook_id`) → `ebook_files` (`id`, `ebook_id`), RESTRICT (`ebook_annotations_file_ebook_fk`) |
-| `kind` | TEXT | NOT NULL, CHECK in (`highlight`, `bookmark`) |
-| `style` | TEXT | NOT NULL, default `'highlight'`, CHECK in (`highlight`, `underline`, `quote`) |
-| `color` | TEXT | nullable, CHECK in (`ochre`, `sage`, `slate`, `rose`, `violet`) |
-| `locator` | JSONB | NOT NULL |
-| `progression` | REAL | NOT NULL |
-| `chapter`, `note` | TEXT | nullable |
-| `text` | TEXT | nullable, CHECK at most 10,000 characters |
-| `anchor_state` | TEXT | NOT NULL, default `'exact'`, CHECK in (`exact`, `healed`, `approximate`, `orphaned`) |
-| `device_id` | TEXT | nullable |
-| `client_updated_at` | TIMESTAMPTZ | NOT NULL |
-| `created_at`, `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
-| `deleted_at` | TIMESTAMPTZ | nullable (a tombstone for sync) |
+| Column                     | Type           | Constraints                                                                                                |
+| -------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------- |
+| `id`                       | UUID           | PK, auto; identity/original passage immutable                                                              |
+| `ebook_id`                 | UUID           | NOT NULL, FK → `ebooks.id`, RESTRICT                                                                       |
+| `file_id`                  | UUID           | NOT NULL; FK (`file_id`, `ebook_id`) → `ebook_files` (`id`, `ebook_id`), RESTRICT; locator hash must match |
+| `kind`                     | TEXT           | NOT NULL, CHECK in (`highlight`, `bookmark`)                                                               |
+| `style`                    | TEXT           | NOT NULL, default `'highlight'`, CHECK in (`highlight`, `underline`, `quote`)                              |
+| `color`                    | TEXT           | nullable, CHECK in (`ochre`, `sage`, `slate`, `rose`, `violet`)                                            |
+| `locator`                  | JSONB          | NOT NULL; complete DurtalLocator, whole text quote ≤10,000 Unicode codepoints, each context ≤64            |
+| `progression`              | REAL           | NOT NULL; CHECK 0–1                                                                                        |
+| `chapter`                  | TEXT           | nullable; ≤300 Unicode codepoints                                                                          |
+| `text`, `note`             | TEXT           | nullable; each ≤10,000 Unicode codepoints; no truncation                                                   |
+| `anchor_state`             | TEXT           | NOT NULL, default `'exact'`, CHECK in (`exact`, `healed`, `approximate`, `orphaned`)                       |
+| `device_id`                | TEXT           | nullable                                                                                                   |
+| `quote_binding_version`    | UUID           | nullable opaque server-issued epoch; non-null exactly for quote style                                      |
+| `client_updated_at`        | TIMESTAMPTZ(6) | NOT NULL; strict newer-wins user clock                                                                     |
+| `created_at`, `updated_at` | TIMESTAMPTZ(6) | NOT NULL; server-owned finite times                                                                        |
+| `deleted_at`               | TIMESTAMPTZ(6) | nullable; final tombstone                                                                                  |
 
-Index (`ebook_id`, `deleted_at`, `progression`).
+Bookmarks have default highlight style and null colour/text/note/binding epoch.
+Highlights require a nonblank original passage and locator quote. Normal highlights
+and underlines require a semantic colour; quote highlights have null colour and a
+server-issued binding epoch. Stored originals do not change during re-anchoring.
+String timestamp declarations and explicit six-digit UTC query formatting retain
+PostgreSQL precision; a JavaScript Date is never an annotation cursor/version.
+
+Indexes: existing (`ebook_id`, `deleted_at`, `progression`); sync
+(`ebook_id`, `updated_at`, `id`); live-row GIN trigram `ebook_annotations_search_idx`
+on `search_normalize(coalesce(text, '') || ' ' || coalesce(note, ''))`.
+
+### `ebook_annotation_retired_ids` (proposed 0083)
+
+| Column       | Type           | Constraints                                                        |
+| ------------ | -------------- | ------------------------------------------------------------------ |
+| `id`         | UUID           | global PK; never reused, updated or deleted by annotation services |
+| `ebook_id`   | UUID           | NOT NULL, FK → `ebooks.id`, RESTRICT; indexed                      |
+| `retired_at` | TIMESTAMPTZ(6) | NOT NULL, finite; original server retirement time                  |
+
+A deletion retires even an absent UUID. Full tombstones may be purged after
+90 days; this minimal identity ledger is permanent and rejects delayed edits or
+quote effects after purge. Its FK means ingestion undo must count retired IDs,
+not infer that an e-book is unused merely because its full annotation rows are gone.
+
+### `ebook_annotation_cursors` (proposed 0083)
+
+| Column        | Type           | Constraints                       |
+| ------------- | -------------- | --------------------------------- |
+| `ebook_id`    | UUID           | PK, FK → `ebooks.id`, CASCADE     |
+| `server_time` | TIMESTAMPTZ(6) | NOT NULL, finite; may not regress |
+
+READ COMMITTED annotation transactions lock this row, then affected global UUIDs
+in sorted order before annotation/note row locks. The logical clock advances by
+`greatest(clock_timestamp(), previous + interval '1 microsecond')`. Pulls advance
+and hold this bound while fetching changed rows; inclusive lower bounds overlap
+safely. A cursor at least 90 days old requires a full live-row reset, preserving
+pending genuinely new local creates. A POST response time never advances the
+client's pull cursor. The global UUID lock coordinates cross-book create/retire races.
+
+Quote privilege is an internal server composition, with no browser-controlled
+flag or connection-local bypass. SLN-454/0087 owns
+`reading_notes.ebook_annotation_id`, its real book ownership guard and binding
+epoch rotation; 0083 does not introduce a duplicate opposite-direction note FK.
+Deferred keep/delete choices carry exact note/binding versions in one durable
+operation. Before sealing, Undo removes both intents; after sealing, one composed
+transaction validates both versions/ownership and applies both effects or neither.
+Already-retired IDs never cause a delayed quote deletion. Tracker-origin deletion
+of a live linked quote keeps its annotation and atomically converts it to a plain
+highlight, preserving identity, passage, note, locator and user edit time.
 
 ### `ebook_ingest_runs`
 
