@@ -4,10 +4,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
 import { DomainSwitch } from "@/components/domains/domain-switch";
-import {
-  DomainAddLink,
-  domainDescription,
-} from "@/components/domains/domain-add-link";
+import { DomainAddLink } from "@/components/domains/domain-add-link";
 import { PaintingFilters } from "@/components/paintings/painting-filters";
 import {
   getPaintingCount,
@@ -35,7 +32,6 @@ export default async function PaintingsPage({
     <>
       <PageHeader
         title="Paintings"
-        description={domainDescription("painting")}
         actions={<DomainAddLink kind="painting" />}
         tabs={<DomainSwitch current="painting" searchParams={params} />}
       />
@@ -43,7 +39,6 @@ export default async function PaintingsPage({
         <EmptyState
           icon={DOMAIN_ICONS.painting}
           title="No paintings yet"
-          description="Add your first painting: who painted it and when, then where the original is and any print or copy you own."
           action={<DomainAddLink kind="painting" />}
         />
       ) : (

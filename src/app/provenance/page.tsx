@@ -117,7 +117,6 @@ export default async function ProvenancePage({
     <>
       <PageHeader
         title="Provenance"
-        description="Track the acquisition pipeline for incoming books"
         actions={
           <OrderCreateDialog key={seed?.target.id ?? "new"} seed={seed} />
         }

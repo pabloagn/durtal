@@ -4,10 +4,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
 import { DomainSwitch } from "@/components/domains/domain-switch";
-import {
-  DomainAddLink,
-  domainDescription,
-} from "@/components/domains/domain-add-link";
+import { DomainAddLink } from "@/components/domains/domain-add-link";
 import { PerfumeFilters } from "@/components/perfumes/perfume-filters";
 import { getPerfumeCount } from "@/lib/actions/perfumes";
 import type { ListSearchParams } from "@/lib/utils/pagination";
@@ -32,7 +29,6 @@ export default async function PerfumesPage({
     <>
       <PageHeader
         title="Perfumes"
-        description={domainDescription("perfume")}
         actions={<DomainAddLink kind="perfume" />}
         tabs={<DomainSwitch current="perfume" searchParams={params} />}
       />
@@ -40,7 +36,6 @@ export default async function PerfumesPage({
         <EmptyState
           icon={DOMAIN_ICONS.perfume}
           title="No perfumes yet"
-          description="Add your first perfume: its house, perfumers and notes, then the bottles and samples you keep."
           action={<DomainAddLink kind="perfume" />}
         />
       ) : (

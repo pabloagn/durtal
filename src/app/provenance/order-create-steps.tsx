@@ -263,10 +263,6 @@ export function WorkSearchStep({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-fg-secondary">
-        Search for the work you are acquiring.
-      </p>
-
       {selectedWork && (
         <div className="flex items-center gap-3 rounded-sm border border-accent-primary/20 bg-selection-bg/40 p-3">
           <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
@@ -412,9 +408,6 @@ export function MethodStep({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-fg-secondary">
-        How are you acquiring this work?
-      </p>
       <Select
         label="Acquisition Method"
         options={ACQUISITION_METHOD_OPTIONS}
@@ -455,10 +448,6 @@ export function DetailsStep({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-fg-secondary">
-        Fill in the acquisition details.
-      </p>
-
       <DatePicker
         label="Order / Acquisition Date"
         value={form.orderDate}
@@ -568,7 +557,6 @@ export function NotesStep({
 }) {
   return (
     <div className="space-y-4">
-      <p className="text-sm text-fg-secondary">Any additional notes?</p>
       <Textarea
         label="Notes"
         value={notes}

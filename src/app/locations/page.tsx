@@ -17,7 +17,6 @@ async function LocationsContent() {
       <EmptyState
         icon={MapPin}
         title="No locations yet"
-        description="Create locations to track where your books are stored"
         action={<LocationActions />}
       />
     );
@@ -53,7 +52,6 @@ export default function LocationsPage() {
     <>
       <PageHeader
         title="Locations"
-        description="Manage where your books are stored"
         actions={<LocationActions />}
       />
       <Suspense

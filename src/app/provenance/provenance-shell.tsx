@@ -207,7 +207,6 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
         {/* Pipeline board */}
         <SectionHeading
           title="Active Pipeline"
-          description="Orders in transit, by status"
         />
 
         <DndContext
@@ -374,9 +373,6 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
               strokeWidth={1}
             />
             <p className="type-item-title">No active orders</p>
-            <p className="mt-1 text-sm text-fg-secondary">
-              Create a new order to start tracking provenance
-            </p>
           </div>
         )}
       </div>

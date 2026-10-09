@@ -50,7 +50,7 @@ function SidebarSetting() {
     <SettingRow
       id="sidebar-collapsed"
       label="Collapsed sidebar"
-      description="Show only the icons. The sidebar toggle, dragging its edge or double-clicking it changes this too."
+      description="Show only the icons."
       controlHeight={20}
     >
       <Switch
@@ -200,8 +200,8 @@ export function DisplaySettings() {
   return (
     <>
       <SettingsIntro>
-        How the sidebar and the lists look. These are saved in this browser
-        only; another browser keeps its own.
+        Saved in this browser only.
+
       </SettingsIntro>
 
       <SettingsGroup title="Sidebar">
@@ -210,7 +210,6 @@ export function DisplaySettings() {
 
       <SettingsGroup
         title="Lists"
-        description="Each list also changes these from its own toolbar and page controls."
       >
         <div className="@container divide-y divide-glass-border">
           <div

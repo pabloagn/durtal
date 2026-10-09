@@ -4,7 +4,6 @@ import {
   SettingFact,
   SettingRow,
   SettingsGroup,
-  SettingsIntro,
 } from "@/components/settings/settings-group";
 import { catalogueCounts, enrichmentSpend, evidenceCacheStats, reviewQueueCounts } from "@/lib/settings/data";
 import { ExportRow, RefreshCacheRow } from "./data-actions";
@@ -60,10 +59,6 @@ export default async function DataSettingsPage() {
   ]);
   return (
     <>
-      <SettingsIntro>
-        The catalogue in numbers, the queues of records to review, exports and the cache.
-      </SettingsIntro>
-
       <SettingsGroup title="Catalogue">
         <dl className="grid grid-cols-2 gap-x-8 gap-y-5 px-5 py-5 sm:grid-cols-5">
           {counts.map(({ label, value }) => (
