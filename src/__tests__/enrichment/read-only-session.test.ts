@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 
 const state = vi.hoisted(() => ({
   setting: "on",
+  isolation: "read committed",
+  beginMode: "read only",
   probeCode: "25006" as string | null,
   lost: false,
   lossWait: null as Promise<void> | null,
@@ -39,6 +41,8 @@ import type { Db } from "@/lib/catalogue/work-store";
 
 beforeEach(() => {
   state.setting = "on";
+  state.isolation = "read committed";
+  state.beginMode = "read only";
   state.lost = false;
   state.lossWait = null;
   state.pending = null;
@@ -53,14 +57,16 @@ beforeEach(() => {
     options: { parsers: {}, serializers: {} },
     end: state.end,
     begin: async (mode: string, work: (tx: unknown) => Promise<unknown>) => {
-      expect(mode).toBe("read only");
+      expect(mode).toBe(state.beginMode);
       expect(options.connection).toBeUndefined(); // Pooler ignores startup defaults.
-      state.events.push("begin read only");
+      state.events.push(`begin ${mode}`);
       const tag = async (strings: TemplateStringsArray) => {
         const query = strings.join("?");
         state.queries.push(query);
-        if (query.startsWith("show"))
+        if (query === "show transaction_read_only")
           return [{ transaction_read_only: state.setting }];
+        if (query === "show transaction_isolation")
+          return [{ transaction_isolation: state.isolation }];
         if (query.startsWith("update")) {
           if (state.probeCode)
             throw new Error("Probe refused", {
@@ -135,6 +141,78 @@ describe("verified pooled planning context", () => {
     expect(state.events.at(-2)).toBe("commit");
     expect(state.events.at(-1)).toBe("end");
   });
+
+  it.each(["read committed", "repeatable read"] as const)(
+    "establishes and verifies requested %s before the write probe and loader",
+    async (isolationLevel) => {
+      state.isolation = isolationLevel;
+      state.beginMode = `isolation level ${isolationLevel} read only`;
+      await withReadOnlyPlanningConnection(
+        "postgres://pool.invalid/library",
+        async (database) => {
+          expect(state.events[0]).toBe(`begin ${state.beginMode}`);
+          expect(state.queries).toEqual([
+            "show transaction_read_only",
+            "show transaction_isolation",
+            "update works set updated_at = updated_at where false",
+          ]);
+          expect(state.events).toContain("rollback savepoint");
+          await requireBookWork(state.workId, database);
+        },
+        { isolationLevel },
+      );
+      expect(state.events.at(-2)).toBe("commit");
+      expect(state.end).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each(["read committed", "missing"])(
+    "refuses requested repeatable read when actual isolation is %s",
+    async (isolation) => {
+      state.isolation = isolation;
+      state.beginMode = "isolation level repeatable read read only";
+      const loader = vi.fn(async () => "unsafe");
+      await expect(
+        withReadOnlyPlanningConnection(
+          "postgres://pool.invalid/library",
+          loader,
+          { isolationLevel: "repeatable read" },
+        ),
+      ).rejects.toThrow("isolation is not repeatable read; nothing ran");
+      expect(loader).not.toHaveBeenCalled();
+      expect(state.queries).toEqual([
+        "show transaction_read_only",
+        "show transaction_isolation",
+      ]);
+      expect(state.events).not.toContain("savepoint");
+      expect(state.end).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each([
+    "serializable",
+    "REPEATABLE READ",
+    "repeatable read read write",
+    "",
+    null,
+  ])(
+    "rejects unapproved isolation %s before opening a connection",
+    async (isolationLevel) => {
+      const loader = vi.fn(async () => "unsafe");
+      await expect(
+        withReadOnlyPlanningConnection(
+          "postgres://pool.invalid/library",
+          loader,
+          // Runtime validation also protects callers outside TypeScript.
+          { isolationLevel } as Parameters<
+            typeof withReadOnlyPlanningConnection
+          >[2],
+        ),
+      ).rejects.toThrow("Unsupported planning transaction isolation");
+      expect(loader).not.toHaveBeenCalled();
+      expect(state.factory).not.toHaveBeenCalled();
+    },
+  );
 
   it.each(["off", "missing"])(
     "refuses setting %s before any helper executes",

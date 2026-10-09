@@ -5,9 +5,12 @@ import * as schema from "@/lib/db/schema";
 import type { Db } from "@/lib/catalogue/work-store";
 import { databaseErrorCode } from "@/lib/db/errors";
 
+export type PlanningIsolationLevel = "read committed" | "repeatable read";
+
 /** A failed write probe rolls back only its savepoint, leaving planning usable. */
 export async function assertReadOnly(
   transaction: postgres.TransactionSql,
+  isolationLevel?: PlanningIsolationLevel,
 ): Promise<void> {
   const [setting] =
     await (transaction as unknown as postgres.Sql)`show transaction_read_only`;
@@ -15,6 +18,14 @@ export async function assertReadOnly(
     throw new Error(
       "The database transaction is not read-only; transaction_read_only is not on; nothing ran",
     );
+  if (isolationLevel !== undefined) {
+    const [isolation] =
+      await (transaction as unknown as postgres.Sql)`show transaction_isolation`;
+    if (isolation?.transaction_isolation !== isolationLevel)
+      throw new Error(
+        `The database transaction isolation is not ${isolationLevel}; nothing ran`,
+      );
+  }
   const refused = await transaction
     .savepoint(
       (probe) =>
@@ -34,11 +45,24 @@ export async function assertReadOnly(
  * All loader/helper reads must use this database, and finish inside the awaited
  * callback. Return data, not connections or queries. The explicit transaction
  * pins the pooled connection; startup defaults cannot provide this guarantee.
+ * Request repeatable read for a stable snapshot across successive loader reads.
  */
 export async function withReadOnlyPlanningConnection<T>(
   url: string,
   work: (database: Db) => Promise<T>,
+  options: { isolationLevel?: PlanningIsolationLevel } = {},
 ): Promise<T> {
+  const { isolationLevel } = options;
+  if (
+    isolationLevel !== undefined &&
+    isolationLevel !== "read committed" &&
+    isolationLevel !== "repeatable read"
+  )
+    throw new Error("Unsupported planning transaction isolation; nothing ran");
+  const mode =
+    isolationLevel === undefined
+      ? "read only"
+      : `isolation level ${isolationLevel} read only`;
   const client = postgres(url, { max: 1, onnotice: () => {} });
   let active = false;
   let closed = false;
@@ -50,8 +74,8 @@ export async function withReadOnlyPlanningConnection<T>(
   };
   try {
     // Await the whole transaction before closing its owning client.
-    return (await client.begin("read only", async (transaction) => {
-      await assertReadOnly(transaction);
+    return (await client.begin(mode, async (transaction) => {
+      await assertReadOnly(transaction, isolationLevel);
       active = !closed;
       requireActive();
       // Drizzle calls unsafe at execution, including for retained prepared queries.

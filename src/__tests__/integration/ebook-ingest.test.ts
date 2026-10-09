@@ -651,6 +651,36 @@ describe.skipIf(!url)("e-book ingestion", () => {
     expect(after.transaction_read_only).toBe("off");
   });
 
+  it.each(["default", "repeatable read"] as const)(
+    "uses %s snapshot visibility across a concurrent committed insert",
+    async (mode) => {
+      const id = randomUUID();
+      const options = mode === "default" ? undefined : { isolationLevel: mode };
+      try {
+        await withReadOnlyPlanningConnection(url!, async (connection) => {
+          const [isolation] = await connection.execute(sql`show transaction_isolation`) as unknown as { transaction_isolation: string }[];
+          expect(isolation.transaction_isolation).toBe(mode === "default" ? "read committed" : mode);
+          const count = async () => {
+            const [row] = await connection.execute(sql`select count(*)::int as count from works where id = ${id}`) as unknown as { count: number }[];
+            return row.count;
+          };
+          expect(await count()).toBe(0); // Establish the reader's catalogue snapshot.
+          // A separate connection commits while the reader transaction is still open.
+          await c.begin("read write", async (writer) => {
+            await (writer as unknown as postgres.Sql)`insert into works (id, title) values (${id}, 'Snapshot consistency fixture')`;
+          });
+          const [committed] = await c`select count(*)::int as count from works where id = ${id}`;
+          expect(committed.count).toBe(1);
+          const rows = await connection.execute(sql`select id from works where id = ${id}`) as unknown as { id: string }[];
+          expect(rows).toEqual(mode === "default" ? [{ id }] : []);
+          expect(await count()).toBe(mode === "default" ? 1 : 0);
+        }, options);
+      } finally {
+        await c`delete from works where id = ${id}`;
+      }
+    },
+  );
+
   const recoveryPlan = async (label: string) => {
     const folder = path.join(work, `recovery-${randomUUID()}`);
     const source = path.join(folder, `${label}.mobi`);

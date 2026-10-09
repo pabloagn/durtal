@@ -20,6 +20,13 @@ with BEGIN READ ONLY, verifies SHOW, and requires the savepoint probe's 25006.
 The callback receives schema-aware Drizzle for all loaders/helpers. Queries are
 revoked on callback completion or transaction failure. ISBN checks accept the
 supplied connection; global-database access is poisoned in helper tests.
+An optional third argument `{ isolationLevel: "repeatable read" }` establishes
+isolation in BEGIN, then verifies SHOW transaction_isolation before the probe
+or loaders. Only read committed and repeatable read are permitted; the omitted
+option keeps BEGIN READ ONLY unchanged. Local tests cover requested modes,
+isolation mismatch/missing values and runtime allowlist rejection. A disposable
+regression contrasts default visibility with a stable repeatable-read snapshot
+while a separate connection commits an insert; database execution is pending.
 EBook plan/reconcile/verify and enrichment length/evidence/worker/vocabulary use
 this context. Existing write modes keep their backup/live guards.
 
