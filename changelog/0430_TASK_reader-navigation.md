@@ -40,3 +40,11 @@ Exact revision files for rereview:
 - QA/docs: `scripts/qa/reader-navigation-checks.mjs`, `docs/04_ROUTES_AND_VIEWS.md`, this changelog.
 
 API delta: turn methods now accept an optional navigation owner; relocate adds `layout` reason and optional human/layout/speech origin; owner accepts an optional origin. Current navigation operations publish human movement only. SLN-501 still needs its awaitable owned layout command; SLN-508 still needs an owned automatic-navigation command and speech-specific location/end publication. This revision guards those origins without implementing either feature.
+
+### Section-boundary review correction
+
+Independent rereview of `8618499` confirmed the original three findings were fixed, then reproduced a genuine section-boundary turn being classified as layout: the renderer emits `navigation` while its next/previous operation crosses the spine. The adapter now retains turn scope until that operation settles and translates its navigation arrival to a turn. Scrolled keyboard turns with an absent raw reason use the same operation scope. Unowned navigation and anchor reflow remain layout, including anchor reflow during an active turn. No vendor source changes or API changes are needed.
+
+Two regressions cover that distinction and forward/backward spine transitions through the real adapter and controller. They assert publication only after paint, the owned human origin, a forward pace sample, no backward sample, no recovery and no extra history entry. The focused reader/cross-layer batch now passes all 200 tests in 26 files, zero skipped. Typecheck without incremental writes, scoped non-ignored lint with zero warnings, formatting, dead-code and diff checks pass; dead-code retains the same two configuration hints. Independent extension review and all native/heavy acceptance gates remain pending.
+
+Exact correction files: `src/lib/reader/engines/foliate/engine.ts`, `src/__tests__/reader/foliate-bridge.test.ts`, this changelog.

@@ -121,6 +121,7 @@ class FoliateEngine implements ReaderEngine {
   #range: RangeSource | null = null;
   #locator: DurtalLocator | null = null;
   #jumping = 0;
+  #turning = 0;
   #destroyed = false;
   #selectionTimer: ReturnType<typeof setTimeout> | null = null;
   #hadSelection = false;
@@ -413,10 +414,16 @@ class FoliateEngine implements ReaderEngine {
     const index = Number.isInteger(detail.index) ? detail.index : 0;
     const section = book.sections[index];
     const linear = section?.linear !== "no";
+    // Section-boundary turns use the renderer's navigation path; scrolled
+    // keyboard turns may have no raw reason. Their adapter operation owns them.
+    const turnNavigation =
+      this.#turning > 0 &&
+      (detail.reason === "navigation" || detail.reason == null);
     const reason =
       this.#jumping > 0
         ? "jump"
-        : ["page", "snap", "scroll"].includes(detail.reason ?? "")
+        : turnNavigation ||
+            ["page", "snap", "scroll"].includes(detail.reason ?? "")
           ? "turn"
           : "layout";
     const relocationOrigin =
@@ -927,11 +934,13 @@ class FoliateEngine implements ReaderEngine {
     if (owner?.signal.aborted)
       throw new DOMException("Cancelled", "AbortError");
     this.#owner = owner;
+    this.#turning++;
     try {
       await this.#view?.[direction]();
       if (owner?.signal.aborted)
         throw new DOMException("Cancelled", "AbortError");
     } finally {
+      this.#turning--;
       this.#owner = undefined;
     }
   }

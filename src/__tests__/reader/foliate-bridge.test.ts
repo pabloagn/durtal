@@ -40,6 +40,8 @@ vi.mock("@/vendor/foliate-js/epub.js", () => ({
 }));
 vi.mock("@/vendor/foliate-js/view.js", () => ({}));
 import { createFoliateEngine } from "@/lib/reader/engines/foliate/engine";
+import { createReaderNavigation } from "@/lib/reader/navigation";
+import { PaceModel } from "@/lib/reader/pace";
 import type { ReaderEngine } from "@/lib/reader/engine";
 import {
   presentationFrom,
@@ -70,14 +72,20 @@ class TestView extends HTMLElement {
       }),
     );
   }
-  report(reason: string, fraction = 0.4, index = 0) {
+  report(
+    reason: string,
+    fraction = 0.4,
+    index = 0,
+    range: Range | null = null,
+    sectionFraction = fraction,
+  ) {
     this.lastLocation = {
       reason,
       fraction,
       index,
-      sectionFraction: fraction,
+      sectionFraction,
       cfi: "cfi" + fraction,
-      range: null,
+      range,
     };
     this.dispatchEvent(
       new CustomEvent("relocate", {
@@ -157,6 +165,130 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("foliate bridge adapter", () => {
+  it("keeps owned boundary navigation a turn while unowned navigation and reflow remain layout", async () => {
+    const seen = vi.fn();
+    engine.on("relocate", seen);
+    vi.spyOn(view, "next").mockImplementation(async () => {
+      view.report("navigation", 0.6);
+    });
+    await engine.next({ id: 81, signal: new AbortController().signal });
+    expect(seen).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        reason: "turn",
+        origin: "human",
+        navigationId: 81,
+        activity: "turn",
+      }),
+    );
+    expect(engine.currentLocator()?.totalProgression).toBe(0.6);
+    view.report("navigation", 0.8);
+    expect(seen).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        reason: "layout",
+        origin: "layout",
+        atEnd: false,
+        navigationId: undefined,
+        activity: undefined,
+      }),
+    );
+    expect(engine.currentLocator()?.totalProgression).toBe(0.6);
+    let finish!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    vi.mocked(view.next).mockImplementationOnce(async () => {
+      view.report("anchor", 0.9);
+      await pending;
+    });
+    const turn = engine.next({ id: 82, signal: new AbortController().signal });
+    expect(seen).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        reason: "layout",
+        origin: "layout",
+        navigationId: 82,
+        activity: undefined,
+      }),
+    );
+    expect(engine.currentLocator()?.totalProgression).toBe(0.6);
+    finish();
+    await turn;
+  });
+  it("commits forward/backward section-boundary turns after paint without recovery or extra history steps", async () => {
+    await withNotes();
+    const doc = view.frame.contentDocument!;
+    doc.body.innerHTML = "<p>" + "a".repeat(300) + "</p>";
+    const range = doc.createRange();
+    range.selectNodeContents(doc.body);
+    const raw = vi.fn();
+    const offRaw = engine.on("relocate", raw);
+    view.report("page", 0.3, 0, range, 0.75);
+    let now = 0,
+      finishPaint!: () => void,
+      firstPaint = true;
+    const pace = new PaceModel(null, () => now);
+    const start = raw.mock.calls.at(-1)![0];
+    pace.arrive(start, "en");
+    const barrier = new Promise<void>((resolve) => {
+      finishPaint = resolve;
+    });
+    const commit = vi.fn((relocation) => pace.arrive(relocation, "en"));
+    const navigation = createReaderNavigation({
+      engine,
+      commit,
+      paint: async () => {
+        if (firstPaint) {
+          firstPaint = false;
+          await barrier;
+        }
+      },
+    });
+    navigation.start(start);
+    const off = engine.on("relocate", (relocation) =>
+      navigation.relocate(relocation),
+    );
+    const recovery = vi.spyOn(engine, "goTo");
+    vi.spyOn(view, "next").mockImplementation(async () =>
+      view.report("navigation", 0.4, 1, range, 0),
+    );
+    vi.spyOn(view, "prev").mockImplementation(async () =>
+      view.report("navigation", 0.3, 0, range, 0.75),
+    );
+    try {
+      now = 10_000;
+      const forward = navigation.turn("next");
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+      expect(commit).not.toHaveBeenCalled();
+      expect(navigation.history.current?.locator.sectionIndex).toBe(0);
+      finishPaint();
+      await expect(forward).resolves.toMatchObject({
+        sectionIndex: 1,
+        totalProgression: 0.4,
+      });
+      expect(commit).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          reason: "turn",
+          origin: "human",
+          activity: "turn",
+          navigationId: 1,
+        }),
+      );
+      expect(pace.get("en")?.samples).toBe(1);
+      now = 20_000;
+      await expect(navigation.turn("prev")).resolves.toMatchObject({
+        sectionIndex: 0,
+        totalProgression: 0.3,
+      });
+      expect(commit).toHaveBeenCalledTimes(2);
+      expect(pace.get("en")?.samples).toBe(1);
+      expect(navigation.history.entries).toHaveLength(1);
+      expect(navigation.history.cursor).toBe(0);
+      expect(recovery).not.toHaveBeenCalled();
+    } finally {
+      off();
+      offRaw();
+      navigation.destroy();
+    }
+  });
   it("tags owned turns and distinguishes layout/speech from human completion", async () => {
     const seen = vi.fn();
     engine.on("relocate", seen);
