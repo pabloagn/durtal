@@ -2466,8 +2466,13 @@ the same; these keys are the backstop under them. A refused row answers SQLSTATE
 | `instance_id` | UUID | nullable, UNIQUE, FK → `instances.id`, SET NULL | The digital copy this e-book is |
 | `match_state` | TEXT | NOT NULL, default `'pending'`, CHECK in (`pending`, `linked`, `standalone`, `excluded`) | `linked` exactly when `instance_id` is set (CHECK `ebooks_linked_check`) |
 | `match_method` | TEXT | nullable, CHECK in (`isbn`, `identifier`, `score`, `manual`, `accession`) (`ebooks_match_method_check`) | |
-| `match_probability` | REAL | nullable | |
+| `match_probability` | REAL | nullable, finite 0–1; rejects NaN and either infinity (SLN-495 declaration, reserved 0082) | Existing invalid values must be explicitly reconciled before migration; preflight refuses them |
 | `matched_at` | TIMESTAMPTZ | nullable | |
+| `match_tier` | TEXT | nullable, allowed review tiers; null when not pending | SLN-495 declaration; reserved `0082_ebook_matching` is not generated/applied yet |
+| `match_fingerprint` | TEXT | nullable, lowercase SHA-256 | Bibliographic metadata and file checksums only; excludes decision state |
+| `duplicate_of_id` | UUID | nullable, FK → `ebooks.id`, SET NULL; no self-reference | Present only for a pending duplicate proposal; deletion of its target clears the obsolete tier |
+| `link_written` | JSONB | nullable object | Versioned operation identity and exact before/after link/accession receipt for guarded undo |
+| `exclusion_reason` | TEXT | nullable, `duplicate`, `not_a_book`, `other`; present exactly when excluded | Existing exclusions backfill to `other`, never inferred from a tier |
 | `import_source` | TEXT | NOT NULL, CHECK in (`folder`, `upload`) (`ebooks_import_source_check`) | |
 | `import_ref` | TEXT | nullable | A sidecar `metadata.opf` uuid; UNIQUE (`import_source`, `import_ref`) where set |
 | `search_text` | TEXT | NOT NULL, default `''` | Trigram index `ebooks_search_text_trgm_idx` |
@@ -2492,6 +2497,36 @@ Triggers (custom SQL in migration `0076_ebook_catalogue`):
 Drizzle cannot declare a SET NULL that clears one column of a composite key (it needs
 PostgreSQL 15 or later). The schema's single-column key stays; both clear
 `preferred_file_id` when the file is deleted, and the e-book stays.
+
+### `ebook_match_candidates` (SLN-495 declaration; reserved 0082)
+
+Up to three proposals for a pending e-book: `id` UUID PK; `ebook_id` FK CASCADE;
+`rank` SMALLINT 1–3, UNIQUE (`ebook_id`, `rank`); `work_id` book FK CASCADE;
+nullable `edition_id` and `instance_id` FKs SET NULL; `edition_rule` in
+`isbn_edition`, `fill_copy`, `new_isbn_edition`, `placeholder_copy`, `new_edition`.
+`probability`, `weight_bits`, and nullable `margin_bits` are finite REAL values:
+NaN and either infinity are explicitly rejected; probability is 0–1 and only
+rank 1 may have a margin. `reasons` is a JSONB array of `{code,text}`, `flags` an
+allowed TEXT array, `model_version` a positive INTEGER, `created_at` TIMESTAMPTZ.
+The reserved migration adds `book_parent_required` and candidate-reference
+triggers: a copy must have its edition and both must belong to the proposed book.
+Deletion of an edition may clear both proposal references. The exact custom SQL
+is under `src/lib/db/migration-proposals/0082_ebook_matching.manual.sql` for review;
+it is not a generated migration. Linking clears candidates and the review tier.
+Parent-side triggers invalidate proposals on edition-work or copy-edition
+reparenting. Candidate validation locks its parents FOR SHARE so concurrent
+non-key reparenting cannot commit a stale proposal. An instance without its
+edition is rejected; edition deletion may clear both references atomically.
+Deleting a linked copy also clears obsolete link provenance and review state.
+
+An ebook link is its digital instance at an active digital location. Automatic
+creation uses `app_settings.ebook_location_id`; explicitly selected existing
+copies may use another active digital location. Linking preserves work status.
+Accession creates a book work and edition with `metadata_source='ebook'`, leaves
+original year unknown, and records accessioned status and available-copy history.
+Undo checks the exact operation identity, row state and dependencies in its write
+transaction; it retains edited/referenced rows and always preserves file objects.
+Restore of Keep or Set aside reclassifies without automatically linking.
 
 ### `ebook_files`
 

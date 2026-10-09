@@ -14,7 +14,15 @@ export {
 
 // ── Core tables ─────────────────────────────────────────────────────────────
 export { works, worksRelations } from "./works";
-export { personDomains, personDomainsRelations, personAliases, personAliasesRelations, creditRoles, workCredits, workCreditsRelations } from "./people";
+export {
+  personDomains,
+  personDomainsRelations,
+  personAliases,
+  personAliasesRelations,
+  creditRoles,
+  workCredits,
+  workCreditsRelations,
+} from "./people";
 export { editions, editionsRelations } from "./editions";
 export { instances, instancesRelations } from "./instances";
 
@@ -161,9 +169,17 @@ export {
 } from "./order-status-history";
 
 // ── eBooks ───────────────────────────────────────────────────────────────────
-export { ebooks, ebooksRelations, ebookFiles, ebookFilesRelations } from "./ebooks";
+export {
+  ebooks,
+  ebooksRelations,
+  ebookFiles,
+  ebookFilesRelations,
+} from "./ebooks";
 export { ebookPositions, ebookPositionsRelations } from "./ebook-positions";
-export { ebookAnnotations, ebookAnnotationsRelations } from "./ebook-annotations";
+export {
+  ebookAnnotations,
+  ebookAnnotationsRelations,
+} from "./ebook-annotations";
 export {
   ebookIngestRuns,
   ebookIngestRunsRelations,
@@ -217,14 +233,32 @@ export {
 } from "./publisher-links";
 
 export { imageAdjustments } from "./image-adjustments";
-export { catalogueIdentifiers, sourceRecords, sourceRecordsRelations, catalogueDates } from "./provenance";
+export {
+  catalogueIdentifiers,
+  sourceRecords,
+  sourceRecordsRelations,
+  catalogueDates,
+} from "./provenance";
 export * from "./perfumes";
-export { taxonomyApplicability, taxonomyApplicabilityRelations } from "./taxonomy-applicability";
-export { organizationRoles, organizationRolesRelations, organizationVenues, organizationVenuesRelations } from "./organizations";
-export { harmonizationDecisions, harmonizationOperations, harmonizationRedirects } from "./harmonization";
+export {
+  taxonomyApplicability,
+  taxonomyApplicabilityRelations,
+} from "./taxonomy-applicability";
+export {
+  organizationRoles,
+  organizationRolesRelations,
+  organizationVenues,
+  organizationVenuesRelations,
+} from "./organizations";
+export {
+  harmonizationDecisions,
+  harmonizationOperations,
+  harmonizationRedirects,
+} from "./harmonization";
 export * from "./retailers";
 export * from "./films";
 export * from "./paintings";
 export { workRelations } from "./work-relations";
 export * from "./readings";
 export * from "./reading-import-rows";
+export { ebookMatchCandidates } from "./ebook-match";

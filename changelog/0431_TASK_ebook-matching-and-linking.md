@@ -80,3 +80,25 @@ No database suite, SQL trigram parity, calibration/precision measurement,
 6,000-by-700 performance benchmark, schema generation, native build, deployment,
 live catalogue read or write, cloud operation or reader/browser acceptance has
 run for this checkpoint. This task is not complete.
+
+Root independently approved pure source `02f27672`, then authorized effectful
+source development against the normally merged, source-approved SLN-494
+prerequisite `0b6b706b`. Merge checkpoint `f0d17064` preserves both histories.
+Migration generation/apply, heavy checks and live operations remain gated.
+
+The first declaration/loader checkpoint adds the proposed candidate table,
+five ebook columns and nullable finite 0–1 persisted probability check. Exact
+manual SQL lives outside the migrator under `migration-proposals/0082...`.
+Independent declaration review required parent-side candidate invalidation and
+persisted probability reconciliation. The amended SQL locks candidate parents
+FOR SHARE, invalidates on reparent/deletion, clears obsolete duplicate tiers,
+and refuses existing invalid probabilities until explicitly reconciled.
+The disposable database suite includes both concurrent reparent orderings and
+deletion checks; it is authored but has not run and requires generated 0082.
+
+The new explicit-connection loader reads one query per table, retains raw state
+for stale guards, validates file/cover provenance and active digital locations,
+and keeps exclusion reason outside the bibliographic fingerprint. The focused
+matcher/loader/validation run passed 115 tests in five files with zero skips.
+Shared writers, operation-owned undo, classification-only restore, calibration
+gates and registration/resume integration are still being implemented.
