@@ -4,7 +4,7 @@
 # Existing media settings, managed IAM policies and CloudFront are untouched.
 set -euo pipefail
 mode=${1:-}; [ $# -gt 0 ] && shift
-case "$mode" in plan|apply) ;; *) echo "Usage: $0 plan|apply --expected-account ID --admin-arn ARN [--output-dir DIR] [--yes-from-joris]" >&2; exit 2;; esac
+case "$mode" in plan|apply) ;; *) echo "Usage: $0 plan|apply --expected-account ID --admin-arn ARN [--output-dir DIR] [--apply-reviewed-plan]" >&2; exit 2;; esac
 output_dir=""
 yes=0
 prefix=""
@@ -16,13 +16,13 @@ while [ $# -gt 0 ]; do
     --expected-account) expected_account=${2:?}; shift 2;;
     --admin-arn) admin_arn=${2:?}; shift 2;;
     --output-dir) output_dir=${2:?}; shift 2;;
-    --yes-from-joris) yes=1; shift;;
+    --apply-reviewed-plan) yes=1; shift;;
     --prefix) prefix=${2-}; shift 2;;
     *) echo "Unknown option: $1" >&2; exit 2;;
   esac
 done
 if [ "$mode" = apply ] && [ "$yes" != 1 ]; then
-  echo "apply requires --yes-from-joris and the reviewed rendered plan" >&2; exit 2
+  echo "apply requires --apply-reviewed-plan and the reviewed rendered plan" >&2; exit 2
 fi
 [[ -z "$prefix" || "$prefix" =~ ^([a-z0-9][a-z0-9._-]*/)+$ ]] || { echo "Invalid legacy prefix" >&2; exit 2; }
 [[ "$expected_account" =~ ^[0-9]{12}$ ]] || { echo "--expected-account must be the reviewed personal account ID" >&2; exit 2; }

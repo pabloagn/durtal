@@ -4,7 +4,7 @@ import { stat } from "node:fs/promises";
 import path from "node:path";
 import { and, eq, inArray, lt, ne, sql } from "drizzle-orm";
 import type { Db } from "@/lib/catalogue/work-store";
-import { ebookIngestItems, ebookIngestRuns } from "@/lib/db/schema";
+import { ebookFiles, ebookIngestItems, ebookIngestRuns } from "@/lib/db/schema";
 import type { IngestOutcome, IngestReconciliation } from "@/lib/db/schema/ebook-ingest";
 import { recentBackup } from "@/lib/enrichment/backup";
 import { appendUndoLog, reserveUndoLog } from "@/lib/books/undo-file";
@@ -14,6 +14,8 @@ import { INGEST_TOOL_VERSION, type IngestPlan, type PlanGroup, type PlanTarget }
 import { readGroupCatalogue, planRegistration, registerGroup, undoEntry } from "./register";
 import { reconcileIngest } from "./reconcile";
 import { storeObject } from "./store";
+import { objectMatches } from "../storage";
+import { isLegacyFileKey } from "../keys";
 import { medallionOf } from "../medallion";
 import { validateStagePlan, verifyPublication } from "../publication";
 
@@ -83,7 +85,10 @@ const FAILURE_MESSAGE_MAX = 500;
 export function failureMessage(error: unknown): string {
   let current = error;
   for (let depth = 0; depth < 5 && current instanceof Error && current.message.startsWith("Failed query:") && current.cause; depth++) current = current.cause;
-  const text = storableText(current instanceof Error ? current.message : String(current)).replace(/\s+/g, " ").trim() || "Unknown error";
+  const text =
+    storableText(current instanceof Error ? current.message : String(current))
+      .replace(/\s+/g, " ")
+      .trim() || "Unknown error";
   return text.length > FAILURE_MESSAGE_MAX ? `${text.slice(0, FAILURE_MESSAGE_MAX - 1)}…` : text;
 }
 
@@ -102,7 +107,10 @@ export function planSha256(text: string): string {
 function checkPlanTarget(plan: IngestPlan, target: PlanTarget) {
   if (plan.v !== 1 || plan.toolVersion !== INGEST_TOOL_VERSION) throw new Error("The plan was made by another version of the tool: plan again. Nothing written.");
   if (plan.target.database !== target.database) throw new Error("The plan was made against another database. Nothing written.");
-  if (plan.target.bucket !== target.bucket || plan.target.prefix !== target.prefix || plan.target.preview !== target.preview ||
+  if (
+    plan.target.bucket !== target.bucket ||
+    plan.target.prefix !== target.prefix ||
+    plan.target.preview !== target.preview ||
     plan.target.region !== target.region ||
     plan.target.credentialIdentity !== target.credentialIdentity ||
     plan.target.previewRoot !== target.previewRoot
@@ -198,13 +206,15 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
   const open = await db
     .select({
       path: ebookIngestItems.sourcePath,
+      fileId: ebookIngestItems.fileId,
       state: ebookIngestItems.state,
       attempts: ebookIngestItems.attempts,
     })
     .from(ebookIngestItems)
     .where(and(eq(ebookIngestItems.runId, runId), ne(ebookIngestItems.state, "done"), lt(ebookIngestItems.attempts, MAX_ATTEMPTS)));
   const openPaths = new Set(open.map((o) => o.path));
-  const registeredPaths = new Set(open.filter((o) => o.state === "registered").map((o) => o.path));
+  const registered = new Map(open.filter((o) => o.state === "registered").map((o) => [o.path, o.fileId]));
+  const registeredPaths = new Set(registered.keys());
   const work = plan.groups.filter((group) => group.paths.some((p) => openPaths.has(p)));
   const clusters = clusterGroups(work);
 
@@ -235,16 +245,25 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
     const paths = group.paths.filter((p) => openPaths.has(p));
     let simulated = false;
     try {
-      // Registered already (the crash came after the atomic): only the last mark is left
-      const toRegister = paths.filter((p) => !registeredPaths.has(p));
-      if (toRegister.length === 0) {
-        for (const p of paths) {
-          const problem = await verifyPublication(plan.files[p].metadata);
-          if (problem) throw new Error(problem);
-        }
-        await setItems(paths, { state: "done" });
-        return;
+      // A committed duplicate names the catalogue publication, not fresh plan artifacts.
+      const alreadyRegistered = paths.filter((p) => registeredPaths.has(p));
+      for (const p of alreadyRegistered) {
+        const fileId = registered.get(p);
+        const [stored] = fileId ? await db.select().from(ebookFiles).where(eq(ebookFiles.id, fileId)).limit(1) : [];
+        if (!stored || stored.sha256 !== plan.files[p].sha256) throw new Error("The registered file is missing or differs from the plan");
+        const stages = medallionOf(stored.metadata);
+        const expectedKey = stages ? (stages.validation.downloadable ? stages.gold[0]?.key : stages.bronze.key) : null;
+        if (
+          (stages ? stored.s3Key !== expectedKey : !isLegacyFileKey(stored.s3Key, stored.sha256, stored.format)) ||
+          !(await objectMatches(stored.s3Key, stored.sizeBytes, stored.sha256))
+        )
+          throw new Error("The registered object's bytes or key differ");
+        const problem = await verifyPublication(stored.metadata);
+        if (problem) throw new Error(problem);
       }
+      await setItems(alreadyRegistered, { state: "done", lastError: null });
+      const toRegister = paths.filter((p) => !registeredPaths.has(p));
+      if (toRegister.length === 0) return;
       // Changed since the plan: skipped and listed
       const unchanged: string[] = [];
       for (const p of toRegister) {

@@ -272,7 +272,7 @@ configured personal account and the bucket region before proceeding.
 
 ```bash
 scripts/aws/ebooks-storage.sh plan --expected-account "$EBOOKS_AWS_ACCOUNT_ID" --admin-arn "$EBOOKS_ADMIN_ARN" --output-dir /tmp/ebooks-infra-plan
-scripts/aws/ebooks-storage.sh apply --expected-account "$EBOOKS_AWS_ACCOUNT_ID" --admin-arn "$EBOOKS_ADMIN_ARN" --yes-from-joris
+scripts/aws/ebooks-storage.sh apply --expected-account "$EBOOKS_AWS_ACCOUNT_ID" --admin-arn "$EBOOKS_ADMIN_ARN" --apply-reviewed-plan
 ```
 
 Review the rendered before/after documents before apply. The script merges

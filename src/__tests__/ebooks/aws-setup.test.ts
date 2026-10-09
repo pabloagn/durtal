@@ -78,7 +78,7 @@ describe("shared-bucket eBook infrastructure", () => {
   });
   it("refuses apply from a different administrator before bucket access", () => {
     expect(
-      run(["apply", "--yes-from-joris"], {
+      run(["apply", "--apply-reviewed-plan"], {
         FAKE_ARN: "arn:aws:sts::111122223333:assumed-role/OtherAdmin/test",
       }).status,
     ).toBe(1);
@@ -117,7 +117,7 @@ describe("shared-bucket eBook infrastructure", () => {
     expect(JSON.stringify(lifecycle)).not.toMatch(/Expiration|Noncurrent|DeleteMarker/);
   });
   it("applies only merged eBook protection, lifecycle and multipart policy", () => {
-    const result = run(["apply", "--yes-from-joris"]);
+    const result = run(["apply", "--apply-reviewed-plan"]);
     expect(result.stderr).toBe("");
     expect(result.status).toBe(0);
     expect(

@@ -38,5 +38,9 @@ No schema migration or new dependencies.
 Acceptance is in progress. The focused disposable-database and unit run passed
 58 tests with zero skips, plus all three Python suites. PostgreSQL JSONB field
 ordering is covered by structural publication comparison. Native and production
-gates remain pending; cloud apply and source review
+gates remain pending. Independent review identified and corrected committed-duplicate
+recovery: registered items now verify the actual catalogue publication, and failed
+run items always block exact reconciliation. Three regression cases pass in the
+17-test ingest suite; prior failed test evidence is retained. The infrastructure
+flag is owner-neutral (`--apply-reviewed-plan`); cloud apply and source review
 remain coordinator-owned. No live catalogue writes or completion claim.
