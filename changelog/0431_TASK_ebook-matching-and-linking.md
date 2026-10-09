@@ -44,11 +44,22 @@ this field instead of inferring a reason from the tier.
 
 ## Completion Notes
 
-The pure checkpoint's final focused run passed 71 tests in three files with
-zero skips (357 ms total). TypeScript compilation and ESLint are clean. The
+The original pure checkpoint's focused run passed 71 tests in three files with
+zero skips (357 ms total). TypeScript compilation and ESLint were clean. The
 first focused run found one fixture lookup incorrectly relying on catalogue
 ordering; it was corrected to select the work by id. Omnibus, conflicting
 identifier-owner and empty-catalogue regressions are included.
+
+Independent review rejected checkpoint `277ac5bd` for two unsafe automatic
+matches: a single known identifier owner could contradict the proposed work,
+and an unnumbered work title could hide its identified edition's volume number
+when their cleaned title scores tied. That commit remains in history. Six new
+adversarial cases reproduced both defects before the corrections, including
+Google IDs and ISBNs with an available digital copy. Scoring now treats any
+different identifier owner as a conflict and checks identified edition volume
+evidence independently of the best title key. Matching volume controls remain
+eligible. The corrected focused run passed all 77 tests in three files with
+zero skips (351 ms total); TypeScript compilation and ESLint are clean.
 
 No database suite, SQL trigram parity, calibration/precision measurement,
 6,000-by-700 performance benchmark, schema generation, native build, deployment,

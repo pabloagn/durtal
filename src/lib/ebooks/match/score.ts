@@ -83,10 +83,13 @@ export function scorePair(
     (isbn) => work.isbns.has(isbn) && !catalogue.sharedIsbns.has(isbn),
   );
   const equalExternal = ids.external.filter((id) => work.external.has(id));
-  if (identifierOwners.size > 1)
+  const contradictingIdentifierOwner = [...identifierOwners].some(
+    (owner) => owner !== work.source.id,
+  );
+  if (contradictingIdentifierOwner)
     vetoes.push({
       code: "identifier_owners",
-      text: "The identifiers name different catalogue books; choose which observation is correct",
+      text: "An identifier belongs to another catalogue book; choose which observation is correct",
     });
   const identifierEditions = [...work.editionIdentifiers]
     .filter(
@@ -111,7 +114,20 @@ export function scorePair(
         }
         if (exact) titleExact = true;
       }
-  if (title.numbers && titleNumbers && title.numbers !== titleNumbers)
+  // An unnumbered work title may tie the identified edition's cleaned title.
+  // Keep that edition's volume evidence independently of the winning title key.
+  const identifiedEditionNumbers = work.source.editions
+    .filter((edition) => identifierEditions.includes(edition.id))
+    .map(
+      (edition) =>
+        titleKeys(edition.title, edition.subtitle, edition.language).numbers,
+    );
+  if (
+    title.numbers &&
+    [titleNumbers, ...identifiedEditionNumbers].some(
+      (numbers) => !!numbers && title.numbers !== numbers,
+    )
+  )
     vetoes.push({
       code: "number_signature",
       text: "The titles name different numbered volumes or years",
@@ -255,7 +271,7 @@ export function scorePair(
       titleSimilarity < 0.8 &&
       !["identity", "compatible"].includes(authorLevel)) ||
     shared ||
-    identifierOwners.size > 1;
+    contradictingIdentifierOwner;
   return {
     workId: work.source.id,
     weightBits,

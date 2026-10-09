@@ -4,7 +4,7 @@ import { scorePair } from "@/lib/ebooks/match/score";
 import { matchInMemory, matchOne } from "@/lib/ebooks/match/tiers";
 import { probabilityForBits } from "@/lib/ebooks/match/model";
 import { matchFingerprint } from "@/lib/ebooks/match/keys";
-import { author, catalogue, ebook, edition, work } from "./fixtures";
+import { author, catalogue, copy, ebook, edition, work } from "./fixtures";
 
 describe("scores and review tiers", () => {
   it("makes an exact identifier/title/author match and identifies an ISBN-10-only edition", () => {
@@ -126,6 +126,99 @@ describe("scores and review tiers", () => {
       "author_disagrees",
     );
   });
+  it.each([
+    { method: "external id", freeCopy: false },
+    { method: "external id", freeCopy: true },
+    { method: "ISBN", freeCopy: false },
+    { method: "ISBN", freeCopy: true },
+  ])(
+    "reviews a single $method owner contradicting the title match (free copy: $freeCopy)",
+    ({ method, freeCopy }) => {
+      const observations =
+        method === "ISBN"
+          ? { isbns: ["9780306406157"] }
+          : { identifiers: { google: ["other-id"] } };
+      const cat = catalogue({
+        works: [
+          work({
+            editions: freeCopy ? [edition()] : [],
+            copies: freeCopy ? [copy()] : [],
+          }),
+          work({
+            id: "other",
+            title: "Ulysses",
+            authors: [author({ id: "other-author", name: "James Joyce" })],
+            editions: [
+              edition({
+                id: "other-edition",
+                workId: "other",
+                title: "Ulysses",
+                ...(method === "ISBN"
+                  ? { isbn13: "9780306406157" }
+                  : { identifiers: { google: ["other-id"] } }),
+              }),
+            ],
+          }),
+        ],
+      });
+      expect(matchOne(ebook(), cat).autoLink).toBe(true);
+      const result = matchOne(ebook(observations), cat);
+      expect(result).toMatchObject({ tier: "conflict", autoLink: false });
+      expect(result.candidates[0]).toMatchObject({
+        workId: "work-1",
+        identifierConflict: true,
+      });
+      if (freeCopy)
+        expect(result.candidates[0].effect).toMatchObject({
+          ready: true,
+          rule: "fill_copy",
+        });
+      expect(result.candidates[0].marginBits).toBeGreaterThanOrEqual(5);
+      expect(
+        result.candidates[0].vetoes.map((reason) => reason.code),
+      ).toContain("identifier_owners");
+    },
+  );
+  it.each(["ISBN", "external id"])(
+    "checks the identified edition's volume despite an unnumbered work title (%s)",
+    (method) => {
+      const observations =
+        method === "ISBN"
+          ? { isbns: ["9780306406157"] }
+          : { identifiers: { google: ["edition-id"] } };
+      const cat = catalogue({
+        works: [
+          work({
+            editions: [
+              edition({
+                title: "Nadja (Book 3)",
+                ...(method === "ISBN"
+                  ? { isbn13: "9780306406157" }
+                  : { identifiers: { google: ["edition-id"] } }),
+              }),
+            ],
+          }),
+        ],
+      });
+      expect(
+        matchOne(ebook({ ...observations, title: "Nadja (Book 3)" }), cat),
+      ).toMatchObject({ tier: "exact", autoLink: true });
+      const result = matchOne(
+        ebook({ ...observations, title: "Nadja (Book 2)" }),
+        cat,
+      );
+      expect(result.autoLink).toBe(false);
+      expect(result.candidates[0]).toMatchObject({
+        titleExact: true,
+        titleSimilarity: 1,
+        identifierEditions: ["edition-1"],
+        effect: { ready: true },
+      });
+      expect(
+        result.candidates[0].vetoes.map((reason) => reason.code),
+      ).toContain("number_signature");
+    },
+  );
   it("drops shared ISBN weight and never calls its ebooks duplicates based on the shared number", () => {
     const ebooks = [
       ebook({ title: "Nadja", isbns: ["9780306406157"] }),
