@@ -28,6 +28,19 @@ export interface Prefetched {
   bytes: ArrayBuffer;
 }
 
+/** Exact UTF-16 offsets in one opened PDF, before search folding or segmentation. */
+export interface PdfTextPageRequest {
+  fileHash: string;
+  pageIndex: number;
+  signal: AbortSignal;
+}
+export interface PdfPageText {
+  fileHash: string;
+  pageIndex: number;
+  pageLabel: string;
+  text: string;
+}
+
 /** One stored file of an e-book, and where its bytes are */
 export interface BookSource {
   ebookId: string;
@@ -195,6 +208,13 @@ export interface OpenOptions {
 }
 
 export interface ReaderEngine {
+  /** PDF consumers share the opened document; cancellation owns only delivery. */
+  pdfPageText?(request: PdfTextPageRequest): Promise<PdfPageText>;
+  /** Null means measured geometry is absent; never synthesize item-width rects. */
+  locatorForPdfTextOffsets?(request: PdfTextPageRequest & {
+    start: number;
+    end: number;
+  }): Promise<DurtalLocator | null>;
   /** Opens the book and goes to `at` (resolved) or to the start */
   open(
     source: BookSource,

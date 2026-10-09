@@ -53,6 +53,8 @@ export interface FoliateSection {
   linear?: string;
   size: number;
   cfi?: string;
+  pageSpread?: string;
+  load?(): Promise<string | import("./pdf-book").PdfFixedPageSource>;
   createDocument?(): Promise<Document>;
   loadText?(): Promise<string | null> | string;
 }
@@ -77,6 +79,8 @@ export interface FoliateBook {
   };
   dir?: string;
   rendition?: { layout?: string };
+  setTwoPages?(twoPages: boolean): void;
+  pdfViewport?(doc: Document): import("./pdf-geometry").PdfViewport | null;
   sections: FoliateSection[];
   toc?: FoliateTocEntry[];
   pageList?: FoliateTocEntry[];

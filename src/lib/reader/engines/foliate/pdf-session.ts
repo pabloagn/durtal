@@ -4,7 +4,7 @@ import type {
   PDFPageProxy,
 } from "pdfjs-dist";
 import type { TextContent } from "pdfjs-dist/types/src/display/api";
-import type { BookSource, DurtalLocator } from "@/lib/reader/engine";
+import type { BookSource, DurtalLocator, PdfTextPageRequest, PdfPageText } from "@/lib/reader/engine";
 import { pdfDocumentOptions } from "./pdf-options";
 import { pdfRangeChunks, PDF_MAX_CONCURRENT_RANGES } from "./pdf-range";
 import { PdfRangeSource } from "./pdf-range-source";
@@ -22,11 +22,7 @@ type PdfApi = Pick<
   | "getDocument"
   | "TextLayer"
 >;
-export interface PdfTextPageRequest {
-  fileHash: string;
-  pageIndex: number;
-  signal: AbortSignal;
-}
+export type { PdfTextPageRequest } from "@/lib/reader/engine";
 interface PageEntry {
   promise: Promise<PDFPageProxy>;
   page?: PDFPageProxy;
@@ -81,6 +77,10 @@ export class PdfSession {
     this.#closed.signal.throwIfAborted();
     if (!this.#pdf) throw new Error("The PDF is closed");
     return this.#pdf;
+  }
+
+  get signal() {
+    return this.#closed.signal;
   }
 
   #validate(index: number) {
@@ -200,7 +200,7 @@ export class PdfSession {
     return AbortSignal.any([request.signal, this.#closed.signal]);
   }
 
-  async pdfPageText(request: PdfTextPageRequest) {
+  async pdfPageText(request: PdfTextPageRequest): Promise<PdfPageText> {
     const signal = this.#request(request);
     const content = await this.pageTextContent(request.pageIndex, signal);
     this.#labels ??= this.document.getPageLabels();
@@ -290,14 +290,26 @@ export async function openPdfSession(
   source: BookSource,
   base: string,
   origin: string,
+  createWorker?: (url: URL) => Worker,
+  owner?: AbortSignal,
 ) {
+  owner?.throwIfAborted();
   const range = new PdfRangeSource(source);
   const closed = new AbortController();
-  const worker = createOwnedPdfWorker(api, base, origin);
+  const worker = createOwnedPdfWorker(api, base, origin, createWorker);
+  let session: PdfSession | undefined;
+  const abort = () => {
+    closed.abort();
+    range.close();
+    if (session) void session.destroy().catch(() => {});
+  };
+  owner?.addEventListener("abort", abort, { once: true });
+  closed.signal.addEventListener("abort", () => owner?.removeEventListener("abort", abort), { once: true });
   let transport: InstanceType<PdfApi["PDFDataRangeTransport"]>;
   try {
     transport = new api.PDFDataRangeTransport(source.size, new Uint8Array());
   } catch (error) {
+    closed.abort();
     range.close();
     worker.destroy();
     throw error;
@@ -351,14 +363,13 @@ export async function openPdfSession(
     worker.destroy();
     throw error;
   }
-  let session: PdfSession | undefined;
   const failure = Promise.race([rangeFailure, worker.failure]);
   void failure.catch((error: unknown) => {
     if (session) void session.destroy().catch(() => {});
     return error;
   });
   try {
-    const pdf = await Promise.race([task.promise, failure]);
+    const pdf = await forPdfOwner(Promise.race([task.promise, failure]), closed.signal);
     session = new PdfSession({
       api,
       pdf,

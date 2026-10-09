@@ -22,6 +22,7 @@ const viewport = {
   height: 300,
   scale: 1,
   userUnit: 1,
+  rotation: 0,
   convertToPdfPoint: (x: number, y: number) => [x, 300 - y],
 } as PageViewport;
 function deferred() {

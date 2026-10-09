@@ -2,6 +2,7 @@ import type { PageViewport, TextLayer } from "pdfjs-dist";
 import type { TextContent } from "pdfjs-dist/types/src/display/api";
 import type { PdfPageTextGeometry, PdfTextCluster } from "./pdf-text-geometry";
 import { forPdfOwner } from "./pdf-lifetime";
+import { pdfTextLayerTransform } from "./pdf-viewport";
 
 export interface PdfTextRun {
   divIndex: number;
@@ -99,6 +100,7 @@ export async function measurePdfTextLayer(input: {
       container,
       viewport,
     });
+    container.style.transform = pdfTextLayerTransform(viewport);
     await forPdfOwner(Promise.resolve(layer.render()), signal);
     await forPdfOwner(doc.fonts.ready, signal);
     signal.throwIfAborted();

@@ -1,8 +1,5 @@
-import { version } from "pdfjs-dist/package.json";
-
-export const PDFJS_VERSION = version;
-export const PDF_WORKER_CSP =
-  "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'";
+import { PDFJS_VERSION } from "@/lib/reader/pdf-assets";
+export { PDFJS_VERSION, PDF_WORKER_CSP } from "@/lib/reader/pdf-assets";
 
 /** Installed 6.4.299 ships ICC data. No relative decoder URL reaches a worker. */
 export function pdfDocumentOptions(base: string) {

@@ -13,13 +13,18 @@ import type {
   TocItem,
   NavigationOwner,
   Marginalia,
+  PdfTextPageRequest,
 } from "@/lib/reader/engine";
 import { presentationCss } from "@/lib/reader/presentation";
 import { PDFJS_BASE } from "@/lib/reader/first-range";
 import { ReadError, RangeSource, RemoteBlob } from "./remote-blob";
 import { DeferredImages } from "./deferred-images";
 import { makeRangeZipLoader } from "./zip-reader";
-import { startPdfWorker } from "./preload";
+import { takePdfWorker } from "./preload";
+import { openPdfSession, type PdfSession } from "./pdf-session";
+import { makePdfBook } from "./pdf-book";
+import { bindPdfTextProvider, type PdfTextProvider } from "./pdf-text-provider";
+import { clientRectToPdf, pdfLocatorFromGeometry } from "./pdf-geometry";
 import {
   locatorFromRelocate,
   quoteFromSelection,
@@ -39,7 +44,6 @@ import type {
   FoliateView,
   Localized,
   MobiModule,
-  PdfModule,
   ZipLoader,
   ZipModule,
 } from "./foliate";
@@ -60,7 +64,7 @@ function capabilitiesFor(format: ReaderFormat): BookInfo["capabilities"] {
   if (format === "cbz")
     return { search: false, tts: false, spreads: true, scrolled: false };
   if (format === "pdf")
-    return { search: true, tts: false, spreads: true, scrolled: true };
+    return { search: true, tts: true, spreads: true, scrolled: false };
   return { search: true, tts: true, spreads: true, scrolled: true };
 }
 
@@ -119,6 +123,10 @@ class FoliateEngine implements ReaderEngine {
   #book: FoliateBook | null = null;
   #source: BookSource | null = null;
   #range: RangeSource | null = null;
+  #pdf: PdfSession | null = null;
+  #pdfCss = "";
+  #pdfTextProvider: PdfTextProvider | null = null;
+  #opening = new AbortController();
   #locator: DurtalLocator | null = null;
   #jumping = 0;
   #turning = 0;
@@ -141,8 +149,8 @@ class FoliateEngine implements ReaderEngine {
   /** Bytes and requests so far, for the performance harness */
   get transfer() {
     return {
-      bytes: this.#range?.transferred ?? 0,
-      requests: this.#range?.requests ?? 0,
+      bytes: this.#pdf?.range.transferred ?? this.#range?.transferred ?? 0,
+      requests: this.#pdf?.range.requests ?? this.#range?.requests ?? 0,
     };
   }
 
@@ -171,6 +179,43 @@ class FoliateEngine implements ReaderEngine {
     range: RangeSource,
   ): Promise<FoliateBook> {
     const name = `book.${source.format}`;
+    if (source.format === "pdf") {
+      const base = new URL(PDFJS_BASE, location.href).href;
+      const [api, response] = await Promise.all([
+        import("pdfjs-dist"),
+        fetch(new URL("layers.css", base), { signal: this.#opening.signal }),
+      ]);
+      this.#opening.signal.throwIfAborted();
+      if (!response.ok) throw new ReadError("network", "PDF text-layer styles could not be loaded");
+      this.#pdfCss = await response.text();
+      this.#opening.signal.throwIfAborted();
+      const session = await openPdfSession(api, source, base, location.origin, (url) =>
+        takePdfWorker() ?? new Worker(url, { type: "module", name: "durtal-pdf" }), this.#opening.signal);
+      this.#pdf = session;
+      if (this.#destroyed) {
+        await session.destroy();
+        throw new DOMException("The PDF was closed while opening", "AbortError");
+      }
+      void session.failure.catch((error: unknown) => {
+        if (this.#destroyed || this.#pdf !== session) return;
+        this.#pdfTextProvider = null;
+        this.#pdfCss = "";
+        const kind = openErrorKind(error);
+        this.#emit("error", { kind, message: ERROR_MESSAGES[kind] });
+      });
+      try {
+        const book = await makePdfBook(session, api, this.#pdfCss);
+        this.#opening.signal.throwIfAborted();
+        this.#pdfTextProvider = bindPdfTextProvider(session, this.#pdfCss);
+        return book;
+      } catch (error) {
+        await session.destroy();
+        if (this.#pdf === session) this.#pdf = null;
+        this.#pdfTextProvider = null;
+        this.#pdfCss = "";
+        throw error;
+      }
+    }
     if (ZIP_FORMATS.has(source.format)) {
       const zip =
         (await import("@/vendor/foliate-js/vendor/zip.js")) as unknown as ZipModule;
@@ -214,21 +259,6 @@ class FoliateEngine implements ReaderEngine {
       return book;
     }
     const blob = new RemoteBlob(range, contentTypeOf(source.format), name);
-    if (source.format === "pdf") {
-      const pdf =
-        (await import("@/vendor/foliate-js/pdf.js")) as unknown as PdfModule;
-      pdf.configurePDFJS({
-        base: PDFJS_BASE,
-        load: () =>
-          import("pdfjs-dist").then((lib) => {
-            const worker = startPdfWorker();
-            if (worker && !lib.GlobalWorkerOptions.workerPort)
-              lib.GlobalWorkerOptions.workerPort = worker;
-            return lib;
-          }),
-      });
-      return pdf.makePDF(blob);
-    }
     if (source.format === "fb2") {
       const { makeFB2 } =
         (await import("@/vendor/foliate-js/fb2.js")) as unknown as Fb2Module;
@@ -392,11 +422,16 @@ class FoliateEngine implements ReaderEngine {
 
   destroy() {
     this.#destroyed = true;
+    this.#opening.abort();
     if (this.#selectionTimer) clearTimeout(this.#selectionTimer);
     if (this.#markTimer) clearTimeout(this.#markTimer);
     this.#view?.close();
     this.#view?.remove();
     this.#book?.destroy?.();
+    void this.#pdf?.destroy().catch(() => {});
+    this.#pdf = null;
+    this.#pdfTextProvider = null;
+    this.#pdfCss = "";
     this.#images?.destroy();
     this.#images = null;
     this.#view = null;
@@ -406,6 +441,18 @@ class FoliateEngine implements ReaderEngine {
 
   #isPdf() {
     return this.#source?.format === "pdf";
+  }
+
+  pdfPageText(request: PdfTextPageRequest) {
+    if (!this.#pdfTextProvider || this.#destroyed)
+      return Promise.reject(new Error("This opened book has no PDF text provider"));
+    return this.#pdfTextProvider.pdfPageText(request);
+  }
+
+  locatorForPdfTextOffsets(request: PdfTextPageRequest & { start: number; end: number }) {
+    if (!this.#pdfTextProvider || this.#destroyed)
+      return Promise.reject(new Error("This opened book has no PDF text provider"));
+    return this.#pdfTextProvider.locatorForPdfTextOffsets(request);
   }
 
   #onRelocate(detail: FoliateProgress) {
@@ -598,6 +645,33 @@ class FoliateEngine implements ReaderEngine {
     const progress = view.getProgressOf(index, range);
     const tocLabel = progress?.tocItem?.label?.trim().slice(0, 300);
     const pageLabel = progress?.pageItem?.label?.trim().slice(0, 40);
+    if (this.#isPdf()) {
+      const doc = range.startContainer.ownerDocument;
+      const viewport = doc && this.#book.pdfViewport?.(doc);
+      const layer = doc?.querySelector<HTMLElement>(".textLayer");
+      if (!viewport || !layer) return null;
+      const origin = layer.getBoundingClientRect();
+      const rects = Array.from(range.getClientRects()).flatMap((rect) => {
+        const converted = clientRectToPdf(rect, viewport, {
+          left: origin.left,
+          top: origin.top,
+          cropLeft: 0,
+          cropTop: 0,
+        });
+        return converted ? [converted] : [];
+      });
+      return pdfLocatorFromGeometry({
+        fileHash: this.#source.sha256,
+        href: String(this.#book.sections[index]?.id ?? index),
+        pageIndex: index,
+        pageCount: this.#book.sections.length,
+        viewport,
+        rects,
+        text: quote,
+        pageLabel,
+        tocLabel,
+      });
+    }
     return {
       v: 1,
       fileHash: this.#source.sha256,
@@ -605,9 +679,7 @@ class FoliateEngine implements ReaderEngine {
       sectionIndex: index,
       progression: base?.sectionIndex === index ? base.progression : 0,
       totalProgression: base?.totalProgression ?? 0,
-      ...(this.#isPdf()
-        ? { pdf: { page: index + 1 } }
-        : { cfi: view.getCFI(index, range) }),
+      cfi: view.getCFI(index, range),
       // The whole selection is the highlight; the context comes from around it
       text: quote,
       ...(tocLabel ? { tocLabel } : {}),

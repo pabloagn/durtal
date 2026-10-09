@@ -264,3 +264,45 @@ Five focused integration tests passed with page/canvas doubles, zero skips,
 covering live plus pending counts, replacement, hidden eviction, independent
 cancellation, extreme zoom and frame removal during paint. Scoped TypeScript,
 source lint and whitespace checks passed. Native raster/memory proof is gated.
+
+### Production PDF producer binding checkpoint
+
+The common foliate adapter now opens the actual `PdfSession` and passes it to
+`makePdfBook`; the former vendor `makePDF` path is no longer the production PDF
+opener. The book uses owned raster canvases, the actual pdf.js TextLayer, safe
+link annotations, outline/page labels and common fixed-layout navigation. Page
+frame retirement cancels owned work before removal. Visible selection uses the
+mounted viewport and measured DOM rectangles to store PDF user-unit geometry.
+
+Stable consumer contract: `PdfTextPageRequest` contains `fileHash`, zero-based
+`pageIndex` and the original owner `signal`; `PdfPageText` returns those file/page
+identities, `pageLabel`, and exact UTF-16 `text`. Adapter methods `pdfPageText`
+and `locatorForPdfTextOffsets` forward the unchanged request through frozen
+`bindPdfTextProvider(actualSession, exactLayerCss)`. Offset requests add `start`
+and `end` in that exact string. The session owns shared page/text production;
+measurement owns only its host/layer. Consumers do not open, cache, destroy or
+replace the producer. Close/open failure clears the adapter's provider.
+
+`pdfViewport(doc)` exposes the mounted page's actual point-conversion bridge to
+internal foliate consumers. Rectangles are in PDF user units, never CSS pixels
+or CFIs. The exact installed layer rules and explicit plane rotation are shared
+between visible text and detached measurement; missing geometry remains null.
+The search consumer patch is intentionally not applied here: SLN-503 can consume
+this public producer without copying it. PDF decoration integration still
+requires the approved shared SLN-500 contract.
+
+Asset source now deploys the pinned worker, CMaps, fonts, WASM and ICCs under the
+same versioned URL as the adapter. Generated runtime provenance records patch 4
+and installed layer-rule extraction separately from the unchanged raw inventory.
+Next headers supply native worker HTTP CSP; bounded initial PDF prefetch refuses
+whole-file 200s before consuming bodies, and late prefetch cannot recreate a
+worker already claimed by the document.
+
+QUIET-494 was active while preparing these changes and has since been released.
+No new runner, typecheck, lint, formatting, asset execution, build, native browser,
+Docker, font, stress or live/cloud work has been performed for this checkpoint.
+Three binding tests are authored and unexecuted; earlier scoped test evidence
+above remains historical and does not verify this changed adapter. Request a
+bounded focused verification slot before those checks. Full fixed-format UI,
+CBZ integration, decoration/healing, native alignment, HTTP CSP, memory/range
+performance and combined acceptance gates remain outstanding.

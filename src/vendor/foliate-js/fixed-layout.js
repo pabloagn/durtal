@@ -659,6 +659,7 @@ export class FixedLayout extends HTMLElement {
         const src = srcOptionIsString ? srcOption : srcOption?.src
         const data = srcOptionIsString ? null : srcOption?.data
         const onZoom = srcOptionIsString ? null : srcOption?.onZoom
+        const onDestroy = srcOptionIsString ? null : srcOption?.onDestroy
         const element = document.createElement('div')
         element.setAttribute('dir', 'ltr')
         element.style.position = 'relative'
@@ -684,7 +685,7 @@ export class FixedLayout extends HTMLElement {
             })
         }
 
-        if (!src) return { blank: true, element, iframe }
+        if (!src && !data) return { blank: true, element, iframe }
         return new Promise(resolve => {
             iframe.addEventListener('load', async () => {
                 const doc = iframe.contentDocument
@@ -697,6 +698,7 @@ export class FixedLayout extends HTMLElement {
                     width: parseFloat(width),
                     height: parseFloat(height),
                     onZoom,
+                    onDestroy,
                     detached,
                 })
             }, { once: true })
@@ -727,6 +729,12 @@ export class FixedLayout extends HTMLElement {
         const portrait = this.spread !== 'both' && this.spread !== 'portrait'
             && height > width * 1.2
         this.#portrait = portrait
+        if (this.book.setTwoPages) {
+            const twoPages = !portrait && !this.#center && !left.blank && !right.blank
+            this.book.setTwoPages(twoPages)
+            // This map includes the visible spread as well as cached spreads.
+            this.#maxCachedSpreads = twoPages ? 2 : 3
+        }
         const blankWidth = left.width ?? right.width ?? 0
         const blankHeight = left.height ?? right.height ?? 0
         // Fit to the client box: a page taller than the view gets a classic
@@ -1212,6 +1220,7 @@ export class FixedLayout extends HTMLElement {
         const src = srcOptionIsString ? srcOption : srcOption?.src
         const data = srcOptionIsString ? null : srcOption?.data
         const onZoom = srcOptionIsString ? null : srcOption?.onZoom
+        const onDestroy = srcOptionIsString ? null : srcOption?.onDestroy
 
         const element = document.createElement('div')
         element.setAttribute('dir', 'ltr')
@@ -1229,7 +1238,7 @@ export class FixedLayout extends HTMLElement {
         // Place directly in the placeholder — no root append + reparent
         pageData.el.append(element)
 
-        if (!src) return { blank: true, element, iframe }
+        if (!src && !data) return { blank: true, element, iframe }
         return new Promise(resolve => {
             iframe.addEventListener('load', async () => {
                 const doc = iframe.contentDocument
@@ -1242,6 +1251,7 @@ export class FixedLayout extends HTMLElement {
                     width: parseFloat(width),
                     height: parseFloat(height),
                     onZoom,
+                    onDestroy,
                 })
             }, { once: true })
             if (data) {
@@ -1275,7 +1285,7 @@ export class FixedLayout extends HTMLElement {
             const frame = await this.#createScrollFrame(pageData, src)
             // Bail if cancelled during frame creation
             if (this.#scrollLoadGen.get(pageData.index) !== gen || !this.#scrollMode) {
-                frame.element?.remove()
+                this.#retireFrame(frame)
                 pageData.state = 'idle'
                 return
             }
@@ -1363,7 +1373,7 @@ export class FixedLayout extends HTMLElement {
         if (pageData.frame) {
             const idx = pageData.index
             this.#overlayers.delete(idx)
-            pageData.frame.element?.remove()
+            this.#retireFrame(pageData.frame)
         }
         pageData.frame = null
         pageData.state = 'idle'
@@ -1546,10 +1556,10 @@ export class FixedLayout extends HTMLElement {
         this.#preloadCache.clear()
         for (const frames of this.#prerenderedSpreads.values()) {
             if (frames.center) {
-                frames.center.element?.remove()
+                this.#retireFrame(frames.center)
             } else {
-                frames.left?.element?.remove()
-                frames.right?.element?.remove()
+                this.#retireFrame(frames.left)
+                this.#retireFrame(frames.right)
             }
         }
         this.#prerenderedSpreads.clear()
@@ -1682,7 +1692,7 @@ export class FixedLayout extends HTMLElement {
             // relocation like any other.
             const moved = side != null && side !== this.#side
             if (moved) this.#side = side
-            this.#render(side)
+            await Promise.all(this.#render(side))
             if (moved) this.#reportLocation(reason)
             return
         }
@@ -1784,13 +1794,13 @@ export class FixedLayout extends HTMLElement {
 
                         const sectionIndex = this.book.sections.indexOf(spread.center)
                         const frame = await this.#createFrame({ index: sectionIndex, src, detached: true })
-                        if (isStale()) return frame.element.remove()
+                        if (isStale()) return this.#retireFrame(frame)
 
                         this.#prerenderedSpreads.set(cacheKey, { center: frame })
                         this.#touchSpread(cacheKey)
                         if (frame.onZoom) {
                             const doc = frame.iframe.contentDocument
-                            frame.onZoom({ doc, scale: this.#totalScaleFactor, pageColors: this.#pageColors })
+                            await frame.onZoom({ doc, scale: this.#totalScaleFactor, pageColors: this.#pageColors })
                         }
                     } else {
                         const srcL = await spread.left?.load?.()
@@ -1804,8 +1814,8 @@ export class FixedLayout extends HTMLElement {
                         const leftFrame = await this.#createFrame({ index: indexL, src: srcL, detached: true })
                         const rightFrame = await this.#createFrame({ index: indexR, src: srcR, detached: true })
                         if (isStale()) {
-                            leftFrame.element.remove()
-                            rightFrame.element.remove()
+                            this.#retireFrame(leftFrame)
+                            this.#retireFrame(rightFrame)
                             return
                         }
 
@@ -1814,18 +1824,23 @@ export class FixedLayout extends HTMLElement {
 
                         if (leftFrame.onZoom) {
                             const docL = leftFrame.iframe.contentDocument
-                            leftFrame.onZoom({ doc: docL, scale: this.#totalScaleFactor, pageColors: this.#pageColors })
+                            await leftFrame.onZoom({ doc: docL, scale: this.#totalScaleFactor, pageColors: this.#pageColors })
                         }
                         if (rightFrame.onZoom) {
                             const docR = rightFrame.iframe.contentDocument
-                            rightFrame.onZoom({ doc: docR, scale: this.#totalScaleFactor, pageColors: this.#pageColors })
+                            await rightFrame.onZoom({ doc: docR, scale: this.#totalScaleFactor, pageColors: this.#pageColors })
                         }
                     }
                 } catch {
+                    const frames = this.#prerenderedSpreads.get(cacheKey)
+                    this.#retireFrame(frames?.center)
+                    this.#retireFrame(frames?.left)
+                    this.#retireFrame(frames?.right)
                     this.#preloadCache.delete(cacheKey)
                     this.#prerenderedSpreads.delete(cacheKey)
                 } finally {
                     this.#activePreloads--
+                    this.#cleanupPreloadCache()
                     this.#processPreloadQueue()
                 }
             })
@@ -1844,6 +1859,7 @@ export class FixedLayout extends HTMLElement {
         }
 
         const framesByAge = Array.from(this.#prerenderedSpreads.keys())
+            .filter(key => key !== `spread-${this.#index}`)
             .map(key => ({
                 key,
                 accessTime: this.#spreadAccessTime.get(key) || 0,
@@ -1859,12 +1875,12 @@ export class FixedLayout extends HTMLElement {
                 if (frames) {
                     if (frames.center) {
                         this.#removeOverlayerForFrame(frames.center)
-                        frames.center.element?.remove()
+                        this.#retireFrame(frames.center)
                     } else {
                         this.#removeOverlayerForFrame(frames.left)
                         this.#removeOverlayerForFrame(frames.right)
-                        frames.left?.element?.remove()
-                        frames.right?.element?.remove()
+                        this.#retireFrame(frames.left)
+                        this.#retireFrame(frames.right)
                     }
                 }
 
@@ -1879,6 +1895,13 @@ export class FixedLayout extends HTMLElement {
         const idx = frame.iframe.dataset.sectionIndex != null
             ? parseInt(frame.iframe.dataset.sectionIndex) : undefined
         if (idx != null) this.#overlayers.delete(idx)
+    }
+    // Durtal patch 7 (VENDORED.md): release resources before frame detachment.
+    #retireFrame(frame) {
+        if (!frame) return
+        this.#removeOverlayerForFrame(frame)
+        try { frame.onDestroy?.(frame.iframe?.contentDocument) }
+        finally { frame.element?.remove() }
     }
     // Drop a frame's overlayer and re-emit create-overlayer so listeners can
     // re-add annotations. Called after a text layer rebuild (e.g. pdf.js
@@ -2132,10 +2155,10 @@ export class FixedLayout extends HTMLElement {
         }
         for (const frames of this.#prerenderedSpreads.values()) {
             if (frames.center) {
-                frames.center.element?.remove()
+                this.#retireFrame(frames.center)
             } else {
-                frames.left?.element?.remove()
-                frames.right?.element?.remove()
+                this.#retireFrame(frames.left)
+                this.#retireFrame(frames.right)
             }
         }
         this.#prerenderedSpreads.clear()
