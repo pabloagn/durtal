@@ -102,3 +102,27 @@ and keeps exclusion reason outside the bibliographic fingerprint. The focused
 matcher/loader/validation run passed 115 tests in five files with zero skips.
 Shared writers, operation-owned undo, classification-only restore, calibration
 gates and registration/resume integration are still being implemented.
+
+Independent review approved schema source `92dd605c` but required strict loader
+eligibility: string-valued validation flags were accepted and a null gold entry
+could crash loading. This narrow correction reuses byte-for-byte SLN-497 shared
+source from `6590026e6a2236dd8311694c6865d0ebc0ce945f` at its original paths:
+
+- `src/lib/ebooks/conditions.ts`: blob `2ac4f495b0aa0a34481efdde6b0c5dc61f24e16d`
+- `src/lib/ebooks/publication-evidence.ts`: blob `0434010073b6df77934b77c7588048cb440b7c56`
+- `src/lib/ebooks/eligibility-sql.ts`: blob `0b20eb615d062c83d55fe73baa2bd828b2dee054`
+- `src/__tests__/ebooks/publication-fixture.ts`: blob `f4b8c5ff9246db951a87fee489b281cd612a94c7`
+
+No shared validator was adapted and no SLN-497 schema/migration declaration was
+imported. The matching loader now consumes strict downloadable/native eligibility
+and accepted publication lineage, including the recorded manifest key, instead
+of the shallow delivery helper. Its DTO conversion is exported for the upcoming
+ingestion adapter. The snapshot also exposes active digital location ids for
+explicit-copy selection; this adds no query or database column. A valid derived
+800 px cover must be an image in the accepted publication; smaller or unrecorded
+covers are not substituted. The narrow loader suite passed 194 tests, zero skips,
+including the approved malformed-publication corpus, string `false`, null gold,
+valid native and download-only evidence, and cover lineage. Typecheck and source
+ESLint are clean. Writer/undo/calibration integration remains uncommitted and
+awaits exact-source review. Its additional zero-candidate model-version schema
+proposal is separate and unreviewed; reserved 0082 remains ungenerated/unapplied.

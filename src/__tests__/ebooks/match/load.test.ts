@@ -20,6 +20,10 @@ import {
 } from "@/lib/ebooks/match/load";
 import { digitalLocationAllowed } from "@/lib/ebooks/match/location-policy";
 import { ebookFileKey, ebookDerivedKey } from "@/lib/ebooks/keys";
+import {
+  publicationFixture,
+  malformedPublicationCases,
+} from "../publication-fixture";
 
 const at = "2026-10-09T12:00:00+00:00";
 function inputs() {
@@ -131,6 +135,26 @@ function connection(rows: Record<MatchTable, StoredRow[]>) {
   } as unknown as Db;
   return { conn, seen };
 }
+function publicationRows(
+  file:
+    | ReturnType<typeof publicationFixture>
+    | ReturnType<typeof malformedPublicationCases>[number],
+) {
+  const rows = inputs();
+  rows.ebook_files[0] = {
+    ...rows.ebook_files[0],
+    sha256: file.sha256,
+    s3_key: file.s3Key,
+    size_bytes: file.sizeBytes,
+    format: file.format,
+    status: file.status,
+    drm: file.drm,
+    metadata: file.metadata,
+    manifest_key: file.manifestKey,
+    cover_key: publicationFixture().metadata.medallion.gold[1].key,
+  };
+  return rows;
+}
 describe("explicit protected catalogue loading", () => {
   it("uses only its supplied connection once per table and preserves identifier/alias/seed evidence", async () => {
     const rows = inputs(),
@@ -175,6 +199,73 @@ describe("explicit protected catalogue loading", () => {
     const second = await loadMatchCatalogue(connection(rows).conn);
     expect(second.inputFingerprint).toBe(first.inputFingerprint);
     expect(second.rows.ebooks[0].exclusion_reason).toBe("other");
+  });
+  it("accepts strict publication lineage and exposes a cover belonging to that publication", async () => {
+    const file = publicationFixture();
+    const rows = publicationRows(file);
+    // Accession uses 800 px; a valid smaller cover is not silently substituted.
+    rows.ebook_files[0].cover_key = file.metadata.medallion.gold[1].key.replace(
+      "cover-240.webp",
+      "cover-800.webp",
+    );
+    file.metadata.medallion.gold[1].key = String(rows.ebook_files[0].cover_key);
+    const loaded = await loadMatchCatalogue(connection(rows).conn);
+    expect(loaded.catalogue.source.ebooks[0].files[0]).toMatchObject({
+      availability: "native",
+      coverKey: rows.ebook_files[0].cover_key,
+    });
+  });
+  it.each(malformedPublicationCases().map((file, index) => ({ file, index })))(
+    "refuses malformed publication $index without crashing catalogue loading",
+    async ({ file }) => {
+      const loaded = await loadMatchCatalogue(
+        connection(publicationRows(file)).conn,
+      );
+      expect(loaded.catalogue.source.ebooks[0].files[0]).toMatchObject({
+        availability: "blocked",
+        coverKey: null,
+      });
+      expect(loaded.catalogue.works).toHaveLength(1);
+    },
+  );
+  it.each(["downloadable", "nativeReadable"] as const)(
+    "refuses string false in %s and a null gold member",
+    async (field) => {
+      const file = publicationFixture();
+      const metadata = structuredClone(file.metadata) as {
+        medallion: { validation: Record<string, unknown>; gold: unknown[] };
+      };
+      metadata.medallion.validation[field] = "false";
+      let loaded = await loadMatchCatalogue(
+        connection(publicationRows({ ...file, metadata })).conn,
+      );
+      expect(loaded.catalogue.source.ebooks[0].files[0].availability).toBe(
+        "blocked",
+      );
+      metadata.medallion.validation[field] = true;
+      metadata.medallion.gold = [null];
+      loaded = await loadMatchCatalogue(
+        connection(publicationRows({ ...file, metadata })).conn,
+      );
+      expect(loaded.catalogue.source.ebooks[0].files[0]).toMatchObject({
+        availability: "blocked",
+        coverKey: null,
+      });
+    },
+  );
+  it("keeps validated download-only evidence separate from native reading and rejects an unrecorded cover lineage", async () => {
+    const file = publicationFixture();
+    file.metadata.medallion.validation.nativeReadable = false;
+    const rows = publicationRows(file);
+    rows.ebook_files[0].cover_key = file.metadata.medallion.gold[1].key.replace(
+      "cover-240.webp",
+      "cover-800.webp",
+    );
+    const loaded = await loadMatchCatalogue(connection(rows).conn);
+    expect(loaded.catalogue.source.ebooks[0].files[0]).toMatchObject({
+      availability: "download",
+      coverKey: null,
+    });
   });
 });
 describe("digital location policy", () => {

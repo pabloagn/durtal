@@ -3,9 +3,11 @@ import { sql } from "drizzle-orm";
 import type { Db } from "@/lib/catalogue/work-store";
 import { resultRows } from "@/lib/harmonization/store";
 import { stableStringify } from "@/lib/harmonization/normalize";
-import { isDeliverable } from "../delivery/files";
-import { isReadableFormat } from "../formats";
-import { medallionOf } from "../medallion";
+import {
+  isEbookFileDownloadable,
+  isEbookFileNativeReadable,
+} from "../conditions";
+import { acceptedPublication } from "../publication-evidence";
 import { parseStageKey, coverKeySha256 } from "../keys";
 import { indexCatalogue, type MatchCatalogue } from "./catalogue";
 import { digitalLocationAllowed } from "./location-policy";
@@ -77,8 +79,8 @@ function externalIds(
     addId(ids, String(observation.provider), observation.external_id);
   return ids;
 }
-function fileDto(row: StoredRow) {
-  const metadata = (row.metadata ?? {}) as Record<string, unknown>;
+export function matchFileFromStoredRow(row: StoredRow) {
+  const metadata = row.metadata;
   const file = {
     id: storedId(row),
     ebookId: String(row.ebook_id),
@@ -90,13 +92,11 @@ function fileDto(row: StoredRow) {
     status: String(row.status),
     drm: stringOrNull(row.drm),
     metadata,
+    manifestKey: stringOrNull(row.manifest_key),
   };
-  const deliverable = isDeliverable(file);
-  const stages = medallionOf(metadata);
-  const native =
-    deliverable &&
-    isReadableFormat(file.format) &&
-    (!parseStageKey(file.s3Key) || !!stages?.validation.nativeReadable);
+  const deliverable = isEbookFileDownloadable(file);
+  const stages = acceptedPublication(metadata, file);
+  const native = isEbookFileNativeReadable(file);
   const cover = stringOrNull(row.cover_key);
   const parsed = cover ? parseStageKey(cover) : null;
   const validCover =
@@ -170,7 +170,7 @@ export async function loadMatchCatalogue(
     preferredFileId: stringOrNull(row.preferred_file_id),
     files: rows.ebook_files
       .filter((file) => file.ebook_id === row.id)
-      .map(fileDto),
+      .map(matchFileFromStoredRow),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
     instanceId: stringOrNull(row.instance_id),
@@ -258,7 +258,18 @@ export async function loadMatchCatalogue(
   )
     ? configuredId
     : null;
-  const catalogue = indexCatalogue({ works, ebooks, authors, ebookLocationId });
+  const catalogue = indexCatalogue({
+    works,
+    ebooks,
+    authors,
+    ebookLocationId,
+    digitalLocationIds: rows.locations
+      .filter(
+        (location) =>
+          location.type === "digital" && location.is_active === true,
+      )
+      .map(storedId),
+  });
   return {
     catalogue,
     rows,

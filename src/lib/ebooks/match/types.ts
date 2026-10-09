@@ -113,6 +113,8 @@ export interface CatalogueSnapshot {
   ebooks: readonly MatchEbook[];
   authors: readonly MatchAuthor[];
   ebookLocationId: string | null;
+  /** Loader-proven active digital locations for explicit copy selection. */
+  digitalLocationIds?: readonly string[];
 }
 export interface NewEditionEffect {
   title: string;
