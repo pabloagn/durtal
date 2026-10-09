@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Bounded pure wrapper guards. No service, process, container or credential call."""
+"""Bounded wrapper guards, including one local Node child. No service calls."""
 import importlib.util
 import json
 from pathlib import Path
 import signal
+import os
+import select
+import shutil
+import time
 import subprocess
 import tempfile
 import unittest
@@ -55,6 +59,52 @@ class ProofGuards(unittest.TestCase):
                 args.database_fingerprint = "0" * 16
                 with self.assertRaisesRegex(ValueError, "Fresh private pooled fingerprint differs"):
                     PROOF.prepare(args)
+
+    def test_direct_node_soft_timeout_preserves_delayed_after_finally_marker(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            marker = root / "after-finally.json"
+            script = root / "delayed-cleanup.mts"
+            script.write_text("""import {writeFileSync} from 'node:fs';
+import {setTimeout as pause} from 'node:timers/promises';
+import {databaseErrorCode} from '@/lib/db/errors';
+if(databaseErrorCode({code:'25006'})!=='25006') throw new Error('Pinned tsconfig alias did not load');
+const marker=process.argv[process.argv.indexOf('--execute-reviewed-manifest')+1];
+let stop!:()=>void;
+const stopped=new Promise<void>(resolve=>{stop=resolve;});
+process.on('SIGTERM',()=>stop());
+process.stdout.write(`ready:${process.pid}\\n`);
+// Delay signal acknowledgement beyond the tsx CLI's two 30ms waits.
+const blockedUntil=Date.now()+500;
+while(Date.now()<blockedUntil) {}
+try { await stopped; }
+finally { await pause(200); writeFileSync(marker,JSON.stringify({afterFinally:true,pid:process.pid}),{flag:'wx'}); }
+""")
+            node = Path(shutil.which("node")).resolve()
+            argv = PROOF.pooled_argv(node, marker, "0" * 64, script)
+            self.assertEqual(argv[:3], [str(node), "--import", "tsx"])
+            self.assertNotIn("node_modules/tsx/dist/cli.mjs", argv)
+            env = PROOF.execution_environment("pooled", {"tsconfigPath": str(PROOF.ROOT / "tsconfig.json")})
+            self.assertEqual(env["TSX_TSCONFIG_PATH"], str(PROOF.ROOT / "tsconfig.json"))
+            child = subprocess.Popen(argv, cwd=PROOF.ROOT, env=env, start_new_session=True,
+                                     stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+            try:
+                ready, _, _ = select.select([child.stdout], [], [], 5)
+                self.assertTrue(ready, "Tiny local child did not become ready")
+                self.assertEqual(child.stdout.readline().strip(), f"ready:{child.pid}")
+                started = time.monotonic()
+                code, timed_out, hard_stopped = PROOF.wait_for_proof(child, started, 2, {"seconds": 1.4, "terminationSeconds": 0.2})
+                self.assertEqual((code, timed_out, hard_stopped), (0, True, False))
+                self.assertLess(time.monotonic()-started, 2)
+                self.assertEqual(json.loads(marker.read_text()), {"afterFinally": True, "pid": child.pid})
+            finally:
+                try:
+                    if child.poll() is None:
+                        child.kill()
+                except ProcessLookupError:
+                    pass
+                child.wait(timeout=1)
+                child.stdout.close()
 
     def test_soft_timeout_leaves_ninety_seconds_for_cleanup(self):
         child = Mock(pid=123)

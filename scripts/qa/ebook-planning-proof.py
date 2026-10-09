@@ -25,6 +25,7 @@ import os
 from pathlib import Path
 import re
 import signal
+import shutil
 import subprocess
 import sys
 import time
@@ -67,14 +68,20 @@ def source(expected):
 
 
 def runtime():
-    node = command("node", "--version")
+    installed_node = shutil.which("node")
+    if not installed_node:
+        raise ValueError("Reviewed Node executable is required")
+    node_path = Path(installed_node).resolve()
+    node = command(str(node_path), "--version")
     installation = {}
     for relative in ("node_modules/.modules.yaml", "node_modules/.pnpm/lock.yaml"):
         path = ROOT / relative
         if not path.is_file():
             raise ValueError("Existing reviewed dependencies are required; nothing is installed")
         installation[relative] = file_hash(path)
-    return {"python": sys.version, "node": node, "platform": sys.platform,
+    return {"python": sys.version, "node": node, "nodeExecutable": str(node_path),
+            "nodeSha256": file_hash(node_path), "tsconfigPath": str(ROOT / "tsconfig.json"),
+            "tsconfigSha256": file_hash(ROOT / "tsconfig.json"), "platform": sys.platform,
             "dependencies": installation}
 
 
@@ -207,6 +214,21 @@ def prepare(args):
     print(f"Prepared only: {path}\nManifest SHA-256: {file_hash(path)}")
 
 
+def execution_environment(mode, runtime_record):
+    env = {key: os.environ[key] for key in SAFE_ENV if key in os.environ}
+    env["DOTENV_CONFIG_PATH"] = os.devnull
+    if mode == "pooled":
+        env["TSX_TSCONFIG_PATH"] = runtime_record["tsconfigPath"]
+    return env
+
+
+def pooled_argv(node_executable, manifest_path, manifest_sha256, script="scripts/qa/ebook-pooled-proof.ts"):
+    # Direct Node owns the signal handlers. The tsx CLI's child/IPC signal relay
+    # can escalate to SIGKILL after two 30ms acknowledgement waits.
+    return [str(node_executable), "--import", "tsx", str(script),
+            "--execute-reviewed-manifest", str(manifest_path), "--manifest-sha256", manifest_sha256]
+
+
 def wait_for_proof(child, started, seconds, reserve=None):
     """Stop pooled work early, retaining cleanup time inside the hard bound."""
     termination = reserve["terminationSeconds"] if reserve else 5
@@ -266,17 +288,14 @@ def execute(args):
     report = Path(manifest["reportDir"])
     if path != report / "manifest.json":
         raise ValueError("Manifest moved")
-    env = {key: os.environ[key] for key in SAFE_ENV if key in os.environ}
-    env["DOTENV_CONFIG_PATH"] = os.devnull
+    env = execution_environment(manifest["mode"], manifest["runtime"])
     if manifest["mode"] == "disposable":
         image = command("docker", "image", "inspect", "postgres:16", "--format", "{{.Id}}")
         if image != manifest["postgresImageId"]:
             raise ValueError("Installed disposable image differs from review; nothing launched")
         argv = [sys.executable, "scripts/qa/test-local.py", "--report-dir", str(report / "disposable")]
     else:
-        argv = ["node", "node_modules/tsx/dist/cli.mjs", "--tsconfig", "tsconfig.json",
-                "scripts/qa/ebook-pooled-proof.ts", "--execute-reviewed-manifest", str(path),
-                "--manifest-sha256", args.manifest_sha256]
+        argv = pooled_argv(manifest["runtime"]["nodeExecutable"], path, args.manifest_sha256)
     started = time.monotonic()
     outcome = {"status": "failed", "manifestSha256": args.manifest_sha256,
                "source": manifest["source"], "mode": manifest["mode"]}

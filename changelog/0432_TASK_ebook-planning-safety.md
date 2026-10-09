@@ -92,3 +92,17 @@ manifest still require independent review; no live proof has executed.
 Revised harness verification: 10/10 TypeScript guard cases and 6/6 pure Python
 guard cases passed. Application and harness TypeScript checks and targeted
 harness/test ESLint passed. Passed implementation gates were not rerun.
+
+Independent harness review confirmed the remaining tsx@4.21.0 CLI relay can
+SIGKILL its child after two 30ms acknowledgement waits. The wrapper now starts
+the pinned Node executable directly with --import tsx and explicit
+TSX_TSCONFIG_PATH. Runtime fingerprints include the executable path/bytes and
+tsconfig path/bytes. A real tiny local Node-child regression uses the production
+argv/environment helpers, resolves a source alias through the pinned config,
+blocks acknowledgement for 500ms, and completes a delayed after-finally marker
+inside the reserved cleanup window. All 7 Python wrapper guard tests passed;
+this regression made no database/AWS/container/browser/build call. The frozen
+f0f49793 manifest 23e41a893c0696b75a44645684bcaddfb3188ce52c0e51412acf25e9d2a4b85b
+remains unchanged for review provenance. The approved implementation and pooled
+proof controls are unchanged; the direct-launch checkpoint/manifest need fresh
+independent approval before any live proof.
