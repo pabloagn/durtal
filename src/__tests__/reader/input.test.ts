@@ -30,6 +30,9 @@ beforeEach(() => {
     contents: fn(),
     settings: fn(),
     fullscreen: fn(),
+    goto: fn(),
+    chapter: fn(),
+    shortcuts: fn(),
     escape: fn(),
     activity: fn(),
     pointer: fn(),
@@ -146,15 +149,15 @@ describe("keys", () => {
     const always = vi.fn();
     const withSelection = vi.fn();
     const offAlways = registerReaderKey("q", always);
-    const offSelection = registerReaderKey("w", withSelection, {
+    const offSelection = registerReaderKey("x", withSelection, {
       when: "selection",
     });
     key("q");
-    key("w");
+    key("x");
     expect(always).toHaveBeenCalledTimes(1);
     expect(withSelection).not.toHaveBeenCalled();
     selection = true;
-    expect(key("w").defaultPrevented).toBe(true);
+    expect(key("x").defaultPrevented).toBe(true);
     expect(withSelection).toHaveBeenCalledTimes(1);
     offAlways();
     offSelection();

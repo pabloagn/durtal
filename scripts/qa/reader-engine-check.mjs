@@ -44,6 +44,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { checkNavigation } from "./reader-navigation-checks.mjs";
 
 const args = process.argv.slice(2);
 const option = (name, fallback) => {
@@ -52,7 +53,7 @@ const option = (name, fallback) => {
 };
 const base = option("--base", "http://127.0.0.1:3410").replace(/\/$/, "");
 const browsers = option("--browsers", "chromium,webkit,firefox").split(",");
-const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "dialogs", "endurance"];
+const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "dialogs", "navigation", "endurance"];
 // endurance needs the large fixtures: it runs only when asked for
 const only = option("--only", CHECKS.filter((c) => c !== "endurance").join(",")).split(",");
 
@@ -400,7 +401,7 @@ async function checkBars(name, browser) {
 }
 
 async function checkDialogs(name, browser) {
-  const context = await browser.newContext(desktop);
+  const context = await browser.newContext(phone(name));
   const page = await context.newPage();
   await open(page, 1);
   for (const label of ["Contents", "Settings"]) {
@@ -477,6 +478,23 @@ const RUN = {
   touch: checkTouch,
   bars: checkBars,
   dialogs: checkDialogs,
+  navigation: async (name, browser) => {
+    for (const width of WIDTHS) {
+      const context = await browser.newContext(width === 390 ? phone(name) : { viewport: { width, height: 900 } });
+      const page = await context.newPage();
+      try {
+        await checkNavigation({
+          historyFixture: 19,
+          open: n => open(page, n),
+          evaluate: expression => page.evaluate(expression),
+          fill: text => page.locator("dialog[open] input").fill(text),
+          key: (key, _code, modifiers = 0) => page.keyboard.press((modifiers & 1 ? "Alt+" : "") + key),
+        });
+        record(name, "navigation", width + " contents, pages, notes, history and ends", true);
+      } catch (error) { record(name, "navigation", width + " functional assertions", false, error.message); }
+      finally { await context.close(); }
+    }
+  },
   endurance: checkEndurance,
 };
 

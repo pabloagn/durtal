@@ -15,6 +15,8 @@
  * one page per gesture.
  */
 
+import { READER_KEYMAP, readerKey, type ReaderShortcut } from "./keymap";
+
 export interface ReaderActions {
   next(): void;
   prev(): void;
@@ -27,6 +29,9 @@ export interface ReaderActions {
   contents(): void;
   settings(): void;
   fullscreen(): void;
+  goto?(): void;
+  chapter?(direction: -1 | 1): void;
+  shortcuts?(): void;
   /** Esc: closes the open panel, else leaves full screen */
   escape(): void;
   /** Any input that is reading: a turn, a key, a tap */
@@ -50,6 +55,7 @@ type KeyWhen = "always" | "selection";
 interface RegisteredKey {
   handler: (event: KeyboardEvent) => void;
   when: KeyWhen;
+  label?: string;
 }
 
 const RESERVED_KEYS = new Set([
@@ -71,6 +77,47 @@ const RESERVED_KEYS = new Set([
 ]);
 
 const registry = new Map<string, Set<RegisteredKey>>();
+let coreKeys: string[] = [];
+let shortcutSnapshot: readonly ReaderShortcut[] = [];
+const shortcutSubscribers = new Set<() => void>();
+function updateShortcuts() {
+  const core = coreKeys
+    .map((key) => readerKey(key))
+    .filter((item): item is ReaderShortcut => !!item);
+  const plugins = [...registry].flatMap(([key, set]) =>
+    [...set].map(
+      (entry) =>
+        ({
+          key,
+          label: entry.label ?? key,
+          group: "Plugins",
+          issue: 4,
+          context: entry.when,
+          plugin: true,
+        }) satisfies ReaderShortcut,
+    ),
+  );
+  shortcutSnapshot = [...core, ...plugins];
+  shortcutSubscribers.forEach((fn) => fn());
+}
+export const subscribeReaderShortcuts = (fn: () => void) => {
+  shortcutSubscribers.add(fn);
+  return () => {
+    shortcutSubscribers.delete(fn);
+  };
+};
+export const getReaderShortcuts = () => shortcutSnapshot;
+export function registerCoreReaderShortcuts(keys: string[]) {
+  const own = keys;
+  coreKeys = own;
+  updateShortcuts();
+  return () => {
+    if (coreKeys === own) {
+      coreKeys = [];
+      updateShortcuts();
+    }
+  };
+}
 
 /**
  * A key for the reader beyond its own (sub-issue 4 passes plug-in shortcuts
@@ -80,21 +127,30 @@ const registry = new Map<string, Set<RegisteredKey>>();
 export function registerReaderKey(
   key: string,
   handler: (event: KeyboardEvent) => void,
-  options: { when?: KeyWhen } = {},
+  options: { when?: KeyWhen; label?: string } = {},
 ): () => void {
   key = key.toLowerCase();
-  if (RESERVED_KEYS.has(key)) {
+  if (
+    RESERVED_KEYS.has(key) ||
+    READER_KEYMAP.some((item) => item.key === key && !item.plugin)
+  ) {
     if (process.env.NODE_ENV !== "production")
       throw new Error(`Reader reserves ${key}`);
     return () => {};
   }
-  const entry: RegisteredKey = { handler, when: options.when ?? "always" };
+  const entry: RegisteredKey = {
+    handler,
+    when: options.when ?? "always",
+    label: options.label,
+  };
   const set = registry.get(key) ?? new Set<RegisteredKey>();
   set.add(entry);
   registry.set(key, set);
+  updateShortcuts();
   return () => {
     set.delete(entry);
     if (!set.size) registry.delete(key);
+    updateShortcuts();
   };
 }
 
@@ -104,6 +160,8 @@ export function isEditableTarget(target: EventTarget | null): boolean {
     | (Element & { isContentEditable?: boolean; type?: string })
     | null;
   if (!el || el.nodeType !== 1) return false;
+  if (el.closest('[role="tree"], [role="slider"], [data-reader-widget]'))
+    return true;
   if (el.isContentEditable) return true;
   const role = el.getAttribute("role");
   if (
@@ -208,20 +266,28 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
     const el = target as Element | null;
     if (!el || el.nodeType !== 1) return false;
     return !!el.closest(
-      "a[href], button, input, select, textarea, label, summary, [role=button], [role=dialog], dialog, [data-reader-chrome]",
+      "a[href], button, input, select, textarea, label, summary, [role=button], [role=dialog], [role=slider], [role=tree], dialog, [data-reader-chrome]",
     );
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
     actions.activity?.("key");
+    if (event.defaultPrevented || event.isComposing) return;
+    // Chapters use event.key on AltGr layouts. Browser Cmd/Ctrl brackets remain untouched.
     if (
-      event.defaultPrevented ||
-      event.isComposing ||
-      event.metaKey ||
-      event.ctrlKey ||
-      event.altKey
-    )
+      ["[", "]"].includes(event.key) &&
+      !event.metaKey &&
+      (!event.ctrlKey || event.getModifierState("AltGraph")) &&
+      !options.isBlocked() &&
+      !isEditableTarget(event.target)
+    ) {
+      if (actions.chapter) {
+        event.preventDefault();
+        actions.chapter(event.key === "]" ? 1 : -1);
+      }
       return;
+    }
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.key === "Escape") {
       // A dialog closes itself; the reader's Esc is for when none is open
       if (options.isBlocked()) return;
@@ -288,11 +354,18 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
         event.preventDefault();
         return actions.last();
     }
+    if (event.key === "?" && !event.repeat && actions.shortcuts) {
+      event.preventDefault();
+      actions.shortcuts();
+      return;
+    }
     if (event.shiftKey || event.repeat) return;
     const single: Record<string, () => void> = {
       t: actions.contents,
       s: actions.settings,
       f: actions.fullscreen,
+      ...(actions.goto ? { g: actions.goto } : {}),
+      ...(actions.shortcuts ? { "?": actions.shortcuts } : {}),
     };
     const action = single[event.key.toLowerCase()];
     if (action && event.key.length === 1) {
@@ -304,7 +377,11 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
 
   const attach = (doc: Document) => {
     const onTouchStart = (event: TouchEvent) => {
-      if (event.touches.length !== 1) {
+      if (
+        event.touches.length !== 1 ||
+        options.isBlocked() ||
+        interactive(event.target)
+      ) {
         touchStart = null;
         return;
       }
@@ -326,7 +403,13 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
       const start = touchStart;
       touchStart = null;
       lastTouchEnd = now();
-      if (!start || event.touches.length) return;
+      if (
+        !start ||
+        event.touches.length ||
+        options.isBlocked() ||
+        interactive(event.target)
+      )
+        return;
       const touch = event.changedTouches[0];
       if (!touch) return;
       const dx = touch.clientX - start.x;
@@ -347,12 +430,19 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
     };
     const onClick = (event: MouseEvent) => {
       if (event.button !== 0 || event.defaultPrevented) return;
+      if (options.isBlocked()) return;
       if (now() - lastTouchEnd < GHOST_CLICK_MS) return;
       if (interactive(event.target) || selectionIn(doc)) return;
       zoneTap(doc, event.clientX);
     };
     const onWheel = (event: WheelEvent) => {
-      if (options.isBlocked() || event.ctrlKey) return;
+      if (
+        options.isBlocked() ||
+        event.ctrlKey ||
+        event.defaultPrevented ||
+        interactive(event.target)
+      )
+        return;
       const delta =
         Math.abs(event.deltaY) >= Math.abs(event.deltaX)
           ? event.deltaY

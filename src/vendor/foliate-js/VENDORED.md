@@ -52,6 +52,12 @@ Each patch is marked in the code with a `Durtal patch N (VENDORED.md)` comment.
 5. `pdf.js`: the two layer stylesheets are fetched together as pdf.js loads,
    not one after the other once the first page is ready to draw.
 
+6. `mobi.js`, `fb2.js`: expose each section's existing serialized text as
+   `loadText()`. The navigation index scans it in bounded slices without
+   creating another whole-section DOM. KF8 retains raw fragment identifiers
+   alongside its existing selectors, so Kindle-addressed contents anchors
+   use their markup offsets too.
+
 ## Updating
 
 Copy the files above from the new commit, apply the patches again, update

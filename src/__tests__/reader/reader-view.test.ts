@@ -9,9 +9,6 @@ vi.mock("@/lib/reader/engines/foliate/engine", () => ({
 vi.mock("@/lib/reader/engines/foliate/preload", () => ({
   preloadFoliate: () => Promise.resolve(),
 }));
-vi.mock("@/components/reader/contents-dialog", () => ({
-  ContentsDialog: () => null,
-}));
 vi.mock("@/components/reader/settings-dialog", () => ({
   SettingsDialog: () => null,
 }));
@@ -118,10 +115,51 @@ const button = (text: string) =>
   )!;
 const settle = () =>
   act(async () => {
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+    for (let n = 0; n < 3; n++)
+      await new Promise((resolve) => requestAnimationFrame(resolve));
     await Promise.resolve();
   });
 describe("reader view with a real bridge and fake engine", () => {
+  it("uses the same non-linear note projection in UI, bridge and saved locator", async () => {
+    await render();
+    await settle();
+    report.mockClear();
+    const note = {
+      ...own.locator,
+      href: "notes.xhtml#note",
+      sectionIndex: 9,
+      progression: 0.9,
+      cfi: "note-cfi",
+      pageLabel: "57",
+    };
+    fake.engine.goTo.mockImplementationOnce(async (_target, owner) => {
+      fake.emit("relocate", {
+        locator: note,
+        chapter: "Notes",
+        reason: "jump",
+        atEnd: false,
+        tocItem: null,
+        visibleChars: 300,
+        linear: false,
+        paginated: true,
+        navigationId: owner?.id,
+      });
+    });
+    act(() => fake.emit("link", { href: note.href, external: false }));
+    await settle();
+    expect(host.querySelector("[data-reader-probe]")?.textContent).toBe("40");
+    expect(host.textContent).toContain("Outside the reading order");
+    expect(report).toHaveBeenCalledWith(
+      "location",
+      expect.objectContaining({ locator: note, percent: 40, kind: "jump" }),
+    );
+    expect(
+      report.mock.calls.some(([name]) => name === "end" || name === "activity"),
+    ).toBe(false);
+    act(() => window.dispatchEvent(new Event("pagehide")));
+    const body = vi.mocked(navigator.sendBeacon).mock.calls.at(-1)?.[1] as Blob;
+    expect(JSON.parse(await body.text()).locator).toEqual(note);
+  });
   it("opens at this device's place, offers without a jump, and Go there emits a jump", async () => {
     await render();
     expect(fake.engine.open.mock.calls[0][1].at).toEqual(own.locator);
@@ -134,7 +172,10 @@ describe("reader view with a real bridge and fake engine", () => {
     );
     act(() => button("Go there").click());
     await settle();
-    expect(fake.engine.goTo).toHaveBeenCalledWith(other.locator);
+    expect(fake.engine.goTo).toHaveBeenCalledWith(
+      other.locator,
+      expect.objectContaining({ id: 1, signal: expect.any(AbortSignal) }),
+    );
     expect(report).toHaveBeenCalledWith(
       "location",
       expect.objectContaining({ kind: "jump", percent: 70 }),
@@ -175,7 +216,10 @@ describe("reader view with a real bridge and fake engine", () => {
     await render(own, own, pdf);
     expect(host.textContent).toContain("About 70%");
     act(() => button("Go there").click());
-    expect(fake.engine.goTo).toHaveBeenCalledWith({ fraction: 0.7 });
+    expect(fake.engine.goTo).toHaveBeenCalledWith(
+      { fraction: 0.7 },
+      expect.objectContaining({ id: 1, signal: expect.any(AbortSignal) }),
+    );
     expect(mocks.factory).toHaveBeenCalledOnce();
   });
   it("a never-opened device starts at the other place and fades its quiet notice", async () => {

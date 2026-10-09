@@ -735,6 +735,8 @@ class MOBI6 {
             id: index,
             load: () => this.loadSection(section),
             createDocument: () => this.createDocument(section),
+            // Durtal patch 6 (VENDORED.md): raw text for bounded idle indexing.
+            loadText: () => this.loadText(section),
             size: section.end - section.start,
         }))
 
@@ -967,6 +969,8 @@ class KF8 {
     #cache = new Map()
     #fragmentOffsets = new Map()
     #fragmentSelectors = new Map()
+    // Durtal patch 6 (VENDORED.md): raw identifiers for the navigation index.
+    #fragmentIdentifiers = new Map()
     #tables = {}
     #sections
     #fullRawLength
@@ -1046,6 +1050,8 @@ class KF8 {
                 id: index,
                 load: () => this.loadSection(section),
                 createDocument: () => this.createDocument(section),
+                // Durtal patch 6 (VENDORED.md): raw text for bounded idle indexing.
+                loadText: () => this.loadText(section),
                 size: section.length,
                 pageSpread: pageSpreads.get(index),
             }) : ({ linear: 'no' }))
@@ -1198,7 +1204,7 @@ class KF8 {
             if (offsets) for (const offset of offsets) {
                 const str = this.mobi.decode(fragRaw.slice(offset))
                 const selector = getFragmentSelector(str)
-                this.#setFragmentSelector(frag.index, offset, selector)
+                this.#setFragmentSelector(frag.index, offset, selector, str)
             }
         }
         return this.mobi.decode(skeleton)
@@ -1231,7 +1237,10 @@ class KF8 {
         return this.#sections.findIndex(section =>
             section.frags.some(frag => frag.index === fid))
     }
-    #setFragmentSelector(id, offset, selector) {
+    #setFragmentSelector(id, offset, selector, raw) {
+        // Durtal patch 6 (VENDORED.md): retain the unescaped markup identifier.
+        const identifier = raw?.match(/\s(?:id|name|aid)\s*=\s*['"]([^'"]*)['"]/i)?.[1]
+        if (identifier) this.#fragmentIdentifiers.set(`${id}:${offset}`, identifier)
         const map = this.#fragmentSelectors.get(id)
         if (map) map.set(offset, selector)
         else {
@@ -1254,7 +1263,7 @@ class KF8 {
         const fragRaw = await this.loadRaw(offset, offset + frag.length)
         const str = this.mobi.decode(fragRaw.slice(off))
         const selector = getFragmentSelector(str)
-        this.#setFragmentSelector(fid, off, selector)
+        this.#setFragmentSelector(fid, off, selector, str)
         const anchor = doc => doc.querySelector(selector)
         return { index, anchor }
     }
@@ -1266,6 +1275,10 @@ class KF8 {
     getTOCFragment(doc, { fid, off }) {
         const selector = this.#fragmentSelectors.get(fid)?.get(off)
         return doc.querySelector(selector)
+    }
+    // Durtal patch 6 (VENDORED.md): populated by loadText(), without another DOM.
+    indexFragment({ fid, off }) {
+        return this.#fragmentIdentifiers.get(`${fid}:${off}`) ?? ''
     }
     isExternal(uri) {
         return /^(?!blob|kindle)\w+:/i.test(uri)

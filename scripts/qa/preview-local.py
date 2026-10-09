@@ -174,6 +174,9 @@ READER_EBOOKS = [
     ("00000000-0000-4000-a000-000000000011", "scripted.epub", "epub", "standalone", None, None),
     ("00000000-0000-4000-a000-000000000012", "corrupt.epub", "epub", "standalone", None, None),
     ("00000000-0000-4000-a000-000000000013", "drm.epub", "epub", "pending", None, "adobe-adept"),
+    ("00000000-0000-4000-a000-000000000019", "nav-pagelist.epub", "epub", "standalone", None, None),
+    ("00000000-0000-4000-a000-000000000020", "nav-pagemap.epub", "epub", "standalone", None, None),
+    ("00000000-0000-4000-a000-000000000021", "nav-no-contents.epub", "epub", "standalone", None, None),
 ]
 # The large ones, from --reader-large DIR, all standalone
 READER_LARGE = [
@@ -194,6 +197,9 @@ READER_TITLES = {
     "typical-5mb.epub": ("The Ordinary Year", "en"), "illustrated-50mb.epub": ("The Painted Field", "en"),
     "scanned-300mb.pdf": ("The Scanned Ledger", "en"), "long-2000-pages.epub": ("The Long Road", "en"),
     "single-2mb-chapter.epub": ("The One Room", "en"),
+    "nav-pagelist.epub": ("Là-bas — navigation", "fr"),
+    "nav-pagemap.epub": ("Là-bas — page map", "fr"),
+    "nav-no-contents.epub": ("Là-bas — sections", "fr"),
 }
 READER_TYPES = {
     "epub": "application/epub+zip", "pdf": "application/pdf", "mobi": "application/x-mobipocket-ebook",

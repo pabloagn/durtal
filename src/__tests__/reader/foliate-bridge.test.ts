@@ -8,18 +8,33 @@ import {
   it,
   vi,
 } from "vitest";
+import type {
+  FoliateBook,
+  FoliateProgress,
+} from "@/lib/reader/engines/foliate/foliate";
+const fixtures = vi.hoisted(() => ({
+  book: null as FoliateBook | null,
+  loadText: vi.fn(
+    async () => '<page-map><page name="xii" href="a#p12"/></page-map>',
+  ),
+}));
 vi.mock("@/vendor/foliate-js/vendor/zip.js", () => ({}));
 vi.mock("@/lib/reader/engines/foliate/zip-reader", () => ({
-  makeRangeZipLoader: async () => ({ entries: [] }),
+  makeRangeZipLoader: async () => ({
+    entries: [],
+    loadText: fixtures.loadText,
+  }),
 }));
 vi.mock("@/vendor/foliate-js/epub.js", () => ({
   EPUB: class {
     async init() {
-      return {
-        sections: [{ id: "chapter", size: 100, linear: "yes" }],
-        metadata: { title: "Test" },
-        resolveHref: () => ({ index: 0 }),
-      };
+      return (
+        fixtures.book ?? {
+          sections: [{ id: "chapter", size: 100, linear: "yes" }],
+          metadata: { title: "Test" },
+          resolveHref: () => ({ index: 0 }),
+        }
+      );
     }
   },
 }));
@@ -38,8 +53,12 @@ class TestView extends HTMLElement {
     atEnd: false,
     getContents: () => [{ doc: this.frame.contentDocument!, index: 0 }],
     setStyles() {},
+    goTo: async (target: { index: number; anchor?: unknown }) => {
+      this.renderer.atEnd = target.anchor === 1;
+      this.report("anchor", target.anchor === 1 ? 1 : 0, target.index);
+    },
   });
-  lastLocation = null;
+  lastLocation: FoliateProgress | null = null;
   async open() {
     this.append(this.renderer);
     this.renderer.append(this.frame);
@@ -51,17 +70,18 @@ class TestView extends HTMLElement {
       }),
     );
   }
-  report(reason: string, fraction = 0.4) {
+  report(reason: string, fraction = 0.4, index = 0) {
+    this.lastLocation = {
+      reason,
+      fraction,
+      index,
+      sectionFraction: fraction,
+      cfi: "cfi" + fraction,
+      range: null,
+    };
     this.dispatchEvent(
       new CustomEvent("relocate", {
-        detail: {
-          reason,
-          fraction,
-          index: 0,
-          sectionFraction: fraction,
-          cfi: `cfi${fraction}`,
-          range: null,
-        },
+        detail: this.lastLocation,
       }),
     );
   }
@@ -89,8 +109,17 @@ class TestView extends HTMLElement {
   getCFI() {
     return "epubcfi(selection)";
   }
-  resolveNavigation() {
-    return { index: 0 };
+  getProgressOf() {
+    return {
+      tocItem: { label: "Selected chapter" },
+      pageItem: { label: "xii" },
+    };
+  }
+  resolveNavigation(target?: unknown) {
+    return {
+      index:
+        target === "notes-cfi" ? 2 : typeof target === "number" ? target : 0,
+    };
   }
   close() {}
 }
@@ -100,6 +129,8 @@ beforeAll(() => {
     customElements.define("foliate-view", TestView);
 });
 beforeEach(async () => {
+  fixtures.book = null;
+  fixtures.loadText.mockClear();
   host = document.createElement("div");
   document.body.append(host);
   engine = createFoliateEngine();
@@ -126,6 +157,108 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("foliate bridge adapter", () => {
+  const withNotes = async (
+    at?: import("@/lib/reader/engine").DurtalLocator,
+    book?: FoliateBook,
+  ) => {
+    engine.destroy();
+    fixtures.book = book ?? {
+      sections: [
+        { id: "a", size: 6000 },
+        { id: "b", size: 9000 },
+        { id: "notes", size: 2000, linear: "no" },
+      ],
+      resolveHref: (href) => ({
+        index: href.startsWith("notes") ? 2 : href.startsWith("b") ? 1 : 0,
+      }),
+    };
+    engine = createFoliateEngine();
+    await engine.open(
+      {
+        ebookId: "book",
+        fileId: "epub",
+        format: "epub",
+        size: 1000,
+        sha256: "a".repeat(64),
+        url: "/unused",
+        fallbackUrl: "/unused",
+      },
+      {
+        container: host,
+        presentation: presentationFrom(
+          READER_DEFAULTS,
+          resolveThemeColors(),
+          "",
+        ),
+        at,
+      },
+    );
+    view = host.querySelector("foliate-view") as TestView;
+  };
+  it("keeps an existing page list ahead of Adobe fallback, and loads the map before opening otherwise", async () => {
+    const book: FoliateBook = {
+      sections: [{ id: "a", size: 100 }],
+      resolveHref: () => ({ index: 0 }),
+      pageList: [{ label: "57", href: "a#p57" }],
+      resources: {
+        opf: new DOMParser().parseFromString(
+          '<package><spine page-map="map"/></package>',
+          "application/xml",
+        ),
+        manifest: [],
+        getItemByID: () => ({ href: "maps/pages.xml" }),
+      },
+    };
+    await withNotes(undefined, book);
+    expect(fixtures.loadText).not.toHaveBeenCalled();
+    expect(book.pageList?.[0].label).toBe("57");
+    book.pageList = [];
+    await withNotes(undefined, book);
+    expect(fixtures.loadText).toHaveBeenCalledWith("maps/pages.xml");
+    expect(book.pageList).toEqual([
+      { label: "xii", href: "maps/a#p12", subitems: [] },
+    ]);
+  });
+  it("retains the linear projection in real note locators and rehydrates it before the note anchor", async () => {
+    await withNotes();
+    view.report("page", 0.42, 0);
+    const seen = vi.fn();
+    engine.on("relocate", seen);
+    view.report("anchor", 1, 2);
+    expect(engine.currentLocator()).toMatchObject({
+      href: "notes",
+      sectionIndex: 2,
+      progression: 1,
+      totalProgression: 0.42,
+    });
+    expect(seen).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        linear: false,
+        atEnd: false,
+        locator: expect.objectContaining({ totalProgression: 0.42 }),
+      }),
+    );
+    const saved = { ...engine.currentLocator()!, cfi: "notes-cfi" };
+    await withNotes(saved);
+    expect(engine.currentLocator()).toMatchObject({
+      sectionIndex: 2,
+      totalProgression: 0.42,
+    });
+  });
+  it("targets the actual final page of the last linear section for 100% and propagates renderer failure", async () => {
+    await withNotes();
+    const go = vi.spyOn(view.renderer, "goTo");
+    const seen = vi.fn();
+    engine.on("relocate", seen);
+    await engine.lastPage({ id: 7, signal: new AbortController().signal });
+    expect(go).toHaveBeenCalledWith({ index: 1, anchor: 1 });
+    expect(engine.currentLocator()?.totalProgression).toBe(1);
+    expect(seen).toHaveBeenLastCalledWith(
+      expect.objectContaining({ atEnd: true, navigationId: 7 }),
+    );
+    go.mockRejectedValueOnce(new Error("renderer failed"));
+    await expect(engine.goTo({ href: "b" })).rejects.toThrow("renderer failed");
+  });
   it("keeps page/snap/scroll turns and classifies direct link/history anchor relocates as jumps", async () => {
     const seen = vi.fn();
     engine.on("relocate", seen);
@@ -191,6 +324,10 @@ describe("foliate bridge adapter", () => {
     expect(seen.mock.calls[0][0].locator.text.highlight).toBe(
       range.toString().trim(),
     );
+    expect(seen.mock.calls[0][0].locator).toMatchObject({
+      pageLabel: "xii",
+      tocLabel: "Selected chapter",
+    });
     expect(seen.mock.calls[0][0].locator.text.after).toBe(
       (text.textContent ?? "").slice(131),
     );

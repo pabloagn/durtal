@@ -19,7 +19,11 @@ import {
   type ReaderSlot,
 } from "@/lib/reader/bridge-state";
 import type { ReaderContext, ReaderEvents } from "@/lib/reader/events";
-import { registerReaderKey } from "@/lib/reader/input";
+import {
+  registerReaderKey,
+  getReaderShortcuts,
+  subscribeReaderShortcuts,
+} from "@/lib/reader/input";
 
 const Bridge = createContext<ReaderBridgeController | null>(null);
 const Order = createContext(0);
@@ -100,7 +104,7 @@ export function useReaderContext(): ReaderContext {
 export function useReaderShortcut(
   key: string,
   handler: (event: KeyboardEvent) => void,
-  options: { when?: "always" | "selection" } = {},
+  options: { when?: "always" | "selection"; label?: string } = {},
 ) {
   const bridge = useBridge();
   const latest = useRef(handler);
@@ -108,6 +112,7 @@ export function useReaderShortcut(
     latest.current = handler;
   });
   const when = options.when;
+  const label = options.label;
   useEffect(
     () =>
       registerReaderKey(
@@ -116,9 +121,24 @@ export function useReaderShortcut(
           if (when !== "selection" || bridge.getSnapshot().selection)
             latest.current(event);
         },
-        { when },
+        { when, label },
       ),
-    [bridge, key, when],
+    [bridge, key, when, label],
+  );
+}
+export function useReaderSlotFilled(slot: ReaderSlot): boolean {
+  const bridge = useBridge();
+  return useSyncExternalStore(
+    bridge.subscribeSlots,
+    bridge.getSlots,
+    bridge.getSlots,
+  )[slot];
+}
+export function useReaderShortcutList() {
+  return useSyncExternalStore(
+    subscribeReaderShortcuts,
+    getReaderShortcuts,
+    getReaderShortcuts,
   );
 }
 export function ReaderSlotFill({
