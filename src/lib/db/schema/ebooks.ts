@@ -29,7 +29,7 @@ export const ebooks = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     title: text("title").notNull(),
-    /** Normalised for natural sort */
+    /** Database-owned natural key, ordered with C collation (migration 0084). */
     titleSort: text("title_sort"),
     subtitle: text("subtitle"),
     /** In natural order: "Jorge Luis Borges" */
@@ -101,6 +101,9 @@ export const ebooks = pgTable(
       .where(sql`${t.importRef} is not null`),
     index("ebooks_isbns_idx").using("gin", t.isbns),
     index("ebooks_search_text_trgm_idx").using("gin", t.searchText.op("gin_trgm_ops")),
+    index("ebooks_state_title_sort_idx").on(t.matchState, sql`${t.titleSort} collate "C"`, t.id),
+    index("ebooks_created_at_idx").on(t.createdAt.desc()),
+    index("ebooks_active_title_sort_idx").on(sql`${t.titleSort} collate "C"`, t.id).where(sql`${t.matchState} <> 'excluded'`),
   ],
 );
 
