@@ -1,17 +1,40 @@
 import { createHash, randomUUID } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { and, eq, inArray, lt, ne, sql } from "drizzle-orm";
 import type { Db } from "@/lib/catalogue/work-store";
 import { ebookFiles, ebookIngestItems, ebookIngestRuns } from "@/lib/db/schema";
-import type { IngestOutcome, IngestReconciliation } from "@/lib/db/schema/ebook-ingest";
+import type {
+  IngestOutcome,
+  IngestReconciliation,
+} from "@/lib/db/schema/ebook-ingest";
 import { recentBackup } from "@/lib/enrichment/backup";
-import { appendUndoLog, readUndoLog, reserveUndoLog } from "@/lib/books/undo-file";
+import {
+  appendUndoLog,
+  readUndoLog,
+  reserveUndoLog,
+} from "@/lib/books/undo-file";
 import { storable, storableText } from "./metadata";
 import { derivedCachePath } from "./prepare";
-import { INGEST_TOOL_VERSION, type IngestPlan, type PlanGroup, type PlanTarget } from "./plan";
-import { readGroupCatalogue, planRegistration, registerGroup, undoEntry } from "./register";
+import {
+  INGEST_TOOL_VERSION,
+  type IngestPlan,
+  type PlanGroup,
+  type PlanTarget,
+} from "./plan";
+import {
+  readGroupCatalogue,
+  planRegistration,
+  registerGroup,
+  undoEntry,
+} from "./register";
 import { reconcileIngest } from "./reconcile";
 import { reconcileReport } from "./report";
 import { storeObject } from "./store";
@@ -19,6 +42,18 @@ import { objectMatches } from "../storage";
 import { isLegacyFileKey } from "../keys";
 import { medallionOf } from "../medallion";
 import { validateStagePlan, verifyPublication } from "../publication";
+import { withReadOnlyPlanningConnection } from "@/lib/enrichment/read-only-session";
+import { databaseFingerprint } from "./command";
+import { clusterGroups } from "./group-clusters";
+import {
+  requireApprovedGroupPlan,
+  planApprovedGroupsOn,
+  applyApprovedGroups,
+} from "../match/apply-groups";
+import {
+  registeredIngestionGroupsOn,
+  ingestionMatchingInputHash,
+} from "../match/ingest-adapter";
 
 export { planIngest } from "./plan";
 
@@ -43,6 +78,8 @@ export const MAX_ATTEMPTS = 5;
 
 export interface ApplyOptions {
   database: Db;
+  /** Required for matching: a separate protected repeatable-read planner. */
+  planningDatabaseUrl?: string;
   host: string;
   cacheDir: string;
   /** The current target: the plan must have been made against it */
@@ -88,12 +125,22 @@ const FAILURE_MESSAGE_MAX = 500;
  */
 export function failureMessage(error: unknown): string {
   let current = error;
-  for (let depth = 0; depth < 5 && current instanceof Error && current.message.startsWith("Failed query:") && current.cause; depth++) current = current.cause;
+  for (
+    let depth = 0;
+    depth < 5 &&
+    current instanceof Error &&
+    current.message.startsWith("Failed query:") &&
+    current.cause;
+    depth++
+  )
+    current = current.cause;
   const text =
     storableText(current instanceof Error ? current.message : String(current))
       .replace(/\s+/g, " ")
       .trim() || "Unknown error";
-  return text.length > FAILURE_MESSAGE_MAX ? `${text.slice(0, FAILURE_MESSAGE_MAX - 1)}…` : text;
+  return text.length > FAILURE_MESSAGE_MAX
+    ? `${text.slice(0, FAILURE_MESSAGE_MAX - 1)}…`
+    : text;
 }
 
 /**
@@ -109,8 +156,14 @@ export function planSha256(text: string): string {
 
 /** The version and target checks an apply and a resume share; throws the first that fails */
 function checkPlanTarget(plan: IngestPlan, target: PlanTarget) {
-  if (plan.v !== 1 || plan.toolVersion !== INGEST_TOOL_VERSION) throw new Error("The plan was made by another version of the tool: plan again. Nothing written.");
-  if (plan.target.database !== target.database) throw new Error("The plan was made against another database. Nothing written.");
+  if (plan.v !== 1 || plan.toolVersion !== INGEST_TOOL_VERSION)
+    throw new Error(
+      "The plan was made by another version of the tool: plan again. Nothing written.",
+    );
+  if (plan.target.database !== target.database)
+    throw new Error(
+      "The plan was made against another database. Nothing written.",
+    );
   if (
     plan.target.bucket !== target.bucket ||
     plan.target.prefix !== target.prefix ||
@@ -119,29 +172,80 @@ function checkPlanTarget(plan: IngestPlan, target: PlanTarget) {
     plan.target.credentialIdentity !== target.credentialIdentity ||
     plan.target.previewRoot !== target.previewRoot
   )
-    throw new Error("The plan was made against another bucket. Nothing written.");
+    throw new Error(
+      "The plan was made against another bucket. Nothing written.",
+    );
+  if (plan.matching) {
+    requireApprovedGroupPlan(plan.matching);
+    if (
+      plan.matching.plan.binding.inputPlanSha256 !==
+      ingestionMatchingInputHash(plan)
+    )
+      throw new Error(
+        "Matching approval differs from the frozen ingestion inputs. Nothing written.",
+      );
+  }
+}
+
+/** Both registration and matching must address the same database before any
+ * run, undo reservation or transfer can begin. */
+function checkMatchingConnection(plan: IngestPlan, options: ApplyOptions) {
+  if (
+    plan.matching &&
+    (!options.planningDatabaseUrl ||
+      databaseFingerprint(options.planningDatabaseUrl) !== options.target.database)
+  )
+    throw new Error(
+      "Matching requires a protected planning URL for the plan's database. Nothing written.",
+    );
 }
 
 /** Every check an apply makes before writing anything; throws the first that fails */
-export function checkApply(plan: IngestPlan, options: Pick<ApplyOptions, "target" | "backup" | "live" | "localDatabase"> & { now?: number }) {
+export function checkApply(
+  plan: IngestPlan,
+  options: Pick<
+    ApplyOptions,
+    "target" | "backup" | "live" | "localDatabase"
+  > & { now?: number },
+) {
   const now = options.now ?? Date.now();
   checkPlanTarget(plan, options.target);
-  if (!Number.isFinite(Date.parse(plan.createdAt)) || Date.parse(plan.createdAt) > now + 300_000) throw new Error("The plan has an invalid creation time: plan again. Nothing written.");
-  if (now - Date.parse(plan.createdAt) > PLAN_MAX_AGE_DAYS * 86_400_000) throw new Error(`The plan is older than ${PLAN_MAX_AGE_DAYS} days: plan again. Nothing written.`);
-  if (!recentBackup(options.backup, now)) throw new Error("--apply needs --backup FILE: a pg_dump custom-format backup taken in the last hour. Nothing written.");
-  if (!options.localDatabase && !options.live) throw new Error("This database is not a local preview: an apply to it needs --live. Nothing written.");
+  if (
+    !Number.isFinite(Date.parse(plan.createdAt)) ||
+    Date.parse(plan.createdAt) > now + 300_000
+  )
+    throw new Error(
+      "The plan has an invalid creation time: plan again. Nothing written.",
+    );
+  if (now - Date.parse(plan.createdAt) > PLAN_MAX_AGE_DAYS * 86_400_000)
+    throw new Error(
+      `The plan is older than ${PLAN_MAX_AGE_DAYS} days: plan again. Nothing written.`,
+    );
+  if (!recentBackup(options.backup, now))
+    throw new Error(
+      "--apply needs --backup FILE: a pg_dump custom-format backup taken in the last hour. Nothing written.",
+    );
+  if (!options.localDatabase && !options.live)
+    throw new Error(
+      "This database is not a local preview: an apply to it needs --live. Nothing written.",
+    );
 }
 
 /** Where an applied plan is kept, so a resume reads exactly what the run executed */
-const keptPlan = (cacheDir: string, sha256: string) => path.join(cacheDir, "plans", `${sha256}.json`);
+const keptPlan = (cacheDir: string, sha256: string) =>
+  path.join(cacheDir, "plans", `${sha256}.json`);
 
 /** Applies a plan: creates the run and its items, then stores and registers every group */
-export async function applyPlan(planFile: string, options: ApplyOptions): Promise<ApplyResult> {
+export async function applyPlan(
+  planFile: string,
+  options: ApplyOptions,
+): Promise<ApplyResult> {
   const text = readFileSync(planFile, "utf8");
   const plan = readPlan(text);
   const now = options.now ?? Date.now;
   checkApply(plan, { ...options, now: now() });
   for (const file of Object.values(plan.files)) validateStagePlan(file);
+  checkMatchingConnection(plan, options);
   const sha = planSha256(text);
   mkdirSync(path.dirname(keptPlan(options.cacheDir, sha)), { recursive: true });
   copyFileSync(planFile, keptPlan(options.cacheDir, sha));
@@ -150,15 +254,31 @@ export async function applyPlan(planFile: string, options: ApplyOptions): Promis
   const runId = randomUUID();
   mkdirSync(options.reportDir, { recursive: true });
   const undoFile = path.join(options.reportDir, `ingest-undo-${runId}.jsonl`);
-  reserveUndoLog(undoFile, { runId, planSha256: sha, createdAt: at.toISOString() });
-  await options.database.insert(ebookIngestRuns).values({ id: runId, kind: "apply", host: plan.host, roots: plan.roots, planSha256: sha, toolVersion: INGEST_TOOL_VERSION, startedAt: at, updatedAt: at });
+  reserveUndoLog(undoFile, {
+    runId,
+    planSha256: sha,
+    createdAt: at.toISOString(),
+  });
+  await options.database
+    .insert(ebookIngestRuns)
+    .values({
+      id: runId,
+      kind: "apply",
+      host: plan.host,
+      roots: plan.roots,
+      planSha256: sha,
+      toolVersion: INGEST_TOOL_VERSION,
+      startedAt: at,
+      updatedAt: at,
+    });
   return continueRun(runId, plan, undoFile, options);
 }
 
 /** Idempotent initialization also recovers a crash between item batches. */
 async function ensureRunItems(runId: string, plan: IngestPlan, database: Db) {
   const rows = plan.items.map((item) => {
-    const settled = item.outcome === "ignored" || item.outcome === "duplicate_in_run";
+    const settled =
+      item.outcome === "ignored" || item.outcome === "duplicate_in_run";
     return {
       runId,
       sourceHost: plan.host,
@@ -173,10 +293,20 @@ async function ensureRunItems(runId: string, plan: IngestPlan, database: Db) {
     };
   });
   for (let i = 0; i < rows.length; i += 500)
-    await database.insert(ebookIngestItems).values(rows.slice(i, i + 500)).onConflictDoNothing({ target: [ebookIngestItems.runId, ebookIngestItems.sourcePath] });
+    await database
+      .insert(ebookIngestItems)
+      .values(rows.slice(i, i + 500))
+      .onConflictDoNothing({
+        target: [ebookIngestItems.runId, ebookIngestItems.sourcePath],
+      });
 }
 
-async function continueRun(runId: string, plan: IngestPlan, undoFile: string, options: ApplyOptions): Promise<ApplyResult> {
+async function continueRun(
+  runId: string,
+  plan: IngestPlan,
+  undoFile: string,
+  options: ApplyOptions,
+): Promise<ApplyResult> {
   try {
     options.onRunStarted?.(runId, undoFile);
     await ensureRunItems(runId, plan, options.database);
@@ -184,38 +314,95 @@ async function continueRun(runId: string, plan: IngestPlan, undoFile: string, op
   } catch (error) {
     // Best effort: a dead connection cannot mark itself interrupted. The run id
     // and reserved undo log still permit recovery once the database is back.
-    await options.database.update(ebookIngestRuns).set({ state: "interrupted", updatedAt: new Date(options.now?.() ?? Date.now()) }).where(eq(ebookIngestRuns.id, runId)).catch(() => {});
-    throw new Error(`Run ${runId} interrupted: ${failureMessage(error)}. Resume with --resume ${runId}; undo file: ${undoFile}`, { cause: error });
+    await options.database
+      .update(ebookIngestRuns)
+      .set({
+        state: "interrupted",
+        updatedAt: new Date(options.now?.() ?? Date.now()),
+      })
+      .where(eq(ebookIngestRuns.id, runId))
+      .catch(() => {});
+    throw new Error(
+      `Run ${runId} interrupted: ${failureMessage(error)}. Resume with --resume ${runId}; undo file: ${undoFile}`,
+      { cause: error },
+    );
   }
 }
 
 /** Carries on with a run's items that are not done, from the plan it executed */
-export async function resumeRun(runId: string, options: ApplyOptions): Promise<ApplyResult> {
-  const [run] = await options.database.select().from(ebookIngestRuns).where(eq(ebookIngestRuns.id, runId));
+export async function resumeRun(
+  runId: string,
+  options: ApplyOptions,
+): Promise<ApplyResult> {
+  const [run] = await options.database
+    .select()
+    .from(ebookIngestRuns)
+    .where(eq(ebookIngestRuns.id, runId));
   if (!run) throw new Error(`No run ${runId}. Nothing written.`);
-  if (run.kind !== "apply" || !run.planSha256) throw new Error("Only an apply can be resumed. Nothing written.");
-  if (run.state === "finished") throw new Error("The run finished: there is nothing to resume.");
-  if (run.host !== options.host) throw new Error(`Run ${runId} was made on ${run.host ?? "another machine"}; resume from there. Nothing written.`);
+  if (run.kind !== "apply" || !run.planSha256)
+    throw new Error("Only an apply can be resumed. Nothing written.");
+  if (run.state === "finished")
+    throw new Error("The run finished: there is nothing to resume.");
+  if (run.host !== options.host)
+    throw new Error(
+      `Run ${runId} was made on ${run.host ?? "another machine"}; resume from there. Nothing written.`,
+    );
   const file = keptPlan(options.cacheDir, run.planSha256);
-  if (!existsSync(file)) throw new Error(`The run's plan is not in ${path.dirname(file)}: resume on the machine that applied it. Nothing written.`);
+  if (!existsSync(file))
+    throw new Error(
+      `The run's plan is not in ${path.dirname(file)}: resume on the machine that applied it. Nothing written.`,
+    );
   const plan = readPlan(readFileSync(file, "utf8"));
   if (!recentBackup(options.backup, options.now?.() ?? Date.now()))
-    throw new Error("--resume needs --backup FILE: a pg_dump custom-format backup taken in the last hour. Nothing written.");
-  if (!options.localDatabase && !options.live) throw new Error("This database is not a local preview: a resume of it needs --live. Nothing written.");
+    throw new Error(
+      "--resume needs --backup FILE: a pg_dump custom-format backup taken in the last hour. Nothing written.",
+    );
+  if (!options.localDatabase && !options.live)
+    throw new Error(
+      "This database is not a local preview: a resume of it needs --live. Nothing written.",
+    );
   // A run made by another version of the tool is not resumed: a new plan adopts what it stored
   checkPlanTarget(plan, options.target);
+  checkMatchingConnection(plan, options);
   for (const file of Object.values(plan.files)) validateStagePlan(file);
-  if (planSha256(readFileSync(file, "utf8")) !== run.planSha256) throw new Error("The saved plan changed. Nothing written.");
+  if (planSha256(readFileSync(file, "utf8")) !== run.planSha256)
+    throw new Error("The saved plan changed. Nothing written.");
   const undoFile = path.join(options.reportDir, `ingest-undo-${run.id}.jsonl`);
-  if (!existsSync(undoFile)) throw new Error(`The run's undo file is missing: restore ${undoFile} before resuming. Nothing written.`);
-  const { header } = readUndoLog<{ runId: string; planSha256: string }, unknown>(undoFile);
-  if (header.runId !== run.id || header.planSha256 !== run.planSha256 || plan.host !== run.host || plan.toolVersion !== run.toolVersion)
-    throw new Error("The saved run, plan or undo file differs. Nothing written.");
-  await options.database.update(ebookIngestRuns).set({ state: "running", reconciliation: null, finishedAt: null, updatedAt: new Date() }).where(eq(ebookIngestRuns.id, run.id));
+  if (!existsSync(undoFile))
+    throw new Error(
+      `The run's undo file is missing: restore ${undoFile} before resuming. Nothing written.`,
+    );
+  const { header } = readUndoLog<
+    { runId: string; planSha256: string },
+    unknown
+  >(undoFile);
+  if (
+    header.runId !== run.id ||
+    header.planSha256 !== run.planSha256 ||
+    plan.host !== run.host ||
+    plan.toolVersion !== run.toolVersion
+  )
+    throw new Error(
+      "The saved run, plan or undo file differs. Nothing written.",
+    );
+  await options.database
+    .update(ebookIngestRuns)
+    .set({
+      state: "running",
+      reconciliation: null,
+      finishedAt: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(ebookIngestRuns.id, run.id));
   return continueRun(run.id, plan, undoFile, options);
 }
 
-async function processRun(runId: string, plan: IngestPlan, undoFile: string, options: ApplyOptions): Promise<ApplyResult> {
+async function processRun(
+  runId: string,
+  plan: IngestPlan,
+  undoFile: string,
+  options: ApplyOptions,
+): Promise<ApplyResult> {
   const db = options.database;
   const now = options.now ?? Date.now;
   const started = now();
@@ -227,11 +414,21 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
       attempts: ebookIngestItems.attempts,
     })
     .from(ebookIngestItems)
-    .where(and(eq(ebookIngestItems.runId, runId), ne(ebookIngestItems.state, "done"), lt(ebookIngestItems.attempts, MAX_ATTEMPTS)));
+    .where(
+      and(
+        eq(ebookIngestItems.runId, runId),
+        ne(ebookIngestItems.state, "done"),
+        lt(ebookIngestItems.attempts, MAX_ATTEMPTS),
+      ),
+    );
   const openPaths = new Set(open.map((o) => o.path));
-  const registered = new Map(open.filter((o) => o.state === "registered").map((o) => [o.path, o.fileId]));
+  const registered = new Map(
+    open.filter((o) => o.state === "registered").map((o) => [o.path, o.fileId]),
+  );
   const registeredPaths = new Set(registered.keys());
-  const work = plan.groups.filter((group) => group.paths.some((p) => openPaths.has(p)));
+  const work = plan.groups.filter((group) =>
+    group.paths.some((p) => openPaths.has(p)),
+  );
   const clusters = clusterGroups(work);
 
   let counts = await currentCounts(db, runId);
@@ -248,12 +445,20 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
       .set({ counts, updatedAt: new Date(now()) })
       .where(eq(ebookIngestRuns.id, runId));
   };
-  const setItems = (paths: string[], values: Partial<typeof ebookIngestItems.$inferInsert>) =>
+  const setItems = (
+    paths: string[],
+    values: Partial<typeof ebookIngestItems.$inferInsert>,
+  ) =>
     paths.length
       ? db
           .update(ebookIngestItems)
           .set({ ...values, updatedAt: new Date(now()) })
-          .where(and(eq(ebookIngestItems.runId, runId), inArray(ebookIngestItems.sourcePath, paths)))
+          .where(
+            and(
+              eq(ebookIngestItems.runId, runId),
+              inArray(ebookIngestItems.sourcePath, paths),
+            ),
+          )
       : Promise.resolve();
 
   let crashed: unknown = null;
@@ -265,12 +470,27 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
       const alreadyRegistered = paths.filter((p) => registeredPaths.has(p));
       for (const p of alreadyRegistered) {
         const fileId = registered.get(p);
-        const [stored] = fileId ? await db.select().from(ebookFiles).where(eq(ebookFiles.id, fileId)).limit(1) : [];
-        if (!stored || stored.sha256 !== plan.files[p].sha256) throw new Error("The registered file is missing or differs from the plan");
+        const [stored] = fileId
+          ? await db
+              .select()
+              .from(ebookFiles)
+              .where(eq(ebookFiles.id, fileId))
+              .limit(1)
+          : [];
+        if (!stored || stored.sha256 !== plan.files[p].sha256)
+          throw new Error(
+            "The registered file is missing or differs from the plan",
+          );
         const stages = medallionOf(stored.metadata);
-        const expectedKey = stages ? (stages.validation.downloadable ? stages.gold[0]?.key : stages.bronze.key) : null;
+        const expectedKey = stages
+          ? stages.validation.downloadable
+            ? stages.gold[0]?.key
+            : stages.bronze.key
+          : null;
         if (
-          (stages ? stored.s3Key !== expectedKey : !isLegacyFileKey(stored.s3Key, stored.sha256, stored.format)) ||
+          (stages
+            ? stored.s3Key !== expectedKey
+            : !isLegacyFileKey(stored.s3Key, stored.sha256, stored.format)) ||
           !(await objectMatches(stored.s3Key, stored.sizeBytes, stored.sha256))
         )
           throw new Error("The registered object's bytes or key differ");
@@ -286,16 +506,39 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
       for (const p of toRegister) {
         const file = plan.files[p];
         const info = await stat(p).catch(() => null);
-        if (!info || info.size !== file.size || Math.abs(info.mtimeMs - file.mtimeMs) > 1) {
-          const [stored] = await db.select().from(ebookFiles).where(eq(ebookFiles.sha256, file.sha256)).limit(1);
+        if (
+          !info ||
+          info.size !== file.size ||
+          Math.abs(info.mtimeMs - file.mtimeMs) > 1
+        ) {
+          const [stored] = await db
+            .select()
+            .from(ebookFiles)
+            .where(eq(ebookFiles.sha256, file.sha256))
+            .limit(1);
           const stages = stored ? medallionOf(stored.metadata) : null;
-          const storedKeyMatches = stored && (stages
-            ? stored.s3Key === (stages.validation.downloadable ? stages.gold[0]?.key : stages.bronze.key)
-            : isLegacyFileKey(stored.s3Key, stored.sha256, stored.format));
-          const catalogueVerified = storedKeyMatches && stored.sizeBytes === file.size
-            && await objectMatches(stored.s3Key, stored.sizeBytes, stored.sha256)
-            && !(await verifyPublication(stored.metadata));
-          if (catalogueVerified || (!(await verifyPublication(file.metadata)) && await objectMatches(file.key, file.size, file.sha256))) {
+          const storedKeyMatches =
+            stored &&
+            (stages
+              ? stored.s3Key ===
+                (stages.validation.downloadable
+                  ? stages.gold[0]?.key
+                  : stages.bronze.key)
+              : isLegacyFileKey(stored.s3Key, stored.sha256, stored.format));
+          const catalogueVerified =
+            storedKeyMatches &&
+            stored.sizeBytes === file.size &&
+            (await objectMatches(
+              stored.s3Key,
+              stored.sizeBytes,
+              stored.sha256,
+            )) &&
+            !(await verifyPublication(stored.metadata));
+          if (
+            catalogueVerified ||
+            (!(await verifyPublication(file.metadata)) &&
+              (await objectMatches(file.key, file.size, file.sha256)))
+          ) {
             unchanged.push(p);
             published.add(p);
             continue;
@@ -323,7 +566,8 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
           continue;
         }
         const stages = file.medallion;
-        if (!stages) throw new Error("The plan has no medallion validation: plan again");
+        if (!stages)
+          throw new Error("The plan has no medallion validation: plan again");
         const store = async (
           object: {
             key: string;
@@ -333,7 +577,10 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
           },
           source: string,
         ) => {
-          if (!existsSync(source)) throw new Error("The plan's artifact is no longer cached: plan again");
+          if (!existsSync(source))
+            throw new Error(
+              "The plan's artifact is no longer cached: plan again",
+            );
           const result = await storeObject(
             {
               ...object,
@@ -345,14 +592,22 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
           if (!result.adopted) uploadedBytes += object.size;
         };
         await store(stages.bronze, file.path);
-        await store(stages.silver, path.join(options.cacheDir, "silver", `${stages.silver.sha256}.json`));
+        await store(
+          stages.silver,
+          path.join(options.cacheDir, "silver", `${stages.silver.sha256}.json`),
+        );
         if (stages.validation.downloadable) {
           await store(stages.gold[0], file.path);
           // Covers before the publication marker, which is always last.
           for (const object of file.derived) {
             const cached =
               object.name === "manifest.json"
-                ? path.join(options.cacheDir, "publications", stages.silver.sha256, "manifest.json")
+                ? path.join(
+                    options.cacheDir,
+                    "publications",
+                    stages.silver.sha256,
+                    "manifest.json",
+                  )
                 : derivedCachePath(options.cacheDir, file.sha256, object.name);
             await store(object, cached);
           }
@@ -391,7 +646,13 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
           attempts: sql`${ebookIngestItems.attempts} + 1`,
           updatedAt: new Date(now()),
         })
-        .where(and(eq(ebookIngestItems.runId, runId), inArray(ebookIngestItems.sourcePath, paths), ne(ebookIngestItems.state, "done")));
+        .where(
+          and(
+            eq(ebookIngestItems.runId, runId),
+            inArray(ebookIngestItems.sourcePath, paths),
+            ne(ebookIngestItems.state, "done"),
+          ),
+        );
     } finally {
       processed += paths.length;
       sinceWrite += paths.length;
@@ -402,17 +663,21 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
 
   // Groups of one e-book go one after another in one lane, so each sees the rows the one before wrote
   let next = 0;
-  const lanes = Array.from({ length: Math.min(GROUPS_AT_ONCE, clusters.length) }, async () => {
-    while (next < clusters.length && !options.signal?.aborted && !crashed) {
-      for (const group of clusters[next++]) {
-        if (crashed || options.signal?.aborted) break;
-        await processGroup(group);
+  const lanes = Array.from(
+    { length: Math.min(GROUPS_AT_ONCE, clusters.length) },
+    async () => {
+      while (next < clusters.length && !options.signal?.aborted && !crashed) {
+        for (const group of clusters[next++]) {
+          if (crashed || options.signal?.aborted) break;
+          await processGroup(group);
+        }
       }
-    }
-  });
+    },
+  );
 
   // A lane that cannot even record a failure (the database is gone) stops the run; the others finish their group first
-  for (const lane of await Promise.allSettled(lanes)) if (lane.status === "rejected") crashed ??= lane.reason;
+  for (const lane of await Promise.allSettled(lanes))
+    if (lane.status === "rejected") crashed ??= lane.reason;
   // Duplicates point at the file their first path stored
   await db.execute(sql`update ebook_ingest_items d set ebook_id = f.ebook_id, file_id = f.file_id
     from ebook_ingest_items f
@@ -420,7 +685,8 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
       and f.file_id is not null and d.file_id is null`);
   await writeCounts(true);
   const seconds = Math.max(0.001, (now() - started) / 1000);
-  if (uploadedBytes > 0) saveUploadSpeed(options.cacheDir, uploadedBytes / seconds);
+  if (uploadedBytes > 0)
+    saveUploadSpeed(options.cacheDir, uploadedBytes / seconds);
 
   if (crashed || options.signal?.aborted) {
     await db
@@ -440,6 +706,31 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
     };
   }
 
+  if (plan.matching) {
+    if (!options.planningDatabaseUrl)
+      throw new Error(
+        "Matching resume requires its protected planning database URL",
+      );
+    const matching = await withReadOnlyPlanningConnection(
+      options.planningDatabaseUrl,
+      async (conn) => {
+        const registered = await registeredIngestionGroupsOn(conn, plan);
+        return planApprovedGroupsOn(conn, plan.matching!, registered, {
+          runId,
+          targetDatabase: options.target.database,
+          now: new Date(now()).toISOString(),
+        });
+      },
+      { isolationLevel: "repeatable read" },
+    );
+    if (matching.kind === "planned")
+      await applyApprovedGroups(db, matching.plan, options.target.database, {
+        beforeWrite: async (entry) => {
+          appendUndoLog(undoFile, entry);
+        },
+      });
+  }
+
   const reconciliation = await reconcileIngest({
     database: db,
     roots: plan.roots,
@@ -453,7 +744,10 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
     now: now(),
   });
   mkdirSync(options.reportDir, { recursive: true });
-  const reconciliationFile = path.join(options.reportDir, `reconcile-${runId}-${reconciliation.at.replace(/[:.]/g, "-")}.md`);
+  const reconciliationFile = path.join(
+    options.reportDir,
+    `reconcile-${runId}-${reconciliation.at.replace(/[:.]/g, "-")}.md`,
+  );
   writeFileSync(reconciliationFile, reconcileReport(reconciliation));
   const state = reconciliation.exact ? "finished" : "failed";
   await db
@@ -483,26 +777,13 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
  * folders of one book) or the same catalogued e-book. A set is processed in
  * order, so a later group adds to the e-book the earlier one created.
  */
-export function clusterGroups(groups: PlanGroup[]): PlanGroup[][] {
-  const owner = new Map<string, number>();
-  const clusters: PlanGroup[][] = [];
-  for (const group of groups) {
-    const keys = [group.importRef ? `ref:${group.importRef}` : null, group.existingEbookId ? `ebook:${group.existingEbookId}` : null].filter((k): k is string => !!k);
-    const found = [...new Set(keys.map((k) => owner.get(k)).filter((i): i is number => i !== undefined))].sort((a, b) => a - b);
-    const at = found.length ? found[0] : clusters.push([]) - 1;
-    for (const other of found.slice(1)) {
-      clusters[at].push(...clusters[other]);
-      clusters[other] = [];
-      for (const [key, index] of owner) if (index === other) owner.set(key, at);
-    }
-    clusters[at].push(group);
-    for (const key of keys) owner.set(key, at);
-  }
-  return clusters.filter((c) => c.length > 0);
-}
+export { clusterGroups } from "./group-clusters";
 
 /** One count per item outcome, plus failed and pending items */
-async function currentCounts(db: Db, runId: string): Promise<Record<string, number>> {
+async function currentCounts(
+  db: Db,
+  runId: string,
+): Promise<Record<string, number>> {
   const rows = await db
     .select({
       outcome: ebookIngestItems.outcome,
@@ -514,19 +795,29 @@ async function currentCounts(db: Db, runId: string): Promise<Record<string, numb
     .groupBy(ebookIngestItems.outcome, ebookIngestItems.state);
   const counts: Record<string, number> = {};
   for (const row of rows) {
-    const key: IngestOutcome | "failed" | "pending" = row.state === "failed" ? "failed" : row.state === "done" && row.outcome ? row.outcome : "pending";
+    const key: IngestOutcome | "failed" | "pending" =
+      row.state === "failed"
+        ? "failed"
+        : row.state === "done" && row.outcome
+          ? row.outcome
+          : "pending";
     counts[key] = (counts[key] ?? 0) + row.n;
   }
   return counts;
 }
 
-const speedFile = (cacheDir: string) => path.join(cacheDir, "upload-speed.json");
+const speedFile = (cacheDir: string) =>
+  path.join(cacheDir, "upload-speed.json");
 
 /** Bytes a second the last apply on this machine uploaded at: the plan's estimate */
 export function readUploadSpeed(cacheDir: string): number | null {
   try {
-    const { bytesPerSecond } = JSON.parse(readFileSync(speedFile(cacheDir), "utf8")) as { bytesPerSecond: number };
-    return Number.isFinite(bytesPerSecond) && bytesPerSecond > 0 ? bytesPerSecond : null;
+    const { bytesPerSecond } = JSON.parse(
+      readFileSync(speedFile(cacheDir), "utf8"),
+    ) as { bytesPerSecond: number };
+    return Number.isFinite(bytesPerSecond) && bytesPerSecond > 0
+      ? bytesPerSecond
+      : null;
   } catch {
     return null;
   }
@@ -534,5 +825,8 @@ export function readUploadSpeed(cacheDir: string): number | null {
 
 function saveUploadSpeed(cacheDir: string, bytesPerSecond: number) {
   mkdirSync(cacheDir, { recursive: true });
-  writeFileSync(speedFile(cacheDir), JSON.stringify({ bytesPerSecond, at: new Date().toISOString() }));
+  writeFileSync(
+    speedFile(cacheDir),
+    JSON.stringify({ bytesPerSecond, at: new Date().toISOString() }),
+  );
 }

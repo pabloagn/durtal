@@ -7,11 +7,23 @@ import { readUndoLog } from "@/lib/books/undo-file";
 import { recentBackup } from "@/lib/enrichment/backup";
 import { previewS3Dir } from "@/lib/s3/preview-dir";
 import { withReadOnlyEbookStorage } from "../read-only-storage";
-import { ebookStorage, ebookCredentialIdentity, isNoSuchBucket, listEbookInventory } from "../storage";
-import { planIngest, type IngestPlan, type PlanOptions, type PlanTarget } from "./plan";
+import {
+  ebookStorage,
+  ebookCredentialIdentity,
+  isNoSuchBucket,
+  listEbookInventory,
+} from "../storage";
+import {
+  planIngest,
+  type IngestPlan,
+  type PlanOptions,
+  type PlanTarget,
+} from "./plan";
 import { reconcileIngest, type ReconcileOptions } from "./reconcile";
 import { undoIngest, type UndoEntry, type UndoResult } from "./register";
 import { bucketMissingLine, planReport, reconcileReport } from "./report";
+import { planUndoLink, undoLink } from "../match/undo";
+import type { LinkReceipt } from "../match/link";
 
 /*
  * What `pnpm ebooks:ingest` and `pnpm ebooks:reconcile` do around the
@@ -28,13 +40,17 @@ export const inboxPath = () => path.join(homedir(), "Downloads", "eBooks");
 export function resolveRoots(named: string[]): string[] {
   if (named.length === 0) {
     const inbox = inboxPath();
-    if (!existsSync(inbox)) throw new Error(`${INBOX_LABEL} does not exist. Make it and drop the eBooks in, or name a folder.`);
+    if (!existsSync(inbox))
+      throw new Error(
+        `${INBOX_LABEL} does not exist. Make it and drop the eBooks in, or name a folder.`,
+      );
     return [inbox];
   }
   return named.map((folder) => {
     const resolved = path.resolve(folder);
     if (!existsSync(resolved)) throw new Error(`${folder} does not exist.`);
-    if (!statSync(resolved).isDirectory()) throw new Error(`${folder} is not a folder.`);
+    if (!statSync(resolved).isDirectory())
+      throw new Error(`${folder} is not a folder.`);
     return resolved;
   });
 }
@@ -53,13 +69,18 @@ export function databaseFingerprint(url: string): string {
 
 /** A database on this machine: a preview or a test container, never the live one */
 export function isLocalDatabase(url: string): boolean {
-  return ["localhost", "127.0.0.1", "[::1]", "::1"].includes(new URL(url).hostname);
+  return ["localhost", "127.0.0.1", "[::1]", "::1"].includes(
+    new URL(url).hostname,
+  );
 }
 
 /** The database and bucket a plan is made against */
 export function currentTarget(databaseUrl: string): PlanTarget {
   const { bucket, prefix, region } = ebookStorage();
-  return { database: databaseFingerprint(databaseUrl), bucket, prefix,
+  return {
+    database: databaseFingerprint(databaseUrl),
+    bucket,
+    prefix,
     region,
     credentialIdentity: ebookCredentialIdentity(),
     preview: !!previewS3Dir(),
@@ -75,25 +96,42 @@ const stampOf = (at: string) => at.replace(/[:.]/g, "-");
  * listed. Before the AWS setup the bucket does not exist: the plan is made as
  * for an empty one, and says so.
  */
-export async function planCommand(options: Omit<PlanOptions, "storedKeys"> & { roots: string[]; reportDir: string }) {
+export async function planCommand(
+  options: Omit<PlanOptions, "storedKeys"> & {
+    roots: string[];
+    reportDir: string;
+  },
+) {
   return withReadOnlyEbookStorage(async () => {
     let bucketMissing = false;
     const storedKeys = new Set<string>();
     try {
-      for (const object of await listEbookInventory()) storedKeys.add(object.key);
+      for (const object of await listEbookInventory())
+        storedKeys.add(object.key);
     } catch (error) {
       if (!isNoSuchBucket(error)) throw error;
       bucketMissing = true;
     }
     const plan = await planIngest(options.roots, { ...options, storedKeys });
     mkdirSync(options.reportDir, { recursive: true });
-    const base = path.join(options.reportDir, `ingest-${stampOf(plan.createdAt)}`);
-    const files = { markdown: `${base}.md`, csv: `${base}.csv`, plan: `${base}.plan.json` };
+    const base = path.join(
+      options.reportDir,
+      `ingest-${stampOf(plan.createdAt)}`,
+    );
+    const files = {
+      markdown: `${base}.md`,
+      csv: `${base}.csv`,
+      plan: `${base}.plan.json`,
+    };
     const { markdown, csv } = planReport(plan, files.plan, { bucketMissing });
     writeFileSync(files.plan, JSON.stringify(plan));
     writeFileSync(files.markdown, markdown);
     writeFileSync(files.csv, csv);
-    return { plan, files, notSetUp: bucketMissing ? bucketMissingLine(plan.target.bucket) : null };
+    return {
+      plan,
+      files,
+      notSetUp: bucketMissing ? bucketMissingLine(plan.target.bucket) : null,
+    };
   });
 }
 
@@ -108,11 +146,16 @@ export function planLine(plan: IngestPlan): string {
 }
 
 /** Reconciles and writes reports/ebooks/reconcile-<timestamp>.md. Reads only. */
-export async function reconcileCommand(options: ReconcileOptions & { reportDir: string }) {
+export async function reconcileCommand(
+  options: ReconcileOptions & { reportDir: string },
+) {
   return withReadOnlyEbookStorage(async () => {
     const reconciliation = await reconcileIngest(options);
     mkdirSync(options.reportDir, { recursive: true });
-    const file = path.join(options.reportDir, `reconcile-${stampOf(reconciliation.at)}.md`);
+    const file = path.join(
+      options.reportDir,
+      `reconcile-${stampOf(reconciliation.at)}.md`,
+    );
     writeFileSync(file, reconcileReport(reconciliation));
     return { reconciliation, file };
   });
@@ -127,16 +170,61 @@ export interface UndoHeader {
 /** `--undo FILE`: the rows the run created that nothing has changed since; never an S3 object */
 export async function undoCommand(options: {
   database: Db;
+  planningDatabaseUrl?: string;
   undoFile: string;
   backup?: string;
   live: boolean;
   localDatabase: boolean;
   now?: number;
 }): Promise<UndoResult & { runId: string }> {
-  if (!existsSync(options.undoFile)) throw new Error(`${options.undoFile} does not exist. Nothing written.`);
-  if (!recentBackup(options.backup, options.now)) throw new Error("--undo needs --backup FILE: a pg_dump custom-format backup taken in the last hour. Nothing written.");
-  if (!options.localDatabase && !options.live) throw new Error("This database is not a local preview: an undo of it needs --live. Nothing written.");
-  const { header, entries } = readUndoLog<UndoHeader, UndoEntry>(options.undoFile);
-  if (!header.runId || !header.planSha256) throw new Error(`${options.undoFile} is not an ingestion's undo file. Nothing written.`);
-  return { runId: header.runId, ...(await undoIngest(options.database, entries)) };
+  if (!existsSync(options.undoFile))
+    throw new Error(`${options.undoFile} does not exist. Nothing written.`);
+  if (!recentBackup(options.backup, options.now))
+    throw new Error(
+      "--undo needs --backup FILE: a pg_dump custom-format backup taken in the last hour. Nothing written.",
+    );
+  if (!options.localDatabase && !options.live)
+    throw new Error(
+      "This database is not a local preview: an undo of it needs --live. Nothing written.",
+    );
+  const { header, entries } = readUndoLog<UndoHeader, UndoEntry | LinkReceipt>(
+    options.undoFile,
+  );
+  if (!header.runId || !header.planSha256)
+    throw new Error(
+      `${options.undoFile} is not an ingestion's undo file. Nothing written.`,
+    );
+  const matching = entries.filter(
+    (entry): entry is LinkReceipt =>
+      "kind" in entry && ["link", "accession"].includes(entry.kind),
+  );
+  if (matching.length && !options.planningDatabaseUrl)
+    throw new Error(
+      "Matching undo requires its protected planning database URL. Nothing written.",
+    );
+  // Validate the entire mixed log before undoing its first operation.
+  if (
+    matching.some(
+      (entry) =>
+        entry.runId !== header.runId ||
+        entry.targetDatabase !== databaseFingerprint(options.planningDatabaseUrl!),
+    )
+  )
+    throw new Error("A matching undo entry belongs to a different run or database. Nothing written.");
+  for (const entry of [...matching].reverse()) {
+    const planned = await planUndoLink(options.planningDatabaseUrl!, entry);
+    if (planned.kind === "planned")
+      await undoLink(
+        options.database,
+        planned.plan,
+        databaseFingerprint(options.planningDatabaseUrl!),
+      );
+  }
+  return {
+    runId: header.runId,
+    ...(await undoIngest(
+      options.database,
+      entries.filter((entry): entry is UndoEntry => !("kind" in entry)),
+    )),
+  };
 }

@@ -90,6 +90,8 @@ export const ebooks = pgTable(
     matchTier:
       text("match_tier").$type<import("@/lib/ebooks/match/types").MatchTier>(),
     matchFingerprint: text("match_fingerprint"),
+    /** Also records the model for zero-candidate classifications. */
+    matchModelVersion: integer("match_model_version"),
     duplicateOfId: uuid("duplicate_of_id").references(
       (): AnyPgColumn => ebooks.id,
       { onDelete: "set null" },
@@ -123,6 +125,10 @@ export const ebooks = pgTable(
     check(
       "ebooks_match_fingerprint_check",
       sql`${t.matchFingerprint} is null or ${t.matchFingerprint} ~ '^[a-f0-9]{64}$'`,
+    ),
+    check(
+      "ebooks_match_model_version_check",
+      sql`${t.matchModelVersion} is null or ${t.matchModelVersion} > 0`,
     ),
     check(
       "ebooks_duplicate_check",

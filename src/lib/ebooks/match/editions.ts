@@ -40,8 +40,14 @@ export function editionEffect(
   ebook: MatchEbook,
   work: IndexedWork,
   catalogue: MatchCatalogue,
+  options: {
+    instanceId?: string;
+    editionId?: string;
+    locationId?: string;
+  } = {},
 ): LinkEffect {
   const { source } = work;
+  const copyLocation = options.locationId ?? catalogue.source.ebookLocationId;
   const language = normalizeLanguage(ebook.language);
   const file = preferredMatchFile(ebook);
   const ids = identifierKeys(ebook.isbns, ebook.identifiers);
@@ -71,13 +77,76 @@ export function editionEffect(
   const missing: string[] = [];
   const ambiguities: Reason[] = [];
   if (!file) missing.push("verified_file");
-  if (!catalogue.source.ebookLocationId) missing.push("ebook_location");
+  if (!copyLocation && !options.instanceId) missing.push("ebook_location");
   let rule: EditionRule = "new_edition";
   let editionId: string | null = null;
   let instanceId: string | null = null;
   let movedFromEditionId: string | null = null;
   let isbn13: string | null = null;
-  if (identified.length) {
+  if (options.instanceId || options.editionId) {
+    const selectedCopy = options.instanceId
+      ? source.copies.find((copy) => copy.id === options.instanceId)
+      : null;
+    const selected = source.editions.find(
+      (edition) =>
+        edition.id === (selectedCopy?.editionId ?? options.editionId),
+    );
+    const destination =
+      selectedCopy?.locationId ??
+      options.locationId ??
+      catalogue.source.ebookLocationId;
+    const digital =
+      catalogue.source.digitalLocationIds ??
+      [catalogue.source.ebookLocationId].filter((id): id is string => !!id);
+    if (
+      !selected ||
+      (options.instanceId && !selectedCopy) ||
+      (options.editionId && selected?.id !== options.editionId)
+    )
+      ambiguities.push({
+        code: "copy_choice",
+        text: "The chosen copy and edition must belong to this book",
+      });
+    else {
+      editionId = selected.id;
+      instanceId = selectedCopy?.id ?? null;
+      rule = selectedCopy
+        ? "fill_copy"
+        : selected.metadataSource === "phantom_canon"
+          ? "placeholder_copy"
+          : "isbn_edition";
+      if (
+        selectedCopy?.linkedEbookId ||
+        selectedCopy?.status === "deaccessioned"
+      )
+        ambiguities.push({
+          code: "copy_taken",
+          text: "The chosen digital copy is already linked or deaccessioned",
+        });
+      if (!destination || !digital.includes(destination))
+        ambiguities.push({
+          code: "digital_location",
+          text: "Choose an active digital location",
+        });
+      if (
+        language &&
+        normalizeLanguage(selected.language) !== language &&
+        !(
+          selected.metadataSource === "phantom_canon" &&
+          selected.language === "en"
+        )
+      )
+        ambiguities.push({
+          code: "edition_language",
+          text: "The chosen edition has another language",
+        });
+      if (identified.some((edition) => edition.id !== selected.id))
+        ambiguities.push({
+          code: "edition_identifier",
+          text: "An identifier names another edition; review the copy choice",
+        });
+    }
+  } else if (identified.length) {
     rule = "isbn_edition";
     if (identified.length !== 1)
       ambiguities.push({
@@ -199,9 +268,10 @@ export function editionEffect(
     work.titles.map((key) => key.numbers).filter(Boolean),
   );
   const identifiedResolvesVolume =
-    identified.length === 1 &&
-    editionId === identified[0].id &&
-    (!title.numbers || editionNumbers.get(editionId) === title.numbers);
+    ((identified.length === 1 && editionId === identified[0].id) ||
+      !!(options.instanceId || options.editionId)) &&
+    (!title.numbers ||
+      (!!editionId && editionNumbers.get(editionId) === title.numbers));
   const relevantNumbers = [
     ...workNumbers,
     ...selectedNumbers,
@@ -237,9 +307,9 @@ export function editionEffect(
         }
       : null;
   const newCopy =
-    !instanceId && file && catalogue.source.ebookLocationId
+    !instanceId && file && copyLocation
       ? {
-          locationId: catalogue.source.ebookLocationId,
+          locationId: copyLocation,
           format:
             file.format === "epub" || file.format === "kepub"
               ? ("epub" as const)

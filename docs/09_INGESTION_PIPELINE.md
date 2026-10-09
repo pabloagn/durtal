@@ -436,7 +436,9 @@ file, works out what it is, checks it, reads its metadata, cover and text,
 stores it in the e-book bucket under its checksum, verifies the stored bytes,
 and only then writes its rows. `pnpm ebooks:ingest` runs it on the machine
 that holds the files; the browser upload (SLN-506) will call the same
-library. Every new e-book is `pending`: matching comes in SLN-495.
+library. Every new e-book starts `pending`. SLN-495's proposed integration
+plans matching before registration and applies its approved effects afterwards;
+its reserved schema and writer checkpoint still await generation and acceptance.
 
 **Durtal never moves, changes or deletes a file** in the inbox or any folder
 it reads.
@@ -600,6 +602,58 @@ them. After 24 hours an object no row names is a blocking exception of every
 reconciliation, so applies end `failed` until those objects are adopted (plan
 and apply the same files again) or removed. The undo file is written as the run goes, one line per group before its
 atomic, so an interrupted run can be undone too.
+
+### Matching source contract (SLN-495, awaiting acceptance)
+
+`PlanOptions.includeMatching` opts the shared planner into matching. The CLI
+enables it, and tool version 3 distinguishes this frozen plan from version 2.
+Within the protected repeatable-read callback, `planIngestionMatchingOn`
+simulates the same ordered registrations as apply and scores every future group
+alongside the current catalogue. A group has a stable source key, bibliographic
+and delivery-evidence fingerprints, file checksums, candidates and exact edition
+and copy effects. Registration UUIDs are allocated later and proven against the
+actual file rows before matching. Existing Keep/Set aside decisions remain
+bound owner state; an exclusion reason is separate from bibliographic evidence.
+
+`pnpm ebooks:match --sample --ingest-plan PLAN` exports human-label rows from
+these unregistered groups. `--score LABELS.csv --from PLAN` consumes a complete
+sample labelled `right`, `wrong_edition` or `wrong_work`. The receipt binds the
+input plan, model, catalogue, input metadata and candidates. Automatic proposals
+need at least 99% empirical precision and zero wrong-work labels; the report
+exposes the denominator and Wilson 95% interval. These are runtime gates, not
+an assertion that current source fixtures measured production precision.
+Missing labels keep automatic proposals from reaching registration.
+
+Apply validates the frozen approval before any registration write. At the end
+of registration, including resume with every item already done,
+`registeredIngestionGroupsOn` maps keys to real ebook/file ids and
+`planApprovedGroupsOn` refuses changed metadata, delivery evidence, owner
+decisions, catalogue, edition or copy effects. `applyApprovedGroups` applies
+all matching effects in one transaction, with table locks and full snapshot
+assertions ahead of its mutations. Derived classification keeps registration's
+ebook timestamp while recording candidate creation time. Manual linking,
+explicit digital-copy selection and bulk accession use the same guarded
+writers; new copies receive their initial available history.
+
+Each link/accession undo reservation has an operation id, run, plan hash and
+database target. Its committed receipt records full before/after rows, exact
+created parents, moved copies, histories and queued-job ownership. Matching
+undo runs before ingestion undo, checks the committed operation and all current
+FK dependencies in its write transaction, preserves edited/read/annotated or
+otherwise referenced parents, then recomputes classification without linking.
+Keep, Set aside, Restore and explicit `--classification-only` also cannot
+consume automatic proposals. New work enrichment runs after commit at priority
+200 through the supplied database; follow-up failures are returned explicitly.
+
+The upstream SLN-494/498 complete no-op preflight must call
+`ingestionMatchingIsCurrentOn` inside its protected callback. This proves
+matching is unchanged, including model version for zero-candidate results.
+Upstream separately proves registration and publication completeness before
+creating a run, reserving undo or transferring objects. This branch's ordinary
+apply entry point still creates bookkeeping and does not by itself satisfy the
+complete zero-write repeat acceptance; integration with that upstream preflight
+is required. Migration 0082 remains ungenerated/unapplied, and writer database,
+precision, performance, native build and reader acceptance are still gated.
 
 ### The cache folder
 

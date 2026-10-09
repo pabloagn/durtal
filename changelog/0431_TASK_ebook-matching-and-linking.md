@@ -37,7 +37,7 @@ database, run and plan hash; undo checks identity and dependencies in its write
 transaction and preserves later operations.
 
 Migration `0082_ebook_matching` is reserved, not generated. It will add candidate
-rows, the four match columns and constrained `exclusion_reason`, with the reason
+rows, review/link columns and constrained `exclusion_reason`, with the reason
 present exactly when excluded. Exclusion reason is guarded decision state, not
 part of the bibliographic match fingerprint. The downstream library consumes
 this field instead of inferring a reason from the tier.
@@ -126,3 +126,69 @@ valid native and download-only evidence, and cover lineage. Typecheck and source
 ESLint are clean. Writer/undo/calibration integration remains uncommitted and
 awaits exact-source review. Its additional zero-candidate model-version schema
 proposal is separate and unreviewed; reserved 0082 remains ungenerated/unapplied.
+
+## Guarded integration source checkpoint, 2026-10-10
+
+The current writer source adds shared manual link, explicit copy/edition,
+accession, classification, decision and operation-owned undo services. Every
+planning read uses the supplied repeatable-read connection, including ISBN,
+author and slug helpers. Returned plans are JSON DTOs. Writers lock the core
+tables and assert full snapshots inside the same transaction as mutations;
+undo additionally discovers and guards all actual FK child tables, including
+unknown future references. Committed receipts bind run, operation, plan and
+database, capture complete after rows and distinguish unchanged queued jobs
+owned by this operation from later or unrelated enrichment activity.
+
+Cover effects reserve unique attempt keys before I/O, verify accepted
+publication lineage and actual source hashes/size, then convert outside the
+planning callback. Cleanup only deletes unused attempt keys after proving they
+are unreferenced; an uncertain database read retains them. Accession uses fixed
+ids through the existing work/edition helpers, creates initial histories,
+refreshes publisher links once and queues enrichment after commit at priority
+200 through the supplied connection. Follow-up failures remain explicit.
+
+The pre-registration planner binds source groups and exact file evidence to
+the model, input-plan and catalogue fingerprints. It overlays all future
+groups for shared-identifier and duplicate evidence, simulates sequential alias
+registration and emits human-readable candidates plus a deterministic sample.
+The automatic apply gate rebuilds precision from complete human labels, requires
+at least 99% empirical precision and zero wrong-work outcomes, and displays
+sample size and uncertainty. No fixture label is claimed as actual collection
+calibration. Registration maps are verified against real file ownership; apply
+refuses changed effects instead of choosing a new route. A completed matching
+operation is accepted only for the same run and approval. The shared automatic
+link writer independently validates that approval's full scope.
+
+The ingestion CLI opts into matching and version 3. Matching runs after all
+groups register, including resume when every item is already done. Its undo
+entries join the ingestion log and are processed first. Apply/resume validate
+the protected planning URL against the plan database before writing; undo
+validates every matching entry's run/target before the first undo write.
+Classification-only restore does not relink. Derived ingestion classification
+preserves registration's ebook timestamp so untouched pending rows remain
+eligible for ingestion undo. The `ingestionMatchingIsCurrentOn` adapter provides
+the matching proof for SLN-494/498's complete no-op preflight; this branch's
+ordinary apply still writes bookkeeping until that upstream wrapper is wired.
+
+The added positive `match_model_version` ebook column and corresponding manual
+SQL invalidation amendments are separate from schema source approved at
+`92dd605c` and still require independent declaration review. Reserved 0082 is
+still ungenerated/unapplied. The strict loader checkpoint `a9b1c54b` received
+independent SOURCE_APPROVE during the quiet window; that approval excludes this
+writer/model/receipt/undo source. Existing work lifecycle and physical orders
+remain unchanged when digital copies are added, preserving the shared partial
+holdings rules; an authored database regression proves mixed ownership and an
+unreceived physical order survive link and undo.
+
+Before QUIET-494, the narrow loader/full matching run passed 194 loader tests
+and 316 matching tests respectively, and that checkpoint's typecheck/lint
+passed. A later focused run passed 10 undo and 6 mocked cover tests. Current
+group, adapter and writer regressions and the added undo cases are authored but
+unrun; the disposable PostgreSQL suite now covers both concurrent parent
+deletion orders, committed receipts, stale catalogue rollback, competing copy
+claims and a future FK dependency, also unrun. QUIET-494 permits source work
+and commits only. No current whole-tree typecheck/lint, local/DB suite, native
+conversion/build, SQL trigram parity, real precision measurement, 6,000-by-700
+benchmark, migration, deployment, live/cloud write or browser acceptance ran
+for this checkpoint. This task remains in progress pending exact-source review
+and the coordinating chat's validation slots.

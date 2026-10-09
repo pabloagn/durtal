@@ -44,7 +44,10 @@ const { values, positionals } = parseArgs({
     "include-text": { type: "boolean", default: false },
     exclude: { type: "string", multiple: true },
     host: { type: "string" },
-    "cache-dir": { type: "string", default: resolve(homedir(), ".cache/durtal-ebooks") },
+    "cache-dir": {
+      type: "string",
+      default: resolve(homedir(), ".cache/durtal-ebooks"),
+    },
     "report-dir": { type: "string", default: "reports/ebooks" },
     preview: { type: "string" },
     "aws-profile": { type: "string" },
@@ -53,19 +56,30 @@ const { values, positionals } = parseArgs({
 });
 const modes = [values.apply, values.resume, values.undo].filter(Boolean).length;
 if (modes > 1) throw new Error("Give one of --apply, --resume and --undo");
-if (modes === 1 && positionals.length) throw new Error("Folders are planned; --apply, --resume and --undo take the plan, run or undo file only");
+if (modes === 1 && positionals.length)
+  throw new Error(
+    "Folders are planned; --apply, --resume and --undo take the plan, run or undo file only",
+  );
 const limit = values.limit ? Number(values.limit) : undefined;
-if (limit !== undefined && !(Number.isInteger(limit) && limit > 0)) throw new Error("--limit takes a positive whole number");
+if (limit !== undefined && !(Number.isInteger(limit) && limit > 0))
+  throw new Error("--limit takes a positive whole number");
 
-const { url, preview } = await loadEnvironment({ preview: values.preview, envDir: values["env-dir"]!, awsProfile: values["aws-profile"] });
+const { url, preview } = await loadEnvironment({
+  preview: values.preview,
+  envDir: values["env-dir"]!,
+  awsProfile: values["aws-profile"],
+});
 
 // Imported after the environment loads: the env schema and the S3 client read it
 const postgres = (await import("postgres")).default;
 const { drizzle } = await import("drizzle-orm/postgres-js");
-const { withReadOnlyPlanningConnection } = await import("@/lib/enrichment/read-only-session");
+const { withReadOnlyPlanningConnection } =
+  await import("@/lib/enrichment/read-only-session");
 const command = await import("@/lib/ebooks/ingest/command");
-const { applyPlan, readUploadSpeed, resumeRun } = await import("@/lib/ebooks/ingest/run");
-const { formatBytes, formatDuration, reconciliationLine } = await import("@/lib/ebooks/run-text");
+const { applyPlan, readUploadSpeed, resumeRun } =
+  await import("@/lib/ebooks/ingest/run");
+const { formatBytes, formatDuration, reconciliationLine } =
+  await import("@/lib/ebooks/run-text");
 type Db = import("@/lib/catalogue/work-store").Db;
 
 const cacheDir = resolve(values["cache-dir"]!);
@@ -82,49 +96,104 @@ const progress = (label: string) => (done: number, total: number) => {
 };
 
 try {
-  if (preview) console.log(`Preview on port ${values.preview}: its database and S3 folder.`);
+  if (preview)
+    console.log(
+      `Preview on port ${values.preview}: its database and S3 folder.`,
+    );
   if (values.undo) {
     const database = drizzle(session!) as unknown as Db;
-    const undone = await command.undoCommand({ database, undoFile: resolve(values.undo), backup: values.backup, live: values.live, localDatabase });
-    console.log(`Undid run ${undone.runId}: ${undone.ebooksRemoved} eBooks and ${undone.filesRemoved} files removed; ${undone.kept} kept (changed since). S3 objects stay.`);
+    const undone = await command.undoCommand({
+      database,
+      planningDatabaseUrl: url,
+      undoFile: resolve(values.undo),
+      backup: values.backup,
+      live: values.live,
+      localDatabase,
+    });
+    console.log(
+      `Undid run ${undone.runId}: ${undone.ebooksRemoved} eBooks and ${undone.filesRemoved} files removed; ${undone.kept} kept (changed since). S3 objects stay.`,
+    );
   } else if (values.apply || values.resume) {
     const database = drizzle(session!) as unknown as Db;
     // Ctrl-C stops taking new groups; the run becomes interrupted and resumes later
     const controller = new AbortController();
     process.once("SIGINT", () => {
-      console.error("\nStopping after the groups in flight; resume with --resume.");
+      console.error(
+        "\nStopping after the groups in flight; resume with --resume.",
+      );
       controller.abort();
     });
-    const options = { database, host, cacheDir, target, backup: values.backup, live: values.live, localDatabase, reportDir, signal: controller.signal, onRunStarted: (runId: string, undoFile: string) => console.log(`Run ${runId}. Undo file: ${undoFile}`), onProgress: progress("Stored and registered"),
-    };
-    const result = values.apply ? await applyPlan(resolve(values.apply), options) : await resumeRun(values.resume!, options);
-    console.log(`Run ${result.runId}: ${result.state}. ${Object.entries(result.counts).map(([k, v]) => `${k} ${v}`).join(", ") || "nothing to do"}.`,
-    );
-    console.log(`Uploaded ${formatBytes(result.uploadedBytes)} in ${formatDuration(result.seconds)}. Undo file: ${result.undoFile}`);
-    if (result.state === "interrupted") console.log(`Resume with: pnpm ebooks:ingest --resume ${result.runId} --backup <dump>`);
-    if (result.reconciliation) console.log(`${reconciliationLine(result.reconciliation)}${result.exact ? ": exact." : ": not exact; /ebooks/runs lists the exceptions."}`);
-    if (result.reconciliationFile) console.log(`Report: ${result.reconciliationFile}`);
-    process.exitCode = result.state === "finished" ? 0 : 1;
-  } else {
-    const roots = command.resolveRoots(positionals);
-    const { plan, files, notSetUp } = await withReadOnlyPlanningConnection(url, (database) => command.planCommand({
+    const options = {
       database,
-      roots,
+      planningDatabaseUrl: url,
       host,
       cacheDir,
       target,
+      backup: values.backup,
+      live: values.live,
+      localDatabase,
       reportDir,
-      limit,
-      includeText: values["include-text"],
-      exclude: values.exclude,
-      uploadSpeed: readUploadSpeed(cacheDir),
-      onProgress: progress("Read"),
-    }));
+      signal: controller.signal,
+      onRunStarted: (runId: string, undoFile: string) =>
+        console.log(`Run ${runId}. Undo file: ${undoFile}`),
+      onProgress: progress("Stored and registered"),
+    };
+    const result = values.apply
+      ? await applyPlan(resolve(values.apply), options)
+      : await resumeRun(values.resume!, options);
+    console.log(
+      `Run ${result.runId}: ${result.state}. ${
+        Object.entries(result.counts)
+          .map(([k, v]) => `${k} ${v}`)
+          .join(", ") || "nothing to do"
+      }.`,
+    );
+    console.log(
+      `Uploaded ${formatBytes(result.uploadedBytes)} in ${formatDuration(result.seconds)}. Undo file: ${result.undoFile}`,
+    );
+    if (result.state === "interrupted")
+      console.log(
+        `Resume with: pnpm ebooks:ingest --resume ${result.runId} --backup <dump>`,
+      );
+    if (result.reconciliation)
+      console.log(
+        `${reconciliationLine(result.reconciliation)}${result.exact ? ": exact." : ": not exact; /ebooks/runs lists the exceptions."}`,
+      );
+    if (result.reconciliationFile)
+      console.log(`Report: ${result.reconciliationFile}`);
+    process.exitCode = result.state === "finished" ? 0 : 1;
+  } else {
+    const roots = command.resolveRoots(positionals);
+    const { plan, files, notSetUp } = await withReadOnlyPlanningConnection(
+      url,
+      (database) =>
+        command.planCommand({
+          database,
+          includeMatching: true,
+          roots,
+          host,
+          cacheDir,
+          target,
+          reportDir,
+          limit,
+          includeText: values["include-text"],
+          exclude: values.exclude,
+          uploadSpeed: readUploadSpeed(cacheDir),
+          onProgress: progress("Read"),
+        }),
+      { isolationLevel: "repeatable read" },
+    );
     if (notSetUp) console.log(notSetUp);
     console.log(command.planLine(plan));
-    console.log(`To upload: ${formatBytes(plan.summary.uploadBytes)} in ${plan.summary.uploadObjects} objects.`);
-    console.log("Read-only: nothing was written to the database or the bucket.");
-    console.log(`Report: ${files.markdown}\n        ${files.csv}\nPlan:   ${files.plan}`);
+    console.log(
+      `To upload: ${formatBytes(plan.summary.uploadBytes)} in ${plan.summary.uploadObjects} objects.`,
+    );
+    console.log(
+      "Read-only: nothing was written to the database or the bucket.",
+    );
+    console.log(
+      `Report: ${files.markdown}\n        ${files.csv}\nPlan:   ${files.plan}`,
+    );
   }
 } catch (error) {
   console.error((error as Error).message);

@@ -11,10 +11,28 @@ import { groupFiles, walkRoots, type FoundFile } from "./group";
 import { HashCache } from "./hash";
 import { parseOpf } from "./inspect/opf";
 import type { DrmKind, FileMetadata } from "./inspect/types";
-import { mergeMetadata, storable, storableText, type MergedMetadata, type MetadataSource } from "./metadata";
-import { derivedCachePath, prepareFile, sniffSource, type DerivedObject, type TextCounts } from "./prepare";
-import { planRegistration, type CatalogueFileRow, type GroupCatalogue } from "./register";
+import {
+  mergeMetadata,
+  storable,
+  storableText,
+  type MergedMetadata,
+  type MetadataSource,
+} from "./metadata";
+import {
+  derivedCachePath,
+  prepareFile,
+  sniffSource,
+  type DerivedObject,
+  type TextCounts,
+} from "./prepare";
+import {
+  planRegistration,
+  type CatalogueFileRow,
+  type GroupCatalogue,
+} from "./register";
 import { openFileSource, type ByteSource } from "./source";
+import type { ApprovedGroupMatching } from "../match/groups";
+import { planIngestionMatchingOn } from "../match/ingest-adapter";
 
 /*
  * The plan of an ingestion (SLN-494): read-only. Every file under the roots
@@ -24,7 +42,7 @@ import { openFileSource, type ByteSource } from "./source";
  * objects and rows an apply will write, with each input's fingerprint.
  */
 
-export const INGEST_TOOL_VERSION = 2;
+export const INGEST_TOOL_VERSION = 3;
 /** Files larger than this are listed and never stored */
 export const MAX_FILE_BYTES = 4 * 1024 ** 3;
 /** Formats taken only inside a folder with a sidecar OPF, or with --include-text */
@@ -140,6 +158,7 @@ export interface IngestPlan {
   files: Record<string, PlanFile>;
   groups: PlanGroup[];
   summary: PlanSummary;
+  matching?: ApprovedGroupMatching;
 }
 
 export interface PlanOptions {
@@ -156,6 +175,8 @@ export interface PlanOptions {
   storedKeys?: Set<string>;
   now?: number;
   onProgress?: (done: number, total: number) => void;
+  /** CLI enables matching; registration-only callers opt in explicitly. */
+  includeMatching?: boolean;
 }
 
 const METADATA_SOURCE: Partial<Record<EbookFormat, MetadataSource>> = {
@@ -187,21 +208,36 @@ export function sizeReason(size: number): string | null {
 }
 
 /** The reason a file that cannot be opened is listed with */
-export const unreadable = (error: unknown) => `Cannot be read: ${(error as Error).message ?? String(error)}`;
+export const unreadable = (error: unknown) =>
+  `Cannot be read: ${(error as Error).message ?? String(error)}`;
 
 /** What a found file is, and why it is not taken when it is not */
 export async function sniffTaken(
   source: ByteSource,
   options: { sidecar: boolean; includeText: boolean },
-): Promise<{ format: EbookFormat; reason: null } | { format: EbookFormat | null; reason: string }> {
+): Promise<
+  | { format: EbookFormat; reason: null }
+  | { format: EbookFormat | null; reason: string }
+> {
   const sniff = await sniffSource(source);
   if (sniff.kind === "not-ebook") return { format: null, reason: sniff.reason };
-  if (TEXT_FORMATS.has(sniff.format) && !options.sidecar && !options.includeText)
-    return { format: sniff.format, reason: "Text file, not taken; add --include-text to take it" };
+  if (
+    TEXT_FORMATS.has(sniff.format) &&
+    !options.sidecar &&
+    !options.includeText
+  )
+    return {
+      format: sniff.format,
+      reason: "Text file, not taken; add --include-text to take it",
+    };
   return { format: sniff.format, reason: null };
 }
 
-export async function pooled<T, R>(items: T[], limit: number, work: (item: T, index: number) => Promise<R>): Promise<R[]> {
+export async function pooled<T, R>(
+  items: T[],
+  limit: number,
+  work: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let next = 0;
   await Promise.all(
@@ -216,77 +252,151 @@ export async function pooled<T, R>(items: T[], limit: number, work: (item: T, in
 }
 
 /** The sidecar's fields over the file's own, one by one; the file's own under `embedded` */
-function fileMetadata(embedded: FileMetadata, sidecar: FileMetadata | null, extra: Record<string, unknown>): Record<string, unknown> {
+function fileMetadata(
+  embedded: FileMetadata,
+  sidecar: FileMetadata | null,
+  extra: Record<string, unknown>,
+): Record<string, unknown> {
   if (!sidecar) return { ...embedded, ...extra };
   const merged: Record<string, unknown> = { ...embedded };
   for (const [field, value] of Object.entries(sidecar)) {
-    const empty = value === null || value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
+    const empty =
+      value === null ||
+      value === undefined ||
+      value === "" ||
+      (Array.isArray(value) && value.length === 0);
     if (!empty) merged[field] = value;
   }
   return { ...merged, embedded, sidecar: true, ...extra };
 }
 
 /** Plans an ingestion of the roots. Writes nothing to the database or the bucket. */
-export async function planIngest(roots: string[], options: PlanOptions): Promise<IngestPlan> {
+export async function planIngest(
+  roots: string[],
+  options: PlanOptions,
+): Promise<IngestPlan> {
   const now = options.now ?? Date.now();
-  const { files: walked, sidecars } = await walkRoots(roots, { exclude: options.exclude });
+  const { files: walked, sidecars } = await walkRoots(roots, {
+    exclude: options.exclude,
+  });
   const found = options.limit ? walked.slice(0, options.limit) : walked;
   const hashes = new HashCache(options.cacheDir);
   let done = 0;
 
-  const examined = await pooled(found, HASHES_AT_ONCE, async (file): Promise<Examined> => {
-    try {
-      const tooBig = sizeReason(file.size);
-      if (tooBig) return { found: file, outcome: "ignored", reason: tooBig };
-      const source = await openFileSource(file.path, file.name);
+  const examined = await pooled(
+    found,
+    HASHES_AT_ONCE,
+    async (file): Promise<Examined> => {
       try {
-        const taken = await sniffTaken(source, { sidecar: sidecars.has(file.folder), includeText: !!options.includeText });
-        if (taken.reason !== null) return { found: file, outcome: "ignored", reason: taken.reason, format: taken.format ?? undefined };
-        const { sha256 } = await hashes.hash(file.path);
-        // What a file says reaches rows and reports only as text PostgreSQL stores
-        const prepared = storable(await prepareFile(source, sha256, taken.format, options.cacheDir));
-        return { found: file, sha256, format: taken.format, prepared };
-      } finally {
-        await source.close();
-        options.onProgress?.(++done, found.length);
+        const tooBig = sizeReason(file.size);
+        if (tooBig) return { found: file, outcome: "ignored", reason: tooBig };
+        const source = await openFileSource(file.path, file.name);
+        try {
+          const taken = await sniffTaken(source, {
+            sidecar: sidecars.has(file.folder),
+            includeText: !!options.includeText,
+          });
+          if (taken.reason !== null)
+            return {
+              found: file,
+              outcome: "ignored",
+              reason: taken.reason,
+              format: taken.format ?? undefined,
+            };
+          const { sha256 } = await hashes.hash(file.path);
+          // What a file says reaches rows and reports only as text PostgreSQL stores
+          const prepared = storable(
+            await prepareFile(source, sha256, taken.format, options.cacheDir),
+          );
+          return { found: file, sha256, format: taken.format, prepared };
+        } finally {
+          await source.close();
+          options.onProgress?.(++done, found.length);
+        }
+      } catch (error) {
+        return { found: file, outcome: "ignored", reason: unreadable(error) };
       }
-    } catch (error) {
-      return { found: file, outcome: "ignored", reason: unreadable(error) };
-    }
-  });
+    },
+  );
 
   // Sidecars of the folders that hold e-books
-  const sidecarInfo = new Map<string, { metadata: FileMetadata; uuid: string | null; personal: boolean; path: string }>();
-  for (const folder of new Set(examined.filter((e) => e.prepared).map((e) => e.found.folder))) {
+  const sidecarInfo = new Map<
+    string,
+    {
+      metadata: FileMetadata;
+      uuid: string | null;
+      personal: boolean;
+      path: string;
+    }
+  >();
+  for (const folder of new Set(
+    examined.filter((e) => e.prepared).map((e) => e.found.folder),
+  )) {
     const sidecar = sidecars.get(folder);
     if (!sidecar) continue;
     try {
       const opf = parseOpf(readFileSync(sidecar, "utf8"));
-      sidecarInfo.set(folder, { metadata: storable(opf.metadata), uuid: opf.uuid && storableText(opf.uuid), personal: opf.hasPersonalData, path: sidecar });
+      sidecarInfo.set(folder, {
+        metadata: storable(opf.metadata),
+        uuid: opf.uuid && storableText(opf.uuid),
+        personal: opf.hasPersonalData,
+        path: sidecar,
+      });
     } catch {
       // A sidecar that cannot be read is no sidecar: the folder's files group by name
     }
   }
 
-  const candidates = examined.filter((e): e is Examined & { sha256: string; format: EbookFormat; prepared: NonNullable<Examined["prepared"]> } => !!e.prepared);
+  const candidates = examined.filter(
+    (
+      e,
+    ): e is Examined & {
+      sha256: string;
+      format: EbookFormat;
+      prepared: NonNullable<Examined["prepared"]>;
+    } => !!e.prepared,
+  );
   const { groups: fileGroups, duplicates } = groupFiles(
-    candidates.map((e) => ({ path: e.found.path, folder: e.found.folder, name: e.found.name, sha256: e.sha256, sidecar: sidecarInfo.has(e.found.folder) })),
+    candidates.map((e) => ({
+      path: e.found.path,
+      folder: e.found.folder,
+      name: e.found.name,
+      sha256: e.sha256,
+      sidecar: sidecarInfo.has(e.found.folder),
+    })),
   );
   const byPath = new Map(candidates.map((e) => [e.found.path, e]));
 
   // The catalogue, one query per table
   const catalogueFiles = (await options.database
-    .select({ id: ebookFiles.id, ebookId: ebookFiles.ebookId, sha256: ebookFiles.sha256, format: ebookFiles.format, status: ebookFiles.status, drm: ebookFiles.drm, coverKey: ebookFiles.coverKey,
+    .select({
+      id: ebookFiles.id,
+      ebookId: ebookFiles.ebookId,
+      sha256: ebookFiles.sha256,
+      format: ebookFiles.format,
+      status: ebookFiles.status,
+      drm: ebookFiles.drm,
+      coverKey: ebookFiles.coverKey,
       metadata: ebookFiles.metadata,
       createdAt: ebookFiles.createdAt,
     })
     .from(ebookFiles)) as CatalogueFileRow[];
   const catalogueEbooks = await options.database
-    .select({ id: ebooks.id, importSource: ebooks.importSource, importRef: ebooks.importRef, preferredFileId: ebooks.preferredFileId, coverKey: ebooks.coverKey })
+    .select({
+      id: ebooks.id,
+      importSource: ebooks.importSource,
+      importRef: ebooks.importRef,
+      preferredFileId: ebooks.preferredFileId,
+      coverKey: ebooks.coverKey,
+    })
     .from(ebooks)
     .where(isNotNull(ebooks.importRef));
   const filesBySha = new Map(catalogueFiles.map((f) => [f.sha256, f]));
-  const ebookByRef = new Map(catalogueEbooks.filter((e) => e.importSource === "folder").map((e) => [e.importRef!, e]));
+  const ebookByRef = new Map(
+    catalogueEbooks
+      .filter((e) => e.importSource === "folder")
+      .map((e) => [e.importRef!, e]),
+  );
 
   const planFiles: Record<string, PlanFile> = {};
   const groups: PlanGroup[] = [];
@@ -294,36 +404,74 @@ export async function planIngest(roots: string[], options: PlanOptions): Promise
   /** Sidecar uuids a group of this plan creates an e-book for: a later folder with the same uuid adds to it */
   const plannedRefs = new Set<string>();
   for (const fileGroup of fileGroups) {
-    const sidecar = fileGroup.sidecar ? (sidecarInfo.get(fileGroup.folder) ?? null) : null;
+    const sidecar = fileGroup.sidecar
+      ? (sidecarInfo.get(fileGroup.folder) ?? null)
+      : null;
     const members = fileGroup.paths.map((p) => byPath.get(p)!);
     const ebook = mergeMetadata(
       [
-        ...(sidecar ? [{ source: "sidecar" as const, metadata: sidecar.metadata }] : []),
-        ...members.flatMap((m) => (METADATA_SOURCE[m.format] ? [{ source: METADATA_SOURCE[m.format]!, metadata: m.prepared.metadata }] : [])),
+        ...(sidecar
+          ? [{ source: "sidecar" as const, metadata: sidecar.metadata }]
+          : []),
+        ...members.flatMap((m) =>
+          METADATA_SOURCE[m.format]
+            ? [
+                {
+                  source: METADATA_SOURCE[m.format]!,
+                  metadata: m.prepared.metadata,
+                },
+              ]
+            : [],
+        ),
       ],
       members[0].found.name,
     );
     for (const m of members) {
       const ext = ebookExtension(m.format);
-      const metadata = fileMetadata(m.prepared.metadata, sidecar?.metadata ?? null, {
+      const metadata = fileMetadata(
+        m.prepared.metadata,
+        sidecar?.metadata ?? null,
+        {
           details: m.prepared.details,
           ...(m.prepared.problem ? { problem: m.prepared.problem } : {}),
-          ...(m.prepared.text.reason ? { textReason: m.prepared.text.reason } : {}),
-          ...(m.prepared.coverReason ? { coverReason: m.prepared.coverReason } : {}),
-        });
-      const staged = stageFile(m.prepared, metadata, readFileSync(derivedCachePath(options.cacheDir, m.sha256, "manifest.json")), {
-        sourceHost: options.host,
-        sourcePath: m.found.path,
-        sourceMtimeMs: m.found.mtimeMs,
-        plannedAt: new Date(now).toISOString(),
-      });
+          ...(m.prepared.text.reason
+            ? { textReason: m.prepared.text.reason }
+            : {}),
+          ...(m.prepared.coverReason
+            ? { coverReason: m.prepared.coverReason }
+            : {}),
+        },
+      );
+      const staged = stageFile(
+        m.prepared,
+        metadata,
+        readFileSync(
+          derivedCachePath(options.cacheDir, m.sha256, "manifest.json"),
+        ),
+        {
+          sourceHost: options.host,
+          sourcePath: m.found.path,
+          sourceMtimeMs: m.found.mtimeMs,
+          plannedAt: new Date(now).toISOString(),
+        },
+      );
       const { medallion, derived } = staged;
       const evidenceDir = path.join(options.cacheDir, "silver");
       mkdirSync(evidenceDir, { recursive: true });
-      writeFileSync(path.join(evidenceDir, `${medallion.silver.sha256}.json`), staged.report);
-      const publicationDir = path.join(options.cacheDir, "publications", medallion.silver.sha256);
+      writeFileSync(
+        path.join(evidenceDir, `${medallion.silver.sha256}.json`),
+        staged.report,
+      );
+      const publicationDir = path.join(
+        options.cacheDir,
+        "publications",
+        medallion.silver.sha256,
+      );
       mkdirSync(publicationDir, { recursive: true });
-      writeFileSync(path.join(publicationDir, "manifest.json"), staged.publication);
+      writeFileSync(
+        path.join(publicationDir, "manifest.json"),
+        staged.publication,
+      );
       planFiles[m.found.path] = {
         path: m.found.path,
         size: m.found.size,
@@ -336,23 +484,33 @@ export async function planIngest(roots: string[], options: PlanOptions): Promise
         originalFilename: m.found.name,
         downloadName: `${ebook.title}.${ext}`,
         drm: m.prepared.drm,
-        problem: medallion.validation.downloadable ? null : medallion.validation.reason,
+        problem: medallion.validation.downloadable
+          ? null
+          : medallion.validation.reason,
         metadata: {
           ...metadata,
           medallion,
-          ...(!medallion.validation.downloadable ? { problem: medallion.validation.reason } : {}),
+          ...(!medallion.validation.downloadable
+            ? { problem: medallion.validation.reason }
+            : {}),
         },
         text: m.prepared.text,
         derived,
-        manifestKey: derived.find((d) => d.name === "manifest.json")?.key ?? null,
+        manifestKey:
+          derived.find((d) => d.name === "manifest.json")?.key ?? null,
         coverKey: derived.find((d) => d.name === "cover-800.webp")?.key ?? null,
       };
     }
     const files = fileGroup.paths.map((p) => planFiles[p]);
     const importRef = sidecar?.uuid ?? null;
     const byRef = importRef ? ebookByRef.get(importRef) : undefined;
-    const existingId = byRef?.id ?? files.map((f) => filesBySha.get(f.sha256)?.ebookId).find(Boolean) ?? null;
-    const existing = existingId ? (catalogueEbooks.find((e) => e.id === existingId) ?? null) : null;
+    const existingId =
+      byRef?.id ??
+      files.map((f) => filesBySha.get(f.sha256)?.ebookId).find(Boolean) ??
+      null;
+    const existing = existingId
+      ? (catalogueEbooks.find((e) => e.id === existingId) ?? null)
+      : null;
     const group: PlanGroup = {
       key: fileGroup.key,
       folder: fileGroup.folder,
@@ -365,21 +523,43 @@ export async function planIngest(roots: string[], options: PlanOptions): Promise
       paths: fileGroup.paths,
     };
     // The outcomes the apply will reach, by the same rules it uses
-    const joinsPlanned = !existingId && !!importRef && plannedRefs.has(importRef);
+    const joinsPlanned =
+      !existingId && !!importRef && plannedRefs.has(importRef);
     if (importRef && !existingId) plannedRefs.add(importRef);
     const catalogue: GroupCatalogue = {
-      bySha: new Map(files.flatMap((f) => (filesBySha.has(f.sha256) ? [[f.sha256, filesBySha.get(f.sha256)!] as const] : []))),
+      bySha: new Map(
+        files.flatMap((f) =>
+          filesBySha.has(f.sha256)
+            ? [[f.sha256, filesBySha.get(f.sha256)!] as const]
+            : [],
+        ),
+      ),
       ebook: existingId
-        ? { id: existingId, preferredFileId: existing?.preferredFileId ?? null, coverKey: existing?.coverKey ?? null, files: catalogueFiles.filter((f) => f.ebookId === existingId),
+        ? {
+            id: existingId,
+            preferredFileId: existing?.preferredFileId ?? null,
+            coverKey: existing?.coverKey ?? null,
+            files: catalogueFiles.filter((f) => f.ebookId === existingId),
           }
         : joinsPlanned
-          ? { id: `planned:${importRef}`, preferredFileId: null, coverKey: null, files: [] }
+          ? {
+              id: `planned:${importRef}`,
+              preferredFileId: null,
+              coverKey: null,
+              files: [],
+            }
           : null,
     };
-    for (const item of planRegistration(group, files, catalogue, { host: options.host, at: new Date(now) }).items) outcomes.set(item.path, item.outcome);
+    for (const item of planRegistration(group, files, catalogue, {
+      host: options.host,
+      at: new Date(now),
+    }).items)
+      outcomes.set(item.path, item.outcome);
     groups.push(group);
   }
-  const groupOf = new Map(groups.flatMap((g, i) => g.paths.map((p) => [p, i] as const)));
+  const groupOf = new Map(
+    groups.flatMap((g, i) => g.paths.map((p) => [p, i] as const)),
+  );
 
   const items: PlanItem[] = examined.map((e) => {
     const duplicateOf = duplicates.get(e.found.path) ?? null;
@@ -389,14 +569,20 @@ export async function planIngest(roots: string[], options: PlanOptions): Promise
       mtimeMs: e.found.mtimeMs,
       sha256: e.sha256 ?? null,
       format: e.format ?? null,
-      outcome: e.outcome ?? (duplicateOf ? "duplicate_in_run" : outcomes.get(e.found.path)!),
-      reason: e.reason ?? (duplicateOf ? `Same bytes as ${duplicateOf}` : (planFiles[e.found.path]?.problem ?? null)),
+      outcome:
+        e.outcome ??
+        (duplicateOf ? "duplicate_in_run" : outcomes.get(e.found.path)!),
+      reason:
+        e.reason ??
+        (duplicateOf
+          ? `Same bytes as ${duplicateOf}`
+          : (planFiles[e.found.path]?.problem ?? null)),
       group: groupOf.get(e.found.path) ?? null,
       duplicateOf,
     };
   });
 
-  return {
+  const plan: IngestPlan = {
     v: 1,
     toolVersion: INGEST_TOOL_VERSION,
     createdAt: new Date(now).toISOString(),
@@ -409,43 +595,111 @@ export async function planIngest(roots: string[], options: PlanOptions): Promise
     items,
     files: planFiles,
     groups,
-    summary: summarize(items, planFiles, groups, options.uploadSpeed ?? null, options.storedKeys ?? new Set()),
+    summary: summarize(
+      items,
+      planFiles,
+      groups,
+      options.uploadSpeed ?? null,
+      options.storedKeys ?? new Set(),
+    ),
   };
+  if (options.includeMatching)
+    plan.matching = {
+      plan: await planIngestionMatchingOn(options.database, plan),
+      precision: null,
+    };
+  return plan;
 }
 
-function summarize(items: PlanItem[], files: Record<string, PlanFile>, groups: PlanGroup[], uploadSpeed: number | null, storedKeys: Set<string>): PlanSummary {
-  const count = (outcome: IngestOutcome) => items.filter((i) => i.outcome === outcome).length;
-  const tally = (values: string[]) => values.reduce<Record<string, number>>((all, v) => ((all[v] = (all[v] ?? 0) + 1), all), {});
-  const toStore = items.filter((i) => ["new_ebook", "new_format", "replaced_file", "quarantined"].includes(i.outcome)).map((i) => files[i.path]);
+function summarize(
+  items: PlanItem[],
+  files: Record<string, PlanFile>,
+  groups: PlanGroup[],
+  uploadSpeed: number | null,
+  storedKeys: Set<string>,
+): PlanSummary {
+  const count = (outcome: IngestOutcome) =>
+    items.filter((i) => i.outcome === outcome).length;
+  const tally = (values: string[]) =>
+    values.reduce<Record<string, number>>(
+      (all, v) => ((all[v] = (all[v] ?? 0) + 1), all),
+      {},
+    );
+  const toStore = items
+    .filter((i) =>
+      ["new_ebook", "new_format", "replaced_file", "quarantined"].includes(
+        i.outcome,
+      ),
+    )
+    .map((i) => files[i.path]);
   const toUpload = toStore.filter((f) => !storedKeys.has(f.key));
-  const uploadBytes = toStore.reduce((n, f) => n +
+  const uploadBytes = toStore.reduce(
+    (n, f) =>
+      n +
       (f.medallion
-        ? [f.medallion.bronze, f.medallion.silver, ...f.medallion.gold].filter((o) => !storedKeys.has(o.key)).reduce((m, o) => m + o.size, 0)
-        : f.size + f.derived.reduce((m, d) => m + d.size, 0)), 0,
+        ? [f.medallion.bronze, f.medallion.silver, ...f.medallion.gold]
+            .filter((o) => !storedKeys.has(o.key))
+            .reduce((m, o) => m + o.size, 0)
+        : f.size + f.derived.reduce((m, d) => m + d.size, 0)),
+    0,
   );
-  const uploadObjects = toStore.reduce((n, f) => n + (f.medallion ? [f.medallion.bronze, f.medallion.silver, ...f.medallion.gold].filter((o) => !storedKeys.has(o.key)).length : 1 + f.derived.length), 0,
+  const uploadObjects = toStore.reduce(
+    (n, f) =>
+      n +
+      (f.medallion
+        ? [f.medallion.bronze, f.medallion.silver, ...f.medallion.gold].filter(
+            (o) => !storedKeys.has(o.key),
+          ).length
+        : 1 + f.derived.length),
+    0,
   );
   const largeObjects = toUpload.filter((f) => f.size > 128 * 1024).length;
   const gb = uploadBytes / 1024 ** 3;
   return {
     found: items.length,
-    filesByFormat: tally(items.filter((i) => i.format && i.outcome !== "ignored").map((i) => i.format!)),
+    filesByFormat: tally(
+      items
+        .filter((i) => i.format && i.outcome !== "ignored")
+        .map((i) => i.format!),
+    ),
     // Folders with one sidecar uuid make one e-book
-    ebooksToCreate: new Set(groups.filter((g) => !g.existingEbookId).map((g) => g.importRef ?? g.key)).size,
+    ebooksToCreate: new Set(
+      groups.filter((g) => !g.existingEbookId).map((g) => g.importRef ?? g.key),
+    ).size,
     formatsToAdd: count("new_format"),
     changed: count("replaced_file"),
     alreadyStored: count("already_stored"),
     alreadyInBucket: toStore.length - toUpload.length,
     duplicates: count("duplicate_in_run"),
-    drm: tally(Object.values(files).filter((f) => f.drm && items.some((i) => i.path === f.path && i.outcome !== "already_stored")).map((f) => f.drm!),
+    drm: tally(
+      Object.values(files)
+        .filter(
+          (f) =>
+            f.drm &&
+            items.some(
+              (i) => i.path === f.path && i.outcome !== "already_stored",
+            ),
+        )
+        .map((f) => f.drm!),
     ),
-    quarantined: items.filter((i) => i.outcome === "quarantined").map((i) => ({ path: i.path, reason: i.reason ?? "" })),
-    ignored: tally(items.filter((i) => i.outcome === "ignored").map((i) => i.reason ?? "")),
-    personalData: groups.filter((g) => g.personalData).reduce((n, g) => n + g.paths.length, 0),
+    quarantined: items
+      .filter((i) => i.outcome === "quarantined")
+      .map((i) => ({ path: i.path, reason: i.reason ?? "" })),
+    ignored: tally(
+      items.filter((i) => i.outcome === "ignored").map((i) => i.reason ?? ""),
+    ),
+    personalData: groups
+      .filter((g) => g.personalData)
+      .reduce((n, g) => n + g.paths.length, 0),
     uploadBytes,
     uploadObjects,
     uploadSpeed,
     estimatedSeconds: uploadSpeed ? Math.ceil(uploadBytes / uploadSpeed) : null,
-    monthlyCostUsd: Math.round((gb * EBOOK_STORAGE_PRICE_PER_GB_MONTH + (largeObjects / 1000) * EBOOK_MONITORING_PRICE_PER_1000) * 100) / 100,
+    monthlyCostUsd:
+      Math.round(
+        (gb * EBOOK_STORAGE_PRICE_PER_GB_MONTH +
+          (largeObjects / 1000) * EBOOK_MONITORING_PRICE_PER_1000) *
+          100,
+      ) / 100,
   };
 }

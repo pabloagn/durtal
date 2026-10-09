@@ -77,11 +77,12 @@ BEGIN
     WHERE c.instance_id = parent_id;
   END IF;
   IF affected_ids IS NOT NULL THEN
-    UPDATE ebooks SET match_tier = NULL, duplicate_of_id = NULL, updated_at = now()
+    UPDATE ebooks SET match_tier = NULL, match_model_version = NULL, duplicate_of_id = NULL, updated_at = now()
     WHERE id = ANY(affected_ids) AND match_state = 'pending';
     DELETE FROM ebook_match_candidates WHERE ebook_id = ANY(affected_ids);
   END IF;
-  RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
 END;
 $$;
 CREATE TRIGGER ebook_candidate_edition_reparented
@@ -105,6 +106,7 @@ BEGIN
     NEW.match_probability := NULL;
     NEW.matched_at := NULL;
     NEW.match_tier := NULL;
+    NEW.match_model_version := NULL;
     NEW.duplicate_of_id := NULL;
     NEW.link_written := NULL;
     NEW.exclusion_reason := NULL;
@@ -120,6 +122,7 @@ BEGIN
   IF OLD.duplicate_of_id IS NOT NULL AND NEW.duplicate_of_id IS NULL
      AND NEW.match_tier = 'duplicate' THEN
     NEW.match_tier := NULL;
+    NEW.match_model_version := NULL;
     NEW.updated_at := now();
   END IF;
   RETURN NEW;

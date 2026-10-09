@@ -2470,6 +2470,7 @@ the same; these keys are the backstop under them. A refused row answers SQLSTATE
 | `matched_at` | TIMESTAMPTZ | nullable | |
 | `match_tier` | TEXT | nullable, allowed review tiers; null when not pending | SLN-495 declaration; reserved `0082_ebook_matching` is not generated/applied yet |
 | `match_fingerprint` | TEXT | nullable, lowercase SHA-256 | Bibliographic metadata and file checksums only; excludes decision state |
+| `match_model_version` | INTEGER | nullable, positive | Records the model even for zero-candidate classifications; repeat/resume can prove matching is current (SLN-495 amended declaration, migration ungenerated) |
 | `duplicate_of_id` | UUID | nullable, FK → `ebooks.id`, SET NULL; no self-reference | Present only for a pending duplicate proposal; deletion of its target clears the obsolete tier |
 | `link_written` | JSONB | nullable object | Versioned operation identity and exact before/after link/accession receipt for guarded undo |
 | `exclusion_reason` | TEXT | nullable, `duplicate`, `not_a_book`, `other`; present exactly when excluded | Existing exclusions backfill to `other`, never inferred from a tier |
