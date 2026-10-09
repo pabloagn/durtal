@@ -882,6 +882,13 @@ dialog::backdrop {
 }
 .image-editor-preview-landscape { height: 240px; }
 .image-editor-frame { height: 100%; max-width: 100%; overflow: hidden; }
+.image-editor-preview-landscape .image-editor-frame {
+  /* Width may be constrained by the inspector; let height follow its true
+     aspect, and cap width so a wide host cannot exceed the 240px well. */
+  width: 100%;
+  height: auto;
+  max-width: min(100%, calc(240px * var(--image-frame-aspect)));
+}
 .image-editor-group + .image-editor-group {
   border-top: 1px solid var(--color-glass-border);
   padding-top: 12px;

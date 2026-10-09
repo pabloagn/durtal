@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import {
   SlidersHorizontal,
   Lock,
@@ -233,11 +233,16 @@ function LoadedEditor({
                 onPointerCancel={() => {
                   drag.current = null;
                 }}
-                style={{
-                  ...(initial.aspect
-                    ? { aspectRatio: initial.aspect }
-                    : { width: "100%" }),
-                }}
+                style={
+                  {
+                    ...(initial.aspect
+                      ? {
+                          aspectRatio: initial.aspect,
+                          "--image-frame-aspect": initial.aspect,
+                        }
+                      : { width: "100%" }),
+                  } as CSSProperties
+                }
               >
                 <img
                   data-adjustment-preview
