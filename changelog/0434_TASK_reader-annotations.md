@@ -33,11 +33,22 @@ reader checkpoint `626f4870e072e33948dccf7f8e3d8f5db44986c7`.
   claim failure/expiry never permits restoration. Exact operation/revision/token
   acknowledgments cannot remove a later edit. The actual IndexedDB coordinator
   and real cross-tab/reload race tests remain required integration work.
-- Lifecycle request sizing uses serialized UTF-8 JSON. Logical mutations stay
+- SLN-454's deletion hook prepares serializable keep/delete quote choices with
+  exact server-issued note/binding versions; it invokes no tracker writer.
+  Cancellation creates no operation. The effect travels in the same durable
+  delete revision, is removed with pre-seal Undo and cannot outlive retirement.
+  Pure composed decisions validate versions/book binding and produce both
+  changes or neither. Conflict settlement retains the whole sealed operation.
+  Privileged tracker conversion preserves annotation identity/content/anchors;
+  it is absent from browser mutation schemas. Actual transactions remain gated.
+- Lifecycle request sizing uses serialized UTF-8 JSON. Logical mutations, including deferred effects and operation metadata, stay
   whole; oversized items remain durable for ordinary foreground requests.
   The shared transport defaults to 100 items, below the endpoint limit of 200.
-  SLN-507 supplies the eventual single replay owner; no separate browser replayer
-  or IndexedDB implementation is wired in this checkpoint.
+  SLN-507 supplies the eventual single replay owner; the typed injected transport
+  captures original per-item file/device identity, body and local Undo snapshot.
+  Enqueue resolves only after the shared durable commit; duplicate enqueue must
+  never reset a seal. Auth/device failures block durably. No separate browser
+  replayer or IndexedDB implementation is wired in this checkpoint.
 - Matching returns whole raw ranges, accepts fuzzy passage/context scores at
   least 0.85, rejects ambiguous placement and returns deferred on bounded-work
   exhaustion/cancellation. It adds no engine, navigation or DOM effects.
@@ -60,7 +71,7 @@ Full local database tests, production/browser tests, render/accessibility audits
 page-weight/performance rows, final exact-source review and CI remain mandatory
 before landing.
 
-Checkpoint validation (2026-10-09): seven focused Vitest files passed, 51 tests,
+Checkpoint validation (2026-10-09): eight focused Vitest files passed, 65 tests,
 no skipped tests in the selected files. Coverage includes complete Unicode
 payloads, irreversible delete sealing, exact acknowledgments, permanent retirement,
 microsecond cursors, pending reset conflicts, shared quote-matching budgets,

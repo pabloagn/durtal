@@ -63,6 +63,16 @@ export const annotationLocatorSchema = z.strictObject({
   pageLabel: characters(40).optional(),
 });
 
+export const deferredQuoteEffectSchema = z.discriminatedUnion("action", [
+  z.strictObject({ action: z.literal("none") }),
+  z.strictObject({
+    action: z.enum(["keep-quote", "delete-quote"]),
+    noteId: uuid,
+    expectedNoteVersion: z.string().min(1),
+    expectedBindingVersion: z.string().min(1),
+  }),
+]);
+
 function timestamp(now?: number) {
   return z.string().transform((value, ctx) => {
     try {
@@ -147,12 +157,43 @@ export function annotationUpsertSchema(now = Date.now()) {
   ]);
 }
 
+export function annotationDeleteSchema(now = Date.now()) {
+  return z.strictObject({
+    id: uuid,
+    clientUpdatedAt: timestamp(now),
+    // Optional for existing plain deletes; quote deletes require a prepared
+    // choice, checked against the actual annotation by the composed operation.
+    quoteEffect: deferredQuoteEffectSchema.optional(),
+  });
+}
+
+export function annotationDeleteRequestSchema(now = Date.now()) {
+  return annotationDeleteSchema(now)
+    .extend({
+      operationId: z.string().min(1).optional(),
+      revision: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).optional(),
+    })
+    .superRefine((item, ctx) => {
+      if (
+        (item.operationId === undefined) !== (item.revision === undefined) ||
+        (item.quoteEffect?.action !== undefined &&
+          item.quoteEffect.action !== "none" &&
+          item.operationId === undefined)
+      )
+        ctx.addIssue({
+          code: "custom",
+          message:
+            "A composed delete needs its exact operation id and revision",
+        });
+    });
+}
+
 export function annotationBodySchema(now = Date.now()) {
   return z
     .strictObject({
       upserts: z.array(annotationUpsertSchema(now)).max(ANNOTATION_BATCH_LIMIT),
       deletes: z
-        .array(z.strictObject({ id: uuid, clientUpdatedAt: timestamp(now) }))
+        .array(annotationDeleteRequestSchema(now))
         .max(ANNOTATION_BATCH_LIMIT),
     })
     .superRefine((body, ctx) => {
@@ -174,8 +215,11 @@ export type AnnotationUpsert = z.output<
   ReturnType<typeof annotationUpsertSchema>
 >;
 export type AnnotationDelete = z.output<
-  ReturnType<typeof annotationBodySchema>
->["deletes"][number];
+  ReturnType<typeof annotationDeleteSchema>
+>;
+export type AnnotationDeleteRequest = z.output<
+  ReturnType<typeof annotationDeleteRequestSchema>
+>;
 
 /** Validate received rows too; quotes are accepted only from the server response. */
 export const annotationRecordSchema = z

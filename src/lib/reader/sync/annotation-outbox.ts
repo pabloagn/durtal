@@ -1,9 +1,11 @@
 import type { AnnotationMutation, ReaderAnnotation } from "../annotations";
 import { ANNOTATION_BATCH_LIMIT } from "../annotations";
 import type {
-  AnnotationDelete,
+  AnnotationDeleteRequest,
   AnnotationUpsert,
 } from "@/lib/validations/annotations";
+
+import { assertAnnotationDeleteEffect } from "../annotation-deletion";
 
 export const ANNOTATION_TRANSPORT_BATCH_LIMIT = 100;
 export const ANNOTATION_UNDO_MS = 10_000;
@@ -53,6 +55,11 @@ export function pendingAnnotation(input: {
       input.snapshot.ebookId !== input.ebookId)
   )
     throw new Error("An undoable delete needs its annotation snapshot");
+  if (input.mutation.op === "delete")
+    assertAnnotationDeleteEffect(
+      input.snapshot!,
+      input.mutation.quoteEffect ?? { action: "none" },
+    );
   return {
     ebookId: input.ebookId,
     operationId: input.operationId,
@@ -70,7 +77,7 @@ export function undoPendingAnnotation(
   row: PendingAnnotation,
   now: number,
 ):
-  | { undone: true; snapshot: ReaderAnnotation }
+  | { undone: true; snapshot: ReaderAnnotation; row: null }
   | { undone: false; row: PendingAnnotation } {
   if (!Number.isFinite(now)) throw new Error("Invalid annotation undo time");
   if (
@@ -82,7 +89,7 @@ export function undoPendingAnnotation(
     return { undone: false, row };
   if (now >= row.undoUntil)
     return { undone: false, row: { ...row, stage: "sealed" } };
-  return { undone: true, snapshot: row.snapshot };
+  return { undone: true, snapshot: row.snapshot, row: null };
 }
 
 /** Sealing is irreversible, even when an attempt fails or its lease expires. */
@@ -142,11 +149,54 @@ export function acknowledgeAnnotationClaim(
     : row;
 }
 
+export type AnnotationDeleteFinalizationResult = {
+  operationId: string;
+  revision: number;
+  token: string;
+} & (
+  | { status: "committed" | "already-retired" }
+  | { status: "conflict"; reason: string }
+);
+
+/** A composed conflict acknowledges neither effect. Keep the whole sealed row;
+ * a stale response cannot release the current claim or remove a later revision.
+ */
+export function settleAnnotationDeleteClaim(
+  row: PendingAnnotation,
+  result: AnnotationDeleteFinalizationResult,
+): PendingAnnotation | null {
+  if (row.mutation.op !== "delete") throw new Error("Not an annotation delete");
+  if (acknowledgeAnnotationClaim(row, result) !== null) return row;
+  return result.status === "conflict"
+    ? releaseAnnotationClaim(row, result.token)
+    : null;
+}
+
 export interface AnnotationRequestPlan {
-  body: { upserts: AnnotationUpsert[]; deletes: AnnotationDelete[] };
+  body: { upserts: AnnotationUpsert[]; deletes: AnnotationDeleteRequest[] };
   json: string;
   bytes: number;
   operations: { operationId: string; revision: number; token: string }[];
+}
+
+/** Pure wire serialization, independent of shared queue claim ownership. */
+export function annotationOperationBody(
+  row: Pick<PendingAnnotation, "mutation" | "operationId" | "revision">,
+): AnnotationRequestPlan["body"] {
+  return row.mutation.op === "delete"
+    ? {
+        upserts: [],
+        deletes: [
+          {
+            id: row.mutation.id,
+            clientUpdatedAt: row.mutation.clientUpdatedAt,
+            quoteEffect: row.mutation.quoteEffect ?? { action: "none" },
+            operationId: row.operationId,
+            revision: row.revision,
+          },
+        ],
+      }
+    : { upserts: [row.mutation], deletes: [] };
 }
 
 /** Serialize each logical mutation whole. Oversized lifecycle items are deferred,
@@ -177,12 +227,9 @@ export function planAnnotationRequests(
   const serialize = (items: PendingAnnotation[]): AnnotationRequestPlan => {
     const body: AnnotationRequestPlan["body"] = { upserts: [], deletes: [] };
     for (const row of items) {
-      if (row.mutation.op === "delete")
-        body.deletes.push({
-          id: row.mutation.id,
-          clientUpdatedAt: row.mutation.clientUpdatedAt,
-        });
-      else body.upserts.push(row.mutation);
+      const item = annotationOperationBody(row);
+      body.upserts.push(...item.upserts);
+      body.deletes.push(...item.deletes);
     }
     const json = JSON.stringify(body);
     return {
