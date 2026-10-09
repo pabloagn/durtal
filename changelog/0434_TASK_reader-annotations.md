@@ -101,3 +101,25 @@ native concurrency/rollback coverage and existing-locator dump preflight remain
 required after exact review. The proposed declarations pass `pnpm typecheck`
 and focused ESLint. Historic pure checkpoints `c3c9aae6` and `7da122cd` remain
 unchanged ancestors.
+
+Independent review approved exact pure checkpoint `7da122cd` (65 focused tests),
+and requested one schema correction to `70c6b5c1`: row triggers cannot protect
+retired identities from TRUNCATE. The corrected review SQL adds a statement-level
+BEFORE TRUNCATE guards on both the ledger and cursor table, including cascading
+truncation. The cursor guard preserves the accepted READ COMMITTED/VOLATILE
+fresh-read protocol and prevents clock reset. New native source coverage
+in `reader-annotation-retirement.test.ts` tests direct/cascading truncation,
+preserved identities, monotonic cursor continuation and blocked replay. It requires disposable
+`sln500_reader_annotations` with generated/reviewed 0083 installed; it has not run
+while generation/native execution is gated. Existing database fixture resets must
+use fresh isolated databases rather than a bypass for this permanent ledger.
+
+Approved SLN-499 navigation `f1c4cadf994592755b3ac214f291c9e4e7fc1eea` was normally
+merged into this branch, preserving all original commit identities. Server,
+decoration and UI work continues against that source; shared queue wiring waits
+for SLN-507's concrete implementation instead of adding a second replay owner.
+
+Narrow correction validation after the SLN-499 merge: all 65 focused annotation
+tests, TypeScript and focused ESLint pass. Native regression source is present
+but no SQL or native database test was executed. Drizzle declarations are
+structurally unchanged, so the captured declaration snapshot remains exact.

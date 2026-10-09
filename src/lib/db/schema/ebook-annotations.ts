@@ -145,6 +145,7 @@ export const ebookAnnotations = pgTable(
 );
 
 /** Permanent minimal ledger: never aged out with the full 90-day tombstones.
+ * A statement-level hand-SQL guard also prohibits TRUNCATE, including CASCADE.
  * A global UUID cannot be recycled in this or any other e-book. RESTRICT keeps
  * its owning e-book identity; ingestion undo must account for retired ids too.
  */
@@ -174,6 +175,7 @@ export const ebookAnnotationRetiredIds = pgTable(
  * Advancing pulls establishes a durable upper bound even for empty books and
  * keeps the 90-day reset window based on elapsed server time, not the last edit.
  */
+// Review SQL also refuses statement-level TRUNCATE/CASCADE so this clock cannot reset.
 export const ebookAnnotationCursors = pgTable(
   "ebook_annotation_cursors",
   {

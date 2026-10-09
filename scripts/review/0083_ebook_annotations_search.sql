@@ -151,6 +151,17 @@ END $$;
 CREATE TRIGGER ebook_annotation_cursor_monotonic BEFORE UPDATE OR DELETE ON public.ebook_annotation_cursors
 FOR EACH ROW EXECUTE FUNCTION public.durtal_annotation_cursor_guard();
 
+-- TRUNCATE does not invoke the cursor DELETE guard. Protect its clock even
+-- for an empty table and when an owning table is truncated with CASCADE.
+CREATE FUNCTION public.durtal_annotation_cursor_truncate_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog, public AS $$
+BEGIN
+  RAISE EXCEPTION 'Annotation cursors cannot be truncated'
+    USING ERRCODE = '23514', CONSTRAINT = 'ebook_annotation_cursor_no_truncate';
+END $$;
+CREATE TRIGGER ebook_annotation_cursor_no_truncate BEFORE TRUNCATE ON public.ebook_annotation_cursors
+FOR EACH STATEMENT EXECUTE FUNCTION public.durtal_annotation_cursor_truncate_guard();
+
 CREATE FUNCTION public.durtal_annotation_retirement_guard() RETURNS trigger
 LANGUAGE plpgsql VOLATILE SET search_path = pg_catalog, public AS $$
 DECLARE owner uuid; stamp timestamptz;
@@ -173,6 +184,18 @@ BEGIN
 END $$;
 CREATE TRIGGER ebook_annotation_retirement_immutable BEFORE INSERT OR UPDATE OR DELETE ON public.ebook_annotation_retired_ids
 FOR EACH ROW EXECUTE FUNCTION public.durtal_annotation_retirement_guard();
+
+-- TRUNCATE bypasses row-level INSERT/UPDATE/DELETE triggers, including CASCADE.
+-- Reject it at statement level even when empty; no application reset may erase
+-- this ledger. Disposable test teardown must drop/recreate its isolated database.
+CREATE FUNCTION public.durtal_annotation_retirement_truncate_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = pg_catalog, public AS $$
+BEGIN
+  RAISE EXCEPTION 'Retired annotation identities cannot be truncated'
+    USING ERRCODE = '23514', CONSTRAINT = 'ebook_annotation_retirement_no_truncate';
+END $$;
+CREATE TRIGGER ebook_annotation_retirement_no_truncate BEFORE TRUNCATE ON public.ebook_annotation_retired_ids
+FOR EACH STATEMENT EXECUTE FUNCTION public.durtal_annotation_retirement_truncate_guard();
 
 CREATE FUNCTION public.durtal_annotation_retirement_consistency() RETURNS trigger
 LANGUAGE plpgsql SET search_path = pg_catalog, public AS $$

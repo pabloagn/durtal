@@ -2619,7 +2619,9 @@ on `search_normalize(coalesce(text, '') || ' ' || coalesce(note, ''))`.
 | `retired_at` | TIMESTAMPTZ(6) | NOT NULL, finite; original server retirement time                  |
 
 A deletion retires even an absent UUID. Full tombstones may be purged after
-90 days; this minimal identity ledger is permanent and rejects delayed edits or
+90 days; this minimal identity ledger is permanent; row UPDATE/DELETE and statement-level
+TRUNCATE (including CASCADE) are refused. The per-book cursor table also refuses
+statement-level TRUNCATE so its monotonic clock cannot reset. It rejects delayed edits or
 quote effects after purge. Its FK means ingestion undo must count retired IDs,
 not infer that an e-book is unused merely because its full annotation rows are gone.
 
