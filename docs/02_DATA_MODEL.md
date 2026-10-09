@@ -2560,6 +2560,8 @@ future is refused.
 
 UNIQUE (`file_id`, `device_id`); index (`ebook_id`, `updated_at` desc).
 
+SLN-493 reads all file/device rows ordered by `client_updated_at`. The page query includes this device's current-file place and book history, plus the newest other-device place, in the same database round trip. No device overwrites another's row. The reader offers a newer different place; it moves only on Go there, except when this device has never opened the e-book. Cross-file resume uses total progression in the current file. This adds no schema or migration and writes no tracker tables.
+
 ### `ebook_annotations`
 
 Highlights (with notes) and bookmarks. Created empty; sub-issue 11 writes them.

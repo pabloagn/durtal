@@ -33,7 +33,7 @@ export interface PositionQueueOptions {
 export interface PositionQueue {
   push(save: PositionSave): void;
   /** Sends what is queued now; `beacon` when the page is going away */
-  flush(options?: { beacon?: boolean }): void;
+  flush(options?: { beacon?: boolean }): Promise<boolean>;
   /** Whether a place is still waiting to be sent */
   readonly pending: boolean;
   destroy(): void;
@@ -41,19 +41,28 @@ export interface PositionQueue {
 
 export const SAVE_INTERVAL_MS = 2000;
 
-export function createPositionQueue(options: PositionQueueOptions): PositionQueue {
+export function createPositionQueue(
+  options: PositionQueueOptions,
+): PositionQueue {
   const interval = options.interval ?? SAVE_INTERVAL_MS;
-  const win = options.window === undefined ? (typeof window === "undefined" ? null : window) : options.window;
-  const doFetch = options.fetch ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
+  const win =
+    options.window === undefined
+      ? typeof window === "undefined"
+        ? null
+        : window
+      : options.window;
+  const doFetch =
+    options.fetch ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
   const beacon =
     options.sendBeacon ??
-    (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function"
+    (typeof navigator !== "undefined" &&
+    typeof navigator.sendBeacon === "function"
       ? (url: string, data: Blob) => navigator.sendBeacon(url, data)
       : null);
 
   let queued: PositionSave | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
-  let inFlight = false;
+  let inFlight: Promise<boolean> | null = null;
   let destroyed = false;
 
   // The first turn waits the whole interval and the turns after it join it: one request
@@ -62,50 +71,65 @@ export function createPositionQueue(options: PositionQueueOptions): PositionQueu
     timer = setTimeout(send, interval);
   };
 
-  async function send() {
+  function send(): Promise<boolean> {
     timer = null;
-    if (!queued || destroyed) return;
-    if (inFlight) {
-      schedule();
-      return;
-    }
+    if (inFlight) return inFlight;
+    if (!queued || destroyed) return Promise.resolve(true);
     const save = queued;
     queued = null;
-    inFlight = true;
-    let ok = false;
-    try {
-      const res = await doFetch(options.url, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(save),
-        keepalive: true,
-      });
-      // A refusal (a bad place, a file gone) is not worth sending again
-      ok = res.ok || (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429);
-    } catch {
-      ok = false;
-    } finally {
-      inFlight = false;
-    }
-    // Kept for the next flush, unless a newer place came meanwhile
-    if (!ok && !queued) queued = save;
-    if (queued && ok) schedule();
+    inFlight = (async () => {
+      let ok = false;
+      try {
+        const res = await doFetch(options.url, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(save),
+          keepalive: true,
+        });
+        ok =
+          res.ok ||
+          (res.status >= 400 &&
+            res.status < 500 &&
+            res.status !== 408 &&
+            res.status !== 429);
+      } catch {
+        ok = false;
+      }
+      if (!ok && !queued) queued = save;
+      return ok;
+    })();
+    const flight = inFlight;
+    void flight.then((ok) => {
+      inFlight = null;
+      if (queued && ok) schedule();
+    });
+    return flight;
   }
 
-  const flush = ({ beacon: useBeacon = false } = {}) => {
+  const flush = async ({
+    beacon: useBeacon = false,
+  } = {}): Promise<boolean> => {
     if (timer) {
       clearTimeout(timer);
       timer = null;
     }
-    if (!queued || destroyed) return;
-    if (useBeacon && beacon) {
-      const blob = new Blob([JSON.stringify(queued)], { type: "application/json" });
+    if (destroyed) return false;
+    if (useBeacon && queued && beacon) {
+      const blob = new Blob([JSON.stringify(queued)], {
+        type: "application/json",
+      });
       if (beacon(options.url, blob)) {
         queued = null;
-        return;
+        return true;
       }
     }
-    void send();
+    if (inFlight && !(await inFlight)) return false;
+    // A turn arriving during an in-flight save must be sent before a refresh GET.
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    return send();
   };
 
   const onPageHide = () => flush({ beacon: true });
@@ -117,6 +141,7 @@ export function createPositionQueue(options: PositionQueueOptions): PositionQueu
 
   return {
     push(save) {
+      if (destroyed) return;
       queued = save;
       schedule();
     },

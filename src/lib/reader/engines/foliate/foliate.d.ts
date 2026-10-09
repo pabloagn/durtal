@@ -91,6 +91,7 @@ export interface FoliateRenderer extends HTMLElement {
   setStyles?(styles: string | [string, string]): void;
   getContents(): { doc: Document; index: number }[];
   primaryIndex?: number;
+  atEnd: boolean;
   destroy?(): void;
 }
 

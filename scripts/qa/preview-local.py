@@ -240,6 +240,17 @@ def reader_seed(s3_dir, large_dir=None):
 insert into ebook_files(id, ebook_id, sha256, s3_key, format, size_bytes, content_type, original_filename, status, drm)
   values ('{file_id}', '{ebook_id}', '{sha}', '{key}', '{fmt}', {size}, '{READER_TYPES[fmt]}', {text(name)}, 'stored', {text(drm)});
 update ebooks set preferred_file_id = '{file_id}' where id = '{ebook_id}' and {text(drm)} is null;""")
+    # SLN-493: a PDF of the first EPUB's e-book, with its own immutable bytes.
+    # A trailing PDF comment preserves the text fixture while giving it a unique checksum/key.
+    alternate = (fixtures / "text.pdf").read_bytes() + b"\n% Durtal reader sync alternate format\n"
+    sha = hashlib.sha256(alternate).hexdigest()
+    key = f"files/{sha[:2]}/{sha}.pdf"
+    target = s3_dir.resolve() / "durtal-ebooks" / key
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(alternate)
+    sql.append(f"""insert into ebook_files(id, ebook_id, sha256, s3_key, format, size_bytes, content_type, original_filename, status)
+  values ('00000000-0000-4000-a000-e00000000001', '{READER_EBOOKS[0][0]}', '{sha}', '{key}', 'pdf',
+    {len(alternate)}, 'application/pdf', 'reader-sync.pdf', 'stored');""")
     return "\n".join(sql)
 
 

@@ -104,8 +104,8 @@ export type OpenErrorKind = "damaged" | "unsupported" | "network" | "expired";
 
 export interface EngineEvents {
   ready: BookInfo & { toc: TocItem[] };
-  relocate: { locator: DurtalLocator; chapter: string | null; reason: "turn" | "jump" };
-  selection: { text: string; locator: DurtalLocator } | null;
+  relocate: { locator: DurtalLocator; chapter: string | null; reason: "turn" | "jump"; atEnd: boolean; activity?: "turn" | "scroll" };
+  selection: { text: string; locator: DurtalLocator; rect: { left: number; top: number; right: number; bottom: number }; keyboard: boolean } | null;
   link: { href: string; external: boolean };
   error: { kind: OpenErrorKind; message: string };
   /** A section's document loaded: the input layer listens there too */
@@ -119,7 +119,7 @@ export interface OpenOptions {
   container: HTMLElement;
   presentation: Presentation;
   /** Where to start: this device's saved place */
-  at?: DurtalLocator | null;
+  at?: DurtalLocator | { fraction: number } | null;
 }
 
 export interface ReaderEngine {
@@ -136,6 +136,7 @@ export interface ReaderEngine {
   setPresentation(presentation: Presentation): void;
   /** A locator for the current selection inside the book, or null */
   locatorFromSelection(): DurtalLocator | null;
+  clearSelection(): void;
   resolve(locator: DurtalLocator): Promise<ResolveResult>;
   on<K extends keyof EngineEvents>(name: K, handler: (detail: EngineEvents[K]) => void): () => void;
 }

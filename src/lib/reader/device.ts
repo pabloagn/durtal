@@ -10,7 +10,8 @@ export const DEVICE_COOKIE = "durtal-device";
 /** 400 days, the longest a browser keeps a cookie */
 export const DEVICE_COOKIE_MAX_AGE = 400 * 24 * 60 * 60;
 
-const DEVICE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const DEVICE_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /** A device id the proxy could have made: a lowercase uuid */
 export function isDeviceId(value: unknown): value is string {
@@ -20,8 +21,8 @@ export function isDeviceId(value: unknown): value is string {
 const DEVICES: [RegExp, string][] = [
   [/iPhone|iPod/, "iPhone"],
   [/iPad/, "iPad"],
-  [/Android.*Mobile/, "Android phone"],
-  [/Android/, "Android tablet"],
+  [/Android.*Mobile/, "Android"],
+  [/Android/, "Android"],
   [/CrOS/, "Chromebook"],
   [/Macintosh|Mac OS X/, "Mac"],
   [/Windows/, "Windows"],
@@ -38,11 +39,26 @@ const BROWSERS: [RegExp, string][] = [
   [/Safari\//, "Safari"],
 ];
 
-/** "iPhone · Safari", "Mac · Firefox"; "Unknown device" when the agent says nothing useful */
-export function deviceLabel(userAgent: string | null | undefined): string {
+/** "iPhone · Safari", "Mac · Firefox"; "Browser" when the agent says nothing useful */
+export function deviceLabelFor(
+  userAgent: string | null | undefined,
+  touch = false,
+): string {
   const ua = userAgent ?? "";
-  const device = DEVICES.find(([re]) => re.test(ua))?.[1];
+  const device =
+    touch && /Macintosh/.test(ua)
+      ? "iPad"
+      : DEVICES.find(([re]) => re.test(ua))?.[1];
   const browser = BROWSERS.find(([re]) => re.test(ua))?.[1];
   if (device && browser) return `${device} · ${browser}`;
-  return device ?? browser ?? "Unknown device";
+  return device ?? browser ?? "Browser";
+}
+
+/** A bounded display-only hint travels with fetch and beacon; never a device identifier. */
+export function positionUrl(
+  ebookId: string,
+  agent: { userAgent: string; maxTouchPoints: number },
+): string {
+  const touch = /Macintosh/.test(agent.userAgent) && agent.maxTouchPoints > 1;
+  return `/api/reader/${ebookId}/position${touch ? "?touch=1" : ""}`;
 }

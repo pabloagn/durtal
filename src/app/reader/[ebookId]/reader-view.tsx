@@ -1,8 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { flushSync } from "react-dom";
-import { toast } from "sonner";
+import { ReaderBridgeProvider } from "@/components/reader/bridge";
+import {
+  ReaderNotice,
+  resumeNoticeText,
+} from "@/components/reader/reader-notice";
+import { SelectionToolbar } from "@/components/reader/selection-toolbar";
+import type { ReaderBridgeController } from "@/lib/reader/bridge-state";
+import { readerPercent } from "@/lib/reader/events";
+import { positionUrl } from "@/lib/reader/device";
+import type { ReaderPlace } from "@/lib/reader/sync/places";
+import { createPlaceSync } from "@/lib/reader/sync/session";
 import { ContentsDialog } from "@/components/reader/contents-dialog";
 import { OpenError } from "@/components/reader/open-error";
 import { ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
@@ -11,13 +28,24 @@ import { ReaderToolbar } from "@/components/reader/reader-toolbar";
 import { SettingsDialog } from "@/components/reader/settings-dialog";
 import { useReaderSettings } from "@/hooks/use-reader-settings";
 import { READER_PAGE_RE } from "@/lib/reader/csp";
-import type { BookSource, DurtalLocator, Prefetched, ReaderEngine, ReaderFormat, TocItem } from "@/lib/reader/engine";
+import type {
+  BookSource,
+  DurtalLocator,
+  EngineEvents,
+  Prefetched,
+  ReaderEngine,
+  ReaderFormat,
+  TocItem,
+} from "@/lib/reader/engine";
 import { readerFontFaces } from "@/lib/reader/fonts";
 import { PREFETCH_GLOBAL } from "@/lib/reader/first-range";
 import { createReaderInput, type ReaderActions } from "@/lib/reader/input";
 import { createPositionQueue } from "@/lib/reader/position-queue";
 import { preloadFoliate } from "@/lib/reader/engines/foliate/preload";
-import { presentationFrom, resolveThemeColors } from "@/lib/reader/presentation";
+import {
+  presentationFrom,
+  resolveThemeColors,
+} from "@/lib/reader/presentation";
 
 export interface ReaderViewFile {
   id: string;
@@ -34,11 +62,19 @@ export interface ReaderViewFile {
 /** A book that has not opened by then shows the error, never an endless wait */
 const OPEN_TIMEOUT_MS = 30_000;
 
-type Status = { kind: "opening" } | { kind: "ready" } | { kind: "error"; message: string };
+type Status =
+  | { kind: "opening" }
+  | { kind: "ready" }
+  | { kind: "error"; message: string };
 
 /** The first range the page's inline script started for this file, taken once */
 function takePrefetch(fileId: string): Promise<Prefetched[]> | undefined {
-  const store = (window as unknown as Record<string, Record<string, Promise<Prefetched[]>> | undefined>)[PREFETCH_GLOBAL];
+  const store = (
+    window as unknown as Record<
+      string,
+      Record<string, Promise<Prefetched[]>> | undefined
+    >
+  )[PREFETCH_GLOBAL];
   const prefetch = store?.[fileId];
   if (store) delete store[fileId];
   return prefetch;
@@ -60,7 +96,10 @@ function samePlace(a: DurtalLocator | null, b: DurtalLocator | null): boolean {
   if (!a || !b || a.fileHash !== b.fileHash) return false;
   if (a.cfi || b.cfi) return a.cfi === b.cfi;
   if (a.pdf || b.pdf) return a.pdf?.page === b.pdf?.page;
-  return a.sectionIndex === b.sectionIndex && Math.abs(a.totalProgression - b.totalProgression) < 1e-6;
+  return (
+    a.sectionIndex === b.sectionIndex &&
+    Math.abs(a.totalProgression - b.totalProgression) < 1e-6
+  );
 }
 
 const isBlocked = () => !!document.querySelector("dialog[open], [cmdk-root]");
@@ -70,44 +109,97 @@ const isBlocked = () => !!document.querySelector("dialog[open], [cmdk-root]");
  * layer on every document, the bars, Contents and Settings, and this
  * device's place saved as the reader goes.
  */
-export function ReaderView({
-  ebook,
-  file,
-  alternatives,
-  place,
-  backHref,
-}: {
+type ReaderViewProps = {
   ebook: { id: string; title: string; authors: string[] };
   file: ReaderViewFile | null;
   alternatives: { id: string; label: string }[];
-  place: DurtalLocator | null;
+  place: ReaderPlace | null;
+  devicePlace: ReaderPlace | null;
+  otherPlace: ReaderPlace | null;
+  deviceId: string | null;
   backHref: string;
-  /** Each reader plug-in's data, by id (none yet) */
-  plugins: Record<string, unknown>;
-}) {
+  plugins: { id: string; node: ReactNode }[];
+};
+export function ReaderView(props: ReaderViewProps) {
+  const [attempt, setAttempt] = useState(0);
+  return (
+    <ReaderBridgeProvider
+      key={`${props.ebook.id}:${props.file?.id}:${attempt}`}
+      plugins={props.plugins}
+      context={{
+        ebookId: props.ebook.id,
+        fileId: props.file?.id ?? "",
+        format: props.file?.format ?? "epub",
+        locator: null,
+        percent: null,
+        chapter: null,
+        selection: null,
+      }}
+    >
+      {(bridge) => (
+        <ReaderSession
+          {...props}
+          bridge={bridge}
+          onRetry={() => setAttempt((n) => n + 1)}
+        />
+      )}
+    </ReaderBridgeProvider>
+  );
+}
+function ReaderSession({
+  ebook,
+  file,
+  alternatives,
+  place: ownPlace,
+  devicePlace,
+  otherPlace,
+  deviceId,
+  backHref,
+  bridge,
+  onRetry,
+}: ReaderViewProps & { bridge: ReaderBridgeController; onRetry(): void }) {
+  const openingPlace = ownPlace ?? devicePlace ?? otherPlace;
+  const place = openingPlace?.locator ?? null;
   // The engine's code starts downloading as the view first renders, not after it mounts
   if (typeof window !== "undefined" && file) void preloadFoliate(file.format);
   const { settings, setSettings, resetSettings } = useReaderSettings();
   const bookRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<ReaderEngine | null>(null);
   const [status, setStatus] = useState<Status>(
-    file ? { kind: "opening" } : { kind: "error", message: "This eBook has no file the reader can open." },
+    file
+      ? { kind: "opening" }
+      : {
+          kind: "error",
+          message: "This eBook has no file the reader can open.",
+        },
   );
-  const [attempt, setAttempt] = useState(0);
   const [toc, setToc] = useState<TocItem[]>([]);
-  const [chapter, setChapter] = useState<string | null>(place?.tocLabel ?? null);
+  const [chapter, setChapter] = useState<string | null>(
+    place?.tocLabel ?? null,
+  );
   const [percent, setPercent] = useState<number | null>(null);
+  const [offer, setOffer] = useState<ReaderPlace | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [selection, setSelection] = useState<EngineEvents["selection"]>(null);
+  const selectionToolbarRef = useRef<HTMLDivElement>(null);
+  const syncRef = useRef<ReturnType<typeof createPlaceSync> | null>(null);
   const [contentsOpen, setContentsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState<boolean | null>(null);
-  const bars = useReaderBars({ held: contentsOpen || settingsOpen || status.kind !== "ready" });
+  const bars = useReaderBars({
+    held: contentsOpen || settingsOpen || status.kind !== "ready",
+  });
 
   // The book's look: the settings, the theme's colours and the reader's own fonts
   const presentation = useMemo(
     () =>
       typeof window === "undefined"
         ? null
-        : presentationFrom(settings, resolveThemeColors(), readerFontFaces(window.location.origin)),
+        : presentationFrom(
+            settings,
+            resolveThemeColors(),
+            readerFontFaces(window.location.origin),
+          ),
     [settings],
   );
   const presentationRef = useRef(presentation);
@@ -139,10 +231,15 @@ export function ReaderView({
       settings: () => setSettingsOpen(true),
       fullscreen: toggleFullscreen,
       escape: () => {
-        if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+        if (document.fullscreenElement)
+          void document.exitFullscreen().catch(() => {});
       },
       activity: (kind) => {
-        if (kind === "turn") bars.hide();
+        if (kind === "turn") {
+          bars.hide();
+          syncRef.current?.dismiss();
+        }
+        bridge.bus.activity(kind);
       },
       pointer: (_x, y) => bars.pointerAt(y),
     };
@@ -167,6 +264,9 @@ export function ReaderView({
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
   }, [visibleRef, showBars]);
+
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
 
   // The book: the engine, the input layer, the place
   useEffect(() => {
@@ -201,43 +301,158 @@ export function ReaderView({
       },
       isBlocked,
       hasSelection: () => !!engine?.locatorFromSelection(),
+      selectionEscape: () => {
+        if (!engine?.locatorFromSelection()) return false;
+        engine.clearSelection();
+        return true;
+      },
+      selectionTab: (event) => {
+        if (!selectionRef.current?.keyboard || event.shiftKey) return;
+        const button =
+          selectionToolbarRef.current?.querySelector<HTMLButtonElement>(
+            "button",
+          );
+        if (button) {
+          event.preventDefault();
+          button.focus();
+        }
+      },
     });
     input.attach(document);
 
-    const queue = createPositionQueue({ url: `/api/reader/${ebook.id}/position` });
-    let saved: DurtalLocator | null = place;
+    const url = positionUrl(ebook.id, navigator);
+    const queue = createPositionQueue({ url });
+    const declineKey = `durtal-reader-declined:${ebook.id}:${deviceId ?? "new"}`;
+    let declinedAt = 0;
+    try {
+      declinedAt = Number(localStorage.getItem(declineKey)) || 0;
+    } catch {
+      /* Storage can be disabled. */
+    }
+    const sync = createPlaceSync({
+      own: ownPlace ?? devicePlace,
+      other: devicePlace ? otherPlace : null,
+      declinedAt,
+      flush: () => queue.flush(),
+      read: async () => {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) throw new Error("Places unavailable");
+        return (await res.json()).positions as ReaderPlace[];
+      },
+      offer: setOffer,
+      remember: (at) => {
+        try {
+          localStorage.setItem(declineKey, String(at));
+        } catch {
+          /* Stay still works in this open. */
+        }
+      },
+    });
+    syncRef.current = sync;
+    let hiddenAt: number | null =
+      document.visibilityState === "hidden" ? Date.now() : null;
+    const visibility = () => {
+      if (document.visibilityState === "hidden") hiddenAt = Date.now();
+      else {
+        if (hiddenAt !== null && Date.now() - hiddenAt >= 60_000)
+          void sync.refresh();
+        hiddenAt = null;
+      }
+    };
+    const online = () => {
+      if (document.visibilityState !== "hidden") void sync.refresh();
+    };
+    document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("online", online);
+    let noticeTimer: ReturnType<typeof setTimeout> | null = null;
+    let saved: DurtalLocator | null = ownPlace?.locator ?? null;
     const save = (locator: DurtalLocator, chapterLabel: string | null) => {
       if (samePlace(locator, saved)) return;
       saved = locator;
-      queue.push({ fileId: file.id, locator, chapter: chapterLabel, clientUpdatedAt: new Date().toISOString() });
+      queue.push({
+        fileId: file.id,
+        locator,
+        chapter: chapterLabel,
+        clientUpdatedAt: new Date().toISOString(),
+      });
     };
 
     const timeout = setTimeout(() => {
       if (opened || cancelled) return;
       cancelled = true;
       engine?.destroy();
-      setStatus({ kind: "error", message: "The file took too long to download. Check the connection." });
+      setStatus({
+        kind: "error",
+        message: "The file took too long to download. Check the connection.",
+      });
     }, OPEN_TIMEOUT_MS);
 
     void (async () => {
       try {
-        const { createFoliateEngine } = await import("@/lib/reader/engines/foliate/engine");
+        const { createFoliateEngine } =
+          await import("@/lib/reader/engines/foliate/engine");
         if (cancelled) return;
         engine = createFoliateEngine();
         engineRef.current = engine;
-        let latest: { locator: DurtalLocator; chapter: string | null } | null = null;
+        let latest: EngineEvents["relocate"] | null = null;
         engine.on("error", ({ message }) => {
           reported = true;
           setStatus({ kind: "error", message });
         });
         engine.on("ready", (info) => setToc(info.toc));
         engine.on("document", ({ doc }) => input.attach(doc));
-        engine.on("relocate", ({ locator, chapter: label }) => {
-          latest = { locator, chapter: label };
+        engine.on("selection", (selected) => {
+          setSelection(selected);
+          const value = selected
+            ? {
+                text: selected.text,
+                locator: selected.locator,
+                fileId: file.id,
+                chapter: selected.locator.tocLabel ?? null,
+                percent: readerPercent(selected.locator),
+              }
+            : null;
+          bridge.update({ selection: value });
+          bridge.bus.emit("selection", value);
+        });
+        engine.on("relocate", (relocation) => {
+          const { locator, chapter: label, reason, atEnd } = relocation;
+          latest = relocation;
           setChapter(label);
           setPercent(Math.round(locator.totalProgression * 100));
           // The landing on open is not a new place; every move after it is
-          if (opened) save(locator, label);
+          if (opened) {
+            const local: ReaderPlace = {
+              deviceId: deviceId ?? "",
+              deviceLabel: "Browser",
+              thisDevice: true,
+              fileId: file.id,
+              locator,
+              progression: locator.totalProgression,
+              furthestProgression: locator.totalProgression,
+              chapter: label,
+              clientUpdatedAt: new Date().toISOString(),
+            };
+            if (reason === "turn") {
+              sync.localTurn(local);
+              setNotice(null);
+            } else sync.localPlace(local);
+            save(locator, label);
+            bridge.update({
+              locator,
+              percent: readerPercent(locator),
+              chapter: label,
+            });
+            bridge.bus.location({
+              locator,
+              kind: reason,
+              chapter: label,
+              fileId: file.id,
+              atEnd,
+            });
+            if (reason === "turn")
+              bridge.bus.activity(relocation.activity ?? "turn");
+          }
         });
         const source: BookSource = {
           ebookId: ebook.id,
@@ -250,37 +465,89 @@ export function ReaderView({
           cdOffset: file.cdOffset,
           prefetch: takePrefetch(file.id),
           refreshUrl: async () => {
-            const res = await fetch(`/api/ebooks/files/${file.id}/url`, { cache: "no-store" });
-            if (!res.ok) throw new Error(`The file's URL could not be renewed (${res.status})`);
+            const res = await fetch(`/api/ebooks/files/${file.id}/url`, {
+              cache: "no-store",
+            });
+            if (!res.ok)
+              throw new Error(
+                `The file's URL could not be renewed (${res.status})`,
+              );
             return ((await res.json()) as { url: string }).url;
           },
         };
         const { resolved } = await engine.open(source, {
           container,
           presentation: presentationRef.current!,
-          at: place ?? undefined,
+          at:
+            openingPlace && openingPlace.fileId !== file.id
+              ? { fraction: openingPlace.locator.totalProgression }
+              : (place ?? undefined),
         });
         if (cancelled) return;
         opened = true;
         clearTimeout(timeout);
         setStatus({ kind: "ready" });
-        if (place && (!resolved || resolved.status === "failed")) {
-          toast("Your place in this book could not be found, so it opens at the start.");
+        const failedPlace =
+          place &&
+          openingPlace?.fileId === file.id &&
+          (!resolved || resolved.status === "failed");
+        if (failedPlace) {
+          setNotice(
+            "Your saved place could not be found. Opened at the start.",
+          );
         }
         // A first open, or a place found again another way: save where the book opened
-        const landing = latest as { locator: DurtalLocator; chapter: string | null } | null;
-        if (landing && (!place || resolved?.status !== "exact")) save(landing.locator, landing.chapter);
+        const landing = latest as EngineEvents["relocate"] | null;
+        if (!failedPlace && !devicePlace && otherPlace) {
+          setNotice(
+            `Opened where you left off on ${otherPlace.deviceLabel.split(" · ")[0]}`,
+          );
+          noticeTimer = setTimeout(() => setNotice(null), 4000);
+        }
+        if (landing) {
+          sync.localPlace({
+            deviceId: deviceId ?? "",
+            deviceLabel: "Browser",
+            thisDevice: true,
+            fileId: file.id,
+            locator: landing.locator,
+            progression: landing.locator.totalProgression,
+            furthestProgression: landing.locator.totalProgression,
+            chapter: landing.chapter,
+            clientUpdatedAt:
+              ownPlace && resolved?.status === "exact"
+                ? ownPlace.clientUpdatedAt
+                : new Date().toISOString(),
+          });
+          bridge.update({
+            locator: landing.locator,
+            percent: readerPercent(landing.locator),
+            chapter: landing.chapter,
+          });
+          bridge.bus.location({ ...landing, fileId: file.id, kind: "jump" });
+        }
+        if (landing && (!ownPlace || resolved?.status !== "exact"))
+          save(landing.locator, landing.chapter);
       } catch {
         if (cancelled) return;
         clearTimeout(timeout);
         // The engine says what kind of failure it was; this is for the rest
-        if (!reported) setStatus({ kind: "error", message: "The file is damaged or not a valid eBook." });
+        if (!reported)
+          setStatus({
+            kind: "error",
+            message: "The file is damaged or not a valid eBook.",
+          });
       }
     })();
 
     return () => {
       cancelled = true;
       clearTimeout(timeout);
+      if (noticeTimer) clearTimeout(noticeTimer);
+      document.removeEventListener("visibilitychange", visibility);
+      window.removeEventListener("online", online);
+      sync.destroy();
+      syncRef.current = null;
       queue.destroy();
       input.destroy();
       engine?.destroy();
@@ -288,15 +555,12 @@ export function ReaderView({
     };
     // A new file or a retry opens the book again; the place is read once per open
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file?.id, attempt]);
+  }, [file?.id]);
 
-  const pick = useCallback(
-    (href: string) => {
-      setContentsOpen(false);
-      void engineRef.current?.goTo({ href });
-    },
-    [],
-  );
+  const pick = useCallback((href: string) => {
+    setContentsOpen(false);
+    void engineRef.current?.goTo({ href });
+  }, []);
 
   const onBack = useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
     // Back to the page this one was opened from, when it is in this app
@@ -306,7 +570,12 @@ export function ReaderView({
     } catch {
       from = null;
     }
-    if (from && from.origin === window.location.origin && !READER_PAGE_RE.test(from.pathname) && window.history.length > 1) {
+    if (
+      from &&
+      from.origin === window.location.origin &&
+      !READER_PAGE_RE.test(from.pathname) &&
+      window.history.length > 1
+    ) {
       event.preventDefault();
       window.history.back();
     }
@@ -317,13 +586,16 @@ export function ReaderView({
       <OpenError
         title={file ? undefined : "This eBook cannot be read here"}
         message={status.message}
-        onRetry={file ? () => setAttempt((n) => n + 1) : undefined}
+        onRetry={file ? onRetry : undefined}
         alternatives={alternatives}
         ebookId={ebook.id}
         backHref={backHref}
       />
     ) : status.kind === "opening" ? (
-      <p role="status" className="absolute inset-0 flex items-center justify-center text-sm text-fg-secondary">
+      <p
+        role="status"
+        className="absolute inset-0 flex items-center justify-center text-sm text-fg-secondary"
+      >
         Opening the book
       </p>
     ) : null;
@@ -347,11 +619,63 @@ export function ReaderView({
             fullscreen={fullscreen}
             onFullscreen={toggleFullscreen}
           />
-          <ReaderBottomBar visible={bars.visible} chapter={chapter} percent={percent} />
+          <ReaderBottomBar
+            visible={bars.visible}
+            chapter={chapter}
+            percent={percent}
+            bridge={bridge}
+          />
         </>
       }
     >
-      <ContentsDialog open={contentsOpen} onClose={() => setContentsOpen(false)} toc={toc} onPick={pick} />
+      <ReaderNotice bridge={bridge}>
+        {notice ??
+          (offer && file ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="min-w-0 flex-1">
+                {resumeNoticeText(offer, file.id)}
+              </p>
+              <button
+                type="button"
+                aria-label="Go to the newer place"
+                data-tooltip="Go to the newer place"
+                className="h-8 rounded-sm px-2 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11"
+                onClick={() => {
+                  const target = offer;
+                  syncRef.current?.dismiss();
+                  void engineRef.current?.goTo(
+                    target.fileId === file.id
+                      ? target.locator
+                      : { fraction: target.locator.totalProgression },
+                  );
+                }}
+              >
+                Go there
+              </button>
+              <button
+                type="button"
+                aria-label="Stay at this place"
+                data-tooltip="Stay at this place"
+                className="h-8 rounded-sm px-2 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11"
+                onClick={() => syncRef.current?.dismiss()}
+              >
+                Stay
+              </button>
+            </div>
+          ) : null)}
+      </ReaderNotice>
+      <SelectionToolbar
+        ref={selectionToolbarRef}
+        selection={selection}
+        bridge={bridge}
+        onClear={() => engineRef.current?.clearSelection()}
+      />
+      <ContentsDialog
+        open={contentsOpen}
+        onClose={() => setContentsOpen(false)}
+        toc={toc}
+        onPick={pick}
+      />
       <SettingsDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

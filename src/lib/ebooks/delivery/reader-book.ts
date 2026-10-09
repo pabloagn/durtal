@@ -2,24 +2,19 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { formatRank, READABLE_FORMATS } from "../formats";
+import type { ReaderPlace } from "@/lib/reader/sync/places";
 import type { CatalogueFile } from "./files";
 
 /*
  * What the reader page needs, in one query (eBooks sub-issue 3): the
  * e-book, its readable files (stored or verified, no DRM, a format the
- * reader opens), the linked book's page and this device's saved places.
+ * reader opens), the linked book's page, this device's history and the newest other place.
  * Like the readers in files.ts, it is the only other place that makes
  * CatalogueFiles: the rows were read in this request.
  */
 
 export interface ReaderFile extends CatalogueFile {
   readonly manifestKey: string | null;
-}
-
-export interface ReaderPlace {
-  fileId: string;
-  locator: Record<string, unknown>;
-  clientUpdatedAt: string;
 }
 
 export interface ReaderBook {
@@ -35,9 +30,15 @@ export interface ReaderBook {
   file: ReaderFile | null;
   /** This device's place in `file` */
   place: ReaderPlace | null;
+  /** Latest history in any file, to distinguish a new device from a new format. */
+  devicePlace: ReaderPlace | null;
+  otherPlace: ReaderPlace | null;
 }
 
-type Row = Omit<ReaderBook, "file" | "place" | "files"> & {
+type Row = Omit<
+  ReaderBook,
+  "file" | "place" | "devicePlace" | "otherPlace" | "files"
+> & {
   preferredFileId: string | null;
   files: ReaderFile[];
   places: ReaderPlace[];
@@ -62,10 +63,13 @@ export async function readReaderBook(
           from ebook_files f
           where f.ebook_id = eb.id and f.status in ('stored', 'verified') and f.drm is null
             and f.format in (${readable})), '[]'::json) as files,
-        coalesce((select json_agg(json_build_object('fileId', p.file_id, 'locator', p.locator,
-            'clientUpdatedAt', p.client_updated_at))
+        coalesce((select json_agg(json_build_object('deviceId', p.device_id, 'deviceLabel', p.device_label,
+            'fileId', p.file_id, 'locator', p.locator, 'progression', p.progression,
+            'furthestProgression', p.furthest_progression, 'chapter', p.chapter,
+            'clientUpdatedAt', p.client_updated_at, 'thisDevice', p.device_id = ${options.deviceId ?? ""})
+            order by p.client_updated_at desc, p.device_id, p.file_id)
           from ebook_positions p
-          where p.ebook_id = eb.id and p.device_id = ${options.deviceId ?? ""}), '[]'::json) as places
+          where p.ebook_id = eb.id), '[]'::json) as places
       from ebooks eb
       left join instances i on i.id = eb.instance_id and i.status <> 'deaccessioned'
       left join editions e on e.id = i.edition_id
@@ -73,10 +77,16 @@ export async function readReaderBook(
       where eb.id = ${ebookId}::uuid`),
   );
   if (!row) return null;
-  const files = [...row.files].sort((a, b) => formatRank(a.format) - formatRank(b.format));
-  const byId = (id: string | null | undefined) => (id ? files.find((f) => f.id === id.toLowerCase()) : undefined);
-  const file = byId(options.fileId) ?? byId(row.preferredFileId) ?? files[0] ?? null;
-  const place = file ? (row.places.find((p) => p.fileId === file.id) ?? null) : null;
+  const files = [...row.files].sort(
+    (a, b) => formatRank(a.format) - formatRank(b.format),
+  );
+  const byId = (id: string | null | undefined) =>
+    id ? files.find((f) => f.id === id.toLowerCase()) : undefined;
+  const file =
+    byId(options.fileId) ?? byId(row.preferredFileId) ?? files[0] ?? null;
+  const place = file
+    ? (row.places.find((p) => p.thisDevice && p.fileId === file.id) ?? null)
+    : null;
   return {
     id: row.id,
     title: row.title,
@@ -86,5 +96,7 @@ export async function readReaderBook(
     files,
     file,
     place,
+    devicePlace: row.places.find((p) => p.thisDevice) ?? null,
+    otherPlace: row.places.find((p) => !p.thisDevice) ?? null,
   };
 }

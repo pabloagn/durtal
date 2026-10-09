@@ -1015,9 +1015,11 @@ An e-book's cover: its preferred file's derived WebP, at one width.
 
 ### `GET /api/reader/[ebookId]/position` and `POST`
 
-This device's place in an e-book (SLN-492), in `ebook_positions` (docs/02). The device is the `durtal-device` cookie, which the proxy sets on the first reader page. Same-origin only; a malformed id answers `400` before any database call. `Cache-Control: no-store`.
+Every device's place in an e-book (SLN-493), in `ebook_positions` (docs/02). The device is the `durtal-device` cookie, which the proxy sets on the first reader page. Same-origin only; a malformed id answers `400` before any database call. `Cache-Control: no-store`.
 
-**GET response** `200`: `{ "positions": [{ "fileId", "locator", "progression", "furthestProgression", "chapter", "deviceLabel", "clientUpdatedAt", "updatedAt" }] }`, one per file of the e-book this device has read, newest first; empty without a device cookie. `404`: no such e-book.
+**GET response** `200`: `{ "positions": [{ "deviceId", "deviceLabel", "fileId", "locator", "progression", "furthestProgression", "chapter", "clientUpdatedAt", "thisDevice" }] }`. One row per device and file, ordered newest first by `clientUpdatedAt` with deterministic device/file tie-breaking. `thisDevice` compares the HttpOnly cookie; without a valid cookie all rows remain visible with `thisDevice: false`. `404`: no such e-book. POST's body, response and conflict semantics are unchanged.
+
+A client may append `?touch=1` to the shared position URL when a Macintosh user agent has more than one touch point. This bounded hint affects only its saved display label (`iPad · Safari`); it never changes device identity. Fetch and sendBeacon use the same URL. Unknown user agents are labelled `Browser`.
 
 **POST body**:
 
