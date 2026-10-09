@@ -55,6 +55,7 @@ export function ReaderToolbar({
   onSettings,
   fullscreen,
   onFullscreen,
+  offlineAction,
 }: {
   visible: boolean;
   title: string;
@@ -66,6 +67,7 @@ export function ReaderToolbar({
   /** Null where the Fullscreen API is missing (iPhone) */
   fullscreen: boolean | null;
   onFullscreen: () => void;
+  offlineAction?: React.ReactNode;
 }) {
   return (
     <header
@@ -100,6 +102,7 @@ export function ReaderToolbar({
             )}
           </div>
           <div className="flex shrink-0 gap-1">
+            {offlineAction}
             <BarButton label="Contents" keys="t" onClick={onContents}>
               <ListTree className="h-4 w-4" strokeWidth={1.5} />
             </BarButton>

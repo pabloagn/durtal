@@ -1,3 +1,4 @@
+import type { DownloadRecord } from "./download-record";
 import {
   OFFLINE_DATABASE_VERSION,
   OFFLINE_STORES,
@@ -151,11 +152,9 @@ export async function openOfflineStore(options: StoreOptions) {
   async function transaction<T>(
     mode: IDBTransactionMode,
     run: (tx: IDBTransaction) => Promise<T>,
+    scope: string[] = ["outbox", "annotations", "positions", "rejected"],
   ): Promise<T> {
-    const tx = db.transaction(
-      ["outbox", "annotations", "positions", "rejected"],
-      mode,
-    );
+    const tx = db.transaction(scope, mode);
     const done = new Promise<void>((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onabort = () =>
@@ -383,6 +382,22 @@ export async function openOfflineStore(options: StoreOptions) {
     return books;
   }
   return {
+    listDownloads: () => transaction("readonly", async tx => {
+      const records = await request(tx.objectStore("downloads").getAll()) as DownloadRecord[];
+      if (records.some(record => recordVersionPolicy(record) !== "supported"))
+        throw new Error("Unsupported offline download record");
+      return records;
+    }, ["downloads"]),
+    async transactDownload(key: string, reduce: (record: DownloadRecord | null) => DownloadRecord | null): Promise<DownloadRecord | null> {
+      return transaction("readwrite", async tx => {
+        const store = tx.objectStore("downloads"), current = await request(store.get(key)) as DownloadRecord | undefined;
+        if (current && recordVersionPolicy(current) !== "supported") throw new Error("Unsupported offline download record");
+        const next = reduce(current ?? null);
+        if (next && (recordVersionPolicy(next) !== "supported" || next.key !== key)) throw new Error("Invalid download transition");
+        if (next) await request(store.put(next)); else await request(store.delete(key));
+        return next;
+      }, ["downloads"]);
+    },
     /** Hide/expiry is a durable irreversible transition independent of network,
      * device preflight, head blocking, payload size and eventual claim selection.
      */

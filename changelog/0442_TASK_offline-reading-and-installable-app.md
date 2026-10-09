@@ -92,3 +92,26 @@ also seals before deferred selection. It preserves whole original quote effects,
 revisions, claim tokens and auth blocking. Native regression source covers failed
 preflight, oversized composed delete and sealing behind a blocked head. These
 new regressions and static checks have not run; the quiet window remains active.
+
+Source-only feature integration on 2026-10-10: mounted reader position saves now
+use `getReaderRuntime`/`createDurablePositionQueue` instead of the legacy fetch and
+beacon replayer, restoring newer exact local places before engine open. SLN-500's
+annotation owner configures the same singleton domain validator/response decoder.
+Added streamed whole-file download publication with bounded incremental SHA-256
+worker, exact byte/hash checks, per-file ownership, cancellation cleanup and
+unsigned metadata; reader download controls and data-independent offline pages.
+The offline list never imports an engine; the offline reader mounts no plugins.
+Added classical `public/sw.js`, complete-install hash verification, immutable
+asset/shell caches, verified cached book ranges/HEAD and warm-update retention.
+The manifest uses Quiet Glass theme. Post-build asset/icon packaging consumes
+SLN-509 `BUILD_IDENTITY.buildId` and refuses a different Next build identity.
+
+The source checkpoint requires SLN-509's identity module/config and SLN-553's
+minimal reader/offline roots before combined packaging and acceptance. It has
+not been formatted, typechecked, linted, built or executed since QUIET-494;
+new SHA vectors and lifecycle ordering/race regression source are retained for
+the next bounded grant. Prior 91 unit/API + 18 native correctness evidence and
+five pre-quiet wake regressions remain exactly their earlier checkpoint evidence.
+SW graph completeness, download/quota/cancellation behavior, storage repair,
+legacy import, cross-engine offline annotations, pixel alignment, page weight,
+actual cold opens, performance and release/rollback acceptance remain outstanding.

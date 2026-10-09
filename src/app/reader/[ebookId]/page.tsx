@@ -103,6 +103,7 @@ async function viewFile(file: ReaderFile): Promise<ReaderViewFile> {
     expiresAt: delivery.expiresAt,
     fallbackUrl,
     cdOffset,
+    cdnBases: process.env.EBOOK_CDN_URL ? [process.env.EBOOK_CDN_URL] : [],
   };
 }
 

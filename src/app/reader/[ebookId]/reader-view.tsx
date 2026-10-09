@@ -24,6 +24,7 @@ import { ContentsDialog } from "@/components/reader/contents-dialog";
 import { OpenError } from "@/components/reader/open-error";
 import { ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
 import { ReaderShell, useReaderBars } from "@/components/reader/reader-shell";
+import { DownloadButton } from "@/components/reader/offline/download-button";
 import { ReaderToolbar } from "@/components/reader/reader-toolbar";
 import { SettingsDialog } from "@/components/reader/settings-dialog";
 import { useReaderSettings } from "@/hooks/use-reader-settings";
@@ -40,7 +41,9 @@ import type {
 import { readerFontFaces } from "@/lib/reader/fonts";
 import { PREFETCH_GLOBAL } from "@/lib/reader/first-range";
 import { createReaderInput, type ReaderActions } from "@/lib/reader/input";
-import { createPositionQueue } from "@/lib/reader/position-queue";
+import { createDurablePositionQueue } from "@/lib/reader/offline/position-adapter";
+import { getReaderRuntime } from "@/lib/reader/offline/runtime";
+import { comparePositionTimes } from "@/lib/reader/offline/outbox-policy";
 import { preloadFoliate } from "@/lib/reader/engines/foliate/preload";
 import {
   presentationFrom,
@@ -57,6 +60,7 @@ export interface ReaderViewFile {
   expiresAt: string | null;
   fallbackUrl: string;
   cdOffset: number | null;
+  cdnBases?: string[];
 }
 
 /** A book that has not opened by then shows the error, never an endless wait */
@@ -328,7 +332,9 @@ function ReaderSession({
     input.attach(document);
 
     const url = positionUrl(ebook.id, navigator);
-    const queue = createPositionQueue({ url });
+    const queue = createDurablePositionQueue({ ebookId: ebook.id, deviceId,
+      onError: () => { if (!cancelled) setNotice("Your place could not be saved on this device. Keep this tab open and try again."); },
+    });
     const declineKey = `durtal-reader-declined:${ebook.id}:${deviceId ?? "new"}`;
     let declinedAt = 0;
     try {
@@ -482,20 +488,33 @@ function ReaderSession({
             return ((await res.json()) as { url: string }).url;
           },
         };
+        let localPlace: DurtalLocator | null = null;
+        let localClientUpdatedAt: string | null = null;
+        if (deviceId) {
+          try {
+            const local = await (await getReaderRuntime()).store.readPosition(
+              [ebook.id, file.id, deviceId].map(id => id.toLowerCase()).join(":"));
+            if (local?.latest.kind === "position" && local.latest.fileId === file.id &&
+              local.latest.body.locator.fileHash === file.sha256 &&
+              (!ownPlace || comparePositionTimes(local.latest.body.clientUpdatedAt, ownPlace.clientUpdatedAt) > 0))
+              { localPlace = local.latest.body.locator; localClientUpdatedAt = local.latest.body.clientUpdatedAt; }
+          } catch { /* Refused local storage leaves the online place available. */ }
+        }
+        if (cancelled) return;
         const { resolved } = await engine.open(source, {
           container,
           presentation: presentationRef.current!,
-          at:
+          at: localPlace ?? (
             openingPlace && openingPlace.fileId !== file.id
               ? { fraction: openingPlace.locator.totalProgression }
-              : (place ?? undefined),
+              : (place ?? undefined)),
         });
         if (cancelled) return;
         opened = true;
         clearTimeout(timeout);
         setStatus({ kind: "ready" });
         const failedPlace =
-          place &&
+          !localPlace && place &&
           openingPlace?.fileId === file.id &&
           (!resolved || resolved.status === "failed");
         if (failedPlace) {
@@ -521,10 +540,10 @@ function ReaderSession({
             progression: landing.locator.totalProgression,
             furthestProgression: landing.locator.totalProgression,
             chapter: landing.chapter,
-            clientUpdatedAt:
+            clientUpdatedAt: localClientUpdatedAt ?? (
               ownPlace && resolved?.status === "exact"
                 ? ownPlace.clientUpdatedAt
-                : new Date().toISOString(),
+                : new Date().toISOString()),
           });
           bridge.update({
             locator: landing.locator,
@@ -625,6 +644,7 @@ function ReaderSession({
             onSettings={() => setSettingsOpen(true)}
             fullscreen={fullscreen}
             onFullscreen={toggleFullscreen}
+            offlineAction={file ? <DownloadButton ebook={ebook} file={file} deviceId={deviceId} notice={setNotice} /> : undefined}
           />
           <ReaderBottomBar
             visible={bars.visible}

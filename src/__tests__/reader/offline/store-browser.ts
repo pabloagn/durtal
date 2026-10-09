@@ -599,6 +599,32 @@ export async function runOfflineStoreChecks() {
     assert(all[0].state === "blocked" && all[1].state === "waiting" && all[1].annotation?.undo?.state === "sealed",
       "Sealing changed blockers or skipped deferred intent");
   });
+  await check("oversized head on hide still seals a following delete", async () => {
+    await store.enqueue({ mutation: annotations(1,{ note: "界".repeat(22_000) }).mutation });
+    const operation = deletion(2); await store.enqueue(operation);
+    const plan = await store.claim(claimOptions("lifecycle"));
+    assert(plan.kind === "stop" && plan.reason === "lifecycle_body_too_large", "Oversized head was sent");
+    const all = await store.inspect();
+    assert(all.length === 2 && all[1].annotation?.undo?.state === "sealed" && all[1].claim === null,
+      "Following delete was left Undo-able or incorrectly claimed");
+    assert(JSON.stringify(all[1].mutation) === JSON.stringify(operation.mutation), "Deferred effect changed");
+  });
+  await check("delete retry preserves sealing and rejects a stale exact-revision response", async () => {
+    await store.enqueue(deletion(1)); await store.sealDeletes("lifecycle");
+    const old = await store.claim(claimOptions()); assert(old.kind === "claim", "Expected delete claim");
+    await store.settle(old.references,"retry");
+    const next = await store.claim(claimOptions("foreground",NOW,"new-delete")); assert(next.kind === "claim", "Expected retry claim");
+    assert(await store.settle(old.references,"acknowledged") === 0, "Stale delete ack removed the retry");
+    assert((await store.inspect())[0].annotation?.undo?.state === "sealed", "Retry reopened Undo");
+  });
+  await check("seal and cancel race has one atomic winner with no resurrection", async () => {
+    const operation = deletion(1); await store.enqueue(operation);
+    const outcomes = await Promise.allSettled([store.sealDeletes("lifecycle"),
+      store.transactBook(EBOOK,() => ({ annotations: [operation.annotation!.undo!.snapshot], cursor: null, pending: [] }))]);
+    const remaining = await store.inspect();
+    assert(outcomes[0].status === "fulfilled" && outcomes[1].status === "rejected" &&
+      remaining.length === 1 && remaining[0].annotation?.undo?.state === "sealed", "Cancel bypassed a committed seal");
+  });
   return { passed: passed.length, skipped: 0, checks: passed };
 }
 
