@@ -349,7 +349,7 @@ that ticket or the reader epic. The reader's Range fallback remains supported.
 ### Scoped AWS protection
 
 `scripts/aws/ebooks-storage.sh plan` renders exact merged bucket policy,
-lifecycle and app multipart policy documents. `apply --yes-from-joris` applies
+lifecycle and app multipart policy documents. `apply --apply-reviewed-plan` applies
 only those scoped documents after review (`docs/11_DEPLOYMENT.md`).
 The broad existing managed `DurtalS3Access` policy is preserved. An explicit
 bucket-policy deny protects eBook artifacts from non-admin deletion; canonical
