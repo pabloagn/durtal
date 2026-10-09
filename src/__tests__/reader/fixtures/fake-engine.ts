@@ -18,12 +18,22 @@ export function fakeEngine() {
       locator = (payload as EngineEvents["relocate"]).locator;
     handlers.get(name)?.forEach((handler) => handler(payload as never));
   };
-  const relocate = (at: DurtalLocator, reason: "turn" | "jump") =>
+  const relocate = (
+    at: DurtalLocator,
+    reason: "turn" | "jump",
+    navigationId?: number,
+  ) =>
     emit("relocate", {
       locator: at,
       reason,
+      origin: "human",
       chapter: at.tocLabel ?? "Chapter I",
       atEnd: false,
+      tocItem: null,
+      visibleChars: 300,
+      linear: true,
+      paginated: true,
+      navigationId,
     });
   const engine = {
     on<K extends keyof EngineEvents>(
@@ -54,6 +64,16 @@ export function fakeEngine() {
         dir: "ltr",
         layout: "reflowable",
         toc: [],
+        pageList: [],
+        locationCount: 20,
+        linearSize: 30000,
+        sections: Array.from({ length: 10 }, (_, at) => ({
+          href: String(at),
+          label: "Section " + (at + 1),
+          linear: true,
+          start: at / 10,
+          end: (at + 1) / 10,
+        })),
         capabilities: {
           search: true,
           tts: true,
@@ -66,17 +86,23 @@ export function fakeEngine() {
         resolved: at && "v" in at ? { status: "exact", locator } : null,
       };
     }),
-    goTo: vi.fn<ReaderEngine["goTo"]>(async (target) => {
+    goTo: vi.fn<ReaderEngine["goTo"]>(async (target, owner) => {
       const at =
         "v" in target
           ? target
           : {
               ...locator,
               totalProgression: "fraction" in target ? target.fraction : 0.8,
+              sectionIndex:
+                "fraction" in target
+                  ? Math.min(9, Math.floor(target.fraction * 10))
+                  : 8,
+              cfi: undefined,
+              progression: 0,
             };
-      relocate(at, "jump");
+      relocate(at, "jump", owner?.id);
     }),
-    next: vi.fn(async () =>
+    next: vi.fn<ReaderEngine["next"]>(async (owner) =>
       relocate(
         {
           ...locator,
@@ -84,9 +110,10 @@ export function fakeEngine() {
           totalProgression: locator.totalProgression + 0.1,
         },
         "turn",
+        owner?.id,
       ),
     ),
-    prev: vi.fn(async () =>
+    prev: vi.fn<ReaderEngine["prev"]>(async (owner) =>
       relocate(
         {
           ...locator,
@@ -94,18 +121,40 @@ export function fakeEngine() {
           totalProgression: locator.totalProgression - 0.1,
         },
         "turn",
+        owner?.id,
       ),
     ),
-    goLeft: vi.fn(async (): Promise<void> => {
-      await engine.prev();
+    goLeft: vi.fn<ReaderEngine["goLeft"]>(async (owner): Promise<void> => {
+      await engine.prev(owner);
     }),
-    goRight: vi.fn(async (): Promise<void> => {
-      await engine.next();
+    goRight: vi.fn<ReaderEngine["goRight"]>(async (owner): Promise<void> => {
+      await engine.next(owner);
     }),
     currentLocator: () => locator,
     locatorFromSelection: () => selection?.locator ?? null,
     clearSelection: vi.fn(() => emit("selection", null)),
     setPresentation: vi.fn(),
+    locationToFraction: (location: number) => (location - 1) / 20,
+    sectionFractions: () => Array.from({ length: 11 }, (_, at) => at / 10),
+    indexAnchors: async function* () {
+      /* No backing book documents in this fixture. */
+    },
+    nextSection: vi.fn<ReaderEngine["nextSection"]>(
+      async (owner): Promise<void> =>
+        engine.goTo({ fraction: locator.totalProgression + 0.1 }, owner),
+    ),
+    prevSection: vi.fn<ReaderEngine["prevSection"]>(
+      async (owner): Promise<void> =>
+        engine.goTo({ fraction: locator.totalProgression - 0.1 }, owner),
+    ),
+    firstPage: vi.fn<ReaderEngine["firstPage"]>(
+      async (owner): Promise<void> => engine.goTo({ fraction: 0 }, owner),
+    ),
+    lastPage: vi.fn<ReaderEngine["lastPage"]>(
+      async (owner): Promise<void> => engine.goTo({ fraction: 1 }, owner),
+    ),
+    setMarginalia: vi.fn(),
+    setDecorations: vi.fn(),
     resolve: vi.fn<ReaderEngine["resolve"]>(async (at) => ({
       status: "exact",
       locator: at,
