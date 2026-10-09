@@ -1,4 +1,6 @@
 /** Browser-side identities and state, and transport-independent disclosure walks. */
+import { dialogFocusState } from "./interaction-page.mjs";
+
 export function installDisclosureHelpers() {
   const ia = window.__ia;
   const ids = new WeakMap();
@@ -255,6 +257,9 @@ export async function withDisclosures(io, inspect, scope = "page") {
  */
 export async function walkKeyboard(io, scope = "page", limit = 500) {
   const expected = await io.evaluate(`__ia.controls(${JSON.stringify(scope)})`);
+  const modal = await io.evaluate(
+    `__ia.id(__ia.element(${JSON.stringify(scope)})?.closest?.('dialog[open]'))`,
+  );
   const seen = new Set();
   const failures = [];
   // On a page, start before the first native stop. In a modal, retain its
@@ -266,29 +271,47 @@ export async function walkKeyboard(io, scope = "page", limit = 500) {
     if (old === null) body.removeAttribute('tabindex'); else body.setAttribute('tabindex', old);
     return true;
   })()`);
-  let stops = 0,
-    bounded = true;
-  for (let i = 0; i < limit; i++) {
-    await io.press("Tab");
-    const stop = await io.evaluate("__ia.active()");
-    if (!stop) continue; // browser chrome/body between complete cycles
-    if (seen.has(stop.id)) {
-      bounded = false;
-      break;
+  let stops = 0;
+  // A dialog starts in its first field, after its header controls. Firefox
+  // can retain the final forward stop; native reverse Tab must also prove
+  // the controls before that initial field, without forcing their focus.
+  for (const shift of [false, true]) {
+    if (shift && expected.every((el) => seen.has(el.id))) break;
+    const direction = new Set();
+    let bounded = true;
+    for (let i = 0; i < limit; i++) {
+      await io.press("Tab", shift);
+      if (modal) {
+        const focus = await io.evaluate(
+          `(${dialogFocusState.toString()})(__ia.element(${JSON.stringify(modal)}))`,
+        );
+        if (!focus.valid)
+          failures.push(
+            `${shift ? "Shift+Tab" : "Tab"} leaves the dialog (body=${focus.body}, documentFocused=${focus.documentFocused})`,
+          );
+      }
+      const stop = await io.evaluate("__ia.active()");
+      if (!stop) continue; // browser chrome/body between complete cycles
+      if (direction.has(stop.id)) {
+        bounded = false;
+        break;
+      }
+      direction.add(stop.id);
+      if (seen.has(stop.id)) continue;
+      seen.add(stop.id);
+      const inside = await io.evaluate(
+        `__ia.within(document.activeElement, ${JSON.stringify(scope)})`,
+      );
+      if (!inside) continue;
+      stops++;
+      if (stop.hidden)
+        failures.push(`${stop.name} takes focus but cannot be seen`);
+      else if (!stop.shows)
+        failures.push(`${stop.name} shows no focus indicator`);
     }
-    seen.add(stop.id);
-    const inside = await io.evaluate(
-      `__ia.within(document.activeElement, ${JSON.stringify(scope)})`,
-    );
-    if (!inside) continue;
-    stops++;
-    if (stop.hidden)
-      failures.push(`${stop.name} takes focus but cannot be seen`);
-    else if (!stop.shows)
-      failures.push(`${stop.name} shows no focus indicator`);
+    if (bounded)
+      failures.push(`Tab walk exceeded ${limit} presses without wrapping`);
   }
-  if (bounded)
-    failures.push(`Tab walk exceeded ${limit} presses without wrapping`);
   for (const el of expected)
     if (!seen.has(el.id)) failures.push(`${el.name} is not reachable with Tab`);
   if (scope === "page" && !stops)
