@@ -9,9 +9,10 @@
 
 ## Overview
 
-Complete offline reading and the installable app. This checkpoint contains only
-approved pure policies based on reader revision `626f4870`; it does not provide
-an offline app, durable storage or runtime integration.
+Complete offline reading and the installable app. This checkpoint adds a concrete
+shared IndexedDB store, replay coordinator and read-only device API on the
+reviewed pure policies based on reader revision `626f4870`. Reader-owner injection,
+service workers, downloads and offline pages remain integration work.
 
 ## Implementation Details
 
@@ -30,9 +31,25 @@ an offline app, durable storage or runtime integration.
   exact storage reserve arithmetic and unknown-estimate states.
 - `range-policy.ts`: full/partial/unsatisfiable/HEAD response plans, safe large
   bounds, suffix ranges, multi-range fallback and immutable strong ETags.
-- Helpers neither open IndexedDB nor access caches/network, APIs, database,
-  service workers or browser globals. Annotation wire validation and response
-  decoding remain owned by SLN-500; this checkpoint adds no competing schema.
+- `store.ts`: additive version-one `durtal-offline` IndexedDB with the five
+  approved stores. Transactional enqueue/claim/acknowledgment, durable original
+  milestone and latest snapshots, retry deadlines, irreversible delete sealing,
+  atomic Undo/book updates, rejected results and cancellation/settlement receipts.
+  Original operation identity collisions abort; duplicate enqueue cannot reset
+  claims, seals or Undo deadlines. Unknown versions fail closed.
+- `transport.ts`: one common position/annotation coordinator online and offline;
+  Web Lock ownership across network requests, transactional foreground fallback,
+  bounded abort deadlines and lifecycle bytes, expected-device headers, durable
+  auth/device blocks and explicit exact-snapshot reconciliation. No beacon or
+  annotation-only replayer. `createAnnotationTransport` implements the annotation
+  owner's injectable shape via its trusted codecs; pending codecs must reflect
+  the persisted claim and Undo seal, not only the original opaque owner payload.
+- `GET /api/reader/device`: no-store cookie-only preflight, no cookie creation or
+  rotation. The position POST checks `X-Durtal-Expected-Device` before parsing or
+  database work; SLN-500 can reuse `expectedDeviceRefusal` in its owned route.
+- Annotation domain validation, response decoding and local projection remain
+  injected owner policies. No tracker effects execute in the browser. SQL schema,
+  dependencies, service workers and app layouts are unchanged at this checkpoint.
 - SLN-553 owns the reader and data-independent offline roots; SLN-507 will own
   their pages/store/worker. Download lists do not mount the reading engine.
   All later build integration consumes SLN-509 `BUILD_IDENTITY.buildId`.
@@ -40,11 +57,22 @@ an offline app, durable storage or runtime integration.
 
 ## Completion Notes
 
-Pure checkpoint only. Focused offline policy tests: 69 passed, 0 skipped.
-Repository TypeScript check and focused ESLint passed. Full database suites,
-production/Docker builds, CI, browser audits, performance, trusted gestures,
-byte hashing/storage implementation, cold-open network-zero acceptance,
-upgrade/rollback drills and actual HTTPS deployment remain unrun and required.
-No migration, dependency or live/cloud write is included. Offline shell layout,
-CSP, baked build identity and rollback behavior require upstream source review
-before effectful integration. This task remains In Progress.
+Shared-store checkpoint, not offline-app completion. Focused offline and position
+route tests: 91 passed, 0 skipped. TypeScript and focused source ESLint passed.
+`node scripts/qa/reader-offline-store.mjs` passed 18 native Chromium correctness
+checks, 0 skipped, on tiny fixtures at an ephemeral localhost origin. The harness
+bundles only the test entry using installed Vite, opens native IndexedDB, checks
+reopen persistence, abort rollback, exact claims/acknowledgments, Undo sealing,
+auth blocking, adapters and two-page Web Lock ownership past lease expiry, then
+closes Chromium and removes its profile/bundle. It neither touches the manual
+`:3100` session nor starts an app/database preview. These checks establish no
+cross-engine, cold-open, touch, performance or deployed acceptance.
+
+Full database suites, production/Docker builds, CI, multi-engine browser audits,
+performance, trusted gestures, byte hashing/download storage, shell/worker
+integration, guarded legacy-storage import, cold-open network-zero acceptance,
+upgrade/rollback drills and actual HTTPS deployment remain required. SLN-493 and
+SLN-500 still need to inject this shared module with their codecs and wire the
+annotation route's captured-device guard; there is no mounted production reader
+integration in this checkpoint. No SQL migration, dependency or live/cloud write
+is included. This task remains In Progress.

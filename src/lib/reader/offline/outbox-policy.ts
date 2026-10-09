@@ -331,6 +331,11 @@ export function replayDelay(
   return Math.min(300_000, Math.max(base, retryAfterMs));
 }
 
+export function comparePositionTimes(left: string, right: string): number {
+  const a = positionTime(left),
+    b = positionTime(right);
+  return a > b ? 1 : a < b ? -1 : 0;
+}
 /** Preserve sub-millisecond ordering without altering the original ISO string. */
 function positionTime(value: string): bigint {
   const match =
