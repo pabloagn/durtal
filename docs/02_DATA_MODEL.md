@@ -2034,11 +2034,13 @@ Shared display-only settings for stored image assets (migration `0027_shared_ima
 |---|---|---|
 | `asset_key` | TEXT | PK, canonical full-image S3 key |
 | `sources` | JSONB | NOT NULL, canonical app URLs for full image, thumbnail and optional Reader cover route |
-| `settings` | JSONB | NOT NULL, validated exposure, brightness, contrast, saturation, grayscale, sepia and softness |
+| `settings` | JSONB | NOT NULL, validated exposure, brightness, contrast, saturation, grayscale, sepia, softness and display rotation |
 | `monochrome` | BOOLEAN | NOT NULL, default false; derived from author ownership by the server |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, default now() |
 
 Exposure uses stops (-2 to +2); brightness/contrast/saturation use 0–200% with neutral 100%; grayscale/sepia use 0–100% with neutral 0%; softness uses 0–8px with neutral 0. Author assets force grayscale 100%, saturation 100%, and sepia 0, including Reset. Color originals used by the existing author processing pipeline are not editable through this feature.
+
+Display rotation defaults to 0 for existing settings. Save accepts finite integer degrees from -180 through +180 and canonicalizes +180 to -180; its stored range is [-180, 180). It changes no source bytes, crop coordinates or export/download files. The rotation renderer core fits the entire available raster uniformly inside the caller's finite frame; pending explicit crops select from the retained base before rotation. The zero-degree path retains the caller's existing rendering. Consumer/editor integration and native pixel proof are pending.
 
 A single shared editor resolves registered assets from media, editions, author photos, venues, collections and image attachments; e-book covers are not adjusted. The app provider applies the same filter as the preview to exact asset URLs across cards, lightboxes and thumbnails. Only explicitly saved images receive rules. Preview images opt out to avoid double application. For media, existing brightness/contrast values seed the editor and are synchronized atomically on save; framed posters/backgrounds retain their crop controls. Gallery and other images receive filters without introducing unsupported cropping. Originals and extracted ambient palettes are never rewritten. Reset restores neutral display settings, not the pre-processing color original.
 

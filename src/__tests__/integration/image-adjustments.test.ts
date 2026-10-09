@@ -709,6 +709,71 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
     expect([...store.keys()].sort()).toEqual(keys);
   });
 
+  it.each([
+    { cropX: 50, cropY: 50, cropZoom: 100 },
+    { cropX: 25, cropY: 70, cropZoom: 135 },
+  ])(
+    "persists a whole-raster angle without baking unchanged neutral or legacy framing %j",
+    async (framing) => {
+      const { item, image } = await croppablePoster();
+      await db
+        .update(schema.media)
+        .set(framing)
+        .where(eq(schema.media.id, item.id));
+      const keys = [...store.keys()].sort();
+      const source = s3ImageSource(item.s3Key);
+      const loaded = await getImagePresentation(source);
+      const saved = await saveWithRevision(source, {
+        revision: loaded.revision,
+        settings: { ...loaded.settings, rotation: 45 },
+        crop: loaded.crop!,
+      });
+      expect(await row(item.id)).toMatchObject({
+        ...framing,
+        s3Key: item.s3Key,
+        thumbnailS3Key: item.thumbnailS3Key,
+        uncroppedS3Key: null,
+        appliedCrop: null,
+      });
+      expect([...store.keys()].sort()).toEqual(keys);
+      expect(store.get(item.s3Key)).toEqual(image);
+      const reloaded = await getImagePresentation(source);
+      expect(reloaded.settings.rotation).toBe(45);
+      expect(reloaded.revision).toBe(saved.revision);
+      expect(reloaded.revision).not.toBe(loaded.revision);
+      await saveWithRevision(source, {
+        revision: reloaded.revision,
+        settings: { ...reloaded.settings, rotation: 0 },
+        crop: reloaded.crop!,
+      });
+      expect(await row(item.id)).toMatchObject(framing);
+      expect(store.get(item.s3Key)).toEqual(image);
+      expect((await getImagePresentation(source)).settings.rotation).toBe(0);
+    },
+  );
+
+  it("persists rotation alongside a real changed crop and retains the unrotated base", async () => {
+    const { item, image } = await croppablePoster();
+    const saved = await saveImagePresentation(s3ImageSource(item.s3Key), {
+      settings: { rotation: -90 },
+      crop: { cropX: 0, cropY: 0, cropZoom: 200 },
+    });
+    const after = await row(item.id);
+    expect(after).toMatchObject({
+      appliedCrop: { x: 0, y: 0, zoom: 200 },
+      uncroppedS3Key: item.s3Key,
+      width: 150,
+      height: 225,
+    });
+    expect(await colorOf(store.get(after.s3Key)!)).toBe("red");
+    expect(store.get(item.s3Key)).toEqual(image);
+    expect(
+      (await getImagePresentation(s3ImageSource(after.s3Key))).settings
+        .rotation,
+    ).toBe(-90);
+    expect(saved.settings.rotation).toBe(-90);
+  });
+
   it("writes the crop into new files and keeps the uncropped image untouched", async () => {
     const { item, image } = await croppablePoster();
     // Zoom 200 at the top-left corner: the top-left quadrant, red

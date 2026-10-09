@@ -246,6 +246,79 @@ describe("image presentation action boundaries without a database", () => {
     });
     expect(mocks.commit.mock.calls[0][4]).toEqual({ revision });
   });
+  it.each([
+    {
+      cropX: 50,
+      cropY: 50,
+      cropZoom: 100,
+      appliedCrop: null,
+      uncroppedS3Key: null,
+    },
+    {
+      cropX: 30,
+      cropY: 70,
+      cropZoom: 140,
+      appliedCrop: null,
+      uncroppedS3Key: null,
+    },
+    {
+      cropX: 20,
+      cropY: 80,
+      cropZoom: 100,
+      appliedCrop: { x: 20, y: 80, zoom: 200 },
+      uncroppedS3Key: "base",
+    },
+  ])(
+    "does not rebuild or clear unchanged neutral/legacy/saved framing on an angle-only save %j",
+    async (framing) => {
+      const current = { ...item, ...framing };
+      mocks.media.mockResolvedValue(current);
+      mocks.commit.mockResolvedValue({ ...current, revision: "b".repeat(32) });
+      const loaded = await getImagePresentation(source);
+      const result = await saveImagePresentation(source, {
+        revision,
+        settings: { rotation: 180 },
+        crop: loaded.crop!,
+      });
+      expect(result).toMatchObject({ settings: { rotation: -180 } });
+      expect(mocks.build).not.toHaveBeenCalled();
+      expect(mocks.commit.mock.calls[0][1]).toBeNull();
+      expect(mocks.commit.mock.calls[0][2]).toEqual({
+        brightness: 100,
+        contrast: 100,
+      });
+    },
+  );
+  it("keeps an explicit crop edit on the existing derivative path alongside rotation", async () => {
+    mocks.commit.mockResolvedValue({ ...item, revision: "b".repeat(32) });
+    await saveImagePresentation(source, {
+      revision,
+      settings: { rotation: 45 },
+      crop: { cropX: 0, cropY: 70, cropZoom: 150 },
+    });
+    expect(mocks.build).toHaveBeenCalledExactlyOnceWith(item, {
+      x: 0,
+      y: 70,
+      zoom: 150,
+    });
+    expect(mocks.commit.mock.calls[0][2]).toMatchObject({
+      cropX: 0,
+      cropY: 70,
+      cropZoom: 100,
+    });
+  });
+  it("rejects invalid angles before resolving a subject or attempting writes", async () => {
+    for (const rotation of [-181, 181, 0.5, Infinity, NaN, "90"]) {
+      await expect(
+        saveImagePresentation(source, {
+          revision,
+          settings: { rotation: rotation as number },
+        }),
+      ).rejects.toThrow();
+    }
+    expect(mocks.media).not.toHaveBeenCalled();
+    expect(mocks.commit).not.toHaveBeenCalled();
+  });
   it("returns the fixed stale result for a removed source alias without writes", async () => {
     mocks.media.mockResolvedValue(undefined);
     await expect(getImagePresentation(source)).rejects.toThrow(

@@ -13,6 +13,8 @@ export interface ImageAdjustments {
   grayscale: number;
   sepia: number;
   softness: number;
+  /** Display-only clockwise degrees, canonical range [-180, 180). */
+  rotation: number;
 }
 
 export const DEFAULT_IMAGE_ADJUSTMENTS: ImageAdjustments = {
@@ -23,6 +25,7 @@ export const DEFAULT_IMAGE_ADJUSTMENTS: ImageAdjustments = {
   grayscale: 0,
   sepia: 0,
   softness: 0,
+  rotation: 0,
 };
 
 export function enforceImagePolicy(
