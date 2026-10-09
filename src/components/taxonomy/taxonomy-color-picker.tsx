@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { X } from "lucide-react";
 
 const PRESET_COLORS = [
@@ -30,6 +30,28 @@ export function TaxonomyColorPicker({
   const [open, setOpen] = useState(false);
   const [customHex, setCustomHex] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const paletteRef = useRef<HTMLDivElement>(null);
+  const [offset, setOffset] = useState(0);
+
+  // Nested rows move the trigger inward. Keep the enlarged palette on screen.
+  useLayoutEffect(() => {
+    if (!open) return;
+    function fit() {
+      const palette = paletteRef.current;
+      if (!palette) return;
+      const box = palette.getBoundingClientRect();
+      const naturalLeft = box.left - offset;
+      setOffset(Math.max(8 - naturalLeft, Math.min(0, window.innerWidth - 8 - naturalLeft - box.width)));
+    }
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [open, offset]);
+  const close = useCallback(() => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  }, []);
 
   // Close on outside click
   useEffect(() => {
@@ -50,41 +72,48 @@ export function TaxonomyColorPicker({
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        close();
+      }
     }
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
-  }, [open]);
+  }, [open, close]);
 
   const handlePresetClick = useCallback(
     (hex: string) => {
       onChange(hex);
-      setOpen(false);
+      close();
     },
-    [onChange],
+    [onChange, close],
   );
 
   const handleClear = useCallback(() => {
     onChange(null);
-    setOpen(false);
-  }, [onChange]);
+    close();
+  }, [onChange, close]);
 
   const handleCustomSubmit = useCallback(() => {
     const trimmed = customHex.trim();
     if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
       onChange(trimmed.toLowerCase());
       setCustomHex("");
-      setOpen(false);
+      close();
     }
-  }, [customHex, onChange]);
+  }, [customHex, onChange, close]);
 
   return (
-    <div ref={containerRef} className="relative inline-flex">
+    <div ref={containerRef} className="relative inline-flex" onClick={(e) => e.stopPropagation()}>
       {/* Trigger: color dot */}
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-bg-tertiary"
+        className="flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-bg-tertiary pointer-coarse:size-11"
+        aria-expanded={open}
+        data-tooltip="Pick color"
         aria-label="Pick color"
       >
         {value ? (
@@ -99,7 +128,7 @@ export function TaxonomyColorPicker({
 
       {/* Popover */}
       {open && (
-        <div className="glass absolute left-0 top-full z-50 mt-1 w-52 p-3">
+        <div ref={paletteRef} style={{ marginLeft: offset }} className="glass absolute left-0 top-full z-50 mt-1 w-52 overflow-hidden p-3 pointer-coarse:w-60">
           {/* Preset grid: 4 columns x 3 rows */}
           <div className="grid grid-cols-4 gap-2">
             {PRESET_COLORS.map((preset) => {
@@ -111,7 +140,7 @@ export function TaxonomyColorPicker({
                   onClick={() => handlePresetClick(preset.hex)}
                   aria-label={preset.name}
                   data-tooltip={preset.name}
-                  className={`flex h-8 w-full items-center justify-center rounded-sm transition-all ${
+                  className={`flex h-8 w-full pointer-coarse:h-11 items-center justify-center rounded-sm transition-all ${
                     isActive
                       ? "ring-1 ring-fg-secondary ring-offset-1 ring-offset-bg-secondary"
                       : "hover:ring-1 hover:ring-fg-muted/30 hover:ring-offset-1 hover:ring-offset-bg-secondary"
@@ -133,7 +162,7 @@ export function TaxonomyColorPicker({
           <button
             type="button"
             onClick={handleClear}
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1 pointer-coarse:min-h-11 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
           >
             <X className="h-3 w-3" strokeWidth={1.5} />
             <span>None</span>
@@ -155,13 +184,13 @@ export function TaxonomyColorPicker({
                 }
               }}
               placeholder="#a1b2c3"
-              className="h-7 flex-1 rounded-sm border border-glass-border bg-bg-primary/80 px-2 font-mono text-xs text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none"
+              className="h-7 min-w-0 flex-1 pointer-coarse:h-11 rounded-sm border border-glass-border bg-bg-primary/80 px-2 font-mono text-xs text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none"
             />
             <button
               type="button"
               onClick={handleCustomSubmit}
               disabled={!/^#[0-9a-fA-F]{6}$/.test(customHex.trim())}
-              className="h-7 rounded-sm border border-glass-border bg-glass-highlight px-2 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:pointer-events-none disabled:opacity-40"
+              className="h-7 pointer-coarse:size-11 rounded-sm border border-glass-border bg-glass-highlight px-2 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:pointer-events-none disabled:opacity-40"
             >
               Set
             </button>

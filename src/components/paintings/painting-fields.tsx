@@ -48,7 +48,7 @@ export function PaintersField({
   return (
     <FieldRow label={label}>
       {value.map((entry, index) => (
-        <span key={entry.key} className={CHIP}>
+        <span key={entry.key} className={`${CHIP} pointer-coarse:leading-11`}>
           {entry.personId && (
             <select
               aria-label={`Attribution of ${painterName(entry)}`}
@@ -60,7 +60,7 @@ export function PaintersField({
                   ),
                 )
               }
-              className="h-5 rounded-sm border border-transparent bg-transparent px-0.5 text-xs leading-5 text-fg-secondary hover:border-glass-border focus:border-accent-primary focus:outline-none"
+              className="h-5 rounded-sm border border-transparent bg-transparent px-0.5 text-xs leading-5 text-fg-secondary hover:border-glass-border focus:border-accent-primary focus:outline-none pointer-coarse:h-11 pointer-coarse:min-w-11"
             >
               {ATTRIBUTION_CHOICES.map((choice) => (
                 <option key={choice.value} value={choice.value}>
@@ -73,6 +73,7 @@ export function PaintersField({
             {painterName(entry)}
           </span>
           <RemoveButton
+            touchTarget
             label={`Remove ${painterName(entry)}`}
             onClick={() => onChange(value.filter((_, i) => i !== index))}
           />

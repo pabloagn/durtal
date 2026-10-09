@@ -99,22 +99,22 @@ async function ItemContent({
   return (
     <div>
       {/* Breadcrumb */}
-      <nav className="mb-6 flex items-center gap-1.5 text-sm text-fg-secondary">
+      <nav className="mb-6 flex flex-wrap items-center gap-1.5 text-sm text-fg-secondary">
         <Link
           href="/taxonomy"
-          className="transition-colors hover:text-fg-secondary"
+          className="transition-colors hover:text-fg-secondary min-w-0 break-words pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center"
         >
           Taxonomy
         </Link>
         <span>/</span>
         <Link
           href={`/taxonomy/${family.slug}`}
-          className="transition-colors hover:text-fg-secondary"
+          className="transition-colors hover:text-fg-secondary min-w-0 break-words pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center"
         >
           {family.name}
         </Link>
         <span>/</span>
-        <span className="text-fg-secondary">{item.name}</span>
+        <span className="min-w-0 break-words text-fg-secondary">{item.name}</span>
       </nav>
 
       {/* Item header */}
@@ -126,7 +126,7 @@ async function ItemContent({
               style={{ backgroundColor: item.color }}
             />
           )}
-          <h1 className="type-page-title">
+          <h1 className="type-page-title min-w-0 [overflow-wrap:anywhere]">
             {item.name}
           </h1>
         </div>
