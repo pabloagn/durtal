@@ -21,6 +21,8 @@ export interface RotationImageBinding {
   src: string;
   ref: RefCallback<HTMLImageElement>;
   onLoad: ReactEventHandler<HTMLImageElement>;
+  /** Compose with consumer error handling so its fallback remains visible. */
+  onError: ReactEventHandler<HTMLImageElement>;
   /** Spread last on the image: the containing React layer owns rotation. */
   style: CSSProperties;
 }
@@ -30,8 +32,11 @@ export interface ImageRotationFrameProps {
   src: string;
   /** Exact existing rendering, returned directly at zero degrees. */
   original: ReactNode;
-  /** Render img/Next Image with bindings and alt/filter/error handling, without crop/hover transforms. */
-  renderImage: (binding: RotationImageBinding) => ReactNode;
+  /** Error state includes cached failures; keep fallback UI free of crop/rotation transforms. */
+  renderImage: (
+    binding: RotationImageBinding,
+    state: { failed: boolean },
+  ) => ReactNode;
   pendingCrop?: AppliedCrop | null;
   cropAspect?: number | null;
   className?: string;
@@ -71,6 +76,7 @@ function RotatedFrame({
   const frame = useRef<HTMLSpanElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [natural, setNatural] = useState({ width: 0, height: 0 });
+  const [failed, setFailed] = useState(false);
   const readImage = useCallback((img: HTMLImageElement | null) => {
     if (!img) return;
     const width = img.naturalWidth;
@@ -78,6 +84,9 @@ function RotatedFrame({
     setNatural((old) =>
       old.width === width && old.height === height ? old : { width, height },
     );
+    // A complete, dimensionless image can be a cached failure. Do not wait
+    // for an error event that already fired before this ref was attached.
+    setFailed(width > 0 && height > 0 ? false : img.complete);
   }, []);
   const onLoad = useCallback<ReactEventHandler<HTMLImageElement>>(
     (event) => {
@@ -85,6 +94,10 @@ function RotatedFrame({
     },
     [readImage],
   );
+  const onError = useCallback<ReactEventHandler<HTMLImageElement>>(() => {
+    setNatural({ width: 0, height: 0 });
+    setFailed(true);
+  }, []);
 
   useEffect(() => {
     const element = frame.current;
@@ -140,24 +153,35 @@ function RotatedFrame({
         style={{
           position: "absolute",
           overflow: "hidden",
-          visibility: geometry ? "visible" : "hidden",
-          ...geometry?.selection,
-          transform: `rotate(${normalizeImageRotation(rotation)}deg)`,
+          visibility: failed || geometry ? "visible" : "hidden",
+          ...(failed
+            ? { left: 0, top: 0, width: "100%", height: "100%" }
+            : geometry?.selection),
+          // Error text/fallbacks occupy the finite content frame, unrotated.
+          transform: failed
+            ? undefined
+            : `rotate(${normalizeImageRotation(rotation)}deg)`,
           transformOrigin: "center",
         }}
       >
-        {renderImage({
-          src,
-          ref: readImage,
-          onLoad,
-          style: {
-            position: "absolute",
-            ...geometry?.image,
-            maxWidth: "none",
-            maxHeight: "none",
-            objectFit: "fill",
+        {renderImage(
+          {
+            src,
+            ref: readImage,
+            onLoad,
+            onError,
+            style: {
+              position: "absolute",
+              ...(failed
+                ? { left: 0, top: 0, width: "100%", height: "100%" }
+                : geometry?.image),
+              maxWidth: "none",
+              maxHeight: "none",
+              objectFit: failed ? "contain" : "fill",
+            },
           },
-        })}
+          { failed },
+        )}
       </span>
     </span>
   );

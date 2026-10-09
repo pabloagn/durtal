@@ -8,7 +8,7 @@ import {
   it,
   vi,
 } from "vitest";
-import { act, createElement } from "react";
+import { act, createElement, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
   ImageRotationFrame,
@@ -50,6 +50,11 @@ beforeAll(() => {
 beforeEach(() => {
   observers = [];
   vi.stubGlobal("ResizeObserver", TestObserver);
+  // The DOM test runtime does not fetch these fixture URLs. Model a pending
+  // browser load explicitly; cached-failure tests override this per image.
+  vi.spyOn(HTMLImageElement.prototype, "complete", "get").mockReturnValue(
+    false,
+  );
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
@@ -58,6 +63,7 @@ afterEach(() => {
   act(() => root.unmount());
   host.remove();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 const original = createElement("img", {
   src: "/old",
@@ -92,6 +98,32 @@ const load = (width: number, height: number) =>
   });
 const selection = () =>
   host.querySelector<HTMLElement>("[data-image-rotation-selection]")!;
+const fail = () =>
+  act(() => {
+    host.querySelector("img")!.dispatchEvent(new Event("error"));
+  });
+
+function ErrorConsumer() {
+  const [fallback, setFallback] = useState(false);
+  return createElement(ImageRotationFrame, {
+    ...base,
+    renderImage: (binding) =>
+      fallback
+        ? createElement(
+            "button",
+            { onClick: () => setFallback(false) },
+            "Retry image",
+          )
+        : createElement("img", {
+            ...binding,
+            alt: "Consumer image",
+            onError: (event) => {
+              binding.onError(event);
+              setFallback(true);
+            },
+          }),
+  });
+}
 
 describe("React-owned image rotation frame lifecycle", () => {
   it("returns the exact existing image at zero without wrappers, reads or observers", () => {
@@ -152,6 +184,98 @@ describe("React-owned image rotation frame lifecycle", () => {
     });
     act(() => observers[0].resize(200, 300));
     expect(selection().style.visibility).toBe("visible");
+    expect(selection().style.width).toBe("300px");
+  });
+  it("shows a failed image's native alt inside the full finite frame without rotating it", () => {
+    render();
+    act(() => observers[0].resize(200, 300));
+    load(1200, 600);
+    fail();
+    expect(selection().style.visibility).toBe("visible");
+    expect(selection().style.width).toBe("100%");
+    expect(selection().style.height).toBe("100%");
+    expect(selection().style.left).toBe("0px");
+    expect(selection().style.transform).toBe("");
+    const image = host.querySelector("img")!;
+    expect(image.alt).toBe("Rotated");
+    expect(image.style.width).toBe("100%");
+    expect(image.style.height).toBe("100%");
+    expect(image.style.filter).toBe("grayscale(100%)");
+  });
+  it("preserves a consumer's error fallback and recovers when its retry image loads", () => {
+    act(() => root.render(createElement(ErrorConsumer)));
+    act(() => observers[0].resize(200, 300));
+    fail();
+    const retry = host.querySelector("button")!;
+    expect(retry.textContent).toBe("Retry image");
+    expect(selection().style.visibility).toBe("visible");
+    expect(selection().style.transform).toBe("");
+    act(() => retry.click());
+    load(1200, 600);
+    expect(host.querySelector("button")).toBeNull();
+    expect(selection().style.visibility).toBe("visible");
+    expect(selection().style.transform).toBe("rotate(90deg)");
+    expect(selection().style.width).toBe("300px");
+    expect(observers).toHaveLength(1);
+  });
+  it("detects a cached failure without another error event, shows consumer UI and recovers on replacement", () => {
+    render({
+      renderImage: (binding, { failed }) =>
+        failed
+          ? createElement("span", { role: "status" }, "Image unavailable")
+          : createElement("img", {
+              ...binding,
+              alt: "Cached failed",
+              ref: (image: HTMLImageElement | null) => {
+                if (image)
+                  Object.defineProperties(image, {
+                    complete: { configurable: true, value: true },
+                    naturalWidth: { configurable: true, value: 0 },
+                    naturalHeight: { configurable: true, value: 0 },
+                  });
+                binding.ref(image);
+              },
+            }),
+    });
+    act(() => observers[0].resize(200, 300));
+    expect(host.querySelector('[role="status"]')?.textContent).toBe(
+      "Image unavailable",
+    );
+    expect(selection().style.visibility).toBe("visible");
+    expect(selection().style.width).toBe("100%");
+    expect(selection().style.transform).toBe("");
+    render({ src: "/cached-replacement" });
+    expect(observers[0].disconnected).toBe(true);
+    expect(host.querySelector('[role="status"]')).toBeNull();
+    expect(selection().style.visibility).toBe("hidden");
+    act(() => observers[1].resize(200, 300));
+    load(1200, 600);
+    expect(selection().style.visibility).toBe("visible");
+    expect(selection().style.transform).toBe("rotate(90deg)");
+    expect(selection().style.width).toBe("300px");
+  });
+  it("recovers a failed image on a same-node successful retry", () => {
+    render();
+    act(() => observers[0].resize(200, 300));
+    fail();
+    const image = host.querySelector("img");
+    load(600, 1200);
+    expect(host.querySelector("img")).toBe(image);
+    expect(selection().style.transform).toBe("rotate(90deg)");
+    expect(selection().style.width).toBe("100px");
+    expect(selection().style.height).toBe("200px");
+  });
+  it("clears failure state on source replacement and fits the successfully loaded replacement", () => {
+    render();
+    act(() => observers[0].resize(200, 300));
+    fail();
+    render({ src: "/retry-source" });
+    expect(observers[0].disconnected).toBe(true);
+    expect(selection().style.visibility).toBe("hidden");
+    act(() => observers[1].resize(200, 300));
+    load(1200, 600);
+    expect(selection().style.visibility).toBe("visible");
+    expect(selection().style.transform).toBe("rotate(90deg)");
     expect(selection().style.width).toBe("300px");
   });
   it("disconnects on reset and returns the legacy crop styles exactly", () => {
