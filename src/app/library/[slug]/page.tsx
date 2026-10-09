@@ -20,7 +20,7 @@ import { canUseWorkCapability } from "@/lib/catalogue/domains";
 import { appTimeZone } from "@/lib/utils/date";
 import { READING_HOME_KEY } from "@/lib/preferences";
 import { EstimateInfo } from "@/components/reading/estimate-info";
-import { getSuggestionContext, predictionGateOn } from "@/lib/reading/suggest/context";
+import { getBookPredictionContext, predictionGateOn } from "@/lib/reading/suggest/context";
 import { predict, predictionSource, predictionText } from "@/lib/reading/suggest/predict";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { RatingStars } from "@/components/shared/rating";
@@ -238,7 +238,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   // The predicted rating of an unread book (SLN-457): only while the gate is on, and only with enough similar books
   let prediction: { text: string; why: string } | null = null;
   if (canRead && !readingRows.some((r) => r.reading.status === "finished") && (await predictionGateOn())) {
-    const ctx = await getSuggestionContext({ homeId: homeCookie });
+    const ctx = await getBookPredictionContext(work.id);
     const book = ctx.byId.get(work.id);
     const p = book && ctx.gate?.on ? predict(book, ctx) : null;
     if (p)
@@ -514,7 +514,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
               {prediction && (
                 <div className="mt-2 flex items-start gap-1 text-xs text-fg-secondary" data-book-prediction="">
                   <span>{prediction.text}</span>
-                  <CapAligned height={24}>
+                  <CapAligned height={24} coarseHeight={44}>
                     <EstimateInfo text={prediction.why} label="How this rating is predicted" />
                   </CapAligned>
                 </div>
