@@ -104,6 +104,24 @@ describe("ReaderSession controller admission", () => {
     expect(fake.engine.open).not.toHaveBeenCalled(); expect(host.querySelector("[data-test-failure]")).not.toBeNull();
     await flush(); expect(fake.engine.open).toHaveBeenCalledOnce(); expect(location).not.toHaveBeenCalled();
   });
+  it("replaces a crashed controller boundary so its failure surface can mount and admit degraded opening", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(HTMLElement.prototype, "getClientRects").mockImplementation(function (this: HTMLElement) {
+      return (this.matches("[data-test-failure]") ? [new DOMRect(0, 0, 100, 30)] : []) as unknown as DOMRectList;
+    });
+    function CrashingController(): never {
+      useReaderController(id, handlers);
+      throw new Error("Eager controller render failed");
+    }
+    const p = props();
+    p.plugins[0].node = h(CrashingController);
+    act(() => root.render(h(ReaderView, p)));
+    expect(host.querySelector("[data-test-failure]")?.textContent).toBe("Feature unavailable");
+    expect(fake.engine.open).not.toHaveBeenCalled();
+    await flush();
+    expect(fake.engine.open).toHaveBeenCalledOnce();
+    Object.values(handlers).forEach((handler) => expect(handler).not.toHaveBeenCalled());
+  });
   it("rejects disconnected, hidden, transparent and offscreen failure surfaces", () => {
     const node = document.createElement("p");
     vi.spyOn(node, "getClientRects").mockReturnValue([new DOMRect(0, 0, 100, 30)] as unknown as DOMRectList);

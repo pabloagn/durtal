@@ -111,8 +111,16 @@ function PluginHost({ plugin, bridge, onRetry }: {
     bridge.getControllerReadinessSnapshot, bridge.getControllerReadinessSnapshot);
   const failure = readiness.controllers.find((controller) => controller.id === plugin.id)?.code;
   if (plugin.controller && failure)
-    return plugin.failureNode ? <PluginBoundary id={plugin.id} bridge={bridge}>{cloneElement(plugin.failureNode, { code: failure, onRetry })}</PluginBoundary> : null;
-  return <PluginBoundary id={plugin.id} controller={plugin.controller} bridge={bridge}>{plugin.node}</PluginBoundary>;
+    return plugin.failureNode ? (
+      <PluginBoundary key={`${plugin.id}:failure`} id={plugin.id} bridge={bridge}>
+        {cloneElement(plugin.failureNode, { code: failure, onRetry })}
+      </PluginBoundary>
+    ) : null;
+  return (
+    <PluginBoundary key={`${plugin.id}:controller`} id={plugin.id} controller={plugin.controller} bridge={bridge}>
+      {plugin.node}
+    </PluginBoundary>
+  );
 }
 
 /** Functional handlers are installed together before their generation is acknowledged. */
