@@ -28,6 +28,7 @@ import { mediaOwnerOf } from "@/lib/media/owner";
 import { mediaOwnerKind } from "@/lib/media/ingest";
 import { imagePolicy } from "@/lib/media/policy";
 import { imageEditorPolicy } from "@/lib/media/editor-policy";
+import { sameCrop } from "@/lib/media/crop";
 import type { MediaType } from "@/lib/types";
 import {
   assertImageRevision,
@@ -291,14 +292,17 @@ async function savePresentation(
     y: data.crop.cropY,
     zoom: data.crop.cropZoom,
   };
-  const files = crop ? await buildDisplayFiles(item, crop) : null;
+  // Unchanged legacy framing is not a request to bake the current raster.
+  // Filter-only saves must retain source bytes and legacy CSS zoom.
+  const cropChanged = crop && !sameCrop(crop, editorCrop(item));
+  const files = cropChanged ? await buildDisplayFiles(item, crop) : null;
   const updated = await commitDisplay(
     item,
     files,
     {
       brightness: settings.brightness,
       contrast: settings.contrast,
-      ...(crop && displayFraming(crop)),
+      ...(cropChanged && displayFraming(crop)),
     },
     { settings, monochrome: asset.monochrome },
     { revision: data.revision },
