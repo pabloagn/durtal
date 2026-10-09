@@ -245,7 +245,7 @@ update ebooks set preferred_file_id = '{file_id}' where id = '{ebook_id}' and {t
     alternate = (fixtures / "text.pdf").read_bytes() + b"\n% Durtal reader sync alternate format\n"
     sha = hashlib.sha256(alternate).hexdigest()
     key = f"files/{sha[:2]}/{sha}.pdf"
-    target = s3_dir.resolve() / "durtal-ebooks" / key
+    target = s3_dir.resolve() / "durtal" / key
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(alternate)
     sql.append(f"""insert into ebook_files(id, ebook_id, sha256, s3_key, format, size_bytes, content_type, original_filename, status)
