@@ -37,7 +37,7 @@ Both now have a minimum 44px target on coarse pointers.
 
 ## Completion Notes
 
-Source checkpoint only: fifteen pure synthetic DOM/geometry/CLI regressions pass
+Source checkpoint only: sixteen pure synthetic DOM/geometry/CLI regressions pass
 with zero skips. They cover freshly inserted nested content, unreachable
 summaries, skipped focus targets, missing focus indicators, restoration after
 a deliberate failure, host guards and effective touch geometry. The existing
@@ -96,3 +96,16 @@ Only transitions are now suppressed. The serial native regression reproduces
 the old restart, then verifies unchanged animation count, full opacity, focus
 and temporary-style cleanup in Chromium, Firefox and WebKit. It still reports
 a deliberately missing ring. Product animation CSS is unchanged.
+
+The bounded final CLI on f01c2cdf retained four Firefox failures in Add source.
+A native trace proved four consecutive date segments share one DOM identity
+before the textarea and Cancel, which are reachable. Date segments now continue
+only while an unchecked target lies ahead in the current direction; ordinary
+cycles and traversal limits remain. Ring measurement runs once per identity
+to preserve segment focus. Sixteen pure regressions retain skipped, ringless,
+trapped and modal-escape failures. Native date cases passed in Chromium and
+Firefox; WebKit reached the later controls but exposed a missing focus-visible
+ring in the fixture. Its explicit date focus style and negative ring assertion
+await native verification under a fresh heavy grant. The reader has priority;
+no final gate set started, and all owned preview resources and the heavy lock
+have been released. Draft and In Progress remain.

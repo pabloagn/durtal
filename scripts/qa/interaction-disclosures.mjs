@@ -17,7 +17,7 @@ export function installDisclosureHelpers() {
   ia.element = (id) => (id === "page" ? document : elements.get(id));
   ia.within = (el, scope) =>
     scope === "page" || ia.element(scope)?.contains(el);
-  ia.active = () => {
+  ia.active = (inspectFocus = true) => {
     const el = document.activeElement;
     if (!el || el === document.body || el.tagName === "NEXTJS-PORTAL")
       return null;
@@ -25,7 +25,7 @@ export function installDisclosureHelpers() {
       id: ia.id(el),
       name: ia.name(el),
       hidden: ia.hidden(el),
-      shows: ia.focusShows(el),
+      shows: inspectFocus ? ia.focusShows(el) : undefined,
     };
   };
   ia.controls = (scope = "page") =>
@@ -144,19 +144,39 @@ export function installDisclosureHelpers() {
 }
 
 /** Reach the exact element through native Tab, never HTMLElement.focus(). */
+async function dateHasPendingTarget(io, id, targets, shift) {
+  return io.evaluate(`(() => {
+    const current = __ia.element(${JSON.stringify(id)});
+    if (current?.tagName !== 'INPUT' || current.type !== 'date') return false;
+    const direction = ${shift ? "Node.DOCUMENT_POSITION_PRECEDING" : "Node.DOCUMENT_POSITION_FOLLOWING"};
+    return ${JSON.stringify(targets)}.some(id => {
+      const target = __ia.element(id);
+      return target && current.compareDocumentPosition(target) & direction;
+    });
+  })()`);
+}
+
 export async function reachByTab(io, id, limit = 500) {
   // Headless Firefox can retain the last document stop on forward Tab.
   // A bounded native reverse walk proves reachability without forcing focus
   // or treating any background/document focus state as an exception.
   for (const shift of [false, true]) {
     const seen = new Set();
+    let previous = null;
     for (let i = 0; i < limit; i++) {
       const active = await io.evaluate(
         "window.__ia.id(document.activeElement)",
       );
       if (active === id) return true;
-      if (active && seen.has(active)) break;
+      if (
+        active &&
+        seen.has(active) &&
+        (active !== previous ||
+          !(await dateHasPendingTarget(io, active, [id], shift)))
+      )
+        break;
       if (active) seen.add(active);
+      previous = active;
       await io.press("Tab", shift);
     }
   }
@@ -278,6 +298,7 @@ export async function walkKeyboard(io, scope = "page", limit = 500) {
   for (const shift of [false, true]) {
     if (shift && expected.every((el) => seen.has(el.id))) break;
     const direction = new Set();
+    let previous = null;
     let bounded = true;
     for (let i = 0; i < limit; i++) {
       await io.press("Tab", shift);
@@ -290,13 +311,26 @@ export async function walkKeyboard(io, scope = "page", limit = 500) {
             `${shift ? "Shift+Tab" : "Tab"} leaves the dialog (body=${focus.body}, documentFocused=${focus.documentFocused})`,
           );
       }
-      const stop = await io.evaluate("__ia.active()");
-      if (!stop) continue; // browser chrome/body between complete cycles
+      // Re-probing a date field would reset its native segment focus.
+      const stop = await io.evaluate("__ia.active(false)");
+      if (!stop) {
+        previous = null;
+        continue; // browser chrome/body between complete cycles
+      }
       if (direction.has(stop.id)) {
-        bounded = false;
-        break;
+        const pending = expected
+          .filter((el) => !seen.has(el.id))
+          .map((el) => el.id);
+        if (
+          stop.id !== previous ||
+          !(await dateHasPendingTarget(io, stop.id, pending, shift))
+        ) {
+          bounded = false;
+          break;
+        }
       }
       direction.add(stop.id);
+      previous = stop.id;
       if (seen.has(stop.id)) continue;
       seen.add(stop.id);
       const inside = await io.evaluate(
@@ -306,7 +340,7 @@ export async function walkKeyboard(io, scope = "page", limit = 500) {
       stops++;
       if (stop.hidden)
         failures.push(`${stop.name} takes focus but cannot be seen`);
-      else if (!stop.shows)
+      else if (!(await io.evaluate("__ia.focusShows(document.activeElement)")))
         failures.push(`${stop.name} shows no focus indicator`);
     }
     if (bounded)

@@ -242,8 +242,7 @@ test("reverse modal escape remains a failure after re-entry and restores state; 
     let reverse = 0,
       result;
     f.io.press = async (key, shift = false) => {
-      if (key !== "Tab" || !dialog.open)
-        return nativePress(key, shift);
+      if (key !== "Tab" || !dialog.open) return nativePress(key, shift);
       f.keys.push(shift ? "Shift+Tab" : key);
       if (shift && ++reverse === 1) {
         document.hasFocus = () => escape !== "chrome";
@@ -281,7 +280,9 @@ test("reverse modal escape remains a failure after re-entry and restores state; 
       await assert.rejects(run, /retained reverse escape/);
       assert(
         f.failures.some((failure) =>
-          failure.includes(`Shift+Tab leaves the dialog (body=${escape === "body"}, documentFocused=true)`),
+          failure.includes(
+            `Shift+Tab leaves the dialog (body=${escape === "body"}, documentFocused=true)`,
+          ),
         ),
       );
       assert(!result.failures.some((failure) => /not reachable/.test(failure)));
@@ -303,6 +304,67 @@ test("a newly revealed stop without a focus indicator is reported", async () => 
     f.failures.push(...(await walkKeyboard(f.io, scope, 20)).failures),
   );
   assert(f.failures.some((s) => /Edit.*shows no focus indicator/.test(s)));
+});
+
+test("date segments reach later controls without repeated ring probes and retain skipped, ringless and trapped failures", async () => {
+  for (const scenario of [
+    {},
+    { skip: "note" },
+    { ringless: "note" },
+    { trap: true },
+  ]) {
+    const f = fixture(
+      '<dialog><button id="header">Close</button><input id="name"><input id="date" type="date"><textarea id="note" aria-label="Note"></textarea><button>Cancel</button></dialog>',
+      scenario,
+    );
+    const dialog = f.window.document.querySelector("dialog");
+    dialog.showModal();
+    f.window.document.getElementById("header").focus();
+    const controls = [
+      ...dialog.querySelectorAll("button,input,textarea"),
+    ].filter((el) => el.id !== scenario.skip);
+    const steps = controls.flatMap((el) =>
+      el.type === "date" ? [el, el, el, el] : [el],
+    );
+    let position = 0,
+      probes = 0;
+    const originalShows = f.window.__ia.focusShows;
+    f.window.__ia.focusShows = (el) => {
+      if (el.id === "date") probes++;
+      return originalShows(el);
+    };
+    f.io.press = async (key, shift = false) => {
+      assert.equal(key, "Tab");
+      if (!(scenario.trap && steps[position].id === "date"))
+        position = Math.max(
+          0,
+          Math.min(steps.length - 1, position + (shift ? -1 : 1)),
+        );
+      steps[position].focus();
+    };
+    const result = await walkKeyboard(f.io, f.window.__ia.id(dialog), 30);
+    assert.equal(probes, 1);
+    if (scenario.trap)
+      assert(result.failures.some((failure) => /exceeded 30/.test(failure)));
+    else if (scenario.skip)
+      assert(
+        result.failures.some((failure) => /Note.*not reachable/.test(failure)),
+      );
+    else if (scenario.ringless)
+      assert(
+        result.failures.some((failure) =>
+          /Note.*no focus indicator/.test(failure),
+        ),
+      );
+    else {
+      assert.deepEqual(result.failures, []);
+      assert.equal(result.stops, 5);
+      const note = f.window.__ia.id(f.window.document.getElementById("note"));
+      assert(await reachByTab(f.io, note, 30));
+      const name = f.window.__ia.id(f.window.document.getElementById("name"));
+      assert(await reachByTab(f.io, name, 30));
+    }
+  }
 });
 
 test("an unreachable summary fails and its contents are not claimed as checked", async () => {

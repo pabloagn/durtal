@@ -9,6 +9,7 @@ import { createDriver } from "./interaction-driver.mjs";
 import { HELPERS } from "./interaction-page.mjs";
 import {
   installDisclosureHelpers,
+  reachByTab,
   walkKeyboard,
 } from "./interaction-disclosures.mjs";
 
@@ -140,6 +141,106 @@ for (const browser of ["chromium", "firefox", "webkit"]) {
           false,
         );
       }
+      const dateHtml = `<style>${entrance}${animation}
+        button,input,textarea { padding:12px; }
+        :focus-visible,input[type=date]:focus { outline:2px solid #39f; }
+        input[type=date].ringless:focus { outline:none; box-shadow:none; }
+        </style><dialog class="dialog-enter"><button id="header">Close</button>
+        <input id="name" aria-label="Name"><input id="date" type="date" value="2026-10-09">
+        <textarea id="note" aria-label="Note"></textarea><button>Cancel</button></dialog>`;
+      await driver.send("Page.navigate", {
+        url: "data:text/html," + encodeURIComponent(dateHtml),
+      });
+      await evaluate(HELPERS);
+      await evaluate(`(${installDisclosureHelpers.toString()})()`);
+      await evaluate(`(() => {
+        window.dateProbes = 0;
+        const shows = __ia.focusShows.bind(__ia);
+        __ia.focusShows = el => { if (el.id === 'date') dateProbes++; return shows(el); };
+        document.querySelector('dialog').showModal();
+      })()`);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const scope = await evaluate("__ia.id(document.querySelector('dialog'))");
+      const dateSteps = [];
+      const dateIO = {
+        evaluate,
+        press: async (key, shift) => {
+          await press(key, shift);
+          dateSteps.push({
+            key,
+            shift: !!shift,
+            ...(await evaluate(
+              "({id: document.activeElement.id, type: document.activeElement.type})",
+            )),
+          });
+        },
+      };
+      const walked = await walkKeyboard(dateIO, scope, 30);
+      assert.deepEqual(walked.failures, []);
+      assert.equal(walked.expected, 5);
+      assert.equal(await evaluate("dateProbes"), 1);
+      assert(
+        await reachByTab(
+          dateIO,
+          await evaluate("__ia.id(document.getElementById('note'))"),
+          30,
+        ),
+      );
+      assert(
+        await reachByTab(
+          dateIO,
+          await evaluate("__ia.id(document.getElementById('name'))"),
+          30,
+        ),
+      );
+      if (browser === "firefox") {
+        assert(
+          dateSteps.some(
+            (step, index) =>
+              step.type === "date" && dateSteps[index + 1]?.id === step.id,
+          ),
+          "native Firefox date segments must repeat their DOM identity",
+        );
+      }
+      await evaluate(
+        "document.getElementById('date').classList.add('ringless')",
+      );
+      const ringlessDate = await walkKeyboard(dateIO, scope, 30);
+      assert(
+        ringlessDate.failures.some((failure) =>
+          /2026-10-09.*shows no focus indicator/.test(failure),
+        ),
+      );
+      await evaluate(
+        "document.getElementById('date').classList.remove('ringless')",
+      );
+      await evaluate(
+        "document.getElementById('note').addEventListener('focus', () => document.querySelector('dialog button:last-child').focus())",
+      );
+      const skipped = await walkKeyboard(dateIO, scope, 30);
+      assert(
+        skipped.failures.some((failure) => /Note.*not reachable/.test(failure)),
+      );
+      console.log(
+        JSON.stringify({
+          browser,
+          check: "native-date-segments",
+          walked,
+          dateSteps,
+          skipped,
+        ringlessDate,
+        }),
+      );
+      for (
+        let i = 0;
+        i < 3 && (await evaluate("document.querySelector('dialog').open"));
+        i++
+      )
+        await press("Escape");
+      assert.equal(
+        await evaluate("document.querySelector('dialog').open"),
+        false,
+      );
     } finally {
       await driver.close();
     }
