@@ -649,6 +649,66 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
     expect((await getImagePresentation(source)).settings.contrast).toBe(123);
   });
 
+  it.each([
+    { cropX: 50, cropY: 50, cropZoom: 100 },
+    { cropX: 25, cropY: 70, cropZoom: 135 },
+  ])(
+    "preserves unchanged neutral/legacy files and zoom on a filter-only Save %j",
+    async (framing) => {
+      const { item, image } = await croppablePoster();
+      await db
+        .update(schema.media)
+        .set(framing)
+        .where(eq(schema.media.id, item.id));
+      const source = s3ImageSource(item.s3Key);
+      const loaded = await getImagePresentation(source);
+      const keys = [...store.keys()].sort();
+      const saved = await saveWithRevision(source, {
+        revision: loaded.revision,
+        settings: { ...loaded.settings, exposure: 1 },
+        crop: loaded.crop!,
+      });
+      expect(await row(item.id)).toMatchObject({
+        ...framing,
+        s3Key: item.s3Key,
+        thumbnailS3Key: item.thumbnailS3Key,
+        uncroppedS3Key: null,
+        appliedCrop: null,
+      });
+      expect(store.get(item.s3Key)).toEqual(image);
+      expect([...store.keys()].sort()).toEqual(keys);
+      const current = await getImagePresentation(source);
+      expect(current.settings.exposure).toBe(1);
+      expect(current.revision).toBe(saved.revision);
+      expect(current.revision).not.toBe(loaded.revision);
+    },
+  );
+
+  it("preserves a baked crop and retained base on an unchanged filter-only Save", async () => {
+    const { item, image } = await croppablePoster();
+    const cropped = await cropTo(s3ImageSource(item.s3Key), 0, 0, 200);
+    const source = s3ImageSource(cropped.assetKey);
+    const before = await row(item.id);
+    const bytes = store.get(before.s3Key);
+    const keys = [...store.keys()].sort();
+    const loaded = await getImagePresentation(source);
+    await saveWithRevision(source, {
+      revision: loaded.revision,
+      settings: { ...loaded.settings, exposure: 1 },
+      crop: loaded.crop!,
+    });
+    expect(await row(item.id)).toMatchObject({
+      s3Key: before.s3Key,
+      thumbnailS3Key: before.thumbnailS3Key,
+      uncroppedS3Key: item.s3Key,
+      appliedCrop: before.appliedCrop,
+      cropZoom: before.cropZoom,
+    });
+    expect(store.get(before.s3Key)).toEqual(bytes);
+    expect(store.get(item.s3Key)).toEqual(image);
+    expect([...store.keys()].sort()).toEqual(keys);
+  });
+
   it("writes the crop into new files and keeps the uncropped image untouched", async () => {
     const { item, image } = await croppablePoster();
     // Zoom 200 at the top-left corner: the top-left quadrant, red

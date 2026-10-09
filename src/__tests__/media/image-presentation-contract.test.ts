@@ -180,6 +180,72 @@ describe("image presentation action boundaries without a database", () => {
     expect(mocks.commit).toHaveBeenCalledTimes(1);
     expect(mocks.atomic).not.toHaveBeenCalled();
   });
+  it.each([
+    {
+      cropX: 50,
+      cropY: 50,
+      cropZoom: 100,
+      appliedCrop: null,
+      uncroppedS3Key: null,
+    },
+    {
+      cropX: 25,
+      cropY: 70,
+      cropZoom: 135,
+      appliedCrop: null,
+      uncroppedS3Key: null,
+    },
+    {
+      cropX: 20,
+      cropY: 80,
+      cropZoom: 100,
+      appliedCrop: { x: 20, y: 80, zoom: 200 },
+      uncroppedS3Key: "base",
+    },
+  ])(
+    "preserves unchanged neutral/legacy/saved framing on a filter-only save %j",
+    async (framing) => {
+      const current = { ...item, ...framing };
+      mocks.media.mockResolvedValue(current);
+      mocks.commit.mockResolvedValue({ ...current, revision: "b".repeat(32) });
+      const loaded = await getImagePresentation(source);
+      const result = await saveImagePresentation(source, {
+        revision,
+        settings: { exposure: 1 },
+        crop: loaded.crop!,
+      });
+      expect(result).toMatchObject({
+        settings: { exposure: 1 },
+        revision: "b".repeat(32),
+      });
+      expect(mocks.build).not.toHaveBeenCalled();
+      expect(mocks.commit.mock.calls[0][1]).toBeNull();
+      expect(mocks.commit.mock.calls[0][2]).toEqual({
+        brightness: 100,
+        contrast: 100,
+      });
+      expect(mocks.commit.mock.calls[0][4]).toEqual({ revision });
+    },
+  );
+  it("rebuilds a changed crop on a filter-only save with the same revision guard", async () => {
+    mocks.commit.mockResolvedValue({ ...item, revision: "b".repeat(32) });
+    await saveImagePresentation(source, {
+      revision,
+      settings: { exposure: 1 },
+      crop: { cropX: 0, cropY: 70, cropZoom: 150 },
+    });
+    expect(mocks.build).toHaveBeenCalledExactlyOnceWith(item, {
+      x: 0,
+      y: 70,
+      zoom: 150,
+    });
+    expect(mocks.commit.mock.calls[0][2]).toMatchObject({
+      cropX: 0,
+      cropY: 70,
+      cropZoom: 100,
+    });
+    expect(mocks.commit.mock.calls[0][4]).toEqual({ revision });
+  });
   it("returns the fixed stale result for a removed source alias without writes", async () => {
     mocks.media.mockResolvedValue(undefined);
     await expect(getImagePresentation(source)).rejects.toThrow(
