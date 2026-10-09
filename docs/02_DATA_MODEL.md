@@ -1930,6 +1930,7 @@ App-wide settings, one row (migration `0052_app_settings`). They apply on every 
 | `reading_day_start_hour` | SMALLINT | NOT NULL, default `4`, CHECK 0–6 (migration `0067_reading_sessions_timer`). A session before this hour counts for the day before. Read by every writer that sets a `read_on` or defaults a reading date; a change applies to new sessions only |
 | `reading_week_start` | SMALLINT | NOT NULL, default `1`, CHECK in (1, 7): Monday or Sunday. For the reading rhythm and stats |
 | `reading_timer_check_minutes` | SMALLINT | NOT NULL, default `90`, CHECK 15–480. A running timer asks "Still reading?" after this much running time; past twice this, it is a forgotten timer and is never saved without an end time |
+| `reading_auto_track_ebooks` | BOOLEAN | NOT NULL, default `true`. SLN-454 declaration only; reserved migration `0087_reader_tracker_integration` is not generated/applied. Permits reader auto-start after five active minutes |
 | `reading_rhythm_days` | SMALLINT | nullable, CHECK 1–7 (migration `0070_reading_goals`). The days he would like to read each week; null turns the weekly rhythm off (SLN-455) |
 | `reading_suggest_hide_anathema` | BOOLEAN | NOT NULL DEFAULT false (migration `0073_reading_suggestions`). On: suggestions leave out books marked Anathema; off, they show with their mark (SLN-457) |
 | `reading_prediction_gate` | JSONB | nullable (migration `0073_reading_suggestions`). The predicted rating's last daily check, `{ checkedAt, on, failures, n, coverage, mae, baselineMae }` (`predictionGateSchema`). Written only by the suggestion engine, at most once in 24 hours, by one UPDATE asserting the old `checkedAt`; never a settings input (SLN-457) |
@@ -2592,6 +2593,76 @@ Highlights (with notes) and bookmarks. Created empty; sub-issue 11 writes them.
 | `deleted_at` | TIMESTAMPTZ | nullable (a tombstone for sync) |
 
 Index (`ebook_id`, `deleted_at`, `progression`).
+
+### Pending reader tracker declarations (SLN-454)
+
+The following declarations in `src/lib/db/schema/reader-tracking.ts` and the
+annotation reference in `readings.ts` await review and reserved migration
+`0087_reader_tracker_integration`. They are not present in the applied database.
+`scripts/qa/reader-tracking-schema-proposal.sql` contains exact unexecuted review
+DDL and custom trigger proposals. Applied 0075/0076 remain unchanged: they
+checked old history was empty and dropped `reading_progress`; no historical
+preservation table exists at the reviewed reader baseline.
+
+`legacy_reader_progress` is additive recovery input, populated only from actual
+reviewed recovery evidence or a synthetic disposable fixture. It never reads
+history from positions, Calibre metadata, sidecars or preservation timestamps.
+
+| Column | Type | Constraints |
+|---|---|---|
+| `ebook_id` | UUID | PK, FK → `ebooks.id`, RESTRICT |
+| `progress_fraction` | REAL | nullable, CHECK 0–1; converted to tracker percent 0–100 at the service boundary |
+| `started_at`, `last_read_at`, `finished_at` | TIMESTAMPTZ | nullable, finite when supplied; no defaults and no inferred dates |
+| `preserved_at` | TIMESTAMPTZ | NOT NULL, default now; audit time only |
+
+`reader_sitting_receipts` permanently remembers each client sitting's cumulative
+flush. Its only live identity FK is `session_id`. Original reading, e-book and
+session UUIDs have no FK: deletion/merge/Undo must not erase or rewrite them.
+
+| Column | Type | Constraints |
+|---|---|---|
+| `sitting_id` | UUID | PK, supplied by client; permanent |
+| `reading_id`, `ebook_id`, `device_id`, `original_session_id` | UUID | NOT NULL, immutable original identities; device comes from the validated server cookie |
+| `session_id` | UUID | nullable FK → `reading_sessions.id`, SET NULL; may only clear after insert |
+| `revision` | INTEGER | NOT NULL, 1–2147483647; same revision cannot change cumulative values |
+| `started_at`, `ended_at` | TIMESTAMPTZ | NOT NULL, finite, ordered; started time immutable |
+| `active_seconds` | INTEGER | NOT NULL, 1–86400, at most floor of elapsed wall seconds; cumulative, never regresses |
+| `start_percent`, `end_percent` | NUMERIC(5,2) | NOT NULL, 0–100; start immutable |
+| `end_chapter` | TEXT | nullable, at most 300 characters |
+| `time_zone` | TEXT | NOT NULL, 1–100 characters, valid database time-zone name; immutable |
+| `going_back` | BOOLEAN | NOT NULL default false, immutable; explicit backward segment |
+| `state` | TEXT | NOT NULL default active, active or retired |
+| `retired_at` | TIMESTAMPTZ | nullable, finite; required only for retired |
+| `retire_reason` | TEXT | nullable; required only for retired: session_deleted, session_edited, reading_deleted, reading_closed, reading_edited, binding_changed, book_merged, compensated or session_missing |
+| `updated_at` | TIMESTAMPTZ | NOT NULL default now |
+
+Indexes cover `session_id`, `reading_id` and `ebook_id`. Active state requires a
+live session and null retirement fields. Retired state requires a null session
+and both retirement fields. The BEFORE receipt guard handles FK SET NULL before
+the active-state CHECK runs. Retired receipts cannot change or be reactivated;
+DELETE/TRUNCATE is refused. Restoring a canonical session does not revive an old
+sitting UUID; a new sitting uses a new UUID. There is no TTL purge.
+
+Proposed session/reading/e-book/copy/edition guards retire affected receipts in
+the same transaction as edits, closure, deletion or rebinding. Shared derived
+session-start recomputation may proceed; explicit user edits additionally retire
+before mutation, even if submitted values match the stored row. Tracker
+extension uses a transaction-local session token plus proof that its active
+receipt was written in that same transaction, with deferred canonical-session
+validation. The token alone is insufficient. This is an internal SQL protocol,
+not access control against a privileged database owner. Canonical reader time
+equals cumulative active receipt time; overlapping receipt intervals are refused.
+No sitting extends an unrelated, retired or manually edited canonical session.
+
+`reading_notes.ebook_annotation_id` is nullable UNIQUE UUID with FK →
+`ebook_annotations.id` SET NULL. The revised `guard_reading_note` preserves both
+existing reference guards and the audited merge pass-through, adding
+`reading_note_ebook_work` (23514) for another book's annotation. Null clearing is
+allowed. Deferred binding checks permit temporary merge ordering but require
+the final linked e-book and note to belong to the same work. Relink retaining
+an old quote clears its annotation reference in that same transaction. Actual
+quote save/delete/Undo composition belongs to the reviewed SLN-454/500 service
+contract, not these declarations.
 
 ### `ebook_ingest_runs`
 

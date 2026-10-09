@@ -11,8 +11,9 @@
 
 The reader will feed tracker sittings, counted progress, explicit finish and
 linked quotes. Legacy history will have a persistent preview, commit and undo.
-Only isolated pure policies are implemented at this checkpoint, on reviewed
-reader source `626f4870`. Services, plugin/UI, schema and deployment remain gated.
+Isolated pure policies and pending schema declarations are implemented at this
+checkpoint, on reviewed reader source `626f4870`. Services, plugin/UI, migration
+generation/application and deployment remain gated on the recorded reviews.
 
 ## Implementation Details
 
@@ -31,12 +32,25 @@ reader source `626f4870`. Services, plugin/UI, schema and deployment remain gate
 - `reader-receipts.ts`: pure cumulative-flush/idempotency policy; immutable owner
   binding, replay rejection, retired receipt protection and protected merge rules.
   A receipt survives session deletion in the proposed schema; no migration yet.
+- `db/schema/reader-tracking.ts`: additive legacy recovery input with an explicitly
+  named 0–1 fraction, permanent sitting receipts with immutable original UUIDs,
+  nullable live session FK and constrained active/retired states. Schema also
+  declares the auto-track setting and unique nullable note/annotation link.
+- `scripts/qa/reader-tracking-schema-proposal.sql`: exact unexecuted DDL and
+  retirement/ownership/deferred consistency trigger proposal for independent
+  root review before generating reserved 0087. Applied history stays unchanged.
+- `scripts/qa/reader-tracking-mutation-inventory.md`: current service/action/REST/
+  import/Undo/copy/edition/merge/quote callsites, the proposed atomic proof and
+  retirement protocol, unresolved integration work and required DB acceptance.
+  `docs/02_DATA_MODEL.md` matches the pending declarations explicitly.
 
 ## Completion Notes
 
-Focused verification: four pure-policy test files, 63 tests passed, zero skipped.
-Targeted TypeScript check of those files and their pure imports passed. ESLint on
-the six new source modules passed with zero warnings; tests are excluded by the
+Focused verification: four pure-policy test files, 63 tests passed, zero skipped,
+rerun after the declarations. Targeted TypeScript check includes those files,
+their imports and the complete schema index and passed. ESLint on the four
+changed schema modules passed with zero warnings; the earlier six pure source
+modules also passed. Tests are excluded by the
 repository's existing lint configuration. The repository-wide typecheck remains
 part of the later integration gate, not claimed by the focused check.
 
@@ -46,8 +60,9 @@ have not run. The primary checkout, manual port 3100 and live data are untouched
 Dependencies are reused through a worktree-local symlink; none were installed.
 
 Migration `0087_reader_tracker_integration` is reserved but not generated. Exact
-legacy preservation/receipt schema and annotation deletion composition need root
-review. Main's applied 0075/0076 checked old history was empty and dropped it;
+legacy preservation/receipt schema and trigger proposal need root review;
+annotation deletion composition must consume the reviewed concrete upstream
+contract. Main's applied 0075/0076 checked old history was empty and dropped it;
 `legacy_reader_progress` is not present and must be supplied additively. An empty
 live backfill is valid evidence of no old rows, not synthetic feature acceptance.
 
