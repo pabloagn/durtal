@@ -248,3 +248,19 @@ HTTP and native Worker objects are injected doubles in these tests. The
 session is concrete source preparation; the common foliate adapter, vendor
 render callbacks, public measured-text methods, HTTP CSP and UI still await
 wiring and native proof.
+
+### Owned raster render source checkpoint
+
+`PdfRasterRenderer` now calls the actual `PDFPageProxy.render` canvas API through
+the allocation ledger. Every pending paint is reserved before backing creation;
+the viewport stays at CSS scale while the render transform uses the exact
+backing/CSS ratios. It pins the page only while painting and adopts a result
+only if its frame still owns it. Cancellation clears the pending backing and
+cannot retire another live page. Hidden cached backings are released before
+new reservations; an exhausted aggregate budget releases the outgoing backing
+before replacement. Identical raster work is reused.
+
+Five focused integration tests passed with page/canvas doubles, zero skips,
+covering live plus pending counts, replacement, hidden eviction, independent
+cancellation, extreme zoom and frame removal during paint. Scoped TypeScript,
+source lint and whitespace checks passed. Native raster/memory proof is gated.
