@@ -57,9 +57,26 @@ describe("shared image presentation", () => {
     { grayscale: NaN },
     { sepia: 101 },
     { softness: 9 },
+    { rotation: -181 },
+    { rotation: 181 },
+    { rotation: 0.5 },
+    { rotation: NaN },
+    { rotation: Infinity },
+    { rotation: "90" },
     { extra: 1 },
   ])("rejects unsupported values %j", (settings) => {
     expect(imageAdjustmentsSchema.safeParse(settings).success).toBe(false);
+  });
+  it("defaults legacy settings to zero and canonicalizes the half-turn endpoint", () => {
+    expect(imageAdjustmentsSchema.parse({ brightness: 120 }).rotation).toBe(0);
+    expect(imageAdjustmentsSchema.parse({ rotation: 180 }).rotation).toBe(-180);
+    expect(imageAdjustmentsSchema.parse({ rotation: -180 }).rotation).toBe(
+      -180,
+    );
+    expect(
+      enforceImagePolicy({ ...DEFAULT_IMAGE_ADJUSTMENTS, rotation: 45 }, true)
+        .rotation,
+    ).toBe(45);
   });
   it("recognizes only stored asset routes", () => {
     expect(imageSourceIdentity(s3ImageSource("gold/a & b.jpg"))).toEqual({

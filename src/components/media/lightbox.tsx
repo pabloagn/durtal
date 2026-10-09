@@ -1,6 +1,8 @@
 "use client";
 
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
+import { ImageRotationFrame } from "./image-rotation-frame";
+import { isImageRotation } from "@/lib/media/rotation";
 import { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
@@ -9,6 +11,7 @@ interface LightboxImage {
   src: string;
   alt: string;
   caption?: string;
+  rotation?: number;
 }
 
 interface LightboxProps {
@@ -35,7 +38,11 @@ export function Lightbox({ images, initialIndex, onClose }: LightboxProps) {
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.target instanceof HTMLElement && e.target.closest("dialog") !== dialogRef.current) return;
+      if (
+        e.target instanceof HTMLElement &&
+        e.target.closest("dialog") !== dialogRef.current
+      )
+        return;
       if (e.key === "Escape") onClose();
       if (e.key === "ArrowRight") goNext();
       if (e.key === "ArrowLeft") goPrev();
@@ -45,15 +52,34 @@ export function Lightbox({ images, initialIndex, onClose }: LightboxProps) {
   }, [onClose, goNext, goPrev]);
 
   const current = images[index];
+  const rotation = current.rotation ?? 0;
+  const rotated = isImageRotation(rotation) && rotation !== 0;
+  const image = (
+    <Image
+      src={current.src}
+      alt={current.alt}
+      width={1600}
+      height={1200}
+      className="max-h-[85vh] w-auto object-contain"
+      priority
+      unoptimized
+    />
+  );
 
   return (
     <dialog
       ref={dialogRef}
       className="fixed inset-0 z-50 m-0 h-screen w-screen max-h-none max-w-none bg-scrim-deep p-0 backdrop:bg-transparent"
-      onClose={(event) => { if (event.target === dialogRef.current) onClose(); }}
+      onClose={(event) => {
+        if (event.target === dialogRef.current) onClose();
+      }}
     >
       <div className="flex h-full w-full items-center justify-center">
-        <ImageAdjustButton key={current.src} source={current.src} className="absolute right-16 top-4 z-20" />
+        <ImageAdjustButton
+          key={current.src}
+          source={current.src}
+          className="absolute right-16 top-4 z-20"
+        />
         {/* Close */}
         <button
           onClick={onClose}
@@ -77,18 +103,50 @@ export function Lightbox({ images, initialIndex, onClose }: LightboxProps) {
         )}
 
         {/* Image */}
-        <div className="relative max-h-[90vh] max-w-[90vw]">
-          <Image
-            src={current.src}
-            alt={current.alt}
-            width={1600}
-            height={1200}
-            className="max-h-[85vh] w-auto object-contain"
-            priority
-          unoptimized
-          />
+        <div
+          className={
+            rotated
+              ? "relative flex max-h-[90dvh] flex-col"
+              : "relative max-h-[90vh] max-w-[90vw]"
+          }
+          style={
+            rotated
+              ? {
+                  width: "min(90vw, calc(100vw - 96px))",
+                  height: "calc(100dvh - 96px)",
+                }
+              : undefined
+          }
+        >
+          {rotated ? (
+            <div className="relative min-h-0 flex-1">
+              <ImageRotationFrame
+                rotation={rotation}
+                src={current.src}
+                original={image}
+                renderImage={(binding) => (
+                  <Image
+                    {...binding}
+                    alt={current.alt}
+                    width={1600}
+                    height={1200}
+                    priority
+                    unoptimized
+                  />
+                )}
+              />
+            </div>
+          ) : (
+            image
+          )}
           {current.caption && (
-            <p className="mt-3 text-center text-xs text-fg-secondary">
+            <p
+              className={
+                rotated
+                  ? "mt-3 max-h-[25dvh] shrink-0 overflow-y-auto text-center text-xs text-fg-secondary"
+                  : "mt-3 text-center text-xs text-fg-secondary"
+              }
+            >
               {current.caption}
             </p>
           )}

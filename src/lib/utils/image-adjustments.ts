@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeImageRotation } from "@/lib/media/rotation";
 import {
   imageAdjustmentRule,
   type ImageAdjustments,
@@ -24,6 +25,14 @@ export const imageAdjustmentsSchema = z
     grayscale: z.number().min(0).max(100).default(0),
     sepia: z.number().min(0).max(100).default(0),
     softness: z.number().min(0).max(8).default(0),
+    rotation: z
+      .number()
+      .finite()
+      .int()
+      .min(-180)
+      .max(180)
+      .default(0)
+      .transform(normalizeImageRotation),
   })
   .strict() satisfies z.ZodType<ImageAdjustments>;
 

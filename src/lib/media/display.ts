@@ -12,6 +12,13 @@
  */
 import { and, eq, sql } from "drizzle-orm";
 import { atomic } from "@/lib/db/atomic";
+import { withReadableErrors } from "@/lib/db/errors";
+import { resultRows } from "@/lib/harmonization/store";
+import {
+  imagePresentationLocks,
+  assertImageRevision,
+  imageRevisionSql,
+} from "./presentation-revision";
 import { media } from "@/lib/db/schema";
 import { uploadToS3 } from "@/lib/s3/covers";
 import { readS3Object } from "@/lib/s3/read-object";
@@ -69,7 +76,8 @@ export async function commitDisplay(
   files: DisplayFiles | null,
   set: Partial<typeof media.$inferInsert>,
   settings?: { settings: ImageAdjustments; monochrome: boolean },
-): Promise<MediaRow | null> {
+  expected?: { revision: string },
+): Promise<(MediaRow & { revision?: string }) | null> {
   const assetKey = files?.s3Key ?? row.s3Key;
   const sources = [assetKey, files ? files.thumbnailS3Key : row.thumbnailS3Key]
     .filter((key): key is string => !!key)
@@ -79,56 +87,75 @@ export async function commitDisplay(
   const onConflict = sql`on conflict (asset_key) do update set
     sources = excluded.sources, settings = excluded.settings,
     monochrome = excluded.monochrome, updated_at = excluded.updated_at`;
+  const subject = { kind: "media", id: row.id } as const;
+  const locks = imagePresentationLocks(subject, row.s3Key);
 
   let results: unknown[];
   try {
-    results = await atomic((d) => [
-      d
-        .update(media)
-        .set({
-          ...set,
-          ...(files && {
-            s3Key: files.s3Key,
-            thumbnailS3Key: files.thumbnailS3Key,
-            uncroppedS3Key: files.uncroppedS3Key,
-            appliedCrop: files.appliedCrop,
-            width: files.width,
-            height: files.height,
-          }),
-        })
-        .where(and(eq(media.id, row.id), eq(media.s3Key, row.s3Key)))
-        .returning(),
-      settings
-        ? d.execute(sql`
+    results = await withReadableErrors(() =>
+      atomic((d) => [
+        ...locks.map((query) => d.execute(query)),
+        ...(expected
+          ? [d.execute(assertImageRevision(subject, expected.revision))]
+          : []),
+        d
+          .update(media)
+          .set({
+            ...set,
+            ...(files && {
+              s3Key: files.s3Key,
+              thumbnailS3Key: files.thumbnailS3Key,
+              uncroppedS3Key: files.uncroppedS3Key,
+              appliedCrop: files.appliedCrop,
+              width: files.width,
+              height: files.height,
+            }),
+          })
+          .where(and(eq(media.id, row.id), eq(media.s3Key, row.s3Key)))
+          .returning(),
+        settings
+          ? d.execute(sql`
             insert into image_adjustments (asset_key, sources, settings, monochrome, updated_at)
             select ${assetKey}, ${JSON.stringify(sources)}::jsonb,
-              ${JSON.stringify(settings.settings)}::jsonb, ${settings.monochrome}, now()
+              ${JSON.stringify(settings.settings)}::jsonb, ${settings.monochrome}, clock_timestamp()
             where ${shown} ${onConflict}`)
-        : d.execute(sql`
+          : d.execute(sql`
             insert into image_adjustments (asset_key, sources, settings, monochrome, updated_at)
-            select ${assetKey}, ${JSON.stringify(sources)}::jsonb, settings, monochrome, now()
+            select ${assetKey}, ${JSON.stringify(sources)}::jsonb, settings, monochrome, clock_timestamp()
             from image_adjustments
             where asset_key = ${row.s3Key} and ${shown} ${onConflict}`),
-    ]);
+        ...(expected
+          ? [d.execute(sql`select ${imageRevisionSql(subject)} as revision`)]
+          : []),
+      ]),
+    );
   } catch (err) {
     if (files) await removeS3Keys(files.created);
     throw err;
   }
-  const [updated] = results[0] as MediaRow[];
+  const [updated] = results[locks.length + (expected ? 1 : 0)] as MediaRow[];
   if (!updated) {
     if (files) await removeS3Keys(files.created);
     return null;
   }
   if (files) await removeS3Keys(replacedKeys(row, files));
-  return updated;
+  return expected
+    ? {
+        ...updated,
+        revision: resultRows<{ revision: string }>(results.at(-1))[0].revision,
+      }
+    : updated;
 }
 
 /** Keys the row used before that the new files no longer use. */
 function replacedKeys(row: MediaRow, files: DisplayFiles): string[] {
   const kept = new Set(
-    [files.s3Key, files.thumbnailS3Key, files.uncroppedS3Key, row.originalS3Key].filter(
-      (key): key is string => !!key,
-    ),
+    [
+      files.s3Key,
+      files.thumbnailS3Key,
+      files.uncroppedS3Key,
+      row.originalS3Key,
+    ].filter((key): key is string => !!key),
   );
   return [row.s3Key, row.thumbnailS3Key, row.uncroppedS3Key].filter(
     (key): key is string => !!key && !kept.has(key),
@@ -161,8 +188,11 @@ export async function buildDisplayFiles(
   uncropped?: Buffer,
 ): Promise<DisplayFiles | null> {
   const aspect = mediaFrameAspect(row.type);
-  const asked = isNoCrop(crop) ? null : { x: crop.x, y: crop.y, zoom: crop.zoom };
-  if (asked && !aspect) throw new Error("This image does not support framed cropping");
+  const asked = isNoCrop(crop)
+    ? null
+    : { x: crop.x, y: crop.y, zoom: crop.zoom };
+  if (asked && !aspect)
+    throw new Error("This image does not support framed cropping");
   // Sizes follow the owner's image policy; a contained image is never cut.
   const owner = mediaOwnerOf(row);
   const policy = imagePolicy(
@@ -183,11 +213,19 @@ export async function buildDisplayFiles(
   const height = (turned ? meta.width : meta.height) ?? 0;
   if (!width || !height) throw new Error("Could not read the image size");
   // A crop that keeps the whole image cuts nothing: no cropped file
-  const region = asked && aspect ? cropRegion(width, height, aspect, asked) : null;
-  const cut = region && (region.width < width || region.height < height) ? region : null;
+  const region =
+    asked && aspect ? cropRegion(width, height, aspect, asked) : null;
+  const cut =
+    region && (region.width < width || region.height < height) ? region : null;
   if (!uncropped && !cut && !row.uncroppedS3Key) return null;
 
-  const keys = goldMediaVersionKeys(owner.type, owner.id, row.type, row.id, version());
+  const keys = goldMediaVersionKeys(
+    owner.type,
+    owner.id,
+    row.type,
+    row.id,
+    version(),
+  );
   const created: string[] = [];
   const put = async (key: string, body: Buffer) => {
     await uploadToS3(key, body, "image/webp");
@@ -248,8 +286,6 @@ export async function buildDisplayFiles(
     throw err;
   }
 }
-
-
 
 function version(): string {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;

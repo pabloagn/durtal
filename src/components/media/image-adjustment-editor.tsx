@@ -90,6 +90,7 @@ function LoadedEditor({
 }) {
   // A saved crop writes new files, so the image key can change after a save
   const [source, setSource] = useState(initial.source);
+  const [revision, setRevision] = useState(initial.revision);
   const [settings, setSettings] = useState(initial.settings);
   const [crop, setCrop] = useState(initial.crop);
   const [active, setActive] = useState("exposure");
@@ -126,9 +127,15 @@ function LoadedEditor({
     try {
       const record = await saveImagePresentation(source, {
         settings,
+        revision,
         ...(crop ? { crop } : {}),
       });
+      if ("error" in record) {
+        toast.error(record.message);
+        return;
+      }
       setSource(s3ImageSource(record.assetKey));
+      setRevision(record.revision);
       update(record);
       setBaseline({ settings: record.settings, crop });
       setSettings(record.settings);

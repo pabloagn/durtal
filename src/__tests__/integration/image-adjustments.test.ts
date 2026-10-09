@@ -54,13 +54,18 @@ vi.mock("@/lib/s3/client", async () => {
     s3: {
       send: vi.fn(async (command: unknown) => {
         if (command instanceof PutObjectCommand) {
-          store.set(command.input.Key!, Buffer.from(command.input.Body as Buffer));
+          store.set(
+            command.input.Key!,
+            Buffer.from(command.input.Body as Buffer),
+          );
           return {};
         }
         if (command instanceof GetObjectCommand) {
           const body = store.get(command.input.Key!);
           if (!body) throw new Error(`NoSuchKey ${command.input.Key}`);
-          return { Body: { transformToByteArray: async () => new Uint8Array(body) } };
+          return {
+            Body: { transformToByteArray: async () => new Uint8Array(body) },
+          };
         }
         if (command instanceof DeleteObjectsCommand) {
           for (const o of command.input.Delete!.Objects!) store.delete(o.Key!);
@@ -73,7 +78,7 @@ vi.mock("@/lib/s3/client", async () => {
 });
 import {
   getImagePresentation,
-  saveImagePresentation,
+  saveImagePresentation as savePresentationAction,
   getImageAdjustmentStyles,
 } from "@/lib/actions/image-adjustments";
 import { buildDisplayFiles, commitDisplay } from "@/lib/media/display";
@@ -81,6 +86,24 @@ import { POST as applyCrops } from "@/app/api/media/apply-crops/route";
 import { POST as reprocessAuthor } from "@/app/api/media/reprocess-author/route";
 import { NextRequest } from "next/server";
 import sharp from "sharp";
+
+async function saveWithRevision(
+  source: string,
+  input: Parameters<typeof savePresentationAction>[1],
+) {
+  const result = await savePresentationAction(source, input);
+  if ("error" in result) throw new Error(result.message);
+  return result;
+}
+
+// Existing save journeys load a fresh editor; stale-editor regressions use the action directly.
+async function saveImagePresentation(
+  source: string,
+  input: Omit<Parameters<typeof saveWithRevision>[1], "revision">,
+) {
+  const { revision } = await getImagePresentation(source);
+  return saveWithRevision(source, { ...input, revision });
+}
 
 describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
   const db = testDb!;
@@ -195,22 +218,18 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
       .insert(schema.works)
       .values({ title: "Edition" })
       .returning();
-    await db
-      .insert(schema.editions)
-      .values({
-        workId: work.id,
-        title: "Edition",
-        coverS3Key: "edition.jpg",
-        thumbnailS3Key: "edition-thumb.jpg",
-      });
-    await db
-      .insert(schema.venues)
-      .values({
-        name: "Venue",
-        type: "bookshop",
-        posterS3Key: "venue.jpg",
-        thumbnailS3Key: "venue-thumb.jpg",
-      });
+    await db.insert(schema.editions).values({
+      workId: work.id,
+      title: "Edition",
+      coverS3Key: "edition.jpg",
+      thumbnailS3Key: "edition-thumb.jpg",
+    });
+    await db.insert(schema.venues).values({
+      name: "Venue",
+      type: "bookshop",
+      posterS3Key: "venue.jpg",
+      thumbnailS3Key: "venue-thumb.jpg",
+    });
     for (const name of ["edition", "venue"]) {
       const saved = await saveImagePresentation(
         s3ImageSource(`${name}-thumb.jpg`),
@@ -278,7 +297,9 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
     ).toBe(true);
     // An e-book cover has no adjustments (SLN-490): its route is not an editable source
     await expect(
-      saveImagePresentation("/api/reader/42/cover", { settings: { exposure: 1 } }),
+      saveImagePresentation("/api/reader/42/cover", {
+        settings: { exposure: 1 },
+      }),
     ).rejects.toThrow("This image is not a stored Durtal asset");
   });
   it("supports image attachments but never treats documents as editable pictures", async () => {
@@ -358,6 +379,164 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
     }
   });
 
+  it("rejects competing first saves inside the transaction and keeps paired media values together", async () => {
+    const item = await poster();
+    const source = s3ImageSource(item.s3Key);
+    const baseline = await getImagePresentation(source);
+    const attempts = [120, 130].map((brightness) =>
+      saveWithRevision(source, {
+        revision: baseline.revision,
+        settings: { brightness },
+      }),
+    );
+    const results = await Promise.allSettled(attempts);
+    expect(
+      results.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === "rejected"),
+    ).toHaveLength(1);
+    const current = await getImagePresentation(source);
+    expect((await db.select().from(schema.media))[0].brightness).toBe(
+      current.settings.brightness,
+    );
+    expect(current.revision).not.toBe(baseline.revision);
+    const failed = results.find(
+      (result) => result.status === "rejected",
+    ) as PromiseRejectedResult;
+    expect(failed.reason.message).toContain("Reload and review");
+  });
+
+  it("guards an absent edition adjustment row as well as media rows", async () => {
+    const [work] = await db
+      .insert(schema.works)
+      .values({ title: "Revision fixture" })
+      .returning();
+    await db.insert(schema.editions).values({
+      workId: work.id,
+      title: "Revision edition",
+      coverS3Key: "edition.jpg",
+      thumbnailS3Key: "edition-thumb.jpg",
+    });
+    const source = s3ImageSource("edition-thumb.jpg");
+    const { revision } = await getImagePresentation(source);
+    const results = await Promise.allSettled(
+      [110, 140].map((contrast) =>
+        saveWithRevision(source, { revision, settings: { contrast } }),
+      ),
+    );
+    expect(
+      results.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    const loser = results.find(
+      (result) => result.status === "rejected",
+    ) as PromiseRejectedResult;
+    expect(loser.reason.message).toContain("Reload and review");
+    const saved = results.find(
+      (result) => result.status === "fulfilled",
+    ) as PromiseFulfilledResult<Awaited<ReturnType<typeof saveWithRevision>>>;
+    const current = await getImagePresentation(s3ImageSource("edition.jpg"));
+    expect(current.revision).toBe(saved.value.revision);
+    expect(current.settings).toEqual(saved.value.settings);
+  });
+
+  it("shares the thumbnail canonical identity for a venue with an empty full key and rejects stale saves", async () => {
+    const thumbnail = "gold/media/fixture/venue_thumb.webp";
+    await db.insert(schema.venues).values({
+      name: "Thumbnail-only venue",
+      type: "bookshop",
+      posterS3Key: "",
+      thumbnailS3Key: thumbnail,
+    });
+    const source = s3ImageSource(thumbnail);
+    const first = await getImagePresentation(source);
+    expect(first.assetKey).toBe(thumbnail);
+    const saved = await saveWithRevision(source, {
+      revision: first.revision,
+      settings: { contrast: 137 },
+    });
+    const current = await getImagePresentation(source);
+    expect(saved.assetKey).toBe(thumbnail);
+    expect(current.settings.contrast).toBe(137);
+    expect(current.revision).toBe(saved.revision);
+    expect(current.revision).not.toBe(first.revision);
+    await expect(
+      savePresentationAction(source, {
+        revision: first.revision,
+        settings: { contrast: 190 },
+      }),
+    ).resolves.toMatchObject({
+      error: "stale",
+      message: expect.stringContaining("Reload and review"),
+    });
+    expect(await getImagePresentation(source)).toEqual(current);
+    const rows = await db.select().from(schema.imageAdjustments);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].assetKey).toBe(thumbnail);
+  });
+
+  it("retains sub-millisecond revision precision and rejects a settings-only stale save", async () => {
+    const item = await poster();
+    const source = s3ImageSource(item.s3Key);
+    await saveImagePresentation(source, { settings: { contrast: 110 } });
+    await db.execute(sql`update image_adjustments set updated_at =
+      date_trunc('milliseconds', clock_timestamp()) + interval '123 microseconds'
+      where asset_key = ${item.s3Key}`);
+    const first = await getImagePresentation(source);
+    const [before] = await db.select().from(schema.imageAdjustments);
+    await db.execute(sql`update image_adjustments set updated_at = updated_at + interval '1 microsecond'
+      where asset_key = ${item.s3Key}`);
+    const second = await getImagePresentation(source);
+    const [after] = await db.select().from(schema.imageAdjustments);
+    expect(before.updatedAt.getTime()).toBe(after.updatedAt.getTime());
+    expect(first.revision).not.toBe(second.revision);
+    await expect(
+      saveWithRevision(source, {
+        revision: first.revision,
+        settings: { brightness: 190 },
+      }),
+    ).rejects.toThrow("Reload and review");
+    expect((await getImagePresentation(source)).revision).toBe(second.revision);
+    expect((await db.select().from(schema.media))[0].brightness).toBe(
+      item.brightness,
+    );
+  });
+
+  it("uses the work's contain policy on read and rejects even neutral crop input on save", async () => {
+    for (const kind of ["perfume", "painting"] as const) {
+      const [work] = await db
+        .insert(schema.works)
+        .values({ title: `${kind} fixture`, kind })
+        .returning();
+      const [image] = await db
+        .insert(schema.media)
+        .values({
+          workId: work.id,
+          type: "poster",
+          s3Key: `${kind}.webp`,
+          width: 1200,
+          height: 600,
+        })
+        .returning();
+      const source = s3ImageSource(image.s3Key);
+      const presentation = await getImagePresentation(source);
+      expect(presentation).toMatchObject({
+        crop: null,
+        supportsCrop: false,
+        fit: "contain",
+      });
+      expect(presentation.aspect).toBe(kind === "perfume" ? 1 : 2);
+      await expect(
+        saveWithRevision(source, {
+          revision: presentation.revision,
+          settings: {},
+          crop: { cropX: 50, cropY: 50, cropZoom: 100 },
+        }),
+      ).rejects.toThrow("does not support framed cropping");
+      expect(await getImagePresentation(source)).toEqual(presentation);
+    }
+  });
+
   // ── Real crop: the crop is in the files, the uncropped image is kept ──────
 
   async function croppablePoster(author = false) {
@@ -391,11 +570,209 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
   }
   const row = async (id: string) =>
     (await db.select().from(schema.media).where(eq(schema.media.id, id)))[0];
-  const cropTo = (source: string, cropX: number, cropY: number, cropZoom: number) =>
+  const cropTo = (
+    source: string,
+    cropX: number,
+    cropY: number,
+    cropZoom: number,
+  ) =>
     saveImagePresentation(source, {
       settings: { contrast: 110 },
       crop: { cropX, cropY, cropZoom },
     });
+
+  it("returns the typed stale result after re-cropping removes the editor's former display alias", async () => {
+    const { item } = await croppablePoster();
+    const first = await cropTo(s3ImageSource(item.s3Key), 0, 0, 200);
+    const formerSource = s3ImageSource(first.assetKey);
+    const loaded = await getImagePresentation(formerSource);
+    const second = await cropTo(formerSource, 100, 100, 200);
+    const currentRow = await row(item.id);
+    const current = await getImagePresentation(s3ImageSource(second.assetKey));
+    const keys = [...store.keys()].sort();
+    expect(store.has(first.assetKey)).toBe(false);
+    await expect(getImagePresentation(formerSource)).rejects.toThrow(
+      "Image not found",
+    );
+    await expect(
+      savePresentationAction(formerSource, {
+        revision: loaded.revision,
+        settings: { brightness: 190 },
+      }),
+    ).resolves.toMatchObject({
+      error: "stale",
+      message: expect.stringContaining("Reload and review"),
+    });
+    expect(await row(item.id)).toEqual(currentRow);
+    expect(await getImagePresentation(s3ImageSource(second.assetKey))).toEqual(
+      current,
+    );
+    expect([...store.keys()].sort()).toEqual(keys);
+  });
+
+  it("does not turn an author color-original save into a stale-source result", async () => {
+    const { item } = await croppablePoster(true);
+    const loaded = await getImagePresentation(s3ImageSource(item.s3Key));
+    await expect(
+      savePresentationAction(s3ImageSource(item.originalS3Key!), {
+        revision: loaded.revision,
+        settings: {},
+      }),
+    ).rejects.toThrow("Image not found");
+    expect(
+      (await getImagePresentation(s3ImageSource(item.s3Key))).revision,
+    ).toBe(loaded.revision);
+    expect(await getImageAdjustmentStyles()).toEqual([]);
+  });
+
+  it("rolls back a stale crop/settings save and cleans newly built files without altering originals", async () => {
+    const { item, image } = await croppablePoster();
+    const source = s3ImageSource(item.s3Key);
+    const stale = await getImagePresentation(source);
+    const winner = await saveWithRevision(source, {
+      revision: stale.revision,
+      settings: { contrast: 123 },
+    });
+    const before = await row(item.id);
+    const keys = [...store.keys()].sort();
+    await expect(
+      saveWithRevision(source, {
+        revision: stale.revision,
+        settings: { contrast: 170 },
+        crop: { cropX: 0, cropY: 0, cropZoom: 200 },
+      }),
+    ).rejects.toThrow("Reload and review");
+    expect(await row(item.id)).toEqual(before);
+    expect([...store.keys()].sort()).toEqual(keys);
+    expect(store.get(item.s3Key)).toEqual(image);
+    expect((await getImagePresentation(source)).revision).toBe(winner.revision);
+    expect((await getImagePresentation(source)).settings.contrast).toBe(123);
+  });
+
+  it.each([
+    { cropX: 50, cropY: 50, cropZoom: 100 },
+    { cropX: 25, cropY: 70, cropZoom: 135 },
+  ])(
+    "preserves unchanged neutral/legacy files and zoom on a filter-only Save %j",
+    async (framing) => {
+      const { item, image } = await croppablePoster();
+      await db
+        .update(schema.media)
+        .set(framing)
+        .where(eq(schema.media.id, item.id));
+      const source = s3ImageSource(item.s3Key);
+      const loaded = await getImagePresentation(source);
+      const keys = [...store.keys()].sort();
+      const saved = await saveWithRevision(source, {
+        revision: loaded.revision,
+        settings: { ...loaded.settings, exposure: 1 },
+        crop: loaded.crop!,
+      });
+      expect(await row(item.id)).toMatchObject({
+        ...framing,
+        s3Key: item.s3Key,
+        thumbnailS3Key: item.thumbnailS3Key,
+        uncroppedS3Key: null,
+        appliedCrop: null,
+      });
+      expect(store.get(item.s3Key)).toEqual(image);
+      expect([...store.keys()].sort()).toEqual(keys);
+      const current = await getImagePresentation(source);
+      expect(current.settings.exposure).toBe(1);
+      expect(current.revision).toBe(saved.revision);
+      expect(current.revision).not.toBe(loaded.revision);
+    },
+  );
+
+  it("preserves a baked crop and retained base on an unchanged filter-only Save", async () => {
+    const { item, image } = await croppablePoster();
+    const cropped = await cropTo(s3ImageSource(item.s3Key), 0, 0, 200);
+    const source = s3ImageSource(cropped.assetKey);
+    const before = await row(item.id);
+    const bytes = store.get(before.s3Key);
+    const keys = [...store.keys()].sort();
+    const loaded = await getImagePresentation(source);
+    await saveWithRevision(source, {
+      revision: loaded.revision,
+      settings: { ...loaded.settings, exposure: 1 },
+      crop: loaded.crop!,
+    });
+    expect(await row(item.id)).toMatchObject({
+      s3Key: before.s3Key,
+      thumbnailS3Key: before.thumbnailS3Key,
+      uncroppedS3Key: item.s3Key,
+      appliedCrop: before.appliedCrop,
+      cropZoom: before.cropZoom,
+    });
+    expect(store.get(before.s3Key)).toEqual(bytes);
+    expect(store.get(item.s3Key)).toEqual(image);
+    expect([...store.keys()].sort()).toEqual(keys);
+  });
+
+  it.each([
+    { cropX: 50, cropY: 50, cropZoom: 100 },
+    { cropX: 25, cropY: 70, cropZoom: 135 },
+  ])(
+    "persists a whole-raster angle without baking unchanged neutral or legacy framing %j",
+    async (framing) => {
+      const { item, image } = await croppablePoster();
+      await db
+        .update(schema.media)
+        .set(framing)
+        .where(eq(schema.media.id, item.id));
+      const keys = [...store.keys()].sort();
+      const source = s3ImageSource(item.s3Key);
+      const loaded = await getImagePresentation(source);
+      const saved = await saveWithRevision(source, {
+        revision: loaded.revision,
+        settings: { ...loaded.settings, rotation: 45 },
+        crop: loaded.crop!,
+      });
+      expect(await row(item.id)).toMatchObject({
+        ...framing,
+        s3Key: item.s3Key,
+        thumbnailS3Key: item.thumbnailS3Key,
+        uncroppedS3Key: null,
+        appliedCrop: null,
+      });
+      expect([...store.keys()].sort()).toEqual(keys);
+      expect(store.get(item.s3Key)).toEqual(image);
+      const reloaded = await getImagePresentation(source);
+      expect(reloaded.settings.rotation).toBe(45);
+      expect(reloaded.revision).toBe(saved.revision);
+      expect(reloaded.revision).not.toBe(loaded.revision);
+      await saveWithRevision(source, {
+        revision: reloaded.revision,
+        settings: { ...reloaded.settings, rotation: 0 },
+        crop: reloaded.crop!,
+      });
+      expect(await row(item.id)).toMatchObject(framing);
+      expect(store.get(item.s3Key)).toEqual(image);
+      expect((await getImagePresentation(source)).settings.rotation).toBe(0);
+    },
+  );
+
+  it("persists rotation alongside a real changed crop and retains the unrotated base", async () => {
+    const { item, image } = await croppablePoster();
+    const saved = await saveImagePresentation(s3ImageSource(item.s3Key), {
+      settings: { rotation: -90 },
+      crop: { cropX: 0, cropY: 0, cropZoom: 200 },
+    });
+    const after = await row(item.id);
+    expect(after).toMatchObject({
+      appliedCrop: { x: 0, y: 0, zoom: 200 },
+      uncroppedS3Key: item.s3Key,
+      width: 150,
+      height: 225,
+    });
+    expect(await colorOf(store.get(after.s3Key)!)).toBe("red");
+    expect(store.get(item.s3Key)).toEqual(image);
+    expect(
+      (await getImagePresentation(s3ImageSource(after.s3Key))).settings
+        .rotation,
+    ).toBe(-90);
+    expect(saved.settings.rotation).toBe(-90);
+  });
 
   it("writes the crop into new files and keeps the uncropped image untouched", async () => {
     const { item, image } = await croppablePoster();
@@ -423,10 +800,15 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
     // Settings follow the new image
     expect(saved).toMatchObject({
       assetKey: after.s3Key,
-      sources: [s3ImageSource(after.s3Key), s3ImageSource(after.thumbnailS3Key!)],
+      sources: [
+        s3ImageSource(after.s3Key),
+        s3ImageSource(after.thumbnailS3Key!),
+      ],
     });
     // The editor crops the uncropped image, from the saved crop
-    const presentation = await getImagePresentation(s3ImageSource(after.thumbnailS3Key!));
+    const presentation = await getImagePresentation(
+      s3ImageSource(after.thumbnailS3Key!),
+    );
     expect(presentation).toMatchObject({
       assetKey: after.s3Key,
       preview: s3ImageSource(item.s3Key),
@@ -462,7 +844,9 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
     });
     expect(store.get(item.s3Key)).toEqual(image);
     expect(store.has(second.s3Key)).toBe(false);
-    expect([...store.keys()].sort()).toEqual([item.s3Key, reset.thumbnailS3Key].sort());
+    expect([...store.keys()].sort()).toEqual(
+      [item.s3Key, reset.thumbnailS3Key].sort(),
+    );
     expect(
       (await db.select().from(schema.imageAdjustments)).map((r) => r.assetKey),
     ).toEqual([item.s3Key]);
@@ -499,14 +883,19 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
       width: 300,
       height: 450,
     });
-    const top = await sharp(store.get(after.s3Key)!).extract({ left: 0, top: 0, width: 300, height: 225 }).toBuffer();
+    const top = await sharp(store.get(after.s3Key)!)
+      .extract({ left: 0, top: 0, width: 300, height: 225 })
+      .toBuffer();
     expect(await colorOf(top)).toBe("red");
   });
 
   it("never deletes a file another record still uses", async () => {
     const { item } = await croppablePoster();
     // A poster reusing an edition cover, as harmonization creates
-    const [work] = await db.insert(schema.works).values({ title: "Shared" }).returning();
+    const [work] = await db
+      .insert(schema.works)
+      .values({ title: "Shared" })
+      .returning();
     await db.insert(schema.editions).values({
       workId: work.id,
       title: "Shared",
@@ -528,7 +917,10 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
       .where(eq(schema.media.id, item.id));
     expect(await commitDisplay(item, files, {})).toBeNull();
     expect(files!.created.some((key) => store.has(key))).toBe(false);
-    expect(await row(item.id)).toMatchObject({ s3Key: "gold/elsewhere.webp", uncroppedS3Key: null });
+    expect(await row(item.id)).toMatchObject({
+      s3Key: "gold/elsewhere.webp",
+      uncroppedS3Key: null,
+    });
   });
 
   it("moves crops saved as CSS framing into files, once", async () => {
@@ -542,13 +934,22 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
       .set({ cropX: 100, cropY: 100, cropZoom: 200 })
       .where(eq(schema.media.id, item.id));
     const call = async (query = "") =>
-      (await applyCrops(new NextRequest(`http://local/api/media/apply-crops${query}`, {
-        method: "POST",
-        headers: { "x-admin-token": "test-admin-token" },
-      }))).json();
+      (
+        await applyCrops(
+          new NextRequest(`http://local/api/media/apply-crops${query}`, {
+            method: "POST",
+            headers: { "x-admin-token": "test-admin-token" },
+          }),
+        )
+      ).json();
     expect(await call("?dryRun=1")).toMatchObject({ dryRun: true, total: 1 });
     expect((await row(item.id)).uncroppedS3Key).toBeNull();
-    expect(await call()).toEqual({ total: 1, applied: 1, unchanged: 0, failed: [] });
+    expect(await call()).toEqual({
+      total: 1,
+      applied: 1,
+      unchanged: 0,
+      failed: [],
+    });
     const after = await row(item.id);
     expect(after).toMatchObject({
       uncroppedS3Key: item.s3Key,
@@ -558,7 +959,12 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
       cropZoom: 100,
     });
     expect(await colorOf(store.get(after.s3Key)!)).toBe("blue");
-    expect(await call()).toEqual({ total: 0, applied: 0, unchanged: 0, failed: [] });
+    expect(await call()).toEqual({
+      total: 0,
+      applied: 0,
+      unchanged: 0,
+      failed: [],
+    });
   });
 
   it("keeps the crop when author monochrome is tuned again, and the color original", async () => {
@@ -568,7 +974,10 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
     const response = await reprocessAuthor(
       new NextRequest("http://local/api/media/reprocess-author", {
         method: "POST",
-        body: JSON.stringify({ mediaId: item.id, processingParams: { contrast: 1.5 } }),
+        body: JSON.stringify({
+          mediaId: item.id,
+          processingParams: { contrast: 1.5 },
+        }),
       }),
     );
     expect(response.status).toBe(200);
@@ -587,7 +996,8 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
     expect(await colorOf(store.get(tuned.s3Key)!)).toBe("gray");
     // Settings follow the image
     expect(
-      (await getImagePresentation(s3ImageSource(tuned.s3Key))).settings.contrast,
+      (await getImagePresentation(s3ImageSource(tuned.s3Key))).settings
+        .contrast,
     ).toBe(110);
   });
 });
@@ -598,16 +1008,25 @@ async function quadrants(w = 300, h = 450): Promise<Buffer> {
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++) {
       const [left, top] = [x < w / 2, y < h / 2];
-      const rgb = top ? (left ? [255, 0, 0] : [0, 255, 0]) : left ? [255, 255, 255] : [0, 0, 255];
+      const rgb = top
+        ? left
+          ? [255, 0, 0]
+          : [0, 255, 0]
+        : left
+          ? [255, 255, 255]
+          : [0, 0, 255];
       raw.set(rgb, (y * w + x) * 3);
     }
-  return sharp(raw, { raw: { width: w, height: h, channels: 3 } }).webp({ lossless: true }).toBuffer();
+  return sharp(raw, { raw: { width: w, height: h, channels: 3 } })
+    .webp({ lossless: true })
+    .toBuffer();
 }
 
 async function colorOf(image: Buffer): Promise<string> {
   const { channels } = await sharp(image).stats();
   const [r, g, b] = channels.map((c) => c.mean);
-  if (Math.max(r, g, b) - Math.min(r, g, b) < 10) return r > 200 ? "white" : "gray";
+  if (Math.max(r, g, b) - Math.min(r, g, b) < 10)
+    return r > 200 ? "white" : "gray";
   if (r > 200 && g < 40 && b < 40) return "red";
   if (b > 200 && r < 40 && g < 40) return "blue";
   if (g > 200 && r < 40 && b < 40) return "green";

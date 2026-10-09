@@ -120,6 +120,11 @@ docker-compose.override.yml
 # =============================================================================
 *.jsonl
 
+# Temporary rotation proof route/assets, prepared only for local QA
+/src/app/(qa)/qa/image-rotation/
+/public/qa/image-rotation-fixtures/
+.durtal-rotation-core-proof.json
+
 # Book enrichment worker: source answers and reports hold catalogue data (SLN-464)
 enrichment-sources.json
 enrichment-report.md

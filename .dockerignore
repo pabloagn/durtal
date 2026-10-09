@@ -30,6 +30,12 @@ next-env.d.ts
 scripts
 # ... but `pnpm build` copies pdf.js's run-time files with this one
 !scripts/vendor-pdfjs.mjs
+!scripts/check-rotation-qa.mjs
+
+# Local QA can never enter the Docker app/public runtime, even if installed.
+src/app/(qa)/qa/image-rotation
+public/qa/image-rotation-fixtures
+.durtal-rotation-core-proof.json
 # Test config: it imports a reporter from scripts/, which the image leaves out
 vitest.config.ts
 data

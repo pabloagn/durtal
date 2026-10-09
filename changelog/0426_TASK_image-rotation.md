@@ -1,0 +1,37 @@
+# Task 0426: Image rotation
+
+**Status**: In Progress
+**Created**: 2026-10-09
+**Priority**: MEDIUM
+**Type**: Feature
+**Depends On**: SLN-557 editor integration
+**Blocks**: None
+
+## Overview
+
+Add reversible display rotation for the existing registered image subjects, preserving original bytes, crop coordinate semantics, image policies and filters. The approved scope rotates the whole stored raster when no crop is baked; an explicit saved crop rotates its selected region. Neutral framing must not silently crop a rotation-only save. Rotation rendering and controls are a later stage.
+
+## Implementation Details
+
+Stage 1 establishes the shared editor contract independently of its layout:
+
+- Crop capability and aspect follow the resolved owner's policy, including contained perfumes, paintings, art objects and organization logos. The same policy is enforced on Save.
+- Reads distinguish current display pixels from the retained preview base and expose baked-crop provenance.
+- Opaque fingerprints are computed in SQL from the registered source and adjustment row with full timestamp precision. Save requires the loaded revision; advisory identity locks cover absent adjustment rows, actual row locks freeze the source/settings and work policy, and an in-transaction assertion rejects stale saves before paired writes. Media crop commits keep the same guard and cleanup path, returning the committed next revision.
+- The current editor only retains/passes the revision and handles the fixed serializable stale-save result (so production error redaction does not hide the reload/review message). Its control layout, slider/filter behavior and preview rendering are unchanged. SLN-557 consumes this contract before rotation rendering proceeds.
+- Existing JSONB storage is retained. No new dependency, live migration, original rewrite or expanded editable-source policy.
+- Foundation review corrections normalize empty full/thumbnail keys consistently in SQL and resolution, and return the fixed stale result when a former display alias disappears after a crop/reprocess. Known originals/documents and arbitrary database/validation errors retain their rejection paths. Exact thumbnail-only venue and removed-alias database regressions are prepared for the later disposable database gate.
+
+## Completion Notes
+
+Destination-containment review correction checks every existing route/assets ancestor and final directory without following symlinks before either install or removal; missing children are accepted only under a checked directory tree. Both paths are validated before any mutation, so a bad assets path cannot permit partial route creation/deletion. Actual rejected installer/removal subprocess regressions cover all eight path components, absent/existing external destinations, dangling links and untouched external/safe-sibling sentinels. 149 focused tests passed, zero skipped, including 36 isolation regressions; source typecheck and changed isolation-source lint passed. Registration/production guards, shipping adapters and fixture bytes remain unchanged. Only rejection tests ran; no real proof snapshot, installation, build, browser or database job ran.
+
+QA-isolation review correction restricts proof installation to registered temporary archive snapshots created by the preparation script; primary and linked Git worktrees are refused. The proof route is development-only. The package build and Next config reject source/public/marker and stale compiled QA artifacts in production phases, without an environment override. Docker excludes proof route/assets/marker from its context and retains the shared production guard. Guard regressions cover ordinary clean source, production build/server rejection, direct Next config and package wiring, primary/linked targets, forged/missing/copied/symlink registrations, dangling artifact symlinks and stale route manifests. 131 focused tests passed, zero skipped; typecheck and changed isolation-source/config lint passed without errors or warnings. No proof snapshot or route was created/installed, and no build/browser/database job ran. Final production validation uses a clean source checkout, never a marked proof snapshot.
+
+Native-proof preparation adds an independent preview geometry adapter and optional rotation inputs to the two existing lightboxes. Zero-angle images retain their original direct rendering and sizing; nonzero lightboxes allocate finite image slots outside caption/control space and keep the portal animation on its original parent. No shared editor or broad caller rollout is included. Deterministic marked PNGs and their SHA-256 manifest are committed alongside local QA route preparation and an all-engine runner importing the production adapters and both actual lightboxes. The route is temporary, excluded from Git, and must be removed before the final production build. No server, browser, build or database was run during preparation. 113 focused tests and source/QA-page typechecks passed; source lint has no errors and two plain-image warnings in the shared lightbox. Native proof is still pending.
+
+Source-only rotation core now adds finite integer angle validation/defaults in the existing settings JSONB, canonical half-turn normalization, pure whole-raster/crop geometry and a React-owned image frame. The zero path returns the original node without observers or wrappers; only nonzero frames observe their content slot and actual decoded image dimensions. The containing layer owns rotation, leaving the image filter and outer animation/placement layers separate. No editor layout or image callers are changed in this stage. A standalone additive foundation correction preserves unchanged framing on filter-only saves, including legacy zoom, under the same guarded atomic commit. Explicit changed crops continue rebuilding from the retained base.
+
+Rotation-core checkpoint: 108 focused tests passed, zero skipped, including every integer slider angle's four-corner containment, explicit crop rounding, source/resize/ref lifecycle and invalid-angle action boundaries. Source lint and typecheck passed. The source-review correction exposes load/error bindings and cached failure state to consumers; failures occupy the full finite frame without rotation so native alt and consumer fallback UI remain visible, and successful retries/source replacement restore normal geometry. Prepared disposable PostgreSQL regressions separately cover whole-raster rotation persistence/reset, legacy framing/bytes and explicit crop-plus-rotation. Native preview/plain image/Next Image/both-lightbox proof, broad caller integration, database/full-suite/build/browser gates and final review remain pending; this is not a completed feature.
+
+Foundation-only checkpoint: 58 focused policy/action/query-compilation/commit-cleanup and existing filter/crop tests passed, with zero skipped, including foundation review corrections. Static typecheck passed; changed-source lint passed with the existing preview-image warning and no errors (the two corrected source files lint without warnings). No real database was used. Disposable PostgreSQL regressions are prepared for competing first saves, sub-millisecond revisions, contained-policy refusal, stale-crop cleanup, empty-full-key venue identity and removed aliases; their execution awaits the heavy-slot grant. Production/browser/full-suite gates and rotation pixel/persistence evidence remain required before landing.
