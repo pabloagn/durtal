@@ -1,5 +1,5 @@
 "use client";
-import { useContext, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ContextType, type ReactNode } from "react";
+import { Suspense, useContext, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ContextType, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Toaster } from "sonner";
 import { TimerProvider, useOptionalTimer } from "@/components/reading/timer-provider";
@@ -11,11 +11,13 @@ import { handleReaderCommand, READER_COMMAND_EVENT } from "@/lib/ui/reader-comma
 import { needsTimerCheck, acknowledgeTimerCheck } from "@/lib/reading/timer-alert";
 import { TimerAlertGuardContext } from "@/components/reading/timer-alert-guard";
 import type { ReaderRuntime } from "@/lib/reader/runtime";
+import { FeatureBoundary } from "@/components/ui/feature-renderer";
 
 function ReaderCommands() {
   const [opened, setOpened] = useState(false);
   const [failed, setFailed] = useState(false);
   const [Host, setHost] = useState<ComponentType<{ open: boolean; close(): void }> | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const generation = useRef(0);
   const lease = useRef<SurfaceLease | null>(null);
   const origin = useRef<FocusOrigin | null>(null);
@@ -29,8 +31,12 @@ function ReaderCommands() {
   const latestClose = useRef(close);
   latestClose.current = close;
   const load = async () => {
+    if (Host && !failed) return;
     const expected = ++generation.current;
+    setAttempt(expected);
     setFailed(false);
+    setHost(null);
+    setOpened(true);
     try {
       const module = await import("./catalogue-commands");
       if (generation.current === expected) setHost(() => module.ReaderCatalogueCommands);
@@ -58,8 +64,20 @@ function ReaderCommands() {
     };
   }, []);
   if (!opened && !Host) return null;
+  const renderGeneration = generation.current;
+  const fail = (error: unknown) => {
+    if (generation.current !== renderGeneration) return;
+    console.error("[reader] Command renderer failed:", error);
+    lease.current ??= acquireSurface(() => latestClose.current(), origin.current);
+    setFailed(true); setOpened(true);
+  };
+  const failure = <PendingDialog failed close={close} retry={() => { void load(); }} />;
   return <DialogFocusScope.Provider value={lease.current}>
-    {Host && !failed ? <Host open={opened} close={close} /> : opened ? <PendingDialog failed={failed} close={close} retry={() => { void load(); }} /> : null}
+    {Host && !failed ? <FeatureBoundary key={attempt} fallback={failure} onFailure={fail}>
+      <Suspense fallback={<PendingDialog failed={false} close={close} retry={() => { void load(); }} />}>
+        <Host open={opened} close={close} />
+      </Suspense>
+    </FeatureBoundary> : opened ? <PendingDialog failed={failed} close={close} retry={() => { void load(); }} /> : null}
   </DialogFocusScope.Provider>;
 }
 
@@ -74,27 +92,35 @@ function ReaderTimerAlerts() {
   const [Host, setHost] = useState<ComponentType | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const generation = useRef(0);
+  const recoveryOrigin = useRef<FocusOrigin | null>(null);
+  const neededRef = useRef(needed);
+  neededRef.current = needed;
   const latestTimer = useRef(timer);
   latestTimer.current = timer;
   useLayoutEffect(() => {
     if (!guard) return;
     const acquire = (kind: string, dismiss: () => void) => {
       if (pending.current.has(kind)) return;
+      if (!neededRef.current) recoveryOrigin.current = captureFocusOrigin();
+      generation.current++;
       const close = () => {
         const item = pending.current.get(kind);
         if (!item?.lease.isTop()) return;
         item.lease.release(); pending.current.delete(kind);
         dismiss(); setGuardVersion((n) => n + 1);
       };
-      pending.current.set(kind, { lease: acquireSurface(close), close });
+      pending.current.set(kind, { lease: acquireSurface(close, recoveryOrigin.current ?? captureFocusOrigin()), close });
       setGuardVersion((n) => n + 1);
     };
     guard.current = acquire;
     return () => {
       guard.current = null;
+      generation.current++;
       pending.current.forEach((item) => item.lease.release()); pending.current.clear();
     };
   }, [guard]);
+  useEffect(() => { if (!needed) generation.current++; }, [needed]);
   useLayoutEffect(() => {
     const current = latestTimer.current;
     const check = !!current && current.availability === "ready" && !!current.timer && needsTimerCheck(current.timer, current.elapsed, current.checkMinutes);
@@ -108,25 +134,59 @@ function ReaderTimerAlerts() {
   }, [guard, Host, timer?.timer, timer?.availability]);
   useLayoutEffect(() => {
     // Dialog layout effects have acquired their own leases before this runs.
-    if (Host) { pending.current.forEach((item) => item.lease.release()); pending.current.clear(); }
-  }, [Host, guardVersion]);
+    if (Host && !failed) { pending.current.forEach((item) => item.lease.release()); pending.current.clear(); }
+  }, [Host, failed, guardVersion]);
   useEffect(() => {
     if ((!needed && !pending.current.size) || Host) return;
     let live = true;
+    const expected = ++generation.current;
     void import("@/components/reading/timer-chip").then((module) => {
-      if (live) setHost(() => module.TimerAlerts);
+      if (live && generation.current === expected) setHost(() => module.TimerAlerts);
     }).catch((error: unknown) => {
-      if (!live) return;
+      if (!live || generation.current !== expected) return;
       console.error("[reader] Timer alert unavailable:", error); setFailed(true);
     });
     return () => { live = false; };
   }, [needed, Host, attempt, guardVersion]);
+  const closeFailure = () => {
+    generation.current++;
+    const current = latestTimer.current;
+    const kind = current?.discarding ? "discard" : current?.conflict ? "conflict" : "forgotten";
+    pending.current.get(kind)?.lease.release(); pending.current.delete(kind);
+    if (kind === "discard") current?.setDiscarding(false);
+    else if (kind === "conflict") current?.setConflict(null);
+    else {
+      if (current?.timer) acknowledgeTimerCheck(current.timer, current.elapsed, current.checkMinutes);
+      setAsking(false);
+    }
+    setGuardVersion((n) => n + 1);
+  };
+  const retry = () => {
+    generation.current++;
+    const current = latestTimer.current;
+    if (current?.conflict) guard?.current?.("conflict", () => latestTimer.current?.setConflict(null));
+    if (current?.discarding) guard?.current?.("discard", () => latestTimer.current?.setDiscarding(false));
+    if (asking) guard?.current?.("forgotten", () => {
+      const value = latestTimer.current;
+      if (value?.timer) acknowledgeTimerCheck(value.timer, value.elapsed, value.checkMinutes);
+      setAsking(false);
+    });
+    setHost(null); setFailed(false); setAttempt((n) => n + 1);
+  };
   const top = [...pending.current.values()].at(-1);
   if (!needed && !top) return null;
-  if (failed && top) return <DialogFocusScope.Provider value={top.lease}>
-    <PendingDialog failed close={top.close} retry={() => { setFailed(false); setAttempt((n) => n + 1); }} />
+  const expected = generation.current;
+  const failure = <PendingDialog failed close={closeFailure} retry={retry} />;
+  if (failed) return <DialogFocusScope.Provider value={top?.lease ?? null}>
+    {failure}
   </DialogFocusScope.Provider>;
-  return Host ? <Host /> : top ? <DialogFocusScope.Provider value={top.lease}>
+  return Host ? <FeatureBoundary key={attempt} fallback={failure} onFailure={(error) => {
+    if (!neededRef.current || generation.current !== expected) return;
+    recoveryOrigin.current ??= captureFocusOrigin();
+    console.error("[reader] Timer renderer failed:", error); setFailed(true);
+  }}>
+    <Suspense fallback={<PendingDialog failed={false} close={closeFailure} retry={retry} />}><Host /></Suspense>
+  </FeatureBoundary> : top ? <DialogFocusScope.Provider value={top.lease}>
     <PendingDialog failed={false} close={top.close} retry={() => setAttempt((n) => n + 1)} />
   </DialogFocusScope.Provider> : null;
 }

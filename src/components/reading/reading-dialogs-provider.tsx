@@ -16,6 +16,8 @@ import type { NoteEdit } from "@/lib/actions/reading-notes";
 import type { NoteKind } from "@/lib/reading/constants";
 import { acquireSurface, captureFocusOrigin, restoreFocusOrigin, type FocusOrigin, type SurfaceLease } from "@/lib/ui/surface-state";
 import { DialogFocusScope } from "@/components/ui/dialog-focus-scope";
+import { PendingDialog } from "@/components/ui/feature-renderer";
+export { PendingDialog } from "@/components/ui/feature-renderer";
 
 export interface ReadingRef { workId: string; readingId: string; fingerprint: string }
 export type ReadingDialogsRequest =
@@ -55,25 +57,6 @@ function loadDialogHost() {
     throw error;
   });
   return hostImport;
-}
-
-/** Native modal while either code or data loads; the facade already owns focus. */
-export function PendingDialog({ failed, close, retry }: { failed: boolean; close(): void; retry(): void }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    if (!element.open) element.showModal();
-    element.querySelector<HTMLButtonElement>("button")?.focus();
-    return () => { if (element.open) element.close(); };
-  }, []);
-  return <dialog ref={ref} aria-label={failed ? "Reading action unavailable" : "Loading reading action"} onCancel={(event) => { event.preventDefault(); close(); }} className="glass m-auto max-w-md rounded-sm p-6 text-fg-primary">
-    <p role={failed ? "alert" : "status"}>{failed ? "This reading action could not load." : "Loading reading action…"}</p>
-    <div className="mt-4 flex gap-4">
-      {failed && <button type="button" onClick={retry} className="underline pointer-coarse:min-h-11">Retry</button>}
-      <button type="button" onClick={close} className="underline pointer-coarse:min-h-11">Close</button>
-    </div>
-  </dialog>;
 }
 
 export function ReadingDialogsProvider({ children }: { children: ReactNode }) {

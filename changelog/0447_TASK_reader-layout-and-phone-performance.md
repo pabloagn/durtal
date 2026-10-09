@@ -47,6 +47,17 @@ and reader input, including book frames, and returns focus through one owner.
 The palette and timer-alert renderers load when needed; the invoked palette
 host remains mounted so catalogue creation dialogs can outlive the palette.
 
+The independent review of `c4d4c449` found that an individual dialog chunk
+could outlive the facade's pending view, retain a rejected lazy resource on
+Retry, or let a secondary renderer exception unmount the book. Individual
+dialog loaders now retain the native pending surface through their own
+resource completion and invoke that resource again on Retry. Feature-local
+error and suspension boundaries contain palette/timer renderer failures.
+Generation checks fence dismissal, replacement and suspended retries, while
+surface leases retain the invoking focus origin. The optional quote thought
+editor also retries locally without discarding the surrounding note draft or
+replaying a write.
+
 The seeded timer skips a redundant mount read. Focus/visibility reads coalesce,
 and mutation generations prevent old reads from overwriting a saved timer.
 Failed reads stay explicit, reject `refresh()` and disable unsafe changes;
@@ -65,15 +76,19 @@ committed separately as `e2528b91` at `94140915` and normally merged as
 the moved filters retain their bytes, and the owner UI test receives only the
 reviewed mechanical import change. Author/committer is Pablo Aguirre.
 
-All 125 tests in 13 focused owner/proxy/CSP, dialog/timer/input/status and new
-provider-concurrency files passed with one worker and zero skips, using the
-existing matching dependency tree. This is not full-suite or database evidence.
+All 153 tests in 16 focused owner/proxy/CSP, dialog/timer/input/status and
+provider/renderer files passed with one worker and zero skips, using the
+existing matching dependency tree. The three independent failure probes now
+pass, with added recovery, late completion, focus, lease and draft regressions.
+This is not full-suite or database evidence.
 No install, build, typecheck, full suite, Docker, benchmark or native browser
 check has run. The available installed Next type
 declares `globalNotFound`, but actual default-build and HTTP-status validation
 remain required. No current performance pass or completed deployment is
-claimed. Tracker subscription readiness awaits root/SLN-493 review of an
-explicit barrier proposal; the current plugin registry has no SLN-454 tracker.
+claimed. Root approved the explicit SLN-493 readiness contract; SLN-493 owns
+its implementation and this correction adds no duplicate startup barrier.
+The current plugin registry has no SLN-454 tracker, whose actual lifecycle
+still needs the integrated proof.
 SLN-502/507/509 integration and every acceptance gate remain outstanding.
 The historical phone failures remain 2,527 ms for a cold 5 MB EPUB,
 3,764 ms for a cold 300 MB PDF and 1,493 ms for ordinary reopen.
