@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import type { ReaderBridgeController } from "@/lib/reader/bridge-state";
 import type { EngineEvents } from "@/lib/reader/engine";
@@ -40,8 +41,12 @@ export const SelectionToolbar = forwardRef<
     selection: EngineEvents["selection"];
     bridge: ReaderBridgeController;
     onClear(): void;
+    markingActions?: ReactNode;
   }
->(function SelectionToolbar({ selection, bridge, onClear }, forwardedRef) {
+>(function SelectionToolbar(
+  { selection, bridge, onClear, markingActions },
+  forwardedRef,
+) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [copyState, setCopyState] = useState<{
     selection: EngineEvents["selection"];
@@ -119,7 +124,7 @@ export const SelectionToolbar = forwardRef<
       aria-label="Selection actions"
       data-reader-chrome
       hidden={!selection}
-      className="glass fixed z-50 flex max-w-[calc(100%_-_32px)] items-center gap-1 overflow-hidden p-1 text-sm text-fg-primary"
+      className="glass fixed z-50 flex flex-wrap max-w-[calc(100%_-_32px)] items-center gap-1 overflow-hidden p-1 text-sm text-fg-primary"
       style={position}
       onPointerDown={(event) => event.preventDefault()}
       onKeyDown={(event) => {
@@ -129,6 +134,7 @@ export const SelectionToolbar = forwardRef<
         }
       }}
     >
+      {markingActions}
       <button
         type="button"
         aria-label="Copy selected text"

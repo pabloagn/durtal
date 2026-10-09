@@ -13,6 +13,12 @@ export const ANNOTATION_UNDO_MS = 10_000;
 export const ANNOTATION_KEEPALIVE_BYTES = 60 * 1024;
 
 export interface PendingAnnotation {
+  /** Captured by the shared-store codec, preserved across every local reducer. */
+  transportIdentity?: {
+    fileId: string;
+    expectedDeviceId: string;
+    createdAt: string;
+  };
   ebookId: string;
   operationId: string;
   revision: number;

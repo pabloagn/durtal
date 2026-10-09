@@ -7,7 +7,10 @@ import {
   acknowledgeAnnotationClaim,
   planAnnotationRequests,
 } from "@/lib/reader/sync/annotation-outbox";
-import { reconcileAnnotationPull } from "@/lib/reader/sync/annotations";
+import {
+  reconcileAnnotationPull,
+  overlayPendingAnnotations,
+} from "@/lib/reader/sync/annotations";
 import { annotationBodySchema } from "@/lib/validations/annotations";
 import { annotation, at, id, later, locator, put } from "./fixtures/annotation";
 const queued = (mutation = put(), revision = 1) =>
@@ -250,6 +253,48 @@ describe("pure pull reconciliation", () => {
     expect(result.conflicts).toEqual([
       { operationId: known.operationId, reason: "deleted" },
     ]);
+  });
+  it("preserves common-store insertion order for an offline create followed by its note", () => {
+    const create = { ...queued(), operationId: "z-create", revision: 1 };
+    const note = pendingAnnotation({
+      ebookId: id(2),
+      operationId: "a-note",
+      revision: 1,
+      baseVersion: null,
+      now: 0,
+      mutation: {
+        op: "note",
+        id: id(1),
+        note: "Later offline note",
+        clientUpdatedAt: later,
+      },
+    });
+    expect(
+      overlayPendingAnnotations({
+        ebookId: id(2),
+        cached: [],
+        pending: [create, note],
+      }),
+    ).toMatchObject({
+      display: [{ note: "Later offline note" }],
+      conflicts: [],
+    });
+  });
+  it("does not resurrect a missing known mark on later local refresh after a full reset", () => {
+    const pending = {
+      ...queued(put({ clientUpdatedAt: later })),
+      baseVersion: at,
+    };
+    expect(
+      overlayPendingAnnotations({
+        ebookId: id(2),
+        cached: [],
+        pending: [pending],
+      }),
+    ).toEqual({
+      display: [],
+      conflicts: [{ operationId: pending.operationId, reason: "deleted" }],
+    });
   });
   it("a pending delete never allows a later queued put to reappear locally", () => {
     const result = reconcileAnnotationPull({

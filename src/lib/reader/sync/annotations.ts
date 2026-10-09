@@ -43,13 +43,40 @@ export function reconcileAnnotationPull(input: {
     )
       rows.set(item.id, item);
   }
+  const { display, conflicts } = overlayPendingAnnotations({
+    ebookId: input.ebookId,
+    cached: [...rows.values()],
+    pending: input.pending,
+  });
+  return {
+    cached: [...rows.values()],
+    display,
+    cursor: pull.serverTime,
+    conflicts,
+  };
+}
+
+/** Display only: confirmed rows/cursor remain separate from local intent.
+ * Missing known rows cannot become new creates after a reset or retirement.
+ * No synthetic pull response or cursor is needed to display offline edits.
+ */
+export function overlayPendingAnnotations(input: {
+  ebookId: string;
+  cached: readonly ReaderAnnotation[];
+  pending: readonly PendingAnnotation[];
+}): {
+  display: ReaderAnnotation[];
+  conflicts: { operationId: string; reason: string }[];
+} {
+  if (input.cached.some((item) => item.ebookId !== input.ebookId))
+    throw new Error("Cached annotation belongs to another e-book");
+  const rows = new Map(input.cached.map((item) => [item.id, item]));
   const display = new Map(rows);
   const pendingDeletes = new Set<string>();
   const conflicts: { operationId: string; reason: string }[] = [];
-  for (const row of [...input.pending].sort(
-    (a, b) =>
-      a.revision - b.revision || a.operationId.localeCompare(b.operationId),
-  )) {
+  // The shared store supplies durable insertion order. Sorting unrelated UUIDs
+  // or per-operation revisions can put a note before its offline create.
+  for (const row of input.pending) {
     if (row.ebookId !== input.ebookId)
       throw new Error("Pending annotation belongs to another e-book");
     const current = display.get(row.mutation.id) ?? null;
@@ -62,7 +89,7 @@ export function reconcileAnnotationPull(input: {
       conflicts.push({ operationId: row.operationId, reason: "deleted" });
       continue;
     }
-    if (pull.reset && row.baseVersion !== null && !rows.has(row.mutation.id)) {
+    if (row.baseVersion !== null && !rows.has(row.mutation.id)) {
       conflicts.push({ operationId: row.operationId, reason: "deleted" });
       continue;
     }
@@ -88,9 +115,7 @@ export function reconcileAnnotationPull(input: {
       conflicts.push({ operationId: row.operationId, reason: decision.reason });
   }
   return {
-    cached: [...rows.values()],
     display: [...display.values()].filter((item) => !item.deletedAt),
-    cursor: pull.serverTime,
     conflicts,
   };
 }

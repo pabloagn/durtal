@@ -150,3 +150,83 @@ relayed to its owner (preflight failure/oversized deferred body must still seal)
 Source milestone validation: 118 tests in 16 focused suites pass, as do whole-project
 TypeScript and focused ESLint (including test source). No native database, real
 browser, full local suite, migration generation or live application work ran.
+
+
+The independently approved SLN-507 abandoned-head-claim wake correction
+`f65416027ce9b7fec76f0e45a477dd19c49d931b` was normally merged as
+`b571089ac81e724ec824e9576895aa6fce3e9fab`, preserving shared codec edits.
+QUIET-494 remains active: no tests, lint, typecheck, builds, fonts, native
+database execution or browser work run during this source continuation.
+The shared transport owns the separately assigned lifecycle sealing correction;
+the annotation codec reports persisted Undo/claim state without guessing a seal.
+
+### Fixture isolation proposal awaiting root review
+
+A static inventory at this checkpoint finds 79 ordinary cascading reset statements
+in 77 of 95 integration files (809 test declaration sites, not expanded test
+cases). The FK path works → editions → instances → ebooks reaches both permanent
+tables independently of row count and ON DELETE policy. Locations/sub-locations,
+series/work types, and the ebook/file FK cycle also reach the protected tables.
+Collection-only and publisher-only resets do not reach them through their join
+tables. Direct affected fixtures include ebook-catalogue:166,
+ebook-constraints:75 and s3-cleanup:116. reading-routes:192 and reading-queue:229
+reset in the middle of a test, in addition to their beforeEach reset.
+Six migration files rebuild public: book-links-migration, collection-media-migration,
+ebook-catalogue, image-adjustment-migration, publisher-migration and work-kind-migration.
+The five intentional TRUNCATE guard statements remain negative native tests.
+
+Proposed central replacement: within test-local.py's newly owned random-port
+PostgreSQL container, migrate and close a suite template, then clone a genuinely
+fresh case database. Recreate the suite's existing exact guarded database name,
+closing all previous case connections first; stable query/DB proxies bind the new
+connection. Admin operations accept only the harness-owned suite/template names
+and generated connection, never DATABASE_URL or environment/live databases.
+Migration rehearsals clone the required predecessor template and apply the actual
+successor migration. No trigger disabling, replication-role changes, clock GUC,
+ledger deletion or TRUNCATE exception is added for fixture isolation. Old-tombstone
+retention fixtures must be seeded before 0083 in a predecessor rehearsal.
+
+After quiet is explicitly released, pilot ebook-catalogue, ebook-constraints,
+s3-cleanup, atomic-book-writes, library-filters, reading-routes and reading-queue.
+Measure template migration, clone/open/drop timings, connection cleanup, case
+counts and zero skips. Then run the affected native suites and full test:local
+once their respective gates permit. This is a proposal only: the shared harness,
+fixtures and permanent guards have not been refactored or weakened.
+
+
+Source continuation adds the actual annotations GET/POST route, SQL transaction
+service with authoritative receipts, internal prepared highlight/quote insertion,
+and the codec for SLN-507's concrete shared store. Browser validation precedes DB
+access, cursors retain six digits, POST receipts leave the pull cursor unchanged,
+and composed conflicts retain their whole sealed operation. The internal prepared
+plan freezes nested quote/PDF locator data and cannot be fabricated by a browser.
+SQL source is not yet PostgreSQL-compiled/executed; 0083 remains ungenerated and
+quote composition still depends on the separately accepted 0087 installation.
+
+New UI source includes semantic swatches, a bookmark control, highlight menu,
+500 ms durable note editor, filtering/grouped panel and local export controls.
+Selection-toolbar actions precede Copy. These drafts are not yet connected to
+ReaderSession, and their actual browser alignment/accessibility is unverified.
+The owned feature-key registrar retains Marking metadata and selection ownership
+while leaving the public plugin API's reserved-key refusal intact.
+
+The new injected annotation controller loads durable local data, starts pulls
+after first paint and on visibility/five-minute refresh, resolves strict anchors
+without navigating, and uses only the shared transport for durable mutations.
+Edits serialize their preparation from current local intent so simultaneous note
+and colour edits cannot overwrite one another. The local overlay preserves shared
+insertion order, preventing random operation IDs from putting a note before its
+offline creation. Missing known marks stay absent after reset. Undo reads actual
+durable claim/seal metadata; the codec does not invent a seal before shared commit.
+Authored controller/shortcut/overlay/codec cases remain unexecuted at this checkpoint.
+ReaderSession still needs one common positions/annotations runtime and real UI
+wiring; library/detail search/counts, cross-page selection, native transaction
+proof and final combined gates remain required full-scope work.
+
+Before quiet, the concrete codec/deletion selection passed 19 tests, the mocked
+annotation route passed 18 tests, and then-current whole-project TypeScript and
+focused ESLint passed. This does not validate subsequent controller/shortcut/
+overlay/nested-plan edits. QUIET-494 was explicitly released after owned cleanup;
+only bounded source formatting/syntax parsing ran afterward. Root's next focused
+verification slot is requested at this clean source checkpoint. No browser,
+fonts, build, native database, install, migration generation or full suite ran.

@@ -1,3 +1,4 @@
+import { canonicalAnnotationTime } from "./annotation-time";
 import type { ReaderAnnotation } from "../annotations";
 import type { PendingAnnotation } from "./annotation-outbox";
 import { annotationOperationBody } from "./annotation-outbox";
@@ -13,6 +14,8 @@ export interface DurableAnnotationOperation {
   fileId: string;
   expectedDeviceId: string;
   body: string;
+  createdAt: string;
+  local: PendingAnnotation;
   /** Local-only data committed with the queue entry; never part of HTTP JSON.
    * Existing entries cannot reset their seal or deadline on duplicate enqueue.
    */
@@ -55,7 +58,7 @@ export interface AnnotationTransport {
  */
 export function serializeAnnotationOperation(
   row: PendingAnnotation,
-  context: { fileId: string; expectedDeviceId: string },
+  context: { fileId: string; expectedDeviceId: string; createdAt?: string },
 ): DurableAnnotationOperation {
   if (!context.fileId || !context.expectedDeviceId)
     throw new Error("Missing original annotation transport identity");
@@ -67,6 +70,14 @@ export function serializeAnnotationOperation(
     throw new Error("Annotation transport file identity mismatch");
   if (row.mutation.op === "delete" && !row.snapshot)
     throw new Error("Missing durable annotation Undo snapshot");
+  const createdAt =
+    context.createdAt ??
+    row.transportIdentity?.createdAt ??
+    canonicalAnnotationTime(
+      row.mutation.op === "reanchor"
+        ? row.mutation.expectedClientUpdatedAt
+        : row.mutation.clientUpdatedAt,
+    );
   return {
     kind: "annotation",
     operationId: row.operationId,
@@ -75,6 +86,11 @@ export function serializeAnnotationOperation(
     fileId: context.fileId,
     expectedDeviceId: context.expectedDeviceId,
     body: JSON.stringify(annotationOperationBody(row)),
+    createdAt,
+    local: structuredClone({
+      ...row,
+      transportIdentity: { ...context, createdAt },
+    }),
     deleteUndo:
       row.mutation.op === "delete"
         ? {

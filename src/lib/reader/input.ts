@@ -56,6 +56,7 @@ interface RegisteredKey {
   handler: (event: KeyboardEvent) => void;
   when: KeyWhen;
   label?: string;
+  definition?: ReaderShortcut;
 }
 
 const RESERVED_KEYS = new Set([
@@ -87,6 +88,7 @@ function updateShortcuts() {
   const plugins = [...registry].flatMap(([key, set]) =>
     [...set].map(
       (entry) =>
+        entry.definition ??
         ({
           key,
           label: entry.label ?? key,
@@ -94,7 +96,7 @@ function updateShortcuts() {
           issue: 4,
           context: entry.when,
           plugin: true,
-        }) satisfies ReaderShortcut,
+        } satisfies ReaderShortcut),
     ),
   );
   shortcutSnapshot = [...core, ...plugins];
@@ -142,6 +144,40 @@ export function registerReaderKey(
     handler,
     when: options.when ?? "always",
     label: options.label,
+  };
+  const set = registry.get(key) ?? new Set<RegisteredKey>();
+  set.add(entry);
+  registry.set(key, set);
+  updateShortcuts();
+  return () => {
+    set.delete(entry);
+    if (!set.size) registry.delete(key);
+    updateShortcuts();
+  };
+}
+
+/** Internal feature registration. The public plugin API still refuses every
+ * reserved feature key; owned features retain the keymap's group/context.
+ */
+export function registerReaderFeatureKey(
+  key: string,
+  handler: (event: KeyboardEvent) => void,
+  issue: number,
+): () => void {
+  key = key.toLowerCase();
+  const definition = READER_KEYMAP.find(
+    (item) =>
+      item.key === key &&
+      item.issue === issue &&
+      !item.plugin &&
+      item.context !== "widget",
+  );
+  if (!definition || RESERVED_KEYS.has(key))
+    throw new Error(`Reader feature ${issue} does not own ${key}`);
+  const entry: RegisteredKey = {
+    handler,
+    when: definition.context === "selection" ? "selection" : "always",
+    definition,
   };
   const set = registry.get(key) ?? new Set<RegisteredKey>();
   set.add(entry);
