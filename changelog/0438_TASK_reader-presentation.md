@@ -162,3 +162,47 @@ zero skipped, 284 ms. Focused TypeScript includes the actual Drizzle declaration
 and its imported schema dependencies; it passed. Changed source ESLint with
 zero warnings, Prettier and `git diff --check` passed. Full mandatory gates
 remain reserved for the coordinator's heavy slot.
+
+## Licensed font source acquisition
+
+The coordinator authorized asset acquisition, with font subsetting/build/browser
+work still gated by the heavy slot. Exact upstream sources were acquired into
+`/private/tmp/durtal-sln501-font-sources-39m22fzw` and audited without subsetting.
+`scripts/reader-fonts/upstream-sources.json` records every URL, byte count,
+SHA-256, Inter archive member and actual variable axes/GSUB features/sample
+coverage. The complete upstream OFL files are copied unchanged to the three
+versioned family folders. No WOFF2 asset is represented as complete.
+
+- Literata release 3.103, commit `0c2761b727a1b3a7cffd313c37f0f5163dfc7a63`:
+  roman 955132 bytes, italic 902728 bytes; weight 200–900 and optical size 7–72.
+- Inter release v4.1, commit `e3a3d4c57d5ecc01453a575621882a384c1995a3`:
+  roman 879708 bytes, italic 910252 bytes; weight 100–900 and optical size 14–32.
+  The 33707794-byte official archive's SHA-256 is recorded too.
+- EB Garamond has no upstream release or tags; the exact source commit is
+  `106a4a6d377987459ae5e68673a4570f13b957fb`: roman 851176 bytes, italic 754468
+  bytes; actual weight range 400–800. This is an explicit release-source gap
+  for coordinator review, not an invented tagged release.
+
+All six actual binaries cover the audit samples for English, French, German,
+Greek, polytonic Greek and Cyrillic. Literata and EB Garamond have `smcp`,
+`c2sc`, `onum` and `liga`. Inter v4.1 has none of those GSUB feature tags;
+preserving publisher declarations cannot manufacture missing font features.
+EB Garamond cannot supply an actual 300-weight instance. CSS must declare its
+real axis range rather than label it 300–600. These facts remain visible in
+the manifest and integration acceptance.
+
+Reproduce acquisition and exact-input verification, using Python's standard
+library only (no installed dependency):
+
+```sh
+python3 scripts/reader-fonts/acquire.py --output /private/tmp/durtal-sln501-font-inputs
+python3 scripts/reader-fonts/acquire.py --output /private/tmp/durtal-sln501-font-inputs --verify-only
+```
+
+The helper verified all nine acquired inputs against their byte counts and
+SHA-256 hashes. Lightweight metadata inspection reused cached fontTools 4.63.0;
+it read tables only and installed no package. Actual 36-file subsetting commands,
+output hashes/sizes, measured font metrics and <=200 KB English first-paint
+evidence must be recorded after the coordinator grants that work. The historical
+v1 assets at `90f55cbf` were not copied: their three Latin roman files total
+379508 bytes, exceeding the 200 KB budget when defaults differ across classes.
