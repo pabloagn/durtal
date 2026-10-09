@@ -72,6 +72,8 @@ describe.skipIf(!url)("similar works with PostgreSQL", () => {
           Array.from({ length: count }, (_, i) => ({
             workId: work.id,
             title: `${title} ${i + 1}`,
+            // These fixtures use explicit canonical publisher links.
+            publisherLinksConfirmed: true,
           })),
         )
         .returning();
@@ -214,14 +216,12 @@ describe.skipIf(!url)("similar works with PostgreSQL", () => {
           .values({ name, slug, level: 1 })
           .returning();
         id = source.id;
-        await db
-          .insert(schema.workLiteraryMovements)
-          .values(
-            titles.map((t) => ({
-              workId: books[t].id,
-              literaryMovementId: id,
-            })),
-          );
+        await db.insert(schema.workLiteraryMovements).values(
+          titles.map((t) => ({
+            workId: books[t].id,
+            literaryMovementId: id,
+          })),
+        );
         break;
       }
       case "series": {
@@ -256,15 +256,13 @@ describe.skipIf(!url)("similar works with PostgreSQL", () => {
           .values({ name })
           .returning();
         id = source.id;
-        await db
-          .insert(schema.workAuthors)
-          .values(
-            titles.map((t) => ({
-              workId: books[t].id,
-              authorId: id,
-              role: t === "Target" ? "co_author" : "author",
-            })),
-          );
+        await db.insert(schema.workAuthors).values(
+          titles.map((t) => ({
+            workId: books[t].id,
+            authorId: id,
+            role: t === "Target" ? "co_author" : "author",
+          })),
+        );
         break;
       }
       case "translator": {
@@ -273,17 +271,15 @@ describe.skipIf(!url)("similar works with PostgreSQL", () => {
           .values({ name })
           .returning();
         id = source.id;
-        await db
-          .insert(schema.editionContributors)
-          .values(
-            titles.flatMap((t) =>
-              books[t].editions.map((editionId) => ({
-                editionId,
-                authorId: id,
-                role: "translator",
-              })),
-            ),
-          );
+        await db.insert(schema.editionContributors).values(
+          titles.flatMap((t) =>
+            books[t].editions.map((editionId) => ({
+              editionId,
+              authorId: id,
+              role: "translator",
+            })),
+          ),
+        );
         break;
       }
       case "publisher": {
@@ -292,16 +288,14 @@ describe.skipIf(!url)("similar works with PostgreSQL", () => {
           .values({ name, slug })
           .returning();
         id = source.id;
-        await db
-          .insert(schema.editionPublishers)
-          .values(
-            titles.flatMap((t) =>
-              books[t].editions.map((editionId) => ({
-                editionId,
-                publisherId: id,
-              })),
-            ),
-          );
+        await db.insert(schema.editionPublishers).values(
+          titles.flatMap((t) =>
+            books[t].editions.map((editionId) => ({
+              editionId,
+              publisherId: id,
+            })),
+          ),
+        );
         break;
       }
     }
@@ -407,13 +401,11 @@ describe.skipIf(!url)("similar works with PostgreSQL", () => {
     await db
       .insert(schema.workAuthors)
       .values({ workId: books.A.id, authorId: reason.id });
-    await db
-      .insert(schema.editionContributors)
-      .values({
-        editionId: books.B.editions[0],
-        authorId: reason.id,
-        role: "editor",
-      });
+    await db.insert(schema.editionContributors).values({
+      editionId: books.B.editions[0],
+      authorId: reason.id,
+      role: "editor",
+    });
     for (const t of ["Target", "A"])
       await db
         .update(schema.editions)
@@ -448,6 +440,10 @@ describe.skipIf(!url)("similar works with PostgreSQL", () => {
     await db.execute(sql`truncate collections cascade`);
     const subject = await addSignal("subject", ["Target", "A", "Film"]);
     await addSignal("theme", ["Target", "B"]);
+    // A configured shared taxonomy scope, rather than an invalid film link.
+    await db.execute(sql`insert into taxonomy_applicability (family_id, kind, level)
+      select id, 'film', 'work' from taxonomy_families where system_table = 'literary_movements'
+      on conflict do nothing`);
     await addSignal("movement", ["Target", "Film"]);
     await addSignal("recommender", ["Target", "Film"]);
     const results = await getSimilarWorks(books.Target.id);
@@ -458,14 +454,12 @@ describe.skipIf(!url)("similar works with PostgreSQL", () => {
       .insert(schema.collections)
       .values({ name: "Mixed" })
       .returning();
-    await db
-      .insert(schema.collectionWorks)
-      .values(
-        ["Target", "A", "Film"].map((t) => ({
-          workId: books[t].id,
-          collectionId: collection.id,
-        })),
-      );
+    await db.insert(schema.collectionWorks).values(
+      ["Target", "A", "Film"].map((t) => ({
+        workId: books[t].id,
+        collectionId: collection.id,
+      })),
+    );
     expect(
       (await getSimilarWorks(books.Target.id)).map((w) => w.title),
     ).toEqual(["A", "B"]);

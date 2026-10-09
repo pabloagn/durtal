@@ -42,8 +42,9 @@ export function WorkCarousel<T extends WorkCardData>({
               slug={work.slug ?? ""}
               title={work.title}
               authorName={
-                work.workAuthors.map((wa) => wa.author.name).join(", ") ||
-                "Unknown"
+                [...new Set(work.workAuthors.map((wa) => wa.author.name))].join(
+                  ", ",
+                ) || "Unknown"
               }
               authorNames={work.workAuthors.map((wa) => wa.author.name)}
               coverUrl={coverKey ? mediaUrl(coverKey) : null}

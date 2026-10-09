@@ -64,6 +64,18 @@ describe("similarity evidence", () => {
     });
     const dialog = host.querySelector("dialog")!;
     expect(dialog.open).toBe(true);
+    const close = dialog.querySelector<HTMLButtonElement>("button")!;
+    for (const shiftKey of [false, true]) {
+      const tab = new KeyboardEvent("keydown", {
+        key: "Tab",
+        shiftKey,
+        bubbles: true,
+        cancelable: true,
+      });
+      act(() => close.dispatchEvent(tab));
+      expect(tab.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(close);
+    }
     expect(dialog.querySelectorAll("li")).toHaveLength(4);
     expect(dialog.querySelector("li")!.textContent).toBe(`Collection: ${name}`);
     act(() => dialog.dispatchEvent(new Event("cancel", { cancelable: true })));

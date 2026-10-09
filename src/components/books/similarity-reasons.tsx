@@ -28,7 +28,21 @@ export function SimilarityReasons({
   const [open, setOpen] = useState(false);
   if (!reasons.length) return null;
   return (
-    <div className="mt-2 text-xs text-fg-secondary" data-similarity-reasons>
+    <div
+      className="mt-2 text-xs text-fg-secondary [overflow-wrap:anywhere]"
+      data-similarity-reasons
+      onKeyDown={(event) => {
+        // This read-only dialog has one control. Keep both Tab directions
+        // on it, including the native dialog's browser-chrome focus cycle.
+        if (!open || event.key !== "Tab") return;
+        const dialog = (event.target as HTMLElement).closest("dialog");
+        const close = dialog?.querySelector<HTMLButtonElement>("button");
+        if (close) {
+          event.preventDefault();
+          close.focus();
+        }
+      }}
+    >
       <ul className="min-h-[calc(4lh+0.25rem)] space-y-1">
         {reasons.slice(0, 2).map((reason) => (
           <li
