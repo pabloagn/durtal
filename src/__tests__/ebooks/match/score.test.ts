@@ -212,7 +212,7 @@ describe("scores and review tiers", () => {
         titleExact: true,
         titleSimilarity: 1,
         identifierEditions: ["edition-1"],
-        effect: { ready: true },
+        effect: { ready: false },
       });
       expect(
         result.candidates[0].vetoes.map((reason) => reason.code),

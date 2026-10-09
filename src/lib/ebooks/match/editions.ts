@@ -45,6 +45,12 @@ export function editionEffect(
   const language = normalizeLanguage(ebook.language);
   const file = preferredMatchFile(ebook);
   const ids = identifierKeys(ebook.isbns, ebook.identifiers);
+  const title = titleKeys(
+    ebook.title,
+    ebook.subtitle,
+    ebook.language,
+    ebook.series,
+  );
   const identified = source.editions.filter((edition) => {
     const keys = work.editionIdentifiers.get(edition.id)!;
     return (
@@ -170,17 +176,57 @@ export function editionEffect(
       code: "locked_edition",
       text: "The placeholder edition is locked; review before moving its copy",
     });
+  // Validate the actual destination and any copy being moved, including routes
+  // chosen without identifiers. A tied unnumbered work title is not evidence
+  // that these editions describe the same volume.
+  const editionNumbers = new Map(
+    source.editions.map((edition) => [
+      edition.id,
+      titleKeys(edition.title, edition.subtitle, edition.language).numbers,
+    ]),
+  );
+  const selectedNumbers = [editionId, movedFromEditionId]
+    .filter((id): id is string => !!id)
+    .map((id) => editionNumbers.get(id)!)
+    .filter(Boolean);
+  const workNumbers = [
+    titleKeys(source.title, null, source.originalLanguage).numbers,
+    source.originalTitle
+      ? titleKeys(source.originalTitle, null, source.originalLanguage).numbers
+      : "",
+  ].filter(Boolean);
+  const catalogueNumbers = new Set(
+    work.titles.map((key) => key.numbers).filter(Boolean),
+  );
+  const identifiedResolvesVolume =
+    identified.length === 1 &&
+    editionId === identified[0].id &&
+    (!title.numbers || editionNumbers.get(editionId) === title.numbers);
+  const relevantNumbers = [
+    ...workNumbers,
+    ...selectedNumbers,
+    ...(!identifiedResolvesVolume ? catalogueNumbers : []),
+  ];
+  if (
+    new Set(selectedNumbers).size > 1 ||
+    (title.numbers &&
+      relevantNumbers.some((numbers) => numbers !== title.numbers))
+  )
+    ambiguities.push({
+      code: "number_signature",
+      text: "The file, selected edition or copy names a different numbered volume or year",
+    });
+  if (catalogueNumbers.size > 1 && !identifiedResolvesVolume)
+    ambiguities.push({
+      code: "multiple_volume_signatures",
+      text: "This work has different numbered volumes; choose and confirm the edition",
+    });
   const createsEdition = rule === "new_edition" || rule === "new_isbn_edition";
   if (createsEdition && !language) missing.push("language");
   const newEdition: NewEditionEffect | null =
     createsEdition && language
       ? {
-          title: titleKeys(
-            ebook.title,
-            ebook.subtitle,
-            ebook.language,
-            ebook.series,
-          ).cleaned,
+          title: title.cleaned,
           subtitle: ebook.subtitle ?? null,
           language,
           isbn13,

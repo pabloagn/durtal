@@ -80,6 +80,239 @@ describe("edition and copy effects", () => {
     expect(effect.rule).toBe(rule);
     expect(effect.ready).toBe(true);
   });
+  it.each([
+    { route: "fill_copy", seed: false, hasCopy: true, isbns: [] },
+    { route: "fill_copy", seed: true, hasCopy: true, isbns: ["9780306406157"] },
+    { route: "placeholder_copy", seed: true, hasCopy: false, isbns: [] },
+    { route: "new_edition", seed: false, hasCopy: false, isbns: [] },
+    {
+      route: "new_isbn_edition",
+      seed: false,
+      hasCopy: false,
+      isbns: ["9780306406157"],
+    },
+  ])(
+    "reviews contradictory volume evidence on $route (seed: $seed)",
+    ({ route, seed, hasCopy, isbns }) => {
+      const cat = catalogue({
+        works: [
+          work({
+            editions: [
+              edition({
+                title: "Nadja (Book 3)",
+                metadataSource: seed ? "phantom_canon" : "ebook",
+              }),
+            ],
+            copies: hasCopy ? [copy()] : [],
+          }),
+        ],
+      });
+      const file = ebook({ title: "Nadja (Book 2)", isbns });
+      const result = matchOne(file, cat);
+      expect(result.autoLink).toBe(false);
+      expect(result.tier).toBe("likely");
+      expect(result.candidates[0].effect).toMatchObject({
+        rule: route,
+        ready: false,
+      });
+      expect(
+        result.candidates[0].vetoes.map((reason) => reason.code),
+      ).toContain("number_signature");
+      expect(
+        editionEffect(file, cat.works[0], cat).ambiguities.map(
+          (reason) => reason.code,
+        ),
+      ).toContain("number_signature");
+    },
+  );
+  it.each(["Nadja", "Nadja (Book 2)"])(
+    "reviews a contradictory volume on the placeholder copy being moved (%s)",
+    (title) => {
+      const cat = catalogue({
+        works: [
+          work({
+            editions: [
+              edition({
+                title: "Nadja (Book 3)",
+                metadataSource: "phantom_canon",
+              }),
+              edition({
+                id: "identified",
+                title: "Nadja (Book 2)",
+                isbn13: "9780306406157",
+              }),
+            ],
+            copies: [copy()],
+          }),
+        ],
+      });
+      const result = matchOne(ebook({ title, isbns: ["9780306406157"] }), cat);
+      expect(result.autoLink).toBe(false);
+      expect(result.candidates[0].effect).toMatchObject({
+        rule: "isbn_edition",
+        editionId: "identified",
+        movedFromEditionId: "edition-1",
+        ready: false,
+      });
+      expect(
+        result.candidates[0].effect.ambiguities.map((reason) => reason.code),
+      ).toContain("number_signature");
+    },
+  );
+  it.each([
+    { route: "fill_copy", free: "numbered" },
+    { route: "fill_copy", free: "unnumbered" },
+    { route: "new_edition", free: null },
+    { route: "new_isbn_edition", free: null },
+    { route: "placeholder_copy", free: null },
+  ])(
+    "reviews mixed-volume works on $route even for an unnumbered file (free: $free)",
+    ({ route, free }) => {
+      const cat = catalogue({
+        works: [
+          work({
+            editions: [
+              edition({
+                title: "Nadja (Book 2)",
+                metadataSource:
+                  route === "placeholder_copy" ? "phantom_canon" : "ebook",
+              }),
+              edition({ id: "third", title: "Nadja (Book 3)" }),
+              edition({ id: "plain" }),
+            ],
+            copies: free
+              ? [
+                  copy({
+                    editionId: free === "numbered" ? "edition-1" : "plain",
+                  }),
+                ]
+              : [],
+          }),
+        ],
+      });
+      for (const title of ["Nadja", "Nadja (Book 2)"]) {
+        const result = matchOne(
+          ebook({
+            title,
+            isbns: route === "new_isbn_edition" ? ["9780306406157"] : [],
+          }),
+          cat,
+        );
+        expect(result.autoLink).toBe(false);
+        expect(result.candidates[0].effect).toMatchObject({
+          rule: route,
+          ready: false,
+        });
+        expect(
+          result.candidates[0].effect.ambiguities.map((reason) => reason.code),
+        ).toContain("multiple_volume_signatures");
+      }
+    },
+  );
+  it.each([
+    { title: "Nadja", editionTitle: "Nadja", hasCopy: true, seed: false },
+    {
+      title: "Nadja (Book 2)",
+      editionTitle: "Nadja",
+      hasCopy: true,
+      seed: false,
+    },
+    {
+      title: "Nadja",
+      editionTitle: "Nadja (Book 2)",
+      hasCopy: true,
+      seed: false,
+    },
+    {
+      title: "Nadja (Book 2)",
+      editionTitle: "Nadja (Book 2)",
+      hasCopy: true,
+      seed: false,
+    },
+    { title: "Nadja", editionTitle: "Nadja", hasCopy: false, seed: true },
+  ])(
+    "keeps compatible or absent volume evidence eligible ($title / $editionTitle)",
+    ({ title, editionTitle, hasCopy, seed }) => {
+      const cat = catalogue({
+        works: [
+          work({
+            editions: [
+              edition({
+                title: editionTitle,
+                metadataSource: seed ? "phantom_canon" : "ebook",
+              }),
+            ],
+            copies: hasCopy ? [copy()] : [],
+          }),
+        ],
+      });
+      expect(matchOne(ebook({ title }), cat)).toMatchObject({
+        tier: "strong",
+        autoLink: true,
+      });
+    },
+  );
+  it.each(["Nadja", "Nadja (Book 2)"])(
+    "allows a unique identified edition to resolve mixed-volume evidence without moving a contradictory copy (%s)",
+    (title) => {
+      const cat = catalogue({
+        works: [
+          work({
+            editions: [
+              edition({ title: "Nadja (Book 2)", isbn13: "9780306406157" }),
+              edition({ id: "third", title: "Nadja (Book 3)" }),
+            ],
+          }),
+        ],
+      });
+      expect(
+        matchOne(ebook({ title, isbns: ["9780306406157"] }), cat),
+      ).toMatchObject({ tier: "exact", autoLink: true });
+    },
+  );
+  it.each(["fill_copy", "isbn_edition"])(
+    "reviews contradictory volume numbers in subtitles on %s",
+    (route) => {
+      const cat = catalogue({
+        works: [
+          work({
+            editions: [
+              edition({
+                subtitle: "Book 3",
+                isbn13: route === "isbn_edition" ? "9780306406157" : null,
+              }),
+            ],
+            copies: route === "fill_copy" ? [copy()] : [],
+          }),
+        ],
+      });
+      const observations =
+        route === "isbn_edition" ? { isbns: ["9780306406157"] } : {};
+      expect(
+        matchOne(ebook({ ...observations, title: "Nadja (Book 3)" }), cat)
+          .autoLink,
+      ).toBe(true);
+      const result = matchOne(
+        ebook({ ...observations, title: "Nadja (Book 2)" }),
+        cat,
+      );
+      expect(result.autoLink).toBe(false);
+      expect(result.candidates[0].effect).toMatchObject({
+        rule: route,
+        ready: false,
+      });
+      expect(
+        result.candidates[0].effect.ambiguities.map((reason) => reason.code),
+      ).toContain("number_signature");
+      expect(
+        editionEffect(
+          ebook({ ...observations, subtitle: "Book 2" }),
+          cat.works[0],
+          cat,
+        ).ready,
+      ).toBe(false);
+    },
+  );
   it("requires review when two free copies exist, even when only one has compatible language", () => {
     const cat = catalogue({
       works: [

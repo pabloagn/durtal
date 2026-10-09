@@ -61,6 +61,21 @@ evidence independently of the best title key. Matching volume controls remain
 eligible. The corrected focused run passed all 77 tests in three files with
 zero skips (351 ms total); TypeScript compilation and ESLint are clean.
 
+A further independent review of `ae3f69d6` found that a title-only proposal
+could still fill a free copy of another numbered volume. Nine new route cases
+reproduced unsafe eligibility before this correction. Edition effects now check
+the selected destination, any placeholder copy being moved, and unresolved
+catalogue volume evidence for every choice route. Mixed-volume works require
+review unless a unique identified edition resolves the volume; contradictory
+moved copies still block that operation. Number evidence includes subtitles.
+Two additional subtitle regressions reproduced unsafe eligibility before that
+normalization fix. Volume ambiguities also become candidate vetoes before tier
+selection, so these cases cannot receive an automatic tier. Compatible or
+absent numbering remains eligible where catalogue evidence is not contradictory.
+Both reviewed checkpoints remain in history. The current focused run passed
+98 tests in three files with zero skips (367 ms total); typecheck and ESLint
+are clean.
+
 No database suite, SQL trigram parity, calibration/precision measurement,
 6,000-by-700 performance benchmark, schema generation, native build, deployment,
 live catalogue read or write, cloud operation or reader/browser acceptance has

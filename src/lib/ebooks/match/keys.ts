@@ -112,7 +112,12 @@ export function titleKeys(
     full,
     main,
     all: unique([full, main, stripped(fullText), stripped(mainText)]),
-    numbers: numberSignature(cleaned) || removedSeriesPosition || "",
+    numbers: [
+      numberSignature(cleaned) || removedSeriesPosition,
+      numberSignature(subtitle ?? ""),
+    ]
+      .filter(Boolean)
+      .join(":"),
     removedSeriesPosition,
   };
 }

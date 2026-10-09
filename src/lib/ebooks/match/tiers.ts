@@ -10,6 +10,7 @@ import { editionEffect, usableFile } from "./editions";
 import type { MatchCatalogue } from "./catalogue";
 import type {
   MatchCandidate,
+  LinkEffect,
   MatchEbook,
   MatchResult,
   MatchTier,
@@ -106,6 +107,37 @@ export function matchOne(
     .sort(
       (a, b) => b.weightBits - a.weightBits || a.workId.localeCompare(b.workId),
     );
+  const effects = new Map<string, LinkEffect>();
+  const effectFor = (score: PairScore) => {
+    let effect = effects.get(score.workId);
+    if (!effect) {
+      effect = editionEffect(
+        ebook,
+        catalogue.byWorkId.get(score.workId)!,
+        catalogue,
+      );
+      effects.set(score.workId, effect);
+    }
+    return effect;
+  };
+  const withEditionVolumeVetoes = (score: PairScore): PairScore => {
+    const vetoes = effectFor(score).ambiguities.filter(
+      (reason) =>
+        ["number_signature", "multiple_volume_signatures"].includes(
+          reason.code,
+        ) && !score.vetoes.some((veto) => veto.code === reason.code),
+    );
+    return vetoes.length
+      ? {
+          ...score,
+          vetoes: [...score.vetoes, ...vetoes],
+          reasons: [...score.reasons, ...vetoes],
+        }
+      : score;
+  };
+  // Check the chosen route before assigning an automatic tier. Compute effects
+  // only for the leading proposal and returned candidates, not every work.
+  if (scores[0]) scores[0] = withEditionVolumeVetoes(scores[0]);
   const best = scores[0];
   const margin =
     best && scores[1] ? best.weightBits - scores[1].weightBits : null;
@@ -161,18 +193,12 @@ export function matchOne(
         : scores.filter(
             (score) => score.probability >= MATCH_MODEL.thresholds.candidate,
           );
-  const candidates: MatchCandidate[] = proposed
-    .slice(0, 3)
-    .map((score, i) => ({
-      ...score,
-      rank: i + 1,
-      marginBits: i === 0 ? margin : null,
-      effect: editionEffect(
-        ebook,
-        catalogue.byWorkId.get(score.workId)!,
-        catalogue,
-      ),
-    }));
+  const candidates: MatchCandidate[] = proposed.slice(0, 3).map((score, i) => ({
+    ...withEditionVolumeVetoes(score),
+    rank: i + 1,
+    marginBits: i === 0 ? margin : null,
+    effect: effectFor(score),
+  }));
   const first = candidates[0];
   const autoLink =
     (tier === "exact" || tier === "strong") &&
