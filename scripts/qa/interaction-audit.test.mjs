@@ -227,6 +227,73 @@ test("a dialog starting in its middle uses reverse Tab at native end stops and s
   }
 });
 
+test("reverse modal escape remains a failure after re-entry and restores state; browser chrome remains allowed", async () => {
+  for (const escape of ["body", "background", "chrome"]) {
+    const f = fixture(
+      '<button id="start">Before</button><details><summary>History</summary><button>Edit</button></details><dialog><button>Expand</button><button>Close</button><input id="initial" aria-label="Title"><button>Cancel</button><button>Save</button></dialog>',
+    );
+    const document = f.window.document;
+    const dialog = document.querySelector("dialog");
+    const start = document.getElementById("start");
+    start.focus();
+    document.querySelector("main").scrollTop = 30;
+    document.hasFocus = () => true;
+    const nativePress = f.io.press;
+    let reverse = 0,
+      result;
+    f.io.press = async (key, shift = false) => {
+      if (key !== "Tab" || !dialog.open)
+        return nativePress(key, shift);
+      f.keys.push(shift ? "Shift+Tab" : key);
+      if (shift && ++reverse === 1) {
+        document.hasFocus = () => escape !== "chrome";
+        if (escape === "background") start.focus();
+        else {
+          document.body.tabIndex = -1;
+          document.body.focus();
+        }
+        return;
+      }
+      document.hasFocus = () => true;
+      const controls = [...dialog.querySelectorAll("button,input")];
+      const index = controls.indexOf(document.activeElement);
+      controls[
+        index < 0
+          ? controls.length - 1
+          : Math.max(0, Math.min(controls.length - 1, index + (shift ? -1 : 1)))
+      ].focus();
+    };
+    const run = withDisclosures(f.io, async (scope) => {
+      if (scope !== "page") return;
+      dialog.showModal();
+      document.getElementById("initial").focus();
+      result = await walkKeyboard(f.io, f.window.__ia.id(dialog), 30);
+      assert.equal(result.expected, 5);
+      assert.equal(result.stops, 5);
+      assert(reverse > 2, "native reverse traversal re-entered the modal");
+      f.failures.push(...result.failures);
+      if (result.failures.length) throw new Error("retained reverse escape");
+    });
+    if (escape === "chrome") {
+      await run;
+      assert.deepEqual(result.failures, []);
+    } else {
+      await assert.rejects(run, /retained reverse escape/);
+      assert(
+        f.failures.some((failure) =>
+          failure.includes(`Shift+Tab leaves the dialog (body=${escape === "body"}, documentFocused=true)`),
+        ),
+      );
+      assert(!result.failures.some((failure) => /not reachable/.test(failure)));
+    }
+    assert.equal(dialog.open, false);
+    assert.equal(document.querySelector("details").open, false);
+    assert.equal(document.activeElement, start);
+    assert.equal(document.querySelector("main").scrollTop, 30);
+    assert.equal(f.window.__ia.stateStack.length, 0);
+  }
+});
+
 test("a newly revealed stop without a focus indicator is reported", async () => {
   const f = fixture(
     '<details><summary>History</summary><button id="lost">Edit</button></details>',

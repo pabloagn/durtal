@@ -11,7 +11,7 @@ it("interaction audit discovers nested controls, detects broken focus, restores 
       timeout: 15_000,
     },
   );
-  expect(report).toContain("# pass 14");
+  expect(report).toContain("# pass 15");
   expect(report).toContain("# fail 0");
   expect(report).toContain("# skipped 0");
 });

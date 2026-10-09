@@ -1,4 +1,6 @@
 /** Browser-side identities and state, and transport-independent disclosure walks. */
+import { dialogFocusState } from "./interaction-page.mjs";
+
 export function installDisclosureHelpers() {
   const ia = window.__ia;
   const ids = new WeakMap();
@@ -255,6 +257,9 @@ export async function withDisclosures(io, inspect, scope = "page") {
  */
 export async function walkKeyboard(io, scope = "page", limit = 500) {
   const expected = await io.evaluate(`__ia.controls(${JSON.stringify(scope)})`);
+  const modal = await io.evaluate(
+    `__ia.id(__ia.element(${JSON.stringify(scope)})?.closest?.('dialog[open]'))`,
+  );
   const seen = new Set();
   const failures = [];
   // On a page, start before the first native stop. In a modal, retain its
@@ -276,6 +281,15 @@ export async function walkKeyboard(io, scope = "page", limit = 500) {
     let bounded = true;
     for (let i = 0; i < limit; i++) {
       await io.press("Tab", shift);
+      if (modal) {
+        const focus = await io.evaluate(
+          `(${dialogFocusState.toString()})(__ia.element(${JSON.stringify(modal)}))`,
+        );
+        if (!focus.valid)
+          failures.push(
+            `${shift ? "Shift+Tab" : "Tab"} leaves the dialog (body=${focus.body}, documentFocused=${focus.documentFocused})`,
+          );
+      }
       const stop = await io.evaluate("__ia.active()");
       if (!stop) continue; // browser chrome/body between complete cycles
       if (direction.has(stop.id)) {
