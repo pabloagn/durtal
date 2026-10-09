@@ -184,6 +184,14 @@ export function createReaderTransport(options: TransportOptions) {
     while (!stopped && reachable() && (visible() || mode === "lifecycle")) {
       const head = (await options.store.inspect())[0];
       if (!head || head.state === "blocked") return;
+      if (
+        head.state === "claimed" &&
+        head.claim &&
+        head.claim.expiresAt > now()
+      ) {
+        schedule(head.claim.expiresAt - now());
+        return;
+      }
       if (head.retryAt !== null && head.retryAt > now()) {
         schedule(head.retryAt - now());
         return;
@@ -210,6 +218,13 @@ export function createReaderTransport(options: TransportOptions) {
         mode,
       });
       if (plan.kind === "stop") {
+        if (plan.reason === "busy") {
+          // A peer may have acquired the head after our initial inspection.
+          // Read its persisted lease, never an old claim snapshot or later row.
+          const current = (await options.store.inspect())[0];
+          if (current?.state === "claimed" && current.claim)
+            schedule(Math.max(1, current.claim.expiresAt - now()));
+        }
         if (plan.reason === "undo_pending") {
           const until = head.annotation?.undo?.until;
           if (until !== null && until !== undefined)
