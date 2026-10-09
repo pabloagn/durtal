@@ -201,7 +201,7 @@ Every work card, whatever its collection, is cut like a book's card (`src/compon
 
 - Film, perfume and painting cards keep their collection's frame in their own grids and rows: the poster, the bottle's square, the picture's frame. A chip on the frame counts what is held.
 - Where collections mix in one row (the dashboard's recent additions), every card has the book cover's 2:3 frame. `WorkCardArt` contains the picture whole and centered; a blurred, dimmed copy of it fills the bands, like frosted glass behind it. Without a picture, the collection's stand-in (a flacon, a monogram) fills the frame.
-- Why a card is in a related row ("With Kurt Russell", "Shares iris, vanilla") goes under the card, on naturally wrapping lines, as under a book's card.
+- Domain-specific film/perfume rows may identify their association ("With Kurt Russell", "Shares iris, vanilla") under the card. The book page's Similar Works shelf has no reason captions, scores or explanation controls. Translator/publishing shelves identify their matching edition as card metadata.
 
 Author, series, collection and dashboard cards follow the same layout. Author cards: name, nationality, then the years and the number of books. Series cards: title, original title, then the counts and "Complete" in gold. Collection cards: the complete name with its icon, a description preview limited to two lines, then the edition count. Descriptive prose is not identifying metadata: keep its preview bounded so long descriptions cannot stretch an entire row; the collection detail page displays the full description. No count or status sits on a portrait or a cover.
 
