@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { expectedDeviceRefusal } from "@/lib/reader/device-guard";
 import { crossOriginRefusal } from "@/lib/api/same-origin";
 import { readJson } from "@/lib/api/rest";
 import { isUuid } from "@/lib/utils/uuid";
@@ -65,6 +66,8 @@ export async function GET(req: NextRequest, { params }: Params) {
 export async function POST(req: NextRequest, { params }: Params) {
   const ebookId = await ebookIdOf(req, params);
   if (ebookId instanceof NextResponse) return ebookId;
+  const refused = expectedDeviceRefusal(req);
+  if (refused) return refused;
   const device = req.cookies.get(DEVICE_COOKIE)?.value;
   if (!isDeviceId(device))
     return json(400, { error: "No device id: open the reader first" });

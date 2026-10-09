@@ -36,6 +36,7 @@ function request(
     cookie?: string | null;
     site?: string;
     id?: string;
+    expectedDevice?: string;
   } = {},
 ) {
   const headers = new Headers({
@@ -44,6 +45,8 @@ function request(
   });
   if (options.cookie !== null)
     headers.set("cookie", `durtal-device=${options.cookie ?? device}`);
+  if (options.expectedDevice !== undefined)
+    headers.set("X-Durtal-Expected-Device", options.expectedDevice);
   if (options.site) headers.set("sec-fetch-site", options.site);
   const req = new NextRequest(
     `http://localhost/api/reader/${options.id ?? ebookId}/position`,
@@ -84,6 +87,48 @@ beforeEach(() => {
 });
 
 describe("POST /api/reader/[ebookId]/position", () => {
+  it.each([
+    { cookie: null, expectedDevice: device, code: "device_identity_missing" },
+    {
+      cookie: "forged",
+      expectedDevice: device,
+      code: "device_identity_missing",
+    },
+    { cookie: fileId, expectedDevice: device, code: "device_identity_changed" },
+    {
+      cookie: device,
+      expectedDevice: "forged",
+      code: "device_identity_changed",
+    },
+  ])(
+    "refuses captured device mismatch before parsing malformed JSON or accessing DB: $code",
+    async ({ cookie, expectedDevice, code }) => {
+      const [req, params] = request("POST", {
+        cookie,
+        expectedDevice,
+        body: "{",
+      });
+      const parse = vi.spyOn(req, "json");
+      const result = await POST(req, params);
+      expect(result.status).toBe(409);
+      expect(result.headers.get("cache-control")).toBe("no-store");
+      expect(await result.json()).toMatchObject({ code });
+      expect(parse).not.toHaveBeenCalled();
+      for (const query of Object.values(mocks))
+        expect(query).not.toHaveBeenCalled();
+    },
+  );
+  it("accepts the same captured device without changing the original timestamp", async () => {
+    const original = body();
+    const result = await POST(
+      ...request("POST", { body: original, expectedDevice: device }),
+    );
+    expect(result.status).toBe(200);
+    expect(
+      mocks.savePosition.mock.calls[0][0].body.clientUpdatedAt.toISOString(),
+    ).toBe(original.clientUpdatedAt);
+  });
+
   it("saves the place for this device, with its label and a trimmed chapter", async () => {
     const res = await POST(
       ...request("POST", { body: body({ fileId: fileId.toUpperCase() }) }),
