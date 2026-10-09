@@ -139,7 +139,10 @@ def prepare(repo, commit, destination, node, pnpm, public):
     clean_environment(public)
     archive = run(['git', '-C', str(repo), 'archive', '--format=tar', commit], timeout=60)
     with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
-        members = tar.getmembers()
+        # Local direnv instructions are not production build inputs. Record the
+        # exact exclusion; never execute/archive owner shell dotenv behavior.
+        excluded = [m.name for m in tar.getmembers() if m.name == '.envrc']
+        members = [m for m in tar.getmembers() if m.name != '.envrc']
         for member in members:
             parts = Path(member.name).parts
             if member.name.startswith('/') or '..' in parts or member.issym() or member.islnk() or not (member.isfile() or member.isdir()):
@@ -151,7 +154,7 @@ def prepare(repo, commit, destination, node, pnpm, public):
         source.mkdir(mode=0o700)
         tar.extractall(source, members=members, filter='data')
     lock = source / 'pnpm-lock.yaml'
-    state = {**identity, 'node': node, 'pnpm': {**pnpm, 'version': version}, 'lockSha256': file_hash(lock),
+    state = {**identity, 'excludedSourcePaths': excluded, 'node': node, 'pnpm': {**pnpm, 'version': version}, 'lockSha256': file_hash(lock),
              'publicInputsSha256': digest(canonical(public)), 'buildId': commit, 'sourceFiles': snapshot_source(source),
              'productionNextEnv': production_next_env(source)}
     private_json(destination / 'preparation.json', state)

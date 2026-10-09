@@ -19,4 +19,6 @@ Read only the existing owner `/Users/pabloaguirre/personal/durtal/.env.local` in
 
 ## Completion Notes
 
-Twenty-seven focused pure packaging/startup tests pass. Broad retained exact-main gates need no repeat for unchanged app/schema. Build, runtime and mobile evidence will be recorded after execution; source tests alone do not establish delivered phone access. Mac availability depends on power, wake state and owner login/FileVault unlock. Serve rollback removes only the matching new private proxy from the observed empty preimage.
+Twenty-eight focused pure packaging/startup tests pass. Broad retained exact-main gates need no repeat for unchanged app/schema. Build, runtime and mobile evidence will be recorded after execution; source tests alone do not establish delivered phone access. Mac availability depends on power, wake state and owner login/FileVault unlock. Serve rollback removes only the matching new private proxy from the observed empty preimage.
+
+The first archive preparation correctly refused tracked `.envrc` before dependency install. Exclude only that non-production local direnv instruction file, record the exact excluded path in preparation metadata, and keep all application/lockfile source pinned. No environment file is executed or copied. Scoped in-memory IAM preflight independently passed account608240934043/userdurtal-app.

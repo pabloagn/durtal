@@ -426,6 +426,22 @@ class ReleaseTests(unittest.TestCase):
         self.assertNotIn('AWS_PROFILE', calls[0][1]['env'])
         self.assertNotIn('UNRELATED_SECRET', calls[0][1]['env'])
 
+    def test_archive_excludes_direnv_without_executing_or_copying_it(self):
+        import tarfile
+        repo = self.root / 'archive-repo'; repo.mkdir()
+        archive = io.BytesIO()
+        with tarfile.open(fileobj=archive, mode='w') as tar:
+            for name, data in {'.envrc': b'dotenv_if_exists .env.local', 'pnpm-lock.yaml': b'lock', 'next-env.d.ts': NEXT_ENV_DEV}.items():
+                info = tarfile.TarInfo(name); info.size = len(data); tar.addfile(info, io.BytesIO(data))
+        destination = self.root / 'excluded-direnv'
+        with patch.object(release, 'source_identity', return_value={'commit': COMMIT, 'tree': TREE}), \
+                patch.object(release, 'node_identity', return_value=self.node), \
+                patch.object(release, 'executable', return_value={'path': '/pinned/pnpm', 'sha256': 'f' * 64}), \
+                patch.object(release, 'run', side_effect=[b'10.26.1', archive.getvalue()]):
+            state = release.prepare(repo, COMMIT, destination, '/pinned/node', '/pinned/pnpm', {})
+        self.assertEqual(state['excludedSourcePaths'], ['.envrc'])
+        self.assertFalse((destination / 'source/.envrc').exists())
+
     def test_migration_timestamps_must_be_monotonic(self):
         _, source = self.prepared_build()
         path = source / 'src/lib/db/migrations/meta/_journal.json'
