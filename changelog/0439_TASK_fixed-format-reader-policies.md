@@ -198,3 +198,25 @@ including cache eviction, high offsets, shared refresh, unfinished prefetch,
 and a fetch double that ignores abort. Scoped TypeScript, source lint and
 whitespace checks passed. These modules await adapter wiring; no live HTTP,
 browser, large-fixture, performance or build result is claimed.
+
+### Measured-text producer source checkpoint
+
+`pdfTextRuns` defines the exact UTF-16 page text and inter-item separator ranges.
+`measurePdfTextLayer` renders the actual pdf.js TextLayer in an owned,
+layout-active offscreen shadow host, waits for fonts, measures grapheme ranges
+through DOM `getClientRects`, and converts all measured corners through the
+known viewport into PDF user units. It preserves surrogate/grapheme offsets;
+missing/nonfinite/empty geometry stays absent. No proportional subdivision
+of PDF item widths is used. Crop/zoom/rotation apply later through the same
+stored user-unit geometry.
+
+The measurement queue owns one active host. Caller abort can remove/cancel
+only its owned host/layer; it does not touch shared page/document/transport
+or visible-render lifetimes. A cancelled queued delivery cannot allow later
+measurement to overtake the still-active producer. Closing rejects all owners.
+
+Seven focused producer tests passed, zero skips; scoped TypeScript, source
+lint and whitespace checks passed. These tests explicitly use a layout double
+with unequal glyph advances and a ligature. Actual browser font/rotation
+alignment remains required. Provider caching and public adapter APIs are not
+wired in this checkpoint.
