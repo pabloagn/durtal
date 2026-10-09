@@ -95,7 +95,11 @@ describe("precise image revision query contract", () => {
       }
       if (kind === "edition")
         expect(query.sql).toContain(
-          'coalesce("editions"."cover_s3_key", "editions"."thumbnail_s3_key")',
+          'coalesce(nullif("editions"."cover_s3_key", \'\'), nullif("editions"."thumbnail_s3_key", \'\'))',
+        );
+      if (kind === "venue")
+        expect(query.sql).toContain(
+          'coalesce(nullif("venues"."poster_s3_key", \'\'), nullif("venues"."thumbnail_s3_key", \'\'))',
         );
     },
   );

@@ -133,6 +133,7 @@ describe("image presentation action boundaries without a database", () => {
     });
   });
   it("requires a well-formed opaque baseline instead of accepting an unguarded save", async () => {
+    // This remains a validation error, never the typed stale-source result.
     for (const invalid of [undefined, "absent", 0, new Date(), "a".repeat(31)])
       await expect(
         saveImagePresentation(source, {
@@ -142,6 +143,23 @@ describe("image presentation action boundaries without a database", () => {
       ).rejects.toThrow();
     expect(mocks.media).not.toHaveBeenCalled();
     expect(mocks.commit).not.toHaveBeenCalled();
+  });
+  it("reads a venue's thumbnail identity and saved settings when its full key is empty", async () => {
+    mocks.media.mockResolvedValue(undefined);
+    mocks.venues.mockResolvedValue({
+      id: item.id,
+      posterS3Key: "",
+      thumbnailS3Key: item.thumbnailS3Key,
+      revision,
+      storedSettings: { contrast: 137 },
+    });
+    expect(
+      await getImagePresentation(s3ImageSource(item.thumbnailS3Key)),
+    ).toMatchObject({
+      assetKey: item.thumbnailS3Key,
+      revision,
+      settings: { contrast: 137 },
+    });
   });
   it("passes the client's loaded revision to the atomic commit and returns its new revision", async () => {
     const next = "b".repeat(32);
@@ -160,6 +178,49 @@ describe("image presentation action boundaries without a database", () => {
       saveImagePresentation(source, { revision, settings: {} }),
     ).resolves.toEqual({ error: "stale", message: STALE_IMAGE_PRESENTATION });
     expect(mocks.commit).toHaveBeenCalledTimes(1);
+    expect(mocks.atomic).not.toHaveBeenCalled();
+  });
+  it("returns the fixed stale result for a removed source alias without writes", async () => {
+    mocks.media.mockResolvedValue(undefined);
+    await expect(getImagePresentation(source)).rejects.toThrow(
+      "Image not found",
+    );
+    await expect(
+      saveImagePresentation(source, { revision, settings: {} }),
+    ).resolves.toEqual({ error: "stale", message: STALE_IMAGE_PRESENTATION });
+    expect(mocks.atomic).not.toHaveBeenCalled();
+    expect(mocks.build).not.toHaveBeenCalled();
+    expect(mocks.commit).not.toHaveBeenCalled();
+  });
+  it.each(["original", "document"])(
+    "keeps a known %s source unsupported when its display lookup fails",
+    async (kind) => {
+      mocks.media.mockResolvedValue(undefined);
+      if (kind === "original")
+        mocks.media
+          .mockResolvedValueOnce(undefined)
+          .mockResolvedValueOnce({ id: item.id });
+      else
+        mocks.attachments
+          .mockResolvedValueOnce(undefined)
+          .mockResolvedValueOnce({ id: item.id });
+      await expect(
+        saveImagePresentation(source, { revision, settings: {} }),
+      ).rejects.toThrow("Image not found");
+      expect(mocks.atomic).not.toHaveBeenCalled();
+      expect(mocks.commit).not.toHaveBeenCalled();
+    },
+  );
+  it("does not disguise lookup or exclusion-check database failures as stale", async () => {
+    const failure = new Error("Image not found");
+    mocks.media.mockRejectedValueOnce(failure);
+    await expect(
+      saveImagePresentation(source, { revision, settings: {} }),
+    ).rejects.toBe(failure);
+    mocks.media.mockResolvedValueOnce(undefined).mockRejectedValueOnce(failure);
+    await expect(
+      saveImagePresentation(source, { revision, settings: {} }),
+    ).rejects.toBe(failure);
     expect(mocks.atomic).not.toHaveBeenCalled();
   });
   it("keeps monochrome server-enforced, even for hostile color edits", async () => {

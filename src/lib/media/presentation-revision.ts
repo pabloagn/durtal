@@ -78,9 +78,9 @@ function revisionExpression(kind: ImageSubjectKind) {
   // Legacy rows may have only a thumbnail. Match resolveImage's canonical key.
   const assetKey =
     kind === "edition"
-      ? sql`coalesce(${editions.coverS3Key}, ${editions.thumbnailS3Key})`
+      ? sql`coalesce(nullif(${editions.coverS3Key}, ''), nullif(${editions.thumbnailS3Key}, ''))`
       : kind === "venue"
-        ? sql`coalesce(${venues.posterS3Key}, ${venues.thumbnailS3Key})`
+        ? sql`coalesce(nullif(${venues.posterS3Key}, ''), nullif(${venues.thumbnailS3Key}, ''))`
         : sql`${key}`;
   const settingsRow = sql`(select to_jsonb(a) from image_adjustments a where a.asset_key = ${assetKey})`;
   const ownerKind =

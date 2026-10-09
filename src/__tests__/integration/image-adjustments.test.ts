@@ -440,6 +440,41 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
     expect(current.settings).toEqual(saved.value.settings);
   });
 
+  it("shares the thumbnail canonical identity for a venue with an empty full key and rejects stale saves", async () => {
+    const thumbnail = "gold/media/fixture/venue_thumb.webp";
+    await db.insert(schema.venues).values({
+      name: "Thumbnail-only venue",
+      type: "bookshop",
+      posterS3Key: "",
+      thumbnailS3Key: thumbnail,
+    });
+    const source = s3ImageSource(thumbnail);
+    const first = await getImagePresentation(source);
+    expect(first.assetKey).toBe(thumbnail);
+    const saved = await saveWithRevision(source, {
+      revision: first.revision,
+      settings: { contrast: 137 },
+    });
+    const current = await getImagePresentation(source);
+    expect(saved.assetKey).toBe(thumbnail);
+    expect(current.settings.contrast).toBe(137);
+    expect(current.revision).toBe(saved.revision);
+    expect(current.revision).not.toBe(first.revision);
+    await expect(
+      savePresentationAction(source, {
+        revision: first.revision,
+        settings: { contrast: 190 },
+      }),
+    ).resolves.toMatchObject({
+      error: "stale",
+      message: expect.stringContaining("Reload and review"),
+    });
+    expect(await getImagePresentation(source)).toEqual(current);
+    const rows = await db.select().from(schema.imageAdjustments);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].assetKey).toBe(thumbnail);
+  });
+
   it("retains sub-millisecond revision precision and rejects a settings-only stale save", async () => {
     const item = await poster();
     const source = s3ImageSource(item.s3Key);
@@ -545,6 +580,50 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
       settings: { contrast: 110 },
       crop: { cropX, cropY, cropZoom },
     });
+
+  it("returns the typed stale result after re-cropping removes the editor's former display alias", async () => {
+    const { item } = await croppablePoster();
+    const first = await cropTo(s3ImageSource(item.s3Key), 0, 0, 200);
+    const formerSource = s3ImageSource(first.assetKey);
+    const loaded = await getImagePresentation(formerSource);
+    const second = await cropTo(formerSource, 100, 100, 200);
+    const currentRow = await row(item.id);
+    const current = await getImagePresentation(s3ImageSource(second.assetKey));
+    const keys = [...store.keys()].sort();
+    expect(store.has(first.assetKey)).toBe(false);
+    await expect(getImagePresentation(formerSource)).rejects.toThrow(
+      "Image not found",
+    );
+    await expect(
+      savePresentationAction(formerSource, {
+        revision: loaded.revision,
+        settings: { brightness: 190 },
+      }),
+    ).resolves.toMatchObject({
+      error: "stale",
+      message: expect.stringContaining("Reload and review"),
+    });
+    expect(await row(item.id)).toEqual(currentRow);
+    expect(await getImagePresentation(s3ImageSource(second.assetKey))).toEqual(
+      current,
+    );
+    expect([...store.keys()].sort()).toEqual(keys);
+  });
+
+  it("does not turn an author color-original save into a stale-source result", async () => {
+    const { item } = await croppablePoster(true);
+    const loaded = await getImagePresentation(s3ImageSource(item.s3Key));
+    await expect(
+      savePresentationAction(s3ImageSource(item.originalS3Key!), {
+        revision: loaded.revision,
+        settings: {},
+      }),
+    ).rejects.toThrow("Image not found");
+    expect(
+      (await getImagePresentation(s3ImageSource(item.s3Key))).revision,
+    ).toBe(loaded.revision);
+    expect(await getImageAdjustmentStyles()).toEqual([]);
+  });
 
   it("rolls back a stale crop/settings save and cleans newly built files without altering originals", async () => {
     const { item, image } = await croppablePoster();

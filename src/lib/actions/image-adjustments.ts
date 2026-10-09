@@ -45,6 +45,13 @@ import {
   displayedCrop,
 } from "@/lib/media/display";
 
+/** Only exhausted registered-source lookup, never a database/validation failure. */
+class MissingImageError extends Error {
+  constructor(readonly key: string) {
+    super("Image not found");
+  }
+}
+
 /** The stored image behind an editor source. E-book covers have no adjustments. */
 async function resolveImage(source: string): Promise<{
   assetKey: string;
@@ -111,7 +118,7 @@ async function resolveImage(source: string): Promise<{
   else if (edition) keys = [edition.coverS3Key, edition.thumbnailS3Key];
   else if (venue) keys = [venue.posterS3Key, venue.thumbnailS3Key];
   else if (attachment) keys = [attachment.s3Key];
-  else throw new Error("Image not found");
+  else throw new MissingImageError(key);
   const validKeys = [...new Set(keys.filter((k): k is string => !!k))];
   const found = author ?? edition ?? venue ?? attachment!;
   return {
@@ -219,7 +226,30 @@ async function savePresentation(
   input: z.input<typeof presentationSchema>,
 ): Promise<StoredImageAdjustments & { revision: string }> {
   const data = presentationSchema.parse(input);
-  const asset = await resolveImage(source);
+  let asset: Awaited<ReturnType<typeof resolveImage>>;
+  try {
+    asset = await resolveImage(source);
+  } catch (error) {
+    if (!(error instanceof MissingImageError)) throw error;
+    // A removed crop/reprocess alias cannot resolve to a current row. With a
+    // valid loaded revision this is a reload/review outcome, never a write.
+    // Known originals/documents remain explicitly unsupported even on Save.
+    const [original, document] = await Promise.all([
+      db.query.media.findFirst({
+        where: eq(media.originalS3Key, error.key),
+        columns: { id: true },
+      }),
+      db.query.commentAttachments.findFirst({
+        where: and(
+          eq(commentAttachments.s3Key, error.key),
+          eq(commentAttachments.isImage, false),
+        ),
+        columns: { id: true },
+      }),
+    ]);
+    if (original || document) throw new Error("Image not found");
+    throw new Error(STALE_IMAGE_PRESENTATION);
+  }
   const item = asset.media;
   const policy = item ? await editorPolicy(item) : null;
   if (data.crop && !policy?.supportsCrop)
