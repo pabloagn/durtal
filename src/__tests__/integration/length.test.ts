@@ -6,7 +6,7 @@ import { asc } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 import { works } from "@/lib/db/schema";
 import { getWorkPages, pageRangeCondition, pagesUnknownCondition } from "@/lib/enrichment/pages";
-import { assertReadOnly, readOnlySession } from "@/lib/enrichment/read-only-session";
+import { assertReadOnly, withReadOnlyPlanningConnection } from "@/lib/enrichment/read-only-session";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_LENGTH_TEST_DATABASE_URL;
@@ -132,9 +132,7 @@ describe.skipIf(!url)("the page rule with PostgreSQL", () => {
   });
 
   it("proves the plan's session refuses a write", async () => {
-    const session = readOnlySession(url!);
-    await expect(assertReadOnly(session)).resolves.toBeUndefined();
-    await session.end();
-    await expect(assertReadOnly(db)).rejects.toThrow("accepted a write");
+    await expect(withReadOnlyPlanningConnection(url!, (connection) => getWorkPages(connection, [ids.unknown]))).resolves.toBeInstanceOf(Map);
+    await expect(db.begin("read write", (transaction) => assertReadOnly(transaction))).rejects.toThrow("not read-only");
   });
 });

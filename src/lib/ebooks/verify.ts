@@ -5,6 +5,7 @@ import type { Db } from "@/lib/catalogue/work-store";
 import { atomicOn } from "@/lib/db/atomic";
 import { ebookFiles, ebookIngestItems, ebookIngestRuns } from "@/lib/db/schema";
 import { recentBackup } from "@/lib/enrichment/backup";
+import { withReadOnlyEbookStorage } from "./read-only-storage";
 import { medallionOf } from "./medallion";
 import { verifyPublication } from "./publication";
 import { ebooksPrefix, parseStageKey } from "./keys";
@@ -50,6 +51,11 @@ export interface VerifyReport {
   unreferenced: EbookListedObject[];
   /** The same, younger than a day: uploads whose rows may still come */
   inFlight: EbookListedObject[];
+}
+
+/** Missing/differing rows and mature orphans need attention; in-flight objects do not. */
+export function verificationHasExceptions(report: VerifyReport): boolean {
+  return report.rows.some((row) => row.outcome !== "verified") || report.unreferenced.length > 0;
 }
 
 /**
@@ -218,7 +224,9 @@ export function verificationReport(report: VerifyReport, applied?: { verified: n
 export async function runEbookVerification(options: { database: Db; apply: boolean; backup?: string; reportDir: string; host?: string; now?: number }) {
   if (options.apply && !recentBackup(options.backup, options.now))
     throw new Error("--apply needs --backup FILE: a pg_dump custom-format backup taken in the last hour");
-  const report = await verifyEbookStorage(options.database, options.now);
+  const report = options.apply
+    ? await verifyEbookStorage(options.database, options.now)
+    : await withReadOnlyEbookStorage(() => verifyEbookStorage(options.database, options.now));
   const applied = options.apply ? await applyEbookVerification(options.database, report) : undefined;
   if (applied) await recordVerification(options.database, report, applied, options.host ?? null);
   const { markdown, csv } = verificationReport(report, applied);

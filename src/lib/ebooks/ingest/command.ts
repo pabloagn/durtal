@@ -6,6 +6,7 @@ import type { Db } from "@/lib/catalogue/work-store";
 import { readUndoLog } from "@/lib/books/undo-file";
 import { recentBackup } from "@/lib/enrichment/backup";
 import { previewS3Dir } from "@/lib/s3/preview-dir";
+import { withReadOnlyEbookStorage } from "../read-only-storage";
 import { ebookStorage, ebookCredentialIdentity, isNoSuchBucket, listEbookInventory } from "../storage";
 import { planIngest, type IngestPlan, type PlanOptions, type PlanTarget } from "./plan";
 import { reconcileIngest, type ReconcileOptions } from "./reconcile";
@@ -75,23 +76,25 @@ const stampOf = (at: string) => at.replace(/[:.]/g, "-");
  * for an empty one, and says so.
  */
 export async function planCommand(options: Omit<PlanOptions, "storedKeys"> & { roots: string[]; reportDir: string }) {
-  let bucketMissing = false;
-  const storedKeys = new Set<string>();
-  try {
-    for (const object of await listEbookInventory()) storedKeys.add(object.key);
-  } catch (error) {
-    if (!isNoSuchBucket(error)) throw error;
-    bucketMissing = true;
-  }
-  const plan = await planIngest(options.roots, { ...options, storedKeys });
-  mkdirSync(options.reportDir, { recursive: true });
-  const base = path.join(options.reportDir, `ingest-${stampOf(plan.createdAt)}`);
-  const files = { markdown: `${base}.md`, csv: `${base}.csv`, plan: `${base}.plan.json` };
-  const { markdown, csv } = planReport(plan, files.plan, { bucketMissing });
-  writeFileSync(files.plan, JSON.stringify(plan));
-  writeFileSync(files.markdown, markdown);
-  writeFileSync(files.csv, csv);
-  return { plan, files, notSetUp: bucketMissing ? bucketMissingLine(plan.target.bucket) : null };
+  return withReadOnlyEbookStorage(async () => {
+    let bucketMissing = false;
+    const storedKeys = new Set<string>();
+    try {
+      for (const object of await listEbookInventory()) storedKeys.add(object.key);
+    } catch (error) {
+      if (!isNoSuchBucket(error)) throw error;
+      bucketMissing = true;
+    }
+    const plan = await planIngest(options.roots, { ...options, storedKeys });
+    mkdirSync(options.reportDir, { recursive: true });
+    const base = path.join(options.reportDir, `ingest-${stampOf(plan.createdAt)}`);
+    const files = { markdown: `${base}.md`, csv: `${base}.csv`, plan: `${base}.plan.json` };
+    const { markdown, csv } = planReport(plan, files.plan, { bucketMissing });
+    writeFileSync(files.plan, JSON.stringify(plan));
+    writeFileSync(files.markdown, markdown);
+    writeFileSync(files.csv, csv);
+    return { plan, files, notSetUp: bucketMissing ? bucketMissingLine(plan.target.bucket) : null };
+  });
 }
 
 /** One line for the terminal */
@@ -106,11 +109,13 @@ export function planLine(plan: IngestPlan): string {
 
 /** Reconciles and writes reports/ebooks/reconcile-<timestamp>.md. Reads only. */
 export async function reconcileCommand(options: ReconcileOptions & { reportDir: string }) {
-  const reconciliation = await reconcileIngest(options);
-  mkdirSync(options.reportDir, { recursive: true });
-  const file = path.join(options.reportDir, `reconcile-${stampOf(reconciliation.at)}.md`);
-  writeFileSync(file, reconcileReport(reconciliation));
-  return { reconciliation, file };
+  return withReadOnlyEbookStorage(async () => {
+    const reconciliation = await reconcileIngest(options);
+    mkdirSync(options.reportDir, { recursive: true });
+    const file = path.join(options.reportDir, `reconcile-${stampOf(reconciliation.at)}.md`);
+    writeFileSync(file, reconcileReport(reconciliation));
+    return { reconciliation, file };
+  });
 }
 
 export interface UndoHeader {

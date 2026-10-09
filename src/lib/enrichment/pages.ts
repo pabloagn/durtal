@@ -70,7 +70,7 @@ export function pagesUnknownCondition({ locationId }: PageOptions): SQL {
  * available copy there has no entry.
  */
 export async function getWorkPages(
-  database: PgDatabase<PgQueryResultHKT>,
+  database: Pick<PgDatabase<PgQueryResultHKT>, "select" | "execute">,
   workIds: string[],
   { locationId }: PageOptions = {},
 ): Promise<Map<string, WorkPages>> {
