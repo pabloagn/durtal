@@ -291,6 +291,112 @@ describe("pure speech player lifecycle", () => {
       current: sentence(1),
     });
   });
+  it.each(["previous", "next"] as const)(
+    "gives a newly prepared %s sentence its own one retry after a previous voice failure",
+    (direction) => {
+      const p = setup(null);
+      p.send({ kind: "play" });
+      const original = p.token();
+      p.send({ kind: "started", token: original });
+      p.send({ kind: "error", token: original, error: "synthesis-failed" });
+      const oldRetry = p.token();
+      expect(p.state().retry).toBe(1);
+
+      p.send({ kind: "skip", direction });
+      const preparationGeneration = p.state().generation;
+      const target = sentence(direction === "previous" ? 0 : 2);
+      p.send({
+        kind: "prepared",
+        generation: preparationGeneration,
+        current: target,
+      });
+      const newToken = p.token();
+      expect(p.state().current).toEqual(target);
+      expect(p.state().retry).toBe(0);
+      for (const token of [original, oldRetry]) {
+        expect(p.send({ kind: "started", token })).toEqual([]);
+        expect(p.send({ kind: "ended", token })).toEqual([]);
+        expect(
+          p.send({ kind: "error", token, error: "synthesis-failed" }),
+        ).toEqual([]);
+      }
+
+      p.send({ kind: "started", token: newToken });
+      const retry = p.send({
+        kind: "error",
+        token: newToken,
+        error: "synthesis-failed",
+      });
+      expect(retry.find((c) => c.kind === "speak")).toMatchObject({
+        segment: target,
+      });
+      expect(p.state().retry).toBe(1);
+      const retryToken = p.token();
+      expect(retryToken).not.toEqual(newToken);
+      expect(
+        p.send({ kind: "error", token: newToken, error: "synthesis-failed" }),
+      ).toEqual([]);
+      p.send({ kind: "started", token: retryToken });
+      const failure = p.send({
+        kind: "error",
+        token: retryToken,
+        error: "synthesis-failed",
+      });
+      expect(failure.some((c) => c.kind === "speak")).toBe(false);
+      expect(p.state()).toMatchObject({
+        phase: "paused",
+        current: target,
+        retry: 1,
+        message: SPEECH_VOICE_FAILURE,
+      });
+
+      const paused = p.state();
+      expect(
+        p.send({
+          kind: "prepared",
+          generation: preparationGeneration,
+          current: sentence(3),
+        }),
+      ).toEqual([]);
+      expect(
+        p.send({
+          kind: "successor",
+          generation: retryToken.generation,
+          after: target.locator,
+          segment: sentence(3),
+        }),
+      ).toEqual([]);
+      expect(p.send({ kind: "started", token: retryToken })).toEqual([]);
+      expect(p.send({ kind: "ended", token: retryToken })).toEqual([]);
+      expect(
+        p.send({ kind: "error", token: retryToken, error: "synthesis-failed" }),
+      ).toEqual([]);
+      expect(p.state()).toBe(paused);
+    },
+  );
+  it("retains the one-retry limit when adjacency preparation returns the same sentence", () => {
+    const p = setup(null);
+    p.send({ kind: "play" });
+    p.send({ kind: "started", token: p.token() });
+    p.send({ kind: "error", token: p.token(), error: "synthesis-failed" });
+    p.send({ kind: "skip", direction: "previous" });
+    p.send({
+      kind: "prepared",
+      generation: p.state().generation,
+      current: sentence(1),
+    });
+    expect(p.state().retry).toBe(1);
+    p.send({ kind: "started", token: p.token() });
+    expect(
+      p
+        .send({ kind: "error", token: p.token(), error: "synthesis-failed" })
+        .some((c) => c.kind === "speak"),
+    ).toBe(false);
+    expect(p.state()).toMatchObject({
+      phase: "paused",
+      message: SPEECH_VOICE_FAILURE,
+    });
+  });
   it.each(["canceled", "interrupted"])(
     "does not retry a current %s error",
     (error) => {

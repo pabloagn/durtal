@@ -257,6 +257,11 @@ export function transitionSpeechPlayer(
         phase: "ready",
         preparation: null,
         current: action.current,
+        retry:
+          state.current &&
+          sameSentence(state.current.locator, action.current.locator)
+            ? state.retry
+            : 0,
         previous: action.previous ?? null,
         next: action.next ?? null,
         exhausted: action.exhausted === true && !action.next,
