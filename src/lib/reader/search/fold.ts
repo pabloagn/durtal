@@ -44,11 +44,11 @@ export function safeLocale(language?: string | null): string {
 }
 
 /** Preserve whole graphemes through decomposition, expansion and case folding. */
-export function foldForSearch(
+export function* foldSearchSteps(
   text: string,
   options: Pick<SearchOptions, "matchCase" | "matchAccents">,
   language?: string | null,
-): Folded {
+): Generator<void, Folded> {
   const locale = safeLocale(language);
   const segmenter = new Intl.Segmenter(locale, { granularity: "grapheme" });
   const parts: string[] = [];
@@ -57,7 +57,12 @@ export function foldForSearch(
   let to = new Uint32Array(text.length + 1);
   let length = 0;
   let previousSpace = false;
+  let steps = 0;
   for (const { segment, index } of segmenter.segment(text)) {
+    if (++steps === 2048) {
+      steps = 0;
+      yield;
+    }
     const end = index + segment.length;
     // Resolve compatibility capitals (including non-BMP mathematical letters)
     // before casing. Keep dotted I composed for Turkish locale casing, then
@@ -107,6 +112,18 @@ export function foldForSearch(
     from: from.slice(0, length),
     to: to.slice(0, length),
   };
+}
+
+/** Synchronous policy API; workers consume the same steps across task boundaries. */
+export function foldForSearch(
+  text: string,
+  options: Pick<SearchOptions, "matchCase" | "matchAccents">,
+  language?: string | null,
+): Folded {
+  const steps = foldSearchSteps(text, options, language);
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
 }
 
 export function minQueryLength(language?: string | null): number {

@@ -17,7 +17,7 @@ Nothing is copied from the Readest app itself (AGPL).
 * `LICENSE`
 * `comic-book.js`, `epub.js`, `epubcfi.js`, `fb2.js`, `fixed-layout.js`,
   `mobi.js`, `overlayer.js`, `paginator.js`, `pdf.js`, `progress.js`,
-  `search.js`, `text-walker.js`, `tts.js`, `view.js`
+  `search.js`, `text-walker.js`, `tts.js`, `view.js`, `footnotes.js`
 * `vendor/zip.js` with `vendor/zip.js.LICENSE` (BSD 3-Clause, Gildas Lormeau 2023)
 * `vendor/fflate.js` with `vendor/fflate.js.LICENSE` (MIT, Arjun Barrett 2023)
 * `pdfjs-css/text_layer_builder.css` and `pdfjs-css/annotation_layer_builder.css`
@@ -57,6 +57,23 @@ Each patch is marked in the code with a `Durtal patch N (VENDORED.md)` comment.
    creating another whole-section DOM. KF8 retains raw fragment identifiers
    alongside its existing selectors, so Kindle-addressed contents anchors
    use their markup offsets too.
+
+7. `epub.js`: `createDocument({signal})` uses the optional loader's
+   `loadTextOwned` for pristine search/note acquisition. Shared renderer reads
+   retain their own lifetime. The original document parser and content are kept.
+8. `view.js`: `foliate-search:` marks use the requested theme colour, outline
+   other hits and highlight the current hit at 35% opacity. Search values are
+   independent of history (`foliate-note:`) and ordinary annotation CFIs. Link
+   events also carry keyboard activation for app-owned note focus behavior.
+9. `footnotes.js`: copied from the exact pinned commit
+   `08db61054bd5bc21f244c6ad128f103b6427b03c`; unpatched SHA-256
+   `733fd1fab6e1fc752aa7159836997f3ce692816edd820f5b590fc10e8d2d0d40`
+   (Git blob `00870d9d9f4a6e1bdd9a8d44f4e313f9f0aa461c`). Export
+   `isFootnoteReference`, `getReferencedType` and `locateNote`; the last reuses
+   the upstream fragment extent decisions without extracting/mutating the
+   pristine document. A detached reference's missing parent is guarded. The
+   original `FootnoteHandler` is retained. Existing MIT `LICENSE` is unchanged
+   (SHA-256 `b621ffc351fe263bc9b09dd0bc1c9332fda9c462a3904c1e4f0b4d3236b9c28c`).
 
 ## Updating
 

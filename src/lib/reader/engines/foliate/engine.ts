@@ -1,3 +1,10 @@
+import type { PdfSearchProvider } from "./search";
+import { createNotes } from "./notes";
+import type { SearchRequest, SearchUpdate } from "../../search/types";
+import {
+  classifyReaderLink,
+  EXTERNAL_WINDOW_FEATURES,
+} from "../../links/policy";
 import type {
   BookInfo,
   BookSource,
@@ -135,6 +142,19 @@ class FoliateEngine implements ReaderEngine {
   #presentation: Presentation | null = null;
   #marginalia: Marginalia | null = null;
   #historyMarks: string[] = [];
+  #searchAbort: AbortController | null = null;
+  // Bind SLN-502's accepted opened PdfSession here, with its text-layer CSS.
+  // Until that source lands, PDF search explicitly surfaces the missing producer.
+  #pdfSearchProvider: PdfSearchProvider | undefined;
+  #searchMarks: { cfi: string; color: string; current?: boolean }[] = [];
+  #searchMarkEpoch = 0;
+  #searchMarkWork: Promise<void> = Promise.resolve();
+  #paintedSearchMarks: string[] = [];
+  #documents = new WeakMap<Document, number>();
+  #blockedLinkLogged = false;
+  #notes: ReturnType<typeof createNotes> | null = null;
+  #mediaDocs = new Set<WeakRef<Document>>();
+  #mediaDetach = new WeakMap<Document, () => void>();
   #markEpoch = 0;
   #markTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -275,6 +295,21 @@ class FoliateEngine implements ReaderEngine {
     }
     if (this.#destroyed) return { resolved: null };
     this.#book = book;
+    this.#notes = createNotes({
+      book,
+      document: container.ownerDocument,
+      getCFI: (index, range) => this.#view!.getCFI(index, range),
+      readingFont: () => ({
+        fontFamily: this.#presentation?.fontFamily ?? "Georgia, serif",
+        fontFaces: this.#presentation?.fontFaces ?? "",
+      }),
+      readingBusy: () => this.#turning > 0 || this.#jumping > 0,
+      resolve: (href) =>
+        href.startsWith("epubcfi(")
+          ? this.#view?.resolveNavigation(href)
+          : undefined,
+      publish: (note) => this.#emit("note", note),
+    });
     await import("@/vendor/foliate-js/view.js");
     const view = document.createElement("foliate-view") as FoliateView;
     view.style.display = "block";
@@ -292,19 +327,38 @@ class FoliateEngine implements ReaderEngine {
       const { href, a } = (e as CustomEvent<{ href: string; a?: Element }>)
         .detail;
       let originMark: string | undefined;
-      if (a && this.#locator) {
+      if (a) {
         const range = a.ownerDocument.createRange();
         range.selectNodeContents(a);
-        originMark = view.getCFI(this.#locator.sectionIndex, range);
+        const index = this.#documents.get(a.ownerDocument);
+        if (index != null) originMark = view.getCFI(index, range);
       }
-      this.#emit("link", { href, external: false, originMark });
+      const policy = classifyReaderLink(href);
+      if (policy.kind === "external") {
+        window.open(policy.href, "_blank", EXTERNAL_WINDOW_FEATURES);
+        this.#emit("link", { href: policy.href, external: true });
+      } else if (policy.kind === "internal") {
+        void this.showNote(href, {
+          reference: a,
+          originMark,
+          keyboard: (e as CustomEvent<{ keyboard?: boolean }>).detail.keyboard,
+        }).then((shown) => {
+          if (!shown && !this.#destroyed)
+            this.#emit("link", { href, external: false, originMark });
+        });
+      } else this.#blockedLink();
     });
     view.addEventListener("external-link", (e) => {
       // Opened in a new tab with no reference back to the reader
       e.preventDefault();
       const { href } = (e as CustomEvent<{ href: string }>).detail;
-      this.#emit("link", { href, external: true });
-      window.open(href, "_blank", "noopener,noreferrer");
+      const policy = classifyReaderLink(href);
+      if (policy.kind !== "external") {
+        this.#blockedLink();
+        return;
+      }
+      this.#emit("link", { href: policy.href, external: true });
+      window.open(policy.href, "_blank", EXTERNAL_WINDOW_FEATURES);
     });
     container.append(view);
     this.#view = view;
@@ -392,6 +446,14 @@ class FoliateEngine implements ReaderEngine {
 
   destroy() {
     this.#destroyed = true;
+    this.#searchAbort?.abort();
+    this.#notes?.destroy();
+    this.#notes = null;
+    for (const ref of this.#mediaDocs) {
+      const doc = ref.deref();
+      if (doc) this.#mediaDetach.get(doc)?.();
+    }
+    this.#mediaDocs.clear();
     if (this.#selectionTimer) clearTimeout(this.#selectionTimer);
     if (this.#markTimer) clearTimeout(this.#markTimer);
     this.#view?.close();
@@ -461,6 +523,7 @@ class FoliateEngine implements ReaderEngine {
     const origin =
       detail.range && !this.#isPdf() ? visibleOriginRange(detail.range) : null;
     this.#writeMarginalia();
+    this.#drawSearchMarks();
     this.#emit("relocate", {
       locator,
       chapter: detail.tocItem?.label?.trim() || null,
@@ -516,7 +579,121 @@ class FoliateEngine implements ReaderEngine {
     }
   }
 
-  #onLoad({ doc }: { doc: Document; index: number }) {
+  noteReference(href: string): DurtalLocator | null {
+    const reference = this.#notes?.reference(href);
+    if (!reference || !this.#source || !this.#info) return null;
+    const section = this.#info.sections[reference.index];
+    return {
+      v: 1,
+      fileHash: this.#source.sha256,
+      href: section.href,
+      sectionIndex: reference.index,
+      cfi: reference.cfi,
+      progression: 0,
+      totalProgression: section.start,
+    };
+  }
+  showNote(
+    href: string,
+    options?: {
+      reference?: Element;
+      originMark?: string;
+      keyboard?: boolean;
+      force?: boolean;
+    },
+  ) {
+    const reference = !options?.reference ? this.#notes?.reference(href) : null;
+    if (reference && this.#view) {
+      const navigation = this.#view.resolveNavigation(reference.cfi);
+      const doc = this.#view.renderer
+        .getContents()
+        .find((entry) => entry.index === reference.index)?.doc;
+      const target = doc && navigation?.anchor?.(doc);
+      const element =
+        target && "startContainer" in target
+          ? target.startContainer.parentElement
+          : (target as Element | null);
+      const a = element?.closest("a[href]") ?? undefined;
+      options = { ...options, reference: a, originMark: reference.cfi };
+    }
+    return this.#notes?.open(href, options) ?? Promise.resolve(false);
+  }
+  closeNote() {
+    this.#notes?.close();
+  }
+
+  #blockedLink() {
+    if (this.#blockedLinkLogged) return;
+    this.#blockedLinkLogged = true;
+    console.warn("[reader] Blocked unsafe book link.");
+  }
+
+  async *search(request: SearchRequest): AsyncGenerator<SearchUpdate> {
+    this.#searchAbort?.abort();
+    const controller = new AbortController();
+    this.#searchAbort = controller;
+    const abort = () => controller.abort();
+    request.signal.addEventListener("abort", abort, { once: true });
+    if (request.signal.aborted) controller.abort();
+    try {
+      if (
+        !this.#book ||
+        !this.#view ||
+        !this.#info ||
+        !this.#source ||
+        this.#destroyed
+      )
+        return;
+      const { searchBook } = await import("./search");
+      yield* searchBook(
+        {
+          book: this.#book,
+          view: this.#view,
+          info: this.#info,
+          fileHash: this.#source.sha256,
+          pdf: this.#isPdf(),
+          pdfProvider: this.#pdfSearchProvider,
+          current: this.#locator,
+          rememberDocument: (doc, index, signal) =>
+            this.#notes?.remember(doc, index, signal) ?? Promise.resolve(),
+          noPdfText: () => {
+            if (!this.#info || controller.signal.aborted) return;
+            this.#info.capabilities.search = false;
+            this.#emit("capabilities", { ...this.#info.capabilities });
+          },
+        },
+        { ...request, signal: controller.signal },
+      );
+    } finally {
+      controller.abort();
+      request.signal.removeEventListener("abort", abort);
+      if (this.#searchAbort === controller) this.#searchAbort = null;
+    }
+  }
+
+  #onLoad({ doc, index }: { doc: Document; index: number }) {
+    this.#documents.set(doc, index);
+    this.#notes?.prefetch(doc, index);
+    void import("../../media/document").then(({ attachReaderMedia }) => {
+      if (this.#destroyed || this.#mediaDetach.has(doc)) return;
+      const detach = attachReaderMedia(doc, (media) => {
+        this.closeNote();
+        this.#emit("media", media);
+      });
+      this.#mediaDetach.set(doc, detach);
+      for (const old of this.#mediaDocs)
+        if (!old.deref()) this.#mediaDocs.delete(old);
+      this.#mediaDocs.add(new WeakRef(doc));
+    });
+    for (const a of doc.querySelectorAll("a[href]")) {
+      if (classifyReaderLink(a.getAttribute("href") ?? "").kind !== "external")
+        continue;
+      a.setAttribute("data-durtal-external", "");
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener noreferrer");
+      a.setAttribute("aria-description", "Opens in a new tab");
+    }
+    this.#drawSearchMarks();
     this.#images?.fill(doc);
     this.#emit("document", { doc });
     doc.addEventListener("keydown", (event) => {
@@ -645,6 +822,7 @@ class FoliateEngine implements ReaderEngine {
   }
 
   async goTo(target: GoToTarget, owner?: NavigationOwner): Promise<void> {
+    this.closeNote();
     const view = this.#view;
     if (!view || this.#destroyed) throw new Error("The book is closed.");
     if (owner?.signal.aborted)
@@ -866,9 +1044,14 @@ class FoliateEngine implements ReaderEngine {
     draw(renderer.feet, lines?.foot);
   }
   setDecorations(
-    _group: "history",
-    decorations: { cfi: string; color: string }[],
+    group: "history" | "search",
+    decorations: { cfi: string; color: string; current?: boolean }[],
   ) {
+    if (group === "search") {
+      this.#searchMarks = decorations;
+      this.#drawSearchMarks();
+      return;
+    }
     const epoch = ++this.#markEpoch;
     if (this.#markTimer) {
       clearTimeout(this.#markTimer);
@@ -927,12 +1110,69 @@ class FoliateEngine implements ReaderEngine {
     });
   }
 
+  #drawSearchMarks() {
+    const view = this.#view;
+    const epoch = ++this.#searchMarkEpoch;
+    if (!view || this.#destroyed) return;
+    const marks = [...this.#searchMarks].sort(
+      (a, b) => Number(!!b.current) - Number(!!a.current),
+    );
+    // Serialize removal and addition. A stale add cannot revive marks after Close.
+    this.#searchMarkWork = this.#searchMarkWork
+      .catch(() => {})
+      .then(async () => {
+        if (
+          this.#view !== view ||
+          this.#destroyed ||
+          epoch !== this.#searchMarkEpoch
+        )
+          return;
+        for (const value of this.#paintedSearchMarks)
+          await view.addAnnotation({ value, group: "search" }, true);
+        this.#paintedSearchMarks = [];
+        const counts = new Map<number, number>();
+        const { yieldReaderTask } = await import("../../search/task");
+        const controller = new AbortController();
+        let budget = performance.now();
+        for (const item of marks) {
+          if (
+            this.#view !== view ||
+            this.#destroyed ||
+            epoch !== this.#searchMarkEpoch
+          )
+            return;
+          const index = view.resolveNavigation(item.cfi)?.index;
+          if (index == null || (counts.get(index) ?? 0) >= 500) continue;
+          counts.set(index, (counts.get(index) ?? 0) + 1);
+          const value = "foliate-search:" + item.cfi;
+          await view.addAnnotation({
+            value,
+            group: "search",
+            color:
+              item.color === "link"
+                ? this.#presentation?.colors.link
+                : item.color,
+            current: item.current,
+          });
+          this.#paintedSearchMarks.push(value);
+          if (performance.now() - budget >= 8) {
+            await yieldReaderTask(controller.signal);
+            budget = performance.now();
+          }
+        }
+      })
+      .catch(() => {
+        /* A failed outline never disables result navigation. */
+      });
+  }
+
   async #turn(
     direction: "next" | "prev" | "goLeft" | "goRight",
     owner?: NavigationOwner,
   ) {
     if (owner?.signal.aborted)
       throw new DOMException("Cancelled", "AbortError");
+    this.closeNote();
     this.#owner = owner;
     this.#turning++;
     try {

@@ -29,6 +29,7 @@ beforeEach(() => {
     toggleBars: fn(),
     contents: fn(),
     settings: fn(),
+    search: fn(),
     fullscreen: fn(),
     goto: fn(),
     chapter: fn(),
@@ -69,6 +70,19 @@ const key = (
 };
 
 describe("keys", () => {
+  it("opens book search from the book, leaves a second Mod+F in the search field to the browser", () => {
+    expect(key("/", {}).defaultPrevented).toBe(true);
+    expect(key("f", { ctrlKey: true }).defaultPrevented).toBe(true);
+    expect(actions.search).toHaveBeenCalledTimes(2);
+    const root = document.createElement("div");
+    root.setAttribute("data-reader-search", "");
+    const field = document.createElement("input");
+    root.append(field);
+    document.body.append(root);
+    expect(key("f", { metaKey: true }, field).defaultPrevented).toBe(false);
+    expect(key("/", {}, field).defaultPrevented).toBe(false);
+    expect(actions.search).toHaveBeenCalledTimes(2);
+  });
   it("turns with the arrows, space, page keys, Home and End", () => {
     expect(key("ArrowRight").defaultPrevented).toBe(true);
     key("ArrowLeft");

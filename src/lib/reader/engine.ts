@@ -1,3 +1,5 @@
+import type { ReaderMedia } from "./media/content";
+import type { SearchRequest, SearchUpdate } from "./search/types";
 /**
  * The reader's engine interface (eBooks sub-issue 3, the epic's contract).
  * Everything in the reader talks to a ReaderEngine; only the foliate adapter
@@ -139,7 +141,20 @@ export type OpenErrorKind = "damaged" | "unsupported" | "network" | "expired";
 /** Reading input, layout adjustment, and automatic speech movement have different publication rules. */
 export type RelocationOrigin = "human" | "layout" | "speech";
 
+export interface ReaderNote {
+  kind: "Footnote" | "Endnote" | "Note" | "Bibliography" | "Definition";
+  fontFamily?: string;
+  fontFaces?: string;
+  content: DocumentFragment;
+  href: string;
+  originMark?: string;
+  keyboard: boolean;
+  reference?: HTMLElement;
+  anchor: { left: number; right: number; top: number; bottom: number } | null;
+}
 export interface EngineEvents {
+  note: ReaderNote | null;
+  media: ReaderMedia;
   ready: BookInfo & { toc: TocItem[] };
   relocate: {
     locator: DurtalLocator;
@@ -164,6 +179,7 @@ export interface EngineEvents {
     keyboard: boolean;
   } | null;
   link: { href: string; external: boolean; originMark?: string };
+  capabilities: BookInfo["capabilities"];
   error: { kind: OpenErrorKind; message: string };
   /** A section's document loaded: the input layer listens there too */
   document: { doc: Document };
@@ -219,14 +235,26 @@ export interface ReaderEngine {
   lastPage(owner?: NavigationOwner): Promise<void>;
   setMarginalia(lines: Marginalia | null): void;
   setDecorations(
-    group: "history",
-    decorations: { cfi: string; color: string }[],
+    group: "history" | "search",
+    decorations: { cfi: string; color: string; current?: boolean }[],
   ): void;
   next(owner?: NavigationOwner): Promise<void>;
   prev(owner?: NavigationOwner): Promise<void>;
   /** Left and right follow the book's direction: right-to-left books turn the other way */
   goLeft(owner?: NavigationOwner): Promise<void>;
   goRight(owner?: NavigationOwner): Promise<void>;
+  noteReference?(href: string): DurtalLocator | null;
+  showNote?(
+    href: string,
+    options?: {
+      reference?: Element;
+      originMark?: string;
+      keyboard?: boolean;
+      force?: boolean;
+    },
+  ): Promise<boolean>;
+  closeNote?(): void;
+  search?(request: SearchRequest): AsyncIterable<SearchUpdate>;
   currentLocator(): DurtalLocator | null;
   setPresentation(presentation: Presentation): void;
   /** A locator for the current selection inside the book, or null */

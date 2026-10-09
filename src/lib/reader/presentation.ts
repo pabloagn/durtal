@@ -28,10 +28,15 @@ const FALLBACK_COLORS: Presentation["colors"] = {
 };
 
 /** The theme tokens as literal colours, read from the app's root element */
-export function resolveThemeColors(root: Element | null = typeof document === "undefined" ? null : document.documentElement): Presentation["colors"] {
+export function resolveThemeColors(
+  root: Element | null = typeof document === "undefined"
+    ? null
+    : document.documentElement,
+): Presentation["colors"] {
   if (!root) return FALLBACK_COLORS;
   const style = getComputedStyle(root);
-  const read = (key: keyof Presentation["colors"]) => style.getPropertyValue(THEME_TOKENS[key]).trim() || FALLBACK_COLORS[key];
+  const read = (key: keyof Presentation["colors"]) =>
+    style.getPropertyValue(THEME_TOKENS[key]).trim() || FALLBACK_COLORS[key];
   return {
     background: read("background"),
     text: read("text"),
@@ -75,6 +80,9 @@ export function presentationCss(p: Presentation): string {
 html { color-scheme: dark; background: ${background} !important; color: ${text} !important; font-size: ${p.fontSize}px !important; }
 body { background: transparent !important; color: ${text} !important; font-size: 1rem !important; }
 body *:not(a, a *, svg, svg *, math, math *) { color: inherit !important; background-color: transparent !important; }
+a[data-durtal-external]::after { content: "\u2197\ufe0e"; padding-inline-start: .2em; font-size: .8em; }
+figure { break-inside: avoid; }
+aside[role~="doc-footnote"], aside[role~="doc-endnote"] { display: none; }
 a, a * { color: ${link} !important; }
 ${font}
 body, p, li, blockquote, dd, dt, td, th { line-height: ${p.lineHeight} !important; }

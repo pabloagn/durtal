@@ -1064,8 +1064,78 @@ function large(dir) {
   console.log(`${"scanned-300mb.pdf".padEnd(28)} written`);
 }
 
+
+/** SLN-503: public-domain prose with deterministic test-only note/media structures. */
+function contentFixtures(largeDir) {
+  mkdirSync(SMALL_DIR, { recursive: true });
+  const text = "Durtal avait cessé, depuis près de deux années, de fréquenter le monde des lettres ; les livres d’abord, puis les racontars des journaux, les souvenirs des uns, les mémoires des autres, s’évertuaient à représenter ce monde comme le diocèse de l’intelligence, comme le plus spirituel des patriciats. À les en croire, l’esprit fusait en baguettes d’artifices et les reparties les plus stimulantes crépitaient dans ces réunions.";
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="300" height="200" fill="#17232d"/><circle cx="150" cy="100" r="65" fill="#8c9fae"/><script>globalThis.__readerSvgProbe = true</script></svg>';
+  const notes = `<h1>Notes</h1>
+    <aside id="foot" epub:type="footnote"><p>${escapeXml(text)}</p><a role="doc-noteref" href="#nested">Nested note</a><a epub:type="backlink" href="book.xhtml#ref-foot">Back</a><script>globalThis.__readerNoteProbe = true</script></aside>
+    <aside id="end" epub:type="endnote"><p>Endnote: ${escapeXml(text)}</p></aside>
+    <aside id="rear" epub:type="rearnote"><p>Rear note: ${escapeXml(text)}</p></aside>
+    <aside id="generic" epub:type="note"><p>Note: Là-bas, La-bas, LÀ-BAS. Φως. Книга. 日本語。</p></aside>
+    <aside id="long" role="doc-footnote"><p>${escapeXml(text.repeat(8))}</p></aside>
+    <aside id="nested" role="doc-endnote"><p>Nested endnote.</p><a role="doc-noteref" href="#foot">First note</a></aside>
+    <dl><dt id="definition" epub:type="glossdef">Durtal</dt><dd>A reader in Là-bas.</dd><dd>A second definition paragraph.</dd></dl>
+    <ol><li id="bibliography" role="doc-biblioentry">Huysmans, Joris-Karl. Là-bas. Tresse &amp; Stock, 1895.</li></ol>
+    <p><span id="empty"></span>Note reached by an empty publisher anchor.</p>
+    <p id="heuristic"><a>1.</a> A short untyped note in a nonlinear notes section.</p>
+    <p id="too-long"><a>2.</a>${escapeXml(text.repeat(8))}</p>`;
+  const rows = Array.from({ length: 72 }, (_, row) => '<tr>' + Array.from({ length: 12 }, (_, col) => `<td>Row ${row + 1}, column ${col + 1}</td>`).join('') + '</tr>').join('');
+  const narrative = `<h1>Là-bas</h1><p>${escapeXml(text)}</p>
+    <p><a id="ref-foot" role="doc-noteref" href="notes.xhtml#foot">1</a>
+      <a epub:type="noteref" href="notes.xhtml#end">2</a>
+      <sup><a href="notes.xhtml#rear">3</a></sup>
+      <a role="doc-noteref" href="notes.xhtml#generic">4</a>
+      <a role="doc-noteref" href="notes.xhtml#long">5</a>
+      <a epub:type="glossref" href="notes.xhtml#definition">Definition</a>
+      <a epub:type="biblioref" href="notes.xhtml#bibliography">Bibliography</a>
+      <a role="doc-noteref" href="notes.xhtml#empty">Empty anchor</a>
+      <a href="notes.xhtml#heuristic">Short note</a>
+      <a href="notes.xhtml#too-long">Long ambiguous destination</a>
+      <a href="chapter.xhtml#ordinary">Ordinary chapter link</a></p>
+    <p><a href="https://example.com/">HTTPS</a> <a href="http://example.com/">HTTP</a> <a href="mailto:reader@example.com">Mail</a>
+      <a href="javascript:globalThis.__readerLinkProbe=true">Script probe</a> <a href="data:text/html,probe">Data probe</a> <a href="file:///tmp/probe">File probe</a></p>
+    <p>Greek: φως ΦΩΣ. Cyrillic: книга КНИГА. CJK: 日本語。 Compatibility: 𝐀ＢＣ; ligatures: ﬁ ﬃ; accents: é é.</p>
+    <figure><img src="images/plate.png" alt="A generated reading plate" width="320" height="240"/><figcaption>Public-domain test plate.</figcaption></figure>
+    <figure>${svg}<figcaption>Inline SVG script probe.</figcaption></figure>
+    <figure><img src="images/plate.svg" alt="SVG image plate" width="300" height="200"/></figure>
+    <a href="chapter.xhtml#ordinary"><img src="images/plate.png" alt="Linked image" width="120" height="90"/></a>
+    <img src="images/plate.png" alt="Small ornament" width="32" height="32"/>
+    <table class="wide"><caption>Twelve-column ledger</caption><thead><tr>${Array.from({ length: 12 }, (_, col) => `<th scope="col">Column ${col + 1}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
+  const chapters = [{ id: "book", title: "Là-bas", body: narrative },
+    { id: "chapter", title: "Chapter", body: `<h1 id="ordinary">Chapter</h1><p>${escapeXml(text.repeat(3))}</p>` },
+    { id: "notes", title: "Notes", linear: "no", body: notes }];
+  const file = path.join(SMALL_DIR, "notes-links-media.epub");
+  const bytes = epub({ id: "urn:durtal:notes-links-media", title: "Là-bas — notes, links and media", author: "Joris-Karl Huysmans", lang: "fr", chapters,
+    scripted: ["book", "notes"], rights: "Public-domain excerpt from Là-bas, Tresse & Stock, 1895, chapter II. Notes, tables and images are generated test structures (CC0).",
+    css: 'body{margin:0}p{margin:0 0 .6em}.wide{border-collapse:collapse;width:1440px;min-width:1440px}td,th{padding:.5em;white-space:nowrap}figure{break-inside:avoid}img,svg{max-width:100%}',
+    files: [{ id: "plate", href: "images/plate.png", type: "image/png", data: png(320, 240, (x, y) => [40 + x % 80, 50 + y % 80, 70]) },
+      { id: "svg-plate", href: "images/plate.svg", type: "image/svg+xml", data: svg }] });
+  writeFileSync(file, bytes); console.log("notes-links-media.epub: " + bytes.length + " bytes");
+  if (!largeDir) return;
+  mkdirSync(largeDir, { recursive: true });
+  const expected = { characters: 1500000, sections: 60, messeSections: [], gillesSections: [5, 31, 60], forms: [] };
+  const largeChapters = Array.from({ length: 60 }, (_, index) => {
+    const prefix = `Section ${index + 1} messe. ` + ([4, 30, 59].includes(index) ? 'Gilles de Rais. ' : '') + 'Là-bas La-bas LÀ-BAS. ';
+    const prose = (text + ' ').repeat(Math.ceil(25000 / (text.length + 1)));
+    const content = (prefix + prose).slice(0, 25000);
+    expected.messeSections.push(index + 1);
+    expected.forms.push({ section: index + 1, offsets: ['Là-bas', 'La-bas', 'LÀ-BAS'].map(form => content.indexOf(form)) });
+    const body = `<p>${escapeXml(content)}</p>`;
+    const raw = xhtml({ title: `Section ${index + 1}`, body, lang: 'fr' }).replace('<body>\n', '<body>').replace('\n</body>', '</body>');
+    return { id: `section-${index + 1}`, title: `Section ${index + 1}`, body, raw };
+  });
+  writeFileSync(path.join(largeDir, 'search-1500k-60-sections.epub'), epub({ id: 'urn:durtal:search-1500k', title: 'Là-bas — search corpus', author: 'Joris-Karl Huysmans', lang: 'fr', chapters: largeChapters,
+    rights: 'Public-domain excerpt from Là-bas, 1895, chapter II, repeated with generated search markers.' }));
+  writeFileSync(path.join(largeDir, 'search-1500k-expected.json'), JSON.stringify(expected, null, 2) + '\n');
+  console.log('Large search corpus in ' + largeDir);
+}
+
 const args = process.argv.slice(2);
-if (args[0] === "--navigation") navigationFixtures();
+if (args[0] === "--content") contentFixtures(args[1] ? path.resolve(args[1]) : null);
+else if (args[0] === "--navigation") navigationFixtures();
 else if (args[0] === "--large") {
   const dir = args[1] ? path.resolve(args[1]) : mkdtempSync(path.join(tmpdir(), "durtal-ebook-fixtures-"));
   large(dir);

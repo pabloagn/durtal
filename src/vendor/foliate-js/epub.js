@@ -1261,13 +1261,14 @@ export class EPUB {
     parser = new DOMParser()
     #loader
     #encryption
-    constructor({ entries, loadText, loadBlob, getSize, sha1 }) {
+    constructor({ entries, loadText, loadTextOwned, loadBlob, getSize, sha1 }) {
         this.entries = entries.reduce((map, entry) => {
             map.set(entry.filename, entry)
             return map
         }, new Map())
         this.loadText = loadText
         this.loadBlob = loadBlob
+        this.loadTextOwned = loadTextOwned
         this.getSize = getSize
         this.#encryption = new Encryption(deobfuscators(sha1))
     }
@@ -1328,7 +1329,8 @@ ${doc.querySelector('parsererror').innerText}`)
                 // saw what was in the markup. The section is its parent, so it
                 // is released together with the section.
                 loadHref: href => this.#loader.loadHref(href, item.href),
-                createDocument: () => this.loadDocument(item),
+                // Durtal patch 7 (VENDORED.md): pristine search reads own their cancellation.
+                createDocument: options => this.loadDocument(item, options),
                 size: this.getSize(item.href),
                 cfi: this.resources.cfis[index],
                 linear,
@@ -1385,9 +1387,11 @@ ${doc.querySelector('parsererror').innerText}`)
         }
         return this
     }
-    async loadDocument(item) {
+    async loadDocument(item, options) {
         // a spine item missing from the archive loads as an empty document
-        const str = await this.loadText(item.href) ?? ''
+        const str = await (options?.signal && this.loadTextOwned
+            ? this.loadTextOwned(item.href, options.signal) : this.loadText(item.href)) ?? ''
+        options?.signal?.throwIfAborted()
         return parseContentDocument(this.parser, str, item.mediaType).doc
     }
     getMediaOverlay() {

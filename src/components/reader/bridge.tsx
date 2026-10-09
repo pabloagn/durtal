@@ -104,7 +104,11 @@ export function useReaderContext(): ReaderContext {
 export function useReaderShortcut(
   key: string,
   handler: (event: KeyboardEvent) => void,
-  options: { when?: "always" | "selection"; label?: string } = {},
+  options: {
+    when?: "always" | "selection";
+    label?: string;
+    enabled?: boolean;
+  } = {},
 ) {
   const bridge = useBridge();
   const latest = useRef(handler);
@@ -113,17 +117,20 @@ export function useReaderShortcut(
   });
   const when = options.when;
   const label = options.label;
+  const enabled = options.enabled ?? true;
   useEffect(
     () =>
-      registerReaderKey(
-        key,
-        (event) => {
-          if (when !== "selection" || bridge.getSnapshot().selection)
-            latest.current(event);
-        },
-        { when, label },
-      ),
-    [bridge, key, when, label],
+      enabled
+        ? registerReaderKey(
+            key,
+            (event) => {
+              if (when !== "selection" || bridge.getSnapshot().selection)
+                latest.current(event);
+            },
+            { when, label },
+          )
+        : undefined,
+    [bridge, key, when, label, enabled],
   );
 }
 export function useReaderSlotFilled(slot: ReaderSlot): boolean {
