@@ -514,7 +514,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
               {prediction && (
                 <div className="mt-2 flex items-start gap-1 text-xs text-fg-secondary" data-book-prediction="">
                   <span>{prediction.text}</span>
-                  <CapAligned height={24}>
+                  <CapAligned height={24} coarseHeight={44}>
                     <EstimateInfo text={prediction.why} label="How this rating is predicted" />
                   </CapAligned>
                 </div>
