@@ -150,7 +150,6 @@ export function AddCollectionBooksDialog({
         if (!busy.current) onClose();
       }}
       title="Add to collection"
-      description="Choose editions of your books, or whole works."
       className="max-w-xl"
       expandable={false}
     >

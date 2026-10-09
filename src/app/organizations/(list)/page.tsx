@@ -79,7 +79,6 @@ export default async function OrganizationsPage({
     <>
       <PageHeader
         title="Organizations"
-        description="Publishers, perfume houses, studios, museums and shops, across every collection"
         actions={<AddOrganizationButton />}
       />
       {empty ? (

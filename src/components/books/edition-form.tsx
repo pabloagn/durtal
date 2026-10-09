@@ -1,7 +1,11 @@
 "use client";
 
+import {
+  FormSection as Section,
+  FormColumns,
+} from "@/components/shared/form-section";
 import { useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
@@ -130,35 +134,6 @@ interface EditionFormProps {
 
 // ── Section helper ─────────────────────────────────────────────────────────
 
-function Section({
-  title,
-  defaultOpen = false,
-  children,
-}: {
-  title: string;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="border-t border-glass-border pt-3">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-1.5 text-xs font-medium text-fg-secondary hover:text-fg-primary pointer-coarse:min-h-11"
-      >
-        {open ? (
-          <ChevronDown className="h-3 w-3" strokeWidth={1.5} />
-        ) : (
-          <ChevronRight className="h-3 w-3" strokeWidth={1.5} />
-        )}
-        {title}
-      </button>
-      {open && <div className="mt-3 space-y-3">{children}</div>}
-    </div>
-  );
-}
-
 // ── Main form ──────────────────────────────────────────────────────────────
 
 /**
@@ -167,7 +142,10 @@ function Section({
  * in the same write. An empty language falls back to `defaultLanguage`; the
  * cover URL goes only when one was entered.
  */
-export function editionPayload(values: EditionFormValues, defaultLanguage: string) {
+export function editionPayload(
+  values: EditionFormValues,
+  defaultLanguage: string,
+) {
   const contributorIds = values.contributors.map((c) =>
     c.authorId
       ? { authorId: c.authorId, role: c.role }
@@ -294,7 +272,7 @@ export function EditionForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-0">
+    <form onSubmit={handleSubmit} className="@container">
       {/* Section 1: Title & Identifiers */}
       <Section title="Title & Identifiers" defaultOpen>
         <TitleInput
@@ -314,7 +292,7 @@ export function EditionForm({
           language={values.language}
           placeholder="Optional subtitle..."
         />
-        <div className="grid grid-cols-2 gap-3">
+        <FormColumns>
           <Input
             label="ISBN-13"
             id="ed-isbn13"
@@ -333,9 +311,9 @@ export function EditionForm({
             maxLength={10}
             className="font-mono"
           />
-        </div>
+        </FormColumns>
         <Section title="More identifiers">
-          <div className="grid grid-cols-2 gap-3">
+          <FormColumns>
             <Input
               label="ASIN"
               id="ed-asin"
@@ -350,8 +328,8 @@ export function EditionForm({
               onChange={(e) => update("lccn", e.target.value)}
               className="font-mono"
             />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+          </FormColumns>
+          <FormColumns>
             <Input
               label="OCLC"
               id="ed-oclc"
@@ -366,8 +344,8 @@ export function EditionForm({
               onChange={(e) => update("openLibraryKey", e.target.value)}
               className="font-mono"
             />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+          </FormColumns>
+          <FormColumns>
             <Input
               label="Google Books ID"
               id="ed-gb-id"
@@ -382,7 +360,7 @@ export function EditionForm({
               onChange={(e) => update("goodreadsId", e.target.value)}
               className="font-mono"
             />
-          </div>
+          </FormColumns>
         </Section>
       </Section>
 
@@ -421,9 +399,7 @@ export function EditionForm({
               label="Publishing house"
               exclude={values.publishers.map((p) => p.id)}
               allowCreate
-              onSelect={(p) =>
-                update("publishers", [...values.publishers!, p])
-              }
+              onSelect={(p) => update("publishers", [...values.publishers!, p])}
             />
             <p className="text-xs text-fg-secondary">
               These links are preserved during metadata refresh. The original
@@ -431,7 +407,7 @@ export function EditionForm({
             </p>
           </div>
         )}
-        <div className="grid grid-cols-2 gap-3">
+        <FormColumns>
           <Input
             label="Publisher"
             id="ed-publisher"
@@ -444,8 +420,8 @@ export function EditionForm({
             value={values.imprint}
             onChange={(e) => update("imprint", e.target.value)}
           />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
+        </FormColumns>
+        <FormColumns>
           <Input
             label="Publication year"
             id="ed-pub-year"
@@ -460,7 +436,7 @@ export function EditionForm({
             value={values.publicationDate}
             onChange={(v) => update("publicationDate", v)}
           />
-        </div>
+        </FormColumns>
         <Input
           label="Publication country"
           id="ed-pub-country"
@@ -472,7 +448,7 @@ export function EditionForm({
 
       {/* Section 3: Edition Details */}
       <Section title="Edition details">
-        <div className="grid grid-cols-2 gap-3">
+        <FormColumns>
           <Input
             label="Edition name"
             id="ed-edition-name"
@@ -487,7 +463,7 @@ export function EditionForm({
             value={values.editionNumber}
             onChange={(e) => update("editionNumber", e.target.value)}
           />
-        </div>
+        </FormColumns>
         <Input
           label="Printing number"
           id="ed-printing-number"
@@ -549,7 +525,7 @@ export function EditionForm({
 
       {/* Section 5: Physical Description */}
       <Section title="Physical description">
-        <div className="grid grid-cols-2 gap-3">
+        <FormColumns>
           <Input
             label="Page count"
             id="ed-pages"
@@ -568,8 +544,8 @@ export function EditionForm({
               label: enumLabel(b),
             }))}
           />
-        </div>
-        <div className="grid grid-cols-3 gap-3">
+        </FormColumns>
+        <FormColumns three>
           <Input
             label="Height (mm)"
             id="ed-height"
@@ -591,8 +567,8 @@ export function EditionForm({
             value={values.depthMm}
             onChange={(e) => update("depthMm", e.target.value)}
           />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
+        </FormColumns>
+        <FormColumns>
           <Input
             label="Weight (grams)"
             id="ed-weight"
@@ -607,7 +583,7 @@ export function EditionForm({
             onChange={(e) => update("illustrationType", e.target.value)}
             placeholder="B&W plates, colour maps..."
           />
-        </div>
+        </FormColumns>
       </Section>
 
       {/* Section 6: Content */}
@@ -692,7 +668,7 @@ export function EditionForm({
           <p className="text-xs font-medium text-fg-secondary">
             Add contributor
           </p>
-          <div className="grid grid-cols-2 gap-2">
+          <FormColumns>
             <div className="relative">
               <Input
                 id="ed-contributor-name"
@@ -732,7 +708,7 @@ export function EditionForm({
                 label: enumLabel(r),
               }))}
             />
-          </div>
+          </FormColumns>
           <Button
             type="button"
             variant="ghost"
@@ -748,9 +724,11 @@ export function EditionForm({
 
       {/* Section 9: Genres & Tags */}
       <Section title="Genres & Tags">
-        {listsNote && availableGenres.length === 0 && availableTags.length === 0 && (
-          <p className="text-xs text-fg-secondary">{listsNote}</p>
-        )}
+        {listsNote &&
+          availableGenres.length === 0 &&
+          availableTags.length === 0 && (
+            <p className="text-xs text-fg-secondary">{listsNote}</p>
+          )}
         {availableGenres.length > 0 && (
           <div>
             <p className="mb-2 text-xs text-fg-secondary">Genres</p>
@@ -815,7 +793,9 @@ export function EditionForm({
         {values.metadataSource && (
           <p className="text-xs text-fg-secondary">
             Source:{" "}
-            <span className="text-fg-secondary">{metadataSourceLabel(values.metadataSource)}</span>
+            <span className="text-fg-secondary">
+              {metadataSourceLabel(values.metadataSource)}
+            </span>
           </p>
         )}
       </Section>

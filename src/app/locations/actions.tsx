@@ -70,7 +70,6 @@ export function LocationActions() {
         open={open}
         onClose={() => setOpen(false)}
         title="New location"
-        description="Add a physical or digital location for your books"
       >
         <div className="space-y-4">
           <Input

@@ -83,7 +83,7 @@ export function SeriesActions({
         onClose={() => setDeleteOpen(false)}
         onConfirm={remove}
         title="Delete series"
-        description="Are you sure you want to delete this series? This action cannot be undone."
+        description="This cannot be undone."
         itemName={series.title}
         cascade={
           bookCount > 0

@@ -71,7 +71,7 @@ export function AddButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="inline-flex items-start gap-1 rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary"
+      className="inline-flex items-start gap-1 rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:min-h-11 pointer-coarse:min-w-11"
     >
       <CapAligned height={12}>
         <Plus className="h-3 w-3" strokeWidth={1.5} />

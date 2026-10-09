@@ -92,8 +92,7 @@ export function ReaderDefaults() {
   return (
     <>
       <SettingsIntro>
-        How books look in the reader. Saved in this browser only. The settings panel inside
-        the reader changes the same values.
+        Saved in this browser only. The reader changes the same settings.
       </SettingsIntro>
 
       <SettingsGroup

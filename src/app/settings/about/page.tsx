@@ -4,7 +4,6 @@ import durtalPackage from "../../../../package.json";
 import {
   SettingFact,
   SettingsGroup,
-  SettingsIntro,
 } from "@/components/settings/settings-group";
 import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { S3_BUCKET } from "@/lib/s3/client";
@@ -16,8 +15,6 @@ export default async function AboutSettingsPage() {
   const migrations = await migrationState();
   return (
     <>
-      <SettingsIntro>The versions, the database schema, the storage and the collections.</SettingsIntro>
-
       <SettingsGroup title="Durtal">
         <SettingFact label="Version">{durtalPackage.version}</SettingFact>
         <SettingFact label="Next.js">{nextPackage.version}</SettingFact>

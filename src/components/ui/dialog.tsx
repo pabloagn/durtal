@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useId,
   useRef,
   useState,
   useCallback,
@@ -82,6 +83,8 @@ export function Dialog({
   className = "",
   expandable = true,
 }: DialogProps) {
+  const titleId = useId();
+  const descriptionId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [expanded, setExpanded] = useState(false);
 
@@ -142,6 +145,8 @@ export function Dialog({
     <dialog
       ref={dialogRef}
       tabIndex={-1}
+      aria-labelledby={titleId}
+      aria-describedby={description ? descriptionId : undefined}
       onCancel={(event) => {
         event.preventDefault();
         onClose();
@@ -155,9 +160,9 @@ export function Dialog({
           title's cap-height center, also when a description follows */}
       <div className="type-dialog-title flex shrink-0 items-start justify-between px-6 pb-3 pt-5">
         <div className="min-w-0 flex-1">
-          <h2 className="type-dialog-title">{title}</h2>
+          <h2 id={titleId} className="type-dialog-title">{title}</h2>
           {description && (
-            <p className="mt-1 text-sm text-fg-secondary">{description}</p>
+            <p id={descriptionId} className="mt-1 text-sm text-fg-secondary">{description}</p>
           )}
         </div>
         {/* 44px targets on touch */}

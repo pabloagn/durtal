@@ -397,7 +397,6 @@ export default function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
-        description="Your library at a glance"
       />
       <Suspense
         fallback={

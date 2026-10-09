@@ -52,12 +52,14 @@ function SettingSelect({
   value,
   options,
   placeholder,
+  described = false,
   onChange,
 }: {
   id: string;
   value: string;
   options: readonly { value: string; label: string }[];
   placeholder?: string;
+  described?: boolean;
   onChange: (value: string) => void;
 }) {
   return (
@@ -67,7 +69,7 @@ function SettingSelect({
         value={value}
         options={[...options]}
         placeholder={placeholder}
-        ariaDescribedby={settingDescriptionId(id)}
+        ariaDescribedby={described ? settingDescriptionId(id) : undefined}
         onChange={(event) => onChange(event.target.value)}
       />
     </div>
@@ -125,15 +127,13 @@ export function GeneralSettings({
   return (
     <>
       <SettingsIntro>
-        Defaults for new records. They are saved in the catalogue, so they apply on every
-        device. You can still change them for each record.
+        These defaults apply on every device. You can change them for each record.
       </SettingsIntro>
 
-      <SettingsGroup title="New books" description="The add-book wizard and Fast Track start with these.">
+      <SettingsGroup title="New books">
         <SettingRow
           id="new-book-status"
           label="Status"
-          description="The catalogue status of a new book."
         >
           <SettingSelect
             id="new-book-status"
@@ -152,6 +152,7 @@ export function GeneralSettings({
         >
           <SettingSelect
             id="new-book-language"
+            described
             value={settings.newBookLanguage}
             options={LANGUAGES}
             onChange={(value) =>
@@ -163,15 +164,15 @@ export function GeneralSettings({
 
       <SettingsGroup
         title="New copies"
-        description="The copies step of the wizard and the Add copy dialog start with these."
       >
         <SettingRow
           id="new-copy-location"
           label="Location"
-          description="Where a new copy is kept. It also comes first in the location list."
+          description="This location also comes first in location lists."
         >
           <SettingSelect
             id="new-copy-location"
+            described
             value={settings.newCopyLocationId ?? ""}
             options={locationOptions}
             placeholder="Pick for each copy"
@@ -183,7 +184,7 @@ export function GeneralSettings({
             }
           />
         </SettingRow>
-        <SettingRow id="new-copy-format" label="Format" description="The format of a new copy.">
+        <SettingRow id="new-copy-format" label="Format">
           <SettingSelect
             id="new-copy-format"
             value={settings.newCopyFormat ?? ""}
@@ -201,7 +202,6 @@ export function GeneralSettings({
         <SettingRow
           id="new-copy-condition"
           label="Condition"
-          description="The condition of a new copy."
         >
           <SettingSelect
             id="new-copy-condition"
@@ -229,6 +229,7 @@ export function GeneralSettings({
         >
           <SettingSelect
             id="home-currency"
+            described
             value={settings.homeCurrency}
             options={CURRENCY_SELECT_OPTIONS}
             onChange={(value) => save({ homeCurrency: value }, `New orders start in ${value}`)}

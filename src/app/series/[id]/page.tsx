@@ -162,8 +162,7 @@ export default async function SeriesDetailPage({
               strokeWidth={1}
             />
             <p className="text-sm text-fg-secondary">
-              No books yet. Use Add books, or pick this series in a book&apos;s
-              Edit dialog.
+              No books yet.
             </p>
           </div>
         )}
