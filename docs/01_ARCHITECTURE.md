@@ -216,6 +216,14 @@ PDFs use Durtal's own `pdfjs-dist` (the fork's copy of pdf.js is not vendored): 
 
 The book's bytes never pass through a whole-file download: the engine reads HTTP ranges of the file from the CDN or the app's route (docs/07, Reading e-books by range). A book is untrusted HTML: its sections are blob frames that inherit the reader page's Content-Security-Policy (`src/lib/reader/csp.ts`, set by `src/proxy.ts` with a per-request nonce), so a script inside a book never runs. Input (`src/lib/reader/input.ts`) is one layer attached to the app's document and to every section document, and the place is saved off the input path (`src/lib/reader/position-queue.ts`).
 
+### Reader bridge and places across devices (SLN-493)
+
+`ReaderBridgeProvider` in `src/components/reader/bridge.tsx` owns one event bus and slot registry per open e-book/file. Plugins use only `useReaderEvent`, `ReaderSlotFill`, `useReaderShortcut` and `useReaderContext`. Activity is throttled per kind and silent while hidden; location (opening/jump or turn), actual last-page arrival and settled selection events dispatch after a displaying animation frame and then a microtask. Exceptions in handlers or client components are isolated. Context subscribers update without remounting the engine; slot portals follow plugin-list order.
+
+The slots are `toolbar-status`, `top-bar` and `selection-actions`. Registered plugin shortcuts reach the app and book documents, share reader guards and cannot claim reserved keys. `q` is free for the tracker. `src/app/reader/[ebookId]/plugins.ts` defines `{ id, load?(ctx: { ebookId }), Component }`; optional server loads run in parallel with the page query, failed/nonserializable loads are omitted, and successful client components receive serializable data inside independent error boundaries. The production list is empty until SLN-454. Loaders never enter the client registry or bundle.
+
+The reader never reads or writes tracker readings, sessions or notes and never calls their APIs. It writes only `ebook_positions`; SLN-454 owns the tracker plugin and every tracker write. Cross-device rules are pure in `src/lib/reader/sync/places.ts`; returning-tab/online refresh awaits the save queue before one GET, coalesces triggers and invalidates pending offers on local intent or close.
+
 ### Cascading Deletes
 
 Foreign keys use `onDelete: "cascade"` throughout the schema. Deleting a work removes all its editions; deleting an edition removes all its instances. This matches the domain model: if a work does not exist, neither do its publications or copies.

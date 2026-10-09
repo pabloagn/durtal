@@ -1,32 +1,44 @@
-/**
- * What other features add to the reader page (eBooks sub-issue 3): each
- * plug-in's `load` runs on the server in parallel with the page's query, and
- * its result is handed to the reading view under the plug-in's id. Empty in
- * this sub-issue; sub-issue 4 adds the reading tracker's bridge (SLN-454).
- */
-
-export interface ReaderPluginContext {
-  ebookId: string;
-  /** The file asked for with `?file=`, if any */
-  fileId: string | null;
-  deviceId: string | null;
-}
+import type { ComponentType, ReactNode } from "react";
+import { createElement } from "react";
 
 export interface ReaderPlugin {
   id: string;
-  load(context: ReaderPluginContext): Promise<unknown>;
+  load?(context: { ebookId: string }): Promise<unknown>;
+  Component: ComponentType<{ data: unknown }>;
 }
-
+/** The tracker adds its client component here in SLN-454. Loaders never enter the client bundle. */
 export const readerPlugins: ReaderPlugin[] = [];
 
-/** Every plug-in's data by id; one that fails is left out, and the book still opens */
-export async function loadReaderPlugins(context: ReaderPluginContext): Promise<Record<string, unknown>> {
-  const results = await Promise.allSettled(readerPlugins.map((plugin) => plugin.load(context)));
-  return Object.fromEntries(
-    results.flatMap((result, at) => {
-      if (result.status === "fulfilled") return [[readerPlugins[at].id, result.value]];
-      console.error(`[reader] Plug-in ${readerPlugins[at].id} failed to load:`, result.reason);
-      return [];
+export async function loadReaderPlugins(
+  context: { ebookId: string },
+  plugins = readerPlugins,
+): Promise<{ id: string; node: ReactNode }[]> {
+  const results = await Promise.allSettled(
+    plugins.map(async (plugin) => {
+      const value = plugin.load
+        ? await plugin.load({ ebookId: context.ebookId })
+        : null;
+      const json = JSON.stringify(value ?? null, (_key, item) => {
+        if (
+          typeof item === "function" ||
+          typeof item === "symbol" ||
+          typeof item === "bigint"
+        )
+          throw new Error("Reader plug-in data must be serialisable");
+        return item;
+      });
+      return {
+        id: plugin.id,
+        node: createElement(plugin.Component, { data: JSON.parse(json) }),
+      };
     }),
   );
+  return results.flatMap((result, at) => {
+    if (result.status === "fulfilled") return [result.value];
+    console.error(
+      `[reader] Plug-in ${plugins[at].id} failed to load:`,
+      result.reason,
+    );
+    return [];
+  });
 }
