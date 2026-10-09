@@ -220,3 +220,31 @@ lint and whitespace checks passed. These tests explicitly use a layout double
 with unequal glyph advances and a ligature. Actual browser font/rotation
 alignment remains required. Provider caching and public adapter APIs are not
 wired in this checkpoint.
+
+### Concrete PDF session source checkpoint
+
+`openPdfSession` passes the explicit owned worker and reviewed document options
+to the real pdf.js API. Its range transport assembles each logical interval
+from bounded HTTP chunks and emits one `onDataRange` callback at the requested
+begin offset: installed 6.4.299's range reader completes on its first callback,
+so unsolicited chunk callbacks would truncate data. This required logical
+assembly is separate from refusing whole-file HTTP 200 bodies.
+
+`PdfSession` shares page/text production, pins pages with consumer leases, and
+evicts unpinned page proxies. Cached text is capped at 16 pages and four MiB of
+UTF-16 strings, including empty pages. Requests validate the file identity and
+offsets; page text and measured locators share one text source. Close aborts
+delivery/measurement/transport immediately and races pdf.js teardown against
+one second, then releases its document/task/worker references and native port.
+Opened-session transport or native-worker failures trigger owned teardown.
+
+Installed PageViewport exposes point conversion rather than the former
+rectangle method. `pdfGeometryViewport` supplies the internal geometry
+contract by converting all four corners through the actual point API.
+
+Eleven focused session tests and four viewport bridge tests passed, zero
+skips. Scoped TypeScript, source lint and whitespace checks passed. pdf.js,
+HTTP and native Worker objects are injected doubles in these tests. The
+session is concrete source preparation; the common foliate adapter, vendor
+render callbacks, public measured-text methods, HTTP CSP and UI still await
+wiring and native proof.
