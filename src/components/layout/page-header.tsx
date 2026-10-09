@@ -13,16 +13,20 @@ export function PageHeader({
   tabs,
 }: PageHeaderProps) {
   return (
-    <div className="mb-10">
+    <div className="mb-8">
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
-        <div>
-          <h1 className="type-page-title">{title}</h1>
+        <div className="min-w-0 max-w-full">
+          <h1 className="type-page-title [overflow-wrap:anywhere]">{title}</h1>
           {description && (
-            <p className="mt-1.5 text-sm text-fg-secondary">{description}</p>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-fg-secondary">
+              {description}
+            </p>
           )}
         </div>
         {actions && (
-          <div className="flex flex-wrap items-center gap-2">{actions}</div>
+          <div className="flex max-w-full flex-wrap items-center gap-2">
+            {actions}
+          </div>
         )}
       </div>
       {tabs}

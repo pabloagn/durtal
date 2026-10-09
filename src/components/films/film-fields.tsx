@@ -375,7 +375,7 @@ function CreditGroup({
             <button
               type="button"
               onClick={() => onChange([...value, newEntry({ attribution: "unknown" })])}
-              className="rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary"
+              className="rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:min-h-11 pointer-coarse:min-w-11"
             >
               Unknown
             </button>
