@@ -37,7 +37,7 @@ Both now have a minimum 44px target on coarse pointers.
 
 ## Completion Notes
 
-Source checkpoint only: twelve pure synthetic DOM/geometry/CLI regressions pass
+Source checkpoint only: fourteen pure synthetic DOM/geometry/CLI regressions pass
 with zero skips. They cover freshly inserted nested content, unreachable
 summaries, skipped focus targets, missing focus indicators, restoration after
 a deliberate failure, host guards and effective touch geometry. The existing
@@ -47,7 +47,7 @@ Synthetic key transport is not native-browser evidence.
 The historical checkpoint passed 3,451 tests with zero skips, all three Python
 suites, typecheck, lint, production build and Docker. Native disclosure,
 focus-skip and failure-restoration regressions pass in Chromium, Firefox and
-WebKit. WebKit uses a temporary process argument for full keyboard navigation;
+WebKit. The explicit macOS WebKit Option-Tab transport includes links;
 no saved macOS or Safari preferences change. Exact final-head gates, actual
 application matrix, fixture invariants and artifact binding remain under review.
 No schema, package manifest or lockfile change.
@@ -72,3 +72,14 @@ five 44px star targets. The book editor already gives the rating its own row;
 shared slider behavior and book SSR are unchanged. Firefox desktop capability
 flags now combine Fine (2) and Hover (4), while phone mode remains Coarse (1).
 Final-head gates and the enlarged caller matrix must be rerun for this checkpoint.
+
+Actual Firefox dialogs initially focus their first field, after the header
+controls. Forward Tab can retain the last stop, so the keyboard walk now adds
+a bounded reverse pass when expected controls are missing, counting each
+identity once. A regression starts a modal in its middle and retains failures
+for skipped and ringless controls. Native middle-focus checks pass in all
+three engines. The explicit macOS WebKit `WEBKIT_OPTION_TAB=1` transport uses
+and reports native Option-Tab traversal to include links without saved preference changes; plain Tab failures are retained
+as runtime diagnosis. The unchanged 320px title/action overflow remains an
+independent baseline finding (SLN-566), not a clean whole-page result. Final
+shipping gates follow stabilization of the actual native caller checks.

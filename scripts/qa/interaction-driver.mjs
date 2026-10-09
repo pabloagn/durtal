@@ -128,10 +128,36 @@ async function cdpDriver() {
   }
 }
 
+export function optionTabEnabled(
+  name,
+  requested = process.env.WEBKIT_OPTION_TAB,
+  platform = process.platform,
+) {
+  if (name !== "webkit" || requested !== "1") return false;
+  if (platform !== "darwin")
+    throw new Error("WEBKIT_OPTION_TAB=1 requires macOS WebKit");
+  return true;
+}
+
+export async function dispatchKeyEvent(keyboard, params, optionTab = false) {
+  const alt = optionTab && params.key === "Tab";
+  const key = params.key === " " ? "Space" : params.key;
+  if (params.type === "keyUp") {
+    await keyboard.up(key);
+    if (params.modifiers === 8) await keyboard.up("Shift");
+    if (alt) await keyboard.up("Alt");
+  } else {
+    if (alt) await keyboard.down("Alt");
+    if (params.modifiers === 8) await keyboard.down("Shift");
+    await keyboard.down(key);
+  }
+}
+
 export async function createDriver(name) {
   if (name === "cdp") return cdpDriver();
   if (!["chromium", "firefox", "webkit"].includes(name))
     throw new Error(`Unknown browser ${name}`);
+  const optionTab = optionTabEnabled(name);
   const runtime =
     process.env.PLAYWRIGHT_CORE ||
     (existsSync("/opt/durtal-qa/node_modules/playwright-core/index.mjs")
@@ -197,6 +223,9 @@ export async function createDriver(name) {
     throw error;
   }
   return {
+    tabNavigation: optionTab
+      ? "native macOS Option-Tab / Option-Shift-Tab"
+      : "native Tab / Shift-Tab",
     async send(method, params = {}) {
       switch (method) {
         case "Page.navigate":
@@ -226,13 +255,9 @@ export async function createDriver(name) {
           });
           break;
         case "Input.dispatchKeyEvent": {
-          if (params.type === "keyUp") {
-            await page.keyboard.up(params.key === " " ? "Space" : params.key);
-            if (params.modifiers === 8) await page.keyboard.up("Shift");
-          } else {
-            if (params.modifiers === 8) await page.keyboard.down("Shift");
-            await page.keyboard.down(params.key === " " ? "Space" : params.key);
-          }
+          // Cocoa WebKit defaults to excluding links from plain Tab.
+          // Option-Tab temporarily includes them without saving preferences.
+          await dispatchKeyEvent(page.keyboard, params, optionTab);
           break;
         }
         default:

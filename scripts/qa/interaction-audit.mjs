@@ -527,6 +527,9 @@ async function detailRoutes() {
 for (const browser of browsers) {
   try {
     driver = await createDriver(browser);
+    notes.push(
+      `${browser}: ${driver.tabNavigation ?? "native Tab / Shift-Tab"}`,
+    );
     await setViewport(1440, false);
     const expanded = [];
     for (const r of routes)

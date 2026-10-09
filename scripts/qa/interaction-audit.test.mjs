@@ -10,15 +10,67 @@ import {
   reachByTab,
 } from "./interaction-disclosures.mjs";
 import { effectiveTarget } from "./interaction-target.mjs";
+import { optionTabEnabled, dispatchKeyEvent } from "./interaction-driver.mjs";
 const { Window } = await import(
   process.env.HAPPY_DOM_PATH
     ? pathToFileURL(process.env.HAPPY_DOM_PATH).href
     : "happy-dom"
 );
 
+test("Option-Tab is explicit and macOS WebKit only, with native modifiers released in both directions", async () => {
+  assert.equal(optionTabEnabled("webkit", "1", "darwin"), true);
+  assert.equal(optionTabEnabled("webkit", "", "darwin"), false);
+  assert.equal(optionTabEnabled("webkit", "", "linux"), false);
+  for (const engine of ["cdp", "chromium", "firefox"])
+    assert.equal(optionTabEnabled(engine, "1", "darwin"), false);
+  assert.throws(
+    () => optionTabEnabled("webkit", "1", "linux"),
+    /requires macOS WebKit/,
+  );
+  for (const shift of [false, true]) {
+    const events = [],
+      held = new Set();
+    const keyboard = {
+      async down(key) {
+        held.add(key);
+        events.push(["down", key, held.has("Alt"), held.has("Shift")]);
+      },
+      async up(key) {
+        held.delete(key);
+        events.push(["up", key]);
+      },
+    };
+    for (const type of ["keyDown", "keyUp"])
+      await dispatchKeyEvent(
+        keyboard,
+        { type, key: "Tab", modifiers: shift ? 8 : 0 },
+        true,
+      );
+    assert.deepEqual(
+      events.find(([type, key]) => type === "down" && key === "Tab"),
+      ["down", "Tab", true, shift],
+    );
+    assert.equal(held.size, 0);
+    events.length = 0;
+    for (const type of ["keyDown", "keyUp"])
+      await dispatchKeyEvent(keyboard, { type, key: "Enter" }, true);
+    assert.deepEqual(events, [
+      ["down", "Enter", false, false],
+      ["up", "Enter"],
+    ]);
+    events.length = 0;
+    for (const type of ["keyDown", "keyUp"])
+      await dispatchKeyEvent(keyboard, { type, key: "Tab" }, false);
+    assert.deepEqual(events, [
+      ["down", "Tab", false, false],
+      ["up", "Tab"],
+    ]);
+  }
+});
+
 // Pure fixture transport: synthetic Tab order/toggle/escape, no browser launch.
 // It tests discovery and failure reporting; real native focus is a separate gate.
-function fixture(html, { skip = "", ringless = "" } = {}) {
+function fixture(html, { skip = "", ringless = "", endStops = false } = {}) {
   const window = new Window({ url: "http://127.0.0.1:3462/test" });
   window.document.body.innerHTML = `<main>${html}</main>`;
   for (const el of window.document.querySelectorAll("*"))
@@ -58,7 +110,7 @@ function fixture(html, { skip = "", ringless = "" } = {}) {
   const io = {
     evaluate,
     async press(key, shift = false) {
-      keys.push(key);
+      keys.push(shift ? "Shift+Tab" : key);
       if (key === "Tab") {
         const controls = [
           ...window.document.querySelectorAll(
@@ -70,12 +122,13 @@ function fixture(html, { skip = "", ringless = "" } = {}) {
             !el.disabled &&
             (!skip || el.id !== skip),
         );
+        const index =
+          controls.indexOf(window.document.activeElement) + (shift ? -1 : 1);
         const next =
           controls[
-            (controls.indexOf(window.document.activeElement) +
-              (shift ? -1 : 1) +
-              controls.length) %
-              controls.length
+            endStops
+              ? Math.max(0, Math.min(controls.length - 1, index))
+              : (index + controls.length) % controls.length
           ];
         next?.focus();
       } else if (
@@ -145,6 +198,33 @@ test("a control skipped by a focus handler fails instead of giving a clean parti
     f.failures.some((s) => /Edit lost record.*not reachable with Tab/.test(s)),
   );
   assert.equal(f.window.document.querySelector("details").open, false);
+});
+
+test("a dialog starting in its middle uses reverse Tab at native end stops and still detects skipped or ringless controls", async () => {
+  for (const scenario of [{}, { skip: "close" }, { ringless: "close" }]) {
+    const f = fixture(
+      '<dialog><button>Expand</button><button id="close">Close</button><input id="initial" aria-label="Title"><button>Cancel</button><button>Save</button></dialog>',
+      { endStops: true, ...scenario },
+    );
+    const dialog = f.window.document.querySelector("dialog");
+    dialog.showModal();
+    f.window.document.getElementById("initial").focus();
+    const result = await walkKeyboard(f.io, f.window.__ia.id(dialog), 30);
+    assert(f.keys.includes("Shift+Tab"));
+    if (scenario.skip)
+      assert(
+        result.failures.some((s) => /Close.*not reachable with Tab/.test(s)),
+      );
+    else if (scenario.ringless)
+      assert(
+        result.failures.some((s) => /Close.*shows no focus indicator/.test(s)),
+      );
+    else {
+      assert.deepEqual(result.failures, []);
+      assert.equal(result.stops, 5);
+      assert.equal(result.expected, 5);
+    }
+  }
 });
 
 test("a newly revealed stop without a focus indicator is reported", async () => {
