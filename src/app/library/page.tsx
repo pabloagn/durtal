@@ -13,10 +13,7 @@ import { clearedListHref, hasListQuery } from "@/lib/utils/list-params";
 import { LibraryShell } from "./library-shell";
 import { LibraryFiltersBar } from "./library-filters-bar";
 import { DomainSwitch } from "@/components/domains/domain-switch";
-import {
-  DomainAddLink,
-  domainDescription,
-} from "@/components/domains/domain-add-link";
+import { DomainAddLink } from "@/components/domains/domain-add-link";
 import { getWorkIdsWithEbooks } from "@/lib/ebooks/queries";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
@@ -86,7 +83,6 @@ async function LibraryContent({ searchParams }: { searchParams: LibraryParams })
       <EmptyState
         icon={Library}
         title="No books yet"
-        description="Add your first book to get started"
         action={<DomainAddLink kind="book" />}
       />
     );
@@ -165,7 +161,6 @@ export default async function LibraryPage({ searchParams }: PageProps) {
     <>
       <PageHeader
         title="Books"
-        description={domainDescription("book")}
         tabs={<DomainSwitch current="book" searchParams={params} />}
         actions={
           <>

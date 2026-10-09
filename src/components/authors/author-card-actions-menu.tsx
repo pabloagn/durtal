@@ -92,7 +92,7 @@ export function AuthorCardActionsMenu({
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
         title="Delete person"
-        description="Are you sure you want to delete this person? This action cannot be undone."
+        description="This cannot be undone."
         itemName={name}
         cascade="This will permanently remove the person from every book, edition, film, perfume and painting they are credited on."
       />

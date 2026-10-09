@@ -189,7 +189,7 @@ function DateFields({
           onChange={(e) => set(day, e.target.value)}
         />
       </div>
-      <label className="flex cursor-pointer items-center gap-2 text-sm text-fg-secondary">
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-fg-secondary pointer-coarse:min-h-11">
         <input
           type="checkbox"
           checked={values[approximate]}

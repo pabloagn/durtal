@@ -71,7 +71,7 @@ export function RecommenderActions({
         onClose={() => setDeleteOpen(false)}
         onConfirm={remove}
         title="Delete recommender"
-        description="Are you sure you want to delete this recommender? This action cannot be undone."
+        description="This cannot be undone."
         itemName={recommender.name}
         cascade={
           bookCount > 0

@@ -14,7 +14,7 @@ export function EditionQuotes({ editionId, quotes, notes, href }: { editionId: s
   if (!reading) return null;
   const count = notesCountText(quotes, notes);
   return (
-    <div className="border-b border-glass-border px-4 py-3 text-xs" data-edition-quotes={editionId}>
+    <div className="border-b border-glass-border px-5 py-3 text-xs" data-edition-quotes={editionId}>
       <span className="text-fg-secondary">Quotes: </span>
       {count ? (
         <a href={href} className="text-fg-secondary transition-colors hover:text-accent-primary" data-edition-quotes-count="">

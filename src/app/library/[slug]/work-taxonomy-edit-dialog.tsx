@@ -99,7 +99,6 @@ export function WorkTaxonomyEditDialog({
         open={open}
         onClose={() => setOpen(false)}
         title="Edit taxonomy"
-        description="Assign or remove taxonomy classifications for this work"
         className="max-w-3xl"
       >
         <div className="max-h-[75vh] space-y-5 overflow-y-auto pr-1">

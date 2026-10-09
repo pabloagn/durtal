@@ -107,7 +107,7 @@ export function BookCardActionsMenu({
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
         title="Delete work"
-        description="Are you sure you want to delete this work? This action cannot be undone."
+        description="This cannot be undone."
         itemName={title}
         cascade="This will permanently delete all editions, instances, and media associated with this work."
       />

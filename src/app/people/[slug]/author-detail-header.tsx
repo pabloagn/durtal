@@ -234,7 +234,7 @@ export function AuthorDetailHeader({
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
         title="Delete person"
-        description="Are you sure you want to delete this person? This action cannot be undone."
+        description="This cannot be undone."
         itemName={name}
         cascade={
           workCount > 0

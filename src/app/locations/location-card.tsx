@@ -199,7 +199,7 @@ export function LocationCard({
         open={editOpen}
         onClose={() => setEditOpen(false)}
         title="Edit location"
-        description={`Editing "${name}"`}
+        description={name}
       >
         <div className="space-y-4">
           <Input
@@ -255,8 +255,8 @@ export function LocationCard({
       <Dialog
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
-        title="Delete location"
-        description={`Are you sure you want to delete "${name}"?`}
+        title={`Delete ${name}`}
+        description="This cannot be undone."
         className="max-w-lg"
         expandable={false}
       >

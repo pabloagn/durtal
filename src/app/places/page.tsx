@@ -87,7 +87,6 @@ async function PlacesContent({
       <EmptyState
         icon={MapPin}
         title="No venues yet"
-        description="Add your first venue to start building your places catalogue"
         action={<VenueCreateDialog />}
       />
     );
@@ -126,7 +125,6 @@ export default async function PlacesPage({ searchParams }: PageProps) {
     <>
       <PageHeader
         title="Places"
-        description="Bookshops, museums, galleries, perfumeries, cinemas and other venues"
         actions={<VenueCreateDialog />}
       />
 

@@ -287,7 +287,6 @@ export default async function AuthorsPage({ searchParams }: PageProps) {
     <>
       <PageHeader
         title="People"
-        description="Writers, translators, directors, actors, perfumers, painters and everyone else in your catalogue"
         actions={<AuthorCreateDialog />}
       />
 

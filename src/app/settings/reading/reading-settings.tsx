@@ -69,7 +69,7 @@ export function ReadingSettings({ settings: saved }: { settings: ReadingValues }
   const hourLabel = (h: number) => HOURS[h]?.label ?? `${h}:00`;
   return (
     <>
-      <SettingsIntro>How reading days, weeks and the reading timer work. They apply on every device.</SettingsIntro>
+      <SettingsIntro>These settings apply on every device.</SettingsIntro>
       <SettingsGroup title="Days and weeks">
         <SettingRow
           id="reading-day-start-hour"

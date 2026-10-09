@@ -70,7 +70,6 @@ async function PublishersContent({ params }: { params: Params }) {
       <EmptyState
         icon={Building2}
         title="No publishers yet"
-        description="Add the publishing houses and imprints you collect"
         action={
           <Link
             href="/publishers/new"
@@ -128,7 +127,7 @@ export default async function PublishersPage({
     <>
       <PageHeader
         title="Publishers"
-        description="Publishing houses and imprints you collect · edition counts refer to your catalogue"
+        description="Edition counts refer to your catalogue"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Link

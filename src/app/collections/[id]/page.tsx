@@ -417,10 +417,6 @@ export default async function CollectionPage({
             strokeWidth={1}
           />
           <h2 className="type-item-title">Build your collection</h2>
-          <p className="mt-2 text-sm text-fg-secondary">
-            Use Add above for editions, books, films, perfumes or paintings,
-            or select books in your library and choose Collections.
-          </p>
         </div>
       )}
     </>

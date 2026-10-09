@@ -97,7 +97,6 @@ export function CreateItemDialog({
       open={open}
       onClose={handleClose}
       title={`New ${familyName} Item`}
-      description={`Add a new item to the ${familyName} taxonomy.`}
       className="max-w-lg"
       expandable={false}
     >

@@ -89,7 +89,7 @@ export function AddSeriesBooksDialog({
       open={open}
       onClose={() => !saving && onClose()}
       title="Add books"
-      description={`Put books into ${seriesTitle}.`}
+      description={seriesTitle}
       className="max-w-xl"
       expandable={false}
     >
