@@ -177,3 +177,24 @@ cached pages before reserving replacements or reducing the spread mode.
 Ten focused lifecycle tests passed, zero skips. Scoped TypeScript, source lint
 and whitespace checks passed. Test worker/paint objects are deliberate doubles;
 real worker startup, raster painting and memory/performance proof remain gated.
+
+### Bounded transport source checkpoint
+
+`PdfRangeSource` owns at most six concurrent bounded reads, coalesces identical
+intervals through consumer leases, keeps 32 chunks (at most eight MiB), and
+caps the pending queue. A departing consumer cannot abort another consumer's
+read; the last departing consumer cancels the shared fetch. Close rejects all
+consumers immediately and prevents late callbacks/cache publication.
+
+Headers are validated before body consumption. A CDN whole-file 200 is
+cancelled and retried through the session's app route. App-route 200 or invalid
+206 headers are cancelled and rejected. Accepted 206 bodies stream into an
+exact bounded destination; truncated/oversized bodies fail. URL refresh is
+shared and attempted once, and fallback remains sticky. `forPdfOwner` aborts
+delivery while leaving shared pdf.js page/font work running.
+
+Fourteen transport and four consumer-lifetime tests passed, zero skips,
+including cache eviction, high offsets, shared refresh, unfinished prefetch,
+and a fetch double that ignores abort. Scoped TypeScript, source lint and
+whitespace checks passed. These modules await adapter wiring; no live HTTP,
+browser, large-fixture, performance or build result is claimed.
