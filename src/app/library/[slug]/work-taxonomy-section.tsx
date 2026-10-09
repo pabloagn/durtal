@@ -30,7 +30,7 @@ function TaxonomyGroup({ label, familySlug, items, variant }: TaxonomyGroupProps
       <p className="mb-1.5 text-xs text-fg-secondary">{label}</p>
       <div className="flex flex-wrap gap-1.5">
         {items.map((item) => (
-          <Link key={item.slug} href={`/taxonomy/${familySlug}/${item.slug}`} className="min-w-0 max-w-full">
+          <Link key={item.slug} href={`/taxonomy/${familySlug}/${item.slug}`} className="min-w-0 max-w-full pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center">
             <Badge variant={variant} className="max-w-full whitespace-normal [overflow-wrap:anywhere]">{item.name}</Badge>
           </Link>
         ))}
