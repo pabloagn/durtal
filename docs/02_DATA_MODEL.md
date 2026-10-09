@@ -2519,6 +2519,13 @@ One stored file, keyed by its bytes. No work id: it reaches a work only through 
 UNIQUE (`id`, `ebook_id`) (`ebook_files_id_ebook_unique`): the key the preferred file,
 positions and annotations reference.
 
+SLN-569 adds `metadata.medallion` without changing the schema: version,
+bronze/silver references (key, SHA-256, size, content type), integrity/DRM and
+native-reader/download decisions, and the complete gold publication references.
+Rejected files name bronze in `s3_key` and remain quarantined. Accepted files
+name gold; cover and manifest columns retain exact report-bound keys. Legacy
+rows and their stored keys remain valid.
+
 `metadata`, written by the ingestion (SLN-494), holds what the file says, as
 `src/lib/ebooks/ingest/inspect/types.ts` reads it: `title`, `subtitle`,
 `titleSort`, `authors` (each with `name`, `fileAs` and `role`), `description`,

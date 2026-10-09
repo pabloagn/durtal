@@ -56,20 +56,22 @@ describe("Settings › Integrations › eBook storage before the AWS setup", () 
   });
 
   it("fails when a file is catalogued but the bucket is gone", async () => {
-    mocks.newest = { id: "f", ebookId: "e", sha256: sha, s3Key: `files/ab/${sha}.epub`, format: "epub", sizeBytes: 10, contentType: "application/epub+zip", status: "stored", drm: null };
+    mocks.newest = { id: "f", ebookId: "e", sha256: sha, s3Key: `files/ab/${sha}.epub`, format: "epub", sizeBytes: 10, contentType: "application/epub+zip", status: "stored", drm: null,
+    };
     expect((await runIntegrationCheck("ebookStorage")).status).toBe("error");
   });
 });
 
 describe("the orphan report's e-book part", () => {
   it("names the bucket as missing before the AWS setup", async () => {
-    expect(await ebookOrphanReport(emptyCatalogue)).toEqual({ bucket: "durtal-ebooks", missing: true });
+    expect(await ebookOrphanReport(emptyCatalogue)).toEqual({ bucket: "durtal", missing: true });
   });
 
   it("lists the objects no row names once the bucket exists", async () => {
     bucketExists = true;
     const report = await ebookOrphanReport(emptyCatalogue);
-    expect(report).toMatchObject({ bucket: "durtal-ebooks", prefixes: ["files/", "derived/"], scanned: 1, orphans: 1, inFlight: 0, totalBytes: 10 });
+    expect(report).toMatchObject({ bucket: "durtal", prefixes: ["bronze/ebooks/", "silver/ebooks/", "gold/ebooks/", "files/", "derived/"], scanned: 1, orphans: 1, inFlight: 0, totalBytes: 10,
+    });
     expect(report).not.toHaveProperty("missing");
   });
 

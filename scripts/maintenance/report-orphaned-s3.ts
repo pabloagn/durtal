@@ -32,7 +32,7 @@ for (const prefix of PREFIXES) {
     );
     for (const object of page.Contents ?? []) {
       if (
-        object.Key &&
+        object.Key && !object.Key.startsWith("gold/ebooks/") &&
         object.LastModified &&
         object.LastModified.getTime() < cutoff
       )

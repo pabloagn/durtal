@@ -2,7 +2,9 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { uuids } from "@/lib/catalogue/work-store";
-import { formatRank } from "./formats";
+import { medallionOf } from "./medallion";
+import { isDeliverable } from "./delivery/files";
+import { formatRank, isReadableFormat } from "./formats";
 
 /*
  * The e-book catalogue, read (SLN-490). An e-book is a digital copy once
@@ -17,6 +19,10 @@ export interface EbookFile {
   sizeBytes: number;
   status: string;
   drm: string | null;
+  sha256?: string;
+  s3Key?: string;
+  metadata?: Record<string, unknown>;
+  nativeReadable?: boolean;
 }
 
 export interface EbookRow {
@@ -37,18 +43,28 @@ const EBOOK_COLUMNS = sql`eb.id, eb.title, eb.subtitle, eb.authors, eb.language,
   eb.match_state as "matchState", eb.instance_id as "instanceId",
   eb.preferred_file_id as "preferredFileId", eb.cover_key as "coverKey",
   coalesce((select json_agg(json_build_object('id', f.id, 'format', f.format, 'sizeBytes', f.size_bytes,
-    'status', f.status, 'drm', f.drm) order by f.created_at, f.id)
+    'status', f.status, 'drm', f.drm, 'sha256', f.sha256, 's3Key', f.s3_key, 'metadata', f.metadata) order by f.created_at, f.id)
     from ebook_files f where f.ebook_id = eb.id), '[]'::json) as files`;
 
 function withSortedFiles(row: EbookRow): EbookRow {
-  return { ...row, files: [...row.files].sort((a, b) => formatRank(a.format) - formatRank(b.format)) };
+  return { ...row, files: row.files
+      .map((f) => ({
+        ...f,
+        nativeReadable:
+          !!f.sha256 &&
+          !!f.s3Key &&
+          isDeliverable({ ...f, sha256: f.sha256, s3Key: f.s3Key }) &&
+          isReadableFormat(f.format) &&
+          (!medallionOf(f.metadata) || !!medallionOf(f.metadata)!.validation.nativeReadable),
+      }))
+      .sort((a, b) => formatRank(a.format) - formatRank(b.format)),
+  };
 }
 
 /** One e-book with its files */
 export async function getEbook(id: string): Promise<EbookRow | null> {
   const [row] = resultRows<EbookRow>(
-    await db.execute(sql`select ${EBOOK_COLUMNS} from ebooks eb where eb.id = ${id}::uuid`),
-  );
+    await db.execute(sql`select ${EBOOK_COLUMNS} from ebooks eb where eb.id = ${id}::uuid`));
   return row ? withSortedFiles(row) : null;
 }
 

@@ -3,8 +3,8 @@ import { eq } from "drizzle-orm";
 import type { Db } from "@/lib/catalogue/work-store";
 import { ebookFiles, ebookIngestItems } from "@/lib/db/schema";
 import type { IngestReconciliation } from "@/lib/db/schema/ebook-ingest";
-import { ebooksPrefix } from "../keys";
-import { ebookStorage, listEbookObjects } from "../storage";
+import { ebooksPrefix, parseStageKey } from "../keys";
+import { listEbookInventory } from "../storage";
 import { verifyEbookStorage, type VerifyOutcome } from "../verify";
 import { walkRoots } from "./group";
 import { HashCache } from "./hash";
@@ -137,7 +137,7 @@ export async function reconcileIngest(options: ReconcileOptions): Promise<Ingest
       exceptions.push({ side: "disk", kind: "failed", path: item.path, reason: item.lastError ?? "Failed", blocking: true });
 
   // In Neon and in S3: every row's object by size and checksum; every object a row names
-  const objects = await listEbookObjects(ebookStorage().prefix);
+  const objects = await listEbookInventory();
   const listed = new Set(objects.map((o) => o.key));
   const report = await verifyEbookStorage(db, now, objects);
   const rowById = new Map(rows.map((r) => [r.id, r]));
@@ -166,7 +166,7 @@ export async function reconcileIngest(options: ReconcileOptions): Promise<Ingest
     roots: options.roots,
     onDisk: files.length,
     inNeon: rows.length,
-    inS3: objects.filter((o) => o.key.startsWith(`${prefix}files/`)).length,
+    inS3: objects.filter((o) => o.key.startsWith(`${prefix}files/`) || parseStageKey(o.key)?.stage === "bronze").length,
     exact: !exceptions.some((e) => e.blocking),
     exceptions,
     noLongerInInbox,

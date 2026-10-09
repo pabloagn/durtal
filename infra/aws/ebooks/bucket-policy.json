@@ -2,33 +2,41 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "CloudFrontReadsThroughOriginAccessControl",
-      "Effect": "Allow",
-      "Principal": { "Service": "cloudfront.amazonaws.com" },
-      "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::__BUCKET__/*",
-      "Condition": { "StringEquals": { "AWS:SourceArn": "__DISTRIBUTION_ARN__" } }
-    },
-    {
-      "Sid": "NoBookFileIsDeleted",
+      "Sid": "EbooksDenyDeletionExceptAdmin",
       "Effect": "Deny",
       "Principal": "*",
-      "Action": "s3:DeleteObject",
-      "Resource": "arn:aws:s3:::__BUCKET__/__PREFIX__files/*",
-      "Condition": { "ArnNotEquals": { "aws:PrincipalArn": "__ADMIN_ARN__" } }
-    },
-    {
-      "Sid": "OnlyTheAdminChangesProtection",
-      "Effect": "Deny",
-      "Principal": "*",
-      "Action": [
-        "s3:DeleteObjectVersion",
-        "s3:PutBucketVersioning",
-        "s3:PutLifecycleConfiguration",
-        "s3:PutBucketPolicy"
+      "Action": ["s3:DeleteObject", "s3:DeleteObjectVersion"],
+      "Resource": [
+        "arn:aws:s3:::__BUCKET__/bronze/ebooks/*",
+        "arn:aws:s3:::__BUCKET__/silver/ebooks/*",
+        "arn:aws:s3:::__BUCKET__/gold/ebooks/*",
+        "arn:aws:s3:::__BUCKET__/__PREFIX__files/*",
+        "arn:aws:s3:::__BUCKET__/__PREFIX__derived/*"
       ],
-      "Resource": ["arn:aws:s3:::__BUCKET__", "arn:aws:s3:::__BUCKET__/*"],
-      "Condition": { "ArnNotEquals": { "aws:PrincipalArn": "__ADMIN_ARN__" } }
+      "Condition": {
+        "ArnNotEquals": {
+          "aws:PrincipalArn": "__ADMIN_ARN__"
+        }
+      }
+    },
+    {
+      "Sid": "EbooksRequireConditionalCreation",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:PutObject",
+      "Resource": [
+        "arn:aws:s3:::__BUCKET__/bronze/ebooks/*",
+        "arn:aws:s3:::__BUCKET__/silver/ebooks/*",
+        "arn:aws:s3:::__BUCKET__/gold/ebooks/*"
+      ],
+      "Condition": {
+        "Null": {
+          "s3:if-none-match": "true"
+        },
+        "Bool": {
+          "s3:ObjectCreationOperation": "true"
+        }
+      }
     }
   ]
 }

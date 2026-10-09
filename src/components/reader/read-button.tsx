@@ -7,8 +7,7 @@ interface ReadButtonProps {
 }
 
 /** A file the reader can open: a readable format, stored or verified, without DRM */
-const openable = (f: EbookRow["files"][number]) =>
-  isReadableFormat(f.format) && (f.status === "stored" || f.status === "verified") && !f.drm;
+const openable = (f: EbookRow["files"][number]) => f.nativeReadable !== false && isReadableFormat(f.format) && (f.status === "stored" || f.status === "verified") && !f.drm;
 
 /**
  * "Read" on a book page when an e-book is linked to one of its copies. It

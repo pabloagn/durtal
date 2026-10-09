@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isUuid } from "@/lib/utils/uuid";
-import { ebookDerivedKey, isEbookCoverWidth } from "@/lib/ebooks/keys";
+import { derivedKeyForWidth, ebookDerivedKey, isEbookCoverWidth } from "@/lib/ebooks/keys";
 import { getEbookObjectRange } from "@/lib/ebooks/storage";
 import { readCatalogueCover } from "@/lib/ebooks/delivery/files";
 import { coverUrlFor, ebookDelivery } from "@/lib/ebooks/delivery/url";
@@ -35,7 +35,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ eboo
         headers: { Location: signed.url, "Cache-Control": `private, max-age=${Math.max(0, Math.min(DAY_SECONDS, left))}` },
       });
     }
-    const object = await getEbookObjectRange(ebookDerivedKey(cover.sha256, `cover-${width}.webp`), 0);
+    const key = derivedKeyForWidth(cover.key ?? ebookDerivedKey(cover.sha256, "cover-800.webp"), width);
+    if (!key) return NextResponse.json({ error: "No cover" }, { status: 404 });
+    const object = await getEbookObjectRange(key, 0);
     if (!object) return notFound();
     return new NextResponse(object.body, {
       headers: {

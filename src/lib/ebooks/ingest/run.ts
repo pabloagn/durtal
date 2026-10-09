@@ -14,6 +14,8 @@ import { INGEST_TOOL_VERSION, type IngestPlan, type PlanGroup, type PlanTarget }
 import { readGroupCatalogue, planRegistration, registerGroup, undoEntry } from "./register";
 import { reconcileIngest } from "./reconcile";
 import { storeObject } from "./store";
+import { medallionOf } from "../medallion";
+import { validateStagePlan, verifyPublication } from "../publication";
 
 export { planIngest } from "./plan";
 
@@ -100,7 +102,11 @@ export function planSha256(text: string): string {
 function checkPlanTarget(plan: IngestPlan, target: PlanTarget) {
   if (plan.v !== 1 || plan.toolVersion !== INGEST_TOOL_VERSION) throw new Error("The plan was made by another version of the tool: plan again. Nothing written.");
   if (plan.target.database !== target.database) throw new Error("The plan was made against another database. Nothing written.");
-  if (plan.target.bucket !== target.bucket || plan.target.prefix !== target.prefix || plan.target.preview !== target.preview)
+  if (plan.target.bucket !== target.bucket || plan.target.prefix !== target.prefix || plan.target.preview !== target.preview ||
+    plan.target.region !== target.region ||
+    plan.target.credentialIdentity !== target.credentialIdentity ||
+    plan.target.previewRoot !== target.previewRoot
+  )
     throw new Error("The plan was made against another bucket. Nothing written.");
 }
 
@@ -122,6 +128,7 @@ export async function applyPlan(planFile: string, options: ApplyOptions): Promis
   const plan = readPlan(text);
   const now = options.now ?? Date.now;
   checkApply(plan, { ...options, now: now() });
+  for (const file of Object.values(plan.files)) validateStagePlan(file);
   const sha = planSha256(text);
   mkdirSync(path.dirname(keptPlan(options.cacheDir, sha)), { recursive: true });
   copyFileSync(planFile, keptPlan(options.cacheDir, sha));
@@ -166,12 +173,20 @@ export async function resumeRun(runId: string, options: ApplyOptions): Promise<A
   const file = keptPlan(options.cacheDir, run.planSha256);
   if (!existsSync(file)) throw new Error(`The run's plan is not in ${path.dirname(file)}: resume on the machine that applied it. Nothing written.`);
   const plan = readPlan(readFileSync(file, "utf8"));
-  if (!recentBackup(options.backup, options.now?.() ?? Date.now())) throw new Error("--resume needs --backup FILE: a pg_dump custom-format backup taken in the last hour. Nothing written.");
+  if (!recentBackup(options.backup, options.now?.() ?? Date.now()))
+    throw new Error("--resume needs --backup FILE: a pg_dump custom-format backup taken in the last hour. Nothing written.");
   if (!options.localDatabase && !options.live) throw new Error("This database is not a local preview: a resume of it needs --live. Nothing written.");
   // A run made by another version of the tool is not resumed: a new plan adopts what it stored
   checkPlanTarget(plan, options.target);
+  for (const file of Object.values(plan.files)) validateStagePlan(file);
+  if (planSha256(readFileSync(file, "utf8")) !== run.planSha256) throw new Error("The saved plan changed. Nothing written.");
   const undoFile = path.join(options.reportDir, `ingest-undo-${run.id}.jsonl`);
-  if (!existsSync(undoFile)) reserveUndoLog(undoFile, { runId: run.id, planSha256: run.planSha256, createdAt: new Date().toISOString() });
+  if (!existsSync(undoFile))
+    reserveUndoLog(undoFile, {
+      runId: run.id,
+      planSha256: run.planSha256,
+      createdAt: new Date().toISOString(),
+    });
   await options.database.update(ebookIngestRuns).set({ state: "running", updatedAt: new Date() }).where(eq(ebookIngestRuns.id, run.id));
   return processRun(run.id, plan, undoFile, options);
 }
@@ -181,7 +196,11 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
   const now = options.now ?? Date.now;
   const started = now();
   const open = await db
-    .select({ path: ebookIngestItems.sourcePath, state: ebookIngestItems.state, attempts: ebookIngestItems.attempts })
+    .select({
+      path: ebookIngestItems.sourcePath,
+      state: ebookIngestItems.state,
+      attempts: ebookIngestItems.attempts,
+    })
     .from(ebookIngestItems)
     .where(and(eq(ebookIngestItems.runId, runId), ne(ebookIngestItems.state, "done"), lt(ebookIngestItems.attempts, MAX_ATTEMPTS)));
   const openPaths = new Set(open.map((o) => o.path));
@@ -198,11 +217,17 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
     sinceWrite = 0;
     // Replaced, not merged: an outcome no item has any more (pending, at the end) must go
     counts = await currentCounts(db, runId);
-    await db.update(ebookIngestRuns).set({ counts, updatedAt: new Date(now()) }).where(eq(ebookIngestRuns.id, runId));
+    await db
+      .update(ebookIngestRuns)
+      .set({ counts, updatedAt: new Date(now()) })
+      .where(eq(ebookIngestRuns.id, runId));
   };
   const setItems = (paths: string[], values: Partial<typeof ebookIngestItems.$inferInsert>) =>
     paths.length
-      ? db.update(ebookIngestItems).set({ ...values, updatedAt: new Date(now()) }).where(and(eq(ebookIngestItems.runId, runId), inArray(ebookIngestItems.sourcePath, paths)))
+      ? db
+          .update(ebookIngestItems)
+          .set({ ...values, updatedAt: new Date(now()) })
+          .where(and(eq(ebookIngestItems.runId, runId), inArray(ebookIngestItems.sourcePath, paths)))
       : Promise.resolve();
 
   let crashed: unknown = null;
@@ -213,6 +238,10 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
       // Registered already (the crash came after the atomic): only the last mark is left
       const toRegister = paths.filter((p) => !registeredPaths.has(p));
       if (toRegister.length === 0) {
+        for (const p of paths) {
+          const problem = await verifyPublication(plan.files[p].metadata);
+          if (problem) throw new Error(problem);
+        }
         await setItems(paths, { state: "done" });
         return;
       }
@@ -222,7 +251,11 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
         const file = plan.files[p];
         const info = await stat(p).catch(() => null);
         if (!info || info.size !== file.size || Math.abs(info.mtimeMs - file.mtimeMs) > 1) {
-          await setItems([p], { state: "done", outcome: "changed_since_plan", reason: info ? "Changed since the plan" : "Gone since the plan" });
+          await setItems([p], {
+            state: "done",
+            outcome: "changed_since_plan",
+            reason: info ? "Changed since the plan" : "Gone since the plan",
+          });
         } else unchanged.push(p);
       }
       if (unchanged.length === 0) return;
@@ -231,20 +264,51 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
       // Store the files and their derived objects; already stored ones need nothing
       const catalogue = await readGroupCatalogue(db, group, files);
       for (const file of files) {
-        if (catalogue.bySha.has(file.sha256)) continue;
-        const result = await storeObject(
-          { key: file.key, sha256: file.sha256, size: file.size, contentType: file.contentType, filename: file.downloadName, body: { file: file.path } },
-          { cacheDir: options.cacheDir, sleep: options.sleep },
-        );
-        if (!result.adopted) uploadedBytes += file.size;
-        for (const object of file.derived) {
-          const cached = derivedCachePath(options.cacheDir, file.sha256, object.name);
-          if (!existsSync(cached)) throw new Error(`The plan's ${object.name} is no longer in the cache folder: plan again`);
-          await storeObject(
-            { key: object.key, sha256: object.sha256, size: object.size, contentType: object.contentType, body: { file: cached } },
+        if (catalogue.bySha.has(file.sha256)) {
+          const stored = catalogue.bySha.get(file.sha256)!;
+          if (stored.metadata && medallionOf(stored.metadata)) {
+            const problem = await verifyPublication(stored.metadata);
+            if (problem) throw new Error(problem);
+          }
+          continue;
+        }
+        const stages = file.medallion;
+        if (!stages) throw new Error("The plan has no medallion validation: plan again");
+        const store = async (
+          object: {
+            key: string;
+            sha256: string;
+            size: number;
+            contentType: string;
+          },
+          source: string,
+        ) => {
+          if (!existsSync(source)) throw new Error("The plan's artifact is no longer cached: plan again");
+          const result = await storeObject(
+            {
+              ...object,
+              filename: object.key === file.key ? file.downloadName : undefined,
+              body: { file: source },
+            },
             { cacheDir: options.cacheDir, sleep: options.sleep },
           );
+          if (!result.adopted) uploadedBytes += object.size;
+        };
+        await store(stages.bronze, file.path);
+        await store(stages.silver, path.join(options.cacheDir, "silver", `${stages.silver.sha256}.json`));
+        if (stages.validation.downloadable) {
+          await store(stages.gold[0], file.path);
+          // Covers before the publication marker, which is always last.
+          for (const object of file.derived) {
+            const cached =
+              object.name === "manifest.json"
+                ? path.join(options.cacheDir, "publications", stages.silver.sha256, "manifest.json")
+                : derivedCachePath(options.cacheDir, file.sha256, object.name);
+            await store(object, cached);
+          }
         }
+        const publication = await verifyPublication(file.metadata);
+        if (publication) throw new Error(publication);
         await setItems([file.path], { state: "stored" });
         if (options.afterStore) {
           simulated = true;
@@ -254,7 +318,10 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
       }
 
       // Rows: the undo line first, then one atomic for the group and its items
-      const registration = planRegistration(group, files, catalogue, { host: plan.host, at: new Date(now()) });
+      const registration = planRegistration(group, files, catalogue, {
+        host: plan.host,
+        at: new Date(now()),
+      });
       appendUndoLog(undoFile, undoEntry(registration));
       await registerGroup(db, registration, runId);
       await setItems(unchanged, { state: "done" });
@@ -267,7 +334,13 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
       const message = failureMessage(error);
       await db
         .update(ebookIngestItems)
-        .set({ state: "failed", lastError: message, reason: message, attempts: sql`${ebookIngestItems.attempts} + 1`, updatedAt: new Date(now()) })
+        .set({
+          state: "failed",
+          lastError: message,
+          reason: message,
+          attempts: sql`${ebookIngestItems.attempts} + 1`,
+          updatedAt: new Date(now()),
+        })
         .where(and(eq(ebookIngestItems.runId, runId), inArray(ebookIngestItems.sourcePath, paths), ne(ebookIngestItems.state, "done")));
     } finally {
       processed += paths.length;
@@ -300,9 +373,21 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
   if (uploadedBytes > 0) saveUploadSpeed(options.cacheDir, uploadedBytes / seconds);
 
   if (crashed || options.signal?.aborted) {
-    await db.update(ebookIngestRuns).set({ state: "interrupted", updatedAt: new Date(now()) }).where(eq(ebookIngestRuns.id, runId));
+    await db
+      .update(ebookIngestRuns)
+      .set({ state: "interrupted", updatedAt: new Date(now()) })
+      .where(eq(ebookIngestRuns.id, runId));
     if (crashed) throw crashed;
-    return { runId, state: "interrupted", counts, undoFile, exact: null, reconciliation: null, uploadedBytes, seconds };
+    return {
+      runId,
+      state: "interrupted",
+      counts,
+      undoFile,
+      exact: null,
+      reconciliation: null,
+      uploadedBytes,
+      seconds,
+    };
   }
 
   const reconciliation = await reconcileIngest({
@@ -320,9 +405,23 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
   const state = reconciliation.exact ? "finished" : "failed";
   await db
     .update(ebookIngestRuns)
-    .set({ state, reconciliation, finishedAt: new Date(now()), updatedAt: new Date(now()) })
+    .set({
+      state,
+      reconciliation,
+      finishedAt: new Date(now()),
+      updatedAt: new Date(now()),
+    })
     .where(eq(ebookIngestRuns.id, runId));
-  return { runId, state, counts, undoFile, exact: reconciliation.exact, reconciliation, uploadedBytes, seconds };
+  return {
+    runId,
+    state,
+    counts,
+    undoFile,
+    exact: reconciliation.exact,
+    reconciliation,
+    uploadedBytes,
+    seconds,
+  };
 }
 
 /**
@@ -351,7 +450,11 @@ export function clusterGroups(groups: PlanGroup[]): PlanGroup[][] {
 /** One count per item outcome, plus failed and pending items */
 async function currentCounts(db: Db, runId: string): Promise<Record<string, number>> {
   const rows = await db
-    .select({ outcome: ebookIngestItems.outcome, state: ebookIngestItems.state, n: sql<number>`count(*)::int` })
+    .select({
+      outcome: ebookIngestItems.outcome,
+      state: ebookIngestItems.state,
+      n: sql<number>`count(*)::int`,
+    })
     .from(ebookIngestItems)
     .where(eq(ebookIngestItems.runId, runId))
     .groupBy(ebookIngestItems.outcome, ebookIngestItems.state);
