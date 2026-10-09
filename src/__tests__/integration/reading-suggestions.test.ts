@@ -50,7 +50,8 @@ import { setSuggestionFeedback, removeSuggestionFeedback, restoreSuggestionFeedb
 import { getWorkCount } from "@/lib/actions/works";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 import { nextToRead } from "@/lib/reading/series";
-import { getSuggestionContext, predictionGateOn } from "@/lib/reading/suggest/context";
+import { getBookPredictionContext, getSuggestionContext, predictionGateOn } from "@/lib/reading/suggest/context";
+import { evaluatePredictions, predict, predictionSource, predictionText, type Prediction } from "@/lib/reading/suggest/predict";
 import { DEFAULT_SUGGESTION_PARAMS } from "@/lib/reading/suggest/params";
 import { candidates, passes, suggest } from "@/lib/reading/suggest/score";
 import { readingToday } from "@/lib/reading/day";
@@ -258,6 +259,199 @@ describe.skipIf(!url)("suggestions with PostgreSQL", () => {
     const line = ctx.books.filter((b) => b.rating !== null && !b.hasReading).length;
     expect(line).toBe(2);
     expect(line).toBe(await getWorkCount(undefined, { reading: ["unread"], minRating: 0.5 }));
+  });
+
+  it("matches the full loader for every unread book, including all similarity signals and library-wide IDF", async () => {
+    const author = await value(
+      `insert into authors(name, slug) values ('Prediction writer', 'prediction-writer') returning id`,
+    );
+    const translator = await value(
+      `insert into authors(name, slug) values ('Prediction translator', 'prediction-translator') returning id`,
+    );
+    const recommender = await value(
+      `insert into recommenders(name) values ('Prediction reader') returning id`,
+    );
+    const seriesId = await value(
+      `insert into series(title, slug) values ('Prediction series', 'prediction-series') returning id`,
+    );
+    const workType = await value(
+      `insert into work_types(name, slug) values ('Prediction type', 'prediction-type') on conflict (slug) do update set name = excluded.name returning id`,
+    );
+    const families = [
+      ["subjects", "work_subjects", "subject_id", false],
+      ["themes", "work_themes", "theme_id", true],
+      [
+        "literary_movements",
+        "work_literary_movements",
+        "literary_movement_id",
+        true,
+      ],
+      ["book_categories", "work_categories", "category_id", true],
+      ["attributes", "work_attributes", "attribute_id", false],
+      ["keywords", "work_keywords", "keyword_id", false],
+    ] as const;
+    const terms = await Promise.all(
+      families.map(([table, , , level]) =>
+        value(
+          `insert into ${table}(name, slug${level ? ", level" : ""}) values ('Prediction term', 'prediction-term'${level ? ", 1" : ""}) on conflict (slug) do update set name = excluded.name returning id`,
+        ),
+      ),
+    );
+    for (let i = 0; i < 48; i++) {
+      const rated = i < 34;
+      const w = await book(
+        i === 47
+          ? "No signals"
+          : i === 46
+            ? "A long title ".repeat(80)
+            : `Prediction ${i % 7}`,
+        {
+          rating: rated && i >= 3 ? ((i % 9) + 1) / 2 : i === 40 ? 5 : null,
+          seriesId: i % 3 === 0 ? seriesId : undefined,
+          position: String(i + 1),
+        },
+      );
+      await q(
+        `update works set original_language = $2, original_year = $3, work_type_id = $4 where id = $1`,
+        [
+          w,
+          i === 47 ? "de" : "fr",
+          [-101, 0, 1, 1900, 1901][i % 5],
+          i % 2 === 0 ? workType : null,
+        ],
+      );
+      if (rated) {
+        await finished(w, i < 3 ? 4 : 2, "2024-01-01");
+        // Book rating wins; otherwise the latest rated finish, skipping a later unrated finish.
+        if (i < 3) {
+          await finished(w, 4.5, "2025-01-01");
+          await finished(w, null, "2025-02-01");
+        }
+      } else if (i === 41)
+        await q(
+          `insert into readings(work_id, status, started_precision) values ($1, 'abandoned', 'unknown')`,
+          [w],
+        );
+      else if (i === 42)
+        await q(
+          `insert into readings(work_id, status, started_precision) values ($1, 'reading', 'unknown')`,
+          [w],
+        );
+      if (i === 47) continue;
+      if (i % 2 === 0)
+        await q(
+          `insert into work_authors(work_id, author_id, role) values ($1, $2, 'co_author')`,
+          [w, author],
+        );
+      const e = await edition(w);
+      if (i % 3 === 1) {
+        await q(
+          `insert into edition_contributors(edition_id, author_id, role) values ($1, $2, 'translator')`,
+          [e, translator],
+        );
+        await q(
+          `insert into edition_contributors(edition_id, author_id, role) values ($1, $2, 'translator')`,
+          [await edition(w), translator],
+        );
+      }
+      if (i % 4 === 1)
+        await q(
+          `insert into work_recommenders(work_id, recommender_id) values ($1, $2)`,
+          [w, recommender],
+        );
+      for (let j = 0; j < families.length; j++)
+        if ((i + j) % 3 !== 0) {
+          const [, link, column] = families[j];
+          await q(`insert into ${link}(work_id, ${column}) values ($1, $2)`, [
+            w,
+            terms[j],
+          ]);
+        }
+    }
+    // Non-books must not contribute to the denominator or shared term counts.
+    const film = await value(
+      `insert into works(title, slug, kind, original_language) values ('Prediction film', 'prediction-film', 'film', null) returning id`,
+    );
+    await q(`insert into work_subjects(work_id, subject_id) values ($1, $2)`, [
+      film,
+      terms[0],
+    ]);
+    const full = await getSuggestionContext();
+    expect(full.books).toHaveLength(48);
+    expect(full.rated).toHaveLength(34);
+    const unread = full.books.filter((b) => !b.finishedCount);
+    expect(unread).toHaveLength(14);
+    const summary = (p: Prediction | null) =>
+      p && {
+        value: p.value,
+        low: p.low,
+        high: p.high,
+        text: predictionText(p),
+        source: predictionSource(p),
+        neighbours: p.neighbours.map((n) => ({
+          id: n.book.id,
+          similarity: n.similarity,
+          rating: n.rating,
+        })),
+      };
+    let predicted = 0;
+    for (const target of unread) {
+      const small = await getBookPredictionContext(target.id);
+      expect(small.books).toHaveLength(35);
+      expect(small.rated.map((b) => [b.id, b.taste])).toEqual(
+        full.rated.map((b) => [b.id, b.taste]),
+      );
+      expect(small.meanTaste).toBe(full.meanTaste);
+      expect([...small.idf].sort()).toEqual([...full.idf].sort());
+      expect(evaluatePredictions(small)).toEqual(evaluatePredictions(full));
+      const p = predict(small.byId.get(target.id)!, small);
+      expect(summary(p)).toEqual(summary(predict(target, full)));
+      if (p) predicted++;
+    }
+    expect(predicted).toBeGreaterThan(0);
+    expect(predicted).toBeLessThan(unread.length);
+    const unknown = await getBookPredictionContext(
+      "00000000-0000-4000-8000-000000000000",
+    );
+    expect(unknown.books).toHaveLength(34);
+    expect(unknown.byId.has("00000000-0000-4000-8000-000000000000")).toBe(
+      false,
+    );
+  });
+
+  it("keeps the daily gate freshness and evaluation when the book page uses the small load", async () => {
+    const w = await book("Unread");
+    const now = new Date();
+    const ctx = await getBookPredictionContext(w, { now });
+    expect(ctx.gate).toMatchObject({
+      checkedAt: now.toISOString(),
+      on: false,
+      n: 0,
+    });
+    await q(
+      `update app_settings set reading_prediction_gate = jsonb_set(reading_prediction_gate, '{on}', 'true')`,
+    );
+    const [a, b] = await Promise.all([
+      getBookPredictionContext(w, { now }),
+      getBookPredictionContext(w, { now }),
+    ]);
+    expect([a.gate?.on, b.gate?.on]).toEqual([true, true]);
+    const later = new Date(now.getTime() + 25 * 3_600_000);
+    const [x, y] = await Promise.all([
+      getBookPredictionContext(w, { now: later }),
+      getBookPredictionContext(w, { now: later }),
+    ]);
+    expect([x.gate, y.gate]).toEqual([x.gate, x.gate]);
+    expect(x.gate).toMatchObject({
+      checkedAt: later.toISOString(),
+      on: true,
+      failures: 1,
+      n: 0,
+    });
+    const after = await getBookPredictionContext(w, {
+      now: new Date(later.getTime() + 25 * 3_600_000),
+    });
+    expect(after.gate).toMatchObject({ on: false, failures: 0, n: 0 });
   });
 
   it("answers the API: 401 without the token, 400 for an unknown scope, suggestions with reasons with it", async () => {
