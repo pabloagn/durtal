@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
@@ -7,12 +7,13 @@ import type { Db } from "@/lib/catalogue/work-store";
 import { ebookFiles, ebookIngestItems, ebookIngestRuns } from "@/lib/db/schema";
 import type { IngestOutcome, IngestReconciliation } from "@/lib/db/schema/ebook-ingest";
 import { recentBackup } from "@/lib/enrichment/backup";
-import { appendUndoLog, reserveUndoLog } from "@/lib/books/undo-file";
+import { appendUndoLog, readUndoLog, reserveUndoLog } from "@/lib/books/undo-file";
 import { storable, storableText } from "./metadata";
 import { derivedCachePath } from "./prepare";
 import { INGEST_TOOL_VERSION, type IngestPlan, type PlanGroup, type PlanTarget } from "./plan";
 import { readGroupCatalogue, planRegistration, registerGroup, undoEntry } from "./register";
 import { reconcileIngest } from "./reconcile";
+import { reconcileReport } from "./report";
 import { storeObject } from "./store";
 import { objectMatches } from "../storage";
 import { isLegacyFileKey } from "../keys";
@@ -60,6 +61,8 @@ export interface ApplyOptions {
   /** Tests: a failure between storing and registering */
   afterStore?: (filePath: string) => void | Promise<void>;
   onProgress?: (done: number, total: number) => void;
+  /** Announce the recovery identity as soon as its run row exists. */
+  onRunStarted?: (runId: string, undoFile: string) => void;
 }
 
 export interface ApplyResult {
@@ -71,6 +74,7 @@ export interface ApplyResult {
   reconciliation: IngestReconciliation | null;
   uploadedBytes: number;
   seconds: number;
+  reconciliationFile?: string;
 }
 
 /** The most a failed item's reason and last error hold */
@@ -122,6 +126,7 @@ function checkPlanTarget(plan: IngestPlan, target: PlanTarget) {
 export function checkApply(plan: IngestPlan, options: Pick<ApplyOptions, "target" | "backup" | "live" | "localDatabase"> & { now?: number }) {
   const now = options.now ?? Date.now();
   checkPlanTarget(plan, options.target);
+  if (!Number.isFinite(Date.parse(plan.createdAt)) || Date.parse(plan.createdAt) > now + 300_000) throw new Error("The plan has an invalid creation time: plan again. Nothing written.");
   if (now - Date.parse(plan.createdAt) > PLAN_MAX_AGE_DAYS * 86_400_000) throw new Error(`The plan is older than ${PLAN_MAX_AGE_DAYS} days: plan again. Nothing written.`);
   if (!recentBackup(options.backup, now)) throw new Error("--apply needs --backup FILE: a pg_dump custom-format backup taken in the last hour. Nothing written.");
   if (!options.localDatabase && !options.live) throw new Error("This database is not a local preview: an apply to it needs --live. Nothing written.");
@@ -142,19 +147,20 @@ export async function applyPlan(planFile: string, options: ApplyOptions): Promis
   copyFileSync(planFile, keptPlan(options.cacheDir, sha));
 
   const at = new Date(now());
-  const [run] = await options.database
-    .insert(ebookIngestRuns)
-    .values({ kind: "apply", host: plan.host, roots: plan.roots, planSha256: sha, toolVersion: INGEST_TOOL_VERSION, startedAt: at, updatedAt: at })
-    .returning({ id: ebookIngestRuns.id });
+  const runId = randomUUID();
   mkdirSync(options.reportDir, { recursive: true });
-  const undoFile = path.join(options.reportDir, `ingest-undo-${run.id}.jsonl`);
-  reserveUndoLog(undoFile, { runId: run.id, planSha256: sha, createdAt: at.toISOString() });
+  const undoFile = path.join(options.reportDir, `ingest-undo-${runId}.jsonl`);
+  reserveUndoLog(undoFile, { runId, planSha256: sha, createdAt: at.toISOString() });
+  await options.database.insert(ebookIngestRuns).values({ id: runId, kind: "apply", host: plan.host, roots: plan.roots, planSha256: sha, toolVersion: INGEST_TOOL_VERSION, startedAt: at, updatedAt: at });
+  return continueRun(runId, plan, undoFile, options);
+}
 
-  // Every path the plan saw, as an item; ignored files and duplicates have nothing left to do
+/** Idempotent initialization also recovers a crash between item batches. */
+async function ensureRunItems(runId: string, plan: IngestPlan, database: Db) {
   const rows = plan.items.map((item) => {
     const settled = item.outcome === "ignored" || item.outcome === "duplicate_in_run";
     return {
-      runId: run.id,
+      runId,
       sourceHost: plan.host,
       sourcePath: item.path,
       sizeBytes: item.size,
@@ -164,12 +170,23 @@ export async function applyPlan(planFile: string, options: ApplyOptions): Promis
       state: settled ? ("done" as const) : ("pending" as const),
       outcome: settled ? item.outcome : null,
       reason: settled ? item.reason : null,
-      createdAt: at,
-      updatedAt: at,
     };
   });
-  for (let i = 0; i < rows.length; i += 500) await options.database.insert(ebookIngestItems).values(rows.slice(i, i + 500));
-  return processRun(run.id, plan, undoFile, options);
+  for (let i = 0; i < rows.length; i += 500)
+    await database.insert(ebookIngestItems).values(rows.slice(i, i + 500)).onConflictDoNothing({ target: [ebookIngestItems.runId, ebookIngestItems.sourcePath] });
+}
+
+async function continueRun(runId: string, plan: IngestPlan, undoFile: string, options: ApplyOptions): Promise<ApplyResult> {
+  try {
+    options.onRunStarted?.(runId, undoFile);
+    await ensureRunItems(runId, plan, options.database);
+    return await processRun(runId, plan, undoFile, options);
+  } catch (error) {
+    // Best effort: a dead connection cannot mark itself interrupted. The run id
+    // and reserved undo log still permit recovery once the database is back.
+    await options.database.update(ebookIngestRuns).set({ state: "interrupted", updatedAt: new Date(options.now?.() ?? Date.now()) }).where(eq(ebookIngestRuns.id, runId)).catch(() => {});
+    throw new Error(`Run ${runId} interrupted: ${failureMessage(error)}. Resume with --resume ${runId}; undo file: ${undoFile}`, { cause: error });
+  }
 }
 
 /** Carries on with a run's items that are not done, from the plan it executed */
@@ -178,6 +195,7 @@ export async function resumeRun(runId: string, options: ApplyOptions): Promise<A
   if (!run) throw new Error(`No run ${runId}. Nothing written.`);
   if (run.kind !== "apply" || !run.planSha256) throw new Error("Only an apply can be resumed. Nothing written.");
   if (run.state === "finished") throw new Error("The run finished: there is nothing to resume.");
+  if (run.host !== options.host) throw new Error(`Run ${runId} was made on ${run.host ?? "another machine"}; resume from there. Nothing written.`);
   const file = keptPlan(options.cacheDir, run.planSha256);
   if (!existsSync(file)) throw new Error(`The run's plan is not in ${path.dirname(file)}: resume on the machine that applied it. Nothing written.`);
   const plan = readPlan(readFileSync(file, "utf8"));
@@ -189,14 +207,12 @@ export async function resumeRun(runId: string, options: ApplyOptions): Promise<A
   for (const file of Object.values(plan.files)) validateStagePlan(file);
   if (planSha256(readFileSync(file, "utf8")) !== run.planSha256) throw new Error("The saved plan changed. Nothing written.");
   const undoFile = path.join(options.reportDir, `ingest-undo-${run.id}.jsonl`);
-  if (!existsSync(undoFile))
-    reserveUndoLog(undoFile, {
-      runId: run.id,
-      planSha256: run.planSha256,
-      createdAt: new Date().toISOString(),
-    });
-  await options.database.update(ebookIngestRuns).set({ state: "running", updatedAt: new Date() }).where(eq(ebookIngestRuns.id, run.id));
-  return processRun(run.id, plan, undoFile, options);
+  if (!existsSync(undoFile)) throw new Error(`The run's undo file is missing: restore ${undoFile} before resuming. Nothing written.`);
+  const { header } = readUndoLog<{ runId: string; planSha256: string }, unknown>(undoFile);
+  if (header.runId !== run.id || header.planSha256 !== run.planSha256 || plan.host !== run.host || plan.toolVersion !== run.toolVersion)
+    throw new Error("The saved run, plan or undo file differs. Nothing written.");
+  await options.database.update(ebookIngestRuns).set({ state: "running", reconciliation: null, finishedAt: null, updatedAt: new Date() }).where(eq(ebookIngestRuns.id, run.id));
+  return continueRun(run.id, plan, undoFile, options);
 }
 
 async function processRun(runId: string, plan: IngestPlan, undoFile: string, options: ApplyOptions): Promise<ApplyResult> {
@@ -266,10 +282,24 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
       if (toRegister.length === 0) return;
       // Changed since the plan: skipped and listed
       const unchanged: string[] = [];
+      const published = new Set<string>();
       for (const p of toRegister) {
         const file = plan.files[p];
         const info = await stat(p).catch(() => null);
         if (!info || info.size !== file.size || Math.abs(info.mtimeMs - file.mtimeMs) > 1) {
+          const [stored] = await db.select().from(ebookFiles).where(eq(ebookFiles.sha256, file.sha256)).limit(1);
+          const stages = stored ? medallionOf(stored.metadata) : null;
+          const storedKeyMatches = stored && (stages
+            ? stored.s3Key === (stages.validation.downloadable ? stages.gold[0]?.key : stages.bronze.key)
+            : isLegacyFileKey(stored.s3Key, stored.sha256, stored.format));
+          const catalogueVerified = storedKeyMatches && stored.sizeBytes === file.size
+            && await objectMatches(stored.s3Key, stored.sizeBytes, stored.sha256)
+            && !(await verifyPublication(stored.metadata));
+          if (catalogueVerified || (!(await verifyPublication(file.metadata)) && await objectMatches(file.key, file.size, file.sha256))) {
+            unchanged.push(p);
+            published.add(p);
+            continue;
+          }
           await setItems([p], {
             state: "done",
             outcome: "changed_since_plan",
@@ -283,6 +313,7 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
       // Store the files and their derived objects; already stored ones need nothing
       const catalogue = await readGroupCatalogue(db, group, files);
       for (const file of files) {
+        if (published.has(file.path)) continue;
         if (catalogue.bySha.has(file.sha256)) {
           const stored = catalogue.bySha.get(file.sha256)!;
           if (stored.metadata && medallionOf(stored.metadata)) {
@@ -374,7 +405,7 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
   const lanes = Array.from({ length: Math.min(GROUPS_AT_ONCE, clusters.length) }, async () => {
     while (next < clusters.length && !options.signal?.aborted && !crashed) {
       for (const group of clusters[next++]) {
-        if (crashed) break;
+        if (crashed || options.signal?.aborted) break;
         await processGroup(group);
       }
     }
@@ -421,6 +452,9 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
     runId,
     now: now(),
   });
+  mkdirSync(options.reportDir, { recursive: true });
+  const reconciliationFile = path.join(options.reportDir, `reconcile-${runId}-${reconciliation.at.replace(/[:.]/g, "-")}.md`);
+  writeFileSync(reconciliationFile, reconcileReport(reconciliation));
   const state = reconciliation.exact ? "finished" : "failed";
   await db
     .update(ebookIngestRuns)
@@ -438,6 +472,7 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
     undoFile,
     exact: reconciliation.exact,
     reconciliation,
+    reconciliationFile,
     uploadedBytes,
     seconds,
   };

@@ -27,6 +27,7 @@ import * as schema from "@/lib/db/schema";
 import type { Db } from "@/lib/catalogue/work-store";
 import { vocabularySeedSchema } from "@/lib/validations/enrichment";
 import { applyVocabulary, planVocabulary, undoVocabulary, type VocabularyPlan } from "@/lib/enrichment/loader";
+import { withReadOnlyPlanningConnection } from "@/lib/enrichment/read-only-session";
 import { recentBackup } from "@/lib/enrichment/backup";
 
 const { values } = parseArgs({
@@ -47,7 +48,7 @@ const url = process.env.PREVIEW_DATABASE_URL ?? process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is required");
 const writes = values.apply || !!values.undo;
 // Outside --apply and --undo, the session itself refuses writes
-const client = postgres(url, { max: 1, onnotice: () => {}, connection: writes ? {} : { default_transaction_read_only: true } });
+const client = writes ? postgres(url, { max: 1, onnotice: () => {} }) : null;
 
 
 function report(plan: VocabularyPlan) {
@@ -75,18 +76,18 @@ try {
   if (values.undo) {
     const version = Number(values.undo);
     if (!Number.isInteger(version) || version < 1) throw new Error("--undo takes a version number");
-    const result = await client.begin((tx) => undoVocabulary(drizzle(tx as unknown as postgres.Sql, { schema }) as unknown as Db, version));
+    const result = await drizzle(client!, { schema }).transaction((tx) => undoVocabulary(tx as unknown as Db, version));
     console.log(`Undid vocabulary version ${result.version} and the ${result.items} items it created`);
   } else {
     const text = readFileSync(values.seed!, "utf8");
     const seed = vocabularySeedSchema.parse(JSON.parse(text));
     if (!values.apply) {
-      report(await client.begin("read only", (tx) => planVocabulary(drizzle(tx as unknown as postgres.Sql, { schema }) as unknown as Db, seed)));
+      report(await withReadOnlyPlanningConnection(url, (database) => planVocabulary(database, seed)));
     } else {
       if (!recentBackup(values.backup)) throw new Error("--apply needs --backup: a pg_dump custom-format file written in the last hour");
       if (!values.approval || !/^https:\/\/\S+$/.test(values.approval)) throw new Error("--apply needs --approval: the link to Pablo's approval comment");
-      const plan = await client.begin((tx) =>
-        applyVocabulary(drizzle(tx as unknown as postgres.Sql, { schema }) as unknown as Db, seed, {
+      const plan = await drizzle(client!, { schema }).transaction((tx) =>
+        applyVocabulary(tx as unknown as Db, seed, {
           approvalUrl: values.approval!,
           seedSha256: createHash("sha256").update(text, "utf8").digest("hex"),
         }),
@@ -96,6 +97,6 @@ try {
     }
   }
 } finally {
-  await client.end();
+  await client?.end();
 }
 

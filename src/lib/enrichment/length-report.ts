@@ -16,7 +16,7 @@ const REPLAY = { slug: "kaputt-by-curzio-malaparte", location: "Amsterdam", min:
 /** Owned works with pages on 2026-10-04 */
 const BASELINE = "145 of 153";
 
-export async function lengthReport(database: PgDatabase<PgQueryResultHKT>): Promise<string> {
+export async function lengthReport(database: Pick<PgDatabase<PgQueryResultHKT>, "select" | "execute">): Promise<string> {
   const owned = await database
     .select({ id: works.id, title: works.title })
     .from(works)
@@ -97,7 +97,7 @@ export async function lengthReport(database: PgDatabase<PgQueryResultHKT>): Prom
 }
 
 /** Kaputt's pages at the Amsterdam location, and whether 400 to 600 pages there matches it */
-async function replayCheck(database: PgDatabase<PgQueryResultHKT>): Promise<string> {
+async function replayCheck(database: Pick<PgDatabase<PgQueryResultHKT>, "select" | "execute">): Promise<string> {
   const [work] = await database.select({ id: works.id, title: works.title }).from(works).where(eq(works.slug, REPLAY.slug));
   const [location] = await database
     .select({ id: locations.id })

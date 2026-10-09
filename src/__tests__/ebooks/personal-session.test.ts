@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { homedir } from "node:os";
 import path from "node:path";
-import { initializePersonalSession, personalAwsEnvironment } from "../../../scripts/ebooks/personal-session";
+import { assertPersonalReadCommand, initializePersonalSession, personalAwsEnvironment } from "../../../scripts/ebooks/personal-session";
 const initialized = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/ebooks/storage", () => ({
   ebookStorage: () => ({ bucket: "durtal", region: "eu-north-1" }),
@@ -99,4 +99,12 @@ describe("explicit personal AWS session", () => {
     expect(env.AWS_CONFIG_FILE).toBe(path.join(homedir(), ".aws/config"));
     expect(env.AWS_EC2_METADATA_DISABLED).toBe("true");
   });
+});
+
+// These checks execute before execFile, independently of SDK protection.
+it("allows only identity reads and credential export in the personal AWS CLI bridge", () => {
+  expect(() => assertPersonalReadCommand(["sts", "get-caller-identity", "--output", "json"])).not.toThrow();
+  expect(() => assertPersonalReadCommand(["configure", "export-credentials", "--format", "process"])).not.toThrow();
+  expect(() => assertPersonalReadCommand(["s3api", "put-object", "--bucket", "durtal"])).toThrow("nothing sent");
+  expect(() => assertPersonalReadCommand(["sts", "get-caller-identity", "--profile", "other", "--output", "json"])).toThrow("nothing sent");
 });
