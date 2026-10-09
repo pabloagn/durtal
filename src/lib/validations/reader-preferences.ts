@@ -32,6 +32,10 @@ export const presentationSchema = z
     brightness: stepped(70, 100, 5),
     warmth: stepped(0, 100, 10),
     dimImages: z.boolean(),
+    /** Fixed-format policies are applied by SLN-502; zoom stays session-local. */
+    fixedFit: z.enum(["page", "width"]),
+    cropMargins: z.enum(["auto", "on", "off"]),
+    pdfThemePages: z.boolean(),
   })
   .strict();
 

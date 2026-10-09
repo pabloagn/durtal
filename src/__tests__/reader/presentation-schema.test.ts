@@ -109,6 +109,26 @@ describe("presentation validation", () => {
         false,
       );
   });
+  it("validates the shared fixed-format fields without persisting session zoom", () => {
+    expect(PRESENTATION_DEFAULTS.desktop.fixedFit).toBe("page");
+    expect(PRESENTATION_DEFAULTS.tablet.fixedFit).toBe("page");
+    expect(PRESENTATION_DEFAULTS.phone.fixedFit).toBe("width");
+    expect(
+      presentationOverrideSchema.parse({
+        fixedFit: "width",
+        cropMargins: "off",
+        pdfThemePages: false,
+      }),
+    ).toEqual({ fixedFit: "width", cropMargins: "off", pdfThemePages: false });
+    for (const patch of [
+      { fixedFit: "height" },
+      { cropMargins: true },
+      { pdfThemePages: 1 },
+      { zoom: 2 },
+    ]) {
+      expect(presentationOverrideSchema.safeParse(patch).success).toBe(false);
+    }
+  });
 });
 
 describe("stored presentation recovery", () => {

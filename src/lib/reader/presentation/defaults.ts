@@ -23,6 +23,8 @@ const common = {
   brightness: 100,
   warmth: 0,
   dimImages: false,
+  cropMargins: "auto",
+  pdfThemePages: true,
 } as const;
 
 export const PRESENTATION_DEFAULTS: Readonly<
@@ -33,12 +35,14 @@ export const PRESENTATION_DEFAULTS: Readonly<
     fontSizePx: 20,
     marginPx: 48,
     spread: "auto",
+    fixedFit: "page",
   }),
   tablet: Object.freeze({
     ...common,
     fontSizePx: 19,
     marginPx: 40,
     spread: "auto",
+    fixedFit: "page",
   }),
   phone: Object.freeze({
     ...common,
@@ -46,6 +50,7 @@ export const PRESENTATION_DEFAULTS: Readonly<
     marginPx: 16,
     spread: "none",
     lineLength: "full",
+    fixedFit: "width",
   }),
 });
 
