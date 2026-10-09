@@ -1,6 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+// @vitest-environment happy-dom
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { getTableName, type SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
+import { act, createElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import type { ReadingDialogProps } from "@/components/reading/reading-provider";
 import type { ReadingWithFingerprint, Session } from "@/lib/reading/service";
 
 type Query = { run: () => void };
@@ -18,6 +22,8 @@ vi.mock("@/lib/db", () => ({ db: { select: () => ({ from: (table: Parameters<typ
   if (getTableName(table) !== "editions") throw new Error("Unexpected database read");
   return [{ title: "Other edition" }];
 } }) }) } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("@/components/shared/tiptap-editor", () => ({ TiptapEditor: () => createElement("div", { "data-editor": "" }) }));
 vi.mock("@/lib/reading/activity", () => ({ readingEvent: vi.fn(), progressEvent: vi.fn() }));
 vi.mock("@/lib/cache", () => ({ cached: (fn: unknown) => fn, invalidate: vi.fn(), CACHE_TAGS: {} }));
 vi.mock("@/lib/catalogue/book-boundary", () => ({ requireBookWork: vi.fn() }));
@@ -58,6 +64,8 @@ vi.mock("@/lib/db/atomic", () => ({ atomic: async (build: (db: unknown) => Query
 } }));
 
 import { updateReading } from "@/lib/actions/reading";
+import * as readingActions from "@/lib/actions/reading";
+import { EditReadingDialog } from "@/components/reading/dialogs/edit-reading-dialog";
 import { planPositions, sessionOrder } from "@/lib/reading/service";
 
 const ID = "11111111-1111-4111-8111-111111111111";
@@ -69,6 +77,7 @@ const snapshot = () => structuredClone({ reading: store.reading, sessions: store
 beforeEach(() => {
   store.reading = { id: ID, workId: ID, editionId: ID, fingerprint: FP, unit: "pages", format: "print", status: "reading", totalPages: 600, totalMinutes: null,
     startPage: 0, startPercent: 0, startMinutes: null, currentPage: 300, currentPercent: 50, currentMinutes: null, currentChapter: "I",
+    instanceId: null, locationId: null, reviewHtml: null, reviewJson: null, abandonReason: null, abandonNote: null,
     startedOn: null, startedPrecision: "unknown", finishedOn: null, finishedPrecision: "unknown", rating: null } as ReadingWithFingerprint;
   store.sessions = [{ id: LOG, readingId: ID, editionId: ID, format: "print", source: "manual", readOn: "2026-09-02", createdAt: new Date("2026-09-02"),
     endedAt: null, startedAt: null, durationSeconds: 1200, note: "Keep", pagesTotal: 600, startPage: 0, startPercent: 0, startMinutes: null,
@@ -234,5 +243,110 @@ describe("exported updateReading combined and sequential saves", () => {
     store.race = true;
     await expect(edit({ totalPages: 1200, currentPosition: { percent: 50 }, rating: 4 })).rejects.toThrow("changed elsewhere");
     expect(snapshot()).toEqual(before); expect(store.writes).toEqual([]);
+  });
+});
+
+
+// Exercise the real mounted dialog all the way through the exported action and
+// persisted session state. No mock server action or helper-only approximation.
+let dialogRoot: Root | undefined;
+let dialogHost: HTMLElement | undefined;
+beforeAll(() => {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  window.matchMedia = ((query: string) => ({ matches: false, media: query, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia;
+  HTMLDialogElement.prototype.showModal ??= function () { this.setAttribute("open", ""); };
+});
+afterEach(() => {
+  if (dialogRoot) act(() => dialogRoot!.unmount());
+  dialogHost?.remove(); dialogRoot = undefined; dialogHost = undefined;
+  vi.restoreAllMocks();
+});
+function mountEdit() {
+  dialogHost = document.createElement("div"); document.body.append(dialogHost);
+  dialogRoot = createRoot(dialogHost);
+  const row = { reading: { ...store.reading }, fingerprint: FP, ordinal: 1, sessionCount: 1, totalSeconds: 1200, edition: null, copy: null, home: null, ownEditionQuoteCount: 0, ownEditionNoteCount: 0 };
+  const props = {
+    data: { workId: ID, workTitle: "Fixture", bookRating: null, dayStartHour: 4, rows: [row], editions: [{ id: ID, title: "Reading edition", label: "600 pages", pageCount: 600, language: "en", translators: [], cover: null, owned: true, copies: [] }], homes: [], today: "2026-10-09", zone: "UTC" },
+    row, request: { kind: "edit", readingId: ID }, home: null, setHome: () => {}, onClose: () => {}, changed: () => {}, open: () => {},
+  } as unknown as ReadingDialogProps;
+  act(() => dialogRoot!.render(createElement(EditReadingDialog, props)));
+}
+function field(label: string) {
+  const l = [...document.querySelectorAll("label")].find((e) => e.textContent?.trim().startsWith(label))!;
+  return document.getElementById(l.htmlFor) as HTMLInputElement;
+}
+function enter(label: string, value: string) {
+  act(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field(label), value);
+    field(label).dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+function chooseCurrentUnit(label: string) {
+  act(() => field("Current unit").click());
+  const option = [...document.querySelectorAll('[role="option"]')].find((o) => o.textContent?.trim().startsWith(label)) as HTMLElement;
+  act(() => option.click());
+}
+async function saveDialog() {
+  await act(async () => { document.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+}
+function crossEditionLog() {
+  Object.assign(store.sessions[0], { editionId: "33333333-3333-4333-8333-333333333333", pagesTotal: 400, endPage: 200, source: "reader" });
+}
+
+describe("dialog intent → real updateReading → persisted log", () => {
+  it.each([true, false])("preserves explicit percentage entry under a revised total (crossEdition=%s)", async (crossEdition) => {
+    if (crossEdition) crossEditionLog(); else store.sessions[0].source = "reader";
+    const spy = vi.spyOn(readingActions, "updateReading");
+    mountEdit(); chooseCurrentUnit("Percent"); enter("Pages to read", "1200");
+    expect(field("Current position").value).toBe("25");
+    // The cross-edition 25 is deliberately the same value currently displayed:
+    // explicit input must survive React's unchanged-value tracker and the cache.
+    enter("Current position", crossEdition ? "25" : "50");
+    await saveDialog();
+    const percent = crossEdition ? 25 : 50;
+    expect(spy).toHaveBeenCalledWith({ readingId: ID, fingerprint: FP, totalPages: 1200, currentPosition: { percent } });
+    expect(store.reading).toMatchObject({ currentPage: crossEdition ? 300 : 600, currentPercent: percent });
+    expect(store.sessions[0]).toMatchObject({ endPage: crossEdition ? 100 : 600, endPercent: percent, pagesTotal: crossEdition ? 400 : 1200, source: "manual" });
+    expect(await edit({ currentChapter: "II" })).toMatchObject({ currentPage: crossEdition ? 300 : 600, currentPercent: percent });
+    expect(await edit({ rating: 4 })).toMatchObject({ currentPage: crossEdition ? 300 : 600, currentPercent: percent });
+  });
+
+  it.each([true, false])("omits current corrections without input/unit intent and preserves authority (crossEdition=%s)", async (crossEdition) => {
+    if (crossEdition) crossEditionLog(); else store.sessions[0].source = "reader";
+    const log = { ...store.sessions[0] };
+    const spy = vi.spyOn(readingActions, "updateReading");
+    mountEdit(); enter("Pages to read", "1200"); enter("Current chapter", "II");
+    await saveDialog();
+    expect(spy).toHaveBeenCalledWith({ readingId: ID, fingerprint: FP, totalPages: 1200, currentChapter: "II" });
+    expect(store.reading).toMatchObject({ currentPage: crossEdition ? 600 : 300, currentPercent: crossEdition ? 50 : 25 });
+    expect(store.sessions[0]).toMatchObject({ source: "reader", endPage: log.endPage, endPercent: log.endPercent, pagesTotal: log.pagesTotal });
+    expect(await edit({ rating: 4 })).toMatchObject({ currentPage: crossEdition ? 600 : 300, currentPercent: crossEdition ? 50 : 25 });
+  });
+
+  it("passes a unit-only proposal through to the authoritative history comparison", async () => {
+    crossEditionLog(); const spy = vi.spyOn(readingActions, "updateReading");
+    mountEdit(); enter("Pages to read", "1200"); chooseCurrentUnit("Percent");
+    await saveDialog();
+    expect(spy).toHaveBeenCalledWith({ readingId: ID, fingerprint: FP, totalPages: 1200, currentPosition: { percent: 25 } });
+    expect(store.reading).toMatchObject({ currentPage: 300, currentPercent: 25 });
+    expect(store.sessions[0]).toMatchObject({ endPage: 100, endPercent: 25, source: "manual" });
+  });
+
+  it("retains intent when explicitly selecting the current unit again under revised totals", async () => {
+    crossEditionLog(); const spy = vi.spyOn(readingActions, "updateReading");
+    mountEdit(); enter("Pages to read", "1200"); chooseCurrentUnit("Page");
+    await saveDialog();
+    expect(spy).toHaveBeenCalledWith({ readingId: ID, fingerprint: FP, totalPages: 1200, currentPosition: { page: 300 } });
+    expect(store.sessions[0]).toMatchObject({ endPage: 100, endPercent: 25, source: "manual" });
+    expect(store.reading).toMatchObject({ currentPage: 300, currentPercent: 25 });
+  });
+
+  it("submits an explicit unchanged entry while the action preserves a true no-op reader log", async () => {
+    crossEditionLog(); const spy = vi.spyOn(readingActions, "updateReading");
+    mountEdit(); enter("Current position", "300"); enter("Current chapter", "II");
+    await saveDialog();
+    expect(spy).toHaveBeenCalledWith({ readingId: ID, fingerprint: FP, currentChapter: "II", currentPosition: { page: 300 } });
+    expect(store.sessions[0]).toMatchObject({ endPage: 200, endPercent: 50, pagesTotal: 400, source: "reader" });
+    expect(store.reading).toMatchObject({ currentPage: 300, currentPercent: 50 });
   });
 });

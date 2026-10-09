@@ -25,7 +25,6 @@ import { notesCountText } from "@/lib/reading/notes-text";
 import {
   formatMinutes,
   percentOf,
-  positionChanges,
   positionInUnit,
   remapPosition,
 } from "@/lib/reading/positions";
@@ -163,6 +162,7 @@ export function EditReadingDialog({
   const [currentText, setCurrentText] = useState(initialCurrent);
   const [startTouched, setStartTouched] = useState(false);
   const [currentTouched, setCurrentTouched] = useState(false);
+  const [currentIntent, setCurrentIntent] = useState(false);
   const [chapter, setChapter] = useState(r.currentChapter ?? "");
 
   const edition = data.editions.find((e) => e.id === editionId) ?? null;
@@ -185,8 +185,10 @@ export function EditReadingDialog({
     : positionInUnit({ page: r.currentPage, minutes: r.currentMinutes, percent: r.currentPercent }, r.unit, totals);
   const effectiveCurrentText = currentTouched ? currentText : editPositionText(effectiveCurrent, currentUnit);
   const parsedCurrent = startPosition(effectiveCurrentText, currentUnit, totals);
-  const currentGiven = { page: parsedCurrent.value.startPage, percent: parsedCurrent.value.startPercent, minutes: parsedCurrent.value.startMinutes };
-  const currentEdited = currentTouched && positionChanges(currentGiven, effectiveCurrent, totals);
+  // The dialog has cached counters, not the session history used by the action.
+  // Preserve explicit input/unit intent even when it matches that estimate;
+  // only the action can decide whether the submitted place is a real correction.
+  const currentEdited = currentIntent;
   const sessionlessStart = { page: parsedStart.value.startPage, percent: parsedStart.value.startPercent, minutes: parsedStart.value.startMinutes };
   const sessionlessCurrent = { ...remapPosition(percentOf(sessionlessStart, totals), totals),
     ...(sessionlessStart.page !== undefined ? { page: sessionlessStart.page } : {}),
@@ -251,6 +253,7 @@ export function EditReadingDialog({
       setStartUnit(unit);
       setStartText(editPositionText(mapped, unit));
     } else {
+      setCurrentIntent(true);
       setCurrentUnit(unit);
       setCurrentText(editPositionText(mapped, unit));
     }
@@ -534,7 +537,15 @@ export function EditReadingDialog({
               label="Current position"
               value={currentDisplay}
               inputMode={currentUnit === "minutes" ? "text" : "decimal"}
+              onInput={(e) => {
+                // An actual same-value entry is still explicit intent. React
+                // may suppress onChange when its value tracker sees no change.
+                setCurrentIntent(true);
+                setCurrentTouched(true);
+                setCurrentText(e.currentTarget.value);
+              }}
               onChange={(e) => {
+                setCurrentIntent(true);
                 setCurrentTouched(true);
                 setCurrentText(e.target.value);
               }}

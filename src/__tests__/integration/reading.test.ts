@@ -620,6 +620,21 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       expect(next.reading).toMatchObject({ currentPage: 420, currentChapter: "II" });
     });
 
+    it("applies an explicit cross-edition percent under revised totals through the historical session", async () => {
+      const workId = await book("Explicit cross-edition percent");
+      const readingEdition = await edition(workId, 600);
+      const sessionEdition = await edition(workId, 400);
+      const reading = await startReading({ workId, editionId: readingEdition });
+      const last = await recordProgress({ readingId: reading.id, page: 200, readOn: "2026-09-02", timeZone: "UTC", durationSeconds: 1200, note: "Keep" }, { source: "reader", editionId: sessionEdition, format: "print" });
+      expect(last.reading).toMatchObject({ currentPage: 300, currentPercent: 50 });
+      const unchanged = await q(`select id, edition_id, format, read_on, duration_seconds, note, pages_total, created_at from reading_sessions where id = $1`, [last.session.id]);
+      expect(await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), totalPages: 1200, currentPosition: { percent: 25 } })).toMatchObject({ currentPage: 300, currentPercent: 25 });
+      expect(await q(`select end_page, end_percent::float8 as end_percent, source from reading_sessions where id = $1`, [last.session.id])).toEqual([{ end_page: 100, end_percent: 25, source: "manual" }]);
+      expect(await q(`select id, edition_id, format, read_on, duration_seconds, note, pages_total, created_at from reading_sessions where id = $1`, [last.session.id])).toEqual(unchanged);
+      expect(await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), currentChapter: "II" })).toMatchObject({ currentPage: 300, currentPercent: 25 });
+      expect(await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), rating: 4 })).toMatchObject({ currentPage: 300, currentPercent: 25 });
+    });
+
     it("interprets an explicit percentage against the revised total while preserving session history", async () => {
       const { reading } = await started({ pages: 600 });
       const last = await log(reading.id, { page: 300, durationSeconds: 1200, note: "Keep", readOn: "2026-09-02" });

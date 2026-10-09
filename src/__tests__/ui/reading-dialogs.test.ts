@@ -324,7 +324,7 @@ describe("Edit reading", () => {
     expect(planPositions(revised, sessionOrder(correction.sessions)).position).toMatchObject({ page: 600, percent: 50 });
   });
 
-  it("normalizes an untouched percent under a revised total without submitting a chapter-only position correction", async () => {
+  it("submits a selected percent unit proposal under revised totals even without typing its value", async () => {
     const effective = { ...row, reading: { ...reading, totalPages: 600, currentPage: 300, currentPercent: 50, currentChapter: "I", unit: "pages" } };
     act(() => root.render(createElement(EditReadingDialog, props({ row: effective as never, request: { kind: "edit", readingId: "r1" } }))));
     choose("Current unit", "Percent");
@@ -332,7 +332,7 @@ describe("Edit reading", () => {
     expect(field("Current position").value).toBe("25");
     type(field("Current chapter"), "II");
     await submit();
-    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalPages: 1200, currentChapter: "II" });
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalPages: 1200, currentChapter: "II", currentPosition: { percent: 25 } });
   });
 
   it("keeps a true percent-tracked reading's raw percentage when totals change", async () => {
@@ -347,7 +347,7 @@ describe("Edit reading", () => {
     expect(field("Current position").value).toBe("100");
     type(field("Current chapter"), "II");
     await submit();
-    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalPages: 200, currentChapter: "II" });
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalPages: 200, currentChapter: "II", currentPosition: { page: 100 } });
   });
 
   it("shows native-minute normalization when audio also has a cached page equivalent", async () => {
@@ -358,16 +358,16 @@ describe("Edit reading", () => {
     expect(field("Current position").value).toBe("25");
     type(field("Current chapter"), "II");
     await submit();
-    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalMinutes: 1200, currentChapter: "II" });
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalMinutes: 1200, currentChapter: "II", currentPosition: { percent: 25 } });
   });
 
-  it.each([false, true])("does not submit unchanged current fields for a chapter-only edit (touched=%s)", async (touched) => {
+  it.each([false, true])("submits unchanged current fields only with explicit input intent (touched=%s)", async (touched) => {
     const effective = { ...row, reading: { ...reading, totalPages: 600, currentPage: 240, currentPercent: 40, currentChapter: "I" } };
     act(() => root.render(createElement(EditReadingDialog, props({ row: effective as never, request: { kind: "edit", readingId: "r1" } }))));
     if (touched) type(field("Current position"), "240");
     type(field("Current chapter"), "II");
     await submit();
-    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, currentChapter: "II" });
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, currentChapter: "II", ...(touched ? { currentPosition: { page: 240 } } : {}) });
   });
 
   it("submits an explicit 100% correction when shrinking totals below the native page", async () => {
