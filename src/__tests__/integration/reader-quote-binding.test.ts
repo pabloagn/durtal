@@ -52,7 +52,7 @@ describe.skipIf(!url)("reader quote versions and catalogue races", () => {
       const hash = key.replaceAll("-", "").padEnd(64, "0");
       const file = await value(tx, `insert into ebook_files(ebook_id,sha256,format,size_bytes,content_type,s3_key,status)
         values ($1,$2,'epub',1,'application/epub+zip',$3,'stored') returning id`, [ebook, hash, `gold/media/ebooks/quote-test-${key}.epub`]);
-      const locator = JSON.stringify({ v: 1, fileHash: hash, href: "OPS/chapter.xhtml", sectionIndex: 0, progression: 0.5, totalProgression: 0.5 });
+      const locator = JSON.stringify({ v: 1, fileHash: hash, href: "OPS/chapter.xhtml", sectionIndex: 0, progression: 0.5, totalProgression: 0.5, text: { highlight: "Original passage" } });
       const annotation = await value(tx, `insert into ebook_annotations(ebook_id,file_id,kind,style,locator,progression,text,client_updated_at)
         values ($1,$2,'highlight','quote',$3::jsonb,0.5,'Original passage',clock_timestamp()) returning id`, [ebook, file, locator]);
       const note = await value(tx, `insert into reading_notes(work_id,kind,body,source,ebook_annotation_id)
