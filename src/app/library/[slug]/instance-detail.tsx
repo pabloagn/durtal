@@ -1,3 +1,4 @@
+import { DetailFacts } from "@/components/shared/detail-facts";
 import { Badge } from "@/components/ui/badge";
 import { formatFileSize, formatPrice, formatDate } from "@/lib/utils/format";
 import { InstanceEditDialog } from "./instance-edit-dialog";
@@ -75,15 +76,16 @@ export function InstanceDetail({
   const hasActions = availableLocations.length > 0;
 
   return (
-    <div className="rounded-sm border border-glass-border bg-bg-primary px-4 py-3 text-xs">
+    <div className="@container rounded-sm border border-glass-border bg-bg-primary px-4 py-3 text-xs [overflow-wrap:anywhere]">
       {/* Location row */}
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 pointer-coarse:gap-y-2.5">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="mb-2 flex flex-col items-start gap-3 @min-[440px]:flex-row @min-[440px]:justify-between">
+        <div className="min-w-0 flex flex-wrap items-center gap-2">
           <span className="text-sm text-fg-primary">
             {instance.location.name}
             {instance.subLocation && (
               <span className="text-fg-secondary">
-                {" "}/ {instance.subLocation.name}
+                {" "}
+                / {instance.subLocation.name}
               </span>
             )}
           </span>
@@ -99,7 +101,8 @@ export function InstanceDetail({
               currentStatus={instance.status ?? "available"}
             />
           ) : (
-            instance.status && instance.status !== "available" && (
+            instance.status &&
+            instance.status !== "available" && (
               <Badge
                 variant={
                   instance.status === "lent_out"
@@ -139,15 +142,9 @@ export function InstanceDetail({
         instance.isSigned ||
         instance.isFirstPrinting) && (
         <div className="mb-2 flex flex-wrap gap-1.5">
-          {instance.hasDustJacket && (
-            <Badge variant="muted">Dust Jacket</Badge>
-          )}
-          {instance.hasSlipcase && (
-            <Badge variant="muted">Slipcase</Badge>
-          )}
-          {instance.isSigned && (
-            <Badge variant="gold">Signed</Badge>
-          )}
+          {instance.hasDustJacket && <Badge variant="muted">Dust Jacket</Badge>}
+          {instance.hasSlipcase && <Badge variant="muted">Slipcase</Badge>}
+          {instance.isSigned && <Badge variant="gold">Signed</Badge>}
           {instance.isFirstPrinting && (
             <Badge variant="gold">1st Printing</Badge>
           )}
@@ -157,7 +154,8 @@ export function InstanceDetail({
       {/* Signed by */}
       {instance.signedBy && (
         <p className="mb-1 text-fg-secondary">
-          <span className="text-fg-secondary">Signed by:</span> {instance.signedBy}
+          <span className="text-fg-secondary">Signed by:</span>{" "}
+          {instance.signedBy}
         </p>
       )}
 
@@ -195,14 +193,14 @@ export function InstanceDetail({
       {/* Acquisition details */}
       {hasAcquisition && (
         <div className="mt-3 border-t border-glass-border pt-2">
-          <p className="type-caption mb-1.5">
-            Acquisition
-          </p>
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-1">
+          <p className="type-caption mb-1.5">Acquisition</p>
+          <DetailFacts>
             {instance.acquisitionType && (
               <>
                 <dt className="text-fg-secondary">Type</dt>
-                <dd className="text-fg-secondary">{enumLabel(instance.acquisitionType)}</dd>
+                <dd className="text-fg-secondary">
+                  {enumLabel(instance.acquisitionType)}
+                </dd>
               </>
             )}
             {instance.acquisitionDate && (
@@ -216,7 +214,9 @@ export function InstanceDetail({
             {instance.acquisitionSource && (
               <>
                 <dt className="text-fg-secondary">Source</dt>
-                <dd className="text-fg-secondary">{instance.acquisitionSource}</dd>
+                <dd className="text-fg-secondary">
+                  {instance.acquisitionSource}
+                </dd>
               </>
             )}
             {instance.acquisitionPrice && (
@@ -230,24 +230,27 @@ export function InstanceDetail({
                 </dd>
               </>
             )}
-          </dl>
+          </DetailFacts>
         </div>
       )}
 
       {/* Digital details */}
       {hasDigital && (
         <div className="mt-3 border-t border-glass-border pt-2">
-          <p className="type-caption mb-1.5">
-            Digital
-          </p>
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-1">
+          <p className="type-caption mb-1.5">Digital</p>
+          <DetailFacts>
             {ebook && (
               <>
                 <dt className="text-fg-secondary">eBook</dt>
                 <dd className="text-fg-secondary">
                   <span className="font-mono">
                     {/* The size keeps its number and unit on one line; an e-book with no file has none */}
-                    {[ebook.formats, ebook.sizeBytes ? formatFileSize(ebook.sizeBytes).replace(" ", "\u00a0") : null]
+                    {[
+                      ebook.formats,
+                      ebook.sizeBytes
+                        ? formatFileSize(ebook.sizeBytes).replace(" ", "\u00a0")
+                        : null,
+                    ]
                       .filter(Boolean)
                       .join(" · ")}
                   </span>
@@ -269,19 +272,18 @@ export function InstanceDetail({
                 </dd>
               </>
             )}
-          </dl>
+          </DetailFacts>
         </div>
       )}
 
       {/* Lending status */}
       {isLentOut && (
         <div className="mt-3 border-t border-glass-border pt-2">
-          <p className="type-caption mb-1.5">
-            On Loan
-          </p>
+          <p className="type-caption mb-1.5">On Loan</p>
           {instance.lentTo && (
             <p className="text-fg-secondary">
-              <span className="text-fg-secondary">Lent to:</span> {instance.lentTo}
+              <span className="text-fg-secondary">Lent to:</span>{" "}
+              {instance.lentTo}
             </p>
           )}
           {instance.lentDate && (
@@ -296,14 +298,14 @@ export function InstanceDetail({
       {/* Disposition details */}
       {hasDisposition && (
         <div className="mt-3 border-t border-glass-border pt-2">
-          <p className="type-caption mb-1.5">
-            Disposition
-          </p>
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-1">
+          <p className="type-caption mb-1.5">Disposition</p>
+          <DetailFacts>
             {instance.dispositionType && (
               <>
                 <dt className="text-fg-secondary">Type</dt>
-                <dd className="text-fg-secondary">{enumLabel(instance.dispositionType)}</dd>
+                <dd className="text-fg-secondary">
+                  {enumLabel(instance.dispositionType)}
+                </dd>
               </>
             )}
             {instance.dispositionDate && (
@@ -339,7 +341,7 @@ export function InstanceDetail({
                 </dd>
               </>
             )}
-          </dl>
+          </DetailFacts>
         </div>
       )}
     </div>

@@ -57,11 +57,6 @@
 .h-title-dot {
   color: var(--color-accent-primary);
 }
-.h-intro {
-  font-size: var(--text-xs);
-  color: var(--color-fg-secondary);
-  margin-top: 9px;
-}
 .h-scan-control {
   text-align: right;
   padding-bottom: 3px;

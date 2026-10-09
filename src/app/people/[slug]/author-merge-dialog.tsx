@@ -80,7 +80,7 @@ export function AuthorMergeDialog({
       open={open}
       onClose={handleClose}
       title="Merge people"
-      description={`Select duplicates to merge into "${targetAuthorName}". Their books and contributions will be transferred here, and the duplicates will be deleted.`}
+      description={targetAuthorName}
     >
       <div className="space-y-4">
         {/* Selected sources → Target visual */}

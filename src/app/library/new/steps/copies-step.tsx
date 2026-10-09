@@ -42,11 +42,11 @@ export function CopiesStep({
 
   return (
     <div className="space-y-6">
-      <p className="text-xs text-fg-secondary">
-        {wishlist
-          ? "Optionally add copies if you already have this book."
-          : "Where do you have this book? Add copies with their locations."}
-      </p>
+      {wishlist && (
+        <p className="text-xs text-fg-secondary">
+          Optionally add copies if you already have this book.
+        </p>
+      )}
 
       {locations.length === 0 ? (
         <div className="rounded-sm border border-accent-red/30 bg-accent-red/5 p-4 text-xs text-fg-secondary">

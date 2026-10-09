@@ -58,7 +58,6 @@ export function CreateFamilyDialog({
       open={open}
       onClose={onClose}
       title="New taxonomy family"
-      description="A custom family of terms you choose, for the collections it applies to."
       className="max-w-lg"
       expandable={false}
     >

@@ -55,7 +55,7 @@ export function EditionDeleteButton({
         onClose={() => setOpen(false)}
         onConfirm={handleConfirm}
         title="Delete edition"
-        description={`Are you sure you want to delete this edition? This action cannot be undone.${keptNotesText(quoteCount, noteCount, ", without this edition")}`}
+        description={`This cannot be undone.${keptNotesText(quoteCount, noteCount, ", without this edition")}`}
         itemName={editionTitle}
         cascade={
           instanceCount > 0

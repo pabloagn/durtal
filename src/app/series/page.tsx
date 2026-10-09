@@ -56,7 +56,6 @@ async function SeriesContent({ params }: { params: SearchParams }) {
       <EmptyState
         icon={Layers}
         title="No series yet"
-        description="Group books that belong together, in reading order"
         action={<SeriesFormDialog />}
       />
     );
@@ -88,7 +87,6 @@ export default async function SeriesPage({
     <>
       <PageHeader
         title="Series"
-        description="Books that belong together, in reading order"
         actions={
           <div className="flex items-center gap-2">
             <Suspense fallback={null}>

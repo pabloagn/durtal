@@ -110,9 +110,6 @@ export function CreateCollectionDialog({
               disabled={saving}
             />
           </details>
-          <p className="text-xs text-fg-secondary">
-            Add what it holds and its artwork after creating it.
-          </p>
           <div className="flex justify-end gap-2">
             <Button
               type="button"

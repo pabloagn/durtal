@@ -47,7 +47,7 @@ export function InstanceDeleteButton({
         onClose={() => setOpen(false)}
         onConfirm={handleConfirm}
         title="Delete instance"
-        description="Are you sure you want to delete this copy? This action cannot be undone."
+        description="This cannot be undone."
         itemName={instanceLabel}
       />
     </>
