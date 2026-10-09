@@ -49,6 +49,13 @@ export class PaceModel {
     language: string | null,
     visible = true,
   ) {
+    if (
+      relocation.reason === "layout" ||
+      (relocation.origin && relocation.origin !== "human")
+    ) {
+      this.interrupt();
+      return false;
+    }
     const previous = this.#page;
     const at = this.now();
     this.#page =

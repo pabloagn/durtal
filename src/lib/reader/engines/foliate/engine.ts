@@ -413,11 +413,20 @@ class FoliateEngine implements ReaderEngine {
     const index = Number.isInteger(detail.index) ? detail.index : 0;
     const section = book.sections[index];
     const linear = section?.linear !== "no";
+    const reason =
+      this.#jumping > 0
+        ? "jump"
+        : ["page", "snap", "scroll"].includes(detail.reason ?? "")
+          ? "turn"
+          : "layout";
+    const relocationOrigin =
+      reason === "layout" ? "layout" : (this.#owner?.origin ?? "human");
     const atEnd =
       linear &&
       index === book.sections.findLastIndex((item) => item.linear !== "no") &&
       !!this.#view?.renderer.atEnd;
-    if (linear) this.#readingFraction = atEnd ? 1 : (detail.fraction ?? 0);
+    if (linear && relocationOrigin !== "layout")
+      this.#readingFraction = atEnd ? 1 : (detail.fraction ?? 0);
     const fraction = this.#readingFraction;
     const locator = locatorFromRelocate({
       fileHash: this.#source.sha256,
@@ -425,9 +434,10 @@ class FoliateEngine implements ReaderEngine {
       href: String(section?.id ?? index),
       sectionFraction: detail.sectionFraction ?? 0,
       fraction,
-      location: linear
-        ? detail.location?.current
-        : Math.floor((fraction * (this.#info?.linearSize ?? 0)) / 1500),
+      location:
+        linear && relocationOrigin !== "layout"
+          ? detail.location?.current
+          : Math.floor((fraction * (this.#info?.linearSize ?? 0)) / 1500),
       cfi: detail.cfi,
       range: detail.range,
       tocLabel: detail.tocItem?.label,
@@ -437,11 +447,6 @@ class FoliateEngine implements ReaderEngine {
     this.#locator = locator;
     if (locator.position && this.#info)
       locator.position = Math.min(this.#info.locationCount, locator.position);
-    const reason =
-      this.#jumping > 0 ||
-      !["page", "snap", "scroll"].includes(detail.reason ?? "")
-        ? "jump"
-        : "turn";
     if (reason === "turn") this.setDecorations("history", []);
     const tocItem = detail.tocItem?.href
       ? (tocFrom([detail.tocItem])[0] ?? null)
@@ -453,8 +458,14 @@ class FoliateEngine implements ReaderEngine {
       locator,
       chapter: detail.tocItem?.label?.trim() || null,
       reason,
-      atEnd,
-      activity: detail.reason === "scroll" ? "scroll" : "turn",
+      origin: relocationOrigin,
+      atEnd: relocationOrigin === "human" && atEnd,
+      activity:
+        reason === "turn" && relocationOrigin === "human"
+          ? detail.reason === "scroll"
+            ? "scroll"
+            : "turn"
+          : undefined,
       tocItem,
       visibleChars: detail.range?.toString().length ?? 0,
       linear,
@@ -909,17 +920,32 @@ class FoliateEngine implements ReaderEngine {
     });
   }
 
-  next() {
-    return this.#view?.next() ?? Promise.resolve();
+  async #turn(
+    direction: "next" | "prev" | "goLeft" | "goRight",
+    owner?: NavigationOwner,
+  ) {
+    if (owner?.signal.aborted)
+      throw new DOMException("Cancelled", "AbortError");
+    this.#owner = owner;
+    try {
+      await this.#view?.[direction]();
+      if (owner?.signal.aborted)
+        throw new DOMException("Cancelled", "AbortError");
+    } finally {
+      this.#owner = undefined;
+    }
   }
-  prev() {
-    return this.#view?.prev() ?? Promise.resolve();
+  next(owner?: NavigationOwner) {
+    return this.#turn("next", owner);
   }
-  goLeft() {
-    return this.#view?.goLeft() ?? Promise.resolve();
+  prev(owner?: NavigationOwner) {
+    return this.#turn("prev", owner);
   }
-  goRight() {
-    return this.#view?.goRight() ?? Promise.resolve();
+  goLeft(owner?: NavigationOwner) {
+    return this.#turn("goLeft", owner);
+  }
+  goRight(owner?: NavigationOwner) {
+    return this.#turn("goRight", owner);
   }
 
   /**

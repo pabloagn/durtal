@@ -26,6 +26,7 @@ export function fakeEngine() {
     emit("relocate", {
       locator: at,
       reason,
+      origin: "human",
       chapter: at.tocLabel ?? "Chapter I",
       atEnd: false,
       tocItem: null,
@@ -101,7 +102,7 @@ export function fakeEngine() {
             };
       relocate(at, "jump", owner?.id);
     }),
-    next: vi.fn(async () =>
+    next: vi.fn<ReaderEngine["next"]>(async (owner) =>
       relocate(
         {
           ...locator,
@@ -109,9 +110,10 @@ export function fakeEngine() {
           totalProgression: locator.totalProgression + 0.1,
         },
         "turn",
+        owner?.id,
       ),
     ),
-    prev: vi.fn(async () =>
+    prev: vi.fn<ReaderEngine["prev"]>(async (owner) =>
       relocate(
         {
           ...locator,
@@ -119,13 +121,14 @@ export function fakeEngine() {
           totalProgression: locator.totalProgression - 0.1,
         },
         "turn",
+        owner?.id,
       ),
     ),
-    goLeft: vi.fn(async (): Promise<void> => {
-      await engine.prev();
+    goLeft: vi.fn<ReaderEngine["goLeft"]>(async (owner): Promise<void> => {
+      await engine.prev(owner);
     }),
-    goRight: vi.fn(async (): Promise<void> => {
-      await engine.next();
+    goRight: vi.fn<ReaderEngine["goRight"]>(async (owner): Promise<void> => {
+      await engine.next(owner);
     }),
     currentLocator: () => locator,
     locatorFromSelection: () => selection?.locator ?? null,
@@ -136,8 +139,14 @@ export function fakeEngine() {
     indexAnchors: async function* () {
       /* No backing book documents in this fixture. */
     },
-    nextSection: vi.fn(async (): Promise<void> => engine.next()),
-    prevSection: vi.fn(async (): Promise<void> => engine.prev()),
+    nextSection: vi.fn<ReaderEngine["nextSection"]>(
+      async (owner): Promise<void> =>
+        engine.goTo({ fraction: locator.totalProgression + 0.1 }, owner),
+    ),
+    prevSection: vi.fn<ReaderEngine["prevSection"]>(
+      async (owner): Promise<void> =>
+        engine.goTo({ fraction: locator.totalProgression - 0.1 }, owner),
+    ),
     firstPage: vi.fn<ReaderEngine["firstPage"]>(
       async (owner): Promise<void> => engine.goTo({ fraction: 0 }, owner),
     ),

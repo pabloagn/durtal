@@ -175,6 +175,26 @@ describe("index and addresses", () => {
   });
 });
 describe("device pace", () => {
+  it("rejects layout and speech arrivals and discards their dwell before the next human turn", () => {
+    for (const origin of ["layout", "speech"] as const) {
+      let now = 0;
+      const pace = new PaceModel(null, () => now);
+      pace.arrive(arrival(0.1), "en");
+      now = 10_000;
+      expect(
+        pace.arrive(
+          arrival(0.5, {
+            origin,
+            reason: origin === "layout" ? "layout" : "turn",
+          }),
+          "en",
+        ),
+      ).toBe(false);
+      now = 20_000;
+      expect(pace.arrive(arrival(0.6), "en")).toBe(false);
+      expect(pace.get("en")).toBeNull();
+    }
+  });
   it("learns only continuous eligible forward dwell, per primary language, using EMA .1", () => {
     const local = storage();
     let now = 0;

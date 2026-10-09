@@ -24,3 +24,19 @@ SLN-499 gives the open reader a contents tree, preview scrubber, Go to, exact Ba
 ## Completion Notes
 
 Source checkpoint only. Focused reader and cross-layer tests: 186 passed in 26 files, zero skipped, including late-arrival paint, rapid-turn queuing and non-linear UI/bridge/save projection regressions. Typecheck without incremental writes and explicit non-ignored scoped lint pass with zero warnings/errors; dead-code passes with two existing configuration hints. Harness JavaScript syntax and diff checks pass. Native fixture assertions, full local/database/Python, production/Docker, browser matrix, alignment within 0.5px, design, page weight and performance remain pending the coordinator's runtime slot and final-source review. No runtime measurements or acceptance are claimed. Existing phone opening misses remain SLN-553 scope. Main must be normally merged after SLN-493 lands before final acceptance.
+
+### Source review revision
+
+Independent review of `9a69cfd3` reproduced premature boundary turn activity, unowned reflow becoming a human turn/pace sample, and an unreachable recovery abort signal. The original failures remain review evidence. The review's 38ms rapid-turn queue regression passed; no paginator/view vendor edit is needed.
+
+Input now publishes only genuine key/pointer activity. A matching owned turn publishes turn activity once after engine completion and paint. The adapter tags human/layout/speech origin; unowned reflow retains reading progress and updates its anchor/context quietly. Layout/speech cannot sample pace or produce human completion, stale/unowned arrivals cannot replace an active turn, and human scroll still publishes after paint. Session teardown aborts recovery/passive paint and immediately settles active/queued promises. The native rapid-turn comparison now waits for visible history controls to become idle instead of an acceptance sleep; the 38ms reproduction gap remains.
+
+Regression coverage adds actual 100ms lock/promise semantics, stale/layout/speech arrival rejection, passive cancellation, hidden recovery teardown, boundary/failure/cancellation silence, one successful turn publication, quiet reflow and non-human pace suppression. The revised focused reader/cross-layer batch passes all 198 tests in 26 files, zero skipped. Typecheck without incremental writes, explicit non-ignored scoped lint (zero warnings/errors), dead-code, harness syntax and diff checks pass; dead-code retains the same two configuration hints. Native and heavy gates remain pending independent revision review and a runtime slot.
+
+Exact revision files for rereview:
+
+- Runtime: `src/lib/reader/navigation.ts`, `src/lib/reader/input.ts`, `src/lib/reader/pace.ts`, `src/lib/reader/history.ts`, `src/lib/reader/engine.ts`, `src/lib/reader/engines/foliate/engine.ts`, `src/app/reader/[ebookId]/reader-view.tsx`.
+- Regressions: `src/__tests__/reader/navigation.test.ts`, `src/__tests__/reader/navigation-models.test.ts`, `src/__tests__/reader/reader-view.test.ts`, `src/__tests__/reader/foliate-bridge.test.ts`, `src/__tests__/reader/input.test.ts`, `src/__tests__/reader/fixtures/fake-engine.ts`.
+- QA/docs: `scripts/qa/reader-navigation-checks.mjs`, `docs/04_ROUTES_AND_VIEWS.md`, this changelog.
+
+API delta: turn methods now accept an optional navigation owner; relocate adds `layout` reason and optional human/layout/speech origin; owner accepts an optional origin. Current navigation operations publish human movement only. SLN-501 still needs its awaitable owned layout command; SLN-508 still needs an owned automatic-navigation command and speech-specific location/end publication. This revision guards those origins without implementing either feature.

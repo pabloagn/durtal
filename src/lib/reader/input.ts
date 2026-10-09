@@ -34,8 +34,8 @@ export interface ReaderActions {
   shortcuts?(): void;
   /** Esc: closes the open panel, else leaves full screen */
   escape(): void;
-  /** Any input that is reading: a turn, a key, a tap */
-  activity?(kind: "turn" | "key" | "pointer" | "scroll"): void;
+  /** Human input only. Successful turn activity belongs to painted navigation. */
+  activity?(kind: "key" | "pointer"): void;
   /** The mouse moved, at this point of the reader's viewport (the bars show near an edge) */
   pointer?(x: number, y: number): void;
 }
@@ -251,10 +251,8 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
     const x = viewportX(doc, clientX) / width;
     if (x < TAP_ZONE) {
       actions.left();
-      actions.activity?.("turn");
     } else if (x > 1 - TAP_ZONE) {
       actions.right();
-      actions.activity?.("turn");
     } else {
       actions.toggleBars();
       actions.activity?.("pointer");
@@ -333,7 +331,6 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
     const turn = (fn: () => void) => {
       event.preventDefault();
       fn();
-      actions.activity?.("turn");
     };
     switch (event.key) {
       case "ArrowRight":
@@ -371,7 +368,6 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
     if (action && event.key.length === 1) {
       event.preventDefault();
       action();
-      actions.activity?.("key");
     }
   };
 
@@ -420,7 +416,6 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
         // The finger moves left: the page on the right comes in
         if (dx < 0) actions.right();
         else actions.left();
-        actions.activity?.("turn");
         return;
       }
       // A long press selects text; it never turns or toggles
@@ -452,7 +447,6 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
         wheelTurned = true;
         if (wheelTotal > 0) actions.next();
         else actions.prev();
-        actions.activity?.("turn");
       }
       if (wheelTimer) clearTimeout(wheelTimer);
       wheelTimer = setTimeout(() => {

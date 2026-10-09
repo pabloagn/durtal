@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createReaderNavigation } from "@/lib/reader/navigation";
+import { createReaderNavigation, painted } from "@/lib/reader/navigation";
 import { ReaderHistory } from "@/lib/reader/history";
 import type { DurtalLocator, EngineEvents } from "@/lib/reader/engine";
 import { fakeEngine } from "./fixtures/fake-engine";
@@ -49,9 +49,17 @@ function session(paint = async (_signal: AbortSignal) => {}) {
     interrupt,
   });
   engine.currentLocator = () => current;
-  const arrive = (fraction: number, id?: number) => {
+  const arrive = (
+    fraction: number,
+    id?: number,
+    reason: "turn" | "jump" = "jump",
+  ) => {
     current = at(fraction);
-    navigation.relocate(relocation(fraction, id));
+    navigation.relocate({
+      ...relocation(fraction, id),
+      reason,
+      origin: "human",
+    });
   };
   engine.goTo.mockImplementation(async (target, owner) =>
     arrive(
@@ -67,6 +75,212 @@ function session(paint = async (_signal: AbortSignal) => {}) {
   return { engine, navigation, commit, interrupt, arrive };
 }
 describe("painted session navigation", () => {
+  it("queues the 38ms request through the real 100ms promise/unlock contract", async () => {
+    vi.useFakeTimers();
+    try {
+      let locked = false,
+        dropped = 0,
+        firstPaint = true;
+      const starts: number[] = [];
+      const barrier = deferred();
+      const s = session(async () => {
+        if (firstPaint) {
+          firstPaint = false;
+          await barrier.promise;
+        }
+      });
+      s.engine.next.mockImplementation(async (owner) => {
+        if (locked) {
+          dropped++;
+          return;
+        }
+        locked = true;
+        starts.push(Date.now());
+        s.arrive(
+          s.engine.currentLocator()!.totalProgression + 0.1,
+          owner?.id,
+          "turn",
+        );
+        await new Promise((done) => setTimeout(done, 100));
+        locked = false;
+      });
+      const first = s.navigation.turn("next");
+      await vi.advanceTimersByTimeAsync(38);
+      const second = s.navigation.turn("next");
+      await vi.advanceTimersByTimeAsync(61);
+      expect(s.engine.next).toHaveBeenCalledOnce();
+      expect(locked).toBe(true);
+      expect(s.commit).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(locked).toBe(false);
+      expect(s.engine.next).toHaveBeenCalledOnce();
+      const third = s.navigation.turn("next");
+      barrier.resolve();
+      await microtasks();
+      expect(s.engine.next).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(100);
+      await vi.advanceTimersByTimeAsync(100);
+      await Promise.all([first, second, third]);
+      expect(dropped).toBe(0);
+      expect(starts.map((at) => at - starts[0])).toEqual([0, 100, 200]);
+      expect(
+        s.commit.mock.calls.map(([place]) => place.locator.totalProgression),
+      ).toEqual([0.1, 0.2, 0.30000000000000004]);
+      expect(
+        s.commit.mock.calls.every(
+          ([place]) => place.reason === "turn" && place.origin === "human",
+        ),
+      ).toBe(true);
+      expect(s.navigation.history.entries).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("does not let stale, unowned, layout or speech arrivals replace an owned turn", async () => {
+    const barrier = deferred();
+    const s = session(() => barrier.promise);
+    s.engine.next.mockImplementation(async (owner) =>
+      s.arrive(0.1, owner?.id, "turn"),
+    );
+    const turn = s.navigation.turn("next");
+    await microtasks();
+    s.navigation.relocate({
+      ...relocation(0.8),
+      reason: "turn",
+      origin: "human",
+    });
+    s.navigation.relocate({
+      ...relocation(0.9, 99),
+      reason: "turn",
+      origin: "human",
+    });
+    s.navigation.relocate({
+      ...relocation(0.95, 1),
+      reason: "layout",
+      origin: "layout",
+    });
+    s.navigation.relocate({
+      ...relocation(1, 1),
+      reason: "turn",
+      origin: "speech",
+    });
+    barrier.resolve();
+    await turn;
+    expect(s.commit).toHaveBeenCalledOnce();
+    expect(s.commit.mock.calls[0][0]).toMatchObject({
+      locator: at(0.1),
+      atEnd: false,
+      origin: "human",
+    });
+    s.navigation.relocate({
+      ...relocation(1, 1),
+      reason: "turn",
+      origin: "human",
+    });
+    expect(s.commit).toHaveBeenCalledOnce();
+  });
+  it("refreshes unowned reflow quietly and preserves legitimate human scroll after paint", async () => {
+    const s = session();
+    await s.navigation.navigate({ fraction: 0.4 }, { source: "goto" });
+    s.commit.mockClear();
+    s.navigation.relocate(relocation(0.6)); // Legacy unowned anchor, without an origin tag.
+    expect(s.commit).not.toHaveBeenCalled();
+    await microtasks();
+    expect(s.commit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: "layout",
+        origin: "layout",
+        atEnd: false,
+        locator: expect.objectContaining({
+          cfi: "cfi0.6",
+          totalProgression: 0.4,
+        }),
+      }),
+    );
+    expect(s.navigation.history.entries).toHaveLength(2);
+    expect(s.navigation.history.cursor).toBe(1);
+    s.commit.mockClear();
+    s.navigation.relocate({
+      ...relocation(0.7),
+      reason: "turn",
+      origin: "human",
+      activity: "scroll",
+      paginated: false,
+    });
+    expect(s.commit).not.toHaveBeenCalled();
+    await microtasks();
+    expect(s.commit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: "turn",
+        origin: "human",
+        activity: "scroll",
+        locator: at(0.7),
+      }),
+    );
+    s.navigation.relocate({
+      ...relocation(1),
+      reason: "turn",
+      origin: "speech",
+    });
+    await microtasks();
+    expect(s.commit).toHaveBeenCalledOnce();
+    expect(s.navigation.current?.locator).toEqual(at(0.7));
+  });
+  it("cancels an unowned paint when another operation supersedes it or the session closes", async () => {
+    const barrier = deferred();
+    const s = session(() => barrier.promise);
+    s.navigation.relocate({
+      ...relocation(0.2),
+      reason: "turn",
+      origin: "human",
+      activity: "scroll",
+    });
+    s.navigation.relocate({
+      ...relocation(1),
+      reason: "turn",
+      origin: "speech",
+    });
+    barrier.resolve();
+    await microtasks();
+    expect(s.commit).not.toHaveBeenCalled();
+    s.navigation.relocate({
+      ...relocation(0.3),
+      reason: "layout",
+      origin: "layout",
+    });
+    s.navigation.destroy();
+    await microtasks();
+    expect(s.commit).not.toHaveBeenCalled();
+    expect(s.navigation.history.cursor).toBe(0);
+  });
+  it("teardown aborts a hidden recovery paint and settles active and queued promises", async () => {
+    const frames = new Map<number, FrameRequestCallback>();
+    let sequence = 0;
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      frames.set(++sequence, callback);
+      return sequence;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
+    try {
+      const s = session(painted);
+      const jump = s.navigation.navigate({ fraction: 0.9 }, { source: "goto" });
+      s.navigation.cancel();
+      await microtasks();
+      expect(s.engine.goTo).toHaveBeenCalledTimes(2);
+      expect(frames.size).toBe(1);
+      const queued = s.navigation.turn("next");
+      s.navigation.destroy();
+      expect(await jump).toBeNull();
+      expect(await queued).toBeNull();
+      await microtasks();
+      expect(frames.size).toBe(0);
+      expect(s.commit).not.toHaveBeenCalled();
+      expect(s.navigation.busy).toBe(false);
+      expect(s.navigation.history.cursor).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it("restarts the paint barrier for a newer owned arrival instead of publishing the stale locator", async () => {
     const gate = deferred();
     const paint = vi
@@ -97,12 +311,16 @@ describe("painted session navigation", () => {
         await paint.promise;
       }
     });
-    s.engine.next.mockImplementationOnce(async () => {
-      s.arrive(0.1);
+    s.engine.next.mockImplementationOnce(async (owner) => {
+      s.arrive(0.1, owner?.id, "turn");
       await transition.promise;
     });
-    s.engine.next.mockImplementation(async () =>
-      s.arrive(s.engine.currentLocator()!.totalProgression + 0.1),
+    s.engine.next.mockImplementation(async (owner) =>
+      s.arrive(
+        s.engine.currentLocator()!.totalProgression + 0.1,
+        owner?.id,
+        "turn",
+      ),
     );
     const first = s.navigation.turn("next"),
       second = s.navigation.turn("next");
@@ -156,8 +374,12 @@ describe("painted session navigation", () => {
       await gate.promise;
       s.arrive(0.9, owner?.id);
     });
-    s.engine.next.mockImplementation(async () =>
-      s.arrive(s.engine.currentLocator()!.totalProgression + 0.1),
+    s.engine.next.mockImplementation(async (owner) =>
+      s.arrive(
+        s.engine.currentLocator()!.totalProgression + 0.1,
+        owner?.id,
+        "turn",
+      ),
     );
     const jump = s.navigation.navigate(
       { fraction: 0.9 },
@@ -221,7 +443,9 @@ describe("painted session navigation", () => {
     expect(s.engine.setDecorations).toHaveBeenCalledWith("history", [
       { cfi: "clicked link", color: "link" },
     ]);
-    s.engine.next.mockImplementation(async () => s.arrive(0.1));
+    s.engine.next.mockImplementation(async (owner) =>
+      s.arrive(0.1, owner?.id, "turn"),
+    );
     await s.navigation.turn("next");
     expect(s.navigation.history.forward?.locator.totalProgression).toBe(0.8);
     expect(s.interrupt).toHaveBeenCalledTimes(2);

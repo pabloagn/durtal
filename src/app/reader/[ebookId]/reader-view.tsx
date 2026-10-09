@@ -457,23 +457,22 @@ function ReaderSession({
   // What the input layer does, read at the moment of each input
   const actions = useRef<ReaderActions | null>(null);
   useEffect(() => {
+    const turn = (
+      direction: "next" | "prev" | "goLeft" | "goRight",
+      failure: string,
+    ) => {
+      // Visual/resume intent is immediate; reading activity waits for painted movement.
+      bars.hide();
+      syncRef.current?.dismiss();
+      void navigationRef.current
+        ?.turn(direction)
+        .catch(() => setNotice(failure));
+    };
     actions.current = {
-      next: () =>
-        void navigationRef.current
-          ?.turn("next")
-          .catch(() => setNotice("The next page could not be opened.")),
-      prev: () =>
-        void navigationRef.current
-          ?.turn("prev")
-          .catch(() => setNotice("The previous page could not be opened.")),
-      left: () =>
-        void navigationRef.current
-          ?.turn("goLeft")
-          .catch(() => setNotice("That page could not be opened.")),
-      right: () =>
-        void navigationRef.current
-          ?.turn("goRight")
-          .catch(() => setNotice("That page could not be opened.")),
+      next: () => turn("next", "The next page could not be opened."),
+      prev: () => turn("prev", "The previous page could not be opened."),
+      left: () => turn("goLeft", "That page could not be opened."),
+      right: () => turn("goRight", "That page could not be opened."),
       first: () => void navigate({ fraction: 0 }, "edge"),
       last: () => void navigate({ fraction: 1 }, "edge"),
       toggleBars: bars.toggle,
@@ -500,10 +499,6 @@ function ReaderSession({
           void document.exitFullscreen().catch(() => {});
       },
       activity: (kind) => {
-        if (kind === "turn") {
-          bars.hide();
-          syncRef.current?.dismiss();
-        }
         bridge.bus.activity(kind);
       },
       pointer: (_x, y) => bars.pointerAt(y),
@@ -725,6 +720,18 @@ function ReaderSession({
           setRelocation(relocation);
           setChapter(label);
           setPercent(Math.round(locator.totalProgression * 100));
+          bridge.update({
+            locator,
+            percent: readerPercent(locator),
+            chapter: label,
+          });
+          if (
+            reason === "layout" ||
+            (relocation.origin && relocation.origin !== "human")
+          ) {
+            paceRef.current?.interrupt();
+            return;
+          }
           paceRef.current?.arrive(
             relocation,
             ebook.language ?? indexRef.current?.info.language ?? null,
@@ -749,11 +756,6 @@ function ReaderSession({
               setNotice(null);
             } else sync.localPlace(local);
             save(locator, label);
-            bridge.update({
-              locator,
-              percent: readerPercent(locator),
-              chapter: label,
-            });
             bridge.bus.location({
               locator,
               kind: reason,

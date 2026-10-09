@@ -84,7 +84,8 @@ describe("keys", () => {
     expect(actions.prev).toHaveBeenCalledTimes(2);
     expect(actions.first).toHaveBeenCalledTimes(1);
     expect(actions.last).toHaveBeenCalledTimes(1);
-    expect(actions.activity).toHaveBeenCalledWith("turn");
+    expect(actions.activity).not.toHaveBeenCalledWith("turn");
+    expect(actions.activity).toHaveBeenCalledTimes(8);
   });
 
   it("opens contents, settings and full screen with t, s and f, not held or shifted", () => {

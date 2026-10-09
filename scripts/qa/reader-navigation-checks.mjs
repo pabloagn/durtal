@@ -102,11 +102,15 @@ export async function checkNavigation(driver) {
   await waitUI(driver, `document.querySelector("foliate-view")?.lastLocation?.cfi !== ${JSON.stringify(rapidOrigin.cfi)}`);
   await pause(38);
   await driver.key("ArrowRight", "ArrowRight");
-  await pause(1000);
+  await waitUI(driver, "document.querySelector('[aria-label^=\"Back to\"]')?.disabled === false");
   const rapid = await driver.evaluate(readerPlace);
   await goto(driver, "Percent", "10");
-  await driver.key("ArrowRight", "ArrowRight"); await pause(1000);
-  await driver.key("ArrowRight", "ArrowRight"); await pause(1000);
+  const pacedOrigin = await driver.evaluate(readerPlace);
+  await driver.key("ArrowRight", "ArrowRight");
+  await waitUI(driver, `document.querySelector("foliate-view")?.lastLocation?.cfi !== ${JSON.stringify(pacedOrigin.cfi)} && document.querySelector('[aria-label^="Back to"]')?.disabled === false`);
+  const pacedFirst = await driver.evaluate(readerPlace);
+  await driver.key("ArrowRight", "ArrowRight");
+  await waitUI(driver, `document.querySelector("foliate-view")?.lastLocation?.cfi !== ${JSON.stringify(pacedFirst.cfi)} && document.querySelector('[aria-label^="Back to"]')?.disabled === false`);
   const paced = await driver.evaluate(readerPlace);
   assert(rapid.cfi === paced.cfi && rapid.first === paced.first && rapid.percent === paced.percent,
     "An ordinary turn during the previous transition or paint was lost");

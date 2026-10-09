@@ -37,6 +37,11 @@ export class ReaderHistory {
     else this.#entries[this.#cursor] = { ...this.current, locator };
     this.#searchChain = false;
   }
+  /** Reflow updates the anchor without creating or interrupting a reading-history step. */
+  reanchor(locator: DurtalLocator) {
+    if (this.current)
+      this.#entries[this.#cursor] = { ...this.current, locator };
+  }
   push(
     origin: DurtalLocator,
     destination: DurtalLocator,

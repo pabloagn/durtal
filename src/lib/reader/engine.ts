@@ -136,13 +136,16 @@ export interface ResolveResult {
 }
 
 export type OpenErrorKind = "damaged" | "unsupported" | "network" | "expired";
+/** Reading input, layout adjustment, and automatic speech movement have different publication rules. */
+export type RelocationOrigin = "human" | "layout" | "speech";
 
 export interface EngineEvents {
   ready: BookInfo & { toc: TocItem[] };
   relocate: {
     locator: DurtalLocator;
     chapter: string | null;
-    reason: "turn" | "jump";
+    reason: "turn" | "jump" | "layout";
+    origin?: RelocationOrigin;
     atEnd: boolean;
     activity?: "turn" | "scroll";
     tocItem: TocItem | null;
@@ -175,6 +178,7 @@ export type GoToTarget =
 export interface NavigationOwner {
   id: number;
   signal: AbortSignal;
+  origin?: RelocationOrigin;
 }
 export interface Marginalia {
   head: [string, string];
@@ -218,11 +222,11 @@ export interface ReaderEngine {
     group: "history",
     decorations: { cfi: string; color: string }[],
   ): void;
-  next(): Promise<void>;
-  prev(): Promise<void>;
+  next(owner?: NavigationOwner): Promise<void>;
+  prev(owner?: NavigationOwner): Promise<void>;
   /** Left and right follow the book's direction: right-to-left books turn the other way */
-  goLeft(): Promise<void>;
-  goRight(): Promise<void>;
+  goLeft(owner?: NavigationOwner): Promise<void>;
+  goRight(owner?: NavigationOwner): Promise<void>;
   currentLocator(): DurtalLocator | null;
   setPresentation(presentation: Presentation): void;
   /** A locator for the current selection inside the book, or null */

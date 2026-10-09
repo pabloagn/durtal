@@ -157,6 +157,42 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("foliate bridge adapter", () => {
+  it("tags owned turns and distinguishes layout/speech from human completion", async () => {
+    const seen = vi.fn();
+    engine.on("relocate", seen);
+    await engine.next({ id: 71, signal: new AbortController().signal });
+    expect(seen).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        reason: "turn",
+        origin: "human",
+        navigationId: 71,
+      }),
+    );
+    view.renderer.atEnd = true;
+    view.report("anchor", 0.7);
+    expect(seen).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        reason: "layout",
+        origin: "layout",
+        atEnd: false,
+        activity: undefined,
+      }),
+    );
+    expect(engine.currentLocator()?.totalProgression).toBe(0.5);
+    await engine.goTo(
+      { fraction: 0.7 },
+      { id: 72, signal: new AbortController().signal, origin: "speech" },
+    );
+    expect(seen).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        reason: "jump",
+        origin: "speech",
+        navigationId: 72,
+        atEnd: false,
+        activity: undefined,
+      }),
+    );
+  });
   const withNotes = async (
     at?: import("@/lib/reader/engine").DurtalLocator,
     book?: FoliateBook,
@@ -259,7 +295,7 @@ describe("foliate bridge adapter", () => {
     go.mockRejectedValueOnce(new Error("renderer failed"));
     await expect(engine.goTo({ href: "b" })).rejects.toThrow("renderer failed");
   });
-  it("keeps page/snap/scroll turns and classifies direct link/history anchor relocates as jumps", async () => {
+  it("keeps human page/snap/scroll turns and distinguishes unowned layout from owned jumps", async () => {
     const seen = vi.fn();
     engine.on("relocate", seen);
     await engine.next();
@@ -273,8 +309,8 @@ describe("foliate bridge adapter", () => {
       "turn",
       "turn",
       "turn",
-      "jump",
-      "jump",
+      "layout",
+      "layout",
     ]);
     await engine.goTo({ fraction: 0.7 });
     expect(seen).toHaveBeenLastCalledWith(
