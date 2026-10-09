@@ -68,6 +68,7 @@ import {
   collectionPoster,
 } from "@/components/collections/collection-card";
 import { WorkCarousel } from "@/components/books/work-carousel";
+import { SimilarityReasons } from "@/components/books/similarity-reasons";
 import { getSimilarWorks } from "@/lib/actions/similar-works";
 import { WorkPosterImage } from "./work-poster-image";
 import { GallerySection } from "@/components/shared/gallery-section";
@@ -726,30 +727,13 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
         </section>
       )}
 
-      {/* Other books in this book's collections, most similar first */}
+      {/* Similarity from explicit catalogue signals, strongest first */}
       {similarWorks.length > 0 && (
-        <section className="mb-8">
+        <section className="mb-8" aria-label="Similar books">
           <WorkCarousel
-            title={
-              workCollections.length === 1
-                ? `More in ${workCollections[0].name}`
-                : "More from these collections"
-            }
-            titleHref={
-              workCollections.length === 1
-                ? `/collections/${workCollections[0].id}`
-                : undefined
-            }
+            title="Similar books"
             works={similarWorks}
-            caption={
-              workCollections.length > 1
-                ? (w) => (
-                    <p className="mt-1.5 min-h-[2lh] [overflow-wrap:anywhere] text-micro text-fg-secondary">
-                      {w.reasons.map((r) => r.name).join(" · ")}
-                    </p>
-                  )
-                : undefined
-            }
+            caption={(w) => <SimilarityReasons title={w.title} reasons={w.reasons} />}
           />
         </section>
       )}
