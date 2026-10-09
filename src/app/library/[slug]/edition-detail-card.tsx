@@ -1,3 +1,5 @@
+import { SectionHeading } from "@/components/shared/section-heading";
+import { DetailFacts } from "@/components/shared/detail-facts";
 import { CollectionButton } from "@/components/books/add-to-collection-dialog";
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import Link from "next/link";
@@ -71,7 +73,7 @@ function DetailRow({ label, children }: DetailRowProps) {
   return (
     <>
       <dt className="text-xs text-fg-secondary">{label}</dt>
-      <dd className="text-sm text-fg-secondary">{children}</dd>
+      <dd className="text-xs text-fg-primary">{children}</dd>
     </>
   );
 }
@@ -120,23 +122,26 @@ export function EditionDetailCard({
   }, {});
 
   // Actions show where the card sits on a work page
-  const hasActionProps =
-    workId !== undefined || availableLocations.length > 0;
-  // The ISBN and the first and limited edition marks, above the actions
-  const hasIsbnRow =
-    !!edition.isbn13 || !!edition.isFirstEdition || !!edition.isLimitedEdition;
+  const hasActionProps = workId !== undefined || availableLocations.length > 0;
+
+  const hasIdentifiers = !!(
+    edition.isbn13 ||
+    edition.isbn10 ||
+    edition.isFirstEdition ||
+    edition.isLimitedEdition
+  );
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex gap-4">
+      <CardHeader className="@container">
+        <div className="grid grid-cols-1 gap-4 @min-[400px]:grid-cols-[64px_minmax(0,1fr)]">
           <EditionCover
             edition={edition}
             poster={poster}
             title={edition.title}
           />
-          <div className="@container flex min-w-0 flex-1 flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
+          <div className="min-w-0 space-y-3 [overflow-wrap:anywhere]">
+            <div>
               <h3 className="type-item-title">
                 {edition.title}
                 {edition.subtitle && (
@@ -145,11 +150,17 @@ export function EditionDetailCard({
                   </span>
                 )}
               </h3>
+              <div id={`edition-${edition.id}`} className="mt-1.5 scroll-mt-8">
+                <EditionPublishers
+                  editionId={edition.id}
+                  confirmed={edition.publisherLinksConfirmed}
+                  publicationNames={[edition.publisher, edition.imprint].filter(
+                    (name): name is string => !!name,
+                  )}
+                  linked={edition.publisherLinks?.map((l) => l.publisher)}
+                />
+              </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-fg-secondary">
-                {edition.publisher && <span>{edition.publisher}</span>}
-                {edition.imprint && edition.imprint !== edition.publisher && (
-                  <span className="text-fg-secondary">{edition.imprint}</span>
-                )}
                 {edition.publicationYear && (
                   <span className="font-mono">{edition.publicationYear}</span>
                 )}
@@ -173,75 +184,84 @@ export function EditionDetailCard({
               </div>
             </div>
 
-            {/* Right side: ISBN badges + action buttons */}
-            <div
-              className={`flex flex-col items-end gap-1.5 ${
-                hasIsbnRow ? "" : "basis-full @[460px]:basis-auto"
-              }`}
-            >
-              {hasIsbnRow && (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {edition.isbn13 && (
-                    <span className="font-mono text-xs text-fg-secondary">
+            {hasIdentifiers && (
+              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2 text-xs text-fg-secondary">
+                {edition.isbn13 && (
+                  <span>
+                    ISBN-13{" "}
+                    <span className="font-mono text-fg-primary">
                       {edition.isbn13}
                     </span>
-                  )}
-                  {edition.isFirstEdition && (
-                    <Badge variant="gold">1st ed.</Badge>
-                  )}
-                  {edition.isLimitedEdition && (
-                    <Badge variant="accent">Limited</Badge>
-                  )}
-                </div>
-              )}
-              {hasActionProps && (
-                <TitleLineActions onTitleLine={!hasIsbnRow}>
-                  <CollectionButton
-                    editionId={edition.id}
-                    title={edition.title}
+                  </span>
+                )}
+                {edition.isbn10 && (
+                  <span>
+                    ISBN-10{" "}
+                    <span className="font-mono text-fg-primary">
+                      {edition.isbn10}
+                    </span>
+                  </span>
+                )}
+                {edition.isFirstEdition && (
+                  <Badge variant="gold">1st ed.</Badge>
+                )}
+                {edition.isLimitedEdition && (
+                  <Badge variant="accent">Limited</Badge>
+                )}
+              </div>
+            )}
+
+            {hasActionProps && (
+              <div
+                role="group"
+                aria-label={`Actions for ${edition.title}`}
+                className="flex flex-wrap items-center gap-2"
+              >
+                <CollectionButton
+                  editionId={edition.id}
+                  title={edition.title}
+                />
+                {(edition.coverS3Key || edition.thumbnailS3Key) && (
+                  <ImageAdjustButton
+                    source={mediaUrl(
+                      (edition.coverS3Key || edition.thumbnailS3Key)!,
+                    )}
+                    label="Adjust edition cover"
+                    appearance="ghost"
                   />
-                  {(edition.coverS3Key || edition.thumbnailS3Key) && (
-                    <ImageAdjustButton
-                      source={mediaUrl((edition.coverS3Key || edition.thumbnailS3Key)!)}
-                      label="Adjust edition cover"
-                      appearance="ghost"
-                    />
-                  )}
-                  {workId && (
-                    <EditionMatchButton
-                      workId={workId}
-                      editionId={edition.id}
-                      currentTitle={edition.title}
-                      currentAuthor={authorName ?? ""}
-                      currentMetadataSource={edition.metadataSource}
-                    />
-                  )}
-                  <EditionEditDialog edition={edition} />
-                  <InstanceAddDialog
+                )}
+                {workId && (
+                  <EditionMatchButton
+                    workId={workId}
                     editionId={edition.id}
-                    editionTitle={edition.title}
-                    availableLocations={availableLocations}
+                    currentTitle={edition.title}
+                    currentAuthor={authorName ?? ""}
+                    currentMetadataSource={edition.metadataSource}
                   />
-                  <EditionDeleteButton
-                    editionId={edition.id}
-                    editionTitle={edition.title}
-                    instanceCount={edition.instances.length}
-                    quoteCount={quotes?.quotes ?? 0}
-                    noteCount={quotes?.notes ?? 0}
-                  />
-                </TitleLineActions>
-              )}
-            </div>
+                )}
+                <EditionEditDialog edition={edition} />
+                <InstanceAddDialog
+                  editionId={edition.id}
+                  editionTitle={edition.title}
+                  availableLocations={availableLocations}
+                />
+                <EditionDeleteButton
+                  editionId={edition.id}
+                  editionTitle={edition.title}
+                  instanceCount={edition.instances.length}
+                  quoteCount={quotes?.quotes ?? 0}
+                  noteCount={quotes?.notes ?? 0}
+                />
+              </div>
+            )}
           </div>
         </div>
       </CardHeader>
 
       {hasDetailGrid && (
-        <div className="border-b border-glass-border px-4 py-3">
-          <p className="type-caption mb-2">
-            Publication Details
-          </p>
-          <dl className="grid grid-cols-2 gap-x-8 gap-y-1.5">
+        <div className="border-b border-glass-border px-5 py-4">
+          <p className="type-caption mb-2">Publication Details</p>
+          <DetailFacts>
             {edition.pageCount && (
               <DetailRow label="Pages">
                 <span className="font-mono">{edition.pageCount}</span>
@@ -293,13 +313,13 @@ export function EditionDetailCard({
                 <span className="font-mono">{edition.limitedEditionCount}</span>
               </DetailRow>
             )}
-          </dl>
+          </DetailFacts>
         </div>
       )}
 
       {/* Edition description (if different from work) */}
       {edition.description && (
-        <div className="border-b border-glass-border px-4 py-3">
+        <div className="border-b border-glass-border px-5 py-4">
           <div
             className="max-w-2xl text-sm leading-relaxed text-fg-secondary [&_a]:text-accent-primary [&_a]:underline"
             dangerouslySetInnerHTML={{
@@ -311,13 +331,11 @@ export function EditionDetailCard({
 
       {/* Genres & Tags */}
       {(hasGenres || hasTags) && (
-        <div className="border-b border-glass-border px-4 py-3">
+        <div className="border-b border-glass-border px-5 py-4">
           <div className="space-y-2">
             {hasGenres && (
               <div>
-                <p className="type-caption mb-1">
-                  Genres
-                </p>
+                <p className="type-caption mb-1">Genres</p>
                 <div className="flex flex-wrap gap-1.5">
                   {edition.editionGenres.map(({ genre }) => (
                     <Badge key={genre.id} variant="default">
@@ -329,9 +347,7 @@ export function EditionDetailCard({
             )}
             {hasTags && (
               <div>
-                <p className="type-caption mb-1">
-                  Tags
-                </p>
+                <p className="type-caption mb-1">Tags</p>
                 <div className="flex flex-wrap gap-1.5">
                   {edition.editionTags.map(({ tag }) => (
                     <Badge key={tag.id} variant="muted">
@@ -347,7 +363,7 @@ export function EditionDetailCard({
 
       {/* Contributors */}
       {hasContributors && (
-        <div className="border-b border-glass-border px-4 py-3">
+        <div className="border-b border-glass-border px-5 py-4">
           <div className="flex flex-wrap gap-4">
             {Object.entries(contributorsByRole).map(([role, contributors]) => (
               <div key={role}>
@@ -381,13 +397,11 @@ export function EditionDetailCard({
 
       {/* Instances */}
       <CardContent>
-        <div id={`edition-${edition.id}`} className="mb-4 scroll-mt-8">
-          <EditionPublishers
-            editionId={edition.id}
-            confirmed={edition.publisherLinksConfirmed}
-            linked={edition.publisherLinks?.map((l) => l.publisher)}
-          />
-        </div>
+        <SectionHeading
+          as="h3"
+          title="Copies"
+          count={edition.instances.length}
+        />
         {edition.instances.length > 0 ? (
           <div className="space-y-2">
             {edition.instances.map((instance) => (
@@ -404,34 +418,5 @@ export function EditionDetailCard({
         )}
       </CardContent>
     </Card>
-  );
-}
-
-/**
- * The edition's actions. On the title's line (no ISBN row above them, and
- * room beside the title) they sit on the title's cap-height center, in one
- * row, as `CapAlignedControls` does. Where the header is narrower than 460px
- * they take their own line under the title and wrap; each label stays on one
- * line. Under an ISBN row they are a plain row on its second line.
- */
-function TitleLineActions({
-  onTitleLine,
-  children,
-}: {
-  onTitleLine: boolean;
-  children: React.ReactNode;
-}) {
-  if (!onTitleLine)
-    return <div className="flex flex-wrap items-center gap-1">{children}</div>;
-  return (
-    // The slot is one title line tall and carries the title's type, so
-    // 0.5cap resolves against it; the row inside takes the body type again
-    <div className="type-item-title @[460px]:h-[1lh]">
-      <div className="@[460px]:cap-touch @[460px]:inline-block @[460px]:align-[0.5cap]" style={{ "--cap-box": "28px" } as React.CSSProperties}>
-        <div className="flex flex-wrap items-center gap-1 font-sans text-sm font-normal not-italic tracking-normal @[460px]:float-left @[460px]:h-(--cap-h) @[460px]:flex-nowrap">
-          {children}
-        </div>
-      </div>
-    </div>
   );
 }

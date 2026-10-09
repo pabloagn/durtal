@@ -1,5 +1,6 @@
 "use client";
 
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { PenLine, Mail, Map } from "lucide-react";
@@ -64,8 +65,12 @@ export function AddressInput({ value, onChange }: AddressInputProps) {
                 : "text-fg-secondary hover:text-fg-primary"
             }`}
           >
-            <Icon className="h-3 w-3" strokeWidth={1.5} />
-            {label}
+            <span className="flex items-start gap-1.5">
+              <CapAligned height={12}>
+                <Icon className="h-3 w-3" strokeWidth={1.5} aria-hidden />
+              </CapAligned>
+              <span className="text-left">{label}</span>
+            </span>
           </button>
         ))}
       </div>

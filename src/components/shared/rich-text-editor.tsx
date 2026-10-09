@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import {
   Bold,
   Italic,
@@ -37,11 +37,13 @@ function ToolbarButton({
   return (
     <button
       type="button"
+      // Keep the passage selected when a pointer presses a formatting tool.
+      onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
       aria-label={label}
       data-tooltip={label}
       disabled={disabled}
-      className="flex h-7 w-7 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-40 disabled:cursor-not-allowed"
+      className="flex h-7 w-7 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-40 disabled:cursor-not-allowed pointer-coarse:size-11"
     >
       {children}
     </button>
@@ -57,6 +59,14 @@ export function RichTextEditor({
   disabled = false,
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
+
+  // The browser owns the caret and selection while typing. Replacing its
+  // HTML on every React render moves the caret back to the start. Only sync
+  // a value that came from outside (initial content, reset or another person).
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (editor && editor.innerHTML !== value) editor.innerHTML = value;
+  }, [value]);
 
   const exec = useCallback(
     (command: string, val?: string) => {
@@ -122,7 +132,7 @@ export function RichTextEditor({
         </label>
       )}
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 rounded-t-sm border border-b-0 border-glass-border bg-bg-secondary px-1.5 py-1">
+      <div className="flex flex-wrap items-center gap-0.5 rounded-t-sm border border-b-0 border-glass-border bg-bg-secondary px-1.5 py-1">
         <ToolbarButton onClick={handleBold} label="Bold" disabled={disabled}>
           <Bold className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
@@ -132,18 +142,18 @@ export function RichTextEditor({
         <ToolbarButton onClick={handleUnderline} label="Underline" disabled={disabled}>
           <Underline className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
-        <div className="mx-1 h-4 w-px bg-glass-border" />
+        <div className="mx-1 h-4 w-px bg-glass-border pointer-coarse:hidden" />
         <ToolbarButton onClick={handleLink} label="Insert Link" disabled={disabled}>
           <Link className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
-        <div className="mx-1 h-4 w-px bg-glass-border" />
+        <div className="mx-1 h-4 w-px bg-glass-border pointer-coarse:hidden" />
         <ToolbarButton onClick={handleUnorderedList} label="Bullet List" disabled={disabled}>
           <List className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
         <ToolbarButton onClick={handleOrderedList} label="Numbered List" disabled={disabled}>
           <ListOrdered className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
-        <div className="mx-1 h-4 w-px bg-glass-border" />
+        <div className="mx-1 h-4 w-px bg-glass-border pointer-coarse:hidden" />
         <ToolbarButton onClick={handleRemoveFormat} label="Clear Formatting" disabled={disabled}>
           <RemoveFormatting className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
@@ -152,6 +162,9 @@ export function RichTextEditor({
       <div
         ref={editorRef}
         contentEditable={!disabled}
+        role="textbox"
+        aria-label={label}
+        aria-multiline="true"
         onInput={handleInput}
         onPaste={handlePaste}
         onFocus={handleFocus}
@@ -159,7 +172,6 @@ export function RichTextEditor({
         style={{ minHeight }}
         data-placeholder={placeholder}
         suppressContentEditableWarning
-        dangerouslySetInnerHTML={{ __html: value }}
       />
     </div>
   );

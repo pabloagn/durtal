@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, ChevronRight, X } from "lucide-react";
+import {
+  FormSection as Section,
+  FormColumns,
+} from "@/components/shared/form-section";
+import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
@@ -16,7 +19,10 @@ import {
 } from "@/lib/types/index";
 import type { AppSettings } from "@/lib/actions/settings";
 import { useAppSettings } from "@/lib/hooks/use-app-settings";
-import { COPY_CONDITION_LABELS, COPY_FORMAT_LABELS } from "@/lib/constants/catalogue";
+import {
+  COPY_CONDITION_LABELS,
+  COPY_FORMAT_LABELS,
+} from "@/lib/constants/catalogue";
 import { enumLabel } from "@/lib/utils/labels";
 
 export interface InstanceDraft {
@@ -105,9 +111,14 @@ export function newCopyDraft(
 }
 
 /** The default location (Settings, General) first; the others keep their order. */
-function sortLocations(locs: LocationOption[], defaultId: string | null): LocationOption[] {
+function sortLocations(
+  locs: LocationOption[],
+  defaultId: string | null,
+): LocationOption[] {
   if (!defaultId) return locs;
-  return [...locs].sort((a, b) => Number(b.id === defaultId) - Number(a.id === defaultId));
+  return [...locs].sort(
+    (a, b) => Number(b.id === defaultId) - Number(a.id === defaultId),
+  );
 }
 
 interface InstanceFormProps {
@@ -118,35 +129,6 @@ interface InstanceFormProps {
   index: number;
 }
 
-function Section({
-  title,
-  defaultOpen = false,
-  children,
-}: {
-  title: string;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="border-t border-glass-border pt-3">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-1.5 text-xs font-medium text-fg-secondary hover:text-fg-primary pointer-coarse:min-h-11"
-      >
-        {open ? (
-          <ChevronDown className="h-3 w-3" strokeWidth={1.5} />
-        ) : (
-          <ChevronRight className="h-3 w-3" strokeWidth={1.5} />
-        )}
-        {title}
-      </button>
-      {open && <div className="mt-3 space-y-3">{children}</div>}
-    </div>
-  );
-}
-
 /** A copy's form values as createInstance and updateInstance take them */
 export function instancePayload(draft: InstanceDraft) {
   return {
@@ -154,7 +136,15 @@ export function instancePayload(draft: InstanceDraft) {
     subLocationId: draft.subLocationId || null,
     format: draft.format || null,
     condition: draft.condition || null,
-    status: (draft.status as "available" | "lent_out" | "in_transit" | "in_storage" | "missing" | "damaged" | "deaccessioned") || "available",
+    status:
+      (draft.status as
+        | "available"
+        | "lent_out"
+        | "in_transit"
+        | "in_storage"
+        | "missing"
+        | "damaged"
+        | "deaccessioned") || "available",
     acquisitionType: draft.acquisitionType || null,
     acquisitionDate: draft.acquisitionDate || null,
     acquisitionSource: draft.acquisitionSource || null,
@@ -168,11 +158,23 @@ export function instancePayload(draft: InstanceDraft) {
     hasDustJacket: draft.hasDustJacket,
     hasSlipcase: draft.hasSlipcase,
     conditionNotes: draft.conditionNotes || null,
-    fileSizeBytes: draft.fileSizeBytes ? parseInt(draft.fileSizeBytes, 10) : null,
+    fileSizeBytes: draft.fileSizeBytes
+      ? parseInt(draft.fileSizeBytes, 10)
+      : null,
     notes: draft.notes || null,
     lentTo: draft.lentTo || null,
     lentDate: draft.lentDate || null,
-    dispositionType: (draft.dispositionType as "sold" | "donated" | "gifted" | "traded" | "lost" | "stolen" | "destroyed" | "returned" | "expired") || null,
+    dispositionType:
+      (draft.dispositionType as
+        | "sold"
+        | "donated"
+        | "gifted"
+        | "traded"
+        | "lost"
+        | "stolen"
+        | "destroyed"
+        | "returned"
+        | "expired") || null,
     dispositionDate: draft.dispositionDate || null,
     dispositionTo: draft.dispositionTo || null,
     dispositionPrice: draft.dispositionPrice || null,
@@ -188,7 +190,10 @@ export function InstanceForm({
   locations,
   index,
 }: InstanceFormProps) {
-  function update<K extends keyof InstanceDraft>(field: K, v: InstanceDraft[K]) {
+  function update<K extends keyof InstanceDraft>(
+    field: K,
+    v: InstanceDraft[K],
+  ) {
     onChange({ ...value, [field]: v });
   }
 
@@ -202,7 +207,7 @@ export function InstanceForm({
   const isPhysicalFormat = ["hardcover", "paperback"].includes(value.format);
 
   return (
-    <div className="rounded-sm border border-glass-border bg-bg-secondary p-4">
+    <div className="@container rounded-sm border border-glass-border bg-bg-secondary p-4">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-xs font-medium text-fg-secondary">
           Copy {index + 1}
@@ -217,13 +222,17 @@ export function InstanceForm({
 
       <div className="space-y-3">
         {/* Location (required) */}
-        <div className="grid grid-cols-2 gap-3">
+        <FormColumns>
           <Select
             label="Location"
             id={`inst-${index}-location`}
             value={value.locationId}
             onChange={(e) => {
-              onChange({ ...value, locationId: e.target.value, subLocationId: "" });
+              onChange({
+                ...value,
+                locationId: e.target.value,
+                subLocationId: "",
+              });
             }}
             placeholder="Select location..."
             options={sortedLocations.map((l) => ({
@@ -244,10 +253,10 @@ export function InstanceForm({
               }))}
             />
           )}
-        </div>
+        </FormColumns>
 
         {/* Format & Condition */}
-        <div className="grid grid-cols-2 gap-3">
+        <FormColumns>
           <Select
             label="Format"
             id={`inst-${index}-format`}
@@ -270,7 +279,7 @@ export function InstanceForm({
               label: COPY_CONDITION_LABELS[c],
             }))}
           />
-        </div>
+        </FormColumns>
 
         {isPhysicalFormat && (
           <div className="flex gap-4">
@@ -340,7 +349,7 @@ export function InstanceForm({
                 label: enumLabel(t),
               }))}
             />
-            <div className="grid grid-cols-2 gap-3">
+            <FormColumns>
               <DatePicker
                 label="Disposition date"
                 id={`inst-${index}-disposition-date`}
@@ -354,8 +363,8 @@ export function InstanceForm({
                 onChange={(e) => update("dispositionTo", e.target.value)}
                 placeholder="Person or organisation..."
               />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+            </FormColumns>
+            <FormColumns>
               <Input
                 label="Price"
                 id={`inst-${index}-disposition-price`}
@@ -378,7 +387,7 @@ export function InstanceForm({
                 placeholder="EUR"
                 maxLength={3}
               />
-            </div>
+            </FormColumns>
             <Textarea
               label="Disposition notes"
               id={`inst-${index}-disposition-notes`}
@@ -391,7 +400,7 @@ export function InstanceForm({
 
         {/* Acquisition */}
         <Section title="Acquisition">
-          <div className="grid grid-cols-2 gap-3">
+          <FormColumns>
             <Select
               label="Type"
               id={`inst-${index}-acq-type`}
@@ -409,7 +418,7 @@ export function InstanceForm({
               value={value.acquisitionDate}
               onChange={(v) => update("acquisitionDate", v)}
             />
-          </div>
+          </FormColumns>
           <Input
             label="Source"
             id={`inst-${index}-acq-source`}
@@ -417,7 +426,7 @@ export function InstanceForm({
             onChange={(e) => update("acquisitionSource", e.target.value)}
             placeholder="Amazon, Waterstones, estate sale..."
           />
-          <div className="grid grid-cols-2 gap-3">
+          <FormColumns>
             <Input
               label="Price"
               id={`inst-${index}-acq-price`}
@@ -432,12 +441,15 @@ export function InstanceForm({
               id={`inst-${index}-acq-currency`}
               value={value.acquisitionCurrency}
               onChange={(e) =>
-                update("acquisitionCurrency", e.target.value.toUpperCase().slice(0, 3))
+                update(
+                  "acquisitionCurrency",
+                  e.target.value.toUpperCase().slice(0, 3),
+                )
               }
               placeholder="EUR"
               maxLength={3}
             />
-          </div>
+          </FormColumns>
         </Section>
 
         {/* Collector Details */}
