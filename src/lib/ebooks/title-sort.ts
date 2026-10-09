@@ -12,7 +12,18 @@ const ARTICLES: Readonly<Record<string, readonly string[]>> = {
   nl: ["de", "het", "een"],
 };
 
-/** Pure preview of the six-digit key; the database will own persisted title_sort. */
+/**
+ * A fixed-width significant-digit count precedes each integer token. Ten digits
+ * cover every token PostgreSQL text or a JavaScript string can hold. The value
+ * keeps at least six digits, without Number conversion, truncation or overflow.
+ * Keys use lexical ordering; the future SQL function must use this exact encoding.
+ */
+function numericToken(number: string): string {
+  const significant = number.replace(/^0+(?=\d)/, "");
+  return `${String(significant.length).padStart(10, "0")}:${significant.padStart(6, "0")}`;
+}
+
+/** Pure preview of the natural key; the database will own persisted title_sort. */
 export function ebookTitleSort(title: string, language: string | null): string {
   const normalized = normalizeSearchText(title);
   const words = normalized.split(" ");
@@ -22,5 +33,5 @@ export function ebookTitleSort(title: string, language: string | null): string {
     words.length > 1 && articles.includes(words[0])
       ? words.slice(1).join(" ")
       : normalized;
-  return text.replace(/\d+/g, (number) => number.padStart(6, "0"));
+  return text.replace(/\d+/g, numericToken);
 }
