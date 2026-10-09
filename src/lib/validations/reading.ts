@@ -274,10 +274,36 @@ export const updateReadingSchema = z
     ...reviewFields,
     abandonReason: z.enum(ABANDON_REASONS).nullable().optional(),
     abandonNote: z.string().trim().max(2000).nullable().optional(),
+    startPage: page.optional(),
+    startPercent: percent.optional(),
+    startMinutes: minutes.optional(),
+    currentChapter: chapter.nullable().optional(),
+    /** Correct the latest completed session, in the reading's edition; never write current columns directly. */
+    currentPosition: z
+      .object({
+        page: page.optional(),
+        percent: percent.optional(),
+        minutes: minutes.optional(),
+      })
+      .strict()
+      .refine(
+        (p) =>
+          [p.page, p.percent, p.minutes].filter((v) => v !== undefined)
+            .length === 1,
+        "Give exactly one current position",
+      )
+      .optional(),
     /** With a new edition: file the reading's notes on its old edition (or with none) under the new one (SLN-480) */
     moveNotes: z.boolean().optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (r) =>
+      [r.startPage, r.startPercent, r.startMinutes].filter(
+        (v) => v !== undefined,
+      ).length <= 1,
+    "Give the start as a page, a percent or a time, not more than one",
+  );
 export type UpdateReadingInput = z.input<typeof updateReadingSchema>;
 
 export const sessionPatchSchema = z

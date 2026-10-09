@@ -46,6 +46,7 @@ import {
   STALE_READING,
   checkWithinTotals,
   completePosition,
+  correctLastLog,
   createReading,
   editionPages,
   guardReading,
@@ -55,6 +56,7 @@ import {
   openReadingMessage,
   openReadingOf,
   positionValues,
+  planPositions,
   recomputeQueries,
   recordProgress,
   sessionOrder,
@@ -647,17 +649,36 @@ export async function addPastReading(input: AddPastReadingInput) {
 
 /** Edits a reading: edition or copy (the place is mapped), format, home, totals, dates, rating, review */
 export async function updateReading(input: UpdateReadingInput) {
-  const { readingId, fingerprint, moveNotes, ...patch } = updateReadingSchema.parse(input);
+  const { readingId, fingerprint, moveNotes, ...patch } =
+    updateReadingSchema.parse(input);
   const reading = await readingFor(readingId, fingerprint);
   await requireBookWork(reading.workId);
+  const startGiven =
+    patch.startPage !== undefined
+      ? { page: patch.startPage }
+      : patch.startPercent !== undefined
+        ? { percent: patch.startPercent }
+        : patch.startMinutes !== undefined
+          ? { minutes: patch.startMinutes }
+          : null;
+  const positionChanged = !!patch.currentPosition || patch.currentChapter !== undefined;
+  if (startGiven || positionChanged) await refuseWhileTiming(reading.id);
+  const sessions = startGiven || positionChanged ? await loadSessions(reading.id) : [];
   const values: Partial<typeof readings.$inferInsert> = {};
+  if (patch.totalMinutes !== undefined) values.totalMinutes = patch.totalMinutes;
   let editionChanged = false;
-  let totals = { totalPages: reading.totalPages, totalMinutes: reading.totalMinutes };
+  let totals = {
+    totalPages: reading.totalPages,
+    totalMinutes: reading.totalMinutes,
+  };
   let editionId = reading.editionId;
   if (patch.instanceId !== undefined) {
     values.instanceId = patch.instanceId;
     if (patch.instanceId && patch.editionId === undefined) {
-      const [copy] = await db.select({ editionId: instances.editionId }).from(instances).where(eq(instances.id, patch.instanceId));
+      const [copy] = await db
+        .select({ editionId: instances.editionId })
+        .from(instances)
+        .where(eq(instances.id, patch.instanceId));
       if (!copy) throw new Error("This copy no longer exists");
       editionId = copy.editionId;
     }
@@ -665,11 +686,18 @@ export async function updateReading(input: UpdateReadingInput) {
   if (patch.editionId !== undefined) editionId = patch.editionId;
   if (editionId !== reading.editionId) {
     const edition = await editionPages(editionId);
-    if (editionId && (!edition || edition.workId !== reading.workId)) throw new Error("This edition belongs to another book");
+    if (editionId && (!edition || edition.workId !== reading.workId))
+      throw new Error("This edition belongs to another book");
     editionChanged = true;
     values.editionId = editionId;
     if (patch.instanceId === undefined) values.instanceId = null;
-    totals = { ...totals, totalPages: patch.totalPages !== undefined ? patch.totalPages : (edition?.pageCount ?? null) };
+    totals = {
+      ...totals,
+      totalPages:
+        patch.totalPages !== undefined
+          ? patch.totalPages
+          : (edition?.pageCount ?? null),
+    };
     // The place moves by its share of the work
     const current = remapPosition(reading.currentPercent, totals);
     const start = remapPosition(reading.startPercent, totals);
@@ -677,32 +705,81 @@ export async function updateReading(input: UpdateReadingInput) {
       totalPages: totals.totalPages,
       currentPage: current.page,
       currentMinutes: reading.currentMinutes,
-      startPage: reading.startPage != null || reading.startPercent != null ? start.page : null,
-      unit: totals.totalPages == null && reading.unit === "pages" ? "percent" : reading.unit,
+      startPage:
+        reading.startPage != null || reading.startPercent != null
+          ? start.page
+          : null,
+      unit:
+        totals.totalPages == null && reading.unit === "pages"
+          ? "percent"
+          : reading.unit,
     });
-  } else if (patch.totalPages !== undefined || patch.totalMinutes !== undefined) {
+  } else if (
+    patch.totalPages !== undefined ||
+    patch.totalMinutes !== undefined
+  ) {
     totals = {
-      totalPages: patch.totalPages !== undefined ? patch.totalPages : totals.totalPages,
-      totalMinutes: patch.totalMinutes !== undefined ? patch.totalMinutes : totals.totalMinutes,
+      totalPages:
+        patch.totalPages !== undefined ? patch.totalPages : totals.totalPages,
+      totalMinutes:
+        patch.totalMinutes !== undefined
+          ? patch.totalMinutes
+          : totals.totalMinutes,
     };
-    if (totals.totalPages != null && ((reading.currentPage ?? 0) > totals.totalPages || (reading.startPage ?? 0) > totals.totalPages))
-      throw new Error(`You are on p. ${Math.max(reading.currentPage ?? 0, reading.startPage ?? 0)}; the book cannot have ${totals.totalPages} pages`);
-    if (totals.totalMinutes != null && ((reading.currentMinutes ?? 0) > totals.totalMinutes || (reading.startMinutes ?? 0) > totals.totalMinutes))
-      throw new Error(`You are at ${Math.floor(Math.max(reading.currentMinutes ?? 0, reading.startMinutes ?? 0) / 60)}:${String(Math.max(reading.currentMinutes ?? 0, reading.startMinutes ?? 0) % 60).padStart(2, "0")}; the book cannot be ${Math.floor(totals.totalMinutes / 60)}:${String(totals.totalMinutes % 60).padStart(2, "0")} long`);
+    const current = patch.currentPosition
+      ? completePosition(patch.currentPosition, totals)
+      : startGiven && !sessionOrder(sessions).length && isOpenStatus(reading.status)
+        ? completePosition(startGiven, totals)
+        : { page: reading.currentPage, minutes: reading.currentMinutes };
+    const start = startGiven
+      ? completePosition(startGiven, totals)
+      : { page: reading.startPage, minutes: reading.startMinutes };
+    if (
+      totals.totalPages != null &&
+      ((current.page ?? 0) > totals.totalPages ||
+        (start.page ?? 0) > totals.totalPages)
+    )
+      throw new Error(
+        `You are on p. ${Math.max(current.page ?? 0, start.page ?? 0)}; the book cannot have ${totals.totalPages} pages`,
+      );
+    checkWithinTotals(
+      { minutes: Math.max(current.minutes ?? 0, start.minutes ?? 0) },
+      totals,
+    );
     Object.assign(values, {
       ...totals,
-      currentPercent: percentOf({ page: reading.currentPage, minutes: reading.currentMinutes, percent: reading.currentPercent }, totals),
+      currentPercent: percentOf(
+        {
+          page: reading.currentPage,
+          minutes: reading.currentMinutes,
+          percent: reading.currentPercent,
+        },
+        totals,
+      ),
       startPercent:
-        reading.startPage != null || reading.startMinutes != null || reading.startPercent != null
-          ? percentOf({ page: reading.startPage, minutes: reading.startMinutes, percent: reading.startPercent }, totals)
+        reading.startPage != null ||
+        reading.startMinutes != null ||
+        reading.startPercent != null
+          ? percentOf(
+              {
+                page: reading.startPage,
+                minutes: reading.startMinutes,
+                percent: reading.startPercent,
+              },
+              totals,
+            )
           : null,
     });
   }
   if (patch.locationId !== undefined) {
     if (patch.locationId) {
-      const [place] = await db.select({ type: locations.type }).from(locations).where(eq(locations.id, patch.locationId));
+      const [place] = await db
+        .select({ type: locations.type })
+        .from(locations)
+        .where(eq(locations.id, patch.locationId));
       if (!place) throw new Error("This place no longer exists");
-      if (place.type !== "physical") throw new Error("A reading's home is a physical place");
+      if (place.type !== "physical")
+        throw new Error("A reading's home is a physical place");
     }
     values.locationId = patch.locationId;
   }
@@ -713,51 +790,150 @@ export async function updateReading(input: UpdateReadingInput) {
     patch.startedPrecision !== undefined || patch.startedOn !== undefined
       ? {
           precision: patch.startedPrecision ?? reading.startedPrecision,
-          on: patch.startedOn !== undefined ? patch.startedOn : reading.startedOn,
+          on:
+            patch.startedOn !== undefined ? patch.startedOn : reading.startedOn,
         }
       : null;
   if (started) {
-    values.startedOn = started.precision === "unknown" || !started.on ? null : readingPeriodStart(started.on, started.precision);
+    values.startedOn =
+      started.precision === "unknown" || !started.on
+        ? null
+        : readingPeriodStart(started.on, started.precision);
     values.startedPrecision = values.startedOn ? started.precision : "unknown";
   }
   if (patch.finishedPrecision !== undefined || patch.finishedOn !== undefined) {
-    if (isOpenStatus(reading.status)) throw new Error("An open reading has no finish date");
+    if (isOpenStatus(reading.status))
+      throw new Error("An open reading has no finish date");
     const precision = patch.finishedPrecision ?? reading.finishedPrecision;
-    const on = patch.finishedOn !== undefined ? patch.finishedOn : reading.finishedOn;
-    values.finishedOn = precision === "unknown" || !on ? null : readingPeriodStart(on, precision);
+    const on =
+      patch.finishedOn !== undefined ? patch.finishedOn : reading.finishedOn;
+    values.finishedOn =
+      precision === "unknown" || !on ? null : readingPeriodStart(on, precision);
     values.finishedPrecision = values.finishedOn ? precision : "unknown";
   }
   const { finishAfterStart } = await import("@/lib/validations/reading");
   if (
     !finishAfterStart({
-      startedOn: values.startedOn !== undefined ? values.startedOn : reading.startedOn,
+      startedOn:
+        values.startedOn !== undefined ? values.startedOn : reading.startedOn,
       startedPrecision: values.startedPrecision ?? reading.startedPrecision,
-      finishedOn: values.finishedOn !== undefined ? values.finishedOn : reading.finishedOn,
+      finishedOn:
+        values.finishedOn !== undefined
+          ? values.finishedOn
+          : reading.finishedOn,
       finishedPrecision: values.finishedPrecision ?? reading.finishedPrecision,
     })
   )
     throw new Error("The finish date is before the start date");
   if (patch.rating !== undefined) values.rating = patch.rating;
-  if (patch.reviewHtml !== undefined) values.reviewHtml = patch.reviewHtml ? sanitizeCommentHtml(patch.reviewHtml) : null;
-  if (patch.reviewJson !== undefined) values.reviewJson = patch.reviewJson ?? null;
+  if (patch.reviewHtml !== undefined)
+    values.reviewHtml = patch.reviewHtml
+      ? sanitizeCommentHtml(patch.reviewHtml)
+      : null;
+  if (patch.reviewJson !== undefined)
+    values.reviewJson = patch.reviewJson ?? null;
   if (patch.abandonReason !== undefined || patch.abandonNote !== undefined) {
-    if (reading.status !== "abandoned") throw new Error("Only an abandoned read has a reason");
-    if (patch.abandonReason !== undefined) values.abandonReason = patch.abandonReason;
+    if (reading.status !== "abandoned")
+      throw new Error("Only an abandoned read has a reason");
+    if (patch.abandonReason !== undefined)
+      values.abandonReason = patch.abandonReason;
     if (patch.abandonNote !== undefined) values.abandonNote = patch.abandonNote;
   }
+  if (startGiven) {
+    checkWithinTotals(startGiven, totals);
+    const start = completePosition(startGiven, totals);
+    Object.assign(values, {
+      startPage: start.page,
+      startPercent: start.percent,
+      startMinutes: start.minutes,
+    });
+  }
+  if (patch.currentChapter !== undefined) values.currentChapter = patch.currentChapter;
+  const nextReading = { ...reading, ...values } as Reading;
+  const correction =
+    positionChanged && (patch.currentPosition || sessionOrder(sessions).length)
+      ? correctLastLog(
+          nextReading,
+          sessions,
+          patch.currentPosition,
+          patch.currentChapter,
+        )
+      : null;
+  const normalizeTotals = !editionChanged && (patch.totalPages !== undefined || patch.totalMinutes !== undefined);
+  if ((startGiven && isOpenStatus(reading.status)) || correction) {
+    const ordered = sessionOrder(correction?.sessions ?? sessions);
+    const position = planPositions(nextReading, ordered).position;
+    Object.assign(values, positionValues(normalizeTotals && ordered.at(-1)?.editionId === nextReading.editionId
+      ? { ...position, percent: percentOf(position, totals) } : position));
+  }
+  if (patch.currentChapter !== undefined)
+    values.currentChapter = patch.currentChapter;
+  if (startGiven && !sessionOrder(sessions).length)
+    nextReading.currentChapter = patch.currentChapter !== undefined ? patch.currentChapter : reading.currentChapter;
   const now = new Date();
   // Its notes on the old edition (or with none) follow it to the new one when asked; pages stay as typed, updated_at stays
   const refile = !!moveNotes && editionChanged && !!editionId;
-  const onOldEdition = reading.editionId ? eq(readingNotes.editionId, reading.editionId) : isNull(readingNotes.editionId);
+  const onOldEdition = reading.editionId
+    ? eq(readingNotes.editionId, reading.editionId)
+    : isNull(readingNotes.editionId);
   await withReadableErrors(() =>
     atomic((d) => [
       ...guardReading(d, reading.id, fingerprint),
-      d.update(readings).set({ ...values, updatedAt: now }).where(eq(readings.id, reading.id)),
-      ...(refile ? [d.update(readingNotes).set({ editionId }).where(and(eq(readingNotes.readingId, reading.id), onOldEdition))] : []),
+      d
+        .update(readings)
+        .set({ ...values, updatedAt: now })
+        .where(eq(readings.id, reading.id)),
+      ...(correction
+        ? [
+            d
+              .update(readingSessions)
+              .set({
+                endPage: correction.corrected.endPage,
+                endPercent: correction.corrected.endPercent,
+                endMinutes: correction.corrected.endMinutes,
+                endChapter: correction.corrected.endChapter,
+                pagesTotal: correction.corrected.pagesTotal,
+                source: correction.corrected.source,
+                updatedAt: now,
+              })
+              .where(eq(readingSessions.id, correction.corrected.id)),
+          ]
+        : []),
+      ...(startGiven || correction
+        ? recomputeQueries(
+            d,
+            nextReading,
+            correction?.sessions ?? sessions,
+            now,
+            !!correction,
+            normalizeTotals,
+          )
+        : []),
+      ...(startGiven && !sessionOrder(sessions).length
+        ? [
+            d
+              .update(readings)
+              .set({
+                currentChapter: patch.currentChapter !== undefined ? patch.currentChapter : reading.currentChapter,
+              })
+              .where(eq(readings.id, reading.id)),
+          ]
+        : []),
+      ...(refile
+        ? [
+            d
+              .update(readingNotes)
+              .set({ editionId })
+              .where(and(eq(readingNotes.readingId, reading.id), onOldEdition)),
+          ]
+        : []),
     ]),
   );
   const fresh = (await loadReading(reading.id))!;
-  if (editionChanged) event(reading.workId, "work.reading_edition_changed", fresh, { editionTitle: await editionTitle(fresh.editionId) });
+  if (editionChanged)
+    event(reading.workId, "work.reading_edition_changed", fresh, {
+      editionTitle: await editionTitle(fresh.editionId),
+    });
   changed();
   return fresh;
 }

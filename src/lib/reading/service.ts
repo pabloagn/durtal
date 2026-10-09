@@ -151,6 +151,9 @@ export function planPositions(reading: Reading, ordered: Session[]) {
       position = { page: mapped.page, percent: s.endPercent, minutes: mapped.minutes, chapter: s.endChapter ?? position.chapter };
     }
   }
+  // Chapter is also editable on the reading: an explicit unknown chapter stays unknown
+  // while the latest log has none. Deleting that log can reveal an earlier named chapter.
+  if (reading.currentChapter === null && ordered.at(-1)?.endChapter === null) position.chapter = null;
   return { starts, position };
 }
 
@@ -384,7 +387,7 @@ export async function recordProgress(
     else given = sessionEditionId === reading.editionId ? { page: current.page, percent: current.percent, minutes: current.minutes } : { percent: current.percent };
     checkWithinTotals(given, sessionTotals);
     const end = completePosition(given, sessionTotals);
-    const chapter = input.chapter ?? null;
+    const chapter = input.chapter ?? (ordered.length ? null : reading.currentChapter);
     const now = new Date();
     // A timer keeps the zone and the reading day it started with
     const timeZone = timer ? timer.timeZone : (input.timeZone ?? appTimeZone());
@@ -575,16 +578,78 @@ export async function recordProgress(
   }
 }
 
+/** An Edit reading correction keeps the latest log's identity and timing, even when moving forward. */
+export function correctLastLog(
+  reading: Reading,
+  sessions: Session[],
+  position?: { page?: number; percent?: number; minutes?: number },
+  chapter?: string | null,
+) {
+  const ordered = sessionOrder(sessions);
+  const latest = ordered.at(-1);
+  if (!latest)
+    throw new Error(
+      "Log progress once before editing the current position or chapter",
+    );
+  if (sessions.some(isRunningTimer))
+    throw new Error(
+      "Stop or discard the timer before editing the current position or chapter",
+    );
+  checkWithinTotals(position ?? {}, reading);
+  const end = position ? completePosition(position, reading) : null;
+  // A latest log in another edition keeps its own page count and format.
+  const mapped =
+    end && latest.editionId !== reading.editionId
+      ? completePosition(
+          { percent: end.percent },
+          { totalPages: latest.pagesTotal, totalMinutes: reading.totalMinutes },
+        )
+      : end;
+  if (end && latest.editionId !== reading.editionId && end.percent === null)
+    throw new Error(
+      "Give a percent, or add the total, to correct a log in another edition",
+    );
+  const corrected = {
+    ...latest,
+    // An explicit correction is manual: automatic reader updates alone must not move behind earlier progress.
+    source: latest.source === "reader" ? "manual" as const : latest.source,
+    ...(mapped
+      ? {
+          endPage: mapped.page,
+          endPercent: mapped.percent,
+          endMinutes: mapped.minutes,
+          ...(latest.editionId === reading.editionId
+            ? { pagesTotal: reading.totalPages }
+            : {}),
+        }
+      : {}),
+    ...(chapter !== undefined ? { endChapter: chapter } : {}),
+  };
+  const next = sessions.map((s) => (s.id === latest.id ? corrected : s));
+  return { corrected, sessions: next };
+}
+
 /** Recomputes session starts and an open reading's position after sessions changed */
-export function recomputeQueries(d: Db, reading: Reading, sessions: Session[], now = new Date()) {
+export function recomputeQueries(
+  d: Db,
+  reading: Reading,
+  sessions: Session[],
+  now = new Date(),
+  includeClosed = false,
+  normalizeTotals = false,
+) {
   const ordered = sessionOrder(sessions);
   const plan = planPositions(reading, ordered);
+  const position = normalizeTotals && ordered.at(-1)?.editionId === reading.editionId
+    ? { ...plan.position, percent: percentOf(plan.position, reading) } : plan.position;
   return [
     ...startUpdates(d, ordered, plan.starts),
     d
       .update(readings)
       .set({
-        ...(isOpenStatus(reading.status) ? positionValues(plan.position) : {}),
+        ...(isOpenStatus(reading.status) || includeClosed
+          ? positionValues(position)
+          : {}),
         updatedAt: now,
       })
       .where(eq(readings.id, reading.id)),

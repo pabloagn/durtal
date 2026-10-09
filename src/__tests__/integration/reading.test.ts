@@ -507,6 +507,307 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
     });
   });
 
+  describe("editing reading positions", () => {
+    it.each([{ startPage: 150 }, { startPercent: 25 }, { startMinutes: 150 }])(
+      "recounts pages and recomputes session starts for %j",
+      async (start) => {
+        const { reading, workId } = await started({
+          pages: 600,
+          startPage: 100,
+        });
+        await updateReading({
+          readingId: reading.id,
+          fingerprint: await fp(reading.id),
+          totalMinutes: 600,
+        });
+        await log(reading.id, { page: 200, readOn: "2026-09-02" });
+        await log(reading.id, { page: 300, readOn: "2026-09-03" });
+        expect(await counted(workId)).toBe(200);
+        const edited = await updateReading({
+          readingId: reading.id,
+          fingerprint: await fp(reading.id),
+          ...start,
+          currentChapter: "II",
+        });
+        expect(edited).toMatchObject({
+          startPage: 150,
+          startPercent: 25,
+          startMinutes: 150,
+          currentPage: 300,
+          currentChapter: "II",
+        });
+        expect(await counted(workId)).toBe(150);
+        expect(
+          await q(
+            `select start_page, end_page, start_percent::float8 from reading_sessions where reading_id = $1 order by read_on`,
+            [reading.id],
+          ),
+        ).toEqual([
+          { start_page: 150, end_page: 200, start_percent: 25 },
+          { start_page: 200, end_page: 300, start_percent: 33.33 },
+        ]);
+        // A later recompute and a log without a chapter keep the chapter correction.
+        await updateReading({
+          readingId: reading.id,
+          fingerprint: await fp(reading.id),
+          startPage: 120,
+        });
+        expect((await loadReading(reading.id))!.currentChapter).toBe("II");
+        expect(
+          (await log(reading.id, { page: 320, readOn: "2026-09-04" })).reading
+            .currentChapter,
+        ).toBe("II");
+      },
+    );
+
+    it("clears the current chapter without erasing earlier session chapters, and keeps it clear", async () => {
+      const { reading } = await started({ pages: 600 });
+      await log(reading.id, { page: 100, chapter: "I", readOn: "2026-09-02" });
+      await log(reading.id, { page: 200, chapter: "II", readOn: "2026-09-03" });
+      const cleared = await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), currentChapter: null });
+      expect(cleared.currentChapter).toBeNull();
+      expect(await q(`select end_chapter from reading_sessions where reading_id = $1 order by read_on`, [reading.id])).toEqual([{ end_chapter: "I" }, { end_chapter: null }]);
+      await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), startPage: 50 });
+      expect((await loadReading(reading.id))!.currentChapter).toBeNull();
+      expect((await log(reading.id, { page: 250, readOn: "2026-09-04" })).reading.currentChapter).toBeNull();
+    });
+
+    it("corrects the latest log backwards or forwards without adding sessions, times or status history", async () => {
+      const { reading, workId } = await started({ pages: 600, startPage: 100 });
+      await log(reading.id, {
+        page: 200,
+        readOn: "2026-09-02",
+        durationSeconds: 1200,
+        note: "Keep",
+      });
+      const last = await log(reading.id, {
+        page: 400,
+        readOn: "2026-09-03",
+        durationSeconds: 1800,
+        chapter: "II",
+      });
+      await pauseReading({
+        readingId: reading.id,
+        fingerprint: await fp(reading.id),
+      });
+      const history = await value<number>(
+        `select count(*)::int from reading_status_history where reading_id = $1`,
+        [reading.id],
+      );
+      const before = await q(
+        `select id, read_on, duration_seconds, note, source, created_at from reading_sessions where id = $1`,
+        [last.session.id],
+      );
+      for (const [position, expected] of [
+        [{ page: 180 }, 180],
+        [{ percent: 50 }, 300],
+        [{ page: 420 }, 420],
+      ] as const) {
+        const edited = await updateReading({
+          readingId: reading.id,
+          fingerprint: await fp(reading.id),
+          currentPosition: position,
+          currentChapter: "III",
+        });
+        expect(edited).toMatchObject({
+          currentPage: expected,
+          currentChapter: "III",
+          status: "paused",
+          lastReadAt: last.reading.lastReadAt,
+        });
+        expect(
+          await value<number>(
+            `select count(*)::int from reading_sessions where reading_id = $1`,
+            [reading.id],
+          ),
+        ).toBe(2);
+        expect(
+          await q(
+            `select id, read_on, duration_seconds, note, source, created_at from reading_sessions where id = $1`,
+            [last.session.id],
+          ),
+        ).toEqual(before);
+        expect(
+          await value<number>(
+            `select count(*)::int from reading_status_history where reading_id = $1`,
+            [reading.id],
+          ),
+        ).toBe(history);
+      }
+      expect(await counted(workId)).toBe(320);
+    });
+
+    it("maps the new start and current correction into the latest log's own edition", async () => {
+      const { workId, reading } = await started({ pages: 600 });
+      const other = await edition(workId, 400);
+      await recordProgress(
+        { readingId: reading.id, percent: 50, readOn: "2026-09-02" },
+        { source: "manual", editionId: other },
+      );
+      const edited = await updateReading({
+        readingId: reading.id,
+        fingerprint: await fp(reading.id),
+        startPercent: 25,
+        currentPosition: { page: 360 },
+      });
+      expect(edited).toMatchObject({
+        startPage: 150,
+        currentPage: 360,
+        currentPercent: 60,
+      });
+      expect(
+        await q(
+          `select edition_id, pages_total, start_page, end_page from reading_sessions where reading_id = $1`,
+          [reading.id],
+        ),
+      ).toEqual([
+        { edition_id: other, pages_total: 400, start_page: 100, end_page: 240 },
+      ]);
+      expect(await counted(workId)).toBe(140);
+    });
+
+    it("allows a start and chapter without logs, refuses a current correction atomically", async () => {
+      const { reading, workId } = await started({ pages: 600 });
+      const edited = await updateReading({
+        readingId: reading.id,
+        fingerprint: await fp(reading.id),
+        startPage: 150,
+        currentChapter: "Opening",
+      });
+      expect(edited).toMatchObject({
+        startPage: 150,
+        currentPage: 150,
+        currentPercent: 25,
+        currentChapter: "Opening",
+      });
+      const fingerprint = await fp(reading.id);
+      await expect(
+        updateReading({
+          readingId: reading.id,
+          fingerprint,
+          rating: 4,
+          startPage: 120,
+          currentPosition: { page: 200 },
+        }),
+      ).rejects.toThrow("Log progress once");
+      expect(await fp(reading.id)).toBe(fingerprint);
+      expect(await counted(workId)).toBe(0);
+      expect((await log(reading.id, { page: 200 })).reading.currentChapter).toBe("Opening");
+    });
+
+    it("keeps a closed reading closed and derives its correction from the latest session", async () => {
+      const { reading, workId } = await started({ pages: 600 });
+      await log(reading.id, { page: 300 });
+      await abandonReading({
+        readingId: reading.id,
+        fingerprint: await fp(reading.id),
+        reason: "prose",
+      });
+      const edited = await updateReading({
+        readingId: reading.id,
+        fingerprint: await fp(reading.id),
+        startPage: 100,
+        currentPosition: { percent: 40 },
+        currentChapter: "IV",
+      });
+      expect(edited).toMatchObject({
+        status: "abandoned",
+        currentPage: 240,
+        currentPercent: 40,
+        currentChapter: "IV",
+        startPage: 100,
+      });
+      expect(await counted(workId)).toBe(140);
+    });
+
+    it("normalizes the current share to revised totals while retaining historical session totals", async () => {
+      const { reading } = await started({ pages: 600 });
+      await log(reading.id, { page: 300 });
+      const edited = await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), totalPages: 800, startPage: 100 });
+      expect(edited).toMatchObject({ currentPage: 300, currentPercent: 37.5, startPage: 100, startPercent: 12.5 });
+      expect(await value<number>(`select pages_total from reading_sessions where reading_id = $1`, [reading.id])).toBe(600);
+    });
+
+    it("allows a smaller total and start before the first log", async () => {
+      const { reading } = await started({ pages: 600, startPage: 400 });
+      const edited = await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), totalPages: 300, startPage: 100 });
+      expect(edited).toMatchObject({ totalPages: 300, startPage: 100, currentPage: 100, currentPercent: 33.33 });
+    });
+
+    it("accepts smaller totals together with a valid start and current correction", async () => {
+      const { reading } = await started({ pages: 600, startPage: 400 });
+      await log(reading.id, { page: 500 });
+      const edited = await updateReading({
+        readingId: reading.id,
+        fingerprint: await fp(reading.id),
+        totalPages: 300,
+        startPage: 100,
+        currentPosition: { page: 200 },
+      });
+      expect(edited).toMatchObject({
+        totalPages: 300,
+        startPage: 100,
+        startPercent: 33.33,
+        currentPage: 200,
+        currentPercent: 66.67,
+      });
+    });
+
+    it("recounts a finished read without sessions without moving its finished position", async () => {
+      const workId = await book("Past without logs");
+      const editionId = await edition(workId, 600);
+      const past = await addPastReading({
+        format: "print",
+        startedPrecision: "unknown",
+        workId,
+        editionId,
+        totalPages: 600,
+        status: "finished",
+        finishedOn: "2026-09-01",
+        finishedPrecision: "day",
+      });
+      const r = past.reading!;
+      await updateReading({
+        readingId: r.id,
+        fingerprint: await fp(r.id),
+        startPercent: 25,
+      });
+      expect(await counted(workId)).toBe(450);
+      expect((await loadReading(r.id))!.currentPage).toBe(600);
+    });
+
+    it("rejects invalid starts, chapters, current positions and stale edits without partial metadata", async () => {
+      const { reading } = await started({ pages: 600 });
+      await log(reading.id, { page: 300 });
+      const fingerprint = await fp(reading.id);
+      for (const patch of [
+        { startPage: 601 },
+        { startPage: 150, startPercent: 25 },
+        { startPercent: 101 },
+        { startMinutes: -1 },
+        { currentChapter: " " },
+        { currentPosition: { page: 601 } },
+      ]) {
+        await expect(
+          updateReading({
+            readingId: reading.id,
+            fingerprint,
+            rating: 4,
+            ...patch,
+          } as never),
+        ).rejects.toThrow();
+        expect(await fp(reading.id)).toBe(fingerprint);
+      }
+      await expect(
+        updateReading({
+          readingId: reading.id,
+          fingerprint: reading.fingerprint,
+          startPage: 100,
+        }),
+      ).rejects.toThrow("changed elsewhere");
+    });
+  });
+
   describe("sessions, times and fingerprints", () => {
     it("leaves the running timer out of the position and the counts", async () => {
       const { workId, reading } = await started({ title: "Timer" });
