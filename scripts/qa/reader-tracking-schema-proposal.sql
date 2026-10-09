@@ -241,10 +241,130 @@ CREATE TRIGGER reader_ebook_receipts_retire BEFORE UPDATE OR DELETE ON ebooks FO
 CREATE TRIGGER reader_instance_receipts_retire BEFORE UPDATE OR DELETE ON instances FOR EACH ROW EXECUTE FUNCTION retire_reader_binding_receipts();
 CREATE TRIGGER reader_edition_receipts_retire BEFORE UPDATE OR DELETE ON editions FOR EACH ROW EXECUTE FUNCTION retire_reader_binding_receipts();
 
+-- Concrete SLN-500 dependency: reviewed 0083 supplies quote_binding_version,
+-- durtal_annotation_lock_book/lock_id, lifecycle cursor and retired IDs.
+-- These shared locks are acquired before validating any note/book association.
+CREATE FUNCTION public.durtal_reader_lock_quote_ebooks(p_ebook_ids uuid[]) RETURNS void
+LANGUAGE plpgsql VOLATILE SET search_path=pg_catalog,public AS $$
+DECLARE v_id uuid;
+BEGIN
+  FOR v_id IN SELECT DISTINCT unnest(p_ebook_ids) ORDER BY 1 LOOP
+    PERFORM public.durtal_annotation_lock_book(v_id);
+  END LOOP;
+  FOR v_id IN SELECT a.id FROM public.ebook_annotations a WHERE a.ebook_id=ANY(p_ebook_ids) ORDER BY a.id LOOP
+    PERFORM public.durtal_annotation_lock_id(v_id);
+  END LOOP;
+  PERFORM 1 FROM public.reading_notes n JOIN public.ebook_annotations a ON a.id=n.ebook_annotation_id
+    WHERE a.ebook_id=ANY(p_ebook_ids) ORDER BY n.id FOR UPDATE OF n;
+END $$;
+
+CREATE FUNCTION public.durtal_reader_lock_quote_notes(p_note_ids uuid[], p_annotation_ids uuid[] DEFAULT '{}'::uuid[])
+RETURNS void LANGUAGE plpgsql VOLATILE SET search_path=pg_catalog,public AS $$
+DECLARE ids uuid[]; books uuid[]; v_id uuid;
+BEGIN
+  SELECT coalesce(array_agg(id ORDER BY id),'{}'::uuid[]) INTO ids FROM
+    (SELECT DISTINCT unnest(p_annotation_ids) AS id UNION
+     SELECT ebook_annotation_id FROM public.reading_notes WHERE id=ANY(p_note_ids) AND ebook_annotation_id IS NOT NULL) chosen WHERE chosen.id IS NOT NULL;
+  SELECT coalesce(array_agg(DISTINCT ebook_id ORDER BY ebook_id),'{}'::uuid[]) INTO books
+    FROM public.ebook_annotations WHERE id=ANY(ids);
+  FOR v_id IN SELECT unnest(books) LOOP PERFORM public.durtal_annotation_lock_book(v_id); END LOOP;
+  FOR v_id IN SELECT unnest(ids) LOOP PERFORM public.durtal_annotation_lock_id(v_id); END LOOP;
+  PERFORM 1 FROM public.reading_notes WHERE id=ANY(p_note_ids) ORDER BY id FOR UPDATE;
+  -- A note may have changed association while initial discovery was unlocked.
+  -- Roll back and replan; never obtain a new lower-order lock after note locks.
+  IF EXISTS (SELECT 1 FROM public.reading_notes n WHERE n.id=ANY(p_note_ids)
+      AND n.ebook_annotation_id IS NOT NULL AND NOT(n.ebook_annotation_id=ANY(ids))) THEN
+    RAISE EXCEPTION 'Quote association changed; retry' USING ERRCODE='40001';
+  END IF;
+END $$;
+
+CREATE FUNCTION public.durtal_reader_stamp_note_version() RETURNS trigger
+LANGUAGE plpgsql VOLATILE SET search_path=pg_catalog,public AS $$
+BEGIN
+  IF TG_OP='INSERT' THEN
+    IF NEW.ebook_annotation_id IS NOT NULL THEN
+      IF NOT isfinite(NEW.updated_at) THEN
+        RAISE EXCEPTION 'Quote version must be finite' USING ERRCODE='23514', CONSTRAINT='reading_note_version_finite';
+      END IF;
+      NEW.updated_at := greatest(clock_timestamp(),NEW.updated_at+interval '1 microsecond');
+    END IF;
+  ELSIF NEW.ebook_annotation_id IS NOT NULL OR OLD.ebook_annotation_id IS NOT NULL
+      OR NEW.updated_at IS DISTINCT FROM OLD.updated_at
+      OR (to_jsonb(NEW)-ARRAY['reading_id','edition_id','import_id','updated_at','search_text'])
+        IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['reading_id','edition_id','import_id','updated_at','search_text']) THEN
+    IF NOT isfinite(OLD.updated_at) THEN
+      RAISE EXCEPTION 'Note version must be finite' USING ERRCODE='23514', CONSTRAINT='reading_note_version_finite';
+    END IF;
+    NEW.updated_at := greatest(clock_timestamp(),OLD.updated_at+interval '1 microsecond');
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER reading_note_version_stamp BEFORE INSERT OR UPDATE ON public.reading_notes
+  FOR EACH ROW EXECUTE FUNCTION public.durtal_reader_stamp_note_version();
+
+CREATE FUNCTION public.durtal_reader_rotate_note_quote_epoch() RETURNS trigger
+LANGUAGE plpgsql VOLATILE SET search_path=pg_catalog,public AS $$
+DECLARE ids uuid[];
+BEGIN
+  IF TG_OP='UPDATE' AND (NEW.id,NEW.work_id,NEW.reading_id,NEW.edition_id,NEW.ebook_annotation_id)
+    IS NOT DISTINCT FROM (OLD.id,OLD.work_id,OLD.reading_id,OLD.edition_id,OLD.ebook_annotation_id) THEN RETURN NULL; END IF;
+  IF TG_OP='INSERT' THEN ids:=ARRAY[NEW.ebook_annotation_id];
+  ELSIF TG_OP='DELETE' THEN ids:=ARRAY[OLD.ebook_annotation_id];
+  ELSE ids:=ARRAY[OLD.ebook_annotation_id,NEW.ebook_annotation_id]; END IF;
+  -- 0083 lifecycle stamps the cursor; only server-issued epoch changes.
+  -- Tombstones/retired IDs remain final. A kept quote on a retired mark is an
+  -- ordinary note and must never recreate or convert that mark on deletion.
+  UPDATE public.ebook_annotations a SET quote_binding_version=gen_random_uuid()
+    WHERE a.id=ANY(ids) AND a.style='quote' AND a.deleted_at IS NULL
+      AND NOT EXISTS(SELECT 1 FROM public.ebook_annotation_retired_ids r WHERE r.id=a.id);
+  RETURN NULL;
+END $$;
+CREATE TRIGGER reading_note_quote_epoch AFTER INSERT OR UPDATE OR DELETE ON public.reading_notes
+  FOR EACH ROW EXECUTE FUNCTION public.durtal_reader_rotate_note_quote_epoch();
+
+CREATE FUNCTION public.durtal_reader_lock_and_rotate_binding() RETURNS trigger
+LANGUAGE plpgsql VOLATILE SET search_path=pg_catalog,public AS $$
+DECLARE books uuid[];
+BEGIN
+  IF TG_TABLE_NAME='ebooks' THEN
+    IF TG_OP='UPDATE' AND (NEW.instance_id,NEW.match_state) IS NOT DISTINCT FROM (OLD.instance_id,OLD.match_state) THEN RETURN NEW; END IF;
+    books:=ARRAY[OLD.id];
+  ELSIF TG_TABLE_NAME='instances' THEN
+    IF TG_OP='UPDATE' AND NEW.edition_id IS NOT DISTINCT FROM OLD.edition_id THEN RETURN NEW; END IF;
+    SELECT coalesce(array_agg(id ORDER BY id),'{}'::uuid[]) INTO books FROM public.ebooks WHERE instance_id=OLD.id;
+  ELSIF TG_TABLE_NAME='editions' THEN
+    IF TG_OP='UPDATE' AND NEW.work_id IS NOT DISTINCT FROM OLD.work_id THEN RETURN NEW; END IF;
+    SELECT coalesce(array_agg(eb.id ORDER BY eb.id),'{}'::uuid[]) INTO books FROM public.ebooks eb
+      JOIN public.instances i ON i.id=eb.instance_id WHERE i.edition_id=OLD.id;
+  END IF;
+  PERFORM public.durtal_reader_lock_quote_ebooks(books);
+  UPDATE public.ebook_annotations a SET quote_binding_version=gen_random_uuid()
+    WHERE a.ebook_id=ANY(books) AND a.style='quote' AND a.deleted_at IS NULL
+      AND NOT EXISTS(SELECT 1 FROM public.ebook_annotation_retired_ids r WHERE r.id=a.id);
+  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER reader_quote_binding_ebook_lock BEFORE UPDATE OR DELETE ON public.ebooks
+  FOR EACH ROW EXECUTE FUNCTION public.durtal_reader_lock_and_rotate_binding();
+CREATE TRIGGER reader_quote_binding_instance_lock BEFORE UPDATE OR DELETE ON public.instances
+  FOR EACH ROW EXECUTE FUNCTION public.durtal_reader_lock_and_rotate_binding();
+CREATE TRIGGER reader_quote_binding_edition_lock BEFORE UPDATE OR DELETE ON public.editions
+  FOR EACH ROW EXECUTE FUNCTION public.durtal_reader_lock_and_rotate_binding();
+
+
 -- Preserve migration 0069's audited merge pass-through and both reference
 -- guards. Clear references remain allowed, including annotation FK SET NULL.
-CREATE OR REPLACE FUNCTION guard_reading_note() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION guard_reading_note() RETURNS trigger LANGUAGE plpgsql VOLATILE
+SET search_path=pg_catalog,public AS $$
+DECLARE note_ids uuid[]; annotation_ids uuid[];
 BEGIN
+  IF TG_OP='INSERT' THEN note_ids:=ARRAY[NEW.id]; annotation_ids:=ARRAY[NEW.ebook_annotation_id];
+  ELSIF TG_OP='DELETE' THEN note_ids:=ARRAY[OLD.id]; annotation_ids:=ARRAY[OLD.ebook_annotation_id];
+  ELSE note_ids:=ARRAY[OLD.id]; annotation_ids:=ARRAY[OLD.ebook_annotation_id,NEW.ebook_annotation_id]; END IF;
+  PERFORM public.durtal_reader_lock_quote_notes(note_ids,annotation_ids);
+  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+  -- Ownership below is re-read after all lock waits, even on content-only writes.
+  -- The original audited merge exemption follows locking, never precedes it.
   IF TG_OP='UPDATE' AND NEW.work_id IS DISTINCT FROM OLD.work_id
      AND NEW.reading_id IS NOT DISTINCT FROM OLD.reading_id
      AND harmonization_allows_move('works',OLD.work_id,NEW.work_id) THEN RETURN NEW; END IF;
@@ -258,8 +378,7 @@ BEGIN
       RAISE EXCEPTION 'This reading belongs to another book' USING ERRCODE='23514', CONSTRAINT='reading_note_reading_work';
     END IF;
   END IF;
-  IF NEW.ebook_annotation_id IS NOT NULL AND
-     (TG_OP='INSERT' OR NEW.ebook_annotation_id IS DISTINCT FROM OLD.ebook_annotation_id OR NEW.work_id IS DISTINCT FROM OLD.work_id) THEN
+  IF NEW.ebook_annotation_id IS NOT NULL THEN
     IF NOT EXISTS (SELECT 1 FROM ebook_annotations a JOIN ebooks eb ON eb.id=a.ebook_id
       JOIN instances i ON i.id=eb.instance_id JOIN editions e ON e.id=i.edition_id
       WHERE a.id=NEW.ebook_annotation_id AND eb.match_state='linked' AND e.work_id=NEW.work_id) THEN
@@ -268,12 +387,36 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
+DROP TRIGGER reading_note_guard ON reading_notes;
+CREATE TRIGGER reading_note_guard BEFORE INSERT OR UPDATE OR DELETE ON reading_notes
+  FOR EACH ROW EXECUTE FUNCTION guard_reading_note();
 
 -- The audited merge may temporarily move notes before readings/copies. Check
 -- final annotation/book ownership after all composed queries; relink must
 -- clear an old quote's link atomically if it keeps that quote on its old book.
-CREATE FUNCTION check_reader_quote_binding() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE FUNCTION check_reader_quote_binding() RETURNS trigger LANGUAGE plpgsql VOLATILE
+SET search_path=pg_catalog,public AS $$
+DECLARE books uuid[]; v_id uuid;
 BEGIN
+  -- A deferred check is not the lock protocol. Guard triggers already hold the
+  -- same binding locks; repeat acquisition here before the fresh final query.
+  SELECT coalesce(array_agg(DISTINCT a.ebook_id ORDER BY a.ebook_id),'{}'::uuid[]) INTO books
+    FROM public.reading_notes n JOIN public.ebook_annotations a ON a.id=n.ebook_annotation_id
+    JOIN public.ebooks eb ON eb.id=a.ebook_id
+    LEFT JOIN public.instances i ON i.id=eb.instance_id LEFT JOIN public.editions e ON e.id=i.edition_id
+    WHERE CASE TG_TABLE_NAME WHEN 'reading_notes' THEN n.id=NEW.id
+      WHEN 'ebooks' THEN eb.id=NEW.id WHEN 'instances' THEN i.id=NEW.id
+      WHEN 'editions' THEN e.id=NEW.id WHEN 'ebook_annotations' THEN a.id=NEW.id END;
+  -- No extra note-row locks here: catalogue writers already hold them. Locking
+  -- unrelated notes at commit would invert a concurrent note writer's row lock.
+  FOR v_id IN SELECT unnest(books) LOOP PERFORM public.durtal_annotation_lock_book(v_id); END LOOP;
+  FOR v_id IN SELECT a.id FROM public.reading_notes n JOIN public.ebook_annotations a ON a.id=n.ebook_annotation_id
+    JOIN public.ebooks eb ON eb.id=a.ebook_id
+    LEFT JOIN public.instances i ON i.id=eb.instance_id LEFT JOIN public.editions e ON e.id=i.edition_id
+    WHERE CASE TG_TABLE_NAME WHEN 'reading_notes' THEN n.id=NEW.id
+      WHEN 'ebooks' THEN eb.id=NEW.id WHEN 'instances' THEN i.id=NEW.id
+      WHEN 'editions' THEN e.id=NEW.id WHEN 'ebook_annotations' THEN a.id=NEW.id END
+    ORDER BY a.id LOOP PERFORM public.durtal_annotation_lock_id(v_id); END LOOP;
   IF EXISTS (SELECT 1 FROM reading_notes n JOIN ebook_annotations a ON a.id=n.ebook_annotation_id
     LEFT JOIN ebooks eb ON eb.id=a.ebook_id LEFT JOIN instances i ON i.id=eb.instance_id
     LEFT JOIN editions e ON e.id=i.edition_id

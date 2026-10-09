@@ -167,3 +167,46 @@ do not claim those helpers or a completed 454 plugin.
 
 Static inventory only. No database, browser, build, migration-generation or live
 result is claimed. Owner primary and manual server 3100 are unchanged.
+
+## Independent review correction after 07e222f0
+
+Formal SCHEMA_REVISE identified two P1 gaps: note ownership checks lacked binding
+locks, and neither association epochs nor monotonic note timestamps existed.
+The corrected SQL uses SLN-500's actual 0083 book/annotation locks, re-reads
+ownership after waits, and applies those locks to note writes plus catalogue
+binding writes. Deferred checks also lock before their fresh final read; they
+are a final consistency check, not the primary synchronization protocol.
+
+`durtal_reader_lock_quote_notes(noteIds, prospectiveAnnotationIds)` and
+`durtal_reader_lock_quote_ebooks(ebookIds)` are the concrete pre-DML helpers for
+the callsites above. All book locks are sorted, then annotation IDs, then note
+rows. Note discovery that changes while waiting raises 40001 for whole-operation
+replanning. Row-trigger fallback prevents invalid commits for raw SQL or an
+unconverted caller, but normal application batches must prelock before row DML
+to avoid inverted-lock deadlocks. This is still a pending source integration
+obligation for note actions, catalogue/merge/cascade and 495 relink writers.
+
+Association changes (note link/work/reading/edition and e-book/copy/edition
+binding) rotate server-issued live annotation epochs. Retired/tombstoned marks
+are never updated or restored by epoch rotation. Linked quote/user note edits
+stamp an exact PostgreSQL timestamp strictly later than the previous version;
+ordinary automatic imported-note reference maintenance preserves its timestamp.
+Prepared deletion reads exact microsecond note versions from SQL; no Date-based
+millisecond round-trip can reconstitute an opaque expected version.
+
+`src/__tests__/integration/reader-quote-binding.test.ts` has six authored database
+cases: repeated/backward application timestamps; ordinary imported-note FK
+clearing; A-B-A plus rejection of an old epoch by the actual composed delete;
+quote-write-before-relink and relink-before-quote-insert with actual PostgreSQL
+blocking observation; kept-quote deletion leaving a retired mark unchanged.
+Its sole URL opt-in is a dedicated localhost/127.0.0.1 sln454_reader_quote database.
+It runs only generated migrations and requires the real 0083/0087 composed
+functions. The source has been typechecked; no database case has executed yet.
+No fake transaction model or mocked lock is offered as race proof.
+
+PostgreSQL references for this protocol:
+[READ COMMITTED snapshots](https://www.postgresql.org/docs/16/transaction-iso.html),
+[VOLATILE query snapshots](https://www.postgresql.org/docs/16/xfunc-volatility.html),
+[row/advisory locks and deadlocks](https://www.postgresql.org/docs/16/explicit-locking.html).
+The lock-order and retry obligations are explicit because a deferred unlocked
+query cannot make concurrent decisions serialize.

@@ -70,3 +70,23 @@ SLN-450's import recovery correction is on main. Its remaining recorded acceptan
 is the real spreadsheet run against a dump-backed preview and recorded mappings
 and counts. Reader-specific import branching and operation ownership remain work
 for this integration; they are not claimed as existing SLN-450 functionality.
+
+## Independent Schema Review Correction
+
+Review of `07e222f0` found two P1 gaps in quote ownership synchronization and
+opaque versions. The SQL proposal now reuses SLN-500's concrete 0083 binding/
+annotation locks before checking linked note ownership, coordinates catalogue
+binding writes and repeats locked final reads. Real association changes rotate
+server-issued live quote epochs. Linked quote/user edits advance PostgreSQL
+`updated_at` by at least one microsecond; ordinary automatic imported-note
+reference clearing preserves its unedited timestamp. Retired marks remain final.
+Permanent sitting retirement and the same-transaction receipt proof are unchanged.
+
+Six meaningful database cases are authored in `reader-quote-binding.test.ts`,
+including both lock race orders, A-B-A/rejection of an old epoch, repeated
+application timestamps and retained retired marks. They are not executed: approved
+generated migrations, concrete composed quote functions and a separately granted
+disposable DB run are prerequisites. The suite never installs review SQL as a
+test migration. Focused pure tests still pass (63, zero skipped), and targeted
+TypeScript includes the new integration source. Exact correction needs extension
+review before schema acceptance, generation and server/plugin integration.

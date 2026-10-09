@@ -2664,6 +2664,30 @@ an old quote clears its annotation reference in that same transaction. Actual
 quote save/delete/Undo composition belongs to the reviewed SLN-454/500 service
 contract, not these declarations.
 
+The corrected proposal depends on SLN-500's concrete 0083 annotation lock/cursor/
+epoch functions. Every linked note INSERT/UPDATE/DELETE locks its e-book binding,
+annotation IDs and note rows, then re-reads ownership after waits. E-book/copy/
+edition binding guards use the same book/annotation locks before rebinding;
+the deferred final check repeats binding locks and reads a fresh snapshot.
+Application batches prelock before their DML in book → annotation → note order;
+row-trigger fallback preserves correctness but a caller with inverted locks may
+need bounded deadlock retry. These callsite compositions remain integration work.
+
+Real changes to a note's annotation/work/reading/edition association and to the
+e-book/copy/edition binding rotate the live quote's server-generated UUID epoch.
+Epochs never come from client input and cannot survive A→B→A as the same token.
+Tombstones and retired marks are excluded from epoch updates. Deleting an
+ordinary kept tracker quote does not recreate or modify its retired mark.
+Linked quote updates and user content/timestamp changes stamp `updated_at` with
+the greater of PostgreSQL's clock and the previous timestamp plus one microsecond.
+SQL emits exact UTC six-digit fractional versions; JavaScript Date is not the
+version round-trip. Automatic reference-only changes to ordinary unlinked notes
+preserve their timestamp, keeping the import's unedited/Undo contract. Finite
+versions are required where stamps advance. The dedicated disposable integration
+suite authors race, epoch and version checks but is not yet run; it requires
+approved generated 0083/0087 and actual composed quote functions, not review SQL
+installed as a test-only migration.
+
 ### `ebook_ingest_runs`
 
 One apply of the ingestion, one browser upload batch or one verification
