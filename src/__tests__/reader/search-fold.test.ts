@@ -66,6 +66,77 @@ describe("search folding and original offsets", () => {
     expect(matches("ß\u00ad", "ss")).toEqual(["ß\u00ad"]);
     expect(matches("ﬃ", "fi")).toEqual([]);
   });
+  it.each(["𝐀", "𝔸", "𝑨", "Ａ", "Ⓐ"])(
+    "folds compatibility uppercase %s after normalization, keeping the source span",
+    (glyph) => {
+      const text = `x${glyph}y`;
+      for (const matchAccents of [false, true]) {
+        const folded = foldForSearch(text, { ...defaults, matchAccents }, "en");
+        expect(folded.text).toBe("xay");
+        expect(folded.from[1]).toBe(1);
+        expect(folded.to[1]).toBe(1 + glyph.length);
+        expect([
+          ...findInText(text, "a", { ...defaults, matchAccents }, "en"),
+        ]).toEqual([{ start: 1, end: 1 + glyph.length }]);
+      }
+      const mixed = `x${glyph}a`;
+      const exactCase = { ...defaults, matchCase: true };
+      expect([...findInText(mixed, "a", exactCase, "en")]).toEqual([
+        { start: 1 + glyph.length, end: 2 + glyph.length },
+      ]);
+      expect([...findInText(mixed, "A", exactCase, "en")]).toEqual([
+        { start: 1, end: 1 + glyph.length },
+      ]);
+    },
+  );
+  it("keeps accented compatibility glyphs and expansions mapped across text nodes", () => {
+    const strings = ["x", "𝐀", "\u0301", "ß", "y"];
+    const text = strings.join("");
+    const [match] = findInText(text, "ass", defaults, "en");
+    expect(match).toEqual({ start: 1, end: 5 });
+    expect(text.slice(match.start, match.end)).toBe("𝐀\u0301ß");
+    expect(rangeOffsets(textOffsets(strings), match.start, match.end)).toEqual({
+      start: { index: 1, offset: 0 },
+      end: { index: 3, offset: 1 },
+    });
+    expect([
+      ...findInText(text, "á", { ...defaults, matchAccents: true }, "en"),
+    ]).toEqual([{ start: 1, end: 4 }]);
+    expect(matches(text, "a", { matchAccents: true }, "en")).toEqual([]);
+    expect(
+      matches(text, "Á", { matchCase: true, matchAccents: true }, "en"),
+    ).toEqual(["𝐀\u0301"]);
+    expect(
+      matches(text, "á", { matchCase: true, matchAccents: true }, "en"),
+    ).toEqual([]);
+    expect(matches(text, "s", {}, "en")).toEqual([]);
+  });
+  it("preserves Turkish dotted-I casing after compatibility normalization", () => {
+    const text = "x𝐈İI\u0307ıiy";
+    const accentSensitive = { ...defaults, matchAccents: true };
+    expect([...findInText(text, "i", accentSensitive, "tr")]).toEqual([
+      { start: 3, end: 4 },
+      { start: 4, end: 6 },
+      { start: 7, end: 8 },
+    ]);
+    expect([...findInText(text, "ı", accentSensitive, "tr")]).toEqual([
+      { start: 1, end: 3 },
+      { start: 6, end: 7 },
+    ]);
+    expect([...findInText(text, "i", defaults, "tr")]).toEqual([
+      { start: 1, end: 3 },
+      { start: 3, end: 4 },
+      { start: 4, end: 6 },
+      { start: 6, end: 7 },
+      { start: 7, end: 8 },
+    ]);
+    expect([
+      ...findInText(text, "I", { ...accentSensitive, matchCase: true }, "tr"),
+    ]).toEqual([{ start: 1, end: 3 }]);
+    expect([...findInText("x𝐈\u0307y", "i", accentSensitive, "tr")]).toEqual([
+      { start: 1, end: 4 },
+    ]);
+  });
   it("has UTF-16 offsets for supplementary characters", () => {
     expect([...findInText("x😀ß", "😀ss", defaults)]).toEqual([
       { start: 1, end: 4 },

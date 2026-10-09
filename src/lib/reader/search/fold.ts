@@ -59,11 +59,11 @@ export function foldForSearch(
   let previousSpace = false;
   for (const { segment, index } of segmenter.segment(text)) {
     const end = index + segment.length;
-    // Lowercase before decomposition so Turkish dotted I and Lithuanian
-    // combining accents retain their locale's casing behavior.
-    let folded = options.matchCase
-      ? segment
-      : segment.toLocaleLowerCase(locale);
+    // Resolve compatibility capitals (including non-BMP mathematical letters)
+    // before casing. Keep dotted I composed for Turkish locale casing, then
+    // decompose for accent matching; all output still owns the original span.
+    let folded = segment.normalize("NFKC");
+    if (!options.matchCase) folded = folded.toLocaleLowerCase(locale);
     folded = folded.normalize("NFKD").replace(/\p{Cf}/gu, "");
     if (!options.matchAccents) {
       folded = folded

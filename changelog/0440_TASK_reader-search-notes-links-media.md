@@ -53,6 +53,19 @@ The initial sanitizer fixture was corrected after happy-dom consumed following
 markup while parsing its SVG script; the adversarial SVG is now constructed
 explicitly, with an additional deep-nesting regression.
 
+Independent review correction: compatibility uppercase mathematical letters were
+not lowercased after decomposition. The seven additional regression cases
+reproduced five failures before the fix. Folding now resolves compatibility
+characters with NFKC before locale casing, then uses NFKD for accent matching.
+Original grapheme UTF-16 spans remain unchanged, including non-BMP letters,
+combined accents, expansions, cross-node ranges and Turkish dotted-I casing.
+Match case retains uppercase letters. No new cache or eager result allocation.
+
+Corrected focused validation: 66/66 tests passed, zero skipped/todo (29
+search/offset, 21 link, 12 sanitizer and 4 table-policy); 461 ms total,
+33 ms test bodies. `pnpm typecheck` and scoped ESLint with zero warnings passed.
+Full independent source review and all runtime/heavy gates remain pending.
+
 Incomplete. Worker cancellation, runtime wiring, vendor export extraction, complete
 fixtures, browser/native trusted touch, performance rows, audits, default Mac and
 Docker builds, the zero-skip full DB suite, CI, main merge and deployment remain
