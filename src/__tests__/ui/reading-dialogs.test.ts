@@ -31,6 +31,7 @@ import { LogProgressDialog } from "@/components/reading/dialogs/log-progress-dia
 import { FinishReadingDialog } from "@/components/reading/dialogs/finish-reading-dialog";
 import { AbandonReadingDialog } from "@/components/reading/dialogs/abandon-reading-dialog";
 import { StartReadingDialog } from "@/components/reading/dialogs/start-reading-dialog";
+import { correctLastLog, planPositions, sessionOrder, type Reading, type Session } from "@/lib/reading/service";
 import { EditReadingDialog } from "@/components/reading/dialogs/edit-reading-dialog";
 import type { ReadingDialogProps } from "@/components/reading/reading-provider";
 
@@ -75,6 +76,9 @@ const reading = {
   unit: "pages",
   totalPages: 480,
   totalMinutes: null,
+  startPage: 0,
+  startPercent: 0,
+  startMinutes: null,
   currentPage: 400,
   currentPercent: 83.33,
   currentMinutes: null,
@@ -273,6 +277,281 @@ describe("Start reading", () => {
 });
 
 describe("Edit reading", () => {
+  it("edits start, current position and chapter in one save with a live unit-bearing preview", async () => {
+    const book = { ...row, reading: { ...reading, totalPages: 600 } };
+    act(() =>
+      root.render(
+        createElement(
+          EditReadingDialog,
+          props({
+            row: book as never,
+            request: { kind: "edit", readingId: "r1" },
+          }),
+        ),
+      ),
+    );
+    type(field("Starting position"), "150");
+    type(field("Current position"), "350");
+    type(field("Current chapter"), "  Part II  ");
+    expect(text()).toContain("Starting at p. 150 of 600 · 25%");
+    expect(text()).toContain("Corrects the last log");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith(
+      expect.objectContaining({
+        startPage: 150,
+        currentPosition: { page: 350 },
+        currentChapter: "Part II",
+      }),
+    );
+    expect(actions.updateReading).toHaveBeenCalledTimes(1);
+    expect(actions.logProgress).not.toHaveBeenCalled();
+  });
+
+  it("submits an explicitly re-entered percent under a larger total, and the session helper moves to that revised place", async () => {
+    const effective = { ...row, reading: { ...reading, totalPages: 600, currentPage: 300, currentPercent: 50, unit: "pages" } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: effective as never, request: { kind: "edit", readingId: "r1" } }))));
+    choose("Current unit", "Percent");
+    type(field("Pages to read"), "1200");
+    expect(field("Current position").value).toBe("25");
+    type(field("Current position"), "49");
+    type(field("Current position"), "50");
+    await submit();
+    const patch = actions.updateReading.mock.calls[0][0];
+    expect(patch).toMatchObject({ totalPages: 1200, currentPosition: { percent: 50 } });
+    const revised = { ...effective.reading, totalPages: 1200, currentPercent: 25 } as unknown as Reading;
+    const latest = { id: "last", editionId: "e1", source: "manual", readOn: "2026-09-02", createdAt: new Date("2026-09-02"), updatedAt: new Date("2026-09-02"), endedAt: null, startedAt: null, endPage: 300, endPercent: 50, endMinutes: null, endChapter: null, pagesTotal: 600 } as Session;
+    const correction = correctLastLog(revised, [latest], patch.currentPosition);
+    expect(planPositions(revised, sessionOrder(correction.sessions)).position).toMatchObject({ page: 600, percent: 50 });
+  });
+
+  it("submits a selected percent unit proposal under revised totals even without typing its value", async () => {
+    const effective = { ...row, reading: { ...reading, totalPages: 600, currentPage: 300, currentPercent: 50, currentChapter: "I", unit: "pages" } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: effective as never, request: { kind: "edit", readingId: "r1" } }))));
+    choose("Current unit", "Percent");
+    type(field("Pages to read"), "1200");
+    expect(field("Current position").value).toBe("25");
+    type(field("Current chapter"), "II");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalPages: 1200, currentChapter: "II", currentPosition: { percent: 25 } });
+  });
+
+  it("keeps a true percent-tracked reading's raw percentage when totals change", async () => {
+    const effective = { ...row, reading: { ...reading, totalPages: 600, currentPage: 300, currentPercent: 50, unit: "percent" } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: effective as never, request: { kind: "edit", readingId: "r1" } }))));
+    type(field("Pages to read"), "1200");
+    expect(field("Current position").value).toBe("50");
+    expect(host.textContent).toContain("p. 600 of 1200 · 50%");
+    type(field("Pages to read"), "200");
+    expect(host.textContent).toContain("p. 100 of 200 · 50%");
+    choose("Current unit", "Page");
+    expect(field("Current position").value).toBe("100");
+    type(field("Current chapter"), "II");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalPages: 200, currentChapter: "II", currentPosition: { page: 100 } });
+  });
+
+  it("shows native-minute normalization when audio also has a cached page equivalent", async () => {
+    const audio = { ...row, reading: { ...reading, format: "audio", unit: "minutes", totalPages: 600, totalMinutes: 600, currentPage: 300, currentMinutes: 300, currentPercent: 50 } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: audio as never, request: { kind: "edit", readingId: "r1" } }))));
+    choose("Current unit", "Percent");
+    type(field("Audio length"), "20:00");
+    expect(field("Current position").value).toBe("25");
+    type(field("Current chapter"), "II");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalMinutes: 1200, currentChapter: "II", currentPosition: { percent: 25 } });
+  });
+
+  it.each([false, true])("submits unchanged current fields only with explicit input intent (touched=%s)", async (touched) => {
+    const effective = { ...row, reading: { ...reading, totalPages: 600, currentPage: 240, currentPercent: 40, currentChapter: "I" } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: effective as never, request: { kind: "edit", readingId: "r1" } }))));
+    if (touched) type(field("Current position"), "240");
+    type(field("Current chapter"), "II");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, currentChapter: "II", ...(touched ? { currentPosition: { page: 240 } } : {}) });
+  });
+
+  it("submits an explicit 100% correction when shrinking totals below the native page", async () => {
+    const effective = { ...row, reading: { ...reading, totalPages: 600, startPage: 400, startPercent: 66.67, currentPage: 500, currentPercent: 83.33 } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: effective as never, request: { kind: "edit", readingId: "r1" } }))));
+    choose("Current unit", "Percent");
+    type(field("Pages to read"), "300");
+    type(field("Starting position"), "100");
+    type(field("Current position"), "99");
+    type(field("Current position"), "100");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalPages: 300, startPage: 100, currentPosition: { percent: 100 } });
+  });
+
+  it("shows the start-derived current place and allows smaller totals before any log", async () => {
+    const empty = { ...row, sessionCount: 0, reading: { ...reading, totalPages: 600, startPage: 400, startPercent: 66.67, currentPage: 400, currentPercent: 66.67 } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: empty as never, request: { kind: "edit", readingId: "r1" } }))));
+    type(field("Pages to read"), "300");
+    type(field("Starting position"), "100");
+    expect(field("Current position").disabled).toBe(true);
+    expect(field("Current position").value).toBe("100");
+    expect(text()).toContain("Starting at p. 100 of 300 · 33.33%");
+    expect(text()).not.toContain("You are on p. 400");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalPages: 300, startPage: 100 });
+  });
+
+  it("combines an audio edition switch, new duration and start using the displayed duration", async () => {
+    const audio = { ...row, sessionCount: 0, reading: { ...reading, format: "audio", unit: "minutes", totalPages: null, totalMinutes: 60, startPage: null, startPercent: 50, startMinutes: 30, currentPage: null, currentPercent: 50, currentMinutes: 30 } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: audio as never, request: { kind: "edit", readingId: "r1" } }))));
+    choose("Edition", "English · Audible");
+    choose("Start unit", "Time");
+    type(field("Audio length"), "2:00");
+    type(field("Starting position"), "1:30");
+    expect(text()).toContain("Starting at 1:30 of 2:00 · 75%");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, editionId: "audio", totalMinutes: 120, startMinutes: 90 });
+  });
+
+  it("clears a chapter explicitly", async () => {
+    const named = { ...row, reading: { ...reading, currentChapter: "II" } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: named as never, request: { kind: "edit", readingId: "r1" } }))));
+    type(field("Current chapter"), "");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith(expect.objectContaining({ currentChapter: null }));
+  });
+
+  it("keeps percent and audio minutes as exactly one unit each", async () => {
+    act(() =>
+      root.render(
+        createElement(
+          EditReadingDialog,
+          props({ request: { kind: "edit", readingId: "r1" } }),
+        ),
+      ),
+    );
+    choose("Start unit", "Percent");
+    type(field("Starting position"), "25");
+    choose("Current unit", "Time");
+    type(field("Current position"), "2:30");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith(
+      expect.objectContaining({
+        startPercent: 25,
+        currentPosition: { minutes: 150 },
+      }),
+    );
+    expect(actions.updateReading.mock.calls[0][0]).not.toHaveProperty(
+      "startPage",
+    );
+    expect(actions.updateReading.mock.calls[0][0]).not.toHaveProperty(
+      "startMinutes",
+    );
+  });
+
+  it("keeps current-position controls disabled without a completed log while allowing a start and chapter edit", async () => {
+    const empty = {
+      ...row,
+      sessionCount: 0,
+      reading: { ...reading, currentPage: 0, currentPercent: 0 },
+    };
+    act(() =>
+      root.render(
+        createElement(
+          EditReadingDialog,
+          props({
+            row: empty as never,
+            request: { kind: "edit", readingId: "r1" },
+          }),
+        ),
+      ),
+    );
+    expect(field("Current position").disabled).toBe(true);
+    expect(text()).toContain(
+      "Log progress once before editing the current position",
+    );
+    type(field("Starting position"), "100");
+    type(field("Current chapter"), "Opening");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith(
+      expect.objectContaining({ startPage: 100, currentChapter: "Opening" }),
+    );
+    expect(actions.updateReading.mock.calls[0][0]).not.toHaveProperty(
+      "currentPosition",
+    );
+  });
+
+  it("validates against changed totals and does not save invalid or absent positions", async () => {
+    act(() =>
+      root.render(
+        createElement(
+          EditReadingDialog,
+          props({ request: { kind: "edit", readingId: "r1" } }),
+        ),
+      ),
+    );
+    type(field("Starting position"), "500");
+    expect(text()).toContain("Page 500 is past the last page, 480");
+    await submit();
+    expect(actions.updateReading).not.toHaveBeenCalled();
+    type(field("Starting position"), "150");
+    type(field("Current position"), "200");
+    type(field("Pages to read"), "300");
+    expect(text()).toContain("Starting at p. 150 of 300 · 50%");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith(
+      expect.objectContaining({
+        startPage: 150,
+        totalPages: 300,
+        currentPosition: { page: 200 },
+      }),
+    );
+    actions.updateReading.mockClear();
+    type(field("Starting position"), "");
+    await submit();
+    expect(actions.updateReading).not.toHaveBeenCalled();
+  });
+
+  it("does not convert an edition-only switch into a current-position correction", async () => {
+    const empty = { ...row, sessionCount: 0 };
+    act(() =>
+      root.render(
+        createElement(
+          EditReadingDialog,
+          props({
+            row: empty as never,
+            request: { kind: "edit", readingId: "r1" },
+          }),
+        ),
+      ),
+    );
+    choose("Edition", "English · Audible");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith(
+      expect.objectContaining({ editionId: "audio" }),
+    );
+    expect(actions.updateReading.mock.calls[0][0]).not.toHaveProperty(
+      "currentPosition",
+    );
+    expect(actions.updateReading.mock.calls[0][0]).not.toHaveProperty(
+      "startPercent",
+    );
+  });
+
+  it("keeps the edit open and reports a rejected atomic save without a success toast", async () => {
+    const close = vi.fn();
+    actions.updateReading.mockRejectedValueOnce(
+      new Error("This reading changed elsewhere; reload before saving"),
+    );
+    act(() =>
+      root.render(
+        createElement(
+          EditReadingDialog,
+          props({ onClose: close, request: { kind: "edit", readingId: "r1" } }),
+        ),
+      ),
+    );
+    type(field("Current position"), "250");
+    await submit();
+    expect(close).not.toHaveBeenCalled();
+    expect(toasts.list.some((t) => t.message === "Reading saved")).toBe(false);
+  });
+
+
   it("refuses a page count that is not a whole number instead of clearing it", async () => {
     actions.updateReading.mockResolvedValue({ fingerprint: "g".repeat(32) });
     act(() => root.render(createElement(EditReadingDialog, props({ request: { kind: "edit", readingId: "r1" } }))));
