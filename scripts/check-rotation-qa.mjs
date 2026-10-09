@@ -62,6 +62,36 @@ export function verifyDisposableRotationPreview(root) {
   return target;
 }
 
+/** Validate both trees before any install/removal. Missing children are safe
+ * only after every existing ancestor has been checked without following links. */
+export function verifyRotationQaDestinations(root) {
+  const target = realpathSync(root);
+  function destination(path) {
+    let current = target;
+    for (const segment of path.split("/")) {
+      current = join(current, segment);
+      if (!current.startsWith(target + "/"))
+        throw new Error("QA destination is outside its snapshot");
+      let stat;
+      try {
+        stat = lstatSync(current);
+      } catch (error) {
+        if (error.code === "ENOENT") continue;
+        throw error;
+      }
+      if (stat.isSymbolicLink())
+        throw new Error("QA destination ancestor cannot be a symlink");
+      if (!stat.isDirectory() || realpathSync(current) !== current) {
+        throw new Error(
+          "QA destination must remain inside its snapshot directory tree",
+        );
+      }
+    }
+    return current;
+  }
+  return { route: destination(QA_ROUTE), assets: destination(QA_ASSETS) };
+}
+
 export function rotationQaArtifacts(root) {
   const paths = [
     QA_ROUTE,

@@ -12,17 +12,16 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { resolve, join } from "node:path";
+import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import {
-  QA_ROUTE,
-  QA_ASSETS,
   QA_MARKER,
   QA_ROLE,
   registryRoot,
   registrationPath,
   verifyDisposableRotationPreview,
+  verifyRotationQaDestinations,
 } from "../check-rotation-qa.mjs";
 
 const source = realpathSync(process.cwd());
@@ -68,8 +67,9 @@ if (process.argv.includes("--create-disposable")) {
       "Create a registered snapshot with --create-disposable, then supply --disposable-root",
     );
   const target = verifyDisposableRotationPreview(process.argv[at + 1]);
-  const route = resolve(target, QA_ROUTE),
-    assets = resolve(target, QA_ASSETS);
+  // Check both complete paths first: an unsafe asset tree must not allow the
+  // otherwise-safe route to be created/deleted before the operation rejects.
+  const { route, assets } = verifyRotationQaDestinations(target);
   if (process.argv.includes("--remove")) {
     rmSync(route, { recursive: true, force: true });
     rmSync(assets, { recursive: true, force: true });
