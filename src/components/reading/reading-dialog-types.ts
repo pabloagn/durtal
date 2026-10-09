@@ -55,4 +55,3 @@ export interface ReadingDialogProps {
   changed: () => void;
   open: (request: DialogRequest) => void;
 }
-

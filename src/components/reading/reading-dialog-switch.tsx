@@ -34,4 +34,3 @@ export function ReadingDialogSwitch(props: ReadingDialogProps) {
   if (request.kind === "session") return <SessionDialog {...props} />;
   return <DeleteReadingDialog {...props} />;
 }
-
