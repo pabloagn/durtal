@@ -135,12 +135,42 @@ export interface ResolveResult {
   locator: DurtalLocator | null;
 }
 
+/** Strict marking resolver: missing or ambiguous passage text is never a filled
+ * approximate range. Pending means bounded/canceled work, not lost content. */
+export interface AnnotationResolveResult {
+  status: "exact" | "healed" | "approximate" | "orphaned" | "pending";
+  locator: DurtalLocator | null;
+}
+
 export type OpenErrorKind = "damaged" | "unsupported" | "network" | "expired";
 /** Reading input, layout adjustment, and automatic speech movement have different publication rules. */
 export type RelocationOrigin = "human" | "layout" | "speech";
 
+export type DecorationStyle =
+  | "highlight"
+  | "underline"
+  | "quote"
+  | "outline"
+  | "margin";
+/** Resolved marks only: a full-state set belongs to one independent group.
+ * Colour is a literal supplied by the active theme, never stored in the mark. */
+export type Decoration =
+  | {
+      id: string;
+      locator: DurtalLocator;
+      style: DecorationStyle;
+      color: string;
+      note?: boolean;
+    }
+  | { cfi: string; color: string }; // existing history return outline
+
 export interface EngineEvents {
   ready: BookInfo & { toc: TocItem[] };
+  "annotation-activated": {
+    group: string;
+    decorationId: string;
+    rect: { left: number; top: number; right: number; bottom: number };
+  };
   relocate: {
     locator: DurtalLocator;
     chapter: string | null;
@@ -218,10 +248,7 @@ export interface ReaderEngine {
   firstPage(owner?: NavigationOwner): Promise<void>;
   lastPage(owner?: NavigationOwner): Promise<void>;
   setMarginalia(lines: Marginalia | null): void;
-  setDecorations(
-    group: "history",
-    decorations: { cfi: string; color: string }[],
-  ): void;
+  setDecorations(group: string, decorations: Decoration[]): void;
   next(owner?: NavigationOwner): Promise<void>;
   prev(owner?: NavigationOwner): Promise<void>;
   /** Left and right follow the book's direction: right-to-left books turn the other way */
@@ -233,6 +260,10 @@ export interface ReaderEngine {
   locatorFromSelection(): DurtalLocator | null;
   clearSelection(): void;
   resolve(locator: DurtalLocator): Promise<ResolveResult>;
+  resolveAnnotation(
+    annotation: { kind: "highlight" | "bookmark"; locator: DurtalLocator },
+    options?: { signal?: AbortSignal },
+  ): Promise<AnnotationResolveResult>;
   on<K extends keyof EngineEvents>(
     name: K,
     handler: (detail: EngineEvents[K]) => void,

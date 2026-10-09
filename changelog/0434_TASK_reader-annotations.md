@@ -123,3 +123,30 @@ Narrow correction validation after the SLN-499 merge: all 65 focused annotation
 tests, TypeScript and focused ESLint pass. Native regression source is present
 but no SQL or native database test was executed. Drizzle declarations are
 structurally unchanged, so the captured declaration snapshot remains exact.
+
+Reader source integration now implements independent full-state decoration groups
+and a per-section index. The adapter uses the actual loaded overlayer, verifies
+the whole passage before filled drawing, supports highlight/underline/double
+quote underline/margin note marks, and reinstalls groups after overlayer rebuild.
+The existing history outline remains a separate group and clears on owned turns.
+`resolveAnnotation` is a strict, cancellable resolver with per-open document/text
+caches and one matching budget across sections; missing/ambiguous highlights are
+orphaned, while bounded/canceled work remains pending. It never navigates.
+
+The bridge now dispatches `annotation-activated` after paint and evaluates the
+default menu only after synchronous plugin handlers can prevent it.
+`useBeforeAnnotationDelete` keeps current callbacks and collects prepared quote
+effects, cancellation and abort before any durable operation. Conflicting quote
+effects are refused. The boolean cancellation contract remains supported.
+
+Focused DOM/unit source tests cover group collisions, full-state moves/removals,
+1,000-mark section indexing, rebuilt overlay drawing, whole-range verification,
+replacement/missing/ambiguous text and deferred event/default cancellation.
+These are source-level checks, not native browser/performance acceptance. UI,
+server, library search/counts and shared durable queue wiring remain active work.
+SLN-507 concrete source `13ff2a57` is available; a hidden-tab sealing issue was
+relayed to its owner (preflight failure/oversized deferred body must still seal).
+
+Source milestone validation: 118 tests in 16 focused suites pass, as do whole-project
+TypeScript and focused ESLint (including test source). No native database, real
+browser, full local suite, migration generation or live application work ran.

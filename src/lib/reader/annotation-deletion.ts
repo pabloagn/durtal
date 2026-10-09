@@ -31,6 +31,67 @@ export interface AnnotationDeleteHook {
   ): Promise<PreparedAnnotationDelete>;
 }
 
+/** A legacy boolean hook can cancel ordinary deletion. Quote hooks must return
+ * a prepared effect, never perform a note write during confirmation. */
+export type BeforeAnnotationDelete = (
+  annotation: Readonly<ReaderAnnotation>,
+  signal: AbortSignal,
+) => Promise<boolean | void | PreparedAnnotationDelete>;
+
+export function createAnnotationDeleteHooks() {
+  const hooks = new Set<BeforeAnnotationDelete>();
+  return {
+    register(hook: BeforeAnnotationDelete) {
+      hooks.add(hook);
+      return () => {
+        hooks.delete(hook);
+      };
+    },
+    async prepare(
+      annotation: ReaderAnnotation,
+      signal: AbortSignal,
+    ): Promise<PreparedAnnotationDelete> {
+      let effect: DeferredQuoteEffect = { action: "none" };
+      for (const hook of [...hooks]) {
+        if (signal.aborted) return { status: "cancel" };
+        const result = await hook(annotation, signal);
+        if (
+          signal.aborted ||
+          result === false ||
+          (result && typeof result === "object" && result.status === "cancel")
+        )
+          return { status: "cancel" };
+        if (
+          result &&
+          typeof result === "object" &&
+          result.status === "proceed" &&
+          result.effect.action !== "none"
+        ) {
+          if (
+            effect.action !== "none" &&
+            (effect.action !== result.effect.action ||
+              effect.noteId !== result.effect.noteId ||
+              effect.expectedNoteVersion !==
+                result.effect.expectedNoteVersion ||
+              effect.expectedBindingVersion !==
+                result.effect.expectedBindingVersion)
+          )
+            throw new Error(
+              "Annotation deletion received conflicting prepared quote effects",
+            );
+          effect = { ...result.effect };
+        }
+      }
+      if (signal.aborted) return { status: "cancel" };
+      // A quote with an unavailable tracker binding cannot be deleted silently.
+      if (annotation.style === "quote" && effect.action === "none")
+        return { status: "cancel" };
+      assertAnnotationDeleteEffect(annotation, effect);
+      return { status: "proceed", effect };
+    },
+  };
+}
+
 export function assertAnnotationDeleteEffect(
   annotation: ReaderAnnotation,
   effect: DeferredQuoteEffect,

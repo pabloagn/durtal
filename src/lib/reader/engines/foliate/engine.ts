@@ -13,7 +13,11 @@ import type {
   TocItem,
   NavigationOwner,
   Marginalia,
+  Decoration,
+  AnnotationResolveResult,
 } from "@/lib/reader/engine";
+import { FoliateAnnotationResolver } from "./annotation-resolver";
+import { FoliateDecorations } from "./decorations";
 import { presentationCss } from "@/lib/reader/presentation";
 import { PDFJS_BASE } from "@/lib/reader/first-range";
 import { ReadError, RangeSource, RemoteBlob } from "./remote-blob";
@@ -134,8 +138,10 @@ class FoliateEngine implements ReaderEngine {
   #owner: NavigationOwner | undefined;
   #presentation: Presentation | null = null;
   #marginalia: Marginalia | null = null;
-  #historyMarks: string[] = [];
-  #markEpoch = 0;
+  #annotationResolver: FoliateAnnotationResolver | null = null;
+  #decorations: FoliateDecorations | null = null;
+  #decorationSets = new Map<string, Decoration[]>();
+  #decorationLoading: Promise<void> | null = null;
   #markTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Bytes and requests so far, for the performance harness */
@@ -286,6 +292,42 @@ class FoliateEngine implements ReaderEngine {
     view.addEventListener("load", (e) =>
       this.#onLoad((e as CustomEvent<{ doc: Document; index: number }>).detail),
     );
+    view.addEventListener("create-overlay", () => {
+      // The renderer attaches the overlayer after dispatch returns.
+      queueMicrotask(() => {
+        if (this.#view === view) this.#decorations?.render(view);
+      });
+    });
+    view.addEventListener("show-annotation", (event) => {
+      const { value, index, rect } = (
+        event as CustomEvent<{
+          value: string;
+          index: number;
+          rect?: { left: number; top: number; right: number; bottom: number };
+        }>
+      ).detail;
+      const mark = this.#decorations?.hit(view, value, index);
+      const doc = view.renderer
+        .getContents()
+        .find((content) => content.index === index)?.doc;
+      if (!mark || !rect || !doc || this.#selected()) return;
+      const frame = doc.defaultView?.frameElement as HTMLElement | null;
+      const host = frame?.getBoundingClientRect();
+      const sx =
+        host && frame ? host.width / (frame.offsetWidth || host.width) : 1;
+      const sy =
+        host && frame ? host.height / (frame.offsetHeight || host.height) : 1;
+      this.#emit("annotation-activated", {
+        group: mark.group,
+        decorationId: mark.item.id,
+        rect: {
+          left: (host?.left ?? 0) + rect.left * sx,
+          right: (host?.left ?? 0) + rect.right * sx,
+          top: (host?.top ?? 0) + rect.top * sy,
+          bottom: (host?.top ?? 0) + rect.bottom * sy,
+        },
+      });
+    });
     view.addEventListener("link", (e) => {
       // Durtal owns history and publication; the vendored default must never jump in parallel.
       e.preventDefault();
@@ -394,6 +436,12 @@ class FoliateEngine implements ReaderEngine {
     this.#destroyed = true;
     if (this.#selectionTimer) clearTimeout(this.#selectionTimer);
     if (this.#markTimer) clearTimeout(this.#markTimer);
+    this.#annotationResolver?.destroy();
+    this.#annotationResolver = null;
+    this.#decorations?.clear();
+    this.#decorations = null;
+    this.#decorationLoading = null;
+    this.#decorationSets.clear();
     this.#view?.close();
     this.#view?.remove();
     this.#book?.destroy?.();
@@ -630,6 +678,8 @@ class FoliateEngine implements ReaderEngine {
 
   setPresentation(presentation: Presentation) {
     this.#presentation = presentation;
+    const history = this.#decorationSets.get("history");
+    if (history?.length) this.setDecorations("history", history);
     const renderer = this.#view?.renderer;
     if (!renderer) return;
     if (this.#book?.rendition?.layout === "pre-paginated") return;
@@ -865,66 +915,61 @@ class FoliateEngine implements ReaderEngine {
     draw(renderer.heads, lines?.head);
     draw(renderer.feet, lines?.foot);
   }
-  setDecorations(
-    _group: "history",
-    decorations: { cfi: string; color: string }[],
-  ) {
-    const epoch = ++this.#markEpoch;
-    if (this.#markTimer) {
-      clearTimeout(this.#markTimer);
-      this.#markTimer = null;
+  setDecorations(group: string, decorations: Decoration[]) {
+    this.#decorationSets.set(
+      group,
+      decorations.map((item) => structuredClone(item)),
+    );
+    if (group === "history") {
+      if (this.#markTimer) clearTimeout(this.#markTimer);
+      this.#markTimer = decorations.length
+        ? setTimeout(() => this.setDecorations("history", []), 4000)
+        : null;
     }
-    for (const value of this.#historyMarks)
-      void this.#view?.addAnnotation({ value, group: "history" }, true);
-    this.#historyMarks = [];
-    if (!decorations.length || !this.#view || this.#destroyed) return;
-    const view = this.#view;
-    void import("@/vendor/foliate-js/overlayer.js").then((module) => {
-      if (this.#destroyed || this.#view !== view || epoch !== this.#markEpoch)
-        return;
-      const draw = (event: Event) => {
-        const detail = (
-          event as CustomEvent<{
-            annotation: { group?: string; color?: string };
-            draw: (fn: unknown, options: { color: string }) => void;
-          }>
-        ).detail;
-        if (detail.annotation.group === "history")
-          detail.draw(module.Overlayer.outline, {
-            color:
-              detail.annotation.color ??
-              this.#presentation?.colors.link ??
-              "#8c9fae",
-          });
-      };
-      view.addEventListener("draw-annotation", draw);
-      const additions = decorations.map((item) => {
-        const value = "foliate-note:" + item.cfi;
-        this.#historyMarks.push(value);
-        return view
-          .addAnnotation({
-            value,
-            group: "history",
-            color:
-              item.color === "link"
-                ? this.#presentation?.colors.link
-                : item.color,
-          })
-          .then(() => {
-            if (epoch !== this.#markEpoch && !this.#destroyed)
-              return view.addAnnotation({ value, group: "history" }, true);
-          });
-      });
-      void Promise.all(additions)
-        .catch(() => {
-          /* Returning still works if an outline cannot be drawn. */
-        })
-        .finally(() => view.removeEventListener("draw-annotation", draw));
-      this.#markTimer = setTimeout(
-        () => this.setDecorations("history", []),
-        4000,
+    const view = this.#view,
+      source = this.#source;
+    if (!view || !source || this.#destroyed) return;
+    const apply = () => {
+      if (this.#destroyed || this.#view !== view || !this.#decorations) return;
+      const items = (this.#decorationSets.get(group) ?? []).map((item) => ({
+        ...item,
+        color:
+          item.color === "link"
+            ? (this.#presentation?.colors.link ?? "#8c9fae")
+            : item.color,
+      }));
+      this.#decorations.set(view, source.sha256, group, items);
+    };
+    if (this.#decorations) {
+      apply();
+      return;
+    }
+    this.#decorationLoading ??= import("@/vendor/foliate-js/overlayer.js").then(
+      (module) => {
+        if (!this.#destroyed && this.#view === view)
+          this.#decorations = new FoliateDecorations(module.Overlayer);
+      },
+    );
+    void this.#decorationLoading
+      .then(apply)
+      .catch((error) =>
+        console.error("[reader] Decoration drawing failed:", error),
       );
-    });
+  }
+
+  resolveAnnotation(
+    annotation: { kind: "highlight" | "bookmark"; locator: DurtalLocator },
+    options: { signal?: AbortSignal } = {},
+  ): Promise<AnnotationResolveResult> {
+    if (!this.#book || !this.#view || !this.#source || this.#destroyed)
+      return Promise.resolve({ status: "pending", locator: null });
+    this.#annotationResolver ??= new FoliateAnnotationResolver(
+      this.#book,
+      this.#view,
+      this.#source.sha256,
+      () => this.#readingFraction,
+    );
+    return this.#annotationResolver.resolve(annotation, options);
   }
 
   async #turn(

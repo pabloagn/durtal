@@ -84,6 +84,16 @@ export function matchAnnotationQuote(
   return matchWithBudget(raw, quote, matchingBudget(options));
 }
 
+/** A single budget for an adapter's asynchronous section scan. Reading new
+ * sections does not renew the synchronous matcher's bounded work allowance. */
+export function createAnnotationQuoteMatcher(
+  options: { maxWork?: number; signal?: AbortSignal } = {},
+) {
+  const budget = matchingBudget(options);
+  return (raw: string, quote: AnnotationTextQuote): AnnotationQuoteResult =>
+    matchWithBudget(raw, quote, budget);
+}
+
 function matchWithBudget(
   raw: string,
   quote: AnnotationTextQuote,

@@ -155,6 +155,10 @@ export function fakeEngine() {
     ),
     setMarginalia: vi.fn(),
     setDecorations: vi.fn(),
+    resolveAnnotation: vi.fn(async ({ locator }) => ({
+      status: "exact" as const,
+      locator,
+    })),
     resolve: vi.fn<ReaderEngine["resolve"]>(async (at) => ({
       status: "exact",
       locator: at,

@@ -1,3 +1,4 @@
+import type { ReaderAnnotation } from "./annotations";
 import type { DurtalLocator, ReaderFormat } from "./engine";
 
 export interface ReaderSelection {
@@ -17,6 +18,14 @@ export interface ReaderContext {
   selection: ReaderSelection | null;
 }
 export interface ReaderEvents {
+  "annotation-activated": Pick<
+    ReaderAnnotation,
+    "kind" | "style" | "color" | "text" | "note" | "locator"
+  > & {
+    at: number;
+    annotationId: string;
+    preventDefault(): void;
+  };
   activity: { at: number; kind: "turn" | "scroll" | "key" | "pointer" };
   location: {
     at: number;
@@ -61,6 +70,7 @@ export function createReaderEventBus(
   function emit<K extends keyof ReaderEvents>(
     name: K,
     payload: ReaderEvents[K],
+    afterDispatch?: () => void,
   ) {
     if (destroyed) return;
     const expected = generation;
@@ -80,6 +90,7 @@ export function createReaderEventBus(
             console.error(`[reader] ${name} handler failed:`, error);
           }
         }
+        if (!destroyed && expected === generation) afterDispatch?.();
       });
     });
     frames.add(id);
@@ -97,6 +108,32 @@ export function createReaderEventBus(
       };
     },
     emit,
+    annotationActivated(
+      annotation: ReaderAnnotation,
+      defaultAction: () => void,
+    ) {
+      let prevented = false;
+      const { id, kind, style, color, text, note, locator } = annotation;
+      emit(
+        "annotation-activated",
+        {
+          at: now(),
+          annotationId: id,
+          kind,
+          style,
+          color,
+          text,
+          note,
+          locator,
+          preventDefault() {
+            prevented = true;
+          },
+        },
+        () => {
+          if (!prevented) defaultAction();
+        },
+      );
+    },
     activity(kind: ReaderEvents["activity"]["kind"]) {
       const at = now();
       if (hidden() || at - (activityAt.get(kind) ?? -Infinity) < 1000) return;

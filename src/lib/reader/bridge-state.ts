@@ -1,3 +1,4 @@
+import { createAnnotationDeleteHooks } from "./annotation-deletion";
 import { createReaderEventBus, type ReaderContext } from "./events";
 export type ReaderSlot = "toolbar-status" | "top-bar" | "selection-actions";
 type Fill = { element: HTMLElement; order: number; sequence: number };
@@ -33,6 +34,7 @@ export function createReaderBridge(context: ReaderContext) {
   };
   return {
     bus: createReaderEventBus(),
+    annotationDeletes: createAnnotationDeleteHooks(),
     subscribe(fn: () => void) {
       listeners.add(fn);
       return () => {
