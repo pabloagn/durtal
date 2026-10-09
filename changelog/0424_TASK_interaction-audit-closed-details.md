@@ -63,3 +63,12 @@ Native Firefox diagnosis: forward Tab can retain the last page control while
 Shift+Tab reaches the preceding summary. Reachability now tries bounded
 native walks in both directions, without forced focus or broader dialog
 exceptions. The failed forward-only trace is retained locally.
+
+The 375px synthetic film/painting comparison reproduces the same 5px rating
+overflow in previous and current artifacts across all three engines. The
+identical perfume caller also overflows. On coarse-pointer screens below sm,
+only the rating label/control pair now spans the metadata grid, preserving all
+five 44px star targets. The book editor already gives the rating its own row;
+shared slider behavior and book SSR are unchanged. Firefox desktop capability
+flags now combine Fine (2) and Hover (4), while phone mode remains Coarse (1).
+Final-head gates and the enlarged caller matrix must be rerun for this checkpoint.

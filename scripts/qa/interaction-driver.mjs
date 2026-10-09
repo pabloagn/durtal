@@ -155,9 +155,10 @@ export async function createDriver(name) {
         : {}),
       ...(name === "firefox"
         ? {
+            // Gecko capabilities: coarse=1, fine=2, hover=4.
             firefoxUserPrefs: {
-              "ui.primaryPointerCapabilities": touch ? 1 : 2,
-              "ui.allPointerCapabilities": touch ? 1 : 2,
+              "ui.primaryPointerCapabilities": touch ? 1 : 6,
+              "ui.allPointerCapabilities": touch ? 1 : 6,
             },
           }
         : {}),
