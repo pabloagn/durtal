@@ -171,6 +171,9 @@ function epub({
   pageList = [],
   extraZip = [],
   scripted = [],
+  contents,
+  pageMap,
+  rights = "Public domain (CC0 1.0), generated for Durtal's tests",
 }) {
   const epub3 = version === 3;
   const manifest = [
@@ -193,24 +196,25 @@ function epub({
     <dc:title>${escapeXml(title)}</dc:title>
     <dc:creator>${escapeXml(author)}</dc:creator>
     <dc:language>${lang}</dc:language>
-    <dc:rights>Public domain (CC0 1.0), generated for Durtal's tests</dc:rights>
+    <dc:rights>${escapeXml(rights)}</dc:rights>
     ${epub3 ? '<meta property="dcterms:modified">2026-10-07T00:00:00Z</meta>' : ""}
   </metadata>
   <manifest>
     ${manifest.join("\n    ")}
   </manifest>
-  <spine${epub3 ? "" : ' toc="ncx"'}${ppd ? ` page-progression-direction="${ppd}"` : ""}>
-    ${chapters.map((c) => `<itemref idref="${c.id}"/>`).join("\n    ")}
+  <spine${epub3 ? "" : ' toc="ncx"'}${ppd ? ` page-progression-direction="${ppd}"` : ""}${pageMap ? ` page-map="${pageMap}"` : ""}>
+    ${chapters.map((c) => `<itemref idref="${c.id}"${c.linear === "no" ? ' linear="no"' : ""}/>`).join("\n    ")}
   </spine>
 </package>`;
   const tocItems = chapters.filter((c) => c.title);
+  const nestedContents = (items) => items.map(item => `<li><a href="${item.href}">${escapeXml(item.title)}</a>${item.sub?.length ? "<ol>" + nestedContents(item.sub) + "</ol>" : ""}</li>`).join("");
   const nav = xhtml({
     title: "Contents",
     lang,
     dir,
     css: false,
     body: `<nav epub:type="toc" id="toc"><h1>Contents</h1><ol>
-${tocItems
+${contents ? nestedContents(contents) : tocItems
   .map(
     (c) =>
       `<li><a href="${c.id}.xhtml">${escapeXml(c.title)}</a>${
@@ -731,6 +735,36 @@ function obfuscate(font, identifier) {
   return out;
 }
 
+/** Public-domain French excerpt, repeated with deterministic labels to exercise navigation. */
+function navigationFixtures() {
+  mkdirSync(SMALL_DIR, { recursive: true });
+  const text = "Durtal avait cessé, depuis près de deux années, de fréquenter le monde des lettres ; les livres d’abord, puis les racontars des journaux, les souvenirs des uns, les mémoires des autres, s’évertuaient à représenter ce monde comme le diocèse de l’intelligence, comme le plus spirituel des patriciats. À les en croire, l’esprit fusait en baguettes d’artifices et les reparties les plus stimulantes crépitaient dans ces réunions.";
+  const roman = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x", "xi", "xii"];
+  const page = (label) => `<span xmlns:epub="http://www.idpf.org/2007/ops" id="page-${label}" epub:type="pagebreak" role="doc-pagebreak" aria-label="${label}"></span><p>${escapeXml(text)}</p><p>${escapeXml(text)}</p>`;
+  const chapters = [
+    { id: "front", title: "Préface", body: "<h1>Préface</h1>" + roman.map(page).join("") },
+    { id: "book", title: "Chapitre I", body: Array.from({ length: 120 }, (_, i) => {
+      const n = i + 1;
+      const heading = { 1: ["one", "Chapitre I"], 41: ["two", "Chapitre II"], 81: ["three", "Chapitre III"] }[n];
+      return (heading ? `<h1 id="${heading[0]}">${heading[1]}</h1>` : "") +
+        ([15, 55, 95].includes(n) ? `<h2 id="scene-${n}">Scène ${n}</h2><h3 id="detail-${n}">Détail ${n}</h3>` : "") +
+        page(n) + (n === 30 ? '<p><a href="notes.xhtml#note">Voir la note</a></p>' : "");
+    }).join("") },
+    { id: "notes", title: "Notes", linear: "no", body: '<h1 id="note">Notes hors lecture</h1><p>' + escapeXml(text) + '</p><p><a href="book.xhtml#page-30">Revenir au texte</a></p>' },
+  ];
+  const contents = [{ title: "Préface", href: "front.xhtml" }, { title: "Là-bas", href: "book.xhtml", sub: [1, 41, 81].map((n, i) => ({
+    title: "Chapitre " + ["I", "II", "III"][i], href: "book.xhtml#" + ["one", "two", "three"][i],
+    sub: [{ title: "Scène " + (n + 14), href: "book.xhtml#scene-" + (n + 14) }],
+  })) }, { title: "Notes", href: "notes.xhtml#note" }];
+  const pages = [...roman.map(label => ({ label, href: "front.xhtml#page-" + label })), ...Array.from({ length: 120 }, (_, i) => ({ label: String(i + 1), href: "book.xhtml#page-" + (i + 1) }))];
+  const common = { author: "Joris-Karl Huysmans", lang: "fr", chapters, rights: "Public-domain excerpt from Là-bas, Tresse & Stock, 1895, chapter II. Navigation labels and repetition are test structure." };
+  const write = (name, data) => { writeFileSync(path.join(SMALL_DIR, name), data); console.log(name + ": " + data.length + " bytes"); };
+  write("nav-pagelist.epub", epub({ ...common, id: "urn:durtal:navigation:pagelist", title: "Là-bas — navigation", pageList: pages, contents }));
+  write("nav-pagemap.epub", epub({ ...common, id: "urn:durtal:navigation:pagemap", title: "Là-bas — page map", version: 2, pageMap: "page-map",
+    files: [{ id: "page-map", href: "page-map.xml", type: "application/oebps-page-map+xml", data: '<page-map xmlns="http://www.idpf.org/2007/opf">' + pages.map(p => `<page name="${p.label}" href="${p.href}"/>`).join("") + '</page-map>' }] }));
+  write("nav-no-contents.epub", epub({ ...common, id: "urn:durtal:navigation:no-contents", title: "Là-bas — sections", contents: [] }));
+}
+
 function small() {
   mkdirSync(SMALL_DIR, { recursive: true });
   const write = (name, data) => {
@@ -931,6 +965,7 @@ ${drmChapters
       ],
     }),
   );
+  navigationFixtures();
 }
 
 // ── The large fixtures ───────────────────────────────────────────────────────
@@ -972,6 +1007,12 @@ function large(dir) {
 
   // About 2,000 pages of 300 words: 100 chapters of 20 pages
   const long = englishChapters(21, 100, 120);
+  // SLN-499: 2,000 inner TOC entries as well as the hundred chapter roots.
+  for (const [chapter, index] of long.chapters.entries()) {
+    let paragraph = 0;
+    index.body = index.body.replace(/<p>/g, () => `<p id="toc-${paragraph++}">`);
+    index.sub = Array.from({ length: 20 }, (_, at) => ({ id: "toc-" + at * 6, title: `Section ${chapter + 1}.${at + 1}` }));
+  }
   write("long-2000-pages.epub", epub({ id: "urn:uuid:7d1b0c52-2f0b-4a35-9c1e-000000000021", title: "The Long Road", author: "Durtal Fixtures", chapters: long.chapters }));
 
   // 50 MB: a 10 MB image in the first chapter and forty 1 MB images after it
@@ -1024,7 +1065,8 @@ function large(dir) {
 }
 
 const args = process.argv.slice(2);
-if (args[0] === "--large") {
+if (args[0] === "--navigation") navigationFixtures();
+else if (args[0] === "--large") {
   const dir = args[1] ? path.resolve(args[1]) : mkdtempSync(path.join(tmpdir(), "durtal-ebook-fixtures-"));
   large(dir);
   console.log(`Large fixtures in ${dir}`);
