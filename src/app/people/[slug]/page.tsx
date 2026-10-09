@@ -25,6 +25,7 @@ import { GallerySection } from "@/components/shared/gallery-section";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { FullBleedLayer } from "@/components/shared/full-bleed-layer";
+import backdropStyles from "./author-backdrop.module.css";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { SectionHeading } from "@/components/shared/section-heading";
 import {
@@ -202,13 +203,15 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
       <div className={bgMedia ? "relative -mx-4 -mt-6 mb-8 md:-mx-6" : ""}>
         {/* Background image layer: always spans the full main area */}
         {bgMedia && backgroundUrl && (
-          <FullBleedLayer className="-z-0">
+          <FullBleedLayer className="isolate -z-0 pointer-events-none">
             <img
               src={backgroundUrl}
               alt=""
               className="protected-image h-full w-full object-cover"
               style={mediaImageStyle(mediaCrop(bgMedia))}
             />
+            {/* Static grain belongs only to this backdrop, beneath both fades. */}
+            <div aria-hidden="true" className={backdropStyles.grain} />
             {/* Dark overlay for readability */}
             <div className="absolute inset-0 bg-scrim" />
             {/* Bottom gradient: dissolves into the page background */}
