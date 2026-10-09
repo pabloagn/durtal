@@ -13,7 +13,9 @@ SLN-552. The interaction audit skips folded controls, but never opens their
 summaries to check them. Reloads before menu and dialog checks close details
 again. The film collection link already has its earlier padding fix, and
 Harmonize's text buttons already have centered 44px pseudo-element targets;
-no product UI change is included.
+The synthetic merge preview reproduces two additional coarse-pointer failures:
+the record link is about 36px high and the filled-fields summary about 20px.
+Both now have a minimum 44px target on coarse pointers.
 
 ## Implementation Details
 
@@ -30,7 +32,8 @@ no product UI change is included.
   runtime. Firefox pointer preferences switch with the touch viewport.
 - Measure centered press layers and clipping for the existing 24px spacing
   check; continue reporting targets below the design's 44px separately.
-- Wait for actual font readiness before each check.
+- Wait for actual font readiness before each check. Independently measure
+  actual press geometry and browser hit ownership for reported touch failures.
 
 ## Completion Notes
 
@@ -41,17 +44,20 @@ a deliberate failure, host guards and effective touch geometry. The existing
 Vitest suite invokes these regressions so CI and test:local include them.
 Synthetic key transport is not native-browser evidence.
 
-Actual film, painting and Harmonize checks in all three headless engines,
-fixture state comparisons, production/Docker, typecheck, lint, full test:local
-and page budgets remain pending the heavy-slot grant. No database, schema,
-runtime preference, package manifest, lockfile or product UI change.
+The historical checkpoint passed 3,451 tests with zero skips, all three Python
+suites, typecheck, lint, production build and Docker. Native disclosure,
+focus-skip and failure-restoration regressions pass in Chromium, Firefox and
+WebKit. WebKit uses a temporary process argument for full keyboard navigation;
+no saved macOS or Safari preferences change. Exact final-head gates, actual
+application matrix, fixture invariants and artifact binding remain under review.
+No schema, package manifest or lockfile change.
 
 Source review correction: a dialog Tab result may report BODY while native
 browser chrome owns focus. Accept only BODY with measured
 `document.hasFocus() === false`; continue failing focused BODY and background
 controls. Three regressions cover those states, and actual browser reports
 count only observed instances of the narrow exception. Native evidence is
-still pending the heavy-slot grant.
+retained locally for independent evidence review.
 
 Native Firefox diagnosis: forward Tab can retain the last page control while
 Shift+Tab reaches the preceding summary. Reachability now tries bounded
