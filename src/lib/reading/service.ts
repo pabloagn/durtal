@@ -28,7 +28,7 @@ import { readingDay, readingPeriodStart } from "./dates";
 import { readingDayStartHour } from "./day";
 import { stopProblem, stopTimes, TIMER_GONE } from "./timer";
 import { getAppSettings } from "@/lib/actions/settings";
-import { formatMinutes, percentOf, remapPosition } from "./positions";
+import { formatMinutes, percentOf, positionChanges, remapPosition } from "./positions";
 import { duplicateVerdicts, type ExistingReading } from "./duplicates";
 import {
   createReadingSchema,
@@ -125,6 +125,7 @@ export function planPositions(reading: Reading, ordered: Session[]) {
   const starts = new Map<string, { startPage: number | null; startPercent: number | null; startMinutes: number | null }>();
   let prev = startPosition(reading);
   let prevEdition = reading.editionId;
+  let lastPositionSession: Session | undefined;
   let position: Pos = { ...startPosition(reading), chapter: null };
   if (reading.startPage == null && reading.startPercent == null && reading.startMinutes == null)
     position = { page: reading.totalPages ? 0 : null, percent: 0, minutes: reading.totalMinutes ? 0 : null, chapter: null };
@@ -138,6 +139,7 @@ export function planPositions(reading: Reading, ordered: Session[]) {
     prev = { page: s.endPage, percent: s.endPercent, minutes: s.endMinutes, chapter: s.endChapter };
     prevEdition = s.editionId;
     if (s.source === "reader" && s.endPercent != null && position.percent != null && s.endPercent < position.percent) continue;
+    lastPositionSession = s;
     if (s.editionId === reading.editionId) {
       const mapped = remapPosition(s.endPercent, reading);
       position = {
@@ -153,7 +155,7 @@ export function planPositions(reading: Reading, ordered: Session[]) {
   }
   // Chapter is also editable on the reading: an explicit unknown chapter stays unknown
   // while the latest log has none. Deleting that log can reveal an earlier named chapter.
-  if (reading.currentChapter === null && ordered.at(-1)?.endChapter === null) position.chapter = null;
+  if (reading.currentChapter === null && lastPositionSession?.endChapter === null) position.chapter = null;
   return { starts, position };
 }
 
@@ -596,7 +598,7 @@ export function correctLastLog(
       "Stop or discard the timer before editing the current position or chapter",
     );
   checkWithinTotals(position ?? {}, reading);
-  const end = position ? completePosition(position, reading) : null;
+  const end = positionChanges(position, currentOf(reading)) ? completePosition(position!, reading) : null;
   // A latest log in another edition keeps its own page count and format.
   const mapped =
     end && latest.editionId !== reading.editionId
@@ -609,10 +611,21 @@ export function correctLastLog(
     throw new Error(
       "Give a percent, or add the total, to correct a log in another edition",
     );
+  // A chapter belongs at the effective place. Behind-progress reader logs did not
+  // move that place, so a chapter-only edit targets the last contributing session.
+  let target = latest;
+  if (!end && chapter !== undefined) {
+    let percent = startPosition(reading).percent;
+    for (const s of ordered) {
+      if (s.source === "reader" && s.endPercent != null && percent != null && s.endPercent < percent) continue;
+      target = s;
+      percent = s.endPercent;
+    }
+  }
   const corrected = {
-    ...latest,
+    ...target,
     // An explicit correction is manual: automatic reader updates alone must not move behind earlier progress.
-    source: latest.source === "reader" ? "manual" as const : latest.source,
+    source: end && target.source === "reader" ? "manual" as const : target.source,
     ...(mapped
       ? {
           endPage: mapped.page,
@@ -625,7 +638,7 @@ export function correctLastLog(
       : {}),
     ...(chapter !== undefined ? { endChapter: chapter } : {}),
   };
-  const next = sessions.map((s) => (s.id === latest.id ? corrected : s));
+  const next = sessions.map((s) => (s.id === target.id ? corrected : s));
   return { corrected, sessions: next };
 }
 

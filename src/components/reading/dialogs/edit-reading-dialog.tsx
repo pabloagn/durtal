@@ -25,6 +25,7 @@ import { notesCountText } from "@/lib/reading/notes-text";
 import {
   formatMinutes,
   percentOf,
+  positionChanges,
   remapPosition,
 } from "@/lib/reading/positions";
 import { showError } from "../reading-client";
@@ -182,6 +183,7 @@ export function EditReadingDialog({
     (newTotal === null || !Number.isInteger(newTotal) || newTotal <= 0)
       ? "Enter the number of pages as a whole number above 0"
       : !editionSwitched &&
+          (row!.sessionCount > 0 || done) &&
           currentText === initialCurrent &&
           newTotal !== null &&
           r.currentPage !== null &&
@@ -196,15 +198,24 @@ export function EditReadingDialog({
     !editionSwitched &&
     newTotal &&
     newTotal !== r.totalPages &&
-    r.currentPage !== null
+    r.currentPage !== null &&
+    (row!.sessionCount > 0 || done)
       ? `p. ${r.currentPage} of ${newTotal} · ${Math.round(percentOf({ page: r.currentPage }, { totalPages: newTotal }) ?? 0)}%`
       : null;
 
   const totals = { totalPages: newTotal, totalMinutes: parseLength(length) };
   const startEdited = startTouched;
-  const currentEdited = currentTouched;
   const parsedStart = startPosition(startText, startUnit, totals);
   const parsedCurrent = startPosition(currentText, currentUnit, totals);
+  const currentGiven = { page: parsedCurrent.value.startPage, percent: parsedCurrent.value.startPercent, minutes: parsedCurrent.value.startMinutes };
+  const effectiveCurrent = editionSwitched ? remapPosition(r.currentPercent, totals)
+    : { page: r.currentPage, percent: r.currentPercent, minutes: r.currentMinutes };
+  const currentEdited = currentTouched && positionChanges(currentGiven, effectiveCurrent);
+  const sessionlessStart = { page: parsedStart.value.startPage, percent: parsedStart.value.startPercent, minutes: parsedStart.value.startMinutes };
+  const sessionlessCurrent = { ...remapPosition(percentOf(sessionlessStart, totals), totals),
+    ...(sessionlessStart.page !== undefined ? { page: sessionlessStart.page } : {}),
+    ...(sessionlessStart.minutes !== undefined ? { minutes: sessionlessStart.minutes } : {}) };
+  const currentDisplay = !row!.sessionCount && !done ? editPositionText(sessionlessCurrent, currentUnit) : currentText;
   const startError = startText.trim()
     ? parsedStart.error
     : "Enter a starting position (0 for the beginning)";
@@ -517,7 +528,7 @@ export function EditReadingDialog({
             />
             <Input
               label="Current position"
-              value={currentText}
+              value={currentDisplay}
               inputMode={currentUnit === "minutes" ? "text" : "decimal"}
               onChange={(e) => {
                 setCurrentTouched(true);

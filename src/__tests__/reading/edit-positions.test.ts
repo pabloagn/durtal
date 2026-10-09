@@ -109,6 +109,27 @@ describe("reading edit session plan", () => {
     );
   });
 
+  it.each([undefined, { page: 240 }, { percent: 40 }, { minutes: 240 }])("keeps behind-reader progress and provenance on chapter-only or unchanged-position edits: %j", (position) => {
+    const effective = { ...reading, currentPage: 240, currentPercent: 40, currentMinutes: 240, currentChapter: "II" };
+    const ignored = { ...session("ignored", 180, "2026-09-02"), source: "reader" } as Session;
+    const result = correctLastLog(effective, [sessions[0], ignored], position, "II");
+    expect(result.corrected).toMatchObject({ id: "first", source: "manual", endPage: 240, endPercent: 40, endChapter: "II" });
+    expect(result.sessions[1]).toBe(ignored);
+    expect(planPositions(effective, sessionOrder(result.sessions)).position).toMatchObject({ page: 240, percent: 40, chapter: "II" });
+    const clearedReading = { ...effective, currentChapter: null };
+    const cleared = correctLastLog(clearedReading, result.sessions, position, null);
+    expect(cleared.sessions[1]).toBe(ignored);
+    expect(planPositions(clearedReading, sessionOrder(cleared.sessions)).position).toMatchObject({ page: 240, chapter: null });
+  });
+
+  it("keeps a reader log unchanged when only its displayed position is resubmitted", () => {
+    const effective = { ...reading, currentPage: 240, currentPercent: 40, currentMinutes: 240 };
+    const ignored = { ...session("ignored", 180, "2026-09-02"), source: "reader" } as Session;
+    const result = correctLastLog(effective, [sessions[0], ignored], { page: 240 });
+    expect(result.corrected).toEqual(ignored);
+    expect(planPositions(effective, sessionOrder(result.sessions)).position.page).toBe(240);
+  });
+
   it("makes explicit reader-log corrections manual while automatic reader updates keep their behind-progress rule", () => {
     const reader = { ...sessions[1], source: "reader" } as Session;
     const result = correctLastLog(reading, [sessions[0], reader], { page: 180 });

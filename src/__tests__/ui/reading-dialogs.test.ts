@@ -306,6 +306,40 @@ describe("Edit reading", () => {
     expect(actions.logProgress).not.toHaveBeenCalled();
   });
 
+  it.each([false, true])("does not submit unchanged current fields for a chapter-only edit (touched=%s)", async (touched) => {
+    const effective = { ...row, reading: { ...reading, totalPages: 600, currentPage: 240, currentPercent: 40, currentChapter: "I" } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: effective as never, request: { kind: "edit", readingId: "r1" } }))));
+    if (touched) type(field("Current position"), "240");
+    type(field("Current chapter"), "II");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, currentChapter: "II" });
+  });
+
+  it("shows the start-derived current place and allows smaller totals before any log", async () => {
+    const empty = { ...row, sessionCount: 0, reading: { ...reading, totalPages: 600, startPage: 400, startPercent: 66.67, currentPage: 400, currentPercent: 66.67 } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: empty as never, request: { kind: "edit", readingId: "r1" } }))));
+    type(field("Pages to read"), "300");
+    type(field("Starting position"), "100");
+    expect(field("Current position").disabled).toBe(true);
+    expect(field("Current position").value).toBe("100");
+    expect(text()).toContain("Starting at p. 100 of 300 · 33.33%");
+    expect(text()).not.toContain("You are on p. 400");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalPages: 300, startPage: 100 });
+  });
+
+  it("combines an audio edition switch, new duration and start using the displayed duration", async () => {
+    const audio = { ...row, sessionCount: 0, reading: { ...reading, format: "audio", unit: "minutes", totalPages: null, totalMinutes: 60, startPage: null, startPercent: 50, startMinutes: 30, currentPage: null, currentPercent: 50, currentMinutes: 30 } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: audio as never, request: { kind: "edit", readingId: "r1" } }))));
+    choose("Edition", "English · Audible");
+    choose("Start unit", "Time");
+    type(field("Audio length"), "2:00");
+    type(field("Starting position"), "1:30");
+    expect(text()).toContain("Starting at 1:30 of 2:00 · 75%");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, editionId: "audio", totalMinutes: 120, startMinutes: 90 });
+  });
+
   it("clears a chapter explicitly", async () => {
     const named = { ...row, reading: { ...reading, currentChapter: "II" } };
     act(() => root.render(createElement(EditReadingDialog, props({ row: named as never, request: { kind: "edit", readingId: "r1" } }))));

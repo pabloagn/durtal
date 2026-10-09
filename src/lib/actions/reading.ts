@@ -26,7 +26,7 @@ import { sanitizeCommentHtml } from "@/lib/utils/sanitize";
 import { isOpenStatus, type ReadingFormat, type ReadingStatus } from "@/lib/reading/constants";
 import { formatReadingDate, readingDay, readingPeriodStart } from "@/lib/reading/dates";
 import { readingDayStartHour, readingToday } from "@/lib/reading/day";
-import { percentOf, remapPosition } from "@/lib/reading/positions";
+import { percentOf, positionChanges, remapPosition } from "@/lib/reading/positions";
 import { countedPagesSql, readingOrdinalSql } from "@/lib/reading/summary";
 import { progressEvent, readingEvent } from "@/lib/reading/activity";
 import type { PacePriors, PaceReading, PaceSession } from "@/lib/reading/pace";
@@ -669,7 +669,7 @@ export async function updateReading(input: UpdateReadingInput) {
   let editionChanged = false;
   let totals = {
     totalPages: reading.totalPages,
-    totalMinutes: reading.totalMinutes,
+    totalMinutes: patch.totalMinutes !== undefined ? patch.totalMinutes : reading.totalMinutes,
   };
   let editionId = reading.editionId;
   if (patch.instanceId !== undefined) {
@@ -704,7 +704,8 @@ export async function updateReading(input: UpdateReadingInput) {
     Object.assign(values, {
       totalPages: totals.totalPages,
       currentPage: current.page,
-      currentMinutes: reading.currentMinutes,
+      currentMinutes: patch.totalMinutes !== undefined ? current.minutes : reading.currentMinutes,
+      ...(patch.totalMinutes !== undefined ? { startMinutes: start.minutes } : {}),
       startPage:
         reading.startPage != null || reading.startPercent != null
           ? start.page
@@ -850,12 +851,15 @@ export async function updateReading(input: UpdateReadingInput) {
   }
   if (patch.currentChapter !== undefined) values.currentChapter = patch.currentChapter;
   const nextReading = { ...reading, ...values } as Reading;
+  const currentCorrection = positionChanges(patch.currentPosition, {
+    page: nextReading.currentPage, percent: nextReading.currentPercent, minutes: nextReading.currentMinutes,
+  }) ? patch.currentPosition : undefined;
   const correction =
-    positionChanged && (patch.currentPosition || sessionOrder(sessions).length)
+    (currentCorrection || patch.currentChapter !== undefined) && (currentCorrection || sessionOrder(sessions).length)
       ? correctLastLog(
           nextReading,
           sessions,
-          patch.currentPosition,
+          currentCorrection,
           patch.currentChapter,
         )
       : null;

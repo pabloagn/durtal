@@ -560,6 +560,40 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       },
     );
 
+    it.each([undefined, { page: 240 }])("preserves ignored reader logs and the effective position on a chapter edit: %j", async (currentPosition) => {
+      const { reading, workId } = await started({ pages: 600 });
+      await log(reading.id, { page: 240, chapter: "I", readOn: "2026-09-02" });
+      const ignored = await recordProgress({ readingId: reading.id, page: 180, readOn: "2026-09-03" }, { source: "reader" });
+      expect(ignored.reading.currentPage).toBe(240);
+      const before = await q(`select * from reading_sessions where id = $1`, [ignored.session.id]);
+      const history = await q(`select * from reading_status_history where reading_id = $1 order by id`, [reading.id]);
+      const fingerprint = await fp(reading.id);
+      await expect(updateReading({ readingId: reading.id, fingerprint: reading.fingerprint, currentChapter: "II", currentPosition })).rejects.toThrow("changed elsewhere");
+      expect(await fp(reading.id)).toBe(fingerprint);
+      const edited = await updateReading({ readingId: reading.id, fingerprint, currentChapter: "II", currentPosition });
+      expect(edited).toMatchObject({ currentPage: 240, currentPercent: 40, currentChapter: "II", lastReadAt: ignored.reading.lastReadAt });
+      expect(await q(`select * from reading_sessions where id = $1`, [ignored.session.id])).toEqual(before);
+      expect(await q(`select * from reading_status_history where reading_id = $1 order by id`, [reading.id])).toEqual(history);
+      expect(await value<number>(`select count(*)::int from reading_sessions where reading_id = $1`, [reading.id])).toBe(2);
+      expect(await counted(workId)).toBe(240);
+      await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), startPage: 100 });
+      expect((await loadReading(reading.id))!).toMatchObject({ currentPage: 240, currentChapter: "II" });
+    });
+
+    it.each([[90, 75], [30, 25]])("uses a changed audio duration during an edition/start edit: %i minutes becomes %i percent", async (startMinutes, startPercent) => {
+      const workId = await book("Audio edition duration");
+      const from = await edition(workId, null);
+      const to = await edition(workId, null);
+      const reading = await startReading({ workId, editionId: from, format: "audio", unit: "minutes", totalMinutes: 60, startMinutes: 30 });
+      const fingerprint = await fp(reading.id);
+      await expect(updateReading({ readingId: reading.id, fingerprint, editionId: to, totalMinutes: 120, startMinutes: 121, rating: 4 })).rejects.toThrow("past the end");
+      expect(await fp(reading.id)).toBe(fingerprint);
+      const edited = await updateReading({ readingId: reading.id, fingerprint, editionId: to, totalMinutes: 120, startMinutes });
+      expect(edited).toMatchObject({ editionId: to, totalMinutes: 120, startMinutes, startPercent, currentMinutes: startMinutes, currentPercent: startPercent });
+      expect(await value<number>(`select count(*)::int from reading_sessions where reading_id = $1`, [reading.id])).toBe(0);
+      expect(await value<number>(`select count(*)::int from reading_status_history where reading_id = $1`, [reading.id])).toBe(1);
+    });
+
     it("clears the current chapter without erasing earlier session chapters, and keeps it clear", async () => {
       const { reading } = await started({ pages: 600 });
       await log(reading.id, { page: 100, chapter: "I", readOn: "2026-09-02" });

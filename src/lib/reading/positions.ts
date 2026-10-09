@@ -41,6 +41,14 @@ export function remapPosition(percent: number | null, totals: Totals) {
   };
 }
 
+/** Whether an absolute, single-unit edit differs from the reading's effective place. */
+export function positionChanges(given: Position | undefined, current: Position) {
+  if (given?.page != null) return given.page !== current.page;
+  if (given?.minutes != null) return given.minutes !== current.minutes;
+  if (given?.percent != null) return current.percent == null || round2(given.percent) !== round2(current.percent);
+  return false;
+}
+
 /** "3:12" for 192 minutes */
 export function formatMinutes(minutes: number) {
   return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`;
