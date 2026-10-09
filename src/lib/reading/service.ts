@@ -603,7 +603,7 @@ export function correctLastLog(
       "Stop or discard the timer before editing the current position or chapter",
     );
   checkWithinTotals(position ?? {}, reading);
-  const end = positionChanges(position, currentOf(reading)) ? completePosition(position!, reading) : null;
+  const end = positionChanges(position, currentOf(reading), reading) ? completePosition(position!, reading) : null;
   // A latest log in another edition keeps its own page count and format.
   const mapped =
     end && latest.editionId !== reading.editionId

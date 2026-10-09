@@ -370,6 +370,18 @@ describe("Edit reading", () => {
     expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, currentChapter: "II" });
   });
 
+  it("submits an explicit 100% correction when shrinking totals below the native page", async () => {
+    const effective = { ...row, reading: { ...reading, totalPages: 600, startPage: 400, startPercent: 66.67, currentPage: 500, currentPercent: 83.33 } };
+    act(() => root.render(createElement(EditReadingDialog, props({ row: effective as never, request: { kind: "edit", readingId: "r1" } }))));
+    choose("Current unit", "Percent");
+    type(field("Pages to read"), "300");
+    type(field("Starting position"), "100");
+    type(field("Current position"), "99");
+    type(field("Current position"), "100");
+    await submit();
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalPages: 300, startPage: 100, currentPosition: { percent: 100 } });
+  });
+
   it("shows the start-derived current place and allows smaller totals before any log", async () => {
     const empty = { ...row, sessionCount: 0, reading: { ...reading, totalPages: 600, startPage: 400, startPercent: 66.67, currentPage: 400, currentPercent: 66.67 } };
     act(() => root.render(createElement(EditReadingDialog, props({ row: empty as never, request: { kind: "edit", readingId: "r1" } }))));

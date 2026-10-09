@@ -186,7 +186,7 @@ export function EditReadingDialog({
   const effectiveCurrentText = currentTouched ? currentText : editPositionText(effectiveCurrent, currentUnit);
   const parsedCurrent = startPosition(effectiveCurrentText, currentUnit, totals);
   const currentGiven = { page: parsedCurrent.value.startPage, percent: parsedCurrent.value.startPercent, minutes: parsedCurrent.value.startMinutes };
-  const currentEdited = currentTouched && positionChanges(currentGiven, effectiveCurrent);
+  const currentEdited = currentTouched && positionChanges(currentGiven, effectiveCurrent, totals);
   const sessionlessStart = { page: parsedStart.value.startPage, percent: parsedStart.value.startPercent, minutes: parsedStart.value.startMinutes };
   const sessionlessCurrent = { ...remapPosition(percentOf(sessionlessStart, totals), totals),
     ...(sessionlessStart.page !== undefined ? { page: sessionlessStart.page } : {}),

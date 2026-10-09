@@ -664,6 +664,8 @@ export async function updateReading(input: UpdateReadingInput) {
   const positionChanged = !!patch.currentPosition || patch.currentChapter !== undefined;
   if (startGiven || positionChanged) await refuseWhileTiming(reading.id);
   const sessions = startGiven || positionChanged ? await loadSessions(reading.id) : [];
+  if (patch.currentPosition && !sessionOrder(sessions).length)
+    throw new Error("Log progress once before editing the current position");
   const values: Partial<typeof readings.$inferInsert> = {};
   if (patch.totalMinutes !== undefined) values.totalMinutes = patch.totalMinutes;
   let editionChanged = false;
@@ -727,26 +729,14 @@ export async function updateReading(input: UpdateReadingInput) {
           ? patch.totalMinutes
           : totals.totalMinutes,
     };
-    const current = patch.currentPosition
-      ? completePosition(patch.currentPosition, totals)
-      : startGiven && !sessionOrder(sessions).length && isOpenStatus(reading.status)
-        ? completePosition(startGiven, totals)
-        : positionInUnit({ page: reading.currentPage, minutes: reading.currentMinutes, percent: reading.currentPercent }, reading.unit, totals);
+    // This is the independent baseline; the requested current place is applied
+    // only through a session correction below.
+    const current = startGiven && !sessionOrder(sessions).length && isOpenStatus(reading.status)
+      ? completePosition(startGiven, totals)
+      : positionInUnit({ page: reading.currentPage, minutes: reading.currentMinutes, percent: reading.currentPercent }, reading.unit, totals);
     const start = startGiven
       ? completePosition(startGiven, totals)
       : positionInUnit({ page: reading.startPage, minutes: reading.startMinutes, percent: reading.startPercent }, reading.unit, totals);
-    if (
-      totals.totalPages != null &&
-      ((current.page ?? 0) > totals.totalPages ||
-        (start.page ?? 0) > totals.totalPages)
-    )
-      throw new Error(
-        `You are on p. ${Math.max(current.page ?? 0, start.page ?? 0)}; the book cannot have ${totals.totalPages} pages`,
-      );
-    checkWithinTotals(
-      { minutes: Math.max(current.minutes ?? 0, start.minutes ?? 0) },
-      totals,
-    );
     Object.assign(values, {
       ...totals,
       ...positionValues({ ...current, chapter: reading.currentChapter }),
@@ -832,9 +822,16 @@ export async function updateReading(input: UpdateReadingInput) {
   }
   if (patch.currentChapter !== undefined) values.currentChapter = patch.currentChapter;
   const nextReading = { ...reading, ...values } as Reading;
+  // With logs, compare against history under the final totals/start, never the
+  // request itself. The baseline may exceed a smaller total until corrected.
+  if (positionChanged && isOpenStatus(reading.status)) {
+    const baseline = positionValues(planPositions(nextReading, sessionOrder(sessions)).position);
+    Object.assign(nextReading, baseline);
+    Object.assign(values, baseline);
+  }
   const currentCorrection = positionChanges(patch.currentPosition, {
     page: nextReading.currentPage, percent: nextReading.currentPercent, minutes: nextReading.currentMinutes,
-  }) ? patch.currentPosition : undefined;
+  }, totals) ? patch.currentPosition : undefined;
   const correction =
     (currentCorrection || patch.currentChapter !== undefined) && (currentCorrection || sessionOrder(sessions).length)
       ? correctLastLog(
@@ -853,6 +850,13 @@ export async function updateReading(input: UpdateReadingInput) {
     values.currentChapter = patch.currentChapter;
   if (startGiven && !sessionOrder(sessions).length)
     nextReading.currentChapter = patch.currentChapter !== undefined ? patch.currentChapter : reading.currentChapter;
+  // Stage one coherent, valid reading row before any query is built: totals,
+  // start and corrected current counters must satisfy constraints together.
+  const finalReading = { ...nextReading, ...values } as Reading;
+  checkWithinTotals(patch.currentPosition ?? {}, totals);
+  if (totals.totalPages != null && Math.max(finalReading.startPage ?? 0, finalReading.currentPage ?? 0) > totals.totalPages)
+    throw new Error(`You are on p. ${Math.max(finalReading.startPage ?? 0, finalReading.currentPage ?? 0)}; the book cannot have ${totals.totalPages} pages`);
+  checkWithinTotals({ minutes: Math.max(finalReading.startMinutes ?? 0, finalReading.currentMinutes ?? 0) }, totals);
   const now = new Date();
   // Its notes on the old edition (or with none) follow it to the new one when asked; pages stay as typed, updated_at stays
   const refile = !!moveNotes && editionChanged && !!editionId;
@@ -885,7 +889,7 @@ export async function updateReading(input: UpdateReadingInput) {
       ...(startGiven || correction
         ? recomputeQueries(
             d,
-            nextReading,
+            finalReading,
             correction?.sessions ?? sessions,
             now,
             !!currentCorrection,

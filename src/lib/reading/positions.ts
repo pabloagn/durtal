@@ -54,7 +54,11 @@ export function positionInUnit(position: Position, unit: ReadingUnit, totals: To
 }
 
 /** Whether an absolute, single-unit edit differs from the reading's effective place. */
-export function positionChanges(given: Position | undefined, current: Position) {
+export function positionChanges(given: Position | undefined, current: Position, totals?: Totals) {
+  // A capped 100% cannot make an explicit valid edit equal an out-of-bounds
+  // native counter after shrinking its total.
+  if (given && ((totals?.totalPages != null && (current.page ?? 0) > totals.totalPages)
+    || (totals?.totalMinutes != null && (current.minutes ?? 0) > totals.totalMinutes))) return true;
   if (given?.page != null) return given.page !== current.page;
   if (given?.minutes != null) return given.minutes !== current.minutes;
   if (given?.percent != null) return current.percent == null || round2(given.percent) !== round2(current.percent);

@@ -609,6 +609,9 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       const edited = await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), totalPages: 1200, currentPosition: { percent: 50 } });
       expect(edited).toMatchObject({ totalPages: 1200, currentPage: 600, currentPercent: 50 });
       expect(await q(`select id, source, read_on, duration_seconds, note, created_at from reading_sessions where id = $1`, [last.session.id])).toEqual(before);
+      expect(await q(`select end_page, end_percent::float8 as end_percent, pages_total from reading_sessions where id = $1`, [last.session.id])).toEqual([{ end_page: 600, end_percent: 50, pages_total: 1200 }]);
+      expect(await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), currentChapter: "II" })).toMatchObject({ currentPage: 600, currentPercent: 50 });
+      expect(await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), rating: 4 })).toMatchObject({ currentPage: 600, currentPercent: 50 });
     });
 
     it.each([[90, 75], [30, 25]])("uses a changed audio duration during an edition/start edit: %i minutes becomes %i percent", async (startMinutes, startPercent) => {
@@ -757,6 +760,11 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       ).rejects.toThrow("Log progress once");
       expect(await fp(reading.id)).toBe(fingerprint);
       expect(await counted(workId)).toBe(0);
+      for (const currentPosition of [{ page: 0 }, { page: 100 }, { percent: 50 }, { minutes: 10 }]) {
+        await expect(updateReading({ readingId: reading.id, fingerprint, totalPages: 300, totalMinutes: 120, startPage: 50, currentPosition, rating: 4 })).rejects.toThrow("Log progress once");
+        expect(await fp(reading.id)).toBe(fingerprint);
+        expect(await value<number>(`select count(*)::int from reading_sessions where reading_id = $1`, [reading.id])).toBe(0);
+      }
       expect((await log(reading.id, { page: 200 })).reading.currentChapter).toBe("Opening");
     });
 
@@ -844,7 +852,8 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
 
     it("accepts smaller totals together with a valid start and current correction", async () => {
       const { reading } = await started({ pages: 600, startPage: 400 });
-      await log(reading.id, { page: 500 });
+      const last = await log(reading.id, { page: 500 });
+      const history = await q(`select * from reading_status_history where reading_id = $1 order by id`, [reading.id]);
       const edited = await updateReading({
         readingId: reading.id,
         fingerprint: await fp(reading.id),
@@ -859,6 +868,10 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
         currentPage: 200,
         currentPercent: 66.67,
       });
+      expect(await q(`select end_page, end_percent::float8 as end_percent, pages_total from reading_sessions where id = $1`, [last.session.id])).toEqual([{ end_page: 200, end_percent: 66.67, pages_total: 300 }]);
+      expect(await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), currentChapter: "II" })).toMatchObject({ currentPage: 200, currentPercent: 66.67 });
+      expect(await updateReading({ readingId: reading.id, fingerprint: await fp(reading.id), rating: 4 })).toMatchObject({ currentPage: 200, currentPercent: 66.67 });
+      expect(await q(`select * from reading_status_history where reading_id = $1 order by id`, [reading.id])).toEqual(history);
     });
 
     it("recounts a finished read without sessions without moving its finished position", async () => {
