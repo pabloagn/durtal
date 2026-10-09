@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { assertRotationQaConfig } from "./scripts/check-rotation-qa.mjs";
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -17,14 +18,28 @@ const nextConfig: NextConfig = {
   // frames: cached, so a section does not ask again. A changed font takes a
   // new file name.
   async headers() {
-    return [{ source: "/fonts/reader/:file*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] }];
+    return [
+      {
+        source: "/fonts/reader/:file*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
   },
   // People were "authors" before SLN-419: every old link and bookmark lands
   // on the same person or list, with its query (308, permanent)
   async redirects() {
     return [
       { source: "/authors", destination: "/people", permanent: true },
-      { source: "/authors/:path*", destination: "/people/:path*", permanent: true },
+      {
+        source: "/authors/:path*",
+        destination: "/people/:path*",
+        permanent: true,
+      },
     ];
   },
   images: {
@@ -44,4 +59,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default function config(phase: string): NextConfig {
+  assertRotationQaConfig(phase);
+  return nextConfig;
+}
