@@ -54,7 +54,7 @@ if (!url) throw new Error("DATABASE_URL is required");
 // Imported after the environment loads: the S3 client and the env schema read it
 const postgres = (await import("postgres")).default;
 const { drizzle } = await import("drizzle-orm/postgres-js");
-const { assertReadOnly, readOnlySession } = await import("@/lib/enrichment/read-only-session");
+const { withReadOnlyPlanningConnection } = await import("@/lib/enrichment/read-only-session");
 const { recentBackup } = await import("@/lib/enrichment/backup");
 const { loadOutlets, applyOutletSeed } = await import("@/lib/enrichment/outlet-registry");
 const { outletForUrl, planOutletSeed } = await import("@/lib/enrichment/outlets");
@@ -69,14 +69,12 @@ type Db = import("@/lib/catalogue/work-store").Db;
 const writes = values.apply || Boolean(values.undo);
 if (values.apply && !recentBackup(values.backup))
   throw new Error("--apply needs --backup FILE: a pg_dump custom-format backup taken in the last hour");
-const session = writes ? postgres(url, { max: 1, onnotice: () => {} }) : readOnlySession(url);
-const database = drizzle(session) as unknown as Db;
+const session = writes ? postgres(url, { max: 1, onnotice: () => {} }) : null;
 const runId = randomUUID();
 const lines: string[] = [];
 const say = (line = "") => lines.push(line);
 
-try {
-  if (!writes) await assertReadOnly(session);
+const run = async (database: Db) => {
 
   if (values.outlets) {
     const plan = planOutletSeed(await loadOutlets(database), OUTLET_SEED);
@@ -172,6 +170,10 @@ try {
   mkdirSync(dirname(values.report!), { recursive: true });
   writeFileSync(values.report!, lines.join("\n") + "\n");
   console.log(`Report written to ${values.report}`);
+};
+try {
+  if (session) await run(drizzle(session) as unknown as Db);
+  else await withReadOnlyPlanningConnection(url, run);
 } finally {
-  await session.end();
+  await session?.end();
 }

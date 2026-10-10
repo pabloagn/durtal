@@ -38,20 +38,23 @@ const { url } = await loadEnvironment({
 // Imported after the environment loads: the env schema and the S3 client read it
 const postgres = (await import("postgres")).default;
 const { drizzle } = await import("drizzle-orm/postgres-js");
-const { assertReadOnly, readOnlySession } = await import("@/lib/enrichment/read-only-session");
-const { runEbookVerification } = await import("@/lib/ebooks/verify");
+const { withReadOnlyPlanningConnection } = await import("@/lib/enrichment/read-only-session");
+const { runEbookVerification, verificationHasExceptions } = await import("@/lib/ebooks/verify");
 type Db = import("@/lib/catalogue/work-store").Db;
 
-const session = values.apply ? postgres(url, { max: 4, onnotice: () => {} }) : readOnlySession(url);
+const session = values.apply ? postgres(url, { max: 4, onnotice: () => {} }) : null;
 try {
-  if (!values.apply) await assertReadOnly(session);
-  const { report, applied, files } = await runEbookVerification({
-    database: drizzle(session) as unknown as Db,
+  const run = (database: Db) => runEbookVerification({
+    database,
     apply: values.apply,
     backup: values.backup,
     reportDir: resolve(values["report-dir"]!),
     host: hostname().replace(/\.local$/i, ""),
   });
+  const { report, applied, files } = session
+    ? await run(drizzle(session) as unknown as Db)
+    : await withReadOnlyPlanningConnection(url, run);
+  process.exitCode = verificationHasExceptions(report) ? 1 : 0;
   const count = (outcome: string) => report.rows.filter((r) => r.outcome === outcome).length;
   console.log(
     `${report.rows.length} files: ${count("verified")} verified, ${count("missing-object")} missing, ` +
@@ -61,5 +64,5 @@ try {
   console.log(applied ? `Applied: ${applied.verified} verified, ${applied.missing} missing.` : "Read-only: nothing was written.");
   console.log(`Report: ${files.markdown}\n        ${files.csv}`);
 } finally {
-  await session.end();
+  await session?.end();
 }

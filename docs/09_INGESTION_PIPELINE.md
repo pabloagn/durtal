@@ -479,8 +479,17 @@ Non-preview commands require `--aws-profile durtal-personal` and a reviewed `EBO
 ### Plan
 
 `pnpm ebooks:ingest [<folder> ...]` is read-only. The catalogue is read
-through a session that refuses writes (a probe proves it before anything
-runs). Canonical eBook stages and legacy file/derived prefixes are listed; before the AWS setup the
+inside an explicit `BEGIN READ ONLY` transaction. The shared
+`withReadOnlyPlanningConnection` callback requires
+`SHOW transaction_read_only = on`, then a no-op write in a savepoint must fail
+with SQLSTATE `25006`. Every loader and helper receives that same Drizzle
+connection; a failed probe never runs the planner or falls back to the app's
+connection. Startup defaults alone are not protection on the Neon pooler.
+Connections and queries cannot be used after the callback closes.
+The eBook planning/reconcile/verify scope also guards actual S3 SDK dispatch:
+only listing, HEAD and GET may reach the network. The personal CLI bridge
+allows only caller-identity reads and temporary credential export.
+Canonical eBook stages and legacy file/derived prefixes are listed; before the AWS setup the
 bucket does not exist, and the plan says the storage is not set up yet and
 treats it as empty. The plan does five things
 for each file:
@@ -527,18 +536,26 @@ old row becomes `replaced` and the preferred file moves to the new one.
 Every path the run saw is an `ebook_ingest_items` row, so where a file came
 from is always answerable.
 
-The apply ends with a reconciliation. The run is `finished` when it is
-exact, else `failed`, and `/ebooks/runs` shows it.
+The undo log is reserved before the first database write. The command prints
+its run id and undo path before item initialization or uploads. The apply ends
+with a reconciliation, stored on its run and written as
+`reports/ebooks/reconcile-<runId>-<timestamp>.md`. The run is `finished` when it
+is exact, else `failed`, and `/ebooks/runs` shows it.
 
 ### Resume
 
-Ctrl-C stops taking new groups. The run becomes `interrupted`, and so does a
-run whose process died. `pnpm ebooks:ingest --resume <runId> --backup <dump>
+Ctrl-C stops taking new groups. A caught failure marks the run `interrupted`
+when the database is reachable. A hard process kill or database outage can
+leave it labelled `running`; the printed id and reserved undo log still permit
+resume once the connection is restored. `pnpm ebooks:ingest --resume <runId> --backup <dump>
 [--live]` carries on with every item that is not done, from the plan the run
 kept in the cache folder, on the machine that applied it, with the version,
 database and bucket checks of an apply (a run made by another version of the
 tool is not resumed: a new plan adopts what it stored):
 
+- the recorded host, saved plan checksum and undo header must agree; a missing
+  undo log must be restored before resuming;
+- missing initial item rows are inserted without resetting existing outcomes;
 - objects already in S3 are adopted;
 - a multipart upload sends only its missing parts;
 - a group registered just before the stop is not registered again;
@@ -564,8 +581,10 @@ stored, a failed or changed file, a row whose object is missing or differs,
 and an object no row names keep it from being exact. A failed file records
 the error's own words, at most 500 characters, never the failed query.
 
-A source file gone after its object was stored and verified is "no longer in
-the inbox", never an exception: the verified object is the copy. Joris may
+A source changed or gone before complete verified storage remains a blocking
+run exception, even if the directory walk no longer sees it, its new bytes are
+ignored, or another row has those new bytes. A source file gone after its
+publication was stored and verified is "no longer in the inbox", never an exception: the verified object is the copy. Joris may
 empty the inbox once a reconciliation is exact. A file dropped in again is
 recognised by its checksum.
 

@@ -1,6 +1,5 @@
 import { sql } from "drizzle-orm";
 import { resultRows } from "@/lib/harmonization/store";
-import { databaseErrorCode } from "@/lib/db/errors";
 import type { Db } from "@/lib/catalogue/work-store";
 import type { EnrichmentJobKind } from "./model";
 import {
@@ -33,15 +32,6 @@ type Stages = Partial<Record<EnrichmentJobKind, EnrichmentStage>>;
 /** One transaction on the script's postgres-js Drizzle connection */
 const inTransaction = <T>(conn: Db, work: (tx: Db) => Promise<T>): Promise<T> =>
   conn.transaction((tx) => work(tx as unknown as Db));
-
-/** A plan runs on a read-only session: a write there must fail (25006), and a probe that changes nothing checks it */
-export async function assertReadOnly(conn: Db) {
-  const refused = await inTransaction(conn, (tx) => tx.execute(sql`update works set updated_at = updated_at where false`)).then(
-    () => false,
-    (error: unknown) => databaseErrorCode(error) === "25006",
-  );
-  if (!refused) throw new Error("The database accepted a write in a read-only session; nothing ran");
-}
 
 /** The hold of a job whose calls stopped: a refusal, the monthly budget, or the book's cost ceiling */
 function holdReason(error: unknown) {

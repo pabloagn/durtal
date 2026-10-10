@@ -1,9 +1,11 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import postgres from "postgres";
+import { sql } from "drizzle-orm";
+import { databaseErrorCode } from "@/lib/db/errors";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
@@ -30,7 +32,7 @@ vi.mock("@/lib/db", () => ({
   ),
 }));
 
-import { assertReadOnly, readOnlySession } from "@/lib/enrichment/read-only-session";
+import { assertReadOnly, withReadOnlyPlanningConnection } from "@/lib/enrichment/read-only-session";
 import { currentTarget, planCommand, resolveRoots, undoCommand } from "@/lib/ebooks/ingest/command";
 import { applyPlan, resumeRun, type ApplyOptions } from "@/lib/ebooks/ingest/run";
 import { reconcileIngest } from "@/lib/ebooks/ingest/reconcile";
@@ -165,15 +167,8 @@ describe.skipIf(!url)("e-book ingestion", () => {
     sleep: async () => {},
     ...extra,
   });
-  const plan = async (roots = [root]) => {
-    const session = readOnlySession(url!);
-    try {
-      await assertReadOnly(session);
-      return await planCommand({ database: drizzle(session) as unknown as Db, roots, host, cacheDir, target: target(), reportDir });
-    } finally {
-      await session.end();
-    }
-  };
+  const plan = (roots = [root]) => withReadOnlyPlanningConnection(url!, (database) =>
+    planCommand({ database, roots, host, cacheDir, target: target(), reportDir }));
   const rowCounts = async () => {
     const [row] = await c`select (select count(*) from ebooks)::int as ebooks, (select count(*) from ebook_files)::int as files,
       (select count(*) from ebook_ingest_runs)::int as runs, (select count(*) from ebook_ingest_items)::int as items`;
@@ -257,7 +252,7 @@ describe.skipIf(!url)("e-book ingestion", () => {
     );
 
     // The probe must fail on purpose: a session that takes the write is refused
-    await expect(assertReadOnly(c)).rejects.toThrow("accepted a write");
+    await expect(c.begin("read write", (transaction) => assertReadOnly(transaction))).rejects.toThrow("not read-only");
   });
 
   it("refuses an apply before writing: no backup, an old backup, or a database that is not a preview without --live", async () => {
@@ -636,4 +631,131 @@ describe.skipIf(!url)("e-book ingestion", () => {
     expect(planned.summary).toMatchObject({ ebooksToCreate: 1, alreadyInBucket: 0, uploadObjects: expect.any(Number) });
     expect(await rowCounts()).toEqual(before);
   });
+
+  it("keeps nested reads on one verified backend and leaves a reused ordinary connection writable", async () => {
+    const [outside] = await c`show transaction_read_only`;
+    expect(outside.transaction_read_only).toBe("off");
+    await withReadOnlyPlanningConnection(url!, async (connection) => {
+      const [before] = await connection.execute(sql`select pg_backend_pid() as pid, current_setting('transaction_read_only') as mode`) as unknown as { pid: number; mode: string }[];
+      expect(before.mode).toBe("on");
+      await connection.transaction(async (nested) => {
+        const [inside] = await nested.execute(sql`select pg_backend_pid() as pid, current_setting('transaction_read_only') as mode`) as unknown as { pid: number; mode: string }[];
+        expect(inside).toEqual(before);
+      });
+      const error = await connection.transaction((nested) => nested.execute(sql`update works set updated_at = updated_at where false`)).then(() => null, (failure: unknown) => failure);
+      expect(databaseErrorCode(error)).toBe("25006");
+      const [after] = await connection.execute(sql`show transaction_read_only`) as unknown as { transaction_read_only: string }[];
+      expect(after.transaction_read_only).toBe("on");
+    });
+    const [after] = await c`show transaction_read_only`;
+    expect(after.transaction_read_only).toBe("off");
+  });
+
+  it.each(["default", "repeatable read"] as const)(
+    "uses %s snapshot visibility across a concurrent committed insert",
+    async (mode) => {
+      const id = randomUUID();
+      const options = mode === "default" ? undefined : { isolationLevel: mode };
+      try {
+        await withReadOnlyPlanningConnection(url!, async (connection) => {
+          const [isolation] = await connection.execute(sql`show transaction_isolation`) as unknown as { transaction_isolation: string }[];
+          expect(isolation.transaction_isolation).toBe(mode === "default" ? "read committed" : mode);
+          const count = async () => {
+            const [row] = await connection.execute(sql`select count(*)::int as count from works where id = ${id}`) as unknown as { count: number }[];
+            return row.count;
+          };
+          expect(await count()).toBe(0); // Establish the reader's catalogue snapshot.
+          // A separate connection commits while the reader transaction is still open.
+          await c.begin("read write", async (writer) => {
+            await (writer as unknown as postgres.Sql)`insert into works (id, title) values (${id}, 'Snapshot consistency fixture')`;
+          });
+          const [committed] = await c`select count(*)::int as count from works where id = ${id}`;
+          expect(committed.count).toBe(1);
+          const rows = await connection.execute(sql`select id from works where id = ${id}`) as unknown as { id: string }[];
+          expect(rows).toEqual(mode === "default" ? [{ id }] : []);
+          expect(await count()).toBe(mode === "default" ? 1 : 0);
+        }, options);
+      } finally {
+        await c`delete from works where id = ${id}`;
+      }
+    },
+  );
+
+  const recoveryPlan = async (label: string) => {
+    const folder = path.join(work, `recovery-${randomUUID()}`);
+    const source = path.join(folder, `${label}.mobi`);
+    put(source, makeMobi({ title: `${label} ${randomUUID()}`, exth: [[100, "Ben Moss"], [503, label]] }));
+    const planned = await plan([folder]);
+    return { folder, source, ...planned };
+  };
+
+  it("reserves undo before any run write when the report path is unusable", async () => {
+    const { files } = await recoveryPlan("Undo reservation");
+    const unusable = path.join(work, "report-file");
+    writeFileSync(unusable, "not a directory");
+    const before = await rowCounts();
+    await expect(applyPlan(files.plan, options({ reportDir: unusable }))).rejects.toThrow();
+    expect(await rowCounts()).toEqual(before);
+  });
+
+  it.each(["deleted", "ignored", "catalogued"])("keeps a %s source change before storage blocking and names it in the report", async (change) => {
+    const { source, files } = await recoveryPlan(`Before storage ${change}`);
+    if (change === "deleted") unlinkSync(source);
+    else if (change === "ignored") writeFileSync(source, "");
+    else {
+      const [row] = await c`select source_path from ebook_files where source_path is not null and status = 'stored' limit 1`;
+      writeFileSync(source, readFileSync(row.source_path));
+    }
+    const result = await applyPlan(files.plan, options());
+    expect(result).toMatchObject({ state: "failed", exact: false });
+    expect(result.reconciliation!.exceptions).toEqual(expect.arrayContaining([{ side: "disk", kind: "changed", path: source, reason: expect.any(String), blocking: true }]));
+    expect(readFileSync(result.reconciliationFile!, "utf8")).toContain("Changed since the plan");
+    expect(readFileSync(result.reconciliationFile!, "utf8")).toContain(source);
+  });
+
+  it("restores item initialization after interruption, refuses wrong-host or missing-undo resumes before writes", async () => {
+    const { files } = await recoveryPlan("Initialization");
+    let runId = "";
+    let undoFile = "";
+    const original = database.insert.bind(database);
+    const insert = vi.spyOn(database, "insert").mockImplementation(((table: unknown) => {
+      if (table === schema.ebookIngestItems) throw new Error("Interrupted while initializing items");
+      return original(table as Parameters<typeof database.insert>[0]);
+    }) as typeof database.insert);
+    try {
+      await expect(applyPlan(files.plan, options({ onRunStarted: (id, undo) => { runId = id; undoFile = undo; } }))).rejects.toThrow("Interrupted while initializing items");
+    } finally { insert.mockRestore(); }
+    expect(runId).not.toBe("");
+    expect(existsSync(undoFile)).toBe(true);
+    const [run] = await c`select state from ebook_ingest_runs where id = ${runId}`;
+    expect(run.state).toBe("interrupted");
+    expect(await c`select 1 from ebook_ingest_items where run_id = ${runId}`).toHaveLength(0);
+    const before = await rowCounts();
+    await expect(resumeRun(runId, options({ host: "another-mac" }))).rejects.toThrow("resume from there");
+    const undo = readFileSync(undoFile);
+    unlinkSync(undoFile);
+    await expect(resumeRun(runId, options())).rejects.toThrow("undo file is missing");
+    expect(await rowCounts()).toEqual(before);
+    writeFileSync(undoFile, undo);
+    const resumed = await resumeRun(runId, options());
+    expect(resumed).toMatchObject({ state: "finished", exact: true });
+    expect(await c`select state from ebook_ingest_items where run_id = ${runId}`).toEqual(expect.arrayContaining([expect.objectContaining({ state: "done" })]));
+  });
+
+  it("resumes after verified storage even when the source has since gone, adopting bytes once", async () => {
+    const { source, files } = await recoveryPlan("After storage");
+    let runId = "";
+    await expect(applyPlan(files.plan, options({
+      onRunStarted: (id) => { runId = id; },
+      afterStore: () => { throw new Error("Interrupted after verified publication"); },
+    }))).rejects.toThrow("Interrupted after verified publication");
+    unlinkSync(source);
+    const before = puts().length;
+    const resumed = await resumeRun(runId, options());
+    expect(resumed).toMatchObject({ state: "finished", exact: true, uploadedBytes: 0 });
+    expect(resumed.reconciliation!.noLongerInInbox).toBeGreaterThan(0);
+    expect(puts()).toHaveLength(before);
+    expect(await c`select state from ebook_ingest_items where run_id = ${runId}`).toEqual(expect.arrayContaining([expect.objectContaining({ state: "done" })]));
+  });
+
 });

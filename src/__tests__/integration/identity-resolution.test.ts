@@ -50,7 +50,8 @@ vi.mock("@/lib/enrichment/jobs", async (importOriginal) => {
     },
   };
 });
-import { assertReadOnly, enqueueScope, runWorker, undoRun } from "@/lib/enrichment/worker";
+import { enqueueScope, runWorker, undoRun } from "@/lib/enrichment/worker";
+import { assertReadOnly, withReadOnlyPlanningConnection } from "@/lib/enrichment/read-only-session";
 import { QuotaStop, SourceCache } from "@/lib/enrichment/source-cache";
 import type { EnrichmentStage } from "@/lib/enrichment/stages";
 import { BULK_ACCESSION_PRIORITY, queueNewBookEnrichment } from "@/lib/enrichment/queue";
@@ -162,13 +163,11 @@ describe.skipIf(!url)("the enrichment worker", () => {
     expect(report.lines).toContain("- would sweep");
     expect(report.lines.some((l) => l.includes(`${a.slug}: would note Planned one`))).toBe(true);
     expect(await snapshot()).toEqual(before);
-    await expect(assertReadOnly(conn)).rejects.toThrow("The database accepted a write in a read-only session");
-    const readOnly = postgres(url!, { max: 1, onnotice: () => {}, connection: { default_transaction_read_only: true } });
-    try {
-      await assertReadOnly(drizzle(readOnly, { schema }) as unknown as Db);
-    } finally {
-      await readOnly.end();
-    }
+    await expect(c.begin("read write", (transaction) => assertReadOnly(transaction))).rejects.toThrow("not read-only");
+    await withReadOnlyPlanningConnection(url!, async (database) => {
+      const planned = await runWorker(database, { runId: randomUUID(), worker: "read-only-test", kinds: ["identity"], apply: false, cache: SourceCache.memory(), contact: CONTACT, stages: { identity: stage } });
+      expect(planned.lines).toContain("- would sweep");
+    });
   });
 
   it("releases quota, rate-limit and budget holds and works them; a book's cost ceiling stays held", async () => {

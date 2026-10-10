@@ -13,17 +13,18 @@ function message(isbn: string, title?: string | null) {
   return `An edition with ISBN ${isbn} already exists${title ? ` ("${title}")` : ""}`;
 }
 
-/** The message for an ISBN another edition already holds, or null. */
+/** An ISBN clash or null. Planners must pass their verified connection. */
 export async function isbnClash(
   { isbn13, isbn10 }: { isbn13?: string | null; isbn10?: string | null },
   exceptId?: string,
+  conn: Pick<typeof db, "select"> = db,
 ): Promise<string | null> {
   const numbers = [
     isbn13 ? eq(editions.isbn13, isbn13) : undefined,
     isbn10 ? eq(editions.isbn10, isbn10) : undefined,
   ].filter(Boolean);
   if (!numbers.length) return null;
-  const [clash] = await db
+  const [clash] = await conn
     .select({ title: editions.title, isbn13: editions.isbn13, isbn10: editions.isbn10 })
     .from(editions)
     .where(and(or(...numbers), exceptId ? ne(editions.id, exceptId) : undefined))

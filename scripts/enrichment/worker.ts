@@ -40,7 +40,8 @@ import { JOB_KINDS, type EnrichmentJobKind } from "@/lib/enrichment/model";
 import { ENRICHMENT_SCOPES, type EnrichmentScope } from "@/lib/enrichment/queue";
 import { recentBackup } from "@/lib/enrichment/backup";
 import { SourceCache } from "@/lib/enrichment/source-cache";
-import { HEARTBEAT_MS, assertReadOnly, enqueueScope, runWorker, undoRun } from "@/lib/enrichment/worker";
+import { HEARTBEAT_MS, enqueueScope, runWorker, undoRun } from "@/lib/enrichment/worker";
+import { withReadOnlyPlanningConnection } from "@/lib/enrichment/read-only-session";
 import { disableIdentityRules, enableIdentityRules } from "@/lib/enrichment/identity-rules";
 import { determinismCheck } from "@/lib/enrichment/research/extract-stage";
 import { anthropicModel } from "@/lib/enrichment/research/model";
@@ -85,12 +86,10 @@ if (values.apply && !recentBackup(values.backup))
 
 // Outside --apply, the session itself refuses writes
 const writes = values.apply || disabling;
-const client = postgres(url, { max: 1, onnotice: () => {}, connection: writes ? {} : { default_transaction_read_only: true } });
-const conn = drizzle(client, { schema }) as unknown as Db;
+const client = writes ? postgres(url, { max: 1, onnotice: () => {} }) : null;
 // An apply's heartbeat renews job leases on its own connection
 const beatClient = values.apply ? postgres(url, { max: 1, onnotice: () => {} }) : null;
-try {
-  if (!writes) await assertReadOnly(conn);
+const run = async (conn: Db) => {
   let lines: string[];
   if (disabling) {
     lines = await disableIdentityRules(conn, { dimensions: names(values.dimensions) });
@@ -126,7 +125,11 @@ try {
   }
   writeFileSync(values.report!, lines.join("\n") + "\n");
   console.log(lines.join("\n"));
+};
+try {
+  if (client) await run(drizzle(client, { schema }) as unknown as Db);
+  else await withReadOnlyPlanningConnection(url, run);
 } finally {
   // Both close, even when the first throws
-  await Promise.allSettled([client.end(), beatClient?.end()]);
+  await Promise.allSettled([client?.end(), beatClient?.end()]);
 }

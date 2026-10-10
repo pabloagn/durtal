@@ -13,8 +13,7 @@ import { parseArgs } from "node:util";
 import { dirname, resolve } from "node:path";
 import { mkdirSync, writeFileSync } from "node:fs";
 import dotenv from "dotenv";
-import { drizzle } from "drizzle-orm/postgres-js";
-import { assertReadOnly, readOnlySession } from "@/lib/enrichment/read-only-session";
+import { withReadOnlyPlanningConnection } from "@/lib/enrichment/read-only-session";
 import { lengthReport } from "@/lib/enrichment/length-report";
 
 const { values } = parseArgs({
@@ -30,13 +29,7 @@ dotenv.config({
 const url = process.env.PREVIEW_DATABASE_URL ?? process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is required");
 
-const session = readOnlySession(url);
-try {
-  await assertReadOnly(session);
-  const report = await lengthReport(drizzle(session));
-  mkdirSync(dirname(values.report!), { recursive: true });
-  writeFileSync(values.report!, report);
-  console.log(`Report written to ${values.report}`);
-} finally {
-  await session.end();
-}
+const report = await withReadOnlyPlanningConnection(url, (database) => lengthReport(database));
+mkdirSync(dirname(values.report!), { recursive: true });
+writeFileSync(values.report!, report);
+console.log(`Report written to ${values.report}`);
