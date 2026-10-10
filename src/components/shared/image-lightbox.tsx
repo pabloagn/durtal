@@ -95,7 +95,7 @@ function OpenImageLightbox({
       <div
         className="image-lightbox-frame relative z-10 flex h-[calc(100dvh-8rem)] w-[90vw] items-center justify-center"
         aria-busy={status === "loading"}
-        onClick={(e) => e.stopPropagation()}
+        onClick={onClose}
         onContextMenu={(e) => e.preventDefault()}
         onDragStart={(e) => e.preventDefault()}
       >
@@ -109,18 +109,29 @@ function OpenImageLightbox({
               : "Loading image…"}
           </p>
         )}
-        <picture className="contents">
-          <CoarseImageSource src={src} />
-          <img
-            src={src}
-            alt={alt}
-            onLoad={() => setStatus("loaded")}
-            onError={() => setStatus("error")}
-            className="protected-image block h-auto max-h-full w-auto max-w-full rounded-sm object-contain"
-            style={{ visibility: status === "loaded" ? "visible" : "hidden" }}
-          />
-        </picture>
-        <div className="absolute inset-0" aria-hidden="true" />
+        <div
+          className="relative"
+          onClick={status === "loaded" ? (e) => e.stopPropagation() : undefined}
+        >
+          <picture className="contents">
+            <CoarseImageSource src={src} />
+            <img
+              src={src}
+              alt={alt}
+              onLoad={() => setStatus("loaded")}
+              onError={() => setStatus("error")}
+              className="protected-image block h-auto max-h-[calc(100dvh-8rem)] w-auto max-w-[90vw] rounded-sm object-contain"
+              style={{ visibility: status === "loaded" ? "visible" : "hidden" }}
+            />
+          </picture>
+          {status === "loaded" && (
+            <div
+              data-image-protection=""
+              className="absolute inset-0"
+              aria-hidden="true"
+            />
+          )}
+        </div>
       </div>
       <style>{`
         .image-lightbox { animation: lightbox-fade-in 200ms ease forwards; }

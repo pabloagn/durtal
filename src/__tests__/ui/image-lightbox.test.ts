@@ -165,6 +165,25 @@ describe("lightbox loading and exit", () => {
     }
   });
 
+  it("dismisses backdrop and empty frame taps while protecting only the loaded image", () => {
+    renderPoster();
+    let dialog = open();
+    act(() => dialog.querySelector("img")!.dispatchEvent(new Event("load")));
+    const protection = dialog.querySelector(
+      "[data-image-protection]",
+    ) as HTMLElement;
+    expect(protection.parentElement).not.toBe(
+      dialog.querySelector("[aria-busy]"),
+    );
+    act(() => protection.click());
+    expect(document.querySelector('[role="dialog"]')).toBe(dialog);
+    act(() => (dialog.querySelector("[aria-busy]") as HTMLElement).click());
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    dialog = open();
+    act(() => (dialog.firstElementChild as HTMLElement).click());
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+  });
+
   it("keeps keyboard focus inside the viewer while nested native dialogs retain Escape", () => {
     function Fixture() {
       const [opened, setOpened] = useState(true);
