@@ -71,6 +71,10 @@ import { SimilarWorksCarousel } from "@/components/books/similar-works-carousel"
 import { getBookRelatedGroups } from "@/lib/actions/book-related";
 import { getSimilarWorks } from "@/lib/actions/similar-works";
 import { WorkPosterImage } from "./work-poster-image";
+import {
+  CoarseImageSource,
+  coarseImageFallback,
+} from "@/components/shared/coarse-image-source";
 import { GallerySection } from "@/components/shared/gallery-section";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { AmbientCrystals } from "./ambient-crystals";
@@ -323,12 +327,16 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
         {/* Background image layer */}
         {background && (
           <div className="absolute inset-0 -z-0 overflow-hidden">
-            <img
-              src={backgroundUrl!}
-              alt=""
-              className="h-full w-full object-cover"
-              style={mediaImageStyle(mediaCrop(background))}
-            />
+            <picture className="contents">
+              <CoarseImageSource src={backgroundUrl!} />
+              <source media="(pointer: fine)" srcSet={backgroundUrl!} />
+              <img
+                src={coarseImageFallback(backgroundUrl!)}
+                alt=""
+                className="h-full w-full object-cover"
+                style={mediaImageStyle(mediaCrop(background))}
+              />
+            </picture>
             {/* Dark overlay for readability */}
             <div className="absolute inset-0 bg-scrim" />
             {/* Bottom gradient: dissolves into the page background */}

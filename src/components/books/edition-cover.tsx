@@ -28,7 +28,7 @@ export function EditionImageBox({
     <div className={`${SIZES[size]} shrink-0 overflow-hidden bg-bg-tertiary`}>
       {image ? (
         <FadeImage
-          src={mediaUrl(image.key)}
+          src={mediaUrl(image.key, { width: 240 })}
           alt={
             image.source === "edition" ? `${title} cover` : `${title} poster`
           }
