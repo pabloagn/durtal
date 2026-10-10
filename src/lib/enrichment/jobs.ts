@@ -43,16 +43,26 @@ const one = async (conn: Db, query: ReturnType<typeof sql>) =>
  * dimension keys join, the earlier start wins, and a running job runs again
  * when it finishes.
  */
-export async function enqueueEnrichmentJob(input: EnqueueJobInput, conn: Db = appDb) {
+export async function enqueueEnrichmentJob(
+  input: EnqueueJobInput,
+  conn: Db = appDb,
+  options: { matchingOperationId?: string } = {},
+) {
   const job = enqueueJobSchema.parse(input);
   const payload = {
     reason: job.reason,
     dimensions: [...new Set(job.dimensions)].sort(),
-    ...(job.vocabularyVersion ? { vocabularyVersion: job.vocabularyVersion } : {}),
+    ...(job.vocabularyVersion
+      ? { vocabularyVersion: job.vocabularyVersion }
+      : {}),
+    ...(options.matchingOperationId
+      ? { matchingOperationId: options.matchingOperationId }
+      : {}),
   };
-  return one(
-    conn,
-    sql`insert into enrichment_jobs as j (work_id, kind, priority, run_after, payload)
+  return (
+    resultRows<EnrichmentJob & { rowSnapshot: Record<string, unknown> }>(
+      await conn.execute(
+        sql`insert into enrichment_jobs as j (work_id, kind, priority, run_after, payload)
       values (${job.workId}::uuid, ${job.kind}, ${job.priority}, coalesce(${job.runAfter?.toISOString() ?? null}::timestamptz, now()), ${JSON.stringify(payload)}::jsonb)
       on conflict (work_id, kind) where status in (${OPEN}) do update set
         payload = j.payload || jsonb_build_object('dimensions', (
@@ -62,7 +72,9 @@ export async function enqueueEnrichmentJob(input: EnqueueJobInput, conn: Db = ap
         priority = least(j.priority, excluded.priority),
         rerun = j.rerun or j.status = 'running',
         updated_at = now()
-      returning ${JOB}`,
+      returning ${JOB}, to_jsonb(j) as "rowSnapshot"`,
+      ),
+    )[0] ?? null
   );
 }
 
@@ -72,7 +84,15 @@ export async function enqueueEnrichmentJob(input: EnqueueJobInput, conn: Db = ap
  * counts an attempt. An abandoned job with every attempt spent fails instead,
  * and the next job is tried. With `jobIds` or `workIds`, only those.
  */
-export async function claimNextEnrichmentJob(input: { worker: string; kinds: EnrichmentJobKind[]; jobIds?: string[]; workIds?: string[] }, conn: Db = appDb) {
+export async function claimNextEnrichmentJob(
+  input: {
+    worker: string;
+    kinds: EnrichmentJobKind[];
+    jobIds?: string[];
+    workIds?: string[];
+  },
+  conn: Db = appDb,
+) {
   const { worker, kinds, jobIds, workIds } = claimJobSchema.parse(input);
   for (;;) {
     const job = await one(
@@ -87,9 +107,26 @@ export async function claimNextEnrichmentJob(input: { worker: string; kinds: Enr
           updated_at = now()
         where j.id = (
           select id from enrichment_jobs
-          where kind in (${sql.join(kinds.map((k) => sql`${k}`), sql`, `)})
-            ${jobIds ? sql`and id in (${sql.join(jobIds.map((id) => sql`${id}::uuid`), sql`, `)})` : sql``}
-            ${workIds ? sql`and work_id in (${sql.join(workIds.map((id) => sql`${id}::uuid`), sql`, `)})` : sql``}
+          where kind in (${sql.join(
+            kinds.map((k) => sql`${k}`),
+            sql`, `,
+          )})
+            ${
+              jobIds
+                ? sql`and id in (${sql.join(
+                    jobIds.map((id) => sql`${id}::uuid`),
+                    sql`, `,
+                  )})`
+                : sql``
+            }
+            ${
+              workIds
+                ? sql`and work_id in (${sql.join(
+                    workIds.map((id) => sql`${id}::uuid`),
+                    sql`, `,
+                  )})`
+                : sql``
+            }
             and ((status = 'queued' and run_after <= now())
               or (status = 'running' and locked_at < now() - make_interval(mins => ${JOB_LEASE_MINUTES})))
           order by priority, run_after, id
@@ -105,8 +142,13 @@ export async function claimNextEnrichmentJob(input: { worker: string; kinds: Enr
  * Finishes a running job, or queues it again when an enqueue asked for a
  * rerun: a rerun is new work, so its attempts start again at zero
  */
-export async function finishEnrichmentJob(input: { id: string; worker: string; outcome?: Record<string, unknown> }, conn: Db = appDb) {
-  const outcome = input.outcome ? JSON.stringify({ outcome: input.outcome }) : "{}";
+export async function finishEnrichmentJob(
+  input: { id: string; worker: string; outcome?: Record<string, unknown> },
+  conn: Db = appDb,
+) {
+  const outcome = input.outcome
+    ? JSON.stringify({ outcome: input.outcome })
+    : "{}";
   return one(
     conn,
     sql`update enrichment_jobs set
@@ -126,7 +168,10 @@ export async function finishEnrichmentJob(input: { id: string; worker: string; o
  * so a job longer than the lease is never taken over. False when the job is
  * no longer this worker's.
  */
-export async function renewEnrichmentJobLease(input: { id: string; worker: string }, conn: Db = appDb) {
+export async function renewEnrichmentJobLease(
+  input: { id: string; worker: string },
+  conn: Db = appDb,
+) {
   const renewed = resultRows<{ id: string }>(
     await conn.execute(sql`update enrichment_jobs set locked_at = now()
       where id = ${input.id}::uuid and status = 'running' and locked_by = ${input.worker} returning id`),
@@ -135,7 +180,10 @@ export async function renewEnrichmentJobLease(input: { id: string; worker: strin
 }
 
 /** A failed attempt: retried after 2^attempts minutes, failed for good after the last */
-export async function failEnrichmentJob(input: { id: string; worker: string; error: unknown }, conn: Db = appDb) {
+export async function failEnrichmentJob(
+  input: { id: string; worker: string; error: unknown },
+  conn: Db = appDb,
+) {
   return one(
     conn,
     sql`update enrichment_jobs set
@@ -153,7 +201,10 @@ export async function failEnrichmentJob(input: { id: string; worker: string; err
  * ceiling): a hold is not a failure. A pending rerun is dropped: the job runs
  * again from the start when its hold is released.
  */
-export async function holdEnrichmentJob(input: { id: string; worker: string; reason: string }, conn: Db = appDb) {
+export async function holdEnrichmentJob(
+  input: { id: string; worker: string; reason: string },
+  conn: Db = appDb,
+) {
   const reason = heldReasonSchema.parse(input.reason);
   return one(
     conn,
@@ -169,10 +220,17 @@ export async function holdEnrichmentJob(input: { id: string; worker: string; rea
  * budget. A book's cost ceiling waits for Pablo: only a run he names the
  * book for (`jobIds`) releases it.
  */
-export async function releaseHeldEnrichmentJobs(kind?: EnrichmentJobKind, conn: Db = appDb, options: { jobIds?: string[] } = {}) {
+export async function releaseHeldEnrichmentJobs(
+  kind?: EnrichmentJobKind,
+  conn: Db = appDb,
+  options: { jobIds?: string[] } = {},
+) {
   const k = kind ? jobKindSchema.parse(kind) : null;
   const named = options.jobIds?.length
-    ? sql`or (held_reason = 'work_cost_ceiling' and id in (${sql.join(options.jobIds.map((id) => sql`${id}::uuid`), sql`, `)}))`
+    ? sql`or (held_reason = 'work_cost_ceiling' and id in (${sql.join(
+        options.jobIds.map((id) => sql`${id}::uuid`),
+        sql`, `,
+      )}))`
     : sql``;
   const released = resultRows<{ id: string }>(
     await conn.execute(sql`update enrichment_jobs set status = 'queued', held_reason = null, updated_at = now()

@@ -73,13 +73,17 @@ export async function reconcileIngest(options: ReconcileOptions): Promise<Ingest
   // The run's own items: why a file it saw is not stored
   const items = options.runId
     ? await db
-        .select({ path: ebookIngestItems.sourcePath, state: ebookIngestItems.state, outcome: ebookIngestItems.outcome, lastError: ebookIngestItems.lastError })
+        .select({ path: ebookIngestItems.sourcePath, state: ebookIngestItems.state, outcome: ebookIngestItems.outcome, reason: ebookIngestItems.reason, lastError: ebookIngestItems.lastError })
         .from(ebookIngestItems)
         .where(eq(ebookIngestItems.runId, options.runId))
     : [];
   const itemByPath = new Map(items.map((i) => [i.path, i]));
   // A valid older publication cannot hide a failed operation in this run.
-  for (const item of items) if (item.state === "failed") exceptions.push({ side: "disk", kind: "failed", path: item.path, reason: item.lastError ?? "Failed", blocking: true });
+  for (const item of items) {
+    if (item.state === "failed") exceptions.push({ side: "disk", kind: "failed", path: item.path, reason: item.lastError ?? "Failed", blocking: true });
+    else if (item.outcome === "changed_since_plan") exceptions.push({ side: "disk", kind: "changed", path: item.path, reason: item.reason ?? "Changed since the plan: plan again to take it", blocking: true });
+    else if (item.state !== "done") exceptions.push({ side: "disk", kind: "not-stored", path: item.path, reason: "Not finished by this run", blocking: true });
+  }
 
   // On disk: every file under the roots, taken or not
   const walked = await walkRoots(options.roots, { exclude: options.exclude });
@@ -106,7 +110,8 @@ export async function reconcileIngest(options: ReconcileOptions): Promise<Ingest
 
   const firstPath = new Map<string, string>();
   for (const file of examined) {
-    if (itemByPath.get(file.path)?.state === "failed") continue;
+    const runItem = itemByPath.get(file.path);
+    if (runItem && (runItem.state !== "done" || runItem.outcome === "changed_since_plan")) continue;
     if (!file.sha256) {
       exceptions.push({ side: "disk", kind: "ignored", path: file.path, reason: file.reason ?? "Not taken", blocking: false });
       continue;

@@ -326,6 +326,12 @@ remains traceable through catalogue checksums and run items; incomplete or
 unreferenced gold is reported with the existing 24-hour in-flight allowance.
 The shared orphan report delegates `gold/ebooks/` to eBook-aware checks.
 
+Planning, standalone reconciliation and verification use an explicit verified
+read-only database transaction. Their S3 SDK scope permits only
+`ListObjectsV2`, `HeadObject` and `GetObject` before network dispatch. Verification
+exits unsuccessfully for missing or differing rows or mature orphans; objects
+still in flight do not make it fail. Apply remains a separate guarded mode.
+
 ### Legacy compatibility and delivery
 
 Stored `files/{hh}/{sha256}.{ext}`, `derived/{sha256}/{name}` and `staging/`

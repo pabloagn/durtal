@@ -19,7 +19,18 @@ export function personalAwsEnvironment(): NodeJS.ProcessEnv {
   };
 }
 export type AwsRunner = (args: string[]) => Promise<string>;
+/** Only identity reads and temporary local credential export may reach the CLI. */
+export function assertPersonalReadCommand(args: string[]) {
+  const allowed = [
+    ["sts", "get-caller-identity", "--output", "json"],
+    ["configure", "export-credentials", "--format", "process"],
+  ];
+  if (!allowed.some((command) => command.length === args.length && command.every((value, i) => args[i] === value)))
+    throw new Error("The personal eBook session refused a non-read AWS CLI command; nothing sent");
+}
+
 async function runAws(args: string[]): Promise<string> {
+  assertPersonalReadCommand(args);
   try {
     const result = await exec("aws", [...args, "--profile", PROFILE, "--region", REGION, "--no-cli-pager"], { env: personalAwsEnvironment(), maxBuffer: 1024 * 1024 });
     return result.stdout;

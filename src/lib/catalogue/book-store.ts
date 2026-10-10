@@ -37,8 +37,12 @@ import type { Db } from "./work-store";
  * the book. `taken` holds slugs already chosen for other new authors of the
  * same write.
  */
-export async function bookAuthorFor(name: string, taken?: Iterable<string>) {
-  const existing = await db.query.authors.findFirst({
+export async function bookAuthorFor(
+  name: string,
+  taken?: Iterable<string>,
+  conn: Db = db,
+) {
+  const existing = await conn.query.authors.findFirst({
     where: authorNameEquals(name),
     orderBy: [desc(sql`${authors.name} = ${name}`), asc(authors.createdAt)],
     columns: { id: true, name: true },
@@ -52,7 +56,12 @@ export async function bookAuthorFor(name: string, taken?: Iterable<string>) {
       id,
       name,
       sortName: defaultSortName(name),
-      slug: await uniqueSlug(authors, generateAuthorSlug(name), { taken }),
+      slug: await uniqueSlug(
+        authors,
+        generateAuthorSlug(name),
+        { taken },
+        conn,
+      ),
     },
   };
 }
@@ -85,6 +94,7 @@ export async function resolveBookCredits(
     | undefined,
   /** Authors the same write already resolved (a new book's author) */
   known: Awaited<ReturnType<typeof bookAuthorFor>>[] = [],
+  conn: Db = db,
 ) {
   if (!entries) return { credits: undefined, newAuthors: [] };
   // The database compares names with search_normalize: accents, case,
@@ -105,8 +115,13 @@ export async function resolveBookCredits(
     }
     const key = nameKey(entry.authorName);
     if (!byName.has(key)) {
-      const taken = [...byName.values()].flatMap((a) => (a.row ? [a.row.slug] : []));
-      byName.set(key, await bookAuthorFor(entry.authorName.trim(), taken));
+      const taken = [...byName.values()].flatMap((a) =>
+        a.row ? [a.row.slug] : [],
+      );
+      byName.set(
+        key,
+        await bookAuthorFor(entry.authorName.trim(), taken, conn),
+      );
     }
     credits.push({ authorId: byName.get(key)!.id, role: entry.role });
   }
@@ -132,7 +147,10 @@ export function workSubjectQueries(
     ...(subjectIds.length
       ? [
           d.insert(workSubjects).values(
-            [...new Set(subjectIds)].map((subjectId) => ({ workId, subjectId })),
+            [...new Set(subjectIds)].map((subjectId) => ({
+              workId,
+              subjectId,
+            })),
           ),
         ]
       : []),
@@ -140,7 +158,10 @@ export function workSubjectQueries(
 }
 
 /** A validated work: the title and authors, and any other create field. */
-type WorkInput = Pick<z.output<typeof createWorkSchema>, "title" | "authorIds"> &
+type WorkInput = Pick<
+  z.output<typeof createWorkSchema>,
+  "title" | "authorIds"
+> &
   Partial<z.output<typeof createWorkSchema>>;
 
 /**
@@ -148,24 +169,46 @@ type WorkInput = Pick<z.output<typeof createWorkSchema>, "title" | "authorIds"> 
  * taken), and the writes of the work, its authors, subjects, recommendations
  * and its "created" activity.
  */
-export async function planBookWork(input: WorkInput, primaryAuthorName: string) {
+export async function planBookWork(
+  input: WorkInput,
+  primaryAuthorName: string,
+  options: {
+    conn?: Db;
+    id?: string;
+    slug?: string;
+    activityId?: string;
+    at?: Date;
+  } = {},
+) {
   const { authorIds, subjectIds, recommenderIds, ...values } = input;
-  const id = randomUUID();
-  const slug = await uniqueSlug(
-    works,
-    generateWorkSlug(values.title, primaryAuthorName, id),
-  );
+  const id = options.id ?? randomUUID();
+  const slug =
+    options.slug ??
+    (await uniqueSlug(
+      works,
+      generateWorkSlug(values.title, primaryAuthorName, id),
+      {},
+      options.conn ?? db,
+    ));
   const seriesPlan = workSeriesPlan(values);
   return {
     id,
     slug,
     queries: (d: Db) => [
       ...seriesPlan.queries(d),
-      d.insert(works).values({ ...values, ...seriesPlan.values, id, slug }),
+      d.insert(works).values({
+        ...values,
+        ...seriesPlan.values,
+        id,
+        slug,
+        ...(options.at ? { createdAt: options.at, updatedAt: options.at } : {}),
+      }),
       ...bookAuthorQueries(d, id, authorIds),
       ...workSubjectQueries(d, id, subjectIds),
       ...curationQueries(d, { id, kind: "book" }, { recommenderIds }),
       d.insert(activityEvents).values({
+        ...(options.activityId ? { id: options.activityId } : {}),
+        ...(options.at ? { createdAt: options.at } : {}),
         entityType: "work",
         entityId: id,
         eventKey: "work.created",
@@ -176,7 +219,10 @@ export async function planBookWork(input: WorkInput, primaryAuthorName: string) 
 }
 
 /** A validated edition: its work and title, any other create field, credits by id. */
-type EditionInput = Pick<z.output<typeof createEditionSchema>, "workId" | "title"> &
+type EditionInput = Pick<
+  z.output<typeof createEditionSchema>,
+  "workId" | "title"
+> &
   Partial<Omit<z.output<typeof createEditionSchema>, "contributorIds">> & {
     contributorIds?: { authorId: string; role: string }[];
   };
@@ -188,7 +234,19 @@ type EditionInput = Pick<z.output<typeof createEditionSchema>, "workId" | "title
  * source URL is kept even when the download failed, so the cover can be
  * fetched again later.
  */
-export async function planBookEdition(input: EditionInput) {
+export async function planBookEdition(
+  input: EditionInput,
+  options: {
+    id?: string;
+    activityId?: string;
+    at?: Date;
+    cover?: {
+      coverKey: string;
+      thumbnailKey: string;
+      palette: import("@/lib/types").ColorPalette | null;
+    } | null;
+  } = {},
+) {
   const {
     publisherIds,
     contributorIds,
@@ -197,10 +255,13 @@ export async function planBookEdition(input: EditionInput) {
     coverSourceUrl,
     ...values
   } = input;
-  const id = randomUUID();
-  const cover = coverSourceUrl
-    ? await processAndUploadCover(id, coverSourceUrl)
-    : null;
+  const id = options.id ?? randomUUID();
+  const cover =
+    options.cover !== undefined
+      ? options.cover
+      : coverSourceUrl
+        ? await processAndUploadCover(id, coverSourceUrl)
+        : null;
   return {
     id,
     coverUnavailable: !!coverSourceUrl && !cover,
@@ -208,6 +269,7 @@ export async function planBookEdition(input: EditionInput) {
       d.insert(editions).values({
         ...values,
         id,
+        ...(options.at ? { createdAt: options.at, updatedAt: options.at } : {}),
         publisherLinksConfirmed: publisherIds !== undefined,
         coverSourceUrl: coverSourceUrl ?? null,
         ...(cover
@@ -231,18 +293,25 @@ export async function planBookEdition(input: EditionInput) {
       ...(genreIds?.length
         ? [
             d.insert(editionGenres).values(
-              [...new Set(genreIds)].map((genreId) => ({ editionId: id, genreId })),
+              [...new Set(genreIds)].map((genreId) => ({
+                editionId: id,
+                genreId,
+              })),
             ),
           ]
         : []),
       ...(tagIds?.length
         ? [
-            d.insert(editionTags).values(
-              [...new Set(tagIds)].map((tagId) => ({ editionId: id, tagId })),
-            ),
+            d
+              .insert(editionTags)
+              .values(
+                [...new Set(tagIds)].map((tagId) => ({ editionId: id, tagId })),
+              ),
           ]
         : []),
       d.insert(activityEvents).values({
+        ...(options.activityId ? { id: options.activityId } : {}),
+        ...(options.at ? { createdAt: options.at } : {}),
         entityType: "work",
         entityId: values.workId,
         eventKey: "work.edition_added",
