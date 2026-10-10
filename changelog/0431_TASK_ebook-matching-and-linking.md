@@ -223,3 +223,46 @@ These corrections and new regressions have not been executed: source-only work
 is authorized, while tests, typecheck, lint, database and migration commands
 remain held for a fresh coordinator verification slot. The immutable reviewed
 checkout and its 54-pass baseline are preserved separately.
+
+
+## Cover integrity backend authoring, SLN-572, 2026-10-10
+
+Source-only checkpoint in the separate media-integrity checkout, based on
+`3bb556077907ebfbfbdd8efffd1380f782e4f631`. It is not release acceptance.
+
+Catalogue covers now allocate fresh attempt paths and use create-only PUTs,
+output SHA-256/size checks and bounded actual-byte read-back before issuing a
+complete publication capability. Preview creation is exclusive. URL fetching
+retains the existing safety guard; accepted ebook source reads retain their
+ownership, lineage, checksum and size bounds. Legacy key reads stay compatible.
+
+Edition edit/rematch publication captures SQL JSON with microsecond timestamp
+identity, then runs a separate table lock, fresh state assertion and counted
+UPDATE in the same atomic batch/transaction. Snapshot state stays server-local.
+Matching reservations precede storage writes; only verified pairs can publish,
+with exact output hashes in the same operation's committed receipt. Existing
+edition effects reject stages, and default undo remains DB-only.
+
+Failed or uncertain cover outcomes retain candidate paths and report pending
+reconciliation, including create follow-up errors after DB commit. Cleanup
+filters final prefix-expanded candidates to gold, retains all edition cover
+objects and associated adjustments, and reports only unreferenced retained
+covers as pending. The report-only orphan tool grants no deletion permission.
+The authorized reprocess route explicitly refuses cover-thumbnail aliases.
+Generic non-cover overwrite/cleanup concurrency remains outside this boundary.
+
+Focused byte/fault, preview exclusivity, owner/source/reservation, API refusal,
+Postgres rollback/competing-writer/microsecond/zero-row and actual wizard/Fast
+Track postcommit-failure regression sources are authored. They have not run.
+Typecheck, lint, all tests, DB/native/runtime/build, migration, live/cloud actions,
+commit/push and publication remain held pending frozen-source review. The cover
+editor, inheritance/history UI and any durable physical-cover GC protocol are
+outside this checkpoint.
+
+
+The prefix-race tests distinguish an explicitly supplied helper namespace from
+ordinary edition deletion, which cannot discover a fresh unpublished reader
+UUID. Retention reporting is through structured exact-path recovery warnings
+and the helper's cleanupPending result; persisted matching output evidence is
+in the committed receipt. No new durable orphan/retirement table is introduced.
+Existing wizard/Fast Track follow-up error wording is not redesigned here.

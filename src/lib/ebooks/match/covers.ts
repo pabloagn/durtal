@@ -1,13 +1,11 @@
-import { createHash, randomUUID } from "node:crypto";
-import { sql } from "drizzle-orm";
+import { createHash } from "node:crypto";
 import type { Db } from "@/lib/catalogue/work-store";
-import { resultRows } from "@/lib/harmonization/store";
-import { uploadToS3, deleteFromS3 } from "@/lib/s3/covers";
-import { extractColorPalette } from "@/lib/color/extract-palette";
+import { allocateCoverStage, requireAllocatedCover, requireVerifiedCover, renderCoverPair,
+  stageCoverPair, retainCoverAttempt, type AllocatedCoverStage, type VerifiedCoverStage,
+  type CoverSource } from "@/lib/s3/cover-stage";
 import { getEbookObjectRange, headEbookObject } from "../storage";
 import { acceptedPublication } from "../publication-evidence";
 import { matchFileFromStoredRow, type LoadedMatchCatalogue } from "./load";
-import type { ColorPalette } from "@/lib/types";
 
 export interface CoverCopyPlan {
   editionId: string;
@@ -16,11 +14,36 @@ export interface CoverCopyPlan {
   sourceSize: number | null;
   coverKey: string;
   thumbnailKey: string;
+  allocation: AllocatedCoverStage;
 }
-export interface CopiedCover {
-  coverKey: string;
-  thumbnailKey: string;
-  palette: ColorPalette | null;
+export type CopiedCover = VerifiedCoverStage;
+
+function validatedCoverSource(snapshot: Pick<LoadedMatchCatalogue, "rows">, ebookId: string, sourceKey: string): CoverSource {
+  const row = snapshot.rows.ebook_files.find((row) => row.ebook_id === ebookId &&
+    row.cover_key === sourceKey && matchFileFromStoredRow(row).coverKey === sourceKey);
+  if (!row) throw new Error("Cover source does not belong to the validated ebook");
+  const publication = acceptedPublication(row.metadata, {
+    sha256: String(row.sha256), format: String(row.format), sizeBytes: Number(row.size_bytes),
+    s3Key: String(row.s3_key), manifestKey: typeof row.manifest_key === "string" ? row.manifest_key : null,
+  });
+  const object = publication?.gold.find((object) => object.key === sourceKey);
+  return { kind: "ebook", ebookId, key: sourceKey, sha256: object?.sha256 ?? null, size: object?.size ?? null };
+}
+/** Validate the separate reservation or complete publication against the same
+ * protected source/effect and operation. Existing-edition effects cannot adopt. */
+export function requireMatchingCover(snapshot: Pick<LoadedMatchCatalogue, "rows">,
+  ebookId: string, editionId: string, sourceKey: string | null,
+  identity: { operationId: string; targetDatabase: string },
+  stage: AllocatedCoverStage | VerifiedCoverStage, complete: boolean) {
+  if (!sourceKey) throw new Error("Existing-edition effects cannot publish a cover stage");
+  const source = validatedCoverSource(snapshot, ebookId, sourceKey);
+  if (complete) requireVerifiedCover(stage as VerifiedCoverStage, editionId, { ...identity, source });
+  else {
+    requireAllocatedCover(stage);
+    if (stage.editionId !== editionId || stage.operationId !== identity.operationId ||
+        stage.targetDatabase !== identity.targetDatabase || JSON.stringify(stage.source) !== JSON.stringify(source))
+      throw new Error("Cover reservation owner/source/operation/target changed");
+  }
 }
 /** Pure allocation only; source ownership and strict publication lineage were
  * read in the protected callback. No external URL is used for eBook covers. */
@@ -29,33 +52,15 @@ export function planCoverCopy(
   ebookId: string,
   editionId: string,
   sourceKey: string | null,
+  identity: { operationId: string; targetDatabase: string },
 ): CoverCopyPlan | null {
   if (!sourceKey) return null;
-  const row = snapshot.rows.ebook_files.find(
-    (row) =>
-      row.ebook_id === ebookId &&
-      row.cover_key === sourceKey &&
-      matchFileFromStoredRow(row).coverKey === sourceKey,
-  );
-  if (!row)
-    throw new Error("Cover source does not belong to the validated ebook");
-  const publication = acceptedPublication(row.metadata, {
-    sha256: String(row.sha256),
-    format: String(row.format),
-    sizeBytes: Number(row.size_bytes),
-    s3Key: String(row.s3_key),
-    manifestKey: typeof row.manifest_key === "string" ? row.manifest_key : null,
-  });
-  const object = publication?.gold.find((object) => object.key === sourceKey);
-  const attemptId = randomUUID();
-  return {
-    editionId,
-    sourceKey,
-    sourceSha256: object?.sha256 ?? null,
-    sourceSize: object?.size ?? null,
-    coverKey: `gold/covers/${editionId}/matching-${attemptId}/cover.webp`,
-    thumbnailKey: `gold/covers/${editionId}/matching-${attemptId}/thumb.webp`,
-  };
+  const source = validatedCoverSource(snapshot, ebookId, sourceKey);
+  if (source.kind !== "ebook") throw new Error("Expected ebook source");
+  const allocation = allocateCoverStage({ editionId, ...identity, source });
+  return { editionId, sourceKey, sourceSha256: source.sha256, sourceSize: source.size,
+    coverKey: allocation.coverKey, thumbnailKey: allocation.thumbnailKey, allocation };
+
 }
 /** Runs after planning and undo reservation, never inside a read-only callback.
  * Unique attempt keys prevent failed/repeated applies from deleting another
@@ -63,6 +68,12 @@ export function planCoverCopy(
 export async function copyPlannedCover(
   plan: CoverCopyPlan,
 ): Promise<CopiedCover> {
+  requireAllocatedCover(plan.allocation);
+  if (plan.editionId !== plan.allocation.editionId || plan.coverKey !== plan.allocation.coverKey ||
+      plan.thumbnailKey !== plan.allocation.thumbnailKey || plan.allocation.source.kind !== "ebook" ||
+      plan.sourceKey !== plan.allocation.source.key || plan.sourceSha256 !== plan.allocation.source.sha256 ||
+      plan.sourceSize !== plan.allocation.source.size)
+    throw new Error("Cover copy plan changed from its allocated source/owner");
   const head = await headEbookObject(plan.sourceKey, { checksum: true });
   if (
     !head ||
@@ -104,46 +115,12 @@ export async function copyPlannedCover(
     createHash("sha256").update(bytes).digest("hex") !== expected
   )
     throw new Error("The validated cover bytes changed");
-  const sharp = (await import("sharp")).default;
-  const cover = await sharp(bytes, {
-    failOn: "error",
-    limitInputPixels: 100_000_000,
-  })
-    .rotate()
-    .resize(1200, 1800, { fit: "inside", withoutEnlargement: true })
-    .webp({ quality: 88 })
-    .toBuffer();
-  const thumbnail = await sharp(bytes, {
-    failOn: "error",
-    limitInputPixels: 100_000_000,
-  })
-    .rotate()
-    .resize(600, 900, { fit: "inside", withoutEnlargement: true })
-    .webp({ quality: 82 })
-    .toBuffer();
-  await uploadToS3(plan.coverKey, cover, "image/webp");
-  await uploadToS3(plan.thumbnailKey, thumbnail, "image/webp");
-  return {
-    coverKey: plan.coverKey,
-    thumbnailKey: plan.thumbnailKey,
-    palette: await extractColorPalette(thumbnail).catch(() => null),
-  };
+  const { buffers, palette } = await renderCoverPair(bytes);
+  return stageCoverPair(plan.allocation, buffers, palette);
 }
-/** An uncertain database response may have committed. Retain assets when a
- * row references them or the follow-up read fails; only proven unused keys
- * belonging to this unique attempt are cleaned up. */
-export async function discardUnusedCover(
-  conn: Db,
-  plan: CoverCopyPlan,
-): Promise<void> {
-  const rows = resultRows<{ used: boolean }>(
-    await conn.execute(
-      sql`select exists(select 1 from editions where cover_s3_key=any(${[plan.coverKey, plan.thumbnailKey]}::text[]) or thumbnail_s3_key=any(${[plan.coverKey, plan.thumbnailKey]}::text[])) as used`,
-    ),
-  );
-  if (rows[0]?.used !== false) return;
-  await Promise.all([
-    deleteFromS3(plan.coverKey),
-    deleteFromS3(plan.thumbnailKey),
-  ]);
+
+/** No reference read excludes concurrent alias adoption. Retain even proven
+ * currently-unused files and failed/unknown outcomes; never delete covers. */
+export async function discardUnusedCover(_conn: Db, plan: CoverCopyPlan) {
+  return retainCoverAttempt(plan.allocation, "matching publication rejected or uncertain");
 }

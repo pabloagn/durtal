@@ -296,15 +296,15 @@ export async function applyApprovedGroups(
       link.ebook.id,
       link.editionId,
       link.effect.newEdition?.coverSourceKey ?? null,
+      link,
     ),
   );
   const prepared = await Promise.all(
     plan.links.map((link, i) =>
       prepareLinkWrite(link, target, {
         automaticApproval: plan.approval,
-        preparedCover: coverPlans[i]
-          ? { ...coverPlans[i], palette: null }
-          : null,
+        coverReservation: coverPlans[i]?.allocation,
+        preparedCover: null,
       }),
     ),
   );
@@ -314,6 +314,7 @@ export async function applyApprovedGroups(
       if (coverPlan)
         prepared[i] = await prepareLinkWrite(plan.links[i], target, {
           automaticApproval: plan.approval,
+          coverReservation: coverPlan.allocation,
           preparedCover: await copyPlannedCover(coverPlan),
         });
     const result = await withReadableErrors(() =>
