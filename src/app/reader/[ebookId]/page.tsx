@@ -110,6 +110,7 @@ async function viewFile(file: ReaderFile): Promise<ReaderViewFile> {
     fallbackUrl,
     cdOffset,
     charCount: file.charCount,
+    cdnBases: process.env.EBOOK_CDN_URL ? [process.env.EBOOK_CDN_URL] : [],
   };
 }
 
