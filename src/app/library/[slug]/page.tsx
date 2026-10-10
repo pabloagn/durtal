@@ -541,7 +541,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                   {work.workRecommenders.map((wr, i) => (
                     <span key={wr.recommender.id} className="pointer-coarse:inline-flex pointer-coarse:max-w-full pointer-coarse:items-start pointer-coarse:py-1">
                       {i > 0 && (
-                        <span className="text-xs text-fg-secondary">, </span>
+                        <span className="text-xs text-fg-secondary pointer-coarse:pt-3">, </span>
                       )}
                       <Link
                         href={`/recommenders/${wr.recommender.id}`}
