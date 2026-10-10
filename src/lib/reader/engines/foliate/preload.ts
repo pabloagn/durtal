@@ -1,5 +1,5 @@
 import type { ReaderFormat } from "@/lib/reader/engine";
-import { PDF_WORKER_GLOBAL, PDF_WORKER_URL } from "@/lib/reader/first-range";
+import { PDF_WORKER_GLOBAL, PDF_WORKER_URL, PDF_WORKER_CLAIMED_GLOBAL } from "@/lib/reader/first-range";
 
 /**
  * The engine's code for one format, all downloading at once (eBooks
@@ -17,21 +17,29 @@ const started = new Map<ReaderFormat, Promise<unknown>>();
  * pdf.js would only start it once its own module had loaded and the document
  * was asked for: the page's inline script starts it once the book's first
  * bytes are in (src/lib/reader/first-range.ts), or this does, with the
- * engine's code, if it comes first. The engine hands it to pdf.js
- * (`GlobalWorkerOptions.workerPort`). It lasts as long as the page, which is
- * the reader's own (a full page load), and pdf.js reuses it for a second
- * document after a retry.
+ * engine's code, if it comes first. The opening adapter consumes the port
+ * once and owns it for one document. Subsequent documents create their own
+ * ports; a delayed prefetch completion cannot spawn an orphan replacement.
  */
 export function startPdfWorker(): Worker | null {
   const page = window as unknown as Record<typeof PDF_WORKER_GLOBAL, Worker | undefined>;
+  if ((window as unknown as Record<string, unknown>)[PDF_WORKER_CLAIMED_GLOBAL]) return null;
   if (!page[PDF_WORKER_GLOBAL] && typeof Worker !== "undefined") {
     try {
       page[PDF_WORKER_GLOBAL] = new Worker(PDF_WORKER_URL, { type: "module" });
     } catch {
-      // pdf.js starts its own
+      // The owned session retries native creation and surfaces failure.
     }
   }
   return page[PDF_WORKER_GLOBAL] ?? null;
+}
+
+export function takePdfWorker(): Worker | null {
+  const worker = startPdfWorker();
+  const page = window as unknown as Record<string, unknown>;
+  page[PDF_WORKER_CLAIMED_GLOBAL] = true;
+  delete page[PDF_WORKER_GLOBAL];
+  return worker;
 }
 
 function modulesFor(format: ReaderFormat): Promise<unknown>[] {

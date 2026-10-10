@@ -21,8 +21,8 @@ Nothing is copied from the Readest app itself (AGPL).
 * `vendor/zip.js` with `vendor/zip.js.LICENSE` (BSD 3-Clause, Gildas Lormeau 2023)
 * `vendor/fflate.js` with `vendor/fflate.js.LICENSE` (MIT, Arjun Barrett 2023)
 * `pdfjs-css/text_layer_builder.css` and `pdfjs-css/annotation_layer_builder.css`
-  (Apache 2.0, Mozilla Foundation 2014): `scripts/vendor-pdfjs.mjs` copies
-  them to `public/vendor/pdfjs/`
+  (Apache 2.0, Mozilla Foundation 2014), retained as upstream evidence. The
+  concrete PDF adapter uses layer rules from its pinned installed pdf.js.
 
 Left out: the fork's checked-in `vendor/pdfjs` (pdf.js 4.7.76), its tests,
 its demo reader and every other file. Durtal's own `pdfjs-dist` (pinned in
@@ -58,7 +58,34 @@ Each patch is marked in the code with a `Durtal patch N (VENDORED.md)` comment.
    alongside its existing selectors, so Kindle-addressed contents anchors
    use their markup offsets too.
 
+7. `fixed-layout.js`: accept srcdoc-only PDF page sources, await owned render
+   promises before navigation/preload completion, and invoke `onDestroy` before
+   frame removal. The PDF book owns render/text cancellation and backing release.
+   Its spread callback synchronizes the three/four-canvas ledger and cached
+   spread limits. Other formats retain their existing loading path.
+
 ## Updating
+
+### SLN-502 asset provenance and runtime source
+
+`pdfjs-assets.json` records the exact installed pdf.js 6.4.299 package/API
+identity and every staged worker, CMap, standard-font, wasm, ICC and license
+asset's source path, byte size and SHA-256. `scripts/qa/stage-pdfjs-assets.mjs`
+reproduces the inventory and copies those assets into the git-ignored
+`public/vendor/pdfjs/6.4.299/` directory. It also retains the original viewer
+CSS as extraction evidence. This raw inventory remains unchanged by runtime
+integration.
+
+The inventory is explicitly `installed-unpatched-staging`: the copied worker
+has the exact installed bytes. Runtime `scripts/vendor-pdfjs.mjs` stages the
+same versioned inventory, applies established patch 4 exactly once, and extracts
+the installed top-level text/image/annotation layer rules into `layers.css`.
+Its generated `ASSETS.json` records both upstream and deployed hashes for the
+two transformations and uses mode `durtal-runtime-patched`. The adapter and
+worker HTTP CSP now use the versioned path. This integration source has not
+yet been executed or verified; raw provenance proves no native behavior.
+
+### Engine updates
 
 Copy the files above from the new commit, apply the patches again, update
 the commit and date here, and run `node scripts/qa/reader-engine-check.mjs`
