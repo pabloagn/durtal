@@ -7,12 +7,13 @@ import { READER_FONTS, readerFontCapabilityNote } from "@/lib/reader/presentatio
 import type { DeviceClass, ReaderPresentation, PresentationOverride } from "@/lib/validations/reader-preferences";
 
 export function PresentationSettingsDialog(props: {
+  defaultsOnly?: boolean;
   open: boolean; onClose(): void; presentation: ReaderPresentation; deviceClass: DeviceClass;
   error: string | null; saving: boolean; pending: number; recoveryError: string | null;
   onChange(patch: PresentationOverride, scope: "book" | "defaults"): void;
   onReset(scope: "book" | "defaults"): void; onRetry(): void;
 }) {
-  const [scope, setScope] = useState<"book" | "defaults">("book");
+  const [scope, setScope] = useState<"book" | "defaults">(props.defaultsOnly ? "defaults" : "book");
   const p = props.presentation;
   const change = (patch: PresentationOverride) => props.onChange(patch, scope);
   const select = <K extends keyof ReaderPresentation>(key: K, label: string, choices: readonly { value: ReaderPresentation[K]; label: string }[]) => (
@@ -39,10 +40,10 @@ export function PresentationSettingsDialog(props: {
   const capability = readerFontCapabilityNote(p.font, p.fontWeight);
   return <Dialog open={props.open} onClose={props.onClose} title="Reading settings" className="max-w-lg" expandable={false}>
     <div className="flex flex-col gap-4" data-reader-widget>
-      <SegmentedControl ariaLabel="Save reading settings for" value={scope} onChange={setScope} options={[
+      {!props.defaultsOnly && <SegmentedControl ariaLabel="Save reading settings for" value={scope} onChange={setScope} options={[
         { value: "book", label: "This book" }, { value: "defaults", label: `All books on ${props.deviceClass}` },
-      ]} />
-      <p className="text-xs text-fg-secondary">Changes to all books also remove these fields from this book's overrides.</p>
+      ]} />}
+      {!props.defaultsOnly && <p className="text-xs text-fg-secondary">Changes to all books also remove these fields from this book's overrides.</p>}
       {select("font", "Font", Object.values(READER_FONTS).map(font => ({ value: font.id, label: font.label })))}
       {capability && <p className="text-xs text-fg-secondary">{capability}</p>}
       {toggle("publisherStyles", "Use publisher typography")}
