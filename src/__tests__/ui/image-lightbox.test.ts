@@ -40,6 +40,7 @@ afterEach(() => {
   act(() => root.unmount());
   host.remove();
   document.body.style.overflow = "";
+  vi.restoreAllMocks();
 });
 const source = "/api/s3/read?key=gold%2Fmedia%2Fposter.webp&v=123";
 const crop = { x: 25, y: 65, zoom: 110, brightness: 90, contrast: 105 };
@@ -85,6 +86,43 @@ describe("coarse poster source selection", () => {
       bounded.srcset,
     );
   });
+
+  it.each([source, "https://images.example/portrait.jpg?v=1"])(
+    "assigns the viewer source only inside a connected picture and does not reassign on load: %s",
+    (src) => {
+      renderPoster(src);
+      const assignments: { connected: boolean; picture: boolean; bounded: boolean; value: string }[] = [];
+      const original = Element.prototype.setAttribute;
+      vi.spyOn(Element.prototype, "setAttribute").mockImplementation(function (
+        this: Element, name: string, value: string,
+      ) {
+        if (this instanceof HTMLImageElement && name === "src") {
+          const picture = this.closest("picture");
+          assignments.push({
+            connected: this.isConnected,
+            picture: picture !== null,
+            bounded: picture?.querySelector("source")?.getAttribute("srcset")?.includes("w=800") ?? false,
+            value,
+          });
+        }
+        original.call(this, name, value);
+      });
+      for (let cycle = 0; cycle < 2; cycle++) {
+        const dialog = open();
+        expect(assignments).toHaveLength(cycle + 1);
+        expect(assignments[cycle]).toEqual({
+          connected: true,
+          picture: true,
+          bounded: src === source,
+          value: src,
+        });
+        act(() => dialog.querySelector("img")!.dispatchEvent(new Event("load")));
+        expect(assignments).toHaveLength(cycle + 1);
+        expect(dialog.querySelector("img")!.getAttribute("src")).toBe(src);
+        act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+      }
+    },
+  );
 
   it.each([
     "https://images.example/portrait.jpg?v=1",

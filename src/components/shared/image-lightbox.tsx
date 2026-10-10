@@ -2,7 +2,7 @@
 
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { CoarseImageSource } from "./coarse-image-source";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
@@ -31,6 +31,11 @@ function OpenImageLightbox({
   );
   const rootRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  // React creates the img before assembling its picture. Set the canonical
+  // source only after insertion, so a coarse pointer never fetches it first.
+  const attachImage = useCallback((image: HTMLImageElement | null) => {
+    if (image) image.src = src;
+  }, [src]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -116,7 +121,7 @@ function OpenImageLightbox({
           <picture className="contents">
             <CoarseImageSource src={src} />
             <img
-              src={src}
+              ref={attachImage}
               alt={alt}
               onLoad={() => setStatus("loaded")}
               onError={() => setStatus("error")}
