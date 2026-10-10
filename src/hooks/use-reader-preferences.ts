@@ -66,10 +66,11 @@ export function useReaderPreferences(options: PreferenceScope & { initialRows: r
       window.removeEventListener("pagehide", pagehide);
       window.removeEventListener("pageshow", pageshow);
       entry.mounts--;
-      if (entry.mounts === 0) void saver.flush().finally(() => {
+      if (entry.mounts === 0) {
+        saver.pause();
         const last = saver.getSnapshot();
         if (entry.mounts === 0 && last.pending === 0 && !last.saving && browserEntries.get(key) === entry) browserEntries.delete(key);
-      });
+      }
     };
   }, [entry, saver, key]);
 

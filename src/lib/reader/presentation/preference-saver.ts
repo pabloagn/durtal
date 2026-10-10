@@ -58,10 +58,13 @@ export function createPreferenceSaver(options: {
   let through = 0;
   let activeGeneration: number | null = null;
   let ready = false;
+  let activated = false;
+  let adoptionNotified = false;
   let error: string | null = null;
   let recoveryError: string | null = null;
   let recoverySaved = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let deadline: number | null = null;
   let initialization: Promise<void> | null = null;
   let running: Promise<void> | null = null;
   let flushRequested = false;
@@ -142,15 +145,30 @@ export function createPreferenceSaver(options: {
     ], scope.ebookId);
   }
 
+  function notifyAdoption() {
+    if (!activated || !ready || adoptionNotified) return;
+    try { options.onAdopted?.(); adoptionNotified = true; }
+    catch { recoveryError = "The old reading-settings cookie could not be cleared."; }
+  }
+
+  /** Explicit committed activation; construction and recovery parsing are inert. */
   function start(): Promise<void> {
-    if (ready) return Promise.resolve();
+    if (!activated) {
+      activated = true;
+      if (jobs.length) {
+        deadline ??= Date.now() + PREFERENCE_SAVE_DELAY_MS;
+        schedule(false);
+      }
+    }
+    if (ready) { notifyAdoption(); publish(); return Promise.resolve(); }
     if (initialization) return initialization;
     error = null;
     initialization = Promise.resolve().then(async () => {
       try {
+        if (!activated) return;
         mergeReply(await options.transport.adopt(scope), scope.ebookId);
         ready = true;
-        try { options.onAdopted?.(); } catch { recoveryError = "The old reading-settings cookie could not be cleared."; }
+        notifyAdoption();
       } catch (cause) {
         error = cause instanceof Error ? cause.message : "Reading settings could not be loaded.";
       } finally { initialization = null; publish(); }
@@ -164,24 +182,27 @@ export function createPreferenceSaver(options: {
     timer = null;
   }
 
-  function schedule() {
+  function schedule(newDeadline = true) {
     clearTimer();
     // A fresh edit establishes a new deadline, including after a request failure.
     flushRequested = false;
-    timer = setTimeout(() => { timer = null; void flush(); }, PREFERENCE_SAVE_DELAY_MS);
+    if (newDeadline) deadline = Date.now() + PREFERENCE_SAVE_DELAY_MS;
+    if (!activated) return;
+    timer = setTimeout(() => { timer = null; if (activated) void flush(); }, Math.max(0, (deadline ?? Date.now()) - Date.now()));
   }
 
   async function flush(): Promise<void> {
+    if (!activated) return;
     clearTimer();
     through = Math.max(through, jobs[jobs.length - 1]?.generation ?? 0);
     if (running) { flushRequested = true; return running; }
     await start();
-    if (!ready || jobs.length === 0) return;
+    if (!activated || !ready || jobs.length === 0) return;
     if (running) { flushRequested = true; return running; }
     flushRequested = false;
     running = Promise.resolve().then(async () => {
       try {
-        while (jobs.length && jobs[0].generation <= through) {
+        while (activated && jobs.length && jobs[0].generation <= through) {
           const job = jobs[0];
           activeGeneration = job.generation;
           error = null;
@@ -203,7 +224,7 @@ export function createPreferenceSaver(options: {
         flushRequested = false;
         publish();
         // Only another explicit online/expired-debounce/flush event permits a retry.
-        if (retry && jobs.length && jobs[0].generation <= through) void flush();
+        if (activated && retry && jobs.length && jobs[0].generation <= through) void flush();
       }
     });
     publish();
@@ -228,11 +249,12 @@ export function createPreferenceSaver(options: {
     schedule();
   }
 
-  if (jobs.length) schedule();
   return {
     getSnapshot: () => snapshot,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     start,
+    /** Cleanup pauses future work; dispatched writes may acknowledge, drafts survive. */
+    pause() { activated = false; clearTimer(); flushRequested = false; },
     update(input: unknown) { enqueue({ kind: "update", input: parsePreferenceUpdate(input) }); },
     reset(input: unknown) { enqueue({ kind: "reset", input: parsePreferenceReset(input) }); },
     /** Best effort; pending remains recoverable until an actual scoped acknowledgement. */

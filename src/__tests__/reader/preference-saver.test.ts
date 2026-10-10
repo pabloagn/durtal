@@ -129,7 +129,7 @@ it("a failed adoption keeps the cookie and pending writes until a later retry", 
   const deleted = vi.fn();
   const saver = createPreferenceSaver({ scope, initialRows, transport: wire, onAdopted: deleted });
   saver.update(update({ fontSizePx: 22 }));
-  await saver.flush();
+  await saver.start();
   expect(saver.getSnapshot()).toMatchObject({ ready: false, pending: 1 });
   expect(deleted).not.toHaveBeenCalled();
   expect(wire.update).not.toHaveBeenCalled();
@@ -197,4 +197,68 @@ it("does not replay a foreign or malformed recovery draft", async () => {
   await vi.advanceTimersByTimeAsync(1000);
   expect(wire.update).not.toHaveBeenCalled();
   expect(saver.getSnapshot().recoveryError).toContain("not been submitted");
+});
+
+const recoveredDraft = () => ({ version: 1, scope, jobs: [{ kind: "update", input: update({ fontSizePx: 22 }) }] });
+
+it("keeps recovered construction/discarded-render simulation inert until committed activation", async () => {
+  const wire = transport();
+  const deleted = vi.fn();
+  const saver = createPreferenceSaver({ scope, initialRows, transport: wire, recovery: recoveredDraft(), onAdopted: deleted });
+  await vi.advanceTimersByTimeAsync(2000);
+  await saver.flush();
+  expect(wire.adopt).not.toHaveBeenCalled();
+  expect(wire.update).not.toHaveBeenCalled();
+  expect(wire.reset).not.toHaveBeenCalled();
+  expect(deleted).not.toHaveBeenCalled();
+  expect(saver.getSnapshot().pending).toBe(1);
+  await saver.start();
+  expect(deleted).toHaveBeenCalledTimes(1);
+  await vi.advanceTimersByTimeAsync(799);
+  expect(wire.update).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1);
+  expect(wire.update).toHaveBeenCalledTimes(1);
+});
+
+it("simulates StrictMode setup/cleanup/setup without duplicate adoption or a reset deadline", async () => {
+  const wire = transport();
+  const saver = createPreferenceSaver({ scope, initialRows, transport: wire, recovery: recoveredDraft() });
+  const discardedSetup = saver.start();
+  saver.pause();
+  await discardedSetup;
+  await vi.advanceTimersByTimeAsync(400);
+  expect(wire.adopt).not.toHaveBeenCalled();
+  expect(wire.update).not.toHaveBeenCalled();
+  await saver.start();
+  expect(wire.adopt).toHaveBeenCalledTimes(1);
+  await vi.advanceTimersByTimeAsync(399);
+  expect(wire.update).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1);
+  expect(wire.update).toHaveBeenCalledTimes(1);
+  saver.pause();
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(wire.update).toHaveBeenCalledTimes(1);
+});
+
+it("cleanup retains a recovered draft and defers a late adoption cookie callback until remount", async () => {
+  const adoption = deferred<PreferenceReply>();
+  const entered = deferred<void>();
+  const wire = transport();
+  wire.adopt.mockImplementationOnce(() => { entered.resolve(); return adoption.promise; });
+  const deleted = vi.fn();
+  const saver = createPreferenceSaver({ scope, initialRows, transport: wire, recovery: recoveredDraft(), onAdopted: deleted });
+  const starting = saver.start();
+  await entered.promise;
+  saver.pause();
+  adoption.resolve(reply());
+  await starting;
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(deleted).not.toHaveBeenCalled();
+  expect(wire.update).not.toHaveBeenCalled();
+  expect(saver.getSnapshot().pending).toBe(1);
+  await saver.start();
+  expect(deleted).toHaveBeenCalledTimes(1);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(wire.update).toHaveBeenCalledTimes(1);
+  expect(wire.adopt).toHaveBeenCalledTimes(1);
 });
