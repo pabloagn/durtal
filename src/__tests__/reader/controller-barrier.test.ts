@@ -76,7 +76,10 @@ describe("ReaderSession controller admission", () => {
     // Cache this fixture before concurrent StrictMode imports enter Vitest's mock resolver.
     const { createFoliateEngine } = await import("@/lib/reader/engines/foliate/engine");
     expect(createFoliateEngine).toBe(mocks.factory);
-    await act(async () => root.render(h(StrictMode, null, h(ReaderView, props())))); await flush();
+    await act(async () => root.render(h(StrictMode, null, h(ReaderView, props()))));
+    // Await startup imports before flushing the event bus's display frames.
+    await act(async () => { await vi.dynamicImportSettled(); });
+    await flush();
     expect(fake.engine.open).toHaveBeenCalledOnce(); expect(location).toHaveBeenCalledOnce();
     act(() => document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })));
     await flush(); expect(activity).toHaveBeenCalledOnce();
