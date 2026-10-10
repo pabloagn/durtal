@@ -76,6 +76,7 @@ describe("source-bound precision evidence", () => {
       "modelFingerprint",
       "catalogueFingerprint",
       "inputFingerprint",
+      "externalInputFingerprint",
       "inputPlanSha256",
       "candidateFingerprint",
     ] as const)

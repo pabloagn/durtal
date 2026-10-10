@@ -48,6 +48,9 @@ export function editionEffect(
 ): LinkEffect {
   const { source } = work;
   const copyLocation = options.locationId ?? catalogue.source.ebookLocationId;
+  const digital =
+    catalogue.source.digitalLocationIds ??
+    [catalogue.source.ebookLocationId].filter((id): id is string => !!id);
   const language = normalizeLanguage(ebook.language);
   const file = preferredMatchFile(ebook);
   const ids = identifierKeys(ebook.isbns, ebook.identifiers);
@@ -95,9 +98,6 @@ export function editionEffect(
       selectedCopy?.locationId ??
       options.locationId ??
       catalogue.source.ebookLocationId;
-    const digital =
-      catalogue.source.digitalLocationIds ??
-      [catalogue.source.ebookLocationId].filter((id): id is string => !!id);
     if (
       !selected ||
       (options.instanceId && !selectedCopy) ||
@@ -320,6 +320,15 @@ export function editionEffect(
           status: "available" as const,
         }
       : null;
+  if (
+    newCopy &&
+    !digital.includes(newCopy.locationId) &&
+    !ambiguities.some((reason) => reason.code === "digital_location")
+  )
+    ambiguities.push({
+      code: "digital_location",
+      text: "Choose an active digital location",
+    });
   const text =
     missing.length || ambiguities.length
       ? `Needs review before linking ${source.title}: ${[...missing, ...ambiguities.map((reason) => reason.text)].join("; ")}`

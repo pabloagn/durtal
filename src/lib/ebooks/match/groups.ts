@@ -167,6 +167,7 @@ export function requireApprovedGroupPlan(approval: ApprovedGroupMatching) {
     approved.binding.modelVersion !== MATCH_MODEL.version ||
     approved.binding.modelFingerprint !== dataFingerprint(MATCH_MODEL) ||
     !/^[a-f0-9]{64}$/.test(approved.binding.inputPlanSha256) ||
+    !/^[a-f0-9]{64}$/.test(approved.binding.externalInputFingerprint) ||
     new Set(approved.groups.map((group) => group.groupKey)).size !== approved.groups.length ||
     new Set(approved.results.map((result) => result.ebookId)).size !== approved.results.length ||
     approved.groups.some((group) => !group.groupKey || (!group.existingEbookId && !group.fileHashes.length) ||

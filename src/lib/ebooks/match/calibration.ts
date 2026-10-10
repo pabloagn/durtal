@@ -17,6 +17,7 @@ export interface ScoringBinding {
   modelFingerprint: string;
   catalogueFingerprint: string;
   inputFingerprint: string;
+  externalInputFingerprint: string;
   inputPlanSha256: string;
   candidateFingerprint: string;
 }
@@ -24,6 +25,18 @@ export interface ScoringBinding {
  * their identity when it becomes a real ebook. Multiplicity is preserved. */
 export const scoringInputFingerprint = (ebooks: readonly MatchEbook[]) =>
   dataFingerprint(ebooks.map(matchFingerprint).sort());
+/** Everything outside the registration overlay can affect duplicate preference,
+ * shared identifiers and title frequency. Bind its decisions and file capability
+ * evidence too; selected groups retain their UUID-independent binding above. */
+export const externalScoringFingerprint = (
+  ebooks: readonly MatchEbook[],
+  selectedIds: ReadonlySet<string>,
+) =>
+  dataFingerprint(
+    ebooks
+      .filter((ebook) => !selectedIds.has(ebook.id))
+      .sort((a, b) => a.id.localeCompare(b.id)),
+  );
 export interface CalibrationReceipt extends ScoringBinding {
   version: 1;
   sampleFingerprint: string;
@@ -159,6 +172,10 @@ export function scoreNewGroups(
     modelFingerprint: dataFingerprint(MATCH_MODEL),
     catalogueFingerprint: loaded.catalogueFingerprint,
     inputFingerprint: scoringInputFingerprint(groups),
+    externalInputFingerprint: externalScoringFingerprint(
+      loaded.catalogue.source.ebooks,
+      groupIds,
+    ),
     inputPlanSha256,
     candidateFingerprint: dataFingerprint(results),
   };

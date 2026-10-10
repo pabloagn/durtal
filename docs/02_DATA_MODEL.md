@@ -2522,7 +2522,9 @@ Deleting a linked copy also clears obsolete link provenance and review state.
 
 An ebook link is its digital instance at an active digital location. Automatic
 creation uses `app_settings.ebook_location_id`; explicitly selected existing
-copies may use another active digital location. Linking preserves work status.
+copies and explicit new-copy destinations may use another active digital
+location. Every new-copy destination is checked against the loader's active
+digital locations, including a location-only choice. Linking preserves work status.
 Accession creates a book work and edition with `metadata_source='ebook'`, leaves
 original year unknown, and records accessioned status and available-copy history.
 Undo checks the exact operation identity, row state and dependencies in its write

@@ -54,6 +54,20 @@ describe('shared guarded matching writers',()=>{
     expect(state.writes.some((query)=>query.sql.startsWith('insert into "instances"'))).toBe(true);
     expect(state.writes.find((query)=>query.sql.startsWith('insert into "instance_status_history"'))?.params).toContain('available');
   });
+  it.each(['physical-shelf','inactive-digital','nonexistent'])('refuses a location-only choice at %s before write planning',async(locationId)=>{
+    const s=setup();
+    s.rows.locations=[{id:'physical-shelf',type:'physical',is_active:true},{id:'inactive-digital',type:'digital',is_active:false}];
+    await expect(planLink(url,{ebookId:'ebook-1',workId,locationId,method:'manual'})).rejects.toThrow('active digital location');
+    expect(state.writes).toEqual([]);
+  });
+  it('accepts a location-only active digital destination and preserves the work lifecycle',async()=>{
+    setup(false,null);
+    const plan=await planLink(url,{ebookId:'ebook-1',workId,locationId:'other-digital',method:'manual'});
+    expect(plan.effect).toMatchObject({ready:true,instanceId:null,newCopy:{locationId:'other-digital',status:'available'}});
+    await linkEbook({} as Db,plan,plan.targetDatabase);
+    expect(state.writes.find((query)=>query.sql.startsWith('insert into "instances"'))?.params).toContain('other-digital');
+    expect(state.writes.some((query)=>query.sql.startsWith('update "works"') || query.sql.startsWith('insert into "work_status_history"'))).toBe(false);
+  });
   it('refuses non-finite confidence and automatic writes without a scoped precision receipt',async()=>{
     setup();await expect(planLink(url,{ebookId:'ebook-1',workId,method:'manual',probability:NaN})).rejects.toThrow();
     await expect(planLink(url,{ebookId:'ebook-1',workId,method:'score',probability:1})).rejects.toThrow('approved group');

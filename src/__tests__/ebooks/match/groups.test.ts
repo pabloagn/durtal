@@ -21,15 +21,16 @@ vi.mock("@/lib/db/atomic", () => ({
 import { planGroupMatching, type ApprovedGroupMatching } from "@/lib/ebooks/match/groups";
 import { applyApprovedGroups, planApprovedGroupsOn, requireApprovedGroupPlan } from "@/lib/ebooks/match/apply-groups";
 import { scoreCalibration } from "@/lib/ebooks/match/calibration";
-import { matchFingerprint } from "@/lib/ebooks/match/keys";
+import { matchFingerprint, titleKeys } from "@/lib/ebooks/match/keys";
 import { MATCH_TABLES, dataFingerprint, type LoadedMatchCatalogue } from "@/lib/ebooks/match/load";
 import { catalogue, ebook, work, edition, copy, at } from "./fixtures";
 import type { MatchEbook } from "@/lib/ebooks/match/types";
+import { matchOne } from "@/lib/ebooks/match/tiers";
 
-function snapshot(input?: MatchEbook, hasWork = true): LoadedMatchCatalogue {
+function snapshot(input?: MatchEbook, hasWork = true, external: MatchEbook[] = []): LoadedMatchCatalogue {
   return {
     catalogue: catalogue({
-      ebooks: input ? [input] : [],
+      ebooks: [...(input ? [input] : []), ...external],
       works: hasWork ? [work({ editions: [edition()], copies: [copy()] })] : [],
     }),
     rows: {
@@ -41,9 +42,9 @@ function snapshot(input?: MatchEbook, hasWork = true): LoadedMatchCatalogue {
     inputFingerprint: "b".repeat(64),
   };
 }
-async function approval(hasWork = true, existing?: MatchEbook): Promise<ApprovedGroupMatching> {
+async function approval(hasWork = true, existing?: MatchEbook, external: MatchEbook[] = []): Promise<ApprovedGroupMatching> {
   state.reads = 0;
-  state.loaded = snapshot(existing, hasWork);
+  state.loaded = snapshot(existing, hasWork, external);
   const input = existing ?? ebook();
   const plan = await planGroupMatching({} as Db, [{
     groupKey: "inbox:nadja",
@@ -88,6 +89,54 @@ describe("frozen pre-registration matching", () => {
     state.reads = 0;
     await expect(planApprovedGroupsOn({} as Db, { ...approved, precision: null }, [], identity)).rejects.toThrow("labelled precision");
     expect(state.reads).toBe(0);
+  });
+  it("refuses a newly preferred external duplicate before producing matching writes", async () => {
+    const approved = await approval(), input = ebook({ id: "registered-ebook" });
+    const external = ebook({ id: "external-ebook", files: [
+      ...ebook().files.map((file) => ({ ...file, id: "external-epub", sha256: "d".repeat(64) })),
+      { ...ebook().files[0], id: "external-pdf", sha256: "e".repeat(64), format: "pdf" },
+    ] });
+    expect(approved.plan.results[0].autoLink).toBe(true);
+    const current = snapshot(input, true, [external]);
+    expect(matchOne(input, current.catalogue)).toMatchObject({ tier: "duplicate", duplicateOfId: external.id, autoLink: false });
+    state.loaded = current;
+    state.writes.length = 0;
+    await expect(planApprovedGroupsOn({} as Db, approved, registration(input), identity)).rejects.toThrow("Matching context changed");
+    expect(state.writes).toEqual([]);
+  });
+  it.each(["shared ISBN", "common title"])("refuses changed external %s evidence", async (change) => {
+    const isbn = "9780306406157";
+    const input = ebook({ isbns: change === "shared ISBN" ? [isbn] : [] });
+    const external = ebook({ id: "external-1", title: change === "shared ISBN" ? "Other title" : "Nadja", authors: ["Other Author"], isbns: input.isbns });
+    const added = ebook({ id: "external-2", title: change === "shared ISBN" ? "Third title" : "Nadja", authors: ["Third Author"], isbns: input.isbns });
+    const approved = await approval(true, input, [external]);
+    const before = snapshot(input, true, [external]).catalogue;
+    const current = snapshot(input, true, [external, added]);
+    if (change === "shared ISBN") {
+      expect(before.sharedIsbns.has(isbn)).toBe(false);
+      expect(current.catalogue.sharedIsbns.has(isbn)).toBe(true);
+    } else {
+      const title = titleKeys(input.title).main;
+      expect(before.commonTitles.has(title)).toBe(false);
+      expect(current.catalogue.commonTitles.has(title)).toBe(true);
+    }
+    state.loaded = current;
+    state.writes.length = 0;
+    await expect(planApprovedGroupsOn({} as Db, approved, registration(input), identity)).rejects.toThrow("Matching context changed");
+    expect(state.writes).toEqual([]);
+  });
+  it.each(["decision", "file capability", "duplicate preference"])("binds external %s without changing selected metadata", async (change) => {
+    const external = ebook({ id: "external-ebook", title: "Other title" });
+    const approved = await approval(true, undefined, [external]);
+    const input = ebook({ id: "registered-ebook" });
+    state.loaded = snapshot(input, true, [external]);
+    expect((await planApprovedGroupsOn({} as Db, approved, registration(input), identity)).kind).toBe("planned");
+    const changed = { ...external };
+    if (change === "decision") changed.matchState = "excluded";
+    if (change === "file capability") changed.files = changed.files.map((file) => ({ ...file, availability: "download" }));
+    if (change === "duplicate preference") changed.createdAt = "2026-10-08T00:00:00.000Z";
+    state.loaded = snapshot(input, true, [changed]);
+    await expect(planApprovedGroupsOn({} as Db, approved, registration(input), identity)).rejects.toThrow("Matching context changed");
   });
   it.each(["metadata", "file-map", "delivery", "catalogue", "decision"])(
     "refuses changed %s instead of selecting another route",
@@ -142,8 +191,9 @@ describe("frozen pre-registration matching", () => {
     await expect(planApprovedGroupsOn({} as Db, approved, registration(kept), identity)).rejects.toThrow("owner decision");
   });
   it("accepts a completed matching operation only for the same run and approval", async () => {
-    const approved = await approval(), input = ebook({ id: "registered-ebook", matchState: "linked", instanceId: "copy-1" });
-    const current = snapshot(input);
+    const external = ebook({ id: "external-ebook", title: "Other title" });
+    const approved = await approval(true, undefined, [external]), input = ebook({ id: "registered-ebook", matchState: "linked", instanceId: "copy-1" });
+    const current = snapshot(input, true, [external]);
     current.rows.ebooks[0].link_written = {
       approvedGroupHash: dataFingerprint(approved.plan), runId: identity.runId,
       targetDatabase: identity.targetDatabase, instanceId: input.instanceId, ebookId: input.id,
@@ -158,6 +208,7 @@ describe("frozen pre-registration matching", () => {
       (copy: ApprovedGroupMatching) => { copy.plan.sample = []; },
       (copy: ApprovedGroupMatching) => { copy.plan.binding.modelVersion++; },
       (copy: ApprovedGroupMatching) => { copy.plan.binding.inputFingerprint = "f".repeat(64); },
+      (copy: ApprovedGroupMatching) => { delete (copy.plan.binding as Partial<typeof copy.plan.binding>).externalInputFingerprint; },
     ]) {
       const copy = structuredClone(approved);
       mutation(copy);

@@ -192,3 +192,34 @@ conversion/build, SQL trigram parity, real precision measurement, 6,000-by-700
 benchmark, migration, deployment, live/cloud write or browser acceptance ran
 for this checkpoint. This task remains in progress pending exact-source review
 and the coordinating chat's validation slots.
+
+## Independent review corrections, 2026-10-10
+
+The frozen integration checkpoint `47c2c9a8` subsequently passed all 54 tests
+in the seven requested mocked matching suites and the ordinary full-project
+typecheck under the coordinator's Node 22 slot. Independent source review
+requested three corrections: external ebooks were absent from approval scope,
+location-only choices bypassed active digital destination validation, and the
+currentness adapter used an input hash instead of the committed run UUID.
+
+Approval now includes required `externalInputFingerprint` for the complete
+external ebook DTOs, including duplicate preference timestamps, decisions and
+file capabilities. Apply compares that context before any matching write plan;
+selected registration UUIDs and own completed effects remain outside this
+external binding. Old approvals missing it must be regenerated and labelled.
+Every new-copy destination is validated against loader-proven active digital
+locations. The currentness adapter requires the actual committed run UUID from
+its caller's durable state and retains the same run/approval/target fences.
+SLN-494/498 consumers must pass this third argument; SLN-505 choice signatures
+are unchanged and invalid location-only destinations now refuse planning.
+
+Thirteen additional mocked regressions are authored for preferred external
+duplicates, shared ISBNs/common titles, external decisions/capabilities/preference,
+invalid and valid location-only destinations, and currentness after the shared
+automatic apply writer produces a real UUID receipt. They also assert no writes
+or identity allocation on completed currentness, and reject different runs,
+changed approval receipts, changed input scope and hash-as-run substitution.
+These corrections and new regressions have not been executed: source-only work
+is authorized, while tests, typecheck, lint, database and migration commands
+remain held for a fresh coordinator verification slot. The immutable reviewed
+checkout and its 54-pass baseline are preserved separately.

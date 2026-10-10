@@ -646,8 +646,15 @@ consume automatic proposals. New work enrichment runs after commit at priority
 200 through the supplied database; follow-up failures are returned explicitly.
 
 The upstream SLN-494/498 complete no-op preflight must call
-`ingestionMatchingIsCurrentOn` inside its protected callback. This proves
-matching is unchanged, including model version for zero-candidate results.
+`ingestionMatchingIsCurrentOn(conn, plan, committedRunId)` inside its protected
+callback, passing the actual committed run UUID resolved from durable run state.
+This proves matching is unchanged, including model version for zero-candidate results.
+Approval binds `externalInputFingerprint` to all loaded ebooks outside the
+selected registration overlay, including decision and file capability evidence
+that affects duplicate preference, shared identifiers and common titles. Apply
+rejects a changed external context before planning writes. Older approvals
+without this binding require a new plan and labels; selected registration UUID
+remapping and same-run completion remain supported.
 Upstream separately proves registration and publication completeness before
 creating a run, reserving undo or transferring objects. This branch's ordinary
 apply entry point still creates bookkeeping and does not by itself satisfy the

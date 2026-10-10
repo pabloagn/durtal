@@ -1,4 +1,5 @@
 import type { Db } from "@/lib/catalogue/work-store";
+import { parseId } from "@/lib/validations/helpers";
 import type { IngestPlan } from "../ingest/plan";
 import { readGroupCatalogue, planRegistration } from "../ingest/register";
 import { clusterGroups } from "../ingest/group-clusters";
@@ -155,15 +156,20 @@ export async function registeredIngestionGroupsOn(
 
 /** SLN-494/498's complete no-op preflight calls this inside its protected
  * callback, before reserving a run or undo log. Registration/publication
- * completeness remains the upstream preflight's separate responsibility. */
-export async function ingestionMatchingIsCurrentOn(conn: Db, plan: IngestPlan) {
+ * completeness remains the upstream preflight's separate responsibility. The
+ * caller must resolve the actual committed run UUID from its durable run state. */
+export async function ingestionMatchingIsCurrentOn(
+  conn: Db,
+  plan: IngestPlan,
+  committedRunId: string,
+) {
   if (!plan.matching) return false;
+  const runId = parseId(committedRunId);
   if (plan.matching.plan.binding.inputPlanSha256 !== ingestionMatchingInputHash(plan))
     throw new Error("Matching scope differs from the frozen ingestion inputs");
   const registered = await registeredIngestionGroupsOn(conn, plan);
   const result = await planApprovedGroupsOn(conn, plan.matching, registered, {
-    // Scope identity only: no run is allocated or returned by this preflight.
-    runId: plan.matching.plan.binding.inputPlanSha256,
+    runId,
     targetDatabase: plan.target.database,
   });
   return result.kind === "unchanged";

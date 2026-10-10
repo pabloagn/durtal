@@ -19,6 +19,7 @@ import { MATCH_MODEL } from "./model";
 import { hashMatchingPlan } from "./plan";
 import { matchFingerprint } from "./keys";
 import { editionEffect } from "./editions";
+import { externalScoringFingerprint } from "./calibration";
 import {
   classificationQueries,
   classificationIsCurrent,
@@ -65,6 +66,13 @@ export async function planApprovedGroupsOn(
     throw new Error("Registration map is incomplete or duplicates an ebook");
   const loaded = await loadMatchCatalogue(conn),
     byKey = new Map(registered.map((group) => [group.groupKey, group]));
+  if (
+    externalScoringFingerprint(
+      loaded.catalogue.source.ebooks,
+      new Set(registered.map((group) => group.ebookId)),
+    ) !== approved.binding.externalInputFingerprint
+  )
+    throw new Error("Matching context changed since approval; nothing matched");
   const remap = new Map(
     approved.groups.map((group) => [
       group.result.ebookId,

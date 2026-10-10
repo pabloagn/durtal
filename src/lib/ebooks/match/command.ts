@@ -182,6 +182,7 @@ export function matchingReport(approval: ApprovedGroupMatching): string {
     "",
     `Catalogue: ${p.binding.catalogueFingerprint}`,
     `Input: ${p.binding.inputFingerprint}`,
+    `External scoring inputs: ${p.binding.externalInputFingerprint}`,
     `Input plan: ${p.binding.inputPlanSha256}`,
     `Candidates: ${p.binding.candidateFingerprint}`,
     "",
