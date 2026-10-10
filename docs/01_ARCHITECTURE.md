@@ -220,9 +220,9 @@ The book's bytes never pass through a whole-file download: the engine reads HTTP
 
 `ReaderBridgeProvider` in `src/components/reader/bridge.tsx` owns one event bus and slot registry per open e-book/file. Plugins use only `useReaderEvent`, `ReaderSlotFill`, `useReaderShortcut` and `useReaderContext`. Activity is throttled per kind and silent while hidden; location (opening/jump or turn), actual last-page arrival and settled selection events dispatch after a displaying animation frame and then a microtask. Exceptions in handlers or client components are isolated. Context subscribers update without remounting the engine; slot portals follow plugin-list order.
 
-The slots are `toolbar-status`, `top-bar` and `selection-actions`. Registered plugin shortcuts reach the app and book documents, share reader guards and cannot claim reserved keys. `q` is free for the tracker. `src/app/reader/[ebookId]/plugins.ts` defines `{ id, load?(ctx: { ebookId }), Component }`; optional server loads run in parallel with the page query, failed/nonserializable loads are omitted, and successful client components receive serializable data inside independent error boundaries. The production list is empty until SLN-454. Loaders never enter the client registry or bundle.
+The slots are `toolbar-status`, `top-bar` and `selection-actions`. Registered plugin shortcuts reach the app and book documents, share reader guards and cannot claim reserved keys. `q` is free for the tracker. `src/app/reader/[ebookId]/plugins.ts` defines `{ id, load?(ctx: { ebookId }), Component }`; optional server loads run in parallel with the page query, failed/nonserializable loads are omitted, and successful client components receive serializable data inside independent error boundaries. The production list contains SLN-454 ReaderTracking. Its failure component keeps the required controller unavailable until the guarded loader succeeds. Loaders never enter the client registry or bundle.
 
-The reader never reads or writes tracker readings, sessions or notes and never calls their APIs. It writes only `ebook_positions`; SLN-454 owns the tracker plugin and every tracker write. Cross-device rules are pure in `src/lib/reader/sync/places.ts`; returning-tab/online refresh awaits the save queue before one GET, coalesces triggers and invalidates pending offers on local intent or close.
+SLN-454 owns the tracker plugin and every tracker write. The mounted reader saves positions and annotations through the same origin offline store and replayer; annotation quote deletion carries only a tracker-prepared deferred effect. Presentation writes use the independently owned reader preference actions. Cross-device rules are pure in `src/lib/reader/sync/places.ts`; returning-tab/online refresh awaits the save queue before one GET, coalesces triggers and invalidates pending offers on local intent or close.
 
 ### Cascading Deletes
 
@@ -231,3 +231,34 @@ Foreign keys use `onDelete: "cascade"` throughout the schema. Deleting a work re
 ### Singleton Database Connection
 
 The Drizzle database client uses a module-level singleton pattern (stored on `globalThis` in development to survive HMR). This prevents connection pool exhaustion during development.
+
+### Reader experience source candidate
+
+The isolated experience integration adds the catalogue/reader document split,
+SLN-497 library and Continue, SLN-501 presentation, SLN-502 PDF, SLN-507 durable
+positions, SLN-500 annotations, SLN-454 tracker, SLN-503 content/search and
+SLN-508 speech to the central 3bb55607 source base. These are source changes;
+no combined executable, native, build or database acceptance is implied.
+
+The page reads a bounded per-book preference snapshot. The mounted reader freezes
+its device class, activates the approved preference saver, and opens the engine
+only after adoption/readiness succeeds; failures and stalled adoption stay visible.
+Book/default updates and defaults-with-book-field-clearing use the reviewed action
+contract. Font files and metrics remain the approved SLN-501 inventory. Cold font
+transfer and native layout acceptance remain open, without a budget waiver.
+
+`useReaderAnnotations` mounts after the owned first painted landing. It injects
+SLN-500's transport codec over `getReaderRuntime`, subscribes to its durable
+snapshot, and disposes each generation. Highlights, bookmarks, note drafts,
+panel navigation and delayed-deletion Undo use that controller. The tracker owns
+quote choices through `bridge.annotationDeletes`; no second mutation sender or
+tracker writer is introduced. Feature shortcut registration retains keymap owners
+and leaves plugin reservations in force.
+
+The adapter applies the approved reflowable typography/layout policy and owns a
+separate page-local colour sheet. Colour-only changes skip paginator setters and
+`setStyles`; layout events retain their non-human origin. PDF search uses the actual
+opened PDF text provider and its measured offset locators, revoked on failure or
+close. Remaining source gaps include PDF search/annotation decoration drawing and
+strict PDF annotation healing, PDF speech text enumeration, crop/theme policy
+application and broader fixed/comic controls. No geometry or text stand-in is used.

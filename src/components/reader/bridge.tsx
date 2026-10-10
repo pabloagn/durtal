@@ -26,6 +26,7 @@ import type { BeforeAnnotationDelete } from "@/lib/reader/annotation-deletion";
 import type { ReaderContext, ReaderEvents } from "@/lib/reader/events";
 import {
   registerReaderKey,
+  registerReaderFeatureKey,
   getReaderShortcuts,
   subscribeReaderShortcuts,
 } from "@/lib/reader/input";
@@ -242,6 +243,13 @@ export function useReaderShortcut(
         : undefined,
     [bridge, key, when, label, enabled],
   );
+}
+/** Internal feature keys retain their declared issue/context; plugin reservations stay intact. */
+export function useReaderFeatureShortcut(key: string, issue: number, handler: (event: KeyboardEvent) => void, enabled = true) {
+  const latest = useRef(handler);
+  useLayoutEffect(() => { latest.current = handler; });
+  useEffect(() => enabled ? registerReaderFeatureKey(key, event => latest.current(event), issue) : undefined,
+    [key, issue, enabled]);
 }
 export function useReaderSlotFilled(slot: ReaderSlot): boolean {
   const bridge = useBridge();

@@ -124,6 +124,8 @@ export interface TocItem {
 
 /** How the book looks: typography and the theme's literal colours */
 export interface Presentation {
+  /** Persisted per-device presentation; absent only for legacy adapter callers. */
+  policy?: import("@/lib/validations/reader-preferences").ReaderPresentation;
   /** A CSS font-family list, or null for the publisher's own fonts */
   fontFamily: string | null;
   /** px */

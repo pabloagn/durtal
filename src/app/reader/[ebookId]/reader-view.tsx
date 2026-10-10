@@ -1,5 +1,8 @@
 "use client";
 import type { ReaderSpeech, SpeechSnapshot } from "@/lib/reader/speech/session";
+import { useReaderAnnotations } from "@/components/reader/use-reader-annotations";
+import { QUIET_GLASS_ANNOTATION_PALETTE } from "@/lib/reader/annotation-colors";
+import { highlightColours, LIGHT_THEME_HIGHLIGHTS } from "@/lib/reader/presentation/themes";
 import { SkipToBook } from "@/components/reader/skip-to-book";
 import { ReaderAnnouncer } from "@/components/reader/reader-announcer";
 
@@ -16,6 +19,7 @@ import {
   ReaderBridgeProvider,
   useReaderSlotFilled,
   useReaderShortcut,
+  useReaderFeatureShortcut,
 } from "@/components/reader/bridge";
 import { hasOpenSurface } from "@/lib/ui/surface-state";
 import {
@@ -56,8 +60,12 @@ import { ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
 import { ReaderShell, useReaderBars } from "@/components/reader/reader-shell";
 import { DownloadButton } from "@/components/reader/offline/download-button";
 import { ReaderToolbar } from "@/components/reader/reader-toolbar";
-import { SettingsDialog } from "@/components/reader/settings-dialog";
-import { useReaderSettings } from "@/hooks/use-reader-settings";
+import { PresentationSettingsDialog } from "@/components/reader/presentation-settings-dialog";
+import { useReaderPreferences } from "@/hooks/use-reader-preferences";
+import type { ReaderPreferencesRead } from "@/lib/ebooks/preferences";
+import type { DeviceClass } from "@/lib/validations/reader-preferences";
+import { effectivePresentation, presentationFieldScope, PRESENTATION_DEFAULTS, type PresentationRow } from "@/lib/reader/presentation/defaults";
+import { deviceClass as classifyDevice } from "@/lib/reader/presentation/device-class";
 import { READER_PAGE_RE } from "@/lib/reader/csp";
 import type {
   BookSource,
@@ -67,7 +75,6 @@ import type {
   ReaderEngine,
   ReaderFormat,
 } from "@/lib/reader/engine";
-import { readerFontFaces } from "@/lib/reader/fonts";
 import { PREFETCH_GLOBAL } from "@/lib/reader/first-range";
 import {
   createReaderInput,
@@ -79,8 +86,7 @@ import { getReaderRuntime } from "@/lib/reader/offline/runtime";
 import { comparePositionTimes } from "@/lib/reader/offline/outbox-policy";
 import { preloadFoliate } from "@/lib/reader/engines/foliate/preload";
 import {
-  presentationFrom,
-  resolveThemeColors,
+  presentationFromPreferences,
 } from "@/lib/reader/presentation";
 const SpeechControls = lazy(() =>
   import("@/components/reader/speech-player").then((module) => ({
@@ -219,9 +225,16 @@ type ReaderViewProps = {
   plugins: import("@/lib/reader/bridge-state").ReaderPluginView[];
   requiredControllerIds?: readonly string[];
   settingsCookie?: string | null;
+  preferences?: ReaderPreferencesRead;
 };
 export function ReaderView(props: ReaderViewProps) {
   const [attempt, setAttempt] = useState(0);
+  const [preferenceClass, setPreferenceClass] = useState<DeviceClass | null>(null);
+  useEffect(() => {
+    setPreferenceClass(classifyDevice({ width: window.innerWidth, height: window.innerHeight,
+      coarse: window.matchMedia("(pointer: coarse)").matches }));
+  }, []);
+  const preferences: ReaderPreferencesRead = props.preferences ?? { ok: true, ebookId: props.ebook.id, rows: [] };
   return (
     <ReaderBridgeProvider
       key={`${props.ebook.id}:${props.file?.id}:${attempt}`}
@@ -239,11 +252,14 @@ export function ReaderView(props: ReaderViewProps) {
       }}
     >
       {(bridge) => (
-        <ReaderSession
+        !preferences.ok ? <OpenError message={preferences.error} ebookId={props.ebook.id} backHref={props.backHref}
+          alternatives={props.alternatives} onRetry={() => window.location.reload()} /> : preferenceClass ? <ReaderSession
           {...props}
+          preferenceClass={preferenceClass}
+          preferenceRows={preferences.rows}
           bridge={bridge}
           onRetry={() => setAttempt((n) => n + 1)}
-        />
+        /> : <p role="status" className="p-6 text-sm text-fg-secondary">Opening the book</p>
       )}
     </ReaderBridgeProvider>
   );
@@ -259,12 +275,36 @@ function ReaderSession({
   backHref,
   bridge,
   onRetry,
-  settingsCookie,
-}: ReaderViewProps & { bridge: ReaderBridgeController; onRetry(): void }) {
+  preferenceClass,
+  preferenceRows,
+}: ReaderViewProps & { bridge: ReaderBridgeController; onRetry(): void; preferenceClass: DeviceClass; preferenceRows: readonly PresentationRow[] }) {
   const openingPlace = devicePlace ?? ownPlace ?? otherPlace;
   // The engine's code starts downloading as the view first renders, not after it mounts
   if (typeof window !== "undefined" && file) void preloadFoliate(file.format);
-  const { settings, setSettings, resetSettings } = useReaderSettings(settingsCookie);
+  const preferences = useReaderPreferences({ deviceClass: preferenceClass, ebookId: ebook.id, initialRows: preferenceRows });
+  const settings = useMemo(() => effectivePresentation(preferenceClass, preferences.rows), [preferenceClass, preferences.rows]);
+  const annotationPalette = useMemo(() => ({
+    fills: highlightColours(settings, settings.theme === "durtal-dark" ? QUIET_GLASS_ANNOTATION_PALETTE.fills : LIGHT_THEME_HIGHLIGHTS[settings.theme], QUIET_GLASS_ANNOTATION_PALETTE.fillOpacity),
+    quote: highlightColours(settings, { quote: QUIET_GLASS_ANNOTATION_PALETTE.quote }).quote,
+  }), [settings]);
+  const [preferencesTimedOut, setPreferencesTimedOut] = useState(false);
+  useEffect(() => {
+    if (preferences.ready) return;
+    const timer = setTimeout(() => setPreferencesTimedOut(true), OPEN_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [preferences.ready]);
+  const adjustText = (direction: -1 | 0 | 1) => {
+    if (!preferences.ready || !bridge.getControllerReadinessSnapshot().ready || file?.format === "pdf" || file?.format === "cbz") return;
+    const field = settings.publisherStyles ? "publisherScale" : "fontSizePx";
+    const value = direction === 0 ? PRESENTATION_DEFAULTS[preferenceClass][field]
+      : Math.min(field === "fontSizePx" ? 40 : 250, Math.max(field === "fontSizePx" ? 12 : 60,
+          settings[field] + direction * (field === "fontSizePx" ? 1 : 5)));
+    try { preferences.update({ deviceClass: preferenceClass, ebookId: presentationFieldScope(field, preferenceClass, preferences.rows), presentation: { [field]: value } }); }
+    catch (error) { setNotice(error instanceof Error ? error.message : "That setting could not be changed."); }
+  };
+  useReaderFeatureShortcut("+", 12, () => adjustText(1), preferences.ready);
+  useReaderFeatureShortcut("-", 12, () => adjustText(-1), preferences.ready);
+  useReaderFeatureShortcut("0", 12, () => adjustText(0), preferences.ready);
   const bookRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<ReaderEngine | null>(null);
   const resumeClock = useRef<string | null>(null);
@@ -334,29 +374,13 @@ function ReaderSession({
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState<boolean | null>(null);
-  const bars = useReaderBars({
-    held:
-      contentsOpen ||
-      searchOpen ||
-      settingsOpen ||
-      gotoOpen ||
-      shortcutsOpen ||
-      runningOpen ||
-      peeking ||
-      status.kind !== "ready" ||
-      !controllerReadiness.ready,
-  });
 
   // The book's look: the settings, the theme's colours and the reader's own fonts
   const presentation = useMemo(
     () =>
       typeof window === "undefined"
         ? null
-        : presentationFrom(
-            settings,
-            resolveThemeColors(),
-            readerFontFaces(window.location.origin),
-          ),
+        : presentationFromPreferences(settings, window.location.origin),
     [settings],
   );
   const presentationRef = useRef(presentation);
@@ -518,6 +542,29 @@ function ReaderSession({
     [bridge, navigate],
   );
 
+  const annotations = useReaderAnnotations({
+    book: ebook, fileId: file?.id ?? null, deviceId,
+    engine: status.kind === "ready" ? engineRef.current : null,
+    painted: status.kind === "ready" && !!relocation,
+    bridge, selection, locator: relocation?.locator ?? null,
+    palette: annotationPalette,
+    onJump: locator => navigate(locator, "annotation"), onNotice: setNotice,
+  });
+
+  const bars = useReaderBars({
+    held:
+      annotations.held ||
+      contentsOpen ||
+      searchOpen ||
+      settingsOpen ||
+      gotoOpen ||
+      shortcutsOpen ||
+      runningOpen ||
+      peeking ||
+      status.kind !== "ready" ||
+      !controllerReadiness.ready,
+  });
+
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenEnabled) return;
     const request = document.fullscreenElement
@@ -618,7 +665,7 @@ function ReaderSession({
   // The book: the engine, the input layer, the place
   useEffect(() => {
     const container = bookRef.current;
-    if (!file || !container) return;
+    if (!file || !container || !preferences.ready) return;
     // Arrived by a client-side navigation: load again, so the reader's content policy applies
     if (!loadedAsReaderPage()) {
       window.location.replace(window.location.href);
@@ -1233,7 +1280,7 @@ function ReaderSession({
     };
     // A new file or a retry opens the book again; the place is read once per open
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file?.id]);
+  }, [file?.id, preferences.ready]);
 
   useEffect(() => {
     const frame = bookRef.current;
@@ -1258,6 +1305,8 @@ function ReaderSession({
     [navigate],
   );
 
+  useEffect(() => { if (annotations.held) bars.show(); }, [annotations.held, bars.show]);
+
   const onBack = useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
     // Back to the page this one was opened from, when it is in this app
     let from: URL | null = null;
@@ -1278,7 +1327,10 @@ function ReaderSession({
   }, []);
 
   const overlay =
-    status.kind === "error" ? (
+    !preferences.ready && (preferences.error || preferencesTimedOut) ? (
+      <OpenError message={preferences.error ?? "Reading settings took too long to load. Try opening the book again."} ebookId={ebook.id} backHref={backHref} alternatives={alternatives}
+        onRetry={() => { if (preferencesTimedOut) window.location.reload(); else void preferences.flush(); }} />
+    ) : status.kind === "error" ? (
       <OpenError
         title={file ? undefined : "This eBook cannot be read here"}
         message={status.message}
@@ -1304,6 +1356,7 @@ function ReaderSession({
       overlay={overlay}
       topBar={
         <ReaderToolbar
+          annotationActions={annotations.toolbar}
           offlineAction={file ? <DownloadButton ebook={ebook} file={file} deviceId={deviceId} notice={setNotice} /> : undefined}
           onSearch={canSearch ? () => { paceRef.current?.interrupt(); setSearchMounted(true); setSearchOpen(true); } : undefined}
           speechControl={
@@ -1421,6 +1474,7 @@ function ReaderSession({
         )
       }
     >
+      {annotations.overlays}
       <ReaderAnnouncer
         location={relocation}
         speechPhase={speech?.state.phase ?? "stopped"}
@@ -1499,6 +1553,7 @@ function ReaderSession({
         onReadAloud={
           speech ? () => speechRef.current?.startSelection() : undefined
         }
+        markingActions={annotations.markingActions}
         speechReady={speech?.selectionReady}
       />
       <Suspense fallback={null}>
@@ -1599,12 +1654,22 @@ function ReaderSession({
           />
         )}
       </Suspense>
-      <SettingsDialog
+      <PresentationSettingsDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        settings={settings}
-        onChange={setSettings}
-        onReset={resetSettings}
+        presentation={settings}
+        deviceClass={preferenceClass} error={preferences.error} saving={preferences.saving}
+        pending={preferences.pending} recoveryError={preferences.recoveryError}
+        onChange={(patch, scope) => {
+          try { preferences.update({ deviceClass: preferenceClass, ebookId: scope === "book" ? ebook.id : null,
+            presentation: patch, ...(scope === "defaults" ? { clearBookOverrideId: ebook.id } : {}) }); }
+          catch (error) { setNotice(error instanceof Error ? error.message : "That setting could not be changed."); }
+        }}
+        onReset={scope => {
+          try { preferences.reset({ deviceClass: preferenceClass, ebookId: scope === "book" ? ebook.id : null }); }
+          catch (error) { setNotice(error instanceof Error ? error.message : "Settings could not be reset."); }
+        }}
+        onRetry={() => { void preferences.flush(); }}
       />
     </ReaderShell>
   );

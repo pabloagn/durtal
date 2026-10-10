@@ -31,7 +31,13 @@ import type {
 } from "@/lib/reader/engine";
 import { FoliateAnnotationResolver } from "./annotation-resolver";
 import { FoliateDecorations } from "./decorations";
-import { presentationCss } from "@/lib/reader/presentation";
+import { presentationCss, policyTypographyCss } from "@/lib/reader/presentation";
+import { bookCSS } from "@/lib/reader/presentation/book-css";
+import { themeColours } from "@/lib/reader/presentation/themes";
+import { presentationChangeKind } from "@/lib/reader/presentation/changes";
+import { paginatorAttributes } from "@/lib/reader/presentation/layout";
+import { CHAR_WIDTH_EM } from "@/lib/reader/presentation/fonts";
+import { adaptTypographyDeclaration } from "@/lib/reader/presentation/style-policy";
 import { PDFJS_BASE } from "@/lib/reader/first-range";
 import { ReadError, RangeSource, RemoteBlob } from "./remote-blob";
 import { DeferredImages } from "./deferred-images";
@@ -157,6 +163,8 @@ class FoliateEngine implements ReaderEngine {
   #readingFraction = 0;
   #owner: NavigationOwner | undefined;
   #presentation: Presentation | null = null;
+  #layoutObserver: ResizeObserver | null = null;
+  #publisherDeclarations = new WeakMap<CSSStyleDeclaration, Map<string, { value: string; priority: string }>>();
   #marginalia: Marginalia | null = null;
   #annotationResolver: FoliateAnnotationResolver | null = null;
   #decorations: FoliateDecorations | null = null;
@@ -230,6 +238,7 @@ class FoliateEngine implements ReaderEngine {
       void session.failure.catch((error: unknown) => {
         if (this.#destroyed || this.#pdf !== session) return;
         this.#pdfTextProvider = null;
+    this.#pdfSearchProvider = undefined;
         this.#pdfCss = "";
         const kind = openErrorKind(error);
         this.#emit("error", { kind, message: ERROR_MESSAGES[kind] });
@@ -238,11 +247,13 @@ class FoliateEngine implements ReaderEngine {
         const book = await makePdfBook(session, api, this.#pdfCss);
         this.#opening.signal.throwIfAborted();
         this.#pdfTextProvider = bindPdfTextProvider(session, this.#pdfCss);
+        this.#pdfSearchProvider = this.#pdfTextProvider;
         return book;
       } catch (error) {
         await session.destroy();
         if (this.#pdf === session) this.#pdf = null;
         this.#pdfTextProvider = null;
+    this.#pdfSearchProvider = undefined;
         this.#pdfCss = "";
         throw error;
       }
@@ -443,6 +454,8 @@ class FoliateEngine implements ReaderEngine {
     // Swipes, taps and the wheel belong to the reader's input layer (src/lib/reader/input.ts)
     view.renderer.setAttribute("no-swipe", "");
     this.setPresentation(presentation);
+    this.#layoutObserver = new ResizeObserver(() => this.#applyLayout());
+    this.#layoutObserver.observe(view);
 
     const sizes = book.sections.map((section) =>
       section.linear !== "no" && section.size > 0 ? section.size : 0,
@@ -534,6 +547,8 @@ class FoliateEngine implements ReaderEngine {
     this.#mediaDocs.clear();
     if (this.#selectionTimer) clearTimeout(this.#selectionTimer);
     if (this.#markTimer) clearTimeout(this.#markTimer);
+    this.#layoutObserver?.disconnect();
+    this.#layoutObserver = null;
     this.#annotationResolver?.destroy();
     this.#annotationResolver = null;
     this.#decorations?.clear();
@@ -546,6 +561,7 @@ class FoliateEngine implements ReaderEngine {
     void this.#pdf?.destroy().catch(() => {});
     this.#pdf = null;
     this.#pdfTextProvider = null;
+    this.#pdfSearchProvider = undefined;
     this.#pdfCss = "";
     this.#images?.destroy();
     this.#images = null;
@@ -898,6 +914,7 @@ class FoliateEngine implements ReaderEngine {
       };
       this.#emit("focus", { locator });
     });
+    this.#applyPagePolicy(doc);
     this.#documents.set(doc, index);
     this.#notes?.prefetch(doc, index);
     void import("../../media/document").then(({ attachReaderMedia }) => {
@@ -1253,11 +1270,23 @@ class FoliateEngine implements ReaderEngine {
   }
 
   setPresentation(presentation: Presentation) {
+    const previous = this.#presentation;
     this.#presentation = presentation;
     const history = this.#decorationSets.get("history");
     if (history?.length) this.setDecorations("history", history);
     const renderer = this.#view?.renderer;
     if (!renderer) return;
+    if (presentation.policy) {
+      const change = previous?.policy ? presentationChangeKind(previous.policy, presentation.policy) : "layout";
+      for (const { doc } of renderer.getContents()) this.#applyPagePolicy(doc, change === "layout");
+      // Changing colours owns only a page-local sheet. Never call setStyles or paginator attributes.
+      if (change === "layout") {
+        this.#applyLayout();
+        if (this.#book?.rendition?.layout !== "pre-paginated")
+          renderer.setStyles?.(policyTypographyCss(presentation));
+      }
+      return;
+    }
     if (this.#book?.rendition?.layout === "pre-paginated") return;
     renderer.setAttribute("flow", "paginated");
     renderer.setAttribute("gap", `${presentation.margin}%`);
@@ -1268,6 +1297,77 @@ class FoliateEngine implements ReaderEngine {
     renderer.setAttribute("max-inline-size", "720px");
     renderer.setAttribute("max-column-count", "2");
     renderer.setStyles?.(presentationCss(presentation));
+  }
+
+  #applyLayout() {
+    const p = this.#presentation?.policy;
+    const view = this.#view;
+    if (!p || !view || this.#destroyed) return;
+    const renderer = view.renderer;
+    if (this.#book?.rendition?.layout === "pre-paginated") {
+      const values = { zoom: p.fixedFit === "width" ? "fit-width" : "fit-page", spread: p.spread,
+        flow: p.flow === "scrolled" ? "scrolled" : "paginated" };
+      for (const [name, value] of Object.entries(values))
+        if (renderer.getAttribute(name) !== value) renderer.setAttribute(name, value);
+      return;
+    }
+    const size = view.getBoundingClientRect();
+    if (size.width <= 0 || size.height <= 0) return;
+    const attributes = paginatorAttributes(p, size, {
+      reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      fontMetrics: CHAR_WIDTH_EM,
+    });
+    const { animated, ...values } = attributes;
+    for (const [name, value] of Object.entries({ ...values, gap: "0%", "margin-top": "48px", "margin-bottom": "48px", "turn-style": "slide" }))
+      if (renderer.getAttribute(name) !== value) renderer.setAttribute(name, value);
+    if (animated) renderer.setAttribute("animated", "");
+    else renderer.removeAttribute("animated");
+  }
+
+  #applyPagePolicy(doc: Document, typography = true) {
+    const p = this.#presentation?.policy;
+    if (!p || this.#book?.rendition?.layout === "pre-paginated") return;
+    let colourSheet = doc.querySelector<HTMLStyleElement>("style[data-durtal-page-colours]");
+    if (!colourSheet) {
+      colourSheet = doc.createElement("style");
+      colourSheet.setAttribute("data-durtal-page-colours", "");
+      doc.head.append(colourSheet);
+    }
+    colourSheet.textContent = bookCSS(p, themeColours(p)).colours;
+    if (!typography) return;
+    const adapt = (style: CSSStyleDeclaration, context: { inline?: boolean; protectedTypography?: boolean }) => {
+      let original = this.#publisherDeclarations.get(style);
+      if (!original) {
+        original = new Map();
+        for (const name of ["font-size", "text-align"])
+          if (style.getPropertyValue(name)) original.set(name, { value: style.getPropertyValue(name), priority: style.getPropertyPriority(name) });
+        this.#publisherDeclarations.set(style, original);
+      }
+      for (const [name, saved] of original)
+        style.setProperty(name, adaptTypographyDeclaration(name, saved.value, p, context), saved.priority);
+    };
+    const walk = (rules: CSSRuleList) => {
+      for (const rule of Array.from(rules)) {
+        if ("selectorText" in rule && "style" in rule) {
+          const styled = rule as CSSStyleRule;
+          // Preserve protected typography even when a selector covers several descendants.
+          const protectedTypography = /(?:^|[\s,>+~])(?:pre|code|kbd|samp|tt|math|svg)(?:$|[\s,.#:[>+~])/.test(styled.selectorText);
+          adapt(styled.style, { protectedTypography });
+        }
+        if ("cssRules" in rule) walk((rule as CSSGroupingRule).cssRules);
+      }
+    };
+    for (const sheet of Array.from(doc.styleSheets)) {
+      // The renderer owns these sheets; source publisher declarations alone are adapted.
+      if (!sheet.ownerNode || sheet.ownerNode.nodeType !== 1 || sheet.ownerNode === colourSheet ||
+          !(sheet.ownerNode as Element).matches("link[rel=stylesheet], style:not([data-durtal-page-colours])")) continue;
+      // Foliate inserts its own typography sheets without an original source node marker.
+      // Ignore sheets containing our face family or our own structural namespace.
+      if (sheet.ownerNode.textContent?.includes("@namespace epub")) continue;
+      try { walk(sheet.cssRules); } catch { /* A publisher cross-origin sheet remains intact. */ }
+    }
+    for (const element of doc.querySelectorAll<HTMLElement>("[style]"))
+      adapt(element.style, { inline: true, protectedTypography: !!element.closest("pre,code,kbd,samp,tt,math,svg") });
   }
 
   async goTo(target: GoToTarget, owner?: NavigationOwner): Promise<void> {

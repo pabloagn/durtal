@@ -2448,6 +2448,27 @@ each reference that pair with their own e-book's id. The routes and services che
 the same; these keys are the backstop under them. A refused row answers SQLSTATE
 `23503` with the key's name.
 
+### Reader integration migration inventory
+
+The experience candidate preserves applied metadata through `0081_ebook_ingest`.
+The journal and generated snapshots are unchanged. Later declarations/proposals
+are not evidence that their tables or functions exist in the live database.
+
+| Slot | Source in this candidate | Registration/application |
+|---|---|---|
+| 0082 | Matching declarations and `migration-proposals/0082_ebook_matching.manual.sql` | Proposal only; no generated snapshot/journal entry |
+| 0083 | Annotation/retirement/cursor declarations and `scripts/review/0083_ebook_annotations_search.sql`, deferred quote review SQL | Review only; no generated snapshot/journal entry |
+| 0084 | Natural library sort declarations and prepared `migrations/0084_ebook_library.sql` | Unregistered; no generated snapshot/journal entry |
+| 0085 | Reader preference declarations and reviewed action contract | Reserved, centrally ungenerated |
+| 0086 | No declaration or migration imported by this experience grant | Reserved; not generated/applied here |
+| 0087 | Tracker and composed quote declarations/review proposal | Reserved, centrally ungenerated |
+| 0088 | No declaration or migration imported by this experience grant | Reserved; not generated/applied here |
+
+The combined generator sequence and disposable native checks remain coordinator
+work. This candidate does not register migration 0089 or repair missing installed
+schemas by silently inventing client defaults. Reader preference read failures
+surface before opening the book.
+
 ### `ebooks`
 
 | Column | Type | Constraints | Notes |

@@ -2,7 +2,6 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { preload } from "react-dom";
 import { isUuid } from "@/lib/utils/uuid";
 import { formatLabel } from "@/lib/ebooks/formats";
 import {
@@ -17,9 +16,8 @@ import {
   firstRanges,
   prefetchScript,
 } from "@/lib/reader/first-range";
-import { readerLatinFace } from "@/lib/reader/fonts";
+import { getReaderPreferences } from "@/lib/ebooks/preferences";
 import { zipCdOffset } from "@/lib/reader/manifest";
-import { readerSettings } from "@/lib/reader/settings-cookie";
 import { READER_SETTINGS_KEY, READING_HOME_KEY } from "@/lib/preferences";
 import { loadReaderRuntime } from "@/lib/reader/runtime-loader";
 import { PreferencesProvider } from "@/lib/hooks/use-preference";
@@ -55,26 +53,6 @@ async function readRequest({ params, searchParams }: PageProps) {
     settingsCookie: jar.get(READER_SETTINGS_KEY)?.value ?? null,
     homeCookie: jar.get(READING_HOME_KEY)?.value ?? null,
   };
-}
-
-/**
- * The reading font, asked for with the page: the first page is then laid
- * out once, in it. A PDF or a comic is pictures of its pages and never uses it.
- */
-function preloadReadingFont(
-  settingsCookie: string | null,
-  format: ReaderFormat,
-) {
-  if (format === "pdf" || format === "cbz") return;
-  let stored: unknown = null;
-  try {
-    stored = settingsCookie ? JSON.parse(settingsCookie) : null;
-  } catch {
-    // A damaged cookie gives the defaults
-  }
-  const face = readerLatinFace(readerSettings(stored).fontFamily);
-  if (face)
-    preload(face, { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
 }
 
 export async function generateMetadata(props: PageProps): Promise<Metadata> {
@@ -125,10 +103,11 @@ async function viewFile(file: ReaderFile): Promise<ReaderViewFile> {
 export default async function ReaderPage(props: PageProps) {
   const request = await readRequest(props);
   const requiredControllerIds = getRequiredReaderControllerIds();
-  const [bookResult, pluginsResult, runtimeResult] = await Promise.allSettled([
+  const [bookResult, pluginsResult, runtimeResult, preferencesResult] = await Promise.allSettled([
     loadBook(request.ebookId, request.deviceId, request.fileId),
     loadReaderPlugins(request),
     loadReaderRuntime(request.homeCookie),
+    getReaderPreferences(request.ebookId),
   ]);
   if (bookResult.status === "rejected") throw bookResult.reason;
   const book = bookResult.value;
@@ -142,7 +121,8 @@ export default async function ReaderPage(props: PageProps) {
   if (runtimeResult.status === "rejected") console.error("[reader] Runtime loading failed:", runtimeResult.reason);
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   const file = book.file ? await viewFile(book.file) : null;
-  if (file) preloadReadingFont(request.settingsCookie, file.format);
+  const preferences = preferencesResult.status === "fulfilled" ? preferencesResult.value
+    : { ok: false, error: "Reading settings could not be loaded. Try opening the book again." } as const;
   const ranges = file ? firstRanges(file.format, file.size, file.cdOffset) : [];
   const worker = file?.format === "pdf" ? PDF_WORKER_URL : undefined;
   return (
@@ -182,7 +162,7 @@ export default async function ReaderPage(props: PageProps) {
         backHref={`/ebooks/${book.id}`}
         plugins={plugins}
         requiredControllerIds={requiredControllerIds}
-        settingsCookie={request.settingsCookie}
+        preferences={preferences}
       />
       </ReaderRuntimeProvider>
       </PreferencesProvider>
