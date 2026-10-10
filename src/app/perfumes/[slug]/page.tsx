@@ -523,8 +523,8 @@ export default async function PerfumePage({
                 <span className="text-fg-secondary">None kept</span>
               )}
             </dd>
-            <dt className="text-fg-secondary">Your rating</dt>
-            <dd className="text-fg-primary">
+            <dt className="text-fg-secondary pointer-coarse:max-sm:col-span-2">Your rating</dt>
+            <dd className="text-fg-primary pointer-coarse:max-sm:col-span-2">
               <RatingControl rating={curation?.rating ?? null} />
             </dd>
           </dl>

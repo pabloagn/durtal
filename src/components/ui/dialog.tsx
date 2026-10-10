@@ -21,6 +21,8 @@ interface DialogProps {
   className?: string;
   /** Show the expand/collapse toggle. Defaults to true. */
   expandable?: boolean;
+  /** Let a child editor own its scrolling and keep its actions in view. */
+  scrollBody?: boolean;
 }
 
 const FIRST_FIELD =
@@ -82,6 +84,7 @@ export function Dialog({
   children,
   className = "",
   expandable = true,
+  scrollBody = true,
 }: DialogProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -200,7 +203,7 @@ export function Dialog({
       {/* Body. It scrolls, not the dialog: the glass stays behind every
           line, and the header stays in view. It grows from its content
           (flex-auto): from a zero basis, Safari gives it no height */}
-      <div className="min-h-0 flex-auto overflow-y-auto px-6 pb-6 pt-3">
+      <div className={`min-h-0 flex-auto px-6 pb-6 pt-3 ${scrollBody ? "overflow-y-auto" : "flex flex-col overflow-hidden"}`}>
         {children}
       </div>
     </dialog>
