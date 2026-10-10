@@ -99,8 +99,10 @@ describe("coarse poster source selection", () => {
       original.call(this, name, value);
     });
     renderPoster();
-    expect(assigned).toHaveLength(1);
-    expect(new URL(assigned[0], "https://fixture.invalid").searchParams.get("w")).toBe("800");
+    // React assigns src during construction and again at commitMount.
+    // Every assignment must be bounded, including the detached one.
+    expect(assigned.length).toBeGreaterThan(0);
+    for (const value of assigned) expect(value).toBe(source + "&w=800");
     expect(host.querySelector('source[media="(pointer: fine)"]')!.getAttribute("srcset")).toBe(source);
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   });

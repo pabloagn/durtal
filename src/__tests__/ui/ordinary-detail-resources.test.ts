@@ -59,7 +59,10 @@ describe("ordinary book detail resource bounds", () => {
     const host = markup(createElement(AmbientCrystals, { palette }));
     const coarse = host.querySelector(".book-ambient-coarse") as HTMLElement;
     expect(coarse).not.toBeNull();
-    expect((coarse.style.background.match(/radial-gradient/g) ?? []).length).toBe(4);
+    // Happy DOM's shorthand parser mistakes rgb(... / alpha) for a
+    // background-position/size separator. Check all emitted layers here;
+    // native computed background-image remains a separate browser check.
+    expect(((coarse.getAttribute("style") ?? "").match(/radial-gradient/g) ?? []).length).toBe(4);
     expect(coarse.style.filter).toBe("");
     expect(coarse.style.transform).toBe("");
     expect(coarse.children.length).toBe(0);
@@ -70,7 +73,7 @@ describe("ordinary book detail resource bounds", () => {
     expect(host.firstElementChild!.getAttribute("style")).toContain("mask-composite:intersect");
     const glow = markup(createElement(PosterGlow, { palette }));
     const coarseGlow = glow.querySelector(".book-ambient-coarse") as HTMLElement;
-    expect((coarseGlow.style.background.match(/radial-gradient/g) ?? []).length).toBe(2);
+    expect(((coarseGlow.getAttribute("style") ?? "").match(/radial-gradient/g) ?? []).length).toBe(2);
     expect(coarseGlow.style.filter).toBe("");
     expect(glow.querySelectorAll(".book-ambient-desktop")).toHaveLength(2);
     expect(markup(createElement(AmbientCrystals, { palette: [] })).children).toHaveLength(0);
