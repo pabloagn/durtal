@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { AuthorEditDialog } from "./author-edit-dialog";
 import { AuthorMergeDialog } from "./author-merge-dialog";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
+import { CoarseImageSource } from "@/components/shared/coarse-image-source";
 import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { ExportMenu } from "@/components/shared/export-menu";
@@ -131,15 +132,18 @@ export function AuthorDetailHeader({
                 }
               }}
             >
-              <Image
-                src={posterUrl}
-                alt={`${name} portrait`}
-                fill
-                sizes="192px"
-                className="protected-image object-cover transition-transform duration-300 hover:scale-[1.03]"
-                style={mediaImageStyle(posterCrop)}
-                unoptimized
-              />
+              <picture>
+                <CoarseImageSource src={posterUrl} />
+                <Image
+                  src={posterUrl}
+                  alt={`${name} portrait`}
+                  fill
+                  sizes="192px"
+                  className="protected-image object-cover transition-transform duration-300 hover:scale-[1.03]"
+                  style={mediaImageStyle(posterCrop)}
+                  unoptimized
+                />
+              </picture>
             </div>
           </ProtectedImageWrapper>
         ) : (

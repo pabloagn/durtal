@@ -78,7 +78,7 @@ export function CollectionsView({
     );
   return (
     <div className="@container">
-      <div className={`grid gap-4 ${COL_CLASSES[size] ?? COL_CLASSES[GRID.fallback]}`}>
+      <div data-catalogue-grid="" data-grid-density={size} className={`grid gap-4 ${COL_CLASSES[size] ?? COL_CLASSES[GRID.fallback]}`}>
         {collections.map(({ collection, covers }) => (
           <CollectionCard key={collection.id} collection={collection} covers={covers} />
         ))}

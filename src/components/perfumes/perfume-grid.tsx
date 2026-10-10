@@ -53,7 +53,7 @@ export function PerfumeGrid({
         />
       ) : viewMode === "grid" ? (
         <div className="@container">
-          <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
+          <div data-catalogue-grid="" data-grid-density={gridColumns} className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
             {perfumes.map((perfume) => (
               <PerfumeCard key={perfume.id} perfume={perfume} />
             ))}

@@ -45,7 +45,7 @@ export function BookGrid({
   const coverSizes = `${maxCardWidth(columns)}px`;
   return (
     <div className="@container">
-      <div className={`grid gap-4 ${colClass}`}>
+      <div data-catalogue-grid="" data-grid-density={columns} className={`grid gap-4 ${colClass}`}>
         {books.map((book, i) => (
           <BookCard
             key={book.workId}

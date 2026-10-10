@@ -11,7 +11,9 @@ describe("mediaUrl", () => {
 
   it("adds a version from a date as epoch ms", () => {
     const url = mediaUrl("k", { version: new Date(1700000000000) });
-    expect(new URL(url, "http://x").searchParams.get("v")).toBe("1700000000000");
+    expect(new URL(url, "http://x").searchParams.get("v")).toBe(
+      "1700000000000",
+    );
   });
 
   it("omits a missing version", () => {
@@ -49,12 +51,27 @@ describe("isMediaWidth", () => {
 });
 
 describe("maxCardWidth", () => {
-  it("is the widest card over every container width", () => {
-    expect(maxCardWidth(2)).toBe(544);
+  it("covers full-width phone Large cards through the coarse viewport boundary", () => {
+    for (const viewport of [320, 390, 430, 767]) {
+      // The page shell can give a single Large card viewport minus 32px.
+      expect(maxCardWidth(2)).toBeGreaterThanOrEqual(viewport - 32);
+    }
+    // Compact stays bounded by the existing desktop maximum; its phone
+    // projection is at most two cards above 328px, or one below it.
+    for (const columns of [3, 4, 5, 6, 7, 8]) {
+      expect(maxCardWidth(columns)).toBe(432);
+      expect(maxCardWidth(columns)).toBeGreaterThanOrEqual((767 - 8) / 2);
+      expect(maxCardWidth(columns)).toBeGreaterThanOrEqual(327);
+    }
+  });
+
+  it("bounds cards over desktop containers and phone projections", () => {
+    expect(maxCardWidth(2)).toBe(767);
     expect(maxCardWidth(6)).toBe(432);
   });
 
   it("accounts for the single readable card before a second column fits", () => {
-    for (const columns of [3, 4, 5, 6, 7, 8]) expect(maxCardWidth(columns)).toBeGreaterThanOrEqual(432);
+    for (const columns of [3, 4, 5, 6, 7, 8])
+      expect(maxCardWidth(columns)).toBeGreaterThanOrEqual(432);
   });
 });

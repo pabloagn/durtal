@@ -63,7 +63,7 @@ export function RecommendersShell({
       <Pagination {...pagination} noun="recommenders" compact />
       {viewMode === "grid" ? (
         <div className="@container">
-          <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
+          <div data-catalogue-grid="" data-grid-density={gridColumns} className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
             {recommenders.map((r) => (
               <RecommenderCard key={r.id} recommender={r} />
             ))}

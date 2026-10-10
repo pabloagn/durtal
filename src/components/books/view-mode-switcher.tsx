@@ -26,7 +26,7 @@ export function ViewModeSwitcher({ value, onChange, availableModes }: ViewModeSw
     : ALL_MODES.filter((m) => m.value === "grid" || m.value === "list" || m.value === "detailed");
 
   return (
-    <div className="flex items-center rounded-sm border border-glass-border">
+    <div data-catalogue-view={value} className="flex items-center rounded-sm border border-glass-border">
       {MODES.map((mode) => {
         const Icon = mode.icon;
         return (

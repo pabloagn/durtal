@@ -48,7 +48,9 @@ jobs:
           python-version: "3.12"
       - run: pnpm install --frozen-lockfile
       # scripts/qa/test-local.py never pulls images itself.
-      - run: docker pull postgres:16
+      - name: Prepare PostgreSQL image (bounded anonymous pull)
+        timeout-minutes: 21
+        run: python3 scripts/qa/pull-ci-postgres.py
       - run: pnpm test:local --report-dir "$RUNNER_TEMP/durtal-tests"
       - if: always()
         uses: actions/upload-artifact@v4

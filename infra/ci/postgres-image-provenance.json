@@ -1,0 +1,45 @@
+{
+  "status": "metadata comparison observed; CI source proposal pending independent review",
+  "observedDate": "2026-10-09",
+  "inspection": "Anonymous HTTPS tokens, HEAD tag and GET index/platform manifests only; no image config blobs, layers or Docker operations",
+  "primary": "docker.io/library/postgres:16",
+  "mirror": "public.ecr.aws/docker/library/postgres:16",
+  "platform": "linux/amd64",
+  "comparison": {
+    "identicalIndexBodySha256": "sha256:ca0bd484cb98bf4b24eb1010e73fb3fcbd6714d240fbc1a10eea5b7dbecb641d",
+    "identicalPlatformManifestBodySha256": "sha256:75adc2a65806c96bc0e59030230bfe3f1c1b0d6d8f8181a8913e2b8b53bdc166",
+    "platformManifestBytes": 3628,
+    "identicalConfigDescriptorDigest": "sha256:275447c94b11b151decd1f29877965301d5a77032037c46de93d990f739f00a9",
+    "configDescriptorBytes": 10147,
+    "identicalLayerDescriptors": 14,
+    "headDigestHeadersEqualComputedIndexHash": true,
+    "platformHashEqualsBothIndexDescriptors": true,
+    "ecrGetDockerContentDigestHeader": null,
+    "ecrGetHeaderNote": "Optional header absent; body hashes matched HEAD and index descriptor digests. This is not a content mismatch."
+  },
+  "platformManifestAnnotations": {
+    "version": "16.15",
+    "created": "2026-10-06T01:33:02Z",
+    "revision": "9d15534160ade17f2b6c455a39ee967c49b1937d",
+    "source": "https://github.com/docker-library/postgres.git#9d15534160ade17f2b6c455a39ee967c49b1937d:16/trixie",
+    "baseName": "debian:trixie-slim",
+    "baseDigest": "sha256:918311b7b6c4c6f68b232ba516584925f6c78ad82b6fd534b98979df6438e483"
+  },
+  "sources": [
+    "https://aws.amazon.com/blogs/containers/docker-official-images-now-available-on-amazon-elastic-container-registry-public/",
+    "https://docs.aws.amazon.com/AmazonECR/latest/public/docker-pull-ecr-image.html",
+    "https://docs.docker.com/docker-hub/usage/pulls/",
+    "https://docs.docker.com/docker-hub/troubleshoot/",
+    "https://docs.docker.com/reference/cli/docker/image/pull/",
+    "https://distribution.github.io/distribution/spec/api/",
+    "https://docs.github.com/en/actions/reference/runners/github-hosted-runners"
+  ],
+  "runtimePolicy": "This dated record does not pin future CI. Each fallback compares the current Docker Hub HEAD index digest to the computed mirror index body, verifies the unique linux/amd64 child body, rechecks the primary HEAD, and pulls the immutable mirror child digest. Any unverifiable equality fails closed.",
+  "sourceVerifierMetadataRead": {
+    "result": "passed",
+    "date": "2026-10-09",
+    "dockerInvoked": false,
+    "layersDownloaded": false,
+    "matchesRecordedDigests": true
+  }
+}

@@ -72,7 +72,7 @@ export function PlacesShell({ venues, total }: PlacesShellProps) {
     <>
       {viewMode === "grid" && (
         <div className="@container">
-          <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
+          <div data-catalogue-grid="" data-grid-density={gridColumns} className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
             {venues.map((v) => (
               <VenueCard
                 key={v.id}

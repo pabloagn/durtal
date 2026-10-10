@@ -126,6 +126,16 @@ function generateBlobParams(palette: CrystalColor[]) {
   return blobs;
 }
 
+/** Same palette saturation and opacity, baked into a soft gradient's colour.
+ * A coarse pointer paints one clipped plane, without per-blob blur surfaces. */
+function coarseColor(hex: string, opacity: number) {
+  const value = Number.parseInt(hex.slice(1), 16);
+  const rgb = [value >> 16, (value >> 8) & 255, value & 255];
+  const grey = rgb[0] * 0.213 + rgb[1] * 0.715 + rgb[2] * 0.072;
+  const muted = rgb.map((channel) => Math.round(grey + (channel - grey) * 0.6));
+  return `rgb(${muted.join(" ")} / ${opacity})`;
+}
+
 /**
  * Ambient color gradients sampled from the book's poster.
  *
@@ -137,6 +147,12 @@ export function AmbientCrystals({ palette }: AmbientCrystalsProps) {
   if (!palette || palette.length === 0) return null;
 
   const blobs = generateBlobParams(palette);
+  // One main colour field per palette entry, at its existing seeded position.
+  // The palette pipeline emits at most four colours; cap legacy palettes too.
+  const coarseBackground = palette.slice(0, 4).map((color) => {
+    const blob = blobs.find((item) => item.color === color)!;
+    return `radial-gradient(ellipse ${blob.rx}% ${blob.ry}% at ${blob.cx}% ${blob.cy}%, ${coarseColor(color.hex, blob.opacity * 0.38)} 0%, transparent 70%)`;
+  }).join(", ");
 
   return (
     <div
@@ -150,9 +166,13 @@ export function AmbientCrystals({ palette }: AmbientCrystalsProps) {
         maskComposite: "intersect",
       }}
     >
-      {/* Blobs — individually blurred at different radii for depth */}
       <div
-        className="absolute inset-0"
+        className="book-ambient-coarse absolute inset-0"
+        style={{ background: coarseBackground }}
+      />
+      {/* Desktop blobs retain their existing depth and placement. */}
+      <div
+        className="book-ambient-desktop absolute inset-0"
         style={{
           transform: "scale(1.3)",
           transformOrigin: "center 35%",
@@ -202,14 +222,20 @@ export function PosterGlow({ palette }: PosterGlowProps) {
       aria-hidden="true"
     >
       <div
-        className="absolute inset-0"
+        className="book-ambient-coarse absolute inset-0"
+        style={{
+          background: `radial-gradient(ellipse 100% 90% at 50% 50%, ${glowColor}40 0%, transparent 75%), radial-gradient(ellipse 80% 100% at 40% 60%, ${secondaryColor}30 0%, transparent 75%)`,
+        }}
+      />
+      <div
+        className="book-ambient-desktop absolute inset-0"
         style={{
           background: `radial-gradient(ellipse 80% 70% at 50% 50%, ${glowColor}40 0%, transparent 70%)`,
           filter: "blur(30px)",
         }}
       />
       <div
-        className="absolute inset-0"
+        className="book-ambient-desktop absolute inset-0"
         style={{
           background: `radial-gradient(ellipse 60% 80% at 40% 60%, ${secondaryColor}30 0%, transparent 65%)`,
           filter: "blur(25px)",
