@@ -1239,6 +1239,8 @@ class FoliateEngine implements ReaderEngine {
     const tocLabel = progress?.tocItem?.label?.trim().slice(0, 300);
     const pageLabel = progress?.pageItem?.label?.trim().slice(0, 40);
     if (this.#isPdf()) {
+      // A PDF passage needs a complete, nonempty text quote.
+      if (!quote?.highlight) return null;
       const doc = range.startContainer.ownerDocument;
       const viewport = doc && this.#book.pdfViewport?.(doc);
       const layer = doc?.querySelector<HTMLElement>(".textLayer");
@@ -1262,7 +1264,7 @@ class FoliateEngine implements ReaderEngine {
         pageCount: this.#book.sections.length,
         viewport,
         rects,
-        text: quote,
+        text: { ...quote, highlight: quote.highlight },
         pageLabel,
         tocLabel,
       });

@@ -31,6 +31,8 @@ beforeEach(() => {
     settings: fn(),
     search: fn(),
     fullscreen: fn(),
+    speech: fn(),
+    sentence: fn(),
     goto: fn(),
     chapter: fn(),
     shortcuts: fn(),
@@ -70,6 +72,29 @@ const key = (
 };
 
 describe("keys", () => {
+  it("routes available speech actions and leaves unavailable speech keys native", () => {
+    expect(key("a").defaultPrevented).toBe(true);
+    expect(key(",").defaultPrevented).toBe(true);
+    expect(key(".").defaultPrevented).toBe(true);
+    expect(actions.speech).toHaveBeenCalledOnce();
+    expect(actions.sentence.mock.calls).toEqual([["previous"], ["next"]]);
+    key("a", { repeat: true });
+    key(".", { ctrlKey: true });
+    blocked = true; key("a"); blocked = false;
+    key(".", {}, document.getElementById("field")!);
+    expect(actions.speech).toHaveBeenCalledOnce();
+    expect(actions.sentence).toHaveBeenCalledTimes(2);
+    const { speech, sentence, ...withoutSpeech } = actions;
+    input.destroy();
+    input = createReaderInput({ actions: withoutSpeech, isBlocked: () => blocked, now: () => clock });
+    input.attach(document);
+    expect(key("a").defaultPrevented).toBe(false);
+    expect(key(",").defaultPrevented).toBe(false);
+    expect(key(".").defaultPrevented).toBe(false);
+    expect(speech).toHaveBeenCalledOnce();
+    expect(sentence).toHaveBeenCalledTimes(2);
+  });
+
   it("opens book search from the book, leaves a second Mod+F in the search field to the browser", () => {
     expect(key("/", {}).defaultPrevented).toBe(true);
     expect(key("f", { ctrlKey: true }).defaultPrevented).toBe(true);

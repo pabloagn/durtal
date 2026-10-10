@@ -863,8 +863,9 @@ function ReaderSession({
         phase = "engine";
         input.attach(document);
         historyInput.attach(document);
-        engine = createFoliateEngine();
-        engineRef.current = engine;
+        const openingEngine = createFoliateEngine();
+        engine = openingEngine;
+        engineRef.current = openingEngine;
         let latest: EngineEvents["relocate"] | null = null;
         engine.on("error", ({ message }) => {
           reported = true;
@@ -1067,15 +1068,15 @@ function ReaderSession({
                 anchor: resumeAnchor,
               },
               {
-                resolve: (locator) => engine.resolve(locator),
-                currentLocator: () => engine.currentLocator(),
+                resolve: (locator) => openingEngine.resolve(locator),
+                currentLocator: () => openingEngine.currentLocator(),
                 goTo: async (target) => {
                   while (!bridge.isControllerPermitCurrent(admitted)) {
                     admitted = await bridge.whenControllersReady(startupAbort.signal);
                   }
                   if (cancelled || startupAbort.signal.aborted)
                     throw new DOMException("Reader startup cancelled", "AbortError");
-                  await engine.goTo(target);
+                  await openingEngine.goTo(target);
                 },
               },
             )

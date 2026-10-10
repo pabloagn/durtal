@@ -23,7 +23,7 @@ import { useOptionalTimer } from "./timer-provider";
  */
 
 import { ReadingDialogSwitch } from "./reading-dialog-switch";
-import type { DialogRequest } from "./reading-dialog-types";
+import type { DialogRequest, ReadingDialogProps } from "./reading-dialog-types";
 export type { ReadingDialog, DialogRequest, StopRequest, ReadingDialogProps } from "./reading-dialog-types";
 
 interface ReadingContextValue {

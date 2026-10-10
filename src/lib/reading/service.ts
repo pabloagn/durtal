@@ -293,7 +293,10 @@ export async function createReading(
   const given = { page: input.startPage, percent: input.startPercent, minutes: input.startMinutes };
   const anyStart = [given.page, given.percent, given.minutes].some((v) => v != null);
   checkWithinTotals(given, totals);
-  const start = anyStart ? completePosition(given, totals) : { page: null, percent: null, minutes: null };
+  const start: Pos = {
+    ...(anyStart ? completePosition(given, totals) : { page: null, percent: null, minutes: null }),
+    chapter: null,
+  };
   const id = randomUUID();
   const status = input.status ?? "reading";
   const results = await withReadableErrors(() =>

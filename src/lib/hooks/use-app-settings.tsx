@@ -14,6 +14,7 @@ const AppSettingsContext = createContext<AppSettings>({
   readingDayStartHour: 4,
   readingWeekStart: 1,
   readingTimerCheckMinutes: 90,
+  readingAutoTrackEbooks: true,
   readingRhythmDays: null,
   readingSuggestHideAnathema: false,
   readingPredictionGate: null,

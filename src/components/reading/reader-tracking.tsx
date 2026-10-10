@@ -5,11 +5,11 @@ import { toast } from "sonner";
 import { ReaderSlotFill, useBeforeAnnotationDelete, useReaderContext, useReaderController, useReaderControllerFailure } from "@/components/reader/bridge";
 import type { ReaderControllerFailureProps } from "@/lib/reader/bridge-state";
 import type { PreparedAnnotationDelete } from "@/lib/reader/annotation-deletion";
-import type { ReaderEvents, ReaderSelection } from "@/lib/reader/events";
+import type { ReaderSelection } from "@/lib/reader/events";
 import { registerReaderKey } from "@/lib/reader/input";
 import { getReaderTracking, prepareReaderQuoteDelete, saveReaderQuote, startReaderReading } from "@/lib/actions/reader-tracking";
 import { deleteReading, pauseReading, resumeReading } from "@/lib/actions/reading";
-import { createReadingReaderController, READER_TRACKING_CONTROLLER_ID } from "@/lib/reading/reader-controller";
+import { createReadingReaderController, READER_TRACKING_CONTROLLER_ID, type ReadingReaderEvents } from "@/lib/reading/reader-controller";
 import { createReaderSittingQueue } from "@/lib/reading/reader-sitting-queue";
 import { readerTrackingDataSchema, type ReaderTrackingData } from "@/lib/reading/reader-tracking-data";
 import { Button } from "@/components/ui/button";
@@ -166,7 +166,7 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
 
   useLayoutEffect(() => { controller.current?.suspend(timerOwns); }, [timerOwns]);
 
-  const handle = <K extends keyof ReaderEvents>(name: K, event: ReaderEvents[K]) => {
+  const handle = <K extends keyof ReadingReaderEvents>(name: K, event: ReadingReaderEvents[K]) => {
     const active = controller.current;
     if (!active) throw new Error("Reading controller is not initialized");
     active.handlers[name](event);

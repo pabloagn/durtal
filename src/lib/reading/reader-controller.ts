@@ -3,6 +3,7 @@ import { advanceActiveTime, initialActiveTime, nextActiveTimeDeadline, ACTIVE_WI
 import { countReaderPosition, countedReaderEnd, initialReaderPosition, JUMP_ACTIVE_MS, type ReaderPositionState } from "./reader-position";
 
 export const READER_TRACKING_CONTROLLER_ID = "reading-tracker";
+export type ReadingReaderEvents = Pick<ReaderEvents, "activity" | "location" | "end" | "selection">;
 export interface ReaderSittingWire {
   sittingId: string;
   readingId: string;
@@ -35,7 +36,7 @@ export interface ReaderControllerOptions {
 }
 
 /** Eager functional controller. React/UI loading owns no subscriptions or clocks.
- * All public reader events enter these four handlers; no event history is replayed.
+ * Tracker activity, location, end and selection enter these handlers; no history is replayed.
  */
 export function createReadingReaderController(options: ReaderControllerOptions) {
   const timers = options.timer ?? { set: (fn: () => void, delay: number) => setTimeout(fn, delay), clear: (id: unknown) => clearTimeout(id as ReturnType<typeof setTimeout>) };
@@ -169,7 +170,7 @@ export function createReadingReaderController(options: ReaderControllerOptions) 
     schedule();
   }
 
-  const handlers: { [K in keyof ReaderEvents]: (event: ReaderEvents[K]) => void } = {
+  const handlers: { [K in keyof ReadingReaderEvents]: (event: ReadingReaderEvents[K]) => void } = {
     activity(event) {
       advance({ kind: "activity", at: clock(event.at) });
     },

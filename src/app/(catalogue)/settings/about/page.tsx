@@ -1,6 +1,6 @@
 import { version as reactVersion } from "react";
 import nextPackage from "next/package.json";
-import durtalPackage from "../../../../package.json";
+import durtalPackage from "../../../../../package.json";
 import {
   SettingFact,
   SettingsGroup,
