@@ -58,7 +58,7 @@ export function SeriesShell({
       <Pagination {...pagination} noun="series" compact />
       {viewMode === "grid" ? (
         <div className="@container">
-          <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
+          <div data-catalogue-grid="" data-grid-density={gridColumns} className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
             {series.map((s) => (
               <SeriesCard key={s.id} series={s} />
             ))}
