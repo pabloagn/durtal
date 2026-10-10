@@ -60,6 +60,7 @@ import { ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
 import { ReaderShell, useReaderBars } from "@/components/reader/reader-shell";
 import { DownloadButton } from "@/components/reader/offline/download-button";
 import { ReaderToolbar } from "@/components/reader/reader-toolbar";
+import { FixedLayoutControls } from "@/components/reader/fixed-layout-controls";
 import { PresentationSettingsDialog } from "@/components/reader/presentation-settings-dialog";
 import { useReaderPreferences } from "@/hooks/use-reader-preferences";
 import type { ReaderPreferencesRead } from "@/lib/ebooks/preferences";
@@ -294,7 +295,12 @@ function ReaderSession({
     return () => clearTimeout(timer);
   }, [preferences.ready]);
   const adjustText = (direction: -1 | 0 | 1) => {
-    if (!preferences.ready || !bridge.getControllerReadinessSnapshot().ready || file?.format === "pdf" || file?.format === "cbz") return;
+    if (!preferences.ready || !bridge.getControllerReadinessSnapshot().ready) return;
+    if (engineRef.current?.fixedPages?.() != null) {
+      const engine = engineRef.current;
+      engine?.adjustFixedZoom?.(direction);
+      return;
+    }
     const field = settings.publisherStyles ? "publisherScale" : "fontSizePx";
     const value = direction === 0 ? PRESENTATION_DEFAULTS[preferenceClass][field]
       : Math.min(field === "fontSizePx" ? 40 : 250, Math.max(field === "fontSizePx" ? 12 : 60,
@@ -373,6 +379,7 @@ function ReaderSession({
     enabled: canSearch,
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [fixedControlsOpen, setFixedControlsOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState<boolean | null>(null);
 
   // The book's look: the settings, the theme's colours and the reader's own fonts
@@ -553,7 +560,7 @@ function ReaderSession({
 
   const bars = useReaderBars({
     held:
-      annotations.held ||
+      fixedControlsOpen || annotations.held ||
       contentsOpen ||
       searchOpen ||
       settingsOpen ||
@@ -1356,7 +1363,9 @@ function ReaderSession({
       overlay={overlay}
       topBar={
         <ReaderToolbar
-          annotationActions={annotations.toolbar}
+          annotationActions={<>{annotations.toolbar}{status.kind === "ready" && engineRef.current?.fixedPages?.() != null && <FixedLayoutControls
+            engine={engineRef.current} onHeldChange={setFixedControlsOpen} enabled={controllerReadiness.ready} fit={settings.fixedFit} onPick={href => navigate({ href }, "goto")}
+            onFit={fixedFit => { try { preferences.update({ deviceClass: preferenceClass, ebookId: presentationFieldScope("fixedFit", preferenceClass, preferences.rows), presentation: { fixedFit } }); } catch (error) { setNotice(error instanceof Error ? error.message : "Fit could not be changed."); } }} />}</>}
           offlineAction={file ? <DownloadButton ebook={ebook} file={file} deviceId={deviceId} notice={setNotice} /> : undefined}
           onSearch={canSearch ? () => { paceRef.current?.interrupt(); setSearchMounted(true); setSearchOpen(true); } : undefined}
           speechControl={

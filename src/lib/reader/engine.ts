@@ -195,6 +195,7 @@ export interface ReaderNote {
   anchor: { left: number; right: number; top: number; bottom: number } | null;
 }
 export interface EngineEvents {
+  "fixed-controls": { zoom: number | null };
   note: ReaderNote | null;
   media: ReaderMedia;
   ready: BookInfo & { toc: TocItem[] };
@@ -328,6 +329,10 @@ export interface ReaderEngine {
   ): Promise<boolean>;
   closeNote?(): void;
   search?(request: SearchRequest): AsyncIterable<SearchUpdate>;
+  fixedPages?(): TocItem[] | null;
+  adjustFixedZoom?(direction: -1 | 0 | 1): void;
+  fixedZoom?(): number | null;
+  setFixedZoom?(percent: number | null): void;
   currentLocator(): DurtalLocator | null;
   setPresentation(presentation: Presentation): void;
   /** A locator for the current selection inside the book, or null */

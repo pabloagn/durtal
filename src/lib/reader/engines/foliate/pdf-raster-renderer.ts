@@ -2,6 +2,7 @@ import type { PageViewport } from "pdfjs-dist";
 import { CanvasLedger, type CanvasLease } from "./canvas-ledger";
 import { forPdfOwner } from "./pdf-lifetime";
 import type { PdfSession } from "./pdf-session";
+import { detectContentBox, type ContentBox } from "./pdf-crop";
 
 interface FramePaint {
   live?: CanvasLease;
@@ -132,6 +133,32 @@ export class PdfRasterRenderer {
       if (frame.pending === reservation) frame.pending = undefined;
       pageLease.release();
     }
+  }
+
+  /** Transient crop samples share the live-page ledger and are released before delivery. */
+  async measureContentBox(index: number, signal: AbortSignal): Promise<ContentBox | null> {
+    signal.throwIfAborted();
+    const page = await this.#session.acquirePage(index, signal);
+    let reservation: CanvasLease | undefined;
+    const abort = () => reservation?.release();
+    signal.addEventListener("abort", abort, { once: true });
+    try {
+      const base = page.page.getViewport({ scale: 1 });
+      const viewport = page.page.getViewport({ scale: Math.min(1, 512 / Math.max(base.width, base.height)) });
+      reservation = this.ledger.reserve({ pageCssWidth: viewport.width, pageCssHeight: viewport.height, devicePixelRatio: 1 }) ?? undefined;
+      if (!reservation) { this.#evictHidden(); reservation = this.ledger.reserve({ pageCssWidth: viewport.width, pageCssHeight: viewport.height, devicePixelRatio: 1 }) ?? undefined; }
+      if (!reservation) throw new Error("PDF crop sample budget is exhausted");
+      const canvas = reservation.allocate(() => document.createElement("canvas"));
+      const task = page.page.render({ canvas, viewport, transform: [reservation.plan.scaleX, 0, 0, reservation.plan.scaleY, 0, 0] });
+      reservation.ownPaint(task); await forPdfOwner(task.promise, signal); signal.throwIfAborted();
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) throw new Error("PDF crop sample is unavailable");
+      const rgba = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      const luma = new Uint8Array(canvas.width * canvas.height);
+      for (let i = 0; i < luma.length; i++) luma[i] = Math.round(.2126*rgba[i*4]+.7152*rgba[i*4+1]+.0722*rgba[i*4+2]);
+      const box = detectContentBox(luma, canvas.width, canvas.height);
+      return box ? { left: box.left/canvas.width, top: box.top/canvas.height, right: box.right/canvas.width, bottom: box.bottom/canvas.height } : null;
+    } finally { signal.removeEventListener("abort", abort); reservation?.release(); page.release(); }
   }
 
   releaseDocument(doc: Document) {

@@ -56,6 +56,7 @@ export interface FoliateSection {
   cfi?: string;
   pageSpread?: string;
   load?(): Promise<string | import("./pdf-book").PdfFixedPageSource>;
+  unload?(): void;
   createDocument?(options?: { signal: AbortSignal }): Promise<Document>;
   resolveHref?(href: string): string;
   loadText?(): Promise<string | null> | string;
@@ -80,8 +81,9 @@ export interface FoliateBook {
     language?: string | string[];
   };
   dir?: string;
-  rendition?: { layout?: string };
+  rendition?: { layout?: string; viewport?: { width: number; height: number }; spread?: "auto" | "none" | "landscape" | "portrait" | "both" };
   setTwoPages?(twoPages: boolean): void;
+  setPdfPresentation?(next: import("@/lib/validations/reader-preferences").ReaderPresentation): boolean;
   pdfCropOffset?(doc: Document): { left: number; top: number };
   pdfViewport?(doc: Document): import("./pdf-geometry").PdfViewport | null;
   sections: FoliateSection[];
@@ -153,6 +155,7 @@ export interface FoliateRenderer extends HTMLElement {
     overlayer?: FoliateOverlayer;
   }[];
   primaryIndex?: number;
+  refreshPageSizes?(): void;
   showPageRect?(index: number, rect: { left: number; top: number; right: number; bottom: number }): boolean;
   atEnd: boolean;
   heads?: HTMLElement[] | null;

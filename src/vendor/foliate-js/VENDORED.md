@@ -115,3 +115,5 @@ Copy the files above from the new commit, apply the patches again, update
 the commit and date here, and run `node scripts/qa/reader-engine-check.mjs`
 in the three browsers and `node scripts/qa/reader-perf.mjs` on a preview with
 `--seed-reader --reader-large`.
+
+12. Fixed-layout PDF page sources return actual cropped dimensions after paint; live and scroll frames adopt those dimensions and preserve position during refresh. Source candidate; native checks pending.

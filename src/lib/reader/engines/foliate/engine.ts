@@ -29,6 +29,7 @@ import type {
   Decoration,
   AnnotationResolveResult,
 } from "@/lib/reader/engine";
+import { fixedSpreadMode, fixedZoomScale, clampFixedZoom, stepFixedZoom } from "./fixed";
 import { PdfDecorations } from "./pdf-decorations";
 import { resolvePdfAnnotation } from "./pdf-annotation-resolver";
 import { preparePdfSpeech } from "./pdf-speech";
@@ -60,7 +61,6 @@ import { findPageMap, parsePageMap } from "./page-map";
 import { buildAnchorIndex, indexFragment, scanMarkup } from "./position-index";
 import { matchQuote } from "./quote-match";
 import type {
-  ComicModule,
   Contributor,
   EpubModule,
   Fb2Module,
@@ -153,6 +153,7 @@ class FoliateEngine implements ReaderEngine {
   #pdfCss = "";
   #pdfTextProvider: PdfTextProvider | null = null;
   #pdfTarget: DurtalLocator | null = null;
+  #fixedZoom: number | null = null;
   #pdfMarks = new PdfDecorations(event => this.#emit("annotation-activated", event));
   #opening = new AbortController();
   #locator: DurtalLocator | null = null;
@@ -250,7 +251,7 @@ class FoliateEngine implements ReaderEngine {
         this.#emit("error", { kind, message: ERROR_MESSAGES[kind] });
       });
       try {
-        const book = await makePdfBook(session, api, this.#pdfCss);
+        const book = await makePdfBook(session, api, this.#pdfCss, this.#presentation?.policy);
         this.#opening.signal.throwIfAborted();
         this.#pdfTextProvider = bindPdfTextProvider(session, this.#pdfCss);
         this.#pdfSearchProvider = this.#pdfTextProvider;
@@ -270,9 +271,8 @@ class FoliateEngine implements ReaderEngine {
       const loader: ZipLoader = await makeRangeZipLoader(zip, range);
       this.#zip = loader;
       if (source.format === "cbz") {
-        const { makeComicBook } =
-          (await import("@/vendor/foliate-js/comic-book.js")) as unknown as ComicModule;
-        return makeComicBook(loader, { name });
+        const { makeDurtalComicBook } = await import("./comic-book");
+        return makeDurtalComicBook(loader, name);
       }
       if (source.format === "fbz") {
         const { makeFB2 } =
@@ -1288,6 +1288,16 @@ class FoliateEngine implements ReaderEngine {
     this.#emit("selection", null);
   }
 
+  fixedPages(): TocItem[] | null { return this.#book?.rendition?.layout === "pre-paginated" ? this.#info?.pageList ?? [] : null; }
+  adjustFixedZoom(direction: -1 | 0 | 1) { this.setFixedZoom(direction === 0 ? null : stepFixedZoom(this.#fixedZoom ?? 100, direction)); }
+  fixedZoom(): number | null { return this.#fixedZoom; }
+  setFixedZoom(percent: number | null) {
+    if (this.#book?.rendition?.layout !== "pre-paginated") return;
+    this.#fixedZoom = percent === null ? null : clampFixedZoom(percent);
+    this.#emit("fixed-controls", { zoom: this.#fixedZoom });
+    this.#applyLayout();
+  }
+
   currentLocator(): DurtalLocator | null {
     return this.#locator;
   }
@@ -1295,6 +1305,9 @@ class FoliateEngine implements ReaderEngine {
   setPresentation(presentation: Presentation) {
     const previous = this.#presentation;
     this.#presentation = presentation;
+    if (previous?.policy?.fixedFit !== presentation.policy?.fixedFit) this.#fixedZoom = null;
+    const cropChanged = presentation.policy && this.#book?.setPdfPresentation?.(presentation.policy);
+    if (cropChanged) this.#view?.renderer.refreshPageSizes?.();
     this.#drawPdfMarks();
     const history = this.#decorationSets.get("history");
     if (history?.length) this.setDecorations("history", history);
@@ -1329,7 +1342,14 @@ class FoliateEngine implements ReaderEngine {
     if (!p || !view || this.#destroyed) return;
     const renderer = view.renderer;
     if (this.#book?.rendition?.layout === "pre-paginated") {
-      const values = { zoom: p.fixedFit === "width" ? "fit-width" : "fit-page", spread: p.spread,
+      const area = view.getBoundingClientRect();
+      const doc = renderer.getContents()[0]?.doc;
+      const meta = doc?.querySelector('meta[name="viewport"]')?.getAttribute("content") ?? "";
+      const width = Number(meta.match(/width=([\d.]+)/)?.[1]), height = Number(meta.match(/height=([\d.]+)/)?.[1]);
+      const image = doc?.querySelector("img");
+      const page = width > 0 && height > 0 ? { width, height } : image?.naturalWidth && image.naturalHeight ? { width: image.naturalWidth, height: image.naturalHeight } : this.#book.rendition.viewport;
+      const spread = page && area.width > 0 && area.height > 0 ? fixedSpreadMode({ preference: p.spread, areaWidth: area.width, areaHeight: area.height, pageWidth: page.width, pageHeight: page.height, renditionSpread: this.#book.rendition.spread }) : "none";
+      const values = { zoom: this.#fixedZoom === null ? (p.fixedFit === "width" ? "fit-width" : "fit-page") : String(fixedZoomScale(this.#isPdf() ? "pdf" : this.#source?.format === "cbz" ? "cbz" : "epub", this.#fixedZoom)), spread,
         flow: p.flow === "scrolled" ? "scrolled" : "paginated" };
       for (const [name, value] of Object.entries(values))
         if (renderer.getAttribute(name) !== value) renderer.setAttribute(name, value);

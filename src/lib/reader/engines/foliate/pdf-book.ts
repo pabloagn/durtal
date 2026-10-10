@@ -4,12 +4,16 @@ import type { PdfSession } from "./pdf-session";
 import { PdfRasterRenderer } from "./pdf-raster-renderer";
 import { forPdfOwner } from "./pdf-lifetime";
 import { pdfGeometryViewport, pdfTextLayerTransform } from "./pdf-viewport";
+import { cropEnabled, isScannedPage, type ContentBox } from "./pdf-crop";
+import { pdfImageCoverage } from "./pdf-image-coverage";
+import { applyPdfPageTheme } from "./pdf-page-theme";
+import type { ReaderPresentation } from "@/lib/validations/reader-preferences";
 
-type PdfApi = Pick<typeof import("pdfjs-dist"), "TextLayer">;
+type PdfApi = Pick<typeof import("pdfjs-dist"), "TextLayer" | "OPS">;
 export interface PdfFixedPageSource {
   data: string;
   src: string;
-  onZoom(input: { doc: Document; scale: number }): Promise<void>;
+  onZoom(input: { doc: Document; scale: number }): Promise<{ width: number; height: number }>;
   onDestroy(doc: Document): void;
 }
 interface TextFrame {
@@ -22,6 +26,7 @@ export async function makePdfBook(
   session: PdfSession,
   api: PdfApi,
   css: string,
+  initialPolicy?: ReaderPresentation,
 ) {
   const pdf = session.document;
   const { parsePDFMetadata } = await import("@/vendor/foliate-js/pdf.js");
@@ -31,12 +36,38 @@ export async function makePdfBook(
   const raster = new PdfRasterRenderer(session);
   const frames = new Map<Document, TextFrame>();
   const viewports = new Map<Document, PageViewport>();
+  const offsets = new Map<Document, { left: number; top: number }>();
+  let policy = initialPolicy;
+  let scan: boolean | undefined;
+  const crops = new Map<number, ContentBox | null>();
+  let sampleQueue: Promise<unknown> = Promise.resolve();
+  const cropFor = async (index: number, owner: AbortSignal): Promise<ContentBox | null> => {
+    if (!policy || policy.cropMargins === "off") return null;
+    const work = sampleQueue.then(async () => {
+      owner.throwIfAborted();
+      if (scan === undefined) {
+        const page = await session.acquirePage(0, owner);
+        try {
+          const text = await session.pageTextContent(0, owner);
+          const operators = await forPdfOwner(page.page.getOperatorList(), owner);
+          scan = isScannedPage(pdfImageCoverage(operators.fnArray, operators.argsArray, api.OPS, page.page.view), text.items.some(item => "str" in item && item.str.trim().length > 0));
+        } finally { page.release(); }
+      }
+      if (!policy || !cropEnabled(policy.cropMargins, scan)) return null;
+      if (crops.has(index)) { const found = crops.get(index)!; crops.delete(index); crops.set(index, found); return found; }
+      const measured = await raster.measureContentBox(index, owner); owner.throwIfAborted(); crops.set(index, measured);
+      if (crops.size > 16) crops.delete(crops.keys().next().value!);
+      return measured;
+    });
+    sampleQueue = work.catch(() => {}); return work;
+  };
   const closed = new AbortController();
   const signal = AbortSignal.any([closed.signal, session.signal]);
   const release = (doc: Document) => {
     const frame = frames.get(doc);
     frames.delete(doc);
     viewports.delete(doc);
+    offsets.delete(doc);
     try {
       frame?.owner.abort();
       frame?.layer?.cancel();
@@ -93,6 +124,8 @@ export async function makePdfBook(
   const book: FoliateBook & {
     rendition: { layout: string; viewport: { width: number; height: number } };
     setTwoPages(twoPages: boolean): void;
+    setPdfPresentation(next: ReaderPresentation): boolean;
+    pdfCropOffset(doc: Document): { left: number; top: number };
     pdfViewport(doc: Document): ReturnType<typeof pdfGeometryViewport> | null;
   } = {
     metadata: parsePDFMetadata({
@@ -125,6 +158,8 @@ export async function makePdfBook(
     getTOCFragment: (doc) => doc.documentElement,
     isExternal: (href) => /^(https?:|mailto:)/i.test(href),
     setTwoPages: (twoPages) => raster.setTwoPages(twoPages),
+    setPdfPresentation: next => { const changed = policy?.cropMargins !== next.cropMargins; policy = next; for (const doc of frames.keys()) applyPdfPageTheme(doc, next); return changed; },
+    pdfCropOffset: doc => offsets.get(doc) ?? { left: 0, top: 0 },
     pdfViewport: (doc) => {
       const viewport = viewports.get(doc);
       return viewport ? pdfGeometryViewport(viewport) : null;
@@ -151,7 +186,10 @@ export async function makePdfBook(
       lease.release();
       if (viewport.width >= viewport.height)
         book.sections[index].pageSpread = "center";
-      const data = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=${viewport.width}, height=${viewport.height}"><meta http-equiv="Content-Security-Policy" content="script-src 'none'; object-src 'none'; base-uri 'none'"><style>html,body{margin:0;padding:0}#canvas{position:absolute;inset:0}${css}</style></head><body><div id="canvas"></div><div class="textLayer"></div><div class="annotationLayer"></div></body></html>`;
+      const crop = await cropFor(index, signal);
+      const pageWidth = viewport.width * ((crop?.right ?? 1) - (crop?.left ?? 0));
+      const pageHeight = viewport.height * ((crop?.bottom ?? 1) - (crop?.top ?? 0));
+      const data = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=${pageWidth}, height=${pageHeight}"><meta http-equiv="Content-Security-Policy" content="script-src 'none'; object-src 'none'; base-uri 'none'"><style>html,body{margin:0;padding:0}#canvas{position:absolute;inset:0}${css}</style></head><body><div id="pdf-page" style="position:absolute"><div id="canvas"></div><div class="textLayer"></div><div class="annotationLayer"></div></div></body></html>`;
       return {
         src: "",
         data,
@@ -159,12 +197,14 @@ export async function makePdfBook(
         onZoom: async ({ doc, scale }) => {
           signal.throwIfAborted();
           viewports.delete(doc);
+          offsets.delete(doc);
           const previous = frames.get(doc);
           previous?.owner.abort();
           previous?.layer?.cancel();
           const frame: TextFrame = { owner: new AbortController() };
           frames.set(doc, frame);
           const frameSignal = AbortSignal.any([signal, frame.owner.signal]);
+          const crop = await cropFor(index, frameSignal);
           const viewport = await raster.paint(index, doc, scale, frameSignal);
           frameSignal.throwIfAborted();
           doc.documentElement.style.setProperty(
@@ -255,8 +295,17 @@ export async function makePdfBook(
             page.release();
           }
           frameSignal.throwIfAborted();
+          const offset = { left: (crop?.left ?? 0) * viewport.width, top: (crop?.top ?? 0) * viewport.height };
+          const surface = doc.querySelector<HTMLElement>("#pdf-page")!;
+          surface.style.width = `${viewport.width}px`; surface.style.height = `${viewport.height}px`;
+          surface.style.transform = `translate(${-offset.left}px, ${-offset.top}px)`;
+          const size = { width: viewport.width / scale * ((crop?.right ?? 1)-(crop?.left ?? 0)), height: viewport.height / scale * ((crop?.bottom ?? 1)-(crop?.top ?? 0)) };
+          doc.querySelector('meta[name="viewport"]')?.setAttribute("content", `width=${size.width}, height=${size.height}`);
+          offsets.set(doc, offset);
+          if (policy) applyPdfPageTheme(doc, policy);
           viewports.set(doc, viewport);
           doc.dispatchEvent(new Event("durtal-pdf-painted"));
+          return size;
         },
       };
     },

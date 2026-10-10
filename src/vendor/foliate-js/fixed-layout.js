@@ -772,7 +772,14 @@ export class FixedLayout extends HTMLElement {
                     // invalidating Range objects stored in the overlayer. After
                     // the rebuild, re-emit create-overlayer so listeners can
                     // re-anchor annotations against the fresh DOM.
-                    const refreshed = p.then(() => this.#refreshOverlayerForFrame(frame))
+                    const refreshed = p.then(size => {
+                        if (!frame.iframe?.isConnected) return
+                        this.#refreshOverlayerForFrame(frame)
+                        if (size && size.width > 0 && size.height > 0 && (Math.abs(frame.width-size.width) > .01 || Math.abs(frame.height-size.height) > .01)) {
+                            frame.width = size.width; frame.height = size.height
+                            this.#render()
+                        }
+                    })
                     renderPromises.push(refreshed)
                 }
             }
@@ -1419,7 +1426,15 @@ export class FixedLayout extends HTMLElement {
                 scale,
                 pageColors: this.#pageColors,
             })
-            if (p?.then) p.then(() => this.#refreshOverlayerForFrame(frame))
+            if (p?.then) p.then(size => {
+                if (!frame.iframe?.isConnected || pageData.frame !== frame) return
+                this.#refreshOverlayerForFrame(frame)
+                if (size && size.width > 0 && size.height > 0 && (Math.abs(pageData.vpWidth-size.width) > .01 || Math.abs(pageData.vpHeight-size.height) > .01)) {
+                    pageData.vpWidth = size.width; pageData.vpHeight = size.height
+                    frame.width = size.width; frame.height = size.height
+                    this.#renderScrollMode()
+                }
+            })
             Object.assign(frame.iframe.style, {
                 width: `${vw * scale}px`,
                 height: `${vh * scale}px`,
@@ -1934,6 +1949,7 @@ export class FixedLayout extends HTMLElement {
     }
     // Adapter-owned measured text navigation. Coordinates come from the actual
     // adopted PDF viewport, after crop, and are never inferred from text length.
+    refreshPageSizes() { this.#render() }
     showPageRect(index, rect) {
         const content = this.getContents().find(item => item.index === index)
         const frame = content?.doc?.defaultView?.frameElement
