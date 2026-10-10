@@ -30,6 +30,8 @@ type Command = {
   step?: "nextSection" | "prevSection";
   turn?: Turn;
   originMark?: string;
+  automatic?: boolean;
+  focus?: boolean;
   resolve: (value: DurtalLocator | null) => void;
   reject: (reason: unknown) => void;
 };
@@ -50,6 +52,8 @@ export const sameLocation = (
 /** A session owns its engine, commands, history, and publication. No global navigation singleton. */
 export function createReaderNavigation(options: {
   engine: ReaderEngine;
+  beforeHuman?(): void;
+  afterHuman?(): void;
   commit: (relocation: Relocation) => void;
   changed?: () => void;
   interrupt?: () => void;
@@ -112,7 +116,11 @@ export function createReaderNavigation(options: {
         command.resolve(null);
         return;
       }
-      const owner = { id: command.id, signal: command.abort.signal };
+      const owner = {
+        id: command.id,
+        signal: command.abort.signal,
+        origin: command.automatic ? ("speech" as const) : ("human" as const),
+      };
       if (command.turn) await engine[command.turn](owner);
       else if (command.step) await engine[command.step](owner);
       else await engine.goTo(command.target!, owner);
@@ -153,7 +161,8 @@ export function createReaderNavigation(options: {
         command.resolve(null);
         return;
       }
-      if (command.turn) history.turn(destination.locator);
+      if (command.automatic) history.reanchor(destination.locator);
+      else if (command.turn || command.focus) history.turn(destination.locator);
       else if (command.direction)
         history.commit(command.direction, destination.locator);
       else
@@ -165,8 +174,10 @@ export function createReaderNavigation(options: {
         );
       publish({
         ...destination,
-        origin: "human",
-        reason: command.turn ? "turn" : "jump",
+        origin: command.automatic ? "speech" : "human",
+        activity: command.automatic ? undefined : destination.activity,
+        atEnd: command.automatic ? false : destination.atEnd,
+        reason: command.turn || command.focus ? "turn" : "jump",
       });
       if (command.direction === -1 && history.current?.originMark)
         engine.setDecorations("history", [
@@ -195,6 +206,12 @@ export function createReaderNavigation(options: {
       recovering = false;
       if (active === command) active = null;
       changed();
+      if (
+        !destroyed &&
+        !command.automatic &&
+        !pending.some((item) => !item.automatic)
+      )
+        options.afterHuman?.();
       const next = pending.shift();
       if (next && !destroyed) void run(next);
       else next?.resolve(null);
@@ -239,6 +256,7 @@ export function createReaderNavigation(options: {
     input: Omit<Command, "id" | "abort" | "resolve" | "reject">,
   ) {
     if (destroyed || !committed) return Promise.resolve(null);
+    if (!input.automatic) options.beforeHuman?.();
     passive?.abort();
     passive = null;
     if (!input.turn || (active && !active.turn)) options.interrupt?.();
@@ -287,7 +305,7 @@ export function createReaderNavigation(options: {
       if (active) {
         if (origin !== "human") options.interrupt?.();
         if (
-          origin === "human" &&
+          origin === (active.automatic ? "speech" : "human") &&
           relocation.navigationId === active.id &&
           relocation.reason === (active.turn ? "turn" : "jump")
         )
@@ -297,7 +315,7 @@ export function createReaderNavigation(options: {
       if (!committed) return;
       // Late owned arrivals never become independent reading movements.
       if (relocation.navigationId !== undefined) return;
-      // Speech must enter through a future owned automatic-navigation operation.
+      // Unowned speech cannot replace a committed destination; speechTo owns valid arrivals.
       if (origin === "speech") {
         passive?.abort();
         passive = null;
@@ -315,6 +333,27 @@ export function createReaderNavigation(options: {
       if ("v" in target && sameLocation(committed?.locator ?? null, target))
         return Promise.resolve(null);
       return enqueue({ target, ...input });
+    },
+    /** Focus-driven painted movement is human navigation, without adding a jump history step. */
+    focusTo(target: DurtalLocator) {
+      if (sameLocation(committed?.locator ?? null, target))
+        return Promise.resolve(null);
+      return enqueue({ source: "edge", target, focus: true });
+    },
+    /** Automatic speech shares owned movement/paint/recovery, without human history or activity. */
+    speechTo(target: DurtalLocator) {
+      if (sameLocation(committed?.locator ?? null, target))
+        return Promise.resolve(null);
+      return enqueue({ source: "edge", target, automatic: true });
+    },
+    cancelSpeech() {
+      if (active?.automatic && !recovering) active.abort.abort();
+      pending = pending.filter((command) => {
+        if (!command.automatic) return true;
+        command.abort.abort();
+        command.resolve(null);
+        return false;
+      });
     },
     chapterStep(direction: -1 | 1) {
       return enqueue({

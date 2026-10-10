@@ -1,5 +1,6 @@
 import type { ReaderMedia } from "./media/content";
 import type { SearchRequest, SearchUpdate } from "./search/types";
+import type { SpeechPreparation, SpeechSegment } from "./speech/player";
 /**
  * The reader's engine interface (eBooks sub-issue 3, the epic's contract).
  * Everything in the reader talks to a ReaderEngine; only the foliate adapter
@@ -215,6 +216,8 @@ export interface EngineEvents {
     /** Whether the current contents anchor begins on this visible page. */
     atChapterStart?: boolean;
   };
+  /** Keyboard focus entered book text outside the painted visible range. */
+  focus: { locator: DurtalLocator };
   selection: {
     text: string;
     locator: DurtalLocator;
@@ -253,6 +256,14 @@ export interface OpenOptions {
   at?: DurtalLocator | { fraction: number } | null;
 }
 
+/** Engine-side text enumeration, distinct from the native player/session coordinator. */
+export interface ReaderSpeech {
+  segments(
+    from: DurtalLocator | "visible",
+    options?: { signal: AbortSignal },
+  ): AsyncIterable<SpeechSegment>;
+}
+
 export interface ReaderEngine {
   /** PDF consumers share the opened document; cancellation owns only delivery. */
   pdfPageText?(request: PdfTextPageRequest): Promise<PdfPageText>;
@@ -261,6 +272,18 @@ export interface ReaderEngine {
     start: number;
     end: number;
   }): Promise<DurtalLocator | null>;
+  speech(): ReaderSpeech | null;
+  focusBook?(): void;
+  selectSpeechSentence?(locator: DurtalLocator): boolean;
+  /** Adapter-owned exact text extraction. Aborting it never cancels visible rendering. */
+  prepareSpeech?(request: {
+    target: SpeechPreparation;
+    signal: AbortSignal;
+  }): Promise<{
+    current: SpeechSegment | null;
+    previous: SpeechSegment | null;
+    next: SpeechSegment | null;
+  }>;
   /** Opens the book and goes to `at` (resolved) or to the start */
   open(
     source: BookSource,

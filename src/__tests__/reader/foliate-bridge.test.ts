@@ -115,6 +115,9 @@ class TestView extends HTMLElement {
   async goRight() {
     await this.next();
   }
+  getSectionFractions() {
+    return [0, 0.5, 1];
+  }
   getCFI(_index?: number, _range?: Range) {
     void _index;
     void _range;
@@ -126,7 +129,10 @@ class TestView extends HTMLElement {
       pageItem: { label: "xii" },
     };
   }
-  resolveNavigation(target?: unknown) {
+  resolveNavigation(target?: unknown): {
+    index: number;
+    anchor?: (doc: Document) => Range | Element;
+  } {
     return {
       index:
         target === "notes-cfi" ? 2 : typeof target === "number" ? target : 0,
@@ -590,4 +596,264 @@ describe("foliate bridge adapter", () => {
     expect(doc.getSelection()!.isCollapsed).toBe(true);
     expect(seen).toHaveBeenLastCalledWith(null);
   });
+});
+
+describe("actual reflowable speech extraction", () => {
+  function ranges() {
+    const byCfi = new Map<string, Range>();
+    vi.spyOn(view, "getCFI").mockImplementation((index, range) => {
+      if (!range) return "start";
+      const walker = range.startContainer.ownerDocument!.createTreeWalker(
+        range.startContainer.ownerDocument!.body,
+        4,
+      );
+      let n = 0;
+      for (
+        let node = walker.nextNode();
+        node && node !== range.startContainer;
+        node = walker.nextNode()
+      )
+        n++;
+      const cfi = `speech:${index}:${n}:${range.startOffset}:${range.endOffset}`;
+      byCfi.set(cfi, range.cloneRange());
+      return cfi;
+    });
+    vi.spyOn(view, "resolveNavigation").mockImplementation((target) => ({
+      index: 0,
+      anchor: () => byCfi.get(String(target))!,
+    }));
+    return byCfi;
+  }
+  it("starts in the containing visible sentence, maps real ranges, and skips notes/ruby readings/alt text", async () => {
+    const map = ranges();
+    const doc = view.frame.contentDocument!;
+    doc.body.innerHTML =
+      '<p lang="en">First sentence. Second <ruby>word<rt>reading</rt></ruby><a role="doc-noteref">1</a> sentence. Third sentence.<img alt="Never spoken"></p><aside epub:type="footnote">Never spoken note.</aside><p lang="fr">Bonjour le monde.</p>';
+    const node = doc.querySelector("p")!.firstChild!;
+    const visible = doc.createRange();
+    visible.setStart(node, 18);
+    visible.setEnd(doc.querySelector("ruby")!.firstChild!, 2);
+    view.report("page", 0.4, 0, visible);
+    const first = await engine.prepareSpeech!({
+      target: { kind: "from", from: "visible" },
+      signal: new AbortController().signal,
+    });
+    expect(first.current?.text).toBe("Second word sentence.");
+    expect(first.previous?.text).toBe("First sentence.");
+    expect(first.next?.text).toBe("Third sentence.");
+    expect(first.current?.locator.cfi).toMatch(/^speech:0:/);
+    const boundary = doc.createRange();
+    boundary.setStart(node, 15);
+    boundary.collapse(true);
+    map.set("boundary", boundary);
+    const atBoundary = await engine.prepareSpeech!({
+      target: {
+        kind: "from",
+        from: { ...first.current!.locator, cfi: "boundary" },
+      },
+      signal: new AbortController().signal,
+    });
+    expect(atBoundary.current?.text).toBe("Second word sentence.");
+    const next = await engine.prepareSpeech!({
+      target: {
+        kind: "adjacent",
+        direction: "next",
+        locator: first.current!.locator,
+      },
+      signal: new AbortController().signal,
+    });
+    expect(next.current?.text).toBe("Third sentence.");
+    expect(next.next).toMatchObject({ text: "Bonjour le monde.", lang: "fr" });
+    const previous = await engine.prepareSpeech!({
+      target: {
+        kind: "adjacent",
+        direction: "previous",
+        locator: next.current!.locator,
+      },
+      signal: new AbortController().signal,
+    });
+    expect(previous.current?.text).toBe("Second word sentence.");
+  });
+  it("uses explicit locators for containing starts and skips non-linear sections without moving the renderer", async () => {
+    const byCfi = ranges();
+    const doc = view.frame.contentDocument!;
+    doc.body.innerHTML = "<p>First. Last.</p>";
+    const range = doc.createRange();
+    range.setStart(doc.querySelector("p")!.firstChild!, 8);
+    range.collapse(true);
+    byCfi.set("middle", range);
+    const notes = vi.fn(async () =>
+      new DOMParser().parseFromString("<p>Not linear.</p>", "text/html"),
+    );
+    const following = vi.fn(async () =>
+      new DOMParser().parseFromString(
+        '<p lang="it">Prima frase. Seconda frase.</p>',
+        "text/html",
+      ),
+    );
+    // Reopen the actual adapter with this concrete section provider.
+    fixtures.book = {
+      sections: [
+        { id: "chapter", size: 100, linear: "yes" },
+        { id: "notes", size: 10, linear: "no", createDocument: notes },
+        { id: "second", size: 100, linear: "yes", createDocument: following },
+      ],
+      resolveHref: () => ({ index: 0 }),
+    };
+    engine.destroy();
+    engine = createFoliateEngine();
+    await engine.open(
+      {
+        ebookId: "book",
+        fileId: "epub",
+        format: "epub",
+        size: 1000,
+        sha256: "a".repeat(64),
+        url: "/unused",
+        fallbackUrl: "/unused",
+      },
+      {
+        container: host,
+        presentation: presentationFrom(
+          READER_DEFAULTS,
+          resolveThemeColors(),
+          "",
+        ),
+      },
+    );
+    view = host.querySelector("foliate-view") as TestView;
+    const map = ranges();
+    view.frame.contentDocument!.body.innerHTML = "<p>First. Last.</p>";
+    const anchor = view.frame.contentDocument!.createRange();
+    anchor.setStart(
+      view.frame.contentDocument!.querySelector("p")!.firstChild!,
+      8,
+    );
+    anchor.collapse(true);
+    map.set("middle", anchor);
+    const moved = vi.spyOn(view, "goTo");
+    const result = await engine.prepareSpeech!({
+      target: {
+        kind: "from",
+        from: { ...engine.currentLocator()!, cfi: "middle" },
+      },
+      signal: new AbortController().signal,
+    });
+    expect(result.current?.text).toBe("Last.");
+    expect(result.next?.text).toBe("Prima frase.");
+    expect(result.next?.locator.sectionIndex).toBe(2);
+    expect(notes).not.toHaveBeenCalled();
+    expect(moved).not.toHaveBeenCalled();
+    await expect(
+      engine.prepareSpeech!({
+        target: {
+          kind: "from",
+          from: { ...result.current!.locator, fileHash: "b".repeat(64) },
+        },
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toThrow("another file");
+  });
+  it("rejects aborted speech extraction without destroying the opened book", async () => {
+    const abort = new AbortController();
+    abort.abort();
+    await expect(
+      engine.prepareSpeech!({
+        target: { kind: "from", from: "visible" },
+        signal: abort.signal,
+      }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(host.querySelector("foliate-view")).toBe(view);
+    expect(engine.currentLocator()).not.toBeNull();
+  });
+});
+
+it("names the book frame, keeps it available to assistive technology and preserves declared languages", () => {
+  const doc = view.frame.contentDocument!;
+  // happy-dom does not attach its child Window's native frameElement property.
+  Object.defineProperty(doc.defaultView!, "frameElement", {
+    value: view.frame,
+    configurable: true,
+  });
+  view.report("page", 0.4, 0);
+  expect(view.frame.getAttribute("aria-label")).toContain("Test");
+  expect(view.frame.hasAttribute("aria-hidden")).toBe(false);
+  expect(view.frame.hasAttribute("inert")).toBe(false);
+  expect(view.frame.tabIndex).toBe(0);
+  expect(doc.documentElement.lang).toBe("und");
+  doc.documentElement.lang = "fr";
+  view.dispatchEvent(
+    new CustomEvent("relocate", {
+      detail: {
+        ...view.lastLocation!,
+        reason: "page",
+        tocItem: { label: "Chapter seven", href: "chapter" },
+      },
+    }),
+  );
+  expect(view.frame.getAttribute("aria-label")).toBe("Test, Chapter seven");
+  expect(doc.documentElement.lang).toBe("fr");
+  engine.focusBook!();
+  expect(doc.activeElement).toBe(doc.body);
+});
+it("requests owned movement when keyboard focus enters text outside the visible range", () => {
+  const doc = view.frame.contentDocument!;
+  doc.body.innerHTML =
+    '<p><a href="#first">First link.</a> <a href="#second">Second link.</a></p>';
+  const visible = doc.createRange();
+  visible.selectNodeContents(doc.querySelector("a")!);
+  view.report("page", 0.4, 0, visible);
+  const focus = vi.fn();
+  engine.on("focus", focus);
+  doc
+    .querySelector("a")!
+    .dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+  expect(focus).not.toHaveBeenCalled();
+  doc
+    .querySelectorAll("a")[1]
+    .dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+  expect(focus).toHaveBeenCalledOnce();
+  expect(focus.mock.calls[0][0].locator).toMatchObject({
+    fileHash: "a".repeat(64),
+    sectionIndex: 0,
+    cfi: "epubcfi(selection)",
+  });
+});
+it("creates a real keyboard selection from an exact sentence anchor and rejects another file", () => {
+  const doc = view.frame.contentDocument!;
+  doc.body.innerHTML = "<p>First sentence. Second sentence.</p>";
+  const range = doc.createRange();
+  range.setStart(doc.querySelector("p")!.firstChild!, 16);
+  range.setEnd(doc.querySelector("p")!.firstChild!, 32);
+  vi.spyOn(view, "resolveNavigation").mockReturnValue({
+    index: 0,
+    anchor: () => range,
+  });
+  vi.spyOn(range, "getBoundingClientRect").mockReturnValue({
+    left: 10,
+    top: 20,
+    right: 120,
+    bottom: 35,
+    width: 110,
+    height: 15,
+  } as DOMRect);
+  const selected = vi.fn();
+  engine.on("selection", selected);
+  expect(
+    engine.selectSpeechSentence!({
+      ...engine.currentLocator()!,
+      cfi: "sentence",
+    }),
+  ).toBe(true);
+  expect(doc.getSelection()?.toString()).toBe("Second sentence.");
+  expect(selected).toHaveBeenCalledWith(
+    expect.objectContaining({ text: "Second sentence.", keyboard: true }),
+  );
+  expect(
+    engine.selectSpeechSentence!({
+      ...engine.currentLocator()!,
+      fileHash: "b".repeat(64),
+      cfi: "sentence",
+    }),
+  ).toBe(false);
 });

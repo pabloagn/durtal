@@ -1,6 +1,14 @@
 "use client";
 
-import { memo, forwardRef, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  memo,
+  forwardRef,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 /** The bars hide this long after they show, while reading */
 export const BARS_HIDE_MS = 3000;
@@ -90,7 +98,8 @@ export function useReaderBars({ held }: { held: boolean }) {
       show();
     },
     onBlur: (event: React.FocusEvent<HTMLElement>) => {
-      if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+      if (event.currentTarget.contains(event.relatedTarget as Node | null))
+        return;
       over.current = false;
       hideSoon();
     },
@@ -99,9 +108,11 @@ export function useReaderBars({ held }: { held: boolean }) {
   return { visible, visibleRef, show, hide, toggle, pointerAt, barEvents };
 }
 
-const BookFrame = memo(forwardRef<HTMLDivElement>(function BookFrame(_props, ref) {
-  return <div ref={ref} className="absolute inset-0" />;
-}));
+const BookFrame = memo(
+  forwardRef<HTMLDivElement>(function BookFrame(_props, ref) {
+    return <div id="reader-book" ref={ref} className="absolute inset-0" />;
+  }),
+);
 
 /**
  * The reading view's frame (eBooks sub-issue 3): the book fills the
@@ -111,21 +122,35 @@ const BookFrame = memo(forwardRef<HTMLDivElement>(function BookFrame(_props, ref
 export const ReaderShell = forwardRef<
   HTMLDivElement,
   {
-    bars: ReactNode;
+    topBar: ReactNode;
+    bottomBar: ReactNode;
+    player?: ReactNode;
+    skipLink?: ReactNode;
     barEvents: ReturnType<typeof useReaderBars>["barEvents"];
     /** opening, ready or error: for the reader's checks (scripts/qa/reader-engine-check.mjs) */
     state: string;
     overlay?: ReactNode;
     children?: ReactNode;
   }
->(function ReaderShell({ bars, barEvents, state, overlay, children }, bookRef) {
+>(function ReaderShell(
+  { topBar, bottomBar, player, skipLink, barEvents, state, overlay, children },
+  bookRef,
+) {
   return (
-    <div className="fixed inset-0 overflow-hidden bg-bg-primary text-fg-primary" data-reader={state}>
-      <BookFrame ref={bookRef} />
-      {overlay}
+    <div
+      className="fixed inset-0 overflow-hidden bg-bg-primary text-fg-primary"
+      data-reader={state}
+    >
+      {skipLink}
       <div className="contents" {...barEvents}>
-        {bars}
+        {topBar}
       </div>
+      <BookFrame ref={bookRef} />
+      <div className="contents" {...barEvents}>
+        {player}
+        {bottomBar}
+      </div>
+      {overlay}
       {children}
     </div>
   );

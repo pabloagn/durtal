@@ -5,6 +5,11 @@ import {
   classifyReaderLink,
   EXTERNAL_WINDOW_FEATURES,
 } from "../../links/policy";
+import { createFoliateSpeech } from "./speech";
+import type {
+  SpeechPreparation,
+  SpeechSegment,
+} from "@/lib/reader/speech/player";
 import type {
   BookInfo,
   BookSource,
@@ -609,6 +614,7 @@ class FoliateEngine implements ReaderEngine {
       pdfPage: this.#isPdf() ? index + 1 : undefined,
     });
     this.#locator = locator;
+    this.#nameFrames();
     if (locator.position && this.#info)
       locator.position = Math.min(this.#info.locationCount, locator.position);
     if (reason === "turn") this.setDecorations("history", []);
@@ -766,7 +772,132 @@ class FoliateEngine implements ReaderEngine {
     }
   }
 
+  #nameFrame(doc: Document, index: number) {
+    const title =
+      this.#info?.title || localized(this.#book?.metadata?.title) || "Book";
+    const frame = doc.defaultView?.frameElement;
+    const chapter =
+      index === this.#locator?.sectionIndex
+        ? (this.#locator.tocLabel ?? this.#info?.sections[index]?.label)
+        : this.#info?.sections[index]?.label;
+    if (frame) {
+      frame.setAttribute(
+        "aria-label",
+        chapter ? `${title}, ${chapter}` : title,
+      );
+      frame.removeAttribute("aria-hidden");
+      frame.removeAttribute("inert");
+      frame.setAttribute("tabindex", "0");
+    }
+    if (!doc.documentElement.getAttribute("lang"))
+      doc.documentElement.setAttribute(
+        "lang",
+        doc.documentElement.getAttributeNS(
+          "http://www.w3.org/XML/1998/namespace",
+          "lang",
+        ) ??
+          doc.documentElement.getAttribute("xml:lang") ??
+          this.#info?.language ??
+          (Array.isArray(this.#book?.metadata?.language)
+            ? this.#book.metadata.language[0]
+            : this.#book?.metadata?.language) ??
+          "und",
+      );
+  }
+  #nameFrames() {
+    for (const { doc, index } of this.#view?.renderer.getContents() ?? [])
+      this.#nameFrame(doc, index);
+  }
+
+  focusBook() {
+    const contents = this.#view?.renderer.getContents() ?? [];
+    const doc = (
+      contents.find((item) => item.index === this.#locator?.sectionIndex) ??
+      contents[0]
+    )?.doc;
+    if (!doc) return;
+    const frame = doc.defaultView?.frameElement;
+    if (frame && "focus" in frame && typeof frame.focus === "function")
+      frame.focus({ preventScroll: true });
+    if (doc.body) {
+      doc.body.tabIndex = -1;
+      doc.body.focus({ preventScroll: true });
+    }
+  }
+
+  selectSpeechSentence(locator: DurtalLocator): boolean {
+    if (
+      !this.#source ||
+      locator.fileHash !== this.#source.sha256 ||
+      !locator.cfi ||
+      !this.#view
+    )
+      return false;
+    const resolved = this.#view.resolveNavigation(locator.cfi);
+    const doc = this.#view.renderer
+      .getContents()
+      .find((item) => item.index === resolved?.index)?.doc;
+    if (!doc || !resolved?.anchor) return false;
+    const anchor = resolved.anchor(doc);
+    const range = "nodeType" in anchor ? doc.createRange() : anchor;
+    if ("nodeType" in anchor) range.selectNodeContents(anchor);
+    const selection = doc.getSelection();
+    if (!selection || range.collapsed) return false;
+    this.#keyboardSelection = true;
+    if (selection.setBaseAndExtent)
+      selection.setBaseAndExtent(
+        range.startContainer,
+        range.startOffset,
+        range.endContainer,
+        range.endOffset,
+      );
+    else {
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+    this.#selectionChanged();
+    return true;
+  }
+
   #onLoad({ doc, index }: { doc: Document; index: number }) {
+    this.#nameFrame(doc, index);
+    doc.addEventListener("focusin", (event) => {
+      const target = event.target as Element | null;
+      if (
+        !target ||
+        target.nodeType !== 1 ||
+        target === doc.body ||
+        target === doc.documentElement ||
+        !this.#view ||
+        !this.#source ||
+        this.#destroyed
+      )
+        return;
+      const visible = this.#view.lastLocation?.range;
+      const range = doc.createRange();
+      range.selectNodeContents(target);
+      if (
+        visible?.startContainer.ownerDocument === doc &&
+        visible.comparePoint(
+          doc.createTreeWalker(target, 4).nextNode() ?? target,
+          0,
+        ) === 0
+      )
+        return;
+      const locator: DurtalLocator = {
+        ...(this.#locator ?? {
+          v: 1 as const,
+          progression: 0,
+          totalProgression: 0,
+        }),
+        fileHash: this.#source.sha256,
+        href: String(this.#book?.sections[index]?.id ?? index),
+        sectionIndex: index,
+        cfi: this.#view.getCFI(index, range),
+        text: quoteFromSelection(range),
+      };
+      this.#emit("focus", { locator });
+    });
     this.#documents.set(doc, index);
     this.#notes?.prefetch(doc, index);
     void import("../../media/document").then(({ attachReaderMedia }) => {
@@ -822,11 +953,11 @@ class FoliateEngine implements ReaderEngine {
       const frame = doc?.defaultView?.frameElement;
       const host = frame?.getBoundingClientRect();
       const scaleX =
-        host && frame
+        host && frame && host.width > 0
           ? host.width / ((frame as HTMLElement).offsetWidth || host.width)
           : 1;
       const scaleY =
-        host && frame
+        host && frame && host.height > 0
           ? host.height / ((frame as HTMLElement).offsetHeight || host.height)
           : 1;
       const rect = {
@@ -858,6 +989,202 @@ class FoliateEngine implements ReaderEngine {
       return { range: selection.getRangeAt(0), index, text };
     }
     return null;
+  }
+
+  speech() {
+    const available = () => !this.#destroyed && !!this.#info?.capabilities.tts;
+    return available()
+      ? createFoliateSpeech({
+          available,
+          prepare: (request) => this.prepareSpeech(request),
+        })
+      : null;
+  }
+
+  async prepareSpeech({
+    target,
+    signal,
+  }: {
+    target: SpeechPreparation;
+    signal: AbortSignal;
+  }) {
+    const book = this.#book,
+      view = this.#view,
+      source = this.#source;
+    if (
+      !book ||
+      !view ||
+      !source ||
+      this.#destroyed ||
+      this.#isPdf() ||
+      source.format === "cbz"
+    )
+      return { current: null, previous: null, next: null };
+    const { domSpeechSentences } =
+      await import("@/lib/reader/speech/dom-sentences");
+    signal.throwIfAborted();
+    const requested = target.kind === "adjacent" ? target.locator : target.from;
+    if (requested !== "visible" && requested.fileHash !== source.sha256)
+      throw new Error("That speech place belongs to another file.");
+    const index =
+      requested === "visible"
+        ? (this.#locator?.sectionIndex ?? 0)
+        : requested.sectionIndex;
+    const visible = view.renderer
+      .getContents()
+      .find((item) => item.index === index)?.doc;
+    const liveRange = requested === "visible" ? view.lastLocation?.range : null;
+    if (requested !== "visible" && !requested.cfi)
+      throw new Error("That speech place has no exact text anchor.");
+    const anchorCfi =
+      requested === "visible" ? this.#locator?.cfi : requested.cfi;
+    const resolved = anchorCfi ? view.resolveNavigation(anchorCfi) : null;
+    const fractions = view.getSectionFractions();
+    const nextIndex = (at: number, direction: -1 | 1) => {
+      for (
+        let n = at + direction;
+        n >= 0 && n < book.sections.length;
+        n += direction
+      )
+        if (book.sections[n].linear !== "no") return n;
+      return null;
+    };
+    const sentences = async function* (at: number, engine: FoliateEngine) {
+      signal.throwIfAborted();
+      const section = book.sections[at];
+      const doc =
+        (at === index ? visible : undefined) ??
+        (await section.createDocument?.());
+      signal.throwIfAborted();
+      if (!doc || engine.#destroyed || engine.#book !== book) return;
+      for await (const sentence of domSpeechSentences(
+        doc,
+        engine.#info?.language ?? null,
+        signal,
+      )) {
+        const progress = view.getProgressOf(at, sentence.range);
+        const cfi = view.getCFI(at, sentence.range);
+        const locator: DurtalLocator = {
+          v: 1,
+          fileHash: source.sha256,
+          href: String(section.id),
+          sectionIndex: at,
+          progression:
+            at === engine.#locator?.sectionIndex
+              ? engine.#locator.progression
+              : 0,
+          totalProgression: fractions[at] ?? 0,
+          cfi,
+          text: {
+            ...quoteFromSelection(sentence.range),
+            highlight: sentence.text,
+          },
+          ...(progress?.tocItem?.label
+            ? { tocLabel: progress.tocItem.label }
+            : {}),
+          ...(progress?.pageItem?.label
+            ? { pageLabel: progress.pageItem.label }
+            : {}),
+        };
+        yield {
+          segment: { text: sentence.text, lang: sentence.lang, locator },
+          range: sentence.range,
+          doc,
+        };
+      }
+    };
+    let previous: SpeechSegment | null = null,
+      current: SpeechSegment | null = null,
+      next: SpeechSegment | null = null;
+    let anchor: Range | null = null,
+      matched = false;
+    for await (const item of sentences(index, this)) {
+      if (!anchor) {
+        if (
+          requested === "visible" &&
+          liveRange?.startContainer.ownerDocument === item.doc
+        )
+          anchor = liveRange;
+        else if (resolved?.index === index && resolved.anchor) {
+          const node = resolved.anchor(item.doc);
+          if ("nodeType" in node) {
+            anchor = item.doc.createRange();
+            anchor.selectNodeContents(node);
+          } else anchor = node;
+        }
+      }
+      if (current) {
+        next = item.segment;
+        break;
+      }
+      if (matched) {
+        current = item.segment;
+        continue;
+      }
+      if (!anchor && requested === "visible")
+        return { current: null, previous: null, next: null };
+      const same =
+        requested !== "visible" && item.segment.locator.cfi === requested.cfi;
+      const end = item.range.cloneRange();
+      end.collapse(false);
+      const reached = anchor
+        ? end.comparePoint(anchor.startContainer, anchor.startOffset) < 0
+        : same || requested === "visible";
+      if (reached) {
+        const start = item.range.cloneRange();
+        start.collapse(true);
+        if (
+          requested === "visible" &&
+          anchor &&
+          anchor === liveRange &&
+          item.range.comparePoint(anchor.endContainer, anchor.endOffset) < 0
+        )
+          return { current: null, previous: null, next: null };
+        if (target.kind === "adjacent" && target.direction === "previous") {
+          current = previous;
+          next = item.segment;
+          previous = null;
+          break;
+        }
+        if (target.kind === "adjacent") {
+          matched = true;
+          previous = item.segment;
+        } else current = item.segment;
+      } else previous = item.segment;
+    }
+    if (target.kind === "from" && !current)
+      return { current: null, previous: null, next: null };
+    // Cross-section extraction owns no renderer movement and skips non-linear spine entries.
+    if (
+      !current &&
+      target.kind === "adjacent" &&
+      target.direction === "previous"
+    ) {
+      let at = nextIndex(index, -1);
+      while (at !== null && !current) {
+        for await (const item of sentences(at, this)) {
+          previous = current;
+          current = item.segment;
+        }
+        at = nextIndex(at, -1);
+      }
+    } else if (!current || !next) {
+      let at = nextIndex(index, 1);
+      while (at !== null && !next) {
+        for await (const item of sentences(at, this)) {
+          if (!current) current = item.segment;
+          else {
+            next = item.segment;
+            break;
+          }
+        }
+        at = nextIndex(at, 1);
+      }
+    }
+    signal.throwIfAborted();
+    if (this.#destroyed || this.#book !== book)
+      throw new DOMException("Closed", "AbortError");
+    return { current, previous, next };
   }
 
   locatorFromSelection(): DurtalLocator | null {

@@ -66,6 +66,7 @@ export function ReaderToolbar({
   onFullscreen,
   onShortcuts,
   offlineAction,
+  speechControl,
 }: {
   visible: boolean;
   title: string;
@@ -80,6 +81,7 @@ export function ReaderToolbar({
   onFullscreen: () => void;
   onShortcuts?: () => void;
   offlineAction?: React.ReactNode;
+  speechControl?: React.ReactNode;
 }) {
   return (
     <header
@@ -115,6 +117,7 @@ export function ReaderToolbar({
           </div>
           <div className="flex shrink-0 gap-1">
             {offlineAction}
+            {speechControl}
             <BarButton label="Contents" keys="t" onClick={onContents}>
               <ListTree className="h-4 w-4" strokeWidth={1.5} />
             </BarButton>

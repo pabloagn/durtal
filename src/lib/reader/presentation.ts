@@ -90,6 +90,8 @@ p, li, blockquote, dd { text-align: ${p.textAlign === "justify" ? "justify" : "s
 [align="center"] { text-align: center; }
 [align="right"] { text-align: right; }
 pre { white-space: pre-wrap !important; }
+:focus-visible { outline: 2px solid ${text} !important; outline-offset: 2px !important; }
+@media (prefers-reduced-motion: reduce) { html, body, body * { scroll-behavior: auto !important; animation-duration: 0s !important; transition-duration: 0s !important; } }
 ::selection { background: ${selection}; color: ${text}; }
 aside[epub|type~="footnote"], aside[epub|type~="endnote"], aside[epub|type~="note"], aside[epub|type~="rearnote"] { display: none; }
 `;

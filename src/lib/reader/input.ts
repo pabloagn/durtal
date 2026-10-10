@@ -33,6 +33,8 @@ export interface ReaderActions {
   settings(): void;
   search?(): void;
   fullscreen(): void;
+  speech?(): void;
+  sentence?(direction: "previous" | "next"): void;
   goto?(): void;
   chapter?(direction: -1 | 1): void;
   shortcuts?(): void;
@@ -428,6 +430,13 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
       t: actions.contents,
       s: actions.settings,
       f: actions.fullscreen,
+      ...(actions.speech ? { a: actions.speech } : {}),
+      ...(actions.sentence
+        ? {
+            ",": () => actions.sentence?.("previous"),
+            ".": () => actions.sentence?.("next"),
+          }
+        : {}),
       ...(actions.goto ? { g: actions.goto } : {}),
       ...(actions.shortcuts ? { "?": actions.shortcuts } : {}),
     };

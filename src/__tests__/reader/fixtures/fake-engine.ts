@@ -42,6 +42,21 @@ export function fakeEngine() {
     get transfer() {
       return { bytes: 0, requests: 0 };
     },
+    // Default fixture has no speech provider; individual speech tests install its concrete extractor.
+    prepareSpeech: undefined as ReaderEngine["prepareSpeech"],
+    speech: (): ReturnType<ReaderEngine["speech"]> =>
+      engine.prepareSpeech
+        ? {
+            async *segments(from, options) {
+              const signal = options?.signal ?? new AbortController().signal;
+              const result = await engine.prepareSpeech!({
+                target: { kind: "from", from },
+                signal,
+              });
+              if (result.current) yield result.current;
+            },
+          }
+        : null,
     on<K extends keyof EngineEvents>(
       name: K,
       handler: (payload: EngineEvents[K]) => void,
