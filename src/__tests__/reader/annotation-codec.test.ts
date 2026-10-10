@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   encodeSharedAnnotation,
+  sharedAnnotationTransport,
   decodeSharedAnnotationPending,
   encodeSharedAnnotationPending,
   decodeAnnotationReceipt,
@@ -151,5 +152,28 @@ describe("annotation codec for the concrete common store", () => {
         claimed,
       ),
     ).toThrow("exact composed");
+  });
+});
+
+// Source contract tests: real codec over structural shared-store fixtures.
+describe("annotation conflict transport boundary", () => {
+  it("delivers retained rejected intent without enqueueing or restamping it", async () => {
+    const row = stored(), before = JSON.stringify(row);
+    const enqueue = vi.fn();
+    const transport = { store: { readBook: async () => ({ annotations: [], cursor: null, pending: [] }), readRejected: async () => [{ v: 1, key: row.mutation.operationId, row, outcome: "ignored", reason: "deleted" }] }, enqueue } as unknown as import("@/lib/reader/offline/transport").ReaderTransport;
+    const problems = await sharedAnnotationTransport(transport).readProblems(id(2));
+    expect(problems[0].operation.transportIdentity?.expectedDeviceId).toBe(id(4));
+    expect(problems[0].operation.revision).toBe(3); expect(problems[0].reason).toBe("deleted");
+    expect(enqueue).not.toHaveBeenCalled(); expect(JSON.stringify(row)).toBe(before);
+  });
+  it("retries only an exact blocked original revision through shared auth reconciliation", async () => {
+    const row = stored(); row.state = "blocked"; row.attempts = 2;
+    const reconcile = vi.fn(async () => true);
+    const transport = { store: { readBook: async () => ({ annotations: [], cursor: null, pending: [row] }) }, reconcile } as unknown as import("@/lib/reader/offline/transport").ReaderTransport;
+    const boundary = sharedAnnotationTransport(transport);
+    expect(await boundary.retryBlocked(id(2),row.mutation.operationId,4)).toBe(false);
+    expect(reconcile).not.toHaveBeenCalled();
+    expect(await boundary.retryBlocked(id(2),row.mutation.operationId,3)).toBe(true);
+    expect(reconcile).toHaveBeenCalledWith(expect.objectContaining({ deviceId: id(4), fileId: id(3), revision: 3, attempts: 2 }));
   });
 });

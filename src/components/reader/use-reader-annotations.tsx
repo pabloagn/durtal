@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AnnotationConflicts } from "./annotation-conflicts";
 import { Highlighter } from "lucide-react";
 import { useReaderFeatureShortcut } from "./bridge";
 import { CapAligned } from "@/components/shared/cap-aligned";
@@ -125,7 +126,7 @@ export function useReaderAnnotations(input: {
     toolbar: <>
       <BookmarkButton active={!!bookmark} disabled={!ready} onToggle={() => perform(toggleBookmark())} />
       <CapAligned height={32} coarseHeight={44}>
-        <button type="button" aria-label="Highlights and notes" data-tooltip="Highlights and notes" data-tooltip-keys="h"
+        <button type="button" aria-label={snapshot.conflicts.length || snapshot.problems?.length ? "Highlights and notes: changes need attention" : "Highlights and notes"} data-tooltip="Highlights and notes" data-tooltip-keys="h"
           disabled={!ready} onClick={showPanel}
           className="block rounded-sm p-2 text-fg-secondary hover:bg-bg-tertiary/50 hover:text-fg-primary disabled:opacity-40 pointer-coarse:p-3.5">
           <Highlighter className="h-4 w-4" strokeWidth={1.5} />
@@ -138,6 +139,7 @@ export function useReaderAnnotations(input: {
     </> : undefined,
     overlays: <>
       {open && <AnnotationsPanel open onClose={() => setOpen(false)} book={input.book} annotations={snapshot.annotations}
+        conflictContent={<AnnotationConflicts snapshot={snapshot} onRefresh={async () => { if (admitted()) await owner.current?.pull(); }} onRetry={async (id,revision) => admitted() ? await owner.current?.retryBlocked(id,revision) ?? false : false} />}
         onPick={async item => {
           if (!admitted() || !engine || item.anchorState === "orphaned") return false;
           const result = await engine.resolveAnnotation(item);

@@ -15,6 +15,7 @@ import type {
 } from "../offline/store";
 import {
   validateMutation,
+  mutationWireJson,
   type Json,
   type JsonObject,
 } from "../offline/mutations";
@@ -25,6 +26,7 @@ import type { PendingAnnotation } from "./annotation-outbox";
 import {
   serializeAnnotationOperation,
   type DurableAnnotationOperation,
+  type AnnotationProblem,
 } from "./annotation-transport";
 import {
   compareAnnotationTimes,
@@ -157,15 +159,35 @@ export function encodeSharedAnnotationPending(
     serializeAnnotationOperation(row, row.transportIdentity),
   );
 }
-export const sharedAnnotationTransport = (transport: ReaderTransport) =>
-  createAnnotationTransport(transport, {
+/** The annotation owner reads existing rejection records; the shared store alone
+ * owns claims, receipts and auth reconciliation. No rejected intent is replayed. */
+export const sharedAnnotationTransport = (transport: ReaderTransport) => ({
+  ...createAnnotationTransport(transport, {
     encodeOperation: encodeSharedAnnotation,
     decodeAnnotation: (value: Json) => annotationRecordSchema.parse(value),
-    encodeAnnotation: (value: z.output<typeof annotationRecordSchema>) =>
-      json(value),
+    encodeAnnotation: (value: z.output<typeof annotationRecordSchema>) => json(value),
     decodePending: decodeSharedAnnotationPending,
     encodePending: encodeSharedAnnotationPending,
-  });
+  }),
+  async readProblems(ebookId: string): Promise<readonly AnnotationProblem[]> {
+    const [book, rejected] = await Promise.all([transport.store.readBook(ebookId), transport.store.readRejected()]);
+    const problems: AnnotationProblem[] = book.pending.filter(row => row.state === "blocked").map(row => ({ operation: decodeSharedAnnotationPending(row), reason: "authentication", state: "blocked" }));
+    for (const value of rejected) {
+      const outer = z.object({ v: z.literal(1), key: z.string(), row: z.unknown(), outcome: z.enum(["rejected","ignored"]), reason: z.string() }).passthrough().safeParse(value);
+      if (!outer.success) continue; // Preserve unknown store versions unchanged.
+      const row = outer.data.row as StoredOperation;
+      if (row?.mutation?.kind !== "annotations" || row.mutation.ebookId !== ebookId) continue;
+      if (outer.data.key !== row.mutation.operationId) throw new Error("Annotation rejection identity mismatch");
+      problems.push({ operation: decodeSharedAnnotationPending(row), reason: outer.data.reason, state: outer.data.outcome });
+    }
+    return problems;
+  },
+  async retryBlocked(ebookId: string, operationId: string, revision: number) {
+    const row = (await transport.store.readBook(ebookId)).pending.find(item => item.mutation.operationId === operationId && item.mutation.revision === revision && item.state === "blocked");
+    if (!row) return false;
+    return transport.reconcile({ seq: row.seq, operationId, revision, ebookId: row.mutation.ebookId, fileId: row.mutation.fileId, deviceId: row.mutation.deviceId, attempts: row.attempts, wireJson: mutationWireJson(row.mutation) });
+  },
+});
 
 const responseSchema = z.strictObject({
   applied: z.array(z.uuid()),

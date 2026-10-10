@@ -41,7 +41,14 @@ export interface AnnotationBookState {
  * DB work. Legacy import needs an exact decoder and stable operation identity;
  * remove legacy revisions only after the shared commit, preserving unknowns.
  */
+export interface AnnotationProblem {
+  operation: PendingAnnotation;
+  reason: string;
+  state: "blocked" | "rejected" | "ignored";
+}
 export interface AnnotationTransport {
+  readProblems?(ebookId: string): Promise<readonly AnnotationProblem[]>;
+  retryBlocked?(ebookId: string, operationId: string, revision: number): Promise<boolean>;
   enqueue(operation: Readonly<DurableAnnotationOperation>): Promise<void>;
   readBook(ebookId: string): Promise<AnnotationBookState>;
   transactBook(

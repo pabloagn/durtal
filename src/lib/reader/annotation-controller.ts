@@ -30,6 +30,7 @@ import {
   serializeAnnotationOperation,
   type AnnotationBookState,
   type AnnotationTransport,
+  type AnnotationProblem,
 } from "./sync/annotation-transport";
 import {
   overlayPendingAnnotations,
@@ -40,6 +41,7 @@ export interface AnnotationControllerSnapshot {
   annotations: readonly ReaderAnnotation[];
   pending: readonly PendingAnnotation[];
   conflicts: readonly { operationId: string; reason: string }[];
+  problems?: readonly AnnotationProblem[];
   cursor: string | null;
   loaded: boolean;
   error: string | null;
@@ -91,6 +93,7 @@ export function createAnnotationController(
   >();
   let book = emptyBook();
   let display: ReaderAnnotation[] = [];
+  let problems: readonly AnnotationProblem[] = [];
   let snapshot: AnnotationControllerSnapshot = {
     annotations: [],
     pending: [],
@@ -149,6 +152,7 @@ export function createAnnotationController(
       }),
       pending: book.pending,
       conflicts: overlay.conflicts,
+      problems,
       cursor: book.cursor,
       loaded: true,
       error: null,
@@ -178,8 +182,9 @@ export function createAnnotationController(
     listeners.forEach((fn) => fn());
   }
   async function refresh() {
-    const current = await options.transport.readBook(options.ebookId);
+    const [current, failures] = await Promise.all([options.transport.readBook(options.ebookId), options.transport.readProblems?.(options.ebookId) ?? Promise.resolve([])]);
     if (destroyed) return;
+    problems = failures;
     book = current;
     const ids = new Set(current.annotations.map((item) => item.id));
     current.pending.forEach((row) => ids.add(row.mutation.id));
@@ -396,6 +401,13 @@ export function createAnnotationController(
       );
     },
     pull,
+    async retryBlocked(operationId: string, revision: number) {
+      return queue(async () => {
+        if (destroyed || !options.transport.retryBlocked) return false;
+        const changed = await options.transport.retryBlocked(options.ebookId, operationId, revision);
+        await refresh(); return changed;
+      });
+    },
     repaint: publish,
     async createHighlight(input: {
       text: string;

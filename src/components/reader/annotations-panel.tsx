@@ -30,7 +30,9 @@ export function AnnotationsPanel({
   onNote,
   onEdit,
   onDelete,
+  conflictContent,
 }: {
+  conflictContent?: React.ReactNode;
   open: boolean;
   onClose(): void;
   book: AnnotationExportBook;
@@ -56,6 +58,7 @@ export function AnnotationsPanel({
   return (
     <ReaderSidePanel open={open} title="Highlights and notes" onClose={onClose}>
       <div data-reader-widget className="flex flex-col gap-4 px-2">
+        {conflictContent}
         <SegmentedControl
           ariaLabel="Annotations"
           value={tab}
