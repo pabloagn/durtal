@@ -539,31 +539,35 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                 <div className="mt-3">
                   <span className="text-xs text-fg-secondary">Recommended by </span>
                   {work.workRecommenders.map((wr, i) => (
-                    <span key={wr.recommender.id}>
+                    <span key={wr.recommender.id} className="pointer-coarse:inline-flex pointer-coarse:max-w-full pointer-coarse:items-start pointer-coarse:py-1">
                       {i > 0 && (
                         <span className="text-xs text-fg-secondary">, </span>
                       )}
                       <Link
                         href={`/recommenders/${wr.recommender.id}`}
-                        className="text-xs text-accent-primary transition-colors hover:text-fg-primary"
+                        className="text-xs text-accent-primary transition-colors hover:text-fg-primary pointer-coarse:min-w-11 pointer-coarse:py-3 pointer-coarse:[overflow-wrap:anywhere]"
                       >
                         {wr.recommender.name}
                       </Link>
                       {wr.recommender.url && (
-                        <a
-                          href={wr.recommender.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={`${wr.recommender.name} website`}
-                          data-tooltip={`${wr.recommender.name} website`}
-                          // In running text: the CapAligned box on the link
-                          // itself, sized by the name's type (text-xs), so
-                          // the icon sits on the name's cap-height center
-                          className="ml-1 inline-block overflow-hidden align-[0.5cap] text-xs text-fg-muted transition-colors hover:text-accent-primary"
-                          style={{ height: 12, marginBlock: -6 }}
-                        >
-                          <ExternalLink className="block h-3 w-3" strokeWidth={1.5} />
-                        </a>
+                        <span className="ml-1 text-xs pointer-coarse:block pointer-coarse:shrink-0 pointer-coarse:pt-3">
+                          {/* An inline cap-aligned float clips nothing. On touch,
+                              match the name's first-line padding, including when it wraps. */}
+                          <span className="inline-block cap-touch align-[0.5cap] [--cap-box:12px]">
+                            <span className="float-left flex h-(--cap-h) items-center">
+                              <a
+                                href={wr.recommender.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`${wr.recommender.name} website`}
+                                data-tooltip={`${wr.recommender.name} website`}
+                                className="flex h-3 w-3 items-center justify-center text-fg-muted transition-colors hover:text-accent-primary pointer-coarse:size-11"
+                              >
+                                <ExternalLink className="block h-3 w-3" strokeWidth={1.5} />
+                              </a>
+                            </span>
+                          </span>
+                        </span>
                       )}
                     </span>
                   ))}

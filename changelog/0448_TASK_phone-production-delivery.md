@@ -9,7 +9,7 @@
 
 ## Overview
 
-Deploy the currently reviewed catalogue over the existing personal Tailscale HTTPS origin independently of unfinished reader work. Application and schema behavior remain byte-identical to main94140915; landed CI-only main5e16ed7f is included normally. Preserve owner sorting files and manual3100. No migrations, ingestion, content writes, new dependencies, Funnel or tailnet changes.
+Deploy the currently reviewed catalogue over the existing personal Tailscale HTTPS origin independently of unfinished reader work. Start from reviewed main94140915 plus normally landed CI-only main5e16ed7f. Phone acceptance adds only two page-local touch corrections on the book detail route; schema, dependency versions and catalogue actions remain unchanged. Preserve owner sorting files and manual3100. No migrations, ingestion, content writes, new dependencies, Funnel or tailnet changes.
 
 ## Implementation Details
 
@@ -19,6 +19,12 @@ Read only the existing owner `/Users/pabloaguirre/personal/durtal/.env.local` in
 
 ## Completion Notes
 
-Twenty-eight focused pure packaging/startup tests pass. Broad retained exact-main gates need no repeat for unchanged app/schema. Build, runtime and mobile evidence will be recorded after execution; source tests alone do not establish delivered phone access. Mac availability depends on power, wake state and owner login/FileVault unlock. Serve rollback removes only the matching new private proxy from the observed empty preimage.
+Twenty-eight focused pure packaging/startup tests pass. The original unchanged catalogue reused retained exact-main gates. The phone acceptance corrections require fresh typecheck, full disposable-database test:local, relevant lint and a frozen-source build. Runtime and mobile evidence are independently bound to each exact release; source tests alone do not establish delivered phone access. Mac availability depends on power, wake state and owner login/FileVault unlock. Serve rollback removes only the matching new private proxy from the observed empty preimage.
 
 The first archive preparation correctly refused tracked `.envrc` before dependency install. Exclude only that non-production local direnv instruction file, record the exact excluded path in preparation metadata, and keep all application/lockfile source pinned. No environment file is executed or copied. Scoped in-memory IAM preflight independently passed account608240934043/userdurtal-app.
+
+## Phone acceptance corrections
+
+Root delivered the original c4b7 catalogue through private Tailscale HTTPS with normal TLS validation, owned IPv4 loopback3110, a successful graceful restart and preserved owner3100. Read-only mobile diagnostics found two real press-area failures on the book detail page: the recommender website icon (12×12px) and Orders → Pipeline (52.3×20px). Correct them locally: reserve separate 44px coarse-pointer targets for a recommender name and its website, keep the small website icon on the first name line's cap-height center, and use the existing touch-hit area for Pipeline. Desktop icon size and cap alignment stay unchanged; shared record, carousel, action, schema and reader code are untouched. Verify long, short, multiple and absent recommender content, real press areas, clipping, overlap, alignment and page weight in a reviewed disposable preview before production replacement.
+
+The earlier browser page error came from the QA harness blocking two intended SELECT-only server-action calls. A separate root-reviewed guard, pinned to the old artifact and exact observed initial arguments, passed the ordinary page-read check with zero page errors and HTTP200 read responses. This changes only QA permission policy; it does not change application actions or establish a production security defect. Final acceptance needs a newly bound guard for the new build. Physical owner-phone acceptance remains distinct from headless viewport evidence.
