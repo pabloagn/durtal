@@ -1133,3 +1133,11 @@ dialog::backdrop {
   .catalogue-density-compact > * .card-body { padding-top: 8px; padding-bottom: 8px; }
   .catalogue-density-compact > * .icon-hit-end { margin-right: 0; }
 }
+
+/* Phone book atmosphere: retain palette and feathered field, paint one plane.
+   Fine pointers keep the original blurred/rotated depth. CSS chooses before JS. */
+.book-ambient-coarse { display: none; }
+@media (pointer: coarse) {
+  .book-ambient-desktop { display: none; }
+  .book-ambient-coarse { display: block; }
+}

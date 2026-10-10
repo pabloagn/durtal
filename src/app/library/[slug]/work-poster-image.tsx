@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { CoarseImageSource } from "@/components/shared/coarse-image-source";
+import {
+  CoarseImageSource,
+  coarseImageFallback,
+} from "@/components/shared/coarse-image-source";
 import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { PosterGlow } from "./ambient-crystals";
 import type { CrystalColor } from "@/lib/types";
@@ -47,8 +50,9 @@ export function WorkPosterImage({
         >
           <picture className="block h-full w-full">
             <CoarseImageSource src={src} />
+            <source media="(pointer: fine)" srcSet={src} />
             <img
-              src={src}
+              src={coarseImageFallback(src)}
               alt={alt}
               className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.03]"
               style={mediaImageStyle(crop)}

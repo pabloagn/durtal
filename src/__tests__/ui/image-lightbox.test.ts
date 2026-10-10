@@ -59,7 +59,7 @@ function open() {
 }
 
 describe("coarse poster source selection", () => {
-  it("emits the native bounded source before the canonical image, preserving crop and adjustment identity", () => {
+  it("bounds the detached img fallback and preserves native desktop artwork, crop and viewer identity", () => {
     renderPoster();
     const picture = host.querySelector("picture")!;
     const bounded = picture.querySelector("source")!;
@@ -72,7 +72,9 @@ describe("coarse poster source selection", () => {
     expect(
       new URL(bounded.srcset, "https://fixture.invalid").searchParams.get("v"),
     ).toBe("123");
-    expect(img.getAttribute("src")).toBe(source);
+    expect(new URL(img.getAttribute("src")!, "https://fixture.invalid").searchParams.get("w")).toBe("800");
+    expect(new URL(img.getAttribute("src")!, "https://fixture.invalid").searchParams.get("key")).toBe(new URL(source, "https://fixture.invalid").searchParams.get("key"));
+    expect(picture.querySelector('source[media="(pointer: fine)"]')!.getAttribute("srcset")).toBe(source);
     expect(img.style.objectPosition).toBe("25% 65%");
     expect(img.style.transform).toBe("scale(1.1)");
     const dialog = open();
@@ -85,6 +87,24 @@ describe("coarse poster source selection", () => {
     expect(dialog.querySelector("picture source")!.getAttribute("srcset")).toBe(
       bounded.srcset,
     );
+  });
+
+  it("never assigns an original owned src while constructing the ordinary poster img", () => {
+    const assigned: string[] = [];
+    const original = Element.prototype.setAttribute;
+    vi.spyOn(Element.prototype, "setAttribute").mockImplementation(function (
+      this: Element, name: string, value: string,
+    ) {
+      if (this instanceof HTMLImageElement && name === "src") assigned.push(value);
+      original.call(this, name, value);
+    });
+    renderPoster();
+    // React assigns src during construction and again at commitMount.
+    // Every assignment must be bounded, including the detached one.
+    expect(assigned.length).toBeGreaterThan(0);
+    for (const value of assigned) expect(value).toBe(source + "&w=800");
+    expect(host.querySelector('source[media="(pointer: fine)"]')!.getAttribute("srcset")).toBe(source);
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
   it.each([source, "https://images.example/portrait.jpg?v=1"])(

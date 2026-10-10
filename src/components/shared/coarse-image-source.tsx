@@ -7,3 +7,9 @@ export function CoarseImageSource({ src }: { src: string }) {
   if (!imageSourceIdentity(src)) return null;
   return <source media="(pointer: coarse)" srcSet={withMediaWidth(src, 800)} />;
 }
+
+// The img fallback itself is bounded: React may set src before assembling the
+// picture during client navigation. The fine-pointer source keeps desktop art.
+export function coarseImageFallback(src: string) {
+  return imageSourceIdentity(src) ? withMediaWidth(src, 800) : src;
+}
