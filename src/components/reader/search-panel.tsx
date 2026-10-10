@@ -81,11 +81,10 @@ export function SearchPanel({
     engine.setDecorations(
       "search",
       sorted
-        .filter((hit) => hit.locator.cfi)
+        .filter((hit) => hit.locator.cfi || hit.locator.pdf?.rects?.length)
         .map((hit) => ({
-          cfi: hit.locator.cfi!,
-          color: "link",
-          current: hit.id === active,
+          id: hit.id, locator: hit.locator, color: "link",
+          style: "outline" as const, current: hit.id === active,
         })),
     );
   }, [engine, sorted, active]);

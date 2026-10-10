@@ -82,6 +82,7 @@ export interface FoliateBook {
   dir?: string;
   rendition?: { layout?: string };
   setTwoPages?(twoPages: boolean): void;
+  pdfCropOffset?(doc: Document): { left: number; top: number };
   pdfViewport?(doc: Document): import("./pdf-geometry").PdfViewport | null;
   sections: FoliateSection[];
   toc?: FoliateTocEntry[];
@@ -152,6 +153,7 @@ export interface FoliateRenderer extends HTMLElement {
     overlayer?: FoliateOverlayer;
   }[];
   primaryIndex?: number;
+  showPageRect?(index: number, rect: { left: number; top: number; right: number; bottom: number }): boolean;
   atEnd: boolean;
   heads?: HTMLElement[] | null;
   feet?: HTMLElement[] | null;

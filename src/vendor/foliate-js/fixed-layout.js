@@ -1932,6 +1932,24 @@ export class FixedLayout extends HTMLElement {
             },
         }))
     }
+    // Adapter-owned measured text navigation. Coordinates come from the actual
+    // adopted PDF viewport, after crop, and are never inferred from text length.
+    showPageRect(index, rect) {
+        const content = this.getContents().find(item => item.index === index)
+        const frame = content?.doc?.defaultView?.frameElement
+        if (!frame || !Object.values(rect).every(Number.isFinite)) return false
+        const host = frame.getBoundingClientRect(), area = this.getBoundingClientRect()
+        const sx = host.width / (frame.offsetWidth || host.width)
+        const sy = host.height / (frame.offsetHeight || host.height)
+        const left = host.left + rect.left * sx, right = host.left + rect.right * sx
+        const top = host.top + rect.top * sy, bottom = host.top + rect.bottom * sy
+        const dx = left < area.left ? left - area.left : right > area.right ? right - area.right : 0
+        const dy = top < area.top ? top - area.top : bottom > area.bottom ? bottom - area.bottom : 0
+        if (this.#lockedPanX !== null) this.#setLockedPanX(this.#lockedPanX + dx)
+        else this.scrollLeft += dx
+        this.scrollTop += dy
+        return true
+    }
     async select(target) {
         await this.goTo(target)
         // TODO

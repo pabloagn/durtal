@@ -102,6 +102,13 @@ two transformations and uses mode `durtal-runtime-patched`. The adapter and
 worker HTTP CSP now use the versioned path. This integration source has not
 yet been executed or verified; raw provenance proves no native behavior.
 
+### Patch 11 — measured PDF rectangle navigation
+
+`fixed-layout.js` exposes `showPageRect` to the Durtal adapter. It pans the real
+mounted page frame to a measured, crop-adjusted rectangle and retains fixed
+scroll/pan ownership. It allocates no surface and derives no text geometry.
+This source addition has not been executed in the native acceptance matrix.
+
 ### Engine updates
 
 Copy the files above from the new commit, apply the patches again, update

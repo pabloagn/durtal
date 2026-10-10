@@ -179,8 +179,9 @@ export type Decoration =
       style: DecorationStyle;
       color: string;
       note?: boolean;
+      current?: boolean;
     }
-  | { cfi: string; color: string }; // existing history return outline
+  | { cfi: string; color: string; current?: boolean }; // existing history return outline
 
 export interface ReaderNote {
   kind: "Footnote" | "Endnote" | "Note" | "Bibliography" | "Definition";

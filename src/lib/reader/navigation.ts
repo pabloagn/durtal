@@ -46,7 +46,7 @@ export const sameLocation = (
   (a.cfi && b.cfi
     ? a.cfi === b.cfi
     : a.pdf && b.pdf
-      ? a.pdf.page === b.pdf.page
+      ? a.pdf.page === b.pdf.page && JSON.stringify(a.pdf.rects) === JSON.stringify(b.pdf.rects)
       : a.href === b.href && Math.abs(a.progression - b.progression) < 1e-6);
 
 /** A session owns its engine, commands, history, and publication. No global navigation singleton. */

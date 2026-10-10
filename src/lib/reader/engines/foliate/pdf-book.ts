@@ -158,6 +158,7 @@ export async function makePdfBook(
         onDestroy: release,
         onZoom: async ({ doc, scale }) => {
           signal.throwIfAborted();
+          viewports.delete(doc);
           const previous = frames.get(doc);
           previous?.owner.abort();
           previous?.layer?.cancel();
@@ -166,7 +167,6 @@ export async function makePdfBook(
           const frameSignal = AbortSignal.any([signal, frame.owner.signal]);
           const viewport = await raster.paint(index, doc, scale, frameSignal);
           frameSignal.throwIfAborted();
-          viewports.set(doc, viewport);
           doc.documentElement.style.setProperty(
             "--total-scale-factor",
             String(viewport.scale * viewport.userUnit),
@@ -254,6 +254,9 @@ export async function makePdfBook(
           } finally {
             page.release();
           }
+          frameSignal.throwIfAborted();
+          viewports.set(doc, viewport);
+          doc.dispatchEvent(new Event("durtal-pdf-painted"));
         },
       };
     },

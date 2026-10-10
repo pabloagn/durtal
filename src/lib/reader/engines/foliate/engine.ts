@@ -29,6 +29,10 @@ import type {
   Decoration,
   AnnotationResolveResult,
 } from "@/lib/reader/engine";
+import { PdfDecorations } from "./pdf-decorations";
+import { resolvePdfAnnotation } from "./pdf-annotation-resolver";
+import { preparePdfSpeech } from "./pdf-speech";
+import { pdfRectToPage } from "./pdf-geometry";
 import { FoliateAnnotationResolver } from "./annotation-resolver";
 import { FoliateDecorations } from "./decorations";
 import { presentationCss, policyTypographyCss } from "@/lib/reader/presentation";
@@ -148,6 +152,8 @@ class FoliateEngine implements ReaderEngine {
   #pdf: PdfSession | null = null;
   #pdfCss = "";
   #pdfTextProvider: PdfTextProvider | null = null;
+  #pdfTarget: DurtalLocator | null = null;
+  #pdfMarks = new PdfDecorations(event => this.#emit("annotation-activated", event));
   #opening = new AbortController();
   #locator: DurtalLocator | null = null;
   #jumping = 0;
@@ -551,6 +557,7 @@ class FoliateEngine implements ReaderEngine {
     this.#layoutObserver = null;
     this.#annotationResolver?.destroy();
     this.#annotationResolver = null;
+    this.#pdfMarks.destroy();
     this.#decorations?.clear();
     this.#decorations = null;
     this.#decorationLoading = null;
@@ -613,7 +620,7 @@ class FoliateEngine implements ReaderEngine {
     if (linear && relocationOrigin !== "layout")
       this.#readingFraction = atEnd ? 1 : (detail.fraction ?? 0);
     const fraction = this.#readingFraction;
-    const locator = locatorFromRelocate({
+    let locator = locatorFromRelocate({
       fileHash: this.#source.sha256,
       sectionIndex: index,
       href: String(section?.id ?? index),
@@ -629,6 +636,13 @@ class FoliateEngine implements ReaderEngine {
       pageLabel: detail.pageItem?.label,
       pdfPage: this.#isPdf() ? index + 1 : undefined,
     });
+    if (this.#isPdf()) {
+      if (reason === "turn" || this.#pdfTarget?.sectionIndex !== index) this.#pdfTarget = null;
+      if (this.#pdfTarget) {
+        locator = structuredClone(this.#pdfTarget);
+        if (relocationOrigin !== "layout") this.#readingFraction = locator.totalProgression;
+      }
+    }
     this.#locator = locator;
     this.#nameFrames();
     if (locator.position && this.#info)
@@ -641,6 +655,7 @@ class FoliateEngine implements ReaderEngine {
       detail.range && !this.#isPdf() ? visibleOriginRange(detail.range) : null;
     this.#writeMarginalia();
     this.#drawSearchMarks();
+    this.#drawPdfMarks();
     this.#emit("relocate", {
       locator,
       chapter: detail.tocItem?.label?.trim() || null,
@@ -914,6 +929,7 @@ class FoliateEngine implements ReaderEngine {
       };
       this.#emit("focus", { locator });
     });
+    doc.addEventListener("durtal-pdf-painted", () => this.#drawPdfMarks());
     this.#applyPagePolicy(doc);
     this.#documents.set(doc, index);
     this.#notes?.prefetch(doc, index);
@@ -1033,10 +1049,15 @@ class FoliateEngine implements ReaderEngine {
       !view ||
       !source ||
       this.#destroyed ||
-      this.#isPdf() ||
       source.format === "cbz"
     )
       return { current: null, previous: null, next: null };
+    if (this.#isPdf() && !this.#pdfTextProvider) throw new Error("The opened PDF speech text provider is unavailable.");
+    if (this.#isPdf() && this.#pdfTextProvider) return preparePdfSpeech({
+      provider: this.#pdfTextProvider, fileHash: source.sha256, pageCount: book.sections.length,
+      language: this.#info?.language ?? null, target, visible: this.#locator, signal,
+      isVisible: locator => this.#pdfLocatorVisible(locator),
+    });
     const { domSpeechSentences } =
       await import("@/lib/reader/speech/dom-sentences");
     signal.throwIfAborted();
@@ -1219,7 +1240,9 @@ class FoliateEngine implements ReaderEngine {
       const viewport = doc && this.#book.pdfViewport?.(doc);
       const layer = doc?.querySelector<HTMLElement>(".textLayer");
       if (!viewport || !layer) return null;
-      const origin = layer.getBoundingClientRect();
+      const canvas = doc?.querySelector("#canvas");
+      if (!canvas) return null;
+      const origin = canvas.getBoundingClientRect();
       const rects = Array.from(range.getClientRects()).flatMap((rect) => {
         const converted = clientRectToPdf(rect, viewport, {
           left: origin.left,
@@ -1272,6 +1295,7 @@ class FoliateEngine implements ReaderEngine {
   setPresentation(presentation: Presentation) {
     const previous = this.#presentation;
     this.#presentation = presentation;
+    this.#drawPdfMarks();
     const history = this.#decorationSets.get("history");
     if (history?.length) this.setDecorations("history", history);
     const renderer = this.#view?.renderer;
@@ -1392,8 +1416,16 @@ class FoliateEngine implements ReaderEngine {
       } else if ("v" in target) {
         this.#readingFraction = target.totalProgression;
         const current = target.fileHash === this.#source?.sha256;
-        if (current && target.pdf?.page)
+        if (current && target.pdf?.page) {
+          this.#pdfTarget = target.pdf.rects?.length ? structuredClone(target) : null;
           await this.#anchor(target.pdf.page - 1);
+          await this.#waitPdfPaint(target.pdf.page - 1, owner?.signal ?? this.#opening.signal);
+          const content = view.renderer.getContents().find(item => item.index + 1 === target.pdf?.page);
+          const viewport = content && this.#book?.pdfViewport?.(content.doc);
+          const rect = viewport && target.pdf.rects?.[0] && pdfRectToPage(target.pdf.rects[0], viewport, this.#book?.pdfCropOffset?.(content!.doc) ?? { left: 0, top: 0 });
+          if (target.pdf.rects?.length && (!rect || !view.renderer.showPageRect?.(target.pdf.page - 1, rect)))
+            throw new Error("The PDF passage could not be brought into view.");
+        }
         else if (current && target.cfi) await this.#anchor(target.cfi);
         else if (
           current &&
@@ -1593,6 +1625,15 @@ class FoliateEngine implements ReaderEngine {
     draw(renderer.feet, lines?.foot);
   }
   setDecorations(group: string, decorations: Decoration[]) {
+    if (this.#isPdf()) {
+      this.#pdfMarks.set(group, decorations);
+      this.#drawPdfMarks();
+      if (group === "history") {
+        if (this.#markTimer) clearTimeout(this.#markTimer);
+        this.#markTimer = decorations.length ? setTimeout(() => this.setDecorations("history", []), 4000) : null;
+      }
+      return;
+    }
     if (group === "search") {
       this.#searchMarks = decorations.flatMap((item) => {
         const cfi = "cfi" in item ? item.cfi : item.locator.cfi;
@@ -1649,6 +1690,13 @@ class FoliateEngine implements ReaderEngine {
   ): Promise<AnnotationResolveResult> {
     if (!this.#book || !this.#view || !this.#source || this.#destroyed)
       return Promise.resolve({ status: "pending", locator: null });
+    if (this.#isPdf() && this.#pdfTextProvider) return resolvePdfAnnotation({
+      provider: this.#pdfTextProvider, hash: this.#source.sha256, pageCount: this.#book.sections.length,
+      annotation, signal: AbortSignal.any([options.signal ?? this.#opening.signal, this.#opening.signal]),
+    }).catch(error => {
+      if (options.signal?.aborted || this.#destroyed) return { status: "pending" as const, locator: null };
+      throw error;
+    });
     this.#annotationResolver ??= new FoliateAnnotationResolver(
       this.#book,
       this.#view,
@@ -1656,6 +1704,46 @@ class FoliateEngine implements ReaderEngine {
       () => this.#readingFraction,
     );
     return this.#annotationResolver.resolve(annotation, options);
+  }
+
+  #waitPdfPaint(index: number, signal: AbortSignal): Promise<void> {
+    return new Promise((resolve, reject) => {
+      signal.throwIfAborted();
+      const documents = new Set<Document>();
+      const done = (error?: unknown) => { clearTimeout(timer); offDocument(); offError();
+        signal.removeEventListener("abort", abort);
+        for (const doc of documents) doc.removeEventListener("durtal-pdf-painted", check);
+        if (error) reject(error); else resolve(); };
+      const abort = () => done(signal.reason ?? new DOMException("Cancelled", "AbortError"));
+      const check = () => {
+        const content = this.#view?.renderer.getContents().find(item => item.index === index);
+        if (content && this.#book?.pdfViewport?.(content.doc)) { done(); return; }
+        if (content && !documents.has(content.doc)) { documents.add(content.doc); content.doc.addEventListener("durtal-pdf-painted", check); }
+      };
+      const offDocument = this.on("document", check);
+      const offError = this.on("error", event => done(new Error(event.message)));
+      const timer = setTimeout(() => done(new Error("The PDF page took too long to paint.")), 30_000);
+      signal.addEventListener("abort", abort, { once: true }); check();
+    });
+  }
+  #drawPdfMarks() {
+    if (this.#isPdf() && this.#view && this.#book && this.#source && this.#presentation && !this.#destroyed)
+      this.#pdfMarks.render(this.#view, this.#book, this.#source.sha256, this.#presentation.colors);
+  }
+  #pdfLocatorVisible(locator: DurtalLocator) {
+    const content = this.#view?.renderer.getContents().find(item => item.index + 1 === locator.pdf?.page);
+    const viewport = content && this.#book?.pdfViewport?.(content.doc);
+    const frame = content?.doc.defaultView?.frameElement;
+    if (!content || !viewport || !frame || !this.#view) return false;
+    const host = frame.getBoundingClientRect(), area = this.#view.getBoundingClientRect();
+    const scaleX = host.width / ((frame as HTMLElement).offsetWidth || host.width);
+    const scaleY = host.height / ((frame as HTMLElement).offsetHeight || host.height);
+    const crop = this.#book?.pdfCropOffset?.(content.doc) ?? { left: 0, top: 0 };
+    return locator.pdf?.rects?.some(rect => {
+      const box = pdfRectToPage(rect, viewport, crop);
+      return !!box && host.left + box.right * scaleX > area.left && host.left + box.left * scaleX < area.right &&
+        host.top + box.bottom * scaleY > area.top && host.top + box.top * scaleY < area.bottom;
+    }) ?? false;
   }
 
   #drawSearchMarks() {

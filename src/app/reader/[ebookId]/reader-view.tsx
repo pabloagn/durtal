@@ -191,7 +191,7 @@ function loadedAsReaderPage(): boolean {
 function samePlace(a: DurtalLocator | null, b: DurtalLocator | null): boolean {
   if (!a || !b || a.fileHash !== b.fileHash) return false;
   if (a.cfi || b.cfi) return a.cfi === b.cfi;
-  if (a.pdf || b.pdf) return a.pdf?.page === b.pdf?.page;
+  if (a.pdf || b.pdf) return a.pdf?.page === b.pdf?.page && JSON.stringify(a.pdf?.rects) === JSON.stringify(b.pdf?.rects);
   return (
     a.sectionIndex === b.sectionIndex &&
     Math.abs(a.totalProgression - b.totalProgression) < 1e-6
