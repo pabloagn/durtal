@@ -8,7 +8,7 @@ import { createPreferenceSaver, type PreferenceSaver } from "@/lib/reader/presen
 import { preferenceAdoptionSchema, type PreferenceScope } from "@/lib/reader/presentation/preference-plan";
 import type { PresentationRow } from "@/lib/reader/presentation/defaults";
 
-type Entry = { saver: PreferenceSaver; mounts: number };
+type Entry = Readonly<{ saver: PreferenceSaver; activate(): () => void }>;
 // A remount/BFCache return reuses the same in-flight controller, avoiding stale draft deletion.
 const browserEntries = new Map<string, Entry>();
 
@@ -23,7 +23,7 @@ function entryFor(scope: PreferenceScope, rows: readonly PresentationRow[], key:
       recovery = value === null ? undefined : JSON.parse(value);
     } catch { recovery = { unavailable: true }; }
   }
-  const entry = { mounts: 0, saver: createPreferenceSaver({
+  const saver = createPreferenceSaver({
     scope, initialRows: rows, recovery,
     transport: { update: updateReaderPreferences, reset: resetReaderPreferences, adopt: adoptLegacyReaderSettings },
     onAdopted: inBrowser ? () => deleteCookie(READER_SETTINGS_KEY) : undefined,
@@ -31,7 +31,27 @@ function entryFor(scope: PreferenceScope, rows: readonly PresentationRow[], key:
       if (draft) window.sessionStorage.setItem(key, JSON.stringify(draft));
       else window.sessionStorage.removeItem(key);
     } : undefined,
-  }) };
+  });
+  // Ownership lives in the external controller closure, never a hook-visible mutable value.
+  let mounts = 0;
+  const entry: Entry = Object.freeze({
+    saver,
+    activate() {
+      mounts++;
+      void saver.start();
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        mounts--;
+        if (mounts === 0) {
+          saver.pause();
+          const last = saver.getSnapshot();
+          if (last.pending === 0 && !last.saving && browserEntries.get(key) === entry) browserEntries.delete(key);
+        }
+      };
+    },
+  });
   if (inBrowser) browserEntries.set(key, entry);
   return entry;
 }
@@ -53,8 +73,7 @@ export function useReaderPreferences(options: PreferenceScope & { initialRows: r
   const state = useSyncExternalStore(saver.subscribe, saver.getSnapshot, () => serverSnapshot);
 
   useEffect(() => {
-    entry.mounts++;
-    void saver.start();
+    const release = entry.activate();
     const online = () => { void saver.flush(); };
     const pagehide = () => { void saver.flush(); };
     const pageshow = (event: PageTransitionEvent) => { if (event.persisted) void saver.flush(); };
@@ -65,12 +84,7 @@ export function useReaderPreferences(options: PreferenceScope & { initialRows: r
       window.removeEventListener("online", online);
       window.removeEventListener("pagehide", pagehide);
       window.removeEventListener("pageshow", pageshow);
-      entry.mounts--;
-      if (entry.mounts === 0) {
-        saver.pause();
-        const last = saver.getSnapshot();
-        if (entry.mounts === 0 && last.pending === 0 && !last.saving && browserEntries.get(key) === entry) browserEntries.delete(key);
-      }
+      release();
     };
   }, [entry, saver, key]);
 
