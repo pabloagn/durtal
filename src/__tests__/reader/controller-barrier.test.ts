@@ -44,7 +44,7 @@ beforeEach(() => {
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
   fake = fakeEngine();
   mocks.factory = vi.spyOn(foliateEngineModule, "createFoliateEngine")
-    .mockReturnValue(fake.engine as ReturnType<typeof foliateEngineModule.createFoliateEngine>);
+    .mockReturnValue(fake.engine);
   mocks.preload.mockReset().mockResolvedValue(undefined);
   Object.values(handlers).forEach((handler) => handler.mockReset());
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ positions: [] }), { status: 200 })));

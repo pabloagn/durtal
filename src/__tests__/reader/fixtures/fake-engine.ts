@@ -4,6 +4,7 @@ import type {
   EngineEvents,
   ReaderEngine,
 } from "@/lib/reader/engine";
+import type { createFoliateEngine } from "@/lib/reader/engines/foliate/engine";
 import { place } from "./places";
 export function fakeEngine() {
   const handlers = new Map<keyof EngineEvents, Set<(payload: never) => void>>();
@@ -36,6 +37,11 @@ export function fakeEngine() {
       navigationId,
     });
   const engine = {
+    // This in-memory fake neither reads book files nor makes network requests.
+    // Match the real engine's read-only telemetry getter without inventing transfers.
+    get transfer() {
+      return { bytes: 0, requests: 0 };
+    },
     on<K extends keyof EngineEvents>(
       name: K,
       handler: (payload: EngineEvents[K]) => void,
@@ -160,6 +166,6 @@ export function fakeEngine() {
       locator: at,
     })),
     destroy: vi.fn(),
-  } satisfies ReaderEngine;
+  } satisfies ReturnType<typeof createFoliateEngine>;
   return { engine, emit };
 }
