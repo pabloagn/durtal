@@ -19,6 +19,7 @@ import { editions } from "./editions";
 import { instances } from "./instances";
 import { locations } from "./locations";
 import { imports } from "./imports";
+import { ebookAnnotations } from "./ebook-annotations";
 import {
   ABANDON_REASONS,
   READING_DATE_PRECISIONS,
@@ -273,6 +274,8 @@ export const readingNotes = pgTable(
       .references(() => works.id, { onDelete: "cascade" }),
     readingId: uuid("reading_id").references(() => readings.id, { onDelete: "set null" }),
     editionId: uuid("edition_id").references(() => editions.id, { onDelete: "set null" }),
+    /** One tracker quote for an annotation; deletion clears the reference (SLN-454). */
+    ebookAnnotationId: uuid("ebook_annotation_id").unique().references(() => ebookAnnotations.id, { onDelete: "set null" }),
     kind: text("kind", { enum: NOTE_KINDS }).notNull(),
     /** The passage or the note: plain text with its line breaks */
     body: text("body").notNull(),

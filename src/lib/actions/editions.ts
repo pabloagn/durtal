@@ -3,6 +3,7 @@
 import { requireBookWork } from "@/lib/catalogue/book-boundary";
 
 import { atomic } from "@/lib/db/atomic";
+import { lockReaderBindings, lockReaderNotes, ebooksForEdition, notesForEdition, withReaderWriteRetry } from "@/lib/reading/reader-write-locks";
 import { withReadableErrors } from "@/lib/db/errors";
 import { assertSql } from "@/lib/harmonization/store";
 import { editionContributorQueries } from "@/lib/catalogue/book-credits";
@@ -69,6 +70,10 @@ export async function createEdition(input: CreateEditionInput) {
 }
 
 export async function updateEdition(id: string, input: UpdateEditionInput) {
+  return withReaderWriteRetry(() => updateEditionOnce(id, input));
+}
+
+async function updateEditionOnce(id: string, input: UpdateEditionInput) {
   parseId(id);
   // No defaults (an omitted field keeps its stored value), unknown keys rejected
   const parsed = updateEditionSchema.parse(input);
@@ -106,6 +111,8 @@ export async function updateEdition(id: string, input: UpdateEditionInput) {
   const { credits, newAuthors } = await resolveBookCredits(contributorIds);
   try {
     await atomic((d) => [
+      lockReaderBindings(d, ebooksForEdition(id), notesForEdition(id)),
+      lockReaderNotes(d, notesForEdition(id)),
       ...newAuthors.flatMap((author) => newAuthorQueries(d, author)),
       // An edition moved to another book leaves the old book's readings: they
       // keep their page totals, without this edition or its copy
@@ -187,6 +194,10 @@ export async function updateEdition(id: string, input: UpdateEditionInput) {
 }
 
 export async function deleteEdition(id: string) {
+  return withReaderWriteRetry(() => deleteEditionOnce(id));
+}
+
+async function deleteEditionOnce(id: string) {
   // Book enrichment (SLN-462): a work's claims may cite this edition's source
   // records, which go with it. One unit: refuse while an accepted value rests
   // only on them, drop that evidence, withdraw the proposals left with none,
@@ -196,6 +207,8 @@ export async function deleteEdition(id: string) {
   const citing = sql`c.work_id = (select work_id from editions where id = ${edition}) and c.edition_id is distinct from ${edition}`;
   const results = await withReadableErrors(() =>
     atomic((d) => [
+      lockReaderBindings(d, ebooksForEdition(id), notesForEdition(id)),
+      lockReaderNotes(d, notesForEdition(id)),
       d.execute(sql`select id from editions where id = ${edition} for update`),
       d.execute(
         assertSql(

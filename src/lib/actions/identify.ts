@@ -11,6 +11,7 @@ import { eq, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
+import { lockReaderBindings, lockReaderNotes, withReaderWriteRetry } from "@/lib/reading/reader-write-locks";
 import { editions } from "@/lib/db/schema";
 import { recordActivity } from "@/lib/activity/record";
 import { autoResolveEditions, resultRows } from "@/lib/publishers/resolution";
@@ -352,6 +353,10 @@ export async function undoIdentification(editionId: string, input: IdentifyUndo)
  * removed. Refused when anything else refers to the placeholder.
  */
 export async function moveToExistingEdition(placeholderId: string, editionId: string) {
+  return withReaderWriteRetry(() => moveToExistingEditionOnce(placeholderId, editionId));
+}
+
+async function moveToExistingEditionOnce(placeholderId: string, editionId: string) {
   const source = await placeholder(placeholderId);
   const target = await db.query.editions.findFirst({ where: eq(editions.id, editionId) });
   if (!target || target.workId !== source.workId || target.id === source.id)
@@ -380,6 +385,10 @@ export async function moveToExistingEdition(placeholderId: string, editionId: st
       (select count(*)::int from collection_editions where edition_id = ${placeholderId}::uuid) as collections`),
   );
   await atomic((d) => [
+    lockReaderBindings(d, sql`select eb.id from ebooks eb join instances i on i.id=eb.instance_id
+      where i.edition_id in (${placeholderId}::uuid,${editionId}::uuid)`,
+      sql`select id from reading_notes where edition_id in (${placeholderId}::uuid,${editionId}::uuid)`),
+    lockReaderNotes(d, sql`select id from reading_notes where edition_id in (${placeholderId}::uuid,${editionId}::uuid)`),
     d.execute(sql`update instances set edition_id = ${editionId}::uuid, updated_at = now()
       where edition_id = ${placeholderId}::uuid`),
     d.execute(sql`insert into collection_editions (collection_id, edition_id, sort_order, added_at)

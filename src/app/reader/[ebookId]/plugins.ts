@@ -1,6 +1,9 @@
 import type { ComponentType } from "react";
 import { createElement } from "react";
 import type { ReaderControllerFailureProps, ReaderPluginView } from "@/lib/reader/bridge-state";
+import { ReaderTracking, ReaderTrackingFailure } from "@/components/reading/reader-tracking";
+import { loadReaderTracking } from "@/lib/reading/reader";
+import { READER_TRACKING_CONTROLLER_ID } from "@/lib/reading/reader-controller";
 
 export interface ReaderPlugin {
   id: string;
@@ -10,8 +13,15 @@ export interface ReaderPlugin {
   controller?: true;
   Failure?: ComponentType<ReaderControllerFailureProps>;
 }
-/** The tracker adds its client component here in SLN-454. Loaders never enter the client bundle. */
-export const readerPlugins: ReaderPlugin[] = [];
+/** The readiness fields are consumed by the shared controller loader (SLN-493). */
+const readingTrackerPlugin = {
+  id: READER_TRACKING_CONTROLLER_ID,
+  load: loadReaderTracking,
+  Component: ReaderTracking,
+  controller: true as const,
+  Failure: ReaderTrackingFailure,
+};
+export const readerPlugins: ReaderPlugin[] = [readingTrackerPlugin];
 
 export function getRequiredReaderControllerIds(plugins = readerPlugins): readonly string[] {
   const ids = plugins.map((plugin) => plugin.id);

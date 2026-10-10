@@ -13,6 +13,7 @@ export default async function ReadingSettingsPage() {
         readingTimerCheckMinutes: settings.readingTimerCheckMinutes,
         readingRhythmDays: settings.readingRhythmDays,
         readingSuggestHideAnathema: settings.readingSuggestHideAnathema,
+        readingAutoTrackEbooks: settings.readingAutoTrackEbooks,
       }}
     />
   );

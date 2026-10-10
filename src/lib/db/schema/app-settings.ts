@@ -36,6 +36,8 @@ export const appSettings = pgTable(
     readingWeekStart: smallint("reading_week_start").notNull().default(1),
     /** Minutes of running time after which a timer asks "Still reading?" (15 to 480) */
     readingTimerCheckMinutes: smallint("reading_timer_check_minutes").notNull().default(90),
+    /** Reader may start tracking after five active minutes (SLN-454; 0087 pending). */
+    readingAutoTrackEbooks: boolean("reading_auto_track_ebooks").notNull().default(true),
     /** Days he would like to read each week, 1 to 7; null: no rhythm shown (SLN-455) */
     readingRhythmDays: smallint("reading_rhythm_days"),
     /** Suggestions leave out books marked Anathema (SLN-457) */
