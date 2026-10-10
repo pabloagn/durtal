@@ -1,0 +1,505 @@
+{
+  "status": "audited-upstream-sources-not-generated-reader-subsets",
+  "subsettingPerformed": false,
+  "sourceReleases": {
+    "literata": {
+      "release": "3.103",
+      "commit": "0c2761b727a1b3a7cffd313c37f0f5163dfc7a63",
+      "url": "https://github.com/googlefonts/literata/releases/tag/3.103"
+    },
+    "inter": {
+      "release": "v4.1",
+      "commit": "e3a3d4c57d5ecc01453a575621882a384c1995a3",
+      "url": "https://github.com/rsms/inter/releases/tag/v4.1",
+      "archiveBytes": 33707794,
+      "archiveSha256": "9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e"
+    },
+    "eb-garamond": {
+      "release": null,
+      "commit": "106a4a6d377987459ae5e68673a4570f13b957fb",
+      "url": "https://github.com/octaviopardo/EBGaramond12/tree/106a4a6d377987459ae5e68673a4570f13b957fb",
+      "note": "Upstream has no release or tags; this pinned upstream commit was acquired and audited."
+    }
+  },
+  "inputs": [
+    {
+      "family": "literata",
+      "file": "OFL.txt",
+      "url": "https://raw.githubusercontent.com/googlefonts/literata/0c2761b727a1b3a7cffd313c37f0f5163dfc7a63/OFL.txt",
+      "bytes": 4389,
+      "sha256": "8742963604cd89dc81437811a850018fc03b2bfad686d7422c8235967c87614e"
+    },
+    {
+      "family": "literata",
+      "file": "roman.ttf",
+      "url": "https://raw.githubusercontent.com/googlefonts/literata/0c2761b727a1b3a7cffd313c37f0f5163dfc7a63/fonts/variable/Literata%5Bopsz%2Cwght%5D.ttf",
+      "bytes": 955132,
+      "sha256": "b41138c9373112f32abb589cc22e8674b06ed4048b0c513be922bdd26f274440"
+    },
+    {
+      "family": "literata",
+      "file": "italic.ttf",
+      "url": "https://raw.githubusercontent.com/googlefonts/literata/0c2761b727a1b3a7cffd313c37f0f5163dfc7a63/fonts/variable/Literata-Italic%5Bopsz%2Cwght%5D.ttf",
+      "bytes": 902728,
+      "sha256": "d483dfaeba9cbf4ce71d32a52ee65df82f7e35b15fff8d1011cdb242d1fcd465"
+    },
+    {
+      "family": "eb-garamond",
+      "file": "OFL.txt",
+      "url": "https://raw.githubusercontent.com/octaviopardo/EBGaramond12/106a4a6d377987459ae5e68673a4570f13b957fb/OFL.txt",
+      "bytes": 4454,
+      "sha256": "058611bd968817d532cedeab6acaa055e882d365a88523df00e7917ad7a0f704"
+    },
+    {
+      "family": "eb-garamond",
+      "file": "roman.ttf",
+      "url": "https://raw.githubusercontent.com/octaviopardo/EBGaramond12/106a4a6d377987459ae5e68673a4570f13b957fb/fonts/variable/EBGaramond%5Bwght%5D.ttf",
+      "bytes": 851176,
+      "sha256": "684fcc0db2239b43497341d596d68422ea60ef7522cf2e857071ad84e4ade2a4"
+    },
+    {
+      "family": "eb-garamond",
+      "file": "italic.ttf",
+      "url": "https://raw.githubusercontent.com/octaviopardo/EBGaramond12/106a4a6d377987459ae5e68673a4570f13b957fb/fonts/variable/EBGaramond-Italic%5Bwght%5D.ttf",
+      "bytes": 754468,
+      "sha256": "b76b365299331ddff5f8077648ef3b6fbb67f3bd15bebb955a42c6e57904aed0"
+    },
+    {
+      "family": "inter",
+      "file": "OFL.txt",
+      "url": "https://raw.githubusercontent.com/rsms/inter/e3a3d4c57d5ecc01453a575621882a384c1995a3/LICENSE.txt",
+      "bytes": 4380,
+      "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"
+    },
+    {
+      "family": "inter",
+      "file": "InterVariable-Italic.ttf",
+      "url": "https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip",
+      "member": "InterVariable-Italic.ttf",
+      "bytes": 910252,
+      "sha256": "d6f1f6a172d9e588438db9f986fd5cfad7b30f644374080a8a9d4d91e344586f"
+    },
+    {
+      "family": "inter",
+      "file": "InterVariable.ttf",
+      "url": "https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip",
+      "member": "InterVariable.ttf",
+      "bytes": 879708,
+      "sha256": "4989b125924991b90d05b2d16e0e388c48f7d5bb8b30539bbf9c755278d0ccaf"
+    }
+  ],
+  "metadataAudit": {
+    "fontTools": "4.63.0",
+    "fonts": [
+      {
+        "family": "eb-garamond",
+        "file": "italic.ttf",
+        "axes": [
+          {
+            "tag": "wght",
+            "min": 400.0,
+            "default": 400.0,
+            "max": 800.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "c2pc",
+          "c2sc",
+          "case",
+          "dlig",
+          "dnom",
+          "fina",
+          "frac",
+          "hist",
+          "hlig",
+          "init",
+          "liga",
+          "lnum",
+          "locl",
+          "numr",
+          "onum",
+          "ordn",
+          "pcap",
+          "pnum",
+          "rlig",
+          "sinf",
+          "smcp",
+          "ss01",
+          "ss02",
+          "ss03",
+          "ss04",
+          "ss05",
+          "ss06",
+          "ss07",
+          "subs",
+          "sups",
+          "swsh",
+          "tnum"
+        ],
+        "codepoints": 1972,
+        "sampleMissing": {
+          "English": [],
+          "French": [],
+          "German": [],
+          "Greek": [],
+          "PolytonicGreek": [],
+          "Cyrillic": []
+        },
+        "names": {
+          "1": "EB Garamond",
+          "2": "Italic",
+          "3": "1.001;PfEd;EBGaramond-Italic",
+          "4": "EB Garamond Italic",
+          "6": "EBGaramond-Italic",
+          "16": null,
+          "17": null
+        }
+      },
+      {
+        "family": "eb-garamond",
+        "file": "roman.ttf",
+        "axes": [
+          {
+            "tag": "wght",
+            "min": 400.0,
+            "default": 400.0,
+            "max": 800.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "c2pc",
+          "c2sc",
+          "case",
+          "dlig",
+          "dnom",
+          "frac",
+          "hist",
+          "hlig",
+          "liga",
+          "lnum",
+          "locl",
+          "numr",
+          "onum",
+          "ordn",
+          "pcap",
+          "pnum",
+          "rlig",
+          "sinf",
+          "smcp",
+          "ss01",
+          "ss02",
+          "ss03",
+          "ss04",
+          "ss05",
+          "ss06",
+          "ss07",
+          "subs",
+          "sups",
+          "swsh",
+          "tnum"
+        ],
+        "codepoints": 2091,
+        "sampleMissing": {
+          "English": [],
+          "French": [],
+          "German": [],
+          "Greek": [],
+          "PolytonicGreek": [],
+          "Cyrillic": []
+        },
+        "names": {
+          "1": "EB Garamond",
+          "2": "Regular",
+          "3": "1.002;PfEd;EBGaramond-Regular",
+          "4": "EB Garamond Regular",
+          "6": "EBGaramond-Regular",
+          "16": null,
+          "17": null
+        }
+      },
+      {
+        "family": "inter",
+        "file": "InterVariable-Italic.ttf",
+        "axes": [
+          {
+            "tag": "opsz",
+            "min": 14.0,
+            "default": 14.0,
+            "max": 32.0
+          },
+          {
+            "tag": "wght",
+            "min": 100.0,
+            "default": 400.0,
+            "max": 900.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "calt",
+          "case",
+          "ccmp",
+          "cv01",
+          "cv02",
+          "cv03",
+          "cv04",
+          "cv05",
+          "cv06",
+          "cv07",
+          "cv08",
+          "cv09",
+          "cv10",
+          "cv12",
+          "cv13",
+          "cv14",
+          "dlig",
+          "dnom",
+          "frac",
+          "locl",
+          "numr",
+          "ordn",
+          "pnum",
+          "salt",
+          "sinf",
+          "ss01",
+          "ss02",
+          "ss03",
+          "ss04",
+          "ss05",
+          "ss06",
+          "ss07",
+          "ss08",
+          "subs",
+          "sups",
+          "tnum",
+          "zero"
+        ],
+        "codepoints": 2816,
+        "sampleMissing": {
+          "English": [],
+          "French": [],
+          "German": [],
+          "Greek": [],
+          "PolytonicGreek": [],
+          "Cyrillic": []
+        },
+        "names": {
+          "1": "Inter Variable",
+          "2": "Italic",
+          "3": "4.001;git-9221beed3;RSMS;InterVariable-Italic",
+          "4": "Inter Variable Italic",
+          "6": "InterVariableItalic",
+          "16": null,
+          "17": null
+        }
+      },
+      {
+        "family": "inter",
+        "file": "InterVariable.ttf",
+        "axes": [
+          {
+            "tag": "opsz",
+            "min": 14.0,
+            "default": 14.0,
+            "max": 32.0
+          },
+          {
+            "tag": "wght",
+            "min": 100.0,
+            "default": 400.0,
+            "max": 900.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "calt",
+          "case",
+          "ccmp",
+          "cv01",
+          "cv02",
+          "cv03",
+          "cv04",
+          "cv05",
+          "cv06",
+          "cv07",
+          "cv08",
+          "cv09",
+          "cv10",
+          "cv11",
+          "cv12",
+          "cv13",
+          "cv14",
+          "dlig",
+          "dnom",
+          "frac",
+          "locl",
+          "numr",
+          "ordn",
+          "pnum",
+          "salt",
+          "sinf",
+          "ss01",
+          "ss02",
+          "ss03",
+          "ss04",
+          "ss05",
+          "ss06",
+          "ss07",
+          "ss08",
+          "subs",
+          "sups",
+          "tnum",
+          "zero"
+        ],
+        "codepoints": 2852,
+        "sampleMissing": {
+          "English": [],
+          "French": [],
+          "German": [],
+          "Greek": [],
+          "PolytonicGreek": [],
+          "Cyrillic": []
+        },
+        "names": {
+          "1": "Inter Variable",
+          "2": "Regular",
+          "3": "4.001;git-9221beed3;RSMS;InterVariable-Regular",
+          "4": "Inter Variable",
+          "6": "InterVariable",
+          "16": null,
+          "17": null
+        }
+      },
+      {
+        "family": "literata",
+        "file": "italic.ttf",
+        "axes": [
+          {
+            "tag": "opsz",
+            "min": 7.0,
+            "default": 12.0,
+            "max": 72.0
+          },
+          {
+            "tag": "wght",
+            "min": 200.0,
+            "default": 400.0,
+            "max": 900.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "c2sc",
+          "case",
+          "ccmp",
+          "dlig",
+          "dnom",
+          "frac",
+          "liga",
+          "lnum",
+          "locl",
+          "numr",
+          "onum",
+          "ordn",
+          "pnum",
+          "rvrn",
+          "sinf",
+          "smcp",
+          "ss01",
+          "ss02",
+          "subs",
+          "sups",
+          "tnum",
+          "zero"
+        ],
+        "codepoints": 1163,
+        "sampleMissing": {
+          "English": [],
+          "French": [],
+          "German": [],
+          "Greek": [],
+          "PolytonicGreek": [],
+          "Cyrillic": []
+        },
+        "names": {
+          "1": "Literata",
+          "2": "Italic",
+          "3": "3.103;TT;Literata-Italic",
+          "4": "Literata Italic",
+          "6": "Literata-Italic",
+          "16": null,
+          "17": null
+        }
+      },
+      {
+        "family": "literata",
+        "file": "roman.ttf",
+        "axes": [
+          {
+            "tag": "opsz",
+            "min": 7.0,
+            "default": 12.0,
+            "max": 72.0
+          },
+          {
+            "tag": "wght",
+            "min": 200.0,
+            "default": 400.0,
+            "max": 900.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "c2sc",
+          "case",
+          "ccmp",
+          "dlig",
+          "dnom",
+          "frac",
+          "liga",
+          "lnum",
+          "locl",
+          "numr",
+          "onum",
+          "ordn",
+          "pnum",
+          "rvrn",
+          "sinf",
+          "smcp",
+          "ss01",
+          "ss02",
+          "subs",
+          "sups",
+          "tnum",
+          "zero"
+        ],
+        "codepoints": 1163,
+        "sampleMissing": {
+          "English": [],
+          "French": [],
+          "German": [],
+          "Greek": [],
+          "PolytonicGreek": [],
+          "Cyrillic": []
+        },
+        "names": {
+          "1": "Literata",
+          "2": "Regular",
+          "3": "3.103;TT;Literata-Regular",
+          "4": "Literata Regular",
+          "6": "Literata-Regular",
+          "16": null,
+          "17": null
+        }
+      }
+    ]
+  },
+  "limitations": [
+    "Not an output WOFF2 manifest: no reader font subset was generated.",
+    "No browser first-paint byte or installed font metric claim.",
+    "EB Garamond actual weight axis starts at 400, not 300.",
+    "Inter 4.1 has no smcp, c2sc, onum or liga GSUB feature; preserve existing publisher declarations and do not fabricate missing source features."
+  ]
+}

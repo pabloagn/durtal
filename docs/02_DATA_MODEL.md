@@ -2622,6 +2622,35 @@ On a non-linear excursion, `href`, CFI, `sectionIndex` and within-section `progr
 
 SLN-493 reads all file/device rows ordered by `client_updated_at`. The page query includes this device's current-file place and book history, plus the newest other-device place, in the same database round trip. No device overwrites another's row. The reader offers a newer different place; it moves only on Go there, except when this device has never opened the e-book. Cross-file resume uses total progression in the current file. This adds no schema or migration and writes no tracker tables.
 
+### `reader_preferences`
+
+SLN-501 declaration proposal; migration `0085_reader_preferences` is reserved
+and has not been generated or applied. The single-user catalogue has no user
+column. All devices of one class share its defaults; an optional e-book row
+overrides only its stored fields for that class.
+
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | UUID | PK, default `gen_random_uuid()` |
+| `device_class` | TEXT | NOT NULL; CHECK in (`phone`, `tablet`, `desktop`) (`reader_preferences_device_class_check`) |
+| `ebook_id` | UUID | nullable; FK → `ebooks.id`, CASCADE |
+| `presentation` | JSONB | NOT NULL; complete `presentationSchema` for defaults, nonempty `presentationOverrideSchema` for a book |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, default `now()` |
+
+UNIQUE NULLS NOT DISTINCT (`device_class`, `ebook_id`)
+(`reader_preferences_scope_unique`) makes null a single defaults scope per
+class. Index `reader_preferences_ebook_id_idx` supports the cascade. No custom
+SQL or trigger is proposed: Drizzle declares the check, unique key and FK;
+actions validate the JSON fields. Stored fields are recovered independently
+so an old invalid value or a future field does not discard valid preferences.
+
+Effective presentation layers built-in class defaults, the class's defaults
+row, then the book's partial row. One reader query returns at most six rows:
+three defaults and that book's three overrides. Shared JSON includes SLN-502's
+`fixedFit` (`page` for desktop/tablet, `width` for phone), `cropMargins` (`auto`
+for all classes) and `pdfThemePages` (`true` for all classes). Fixed zoom remains
+session-local and is not stored. Adding these fields requires no extra table.
+
 ### `ebook_annotations`
 
 Highlights (with notes) and bookmarks. Created empty; sub-issue 11 writes them.

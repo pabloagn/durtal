@@ -1,0 +1,33 @@
+{
+  "sample": "The quick brown fox jumps over the lazy dog. A quiet library holds books of every age, and each page invites another reader.",
+  "fontSizePx": 20,
+  "fontWeight": 400,
+  "method": "Skia Canvas 2D measureText with HarfBuzz shaping; exact decoded shipped WOFF2",
+  "runtime": {
+    "node": "26.9.0",
+    "canvas": "1.0.10"
+  },
+  "fonts": {
+    "literata": {
+      "assetPath": "/fonts/reader/v1/literata/literata-roman-latin.woff2",
+      "assetSha256": "66f7fce0ef3effa7bd6c0b4a4a07a737cdf92d6f39f8dc3055c4d3e350493012",
+      "decodedTTFSha256": "f1cbfb7285455fc25ef69dc364621fa11b51cf30a3ab576aedc092b68733f303",
+      "widthPx": 1160.760009765625,
+      "advanceEm": 0.4680483910345262
+    },
+    "garamond": {
+      "assetPath": "/fonts/reader/v1/eb-garamond/eb-garamond-roman-latin.woff2",
+      "assetSha256": "a419bcceb20c36b3a8f41e4f9da7c1212894917b9f2c9d9c229eb9c4255d0d6e",
+      "decodedTTFSha256": "0b2d06ae6c527ad954e405ed789134374b64a6de4fbff92fc5db3ba7ef216a25",
+      "widthPx": 936.7000122070312,
+      "advanceEm": 0.37770161782541584
+    },
+    "inter": {
+      "assetPath": "/fonts/reader/v1/inter/inter-roman-latin.woff2",
+      "assetSha256": "6cc11d3568f9488f66faa6584d7de01be38311c86fe6bc3992a40843944dd5a0",
+      "decodedTTFSha256": "84fc3ba3ca028ec1302d44316ba1d9f1845efe2246e0a27a1baf0df8038d67bb",
+      "widthPx": 1145.1700439453125,
+      "advanceEm": 0.46176211449407767
+    }
+  }
+}

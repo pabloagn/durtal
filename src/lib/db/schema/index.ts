@@ -180,6 +180,7 @@ export {
   ebookAnnotations,
   ebookAnnotationsRelations,
 } from "./ebook-annotations";
+export { readerPreferences } from "./reader-preferences";
 export {
   ebookIngestRuns,
   ebookIngestRunsRelations,
