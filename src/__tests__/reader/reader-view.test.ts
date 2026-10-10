@@ -12,6 +12,18 @@ vi.mock("@/lib/reader/engines/foliate/preload", () => ({
 vi.mock("@/components/reader/settings-dialog", () => ({
   SettingsDialog: () => null,
 }));
+// Model the Next server-action reply at its transport boundary. The real
+// preference hook/saver validates it and controls admission; writes are unexpected.
+vi.mock("@/lib/actions/reader-preferences", async () => {
+  const { preferenceAdoptionSchema } = await import("@/lib/reader/presentation/preference-plan");
+  return {
+    adoptLegacyReaderSettings: async (input: unknown) => ({
+      ok: true as const, ...preferenceAdoptionSchema.parse(input), rows: [],
+    }),
+    updateReaderPreferences: async () => { throw new Error("Unexpected reading-settings write in reader fixture"); },
+    resetReaderPreferences: async () => { throw new Error("Unexpected reading-settings reset in reader fixture"); },
+  };
+});
 import { ReaderSlotFill } from "@/components/reader/bridge";
 // EB Garamond loads through next/font, which needs the Next compiler.
 vi.mock("next/font/google", () => ({ EB_Garamond: () => ({ variable: "font-prose" }) }));
@@ -21,10 +33,18 @@ import { place } from "./fixtures/places";
 import { fakeEngine } from "./fixtures/fake-engine";
 import { ProbePlugin } from "./fixtures/probe-plugin";
 let host: HTMLElement, root: Root, fake: ReturnType<typeof fakeEngine>;
-const own = place(),
+// Canonical identities also reach preference and durable annotation consumers.
+const bookId = "11111111-1111-4111-8111-111111111111";
+const epubId = "22222222-2222-4222-8222-222222222222";
+const deviceId = "33333333-3333-4333-8333-333333333333";
+const phoneId = "44444444-4444-4444-8444-444444444444";
+const pdfId = "55555555-5555-4555-8555-555555555555";
+const replacedId = "66666666-6666-4666-8666-666666666666";
+const own = place({ fileId: epubId, deviceId }),
   other = place({
     thisDevice: false,
-    deviceId: "phone",
+    deviceId: phoneId,
+    fileId: epubId,
     deviceLabel: "iPhone · Safari",
     clientUpdatedAt: "2026-10-09T11:00:00Z",
     locator: {
@@ -65,8 +85,15 @@ beforeEach(() => {
   vi.stubGlobal(
     "fetch",
     vi.fn(
-      async () =>
-        new Response(JSON.stringify({ positions: [other] }), { status: 200 }),
+      async (input: RequestInfo | URL) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const body = url.includes("/annotations")
+          ? { annotations: [], serverTime: "2026-10-09T11:00:00Z", reset: false }
+          : { positions: [other] };
+        return new Response(JSON.stringify(body), {
+          status: 200, headers: { "content-type": "application/json" },
+        });
+      },
     ),
   );
 });
@@ -85,9 +112,9 @@ const render = (
   act(async () => {
     root.render(
       h(ReaderView, {
-        ebook: { id: "book", title: "Book", authors: [] },
+        ebook: { id: bookId, title: "Book", authors: [] },
         file: {
-          id: "epub",
+          id: epubId,
           format: "epub",
           size: 1000,
           sha256: "a".repeat(64),
@@ -100,7 +127,7 @@ const render = (
         place,
         devicePlace,
         otherPlace,
-        deviceId: "mac",
+        deviceId,
         backHref: "/library",
         plugins: [
           { id: "probe", node: h(ProbePlugin, { data: { report } }) },
@@ -356,7 +383,7 @@ describe("reader view with a real bridge and fake engine", () => {
     expect(fake.engine.goTo).not.toHaveBeenCalled();
     expect(host.textContent).not.toContain("Go there");
     expect(
-      Number(localStorage.getItem("durtal-reader-declined:book:mac")),
+      Number(localStorage.getItem(`durtal-reader-declined:${bookId}:${deviceId}`)),
     ).toBe(Date.parse(other.clientUpdatedAt));
     act(() => root.unmount());
     root = createRoot(host);
@@ -373,7 +400,7 @@ describe("reader view with a real bridge and fake engine", () => {
   it("cross-format resume opens the current file at total progression", async () => {
     const pdf = {
       ...other,
-      fileId: "pdf",
+      fileId: pdfId,
       locator: {
         ...other.locator,
         fileHash: "b".repeat(64),
@@ -410,7 +437,7 @@ describe("reader view with a real bridge and fake engine", () => {
   it("history in another own format is not mistaken for a never-opened device", async () => {
     const pdfOwn = {
       ...own,
-      fileId: "pdf",
+      fileId: pdfId,
       locator: { ...own.locator, fileHash: "b".repeat(64) },
     };
     await render(null, pdfOwn, other);
@@ -421,7 +448,7 @@ describe("reader view with a real bridge and fake engine", () => {
   it("retains the original clock and hash provenance when an own historical format is projected", async () => {
     const historical = {
       ...own,
-      fileId: "replaced",
+      fileId: replacedId,
       locator: {
         ...own.locator,
         fileHash: "b".repeat(64),
@@ -439,7 +466,7 @@ describe("reader view with a real bridge and fake engine", () => {
     const body = vi.mocked(navigator.sendBeacon).mock.calls.at(-1)?.[1] as Blob;
     const saved = JSON.parse(await body.text());
     expect(saved).toMatchObject({
-      fileId: "epub",
+      fileId: epubId,
       clientUpdatedAt: historical.clientUpdatedAt,
       locator: { fileHash: "a".repeat(64), totalProgression: 0.4 },
     });

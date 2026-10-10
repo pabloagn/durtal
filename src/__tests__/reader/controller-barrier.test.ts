@@ -6,6 +6,18 @@ import { createRoot, type Root } from "react-dom/client";
 const mocks = vi.hoisted(() => ({ factory: vi.fn(), preload: vi.fn() }));
 vi.mock("@/lib/reader/engines/foliate/preload", () => ({ preloadFoliate: mocks.preload }));
 vi.mock("@/components/reader/settings-dialog", () => ({ SettingsDialog: () => null }));
+// Model the Next server-action reply at its transport boundary. The real
+// preference hook/saver validates it and controls admission; writes are unexpected.
+vi.mock("@/lib/actions/reader-preferences", async () => {
+  const { preferenceAdoptionSchema } = await import("@/lib/reader/presentation/preference-plan");
+  return {
+    adoptLegacyReaderSettings: async (input: unknown) => ({
+      ok: true as const, ...preferenceAdoptionSchema.parse(input), rows: [],
+    }),
+    updateReaderPreferences: async () => { throw new Error("Unexpected reading-settings write in reader fixture"); },
+    resetReaderPreferences: async () => { throw new Error("Unexpected reading-settings reset in reader fixture"); },
+  };
+});
 import * as foliateEngineModule from "@/lib/reader/engines/foliate/engine";
 // EB Garamond loads through next/font, which needs the Next compiler.
 vi.mock("next/font/google", () => ({ EB_Garamond: () => ({ variable: "font-prose" }) }));
@@ -14,6 +26,12 @@ import { useReaderController, useReaderControllerFailure, readerControllerFailur
 import type { ReaderControllerFailureProps } from "@/lib/reader/bridge-state";
 import { fakeEngine } from "./fixtures/fake-engine";
 let root: Root, host: HTMLElement, fake: ReturnType<typeof fakeEngine>;
+// Canonical identities also reach preference and durable annotation consumers.
+const bookId = "11111111-1111-4111-8111-111111111111";
+const epubId = "22222222-2222-4222-8222-222222222222";
+const deviceId = "33333333-3333-4333-8333-333333333333";
+const oldFileId = "77777777-7777-4777-8777-777777777777";
+const newFileId = "88888888-8888-4888-8888-888888888888";
 const id = "test-functional-controller";
 const activity = vi.fn(), location = vi.fn(), end = vi.fn(), selection = vi.fn();
 const handlers = { activity, location, end, selection };
@@ -29,12 +47,12 @@ function Installed({ children }: { children?: import("react").ReactNode }) {
   useReaderController(id, handlers);
   return h(Suspense, { fallback: null }, children);
 }
-function props(ready = true, fileId = "first"): ComponentProps<typeof ReaderView> {
+function props(ready = true, fileId = epubId): ComponentProps<typeof ReaderView> {
   return {
-    ebook: { id: "book", title: "Book", authors: [] },
+    ebook: { id: bookId, title: "Book", authors: [] },
     file: { id: fileId, format: "epub" as const, size: 1000, sha256: "a".repeat(64), url: "/file", expiresAt: null, fallbackUrl: "/file", cdOffset: null },
     alternatives: [], place: null, devicePlace: null, otherPlace: null,
-    deviceId: "mac", backHref: "/library", requiredControllerIds: [id],
+    deviceId, backHref: "/library", requiredControllerIds: [id],
     plugins: [{ id, controller: true as const, node: h(Functional, { ready }), failureNode: h(Failure, { id, code: "reader_controller_failed" as const }) }],
   };
 }
@@ -49,7 +67,15 @@ beforeEach(() => {
     .mockReturnValue(fake.engine);
   mocks.preload.mockReset().mockResolvedValue(undefined);
   Object.values(handlers).forEach((handler) => handler.mockReset());
-  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ positions: [] }), { status: 200 })));
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    const url = input instanceof Request ? input.url : String(input);
+    const body = url.includes("/annotations")
+      ? { annotations: [], serverTime: "2026-10-09T11:00:00Z", reset: false }
+      : { positions: [] };
+    return new Response(JSON.stringify(body), {
+      status: 200, headers: { "content-type": "application/json" },
+    });
+  }));
   vi.spyOn(navigator, "sendBeacon").mockReturnValue(true);
 });
 afterEach(() => { act(() => root.unmount()); host.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
@@ -90,10 +116,10 @@ describe("ReaderSession controller admission", () => {
     await flush(); expect(activity).toHaveBeenCalledOnce();
   });
   it("cancels a pending file generation before synchronous engine startup", async () => {
-    await act(async () => root.render(h(ReaderView, props(false, "old"))));
-    await act(async () => root.render(h(ReaderView, props(true, "new")))); await flush();
+    await act(async () => root.render(h(ReaderView, props(false, oldFileId))));
+    await act(async () => root.render(h(ReaderView, props(true, newFileId)))); await flush();
     expect(fake.engine.open).toHaveBeenCalledOnce();
-    expect(fake.engine.open.mock.calls[0][0].fileId).toBe("new"); expect(location).toHaveBeenCalledOnce();
+    expect(fake.engine.open.mock.calls[0][0].fileId).toBe(newFileId); expect(location).toHaveBeenCalledOnce();
   });
   it("fences new input during runtime controller withdrawal without reopening or undoing saves", async () => {
     await act(async () => root.render(h(ReaderView, props()))); await flush();
