@@ -30,6 +30,7 @@ import type {
   AnnotationResolveResult,
 } from "@/lib/reader/engine";
 import { fixedSpreadMode, fixedZoomScale, clampFixedZoom, stepFixedZoom } from "./fixed";
+import { PublisherInk } from "./publisher-ink";
 import { PdfDecorations } from "./pdf-decorations";
 import { resolvePdfAnnotation } from "./pdf-annotation-resolver";
 import { preparePdfSpeech } from "./pdf-speech";
@@ -154,6 +155,7 @@ class FoliateEngine implements ReaderEngine {
   #pdfTextProvider: PdfTextProvider | null = null;
   #pdfTarget: DurtalLocator | null = null;
   #fixedZoom: number | null = null;
+  #ink = new PublisherInk(() => this.#emit("error", { kind: "damaged", message: "The book colours could not be prepared. Try opening the book again." }));
   #pdfMarks = new PdfDecorations(event => this.#emit("annotation-activated", event));
   #opening = new AbortController();
   #locator: DurtalLocator | null = null;
@@ -527,6 +529,7 @@ class FoliateEngine implements ReaderEngine {
       if (resolved.locator) await this.goTo(resolved.locator);
     }
     if (!resolved?.locator) await this.#start();
+    await this.#waitInk();
     return { resolved };
   }
 
@@ -1371,6 +1374,7 @@ class FoliateEngine implements ReaderEngine {
   #applyPagePolicy(doc: Document, typography = true) {
     const p = this.#presentation?.policy;
     if (!p || this.#book?.rendition?.layout === "pre-paginated") return;
+    this.#ink.apply(doc, p, this.#opening.signal);
     let colourSheet = doc.querySelector<HTMLStyleElement>("style[data-durtal-page-colours]");
     if (!colourSheet) {
       colourSheet = doc.createElement("style");
@@ -1459,6 +1463,7 @@ class FoliateEngine implements ReaderEngine {
       } else {
         await this.#anchor(target.href);
       }
+      await this.#waitInk();
       if (this.#destroyed || owner?.signal.aborted)
         throw new DOMException("Cancelled", "AbortError");
       // A renderer may leave the same page without a new relocate. Give the controller
@@ -1468,6 +1473,13 @@ class FoliateEngine implements ReaderEngine {
       this.#jumping--;
       this.#owner = undefined;
     }
+  }
+
+  async #waitInk() {
+    if (this.#book?.rendition?.layout === "pre-paginated") return;
+    const docs = this.#view?.renderer.getContents().map(item => item.doc) ?? [];
+    await Promise.all(docs.map(doc => this.#ink.ready(doc, this.#owner?.signal ?? this.#opening.signal)));
+    this.#opening.signal.throwIfAborted();
   }
 
   async #anchor(target: string | number) {
@@ -1833,6 +1845,7 @@ class FoliateEngine implements ReaderEngine {
     this.#turning++;
     try {
       await this.#view?.[direction]();
+      await this.#waitInk();
       if (owner?.signal.aborted)
         throw new DOMException("Cancelled", "AbortError");
     } finally {
