@@ -1,0 +1,563 @@
+// @vitest-environment happy-dom
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, createElement as h } from "react";
+import { createRoot, type Root } from "react-dom/client";
+const mocks = vi.hoisted(() => ({ factory: vi.fn() }));
+vi.mock("@/lib/reader/engines/foliate/engine", () => ({
+  createFoliateEngine: mocks.factory,
+}));
+vi.mock("@/lib/reader/engines/foliate/preload", () => ({
+  preloadFoliate: () => Promise.resolve(),
+}));
+vi.mock("@/components/reader/settings-dialog", () => ({
+  SettingsDialog: () => null,
+}));
+import { ReaderSlotFill } from "@/components/reader/bridge";
+import { ReaderView } from "@/app/reader/[ebookId]/reader-view";
+import type { ReaderPlace } from "@/lib/reader/sync/places";
+import { place } from "./fixtures/places";
+import { fakeEngine } from "./fixtures/fake-engine";
+import { ProbePlugin } from "./fixtures/probe-plugin";
+let host: HTMLElement, root: Root, fake: ReturnType<typeof fakeEngine>;
+const own = place(),
+  other = place({
+    thisDevice: false,
+    deviceId: "phone",
+    deviceLabel: "iPhone · Safari",
+    clientUpdatedAt: "2026-10-09T11:00:00Z",
+    locator: {
+      ...own.locator,
+      sectionIndex: 5,
+      progression: 0.6,
+      totalProgression: 0.7,
+      pageLabel: "212",
+    },
+  });
+function ToolbarActions() {
+  return h(
+    ReaderSlotFill,
+    { slot: "selection-actions" },
+    h("button", { type: "button" }, "Plugin action one"),
+    h("button", { type: "button" }, "Plugin action two"),
+  );
+}
+const report = vi.fn();
+beforeEach(() => {
+  (
+    globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
+  vi.spyOn(navigator, "sendBeacon").mockReturnValue(true);
+  const storage = new Map<string, string>();
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => storage.set(key, value),
+    clear: () => storage.clear(),
+  });
+  fake = fakeEngine();
+  mocks.factory.mockReset().mockReturnValue(fake.engine);
+  report.mockReset();
+  localStorage.clear();
+  host = document.createElement("div");
+  document.body.append(host);
+  root = createRoot(host);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(JSON.stringify({ positions: [other] }), { status: 200 }),
+    ),
+  );
+});
+afterEach(() => {
+  act(() => root.unmount());
+  host.remove();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
+const render = (
+  place: ReaderPlace | null = own,
+  devicePlace: ReaderPlace | null = own,
+  otherPlace: ReaderPlace | null = other,
+) =>
+  act(async () => {
+    root.render(
+      h(ReaderView, {
+        ebook: { id: "book", title: "Book", authors: [] },
+        file: {
+          id: "epub",
+          format: "epub",
+          size: 1000,
+          sha256: "a".repeat(64),
+          url: "/file",
+          expiresAt: null,
+          fallbackUrl: "/file",
+          cdOffset: null,
+        },
+        alternatives: [],
+        place,
+        devicePlace,
+        otherPlace,
+        deviceId: "mac",
+        backHref: "/library",
+        plugins: [
+          { id: "probe", node: h(ProbePlugin, { data: { report } }) },
+          { id: "actions", node: h(ToolbarActions) },
+        ],
+      }),
+    );
+    if (vi.isFakeTimers()) await vi.advanceTimersByTimeAsync(10);
+    else await new Promise((resolve) => setTimeout(resolve, 10));
+  });
+const button = (text: string) =>
+  [...host.querySelectorAll("button")].find(
+    (button) => button.textContent === text,
+  )!;
+const settle = () =>
+  act(async () => {
+    for (let n = 0; n < 3; n++)
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    await Promise.resolve();
+  });
+describe("reader view with a real bridge and fake engine", () => {
+  const pressRight = () =>
+    act(() =>
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowRight",
+          bubbles: true,
+          cancelable: true,
+        }),
+      ),
+    );
+  const turnActivities = () =>
+    report.mock.calls.filter(
+      ([name, event]) => name === "activity" && event.kind === "turn",
+    );
+  it.each(["boundary", "failed"])(
+    "keeps genuine key activity but publishes no turn for a %s request",
+    async (kind) => {
+      await render();
+      await settle();
+      report.mockClear();
+      fake.engine.goRight.mockImplementationOnce(async () => {
+        if (kind === "failed") throw new Error("failed turn");
+      });
+      pressRight();
+      await settle();
+      expect(turnActivities()).toHaveLength(0);
+      expect(
+        report.mock.calls.some(
+          ([name]) => name === "location" || name === "end",
+        ),
+      ).toBe(false);
+      expect(report).toHaveBeenCalledWith(
+        "activity",
+        expect.objectContaining({ kind: "key" }),
+      );
+      act(() => window.dispatchEvent(new Event("pagehide")));
+      expect(navigator.sendBeacon).not.toHaveBeenCalled();
+    },
+  );
+  it("publishes turn activity once only after the actual turn settles and paints", async () => {
+    await render();
+    await settle();
+    report.mockClear();
+    let release!: () => void;
+    const movement = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    fake.engine.goRight.mockImplementationOnce(async (owner) => {
+      fake.emit("relocate", {
+        locator: {
+          ...own.locator,
+          progression: 0.3,
+          cfi: "next-page",
+          totalProgression: 0.5,
+        },
+        chapter: "Next",
+        reason: "turn",
+        origin: "human",
+        activity: "turn",
+        navigationId: owner?.id,
+        atEnd: false,
+        tocItem: null,
+        visibleChars: 300,
+        linear: true,
+        paginated: true,
+      });
+      await movement;
+    });
+    pressRight();
+    await settle();
+    expect(turnActivities()).toHaveLength(0);
+    expect(report.mock.calls.some(([name]) => name === "location")).toBe(false);
+    await act(async () => {
+      release();
+      await Promise.resolve();
+    });
+    await settle();
+    expect(turnActivities(), JSON.stringify(report.mock.calls)).toHaveLength(1);
+    expect(
+      report.mock.calls.filter(
+        ([name, event]) => name === "location" && event.kind === "turn",
+      ),
+    ).toHaveLength(1);
+  });
+  it("does not publish turn activity for movement cancelled by a replacement jump", async () => {
+    await render();
+    await settle();
+    report.mockClear();
+    let release!: () => void;
+    const movement = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    fake.engine.goRight.mockImplementationOnce(async (owner) => {
+      fake.emit("relocate", {
+        locator: {
+          ...own.locator,
+          progression: 0.3,
+          cfi: "cancelled-page",
+          totalProgression: 0.5,
+        },
+        chapter: "Next",
+        reason: "turn",
+        origin: "human",
+        activity: "turn",
+        navigationId: owner?.id,
+        atEnd: false,
+        tocItem: null,
+        visibleChars: 300,
+        linear: true,
+        paginated: true,
+      });
+      await movement;
+    });
+    pressRight();
+    await settle();
+    act(() => fake.emit("link", { href: "replacement", external: false }));
+    await act(async () => {
+      release();
+      await Promise.resolve();
+    });
+    await settle();
+    await settle();
+    expect(turnActivities()).toHaveLength(0);
+    expect(
+      report.mock.calls.some(
+        ([name, event]) => name === "location" && event.kind === "turn",
+      ),
+    ).toBe(false);
+    expect(report).toHaveBeenCalledWith(
+      "location",
+      expect.objectContaining({ kind: "jump", percent: 80 }),
+    );
+  });
+  it("refreshes a reflow anchor without activity, tracker location/end, save, pace or resume dismissal", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
+    await render();
+    await settle();
+    report.mockClear();
+    now.mockReturnValue(1_010_000);
+    act(() =>
+      fake.emit("relocate", {
+        locator: {
+          ...own.locator,
+          cfi: "reflowed-anchor",
+          totalProgression: 1,
+        },
+        chapter: "Reflow",
+        reason: "layout",
+        origin: "layout",
+        atEnd: true,
+        tocItem: null,
+        visibleChars: 300,
+        linear: true,
+        paginated: true,
+      }),
+    );
+    await settle();
+    expect(host.querySelector("[data-reader-probe]")?.textContent).toBe("40");
+    expect(host.textContent).toContain("Go there");
+    expect(report).not.toHaveBeenCalled();
+    expect(localStorage.getItem("durtal-reader-pace")).toBeNull();
+    act(() => window.dispatchEvent(new Event("pagehide")));
+    expect(navigator.sendBeacon).not.toHaveBeenCalled();
+  });
+  it("uses the same non-linear note projection in UI, bridge and saved locator", async () => {
+    await render();
+    await settle();
+    report.mockClear();
+    const note = {
+      ...own.locator,
+      href: "notes.xhtml#note",
+      sectionIndex: 9,
+      progression: 0.9,
+      cfi: "note-cfi",
+      pageLabel: "57",
+    };
+    fake.engine.goTo.mockImplementationOnce(async (_target, owner) => {
+      fake.emit("relocate", {
+        locator: note,
+        chapter: "Notes",
+        reason: "jump",
+        atEnd: false,
+        tocItem: null,
+        visibleChars: 300,
+        linear: false,
+        paginated: true,
+        navigationId: owner?.id,
+      });
+    });
+    act(() => fake.emit("link", { href: note.href, external: false }));
+    await settle();
+    expect(host.querySelector("[data-reader-probe]")?.textContent).toBe("40");
+    expect(host.textContent).toContain("Outside the reading order");
+    expect(report).toHaveBeenCalledWith(
+      "location",
+      expect.objectContaining({ locator: note, percent: 40, kind: "jump" }),
+    );
+    expect(
+      report.mock.calls.some(([name]) => name === "end" || name === "activity"),
+    ).toBe(false);
+    act(() => window.dispatchEvent(new Event("pagehide")));
+    const body = vi.mocked(navigator.sendBeacon).mock.calls.at(-1)?.[1] as Blob;
+    expect(JSON.parse(await body.text()).locator).toEqual(note);
+  });
+  it("opens at this device's place, offers without a jump, and Go there emits a jump", async () => {
+    await render();
+    expect(fake.engine.open.mock.calls[0][1].at).toEqual(own.locator);
+    expect(fake.engine.goTo).not.toHaveBeenCalled();
+    expect(host.textContent).toContain("Page 212 · read on iPhone");
+    await settle();
+    expect(report).toHaveBeenCalledWith(
+      "location",
+      expect.objectContaining({ kind: "jump", percent: 40 }),
+    );
+    act(() => button("Go there").click());
+    await settle();
+    expect(fake.engine.goTo).toHaveBeenCalledWith(
+      other.locator,
+      expect.objectContaining({ id: 1, signal: expect.any(AbortSignal) }),
+    );
+    expect(report).toHaveBeenCalledWith(
+      "location",
+      expect.objectContaining({ kind: "jump", percent: 70 }),
+    );
+    expect(host.textContent).not.toContain("Go there");
+    expect(mocks.factory).toHaveBeenCalledOnce();
+  });
+  it("Stay and a page turn both dismiss the offer without remounting the engine", async () => {
+    await render();
+    act(() => button("Stay").click());
+    expect(fake.engine.goTo).not.toHaveBeenCalled();
+    expect(host.textContent).not.toContain("Go there");
+    expect(
+      Number(localStorage.getItem("durtal-reader-declined:book:mac")),
+    ).toBe(Date.parse(other.clientUpdatedAt));
+    act(() => root.unmount());
+    root = createRoot(host);
+    localStorage.clear();
+    await render();
+    act(() => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+      );
+    });
+    expect(fake.engine.next).toHaveBeenCalledOnce();
+    expect(host.textContent).not.toContain("Go there");
+  });
+  it("cross-format resume opens the current file at total progression", async () => {
+    const pdf = {
+      ...other,
+      fileId: "pdf",
+      locator: {
+        ...other.locator,
+        fileHash: "b".repeat(64),
+        pdf: { page: 212 },
+      },
+    };
+    await render(own, own, pdf);
+    expect(host.textContent).toContain("About 70%");
+    act(() => button("Go there").click());
+    expect(fake.engine.goTo).toHaveBeenCalledWith(
+      { fraction: 0.7 },
+      expect.objectContaining({ id: 1, signal: expect.any(AbortSignal) }),
+    );
+    expect(mocks.factory).toHaveBeenCalledOnce();
+  });
+  it("a never-opened device starts at the other place and fades its quiet notice", async () => {
+    vi.useFakeTimers();
+    await render(null, null, other);
+    expect(fake.engine.open.mock.calls[0][1].at).toEqual(other.locator);
+    expect(host.textContent).toContain("Opened where you left off on iPhone");
+    expect(host.textContent).not.toContain("Go there");
+    expect(fetch).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3999);
+    });
+    expect(host.textContent).toContain("Opened where you left off");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(host.textContent).not.toContain("Opened where you left off");
+  });
+  it("history in another own format is not mistaken for a never-opened device", async () => {
+    const pdfOwn = {
+      ...own,
+      fileId: "pdf",
+      locator: { ...own.locator, fileHash: "b".repeat(64) },
+    };
+    await render(null, pdfOwn, other);
+    expect(fake.engine.open.mock.calls[0][1].at).toEqual({ fraction: 0.4 });
+    expect(host.textContent).not.toContain("Opened where");
+    expect(host.textContent).toContain("Go there");
+  });
+  it("discards a response after a local turn while a refresh GET is pending", async () => {
+    await render();
+    let finish!: (value: Response) => void;
+    vi.mocked(fetch).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await act(async () => {
+      window.dispatchEvent(new Event("online"));
+      await Promise.resolve();
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    act(() => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+      );
+    });
+    await act(async () => {
+      finish(
+        new Response(
+          JSON.stringify({
+            positions: [{ ...other, clientUpdatedAt: "2099-01-01T00:00:00Z" }],
+          }),
+        ),
+      );
+      await Promise.resolve();
+    });
+    expect(host.textContent).not.toContain("Go there");
+  });
+  it("refreshes once only after the tab was hidden for at least sixty seconds", async () => {
+    await render();
+    let now = 1000,
+      visibility = "visible";
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibility,
+    });
+    const state = async (value: string) =>
+      act(async () => {
+        visibility = value;
+        document.dispatchEvent(new Event("visibilitychange"));
+        await Promise.resolve();
+      });
+    await state("hidden");
+    now = 60999;
+    await state("visible");
+    expect(fetch).not.toHaveBeenCalled();
+    await state("hidden");
+    now = 120999;
+    await state("visible");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(fetch).mock.calls[0][1]).toEqual({ cache: "no-store" });
+    delete (document as unknown as Record<string, unknown>).visibilityState;
+  });
+  it("Tab from keyboard selection focuses Copy; Escape clears and Space remains native", async () => {
+    await render();
+    const doc = document.implementation.createHTMLDocument("book");
+    act(() => fake.emit("document", { doc }));
+    act(() =>
+      fake.emit("selection", {
+        text: "Quote",
+        locator: own.locator,
+        rect: { left: 20, top: 200, right: 200, bottom: 220 },
+        keyboard: true,
+      }),
+    );
+    const tab = new KeyboardEvent("keydown", {
+      key: "Tab",
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      doc.dispatchEvent(tab);
+    });
+    expect(tab.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(button("Copy"));
+    const space = new KeyboardEvent("keydown", {
+      key: " ",
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      button("Copy").dispatchEvent(space);
+    });
+    expect(space.defaultPrevented).toBe(false);
+    expect(fake.engine.next).not.toHaveBeenCalled();
+    act(() => {
+      button("Copy").dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+    });
+    expect(fake.engine.clearSelection).toHaveBeenCalledOnce();
+    expect(host.querySelector<HTMLElement>('[role="toolbar"]')!.hidden).toBe(
+      true,
+    );
+  });
+  it("allows second Tab, both plugin actions and exit after keyboard selection entry", async () => {
+    await render();
+    const doc = document.implementation.createHTMLDocument("book");
+    act(() => fake.emit("document", { doc }));
+    act(() =>
+      fake.emit("selection", {
+        text: "Quote",
+        locator: own.locator,
+        rect: { left: 20, top: 200, right: 200, bottom: 220 },
+        keyboard: true,
+      }),
+    );
+    const tabFrom = (target: EventTarget) => {
+      const event = new KeyboardEvent("keydown", {
+        key: "Tab",
+        bubbles: true,
+        cancelable: true,
+      });
+      act(() => target.dispatchEvent(event));
+      return event;
+    };
+    expect(tabFrom(doc).defaultPrevented).toBe(true);
+    const copy = button("Copy");
+    expect(document.activeElement).toBe(copy);
+    expect(tabFrom(copy).defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(copy);
+    const actions = [button("Plugin action one"), button("Plugin action two")];
+    expect([
+      ...host.querySelector('[role="toolbar"]')!.querySelectorAll("button"),
+    ]).toEqual([copy, ...actions]);
+    // happy-dom has no native Tab default action. Move focus as the browser
+    // would, then prove the reader neither cancels traversal nor refocuses Copy.
+    for (const action of actions) {
+      action.focus();
+      expect(tabFrom(action).defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(action);
+    }
+    const outside = document.createElement("button");
+    document.body.append(outside);
+    try {
+      outside.focus();
+      expect(tabFrom(outside).defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(outside);
+    } finally {
+      outside.remove();
+    }
+    expect(fake.engine.clearSelection).not.toHaveBeenCalled();
+  });
+});

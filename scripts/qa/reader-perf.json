@@ -51,6 +51,15 @@
       "fixture": 14,
       "seconds": 60,
       "budgets": { "desktop": { "frames": 0, "running": 0, "timers": 2, "saves": 1, "otherRequests": 0 } }
-    }
+    },
+    { "id": "toc-jump-preloaded", "label": "Contents jump into a preloaded next section", "kind": "navigation", "action": "toc", "fixture": 17, "preloaded": true, "budgets": { "desktop": { "ms": 300 }, "phone": { "ms": 300 } } },
+    { "id": "toc-jump-cold", "label": "Contents jump into a cold far section", "kind": "navigation", "action": "toc", "fixture": 17, "budgets": { "desktop": { "ms": 1000 }, "phone": { "ms": 1000 } } },
+    { "id": "scrubber-drag", "label": "Two-second Peek across the progress bar", "kind": "navigation", "action": "drag", "fixture": 17, "budgets": { "desktop": { "smoothPercent": 95, "longTasks": 0, "longFrames": 0 }, "phone": { "smoothPercent": 95, "longTasks": 0, "longFrames": 0 } } },
+    { "id": "scrubber-release", "label": "Peek release to destination paint", "kind": "navigation", "action": "release", "fixture": 17, "budgets": { "desktop": { "ms": 1000 }, "phone": { "ms": 1000 } } },
+    { "id": "goto-page", "label": "Go to print page 57", "kind": "navigation", "action": "goto", "fixture": 19, "budgets": { "desktop": { "ms": 1000 }, "phone": { "ms": 1000 } } },
+    { "id": "history-back", "label": "Back after a far jump", "kind": "navigation", "action": "history", "fixture": 17, "budgets": { "desktop": { "ms": 1000 }, "phone": { "ms": 1000 } } },
+    { "id": "contents-open", "label": "Open the 2,000-entry contents tree", "kind": "navigation", "action": "contents", "fixture": 17, "budgets": { "desktop": { "inpP95": 200 }, "phone": { "inpP95": 200 } } },
+    { "id": "position-index-build", "label": "Idle indexing: 2,000-entry contents and a single 2MB chapter", "kind": "navigation", "action": "index", "fixture": 17, "additionalFixtures": [18], "budgets": { "desktop": { "ms": 10000, "longTasks": 0 }, "phone": { "ms": 30000, "longTasks": 0 } } },
+    { "id": "idle-running-lines", "label": "Clock and both time estimates, 60 seconds idle", "kind": "idle", "fixture": 14, "seconds": 60, "runningLines": true, "budgets": { "desktop": { "frames": 0, "running": 0, "minTimerMs": 30000, "saves": 0, "otherRequests": 0 }, "phone": { "frames": 0, "running": 0, "minTimerMs": 30000, "saves": 0, "otherRequests": 0 } } }
   ]
 }

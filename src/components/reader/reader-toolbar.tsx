@@ -1,6 +1,13 @@
 "use client";
 
-import { ArrowLeft, ListTree, Maximize, Minimize, Type } from "lucide-react";
+import {
+  ArrowLeft,
+  ListTree,
+  Maximize,
+  Minimize,
+  Type,
+  CircleHelp,
+} from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 
 /** A 16px icon in a 32px button, 44px on touch */
@@ -55,6 +62,7 @@ export function ReaderToolbar({
   onSettings,
   fullscreen,
   onFullscreen,
+  onShortcuts,
 }: {
   visible: boolean;
   title: string;
@@ -66,6 +74,7 @@ export function ReaderToolbar({
   /** Null where the Fullscreen API is missing (iPhone) */
   fullscreen: boolean | null;
   onFullscreen: () => void;
+  onShortcuts?: () => void;
 }) {
   return (
     <header
@@ -106,8 +115,21 @@ export function ReaderToolbar({
             <BarButton label="Settings" keys="s" onClick={onSettings}>
               <Type className="h-4 w-4" strokeWidth={1.5} />
             </BarButton>
+            {onShortcuts && (
+              <BarButton
+                label="Reader shortcuts"
+                keys="?"
+                onClick={onShortcuts}
+              >
+                <CircleHelp className="h-4 w-4" strokeWidth={1.5} />
+              </BarButton>
+            )}
             {fullscreen !== null && (
-              <BarButton label={fullscreen ? "Leave full screen" : "Full screen"} keys="f" onClick={onFullscreen}>
+              <BarButton
+                label={fullscreen ? "Leave full screen" : "Full screen"}
+                keys="f"
+                onClick={onFullscreen}
+              >
                 {fullscreen ? (
                   <Minimize className="h-4 w-4" strokeWidth={1.5} />
                 ) : (

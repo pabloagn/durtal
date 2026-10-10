@@ -5,11 +5,18 @@ import { notFound } from "next/navigation";
 import { preload } from "react-dom";
 import { isUuid } from "@/lib/utils/uuid";
 import { formatLabel } from "@/lib/ebooks/formats";
-import { readReaderBook, type ReaderFile } from "@/lib/ebooks/delivery/reader-book";
+import {
+  readReaderBook,
+  type ReaderFile,
+} from "@/lib/ebooks/delivery/reader-book";
 import { fileUrlFor } from "@/lib/ebooks/delivery/url";
 import { DEVICE_COOKIE, isDeviceId } from "@/lib/reader/device";
-import type { DurtalLocator, ReaderFormat } from "@/lib/reader/engine";
-import { PDF_WORKER_URL, firstRanges, prefetchScript } from "@/lib/reader/first-range";
+import type { ReaderFormat } from "@/lib/reader/engine";
+import {
+  PDF_WORKER_URL,
+  firstRanges,
+  prefetchScript,
+} from "@/lib/reader/first-range";
 import { readerLatinFace } from "@/lib/reader/fonts";
 import { zipCdOffset } from "@/lib/reader/manifest";
 import { readerSettings } from "@/lib/reader/settings-cookie";
@@ -24,8 +31,9 @@ type PageProps = {
 
 const ZIP_FORMATS = new Set(["epub", "kepub", "fbz", "cbz"]);
 
-const loadBook = cache((ebookId: string, deviceId: string | null, fileId: string | null) =>
-  readReaderBook(ebookId, { deviceId, fileId }),
+const loadBook = cache(
+  (ebookId: string, deviceId: string | null, fileId: string | null) =>
+    readReaderBook(ebookId, { deviceId, fileId }),
 );
 
 async function readRequest({ params, searchParams }: PageProps) {
@@ -36,7 +44,8 @@ async function readRequest({ params, searchParams }: PageProps) {
   const device = jar.get(DEVICE_COOKIE)?.value;
   return {
     ebookId: ebookId.toLowerCase(),
-    fileId: typeof file === "string" && isUuid(file) ? file.toLowerCase() : null,
+    fileId:
+      typeof file === "string" && isUuid(file) ? file.toLowerCase() : null,
     deviceId: isDeviceId(device) ? device : null,
     settingsCookie: jar.get(READER_SETTINGS_KEY)?.value ?? null,
   };
@@ -46,7 +55,10 @@ async function readRequest({ params, searchParams }: PageProps) {
  * The reading font, asked for with the page: the first page is then laid
  * out once, in it. A PDF or a comic is pictures of its pages and never uses it.
  */
-function preloadReadingFont(settingsCookie: string | null, format: ReaderFormat) {
+function preloadReadingFont(
+  settingsCookie: string | null,
+  format: ReaderFormat,
+) {
   if (format === "pdf" || format === "cbz") return;
   let stored: unknown = null;
   try {
@@ -55,7 +67,8 @@ function preloadReadingFont(settingsCookie: string | null, format: ReaderFormat)
     // A damaged cookie gives the defaults
   }
   const face = readerLatinFace(readerSettings(stored).fontFamily);
-  if (face) preload(face, { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
+  if (face)
+    preload(face, { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
 }
 
 export async function generateMetadata(props: PageProps): Promise<Metadata> {
@@ -70,12 +83,17 @@ async function viewFile(file: ReaderFile): Promise<ReaderViewFile> {
   let delivery: { url: string; expiresAt: string | null };
   try {
     const signed = fileUrlFor(file);
-    delivery = { url: signed.url, expiresAt: signed.expiresAt?.toISOString() ?? null };
+    delivery = {
+      url: signed.url,
+      expiresAt: signed.expiresAt?.toISOString() ?? null,
+    };
   } catch (err) {
     console.error("[reader] No delivery URL, reading through the app:", err);
     delivery = { url: fallbackUrl, expiresAt: null };
   }
-  const cdOffset = ZIP_FORMATS.has(file.format) ? await zipCdOffset(file) : null;
+  const cdOffset = ZIP_FORMATS.has(file.format)
+    ? await zipCdOffset(file)
+    : null;
   return {
     id: file.id,
     format: file.format as ReaderFormat,
@@ -85,6 +103,7 @@ async function viewFile(file: ReaderFile): Promise<ReaderViewFile> {
     expiresAt: delivery.expiresAt,
     fallbackUrl,
     cdOffset,
+    charCount: file.charCount,
   };
 }
 
@@ -98,11 +117,17 @@ async function viewFile(file: ReaderFile): Promise<ReaderViewFile> {
  */
 export default async function ReaderPage(props: PageProps) {
   const request = await readRequest(props);
-  const [book, plugins] = await Promise.all([
+  const [bookResult, pluginsResult] = await Promise.allSettled([
     loadBook(request.ebookId, request.deviceId, request.fileId),
     loadReaderPlugins(request),
   ]);
+  if (bookResult.status === "rejected") throw bookResult.reason;
+  const book = bookResult.value;
   if (!book) notFound();
+  const plugins =
+    pluginsResult.status === "fulfilled" ? pluginsResult.value : [];
+  if (pluginsResult.status === "rejected")
+    console.error("[reader] Plug-in loading failed:", pluginsResult.reason);
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   const file = book.file ? await viewFile(book.file) : null;
   if (file) preloadReadingFont(request.settingsCookie, file.format);
@@ -115,16 +140,31 @@ export default async function ReaderPage(props: PageProps) {
           nonce={nonce}
           // Browsers hide a nonce from the DOM once it is used, so hydration sees nonce=""
           suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: prefetchScript({ fileId: file.id, url: file.url, ranges, worker }) }}
+          dangerouslySetInnerHTML={{
+            __html: prefetchScript({
+              fileId: file.id,
+              url: file.url,
+              ranges,
+              worker,
+            }),
+          }}
         />
       )}
       <ReaderView
-        ebook={{ id: book.id, title: book.title, authors: book.authors }}
+        ebook={{
+          id: book.id,
+          title: book.title,
+          authors: book.authors,
+          language: book.language,
+        }}
         file={file}
         alternatives={book.files
           .filter((f) => f.id !== file?.id)
           .map((f) => ({ id: f.id, label: formatLabel(f.format) }))}
-        place={(book.place?.locator as DurtalLocator | undefined) ?? null}
+        place={book.place}
+        devicePlace={book.devicePlace}
+        otherPlace={book.otherPlace}
+        deviceId={request.deviceId}
         backHref={book.workSlug ? `/library/${book.workSlug}` : "/library"}
         plugins={plugins}
       />

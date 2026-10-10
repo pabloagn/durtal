@@ -11,7 +11,16 @@
  */
 
 /** The formats the engine opens (READABLE_FORMATS in src/lib/ebooks/formats.ts) */
-export type ReaderFormat = "epub" | "kepub" | "pdf" | "mobi" | "azw" | "azw3" | "fb2" | "fbz" | "cbz";
+export type ReaderFormat =
+  | "epub"
+  | "kepub"
+  | "pdf"
+  | "mobi"
+  | "azw"
+  | "azw3"
+  | "fb2"
+  | "fbz"
+  | "cbz";
 
 /** Bytes the page started fetching before the engine loaded: one explicit range each */
 export interface Prefetched {
@@ -49,9 +58,9 @@ export interface DurtalLocator {
   sectionIndex: number;
   /** Within the section, 0 to 1 */
   progression: number;
-  /** Within the book, size-weighted, 0 to 1 */
+  /** Linear reading progress, 0 to 1. Non-linear excursions retain the last linear value. */
   totalProgression: number;
-  /** The engine's size-based location */
+  /** Fresh locators use one-based locations. Legacy numbers are never used as navigation anchors. */
   position?: number;
   cfi?: string;
   pdf?: { page: number; rects?: [number, number, number, number][] };
@@ -67,14 +76,34 @@ export interface BookInfo {
   language: string | null;
   dir: "ltr" | "rtl";
   layout: "reflowable" | "pre-paginated";
+  toc: TocItem[];
+  pageList: TocItem[];
+  locationCount: number;
+  /** Linear markup size, for the browser-only text estimate. */
+  linearSize: number;
+  /** Sections also provide immediate fallback contents while anchor indexing runs. */
+  sections: {
+    href: string;
+    label: string;
+    linear: boolean;
+    start: number;
+    end: number;
+  }[];
   /** What later sub-issues may offer for this format */
-  capabilities: { search: boolean; tts: boolean; spreads: boolean; scrolled: boolean };
+  capabilities: {
+    search: boolean;
+    tts: boolean;
+    spreads: boolean;
+    scrolled: boolean;
+  };
 }
 
 export interface TocItem {
   label: string;
   href: string;
   subitems: TocItem[];
+  /** Adapter-resolved spine index for formats whose href is not a file path. */
+  sectionIndex?: number;
 }
 
 /** How the book looks: typography and the theme's literal colours */
@@ -88,7 +117,13 @@ export interface Presentation {
   margin: number;
   textAlign: "left" | "justify";
   /** Resolved colours: the book's frames cannot see the app's CSS variables */
-  colors: { background: string; text: string; link: string; selection: string; muted: string };
+  colors: {
+    background: string;
+    text: string;
+    link: string;
+    selection: string;
+    muted: string;
+  };
   /** @font-face rules for the reading fonts, with absolute URLs */
   fontFaces: string;
 }
@@ -101,41 +136,105 @@ export interface ResolveResult {
 }
 
 export type OpenErrorKind = "damaged" | "unsupported" | "network" | "expired";
+/** Reading input, layout adjustment, and automatic speech movement have different publication rules. */
+export type RelocationOrigin = "human" | "layout" | "speech";
 
 export interface EngineEvents {
   ready: BookInfo & { toc: TocItem[] };
-  relocate: { locator: DurtalLocator; chapter: string | null; reason: "turn" | "jump" };
-  selection: { text: string; locator: DurtalLocator } | null;
-  link: { href: string; external: boolean };
+  relocate: {
+    locator: DurtalLocator;
+    chapter: string | null;
+    reason: "turn" | "jump" | "layout";
+    origin?: RelocationOrigin;
+    atEnd: boolean;
+    activity?: "turn" | "scroll";
+    tocItem: TocItem | null;
+    visibleChars: number;
+    linear: boolean;
+    paginated: boolean;
+    navigationId?: number;
+    originMark?: string;
+    /** Whether the current contents anchor begins on this visible page. */
+    atChapterStart?: boolean;
+  };
+  selection: {
+    text: string;
+    locator: DurtalLocator;
+    rect: { left: number; top: number; right: number; bottom: number };
+    keyboard: boolean;
+  } | null;
+  link: { href: string; external: boolean; originMark?: string };
   error: { kind: OpenErrorKind; message: string };
   /** A section's document loaded: the input layer listens there too */
   document: { doc: Document };
 }
 
-export type GoToTarget = DurtalLocator | { href: string } | { fraction: number };
+export type GoToTarget =
+  | DurtalLocator
+  | { href: string }
+  | { fraction: number }
+  | { location: number }
+  | { page: string };
+export interface NavigationOwner {
+  id: number;
+  signal: AbortSignal;
+  origin?: RelocationOrigin;
+}
+export interface Marginalia {
+  head: [string, string];
+  foot: [string, string];
+  color: string;
+}
 
 export interface OpenOptions {
   /** The element the book renders into */
   container: HTMLElement;
   presentation: Presentation;
   /** Where to start: this device's saved place */
-  at?: DurtalLocator | null;
+  at?: DurtalLocator | { fraction: number } | null;
 }
 
 export interface ReaderEngine {
   /** Opens the book and goes to `at` (resolved) or to the start */
-  open(source: BookSource, options: OpenOptions): Promise<{ resolved: ResolveResult | null }>;
+  open(
+    source: BookSource,
+    options: OpenOptions,
+  ): Promise<{ resolved: ResolveResult | null }>;
   destroy(): void;
-  goTo(target: GoToTarget): Promise<void>;
-  next(): Promise<void>;
-  prev(): Promise<void>;
+  goTo(target: GoToTarget, owner?: NavigationOwner): Promise<void>;
+  locationToFraction(location: number): number;
+  sectionFractions(): number[];
+  indexAnchors(options: {
+    hrefs: string[];
+    signal: AbortSignal;
+  }): AsyncIterable<{
+    href: string;
+    fraction: number;
+    sectionLabel?: string;
+    textRatio?: number;
+  }>;
+  nextSection(owner?: NavigationOwner): Promise<void>;
+  prevSection(owner?: NavigationOwner): Promise<void>;
+  firstPage(owner?: NavigationOwner): Promise<void>;
+  lastPage(owner?: NavigationOwner): Promise<void>;
+  setMarginalia(lines: Marginalia | null): void;
+  setDecorations(
+    group: "history",
+    decorations: { cfi: string; color: string }[],
+  ): void;
+  next(owner?: NavigationOwner): Promise<void>;
+  prev(owner?: NavigationOwner): Promise<void>;
   /** Left and right follow the book's direction: right-to-left books turn the other way */
-  goLeft(): Promise<void>;
-  goRight(): Promise<void>;
+  goLeft(owner?: NavigationOwner): Promise<void>;
+  goRight(owner?: NavigationOwner): Promise<void>;
   currentLocator(): DurtalLocator | null;
   setPresentation(presentation: Presentation): void;
   /** A locator for the current selection inside the book, or null */
   locatorFromSelection(): DurtalLocator | null;
+  clearSelection(): void;
   resolve(locator: DurtalLocator): Promise<ResolveResult>;
-  on<K extends keyof EngineEvents>(name: K, handler: (detail: EngineEvents[K]) => void): () => void;
+  on<K extends keyof EngineEvents>(
+    name: K,
+    handler: (detail: EngineEvents[K]) => void,
+  ): () => void;
 }

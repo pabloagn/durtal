@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, forwardRef, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 /** The bars hide this long after they show, while reading */
 export const BARS_HIDE_MS = 3000;
@@ -99,6 +99,10 @@ export function useReaderBars({ held }: { held: boolean }) {
   return { visible, visibleRef, show, hide, toggle, pointerAt, barEvents };
 }
 
+const BookFrame = memo(forwardRef<HTMLDivElement>(function BookFrame(_props, ref) {
+  return <div ref={ref} className="absolute inset-0" />;
+}));
+
 /**
  * The reading view's frame (eBooks sub-issue 3): the book fills the
  * viewport, the bars float over it, and the state (opening, an error) sits
@@ -117,7 +121,7 @@ export const ReaderShell = forwardRef<
 >(function ReaderShell({ bars, barEvents, state, overlay, children }, bookRef) {
   return (
     <div className="fixed inset-0 overflow-hidden bg-bg-primary text-fg-primary" data-reader={state}>
-      <div ref={bookRef} className="absolute inset-0" />
+      <BookFrame ref={bookRef} />
       {overlay}
       <div className="contents" {...barEvents}>
         {bars}

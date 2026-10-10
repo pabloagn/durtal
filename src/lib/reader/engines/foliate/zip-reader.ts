@@ -1,5 +1,6 @@
 import type { RangeSource } from "./remote-blob";
 import type { ZipEntry, ZipLoader, ZipModule, ZipReaderLike } from "./foliate";
+import { scanMarkup } from "./position-index";
 
 /**
  * EPUB, FB2Z and CBZ straight from the zip over HTTP Range (eBooks
@@ -35,10 +36,16 @@ export class KnownSizeRangeReader implements ZipReaderLike {
   }
 
   /** zip.js streams an entry's data from here: one read for the whole entry */
-  get readable(): ReadableStream<Uint8Array> & { offset?: number; size?: number } {
+  get readable(): ReadableStream<Uint8Array> & {
+    offset?: number;
+    size?: number;
+  } {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const reader = this;
-    const readable: ReadableStream<Uint8Array> & { offset?: number; size?: number } = new ReadableStream({
+    const readable: ReadableStream<Uint8Array> & {
+      offset?: number;
+      size?: number;
+    } = new ReadableStream({
       async pull(controller) {
         const { offset = 0, size = 0 } = readable;
         if (size) controller.enqueue(await reader.readUint8Array(offset, size));
@@ -98,9 +105,14 @@ export class EntryCache<T> {
 }
 
 /** Up to `want` bytes of a raw deflate stream's output, from the start of the stream only */
-async function inflateHead(compressed: Uint8Array, want: number): Promise<Uint8Array | null> {
+async function inflateHead(
+  compressed: Uint8Array,
+  want: number,
+): Promise<Uint8Array | null> {
   if (typeof DecompressionStream === "undefined") return null;
-  const stream = new Blob([compressed as BlobPart]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  const stream = new Blob([compressed as BlobPart])
+    .stream()
+    .pipeThrough(new DecompressionStream("deflate-raw"));
   const reader = stream.getReader();
   const parts: Uint8Array[] = [];
   let got = 0;
@@ -119,7 +131,10 @@ async function inflateHead(compressed: Uint8Array, want: number): Promise<Uint8A
   const out = new Uint8Array(Math.min(got, want));
   let at = 0;
   for (const part of parts) {
-    const take = part.subarray(0, Math.min(part.byteLength, out.byteLength - at));
+    const take = part.subarray(
+      0,
+      Math.min(part.byteLength, out.byteLength - at),
+    );
     out.set(take, at);
     at += take.byteLength;
     if (at === out.byteLength) break;
@@ -128,29 +143,55 @@ async function inflateHead(compressed: Uint8Array, want: number): Promise<Uint8A
 }
 
 /** The first bytes of an entry, stored or deflated, without reading the rest of it */
-async function readEntryHead(source: RangeSource, entry: ZipEntry, want: number): Promise<Uint8Array | null> {
+async function readEntryHead(
+  source: RangeSource,
+  entry: ZipEntry,
+  want: number,
+): Promise<Uint8Array | null> {
   const { offset, compressionMethod } = entry;
-  if (offset === undefined || (compressionMethod !== 0 && compressionMethod !== 8)) return null;
+  if (
+    offset === undefined ||
+    (compressionMethod !== 0 && compressionMethod !== 8)
+  )
+    return null;
   const span = Math.min(entry.compressedSize, want);
   const raw = await source.read(offset, offset + LOCAL_HEADER_SLACK + span);
   const view = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
-  if (raw.byteLength < 30 || view.getUint32(0, true) !== 0x04034b50) return null;
+  if (raw.byteLength < 30 || view.getUint32(0, true) !== 0x04034b50)
+    return null;
   const start = 30 + view.getUint16(26, true) + view.getUint16(28, true);
-  const data = raw.byteLength >= start + span ? raw.subarray(start, start + span) : await source.read(offset + start, offset + start + span);
-  return compressionMethod === 0 ? data.slice(0, want) : inflateHead(data, want);
+  const data =
+    raw.byteLength >= start + span
+      ? raw.subarray(start, start + span)
+      : await source.read(offset + start, offset + start + span);
+  return compressionMethod === 0
+    ? data.slice(0, want)
+    : inflateHead(data, want);
 }
 
 /** The loader foliate-js's EPUB, comic book and FB2Z readers take */
-export async function makeRangeZipLoader(zip: ZipModule, source: RangeSource): Promise<ZipLoader> {
+export async function makeRangeZipLoader(
+  zip: ZipModule,
+  source: RangeSource,
+): Promise<ZipLoader> {
   zip.configure({ useWebWorkers: false });
   const ranges = new KnownSizeRangeReader(source);
   const reader = new zip.ZipReader(ranges);
   const entries = await reader.getEntries();
   for (const entry of entries) {
-    if (entry.offset === undefined || entry.compressedSize > MAX_READ_AHEAD) continue;
-    ranges.entryEnds.set(entry.offset, entry.offset + LOCAL_HEADER_SLACK + entry.filename.length * 4 + entry.compressedSize);
+    if (entry.offset === undefined || entry.compressedSize > MAX_READ_AHEAD)
+      continue;
+    ranges.entryEnds.set(
+      entry.offset,
+      entry.offset +
+        LOCAL_HEADER_SLACK +
+        entry.filename.length * 4 +
+        entry.compressedSize,
+    );
   }
-  const map = new Map<string, ZipEntry>(entries.map((entry) => [entry.filename, entry]));
+  const map = new Map<string, ZipEntry>(
+    entries.map((entry) => [entry.filename, entry]),
+  );
   const texts = new EntryCache<Promise<string>>();
   const blobs = new EntryCache<Promise<Blob>>();
 
@@ -178,14 +219,66 @@ export async function makeRangeZipLoader(zip: ZipModule, source: RangeSource): P
   };
   const readHead = (name: string, want: number): Promise<Uint8Array | null> => {
     const entry = map.get(name);
-    return entry ? readEntryHead(source, entry, want).catch(() => null) : Promise.resolve(null);
+    return entry
+      ? readEntryHead(source, entry, want).catch(() => null)
+      : Promise.resolve(null);
+  };
+  const scanIndex: NonNullable<ZipLoader["scanIndex"]> = async (
+    name,
+    fragments,
+    signal,
+  ) => {
+    const entry = map.get(name);
+    if (
+      !entry ||
+      entry.uncompressedSize < 128 * 1024 ||
+      typeof Worker === "undefined"
+    ) {
+      return scanMarkup((await loadText(name)) ?? "", fragments, signal);
+    }
+    if (signal.aborted) throw new DOMException("Cancelled", "AbortError");
+    if (
+      entry.offset === undefined ||
+      ![0, 8].includes(entry.compressionMethod ?? -1)
+    )
+      throw new Error(
+        "This section cannot be indexed without blocking reading.",
+      );
+    // Read only this entry's compressed data. Its large decode happens in the index worker.
+    const header = await source.read(
+      entry.offset,
+      entry.offset + LOCAL_HEADER_SLACK,
+    );
+    const view = new DataView(
+      header.buffer,
+      header.byteOffset,
+      header.byteLength,
+    );
+    const start =
+      entry.offset + 30 + view.getUint16(26, true) + view.getUint16(28, true);
+    const compressed = await source.read(start, start + entry.compressedSize);
+    if (signal.aborted) throw new DOMException("Cancelled", "AbortError");
+    const { scanInWorker } = await import("./index-worker-client");
+    const bytes = compressed.slice();
+    return scanInWorker(
+      {
+        fragments,
+        compressed: bytes.buffer as ArrayBuffer,
+        method: entry.compressionMethod,
+      },
+      signal,
+    );
   };
   return {
     entries,
     loadText,
     loadBlob,
     readHead,
+    scanIndex,
     getSize: (name) => map.get(name)?.uncompressedSize ?? 0,
-    getComment: async () => (reader.comment?.byteLength ? new TextDecoder().decode(reader.comment) : null),
+    getComment: async () =>
+      reader.comment?.byteLength
+        ? new TextDecoder().decode(reader.comment)
+        : null,
   };
 }

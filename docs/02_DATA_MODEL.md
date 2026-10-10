@@ -2567,6 +2567,12 @@ future is refused.
 
 UNIQUE (`file_id`, `device_id`); index (`ebook_id`, `updated_at` desc).
 
+SLN-499 keeps the v1 JSON locator shape. Fresh `position` values are one-based, size-based Locations (1500 linear markup bytes per location), independent of text size. Existing persisted numbers are never navigation addresses: resolution uses CFI, then quote, then fraction, and display labels are recomputed from section progression. `pageLabel` carries the publisher's print label, including Roman front matter, on relocated and selection locators. The EPUB page-list wins over Adobe page-map fallback.
+
+On a non-linear excursion, `href`, CFI, `sectionIndex` and within-section `progression` describe the real destination, while `totalProgression` retains the last committed linear reading projection. The same locator/projection goes to UI, bridge/context, event payloads, save requests and rehydration; excursions produce no completion or pace sample. Navigation commits only after an owned destination and paint, so cancellation/recovery never saves an intermediate place. The save/furthest rules above remain unchanged. History, index cache, running-line choices and pace learning stay in this browser; no migration or additional database write is introduced.
+
+SLN-493 reads all file/device rows ordered by `client_updated_at`. The page query includes this device's current-file place and book history, plus the newest other-device place, in the same database round trip. No device overwrites another's row. The reader offers a newer different place; it moves only on Go there, except when this device has never opened the e-book. Cross-file resume uses total progression in the current file. This adds no schema or migration and writes no tracker tables.
+
 ### `ebook_annotations`
 
 Highlights (with notes) and bookmarks. Created empty; sub-issue 11 writes them.

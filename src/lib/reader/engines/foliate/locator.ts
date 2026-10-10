@@ -19,8 +19,15 @@ function deepLast(node: Node): Node {
 }
 
 /** The text before a point, nearest first: the part of its own node, then whole nodes */
-function* textsBefore(root: Node, container: Node, offset: number): Generator<string> {
-  const walker = (root.ownerDocument ?? (root as Document)).createTreeWalker(root, SHOW_TEXT);
+function* textsBefore(
+  root: Node,
+  container: Node,
+  offset: number,
+): Generator<string> {
+  const walker = (root.ownerDocument ?? (root as Document)).createTreeWalker(
+    root,
+    SHOW_TEXT,
+  );
   if (container.nodeType === TEXT) {
     yield (container as Text).data.slice(0, offset);
     walker.currentNode = container;
@@ -29,12 +36,20 @@ function* textsBefore(root: Node, container: Node, offset: number): Generator<st
     if (last.nodeType === TEXT) yield (last as Text).data;
     walker.currentNode = last;
   } else walker.currentNode = container;
-  for (let node = walker.previousNode(); node; node = walker.previousNode()) yield (node as Text).data;
+  for (let node = walker.previousNode(); node; node = walker.previousNode())
+    yield (node as Text).data;
 }
 
 /** The text after a point, nearest first */
-function* textsAfter(root: Node, container: Node, offset: number): Generator<string> {
-  const walker = (root.ownerDocument ?? (root as Document)).createTreeWalker(root, SHOW_TEXT);
+function* textsAfter(
+  root: Node,
+  container: Node,
+  offset: number,
+): Generator<string> {
+  const walker = (root.ownerDocument ?? (root as Document)).createTreeWalker(
+    root,
+    SHOW_TEXT,
+  );
   if (container.nodeType === TEXT) {
     yield (container as Text).data.slice(offset);
     walker.currentNode = container;
@@ -44,11 +59,17 @@ function* textsAfter(root: Node, container: Node, offset: number): Generator<str
     // An element: its first text comes next
     walker.currentNode = first;
   } else walker.currentNode = deepLast(container);
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) yield (node as Text).data;
+  for (let node = walker.nextNode(); node; node = walker.nextNode())
+    yield (node as Text).data;
 }
 
 /** Up to `limit` characters of text before a point, in reading order */
-function textBefore(root: Node, container: Node, offset: number, limit: number): string {
+function textBefore(
+  root: Node,
+  container: Node,
+  offset: number,
+  limit: number,
+): string {
   let text = "";
   for (const part of textsBefore(root, container, offset)) {
     text = part + text;
@@ -59,7 +80,12 @@ function textBefore(root: Node, container: Node, offset: number, limit: number):
 }
 
 /** Up to `limit` characters of text after a point */
-function textAfter(root: Node, container: Node, offset: number, limit: number): string {
+function textAfter(
+  root: Node,
+  container: Node,
+  offset: number,
+  limit: number,
+): string {
   let text = "";
   for (const part of textsAfter(root, container, offset)) {
     text += part;
@@ -75,17 +101,32 @@ function textAfter(root: Node, container: Node, offset: number, limit: number): 
 export function quoteAt(range: Range): TextQuote | undefined {
   const root = range.startContainer.ownerDocument?.body;
   if (!root) return undefined;
-  const fromRange = normalizeQuoteText(range.toString().slice(0, QUOTE_CHARS * 4)).trimStart();
+  const fromRange = normalizeQuoteText(
+    range.toString().slice(0, QUOTE_CHARS * 4),
+  ).trimStart();
   // A collapsed place quotes the text that follows it
-  const quoted = fromRange || textAfter(root, range.startContainer, range.startOffset, QUOTE_CHARS * 2).trimStart();
+  const quoted =
+    fromRange ||
+    textAfter(
+      root,
+      range.startContainer,
+      range.startOffset,
+      QUOTE_CHARS * 2,
+    ).trimStart();
   const highlight = quoted.slice(0, QUOTE_CHARS);
   if (!highlight.trim()) return undefined;
-  const before = textBefore(root, range.startContainer, range.startOffset, QUOTE_CHARS);
+  const before = textBefore(
+    root,
+    range.startContainer,
+    range.startOffset,
+    QUOTE_CHARS,
+  );
   // After the quote: from the end of the range when it is short, else after the first 64 characters
   const rest = !fromRange
     ? quoted.slice(highlight.length)
     : fromRange.length > highlight.length
-      ? fromRange.slice(highlight.length) + textAfter(root, range.endContainer, range.endOffset, QUOTE_CHARS)
+      ? fromRange.slice(highlight.length) +
+        textAfter(root, range.endContainer, range.endOffset, QUOTE_CHARS)
       : textAfter(root, range.endContainer, range.endOffset, QUOTE_CHARS);
   const after = rest.slice(0, QUOTE_CHARS);
   return {
@@ -113,7 +154,8 @@ export interface RelocateInput {
   pdfPage?: number;
 }
 
-const unit = (n: number) => (Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0);
+const unit = (n: number) =>
+  Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0;
 
 /** A relocate from the engine as a DurtalLocator */
 export function locatorFromRelocate(input: RelocateInput): DurtalLocator {
@@ -125,7 +167,8 @@ export function locatorFromRelocate(input: RelocateInput): DurtalLocator {
     progression: unit(input.sectionFraction),
     totalProgression: unit(input.fraction),
   };
-  if (Number.isFinite(input.location)) locator.position = input.location;
+  // Foliate is zero based. Stored legacy numbers are never navigation addresses.
+  if (Number.isFinite(input.location)) locator.position = input.location! + 1;
   if (input.pdfPage) {
     locator.pdf = { page: input.pdfPage };
   } else if (input.cfi) {
@@ -133,7 +176,72 @@ export function locatorFromRelocate(input: RelocateInput): DurtalLocator {
   }
   const text = input.range && !input.pdfPage ? quoteAt(input.range) : undefined;
   if (text) locator.text = text;
-  if (input.tocLabel?.trim()) locator.tocLabel = input.tocLabel.trim().slice(0, 300);
-  if (input.pageLabel?.trim()) locator.pageLabel = input.pageLabel.trim().slice(0, 40);
+  if (input.tocLabel?.trim())
+    locator.tocLabel = input.tocLabel.trim().slice(0, 300);
+  if (input.pageLabel?.trim())
+    locator.pageLabel = input.pageLabel.trim().slice(0, 40);
   return locator;
+}
+
+/** At most 80 visible characters, never extending beyond their first paragraph. */
+export function visibleOriginRange(visible: Range): Range {
+  const range = visible.cloneRange();
+  const doc = range.startContainer.ownerDocument;
+  if (!doc) return range;
+  const start =
+    range.startContainer.nodeType === 1
+      ? (range.startContainer as Element)
+      : range.startContainer.parentElement;
+  let paragraph: Node | null =
+    start?.closest("p, h1, h2, h3, h4, h5, h6, li, blockquote") ?? null;
+  const root = paragraph ?? range.commonAncestorContainer;
+  const walker = doc.createTreeWalker(root, 4);
+  let remaining = 80;
+  for (
+    let node: Node | null = root.nodeType === TEXT ? root : walker.nextNode();
+    node;
+    node = walker.nextNode()
+  ) {
+    if (!visible.intersectsNode(node)) continue;
+    if (!paragraph && node.textContent?.trim())
+      paragraph =
+        node.parentElement?.closest(
+          "p, h1, h2, h3, h4, h5, h6, li, blockquote",
+        ) ?? node;
+    if (paragraph && node !== paragraph && !paragraph.contains(node)) break;
+    const from = node === visible.startContainer ? visible.startOffset : 0;
+    const to =
+      node === visible.endContainer ? visible.endOffset : (node as Text).length;
+    const take = Math.min(remaining, Math.max(0, to - from));
+    range.setEnd(node, from + take);
+    remaining -= take;
+    if (!remaining) break;
+  }
+  return range;
+}
+
+/** Selection context is around the entire quote, never around its first 64 characters. */
+export function quoteFromSelection(range: Range): TextQuote | undefined {
+  const root = range.startContainer.ownerDocument?.body;
+  const highlight = normalizeQuoteText(range.toString())
+    .trim()
+    .slice(0, 10_000);
+  if (!root || !highlight) return undefined;
+  const before = textBefore(
+    root,
+    range.startContainer,
+    range.startOffset,
+    QUOTE_CHARS,
+  );
+  const after = textAfter(
+    root,
+    range.endContainer,
+    range.endOffset,
+    QUOTE_CHARS,
+  );
+  return {
+    highlight,
+    ...(before ? { before } : {}),
+    ...(after ? { after } : {}),
+  };
 }
