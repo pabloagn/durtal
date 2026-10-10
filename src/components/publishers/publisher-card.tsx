@@ -69,13 +69,13 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
         className="absolute inset-0 z-10 rounded-sm"
       />
       <PublisherLogo name={p.name} url={p.logoUrl} card={p.logoIsCard} className="aspect-[3/2] rounded-t-sm border-b border-glass-border" />
-      <div className="px-4 pt-4 pb-2">
+      <div className="compact-card-section px-4 pt-4 pb-2">
         <CardHeading title={p.name} titleClassName="group-hover:text-accent-primary"
           action={<FavouriteToggle favourite={p.isFavourite} target={{ entity: "publisher", id: p.id }} name={p.name} />}
         />
       </div>
       {/* Metadata wraps without clipping at narrow widths */}
-      <div className="flex min-h-5 min-w-0 flex-wrap items-center gap-1.5 px-4">
+      <div className="compact-card-section flex min-h-5 min-w-0 flex-wrap items-center gap-1.5 px-4">
         {p.kind === "imprint" && <Badge variant="blue">Imprint</Badge>}
         {p.kind === "group" && <Badge variant="gold">Group</Badge>}
         {/* Beside the type badge a narrow card has no room for the country */}
@@ -93,10 +93,10 @@ export function PublisherCard({ publisher: p }: { publisher: PublisherItem }) {
           </span>
         )}
       </div>
-      <p className="mt-2 min-h-[1lh] [overflow-wrap:anywhere] px-4 text-xs text-fg-secondary">
+      <p className="compact-card-section mt-2 min-h-[1lh] [overflow-wrap:anywhere] px-4 text-xs text-fg-secondary">
         {p.parentName ? `Imprint of ${p.parentName}` : null}
       </p>
-      <div className="mt-auto flex items-center justify-between gap-2 px-4 pb-3.5 pt-3">
+      <div className="compact-card-section mt-auto flex items-center justify-between gap-2 px-4 pb-3.5 pt-3">
         <span className="font-mono text-micro text-fg-secondary">
           {editionsLabel(p.editionCount)}
         </span>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CoarseImageSource } from "@/components/shared/coarse-image-source";
 import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { PosterGlow } from "./ambient-crystals";
 import type { CrystalColor } from "@/lib/types";
@@ -44,12 +45,15 @@ export function WorkPosterImage({
             }
           }}
         >
-          <img
-            src={src}
-            alt={alt}
-            className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.03]"
-            style={mediaImageStyle(crop)}
-          />
+          <picture className="block h-full w-full">
+            <CoarseImageSource src={src} />
+            <img
+              src={src}
+              alt={alt}
+              className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.03]"
+              style={mediaImageStyle(crop)}
+            />
+          </picture>
         </div>
       </div>
 

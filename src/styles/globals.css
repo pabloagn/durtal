@@ -1116,3 +1116,20 @@ dialog::backdrop {
   grid-column: auto;
   margin-inline: 0;
 }
+
+/* Phone card size is selected in CSS before hydration. The desktop density
+   and mosaic slider keep their existing 2–8 preference and geometry. */
+.grid-size-mobile { display: none; }
+@media (pointer: coarse) and (max-width: 767px) {
+  :has(> [data-catalogue-view="grid"]) > .grid-size-slider .grid-size-desktop { display: none; }
+  :has(> [data-catalogue-view="grid"]) > .grid-size-slider .grid-size-mobile { display: block; }
+  .catalogue-density-grid { grid-template-columns: minmax(0, 1fr); }
+  .catalogue-density-compact { gap: 8px; }
+  @container (min-width: 328px) {
+    .catalogue-density-compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .catalogue-density-compact > * .card-body,
+  .catalogue-density-compact > * > .compact-card-section { padding-left: 8px; padding-right: 8px; }
+  .catalogue-density-compact > * .card-body { padding-top: 8px; padding-bottom: 8px; }
+  .catalogue-density-compact > * .icon-hit-end { margin-right: 0; }
+}

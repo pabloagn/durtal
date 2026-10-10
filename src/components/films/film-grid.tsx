@@ -54,7 +54,7 @@ export function FilmGrid({
         />
       ) : viewMode === "grid" ? (
         <div className="@container">
-          <div className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
+          <div data-catalogue-grid="" data-grid-density={gridColumns} className={`grid gap-4 ${COL_CLASSES[gridColumns] ?? COL_CLASSES[4]}`}>
             {films.map((film) => (
               <FilmCard key={film.id} film={film} />
             ))}

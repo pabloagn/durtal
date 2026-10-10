@@ -44,15 +44,15 @@ export function RecommenderCard({
         aria-label={`Open ${r.name}`}
         className="absolute inset-0 z-10 rounded-sm"
       />
-      <div className="px-4 pt-4 pb-2">
+      <div className="compact-card-section px-4 pt-4 pb-2">
         <CardHeading title={r.name} titleClassName="group-hover:text-accent-primary"
           action={<FavouriteToggle favourite={r.isFavourite} target={{ entity: "recommender", id: r.id }} name={r.name} />}
         />
       </div>
-      <div className="flex min-h-4 min-w-0 items-center px-4">
+      <div className="compact-card-section flex min-h-4 min-w-0 items-center px-4">
         {r.url && <WebsiteLink url={r.url} name={r.name} />}
       </div>
-      <p className="mt-auto px-4 pb-3.5 pt-3 font-mono text-micro text-fg-secondary">
+      <p className="compact-card-section mt-auto px-4 pb-3.5 pt-3 font-mono text-micro text-fg-secondary">
         {booksLabel(r.bookCount)}
       </p>
     </div>
