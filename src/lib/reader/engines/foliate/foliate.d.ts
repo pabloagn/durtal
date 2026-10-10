@@ -95,9 +95,7 @@ export interface FoliateBook {
   ): [string | number, unknown] | Promise<[string | number, unknown]>;
   getTOCFragment?(doc: Document, fragment: unknown): Element | null;
   indexFragment?(fragment: unknown): string;
-  resolveHref(
-    href: string,
-  ):
+  resolveHref(href: string):
     | { index: number; anchor?: (doc: Document) => Range | Element }
     | null
     | Promise<{
@@ -124,9 +122,32 @@ export interface FoliateProgress {
   reason?: string;
 }
 
+export interface FoliateOverlayer {
+  add(
+    key: string,
+    range: Range,
+    draw: (
+      rects: {
+        left: number;
+        top: number;
+        right: number;
+        bottom: number;
+        width: number;
+        height: number;
+      }[],
+      options?: Record<string, unknown>,
+    ) => SVGElement,
+    options: Record<string, unknown>,
+  ): void;
+  remove(key: string): void;
+}
 export interface FoliateRenderer extends HTMLElement {
   setStyles?(styles: string | [string, string]): void;
-  getContents(): { doc: Document; index: number }[];
+  getContents(): {
+    doc: Document;
+    index: number;
+    overlayer?: FoliateOverlayer;
+  }[];
   primaryIndex?: number;
   atEnd: boolean;
   heads?: HTMLElement[] | null;

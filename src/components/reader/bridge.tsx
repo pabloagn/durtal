@@ -22,6 +22,7 @@ import {
   type ReaderPluginView,
 } from "@/lib/reader/bridge-state";
 import { READER_CONTROLLER_EVENTS, type ReaderControllerHandlers, type ReaderControllerFailureCode } from "@/lib/reader/controller-readiness";
+import type { BeforeAnnotationDelete } from "@/lib/reader/annotation-deletion";
 import type { ReaderContext, ReaderEvents } from "@/lib/reader/events";
 import {
   registerReaderKey,
@@ -184,6 +185,22 @@ export function useReaderEvent<K extends keyof ReaderEvents>(
   useEffect(
     () => bridge.bus.on(name, (event) => latest.current(event)),
     [bridge, name],
+  );
+}
+/** Confirmation only. Returning a prepared quote effect composes it with the
+ * eventual durable annotation delete; no tracker write happens in this hook. */
+export function useBeforeAnnotationDelete(handler: BeforeAnnotationDelete) {
+  const bridge = useBridge();
+  const latest = useRef(handler);
+  useLayoutEffect(() => {
+    latest.current = handler;
+  });
+  useEffect(
+    () =>
+      bridge.annotationDeletes.register((annotation, signal) =>
+        latest.current(annotation, signal),
+      ),
+    [bridge],
   );
 }
 export function useReaderContext(): ReaderContext {

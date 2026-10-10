@@ -1,0 +1,305 @@
+{
+  "kind": "runtime-declaration-review-snapshot",
+  "migrationGenerated": false,
+  "tables": [
+    {
+      "table": "ebook_annotations",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "primaryKey": true,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "ebook_id",
+          "type": "uuid",
+          "notNull": true,
+          "primaryKey": false,
+          "default": null
+        },
+        {
+          "name": "file_id",
+          "type": "uuid",
+          "notNull": true,
+          "primaryKey": false,
+          "default": null
+        },
+        {
+          "name": "kind",
+          "type": "text",
+          "notNull": true,
+          "primaryKey": false,
+          "default": null
+        },
+        {
+          "name": "style",
+          "type": "text",
+          "notNull": true,
+          "primaryKey": false,
+          "default": "highlight"
+        },
+        {
+          "name": "color",
+          "type": "text",
+          "notNull": false,
+          "primaryKey": false,
+          "default": null
+        },
+        {
+          "name": "locator",
+          "type": "jsonb",
+          "notNull": true,
+          "primaryKey": false,
+          "default": null
+        },
+        {
+          "name": "progression",
+          "type": "real",
+          "notNull": true,
+          "primaryKey": false,
+          "default": null
+        },
+        {
+          "name": "chapter",
+          "type": "text",
+          "notNull": false,
+          "primaryKey": false,
+          "default": null
+        },
+        {
+          "name": "text",
+          "type": "text",
+          "notNull": false,
+          "primaryKey": false,
+          "default": null
+        },
+        {
+          "name": "note",
+          "type": "text",
+          "notNull": false,
+          "primaryKey": false,
+          "default": null
+        },
+        {
+          "name": "anchor_state",
+          "type": "text",
+          "notNull": true,
+          "primaryKey": false,
+          "default": "exact"
+        },
+        {
+          "name": "device_id",
+          "type": "text",
+          "notNull": false,
+          "primaryKey": false,
+          "default": null
+        },
+        {
+          "name": "quote_binding_version",
+          "type": "uuid",
+          "notNull": false,
+          "primaryKey": false,
+          "default": null
+        },
+        {
+          "name": "client_updated_at",
+          "type": "timestamp(6) with time zone",
+          "notNull": true,
+          "primaryKey": false,
+          "default": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp(6) with time zone",
+          "notNull": true,
+          "primaryKey": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp(6) with time zone",
+          "notNull": true,
+          "primaryKey": false,
+          "default": "now()"
+        },
+        {
+          "name": "deleted_at",
+          "type": "timestamp(6) with time zone",
+          "notNull": false,
+          "primaryKey": false,
+          "default": null
+        }
+      ],
+      "checks": [
+        {
+          "name": "ebook_annotations_kind_check",
+          "sql": "\"ebook_annotations\".\"kind\" in ('highlight', 'bookmark')"
+        },
+        {
+          "name": "ebook_annotations_style_check",
+          "sql": "\"ebook_annotations\".\"style\" in ('highlight', 'underline', 'quote')"
+        },
+        {
+          "name": "ebook_annotations_color_check",
+          "sql": "\"ebook_annotations\".\"color\" is null or \"ebook_annotations\".\"color\" in ('ochre', 'sage', 'slate', 'rose', 'violet')"
+        },
+        {
+          "name": "ebook_annotations_anchor_state_check",
+          "sql": "\"ebook_annotations\".\"anchor_state\" in ('exact', 'healed', 'approximate', 'orphaned')"
+        },
+        {
+          "name": "ebook_annotations_text_check",
+          "sql": "\"ebook_annotations\".\"text\" is null or char_length(\"ebook_annotations\".\"text\") <= 10000"
+        },
+        {
+          "name": "ebook_annotations_note_check",
+          "sql": "\"ebook_annotations\".\"note\" is null or char_length(\"ebook_annotations\".\"note\") <= 10000"
+        },
+        {
+          "name": "ebook_annotations_chapter_check",
+          "sql": "\"ebook_annotations\".\"chapter\" is null or char_length(\"ebook_annotations\".\"chapter\") <= 300"
+        },
+        {
+          "name": "ebook_annotations_progression_check",
+          "sql": "\"ebook_annotations\".\"progression\" between 0 and 1"
+        },
+        {
+          "name": "ebook_annotations_locator_check",
+          "sql": "public.durtal_annotation_locator_valid(\"ebook_annotations\".\"locator\")"
+        },
+        {
+          "name": "ebook_annotations_metadata_check",
+          "sql": "\n    (\"ebook_annotations\".\"kind\" = 'bookmark' and \"ebook_annotations\".\"style\" = 'highlight' and \"ebook_annotations\".\"color\" is null and \"ebook_annotations\".\"text\" is null and \"ebook_annotations\".\"note\" is null and \"ebook_annotations\".\"quote_binding_version\" is null)\n    or (\"ebook_annotations\".\"kind\" = 'highlight' and \"ebook_annotations\".\"text\" is not null and char_length(\"ebook_annotations\".\"text\") between 1 and 10000 and btrim(\"ebook_annotations\".\"text\") <> ''\n      and (\"ebook_annotations\".\"locator\" #>> '{text,highlight}') is not null and btrim(\"ebook_annotations\".\"locator\" #>> '{text,highlight}') <> ''\n      and ((\"ebook_annotations\".\"style\" = 'quote' and \"ebook_annotations\".\"color\" is null and \"ebook_annotations\".\"quote_binding_version\" is not null)\n        or (\"ebook_annotations\".\"style\" in ('highlight', 'underline') and \"ebook_annotations\".\"color\" is not null and \"ebook_annotations\".\"quote_binding_version\" is null)))"
+        },
+        {
+          "name": "ebook_annotations_time_check",
+          "sql": "isfinite(\"ebook_annotations\".\"client_updated_at\") and isfinite(\"ebook_annotations\".\"created_at\") and isfinite(\"ebook_annotations\".\"updated_at\") and (\"ebook_annotations\".\"deleted_at\" is null or isfinite(\"ebook_annotations\".\"deleted_at\")) and \"ebook_annotations\".\"created_at\" <= \"ebook_annotations\".\"updated_at\" and (\"ebook_annotations\".\"deleted_at\" is null or \"ebook_annotations\".\"deleted_at\" <= \"ebook_annotations\".\"updated_at\")"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "ebook_annotations_ebook_id_ebooks_id_fk",
+          "columns": ["ebook_id"],
+          "target": "ebooks",
+          "targetColumns": ["id"],
+          "onDelete": "restrict"
+        },
+        {
+          "name": "ebook_annotations_file_ebook_fk",
+          "columns": ["file_id", "ebook_id"],
+          "target": "ebook_files",
+          "targetColumns": ["id", "ebook_id"],
+          "onDelete": "restrict"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "ebook_annotations_ebook_idx",
+          "method": "btree",
+          "columns": ["ebook_id", "deleted_at", "progression"],
+          "where": null
+        },
+        {
+          "name": "ebook_annotations_sync_idx",
+          "method": "btree",
+          "columns": ["ebook_id", "updated_at", "id"],
+          "where": null
+        },
+        {
+          "name": "ebook_annotations_search_idx",
+          "method": "gin",
+          "columns": [
+            "(public.search_normalize(coalesce(\"ebook_annotations\".\"text\", '') || ' ' || coalesce(\"ebook_annotations\".\"note\", ''))) gin_trgm_ops"
+          ],
+          "where": "\"ebook_annotations\".\"deleted_at\" is null"
+        }
+      ]
+    },
+    {
+      "table": "ebook_annotation_retired_ids",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "primaryKey": true,
+          "default": null
+        },
+        {
+          "name": "ebook_id",
+          "type": "uuid",
+          "notNull": true,
+          "primaryKey": false,
+          "default": null
+        },
+        {
+          "name": "retired_at",
+          "type": "timestamp(6) with time zone",
+          "notNull": true,
+          "primaryKey": false,
+          "default": null
+        }
+      ],
+      "checks": [
+        {
+          "name": "ebook_annotation_retired_ids_time_check",
+          "sql": "isfinite(\"ebook_annotation_retired_ids\".\"retired_at\")"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "ebook_annotation_retired_ids_ebook_id_ebooks_id_fk",
+          "columns": ["ebook_id"],
+          "target": "ebooks",
+          "targetColumns": ["id"],
+          "onDelete": "restrict"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "ebook_annotation_retired_ids_ebook_idx",
+          "method": "btree",
+          "columns": ["ebook_id"],
+          "where": null
+        }
+      ]
+    },
+    {
+      "table": "ebook_annotation_cursors",
+      "columns": [
+        {
+          "name": "ebook_id",
+          "type": "uuid",
+          "notNull": true,
+          "primaryKey": true,
+          "default": null
+        },
+        {
+          "name": "server_time",
+          "type": "timestamp(6) with time zone",
+          "notNull": true,
+          "primaryKey": false,
+          "default": null
+        }
+      ],
+      "checks": [
+        {
+          "name": "ebook_annotation_cursors_time_check",
+          "sql": "isfinite(\"ebook_annotation_cursors\".\"server_time\")"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "ebook_annotation_cursors_ebook_id_ebooks_id_fk",
+          "columns": ["ebook_id"],
+          "target": "ebooks",
+          "targetColumns": ["id"],
+          "onDelete": "cascade"
+        }
+      ],
+      "indexes": []
+    }
+  ]
+}

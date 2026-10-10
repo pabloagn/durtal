@@ -1,3 +1,4 @@
+import { createAnnotationDeleteHooks } from "./annotation-deletion";
 import { createReaderEventBus, type ReaderContext } from "./events";
 import { createControllerReadiness, type ReaderControllerFailureCode } from "./controller-readiness";
 import type { ReactElement, ReactNode } from "react";
@@ -61,6 +62,7 @@ export function createReaderBridge(
     acknowledgeVisibleControllerFailure: controllers.visibleFailure,
     subscribeControllerReadiness: controllers.subscribe,
     getControllerReadinessSnapshot: controllers.getSnapshot,
+    annotationDeletes: createAnnotationDeleteHooks(),
     subscribe(fn: () => void) {
       listeners.add(fn);
       return () => {

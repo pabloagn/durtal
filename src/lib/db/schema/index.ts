@@ -179,6 +179,8 @@ export { ebookPositions, ebookPositionsRelations } from "./ebook-positions";
 export {
   ebookAnnotations,
   ebookAnnotationsRelations,
+  ebookAnnotationRetiredIds,
+  ebookAnnotationCursors,
 } from "./ebook-annotations";
 export { readerPreferences } from "./reader-preferences";
 export {
