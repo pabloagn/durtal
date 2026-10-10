@@ -53,3 +53,19 @@ native/browser geometry and alignment, live/disposable database, font-transfer,
 performance and release gates remain pending. No server control, dependency
 installation, database/cloud write or migration application occurred in this
 source completion phase. The candidate is not declared ready to ship.
+
+Independent source review corrections clear the PDF Previous cache after moving
+backwards, invalidate prior passage rectangles on unrelated same-page commands
+and failed moves, suppress the corresponding delayed programmatic scroll, and
+check live controller readiness for pointer and stale shortcut zoom/fit dispatch.
+Fixed scrolled navigation publishes its owned page arrival immediately; human
+input or displaced settlement releases scroll suppression. Added regression
+source drives the production speech reducer, adapter and shared navigation
+publication, mounted controls and StrictMode disposal. Structural PDF fixtures
+prove no native geometry or tracker runtime acceptance.
+
+These four corrections require a new frozen-source independent review. Later
+executable gates must generate genuine fresh Next route types from that revision
+before ordinary full-project types; earlier generated route graphs and source
+verdicts cannot certify it. Test execution, native delayed scrolling and all
+remaining database/build/release gates remain pending.

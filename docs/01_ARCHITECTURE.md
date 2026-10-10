@@ -290,3 +290,14 @@ milliseconds; colour changes do not touch fonts or paginator geometry. The
 initial landing and navigation await the latest owned pass with bounded,
 cancellable delivery. Native style resolution, first paint, cancellation, crop
 geometry, canvas limits, UI alignment and performance remain validation gates.
+
+Fixed zoom/fit mutations require live controller admission at dispatch, including
+pointer actions and stale keyboard handlers. PDF navigation replaces any cached
+passage target on every new command and clears it on failure; consecutive speech
+Previous does not cache its current sentence as its own predecessor. Fixed
+scrolled navigation publishes an immediate owned page arrival and suppresses
+only its matching delayed scroll settlement at actual clamped coordinates.
+Human input or displaced coordinates restore ordinary scroll publication.
+These corrections are source-only; their regression sources are unexecuted and
+native behavior remains pending. A fresh independent review and genuine Next
+route type generation must bind later validation to the corrected revision.

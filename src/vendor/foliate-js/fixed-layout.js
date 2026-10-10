@@ -1,4 +1,5 @@
 import 'construct-style-sheets-polyfill'
+import { FixedScrollOwnership } from './fixed-scroll-ownership.js'
 
 const parseViewport = str => str
     ?.split(/[,;\s]/) // NOTE: technically, only the comma is valid
@@ -348,6 +349,9 @@ export class FixedLayout extends HTMLElement {
     #scrollMaxConcurrent = 3
     #scrollLoadingCount = 0
     #scrollIdleTimer = null
+    #scrollOwnership = new FixedScrollOwnership()
+    #scrollIntentDocs = new WeakSet()
+    #interruptOwnedScroll = () => this.#scrollOwnership.interrupt()
     #scrollCurrentIndex = -1
     // True while the host is actively scrolling. Pages load interactive only
     // when idle so a page that finishes loading mid-scroll can't flip its iframe
@@ -448,6 +452,8 @@ export class FixedLayout extends HTMLElement {
     }
     constructor() {
         super()
+        for (const type of ['wheel', 'pointerdown', 'touchstart', 'keydown'])
+            this.addEventListener(type, this.#interruptOwnedScroll, { capture: true, passive: true })
 
         const sheet = new CSSStyleSheet()
         this.#root.adoptedStyleSheets = [sheet]
@@ -587,6 +593,11 @@ export class FixedLayout extends HTMLElement {
     // stylesheet makes.
     #applyPanLock(doc) {
         if (!doc?.documentElement) return
+        if (!this.#scrollIntentDocs.has(doc)) {
+            this.#scrollIntentDocs.add(doc)
+            for (const type of ['wheel', 'pointerdown', 'touchstart', 'keydown'])
+                doc.addEventListener(type, this.#interruptOwnedScroll, { capture: true, passive: true })
+        }
         const locked = this.hasAttribute('lock-pan-x')
             && !(this.getAttribute('flow') === 'scrolled'
                 && this.getAttribute('scroll-direction') === 'horizontal')
@@ -1146,7 +1157,9 @@ export class FixedLayout extends HTMLElement {
             this.#setScrollIframeInteraction(true)
             // Report location only after scroll settles to avoid
             // expensive React re-renders on every frame
-            this.#reportScrollLocation()
+            if (!this.#scrollOwnership.settle(this.scrollLeft, this.scrollTop))
+                this.#reportScrollLocation()
+            this.#scrollIdleTimer = null
         }, 150)
     }
     #handleScrollWheel = e => {
@@ -1168,6 +1181,7 @@ export class FixedLayout extends HTMLElement {
         }
     }
     #destroyScrollMode(navigate = true) {
+        this.#scrollOwnership.interrupt()
         // Use the cached scroll index because by the time attributeChangedCallback
         // fires, the CSS has already switched from block/scroll to flex layout,
         // making #getScrollIndex() return incorrect positions
@@ -1486,13 +1500,14 @@ export class FixedLayout extends HTMLElement {
             this.#updateScrollWindow()
         }
         this.#scrollCurrentIndex = index
+        if (!behavior) this.#scrollOwnership.own(this.scrollLeft, this.scrollTop)
     }
-    #reportScrollLocation() {
-        const index = this.#getScrollIndex()
+    #reportScrollLocation(reason = 'scroll', requestedIndex) {
+        const index = requestedIndex ?? this.#getScrollIndex()
         if (index < 0) return
         this.#scrollCurrentIndex = index
         this.dispatchEvent(new CustomEvent('relocate', { detail:
-            { reason: 'scroll', range: null, index, fraction: 0, size: 1 } }))
+            { reason, range: null, index, fraction: 0, size: 1 } }))
     }
     #goLeft() {
         if (this.#center || this.#left?.blank) return
@@ -1915,7 +1930,13 @@ export class FixedLayout extends HTMLElement {
     #retireFrame(frame) {
         if (!frame) return
         this.#removeOverlayerForFrame(frame)
-        try { frame.onDestroy?.(frame.iframe?.contentDocument) }
+        const doc = frame.iframe?.contentDocument
+        if (doc) {
+            for (const type of ['wheel', 'pointerdown', 'touchstart', 'keydown'])
+                doc.removeEventListener(type, this.#interruptOwnedScroll, { capture: true })
+            this.#scrollIntentDocs.delete(doc)
+        }
+        try { frame.onDestroy?.(doc) }
         finally { frame.element?.remove() }
     }
     // Drop a frame's overlayer and re-emit create-overlayer so listeners can
@@ -1964,6 +1985,7 @@ export class FixedLayout extends HTMLElement {
         if (this.#lockedPanX !== null) this.#setLockedPanX(this.#lockedPanX + dx)
         else this.scrollLeft += dx
         this.scrollTop += dy
+        if (dx || dy) this.#scrollOwnership.own(this.scrollLeft, this.scrollTop)
         return true
     }
     async select(target) {
@@ -1973,7 +1995,10 @@ export class FixedLayout extends HTMLElement {
     async goTo(target) {
         const resolved = await target
         if (this.#scrollMode) {
-            if (this.#scrollPages[resolved.index]) this.#scrollToPage(resolved.index)
+            if (this.#scrollPages[resolved.index]) {
+                this.#scrollToPage(resolved.index)
+                this.#reportScrollLocation('navigation', resolved.index)
+            }
             return
         }
         const { book } = this
@@ -2167,6 +2192,9 @@ export class FixedLayout extends HTMLElement {
         return 'width'
     }
     destroy() {
+        this.#scrollOwnership.interrupt()
+        for (const type of ['wheel', 'pointerdown', 'touchstart', 'keydown'])
+            this.removeEventListener(type, this.#interruptOwnedScroll, { capture: true })
         this.#observer.unobserve(this)
         if (this.#scrollMode) {
             this.removeEventListener('scroll', this.#handleScrollEvent)

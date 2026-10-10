@@ -1424,8 +1424,11 @@ class FoliateEngine implements ReaderEngine {
     if (!view || this.#destroyed) throw new Error("The book is closed.");
     if (owner?.signal.aborted)
       throw new DOMException("Cancelled", "AbortError");
+    this.#pdfTarget = this.#isPdf() && "v" in target && target.fileHash === this.#source?.sha256 && target.pdf?.rects?.length
+      ? structuredClone(target) : null;
     this.#owner = owner;
     this.#jumping++;
+    let arrived = false;
     try {
       if ("fraction" in target) {
         await this.#goToFraction(target.fraction);
@@ -1441,7 +1444,6 @@ class FoliateEngine implements ReaderEngine {
         this.#readingFraction = target.totalProgression;
         const current = target.fileHash === this.#source?.sha256;
         if (current && target.pdf?.page) {
-          this.#pdfTarget = target.pdf.rects?.length ? structuredClone(target) : null;
           await this.#anchor(target.pdf.page - 1);
           await this.#waitPdfPaint(target.pdf.page - 1, owner?.signal ?? this.#opening.signal);
           const content = view.renderer.getContents().find(item => item.index + 1 === target.pdf?.page);
@@ -1469,7 +1471,9 @@ class FoliateEngine implements ReaderEngine {
       // A renderer may leave the same page without a new relocate. Give the controller
       // an owned arrival; its exact-anchor comparison makes this a no-op.
       if (view.lastLocation) this.#onRelocate(view.lastLocation);
+      arrived = true;
     } finally {
+      if (!arrived) this.#pdfTarget = null;
       this.#jumping--;
       this.#owner = undefined;
     }

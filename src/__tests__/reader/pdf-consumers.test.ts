@@ -3,6 +3,7 @@ import type { DurtalLocator, PdfTextPageRequest } from "@/lib/reader/engine";
 import type { PdfTextProvider } from "@/lib/reader/engines/foliate/pdf-text-provider";
 import { resolvePdfAnnotation } from "@/lib/reader/engines/foliate/pdf-annotation-resolver";
 import { preparePdfSpeech } from "@/lib/reader/engines/foliate/pdf-speech";
+import { initialSpeechPlayer, transitionSpeechPlayer, type SpeechPreparation } from "@/lib/reader/speech/player";
 import { sameLocation } from "@/lib/reader/navigation";
 
 const hash = "a".repeat(64);
@@ -60,5 +61,29 @@ describe("PDF speech original offsets", () => {
   });
   it("distinct measured sentences on one page remain distinct navigation places", () => {
     expect(sameLocation(anchor(), { ...anchor(), pdf: { page: 1, rects: [[10, 40, 100, 50]] } })).toBe(false);
+  });
+});
+
+describe("PDF Previous through the real speech reducer", () => {
+  it("moves backwards consecutively through four sentences and the preceding-page boundary", async () => {
+    const pages = ["Earlier sentence.","First sentence. Second sentence. Third sentence. Fourth sentence."];
+    const p = provider(pages);
+    let state = initialSpeechPlayer();
+    const prepare = async (target: SpeechPreparation) => {
+      const result = await preparePdfSpeech({ provider: p, fileHash: hash, pageCount: 2, language: "en", target, visible: anchor(1), signal: owner().signal, isVisible: () => true });
+      expect(result.current).not.toBeNull();
+      expect(result.previous?.text).not.toBe(result.current!.text);
+      state = transitionSpeechPlayer(state,{ kind: "prepared", generation: state.generation, ...result, current: result.current! }).state;
+    };
+    const target: SpeechPreparation = { kind: "from", from: anchor(1,"Fourth sentence.") };
+    state = transitionSpeechPlayer(state,{ kind: "prepare", target }).state; await prepare(target);
+    for (const expected of ["Third sentence.","Second sentence.","First sentence.","Earlier sentence."]) {
+      const transition = transitionSpeechPlayer(state,{ kind: "skip", direction: "previous" }); state = transition.state;
+      const command = transition.commands.find(item => item.kind === "prepare");
+      if (command?.kind === "prepare") await prepare(command.target);
+      expect(state.current?.text).toBe(expected); expect(state.previous?.text).not.toBe(expected);
+    }
+    const result = await preparePdfSpeech({ provider: p, fileHash: hash, pageCount: 2, language: "en", target: { kind: "adjacent", direction: "previous", locator: state.current!.locator }, visible: anchor(), signal: owner().signal, isVisible: () => true });
+    expect(result.current).toBeNull(); expect(result.previous).toBeNull();
   });
 });

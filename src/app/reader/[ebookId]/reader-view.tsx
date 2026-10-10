@@ -1364,8 +1364,8 @@ function ReaderSession({
       topBar={
         <ReaderToolbar
           annotationActions={<>{annotations.toolbar}{status.kind === "ready" && engineRef.current?.fixedPages?.() != null && <FixedLayoutControls
-            engine={engineRef.current!} onHeldChange={setFixedControlsOpen} enabled={controllerReadiness.ready} fit={settings.fixedFit} onPick={href => navigate({ href }, "goto")}
-            onFit={fixedFit => { try { preferences.update({ deviceClass: preferenceClass, ebookId: presentationFieldScope("fixedFit", preferenceClass, preferences.rows), presentation: { fixedFit } }); } catch (error) { setNotice(error instanceof Error ? error.message : "Fit could not be changed."); } }} />}</>}
+            engine={engineRef.current!} onHeldChange={setFixedControlsOpen} enabled={controllerReadiness.ready} isAdmitted={() => preferences.ready && bridge.getControllerReadinessSnapshot().ready} fit={settings.fixedFit} onPick={href => navigate({ href }, "goto")}
+            onFit={fixedFit => { if (!preferences.ready || !bridge.getControllerReadinessSnapshot().ready) return; try { preferences.update({ deviceClass: preferenceClass, ebookId: presentationFieldScope("fixedFit", preferenceClass, preferences.rows), presentation: { fixedFit } }); } catch (error) { setNotice(error instanceof Error ? error.message : "Fit could not be changed."); } }} />}</>}
           offlineAction={file ? <DownloadButton ebook={ebook} file={file} deviceId={deviceId} notice={setNotice} /> : undefined}
           onSearch={canSearch ? () => { paceRef.current?.interrupt(); setSearchMounted(true); setSearchOpen(true); } : undefined}
           speechControl={

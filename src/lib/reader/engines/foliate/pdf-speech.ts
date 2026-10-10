@@ -57,7 +57,7 @@ export async function preparePdfSpeech(input: {
         : anchorStart !== null && item.end > anchorStart);
       if (!reached) { previous = item.segment; continue; }
       if (input.target.kind === "adjacent" && input.target.direction === "previous") {
-        current = previous; next = item.segment; break;
+        current = previous; previous = null; next = item.segment; break;
       }
       if (input.target.kind === "adjacent" && !matched) { matched = true; previous = item.segment; continue; }
       current = item.segment;
@@ -65,8 +65,10 @@ export async function preparePdfSpeech(input: {
     if (next || (input.target.kind === "adjacent" && input.target.direction === "previous")) break;
     if (requested === "visible" && !current) return empty;
   }
-  // Previous across a page boundary reads just the preceding page and retains its last sentence.
-  if (!previous && initialPage > 0 && (current || input.target.kind === "adjacent" && input.target.direction === "previous")) {
+  const movingPrevious = input.target.kind === "adjacent" && input.target.direction === "previous";
+  // A same-page Previous must prepare its own predecessor next time, rather
+  // than caching the returned sentence or skipping to the preceding page.
+  if (!previous && initialPage > 0 && (movingPrevious ? !current : !!current)) {
     let last: SpeechSegment | null = null;
     for (let page = initialPage - 1; page >= 0 && !last; page--)
       for await (const item of pageSegments(page)) last = item.segment;

@@ -117,3 +117,5 @@ in the three browsers and `node scripts/qa/reader-perf.mjs` on a preview with
 `--seed-reader --reader-large`.
 
 12. Fixed-layout PDF page sources return actual cropped dimensions after paint; live and scroll frames adopt those dimensions and preserve position during refresh. Source candidate; native checks pending.
+
+13. Fixed navigation publishes its actual page arrival immediately. A scroll ownership guard suppresses only the corresponding later settled event at the actual clamped coordinates; displacement or wheel/pointer/touch/key input restores ordinary human scroll reporting. Frame and renderer retirement dispose input listeners. Source-only regression correction; native settlement validation remains pending.
