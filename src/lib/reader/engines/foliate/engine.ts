@@ -1291,7 +1291,7 @@ class FoliateEngine implements ReaderEngine {
     this.#emit("selection", null);
   }
 
-  fixedPages(): TocItem[] | null { return this.#book?.rendition?.layout === "pre-paginated" ? this.#info?.pageList ?? [] : null; }
+  fixedPages(): TocItem[] | null { return this.#book?.rendition?.layout === "pre-paginated" ? (this.#info?.pageList.length ? this.#info.pageList : this.#info?.sections.map(section => ({ href: section.href, label: section.label, subitems: [] })) ?? []) : null; }
   adjustFixedZoom(direction: -1 | 0 | 1) { this.setFixedZoom(direction === 0 ? null : stepFixedZoom(this.#fixedZoom ?? 100, direction)); }
   fixedZoom(): number | null { return this.#fixedZoom; }
   setFixedZoom(percent: number | null) {

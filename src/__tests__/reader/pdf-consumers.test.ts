@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { DurtalLocator } from "@/lib/reader/engine";
+import type { DurtalLocator, PdfTextPageRequest } from "@/lib/reader/engine";
 import type { PdfTextProvider } from "@/lib/reader/engines/foliate/pdf-text-provider";
 import { resolvePdfAnnotation } from "@/lib/reader/engines/foliate/pdf-annotation-resolver";
 import { preparePdfSpeech } from "@/lib/reader/engines/foliate/pdf-speech";
@@ -12,8 +12,8 @@ const anchor = (page = 0, text = "First sentence."): DurtalLocator => ({ v: 1, f
 /** Consumer-contract fixtures only; these do not certify native PDF geometry. */
 function provider(pages: string[], measured = true): PdfTextProvider {
   return {
-    pdfPageText: vi.fn(async request => { request.signal.throwIfAborted(); return { fileHash: hash, pageIndex: request.pageIndex, pageLabel: String(request.pageIndex + 1), text: pages[request.pageIndex] }; }),
-    locatorForPdfTextOffsets: vi.fn(async request => { request.signal.throwIfAborted(); return measured ? anchor(request.pageIndex, pages[request.pageIndex].slice(request.start, request.end)) : null; }),
+    pdfPageText: vi.fn(async (request: PdfTextPageRequest) => { request.signal.throwIfAborted(); return { fileHash: hash, pageIndex: request.pageIndex, pageLabel: String(request.pageIndex + 1), text: pages[request.pageIndex] }; }),
+    locatorForPdfTextOffsets: vi.fn(async (request: PdfTextPageRequest & { start: number; end: number }) => { request.signal.throwIfAborted(); return measured ? anchor(request.pageIndex, pages[request.pageIndex].slice(request.start, request.end)) : null; }),
   };
 }
 const owner = () => new AbortController();

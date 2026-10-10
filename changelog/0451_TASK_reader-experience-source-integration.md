@@ -30,13 +30,26 @@ upstream receipts do not certify this combined source. Migration metadata remain
 through 0081; proposals/declarations for 0082–0088 stay explicitly unregistered.
 No 0089 migration is introduced.
 
-Real source gaps: measured PDF text is connected to search but PDF search/annotation
-decoration drawing, strict PDF mark healing and PDF speech enumeration remain open;
-crop/theme and complete fixed/comic controls are not mounted. Broader Settings
-book-override listing/UI still uses the legacy screen. Annotation conflicts are
-retained by the shared queue, but explicit in-reader conflict resolution UI remains
-open. Cross-origin publisher stylesheet transformations stay intact when CSSOM is
-unavailable. All combined lifecycle, types, native visual/geometry, database,
-performance/font-transfer and release gates remain pending.
+The remaining production source gaps now have implementations: measured PDF
+annotation healing and independent decoration overlays; actual PDF sentence
+speech enumeration; crop samples and scan classification using page pixels and
+operators; theme rendering and fixed-frame size refresh; fixed page/fit/session
+zoom controls; comic sort/direction/folder/cache policies; saved Settings defaults
+and bounded per-book overrides; retained conflict draft UI and exact auth retry;
+and original publisher ink contrast. The shared store implementation and version
+remain unchanged. Native computed publisher colours avoid rewriting cross-origin
+publisher stylesheets or disabling font-face sheets.
 
-The candidate is frozen for integration review, not declared ready to ship.
+Meaningful test source covers PDF offsets, ambiguity, missing geometry and
+cancellation; crop/image classification and raster theme endpoints; overlay group
+ownership and viewport adoption; Settings scope races and clear failures;
+retained rejection identity and blocked revision retry; and publisher contrast,
+original-colour reuse and cancelled owners. These tests have not been executed.
+Static import-target resolution and Git whitespace checks were performed; this
+is not a substitute for root's executable validation.
+
+Source-only integration is frozen for review. Combined types/lint/tests/build,
+native/browser geometry and alignment, live/disposable database, font-transfer,
+performance and release gates remain pending. No server control, dependency
+installation, database/cloud write or migration application occurred in this
+source completion phase. The candidate is not declared ready to ship.

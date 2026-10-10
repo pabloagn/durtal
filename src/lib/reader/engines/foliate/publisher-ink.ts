@@ -56,8 +56,10 @@ export class PublisherInk {
       const disabled = sheet?.disabled;
       if (sheet) sheet.disabled = true;
       let more = false;
+      const started = performance.now();
       try {
         for (let count = 0; count < 128; count++) {
+          if (count > 0 && performance.now()-started >= 8) break;
           signal.throwIfAborted(); node = walker.nextNode(); if (!node) break; more = true;
           const element = node.parentElement;
           if (!node.textContent?.trim() || !element || seen.has(element) || element.closest("svg,math,script,style")) continue;
@@ -73,13 +75,14 @@ export class PublisherInk {
     }
     signal.throwIfAborted();
     const colours = new Map<string,string>();
+    let started = performance.now();
     for (let index = 0; index < elements.length; index++) {
       signal.throwIfAborted(); const element = elements[index], source = this.#original.get(element)!;
       const ink = source.ink; if (ink?.alpha === 0) continue;
       const original = ink ? compositeColour(ink.hex,READER_THEMES[p.theme].background,ink.alpha) : READER_THEMES[p.theme].text;
       let adapted = colours.get(original); if (!adapted) { adapted = adaptTextColour(original,p); colours.set(original,adapted); }
       element.style.setProperty("color",adapted,"important");
-      if ((index+1)%128 === 0) await speechYield(signal);
+      if ((index+1)%128 === 0 || performance.now()-started >= 8) { await speechYield(signal); started = performance.now(); }
     }
     // Captures stay in WeakMaps; page retirement releases DOM and native jobs through lifetime.
   }

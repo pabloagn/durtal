@@ -196,6 +196,7 @@ export async function makePdfBook(
         onDestroy: release,
         onZoom: async ({ doc, scale }) => {
           signal.throwIfAborted();
+          doc.querySelector("[data-durtal-pdf-marks]")?.remove();
           viewports.delete(doc);
           offsets.delete(doc);
           const previous = frames.get(doc);

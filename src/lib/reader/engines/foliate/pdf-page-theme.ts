@@ -15,6 +15,6 @@ export function applyPdfPageTheme(doc: Document, p: ReaderPresentation) {
     const matrix = doc.createElementNS(ns,"feColorMatrix"); matrix.setAttribute("type","matrix"); filter.append(matrix); svg.append(filter); doc.body.append(svg);
   }
   svg.querySelector("feColorMatrix")!.setAttribute("values",pdfPageThemeMatrix(p));
-  canvas.style.filter = p.pdfThemePages ? "url(#durtal-pdf-page-theme)" : "none";
+  canvas.style.filter = p.pdfThemePages ? "url(#durtal-pdf-page-theme)" : `brightness(${p.brightness/100}) sepia(${.4*p.warmth/100})`;
   doc.documentElement.style.backgroundColor = p.pdfThemePages ? themeColours(p).background : "#ffffff";
 }

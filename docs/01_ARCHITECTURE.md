@@ -259,6 +259,34 @@ The adapter applies the approved reflowable typography/layout policy and owns a
 separate page-local colour sheet. Colour-only changes skip paginator setters and
 `setStyles`; layout events retain their non-human origin. PDF search uses the actual
 opened PDF text provider and its measured offset locators, revoked on failure or
-close. Remaining source gaps include PDF search/annotation decoration drawing and
-strict PDF annotation healing, PDF speech text enumeration, crop/theme policy
-application and broader fixed/comic controls. No geometry or text stand-in is used.
+close. PDF annotations heal against actual page text and measured offset ranges;
+ambiguous passages remain orphaned and absent measurements remain pending. PDF
+speech segments original UTF-16 page text into measured sentences. Independent
+PDF overlays wait for raster, text and safe links to finish and use the adopted
+viewport/crop for navigation and drawing. No geometry or text stand-in is used.
+
+PDF crop samples actual page pixels through the same canvas ledger, with a
+serialized transient sample and a bounded sixteen-page crop cache. Auto uses
+actual first-page PDF image operators and extracted text; unsupported clipping,
+rotation/shear or image batches conservatively retain the full page. Crop changes
+refresh existing fixed frames with measured dimensions. PDF theme mapping changes
+raster colours independently of text geometry. Fixed pages expose session zoom,
+saved fit, automatic spread policy and a bounded picker from real page/spine
+entries. Comics apply deterministic path sorting, Manga direction, folder contents
+and the accepted twelve-image LRU policy over real archive sources.
+
+Settings now uses the approved preference saver for each device class and lists
+fifty per-book overrides per page through the joined server read. Clearing targets
+one explicit book and device; late responses from a departed scope are discarded.
+Failures remain visible. Annotation conflict UI reads retained shared-store
+rejections and blocked originals, permits downloading the exact draft, and retries
+blocked operations only through existing authenticated exact-reference
+reconciliation. It never relabels or replays a terminal rejection.
+
+A page-local publisher-ink pass captures native computed source colours before
+its writes, then applies the approved hue/contrast policy. It preserves transparent
+text and SVG/math art. Separate read/write slices yield after 128 nodes or eight
+milliseconds; colour changes do not touch fonts or paginator geometry. The
+initial landing and navigation await the latest owned pass with bounded,
+cancellable delivery. Native style resolution, first paint, cancellation, crop
+geometry, canvas limits, UI alignment and performance remain validation gates.

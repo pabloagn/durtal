@@ -24,12 +24,13 @@ export function AnnotationConflicts({ snapshot, onRefresh, onRetry }: { snapshot
     setTimeout(() => { URL.revokeObjectURL(url); urls.current.delete(url); },30000);
   };
   const shown = problems.filter(item => !hidden.has(`${item.operation.operationId}:${item.operation.revision}:${item.state}`));
+  const visiblePage = Math.min(page,Math.max(0,Math.ceil(shown.length/50)-1));
   if (!shown.length && !snapshot.error) return null;
   return <section aria-label="Annotation save conflicts" className="flex flex-col gap-3">
     <p className="text-sm text-fg-secondary">Some changes need attention. Their original drafts remain saved on this device.</p>
     {snapshot.error && <p role="alert" className="text-sm text-accent-red-text">{snapshot.error}</p>}
-    <Button variant="ghost" size="sm" onClick={() => { void onRefresh().catch(() => setMessage("Saved marks could not be refreshed.")); }}>Refresh saved marks</Button>
-    {shown.slice(page*50,(page+1)*50).map(item => {
+    <Button variant="ghost" size="sm" onClick={() => { void onRefresh().catch(() => { if (alive.current) setMessage("Saved marks could not be refreshed."); }); }}>Refresh saved marks</Button>
+    {shown.slice(visiblePage*50,(visiblePage+1)*50).map(item => {
       const row = item.operation, key = `${row.operationId}:${row.revision}:${item.state}`, draft = annotationProblemDraft(row);
       const saved = snapshot.annotations.find(annotation => annotation.id === row.mutation.id);
       return <div key={key} className="flex flex-col gap-2 rounded-sm border border-border-primary p-3">
@@ -38,11 +39,11 @@ export function AnnotationConflicts({ snapshot, onRefresh, onRetry }: { snapshot
         {saved?.note && <details><summary className="min-h-11 cursor-pointer text-sm">Show saved note</summary><p className="whitespace-pre-wrap break-words text-sm text-fg-secondary">{saved.note}</p></details>}
         <div className="flex flex-wrap gap-2"><Button variant="ghost" size="sm" onClick={() => download(row)}>Download local draft</Button>
           {item.state === "blocked" && item.reason === "authentication" && <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => { setBusy(key); void onRetry(row.operationId,row.revision).then(changed => { if (alive.current) setMessage(changed ? "Original change queued again." : "Retry needs the original signed-in device, or the saved change has moved on."); }).catch(() => { if (alive.current) setMessage("Retry failed. Your draft remains saved."); }).finally(() => { if (alive.current) setBusy(null); }); }}>Retry after sign-in</Button>}
-          {(item.state === "rejected" || item.state === "ignored") && <Button variant="ghost" size="sm" onClick={() => setHidden(current => new Set(current).add(key))}>Hide for this session</Button>}
+          {(item.state === "rejected" || item.state === "ignored") && <Button variant="ghost" size="sm" onClick={() => setHidden(current => new Set(current).add(key))}>Hide until panel reopens</Button>}
         </div>
       </div>;
     })}
-    {shown.length > 50 && <div className="flex gap-2"><Button variant="ghost" size="sm" disabled={page === 0} onClick={() => setPage(value => value-1)}>Previous conflicts</Button><Button variant="ghost" size="sm" disabled={(page+1)*50 >= shown.length} onClick={() => setPage(value => value+1)}>More conflicts</Button></div>}
+    {shown.length > 50 && <div className="flex gap-2"><Button variant="ghost" size="sm" disabled={visiblePage === 0} onClick={() => setPage(visiblePage-1)}>Previous conflicts</Button><Button variant="ghost" size="sm" disabled={(visiblePage+1)*50 >= shown.length} onClick={() => setPage(visiblePage+1)}>More conflicts</Button></div>}
     {message && <p role="status" className="text-xs text-fg-secondary">{message}</p>}
   </section>;
 }

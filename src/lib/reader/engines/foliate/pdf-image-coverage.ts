@@ -11,7 +11,7 @@ export function pdfImageCoverage(fn: readonly number[], args: readonly unknown[]
     else if (op === ops.transform) {
       const a = args[i] as number[]; if (a.length !== 6 || !a.every(Number.isFinite)) return [];
       m = [m[0]*a[0]+m[2]*a[1], m[1]*a[0]+m[3]*a[1], m[0]*a[2]+m[2]*a[3], m[1]*a[2]+m[3]*a[3], m[0]*a[4]+m[2]*a[5]+m[4], m[1]*a[4]+m[3]*a[5]+m[5]];
-    } else if (op === ops.clip || op === ops.eoClip || op === ops.paintImageMaskXObject || op === ops.paintImageXObjectRepeat || op === ops.paintInlineImageXObjectGroup || op === ops.paintImageMaskXObjectGroup || op === ops.paintImageMaskXObjectRepeat) return [];
+    } else if (op === ops.paintSolidColorImageMask || op === ops.clip || op === ops.eoClip || op === ops.paintImageMaskXObject || op === ops.paintImageXObjectRepeat || op === ops.paintInlineImageXObjectGroup || op === ops.paintImageMaskXObjectGroup || op === ops.paintImageMaskXObjectRepeat) return [];
     else if (op === ops.paintImageXObject || op === ops.paintInlineImageXObject) {
       if (m[1] !== 0 || m[2] !== 0) return [];
       const x1 = Math.max(view[0], Math.min(m[4], m[4]+m[0])), x2 = Math.min(view[2], Math.max(m[4], m[4]+m[0]));
