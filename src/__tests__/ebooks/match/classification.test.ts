@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
-import type { SQL } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import type { Db } from "@/lib/catalogue/work-store";
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -13,21 +13,28 @@ vi.mock("@/lib/db", () => ({
     },
   ),
 }));
-const { calls } = vi.hoisted(() => ({ calls: [] as string[] }));
+const { calls, state } = vi.hoisted(() => ({ calls: [] as string[], state: { loaded: null as unknown,
+  params: [] as unknown[][], results: [{ marker: "actual atomic result" }] } }));
+vi.mock("@/lib/ebooks/match/load", async (importActual) => ({
+  ...(await importActual<object>()), loadMatchCatalogue: async () => state.loaded,
+}));
 vi.mock("@/lib/db/atomic", () => ({
   atomicOn: async (_conn: unknown, build: (d: unknown) => unknown[]) => {
     const database = drizzle.mock();
     const queries = build(database);
     const dialect = new PgDialect();
-    for (const query of queries)
-      calls.push(dialect.sqlToQuery((query as { getSQL(): SQL }).getSQL()).sql);
-    return [];
+    for (const query of queries) {
+      const compiled = dialect.sqlToQuery((query as { getSQL(): SQL }).getSQL());
+      calls.push(compiled.sql); state.params.push(compiled.params);
+    }
+    return state.results;
   },
 }));
 import {
   classifyLoaded,
   hashMatchingPlan,
   validateMatchingPlan,
+  planMatchingOn,
   type ClassificationPlan,
 } from "@/lib/ebooks/match/plan";
 import { persistClassification } from "@/lib/ebooks/match/classification";
@@ -39,6 +46,8 @@ import {
 import { MATCH_MODEL } from "@/lib/ebooks/match/model";
 import { matchFingerprint } from "@/lib/ebooks/match/keys";
 import { catalogue, ebook, work, edition, copy } from "./fixtures";
+import { prepareMatchAtomicExtension } from "@/lib/ebooks/match/review-extension";
+import { reviewPayloadHash, reviewUndoOperationId, REVIEW_RECEIPT_EVENTS } from "@/lib/ebooks/review/receipts";
 
 function loaded(
   state: "excluded" | "standalone" = "excluded",
@@ -96,6 +105,52 @@ function plan(snapshot: LoadedMatchCatalogue): ClassificationPlan {
   return next;
 }
 describe("classification-only restore", () => {
+  it.each(["standalone", "excluded"] as const)("prepares a real %s restoration with hashed compensation and returns awaited extension results", async (matchState) => {
+    const snapshot = loaded(matchState), ebookId = "30000000-0000-4000-8000-000000000001";
+    const file = { ...snapshot.catalogue.source.ebooks[0], id: ebookId };
+    snapshot.catalogue = catalogue({ ...snapshot.catalogue.source, ebooks: [file] });
+    const updatedAt = "2026-10-09T12:00:00.123456Z", fingerprint = matchFingerprint(file);
+    snapshot.rows.ebooks = [{ id: ebookId, match_state: matchState, match_tier: null, instance_id: null,
+      match_fingerprint: fingerprint, exclusion_reason: matchState === "excluded" ? "other" : null,
+      updated_at: "2026-10-09T12:00:00.123456+00:00" }];
+    const operation = { version: 1 as const, operationId: "10000000-0000-4000-8000-000000000001",
+      runId: "20000000-0000-4000-8000-000000000001", planSha256: "a".repeat(64), targetDatabase: "target" };
+    const after = { matchState, matchTier: null, matchFingerprint: fingerprint, updatedAt,
+      instanceId: null, exclusionReason: matchState === "excluded" ? "other" : null, candidatesHash: reviewPayloadHash([]) };
+    const original = { id: operation.operationId, entity_type: "ebook", entity_id: ebookId,
+      event_key: REVIEW_RECEIPT_EVENTS.ebookDecision, metadata: { extra: { ebookReview: {
+        version: 1, operation, entityType: "ebook", entityId: ebookId, eventKey: REVIEW_RECEIPT_EVENTS.ebookDecision,
+        action: matchState === "standalone" ? "keep" : "exclude", originalOperation: null,
+        before: { ...after, matchState: "pending", exclusionReason: null, updatedAt: "2026-10-09T11:59:59.123456Z" },
+        after, requestHash: "b".repeat(64), effectHash: "c".repeat(64), outcome: { message: "Decided", keptCopy: false },
+      } } } };
+    state.loaded = snapshot;
+    const conn = { execute: async () => [{ row: original, updatedAt }] } as unknown as Db;
+    const policy = { originalOperation: operation, compensationOperationId: reviewUndoOperationId(operation), originalAfterUpdatedAt: updatedAt };
+    const frozen = await planMatchingOn(conn, [ebookId], { targetDatabase: "target", mode: "classification_only",
+      restoreIds: [ebookId], reviewCompensation: policy, now: "2026-10-09T12:00:00Z" });
+    expect(frozen.reviewCompensation).toEqual(policy); expect(frozen.runId).toBe(operation.runId);
+    expect(frozen.results[0].skipped).toBeNull(); expect(snapshot.catalogue.source.ebooks[0].matchState).toBe(matchState);
+    expect(hashMatchingPlan({ ...frozen, reviewCompensation: { ...policy, originalAfterUpdatedAt: "2026-10-09T12:00:00.123457Z" } })).not.toBe(frozen.planSha256);
+    calls.length = 0; state.params.length = 0;
+    await expect(persistClassification({} as Db, frozen, "target")).rejects.toThrow("trusted extension");
+    expect(calls).toEqual([]);
+    const extension = prepareMatchAtomicExtension({ coreWriter: "classification", coreOperation: frozen, ebookIds: [ebookId],
+      purpose: "compensation", compensation: policy, reviewOperations: [{ ...operation, operationId: policy.compensationOperationId }] },
+      { extraTables: ["activity_events"], before: (d) => [d.execute(sql`select 'before review'`)], after: (d) => [d.execute(sql`select 'after review'`)] });
+    expect(await persistClassification({} as Db, frozen, "target", { atomicExtension: extension })).toBe(state.results);
+    const updates = calls.filter((query) => query.startsWith('update "ebooks"') && query.includes('"updated_at" ='));
+    expect(updates).toHaveLength(1); expect(updates[0]).toContain("greatest(clock_timestamp()");
+    expect(updates[0]).toContain("from activity_events a");
+    expect(calls.some((query) => /insert into "(?:works|editions|instances)"/.test(query))).toBe(false);
+    expect(state.params.at(-1)).toEqual(["after review"]);
+    await expect(planMatchingOn(conn, [ebookId, "40000000-0000-4000-8000-000000000001"], {
+      targetDatabase: "target", mode: "classification_only", restoreIds: [ebookId], reviewCompensation: policy,
+    })).rejects.toThrow("one target");
+    const stale = { ...policy, originalAfterUpdatedAt: "2026-10-09T12:00:00.123457Z" };
+    await expect(planMatchingOn(conn, [ebookId], { targetDatabase: "target", mode: "classification_only",
+      restoreIds: [ebookId], reviewCompensation: stale })).rejects.toThrow("exact after-state");
+  });
   it.each(["standalone", "excluded"] as const)(
     "reclassifies unchanged %s metadata without overriding the stored decision in memory",
     (state) => {
@@ -118,7 +173,7 @@ describe("classification-only restore", () => {
     const snapshot = loaded(),
       frozen = JSON.parse(JSON.stringify(plan(snapshot))) as ClassificationPlan;
     validateMatchingPlan(frozen, "target");
-    await persistClassification({} as Db, frozen, "target");
+    expect(await persistClassification({} as Db, frozen, "target")).toBeUndefined();
     expect(calls[0]).toContain("lock table");
     expect(
       calls.filter((query) => query.includes("harmonization_assert")),

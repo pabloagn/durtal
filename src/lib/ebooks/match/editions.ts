@@ -1,6 +1,7 @@
 import { normalizeLanguage } from "@/lib/utils/language";
 import { formatRank } from "../formats";
 import { identifierKeys, titleKeys } from "./keys";
+import { parseNewEditionIntent, type NewEditionIntent } from "./manual-intents";
 import type { MatchCatalogue, IndexedWork } from "./catalogue";
 import type {
   EditionRule,
@@ -35,6 +36,13 @@ export function preferredMatchFile(ebook: MatchEbook): MatchFile | null {
       )[0] ?? null
   );
 }
+export function digitalCopyValues(file: MatchFile): NonNullable<LinkEffect["filledCopy"]> {
+  return {
+    format: file.format === "epub" || file.format === "kepub"
+      ? "epub" : file.format === "pdf" ? "pdf" : "ebook",
+    fileSizeBytes: file.sizeBytes,
+  };
+}
 /** A reviewable effect only: existing edition metadata is never rewritten here. */
 export function editionEffect(
   ebook: MatchEbook,
@@ -44,6 +52,7 @@ export function editionEffect(
     instanceId?: string;
     editionId?: string;
     locationId?: string;
+    newEdition?: NewEditionIntent;
   } = {},
 ): LinkEffect {
   const { source } = work;
@@ -51,7 +60,11 @@ export function editionEffect(
   const digital =
     catalogue.source.digitalLocationIds ??
     [catalogue.source.ebookLocationId].filter((id): id is string => !!id);
-  const language = normalizeLanguage(ebook.language);
+  const intent = options.newEdition === undefined
+    ? undefined : parseNewEditionIntent(options.newEdition);
+  if (intent && (options.instanceId || options.editionId))
+    throw new Error("A new edition cannot also select an existing edition or copy");
+  const language = intent?.language ?? normalizeLanguage(ebook.language);
   const file = preferredMatchFile(ebook);
   const ids = identifierKeys(ebook.isbns, ebook.identifiers);
   const title = titleKeys(
@@ -86,7 +99,25 @@ export function editionEffect(
   let instanceId: string | null = null;
   let movedFromEditionId: string | null = null;
   let isbn13: string | null = null;
-  if (options.instanceId || options.editionId) {
+  if (intent) {
+    const freeIsbns = ids.isbns.filter(
+      (isbn) => !catalogue.isbnEditionIds.has(isbn) && !catalogue.sharedIsbns.has(isbn),
+    );
+    if (intent.isbn13 !== undefined) {
+      isbn13 = intent.isbn13;
+      if (isbn13 && !ids.isbns.includes(isbn13))
+        ambiguities.push({ code: "isbn_undeclared", text: "Choose an ISBN declared by this ebook" });
+      if (isbn13 && !freeIsbns.includes(isbn13))
+        ambiguities.push({ code: "isbn_held", text: "The chosen ISBN is shared or held by another edition" });
+    } else if (freeIsbns.length === 1) isbn13 = freeIsbns[0];
+    else if (freeIsbns.length > 1)
+      ambiguities.push({ code: "multiple_isbns", text: "Several ISBNs are present; choose the ebook edition's ISBN" });
+    else if (ids.isbns.length)
+      ambiguities.push({ code: "isbn_held", text: "The declared ISBNs are shared or held; choose an eligible ISBN or explicitly choose none" });
+    rule = isbn13 ? "new_isbn_edition" : "new_edition";
+    if (identified.some((edition) => edition.metadataLocked))
+      ambiguities.push({ code: "locked_edition", text: "An identified edition is locked; review before creating an edition" });
+  } else if (options.instanceId || options.editionId) {
     const selectedCopy = options.instanceId
       ? source.copies.find((copy) => copy.id === options.instanceId)
       : null;
@@ -195,7 +226,7 @@ export function editionEffect(
       editionId = compatible[0].editionId;
     }
   }
-  if (!editionId && !ambiguities.length) {
+  if (!intent && !editionId && !ambiguities.length) {
     const freeIsbns = ids.isbns.filter(
       (isbn) =>
         !catalogue.isbnEditionIds.has(isbn) && !catalogue.sharedIsbns.has(isbn),
@@ -245,6 +276,8 @@ export function editionEffect(
       code: "locked_edition",
       text: "The placeholder edition is locked; review before moving its copy",
     });
+  if (instanceId && !source.copies.some((copy) => copy.id === instanceId && digital.includes(copy.locationId)))
+    ambiguities.push({ code: "digital_location", text: "Choose an active digital location" });
   // Validate the actual destination and any copy being moved, including routes
   // chosen without identifiers. A tied unnumbered work title is not evidence
   // that these editions describe the same volume.
@@ -310,13 +343,7 @@ export function editionEffect(
     !instanceId && file && copyLocation
       ? {
           locationId: copyLocation,
-          format:
-            file.format === "epub" || file.format === "kepub"
-              ? ("epub" as const)
-              : file.format === "pdf"
-                ? ("pdf" as const)
-                : ("ebook" as const),
-          fileSizeBytes: file.sizeBytes,
+          ...digitalCopyValues(file),
           status: "available" as const,
         }
       : null;
@@ -347,6 +374,10 @@ export function editionEffect(
     movedFromEditionId,
     newEdition,
     newCopy,
+    ...(instanceId && file && source.copies.some((copy) =>
+      copy.id === instanceId && !copy.linkedEbookId &&
+      copy.status !== "deaccessioned" && digital.includes(copy.locationId)
+    ) ? { filledCopy: digitalCopyValues(file) } : {}),
     missing,
     ambiguities,
     ready: missing.length === 0 && ambiguities.length === 0,

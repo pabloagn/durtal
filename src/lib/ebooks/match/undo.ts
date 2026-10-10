@@ -13,6 +13,7 @@ import {
   loadMatchDependencies,
   referencingRows,
   dependencyGuardCondition,
+  dependencyReferenceGuardCondition,
   type DependencySnapshot,
 } from "./dependencies";
 import { snapshotGuardQueries } from "./guards";
@@ -27,6 +28,10 @@ import { MATCH_MODEL } from "./model";
 import { hashMatchingPlan } from "./plan";
 import { matchOne } from "./tiers";
 import type { MatchOperationIdentity, MatchResult } from "./types";
+import {
+  verifyReviewCompensationOn, parseReviewCompensation, requireMatchAtomicExtension, reviewCompensationGuardQueries,
+  reviewForwardUpdatedAt, type ReviewCompensation, type PreparedMatchAtomicExtension,
+} from "./review-extension";
 
 const same = (a: unknown, b: unknown) =>
   dataFingerprint(a) === dataFingerprint(b);
@@ -49,7 +54,10 @@ export interface UndoCleanup {
   >;
   activityIds: readonly string[];
   jobIds: readonly string[];
-  restoreCopy: { id: string; editionId: string; updatedAt: unknown } | null;
+  restoreCopy: {
+    id: string; editionId: string; updatedAt: unknown;
+    format?: unknown; fileSizeBytes?: unknown;
+  } | null;
   retained: readonly { table: string; id: string; reason: string }[];
 }
 /** Every dependent row must be an unchanged operation-owned row that the
@@ -87,29 +95,68 @@ export function decideUndoCleanup(
     loaded.rows[table as keyof typeof loaded.rows] ??
     [];
   let restoreCopy: UndoCleanup["restoreCopy"] = null;
-  if (receipt.movedFromEditionId && receipt.before.instance) {
+  if (receipt.movedFromEditionId || receipt.fillProvenance) {
+    const before = receipt.before.instance;
     const current = loaded.rows.instances.find(
       (row) => row.id === receipt.instanceId,
     );
     const originalEdition = loaded.rows.editions.find(
-      (row) => row.id === receipt.movedFromEditionId,
+      (row) => row.id === (receipt.movedFromEditionId ?? receipt.editionId),
     );
-    if (
-      current &&
-      same(current, after.instance) &&
-      originalEdition?.work_id === receipt.workId &&
-      originalEdition.metadata_locked !== true
-    )
+    const marker = receipt.fillProvenance;
+    const complete = !receipt.createdInstance && !!before && before.id === receipt.instanceId &&
+      before.edition_id === (receipt.movedFromEditionId ?? receipt.editionId) &&
+      typeof before.updated_at === "string" &&
+      (!marker || (
+        (!receipt.movedFromEditionId || !!receipt.before.originalEdition) &&
+        typeof marker === "object" && marker !== null &&
+        typeof marker.expected === "object" && marker.expected !== null &&
+        Object.keys(marker).sort().join(",") === "expected,fields" &&
+        Object.keys(marker.expected).sort().join(",") === "fileSizeBytes,format" &&
+        Array.isArray(marker.fields) && new Set(marker.fields).size === marker.fields.length &&
+        marker.fields.every((field) => field === "format" || field === "file_size_bytes") &&
+        Object.hasOwn(before, "format") && Object.hasOwn(before, "file_size_bytes") &&
+        (before.format === null || typeof before.format === "string") &&
+        (before.file_size_bytes === null || (typeof before.file_size_bytes === "number" &&
+          Number.isSafeInteger(before.file_size_bytes) && before.file_size_bytes >= 0)) &&
+        ["epub", "pdf", "ebook"].includes(marker.expected.format) &&
+        Number.isSafeInteger(marker.expected.fileSizeBytes) && marker.expected.fileSizeBytes >= 0 &&
+        marker.expected.format === after.instance.format &&
+        marker.expected.fileSizeBytes === after.instance.file_size_bytes &&
+        same([...marker.fields].sort(), (["format", "file_size_bytes"] as const)
+          .filter((field) => before[field] !== after.instance[field]).sort())
+      ));
+    // A later reading/annotation or unknown FK remains use even when it did not
+    // touch updated_at. Only the ebook edge removed by this undo is excluded.
+    const referenced = current && referencingRows(dependencies, "instances", current).some(
+      ({ table, row }) => !(table === "ebooks" && row.id === receipt.ebookId &&
+        row.instance_id === receipt.instanceId),
+    );
+    const savedParent = receipt.movedFromEditionId ? receipt.before.originalEdition : after.edition;
+    const parentChanged = !originalEdition || originalEdition.work_id !== receipt.workId ||
+      originalEdition.metadata_locked === true ||
+      (!!savedParent && !same(originalEdition, savedParent));
+    const parentTaken = !!receipt.movedFromEditionId && loaded.rows.instances.some((row) =>
+      row.id !== receipt.instanceId && row.edition_id === receipt.movedFromEditionId &&
+      loaded.rows.ebooks.some((ebook) => ebook.instance_id === row.id),
+    );
+    const reason = !complete ? "incomplete or inconsistent fill/move provenance" :
+      !current || !same(current, after.instance) ? "edited copy" :
+      referenced ? "referenced copy" : parentChanged ? "original edition changed" :
+      parentTaken ? "original edition is now used by another linked copy" : null;
+    if (!reason && before)
       restoreCopy = {
         id: receipt.instanceId,
-        editionId: receipt.movedFromEditionId,
-        updatedAt: receipt.before.instance.updated_at,
+        editionId: String(before.edition_id),
+        updatedAt: before.updated_at,
+        ...(marker?.fields.includes("format") ? { format: before.format } : {}),
+        ...(marker?.fields.includes("file_size_bytes") ? { fileSizeBytes: before.file_size_bytes } : {}),
       };
     else
       retained.push({
         table: "instances",
         id: receipt.instanceId,
-        reason: "moved copy or original edition changed",
+        reason: reason ?? "copy restoration is not proven",
       });
   }
   const owned = (parent: string, table: string, row: StoredRow) => {
@@ -236,6 +283,7 @@ export interface UndoLinkPlan extends MatchOperationIdentity {
   cleanup: UndoCleanup;
   classification: MatchResult;
   restoreUpdatedAt: string | null;
+  reviewCompensation?: ReviewCompensation;
 }
 export type UndoLinkPlanning =
   | { kind: "unchanged"; reason: "missing_or_later_operation" }
@@ -245,6 +293,7 @@ export async function planUndoLinkOn(
   entry: LinkReceipt,
   target: string,
   now = new Date().toISOString(),
+  options: { reviewCompensation?: ReviewCompensation } = {},
 ): Promise<UndoLinkPlanning> {
   if (entry.targetDatabase !== target || entry.version !== 1)
     throw new Error("Undo target or receipt version changed");
@@ -260,6 +309,19 @@ export async function planUndoLinkOn(
     stored.match_state !== "linked"
   )
     return { kind: "unchanged", reason: "missing_or_later_operation" };
+  let reviewCompensation: ReviewCompensation | undefined;
+  if (options.reviewCompensation !== undefined) {
+    const policy = parseReviewCompensation(options.reviewCompensation);
+    if (policy.originalOperation.targetDatabase !== target ||
+        policy.originalOperation.runId !== entry.runId ||
+        !receipt.after || !same(
+          Object.fromEntries(Object.entries(stored).filter(([key]) => key !== "link_written")),
+          receipt.after.ebook,
+        )) throw new Error("Review undo requires the unchanged full committed matching after-state");
+    reviewCompensation = await verifyReviewCompensationOn(
+      conn, policy, entry.ebookId, ["accept", "link", "accession"], { rows: loaded.rows },
+    );
+  }
   const dependencies = await loadMatchDependencies(conn);
   const cleanup = decideUndoCleanup(receipt, loaded, dependencies);
   const pending = {
@@ -330,6 +392,7 @@ export async function planUndoLinkOn(
     )
       ? String(receipt.before.ebook.updated_at)
       : null,
+    ...(reviewCompensation ? { reviewCompensation } : {}),
   };
   plan.planSha256 = hashMatchingPlan(plan);
   return { kind: "planned", plan };
@@ -341,7 +404,10 @@ export async function planUndoLink(url: string, entry: LinkReceipt) {
     { isolationLevel: "repeatable read" },
   );
 }
-export async function undoLink(conn: Db, plan: UndoLinkPlan, target: string) {
+export async function undoLink(
+  conn: Db, plan: UndoLinkPlan, target: string,
+  options: { atomicExtension?: PreparedMatchAtomicExtension } = {},
+) {
   if (
     plan.kind !== "undo_link" ||
     plan.mode !== "classification_only" ||
@@ -350,9 +416,17 @@ export async function undoLink(conn: Db, plan: UndoLinkPlan, target: string) {
     plan.modelFingerprint !== dataFingerprint(MATCH_MODEL)
   )
     throw new Error("Undo identity, mode, model or hash changed");
+  const extension = requireMatchAtomicExtension(options.atomicExtension, {
+    coreWriter: "undo_link", coreOperation: plan, ebookIds: [plan.receipt.ebookId],
+    compensation: plan.reviewCompensation,
+  });
+  if (plan.reviewCompensation && (!plan.receipt.after || !same(
+    Object.fromEntries(Object.entries(plan.snapshot.rows.ebooks.find((row) => row.id === plan.receipt.ebookId) ?? {})
+      .filter(([key]) => key !== "link_written")), plan.receipt.after.ebook,
+  ))) throw new Error("Review undo lacks the exact committed matching after-state");
   const at = new Date(plan.createdAt);
   if (!Number.isFinite(at.getTime())) throw new Error("Invalid undo timestamp");
-  const classificationAt = plan.restoreUpdatedAt
+  const classificationAt = !plan.reviewCompensation && plan.restoreUpdatedAt
     ? new Date(plan.restoreUpdatedAt)
     : at;
   if (!Number.isFinite(classificationAt.getTime()))
@@ -362,8 +436,10 @@ export async function undoLink(conn: Db, plan: UndoLinkPlan, target: string) {
       ...snapshotGuardQueries(
         d,
         plan.snapshot,
-        Object.keys(plan.dependencies.rows),
+        ["enrichment_jobs", ...Object.keys(plan.dependencies.rows), ...(extension?.extraTables ?? [])],
       ),
+      d.execute(assertSql(dependencyReferenceGuardCondition(plan.dependencies.references),
+        "Undo foreign references changed; make a new plan")),
       ...Object.entries(plan.dependencies.rows).map(([table, rows]) =>
         d.execute(
           assertSql(
@@ -372,6 +448,10 @@ export async function undoLink(conn: Db, plan: UndoLinkPlan, target: string) {
           ),
         ),
       ),
+      ...(plan.reviewCompensation ? reviewCompensationGuardQueries(
+        d, plan.reviewCompensation, plan.receipt.ebookId, ["accept", "link", "accession"],
+      ) : []),
+      ...(extension?.before(d) ?? []),
       d
         .delete(ebookMatchCandidates)
         .where(eq(ebookMatchCandidates.ebookId, plan.receipt.ebookId)),
@@ -387,13 +467,16 @@ export async function undoLink(conn: Db, plan: UndoLinkPlan, target: string) {
           matchTier: null,
           duplicateOfId: null,
           exclusionReason: null,
-          updatedAt: at,
+          updatedAt: plan.reviewCompensation ? reviewForwardUpdatedAt(plan.reviewCompensation) : at,
         })
         .where(eq(ebooks.id, plan.receipt.ebookId)),
       ...(plan.cleanup.restoreCopy
         ? [
             d.execute(
-              sql`update instances set edition_id=${plan.cleanup.restoreCopy.editionId}::uuid, updated_at=${String(plan.cleanup.restoreCopy.updatedAt)}::timestamptz where id=${plan.cleanup.restoreCopy.id}::uuid`,
+              sql`update instances set edition_id=${plan.cleanup.restoreCopy.editionId}::uuid,
+                ${Object.hasOwn(plan.cleanup.restoreCopy, "format") ? sql`format=${plan.cleanup.restoreCopy.format as string | null},` : sql``}
+                ${Object.hasOwn(plan.cleanup.restoreCopy, "fileSizeBytes") ? sql`file_size_bytes=${plan.cleanup.restoreCopy.fileSizeBytes as number | null},` : sql``}
+                updated_at=${String(plan.cleanup.restoreCopy.updatedAt)}::timestamptz where id=${plan.cleanup.restoreCopy.id}::uuid`,
             ),
           ]
         : []),
@@ -426,7 +509,9 @@ export async function undoLink(conn: Db, plan: UndoLinkPlan, target: string) {
         d,
         [plan.classification],
         classificationAt,
+        plan.reviewCompensation ? { touchEbook: false } : {},
       ),
+      ...(extension?.after(d) ?? []),
     ]),
   );
 }

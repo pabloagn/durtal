@@ -16,6 +16,7 @@ import { matchFingerprint } from "./keys";
 import { snapshotGuardQueries } from "./guards";
 import { MATCH_MODEL } from "./model";
 import type { MatchOperationIdentity } from "./types";
+import { requireMatchAtomicExtension, type PreparedMatchAtomicExtension } from "./review-extension";
 
 export type EbookDecision =
   | { action: "keep" }
@@ -98,6 +99,7 @@ export async function applyDecision(
   conn: Db,
   plan: DecisionPlan,
   target: string,
+  options: { atomicExtension?: PreparedMatchAtomicExtension } = {},
 ) {
   if (
     plan.kind !== "decision" ||
@@ -113,12 +115,16 @@ export async function applyDecision(
       !["duplicate", "not_a_book", "other"].includes(plan.decision.reason))
   )
     throw new Error("Decision mode, model, target or hash changed");
+  const extension = requireMatchAtomicExtension(options.atomicExtension, {
+    coreWriter: "decision", coreOperation: plan, ebookIds: plan.ebooks.map((ebook) => ebook.id),
+  });
   const at = new Date(plan.createdAt);
   if (!Number.isFinite(at.getTime()))
     throw new Error("Invalid decision timestamp");
   return withReadableErrors(() =>
     atomicOn(conn, (d) => [
-      ...snapshotGuardQueries(d, plan.snapshot),
+      ...snapshotGuardQueries(d, plan.snapshot, extension?.extraTables),
+      ...(extension?.before(d) ?? []),
       d.delete(ebookMatchCandidates).where(
         inArray(
           ebookMatchCandidates.ebookId,
@@ -143,6 +149,7 @@ export async function applyDecision(
           })
           .where(eq(ebooks.id, ebook.id)),
       ),
+      ...(extension?.after(d) ?? []),
     ]),
   );
 }

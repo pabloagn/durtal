@@ -7,6 +7,63 @@ import { editionEffect, preferredMatchFile } from "@/lib/ebooks/match/editions";
 import { matchOne } from "@/lib/ebooks/match/tiers";
 import { author, at, catalogue, copy, ebook, edition, work } from "./fixtures";
 
+describe("explicit manual edition creation and digital fill", () => {
+  it.each(["waiting", "identified", "phantom"])("bypasses %s reuse only with explicit new-edition intent", (route) => {
+    const book = work({ editions: [edition({
+      metadataSource: route === "phantom" ? "phantom_canon" : "ebook",
+      ...(route === "identified" ? { isbn13: "9780306406157" } : {}),
+    })], copies: route === "waiting" ? [copy()] : [] });
+    const file = ebook({ isbns: route === "identified" ? ["9780306406157"] : [] });
+    const cat = catalogue({ works: [book], ebooks: [file] }), before = JSON.stringify(cat.source);
+    const old = editionEffect(file, cat.works[0], cat);
+    expect(old.editionId).toBe("edition-1");
+    const fresh = editionEffect(file, cat.works[0], cat, { newEdition: { isbn13: null } });
+    expect(fresh).toMatchObject({ ready: true, rule: "new_edition", editionId: null,
+      instanceId: null, newEdition: { language: "en", isbn13: null }, newCopy: { format: "epub" } });
+    expect(JSON.stringify(cat.source)).toBe(before);
+  });
+  it("normalizes supplied language, inherits the real ebook language and requires a choice for several free ISBNs", () => {
+    const cat = catalogue(), file = ebook({ language: "French", isbns: ["9780306406157", "9783161484100"] });
+    expect(editionEffect(file, cat.works[0], cat, { newEdition: {} }).ambiguities).toContainEqual(expect.objectContaining({ code: "multiple_isbns" }));
+    expect(editionEffect(file, cat.works[0], cat, { newEdition: { isbn13: "9783161484100" } }).newEdition).toMatchObject({ language: "fr", isbn13: "9783161484100" });
+    expect(editionEffect(file, cat.works[0], cat, { newEdition: { language: "English", isbn13: null } }).newEdition).toMatchObject({ language: "en", isbn13: null });
+    expect(() => editionEffect(file, cat.works[0], cat, { newEdition: { language: "invented-language" } })).toThrow();
+    expect(() => editionEffect(file, cat.works[0], cat, { instanceId: "copy-1", newEdition: {} })).toThrow("cannot also select");
+    expect(editionEffect(ebook({ language: null }), cat.works[0], cat, { newEdition: {} }).missing).toContain("language");
+  });
+  it("rejects undeclared/held ISBNs, locked identity and contradictory volume even with explicit null ISBN", () => {
+    const file = ebook({ isbns: ["9780306406157"] });
+    const cat = catalogue({ works: [work({ editions: [edition({ isbn13: "9780306406157", metadataLocked: true })] })] });
+    expect(editionEffect(file, cat.works[0], cat, { newEdition: { isbn13: "9780306406157" } }).ambiguities.map((reason) => reason.code)).toContain("isbn_held");
+    expect(editionEffect(file, cat.works[0], cat, { newEdition: { isbn13: null } }).ambiguities.map((reason) => reason.code)).toContain("locked_edition");
+    expect(editionEffect(file, cat.works[0], cat, { newEdition: { isbn13: "9783161484100" } }).ambiguities.map((reason) => reason.code)).toContain("isbn_undeclared");
+    const volumes = catalogue({ works: [work({ title: "Nadja (Book 2)", editions: [] })] });
+    expect(editionEffect(ebook({ title: "Nadja (Book 3)" }), volumes.works[0], volumes, { newEdition: { isbn13: null } }).ready).toBe(false);
+    const shared = catalogue({ works: [work({ editions: [edition({ isbn13: "9780306406157" })] }),
+      work({ id: "another-work", editions: [edition({ id: "another-edition", workId: "another-work", isbn13: "9780306406157" })] })] });
+    expect(editionEffect(file, shared.byWorkId.get("work-1")!, shared, { newEdition: { isbn13: "9780306406157" } }).ambiguities.map((reason) => reason.code)).toContain("isbn_held");
+  });
+  it.each(["epub", "kepub", "pdf", "mobi"])("derives the same real %s format and size for new-copy and existing fill", (format) => {
+    const file = ebook({ files: [{ ...ebook().files[0], format, sizeBytes: 4321, availability: "download" }] });
+    const cat = catalogue({ works: [work({ editions: [edition()], copies: [copy()] })] });
+    const fill = editionEffect(file, cat.works[0], cat);
+    const fresh = editionEffect(file, cat.works[0], cat, { newEdition: {} });
+    expect(fill.filledCopy).toEqual({ format: format === "pdf" ? "pdf" : format === "mobi" ? "ebook" : "epub", fileSizeBytes: 4321 });
+    expect(fresh.newCopy).toMatchObject(fill.filledCopy!);
+    expect(fresh.filledCopy).toBeUndefined();
+  });
+  it.each(["linked", "deaccessioned", "physical", "blocked"])("refuses a %s copy/file as fill evidence", (variant) => {
+    const cat = catalogue({ works: [work({ editions: [edition()], copies: [copy({
+      linkedEbookId: variant === "linked" ? "another-ebook" : null,
+      status: variant === "deaccessioned" ? "deaccessioned" : "available",
+      locationId: variant === "physical" ? "shelf" : "ebooks-location",
+    })] })], digitalLocationIds: ["ebooks-location"] });
+    const file = ebook({ files: [{ ...ebook().files[0], availability: variant === "blocked" ? "blocked" : "native" }] });
+    const effect = editionEffect(file, cat.works[0], cat, { instanceId: "copy-1" });
+    expect(effect.ready).toBe(false); expect(effect.filledCopy).toBeUndefined();
+  });
+});
+
 describe("edition and copy effects", () => {
   it("fills the seed copy before creating an ISBN edition and leaves catalogue metadata unchanged", () => {
     const book = work({

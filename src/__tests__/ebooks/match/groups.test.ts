@@ -26,6 +26,8 @@ import { MATCH_TABLES, dataFingerprint, type LoadedMatchCatalogue } from "@/lib/
 import { catalogue, ebook, work, edition, copy, at } from "./fixtures";
 import type { MatchEbook } from "@/lib/ebooks/match/types";
 import { matchOne } from "@/lib/ebooks/match/tiers";
+import { prepareLinkWrite } from "@/lib/ebooks/match/link";
+import { hashMatchingPlan } from "@/lib/ebooks/match/plan";
 
 function snapshot(input?: MatchEbook, hasWork = true, external: MatchEbook[] = []): LoadedMatchCatalogue {
   return {
@@ -36,6 +38,8 @@ function snapshot(input?: MatchEbook, hasWork = true, external: MatchEbook[] = [
     rows: {
       ...Object.fromEntries(MATCH_TABLES.map((table) => [table, []])),
       ebooks: input ? [{ id: input.id, match_state: input.matchState, updated_at: at }] : [],
+      instances: hasWork ? [{ id: "copy-1", edition_id: "edition-1", location_id: "ebooks-location",
+        status: "available", format: null, file_size_bytes: null, updated_at: at }] : [],
       ebook_files: input ? input.files.map((file) => ({ id: file.id, ebook_id: input.id, sha256: file.sha256, format: file.format })) : [],
     } as unknown as LoadedMatchCatalogue["rows"],
     catalogueFingerprint: "a".repeat(64),
@@ -69,6 +73,24 @@ const registration = (input: MatchEbook) => [{
 }];
 
 describe("frozen pre-registration matching", () => {
+  it.each(["newEdition", "newCopyDraft"] as const)("rejects a rehashed automatic %s intent even with a real fixture approval", async (field) => {
+    const approved = await approval(), real = ebook({ id: "registered-ebook" });
+    state.loaded = snapshot(real);
+    const next = await planApprovedGroupsOn({} as Db, approved, registration(real), identity);
+    if (next.kind !== "planned") throw new Error("Expected planned group");
+    const link = next.plan.links[0]; link.choices[field] = {}; link.planSha256 = hashMatchingPlan(link);
+    state.writes.length = 0;
+    await expect(prepareLinkWrite(link, "target", { automaticApproval: approved })).rejects.toThrow("Manual");
+    expect(state.writes).toEqual([]);
+  });
+  it("refuses a differing old fill effect rather than translating the frozen approval", async () => {
+    const approved = await approval(), real = ebook({ id: "registered-ebook" }); state.loaded = snapshot(real);
+    const next = await planApprovedGroupsOn({} as Db, approved, registration(real), identity);
+    if (next.kind !== "planned") throw new Error("Expected planned group");
+    const link = next.plan.links[0]; expect(link.effect.filledCopy).toMatchObject({ format: "epub", fileSizeBytes: 1000 });
+    link.effect = { ...link.effect, filledCopy: { format: "pdf", fileSizeBytes: 999 } }; link.planSha256 = hashMatchingPlan(link);
+    await expect(prepareLinkWrite(link, "target", { automaticApproval: approved })).rejects.toThrow("Frozen fill");
+  });
   it("maps temporary group identities to real owned file rows without rescoring effects", async () => {
     const approved = await approval();
     expect(approved.plan.results[0]).toMatchObject({ ebookId: "group:inbox:nadja", autoLink: true });

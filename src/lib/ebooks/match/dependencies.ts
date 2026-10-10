@@ -15,17 +15,24 @@ export interface DependencySnapshot {
 }
 /** Discover every real FK, including new downstream tables. Undo never keeps
  * a handwritten list that silently loses readings or later references. */
-export async function loadMatchDependencies(
-  conn: Db,
-): Promise<DependencySnapshot> {
-  const references = resultRows<ForeignReference>(
-    await conn.execute(sql`
+function foreignReferencesQuery(): SQL {
+  return sql`
     select p.relname as "parentTable", r.relname as "childTable",
       array(select a.attname from unnest(c.confkey) with ordinality k(num,n) join pg_attribute a on a.attrelid=c.confrelid and a.attnum=k.num order by k.n) as "parentColumns",
       array(select a.attname from unnest(c.conkey) with ordinality k(num,n) join pg_attribute a on a.attrelid=c.conrelid and a.attnum=k.num order by k.n) as "childColumns"
     from pg_constraint c join pg_class p on p.oid=c.confrelid join pg_class r on r.oid=c.conrelid join pg_namespace n on n.oid=r.relnamespace
     where c.contype='f' and n.nspname='public' and p.relname in ('instances','editions','works','authors','series','enrichment_jobs')
-    order by p.relname,r.relname,c.conname`),
+    order by p.relname,r.relname,c.conname`;
+}
+export function dependencyReferenceGuardCondition(references: readonly ForeignReference[]): SQL {
+  return sql`(select coalesce(jsonb_agg(to_jsonb(r)), '[]'::jsonb)
+    from (${foreignReferencesQuery()}) r)=${JSON.stringify(references)}::jsonb`;
+}
+export async function loadMatchDependencies(
+  conn: Db,
+): Promise<DependencySnapshot> {
+  const references = resultRows<ForeignReference>(
+    await conn.execute(foreignReferencesQuery()),
   );
   const rows: Record<string, StoredRow[]> = {};
   for (const table of [

@@ -9,6 +9,10 @@ import { validateMatchingPlan, type ClassificationPlan } from "./plan";
 import { requireFiniteScore, requireMatchProbability } from "./validation";
 import type { MatchResult } from "./types";
 import { dataFingerprint, type LoadedMatchCatalogue } from "./load";
+import {
+  requireMatchAtomicExtension, reviewCompensationGuardQueries, reviewForwardUpdatedAt,
+  type PreparedMatchAtomicExtension,
+} from "./review-extension";
 
 export function classificationIsCurrent(
   snapshot: Pick<LoadedMatchCatalogue, "rows">,
@@ -120,12 +124,31 @@ export function classificationQueries(
 
 /** Classification persistence has no link or accession branch. The hashed
  * classification-only mode therefore cannot accidentally consume autoLink. */
-export async function persistClassification(
+export function persistClassification(
   conn: Db,
   plan: ClassificationPlan,
   runtimeTarget: string,
-): Promise<void> {
+): Promise<void>;
+export function persistClassification(
+  conn: Db, plan: ClassificationPlan, runtimeTarget: string,
+  options: { atomicExtension: PreparedMatchAtomicExtension },
+): Promise<unknown[]>;
+export async function persistClassification(
+  conn: Db, plan: ClassificationPlan, runtimeTarget: string,
+  options: { atomicExtension?: PreparedMatchAtomicExtension } = {},
+): Promise<void | unknown[]> {
   validateMatchingPlan(plan, runtimeTarget);
+  const extension = requireMatchAtomicExtension(options.atomicExtension, {
+    coreWriter: "classification", coreOperation: plan,
+    ebookIds: plan.results.map((result) => result.ebookId), compensation: plan.reviewCompensation,
+  });
+  if (extension && plan.mode !== "classification_only")
+    throw new Error("Review classification requires classification-only mode");
+  if (plan.reviewCompensation &&
+      (plan.mode !== "classification_only" || plan.results.length !== 1 ||
+       plan.results[0].skipped || plan.restoreIds.length !== 1 ||
+       plan.restoreIds[0] !== plan.results[0].ebookId))
+    throw new Error("Review compensation requires the actual single-target restoration plan");
   const restored = new Set(plan.restoreIds);
   const at = new Date(plan.createdAt);
   if (!Number.isFinite(at.getTime()))
@@ -135,9 +158,13 @@ export async function persistClassification(
       requireMatchProbability(candidate.probability);
       requireFiniteScore(candidate.weightBits, candidate.marginBits);
     }
-  await withReadableErrors(() =>
+  const results = await withReadableErrors(() =>
     atomicOn(conn, (d) => [
-      ...snapshotGuardQueries(d, plan.snapshot),
+      ...snapshotGuardQueries(d, plan.snapshot, extension?.extraTables),
+      ...(plan.reviewCompensation ? reviewCompensationGuardQueries(
+        d, plan.reviewCompensation, plan.results[0].ebookId, ["keep", "exclude"],
+      ) : []),
+      ...(extension?.before(d) ?? []),
       ...plan.results
         .filter((result) => !result.skipped)
         .flatMap((result) => [
@@ -149,11 +176,13 @@ export async function persistClassification(
                 ?.match_state !== "pending"
                 ? { matchState: "pending" as const, exclusionReason: null }
                 : {}),
-              updatedAt: at,
+              updatedAt: plan.reviewCompensation ? reviewForwardUpdatedAt(plan.reviewCompensation) : at,
             })
             .where(eq(ebooks.id, result.ebookId)),
         ]),
-      ...classificationQueries(d, plan.results, at),
+      ...classificationQueries(d, plan.results, at, plan.reviewCompensation ? { touchEbook: false } : {}),
+      ...(extension?.after(d) ?? []),
     ]),
   );
+  if (extension) return results;
 }

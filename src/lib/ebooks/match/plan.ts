@@ -10,6 +10,7 @@ import { matchInMemory } from "./tiers";
 import { MATCH_MODEL } from "./model";
 import type { MatchOperationIdentity, MatchResult } from "./types";
 import type { Db } from "@/lib/catalogue/work-store";
+import { verifyReviewCompensationOn, parseReviewCompensation, type ReviewCompensation } from "./review-extension";
 
 export type MatchingMode = "ingestion" | "classification_only";
 export interface ClassificationPlan extends MatchOperationIdentity {
@@ -23,6 +24,7 @@ export interface ClassificationPlan extends MatchOperationIdentity {
   >;
   results: readonly MatchResult[];
   restoreIds: readonly string[];
+  reviewCompensation?: ReviewCompensation;
 }
 export function hashMatchingPlan(plan: object): string {
   const payload = { ...plan } as Record<string, unknown>;
@@ -125,13 +127,26 @@ export async function planMatchingOn(
     rematch?: boolean;
     runId?: string;
     now?: string;
+    reviewCompensation?: ReviewCompensation;
   },
 ): Promise<ClassificationPlan> {
   const snapshot = await loadMatchCatalogue(conn);
+  let reviewCompensation: ReviewCompensation | undefined;
+  if (options.reviewCompensation !== undefined) {
+    const policy = parseReviewCompensation(options.reviewCompensation);
+    if (ids === "all" || ids.length !== 1 || options.mode !== "classification_only" ||
+        options.restoreIds?.length !== 1 || options.restoreIds[0] !== ids[0] ||
+        policy.originalOperation.targetDatabase !== options.targetDatabase ||
+        (options.runId && options.runId !== policy.originalOperation.runId))
+      throw new Error("Review compensation requires one target and its classification-only restoration");
+    reviewCompensation = await verifyReviewCompensationOn(
+      conn, policy, ids[0], ["keep", "exclude"], snapshot,
+    );
+  }
   const plan: ClassificationPlan = {
     version: 1,
     operationId: randomUUID(),
-    runId: options.runId ?? randomUUID(),
+    runId: options.runId ?? reviewCompensation?.originalOperation.runId ?? randomUUID(),
     planSha256: "",
     targetDatabase: options.targetDatabase,
     kind: "classification",
@@ -145,6 +160,7 @@ export async function planMatchingOn(
     },
     results: classifyLoaded(snapshot, ids, options),
     restoreIds: [...(options.restoreIds ?? [])].sort(),
+    ...(reviewCompensation ? { reviewCompensation } : {}),
   };
   plan.planSha256 = hashMatchingPlan(plan);
   return plan;

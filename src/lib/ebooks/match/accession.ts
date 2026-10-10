@@ -42,10 +42,11 @@ import {
 import { hashMatchingPlan } from "./plan";
 import { MATCH_MODEL } from "./model";
 import { snapshotGuardQueries } from "./guards";
-import { commitReceiptQuery, type LinkReceipt } from "./link";
+import { commitReceiptQuery, immutableMatchingWriterInput, type LinkReceipt } from "./link";
 import { matchFingerprint } from "./keys";
 import type { MatchOperationIdentity } from "./types";
 import { planCoverCopy, copyPlannedCover, discardUnusedCover } from "./covers";
+import { requireMatchAtomicExtension, type PreparedMatchAtomicExtension } from "./review-extension";
 
 type NewAuthor = {
   id: string;
@@ -283,6 +284,7 @@ export async function accessionEbooks(
   plan: AccessionPlan,
   target: string,
   options: {
+    atomicExtension?: PreparedMatchAtomicExtension;
     beforeWrite?: (receipt: LinkReceipt) => Promise<void>;
     afterCommit?: (ids: {
       workIds: readonly string[];
@@ -290,6 +292,8 @@ export async function accessionEbooks(
     }) => Promise<void>;
   } = {},
 ) {
+  plan = immutableMatchingWriterInput(plan);
+  options = { ...options };
   if (
     plan.kind !== "accession_batch" ||
     plan.mode !== "ingestion" ||
@@ -305,9 +309,14 @@ export async function accessionEbooks(
     )
   )
     throw new Error("Accession mode, model, target, hash or effects changed");
+  const extension = requireMatchAtomicExtension(options.atomicExtension, {
+    coreWriter: "accession", coreOperation: plan,
+    ebookIds: plan.entries.map((entry) => entry.effect.ebookId),
+  });
   const at = new Date(plan.createdAt);
   if (!Number.isFinite(at.getTime()))
     throw new Error("Invalid accession timestamp");
+  const timestamp = at.getTime();
   const coverPlans = plan.entries.map((entry) =>
     planCoverCopy(
       plan.snapshot,
@@ -319,7 +328,7 @@ export async function accessionEbooks(
   const prepared = await Promise.all(
     plan.entries.map(async (original, i) => {
       const coverPlan = coverPlans[i];
-      const entry = {
+      const entry = immutableMatchingWriterInput({
         ...original,
         receipt: {
           ...original.receipt,
@@ -327,7 +336,7 @@ export async function accessionEbooks(
             ? { coverArtifacts: [coverPlan.coverKey, coverPlan.thumbnailKey] }
             : {}),
         },
-      };
+      });
       const { seriesName: _seriesName, ...workValues } = entry.effect.work!;
       const { coverSourceKey: _coverSourceKey, ...editionValues } =
         entry.effect.edition!;
@@ -375,103 +384,116 @@ export async function accessionEbooks(
             id: entry.editionId,
             activityId: entry.receipt.activityIdsCreated[1],
             at,
-            cover: await copyPlannedCover(coverPlan),
+            cover: immutableMatchingWriterInput(await copyPlannedCover(coverPlan)),
           },
         );
       }
     const result = await withReadableErrors(() =>
-      atomicOn(conn, (d) => [
-        ...snapshotGuardQueries(d, plan.snapshot),
-        d.execute(
-          sql`select set_config('durtal.defer_publisher_refresh','on',true)`,
-        ),
-        ...plan.authors.flatMap(({ activityId, ...row }) => [
-          d.insert(authors).values({ ...row, createdAt: at, updatedAt: at }),
-          d.insert(activityEvents).values({
-            id: activityId,
-            entityType: "author",
-            entityId: row.id,
-            eventKey: "author.created",
-            metadata: { newValue: row.name },
-            createdAt: at,
-          }),
-        ]),
-        ...(plan.series.length
-          ? [
-              d.insert(series).values(
-                plan.series.map((row) => ({
-                  ...row,
-                  createdAt: at,
-                  updatedAt: at,
-                })),
-              ),
-            ]
-          : []),
-        ...prepared.flatMap(({ entry, work, edition }) => [
-          d
-            .delete(ebookMatchCandidates)
-            .where(eq(ebookMatchCandidates.ebookId, entry.effect.ebookId)),
-          ...work.queries(d),
-          ...edition.queries(d),
-          d.insert(workStatusHistory).values({
-            id: entry.receipt.historyIdsCreated[0],
-            workId: entry.workId,
-            fromStatus: null,
-            toStatus: "accessioned",
-            changedAt: at,
-            notes: `ebook operation ${entry.receipt.operationId}`,
-          }),
-          d.insert(instances).values({
-            ...entry.effect.copy!,
-            id: entry.instanceId,
-            editionId: entry.editionId,
-            createdAt: at,
-            updatedAt: at,
-          }),
-          d.insert(instanceStatusHistory).values({
-            id: entry.receipt.historyIdsCreated[1],
-            instanceId: entry.instanceId,
-            fromStatus: null,
-            toStatus: "available",
-            changedAt: at,
-            notes: `ebook operation ${entry.receipt.operationId}`,
-          }),
-          d.insert(activityEvents).values({
-            id: entry.receipt.activityIdsCreated[2],
-            entityType: "work",
-            entityId: entry.workId,
-            eventKey: "work.instance_added",
-            metadata: { targetId: entry.instanceId },
-            createdAt: at,
-          }),
-          d
-            .update(ebooks)
-            .set({
-              instanceId: entry.instanceId,
-              matchState: "linked",
-              matchMethod: "manual",
-              matchProbability: null,
-              matchedAt: at,
-              matchFingerprint: entry.metadataFingerprint,
-              matchModelVersion: MATCH_MODEL.version,
-              matchTier: null,
-              duplicateOfId: null,
-              exclusionReason: null,
+      atomicOn(conn, (d) => {
+        if (at.getTime() !== timestamp)
+          throw new Error("Prepared accession timestamp changed; nothing written");
+        return [
+          ...snapshotGuardQueries(d, plan.snapshot, extension?.extraTables),
+          ...(extension?.before(d) ?? []),
+          d.execute(
+            sql`select set_config('durtal.defer_publisher_refresh','on',true)`,
+          ),
+          ...plan.authors.flatMap(({ activityId, ...row }) => [
+            d.insert(authors).values({ ...row, createdAt: at, updatedAt: at }),
+            d.insert(activityEvents).values({
+              id: activityId,
+              entityType: "author",
+              entityId: row.id,
+              eventKey: "author.created",
+              metadata: { newValue: row.name },
+              createdAt: at,
+            }),
+          ]),
+          ...(plan.series.length
+            ? [
+                d.insert(series).values(
+                  plan.series.map((row) => ({
+                    ...row,
+                    createdAt: at,
+                    updatedAt: at,
+                  })),
+                ),
+              ]
+            : []),
+          ...prepared.flatMap(({ entry, work, edition }) => [
+            d
+              .delete(ebookMatchCandidates)
+              .where(eq(ebookMatchCandidates.ebookId, entry.effect.ebookId)),
+            ...work.queries(d),
+            ...edition.queries(d),
+            d.insert(workStatusHistory).values({
+              id: entry.receipt.historyIdsCreated[0],
+              workId: entry.workId,
+              fromStatus: null,
+              toStatus: "accessioned",
+              changedAt: at,
+              notes: `ebook operation ${entry.receipt.operationId}`,
+            }),
+            d.insert(instances).values({
+              ...entry.effect.copy!,
+              id: entry.instanceId,
+              editionId: entry.editionId,
+              createdAt: at,
               updatedAt: at,
-            })
-            .where(eq(ebooks.id, entry.effect.ebookId)),
-        ]),
-        d.execute(sql`select refresh_all_publisher_links()`),
-        ...prepared.map(({ entry }) => commitReceiptQuery(d, entry.receipt)),
-      ]),
+            }),
+            d.insert(instanceStatusHistory).values({
+              id: entry.receipt.historyIdsCreated[1],
+              instanceId: entry.instanceId,
+              fromStatus: null,
+              toStatus: "available",
+              changedAt: at,
+              notes: `ebook operation ${entry.receipt.operationId}`,
+            }),
+            d.insert(activityEvents).values({
+              id: entry.receipt.activityIdsCreated[2],
+              entityType: "work",
+              entityId: entry.workId,
+              eventKey: "work.instance_added",
+              metadata: { targetId: entry.instanceId },
+              createdAt: at,
+            }),
+            d
+              .update(ebooks)
+              .set({
+                instanceId: entry.instanceId,
+                matchState: "linked",
+                matchMethod: "manual",
+                matchProbability: null,
+                matchedAt: at,
+                matchFingerprint: entry.metadataFingerprint,
+                matchModelVersion: MATCH_MODEL.version,
+                matchTier: null,
+                duplicateOfId: null,
+                exclusionReason: null,
+                updatedAt: at,
+              })
+              .where(eq(ebooks.id, entry.effect.ebookId)),
+          ]),
+          d.execute(sql`select refresh_all_publisher_links()`),
+          ...prepared.map(({ entry }) => commitReceiptQuery(d, entry.receipt)),
+          ...(extension?.after(d) ?? []),
+        ];
+      }),
     );
     const followUpFailures: { workId: string; error: string }[] = [];
     for (const entry of plan.entries) {
-      const queued = await queueNewBookEnrichment(entry.workId, {
-        priority: BULK_ACCESSION_PRIORITY,
-        conn,
-        matchingOperationId: entry.receipt.operationId,
-      });
+      let queued: Awaited<ReturnType<typeof queueNewBookEnrichment>>;
+      try {
+        queued = await queueNewBookEnrichment(entry.workId, {
+          priority: BULK_ACCESSION_PRIORITY,
+          conn,
+          matchingOperationId: entry.receipt.operationId,
+        });
+      } catch (error) {
+        followUpFailures.push({ workId: entry.workId,
+          error: error instanceof Error ? error.message : String(error) });
+        continue;
+      }
       if (!queued.ok)
         followUpFailures.push({ workId: entry.workId, error: queued.error });
       else {

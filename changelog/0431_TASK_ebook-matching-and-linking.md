@@ -223,3 +223,47 @@ These corrections and new regressions have not been executed: source-only work
 is authorized, while tests, typecheck, lint, database and migration commands
 remain held for a fresh coordinator verification slot. The immutable reviewed
 checkout and its 54-pass baseline are preserved separately.
+
+
+## Shared manual/review writer source, 2026-10-10
+
+The coordinator subsequently verified exact matching checkpoint `44066b65`: 67
+focused tests passed with zero failures, skips or pending cases, and the ordinary
+whole-project typecheck passed in its supervised Node 22 slot. That evidence
+applies to the accepted correction checkpoint, before the following changes.
+
+On clean integration base `3bb556077907ebfbfbdd8efffd1380f782e4f631` (tree
+`86596898f03eec6ac51efbf3f43d49bfb20f02b7`), the explicit source-authoring grant
+adds the twelve reviewed matching product files, seven focused test sources and
+this existing changelog. Manual creation intent now bypasses edition/copy reuse,
+uses strict shared catalogue copy metadata, and freezes any selected sub-location
+reference table in the plan. Existing-copy fill derives actual format/size from
+the preferred usable file, writes move/fill once, and records owned-field
+provenance. Newly committed moving receipts capture the original raw edition,
+including approved-group receipts whose per-link snapshots omit edition rows.
+Undo restores only proven fields and the precise original copy timestamp; later
+use, incomplete provenance and changed/taken parents retain the copy with a
+concrete reason. The FK discovery set is also guarded under the sorted locks.
+
+The internal prepared review capability binds writer, frozen core identity,
+entity scope and decision/compensation purpose in a private registry. Link,
+accession, decision, classification and link Undo compose synchronous before/core/
+after queries in one atomic list. Extended classification returns that awaited
+list; its existing three-argument result remains void. Review compensation uses
+the locked authoritative original receipt and a DB-forward microsecond version,
+then classifies without replacing that version. Ordinary no-policy timestamp
+behavior remains as before. Accession reports thrown postcommit enrichment
+failures separately while retaining its committed result.
+
+The accepted SLN-496 interface receipt supplies the issuer/order/result contract,
+not an implemented receipt store. Only the future reviewed `review/store.ts` may
+issue capabilities in product code. No placeholder receipt composition was
+added. The store's strict in-transaction final receipt predicate, authoritative
+last-result decoder, retries and real database rollback/precision validation
+remain SLN-496/root integration work. Normal unlink and Undo of restore/rematch/
+unlink or work status are not enabled by these matching primitives.
+
+All new focused tests are authored and unexecuted. No tests, typecheck, lint,
+product runtime, migrations, database commands, commits, pushes, live/cloud writes
+or deployment ran for this grant. This task remains In Progress pending the
+coordinator's independent exact-diff review and separately authorized checks.

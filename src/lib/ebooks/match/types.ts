@@ -139,6 +139,8 @@ export interface LinkEffect {
     fileSizeBytes: number;
     status: "available";
   } | null;
+  /** Digital values derived from the actual usable preferred file for an existing copy. */
+  filledCopy?: Pick<NonNullable<LinkEffect["newCopy"]>, "format" | "fileSizeBytes">;
   missing: readonly string[];
   ambiguities: readonly Reason[];
   ready: boolean;
