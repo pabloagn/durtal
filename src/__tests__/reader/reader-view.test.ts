@@ -326,15 +326,15 @@ describe("reader view with a real bridge and fake engine", () => {
   });
   it("opens at this device's place, offers without a jump, and Go there emits a jump", async () => {
     await render();
-    expect(fake.engine.open.mock.calls[0][1].at).toEqual(own.locator);
-    expect(fake.engine.goTo).not.toHaveBeenCalled();
+    expect(fake.engine.resolve).toHaveBeenCalledWith(own.locator);
+    expect(fake.engine.goTo).toHaveBeenCalledExactlyOnceWith(own.locator);
     expect(host.textContent).toContain("Page 212 · read on iPhone");
     await settle();
     expect(report).toHaveBeenCalledWith(
       "location",
       expect.objectContaining({ kind: "jump", percent: 40 }),
     );
-    act(() => button("Go there").click());
+    await act(async () => button("Go there").click());
     await settle();
     expect(fake.engine.goTo).toHaveBeenCalledWith(
       other.locator,
@@ -349,6 +349,7 @@ describe("reader view with a real bridge and fake engine", () => {
   });
   it("Stay and a page turn both dismiss the offer without remounting the engine", async () => {
     await render();
+    fake.engine.goTo.mockClear();
     act(() => button("Stay").click());
     expect(fake.engine.goTo).not.toHaveBeenCalled();
     expect(host.textContent).not.toContain("Go there");
@@ -379,7 +380,9 @@ describe("reader view with a real bridge and fake engine", () => {
     };
     await render(own, own, pdf);
     expect(host.textContent).toContain("About 70%");
-    act(() => button("Go there").click());
+    await act(async () => button("Go there").click());
+    await settle();
+    expect(fake.engine.resolve).toHaveBeenLastCalledWith(pdf.locator);
     expect(fake.engine.goTo).toHaveBeenCalledWith(
       { fraction: 0.7 },
       expect.objectContaining({ id: 1, signal: expect.any(AbortSignal) }),
@@ -389,7 +392,7 @@ describe("reader view with a real bridge and fake engine", () => {
   it("a never-opened device starts at the other place and fades its quiet notice", async () => {
     vi.useFakeTimers();
     await render(null, null, other);
-    expect(fake.engine.open.mock.calls[0][1].at).toEqual(other.locator);
+    expect(fake.engine.resolve).toHaveBeenCalledWith(other.locator);
     expect(host.textContent).toContain("Opened where you left off on iPhone");
     expect(host.textContent).not.toContain("Go there");
     expect(fetch).not.toHaveBeenCalled();
@@ -409,11 +412,60 @@ describe("reader view with a real bridge and fake engine", () => {
       locator: { ...own.locator, fileHash: "b".repeat(64) },
     };
     await render(null, pdfOwn, other);
-    expect(fake.engine.open.mock.calls[0][1].at).toEqual({ fraction: 0.4 });
+    expect(fake.engine.resolve).toHaveBeenCalledWith(pdfOwn.locator);
     expect(host.textContent).not.toContain("Opened where");
     expect(host.textContent).toContain("Go there");
   });
+  it("retains the original clock and hash provenance when an own historical format is projected", async () => {
+    const historical = {
+      ...own,
+      fileId: "replaced",
+      locator: {
+        ...own.locator,
+        fileHash: "b".repeat(64),
+        cfi: "epubcfi(old)",
+        text: {
+          before: "Context",
+          highlight: "The paragraph I was reading",
+          after: "following",
+        },
+      },
+    };
+    await render(null, historical, null);
+    expect(fake.engine.resolve).toHaveBeenCalledWith(historical.locator);
+    act(() => window.dispatchEvent(new Event("pagehide")));
+    const body = vi.mocked(navigator.sendBeacon).mock.calls.at(-1)?.[1] as Blob;
+    const saved = JSON.parse(await body.text());
+    expect(saved).toMatchObject({
+      fileId: "epub",
+      clientUpdatedAt: historical.clientUpdatedAt,
+      locator: { fileHash: "a".repeat(64), totalProgression: 0.4 },
+    });
+    expect(historical.locator.fileHash).toBe("b".repeat(64));
+    expect(historical.locator.cfi).toBe("epubcfi(old)");
+  });
+  it("does not override a local turn made while the offered quote is resolving", async () => {
+    await render();
+    fake.engine.goTo.mockClear();
+    let finish!: (result: import("@/lib/reader/engine").ResolveResult) => void;
+    fake.engine.resolve.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    act(() => button("Go there").click());
+    pressRight();
+    await settle();
+    await act(async () => {
+      finish({ status: "exact", locator: other.locator });
+    });
+    expect(fake.engine.goTo).not.toHaveBeenCalled();
+    expect(fake.engine.currentLocator()?.totalProgression).toBe(0.5);
+    expect(host.textContent).toContain("Your place changed");
+  });
   it("discards a response after a local turn while a refresh GET is pending", async () => {
+    // Existing SLN-493 polling cancellation remains unchanged.
     await render();
     let finish!: (value: Response) => void;
     vi.mocked(fetch).mockImplementation(

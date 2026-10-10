@@ -21,14 +21,25 @@ import PerfumesLayout from "@/app/(catalogue)/perfumes/layout";
 import FilmsLayout from "@/app/(catalogue)/films/layout";
 import PaintingsLayout from "@/app/(catalogue)/paintings/layout";
 
-
 describe("reading navigation (SLN-448)", () => {
   it("lists Reading, without the old reader (SLN-490), and G R opens it", () => {
     const labels = NAV_SECTIONS.map((s) => s.label);
     expect(labels).toContain("Reading");
     expect(labels).not.toContain("Reader");
-    expect(GO_TO.find((g) => g.key === "r")).toEqual({ key: "r", label: "Reading", href: "/reading" });
+    expect(GO_TO.find((g) => g.key === "r")).toEqual({
+      key: "r",
+      label: "Reading",
+      href: "/reading",
+    });
     expect(GO_TO.some((g) => g.href === "/reader")).toBe(false);
+    expect(
+      NAV_SECTIONS.find((section) => section.href === "/ebooks")?.label,
+    ).toBe("eBooks");
+    expect(GO_TO.find((g) => g.key === "k")).toEqual({
+      key: "k",
+      label: "eBooks",
+      href: "/ebooks",
+    });
     const keys = GO_TO.map((g) => g.key);
     expect(new Set(keys).size).toBe(keys.length);
   });
@@ -135,7 +146,9 @@ describe("collection switch", () => {
     expect(
       domainSwitchHref(
         "perfume",
-        from("q=rose&status=wanted&publisher=x&sort=rating&order=asc&page=3&perPage=96"),
+        from(
+          "q=rose&status=wanted&publisher=x&sort=rating&order=asc&page=3&perPage=96",
+        ),
       ),
     ).toBe("/perfumes?q=rose&sort=rating&order=asc");
   });
@@ -151,15 +164,21 @@ describe("collection switch", () => {
 
   it("keeps the destination's own filters and ignores an invalid order", () => {
     expect(
-      domainSwitchHref("book", from("status=wanted&sort=recent&order=sideways")),
+      domainSwitchHref(
+        "book",
+        from("status=wanted&sort=recent&order=sideways"),
+      ),
     ).toBe("/library?status=wanted&sort=recent");
   });
 });
 
 describe("collection readiness gate", () => {
-  it.each(["book", "perfume", "film", "painting"] as const)("lets the open %s collection through", (kind) => {
-    expect(() => requireEnabledDomain(kind)).not.toThrow();
-  });
+  it.each(["book", "perfume", "film", "painting"] as const)(
+    "lets the open %s collection through",
+    (kind) => {
+      expect(() => requireEnabledDomain(kind)).not.toThrow();
+    },
+  );
 
   it.each([
     ["perfumes", PerfumesLayout],
@@ -175,7 +194,9 @@ describe("collection readiness gate", () => {
     painting.enabled = false;
     try {
       expect(() => requireEnabledDomain("painting")).toThrow("NEXT_NOT_FOUND");
-      expect(() => PaintingsLayout({ children: null })).toThrow("NEXT_NOT_FOUND");
+      expect(() => PaintingsLayout({ children: null })).toThrow(
+        "NEXT_NOT_FOUND",
+      );
     } finally {
       painting.enabled = true;
     }
@@ -205,7 +226,12 @@ describe("catalogue years", () => {
     ).toBe("1888");
     expect(
       catalogueDateYears(
-        date({ precision: "range", startYear: 1503, endYear: 1519, approximate: true }),
+        date({
+          precision: "range",
+          startYear: 1503,
+          endYear: 1519,
+          approximate: true,
+        }),
       ),
     ).toBe("c. 1503–1519");
     expect(catalogueDateYears(date({ startYear: -44 }))).toBe("44 BC");

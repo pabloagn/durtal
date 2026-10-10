@@ -1,6 +1,7 @@
 import {
   Archive,
   BookOpen,
+  BookOpenText,
   BookMarked,
   Building2,
   Film,
@@ -37,6 +38,7 @@ export const SECTION_ICONS: Record<string, LucideIcon> = {
     WORK_KINDS.map((kind) => [WORK_DOMAINS[kind].basePath, DOMAIN_ICONS[kind]]),
   ),
   "/reading": BookMarked,
+  "/ebooks": BookOpenText,
   "/people": Users,
   "/publishers": Building2,
   "/organizations": Landmark,

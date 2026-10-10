@@ -178,7 +178,7 @@ export default async function ReaderPage(props: PageProps) {
         devicePlace={book.devicePlace}
         otherPlace={book.otherPlace}
         deviceId={request.deviceId}
-        backHref={book.workSlug ? `/library/${book.workSlug}` : "/library"}
+        backHref={`/ebooks/${book.id}`}
         plugins={plugins}
         requiredControllerIds={requiredControllerIds}
         settingsCookie={request.settingsCookie}

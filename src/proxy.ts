@@ -5,6 +5,7 @@ import { perPageCookieName } from "@/lib/utils/preference-cookies";
 import { makeNonce, READER_PAGE_RE, readerCsp } from "@/lib/reader/csp";
 import { DEVICE_COOKIE, DEVICE_COOKIE_MAX_AGE, isDeviceId } from "@/lib/reader/device";
 import { LIBRARY_SORT_COOKIE, parseLibrarySortPreference } from "@/lib/library/sort-preference";
+import { isUuid } from "@/lib/utils/uuid";
 
 /**
  * API routes refuse calls from web pages on other origins (task 0255).
@@ -20,6 +21,9 @@ export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/api/")) {
     return crossOriginRefusal(request) ?? undefined;
   }
+  const ebookPath = /^\/ebooks\/([^/]+)\/?$/.exec(request.nextUrl.pathname);
+  if (ebookPath && !["runs", "review", "highlights", "upload"].includes(ebookPath[1]) && !isUuid(ebookPath[1]))
+    return new NextResponse("Invalid eBook id", { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   if (READER_PAGE_RE.test(request.nextUrl.pathname)) return readerPage(request);
   if (request.method !== "GET") return;
   const url = request.nextUrl.clone();
@@ -70,5 +74,5 @@ function readerPage(request: NextRequest) {
 
 export const config = {
   // Pages (no build assets or files), and the API routes
-  matcher: ["/((?!api/|_next/|.*\\.).*)", "/api/:path*"],
+  matcher: ["/((?!api/|_next/|.*\\.).*)", "/api/:path*", "/ebooks/:path*"],
 };

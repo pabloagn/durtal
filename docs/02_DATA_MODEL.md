@@ -2453,7 +2453,7 @@ the same; these keys are the backstop under them. A refused row answers SQLSTATE
 |---|---|---|---|
 | `id` | UUID | PK, auto | |
 | `title` | TEXT | NOT NULL | |
-| `title_sort` | TEXT | nullable | Normalised for natural sort |
+| `title_sort` | TEXT | nullable | Database-owned natural key (0084, SLN-497): `search_normalize`, one article removed for the declared language, each integer encoded as a ten-digit significant-length prefix, colon and value padded to at least six digits. Leading-zero spellings tie; larger integers never truncate. Ordered with `COLLATE "C"` and `id` as tie-breaker |
 | `subtitle` | TEXT | nullable | |
 | `authors` | TEXT[] | NOT NULL, default `{}` | Natural order: "Jorge Luis Borges" |
 | `author_sort` | TEXT | nullable | |
@@ -2530,6 +2530,17 @@ original year unknown, and records accessioned status and available-copy history
 Undo checks the exact operation identity, row state and dependencies in its write
 transaction; it retains edited/referenced rows and always preserves file objects.
 Restore of Keep or Set aside reclassifies without automatically linking.
+
+Migration `0084_ebook_library` is currently prepared for review, not generated,
+registered or applied. It declares immutable `ebook_title_sort(title, language)`
+and the before-insert/title-or-language-update trigger `ebook_title_sort_set`,
+then backfills every row. Unknown languages keep their leading article; an
+article-only title is retained. Its indexes are `ebooks_state_title_sort_idx`
+(`match_state`, `title_sort COLLATE "C"`, `id`), `ebooks_created_at_idx`
+(`created_at DESC`), and the partial `ebooks_active_title_sort_idx`
+(`title_sort COLLATE "C"`, `id`) for non-excluded rows. Runtime ordering must
+use the same collation. `ebook_ingest_items_ebook_created_idx`
+(`ebook_id`, `created_at DESC`, `id`) supports bounded detail-history queries.
 
 ### `ebook_files`
 
