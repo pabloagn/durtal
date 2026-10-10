@@ -4,9 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement as h, StrictMode, Suspense, useRef, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 const mocks = vi.hoisted(() => ({ factory: vi.fn(), preload: vi.fn() }));
-vi.mock("@/lib/reader/engines/foliate/engine", () => ({ createFoliateEngine: mocks.factory }));
 vi.mock("@/lib/reader/engines/foliate/preload", () => ({ preloadFoliate: mocks.preload }));
 vi.mock("@/components/reader/settings-dialog", () => ({ SettingsDialog: () => null }));
+import * as foliateEngineModule from "@/lib/reader/engines/foliate/engine";
 import { ReaderView } from "@/app/reader/[ebookId]/reader-view";
 import { useReaderController, useReaderControllerFailure, readerControllerFailureVisible } from "@/components/reader/bridge";
 import type { ReaderControllerFailureProps } from "@/lib/reader/bridge-state";
@@ -42,7 +42,10 @@ const flush = () => act(async () => {
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
-  fake = fakeEngine(); mocks.factory.mockReset().mockReturnValue(fake.engine); mocks.preload.mockReset().mockResolvedValue(undefined);
+  fake = fakeEngine();
+  mocks.factory = vi.spyOn(foliateEngineModule, "createFoliateEngine")
+    .mockReturnValue(fake.engine as ReturnType<typeof foliateEngineModule.createFoliateEngine>);
+  mocks.preload.mockReset().mockResolvedValue(undefined);
   Object.values(handlers).forEach((handler) => handler.mockReset());
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ positions: [] }), { status: 200 })));
   vi.spyOn(navigator, "sendBeacon").mockReturnValue(true);
