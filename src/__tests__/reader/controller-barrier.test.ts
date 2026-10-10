@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({ factory: vi.fn(), preload: vi.fn() }));
 vi.mock("@/lib/reader/engines/foliate/preload", () => ({ preloadFoliate: mocks.preload }));
 vi.mock("@/components/reader/settings-dialog", () => ({ SettingsDialog: () => null }));
 import * as foliateEngineModule from "@/lib/reader/engines/foliate/engine";
+// EB Garamond loads through next/font, which needs the Next compiler.
+vi.mock("next/font/google", () => ({ EB_Garamond: () => ({ variable: "font-prose" }) }));
 import { ReaderView } from "@/app/reader/[ebookId]/reader-view";
 import { useReaderController, useReaderControllerFailure, readerControllerFailureVisible } from "@/components/reader/bridge";
 import type { ReaderControllerFailureProps } from "@/lib/reader/bridge-state";

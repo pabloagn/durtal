@@ -13,6 +13,8 @@ vi.mock("@/components/reader/settings-dialog", () => ({
   SettingsDialog: () => null,
 }));
 import { ReaderSlotFill } from "@/components/reader/bridge";
+// EB Garamond loads through next/font, which needs the Next compiler.
+vi.mock("next/font/google", () => ({ EB_Garamond: () => ({ variable: "font-prose" }) }));
 import { ReaderView } from "@/app/reader/[ebookId]/reader-view";
 import type { ReaderPlace } from "@/lib/reader/sync/places";
 import { place } from "./fixtures/places";
