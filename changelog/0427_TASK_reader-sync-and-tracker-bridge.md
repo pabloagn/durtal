@@ -50,3 +50,10 @@ Meaningful registry, atomic-install, stale-permit, watchdog, StrictMode and sync
 #### Controller crash boundary correction
 
 Independent source review found that the failed controller boundary could be reused for its own failure element, retaining `failed=true` and rendering nothing. Controller and failure renderers now have distinct boundary keys. The new React regression throws from the eager controller, requires the real failure component to mount, and waits for its visibility acknowledgement before degraded engine opening. This correction remains untested during QUIET-494; the final checkpoint still needs focused/static and native validation after the window is released.
+
+
+#### StrictMode engine mock fixture correction — 10 October 2026
+
+The exact `fc81ff8a` focused run passed type checking and source lint, with 69 unit tests passing and one StrictMode barrier test failing. Retained bounded diagnostics showed correct controller epoch invalidation/reacquisition: the obsolete epoch was cancelled and the live epoch had a current permit. After explicit import settlement, the cancelled import received the expected mock factory but the live import received the real `createFoliateEngine`, instantiated `FoliateEngine`, and tried to parse the fixture's fake JSON response as an EPUB, failing with `End of central directory not found`. The final identity/error trace SHA256 is `ff8d30bbca7947b3e577c2b56c831b9b61be5a1a415a6a165ea0a7e29aa39bf0`; all temporary observations were restored and owned diagnostic children exited.
+
+The test now explicitly resolves and checks the mocked engine export before rendering StrictMode, keeping its intended fake engine stable across the replayed imports. The original render, three-frame bus flush, and exact-once opening/location/activity assertions remain unchanged. No product startup, controller barrier, mock handler, or assertion was relaxed, and no diagnostic hooks remain in source. This corrected test still awaits its source-bound barrier-file/lint check; real cold engine imports, actual SLN-454 integration, and full/native acceptance remain separate pending gates.

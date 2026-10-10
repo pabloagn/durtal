@@ -73,6 +73,9 @@ describe("ReaderSession controller admission", () => {
     expect(fake.engine.open).toHaveBeenCalledOnce(); expect(location).toHaveBeenCalledOnce();
   });
   it("keeps exactly one functional subscriber and open through StrictMode reacquisition", async () => {
+    // Cache this fixture before concurrent StrictMode imports enter Vitest's mock resolver.
+    const { createFoliateEngine } = await import("@/lib/reader/engines/foliate/engine");
+    expect(createFoliateEngine).toBe(mocks.factory);
     await act(async () => root.render(h(StrictMode, null, h(ReaderView, props())))); await flush();
     expect(fake.engine.open).toHaveBeenCalledOnce(); expect(location).toHaveBeenCalledOnce();
     act(() => document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })));
