@@ -16,6 +16,8 @@
  */
 
 import { READER_KEYMAP, readerKey, type ReaderShortcut } from "./keymap";
+import { handleSurfaceEscape } from "@/lib/ui/surface-state";
+import { handleReaderCommand } from "@/lib/ui/reader-command";
 
 export interface ReaderActions {
   next(): void;
@@ -269,6 +271,7 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
+    if (handleSurfaceEscape(event) || handleReaderCommand(event)) return;
     actions.activity?.("key");
     if (event.defaultPrevented || event.isComposing) return;
     // Chapters use event.key on AltGr layouts. Browser Cmd/Ctrl brackets remain untouched.

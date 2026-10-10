@@ -20,7 +20,10 @@ import {
 import { readerLatinFace } from "@/lib/reader/fonts";
 import { zipCdOffset } from "@/lib/reader/manifest";
 import { readerSettings } from "@/lib/reader/settings-cookie";
-import { READER_SETTINGS_KEY } from "@/lib/preferences";
+import { READER_SETTINGS_KEY, READING_HOME_KEY } from "@/lib/preferences";
+import { loadReaderRuntime } from "@/lib/reader/runtime-loader";
+import { PreferencesProvider } from "@/lib/hooks/use-preference";
+import { ReaderRuntimeProvider } from "@/components/reader/runtime-provider";
 import { getRequiredReaderControllerIds, loadReaderPlugins } from "./plugins";
 import { ReaderView, type ReaderViewFile } from "./reader-view";
 
@@ -28,6 +31,8 @@ type PageProps = {
   params: Promise<{ ebookId: string }>;
   searchParams: Promise<{ file?: string | string[] }>;
 };
+
+export const dynamic = "force-dynamic";
 
 const ZIP_FORMATS = new Set(["epub", "kepub", "fbz", "cbz"]);
 
@@ -48,6 +53,7 @@ async function readRequest({ params, searchParams }: PageProps) {
       typeof file === "string" && isUuid(file) ? file.toLowerCase() : null,
     deviceId: isDeviceId(device) ? device : null,
     settingsCookie: jar.get(READER_SETTINGS_KEY)?.value ?? null,
+    homeCookie: jar.get(READING_HOME_KEY)?.value ?? null,
   };
 }
 
@@ -118,9 +124,10 @@ async function viewFile(file: ReaderFile): Promise<ReaderViewFile> {
 export default async function ReaderPage(props: PageProps) {
   const request = await readRequest(props);
   const requiredControllerIds = getRequiredReaderControllerIds();
-  const [bookResult, pluginsResult] = await Promise.allSettled([
+  const [bookResult, pluginsResult, runtimeResult] = await Promise.allSettled([
     loadBook(request.ebookId, request.deviceId, request.fileId),
     loadReaderPlugins(request),
+    loadReaderRuntime(request.homeCookie),
   ]);
   if (bookResult.status === "rejected") throw bookResult.reason;
   const book = bookResult.value;
@@ -129,6 +136,9 @@ export default async function ReaderPage(props: PageProps) {
     pluginsResult.status === "fulfilled" ? pluginsResult.value : [];
   if (pluginsResult.status === "rejected")
     console.error("[reader] Plug-in loading failed:", pluginsResult.reason);
+  const runtime = runtimeResult.status === "fulfilled" ? runtimeResult.value
+    : { status: "unavailable", code: "reader_runtime_unavailable" } as const;
+  if (runtimeResult.status === "rejected") console.error("[reader] Runtime loading failed:", runtimeResult.reason);
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   const file = book.file ? await viewFile(book.file) : null;
   if (file) preloadReadingFont(request.settingsCookie, file.format);
@@ -151,6 +161,8 @@ export default async function ReaderPage(props: PageProps) {
           }}
         />
       )}
+      <PreferencesProvider initial={request.homeCookie === null ? {} : { [READING_HOME_KEY]: request.homeCookie }}>
+      <ReaderRuntimeProvider runtime={runtime}>
       <ReaderView
         ebook={{
           id: book.id,
@@ -169,7 +181,10 @@ export default async function ReaderPage(props: PageProps) {
         backHref={book.workSlug ? `/library/${book.workSlug}` : "/library"}
         plugins={plugins}
         requiredControllerIds={requiredControllerIds}
+        settingsCookie={request.settingsCookie}
       />
+      </ReaderRuntimeProvider>
+      </PreferencesProvider>
     </>
   );
 }

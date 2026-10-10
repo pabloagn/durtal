@@ -51,7 +51,7 @@ describe("missing records answer 404", () => {
       (p) => callsNotFound(p) && dirsOf(p).some((d) => has(path.join(d, "loading.tsx"))),
     );
     for (const kind of ["films", "perfumes", "paintings", "organizations", "publishers"]) {
-      expect(streamed).toContain(path.join(app, kind, "[slug]", "page.tsx"));
+      expect(streamed).toContain(path.join(app, "(catalogue)", kind, "[slug]", "page.tsx"));
     }
   });
 
@@ -62,23 +62,23 @@ describe("missing records answer 404", () => {
   it("flags a detail page whose check sits inside a loading screen", () => {
     const tree = new Map([
       // The perfume detail as it is: layout check, then its own loading screen
-      ["src/app/perfumes/[slug]/layout.tsx", true],
-      ["src/app/perfumes/[slug]/loading.tsx", false],
-      ["src/app/perfumes/[slug]/page.tsx", true],
+      ["src/app/(catalogue)/perfumes/[slug]/layout.tsx", true],
+      ["src/app/(catalogue)/perfumes/[slug]/loading.tsx", false],
+      ["src/app/(catalogue)/perfumes/[slug]/page.tsx", true],
       // A list loading screen beside the list, outside a route group, covers the detail too
-      ["src/app/films/loading.tsx", false],
-      ["src/app/films/[slug]/layout.tsx", true],
-      ["src/app/films/[slug]/page.tsx", true],
+      ["src/app/(catalogue)/films/loading.tsx", false],
+      ["src/app/(catalogue)/films/[slug]/layout.tsx", true],
+      ["src/app/(catalogue)/films/[slug]/page.tsx", true],
       // A detail loading screen with no layout check
-      ["src/app/paintings/[slug]/loading.tsx", false],
-      ["src/app/paintings/[slug]/page.tsx", true],
+      ["src/app/(catalogue)/paintings/[slug]/loading.tsx", false],
+      ["src/app/(catalogue)/paintings/[slug]/page.tsx", true],
       // No loading screen: the page's own check answers 404
-      ["src/app/library/[slug]/page.tsx", true],
+      ["src/app/(catalogue)/library/[slug]/page.tsx", true],
     ]);
     const files = [...tree.keys()].filter((f) => f.endsWith("page.tsx"));
     expect(streamedNotFound(files, (f) => tree.has(f), (f) => !!tree.get(f))).toEqual([
-      "src/app/films/[slug]/page.tsx",
-      "src/app/paintings/[slug]/page.tsx",
+      "src/app/(catalogue)/films/[slug]/page.tsx",
+      "src/app/(catalogue)/paintings/[slug]/page.tsx",
     ]);
   });
 });

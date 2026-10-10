@@ -11,10 +11,11 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { handleSurfaceEscape, hasOpenSurface } from "@/lib/ui/surface-state";
 import { Copy, Link2, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
-import { AuthorCreateDialog } from "@/app/people/author-create-dialog";
-import { VenueCreateDialog } from "@/app/places/venue-create-dialog";
+import { AuthorCreateDialog } from "@/app/(catalogue)/people/author-create-dialog";
+import { VenueCreateDialog } from "@/app/(catalogue)/places/venue-create-dialog";
 import { CreateCollectionDialog } from "@/components/collections/create-collection-dialog";
 import { RecommenderFormDialog } from "@/components/recommenders/recommender-form-dialog";
 import { SeriesFormDialog } from "@/components/series/series-form-dialog";
@@ -348,6 +349,7 @@ export function ShortcutsProvider({
     const open = menu;
     const items = menuItems;
     function onKeyDown(event: KeyboardEvent) {
+      if (handleSurfaceEscape(event)) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       event.preventDefault();
       event.stopPropagation();
@@ -482,7 +484,7 @@ export function ShortcutsProvider({
         otherMod ||
         event.altKey ||
         isTyping(target) ||
-        document.querySelector("dialog[open]") ||
+        hasOpenSurface() || document.querySelector("dialog[open]") ||
         READER_VIEW_RE.test(pathname)
       )
         return;

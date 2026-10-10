@@ -31,6 +31,8 @@ import { COLOR_BUCKETS } from "@/lib/color/color-buckets";
 import { COPY_FORMAT_LABELS } from "@/lib/constants/catalogue";
 import { INSTANCE_FORMATS } from "@/lib/types";
 import { languageName } from "@/lib/utils/language";
+import { LIBRARY_SORT_COOKIE } from "@/lib/library/sort-preference";
+import { writeCookie } from "@/lib/utils/preference-cookies";
 
 const SORT_OPTIONS = [
   { value: "recent", label: "Recent" },
@@ -334,6 +336,7 @@ export function LibraryFilters({
         searchPlaceholder="Search works..."
         defaultSort="title"
         defaultSortOrders={DEFAULT_SORT_ORDERS}
+        onSortChange={(sort, order) => writeCookie(LIBRARY_SORT_COOKIE, JSON.stringify({ sort, order }))}
         viewMode={viewMode}
         gridColumns={gridColumns}
         onViewModeChange={onViewModeChange ?? (() => {})}

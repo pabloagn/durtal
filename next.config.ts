@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   experimental: {
+    // Unmatched URLs need their own document when catalogue and reader
+    // routes have separate roots. It must not depend on catalogue queries.
+    globalNotFound: true,
     // Scope hoisting in `next build` ran the merged db schema modules twice, so
     // drizzle saw two copies of tables like `works` and could not pair their
     // relations (500 on author pages). `next dev` never hoists.

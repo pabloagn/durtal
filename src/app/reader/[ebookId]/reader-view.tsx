@@ -13,6 +13,7 @@ import {
   ReaderBridgeProvider,
   useReaderSlotFilled,
 } from "@/components/reader/bridge";
+import { hasOpenSurface } from "@/lib/ui/surface-state";
 import {
   ReaderNotice,
   resumeNoticeText,
@@ -158,7 +159,7 @@ function samePlace(a: DurtalLocator | null, b: DurtalLocator | null): boolean {
 }
 
 const isBlocked = () =>
-  !!document.querySelector(
+  hasOpenSurface() || !!document.querySelector(
     'dialog[open]:not([data-reader-side-panel]), dialog[open][data-reader-modal], [data-reader-running-lines][data-open="true"], [cmdk-root]',
   );
 
@@ -183,6 +184,7 @@ type ReaderViewProps = {
   backHref: string;
   plugins: import("@/lib/reader/bridge-state").ReaderPluginView[];
   requiredControllerIds?: readonly string[];
+  settingsCookie?: string | null;
 };
 export function ReaderView(props: ReaderViewProps) {
   const [attempt, setAttempt] = useState(0);
@@ -223,12 +225,13 @@ function ReaderSession({
   backHref,
   bridge,
   onRetry,
+  settingsCookie,
 }: ReaderViewProps & { bridge: ReaderBridgeController; onRetry(): void }) {
   const openingPlace = ownPlace ?? devicePlace ?? otherPlace;
   const place = openingPlace?.locator ?? null;
   // The engine's code starts downloading as the view first renders, not after it mounts
   if (typeof window !== "undefined" && file) void preloadFoliate(file.format);
-  const { settings, setSettings, resetSettings } = useReaderSettings();
+  const { settings, setSettings, resetSettings } = useReaderSettings(settingsCookie);
   const bookRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<ReaderEngine | null>(null);
   const [status, setStatus] = useState<Status>(

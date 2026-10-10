@@ -21,7 +21,7 @@ import {
 import { ImageAdjustmentEditor, ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { ImageDetailsEditor } from "@/components/media/image-details-editor";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
-import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
+import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
 import {
   DEFAULT_MONOCHROME_PARAMS,
   parseProcessingParams,

@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh() {} }) }));
 vi.mock("@/lib/actions/settings", () => ({ updateAppSettings: vi.fn() }));
-import { GeneralSettings } from "@/app/settings/general-settings";
+import { GeneralSettings } from "@/app/(catalogue)/settings/general-settings";
 import type { AppSettings } from "@/lib/actions/settings";
 
 const settings: AppSettings = {

@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
+import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
 import { deleteAuthor } from "@/lib/actions/authors";
 import { toast } from "sonner";
 

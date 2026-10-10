@@ -30,8 +30,8 @@ vi.mock("@/lib/actions/authors", () => ({
 }));
 vi.mock("next/image", () => ({ default: () => null }));
 // The Add dialogs and the sheet are not under test
-vi.mock("@/app/people/author-create-dialog", () => ({ AuthorCreateDialog: () => null }));
-vi.mock("@/app/places/venue-create-dialog", () => ({ VenueCreateDialog: () => null }));
+vi.mock("@/app/(catalogue)/people/author-create-dialog", () => ({ AuthorCreateDialog: () => null }));
+vi.mock("@/app/(catalogue)/places/venue-create-dialog", () => ({ VenueCreateDialog: () => null }));
 vi.mock("@/components/collections/create-collection-dialog", () => ({ CreateCollectionDialog: () => null }));
 vi.mock("@/components/recommenders/recommender-form-dialog", () => ({ RecommenderFormDialog: () => null }));
 vi.mock("@/components/series/series-form-dialog", () => ({ SeriesFormDialog: () => null }));
@@ -43,7 +43,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { FilterDropdown } from "@/components/shared/filter-dropdown";
 import { Select } from "@/components/ui/select";
-import { WorkSearchStep } from "@/app/provenance/order-create-steps";
+import { WorkSearchStep } from "@/app/(catalogue)/provenance/order-create-steps";
 
 beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

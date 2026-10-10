@@ -29,6 +29,8 @@ interface EntityFiltersProps {
   searchPlaceholder?: string;
   defaultSort?: string;
   defaultSortOrders?: Record<string, "asc" | "desc">;
+  /** Remember an explicit selection, including its direction. */
+  onSortChange?: (sort: string, order: "asc" | "desc") => void;
   /** A list with one view (the reading journal) leaves these out: no view switch, no size slider */
   viewMode?: ViewMode;
   gridColumns?: number;
@@ -45,6 +47,7 @@ export function EntityFilters({
   searchPlaceholder = "Search...",
   defaultSort,
   defaultSortOrders,
+  onSortChange,
   viewMode,
   gridColumns,
   onViewModeChange,
@@ -116,22 +119,30 @@ export function EntityFilters({
             key={opt.value}
             onClick={() => {
               const params = new URLSearchParams(searchParams.toString());
+              const nextOrder = opt.value === currentSort
+                ? effectiveOrder === "asc" ? "desc" : "asc"
+                : defaultSortOrders?.[opt.value] ?? "asc";
               if (opt.value === currentSort) {
                 // Toggle direction
-                const newOrder =
-                  effectiveOrder === "asc" ? "desc" : "asc";
                 const defaultOrder =
                   defaultSortOrders?.[opt.value] ?? "asc";
-                if (newOrder === defaultOrder) {
+                if (nextOrder === defaultOrder) {
                   params.delete("order"); // clean URL when using default
                 } else {
-                  params.set("order", newOrder);
+                  params.set("order", nextOrder);
                 }
               } else {
                 params.set("sort", opt.value);
                 params.delete("order"); // reset to default for new sort field
               }
-      router.push(firstPageHref(basePath, params));
+              if (onSortChange) {
+                // Keep the complete selection in the URL even when it uses
+                // the default field/direction, so restoration cannot override it.
+                params.set("sort", opt.value);
+                params.set("order", nextOrder);
+                onSortChange(opt.value, nextOrder);
+              }
+              router.push(firstPageHref(basePath, params));
             }}
             className={`rounded-sm px-2.5 py-1 text-xs transition-colors pointer-coarse:min-h-11 ${
               currentSort === opt.value

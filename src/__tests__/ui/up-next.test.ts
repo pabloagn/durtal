@@ -30,7 +30,7 @@ vi.mock("sonner", () => {
 });
 
 import { QueueList, type QueueRow } from "@/components/reading/queue-list";
-import UpNextPage from "@/app/reading/next/page";
+import UpNextPage from "@/app/(catalogue)/reading/next/page";
 
 let coarse = false;
 beforeAll(() => {

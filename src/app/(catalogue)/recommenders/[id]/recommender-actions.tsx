@@ -6,7 +6,7 @@ import { Check, Copy, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { RecommenderFormDialog } from "@/components/recommenders/recommender-form-dialog";
-import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
+import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
 import { deleteRecommender } from "@/lib/actions/recommenders";
 
 /** Copy / Edit / Delete for a recommender page, like the author header menu. */

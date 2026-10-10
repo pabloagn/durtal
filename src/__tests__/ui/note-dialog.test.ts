@@ -16,10 +16,11 @@ vi.mock("sonner", () => {
   const push = (message: string) => toasts.list.push(message);
   return { toast: Object.assign(push, { success: push, error: push, message: push }) };
 });
-// The editor, loaded at once: a button stands for typing a thought in bold
-vi.mock("next/dynamic", () => ({
-  default: () =>
-    function Editor({ onChange, label }: { onChange?: (v: { html: string; json: unknown }) => void; label?: string }) {
+const editorControl = vi.hoisted(() => ({ crash: false }));
+// Mock the actual editor resource; the real feature loader still runs.
+vi.mock("@/components/shared/tiptap-editor", () => ({
+  TiptapEditor: function Editor({ onChange, label }: { onChange?: (v: { html: string; json: unknown }) => void; label?: string }) {
+      if (editorControl.crash) throw new Error("Editor unavailable");
       return createElement(
         "button",
         { type: "button", "data-editor": label, onClick: () => onChange?.({ html: "<p><strong>Why</strong></p>", json: { type: "doc" } }) },
@@ -54,6 +55,7 @@ let root: Root;
 let host: HTMLElement;
 beforeEach(() => {
   coarse = false;
+  editorControl.crash = false;
   toasts.list = [];
   opened.length = 0;
   Object.values(actions).forEach((fn) => fn.mockClear());
@@ -121,12 +123,17 @@ const submit = async () => {
     doc().querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
   });
 };
+const editorReady = () => vi.waitFor(async () => {
+  await act(async () => { await Promise.resolve(); });
+  expect(doc().querySelector('[data-editor="Your thought"]')).not.toBeNull();
+});
 
 describe("the note dialog", () => {
   it("starts on the open reading's page and chapter, and sends a quote with its thought", async () => {
     act(() => root.render(createElement(NoteDialog, props())));
     expect((doc().querySelector("[data-note-position]") as HTMLInputElement).value).toBe("212");
     write(body(), "Beauty will be convulsive");
+    await editorReady();
     act(() => (doc().querySelector('[data-editor="Your thought"]') as HTMLButtonElement).click());
     await submit();
     expect(actions.createReadingNote).toHaveBeenCalledWith({
@@ -261,9 +268,31 @@ describe("the note dialog", () => {
     act(() => root.unmount());
     root = createRoot(host);
     act(() => root.render(createElement(NoteDialog, props({ request: { kind: "note", readingId: "r1", note } }))));
+    await editorReady();
     act(() => (doc().querySelector('[data-editor="Your thought"]') as HTMLButtonElement).click());
     await submit();
     expect(actions.updateReadingNote.mock.calls[1][0]).toMatchObject({ commentHtml: "<p><strong>Why</strong></p>", commentJson: { type: "doc" } });
+  });
+
+  it("retries a failed thought editor without losing the draft or replaying a write", async () => {
+    const logging = vi.spyOn(console, "error").mockImplementation(() => {});
+    editorControl.crash = true;
+    act(() => root.render(createElement(NoteDialog, props())));
+    write(body(), "Saved draft");
+    write(doc().querySelector("[data-note-position]") as HTMLInputElement, "42");
+    await vi.waitFor(async () => {
+      await act(async () => { await Promise.resolve(); });
+      expect(host.textContent).toContain("The thought editor could not load");
+    });
+    expect(actions.createReadingNote).not.toHaveBeenCalled();
+    editorControl.crash = false;
+    act(() => [...host.querySelectorAll("button")].find((button) => button.textContent === "Retry editor")!.click());
+    await editorReady();
+    expect(body().value).toBe("Saved draft");
+    expect((doc().querySelector("[data-note-position]") as HTMLInputElement).value).toBe("42");
+    await submit();
+    expect(actions.createReadingNote).toHaveBeenCalledTimes(1);
+    logging.mockRestore();
   });
 });
 

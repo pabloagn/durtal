@@ -12,6 +12,7 @@ import { TimerAlerts } from "@/components/reading/timer-chip";
 import { Toaster } from "sonner";
 import { useSidebarPreference } from "@/lib/hooks/use-sidebar-preference";
 import { lockPageScroll } from "@/lib/utils/scroll-lock";
+import { acquireSurface, hasOpenSurface, type SurfaceLease } from "@/lib/ui/surface-state";
 
 /** Reader view: /reader/{ebookId}, full viewport, no sidebar (the reading view, eBooks sub-issue 3) */
 const READER_VIEW_RE = /^\/reader\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/|$)/i;
@@ -57,10 +58,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
   // to what had it when the palette opened (SLN-477). The opener is read
   // before the palette renders: its field takes focus as it mounts
   const paletteOpener = useRef<HTMLElement | null>(null);
+  const paletteLease = useRef<SurfaceLease | null>(null);
   const changePalette = useCallback((next: boolean) => {
     if (next) {
       const el = document.activeElement;
       paletteOpener.current = el instanceof HTMLElement && el !== document.body ? el : null;
+      paletteLease.current ??= acquireSurface(() => {
+        paletteLease.current?.release();
+        paletteLease.current = null;
+        setCommandOpen(false);
+      });
+    } else {
+      paletteLease.current?.release();
+      paletteLease.current = null;
     }
     setCommandOpen(next);
   }, []);
@@ -72,11 +82,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
     // After the palette is gone; a pick that opened a dialog keeps the focus
     const frame = requestAnimationFrame(() => {
       const active = document.activeElement;
-      if (opener.isConnected && (!active || active === document.body))
+      if (!hasOpenSurface() && opener.isConnected && (!active || active === document.body))
         opener.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
   }, [commandOpen]);
+  useEffect(() => () => { paletteLease.current?.release(); }, []);
 
   const openCommandPalette = useCallback(() => {
     setNavOpen(false);

@@ -13,8 +13,8 @@ import { READER_SETTINGS_KEY } from "@/lib/preferences";
  * The reader's typography: a cookie, so the server renders the saved
  * settings and the reader panel and Settings → Reader stay in sync.
  */
-export function useReaderSettings() {
-  const [stored, setStored] = usePreference<unknown>(READER_SETTINGS_KEY, READER_DEFAULTS);
+export function useReaderSettings(initialRaw?: string | null) {
+  const [stored, setStored] = usePreference<unknown>(READER_SETTINGS_KEY, READER_DEFAULTS, initialRaw);
   const settings = useMemo(() => readerSettings(stored), [stored]);
 
   const setSettings = useCallback(
