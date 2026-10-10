@@ -7,6 +7,7 @@ import {
   Minimize,
   Type,
   CircleHelp,
+  Search,
 } from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 
@@ -60,6 +61,7 @@ export function ReaderToolbar({
   onBack,
   onContents,
   onSettings,
+  onSearch,
   fullscreen,
   onFullscreen,
   onShortcuts,
@@ -72,6 +74,7 @@ export function ReaderToolbar({
   onBack: (event: React.MouseEvent<HTMLAnchorElement>) => void;
   onContents: () => void;
   onSettings: () => void;
+  onSearch?: () => void;
   /** Null where the Fullscreen API is missing (iPhone) */
   fullscreen: boolean | null;
   onFullscreen: () => void;
@@ -115,6 +118,11 @@ export function ReaderToolbar({
             <BarButton label="Contents" keys="t" onClick={onContents}>
               <ListTree className="h-4 w-4" strokeWidth={1.5} />
             </BarButton>
+            {onSearch && (
+              <BarButton label="Search in book" keys="/" onClick={onSearch}>
+                <Search className="h-4 w-4" strokeWidth={1.5} />
+              </BarButton>
+            )}
             <BarButton label="Settings" keys="s" onClick={onSettings}>
               <Type className="h-4 w-4" strokeWidth={1.5} />
             </BarButton>

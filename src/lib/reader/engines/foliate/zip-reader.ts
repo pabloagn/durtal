@@ -206,6 +206,66 @@ export async function makeRangeZipLoader(
     text.catch(() => texts.delete(name));
     return text;
   };
+  // Search acquires one entry at a time with its own request, never aborting a renderer read.
+  const loadTextOwned: NonNullable<ZipLoader["loadTextOwned"]> = async (
+    name,
+    signal,
+  ) => {
+    signal.throwIfAborted();
+    const entry = map.get(name);
+    if (!entry) return null;
+    if (entry.offset == null || ![0, 8].includes(entry.compressionMethod ?? -1))
+      throw new Error(
+        "This section cannot be acquired with search cancellation.",
+      );
+    const header = await source.read(
+      entry.offset,
+      entry.offset + LOCAL_HEADER_SLACK,
+      0,
+      signal,
+    );
+    const view = new DataView(
+      header.buffer,
+      header.byteOffset,
+      header.byteLength,
+    );
+    if (header.byteLength < 30 || view.getUint32(0, true) !== 0x04034b50)
+      throw new Error("Invalid section header.");
+    const start =
+      entry.offset + 30 + view.getUint16(26, true) + view.getUint16(28, true);
+    const bytes = await source.read(
+      start,
+      start + entry.compressedSize,
+      0,
+      signal,
+    );
+    signal.throwIfAborted();
+    if (entry.compressionMethod === 0) return new TextDecoder().decode(bytes);
+    const reader = new Blob([bytes as BlobPart])
+      .stream()
+      .pipeThrough(new DecompressionStream("deflate-raw"))
+      .getReader();
+    const decoder = new TextDecoder();
+    const parts: string[] = [];
+    const cancel = () => {
+      void reader.cancel().catch(() => {});
+    };
+    signal.addEventListener("abort", cancel, { once: true });
+    try {
+      while (true) {
+        signal.throwIfAborted();
+        const { done, value } = await reader.read();
+        signal.throwIfAborted();
+        if (done) break;
+        parts.push(decoder.decode(value, { stream: true }));
+      }
+      parts.push(decoder.decode());
+      return parts.join("");
+    } finally {
+      signal.removeEventListener("abort", cancel);
+      reader.releaseLock();
+    }
+  };
   const loadBlob = (name: string, type?: string): Promise<Blob | null> => {
     const entry = map.get(name);
     if (!entry) return Promise.resolve(null);
@@ -272,6 +332,7 @@ export async function makeRangeZipLoader(
   return {
     entries,
     loadText,
+    loadTextOwned,
     loadBlob,
     readHead,
     scanIndex,

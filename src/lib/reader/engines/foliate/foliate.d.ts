@@ -35,6 +35,7 @@ export interface ZipModule {
 export interface ZipLoader {
   entries: { filename: string }[];
   loadText(name: string): Promise<string | null>;
+  loadTextOwned?(name: string, signal: AbortSignal): Promise<string | null>;
   loadBlob(name: string, type?: string): Promise<Blob | null>;
   getSize(name: string): number;
   /** Up to `want` bytes from the start of an entry's data, without reading all of it (Durtal's loader) */
@@ -55,7 +56,8 @@ export interface FoliateSection {
   cfi?: string;
   pageSpread?: string;
   load?(): Promise<string | import("./pdf-book").PdfFixedPageSource>;
-  createDocument?(): Promise<Document>;
+  createDocument?(options?: { signal: AbortSignal }): Promise<Document>;
+  resolveHref?(href: string): string;
   loadText?(): Promise<string | null> | string;
 }
 
@@ -85,6 +87,7 @@ export interface FoliateBook {
   toc?: FoliateTocEntry[];
   pageList?: FoliateTocEntry[];
   loadText?(href: string): Promise<string | null>;
+  loadBlob?(href: string): Promise<Blob | null>;
   resources?: {
     opf: Document;
     manifest: { href: string; mediaType: string }[];
@@ -169,7 +172,12 @@ export interface FoliateView extends HTMLElement {
     range: Range,
   ): { tocItem?: FoliateTocEntry | null; pageItem?: FoliateTocEntry | null };
   addAnnotation(
-    annotation: { value: string; color?: string; group?: string },
+    annotation: {
+      value: string;
+      color?: string;
+      group?: string;
+      current?: boolean;
+    },
     remove?: boolean,
   ): Promise<unknown>;
   open(book: FoliateBook): Promise<void>;

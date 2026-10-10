@@ -383,7 +383,7 @@ export class View extends HTMLElement {
                         internalHref = section?.resolveHref?.(hash) ?? href
                     }
                 }
-                Promise.resolve(this.#emit('link', { a, href: internalHref }, true))
+                Promise.resolve(this.#emit('link', { a, href: internalHref, keyboard: e.detail === 0 }, true))
                     .then(x => x ? this.goTo(internalHref) : null)
                     .catch(e => console.error(e))
             }
@@ -402,7 +402,15 @@ export class View extends HTMLElement {
                     return
                 }
                 const range = doc ? anchor(doc) : anchor
-                if (range) overlayer.add(value, range, Overlayer.outline)
+                // Durtal patch 8 (VENDORED.md): owned search marks retain current-hit styling.
+                if (range) {
+                    const draw = annotation.current ? (rects, options) => {
+                        const mark = Overlayer.highlight(rects, options)
+                        mark.style.opacity = '.35'
+                        return mark
+                    } : Overlayer.outline
+                    overlayer.add(value, range, draw, { color: annotation.color })
+                }
             }
             return
         } else if (value.startsWith(NOTE_PREFIX)) {

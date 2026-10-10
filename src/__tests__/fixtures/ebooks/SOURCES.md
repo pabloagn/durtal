@@ -39,3 +39,12 @@ EPUB 2 page map fallback; the third has no contents or print page list.
 
 The earlier fixtures above contain generated text. The large fixtures
 (`--large DIR`) are made the same way and never committed.
+
+SLN-503 adds `notes-links-media.epub`, rebuilt with
+`node scripts/qa/make-ebook-fixtures.mjs --content DIR`. It reuses the
+public-domain Huysmans paragraph attributed above. Semantic/untyped/nested
+notes, script/URL probes, multilingual markers, twelve-column table and
+PNG/SVG plates are generated CC0 test structures. The same command writes
+the temporary 1,500,000-character/60-section search corpus and expected
+original-offset manifest into DIR; these large outputs are not committed.
+The preparation/acceptance recipe is `scripts/qa/reader-content.md`.

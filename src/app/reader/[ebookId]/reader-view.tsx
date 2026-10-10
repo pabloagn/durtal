@@ -12,6 +12,7 @@ import { flushSync } from "react-dom";
 import {
   ReaderBridgeProvider,
   useReaderSlotFilled,
+  useReaderShortcut,
 } from "@/components/reader/bridge";
 import { hasOpenSurface } from "@/lib/ui/surface-state";
 import {
@@ -86,6 +87,21 @@ const GoToDialog = lazy(() =>
 const ContentsPanel = lazy(() =>
   import("@/components/reader/contents-panel").then((module) => ({
     default: module.ContentsPanel,
+  })),
+);
+const ContentViewer = lazy(() =>
+  import("@/components/reader/content-viewer").then((module) => ({
+    default: module.ContentViewer,
+  })),
+);
+const NotePopover = lazy(() =>
+  import("@/components/reader/note-popover").then((module) => ({
+    default: module.NotePopover,
+  })),
+);
+const SearchPanel = lazy(() =>
+  import("@/components/reader/search-panel").then((module) => ({
+    default: module.SearchPanel,
   })),
 );
 const ShortcutSheet = lazy(() =>
@@ -281,11 +297,30 @@ function ReaderSession({
   const selectionToolbarRef = useRef<HTMLDivElement>(null);
   const syncRef = useRef<ReturnType<typeof createPlaceSync> | null>(null);
   const [contentsOpen, setContentsOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchMounted, setSearchMounted] = useState(false);
+  const [canSearch, setCanSearch] = useState(false);
+  const [note, setNote] = useState<EngineEvents["note"]>(null);
+  const [media, setMedia] = useState<EngineEvents["media"] | null>(null);
+  const openSearch = () => {
+    paceRef.current?.interrupt();
+    setSearchMounted(true);
+    setSearchOpen(true);
+  };
+  useReaderShortcut("/", openSearch, {
+    label: "Search in book",
+    enabled: canSearch,
+  });
+  useReaderShortcut("mod f", openSearch, {
+    label: "Search in book",
+    enabled: canSearch,
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState<boolean | null>(null);
   const bars = useReaderBars({
     held:
       contentsOpen ||
+      searchOpen ||
       settingsOpen ||
       gotoOpen ||
       shortcutsOpen ||
@@ -501,6 +536,13 @@ function ReaderSession({
         paceRef.current?.interrupt();
         setContentsOpen(true);
       },
+      search: canSearch
+        ? () => {
+            paceRef.current?.interrupt();
+            setSearchMounted(true);
+            setSearchOpen(true);
+          }
+        : undefined,
       settings: () => {
         paceRef.current?.interrupt();
         setSettingsOpen(true);
@@ -578,6 +620,10 @@ function ReaderSession({
         toggleBars: () => actions.current?.toggleBars(),
         contents: () => actions.current?.contents(),
         settings: () => actions.current?.settings(),
+        // The stable input instance reads capability changes at dispatch time.
+        get search() {
+          return actions.current?.search;
+        },
         fullscreen: () => actions.current?.fullscreen(),
         goto: () => actions.current?.goto?.(),
         chapter: (direction) => actions.current?.chapter?.(direction),
@@ -744,8 +790,12 @@ function ReaderSession({
           reported = true;
           setStatus({ kind: "error", message });
         });
+        engine.on("capabilities", (capabilities) =>
+          setCanSearch(capabilities.search),
+        );
         engine.on("ready", (info) => {
           if (cancelled) return;
+          setCanSearch(info.capabilities.search);
           const positions = new PositionIndex(
             info,
             readIndexCache(localStorageOrNull(), file.sha256),
@@ -761,6 +811,8 @@ function ReaderSession({
         engine.on("link", ({ href, external, originMark }) => {
           if (!external) void navigate({ href }, "link", originMark);
         });
+        engine.on("media", (value) => setMedia(value));
+        engine.on("note", (value) => setNote(value));
         engine.on("selection", (selected) => {
           if (cancelled) return;
           setSelection(selected);
@@ -1153,6 +1205,15 @@ function ReaderSession({
               paceRef.current?.interrupt();
               setContentsOpen(true);
             }}
+            onSearch={
+              canSearch
+                ? () => {
+                    paceRef.current?.interrupt();
+                    setSearchMounted(true);
+                    setSearchOpen(true);
+                  }
+                : undefined
+            }
             onSettings={() => {
               paceRef.current?.interrupt();
               setSettingsOpen(true);
@@ -1292,6 +1353,32 @@ function ReaderSession({
           />
         )}
       </Suspense>
+      <Suspense fallback={null}>
+        {canSearch && searchMounted && engineRef.current && (
+          <SearchPanel
+            open={searchOpen}
+            engine={engineRef.current}
+            language={ebook.language ?? null}
+            onClose={() => setSearchOpen(false)}
+            onOpen={() => setSearchOpen(true)}
+            onJump={async (locator, hit) => {
+              if (hit.inNote) {
+                const href = hit.noteHref ?? locator.cfi ?? locator.href;
+                const reference = engineRef.current?.noteReference?.(href);
+                if (reference) await navigate(reference, "search");
+                if (
+                  await engineRef.current?.showNote?.(href, {
+                    force: true,
+                    keyboard: true,
+                  })
+                )
+                  return true;
+              }
+              return navigate(locator, "search");
+            }}
+          />
+        )}
+      </Suspense>
       {index && navigationRef.current && (
         <ReturnChip
           navigation={navigationRef.current}
@@ -1324,6 +1411,27 @@ function ReaderSession({
               setPositions(value);
               saveRunningPositions(localStorageOrNull(), value);
             }}
+          />
+        )}
+      </Suspense>
+      <Suspense fallback={null}>
+        {note && engineRef.current && (
+          <NotePopover
+            note={note}
+            engine={engineRef.current}
+            onNavigate={(href, source, originMark) =>
+              navigate({ href }, source, originMark)
+            }
+            onClose={() => engineRef.current?.closeNote?.()}
+          />
+        )}
+      </Suspense>
+      <Suspense fallback={null}>
+        {media && (
+          <ContentViewer
+            key={media.kind}
+            media={media}
+            onClose={() => setMedia(null)}
           />
         )}
       </Suspense>

@@ -1,3 +1,4 @@
+import { viewerImage } from "./media/content";
 /**
  * The reader's one input layer (eBooks sub-issue 3). It listens on the app's
  * document and on every section document the engine loads, so keys, taps,
@@ -30,6 +31,7 @@ export interface ReaderActions {
   toggleBars(): void;
   contents(): void;
   settings(): void;
+  search?(): void;
   fullscreen(): void;
   goto?(): void;
   chapter?(direction: -1 | 1): void;
@@ -91,14 +93,16 @@ function updateShortcuts() {
     [...set].map(
       (entry) =>
         entry.definition ??
-        ({
-          key,
-          label: entry.label ?? key,
-          group: "Plugins",
-          issue: 4,
-          context: entry.when,
-          plugin: true,
-        } satisfies ReaderShortcut),
+        (readerKey(key)?.group === "Search"
+          ? { ...readerKey(key)!, label: entry.label ?? readerKey(key)!.label }
+          : {
+              key,
+              label: entry.label ?? key,
+              group: "Plugins",
+              issue: 4,
+              context: entry.when,
+              plugin: true,
+            }) satisfies ReaderShortcut,
     ),
   );
   shortcutSnapshot = [...core, ...plugins];
@@ -136,7 +140,9 @@ export function registerReaderKey(
   key = key.toLowerCase();
   if (
     RESERVED_KEYS.has(key) ||
-    READER_KEYMAP.some((item) => item.key === key && !item.plugin)
+    READER_KEYMAP.some(
+      (item) => item.key === key && !item.plugin && item.group !== "Search",
+    )
   ) {
     if (process.env.NODE_ENV !== "production")
       throw new Error(`Reader reserves ${key}`);
@@ -301,8 +307,11 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
   const interactive = (target: EventTarget | null) => {
     const el = target as Element | null;
     if (!el || el.nodeType !== 1) return false;
-    return !!el.closest(
-      "a[href], button, input, select, textarea, label, summary, [role=button], [role=dialog], [role=slider], [role=tree], dialog, [data-reader-chrome]",
+    return (
+      !!viewerImage(el) ||
+      !!el.closest(
+        "a[href], button, input, select, textarea, label, summary, [role=button], [role=dialog], [role=slider], [role=tree], dialog, [data-reader-chrome]",
+      )
     );
   };
 
@@ -321,6 +330,24 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
       if (actions.chapter) {
         event.preventDefault();
         actions.chapter(event.key === "]" ? 1 : -1);
+      }
+      return;
+    }
+    if (
+      (event.metaKey || event.ctrlKey) &&
+      !event.altKey &&
+      event.key.toLowerCase() === "f"
+    ) {
+      const target = event.target as Element | null;
+      if (options.isBlocked() || target?.closest?.("[data-reader-search]"))
+        return;
+      const handlers = registry.get("mod f");
+      if (handlers?.size) {
+        event.preventDefault();
+        for (const entry of handlers) entry.handler(event);
+      } else if (actions.search) {
+        event.preventDefault();
+        actions.search();
       }
       return;
     }
@@ -397,6 +424,7 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
     }
     if (event.shiftKey || event.repeat) return;
     const single: Record<string, () => void> = {
+      ...(actions.search ? { "/": actions.search } : {}),
       t: actions.contents,
       s: actions.settings,
       f: actions.fullscreen,
@@ -440,6 +468,7 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
       lastTouchEnd = now();
       if (
         !start ||
+        event.defaultPrevented ||
         event.touches.length ||
         options.isBlocked() ||
         interactive(event.target)
