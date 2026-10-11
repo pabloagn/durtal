@@ -336,6 +336,9 @@ export function createReaderTransport(options: TransportOptions) {
   win?.document.addEventListener("visibilitychange", onVisibility);
   win?.addEventListener("online", kick);
   win?.addEventListener("pagehide", onPageHide);
+  // A reopened visible page may already be online, so no event wakes its
+  // persisted queue. Reuse foreground replay and its Undo/device/claim guards.
+  if (win && visible()) kick();
   return {
     store: options.store,
     async enqueue(input: DurableInput) {

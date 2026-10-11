@@ -674,6 +674,56 @@ export async function runOfflineStoreChecks() {
       }
     },
   );
+  await check("reopened visible online transport acknowledges an expired original delete without another event", async () => {
+    const operation = deletion(1), original = JSON.stringify(operation.mutation);
+    await store.enqueue(operation);
+    store.close();
+    clock += 11_000;
+    store = await open();
+    const restored = (await store.inspect())[0];
+    assert(restored.annotation?.undo?.state === "undoable" && restored.attempts === 0,
+      "Expected persisted expired, unattempted delete before transport restoration");
+    const visibleWindow = Object.assign(new EventTarget(), {
+      document: Object.assign(new EventTarget(), { visibilityState: "visible" }),
+      navigator: { onLine: true },
+    });
+    let sends = 0;
+    const transport = createReaderTransport({
+      store, window: visibleWindow as unknown as Window, locks: null, now: () => clock,
+      preflight: async () => ({ authenticated: true, deviceId: DEVICE }),
+      send: async (plan, _signal, mode) => {
+        sends++;
+        assert(mode === "foreground" && plan.rows.length === 1,
+          "Restoration must use existing foreground whole-operation replay");
+        assert(JSON.stringify(plan.rows[0].mutation) === original &&
+          plan.json === mutationWireJson(operation.mutation), "Restoration changed original delete wire or device");
+        const persisted = (await store.inspect()).find(row => row.mutation.operationId === operation.mutation.operationId);
+        assert(persisted?.state === "claimed" && persisted.annotation?.undo?.state === "sealed",
+          "Delete was sent before durable sealing and claiming");
+        return { status: 200, body: null };
+      },
+      positionAcknowledged: () => true,
+      decodeAnnotations: (_body, plan) => ({ outcomes: plan.rows.flatMap(row => {
+        if (row.mutation.kind !== "annotations") throw new Error("Expected original delete");
+        return row.mutation.body.deletes.map(item => {
+          const id = item.id;
+          if (typeof id !== "string") throw new Error("Expected persisted delete annotation ID");
+          return { id, kind: "applied" as const };
+        });
+      }) }),
+    });
+    try {
+      // Observe native IndexedDB completion; no replay call, enqueue or event
+      // is supplied to the reconstructed transport by this test.
+      const deadline = Date.now() + 2_000;
+      while ((await store.inspect()).length && Date.now() < deadline)
+        await new Promise(resolve => setTimeout(resolve, 10));
+      const receipt = await storedReceipt(operation.mutation.operationId);
+      assert(sends === 1 && (await store.inspect()).length === 0 &&
+        receipt?.outcome === "acknowledged" && receipt.original === original,
+        "Reopened expired delete was stranded, rewritten or falsely acknowledged");
+    } finally { transport.destroy(); }
+  });
   await check("hide seals deletes even when device preflight fails", async () => {
     const operation = deletion(1); await store.enqueue(operation);
     const transport = createReaderTransport({ store, window: null, locks: null,
