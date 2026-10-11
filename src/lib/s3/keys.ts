@@ -59,6 +59,20 @@ export function goldThumbnailKey(editionId: string) {
   return `gold/covers/${editionId}/thumb.webp`;
 }
 
+/** Fresh immutable catalogue cover attempt; legacy key helpers remain read-compatible. */
+export function goldCoverStageKeys(editionId: string, attemptId: string) {
+  for (const value of [editionId, attemptId])
+    if (!/^[a-zA-Z0-9-]{1,128}$/.test(value))
+      throw new Error("Invalid cover stage identity");
+  const prefix = `gold/covers/${editionId}/attempt-${attemptId}/`;
+  return { coverKey: `${prefix}cover.webp`, thumbnailKey: `${prefix}thumb.webp` };
+}
+
+/** Includes deterministic legacy objects and every immutable attempt. */
+export function isEditionCoverKey(key: string): boolean {
+  return key.startsWith("gold/covers/");
+}
+
 export function goldExportKey(exportId: string) {
   return `gold/exports/${exportId}/library_export.csv`;
 }

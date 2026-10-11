@@ -7,7 +7,10 @@ import {
   it,
   vi,
 } from "vitest";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
@@ -16,8 +19,39 @@ import { databaseErrorCode } from "@/lib/db/errors";
 import { planLink, linkEbook, linkUndoEntry } from "@/lib/ebooks/match/link";
 import { planUndoLink, undoLink } from "@/lib/ebooks/match/undo";
 import type { Db } from "@/lib/catalogue/work-store";
-import { ebookFileKey } from "@/lib/ebooks/keys";
 import { bookHoldings } from "@/lib/catalogue/holdings";
+import { loadMatchCatalogue } from "@/lib/ebooks/match/load";
+import { planGroupMatching } from "@/lib/ebooks/match/groups";
+import { scoreCalibration } from "@/lib/ebooks/match/calibration";
+import { planApprovedGroupsOn, applyApprovedGroups } from "@/lib/ebooks/match/apply-groups";
+import { planAccessionOn, accessionEbooks } from "@/lib/ebooks/match/accession";
+import { matchFingerprint } from "@/lib/ebooks/match/keys";
+import type { LinkReceipt } from "@/lib/ebooks/match/link";
+import { reserveUndoLog, appendUndoLog, readUndoLog } from "@/lib/books/undo-file";
+import { publicationFixture } from "../ebooks/publication-fixture";
+import { coverBucket, resetCoverBucket, realCoverBytes } from "../s3/cover-stage-fixture";
+import { PutObjectCommand, DeleteObjectCommand, DeleteObjectsCommand } from "@aws-sdk/client-s3";
+
+const sourceStorage = vi.hoisted(() => ({ objects: new Map<string, Buffer>() }));
+vi.mock("@/lib/ebooks/storage", () => ({
+  headEbookObject: async (key: string) => {
+    const buffer = sourceStorage.objects.get(key);
+    if (!buffer) throw new Error(`Unexpected source HEAD ${key}`);
+    const sha256 = createHash("sha256").update(buffer).digest("hex");
+    return { size: buffer.length, sha256, metadataSha256: sha256 };
+  },
+  getEbookObjectRange: async (key: string) => {
+    const buffer = sourceStorage.objects.get(key);
+    if (!buffer) throw new Error(`Unexpected source GET ${key}`);
+    return { length: buffer.length, body: new ReadableStream<Uint8Array>({
+      start(controller) { controller.enqueue(Buffer.from(buffer)); controller.close(); },
+    }) };
+  },
+}));
+vi.mock("@/lib/s3/client", async () => ({ S3_BUCKET: "local-test",
+  s3: { send: (await import("../s3/cover-stage-fixture")).catalogueSend } }));
+vi.mock("@/lib/enrichment/queue", () => ({ BULK_ACCESSION_PRIORITY: 200,
+  queueNewBookEnrichment: async () => ({ ok: true, jobs: [] }) }));
 
 const url = process.env.DURTAL_EBOOK_MATCH_TEST_DATABASE_URL;
 if (url) {
@@ -90,8 +124,9 @@ describe.skipIf(!url)("ebook matching on disposable PostgreSQL", () => {
     await c`insert into editions(id,work_id,title,language) values(${editionId},${workId},'Nadja','en'),(${otherEditionId},${otherWorkId},'Other','en')`;
     await c`insert into instances(id,edition_id,location_id) values(${instanceId},${editionId},${locationId})`;
     await c`insert into ebooks(id,title,import_source,match_tier) values(${ebookId},'Nadja','folder','strong')`;
-    const sha256 = "a".repeat(64);
-    await c`insert into ebook_files(id,ebook_id,sha256,format,size_bytes,content_type,s3_key,status) values(${randomUUID()},${ebookId},${sha256},'epub',1000,'application/epub+zip',${ebookFileKey(sha256, "epub")},'stored')`;
+    const file = publicationFixture();
+    await c`insert into ebook_files(id,ebook_id,sha256,format,size_bytes,content_type,s3_key,status,metadata,manifest_key)
+      values(${randomUUID()},${ebookId},${file.sha256},${file.format},${file.sizeBytes},'application/epub+zip',${file.s3Key},'stored',${c.json(file.metadata)},${file.manifestKey})`;
   });
   const insertCandidate = (
     conn: postgres.Sql | postgres.TransactionSql,
@@ -118,6 +153,132 @@ describe.skipIf(!url)("ebook matching on disposable PostgreSQL", () => {
       "Expected the concurrent candidate/parent statement to wait for a lock",
     );
   };
+  it.each([
+    ["groups", "later_pair"], ["groups", "commit"], ["groups", "ack"], ["groups", "success"],
+    ["accession", "later_pair"], ["accession", "commit"], ["accession", "ack"], ["accession", "success"],
+  ] as const)("reconciles %s disk reservations with real committed cover receipts on %s", async (writer, failure) => {
+    resetCoverBucket(); sourceStorage.objects.clear();
+    // Both targets require a new edition. Two unrelated editions share the old
+    // pair, so a failed or uncertain publication must preserve their pointers.
+    await c`delete from instances`;
+    await c`delete from editions`;
+    const siblingId = randomUUID(), personId = randomUUID(), secondId = randomUUID();
+    const locationId = randomUUID(), personName = `Cover Fixture ${personId}`;
+    await c`insert into locations(id,name,type,is_active) values(${locationId},'Combined cover fixture','digital',true)`;
+    await c`insert into app_settings(id,ebook_location_id) values(true,${locationId}) on conflict(id) do update set ebook_location_id=excluded.ebook_location_id`;
+    await c`insert into authors(id,name) values(${personId},${personName})`;
+    await c`update works set title='Arcane Letters' where id=${otherWorkId}`;
+    await c`insert into work_authors(work_id,author_id,role) values(${workId},${personId},'author'),(${otherWorkId},${personId},'author')`;
+    const oldCover = 'gold/covers/retained-shared/cover.webp', oldThumb = 'gold/covers/retained-shared/thumb.webp';
+    const oldBytes = await realCoverBytes('#557799');
+    coverBucket.objects.set(oldCover, Buffer.from(oldBytes)); coverBucket.objects.set(oldThumb, Buffer.from(oldBytes));
+    await c`insert into works(id,title,kind,original_language) values(${siblingId},'Retained sibling','book','en')`;
+    await c`insert into editions(id,work_id,title,language,cover_s3_key,thumbnail_s3_key)
+      values(${editionId},${siblingId},'Retained sibling A','en',${oldCover},${oldThumb}),
+        (${otherEditionId},${siblingId},'Retained sibling B','en',${oldCover},${oldThumb})`;
+    await c`update ebooks set authors=array[${personName}],language='en',match_tier=null where id=${ebookId}`;
+    await c`insert into ebooks(id,title,authors,language,import_source) values(${secondId},'Arcane Letters',array[${personName}],'en','folder')`;
+    await c`delete from ebook_files`;
+    for (const [i, id] of [ebookId, secondId].entries()) {
+      const file = publicationFixture('epub', (i ? 'ac' : 'ab').repeat(32));
+      const buffer = await realCoverBytes(i ? '#663311' : '#224466');
+      const cover = file.metadata.medallion.gold[1];
+      cover.key = cover.key.replace('cover-240.webp','cover-800.webp');
+      cover.sha256 = createHash('sha256').update(buffer).digest('hex'); cover.size = buffer.length;
+      sourceStorage.objects.set(cover.key, Buffer.from(buffer));
+      await c`insert into ebook_files(id,ebook_id,sha256,format,size_bytes,content_type,s3_key,status,metadata,manifest_key,cover_key)
+        values(${randomUUID()},${id},${file.sha256},${file.format},${file.sizeBytes},'application/epub+zip',${file.s3Key},'stored',${c.json(file.metadata)},${file.manifestKey},${cover.key})`;
+    }
+    const loaded = await loadMatchCatalogue(database), inputs = loaded.catalogue.source.ebooks;
+    expect(inputs).toHaveLength(2);
+    expect(inputs.every(input => input.files[0].availability === 'native' && input.files[0].coverKey)).toBe(true);
+    const identity = { runId: randomUUID(), targetDatabase: 'disposable', now: new Date().toISOString() };
+    const candidate = await (async () => {
+      if (writer === 'accession') return { kind: 'accession' as const,
+        plan: await planAccessionOn(database, [ebookId, secondId], identity,
+          new Map(inputs.map(input => [input.id, { authors: [{ id: personId }] }]))) };
+      const plan = await planGroupMatching(database, inputs.map(input => ({
+        groupKey: `registered:${input.id}`, metadataFingerprint: matchFingerprint(input),
+        existingEbookId: input.id, ebook: input,
+      })), 'e'.repeat(64));
+      expect(plan.results.every(result => result.autoLink)).toBe(true);
+      const precision = scoreCalibration(plan.binding, plan.sample, plan.sample.map(row => ({
+        ebookId: row.ebookId, fingerprint: row.fingerprint, tier: row.tier!, label: 'right' as const,
+      })));
+      const result = await planApprovedGroupsOn(database, { plan, precision }, inputs.map(input => ({
+        groupKey: `registered:${input.id}`, ebookId: input.id,
+        fileIds: Object.fromEntries(input.files.map(file => [file.sha256, file.id])),
+      })), identity);
+      if (result.kind !== 'planned') throw new Error('Expected two group links');
+      expect(result.plan.links).toHaveLength(2);
+      return { kind: 'groups' as const, plan: result.plan };
+    })();
+    const siblingBefore = await c`select to_jsonb(e) row from editions e where work_id=${siblingId} order by id`;
+    const sourceBefore = new Map([...sourceStorage.objects].map(([key, buffer]) => [key, Buffer.from(buffer)]));
+    const directory = await mkdtemp(join(tmpdir(), 'combined-db-cover-reservation-')), disk = join(directory, 'undo.jsonl');
+    reserveUndoLog(disk, { version: 1, runId: candidate.plan.runId });
+    const reserved: LinkReceipt[] = [];
+    let transactions = 0;
+    const connection = { transaction: async (run: (tx: Db) => Promise<unknown[]>) => {
+      transactions++;
+      const result = await drizzle(c, { schema }).transaction(async tx => {
+        const result = await run(tx as unknown as Db);
+        // Reject after all real SQL statements, including receipt capture, to
+        // prove the whole catalogue mutation rolls back together.
+        if (failure === 'commit') throw new Error('commit rejected');
+        return result;
+      });
+      // The actual transaction has committed before this transport failure.
+      if (failure === 'ack') throw new Error('acknowledgement lost');
+      return result;
+    } } as unknown as Db;
+    const beforeWrite = async (receipt: LinkReceipt) => {
+      expect(coverBucket.calls.filter(call => call instanceof PutObjectCommand)).toEqual([]);
+      expect(receipt.coverStage?.state).toBe('reserved');
+      appendUndoLog(disk, receipt); reserved.push(receipt);
+      if (failure === 'later_pair' && reserved.length === 2)
+        coverBucket.failBefore.add(receipt.coverStage!.allocation.thumbnailKey);
+    };
+    try {
+      const promise = candidate.kind === 'groups'
+        ? applyApprovedGroups(connection, candidate.plan, candidate.plan.targetDatabase, { beforeWrite })
+        : accessionEbooks(connection, candidate.plan, candidate.plan.targetDatabase, { beforeWrite });
+      if (failure === 'success') await promise;
+      else await expect(promise).rejects.toThrow(failure === 'later_pair' ? 'Cover stage verification failed' : failure === 'commit' ? 'commit rejected' : 'acknowledgement lost');
+      const entries = readUndoLog<unknown, LinkReceipt>(disk).entries;
+      expect(entries).toHaveLength(2);
+      expect(new Set(entries.map(entry => entry.operationId)).size).toBe(2);
+      expect(entries.every(entry => entry.coverStage?.state === 'reserved')).toBe(true);
+      expect(transactions).toBe(failure === 'later_pair' ? 0 : 1);
+      const actual = await c`select id,instance_id,match_state,link_written from ebooks order by id`;
+      if (failure === 'later_pair' || failure === 'commit') {
+        expect(actual.every(row => row.instance_id === null && row.match_state === 'pending' && row.link_written === null)).toBe(true);
+        expect((await loadMatchCatalogue(database)).rows).toEqual(loaded.rows);
+      } else {
+        expect(actual.every(row => row.instance_id && row.match_state === 'linked')).toBe(true);
+        for (const entry of entries) {
+          const receipt = actual.find(row => row.id === entry.ebookId)!.link_written as LinkReceipt;
+          expect(receipt).toMatchObject({ operationId: entry.operationId, runId: entry.runId,
+            planSha256: entry.planSha256, editionId: entry.editionId,
+            coverArtifacts: entry.coverArtifacts,
+            coverStage: { state: 'verified', allocation: entry.coverStage!.allocation } });
+          for (const evidence of [receipt.coverStage!.cover!, receipt.coverStage!.thumbnail!]) {
+            const buffer = coverBucket.objects.get(evidence.key)!;
+            expect(evidence.sha256).toBe(createHash('sha256').update(buffer).digest('hex'));
+            expect(evidence.size).toBe(buffer.length);
+          }
+          expect(receipt.after!.edition).toMatchObject({ cover_s3_key: receipt.coverStage!.cover!.key,
+            thumbnail_s3_key: receipt.coverStage!.thumbnail!.key });
+          expect(receipt.after!.instance).toMatchObject({ id: entry.instanceId, edition_id: entry.editionId });
+        }
+      }
+      expect(coverBucket.objects.size).toBe(failure === 'later_pair' ? 5 : 6);
+      expect(await c`select to_jsonb(e) row from editions e where work_id=${siblingId} order by id`).toEqual(siblingBefore);
+      expect(coverBucket.objects.get(oldCover)).toEqual(oldBytes); expect(coverBucket.objects.get(oldThumb)).toEqual(oldBytes);
+      expect(sourceStorage.objects).toEqual(sourceBefore);
+      expect(coverBucket.calls.some(call => call instanceof DeleteObjectCommand || call instanceof DeleteObjectsCommand)).toBe(false);
+    } finally { await rm(directory, { recursive: true, force: true }); }
+  });
   it("commits a manual fill receipt and undoes only that link without recreating parents", async () => {
     const plan = await planLink(url!, {
       ebookId, workId, instanceId, method: "manual",
@@ -184,8 +345,9 @@ describe.skipIf(!url)("ebook matching on disposable PostgreSQL", () => {
   it("prevents two separately planned operations from filling the same copy", async () => {
     const otherEbookId = randomUUID();
     await c`insert into ebooks(id,title,import_source) values(${otherEbookId},'Nadja','folder')`;
-    const secondHash = "b".repeat(64);
-    await c`insert into ebook_files(id,ebook_id,sha256,format,size_bytes,content_type,s3_key,status) values(${randomUUID()},${otherEbookId},${secondHash},'epub',1000,'application/epub+zip',${ebookFileKey(secondHash, "epub")},'stored')`;
+    const secondFile = publicationFixture("epub", "ac".repeat(32));
+    await c`insert into ebook_files(id,ebook_id,sha256,format,size_bytes,content_type,s3_key,status,metadata,manifest_key)
+      values(${randomUUID()},${otherEbookId},${secondFile.sha256},${secondFile.format},${secondFile.sizeBytes},'application/epub+zip',${secondFile.s3Key},'stored',${c.json(secondFile.metadata)},${secondFile.manifestKey})`;
     const first = await planLink(url!, { ebookId, workId, instanceId, method: "manual" });
     const second = await planLink(url!, { ebookId: otherEbookId, workId, instanceId, method: "manual" });
     const results = await Promise.allSettled([

@@ -137,7 +137,7 @@ describe("classification-only restore", () => {
     expect(calls).toEqual([]);
     const extension = prepareMatchAtomicExtension({ coreWriter: "classification", coreOperation: frozen, ebookIds: [ebookId],
       purpose: "compensation", compensation: policy, reviewOperations: [{ ...operation, operationId: policy.compensationOperationId }] },
-      { extraTables: ["activity_events"], before: (d) => [d.execute(sql`select 'before review'`)], after: (d) => [d.execute(sql`select 'after review'`)] });
+      { extraTables: ["activity_events"], before: (d) => [d.execute(sql`select ${'before review'}`)], after: (d) => [d.execute(sql`select ${'after review'}`)] });
     expect(await persistClassification({} as Db, frozen, "target", { atomicExtension: extension })).toBe(state.results);
     const updates = calls.filter((query) => query.startsWith('update "ebooks"') && query.includes('"updated_at" ='));
     expect(updates).toHaveLength(1); expect(updates[0]).toContain("greatest(clock_timestamp()");

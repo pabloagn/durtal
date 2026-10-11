@@ -3,6 +3,9 @@
  * source record against it, and save the accepted fields. Shared by Match
  * and the queue that identifies placeholder editions. Server only.
  */
+import { atomic } from "@/lib/db/atomic";
+import { readEditionWriteSnapshot, editionWriteGuardQueries, editionUpdateQuery, type EditionWriteSnapshot } from "@/lib/catalogue/edition-write-guard";
+import { retainCoverAttempt, requireVerifiedCover, type VerifiedCoverStage } from "@/lib/s3/cover-stage";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { editions } from "@/lib/db/schema";
@@ -25,7 +28,12 @@ import {
   type SourceRecord,
 } from "@/lib/match/source";
 
+const matchWriteSnapshots = new WeakMap<object, EditionWriteSnapshot>();
+
 export async function loadMatchEdition(editionId: string) {
+  // Read exact DB state first. Any drift during the relational read or staging
+  // will be rejected under the publication lock, rather than rounded dates.
+  const writeSnapshot = await readEditionWriteSnapshot(editionId);
   const edition = await db.query.editions.findFirst({
     where: eq(editions.id, editionId),
     with: {
@@ -36,6 +44,8 @@ export async function loadMatchEdition(editionId: string) {
     },
   });
   if (!edition) throw new Error("Edition not found");
+  // Keep SQL snapshot server-local; never add related row JSON to UI payloads.
+  matchWriteSnapshots.set(edition, writeSnapshot);
   return edition;
 }
 export type MatchEdition = Awaited<ReturnType<typeof loadMatchEdition>>;
@@ -147,6 +157,8 @@ export async function saveMatch(
   };
   if (!accepted.length && !relink) return result;
 
+  const expected = matchWriteSnapshots.get(edition);
+  if (!expected) throw new Error("Load a fresh edition before saving the match");
   const updates: Partial<typeof editions.$inferInsert> = {};
   let coverUrl: string | null = null;
   for (const { field, value } of accepted) {
@@ -161,9 +173,14 @@ export async function saveMatch(
     result.after[field] = row.next;
   }
 
+  let stagedCover: VerifiedCoverStage | null = null;
   if (coverUrl) {
     const cover = await processAndUploadCover(edition.id, coverUrl);
+    stagedCover = cover;
     if (cover) {
+      requireVerifiedCover(cover, edition.id);
+      if (cover.source.kind !== "url" || cover.source.url !== coverUrl)
+        throw new Error("Matched cover source differs from its verified stage");
       updates.coverS3Key = cover.coverKey;
       updates.thumbnailS3Key = cover.thumbnailKey;
       updates.coverSourceUrl = coverUrl;
@@ -190,7 +207,15 @@ export async function saveMatch(
   updates.updatedAt = new Date();
 
   // The trigger relinks the house when the publisher, imprint or ISBN change
-  await db.update(editions).set(updates).where(eq(editions.id, edition.id));
+  try {
+    await atomic((d) => [
+      ...editionWriteGuardQueries(d, expected),
+      editionUpdateQuery(d, edition.id, updates),
+    ]);
+  } catch (error) {
+    if (stagedCover) retainCoverAttempt(stagedCover, "rematch publication rejected or uncertain");
+    throw error;
+  }
   await autoResolveEditions([edition.id]);
 
   recordActivity("work", edition.work.id, "work.rematched", {

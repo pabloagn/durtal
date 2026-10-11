@@ -46,6 +46,15 @@ export async function previewPut(dir: string, key: string, body: Buffer | Uint8A
   return key;
 }
 
+/** Cover stages must never truncate an existing preview object. The caller
+ * verifies bytes on both successful creation and an EEXIST/retry response. */
+export async function previewPutExclusive(dir: string, key: string, body: Buffer) {
+  const file = previewObjectPath(dir, key);
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, body, { flag: "wx" });
+  return key;
+}
+
 /** The object as the SDK gives it: a body with transformToWebStream and transformToByteArray; a missing file fails like NoSuchKey */
 export async function previewGet(dir: string, key: string) {
   const file = previewObjectPath(dir, key);

@@ -295,7 +295,7 @@ describe("operation-owned matching undo", () => {
     const extension = prepareMatchAtomicExtension({ coreWriter: "undo_link", coreOperation: planned.plan,
       ebookIds: [ebookId], purpose: "compensation", compensation: policy,
       reviewOperations: [{ ...operation, operationId: policy.compensationOperationId }] },
-      { extraTables: ["activity_events"], before: (d) => [d.execute(sql`select 'before review'`)], after: (d) => [d.execute(sql`select 'after review'`)] });
+      { extraTables: ["activity_events"], before: (d) => [d.execute(sql`select ${'before review'}`)], after: (d) => [d.execute(sql`select ${'after review'}`)] });
     state.calls.length = 0; state.params.length = 0;
     await undoLink({} as Db, planned.plan, "target", { atomicExtension: extension });
     const versions = state.calls.filter((query) => query.startsWith('update "ebooks"') && query.includes('"updated_at" ='));

@@ -1,3 +1,4 @@
+import type { AllocatedCoverStage, VerifiedCoverStage, CoverObjectEvidence } from "@/lib/s3/cover-stage";
 import { randomUUID } from "node:crypto";
 import { sql, eq } from "drizzle-orm";
 import type { Db } from "@/lib/catalogue/work-store";
@@ -34,7 +35,7 @@ import { snapshotGuardQueries, type AdditionalSnapshotRows } from "./guards";
 import { requireMatchProbability } from "./validation";
 import type { LinkEffect, MatchEbook, MatchOperationIdentity } from "./types";
 import { requireApprovedGroupPlan, type ApprovedGroupMatching } from "./groups";
-import { planCoverCopy, copyPlannedCover, discardUnusedCover } from "./covers";
+import { planCoverCopy, copyPlannedCover, discardUnusedCover, requireMatchingCover } from "./covers";
 
 export interface LinkChoices {
   ebookId: string;
@@ -121,6 +122,14 @@ export interface LinkReceipt extends MatchOperationIdentity {
   historyIdsCreated: readonly string[];
   activityIdsCreated: readonly string[];
   coverArtifacts?: readonly string[];
+  /** Optional: old persisted receipts remain readable. Reservation precedes PUT;
+   * verified output hashes are persisted with this same operation on commit. */
+  coverStage?: {
+    state: "reserved" | "verified";
+    allocation: AllocatedCoverStage;
+    cover?: CoverObjectEvidence;
+    thumbnail?: CoverObjectEvidence;
+  };
   approvedGroupHash?: string;
   before: {
     ebook: StoredRow;
@@ -323,14 +332,17 @@ export async function prepareLinkWrite(
   plan: LinkPlan,
   runtimeTarget: string,
   options: {
-    preparedCover?: NonNullable<Parameters<typeof planBookEdition>[1]>["cover"];
+    preparedCover?: VerifiedCoverStage | null;
+    coverReservation?: AllocatedCoverStage;
     automaticApproval?: ApprovedGroupMatching;
   } = {},
 ) {
   plan = immutableMatchingWriterInput(plan);
   options = {
     ...options,
-    preparedCover: immutableMatchingWriterInput(options.preparedCover),
+    // Issued cover capabilities are already deeply immutable; retain their registry identity.
+    preparedCover: options.preparedCover,
+    coverReservation: options.coverReservation,
     automaticApproval: immutableMatchingWriterInput(options.automaticApproval),
   };
   if (
@@ -407,6 +419,14 @@ export async function prepareLinkWrite(
     )
       throw new Error("Automatic effect differs from the reviewed candidate");
   }
+  const sourceKey = plan.effect.newEdition?.coverSourceKey ?? null;
+  if (options.coverReservation)
+    requireMatchingCover(plan.snapshot, plan.ebook.id, plan.editionId, sourceKey, plan, options.coverReservation, false);
+  if (options.preparedCover) {
+    requireMatchingCover(plan.snapshot, plan.ebook.id, plan.editionId, sourceKey, plan, options.preparedCover, true);
+    if (options.coverReservation && options.coverReservation.attemptId !== options.preparedCover.attemptId)
+      throw new Error("Completed cover differs from reserved attempt");
+  }
   const at = new Date(plan.createdAt);
   if (!Number.isFinite(at.getTime())) throw new Error("Invalid link timestamp");
   const timestamp = at.getTime();
@@ -427,20 +447,24 @@ export async function prepareLinkWrite(
     : null;
   const receipt: LinkReceipt = immutableMatchingWriterInput({
     ...linkUndoEntry(plan),
-    ...(options.preparedCover
+    ...((options.preparedCover ?? options.coverReservation)
       ? {
-          coverArtifacts: [
-            options.preparedCover.coverKey,
-            options.preparedCover.thumbnailKey,
-          ],
-        }
-      : {}),
+          coverArtifacts: [(options.preparedCover ?? options.coverReservation)!.coverKey,
+            (options.preparedCover ?? options.coverReservation)!.thumbnailKey],
+          coverStage: {
+            state: options.preparedCover ? "verified" as const : "reserved" as const,
+            allocation: options.coverReservation ?? options.preparedCover!,
+            ...(options.preparedCover ? { cover: options.preparedCover.cover, thumbnail: options.preparedCover.thumbnail } : {}),
+          },
+        } : {}),
   });
   return {
     receipt,
     queries: (d: Db) => {
       if (at.getTime() !== timestamp)
         throw new Error("Prepared link timestamp changed; nothing written");
+      if (options.coverReservation && !options.preparedCover)
+        throw new Error("Reserved cover must complete verification before publication");
       return [
         d
           .delete(ebookMatchCandidates)
@@ -519,7 +543,9 @@ export async function linkEbook(
   plan = immutableMatchingWriterInput(plan);
   options = {
     ...options,
-    preparedCover: immutableMatchingWriterInput(options.preparedCover),
+    // Issued cover capabilities are already deeply immutable; retain their registry identity.
+    preparedCover: options.preparedCover,
+    coverReservation: options.coverReservation,
     automaticApproval: immutableMatchingWriterInput(options.automaticApproval),
   };
   const extension = requireMatchAtomicExtension(options.atomicExtension, {
@@ -534,18 +560,19 @@ export async function linkEbook(
         plan.ebook.id,
         plan.editionId,
         plan.effect.newEdition?.coverSourceKey ?? null,
+        plan,
       );
   let prepared = await prepareLinkWrite(plan, runtimeTarget, {
     ...options,
-    preparedCover: coverPlan
-      ? { ...coverPlan, palette: null }
-      : options.preparedCover,
+    preparedCover: options.preparedCover,
+    coverReservation: coverPlan?.allocation ?? options.coverReservation,
   });
   await options.beforeWrite?.(prepared.receipt);
   try {
     if (coverPlan)
       prepared = await prepareLinkWrite(plan, runtimeTarget, {
         ...options,
+        coverReservation: coverPlan.allocation,
         preparedCover: await copyPlannedCover(coverPlan),
       });
     return await withReadableErrors(() =>

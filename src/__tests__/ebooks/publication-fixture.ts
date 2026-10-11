@@ -7,8 +7,10 @@ import {
 } from "@/lib/ebooks/keys";
 import { MEDALLION_VERSION } from "@/lib/ebooks/medallion";
 
-export function publicationFixture(format: EbookFormat = "epub") {
-  const sha256 = "ab".repeat(32);
+export function publicationFixture(
+  format: EbookFormat = "epub",
+  sha256 = "ab".repeat(32),
+) {
   const reportHash = "cd".repeat(32);
   const object = {
     key: ebookGoldFileKey(sha256, format),

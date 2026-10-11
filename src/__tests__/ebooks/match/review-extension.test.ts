@@ -65,7 +65,11 @@ describe("internal prepared review capabilities", () => {
   });
   it("locks the sorted complete union once before core and additional raw assertions", () => {
     const d = drizzle.mock() as unknown as Db, dialect = new PgDialect();
-    const snapshot = { rows: Object.fromEntries(MATCH_TABLES.map((table) => [table, []])) } as Pick<LoadedMatchCatalogue, "rows">;
+    const snapshot: Pick<LoadedMatchCatalogue, "rows"> = { rows: {
+      works: [], editions: [], authors: [], person_aliases: [], work_authors: [],
+      catalogue_identifiers: [], series: [], instances: [], app_settings: [],
+      locations: [], ebooks: [], ebook_files: [], ebook_match_candidates: [],
+    } };
     const queries = snapshotGuardQueries(d, snapshot, ["activity_events", "readings", "activity_events"], { sub_locations: [] });
     const rendered = queries.map((query) => dialect.sqlToQuery((query as { getSQL(): ReturnType<typeof sql> }).getSQL()).sql);
     const names = [...new Set([...MATCH_TABLES, "activity_events", "readings", "sub_locations"])].sort();

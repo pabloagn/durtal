@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { media } from "@/lib/db/schema";
 import { isNotNull } from "drizzle-orm";
 import { uploadToS3 } from "@/lib/s3/covers";
+import { isEditionCoverKey } from "@/lib/s3/keys";
 import { readS3Object } from "@/lib/s3/read-object";
 
 
@@ -40,6 +41,10 @@ export async function POST(req: Request) {
 
     for (const item of allMedia) {
       try {
+        // Harmonization legitimately aliases edition thumbnails as posters.
+        // Refuse before reads/rendering/PUT; keep every owner/pointer untouched.
+        if (item.thumbnailS3Key && isEditionCoverKey(item.thumbnailS3Key))
+          throw new Error("Protected edition cover thumbnail retained; reprocessing refused");
         // The full-size image
         const buffer = await readS3Object(item.s3Key);
 

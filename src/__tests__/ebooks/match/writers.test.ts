@@ -45,7 +45,7 @@ describe('shared guarded matching writers',()=>{
   function reviewExtension(plan:Parameters<typeof linkEbook>[1]|Parameters<typeof accessionEbooks>[1],id:string){
     const operation={version:plan.version,operationId:plan.operationId,runId:plan.runId,planSha256:plan.planSha256,targetDatabase:plan.targetDatabase};
     return prepareMatchAtomicExtension({coreWriter:plan.kind==='link'?'link':'accession',coreOperation:plan,ebookIds:[id],reviewOperations:[operation],purpose:'decision'},
-      {extraTables:['activity_events'],before:(d)=>[d.execute(sql`select 'review before'`)],after:(d)=>[d.execute(sql`select 'review after'`)]});
+      {extraTables:['activity_events'],before:(d)=>[d.execute(sql`select ${'review before'}`)],after:(d)=>[d.execute(sql`select ${'review after'}`)]});
   }
   it.each(['preparation','reservation'] as const)('uses original nested link values after caller mutation during awaited %s',async(boundary)=>{
     const {id}=uuidInput();
@@ -176,7 +176,7 @@ describe('shared guarded matching writers',()=>{
     const plan=await planLink(url,{ebookId:id,workId,method:'manual'});
     const operation={version:plan.version,operationId:plan.operationId,runId:plan.runId,planSha256:plan.planSha256,targetDatabase:plan.targetDatabase};
     const extension=prepareMatchAtomicExtension({coreWriter:'link',coreOperation:plan,ebookIds:[id],reviewOperations:[operation],purpose:'decision'},
-      {extraTables:['activity_events'],before:(d)=>[d.execute(sql`select 'review before'`)],after:(d)=>[d.execute(sql`select 'review after'`)]});
+      {extraTables:['activity_events'],before:(d)=>[d.execute(sql`select ${'review before'}`)],after:(d)=>[d.execute(sql`select ${'review after'}`)]});
     await linkEbook({} as Db,plan,plan.targetDatabase,{atomicExtension:extension});
     expect(state.order).toEqual(['atomic']);expect(state.writes[0].sql).toContain('"activity_events"');
     const before=state.writes.findIndex((query)=>query.params.includes('review before'));
@@ -190,7 +190,7 @@ describe('shared guarded matching writers',()=>{
     const plan=writer==='decision'?await planDecision(url,[id],{action:'keep'}):await planAccession(url,[id]);
     const operation={version:plan.version,operationId:plan.operationId,runId:plan.runId,planSha256:plan.planSha256,targetDatabase:plan.targetDatabase};
     const extension=prepareMatchAtomicExtension({coreWriter:writer,coreOperation:plan,ebookIds:[id],reviewOperations:[operation],purpose:'decision'},
-      {extraTables:['activity_events'],before:(d)=>[d.execute(sql`select 'review before'`)],after:(d)=>[d.execute(sql`select 'review after'`)]});
+      {extraTables:['activity_events'],before:(d)=>[d.execute(sql`select ${'review before'}`)],after:(d)=>[d.execute(sql`select ${'review after'}`)]});
     if(plan.kind==='decision')expect(await applyDecision({} as Db,plan,plan.targetDatabase,{atomicExtension:extension})).toEqual([]);
     else {
       state.queueFailure=true;

@@ -267,3 +267,96 @@ All new focused tests are authored and unexecuted. No tests, typecheck, lint,
 product runtime, migrations, database commands, commits, pushes, live/cloud writes
 or deployment ran for this grant. This task remains In Progress pending the
 coordinator's independent exact-diff review and separately authorized checks.
+
+## Cover integrity backend authoring, SLN-572, 2026-10-10
+
+Source-only checkpoint in the separate media-integrity checkout, based on
+`3bb556077907ebfbfbdd8efffd1380f782e4f631`. It is not release acceptance.
+
+Catalogue covers now allocate fresh attempt paths and use create-only PUTs,
+output SHA-256/size checks and bounded actual-byte read-back before issuing a
+complete publication capability. Preview creation is exclusive. URL fetching
+retains the existing safety guard; accepted ebook source reads retain their
+ownership, lineage, checksum and size bounds. Legacy key reads stay compatible.
+
+Edition edit/rematch publication captures SQL JSON with microsecond timestamp
+identity, then runs a separate table lock, fresh state assertion and counted
+UPDATE in the same atomic batch/transaction. Snapshot state stays server-local.
+Matching reservations precede storage writes; only verified pairs can publish,
+with exact output hashes in the same operation's committed receipt. Existing
+edition effects reject stages, and default undo remains DB-only.
+
+Failed or uncertain cover outcomes retain candidate paths and report pending
+reconciliation, including create follow-up errors after DB commit. Cleanup
+filters final prefix-expanded candidates to gold, retains all edition cover
+objects and associated adjustments, and reports only unreferenced retained
+covers as pending. The report-only orphan tool grants no deletion permission.
+The authorized reprocess route explicitly refuses cover-thumbnail aliases.
+Generic non-cover overwrite/cleanup concurrency remains outside this boundary.
+
+Focused byte/fault, preview exclusivity, owner/source/reservation, API refusal,
+Postgres rollback/competing-writer/microsecond/zero-row and actual wizard/Fast
+Track postcommit-failure regression sources are authored. They have not run.
+Typecheck, lint, all tests, DB/native/runtime/build, migration, live/cloud actions,
+commit/push and publication remain held pending frozen-source review. The cover
+editor, inheritance/history UI and any durable physical-cover GC protocol are
+outside this checkpoint.
+
+
+The prefix-race tests distinguish an explicitly supplied helper namespace from
+ordinary edition deletion, which cannot discover a fresh unpublished reader
+UUID. Retention reporting is through structured exact-path recovery warnings
+and the helper's cleanupPending result; persisted matching output evidence is
+in the committed receipt. No new durable orphan/retirement table is introduced.
+Existing wizard/Fast Track follow-up error wording is not redesigned here.
+
+
+## Combined matching and cover source, 2026-10-10
+
+The exact source-approved SLN-495 candidate was checkpointed as `c6f06322`
+with Pablo Aguirre as author and committer. Canonical SLN-572 `f6e144c1` is
+being composed on that central integration base. The coordinator reports its
+standalone 51 focused tests and affected source lint passed; that evidence does
+not validate this combined source. The three actual overlaps are resolved in
+place, preserving private immutable matching inputs/receipts, active digital
+destinations, sorted guards and final review suffix, and the pre-PUT reservation
+and verified complete cover-pair publication contract. Issued immutable cover
+capabilities retain registry identity; persisted reservation/verified evidence
+is a separate frozen DTO. Accession replaces its private receipt after complete
+pair verification, preserving the original reserved receipt for reconciliation.
+Combined group/accession real-byte regression sources are authored but unrun.
+The pure suite covers reservation order, later-pair/commit/ack failures, final
+review suffix and existing-edition fill/move/placeholder zero-cover-write routes.
+The disposable PostgreSQL suite separately authors actual committed receipt and
+disk-entry reconciliation after a lost acknowledgement, complete rollback after
+all statements and preservation of aliased old edition pointers/bytes. Its two
+legacy source-file fixtures now carry the loader-required publication evidence.
+No types/test/lint/runtime/DB/browser/build/cloud execution, push or combined
+merge commit ran in this authoring lane. Independent combined source review and
+the coordinator's source-bound execution gates remain required.
+
+
+## Combined private QA fixture correction, 2026-10-10
+
+The coordinator ran the exact private candidate tree `f327e52c`: 14 selected
+test files reported 202 passed and 21 failed across four files. Types and lint
+were not attempted after that failure. The original frozen source and failed
+log/result remain preserved; this correction has not been retested.
+
+The eleven new byte cases stopped at the fixture's native publication assertion:
+replacing the second full checksum had left the first checksum's two-character
+folder in its keys. The publication fixture now accepts a source checksum and
+builds every bronze/silver/gold/manifest key through the canonical helpers. Both
+byte writers and disposable database cases use it. A new regression checks a
+valid distinct-checksum source first, then verifies each mixed-folder lineage
+is rejected without storage calls. Native/owner/cover assertions stay intact.
+
+The other ten failures used literal SELECT review markers while asserting those
+markers appeared in parameter arrays. The writer, classification and undo test
+builders now bind their markers as parameters. Exact before/core/receipt/final
+positions, awaited result checks, immutable preparation/reservation mutations
+and compensation/version assertions are unchanged. No product source changed
+relative to the failed combined candidate. These are source-level diagnoses;
+independent review and a separately authorized rerun remain required. No central
+application/staging, runtime, test, typecheck, lint, database or QA-copy edit ran
+in this correction lane. Central application still needs direct human approval.

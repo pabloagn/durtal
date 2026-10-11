@@ -13,7 +13,8 @@ import {
 } from "@/lib/db/schema";
 import { authorNameEquals } from "@/lib/actions/utils/author-search";
 import { workSeriesPlan } from "@/lib/series/work-series";
-import { deleteFromS3, processAndUploadCover } from "@/lib/s3/covers";
+import { processAndUploadCover } from "@/lib/s3/covers";
+import { requireVerifiedCover, retainCoverAttempt, type VerifiedCoverStage } from "@/lib/s3/cover-stage";
 import { editionCoverPaletteFields } from "@/lib/color/color-buckets";
 import { defaultSortName } from "@/lib/utils/author-names";
 import { generateAuthorSlug, generateWorkSlug } from "@/lib/utils/slugify";
@@ -29,7 +30,7 @@ import type { Db } from "./work-store";
  * anything is written: ids and slugs are chosen first and a cover is uploaded
  * under its edition id, so every caller (the wizard, Fast Track, createWork,
  * createEdition) sends its rows as one atomic batch. A failed batch writes
- * nothing; the caller then discards the uploaded cover.
+ * nothing; uncertain uploaded covers are retained for reconciliation.
  */
 
 /**
@@ -240,11 +241,7 @@ export async function planBookEdition(
     id?: string;
     activityId?: string;
     at?: Date;
-    cover?: {
-      coverKey: string;
-      thumbnailKey: string;
-      palette: import("@/lib/types").ColorPalette | null;
-    } | null;
+    cover?: VerifiedCoverStage | null;
   } = {},
 ) {
   const {
@@ -262,6 +259,13 @@ export async function planBookEdition(
       : coverSourceUrl
         ? await processAndUploadCover(id, coverSourceUrl)
         : null;
+  if (cover) {
+    requireVerifiedCover(cover, id);
+    if (cover.source.kind === "url" && cover.source.url !== coverSourceUrl)
+      throw new Error("Cover source URL differs from its verified stage");
+    if (cover.source.kind === "ebook" && coverSourceUrl)
+      throw new Error("Ebook cover stage cannot claim a URL source");
+  }
   return {
     id,
     coverUnavailable: !!coverSourceUrl && !cover,
@@ -322,13 +326,10 @@ export async function planBookEdition(
         },
       }),
     ],
-    /** Removes the uploaded cover after a failed write; nothing references it. */
-    discardCover: async () => {
-      if (cover)
-        await Promise.allSettled([
-          deleteFromS3(cover.coverKey),
-          deleteFromS3(cover.thumbnailKey),
-        ]);
-    },
+    /** A DB rejection, lost acknowledgement or follow-up failure may leave
+     * published/aliased bytes. Retention requires no potentially stale read. */
+    discardCover: async () => cover
+      ? retainCoverAttempt(cover, "create or postcommit follow-up outcome uncertain")
+      : { cleanupPending: false as const, keys: [] },
   };
 }

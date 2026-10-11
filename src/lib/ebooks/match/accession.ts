@@ -323,6 +323,7 @@ export async function accessionEbooks(
       entry.effect.ebookId,
       entry.editionId,
       entry.effect.edition!.coverSourceKey,
+      entry.receipt,
     ),
   );
   const prepared = await Promise.all(
@@ -333,9 +334,10 @@ export async function accessionEbooks(
         receipt: {
           ...original.receipt,
           ...(coverPlan
-            ? { coverArtifacts: [coverPlan.coverKey, coverPlan.thumbnailKey] }
+            ? { coverArtifacts: [coverPlan.coverKey, coverPlan.thumbnailKey],
+                coverStage: { state: "reserved" as const, allocation: coverPlan.allocation } }
             : {}),
-        },
+        } as LinkReceipt,
       });
       const { seriesName: _seriesName, ...workValues } = entry.effect.work!;
       const { coverSourceKey: _coverSourceKey, ...editionValues } =
@@ -378,13 +380,21 @@ export async function accessionEbooks(
         const entry = prepared[i].entry;
         const { coverSourceKey: _coverSourceKey, ...values } =
           entry.effect.edition!;
+        const cover = await copyPlannedCover(coverPlan);
+        prepared[i].entry = immutableMatchingWriterInput({
+          ...entry,
+          receipt: { ...entry.receipt, coverStage: {
+            state: "verified" as const, allocation: coverPlan.allocation,
+            cover: cover.cover, thumbnail: cover.thumbnail,
+          } },
+        });
         prepared[i].edition = await planBookEdition(
           { workId: entry.workId, ...values },
           {
             id: entry.editionId,
             activityId: entry.receipt.activityIdsCreated[1],
             at,
-            cover: immutableMatchingWriterInput(await copyPlannedCover(coverPlan)),
+            cover,
           },
         );
       }
