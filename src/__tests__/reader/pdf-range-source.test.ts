@@ -44,6 +44,99 @@ describe("bounded leased PDF byte source", () => {
     });
   });
   afterEach(() => vi.unstubAllGlobals());
+  it.each([undefined, `bytes */${size}`, "", "bytes */7"])(
+    "rejects app PDF 416 with Content-Range %s and cancels without size discovery or retry",
+    async (contentRange) => {
+      const cancel = vi.fn();
+      const headers: HeadersInit = contentRange === undefined ? {} : { "content-range": contentRange };
+      const rejected = new Response(
+        new ReadableStream({ cancel }, { highWaterMark: 0 }),
+        { status: 416, headers },
+      );
+      const consume = vi.spyOn(rejected, "arrayBuffer");
+      const acquireReader = vi.spyOn(rejected.body!, "getReader");
+      const refreshUrl = vi.fn().mockResolvedValue("https://cdn.example/refreshed");
+      const fetcher = vi.fn()
+        .mockResolvedValueOnce(rejected)
+        .mockResolvedValueOnce(rangeResponse(0, 100));
+      const source = new PdfRangeSource({ ...options, url: options.fallbackUrl, fetch: fetcher, refreshUrl });
+      try {
+        await expect(source.read(0, 100, signal())).rejects.toMatchObject({ kind: "network" });
+        expect(fetcher).toHaveBeenCalledOnce();
+        expect(refreshUrl).not.toHaveBeenCalled();
+        expect(consume).not.toHaveBeenCalled();
+        expect(acquireReader).not.toHaveBeenCalled();
+        expect(cancel).toHaveBeenCalledOnce();
+        expect(source.transferred).toBe(0);
+        expect(source.size).toBe(size);
+        // The same explicit request must fetch again, never return error-body bytes.
+        expect((await source.read(0, 100, signal())).byteLength).toBe(100);
+        expect(fetcher.mock.calls.map(([url]) => url)).toEqual([options.fallbackUrl, options.fallbackUrl]);
+        expect(refreshUrl).not.toHaveBeenCalled();
+        expect(source.size).toBe(size);
+      } finally {
+        source.close();
+      }
+    },
+  );
+
+  it.each([206, 416])(
+    "cancels a CDN 416 without Content-Range and makes one bounded app fallback returning %i",
+    async (appStatus) => {
+      const cancelCdn = vi.fn();
+      const cdnError = new Response(
+        new ReadableStream({ cancel: cancelCdn }, { highWaterMark: 0 }),
+        { status: 416 },
+      );
+      const consumeCdn = vi.spyOn(cdnError, "arrayBuffer");
+      const acquireCdnReader = vi.spyOn(cdnError.body!, "getReader");
+      const cancelApp = vi.fn();
+      const appError = new Response(
+        new ReadableStream({ cancel: cancelApp }, { highWaterMark: 0 }),
+        { status: 416 },
+      );
+      const consumeApp = vi.spyOn(appError, "arrayBuffer");
+      const acquireAppReader = vi.spyOn(appError.body!, "getReader");
+      const validBytes = new Uint8Array(100).fill(7);
+      const refreshUrl = vi.fn().mockResolvedValue("https://cdn.example/refreshed");
+      const fetcher = vi.fn()
+        .mockResolvedValueOnce(cdnError)
+        .mockResolvedValueOnce(appStatus === 206 ? rangeResponse(0, 100, validBytes) : appError)
+        .mockResolvedValueOnce(rangeResponse(0, 100, validBytes));
+      const source = new PdfRangeSource({ ...options, fetch: fetcher, refreshUrl });
+      try {
+        const first = source.read(0, 100, signal());
+        if (appStatus === 206) {
+          expect(Array.from(await first)).toEqual(Array.from(validBytes));
+          expect(source.transferred).toBe(100);
+        } else {
+          await expect(first).rejects.toMatchObject({ kind: "network" });
+          expect(source.transferred).toBe(0);
+          expect(cancelApp).toHaveBeenCalledOnce();
+        }
+        // Exactly one automatic fallback; app 416 cannot create a retry loop.
+        expect(fetcher.mock.calls.map(([url]) => url)).toEqual([options.url, options.fallbackUrl]);
+        expect(cancelCdn).toHaveBeenCalledOnce();
+        expect(consumeCdn).not.toHaveBeenCalled();
+        expect(acquireCdnReader).not.toHaveBeenCalled();
+        expect(consumeApp).not.toHaveBeenCalled();
+        expect(acquireAppReader).not.toHaveBeenCalled();
+        expect(refreshUrl).not.toHaveBeenCalled();
+        expect(source.size).toBe(size);
+        // Only successful bytes may be cached; rejected app bytes require a new explicit fetch.
+        expect(Array.from(await source.read(0, 100, signal()))).toEqual(Array.from(validBytes));
+        expect(fetcher).toHaveBeenCalledTimes(appStatus === 206 ? 2 : 3);
+        if (appStatus === 416)
+          expect(fetcher.mock.calls[2][0]).toBe(options.fallbackUrl);
+        expect(source.transferred).toBe(100);
+        expect(refreshUrl).not.toHaveBeenCalled();
+        expect(source.size).toBe(size);
+      } finally {
+        source.close();
+      }
+    },
+  );
+
   it("never dispatches more than six reads and starts queued work after completion", async () => {
     const responses = Array.from({ length: 8 }, () => deferred<Response>());
     const fetcher = vi.fn(

@@ -33,6 +33,11 @@ function admitted(req: Request): boolean {
   const origin = req.headers.get("origin");
   if (site && site !== "same-origin") return false;
   if (!site && !origin) return false;
+  // WebKit can serialize the reader's same-origin fetch Origin as literal null.
+  // Accept that value only with both browser-controlled same-origin metadata
+  // headers; opaque/cross-site and metadata-free requests remain refused.
+  if (origin === "null")
+    return site === "same-origin" && req.headers.get("sec-fetch-mode") === "same-origin";
   if (origin) {
     try {
       const url = new URL(origin);

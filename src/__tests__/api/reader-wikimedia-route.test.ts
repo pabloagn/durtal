@@ -42,6 +42,57 @@ describe("reader Wikimedia route admission", () => {
     expect((await createWikimediaRelay(fetch)(request(validBody, { origin }))).status).toBe(403);
     expect(fetch).not.toHaveBeenCalled();
   });
+  it.each(["definition", "summary", "parse"] as const)("admits WebKit null Origin only for same-origin %s fetches", async (operation) => {
+    const upstream = vi.fn<typeof globalThis.fetch>(async () => json('{"ok":true}'));
+    const body = { operation, language: "en", title: "Night" } as const;
+    // Exact provenance observed on the real loopback WebKit reader request:
+    // no Host or Referer in the observer, literal null Origin, both metadata headers.
+    const req = new Request("http://127.0.0.1:3410/api/reader/lookup/wikimedia", {
+      method: "POST", body: JSON.stringify(body), headers: {
+        origin: "null", "sec-fetch-site": "same-origin", "sec-fetch-mode": "same-origin",
+        "content-type": "application/json",
+      },
+    });
+    const response = await createWikimediaRelay(upstream)(req);
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('{"ok":true}');
+    expect(upstream).toHaveBeenCalledTimes(1);
+    expect(upstream.mock.calls[0]?.[0]).toBe(wikimediaAddress(body));
+    expect(upstream.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
+      method: "GET", credentials: "omit", redirect: "error", cache: "no-store",
+    }));
+  });
+  it.each([
+    ["missing mode", "null", "same-origin", undefined],
+    ["empty mode", "null", "same-origin", ""],
+    ["cors mode", "null", "same-origin", "cors"],
+    ["no-cors mode", "null", "same-origin", "no-cors"],
+    ["navigation mode", "null", "same-origin", "navigate"],
+    ["combined mode", "null", "same-origin", "same-origin, cors"],
+    ["missing site", "null", undefined, "same-origin"],
+    ["empty site", "null", "", "same-origin"],
+    ["cross-site", "null", "cross-site", "same-origin"],
+    ["same-site", "null", "same-site", "same-origin"],
+    ["direct navigation site", "null", "none", "same-origin"],
+    ["missing both metadata", "null", undefined, undefined],
+    ["malformed Origin", "garbage", "same-origin", "same-origin"],
+    ["nonliteral Origin case", "NULL", "same-origin", "same-origin"],
+    ["Origin path", "http://localhost:3110/path", "same-origin", "same-origin"],
+    ["Origin credentials", "https://user@private.example", "same-origin", "same-origin"],
+  ] as const)("refuses %s despite null-Origin metadata spoofing", async (_label, origin, site, mode) => {
+    const upstream = vi.fn<typeof globalThis.fetch>();
+    const headers = new Headers({
+      host: "localhost:3110", origin, "content-type": "application/json",
+      "x-forwarded-host": "localhost:3110", "x-forwarded-proto": "http",
+    });
+    if (site !== undefined) headers.set("sec-fetch-site", site);
+    if (mode !== undefined) headers.set("sec-fetch-mode", mode);
+    const req = new Request(endpoint, { method: "POST", body: validBody, headers });
+    const response = await createWikimediaRelay(upstream)(req);
+    expect(response.status).toBe(403);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(upstream).not.toHaveBeenCalled();
+  });
   it("keeps direct HTTP and private HTTPS-to-loopback browser metadata admission", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () => json()), relay = createWikimediaRelay(fetch);
     expect((await relay(request(validBody, { origin: "http://localhost:3110" }))).status).toBe(200);

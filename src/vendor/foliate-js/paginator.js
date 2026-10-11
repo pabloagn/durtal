@@ -51,7 +51,7 @@ const SCROLL_RELOCATE_MAX_WAIT = 1000
 // Transforms ALL children of the container so multi-view layouts
 // animate as a unified whole. Extra elements (e.g. background) are
 // also transformed so they slide in sync with the content.
-const cssAnimateScroll = (element, scrollProp, startValue, endValue, duration, extraElements = []) => new Promise(resolve => {
+const cssAnimateScroll = (element, scrollProp, startValue, endValue, duration, extraElements = [], fallbackGrace = 50) => new Promise(resolve => {
     if (document.hidden) {
         element[scrollProp] = endValue
         return resolve()
@@ -129,7 +129,7 @@ const cssAnimateScroll = (element, scrollProp, startValue, endValue, duration, e
     first.addEventListener('transitionend', onTransitionEnd)
 
     // Fallback timeout in case transitionend doesn't fire
-    setTimeout(cleanup, duration + 50)
+    setTimeout(cleanup, duration + fallbackGrace)
 })
 
 // Two-phase page-turn slide for vertical (vertical-rl/lr) paginated books.
@@ -299,14 +299,14 @@ const injectViewTransitionStyles = () => {
        top of the still outgoing page. */
     .foliate-vt-slide.foliate-vt-forward::view-transition-old(foliate-turn) {
         z-index: 1;
-        animation: foliate-turn-slide-out-left 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+        animation: foliate-turn-slide-out-left var(--foliate-vt-slide-duration, 300ms) cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
         box-shadow: 0 0 24px rgba(0, 0, 0, 0.35);
     }
     .foliate-vt-slide.foliate-vt-forward.foliate-vt-right::view-transition-old(foliate-turn) {
         animation-name: foliate-turn-slide-out-right;
     }
     .foliate-vt-slide.foliate-vt-backward::view-transition-new(foliate-turn) {
-        animation: foliate-turn-slide-in-left 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+        animation: foliate-turn-slide-in-left var(--foliate-vt-slide-duration, 300ms) cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
         box-shadow: 0 0 24px rgba(0, 0, 0, 0.35);
     }
     .foliate-vt-slide.foliate-vt-backward.foliate-vt-right::view-transition-new(foliate-turn) {
@@ -2762,7 +2762,7 @@ export class Paginator extends HTMLElement {
     // furniture turns with the page in both layers); otherwise the outermost
     // shadow host in the document tree is named, since shadow-internal names
     // are tree-scoped away from the document-level pseudo selectors.
-    #vtSetup(style, forward, scrubbing = false) {
+    #vtSetup(style, forward, scrubbing = false, slideDuration = 300) {
         injectViewTransitionStyles()
         const html = document.documentElement
         const side = this.#rtl ? 'right' : 'left'
@@ -2789,6 +2789,7 @@ export class Paginator extends HTMLElement {
                 .getPropertyValue('--theme-bg-color').trim()
             : ''
         html.style.setProperty('--foliate-vt-bg', themeBg || 'Canvas')
+        html.style.setProperty('--foliate-vt-slide-duration', `${slideDuration}ms`)
         html.classList.remove(...VIEW_TRANSITION_CLASSES)
         html.classList.add(...classes)
         return namedHost
@@ -2797,6 +2798,7 @@ export class Paginator extends HTMLElement {
         const html = document.documentElement
         html.classList.remove(...VIEW_TRANSITION_CLASSES)
         html.style.removeProperty('--foliate-vt-bg')
+        html.style.removeProperty('--foliate-vt-slide-duration')
         this.#vtNamedHost?.style.removeProperty('view-transition-name')
         this.#vtNamedHost = null
     }
@@ -3301,6 +3303,12 @@ export class Paginator extends HTMLElement {
             const turning = Math.abs(offset - this.containerPosition) > size / 2
             const layered = !this.scrolled && turning ? this.#layeredTurn : null
             if (layered) return this.#viewTransitionTurn(offset, reason, layered)
+            // Keep programmatic slide/default page turns brief; curl and snaps
+            // retain their timing even when View Transitions is unavailable.
+            const turnStyle = this.getAttribute('turn-style')
+            const fastSlide = reason === 'page'
+                && (turnStyle === null || turnStyle === 'slide')
+            const duration = fastSlide ? 60 : 300
             const startPosition = this.containerPosition
             this.#isAnimating = true
             // Vertical paginated books page along scrollTop but read
@@ -3331,7 +3339,7 @@ export class Paginator extends HTMLElement {
                 const dragStartX = this.#dragTranslateX
                 this.#dragTranslateX = 0
                 return slideTurnAnimation(
-                    this.#container, this.scrollProp, offset, exitSign, width, 300,
+                    this.#container, this.scrollProp, offset, exitSign, width, duration,
                     () => id !== this.#slideTurnId,
                     // Reposition the background segments for the new scroll
                     // offset while both pages are off-screen.
@@ -3357,7 +3365,7 @@ export class Paginator extends HTMLElement {
             // cssAnimateScroll path even for large sections (readest#4768).
             if (!this.hasAttribute('gpu-composite')
                 && this.#renderedViewSize > RAF_ANIMATE_SCROLL_THRESHOLD) {
-                return rafAnimateScroll(startPosition, offset, 300, easeOutQuad, x => {
+                return rafAnimateScroll(startPosition, offset, duration, easeOutQuad, x => {
                     this.#container[this.scrollProp] = x
                     if (!this.scrolled) this.#replaceBackground()
                 }).then(() => {
@@ -3393,7 +3401,9 @@ export class Paginator extends HTMLElement {
                 this.scrollProp,
                 startPosition,
                 offset,
-                300,
+                duration,
+                [],
+                fastSlide ? 16 : 50,
             ).then(() => {
                 this.#isAnimating = false
                 this.#bgAnimContext = null
@@ -3433,7 +3443,9 @@ export class Paginator extends HTMLElement {
         const id = ++this.#slideTurnId
         this.#isAnimating = true
         this.#settleDrag(true)
-        this.#vtSetup(style, forward)
+        // Keyboard/tap page slides are brief; finger-tracked turns keep their
+        // existing timeline through #vtSetup's default duration.
+        this.#vtSetup(style, forward, false, reason === 'page' && style === 'slide' ? 60 : 300)
         const transition = document.startViewTransition(() => {
             this.containerPosition = offset
             if (!this.scrolled) {

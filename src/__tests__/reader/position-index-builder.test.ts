@@ -86,6 +86,42 @@ describe("raw anchor indexing", () => {
     expect(entries.map((entry) => entry.fraction)).toEqual([0.2, 0.2, 0.8]);
     expect(createDocument).not.toHaveBeenCalled();
   });
+  it("matches original grouped anchor results for a long TOC, duplicates and numeric section IDs", async () => {
+    const texts = Array.from({ length: 100 }, (_, section) =>
+      `<h1>Section ${section}</h1>` + Array.from({ length: 20 }, (_, anchor) =>
+        `<p id="a${anchor}">Section ${section} anchor ${anchor}</p>`).join(""));
+    const sections = texts.map((text, id) => ({ id, size: text.length, loadText: async () => text }));
+    // Duplicate ID must retain the first section, as Array.findIndex did.
+    sections.push({ id: 0, size: 1, loadText: async () => "wrong duplicate" });
+    const book: FoliateBook = { sections, resolveHref: () => null,
+      splitTOCHref: href => href.split("#") as [string, string] };
+    const hrefs = sections.slice(0, 100).flatMap((_, section) =>
+      [String(section), ...Array.from({ length: 20 }, (_, anchor) => `${section}#a${anchor}`)]);
+    hrefs.push("0#a0", "missing#a0");
+    const fractions = Array.from({ length: 102 }, (_, index) => index / 100);
+    const groups = new Map<number, string[]>();
+    for (const href of hrefs) {
+      const section = sections.findIndex(item => String(item.id) === href.split("#")[0]);
+      if (section >= 0) groups.set(section, [...(groups.get(section) ?? []), href]);
+    }
+    const expected = [];
+    for (const [section, members] of groups) {
+      const markup = texts[section];
+      const scan = await scanMarkup(markup, members.map(href => href.split("#")[1] ?? ""), new AbortController().signal);
+      for (const href of members) {
+        const fragment = href.split("#")[1] ?? "";
+        expected.push({ href, fraction: Math.max(0, Math.min(1, fractions[section] +
+          (fragment ? (scan.offsets[fragment] ?? 0) / scan.length : 0) * (fractions[section + 1] - fractions[section]))),
+          sectionLabel: scan.label, textRatio: scan.textRatio });
+      }
+    }
+    const actual = [];
+    for await (const entry of buildAnchorIndex({ book, fractions, hrefs, signal: new AbortController().signal })) actual.push(entry);
+    expect(actual).toEqual(expected);
+    expect(actual).toHaveLength(2101);
+    expect(actual.filter(entry => entry.href === "0#a0")).toHaveLength(2);
+    expect(actual.every(entry => entry.sectionLabel !== "wrong duplicate")).toBe(true);
+  });
   it("honours cancellation before parsing and never starts another section", async () => {
     const abort = new AbortController();
     abort.abort();

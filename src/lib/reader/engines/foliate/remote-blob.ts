@@ -213,11 +213,14 @@ export class RangeSource {
       }
       if (response.status === 403)
         throw new ReadError("expired", "The link to this eBook has expired");
-      if (response.status !== 206 && response.status !== 200)
+      if (response.status !== 206 && response.status !== 200) {
+        // A rejected range is never file bytes, even without Content-Range.
+        void response.body?.cancel().catch(() => {});
         throw new ReadError(
           "network",
           `The file could not be read (${response.status})`,
         );
+      }
       // Reading the body can fail after fetch has received the headers. It
       // needs the same network recovery as a connection that never opened.
       const body = new Uint8Array(await response.arrayBuffer());

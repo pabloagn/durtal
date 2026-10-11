@@ -89,7 +89,7 @@ export async function checkNavigation(driver) {
   await goto(driver, "Percent", "70");
   const destination = await driver.evaluate(readerPlace);
   await driver.key("ArrowLeft", "ArrowLeft", 1);
-  await waitUI(driver, "document.querySelector('[aria-label^=\"Forward to\"]')");
+  await waitUI(driver, "!!document.querySelector('[aria-label^=\"Forward to\"]')");
   const returned = await driver.evaluate(readerPlace);
   assert(returned.cfi === origin.cfi && returned.first === origin.first, "History Back did not restore the exact origin");
   await waitUI(driver, `[...document.querySelector("foliate-view").renderer.getContents()].some(({ overlayer }) => !!overlayer?.element?.querySelector('g[stroke]'))`);

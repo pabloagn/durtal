@@ -94,15 +94,23 @@ export async function* buildAnchorIndex(options: {
 }) {
   const { book, signal, fractions } = options;
   const groups = new Map<number, { href: string; fragment: unknown }[]>();
+  const sectionById = new Map<string, number>();
   let groupedAt = performance.now();
+  for (let index = 0; index < book.sections.length; index++) {
+    if (signal.aborted) return;
+    const id = String(book.sections[index].id);
+    if (!sectionById.has(id)) sectionById.set(id, index);
+    if (performance.now() - groupedAt >= 8) {
+      await idleSlice(signal);
+      groupedAt = performance.now();
+    }
+  }
   for (const href of options.hrefs) {
     if (signal.aborted) return;
     const split = await book.splitTOCHref?.(href);
-    const section = split
-      ? book.sections.findIndex((item) => String(item.id) === String(split[0]))
-      : book.sections.findIndex(
-          (item) => String(item.id) === href.split("#")[0],
-        );
+    const section = sectionById.get(
+      split ? String(split[0]) : href.split("#")[0],
+    ) ?? -1;
     if (section < 0) continue;
     const fragment = split?.[1] ?? href.split("#")[1] ?? "";
     const group = groups.get(section) ?? [];

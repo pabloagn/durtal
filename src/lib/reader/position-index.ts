@@ -32,6 +32,7 @@ export class PositionIndex {
   #fractions: Record<string, number>;
   #indexed: Set<string>;
   #sections = new Map<string, number>();
+  #sectionRoots = new Map<string, BookInfo["sections"][number]>();
   #textRatios = new Map<string, number>();
   textRatio = 0.5;
   chapters: IndexedEntry[] = [];
@@ -42,6 +43,9 @@ export class PositionIndex {
   ) {
     this.#fractions = { ...fractions };
     this.#indexed = new Set(Object.keys(fractions));
+    for (const section of info.sections)
+      if (!this.#sectionRoots.has(section.href))
+        this.#sectionRoots.set(section.href, section);
     for (const entry of [
       ...flattenContents(info.toc),
       ...flattenContents(info.pageList),
@@ -77,7 +81,7 @@ export class PositionIndex {
     const index = this.#sections.get(href);
     if (index !== undefined) return this.info.sections[index];
     const path = href.split("#")[0];
-    return this.info.sections.find((section) => section.href === path);
+    return this.#sectionRoots.get(path);
   }
   fraction(href: string) {
     return Object.hasOwn(this.#fractions, href)
@@ -93,7 +97,10 @@ export class PositionIndex {
     this.#fractions[href] = unit(fraction);
     this.#indexed.add(href);
     const section = this.sectionFor(href);
-    if (section && textRatio !== undefined && Number.isFinite(textRatio)) {
+    if (
+      section && textRatio !== undefined && Number.isFinite(textRatio) &&
+      this.#textRatios.get(section.href) !== unit(textRatio)
+    ) {
       this.#textRatios.set(section.href, unit(textRatio));
       this.textRatio = this.info.sections.reduce(
         (sum, item) =>

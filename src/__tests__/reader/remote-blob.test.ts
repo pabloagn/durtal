@@ -55,6 +55,42 @@ const source = (
   });
 
 describe("RangeSource", () => {
+  it.each([undefined, `bytes */${SIZE}`, "", "bytes */7"])(
+    "rejects EPUB 416 with Content-Range %s without consuming, caching or retrying it",
+    async (contentRange) => {
+      const cancel = vi.fn();
+      const headers: HeadersInit = contentRange === undefined ? {} : { "content-range": contentRange };
+      const rejected = new Response(
+        new ReadableStream({ cancel }, { highWaterMark: 0 }),
+        { status: 416, headers },
+      );
+      const consume = vi.spyOn(rejected, "arrayBuffer");
+      const acquireReader = vi.spyOn(rejected.body!, "getReader");
+      const refreshUrl = vi.fn().mockResolvedValue("https://cdn.test/refreshed");
+      const fetcher = vi.fn()
+        .mockResolvedValueOnce(rejected)
+        .mockResolvedValueOnce(new Response(file.slice(0, 65536), {
+          status: 206,
+          headers: { "content-range": `bytes 0-65535/${SIZE}` },
+        }));
+      const r = source(server(), { ebookId: "epub-416", fetch: fetcher, refreshUrl });
+      await expect(r.read(0, 4)).rejects.toMatchObject({ kind: "network" });
+      expect(fetcher).toHaveBeenCalledOnce();
+      expect(refreshUrl).not.toHaveBeenCalled();
+      expect(consume).not.toHaveBeenCalled();
+      expect(acquireReader).not.toHaveBeenCalled();
+      expect(cancel).toHaveBeenCalledOnce();
+      expect(r.transferred).toBe(0);
+      expect(r.size).toBe(SIZE);
+      // An explicit subsequent read proves that the failed bytes were not cached.
+      expect(Array.from(await r.read(0, 4))).toEqual(expected(0, 4));
+      expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
+        "https://cdn.test/f", "https://cdn.test/f",
+      ]);
+      expect(refreshUrl).not.toHaveBeenCalled();
+    },
+  );
+
   it("cancels only an owned search request without retrying or cancelling the renderer read", async () => {
     const controllers: {
       signal?: AbortSignal | null;
