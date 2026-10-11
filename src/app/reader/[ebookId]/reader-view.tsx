@@ -32,7 +32,7 @@ import { readerPercent } from "@/lib/reader/events";
 import { positionUrl } from "@/lib/reader/device";
 import type { ReaderPlace } from "@/lib/reader/sync/places";
 import { createPlaceSync } from "@/lib/reader/sync/session";
-import { resolveContinueAnchor } from "@/lib/ebooks/continue-resolve";
+import { openReaderForContinue, resolveContinueAnchor } from "@/lib/ebooks/continue-resolve";
 import { ReturnChip } from "@/components/reader/return-chip";
 import { PositionIndex, flattenContents } from "@/lib/reader/position-index";
 import {
@@ -1062,6 +1062,7 @@ function ReaderSession({
               fileId: file.id, locator: localPlace, chapter: localPlace.tocLabel ?? null,
               clientUpdatedAt: localClientUpdatedAt }
           : openingPlace;
+        const resumeInput = { target: { id: file.id, sha256: file.sha256 }, anchor: resumeAnchor ?? null };
         while (!bridge.isControllerPermitCurrent(admitted)) {
           phase = "controllers";
           admitted = await bridge.whenControllersReady(startupAbort.signal);
@@ -1069,7 +1070,7 @@ function ReaderSession({
         }
         phase = "engine";
         if (indexDiagnosticEnabled()) observeIndexDiagnostic("reader-engine-open-start");
-        await engine.open(source, {
+        const initiallyOpened = await openReaderForContinue(resumeInput, engine, source, {
           container,
           presentation: presentationRef.current!,
         });
@@ -1083,10 +1084,7 @@ function ReaderSession({
         if (resumeAnchor && indexDiagnosticEnabled()) observeIndexDiagnostic("reader-resume-start");
         const resumed = resumeAnchor
           ? await resolveContinueAnchor(
-              {
-                target: { id: file.id, sha256: file.sha256 },
-                anchor: resumeAnchor,
-              },
+              resumeInput,
               {
                 resolve: (locator) => openingEngine.resolve(locator),
                 currentLocator: () => openingEngine.currentLocator(),
@@ -1099,6 +1097,7 @@ function ReaderSession({
                   await openingEngine.goTo(target);
                 },
               },
+              initiallyOpened,
             )
           : null;
         if (resumeAnchor && indexDiagnosticEnabled()) observeIndexDiagnostic("reader-resume-return");
