@@ -96,7 +96,7 @@ beforeEach(async () => {
   engine = createFoliateEngine();
   await engine.open({ ebookId: "467ab36f-bbd0-4807-8e37-abdf0f6b9577", fileId: "epub", format: "epub",
     size: 1000, sha256: "a".repeat(64), url: "/unused", fallbackUrl: "/unused" },
-  { container: bookHost, presentation: presentationFromPreferences({ ...PRESENTATION_DEFAULTS.desktop, font: "garamond" }, "") });
+  { container: bookHost, presentation: presentationFromPreferences({ ...PRESENTATION_DEFAULTS.desktop, font: "garamond" }, "https://reader.invalid") });
   view = bookHost.querySelector("foliate-view") as TwoDocumentView;
   frames = [];
   // Engine opening uses real paint scheduling; provider scheduling is then manual.
@@ -141,6 +141,36 @@ function retainedSelections() {
   });
 }
 describe("lookup originating document with an earlier retained native selection", () => {
+  it("captures the native paragraph before the debounce and clears only the captured range", () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const [, later] = retainedSelections(), published = vi.fn();
+    engine.on("selection", published);
+    act(() => later.querySelector("p")!.dispatchEvent(new MouseEvent("dblclick", { button: 0, bubbles: true })));
+    expect(published.mock.lastCall![0].text).toBe("casa");
+    const paragraph = later.createRange(); paragraph.selectNodeContents(later.querySelector("p")!);
+    later.getSelection()!.removeAllRanges(); later.getSelection()!.addRange(paragraph);
+    later.dispatchEvent(new Event("selectionchange"));
+    const captured = engine.selectionDetails(later)!;
+    expect(captured).toMatchObject({ text: "La casa brilla.", locator: {
+      sectionIndex: 1, cfi: "epubcfi(1:La casa brilla.)", text: { highlight: "La casa brilla." } } });
+    expect(published.mock.lastCall![0].text).toBe("casa");
+    engine.clearSelection(captured);
+    expect(later.getSelection()!.toString()).toBe("");
+  });
+  it.each(["changed", "reselected", "unloaded", "destroyed"] as const)("does not clear a captured action after its native document is %s", kind => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const [earlier, later] = retainedSelections();
+    const captured = engine.selectionDetails(later)!;
+    if (kind === "changed") {
+      const range = later.createRange(); range.selectNodeContents(later.querySelector("p")!);
+      later.getSelection()!.removeAllRanges(); later.getSelection()!.addRange(range);
+    } else if (kind === "reselected") later.dispatchEvent(new Event("selectionchange"));
+    else if (kind === "unloaded") vi.spyOn(view.renderer, "getContents").mockReturnValue([{ doc: earlier, index: 0 }]);
+    else engine.destroy();
+    const before = later.getSelection()!.toString();
+    engine.clearSelection(captured);
+    expect(later.getSelection()!.toString()).toBe(before);
+  });
   it("preserves disabled font routing, guarded resource ownership and live lookup across a colour edit", async () => {
     expect(canPreflightCoreFonts()).toBe(false);
     expect(calls.sectionText).not.toHaveBeenCalled();
@@ -150,7 +180,7 @@ describe("lookup originating document with an earlier retained native selection"
     expect(view.styles).not.toContain("Durtal EB Garamond Core");
     const oldColours = view.frames[1].contentDocument!.querySelector("style[data-durtal-page-colours]")!.textContent;
     const styles = vi.spyOn(view.renderer, "setStyles");
-    engine.setPresentation(presentationFromPreferences({ ...PRESENTATION_DEFAULTS.desktop, font: "garamond", theme: "paper" }, ""));
+    engine.setPresentation(presentationFromPreferences({ ...PRESENTATION_DEFAULTS.desktop, font: "garamond", theme: "paper" }, "https://reader.invalid"));
     expect(styles).not.toHaveBeenCalled();
     expect(view.frames[1].contentDocument!.querySelector("style[data-durtal-page-colours]")!.textContent).not.toBe(oldColours);
     const [, later] = retainedSelections();
@@ -167,7 +197,8 @@ describe("lookup originating document with an earlier retained native selection"
     const [earlier, later] = retainedSelections();
     const gestures = vi.fn(), cfi = vi.spyOn(view, "getCFI"); engine.on("word-gesture", gestures);
     const selectionDetails = vi.spyOn(engine, "selectionDetails");
-    if (kind === "touch") vi.useFakeTimers();
+    // Keep the manual paint queue; only the touch hold uses the fake clock.
+    if (kind === "touch") vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
     act(() => {
       if (kind === "shortcut") later.dispatchEvent(new KeyboardEvent("keydown", { key: "d", bubbles: true, cancelable: true }));
       else if (kind === "mouse") later.querySelector("p")!.dispatchEvent(new MouseEvent("dblclick", { button: 0, bubbles: true }));
@@ -232,7 +263,8 @@ describe("lookup originating document with an earlier retained native selection"
     });
     act(() => later.querySelector("p")!.dispatchEvent(new MouseEvent("dblclick", { button: 0, bubbles: true })));
     expect(later.querySelector("p")!.textContent).toBe("La canuesa brilla.");
-    expect(later.getSelection()!.getRangeAt(0).toString()).toBe("canuesa");
+    // Happy DOM keeps offsets on insertData; the live range still changes text.
+    expect(later.getSelection()!.getRangeAt(0).toString()).toBe("canu");
     expect(earlier.getSelection()!.toString()).toBe("Lux");
     const { details, document: source } = gestures.mock.calls[0][0];
     expect(source).toBe(later);

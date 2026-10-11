@@ -157,14 +157,14 @@ export function createReaderNavigation(options: {
         command.resolve(null);
         return;
       }
-      if (sameLocation(origin.locator, destination.locator)) {
-        command.resolve(null);
-        return;
-      }
-      if (command.automatic) history.reanchor(destination.locator);
-      else if (command.turn || command.focus) history.turn(destination.locator);
-      else if (command.direction)
+      // Exact anchor identity does not imply unchanged progress or endpoint
+      // metadata. A completed owned arrival still publishes its observed place.
+      const sameAnchor = sameLocation(origin.locator, destination.locator);
+      if (command.direction)
         history.commit(command.direction, destination.locator);
+      else if (sameAnchor || command.automatic)
+        history.reanchor(destination.locator);
+      else if (command.turn || command.focus) history.turn(destination.locator);
       else
         history.push(
           origin.locator,
@@ -175,15 +175,17 @@ export function createReaderNavigation(options: {
       publish({
         ...destination,
         origin: command.automatic ? "speech" : "human",
-        activity: command.automatic ? undefined : destination.activity,
+        activity: command.automatic || sameAnchor ? undefined : destination.activity,
         atEnd: command.automatic ? false : destination.atEnd,
-        reason: command.turn || command.focus ? "turn" : "jump",
+        // Same-anchor settlement is not a reading turn. Consumers otherwise
+        // infer turn activity from the reason even when activity is absent.
+        reason: !sameAnchor && (command.turn || command.focus) ? "turn" : "jump",
       });
       if (command.direction === -1 && history.current?.originMark)
         engine.setDecorations("history", [
           { cfi: history.current.originMark, color: "link" },
         ]);
-      command.resolve(destination.locator);
+      command.resolve(sameAnchor ? null : destination.locator);
     } catch (error) {
       if (!destroyed && origin) {
         try {

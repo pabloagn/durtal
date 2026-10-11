@@ -1471,7 +1471,56 @@ export const getColumnGapHostTracks = ({ columnGap, marginLeft, marginRight, hos
 }
 
 // NOTE: everything here assumes the so-called "negative scroll type" for RTL
+// Durtal patch 14 (VENDORED.md): convert the section's column to container
+// coordinates before rounding to a spread. Adjacent sections can begin in
+// the second column; rounding their offset first loses that half-spread.
+// Durtal patch 15 (VENDORED.md): a previously visited nonlinear section
+// must not remain in the linear strip after returning to reading order.
+export const getNavigationExcludedViews = (sections, index, loadedIndices) => {
+    if (!sections[index] || sections[index].linear === 'no') return []
+    return Array.from(loadedIndices).filter(i => i !== index && sections[i]?.linear === 'no')
+}
+
+// Cache retirement uses the real renderer's destruction callback; no synthetic
+// endpoint or range is substituted when a nonlinear view leaves the strip.
+export const retireNonlinearNavigationViews = (sections, index, loadedIndices, retire) => {
+    for (const i of getNavigationExcludedViews(sections, index, loadedIndices)) retire(i)
+}
+
+// The existing sequential reading-order lookup, shared with policy regressions.
+export const getAdjacentLinearIndex = (sections, fromIndex, dir) => {
+    for (let index = fromIndex + dir; index >= 0 && index < sections.length; index += dir)
+        if (sections[index]?.linear !== 'no') return index
+}
+
+export const getPaginatedAnchorPage = ({ offset, size, columnCount, contentPages, fraction }) => {
+    const column = Math.round(fraction * Math.max(0, contentPages - 1))
+    return Math.floor(offset / size + column / columnCount + 0.01)
+}
+
+export const getPaginatedSectionProgress = ({ start, size, columnCount, contentPages }) => ({
+    fraction: contentPages > 0 && size > 0
+        ? Math.max(0, Math.min(1, start / size * columnCount / contentPages)) : 0,
+    size: contentPages > 0 ? columnCount / contentPages : 1,
+})
+
+// Durtal patch 16 (VENDORED.md): distinguish the exact synchronous native
+// anchor focus from a new human focus navigation. Never hold this across await.
+const navigationAnchorFocus = new WeakMap()
+export const getNavigationAnchorFocus = renderer => navigationAnchorFocus.get(renderer) ?? null
+export const focusNavigationAnchor = (renderer, node) => {
+    const previous = navigationAnchorFocus.get(renderer)
+    navigationAnchorFocus.set(renderer, node)
+    try {
+        return node.focus({ preventScroll: true })
+    } finally {
+        if (previous) navigationAnchorFocus.set(renderer, previous)
+        else navigationAnchorFocus.delete(renderer)
+    }
+}
+
 export class Paginator extends HTMLElement {
+    get navigationAnchorFocus() { return getNavigationAnchorFocus(this) }
     static observedAttributes = [
         'flow', 'gap', 'column-gap', 'margin-top', 'margin-bottom', 'margin-left', 'margin-right',
         'max-inline-size', 'max-block-size', 'max-column-count',
@@ -3453,7 +3502,7 @@ export class Paginator extends HTMLElement {
                 if (node && node.focus) {
                     node.tabIndex = -1
                     node.style.outline = 'none'
-                    node.focus({ preventScroll: true })
+                    focusNavigationAnchor(this, node)
                 }
             }
             return
@@ -3477,9 +3526,11 @@ export class Paginator extends HTMLElement {
         // content pages must still settle so #scrollBounds gets seeded.
         if (!textPages) return this.#scrollToPage(pagesBeforePrimary, reason)
         // textPages is in column units; convert to spread page for scrolling
-        const newColumn = Math.round(anchor * (textPages - 1))
-        const newSpreadPage = Math.floor(newColumn / this.columnCount)
-        await this.#scrollToPage(pagesBeforePrimary + newSpreadPage, reason, smooth)
+        const page = getPaginatedAnchorPage({
+            offset: this.#getViewOffset(this.#primaryIndex), size: this.size,
+            columnCount: this.columnCount, contentPages: textPages, fraction: anchor,
+        })
+        await this.#scrollToPage(page, reason, smooth)
     }
     // Get the pixel offset of a view within the container
     #getViewOffset(index) {
@@ -3670,13 +3721,16 @@ export class Paginator extends HTMLElement {
         } else if (this.#renderedPages > 0 && primaryView) {
             const page = this.#renderedPage
             const pagesBeforePrimary = this.#getPagesBeforeView(index)
-            const textPages = primaryView.contentPages
+            const indexView = this.#views.get(index) ?? primaryView
+            const textPages = indexView.contentPages
             this.#header.style.visibility = page > 0 ? 'visible' : 'hidden'
-            // page is in spread units, textPages is in column units
             const localPage = page - pagesBeforePrimary
-            const localColumn = localPage * this.columnCount
-            detail.fraction = textPages > 0 ? Math.max(0, Math.min(1, localColumn / textPages)) : 0
-            detail.size = textPages > 0 ? this.columnCount / textPages : 1
+            // Use actual section-relative pixels, including a clamped final
+            // partial spread; the global spread index drops half-column starts.
+            Object.assign(detail, getPaginatedSectionProgress({
+                start: this.#renderedStart - this.#getViewOffset(index),
+                size: this.size, columnCount: this.columnCount, contentPages: textPages,
+            }))
             if (reason === 'container-scroll' && localPage === 0) return
         }
         // Update per-column backgrounds for the current scroll position
@@ -3931,6 +3985,7 @@ export class Paginator extends HTMLElement {
     async #goTo({ index, anchor, select }) {
         const section = this.sections[index]
         if (!section) return
+        const excludedViews = getNavigationExcludedViews(this.sections, index, this.#views.keys())
         // Check if the target section has a different writing-mode.
         // If direction changes, we must destroy all views and do a full
         // rebuild via #display — mixed-direction views cannot coexist.
@@ -3960,6 +4015,9 @@ export class Paginator extends HTMLElement {
             if (blank) this.#container.style.opacity = '0'
             const hasFocus = this.#primaryView?.document?.hasFocus()
             this.#primaryIndex = index
+            // Remove nonlinear cached views before computing offsets for the
+            // destination anchor. Linear documents/CFIs remain untouched.
+            retireNonlinearNavigationViews(this.sections, index, this.#views.keys(), i => this.#destroyView(i))
             this.#syncA11y()
             this.#trimDistantViews()
             // In noContinuousScroll mode, destroy all non-primary views
@@ -4011,7 +4069,7 @@ export class Paginator extends HTMLElement {
                 const keep = new Set([index])
                 if (!this.noContinuousScroll) {
                     for (const [i] of this.#views) {
-                        if (Math.abs(i - index) <= 2) keep.add(i)
+                        if (Math.abs(i - index) <= 2 && !excludedViews.includes(i)) keep.add(i)
                     }
                 }
                 this.#clearViewsExcept(keep)
@@ -4082,8 +4140,7 @@ export class Paginator extends HTMLElement {
     }
     #adjacentIndex(dir, fromIndex) {
         if (fromIndex === undefined) fromIndex = this.#primaryIndex
-        for (let index = fromIndex + dir; this.#canGoToIndex(index); index += dir)
-            if (this.sections[index]?.linear !== 'no') return index
+        return getAdjacentLinearIndex(this.sections, fromIndex, dir)
     }
     async #turnPage(dir, distance) {
         if (this.#locked) return

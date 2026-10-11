@@ -1,7 +1,7 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { NextRequest } from "next/server";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactElement, ReactNode } from "react";
@@ -9,12 +9,13 @@ import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_READING_SUGGESTIONS_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln457_reading_suggestions");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln457_reading_suggestions")
     throw new Error("Suggestion tests require a disposable local sln457_reading_suggestions database");
 }
-const client = url ? postgres(url, { max: 6, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 6, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -68,7 +69,7 @@ describe.skipIf(!url)("suggestions with PostgreSQL", () => {
   const value = async <T = string>(text: string, params: unknown[] = []) => Object.values((await q(text, params))[0] ?? {})[0] as T;
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln457_reading_suggestions");
   }, 60000);
   afterAll(async () => {
     await client?.end();
@@ -80,11 +81,11 @@ describe.skipIf(!url)("suggestions with PostgreSQL", () => {
     vi.stubEnv("DURTAL_API_TOKEN", TOKEN);
     home.cookie = null;
     // Truncating locations cascades to app_settings (its default copy location): put the row back
-    await q(`truncate works, authors, locations, series, recommenders, activity_events, imports cascade`);
+    await resetDisposableDatabase(url!, "sln457_reading_suggestions", { emptyLocations: true });
     await q(`insert into app_settings(id) values (true) on conflict (id) do update set reading_prediction_gate = null, reading_suggest_hide_anathema = false`);
     amsterdam = await value(`insert into locations(name, type) values ('Amsterdam', 'physical') returning id`);
     mexico = await value(`insert into locations(name, type) values ('Mexico City', 'physical') returning id`);
-  });
+  }, 30000);
 
   let serial = 0;
   const book = (title: string, o: { rating?: number | null; status?: string; seriesId?: string; position?: string; poison?: boolean } = {}) =>

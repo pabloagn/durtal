@@ -1,16 +1,17 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_DOMAIN_SEARCH_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln371_test");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln371_test")
     throw new Error("Domain search tests require disposable local sln371_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -32,6 +33,8 @@ vi.mock("@/lib/s3/cleanup", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/s3/cleanup")>()),
   deleteUnusedObjects: vi.fn(async () => false),
 }));
+// This search request has no reader device cookie.
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 import { quickSearch } from "@/lib/actions/quick-search";
 import { createFilm, getFilmCount, getFilmFilterOptions, getFilms } from "@/lib/actions/films";
 import { createPerfume } from "@/lib/actions/perfumes";
@@ -42,15 +45,15 @@ import { createVenue, archiveVenue } from "@/lib/actions/venues";
 describe.skipIf(!url)("search and lists across the collections", () => {
   const c = client!;
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln371_test");
     await c`alter table works drop constraint if exists works_kind_enabled_check`;
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, authors, publishing_houses, venues, places, catalogue_dates, media cascade`;
-  });
+    await resetDisposableDatabase(url!, "sln371_test", { activateKinds: true });
+  }, 30000);
 
   /** A book with one author, as the legacy book store keeps it */
   async function book(title: string, author: string) {
@@ -102,7 +105,7 @@ describe.skipIf(!url)("search and lists across the collections", () => {
     await book("Unrelated", "Carl Other");
     expect((await quickSearch("100%")).works.map((w) => w.title)).toEqual(["100% Pure"]);
     expect((await quickSearch("snake_case")).works.map((w) => w.title)).toEqual(["Snake_Case"]);
-    expect(await quickSearch("%%")).toEqual({ works: [], people: [], organizations: [], venues: [] });
+    expect(await quickSearch("%%")).toEqual({ works: [], people: [], organizations: [], venues: [], ebooks: [] });
     expect((await quickSearch("__")).works).toEqual([]);
   });
 

@@ -90,6 +90,22 @@ export async function mountedPersistence() {
       throw new Error("Mounted durable operations did not settle within 50 real tasks");
     })());
   }
+  /** Wait for an observable mounted-reader boundary using real Node tasks.
+   * Each act completes before checking the DOM, so React can commit effects.
+   * The real two-second deadline also applies when only the UI clock is fake.
+   */
+  async function waitFor(ready: () => boolean, boundary: string) {
+    await bounded((async () => {
+      for (let task = 0; task < 50; task++) {
+        if (ready()) return;
+        await act(async () => { await new Promise<void>(resolve => nextTask(resolve)); });
+      }
+      if (!ready()) throw new Error(`Mounted reader did not reach ${boundary} within 50 real tasks`);
+    })());
+  }
+  async function settle() {
+    await act(async () => { await drainCommits(); });
+  }
   async function connection() {
     await drainCommits();
     return bounded(openOfflineStore({ indexedDB: factory, name, channel: null, validateAnnotations: validateSharedAnnotationBody }));
@@ -136,5 +152,5 @@ export async function mountedPersistence() {
       } finally { restoreClone(); }
     }
   }
-  return { runtime, committedPositions, snapshot, setReachable: (value: boolean) => { reachable = value; }, dispose };
+  return { runtime, committedPositions, snapshot, waitFor, settle, setReachable: (value: boolean) => { reachable = value; }, dispose };
 }

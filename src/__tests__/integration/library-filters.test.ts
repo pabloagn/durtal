@@ -1,18 +1,19 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { NextRequest } from "next/server";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_LIBRARY_FILTERS_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln405_library_filters");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln405_library_filters")
     throw new Error("Library filter tests require a disposable local sln405_library_filters database");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -74,7 +75,7 @@ describe.skipIf(!url)("library filters with PostgreSQL", () => {
   const value = async <T = string>(text: string, params: unknown[] = []) => Object.values((await q(text, params))[0] ?? {})[0] as T;
 
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln405_library_filters");
   }, 60000);
   afterAll(async () => {
     await client?.end();
@@ -84,10 +85,10 @@ describe.skipIf(!url)("library filters with PostgreSQL", () => {
   let study = "";
   let kindle = "";
   beforeEach(async () => {
-    await q(`truncate works, authors, series, locations, subjects, book_categories, keywords cascade`);
+    await resetDisposableDatabase(url!, "sln405_library_filters", { emptyLocations: true });
     study = await value(`insert into locations(name, type) values ('Study', 'physical') returning id`);
     kindle = await value(`insert into locations(name, type) values ('Kindle', 'digital') returning id`);
-  });
+  }, 30000);
 
   const book = (title: string, { language = "en", year = 1900 as number | null, seriesName = null as string | null } = {}) =>
     value(`insert into works(title, slug, original_language, original_year, series_name) values ($1, $2, $3, $4, $5) returning id`, [

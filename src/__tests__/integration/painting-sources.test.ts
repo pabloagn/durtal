@@ -1,16 +1,17 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_PAINTING_SOURCES_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln378_painting_sources");
 if (url) {
   const parsed = new URL(url);
   if (!["127.0.0.1", "localhost"].includes(parsed.hostname) || parsed.pathname !== "/sln378_painting_sources")
     throw new Error("Painting source tests require disposable local sln378_painting_sources");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -75,14 +76,14 @@ describe.skipIf(!url)("museum-source painting enrichment", () => {
   let metOrg: string, metVenue: string, tokyo: string;
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln378_painting_sources");
   }, 60000);
   afterAll(async () => {
     vi.unstubAllGlobals();
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, authors, publishing_houses, venues, places, catalogue_dates, source_records, catalogue_identifiers, activity_events cascade`;
+    await resetDisposableDatabase(url!, "sln378_painting_sources");
     met = rembrandt();
     offline = false;
     asked.length = 0;
@@ -91,7 +92,7 @@ describe.skipIf(!url)("museum-source painting enrichment", () => {
     metVenue = (await createVenue({ name: "The Met Fifth Avenue", type: "museum" })).id;
     await linkOrganizationVenue({ organizationId: metOrg, venueId: metVenue, role: "operator" });
     tokyo = (await createVenue({ name: "Tokyo Metropolitan Art Museum", type: "museum" })).id;
-  });
+  }, 30000);
 
   async function aristotle(objectFields: Record<string, unknown> = {}) {
     const painting = await createPainting({ title: "Aristotle with a Bust of Homer" });

@@ -1,3 +1,5 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
+import { eq, sql } from "drizzle-orm";
 import {
   afterAll,
   beforeAll,
@@ -9,12 +11,12 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 import type { WizardBookInput } from "@/lib/validations/wizard";
 
 // Never use DATABASE_URL or load env files: this suite truncates only its own local DB.
 const url = process.env.DURTAL_ATOMIC_BOOK_WRITES_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln281_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -23,7 +25,7 @@ if (url) {
   )
     throw new Error("Atomic book write tests require disposable local sln281_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -59,7 +61,6 @@ import { processAndUploadCover, deleteFromS3 } from "@/lib/s3/covers";
 vi.mock("@/lib/s3/client", async () => ({ S3_BUCKET: "local-test", s3: { send: (await import("../s3/cover-stage-fixture")).catalogueSend } }));
 import { mintCover, coverBucket, resetCoverBucket } from "../s3/cover-stage-fixture";
 import { createHash } from "node:crypto";
-import { eq, sql } from "drizzle-orm";
 import { atomicOn } from "@/lib/db/atomic";
 import type { Db } from "@/lib/catalogue/work-store";
 import { readEditionWriteSnapshot, editionWriteGuardQueries, editionUpdateQuery } from "@/lib/catalogue/edition-write-guard";
@@ -74,7 +75,6 @@ vi.mock("@/lib/publishers/resolution", async (original) => {
   } };
 });
 
-
 const MISSING = "00000000-0000-4000-8000-000000000000";
 const ISBN = "9780141182605";
 
@@ -88,7 +88,7 @@ describe.skipIf(!url)("atomic book writes", () => {
   let friend: string;
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln281_test");
   }, 30000);
   afterAll(async () => {
     await client?.end();
@@ -98,7 +98,7 @@ describe.skipIf(!url)("atomic book writes", () => {
     resetCoverBucket();
     followup.reject = false;
     vi.mocked(processAndUploadCover).mockResolvedValue(null);
-    await c`truncate works, authors, subjects, genres, tags, recommenders, locations, collections, venues, orders, activity_events, publishing_houses cascade`;
+    await resetDisposableDatabase(url!, "sln281_test", { emptyLocations: true });
     [study] = (
       await c`insert into locations(name,type) values ('Study','physical') returning id`
     ).map((r) => r.id);
@@ -117,7 +117,7 @@ describe.skipIf(!url)("atomic book writes", () => {
     [friend] = (
       await c`insert into recommenders(name) values ('A friend') returning id`
     ).map((r) => r.id);
-  });
+  }, 30000);
 
   /** Every row a book can leave behind, so a failed write can prove it wrote nothing. */
   async function counts() {
@@ -535,7 +535,7 @@ describe.skipIf(!url)("atomic book writes", () => {
     });
     it("winner publishes a complete fresh pair; competing writer on a second client is stale and cannot delete either pair", async () => {
       const a = await aliasedBook();
-      const otherClient = postgres(url!, { max: 1, onnotice: () => {} });
+      const otherClient = postgres(url!, { prepare: false, max: 1, onnotice: () => {} });
       const other = drizzle(otherClient, { schema }) as unknown as Db;
       try {
         const expectedA = await readEditionWriteSnapshot(a.editionId, testDb! as unknown as Db);

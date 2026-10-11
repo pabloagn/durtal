@@ -159,6 +159,8 @@ export interface FoliateRenderer extends HTMLElement {
   refreshPageSizes?(): void;
   showPageRect?(index: number, rect: { left: number; top: number; right: number; bottom: number }): boolean;
   atEnd: boolean;
+  /** Exact target only during the renderer's synchronous native anchor focus. */
+  readonly navigationAnchorFocus?: Element | null;
   heads?: HTMLElement[] | null;
   feet?: HTMLElement[] | null;
   goTo(target: {

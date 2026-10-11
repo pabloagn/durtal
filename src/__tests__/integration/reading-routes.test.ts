@@ -1,18 +1,19 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { NextRequest } from "next/server";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_READING_ROUTES_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln451_reading_routes");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln451_reading_routes")
     throw new Error("Reading route tests require a disposable local sln451_reading_routes database");
 }
-const client = url ? postgres(url, { max: 6, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 6, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -69,15 +70,15 @@ describe.skipIf(!url)("the phone's reading routes with PostgreSQL", () => {
   const value = async <T = string>(text: string, params: unknown[] = []) => Object.values((await q(text, params))[0] ?? {})[0] as T;
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln451_reading_routes");
   }, 60000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
     vi.stubEnv("DURTAL_API_TOKEN", TOKEN);
-    await q(`truncate works, authors, locations, activity_events, imports cascade`);
-  });
+    await resetDisposableDatabase(url!, "sln451_reading_routes", { emptyLocations: true });
+  }, 30000);
   afterEach(() => {
     vi.unstubAllEnvs();
   });
@@ -189,7 +190,7 @@ describe.skipIf(!url)("the phone's reading routes with PostgreSQL", () => {
     res = await answer(await postStart(request("POST", "/api/readings/timer/start", {})));
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/^Several books are open: .+ and .+\. Say which one$/);
-    await q(`truncate works cascade`);
+    await q(`delete from works`);
     expect(await answer(await postStart(request("POST", "/api/readings/timer/start", {})))).toMatchObject({ status: 404, body: { message: "No book is being read" } });
   });
 

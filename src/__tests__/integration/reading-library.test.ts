@@ -1,18 +1,19 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { NextRequest } from "next/server";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_READING_LIBRARY_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln449_reading_library");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln449_reading_library")
     throw new Error("Reading library tests require a disposable local sln449_reading_library database");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -51,7 +52,7 @@ describe.skipIf(!url)("reading across the library with PostgreSQL", () => {
   const value = async <T = string>(text: string, params: unknown[] = []) => Object.values((await q(text, params))[0] ?? {})[0] as T;
 
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln449_reading_library");
   }, 60000);
   afterAll(async () => {
     await client?.end();
@@ -61,10 +62,10 @@ describe.skipIf(!url)("reading across the library with PostgreSQL", () => {
   let home = "";
   let digital = "";
   beforeEach(async () => {
-    await q(`truncate works, authors, series, locations cascade`);
+    await resetDisposableDatabase(url!, "sln449_reading_library", { emptyLocations: true });
     home = await value(`insert into locations(name, type) values ('Amsterdam', 'physical') returning id`);
     digital = await value(`insert into locations(name, type) values ('Kindle', 'digital') returning id`);
-  });
+  }, 30000);
   const book = (title: string, { rating = null as number | null, status = "accessioned", seriesId = null as string | null, position = null as string | null } = {}) =>
     value(`insert into works(title, slug, rating, catalogue_status, series_id, series_position) values ($1, $2, $3, $4, $5, $6) returning id`, [
       title,

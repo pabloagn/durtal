@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl } from "./helpers/disposable-database";
 import {
   copyFile,
   mkdir,
@@ -20,6 +21,7 @@ import { DOMAIN_TAXONOMIES } from "@/lib/catalogue/taxonomies";
 // Destructive migration rehearsal: explicitly opt in to this local database.
 // Never fall back to DATABASE_URL or load application environment files.
 const url = process.env.DURTAL_WORK_KIND_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln346_migration_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -216,6 +218,22 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
       if ("end_page" in row) expect(row.end_page, "reading_notes.end_page").toBeNull();
       if ("page_roman" in row) expect(row.page_roman, "reading_notes.page_roman").toBe(false);
     }
+    // 0082–0088 add reader metadata; a legacy catalogue has no new reader
+    // history. Check the additions explicitly before projecting legacy rows.
+    for (const table of [
+      "ebook_match_candidates", "ebook_annotation_cursors", "ebook_annotation_retired_ids",
+      "reader_preferences", "legacy_reader_progress", "reader_quote_undo_receipts",
+      "reader_sitting_receipts", "ebook_upload_capacity", "ebook_upload_operations",
+    ]) if (table in projected) {
+      expect(projected[table], `${table} starts empty`).toEqual([]);
+      delete projected[table];
+    }
+    for (const row of projected.app_settings ?? []) {
+      if ("lookup_settings" in row) expect(row.lookup_settings, "lookup_settings").toBeNull();
+      if ("reading_auto_track_ebooks" in row) expect(row.reading_auto_track_ebooks, "reading_auto_track_ebooks").toBe(true);
+    }
+    for (const row of projected.reading_notes ?? [])
+      if ("ebook_annotation_id" in row) expect(row.ebook_annotation_id, "reading_notes.ebook_annotation_id").toBeNull();
     // 0075 and 0076 (SLN-490): the old e-book library's tables and the copies'
     // links to it go; they were emptied before 0075 (see the loop below)
     delete projected.calibre_books;
@@ -298,6 +316,11 @@ describe.skipIf(!url)("work-kind migration on a populated catalogue", () => {
   }
 
   beforeAll(async () => {
+    const [databaseTarget] = await c`
+      select current_database() as database, pg_get_userbyid(datdba) = current_user as owned
+      from pg_database where datname = current_database()
+    `;
+    expect(databaseTarget).toEqual({ database: "sln346_migration_test", owned: true });
     await c.unsafe(
       "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; DROP SCHEMA IF EXISTS drizzle CASCADE;",
     );

@@ -32,9 +32,9 @@ import {uploadAtomicScenario} from '../upload/atomic-fixture';
 import {catalogue,ebook,work,edition,copy,at} from './fixtures';
 const url='postgres://localhost/sln495_source';
 const workId='10000000-0000-4000-8000-000000000001',editionId='20000000-0000-4000-8000-000000000001',copyId='30000000-0000-4000-8000-000000000001';
-function setup(hasCopy=false,configured:string|null='ebooks-location'){
+function setup(hasCopy=false,configured:string|null='ebooks-location',ebookId='ebook-1'){
   state.reads.length=0;state.writes.length=0;state.order.length=0;state.subLocations=[];state.queueFailure=false;state.connectionBoundary=null;state.preparationBoundary=null;
-  const e=edition({id:editionId,workId}),c=copy({id:copyId,editionId,locationId:'other-digital'}),w=work({id:workId,editions:hasCopy?[e]:[],copies:hasCopy?[c]:[]}),input=ebook();
+  const e=edition({id:editionId,workId}),c=copy({id:copyId,editionId,locationId:'other-digital'}),w=work({id:workId,editions:hasCopy?[e]:[],copies:hasCopy?[c]:[]}),input=ebook({id:ebookId});
   state.loaded={catalogue:catalogue({ebooks:[input],works:[w],ebookLocationId:configured,digitalLocationIds:['ebooks-location','other-digital']}),rows:{...Object.fromEntries(MATCH_TABLES.map((table)=>[table,[]])),ebooks:[{id:input.id,match_state:'pending',updated_at:at}],editions:hasCopy?[{id:editionId,work_id:workId,metadata_locked:false}]:[],locations:['ebooks-location','other-digital'].map((id)=>({id,type:'digital',is_active:true})),instances:hasCopy?[{id:copyId,edition_id:editionId,location_id:'other-digital',status:'available',format:null,file_size_bytes:null,updated_at:at}]:[]},catalogueFingerprint:'a'.repeat(64),inputFingerprint:'b'.repeat(64)} as unknown as LoadedMatchCatalogue;
   const assert=()=>{if(!state.active)throw new Error('Escaped transitive planning read');};
   state.conn={execute:async()=>{assert();state.reads.push('sub_locations');return state.subLocations.map((row)=>({row}));},select:(columns:Record<string,unknown>)=>{assert();return {from:(table:Parameters<typeof getTableName>[0])=>{assert();const name=getTableName(table);state.reads.push(name);const rows=name==='works' && 'id' in columns ? [{id:workId}] : [];const chain={where:()=>chain,limit:async()=>{assert();return rows;},then:(resolve:(rows:unknown)=>unknown)=>{assert();return Promise.resolve(rows).then(resolve);}};return chain;}};},query:{authors:{findFirst:async()=>{assert();state.reads.push('find-author');return undefined;}}}};
@@ -176,7 +176,7 @@ describe('shared guarded matching writers',()=>{
     expect(updates[0].sql).not.toMatch(/"(?:location_id|status|acquisition_type|notes)" =/);
   });
   it('edits the selected existing copy and links in the same atomic with actual receipt last',async()=>{
-    const s=setup(true),raw=s.rows.instances[0];
+    const s=setup(true,'ebooks-location','80000000-0000-4000-8000-000000000001'),raw=s.rows.instances[0];
     Object.assign(raw,Object.fromEntries(Object.values(EXISTING_COPY_METADATA_COLUMNS).map(key=>[key,null])),
       {is_signed:true,is_first_printing:true,notes:'Original',updated_at:'2026-10-09T12:00:00.123456+00:00'});
     const input={ebookId:s.catalogue.source.ebooks[0].id,workId,editionId,instanceId:copyId,method:'manual' as const,

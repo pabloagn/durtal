@@ -1,17 +1,18 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_HALF_STAR_RATINGS_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln446_half_star_ratings");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln446_half_star_ratings")
     throw new Error("Half-star rating tests require a disposable local sln446_half_star_ratings database");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -48,14 +49,14 @@ describe.skipIf(!url)("half-star ratings with PostgreSQL", () => {
     Object.values((await q(text, params))[0] ?? {})[0] as T;
 
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln446_half_star_ratings");
   }, 60000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await q(`truncate works, authors, publishing_houses cascade`);
-  });
+    await resetDisposableDatabase(url!, "sln446_half_star_ratings");
+  }, 30000);
 
   let serial = 0;
   const book = (title: string, rating: number | null) =>

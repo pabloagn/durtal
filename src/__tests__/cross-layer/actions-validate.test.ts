@@ -14,6 +14,13 @@ const VALIDATES = /\.(?:safeParse|parse)\(|parseId\(/;
 const DELEGATES: Record<string, string> = {
   createPublisherFromName: "savePublisher",
 };
+/** Reviewed shared parser: the action must call it and it must use its schema. */
+const HELPER_VALIDATORS: Record<string, { helper: string; module: string; schema: string }> = {
+  "lib/actions/reader-preferences.ts updateReaderPreferences": {
+    helper: "parsePreferenceUpdate", module: "lib/reader/presentation/preference-plan.ts",
+    schema: "updateReaderPreferencesSchema",
+  },
+};
 
 function exportedFunctions(file: string): { name: string; body: string }[] {
   const source = readFileSync(file, "utf8");
@@ -40,7 +47,15 @@ describe("server action input validation", () => {
 
   it.each(mutating.map((m) => [`${m.file} ${m.name}`, m]))("%s validates its input", (_label, action) => {
     const delegate = DELEGATES[action.name];
-    if (delegate) {
+    const validator = HELPER_VALIDATORS[`${action.file} ${action.name}`];
+    if (validator) {
+      expect(action.body).toContain(`${validator.helper}(input)`);
+      const actionSource = readFileSync(path.join(SRC, action.file), "utf8");
+      expect(actionSource).toContain(`from "@/${validator.module.replace(/\.ts$/, "")}"`);
+      const parserSource = readFileSync(path.join(SRC, validator.module), "utf8");
+      expect(parserSource).toContain(`export function ${validator.helper}(input: unknown)`);
+      expect(parserSource).toContain(`${validator.schema}.parse(input)`);
+    } else if (delegate) {
       expect(action.body).toMatch(new RegExp(`\\b${delegate}\\(`));
       const target = actions.find((fn) => fn.file === action.file && fn.name === delegate);
       expect(target?.body).toMatch(VALIDATES);
@@ -55,6 +70,7 @@ describe("server action input validation", () => {
       .flatMap((f) => [...readFileSync(path.join(VALIDATIONS_DIR, f), "utf8").matchAll(/^export const (update\w*Schema)\b/gm)].map((m) => m[1]));
     const appSources =
       actionFiles.map((f) => readFileSync(f, "utf8")).join("\n") +
+      Object.values(HELPER_VALIDATORS).map(({ module }) => readFileSync(path.join(SRC, module), "utf8")).join("\n") +
       readdirSync(path.join(SRC, "app/api"), { recursive: true })
         .filter((f) => String(f).endsWith(".ts"))
         .map((f) => readFileSync(path.join(SRC, "app/api", String(f)), "utf8"))

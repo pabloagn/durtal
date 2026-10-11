@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { publicationFixture } from "./publication-fixture";
+import { ebookDerivedFolder, ebookFileKey } from "@/lib/ebooks/keys";
 
 const mocks = vi.hoisted(() => ({ findFirst: vi.fn() }));
 vi.mock("@/lib/db", () => ({ db: { query: { ebooks: { findFirst: mocks.findFirst } } } }));
@@ -52,8 +53,10 @@ describe("fresh catalogue cover evidence", () => {
   });
   it("brands a fresh legacy cover without relaxing gold publication evidence", async () => {
     vi.stubEnv("EBOOK_DELIVERY", "app");
-    const file = { ...publicationFixture(), id: "file", coverKey: null, metadata: {} };
-    const legacyKey = `derived/${file.sha256}/cover-800.webp`;
+    const published = publicationFixture();
+    const file = { ...published, id: "file", coverKey: null, metadata: {},
+      s3Key: ebookFileKey(published.sha256, published.format), manifestKey: null };
+    const legacyKey = `${ebookDerivedFolder(file.sha256)}cover-800.webp`;
     mocks.findFirst.mockResolvedValue({ id: "book", preferredFileId: file.id, coverKey: legacyKey, files: [file] });
     const cover = await readCatalogueCover("book");
     expect(cover).toMatchObject({ sha256: file.sha256, key: legacyKey, widths: [] });

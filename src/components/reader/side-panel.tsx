@@ -19,42 +19,69 @@ export function ReaderSidePanel({
   const origin = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const focusRun = useRef(0);
-  const [modal, setModal] = useState(true);
+  const [viewportWidth, setViewportWidth] = useState<number | null>(null);
+  const modal = viewportWidth === null || viewportWidth < 1024;
   useEffect(() => {
-    const query = matchMedia("(max-width: 1023px)");
-    const update = () => setModal(query.matches);
+    // Match the reader's viewport contract, including scrollbar boundaries.
+    const update = () => setViewportWidth(window.innerWidth);
     update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
   }, []);
   useEffect(() => {
     const panel = ref.current;
     if (!panel || !open) return;
     if (!origin.current)
       origin.current = document.activeElement as HTMLElement | null;
+    // Capture interaction before native close/show can move focus or scroll.
+    const active = panel.ownerDocument.activeElement;
+    const focused = panel.open && active instanceof HTMLElement && panel.contains(active)
+      ? active : null;
+    const field = focused instanceof HTMLInputElement || focused instanceof HTMLTextAreaElement
+      ? focused : null;
+    const selection = field && field.selectionStart !== null && field.selectionEnd !== null
+      ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection ?? "none" }
+      : null;
+    const scroll = panel.open
+      ? [panel, ...panel.querySelectorAll("*")].map(element => ({
+          element, top: element.scrollTop, left: element.scrollLeft,
+        }))
+      : [];
     if (panel.open) panel.close();
     if (modal) panel.showModal();
     else panel.show();
-    (
-      panel.querySelector<HTMLElement>(
-        '[aria-current="location"], [role="treeitem"]',
-      ) ?? panel
-    ).focus();
-    return () => {
-      if (panel.open) panel.close();
-    };
+    if (focused?.isConnected && panel.contains(focused)) {
+      focused.focus({ preventScroll: true });
+      if (field && selection)
+        field.setSelectionRange(selection.start, selection.end, selection.direction);
+    } else {
+      (
+        panel.querySelector<HTMLElement>(
+          '[aria-current="location"], [role="treeitem"]',
+        ) ?? panel
+      ).focus();
+    }
+    for (const { element, top, left } of scroll) {
+      if (!element.isConnected || !panel.contains(element)) continue;
+      element.scrollTop = top;
+      element.scrollLeft = left;
+    }
   }, [open, modal]);
   useEffect(() => {
     if (!open) return;
+    const panel = ref.current;
     const runRef = focusRun;
     const run = ++runRef.current;
-    return () =>
+    return () => {
+      // Genuine dismissal/unmount owns closing; modality changes capture first.
+      if (panel?.open) panel.close();
       queueMicrotask(() => {
         if (runRef.current !== run) return;
         if (origin.current?.isConnected)
           origin.current.focus({ preventScroll: true });
         origin.current = null;
       });
+    };
   }, [open]);
   if (!open) return null;
   return (
@@ -76,7 +103,17 @@ export function ReaderSidePanel({
           onClose();
         }
       }}
-      className="glass-bar fixed inset-y-0 left-0 right-auto z-40 m-0 h-dvh max-h-none w-full max-w-none overflow-hidden border-0 border-r border-glass-border bg-transparent p-0 text-fg-primary outline-none backdrop:glass-veil open:flex open:flex-col md:w-[360px]"
+      style={{
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: "auto",
+        margin: 0,
+        height: "100dvh",
+        maxHeight: "none",
+        width: viewportWidth !== null && viewportWidth >= 768 ? 360 : "100vw",
+      }}
+      className="glass-bar fixed inset-y-0 left-0 right-auto z-40 m-0 h-dvh max-h-none w-screen max-w-none overflow-hidden border-0 border-r border-glass-border bg-transparent p-0 text-fg-primary outline-none backdrop:glass-veil open:flex open:flex-col"
     >
       <div className="type-item-title flex shrink-0 items-start justify-between gap-4 px-4 py-4">
         <h2 id={titleId} className="type-item-title min-w-0">

@@ -31,9 +31,11 @@ export function dependencyReferenceGuardCondition(references: readonly ForeignRe
 export async function loadMatchDependencies(
   conn: Db,
 ): Promise<DependencySnapshot> {
-  const references = resultRows<ForeignReference>(
+  // SQL results may carry non-enumerable driver metadata. Only row values
+  // belong in the internal DTO; untrusted writer inputs remain strict.
+  const references = Array.from(resultRows<ForeignReference>(
     await conn.execute(foreignReferencesQuery()),
-  );
+  ));
   const rows: Record<string, StoredRow[]> = {};
   for (const table of [
     ...new Set([

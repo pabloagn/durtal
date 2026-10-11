@@ -1,3 +1,4 @@
+import { uuidArraySql } from "@/lib/db/sql-arrays";
 import { requireCoreAtomicExtension, uploadCompensation, uploadTimestamp, requireUploadUndoOriginal, type PreparedCoreAtomicExtension } from "./atomic-extension";
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
@@ -560,7 +561,7 @@ export async function undoLink(
                 updated_at=${uploadCompensation(extension)
                   ? sql`greatest(clock_timestamp(),updated_at+interval '1 microsecond')`
                   : plan.cleanup.restoreCopy.metadata !== undefined
-                    ? sql`greatest(updated_at, ${at}::timestamptz) + interval '1 microsecond'`
+                    ? sql`greatest(updated_at, ${at.toISOString()}::timestamptz) + interval '1 microsecond'`
                     : sql`${String(plan.cleanup.restoreCopy.updatedAt)}::timestamptz`} where id=${plan.cleanup.restoreCopy.id}::uuid`,
             ),
           ]
@@ -568,14 +569,14 @@ export async function undoLink(
       ...(plan.cleanup.activityIds.length
         ? [
             d.execute(
-              sql`delete from activity_events where id=any(${[...plan.cleanup.activityIds]}::uuid[])`,
+              sql`delete from activity_events where id=any(${uuidArraySql(plan.cleanup.activityIds)})`,
             ),
           ]
         : []),
       ...(plan.cleanup.jobIds.length
         ? [
             d.execute(
-              sql`delete from enrichment_jobs where id=any(${[...plan.cleanup.jobIds]}::uuid[])`,
+              sql`delete from enrichment_jobs where id=any(${uuidArraySql(plan.cleanup.jobIds)})`,
             ),
           ]
         : []),
@@ -585,7 +586,7 @@ export async function undoLink(
         plan.cleanup.deleted[table].length
           ? [
               d.execute(
-                sql`delete from ${sql.identifier(table)} where id=any(${[...plan.cleanup.deleted[table]]}::uuid[])`,
+                sql`delete from ${sql.identifier(table)} where id=any(${uuidArraySql(plan.cleanup.deleted[table])})`,
               ),
             ]
           : [],

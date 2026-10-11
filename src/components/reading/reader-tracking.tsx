@@ -1,8 +1,10 @@
 "use client";
 
+import { readerUuid } from "@/lib/reader/uuid";
+
 import { useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ReaderSlotFill, useBeforeAnnotationDelete, useReaderContext, useReaderController, useReaderControllerFailure } from "@/components/reader/bridge";
+import { ReaderSlotFill, useBeforeAnnotationDelete, useReaderContext, useReaderController, useReaderControllerFailure, useReaderSelectionCapture } from "@/components/reader/bridge";
 import type { ReaderControllerFailureProps } from "@/lib/reader/bridge-state";
 import type { PreparedAnnotationDelete } from "@/lib/reader/annotation-deletion";
 import type { ReaderSelection } from "@/lib/reader/events";
@@ -45,6 +47,7 @@ export function ReaderTracking({ data }: { data: unknown }) {
 
 function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   const context = useReaderContext();
+  const actionSelection = useReaderSelectionCapture();
   const dialogs = useReadingDialogs();
   const timer = useOptionalTimer();
   const [data, setData] = useState(initial);
@@ -60,12 +63,10 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   const live = useRef(false);
   const generation = useRef(0);
   const manualStart = useRef(false);
-  const selected = useRef(selection);
   const undo = useRef<{ timer: ReturnType<typeof setTimeout>; toast: string | number } | null>(null);
   const pendingChoice = useRef<QuoteChoice | null>(null);
   const latest = useRef({ data, timer, dialogs });
   latest.current = { data, timer, dialogs };
-  selected.current = selection;
   const timerOwns = !!timer?.timer && timer.timer.workId === data.linked?.workId;
 
   function showFailure(error: unknown) {
@@ -99,7 +100,7 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
         } });
     } catch (error) { showFailure(error); setFatal(true); return () => { live.current = false; }; }
     queue.current = ownQueue;
-    const ownController = createReadingReaderController({ now: Date.now, uuid: () => crypto.randomUUID(),
+    const ownController = createReadingReaderController({ now: Date.now, uuid: () => readerUuid(),
       timeZone: browserZone(), visible: document.visibilityState !== "hidden",
       readingId: initial.linked?.reading?.id ?? null,
       ...(context.percent === null ? {} : { initialPlace: { percent: context.percent, chapter: context.chapter } }),
@@ -177,23 +178,25 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
     end: (event) => handle("end", event), selection: (event) => handle("selection", event),
   });
 
-  async function quote() {
-    const value = selected.current;
-    if (!value || busy || !latest.current.data.linked) return;
+  async function quote(origin?: Document) {
+    const value = actionSelection.capture(origin);
+    if (!live.current || !value || busy || !latest.current.data.linked) return;
     const expected = generation.current;
     setBusy(true);
     try {
       const saved = await saveQuoteWithRefresh(initial.ebookId,
         () => saveReaderQuote({ ebookId: initial.ebookId, ...value }),
         () => { if (live.current && expected === generation.current) setNotice("Your quote was saved. Refresh highlights when connected."); });
-      if (!live.current || expected !== generation.current) return;
+      if (!live.current || expected !== generation.current || !actionSelection.isCurrent(value)) return;
       await latest.current.dialogs.open({ kind: "note", workId: latest.current.data.linked!.workId, note: saved.note });
     } catch (error) { showFailure(error); }
     finally { if (live.current && expected === generation.current) setBusy(false); }
   }
   const quoteAction = useRef(quote);
   quoteAction.current = quote;
-  useLayoutEffect(() => registerReaderKey("q", () => { void quoteAction.current(); }, { when: "selection", label: "Save quote" }), []);
+  useLayoutEffect(() => registerReaderKey("q", event => {
+    void quoteAction.current(event.currentTarget === document ? undefined : event.currentTarget as Document);
+  }, { when: "selection", label: "Save quote" }), []);
 
   useBeforeAnnotationDelete(async (annotation, signal): Promise<PreparedAnnotationDelete> => {
     if (annotation.style !== "quote") return { status: "proceed", effect: { action: "none" } };

@@ -1,19 +1,20 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { sql } from "drizzle-orm";
 import { NextRequest } from "next/server";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_PERSONAL_SIGNALS_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln463_personal_signals");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln463_personal_signals")
     throw new Error("Personal signals tests require a disposable local sln463_personal_signals database");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -65,7 +66,7 @@ describe.skipIf(!url)("read status and personal signals with PostgreSQL", () => 
   const value = async <T = string>(text: string, params: unknown[] = []) => Object.values((await q(text, params))[0] ?? {})[0] as T;
 
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln463_personal_signals");
   }, 60000);
   afterAll(async () => {
     await client?.end();
@@ -74,12 +75,12 @@ describe.skipIf(!url)("read status and personal signals with PostgreSQL", () => 
   let serial = 0;
   let home = "";
   beforeEach(async () => {
-    await q(`truncate works, authors, locations cascade`);
+    await resetDisposableDatabase(url!, "sln463_personal_signals", { emptyLocations: true });
     home = await value(`insert into locations(name, type) values ('Amsterdam', 'physical') returning id`);
     activity.mockClear();
     failing.on = 0;
     failing.calls = 0;
-  });
+  }, 30000);
   const book = (title: string) => value(`insert into works(title, slug) values ($1, $2) returning id`, [title, `book-${++serial}`]);
   const copy = async (workId: string, { status = "available", format = "paperback" } = {}) => {
     const e = await value(`insert into editions(work_id, title, language) values ($1, 'E', 'en') returning id`, [workId]);

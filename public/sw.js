@@ -122,7 +122,10 @@ self.addEventListener("fetch",event => {
   if (url.origin === self.location.origin && (/^\/_next\/static\//.test(url.pathname) || /^\/fonts\/reader\//.test(url.pathname) || /^\/vendor\/pdfjs\//.test(url.pathname) || url.pathname === "/offline-assets.json")) {
     event.respondWith((async () => {
       const cache = await caches.open(`durtal-assets-${clientsBuild.get(event.clientId) ?? BUILD}`);
-      return await cache.match(request) ?? fetch(request);
+      const saved = await cache.match(request);
+      // Keep the request URL (including worker bootstrap fragments) as the base.
+      // Cached network responses carry the fragmentless install-time URL.
+      return saved ? new Response(saved.body,{ status: saved.status, statusText: saved.statusText, headers: saved.headers }) : fetch(request);
     })()); return;
   }
   // Other APIs, RSC/flight, plugins, mutations and unrelated URLs pass through.

@@ -1272,3 +1272,50 @@ GET /api/geocode?mode=search&q=Amsterdam
 
 **Error** `400`: Missing required parameters.
 **Error** `429`: Rate limited (Nominatim allows 1 request/second).
+
+
+### Reader device, annotations and sitting delivery
+
+`GET /api/reader/device` returns `{ deviceId }`, using the validated HTTP-only
+reader cookie or null. It is read-only, never rotates the cookie, refuses
+cross-origin requests and uses `Cache-Control: no-store`.
+
+`GET /api/reader/[ebookId]/annotations` validates the e-book UUID and optional
+`since` cursor, then returns the annotation pull. `POST` validates the annotation
+body, device cookie and passage-file ownership before saving. Both use the
+same-origin/device guard and no-store responses; a missing e-book returns 404.
+
+`POST /api/reader/[ebookId]/session` delivers a validated cumulative sitting.
+The streamed JSON body is bounded by the reader-session byte limit, including
+without Content-Length. The e-book UUID and device cookie are required; an
+optional `device` query parameter must match the cookie. Permanent receipts are
+checked before a possibly deleted binding. Invalid input returns 400, a changed
+device returns 409, and temporary save failure returns 503 while the sitting
+remains pending for retry.
+
+### Private e-book upload broker
+
+| Route | Method | Purpose |
+|---|---|---|
+| `/api/ebooks/uploads` | POST | Create an upload batch from bounded JSON metadata; returns 201. |
+| `/api/ebooks/uploads/[batchId]` | GET | Return the validated batch and broker readiness. |
+| `/api/ebooks/upload-operations/[operationId]` | GET, POST | Read an item or apply a validated upload command. |
+| `/api/ebooks/upload-operations/[operationId]/parts/[part]` | PUT | Stream one numbered part for the supplied upload generation and SHA-256. |
+
+These Node routes refuse cross-origin access. Same-origin UI requests use the
+app channel; nonbrowser or explicitly authorized requests require the existing
+REST API token. JSON metadata is at most 64 KiB. Parts are unencoded
+`application/octet-stream`, at most 8 MiB, with `x-upload-generation` and a
+64-digit lowercase hexadecimal `x-upload-sha256`; part numbers are 1–512.
+Upload-specific responses set `Cache-Control: no-store`. Shared authentication
+and origin refusals use the shared guard response without that header.
+Uncertain broker responses tell the caller to refresh or retry the original
+request rather than inventing a replacement operation.
+
+### Confirmed e-book unlink
+
+`POST /api/ebooks/[id]/unlink/preview` prepares a validated unlink intent.
+`POST /api/ebooks/[id]/unlink` applies a confirmed unlink using the reviewed
+request and preview token. Both require the REST token and same-origin guard,
+validate the path UUID, and require its identity to match the body. The preview
+and confirmation use the shared review service and its existing error mapping.

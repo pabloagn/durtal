@@ -452,6 +452,48 @@ describe("painted session navigation", () => {
     await s.navigation.navigate({ fraction: 0.6 }, { source: "bookmark" });
     expect(s.navigation.history.forward).toBeNull();
   });
+  it("settles a painted Back with coincident anchors without duplicating history", async () => {
+    const s = session();
+    await s.navigation.navigate({ fraction: 0.8 }, { source: "goto" });
+    // Layout can reanchor the current cursor to a previous exact anchor.
+    s.navigation.relocate({ ...relocation(0), reason: "layout", origin: "layout" });
+    await microtasks();
+    expect(s.navigation.history.cursor).toBe(1);
+    expect(s.navigation.history.back?.locator.cfi).toBe(s.navigation.current?.locator.cfi);
+    s.commit.mockClear();
+    await expect(s.navigation.historyStep(-1)).resolves.toBeNull();
+    expect(s.navigation.history.cursor).toBe(0);
+    expect(s.navigation.history.entries).toHaveLength(2);
+    expect(s.navigation.history.back).toBeNull();
+    expect(s.navigation.history.forward).not.toBeNull();
+    expect(s.commit).toHaveBeenCalledOnce();
+  });
+  it("publishes owned same-CFI speech metadata without human activity or end eligibility", async () => {
+    const s = session();
+    s.engine.goTo.mockImplementation(async (_target, owner) => {
+      s.navigation.relocate({ ...relocation(0, owner?.id), origin: "speech", activity: "turn", atEnd: true,
+        locator: { ...at(0), totalProgression: 1, pageLabel: "120", position: 10 } });
+    });
+    await expect(s.navigation.speechTo(at(0.8))).resolves.toBeNull();
+    expect(s.commit).toHaveBeenCalledOnce();
+    expect(s.navigation.current).toMatchObject({ origin: "speech", activity: undefined, atEnd: false, reason: "jump", locator: { cfi: "cfi0", totalProgression: 1, pageLabel: "120", position: 10 } });
+    expect(s.navigation.history.entries).toHaveLength(1);
+    expect(s.navigation.history.current?.locator.totalProgression).toBe(1);
+    // Passive duplicate deduplication remains an exact-anchor contract.
+    s.navigation.relocate({ ...relocation(0), reason: "layout", origin: "layout" });
+    await microtasks();
+    expect(s.commit).toHaveBeenCalledOnce();
+  });
+  it("does not invent turn activity for a painted same-anchor endpoint turn", async () => {
+    const s = session();
+    s.engine.next.mockImplementation(async owner => {
+      s.navigation.relocate({ ...relocation(0, owner?.id), reason: "turn", origin: "human", activity: "turn", atEnd: true });
+    });
+    await expect(s.navigation.turn("next")).resolves.toBeNull();
+    expect(s.commit).toHaveBeenCalledOnce();
+    expect(s.navigation.current).toMatchObject({ reason: "jump", activity: undefined, atEnd: true });
+    expect(s.navigation.history.entries).toHaveLength(1);
+  });
   it("boundary turns with no relocate remain silent", async () => {
     const s = session();
     s.engine.prev.mockImplementation(async () => {});

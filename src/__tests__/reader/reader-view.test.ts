@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement as h } from "react";
 import { createRoot, type Root } from "react-dom/client";
-const mocks = vi.hoisted(() => ({ factory: vi.fn() }));
+const mocks = vi.hoisted(() => ({ factory: vi.fn(), adopt: vi.fn() }));
 vi.mock("@/lib/reader/engines/foliate/engine", () => ({
   createFoliateEngine: mocks.factory,
 }));
@@ -17,13 +17,15 @@ vi.mock("@/components/reader/settings-dialog", () => ({
 vi.mock("@/lib/actions/reader-preferences", async () => {
   const { preferenceAdoptionSchema } = await import("@/lib/reader/presentation/preference-plan");
   return {
-    adoptLegacyReaderSettings: async (input: unknown) => ({
-      ok: true as const, ...preferenceAdoptionSchema.parse(input), rows: [],
-    }),
+    adoptLegacyReaderSettings: (input: unknown) => mocks.adopt(preferenceAdoptionSchema.parse(input)),
     updateReaderPreferences: async () => { throw new Error("Unexpected reading-settings write in reader fixture"); },
     resetReaderPreferences: async () => { throw new Error("Unexpected reading-settings reset in reader fixture"); },
   };
 });
+import { type PreferenceReply, type PreferenceScope } from "@/lib/reader/presentation/preference-plan";
+import { deviceClass as classifyDevice } from "@/lib/reader/presentation/device-class";
+import { preferenceCacheKey, serializePreferenceCache } from "@/lib/reader/presentation/preference-cache";
+import { READER_SETTINGS_KEY } from "@/lib/preferences";
 import { ReaderSlotFill } from "@/components/reader/bridge";
 // EB Garamond loads through next/font, which needs the Next compiler.
 vi.mock("next/font/google", () => ({ EB_Garamond: () => ({ variable: "font-prose" }) }));
@@ -80,6 +82,7 @@ function ToolbarActions() {
 }
 const report = vi.fn();
 beforeEach(async () => {
+  mocks.adopt.mockReset().mockImplementation(async (scope: PreferenceScope): Promise<PreferenceReply> => ({ ok: true, ...scope, rows: [] }));
   persistence = await mountedPersistence();
   persistenceProvider.runtime = persistence.runtime;
   (
@@ -126,12 +129,13 @@ afterEach(async () => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
-const render = (
+const render = async (
   place: ReaderPlace | null = own,
   devicePlace: ReaderPlace | null = own,
   otherPlace: ReaderPlace | null = other,
-) =>
-  act(async () => {
+  localPreferenceAdmission = false,
+) => {
+  await act(async () => {
     root.render(
       h(ReaderView, {
         ebook: { id: bookId, title: "Book", authors: [] },
@@ -151,15 +155,21 @@ const render = (
         otherPlace,
         deviceId,
         backHref: "/library",
+        localPreferenceAdmission,
         plugins: [
           { id: "probe", node: h(ProbePlugin, { data: { report } }) },
           { id: "actions", node: h(ToolbarActions) },
         ],
       }),
     );
-    if (vi.isFakeTimers()) await vi.advanceTimersByTimeAsync(10);
-    else await new Promise((resolve) => setTimeout(resolve, 10));
   });
+  // Startup reads this device's committed position before opening/resuming.
+  // Wait for the actual landing, not elapsed UI-clock time or microtasks.
+  await persistence.waitFor(
+    () => host.querySelector('[data-reader="ready"]') !== null,
+    "the reader's initial resumed landing",
+  );
+};
 const positionReads = () => vi.mocked(fetch).mock.calls.filter(([input, options]) => {
   const url = input instanceof Request ? input.url : String(input);
   return new URL(url, "http://fixture.invalid").pathname === `/api/reader/${bookId}/position`
@@ -551,16 +561,18 @@ describe("reader view with a real bridge and fake engine", () => {
     // Existing SLN-493 polling cancellation remains unchanged.
     await render();
     let finish!: (value: Response) => void;
-    vi.mocked(fetch).mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          finish = resolve;
-        }),
-    );
+    const ordinaryFetch = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation((input, options) => {
+      const path = new URL(input instanceof Request ? input.url : String(input), "http://fixture.invalid").pathname;
+      if (path === `/api/reader/${bookId}/position` && (options?.method ?? "GET") === "GET")
+        return new Promise<Response>(resolve => { finish = resolve; });
+      return ordinaryFetch(input, options);
+    });
     await act(async () => {
       window.dispatchEvent(new Event("online"));
       await Promise.resolve();
     });
+    await persistence.waitFor(() => positionReads().length === 1, "the refresh position GET");
     expect(positionReads()).toHaveLength(1);
     act(() => {
       document.dispatchEvent(
@@ -597,10 +609,12 @@ describe("reader view with a real bridge and fake engine", () => {
     await state("hidden");
     now = 60999;
     await state("visible");
+    await persistence.settle();
     expect(positionReads()).toHaveLength(0);
     await state("hidden");
     now = 120999;
     await state("visible");
+    await persistence.waitFor(() => positionReads().length === 1, "the sixty-second visibility refresh GET");
     expect(positionReads()).toHaveLength(1);
     expect(positionReads()[0][1]).toEqual({ cache: "no-store" });
     delete (document as unknown as Record<string, unknown>).visibilityState;
@@ -674,12 +688,19 @@ describe("reader view with a real bridge and fake engine", () => {
     expect(tabFrom(copy).defaultPrevented).toBe(false);
     expect(document.activeElement).toBe(copy);
     const actions = [button("Plugin action one"), button("Plugin action two")];
+    const lookup = host.querySelector<HTMLButtonElement>(
+      '[role="toolbar"] button[aria-label="Look up"]',
+    )!;
+    expect(lookup).not.toBeNull();
+    expect(lookup.disabled).toBe(false);
+    expect(lookup.tabIndex).toBe(0);
     expect([
       ...host.querySelector('[role="toolbar"]')!.querySelectorAll("button"),
-    ]).toEqual([copy, ...actions]);
+    ]).toEqual([copy, ...actions, lookup]);
+    // Lookup fills the final selection-actions slot after both plugin buttons.
     // happy-dom has no native Tab default action. Move focus as the browser
     // would, then prove the reader neither cancels traversal nor refocuses Copy.
-    for (const action of actions) {
+    for (const action of [...actions, lookup]) {
       action.focus();
       expect(tabFrom(action).defaultPrevented).toBe(false);
       expect(document.activeElement).toBe(action);
@@ -892,4 +913,29 @@ it.each(["valid", "malformed"] as const)("lifecycle replay retains exact intent 
     persistence.setReachable(false);
     if (flight) await flight;
   }
+});
+
+it.each(["pending", "rejected"])("opens the downloaded reader engine while onLine is true and adoption is %s", async kind => {
+  vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+  const scope: PreferenceScope = { deviceClass: classifyDevice({ width: window.innerWidth, height: window.innerHeight,
+    coarse: window.matchMedia("(pointer: coarse)").matches }), ebookId: bookId };
+  const cached = serializePreferenceCache(scope, [{ ...scope, presentation: { fontSizePx: 28 } }]);
+  window.localStorage.setItem(preferenceCacheKey(scope), cached);
+  document.cookie = `${READER_SETTINGS_KEY}=kept; Path=/`;
+  let release!: (reply: PreferenceReply) => void;
+  const pending = new Promise<PreferenceReply>(done => { release = done; });
+  mocks.adopt.mockImplementationOnce(() => kind === "pending" ? pending : Promise.reject(new Error("Origin unreachable.")));
+  await render(null, null, null, true);
+  expect(mocks.adopt).toHaveBeenCalledTimes(1);
+  expect(mocks.factory).toHaveBeenCalledTimes(1); expect(fake.engine.open).toHaveBeenCalledTimes(1);
+  expect(host.querySelector('[data-reader="ready"]')).not.toBeNull();
+  expect(host.textContent).not.toContain("Origin unreachable.");
+  expect(window.localStorage.getItem(preferenceCacheKey(scope))).toBe(cached);
+  expect(document.cookie).toContain(`${READER_SETTINGS_KEY}=kept`);
+  // Finish the held transport only after actual engine admission has been observed.
+  if (kind === "pending") {
+    await act(async () => { release({ ok: true, ...scope, rows: [] }); });
+    await settle();
+  }
+  document.cookie = `${READER_SETTINGS_KEY}=; Path=/; Max-Age=0`;
 });

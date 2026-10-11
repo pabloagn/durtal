@@ -1,3 +1,4 @@
+import { uuidArraySql } from "@/lib/db/sql-arrays";
 import { immutableMatchingWriterInput } from "./writer-input";
 import type { AllocatedCoverStage, VerifiedCoverStage, CoverObjectEvidence } from "@/lib/s3/cover-stage";
 import { randomUUID } from "node:crypto";
@@ -329,13 +330,13 @@ export function commitReceiptQuery(d: Db, receipt: LinkReceipt) {
     'instance', (select to_jsonb(i) from instances i where i.id=${receipt.instanceId}::uuid),
     'edition', (select to_jsonb(e) from editions e where e.id=${receipt.editionId}::uuid),
     'work', (select to_jsonb(w) from works w where w.id=${receipt.workId}::uuid),
-    'authors', (select coalesce(jsonb_agg(to_jsonb(a) order by a.id), '[]'::jsonb) from authors a where a.id=any(${[...receipt.authorIdsCreated]}::uuid[])),
+    'authors', (select coalesce(jsonb_agg(to_jsonb(a) order by a.id), '[]'::jsonb) from authors a where a.id=any(${uuidArraySql(receipt.authorIdsCreated)})),
     'series', (select to_jsonb(s) from series s where s.id=${receipt.seriesIdCreated}::uuid),
-    'histories', (select coalesce(jsonb_agg(row order by row::text), '[]'::jsonb) from (select to_jsonb(h) row from instance_status_history h where h.id=any(${[...receipt.historyIdsCreated]}::uuid[]) union all select to_jsonb(h) row from work_status_history h where h.id=any(${[...receipt.historyIdsCreated]}::uuid[])) h),
-    'activities', (select coalesce(jsonb_agg(to_jsonb(a) order by a.id), '[]'::jsonb) from activity_events a where a.id=any(${[...receipt.activityIdsCreated]}::uuid[])),
+    'histories', (select coalesce(jsonb_agg(row order by row::text), '[]'::jsonb) from (select to_jsonb(h) row from instance_status_history h where h.id=any(${uuidArraySql(receipt.historyIdsCreated)}) union all select to_jsonb(h) row from work_status_history h where h.id=any(${uuidArraySql(receipt.historyIdsCreated)})) h),
+    'activities', (select coalesce(jsonb_agg(to_jsonb(a) order by a.id), '[]'::jsonb) from activity_events a where a.id=any(${uuidArraySql(receipt.activityIdsCreated)})),
     'ownedChildren', jsonb_build_object(
       'work_authors', (select coalesce(jsonb_agg(to_jsonb(c) order by to_jsonb(c)::text),'[]'::jsonb) from work_authors c where ${receipt.workCreated} and c.work_id=${receipt.workId}::uuid),
-      'person_domains', (select coalesce(jsonb_agg(to_jsonb(c) order by to_jsonb(c)::text),'[]'::jsonb) from person_domains c where c.person_id=any(${[...receipt.authorIdsCreated]}::uuid[]) and c.kind='book')
+      'person_domains', (select coalesce(jsonb_agg(to_jsonb(c) order by to_jsonb(c)::text),'[]'::jsonb) from person_domains c where c.person_id=any(${uuidArraySql(receipt.authorIdsCreated)}) and c.kind='book')
     )
   )) where eb.id=${receipt.ebookId}::uuid returning link_written`);
 }
@@ -528,7 +529,7 @@ export async function prepareLinkWrite(
                   updatedAt: hasUploadAtomicExtension(extension)
                     ? uploadTimestamp(extension, at)
                     : metadataPatch
-                      ? sql`greatest(updated_at, ${at}::timestamptz) + interval '1 microsecond'` : at,
+                      ? sql`greatest(updated_at, ${at.toISOString()}::timestamptz) + interval '1 microsecond'` : at,
                 })
                 .where(eq(instances.id, plan.instanceId)),
             ]

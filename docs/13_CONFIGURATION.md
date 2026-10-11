@@ -33,7 +33,7 @@ E-books use the existing private bucket and layer-first prefixes (SLN-569; `docs
 | `EBOOK_DELIVERY` | No | `app` | `cloudfront`: the browser reads files through signed CloudFront URLs. `app`: the app streams them itself by byte range (development, previews; `scripts/qa/preview-local.py` always sets `app`) |
 | `EBOOK_CDN_URL` | With `cloudfront` | — | The distribution's address, `https://<id>.cloudfront.net` |
 | `EBOOK_CDN_KEY_PAIR_ID` | With `cloudfront` | — | The id of the key group's public key |
-| `EBOOK_CDN_PRIVATE_KEY` | With `cloudfront` | — | Its private key: the PEM, base64-encoded on one line. Only in the env file, never committed or printed |
+| `EBOOK_CDN_PRIVATE_KEY` | With `cloudfront` | — | Its private key: base64 PEM in the server process environment. The Mac launcher reads the existing owner signing Keychain item and validates its public fingerprint at launch; never put it in env files, runtime config, argv, plists, reports or image layers |
 
 `EBOOK_DELIVERY=cloudfront` with any of the three CDN variables missing stops the server at startup with one message naming each.
 

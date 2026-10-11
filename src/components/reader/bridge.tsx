@@ -5,7 +5,6 @@ import {
   createContext,
   useContext,
   useEffect,
-  useMemo,
   useLayoutEffect,
   useRef,
   useState,
@@ -212,6 +211,11 @@ export function useReaderContext(): ReaderContext {
     bridge.getSnapshot,
   );
 }
+/** Action-time native capture, without exposing the engine to reader plugins. */
+export function useReaderSelectionCapture() {
+  const bridge = useBridge();
+  return { capture: bridge.captureSelection, isCurrent: bridge.isSelectionCaptureCurrent };
+}
 export function useReaderShortcut(
   key: string,
   handler: (event: KeyboardEvent) => void,
@@ -277,11 +281,14 @@ export function ReaderSlotFill({
 }) {
   const bridge = useBridge();
   const order = useContext(Order);
-  const element = useMemo(() => {
-    if (typeof document === "undefined") return null;
+  // Server render and the first hydration render both omit portals. The
+  // eager tracking plug-in can mount before the effect-mounted reader frame.
+  const [element, setElement] = useState<HTMLSpanElement | null>(null);
+  useEffect(() => {
     const node = document.createElement("span");
     node.style.display = "contents";
-    return node;
+    setElement(node);
+    return () => node.remove();
   }, []);
   useEffect(() => {
     if (!element) return;

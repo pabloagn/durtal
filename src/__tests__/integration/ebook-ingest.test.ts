@@ -18,7 +18,7 @@ if (url) {
   if (!["127.0.0.1", "localhost"].includes(parsed.hostname) || parsed.pathname !== "/sln494_ebook_ingest")
     throw new Error("E-book ingestion tests require disposable local sln494_ebook_ingest");
 }
-const client = url ? postgres(url, { max: 8, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 8, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(

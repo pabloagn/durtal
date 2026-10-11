@@ -38,8 +38,8 @@ function ReaderCommands() {
     setHost(null);
     setOpened(true);
     try {
-      const module = await import("./catalogue-commands");
-      if (generation.current === expected) setHost(() => module.ReaderCatalogueCommands);
+      const catalogueCommands = await import("./catalogue-commands");
+      if (generation.current === expected) setHost(() => catalogueCommands.ReaderCatalogueCommands);
     } catch (error) {
       if (generation.current !== expected) return;
       console.error("[reader] Commands unavailable:", error); setFailed(true);

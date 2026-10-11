@@ -7,14 +7,16 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { and, eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 
 const url = process.env.DURTAL_EBOOK_CATALOGUE_TEST_DATABASE_URL;
 if (url) {
+  requireDisposableDatabaseUrl(url, "sln490_ebook_catalogue");
   const parsed = new URL(url);
   if (!["127.0.0.1", "localhost"].includes(parsed.hostname) || parsed.pathname !== "/sln490_ebook_catalogue")
     throw new Error("E-book catalogue tests require disposable local sln490_ebook_catalogue");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 const queries: string[] = [];
 vi.mock("@/lib/db", () => ({
@@ -57,6 +59,13 @@ describe.skipIf(!url)("the e-book catalogue", () => {
     return dir;
   }
   async function reset(to: string) {
+    requireDisposableDatabaseUrl(url!, "sln490_ebook_catalogue");
+    const [target] = await c<{ database: string; owned: boolean }[]>`
+      select current_database() as database, pg_get_userbyid(datdba) = current_user as owned
+      from pg_database where datname = current_database()
+    `;
+    if (target?.database !== "sln490_ebook_catalogue" || !target.owned)
+      throw new Error("Historical catalogue rehearsal requires its owned disposable database");
     await c.unsafe("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; DROP SCHEMA IF EXISTS drizzle CASCADE;");
     await migrate(testDb!, { migrationsFolder: to });
   }
@@ -167,7 +176,7 @@ describe.skipIf(!url)("the e-book catalogue", () => {
       await reset(after);
     });
     beforeEach(async () => {
-      await c`truncate ebook_annotations, ebook_positions, ebook_files, ebooks, works, locations cascade`;
+      await resetDisposableDatabase(url!, "sln490_ebook_catalogue", { emptyLocations: true });
       const [place] = await c`insert into locations(name, type) values ('eBooks', 'digital') returning id`;
       const [work] = await c`insert into works(title, slug) values ('Là-bas', 'la-bas') returning id`;
       const [edition] = await c`insert into editions(work_id, title) values (${work.id}, 'Là-bas') returning id`;
@@ -289,7 +298,7 @@ describe.skipIf(!url)("the e-book catalogue", () => {
     it("gives the newest place of each e-book across devices, without excluded e-books", async () => {
       const a = await ebook({ title: "A" });
       const b = await ebook({ title: "B" });
-      const hidden = await ebook({ title: "Hidden", match_state: "excluded" });
+      const hidden = await ebook({ title: "Hidden", match_state: "excluded", exclusion_reason: "duplicate" });
       const [fa, fb, fh] = [await file(a.id, 1), await file(b.id, 2), await file(hidden.id, 3)];
       const place = (ebookId: string, fileId: string, device: string, progression: number, at: string) =>
         c`insert into ebook_positions ${c({

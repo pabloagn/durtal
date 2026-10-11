@@ -29,6 +29,7 @@ export default function GlobalError({
           <button type="button" onClick={reset} className={routeFallbackActionClass}>
             Try again
           </button>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- A root failure needs a fresh document independent of the failed router. */}
           <a href="/" className={routeFallbackActionClass}>
             Go to dashboard
           </a>

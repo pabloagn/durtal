@@ -207,6 +207,13 @@ export class PrivateUploadSpool {
     fence: OperationFence; relativePath: string; bytes: number; stream: ReadableStream<Uint8Array>;
     gate: UploadIoGate; authority: SpoolAllocationAuthority; expectedSha256?: string;
   }): Promise<{ bytes: number; sha256: string }> {
+    return this.writeStream(input);
+  }
+
+  /** Assembly alone can prove closure of its owned source handles after a
+   * stream error. External streams must still settle reader cancellation. */
+  private async writeStream(input: Parameters<PrivateUploadSpool["writeExclusive"]>[0],
+    settleOwnedSource?: () => Promise<void>): Promise<{ bytes: number; sha256: string }> {
     // Only the deterministic assembled-source destination admits a 4 GiB stream.
     const assembled = input.relativePath === `${input.fence.operationId}/assembled/source`;
     checkedInteger(input.bytes, "bounded spool write", 1, assembled ? UPLOAD_LIMITS.sourceBytes : UPLOAD_LIMITS.partBytes);
@@ -293,6 +300,10 @@ export class PrivateUploadSpool {
         let settlementFailure: unknown;
         try { await reader.cancel(); } catch (error) { settlementFailure = error; }
         try { await cancellation; } catch (error) { settlementFailure ??= error; }
+        if (settleOwnedSource) {
+          try { await settleOwnedSource(); settlementFailure = undefined; }
+          catch (error) { settlementFailure = error; }
+        }
         reader.releaseLock();
         signal.removeEventListener("abort", abort);
         try { await file?.close(); } catch (error) { settlementFailure ??= error; }
@@ -317,7 +328,18 @@ export class PrivateUploadSpool {
     let hash = createHash("sha256");
     let canceled = false;
     let pendingRead: Promise<void> | undefined;
-    const close = async () => { const current = handle; handle = undefined; await current?.close(); };
+    let closeFailure: unknown;
+    const close = async () => {
+      const current = handle; handle = undefined;
+      try { await current?.close(); }
+      catch (error) { closeFailure ??= error; throw error; }
+    };
+    const settleSource = async () => {
+      canceled = true;
+      await pendingRead;
+      await close();
+      if (closeFailure) throw closeFailure;
+    };
     const source = new ReadableStream<Uint8Array>({
       pull: (controller) => {
         pendingRead = (async () => { try {
@@ -350,10 +372,10 @@ export class PrivateUploadSpool {
         } catch (error) { await close(); if (!canceled) controller.error(error); } })();
         return pendingRead;
       },
-      cancel: async () => { canceled = true; await pendingRead; await close(); },
+      cancel: settleSource,
     }, { highWaterMark: 0 });
-    return this.writeExclusive({ fence: input.fence, relativePath: `${input.fence.operationId}/assembled/source`, bytes: input.parts.sourceBytes,
-      expectedSha256: input.expectedSha256, stream: source, gate: input.gate, authority: input.authority });
+    return this.writeStream({ fence: input.fence, relativePath: `${input.fence.operationId}/assembled/source`, bytes: input.parts.sourceBytes,
+      expectedSha256: input.expectedSha256, stream: source, gate: input.gate, authority: input.authority }, settleSource);
   }
 
   /** Only after exit/stream proof, and only scratch belonging to this operation. */

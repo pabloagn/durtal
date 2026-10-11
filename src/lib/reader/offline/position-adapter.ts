@@ -1,3 +1,4 @@
+import { readerUuid } from "@/lib/reader/uuid";
 import type { PositionQueue, PositionSave } from "../position-queue";
 import { SAVE_INTERVAL_MS } from "../position-queue";
 import { getReaderRuntime } from "./runtime";
@@ -46,7 +47,7 @@ export function createDurablePositionQueue(options: {
       if (destroyed) return;
       if (!options.deviceId) { options.onError(new Error("Original reader device unavailable")); return; }
       const original = JSON.parse(JSON.stringify(save)) as PositionSave;
-      const mutation: PositionMutation = { v: 1, kind: "position", operationId: crypto.randomUUID(), revision: 1,
+      const mutation: PositionMutation = { v: 1, kind: "position", operationId: readerUuid(), revision: 1,
         ebookId: options.ebookId, fileId: original.fileId, deviceId: options.deviceId,
         createdAt: original.clientUpdatedAt, body: original };
       writeCount++;

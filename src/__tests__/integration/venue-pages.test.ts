@@ -1,16 +1,17 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_VENUE_PAGES_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln370_test");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln370_test")
     throw new Error("Venue page tests require disposable local sln370_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -54,15 +55,15 @@ import { addPerfumeRetailerLink, recordRetailerObservation } from "@/lib/actions
 describe.skipIf(!url)("venue pages", () => {
   const c = client!;
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln370_test");
     await c`alter table works drop constraint if exists works_kind_enabled_check`;
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, authors, publishing_houses, venues, places, catalogue_dates, source_records, harmonization_operations, harmonization_redirects cascade`;
-  });
+    await resetDisposableDatabase(url!, "sln370_test", { activateKinds: true });
+  }, 30000);
 
   const failure = (promise: Promise<unknown>) =>
     promise.then(

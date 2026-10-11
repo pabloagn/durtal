@@ -47,7 +47,7 @@ if (url) {
       "E-book library tests require disposable local sln497_ebook_library",
     );
 }
-const client = url ? postgres(url, { max: 1, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 1, onnotice: () => {} }) : null;
 const database = client ? drizzle(client) : null;
 const columns = {
   status: sql`f.status`,
@@ -137,11 +137,11 @@ describe.skipIf(!url)(
       await parity(base);
     });
     it("pages, combines filters and searches normalized title/author/series on the actual query", async () => {
-      await client!`insert into ebooks(title, authors, author_sort, language, match_state, import_source, search_text)
-        values ('The Waves', array['Virginia Woolf'], 'Woolf', 'en', 'pending', 'folder', 'the waves virginia woolf'),
-          ('Les Misérables', array['Victor Hugo'], 'Hugo', 'fr', 'standalone', 'folder', 'les miserables victor hugo'),
-          ('Nadja', array['André Breton'], 'Breton', 'fr', 'pending', 'folder', 'nadja andre breton surrealism'),
-          ('Set aside', array['Another'], 'Another', 'de', 'excluded', 'folder', 'set aside another')`;
+      await client!`insert into ebooks(title, authors, author_sort, language, match_state, exclusion_reason, import_source, search_text)
+        values ('The Waves', array['Virginia Woolf'], 'Woolf', 'en', 'pending', null, 'folder', 'the waves virginia woolf'),
+          ('Les Misérables', array['Victor Hugo'], 'Hugo', 'fr', 'standalone', null, 'folder', 'les miserables victor hugo'),
+          ('Nadja', array['André Breton'], 'Breton', 'fr', 'pending', null, 'folder', 'nadja andre breton surrealism'),
+          ('Set aside', array['Another'], 'Another', 'de', 'excluded', 'duplicate', 'folder', 'set aside another')`;
       const [nadja] =
         await client!`select id from ebooks where title = 'Nadja'`;
       const body = Buffer.from("A real text fixture.");
@@ -290,7 +290,7 @@ describe.skipIf(!url)(
         ),
       ).rejects.toThrow("no longer be opened");
       await client!`update ebook_files set drm = null where id = ${files[1].id}`;
-      await client!`update ebooks set match_state = 'excluded' where id = ${ebook.id}`;
+      await client!`update ebooks set match_state = 'excluded', exclusion_reason = 'duplicate' where id = ${ebook.id}`;
       await client!`update ebooks set exclusion_reason = 'duplicate' where id = ${ebook.id}`;
       expect((await getEbookDetail(String(ebook.id), database!))?.exclusionReason).toBe("duplicate");
       await expect(

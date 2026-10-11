@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -9,12 +10,12 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_STATS_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln323_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -26,7 +27,7 @@ if (url) {
     );
   }
 }
-const client = url ? postgres(url, { max: 1, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 1, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -55,19 +56,19 @@ describe.skipIf(!url)("provenance spend with PostgreSQL", () => {
   const db = testDb!;
   let workId: string;
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln323_test");
   });
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await db.execute(sql`TRUNCATE works, orders CASCADE`);
+    await resetDisposableDatabase(url!, "sln323_test");
     const [work] = await db
       .insert(schema.works)
       .values({ title: "Ordered book", catalogueStatus: "wanted" })
       .returning();
     workId = work.id;
-  });
+  }, 30000);
   async function order(
     status: typeof schema.orders.$inferInsert.status,
     totalCost: string | null,

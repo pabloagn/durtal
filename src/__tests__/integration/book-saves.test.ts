@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   afterAll,
   beforeAll,
@@ -9,10 +10,10 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_BOOK_SAVES_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln365_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -21,7 +22,7 @@ if (url) {
   )
     throw new Error("Book save tests require disposable local sln365_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 const activity = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/db", () => ({
@@ -56,14 +57,14 @@ describe.skipIf(!url)("book saves through the shared adapters", () => {
   let critic: string;
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln365_test");
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
     activity.mockClear();
-    await c`truncate works, authors, subjects, recommenders, activity_events cascade`;
+    await resetDisposableDatabase(url!, "sln365_test");
     [mann, hesse] = (
       await c`insert into authors(name,slug) values ('Thomas Mann','thomas-mann'),('Hermann Hesse','hermann-hesse') returning id`
     ).map((row) => row.id);
@@ -73,7 +74,7 @@ describe.skipIf(!url)("book saves through the shared adapters", () => {
     [friend, critic] = (
       await c`insert into recommenders(name) values ('A friend'),('A critic') returning id`
     ).map((row) => row.id);
-  });
+  }, 30000);
 
   const rows = async (workId: string) => ({
     authors: (

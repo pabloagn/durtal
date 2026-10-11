@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Pure deployment tests: isolated fixtures only, no build/Keychain/AWS/server."""
+import base64
 import io
 import json
 import os
 from pathlib import Path
 import plistlib
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+from types import SimpleNamespace
 
 DEPLOY = Path(__file__).resolve().parents[1] / 'deploy'
 sys.path.insert(0, str(DEPLOY))
@@ -39,9 +42,10 @@ class ReleaseTests(unittest.TestCase):
         (root / '.next/BUILD_ID').write_text(commit)
         (root / '.next/static' / (commit + '.js')).write_text(commit)
         (root / 'public/fonts/reader/font.woff2').write_bytes(b'font')
-        for file in ('mac_release.py', 'runtime_launcher.py', 'phone_secrets.py'):
+        for file in ('mac_release.py', 'runtime_launcher.py', 'phone_secrets.py', 'macos-secrets.py'):
             (root / 'deploy' / file).write_text('# test source')
         manifest = {'version': 1, 'commit': commit, 'tree': TREE, 'buildId': commit,
+                    'deploymentToolFiles': {p.name: release.file_hash(p) for p in (root / 'deploy').iterdir()},
                     'node': self.node, 'lockSha256': 'd' * 64, 'publicInputsSha256': 'e' * 64,
                     'migrations': {'entries': journal or [], 'sha256': release.digest(release.canonical(journal or []))},
                     'retainedBuildIds': retained or [], 'files': release.snapshot(root, mutable_cache=True)}
@@ -143,10 +147,266 @@ class ReleaseTests(unittest.TestCase):
             with self.assertRaises(release.Refusal):
                 release.checked_config({**config, **mutation})
 
-    def test_phone_release_refuses_cloudfront_dependency(self):
+    def test_cloudfront_requires_reviewed_public_identity(self):
         root, _ = self.make_release(); config = self.config(root)
         config['environment']['EBOOK_DELIVERY'] = 'cloudfront'
         with self.assertRaises(release.Refusal): release.checked_config(config)
+
+    def cloudfront_config(self, root):
+        config = self.config(root)
+        public = '-----BEGIN PUBLIC KEY-----\nPUBLIC-ONLY-FIXTURE\n-----END PUBLIC KEY-----\n'
+        config['environment'].update(EBOOK_DELIVERY='cloudfront',
+                                     EBOOK_CDN_URL='https://d23cymsihkm67a.cloudfront.net',
+                                     EBOOK_CDN_KEY_PAIR_ID='KA44DGPUW76EM')
+        config['cdn'] = {'publicKeyPem': public, 'fingerprint': release.digest(public.encode())}
+        return config
+
+    def signing_store(self, config, raw=b'PRIVATE-FIXTURE-NOT-A-REAL-KEY', error=None):
+        calls, closes = [], []
+        class Store:
+            def get(self, service, account):
+                calls.append((service, account))
+                if error: raise error
+                return raw
+            def close(self): closes.append(True)
+        store = Store()
+        options = []
+        def factory(**kwargs):
+            options.append(kwargs)
+            return store
+        return SimpleNamespace(Keychain=factory), calls, closes, options
+
+    def test_cloudfront_public_config_has_no_private_key_or_ambient_credentials(self):
+        root, _ = self.make_release(); config = self.cloudfront_config(root)
+        self.assertIs(release.checked_config(config), config)
+        for field, value in [('fingerprint', '0' * 64), ('fingerprint', None),
+                             ('publicKeyPem', None), ('publicKeyPem', 'x' * 8193)]:
+            altered = {**config, 'cdn': {**config['cdn'], field: value}}
+            with self.subTest(field=field, value_type=type(value).__name__):
+                with self.assertRaises(release.Refusal): release.checked_config(altered)
+        for location in ('environment', 'runtimeNames'):
+            altered = {**config, location: ({**config[location], 'EBOOK_CDN_PRIVATE_KEY': 'private'}
+                       if location == 'environment' else [*config[location], 'EBOOK_CDN_PRIVATE_KEY'])}
+            with self.assertRaises(release.Refusal): release.checked_config(altered)
+        app = self.config(root); app['cdn'] = config['cdn']
+        with self.assertRaises(release.Refusal): release.checked_config(app)
+
+    def test_signing_reads_exact_item_closes_store_and_uses_only_stdin(self):
+        root, _ = self.make_release(); config = self.cloudfront_config(root)
+        raw = b'PRIVATE-FIXTURE-NOT-A-REAL-KEY'
+        module, calls, closes, options = self.signing_store(config, raw)
+        invoked = []
+        def run(args, **kwargs):
+            invoked.append((args, kwargs))
+            return SimpleNamespace(returncode=0, stdout=config['cdn']['fingerprint'].encode(), stderr=b'')
+        with patch.object(launcher, 'load_signing_helper', return_value=module), \
+             patch.dict(os.environ, {'AWS_PROFILE': 'work', 'HTTP_PROXY': 'private', 'NODE_OPTIONS': 'bad'}):
+            self.assertEqual(launcher.load_signing_key(config, run), raw)
+        self.assertEqual(options, [{'runtime_names': (), 'budget': False, 'signing': True}])
+        self.assertEqual(calls, [(launcher.SIGNING_SERVICE, release.ACCOUNT + ':' + config['cdn']['fingerprint'])])
+        self.assertEqual(closes, [True])
+        args, kwargs = invoked[0]
+        self.assertEqual(args, [config['node']['path'], '-e', launcher.SIGNING_PUBLIC_IDENTITY])
+        self.assertEqual(kwargs['input'], raw); self.assertEqual(kwargs['timeout'], 15)
+        self.assertNotIn(raw.decode(), str(args)); self.assertNotIn(raw.decode(), str(kwargs['env']))
+        self.assertFalse({'AWS_PROFILE', 'AWS_ACCESS_KEY_ID', 'HTTP_PROXY', 'NODE_OPTIONS'} & kwargs['env'].keys())
+
+    def test_signing_keychain_missing_locked_invalid_data_fails_closed(self):
+        root, _ = self.make_release(); config = self.cloudfront_config(root)
+        cases = [(None, None), (b'', None), (b'x' * 65537, None), (b'a\x00b', None),
+                 (b'\xff', None), ('not bytes', None), (b'key', RuntimeError('SECRET-PROVIDER-DETAIL'))]
+        for raw, error in cases:
+            module, calls, closes, _ = self.signing_store(config, raw, error)
+            with self.subTest(kind=type(raw).__name__, length=len(raw) if raw is not None else None), \
+                 patch.object(launcher, 'load_signing_helper', return_value=module), \
+                 patch.object(launcher, 'bounded_run') as run:
+                with self.assertRaises(release.Refusal) as rejected:
+                    launcher.load_signing_key(config, run)
+                self.assertNotIn('SECRET-PROVIDER-DETAIL', str(rejected.exception))
+                run.assert_not_called(); self.assertEqual(closes, [True])
+
+    def test_signing_crypto_failure_wrong_identity_or_timeout_is_sanitized(self):
+        root, _ = self.make_release(); config = self.cloudfront_config(root)
+        cases = [SimpleNamespace(returncode=2, stdout=b'PRIVATE-FIXTURE', stderr=b'PRIVATE-FIXTURE'),
+                 SimpleNamespace(returncode=0, stdout=b'0' * 64, stderr=b''),
+                 SimpleNamespace(returncode=0, stdout=config['cdn']['fingerprint'].encode(), stderr=b'PRIVATE-FIXTURE'),
+                 subprocess.TimeoutExpired('node', 15, output=b'PRIVATE-FIXTURE', stderr=b'PRIVATE-FIXTURE')]
+        for result in cases:
+            module, _, closes, _ = self.signing_store(config)
+            def run(*args, **kwargs):
+                if isinstance(result, Exception): raise result
+                return result
+            with self.subTest(result_type=type(result).__name__), patch.object(launcher, 'load_signing_helper', return_value=module):
+                with self.assertRaises(release.Refusal) as rejected: launcher.load_signing_key(config, run)
+                self.assertNotIn('PRIVATE-FIXTURE', str(rejected.exception)); self.assertEqual(closes, [True])
+        with patch.object(launcher, 'load_signing_helper') as loader:
+            with self.assertRaises(release.Refusal): launcher.load_signing_key({**config, 'account': '000000000000'})
+            loader.assert_not_called()
+
+    def test_app_mode_never_loads_signing_keychain(self):
+        root, _ = self.make_release(); config = self.config(root)
+        helper = SimpleNamespace(runtime_environment=lambda *args: {name: 'ordinary-fixture' for name in release.REQUIRED_NAMES})
+        with patch.object(launcher, 'load_signing_helper') as signing:
+            env, redactions = launcher.load_environment(config, helper)
+            signing.assert_not_called()
+        self.assertNotIn('EBOOK_CDN_PRIVATE_KEY', env); self.assertNotIn('signing-pem', redactions)
+
+    def test_signing_is_in_memory_child_env_and_log_redactions_only(self):
+        root, _ = self.make_release(); config = self.cloudfront_config(root)
+        raw = b'-----BEGIN PRIVATE KEY-----\nPRIVATE-FIXTURE-LINE\n-----END PRIVATE KEY-----\n'
+        helper = SimpleNamespace(runtime_environment=lambda *args: {name: 'ordinary-fixture' for name in release.REQUIRED_NAMES})
+        with patch.object(launcher, 'load_signing_key', return_value=raw) as signing:
+            env, redactions = launcher.load_environment(config, helper)
+            signing.assert_called_once()
+        self.assertEqual(base64.b64decode(env['EBOOK_CDN_PRIVATE_KEY']), raw)
+        log = launcher.BoundedLog(self.root / 'signing-logs', redactions)
+        log.consume(io.BytesIO(raw + env['EBOOK_CDN_PRIVATE_KEY'].encode() + b'\nPRIVATE-FIXTURE-LINE\n'))
+        output = log.path.read_bytes()
+        self.assertNotIn(b'PRIVATE-FIXTURE-LINE', output)
+        self.assertNotIn(env['EBOOK_CDN_PRIVATE_KEY'].encode(), output)
+        self.assertNotIn('EBOOK_CDN_PRIVATE_KEY', config['environment'])
+        self.assertNotIn(raw.decode(), json.dumps(config))
+
+    def test_signing_helper_tampering_is_rejected_before_import(self):
+        root, _ = self.make_release(); config = self.cloudfront_config(root)
+        (root / 'deploy/macos-secrets.py').write_text('tampered')
+        with patch.object(launcher.importlib.util, 'spec_from_file_location') as importer:
+            with self.assertRaises(release.Refusal): launcher.load_signing_helper(config)
+            importer.assert_not_called()
+
+    def test_cloudfront_launchd_plan_contains_only_public_configuration_references(self):
+        root, _ = self.make_release(); config = self.cloudfront_config(root)
+        path = self.root / 'cloudfront.json'; release.private_json(path, config)
+        output = self.root / 'cloudfront.plist'
+        with patch.object(release, 'node_identity', return_value=self.node), \
+             patch.object(release, 'executable', return_value=config['python']), \
+             patch.object(launcher, 'load_signing_helper') as signing:
+            result = release.launchd_plan(path, output)
+            signing.assert_not_called()
+        plist = plistlib.loads(output.read_bytes())
+        self.assertFalse(result['installed']); self.assertFalse(plist['KeepAlive'])
+        self.assertNotIn('EBOOK_CDN_PRIVATE_KEY', str(plist)); self.assertNotIn('signing-pem', str(plist))
+        self.assertEqual(plist['ProgramArguments'][-2:], ['--config-sha256', release.file_hash(path)])
+
+    def test_failed_signing_preflight_never_spawns_or_retries_server(self):
+        root, manifest = self.make_release(); config = self.cloudfront_config(root)
+        config['python']['path'] = str(Path(sys.executable).resolve())
+        path = self.root / 'launch.json'; release.private_json(path, config)
+        with patch.object(launcher, 'verify_release', return_value=manifest), \
+             patch.object(launcher, 'node_identity', return_value=self.node), \
+             patch.object(launcher, 'executable', return_value=config['python']), \
+             patch.object(launcher, 'load_helper'), \
+             patch.object(launcher, 'load_environment', side_effect=release.Refusal('Signing unavailable')) as preflight, \
+             patch.object(launcher.subprocess, 'Popen') as spawn:
+            with self.assertRaises(release.Refusal): launcher.launch(path, release.file_hash(path))
+            preflight.assert_called_once(); spawn.assert_not_called()
+
+    def test_crash_restarts_reuse_verified_env_without_keychain_reread(self):
+        root, manifest = self.make_release(); config = self.cloudfront_config(root)
+        config['python']['path'] = str(Path(sys.executable).resolve())
+        path = self.root / 'restart.json'; release.private_json(path, config)
+        event = MagicMock(); event.is_set.return_value = False; event.wait.return_value = False
+        children = []
+        for _ in range(3):
+            child = MagicMock(); child.poll.side_effect = [None, 0, 0]; children.append(child)
+        env = {'EBOOK_CDN_PRIVATE_KEY': 'PRIVATE-FIXTURE', 'PORT': str(config['port'])}
+        with patch.object(launcher, 'verify_release', return_value=manifest), \
+             patch.object(launcher, 'node_identity', return_value=self.node), \
+             patch.object(launcher, 'executable', return_value=config['python']), \
+             patch.object(launcher, 'load_helper'), \
+             patch.object(launcher, 'load_environment', return_value=(env, {})) as preflight, \
+             patch.object(launcher, 'BoundedLog'), patch.object(launcher, 'unused_port'), \
+             patch.object(launcher, 'probe_health', return_value=True), \
+             patch.object(launcher.signal, 'signal'), \
+             patch.object(launcher.threading, 'Event', return_value=event), \
+             patch.object(launcher.threading, 'Thread'), \
+             patch.object(launcher.subprocess, 'Popen', side_effect=children) as spawn:
+            launcher.launch(path, release.file_hash(path))
+        preflight.assert_called_once(); self.assertEqual(spawn.call_count, 3)
+        for call in spawn.call_args_list:
+            self.assertIs(call.kwargs['env'], env)
+            self.assertEqual(call.args[0], [config['node']['path'], 'server.js'])
+            self.assertNotIn('PRIVATE-FIXTURE', str(call.args))
+        for child in children: child.stdout.close.assert_called_once()
+
+    def test_rewrapped_rsa2048_short_pem_lines_redact_across_fragmented_reads(self):
+        # Synthetic fixture generated only when root runs this test. The
+        # rewrapped accepted private key stays in memory; no owner item read.
+        node = shutil.which('node'); self.assertIsNotNone(node, 'Existing Node22 is required')
+        script = r'''const c=require('node:crypto');
+const {privateKey,publicKey}=c.generateKeyPairSync('rsa',{modulusLength:2048});
+const publicPem=publicKey.export({type:'spki',format:'pem'});
+process.stdout.write(JSON.stringify({privatePem:privateKey.export({type:'pkcs8',format:'pem'}),
+ publicPem,fingerprint:c.createHash('sha256').update(publicPem).digest('hex')}));'''
+        result = subprocess.run([node, '-e', script], capture_output=True, timeout=15, env=release.clean_environment())
+        self.assertEqual(result.returncode, 0, 'Synthetic crypto fixture creation failed; output withheld')
+        pair = json.loads(result.stdout)
+        lines = pair['privatePem'].strip().splitlines()
+        body = ''.join(lines[1:-1])
+        short_lines = [body[i:i + 4] for i in range(0, len(body), 4)]
+        raw = ('\n'.join([lines[0], *short_lines, lines[-1]]) + '\n').encode()
+        root, _ = self.make_release(); config = self.cloudfront_config(root); config['node']['path'] = node
+        config['cdn'] = {'publicKeyPem': pair['publicPem'], 'fingerprint': pair['fingerprint']}
+        config['runtimeNames'].append('ADMIN_TOKEN')
+        release.checked_config(config)
+        module, calls, closes, _ = self.signing_store(config, raw)
+        ordinary = {name: 'ordinary-fixture' for name in release.REQUIRED_NAMES}
+        ordinary['ADMIN_TOKEN'] = 'ordinary-long-prefix\nabc\nordinary-long-suffix'
+        helper = SimpleNamespace(runtime_environment=lambda *args: ordinary)
+        with patch.object(launcher, 'load_signing_helper', return_value=module):
+            env, redactions = launcher.load_environment(config, helper)
+        self.assertEqual(base64.b64decode(env['EBOOK_CDN_PRIVATE_KEY']), raw)
+        self.assertEqual(len(calls), 1); self.assertEqual(closes, [True])
+        log = launcher.BoundedLog(self.root / 'rewrapped-signing-logs', redactions)
+        self.assertTrue(all(line in log.secrets for line in short_lines))
+        self.assertNotIn('abc', log.secrets)  # Ordinary multiline policy unchanged.
+        class Fragmented(io.BytesIO):
+            def __init__(self, value):
+                super().__init__(value); self.turn = 0
+            def read(self, size=-1):
+                self.turn += 1
+                return super().read(min(size, (1, 3, 2, 5)[self.turn % 4]))
+        payload = raw + env['EBOOK_CDN_PRIVATE_KEY'].encode() + b'\n' + short_lines[0].encode() + b'\n'
+        log.consume(Fragmented(payload))
+        # Every input line was signing material. Check whole output lines so
+        # random Base64 substrings cannot coincidentally match redaction text.
+        output = log.path.read_bytes()
+        emitted = output.splitlines()
+        self.assertTrue(emitted)
+        self.assertTrue(all(line.startswith(b'[') and line.endswith(b']') for line in emitted))
+        self.assertFalse(set(emitted) & {line.encode() for line in short_lines})
+        self.assertNotIn(env['EBOOK_CDN_PRIVATE_KEY'].encode(), output)
+
+    def test_real_node_crypto_accepts_matching_rsa2048_only(self):
+        # Isolated synthetic pairs stay in memory. No owner Keychain/source,
+        # credentials, AWS, network, server, key files or installed dependency.
+        node = shutil.which('node'); self.assertIsNotNone(node, 'Existing Node22 is required')
+        script = r'''const c=require('node:crypto');
+const out=[];
+for(const [type,options] of [['rsa',{modulusLength:2048}],['rsa',{modulusLength:1024}],['ec',{namedCurve:'prime256v1'}]]) {
+ const {privateKey,publicKey}=c.generateKeyPairSync(type,options);
+ const publicPem=publicKey.export({type:'spki',format:'pem'});
+ out.push({privatePem:privateKey.export({type:'pkcs8',format:'pem'}),publicPem,
+  fingerprint:c.createHash('sha256').update(publicPem).digest('hex')});
+} process.stdout.write(JSON.stringify(out));'''
+        result = subprocess.run([node, '-e', script], capture_output=True, timeout=15, env=release.clean_environment())
+        self.assertEqual(result.returncode, 0, 'Synthetic crypto fixture creation failed; output withheld')
+        pairs = json.loads(result.stdout)
+        root, _ = self.make_release(); config = self.cloudfront_config(root); config['node']['path'] = node
+        for index, pair in enumerate(pairs):
+            config['cdn'] = {'fingerprint': pair['fingerprint'], 'publicKeyPem': pair['publicPem']}
+            raw = pair['privatePem'].encode()
+            module, _, _, _ = self.signing_store(config, raw)
+            with patch.object(launcher, 'load_signing_helper', return_value=module):
+                if index == 0:
+                    self.assertEqual(launcher.load_signing_key(config), raw)
+                    config['cdn']['fingerprint'] = '0' * 64
+                    with self.assertRaises(release.Refusal): launcher.load_signing_key(config)
+                else:
+                    with self.assertRaises(release.Refusal): launcher.load_signing_key(config)
+        module, _, _, _ = self.signing_store(config, b'not a private key')
+        with patch.object(launcher, 'load_signing_helper', return_value=module):
+            with self.assertRaises(release.Refusal): launcher.load_signing_key(config)
 
     def retain_current_assets(self, current, one, target, two):
         (target / release.MANIFEST).unlink()

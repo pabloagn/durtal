@@ -41,6 +41,8 @@ vi.mock("@/vendor/foliate-js/epub.js", () => ({
 vi.mock("@/vendor/foliate-js/view.js", () => ({}));
 import { createFoliateEngine } from "@/lib/reader/engines/foliate/engine";
 import { createReaderNavigation } from "@/lib/reader/navigation";
+import { parseGoTo } from "@/lib/reader/goto";
+import { PositionIndex } from "@/lib/reader/position-index";
 import { PaceModel } from "@/lib/reader/pace";
 import { resolveContinueAnchor } from "@/lib/ebooks/continue-resolve";
 import type { ReaderEngine } from "@/lib/reader/engine";
@@ -435,6 +437,8 @@ describe("foliate bridge adapter", () => {
       }),
     };
     engine = createFoliateEngine();
+    let info!: import("@/lib/reader/engine").BookInfo;
+    const offReady = engine.on("ready", value => { info = value; });
     await engine.open(
       {
         ebookId: "book",
@@ -455,8 +459,65 @@ describe("foliate bridge adapter", () => {
         at,
       },
     );
+    offReady();
     view = host.querySelector("foliate-view") as TestView;
+    return info;
   };
+  it.each(["success", "cancel", "failure"] as const)("settles Notes -> same-CFI linear end through the actual adapter only after owned paint: %s", async (outcome) => {
+    await withNotes();
+    const raw = vi.fn();
+    const offRaw = engine.on("relocate", raw);
+    view.report("page", 0.33, 1);
+    let blocked = false, release!: () => void;
+    const barrier = new Promise<void>(resolve => { release = resolve; });
+    const commit = vi.fn();
+    const navigation = createReaderNavigation({ engine, commit, paint: async () => { if (blocked) await barrier; } });
+    navigation.start(raw.mock.calls.at(-1)![0]);
+    const off = engine.on("relocate", event => navigation.relocate(event));
+    vi.spyOn(view, "resolveNavigation").mockImplementation(target => ({ index: target === "notes" ? 2 : 1 }));
+    vi.spyOn(view.renderer, "goTo").mockImplementation(async target => {
+      view.renderer.atEnd = target.index === 1 && target.anchor === 1;
+      view.report("anchor", target.index === 2 ? 0.33 : 1, target.index);
+    });
+    try {
+      await navigation.navigate({ href: "notes" }, { source: "link" });
+      expect(navigation.current).toMatchObject({ linear: false, atEnd: false, locator: { sectionIndex: 2, totalProgression: 0.33 } });
+      // Native R14: an unowned anchor/layout arrival has already returned to
+      // the final CFI before Percent100 commits; progress still belongs to33%.
+      view.renderer.atEnd = true;
+      view.report("anchor", 1, 1);
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+      const before = navigation.current!;
+      expect(before).toMatchObject({ reason: "layout", atEnd: false, locator: { sectionIndex: 1, cfi: "cfi1", totalProgression: 0.33 } });
+      expect(navigation.history.entries).toHaveLength(2);
+      const cursor = navigation.history.cursor;
+      commit.mockClear();
+      blocked = true;
+      if (outcome === "failure") vi.mocked(view.renderer.goTo).mockRejectedValueOnce(new Error("current endpoint failed"));
+      const move = navigation.navigate({ fraction: 1 }, { source: "goto" });
+      const rejection = outcome === "failure" ? expect(move).rejects.toThrow("current endpoint failed") : null;
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+      expect(commit).not.toHaveBeenCalled();
+      expect(navigation.current).toBe(before);
+      if (outcome === "cancel") navigation.cancel();
+      release();
+      if (rejection) await rejection;
+      else await expect(move).resolves.toBeNull();
+      expect(navigation.history.entries).toHaveLength(2);
+      expect(navigation.history.cursor).toBe(cursor);
+      if (outcome === "success") {
+        expect(commit).toHaveBeenCalledOnce();
+        expect(commit).toHaveBeenLastCalledWith(expect.objectContaining({ navigationId: 2, origin: "human", reason: "jump", activity: undefined, linear: true, atEnd: true,
+          locator: expect.objectContaining({ sectionIndex: 1, cfi: before.locator.cfi, totalProgression: 1 }) }));
+        expect(navigation.current?.locator.totalProgression).toBe(1);
+        expect(navigation.history.current?.locator.totalProgression).toBe(1);
+      } else {
+        expect(commit).not.toHaveBeenCalled();
+        expect(navigation.current).toBe(before);
+        expect(navigation.history.current?.locator.totalProgression).toBe(0.33);
+      }
+    } finally { release(); off(); offRaw(); navigation.destroy(); }
+  });
   it("keeps an existing page list ahead of Adobe fallback, and loads the map before opening otherwise", async () => {
     const book: FoliateBook = {
       sections: [{ id: "a", size: 100 }],
@@ -506,6 +567,177 @@ describe("foliate bridge adapter", () => {
       sectionIndex: 2,
       totalProgression: 0.42,
     });
+  });
+  it.each(["reflowable", "pre-paginated"] as const)("keeps0/100 inside the linear order for%s", async layout => {
+    await withNotes(undefined, {
+      rendition: { layout },
+      sections: [
+        { id: "front-note", size: 500, linear: "no" },
+        { id: "a", size: 6000 },
+        { id: "b", size: 9000 },
+        { id: "end-note", size: 500, linear: "no" },
+      ],
+      resolveHref: () => ({ index: 1 }),
+    });
+    const go = vi.spyOn(view.renderer, "goTo");
+    await engine.firstPage();
+    expect(go).toHaveBeenLastCalledWith(layout === "reflowable" ? { index: 1, anchor: 0 } : { index: 1 });
+    await engine.lastPage();
+    expect(go).toHaveBeenLastCalledWith(layout === "reflowable" ? { index: 2, anchor: 1 } : { index: 2 });
+  });
+  it.each(["flat", "nested", "nested-duplicates", "same-section-duplicates"] as const)("carries%s Page parser identity to the adapter while requiring a visible marker", async shape => {
+    const pages = [
+      { label: "xii", href: "a#page-xii" },
+      { label: "57", href: "a#page-57" },
+      { label: "58", href: "a#page-58" },
+    ];
+    const info = await withNotes(undefined, {
+      sections: [{ id: "a", size: 6000 }, { id: "b", size: 9000 }],
+      pageList: shape === "flat" ? pages : [
+        ...(shape === "nested-duplicates" ? [{ label: "57", href: "b#other57" }] : []),
+        ...(shape === "same-section-duplicates" ? [{ label: "57", href: "a#other57" }] : []),
+        { label: "Pages", href: "", subitems: pages },
+      ],
+      resolveHref: () => ({ index: 0 }),
+    });
+    const positions = new PositionIndex(info, {
+      "a#page-xii": .05, "a#page-57": .5, "a#page-58": .6, "b#other57": .9, "a#other57": .9,
+    });
+    const doc = view.frame.contentDocument!;
+    doc.body.innerHTML = '<span id="other57" style="visibility:hidden"></span><span id="page-xii"></span><p>Roman page text.</p><p>Visible text before.</p><span id="page-57"></span><p>Page57 text.</p><span id="page-58"></span><p>Page58 text.</p>';
+    const whole = doc.createRange();
+    whole.selectNodeContents(doc.body);
+    const after57 = doc.createRange();
+    after57.setStartBefore(doc.getElementById("page-58")!);
+    after57.setEndAfter(doc.body.lastChild!);
+    // Modeled native geometry: a real zero-area inline marker lies inside
+    // a mounted frame and the renderer's clipped viewport. These fixtures
+    // exercise the guard; root's six native receipts supply actual measurements.
+    const frame = view.frame;
+    Object.defineProperty(doc.defaultView!, "frameElement", { configurable: true, value: frame });
+    for (const element of [frame, view.renderer]) {
+      for (const key of ["offsetWidth", "clientWidth"]) Object.defineProperty(element, key, { configurable: true, value: 500 });
+      for (const key of ["offsetHeight", "clientHeight"]) Object.defineProperty(element, key, { configurable: true, value: 500 });
+      element.getBoundingClientRect = () => new DOMRect(0, 0, 500, 500);
+    }
+    view.renderer.style.overflowX = "hidden"; view.renderer.style.overflowY = "hidden";
+    const marker = doc.getElementById("page-57")!;
+    doc.getElementById("other57")!.getClientRects = () => [new DOMRect(20, 20, 0, 0)] as unknown as DOMRectList;
+    doc.getElementById("page-xii")!.getClientRects = () => [new DOMRect(10, 10, 0, 0)] as unknown as DOMRectList;
+    doc.getElementById("page-58")!.getClientRects = () => [new DOMRect(150, 150, 0, 0)] as unknown as DOMRectList;
+    let observedPage = "xii";
+    let physical = true;
+    marker.getClientRects = () => (physical ? [new DOMRect(100, 100, 0, 0)] : []) as unknown as DOMRectList;
+    let visible = whole;
+    const publish = (reason: string) => {
+      const detail: FoliateProgress = { reason, index: 0, fraction: 0.5, sectionFraction: 0.5,
+        cfi: observedPage === "xii" ? "roman-cfi" : "saved-cfi", range: visible, pageItem: { label: observedPage } };
+      view.lastLocation = detail;
+      view.dispatchEvent(new CustomEvent("relocate", { detail }));
+    };
+    const resolve = vi.spyOn(view, "resolveNavigation").mockImplementation(target => ({
+      index: target === "b#other57" ? 1 : 0,
+      anchor: target === "a#other57" ? frame => frame.getElementById("other57")!
+        : target === "a#page-57" ? frame => frame.getElementById("page-57")!
+        : target === "a#page-xii" ? frame => frame.getElementById("page-xii")!
+        : target === "a#page-58" ? frame => frame.getElementById("page-58")! : () => whole,
+    }));
+    vi.spyOn(view.renderer, "goTo").mockImplementation(async () => publish("navigation"));
+    // GoToDialog passes parseGoTo's target through the navigation controller.
+    // Exercise that actual parser result rather than manually constructing page.
+    const roman = parseGoTo("page", "p. XII", positions);
+    expect(roman).toEqual({ target: { page: "xii", href: "a#page-xii" } });
+    await engine.goTo(roman.target!);
+    expect(engine.currentLocator()?.pageLabel).toBe("xii");
+    observedPage = "58"; // Natural end-of-visible-range page on the wide spread.
+    const numeric = parseGoTo("page", "page 57", positions);
+    expect(numeric).toEqual({ target: { page: "57", href: "a#page-57" } });
+    await engine.goTo(numeric.target!);
+    expect(engine.currentLocator()?.pageLabel).toBe("57");
+    expect(engine.currentLocator()?.cfi).toBe("saved-cfi");
+    const saved = structuredClone(engine.currentLocator()!);
+    expect(resolve).not.toHaveBeenCalledWith("b#other57");
+    expect(resolve).not.toHaveBeenCalledWith("a#other57");
+    const sparse = parseGoTo("page", "page 59", positions);
+    expect(sparse).toEqual({ target: { page: "58", href: "a#page-58" } });
+    await engine.goTo(sparse.target!);
+    expect(engine.currentLocator()?.pageLabel).toBe("58");
+    expect(resolve).toHaveBeenCalledWith("a#page-58");
+    await engine.goTo(saved);
+    expect(engine.currentLocator()?.pageLabel).toBe("57");
+    publish("anchor"); // Same visible spread after layout/paint.
+    expect(engine.currentLocator()?.pageLabel).toBe("57");
+    publish("page"); // A real turn resumes ordinary visible-page reporting.
+    expect(engine.currentLocator()?.pageLabel).toBe("58");
+    await engine.goTo(saved);
+    expect(engine.currentLocator()?.pageLabel).toBe("57");
+    expect(engine.currentLocator()?.cfi).toBe(saved.cfi);
+    expect(engine.currentLocator()?.text).toEqual(saved.text);
+    // The observed CFI section wins over stale optional saved section/href.
+    const dispatch = vi.mocked(view.renderer.goTo);
+    dispatch.mockClear();
+    await engine.goTo({ ...saved, sectionIndex: 1, href: "b" });
+    expect(dispatch).toHaveBeenCalledOnce();
+    expect(dispatch.mock.calls[0][0].index).toBe(0);
+    expect(engine.currentLocator()).toMatchObject({ sectionIndex: 0, cfi: saved.cfi, pageLabel: "57" });
+    if (shape === "same-section-duplicates") {
+      // A rejecting earlier duplicate is optional; the later visible one and
+      // saved CFI remain usable. No page-href resolution causes a second jump.
+      const normalResolve = resolve.getMockImplementation()!;
+      resolve.mockImplementation(target => target === "a#other57"
+        ? Promise.reject(new Error("optional duplicate unavailable")) as unknown as ReturnType<typeof normalResolve>
+        : normalResolve(target));
+      dispatch.mockClear();
+      await engine.goTo(saved);
+      expect(dispatch).toHaveBeenCalledOnce();
+      expect(dispatch.mock.calls[0][0].index).toBe(0);
+      expect(engine.currentLocator()).toMatchObject({ cfi: saved.cfi, pageLabel: "57" });
+      resolve.mockImplementation(normalResolve);
+      // When all matching markers in the restored section are ineligible,
+      // keep the exact CFI and fall back to the naturally observed page58.
+      physical = false;
+      await engine.goTo(saved);
+      expect(engine.currentLocator()).toMatchObject({ cfi: saved.cfi, pageLabel: "58" });
+      physical = true;
+      await engine.goTo(saved);
+      expect(engine.currentLocator()?.pageLabel).toBe("57");
+    }
+    await expect(engine.goTo({ page: "57", href: "a#not-a-canonical-page" })).rejects.toThrow("This edition has no page 57");
+    expect(resolve).not.toHaveBeenCalledWith("a#not-a-canonical-page");
+    await engine.goTo(saved);
+    physical = false;
+    publish("anchor");
+    expect(engine.currentLocator()?.pageLabel).toBe("58"); // Rectless inside-range marker cannot supply57.
+    physical = true;
+    marker.getClientRects = () => [new DOMRect(1000, 100, 0, 0)] as unknown as DOMRectList;
+    publish("anchor");
+    expect(engine.currentLocator()?.pageLabel).toBe("58"); // Offscreen inside-range marker cannot supply57.
+    marker.getClientRects = () => [new DOMRect(100, 100, 0, 0)] as unknown as DOMRectList;
+    marker.setAttribute("style", "visibility:hidden");
+    publish("anchor");
+    expect(engine.currentLocator()?.pageLabel).toBe("58");
+    marker.removeAttribute("style");
+    visible = after57;
+    publish("anchor");
+    expect(engine.currentLocator()?.pageLabel).toBe("58"); // A stale requested label cannot mask invisible57.
+    await engine.goTo({ href: "a#page-58" });
+    visible = whole;
+    publish("anchor");
+    expect(engine.currentLocator()?.pageLabel).toBe("58"); // Unrelated navigation cleared the prior target.
+  });
+  it("restores a valid saved CFI when optional page-href metadata rejects asynchronously", async () => {
+    await withNotes(undefined, { sections: [{ id: "a", size: 6000 }], pageList: [{ label: "57", href: "a#page-57" }], resolveHref: () => ({ index: 0 }) });
+    const restored = vi.fn(async () => view.report("navigation", 0.5));
+    vi.spyOn(view.renderer, "goTo").mockImplementation(restored);
+    Object.defineProperty(view, "resolveNavigation", { configurable: true, value: (target: unknown) => {
+      if (target === "a#page-57") return Promise.reject(new Error("optional page href unavailable"));
+      return { index: 0 };
+    } });
+    await engine.goTo({ v: 1, fileHash: "a".repeat(64), href: "a", sectionIndex: 0,
+      progression: 0.5, totalProgression: 0.5, cfi: "valid-saved-cfi", pageLabel: "57" });
+    expect(restored).toHaveBeenCalledWith({ index: 0 });
+    expect(engine.currentLocator()?.totalProgression).toBe(0.5);
+    expect(engine.currentLocator()?.pageLabel).toBeUndefined();
   });
   it("targets the actual final page of the last linear section for 100% and propagates renderer failure", async () => {
     await withNotes();

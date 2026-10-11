@@ -3,6 +3,19 @@ import { PDFJS_VERSION, PDF_WORKER_CSP } from "./src/lib/reader/pdf-assets";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Node PDF inspection needs the native canvas loader and pdf.js's own
+  // package-relative worker. Keep both outside server JavaScript bundles.
+  serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist"],
+  // Standalone images copy traced files only. Native optional packages and
+  // dynamically read PDF assets must survive both flat and pnpm layouts.
+  outputFileTracingIncludes: {
+    "/*": [
+      "node_modules/@napi-rs/canvas*/**/*",
+      "node_modules/.pnpm/@napi-rs+canvas*/node_modules/@napi-rs/canvas*/**/*",
+      "node_modules/pdfjs-dist/{package.json,legacy/build/pdf.mjs,legacy/build/pdf.worker.mjs,standard_fonts/**/*,cmaps/**/*,wasm/**/*,iccs/**/*}",
+      "node_modules/.pnpm/pdfjs-dist@*/node_modules/pdfjs-dist/{package.json,legacy/build/pdf.mjs,legacy/build/pdf.worker.mjs,standard_fonts/**/*,cmaps/**/*,wasm/**/*,iccs/**/*}",
+    ],
+  },
   experimental: {
     // Unmatched URLs need their own document when catalogue and reader
     // routes have separate roots. It must not depend on catalogue queries.

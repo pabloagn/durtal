@@ -13,6 +13,7 @@ export default function ReaderNotFound() {
         title="eBook not found"
         description="This eBook does not exist or is no longer available."
       >
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- The standalone reader fallback returns through a fresh catalogue document. */}
         <a href="/library" className={routeFallbackActionClass}>
           Back to library
         </a>

@@ -1,3 +1,5 @@
+import { flattenContents } from "@/lib/reader/position-index";
+import { pageMarkerPhysicallyVisible } from "./page-marker-visibility";
 import type { PdfSearchProvider } from "./search";
 import { attachWordGestures, detailsFromRange, selectionHostRect } from "./selection";
 import { createNotes } from "./notes";
@@ -159,6 +161,9 @@ class FoliateEngine implements ReaderEngine {
   #pdfCss = "";
   #pdfTextProvider: PdfTextProvider | null = null;
   #pdfTarget: DurtalLocator | null = null;
+  // An explicit printed-page target remains current while its real marker is
+  // visible. Ordinary turns continue to use Foliate's natural visible-page label.
+  #pageTarget: { label: string; index: number; anchor(doc: Document): Range | Element } | null = null;
   #fixedZoom: number | null = null;
   #ink = new PublisherInk(() => this.#emit("error", { kind: "damaged", message: "The book colours could not be prepared. Try opening the book again." }));
   #pdfMarks = new PdfDecorations(event => this.#emit("annotation-activated", event));
@@ -173,6 +178,8 @@ class FoliateEngine implements ReaderEngine {
   #hadSelection = false;
   #selectionDocument: WeakRef<Document> | null = null;
   #selectionGeneration = 0;
+  #nativeSelectionRevision = 0;
+  #selectionCaptures = new WeakMap<SelectionDetails, { revision: number; range: Range; doc: Document }>();
   #keyboardSelection = false;
   /** A reflowable EPUB's large images, shown after its text */
   #images: DeferredImages | null = null;
@@ -643,6 +650,8 @@ class FoliateEngine implements ReaderEngine {
           : "layout";
     const relocationOrigin =
       reason === "layout" ? "layout" : (this.#owner?.origin ?? "human");
+    if (reason === "turn") this.#pageTarget = null;
+    const pageLabel = this.#visiblePageTarget(detail) ?? detail.pageItem?.label;
     const atEnd =
       linear &&
       index === book.sections.findLastIndex((item) => item.linear !== "no") &&
@@ -663,7 +672,7 @@ class FoliateEngine implements ReaderEngine {
       cfi: detail.cfi,
       range: detail.range,
       tocLabel: detail.tocItem?.label,
-      pageLabel: detail.pageItem?.label,
+      pageLabel,
       pdfPage: this.#isPdf() ? index + 1 : undefined,
     });
     if (this.#isPdf()) {
@@ -930,6 +939,9 @@ class FoliateEngine implements ReaderEngine {
         target === doc.body ||
         target === doc.documentElement ||
         !this.#view ||
+        // Renderer-owned native focus retains accessibility focus without
+        // turning its exact CFI arrival into a replacement human command.
+        target === this.#view.renderer.navigationAnchorFocus ||
         !this.#source ||
         this.#destroyed
       )
@@ -1031,6 +1043,7 @@ class FoliateEngine implements ReaderEngine {
       if (selected) this.#selectionDocument = new WeakRef(doc);
       // Clearing a different retained selection must not dismiss the current one.
       else if (this.#selectionDocument?.deref() !== doc) return;
+      ++this.#nativeSelectionRevision;
       if (this.#selectionTimer) clearTimeout(this.#selectionTimer);
       this.#selectionTimer = setTimeout(() => this.#selectionChanged(this.#selected(doc)), 150);
     });
@@ -1347,12 +1360,26 @@ class FoliateEngine implements ReaderEngine {
 
   selectionDetails(origin?: Document) {
     const selected = this.#selected(origin), locator = this.#locatorForSelection(selected);
-    if (selected && locator)
-      this.#selectionDocument = new WeakRef(selected.range.startContainer.ownerDocument!);
-    return selected && locator ? detailsFromRange(selected.range, locator) : null;
+    if (!selected || !locator || this.#destroyed) return null;
+    const doc = selected.range.startContainer.ownerDocument!;
+    this.#selectionDocument = new WeakRef(doc);
+    const details = detailsFromRange(selected.range, locator);
+    this.#selectionCaptures.set(details, { revision: this.#nativeSelectionRevision, range: selected.range.cloneRange(), doc });
+    return details;
   }
 
-  clearSelection(): void {
+  clearSelection(expected?: SelectionDetails): void {
+    if (expected) {
+      const capture = this.#selectionCaptures.get(expected);
+      if (!capture || this.#destroyed || capture.revision !== this.#nativeSelectionRevision ||
+        this.#selectionDocument?.deref() !== capture.doc) return;
+      const current = this.#selected(capture.doc)?.range, range = capture.range;
+      if (!current || current.startContainer !== range.startContainer || current.startOffset !== range.startOffset ||
+        current.endContainer !== range.endContainer || current.endOffset !== range.endOffset ||
+        current.toString() !== expected.text) return;
+      this.#selectionCaptures.delete(expected);
+    }
+    ++this.#nativeSelectionRevision;
     ++this.#selectionGeneration;
     if (this.#selectionTimer) clearTimeout(this.#selectionTimer);
     for (const { doc } of this.#view?.renderer.getContents() ?? [])
@@ -1546,18 +1573,24 @@ class FoliateEngine implements ReaderEngine {
       throw new DOMException("Cancelled", "AbortError");
     this.#pdfTarget = this.#isPdf() && "v" in target && target.fileHash === this.#source?.sha256 && target.pdf?.rects?.length
       ? structuredClone(target) : null;
+    this.#pageTarget = null;
     this.#owner = owner;
     this.#jumping++;
     let arrived = false;
     try {
+      // Resolve only a canonical page of this file. Restoring a saved locator
+      // keeps its exact CFI/words, and its page only if that marker is visible.
+      const pageLabel = "page" in target ? target.page
+        : "v" in target && target.fileHash === this.#source?.sha256 ? target.pageLabel : undefined;
+      const pageHref = "page" in target ? target.href : undefined;
+      if ("page" in target && pageLabel && !this.#isPdf())
+        await this.#preparePageTarget(pageLabel, pageHref);
       if ("fraction" in target) {
         await this.#goToFraction(target.fraction);
       } else if ("location" in target) {
         await this.#goToFraction(this.locationToFraction(target.location));
       } else if ("page" in target) {
-        const page = this.#info?.pageList.find(
-          (item) => item.label.toLowerCase() === target.page.toLowerCase(),
-        );
+        const page = this.#canonicalPage(target.page, target.href);
         if (!page) throw new Error("This edition has no page " + target.page);
         await this.#anchor(page.href);
       } else if ("v" in target) {
@@ -1588,14 +1621,88 @@ class FoliateEngine implements ReaderEngine {
       await this.#waitInk();
       if (this.#destroyed || owner?.signal.aborted)
         throw new DOMException("Cancelled", "AbortError");
+      // Saved page metadata follows the actual CFI landing. Neither a stale
+      // saved section nor an ambiguous label may change its exact destination.
+      if ("v" in target && pageLabel && !this.#isPdf() && view.lastLocation)
+        await this.#prepareSavedPageTarget(pageLabel, view.lastLocation);
+      if (this.#destroyed || owner?.signal.aborted)
+        throw new DOMException("Cancelled", "AbortError");
       // A renderer may leave the same page without a new relocate. Give the controller
       // an owned arrival; its exact-anchor comparison makes this a no-op.
       if (view.lastLocation) this.#onRelocate(view.lastLocation);
       arrived = true;
     } finally {
-      if (!arrived) this.#pdfTarget = null;
+      if (!arrived) {
+        this.#pdfTarget = null;
+        this.#pageTarget = null;
+      }
       this.#jumping--;
       this.#owner = undefined;
+    }
+  }
+
+  #canonicalPage(label: string, href?: string) {
+    // Match the parser's recursive, href-bearing page entries. A parser-selected
+    // href disambiguates labels even when indexed fractions reorder its pages;
+    // it must still belong to this file's canonical page list.
+    return flattenContents(this.#info?.pageList ?? []).find(item =>
+      !!item.href && item.label.toLowerCase() === label.toLowerCase() &&
+      (href === undefined || item.href === href));
+  }
+
+  async #preparePageTarget(label: string, href?: string) {
+    const page = this.#canonicalPage(label, href);
+    if (!page) return;
+    try {
+      const resolved = await this.#view!.resolveNavigation(page.href);
+      if (resolved && Number.isInteger(resolved.index) && resolved.anchor)
+        this.#pageTarget = { label: page.label, index: resolved.index, anchor: resolved.anchor };
+    } catch {
+      // Optional page metadata must never block a valid saved CFI. Explicit
+      // page navigation still resolves its destination in #anchor and fails normally.
+    }
+  }
+
+  async #prepareSavedPageTarget(label: string, detail: FoliateProgress) {
+    for (const page of flattenContents(this.#info?.pageList ?? [])) {
+      if (!page.href || page.label.toLowerCase() !== label.toLowerCase()) continue;
+      try {
+        const resolved = await this.#view!.resolveNavigation(page.href);
+        if (!resolved || resolved.index !== detail.index || !resolved.anchor) continue;
+        const candidate = { label: page.label, index: resolved.index, anchor: resolved.anchor };
+        // The same mounted-range and physical guard used for explicit pages
+        // chooses an eligible duplicate within the observed restored section.
+        if (this.#visiblePageTarget(detail, candidate)) {
+          this.#pageTarget = candidate;
+          return;
+        }
+      } catch {
+        // A broken optional candidate cannot block the CFI or later duplicates.
+      }
+    }
+  }
+
+  #visiblePageTarget(detail: FoliateProgress, target = this.#pageTarget): string | undefined {
+    if (!target || target.index !== detail.index || !detail.range) return;
+    const renderer = this.#view?.renderer;
+    // Only the measured reflowable paginated geometry is admitted here.
+    // Scrolled/fixed renderers keep their observed labels pending native proof.
+    if (!renderer || this.#book?.rendition?.layout === "pre-paginated" || renderer.getAttribute("flow")?.startsWith("scrolled")) return;
+    const content = this.#view?.renderer.getContents().find(item => item.index === target.index);
+    if (!content) return;
+    try {
+      const anchor = target.anchor(content.doc);
+      if (!anchor) return;
+      const point = "startContainer" in anchor
+        ? { node: anchor.startContainer, offset: anchor.startOffset }
+        : { node: anchor, offset: 0 };
+      // A label is never enough: the current native range must contain this
+      // actual publisher marker in the mounted frame. Otherwise use the
+      // ordinary observed label, exposing a failed/incorrect physical landing.
+      if (detail.range.comparePoint(point.node, point.offset) === 0 &&
+          pageMarkerPhysicallyVisible(anchor, content.doc, renderer)) return target.label;
+    } catch {
+      // A retired frame or absent marker cannot supply current-page metadata.
     }
   }
 

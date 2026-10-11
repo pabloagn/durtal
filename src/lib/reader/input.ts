@@ -144,7 +144,7 @@ export function registerReaderKey(
   if (
     RESERVED_KEYS.has(key) ||
     READER_KEYMAP.some(
-      (item) => item.key === key && !item.plugin && item.group !== "Search",
+      (item) => item.key === key && !item.plugin,
     )
   ) {
     if (process.env.NODE_ENV !== "production")

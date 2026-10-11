@@ -1,3 +1,4 @@
+import { readerUuid } from "@/lib/reader/uuid";
 import { UUID_RE } from "@/lib/utils/uuid";
 import { matchDownloadedFile, downloadSpacePolicy, validateDownloadIdentity, type DeliveryTrust, type DownloadIdentity } from "./download-policy";
 import { bookCacheUrl, downloadKey, type DownloadRecord } from "./download-record";
@@ -13,7 +14,7 @@ export async function downloadBook(options: {
   const identity = validateDownloadIdentity(options.identity, options.trust);
   if (!UUID_RE.test(options.deviceId) || !matchDownloadedFile(options.deliveryUrl,[identity],options.trust))
     throw new Error("Download delivery or device identity differs");
-  const key = downloadKey(identity), token = crypto.randomUUID();
+  const key = downloadKey(identity), token = readerUuid();
   const cache = await caches.open(BOOKS_CACHE), publishedKey = bookCacheUrl(identity,options.trust.appOrigin);
   const run = async () => {
     const estimate: StorageEstimate = await navigator.storage.estimate().catch(() => ({}));

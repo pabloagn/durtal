@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -9,12 +10,12 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_FAVOURITES_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln426_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -23,7 +24,7 @@ if (url) {
   )
     throw new Error("Favourite tests require disposable local sln426_test");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -55,15 +56,13 @@ describe.skipIf(!url)("favourites with PostgreSQL", () => {
   const db = testDb!;
   const works: Record<string, string> = {};
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln426_test");
   });
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await db.execute(
-      sql`truncate works, authors, collections, series, recommenders, venues, publishing_houses cascade`,
-    );
+    await resetDisposableDatabase(url!, "sln426_test");
     vi.clearAllMocks();
     for (const title of ["Maldoror", "Crash", "Fictions"]) {
       const [w] = await db
@@ -72,7 +71,7 @@ describe.skipIf(!url)("favourites with PostgreSQL", () => {
         .returning();
       works[title] = w.id;
     }
-  });
+  }, 30000);
 
   it("stars works in bulk, writes and logs only the rows that change", async () => {
     expect(

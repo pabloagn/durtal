@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import path from "node:path";
 import { getDocument, PDFDataRangeTransport, type PDFDocumentProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { createCanvas, type Canvas } from "@napi-rs/canvas";
@@ -50,7 +49,10 @@ class BoundedCanvasFactory {
 }
 
 /** pdf.js's own fonts, character maps and image decoders, read from its package folder */
-const PDFJS = path.dirname(createRequire(import.meta.url).resolve("pdfjs-dist/package.json"));
+// Use Node's runtime resolver for a filesystem path. A statically analyzed
+// require.resolve can become a Turbopack module ID instead of a path string.
+const PDFJS = path.dirname(process.getBuiltinModule("module")
+  .createRequire(import.meta.url).resolve("pdfjs-dist/package.json"));
 const PDFJS_FILES = {
   standardFontDataUrl: `${PDFJS}/standard_fonts/`,
   cMapUrl: `${PDFJS}/cmaps/`,

@@ -35,22 +35,22 @@ BEGIN
   END LOOP;
   RETURN result;
 END $$;
+
 --> statement-breakpoint
 CREATE FUNCTION public.ebook_title_sort_set() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   NEW.title_sort := public.ebook_title_sort(NEW.title, NEW.language);
   RETURN NEW;
 END $$;
+
 --> statement-breakpoint
 CREATE TRIGGER ebook_title_sort_set BEFORE INSERT OR UPDATE OF title, language ON ebooks
 FOR EACH ROW EXECUTE FUNCTION public.ebook_title_sort_set();
+
 --> statement-breakpoint
 UPDATE ebooks SET title_sort = public.ebook_title_sort(title, language);
 --> statement-breakpoint
-CREATE INDEX "ebooks_state_title_sort_idx" ON "ebooks" USING btree ("match_state", "title_sort" COLLATE "C", "id");
---> statement-breakpoint
-CREATE INDEX "ebooks_created_at_idx" ON "ebooks" USING btree ("created_at" DESC);
---> statement-breakpoint
-CREATE INDEX "ebooks_active_title_sort_idx" ON "ebooks" USING btree ("title_sort" COLLATE "C", "id") WHERE "match_state" <> 'excluded';
---> statement-breakpoint
-CREATE INDEX "ebook_ingest_items_ebook_created_idx" ON "ebook_ingest_items" USING btree ("ebook_id", "created_at" DESC, "id");
+CREATE INDEX "ebook_ingest_items_ebook_created_idx" ON "ebook_ingest_items" USING btree ("ebook_id","created_at" DESC NULLS LAST,"id");--> statement-breakpoint
+CREATE INDEX "ebooks_state_title_sort_idx" ON "ebooks" USING btree ("match_state","title_sort" collate "C","id");--> statement-breakpoint
+CREATE INDEX "ebooks_created_at_idx" ON "ebooks" USING btree ("created_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "ebooks_active_title_sort_idx" ON "ebooks" USING btree ("title_sort" collate "C","id") WHERE "ebooks"."match_state" <> 'excluded';

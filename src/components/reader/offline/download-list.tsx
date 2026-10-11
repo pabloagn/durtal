@@ -36,6 +36,7 @@ export function OfflineDownloadList() {
         <button type="button" className="text-accent-primary" onClick={() => void remove(record)}>Remove download</button>
       </div>
     </li>)}</ul>
+    {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- Leaving the cached offline shell needs a document navigation, not an RSC request. */}
     <a className="type-body text-accent-primary" href="/ebooks">Browse the online library</a>
   </main>;
 }

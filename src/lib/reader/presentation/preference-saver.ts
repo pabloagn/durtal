@@ -1,7 +1,8 @@
 import { z } from "zod/v4";
-import { deviceClassSchema, resetReaderPreferencesSchema, updateReaderPreferencesSchema } from "@/lib/validations/reader-preferences";
+import { deviceClassSchema, resetReaderPreferencesSchema, updateReaderPreferencesSchema, presentationSchema } from "@/lib/validations/reader-preferences";
 import { idSchema } from "@/lib/validations/helpers";
 import type { PresentationRow } from "./defaults";
+import { boundedPreferenceString, validateCachedPreferenceRows } from "./preference-cache";
 import {
   applyPreferenceChanges, parsePreferenceReset, parsePreferenceUpdate,
   planPreferenceReset, planPreferenceUpdate, preferenceAdoptionSchema, scopedPreferenceRows,
@@ -20,6 +21,8 @@ export interface PreferenceRecovery {
 export interface PreferenceSaverSnapshot {
   rows: readonly PresentationRow[];
   ready: boolean;
+  /** Local reading admission is separate from real server adoption. */
+  serverAdopted: boolean;
   saving: boolean;
   pending: number;
   error: string | null;
@@ -41,23 +44,40 @@ const recoverySchema = z.object({
     z.object({ kind: z.literal("reset"), input: resetReaderPreferencesSchema }).strict(),
   ])).max(MAX_PENDING_JOBS),
 }).strict();
-const replyRowSchema = z.object({ deviceClass: deviceClassSchema, ebookId: idSchema.nullable(), presentation: z.unknown() }).strict();
+const replyRowSchema = z.object({ deviceClass: deviceClassSchema, ebookId: idSchema.nullable(), presentation: presentationSchema.partial() }).strict();
 
 export function createPreferenceSaver(options: {
   scope: PreferenceScope;
   initialRows: readonly PresentationRow[];
   transport: PreferenceTransport;
   recovery?: unknown;
-  persistRecovery?: (draft: PreferenceRecovery | null) => void;
+  persistRecovery?: (draft: PreferenceRecovery | null) => void | Promise<void>;
   onAdopted?: () => void;
+  online?: boolean;
+  /** A verified downloaded book may open locally while adoption runs in the background. */
+  localPreferenceAdmission?: boolean;
+  cachedRows?: readonly PresentationRow[];
+  cacheError?: string | null;
+  persistAcknowledged?: (rows: readonly PresentationRow[]) => void | Promise<void>;
 }) {
   const scope = Object.freeze(preferenceAdoptionSchema.parse(options.scope));
-  let acknowledged = scopedPreferenceRows(options.initialRows, scope.ebookId);
+  let online = options.online !== false;
+  let cacheError = options.cacheError ?? null;
+  let localRows: readonly PresentationRow[] = [];
+  if (options.cachedRows !== undefined) {
+    try { localRows = validateCachedPreferenceRows(options.cachedRows, scope); }
+    catch { cacheError = "Saved reading settings could not be loaded. Safe defaults are available offline."; }
+  }
+  let acknowledged = online && !options.localPreferenceAdmission ? scopedPreferenceRows(options.initialRows, scope.ebookId) : localRows;
   let jobs: readonly Job[] = [];
   let generation = 0;
   let through = 0;
   let activeGeneration: number | null = null;
   let ready = false;
+  let serverAdopted = false;
+  let locallyAdmitted = false;
+  let networkEpoch = 0;
+  let initializationEpoch = 0;
   let activated = false;
   let adoptionNotified = false;
   let error: string | null = null;
@@ -68,6 +88,8 @@ export function createPreferenceSaver(options: {
   let initialization: Promise<void> | null = null;
   let running: Promise<void> | null = null;
   let flushRequested = false;
+  let persistence: Promise<void> = Promise.resolve();
+  let persistenceVersion = 0;
   const listeners = new Set<() => void>();
 
   function assertInputScope(input: PreferenceReset | PreferenceUpdate) {
@@ -86,6 +108,7 @@ export function createPreferenceSaver(options: {
 
   if (options.recovery !== undefined && options.recovery !== null) {
     try {
+      boundedPreferenceString(options.recovery);
       const draft = recoverySchema.parse(options.recovery);
       if (draft.scope.deviceClass !== scope.deviceClass || draft.scope.ebookId !== scope.ebookId) throw new Error("Wrong recovery scope.");
       jobs = Object.freeze(draft.jobs.map((job) => freezeJob(job.kind === "update"
@@ -104,31 +127,45 @@ export function createPreferenceSaver(options: {
     return scopedPreferenceRows(rows, scope.ebookId);
   }
 
-  let snapshot: PreferenceSaverSnapshot = Object.freeze({ rows: previewRows(), ready, saving: false,
-    pending: jobs.length, error, recoveryError, recoverySaved, unloadRisk: jobs.length > 0 });
+  let snapshot: PreferenceSaverSnapshot = Object.freeze({ rows: previewRows(), ready, serverAdopted, saving: false,
+    pending: jobs.length, error, recoveryError: recoveryError ?? cacheError, recoverySaved, unloadRisk: jobs.length > 0 });
 
   function publish() {
-    snapshot = Object.freeze({ rows: previewRows(), ready, saving: initialization !== null || running !== null,
-      pending: jobs.length, error, recoveryError, recoverySaved, unloadRisk: jobs.length > 0 });
+    snapshot = Object.freeze({ rows: previewRows(), ready, serverAdopted, saving: initialization !== null || running !== null,
+      pending: jobs.length, error, recoveryError: recoveryError ?? cacheError, recoverySaved, unloadRisk: jobs.length > 0 });
     for (const listener of listeners) listener();
   }
 
-  function persist() {
-    if (!options.persistRecovery) { recoverySaved = false; return; }
-    try {
-      options.persistRecovery(jobs.length ? Object.freeze({ version: 1, scope,
-        jobs: Object.freeze(jobs.map(({ kind, input }) => Object.freeze({ kind, input }) as DraftJob)) }) : null);
-      recoverySaved = jobs.length > 0;
-      recoveryError = null;
-    } catch {
+  function persist(): Promise<void> {
+    const version = ++persistenceVersion;
+    if (!options.persistRecovery) { recoverySaved = false; return Promise.resolve(); }
+    const stored = jobs.length > 0;
+    const committed = () => {
+      if (version !== persistenceVersion) return;
+      recoverySaved = stored; recoveryError = null; publish();
+    };
+    const failed = (cause: unknown) => {
+      if (version !== persistenceVersion) return;
       recoverySaved = false;
-      recoveryError = "This browser could not keep an unsaved settings draft. Keep the page open until the save succeeds.";
-    }
+      recoveryError = cause instanceof Error && cause.message.includes("another tab") ? cause.message
+        : "This browser could not keep an unsaved settings draft. Keep the page open until the save succeeds.";
+      publish();
+    };
+    try {
+      const result = options.persistRecovery(stored ? Object.freeze({ version: 1, scope,
+        jobs: Object.freeze(jobs.map(({ kind, input }) => Object.freeze({ kind, input }) as DraftJob)) }) : null);
+      if (result) {
+        recoverySaved = false;
+        persistence = Promise.resolve(result).then(committed, failed);
+      } else { committed(); persistence = Promise.resolve(); }
+    } catch (cause) { failed(cause); persistence = Promise.resolve(); }
+    return persistence;
   }
 
-  function mergeReply(reply: PreferenceReply, expectedBook: string | null) {
+  async function mergeReply(reply: PreferenceReply, expectedBook: string | null) {
     if (!reply.ok) throw new Error(reply.error);
     if (reply.deviceClass !== scope.deviceClass || reply.ebookId !== expectedBook || reply.rows.length > 6) throw new Error("Unexpected reading-settings save scope.");
+    boundedPreferenceString(reply);
     const rows = reply.rows.map((row) => replyRowSchema.parse(row));
     const keys = new Set<string>();
     for (const row of rows) {
@@ -143,10 +180,13 @@ export function createPreferenceSaver(options: {
       ...acknowledged.filter((row) => row.deviceClass !== scope.deviceClass || (row.ebookId !== null && !replacesBook)),
       ...rows.filter((row) => row.deviceClass === scope.deviceClass && (row.ebookId === null || replacesBook)),
     ], scope.ebookId);
+    try { await options.persistAcknowledged?.(acknowledged); cacheError = null; }
+    catch (cause) { cacheError = cause instanceof Error && cause.message.includes("another tab") ? cause.message
+      : "This browser could not keep acknowledged reading settings for offline use."; }
   }
 
   function notifyAdoption() {
-    if (!activated || !ready || adoptionNotified) return;
+    if (!activated || !online || !serverAdopted || adoptionNotified) return;
     try { options.onAdopted?.(); adoptionNotified = true; }
     catch { recoveryError = "The old reading-settings cookie could not be cleared."; }
   }
@@ -157,17 +197,30 @@ export function createPreferenceSaver(options: {
       activated = true;
       if (jobs.length) {
         deadline ??= Date.now() + PREFERENCE_SAVE_DELAY_MS;
+        if (options.persistRecovery) void persist();
         schedule(false);
       }
     }
-    if (ready) { notifyAdoption(); publish(); return Promise.resolve(); }
-    if (initialization) return initialization;
+    if (options.localPreferenceAdmission) { locallyAdmitted = true; ready = true; }
+    if (!online) {
+      locallyAdmitted = true; ready = true;
+      publish(); return Promise.resolve();
+    }
+    if (serverAdopted) { notifyAdoption(); publish(); return Promise.resolve(); }
+    if (initialization) return initializationEpoch === networkEpoch ? initialization
+      : initialization.then(() => activated && online ? start() : undefined);
+    initializationEpoch = networkEpoch;
+    const epoch = networkEpoch;
     error = null;
     initialization = Promise.resolve().then(async () => {
       try {
-        if (!activated) return;
-        mergeReply(await options.transport.adopt(scope), scope.ebookId);
-        ready = true;
+        if (!activated || !online) return;
+        const reply = await options.transport.adopt(scope);
+        // A pre-disconnect reply cannot replace the locally admitted snapshot.
+        if (!online || epoch !== networkEpoch) return;
+        await mergeReply(reply, scope.ebookId);
+        serverAdopted = online && epoch === networkEpoch;
+        ready = serverAdopted || locallyAdmitted;
         notifyAdoption();
       } catch (cause) {
         error = cause instanceof Error ? cause.message : "Reading settings could not be loaded.";
@@ -187,22 +240,24 @@ export function createPreferenceSaver(options: {
     // A fresh edit establishes a new deadline, including after a request failure.
     flushRequested = false;
     if (newDeadline) deadline = Date.now() + PREFERENCE_SAVE_DELAY_MS;
-    if (!activated) return;
+    if (!activated || !online) return;
     timer = setTimeout(() => { timer = null; if (activated) void flush(); }, Math.max(0, (deadline ?? Date.now()) - Date.now()));
   }
 
   async function flush(): Promise<void> {
     if (!activated) return;
+    if (!online) return persistence;
     clearTimer();
     through = Math.max(through, jobs[jobs.length - 1]?.generation ?? 0);
     if (running) { flushRequested = true; return running; }
     await start();
-    if (!activated || !ready || jobs.length === 0) return;
+    await persistence;
+    if (!activated || !online || !serverAdopted || jobs.length === 0) return;
     if (running) { flushRequested = true; return running; }
     flushRequested = false;
     running = Promise.resolve().then(async () => {
       try {
-        while (activated && jobs.length && jobs[0].generation <= through) {
+        while (activated && online && serverAdopted && jobs.length && jobs[0].generation <= through) {
           const job = jobs[0];
           activeGeneration = job.generation;
           error = null;
@@ -210,9 +265,9 @@ export function createPreferenceSaver(options: {
           try {
             const reply = await (job.kind === "update" ? options.transport.update(job.input) : options.transport.reset(job.input));
             const book = job.kind === "update" ? job.input.ebookId ?? job.input.clearBookOverrideId ?? null : job.input.ebookId;
-            mergeReply(reply, book);
+            await mergeReply(reply, book);
             jobs = Object.freeze(jobs.filter((item) => item.generation !== job.generation));
-            persist();
+            await persist();
           } catch (cause) {
             error = cause instanceof Error ? cause.message : "Reading settings could not be saved.";
             break;
@@ -224,7 +279,7 @@ export function createPreferenceSaver(options: {
         flushRequested = false;
         publish();
         // Only another explicit online/expired-debounce/flush event permits a retry.
-        if (activated && retry && jobs.length && jobs[0].generation <= through) void flush();
+        if (activated && online && retry && (!serverAdopted || jobs.length && jobs[0].generation <= through)) void flush();
       }
     });
     publish();
@@ -253,6 +308,16 @@ export function createPreferenceSaver(options: {
     getSnapshot: () => snapshot,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     start,
+    setOnline(value: boolean) {
+      if (online === value) return;
+      online = value;
+      if (!online) {
+        if (!serverAdopted && !locallyAdmitted) acknowledged = localRows;
+        networkEpoch++; serverAdopted = false; locallyAdmitted = true; ready = true;
+        clearTimer(); flushRequested = false;
+      }
+      publish();
+    },
     /** Cleanup pauses future work; dispatched writes may acknowledge, drafts survive. */
     pause() { activated = false; clearTimer(); flushRequested = false; },
     update(input: unknown) { enqueue({ kind: "update", input: parsePreferenceUpdate(input) }); },

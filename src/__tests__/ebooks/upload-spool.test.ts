@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { chmod, link, lstat, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { chown, chmod, link, lstat, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -14,7 +14,7 @@ const relativePath = `${fence.operationId}/transport/part-1`;
 function stream(bytes: Uint8Array) { return new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(bytes); controller.close(); } }); }
 async function setup() {
   const root = await realpath(await mkdtemp(path.join(os.tmpdir(), "durtal-upload-spool-")));
-  roots.push(root); await chmod(root, 0o700);
+  roots.push(root); await chown(root, process.getuid!(), process.getgid!()); await chmod(root, 0o700);
   await mkdir(path.join(root, fence.operationId), { mode: 0o700 });
   await mkdir(path.join(root, fence.operationId, "transport"), { mode: 0o700 });
   const spool = await PrivateUploadSpool.open(root);

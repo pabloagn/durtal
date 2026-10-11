@@ -1,3 +1,4 @@
+import { readerUuid } from "@/lib/reader/uuid";
 import { z } from "zod";
 import { packRecordSchema, type PackRecord } from "./pack-store";
 import { PACK_IMPORT_LIMITS } from "./pack-limits";
@@ -127,7 +128,7 @@ export class LookupPacksClient {
   ): Promise<WorkerResponse> {
     parent?.throwIfAborted();
     const worker = this.start(),
-      id = crypto.randomUUID();
+      id = readerUuid();
     if (this.pending.size >= 32)
       throw new Error("Too many dictionary operations are waiting");
     return new Promise((resolve, reject) => {

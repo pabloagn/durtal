@@ -1,4 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
+// Next normally supplies the server boundary. This unit tests registry/loading,
+// so fixture the tracker feature and its request loader at their module boundary.
+vi.mock("@/lib/reading/reader", () => ({ loadReaderTracking: vi.fn() }));
+vi.mock("@/components/reading/reader-tracking", () => ({
+  ReaderTracking: () => null, ReaderTrackingFailure: () => null,
+}));
+import { READER_TRACKING_CONTROLLER_ID } from "@/lib/reading/reader-controller";
 import {
   loadReaderPlugins,
   getRequiredReaderControllerIds,
@@ -6,8 +13,10 @@ import {
   type ReaderPlugin,
 } from "@/app/reader/[ebookId]/plugins";
 describe("reader plugin server boundary", () => {
-  it("keeps production empty and isolates failed/non-serialisable loads", async () => {
-    expect(readerPlugins).toEqual([]);
+  it("keeps the configured production tracker and isolates failed/non-serialisable loads", async () => {
+    expect(readerPlugins.map(({ id, controller }) => ({ id, controller }))).toEqual([
+      { id: READER_TRACKING_CONTROLLER_ID, controller: true },
+    ]);
     vi.spyOn(console, "error").mockImplementation(() => {});
     const Component = () => null;
     const good = vi.fn(async () => ({ title: "ready" }));
@@ -86,8 +95,10 @@ describe("required controller plugin configuration", () => {
     ])).rejects.toThrow("failure surface");
     expect(load).not.toHaveBeenCalled();
   });
-  it("has no required controller in the unchanged empty production registry", () => {
-    expect(getRequiredReaderControllerIds()).toEqual([]);
-    expect(readerPlugins).toEqual([]);
+  it("requires the configured tracker controller in the production registry", () => {
+    expect(getRequiredReaderControllerIds()).toEqual([READER_TRACKING_CONTROLLER_ID]);
+    expect(readerPlugins.map(({ id, controller }) => ({ id, controller }))).toEqual([
+      { id: READER_TRACKING_CONTROLLER_ID, controller: true },
+    ]);
   });
 });

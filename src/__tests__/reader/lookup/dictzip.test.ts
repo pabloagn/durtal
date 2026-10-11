@@ -138,7 +138,9 @@ describe("native dictzip boundary and integrity validation", () => {
       fixture.file.length - 8,
       fixture.file.length - 4,
       fixture.header.length - 2,
-      fixture.header.length,
+      // The first bit of compressed data is BFINAL, not dictionary content.
+      // Mutate the following payload byte so the data/CRC contract is exercised.
+      fixture.header.length + 1,
     ]) {
       const altered = fixture.file.slice();
       altered[at] ^= 1;

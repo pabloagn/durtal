@@ -69,7 +69,7 @@ if (url) {
       "Ebook matching tests require disposable local sln495_ebook_match",
     );
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
     {},
@@ -131,7 +131,7 @@ describe.skipIf(!url)("ebook matching on disposable PostgreSQL", () => {
     await c`insert into ebooks(id,title,import_source,match_tier) values(${ebookId},'Nadja','folder','strong')`;
     const file = publicationFixture();
     await c`insert into ebook_files(id,ebook_id,sha256,format,size_bytes,content_type,s3_key,status,metadata,manifest_key)
-      values(${randomUUID()},${ebookId},${file.sha256},${file.format},${file.sizeBytes},'application/epub+zip',${file.s3Key},'stored',${c.json(file.metadata)},${file.manifestKey})`;
+      values(${randomUUID()},${ebookId},${file.sha256},${file.format},${file.sizeBytes},'application/epub+zip',${file.s3Key},'stored',${JSON.stringify(file.metadata)}::jsonb,${file.manifestKey})`;
   });
   const insertCandidate = (
     conn: postgres.Sql | postgres.TransactionSql,
@@ -192,7 +192,7 @@ describe.skipIf(!url)("ebook matching on disposable PostgreSQL", () => {
       cover.sha256 = createHash('sha256').update(buffer).digest('hex'); cover.size = buffer.length;
       sourceStorage.objects.set(cover.key, Buffer.from(buffer));
       await c`insert into ebook_files(id,ebook_id,sha256,format,size_bytes,content_type,s3_key,status,metadata,manifest_key,cover_key)
-        values(${randomUUID()},${id},${file.sha256},${file.format},${file.sizeBytes},'application/epub+zip',${file.s3Key},'stored',${c.json(file.metadata)},${file.manifestKey},${cover.key})`;
+        values(${randomUUID()},${id},${file.sha256},${file.format},${file.sizeBytes},'application/epub+zip',${file.s3Key},'stored',${JSON.stringify(file.metadata)}::jsonb,${file.manifestKey},${cover.key})`;
     }
     const loaded = await loadMatchCatalogue(database), inputs = loaded.catalogue.source.ebooks;
     expect(inputs).toHaveLength(2);
@@ -343,7 +343,7 @@ describe.skipIf(!url)("ebook matching on disposable PostgreSQL", () => {
     const extension = prepareMatchAtomicExtension({ coreWriter: "link", coreOperation: plan, ebookIds: [ebookId],
       reviewOperations: [{ version: plan.version, operationId: plan.operationId, runId: plan.runId,
         planSha256: plan.planSha256, targetDatabase: plan.targetDatabase }], purpose: "decision" },
-      { extraTables: [], before: () => [], after: (d) => [d.execute(sql`select 1/0`)] });
+      { extraTables: ["activity_events"], before: () => [], after: (d) => [d.execute(sql`select 1/0`)] });
     await expect(linkEbook(database, plan, plan.targetDatabase, { atomicExtension: extension })).rejects.toThrow();
     expect((await c`select to_jsonb(i) row from instances i where id=${instanceId}`)[0].row).toEqual(before.row);
     expect((await c`select instance_id,link_written from ebooks where id=${ebookId}`)[0]).toEqual({ instance_id: null, link_written: null });
@@ -413,7 +413,7 @@ describe.skipIf(!url)("ebook matching on disposable PostgreSQL", () => {
     await c`insert into ebooks(id,title,import_source) values(${otherEbookId},'Nadja','folder')`;
     const secondFile = publicationFixture("epub", "ac".repeat(32));
     await c`insert into ebook_files(id,ebook_id,sha256,format,size_bytes,content_type,s3_key,status,metadata,manifest_key)
-      values(${randomUUID()},${otherEbookId},${secondFile.sha256},${secondFile.format},${secondFile.sizeBytes},'application/epub+zip',${secondFile.s3Key},'stored',${c.json(secondFile.metadata)},${secondFile.manifestKey})`;
+      values(${randomUUID()},${otherEbookId},${secondFile.sha256},${secondFile.format},${secondFile.sizeBytes},'application/epub+zip',${secondFile.s3Key},'stored',${JSON.stringify(secondFile.metadata)}::jsonb,${secondFile.manifestKey})`;
     const first = await planLink(url!, { ebookId, workId, instanceId, method: "manual" });
     const second = await planLink(url!, { ebookId: otherEbookId, workId, instanceId, method: "manual" });
     const results = await Promise.allSettled([

@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   afterAll,
   beforeAll,
@@ -10,8 +11,7 @@ import {
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   DeleteObjectsCommand,
   ListObjectsV2Command,
@@ -22,6 +22,7 @@ import { DEFAULT_IMAGE_ADJUSTMENTS } from "@/lib/utils/image-adjustments";
 
 // Opt in with a disposable local database. Never read DATABASE_URL or .env.
 const url = process.env.DURTAL_S3_CLEANUP_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln282_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -30,7 +31,7 @@ if (url) {
   )
     throw new Error("S3 cleanup tests require disposable local sln282_test");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 
 // An in-memory bucket. It lists in pages of 2 to exercise continuation.
@@ -106,19 +107,17 @@ function under(prefix: string) {
 describe.skipIf(!url)("S3 cleanup on delete, with PostgreSQL", () => {
   const db = testDb!;
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln282_test");
   });
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await db.execute(
-      sql`truncate works, authors, comments, activity_events, gallery_layouts, venues, ebook_files, ebooks, image_adjustments, contribution_types cascade`,
-    );
+    await resetDisposableDatabase(url!, "sln282_test");
     bucket.objects.clear();
     bucket.failDelete.clear();
     vi.clearAllMocks();
-  });
+  }, 30000);
 
   async function work(title = "Work") {
     const [row] = await db.insert(schema.works).values({ title }).returning();

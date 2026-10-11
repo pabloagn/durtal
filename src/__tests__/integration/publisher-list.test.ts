@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -9,12 +10,12 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { sql } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_PUBLISHER_LIST_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln328_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -25,7 +26,7 @@ if (url) {
       "Publisher list tests require disposable local sln328_test",
     );
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -53,13 +54,13 @@ describe.skipIf(!url)("publisher list with PostgreSQL", () => {
   const db = testDb!;
   const ids: Record<string, string> = {};
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln328_test");
   });
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await db.execute(sql`truncate publishing_houses, works, authors cascade`);
+    await resetDisposableDatabase(url!, "sln328_test");
     const add = async (
       name: string,
       extra: Partial<typeof schema.publishingHouses.$inferInsert> = {},
@@ -109,7 +110,7 @@ describe.skipIf(!url)("publisher list with PostgreSQL", () => {
       { editionId: eds[1].id, publisherId: ids["Wakefield Press"] },
       { editionId: eds[2].id, publisherId: ids["Penguin Classics"] },
     ]);
-  });
+  }, 30000);
   const names = async (options: Parameters<typeof getPublishers>[0]) =>
     (await getPublishers(options)).rows.map((r) => r.publisher.name);
 

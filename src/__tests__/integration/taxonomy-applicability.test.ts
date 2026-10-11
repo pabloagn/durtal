@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -10,11 +11,11 @@ import {
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 import { DOMAIN_TAXONOMIES } from "@/lib/catalogue/taxonomies";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 const url = process.env.DURTAL_TAXONOMY_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln352_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -23,7 +24,7 @@ if (url) {
   )
     throw new Error("Taxonomy tests require disposable local sln352_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -66,14 +67,14 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
   const c = client!;
   let work: Record<string, string>, editionId: string;
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln352_test");
     await c`alter table works drop constraint works_kind_enabled_check`;
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works,subjects,genres,tags,themes,book_categories,art_types,custom_taxonomy_items,harmonization_operations,harmonization_redirects cascade`;
+    await resetDisposableDatabase(url!, "sln352_test", { activateKinds: true });
     await c`delete from taxonomy_families where not is_system`;
     const rows =
       await c`insert into works(title,slug,kind,original_language) values ('Book','book','book','en'),('Film','film','film',null),('Perfume','perfume','perfume',null),('Painting','painting','painting',null) returning id,kind`;
@@ -81,7 +82,7 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     const [edition] =
       await c`insert into editions(work_id,title) values (${work.book},'Edition') returning id`;
     editionId = edition.id;
-  });
+  }, 30000);
   it("seeds distinct vocabularies and shares only intentional work families", async () => {
     for (const definition of DOMAIN_TAXONOMIES) {
       const family = await getTaxonomyFamily(definition.slug);

@@ -123,6 +123,25 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("unmounted read aloud controls", () => {
+  it("shows preparation feedback with disabled Play, then enables a new trusted play action when ready", async () => {
+    const preparing = transitionSpeechPlayer(initialSpeechPlayer(), {
+      kind: "prepare", target: { kind: "from", from: segment.locator },
+    }).state;
+    render(preparing);
+    expect(host.querySelector('[aria-label="Read aloud controls"]')).not.toBeNull();
+    expect(host.querySelector('[role="status"]')?.textContent).toContain("Preparing text to read aloud");
+    expect(button("Play reading aloud").disabled).toBe(true);
+    await click(button("Play reading aloud"));
+    expect(action).not.toHaveBeenCalled();
+    const prepared = transitionSpeechPlayer(preparing, { kind: "prepared",
+      generation: preparing.generation, current: segment }).state;
+    render(prepared);
+    expect(host.querySelector('[role="status"]')).toBeNull();
+    expect(button("Play reading aloud").disabled).toBe(false);
+    expect(action).not.toHaveBeenCalled();
+    await click(button("Play reading aloud"));
+    expect(action).toHaveBeenCalledExactlyOnceWith({ kind: "play" });
+  });
   it("disables Start until preparation is ready, then invokes its trusted-handler callback directly", async () => {
     const start = vi.fn();
     act(() =>

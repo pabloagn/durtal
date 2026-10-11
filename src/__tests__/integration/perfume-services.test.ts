@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -10,18 +11,18 @@ import {
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 import { ownedPrefixes } from "@/lib/s3/cleanup";
 import { CATALOGUE_DATE_REFERENCES } from "@/lib/catalogue/dates";
 
 const url = process.env.DURTAL_PERFUME_SERVICES_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln357_test");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln357_test")
     throw new Error("Perfume service tests require disposable local sln357_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 const mocks = vi.hoisted(() => ({
   invalidate: vi.fn(),
@@ -112,7 +113,7 @@ describe.skipIf(!url)("perfume catalogue and inventory services", () => {
   let shelf: string, cloud: string;
   const year = (value: number) => ({ precision: "year" as const, start: { year: value } });
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln357_test");
     await c`alter table works drop constraint works_kind_enabled_check`;
   }, 30000);
   afterAll(async () => {
@@ -120,7 +121,7 @@ describe.skipIf(!url)("perfume catalogue and inventory services", () => {
   });
   beforeEach(async () => {
     vi.clearAllMocks();
-    await c`truncate works, authors, publishing_houses, venues, locations, custom_taxonomy_items, catalogue_dates, comments, activity_events, gallery_layouts, harmonization_operations, harmonization_redirects cascade`;
+    await resetDisposableDatabase(url!, "sln357_test", { emptyLocations: true, activateKinds: true });
     people = {};
     for (const [key, name] of [
       ["polge", "Jacques Polge"],
@@ -156,7 +157,7 @@ describe.skipIf(!url)("perfume catalogue and inventory services", () => {
     [shelf, cloud] = (
       await c`insert into locations(name,type) values ('Shelf','physical'),('Cloud','digital') returning id`
     ).map((r) => r.id);
-  });
+  }, 30000);
 
   const perfumer = (key: string) => ({ personId: people[key], roleId: "perfume.perfumer" });
   const fullPerfume = () =>

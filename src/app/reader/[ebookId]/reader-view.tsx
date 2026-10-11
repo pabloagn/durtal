@@ -18,7 +18,6 @@ import { flushSync } from "react-dom";
 import {
   ReaderBridgeProvider,
   useReaderSlotFilled,
-  useReaderShortcut,
   useReaderFeatureShortcut,
 } from "@/components/reader/bridge";
 import { hasOpenSurface } from "@/lib/ui/surface-state";
@@ -86,6 +85,8 @@ import {
 import { createDurablePositionQueue } from "@/lib/reader/offline/position-adapter";
 import { getReaderRuntime } from "@/lib/reader/offline/runtime";
 import { comparePositionTimes } from "@/lib/reader/offline/outbox-policy";
+import type { PositionMutation } from "@/lib/reader/offline/mutations";
+import { isExactLocalOpeningPosition } from "@/lib/reader/opening-position";
 import { preloadFoliate } from "@/lib/reader/engines/foliate/preload";
 import {
   presentationFromPreferences,
@@ -229,6 +230,7 @@ type ReaderViewProps = {
   requiredControllerIds?: readonly string[];
   settingsCookie?: string | null;
   preferences?: ReaderPreferencesRead;
+  localPreferenceAdmission?: boolean;
 };
 export function ReaderView(props: ReaderViewProps) {
   const [attempt, setAttempt] = useState(0);
@@ -280,11 +282,12 @@ function ReaderSession({
   onRetry,
   preferenceClass,
   preferenceRows,
+  localPreferenceAdmission,
 }: ReaderViewProps & { bridge: ReaderBridgeController; onRetry(): void; preferenceClass: DeviceClass; preferenceRows: readonly PresentationRow[] }) {
   const openingPlace = devicePlace ?? ownPlace ?? otherPlace;
   // The engine's code starts downloading as the view first renders, not after it mounts
   if (typeof window !== "undefined" && file) void preloadFoliate(file.format);
-  const preferences = useReaderPreferences({ deviceClass: preferenceClass, ebookId: ebook.id, initialRows: preferenceRows });
+  const preferences = useReaderPreferences({ deviceClass: preferenceClass, ebookId: ebook.id, initialRows: preferenceRows, localPreferenceAdmission });
   const settings = useMemo(() => effectivePresentation(preferenceClass, preferences.rows), [preferenceClass, preferences.rows]);
   const annotationPalette = useMemo(() => ({
     fills: highlightColours(settings, settings.theme === "durtal-dark" ? QUIET_GLASS_ANNOTATION_PALETTE.fills : LIGHT_THEME_HIGHLIGHTS[settings.theme], QUIET_GLASS_ANNOTATION_PALETTE.fillOpacity),
@@ -372,14 +375,8 @@ function ReaderSession({
     setSearchMounted(true);
     setSearchOpen(true);
   };
-  useReaderShortcut("/", openSearch, {
-    label: "Search in book",
-    enabled: canSearch,
-  });
-  useReaderShortcut("mod f", openSearch, {
-    label: "Search in book",
-    enabled: canSearch,
-  });
+  useReaderFeatureShortcut("/", 14, openSearch, canSearch);
+  useReaderFeatureShortcut("mod f", 14, openSearch, canSearch);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fixedControlsOpen, setFixedControlsOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState<boolean | null>(null);
@@ -685,6 +682,7 @@ function ReaderSession({
     let phase: "controllers" | "engine" = "controllers";
     let engine: ReaderEngine | null = null;
     let opened = false;
+    let unregisterSelectionCapture = () => {};
     let reported = false;
     let postponeIndex = () => {};
     setStatus({ kind: "opening" });
@@ -868,6 +866,21 @@ function ReaderSession({
         const openingEngine = createFoliateEngine();
         engine = openingEngine;
         engineRef.current = openingEngine;
+        unregisterSelectionCapture = bridge.registerSelectionCapture((origin) => {
+          if (cancelled || !opened || engineRef.current !== openingEngine) return null;
+          const details = openingEngine.selectionDetails(origin);
+          if (!details || details.locator.fileHash !== file.sha256) return null;
+          const text = details.locator.text?.highlight ?? details.text.trim();
+          if (!text) return null;
+          return {
+            selection: { text, locator: structuredClone(details.locator), fileId: file.id,
+              chapter: details.locator.tocLabel ?? null, percent: readerPercent(details.locator) },
+            clear: () => {
+              if (!cancelled && opened && engineRef.current === openingEngine)
+                openingEngine.clearSelection(details);
+            },
+          };
+        });
         let latest: EngineEvents["relocate"] | null = null;
         engine.on("error", ({ message }) => {
           reported = true;
@@ -1030,6 +1043,7 @@ function ReaderSession({
           },
         };
         let localPlace: DurtalLocator | null = null;
+        let localMutation: PositionMutation | null = null;
         let localClientUpdatedAt: string | null = null;
         if (deviceId) {
           try {
@@ -1038,7 +1052,7 @@ function ReaderSession({
             if (local?.latest.kind === "position" && local.latest.fileId === file.id &&
               local.latest.body.locator.fileHash === file.sha256 &&
               (!openingPlace || comparePositionTimes(local.latest.body.clientUpdatedAt, openingPlace.clientUpdatedAt) > 0))
-              { localPlace = local.latest.body.locator; localClientUpdatedAt = local.latest.body.clientUpdatedAt; }
+              { localPlace = local.latest.body.locator; localClientUpdatedAt = local.latest.body.clientUpdatedAt; localMutation = local.latest; }
           } catch { /* Refused local storage leaves the online place available. */ }
         }
         if (cancelled || startupAbort.signal.aborted) return;
@@ -1125,7 +1139,15 @@ function ReaderSession({
           });
           bridge.bus.location({ ...landing, fileId: file.id, kind: "jump" });
         }
-        if (
+        if (landing && isExactLocalOpeningPosition(localMutation, {
+          fileId: file.id, locator: landing.locator, chapter: landing.chapter,
+          clientUpdatedAt: resumeAnchor?.clientUpdatedAt,
+        }, { ebookId: ebook.id, fileId: file.id, fileHash: file.sha256, deviceId },
+          resumed?.status === "exact")) {
+          // The durable original already describes this landing. Seed only the
+          // session's unchanged-place guard; keep its operation and replay intact.
+          saved = landing.locator;
+        } else if (
           landing &&
           (!ownPlace ||
             resumed?.status !== "exact" ||
@@ -1266,6 +1288,7 @@ function ReaderSession({
     return () => {
       cancelled = true;
       startupAbort.abort();
+      unregisterSelectionCapture();
       unsubscribeReadiness();
       if (recoveryTimeout) clearTimeout(recoveryTimeout);
       clearTimeout(timeout);
@@ -1563,7 +1586,10 @@ function ReaderSession({
         bridge={bridge}
         onClear={() => engineRef.current?.clearSelection()}
         onReadAloud={
-          speech ? () => speechRef.current?.startSelection() : undefined
+          speech ? () => {
+            const selected = bridge.captureSelection();
+            if (selected) speechRef.current?.startSelection(selected.locator);
+          } : undefined
         }
         markingActions={annotations.markingActions}
         speechReady={speech?.selectionReady}

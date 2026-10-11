@@ -36,7 +36,7 @@ function PendingModal({ failed, close, retry }: { failed: boolean; close(): void
     return () => { if (element.open) element.close(); };
   }, []);
   const dismiss = () => { if (scope?.isTop()) close(); };
-  return <dialog ref={ref} aria-label={failed ? "Reading action unavailable" : "Loading reading action"} onCancel={(event) => { event.preventDefault(); dismiss(); }} className="glass m-auto max-w-md rounded-sm p-6 text-fg-primary">
+  return <dialog ref={ref} aria-label={failed ? "Reading action unavailable" : "Loading reading action"} onCancel={(event) => { event.preventDefault(); dismiss(); }} className="glass m-auto max-w-md overflow-hidden rounded-sm p-6 text-fg-primary">
     <p role={failed ? "alert" : "status"}>{failed ? "This reading action could not load." : "Loading reading action…"}</p>
     <div className="mt-4 flex gap-4">
       {failed && <button type="button" onClick={retry} className="underline pointer-coarse:min-h-11">Retry</button>}

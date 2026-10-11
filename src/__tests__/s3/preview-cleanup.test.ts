@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { DeleteObjectsCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
@@ -73,7 +73,7 @@ describe("the preview's S3 folder under the delete cleanup", () => {
     }
   });
 
-  it("removes a deleted collection's unused files and reports nothing left", async () => {
+  it("removes a deleted collection's unused gold files and retains bronze and referenced gold", async () => {
     const kept = `gold/media/collection/${id}/kept.webp`;
     const dir = folderWith([
       `gold/media/collection/${id}/cover.webp`,
@@ -87,7 +87,15 @@ describe("the preview's S3 folder under the delete cleanup", () => {
     try {
       process.env.DURTAL_PREVIEW_S3_DIR = dir;
       expect(await cleanupCollectionArtwork(id, [`gold/media/collection/${id}/cover.webp`])).toBe(false);
-      expect(await previewList(dir, "")).toEqual([kept, `gold/media/collection/${other}/cover.webp`]);
+      expect(await previewList(dir, "")).toEqual([
+        `bronze/media/collection/${id}/upload.jpg`,
+        kept,
+        `gold/media/collection/${other}/cover.webp`,
+      ]);
+      expect(readFileSync(join(dir, `bronze/media/collection/${id}/upload.jpg`), "utf8")).toBe("x");
+      expect(readFileSync(join(dir, kept), "utf8")).toBe("x");
+      expect(existsSync(join(dir, `gold/media/collection/${id}/cover.webp`))).toBe(false);
+      expect(existsSync(join(dir, `gold/media/collection/${id}/cover-thumb.webp`))).toBe(false);
       expect(send).not.toHaveBeenCalled();
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -101,7 +109,6 @@ describe("the preview's S3 folder under the delete cleanup", () => {
     const deletes = commands.filter((c): c is DeleteObjectsCommand => c instanceof DeleteObjectsCommand);
     expect(deletes.flatMap((c) => c.input.Delete?.Objects?.map((o) => o.Key))).toEqual([
       `gold/media/collection/${id}/a.webp`,
-      `bronze/media/collection/${id}/a.webp`,
     ]);
   });
 });

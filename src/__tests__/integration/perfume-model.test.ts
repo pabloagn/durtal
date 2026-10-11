@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -10,7 +11,6 @@ import {
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { eq } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 import { dateColumns } from "@/lib/catalogue/dates";
@@ -20,6 +20,7 @@ import {
 } from "@/lib/catalogue/perfumes";
 
 const url = process.env.DURTAL_PERFUME_MODEL_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln356_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -28,7 +29,7 @@ if (url) {
   )
     throw new Error("Perfume model tests require disposable local sln356_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -72,14 +73,14 @@ describe.skipIf(!url)("perfume relational model", () => {
   let workId: string, bookId: string, otherId: string, variantId: string;
   let family: Record<string, string>, items: Record<string, string>;
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln356_test");
     await c`alter table works drop constraint works_kind_enabled_check`;
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, authors, publishing_houses, venues, locations, custom_taxonomy_items, catalogue_dates, harmonization_operations, harmonization_redirects cascade`;
+    await resetDisposableDatabase(url!, "sln356_test", { emptyLocations: true, activateKinds: true });
     const [book] =
       await c`insert into works(title) values ('Book') returning id`;
     bookId = book.id;
@@ -109,7 +110,7 @@ describe.skipIf(!url)("perfume relational model", () => {
         await c`insert into custom_taxonomy_items(family_id,name,slug) values (${family[familySlug]},${key},${key}) returning id`;
       items[key] = item.id;
     }
-  });
+  }, 30000);
   it("supports unknown formulations and multiple concentrations without a dummy edition", async () => {
     const unknown = await testDb!.query.perfumeVariants.findFirst({
       where: eq(schema.perfumeVariants.id, variantId),

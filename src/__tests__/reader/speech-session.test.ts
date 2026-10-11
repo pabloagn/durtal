@@ -126,6 +126,55 @@ const settle = async () => {
   for (let n = 0; n < 8; n++) await Promise.resolve();
 };
 describe("reader speech session ownership", () => {
+  it("opens preparation feedback for a fast changed-selection action and waits for a fresh trusted Play", async () => {
+    const s = setup();
+    s.session.selection(sentence(1).locator);
+    await settle();
+    let release!: (value: Awaited<ReturnType<NonNullable<ReaderEngine["prepareSpeech"]>>>) => void;
+    s.prepare.mockImplementationOnce(() => new Promise(done => { release = done; }));
+    s.session.startSelection(sentence(2).locator);
+    expect(s.session.snapshot).toMatchObject({ open: true, selectionReady: false,
+      state: { phase: "preparing", autoPlay: false } });
+    expect(s.platform.speak).not.toHaveBeenCalled();
+    release({ current: sentence(2), previous: sentence(1), next: sentence(3) });
+    await settle();
+    expect(s.session.snapshot).toMatchObject({ open: true, selectionReady: true, state: { phase: "ready" } });
+    expect(s.platform.speak).not.toHaveBeenCalled();
+    s.session.action({ kind: "play" });
+    expect(s.platform.speak).toHaveBeenCalledOnce();
+    expect(s.utterance().text).toBe("Sentence 2.");
+  });
+  it("Stop closes fast-selection preparation feedback and rejects its late completion", async () => {
+    const s = setup();
+    s.session.selection(sentence(1).locator);
+    await settle();
+    let release!: (value: Awaited<ReturnType<NonNullable<ReaderEngine["prepareSpeech"]>>>) => void;
+    s.prepare.mockImplementationOnce(() => new Promise(done => { release = done; }));
+    s.session.startSelection(sentence(2).locator);
+    const pending = s.prepare.mock.lastCall![0];
+    expect(s.session.snapshot.open).toBe(true);
+    s.session.action({ kind: "stop" });
+    expect(pending.signal.aborted).toBe(true);
+    release({ current: sentence(2), previous: sentence(1), next: sentence(3) });
+    await settle();
+    expect(s.session.snapshot.open).toBe(false);
+    expect(s.session.snapshot.state.current?.text).not.toBe("Sentence 2.");
+    expect(s.platform.speak).not.toHaveBeenCalled();
+  });
+  it("reprepares an action-time paragraph instead of playing the previously prepared word", async () => {
+    const s = setup();
+    s.session.selection(sentence(1).locator);
+    await settle();
+    expect(s.session.snapshot.selectionReady).toBe(true);
+    s.prepare.mockResolvedValueOnce({ current: sentence(2), previous: sentence(1), next: sentence(3) });
+    s.session.startSelection(sentence(2).locator);
+    expect(s.platform.speak).not.toHaveBeenCalled();
+    expect(s.prepare.mock.lastCall![0]).toMatchObject({ target: { kind: "from", from: sentence(2).locator } });
+    await settle();
+    expect(s.session.snapshot.selectionReady).toBe(true);
+    s.session.startSelection(sentence(2).locator);
+    expect(s.utterance().text).toBe("Sentence 2.");
+  });
   it("prepares real text without opening or speaking, and first Start speaks synchronously", async () => {
     const s = setup();
     s.session.prepare();

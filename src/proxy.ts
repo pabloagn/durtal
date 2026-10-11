@@ -22,7 +22,7 @@ export function proxy(request: NextRequest) {
     return crossOriginRefusal(request) ?? undefined;
   }
   const ebookPath = /^\/ebooks\/([^/]+)\/?$/.exec(request.nextUrl.pathname);
-  if (ebookPath && !["runs", "review", "highlights", "upload"].includes(ebookPath[1]) && !isUuid(ebookPath[1]))
+  if (ebookPath && !["runs", "review", "highlights", "upload", "offline"].includes(ebookPath[1]) && !isUuid(ebookPath[1]))
     return new NextResponse("Invalid eBook id", { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   if (READER_PAGE_RE.test(request.nextUrl.pathname)) return readerPage(request);
   if (request.method !== "GET") return;

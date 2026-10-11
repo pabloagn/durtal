@@ -1,19 +1,20 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { NextRequest } from "next/server";
 import { sql } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_READING_EXPORT_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln458_reading_export");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln458_reading_export")
     throw new Error("Reading export tests require a disposable local sln458_reading_export database");
 }
-const client = url ? postgres(url, { max: 6, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 6, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -59,14 +60,14 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
   const count = async (table: string) => Number(await value(`select count(*) from ${table}`));
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln458_reading_export");
   }, 60000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await q(`truncate works, authors, locations, activity_events, imports, reading_goals cascade`);
-  });
+    await resetDisposableDatabase(url!, "sln458_reading_export", { emptyLocations: true });
+  }, 30000);
 
   let serial = 0;
   /** A book with one author and one edition with an ISBN, so a Goodreads file finds it exactly */

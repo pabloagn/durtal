@@ -1,3 +1,4 @@
+import { readerUuid } from "@/lib/reader/uuid";
 import { normalizeLanguage } from "@/lib/utils/language";
 import { consumePackFile, openPackInput } from "./archive";
 import { PACK_IMPORT_LIMITS } from "./pack-limits";
@@ -212,7 +213,7 @@ export class LookupPackRuntime {
             throw new Error(
               `Not enough space on this device: ${Math.ceil(reserve / 1024 ** 2)} MB needed, ${Math.floor(available / 1024 ** 2)} MB available`,
             );
-          const id = crypto.randomUUID();
+          const id = readerUuid();
           const folder = await root.getDirectoryHandle(id, { create: true });
           stagedId = id;
           await writePackBytes(folder, "dict.ifo", raw, signal);

@@ -1,18 +1,19 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { PgDialect } from "drizzle-orm/pg-core";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_READING_SESSIONS_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln451_reading_sessions");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln451_reading_sessions")
     throw new Error("Reading session tests require a disposable local sln451_reading_sessions database");
 }
-const client = url ? postgres(url, { max: 6, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 6, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -64,15 +65,15 @@ describe.skipIf(!url)("reading sessions and the timer with PostgreSQL", () => {
   const value = async <T = string>(text: string, params: unknown[] = []) => Object.values((await q(text, params))[0] ?? {})[0] as T;
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln451_reading_sessions");
   }, 60000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await q(`truncate works, authors, locations, activity_events, imports cascade`);
+    await resetDisposableDatabase(url!, "sln451_reading_sessions", { emptyLocations: true });
     await q(`delete from app_settings`);
-  });
+  }, 30000);
 
   let serial = 0;
   async function started(title = "Nadja", pages: number | null = 480) {

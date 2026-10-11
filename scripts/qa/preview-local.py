@@ -51,6 +51,11 @@ valid EPUB bytes, verified bronze/silver/gold lineage and 240/400/800 WebP
 covers. One third link to seeded catalogue copies; separate fixtures cover
 DRM, damage, a missing object and set-aside state. This is local preview data.
 Use 6000 and 7000 for the library performance acceptance runs.
+With --ebooks-acceptance, three existing linked identities (30/33/36) become
+one work's dated editions with genuine different-sized EPUBs, distinct author
+sorts/added dates and old saved places. The standard acceptance fixtures stay
+unchanged. This mode requires private3410, a synthetic seed (no --from-dump),
+and a canonical --s3-dir under /private/tmp.
 
 With --api-token, the app gets a random DURTAL_API_TOKEN for this run only,
 printed once at start, so the phone's /api/readings routes can be checked
@@ -290,6 +295,8 @@ def main():
                         help="store and catalogue the e-book fixtures (needs --s3-dir)")
     parser.add_argument("--ebooks", type=int, metavar="M",
                         help="add M synthetic eBooks with valid unique medallion fixture objects (needs --s3-dir)")
+    parser.add_argument("--ebooks-acceptance", action="store_true",
+                        help="with --ebooks 6000/7000, synthetic catalogue versions/sort diversity; private3410 only")
     parser.add_argument("--reader-large", type=Path, metavar="DIR",
                         help="with --seed-reader, also the large fixtures make-ebook-fixtures.mjs --large wrote to DIR")
     parser.add_argument("--api-token", action="store_true",
@@ -301,6 +308,8 @@ def main():
         parser.error("--reader-large goes with --seed-reader")
     if args.ebooks and (not args.s3_dir or not 1 <= args.ebooks <= 100000):
         parser.error("--ebooks requires --s3-dir and a count between 1 and 100000")
+    if args.ebooks_acceptance and (args.from_dump or args.port != 3410 or args.ebooks not in (6000, 7000)):
+        parser.error("--ebooks-acceptance requires synthetic --ebooks 6000/7000 at private3410; no --from-dump")
     run("docker", "image", "inspect", "postgres:16")  # Never implicitly pull.
     container = f"durtal-preview-{secrets.token_hex(4)}"
     password = secrets.token_hex(16)
@@ -373,7 +382,7 @@ def main():
             print(f"Reader fixtures: {count} e-books, /reader/{READER_EBOOKS[0][0]} and on", flush=True)
         if args.ebooks:
             from ebook_library_seed import ebook_library_seed
-            psql(ebook_library_seed(ROOT, args.s3_dir, args.ebooks))
+            psql(ebook_library_seed(ROOT, args.s3_dir, args.ebooks, catalogue_acceptance=args.ebooks_acceptance))
             print(f"Library fixtures: {args.ebooks} eBooks, one third linked, valid unique bytes in {args.s3_dir}", flush=True)
         if args.log_sql:
             args.log_sql.resolve().parent.mkdir(parents=True, exist_ok=True)
@@ -416,7 +425,8 @@ def main():
         address = f"http://127.0.0.1:{args.port}"
         for _ in range(240):
             try:
-                urllib.request.urlopen(f"{address}/taxonomy", timeout=5)
+                with urllib.request.urlopen(f"{address}/taxonomy", timeout=5) as response:
+                    response.read()
                 break
             except Exception:
                 time.sleep(1)

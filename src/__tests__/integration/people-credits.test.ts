@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -10,11 +11,11 @@ import {
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 import { CREDIT_ROLES } from "@/lib/catalogue/credits";
 
 const url = process.env.DURTAL_PEOPLE_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln349_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -23,7 +24,7 @@ if (url) {
   )
     throw new Error("People tests require disposable local sln349_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -83,21 +84,21 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
   let work: Record<string, string>;
   let editionId: string;
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln349_test");
     await c`alter table works drop constraint works_kind_enabled_check`;
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, authors, activity_events, comments, gallery_layouts, harmonization_operations, harmonization_redirects cascade`;
+    await resetDisposableDatabase(url!, "sln349_test", { activateKinds: true });
     const works =
       await c`insert into works(title,slug,kind,original_language) values ('A book','a-book','book','en'),('A film','a-film','film',null),('A fragrance','a-fragrance','perfume',null),('A painting','a-painting','painting',null) returning id,kind`;
     work = Object.fromEntries(works.map((w) => [w.kind, w.id]));
     const [edition] =
       await c`insert into editions(work_id,title) values (${work.book},'Translation') returning id`;
     editionId = edition.id;
-  });
+  }, 30000);
   async function person(
     name = "Jean Cocteau",
     domains: ("book" | "film" | "perfume" | "painting")[] = ["film"],

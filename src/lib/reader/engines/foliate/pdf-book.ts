@@ -3,6 +3,7 @@ import type { FoliateBook, FoliateTocEntry } from "./foliate";
 import type { PdfSession } from "./pdf-session";
 import { PdfRasterRenderer } from "./pdf-raster-renderer";
 import { forPdfOwner } from "./pdf-lifetime";
+import { followPdfFrameRender, requireCurrentPdfFrame, type PdfFrameRender } from "./pdf-frame-handoff";
 import { pdfGeometryViewport, pdfTextLayerTransform } from "./pdf-viewport";
 import { cropEnabled, isScannedPage, type ContentBox } from "./pdf-crop";
 import { pdfImageCoverage } from "./pdf-image-coverage";
@@ -16,8 +17,8 @@ export interface PdfFixedPageSource {
   onZoom(input: { doc: Document; scale: number }): Promise<{ width: number; height: number }>;
   onDestroy(doc: Document): void;
 }
-interface TextFrame {
-  owner: AbortController;
+type PdfPageSize = { width: number; height: number };
+interface TextFrame extends PdfFrameRender<PdfPageSize> {
   layer?: InstanceType<PdfApi["TextLayer"]>;
 }
 
@@ -196,117 +197,132 @@ export async function makePdfBook(
         onDestroy: release,
         onZoom: async ({ doc, scale }) => {
           signal.throwIfAborted();
-          doc.querySelector("[data-durtal-pdf-marks]")?.remove();
-          viewports.delete(doc);
-          offsets.delete(doc);
           const previous = frames.get(doc);
-          previous?.owner.abort();
-          previous?.layer?.cancel();
-          const frame: TextFrame = { owner: new AbortController() };
-          frames.set(doc, frame);
-          const frameSignal = AbortSignal.any([signal, frame.owner.signal]);
-          const crop = await cropFor(index, frameSignal);
-          const viewport = await raster.paint(index, doc, scale, frameSignal);
-          frameSignal.throwIfAborted();
-          doc.documentElement.style.setProperty(
-            "--total-scale-factor",
-            String(viewport.scale * viewport.userUnit),
-          );
-          doc.documentElement.style.setProperty(
-            "--scale-factor",
-            String(viewport.scale),
-          );
-          doc.documentElement.style.setProperty(
-            "--user-unit",
-            String(viewport.userUnit),
-          );
-          doc.documentElement.style.setProperty("--scale-round-x", "1px");
-          doc.documentElement.style.setProperty("--scale-round-y", "1px");
-          const container = doc.querySelector<HTMLElement>(".textLayer")!;
-          container.replaceChildren();
-          const content = await session.pageTextContent(index, frameSignal);
-          frameSignal.throwIfAborted();
-          const layer = new api.TextLayer({
-            textContentSource: content,
-            container,
-            viewport,
-          });
-          container.style.transform = pdfTextLayerTransform(viewport);
-          frame.layer = layer;
-          const abort = () => layer.cancel();
-          frameSignal.addEventListener("abort", abort, { once: true });
-          try {
-            await forPdfOwner(Promise.resolve(layer.render()), frameSignal);
-          } finally {
-            frameSignal.removeEventListener("abort", abort);
-          }
-          frameSignal.throwIfAborted();
-          // Durtal exposes safe link annotations through the common navigation
-          // path. PDF JavaScript, forms, launch actions and embedded files do not run.
-          const page = await session.acquirePage(index, frameSignal);
-          try {
-            const annotations = await forPdfOwner(
-              page.page.getAnnotations(),
-              frameSignal,
-            );
-            frameSignal.throwIfAborted();
-            const links = doc.querySelector<HTMLElement>(".annotationLayer")!;
-            links.replaceChildren();
-            for (const annotation of annotations) {
-              let href: string | undefined;
-              if (typeof annotation.url === "string") {
-                try {
-                  const url = new URL(annotation.url);
-                  if (["http:", "https:", "mailto:"].includes(url.protocol))
-                    href = url.href;
-                } catch {
-                  /* Invalid external targets remain inert. */
-                }
-              } else if (annotation.dest) {
-                const target = await forPdfOwner(destinationIndex(annotation.dest).catch(() => null), frameSignal);
-                frameSignal.throwIfAborted();
-                if (target !== null) href = String(target);
-              }
-              if (
-                !href ||
-                !Array.isArray(annotation.rect) ||
-                annotation.rect.length !== 4 ||
-                !annotation.rect.every(Number.isFinite)
-              )
-                continue;
-              const rect = pdfGeometryViewport(
-                viewport,
-              ).convertToViewportRectangle(annotation.rect);
-              const anchor = doc.createElement("a");
-              anchor.setAttribute("href", href);
-              anchor.setAttribute(
-                "aria-label",
-                typeof annotation.title === "string"
-                  ? annotation.title.slice(0, 300)
-                  : href,
+          const owner = new AbortController();
+          const frameSignal = AbortSignal.any([signal, owner.signal]);
+          const current = () => frames.get(doc);
+          const mounted = () => doc.defaultView?.frameElement?.isConnected === true;
+          const assertCurrent = () => requireCurrentPdfFrame(frame, current, signal, mounted);
+          // Defer work until the frame and its result are installed, so an
+          // abort continuation always has a concrete successor to await.
+          const frame: TextFrame = {
+            owner,
+            result: Promise.resolve().then(async () => {
+              assertCurrent();
+              doc.querySelector("[data-durtal-pdf-marks]")?.remove();
+              viewports.delete(doc);
+              offsets.delete(doc);
+              const crop = await cropFor(index, frameSignal);
+              const viewport = await raster.paint(index, doc, scale, frameSignal);
+              assertCurrent();
+              doc.documentElement.style.setProperty(
+                "--total-scale-factor",
+                String(viewport.scale * viewport.userUnit),
               );
-              anchor.style.cssText = `position:absolute;pointer-events:auto;left:${rect[0]}px;top:${rect[1]}px;width:${rect[2] - rect[0]}px;height:${rect[3] - rect[1]}px`;
-              if (book.isExternal?.(href)) {
-                anchor.target = "_blank";
-                anchor.rel = "noopener noreferrer";
+              doc.documentElement.style.setProperty(
+                "--scale-factor",
+                String(viewport.scale),
+              );
+              doc.documentElement.style.setProperty(
+                "--user-unit",
+                String(viewport.userUnit),
+              );
+              doc.documentElement.style.setProperty("--scale-round-x", "1px");
+              doc.documentElement.style.setProperty("--scale-round-y", "1px");
+              const container = doc.querySelector<HTMLElement>(".textLayer")!;
+              container.replaceChildren();
+              const content = await session.pageTextContent(index, frameSignal);
+              assertCurrent();
+              const layer = new api.TextLayer({
+                textContentSource: content,
+                container,
+                viewport,
+              });
+              container.style.transform = pdfTextLayerTransform(viewport);
+              frame.layer = layer;
+              const abort = () => layer.cancel();
+              frameSignal.addEventListener("abort", abort, { once: true });
+              try {
+                await forPdfOwner(Promise.resolve(layer.render()), frameSignal);
+              } finally {
+                frameSignal.removeEventListener("abort", abort);
               }
-              links.append(anchor);
-            }
-          } finally {
-            page.release();
+              assertCurrent();
+              // Durtal exposes safe link annotations through the common navigation
+              // path. PDF JavaScript, forms, launch actions and embedded files do not run.
+              const page = await session.acquirePage(index, frameSignal);
+              try {
+                const annotations = await forPdfOwner(
+                  page.page.getAnnotations(),
+                  frameSignal,
+                );
+                assertCurrent();
+                const links = doc.querySelector<HTMLElement>(".annotationLayer")!;
+                links.replaceChildren();
+                for (const annotation of annotations) {
+                  let href: string | undefined;
+                  if (typeof annotation.url === "string") {
+                    try {
+                      const url = new URL(annotation.url);
+                      if (["http:", "https:", "mailto:"].includes(url.protocol))
+                        href = url.href;
+                    } catch {
+                      /* Invalid external targets remain inert. */
+                    }
+                  } else if (annotation.dest) {
+                    const target = await forPdfOwner(destinationIndex(annotation.dest).catch(() => null), frameSignal);
+                    assertCurrent();
+                    if (target !== null) href = String(target);
+                  }
+                  if (
+                    !href ||
+                    !Array.isArray(annotation.rect) ||
+                    annotation.rect.length !== 4 ||
+                    !annotation.rect.every(Number.isFinite)
+                  )
+                    continue;
+                  const rect = pdfGeometryViewport(
+                    viewport,
+                  ).convertToViewportRectangle(annotation.rect);
+                  const anchor = doc.createElement("a");
+                  anchor.setAttribute("href", href);
+                  anchor.setAttribute(
+                    "aria-label",
+                    typeof annotation.title === "string"
+                      ? annotation.title.slice(0, 300)
+                      : href,
+                  );
+                  anchor.style.cssText = `position:absolute;pointer-events:auto;left:${rect[0]}px;top:${rect[1]}px;width:${rect[2] - rect[0]}px;height:${rect[3] - rect[1]}px`;
+                  if (book.isExternal?.(href)) {
+                    anchor.target = "_blank";
+                    anchor.rel = "noopener noreferrer";
+                  }
+                  links.append(anchor);
+                }
+              } finally {
+                page.release();
+              }
+              assertCurrent();
+              const offset = { left: (crop?.left ?? 0) * viewport.width, top: (crop?.top ?? 0) * viewport.height };
+              const surface = doc.querySelector<HTMLElement>("#pdf-page")!;
+              surface.style.width = `${viewport.width}px`; surface.style.height = `${viewport.height}px`;
+              surface.style.transform = `translate(${-offset.left}px, ${-offset.top}px)`;
+              const size = { width: viewport.width / scale * ((crop?.right ?? 1)-(crop?.left ?? 0)), height: viewport.height / scale * ((crop?.bottom ?? 1)-(crop?.top ?? 0)) };
+              doc.querySelector('meta[name="viewport"]')?.setAttribute("content", `width=${size.width}, height=${size.height}`);
+              offsets.set(doc, offset);
+              if (policy) applyPdfPageTheme(doc, policy);
+              viewports.set(doc, viewport);
+              doc.dispatchEvent(new Event("durtal-pdf-painted"));
+              return size;
+            }),
+          };
+          frames.set(doc, frame);
+          if (previous) {
+            previous.successor = frame;
+            previous.owner.abort();
+            previous.layer?.cancel();
           }
-          frameSignal.throwIfAborted();
-          const offset = { left: (crop?.left ?? 0) * viewport.width, top: (crop?.top ?? 0) * viewport.height };
-          const surface = doc.querySelector<HTMLElement>("#pdf-page")!;
-          surface.style.width = `${viewport.width}px`; surface.style.height = `${viewport.height}px`;
-          surface.style.transform = `translate(${-offset.left}px, ${-offset.top}px)`;
-          const size = { width: viewport.width / scale * ((crop?.right ?? 1)-(crop?.left ?? 0)), height: viewport.height / scale * ((crop?.bottom ?? 1)-(crop?.top ?? 0)) };
-          doc.querySelector('meta[name="viewport"]')?.setAttribute("content", `width=${size.width}, height=${size.height}`);
-          offsets.set(doc, offset);
-          if (policy) applyPdfPageTheme(doc, policy);
-          viewports.set(doc, viewport);
-          doc.dispatchEvent(new Event("durtal-pdf-painted"));
-          return size;
+          return followPdfFrameRender(frame, current, signal, mounted);
         },
       };
     },

@@ -8,6 +8,11 @@ import {
   LookupSemaphore,
   operationSignal,
 } from "./resources";
+import {
+  WIKIMEDIA_RELAY_ERROR,
+  WIKIMEDIA_RELAY_PATH,
+  wikimediaRequestFromAddress,
+} from "./wikimedia-protocol";
 
 export { WIKIMEDIA_API_USER_AGENT } from "./policy";
 
@@ -28,32 +33,32 @@ export class WikimediaError extends Error {
 
 /** Only the three approved Wikimedia endpoints may acquire data. No source templates reach fetch. */
 function approvedAddress(value: string): URL {
-  const url = new URL(value);
-  if (
-    url.protocol !== "https:" ||
-    url.port ||
-    url.username ||
-    url.password ||
-    url.hash ||
-    !/^[a-z]{2,3}\.(wiktionary|wikipedia)\.org$/.test(url.hostname)
-  )
-    throw new Error("Invalid Wikimedia acquisition address");
-  const rest = url.hostname.endsWith(".wiktionary.org")
-    ? /^\/api\/rest_v1\/page\/definition\/[^/]+$/
-    : /^\/api\/rest_v1\/page\/summary\/[^/]+$/;
-  const parse =
-    url.hostname.endsWith(".wiktionary.org") &&
-    url.pathname === "/w/api.php" &&
-    url.searchParams.get("action") === "parse" &&
-    url.searchParams.get("format") === "json" &&
-    url.searchParams.get("formatversion") === "2" &&
-    url.searchParams.get("origin") === "*" &&
-    url.searchParams.get("prop") === "text" &&
-    !!url.searchParams.get("page");
-  if (!(rest.test(url.pathname) && !url.search) && !parse)
-    throw new Error("Invalid Wikimedia acquisition endpoint");
-  return url;
+  wikimediaRequestFromAddress(value);
+  return new URL(value);
 }
+
+/** App authentication is same-origin; no browser credential reaches Wikimedia. */
+const relayRequest: typeof fetch = async (address, options) => {
+  const request = wikimediaRequestFromAddress(String(address));
+  const response = await fetch(WIKIMEDIA_RELAY_PATH, {
+    method: "POST",
+    mode: "same-origin",
+    credentials: "same-origin",
+    redirect: "error",
+    cache: "no-store",
+    referrerPolicy: "no-referrer",
+    signal: options?.signal,
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  const error = response.headers.get(WIKIMEDIA_RELAY_ERROR);
+  if (!response.ok && ["network", "invalid", "timeout"].includes(error ?? "")) {
+    void response.body?.cancel().catch(() => {});
+    if (error === "timeout") throw new DOMException("The lookup took too long", "TimeoutError");
+    throw new WikimediaError(error as "network" | "invalid");
+  }
+  return response;
+};
 
 /** One session client caps both active requests and successful raw JSON cache allocations. */
 export class WikimediaClient {
@@ -67,7 +72,7 @@ export class WikimediaClient {
   >();
   private cacheBytes = 0;
   constructor(
-    private readonly request: typeof fetch = (...args) => fetch(...args),
+    private readonly request: typeof fetch = relayRequest,
   ) {}
 
   async json(
@@ -112,6 +117,7 @@ export class WikimediaClient {
         });
       } catch (error) {
         if (lifetime.signal.aborted) throw lifetime.signal.reason;
+        if (error instanceof DOMException && error.name === "TimeoutError") throw error;
         throw error instanceof WikimediaError
           ? error
           : new WikimediaError("network");

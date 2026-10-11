@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
 describe("ebook detail identifier refusal", () => {
-  it.each(["bad", "bad.id", "123", "not-a-uuid"])(
+  it.each(["bad", "bad.id", "123", "not-a-uuid", "offline-copy"])(
     "returns a real 400 for %s before a page-size redirect",
     (id) => {
       const response = proxy(new NextRequest(`http://localhost/ebooks/${id}`));
       expect(response?.status).toBe(400);
     },
   );
-  it.each(["runs", "review", "highlights", "upload"])(
+  it.each(["runs", "review", "highlights", "upload", "offline"])(
     "preserves the static %s route",
     (name) => {
       expect(

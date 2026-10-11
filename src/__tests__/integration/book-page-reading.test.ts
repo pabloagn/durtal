@@ -1,19 +1,20 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { sql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_BOOK_PAGE_READING_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln447_book_page_reading");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln447_book_page_reading")
     throw new Error("Book page reading tests require a disposable local sln447_book_page_reading database");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -44,14 +45,14 @@ describe.skipIf(!url)("the book page's reading rules with PostgreSQL", () => {
   const value = async <T = string>(text: string, params: unknown[] = []) => Object.values((await q(text, params))[0] ?? {})[0] as T;
 
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln447_book_page_reading");
   }, 60000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await q(`truncate works, series, locations cascade`);
-  });
+    await resetDisposableDatabase(url!, "sln447_book_page_reading", { emptyLocations: true });
+  }, 30000);
 
   let serial = 0;
   const book = (title: string, seriesId: string | null = null, position: string | null = null) =>

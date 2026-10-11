@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -9,11 +10,11 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { NextRequest } from "next/server";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_BOOK_BOUNDARY_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln347_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -22,7 +23,7 @@ if (url) {
   )
     throw new Error("Book-boundary tests require disposable local sln347_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -120,7 +121,7 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
     order: string;
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln347_test");
     // Simulate a later activation only in this explicitly disposable database.
     await c`alter table works drop constraint works_kind_enabled_check`;
   }, 30000);
@@ -128,8 +129,7 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, authors, subjects, recommenders, series, custom_taxonomy_items,
-      comments, activity_events, gallery_layouts, harmonization_operations, harmonization_redirects cascade`;
+    await resetDisposableDatabase(url!, "sln347_test", { activateKinds: true });
     await c`delete from taxonomy_families where not is_system`;
     const a =
       await c`insert into authors(name,first_name,sort_name) values ('Zoe Able','Zoe','Able, Zoe'), ('Amy Zed','Amy','Zed, Amy') returning id`;
@@ -173,7 +173,7 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
       await c`insert into orders(work_id,acquisition_method,order_date) values (${books[0]},'online_order','2026-09-30') returning id`
     ).map((r) => r.id);
     vi.clearAllMocks();
-  });
+  }, 30000);
 
   async function snapshot() {
     const tables =

@@ -129,11 +129,15 @@ describe("index and addresses", () => {
   it("validates page prefixes, Roman exact matches, preceding numeric pages and decimal percents", () => {
     const positions = index();
     expect(parseGoTo("page", "p. IV", positions)).toEqual({
-      target: { href: "a" },
+      target: { page: "iv", href: "a" },
     });
     expect(parseGoTo("page", "page 7", positions)).toEqual({
-      target: { href: "a#two" },
+      target: { page: "5", href: "a#two" }, // The actual preceding page, not nonexistent7.
     });
+    expect(parseGoTo("page", "  PAGE 5  ", positions)).toEqual({
+      target: { page: "5", href: "a#two" },
+    });
+    expect(parseGoTo("page", "0", positions)).toHaveProperty("error");
     expect(parseGoTo("page", "iii", positions)).toHaveProperty("error");
     expect(parseGoTo("location", "0", positions)).toHaveProperty("error");
     expect(parseGoTo("location", "10", positions)).toEqual({
@@ -146,6 +150,17 @@ describe("index and addresses", () => {
     expect(parseGoTo("chapter", "preface", positions)).toEqual({
       target: { href: "a" },
     });
+  });
+  it("retains exact nested Roman/numeric and sparse nested page identities in the existing indexed order", () => {
+    const positions = new PositionIndex({ ...structuredClone(info), pageList: [
+      item("b#other57", "57"),
+      { ...item("", "Pages"), subitems: [item("a", "xii"), item("a#one", "57"), item("a#two", "60")] },
+    ] }, { "b#other57": .9, "a": .05, "a#one": .3, "a#two": .6 });
+    expect(parseGoTo("page", "p. XII", positions)).toEqual({ target: { page: "xii", href: "a" } });
+    expect(parseGoTo("page", "57", positions)).toEqual({ target: { page: "57", href: "a#one" } });
+    expect(parseGoTo("page", "page 59", positions)).toEqual({ target: { page: "57", href: "a#one" } });
+    expect(parseGoTo("page", "Pages", positions)).toHaveProperty("error");
+    expect(parseGoTo("page", "xi", positions)).toHaveProperty("error");
   });
   it("falls back to linear section headings and persists only valid fractions with a 50-book LRU", () => {
     const fallback = new PositionIndex({ ...structuredClone(info), toc: [] });

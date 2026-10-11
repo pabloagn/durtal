@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   afterAll,
   beforeAll,
@@ -10,13 +11,13 @@ import {
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { eq, sql } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 import type { FastTrackBookInput } from "@/lib/validations/fast-track";
 
 // Never use DATABASE_URL or load env files: this suite can truncate only its own local DB.
 const url = process.env.DURTAL_FAST_TRACK_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln320_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -26,7 +27,7 @@ if (url) {
     throw new Error("Fast Track tests require disposable local sln320_test");
   }
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -58,7 +59,6 @@ vi.mock("@/lib/publishers/resolution", async (original) => {
   } };
 });
 
-
 const minimal = (): FastTrackBookInput => ({
   authorName: "Marcel Schwob",
   work: { title: "Spicilège" },
@@ -68,20 +68,18 @@ const minimal = (): FastTrackBookInput => ({
 describe.skipIf(!url)("Fast Track with PostgreSQL", () => {
   const db = testDb!;
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln320_test");
   });
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await db.execute(
-      sql`truncate works, authors, recommenders, activity_events, gallery_layouts, publishing_houses cascade`,
-    );
+    await resetDisposableDatabase(url!, "sln320_test");
     vi.resetAllMocks();
     resetCoverBucket();
     followup.reject = false;
     vi.mocked(processAndUploadCover).mockResolvedValue(null);
-  });
+  }, 30000);
   async function rows() {
     return {
       works: await db.select().from(schema.works),

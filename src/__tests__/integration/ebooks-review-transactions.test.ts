@@ -39,7 +39,7 @@ if (url) {
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln496_ebook_review")
     throw new Error("Review fixtures require disposable local sln496_ebook_review");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 vi.mock("@/lib/db", () => ({ db: new Proxy({}, { get() {
   throw new Error("Review fixture must use its supplied connection");
 } }) }));
@@ -158,7 +158,7 @@ describe.skipIf(!url)("review store on disposable PostgreSQL", () => {
   it.each([
     ["0001-01-01T00:00:00Z", true, "0001-01-01T00:00:00.000000Z"],
     ["9999-12-31T23:59:59.999999Z", true, "9999-12-31T23:59:59.999999Z"],
-    ["5000-01-01 BC", false, null], ["0001-01-01 BC", false, null],
+    ["4000-01-01 BC", false, null], ["0001-01-01 BC", false, null],
     ["10000-01-01T00:00:00Z", false, null], ["infinity", false, null], ["-infinity", false, null],
   ] as const)("represents actual timestamp %s losslessly or refuses it", async (value, valid, text) => {
     const result = resultRows<{ valid: boolean; value: string | null }>(await database.execute(sql`
@@ -180,14 +180,14 @@ describe.skipIf(!url)("review store on disposable PostgreSQL", () => {
   it("refuses unsupported candidate timestamp normalization during protected preparation", async () => {
     await c`insert into ebook_match_candidates(ebook_id,rank,work_id,edition_id,edition_rule,
       probability,weight_bits,reasons,model_version,created_at)
-      values(${ebookId},1,${workId},${editionId},'isbn_edition',0.99,10,'[]',1,'5000-01-01 BC')`;
+      values(${ebookId},1,${workId},${editionId},'isbn_edition',0.99,10,'[]',1,'4000-01-01 BC')`;
     await expect(withReadOnlyPlanningConnection(url!, (conn) => readReviewBeforeOn(conn, ebookId),
       { isolationLevel: "repeatable read" })).rejects.toMatchObject({ code: "invalid_receipt" });
   });
   it("refuses a present audit row whose timestamp cannot be losslessly guarded for replay", async () => {
     const ctx = context("transaction"), prepared = await prepareEbookReview({ action: "keep", ebookId }, ctx);
     await applyEbookReview(prepared.request, prepared.previewToken, ctx);
-    await c`update activity_events set created_at='5000-01-01 BC'::timestamptz where id=${prepared.request.operation.operationId}`;
+    await c`update activity_events set created_at='4000-01-01 BC'::timestamptz where id=${prepared.request.operation.operationId}`;
     await expect(applyEbookReview(prepared.request, "0".repeat(64), ctx)).rejects.toMatchObject({ code: "operation_collision" });
     expect(await ledger()).toHaveLength(1);
   });
@@ -484,7 +484,7 @@ describe.skipIf(!url)("review store on disposable PostgreSQL", () => {
         expect(await ledger()).toHaveLength(0);
       });
 
-    it.each(["5000-01-01 BC", "infinity", "-infinity", "10000-01-01T00:00:00Z"])(
+    it.each(["4000-01-01 BC", "infinity", "-infinity", "10000-01-01T00:00:00Z"])(
       "rolls back a core mutation whose actual final version is %s", async (value) => {
         const ctx = context(driver), prepared = await prepareLink(ctx), before = await row(), counts = await catalogueCounts();
         const fault = await c.reserve();
@@ -688,7 +688,7 @@ describe.skipIf(!url)("review store on disposable PostgreSQL", () => {
     await c`insert into ebook_match_candidates(ebook_id,rank,work_id,edition_id,edition_rule,
       probability,weight_bits,margin_bits,reasons,model_version,created_at)
       values(${ebookId},1,${workId},${editionId},'isbn_edition',0.987654321,1.23456789,4.56789123,
-        ${c.json([{ code: "fixture", text: "é 𝄞 quote\" line\n \u0001 separator\u2028" }])}::jsonb,1,'2026-10-10T12:30:45.123456+02:00')`;
+        ${JSON.stringify([{ code: "fixture", text: "é 𝄞 quote\" line\n \u0001 separator\u2028" }])}::jsonb,1,'2026-10-10T12:30:45.123456+02:00')`;
     const before = await readReviewBeforeOn(database, ebookId);
     if (!before) throw new Error("Expected candidate snapshot");
     expect(before.snapshot.candidatesHash).toBe(reviewPayloadHash(before.candidateSnapshotTexts));

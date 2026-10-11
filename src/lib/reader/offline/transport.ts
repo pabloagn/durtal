@@ -1,3 +1,4 @@
+import { readerUuid } from "@/lib/reader/uuid";
 import {
   deviceReplayPolicy,
   EXPECTED_DEVICE_HEADER,
@@ -71,7 +72,7 @@ export function createReaderTransport(options: TransportOptions) {
       ? (win?.navigator.locks ?? null)
       : options.locks;
   const doFetch = options.fetch ?? globalThis.fetch;
-  const token = options.token ?? (() => crypto.randomUUID());
+  const token = options.token ?? (() => readerUuid());
   const visible = () => !win || win.document.visibilityState === "visible";
   const reachable = () => !win || win.navigator.onLine;
   let inFlight: Promise<void> | null = null,

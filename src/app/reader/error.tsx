@@ -26,6 +26,7 @@ export default function ReaderError({
         <button type="button" onClick={reset} className={routeFallbackActionClass}>
           Try again
         </button>
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- Recovery leaves the failed reader router through a fresh catalogue document. */}
         <a href="/library" className={routeFallbackActionClass}>
           Back to library
         </a>

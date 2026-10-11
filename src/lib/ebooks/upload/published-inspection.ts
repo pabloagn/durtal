@@ -48,7 +48,7 @@ export function decodePublishedInspection(output: string, expected: { identity: 
     || report.prepared.sha256 !== expected.sha256 || report.prepared.size !== expected.bytes
     || report.prepared.contentType !== contentTypeFor(report.prepared.format)) throw new Error("Inspector result binding differs");
   const prepared = report.prepared as PreparedFile;
-  const validation = validationFor(prepared.format, prepared.problem, prepared.drm, prepared.validation.integrity === "verified");
+  const validation = validationFor(prepared.format, prepared.problem, prepared.drm, prepared.validation.integrity === "verified" || prepared.validation.drm === "clear");
   if (JSON.stringify(validation) !== JSON.stringify(prepared.validation)) throw new Error("Inspector validation is inconsistent");
   const artifacts = new Map<string, Uint8Array>();
   for (const artifact of report.derived) {

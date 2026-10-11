@@ -1,5 +1,5 @@
 import { createAnnotationDeleteHooks } from "./annotation-deletion";
-import { createReaderEventBus, type ReaderContext } from "./events";
+import { createReaderEventBus, type ReaderContext, type ReaderSelection } from "./events";
 import { createControllerReadiness, type ReaderControllerFailureCode } from "./controller-readiness";
 import type { ReactElement, ReactNode } from "react";
 export type ReaderPluginView = {
@@ -52,10 +52,44 @@ export function createReaderBridge(
   };
   const bus = createReaderEventBus();
   const controllers = createControllerReadiness(bus, options.requiredControllerIds ?? [], options.failures);
+  type SelectionCapture = (origin?: Document) => { selection: ReaderSelection; clear(): void } | null;
+  let selectionCapture: SelectionCapture | null = null;
+  const captures = new WeakMap<ReaderSelection, { current(): boolean; clear(): void }>();
   return {
     bus,
     start: controllers.start,
-    destroy: controllers.destroy,
+    destroy() {
+      selectionCapture = null;
+      controllers.destroy();
+    },
+    /** Native book selection at the action, independent of debounced UI events. */
+    registerSelectionCapture(capture: SelectionCapture) {
+      selectionCapture = capture;
+      return () => { if (selectionCapture === capture) selectionCapture = null; };
+    },
+    captureSelection(origin?: Document): ReaderSelection | null {
+      const capture = selectionCapture, admission = controllers.getSnapshot();
+      if (!capture || !admission.ready) return null;
+      const fileId = snapshot.fileId;
+      const current = () => {
+        const now = controllers.getSnapshot();
+        return selectionCapture === capture && now.ready && now.epoch === admission.epoch &&
+          now.revision === admission.revision && snapshot.fileId === fileId;
+      };
+      const value = capture(origin);
+      if (!value || value.selection.fileId !== fileId || !current()) return null;
+      const selection = structuredClone(value.selection);
+      captures.set(selection, { current, clear: value.clear });
+      return selection;
+    },
+    isSelectionCaptureCurrent(selection: ReaderSelection) {
+      return captures.get(selection)?.current() ?? false;
+    },
+    clearCapturedSelection(selection: ReaderSelection) {
+      const capture = captures.get(selection);
+      if (capture?.current()) capture.clear();
+      captures.delete(selection);
+    },
     installController: controllers.install,
     whenControllersReady: controllers.whenReady,
     isControllerPermitCurrent: controllers.isPermitCurrent,

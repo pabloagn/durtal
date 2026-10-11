@@ -3,12 +3,13 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { sql } from "drizzle-orm";
+import { resultRows } from "@/lib/harmonization/store";
 import * as schema from "@/lib/db/schema";
 import type { Db } from "@/lib/catalogue/work-store";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({ db: new Proxy({}, { get() { throw new Error("Global database forbidden"); } }) }));
 import { prepareUploadAtomicExtension } from "@/lib/ebooks/upload/atomic-extension";
-import { readUploadControlSnapshotsOn, readUploadTargetSnapshotOn, uploadTableSnapshotSql } from "@/lib/ebooks/upload/atomic-snapshots";
+import { readUploadControlSnapshotsOn, readUploadTargetSnapshotOn, uploadTableSnapshotSql, UPLOAD_READER_TABLES } from "@/lib/ebooks/upload/atomic-snapshots";
 import { registerGroup, registrationPlanSha256 } from "@/lib/ebooks/ingest/register";
 import { reviewPayloadHash } from "@/lib/ebooks/review/receipts";
 import { databaseFingerprint } from "@/lib/ebooks/ingest/command";
@@ -29,7 +30,7 @@ if (url) {
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln495_ebook_upload_atomic")
     throw new Error("Upload atomic tests require fresh disposable local sln495_ebook_upload_atomic");
 }
-const client = url ? postgres(url, { max: 2, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 2, onnotice: () => {} }) : null;
 describe.skipIf(!url)("canonical upload effects on actual PostgreSQL", () => {
   const c = client!, conn = (client ? drizzle(client, { schema }) : null) as unknown as Db;
   beforeAll(async () => {
@@ -42,7 +43,7 @@ describe.skipIf(!url)("canonical upload effects on actual PostgreSQL", () => {
     expect(required.present, "Actual reviewed upload/annotation/quote migrations are required").toBe(true);
   });
   afterAll(async () => { await c.end(); });
-  async function fixture(offset: number, sha256?: string) {
+  async function fixture(offset: number, sha256?: string, options: { newBook?: boolean; cursor?: boolean } = {}) {
     const s = uploadAtomicScenario(offset, sha256), b = s.binding, j = b.job.rawSnapshot;
     b.databaseFingerprint = databaseFingerprint(url!);
     s.operation.targetDatabase = b.databaseFingerprint;
@@ -51,10 +52,21 @@ describe.skipIf(!url)("canonical upload effects on actual PostgreSQL", () => {
     j.target_fingerprint = b.command.targetFingerprint;
     (j.receipt as { request: { targetFingerprint: string } }).request.targetFingerprint = b.command.targetFingerprint;
     const batchId = id(offset + 30), batchKey = id(offset + 31);
-    await c`insert into ebooks(id,title,import_source,match_state) values(${s.r.ebookId},'Nadja','upload','pending')`;
+    if (!options.newBook) await c`insert into ebooks(id,title,import_source,match_state) values(${s.r.ebookId},'Nadja','upload','pending')`;
+    if (options.cursor) await c.begin(async (t) => {
+      await t.unsafe("select public.durtal_annotation_lock_book($1::uuid)", [s.r.ebookId]);
+    });
     await c`insert into ebook_ingest_runs(id,kind,tool_version) values(${s.operation.runId},'upload',2)`;
     await c`insert into ebook_ingest_items(id,run_id,source_path,size_bytes,sha256,format,state)
       values(${String(j.ingest_item_id)},${s.operation.runId},${s.r.items[0].path},200,${b.publication[0].sha256},'epub','stored')`;
+    b.targetSnapshot = await readUploadTargetSnapshotOn(conn, { ebookIds: b.ebookIds, runId: s.operation.runId });
+    if (!options.newBook) { s.r.newEbook = null; s.r.items[0].outcome = "new_format"; }
+    s.operation.planSha256 = registrationPlanSha256(s.r);
+    const target = options.newBook ? { kind: "new" } : { kind: "add_format", ebookId: s.r.ebookId, beforeFingerprint: reviewPayloadHash({ version: 1,
+      ebooks: b.targetSnapshot.ebooks, ebook_files: b.targetSnapshot.ebook_files }) };
+    const progress = { uploadCoreV1: { previewTokenSha256: b.previewTokenSha256, expiresAt: b.expiresAt,
+      coreOperation: s.operation, publication: b.publication } };
+    j.input = { ...(j.input as Record<string, unknown>), target };
     await c`insert into ebook_upload_capacity(volume_id,binding_sha256,state,owner_token,owner_fence,owner_identity,
       owner_lease_expires_at,reserved_bytes,allocated_bytes,available_bytes,measured_at)
       values(${b.command.volumeId},${b.command.bindingSha256},'ready',${b.owner.token},1,'{"fixture":true}'::jsonb,
@@ -72,16 +84,7 @@ describe.skipIf(!url)("canonical upload effects on actual PostgreSQL", () => {
     await c`insert into ebook_upload_operations(id,idempotency_key,kind,request_sha256,target_fingerprint,binding_sha256,
       protocol_version,parent_operation_id,volume_id,run_id,input,progress,state)
       values(${b.command.id},${b.command.key},'complete',${b.command.requestSha256},${b.command.targetFingerprint},${b.command.bindingSha256},
-        1,${b.job.id},${b.command.volumeId},${s.operation.runId},'{"action":"confirm"}'::jsonb,'{}'::jsonb,'queued')`;
-    b.targetSnapshot = await readUploadTargetSnapshotOn(conn, { ebookIds: b.ebookIds, runId: s.operation.runId });
-    s.r.newEbook = null; s.r.items[0].outcome = "new_format";
-    s.operation.planSha256 = registrationPlanSha256(s.r);
-    const target = { kind: "add_format", ebookId: s.r.ebookId, beforeFingerprint: reviewPayloadHash({ version: 1,
-      ebooks: b.targetSnapshot.ebooks, ebook_files: b.targetSnapshot.ebook_files }) };
-    const progress = { uploadCoreV1: { previewTokenSha256: b.previewTokenSha256, expiresAt: b.expiresAt,
-      coreOperation: s.operation, publication: b.publication } };
-    await c`update ebook_upload_operations set input=input || ${JSON.stringify({ target })}::jsonb where id=${b.job.id}`;
-    await c`update ebook_upload_operations set progress=${JSON.stringify(progress)}::jsonb where id=${b.command.id}`;
+        1,${b.job.id},${b.command.volumeId},${s.operation.runId},'{"action":"confirm"}'::jsonb,${JSON.stringify(progress)}::jsonb,'queued')`;
     const control = await readUploadControlSnapshotsOn(conn, b.command.id, b.job.id);
     b.command.rawSnapshot = control.command; b.job.rawSnapshot = control.job; b.owner.capacitySnapshot = control.capacity;
     return s;
@@ -97,6 +100,12 @@ describe.skipIf(!url)("canonical upload effects on actual PostgreSQL", () => {
             'coreOperation',${JSON.stringify(s.operation)}::jsonb,'catalogueBefore',${JSON.stringify({ ebooks: b.targetSnapshot.ebooks,
               ebook_files: b.targetSnapshot.ebook_files })}::jsonb,'catalogueAfter',jsonb_build_object(
                 'ebooks',${uploadTableSnapshotSql("ebooks", scope)},'ebook_files',${uploadTableSnapshotSql("ebook_files", scope)})))))`),
+      // Independent DB read at the atomic commit point, before accession's
+      // documented enrichment follow-up can extend its Undo ownership receipt.
+      d.execute(sql`select ${"durtal.upload.fixture.commit.v1"}::text marker,
+        updated_at > ${beforeAt}::timestamptz forward,
+        to_char(updated_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') version,link_written,
+        ${uploadTableSnapshotSql("ebooks", scope)} ebooks from ebooks where id=${s.r.ebookId}::uuid`),
     ] });
   }
   async function unchanged(s: Awaited<ReturnType<typeof fixture>>) {
@@ -131,9 +140,34 @@ describe.skipIf(!url)("canonical upload effects on actual PostgreSQL", () => {
     const [stored] = await c`select receipt,receipt_status from ebook_upload_operations where id=${s.binding.command.id}`;
     expect(stored.receipt).toEqual(s.binding.receipt); expect(stored.receipt_status).toBe(200);
   });
+  it.each([
+    { name: "fresh e-book without a cursor", offset: 4000, newBook: true, cursor: false },
+    { name: "existing e-book with a cursor", offset: 4100, newBook: false, cursor: true },
+  ])("preserves the exact reader snapshot when registering a $name", async ({ offset, newBook, cursor }) => {
+    const s = await fixture(offset, offset.toString(16).padStart(64, "0"), { newBook, cursor });
+    const before = s.binding.targetSnapshot;
+    expect(before.ebooks).toHaveLength(newBook ? 0 : 1);
+    expect(before.ebook_annotation_cursors).toHaveLength(cursor ? 1 : 0);
+    const results = await registerGroup(conn, s.r, s.operation.runId, { uploadExtension: issuer(s), operation: s.operation });
+    expect(results.length).toBeGreaterThan(1);
+    const after = await readUploadTargetSnapshotOn(conn, { ebookIds: s.binding.ebookIds, runId: s.operation.runId });
+    expect(after.ebooks).toHaveLength(1);
+    expect(after.ebooks[0].match_state).toBe("pending");
+    expect(after.ebooks[0].instance_id).toBeNull();
+    expect(after.ebook_files.map((file) => file.id)).toEqual([s.r.inserts[0].id]);
+    for (const table of UPLOAD_READER_TABLES) expect(after[table]).toEqual(before[table]);
+    const [stored] = await c`select receipt,receipt_status from ebook_upload_operations where id=${s.binding.command.id}`;
+    expect(stored.receipt).toEqual(s.binding.receipt); expect(stored.receipt_status).toBe(200);
+  });
   const writers = ["classification", "decision", "link", "accession"] as const;
   const times = ["same_millisecond", "older_plan"] as const;
   const beforeAt = "2030-01-01T12:00:00.123456Z";
+  type CommitState = {
+    marker: string; forward: boolean; version: string; ebooks: unknown[];
+    link_written: { after: { ebook: { updated_at: string }; instance: unknown;
+      ownedChildren: Record<string, unknown> } };
+  };
+  const accessionAuthors = new Map([[1600, "Henry James"], [1700, "Franz Kafka"], [3300, "Ursula Le Guin"]]);
   async function matchingFixture(offset: number, writer: typeof writers[number], planTime: typeof times[number]) {
     const s = await fixture(offset, offset.toString(16).padStart(64, "0")), b = s.binding, file = b.publication[0];
     const locationId = id(offset + 40), workId = id(offset + 41), editionId = id(offset + 42), copyId = id(offset + 43);
@@ -147,9 +181,19 @@ describe.skipIf(!url)("canonical upload effects on actual PostgreSQL", () => {
     await c`insert into ebook_files(id,ebook_id,sha256,format,size_bytes,content_type,s3_key,status,metadata,manifest_key)
       values(${file.id},${file.ebookId},${file.sha256},${file.format},${file.sizeBytes},'application/epub+zip',${file.s3Key},'stored',
         ${JSON.stringify(file.metadata)}::jsonb,${file.manifestKey})`;
-    await c`update ebooks set language='en',authors=${["Version author " + offset]},
+    // Numeric suffixes differing by one character deliberately match as
+    // compatible people; each accession case needs a distinct author identity.
+    const author = writer === "accession" ? accessionAuthors.get(offset) : "Version author " + offset;
+    if (!author) throw new Error("Missing accession fixture author");
+    await c`update ebooks set language='en',authors=${[author]},
       title=${writer === "accession" ? "Fresh upload book " + offset : "Nadja"},
       preferred_file_id=${file.id},updated_at=${beforeAt}::timestamptz where id=${s.r.ebookId}`;
+    // Binding-changing writers acquire this real protocol lock too. Establish
+    // its cursor before planning so the upload's exact reader snapshot stays
+    // unchanged throughout the version test.
+    await c.begin(async (t) => {
+      await t.unsafe("select public.durtal_annotation_lock_book($1::uuid)", [s.r.ebookId]);
+    });
     const identity = { runId: s.operation.runId, targetDatabase: b.databaseFingerprint,
       now: planTime === "same_millisecond" ? "2030-01-01T12:00:00.123Z" : "2025-01-01T12:00:00.001Z" };
     const plan = writer === "classification" ? await planMatchingOn(conn, [s.r.ebookId],
@@ -180,14 +224,37 @@ describe.skipIf(!url)("canonical upload effects on actual PostgreSQL", () => {
   it.each(writers.flatMap((writer, index) => times.map((time, i) => ({ writer, time, offset: 1000 + index * 200 + i * 100 }))))(
     "keeps final $writer UTC6 version strictly newer with $time", async ({ writer, time, offset }) => {
       const f = await matchingFixture(offset, writer, time);
-      await applyMatching(f);
-      const [actual] = await c`select updated_at > ${beforeAt}::timestamptz forward,
+      const applied = await applyMatching(f);
+      if (!applied) throw new Error("Matching writer returned no atomic results");
+      const results = Array.isArray(applied) ? applied : applied.result;
+      const captured = results.flatMap((result) => resultRows<CommitState>(result))
+        .filter((row) => row.marker === "durtal.upload.fixture.commit.v1");
+      expect(captured).toHaveLength(1);
+      const [actual] = captured;
+      const [current] = await c`select updated_at > ${beforeAt}::timestamptz forward,
         to_char(updated_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') version,link_written
         from ebooks where id=${f.s.r.ebookId}`;
       expect(actual.forward).toBe(true);expect(actual.version > beforeAt).toBe(true);
       const [audit] = await c`select metadata #> '{extra,ebookUpload,catalogueAfter,ebooks}' rows
         from activity_events where id=${f.s.binding.activityId}`;
       expect(audit.rows[0].updated_at).toBe(actual.version);
+      expect(audit.rows).toEqual(actual.ebooks);
+      const { marker: _marker, ebooks: _ebooks, ...committed } = actual;
+      if (f.plan.kind === "accession_batch") {
+        if (Array.isArray(applied)) throw new Error("Accession returned no follow-up outcome");
+        expect(applied.followUpFailures).toEqual([]);
+        const entry = f.plan.entries[0];
+        const [jobs] = await c`select coalesce(jsonb_agg(to_jsonb(j) order by j.kind),'[]'::jsonb) rows
+          from enrichment_jobs j where j.work_id=${entry.workId}::uuid`;
+        expect(jobs.rows.map((job: { kind: string }) => job.kind)).toEqual(["identity", "research"]);
+        for (const job of jobs.rows) expect(job).toMatchObject({ work_id: entry.workId,
+          status: "queued", attempts: 0, priority: 200, payload: { matchingOperationId: entry.receipt.operationId } });
+        // The complete final row may differ only by these exact queued-job
+        // snapshots. Both the immutable audit and Undo ownership stay checked.
+        expect(current).toEqual({ ...committed, link_written: { ...actual.link_written,
+          after: { ...actual.link_written.after, ownedChildren: {
+            ...actual.link_written.after.ownedChildren, enrichment_jobs: jobs.rows } } } });
+      } else expect(current).toEqual(committed);
       if (writer === "link" || writer === "accession") {
         expect(actual.link_written.after.ebook.updated_at).toBeTruthy();
         expect(audit.rows[0].link_written).toEqual(actual.link_written);
@@ -213,6 +280,7 @@ describe.skipIf(!url)("canonical upload effects on actual PostgreSQL", () => {
       expect(await c`select id from works where id=${f.plan.entries[0].workId}`).toHaveLength(0);
       expect(await c`select id from editions where id=${f.plan.entries[0].editionId}`).toHaveLength(0);
       expect(await c`select id from instances where id=${f.plan.entries[0].instanceId}`).toHaveLength(0);
+      expect(await c`select id from enrichment_jobs where work_id=${f.plan.entries[0].workId}`).toHaveLength(0);
     }
   });
 

@@ -2,14 +2,15 @@
 /**
  * Reader engine check (eBooks sub-issue 3): the engine's contract with the
  * reading view, in headless Chrome (DevTools protocol), WebKit (standing in
- * for Safari) and Firefox (WebDriver BiDi), all driven by playwright-core:
+ * for Safari) and patched Firefox (Playwright native protocol), with system
+ * Firefox using WebDriver BiDi, all driven by playwright-core:
  *
  *   opens      every fixture opens at its first text, at 1440, 768 and 390 px;
  *              the corrupt zip shows the error state and the DRM book the
  *              cannot-be-read state
  *   script     the scripted EPUB's inline and file scripts never run: their
  *              globals stay unset in the page and in every section frame
- *   font       with "Original" fonts the obfuscated font loads on a secure
+ *   font       with publisher typography the obfuscated font loads on a secure
  *              origin; on plain http (Chrome: durtal.test mapped to this
  *              computer) it cannot be decoded and the book still opens
  *   direction  after a click into the text, → turns forward in a
@@ -38,10 +39,16 @@
  * this computer, and port 3100 (the live app). playwright-core comes from
  * $PLAYWRIGHT_CORE, else /opt/durtal-qa (the cloud setup), else this
  * project's node_modules; the browsers from $PLAYWRIGHT_BROWSERS_PATH, and
- * Firefox from $FIREFOX, else Playwright's build, else the system Firefox.
+ * Chrome/WebKit optionally from $CHROME/$WEBKIT (else Playwright defaults),
+ * and Firefox from $FIREFOX, else Playwright's build, else the system Firefox.
+ * First-page checks reset only synthetic fixture positions through the existing
+ * disposable-preview DB bridge. Its state file defaults to the preview port
+ * in the temp directory; --preview-state FILE selects a relocated state file.
+ * Run alone against that preview, after other reader checks have finished.
  * Exits 1 on any failure.
  */
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { checkNavigation } from "./reader-navigation-checks.mjs";
@@ -52,6 +59,7 @@ const option = (name, fallback) => {
   return at >= 0 ? args.splice(at, 2)[1] : fallback;
 };
 const base = option("--base", "http://127.0.0.1:3410").replace(/\/$/, "");
+const previewState = option("--preview-state", undefined);
 const browsers = option("--browsers", "chromium,webkit,firefox").split(",");
 const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "dialogs", "navigation", "endurance"];
 // endurance needs the large fixtures: it runs only when asked for
@@ -76,37 +84,96 @@ const playwrightPath =
   ["/opt/durtal-qa/node_modules/playwright-core/index.mjs"].find((path) => existsSync(path));
 const { chromium, webkit, firefox } = await import(playwrightPath ? pathToFileURL(playwrightPath).href : "playwright-core");
 
-/** Playwright's own Firefox build, else none (the moz-firefox channel then finds the system Firefox) */
-function findFirefox() {
-  if (process.env.FIREFOX) return process.env.FIREFOX;
+/** Patched Playwright builds use its native protocol; system Firefox uses BiDi. */
+function firefoxLaunchOptions() {
+  const override = process.env.FIREFOX;
+  const overridePath = override && existsSync(override) ? realpathSync(override) : null;
   const dir = process.env.PLAYWRIGHT_BROWSERS_PATH;
   for (const build of existsSync(dir) ? readdirSync(dir).sort().reverse() : []) {
     if (!build.startsWith("firefox-")) continue;
     for (const bin of ["firefox/firefox", "firefox/Nightly.app/Contents/MacOS/firefox"]) {
-      if (existsSync(join(dir, build, bin))) return join(dir, build, bin);
+      const executablePath = join(dir, build, bin);
+      if (!existsSync(executablePath)) continue;
+      if (!override || overridePath === realpathSync(executablePath))
+        return { executablePath: override || executablePath };
     }
   }
-  return undefined;
+  return { channel: "moz-firefox", executablePath: override };
 }
 
 // The fixtures scripts/qa/preview-local.py --seed-reader stores, by e-book id
 const ebook = (n) => `00000000-0000-4000-a000-${String(n).padStart(12, "0")}`;
 const FIXTURES = [
-  { n: 1, name: "EPUB 3", first: "Chapter 1" },
-  { n: 2, name: "text PDF", text: true },
-  { n: 3, name: "MOBI", first: "Contents" },
-  { n: 4, name: "FB2", first: "Chapter 1" },
-  { n: 5, name: "EPUB 2", first: "Chapter 1" },
-  { n: 6, name: "AZW3", first: "Chapter 1" },
-  { n: 7, name: "CBZ", image: true },
-  { n: 8, name: "right-to-left EPUB", first: "الفصل 1" },
-  { n: 9, name: "vertical Japanese EPUB", first: "第1章" },
-  { n: 10, name: "obfuscated-font EPUB", first: "Chapter 1" },
-  { n: 11, name: "scripted EPUB", first: "Chapter 1" },
+  { n: 1, file: "epub3.epub", name: "EPUB 3", first: "Chapter 1" },
+  { n: 2, file: "text.pdf", name: "text PDF", text: true },
+  { n: 3, file: "mobi.mobi", name: "MOBI", first: "Contents" },
+  { n: 4, file: "fb2.fb2", name: "FB2", first: "Chapter 1" },
+  { n: 5, file: "epub2.epub", name: "EPUB 2", first: "Chapter 1" },
+  { n: 6, file: "azw3.azw3", name: "AZW3", first: "Chapter 1" },
+  { n: 7, file: "cbz.cbz", name: "CBZ", image: true },
+  { n: 8, file: "rtl.epub", name: "right-to-left EPUB", first: "الفصل 1" },
+  { n: 9, file: "vertical-ja.epub", name: "vertical Japanese EPUB", first: "第1章" },
+  { n: 10, file: "obfuscated-font.epub", name: "obfuscated-font EPUB", first: "Chapter 1" },
+  { n: 11, file: "scripted.epub", name: "scripted EPUB", first: "Chapter 1" },
 ];
 const CORRUPT = 12;
 const DRM = 13;
 const WIDTHS = [1440, 768, 390];
+
+let previewBridge;
+/** Reset a seeded book only for first-page assertions; never reset saved-place reopens. */
+async function resetFixturePosition(n) {
+  const fixture = FIXTURES.find((item) => item.n === n);
+  if (!fixture) throw new Error("Position reset refused: not an opening fixture");
+  if (!previewBridge) {
+    previewBridge = (async () => {
+      const statePath = previewState ?? join(tmpdir(), `durtal-preview-${target.port || 80}.json`);
+      const state = JSON.parse(readFileSync(statePath, "utf8"));
+      if (!state.s3Dir || typeof state.databaseUrl !== "string")
+        throw new Error("Position reset requires the seeded disposable preview state");
+      // Reuse the preview's actual guard: loopback host and /durtal_preview only.
+      // Never load .env or fall back to an inherited database URL.
+      const previous = process.env.DATABASE_URL;
+      process.env.DATABASE_URL = state.databaseUrl;
+      try { await import(new URL("./neon-local-bridge.mjs", import.meta.url).href); }
+      finally {
+        if (previous === undefined) delete process.env.DATABASE_URL;
+        else process.env.DATABASE_URL = previous;
+      }
+    })();
+  }
+  await previewBridge;
+  const id = ebook(n);
+  const fileId = `00000000-0000-4000-a000-f${String(n).padStart(11, "0")}`;
+  // The ID alone is insufficient: require the exact preview import, author and
+  // seeded file identity too. Only ebook_positions for this synthetic book
+  // are removed (including its seeded alternate format), no other reader data.
+  const response = await fetch("http://127.0.0.1/sql", {
+    method: "POST",
+    body: JSON.stringify({
+      query: `with fixture as (
+        select e.id from ebooks e join ebook_files f on f.ebook_id = e.id
+        where e.id = $1::uuid and e.import_source = 'folder' and e.import_ref = $2
+          and e.authors = ARRAY['Durtal Fixtures']::text[]
+          and f.id = $3::uuid and f.original_filename = $4
+      ), removed as (
+        delete from ebook_positions p using fixture f where p.ebook_id = f.id returning p.id
+      ) select exists(select 1 from fixture), (select count(*) from removed)`,
+      params: [id, `fixtures/${fixture.file}`, fileId, fixture.file],
+    }),
+  });
+  if (!response.ok) throw new Error("Synthetic fixture position reset failed");
+  const result = await response.json();
+  if (result.rows?.[0]?.[0] !== "t")
+    throw new Error("Position reset refused: seeded fixture identity did not match");
+}
+
+async function revealBars(page) {
+  const viewport = page.viewportSize();
+  if (!viewport) throw new Error("Reader QA requires an explicit viewport");
+  await page.mouse.move(viewport.width / 2, Math.min(8, viewport.height - 1));
+}
+
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const failures = [];
@@ -169,6 +236,7 @@ async function checkOpens(name, browser) {
   for (const width of WIDTHS) {
     const context = await browser.newContext(width === 390 ? phone(name) : { viewport: { width, height: 900 } });
     for (const fixture of FIXTURES) {
+      await resetFixturePosition(fixture.n);
       const page = await context.newPage();
       const s = await open(page, fixture.n).catch((error) => ({ state: `failed: ${error.message.split("\n")[0]}` }));
       let ok = s.state === "ready" && s.index === 0;
@@ -215,11 +283,15 @@ async function checkScript(name, browser) {
   await context.close();
 }
 
-/** Opens Settings and picks a font, then closes it */
-async function pickFont(page, label) {
-  await page.mouse.move(720, 8);
-  await page.getByRole("button", { name: "Settings" }).click();
-  await page.getByRole("radio", { name: label }).click();
+/** Exercise the current publisher typography controls, then close Settings. */
+async function pickPublisherFont(page) {
+  await revealBars(page);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Reading settings", exact: true });
+  await dialog.getByRole("radio", { name: "This book", exact: true }).click();
+  await dialog.getByRole("combobox", { name: "Font", exact: true }).selectOption("publisher");
+  await dialog.getByRole("checkbox", { name: "Use publisher typography", exact: true }).check();
+  await dialog.getByRole("status").filter({ hasText: /^Settings saved$/ }).waitFor();
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !document.querySelector("dialog[open]"));
 }
@@ -239,8 +311,9 @@ async function fontStatus(page) {
 async function checkFont(name, browser) {
   const context = await browser.newContext(desktop);
   const page = await context.newPage();
+  await resetFixturePosition(10);
   let s = await open(page, 10);
-  await pickFont(page, "Original");
+  await pickPublisherFont(page);
   await sleep(800);
   const fonts = await fontStatus(page);
   record(
@@ -254,9 +327,11 @@ async function checkFont(name, browser) {
 
   if (name !== "chromium") return;
   // Plain http on a name that is not this computer's: no crypto.subtle, so no de-obfuscation
-  const insecure = await chromium.launch({ args: [`--host-resolver-rules=MAP durtal.test 127.0.0.1`] });
+  const insecure = await chromium.launch({ executablePath: process.env.CHROME || undefined, args: [`--host-resolver-rules=MAP durtal.test 127.0.0.1`] });
   const http = await (await insecure.newContext(desktop)).newPage();
+  await resetFixturePosition(10);
   s = await open(http, 10, `http://durtal.test:${target.port || 80}`).catch((error) => ({ state: `failed: ${error.message}` }));
+  if (s.state === "ready") await pickPublisherFont(http);
   const secure = await http.evaluate(() => isSecureContext).catch(() => null);
   record(
     name,
@@ -387,7 +462,7 @@ async function checkBars(name, browser) {
   const context = await browser.newContext(desktop);
   const page = await context.newPage();
   const bars = () =>
-    page.evaluate(() => [...document.querySelectorAll("[data-reader-chrome]")].map((el) => !el.inert && getComputedStyle(el).opacity !== "0"));
+    page.evaluate(() => [...document.querySelectorAll("header[data-reader-chrome], footer[data-reader-chrome]")].map((el) => !el.inert && getComputedStyle(el).opacity !== "0"));
   await open(page, 5);
   const shown = await bars();
   await sleep(3600);
@@ -405,7 +480,7 @@ async function checkDialogs(name, browser) {
   const page = await context.newPage();
   await open(page, 1);
   for (const label of ["Contents", "Settings"]) {
-    await page.mouse.move(720, 8);
+    await revealBars(page);
     const button = page.getByRole("button", { name: label });
     await button.click();
     await page.waitForSelector("dialog[open]");
@@ -487,7 +562,9 @@ const RUN = {
           historyFixture: 19,
           open: n => open(page, n),
           evaluate: expression => page.evaluate(expression),
+          selectMode: mode => page.getByRole("dialog", { name: "Go to", exact: true }).getByRole("radio", { name: mode, exact: true }).click(),
           fill: text => page.locator("dialog[open] input").fill(text),
+          commit: () => page.locator("dialog[open] input").press("Enter"),
           key: (key, _code, modifiers = 0) => page.keyboard.press((modifiers & 1 ? "Alt+" : "") + key),
         });
         record(name, "navigation", width + " contents, pages, notes, history and ends", true);
@@ -500,9 +577,9 @@ const RUN = {
 
 for (const name of browsers) {
   const launch = {
-    chromium: () => chromium.launch(),
-    webkit: () => webkit.launch(),
-    firefox: () => firefox.launch({ channel: "moz-firefox", executablePath: findFirefox() }),
+    chromium: () => chromium.launch({ executablePath: process.env.CHROME || undefined }),
+    webkit: () => webkit.launch({ executablePath: process.env.WEBKIT || undefined }),
+    firefox: () => firefox.launch(firefoxLaunchOptions()),
   }[name];
   if (!launch) throw new Error(`Unknown browser ${name}: chromium, webkit or firefox`);
   const browser = await launch();

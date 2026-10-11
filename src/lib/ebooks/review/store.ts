@@ -1,3 +1,4 @@
+import { textArraySql, uuidArraySql } from "@/lib/db/sql-arrays";
 import { sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import type { Db } from "@/lib/catalogue/work-store";
@@ -197,8 +198,8 @@ function unlinkFinalStateSql(plan: ReviewUnlinkPlan, before: ReviewBeforeRead) {
   const changed = ["updated_at", "instance_id", "match_state", "match_method", "match_probability",
     "matched_at", "link_written", "match_tier", "duplicate_of_id", "exclusion_reason",
     "match_fingerprint", "match_model_version"];
-  return sql`((${ebookRawSnapshotSql()}::jsonb - ${changed}::text[]) =
-      (${before.rawEbookSnapshotText}::jsonb - ${changed}::text[])
+  return sql`((${ebookRawSnapshotSql()}::jsonb - ${textArraySql(changed)}) =
+      (${before.rawEbookSnapshotText}::jsonb - ${textArraySql(changed)})
     and e.instance_id is null and e.link_written is null and e.match_method is null
     and e.match_probability is null and e.matched_at is null and e.exclusion_reason is null
     and e.match_fingerprint=${result.fingerprint}
@@ -215,7 +216,7 @@ function unlinkFinalStateSql(plan: ReviewUnlinkPlan, before: ReviewBeforeRead) {
         and c.margin_bits is not distinct from ${candidate.marginBits}::real
         and c.reasons=${JSON.stringify([...candidate.reasons, ...candidate.effect.ambiguities,
           ...(candidate.effect.movedFromEditionId ? [{ code: "move_copy", text: candidate.effect.text }] : [])])}::jsonb
-        and c.flags=${[...candidate.flags]}::text[] and c.model_version=${result.modelVersion}
+        and c.flags=${textArraySql(candidate.flags)} and c.model_version=${result.modelVersion}
         and c.created_at=${plan.createdAt}::timestamptz)`), sql` `)}
   ) IS TRUE`;
 }
@@ -270,10 +271,10 @@ function preparedWrite(binding: MatchAtomicBinding, entries: readonly Entry[]): 
           )) IS TRUE`, REVIEW_SQL_ERRORS.invalid));
       }),
       d.execute(assertSql(sql`((select count(*) from activity_events a
-        where a.id=any(${ids}::uuid[]))=${entries.length}) IS TRUE`, REVIEW_SQL_ERRORS.invalid)),
+        where a.id=any(${uuidArraySql(ids)}))=${entries.length}) IS TRUE`, REVIEW_SQL_ERRORS.invalid)),
       // DECLARED terminal result position. No writer query may follow this suffix.
       d.execute(sql`select ${receiptRowSql()},${REVIEW_RESULT_MARKER}::text as "__reviewResult"
-        from activity_events a where a.id=any(${ids}::uuid[]) order by a.id`),
+        from activity_events a where a.id=any(${uuidArraySql(ids)}) order by a.id`),
     ],
   });
   return Object.freeze({
@@ -402,7 +403,7 @@ async function guardedReplay(conn: Db, records: readonly VerifiedReviewRecord[],
       where a.id=${record.receipt.operation.operationId}::uuid
         and ${reviewTimestampIsValidSql(sql`a.created_at`)}
         and ${activityRawSnapshotSql()}=${record.rawSnapshotText})) IS TRUE`, REVIEW_SQL_ERRORS.stale))),
-    d.execute(sql`select ${receiptRowSql()} from activity_events a where a.id=any(${operationIds}::uuid[]) order by a.id`),
+    d.execute(sql`select ${receiptRowSql()} from activity_events a where a.id=any(${uuidArraySql(operationIds)}) order by a.id`),
   ]);
   const rows = resultRows<ActivityReviewRow>(results.at(-1));
   if (rows.length !== operationIds.length || !same(rows.map((row) => row.id).sort(), [...operationIds].sort()))

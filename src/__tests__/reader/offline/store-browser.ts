@@ -5,6 +5,8 @@ import {
   type DurableInput,
   type StoredOperation,
 } from "@/lib/reader/offline/store";
+import { isExactLocalOpeningPosition } from "@/lib/reader/opening-position";
+import type { PositionSave } from "@/lib/reader/position-queue";
 import {
   createReaderTransport,
   createAnnotationTransport,
@@ -12,6 +14,7 @@ import {
 import {
   mutationKey,
   mutationWireJson,
+  validateMutation,
   type JsonObject,
 } from "@/lib/reader/offline/mutations";
 import {
@@ -118,6 +121,112 @@ export async function runOfflineStoreChecks() {
       );
     },
   );
+  // These opening decisions use the production gate and the production store
+  // on native IndexedDB, including real claims/receipts rather than mock queues.
+  const openingScope = { ebookId: EBOOK, fileId: FILE, deviceId: DEVICE, fileHash: "a".repeat(64) };
+  async function storedReceipt(operationId: string) {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(name);
+      request.onupgradeneeded = () => { request.transaction!.abort(); reject(new Error("Expected existing test database")); };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      return await new Promise<{ outcome: string; original: string } | undefined>((resolve, reject) => {
+        const request = database.transaction("annotations", "readonly").objectStore("annotations").get(`operation:${operationId}`);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    } finally { database.close(); }
+  }
+  await check("exact local opening keeps original identity across reopen, retry and exact acknowledgment", async () => {
+    const original = input(1, 0.7);
+    assert(original.mutation.kind === "position", "Expected position");
+    original.mutation = validateMutation({
+      ...original.mutation,
+      body: { ...original.mutation.body,
+        locator: { ...original.mutation.body.locator, cfi: "epubcfi(/6/2!/4/2/1:0)" } },
+    }, { nowMs: NOW });
+    assert(original.mutation.kind === "position", "Expected position");
+    const serialized = JSON.stringify(original.mutation);
+    await store.enqueue(original);
+    store.close(); store = await open();
+    const local = await store.readPosition(mutationKey(original.mutation));
+    assert(local?.latest.kind === "position", "Missing reopened position");
+    // Engine property order and absent optional fields are not a new save.
+    const landing: PositionSave = { clientUpdatedAt: local.latest.body.clientUpdatedAt,
+      chapter: local.latest.body.chapter, locator: { ...local.latest.body.locator, pageLabel: undefined }, fileId: FILE };
+    const recovered = isExactLocalOpeningPosition(local.latest, landing, openingScope, true);
+    if (!recovered) await store.enqueue({ mutation: { ...original.mutation, operationId: "duplicate-opening" } });
+    assert(recovered, "Exact opening was incorrectly queued as new intent");
+    let rows = await store.inspect();
+    assert(rows.length === 1 && JSON.stringify(rows[0].mutation) === serialized, "Replaced original pending operation");
+    assert(!await storedReceipt(original.mutation.operationId), "Recovery created a false coalesced/ack receipt");
+    const first = await store.claim(claimOptions()); assert(first.kind === "claim", "Original claim missing");
+    assert(first.references[0].operationId === original.mutation.operationId && first.json === mutationWireJson(original.mutation), "Changed original wire identity");
+    // Another exact opening must not reset a live claim/lease.
+    assert(isExactLocalOpeningPosition(local.latest, landing, openingScope, true), "Claimed recovery is not exact");
+    rows = await store.inspect(); assert(rows[0].claim?.token === first.references[0].token, "Opening reset live lease");
+    await store.settle(first.references, "retry");
+    store.close(); store = await open();
+    const retry = await store.claim(claimOptions("foreground", NOW, "opening-retry"));
+    assert(retry.kind === "claim" && retry.references[0].operationId === original.mutation.operationId && retry.json === first.json, "Retry lost original intent");
+    assert(await store.settle(first.references, "acknowledged") === 0, "Stale response removed current original retry");
+    assert(await store.settle(retry.references, "acknowledged") === 1, "Exact current retry acknowledgment failed");
+    assert((await store.inspect()).length === 0, "Exact acknowledged original remained queued");
+    const receipt = await storedReceipt(original.mutation.operationId);
+    assert(receipt?.outcome === "acknowledged" && receipt.original === serialized, "Receipt lost exact original identity/body");
+  });
+  for (const change of ["new-move", "different-body", "different-time", "healed"] as const) {
+    await check(`opening ${change} still queues distinct intent and preserves store coalescing`, async () => {
+      const original = input(1, 0.7); assert(original.mutation.kind === "position", "Expected position");
+      original.mutation = validateMutation({
+        ...original.mutation,
+        body: { ...original.mutation.body,
+          locator: { ...original.mutation.body.locator, cfi: "epubcfi(/6/2!/4/2/1:0)" } },
+      }, { nowMs: NOW });
+      assert(original.mutation.kind === "position", "Expected position");
+      await store.enqueue(original); store.close(); store = await open();
+      const local = await store.readPosition(mutationKey(original.mutation));
+      assert(local?.latest.kind === "position", "Missing local position");
+      const landing = JSON.parse(JSON.stringify(local.latest.body)) as PositionSave;
+      if (change === "new-move") {
+        landing.locator = { ...landing.locator, cfi: "epubcfi(/6/2!/4/2/1:10)", progression: 0.2, totalProgression: 0.2 };
+        landing.clientUpdatedAt = new Date(NOW + 2).toISOString();
+      } else if (change === "different-body") landing.chapter = "A corrected chapter label";
+      else if (change === "different-time") landing.clientUpdatedAt = new Date(NOW + 2).toISOString();
+      const recovered = isExactLocalOpeningPosition(local.latest, landing, openingScope, change !== "healed");
+      assert(!recovered, "A changed/non-exact landing was suppressed");
+      await store.enqueue({ mutation: { ...original.mutation, operationId: `opening-${change}`,
+        createdAt: landing.clientUpdatedAt, body: landing } });
+      const rows = await store.inspect(), next = rows.find(row => row.mutation.operationId === `opening-${change}`);
+      assert(next?.state === "waiting" && next.attempts === 0 && next.claim === null &&
+        JSON.stringify(next.mutation.body) === JSON.stringify(landing), "Changed landing body/state was rewritten");
+      const position = await store.readPosition(mutationKey(original.mutation));
+      assert(position?.latest.operationId === `opening-${change}`, "New landing did not become latest");
+      if (change === "new-move") {
+        assert(rows.length === 2 && position.milestone.operationId === original.mutation.operationId,
+          "Backwards new move lost original furthest milestone");
+        assert(!await storedReceipt(original.mutation.operationId), "Milestone incorrectly coalesced");
+      } else {
+        const receipt = await storedReceipt(original.mutation.operationId);
+        assert(rows.length === 1 && receipt?.outcome === "coalesced" &&
+          receipt.original === JSON.stringify(original.mutation), "Existing equal-progression coalescing changed");
+      }
+    });
+  }
+  await check("opening gate refuses other file/device/hash and first-open recovery", async () => {
+    const original = input(1); assert(original.mutation.kind === "position", "Expected position");
+    await store.enqueue(original);
+    const body = original.mutation.body;
+    assert(!isExactLocalOpeningPosition(null, body, openingScope, true), "First open was mistaken for recovery");
+    for (const wrong of [{ ...openingScope, deviceId: OTHER }, { ...openingScope, deviceId: null },
+      { ...openingScope, fileId: OTHER }, { ...openingScope, ebookId: OTHER },
+      { ...openingScope, fileHash: "b".repeat(64) }])
+      assert(!isExactLocalOpeningPosition(original.mutation, body, wrong, true), "Recovered another ownership scope");
+    assert(!isExactLocalOpeningPosition(original.mutation, { ...body, clientUpdatedAt: undefined }, openingScope, true), "Missing opening timestamp bypassed original save");
+    assert(JSON.stringify((await store.inspect())[0].mutation) === JSON.stringify(original.mutation), "Scope check mutated durable original");
+  });
   await check(
     "milestone and latest persist through backwards moves and delayed enqueue",
     async () => {

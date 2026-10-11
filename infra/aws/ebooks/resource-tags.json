@@ -1,0 +1,16 @@
+{
+  "Items": [
+    {
+      "Key": "application",
+      "Value": "durtal"
+    },
+    {
+      "Key": "component",
+      "Value": "ebooks-cdn"
+    },
+    {
+      "Key": "managed-by",
+      "Value": "durtal-infra"
+    }
+  ]
+}

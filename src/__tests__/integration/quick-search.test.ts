@@ -1,17 +1,17 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { sql } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_QUICK_SEARCH_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln403_test");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln403_test")
     throw new Error("Quick search tests require disposable local sln403_test");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -24,19 +24,21 @@ vi.mock("@/lib/db", () => ({
     },
   ),
 }));
+// This search request has no reader device cookie.
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 import { quickSearch } from "@/lib/actions/quick-search";
 
 describe.skipIf(!url)("command palette search pictures", () => {
   const db = testDb!;
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln403_test");
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await db.execute(sql`truncate works, authors, media cascade`);
-  });
+    await resetDisposableDatabase(url!, "sln403_test");
+  }, 30000);
 
   async function author(name: string, photo?: string) {
     const [row] = await db

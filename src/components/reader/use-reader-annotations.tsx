@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnnotationConflicts } from "./annotation-conflicts";
 import { Highlighter } from "lucide-react";
 import { useReaderFeatureShortcut } from "./bridge";
@@ -40,8 +40,9 @@ export function useReaderAnnotations(input: {
   const { engine, painted, fileId, deviceId, bridge } = input;
   const ebookId = input.book.id;
   const owner = useRef<AnnotationController | null>(null);
+  const ownerBinding = useRef<{ controller: AnnotationController; engine: ReaderEngine; fileId: string; deviceId: string } | null>(null);
   const latest = useRef(input);
-  useEffect(() => { latest.current = input; });
+  useLayoutEffect(() => { latest.current = input; });
   const [snapshot, setSnapshot] = useState(EMPTY);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<EngineEvents["annotation-activated"] | null>(null);
@@ -64,6 +65,7 @@ export function useReaderAnnotations(input: {
         onError: () => { if (!cancelled) latest.current.onNotice("Your mark could not be saved. Keep this tab open and try again."); },
       });
       owner.current = controller;
+      ownerBinding.current = { controller, engine, fileId, deviceId };
       const committedOwner = controller;
       unsubscribeServerChanges = subscribeAnnotationServerChanges(ebookId, async () => {
         if (!cancelled && owner.current === committedOwner) await committedOwner.serverChanged();
@@ -81,21 +83,26 @@ export function useReaderAnnotations(input: {
       unsubscribeServerChanges();
       offActivation();
       controller?.destroy();
-      if (owner.current === controller) owner.current = null;
+      if (owner.current === controller) { owner.current = null; ownerBinding.current = null; }
     };
   }, [ebookId, fileId, deviceId, engine, painted, bridge]);
   useEffect(() => { owner.current?.repaint(); }, [input.palette]);
   const ready = !!engine && painted && snapshot.loaded && !!deviceId;
   const admitted = () => !!owner.current && bridge.getControllerReadinessSnapshot().ready;
   const perform = (work: Promise<unknown>) => { void work.catch(error => input.onNotice(error instanceof Error ? error.message : "That mark could not be saved.")); };
-  const create = async (color: AnnotationColor = "ochre", withNote = false) => {
+  const create = async (color: AnnotationColor = "ochre", withNote = false, origin?: Document) => {
     const controller = owner.current;
-    const selected = latest.current.selection;
-    if (!admitted() || !controller || !selected) return;
+    const capturedEngine = latest.current.engine;
+    const binding = ownerBinding.current;
+    const selected = bridge.captureSelection(origin);
+    if (!admitted() || !controller || !capturedEngine || !selected || selected.fileId !== latest.current.fileId ||
+      binding?.controller !== controller || binding.engine !== capturedEngine || binding.fileId !== selected.fileId ||
+      binding.deviceId !== latest.current.deviceId) return;
     const id = await controller.createHighlight({ text: selected.text, locator: selected.locator,
       chapter: selected.locator.tocLabel ?? null, color });
-    if (owner.current !== controller) return;
-    latest.current.engine?.clearSelection();
+    if (owner.current !== controller || ownerBinding.current !== binding || latest.current.engine !== capturedEngine ||
+      !bridge.isSelectionCaptureCurrent(selected)) return;
+    bridge.clearCapturedSelection(selected);
     if (withNote) setEditedNote(controller.getSnapshot().annotations.find(item => item.id === id) ?? null);
   };
   const remove = async (annotation: ReaderAnnotation) => {
@@ -118,12 +125,13 @@ export function useReaderAnnotations(input: {
   const showPanel = () => setOpen(true);
   useReaderFeatureShortcut("b", 11, () => perform(toggleBookmark()), ready);
   useReaderFeatureShortcut("h", 11, showPanel, ready);
-  useReaderFeatureShortcut("1", 11, () => perform(create("ochre")), ready);
-  useReaderFeatureShortcut("2", 11, () => perform(create("sage")), ready);
-  useReaderFeatureShortcut("3", 11, () => perform(create("slate")), ready);
-  useReaderFeatureShortcut("4", 11, () => perform(create("rose")), ready);
-  useReaderFeatureShortcut("5", 11, () => perform(create("violet")), ready);
-  useReaderFeatureShortcut("n", 11, () => perform(create("ochre", true)), ready);
+  const origin = (event: KeyboardEvent) => event.currentTarget === document ? undefined : event.currentTarget as Document;
+  useReaderFeatureShortcut("1", 11, event => perform(create("ochre", false, origin(event))), ready);
+  useReaderFeatureShortcut("2", 11, event => perform(create("sage", false, origin(event))), ready);
+  useReaderFeatureShortcut("3", 11, event => perform(create("slate", false, origin(event))), ready);
+  useReaderFeatureShortcut("4", 11, event => perform(create("rose", false, origin(event))), ready);
+  useReaderFeatureShortcut("5", 11, event => perform(create("violet", false, origin(event))), ready);
+  useReaderFeatureShortcut("n", 11, event => perform(create("ochre", true, origin(event))), ready);
   const activated = snapshot.annotations.find(item => item.id === active?.decorationId && !item.deletedAt);
   const edit = (item: ReaderAnnotation, patch: { color?: AnnotationColor; style?: "highlight" | "underline" }) => {
     if (admitted() && owner.current) perform(owner.current.edit(item.id, patch));

@@ -283,7 +283,9 @@ async function heapMB(page) {
 
 async function key(page, k, code, modifiers = 0) {
   const virtual = { ArrowRight: 39, ArrowLeft: 37, KeyT: 84, KeyG: 71, Enter: 13, Home: 36, End: 35, BracketLeft: 219, BracketRight: 221, Escape: 27 }[code] ?? 0;
-  await page.call("Input.dispatchKeyEvent", { type: "rawKeyDown", key: k, code, modifiers, windowsVirtualKeyCode: virtual });
+  const nativeEnter = k === "Enter" && code === "Enter" && modifiers === 0;
+  await page.call("Input.dispatchKeyEvent", { type: nativeEnter ? "keyDown" : "rawKeyDown", key: k, code, modifiers, windowsVirtualKeyCode: virtual,
+    ...(nativeEnter ? { text: "\r", unmodifiedText: "\r" } : {}) });
   await page.call("Input.dispatchKeyEvent", { type: "keyUp", key: k, code, modifiers, windowsVirtualKeyCode: virtual });
 }
 const driver = page => ({

@@ -238,6 +238,11 @@ export function SpeechPlayer({
           <X className="size-4" strokeWidth={1.5} aria-hidden="true" />
         </Control>
       </div>
+      {state.phase === "preparing" && !state.autoPlay && !state.message && (
+        <p role="status" className="px-3 pb-2 text-sm text-fg-secondary">
+          Preparing text to read aloud…
+        </p>
+      )}
       {(state.message || !selected) && (
         <p className="px-3 pb-2 text-sm text-fg-secondary">
           {state.message ??

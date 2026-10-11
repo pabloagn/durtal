@@ -1,8 +1,6 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
-import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
-import * as schema from "@/lib/db/schema";
 import { planEdition } from "@/lib/books/enrichment";
 import {
   applyEditionPlan,
@@ -15,6 +13,7 @@ import type { BookRecord } from "@/lib/books/enrichment";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_BOOK_ENRICHMENT_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln414_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -23,7 +22,7 @@ if (url) {
   )
     throw new Error("Book enrichment tests require disposable local sln414_test");
 }
-const sql = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const sql = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 
 const DESCRIPTION =
   "Three brothers, a murdered father and a trial: Dostoevsky's last novel argues with itself about faith, freedom and guilt.";
@@ -47,17 +46,13 @@ describe.skipIf(!url)("book enrichment with PostgreSQL", () => {
   const db = sql!;
   const ids: Record<string, string> = {};
   beforeAll(async () => {
-    // drizzle swaps its client's json serializers, so it migrates on its own
-    // client: the suite then writes through a bare one, as the script does
-    const migrator = postgres(url!, { max: 1, onnotice: () => {} });
-    await migrate(drizzle(migrator, { schema }), { migrationsFolder: "src/lib/db/migrations" });
-    await migrator.end();
+    await resetDisposableDatabase(url!, "sln414_test");
   });
   afterAll(async () => {
     await sql?.end();
   });
   beforeEach(async () => {
-    await db`truncate works, authors cascade`;
+    await resetDisposableDatabase(url!, "sln414_test");
     const [work] = await db`insert into works (title, original_year) values ('The Brothers Karamazov', 1880) returning id`;
     ids.work = work.id;
     const [author] = await db`insert into authors(name) values ('Fyodor Dostoyevsky') returning id`;
@@ -72,7 +67,7 @@ describe.skipIf(!url)("book enrichment with PostgreSQL", () => {
     ids.edition = editions[0].id;
     ids.locked = editions[1].id;
     ids.placeholder = editions[2].id;
-  });
+  }, 30000);
 
   it("reads only unlocked, non-placeholder editions with an ISBN and an empty field", async () => {
     const rows = await loadEnrichableEditions(db);

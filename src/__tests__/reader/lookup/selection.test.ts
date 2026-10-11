@@ -31,6 +31,8 @@ describe("lookup selection source contracts", () => {
   it("maps measured iframe scale without inventing PDF glyph geometry", () => {
     const frame = document.createElement("iframe"); document.body.append(frame);
     const doc = frame.contentDocument!; doc.body.innerHTML = "<p>lux</p>";
+    // Native iframe windows expose their owning frame; happy-dom needs the link.
+    Object.defineProperty(doc.defaultView!, "frameElement", { configurable: true, value: frame });
     const range = doc.createRange(); range.selectNodeContents(doc.querySelector("p")!);
     vi.spyOn(range, "getBoundingClientRect").mockReturnValue(new DOMRect(10, 20, 30, 40));
     vi.spyOn(frame, "getBoundingClientRect").mockReturnValue(new DOMRect(100, 200, 400, 600));

@@ -1,24 +1,25 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { CANON_SCOPE_SQL } from "@/lib/authors/enrichment";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_AUTHOR_SCOPE_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln410_author_scope");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln410_author_scope")
     throw new Error("Author scope tests require a disposable local sln410_author_scope database");
 }
-const client = url ? postgres(url, { max: 2, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 2, onnotice: () => {} }) : null;
 
 /* The people the author enrichment's second pass takes (--scope canon, SLN-410), against PostgreSQL. */
 
 describe.skipIf(!url)("the canon scope of the author enrichment", () => {
   const c = client!;
   beforeAll(async () => {
-    const { drizzle } = await import("drizzle-orm/postgres-js");
-    const { migrate } = await import("drizzle-orm/postgres-js/migrator");
-    await migrate(drizzle(c), { migrationsFolder: "src/lib/db/migrations" });
+
+    await resetDisposableDatabase(url!, "sln410_author_scope");
     // Films and perfumes only inside this explicitly guarded disposable database
     await c`alter table works drop constraint works_kind_enabled_check`;
   }, 60000);
@@ -26,8 +27,8 @@ describe.skipIf(!url)("the canon scope of the author enrichment", () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, authors cascade`;
-  });
+    await resetDisposableDatabase(url!, "sln410_author_scope", { activateKinds: true });
+  }, 30000);
 
   const person = async (name: string, domains: string[] = ["book"]) => {
     const [row] = await c`insert into authors(name, slug) values (${name}, ${name.toLowerCase().replace(/\W+/g, "-")}) returning id`;

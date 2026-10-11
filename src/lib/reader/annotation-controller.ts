@@ -1,3 +1,4 @@
+import { readerUuid } from "@/lib/reader/uuid";
 import type {
   AnnotationColor,
   AnnotationMutation,
@@ -77,7 +78,7 @@ export function createAnnotationController(
   options: AnnotationControllerOptions,
 ) {
   const now = options.now ?? Date.now;
-  const uuid = options.uuid ?? (() => crypto.randomUUID());
+  const uuid = options.uuid ?? (() => readerUuid());
   const doFetch = options.fetch ?? globalThis.fetch;
   const win =
     options.window === undefined
@@ -111,6 +112,8 @@ export function createAnnotationController(
   let interval: ReturnType<typeof setInterval> | null = null;
   let lastClientTime: string | null = null;
   const visible = () => !win || win.document.visibilityState === "visible";
+  const online = () => !win || win.navigator.onLine !== false;
+  const canPull = () => !destroyed && painted && visible() && online();
   const report = (error: unknown) => {
     if (destroyed) return;
     options.onError?.(error);
@@ -315,11 +318,13 @@ export function createAnnotationController(
     });
   }
   async function pull() {
-    if (destroyed || !painted || !visible()) return;
+    if (!canPull()) return;
     if (pulling) return pulling;
     pullFailure = null;
     pulling = (async () => {
       const current = await options.transport.readBook(options.ebookId);
+      // Local reads may outlive this reader or a connectivity change.
+      if (!canPull()) return;
       const query = current.cursor
         ? `?since=${encodeURIComponent(current.cursor)}`
         : "";
@@ -340,6 +345,7 @@ export function createAnnotationController(
       const received = annotationPullSchema.parse(await response.json());
       if (destroyed) return;
       await options.transport.transactBook(options.ebookId, (latest) => {
+        if (destroyed) return latest;
         // A peer may have committed a newer pull during this request.
         if (
           latest.cursor &&
@@ -378,7 +384,16 @@ export function createAnnotationController(
   const onVisible = () => {
     if (visible()) void pull();
   };
+  const onOnline = () => {
+    if (!canPull()) return;
+    void queue(async () => {
+      // Reconnection needs a fresh server snapshot after any older request.
+      if (pulling) await pulling;
+      await pull();
+    }).catch(report);
+  };
   win?.document.addEventListener("visibilitychange", onVisible);
+  win?.addEventListener("online", onOnline);
   const ready = queue(refresh).catch(report);
   return {
     ready,
@@ -412,7 +427,7 @@ export function createAnnotationController(
         if (!destroyed) await pull();
         // Background pulls report in the snapshot instead of rejecting. A
         // committed-write caller needs that failure without retrying its save.
-        if (!destroyed && painted && visible() && pullFailure) throw pullFailure;
+        if (canPull() && pullFailure) throw pullFailure;
       });
     },
     async retryBlocked(operationId: string, revision: number) {
@@ -577,6 +592,7 @@ export function createAnnotationController(
       unsubscribe();
       documentLoaded();
       win?.document.removeEventListener("visibilitychange", onVisible);
+      win?.removeEventListener("online", onOnline);
       options.engine.setDecorations("annotations", []);
       listeners.clear();
       resolved.clear();

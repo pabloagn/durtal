@@ -195,7 +195,9 @@ export class SectionProgress {
         const remainingTotal = sizeTotal - size
         const remainingSection = (1 - fractionInSection) * sizeInSection
         return {
-            fraction: nextSize / sizeTotal,
+            // Durtal patch 14 (VENDORED.md): a partial final spread can cover
+            // more than the remaining text; public progress stays a unit value.
+            fraction: sizeTotal > 0 ? Math.max(0, Math.min(1, nextSize / sizeTotal)) : 0,
             section: {
                 current: index,
                 total: sizes.length,

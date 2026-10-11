@@ -225,7 +225,15 @@ export function createReaderSpeech(options: {
       }
       dispatch({ kind: "prepare", target: { kind: "from", from: locator } });
     },
-    startSelection() {
+    startSelection(locator?: DurtalLocator) {
+      if (disposed) return;
+      if (locator && locatorKey(locator) !== selectionAnchor) {
+        open = true;
+        selectionAnchor = locatorKey(locator);
+        preparedSelection = null;
+        dispatch({ kind: "prepare", target: { kind: "from", from: locator } });
+        return;
+      }
       if (!snapshot().selectionReady) return;
       open = true;
       dispatch({ kind: "play" });

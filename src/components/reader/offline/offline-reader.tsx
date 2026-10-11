@@ -21,10 +21,11 @@ export function OfflineReader() {
     })().catch(() => { if (active) setMessage("The downloaded book could not be read on this device."); });
     return () => { active = false; };
   },[]);
+  // eslint-disable-next-line @next/next/no-html-link-for-pages -- The service worker serves this cached shell only for document navigations.
   if (!record) return <main className="space-y-4 p-6"><p role="status" className="type-body text-fg-secondary">{message}</p><a className="type-body text-accent-primary" href="/ebooks/offline">Downloaded books</a></main>;
   const file=record.identity, url=`/api/ebooks/files/${file.fileId}?durtal-sha=${file.sha256}`;
   return <ReaderView ebook={{ id: file.ebookId, ...record.book }}
     file={{ id: file.fileId, format: file.format, size: file.sizeBytes, sha256: file.sha256, url, fallbackUrl: url, expiresAt: null, cdOffset: null }}
     deviceId={record.deviceId} place={null} devicePlace={null} otherPlace={null} alternatives={[]}
-    backHref="/ebooks/offline" plugins={[]} />;
+    backHref="/ebooks/offline" plugins={[]} localPreferenceAdmission />;
 }

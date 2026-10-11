@@ -1,17 +1,18 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_INTERCHANGE_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln375_interchange");
 if (url) {
   const parsed = new URL(url);
   if (!["127.0.0.1", "localhost"].includes(parsed.hostname) || parsed.pathname !== "/sln375_interchange")
     throw new Error("Interchange tests require disposable local sln375_interchange");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -64,26 +65,73 @@ describe.skipIf(!url)("the Durtal interchange file", () => {
     for (const name of TABLES.keys()) out[name] = await value<number>(`select count(*)::int from ${name}`);
     return out;
   };
-  const wipe = () =>
-    c.unsafe(`truncate works, authors, publishing_houses, venues, places, locations, catalogue_dates, collections, series,
-      recommenders, source_records, catalogue_identifiers, custom_taxonomy_items, activity_events, comments, gallery_layouts,
-      harmonization_operations, harmonization_redirects cascade`);
+  /** In-case catalogue cleanup retains vocabulary identities and mutations. */
+  const wipe = () => c.begin(async (t) => {
+    const [databaseTarget] = await t.unsafe(`
+      select current_database() as database, pg_get_userbyid(datdba) = current_user as owned
+      from pg_database where datname = current_database()
+    `);
+    if (databaseTarget?.database !== "sln375_interchange" || !databaseTarget.owned)
+      throw new Error("Refusing interchange cleanup outside its owned disposable database");
+    // These fixtures carry catalogue records only. Hold readers/ledger writers
+    // out until commit; an unexpected history row must fail cleanup, not vanish.
+    const emptyOnlyTables = [
+      "ebooks", "ebook_files", "ebook_positions", "ebook_annotations",
+      "ebook_annotation_cursors", "ebook_annotation_retired_ids",
+      "reader_sitting_receipts", "reader_quote_undo_receipts", "reader_preferences",
+      "legacy_reader_progress", "ebook_upload_operations", "ebook_upload_capacity",
+      "readings", "reading_sessions", "reading_notes",
+      "enrichment_costs", "enrichment_extractions", "perfume_retailer_observations",
+      "enrichment_claims", "enrichment_terms", "enrichment_jobs",
+      "enrichment_applications", "work_enrichment_values", "claim_evidence",
+    ] as const;
+    await t.unsafe(`lock table ${emptyOnlyTables.map((table) => `public.${table}`).join(", ")} in share mode`);
+    for (const table of emptyOnlyTables) {
+      const rows = await t.unsafe(`select 1 from public.${table} limit 1`);
+      if (rows.length) throw new Error(`Interchange fixture cleanup requires empty ${table}`);
+    }
+    // Ordinary deletes keep every trigger and FK active. Clear RESTRICT children
+    // before their owning works; the latter cascade into bound realizations.
+    for (const table of ["orders", "acquisition_targets", "perfume_retailer_links", "perfume_bottles", "film_holdings"])
+      await t.unsafe(`delete from public.${table}`);
+    // Reproductions must go before originals (the self-FK uses RESTRICT).
+    while ((await t.unsafe(`
+      delete from art_objects parent where not exists (
+        select 1 from art_objects child where child.reproduces_object_id = parent.id
+      )
+    `)).count > 0) { /* Delete only leaves until the hierarchy is empty. */ }
+    for (const table of [
+      "works", "catalogue_identifiers", "source_records", "organization_venues",
+      "collections", "authors", "venues",
+    ]) await t.unsafe(`delete from public.${table}`);
+    // Publishing-house children likewise reference parents with RESTRICT.
+    while ((await t.unsafe(`
+      delete from publishing_houses parent where not exists (
+        select 1 from publishing_houses child where child.parent_id = parent.id
+      )
+    `)).count > 0) { /* Delete only leaves until the hierarchy is empty. */ }
+    for (const table of [
+      "places", "locations", "catalogue_dates", "series", "recommenders",
+      "custom_taxonomy_items", "activity_events", "comments", "gallery_layouts",
+      "harmonization_redirects", "harmonization_operations",
+    ]) await t.unsafe(`delete from public.${table}`);
+  });
   const strip = (doc: InterchangeDocument) => ({ ...doc, exportedAt: null });
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln375_interchange", { emptyLocations: true });
   }, 60000);
   afterAll(async () => {
     vi.unstubAllGlobals();
     await client?.end();
   });
   beforeEach(async () => {
-    await wipe();
+    await resetDisposableDatabase(url!, "sln375_interchange", { emptyLocations: true });
     // No step of an import or export may reach for the network
     vi.stubGlobal("fetch", () => {
       throw new Error("No network in these tests");
     });
-  });
+  }, 30000);
 
   let ids: Record<string, string>;
   /** One record of each collection, linked and collected together */

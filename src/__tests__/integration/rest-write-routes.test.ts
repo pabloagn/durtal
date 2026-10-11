@@ -1,8 +1,8 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { NextRequest } from "next/server";
 import * as schema from "@/lib/db/schema";
 
@@ -13,6 +13,7 @@ import * as schema from "@/lib/db/schema";
  */
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_REST_WRITES_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln417_rest_writes");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -21,7 +22,7 @@ if (url) {
   )
     throw new Error("REST write tests require disposable local sln417_rest_writes");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -78,7 +79,7 @@ describe.skipIf(!url)("REST write routes with PostgreSQL", () => {
   const db = testDb!;
   let workId: string, editionId: string, locationId: string;
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln417_rest_writes");
   }, 30000);
   afterAll(async () => {
     await client?.end();
@@ -86,7 +87,7 @@ describe.skipIf(!url)("REST write routes with PostgreSQL", () => {
   beforeEach(async () => {
     vi.stubEnv("DURTAL_API_TOKEN", TOKEN);
     vi.spyOn(console, "error").mockImplementation(() => {});
-    await db.execute(sql`truncate works, orders, locations, recommenders, activity_events cascade`);
+    await resetDisposableDatabase(url!, "sln417_rest_writes", { emptyLocations: true });
     const [work] = await db
       .insert(schema.works)
       .values({ title: "Against Nature", slug: "against-nature", catalogueStatus: "wanted" })
@@ -102,7 +103,7 @@ describe.skipIf(!url)("REST write routes with PostgreSQL", () => {
       .values({ name: "Study", type: "physical" })
       .returning();
     locationId = location.id;
-  });
+  }, 30000);
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.restoreAllMocks();

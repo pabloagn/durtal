@@ -1,3 +1,4 @@
+import { uuidArraySql } from "@/lib/db/sql-arrays";
 import { sql, type SQL } from "drizzle-orm";
 import type { Db } from "@/lib/catalogue/work-store";
 import { resultRows } from "@/lib/harmonization/store";
@@ -31,7 +32,7 @@ export const UPLOAD_READER_TABLES = Object.freeze([
 export function uploadRowSnapshotSql(table: UploadSnapshotTable, alias = "r"): SQL {
   const fields = TIMESTAMPS[table].flatMap((name) => {
     const column = sql`${sql.identifier(alias)}.${sql.identifier(name)}`;
-    return [sql`${name}`, sql`case when ${column} is null then null
+    return [sql`${name}::text`, sql`case when ${column} is null then null
       when isfinite(${column}) then to_char(${column} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
       else '!nonfinite!' end`];
   });
@@ -43,13 +44,13 @@ function columnSql(alias: string, column: string) {
 export function uploadSnapshotScopeSql(table: typeof UPLOAD_TARGET_TABLES[number],
   scope: { ebookIds: readonly string[]; runId: string }, alias = "r"): SQL {
   const ids = [...scope.ebookIds].map((id) => z.uuid().parse(id));
-  if (table === "ebooks") return sql`${columnSql(alias, "id")}=any(${ids}::uuid[])`;
+  if (table === "ebooks") return sql`${columnSql(alias, "id")}=any(${uuidArraySql(ids)})`;
   if (table === "ebook_ingest_runs") return sql`${columnSql(alias, "id")}=${z.uuid().parse(scope.runId)}::uuid`;
   if (table === "ebook_ingest_items") return sql`${columnSql(alias, "run_id")}=${z.uuid().parse(scope.runId)}::uuid`;
   if (table === "reading_notes") return sql`${columnSql(alias, "ebook_annotation_id")} in (
-    select id from ebook_annotations where ebook_id=any(${ids}::uuid[])
-    union select id from ebook_annotation_retired_ids where ebook_id=any(${ids}::uuid[]))`;
-  return sql`${columnSql(alias, "ebook_id")}=any(${ids}::uuid[])`;
+    select id from ebook_annotations where ebook_id=any(${uuidArraySql(ids)})
+    union select id from ebook_annotation_retired_ids where ebook_id=any(${uuidArraySql(ids)}))`;
+  return sql`${columnSql(alias, "ebook_id")}=any(${uuidArraySql(ids)})`;
 }
 export function uploadTableSnapshotSql(table: typeof UPLOAD_TARGET_TABLES[number], scope: { ebookIds: readonly string[]; runId: string }): SQL {
   const row = uploadRowSnapshotSql(table);
@@ -57,7 +58,7 @@ export function uploadTableSnapshotSql(table: typeof UPLOAD_TARGET_TABLES[number
     from ${sql.identifier(table)} r where ${uploadSnapshotScopeSql(table, scope)})`;
 }
 export async function readUploadTargetSnapshotOn(conn: Db, scope: { ebookIds: readonly string[]; runId: string }) {
-  const fields = UPLOAD_TARGET_TABLES.flatMap((table) => [sql`${table}`, uploadTableSnapshotSql(table, scope)]);
+  const fields = UPLOAD_TARGET_TABLES.flatMap((table) => [sql`${table}::text`, uploadTableSnapshotSql(table, scope)]);
   const rows = resultRows<{ snapshot: { [K in typeof UPLOAD_TARGET_TABLES[number]]: Record<string, unknown>[] } }>(
     await conn.execute(sql`select jsonb_build_object(${sql.join(fields, sql`, `)}) as snapshot`));
   if (rows.length !== 1) throw new Error("Actual upload target snapshot missing");

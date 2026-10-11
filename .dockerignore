@@ -30,6 +30,8 @@ next-env.d.ts
 scripts
 # ... but `pnpm build` copies pdf.js's run-time files with this one
 !scripts/vendor-pdfjs.mjs
+!scripts/prepare-offline.mjs
+!scripts/prepare-native-pdf.mjs
 # Test config: it imports a reporter from scripts/, which the image leaves out
 vitest.config.ts
 data

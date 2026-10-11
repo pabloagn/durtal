@@ -18,7 +18,8 @@ export const readerPlace = `(() => {
 export async function goto(driver, mode, text) {
   await driver.key("g", "KeyG");
   await waitUI(driver, "!!document.querySelector('dialog[open] input')");
-  await driver.evaluate(`(() => {
+  if (driver.selectMode) await driver.selectMode(mode);
+  else await driver.evaluate(`(() => {
     const radio = [...document.querySelectorAll('dialog[open] [role="radio"]')].find(el => el.textContent === ${JSON.stringify(mode)});
     if (!radio) throw Error("Missing Go to mode");
     radio.click();
@@ -26,7 +27,8 @@ export async function goto(driver, mode, text) {
   })()`);
   await driver.fill(text);
   await driver.beforeCommit?.();
-  await driver.key("Enter", "Enter");
+  if (driver.commit) await driver.commit();
+  else await driver.key("Enter", "Enter");
   await waitUI(driver, "!document.querySelector('dialog[open]:not([data-reader-side-panel])')");
   return driver.evaluate(readerPlace);
 }

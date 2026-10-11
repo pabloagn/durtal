@@ -105,9 +105,11 @@ export const SelectionToolbar = forwardRef<
     };
   }, [selection]);
   const copy = async () => {
-    if (!selection) return;
+    const captured = bridge.captureSelection();
+    if (!captured) return;
     try {
-      await navigator.clipboard.writeText(selection.text);
+      await navigator.clipboard.writeText(captured.text);
+      if (!bridge.isSelectionCaptureCurrent(captured)) return;
       setCopyState({ selection, kind: "copied" });
       if (copyTimer.current) clearTimeout(copyTimer.current);
       copyTimer.current = setTimeout(
@@ -115,6 +117,7 @@ export const SelectionToolbar = forwardRef<
         2000,
       );
     } catch {
+      if (!bridge.isSelectionCaptureCurrent(captured)) return;
       setCopyState({ selection, kind: "failed" });
     }
   };

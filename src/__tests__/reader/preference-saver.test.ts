@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createPreferenceSaver, type PreferenceRecovery, type PreferenceTransport } from "@/lib/reader/presentation/preference-saver";
 import type { PreferenceReply, PreferenceUpdate } from "@/lib/reader/presentation/preference-plan";
+import { effectivePresentation } from "@/lib/reader/presentation/defaults";
 import type { PresentationOverride } from "@/lib/validations/reader-preferences";
 
 const book = "8d2b2c8e-1f0a-4f6e-9a51-0c6d3b0b7a11";
@@ -261,4 +262,173 @@ it("cleanup retains a recovered draft and defers a late adoption cookie callback
   await vi.advanceTimersByTimeAsync(0);
   expect(wire.update).toHaveBeenCalledTimes(1);
   expect(wire.adopt).toHaveBeenCalledTimes(1);
+});
+
+
+it("offline hard reload admits safe defaults without adoption, writes or cookie clearing", async () => {
+  const wire = transport(), deleted = vi.fn(), acknowledged = vi.fn();
+  const saver = createPreferenceSaver({ scope, initialRows, transport: wire, online: false,
+    onAdopted: deleted, persistAcknowledged: acknowledged });
+  await saver.start(); await saver.flush(); await vi.advanceTimersByTimeAsync(10000);
+  expect(saver.getSnapshot()).toMatchObject({ ready: true, serverAdopted: false, pending: 0 });
+  expect(effectivePresentation("desktop", saver.getSnapshot().rows)).toMatchObject({ fontSizePx: 20, theme: "durtal-dark" });
+  expect(wire.adopt).not.toHaveBeenCalled(); expect(wire.update).not.toHaveBeenCalled();
+  expect(wire.reset).not.toHaveBeenCalled(); expect(deleted).not.toHaveBeenCalled();
+  expect(acknowledged).not.toHaveBeenCalled();
+});
+
+it("offline cached settings and valid drafts preview together without becoming acknowledged", async () => {
+  const wire = transport(), acknowledged = vi.fn();
+  let draft: PreferenceRecovery | null = null;
+  const cached = [{ deviceClass: "desktop" as const, ebookId: null, presentation: { fontSizePx: 28 } }];
+  const saver = createPreferenceSaver({ scope, initialRows: [], transport: wire, online: false, cachedRows: cached,
+    persistRecovery: value => { draft = value; }, persistAcknowledged: acknowledged });
+  await saver.start(); saver.update(update({ lineHeight: 1.8 })); saver.reset(scope);
+  await vi.advanceTimersByTimeAsync(10000); await saver.flush();
+  expect(saver.getSnapshot()).toMatchObject({ ready: true, serverAdopted: false, pending: 2, recoverySaved: true, unloadRisk: true });
+  expect(effectivePresentation("desktop", saver.getSnapshot().rows)).toMatchObject({ fontSizePx: 28, lineHeight: 1.8 });
+  expect(acknowledged).not.toHaveBeenCalled(); expect(wire.adopt).not.toHaveBeenCalled();
+  expect(wire.update).not.toHaveBeenCalled(); expect(wire.reset).not.toHaveBeenCalled();
+  const reload = createPreferenceSaver({ scope, initialRows: [], transport: wire, online: false, cachedRows: cached,
+    recovery: JSON.parse(JSON.stringify(draft)) });
+  await reload.start();
+  expect(reload.getSnapshot()).toMatchObject({ ready: true, serverAdopted: false, pending: 2, recoverySaved: true });
+  expect(effectivePresentation("desktop", reload.getSnapshot().rows)).toMatchObject({ fontSizePx: 28, lineHeight: 1.8 });
+});
+
+it("reconnect adopts real server rows before ordered update/reset replay and cookie clearing", async () => {
+  const adoption = deferred<PreferenceReply>(), entered = deferred<void>();
+  const wire = transport(), deleted = vi.fn(), acknowledged = vi.fn();
+  wire.adopt.mockImplementationOnce(() => { entered.resolve(); return adoption.promise; });
+  const saver = createPreferenceSaver({ scope, initialRows: [], transport: wire, online: false,
+    cachedRows: [{ deviceClass: "desktop", ebookId: null, presentation: { fontSizePx: 28 } }],
+    persistRecovery: () => {}, persistAcknowledged: acknowledged, onAdopted: deleted });
+  await saver.start(); saver.update(update({ lineHeight: 1.8 })); saver.reset(scope);
+  saver.setOnline(true); const reconnect = saver.flush(); await entered.promise;
+  expect(saver.getSnapshot()).toMatchObject({ ready: true, serverAdopted: false, pending: 2 });
+  expect(wire.update).not.toHaveBeenCalled(); expect(wire.reset).not.toHaveBeenCalled();
+  expect(deleted).not.toHaveBeenCalled();
+  adoption.resolve(reply(book, { fontSizePx: 30 })); await reconnect;
+  expect(deleted).toHaveBeenCalledTimes(1); expect(wire.adopt).toHaveBeenCalledTimes(1);
+  expect(wire.update.mock.invocationCallOrder[0]).toBeLessThan(wire.reset.mock.invocationCallOrder[0]);
+  expect(saver.getSnapshot()).toMatchObject({ ready: true, serverAdopted: true, pending: 0, unloadRisk: false });
+  expect(acknowledged).toHaveBeenCalledTimes(3);
+  expect(acknowledged.mock.calls[0][0].find((row: { ebookId: string | null }) => row.ebookId === null).presentation).toEqual({ fontSizePx: 30 });
+});
+
+it("failed reconnect adoption preserves local reading, cookie, drafts and visible failure", async () => {
+  const wire = transport(), deleted = vi.fn();
+  wire.adopt.mockResolvedValueOnce({ ok: false, error: "Server unavailable." });
+  const saver = createPreferenceSaver({ scope, initialRows: [], transport: wire, online: false,
+    persistRecovery: () => {}, onAdopted: deleted });
+  await saver.start(); saver.update(update({ fontSizePx: 24 })); saver.setOnline(true); await saver.flush();
+  expect(saver.getSnapshot()).toMatchObject({ ready: true, serverAdopted: false, pending: 1, recoverySaved: true, error: "Server unavailable." });
+  expect(wire.update).not.toHaveBeenCalled(); expect(deleted).not.toHaveBeenCalled();
+  await saver.flush(); expect(wire.update).toHaveBeenCalledTimes(1); expect(deleted).toHaveBeenCalledTimes(1);
+});
+
+it("late offline write acknowledgement removes only its generation and reconnect readopts", async () => {
+  const write = deferred<PreferenceReply>(), entered = deferred<void>();
+  const wire = transport(); wire.update.mockImplementationOnce(() => { entered.resolve(); return write.promise; });
+  const saver = createPreferenceSaver({ scope, initialRows, transport: wire, persistRecovery: () => {} });
+  await saver.start(); saver.update(update({ fontSizePx: 22 })); const dispatch = saver.flush(); await entered.promise;
+  saver.setOnline(false); saver.update(update({ fontSizePx: 24 }));
+  write.resolve(reply(null, { fontSizePx: 22 })); await dispatch;
+  expect(saver.getSnapshot()).toMatchObject({ ready: true, serverAdopted: false, pending: 1, recoverySaved: true });
+  expect(effectivePresentation("desktop", saver.getSnapshot().rows).fontSizePx).toBe(24);
+  await vi.advanceTimersByTimeAsync(10000); expect(wire.update).toHaveBeenCalledTimes(1);
+  saver.setOnline(true); await saver.flush();
+  expect(wire.adopt).toHaveBeenCalledTimes(2); expect(wire.update).toHaveBeenCalledTimes(2);
+  expect(wire.update.mock.calls[1][0].presentation).toEqual({ fontSizePx: 24 });
+  expect(saver.getSnapshot().pending).toBe(0);
+});
+
+it("an adoption dispatched before offline cannot clear the cookie or authorize reconnect writes", async () => {
+  const adoption = deferred<PreferenceReply>(), entered = deferred<void>();
+  const wire = transport(), deleted = vi.fn();
+  wire.adopt.mockImplementationOnce(() => { entered.resolve(); return adoption.promise; });
+  const saver = createPreferenceSaver({ scope, initialRows, transport: wire, onAdopted: deleted, persistRecovery: () => {} });
+  const opening = saver.start(); await entered.promise; saver.setOnline(false); saver.update(update({ fontSizePx: 24 }));
+  adoption.resolve(reply()); await opening;
+  expect(saver.getSnapshot()).toMatchObject({ ready: true, serverAdopted: false, pending: 1 });
+  expect(deleted).not.toHaveBeenCalled(); expect(wire.update).not.toHaveBeenCalled();
+  saver.setOnline(true); await saver.flush();
+  expect(wire.adopt).toHaveBeenCalledTimes(2); expect(deleted).toHaveBeenCalledTimes(1);
+  expect(wire.update).toHaveBeenCalledTimes(1);
+});
+
+it("a connectivity epoch change waits for the old adoption then requires a fresh one", async () => {
+  const adoption = deferred<PreferenceReply>(), entered = deferred<void>();
+  const wire = transport(), deleted = vi.fn();
+  wire.adopt.mockImplementationOnce(() => { entered.resolve(); return adoption.promise; });
+  const saver = createPreferenceSaver({ scope, initialRows, transport: wire, onAdopted: deleted });
+  const opening = saver.start(); await entered.promise; saver.setOnline(false); saver.setOnline(true);
+  const reconnect = saver.flush(); adoption.resolve(reply()); await opening; await reconnect;
+  expect(wire.adopt).toHaveBeenCalledTimes(2); expect(deleted).toHaveBeenCalledTimes(1);
+  expect(saver.getSnapshot()).toMatchObject({ ready: true, serverAdopted: true });
+});
+
+it("rejects malformed reply values without acknowledging a pending job", async () => {
+  const wire = transport();
+  wire.update.mockResolvedValueOnce({ ok: true, ...scope,
+    rows: [{ ...scope, presentation: { fontSizePx: 999 } }] });
+  const saver = createPreferenceSaver({ scope, initialRows, transport: wire, persistRecovery: () => {} });
+  await saver.start(); saver.update(update({ fontSizePx: 24 }, book)); await saver.flush();
+  expect(saver.getSnapshot()).toMatchObject({ pending: 1, recoverySaved: true });
+  expect(saver.getSnapshot().error).not.toBeNull();
+  expect(effectivePresentation("desktop", saver.getSnapshot().rows).fontSizePx).toBe(24);
+});
+
+it("foreign cached rows/drafts and oversized recovery cannot contaminate offline defaults", async () => {
+  const wire = transport();
+  for (const recovery of [
+    { version: 1, scope: { ...scope, ebookId: other }, jobs: [{ kind: "update", input: update({ fontSizePx: 40 }, other) }] },
+    { version: 1, scope, jobs: [{ kind: "update", input: { ...update({ fontSizePx: 24 }), surprise: "x".repeat(65537) } }] },
+  ]) {
+    const saver = createPreferenceSaver({ scope, initialRows: [], transport: wire, online: false, recovery,
+      cachedRows: [{ deviceClass: "phone", ebookId: other, presentation: { fontSizePx: 40 } }] });
+    await saver.start();
+    expect(saver.getSnapshot()).toMatchObject({ ready: true, serverAdopted: false, pending: 0 });
+    expect(saver.getSnapshot().recoveryError).not.toBeNull();
+    expect(effectivePresentation("desktop", saver.getSnapshot().rows).fontSizePx).toBe(20);
+  }
+  expect(wire.adopt).not.toHaveBeenCalled(); expect(wire.update).not.toHaveBeenCalled();
+});
+
+it("offline storage failure warns without claiming draft or acknowledgement durability", async () => {
+  const wire = transport();
+  const saver = createPreferenceSaver({ scope, initialRows: [], transport: wire, online: false,
+    cacheError: "Saved reading settings unavailable.", persistRecovery: () => { throw new Error("Quota."); } });
+  await saver.start(); saver.update(update({ fontSizePx: 24 }));
+  expect(saver.getSnapshot()).toMatchObject({ ready: true, serverAdopted: false, pending: 1, recoverySaved: false, unloadRisk: true });
+  expect(saver.getSnapshot().recoveryError).toContain("Keep the page open");
+  expect(wire.update).not.toHaveBeenCalled();
+});
+
+it("wrong-scope or invalid reconnect adoption never authorizes draft replay or cookie clearing", async () => {
+  for (const badReply of [reply(other), { ok: true as const, ...scope,
+    rows: [{ ...scope, presentation: { fontSizePx: 999 } }] }]) {
+    const wire = transport(), deleted = vi.fn(); wire.adopt.mockResolvedValueOnce(badReply);
+    const saver = createPreferenceSaver({ scope, initialRows: [], transport: wire, online: false,
+      onAdopted: deleted, persistRecovery: () => {} });
+    await saver.start(); saver.update(update({ fontSizePx: 24 })); saver.setOnline(true); await saver.flush();
+    expect(saver.getSnapshot()).toMatchObject({ ready: true, serverAdopted: false, pending: 1, recoverySaved: true });
+    expect(saver.getSnapshot().error).not.toBeNull(); expect(deleted).not.toHaveBeenCalled();
+    expect(wire.update).not.toHaveBeenCalled();
+    expect(saver.getSnapshot().rows.some(row => row.ebookId === other)).toBe(false);
+    saver.pause();
+  }
+});
+
+it("durable commit is reported only for the latest draft snapshot, never a late storage completion", async () => {
+  const first = deferred<void>(), second = deferred<void>();
+  const wire = transport(); const persist = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+  const saver = createPreferenceSaver({ scope, initialRows: [], transport: wire, online: false, persistRecovery: persist });
+  await saver.start(); saver.update(update({ fontSizePx: 22 })); saver.update(update({ fontSizePx: 24 }));
+  expect(saver.getSnapshot()).toMatchObject({ pending: 1, recoverySaved: false, unloadRisk: true });
+  first.resolve(); await first.promise;
+  expect(saver.getSnapshot().recoverySaved).toBe(false);
+  second.resolve(); await saver.flush();
+  expect(saver.getSnapshot()).toMatchObject({ pending: 1, recoverySaved: true, serverAdopted: false });
+  expect(wire.adopt).not.toHaveBeenCalled(); expect(wire.update).not.toHaveBeenCalled();
 });

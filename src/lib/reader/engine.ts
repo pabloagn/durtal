@@ -251,7 +251,7 @@ export type GoToTarget =
   | { href: string }
   | { fraction: number }
   | { location: number }
-  | { page: string };
+  | { page: string; href?: string } // Optional canonical entry identity for duplicate labels.;
 export interface NavigationOwner {
   id: number;
   signal: AbortSignal;
@@ -350,7 +350,8 @@ export interface ReaderEngine {
   locatorFromSelection(): DurtalLocator | null;
   /** A book-document origin is exact; an absent origin uses the current selection document. */
   selectionDetails(origin?: Document): SelectionDetails | null;
-  clearSelection(): void;
+  /** With an action capture, clear only its still-current native range. */
+  clearSelection(expected?: SelectionDetails): void;
   resolve(locator: DurtalLocator): Promise<ResolveResult>;
   resolveAnnotation(
     annotation: { kind: "highlight" | "bookmark"; locator: DurtalLocator },

@@ -297,6 +297,45 @@ Configure a future private distribution's OAC for accepted gold and required
 legacy delivery prefixes only, with a trusted signing key group. Private key
 material belongs only in the server environment; never in a report or commit.
 
+### Mac standalone delivery configuration
+
+The existing `scripts/deploy/mac_release.py` and `runtime_launcher.py` support
+explicit `app` or `cloudfront` delivery. Runtime config contains public settings
+only. CloudFront mode requires its reviewed HTTPS CloudFront domain and public
+key ID plus `cdn: {fingerprint, publicKeyPem}`; the fingerprint is the SHA-256 of
+the exact public SPKI PEM. Bind these public values to the reviewed distribution
+and trusted key; a config hash does not establish AWS ownership by itself.
+
+The packaged `phone_secrets.py` continues to read selected ordinary app values
+from the existing owner `.env.local` in memory and verify the unchanged app IAM
+pair. Do not import again. At actual CloudFront launch only, the launcher loads
+the packaged, hash-verified `macos-secrets.py` and reads one existing owner login
+Keychain item: service `com.durtal.ebooks.cloudfront-private-key`, account
+`608240934043:<fingerprint>`. Budget and runtime Keychain capabilities are disabled.
+The handle is closed on read success/failure. There is no key creation, rotation,
+Keychain write, budget access or fallback key source.
+
+The pinned Node 22 executable derives the public SPKI PEM from the private PEM
+through stdin, requires RSA-2048, and returns only its SHA-256. Mismatch, missing
+or locked Keychain, invalid key, provider failure or timeout stops before any
+server spawn. Only after success is base64 PEM added to the child process's
+`EBOOK_CDN_PRIVATE_KEY`; keys stay out of argv/config/files/plists and log output.
+The redactor receives raw PEM and base64 forms in memory. Parent/child secret
+values remain in process memory during serving; no memory-zeroing guarantee is
+claimed. Bounded crash restarts reuse the verified environment; rotation needs
+an explicit fresh launch. App mode performs no signing Keychain lookup.
+
+Existing commands remain `mac_release.py verify --release RELEASE`,
+`mac_release.py launchd-plan --config CONFIG --output NEW_PLIST`, and the packaged
+`runtime_launcher.py --config CONFIG --config-sha256 REVIEWED_SHA256`, invoked by
+the configured absolute hash-pinned Python. `launchd-plan` writes a private plan
+and does not install/start the service. Config uses an unused loopback port other
+than development port 3100, the exact build Node identity, packaged
+`deploy/phone_secrets.py` helper identity, and private logs outside the immutable
+release. Full source/build/transition/config review and private-origin acceptance
+remain deployment responsibilities; this configuration performs no migration,
+Tailscale change, cloud write or infrastructure-journal acknowledgement.
+
 ---
 
 ## Backups, Recovery and Rollback
@@ -327,3 +366,54 @@ The drill of 2026-10-04 (task 0267) ran this on disposable restores of `live-bef
 | AWS S3 | Over internet, IAM auth | Image and file storage |
 | Google Books API | Over internet, API key | Book metadata |
 | Open Library | Over internet, no auth | Fallback metadata |
+
+
+### Repository acknowledgement of the causally proven budget create
+
+`ebooks-cdn.py acknowledge-budget` is a separately reviewed local-journal action,
+not another budget apply. Ordinary `budget` apply continues to refuse an
+unconfirmed step or existing unowned budget. `verify` never acknowledges it.
+
+The action requires an exact versioned payload, independent source/contract
+review and a fresh root execute-once grant pinning those hashes, exclusive ledger
+custody and zero cloud writes. Its contract explicitly supersedes the earlier
+private native-admission contract for this local acknowledgement only; failed
+proofs and original causal evidence stay pinned and preserved. No ancestor/private
+helper is invoked and no native proof is claimed. Source review is not an
+execution grant.
+
+```sh
+python3 scripts/aws/ebooks-cdn.py acknowledge-budget \
+  --expected-account 608240934043 --admin-arn "$EBOOKS_ADMIN_ARN" \
+  --state-dir "$REVIEWED_STATE_DIRECTORY" \
+  --acknowledgement-payload "$REVIEWED_ACK_PAYLOAD" \
+  --approved-acknowledgement-sha256 "$REVIEWED_ACK_SHA256" \
+  --root-grant "$FRESH_ROOT_GRANT" --root-grant-sha256 "$ROOT_GRANT_SHA256" \
+  --acknowledge-reviewed-budget-create
+```
+
+Use the exact resolved Python/Git/AWS executable bytes pinned in the reviewed
+payload; root supplies a hard 180-second owned-process deadline. The internal
+170-second timer leaves cleanup reserve. Standard nonreaping POSIX wait and
+bounded pipe/process-group cleanup are required; this does not attest kernel
+exec identity, all SDK/OS dependencies or hostile process escape. All source,
+reference and tool pins are checked again before local commit. Only STS identity
+and the three complete budget read operations are allowed. Two rounds must agree
+with the original create outcome, HEALTHY status and the privately verified
+intended subscriber for each exact percentage alert. Only budget-email Keychain
+get/close is used; no signing/runtime lookup or secret write occurs.
+
+The one eligible transition confirms the exact historic create step, sets
+budget_owned and removes its budget pending marker, preserving unrelated state.
+Exact reviewed live bytes/device/inode, advisory lock and root's exclusive writer
+lane are all required. No lock can exclude an uncontrolled writer; if root cannot
+reserve custody, do not execute. Private before/proposed-after/grant and PREPARED
+receipts precede a same-directory file fsync/replace, directory fsync/readback and
+committed receipt fsync/readback. Freshness/expiry/commit-reserve failures stop.
+
+Any ambiguous crash/receipt failure, drift, existing output folder or reused
+preimage stops. Root inspects exact bytes and receipts read-only and requests a
+fresh reviewed proposal; never retry, roll back, adopt, repair or replay the
+consumed cloud-create plan automatically. This action accepts neither CDN runtime
+nor release delivery. The existing full177 acceptance harness keeps its completed
+ledger gate and needs a fresh source/state binding plus separate execution grant.

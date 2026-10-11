@@ -1,16 +1,17 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_WORK_RELATIONS_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln363_test");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln363_test")
     throw new Error("Work relation tests require disposable local sln363_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -44,14 +45,14 @@ import type { WorkKind } from "@/lib/catalogue/kinds";
 describe.skipIf(!url)("sourced links between works", () => {
   const c = client!;
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln363_test");
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, authors, source_records, comments, activity_events, gallery_layouts, harmonization_operations, harmonization_redirects cascade`;
-  });
+    await resetDisposableDatabase(url!, "sln363_test");
+  }, 30000);
 
   const work = async (title: string, kind: WorkKind = "book") =>
     (

@@ -21,7 +21,7 @@ export function parseGoTo(
     const exact = index.pages.find(
       (page) => page.label.toLowerCase() === label.toLowerCase(),
     );
-    if (exact) return { target: { href: exact.href } };
+    if (exact) return { target: { page: exact.label, href: exact.href } };
     if (/^\d+$/.test(label)) {
       const preceding = index.pages
         .filter(
@@ -29,7 +29,7 @@ export function parseGoTo(
             /^\d+$/.test(page.label) && Number(page.label) <= Number(label),
         )
         .sort((a, b) => Number(b.label) - Number(a.label))[0];
-      if (preceding) return { target: { href: preceding.href } };
+      if (preceding) return { target: { page: preceding.label, href: preceding.href } };
     }
     return { error: "This edition has no page " + (label || text) };
   }

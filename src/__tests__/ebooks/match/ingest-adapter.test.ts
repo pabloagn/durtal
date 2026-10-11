@@ -114,6 +114,10 @@ async function committedMatching() {
   loaded.catalogue = catalogue({ ...loaded.catalogue.source, ebooks: [registered] });
   loaded.rows.ebooks = [{ id: registered.id, match_state: "pending", updated_at: at }];
   loaded.rows.ebook_files = registered.files.map((file) => ({ id: file.id, ebook_id: registered.id, sha256: file.sha256, format: file.format }));
+  loaded.rows.instances = loaded.catalogue.source.works.flatMap((work) => work.copies.map((copy) => ({
+    id: copy.id, edition_id: copy.editionId, location_id: copy.locationId, status: copy.status,
+    format: null, file_size_bytes: null, updated_at: copy.updatedAt,
+  })));
   const planning = await planApprovedGroupsOn({} as Db, document.approval, [{
     groupKey: "nadja", ebookId: registered.id,
     fileIds: Object.fromEntries(registered.files.map((file) => [file.sha256, file.id])),

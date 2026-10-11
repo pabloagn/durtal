@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -9,18 +10,18 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { z } from "zod";
 import * as schema from "@/lib/db/schema";
 import { ownedPrefixes } from "@/lib/s3/cleanup";
 
 const url = process.env.DURTAL_FILM_SERVICES_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln358_test");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln358_test")
     throw new Error("Film service tests require disposable local sln358_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 const mocks = vi.hoisted(() => ({
   invalidate: vi.fn(),
@@ -118,8 +119,16 @@ describe.skipIf(!url)("film catalogue, versions and optional copies", () => {
     ...extra,
   });
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln358_test");
     await c`alter table works drop constraint works_kind_enabled_check`;
+
+  }, 30000);
+  afterAll(async () => {
+    await client?.end();
+  });
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await resetDisposableDatabase(url!, "sln358_test", { emptyLocations: true, activateKinds: true });
     place = Object.fromEntries(
       (
         await c`insert into countries(name,alpha_2,alpha_3) values ('United States','US','USA'),('France','FR','FRA'),('Japan','JP','JPN') returning id,alpha_2`
@@ -130,13 +139,6 @@ describe.skipIf(!url)("film catalogue, versions and optional copies", () => {
         await c`insert into languages(name,iso_639_1) values ('English','en'),('French','fr'),('Japanese','ja') returning id,iso_639_1`
       ).map((r) => [r.iso_639_1, r.id]),
     );
-  }, 30000);
-  afterAll(async () => {
-    await client?.end();
-  });
-  beforeEach(async () => {
-    vi.clearAllMocks();
-    await c`truncate works, authors, publishing_houses, venues, locations, custom_taxonomy_items, catalogue_dates, comments, activity_events, gallery_layouts, harmonization_operations, harmonization_redirects cascade`;
     people = {};
     for (const [key, name] of [
       ["carpenter", "John Carpenter"],
@@ -172,7 +174,7 @@ describe.skipIf(!url)("film catalogue, versions and optional copies", () => {
     [shelf, server] = (
       await c`insert into locations(name,type) values ('Shelf','physical'),('Server','digital') returning id`
     ).map((r) => r.id);
-  });
+  }, 30000);
 
   const theThing = () =>
     createFilm({

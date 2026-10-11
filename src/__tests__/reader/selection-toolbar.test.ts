@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, createElement as h } from "react";
+import { act, createElement as h, useLayoutEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
   ReaderBridgeProvider,
@@ -11,9 +11,16 @@ import {
   selectionToolbarPosition,
 } from "@/components/reader/selection-toolbar";
 import type { EngineEvents } from "@/lib/reader/engine";
+import type { ReaderBridgeController } from "@/lib/reader/bridge-state";
+import type { ReaderSelection } from "@/lib/reader/events";
 import { place } from "./fixtures/places";
 let root: Root, host: HTMLElement;
 const clear = vi.fn();
+let native: ReaderSelection | null = null;
+function Capture({ bridge }: { bridge: ReaderBridgeController }) {
+  useLayoutEffect(() => bridge.registerSelectionCapture(() => native ? { selection: native, clear } : null), [bridge]);
+  return null;
+}
 const selected: NonNullable<EngineEvents["selection"]> = {
   text: "A selected passage",
   locator: place().locator,
@@ -38,7 +45,8 @@ afterEach(() => {
 const render = (
   selection: EngineEvents["selection"],
   speech?: { ready: boolean; start: () => void },
-) =>
+) => {
+  native = selection ? { text: selection.text, locator: selection.locator, fileId: "epub", chapter: null, percent: 44 } : null;
   act(() =>
     root.render(
       h(ReaderBridgeProvider, {
@@ -69,16 +77,17 @@ const render = (
           },
         ],
         children: (bridge) =>
-          h(SelectionToolbar, {
+          h("div", null, h(Capture, { bridge }), h(SelectionToolbar, {
             selection,
             bridge,
             onClear: clear,
             speechReady: speech?.ready,
             onReadAloud: speech?.start,
-          }),
+          })),
       }),
     ),
   );
+};
 describe("selection toolbar", () => {
   it("stays hidden without a settled selection and places plugin buttons after Copy", () => {
     render(null);
@@ -157,5 +166,20 @@ describe("selection toolbar", () => {
         true,
       ),
     ).toEqual({ left: 224, top: 784 });
+  });
+  it("copies the action-time paragraph while the displayed selection remains the previous word", async () => {
+    const copy = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
+    render({ ...selected, text: "Table" });
+    native = { ...native!, text: "Table by the door, where the widow waited.",
+      locator: { ...selected.locator, cfi: "epubcfi(paragraph)" } };
+    await act(async () => { host.querySelector<HTMLButtonElement>('[aria-label="Copy selected text"]')!.click(); });
+    expect(copy).toHaveBeenCalledExactlyOnceWith(native.text);
+  });
+  it("does not copy a stale displayed word after the native selection has collapsed", async () => {
+    const copy = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
+    render({ ...selected, text: "Table" });
+    native = null;
+    await act(async () => { host.querySelector<HTMLButtonElement>('[aria-label="Copy selected text"]')!.click(); });
+    expect(copy).not.toHaveBeenCalled();
   });
 });

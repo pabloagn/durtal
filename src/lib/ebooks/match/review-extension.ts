@@ -1,3 +1,4 @@
+import { textArraySql } from "@/lib/db/sql-arrays";
 import { sql, type SQL } from "drizzle-orm";
 import { z } from "zod/v4";
 import type { Db } from "@/lib/catalogue/work-store";
@@ -212,7 +213,7 @@ export function reviewCompensationGuardQueries(
       and a.metadata #>> '{extra,ebookReview,entityId}'=${ebookId}
       and a.metadata #>> '{extra,ebookReview,eventKey}'=${REVIEW_RECEIPT_EVENTS.ebookDecision}
       and a.metadata #> '{extra,ebookReview,originalOperation}'='null'::jsonb
-      and a.metadata #>> '{extra,ebookReview,action}'=any(${[...actions]}::text[])
+      and a.metadata #>> '{extra,ebookReview,action}'=any(${textArraySql(actions)})
       and a.metadata #>> '{extra,ebookReview,after,updatedAt}'=${policy.originalAfterUpdatedAt}
       and isfinite((a.metadata #>> '{extra,ebookReview,after,updatedAt}')::timestamptz)
       and to_char((a.metadata #>> '{extra,ebookReview,after,updatedAt}')::timestamptz AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')=${policy.originalAfterUpdatedAt}

@@ -19,6 +19,7 @@ export default function GlobalNotFound() {
           title="Page not found"
           description="The page you are looking for does not exist or has been moved."
         >
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- This independent fallback returns to the catalogue with a fresh document. */}
           <a href="/" className={routeFallbackActionClass}>
             Go to dashboard
           </a>

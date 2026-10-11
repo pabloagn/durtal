@@ -119,3 +119,32 @@ in the three browsers and `node scripts/qa/reader-perf.mjs` on a preview with
 12. Fixed-layout PDF page sources return actual cropped dimensions after paint; live and scroll frames adopt those dimensions and preserve position during refresh. Source candidate; native checks pending.
 
 13. Fixed navigation publishes its actual page arrival immediately. A scroll ownership guard suppresses only the corresponding later settled event at the actual clamped coordinates; displacement or wheel/pointer/touch/key input restores ordinary human scroll reporting. Frame and renderer retirement dispose input listeners. Source-only regression correction; native settlement validation remains pending.
+
+14. Paginated numeric anchors add the primary section's exact column offset
+before rounding to a container spread. Native Chromium geometry on the
+navigation fixture showed a 657px leading half-spread lost at 100% (1314px
+spread, two columns, 4599px prior section). Section progress uses measured
+section-relative scroll pixels, including the browser-clamped final spread;
+published book fractions remain within 0–1. Scrolled anchor math, fixed-layout
+navigation and final-linear-section selection are unchanged. Geometry and
+adapter regression source added; native retesting remains pending.
+
+15. `paginator.js`: returning from an explicitly opened nonlinear section to a
+    linear destination retires cached nonlinear views before reusing the target
+    frame or constructing its nearby-view keep set. These views otherwise extend
+    the physical strip beyond the last linear anchor, make `atEnd` false, and let
+    the next page enter Notes. Linear frames, exact anchors/CFIs, endpoint math,
+    sequential lookup and explicit nonlinear destinations retain their behavior.
+    The existing adjacent-linear lookup is extracted without semantic changes
+    for regression coverage. Source candidate; root native validation pending.
+
+16. `paginator.js`: the exact native `focus()` call after Range/Element anchor
+    navigation exposes its synchronous target through `navigationAnchorFocus`.
+    The adapter treats that event as part of the existing navigation owner,
+    retaining the real accessibility focus while preventing paragraph-level
+    focus metadata from cancelling an exact saved-CFI/history landing. The
+    target is cleared in `finally` (or restores its prior nested scope), never
+    spans an await, and matches only that element on that renderer. Other
+    human/Tab/link focus remains actionable, including during pending movement
+    or paint. Focus exceptions still propagate and recovery uses the same
+    bounded native focus scope. Source candidate; root native gates pending.

@@ -96,6 +96,7 @@ describe("page-weight.js", () => {
     expect(config.routes.find((r) => r.list === "/reading/notes")?.ifNone).toBe("no quotes");
     expect(config.routes.find((r) => r.path === "/ebooks/runs/*")?.ifNone).toBe("no ingestion run");
     expect(config.routes.find((r) => r.path === "/reader/*")?.ifNone).toBe("no e-book");
-    expect(config.routes.filter((r) => r.ifNone).map((r) => r.path)).toEqual(["/library/*", "/reading/year/*", "/reading/import/*", "/ebooks/runs/*", "/reader/*"]);
+    expect(config.routes.find((r) => r.path === "/ebooks/*")?.ifNone).toBe("no e-book");
+    expect(config.routes.filter((r) => r.ifNone).map((r) => r.path)).toEqual(["/library/*", "/reading/year/*", "/reading/import/*", "/ebooks/*", "/ebooks/runs/*", "/reader/*"]);
   });
 });

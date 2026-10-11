@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -12,12 +13,12 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
 import { bookHoldings } from "@/lib/catalogue/holdings";
 
 const url = process.env.DURTAL_CURATION_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln354_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -26,7 +27,7 @@ if (url) {
   )
     throw new Error("Curation tests require disposable local sln354_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -53,14 +54,14 @@ describe.skipIf(!url)("shared personal curation", () => {
   let recommenderId: string;
   const owner = (kind: WorkKind = "painting") => ({ id: ids[kind], kind });
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln354_test");
     await c`alter table works drop constraint works_kind_enabled_check`;
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, recommenders, locations cascade`;
+    await resetDisposableDatabase(url!, "sln354_test", { emptyLocations: true, activateKinds: true });
     ids = {} as typeof ids;
     for (const kind of WORK_KINDS) {
       const [work] =
@@ -70,7 +71,7 @@ describe.skipIf(!url)("shared personal curation", () => {
     const [recommender] =
       await c`insert into recommenders(name) values ('A friend') returning id`;
     recommenderId = recommender.id;
-  });
+  }, 30000);
   it.each(WORK_KINDS)(
     "curates %s without editions, holdings or acquisition changes",
     async (kind) => {

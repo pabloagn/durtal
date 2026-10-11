@@ -1,21 +1,21 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { asc } from "drizzle-orm";
-import * as schema from "@/lib/db/schema";
 import { works } from "@/lib/db/schema";
 import { getWorkPages, pageRangeCondition, pagesUnknownCondition } from "@/lib/enrichment/pages";
 import { assertReadOnly, withReadOnlyPlanningConnection } from "@/lib/enrichment/read-only-session";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_LENGTH_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln466_length");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln466_length")
     throw new Error("Length tests require disposable local sln466_length");
 }
-const sql = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const sql = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 // Built only with a database: describe.skipIf still runs the body to collect the tests
 const testDb = sql ? drizzle(sql) : null;
 
@@ -24,9 +24,7 @@ describe.skipIf(!url)("the page rule with PostgreSQL", () => {
   const database = testDb!;
   const ids: Record<string, string> = {};
   beforeAll(async () => {
-    const migrator = postgres(url!, { max: 1, onnotice: () => {} });
-    await migrate(drizzle(migrator, { schema }), { migrationsFolder: "src/lib/db/migrations" });
-    await migrator.end();
+    await resetDisposableDatabase(url!, "sln466_length");
   });
   afterAll(async () => {
     await sql?.end();
@@ -44,7 +42,7 @@ describe.skipIf(!url)("the page rule with PostgreSQL", () => {
   }
 
   beforeEach(async () => {
-    await db`truncate works, locations cascade`;
+    await resetDisposableDatabase(url!, "sln466_length", { emptyLocations: true });
     const [amsterdam] = await db`insert into locations (name, type) values ('Amsterdam', 'physical') returning id`;
     const [mexico] = await db`insert into locations (name, type) values ('Mexico City', 'physical') returning id`;
     ids.amsterdam = amsterdam.id;
@@ -72,7 +70,7 @@ describe.skipIf(!url)("the page rule with PostgreSQL", () => {
     // Owned, without a count; the edition not owned has one
     ids.unknown = await work("Owned without a count", [{ pages: null, at: "amsterdam" }, { pages: 350 }]);
     ids.onlyImplausible = await work("Only an implausible count", [{ pages: 9999, at: "amsterdam" }]);
-  });
+  }, 30000);
 
   async function select(condition: ReturnType<typeof pageRangeCondition>) {
     const rows = await database.select({ id: works.id }).from(works).where(condition).orderBy(asc(works.id));

@@ -1,16 +1,17 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_PERFUME_SOURCES_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln377_perfume_sources");
 if (url) {
   const parsed = new URL(url);
   if (!["127.0.0.1", "localhost"].includes(parsed.hostname) || parsed.pathname !== "/sln377_perfume_sources")
     throw new Error("Perfume source tests require disposable local sln377_perfume_sources");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -83,19 +84,19 @@ describe.skipIf(!url)("perfume source-assisted entry", () => {
   let chanel: string;
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln377_perfume_sources");
   }, 60000);
   afterAll(async () => {
     vi.unstubAllGlobals();
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, authors, publishing_houses, venues, catalogue_dates, source_records, catalogue_identifiers, activity_events cascade`;
+    await resetDisposableDatabase(url!, "sln377_perfume_sources");
     calls = [];
     offline = false;
     vi.stubGlobal("fetch", wikidata);
     chanel = (await saveOrganization({ name: "Chanel", roles: ["perfume_house"] }))!.id;
-  });
+  }, 30000);
 
   it("finds perfumes only, and reviews one against the perfume here", async () => {
     const found = await searchPerfumeSource("Chanel No 5");
