@@ -293,6 +293,13 @@ const injectViewTransitionStyles = () => {
         background: var(--foliate-vt-bg, Canvas);
         mix-blend-mode: normal;
     }
+    /* Durtal patch 17 (VENDORED.md): programmatic slide groups share the
+       page timeline; the UA's 250ms group animation otherwise delays finished
+       after a 60ms keyboard/tap slide. Scrub and curl timelines stay intact. */
+    .foliate-vt-slide:not(.foliate-vt-scrub)::view-transition-group(root),
+    .foliate-vt-slide:not(.foliate-vt-scrub)::view-transition-group(foliate-turn) {
+        animation-duration: var(--foliate-vt-slide-duration, 300ms);
+    }
     /* Slide: the moving page travels over the still page with a soft edge
        shadow, like the Apple Books slide. Forward moves the outgoing
        snapshot out on top; backward brings the incoming snapshot in on

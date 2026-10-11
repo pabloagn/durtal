@@ -35,6 +35,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { checkNavigation, goto, readerPlace, waitUI } from "./reader-navigation-checks.mjs";
+import { assertTurnStart, partitionTurnEvents } from "./reader-turn-start-checks.mjs";
 
 const config = JSON.parse(readFileSync(new URL("./reader-perf.json", import.meta.url), "utf8"));
 const args = process.argv.slice(2);
@@ -496,7 +497,36 @@ const MEASURE = {
     const page = await newPage(profileName);
     try {
       await openBook(page, row.fixture);
+      const resumedPlace = await page.evaluate(readerPlace);
+      await waitUI(driver(page), "document.querySelector('[data-reader-index]')?.getAttribute('data-reader-index') === 'ready'", 30000);
+      // Use the public Go to control; do not erase or bypass saved positions.
+      await goto(driver(page), "Percent", "0");
+      await waitUI(driver(page), `(() => {
+        const view = document.querySelector('foliate-view');
+        return view?.lastLocation?.index === 0 && view.renderer?.atStart === true
+          && document.querySelector('[role="slider"]')?.getAttribute('aria-valuenow') === '0';
+      })()`);
       await sleep(1500);
+      // Wait for setup paint, then establish an explicit clock boundary. A
+      // buffered setup Event Timing entry delivered later is still setup.
+      await page.evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+      const startPrecondition = {
+        target: "public-go-to-percent-zero", resumedPlace,
+        startingPlace: assertTurnStart(await page.evaluate(`(() => {
+          const view = document.querySelector('foliate-view');
+          const location = view?.lastLocation;
+          return {
+            ready: document.querySelector('[data-reader-index]')?.getAttribute('data-reader-index') === 'ready',
+            index: location?.index, sectionCount: location?.section?.total,
+            atStart: view?.renderer?.atStart, atEnd: view?.renderer?.atEnd,
+            percent: document.querySelector('[role="slider"]')?.getAttribute('aria-valuenow'),
+            cfi: location?.cfi, sectionFraction: location?.sectionFraction,
+            first: location?.range?.toString().replace(/\\s+/g, " ").trim().slice(0, 80),
+          };
+        })()`)),
+        measurementStartedAt: await page.evaluate("performance.now()"),
+      };
+      console.log("turns-start-precondition " + JSON.stringify(startPrecondition));
       const inside = [];
       const across = [];
       const insideWindows = [];
@@ -510,7 +540,7 @@ const MEASURE = {
         const moved = await waitFor(() => page.reports.slice(before).find((r) => r.kind === "relocate"), 10_000, `turn ${i}`).catch(() => null);
         await sleep(row.pauseMs);
         const [latency] = await page.evaluate(
-          `window.__durtalPerfState.events.slice(${eventsBefore}).filter((e) => e.name === "keydown").map((e) => e.duration)`,
+          `window.__durtalPerfState.events.slice(${eventsBefore}).filter((e) => e.name === "keydown" && e.start >= ${startPrecondition.measurementStartedAt}).map((e) => e.duration)`,
         );
         const ms = latency ?? 16;
         if (moved && moved.index !== index) {
@@ -532,18 +562,20 @@ const MEASURE = {
         await sleep(400);
       }
       const state = await page.evaluate("({ events: window.__durtalPerfState.events, loafs: window.__durtalPerfState.loafs })");
+      const eventTiming = partitionTurnEvents(state.events, startPrecondition.measurementStartedAt);
       // A long task is one that blocks input: a long frame with no task over 50 ms (the
       // headless compositor waiting) is not one
       const longInside = state.loafs.filter((l) => l.blocking > 0 && insideWindows.some(([a, b]) => l.start >= a && l.start <= b));
       const frames = await page.evaluate("document.querySelector('foliate-view').renderer.getContents().length");
       return {
+        startPrecondition, eventTiming,
         insideP95: percentile(inside, 0.95),
         acrossP95: percentile(across, 0.95),
         insideCount: inside.length,
         acrossCount: across.length,
         longTasksInside: longInside.length,
         longestInside: Math.round(Math.max(0, ...longInside.map((l) => l.duration))),
-        inpP95: percentile(state.events.map((e) => e.duration), 0.95) ?? 16,
+        inpP95: percentile(eventTiming.measured.map((e) => e.duration), 0.95) ?? 16,
         heapMB: heaps.at(-1),
         heapGrowthMB: heaps.length > 1 ? heaps.at(-1) - heaps[0] : 0,
         sectionsLoaded: frames,

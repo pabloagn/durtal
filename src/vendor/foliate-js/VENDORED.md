@@ -148,3 +148,11 @@ adapter regression source added; native retesting remains pending.
     human/Tab/link focus remains actionable, including during pending movement
     or paint. Focus exceptions still propagate and recovery uses the same
     bounded native focus scope. Source candidate; root native gates pending.
+
+17. `paginator.js`: programmatic slide transitions give the root and named turn
+    groups the configured slide duration. The browser's default 250ms group
+    animation otherwise holds `transition.finished` and the arrival event after
+    the 60ms keyboard/tap page slide has completed. Finger-tracked scrubbing and
+    curl retain their existing group timelines. Lifecycle ownership, cleanup,
+    and arrival ordering remain intact. Source proposal; native latency and
+    visual regression verification pending.

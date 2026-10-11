@@ -17,6 +17,34 @@ export function computedPublisherInk(value: string): Ink | null {
   if (!rgb.every(Number.isFinite) || !Number.isFinite(alpha) || alpha < 0 || alpha > 1) return null;
   return { hex: `#${rgb.map(n => Math.round(Math.max(0,Math.min(255,n))).toString(16).padStart(2,"0")).join("")}`, alpha };
 }
+/** Mask native foreground only during a synchronous capture slice.
+ * Backgrounds, media and font sheets remain installed; restore before yielding.
+ * Mask color-scheme too so UA/system colours retain the publisher's source value. */
+function maskReaderForeground(doc: Document): (() => void) | undefined {
+  const sheet = doc.querySelector<HTMLStyleElement>("style[data-durtal-page-colours]")?.sheet;
+  if (!sheet || sheet.disabled) return;
+  const declarations: { style: CSSStyleDeclaration; name: string; value: string; priority: string }[] = [];
+  for (const rule of Array.from(sheet.cssRules)) {
+    if (!("style" in rule)) continue;
+    const style = (rule as CSSStyleRule).style;
+    for (const name of ["color", "color-scheme"]) {
+      const value = style.getPropertyValue(name);
+      if (value) declarations.push({ style, name, value, priority: style.getPropertyPriority(name) });
+    }
+  }
+  if (!declarations.length) return;
+  const restore = () => {
+    for (const { style, name, value, priority } of declarations)
+      style.setProperty(name, value, priority);
+  };
+  try {
+    for (const { style, name } of declarations) style.removeProperty(name);
+  } catch (error) {
+    restore();
+    throw error;
+  }
+  return restore;
+}
 interface SourceInk { ink: Ink | null }
 interface Job { owner: AbortController; done: Promise<void> }
 /** Read original publisher ink before any writes; separately bounded writes affect colour alone. */
@@ -52,9 +80,8 @@ export class PublisherInk {
     let node: Node | null = null;
     // Never disable font-face or typography sheets; that can invalidate native font layout.
     for (;;) {
-      const sheet = doc.querySelector<HTMLStyleElement>("style[data-durtal-page-colours]")?.sheet;
-      const disabled = sheet?.disabled;
-      if (sheet) sheet.disabled = true;
+      let restoreForeground: (() => void) | undefined;
+      let foregroundMasked = false;
       let more = false;
       const started = performance.now();
       try {
@@ -64,10 +91,16 @@ export class PublisherInk {
           const element = node.parentElement;
           if (!node.textContent?.trim() || !element || seen.has(element) || element.closest("svg,math,script,style")) continue;
           seen.add(element); const html = element as HTMLElement;
-          if (!this.#original.has(html)) this.#original.set(html,{ ink: computedPublisherInk(doc.defaultView!.getComputedStyle(html).color),  });
+          if (!this.#original.has(html)) {
+            if (!foregroundMasked) {
+              restoreForeground = maskReaderForeground(doc);
+              foregroundMasked = true;
+            }
+            this.#original.set(html,{ ink: computedPublisherInk(doc.defaultView!.getComputedStyle(html).color) });
+          }
           elements.push(html);
         }
-      } finally { if (sheet) sheet.disabled = disabled ?? false; }
+      } finally { restoreForeground?.(); }
       if (!more || node === null) break;
       await speechYield(signal);
       const frame = doc.defaultView?.frameElement;
