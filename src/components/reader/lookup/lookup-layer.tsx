@@ -69,13 +69,19 @@ export function LookupLayer({ engine, ebook, toolbarRef, enabled = true }: {
       if (event.key === LOOKUP_SETTINGS_KEY) { edited = true; setSettings(readLocalLookupSettings()); }
     };
     window.addEventListener(LOOKUP_SETTINGS_CHANGED, update); window.addEventListener("storage", storage);
-    const cancel = afterLookupFirstPaint(() => {
+    const acquire = () => {
+      if (!alive || navigator.onLine === false) return;
+      window.removeEventListener("online", acquire);
       void getLookupSettings().then(value => {
         if (alive && !edited) { setSettings(value); setTarget(value.translateTo); writeLocalLookupSettings(value); }
-      }).catch(() => {}); // Offline acquisition keeps the validated browser copy.
+      }).catch(() => {}); // Failed acquisition keeps the validated browser copy.
+    };
+    const cancel = afterLookupFirstPaint(() => {
+      if (navigator.onLine === false) window.addEventListener("online", acquire);
+      else acquire();
     });
     return () => { alive = false; cancel(); window.removeEventListener(LOOKUP_SETTINGS_CHANGED, update);
-      window.removeEventListener("storage", storage); };
+      window.removeEventListener("storage", storage); window.removeEventListener("online", acquire); };
   }, []);
   const close = (reason?: "escape" | "outside" | "button") => {
     const previous = current.current;

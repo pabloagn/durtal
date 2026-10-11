@@ -8,6 +8,7 @@ import { LookupLayer } from "@/components/reader/lookup/lookup-layer";
 import { fakeEngine } from "../fixtures/fake-engine";
 import type { SelectionDetails, EngineEvents } from "@/lib/reader/engine";
 import { defaultLookupSettings } from "@/lib/reader/lookup/sources";
+import { readLocalLookupSettings, writeLocalLookupSettings } from "@/lib/reader/lookup/preferences";
 import { createReaderInput, type ReaderActions } from "@/lib/reader/input";
 const calls = vi.hoisted(() => ({
   dictionary: vi.fn(), wikipedia: vi.fn(), list: vi.fn(), historyAdd: vi.fn(), historyLanguage: vi.fn(),
@@ -61,6 +62,67 @@ function mount() {
   return { fake, details, toolbar };
 }
 describe("mounted lookup acquisition/lifecycle source (mock providers, not native proof)", () => {
+  it("keeps validated local lookup settings offline without starting a settings action", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    const local = { ...defaultLookupSettings(), translateTo: "es" };
+    writeLocalLookupSettings(local);
+    mount();
+    expect(calls.settings).not.toHaveBeenCalled();
+    await paint(); await paint();
+    act(() => window.dispatchEvent(new Event("online")));
+    expect(calls.settings).not.toHaveBeenCalled();
+    expect(readLocalLookupSettings()).toEqual(local);
+  });
+  it("waits for first paint even if connectivity returns before the deferred frame", async () => {
+    const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    mount();
+    online.mockReturnValue(true);
+    act(() => window.dispatchEvent(new Event("online")));
+    expect(calls.settings).not.toHaveBeenCalled();
+    await paint();
+    expect(calls.settings).not.toHaveBeenCalled();
+    await paint();
+    expect(calls.settings).toHaveBeenCalledOnce();
+  });
+  it("reconciles an offline opening once when the browser becomes online", async () => {
+    const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    const local = { ...defaultLookupSettings(), translateTo: "es" };
+    const remote = { ...defaultLookupSettings(), translateTo: "fr" };
+    writeLocalLookupSettings(local); calls.settings.mockResolvedValue(remote);
+    mount(); await paint(); await paint();
+    expect(calls.settings).not.toHaveBeenCalled();
+    online.mockReturnValue(true);
+    await act(async () => { window.dispatchEvent(new Event("online")); await Promise.resolve(); });
+    expect(calls.settings).toHaveBeenCalledOnce();
+    expect(readLocalLookupSettings()).toEqual(remote);
+    await act(async () => { window.dispatchEvent(new Event("online")); await Promise.resolve(); });
+    expect(calls.settings).toHaveBeenCalledOnce();
+  });
+  it("preserves local edits made while a reconnect settings read is pending", async () => {
+    const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    const remote = { ...defaultLookupSettings(), translateTo: "fr" };
+    let finish!: (value: ReturnType<typeof defaultLookupSettings>) => void;
+    calls.settings.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    mount(); await paint(); await paint();
+    online.mockReturnValue(true);
+    act(() => window.dispatchEvent(new Event("online")));
+    expect(calls.settings).toHaveBeenCalledOnce();
+    const edited = { ...defaultLookupSettings(), translateTo: "de" };
+    act(() => writeLocalLookupSettings(edited));
+    await act(async () => { finish(remote); await Promise.resolve(); });
+    expect(readLocalLookupSettings()).toEqual(edited);
+  });
+  it("removes a deferred offline settings acquisition when the reader unmounts", async () => {
+    const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    const local = { ...defaultLookupSettings(), translateTo: "es" };
+    writeLocalLookupSettings(local);
+    mount(); await paint(); await paint();
+    act(() => root.render(null));
+    online.mockReturnValue(true);
+    await act(async () => { window.dispatchEvent(new Event("online")); await Promise.resolve(); });
+    expect(calls.settings).not.toHaveBeenCalled();
+    expect(readLocalLookupSettings()).toEqual(local);
+  });
   it("gesture paints skeleton before any provider call and records only browser history", async () => {
     const { fake, details } = mount();
     act(() => fake.emit("word-gesture", { details }));
