@@ -1030,6 +1030,41 @@ it("names the book frame, keeps it available to assistive technology and preserv
   engine.focusBook!();
   expect(doc.activeElement).toBe(doc.body);
 });
+it.each(["", "fr"])("keeps relocation and live frame metadata when another document has no root (%s)", language => {
+  const doc = view.frame.contentDocument!;
+  Object.defineProperty(doc.defaultView!, "frameElement", {
+    value: view.frame,
+    configurable: true,
+  });
+  doc.documentElement.lang = language;
+  view.frame.removeAttribute("aria-label");
+  view.frame.setAttribute("aria-hidden", "true");
+  view.frame.setAttribute("inert", "");
+  const rootless = document.implementation.createHTMLDocument();
+  rootless.documentElement.remove();
+  expect(rootless.documentElement).toBeNull();
+  vi.spyOn(view.renderer, "getContents").mockReturnValue([
+    { doc: rootless, index: 1 },
+    { doc, index: 0 },
+  ]);
+  const relocated = vi.fn();
+  engine.on("relocate", relocated);
+  view.dispatchEvent(new CustomEvent("relocate", {
+    detail: {
+      ...view.lastLocation!,
+      reason: "page",
+      fraction: 0.4,
+      tocItem: { label: "Chapter seven", href: "chapter" },
+    },
+  }));
+  expect(relocated).toHaveBeenCalledOnce();
+  expect(engine.currentLocator()?.tocLabel).toBe("Chapter seven");
+  expect(view.frame.getAttribute("aria-label")).toBe("Test, Chapter seven");
+  expect(view.frame.hasAttribute("aria-hidden")).toBe(false);
+  expect(view.frame.hasAttribute("inert")).toBe(false);
+  expect(view.frame.tabIndex).toBe(0);
+  expect(doc.documentElement.lang).toBe(language || "und");
+});
 it("requests owned movement when keyboard focus enters text outside the visible range", () => {
   const doc = view.frame.contentDocument!;
   doc.body.innerHTML =

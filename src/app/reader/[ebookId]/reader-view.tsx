@@ -1068,16 +1068,19 @@ function ReaderSession({
           if (cancelled || startupAbort.signal.aborted) return;
         }
         phase = "engine";
+        if (indexDiagnosticEnabled()) observeIndexDiagnostic("reader-engine-open-start");
         await engine.open(source, {
           container,
           presentation: presentationRef.current!,
         });
+        if (indexDiagnosticEnabled()) observeIndexDiagnostic("reader-engine-open-return");
         if (cancelled || startupAbort.signal.aborted) return;
         while (!bridge.isControllerPermitCurrent(admitted)) {
           phase = "controllers";
           admitted = await bridge.whenControllersReady(startupAbort.signal);
           if (cancelled || startupAbort.signal.aborted) return;
         }
+        if (resumeAnchor && indexDiagnosticEnabled()) observeIndexDiagnostic("reader-resume-start");
         const resumed = resumeAnchor
           ? await resolveContinueAnchor(
               {
@@ -1098,6 +1101,7 @@ function ReaderSession({
               },
             )
           : null;
+        if (resumeAnchor && indexDiagnosticEnabled()) observeIndexDiagnostic("reader-resume-return");
         if (cancelled || startupAbort.signal.aborted) return;
         while (!bridge.isControllerPermitCurrent(admitted)) {
           admitted = await bridge.whenControllersReady(startupAbort.signal);

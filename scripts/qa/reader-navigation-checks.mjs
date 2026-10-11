@@ -85,6 +85,7 @@ export async function checkNavigation(driver) {
   await driver.key("[", "BracketLeft");
   await waitUI(driver, "document.querySelector('foliate-view')?.lastLocation?.index === 0");
   await driver.open(driver.historyFixture ?? 17);
+  await waitUI(driver, "!!document.querySelector('[data-reader=\"ready\"]')");
   const origin = await driver.evaluate(readerPlace);
   await goto(driver, "Percent", "70");
   const destination = await driver.evaluate(readerPlace);

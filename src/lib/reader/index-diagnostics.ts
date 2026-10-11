@@ -1,5 +1,5 @@
 /** Opt-in QA metadata; disabled callers gate before allocating callbacks. */
-const phases = new Set(["worker-construct", "worker-messageerror", "worker-abort", "worker-loaded-processing-start", "worker-decode-complete-scan-start", "worker-scan-complete", "worker-result", "worker-result-error", "worker-error", "worker-input-posted", "index-timer-scheduled", "index-timer-fired", "index-generator-start", "index-generator-complete", "index-publish-requested", "index-flow-error"]);
+const phases = new Set(["worker-construct", "worker-messageerror", "worker-abort", "worker-loaded-processing-start", "worker-decode-complete-scan-start", "worker-scan-complete", "worker-result", "worker-result-error", "worker-error", "worker-input-posted", "index-timer-scheduled", "index-timer-fired", "index-generator-start", "index-generator-complete", "index-publish-requested", "index-flow-error", "reader-engine-open-start", "reader-engine-open-return", "reader-resume-start", "reader-resume-return", "engine-initial-start-start", "engine-initial-start-return", "engine-open-ink-start", "engine-open-ink-return", "engine-goto-navigation-start", "engine-goto-navigation-return", "engine-goto-ink-start", "engine-goto-ink-return"]);
 const limits: Record<string, number> = {
   phase: 80,
   errorName: 64,

@@ -1,3 +1,4 @@
+import { indexDiagnosticEnabled, observeIndexDiagnostic } from "@/lib/reader/index-diagnostics";
 import { flattenContents } from "@/lib/reader/position-index";
 import { pageMarkerPhysicallyVisible } from "./page-marker-visibility";
 import type { PdfSearchProvider } from "./search";
@@ -555,8 +556,14 @@ class FoliateEngine implements ReaderEngine {
       }));
       if (resolved.locator) await this.goTo(resolved.locator);
     }
-    if (!resolved?.locator) await this.#start();
+    if (!resolved?.locator) {
+      if (indexDiagnosticEnabled()) observeIndexDiagnostic("engine-initial-start-start");
+      await this.#start();
+      if (indexDiagnosticEnabled()) observeIndexDiagnostic("engine-initial-start-return");
+    }
+    if (indexDiagnosticEnabled()) observeIndexDiagnostic("engine-open-ink-start");
     await this.#waitInk();
+    if (indexDiagnosticEnabled()) observeIndexDiagnostic("engine-open-ink-return");
     return { resolved };
   }
 
@@ -843,6 +850,9 @@ class FoliateEngine implements ReaderEngine {
   }
 
   #nameFrame(doc: Document, index: number) {
+    // Renderer contents can retain a document while its root is absent.
+    const root = doc.documentElement;
+    if (!root) return;
     const title =
       this.#info?.title || localized(this.#book?.metadata?.title) || "Book";
     const frame = doc.defaultView?.frameElement;
@@ -859,14 +869,14 @@ class FoliateEngine implements ReaderEngine {
       frame.removeAttribute("inert");
       frame.setAttribute("tabindex", "0");
     }
-    if (!doc.documentElement.getAttribute("lang"))
-      doc.documentElement.setAttribute(
+    if (!root.getAttribute("lang"))
+      root.setAttribute(
         "lang",
-        doc.documentElement.getAttributeNS(
+        root.getAttributeNS(
           "http://www.w3.org/XML/1998/namespace",
           "lang",
         ) ??
-          doc.documentElement.getAttribute("xml:lang") ??
+          root.getAttribute("xml:lang") ??
           this.#info?.language ??
           (Array.isArray(this.#book?.metadata?.language)
             ? this.#book.metadata.language[0]
@@ -1578,6 +1588,7 @@ class FoliateEngine implements ReaderEngine {
     this.#jumping++;
     let arrived = false;
     try {
+      if (indexDiagnosticEnabled()) observeIndexDiagnostic("engine-goto-navigation-start");
       // Resolve only a canonical page of this file. Restoring a saved locator
       // keeps its exact CFI/words, and its page only if that marker is visible.
       const pageLabel = "page" in target ? target.page
@@ -1618,7 +1629,10 @@ class FoliateEngine implements ReaderEngine {
       } else {
         await this.#anchor(target.href);
       }
+      if (indexDiagnosticEnabled()) observeIndexDiagnostic("engine-goto-navigation-return");
+      if (indexDiagnosticEnabled()) observeIndexDiagnostic("engine-goto-ink-start");
       await this.#waitInk();
+      if (indexDiagnosticEnabled()) observeIndexDiagnostic("engine-goto-ink-return");
       if (this.#destroyed || owner?.signal.aborted)
         throw new DOMException("Cancelled", "AbortError");
       // Saved page metadata follows the actual CFI landing. Neither a stale
