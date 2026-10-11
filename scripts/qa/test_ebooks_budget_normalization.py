@@ -5,6 +5,7 @@ import importlib.util
 import json
 import math
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 
@@ -49,7 +50,7 @@ class ReadOnlyAws:
 
 class BudgetNormalizationTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(dir='/private/tmp')
+        self.temporary = tempfile.TemporaryDirectory(dir='/private/tmp' if sys.platform == 'darwin' else '/tmp')
         self.folder = Path(self.temporary.name)
         self.aws = ReadOnlyAws()
         self.control = cdn.Control(self.aws, self.folder / 'state', PrivateSecrets())

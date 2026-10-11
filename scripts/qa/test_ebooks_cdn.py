@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 import types
 import unittest
@@ -244,7 +245,7 @@ class FakeAws:
 
 class ControlTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(dir='/private/tmp')
+        self.temp = tempfile.TemporaryDirectory(dir='/private/tmp' if sys.platform == 'darwin' else '/tmp')
         self.base = Path(self.temp.name)
         self.provider, self.secrets = FakeAws(), MemorySecrets()
         self.aws = cdn.Aws(ACCOUNT, ADMIN, self.provider.run)
@@ -941,7 +942,7 @@ class ControlTests(unittest.TestCase):
 
 class ImportTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(dir='/private/tmp')
+        self.temp = tempfile.TemporaryDirectory(dir='/private/tmp' if sys.platform == 'darwin' else '/tmp')
         self.root = Path(self.temp.name)
         self.pair = 'AWS_ACCESS_KEY_ID=AKIA' + 'A' * 16 + '\nAWS_SECRET_ACCESS_KEY=existing-pair\n'
         (self.root / '.env').write_text(self.pair + 'DATABASE_URL=base\nADMIN_TOKEN=base\nAWS_PROFILE=forbidden\nUNRELATED_SECRET=excluded\n')

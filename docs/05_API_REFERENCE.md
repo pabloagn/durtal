@@ -1293,6 +1293,41 @@ checked before a possibly deleted binding. Invalid input returns 400, a changed
 device returns 409, and temporary save failure returns 503 while the sitting
 remains pending for retry.
 
+### `POST /api/reader/lookup/wikimedia`
+
+Read-only reader lookup relay. The strict JSON body has exactly `operation`
+(`definition`, `summary` or `parse`), `language` (2–3 lowercase ASCII letters)
+and `title` (nonempty, at most 4096 UTF-16 code units). It accepts no acquisition
+URL or extra fields. Requests require `Content-Type: application/json`, no
+`Content-Encoding`, and at most 32 KiB, enforced while streaming even without
+`Content-Length`. A supplied length must be a canonical nonnegative integer and
+match the actual bytes.
+
+This route requires `Sec-Fetch-Site: same-origin`, or, when that header is absent,
+an `Origin` exactly matching the request URL's origin. An Origin, when present,
+must be a serialized HTTP(S) origin. Unlike the general API check, requests with
+neither header or `Sec-Fetch-Site: none` are refused. It checks neither the API
+bearer token nor the reader device cookie; private deployment authentication
+remains the authentication boundary.
+
+The server chooses an HTTPS Wiktionary definition/parse or Wikipedia summary
+endpoint from the operation and language. Upstream GETs omit credentials and
+referrers and refuse redirects. A successful response is the upstream JSON,
+with `Content-Type: application/json`, verified `Content-Length` and
+`Cache-Control: no-store`. Upstream JSON is bounded to 2 MiB, or 4 MiB for parse.
+Capacity is three active requests and up to 64 queued per process; request reads
+and upstream acquisition have 4-second deadlines within a 10-second overall
+lookup lifetime.
+
+Relay refusals have empty bodies: `400` invalid input or a byte-length mismatch;
+`413` an invalid/oversized declared length or oversized streamed body; `403`
+refused browser provenance; `429` capacity or host cooldown, with `Retry-After`;
+`502` network failure or invalid upstream JSON; `504` timeout; `499` caller
+cancellation. Other unsuccessful upstream statuses are preserved.
+`X-Durtal-Lookup-Error` distinguishes `network`, `invalid` and `timeout` where
+applicable. Relay responses use `Cache-Control: no-store`; an earlier proxy
+origin refusal uses the shared API refusal response.
+
 ### Private e-book upload broker
 
 | Route | Method | Purpose |

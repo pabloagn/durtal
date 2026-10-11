@@ -5,9 +5,11 @@ import io
 import json
 import re
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 import zipfile
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("ebook_library_seed", ROOT / "scripts/qa/ebook_library_seed.py")
@@ -62,7 +64,7 @@ class EbookLibrarySeed(unittest.TestCase):
 
     def test_catalogue_acceptance_preserves_core_bytes_and_has_real_distinct_sizes(self):
         # Generate only 36 files per profile. No database/server/browser; existing sharp only.
-        with tempfile.TemporaryDirectory(dir="/private/tmp") as ordinary, tempfile.TemporaryDirectory(dir="/private/tmp") as acceptance:
+        with tempfile.TemporaryDirectory(dir="/private/tmp" if sys.platform == "darwin" else "/tmp") as ordinary, tempfile.TemporaryDirectory(dir="/private/tmp" if sys.platform == "darwin" else "/tmp") as acceptance:
             ordinary_sql = seed.ebook_library_seed(ROOT, Path(ordinary), 36)
             acceptance_sql = seed.ebook_library_seed(ROOT, Path(acceptance), 36, catalogue_acceptance=True)
             ordinary_bucket, acceptance_bucket = Path(ordinary) / "durtal", Path(acceptance) / "durtal"
@@ -115,6 +117,32 @@ class EbookLibrarySeed(unittest.TestCase):
             seed.ebook_library_seed(ROOT, Path("/private/tmp/not-used"), 7, catalogue_acceptance=True)
         with self.assertRaises(ValueError):
             seed.ebook_library_seed(ROOT, Path("/not-used"), 36, catalogue_acceptance=True)
+
+    def test_acceptance_requires_the_platform_temporary_root_before_fixture_reads(self):
+        for platform, temporary_root, other_root in (("darwin", "/private/tmp", "/tmp"), ("linux", "/tmp", "/private/tmp")):
+            with self.subTest(platform=platform), patch.object(seed.sys, "platform", platform), patch.object(Path, "resolve", autospec=True, side_effect=lambda path: path), patch.object(Path, "read_bytes", side_effect=RuntimeError("fixture read reached")) as read:
+                # Isolate platform selection from the host's /tmp alias; actual resolution is checked below.
+                with self.assertRaisesRegex(RuntimeError, "fixture read reached"):
+                    seed.ebook_library_seed(ROOT, Path(temporary_root) / "guard-test", 36, catalogue_acceptance=True)
+                read.assert_called_once_with()
+                read.reset_mock()
+                for directory in (Path(other_root) / "guard-test", Path(temporary_root + "-outside") / "guard-test", Path("relative/guard-test")):
+                    with self.subTest(directory=directory), self.assertRaisesRegex(ValueError, "canonical private"):
+                        seed.ebook_library_seed(ROOT, directory, 36, catalogue_acceptance=True)
+                    read.assert_not_called()
+
+    def test_acceptance_refuses_symlink_and_parent_alias_before_fixture_reads(self):
+        with tempfile.TemporaryDirectory(dir="/private/tmp" if sys.platform == "darwin" else "/tmp") as directory:
+            base = Path(directory)
+            target = base / "target"
+            target.mkdir()
+            alias = base / "alias"
+            alias.symlink_to(target, target_is_directory=True)
+            with patch.object(Path, "read_bytes") as read:
+                for path in (alias, target / ".." / "target"):
+                    with self.subTest(path=path), self.assertRaisesRegex(ValueError, "canonical private"):
+                        seed.ebook_library_seed(ROOT, path, 36, catalogue_acceptance=True)
+                    read.assert_not_called()
 
     def test_refuses_invalid_size_before_any_fixture_write(self):
         with self.assertRaises(ValueError):

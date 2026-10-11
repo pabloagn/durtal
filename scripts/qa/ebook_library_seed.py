@@ -5,6 +5,7 @@ import io
 import json
 from pathlib import Path
 import subprocess
+import sys
 import uuid
 import zipfile
 
@@ -42,8 +43,9 @@ def ebook_library_seed(root, s3_dir, count, *, catalogue_acceptance=False):
     if catalogue_acceptance:
         if count < 36:
             raise ValueError("catalogue acceptance needs at least 36 synthetic eBooks")
-        if not s3_dir.is_absolute() or s3_dir.resolve() != s3_dir or not s3_dir.is_relative_to(Path("/private/tmp")):
-            raise ValueError("catalogue acceptance objects require a canonical private /private/tmp directory")
+        temporary_root = Path("/private/tmp" if sys.platform == "darwin" else "/tmp")
+        if not s3_dir.is_absolute() or s3_dir.resolve() != s3_dir or not s3_dir.is_relative_to(temporary_root):
+            raise ValueError(f"catalogue acceptance objects require a canonical private {temporary_root} directory")
     source = (root / "src/__tests__/fixtures/ebooks/epub3.epub").read_bytes()
     protected_source = (root / "src/__tests__/fixtures/ebooks/drm.epub").read_bytes()
     with zipfile.ZipFile(io.BytesIO(source)) as archive:
