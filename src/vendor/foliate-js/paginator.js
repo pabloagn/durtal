@@ -3949,6 +3949,7 @@ export class Paginator extends HTMLElement {
         if (this.noPreload || this.noContinuousScroll || this.#filling) return
         this.#filling = true
         try {
+            let awaitedAdjacentLayout = false
             const { size } = this
             if (!size) return
             const minPages = 5
@@ -3965,6 +3966,7 @@ export class Paginator extends HTMLElement {
                 if (firstIndex != null && firstIndex >= this.#primaryIndex) {
                     const prevIdx = this.#adjacentIndex(-1, firstIndex)
                     if (prevIdx != null && this.#isSameDirection(prevIdx)) {
+                        awaitedAdjacentLayout = true
                         await this.#loadAdjacentSection(prevIdx)
                     }
                 }
@@ -3984,10 +3986,13 @@ export class Paginator extends HTMLElement {
                 if (nextIdx == null) break
                 // Stop at writing-mode boundaries
                 if (!this.#isSameDirection(nextIdx)) break
+                awaitedAdjacentLayout = true
                 await this.#loadAdjacentSection(nextIdx)
                 if (!this.#views.has(nextIdx)) break
             }
-            if (reanchor) this.#scrollToAnchor(this.#anchor)
+            // With no awaited load, fill did not change the layout that the
+            // caller just positioned. Preserve its anchor without rescanning.
+            if (reanchor && awaitedAdjacentLayout) this.#scrollToAnchor(this.#anchor)
         } finally {
             this.#filling = false
             // Emit stabilized so post-layout processing (e.g. warichu)
@@ -4049,7 +4054,10 @@ export class Paginator extends HTMLElement {
             // produced a hard blank-screen flash on adjacent navigation
             // (readest/readest#4112 follow-up). Paginated mode and discrete
             // no-continuous-scroll still fade to hide the page reposition.
-            const blank = !this.scrolled || this.noContinuousScroll
+            // A prepared target in the current section needs only a new offset,
+            // not an opacity cycle over every column of the same document.
+            const blank = (!this.scrolled || this.noContinuousScroll)
+                && index !== this.#primaryIndex
             if (blank) this.#container.style.opacity = '0'
             const hasFocus = this.#primaryView?.document?.hasFocus()
             this.#primaryIndex = index

@@ -166,3 +166,11 @@ adapter regression source added; native retesting remains pending.
     before installing theme colours and reveals through the original positioning
     and paint sequence. No new visibility toggle, geometry or benchmark timing
     change. Source proposal; native first-paint/colour/ownership gates pending.
+
+19. `paginator.js`: cached navigation inside the current prepared section keeps
+    the document's opacity stable; a different section retains the existing fade.
+    Adjacent fill reanchors only when it awaited a section load that could change
+    layout. A no-load fill keeps the caller's anchor without another visible-range
+    scan. Relocate/focus/selection, real-load reanchoring, stabilized events,
+    viewport geometry and saved CFIs remain unchanged. Source candidate; original
+    native responsiveness and navigation/visual gates pending.
