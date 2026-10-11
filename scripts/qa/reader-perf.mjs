@@ -48,6 +48,8 @@ const onlyRows = option("--rows", null)?.split(",");
 const onlyProfiles = option("--profiles", null)?.split(",");
 const jsonOut = option("--json", null);
 const trace = args.includes("--trace");
+const indexDiagnostics = args.includes("--index-diagnostics");
+let diagnosticContext;
 
 const target = URL.parse(base);
 const refusal = !target
@@ -156,8 +158,43 @@ const PROBE = `(() => {
 
 const ebook = (n) => `00000000-0000-4000-a000-${String(n).padStart(12, "0")}`;
 
+function boundedIndexDiagnostic(event) {
+  const limits = {"phase":80,"errorName":64,"errorCode":64,"filename":512,"compressedBytes":0,"markupLength":0,"fragmentCount":0,"method":0,"workerAt":0,"length":0,"offsetCount":0,"line":0,"column":0,"hrefCount":0,"complete":0,"at":0,"path":256,"value":80};
+  const phases = ["worker-construct","worker-messageerror","worker-abort","worker-loaded-processing-start","worker-decode-complete-scan-start","worker-scan-complete","worker-result","worker-result-error","worker-error","worker-input-posted","index-timer-scheduled","index-timer-fired","index-generator-start","index-generator-complete","index-publish-requested","index-flow-error","public-index-state","diagnostic-payload-rejected","diagnostic-payload-invalid"];
+  const result = {};
+  if (!event || typeof event !== "object" || !phases.includes(event.phase)) return { phase: "diagnostic-payload-invalid" };
+  for (const key of Object.keys(limits)) {
+    const value = event[key], limit = limits[key];
+    if (typeof value === "string" && limit > 0) {
+      if (key === "errorName" && !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(value)) continue;
+      if (key === "errorCode" && !/^[A-Z][A-Z0-9_]{0,63}$/.test(value)) continue;
+      if (key === "filename" && (!/^[A-Za-z0-9_./:@~%-]*$/.test(value) || value.length > 512)) continue;
+      if (key === "path" && !/^\/reader\/[A-Za-z0-9-]+$/.test(value)) continue;
+      if (key === "value" && value !== "ready" && value !== "pending") continue;
+      result[key] = value.slice(0, limit);
+    } else if (typeof value === "number" && Number.isFinite(value)) result[key] = Math.max(-Number.MAX_SAFE_INTEGER, Math.min(Number.MAX_SAFE_INTEGER, value));
+    else if (typeof value === "boolean") result[key] = value;
+  }
+  return result;
+}
+
+const INDEX_DIAGNOSTIC_PROBE = `(() => {
+  const bounded = ${boundedIndexDiagnostic.toString()};
+  if (window.top !== window) return;
+  let count = 0;
+  window.__durtalIndexDiagnostic = event => {
+    if (count++ >= 256) return;
+    const payload = JSON.stringify(bounded({ ...bounded(event), at: performance.now(), path: location.pathname }));
+    if (payload.length <= 4096) window.__durtalIndexDiag?.(payload);
+  };
+  new MutationObserver(records => {
+    for (const record of records) if (record.attributeName === "data-reader-index")
+      window.__durtalIndexDiagnostic({ phase: "public-index-state", value: record.target.getAttribute("data-reader-index") });
+  }).observe(document, { subtree: true, attributes: true, attributeFilter: ["data-reader-index"] });
+})();`;
+
 /** A page in a fresh browser context, under a profile */
-async function newPage(profileName) {
+async function newPage(profileName, diagnoseIndex = false) {
   const p = config.profiles[profileName];
   const { browserContextId } = await send("Target.createBrowserContext", { disposeOnDetach: true });
   const { targetId } = await send("Target.createTarget", { url: "about:blank", browserContextId });
@@ -167,6 +204,7 @@ async function newPage(profileName) {
     call,
     sessionId,
     reports: [],
+    indexDiagnostics: diagnoseIndex ? [] : null,
     requests: new Map(),
     on(method, fn) {
       const listener = (msg) => msg.sessionId === sessionId && msg.method === method && fn(msg.params);
@@ -185,7 +223,16 @@ async function newPage(profileName) {
     offs: [],
   };
   page.offs.push(
-    page.on("Runtime.bindingCalled", ({ name, payload }) => name === "__durtalPerf" && page.reports.push(JSON.parse(payload))),
+    page.on("Runtime.bindingCalled", ({ name, payload }) => {
+      if (name === "__durtalPerf") page.reports.push(JSON.parse(payload));
+      else if (name === "__durtalIndexDiag" && page.indexDiagnostics && page.indexDiagnostics.length < 256) {
+        if (payload.length > 4096) page.indexDiagnostics.push({ phase: "diagnostic-payload-rejected", length: Math.min(payload.length, Number.MAX_SAFE_INTEGER) });
+        else {
+          try { page.indexDiagnostics.push(boundedIndexDiagnostic(JSON.parse(payload))); }
+          catch { page.indexDiagnostics.push({ phase: "diagnostic-payload-invalid" }); }
+        }
+      }
+    }),
     page.on("Network.requestWillBeSent", ({ requestId, request, timestamp, type }) =>
       page.requests.set(requestId, {
         url: request.url,
@@ -219,6 +266,10 @@ async function newPage(profileName) {
   await call("Performance.enable");
   await call("Runtime.addBinding", { name: "__durtalPerf" });
   await call("Page.addScriptToEvaluateOnNewDocument", { source: PROBE });
+  if (diagnoseIndex) {
+    await call("Runtime.addBinding", { name: "__durtalIndexDiag" });
+    await call("Page.addScriptToEvaluateOnNewDocument", { source: INDEX_DIAGNOSTIC_PROBE });
+  }
   await call("Network.emulateNetworkConditions", {
     offline: false,
     latency: p.rttMs,
@@ -306,8 +357,10 @@ const driver = page => ({
 const MEASURE = {
   async navigation(row, profileName) {
     const times = [], smooth = [], tasks = [], loafs = [], inputs = [];
+    const diagnoseIndex = indexDiagnostics && row.action === "index" && profileName === "phone";
+    const diagnosticRuns = diagnoseIndex ? [] : null;
     for (let run = 0; run < runs; run++) {
-      const page = await newPage(profileName);
+      const page = await newPage(profileName, diagnoseIndex);
       try {
         const d = driver(page);
         await openBook(page, row.fixture);
@@ -388,9 +441,15 @@ const MEASURE = {
         }
         const painted = await waitFor(() => page.reports.slice(before).find(report => report.kind === "painted"), 15000, row.label);
         times.push(painted.at - start);
-      } finally { await page.close(); }
+      } catch (error) {
+        if (diagnoseIndex) diagnosticContext = [...diagnosticRuns, { run, events: page.indexDiagnostics }];
+        throw error;
+      } finally {
+        if (diagnoseIndex) diagnosticRuns.push({ run, events: page.indexDiagnostics });
+        await page.close();
+      }
     }
-    return { ms: p75(times), all: times.map(Math.round), inpP95: percentile(inputs, 0.95),
+    return { ...(diagnoseIndex ? { diagnosticOnly: true, indexDiagnostics: diagnosticRuns } : {}), ms: p75(times), all: times.map(Math.round), inpP95: percentile(inputs, 0.95),
       smoothPercent: smooth.length ? Math.min(...smooth) : null, longTasks: Math.max(0, ...tasks), longFrames: Math.max(0, ...loafs) };
   },
   /** A book not seen before: a fresh context per run */
@@ -567,12 +626,17 @@ for (const row of config.rows) {
   for (const [profileName, budget] of Object.entries(row.budgets)) {
     if (onlyProfiles && !onlyProfiles.includes(profileName)) continue;
     let measured;
+    const diagnosticOnly = indexDiagnostics && row.action === "index" && profileName === "phone";
+    if (diagnosticOnly) {
+      diagnosticContext = [];
+      console.log("DIAGNOSTIC-ONLY observations; original budgets remain enforced");
+    }
     try {
       measured = await MEASURE[row.kind](row, profileName);
     } catch (error) {
       failed++;
       console.log(`FAIL ${row.label} (${profileName}): ${error.message}`);
-      report.push({ row: row.id, profile: profileName, error: error.message });
+      report.push({ row: row.id, profile: profileName, error: error.message, ...(diagnosticOnly ? { diagnosticOnly: true, indexDiagnostics: diagnosticContext } : {}) });
       continue;
     }
     const checks = judge(budget, measured);
@@ -583,7 +647,7 @@ for (const row of config.rows) {
     if (measured.all) console.log(`         runs: ${measured.all.join(", ")} ms`);
     if (measured.timers?.length) console.log(`         timers: ${measured.timers.join(", ")}`);
     if (measured.others?.length) console.log(`         requests: ${measured.others.join(", ")}`);
-    report.push({ row: row.id, profile: profileName, ok, measured });
+    report.push({ row: row.id, profile: profileName, ok, measured, ...(diagnosticOnly ? { diagnosticOnly: true } : {}) });
   }
 }
 if (jsonOut) writeFileSync(jsonOut, JSON.stringify(report, null, 2));

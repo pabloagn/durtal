@@ -8,12 +8,17 @@ const worker = globalThis as unknown as {
           markup?: string;
           compressed?: ArrayBuffer;
           method?: number;
+          diagnostics?: boolean;
         }>,
       ) => void)
     | null;
   postMessage(value: unknown): void;
 };
 worker.onmessage = async ({ data }) => {
+  if (data.diagnostics) {
+      try { worker.postMessage({ diagnosticPhase: "worker-loaded-processing-start", workerAt: performance.now() }); }
+      catch { /* Observation must not replace the original indexing outcome. */ }
+    }
   try {
     let markup = data.markup ?? "";
     if (data.compressed) {
@@ -34,13 +39,20 @@ worker.onmessage = async ({ data }) => {
         }
       } else markup = new TextDecoder().decode(bytes);
     }
-    worker.postMessage({
-      result: await scanMarkup(
-        markup,
-        data.fragments,
-        new AbortController().signal,
-      ),
-    });
+    if (data.diagnostics) {
+      try { worker.postMessage({ diagnosticPhase: "worker-decode-complete-scan-start", workerAt: performance.now() }); }
+      catch { /* Observation must not replace the original indexing outcome. */ }
+    }
+    const result = await scanMarkup(
+      markup,
+      data.fragments,
+      new AbortController().signal,
+    );
+    if (data.diagnostics) {
+      try { worker.postMessage({ diagnosticPhase: "worker-scan-complete", workerAt: performance.now() }); }
+      catch { /* Observation must not replace the original indexing outcome. */ }
+    }
+    worker.postMessage({ result });
   } catch (error) {
     worker.postMessage({
       error: error instanceof Error ? error.message : "Index failed",

@@ -30,8 +30,13 @@ next-env.d.ts
 scripts
 # ... but `pnpm build` copies pdf.js's run-time files with this one
 !scripts/vendor-pdfjs.mjs
+# Imported build dependency; include only this asset-staging helper
+!scripts/qa/stage-pdfjs-assets.mjs
 !scripts/prepare-offline.mjs
 !scripts/prepare-native-pdf.mjs
+# Next typechecks src/__tests__: retain only these two imported source modules
+!scripts/qa/ebook-proof-control.ts
+!scripts/ebooks/personal-session.ts
 # Test config: it imports a reporter from scripts/, which the image leaves out
 vitest.config.ts
 data

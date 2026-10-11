@@ -88,6 +88,7 @@ import { comparePositionTimes } from "@/lib/reader/offline/outbox-policy";
 import type { PositionMutation } from "@/lib/reader/offline/mutations";
 import { isExactLocalOpeningPosition } from "@/lib/reader/opening-position";
 import { preloadFoliate } from "@/lib/reader/engines/foliate/preload";
+import { indexDiagnosticEnabled, observeIndexDiagnostic } from "@/lib/reader/index-diagnostics";
 import {
   presentationFromPreferences,
 } from "@/lib/reader/presentation";
@@ -1214,11 +1215,14 @@ function ReaderSession({
             else setTimeout(load, 0);
           });
         }
+        const indexDiagnostics = indexDiagnosticEnabled();
         let indexing = false;
         postponeIndex = () => {
           if (indexing || cancelled) return;
           if (indexTimer) clearTimeout(indexTimer);
+          if (indexDiagnostics) observeIndexDiagnostic("index-timer-scheduled");
           indexTimer = setTimeout(() => {
+            if (indexDiagnostics) observeIndexDiagnostic("index-timer-fired");
             indexing = true;
             void (async () => {
               const currentIndex = indexRef.current;
@@ -1233,6 +1237,7 @@ function ReaderSession({
                     .filter(Boolean),
                 ),
               ];
+              if (indexDiagnostics) observeIndexDiagnostic("index-generator-start", () => ({ hrefCount: hrefs.length }));
               for await (const entry of engine.indexAnchors({
                 hrefs,
                 signal: indexAbort.signal,
@@ -1246,6 +1251,7 @@ function ReaderSession({
                 );
               }
               if (cancelled) return;
+              if (indexDiagnostics) observeIndexDiagnostic("index-generator-complete");
               currentIndex.rebuild();
               writeIndexCache(
                 localStorageOrNull(),
@@ -1259,7 +1265,9 @@ function ReaderSession({
               updated.textRatio = currentIndex.textRatio;
               indexRef.current = updated;
               setIndex(updated);
-            })().catch(() => {
+              if (indexDiagnostics) observeIndexDiagnostic("index-publish-requested", () => ({ complete: updated.complete }));
+            })().catch((error: unknown) => {
+              if (indexDiagnostics) observeIndexDiagnostic("index-flow-error", () => ({ errorName: error instanceof Error ? error.name : "NonError", errorCode: "INDEX_FLOW_ERROR" }));
               /* Immediate section positions remain usable if indexing fails. */
             });
           }, 2000);
