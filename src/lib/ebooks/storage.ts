@@ -185,13 +185,19 @@ export interface EbookObjectHead {
 }
 
 /** The object's size and checksum, or null when there is no object */
-export async function headEbookObject(key: string, options: { checksum?: boolean } = {}): Promise<EbookObjectHead | null> {
+/** Optional owned-job boundary; existing CLI callers retain their defaults. */
+export interface EbookStorageScope { signal?: AbortSignal; current(): Promise<void> }
+export async function checkEbookStorageScope(scope?: EbookStorageScope): Promise<void> {
+  scope?.signal?.throwIfAborted(); await scope?.current(); scope?.signal?.throwIfAborted();
+}
+export async function headEbookObject(key: string, options: { checksum?: boolean; scope?: EbookStorageScope } = {}): Promise<EbookObjectHead | null> {
+  await checkEbookStorageScope(options.scope);
   const dir = previewS3Dir();
   if (dir) {
     const file = previewFile(dir, key);
     const info = await stat(file).catch(() => null);
     if (!info?.isFile()) return null;
-    const sha256 = options.checksum ? await hashFile(file) : null;
+    const sha256 = options.checksum ? await hashFile(file, options.scope) : null;
     return {
       size: info.size,
       sha256,
@@ -210,7 +216,9 @@ export async function headEbookObject(key: string, options: { checksum?: boolean
         Key: key,
         ...(options.checksum ? { ChecksumMode: "ENABLED" as const } : {}),
       }),
+      { abortSignal: options.scope?.signal },
     );
+    await checkEbookStorageScope(options.scope);
     const checksum = head.ChecksumSHA256 ?? null;
     const composite = !!checksum && (checksum.includes("-") || head.ChecksumType === "COMPOSITE");
     const metadataSha256 = head.Metadata?.sha256 ?? null;
@@ -229,9 +237,10 @@ export async function headEbookObject(key: string, options: { checksum?: boolean
   }
 }
 
-async function hashFile(file: string) {
+async function hashFile(file: string, scope?: EbookStorageScope) {
   const hash = createHash("sha256");
-  for await (const chunk of createReadStream(file)) hash.update(chunk as Buffer);
+  for await (const chunk of createReadStream(file, { signal: scope?.signal })) hash.update(chunk as Buffer);
+  await checkEbookStorageScope(scope);
   return hash.digest("hex");
 }
 
@@ -246,7 +255,8 @@ export interface EbookObjectRange {
  * streamed, never buffered; null when there is no object. The caller checks
  * the range against the size it knows from the catalogue.
  */
-export async function getEbookObjectRange(key: string, start: number, end?: number): Promise<EbookObjectRange | null> {
+export async function getEbookObjectRange(key: string, start: number, end?: number, scope?: EbookStorageScope): Promise<EbookObjectRange | null> {
+  await checkEbookStorageScope(scope);
   if (!Number.isSafeInteger(start) || start < 0 || (end !== undefined && (!Number.isSafeInteger(end) || end < start)))
     throw new Error("Invalid byte range");
   const dir = previewS3Dir();
@@ -255,12 +265,12 @@ export async function getEbookObjectRange(key: string, start: number, end?: numb
     const info = await stat(file).catch(() => null);
     if (!info?.isFile() || start >= info.size) return null;
     const last = Math.min(end ?? info.size - 1, info.size - 1);
-    const stream = createReadStream(file, { start, end: last });
+    const stream = createReadStream(file, { start, end: last, signal: scope?.signal });
     return { body: Readable.toWeb(stream) as ReadableStream<Uint8Array>, length: last - start + 1 };
   }
   try {
     const object = await ebookS3().send(
-      new GetObjectCommand({ Bucket: ebookStorage().bucket, ...ebookOwner(), Key: key, Range: `bytes=${start}-${end ?? ""}` }));
+      new GetObjectCommand({ Bucket: ebookStorage().bucket, ...ebookOwner(), Key: key, Range: `bytes=${start}-${end ?? ""}` }), { abortSignal: scope?.signal });
     if (!object.Body || object.ContentLength == null) return null;
     return { body: object.Body.transformToWebStream(), length: object.ContentLength };
   } catch (err) {
@@ -308,25 +318,29 @@ async function listPreview(root: string, prefix: string): Promise<EbookListedObj
 }
 
 /** Full checksums are authoritative; composite/absent checksums require actual streamed bytes. */
-export async function objectMatches(key: string, size: number, sha256: string): Promise<boolean> {
-  const head = await headEbookObject(key, { checksum: true });
+export async function objectMatches(key: string, size: number, sha256: string, scope?: EbookStorageScope): Promise<boolean> {
+  const head = await headEbookObject(key, { checksum: true, scope });
   if (!head || head.size !== size) return false;
   if (head.checksumType === "full") return head.sha256 === sha256;
-  const object = await getEbookObjectRange(key, 0);
+  const object = await getEbookObjectRange(key, 0, size - 1, scope);
   if (!object) return false;
   const hash = createHash("sha256");
   const reader = object.body.getReader();
   let bytes = 0;
+  let done = false;
   try {
     for (;;) {
+      scope?.signal?.throwIfAborted();
       const part = await reader.read();
-      if (part.done) break;
+      if (part.done) { done = true; break; }
       hash.update(part.value);
       bytes += part.value.length;
+      if (bytes > size) return false;
     }
   } finally {
-    reader.releaseLock();
+    try { if (!done) await reader.cancel(); } finally { reader.releaseLock(); }
   }
+  await checkEbookStorageScope(scope);
   return bytes === size && hash.digest("hex") === sha256;
 }
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { BookCheck, BookMarked, BookPlus, BookX, CalendarClock, History, ListMinus, ListPlus, Pause, Play, Quote, Square, Timer } from "lucide-react";
@@ -10,13 +9,10 @@ import { usePreference } from "@/lib/hooks/use-preference";
 import { READING_HOME_KEY } from "@/lib/preferences";
 import { READING_KEYS } from "@/lib/shortcuts/shortcuts";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
-import { pauseReading, reopenReading, resumeReading, type SessionRow } from "@/lib/actions/reading";
+import { pauseReading, reopenReading, resumeReading } from "@/lib/actions/reading";
 import { bookReadingState, readingMenu, READING_ACTION_LABELS, type ReadingMenuAction } from "@/lib/reading/labels";
 import { addToQueue, removeFromQueue, restoreQueueItem } from "@/lib/actions/reading-queue";
 import { ordinal } from "@/lib/reading/queue";
-import type { NoteEdit } from "@/lib/actions/reading-notes";
-import type { NoteKind } from "@/lib/reading/constants";
-import type { LogDraft } from "./dialogs/log-progress-dialog";
 import { showError, undoToast, type ReadingPageData, type ReadingRow } from "./reading-client";
 import { useOptionalTimer } from "./timer-provider";
 
@@ -26,88 +22,9 @@ import { useOptionalTimer } from "./timer-provider";
  * the same dialogs, which load only when opened.
  */
 
-const StartReadingDialog = dynamic(() => import("./dialogs/start-reading-dialog").then((m) => m.StartReadingDialog));
-const LogProgressDialog = dynamic(() => import("./dialogs/log-progress-dialog").then((m) => m.LogProgressDialog));
-const FinishReadingDialog = dynamic(() => import("./dialogs/finish-reading-dialog").then((m) => m.FinishReadingDialog));
-const AbandonReadingDialog = dynamic(() => import("./dialogs/abandon-reading-dialog").then((m) => m.AbandonReadingDialog));
-const PastReadDialog = dynamic(() => import("./dialogs/past-read-dialog").then((m) => m.PastReadDialog));
-const EditReadingDialog = dynamic(() => import("./dialogs/edit-reading-dialog").then((m) => m.EditReadingDialog));
-const DeleteReadingDialog = dynamic(() => import("./dialogs/delete-reading-dialog").then((m) => m.DeleteReadingDialog));
-const SessionDialog = dynamic(() => import("./dialogs/session-dialog").then((m) => m.SessionDialog));
-const NoteDialog = dynamic(() => import("./dialogs/note-dialog").then((m) => m.NoteDialog));
-
-export type ReadingDialog = "start" | "progress" | "finish" | "abandon" | "past" | "edit" | "delete" | "session" | "note";
-
-const TimerBlockDialog = dynamic(() => import("./timer-chip").then((m) => m.TimerBlockDialog));
-
-/** The dialog a request asks for; a dialog on a reading needs that reading */
-export function ReadingDialogSwitch(props: ReadingDialogProps) {
-  const { request, row } = props;
-  // A reading being timed is not closed or deleted: its dialogs offer Stop and Discard (SLN-451)
-  const timer = useOptionalTimer();
-  if (row && timer?.timer?.readingId === row.reading.id && (request.kind === "finish" || request.kind === "abandon" || request.kind === "delete"))
-    return <TimerBlockDialog {...props} />;
-  if (request.kind === "start") return <StartReadingDialog {...props} />;
-  if (request.kind === "past") return <PastReadDialog {...props} />;
-  if (request.kind === "note") return <NoteDialog {...props} />;
-  if (!row) return null;
-  if (request.kind === "progress") return <LogProgressDialog {...props} />;
-  if (request.kind === "finish") return <FinishReadingDialog {...props} />;
-  if (request.kind === "abandon") return <AbandonReadingDialog {...props} />;
-  if (request.kind === "edit") return <EditReadingDialog {...props} />;
-  if (request.kind === "session") return <SessionDialog {...props} />;
-  return <DeleteReadingDialog {...props} />;
-}
-
-export interface DialogRequest {
-  kind: ReadingDialog;
-  readingId?: string;
-  /** Finish after a log that reached the last page: the date to fill */
-  finishedOn?: string;
-  reachedEnd?: boolean;
-  /** Log progress opened from the palette with what was typed ("212") */
-  prefill?: string;
-  /** Log progress in stop mode: saving stops this running timer (SLN-451) */
-  timer?: StopRequest;
-  /** The session dialog edits this session; without one it adds a session (SLN-451) */
-  session?: SessionRow;
-  /** Start reading: the edition queued in Up Next (SLN-452). The note dialog: the edition the quote is filed under (SLN-480) */
-  editionId?: string;
-  /** The note dialog (SLN-453): a quote or a note, on `readingId` when given */
-  noteKind?: NoteKind;
-  /** The note dialog edits this note; without one it adds */
-  note?: NoteEdit;
-  /** The page to fill, from Log progress */
-  page?: number | null;
-  /** The percent to fill, from Log progress on a session counted in percent or time: the note dialog opens in Percent, even for null (SLN-480) */
-  percent?: number | null;
-  /** The dialog to go back to once the note dialog closes (Log progress) */
-  back?: DialogRequest;
-  /** Log progress on the way back from the note dialog: what was typed there */
-  draft?: LogDraft;
-}
-
-/** The running timer a stop saves, and the end time a forgotten timer was given */
-export interface StopRequest {
-  sessionId: string;
-  startedAt: string;
-  pausedAt: string | null;
-  pausedSeconds: number;
-  endedAt?: string;
-}
-
-/** What every dialog receives */
-export interface ReadingDialogProps {
-  data: ReadingPageData;
-  row: ReadingRow | null;
-  request: DialogRequest;
-  home: string | null;
-  setHome: (home: string | null) => void;
-  onClose: () => void;
-  /** After a write: refresh the page and the activity timeline */
-  changed: () => void;
-  open: (request: DialogRequest) => void;
-}
+import { ReadingDialogSwitch } from "./reading-dialog-switch";
+import type { DialogRequest, ReadingDialogProps } from "./reading-dialog-types";
+export type { ReadingDialog, DialogRequest, StopRequest, ReadingDialogProps } from "./reading-dialog-types";
 
 interface ReadingContextValue {
   data: ReadingPageData;

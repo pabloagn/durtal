@@ -9,8 +9,9 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { exportFormatsFor, type ExportFormat } from "@/lib/export/formats";
 
-export type ExportFormat = "csv" | "tsv" | "parquet" | "md";
+export type { ExportFormat } from "@/lib/export/formats";
 
 /** What can be exported: books, authors, one of the other collections, or reading (SLN-458) */
 export type ExportEntity =
@@ -24,11 +25,9 @@ export type ExportEntity =
   | "reading-notes"
   | "goodreads";
 
-/** The formats an export offers: Markdown is the commonplace book only, the Goodreads file is CSV */
+/** Shared with the export route, so menus offer only supported entity formats. */
 export function exportFormats(entity: ExportEntity): ExportFormat[] {
-  if (entity === "reading-notes") return ["csv", "tsv", "parquet", "md"];
-  if (entity === "goodreads") return ["csv"];
-  return ["csv", "tsv", "parquet"];
+  return [...exportFormatsFor(entity)];
 }
 
 /** What to export: these records, every one, or what a page's filters show (its URL query) */
@@ -54,6 +53,7 @@ export const EXPORT_FORMAT_LABELS: Record<ExportFormat, string> = {
   tsv: "TSV (.tsv)",
   parquet: "Parquet (.parquet)",
   md: "Markdown (.md)",
+  json: "JSON (.json)",
 };
 
 /** Download an export: these records, every one ("all"), or what a page's filters show. */

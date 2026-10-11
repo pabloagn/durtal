@@ -5,12 +5,17 @@ import { BookCard } from "@/components/books/book-card";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { cardReadingOf } from "@/lib/reading/card";
 import { mediaUrl } from "@/lib/s3/media-url";
+import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
 
 /** A work loaded with `workCardWith` */
 export type WorkCardData = RelatedBook;
 
 /** Book-only presentation also used inside a mixed related shelf. */
-export function RelatedBookCard({ work }: { work: WorkCardData }) {
+export function RelatedBookCard({ work, ebook, readerReturnTo }: {
+  work: WorkCardData;
+  ebook?: WorkEbookDTO | null;
+  readerReturnTo?: string;
+}) {
   const edition = work.editions[0];
   const poster = work.media?.find((m) => m.type === "poster" && m.isActive);
   const coverKey =
@@ -44,6 +49,8 @@ export function RelatedBookCard({ work }: { work: WorkCardData }) {
       isPoison={work.isPoison}
       isFavourite={work.isFavourite}
       reading={cardReadingOf(work)}
+      ebook={ebook}
+      readerReturnTo={readerReturnTo}
     />
   );
 }
@@ -57,17 +64,21 @@ export function WorkCarousel<T extends WorkCardData>({
   titleHref,
   works,
   caption,
+  ebooks,
+  readerReturnTo,
 }: {
   title: string;
   titleHref?: string;
   works: T[];
   caption?: (work: T) => ReactNode;
+  ebooks?: ReadonlyMap<string, WorkEbookDTO | null>;
+  readerReturnTo?: string;
 }) {
   return (
     <HorizontalCarousel title={title} titleHref={titleHref}>
       {works.map((work) => (
         <div key={work.id} className="carousel-card">
-          <RelatedBookCard work={work} />
+          <RelatedBookCard work={work} ebook={ebooks?.get(work.id)} readerReturnTo={readerReturnTo} />
           {caption?.(work)}
         </div>
       ))}

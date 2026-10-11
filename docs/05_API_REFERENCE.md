@@ -149,6 +149,7 @@ List works with pagination, search and the library's filters. The library page a
 | `subject`, `category`, `theme`, `movement`, `artType`, `artMovement`, `keyword`, `attribute` | lists of ids | — | Taxonomy items; a broader category, theme or movement matches its narrower items |
 | `color` | list | — | The colour of the cover the card shows: `red`, `orange`, `yellow`, `green`, `blue`, `purple`, `pink`, `brown`, `beige`, `white`, `grey`, `black` |
 | `poster` | string | — | `has` or `missing`: an active poster |
+| `ebook` | string | — | `yes` or `no`: a native-readable eBook linked through an active copy; both is no filter |
 | `sort` | string | `recent` | One of: `recent`, `title`, `year`, `rating` (the book's rating, unrated last), `lastRead` (never-read books last), `queue` (Up Next order, SLN-452: books not queued last, ties on the id) |
 | `limit` | number | `50` | Results per page (at most 200) |
 | `offset` | number | `0` | Pagination offset |
@@ -179,11 +180,19 @@ List works with pagination, search and the library's filters. The library page a
 
 `reading.state` is `unread`, `reading`, `paused`, `read` or `abandoned`; `timesRead` counts finished readings; `percent` is the open reading's share, a number, or null.
 
+Each work also carries `ebooks`, an array of `{ id, title, formats, readable,
+readerPath }`. `formats` lists eligible native reader formats; unavailable linked
+eBooks retain their id/title with `formats: []`, `readable: false` and
+`readerPath: null`. Only linked eBooks on active copies belong to the work.
+No file storage keys, source paths, delivery URLs or reading anchors are exposed.
+
 ### `GET /api/works/[id]`
 
 Fetch a single work with all relations loaded.
 
 **Response** `200`: Full `WorkWithRelations` object including editions, instances, authors, subjects, media, contributors, genres, and tags.
+
+The same allowlisted `ebooks` array as the list route is included.
 
 **Response** `404`:
 ```json
@@ -416,11 +425,25 @@ Download books, authors, perfumes, films, paintings, or reading as a file. Used 
 | `ids` | string[] | 1–500 ids to export. Not needed with `all`; the reading exports take `all` or `filters` |
 | `all` | boolean | `true`: every record of the entity instead of `ids` |
 | `filters` | string | `readings` and `reading-notes` only: the journal's or the commonplace book's URL query (at most 2,000 characters), parsed by the page's own parser (`parseJournalQuery`, `parseNotesQuery`); the file holds every record the filters keep, in the page's order, not cut at 500 |
-| `format` | `"csv"` \| `"tsv"` \| `"parquet"` \| `"md"` | File format. `md` is `reading-notes` only; `goodreads` is `csv` only |
+| `format` | `"csv"` \| `"tsv"` \| `"parquet"` \| `"md"` \| `"json"` | File format. `json` is books (`works`) only; `md` is `reading-notes` only; `goodreads` is `csv` only |
 
 **Response** `200`: the file, with `Content-Disposition: attachment; filename="durtal-{entity}-{date}.{ext}"` (`durtal-books-all-…`, `durtal-authors-all-…`, `durtal-perfumes-all-…` and so on with `all`, a slug of the name for a single record).
 
 **Response** `400`: a bad entity, format, id list or `filters`. `404`: no record matched, or the collection is not open. `500`: `{ "error": "Export failed." }`.
+
+**Book JSON**: an array of the same allowlisted, flat book rows exported by CSV,
+with numeric fields preserved as numbers. Stored text is unchanged, including
+accents, line breaks and formula-like text. Nested acquisition/publisher
+columns retain their existing JSON-string representation. No raw ORM records,
+eBook storage keys or delivery URLs are exported. It uses
+`application/json; charset=utf-8` and a `.json` attachment filename. Selection,
+the 500-id limit, `all` and empty-result `404` follow the other book exports.
+
+Book CSV, TSV, Parquet and JSON rows include `ebook_formats`, the unique native
+reader formats of active linked eBooks in reader preference order, separated by
+`; ` (for example `EPUB; PDF`). Unavailable or download-only files add no format;
+a book without an eligible eBook has an empty value. Goodreads retains its own
+column contract.
 
 **Every CSV and TSV** (`src/lib/utils/export.ts`): a text cell that begins with `=`, `+`, `-`, `@`, a tab or a carriage return is written with a leading `'`, so a spreadsheet never runs it; numbers are never changed. The reading importer strips that `'` again (`src/lib/reading/import/csv.ts`). A CSV value with a comma, a double quote, a newline or a carriage return is quoted. CSV starts with a UTF-8 byte order mark, so Excel opens accents correctly. The Goodreads file is the exception: it is for Goodreads and StoryGraph to import, so its cells go as stored, with no guard and no byte order mark (`toCSV(..., { forImport: true })`).
 
@@ -435,7 +458,7 @@ Download books, authors, perfumes, films, paintings, or reading as a file. Used 
 
 ## Interchange
 
-The Durtal interchange file (SLN-375): one JSON document that carries records of every collection whole, for a backup, a move to another Durtal, or a review by hand. The book CSV, TSV and Parquet export above and the reading CSV stay as they are.
+The Durtal interchange file (SLN-375): one JSON document that carries records of every collection whole, for a backup, a move to another Durtal, or a review by hand. The flat book exports above and the reading CSV retain their own formats.
 
 The file is `{ "format": "durtal.interchange", "version": 3, "exportedAt", "records": [...], "shared": {...} }`. A record is one work: `{ "domain", "id", "title", "sections" }`. Its sections hold the stored rows, by table and column name:
 
@@ -977,11 +1000,161 @@ Streams a stored image, edition cover or comment attachment from the app's own o
 
 ## eBooks
 
-E-book files live in their own private bucket (`docs/07_STORAGE.md`, eBook files). The browser never chooses a key and never receives an AWS credential: these routes read the file's row first, and only a row read in the same request is served or signed. Quarantined, missing and replaced files and files under DRM are never served. A malformed id answers `400` before any database or S3 call. All pass the same-origin check.
+### `GET /api/ebooks`
+
+Read-only metadata, using the eBook library's parser and bounded queries. No token.
+
+| Param | Default | Description |
+|---|---|---|
+| `q` | empty | Search text, trimmed to 200 characters |
+| `state` | `active` | `excluded` selects excluded records; active selects every other state |
+| `linked` | all | Comma-separated `linked`, `unlinked` (pending) or `standalone` |
+| `format`, `language` | all | Comma-separated known file formats or normalized language codes |
+| `drm`, `review` | all | `yes` or `no` |
+| `sort` | `title` | `title`, `author`, `added`, `opened`, `size`, `format`, `language`, `linked` |
+| `order` | sort-dependent | `asc` or `desc` |
+| `page`, `perPage` | `1`, `48` | Page size: 24, 48, 96 or 192; invalid choices use defaults |
+
+**Response** `200`: `{ ebooks, total, page, perPage }`. Each eBook contains
+`id`, `title`, `subtitle`, `authors`, `language`, `matchState`, downloadable
+`formats`, `readable`, `readerPath`, and `files`. A file exposes only its id,
+format, byte size, status, DRM label and readable/downloadable booleans.
+Reader eligibility uses the shared native reader policy; download-only formats
+can appear without a Read path. Excluded records provide neither capability.
+Invalid alternatives are ignored by the library parser.
+
+### `GET /api/ebooks/[id]`
+
+The same public metadata plus description, series/index, publisher/year, ISBNs,
+known identifiers and `linkedCopy` (instance/edition/work metadata, or null).
+Source paths, storage keys, publication reports, reading anchors and signed
+delivery URLs are omitted. **Error** `400`: malformed id before lookup;
+`404`: unknown eBook.
+
+These two routes only read metadata. Decisions use the guarded review routes below.
+
+### `GET /api/ebooks/[id]/review`
+
+Authenticated private review projection: identity, file capabilities, canonical
+microsecond `stamp`, and ranked proposals with `eligible`, `effectText` and
+`candidateHash`. Requires the API bearer token and same-origin check.
+
+### `POST /api/ebooks/[id]/preview`
+
+Requires the API bearer token and same-origin check. The strict intent has
+`ebookId` and `action` (`accept`, `link`, `accession`, `keep`, `exclude`, `rematch`
+or `restore`), with the action's choices. Accept carries rank and candidate hash;
+link carries work and an explicit fill-copy, add-copy or new-edition choice.
+Returns the exact `request`, `previewToken`, visible `preview` and capabilities.
+Nonready preparation returns `422 preparation_required` with bounded, sanitized
+`issues: [{ ebookId, field, code, message }]`; unavailable preparation returns
+`503 preparation_unavailable` and preserves choices without a successful token.
+The server issues the operation, stamp and effect hash; clients do not invent them.
+
+### `POST /api/ebooks/[id]/link`
+
+Confirm an `accept` or `link` preview with `{ request, previewToken }` exactly as
+returned. The private capability is bound to the API channel and target database;
+UI previews cannot be confirmed through REST. Requires bearer token and same origin.
+
+### `POST /api/ebooks/[id]/accession`
+
+Confirm an `accession` preview with the same exact envelope. Requires bearer
+token and same origin. Book, edition, copy and review receipt commit together.
+
+### `POST /api/ebooks/[id]/state`
+
+Confirm `keep`, `exclude`, `rematch` or `restore` using the same exact envelope.
+Exclusion reasons are `duplicate`, `not_a_book` or `other`; restoration declares
+the expected standalone/excluded state. Requires bearer token and same origin.
+
+### `POST /api/ebooks/[id]/undo`
+
+Requires bearer token and same origin. Input is `{ ebookId, originalOperation }`,
+bound to the actual stored review receipt. Supports accepted/linked/accessioned,
+kept and excluded review decisions. It does not fabricate a review receipt for
+an automatic ingestion link. Success returns `ebookId`, `operation`, `message`,
+`keptCopy` and `undo`; the message explains when a dependent copy must remain.
+
+All decision confirmations return that same outcome after committed receipt
+verification. A replay of the same operation checks its durable receipt before
+requiring the preview cache. Errors: `400` invalid input, `404` missing eBook,
+`409` changed state, collision or expired preview, `500` invalid receipt or
+unexpected failure, `503` uncertain outcome. On an uncertain outcome retry the
+original envelope; prepare a new visible preview only after a definite refusal.
+
+### `POST /api/ebooks/bulk/preview`
+
+Requires bearer token and same origin. Input is `{ intents }`, an ordered set of
+1–50 distinct eBook intents using the single-item choices. Returns `requests`,
+`previewToken`, visible `rows`, `preparedCount`, `selectionCount` and
+`deferredIntents`. Only consecutive accessions can share a commit group; other
+actions prepare the first item and defer the rest. Accession previews also expose
+actual `accessionCounts`. Deferred intents need fresh preparation after the
+prepared group commits.
+
+### `POST /api/ebooks/bulk/confirm`
+
+Confirm exactly `{ requests, previewToken }` from the prepared group. Returns
+`{ outcomes }` after receipt verification. Never append deferred requests or
+regenerate operation identities. The same original envelope supports durable
+replay and uncertain-outcome retry.
+
+### `POST /api/ebooks/bulk/undo`
+
+Input is `{ requests: [{ ebookId, originalOperation }] }`, at most 50 original
+review operations. Returns per-row committed outcomes or refused/unconfirmed
+rows, `deferredRequests` and `stopped`. Each Undo is atomic; the set stops on the
+first failure. Retain completed results and retry the unchanged original set
+after an unconfirmed outcome so earlier compensations replay before continuing.
+These routes have the same authentication/channel/error rules as single review.
+
+### Work review status routes
+
+`POST /api/works/[id]/review/preview` prepares
+`{ action: "mark_accessioned", workId }` for a tracked/shortlisted/wanted/on-order
+book with an active linked eBook holding. It returns the actual guarded request,
+token and visible `{ text, fromStatus, toStatus }` preview. Confirm through
+`POST /api/works/[id]/review/status` with the exact `{ request, previewToken }`.
+The service commits status, forward history and audit together without changing
+copies, orders or eBooks. The result includes `workId`, `operation`, `message`,
+`catalogueStatus` and `undo`.
+
+`POST /api/works/[id]/review/undo` takes `{ workId, originalOperation }` from the
+real status receipt. It restores the previous status with a new history entry;
+later work/history/holding/order changes refuse compensation. Original-bound
+replay supports uncertain response retry and completed target/cache loss. All
+three routes require the same bearer token and same-origin checks.
+
+### F2 Unlink UI transport source
+
+The new Next adapters bind to the independently reviewed F2 owner exports
+`prepareReviewUnlink` and `confirmReviewUnlink`. Preparation carries
+`{ intent: { ebookId, mode: "automatic_undo" | "unlink", originalMatchingOperation }, stamp }`.
+The wrapper requires the complete rendered native operation and exact UTC
+microsecond/fingerprint stamp, compares both to the real preparation and projects
+only cleanup counts, copy retention and a restoration flag. Raw native receipts,
+restored-copy rows and cleanup identities stay private.
+
+Confirmation passes the actual `{ request, previewToken }` through the owner's
+shared strict codec. The original native identity identifies the link being
+reviewed; the new terminal unlink receipt has no inverse Undo. Unknown outcomes
+retry that exact decision. This UI source requires the accepted F2 backend recipe
+under root coordination; its import and runtime verification are still pending
+in this checkout.
+
+### File delivery
+
+E-book files live in their own private bucket (`docs/07_STORAGE.md`, eBook files). The browser never chooses a key and never receives an AWS credential: these routes read the file's row first, and only a row read in the same request is served or signed. Quarantined, missing and replaced files and files under DRM are never served. A malformed id answers `400` before any database or S3 call. File delivery routes pass the same-origin check.
 
 ### `GET /api/ebooks/files/[fileId]` and `HEAD`
 
 Streams one stored file from the e-book bucket (or a preview's `--s3-dir` folder), by HTTP Range, without buffering it: the app's own delivery for development, previews and when CloudFront is not set up (`EBOOK_DELIVERY=app`).
+
+`?download=1` uses `Content-Disposition: attachment` with a canonical
+file-id/format filename on GET and HEAD. Range, ETag and eligibility rules
+stay the same. The library and delivery share structural publication
+validation; malformed medallion JSON cannot grant delivery.
 
 | Request | Response |
 |---|---|
@@ -1011,13 +1184,15 @@ An e-book's cover: its preferred file's derived WebP, at one width.
 | `w` | number | yes | `240`, `400` or `800` |
 
 **Response**: with CloudFront, `302` to the signed cover, cached (`private`) no longer than the signature stays good less an hour, and at most a day; otherwise `200` the WebP, `Cache-Control: private, max-age=86400`.
-**Error** `400`: malformed id, or `w` missing or not one of the widths. `404`: no such e-book, or it has no cover.
+**Error** `400`: malformed id, or `w` missing or not one of the widths. `404`: no such e-book, it has no cover, or the requested gold width is absent from its validated publication. Gold reader and settings cover URLs use the same one-statement cover-only policy as the library; legacy cover URLs retain their existing delivery path.
 
 ### `GET /api/reader/[ebookId]/position` and `POST`
 
-This device's place in an e-book (SLN-492), in `ebook_positions` (docs/02). The device is the `durtal-device` cookie, which the proxy sets on the first reader page. Same-origin only; a malformed id answers `400` before any database call. `Cache-Control: no-store`.
+Every device's place in an e-book (SLN-493), in `ebook_positions` (docs/02). The device is the `durtal-device` cookie, which the proxy sets on the first reader page. Same-origin only; a malformed id answers `400` before any database call. `Cache-Control: no-store`.
 
-**GET response** `200`: `{ "positions": [{ "fileId", "locator", "progression", "furthestProgression", "chapter", "deviceLabel", "clientUpdatedAt", "updatedAt" }] }`, one per file of the e-book this device has read, newest first; empty without a device cookie. `404`: no such e-book.
+**GET response** `200`: `{ "positions": [{ "deviceId", "deviceLabel", "fileId", "locator", "progression", "furthestProgression", "chapter", "clientUpdatedAt", "thisDevice" }] }`. One row per device and file, ordered newest first by `clientUpdatedAt` with deterministic device/file tie-breaking. `thisDevice` compares the HttpOnly cookie; without a valid cookie all rows remain visible with `thisDevice: false`. `404`: no such e-book. POST's body, response and conflict semantics are unchanged.
+
+A client may append `?touch=1` to the shared position URL when a Macintosh user agent has more than one touch point. This bounded hint affects only its saved display label (`iPad · Safari`); it never changes device identity. Fetch and sendBeacon use the same URL. Unknown user agents are labelled `Browser`.
 
 **POST body**:
 

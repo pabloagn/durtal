@@ -53,4 +53,13 @@ describe("parseBookFilters", () => {
   it("has no filter when nothing is chosen", () => {
     expect(hasBookFilters(parse("q=dune&sort=title").filters)).toBe(false);
   });
+
+  it("shares the reader availability choice with API and timeline filters", () => {
+    expect(parse("ebook=yes").filters).toEqual({ hasEbook: true });
+    expect(parse("ebook=no").filters).toEqual({ hasEbook: false });
+    expect(bookFiltersSchema.parse(parse("ebook=no").filters)).toEqual({ hasEbook: false });
+    expect(hasBookFilters(parse("ebook=no").filters)).toBe(true);
+    expect(parse("ebook=yes,no").filters).toEqual({});
+    expect(parse("ebook=linked").issues.map((issue) => issue.path[0])).toEqual(["ebook"]);
+  });
 });

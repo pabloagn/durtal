@@ -1,54 +1,77 @@
 #!/usr/bin/env node
-// Copies what pdf.js loads at run time into public/vendor/pdfjs/, so the
-// reader never loads anything from another origin (eBooks sub-issue 3): the
-// worker, the character maps, the standard fonts and the wasm decoders from
-// Durtal's own pdfjs-dist, and the two layer stylesheets vendored with
-// foliate-js (src/vendor/foliate-js/pdfjs-css/). `pnpm dev` and `pnpm build`
-// run it first; it is not a postinstall step. The folder is git-ignored and
-// rebuilt when the pdfjs-dist version or the patch below changes.
-//
-// The worker gets one patch (src/vendor/foliate-js/VENDORED.md, patch 4).
-// On its first page lookup pdf.js fetches every child of the root of the
-// page tree, and its last-page check then waits for all of them: in a flat
-// tree (most scanned PDFs) that is one Range request per page before the
-// first page shows, 300 requests for a 300-page scan. When the root's /Count
-// equals its number of children, each child holds exactly one page, so the
-// patch records that count instead and only the pages asked for are read.
-// The patch is written against the minified worker of the pinned version:
-// a version whose worker does not contain the exact text stops the copy.
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+// Installed pinned assets, the established page-tree patch, and exact installed
+// layer rules. Runtime URLs and provenance share the same versioned directory.
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stagePdfjsAssets } from "./qa/stage-pdfjs-assets.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(join(root, "package.json"));
-const pdfjs = dirname(require.resolve("pdfjs-dist/package.json"));
-const { version } = JSON.parse(readFileSync(join(pdfjs, "package.json"), "utf8"));
-const target = join(root, "public/vendor/pdfjs");
+const source = dirname(require.resolve("pdfjs-dist/package.json"));
+const { version } = JSON.parse(readFileSync(join(source, "package.json"), "utf8"));
+const target = join(root, "public/vendor/pdfjs", version);
 const stamp = join(target, ".version");
-const css = join(root, "src/vendor/foliate-js/pdfjs-css");
-
-const PATCH = 1;
-const wanted = `${version} durtal-patch-${PATCH}\n`;
-if (existsSync(stamp) && readFileSync(stamp, "utf8") === wanted) process.exit(0);
-
-// In getPageDict: the loop that pushes the root's children (h: Kids, n: the
-// node, c: its /Count, r: the kids-count cache, o: the page-dict cache)
-const KIDS_PREFETCH = "n===this.toplevelPagesDict&&a instanceof Ref&&!o.has(a)&&o.put(a,s.fetchAsync(a))";
-const ONE_PAGE_EACH =
-  "n===this.toplevelPagesDict&&a instanceof Ref&&(h.length===c?r.has(a)||r.put(a,1):!o.has(a)&&o.put(a,s.fetchAsync(a)))";
-const worker = readFileSync(join(pdfjs, "build/pdf.worker.min.mjs"), "utf8");
-if (worker.split(KIDS_PREFETCH).length !== 2) {
-  console.error(`pdf.js ${version}: the page-tree patch does not apply to this worker; update scripts/vendor-pdfjs.mjs`);
-  process.exit(1);
+const marker = join(target, "ASSETS.json");
+const wanted = `${version} durtal-page-tree-1 layers-1\n`;
+const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
+if (existsSync(stamp) && readFileSync(stamp, "utf8") === wanted && existsSync(marker)) {
+  const saved = JSON.parse(readFileSync(marker, "utf8"));
+  if (saved.mode === "durtal-runtime-patched" && saved.version === version &&
+      saved.files.every((file) => !file.path.startsWith("/") && !file.path.split("/").includes("..") &&
+        existsSync(join(target, file.path)) && hash(readFileSync(join(target, file.path))) === file.sha256))
+    process.exit(0);
 }
 
-rmSync(target, { recursive: true, force: true });
-mkdirSync(target, { recursive: true });
-writeFileSync(join(target, "pdf.worker.min.mjs"), worker.replace(KIDS_PREFETCH, ONE_PAGE_EACH));
-for (const dir of ["cmaps", "standard_fonts", "wasm"]) cpSync(join(pdfjs, dir), join(target, dir), { recursive: true });
-for (const file of ["text_layer_builder.css", "annotation_layer_builder.css"]) cpSync(join(css, file), join(target, file));
-cpSync(join(pdfjs, "LICENSE"), join(target, "LICENSE"));
+// VENDORED.md patch 4: flat root trees record one page per child instead of
+// eagerly fetching every child before the first requested page can render.
+const KIDS_PREFETCH = "n===this.toplevelPagesDict&&a instanceof Ref&&!o.has(a)&&o.put(a,s.fetchAsync(a))";
+const ONE_PAGE_EACH = "n===this.toplevelPagesDict&&a instanceof Ref&&(h.length===c?r.has(a)||r.put(a,1):!o.has(a)&&o.put(a,s.fetchAsync(a)))";
+const rawWorker = readFileSync(join(source, "build/pdf.worker.min.mjs"), "utf8");
+if (rawWorker.split(KIDS_PREFETCH).length !== 2)
+  throw new Error(`pdf.js ${version}: the page-tree patch does not apply exactly once`);
+
+// Keep each installed top-level layer rule, including its nested selectors and
+// font-size transforms. Viewer-shell styles do not belong inside a page iframe.
+function layerRule(css, selector) {
+  const start = css.indexOf(`\n${selector} {`);
+  if (start < 0) throw new Error(`Missing installed layer rule: ${selector}`);
+  const opening = css.indexOf("{", start);
+  let depth = 1;
+  let quote = null;
+  let comment = false;
+  for (let i = opening + 1; i < css.length; i++) {
+    const char = css[i];
+    if (comment) {
+      if (char === "*" && css[i + 1] === "/") { comment = false; i++; }
+      continue;
+    }
+    if (quote) {
+      if (char === "\\") i++;
+      else if (char === quote) quote = null;
+      continue;
+    }
+    if (char === "/" && css[i + 1] === "*") { comment = true; i++; continue; }
+    if (char === '"' || char === "'") { quote = char; continue; }
+    if (char === "{") depth++;
+    if (char === "}" && --depth === 0) return css.slice(start + 1, i + 1);
+  }
+  throw new Error(`Unterminated installed layer rule: ${selector}`);
+}
+const viewerBytes = readFileSync(join(source, "web/pdf_viewer.css"));
+const viewerCss = viewerBytes.toString("utf8");
+const layers = `/* Copyright Mozilla Foundation. Apache-2.0; see LICENSE.\n * Installed pdf.js ${version}, web/pdf_viewer.css SHA-256 ${hash(viewerBytes)}.\n */\n${[".textLayer", ".textLayerImages", ".annotationLayer"].map((selector) => layerRule(viewerCss, selector)).join("\n\n")}\n`;
+const worker = rawWorker.replace(KIDS_PREFETCH, ONE_PAGE_EACH);
+// All transformations are validated before staging publishes any assets.
+const { manifest } = stagePdfjsAssets({ source, destination: target });
+writeFileSync(join(target, "pdf.worker.min.mjs"), worker);
+writeFileSync(join(target, "layers.css"), layers);
+const files = manifest.files.map((file) => file.path === "pdf.worker.min.mjs"
+  ? { ...file, upstreamSha256: file.sha256, sha256: hash(worker), size: Buffer.byteLength(worker), transform: "durtal-page-tree-1" }
+  : file);
+files.push({ path: "layers.css", source: "web/pdf_viewer.css", upstreamSha256: hash(viewerBytes), sha256: hash(layers), size: Buffer.byteLength(layers), transform: "installed-layer-rules-1" });
+writeFileSync(marker, `${JSON.stringify({ ...manifest, mode: "durtal-runtime-patched", files }, null, 2)}\n`);
 writeFileSync(stamp, wanted);
-console.log(`pdf.js ${version}: worker (patched), cmaps, standard fonts and wasm copied to public/vendor/pdfjs/`);
+console.log(`pdf.js ${version}: versioned worker, decoders, ICCs, fonts and installed layer CSS staged`);

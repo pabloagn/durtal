@@ -1,6 +1,10 @@
 "use client";
 
 import { CopyBookButton } from "./copy-book-button";
+import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
+import { EbookMark } from "./ebook-mark";
+import { COVER_CORNER } from "./cover-chip";
+import { CatalogueReadLink } from "@/components/ebooks/catalogue-read-action";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 
 import Link from "next/link";
@@ -35,6 +39,8 @@ export interface DetailedBookItem {
   isRare?: boolean;
   huntAssessedOn?: string | null;
   isPoison?: boolean;
+  ebook?: WorkEbookDTO | null;
+  readerReturnTo?: string;
   publisher?: string | null;
   binding?: string | null;
   pages?: number | null;
@@ -85,7 +91,7 @@ function readingSortValue(book: DetailedBookItem, key: string): string | number 
   return ((book as any)[key] ?? "") as string | number;
 }
 
-function renderBookCell(book: DetailedBookItem, key: string) {
+function renderBookCell(book: DetailedBookItem, key: string, isSelecting = false) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const val = (book as any)[key];
   switch (key) {
@@ -112,6 +118,7 @@ function renderBookCell(book: DetailedBookItem, key: string) {
                 <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/40">{book.title[0]}</span>
               </div>
             )}
+            {!isSelecting && book.ebook?.readable && <div className={COVER_CORNER.bottomLeft}><EbookMark ebook={book.ebook} /></div>}
           </div>
           <span className="min-w-0"><span className="block truncate">{book.title}</span><HuntBadge {...book} /><PoisonBadge isPoison={book.isPoison} /></span>
         </Link>
@@ -119,6 +126,7 @@ function renderBookCell(book: DetailedBookItem, key: string) {
         <span className="flex flex-col">
           <CapAlignedControls height={28} coarseHeight={44}>
             <CopyBookButton {...book} />
+            {!isSelecting && <CatalogueReadLink ebook={book.ebook ?? null} returnTo={book.readerReturnTo} />}
           </CapAlignedControls>
           {(book.isRare || book.isPoison) && <span aria-hidden="true" className="block h-[1lh]" />}
         </span>
@@ -178,7 +186,7 @@ export function BookDataTable({
       allColumns={ALL_COLUMNS}
       columns={columns}
       onColumnsChange={onColumnsChange}
-      renderCell={renderBookCell}
+      renderCell={(book, key) => renderBookCell(book, key, isSelecting)}
       getSortValue={readingSortValue}
       // The server's sort holds until a header is clicked
       preserveOrder

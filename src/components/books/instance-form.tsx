@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import {
   FormSection as Section,
   FormColumns,
@@ -127,6 +129,7 @@ interface InstanceFormProps {
   onRemove?: () => void;
   locations: LocationOption[];
   index: number;
+  ebookField?: ReactNode;
 }
 
 /** A copy's form values as createInstance and updateInstance take them */
@@ -189,6 +192,7 @@ export function InstanceForm({
   onRemove,
   locations,
   index,
+  ebookField,
 }: InstanceFormProps) {
   function update<K extends keyof InstanceDraft>(
     field: K,
@@ -221,6 +225,7 @@ export function InstanceForm({
       </div>
 
       <div className="space-y-3">
+        {ebookField}
         {/* Location (required) */}
         <FormColumns>
           <Select

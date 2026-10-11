@@ -122,6 +122,7 @@ describe("medallion publication", () => {
           status: "stored",
           drm: null,
           sha256: value.file.sha256,
+          sizeBytes: value.file.size,
           format,
           s3Key: value.file.key,
           metadata: value.file.metadata,
@@ -174,12 +175,14 @@ describe("medallion publication", () => {
     expect(isDeliveryFileKey(value.stage.medallion.bronze.key, value.file.sha256, "epub")).toBe(false);
     expect(isDeliveryFileKey(`files/${value.file.sha256.slice(0, 2)}/${value.file.sha256}.epub`, value.file.sha256, "epub")).toBe(true);
     expect(parseStageKey(value.file.key.replace(value.file.sha256.slice(0, 2), "zz"))).toBeNull();
-    expect(isDeliverable({ status: "stored", drm: null, sha256: value.file.sha256, format: "epub", s3Key: value.file.key, metadata: value.file.metadata })).toBe(true);
+    expect(isDeliverable({ status: "stored", drm: null, sha256: value.file.sha256,
+        sizeBytes: value.file.size, format: "epub", s3Key: value.file.key, metadata: value.file.metadata })).toBe(true);
     expect(
       isDeliverable({
         status: "stored",
         drm: null,
         sha256: value.file.sha256,
+        sizeBytes: value.file.size,
         format: "epub",
         s3Key: value.file.key,
         metadata: { medallion: { ...value.stage.medallion, gold: [] } },

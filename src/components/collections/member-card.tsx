@@ -17,6 +17,7 @@ export function MemberCard({
   note,
   noteMono = false,
   actions,
+  mark,
 }: {
   href: string;
   /** The image, already shaped for its collection; it fills the frame's width */
@@ -30,6 +31,7 @@ export function MemberCard({
   note: string | null;
   noteMono?: boolean;
   actions: ReactNode;
+  mark?: ReactNode;
 }) {
   return (
     <article className="flex gap-4 rounded-sm border border-glass-border bg-bg-secondary p-4">
@@ -38,9 +40,10 @@ export function MemberCard({
         href={href}
         tabIndex={-1}
         aria-label={title}
-        className="flex h-32 w-20 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-primary"
+        className="relative flex h-32 w-20 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-primary"
       >
         <div className="w-full">{image}</div>
+        {mark}
       </Link>
       {/* Text grows with its content instead of clipping */}
       <div className="flex min-w-0 flex-1 flex-col">

@@ -15,6 +15,7 @@ import { CardReading } from "@/components/books/card-status";
 
 beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
 });
 let root: Root;
 let host: HTMLElement;
@@ -37,6 +38,13 @@ const card = {
   catalogueStatus: "accessioned",
   acquisitionPriority: "high",
   rating: 4,
+};
+const ebook = {
+  id: "11111111-1111-1111-1111-111111111111",
+  title: "Watt",
+  formats: ["epub"] as const,
+  readable: true,
+  readerPath: "/reader/11111111-1111-1111-1111-111111111111?file=22222222-2222-2222-2222-222222222222",
 };
 
 describe("CardReading", () => {
@@ -62,5 +70,66 @@ describe("CardReading", () => {
     act(() => root.render(createElement(BookCard, card)));
     expect(host.querySelector("[data-card-reading]")).toBeNull();
     expect(host.textContent).toContain("Accessioned");
+  });
+
+  it("uses explicit unavailable metadata to override the old linked-row mark without altering status", () => {
+    act(() => root.render(createElement(BookCard, { ...card, hasDigitalEdition: true })));
+    expect(host.querySelector('[aria-label="eBook available"]')).toBeNull();
+    act(() => root.render(createElement(BookCard, { ...card, hasDigitalEdition: true, ebook: null })));
+    expect(host.querySelector('[aria-label="eBook available"]')).toBeNull();
+    expect(host.textContent).toContain("Accessioned");
+    act(() => root.render(createElement(BookCard, { ...card, ebook })));
+    expect(host.querySelector('[aria-label="eBook available"]')).not.toBeNull();
+    expect(host.textContent).toContain("Accessioned");
+  });
+
+  it("opens the actual card menu on a cover context click", async () => {
+    act(() => root.render(createElement(BookCard, { ...card, ebook })));
+    const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    await act(async () => {
+      host.querySelector<HTMLAnchorElement>('a[href="/library/watt"]')!.dispatchEvent(event);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    expect(event.defaultPrevented).toBe(true);
+    expect(host.querySelector('a[data-reader-entry]')).not.toBeNull();
+  });
+
+  it("keeps the card menu reader link's native default and origin destination", async () => {
+    act(() => root.render(createElement(BookCard, { ...card, ebook, readerReturnTo: "/people/samuel-beckett?view=books" })));
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('button[aria-label="Actions"]')!.click();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    const link = host.querySelector<HTMLAnchorElement>('a[data-reader-entry]')!;
+    const url = new URL(link.href);
+    expect(url.searchParams.get("file")).toBe("22222222-2222-2222-2222-222222222222");
+    expect(url.searchParams.get("returnTo")).toBe("/people/samuel-beckett?view=books");
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    act(() => { link.dispatchEvent(event); });
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("closes an open menu for selection and keeps it closed when selection ends", async () => {
+    act(() => root.render(createElement(BookCard, { ...card, ebook })));
+    await act(async () => {
+      host.querySelector<HTMLAnchorElement>('a[href="/library/watt"]')!.dispatchEvent(
+        new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+      );
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    expect(host.querySelector('a[data-reader-entry]')).not.toBeNull();
+    act(() => root.render(createElement(BookCard, { ...card, ebook, isSelecting: true })));
+    expect(host.querySelector('button[aria-label="Actions"]')).toBeNull();
+    expect(host.querySelector('a[data-reader-entry]')).toBeNull();
+    act(() => root.render(createElement(BookCard, { ...card, ebook, isSelecting: false })));
+    expect(host.querySelector('button[aria-label="Actions"]')).not.toBeNull();
+    expect(host.querySelector('a[data-reader-entry]')).toBeNull();
+    await act(async () => {
+      host.querySelector<HTMLAnchorElement>('a[href="/library/watt"]')!.dispatchEvent(
+        new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+      );
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    expect(host.querySelector('a[data-reader-entry]')).not.toBeNull();
   });
 });

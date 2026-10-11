@@ -11,6 +11,7 @@ import {
   media,
   perfumeVariants,
 } from "@/lib/db/schema";
+import { isEditionCoverKey } from "./keys";
 import { s3, S3_BUCKET } from "./client";
 import { previewDeleteMany, previewList, previewS3Dir } from "./preview-dir";
 
@@ -253,7 +254,8 @@ export async function keysInUse(keys: string[], database: Pick<typeof db, "execu
 /**
  * Delete what a removed record left in the bucket. Call it only after the
  * database delete commits. A key that any row still stores is kept, and so is
- * every stored key outside gold/. Returns true when some objects remain; the
+ * every key outside gold/, including prefix results. Covers are never physically
+ * deleted: unreferenced covers report cleanupPending until safe retirement. The
  * orphan report (scripts/maintenance/report-orphaned-s3.ts) finds them later.
  */
 export async function deleteUnusedObjects(
@@ -261,15 +263,25 @@ export async function deleteUnusedObjects(
   context: string,
 ): Promise<boolean> {
   try {
-    const keys = new Set(stored.keys.filter((key) => key.startsWith("gold/")));
+    const keys = new Set(stored.keys);
     for (const prefix of stored.prefixes)
       for (const key of await listKeys(prefix)) keys.add(key);
-    const candidates = [...keys];
+    // Apply the boundary AFTER prefix expansion too. Prefixes include bronze
+    // and silver; their objects must never enter this deletion path.
+    const candidates = [...keys].filter((key) => key.startsWith("gold/"));
     let failed = false;
     for (let offset = 0; offset < candidates.length; offset += 1000) {
       const batch = candidates.slice(offset, offset + 1000);
       const inUse = await keysInUse(batch);
-      const unused = batch.filter((key) => !inUse.has(key));
+      const unreferenced = batch.filter((key) => !inUse.has(key));
+      const retained = unreferenced.filter(isEditionCoverKey);
+      if (retained.length) {
+        failed = true;
+        console.warn("[s3-cleanup] covers retained pending safe retirement", { context, keys: retained });
+      }
+      // Even a correct all-reference read cannot exclude concurrent adoption.
+      // Cover bytes and their adjustment metadata stay until a durable protocol.
+      const unused = unreferenced.filter((key) => !isEditionCoverKey(key));
       if (!unused.length) continue;
       const dir = previewS3Dir();
       const response = dir

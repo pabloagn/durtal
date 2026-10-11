@@ -13,6 +13,7 @@ import {
   Copy,
   Link2,
   BookMarked,
+  BookOpen,
   BookPlus,
   CalendarClock,
   ListOrdered,
@@ -26,7 +27,7 @@ import {
 } from "lucide-react";
 import { KeyCombo, Kbd } from "@/components/shortcuts/kbd";
 import { useShortcutActions } from "@/components/shortcuts/shortcuts-provider";
-import { quickSearch, type QuickSearchResult } from "@/lib/actions/quick-search";
+import { quickSearch, getPaletteContinueReading, type QuickSearchResult } from "@/lib/actions/quick-search";
 import { ADD, COPY_KEYS, GO_TO, SHORTCUTS, type Keys } from "@/lib/shortcuts/shortcuts";
 import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
 import { filterBySearch } from "@/lib/utils/search-text";
@@ -40,10 +41,18 @@ import { useStopTimer } from "@/components/reading/timer-chip";
 import { getOpenReadings } from "@/lib/actions/reading";
 import { paletteReadingItems, queryNamesATitle, type PaletteOpenReading } from "@/lib/reading/palette";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { PaletteEbookReadAction } from "@/components/ebooks/catalogue-read-action";
+import { ebookPaletteGroup } from "@/lib/ebooks/palette-group";
+import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
+import { readerEntryHref } from "@/lib/reader/entry-policy";
+import { isComposing } from "@/lib/shortcuts/shortcuts";
 
 interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Shared Continue query output, fetched by the owner adapter when opened. */
+  recentEbook?: WorkEbookDTO | null;
+  readerReturnTo?: string;
 }
 
 interface PaletteItem {
@@ -132,7 +141,7 @@ const GROUP_CLASS =
 const ITEM_CLASS =
   "flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-sm text-fg-secondary transition-colors aria-selected:bg-selection-bg/60 aria-selected:text-fg-primary";
 
-export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
+export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo }: CommandPaletteProps) {
   const router = useRouter();
   const actions = useShortcutActions();
   const [, startTransition] = useTransition();
@@ -140,6 +149,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const [selected, setSelected] = useState("");
   const [results, setResults] = useState<QuickSearchResult>(NO_RESULTS);
   const [searching, setSearching] = useState(false);
+  const [recentFromQuery, setRecentFromQuery] = useState<WorkEbookDTO | null>(null);
 
   const navigate = useCallback(
     (href: string) => {
@@ -168,20 +178,39 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     if (!open) {
       setQuery("");
       setResults(NO_RESULTS);
+      setRecentFromQuery(null);
       return;
     }
     let live = true;
     getOpenReadings()
       .then((rows) => live && setOpenReadings(rows))
       .catch(() => live && setOpenReadings([]));
+    if (recentEbook === undefined) getPaletteContinueReading()
+      .then((ebook) => live && setRecentFromQuery(ebook))
+      .catch(() => live && setRecentFromQuery(null));
     return () => {
       live = false;
     };
-  }, [open]);
+  }, [open, recentEbook]);
 
   // Works of every open collection, people, organizations and places; an
   // older answer never replaces a newer one
   const trimmed = query.trim();
+  const returnDestination = readerReturnTo ?? (typeof window !== "undefined"
+    ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+    : null);
+  const ebookGroup = ebookPaletteGroup({
+    works: results.works.map((work) => ({ id: work.id, kind: work.kind, ebook: work.ebook ?? null })),
+    ebooks: results.ebooks ?? [],
+    recent: recentEbook === undefined ? recentFromQuery : recentEbook,
+    emptyQuery: !trimmed,
+  });
+  function readEbook(path: string) {
+    const href = readerEntryHref(path, returnDestination);
+    if (!href) return;
+    onOpenChange(false);
+    window.location.assign(href);
+  }
   useEffect(() => {
     if (trimmed.length < 2) {
       setResults(NO_RESULTS);
@@ -266,6 +295,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const firstValue =
     (smartFirst && smartItems[0] && smartItems[0].value) ||
     (results.works[0] && `work:${results.works[0].id}`) ||
+    (ebookGroup.ebooks[0] && `ebook:${ebookGroup.ebooks[0].id}`) ||
+    (ebookGroup.continueReading && "ebook:continue") ||
     (smartItems[0] && smartItems[0].value) ||
     (results.people[0] && `person:${results.people[0].id}`) ||
     (results.organizations[0] && `org:${results.organizations[0].id}`) ||
@@ -317,6 +348,15 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           value={selected}
           onValueChange={setSelected}
           loop
+          onKeyDownCapture={(event) => {
+            if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey || isComposing(event.nativeEvent)) return;
+            const workId = selected.startsWith("work:") ? selected.slice(5) : null;
+            const path = workId ? ebookGroup.bookReaderPaths.get(workId) : null;
+            if (!path || !readerEntryHref(path, returnDestination)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            readEbook(path);
+          }}
         >
           <div className="flex items-center border-b border-glass-border px-4">
             <Search className="mr-2 h-4 w-4 shrink-0 text-fg-muted" strokeWidth={1.5} />
@@ -365,6 +405,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                           {work.year}
                         </span>
                       )}
+                      {work.kind === "book" && (
+                        <PaletteEbookReadAction ebook={work.ebook ?? null} returnTo={returnDestination} onRead={() => onOpenChange(false)} />
+                      )}
                     </Command.Item>
                   ))}
                 </Command.Group>
@@ -372,6 +415,23 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             })}
 
             {!smartFirst && smartGroup}
+
+            {(ebookGroup.ebooks.length > 0 || ebookGroup.continueReading) && (
+              <Command.Group heading="eBooks" className={GROUP_CLASS}>
+                {ebookGroup.continueReading && (
+                  <Command.Item value="ebook:continue" className={ITEM_CLASS} onSelect={() => readEbook(ebookGroup.continueReading!.readerPath!)}>
+                    <BookOpen className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    <span className="min-w-0 flex-1 truncate">{ebookGroup.continueReading.title}</span>
+                  </Command.Item>
+                )}
+                {ebookGroup.ebooks.map((ebook) => (
+                  <Command.Item key={ebook.id} value={`ebook:${ebook.id}`} className={ITEM_CLASS} onSelect={() => navigate(ebook.href)}>
+                    <BookOpen className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    <span className="min-w-0 flex-1 truncate">{ebook.title}</span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
 
             {results.people.length > 0 && (
               <Command.Group heading="People" className={GROUP_CLASS}>

@@ -62,6 +62,31 @@ describe("mosaic", () => {
     expect([2, 4, 6, 8].map(mosaicPerRow)).toEqual([4, 6, 8, 10]);
   });
 
+  it("opens an optional catalogue menu beside the cover link and suppresses it during selection", () => {
+    const book: MosaicItem = { ...items[0], actions: (open) => createElement("button", { "aria-expanded": open }, "Actions") };
+    act(() => root.render(createElement(Mosaic, { items: [book, items[1]], perRow: 8, aspect: 2 / 3 })));
+    const cover = host.querySelector<HTMLAnchorElement>('a[href="/library/a"]')!;
+    const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    act(() => { cover.dispatchEvent(event); });
+    expect(event.defaultPrevented).toBe(true);
+    expect(host.querySelector('button[aria-expanded="true"]')).not.toBeNull();
+    expect(cover.querySelector("button")).toBeNull();
+    const paintingContext = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    act(() => { host.querySelector('a[href="/paintings/b"]')!.dispatchEvent(paintingContext); });
+    expect(paintingContext.defaultPrevented).toBe(false);
+    act(() => root.render(createElement(Mosaic, { items: [book], perRow: 8, aspect: 2 / 3, isSelecting: true })));
+    expect(host.querySelector("button")).toBeNull();
+    act(() => root.render(createElement(Mosaic, { items: [book], perRow: 8, aspect: 2 / 3, isSelecting: false })));
+    expect(host.querySelector('button[aria-expanded="false"]')).not.toBeNull();
+    expect(host.querySelector('button[aria-expanded="true"]')).toBeNull();
+    act(() => {
+      host.querySelector<HTMLAnchorElement>('a[href="/library/a"]')!.dispatchEvent(
+        new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+      );
+    });
+    expect(host.querySelector('button[aria-expanded="true"]')).not.toBeNull();
+  });
+
   it("is offered by every list with pictures, and kept like the other views", () => {
     for (const list of [LIST_PREFERENCES.library, LIST_PREFERENCES.authors, LIST_PREFERENCES.collections])
       expect(list.view.modes).toContain("mosaic");

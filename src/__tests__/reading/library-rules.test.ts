@@ -158,12 +158,12 @@ describe("the table's reading columns", () => {
 describe("every card mapper passes the reading", () => {
   const root = path.resolve(__dirname, "../../..");
   it.each([
-    "src/app/library/page.tsx",
-    "src/app/page.tsx",
+    "src/app/(catalogue)/library/page.tsx",
+    "src/app/(catalogue)/page.tsx",
     "src/components/books/work-carousel.tsx",
-    "src/app/people/[slug]/page.tsx",
-    "src/app/recommenders/[id]/page.tsx",
-    "src/app/taxonomy/[familySlug]/[itemSlug]/page.tsx",
+    "src/app/(catalogue)/people/[slug]/page.tsx",
+    "src/app/(catalogue)/recommenders/[id]/page.tsx",
+    "src/app/(catalogue)/taxonomy/[familySlug]/[itemSlug]/page.tsx",
     "src/lib/publishers/books.ts",
   ])("%s", (file) => {
     expect(readFileSync(path.join(root, file), "utf8")).toMatch(/reading(:|=\{)\s*cardReadingOf\(/);

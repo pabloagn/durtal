@@ -13,6 +13,8 @@ import {
   requireApiToken,
 } from "@/lib/api/rest";
 import { RATING_SCHEMA } from "@/lib/validations/helpers";
+import { getWorkDigitalAvailability } from "@/lib/ebooks/work-availability";
+import { workEbookDTO } from "@/lib/ebooks/catalogue-dto";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -26,7 +28,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
     if (!work) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    return NextResponse.json(work);
+    const digital = await getWorkDigitalAvailability([id], { includePositions: false });
+    return NextResponse.json({ ...work, ebooks: (digital.get(id)?.ebooks ?? []).map(workEbookDTO) });
   } catch (err) {
     console.error("[api/works/:id] Failed to fetch work:", err);
     return NextResponse.json({ error: "Failed to fetch work" }, { status: 500 });

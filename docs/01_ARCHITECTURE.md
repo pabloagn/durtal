@@ -216,6 +216,14 @@ PDFs use Durtal's own `pdfjs-dist` (the fork's copy of pdf.js is not vendored): 
 
 The book's bytes never pass through a whole-file download: the engine reads HTTP ranges of the file from the CDN or the app's route (docs/07, Reading e-books by range). A book is untrusted HTML: its sections are blob frames that inherit the reader page's Content-Security-Policy (`src/lib/reader/csp.ts`, set by `src/proxy.ts` with a per-request nonce), so a script inside a book never runs. Input (`src/lib/reader/input.ts`) is one layer attached to the app's document and to every section document, and the place is saved off the input path (`src/lib/reader/position-queue.ts`).
 
+### Reader bridge and places across devices (SLN-493)
+
+`ReaderBridgeProvider` in `src/components/reader/bridge.tsx` owns one event bus and slot registry per open e-book/file. Plugins use only `useReaderEvent`, `ReaderSlotFill`, `useReaderShortcut` and `useReaderContext`. Activity is throttled per kind and silent while hidden; location (opening/jump or turn), actual last-page arrival and settled selection events dispatch after a displaying animation frame and then a microtask. Exceptions in handlers or client components are isolated. Context subscribers update without remounting the engine; slot portals follow plugin-list order.
+
+The slots are `toolbar-status`, `top-bar` and `selection-actions`. Registered plugin shortcuts reach the app and book documents, share reader guards and cannot claim reserved keys. `q` is free for the tracker. `src/app/reader/[ebookId]/plugins.ts` defines `{ id, load?(ctx: { ebookId }), Component }`; optional server loads run in parallel with the page query, failed/nonserializable loads are omitted, and successful client components receive serializable data inside independent error boundaries. The production list contains SLN-454 ReaderTracking. Its failure component keeps the required controller unavailable until the guarded loader succeeds. Loaders never enter the client registry or bundle.
+
+SLN-454 owns the tracker plugin and every tracker write. The mounted reader saves positions and annotations through the same origin offline store and replayer; annotation quote deletion carries only a tracker-prepared deferred effect. Presentation writes use the independently owned reader preference actions. Cross-device rules are pure in `src/lib/reader/sync/places.ts`; returning-tab/online refresh awaits the save queue before one GET, coalesces triggers and invalidates pending offers on local intent or close.
+
 ### Cascading Deletes
 
 Foreign keys use `onDelete: "cascade"` throughout the schema. Deleting a work removes all its editions; deleting an edition removes all its instances. This matches the domain model: if a work does not exist, neither do its publications or copies.
@@ -223,3 +231,73 @@ Foreign keys use `onDelete: "cascade"` throughout the schema. Deleting a work re
 ### Singleton Database Connection
 
 The Drizzle database client uses a module-level singleton pattern (stored on `globalThis` in development to survive HMR). This prevents connection pool exhaustion during development.
+
+### Reader experience source candidate
+
+The isolated experience integration adds the catalogue/reader document split,
+SLN-497 library and Continue, SLN-501 presentation, SLN-502 PDF, SLN-507 durable
+positions, SLN-500 annotations, SLN-454 tracker, SLN-503 content/search and
+SLN-508 speech to the central 3bb55607 source base. These are source changes;
+no combined executable, native, build or database acceptance is implied.
+
+The page reads a bounded per-book preference snapshot. The mounted reader freezes
+its device class, activates the approved preference saver, and opens the engine
+only after adoption/readiness succeeds; failures and stalled adoption stay visible.
+Book/default updates and defaults-with-book-field-clearing use the reviewed action
+contract. Font files and metrics remain the approved SLN-501 inventory. Cold font
+transfer and native layout acceptance remain open, without a budget waiver.
+
+`useReaderAnnotations` mounts after the owned first painted landing. It injects
+SLN-500's transport codec over `getReaderRuntime`, subscribes to its durable
+snapshot, and disposes each generation. Highlights, bookmarks, note drafts,
+panel navigation and delayed-deletion Undo use that controller. The tracker owns
+quote choices through `bridge.annotationDeletes`; no second mutation sender or
+tracker writer is introduced. Feature shortcut registration retains keymap owners
+and leaves plugin reservations in force.
+
+The adapter applies the approved reflowable typography/layout policy and owns a
+separate page-local colour sheet. Colour-only changes skip paginator setters and
+`setStyles`; layout events retain their non-human origin. PDF search uses the actual
+opened PDF text provider and its measured offset locators, revoked on failure or
+close. PDF annotations heal against actual page text and measured offset ranges;
+ambiguous passages remain orphaned and absent measurements remain pending. PDF
+speech segments original UTF-16 page text into measured sentences. Independent
+PDF overlays wait for raster, text and safe links to finish and use the adopted
+viewport/crop for navigation and drawing. No geometry or text stand-in is used.
+
+PDF crop samples actual page pixels through the same canvas ledger, with a
+serialized transient sample and a bounded sixteen-page crop cache. Auto uses
+actual first-page PDF image operators and extracted text; unsupported clipping,
+rotation/shear or image batches conservatively retain the full page. Crop changes
+refresh existing fixed frames with measured dimensions. PDF theme mapping changes
+raster colours independently of text geometry. Fixed pages expose session zoom,
+saved fit, automatic spread policy and a bounded picker from real page/spine
+entries. Comics apply deterministic path sorting, Manga direction, folder contents
+and the accepted twelve-image LRU policy over real archive sources.
+
+Settings now uses the approved preference saver for each device class and lists
+fifty per-book overrides per page through the joined server read. Clearing targets
+one explicit book and device; late responses from a departed scope are discarded.
+Failures remain visible. Annotation conflict UI reads retained shared-store
+rejections and blocked originals, permits downloading the exact draft, and retries
+blocked operations only through existing authenticated exact-reference
+reconciliation. It never relabels or replays a terminal rejection.
+
+A page-local publisher-ink pass captures native computed source colours before
+its writes, then applies the approved hue/contrast policy. It preserves transparent
+text and SVG/math art. Separate read/write slices yield after 128 nodes or eight
+milliseconds; colour changes do not touch fonts or paginator geometry. The
+initial landing and navigation await the latest owned pass with bounded,
+cancellable delivery. Native style resolution, first paint, cancellation, crop
+geometry, canvas limits, UI alignment and performance remain validation gates.
+
+Fixed zoom/fit mutations require live controller admission at dispatch, including
+pointer actions and stale keyboard handlers. PDF navigation replaces any cached
+passage target on every new command and clears it on failure; consecutive speech
+Previous does not cache its current sentence as its own predecessor. Fixed
+scrolled navigation publishes an immediate owned page arrival and suppresses
+only its matching delayed scroll settlement at actual clamped coordinates.
+Human input or displaced coordinates restore ordinary scroll publication.
+These corrections are source-only; their regression sources are unexecuted and
+native behavior remains pending. A fresh independent review and genuine Next
+route type generation must bind later validation to the corrected revision.

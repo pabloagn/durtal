@@ -163,7 +163,13 @@ export {
 // ── eBooks ───────────────────────────────────────────────────────────────────
 export { ebooks, ebooksRelations, ebookFiles, ebookFilesRelations } from "./ebooks";
 export { ebookPositions, ebookPositionsRelations } from "./ebook-positions";
-export { ebookAnnotations, ebookAnnotationsRelations } from "./ebook-annotations";
+export {
+  ebookAnnotations,
+  ebookAnnotationsRelations,
+  ebookAnnotationRetiredIds,
+  ebookAnnotationCursors,
+} from "./ebook-annotations";
+export { readerPreferences } from "./reader-preferences";
 export {
   ebookIngestRuns,
   ebookIngestRunsRelations,
@@ -228,3 +234,6 @@ export * from "./paintings";
 export { workRelations } from "./work-relations";
 export * from "./readings";
 export * from "./reading-import-rows";
+export { ebookMatchCandidates } from "./ebook-match";
+export * from "./reader-tracking";
+export { ebookUploadCapacity, ebookUploadOperations } from "./ebook-upload";

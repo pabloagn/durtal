@@ -13,7 +13,7 @@ import {
 } from "vitest";
 import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { CoarseImageSource } from "@/components/shared/coarse-image-source";
-import { WorkPosterImage } from "@/app/library/[slug]/work-poster-image";
+import { WorkPosterImage } from "@/app/(catalogue)/library/[slug]/work-poster-image";
 
 vi.mock("@/components/media/image-adjustment-editor", () => ({
   ImageAdjustButton: ({ source }: { source: string }) =>
@@ -22,7 +22,7 @@ vi.mock("@/components/media/image-adjustment-editor", () => ({
       "data-source": source,
     }),
 }));
-vi.mock("@/app/library/[slug]/ambient-crystals", () => ({
+vi.mock("@/app/(catalogue)/library/[slug]/ambient-crystals", () => ({
   PosterGlow: () => null,
 }));
 beforeAll(() => {

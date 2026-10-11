@@ -1,4 +1,5 @@
 import 'construct-style-sheets-polyfill'
+import { FixedScrollOwnership } from './fixed-scroll-ownership.js'
 
 const parseViewport = str => str
     ?.split(/[,;\s]/) // NOTE: technically, only the comma is valid
@@ -348,6 +349,9 @@ export class FixedLayout extends HTMLElement {
     #scrollMaxConcurrent = 3
     #scrollLoadingCount = 0
     #scrollIdleTimer = null
+    #scrollOwnership = new FixedScrollOwnership()
+    #scrollIntentDocs = new WeakSet()
+    #interruptOwnedScroll = () => this.#scrollOwnership.interrupt()
     #scrollCurrentIndex = -1
     // True while the host is actively scrolling. Pages load interactive only
     // when idle so a page that finishes loading mid-scroll can't flip its iframe
@@ -448,6 +452,8 @@ export class FixedLayout extends HTMLElement {
     }
     constructor() {
         super()
+        for (const type of ['wheel', 'pointerdown', 'touchstart', 'keydown'])
+            this.addEventListener(type, this.#interruptOwnedScroll, { capture: true, passive: true })
 
         const sheet = new CSSStyleSheet()
         this.#root.adoptedStyleSheets = [sheet]
@@ -587,6 +593,11 @@ export class FixedLayout extends HTMLElement {
     // stylesheet makes.
     #applyPanLock(doc) {
         if (!doc?.documentElement) return
+        if (!this.#scrollIntentDocs.has(doc)) {
+            this.#scrollIntentDocs.add(doc)
+            for (const type of ['wheel', 'pointerdown', 'touchstart', 'keydown'])
+                doc.addEventListener(type, this.#interruptOwnedScroll, { capture: true, passive: true })
+        }
         const locked = this.hasAttribute('lock-pan-x')
             && !(this.getAttribute('flow') === 'scrolled'
                 && this.getAttribute('scroll-direction') === 'horizontal')
@@ -659,6 +670,7 @@ export class FixedLayout extends HTMLElement {
         const src = srcOptionIsString ? srcOption : srcOption?.src
         const data = srcOptionIsString ? null : srcOption?.data
         const onZoom = srcOptionIsString ? null : srcOption?.onZoom
+        const onDestroy = srcOptionIsString ? null : srcOption?.onDestroy
         const element = document.createElement('div')
         element.setAttribute('dir', 'ltr')
         element.style.position = 'relative'
@@ -684,7 +696,7 @@ export class FixedLayout extends HTMLElement {
             })
         }
 
-        if (!src) return { blank: true, element, iframe }
+        if (!src && !data) return { blank: true, element, iframe }
         return new Promise(resolve => {
             iframe.addEventListener('load', async () => {
                 const doc = iframe.contentDocument
@@ -697,6 +709,7 @@ export class FixedLayout extends HTMLElement {
                     width: parseFloat(width),
                     height: parseFloat(height),
                     onZoom,
+                    onDestroy,
                     detached,
                 })
             }, { once: true })
@@ -727,6 +740,12 @@ export class FixedLayout extends HTMLElement {
         const portrait = this.spread !== 'both' && this.spread !== 'portrait'
             && height > width * 1.2
         this.#portrait = portrait
+        if (this.book.setTwoPages) {
+            const twoPages = !portrait && !this.#center && !left.blank && !right.blank
+            this.book.setTwoPages(twoPages)
+            // This map includes the visible spread as well as cached spreads.
+            this.#maxCachedSpreads = twoPages ? 2 : 3
+        }
         const blankWidth = left.width ?? right.width ?? 0
         const blankHeight = left.height ?? right.height ?? 0
         // Fit to the client box: a page taller than the view gets a classic
@@ -764,7 +783,14 @@ export class FixedLayout extends HTMLElement {
                     // invalidating Range objects stored in the overlayer. After
                     // the rebuild, re-emit create-overlayer so listeners can
                     // re-anchor annotations against the fresh DOM.
-                    const refreshed = p.then(() => this.#refreshOverlayerForFrame(frame))
+                    const refreshed = p.then(size => {
+                        if (!frame.iframe?.isConnected) return
+                        this.#refreshOverlayerForFrame(frame)
+                        if (size && size.width > 0 && size.height > 0 && (Math.abs(frame.width-size.width) > .01 || Math.abs(frame.height-size.height) > .01)) {
+                            frame.width = size.width; frame.height = size.height
+                            this.#render()
+                        }
+                    })
                     renderPromises.push(refreshed)
                 }
             }
@@ -1131,7 +1157,9 @@ export class FixedLayout extends HTMLElement {
             this.#setScrollIframeInteraction(true)
             // Report location only after scroll settles to avoid
             // expensive React re-renders on every frame
-            this.#reportScrollLocation()
+            if (!this.#scrollOwnership.settle(this.scrollLeft, this.scrollTop))
+                this.#reportScrollLocation()
+            this.#scrollIdleTimer = null
         }, 150)
     }
     #handleScrollWheel = e => {
@@ -1153,6 +1181,7 @@ export class FixedLayout extends HTMLElement {
         }
     }
     #destroyScrollMode(navigate = true) {
+        this.#scrollOwnership.interrupt()
         // Use the cached scroll index because by the time attributeChangedCallback
         // fires, the CSS has already switched from block/scroll to flex layout,
         // making #getScrollIndex() return incorrect positions
@@ -1212,6 +1241,7 @@ export class FixedLayout extends HTMLElement {
         const src = srcOptionIsString ? srcOption : srcOption?.src
         const data = srcOptionIsString ? null : srcOption?.data
         const onZoom = srcOptionIsString ? null : srcOption?.onZoom
+        const onDestroy = srcOptionIsString ? null : srcOption?.onDestroy
 
         const element = document.createElement('div')
         element.setAttribute('dir', 'ltr')
@@ -1229,7 +1259,7 @@ export class FixedLayout extends HTMLElement {
         // Place directly in the placeholder — no root append + reparent
         pageData.el.append(element)
 
-        if (!src) return { blank: true, element, iframe }
+        if (!src && !data) return { blank: true, element, iframe }
         return new Promise(resolve => {
             iframe.addEventListener('load', async () => {
                 const doc = iframe.contentDocument
@@ -1242,6 +1272,7 @@ export class FixedLayout extends HTMLElement {
                     width: parseFloat(width),
                     height: parseFloat(height),
                     onZoom,
+                    onDestroy,
                 })
             }, { once: true })
             if (data) {
@@ -1275,7 +1306,7 @@ export class FixedLayout extends HTMLElement {
             const frame = await this.#createScrollFrame(pageData, src)
             // Bail if cancelled during frame creation
             if (this.#scrollLoadGen.get(pageData.index) !== gen || !this.#scrollMode) {
-                frame.element?.remove()
+                this.#retireFrame(frame)
                 pageData.state = 'idle'
                 return
             }
@@ -1363,7 +1394,7 @@ export class FixedLayout extends HTMLElement {
         if (pageData.frame) {
             const idx = pageData.index
             this.#overlayers.delete(idx)
-            pageData.frame.element?.remove()
+            this.#retireFrame(pageData.frame)
         }
         pageData.frame = null
         pageData.state = 'idle'
@@ -1409,7 +1440,15 @@ export class FixedLayout extends HTMLElement {
                 scale,
                 pageColors: this.#pageColors,
             })
-            if (p?.then) p.then(() => this.#refreshOverlayerForFrame(frame))
+            if (p?.then) p.then(size => {
+                if (!frame.iframe?.isConnected || pageData.frame !== frame) return
+                this.#refreshOverlayerForFrame(frame)
+                if (size && size.width > 0 && size.height > 0 && (Math.abs(pageData.vpWidth-size.width) > .01 || Math.abs(pageData.vpHeight-size.height) > .01)) {
+                    pageData.vpWidth = size.width; pageData.vpHeight = size.height
+                    frame.width = size.width; frame.height = size.height
+                    this.#renderScrollMode()
+                }
+            })
             Object.assign(frame.iframe.style, {
                 width: `${vw * scale}px`,
                 height: `${vh * scale}px`,
@@ -1461,13 +1500,14 @@ export class FixedLayout extends HTMLElement {
             this.#updateScrollWindow()
         }
         this.#scrollCurrentIndex = index
+        if (!behavior) this.#scrollOwnership.own(this.scrollLeft, this.scrollTop)
     }
-    #reportScrollLocation() {
-        const index = this.#getScrollIndex()
+    #reportScrollLocation(reason = 'scroll', requestedIndex) {
+        const index = requestedIndex ?? this.#getScrollIndex()
         if (index < 0) return
         this.#scrollCurrentIndex = index
         this.dispatchEvent(new CustomEvent('relocate', { detail:
-            { reason: 'scroll', range: null, index, fraction: 0, size: 1 } }))
+            { reason, range: null, index, fraction: 0, size: 1 } }))
     }
     #goLeft() {
         if (this.#center || this.#left?.blank) return
@@ -1546,10 +1586,10 @@ export class FixedLayout extends HTMLElement {
         this.#preloadCache.clear()
         for (const frames of this.#prerenderedSpreads.values()) {
             if (frames.center) {
-                frames.center.element?.remove()
+                this.#retireFrame(frames.center)
             } else {
-                frames.left?.element?.remove()
-                frames.right?.element?.remove()
+                this.#retireFrame(frames.left)
+                this.#retireFrame(frames.right)
             }
         }
         this.#prerenderedSpreads.clear()
@@ -1682,7 +1722,7 @@ export class FixedLayout extends HTMLElement {
             // relocation like any other.
             const moved = side != null && side !== this.#side
             if (moved) this.#side = side
-            this.#render(side)
+            await Promise.all(this.#render(side))
             if (moved) this.#reportLocation(reason)
             return
         }
@@ -1784,13 +1824,13 @@ export class FixedLayout extends HTMLElement {
 
                         const sectionIndex = this.book.sections.indexOf(spread.center)
                         const frame = await this.#createFrame({ index: sectionIndex, src, detached: true })
-                        if (isStale()) return frame.element.remove()
+                        if (isStale()) return this.#retireFrame(frame)
 
                         this.#prerenderedSpreads.set(cacheKey, { center: frame })
                         this.#touchSpread(cacheKey)
                         if (frame.onZoom) {
                             const doc = frame.iframe.contentDocument
-                            frame.onZoom({ doc, scale: this.#totalScaleFactor, pageColors: this.#pageColors })
+                            await frame.onZoom({ doc, scale: this.#totalScaleFactor, pageColors: this.#pageColors })
                         }
                     } else {
                         const srcL = await spread.left?.load?.()
@@ -1804,8 +1844,8 @@ export class FixedLayout extends HTMLElement {
                         const leftFrame = await this.#createFrame({ index: indexL, src: srcL, detached: true })
                         const rightFrame = await this.#createFrame({ index: indexR, src: srcR, detached: true })
                         if (isStale()) {
-                            leftFrame.element.remove()
-                            rightFrame.element.remove()
+                            this.#retireFrame(leftFrame)
+                            this.#retireFrame(rightFrame)
                             return
                         }
 
@@ -1814,18 +1854,23 @@ export class FixedLayout extends HTMLElement {
 
                         if (leftFrame.onZoom) {
                             const docL = leftFrame.iframe.contentDocument
-                            leftFrame.onZoom({ doc: docL, scale: this.#totalScaleFactor, pageColors: this.#pageColors })
+                            await leftFrame.onZoom({ doc: docL, scale: this.#totalScaleFactor, pageColors: this.#pageColors })
                         }
                         if (rightFrame.onZoom) {
                             const docR = rightFrame.iframe.contentDocument
-                            rightFrame.onZoom({ doc: docR, scale: this.#totalScaleFactor, pageColors: this.#pageColors })
+                            await rightFrame.onZoom({ doc: docR, scale: this.#totalScaleFactor, pageColors: this.#pageColors })
                         }
                     }
                 } catch {
+                    const frames = this.#prerenderedSpreads.get(cacheKey)
+                    this.#retireFrame(frames?.center)
+                    this.#retireFrame(frames?.left)
+                    this.#retireFrame(frames?.right)
                     this.#preloadCache.delete(cacheKey)
                     this.#prerenderedSpreads.delete(cacheKey)
                 } finally {
                     this.#activePreloads--
+                    this.#cleanupPreloadCache()
                     this.#processPreloadQueue()
                 }
             })
@@ -1844,6 +1889,7 @@ export class FixedLayout extends HTMLElement {
         }
 
         const framesByAge = Array.from(this.#prerenderedSpreads.keys())
+            .filter(key => key !== `spread-${this.#index}`)
             .map(key => ({
                 key,
                 accessTime: this.#spreadAccessTime.get(key) || 0,
@@ -1859,12 +1905,12 @@ export class FixedLayout extends HTMLElement {
                 if (frames) {
                     if (frames.center) {
                         this.#removeOverlayerForFrame(frames.center)
-                        frames.center.element?.remove()
+                        this.#retireFrame(frames.center)
                     } else {
                         this.#removeOverlayerForFrame(frames.left)
                         this.#removeOverlayerForFrame(frames.right)
-                        frames.left?.element?.remove()
-                        frames.right?.element?.remove()
+                        this.#retireFrame(frames.left)
+                        this.#retireFrame(frames.right)
                     }
                 }
 
@@ -1879,6 +1925,19 @@ export class FixedLayout extends HTMLElement {
         const idx = frame.iframe.dataset.sectionIndex != null
             ? parseInt(frame.iframe.dataset.sectionIndex) : undefined
         if (idx != null) this.#overlayers.delete(idx)
+    }
+    // Durtal patch 7 (VENDORED.md): release resources before frame detachment.
+    #retireFrame(frame) {
+        if (!frame) return
+        this.#removeOverlayerForFrame(frame)
+        const doc = frame.iframe?.contentDocument
+        if (doc) {
+            for (const type of ['wheel', 'pointerdown', 'touchstart', 'keydown'])
+                doc.removeEventListener(type, this.#interruptOwnedScroll, { capture: true })
+            this.#scrollIntentDocs.delete(doc)
+        }
+        try { frame.onDestroy?.(doc) }
+        finally { frame.element?.remove() }
     }
     // Drop a frame's overlayer and re-emit create-overlayer so listeners can
     // re-add annotations. Called after a text layer rebuild (e.g. pdf.js
@@ -1909,6 +1968,26 @@ export class FixedLayout extends HTMLElement {
             },
         }))
     }
+    // Adapter-owned measured text navigation. Coordinates come from the actual
+    // adopted PDF viewport, after crop, and are never inferred from text length.
+    refreshPageSizes() { this.#render() }
+    showPageRect(index, rect) {
+        const content = this.getContents().find(item => item.index === index)
+        const frame = content?.doc?.defaultView?.frameElement
+        if (!frame || !Object.values(rect).every(Number.isFinite)) return false
+        const host = frame.getBoundingClientRect(), area = this.getBoundingClientRect()
+        const sx = host.width / (frame.offsetWidth || host.width)
+        const sy = host.height / (frame.offsetHeight || host.height)
+        const left = host.left + rect.left * sx, right = host.left + rect.right * sx
+        const top = host.top + rect.top * sy, bottom = host.top + rect.bottom * sy
+        const dx = left < area.left ? left - area.left : right > area.right ? right - area.right : 0
+        const dy = top < area.top ? top - area.top : bottom > area.bottom ? bottom - area.bottom : 0
+        if (this.#lockedPanX !== null) this.#setLockedPanX(this.#lockedPanX + dx)
+        else this.scrollLeft += dx
+        this.scrollTop += dy
+        if (dx || dy) this.#scrollOwnership.own(this.scrollLeft, this.scrollTop)
+        return true
+    }
     async select(target) {
         await this.goTo(target)
         // TODO
@@ -1916,7 +1995,10 @@ export class FixedLayout extends HTMLElement {
     async goTo(target) {
         const resolved = await target
         if (this.#scrollMode) {
-            if (this.#scrollPages[resolved.index]) this.#scrollToPage(resolved.index)
+            if (this.#scrollPages[resolved.index]) {
+                this.#scrollToPage(resolved.index)
+                this.#reportScrollLocation('navigation', resolved.index)
+            }
             return
         }
         const { book } = this
@@ -2110,6 +2192,9 @@ export class FixedLayout extends HTMLElement {
         return 'width'
     }
     destroy() {
+        this.#scrollOwnership.interrupt()
+        for (const type of ['wheel', 'pointerdown', 'touchstart', 'keydown'])
+            this.removeEventListener(type, this.#interruptOwnedScroll, { capture: true })
         this.#observer.unobserve(this)
         if (this.#scrollMode) {
             this.removeEventListener('scroll', this.#handleScrollEvent)
@@ -2132,10 +2217,10 @@ export class FixedLayout extends HTMLElement {
         }
         for (const frames of this.#prerenderedSpreads.values()) {
             if (frames.center) {
-                frames.center.element?.remove()
+                this.#retireFrame(frames.center)
             } else {
-                frames.left?.element?.remove()
-                frames.right?.element?.remove()
+                this.#retireFrame(frames.left)
+                this.#retireFrame(frames.right)
             }
         }
         this.#prerenderedSpreads.clear()

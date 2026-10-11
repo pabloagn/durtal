@@ -1,0 +1,36 @@
+{
+  "version": "v1",
+  "opticalSize": 20,
+  "hinting": false,
+  "layoutFeatures": "*",
+  "nameIDs": "0,1,2,3,4,5,6,16,17,25",
+  "nameLanguages": "0x409",
+  "ranges": {
+    "latin": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+    "latin-ext": "U+0080-02FF,U+0300-036F,U+1D00-1DFF,U+1E00-1EFF,U+2000-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+    "greek": "U+0370-03FF",
+    "greek-ext": "U+1F00-1FFF",
+    "cyrillic": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+    "cyrillic-ext": "U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F"
+  },
+  "families": {
+    "literata": {
+      "id": "literata",
+      "family": "Durtal Literata",
+      "roman": "roman.ttf",
+      "italic": "italic.ttf"
+    },
+    "eb-garamond": {
+      "id": "garamond",
+      "family": "Durtal EB Garamond",
+      "roman": "roman.ttf",
+      "italic": "italic.ttf"
+    },
+    "inter": {
+      "id": "inter",
+      "family": "Durtal Inter",
+      "roman": "InterVariable.ttf",
+      "italic": "InterVariable-Italic.ttf"
+    }
+  }
+}

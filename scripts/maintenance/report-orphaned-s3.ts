@@ -9,10 +9,11 @@
 import { ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { s3, S3_BUCKET } from "../../src/lib/s3/client";
 import { keysInUse } from "../../src/lib/s3/cleanup";
-import { EVIDENCE_PREFIX } from "../../src/lib/s3/keys";
+import { EVIDENCE_PREFIX, isEditionCoverKey } from "../../src/lib/s3/keys";
 import { db } from "../../src/lib/db";
 import { ebookOrphanReport } from "../../src/lib/ebooks/verify";
 
+// This is only a reporting window, never proof that an object may be deleted.
 // An upload writes the object before its row, so skip objects younger than a day.
 const MINIMUM_AGE_HOURS = 24;
 const cutoff = Date.now() - MINIMUM_AGE_HOURS * 60 * 60 * 1000;
@@ -70,6 +71,10 @@ console.log(
       orphans: orphans.length,
       totalBytes: orphans.reduce((sum, object) => sum + object.size, 0),
       objects: orphans,
+      retainedCovers: orphans.filter((object) => isEditionCoverKey(object.key)).map((object) => ({
+        ...object, cleanupPending: true, reason: "unreferenced at report time; cover retirement unproven",
+      })),
+      deletionAuthorized: false,
       ebooks,
     },
     null,

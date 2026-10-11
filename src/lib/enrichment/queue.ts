@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { ownedBookCondition } from "@/lib/catalogue/holdings";
 import { enqueueEnrichmentJob } from "./jobs";
+import type { Db } from "@/lib/catalogue/work-store";
 
 /*
  * Which books enrichment works first (SLN-464, the order of SLN-473's waves),
@@ -12,20 +13,32 @@ import { enqueueEnrichmentJob } from "./jobs";
  */
 
 /** The scopes a run can queue, in their order; `all` is every book, each at its own scope's priority */
-export const ENRICHMENT_SCOPES = ["owned", "on_order", "wanted", "all"] as const;
+export const ENRICHMENT_SCOPES = [
+  "owned",
+  "on_order",
+  "wanted",
+  "all",
+] as const;
 export type EnrichmentScope = (typeof ENRICHMENT_SCOPES)[number];
 /** Lower runs first: owned, on order, wanted, then the rest */
-export const SCOPE_PRIORITY = { owned: 10, on_order: 20, wanted: 30, rest: 100 } as const;
+export const SCOPE_PRIORITY = {
+  owned: 10,
+  on_order: 20,
+  wanted: 30,
+  rest: 100,
+} as const;
 /** A book from a bulk e-book accession runs after the rest (the reader epic, SLN-495) */
 export const BULK_ACCESSION_PRIORITY = 200;
 
 /** The books of one scope: a scope takes no book of an earlier one */
 export function scopeCondition(scope: EnrichmentScope, workId: SQL): SQL {
   const owned = ownedBookCondition(workId);
-  const status = (value: string) => sql`(select catalogue_status from works where id = ${workId}) = ${value}`;
+  const status = (value: string) =>
+    sql`(select catalogue_status from works where id = ${workId}) = ${value}`;
   if (scope === "all") return sql`true`;
   if (scope === "owned") return owned;
-  if (scope === "on_order") return sql`(not ${owned} and ${status("on_order")})`;
+  if (scope === "on_order")
+    return sql`(not ${owned} and ${status("on_order")})`;
   return sql`(not ${owned} and ${status("wanted")})`;
 }
 
@@ -55,19 +68,45 @@ export function researchedCondition(workId: SQL): SQL {
  * failure is logged with `[enrichment]`, like the publisher auto-resolve. An
  * open job of the book is merged, not duplicated.
  */
-export async function queueNewBookEnrichment(workId: string, options: { priority?: number } = {}) {
+export async function queueNewBookEnrichment(
+  workId: string,
+  options: { priority?: number; conn?: Db; matchingOperationId?: string } = {},
+) {
+  const conn = options.conn ?? db;
   try {
     const id = sql`${workId}::uuid`;
     const [book] = resultRows<{ priority: number; researched: boolean }>(
-      await db.execute(
+      await conn.execute(
         sql`select ${scopePriority(id)} as priority, ${researchedCondition(id)} as researched from works where id = ${id} and kind = 'book'`,
       ),
     );
-    if (!book) return;
+    if (!book) return { ok: true as const, jobs: [] };
     const priority = options.priority ?? Number(book.priority);
-    await enqueueEnrichmentJob({ workId, kind: "identity", reason: "created", priority });
-    if (!book.researched) await enqueueEnrichmentJob({ workId, kind: "research", reason: "created", priority });
+    const identity = await enqueueEnrichmentJob(
+      { workId, kind: "identity", reason: "created", priority },
+      conn,
+      { matchingOperationId: options.matchingOperationId },
+    );
+    const research = book.researched
+      ? null
+      : await enqueueEnrichmentJob(
+          { workId, kind: "research", reason: "created", priority },
+          conn,
+          { matchingOperationId: options.matchingOperationId },
+        );
+    return {
+      ok: true as const,
+      jobs: [identity, research].filter((job) => job !== null),
+    };
   } catch (error) {
-    console.error("[enrichment] Could not queue the new book's jobs", workId, error);
+    console.error(
+      "[enrichment] Could not queue the new book's jobs",
+      workId,
+      error,
+    );
+    return {
+      ok: false as const,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 }

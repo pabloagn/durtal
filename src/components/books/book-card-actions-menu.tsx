@@ -9,13 +9,15 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
+import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { AddToCollectionDialog } from "@/components/books/add-to-collection-dialog";
 import { MatchAgainDialog } from "@/components/books/match-again-dialog";
 import { WorkQuickEditDialog } from "@/components/books/work-quick-edit-dialog";
 import { deleteWork } from "@/lib/actions/works";
 import { toast } from "sonner";
+import { EbookReadMenuItem } from "@/components/ebooks/catalogue-read-action";
+import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
 
 interface BookCardActionsMenuProps {
   workId: string;
@@ -23,6 +25,10 @@ interface BookCardActionsMenuProps {
   title: string;
   authorName?: string;
   primaryEditionId?: string;
+  ebook?: WorkEbookDTO | null;
+  readerReturnTo?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function BookCardActionsMenu({
@@ -30,6 +36,10 @@ export function BookCardActionsMenu({
   title,
   authorName,
   primaryEditionId: _primaryEditionId,
+  ebook = null,
+  readerReturnTo,
+  open,
+  onOpenChange,
 }: BookCardActionsMenuProps) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
@@ -55,6 +65,8 @@ export function BookCardActionsMenu({
         align="end"
         side="top"
         label="Actions"
+        open={open}
+        onOpenChange={onOpenChange}
         trigger={
           <button className="flex chip-button glass-chip">
             {/* From the sprite: this menu repeats on every card */}
@@ -62,6 +74,7 @@ export function BookCardActionsMenu({
           </button>
         }
       >
+        <EbookReadMenuItem ebook={ebook} returnTo={readerReturnTo} />
         <DropdownMenuItem
           icon={<Pencil className="h-4 w-4" strokeWidth={1.5} />}
           onClick={() => setEditOpen(true)}
@@ -109,7 +122,7 @@ export function BookCardActionsMenu({
         title="Delete work"
         description="This cannot be undone."
         itemName={title}
-        cascade="This will permanently delete all editions, instances, and media associated with this work."
+        cascade="This will permanently delete all editions, instances, and media associated with this work. Linked eBooks return to review; their files, reading positions and annotations are kept."
       />
 
       <MediaManagerDialog

@@ -12,10 +12,12 @@ import { CardHeading } from "@/components/shared/card-heading";
 import { WORK_CARD, WORK_CARD_BODY, WorkCardInfo } from "@/components/shared/work-card";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { BookCardActionsMenu } from "./book-card-actions-menu";
-import { DigitalEditionBadge } from "@/components/reader/digital-edition-badge";
+import { EbookMark } from "./ebook-mark";
+import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
 import { coverToneStyle, mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { FadeImage } from "@/components/shared/fade-image";
 import { MEDIA_WIDTHS, withMediaWidth } from "@/lib/s3/media-url";
+import { useCoverMenu } from "@/hooks/use-cover-menu";
 
 export type CoverCrop = MediaCrop;
 
@@ -43,8 +45,11 @@ interface BookCardProps {
   isFavourite?: boolean;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
-  /** Whether an e-book is linked to one of the work's copies */
+  /** @deprecated Linked rows alone do not establish reader availability. */
   hasDigitalEdition?: boolean;
+  /** Shared eligibility projection; a linked-row boolean cannot create a mark. */
+  ebook?: WorkEbookDTO | null;
+  readerReturnTo?: string;
   /** When true, show a checkbox overlay instead of navigation on click */
   isSelecting?: boolean;
   isSelected?: boolean;
@@ -134,7 +139,8 @@ export function BookCard({
   isPoison,
   isFavourite,
   primaryEditionId,
-  hasDigitalEdition = false,
+  ebook,
+  readerReturnTo,
   isSelecting = false,
   isSelected = false,
   onSelect,
@@ -143,6 +149,11 @@ export function BookCard({
   reading,
 }: BookCardProps) {
   const href = `/library/${slug}`;
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Reset before rendering selection so the menu stays closed when it ends.
+  if (isSelecting && menuOpen) setMenuOpen(false);
+  const coverMenu = useCoverMenu(!isSelecting, () => setMenuOpen(true));
+  const digitalMark = ebook?.readable;
 
   // In selection mode, clicking the card toggles selection instead of navigating
   function handleCardClick(e: React.MouseEvent) {
@@ -165,13 +176,13 @@ export function BookCard({
           href={href}
           className={`block ${isSelecting ? "pointer-events-none" : ""}`}
           tabIndex={isSelecting ? -1 : undefined}
+          {...coverMenu}
         >
           <div className="cover-shadow">
           {/* While the cover loads, the frame shows the poster's main color */}
           <div
             className="relative aspect-[2/3] overflow-hidden bg-bg-tertiary"
             style={coverToneStyle(coverTone)}
-            onContextMenu={(e) => e.preventDefault()}
           >
             {coverUrl ? (
               <CoverImage
@@ -189,11 +200,11 @@ export function BookCard({
             {/* The cover shows its art: only the marks that make a copy
                 special sit on it, in one corner. Status and rating are in
                 the info row below. */}
-            {(isRare || isPoison || hasDigitalEdition) && (
+            {(isRare || isPoison || digitalMark) && (
               <div className={COVER_CORNER.bottomLeft}>
                 <HuntBadge isRare={isRare} huntAssessedOn={huntAssessedOn} cover />
                 <PoisonBadge isPoison={isPoison} cover />
-                {hasDigitalEdition && <DigitalEditionBadge />}
+                <EbookMark ebook={ebook ?? null} />
               </div>
             )}
           </div>
@@ -201,9 +212,9 @@ export function BookCard({
         </Link>
 
         {!isSelecting && (
-          <div className="artwork-actions" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+          <div className={`artwork-actions ${menuOpen ? "before:!opacity-100 [&>button]:!opacity-100 [&>div]:!opacity-100" : ""}`} onClick={(e) => { e.stopPropagation(); }}>
             <CopyBookButton title={title} authorNames={authorNames} authorName={authorName} glass />
-            <BookCardActionsMenu workId={workId} slug={slug} title={title} authorName={authorName} primaryEditionId={primaryEditionId ?? undefined} />
+            <BookCardActionsMenu workId={workId} slug={slug} title={title} authorName={authorName} primaryEditionId={primaryEditionId ?? undefined} ebook={ebook ?? null} readerReturnTo={readerReturnTo ?? href} open={menuOpen} onOpenChange={setMenuOpen} />
           </div>
         )}
       </div>

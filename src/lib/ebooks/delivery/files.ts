@@ -1,8 +1,12 @@
 import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { ebookFiles, ebooks } from "@/lib/db/schema";
-import { medallionOf } from "../medallion";
-import { coverKeySha256, isDeliveryFileKey, parseStageKey } from "../keys";
+import {
+  isEbookFileDownloadable,
+  type EbookFileEligibility,
+} from "../conditions";
+import { ebookCoverEvidence } from "../cover-evidence";
+import type { EbookCoverWidth } from "../keys";
 
 /*
  * What delivery may hand out (SLN-491). Only these readers make the types
@@ -11,7 +15,7 @@ import { coverKeySha256, isDeliveryFileKey, parseStageKey } from "../keys";
  * sent, and never one remembered from an earlier request.
  */
 
-declare const fromCatalogue: unique symbol;
+const fromCatalogue: unique symbol = Symbol("fromCatalogue");
 
 /** One ebook_files row, as read for this request */
 export interface CatalogueFile {
@@ -22,7 +26,12 @@ export interface CatalogueFile {
   readonly format: string;
   readonly sizeBytes: number;
   readonly contentType: string;
-  readonly status: "stored" | "verified" | "missing" | "quarantined" | "replaced";
+  readonly status:
+    | "stored"
+    | "verified"
+    | "missing"
+    | "quarantined"
+    | "replaced";
   readonly drm: string | null;
   readonly metadata?: Record<string, unknown>;
   readonly [fromCatalogue]: true;
@@ -34,6 +43,8 @@ export interface CatalogueCover {
   /** Null when no cover was made */
   readonly sha256: string | null;
   readonly key?: string;
+  /** Actual published gold widths, from this request's validated evidence. */
+  readonly widths?: readonly EbookCoverWidth[];
   readonly [fromCatalogue]: true;
 }
 
@@ -41,21 +52,14 @@ export interface CatalogueCover {
  * Whether a file may be served or signed: stored or verified, with no DRM.
  * Quarantined, missing, replaced and DRM files never leave the bucket.
  */
-export function isDeliverable(file: Pick<CatalogueFile, "drm" | "s3Key" | "sha256" | "format" | "metadata"> & { status: string }): boolean {
-  const stages = medallionOf(file.metadata);
-  return (
-    (file.status === "stored" || file.status === "verified") && !file.drm &&
-    isDeliveryFileKey(file.s3Key, file.sha256, file.format) &&
-    (!parseStageKey(file.s3Key) ||
-      (!!stages?.validation.downloadable &&
-        stages.validation.integrity === "verified" &&
-        stages.validation.drm === "clear" &&
-        stages.gold.some((object) => object.key === file.s3Key && object.sha256 === file.sha256)))
-  );
+export function isDeliverable(file: EbookFileEligibility): boolean {
+  return isEbookFileDownloadable(file);
 }
 
 /** One file row, or null when there is none */
-export async function readCatalogueFile(fileId: string): Promise<CatalogueFile | null> {
+export async function readCatalogueFile(
+  fileId: string,
+): Promise<CatalogueFile | null> {
   const [row] = await db
     .select({
       id: ebookFiles.id,
@@ -72,7 +76,7 @@ export async function readCatalogueFile(fileId: string): Promise<CatalogueFile |
     .from(ebookFiles)
     .where(eq(ebookFiles.id, fileId))
     .limit(1);
-  return row ? (row as CatalogueFile) : null;
+  return row ? { ...row, [fromCatalogue]: true } : null;
 }
 
 /**
@@ -80,23 +84,40 @@ export async function readCatalogueFile(fileId: string): Promise<CatalogueFile |
  * preferred file's (its cover_key), else the e-book's own cover_key; only a
  * key shaped exactly as keys.ts builds it counts.
  */
-export async function readCatalogueCover(ebookId: string): Promise<CatalogueCover | null> {
-  const [row] = await db
-    .select({ id: ebooks.id, coverKey: ebooks.coverKey, fileCoverKey: ebookFiles.coverKey, metadata: ebookFiles.metadata, status: ebookFiles.status, drm: ebookFiles.drm })
-    .from(ebooks)
-    .leftJoin(ebookFiles, eq(ebookFiles.id, ebooks.preferredFileId))
-    .where(eq(ebooks.id, ebookId))
-    .limit(1);
+export async function readCatalogueCover(
+  ebookId: string,
+): Promise<CatalogueCover | null> {
+  const row = await db.query.ebooks.findFirst({
+    where: eq(ebooks.id, ebookId),
+    columns: { id: true, preferredFileId: true, coverKey: true },
+    with: {
+      files: {
+        columns: {
+          id: true,
+          sha256: true,
+          s3Key: true,
+          sizeBytes: true,
+          format: true,
+          status: true,
+          drm: true,
+          metadata: true,
+          manifestKey: true,
+          coverKey: true,
+        },
+        orderBy: [ebookFiles.createdAt, ebookFiles.id],
+      },
+    },
+  });
   if (!row) return null;
-  for (const key of [row.fileCoverKey, row.coverKey]) {
-    if (!key) continue;
-    const parsed = parseStageKey(key);
-    if (parsed && !(row.status === "stored" || row.status === "verified")) continue;
-    if (parsed && (row.drm || !medallionOf(row.metadata)?.gold.some((o) => o.key === key))) continue;
-    const sha256 = parsed?.stage === "gold" && parsed.kind === "derived" && parsed.name?.startsWith("cover-") ? parsed.sha256 : coverKeySha256(key);
-    if (sha256) return { ebookId: row.id, sha256, key } as CatalogueCover;
-  }
-  return { ebookId: row.id, sha256: null } as CatalogueCover;
+  const evidence = ebookCoverEvidence(row);
+  if (!evidence) return { ebookId: row.id, sha256: null, [fromCatalogue]: true };
+  return {
+    ebookId: row.id,
+    sha256: evidence.sha256,
+    key: evidence.covers.at(-1)?.key ?? evidence.legacyKey!,
+    widths: evidence.covers.map((cover) => cover.width as EbookCoverWidth),
+    [fromCatalogue]: true,
+  };
 }
 
 /** The newest file that may be served, for the settings check; null when none is stored */
@@ -104,7 +125,12 @@ export async function readNewestDeliverableFile(): Promise<CatalogueFile | null>
   const [row] = await db
     .select({ id: ebookFiles.id })
     .from(ebookFiles)
-    .where(and(inArray(ebookFiles.status, ["stored", "verified"]), isNull(ebookFiles.drm)))
+    .where(
+      and(
+        inArray(ebookFiles.status, ["stored", "verified"]),
+        isNull(ebookFiles.drm),
+      ),
+    )
     .orderBy(desc(ebookFiles.createdAt))
     .limit(1);
   return row ? readCatalogueFile(row.id) : null;

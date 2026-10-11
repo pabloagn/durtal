@@ -4,13 +4,14 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh() {} }) }));
 vi.mock("@/lib/actions/settings", () => ({ updateAppSettings: vi.fn() }));
-import { GeneralSettings } from "@/app/settings/general-settings";
+import { GeneralSettings } from "@/app/(catalogue)/settings/general-settings";
+import { useAppSettings } from "@/lib/hooks/use-app-settings";
 import type { AppSettings } from "@/lib/actions/settings";
 
 const settings: AppSettings = {
   newBookStatus: "tracked", newBookLanguage: "en", newCopyLocationId: null,
   newCopyFormat: "paperback", newCopyCondition: "mint", homeCurrency: "EUR",
-  readingDayStartHour: 4, readingWeekStart: 1, readingTimerCheckMinutes: 90,
+  readingDayStartHour: 4, readingWeekStart: 1, readingTimerCheckMinutes: 90, readingAutoTrackEbooks: true,
   readingRhythmDays: null, readingSuggestHideAnathema: false, readingPredictionGate: null,
 };
 
@@ -30,4 +31,9 @@ it("retains every field name and only references descriptions that exist", () =>
     expect(host.querySelector(`[id="${id}"]`)?.getAttribute("aria-describedby")).toBeNull();
   for (const id of ["new-book-language", "new-copy-location", "home-currency"])
     expect(host.querySelector(`[id="${id}"]`)?.getAttribute("aria-describedby")).toBe(`${id}-description`);
+});
+
+it("keeps automatic eBook tracking enabled in the unprovided settings context", () => {
+  function DefaultSetting() { return createElement("span", null, String(useAppSettings().readingAutoTrackEbooks)); }
+  expect(renderToStaticMarkup(createElement(DefaultSetting))).toBe("<span>true</span>");
 });

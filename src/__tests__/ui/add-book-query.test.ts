@@ -17,7 +17,7 @@ vi.mock("@/lib/actions/locations", () => ({ getLocations: vi.fn(none) }));
 vi.mock("@/lib/actions/collections", () => ({ getCollections: vi.fn(none) }));
 vi.mock("@/lib/actions/taxonomy", () => new Proxy({}, { get: (_, key) => (key === "then" ? undefined : vi.fn(none)) }));
 
-import { AddBookWizard } from "@/app/library/new/wizard";
+import { AddBookWizard } from "@/app/(catalogue)/library/new/wizard";
 
 beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

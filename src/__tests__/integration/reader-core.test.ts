@@ -139,7 +139,7 @@ describe.skipIf(!url)("reader core", () => {
         { params: Promise.resolve({ ebookId }) },
       );
 
-    it("saves a place from the reader and gives it back to this device only", async () => {
+    it("saves a place from the reader and identifies it for any device", async () => {
       const epub = await file("epub");
       const at = new Date().toISOString();
       const locator = { v: 1, fileHash: epub.sha256, href: "ch2.xhtml", sectionIndex: 2, progression: 0.25, totalProgression: 0.3 };
@@ -147,7 +147,7 @@ describe.skipIf(!url)("reader core", () => {
       expect(saved.status).toBe(200);
       expect(await saved.json()).toMatchObject({ saved: true, position: { fileId: epub.id, chapter: "Chapter II", deviceLabel: "Mac · Firefox" } });
       expect((await (await call("GET")).json()).positions).toMatchObject([{ fileId: epub.id, locator }]);
-      expect((await (await call("GET", undefined, laptop)).json()).positions).toEqual([]);
+      expect((await (await call("GET", undefined, laptop)).json()).positions).toMatchObject([{ fileId: epub.id, locator, deviceId: phone, thisDevice: false }]);
     });
 
     it("refuses a file of another e-book before saving", async () => {

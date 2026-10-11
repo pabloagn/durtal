@@ -70,6 +70,12 @@ export const LIST_PREFERENCES = {
     grid: { key: "durtal-grid-columns", fallback: 6 },
     columns: { key: "durtal-column-config" },
   },
+  ebooks: {
+    label: "eBooks",
+    path: "/ebooks",
+    view: { key: "durtal-ebooks-view-mode", modes: ["grid", "list"], fallback: "grid" },
+    grid: { key: "durtal-ebooks-grid-columns", fallback: 6 },
+  },
   authors: {
     label: "People",
     path: "/people",

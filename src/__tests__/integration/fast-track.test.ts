@@ -47,6 +47,17 @@ vi.mock("@/lib/s3/covers", () => ({
 import { computeAndStoreLayout } from "@/lib/actions/gallery-layouts";
 import { fastTrackBook } from "@/lib/actions/fast-track";
 import { processAndUploadCover, deleteFromS3 } from "@/lib/s3/covers";
+vi.mock("@/lib/s3/client", async () => ({ S3_BUCKET: "local-test", s3: { send: (await import("../s3/cover-stage-fixture")).catalogueSend } }));
+import { mintCover, coverBucket, resetCoverBucket } from "../s3/cover-stage-fixture";
+const followup = vi.hoisted(() => ({ reject: false }));
+vi.mock("@/lib/publishers/resolution", async (original) => {
+  const actual = await original<typeof import("@/lib/publishers/resolution")>();
+  return { ...actual, autoResolveEditions: async (...args: Parameters<typeof actual.autoResolveEditions>) => {
+    if (followup.reject) throw new Error("postcommit follow-up failed");
+    return actual.autoResolveEditions(...args);
+  } };
+});
+
 
 const minimal = (): FastTrackBookInput => ({
   authorName: "Marcel Schwob",
@@ -67,6 +78,8 @@ describe.skipIf(!url)("Fast Track with PostgreSQL", () => {
       sql`truncate works, authors, recommenders, activity_events, gallery_layouts, publishing_houses cascade`,
     );
     vi.resetAllMocks();
+    resetCoverBucket();
+    followup.reject = false;
     vi.mocked(processAndUploadCover).mockResolvedValue(null);
   });
   async function rows() {
@@ -181,11 +194,7 @@ describe.skipIf(!url)("Fast Track with PostgreSQL", () => {
       metadataSource: "isbndb",
       coverSourceUrl: "https://example.com/cover.jpg",
     };
-    vi.mocked(processAndUploadCover).mockResolvedValue({
-      coverKey: "test-cover",
-      thumbnailKey: "test-thumb",
-      palette: null,
-    });
+    vi.mocked(processAndUploadCover).mockImplementation((id, url) => mintCover(id, url));
     const result = await fastTrackBook(input);
     expect(result.ok).toBe(true);
     const saved = await rows();
@@ -199,8 +208,8 @@ describe.skipIf(!url)("Fast Track with PostgreSQL", () => {
     expect(saved.editions[0]).toMatchObject({
       ...input.edition,
       title: "Edited title",
-      coverS3Key: "test-cover",
-      thumbnailS3Key: "test-thumb",
+      coverS3Key: expect.stringMatching(/^gold\/covers\/.+\/attempt-/),
+      thumbnailS3Key: expect.stringMatching(/^gold\/covers\/.+\/attempt-/),
     });
     expect(await db.select().from(schema.workRecommenders)).toHaveLength(2);
     expect(saved.copies).toEqual([]);
@@ -255,26 +264,21 @@ describe.skipIf(!url)("Fast Track with PostgreSQL", () => {
     expect(saved.works).toHaveLength(1);
     expect(saved.editions).toHaveLength(1);
   });
-  it("rolls back a late edition failure and removes only the newly uploaded cover", async () => {
+  it("rolls back a late edition failure and retains the staged cover", async () => {
     await db.execute(
       sql`create function fast_track_reject_edition() returns trigger language plpgsql as $$ begin raise exception 'forced edition failure'; end $$`,
     );
     await db.execute(
       sql`create trigger fast_track_reject before insert on editions for each row execute function fast_track_reject_edition()`,
     );
-    vi.mocked(processAndUploadCover).mockResolvedValue({
-      coverKey: "new-cover",
-      thumbnailKey: "new-thumb",
-      palette: null,
-    });
+    vi.mocked(processAndUploadCover).mockImplementation((id, url) => mintCover(id, url));
     const input = minimal();
     input.edition.coverSourceUrl = "https://example.com/cover.jpg";
     try {
       expect((await fastTrackBook(input)).ok).toBe(false);
       await expectEmpty();
-      expect(deleteFromS3).toHaveBeenCalledTimes(2);
-      expect(deleteFromS3).toHaveBeenCalledWith("new-cover");
-      expect(deleteFromS3).toHaveBeenCalledWith("new-thumb");
+      expect(deleteFromS3).not.toHaveBeenCalled();
+      expect(coverBucket.objects.size).toBe(2);
     } finally {
       await db.execute(sql`drop trigger fast_track_reject on editions`);
       await db.execute(sql`drop function fast_track_reject_edition()`);
@@ -351,4 +355,19 @@ describe.skipIf(!url)("Fast Track with PostgreSQL", () => {
         .where(eq(schema.workAuthors.workId, saved.works[0].id)),
     ).toHaveLength(1);
   });
+  it("postcommit follow-up failure keeps the published pair and reports uncertain retention", async () => {
+    vi.mocked(processAndUploadCover).mockImplementation((id, url) => mintCover(id, url));
+    followup.reject = true;
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const input = minimal(); input.edition.coverSourceUrl = "https://example.com/B.png";
+      expect((await fastTrackBook(input)).ok).toBe(false);
+      const saved = await rows(), edition = saved.editions[0];
+      expect(coverBucket.objects.has(edition.coverS3Key!)).toBe(true);
+      expect(coverBucket.objects.has(edition.thumbnailS3Key!)).toBe(true);
+      expect(deleteFromS3).not.toHaveBeenCalled();
+      expect(warning).toHaveBeenCalledWith(expect.stringContaining("retained attempt"), expect.objectContaining({ cleanupPending: true, keys: [edition.coverS3Key, edition.thumbnailS3Key] }));
+    } finally { warning.mockRestore(); followup.reject = false; }
+  });
+
 });

@@ -218,6 +218,15 @@ describe("reading edit session plan", () => {
     expect(planPositions(reading, sessionOrder(result.sessions)).position.page).toBe(180);
     expect(planPositions(reading, sessionOrder([sessions[0], { ...reader, endPage: 180, endPercent: 30 }])).position.page).toBe(240);
   });
+
+  it("keeps explicit backwards reader segments during recomputation", () => {
+    const back = { ...sessions[1], source: "reader", format: "ebook", readerWentBack: true, endPage: 180, endPercent: 30 } as Session;
+    const plan = planPositions(reading, sessionOrder([sessions[0], back]));
+    expect(plan.position).toMatchObject({ page: 180, percent: 30 });
+    expect(plan.starts.get(back.id)).toMatchObject({ startPage: 240, startPercent: 40 });
+    expect(back.editionId).toBe("edition");
+    expect(planPositions(reading, sessionOrder([sessions[0]])).position.page).toBe(240);
+  });
 });
 
 describe("reading edit input boundary", () => {

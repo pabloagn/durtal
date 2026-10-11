@@ -2,9 +2,10 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { uuids } from "@/lib/catalogue/work-store";
-import { medallionOf } from "./medallion";
-import { isDeliverable } from "./delivery/files";
-import { formatRank, isReadableFormat } from "./formats";
+import { formatRank } from "./formats";
+import { isEbookFileNativeReadable } from "./conditions";
+import type { ContinueFile } from "./continue-target";
+import { workHasReadableEbookCondition } from "./work-conditions";
 
 /*
  * The e-book catalogue, read (SLN-490). An e-book is a digital copy once
@@ -13,15 +14,7 @@ import { formatRank, isReadableFormat } from "./formats";
  * longer gives its work an e-book.
  */
 
-export interface EbookFile {
-  id: string;
-  format: string;
-  sizeBytes: number;
-  status: string;
-  drm: string | null;
-  sha256?: string;
-  s3Key?: string;
-  metadata?: Record<string, unknown>;
+export interface EbookFile extends ContinueFile {
   nativeReadable?: boolean;
 }
 
@@ -42,7 +35,7 @@ export interface EbookRow {
 const EBOOK_COLUMNS = sql`eb.id, eb.title, eb.subtitle, eb.authors, eb.language,
   eb.match_state as "matchState", eb.instance_id as "instanceId",
   eb.preferred_file_id as "preferredFileId", eb.cover_key as "coverKey",
-  coalesce((select json_agg(json_build_object('id', f.id, 'format', f.format, 'sizeBytes', f.size_bytes,
+  coalesce((select json_agg(json_build_object('id', f.id, 'ebookId', f.ebook_id, 'createdAt', f.created_at, 'manifestKey', f.manifest_key, 'format', f.format, 'sizeBytes', f.size_bytes,
     'status', f.status, 'drm', f.drm, 'sha256', f.sha256, 's3Key', f.s3_key, 'metadata', f.metadata) order by f.created_at, f.id)
     from ebook_files f where f.ebook_id = eb.id), '[]'::json) as files`;
 
@@ -50,12 +43,7 @@ function withSortedFiles(row: EbookRow): EbookRow {
   return { ...row, files: row.files
       .map((f) => ({
         ...f,
-        nativeReadable:
-          !!f.sha256 &&
-          !!f.s3Key &&
-          isDeliverable({ ...f, sha256: f.sha256, s3Key: f.s3Key }) &&
-          isReadableFormat(f.format) &&
-          (!medallionOf(f.metadata) || !!medallionOf(f.metadata)!.validation.nativeReadable),
+        nativeReadable: row.matchState !== "excluded" && isEbookFileNativeReadable(f),
       }))
       .sort((a, b) => formatRank(a.format) - formatRank(b.format)),
   };
@@ -68,6 +56,22 @@ export async function getEbook(id: string): Promise<EbookRow | null> {
   return row ? withSortedFiles(row) : null;
 }
 
+/** One batch for reading cards; apply the same delivery rules as the Read button. */
+export async function getReaderLinksForWorks(workIds: string[]): Promise<Map<string, string>> {
+  if (!workIds.length) return new Map();
+  const rows = resultRows<EbookRow & { workId: string }>(await db.execute(sql`
+    select e.work_id as "workId", ${EBOOK_COLUMNS}
+    from ebooks eb join instances i on i.id=eb.instance_id join editions e on e.id=i.edition_id
+    where eb.match_state='linked' and i.status<>'deaccessioned'
+      and e.work_id in (select value::uuid from jsonb_array_elements_text(${JSON.stringify(workIds)}::jsonb))
+    order by eb.created_at,eb.id`));
+  const links = new Map<string, string>();
+  for (const row of rows) {
+    if (!links.has(row.workId) && withSortedFiles(row).files.some((file) => file.nativeReadable)) links.set(row.workId, row.id);
+  }
+  return links;
+}
+
 /** The e-books linked to the active copies of a work's editions, with their files */
 export async function getEbooksForWork(workId: string): Promise<EbookRow[]> {
   const rows = resultRows<EbookRow>(
@@ -75,24 +79,21 @@ export async function getEbooksForWork(workId: string): Promise<EbookRow[]> {
       from ebooks eb
       join instances i on i.id = eb.instance_id
       join editions e on e.id = i.edition_id
-      where e.work_id = ${workId}::uuid and i.status <> 'deaccessioned'
+      where e.work_id = ${workId}::uuid and i.status <> 'deaccessioned' and eb.match_state = 'linked'
       order by lower(eb.title), eb.id`),
   );
   return rows.map(withSortedFiles);
 }
 
 /**
- * The works of this list that have an e-book: one linked to an active copy of
- * one of their editions. One query for the whole page, never one per card.
+ * The works of this list with a native-readable file on an active linked copy.
+ * One query for the whole page, never one per card.
  */
 export async function getWorkIdsWithEbooks(workIds: string[]): Promise<Set<string>> {
   if (!workIds.length) return new Set();
   const rows = resultRows<{ workId: string }>(
-    await db.execute(sql`select distinct e.work_id as "workId"
-      from ebooks eb
-      join instances i on i.id = eb.instance_id
-      join editions e on e.id = i.edition_id
-      where e.work_id in (${uuids(workIds)}) and i.status <> 'deaccessioned'`),
+    await db.execute(sql`select w.id as "workId" from works w
+      where w.kind = 'book' and w.id in (${uuids(workIds)}) and ${workHasReadableEbookCondition(sql`w.id`)}`),
   );
   return new Set(rows.map((r) => r.workId));
 }

@@ -2,7 +2,10 @@
 
 import { requireBookWork } from "@/lib/catalogue/book-boundary";
 
+import { readEditionWriteSnapshot, editionWriteGuardQueries, editionUpdateQuery } from "@/lib/catalogue/edition-write-guard";
+import { retainCoverAttempt, requireVerifiedCover, type VerifiedCoverStage } from "@/lib/s3/cover-stage";
 import { atomic } from "@/lib/db/atomic";
+import { lockReaderBindings, lockReaderNotes, ebooksForEdition, notesForEdition, withReaderWriteRetry } from "@/lib/reading/reader-write-locks";
 import { withReadableErrors } from "@/lib/db/errors";
 import { assertSql } from "@/lib/harmonization/store";
 import { editionContributorQueries } from "@/lib/catalogue/book-credits";
@@ -42,7 +45,7 @@ export async function createEdition(input: CreateEditionInput) {
   if (clash) throw new Error(clash);
 
   // The cover is uploaded first; the edition, its links and any contributor
-  // created by name are one write. A failed write removes the uploaded cover
+  // created by name are one write. A failed write retains the uploaded cover
   // and leaves no edition and no new author behind.
   const { credits, newAuthors } = await resolveBookCredits(parsed.contributorIds);
   const plan = await planBookEdition({ ...parsed, contributorIds: credits });
@@ -69,6 +72,10 @@ export async function createEdition(input: CreateEditionInput) {
 }
 
 export async function updateEdition(id: string, input: UpdateEditionInput) {
+  return withReaderWriteRetry(() => updateEditionOnce(id, input));
+}
+
+async function updateEditionOnce(id: string, input: UpdateEditionInput) {
   parseId(id);
   // No defaults (an omitted field keeps its stored value), unknown keys rejected
   const parsed = updateEditionSchema.parse(input);
@@ -85,6 +92,9 @@ export async function updateEdition(id: string, input: UpdateEditionInput) {
   const clash = await isbnClash(editionData, id);
   if (clash) throw new Error(clash);
 
+  const expected = await readEditionWriteSnapshot(id, db, editionData.workId !== undefined);
+  let stagedCover: VerifiedCoverStage | null = null;
+  let coverSkipped = false;
   const updates: Record<string, unknown> = {
     ...editionData,
     updatedAt: new Date(),
@@ -93,7 +103,12 @@ export async function updateEdition(id: string, input: UpdateEditionInput) {
   // Re-process cover if new URL
   if (coverSourceUrl) {
     const result = await processAndUploadCover(id, coverSourceUrl);
+    stagedCover = result;
+    coverSkipped = !result;
     if (result) {
+      requireVerifiedCover(result, id);
+      if (result.source.kind !== "url" || result.source.url !== coverSourceUrl)
+        throw new Error("Replacement cover source differs from its verified stage");
       updates.coverS3Key = result.coverKey;
       updates.thumbnailS3Key = result.thumbnailKey;
       updates.coverSourceUrl = coverSourceUrl;
@@ -106,6 +121,9 @@ export async function updateEdition(id: string, input: UpdateEditionInput) {
   const { credits, newAuthors } = await resolveBookCredits(contributorIds);
   try {
     await atomic((d) => [
+      lockReaderBindings(d, ebooksForEdition(id), notesForEdition(id)),
+      lockReaderNotes(d, notesForEdition(id)),
+      ...editionWriteGuardQueries(d, expected),
       ...newAuthors.flatMap((author) => newAuthorQueries(d, author)),
       // An edition moved to another book leaves the old book's readings: they
       // keep their page totals, without this edition or its copy
@@ -124,7 +142,7 @@ export async function updateEdition(id: string, input: UpdateEditionInput) {
               where edition_id = ${id}::uuid and work_id <> ${editionData.workId}::uuid`),
           ]
         : []),
-      d.update(editions).set(updates).where(eq(editions.id, id)),
+      editionUpdateQuery(d, id, updates),
       ...(publisherIds !== undefined
         ? [
             d.execute(
@@ -159,6 +177,7 @@ export async function updateEdition(id: string, input: UpdateEditionInput) {
         : []),
     ]);
   } catch (err) {
+    if (stagedCover) retainCoverAttempt(stagedCover, "edition publication rejected or uncertain");
     const taken = isbnTaken(err, editionData);
     throw taken ? new Error(taken, { cause: err }) : err;
   }
@@ -183,10 +202,14 @@ export async function updateEdition(id: string, input: UpdateEditionInput) {
   )
     await autoResolveEditions([id]);
 
-  return { id };
+  return { id, ...(coverSourceUrl ? { coverSkipped } : {}) };
 }
 
 export async function deleteEdition(id: string) {
+  return withReaderWriteRetry(() => deleteEditionOnce(id));
+}
+
+async function deleteEditionOnce(id: string) {
   // Book enrichment (SLN-462): a work's claims may cite this edition's source
   // records, which go with it. One unit: refuse while an accepted value rests
   // only on them, drop that evidence, withdraw the proposals left with none,
@@ -196,6 +219,8 @@ export async function deleteEdition(id: string) {
   const citing = sql`c.work_id = (select work_id from editions where id = ${edition}) and c.edition_id is distinct from ${edition}`;
   const results = await withReadableErrors(() =>
     atomic((d) => [
+      lockReaderBindings(d, ebooksForEdition(id), notesForEdition(id)),
+      lockReaderNotes(d, notesForEdition(id)),
       d.execute(sql`select id from editions where id = ${edition} for update`),
       d.execute(
         assertSql(

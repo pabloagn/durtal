@@ -1,8 +1,12 @@
 import type { NextConfig } from "next";
+import { PDFJS_VERSION, PDF_WORKER_CSP } from "./src/lib/reader/pdf-assets";
 
 const nextConfig: NextConfig = {
   output: "standalone",
   experimental: {
+    // Unmatched URLs need their own document when catalogue and reader
+    // routes have separate roots. It must not depend on catalogue queries.
+    globalNotFound: true,
     // Scope hoisting in `next build` ran the merged db schema modules twice, so
     // drizzle saw two copies of tables like `works` and could not pair their
     // relations (500 on author pages). `next dev` never hoists.
@@ -17,7 +21,11 @@ const nextConfig: NextConfig = {
   // frames: cached, so a section does not ask again. A changed font takes a
   // new file name.
   async headers() {
-    return [{ source: "/fonts/reader/:file*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] }];
+    return [
+      { source: "/fonts/reader/:file*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
+      { source: `/vendor/pdfjs/${PDFJS_VERSION}/:asset*`, headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
+      { source: `/vendor/pdfjs/${PDFJS_VERSION}/pdf.worker.min.mjs`, headers: [{ key: "Content-Security-Policy", value: PDF_WORKER_CSP }] },
+    ];
   },
   // People were "authors" before SLN-419: every old link and bookmark lands
   // on the same person or list, with its query (308, permanent)

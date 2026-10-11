@@ -7,6 +7,10 @@ import { textSearchCondition, textSearchRank } from "@/lib/actions/utils/text-se
 import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import { VENUE_TYPE_LABELS, type VenueType } from "@/lib/catalogue/venues";
+import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
+import type { PaletteUnlinkedEbook } from "@/lib/ebooks/palette-group";
+import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
+import { paletteContinueReading, paletteUnlinkedEbooks } from "@/lib/ebooks/palette-queries";
 
 export interface QuickSearchWork {
   id: string;
@@ -19,6 +23,8 @@ export interface QuickSearchWork {
   creators: string[];
   /** The cover or poster thumbnail: the active poster, else (books) an edition's */
   cover: string | null;
+  /** Optional shared availability projection; populated by the catalogue adapter. */
+  ebook?: WorkEbookDTO | null;
 }
 export interface QuickSearchResult {
   /** The best matches of each open collection, best first within each */
@@ -27,6 +33,7 @@ export interface QuickSearchResult {
   people: { id: string; name: string; href: string; photo: string | null; roles: string }[];
   organizations: { id: string; name: string; href: string; roles: string }[];
   venues: { id: string; name: string; href: string; type: string }[];
+  ebooks?: readonly PaletteUnlinkedEbook[];
 }
 
 /** Matches per collection, and per group of people, organizations, venues */
@@ -259,11 +266,18 @@ export async function quickSearch(query: string): Promise<QuickSearchResult> {
   const q = query.trim().slice(0, 200);
   if (q.length < 2) return EMPTY;
   const kinds = getEnabledWorkKinds();
-  const [works, people, organizations, venues] = await Promise.all([
+  const [works, people, organizations, venues, ebooks] = await Promise.all([
     searchWorks(q, kinds),
     searchPeople(q, kinds),
     searchOrganizations(q, kinds),
     searchVenues(q),
+    kinds.includes("book") ? paletteUnlinkedEbooks(q) : Promise.resolve([]),
   ]);
-  return { works, people, organizations, venues };
+  const digital = await catalogueAvailability(works.filter((work) => work.kind === "book").map((work) => work.id));
+  return { works: works.map((work) => work.kind === "book" ? { ...work, ebook: digital.get(work.id)?.read ?? null } : work), people, organizations, venues, ebooks };
+}
+
+/** Open-time fetch only; this adds no catalogue page payload. */
+export async function getPaletteContinueReading(): Promise<WorkEbookDTO | null> {
+  return getEnabledWorkKinds().includes("book") ? paletteContinueReading() : null;
 }

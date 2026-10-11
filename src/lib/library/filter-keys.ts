@@ -56,5 +56,6 @@ export const BOOK_FILTER_KEYS = [
   ...TAXONOMY_KEYS,
   "color",
   "poster",
+  "ebook",
 ] as const;
 

@@ -1930,10 +1930,12 @@ App-wide settings, one row (migration `0052_app_settings`). They apply on every 
 | `reading_day_start_hour` | SMALLINT | NOT NULL, default `4`, CHECK 0–6 (migration `0067_reading_sessions_timer`). A session before this hour counts for the day before. Read by every writer that sets a `read_on` or defaults a reading date; a change applies to new sessions only |
 | `reading_week_start` | SMALLINT | NOT NULL, default `1`, CHECK in (1, 7): Monday or Sunday. For the reading rhythm and stats |
 | `reading_timer_check_minutes` | SMALLINT | NOT NULL, default `90`, CHECK 15–480. A running timer asks "Still reading?" after this much running time; past twice this, it is a forgotten timer and is never saved without an end time |
+| `reading_auto_track_ebooks` | BOOLEAN | NOT NULL, default `true`. SLN-454 declaration only; reserved migration `0087_reader_tracker_integration` is not generated/applied. Permits reader auto-start after five active minutes |
 | `reading_rhythm_days` | SMALLINT | nullable, CHECK 1–7 (migration `0070_reading_goals`). The days he would like to read each week; null turns the weekly rhythm off (SLN-455) |
 | `reading_suggest_hide_anathema` | BOOLEAN | NOT NULL DEFAULT false (migration `0073_reading_suggestions`). On: suggestions leave out books marked Anathema; off, they show with their mark (SLN-457) |
 | `reading_prediction_gate` | JSONB | nullable (migration `0073_reading_suggestions`). The predicted rating's last daily check, `{ checkedAt, on, failures, n, coverage, mae, baselineMae }` (`predictionGateSchema`). Written only by the suggestion engine, at most once in 24 hours, by one UPDATE asserting the old `checkedAt`; never a settings input (SLN-457) |
 | `ebook_location_id` | UUID | nullable, FK → `locations.id`, SET NULL (migration `0076_ebook_catalogue`, SLN-490). The digital location new e-book copies go to: "eBooks" |
+| `lookup_settings` | JSONB | nullable, CHECK null or `jsonb_typeof(...) = 'object'` (SLN-504; declaration prepared for reserved migration `0086`, generation/application pending). `{ v: 1, sources: [{ language, name, url }], translateTo }`; at most 50 sources, validated by `lookupSettingsSchema`. Null or obsolete content uses the default sources and English translation target. Separate settings-only reads keep this out of `getAppSettings` and the root layout payload |
 | `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
 
 The migration seeds the row with the behaviour it replaces: the location the wizard picked by name (Amsterdam, else Mexico City), `tracked`, `en`, `paperback`, `mint`, `EUR`. The four reading columns are changed from Settings → Reading (`/settings/reading`).
@@ -2285,7 +2287,7 @@ Defined as `const` arrays in `src/lib/types/index.ts` and enforced via Zod valid
 | Reference | `languages`, `countries`, `centuries`, `work_types`, `contribution_types`, `sources`, `series` | — |
 | Publishing | `publishing_houses`, `publisher_specialties`, `publisher_isbn_prefixes`, `ignored_publisher_names`, `publisher_auto_decisions`, `publisher_hierarchy_changes`, `edition_enrichments` | `publishing_house_specialties` |
 | Location | `locations`, `sub_locations` | — |
-| eBooks | `ebooks`, `ebook_files`, `ebook_positions`, `ebook_annotations`, `ebook_ingest_runs`, `ebook_ingest_items` | — |
+| eBooks | `ebooks`, `ebook_files`, `ebook_positions`, `ebook_annotations`, `ebook_annotation_retired_ids` (proposed), `ebook_annotation_cursors` (proposed), `ebook_ingest_runs`, `ebook_ingest_items` | — |
 | Settings | `app_settings` | — |
 | Organization | `collections` | `collection_editions` |
 | Media | `media`, `gallery_layouts` | — |
@@ -2447,13 +2449,34 @@ each reference that pair with their own e-book's id. The routes and services che
 the same; these keys are the backstop under them. A refused row answers SQLSTATE
 `23503` with the key's name.
 
+### Reader integration migration inventory
+
+The experience candidate preserves applied metadata through `0081_ebook_ingest`.
+The journal and generated snapshots are unchanged. Later declarations/proposals
+are not evidence that their tables or functions exist in the live database.
+
+| Slot | Source in this candidate | Registration/application |
+|---|---|---|
+| 0082 | Matching declarations and `migration-proposals/0082_ebook_matching.manual.sql` | Proposal only; no generated snapshot/journal entry |
+| 0083 | Annotation/retirement/cursor declarations and `scripts/review/0083_ebook_annotations_search.sql`, deferred quote review SQL | Review only; no generated snapshot/journal entry |
+| 0084 | Natural library sort declarations and prepared `migrations/0084_ebook_library.sql` | Unregistered; no generated snapshot/journal entry |
+| 0085 | Reader preference declarations and reviewed action contract | Reserved, centrally ungenerated |
+| 0086 | No declaration or migration imported by this experience grant | Reserved; not generated/applied here |
+| 0087 | Tracker and composed quote declarations/review proposal | Reserved, centrally ungenerated |
+| 0088 | No declaration or migration imported by this experience grant | Reserved; not generated/applied here |
+
+The combined generator sequence and disposable native checks remain coordinator
+work. This candidate does not register migration 0089 or repair missing installed
+schemas by silently inventing client defaults. Reader preference read failures
+surface before opening the book.
+
 ### `ebooks`
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | `id` | UUID | PK, auto | |
 | `title` | TEXT | NOT NULL | |
-| `title_sort` | TEXT | nullable | Normalised for natural sort |
+| `title_sort` | TEXT | nullable | Database-owned natural key (0084, SLN-497): `search_normalize`, one article removed for the declared language, each integer encoded as a ten-digit significant-length prefix, colon and value padded to at least six digits. Leading-zero spellings tie; larger integers never truncate. Ordered with `COLLATE "C"` and `id` as tie-breaker |
 | `subtitle` | TEXT | nullable | |
 | `authors` | TEXT[] | NOT NULL, default `{}` | Natural order: "Jorge Luis Borges" |
 | `author_sort` | TEXT | nullable | |
@@ -2466,8 +2489,14 @@ the same; these keys are the backstop under them. A refused row answers SQLSTATE
 | `instance_id` | UUID | nullable, UNIQUE, FK → `instances.id`, SET NULL | The digital copy this e-book is |
 | `match_state` | TEXT | NOT NULL, default `'pending'`, CHECK in (`pending`, `linked`, `standalone`, `excluded`) | `linked` exactly when `instance_id` is set (CHECK `ebooks_linked_check`) |
 | `match_method` | TEXT | nullable, CHECK in (`isbn`, `identifier`, `score`, `manual`, `accession`) (`ebooks_match_method_check`) | |
-| `match_probability` | REAL | nullable | |
+| `match_probability` | REAL | nullable, finite 0–1; rejects NaN and either infinity (SLN-495 declaration, reserved 0082) | Existing invalid values must be explicitly reconciled before migration; preflight refuses them |
 | `matched_at` | TIMESTAMPTZ | nullable | |
+| `match_tier` | TEXT | nullable, allowed review tiers; null when not pending | SLN-495 declaration; reserved `0082_ebook_matching` is not generated/applied yet |
+| `match_fingerprint` | TEXT | nullable, lowercase SHA-256 | Bibliographic metadata and file checksums only; excludes decision state |
+| `match_model_version` | INTEGER | nullable, positive | Records the model even for zero-candidate classifications; repeat/resume can prove matching is current (SLN-495 amended declaration, migration ungenerated) |
+| `duplicate_of_id` | UUID | nullable, FK → `ebooks.id`, SET NULL; no self-reference | Present only for a pending duplicate proposal; deletion of its target clears the obsolete tier |
+| `link_written` | JSONB | nullable object | Versioned operation identity and exact before/after link/accession receipt for guarded undo |
+| `exclusion_reason` | TEXT | nullable, `duplicate`, `not_a_book`, `other`; present exactly when excluded | Existing exclusions backfill to `other`, never inferred from a tier |
 | `import_source` | TEXT | NOT NULL, CHECK in (`folder`, `upload`) (`ebooks_import_source_check`) | |
 | `import_ref` | TEXT | nullable | A sidecar `metadata.opf` uuid; UNIQUE (`import_source`, `import_ref`) where set |
 | `search_text` | TEXT | NOT NULL, default `''` | Trigram index `ebooks_search_text_trgm_idx` |
@@ -2492,6 +2521,49 @@ Triggers (custom SQL in migration `0076_ebook_catalogue`):
 Drizzle cannot declare a SET NULL that clears one column of a composite key (it needs
 PostgreSQL 15 or later). The schema's single-column key stays; both clear
 `preferred_file_id` when the file is deleted, and the e-book stays.
+
+### `ebook_match_candidates` (SLN-495 declaration; reserved 0082)
+
+Up to three proposals for a pending e-book: `id` UUID PK; `ebook_id` FK CASCADE;
+`rank` SMALLINT 1–3, UNIQUE (`ebook_id`, `rank`); `work_id` book FK CASCADE;
+nullable `edition_id` and `instance_id` FKs SET NULL; `edition_rule` in
+`isbn_edition`, `fill_copy`, `new_isbn_edition`, `placeholder_copy`, `new_edition`.
+`probability`, `weight_bits`, and nullable `margin_bits` are finite REAL values:
+NaN and either infinity are explicitly rejected; probability is 0–1 and only
+rank 1 may have a margin. `reasons` is a JSONB array of `{code,text}`, `flags` an
+allowed TEXT array, `model_version` a positive INTEGER, `created_at` TIMESTAMPTZ.
+The reserved migration adds `book_parent_required` and candidate-reference
+triggers: a copy must have its edition and both must belong to the proposed book.
+Deletion of an edition may clear both proposal references. The exact custom SQL
+is under `src/lib/db/migration-proposals/0082_ebook_matching.manual.sql` for review;
+it is not a generated migration. Linking clears candidates and the review tier.
+Parent-side triggers invalidate proposals on edition-work or copy-edition
+reparenting. Candidate validation locks its parents FOR SHARE so concurrent
+non-key reparenting cannot commit a stale proposal. An instance without its
+edition is rejected; edition deletion may clear both references atomically.
+Deleting a linked copy also clears obsolete link provenance and review state.
+
+An ebook link is its digital instance at an active digital location. Automatic
+creation uses `app_settings.ebook_location_id`; explicitly selected existing
+copies and explicit new-copy destinations may use another active digital
+location. Every new-copy destination is checked against the loader's active
+digital locations, including a location-only choice. Linking preserves work status.
+Accession creates a book work and edition with `metadata_source='ebook'`, leaves
+original year unknown, and records accessioned status and available-copy history.
+Undo checks the exact operation identity, row state and dependencies in its write
+transaction; it retains edited/referenced rows and always preserves file objects.
+Restore of Keep or Set aside reclassifies without automatically linking.
+
+Migration `0084_ebook_library` is currently prepared for review, not generated,
+registered or applied. It declares immutable `ebook_title_sort(title, language)`
+and the before-insert/title-or-language-update trigger `ebook_title_sort_set`,
+then backfills every row. Unknown languages keep their leading article; an
+article-only title is retained. Its indexes are `ebooks_state_title_sort_idx`
+(`match_state`, `title_sort COLLATE "C"`, `id`), `ebooks_created_at_idx`
+(`created_at DESC`), and the partial `ebooks_active_title_sort_idx`
+(`title_sort COLLATE "C"`, `id`) for non-excluded rows. Runtime ordering must
+use the same collation. `ebook_ingest_items_ebook_created_idx`
+(`ebook_id`, `created_at DESC`, `id`) supports bounded detail-history queries.
 
 ### `ebook_files`
 
@@ -2567,29 +2639,212 @@ future is refused.
 
 UNIQUE (`file_id`, `device_id`); index (`ebook_id`, `updated_at` desc).
 
-### `ebook_annotations`
+SLN-499 keeps the v1 JSON locator shape. Fresh `position` values are one-based, size-based Locations (1500 linear markup bytes per location), independent of text size. Existing persisted numbers are never navigation addresses: resolution uses CFI, then quote, then fraction, and display labels are recomputed from section progression. `pageLabel` carries the publisher's print label, including Roman front matter, on relocated and selection locators. The EPUB page-list wins over Adobe page-map fallback.
 
-Highlights (with notes) and bookmarks. Created empty; sub-issue 11 writes them.
+On a non-linear excursion, `href`, CFI, `sectionIndex` and within-section `progression` describe the real destination, while `totalProgression` retains the last committed linear reading projection. The same locator/projection goes to UI, bridge/context, event payloads, save requests and rehydration; excursions produce no completion or pace sample. Navigation commits only after an owned destination and paint, so cancellation/recovery never saves an intermediate place. The save/furthest rules above remain unchanged. History, index cache, running-line choices and pace learning stay in this browser; no migration or additional database write is introduced.
+
+SLN-493 reads all file/device rows ordered by `client_updated_at`. The page query includes this device's current-file place and book history, plus the newest other-device place, in the same database round trip. No device overwrites another's row. The reader offers a newer different place; it moves only on Go there, except when this device has never opened the e-book. Cross-file resume uses total progression in the current file. This adds no schema or migration and writes no tracker tables.
+
+### `reader_preferences`
+
+SLN-501 declaration proposal; migration `0085_reader_preferences` is reserved
+and has not been generated or applied. The single-user catalogue has no user
+column. All devices of one class share its defaults; an optional e-book row
+overrides only its stored fields for that class.
 
 | Column | Type | Constraints |
 |---|---|---|
-| `id` | UUID | PK, auto |
-| `ebook_id` | UUID | NOT NULL, FK → `ebooks.id`, RESTRICT |
-| `file_id` | UUID | NOT NULL; FK (`file_id`, `ebook_id`) → `ebook_files` (`id`, `ebook_id`), RESTRICT (`ebook_annotations_file_ebook_fk`) |
-| `kind` | TEXT | NOT NULL, CHECK in (`highlight`, `bookmark`) |
-| `style` | TEXT | NOT NULL, default `'highlight'`, CHECK in (`highlight`, `underline`, `quote`) |
-| `color` | TEXT | nullable, CHECK in (`ochre`, `sage`, `slate`, `rose`, `violet`) |
-| `locator` | JSONB | NOT NULL |
-| `progression` | REAL | NOT NULL |
-| `chapter`, `note` | TEXT | nullable |
-| `text` | TEXT | nullable, CHECK at most 10,000 characters |
-| `anchor_state` | TEXT | NOT NULL, default `'exact'`, CHECK in (`exact`, `healed`, `approximate`, `orphaned`) |
-| `device_id` | TEXT | nullable |
-| `client_updated_at` | TIMESTAMPTZ | NOT NULL |
-| `created_at`, `updated_at` | TIMESTAMPTZ | NOT NULL, auto |
-| `deleted_at` | TIMESTAMPTZ | nullable (a tombstone for sync) |
+| `id` | UUID | PK, default `gen_random_uuid()` |
+| `device_class` | TEXT | NOT NULL; CHECK in (`phone`, `tablet`, `desktop`) (`reader_preferences_device_class_check`) |
+| `ebook_id` | UUID | nullable; FK → `ebooks.id`, CASCADE |
+| `presentation` | JSONB | NOT NULL; complete `presentationSchema` for defaults, nonempty `presentationOverrideSchema` for a book |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, default `now()` |
 
-Index (`ebook_id`, `deleted_at`, `progression`).
+UNIQUE NULLS NOT DISTINCT (`device_class`, `ebook_id`)
+(`reader_preferences_scope_unique`) makes null a single defaults scope per
+class. Index `reader_preferences_ebook_id_idx` supports the cascade. No custom
+SQL or trigger is proposed: Drizzle declares the check, unique key and FK;
+actions validate the JSON fields. Stored fields are recovered independently
+so an old invalid value or a future field does not discard valid preferences.
+
+Effective presentation layers built-in class defaults, the class's defaults
+row, then the book's partial row. One reader query returns at most six rows:
+three defaults and that book's three overrides. Shared JSON includes SLN-502's
+`fixedFit` (`page` for desktop/tablet, `width` for phone), `cropMargins` (`auto`
+for all classes) and `pdfThemePages` (`true` for all classes). Fixed zoom remains
+session-local and is not stored. Adding these fields requires no extra table.
+
+### `ebook_annotations`
+
+Highlights, notes and bookmarks. SLN-500's declarations below are proposed for
+reserved migration `0083_ebook_annotations_search`; it is not generated or applied.
+The existing table comes from 0076/0080. Exact review SQL is in
+`scripts/review/0083_ebook_annotations_search.sql`.
+
+| Column                     | Type           | Constraints                                                                                                |
+| -------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------- |
+| `id`                       | UUID           | PK, auto; identity/original passage immutable                                                              |
+| `ebook_id`                 | UUID           | NOT NULL, FK → `ebooks.id`, RESTRICT                                                                       |
+| `file_id`                  | UUID           | NOT NULL; FK (`file_id`, `ebook_id`) → `ebook_files` (`id`, `ebook_id`), RESTRICT; locator hash must match |
+| `kind`                     | TEXT           | NOT NULL, CHECK in (`highlight`, `bookmark`)                                                               |
+| `style`                    | TEXT           | NOT NULL, default `'highlight'`, CHECK in (`highlight`, `underline`, `quote`)                              |
+| `color`                    | TEXT           | nullable, CHECK in (`ochre`, `sage`, `slate`, `rose`, `violet`)                                            |
+| `locator`                  | JSONB          | NOT NULL; complete DurtalLocator, whole text quote ≤10,000 Unicode codepoints, each context ≤64            |
+| `progression`              | REAL           | NOT NULL; CHECK 0–1                                                                                        |
+| `chapter`                  | TEXT           | nullable; ≤300 Unicode codepoints                                                                          |
+| `text`, `note`             | TEXT           | nullable; each ≤10,000 Unicode codepoints; no truncation                                                   |
+| `anchor_state`             | TEXT           | NOT NULL, default `'exact'`, CHECK in (`exact`, `healed`, `approximate`, `orphaned`)                       |
+| `device_id`                | TEXT           | nullable                                                                                                   |
+| `quote_binding_version`    | UUID           | nullable opaque server-issued epoch; non-null exactly for quote style                                      |
+| `client_updated_at`        | TIMESTAMPTZ(6) | NOT NULL; strict newer-wins user clock                                                                     |
+| `created_at`, `updated_at` | TIMESTAMPTZ(6) | NOT NULL; server-owned finite times                                                                        |
+| `deleted_at`               | TIMESTAMPTZ(6) | nullable; final tombstone                                                                                  |
+
+Bookmarks have default highlight style and null colour/text/note/binding epoch.
+Highlights require a nonblank original passage and locator quote. Normal highlights
+and underlines require a semantic colour; quote highlights have null colour and a
+server-issued binding epoch. Stored originals do not change during re-anchoring.
+String timestamp declarations and explicit six-digit UTC query formatting retain
+PostgreSQL precision; a JavaScript Date is never an annotation cursor/version.
+
+Indexes: existing (`ebook_id`, `deleted_at`, `progression`); sync
+(`ebook_id`, `updated_at`, `id`); live-row GIN trigram `ebook_annotations_search_idx`
+on `search_normalize(coalesce(text, '') || ' ' || coalesce(note, ''))`.
+
+### `ebook_annotation_retired_ids` (proposed 0083)
+
+| Column       | Type           | Constraints                                                        |
+| ------------ | -------------- | ------------------------------------------------------------------ |
+| `id`         | UUID           | global PK; never reused, updated or deleted by annotation services |
+| `ebook_id`   | UUID           | NOT NULL, FK → `ebooks.id`, RESTRICT; indexed                      |
+| `retired_at` | TIMESTAMPTZ(6) | NOT NULL, finite; original server retirement time                  |
+
+A deletion retires even an absent UUID. Full tombstones may be purged after
+90 days; this minimal identity ledger is permanent; row UPDATE/DELETE and statement-level
+TRUNCATE (including CASCADE) are refused. The per-book cursor table also refuses
+statement-level TRUNCATE so its monotonic clock cannot reset. It rejects delayed edits or
+quote effects after purge. Its FK means ingestion undo must count retired IDs,
+not infer that an e-book is unused merely because its full annotation rows are gone.
+
+### `ebook_annotation_cursors` (proposed 0083)
+
+| Column        | Type           | Constraints                       |
+| ------------- | -------------- | --------------------------------- |
+| `ebook_id`    | UUID           | PK, FK → `ebooks.id`, CASCADE     |
+| `server_time` | TIMESTAMPTZ(6) | NOT NULL, finite; may not regress |
+
+READ COMMITTED annotation transactions lock this row, then affected global UUIDs
+in sorted order before annotation/note row locks. The logical clock advances by
+`greatest(clock_timestamp(), previous + interval '1 microsecond')`. Pulls advance
+and hold this bound while fetching changed rows; inclusive lower bounds overlap
+safely. A cursor at least 90 days old requires a full live-row reset, preserving
+pending genuinely new local creates. A POST response time never advances the
+client's pull cursor. The global UUID lock coordinates cross-book create/retire races.
+
+Quote privilege is an internal server composition, with no browser-controlled
+flag or connection-local bypass. SLN-454/0087 owns
+`reading_notes.ebook_annotation_id`, its real book ownership guard and binding
+epoch rotation; 0083 does not introduce a duplicate opposite-direction note FK.
+Deferred keep/delete choices carry exact note/binding versions in one durable
+operation. Before sealing, Undo removes both intents; after sealing, one composed
+transaction validates both versions/ownership and applies both effects or neither.
+Already-retired IDs never cause a delayed quote deletion. Tracker-origin deletion
+of a live linked quote keeps its annotation and atomically converts it to a plain
+highlight, preserving identity, passage, note, locator and user edit time.
+
+### Pending reader tracker declarations (SLN-454)
+
+The following declarations in `src/lib/db/schema/reader-tracking.ts` and the
+annotation reference in `readings.ts` await review and reserved migration
+`0087_reader_tracker_integration`. They are not present in the applied database.
+`scripts/qa/reader-tracking-schema-proposal.sql` contains exact unexecuted review
+DDL and custom trigger proposals. Applied 0075/0076 remain unchanged: they
+checked old history was empty and dropped `reading_progress`; no historical
+preservation table exists at the reviewed reader baseline.
+
+`legacy_reader_progress` is additive recovery input, populated only from actual
+reviewed recovery evidence or a synthetic disposable fixture. It never reads
+history from positions, Calibre metadata, sidecars or preservation timestamps.
+
+| Column | Type | Constraints |
+|---|---|---|
+| `ebook_id` | UUID | PK, FK → `ebooks.id`, RESTRICT |
+| `progress_fraction` | REAL | nullable, CHECK 0–1; converted to tracker percent 0–100 at the service boundary |
+| `started_at`, `last_read_at`, `finished_at` | TIMESTAMPTZ | nullable, finite when supplied; no defaults and no inferred dates |
+| `preserved_at` | TIMESTAMPTZ | NOT NULL, default now; audit time only |
+
+`reader_sitting_receipts` permanently remembers each client sitting's cumulative
+flush. Its only live identity FK is `session_id`. Original reading, e-book and
+session UUIDs have no FK: deletion/merge/Undo must not erase or rewrite them.
+
+| Column | Type | Constraints |
+|---|---|---|
+| `sitting_id` | UUID | PK, supplied by client; permanent |
+| `reading_id`, `ebook_id`, `device_id`, `original_session_id` | UUID | NOT NULL, immutable original identities; device comes from the validated server cookie |
+| `session_id` | UUID | nullable FK → `reading_sessions.id`, SET NULL; may only clear after insert |
+| `revision` | INTEGER | NOT NULL, 1–2147483647; same revision cannot change cumulative values |
+| `started_at`, `ended_at` | TIMESTAMPTZ | NOT NULL, finite, ordered; started time immutable |
+| `active_seconds` | INTEGER | NOT NULL, 1–86400, at most floor of elapsed wall seconds; cumulative, never regresses |
+| `start_percent`, `end_percent` | NUMERIC(5,2) | NOT NULL, 0–100; start immutable |
+| `end_chapter` | TEXT | nullable, at most 300 characters |
+| `time_zone` | TEXT | NOT NULL, 1–100 characters, valid database time-zone name; immutable |
+| `going_back` | BOOLEAN | NOT NULL default false, immutable; explicit backward segment |
+| `state` | TEXT | NOT NULL default active, active or retired |
+| `retired_at` | TIMESTAMPTZ | nullable, finite; required only for retired |
+| `retire_reason` | TEXT | nullable; required only for retired: session_deleted, session_edited, reading_deleted, reading_closed, reading_edited, binding_changed, book_merged, compensated or session_missing |
+| `updated_at` | TIMESTAMPTZ | NOT NULL default now |
+
+Indexes cover `session_id`, `reading_id` and `ebook_id`. Active state requires a
+live session and null retirement fields. Retired state requires a null session
+and both retirement fields. The BEFORE receipt guard handles FK SET NULL before
+the active-state CHECK runs. Retired receipts cannot change or be reactivated;
+DELETE/TRUNCATE is refused. Restoring a canonical session does not revive an old
+sitting UUID; a new sitting uses a new UUID. There is no TTL purge.
+
+Proposed session/reading/e-book/copy/edition guards retire affected receipts in
+the same transaction as edits, closure, deletion or rebinding. Shared derived
+session-start recomputation may proceed; explicit user edits additionally retire
+before mutation, even if submitted values match the stored row. Tracker
+extension uses a transaction-local session token plus proof that its active
+receipt was written in that same transaction, with deferred canonical-session
+validation. The token alone is insufficient. This is an internal SQL protocol,
+not access control against a privileged database owner. Canonical reader time
+equals cumulative active receipt time; overlapping receipt intervals are refused.
+No sitting extends an unrelated, retired or manually edited canonical session.
+
+`reading_notes.ebook_annotation_id` is nullable UNIQUE UUID with FK →
+`ebook_annotations.id` SET NULL. The revised `guard_reading_note` preserves both
+existing reference guards and the audited merge pass-through, adding
+`reading_note_ebook_work` (23514) for another book's annotation. Null clearing is
+allowed. Deferred binding checks permit temporary merge ordering but require
+the final linked e-book and note to belong to the same work. Relink retaining
+an old quote clears its annotation reference in that same transaction. Actual
+quote save/delete/Undo composition belongs to the reviewed SLN-454/500 service
+contract, not these declarations.
+
+The corrected proposal depends on SLN-500's concrete 0083 annotation lock/cursor/
+epoch functions. Every linked note INSERT/UPDATE/DELETE locks its e-book binding,
+annotation IDs and note rows, then re-reads ownership after waits. E-book/copy/
+edition binding guards use the same book/annotation locks before rebinding;
+the deferred final check repeats binding locks and reads a fresh snapshot.
+Application batches prelock before their DML in book → annotation → note order;
+row-trigger fallback preserves correctness but a caller with inverted locks may
+need bounded deadlock retry. These callsite compositions remain integration work.
+
+Real changes to a note's annotation/work/reading/edition association and to the
+e-book/copy/edition binding rotate the live quote's server-generated UUID epoch.
+Epochs never come from client input and cannot survive A→B→A as the same token.
+Tombstones and retired marks are excluded from epoch updates. Deleting an
+ordinary kept tracker quote does not recreate or modify its retired mark.
+Linked quote updates and user content/timestamp changes stamp `updated_at` with
+the greater of PostgreSQL's clock and the previous timestamp plus one microsecond.
+SQL emits exact UTC six-digit fractional versions; JavaScript Date is not the
+version round-trip. Automatic reference-only changes to ordinary unlinked notes
+preserve their timestamp, keeping the import's unedited/Undo contract. Finite
+versions are required where stamps advance. The dedicated disposable integration
+suite authors race, epoch and version checks but is not yet run; it requires
+approved generated 0083/0087 and actual composed quote functions, not review SQL
+installed as a test-only migration.
 
 ### `ebook_ingest_runs`
 

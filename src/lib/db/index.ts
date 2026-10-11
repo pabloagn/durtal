@@ -1,12 +1,14 @@
-import { neon } from "@neondatabase/serverless";
+import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http";
 import * as schema from "./schema";
 import { serverEnv } from "@/lib/env";
 
-let _db: NeonHttpDatabase<typeof schema> | null = null;
+// drizzle({ client }) exposes this same Neon client; preserve that factory contract.
+type Database = NeonHttpDatabase<typeof schema> & { $client: NeonQueryFunction<false, false> };
+let _db: Database | null = null;
 
-export function getDb(): NeonHttpDatabase<typeof schema> {
+export function getDb(): Database {
   if (!_db) {
     // Pages render per request (src/app/layout.tsx). A query during `next build`
     // means some route is being pre-rendered with build-time data.

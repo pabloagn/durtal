@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import dynamic from "next/dynamic";
+import { DeferredFeature } from "@/components/ui/feature-renderer";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -20,10 +20,7 @@ import { DialogFooter } from "./fields";
 import { readNumber } from "./start-reading-dialog";
 
 // The editor loads only once the dialog shows a quote
-const TiptapEditor = dynamic(() => import("@/components/shared/tiptap-editor").then((m) => m.TiptapEditor), {
-  ssr: false,
-  loading: () => <div className="h-[135px] rounded-sm border border-glass-border bg-bg-secondary/30" aria-hidden />,
-});
+const loadEditor = () => import("@/components/shared/tiptap-editor").then((m) => m.TiptapEditor);
 
 const KINDS = [
   { value: "quote", label: "Quote" },
@@ -290,14 +287,17 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
           />
         )}
         {kind === "quote" && (
-          <TiptapEditor
-            label="Your thought"
-            value={thought}
-            onChange={(value) => {
+          <DeferredFeature
+            load={loadEditor}
+            close={close}
+            pending={(failed, retry) => failed ? <div role="alert" className="text-sm text-fg-secondary">
+              <p>The thought editor could not load.</p>
+              <button type="button" onClick={retry} className="underline pointer-coarse:min-h-11">Retry editor</button>
+            </div> : <div className="h-[135px] rounded-sm border border-glass-border bg-bg-secondary/30" aria-hidden />}
+            rendererProps={{ label: "Your thought", value: thought, onChange: (value: RichValue) => {
               setThought(value);
               setThoughtEdited(true);
-            }}
-            placeholder="Why it stayed with you"
+            }, placeholder: "Why it stayed with you" }}
           />
         )}
         {/* The words toggle the switch too: a 44px row on touch */}

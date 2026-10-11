@@ -5,6 +5,7 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
+import { lockReaderNotes } from "@/lib/reading/reader-write-locks";
 import { withReadableErrors } from "@/lib/db/errors";
 import { assertSql, resultRows } from "@/lib/harmonization/store";
 import {
@@ -978,6 +979,7 @@ export async function restoreReading(input: z.input<typeof snapshotSchema>) {
     if (s.editionId && (await exists(editions, s.editionId))) sessionEditions.add(s.editionId);
   await withReadableErrors(() =>
     atomic((d) => [
+      lockReaderNotes(d, sql`select jsonb_array_elements_text(${JSON.stringify(snap.noteIds ?? [])}::jsonb)::uuid`),
       d.insert(readings).values({
         ...r,
         editionId: editionOk ? r.editionId : null,
@@ -1267,7 +1269,7 @@ function camelReading(row: Record<string, unknown>): Reading {
 
 /** Every open reading: for the hub, the dashboard and the command palette */
 export async function getOpenReadings() {
-  return resultRows<{
+  const rows = resultRows<{
     reading: Reading;
     fingerprint: string;
     work: { id: string; title: string; slug: string | null };
@@ -1285,6 +1287,9 @@ export async function getOpenReadings() {
       where r.status in ('reading','paused')
       order by r.last_read_at desc nulls last, r.started_on desc nulls last, r.created_at desc`),
   ).map((row) => ({ ...row, reading: camelReading(row.reading as unknown as Record<string, unknown>) }));
+  const { getReaderLinksForWorks } = await import("@/lib/ebooks/queries");
+  const links = await getReaderLinksForWorks(rows.map((row) => row.work.id));
+  return rows.map((row) => ({ ...row, ebookId: links.get(row.work.id) ?? null }));
 }
 
 /** The reading history, quotes and notes a book delete removes */

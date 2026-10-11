@@ -1,4 +1,6 @@
 import type { ReaderFormat } from "./engine";
+import { PDFJS_BASE } from "./pdf-assets";
+export { PDFJS_BASE } from "./pdf-assets";
 
 /**
  * The first byte ranges of a book (eBooks sub-issue 3), which the page asks
@@ -40,7 +42,7 @@ export function firstRanges(format: ReaderFormat, size: number, cdOffset?: numbe
   }
   if (format === "pdf") {
     // A small file is one range
-    if (size <= PDF_HEAD_BYTES + PDF_TAIL_BYTES) return [{ start: 0, end: last }];
+    if (size <= PDF_HEAD_BYTES) return [{ start: 0, end: last }];
     return [
       { start: 0, end: PDF_HEAD_BYTES - 1 },
       { start: size - PDF_TAIL_BYTES, end: last },
@@ -54,10 +56,10 @@ export function firstRanges(format: ReaderFormat, size: number, cdOffset?: numbe
 /** Where the page leaves its first range for the engine, by file id */
 export const PREFETCH_GLOBAL = "__durtalPrefetch";
 /** Where scripts/vendor-pdfjs.mjs puts pdf.js's run-time files */
-export const PDFJS_BASE = "/vendor/pdfjs/";
 export const PDF_WORKER_URL = `${PDFJS_BASE}pdf.worker.min.mjs`;
 /** The pdf.js worker, once started: by the page's script or by the engine, whichever comes first */
 export const PDF_WORKER_GLOBAL = "__durtalPdfWorker";
+export const PDF_WORKER_CLAIMED_GLOBAL = "__durtalPdfWorkerClaimed";
 
 /**
  * The page's inline script: starts the first ranges at once and leaves the
@@ -69,9 +71,37 @@ export const PDF_WORKER_GLOBAL = "__durtalPdfWorker";
  * escaped, so nothing ends the script early.
  */
 export function prefetchScript(input: { fileId: string; url: string; ranges: ByteRange[]; worker?: string }): string {
-  const data = JSON.stringify({ id: input.fileId, url: input.url, ranges: input.ranges, worker: input.worker ?? null }).replace(
+  const data = JSON.stringify({ id: input.fileId, url: input.url, ranges: input.ranges, worker: input.worker ?? null, size: Math.max(0, ...input.ranges.map((range) => range.end + 1)) }).replace(
     /</g,
     "\\u003c",
   );
-  return `(function(){var d=${data},w=window,p=w.${PREFETCH_GLOBAL}||(w.${PREFETCH_GLOBAL}={});if(!w.fetch||!w.Promise)return;p[d.id]=Promise.all(d.ranges.map(function(g){return fetch(d.url,{headers:{Range:"bytes="+g.start+"-"+g.end}}).then(function(r){if(r.status===206||(r.status===200&&g.start===0))return r.arrayBuffer();throw r.status}).then(function(b){return{start:g.start,bytes:b}},function(){return null})})).then(function(a){return a.filter(Boolean)});if(d.worker&&w.Worker)p[d.id].then(function(){try{w.${PDF_WORKER_GLOBAL}||(w.${PDF_WORKER_GLOBAL}=new Worker(d.worker,{type:"module"}))}catch(e){}})})()`;
+  return `(function(){
+var d=${data},w=window,p=w.${PREFETCH_GLOBAL}||(w.${PREFETCH_GLOBAL}={});
+if(!w.fetch||!w.Promise)return;
+function discard(r){if(r.body)r.body.cancel().catch(function(){});}
+function bounded(r,g){
+  var length=g.end-g.start+1,expected="bytes "+g.start+"-"+g.end+"/"+d.size;
+  var declared=r.headers.get("content-length");
+  if(length>262144||r.status!==206||r.headers.get("content-range")!==expected||(declared!==null&&(!/^\\d+$/.test(declared)||Number(declared)!==length))||!r.body){discard(r);return Promise.reject("invalid PDF prefetch range");}
+  var reader=r.body.getReader(),bytes=new Uint8Array(length),received=0;
+  function release(){reader.cancel().catch(function(){});reader.releaseLock();}
+  function pump(){return reader.read().then(function(part){
+    if(part.done){if(received!==length)throw "truncated PDF prefetch";return bytes.buffer;}
+    if(received+part.value.byteLength>length)throw "oversized PDF prefetch";
+    bytes.set(part.value,received);received+=part.value.byteLength;return pump();
+  });}
+  return pump().then(function(bytes){release();return bytes;},function(error){release();throw error;});
+}
+p[d.id]=Promise.all(d.ranges.map(function(g){
+  return fetch(d.url,{headers:{Range:"bytes="+g.start+"-"+g.end}}).then(function(r){
+    if(d.worker)return bounded(r,g);
+    if(r.status===206||(r.status===200&&g.start===0))return r.arrayBuffer();
+    discard(r);throw r.status;
+  }).then(function(b){return{start:g.start,bytes:b}},function(){return null});
+})).then(function(a){return a.filter(Boolean)});
+if(d.worker&&w.Worker)p[d.id].then(function(){
+  if(w.${PDF_WORKER_CLAIMED_GLOBAL})return;
+  try{w.${PDF_WORKER_GLOBAL}||(w.${PDF_WORKER_GLOBAL}=new Worker(d.worker,{type:"module"}))}catch(e){}
+});
+})()`;
 }

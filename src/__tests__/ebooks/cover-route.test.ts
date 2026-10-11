@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { ebookGoldDerivedKey } from "@/lib/ebooks/keys";
 
 /* SLN-491: an e-book's cover, redirected to CloudFront or streamed by the app */
 
@@ -68,6 +69,28 @@ describe("GET /api/reader/[ebookId]/cover", () => {
     mocks.cover = { ebookId: id, sha256: sha };
     for (const query of ["", "?w=", "?w=300", "?w=400.0", "?w=abc"]) expect((await cover(query)).status).toBe(400);
     expect((await cover("?w=400", "nope")).status).toBe(400);
+  });
+
+  it("redirects a published gold cover through the cover-only policy and refuses an unrecorded width", async () => {
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    vi.stubEnv("EBOOK_DELIVERY", "cloudfront");
+    vi.stubEnv("EBOOK_CDN_URL", "https://d111111abcdef8.cloudfront.net");
+    vi.stubEnv("EBOOK_CDN_KEY_PAIR_ID", "K2JCJMDEHXQW5F");
+    vi.stubEnv("EBOOK_CDN_PRIVATE_KEY", Buffer.from(privateKey.export({ type: "pkcs1", format: "pem" }).toString()).toString("base64"));
+    const key = ebookGoldDerivedKey(sha, "epub", "cd".repeat(32), "cover-400.webp");
+    mocks.cover = { ebookId: id, sha256: sha, key, widths: [400] };
+    const response = await cover("?w=400");
+    expect(response.status).toBe(302);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe(`/${key}`);
+    const encoded = location.searchParams.get("Policy")!;
+    const policy = JSON.parse(Buffer.from(encoded.replace(/-/g, "+").replace(/_/g, "=").replace(/~/g, "/"), "base64").toString());
+    expect(policy.Statement).toHaveLength(1);
+    expect(policy.Statement[0].Resource).toBe("https://d111111abcdef8.cloudfront.net/gold/ebooks/*/*/*/derived/v2/*/cover-*.webp");
+    expect((await cover("?w=240")).status).toBe(404);
+    expect((await cover("?w=800")).status).toBe(404);
+    vi.stubEnv("EBOOK_DELIVERY", "app");
+    expect((await cover("?w=240")).status).toBe(404);
   });
 
   it("answers 404 for an e-book with no cover, and for no e-book", async () => {
