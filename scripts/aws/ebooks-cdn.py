@@ -450,7 +450,8 @@ def json_pipe(data):
     """
     if not isinstance(data, bytes) or not 0 < len(data) <= 256 * 1024:
         raise Refusal('Bounded JSON payload required')
-    with tempfile.TemporaryDirectory(prefix='durtal-aws-json-', dir='/private/tmp') as temp:
+    with tempfile.TemporaryDirectory(prefix='durtal-aws-json-',
+                                     dir='/private/tmp' if sys.platform == 'darwin' else None) as temp:
         folder = Path(temp)
         folder.chmod(0o700)
         current, next_pipe = folder / 'input.json', folder / 'next.json'

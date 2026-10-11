@@ -214,6 +214,13 @@ def verify_preparation(directory, production=False):
         if 'productionNextEnv' not in state:
             raise Refusal('Prepared production declaration expectation is missing')
         expected['next-env.d.ts'] = state['productionNextEnv']
+    if production:
+        # Only new build-generated files may be absent from the archive snapshot.
+        # Archived files stay strict; public output is hashed separately in build.json.
+        for relative in ('public/icons/durtal-192.png', 'public/icons/durtal-512.png',
+                         'public/icons/durtal-maskable-512.png', 'public/offline-assets.json'):
+            if relative not in expected:
+                actual.pop(relative, None)
     if actual != expected or file_hash(source / 'pnpm-lock.yaml') != state['lockSha256']:
         raise Refusal('Prepared source changed from the pinned archive')
     return state, source, public

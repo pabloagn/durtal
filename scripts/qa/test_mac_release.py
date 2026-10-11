@@ -22,6 +22,8 @@ import runtime_launcher as launcher
 COMMIT, TREE = 'a' * 40, 'b' * 40
 NEXT_ENV_DEV = b'/// <reference types="next" />\n/// <reference types="next/image-types/global" />\nimport "./.next/dev/types/routes.d.ts";\n\n// NOTE: This file should not be edited\n'
 NEXT_ENV_PRODUCTION = NEXT_ENV_DEV.replace(b'./.next/dev/types/', b'./.next/types/')
+GENERATED_PUBLIC_FILES = ('public/icons/durtal-192.png', 'public/icons/durtal-512.png',
+                          'public/icons/durtal-maskable-512.png', 'public/offline-assets.json')
 
 
 class ReleaseTests(unittest.TestCase):
@@ -564,6 +566,53 @@ for(const [type,options] of [['rsa',{modulusLength:2048}],['rsa',{modulusLength:
             'staticFiles': release.snapshot(source / '.next/static'), 'publicFiles': release.snapshot(source / 'public')})
         return directory, source
 
+    def test_generated_public_extras_are_allowed_only_after_build(self):
+        for number, relative in enumerate(GENERATED_PUBLIC_FILES):
+            with self.subTest(relative=relative):
+                directory, source = self.prepared_build(name=f'generated-{number}', built=False)
+                path = source / relative; path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b'generated')
+                self.assertNotIn(relative, release.read_json(directory / 'preparation.json')['sourceFiles'])
+                with patch.object(release, 'node_identity'), patch.object(release, 'executable'):
+                    with self.assertRaisesRegex(release.Refusal, 'source changed'):
+                        release.verify_preparation(directory)
+                    (source / 'next-env.d.ts').write_bytes(NEXT_ENV_PRODUCTION)
+                    release.verify_preparation(directory, production=True)
+
+    def test_archived_generated_paths_remain_strict_after_build(self):
+        for number, relative in enumerate(GENERATED_PUBLIC_FILES):
+            for mutation in ('tamper', 'delete'):
+                with self.subTest(relative=relative, mutation=mutation):
+                    directory, source = self.prepared_build(name=f'archived-{number}-{mutation}', built=False)
+                    path = source / relative; path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(b'archived')
+                    state = release.read_json(directory / 'preparation.json')
+                    state['sourceFiles'] = release.snapshot_source(source)
+                    (directory / 'preparation.json').unlink()
+                    release.private_json(directory / 'preparation.json', state)
+                    (source / 'next-env.d.ts').write_bytes(NEXT_ENV_PRODUCTION)
+                    with patch.object(release, 'node_identity'), patch.object(release, 'executable'):
+                        release.verify_preparation(directory, production=True)
+                        if mutation == 'tamper': path.write_bytes(b'tampered')
+                        else: path.unlink()
+                        with self.assertRaisesRegex(release.Refusal, 'source changed'):
+                            release.verify_preparation(directory, production=True)
+
+    def test_postbuild_rejects_other_public_extras_and_generated_symlinks(self):
+        for number, relative in enumerate(('public/icons/other.png', 'public/icons/durtal-192.png.bak', 'public/offline-assets.json.bak')):
+            with self.subTest(relative=relative):
+                directory, source = self.prepared_build(name=f'extra-{number}')
+                path = source / relative; path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b'unexpected')
+                with patch.object(release, 'node_identity'), patch.object(release, 'executable'):
+                    with self.assertRaisesRegex(release.Refusal, 'source changed'):
+                        release.verify_preparation(directory, production=True)
+        directory, source = self.prepared_build(name='generated-symlink')
+        (source / 'public/offline-assets.json').symlink_to(source / 'pnpm-lock.yaml')
+        with patch.object(release, 'node_identity'), patch.object(release, 'executable'):
+            with self.assertRaisesRegex(release.Refusal, 'symlink'):
+                release.verify_preparation(directory, production=True)
+
     def test_mocked_build_accepts_only_exact_generated_declaration_transition(self):
         # Exercise build's pre/post checks and package's production check; no pnpm
         # process, dependency install or Next build is invoked.
@@ -575,6 +624,9 @@ for(const [type,options] of [['rsa',{modulusLength:2048}],['rsa',{modulusLength:
                         declaration = NEXT_ENV_DEV if name == 'unchanged' else NEXT_ENV_PRODUCTION
                         if name == 'extra-declaration-change': declaration += b'// unreviewed edit\n'
                         (source / 'next-env.d.ts').write_bytes(declaration)
+                        for relative in GENERATED_PUBLIC_FILES:
+                            path = source / relative; path.parent.mkdir(parents=True, exist_ok=True)
+                            path.write_bytes(b'generated public fixture')
                         if name == 'other-source-change':
                             (source / 'scripts/deploy/mac_release.py').write_text('unreviewed edit')
                         (source / '.next/standalone/.next').mkdir(parents=True)
@@ -592,7 +644,16 @@ for(const [type,options] of [['rsa',{modulusLength:2048}],['rsa',{modulusLength:
                     else:
                         release.build(directory, allow=True)
                         self.assertEqual(run.call_count, 2)
-                        release.package(directory, self.root / 'valid-production-package')
+                        proof = release.read_json(directory / 'build.json')
+                        manifest = release.package(directory, self.root / 'valid-production-package')
+                        for relative in GENERATED_PUBLIC_FILES:
+                            identity = release.snapshot_entry(source / relative)
+                            self.assertEqual(proof['publicFiles'][relative.removeprefix('public/')], identity)
+                            self.assertEqual(manifest['files'][relative], identity)
+                        (source / 'public/offline-assets.json').write_bytes(b'tampered generated output')
+                        with self.assertRaisesRegex(release.Refusal, 'output changed'):
+                            release.package(directory, self.root / 'tampered-generated-package')
+                        (source / 'public/offline-assets.json').write_bytes(b'generated public fixture')
                         (source / 'next-env.d.ts').write_bytes(NEXT_ENV_PRODUCTION + b'// later tamper\n')
                         with self.assertRaisesRegex(release.Refusal, 'source changed'):
                             release.package(directory, self.root / 'tampered-declaration-package')

@@ -2,10 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, webcrypto } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, writeFile, access } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile, access, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { runInNewContext } from "node:vm";
+import { fileURLToPath } from "node:url";
 import { prepareOfflineAssets } from "../prepare-offline.mjs";
 
 const NEXT_ID = "Next_generated-Release_27";
@@ -87,6 +88,29 @@ test("actual CLI refuses a malformed emitted ID even when environment labels loo
   });
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Offline assets require a valid emitted Next build ID/);
+  await assert.rejects(access(join(root, "public/offline-assets.json")));
+});
+
+test("a symlinked CLI executes validation while importing the same helper does not execute it", async t => {
+  const root = await scratch(t);
+  await put(root, "scripts/prepare-offline.mjs", await readFile(new URL("../prepare-offline.mjs", import.meta.url)));
+  await put(root, ".next/BUILD_ID", "bad/id");
+  const alias = join(root, "scripts/offline-cli-alias.mjs");
+  await symlink("prepare-offline.mjs", alias);
+  const result = spawnSync(process.execPath, [alias], { cwd: root, encoding: "utf8", timeout: 10_000 });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Offline assets require a valid emitted Next build ID/);
+  await assert.rejects(access(join(root, "public/offline-assets.json")));
+  await put(root, "scripts/import-only.mjs", 'import { prepareOfflineAssets } from "./prepare-offline.mjs"; if (typeof prepareOfflineAssets !== "function") throw Error("missing export"); console.log("import-only");');
+  const imported = spawnSync(process.execPath, [join(root, "scripts/import-only.mjs")], {
+    cwd: root, encoding: "utf8", timeout: 10_000,
+  });
+  assert.equal(imported.error, undefined);
+  assert.equal(imported.status, 0, imported.stderr);
+  assert.equal(imported.stdout.trim(), "import-only");
+  assert.equal(imported.stderr, "");
+  await assert.rejects(access(join(root, "public/icons")));
   await assert.rejects(access(join(root, "public/offline-assets.json")));
 });
 
@@ -210,8 +234,8 @@ test("actual worker keeps strict asset and shell checks and removes incomplete n
 });
 
 // Exercise the production collector, including its real hashing/icon writer.
-async function dependencyFixture(t, entry) {
-  const root = await scratch(t);
+async function dependencyFixture(t, entry, buildRoot) {
+  const root = buildRoot ?? await scratch(t);
   await put(root, ".next/BUILD_ID", NEXT_ID + "\n");
   await putBootstrapManifests(root);
   for (const route of ["reader/offline", "(offline)/ebooks/offline", "(offline)/offline"])
@@ -221,6 +245,35 @@ async function dependencyFixture(t, entry) {
   await put(root, "public/vendor/pdfjs/fixture/worker.mjs", "PDF worker bytes");
   return root;
 }
+
+test("actual CLI decodes its build directory containing spaces and URL-reserved characters", async t => {
+  const parent = await scratch(t);
+  const root = join(parent, "Application Support", "Offline # release %");
+  await mkdir(root, { recursive: true });
+  await dependencyFixture(t, 'export const reader = true;', root);
+  await put(root, "scripts/prepare-offline.mjs", await readFile(new URL("../prepare-offline.mjs", import.meta.url)));
+  // Resolve the existing installed dependencies; no install, build, or mocked collector.
+  await symlink(fileURLToPath(new URL("../../node_modules", import.meta.url)), join(root, "node_modules"), "dir");
+  const result = spawnSync(process.execPath, [join(root, "scripts/prepare-offline.mjs")], {
+    cwd: parent, encoding: "utf8", timeout: 10_000,
+    env: { DURTAL_BUILD_COMMIT: "a".repeat(40), DURTAL_BUILD_TREE: "b".repeat(40), DURTAL_BUILD_ID: "a".repeat(40) },
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stderr);
+  const manifest = JSON.parse(await readFile(join(root, "public/offline-assets.json"), "utf8"));
+  assert.equal(manifest.buildId, NEXT_ID);
+  assert.equal(await readFile(join(root, ".next/BUILD_ID"), "utf8"), NEXT_ID + "\n");
+  assert.deepEqual(manifest.assets.map(item => item.url), [
+    "/_next/static/chunks/entry.js", "/fonts/reader/reader.woff2",
+    "/icons/durtal-192.png", "/icons/durtal-512.png", "/icons/durtal-maskable-512.png",
+    "/vendor/pdfjs/fixture/worker.mjs",
+  ]);
+  for (const item of manifest.assets) {
+    const path = item.url.startsWith("/_next/")
+      ? join(root, ".next", item.url.slice(7)) : join(root, "public", item.url.slice(1));
+    assert.equal(item.sha256, hash(await readFile(path)), item.url);
+  }
+});
 
 test("emitted framework and offline-route bootstraps retain their transitive bytes without catalogue roots", async t => {
   const root = await dependencyFixture(t, 'export const reader = true;');

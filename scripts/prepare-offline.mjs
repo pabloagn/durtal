@@ -3,10 +3,10 @@
  * emitted Next BUILD_ID is also the release packager's build identity.
  */
 import { createHash } from "node:crypto";
-import { readFile, readdir, writeFile, mkdir } from "node:fs/promises";
+import { readFile, readdir, writeFile, mkdir, realpath } from "node:fs/promises";
 import { resolve, join } from "node:path";
-import { pathToFileURL } from "node:url";
-const root = resolve(new URL("../",import.meta.url).pathname);
+import { fileURLToPath } from "node:url";
+const root = fileURLToPath(new URL("../", import.meta.url));
 export async function prepareOfflineAssets(buildRoot = root) {
   // Read the actual completed build, never an environment label or a new ID.
   const buildId = (await readFile(join(buildRoot,".next/BUILD_ID"),"utf8")).trim();
@@ -104,6 +104,8 @@ export async function prepareOfflineAssets(buildRoot = root) {
   if (!assets.some(item => /\.js$/.test(item.url))) throw new Error("Offline reader dependency graph is incomplete");
   await writeFile(join(buildRoot,"public/offline-assets.json"),JSON.stringify({ v: 1, buildId, assets }));
 }
-if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+// Node resolves the module URL through symlinks (for example /tmp on Darwin).
+if (process.argv[1] &&
+    await realpath(resolve(process.argv[1])).catch(() => null) === await realpath(fileURLToPath(import.meta.url))) {
   await prepareOfflineAssets();
 }

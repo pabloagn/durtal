@@ -1007,5 +1007,53 @@ class ImportTests(unittest.TestCase):
                 helper._scope(service, ACCOUNT)
 
 
+class FifoPlatformTests(unittest.TestCase):
+    def test_platform_temp_root_preserves_private_fifo_replay_and_cleanup(self):
+        import stat
+        real_tempdir, real_thread = tempfile.TemporaryDirectory, cdn.threading.Thread
+        marker = b'{"fixture":"memory-only"}'
+        with real_tempdir(prefix='sln491-platform-host-') as host:
+            for platform, expected in (('linux', None), ('darwin', '/private/tmp')):
+                with self.subTest(platform=platform):
+                    requested, workers = [], []
+                    def temporary(**kwargs):
+                        requested.append(kwargs['dir'])
+                        # Exercise Darwin selection on Linux too; physical
+                        # fixture placement stays in this owned host directory.
+                        if kwargs['dir'] == '/private/tmp': kwargs['dir'] = host
+                        return real_tempdir(**kwargs)
+                    def thread(*args, **kwargs):
+                        worker = real_thread(*args, **kwargs); workers.append(worker); return worker
+                    with patch.object(cdn.sys, 'platform', platform), \
+                         patch.object(cdn.tempfile, 'TemporaryDirectory', side_effect=temporary), \
+                         patch.object(cdn.threading, 'Thread', side_effect=thread):
+                        with cdn.json_pipe(marker) as reference:
+                            path = Path(reference[len('file://'):]); folder = path.parent
+                            self.assertEqual(folder.stat().st_uid, os.getuid())
+                            self.assertEqual(stat.S_IMODE(folder.stat().st_mode),0o700)
+                            self.assertTrue(all(stat.S_ISFIFO(node.stat().st_mode) and
+                                stat.S_IMODE(node.stat().st_mode)==0o600 for node in folder.iterdir()))
+                            first_inode = path.stat().st_ino
+                            self.assertEqual(path.read_bytes(),marker)
+                            self.assertNotEqual(first_inode,path.stat().st_ino)
+                            self.assertEqual(path.read_bytes(),marker)
+                    self.assertEqual(requested,[expected])
+                    self.assertFalse(folder.exists())
+                    self.assertEqual(len(workers),1); self.assertFalse(workers[0].is_alive())
+
+    def test_non_darwin_consumer_exception_stops_writer_and_removes_fifo_nodes(self):
+        real_thread = cdn.threading.Thread; workers = []
+        def thread(*args, **kwargs):
+            worker=real_thread(*args, **kwargs); workers.append(worker); return worker
+        with patch.object(cdn.sys,'platform','linux'), \
+             patch.object(cdn.threading,'Thread',side_effect=thread):
+            with self.assertRaisesRegex(RuntimeError,'synthetic consumer failure'):
+                with cdn.json_pipe(b'{"fixture":"never-exported"}') as reference:
+                    folder=Path(reference[len('file://'):]).parent
+                    raise RuntimeError('synthetic consumer failure')
+        self.assertFalse(folder.exists())
+        self.assertEqual(len(workers),1); self.assertFalse(workers[0].is_alive())
+
+
 if __name__ == '__main__':
     unittest.main()
