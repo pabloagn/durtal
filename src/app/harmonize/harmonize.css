@@ -1051,6 +1051,15 @@
 
 /* Touch targets: 44px on a coarse pointer (docs/03, Keyboard, touch and motion) */
 @media (pointer: coarse) {
+  .h-record-link {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+  .h-fill-details summary {
+    min-height: 44px;
+    padding-block: 12px;
+  }
   .h-button,
   .h-filter,
   .h-toolbar input,
