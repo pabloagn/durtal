@@ -73,8 +73,12 @@ export class PublisherInk {
       if (this.#jobs.get(doc) === job) return;
     }
   }
-  async #apply(doc: Document, p: ReaderPresentation, signal: AbortSignal): Promise<void> {
-    signal.throwIfAborted(); if (!doc.body || !doc.defaultView) return;
+  /** Capture source colours before a newly loaded page installs reader colours. */
+  async captureOriginal(doc: Document, signal: AbortSignal): Promise<void> {
+    await this.#capture(doc, signal);
+  }
+  async #capture(doc: Document, signal: AbortSignal): Promise<HTMLElement[]> {
+    signal.throwIfAborted(); if (!doc.body || !doc.defaultView) return [];
     const walker = doc.createTreeWalker(doc.body,4); // SHOW_TEXT, scoped to the opened page.
     const elements: HTMLElement[] = [], seen = new Set<Element>();
     let node: Node | null = null;
@@ -106,6 +110,11 @@ export class PublisherInk {
       const frame = doc.defaultView?.frameElement;
       if (frame && !frame.isConnected) throw new DOMException("Retired book page","AbortError");
     }
+    signal.throwIfAborted();
+    return elements;
+  }
+  async #apply(doc: Document, p: ReaderPresentation, signal: AbortSignal): Promise<void> {
+    const elements = await this.#capture(doc, signal);
     signal.throwIfAborted();
     const colours = new Map<string,string>();
     let started = performance.now();

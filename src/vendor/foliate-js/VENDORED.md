@@ -156,3 +156,13 @@ adapter regression source added; native retesting remains pending.
     curl retain their existing group timelines. Lifecycle ownership, cleanup,
     and arrival ordering remain intact. Source proposal; native latency and
     visual regression verification pending.
+
+18. `load-preparation.js`, `paginator.js`, `view.js`: newly loaded documents can
+    register owned asynchronous preparation on the existing load event. The
+    iframe retains its existing `visibility: hidden` and real layout until
+    preparation resolves; no visible page is hidden. Load destruction aborts
+    its signal, cached navigation waits for that same readiness, and preparation
+    failures propagate through the load promise. Durtal captures publisher ink
+    before installing theme colours and reveals through the original positioning
+    and paint sequence. No new visibility toggle, geometry or benchmark timing
+    change. Source proposal; native first-paint/colour/ownership gates pending.

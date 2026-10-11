@@ -36,6 +36,7 @@ import type {
 } from "@/lib/reader/engine";
 import { fixedSpreadMode, fixedZoomScale, clampFixedZoom, stepFixedZoom } from "./fixed";
 import { PublisherInk } from "./publisher-ink";
+import { preparePageInk } from "./page-ink-preparation";
 import { PdfDecorations } from "./pdf-decorations";
 import { resolvePdfAnnotation } from "./pdf-annotation-resolver";
 import { preparePdfSpeech } from "./pdf-speech";
@@ -406,7 +407,7 @@ class FoliateEngine implements ReaderEngine {
       this.#onRelocate((e as CustomEvent<FoliateProgress>).detail),
     );
     view.addEventListener("load", (e) =>
-      this.#onLoad((e as CustomEvent<{ doc: Document; index: number }>).detail),
+      this.#onLoad((e as CustomEvent<{ doc: Document; index: number; signal?: AbortSignal; waitUntil?: (promise: Promise<void>) => void }>).detail),
     );
     view.addEventListener("create-overlay", () => {
       // The renderer attaches the overlayer after dispatch returns.
@@ -939,7 +940,9 @@ class FoliateEngine implements ReaderEngine {
     return true;
   }
 
-  #onLoad({ doc, index }: { doc: Document; index: number }) {
+  #preparingPageColours = new WeakSet<Document>();
+  #pageInkLifetime = new WeakMap<Document, AbortSignal>();
+  #onLoad({ doc, index, signal: loadSignal, waitUntil }: { doc: Document; index: number; signal?: AbortSignal; waitUntil?: (promise: Promise<void>) => void }) {
     this.#nameFrame(doc, index);
     doc.addEventListener("focusin", (event) => {
       const target = event.target as Element | null;
@@ -982,7 +985,19 @@ class FoliateEngine implements ReaderEngine {
       this.#emit("focus", { locator });
     });
     doc.addEventListener("durtal-pdf-painted", () => this.#drawPdfMarks());
+    const signal = loadSignal ? AbortSignal.any([this.#opening.signal, loadSignal]) : this.#opening.signal;
+    this.#pageInkLifetime.set(doc, signal);
+    const prepare = !!waitUntil && !!this.#presentation?.policy &&
+      this.#book?.rendition?.layout !== "pre-paginated" &&
+      !doc.querySelector("style[data-durtal-page-colours]");
+    if (prepare) this.#preparingPageColours.add(doc);
     this.#applyPagePolicy(doc);
+    if (prepare) {
+      waitUntil!(preparePageInk(this.#ink, doc, signal, () => {
+        this.#preparingPageColours.delete(doc);
+        this.#applyPagePolicy(doc, false);
+      }).finally(() => this.#preparingPageColours.delete(doc)));
+    }
     this.#documents.set(doc, index);
     this.#notes?.prefetch(doc, index);
     void import("../../media/document").then(({ attachReaderMedia }) => {
@@ -1531,14 +1546,16 @@ class FoliateEngine implements ReaderEngine {
   #applyPagePolicy(doc: Document, typography = true) {
     const p = this.#presentation?.policy;
     if (!p || this.#book?.rendition?.layout === "pre-paginated") return;
-    this.#ink.apply(doc, p, this.#opening.signal);
     let colourSheet = doc.querySelector<HTMLStyleElement>("style[data-durtal-page-colours]");
-    if (!colourSheet) {
-      colourSheet = doc.createElement("style");
-      colourSheet.setAttribute("data-durtal-page-colours", "");
-      doc.head.append(colourSheet);
+    if (!this.#preparingPageColours.has(doc)) {
+      this.#ink.apply(doc, p, this.#pageInkLifetime.get(doc) ?? this.#opening.signal);
+      if (!colourSheet) {
+        colourSheet = doc.createElement("style");
+        colourSheet.setAttribute("data-durtal-page-colours", "");
+        doc.head.append(colourSheet);
+      }
+      colourSheet.textContent = bookCSS(p, themeColours(p)).colours;
     }
-    colourSheet.textContent = bookCSS(p, themeColours(p)).colours;
     if (!typography) return;
     const adapt = (style: CSSStyleDeclaration, context: { inline?: boolean; protectedTypography?: boolean }) => {
       let original = this.#publisherDeclarations.get(style);
@@ -1881,7 +1898,7 @@ class FoliateEngine implements ReaderEngine {
       for (const element of elements) {
         element.replaceChildren();
         element.style.cssText =
-          "display:flex;justify-content:space-between;gap:12px;overflow:hidden;font:12px Inter,sans-serif;font-variant-numeric:tabular-nums;color:" +
+          "display:flex;direction:ltr;justify-content:space-between;gap:12px;overflow:hidden;font:12px Inter,sans-serif;font-variant-numeric:tabular-nums;color:" +
           (lines?.color ?? this.#presentation?.colors.muted ?? "inherit");
       }
       if (!parts) return;
@@ -1891,10 +1908,11 @@ class FoliateEngine implements ReaderEngine {
         const element = at ? last : first;
         if (!element || !text) continue;
         const span = document.createElement("span");
+        span.dir = "auto";
         span.textContent = text;
         span.style.cssText =
           "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" +
-          (at ? "margin-inline-start:auto" : "");
+          (at ? "margin-left:auto" : "");
         element.append(span);
       }
     };

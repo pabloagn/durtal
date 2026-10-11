@@ -350,7 +350,7 @@ export class View extends HTMLElement {
             this.history.replaceState(cfi)
         this.#emit('relocate', this.lastLocation)
     }
-    #onLoad({ doc, index }) {
+    #onLoad({ doc, index, signal, waitUntil }) {
         // set language and dir if not already set
         doc.documentElement.lang ||= this.language.canonical ?? ''
         if (!this.language.isCJK)
@@ -359,7 +359,7 @@ export class View extends HTMLElement {
         this.#handleLinks(doc, index)
         this.#cursorAutohider.cloneFor(doc.documentElement)
 
-        this.#emit('load', { doc, index })
+        this.#emit('load', { doc, index, signal, waitUntil })
     }
     #handleLinks(doc, index) {
         const { book } = this

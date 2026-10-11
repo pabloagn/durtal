@@ -1,3 +1,5 @@
+import { dispatchPreparedLoad, ownedDocumentLoad, waitForDocumentLoad } from "./load-preparation.js"
+
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 // A microtask (or rAF alone) resumes before paint. Give input and rendering a
@@ -714,6 +716,8 @@ class View {
     // The document `load()` has taken `#docDirection` from. A re-render can
     // reach this view earlier, while the iframe holds a section whose load
     // event has not fired yet; see `render()`.
+    #loadOwner = null
+    ready = Promise.resolve()
     #loadedDoc = null
     #directionStyle = null
     #column = true
@@ -768,16 +772,24 @@ class View {
     }
     async load(src, data, afterLoad, beforeRender, waitForIdle) {
         if (typeof src !== 'string') throw new Error(`${src} is not string`)
-        return new Promise(resolve => {
+        this.#loadOwner?.abort()
+        const owner = this.#loadOwner = new AbortController()
+        return this.ready = ownedDocumentLoad(owner.signal, (finish, fail) => {
             this.#iframe.addEventListener('load', async () => {
                 // A background fetch can finish after a swipe has started.
                 // Defer its style/layout work, not just the start of preloading.
                 if (waitForIdle) await waitForIdle()
                 const doc = this.document
-                if (!doc?.documentElement || !doc.body) return resolve()
-                await afterLoad?.(doc)
+                if (owner.signal.aborted || !doc?.documentElement || !doc.body) return finish()
+                try { await afterLoad?.(doc, owner.signal) }
+                catch (error) {
+                    if (owner.signal.aborted || this.document !== doc) return finish()
+                    fail(error)
+                    owner.abort()
+                    return
+                }
                 await yieldToFrame()
-                if (this.document !== doc) return resolve()
+                if (owner.signal.aborted || this.document !== doc) return finish()
 
                 this.#iframe.setAttribute('aria-label', doc.title)
                 // it needs to be visible for Firefox to get computed style
@@ -831,7 +843,7 @@ class View {
                 // Awaiting the background image yields control, so the view may
                 // have been torn down or reloaded meanwhile — don't render into
                 // a stale document.
-                if (this.document !== doc) return resolve()
+                if (owner.signal.aborted || this.document !== doc) return finish()
                 this.#iframe.style.visibility = 'hidden'
 
                 this.#vertical = vertical
@@ -851,9 +863,9 @@ class View {
                 // the resize observer above doesn't work in Firefox
                 // (see https://bugzilla.mozilla.org/show_bug.cgi?id=1832939)
                 // until the bug is fixed we can at least account for font load
-                this.fontReady = fontsReady(doc).then(() => this.expand())
+                this.fontReady = fontsReady(doc).then(() => { if (!owner.signal.aborted) this.expand() })
 
-                resolve()
+                finish()
             }, { once: true })
             if (data) {
                 this.#iframe.srcdoc = data
@@ -1419,6 +1431,7 @@ class View {
             this.#overlayer.clearHole()
     }
     destroy() {
+        this.#loadOwner?.abort()
         if (this.document?.body) this.#observer.unobserve(this.document.body)
         this.destroyLoupe()
     }
@@ -3765,7 +3778,7 @@ export class Paginator extends HTMLElement {
         const hasFocus = this.#primaryView?.document?.hasFocus()
         if (src) {
             const view = this.#createView(index)
-            const afterLoad = doc => {
+            const afterLoad = (doc, signal) => {
                 if (doc.head) {
                     const $styleBefore = doc.createElement('style')
                     doc.head.prepend($styleBefore)
@@ -3775,7 +3788,7 @@ export class Paginator extends HTMLElement {
                         prop => doc.documentElement.setAttribute('data-' + prop, ''))
                     this.#styleMap.set(doc, [$styleBefore, $style])
                 }
-                return onLoad?.({ doc, index })
+                return onLoad?.({ doc, index, signal })
             }
             const beforeRender = this.#beforeRender.bind(this)
             await view.load(src, data, afterLoad, beforeRender)
@@ -3854,7 +3867,7 @@ export class Paginator extends HTMLElement {
             const src = await section.load()
             const data = await section.loadContent?.()
             const view = this.#createView(index)
-            const afterLoad = async doc => {
+            const afterLoad = async (doc, signal) => {
                 if (doc.head) {
                     const $styleBefore = doc.createElement('style')
                     doc.head.prepend($styleBefore)
@@ -3869,7 +3882,7 @@ export class Paginator extends HTMLElement {
                 this.#applyStyles(doc)
                 await yieldToFrame()
                 if (this.#views.get(index) !== view || view.document !== doc) return
-                this.dispatchEvent(new CustomEvent('load', { detail: { doc, index } }))
+                await dispatchPreparedLoad(this, { doc, index, signal })
             }
             // Adjacent sections reuse the primary view's cached layout
             // — they must NOT call #beforeRender, which would modify
@@ -4004,6 +4017,12 @@ export class Paginator extends HTMLElement {
     async #goTo({ index, anchor, select }) {
         const section = this.sections[index]
         if (!section) return
+        const cachedView = this.#views.get(index)
+        if (cachedView) {
+            await waitForDocumentLoad(cachedView)
+            if (this.#views.get(index) !== cachedView || !cachedView.document?.body)
+                throw new DOMException('Retired book page', 'AbortError')
+        }
         const excludedViews = getNavigationExcludedViews(this.sections, index, this.#views.keys())
         // Check if the target section has a different writing-mode.
         // If direction changes, we must destroy all views and do a full
@@ -4100,7 +4119,7 @@ export class Paginator extends HTMLElement {
                 this.#applyStyles(detail.doc)
                 await yieldToFrame()
                 if (this.#views.get(index)?.document !== detail.doc) return
-                this.dispatchEvent(new CustomEvent('load', { detail }))
+                await dispatchPreparedLoad(this, detail)
             }
             await this.#display(Promise.resolve(section.load())
                 .then(async src => {
