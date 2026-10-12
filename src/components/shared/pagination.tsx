@@ -31,6 +31,8 @@ interface Props extends PaginationData {
   noun: string;
   compact?: boolean;
   anchor?: string;
+  /** The page sizes offered; with one or none, no size choice shows */
+  sizes?: readonly number[];
 }
 const control =
   "inline-flex h-8 min-w-8 items-center justify-center gap-1 rounded-sm border border-glass-border px-2 text-xs text-fg-secondary hover:bg-bg-tertiary disabled:pointer-events-none disabled:opacity-35 pointer-coarse:h-11 pointer-coarse:min-w-11";
@@ -42,6 +44,7 @@ export function Pagination({
   noun,
   compact = false,
   anchor = "list-start",
+  sizes = PAGE_SIZES,
 }: Props) {
   const pathname = usePathname();
   const params = useSearchParams();
@@ -262,24 +265,26 @@ export function Pagination({
           </span>
         )}
       </div>
-      <label
-        className="flex items-center gap-2 text-xs text-fg-secondary"
-        htmlFor={`${id}-size`}
-      >
-        Per page
-        <select
-          id={`${id}-size`}
-          value={perPage}
-          onChange={(e) => changeSize(Number(e.target.value))}
-          className={`${control} bg-bg-primary`}
+      {sizes.length > 1 && (
+        <label
+          className="flex items-center gap-2 text-xs text-fg-secondary"
+          htmlFor={`${id}-size`}
         >
-          {PAGE_SIZES.map((size) => (
-            <option key={size} value={size}>
-              {size}
-            </option>
-          ))}
-        </select>
-      </label>
+          Per page
+          <select
+            id={`${id}-size`}
+            value={perPage}
+            onChange={(e) => changeSize(Number(e.target.value))}
+            className={`${control} bg-bg-primary`}
+          >
+            {sizes.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {!compact && (
         <div className={mobileJump ? "w-full" : "hidden w-full md:block"}>
           {jumpForm}

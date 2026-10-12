@@ -227,6 +227,8 @@ type ReaderViewProps = {
   otherPlace: ReaderPlace | null;
   deviceId: string | null;
   backHref: string;
+  /** An annotation to jump to once the book is painted (`?at=`) */
+  openAt?: string | null;
   plugins: import("@/lib/reader/bridge-state").ReaderPluginView[];
   requiredControllerIds?: readonly string[];
   settingsCookie?: string | null;
@@ -279,6 +281,7 @@ function ReaderSession({
   otherPlace,
   deviceId,
   backHref,
+  openAt,
   bridge,
   onRetry,
   preferenceClass,
@@ -557,6 +560,7 @@ function ReaderSession({
     bridge, selection, locator: relocation?.locator ?? null,
     palette: annotationPalette,
     onJump: locator => navigate(locator, "annotation"), onNotice: setNotice,
+    openAt: openAt ?? null,
   });
 
   const bars = useReaderBars({

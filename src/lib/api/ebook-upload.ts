@@ -3,8 +3,8 @@ import { z } from "zod/v4";
 import { crossOriginRefusal } from "./same-origin";
 import { requireApiToken } from "./rest";
 import { uploadBroker } from "@/lib/ebooks/upload/broker";
-import { UploadError } from "@/lib/ebooks/upload/protocol";
-import { UploadAdmissionRefusal } from "@/lib/ebooks/upload/admission-refusal";
+import { isUploadError, UploadError } from "@/lib/ebooks/upload/protocol";
+import { isUploadAdmissionRefusal } from "@/lib/ebooks/upload/admission-refusal";
 
 const MAX_JSON = 64 * 1024;
 export const uploadJson = (status: number, body: unknown) => NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -41,9 +41,9 @@ export async function boundedUploadJson(req: NextRequest): Promise<unknown> {
   } finally { if (!done) await reader.cancel(); reader.releaseLock(); }
 }
 export function uploadErrorResponse(error: unknown): NextResponse {
-  if (error instanceof UploadAdmissionRefusal) return uploadJson(error.status, { code: error.code, error: error.message, refusal: error.refusal });
-  if (error instanceof UploadError) return uploadJson(error.status, { code: error.code, error: error.message });
-  if (error instanceof z.ZodError) return uploadJson(400, { code: "invalid_input", error: "The upload request is invalid." });
+  if (isUploadAdmissionRefusal(error)) return uploadJson(error.status, { code: error.code, error: error.message, refusal: error.refusal });
+  if (isUploadError(error)) return uploadJson(error.status, { code: error.code, error: error.message });
+  if (error instanceof z.ZodError || (error instanceof Error && error.name === "ZodError")) return uploadJson(400, { code: "invalid_input", error: "The upload request is invalid." });
   return uploadJson(503, { code: "outcome_unknown_retry_original", error: "The upload response is uncertain. Refresh or retry the same request." });
 }
 export async function handleUploadCreate(req: NextRequest) {

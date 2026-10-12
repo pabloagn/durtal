@@ -28,7 +28,7 @@ import { readerReturnDestination } from "@/lib/reader/entry-policy";
 
 type PageProps = {
   params: Promise<{ ebookId: string }>;
-  searchParams: Promise<{ file?: string | string[]; returnTo?: string | string[] }>;
+  searchParams: Promise<{ file?: string | string[]; returnTo?: string | string[]; at?: string | string[] }>;
 };
 
 export const dynamic = "force-dynamic";
@@ -43,7 +43,7 @@ const loadBook = cache(
 async function readRequest({ params, searchParams }: PageProps) {
   const { ebookId } = await params;
   if (!isUuid(ebookId)) notFound();
-  const { file, returnTo } = await searchParams;
+  const { file, returnTo, at } = await searchParams;
   const jar = await cookies();
   const device = jar.get(DEVICE_COOKIE)?.value;
   return {
@@ -54,6 +54,8 @@ async function readRequest({ params, searchParams }: PageProps) {
     settingsCookie: jar.get(READER_SETTINGS_KEY)?.value ?? null,
     homeCookie: jar.get(READING_HOME_KEY)?.value ?? null,
     returnTo: readerReturnDestination(returnTo),
+    // A mark to open at (/ebooks/highlights): resolved in the browser once the book is painted
+    at: typeof at === "string" && isUuid(at) ? at.toLowerCase() : null,
   };
 }
 
@@ -163,6 +165,7 @@ export default async function ReaderPage(props: PageProps) {
         otherPlace={book.otherPlace}
         deviceId={request.deviceId}
         backHref={request.returnTo ?? `/ebooks/${book.id}`}
+        openAt={request.at}
         plugins={plugins}
         requiredControllerIds={requiredControllerIds}
         preferences={preferences}

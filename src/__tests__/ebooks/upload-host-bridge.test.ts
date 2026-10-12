@@ -37,7 +37,7 @@ vi.mock('node:http', async () => {
 });
 const id = '11111111-1111-4111-8111-111111111111', key = '22222222-2222-4222-8222-222222222222';
 const config = { socketPath: '/private/upload/bridge.sock', secret: 'a'.repeat(64), targetFingerprint: 'b'.repeat(64), bindingSha256: 'c'.repeat(64) };
-beforeEach(() => { fixture.bound = false; fixture.handler = null; fixture.response = {}; fixture.status = 200; });
+beforeEach(() => { fixture.bound = false; fixture.handler = null; fixture.response = {}; fixture.status = 200; fixture.requestOptions = null; });
 async function call(method: string, url: string, body: string, extra: Record<string, string> = {}) {
   const req = Object.assign(Readable.from([Buffer.from(body)]), { method, url, headers: {
     authorization: `Bearer ${config.secret}`, 'x-upload-target': config.targetFingerprint, 'x-upload-binding': config.bindingSha256,
@@ -77,5 +77,10 @@ describe('owned Unix upload bridge without real listeners', () => {
     fixture.response = { operationId: id, key, status: 409, message: 'Target changed', preview: null };
     expect(await new UploadHostClient(config).command(id, { action: 'prepare', key }, 'ui')).toEqual(fixture.response);
     expect(fixture.requestOptions).toMatchObject({ socketPath: config.socketPath, method: 'POST', path: `/v1/items/${id}` });
+  });
+  it('says the service is not running, rather than an uncertain outcome, when its socket is missing', async () => {
+    fixture.bound = false;
+    await expect(new UploadHostClient(config).ready()).rejects.toMatchObject({ status: 503, code: 'upload_unavailable' });
+    expect(fixture.requestOptions).toBeNull();
   });
 });

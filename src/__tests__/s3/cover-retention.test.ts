@@ -19,6 +19,15 @@ describe("cover/non-gold boundary after final prefix expansion", () => {
     const params = new PgDialect().sqlToQuery(execute.mock.calls.at(-1)![0]).params;
     expect(params).toContain(keys[4]); expect(params).not.toContain(keys[0]);
   });
+  it("retains new gold/media edition covers found through the edition's folder, and still deletes other owners' unused images", async () => {
+    const covers = ["gold/media/edition/e1/cover/attempt-a/cover.webp", "gold/media/edition/e1/cover/attempt-a/thumb.webp"];
+    const other = "gold/media/work/e1/poster/x.webp";
+    [...covers, other].forEach(key => coverBucket.objects.set(key, Buffer.from(key)));
+    expect(await deleteUnusedObjects({ keys: [], prefixes: ["gold/media/edition/e1/", "gold/media/work/e1/"] }, "edition and work removed")).toBe(true);
+    expect([...coverBucket.objects.keys()]).toEqual(covers);
+    const deletes = coverBucket.calls.filter((c): c is DeleteObjectsCommand => c instanceof DeleteObjectsCommand);
+    expect(deletes.flatMap(c => c.input.Delete?.Objects?.map(o => o.Key))).toEqual([other]);
+  });
   it("keeps legitimate referenced cover aliases without calling them pending or orphaned", async () => {
     const key = "gold/covers/edition/thumb.webp";
     coverBucket.objects.set(key, Buffer.from("shared"));

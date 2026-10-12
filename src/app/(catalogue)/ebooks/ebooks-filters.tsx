@@ -159,12 +159,13 @@ export function EbooksFilters({
               router.push(firstPageHref("/ebooks", params), { scroll: false });
             }}
           >
+            {/* The arrow sits on the label's cap-height center */}
             {option.label}
             {parsed.sort === option.value &&
               (parsed.order === "desc" ? (
-                <ArrowDown size={12} aria-hidden className="ml-1 inline" />
+                <ArrowDown aria-hidden className="ml-0.5 inline h-3 w-3 align-[calc(0.5cap-6px)]" strokeWidth={1.5} />
               ) : (
-                <ArrowUp size={12} aria-hidden className="ml-1 inline" />
+                <ArrowUp aria-hidden className="ml-0.5 inline h-3 w-3 align-[calc(0.5cap-6px)]" strokeWidth={1.5} />
               ))}
           </button>
         ))}

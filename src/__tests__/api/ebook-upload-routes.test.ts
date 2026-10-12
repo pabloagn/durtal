@@ -12,6 +12,20 @@ describe("app-mode upload request boundary", () => {
     const response = uploadErrorResponse(new UploadAdmissionRefusal(refusal));
     expect(response.status).toBe(409); expect((await response.json()).refusal).toEqual(refusal);
   });
+  it("maps errors raised by another bundle's copy of the upload classes (the startup-installed client)", async () => {
+    vi.resetModules();
+    const other = await import("@/lib/ebooks/upload/admission-refusal");
+    const { UploadError: OtherUploadError } = await import("@/lib/ebooks/upload/protocol");
+    expect(other.UploadAdmissionRefusal).not.toBe(UploadAdmissionRefusal);
+    const down = uploadErrorResponse(new OtherUploadError(503, "upload_unavailable", "The upload service is not running."));
+    expect(down.status).toBe(503); expect(await down.json()).toEqual({ code: "upload_unavailable", error: "The upload service is not running." });
+    const missing = uploadErrorResponse(new OtherUploadError(404, "upload_not_found", "Upload batch not found."));
+    expect(missing.status).toBe(404);
+    const refusal = { status: 409 as const, code: 'generation_changed' as const, action: 'admit' as const, key: id, operationId: id, generation: 6 };
+    const refused = uploadErrorResponse(new other.UploadAdmissionRefusal(refusal));
+    expect(refused.status).toBe(409); expect((await refused.json()).refusal).toEqual(refusal);
+    expect(uploadErrorResponse(new Error("other")).status).toBe(503);
+  });
   it("refuses cross-site requests before reading a body or invoking the broker", async () => {
     const response = await handleUploadCreate(new NextRequest("https://durtal.test/api/ebooks/uploads", { method: "POST",
       headers: { "Sec-Fetch-Site": "cross-site", "Content-Type": "application/json" }, body: "{}" }));

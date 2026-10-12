@@ -297,6 +297,23 @@ Configure a future private distribution's OAC for accepted gold and required
 legacy delivery prefixes only, with a trusted signing key group. Private key
 material belongs only in the server environment; never in a report or commit.
 
+### Browser uploads
+
+Uploads from `/ebooks/upload` (new e-books, an added format, a replaced file) go through the e-book upload service (SLN-506), a separate process on the machine that runs the app, as the same user. The app streams each upload's bytes to it over a private Unix socket; the service keeps them in a private spool, checks each file in a locked-down inspector container (no network, read-only root, 1 CPU, bounded memory and processes, `--pull=never`), and only then adds or replaces the e-book. Without the service, every upload route answers 503: "Uploads are not available on this server yet" when the app has no bridge, "The upload service is not running" when it has one and the service is down.
+
+It needs Docker with a Linux engine on cgroup v2 and its default seccomp profile, with no engine warnings (Docker Desktop on the Mac qualifies), and the containerd image store, so a locally built image has a content digest (Docker Desktop: Settings, General, "Use containerd for pulling and storing images"). The state folder (default `~/.durtal/ebook-upload`) must be in a folder Docker can bind-mount (`/Users` on Docker Desktop).
+
+```bash
+pnpm ebooks:upload-service build-inspector                       # infra/ebooks/inspector at this commit; prints the pinned image
+pnpm ebooks:upload-service init --aws-profile durtal-personal    # once: service.json + bridge.json, private (0600) in a private folder
+pnpm ebooks:upload-service start --aws-profile durtal-personal   # runs until SIGINT/SIGTERM; non-zero exit on failure
+```
+
+- `init` binds the service to this database (refuses another), the inspector image (by digest), the Docker socket, a fixed loopback port (`--port`, default 47615: the service's host lock, held while it runs) and a new volume id. It never overwrites the files: run again after a new `build-inspector` and it only moves the service to the new image (the binding stays). A new database needs another `--state-dir`.
+- The app reads `EBOOK_UPLOAD_BRIDGE=<state folder>/bridge.json` at startup (`src/instrumentation.ts`): the socket path, a 32-byte secret, the database fingerprint and the binding. A bridge for another database, or a file others can read, leaves uploads off with one error line and the rest of the app up. The development server reads it from `.env.local`; the Mac standalone runtime config accepts it in `environment`.
+- `start` is a long-running process: run it under the same supervisor loop as the server, so a failure (it exits non-zero) restarts it. The first start writes the volume's row in `ebook_upload_capacity`; restarts recover any upload in progress before admitting new ones. Stop it with SIGTERM, never SIGKILL: it waits for running inspections and keeps its spool reservations until they are settled.
+- A disposable preview runs its own service: `scripts/qa/preview-local.py --s3-dir S3DIR --upload-service DIR` (DIR a new folder: the preview's database is new each time) runs `init` and `start` with `--preview` after the database is up and before the app, and stops the service with SIGTERM when the preview stops.
+
 ### Mac standalone delivery configuration
 
 The existing `scripts/deploy/mac_release.py` and `runtime_launcher.py` support

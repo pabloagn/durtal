@@ -34,8 +34,9 @@ S3 Bucket: durtal/
 |   +-- covers/      Validated cover images
 |
 +-- gold/            Production-ready assets
-    +-- covers/      Processed covers (WebP, resized)
-    +-- media/       Processed media (WebP, resized, thumbnailed)
+    +-- covers/      Covers written before SLN-643 (still served, never rewritten)
+    +-- media/       Processed media (WebP, resized, thumbnailed),
+    |                new edition covers under media/edition/
     +-- exports/     Generated export files
 ```
 
@@ -58,12 +59,24 @@ silver/imports/{importId}/errors.json
 
 ### Covers
 
+Each cover save writes a new immutable pair, never over an older one (`goldCoverStageKeys`):
+
 ```
-bronze/covers/{editionId}/original.{ext}
-silver/covers/{editionId}/validated.{ext}
-gold/covers/{editionId}/cover.webp
+gold/media/edition/{editionId}/cover/attempt-{attemptId}/cover.webp
+gold/media/edition/{editionId}/cover/attempt-{attemptId}/thumb.webp
+```
+
+`edition` is not an image owner (`MEDIA_ENTITY_TYPES`), so that folder holds only the edition's covers. Covers written before SLN-643 stay where they were and keep working, since rows store the full key; nothing is moved or rewritten:
+
+```
+gold/covers/{editionId}/cover.webp                          deterministic, oldest
 gold/covers/{editionId}/thumb.webp
+gold/covers/{editionId}/attempt-{attemptId}/{cover,thumb}.webp
+bronze/covers/{editionId}/original.{ext}                    unused by new saves
+silver/covers/{editionId}/validated.{ext}
 ```
+
+`isEditionCoverKey` recognises both: every `gold/covers/` key and anything under `gold/media/edition/`. Other records' images (`gold/media/{work,author,...}/`) and e-book files are not covers. A recognised cover is never deleted by record cleanup (it is reported as retained, `cleanupPending`), never overwritten by `/api/media/reprocess` (a poster may alias an edition thumbnail), and is listed under `retainedCovers` by the orphan report. The cover renderer is synchronous: it validates the fetched image, renders both sizes and verifies the stored bytes; it keeps no bronze or silver copy of a new cover.
 
 ### Media
 
@@ -133,9 +146,9 @@ External URL (Google Books, Open Library)
     - Thumbnail: 600 x 900 max, WebP
        |
        v
-  Upload to S3:
-    - gold/covers/{editionId}/cover.webp
-    - gold/covers/{editionId}/thumb.webp
+  Upload to S3, a fresh attempt each time (conditional write, bytes read back):
+    - gold/media/edition/{editionId}/cover/attempt-{attemptId}/cover.webp
+    - gold/media/edition/{editionId}/cover/attempt-{attemptId}/thumb.webp
        |
        v
   Read the colour palette from the thumbnail (extractColorPalette;
@@ -143,8 +156,8 @@ External URL (Google Books, Open Library)
        |
        v
   Update edition record:
-    - coverS3Key = "gold/covers/{editionId}/cover.webp"
-    - thumbnailS3Key = "gold/covers/{editionId}/thumb.webp"
+    - coverS3Key = the attempt's cover.webp
+    - thumbnailS3Key = the attempt's thumb.webp
     - coverPalette, coverColorBucket (editionCoverPaletteFields)
 ```
 
@@ -406,10 +419,10 @@ In a preview (`scripts/qa/preview-local.py --s3-dir DIR`) the folder listing and
 
 | Delete | Stored keys | Folders swept |
 |---|---|---|
-| `deleteWork` | media, edition covers, comment attachments | `gold/media/work/{id}/`, `bronze/media/work/{id}/`, `gold/comments/work/{id}/`, each edition's `{gold,silver,bronze}/covers/{editionId}/` |
+| `deleteWork` | media, edition covers, comment attachments | `gold/media/work/{id}/`, `bronze/media/work/{id}/`, `gold/comments/work/{id}/`, each edition's `gold/media/edition/{editionId}/` and `{gold,silver,bronze}/covers/{editionId}/` |
 | `deleteAuthor` | media, `photo_s3_key`, comment attachments | `gold/media/author/{id}/`, `bronze/media/author/{id}/`, `gold/comments/author/{id}/` |
 | `mergeAuthors`, `mergePeople` | files the audited merge leaves unused, such as a discarded photo | source `gold/media/author/{id}/`, `bronze/media/author/{id}/` (moved images and comments keep their files) |
-| `deleteEdition` | cover, thumbnail | `{gold,silver,bronze}/covers/{id}/` |
+| `deleteEdition` | cover, thumbnail | `gold/media/edition/{id}/`, `{gold,silver,bronze}/covers/{id}/` |
 | `deleteCollection` | none | `gold/media/collection/{id}/`, `bronze/media/collection/{id}/` |
 | `deletePerfume`, `deleteFilm`, `deletePainting` | media of the work, its formulations or art objects, comment attachments | the work's folders and each formulation's or art object's `{gold,bronze}/media/{type}/{id}/` |
 | `deleteOrganization`, `deleteArtObject`, `deletePerfumeVariant` | the owner's media | `{gold,bronze}/media/{organization,art_object,perfume_variant}/{id}/` |
@@ -437,7 +450,7 @@ For single book additions (the common case), the flow is simpler — no medallio
 2. Metadata returned to client for preview
 3. User confirms → Server action:
    a. Insert work + edition into Neon
-   b. Download cover → process with Sharp → upload to S3 gold/covers/
+   b. Download cover → process with Sharp → upload to S3 gold/media/edition/{editionId}/cover/
    c. Create instances for assigned locations
 4. Redirect to book detail page
 ```

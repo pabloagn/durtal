@@ -159,7 +159,7 @@ export function UploadWorkbench({ target, initialBatchId }: { target: UploadTarg
       <label onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (!blocked) select(Array.from(event.dataTransfer.files)); }}
         className="block space-y-3 rounded-sm border border-border-control p-6 text-sm text-fg-secondary">
         <span>Drop files here or choose them from your device.</span>
-        <input type="file" multiple={target.kind === "new"} disabled={blocked} className="block max-w-full text-xs" aria-label="Choose eBook files"
+        <input type="file" multiple={target.kind === "new"} disabled={blocked} className="block max-w-full text-xs pointer-coarse:min-h-11" aria-label="Choose eBook files"
           onChange={(event) => select(Array.from(event.target.files ?? []))} />
       </label>
       {files.length > 0 && <ul className="my-4 space-y-2">{files.map((file, index) => <li key={index} className="break-words text-xs text-fg-secondary">{file.name} · {sizeLabel(file.size)}</li>)}</ul>}

@@ -262,7 +262,7 @@ describe.skipIf(!url)("atomic book writes", () => {
       const editionId = vi.mocked(processAndUploadCover).mock.calls[0][0];
       expect(deleteFromS3).not.toHaveBeenCalled();
       expect([...coverBucket.objects.keys()]).toHaveLength(2);
-      expect([...coverBucket.objects.keys()].every(key => key.startsWith(`gold/covers/${editionId}/attempt-`))).toBe(true);
+      expect([...coverBucket.objects.keys()].every(key => key.startsWith(`gold/media/edition/${editionId}/cover/attempt-`))).toBe(true);
     });
 
     it("keeps the cover source when the download fails, and says so", async () => {
