@@ -8,10 +8,11 @@ import {
   SkipForward,
   X,
 } from "lucide-react";
-import { CapAligned } from "@/components/shared/cap-aligned";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { ReaderBarItem } from "./reader-bar-item";
 import { SpeechOptionsMenu } from "./speech-options-menu";
 import { SpeechVoiceMenu } from "./speech-voice-menu";
+import { isNaturalVoice } from "@/lib/reader/speech/cloud-speaker";
 import type {
   SpeechAction,
   SpeechPlayerState,
@@ -64,11 +65,13 @@ export function SpeechStartButton({
   onStart(): void;
 }) {
   return (
-    <CapAligned height={32} coarseHeight={44}>
-      <Control label="Read aloud" keys="a" disabled={!ready} onClick={onStart}>
-        <AudioLines className="size-4" strokeWidth={1.5} aria-hidden="true" />
-      </Control>
-    </CapAligned>
+    <ReaderBarItem
+      label="Read aloud"
+      keys="a"
+      disabled={!ready}
+      onSelect={onStart}
+      icon={<AudioLines className="size-4" strokeWidth={1.5} aria-hidden="true" />}
+    />
   );
 }
 
@@ -80,6 +83,7 @@ export function SpeechPlayer({
   preferences,
   bookLanguage,
   bottomInset,
+  voiceNotice = null,
   onAction,
   onPreferences,
   onHeightChange,
@@ -90,6 +94,7 @@ export function SpeechPlayer({
   preferences: SpeechPreferences;
   bookLanguage: string | null;
   bottomInset: number;
+  voiceNotice?: string | null;
   onAction(action: PlayerAction): void;
   onPreferences(preferences: SpeechPreferences): void;
   onHeightChange(height: number): void;
@@ -225,6 +230,7 @@ export function SpeechPlayer({
                     ? state.current.lang
                     : bookLanguage) ?? "und",
                   voiceURI,
+                  voices.some(isNaturalVoice),
                 ),
               )
             }
@@ -243,9 +249,10 @@ export function SpeechPlayer({
           Preparing text to read aloud…
         </p>
       )}
-      {(state.message || !selected) && (
+      {(state.message || voiceNotice || !selected) && (
         <p className="px-3 pb-2 text-sm text-fg-secondary">
           {state.message ??
+            voiceNotice ??
             (voices.length
               ? `No voice for ${language} on this device. Choose another voice.`
               : "No voices available on this device.")}

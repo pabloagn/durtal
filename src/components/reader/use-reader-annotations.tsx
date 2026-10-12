@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnnotationConflicts } from "./annotation-conflicts";
 import { Highlighter } from "lucide-react";
 import { useReaderFeatureShortcut } from "./bridge";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { ReaderBarItem } from "./reader-bar-item";
 import { BookmarkButton } from "./bookmark-button";
 import { AnnotationSwatches } from "./annotation-swatches";
 import { AnnotationsPanel } from "./annotations-panel";
@@ -138,16 +138,11 @@ export function useReaderAnnotations(input: {
   };
   return {
     held: open || !!active || !!editedNote,
-    toolbar: <>
-      <BookmarkButton active={!!bookmark} disabled={!ready} onToggle={() => perform(toggleBookmark())} />
-      <CapAligned height={32} coarseHeight={44}>
-        <button type="button" aria-label={snapshot.conflicts.length || snapshot.problems?.length ? "Highlights and notes: changes need attention" : "Highlights and notes"} data-tooltip="Highlights and notes" data-tooltip-keys="h"
-          disabled={!ready} onClick={showPanel}
-          className="block rounded-sm p-2 text-fg-secondary hover:bg-bg-tertiary/50 hover:text-fg-primary disabled:opacity-40 pointer-coarse:p-3.5">
-          <Highlighter className="h-4 w-4" strokeWidth={1.5} />
-        </button>
-      </CapAligned>
-    </>,
+    bookmark: <BookmarkButton active={!!bookmark} disabled={!ready} onToggle={() => perform(toggleBookmark())} />,
+    toolbar: <ReaderBarItem
+      label={snapshot.conflicts.length || snapshot.problems?.length ? "Highlights and notes: changes need attention" : "Highlights and notes"}
+      tooltip="Highlights and notes" keys="h" disabled={!ready} onSelect={showPanel}
+      icon={<Highlighter className="h-4 w-4" strokeWidth={1.5} />} />,
     markingActions: ready ? <>
       <AnnotationSwatches onPick={color => perform(create(color))} />
       <button type="button" onClick={() => perform(create("ochre", true))} className="h-8 rounded-sm px-2 hover:bg-bg-tertiary pointer-coarse:h-11">Note</button>

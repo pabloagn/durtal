@@ -45,6 +45,9 @@ E-books use the existing private bucket and layer-first prefixes (SLN-569; `docs
 | `GOOGLE_PLACES_API_KEY` | No | Google Cloud API key with Places API (New) enabled. Without it, venue search answers 503 |
 | `ISBNDB_API_KEY` | No | ISBNdb API key. Without it, ISBNdb search is skipped. The misspelled `ISBNDN_API_KEY` is still accepted, with a warning, for one release |
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | No | Mapbox public token for the authors map. Inlined into the client bundle at build time |
+| `ELEVENLABS_API_KEY` | No | ElevenLabs API key for the reader's natural read-aloud voices (`src/lib/reader/narration/`). The key needs the Text to Speech and Voices (read) permissions; reading uses about one credit per character with the default model. It stays on the server: the browser asks `/api/reader/narration` and never sees it. Not set: Read aloud uses the device's own voices. Keep it in `.env.local` only |
+| `ELEVENLABS_VOICE_ID` | No | The default narrator's voice id. Not set: George (`JBFqnCBsd6RMkjVDRZzb`), or the account's first voice if George is not in it. The reader's voice menu can pick any voice in the account |
+| `ELEVENLABS_MODEL_ID` | No | The ElevenLabs model. Not set: `eleven_multilingual_v2`, the most natural for long reading. `eleven_flash_v2_5` costs half as much and answers faster |
 
 ### Book enrichment
 

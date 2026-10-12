@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Check, Download, X } from "lucide-react";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { ReaderBarItem } from "../reader-bar-item";
 import type { ReaderViewFile } from "@/app/reader/[ebookId]/reader-view";
 import { contentTypeFor } from "@/lib/ebooks/formats";
 import { canonicalDownloadUrl, type DeliveryTrust } from "@/lib/reader/offline/download-policy";
@@ -35,9 +35,6 @@ export function DownloadButton({ ebook, file, deviceId, notice }: {
     } catch (error) { notice(controller.signal.aborted ? "Download cancelled." : error instanceof Error ? error.message : "The download could not be saved."); }
     finally { abort.current = null; setProgress(null); }
   }
-  return <CapAligned height={32} coarseHeight={44}><button type="button" onClick={() => void download()}
-    disabled={ready} aria-label={label} data-tooltip={label} data-tooltip-side="bottom"
-    className="block rounded-sm p-2 text-fg-secondary transition-colors hover:bg-bg-tertiary/50 hover:text-fg-primary disabled:text-fg-muted pointer-coarse:p-3.5">
-    {progress !== null ? <X className="h-4 w-4" strokeWidth={1.5} /> : ready ? <Check className="h-4 w-4" strokeWidth={1.5} /> : <Download className="h-4 w-4" strokeWidth={1.5} />}
-  </button></CapAligned>;
+  return <ReaderBarItem label={label} disabled={ready} onSelect={() => void download()}
+    icon={progress !== null ? <X className="h-4 w-4" strokeWidth={1.5} /> : ready ? <Check className="h-4 w-4" strokeWidth={1.5} /> : <Download className="h-4 w-4" strokeWidth={1.5} />} />;
 }

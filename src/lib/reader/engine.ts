@@ -205,7 +205,7 @@ export interface SelectionDetails {
   rect: DOMRectReadOnly;
 }
 export interface EngineEvents {
-  "word-gesture": { details: SelectionDetails; document?: Document; input?: "mouse" | "touch" };
+  "word-gesture": { details: SelectionDetails; document?: Document; input?: "mouse" };
   "fixed-controls": { zoom: number | null };
   note: ReaderNote | null;
   media: ReaderMedia;

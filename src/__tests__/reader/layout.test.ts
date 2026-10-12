@@ -1,10 +1,14 @@
 import { expect, it } from "vitest";
 import { paginatorAttributes } from "@/lib/reader/presentation/layout";
 import { PRESENTATION_DEFAULTS } from "@/lib/reader/presentation/defaults";
+import type { ReadingFontMetrics } from "@/lib/reader/presentation/fonts";
 import type { ReaderPresentation } from "@/lib/validations/reader-preferences";
 
 // Synthetic inputs exercise the policy; these are not measurements of shipped assets.
-const fontMetrics = { literata: 0.48, garamond: 0.45, inter: 0.52 };
+const fontMetrics: ReadingFontMetrics = {
+  literata: 0.48, garamond: 0.45, "source-serif": 0.46, baskerville: 0.5, alegreya: 0.42,
+  lora: 0.47, newsreader: 0.43, merriweather: 0.49, inter: 0.52, atkinson: 0.47,
+};
 const attributes = (
   patch: Partial<ReaderPresentation> = {},
   width = 1440,

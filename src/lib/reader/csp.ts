@@ -38,6 +38,8 @@ export function readerCsp(nonce: string, options: { development?: boolean; cdnUr
     `connect-src ${withCdn("'self'")}`,
     "frame-src 'self' blob:",
     "worker-src 'self' blob:",
+    // Read aloud's natural voice plays each sentence's audio from a blob
+    "media-src 'self' blob: data:",
     "object-src 'none'",
     "base-uri 'none'",
     "frame-ancestors 'self'",

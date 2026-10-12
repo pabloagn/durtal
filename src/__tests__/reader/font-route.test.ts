@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PRESENTATION_DEFAULTS } from "@/lib/reader/presentation/defaults";
 import { presentationFromPreferences, policyTypographyCss } from "@/lib/reader/presentation";
-import { fontFaceCSS } from "@/lib/reader/presentation/fonts";
+import { fontFaceCSS, READER_FONT_FILES } from "@/lib/reader/presentation/fonts";
 import { inspectFontMarkup, collectBookFontFacts } from "@/lib/reader/presentation/font-preflight";
 import { chooseReaderFontRoute, fontPresentationChangeKind, type CoreFontRelease } from "@/lib/reader/presentation/font-route";
 import core from "@/lib/reader/presentation/font-core-profile.json";
@@ -81,7 +81,7 @@ describe("pre-resource font routing", () => {
     expect(p.fontFaces).not.toContain("Garamond");
     expect(p.fontFaces).not.toContain("Durtal Inter");
     // Full inventory export remains available for caching and existing callers.
-    expect(fontFaceCSS("https://reader.example").match(/@font-face/g)).toHaveLength(36);
+    expect(fontFaceCSS("https://reader.example").match(/@font-face/g)).toHaveLength(READER_FONT_FILES.length);
   });
 
   it("installs the initial preselected route and keeps later colour edits out of reflow", () => {

@@ -1,6 +1,7 @@
 import type { DurtalLocator, EngineEvents, ReaderEngine } from "../engine";
 import type { ReaderNavigation } from "../navigation";
 import { createNativeSpeechSpeaker } from "./native-speaker";
+import { createCloudSpeechSpeaker, isNaturalVoice, NATURAL_VOICE_PREFIX } from "./cloud-speaker";
 import {
   initialSpeechPlayer,
   transitionSpeechPlayer,
@@ -9,6 +10,7 @@ import {
   type SpeechCommand,
 } from "./player";
 import {
+  choosePassageVoice,
   parseSpeechPreferences,
   readSpeechPreferences,
   writeSpeechPreferences,
@@ -23,6 +25,8 @@ export interface SpeechSnapshot {
   preferences: SpeechPreferences;
   voices: SpeechVoice[];
   selectionReady: boolean;
+  /** Why the natural voice is not reading, when it should be */
+  voiceNotice: string | null;
 }
 /** A reader owns its speech work, native callbacks and navigation leases. */
 export function createReaderSpeech(options: {
@@ -34,6 +38,9 @@ export function createReaderSpeech(options: {
   document: Document;
   storage: SpeechPreferenceStorage | null;
   changed(snapshot: SpeechSnapshot): void;
+  /** Plays the natural voice's audio; without it only the device's voices read */
+  audio?: HTMLAudioElement;
+  fetch?: typeof fetch;
 }) {
   let state = initialSpeechPlayer(),
     open = false,
@@ -55,6 +62,7 @@ export function createReaderSpeech(options: {
     open,
     preferences,
     voices,
+    voiceNotice,
     selectionReady:
       !!state.current &&
       (state.phase === "ready" || state.phase === "paused") &&
@@ -66,16 +74,65 @@ export function createReaderSpeech(options: {
   const notify = () => {
     if (!disposed) options.changed(snapshot());
   };
-  const speaker = createNativeSpeechSpeaker({
+  let deviceVoices: SpeechVoice[] = [],
+    naturalVoices: SpeechVoice[] = [],
+    voiceNotice: string | null = null,
+    deviceUntil = 0;
+  const publishVoices = () => {
+    voices = [...naturalVoices, ...deviceVoices];
+    notify();
+  };
+  const native = createNativeSpeechSpeaker({
     synthesis: options.synthesis,
     Utterance: options.Utterance,
     document: options.document,
     onAction: (action) => dispatch(action),
     onVoices: (available) => {
-      voices = available;
-      notify();
+      deviceVoices = available;
+      publishVoices();
     },
   });
+  const cloud = options.audio
+    ? createCloudSpeechSpeaker({
+        audio: options.audio,
+        fetch: options.fetch ?? ((...args) => fetch(...args)),
+        onAction: (action) => dispatch(action),
+        onVoices: (available) => {
+          naturalVoices = available;
+          publishVoices();
+        },
+        onNotice: (message) => {
+          // The device's voice reads on for a minute, then the natural one is tried again
+          deviceUntil = Date.now() + 60_000;
+          voiceNotice = `${message} This device's voice reads for now.`;
+          notify();
+        },
+      })
+    : null;
+  /** The natural voice when it is the choice and answering; the device's voices otherwise */
+  const speaker = {
+    speak(
+      command: Extract<SpeechCommand, { kind: "speak" }>,
+      chosen: SpeechPreferences,
+      bookLanguage: string | null,
+    ) {
+      const choice = choosePassageVoice(voices, command.segment.lang, bookLanguage, chosen);
+      if (cloud && choice.kind === "available" && isNaturalVoice(choice.voice) && Date.now() >= deviceUntil) {
+        native.cancel();
+        return cloud.speak(command, chosen, bookLanguage, choice.voice.voiceURI.slice(NATURAL_VOICE_PREFIX.length));
+      }
+      cloud?.cancel();
+      return native.speak(command, chosen, bookLanguage);
+    },
+    cancel() {
+      native.cancel();
+      cloud?.cancel();
+    },
+    destroy() {
+      native.destroy();
+      cloud?.destroy();
+    },
+  };
   const extracting = async (
     command: Extract<SpeechCommand, { kind: "prepare" | "request-next" }>,
   ) => {
@@ -239,7 +296,16 @@ export function createReaderSpeech(options: {
       dispatch({ kind: "play" });
     },
     toggle() {
-      if (disposed || !state.current) return;
+      if (disposed) return;
+      if (!state.current) {
+        // Nothing prepared yet, or the last preparation failed: open the
+        // player, which shows the preparation and then offers Play
+        open = true;
+        if (state.phase !== "preparing")
+          dispatch({ kind: "prepare", target: { kind: "from", from: "visible" } });
+        else notify();
+        return;
+      }
       open = true;
       dispatch({ kind: playing() ? "pause" : "play" });
     },
@@ -251,6 +317,7 @@ export function createReaderSpeech(options: {
     ) {
       if (action.kind === "stop") {
         open = false;
+        voiceNotice = null;
       }
       dispatch(action);
       if (action.kind === "stop")
@@ -261,6 +328,8 @@ export function createReaderSpeech(options: {
     },
     preferences(next: SpeechPreferences) {
       preferences = next;
+      voiceNotice = null;
+      deviceUntil = 0;
       if (options.storage) writeSpeechPreferences(options.storage, next);
       dispatch({ kind: "restart" });
       notify();

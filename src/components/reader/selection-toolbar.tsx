@@ -44,9 +44,11 @@ export const SelectionToolbar = forwardRef<
     markingActions?: ReactNode;
     onReadAloud?(): void;
     speechReady?: boolean;
+    /** What covers the bottom of the screen (the bar, the player), for the docked toolbar */
+    bottomInset?: number;
   }
 >(function SelectionToolbar(
-  { selection, bridge, onClear, markingActions, onReadAloud, speechReady },
+  { selection, bridge, onClear, markingActions, onReadAloud, speechReady, bottomInset = 0 },
   forwardedRef,
 ) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -59,6 +61,17 @@ export const SelectionToolbar = forwardRef<
   const failed =
     copyState.selection === selection && copyState.kind === "failed";
   const [position, setPosition] = useState({ left: 16, top: 16 });
+  // On touch the toolbar docks at the bottom: following the selection put it
+  // under the finger dragging the selection handles, and it jumped with every
+  // change while the iOS edit menu took the space above the text.
+  const [docked, setDocked] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(pointer: coarse)");
+    const update = () => setDocked(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountSlot = useCallback(
     (element: HTMLDivElement | null) =>
@@ -80,6 +93,7 @@ export const SelectionToolbar = forwardRef<
     };
   }, [selection]);
   useLayoutEffect(() => {
+    if (docked) return;
     const reposition = () => {
       if (!selection || !ref.current) return;
       const rect = ref.current.getBoundingClientRect();
@@ -103,7 +117,7 @@ export const SelectionToolbar = forwardRef<
       observer.disconnect();
       window.removeEventListener("resize", reposition);
     };
-  }, [selection]);
+  }, [selection, docked]);
   const copy = async () => {
     const captured = bridge.captureSelection();
     if (!captured) return;
@@ -129,8 +143,15 @@ export const SelectionToolbar = forwardRef<
       aria-label="Selection actions"
       data-reader-chrome
       hidden={!selection}
-      className="glass fixed z-50 flex flex-wrap max-w-[calc(100%_-_32px)] items-center gap-1 overflow-hidden p-1 text-sm text-fg-primary"
-      style={position}
+      data-docked={docked || undefined}
+      className={`glass fixed z-50 flex flex-wrap items-center gap-1 overflow-hidden p-1 text-sm text-fg-primary ${
+        docked ? "inset-x-4 justify-center" : "max-w-[calc(100%_-_32px)]"
+      }`}
+      style={
+        docked
+          ? { bottom: `calc(max(${bottomInset}px, env(safe-area-inset-bottom)) + 12px)` }
+          : position
+      }
       onPointerDown={(event) => event.preventDefault()}
       onKeyDown={(event) => {
         if (event.key === "Escape") {

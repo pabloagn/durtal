@@ -3,7 +3,8 @@ import { useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { READER_FONTS, readerFontCapabilityNote } from "@/lib/reader/presentation/fonts";
+import { readerFontCapabilityNote } from "@/lib/reader/presentation/fonts";
+import { FontPicker } from "./font-picker";
 import type { DeviceClass, ReaderPresentation, PresentationOverride } from "@/lib/validations/reader-preferences";
 
 export function PresentationSettingsDialog(props: {
@@ -44,7 +45,16 @@ export function PresentationSettingsDialog(props: {
         { value: "book", label: "This book" }, { value: "defaults", label: `All books on ${props.deviceClass}` },
       ]} />}
       {!props.defaultsOnly && <p className="text-xs text-fg-secondary">Changes to all books also remove these fields from this book's overrides.</p>}
-      {select("font", "Font", Object.values(READER_FONTS).map(font => ({ value: font.id, label: font.label })))}
+      <div className="flex flex-col gap-2 text-sm">
+        <p id="reader-page-colour">Page colour</p>
+        <SegmentedControl ariaLabelledby="reader-page-colour" value={p.theme} onChange={theme => change({ theme })} options={[
+          { value: "durtal-dark", label: "Dark" }, { value: "paper", label: "Light" }, { value: "sepia", label: "Sepia" },
+        ]} />
+      </div>
+      <div className="flex flex-col gap-2 text-sm">
+        <p id="reader-font">Font</p>
+        <FontPicker labelledBy="reader-font" value={p.font} onChange={font => change({ font })} />
+      </div>
       {capability && <p className="text-xs text-fg-secondary">{capability}</p>}
       {toggle("publisherStyles", "Use publisher typography")}
       {p.publisherStyles ? number("publisherScale", "Publisher text scale (%)", 60, 250, 5) : <>
@@ -61,7 +71,6 @@ export function PresentationSettingsDialog(props: {
       {number("marginPx", "Side margins (px)", 8, 96, 8)}
       {select("lineLength", "Line length", [{ value: "narrow", label: "Narrow" }, { value: "medium", label: "Medium" }, { value: "wide", label: "Wide" }, { value: "full", label: "Full width" }])}
       {select("pageTurn", "Page turn", [{ value: "none", label: "Instant" }, { value: "slide", label: "Slide" }])}
-      {select("theme", "Book theme", [{ value: "durtal-dark", label: "Durtal dark" }, { value: "sepia", label: "Sepia" }, { value: "paper", label: "Paper" }])}
       {number("brightness", "Brightness (%)", 70, 100, 5)}{number("warmth", "Warmth (%)", 0, 100, 10)}{toggle("dimImages", "Dim images in the dark theme")}
       {select("fixedFit", "Fixed page fit", [{ value: "page", label: "Fit page" }, { value: "width", label: "Fit width" }])}
       {select("cropMargins", "PDF page margins", [{ value: "auto", label: "Automatic for scans" }, { value: "on", label: "Crop margins" }, { value: "off", label: "Full page" }])}

@@ -27,7 +27,9 @@ const sample =
   "The quick brown fox jumps over the lazy dog. A quiet library holds books of every age, and each page invites another reader.";
 const fonts = {};
 const fontSizePx = 20;
-for (const id of ["literata", "garamond", "inter"]) {
+// Every reading family the manifest ships, in manifest order.
+const ids = [...new Set(manifest.files.map((face) => face.id))];
+for (const id of ids) {
   const asset = manifest.files.find(
     (face) =>
       face.id === id && face.style === "roman" && face.subset === "latin",

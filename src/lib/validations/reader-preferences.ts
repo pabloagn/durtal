@@ -11,7 +11,19 @@ const stepped = (min: number, max: number, step: number) =>
 
 export const presentationSchema = z
   .object({
-    font: z.enum(["literata", "garamond", "inter", "publisher"]),
+    font: z.enum([
+      "literata",
+      "garamond",
+      "source-serif",
+      "baskerville",
+      "alegreya",
+      "lora",
+      "newsreader",
+      "merriweather",
+      "inter",
+      "atkinson",
+      "publisher",
+    ]),
     fontSizePx: stepped(12, 40, 1),
     publisherScale: stepped(60, 250, 5),
     fontWeight: stepped(300, 600, 50),
