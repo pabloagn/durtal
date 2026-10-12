@@ -12,7 +12,7 @@ import type { ReaderSelection } from "@/lib/reader/events";
 import { subscribeAnnotationServerChanges } from "@/lib/reader/annotation-server-changes";
 import { id, locator } from "./fixtures/annotation";
 
-const actions = vi.hoisted(() => ({ save: vi.fn(), open: vi.fn() }));
+const actions = vi.hoisted(() => ({ save: vi.fn(), open: vi.fn(), clear: vi.fn() }));
 vi.mock("@/lib/actions/reader-tracking", () => ({ saveReaderQuote: actions.save,
   getReaderTracking: vi.fn(), prepareReaderQuoteDelete: vi.fn(), startReaderReading: vi.fn() }));
 vi.mock("@/lib/actions/reading", () => ({ deleteReading: vi.fn(), pauseReading: vi.fn(), resumeReading: vi.fn() }));
@@ -26,7 +26,14 @@ const paragraph: ReaderSelection = { ...word, text: "Table by the door, where th
 let native: ReaderSelection | null, root: Root, host: HTMLElement, bridge: ReaderBridgeController;
 let unsubscribe: () => void;
 function Toolbar({ owner }: { owner: ReaderBridgeController }) {
-  useLayoutEffect(() => owner.registerSelectionCapture(() => native ? { selection: native, clear() {} } : null), [owner]);
+  useLayoutEffect(() => owner.registerSelectionCapture(() => {
+    const captured = native;
+    return captured ? { selection: captured, clear() {
+      // The engine's existing captured-range guard preserves a newer selection.
+      if (native !== captured) return;
+      actions.clear(captured); native = null;
+    } } : null;
+  }), [owner]);
   return h(SelectionToolbar, { bridge: owner, selection: { text: word.text, locator: word.locator,
     rect: { left: 0, right: 100, top: 0, bottom: 20 }, keyboard: false }, onClear() {} });
 }
@@ -54,11 +61,32 @@ describe("quote action-time selection", () => {
     const order: string[] = [];
     actions.save.mockImplementation(async () => { order.push("save"); return { note: { id: id(9) } }; });
     unsubscribe = subscribeAnnotationServerChanges(id(2), async () => { order.push("refresh"); });
-    actions.open.mockImplementation(async () => { order.push("open"); });
+    actions.clear.mockImplementation(() => { order.push("clear"); });
+    actions.open.mockImplementation(async () => { expect(native).toBeNull(); order.push("open"); });
     native = paragraph;
     await act(async () => { quoteButton().click(); });
     expect(actions.save).toHaveBeenCalledExactlyOnceWith({ ebookId: id(2), ...paragraph });
-    expect(order).toEqual(["save", "refresh", "open"]);
+    expect(order).toEqual(["save", "refresh", "clear", "open"]);
+    expect(actions.clear).toHaveBeenCalledExactlyOnceWith(paragraph);
+  });
+  it("retains the native selection when the quote save fails", async () => {
+    actions.save.mockRejectedValue(new Error("Quote did not commit"));
+    native = paragraph;
+    await act(async () => { quoteButton().click(); });
+    expect(native).toBe(paragraph);
+    expect(actions.clear).not.toHaveBeenCalled();
+    expect(actions.open).not.toHaveBeenCalled();
+  });
+  it("keeps a newer native selection while opening the successfully saved original quote", async () => {
+    let finish!: (value: { note: { id: string } }) => void;
+    actions.save.mockImplementation(() => new Promise(done => { finish = done; }));
+    native = paragraph;
+    await act(async () => { quoteButton().click(); });
+    native = word;
+    await act(async () => { finish({ note: { id: id(9) } }); });
+    expect(native).toBe(word);
+    expect(actions.clear).not.toHaveBeenCalled();
+    expect(actions.open).toHaveBeenCalledOnce();
   });
   it("does not save a stale displayed selection after the native range has collapsed", async () => {
     native = null; await act(async () => { quoteButton().click(); });
@@ -73,5 +101,6 @@ describe("quote action-time selection", () => {
     bridge.destroy();
     await act(async () => { release({ note: { id: id(9) } }); });
     expect(actions.open).not.toHaveBeenCalled();
+    expect(actions.clear).not.toHaveBeenCalled();
   });
 });

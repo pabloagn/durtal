@@ -214,7 +214,7 @@ export function useReaderContext(): ReaderContext {
 /** Action-time native capture, without exposing the engine to reader plugins. */
 export function useReaderSelectionCapture() {
   const bridge = useBridge();
-  return { capture: bridge.captureSelection, isCurrent: bridge.isSelectionCaptureCurrent };
+  return { capture: bridge.captureSelection, isCurrent: bridge.isSelectionCaptureCurrent, clear: bridge.clearCapturedSelection };
 }
 export function useReaderShortcut(
   key: string,

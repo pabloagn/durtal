@@ -188,6 +188,7 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
         () => saveReaderQuote({ ebookId: initial.ebookId, ...value }),
         () => { if (live.current && expected === generation.current) setNotice("Your quote was saved. Refresh highlights when connected."); });
       if (!live.current || expected !== generation.current || !actionSelection.isCurrent(value)) return;
+      actionSelection.clear(value);
       await latest.current.dialogs.open({ kind: "note", workId: latest.current.data.linked!.workId, note: saved.note });
     } catch (error) { showFailure(error); }
     finally { if (live.current && expected === generation.current) setBusy(false); }
