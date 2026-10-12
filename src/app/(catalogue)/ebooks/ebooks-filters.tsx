@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, ArrowDown, ArrowUp } from "lucide-react";
 import {
@@ -39,6 +39,7 @@ export function EbooksFilters({
   const search = useSearchParams();
   const parsed = parseEbookLibraryParams(search);
   const input = useRef<HTMLInputElement>(null);
+  const [query, setQuery] = useState(parsed.q);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef(search.toString());
   useEffect(() => {
@@ -52,7 +53,7 @@ export function EbooksFilters({
   );
   useEffect(() => {
     if (input.current && document.activeElement !== input.current)
-      input.current.value = parsed.q;
+      setQuery(parsed.q);
   }, [parsed.q]);
   function change(key: string, values: string[]) {
     if (timer.current) clearTimeout(timer.current);
@@ -118,10 +119,11 @@ export function EbooksFilters({
           aria-label="Search eBooks"
           data-shortcut-search=""
           placeholder="Search eBooks…"
-          defaultValue={parsed.q}
+          value={query}
           className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none pointer-coarse:h-11"
           onChange={(event) => {
             const q = event.target.value;
+            setQuery(q);
             if (timer.current) clearTimeout(timer.current);
             timer.current = setTimeout(() => {
               const params = new URLSearchParams(latest.current);

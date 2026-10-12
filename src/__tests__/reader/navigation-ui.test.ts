@@ -121,6 +121,21 @@ describe("owned controls", () => {
     expect(book.first).not.toHaveBeenCalled();
     input.destroy();
   });
+  it("updates the Peek label without synchronously measuring its new width", () => {
+    const commit = vi.fn();
+    act(() => root.render(h(ProgressScrubber, { fraction: 0.4, index, onCommit: commit })));
+    const slider = host.querySelector<HTMLElement>('[role="slider"]')!;
+    const bubble = slider.querySelector<HTMLElement>("div.glass")!;
+    const measured = vi.fn(() => { throw new Error("Peek label forces synchronous layout"); });
+    Object.defineProperty(bubble, "offsetWidth", { get: measured });
+    key(slider, "ArrowRight");
+    expect(measured).not.toHaveBeenCalled();
+    expect(bubble.textContent).toBe(slider.getAttribute("aria-valuetext"));
+    expect(slider.getAttribute("aria-valuenow")).toBe("41");
+    expect(commit).not.toHaveBeenCalled();
+    key(slider, "Escape");
+    expect(slider.getAttribute("aria-valuenow")).toBe("40");
+  });
   it("keeps pointer Peek local; pointer cancel and release above the 64px line never commit", async () => {
     const commit = vi.fn();
     act(() =>

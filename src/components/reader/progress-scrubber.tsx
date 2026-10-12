@@ -37,17 +37,14 @@ export function ProgressScrubber({
       "aria-valuenow",
       String(Math.round(value * 100)),
     );
-    track.current?.setAttribute("aria-valuetext", index.preview(value));
+    const label = index.preview(value);
+    track.current?.setAttribute("aria-valuetext", label);
     if (bubble.current) {
-      bubble.current.textContent = stay
-        ? "Release to stay"
-        : index.preview(value);
-      // Clamp the bubble independently from the thumb so its whole label remains inside the viewport.
-      const bubbleWidth = bubble.current.offsetWidth;
+      bubble.current.textContent = stay ? "Release to stay" : label;
+      // Percentages in translateX refer to the bubble's own width. Let CSS
+      // clamp its intrinsic width without a synchronous read after label writes.
       bubble.current.style.transform =
-        "translateX(" +
-        Math.max(0, Math.min(px - bubbleWidth / 2, width - bubbleWidth)) +
-        "px)";
+        `translateX(clamp(0px, calc(${px}px - 50%), calc(${width}px - 100%)))`;
     }
   };
   const cancel = () => {
