@@ -1,7 +1,7 @@
 "use client";
 
 import type { ActivityEntityType } from "@/lib/activity/entities";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { getActivityTimeline, type TimelineItem } from "@/lib/actions/activity";
 import { onActivityRefresh } from "@/lib/activity/refresh-event";
 import { ActivityEventItem } from "./activity-event-item";
@@ -27,43 +27,60 @@ export function ActivityTimeline({ entityType, entityId, refreshKey }: ActivityT
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const fetchEvents = useCallback(
-    async (cursor?: string) => {
-      const result = await getActivityTimeline(entityType, entityId, 20, cursor);
-      return result;
-    },
-    [entityType, entityId],
-  );
+  const [loadError, setLoadError] = useState(false);
+  const request = useRef({ active: false, generation: 0, ownerToken: null as symbol | null });
+  const owner = `${entityType}:${entityId}`;
+  const previousOwner = useRef(owner);
+  const ownerToken = useMemo(() => Symbol(owner), [owner]);
 
-  useEffect(() => {
-    setLoading(true);
-    fetchEvents().then((result) => {
-      setEvents(result.events);
+  const readEvents = useCallback(async (cursor?: string, append = false) => {
+    const current = request.current;
+    if (!current.active || current.ownerToken !== ownerToken) return;
+    const generation = ++current.generation;
+    const ownsResult = () => current.active && current.ownerToken === ownerToken && current.generation === generation;
+    setLoadingMore(append);
+    try {
+      const result = await getActivityTimeline(entityType, entityId, 20, cursor);
+      if (!ownsResult()) return;
+      setEvents((prev) => append ? [...prev, ...result.events] : result.events);
       setHasMore(result.hasMore);
       setNextCursor(result.nextCursor);
-      setLoading(false);
-    });
-  }, [fetchEvents, refreshKey]);
+      setLoadError(false);
+    } catch {
+      // A departed or superseded read is still caught, but cannot affect this view.
+      if (ownsResult()) setLoadError(true);
+    } finally {
+      if (ownsResult()) {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    }
+  }, [entityType, entityId, ownerToken]);
 
-  // Listen for activity refresh events from any mutation on the page
   useEffect(() => {
-    return onActivityRefresh(() => {
-      fetchEvents().then((result) => {
-        setEvents(result.events);
-        setHasMore(result.hasMore);
-        setNextCursor(result.nextCursor);
-      });
-    });
-  }, [fetchEvents]);
+    request.current.active = true;
+    request.current.ownerToken = ownerToken;
+    if (previousOwner.current !== owner) {
+      previousOwner.current = owner;
+      setEvents([]);
+      setHasMore(false);
+      setNextCursor(null);
+    }
+    setLoading(true);
+    setLoadError(false);
+    void readEvents();
+    return () => {
+      request.current.active = false;
+      request.current.generation++;
+    };
+  }, [readEvents, owner, ownerToken, refreshKey]);
 
-  const loadMore = async () => {
+  // Listen for activity refresh events from any mutation on the page.
+  useEffect(() => onActivityRefresh(() => { void readEvents(); }), [readEvents]);
+
+  const loadMore = () => {
     if (!hasMore || !nextCursor || loadingMore) return;
-    setLoadingMore(true);
-    const result = await fetchEvents(nextCursor);
-    setEvents((prev) => [...prev, ...result.events]);
-    setHasMore(result.hasMore);
-    setNextCursor(result.nextCursor);
-    setLoadingMore(false);
+    void readEvents(nextCursor, true);
   };
 
   const handleCommentAdded = (newComment?: {
@@ -72,6 +89,7 @@ export function ActivityTimeline({ entityType, entityId, refreshKey }: ActivityT
     contentJson: unknown;
     eventId: string;
   }) => {
+    if (!request.current.active || request.current.ownerToken !== ownerToken) return;
     if (newComment) {
       // Optimistic: insert the comment event at the top of the timeline
       const optimisticEvent: TimelineItem = {
@@ -92,15 +110,16 @@ export function ActivityTimeline({ entityType, entityId, refreshKey }: ActivityT
       setEvents((prev) => [optimisticEvent, ...prev]);
     }
 
-    // Background reconciliation — silently sync with server
-    fetchEvents().then((result) => {
-      setEvents(result.events);
-      setHasMore(result.hasMore);
-      setNextCursor(result.nextCursor);
-    });
+    // Keep the optimistic comment if reconciliation fails; offer a retry.
+    void readEvents();
   };
 
   const handleCommentDeleted = (commentId: string) => {
+    if (!request.current.active || request.current.ownerToken !== ownerToken) return;
+    // A snapshot requested before the confirmed deletion cannot restore its row.
+    request.current.generation++;
+    setLoading(false);
+    setLoadingMore(false);
     // Optimistic: remove immediately
     setEvents((prev) =>
       prev.filter((e) => {
@@ -110,17 +129,24 @@ export function ActivityTimeline({ entityType, entityId, refreshKey }: ActivityT
     );
   };
 
-  const handleCommentUpdated = () => {
-    fetchEvents().then((result) => {
-      setEvents(result.events);
-      setHasMore(result.hasMore);
-      setNextCursor(result.nextCursor);
-    });
-  };
+  const handleCommentUpdated = () => { void readEvents(); };
 
   return (
     <section className="mb-8">
       <SectionHeading title="Activity" />
+
+      {loadError && (
+        <div role="alert" className="mb-3 flex items-center gap-2 text-xs text-fg-secondary">
+          <span>Activity could not be loaded.</span>
+          <button
+            type="button"
+            onClick={() => { setLoading(true); setLoadError(false); void readEvents(); }}
+            className="touch-hit rounded-sm px-2 py-1 text-accent-primary hover:bg-bg-tertiary"
+          >
+            Retry activity
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-8">
@@ -130,11 +156,13 @@ export function ActivityTimeline({ entityType, entityId, refreshKey }: ActivityT
         </div>
       ) : events.length === 0 ? (
         <>
-          <div className="flex items-center justify-center py-6">
-            <span className="font-mono text-xs text-fg-secondary">
-              No activity yet
-            </span>
-          </div>
+          {!loadError && (
+            <div className="flex items-center justify-center py-6">
+              <span className="font-mono text-xs text-fg-secondary">
+                No activity yet
+              </span>
+            </div>
+          )}
           {/* Comment editor at the bottom, even when empty */}
           <div className="mt-2">
             <CommentEditor
