@@ -4,7 +4,7 @@
   "fontWeight": 400,
   "method": "Skia Canvas 2D measureText with HarfBuzz shaping; exact decoded shipped WOFF2",
   "runtime": {
-    "node": "26.9.0",
+    "node": "22.22.0",
     "canvas": "1.0.10"
   },
   "fonts": {
@@ -28,6 +28,55 @@
       "decodedTTFSha256": "84fc3ba3ca028ec1302d44316ba1d9f1845efe2246e0a27a1baf0df8038d67bb",
       "widthPx": 1145.1700439453125,
       "advanceEm": 0.46176211449407767
+    },
+    "source-serif": {
+      "assetPath": "/fonts/reader/v1/source-serif-4/source-serif-4-roman-latin.woff2",
+      "assetSha256": "effdda39c33f453e46c09b945a5d73444c03b470bbdacb6a3b8949b3dd36201b",
+      "decodedTTFSha256": "7cc0ec3fea50ee5eb985a0b44c5fd712f19b59799ce30d0b39bff12f83132c3b",
+      "widthPx": 1102.1199951171875,
+      "advanceEm": 0.44440322383757563
+    },
+    "lora": {
+      "assetPath": "/fonts/reader/v1/cyreal-serif/cyreal-serif-roman-latin.woff2",
+      "assetSha256": "606164af4a8c8000d0b8e4f51015ad93857f8d52226456130556a19df8675614",
+      "decodedTTFSha256": "80fa40dc324c31e7774a0f8d0fe26c9e597b9663283e584da12b1d0d2689857b",
+      "widthPx": 1149.8800048828125,
+      "advanceEm": 0.46366129229145664
+    },
+    "merriweather": {
+      "assetPath": "/fonts/reader/v1/sorkin-serif/sorkin-serif-roman-latin.woff2",
+      "assetSha256": "45f06d7a35a02ed62e0935889fd4a7b7c529c7e089539a88818b26b3c057f105",
+      "decodedTTFSha256": "3d3511919c3703745bf19b6173c40af54ae4691d44dbbfbf203b61cd5db35eaf",
+      "widthPx": 1157.8399658203125,
+      "advanceEm": 0.46687095395980344
+    },
+    "newsreader": {
+      "assetPath": "/fonts/reader/v1/newsreader/newsreader-roman-latin.woff2",
+      "assetSha256": "6565b9632cdc33124b98900566e2e1ba815e8be3c4a432be57f5ba7f66d92014",
+      "decodedTTFSha256": "1e1e28510e45e7e10c70fd2e8fc4470a0ad27bf898bda2c9f6b7e69de71db5a8",
+      "widthPx": 997.02001953125,
+      "advanceEm": 0.4020242014238911
+    },
+    "baskerville": {
+      "assetPath": "/fonts/reader/v1/baskerville/baskerville-roman-latin.woff2",
+      "assetSha256": "b7e4e3ef50d53af55677027f186d9b8804c55f20bffef492625648495c948aac",
+      "decodedTTFSha256": "c3b5855781c54b607cdd5747d9f71bd1016158acbd8bbe36afbc8a0b7259d762",
+      "widthPx": 1268.199951171875,
+      "advanceEm": 0.5113709480531754
+    },
+    "alegreya": {
+      "assetPath": "/fonts/reader/v1/alegreya/alegreya-roman-latin.woff2",
+      "assetSha256": "9adcf1b9814e9d9b66bd5658e39776721700d228c57894c0623d378a9a60050b",
+      "decodedTTFSha256": "9c5fd5b346cc427665542b81013858fe4237620a3962de1c0f618a88f1ff28ca",
+      "widthPx": 996.8400268554688,
+      "advanceEm": 0.40195162373204385
+    },
+    "atkinson": {
+      "assetPath": "/fonts/reader/v1/atkinson-hyperlegible/atkinson-hyperlegible-roman-latin.woff2",
+      "assetSha256": "d1336b2da356cbc0a0c14e0b93d74400aad25f92dfb5b7035cdc36ec0e691410",
+      "decodedTTFSha256": "aab959354c5fdf746ecf119054cff15194c667f30a43c45b96e28df669c7eb05",
+      "widthPx": 1088.0999755859375,
+      "advanceEm": 0.43874999015561994
     }
   }
 }

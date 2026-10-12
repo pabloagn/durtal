@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { flushSync } from "react-dom";
-import { BookA } from "lucide-react";
 import { ReaderSlotFill, useReaderEvent, useReaderFeatureShortcut } from "@/components/reader/bridge";
 import type { ReaderEngine, SelectionDetails } from "@/lib/reader/engine";
 import { lookupCandidates, lookupSelection } from "@/lib/reader/lookup/candidates";
@@ -19,6 +18,7 @@ import { defaultLookupSettings } from "@/lib/reader/lookup/sources";
 import { lookupSettingsSchema, type LookupSettings } from "@/lib/validations/reader-lookup";
 import { getLookupSettings } from "@/lib/actions/reader-lookup";
 import { LookupPopover, type LookupTab } from "./lookup-popover";
+import { OutsideTapBackdrop } from "../outside-tap-backdrop";
 import type { DictionaryState } from "./dictionary-tab";
 import type { WikipediaState } from "./wikipedia-tab";
 type Model = { dictionary: DictionaryState; wikipedia: WikipediaState };
@@ -93,8 +93,21 @@ export function LookupLayer({ engine, ebook, toolbarRef, enabled = true }: {
     }
   };
   useReaderEvent("location", () => close());
+  // The selection as it last stood. A tap on the Look up button can clear the
+  // book's selection on iOS before the click arrives; the lookup still opens
+  // for the word that was selected.
+  const lastDetails = useRef<SelectionDetails | null>(null);
   useEffect(() => {
-    const clear = engine.on("selection", selected => { if (!selected) close(); });
+    const clear = engine.on("selection", selected => {
+      if (selected) {
+        try { lastDetails.current = engine.selectionDetails(); } catch { lastDetails.current = null; }
+        return;
+      }
+      lastDetails.current = null;
+      // On touch the selection goes when the lookup's own button is tapped. A
+      // touch lookup closes on its backdrop, its button, a page turn or Escape.
+      if (!current.current?.touch) close();
+    });
     const relocate = engine.on("relocate", () => close());
     return () => { clear(); relocate(); };
     // Engine subscriptions keep the stable close path through refs.
@@ -137,7 +150,7 @@ export function LookupLayer({ engine, ebook, toolbarRef, enabled = true }: {
     const details = engine.selectionDetails(source === document ? undefined : source);
     if (details) open(details, true, undefined, source);
   }, enabled);
-  useEffect(() => engine.on("word-gesture", ({ details, document, input }) => open(details, false, undefined, document, input === "touch")),
+  useEffect(() => engine.on("word-gesture", ({ details, document }) => open(details, false, undefined, document)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [engine, enabled]);
   useLayoutEffect(() => {
@@ -223,10 +236,13 @@ export function LookupLayer({ engine, ebook, toolbarRef, enabled = true }: {
   return <>
     <ReaderSlotFill slot="selection-actions" placement="last"><button type="button" aria-label="Look up"
       data-tooltip="Look up" data-tooltip-keys="d" disabled={!enabled || !resources}
-      className="action-icon-sm" onClick={event => {
-        const details = engine.selectionDetails();
-        if (details) open(details, event.detail === 0, event.detail === 0 ? event.currentTarget : undefined);
-      }}><BookA className="h-4 w-4" strokeWidth={1.5} /></button></ReaderSlotFill>
+      className="h-8 rounded-sm px-3 hover:bg-bg-tertiary disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+      onClick={event => {
+        const details = engine.selectionDetails() ?? lastDetails.current;
+        const touch = event.detail !== 0 && window.matchMedia("(pointer: coarse)").matches;
+        if (details) open(details, event.detail === 0, event.detail === 0 ? event.currentTarget : undefined, undefined, touch);
+      }}>Look up</button></ReaderSlotFill>
+    <OutsideTapBackdrop kind="lookup" open={!!opened?.touch && !!resources} onClose={() => close("outside")} />
     {opened && resources && <LookupPopover key={opened.id} details={opened.details} language={opened.language}
       guessed={opened.guessed} word={opened.word} passage={opened.passage} keyboard={opened.keyboard}
       reference={opened.reference} avoid={toolbarRef.current?.getBoundingClientRect() ?? null} settings={settings}

@@ -49,7 +49,14 @@ export function SpeechVoiceMenu({
                       {speechLanguageLabel(group.language)},{" "}
                     </span>
                     {chosen && <span className="sr-only">Selected: </span>}
-                    <span className="lines-1 min-w-0 flex-1">{voice.name}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="lines-1">{voice.name}</span>
+                      {voice.description && (
+                        <span className="lines-1 text-xs text-fg-secondary">
+                          {voice.description}
+                        </span>
+                      )}
+                    </span>
                     {chosen && (
                       <Check
                         aria-hidden="true"

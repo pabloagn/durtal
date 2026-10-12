@@ -67,27 +67,19 @@ function oneWord(text: string): boolean {
   return count === 1;
 }
 
-/** Native selection remains the browser's job, including the iOS edit menu. */
-export function attachWordGestures(doc: Document, open: (input: "mouse" | "touch", range: Range) => void): () => void {
-  let touch: { id: number; x: number; y: number; at: number; moved: boolean; opened: boolean } | null = null;
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  const clear = () => { if (timer) clearTimeout(timer); timer = null; };
+/**
+ * A double click on one word opens the lookup. Touch has no gesture of its
+ * own: a long press is the browser's, which selects the word and shows the
+ * iOS edit menu, and the selection's Look up button opens the lookup. A
+ * lookup that opened under a held finger fought the native selection handles.
+ */
+export function attachWordGestures(doc: Document, open: (input: "mouse", range: Range) => void): () => void {
   const eligible = () => {
     const selection = doc.getSelection();
     if (!selection || selection.isCollapsed || !selection.rangeCount || !oneWord(selection.toString())) return null;
     const range = selection.getRangeAt(0);
     if (range.startContainer.ownerDocument !== doc || range.endContainer.ownerDocument !== doc) return null;
-    if (!touch) return range.cloneRange();
-    // A held margin must not reopen an unrelated word selected before the touch.
-    return Array.from(range.getClientRects()).some(rect =>
-      touch!.x >= rect.left - 10 && touch!.x <= rect.right + 10 &&
-      touch!.y >= rect.top - 10 && touch!.y <= rect.bottom + 10) ? range.cloneRange() : null;
-  };
-  const tryOpen = () => {
-    if (touch && !touch.moved && !touch.opened && performance.now() - touch.at >= 450) {
-      const range = eligible();
-      if (range) { touch.opened = true; open("touch", range); }
-    }
+    return range.cloneRange();
   };
   const double = (event: MouseEvent) => {
     if (event.button !== 0 || event.defaultPrevented ||
@@ -95,40 +87,6 @@ export function attachWordGestures(doc: Document, open: (input: "mouse" | "touch
     const range = eligible();
     if (range) open("mouse", range);
   };
-  const start = (event: TouchEvent) => {
-    clear(); touch = null;
-    if (event.touches.length !== 1 || (event.target as Element | null)?.closest?.("a,button,input,textarea,select,[contenteditable]")) return;
-    const point = event.touches[0];
-    touch = { id: point.identifier, x: point.clientX, y: point.clientY, at: performance.now(), moved: false, opened: false };
-    timer = setTimeout(tryOpen, 450);
-  };
-  const move = (event: TouchEvent) => {
-    if (!touch) return;
-    const point = Array.from(event.touches).find(point => point.identifier === touch?.id);
-    if (!point || event.touches.length !== 1 || Math.hypot(point.clientX-touch.x, point.clientY-touch.y) >= 10) {
-      touch.moved = true; clear();
-    }
-  };
-  const end = (event: TouchEvent) => {
-    moveEnd(event); tryOpen(); clear(); touch = null;
-  };
-  const moveEnd = (event: TouchEvent) => {
-    if (!touch) return;
-    const point = Array.from(event.changedTouches).find(point => point.identifier === touch?.id);
-    if (!point || Math.hypot(point.clientX-touch.x, point.clientY-touch.y) >= 10 || event.touches.length)
-      touch.moved = true;
-  };
-  const cancel = () => { clear(); touch = null; };
   doc.addEventListener("dblclick", double);
-  doc.addEventListener("touchstart", start, { passive: true });
-  doc.addEventListener("touchmove", move, { passive: true });
-  doc.addEventListener("touchend", end, { passive: true });
-  doc.addEventListener("touchcancel", cancel, { passive: true });
-  doc.addEventListener("selectionchange", tryOpen);
-  return () => {
-    cancel(); doc.removeEventListener("dblclick", double);
-    doc.removeEventListener("touchstart", start); doc.removeEventListener("touchmove", move);
-    doc.removeEventListener("touchend", end); doc.removeEventListener("touchcancel", cancel);
-    doc.removeEventListener("selectionchange", tryOpen);
-  };
+  return () => doc.removeEventListener("dblclick", double);
 }

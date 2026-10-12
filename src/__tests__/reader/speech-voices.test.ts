@@ -219,3 +219,29 @@ describe("speech voices and bounded device preferences", () => {
     expect(setItem).not.toHaveBeenCalled();
   });
 });
+
+describe("natural voices", () => {
+  const george = voice("natural:george", "mul", false, true);
+  const aria = voice("natural:aria", "mul");
+  const samantha = voice("samantha", "en-US", true, true);
+  it("reads every language with the default natural voice over a device voice", () => {
+    for (const language of ["en", "fr-FR", null])
+      expect(chooseSpeechVoice([samantha, aria, george], language, defaults()))
+        .toEqual({ kind: "available", voice: george, explicit: false });
+  });
+  it("carries a chosen natural voice to other languages and groups natural voices first", () => {
+    const prefs = rememberSpeechVoice(defaults(), "en", aria.voiceURI);
+    expect(prefs.natural).toBeUndefined();
+    expect(chooseSpeechVoice([samantha, aria, george], "de", prefs)).toMatchObject({ voice: aria, explicit: true });
+    expect(groupSpeechVoices([samantha, george], "en")[0].language).toBe("mul");
+  });
+  it("keeps a device voice the reader picked over the natural ones, and survives a reload", () => {
+    expect(rememberSpeechVoice(defaults(), "en", samantha.voiceURI).natural).toBeUndefined();
+    const prefs = rememberSpeechVoice(defaults(), "en", samantha.voiceURI, true);
+    expect(prefs.natural).toBe("off");
+    expect(rememberSpeechVoice(prefs, "fr", "thomas").natural).toBe("off");
+    expect(parseSpeechPreferences(JSON.stringify(prefs)).natural).toBe("off");
+    expect(chooseSpeechVoice([samantha, george], "en", prefs)).toMatchObject({ voice: samantha, explicit: true });
+    expect(rememberSpeechVoice(prefs, "en", george.voiceURI).natural).toBeUndefined();
+  });
+});

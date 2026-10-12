@@ -5,6 +5,7 @@ import type { DurtalLocator } from "@/lib/reader/engine";
 import type { PositionIndex } from "@/lib/reader/position-index";
 import { pageText } from "@/lib/reader/running-lines";
 import { ProgressScrubber } from "./progress-scrubber";
+import { focusOpener } from "./reader-bar-item";
 import { Hash, PanelBottom } from "lucide-react";
 
 /**
@@ -61,10 +62,11 @@ export function ReaderBottomBar({
     >
       <div className="flex h-9 [@media(pointer:coarse)]:h-11 items-center gap-3 px-4 text-xs text-fg-secondary">
         <p className="min-w-0 flex-1 truncate">{chapter}</p>
+        {/* The tracking control: a whole button, never clipped to the row's text */}
         <div
           ref={mount}
           hidden={!slots["toolbar-status"]}
-          className="lines-1 min-w-0 max-w-[60%] overflow-hidden whitespace-nowrap"
+          className="flex min-w-0 max-w-[60%] shrink-0 items-center overflow-hidden whitespace-nowrap [&_button]:max-w-full [&_button]:truncate"
         />
         {!slots["toolbar-status"] && (
           <div className="flex min-w-0 max-w-[80%] items-center gap-2 tabular-nums">
@@ -94,7 +96,7 @@ export function ReaderBottomBar({
             <button
               type="button"
               onClick={(event) => {
-                event.currentTarget.focus({ preventScroll: true });
+                focusOpener(event);
                 onGoTo();
               }}
               aria-label="Go to"
@@ -109,7 +111,7 @@ export function ReaderBottomBar({
             <button
               type="button"
               onClick={(event) => {
-                event.currentTarget.focus({ preventScroll: true });
+                focusOpener(event);
                 onRunningLines();
               }}
               aria-label="Header and footer"

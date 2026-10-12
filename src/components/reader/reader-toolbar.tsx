@@ -1,50 +1,103 @@
 "use client";
 
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   ArrowLeft,
+  Check,
   ListTree,
   Maximize,
   Minimize,
+  MoreHorizontal,
   Type,
   CircleHelp,
   Search,
+  SunMoon,
+  Moon,
+  Sun,
+  Sunset,
 } from "lucide-react";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
+import { OutsideTapBackdrop } from "./outside-tap-backdrop";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  READER_BAR_BUTTON,
+  ReaderBarItem,
+  ReaderBarMenuItems,
+  watchReaderPointer,
+} from "./reader-bar-item";
+import type { ReaderPresentation } from "@/lib/validations/reader-preferences";
 
-/** A 16px icon in a 32px button, 44px on touch */
-const ICON_BUTTON =
-  "block rounded-sm p-2 text-fg-secondary transition-colors hover:bg-bg-tertiary/50 hover:text-fg-primary pointer-coarse:p-3.5";
+type ReaderThemeId = ReaderPresentation["theme"];
+const READER_THEME_CHOICES = [
+  { id: "durtal-dark", label: "Dark page", icon: Moon },
+  { id: "paper", label: "Light page", icon: Sun },
+  { id: "sepia", label: "Sepia page", icon: Sunset },
+] as const satisfies readonly { id: ReaderThemeId; label: string; icon: unknown }[];
 
-function BarButton({
-  label,
-  keys,
-  onClick,
-  children,
+/** Below this width the bar keeps its main controls and moves the rest into More */
+const COMPACT_QUERY = "(max-width: 639.98px)";
+const subscribeCompact = (change: () => void) => {
+  const query = window.matchMedia(COMPACT_QUERY);
+  query.addEventListener("change", change);
+  return () => query.removeEventListener("change", change);
+};
+const compactNow = () => window.matchMedia(COMPACT_QUERY).matches;
+
+/** Dark, light and sepia pages, one tap away in the bar */
+function ThemeMenu({
+  theme,
+  onTheme,
+  open,
+  onOpenChange,
 }: {
-  label: string;
-  keys: string;
-  onClick: () => void;
-  children: React.ReactNode;
+  theme: ReaderThemeId;
+  onTheme(theme: ReaderThemeId): void;
+  open: boolean;
+  onOpenChange(open: boolean): void;
 }) {
   return (
-    <CapAligned height={32} coarseHeight={44}>
-      <button
-        type="button"
-        onClick={(event) => {
-          // WebKit does not focus buttons on a pointer click. Give the
-          // dialog a concrete opener to restore when it closes.
-          event.currentTarget.focus({ preventScroll: true });
-          onClick();
-        }}
-        aria-label={label}
-        data-tooltip={label}
-        data-tooltip-keys={keys}
-        data-tooltip-side="bottom"
-        className={ICON_BUTTON}
+    <CapAlignedControls height={32} coarseHeight={44}>
+      <DropdownMenu
+        label="Page colour"
+        open={open}
+        onOpenChange={onOpenChange}
+        trigger={
+          <button type="button" data-tooltip-side="bottom" className={READER_BAR_BUTTON}>
+            <SunMoon className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+        }
       >
-        {children}
-      </button>
-    </CapAligned>
+        <ThemeItems theme={theme} onTheme={onTheme} />
+      </DropdownMenu>
+    </CapAlignedControls>
+  );
+}
+
+function ThemeItems({
+  theme,
+  onTheme,
+}: {
+  theme: ReaderThemeId;
+  onTheme(theme: ReaderThemeId): void;
+}) {
+  return (
+    <>
+      {READER_THEME_CHOICES.map((choice) => (
+        <DropdownMenuItem
+          key={choice.id}
+          checked={choice.id === theme}
+          icon={<choice.icon className="h-4 w-4" strokeWidth={1.5} />}
+          shortcut={choice.id === theme ? <Check className="h-4 w-4" strokeWidth={1.5} aria-hidden /> : undefined}
+          onClick={() => onTheme(choice.id)}
+        >
+          {choice.label}
+        </DropdownMenuItem>
+      ))}
+    </>
   );
 }
 
@@ -52,6 +105,9 @@ function BarButton({
  * The reader's top bar (eBooks sub-issue 3): Back, the title and the
  * current chapter, Contents, Settings and, where the browser has it, Full
  * screen. Hidden with the bottom bar while reading; hidden, it is inert.
+ * At phone width it keeps Back, the title, Contents, the bookmark and
+ * Settings, and moves every other control into a More menu, so nothing runs
+ * off the screen.
  */
 export function ReaderToolbar({
   visible,
@@ -67,7 +123,12 @@ export function ReaderToolbar({
   onShortcuts,
   offlineAction,
   speechControl,
+  bookmarkAction,
   annotationActions,
+  fixedControls,
+  theme,
+  onTheme,
+  onMenuChange,
 }: {
   visible: boolean;
   title: string;
@@ -83,8 +144,77 @@ export function ReaderToolbar({
   onShortcuts?: () => void;
   offlineAction?: React.ReactNode;
   speechControl?: React.ReactNode;
+  /** Stays in the bar at every width */
+  bookmarkAction?: React.ReactNode;
   annotationActions?: React.ReactNode;
+  /** Zoom and fit for fixed-layout books; stays in the bar at every width */
+  fixedControls?: React.ReactNode;
+  theme?: ReaderThemeId;
+  onTheme?(theme: ReaderThemeId): void;
+  /** A menu of the bar is open: the bars stay while it is */
+  onMenuChange?(open: boolean): void;
 }) {
+  const compact = useSyncExternalStore(subscribeCompact, compactNow, () => false);
+  const [menu, setMenuState] = useState<"more" | "theme" | null>(null);
+  const setMenu = (next: "more" | "theme" | null) => {
+    setMenuState(next);
+    onMenuChange?.(next !== null);
+  };
+  useEffect(watchReaderPointer, []);
+  // A hidden bar, or a change of layout, closes its menu
+  useEffect(() => {
+    setMenuState(null);
+    onMenuChange?.(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compact]);
+
+  const contents = (
+    <ReaderBarItem
+      label="Contents"
+      keys="t"
+      icon={<ListTree className="h-4 w-4" strokeWidth={1.5} />}
+      onSelect={onContents}
+    />
+  );
+  const settings = (
+    <ReaderBarItem
+      label="Settings"
+      keys="s"
+      icon={<Type className="h-4 w-4" strokeWidth={1.5} />}
+      onSelect={onSettings}
+    />
+  );
+  const search = onSearch && (
+    <ReaderBarItem
+      label="Search in book"
+      keys="/"
+      icon={<Search className="h-4 w-4" strokeWidth={1.5} />}
+      onSelect={onSearch}
+    />
+  );
+  const shortcuts = onShortcuts && (
+    <ReaderBarItem
+      label="Reader shortcuts"
+      keys="?"
+      icon={<CircleHelp className="h-4 w-4" strokeWidth={1.5} />}
+      onSelect={onShortcuts}
+    />
+  );
+  const full = fullscreen !== null && (
+    <ReaderBarItem
+      label={fullscreen ? "Leave full screen" : "Full screen"}
+      keys="f"
+      icon={
+        fullscreen ? (
+          <Minimize className="h-4 w-4" strokeWidth={1.5} />
+        ) : (
+          <Maximize className="h-4 w-4" strokeWidth={1.5} />
+        )
+      }
+      onSelect={onFullscreen}
+    />
+  );
+
   return (
     <header
       data-reader-chrome
@@ -104,7 +234,7 @@ export function ReaderToolbar({
               aria-label="Back"
               data-tooltip="Back"
               data-tooltip-side="bottom"
-              className={ICON_BUTTON}
+              className={READER_BAR_BUTTON}
             >
               <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
             </a>
@@ -117,46 +247,65 @@ export function ReaderToolbar({
               </p>
             )}
           </div>
-          <div className="flex shrink-0 gap-1">
-            {offlineAction}
-            {speechControl}
-            {annotationActions}
-            <BarButton label="Contents" keys="t" onClick={onContents}>
-              <ListTree className="h-4 w-4" strokeWidth={1.5} />
-            </BarButton>
-            {onSearch && (
-              <BarButton label="Search in book" keys="/" onClick={onSearch}>
-                <Search className="h-4 w-4" strokeWidth={1.5} />
-              </BarButton>
-            )}
-            <BarButton label="Settings" keys="s" onClick={onSettings}>
-              <Type className="h-4 w-4" strokeWidth={1.5} />
-            </BarButton>
-            {onShortcuts && (
-              <BarButton
-                label="Reader shortcuts"
-                keys="?"
-                onClick={onShortcuts}
-              >
-                <CircleHelp className="h-4 w-4" strokeWidth={1.5} />
-              </BarButton>
-            )}
-            {fullscreen !== null && (
-              <BarButton
-                label={fullscreen ? "Leave full screen" : "Full screen"}
-                keys="f"
-                onClick={onFullscreen}
-              >
-                {fullscreen ? (
-                  <Minimize className="h-4 w-4" strokeWidth={1.5} />
-                ) : (
-                  <Maximize className="h-4 w-4" strokeWidth={1.5} />
-                )}
-              </BarButton>
-            )}
-          </div>
+          {compact ? (
+            <div className="flex shrink-0 gap-1">
+              {fixedControls}
+              {contents}
+              {bookmarkAction}
+              {settings}
+              <CapAlignedControls height={32} coarseHeight={44}>
+                <DropdownMenu
+                  label="More"
+                  open={menu === "more"}
+                  onOpenChange={(open) => setMenu(open ? "more" : null)}
+                  trigger={
+                    <button type="button" data-tooltip-side="bottom" className={READER_BAR_BUTTON}>
+                      <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
+                    </button>
+                  }
+                >
+                  <ReaderBarMenuItems>
+                    {speechControl}
+                    {search}
+                    {annotationActions}
+                    {offlineAction}
+                    {full}
+                    {shortcuts}
+                    {theme && onTheme && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <ThemeItems theme={theme} onTheme={onTheme} />
+                      </>
+                    )}
+                  </ReaderBarMenuItems>
+                </DropdownMenu>
+              </CapAlignedControls>
+            </div>
+          ) : (
+            <div className="flex shrink-0 gap-1">
+              {offlineAction}
+              {speechControl}
+              {bookmarkAction}
+              {annotationActions}
+              {fixedControls}
+              {contents}
+              {search}
+              {theme && onTheme && (
+                <ThemeMenu
+                  theme={theme}
+                  onTheme={onTheme}
+                  open={menu === "theme"}
+                  onOpenChange={(open) => setMenu(open ? "theme" : null)}
+                />
+              )}
+              {settings}
+              {shortcuts}
+              {full}
+            </div>
+          )}
         </div>
       </div>
+      <OutsideTapBackdrop kind="menu" open={menu !== null} onClose={() => setMenu(null)} />
     </header>
   );
 }

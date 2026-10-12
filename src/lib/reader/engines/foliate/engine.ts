@@ -1281,13 +1281,8 @@ class FoliateEngine implements ReaderEngine {
       if (reached) {
         const start = item.range.cloneRange();
         start.collapse(true);
-        if (
-          requested === "visible" &&
-          anchor &&
-          anchor === liveRange &&
-          item.range.comparePoint(anchor.endContainer, anchor.endOffset) < 0
-        )
-          return { current: null, previous: null, next: null };
+        // A page with no sentence of its own (a title page, an image) reads
+        // on from the next text rather than refusing
         if (target.kind === "adjacent" && target.direction === "previous") {
           current = previous;
           next = item.segment;
@@ -1300,7 +1295,7 @@ class FoliateEngine implements ReaderEngine {
         } else current = item.segment;
       } else previous = item.segment;
     }
-    if (target.kind === "from" && !current)
+    if (target.kind === "from" && !current && requested !== "visible")
       return { current: null, previous: null, next: null };
     // Cross-section extraction owns no renderer movement and skips non-linear spine entries.
     if (

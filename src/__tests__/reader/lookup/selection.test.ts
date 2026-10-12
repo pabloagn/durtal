@@ -49,36 +49,16 @@ describe("lookup selection source contracts", () => {
     document.querySelector("p")!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, button: 0 }));
     expect(open).toHaveBeenCalledTimes(1); detach();
   });
-  it("rejects movement at 10px and detaches the held timer", () => {
+  it("leaves a touch hold to the browser's own selection", () => {
+    // Opening the lookup under a held finger fought iOS's selection handles; Look up opens it.
     vi.useFakeTimers();
     selected("<p>lux</p>", "lux");
-    const open = vi.fn(), detach = attachWordGestures(document, open);
-    const touch = (kind: string, x: number) => {
-      const event = new Event(kind, { bubbles: true });
-      Object.defineProperty(event, "touches", { value: [{ identifier: 1, clientX: x, clientY: 10 }] });
-      document.querySelector("p")!.dispatchEvent(event);
-    };
-    touch("touchstart", 10); touch("touchmove", 20); vi.advanceTimersByTime(500);
-    expect(open).not.toHaveBeenCalled();
-    touch("touchstart", 10); detach(); vi.advanceTimersByTime(500);
-    expect(open).not.toHaveBeenCalled();
-  });
-  it("opens a measured native one-word touch selection after 450ms only once", () => {
-    vi.useFakeTimers();
-    const range = selected("<p>lux</p>", "lux");
-    vi.spyOn(range, "getClientRects").mockReturnValue([new DOMRect(5, 5, 20, 20)] as unknown as DOMRectList);
     const open = vi.fn(), detach = attachWordGestures(document, open);
     const event = new Event("touchstart", { bubbles: true });
     Object.defineProperty(event, "touches", { value: [{ identifier: 1, clientX: 10, clientY: 10 }] });
     document.querySelector("p")!.dispatchEvent(event);
-    vi.advanceTimersByTime(449); expect(open).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1); expect(open).toHaveBeenCalledWith("touch", expect.any(Range));
-    const captured = open.mock.calls[0][1] as Range;
-    expect(captured).not.toBe(range);
-    expect(captured.toString()).toBe("lux");
-    expect(captured.startContainer.ownerDocument).toBe(document);
-    document.dispatchEvent(new Event("selectionchange"));
-    expect(open).toHaveBeenCalledTimes(1); detach();
+    vi.advanceTimersByTime(1000);
+    expect(open).not.toHaveBeenCalled(); detach();
   });
   it("mouse caret snapping into a paragraph gap does not suppress page zones", () => {
     document.body.innerHTML = "<p>lux</p>";

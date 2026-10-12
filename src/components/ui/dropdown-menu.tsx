@@ -183,7 +183,7 @@ export function DropdownMenu({
     function getItems(): HTMLElement[] {
       return Array.from(
         menu.querySelectorAll<HTMLElement>(
-          '[role="menuitem"]:not([aria-disabled="true"])',
+          '[role^="menuitem"]:not([aria-disabled="true"])',
         ),
       );
     }
@@ -221,7 +221,7 @@ export function DropdownMenu({
     if (!isOpen || !menuRef.current) return;
     requestAnimationFrame(() => {
       const first = menuRef.current?.querySelector<HTMLElement>(
-        '[role="menuitem"]:not([aria-disabled="true"])',
+        '[role^="menuitem"]:not([aria-disabled="true"])',
       );
       first?.focus();
     });
@@ -271,7 +271,9 @@ interface DropdownMenuItemProps {
   disabled?: boolean;
   variant?: "default" | "danger";
   icon?: ReactNode;
-  shortcut?: string;
+  shortcut?: ReactNode;
+  /** One of a set of choices: a radio item, checked or not */
+  checked?: boolean;
 }
 
 export function DropdownMenuItem({
@@ -281,6 +283,7 @@ export function DropdownMenuItem({
   variant = "default",
   icon,
   shortcut,
+  checked,
 }: DropdownMenuItemProps) {
   const { close } = useContext(DropdownMenuContext);
 
@@ -296,7 +299,8 @@ export function DropdownMenuItem({
 
   return (
     <div
-      role="menuitem"
+      role={checked === undefined ? "menuitem" : "menuitemradio"}
+      aria-checked={checked}
       tabIndex={disabled ? -1 : 0}
       aria-disabled={disabled}
       onClick={() => {

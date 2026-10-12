@@ -69,8 +69,10 @@ export function createNativeSpeechSpeaker(options: {
     }
   }
   const hidden = () => {
+    // Only device speech stops with the page: the natural voice reads on
+    const owned = pending.size > 0;
     cancel();
-    emit({ kind: "hidden" });
+    if (owned) emit({ kind: "hidden" });
   };
   const visibility = () => {
     if (doc.visibilityState === "hidden") hidden();

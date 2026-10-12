@@ -193,20 +193,13 @@ describe("lookup originating document with an earlier retained native selection"
     await expect(section.load!()).rejects.toMatchObject({ name: "AbortError" });
     expect(calls.sectionLoad).toHaveBeenCalledTimes(2);
   });
-  it.each(["mouse", "touch", "shortcut"] as const)("binds the real %s path, locator and mounted consumers to the later document", async kind => {
+  it.each(["mouse", "shortcut"] as const)("binds the real %s path, locator and mounted consumers to the later document", async kind => {
     const [earlier, later] = retainedSelections();
     const gestures = vi.fn(), cfi = vi.spyOn(view, "getCFI"); engine.on("word-gesture", gestures);
     const selectionDetails = vi.spyOn(engine, "selectionDetails");
-    // Keep the manual paint queue; only the touch hold uses the fake clock.
-    if (kind === "touch") vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
     act(() => {
       if (kind === "shortcut") later.dispatchEvent(new KeyboardEvent("keydown", { key: "d", bubbles: true, cancelable: true }));
-      else if (kind === "mouse") later.querySelector("p")!.dispatchEvent(new MouseEvent("dblclick", { button: 0, bubbles: true }));
-      else {
-        const event = new Event("touchstart", { bubbles: true });
-        Object.defineProperty(event, "touches", { value: [{ identifier: 1, clientX: 20, clientY: 30 }] });
-        later.querySelector("p")!.dispatchEvent(event); vi.advanceTimersByTime(450);
-      }
+      else later.querySelector("p")!.dispatchEvent(new MouseEvent("dblclick", { button: 0, bubbles: true }));
     });
     if (kind === "shortcut") expect(selectionDetails).toHaveBeenCalledWith(later);
     const details = kind === "shortcut" ? engine.selectionDetails(later)! : gestures.mock.calls[0][0].details;

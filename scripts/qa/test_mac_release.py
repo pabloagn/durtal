@@ -157,6 +157,14 @@ class ReleaseTests(unittest.TestCase):
             with self.assertRaises(release.Refusal):
                 release.checked_config({**config, 'environment': {**config['environment'], 'EBOOK_UPLOAD_BRIDGE': value}})
 
+    def test_natural_voice_key_is_a_runtime_secret_and_its_voice_and_model_public(self):
+        root, _ = self.make_release(); config = self.config(root)
+        release.checked_config({**config, 'runtimeNames': [*config['runtimeNames'], 'ELEVENLABS_API_KEY'],
+                                'environment': {**config['environment'], 'ELEVENLABS_VOICE_ID': 'JBFqnCBsd6RMkjVDRZzb',
+                                                'ELEVENLABS_MODEL_ID': 'eleven_multilingual_v2'}})
+        with self.assertRaises(release.Refusal):
+            release.checked_config({**config, 'environment': {**config['environment'], 'ELEVENLABS_API_KEY': 'private'}})
+
     def test_cloudfront_requires_reviewed_public_identity(self):
         root, _ = self.make_release(); config = self.config(root)
         config['environment']['EBOOK_DELIVERY'] = 'cloudfront'

@@ -95,7 +95,7 @@ def main() -> None:
     output = {"version": policy["version"], "tools": dict(zip(
         ["fontTools", "brotli", "zopfli"], tools)),
         "sourceManifestSha256": digest(source_data), "policySha256": digest(policy_data),
-        "policy": policy, "files": [], "licences": []}
+        "policy": policy, "files": [], "licences": [], "previews": []}
     with tempfile.TemporaryDirectory(prefix="durtal-reader-fonts-") as scratch:
         for folder, info in policy["families"].items():
             destination = args.assets / folder
@@ -109,13 +109,40 @@ def main() -> None:
                 font = TTFont(source, recalcTimestamp=False)
                 original_points = set(font.getBestCmap())
                 original_features = features(font)
-                if any(axis.axisTag == "opsz" for axis in font["fvar"].axes):
-                    instantiateVariableFont(font, {"opsz": policy["opticalSize"]}, inplace=True)
+                # Optical size and width are fixed for reading; weight stays variable.
+                pinned = {"opsz": policy["opticalSize"], "wdth": policy["width"]}
+                axes = {axis.axisTag for axis in font["fvar"].axes}
+                if axes & pinned.keys():
+                    instantiateVariableFont(
+                        font, {tag: value for tag, value in pinned.items() if tag in axes},
+                        inplace=True)
                 rename(font, info["family"], style)
                 prepared = Path(scratch) / f"{folder}-{style}.ttf"
                 font.save(prepared)
                 font.close()
+                if style == "roman":
+                    # The font picker sets each family's name in its own face: only those letters.
+                    target = destination / f"{folder}-preview.woff2"
+                    arguments = [str(prepared), "--output-file=" + str(target),
+                        "--flavor=woff2", "--text=" + info["label"], "--no-hinting",
+                        "--no-recalc-timestamp", "--canonical-order",
+                        "--name-IDs=" + policy["nameIDs"],
+                        "--name-languages=" + policy["nameLanguages"]]
+                    subset.main(arguments)
+                    data = target.read_bytes()
+                    output["previews"].append({"id": info["id"], "family": folder,
+                        "cssFamily": info["family"], "text": info["label"],
+                        "path": f"/fonts/reader/v1/{folder}/{target.name}",
+                        "bytes": len(data), "sha256": digest(data)})
                 for label, codepoints in ranges.items():
+                    # A script the family barely covers (judged by its base subset) is left
+                    # to the fallback font whole, rather than mixing a few of its letters.
+                    base = label.removesuffix("-ext")
+                    covered = len(original_points & codepoints)
+                    if label != "latin" and (not covered or len(original_points & ranges[base])
+                                             < policy["minimumScriptCodepoints"]):
+                        print(f"{folder}-{style}-{label}: {covered} characters, not shipped")
+                        continue
                     filename = f"{folder}-{style}-{label}.woff2"
                     target = destination / filename
                     arguments = [str(prepared), "--output-file=" + str(target),

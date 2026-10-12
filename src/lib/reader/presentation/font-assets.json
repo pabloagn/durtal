@@ -5,15 +5,17 @@
     "brotli": "1.2.0",
     "zopfli": "0.4.1"
   },
-  "sourceManifestSha256": "2c5a991098fbb44e72c2e0d1acb589edc01943f8823dab41ef24b43f9685a6a1",
-  "policySha256": "ef9031f944cd480292a14941af1388f439782c9c96475971eab18beb4a2f8022",
+  "sourceManifestSha256": "3057f58f80636bc4a08e95acebc5141cd05ecf9bef958bbcad2fe16d0ea0cd1e",
+  "policySha256": "19195b5fc04f5a8f7f3370c1e0210f4f425f3b1172fe18457fb5ffa7f32e0a4f",
   "policy": {
     "version": "v1",
     "opticalSize": 20,
+    "width": 100,
     "hinting": false,
     "layoutFeatures": "*",
     "nameIDs": "0,1,2,3,4,5,6,16,17,25",
     "nameLanguages": "0x409",
+    "minimumScriptCodepoints": 32,
     "ranges": {
       "latin": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
       "latin-ext": "U+0080-02FF,U+0300-036F,U+1D00-1DFF,U+1E00-1EFF,U+2000-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
@@ -25,21 +27,73 @@
     "families": {
       "literata": {
         "id": "literata",
+        "label": "Literata",
         "family": "Durtal Literata",
         "roman": "roman.ttf",
         "italic": "italic.ttf"
       },
       "eb-garamond": {
         "id": "garamond",
+        "label": "EB Garamond",
         "family": "Durtal EB Garamond",
         "roman": "roman.ttf",
         "italic": "italic.ttf"
       },
       "inter": {
         "id": "inter",
+        "label": "Inter",
         "family": "Durtal Inter",
         "roman": "InterVariable.ttf",
         "italic": "InterVariable-Italic.ttf"
+      },
+      "source-serif-4": {
+        "id": "source-serif",
+        "label": "Source Serif",
+        "family": "Durtal Source Serif",
+        "roman": "roman.ttf",
+        "italic": "italic.ttf"
+      },
+      "cyreal-serif": {
+        "id": "lora",
+        "label": "Cyreal Serif",
+        "family": "Durtal Cyreal Serif",
+        "roman": "roman.ttf",
+        "italic": "italic.ttf"
+      },
+      "sorkin-serif": {
+        "id": "merriweather",
+        "label": "Sorkin Serif",
+        "family": "Durtal Sorkin Serif",
+        "roman": "roman.ttf",
+        "italic": "italic.ttf"
+      },
+      "newsreader": {
+        "id": "newsreader",
+        "label": "Newsreader",
+        "family": "Durtal Newsreader",
+        "roman": "roman.ttf",
+        "italic": "italic.ttf"
+      },
+      "baskerville": {
+        "id": "baskerville",
+        "label": "Baskerville",
+        "family": "Durtal Baskerville",
+        "roman": "roman.ttf",
+        "italic": "italic.ttf"
+      },
+      "alegreya": {
+        "id": "alegreya",
+        "label": "Alegreya",
+        "family": "Durtal Alegreya",
+        "roman": "roman.ttf",
+        "italic": "italic.ttf"
+      },
+      "atkinson-hyperlegible": {
+        "id": "atkinson",
+        "label": "Atkinson Hyperlegible",
+        "family": "Durtal Atkinson Hyperlegible",
+        "roman": "roman.ttf",
+        "italic": "italic.ttf"
       }
     }
   },
@@ -129,7 +183,13 @@
       "sha256": "f2539246e231cacfa03ec8c2dfdfb50698a3bfa5979b38c7f47f3eec59e3c2ca",
       "unicodeRange": "U+0370-03FF",
       "codepoints": 87,
-      "features": ["aalt", "c2sc", "case", "ccmp", "smcp"],
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "ccmp",
+        "smcp"
+      ],
       "axes": {
         "wght": {
           "min": 200.0,
@@ -149,7 +209,12 @@
       "sha256": "aa85504afa32c450961516a85e3e56b0e935cc4e85d69f4be070e14cbcc59268",
       "unicodeRange": "U+1F00-1FFF",
       "codepoints": 233,
-      "features": ["aalt", "case", "ccmp", "ss01"],
+      "features": [
+        "aalt",
+        "case",
+        "ccmp",
+        "ss01"
+      ],
       "axes": {
         "wght": {
           "min": 200.0,
@@ -169,7 +234,13 @@
       "sha256": "a0fb0ef0031787ca5b42d54ce0f0152b49b17afdc84adb63f892b9133bde1076",
       "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
       "codepoints": 99,
-      "features": ["aalt", "c2sc", "ccmp", "rvrn", "smcp"],
+      "features": [
+        "aalt",
+        "c2sc",
+        "ccmp",
+        "rvrn",
+        "smcp"
+      ],
       "axes": {
         "wght": {
           "min": 200.0,
@@ -189,7 +260,15 @@
       "sha256": "b4c7883dc0b75937bcc9dde59968d302e9a0012be928246dfb82f9c247a61826",
       "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
       "codepoints": 21,
-      "features": ["aalt", "c2sc", "case", "lnum", "onum", "rvrn", "smcp"],
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "lnum",
+        "onum",
+        "rvrn",
+        "smcp"
+      ],
       "axes": {
         "wght": {
           "min": 200.0,
@@ -283,7 +362,13 @@
       "sha256": "fd841c7e4e668572ea6748b274f2c42c97393c7661b8f4f6972b93cd95aed709",
       "unicodeRange": "U+0370-03FF",
       "codepoints": 87,
-      "features": ["aalt", "c2sc", "case", "ccmp", "smcp"],
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "ccmp",
+        "smcp"
+      ],
       "axes": {
         "wght": {
           "min": 200.0,
@@ -303,7 +388,12 @@
       "sha256": "cccea0a03c3afc3678d3bb00801cf01449ba07232953724f91caca29ed383987",
       "unicodeRange": "U+1F00-1FFF",
       "codepoints": 233,
-      "features": ["aalt", "case", "ccmp", "ss01"],
+      "features": [
+        "aalt",
+        "case",
+        "ccmp",
+        "ss01"
+      ],
       "axes": {
         "wght": {
           "min": 200.0,
@@ -323,7 +413,12 @@
       "sha256": "d17af967c2aab3d015160e0c1b9eee85a677253ccb63d6db1f38120389faabd7",
       "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
       "codepoints": 99,
-      "features": ["aalt", "c2sc", "ccmp", "smcp"],
+      "features": [
+        "aalt",
+        "c2sc",
+        "ccmp",
+        "smcp"
+      ],
       "axes": {
         "wght": {
           "min": 200.0,
@@ -343,7 +438,15 @@
       "sha256": "1b68caf777a09c09940889fd4deb6305b630ca846eebdba80ea425a7106025bb",
       "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
       "codepoints": 21,
-      "features": ["aalt", "c2sc", "case", "lnum", "onum", "rvrn", "smcp"],
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "lnum",
+        "onum",
+        "rvrn",
+        "smcp"
+      ],
       "axes": {
         "wght": {
           "min": 200.0,
@@ -447,7 +550,11 @@
       "sha256": "d380d3b36167d08a6d6a3802a4767655db4359f9bddf5991fe93ff0f0ec2f0b8",
       "unicodeRange": "U+0370-03FF",
       "codepoints": 94,
-      "features": ["aalt", "c2sc", "smcp"],
+      "features": [
+        "aalt",
+        "c2sc",
+        "smcp"
+      ],
       "axes": {
         "wght": {
           "min": 400.0,
@@ -487,7 +594,12 @@
       "sha256": "542b189b34294995d62125f9413946990e36167a329abb0dfe1ba13ca075ca20",
       "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
       "codepoints": 101,
-      "features": ["aalt", "hist", "locl", "ss07"],
+      "features": [
+        "aalt",
+        "hist",
+        "locl",
+        "ss07"
+      ],
       "axes": {
         "wght": {
           "min": 400.0,
@@ -803,7 +915,11 @@
       "sha256": "44715f79ecbb5ad60030ba9a43240fe06998035717aab06b8902a18b773bfd36",
       "unicodeRange": "U+0370-03FF",
       "codepoints": 105,
-      "features": ["aalt", "dlig", "ss07"],
+      "features": [
+        "aalt",
+        "dlig",
+        "ss07"
+      ],
       "axes": {
         "wght": {
           "min": 100.0,
@@ -823,7 +939,14 @@
       "sha256": "6cbe9365567be2901088425ced10771b610b02d83547efb0bd55bb7848693f7b",
       "unicodeRange": "U+1F00-1FFF",
       "codepoints": 233,
-      "features": ["aalt", "cv08", "salt", "ss02", "ss04", "ss07"],
+      "features": [
+        "aalt",
+        "cv08",
+        "salt",
+        "ss02",
+        "ss04",
+        "ss07"
+      ],
       "axes": {
         "wght": {
           "min": 100.0,
@@ -872,7 +995,10 @@
       "sha256": "fafa65f370a38f206238b2408b8210beb95454660aabcdf18d808aa7b1a9e997",
       "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
       "codepoints": 152,
-      "features": ["aalt", "ss07"],
+      "features": [
+        "aalt",
+        "ss07"
+      ],
       "axes": {
         "wght": {
           "min": 100.0,
@@ -1001,7 +1127,11 @@
       "sha256": "43e98ce2173d3e9896aa691dac9565f5c3bd39571a5f3fa70214e4e4a87add0f",
       "unicodeRange": "U+0370-03FF",
       "codepoints": 105,
-      "features": ["aalt", "dlig", "ss07"],
+      "features": [
+        "aalt",
+        "dlig",
+        "ss07"
+      ],
       "axes": {
         "wght": {
           "min": 100.0,
@@ -1021,7 +1151,14 @@
       "sha256": "5548be0d011266b8795095aded5705c3add9ae00e27b3098d1fc79baf57eb57a",
       "unicodeRange": "U+1F00-1FFF",
       "codepoints": 233,
-      "features": ["aalt", "cv08", "salt", "ss02", "ss04", "ss07"],
+      "features": [
+        "aalt",
+        "cv08",
+        "salt",
+        "ss02",
+        "ss04",
+        "ss07"
+      ],
       "axes": {
         "wght": {
           "min": 100.0,
@@ -1041,7 +1178,15 @@
       "sha256": "9b201c747d776674bb832462006bfb0259faf53b02644b922fa1ae8a79f9b11d",
       "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
       "codepoints": 101,
-      "features": ["aalt", "cv08", "dlig", "salt", "ss02", "ss04", "ss07"],
+      "features": [
+        "aalt",
+        "cv08",
+        "dlig",
+        "salt",
+        "ss02",
+        "ss04",
+        "ss07"
+      ],
       "axes": {
         "wght": {
           "min": 100.0,
@@ -1061,12 +1206,1437 @@
       "sha256": "935fc5bf62c37935814bcbb4346a745665383f9414ac51c21ce94502c85aae3c",
       "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
       "codepoints": 152,
-      "features": ["aalt", "ss07"],
+      "features": [
+        "aalt",
+        "ss07"
+      ],
       "axes": {
         "wght": {
           "min": 100.0,
           "default": 400.0,
           "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "source-serif",
+      "family": "source-serif-4",
+      "cssFamily": "Durtal Source Serif",
+      "style": "roman",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/source-serif-4/source-serif-4-roman-latin.woff2",
+      "bytes": 58316,
+      "sha256": "effdda39c33f453e46c09b945a5d73444c03b470bbdacb6a3b8949b3dd36201b",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 114,
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "dnom",
+        "frac",
+        "liga",
+        "lnum",
+        "locl",
+        "numr",
+        "onum",
+        "ordn",
+        "pnum",
+        "sinf",
+        "smcp",
+        "subs",
+        "sups",
+        "tnum",
+        "zero"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "source-serif",
+      "family": "source-serif-4",
+      "cssFamily": "Durtal Source Serif",
+      "style": "roman",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/source-serif-4/source-serif-4-roman-latin-ext.woff2",
+      "bytes": 68444,
+      "sha256": "720ddf49acfe4875afa57fdef7e41656e66c49020cfc7d147f469eda2c9a7a39",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 501,
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "ccmp",
+        "locl",
+        "ordn",
+        "smcp",
+        "sups"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "source-serif",
+      "family": "source-serif-4",
+      "cssFamily": "Durtal Source Serif",
+      "style": "roman",
+      "subset": "greek",
+      "path": "/fonts/reader/v1/source-serif-4/source-serif-4-roman-greek.woff2",
+      "bytes": 25152,
+      "sha256": "ca979b0972fa9cc58519312edec2f7f22766421d72277a32565399956f74b078",
+      "unicodeRange": "U+0370-03FF",
+      "codepoints": 80,
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "smcp"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "source-serif",
+      "family": "source-serif-4",
+      "cssFamily": "Durtal Source Serif",
+      "style": "roman",
+      "subset": "cyrillic",
+      "path": "/fonts/reader/v1/source-serif-4/source-serif-4-roman-cyrillic.woff2",
+      "bytes": 45476,
+      "sha256": "37e5531435dcb8bf0014a367ebbc7d70863acd6752777c857c1fea9aadcb7b2f",
+      "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+      "codepoints": 101,
+      "features": [
+        "aalt",
+        "c2sc",
+        "ccmp",
+        "locl",
+        "smcp",
+        "ss01",
+        "ss02"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "source-serif",
+      "family": "source-serif-4",
+      "cssFamily": "Durtal Source Serif",
+      "style": "roman",
+      "subset": "cyrillic-ext",
+      "path": "/fonts/reader/v1/source-serif-4/source-serif-4-roman-cyrillic-ext.woff2",
+      "bytes": 23640,
+      "sha256": "1fc1dcf1f9a19879b96cb02271378265abb164dc2f80cb5f722fdc985fd08711",
+      "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
+      "codepoints": 51,
+      "features": [
+        "aalt",
+        "c2sc",
+        "smcp"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "source-serif",
+      "family": "source-serif-4",
+      "cssFamily": "Durtal Source Serif",
+      "style": "italic",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/source-serif-4/source-serif-4-italic-latin.woff2",
+      "bytes": 48364,
+      "sha256": "17dc61c589f177bf7799f12d455b0112c42bad776f2bbab97d08a1ce2422ddef",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 114,
+      "features": [
+        "aalt",
+        "case",
+        "dnom",
+        "frac",
+        "liga",
+        "lnum",
+        "locl",
+        "numr",
+        "onum",
+        "ordn",
+        "pnum",
+        "sinf",
+        "ss03",
+        "subs",
+        "sups",
+        "tnum",
+        "zero"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "source-serif",
+      "family": "source-serif-4",
+      "cssFamily": "Durtal Source Serif",
+      "style": "italic",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/source-serif-4/source-serif-4-italic-latin-ext.woff2",
+      "bytes": 55932,
+      "sha256": "d2827bc0d2e10cde8b74be7848e18034d2523ddc0e44c496ac4a76bc65814b2c",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 501,
+      "features": [
+        "aalt",
+        "case",
+        "ccmp",
+        "locl",
+        "ordn",
+        "sups"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "source-serif",
+      "family": "source-serif-4",
+      "cssFamily": "Durtal Source Serif",
+      "style": "italic",
+      "subset": "greek",
+      "path": "/fonts/reader/v1/source-serif-4/source-serif-4-italic-greek.woff2",
+      "bytes": 19968,
+      "sha256": "1147957f6751b9ded3db453e694c0e91a2a0be41fd39d6838b3f8a7a183d129f",
+      "unicodeRange": "U+0370-03FF",
+      "codepoints": 80,
+      "features": [
+        "aalt",
+        "case"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "source-serif",
+      "family": "source-serif-4",
+      "cssFamily": "Durtal Source Serif",
+      "style": "italic",
+      "subset": "cyrillic",
+      "path": "/fonts/reader/v1/source-serif-4/source-serif-4-italic-cyrillic.woff2",
+      "bytes": 32116,
+      "sha256": "2f245ebd82c93fb48222fae103073821b940470518ed04f29bd7e3bb82d7d7a9",
+      "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+      "codepoints": 101,
+      "features": [
+        "aalt",
+        "ccmp",
+        "locl",
+        "ss01",
+        "ss02"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "source-serif",
+      "family": "source-serif-4",
+      "cssFamily": "Durtal Source Serif",
+      "style": "italic",
+      "subset": "cyrillic-ext",
+      "path": "/fonts/reader/v1/source-serif-4/source-serif-4-italic-cyrillic-ext.woff2",
+      "bytes": 17680,
+      "sha256": "a333830cd4fd7e4aca9cad12100752cf1311acc9b75ed4bd664376fcc7b3e659",
+      "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
+      "codepoints": 51,
+      "features": [],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "lora",
+      "family": "cyreal-serif",
+      "cssFamily": "Durtal Cyreal Serif",
+      "style": "roman",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/cyreal-serif/cyreal-serif-roman-latin.woff2",
+      "bytes": 25808,
+      "sha256": "606164af4a8c8000d0b8e4f51015ad93857f8d52226456130556a19df8675614",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 113,
+      "features": [
+        "aalt",
+        "calt",
+        "case",
+        "ccmp",
+        "frac",
+        "liga",
+        "locl",
+        "ordn",
+        "pnum",
+        "sups",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 700.0
+        }
+      }
+    },
+    {
+      "id": "lora",
+      "family": "cyreal-serif",
+      "cssFamily": "Durtal Cyreal Serif",
+      "style": "roman",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/cyreal-serif/cyreal-serif-roman-latin-ext.woff2",
+      "bytes": 31672,
+      "sha256": "c5e8fb85d4dd9903a3cf6b0d7e65cb2338ac3932133fcf996a50bf92befa5d62",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 393,
+      "features": [
+        "aalt",
+        "case",
+        "ccmp",
+        "locl",
+        "pnum",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 700.0
+        }
+      }
+    },
+    {
+      "id": "lora",
+      "family": "cyreal-serif",
+      "cssFamily": "Durtal Cyreal Serif",
+      "style": "roman",
+      "subset": "cyrillic",
+      "path": "/fonts/reader/v1/cyreal-serif/cyreal-serif-roman-cyrillic.woff2",
+      "bytes": 19800,
+      "sha256": "e432654ed00a649fac45be47cac289738b2ccb8add36eff9d87a9734a8107b29",
+      "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+      "codepoints": 101,
+      "features": [
+        "aalt",
+        "locl",
+        "rvrn"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 700.0
+        }
+      }
+    },
+    {
+      "id": "lora",
+      "family": "cyreal-serif",
+      "cssFamily": "Durtal Cyreal Serif",
+      "style": "roman",
+      "subset": "cyrillic-ext",
+      "path": "/fonts/reader/v1/cyreal-serif/cyreal-serif-roman-cyrillic-ext.woff2",
+      "bytes": 22728,
+      "sha256": "f00295f13567dc847bb6017ca9548e87c0f2afa22cdab9fb6ed2a1f4f04ade9b",
+      "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
+      "codepoints": 143,
+      "features": [
+        "aalt",
+        "locl",
+        "pnum",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 700.0
+        }
+      }
+    },
+    {
+      "id": "lora",
+      "family": "cyreal-serif",
+      "cssFamily": "Durtal Cyreal Serif",
+      "style": "italic",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/cyreal-serif/cyreal-serif-italic-latin.woff2",
+      "bytes": 27508,
+      "sha256": "84b9b079a8689fc417e68825c9e0b88a332d674ba612aa58c9c300698e2e7c29",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 113,
+      "features": [
+        "aalt",
+        "calt",
+        "case",
+        "ccmp",
+        "frac",
+        "liga",
+        "locl",
+        "ordn",
+        "pnum",
+        "sups",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 700.0
+        }
+      }
+    },
+    {
+      "id": "lora",
+      "family": "cyreal-serif",
+      "cssFamily": "Durtal Cyreal Serif",
+      "style": "italic",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/cyreal-serif/cyreal-serif-italic-latin-ext.woff2",
+      "bytes": 33308,
+      "sha256": "d62cc3d6421e4206493012734871ffd45cbfe1e61fa09199c37e86fe2aa4f4dc",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 393,
+      "features": [
+        "aalt",
+        "case",
+        "ccmp",
+        "locl",
+        "pnum",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 700.0
+        }
+      }
+    },
+    {
+      "id": "lora",
+      "family": "cyreal-serif",
+      "cssFamily": "Durtal Cyreal Serif",
+      "style": "italic",
+      "subset": "cyrillic",
+      "path": "/fonts/reader/v1/cyreal-serif/cyreal-serif-italic-cyrillic.woff2",
+      "bytes": 21368,
+      "sha256": "b8d146358b89f6d9e9d33231c88459fdbf596918e5c509409d09ab5593e73159",
+      "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+      "codepoints": 101,
+      "features": [
+        "aalt",
+        "locl",
+        "rvrn"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 700.0
+        }
+      }
+    },
+    {
+      "id": "lora",
+      "family": "cyreal-serif",
+      "cssFamily": "Durtal Cyreal Serif",
+      "style": "italic",
+      "subset": "cyrillic-ext",
+      "path": "/fonts/reader/v1/cyreal-serif/cyreal-serif-italic-cyrillic-ext.woff2",
+      "bytes": 26572,
+      "sha256": "9054b5c3299c73ae9672713b9b73bf6eeb38915e77c8690798450530135204ba",
+      "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
+      "codepoints": 143,
+      "features": [
+        "aalt",
+        "locl",
+        "pnum",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 700.0
+        }
+      }
+    },
+    {
+      "id": "merriweather",
+      "family": "sorkin-serif",
+      "cssFamily": "Durtal Sorkin Serif",
+      "style": "roman",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/sorkin-serif/sorkin-serif-roman-latin.woff2",
+      "bytes": 116848,
+      "sha256": "45f06d7a35a02ed62e0935889fd4a7b7c529c7e089539a88818b26b3c057f105",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 115,
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "dlig",
+        "dnom",
+        "frac",
+        "liga",
+        "lnum",
+        "locl",
+        "numr",
+        "onum",
+        "ordn",
+        "pnum",
+        "sinf",
+        "smcp",
+        "ss01",
+        "ss02",
+        "ss03",
+        "subs",
+        "sups",
+        "tnum",
+        "zero"
+      ],
+      "axes": {
+        "wght": {
+          "min": 300.0,
+          "default": 300.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "merriweather",
+      "family": "sorkin-serif",
+      "cssFamily": "Durtal Sorkin Serif",
+      "style": "roman",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/sorkin-serif/sorkin-serif-roman-latin-ext.woff2",
+      "bytes": 166728,
+      "sha256": "4ba3890d0802a5b1282a515b9b9b9c7ede5b183d5d6644d80d25fd46bc76032c",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 898,
+      "features": [
+        "aalt",
+        "c2sc",
+        "calt",
+        "case",
+        "ccmp",
+        "locl",
+        "smcp",
+        "ss01",
+        "ss03"
+      ],
+      "axes": {
+        "wght": {
+          "min": 300.0,
+          "default": 300.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "merriweather",
+      "family": "sorkin-serif",
+      "cssFamily": "Durtal Sorkin Serif",
+      "style": "roman",
+      "subset": "cyrillic",
+      "path": "/fonts/reader/v1/sorkin-serif/sorkin-serif-roman-cyrillic.woff2",
+      "bytes": 78584,
+      "sha256": "a1d253a218d7d33ef3eba27b0095b99e007adf7a36dac506c3fdecbc33bcf0db",
+      "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+      "codepoints": 101,
+      "features": [
+        "aalt",
+        "c2sc",
+        "calt",
+        "locl",
+        "smcp"
+      ],
+      "axes": {
+        "wght": {
+          "min": 300.0,
+          "default": 300.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "merriweather",
+      "family": "sorkin-serif",
+      "cssFamily": "Durtal Sorkin Serif",
+      "style": "roman",
+      "subset": "cyrillic-ext",
+      "path": "/fonts/reader/v1/sorkin-serif/sorkin-serif-roman-cyrillic-ext.woff2",
+      "bytes": 47156,
+      "sha256": "548539266ef15e2cb4b747ac8ad4444486aa372ce8c1299263feeaef4ca73571",
+      "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
+      "codepoints": 175,
+      "features": [
+        "aalt",
+        "c2sc",
+        "locl",
+        "smcp"
+      ],
+      "axes": {
+        "wght": {
+          "min": 300.0,
+          "default": 300.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "merriweather",
+      "family": "sorkin-serif",
+      "cssFamily": "Durtal Sorkin Serif",
+      "style": "italic",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/sorkin-serif/sorkin-serif-italic-latin.woff2",
+      "bytes": 116396,
+      "sha256": "de2f30d6588c8f1198f3ce41a167ec05e04b784e6d3d48e20c4a050bffe8da56",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 115,
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "dlig",
+        "dnom",
+        "frac",
+        "liga",
+        "lnum",
+        "locl",
+        "numr",
+        "onum",
+        "ordn",
+        "pnum",
+        "sinf",
+        "smcp",
+        "ss01",
+        "ss02",
+        "ss03",
+        "subs",
+        "sups",
+        "tnum",
+        "zero"
+      ],
+      "axes": {
+        "wght": {
+          "min": 300.0,
+          "default": 300.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "merriweather",
+      "family": "sorkin-serif",
+      "cssFamily": "Durtal Sorkin Serif",
+      "style": "italic",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/sorkin-serif/sorkin-serif-italic-latin-ext.woff2",
+      "bytes": 173488,
+      "sha256": "e67390c9a768470e954d3027f04aeb8792368b70b7d37472e96a01a2e8222b91",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 898,
+      "features": [
+        "aalt",
+        "c2sc",
+        "calt",
+        "case",
+        "ccmp",
+        "locl",
+        "smcp",
+        "ss01",
+        "ss03"
+      ],
+      "axes": {
+        "wght": {
+          "min": 300.0,
+          "default": 300.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "merriweather",
+      "family": "sorkin-serif",
+      "cssFamily": "Durtal Sorkin Serif",
+      "style": "italic",
+      "subset": "cyrillic",
+      "path": "/fonts/reader/v1/sorkin-serif/sorkin-serif-italic-cyrillic.woff2",
+      "bytes": 82300,
+      "sha256": "d6338315f3fef834e8869cd24a4865580fc074d1b257a3ebc3413f6ddd8dedde",
+      "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+      "codepoints": 101,
+      "features": [
+        "aalt",
+        "c2sc",
+        "calt",
+        "locl",
+        "smcp"
+      ],
+      "axes": {
+        "wght": {
+          "min": 300.0,
+          "default": 300.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "merriweather",
+      "family": "sorkin-serif",
+      "cssFamily": "Durtal Sorkin Serif",
+      "style": "italic",
+      "subset": "cyrillic-ext",
+      "path": "/fonts/reader/v1/sorkin-serif/sorkin-serif-italic-cyrillic-ext.woff2",
+      "bytes": 52620,
+      "sha256": "8871599bbe82ee7e5bda47d838b1be4c75da19e3a447a4b12e965eba34252c8f",
+      "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
+      "codepoints": 173,
+      "features": [
+        "aalt",
+        "c2sc",
+        "locl",
+        "smcp"
+      ],
+      "axes": {
+        "wght": {
+          "min": 300.0,
+          "default": 300.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "newsreader",
+      "family": "newsreader",
+      "cssFamily": "Durtal Newsreader",
+      "style": "roman",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/newsreader/newsreader-roman-latin.woff2",
+      "bytes": 41448,
+      "sha256": "6565b9632cdc33124b98900566e2e1ba815e8be3c4a432be57f5ba7f66d92014",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 112,
+      "features": [
+        "case",
+        "liga",
+        "ordn",
+        "pnum",
+        "sups",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "newsreader",
+      "family": "newsreader",
+      "cssFamily": "Durtal Newsreader",
+      "style": "roman",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/newsreader/newsreader-roman-latin-ext.woff2",
+      "bytes": 51960,
+      "sha256": "2e4bd29f7af5af8ee40a12729be545300641389f71bc6209ac9077a9ca3752f7",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 437,
+      "features": [
+        "case",
+        "locl",
+        "pnum",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "newsreader",
+      "family": "newsreader",
+      "cssFamily": "Durtal Newsreader",
+      "style": "italic",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/newsreader/newsreader-italic-latin.woff2",
+      "bytes": 46564,
+      "sha256": "346b07b11ac204b33f01e0b461343ea348c6df83d7336f44aabbe33d65e7e8e6",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 112,
+      "features": [
+        "case",
+        "liga",
+        "ordn",
+        "pnum",
+        "sups",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "newsreader",
+      "family": "newsreader",
+      "cssFamily": "Durtal Newsreader",
+      "style": "italic",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/newsreader/newsreader-italic-latin-ext.woff2",
+      "bytes": 57000,
+      "sha256": "eee7cf38474a798dd744d50e3a4eca47eae3f2a9ca531d3c22217eef0d0bb5ee",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 437,
+      "features": [
+        "case",
+        "locl",
+        "pnum",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "baskerville",
+      "family": "baskerville",
+      "cssFamily": "Durtal Baskerville",
+      "style": "roman",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/baskerville/baskerville-roman-latin.woff2",
+      "bytes": 26320,
+      "sha256": "b7e4e3ef50d53af55677027f186d9b8804c55f20bffef492625648495c948aac",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 109,
+      "features": [
+        "aalt",
+        "case",
+        "ccmp",
+        "dlig",
+        "frac",
+        "liga",
+        "locl",
+        "ordn",
+        "sinf",
+        "subs",
+        "sups"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 700.0
+        }
+      }
+    },
+    {
+      "id": "baskerville",
+      "family": "baskerville",
+      "cssFamily": "Durtal Baskerville",
+      "style": "roman",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/baskerville/baskerville-roman-latin-ext.woff2",
+      "bytes": 40792,
+      "sha256": "f966cc3bf853e5e5000fdc46599094c110799a078563ffd3c263970e79df908b",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 645,
+      "features": [
+        "aalt",
+        "case",
+        "ccmp",
+        "locl"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 700.0
+        }
+      }
+    },
+    {
+      "id": "baskerville",
+      "family": "baskerville",
+      "cssFamily": "Durtal Baskerville",
+      "style": "italic",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/baskerville/baskerville-italic-latin.woff2",
+      "bytes": 25232,
+      "sha256": "8b1cf7bdd6d7b21f18fcf17565377e1798636322e7cb3b224061e3302eb204e3",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 109,
+      "features": [
+        "aalt",
+        "case",
+        "ccmp",
+        "dlig",
+        "frac",
+        "liga",
+        "locl",
+        "ordn",
+        "sinf",
+        "ss01",
+        "subs",
+        "sups"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 700.0
+        }
+      }
+    },
+    {
+      "id": "baskerville",
+      "family": "baskerville",
+      "cssFamily": "Durtal Baskerville",
+      "style": "italic",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/baskerville/baskerville-italic-latin-ext.woff2",
+      "bytes": 40300,
+      "sha256": "407932ef599f8212876e74c13b62e072716e6fec86680bb30179c8f04fec72fb",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 645,
+      "features": [
+        "aalt",
+        "case",
+        "ccmp",
+        "locl"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 700.0
+        }
+      }
+    },
+    {
+      "id": "alegreya",
+      "family": "alegreya",
+      "cssFamily": "Durtal Alegreya",
+      "style": "roman",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/alegreya/alegreya-roman-latin.woff2",
+      "bytes": 44784,
+      "sha256": "9adcf1b9814e9d9b66bd5658e39776721700d228c57894c0623d378a9a60050b",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 116,
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "dlig",
+        "dnom",
+        "frac",
+        "liga",
+        "lnum",
+        "locl",
+        "numr",
+        "onum",
+        "ordn",
+        "pnum",
+        "rvrn",
+        "sinf",
+        "smcp",
+        "ss01",
+        "ss02",
+        "ss03",
+        "ss04",
+        "subs",
+        "sups",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "alegreya",
+      "family": "alegreya",
+      "cssFamily": "Durtal Alegreya",
+      "style": "roman",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/alegreya/alegreya-roman-latin-ext.woff2",
+      "bytes": 60872,
+      "sha256": "797fdb64e8733ba9bfc4ac7d93875c62e739fa1c244a4188bc363fad26ca6111",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 576,
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "ccmp",
+        "locl",
+        "rvrn",
+        "smcp"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "alegreya",
+      "family": "alegreya",
+      "cssFamily": "Durtal Alegreya",
+      "style": "roman",
+      "subset": "greek",
+      "path": "/fonts/reader/v1/alegreya/alegreya-roman-greek.woff2",
+      "bytes": 28664,
+      "sha256": "2001a6be253fe9554bd2cba6291d6efc650c7dbf04fda5dd2754027ebb4d5973",
+      "unicodeRange": "U+0370-03FF",
+      "codepoints": 82,
+      "features": [
+        "aalt",
+        "c2sc",
+        "dlig",
+        "liga",
+        "ordn",
+        "smcp",
+        "sups"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "alegreya",
+      "family": "alegreya",
+      "cssFamily": "Durtal Alegreya",
+      "style": "roman",
+      "subset": "greek-ext",
+      "path": "/fonts/reader/v1/alegreya/alegreya-roman-greek-ext.woff2",
+      "bytes": 16428,
+      "sha256": "f12bd7c128e483ba5ffe9176b6b9d04f5222705303ef834c089f9f51bf6db651",
+      "unicodeRange": "U+1F00-1FFF",
+      "codepoints": 233,
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "ccmp",
+        "smcp",
+        "ss05"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "alegreya",
+      "family": "alegreya",
+      "cssFamily": "Durtal Alegreya",
+      "style": "roman",
+      "subset": "cyrillic",
+      "path": "/fonts/reader/v1/alegreya/alegreya-roman-cyrillic.woff2",
+      "bytes": 30128,
+      "sha256": "2affd32c29fdc443f97fdca4ac3ae209dbcceeb24b506c5f0ba7521eeb9aa340",
+      "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+      "codepoints": 101,
+      "features": [
+        "aalt",
+        "c2sc",
+        "locl",
+        "smcp"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "alegreya",
+      "family": "alegreya",
+      "cssFamily": "Durtal Alegreya",
+      "style": "roman",
+      "subset": "cyrillic-ext",
+      "path": "/fonts/reader/v1/alegreya/alegreya-roman-cyrillic-ext.woff2",
+      "bytes": 28488,
+      "sha256": "8fe2790c2e980c51fede42911eab5aa8cf155edd633156c73ebb3ab27375cd38",
+      "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
+      "codepoints": 87,
+      "features": [
+        "aalt",
+        "c2sc",
+        "locl",
+        "smcp"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "alegreya",
+      "family": "alegreya",
+      "cssFamily": "Durtal Alegreya",
+      "style": "italic",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/alegreya/alegreya-italic-latin.woff2",
+      "bytes": 45800,
+      "sha256": "d41e303b26eda23403995844b9f30bfaff446aa91508571373d59458d33f409f",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 116,
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "dlig",
+        "dnom",
+        "frac",
+        "liga",
+        "lnum",
+        "locl",
+        "numr",
+        "onum",
+        "ordn",
+        "pnum",
+        "rvrn",
+        "sinf",
+        "smcp",
+        "ss01",
+        "ss02",
+        "ss03",
+        "ss04",
+        "subs",
+        "sups",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "alegreya",
+      "family": "alegreya",
+      "cssFamily": "Durtal Alegreya",
+      "style": "italic",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/alegreya/alegreya-italic-latin-ext.woff2",
+      "bytes": 63300,
+      "sha256": "96c5b0038b3d7341c467d1a94e68af27c31b25f254bc4687452586e0341cee05",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 576,
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "ccmp",
+        "locl",
+        "rvrn",
+        "smcp"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "alegreya",
+      "family": "alegreya",
+      "cssFamily": "Durtal Alegreya",
+      "style": "italic",
+      "subset": "greek",
+      "path": "/fonts/reader/v1/alegreya/alegreya-italic-greek.woff2",
+      "bytes": 30104,
+      "sha256": "be259c9b32ec150e7516295cefff60700fdc343c488793e3ac8b413d37626796",
+      "unicodeRange": "U+0370-03FF",
+      "codepoints": 82,
+      "features": [
+        "aalt",
+        "c2sc",
+        "dlig",
+        "liga",
+        "ordn",
+        "smcp",
+        "sups"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "alegreya",
+      "family": "alegreya",
+      "cssFamily": "Durtal Alegreya",
+      "style": "italic",
+      "subset": "greek-ext",
+      "path": "/fonts/reader/v1/alegreya/alegreya-italic-greek-ext.woff2",
+      "bytes": 17532,
+      "sha256": "c69af78ad21b8d2f53e63af7229d18bb94f905c785ba14e3825aa54efa8b0d0f",
+      "unicodeRange": "U+1F00-1FFF",
+      "codepoints": 233,
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "ccmp",
+        "smcp",
+        "ss05"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "alegreya",
+      "family": "alegreya",
+      "cssFamily": "Durtal Alegreya",
+      "style": "italic",
+      "subset": "cyrillic",
+      "path": "/fonts/reader/v1/alegreya/alegreya-italic-cyrillic.woff2",
+      "bytes": 32588,
+      "sha256": "275b5511906a3540fbbc8c93818d5de8de75b8f445622d4fdb3e4422a6f4f2e7",
+      "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+      "codepoints": 101,
+      "features": [
+        "aalt",
+        "c2sc",
+        "locl",
+        "smcp"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "alegreya",
+      "family": "alegreya",
+      "cssFamily": "Durtal Alegreya",
+      "style": "italic",
+      "subset": "cyrillic-ext",
+      "path": "/fonts/reader/v1/alegreya/alegreya-italic-cyrillic-ext.woff2",
+      "bytes": 30376,
+      "sha256": "417713866111b1b7a1f6227b21088e37dd111892ef5731d37a79302401dcecc1",
+      "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
+      "codepoints": 87,
+      "features": [
+        "aalt",
+        "c2sc",
+        "locl",
+        "smcp"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "atkinson",
+      "family": "atkinson-hyperlegible",
+      "cssFamily": "Durtal Atkinson Hyperlegible",
+      "style": "roman",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/atkinson-hyperlegible/atkinson-hyperlegible-roman-latin.woff2",
+      "bytes": 22588,
+      "sha256": "d1336b2da356cbc0a0c14e0b93d74400aad25f92dfb5b7035cdc36ec0e691410",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 109,
+      "features": [
+        "aalt",
+        "frac",
+        "locl",
+        "ordn",
+        "pnum",
+        "sups",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "atkinson",
+      "family": "atkinson-hyperlegible",
+      "cssFamily": "Durtal Atkinson Hyperlegible",
+      "style": "roman",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/atkinson-hyperlegible/atkinson-hyperlegible-roman-latin-ext.woff2",
+      "bytes": 30332,
+      "sha256": "f6bb6242efb374e85f6376ce5ff98ee3e235253c976a580be3b649054056f781",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 235,
+      "features": [
+        "aalt",
+        "case",
+        "ccmp",
+        "locl"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "atkinson",
+      "family": "atkinson-hyperlegible",
+      "cssFamily": "Durtal Atkinson Hyperlegible",
+      "style": "italic",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/atkinson-hyperlegible/atkinson-hyperlegible-italic-latin.woff2",
+      "bytes": 24952,
+      "sha256": "7f0695bb64b60b9fab1e4b44d242fcc83a40652d4595fe8b5e25ed7aed461f52",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 109,
+      "features": [
+        "aalt",
+        "frac",
+        "locl",
+        "ordn",
+        "pnum",
+        "sups",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "atkinson",
+      "family": "atkinson-hyperlegible",
+      "cssFamily": "Durtal Atkinson Hyperlegible",
+      "style": "italic",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/atkinson-hyperlegible/atkinson-hyperlegible-italic-latin-ext.woff2",
+      "bytes": 32824,
+      "sha256": "5f80c8e1265b3daf525b09011bfd2b53b1cdce00c7fc6ad6197e0501429a3c70",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 235,
+      "features": [
+        "aalt",
+        "case",
+        "ccmp",
+        "locl"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 800.0
         }
       }
     }
@@ -1086,6 +2656,133 @@
       "path": "/fonts/reader/v1/inter/OFL.txt",
       "bytes": 4380,
       "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"
+    },
+    {
+      "path": "/fonts/reader/v1/source-serif-4/OFL.txt",
+      "bytes": 4400,
+      "sha256": "5f94c3fd3a23131a417ab5a0c8452de57e70c3cfb9f604d88241f7065ebf9fd9"
+    },
+    {
+      "path": "/fonts/reader/v1/cyreal-serif/OFL.txt",
+      "bytes": 4423,
+      "sha256": "1d9a970809ac804b582a6ce7f0ebc4e7fefcbfd7ff6299cad35ee656a21be716"
+    },
+    {
+      "path": "/fonts/reader/v1/sorkin-serif/OFL.txt",
+      "bytes": 4438,
+      "sha256": "715bd349bfa6116f99e351e1548321dcfa25b91df65502d22ca8d624557697d2"
+    },
+    {
+      "path": "/fonts/reader/v1/newsreader/OFL.txt",
+      "bytes": 4394,
+      "sha256": "fdfad38143ec470553cae82a1e45320bdd1b9ec70415d37bd0171051d8a4ded8"
+    },
+    {
+      "path": "/fonts/reader/v1/baskerville/OFL.txt",
+      "bytes": 4542,
+      "sha256": "3624eddd4c8f8a908130a417ae7cd089c9da69899c4e0ca1a5217d0a6fae16fd"
+    },
+    {
+      "path": "/fonts/reader/v1/alegreya/OFL.txt",
+      "bytes": 4395,
+      "sha256": "f6f60d5d4cf4f4b1fc4e41353c897a2f5a16e6396c0cd8fa8bdfd2f4586a9a68"
+    },
+    {
+      "path": "/fonts/reader/v1/atkinson-hyperlegible/OFL.txt",
+      "bytes": 4431,
+      "sha256": "aca6a428580965d2297d1b718042dd427c2a9443ece3b0d02d758e161e0c4030"
+    }
+  ],
+  "previews": [
+    {
+      "id": "literata",
+      "family": "literata",
+      "cssFamily": "Durtal Literata",
+      "text": "Literata",
+      "path": "/fonts/reader/v1/literata/literata-preview.woff2",
+      "bytes": 2680,
+      "sha256": "950904d99035f2a7e32a61707cf4093e1ba2b64a0762b7784e0a7bcb4a71b74a"
+    },
+    {
+      "id": "garamond",
+      "family": "eb-garamond",
+      "cssFamily": "Durtal EB Garamond",
+      "text": "EB Garamond",
+      "path": "/fonts/reader/v1/eb-garamond/eb-garamond-preview.woff2",
+      "bytes": 3684,
+      "sha256": "78c5037ef0a5c1716f78be7fa7b7c59d8db3775a6f119e3516e16cba069c90a0"
+    },
+    {
+      "id": "inter",
+      "family": "inter",
+      "cssFamily": "Durtal Inter",
+      "text": "Inter",
+      "path": "/fonts/reader/v1/inter/inter-preview.woff2",
+      "bytes": 2068,
+      "sha256": "9d0cd9b4405ed3896740bb3230efedc7a6c903df55b895d94144abdd0ca88b86"
+    },
+    {
+      "id": "source-serif",
+      "family": "source-serif-4",
+      "cssFamily": "Durtal Source Serif",
+      "text": "Source Serif",
+      "path": "/fonts/reader/v1/source-serif-4/source-serif-4-preview.woff2",
+      "bytes": 4144,
+      "sha256": "0bf26a94a677256249b20bc0439bd75e54ec64cc7aab66f7fa2dceab7368c169"
+    },
+    {
+      "id": "lora",
+      "family": "cyreal-serif",
+      "cssFamily": "Durtal Cyreal Serif",
+      "text": "Cyreal Serif",
+      "path": "/fonts/reader/v1/cyreal-serif/cyreal-serif-preview.woff2",
+      "bytes": 3104,
+      "sha256": "47082c25f07e2e4ebe808021d990a745c42c7f5cc8fef1af47347e39f87e5658"
+    },
+    {
+      "id": "merriweather",
+      "family": "sorkin-serif",
+      "cssFamily": "Durtal Sorkin Serif",
+      "text": "Sorkin Serif",
+      "path": "/fonts/reader/v1/sorkin-serif/sorkin-serif-preview.woff2",
+      "bytes": 3036,
+      "sha256": "27c05bde2c317c6c6c033358a05794d90d18bb94801e9728d80310bc76726c58"
+    },
+    {
+      "id": "newsreader",
+      "family": "newsreader",
+      "cssFamily": "Durtal Newsreader",
+      "text": "Newsreader",
+      "path": "/fonts/reader/v1/newsreader/newsreader-preview.woff2",
+      "bytes": 3100,
+      "sha256": "a85f9b019f29912dbce137763e6067a13f87d24440f286d1f70c1a8f3e32bd06"
+    },
+    {
+      "id": "baskerville",
+      "family": "baskerville",
+      "cssFamily": "Durtal Baskerville",
+      "text": "Baskerville",
+      "path": "/fonts/reader/v1/baskerville/baskerville-preview.woff2",
+      "bytes": 2712,
+      "sha256": "40789df9c6129909142877328220c636bc04794b3443b791fe58cd3d666fdb93"
+    },
+    {
+      "id": "alegreya",
+      "family": "alegreya",
+      "cssFamily": "Durtal Alegreya",
+      "text": "Alegreya",
+      "path": "/fonts/reader/v1/alegreya/alegreya-preview.woff2",
+      "bytes": 2796,
+      "sha256": "957fbeb1b20cf3e47816f2b8e11955beb0db95ae783a6df487c6bc9fb0b371e9"
+    },
+    {
+      "id": "atkinson",
+      "family": "atkinson-hyperlegible",
+      "cssFamily": "Durtal Atkinson Hyperlegible",
+      "text": "Atkinson Hyperlegible",
+      "path": "/fonts/reader/v1/atkinson-hyperlegible/atkinson-hyperlegible-preview.woff2",
+      "bytes": 4404,
+      "sha256": "37fca9846c0ee1b1cb473e6728f0f8e6bf02e142fd7ec10bccee075f5d3b41e3"
     }
   ]
 }

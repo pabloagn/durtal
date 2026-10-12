@@ -383,6 +383,7 @@ function ReaderSession({
   useReaderFeatureShortcut("mod f", 14, openSearch, canSearch);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [fixedControlsOpen, setFixedControlsOpen] = useState(false);
+  const [barMenuOpen, setBarMenuOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState<boolean | null>(null);
 
   // The book's look: the settings, the theme's colours and the reader's own fonts
@@ -564,7 +565,7 @@ function ReaderSession({
 
   const bars = useReaderBars({
     held:
-      fixedControlsOpen || annotations.held ||
+      fixedControlsOpen || barMenuOpen || annotations.held ||
       contentsOpen ||
       searchOpen ||
       settingsOpen ||
@@ -690,6 +691,7 @@ function ReaderSession({
     let unregisterSelectionCapture = () => {};
     let reported = false;
     let postponeIndex = () => {};
+    let speechSelectionTimer: ReturnType<typeof setTimeout> | null = null;
     setStatus({ kind: "opening" });
 
     const input = createReaderInput({
@@ -921,7 +923,16 @@ function ReaderSession({
         engine.on("note", (value) => setNote(value));
         engine.on("selection", (selected) => {
           if (cancelled) return;
-          speechRef.current?.selection(selected?.locator ?? null);
+          // Preparing speech for a selection reads the whole section. Wait until
+          // the selection stops changing: while handles are dragged it changes
+          // every few frames, and the work made selecting on a phone stutter.
+          if (speechSelectionTimer) clearTimeout(speechSelectionTimer);
+          speechSelectionTimer = null;
+          if (!selected) speechRef.current?.selection(null);
+          else speechSelectionTimer = setTimeout(() => {
+            speechSelectionTimer = null;
+            if (!cancelled) speechRef.current?.selection(selected.locator);
+          }, 500);
           setSelection(selected);
           const value = selected
             ? {
@@ -1208,6 +1219,8 @@ function ReaderSession({
                     document,
                     storage: localStorageOrNull(),
                     changed: setSpeech,
+                    audio: new Audio(),
+                    fetch: (...args) => window.fetch(...args),
                   });
                   if (selectionRef.current)
                     speechRef.current.selection(selectionRef.current.locator);
@@ -1306,6 +1319,7 @@ function ReaderSession({
       unregisterSelectionCapture();
       unsubscribeReadiness();
       if (recoveryTimeout) clearTimeout(recoveryTimeout);
+      if (speechSelectionTimer) clearTimeout(speechSelectionTimer);
       clearTimeout(timeout);
       if (noticeTimer) clearTimeout(noticeTimer);
       document.removeEventListener("visibilitychange", visibility);
@@ -1404,9 +1418,18 @@ function ReaderSession({
       overlay={overlay}
       topBar={
         <ReaderToolbar
-          annotationActions={<>{annotations.toolbar}{status.kind === "ready" && engineRef.current?.fixedPages?.() != null && <FixedLayoutControls
+          bookmarkAction={annotations.bookmark}
+          theme={settings.theme}
+          onTheme={(theme) => {
+            if (!preferences.ready) return;
+            try { preferences.update({ deviceClass: preferenceClass, ebookId: presentationFieldScope("theme", preferenceClass, preferences.rows), presentation: { theme } }); }
+            catch (error) { setNotice(error instanceof Error ? error.message : "The page colour could not be changed."); }
+          }}
+          onMenuChange={setBarMenuOpen}
+          annotationActions={annotations.toolbar}
+          fixedControls={status.kind === "ready" && engineRef.current?.fixedPages?.() != null && <FixedLayoutControls
             engine={engineRef.current!} onHeldChange={setFixedControlsOpen} enabled={controllerReadiness.ready} isAdmitted={() => preferences.ready && bridge.getControllerReadinessSnapshot().ready} fit={settings.fixedFit} onPick={href => navigate({ href }, "goto")}
-            onFit={fixedFit => { if (!preferences.ready || !bridge.getControllerReadinessSnapshot().ready) return; try { preferences.update({ deviceClass: preferenceClass, ebookId: presentationFieldScope("fixedFit", preferenceClass, preferences.rows), presentation: { fixedFit } }); } catch (error) { setNotice(error instanceof Error ? error.message : "Fit could not be changed."); } }} />}</>}
+            onFit={fixedFit => { if (!preferences.ready || !bridge.getControllerReadinessSnapshot().ready) return; try { preferences.update({ deviceClass: preferenceClass, ebookId: presentationFieldScope("fixedFit", preferenceClass, preferences.rows), presentation: { fixedFit } }); } catch (error) { setNotice(error instanceof Error ? error.message : "Fit could not be changed."); } }} />}
           offlineAction={file ? <DownloadButton ebook={ebook} file={file} deviceId={deviceId} notice={setNotice} /> : undefined}
           onSearch={canSearch ? () => { paceRef.current?.interrupt(); setSearchMounted(true); setSearchOpen(true); } : undefined}
           speechControl={
@@ -1414,11 +1437,7 @@ function ReaderSession({
             !speech.open && (
               <Suspense fallback={null}>
                 <SpeechStart
-                  ready={
-                    !!speech.state.current &&
-                    (speech.state.phase === "ready" ||
-                      speech.state.phase === "paused")
-                  }
+                  ready
                   onStart={() => speechRef.current?.toggle()}
                 />
               </Suspense>
@@ -1492,6 +1511,7 @@ function ReaderSession({
               state={speech.state}
               voices={speech.voices}
               preferences={speech.preferences}
+              voiceNotice={speech.voiceNotice}
               bookLanguage={ebook.language ?? index?.info.language ?? null}
               bottomInset={bars.visible ? bottomHeight : 0}
               onAction={(action) => {
@@ -1531,7 +1551,6 @@ function ReaderSession({
       />
       <ReaderNotice bridge={bridge}>
         {notice ??
-          (speech && !speech.open ? speech.state.message : null) ??
           (offer && file ? (
             <div className="flex flex-wrap items-center gap-2">
               <p className="min-w-0 flex-1">
@@ -1608,6 +1627,7 @@ function ReaderSession({
         }
         markingActions={annotations.markingActions}
         speechReady={speech?.selectionReady}
+        bottomInset={speechHeight + (bars.visible ? bottomHeight : 0)}
       />
       {status.kind === "ready" && engineRef.current && <LookupLayer
         engine={engineRef.current} ebook={ebook} toolbarRef={selectionToolbarRef}

@@ -19,6 +19,21 @@
       "commit": "106a4a6d377987459ae5e68673a4570f13b957fb",
       "url": "https://github.com/octaviopardo/EBGaramond12/tree/106a4a6d377987459ae5e68673a4570f13b957fb",
       "note": "Upstream has no release or tags; this pinned upstream commit was acquired and audited."
+    },
+    "google-fonts": {
+      "release": null,
+      "commit": "bd8f81ddb5c74d5c8897b36ad88b440266245103",
+      "url": "https://github.com/google/fonts/tree/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl",
+      "families": [
+        "source-serif-4",
+        "cyreal-serif",
+        "sorkin-serif",
+        "newsreader",
+        "baskerville",
+        "alegreya",
+        "atkinson-hyperlegible"
+      ],
+      "note": "The Google Fonts library at one pinned commit: each family's variable TTFs and OFL.txt."
     }
   },
   "inputs": [
@@ -86,6 +101,153 @@
       "member": "InterVariable.ttf",
       "bytes": 879708,
       "sha256": "4989b125924991b90d05b2d16e0e388c48f7d5bb8b30539bbf9c755278d0ccaf"
+    },
+    {
+      "family": "source-serif-4",
+      "file": "OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/sourceserif4/OFL.txt",
+      "bytes": 4400,
+      "sha256": "5f94c3fd3a23131a417ab5a0c8452de57e70c3cfb9f604d88241f7065ebf9fd9"
+    },
+    {
+      "family": "source-serif-4",
+      "file": "roman.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/sourceserif4/SourceSerif4%5Bopsz%2Cwght%5D.ttf",
+      "bytes": 1209508,
+      "sha256": "97b2d4da6e3cb494b5a1e66ae176914d852ccabef49e0c02c0df25f3e39aca0b"
+    },
+    {
+      "family": "source-serif-4",
+      "file": "italic.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/sourceserif4/SourceSerif4-Italic%5Bopsz%2Cwght%5D.ttf",
+      "bytes": 855432,
+      "sha256": "15fbc7e4679489a501998c3669272637a6646388ef7e4bd77eebb5bf967a1f42"
+    },
+    {
+      "family": "cyreal-serif",
+      "file": "OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/lora/OFL.txt",
+      "bytes": 4423,
+      "sha256": "1d9a970809ac804b582a6ce7f0ebc4e7fefcbfd7ff6299cad35ee656a21be716"
+    },
+    {
+      "family": "cyreal-serif",
+      "file": "roman.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/lora/Lora%5Bwght%5D.ttf",
+      "bytes": 212196,
+      "sha256": "822a6621ccbe8d97d20ac88c1c41f5615c9c2c202eaa75f272cd452aac6475a7"
+    },
+    {
+      "family": "cyreal-serif",
+      "file": "italic.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/lora/Lora-Italic%5Bwght%5D.ttf",
+      "bytes": 221232,
+      "sha256": "22d8d8854b53807aa664ca34f2031a9ed57a1d0dea296b8b96cdd3aad937a2b3"
+    },
+    {
+      "family": "sorkin-serif",
+      "file": "OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/merriweather/OFL.txt",
+      "bytes": 4438,
+      "sha256": "715bd349bfa6116f99e351e1548321dcfa25b91df65502d22ca8d624557697d2"
+    },
+    {
+      "family": "sorkin-serif",
+      "file": "roman.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/merriweather/Merriweather%5Bopsz%2Cwdth%2Cwght%5D.ttf",
+      "bytes": 4628080,
+      "sha256": "d0ed0e359e396af7ad05e73dffd11a3a4c326ea0d0283c56bd9361cb2cc86a96"
+    },
+    {
+      "family": "sorkin-serif",
+      "file": "italic.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/merriweather/Merriweather-Italic%5Bopsz%2Cwdth%2Cwght%5D.ttf",
+      "bytes": 4591168,
+      "sha256": "f68a8f4989258679e4fbaf50aa42400132b5373c2d9d2514ba82ef6e85947a0b"
+    },
+    {
+      "family": "newsreader",
+      "file": "OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/newsreader/OFL.txt",
+      "bytes": 4394,
+      "sha256": "fdfad38143ec470553cae82a1e45320bdd1b9ec70415d37bd0171051d8a4ded8"
+    },
+    {
+      "family": "newsreader",
+      "file": "roman.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/newsreader/Newsreader%5Bopsz%2Cwght%5D.ttf",
+      "bytes": 451664,
+      "sha256": "8a08d13f8a6c0d51be379a60af84f945f65369a67e509ee3c3bdcc421254d7c1"
+    },
+    {
+      "family": "newsreader",
+      "file": "italic.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/newsreader/Newsreader-Italic%5Bopsz%2Cwght%5D.ttf",
+      "bytes": 495684,
+      "sha256": "796668611f80b64d5adf182fde3b6f29ed83b4e7cbec7b96937e84ac01364792"
+    },
+    {
+      "family": "baskerville",
+      "file": "OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/librebaskerville/OFL.txt",
+      "bytes": 4542,
+      "sha256": "3624eddd4c8f8a908130a417ae7cd089c9da69899c4e0ca1a5217d0a6fae16fd"
+    },
+    {
+      "family": "baskerville",
+      "file": "roman.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/librebaskerville/LibreBaskerville%5Bwght%5D.ttf",
+      "bytes": 171900,
+      "sha256": "05a95421961341c5b2556285e8415df9db27dab4f4abe22b446b3c6a8b916c5d"
+    },
+    {
+      "family": "baskerville",
+      "file": "italic.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/librebaskerville/LibreBaskerville-Italic%5Bwght%5D.ttf",
+      "bytes": 167456,
+      "sha256": "223959683dc73ec4437bd61fabaa4b3f22209e22855ffd3aee36ba61a5116e97"
+    },
+    {
+      "family": "alegreya",
+      "file": "OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/alegreya/OFL.txt",
+      "bytes": 4395,
+      "sha256": "f6f60d5d4cf4f4b1fc4e41353c897a2f5a16e6396c0cd8fa8bdfd2f4586a9a68"
+    },
+    {
+      "family": "alegreya",
+      "file": "roman.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/alegreya/Alegreya%5Bwght%5D.ttf",
+      "bytes": 425288,
+      "sha256": "ba5564634b93a8f8ba57b48cd4f1ae7417d2b4656fbac779028679b00de3cf12"
+    },
+    {
+      "family": "alegreya",
+      "file": "italic.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/alegreya/Alegreya-Italic%5Bwght%5D.ttf",
+      "bytes": 425852,
+      "sha256": "fa915eec76227935dc5fb678953c94b71287c360928013cfdb441dfe52f5a391"
+    },
+    {
+      "family": "atkinson-hyperlegible",
+      "file": "OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/atkinsonhyperlegiblenext/OFL.txt",
+      "bytes": 4431,
+      "sha256": "aca6a428580965d2297d1b718042dd427c2a9443ece3b0d02d758e161e0c4030"
+    },
+    {
+      "family": "atkinson-hyperlegible",
+      "file": "roman.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/atkinsonhyperlegiblenext/AtkinsonHyperlegibleNext%5Bwght%5D.ttf",
+      "bytes": 114552,
+      "sha256": "5a455d1cfa099b601ab70751bb9673e8fe1854dc4500c80e1a220d0d75e31745"
+    },
+    {
+      "family": "atkinson-hyperlegible",
+      "file": "italic.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/atkinsonhyperlegiblenext/AtkinsonHyperlegibleNext-Italic%5Bwght%5D.ttf",
+      "bytes": 123916,
+      "sha256": "ce9cffed32742ad2d9238c561a93220385e5934cdc02b8eb4097a50efa957dc6"
     }
   ],
   "metadataAudit": {
@@ -493,6 +655,612 @@
           "16": null,
           "17": null
         }
+      },
+      {
+        "family": "source-serif-4",
+        "file": "italic.ttf",
+        "axes": [
+          {
+            "tag": "wght",
+            "min": 200.0,
+            "default": 400.0,
+            "max": 900.0
+          },
+          {
+            "tag": "opsz",
+            "min": 8.0,
+            "default": 20.0,
+            "max": 60.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "case",
+          "ccmp",
+          "dnom",
+          "frac",
+          "liga",
+          "lnum",
+          "locl",
+          "numr",
+          "onum",
+          "ordn",
+          "pnum",
+          "sinf",
+          "ss01",
+          "ss02",
+          "ss03",
+          "subs",
+          "sups",
+          "tnum",
+          "zero"
+        ],
+        "codepoints": 918,
+        "names": {
+          "1": "Source Serif 4",
+          "2": "Italic",
+          "3": "4.004;ADBO;SourceSerif4Italic-Italic;ADOBE",
+          "4": "Source Serif 4 Italic",
+          "6": "SourceSerif4Italic-Italic",
+          "16": null,
+          "17": null
+        }
+      },
+      {
+        "family": "source-serif-4",
+        "file": "roman.ttf",
+        "axes": [
+          {
+            "tag": "wght",
+            "min": 200.0,
+            "default": 400.0,
+            "max": 900.0
+          },
+          {
+            "tag": "opsz",
+            "min": 8.0,
+            "default": 20.0,
+            "max": 60.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "c2sc",
+          "case",
+          "ccmp",
+          "dnom",
+          "frac",
+          "liga",
+          "lnum",
+          "locl",
+          "numr",
+          "onum",
+          "ordn",
+          "pnum",
+          "sinf",
+          "smcp",
+          "ss01",
+          "ss02",
+          "subs",
+          "sups",
+          "tnum",
+          "zero"
+        ],
+        "codepoints": 918,
+        "names": {
+          "1": "Source Serif 4",
+          "2": "Regular",
+          "3": "4.004;ADBO;SourceSerif4Roman-Regular;ADOBE",
+          "4": "Source Serif 4 Regular",
+          "6": "SourceSerif4Roman-Regular",
+          "16": null,
+          "17": null
+        }
+      },
+      {
+        "family": "cyreal-serif",
+        "file": "italic.ttf",
+        "axes": [
+          {
+            "tag": "wght",
+            "min": 400.0,
+            "default": 400.0,
+            "max": 700.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "calt",
+          "case",
+          "ccmp",
+          "frac",
+          "liga",
+          "locl",
+          "ordn",
+          "pnum",
+          "rvrn",
+          "sups",
+          "tnum"
+        ],
+        "codepoints": 778,
+        "names": {
+          "1": "Lora",
+          "2": "Italic",
+          "3": "3.008;CYRE;Lora-Italic",
+          "4": "Lora Italic",
+          "6": "Lora-Italic",
+          "16": null,
+          "17": null
+        }
+      },
+      {
+        "family": "cyreal-serif",
+        "file": "roman.ttf",
+        "axes": [
+          {
+            "tag": "wght",
+            "min": 400.0,
+            "default": 400.0,
+            "max": 700.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "calt",
+          "case",
+          "ccmp",
+          "frac",
+          "liga",
+          "locl",
+          "ordn",
+          "pnum",
+          "rvrn",
+          "sups",
+          "tnum"
+        ],
+        "codepoints": 778,
+        "names": {
+          "1": "Lora",
+          "2": "Regular",
+          "3": "3.008;CYRE;Lora-Regular",
+          "4": "Lora Regular",
+          "6": "Lora-Regular",
+          "16": null,
+          "17": null
+        }
+      },
+      {
+        "family": "sorkin-serif",
+        "file": "italic.ttf",
+        "axes": [
+          {
+            "tag": "wght",
+            "min": 300.0,
+            "default": 300.0,
+            "max": 900.0
+          },
+          {
+            "tag": "wdth",
+            "min": 87.0,
+            "default": 100.0,
+            "max": 112.0
+          },
+          {
+            "tag": "opsz",
+            "min": 18.0,
+            "default": 18.0,
+            "max": 144.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "c2sc",
+          "calt",
+          "case",
+          "ccmp",
+          "dlig",
+          "dnom",
+          "frac",
+          "liga",
+          "lnum",
+          "locl",
+          "numr",
+          "onum",
+          "ordn",
+          "pnum",
+          "sinf",
+          "smcp",
+          "ss01",
+          "ss02",
+          "ss03",
+          "ss04",
+          "subs",
+          "sups",
+          "tnum",
+          "zero"
+        ],
+        "codepoints": 1422,
+        "names": {
+          "1": "Merriweather Light",
+          "2": "Italic",
+          "3": "2.101;STC;Merriweather-LightItalic",
+          "4": "Merriweather Light Italic",
+          "6": "Merriweather-LightItalic",
+          "16": "Merriweather",
+          "17": "Light Italic"
+        }
+      },
+      {
+        "family": "sorkin-serif",
+        "file": "roman.ttf",
+        "axes": [
+          {
+            "tag": "wght",
+            "min": 300.0,
+            "default": 300.0,
+            "max": 900.0
+          },
+          {
+            "tag": "wdth",
+            "min": 87.0,
+            "default": 100.0,
+            "max": 112.0
+          },
+          {
+            "tag": "opsz",
+            "min": 18.0,
+            "default": 18.0,
+            "max": 144.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "c2sc",
+          "calt",
+          "case",
+          "ccmp",
+          "dlig",
+          "dnom",
+          "frac",
+          "liga",
+          "lnum",
+          "locl",
+          "numr",
+          "onum",
+          "ordn",
+          "pnum",
+          "sinf",
+          "smcp",
+          "ss01",
+          "ss02",
+          "ss03",
+          "ss04",
+          "subs",
+          "sups",
+          "tnum",
+          "zero"
+        ],
+        "codepoints": 1423,
+        "names": {
+          "1": "Merriweather Light",
+          "2": "Regular",
+          "3": "2.100;STC;Merriweather-Light",
+          "4": "Merriweather Light",
+          "6": "Merriweather-Light",
+          "16": "Merriweather",
+          "17": "Light"
+        }
+      },
+      {
+        "family": "newsreader",
+        "file": "italic.ttf",
+        "axes": [
+          {
+            "tag": "wght",
+            "min": 200.0,
+            "default": 400.0,
+            "max": 800.0
+          },
+          {
+            "tag": "opsz",
+            "min": 6.0,
+            "default": 18.0,
+            "max": 72.0
+          }
+        ],
+        "features": [
+          "case",
+          "liga",
+          "locl",
+          "ordn",
+          "pnum",
+          "rvrn",
+          "sups",
+          "tnum"
+        ],
+        "codepoints": 564,
+        "names": {
+          "1": "Newsreader 16pt",
+          "2": "Italic",
+          "3": "1.003;PROD;Newsreader16pt-Italic",
+          "4": "Newsreader 16pt Italic",
+          "6": "Newsreader16pt-Italic",
+          "16": "Newsreader",
+          "17": "Italic"
+        }
+      },
+      {
+        "family": "newsreader",
+        "file": "roman.ttf",
+        "axes": [
+          {
+            "tag": "wght",
+            "min": 200.0,
+            "default": 400.0,
+            "max": 800.0
+          },
+          {
+            "tag": "opsz",
+            "min": 6.0,
+            "default": 18.0,
+            "max": 72.0
+          }
+        ],
+        "features": [
+          "case",
+          "liga",
+          "locl",
+          "ordn",
+          "pnum",
+          "rvrn",
+          "sups",
+          "tnum"
+        ],
+        "codepoints": 564,
+        "names": {
+          "1": "Newsreader 16pt",
+          "2": "Regular",
+          "3": "1.003;PROD;Newsreader16pt-Regular",
+          "4": "Newsreader 16pt Regular",
+          "6": "Newsreader16pt-Regular",
+          "16": "Newsreader",
+          "17": "Regular"
+        }
+      },
+      {
+        "family": "baskerville",
+        "file": "italic.ttf",
+        "axes": [
+          {
+            "tag": "wght",
+            "min": 400.0,
+            "default": 400.0,
+            "max": 700.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "case",
+          "ccmp",
+          "dlig",
+          "frac",
+          "liga",
+          "locl",
+          "ordn",
+          "sinf",
+          "ss01",
+          "subs",
+          "sups"
+        ],
+        "codepoints": 789,
+        "names": {
+          "1": "Libre Baskerville",
+          "2": "Italic",
+          "3": "2.005;pyrs;LibreBaskerville-Italic",
+          "4": "Libre Baskerville Italic",
+          "6": "LibreBaskerville-Italic",
+          "16": null,
+          "17": null
+        }
+      },
+      {
+        "family": "baskerville",
+        "file": "roman.ttf",
+        "axes": [
+          {
+            "tag": "wght",
+            "min": 400.0,
+            "default": 400.0,
+            "max": 700.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "case",
+          "ccmp",
+          "dlig",
+          "frac",
+          "liga",
+          "locl",
+          "ordn",
+          "sinf",
+          "subs",
+          "sups"
+        ],
+        "codepoints": 789,
+        "names": {
+          "1": "Libre Baskerville",
+          "2": "Regular",
+          "3": "2.005;pyrs;LibreBaskerville-Regular",
+          "4": "Libre Baskerville Regular",
+          "6": "LibreBaskerville-Regular",
+          "16": null,
+          "17": null
+        }
+      },
+      {
+        "family": "alegreya",
+        "file": "italic.ttf",
+        "axes": [
+          {
+            "tag": "wght",
+            "min": 400.0,
+            "default": 400.0,
+            "max": 900.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "c2sc",
+          "case",
+          "ccmp",
+          "dlig",
+          "dnom",
+          "frac",
+          "liga",
+          "lnum",
+          "locl",
+          "numr",
+          "onum",
+          "ordn",
+          "pnum",
+          "rvrn",
+          "sinf",
+          "smcp",
+          "ss01",
+          "ss02",
+          "ss03",
+          "ss04",
+          "ss05",
+          "subs",
+          "sups",
+          "tnum"
+        ],
+        "codepoints": 1254,
+        "names": {
+          "1": "Alegreya",
+          "2": "Italic",
+          "3": "2.009;HT;Alegreya-Italic",
+          "4": "Alegreya Italic",
+          "6": "Alegreya-Italic",
+          "16": null,
+          "17": null
+        }
+      },
+      {
+        "family": "alegreya",
+        "file": "roman.ttf",
+        "axes": [
+          {
+            "tag": "wght",
+            "min": 400.0,
+            "default": 400.0,
+            "max": 900.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "c2sc",
+          "case",
+          "ccmp",
+          "dlig",
+          "dnom",
+          "frac",
+          "liga",
+          "lnum",
+          "locl",
+          "numr",
+          "onum",
+          "ordn",
+          "pnum",
+          "rvrn",
+          "sinf",
+          "smcp",
+          "ss01",
+          "ss02",
+          "ss03",
+          "ss04",
+          "ss05",
+          "subs",
+          "sups",
+          "tnum"
+        ],
+        "codepoints": 1254,
+        "names": {
+          "1": "Alegreya",
+          "2": "Regular",
+          "3": "2.009;HT;Alegreya-Regular",
+          "4": "Alegreya Regular",
+          "6": "Alegreya-Regular",
+          "16": null,
+          "17": null
+        }
+      },
+      {
+        "family": "atkinson-hyperlegible",
+        "file": "italic.ttf",
+        "axes": [
+          {
+            "tag": "wght",
+            "min": 200.0,
+            "default": 400.0,
+            "max": 800.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "case",
+          "ccmp",
+          "frac",
+          "locl",
+          "ordn",
+          "pnum",
+          "sups",
+          "tnum"
+        ],
+        "codepoints": 362,
+        "names": {
+          "1": "Atkinson Hyperlegible Next",
+          "2": "Italic",
+          "3": "2.001;NONE;AtkinsonHyperlegibleNext-Italic",
+          "4": "Atkinson Hyperlegible Next Italic",
+          "6": "AtkinsonHyperlegibleNext-Italic",
+          "16": null,
+          "17": null
+        }
+      },
+      {
+        "family": "atkinson-hyperlegible",
+        "file": "roman.ttf",
+        "axes": [
+          {
+            "tag": "wght",
+            "min": 200.0,
+            "default": 400.0,
+            "max": 800.0
+          }
+        ],
+        "features": [
+          "aalt",
+          "case",
+          "ccmp",
+          "frac",
+          "locl",
+          "ordn",
+          "pnum",
+          "sups",
+          "tnum"
+        ],
+        "codepoints": 362,
+        "names": {
+          "1": "Atkinson Hyperlegible Next",
+          "2": "Regular",
+          "3": "2.001;NONE;AtkinsonHyperlegibleNext-Regular",
+          "4": "Atkinson Hyperlegible Next Regular",
+          "6": "AtkinsonHyperlegibleNext-Regular",
+          "16": null,
+          "17": null
+        }
       }
     ]
   },
@@ -500,6 +1268,9 @@
     "Not an output WOFF2 manifest: no reader font subset was generated.",
     "No browser first-paint byte or installed font metric claim.",
     "EB Garamond actual weight axis starts at 400, not 300.",
-    "Inter 4.1 has no smcp, c2sc, onum or liga GSUB feature; preserve existing publisher declarations and do not fabricate missing source features."
+    "Inter 4.1 has no smcp, c2sc, onum or liga GSUB feature; preserve existing publisher declarations and do not fabricate missing source features.",
+    "Newsreader, Libre Baskerville and Atkinson Hyperlegible Next have no Greek or Cyrillic; Lora and Merriweather have no Greek. A script subset under 32 characters is not shipped, so that text uses the fallback serif or sans.",
+    "Merriweather's width axis is pinned to 100; Libre Baskerville and Lora start at weight 400, Alegreya at 400, Merriweather at 300.",
+    "Lora, Merriweather and Libre Baskerville carry a Reserved Font Name under the OFL. Their subsets are Modified Versions, so they ship as Durtal Cyreal Serif, Durtal Sorkin Serif and Durtal Baskerville (folders cyreal-serif, sorkin-serif, baskerville), with each upstream OFL.txt unchanged."
   ]
 }

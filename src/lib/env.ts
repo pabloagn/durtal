@@ -54,6 +54,10 @@ const serverSchema = z.object({
     (v) => (v === "" ? undefined : v),
     z.string().regex(/^\d+(\.\d+)?$/, { error: "must be an amount in US dollars, such as 20 or 7.50" }).optional(),
   ),
+  /** The reader's natural narration (ElevenLabs): the key, and an optional voice and model */
+  ELEVENLABS_API_KEY: optional,
+  ELEVENLABS_VOICE_ID: optional,
+  ELEVENLABS_MODEL_ID: optional,
   /** The e-book bucket (SLN-491), its key prefix and region */
   EBOOKS_BUCKET: optional.transform((v) => v ?? DEFAULT_EBOOKS_BUCKET),
   EBOOKS_PREFIX: z.preprocess(
