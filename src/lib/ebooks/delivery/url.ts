@@ -1,7 +1,7 @@
 import { serverEnv } from "@/lib/env";
-import { derivedKeyForWidth, ebookDerivedKey, parseStageKey, type EbookCoverWidth } from "../keys";
+import { coverKeySha256, derivedKeyForWidth, ebookDerivedKey, isEbookCoverWidth, parseStageKey, type EbookCoverWidth } from "../keys";
 import { isDeliverable, type CatalogueCover, type CatalogueFile } from "./files";
-import { signedDerivedUrlBase, signedFileUrl, UndeliverableFileError, type SignedDerivedBase } from "./sign";
+import { signedDerivedUrlBase, signedGoldCoverBase, signedFileUrl, UndeliverableFileError, type SignedDerivedBase } from "./sign";
 
 /*
  * Where the browser reads a file or a cover from (SLN-491): a signed
@@ -35,13 +35,19 @@ export function coverUrlFor(
   cover: CatalogueCover,
   width: EbookCoverWidth,
   derived?: SignedDerivedBase): FileUrl | null {
-  if (!cover.sha256) return null;
-  if (ebookDelivery() !== "cloudfront") return { url: `/api/reader/${cover.ebookId}/cover?w=${width}`, expiresAt: null };
-  const key = derivedKeyForWidth(cover.key ?? ebookDerivedKey(cover.sha256, "cover-800.webp"), width);
+  if (!cover.sha256 || !isEbookCoverWidth(width)) return null;
+  const storedKey = cover.key ?? ebookDerivedKey(cover.sha256, "cover-800.webp");
+  const stage = parseStageKey(storedKey);
+  if (stage) {
+    if (stage.stage !== "gold" || stage.kind !== "derived" ||
+        !stage.name?.startsWith("cover-") || stage.sha256 !== cover.sha256 ||
+        !cover.widths?.includes(width)) return null;
+  } else if (coverKeySha256(storedKey) !== cover.sha256) return null;
+  const key = derivedKeyForWidth(storedKey, width);
   if (!key) return null;
-  const stage = parseStageKey(key);
-  const base = stage ? signedDerivedUrlBase(Date.now(), key) : (derived ?? signedDerivedUrlBase());
-  const suffix = stage ? `cover-${width}.webp` : `${cover.sha256}/cover-${width}.webp`;
+  if (ebookDelivery() !== "cloudfront") return { url: `/api/reader/${cover.ebookId}/cover?w=${width}`, expiresAt: null };
+  const base = stage ? signedGoldCoverBase() : (derived ?? signedDerivedUrlBase());
+  const suffix = stage ? key : `${cover.sha256}/cover-${width}.webp`;
   return {
     url: `${base.base}${suffix}?${base.query}`, expiresAt: base.expiresAt,
   };

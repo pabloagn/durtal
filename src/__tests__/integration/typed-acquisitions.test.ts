@@ -1,17 +1,18 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_TYPED_ACQUISITIONS_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln374_test");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln374_test")
     throw new Error("Typed acquisition tests require a disposable local sln374_test database");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -55,14 +56,14 @@ describe.skipIf(!url)("acquisition targets for films, perfumes and paintings", (
     Object.values((await q(text, params))[0] ?? {})[0] as T;
 
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln374_test");
   }, 60000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await q(`truncate works, authors, publishing_houses, locations, venues, catalogue_dates, countries cascade`);
-  });
+    await resetDisposableDatabase(url!, "sln374_test", { emptyLocations: true });
+  }, 30000);
 
   let serial = 0;
   async function work(kind: string, title: string) {

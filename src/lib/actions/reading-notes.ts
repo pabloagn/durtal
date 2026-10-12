@@ -1,12 +1,14 @@
 "use server";
 
-import { eq, sql } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+import { eq, getTableColumns, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import { withReadableErrors } from "@/lib/db/errors";
 import { activityEvents, editions, imports, readingNotes, readings } from "@/lib/db/schema";
-import { resultRows } from "@/lib/harmonization/store";
+import { assertSql, resultRows } from "@/lib/harmonization/store";
+import { lockReaderNotes, withReaderWriteRetry } from "@/lib/reading/reader-write-locks";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { requireBookWork } from "@/lib/catalogue/book-boundary";
 import { textSearchCondition, textSearchRank } from "@/lib/actions/utils/text-search";
@@ -109,9 +111,19 @@ async function loadNote(id: string): Promise<NoteItem | null> {
 }
 
 async function noteOrThrow(id: string) {
-  const [row] = await db.select().from(readingNotes).where(eq(readingNotes.id, id));
+  const [row] = await db.select({ ...getTableColumns(readingNotes),
+    fingerprint: sql<string>`md5(to_jsonb(${readingNotes})::text)`,
+  }).from(readingNotes).where(eq(readingNotes.id, id));
   if (!row) throw new Error("This note no longer exists");
   return row;
+}
+
+function guardNote(d: typeof db, id: string, fingerprint: string) {
+  return [
+    lockReaderNotes(d, sql`select ${id}::uuid`),
+    d.execute(assertSql(sql`coalesce((select md5(to_jsonb(n)::text)=${fingerprint} from reading_notes n where id=${id}::uuid),false)`,
+      "This note changed elsewhere; reload before saving")),
+  ];
 }
 
 /** The reading and the edition a note may point at, checked against its book; `fallback` is the edition kept when none is named and the reading has none */
@@ -215,6 +227,10 @@ export async function createReadingNote(input: z.input<typeof createReadingNoteS
 
 /** Edits a quote or note; a quote that becomes a note loses its thought, and a thought not sent stays as it is */
 export async function updateReadingNote(input: z.input<typeof updateReadingNoteSchema>): Promise<NoteItem> {
+  return withReaderWriteRetry(() => updateNote(input));
+}
+
+async function updateNote(input: z.input<typeof updateReadingNoteSchema>): Promise<NoteItem> {
   const { id, ...patch } = updateReadingNoteSchema.parse(input);
   const note = await noteOrThrow(id);
   const kind = patch.kind ?? note.kind;
@@ -255,7 +271,7 @@ export async function updateReadingNote(input: z.input<typeof updateReadingNoteS
   else if (patch.commentHtml !== undefined || patch.commentJson !== undefined)
     Object.assign(values, thought(kind, patch.commentHtml ?? null, patch.commentJson ?? null));
   await withReadableErrors(() =>
-    atomic((d) => [d.update(readingNotes).set({ ...values, updatedAt: new Date() }).where(eq(readingNotes.id, id))]),
+    atomic((d) => [...guardNote(d, id, note.fingerprint), d.update(readingNotes).set({ ...values, updatedAt: new Date() }).where(eq(readingNotes.id, id))]),
   );
   changed();
   return (await loadNote(id))!;
@@ -263,10 +279,14 @@ export async function updateReadingNote(input: z.input<typeof updateReadingNoteS
 
 /** Stars or unstars a quote or note; a star counts as an edit for an import's undo */
 export async function toggleNoteFavourite(input: z.input<typeof noteIdSchema>) {
+  return withReaderWriteRetry(() => toggleFavourite(input));
+}
+
+async function toggleFavourite(input: z.input<typeof noteIdSchema>) {
   const { id } = noteIdSchema.parse(input);
   const note = await noteOrThrow(id);
   await withReadableErrors(() =>
-    atomic((d) => [d.update(readingNotes).set({ isFavourite: !note.isFavourite, updatedAt: new Date() }).where(eq(readingNotes.id, id))]),
+    atomic((d) => [...guardNote(d, id, note.fingerprint), d.update(readingNotes).set({ isFavourite: !note.isFavourite, updatedAt: new Date() }).where(eq(readingNotes.id, id))]),
   );
   changed();
   return { id, isFavourite: !note.isFavourite };
@@ -274,16 +294,53 @@ export async function toggleNoteFavourite(input: z.input<typeof noteIdSchema>) {
 
 /** Deletes a quote or note; the snapshot lets the page undo it */
 export async function deleteReadingNote(input: z.input<typeof noteIdSchema>): Promise<NoteSnapshot> {
+  return withReaderWriteRetry(() => deleteNote(input));
+}
+
+async function deleteNote(input: z.input<typeof noteIdSchema>): Promise<NoteSnapshot> {
   const { id } = noteIdSchema.parse(input);
-  const { searchText: _s, ...note } = await noteOrThrow(id);
-  await withReadableErrors(() => atomic((d) => [d.delete(readingNotes).where(eq(readingNotes.id, id))]));
+  const { searchText: _s, fingerprint, ...note } = await noteOrThrow(id);
+  const [binding] = resultRows<{ ebookId: string; annotationId: string; noteVersion: string; bindingVersion: string }>(
+    await db.execute(sql`select a.ebook_id as "ebookId", a.id as "annotationId",
+      to_char(n.updated_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "noteVersion",
+      a.quote_binding_version::text as "bindingVersion"
+      from reading_notes n join ebook_annotations a on a.id=n.ebook_annotation_id
+      where n.id=${id}::uuid and a.style='quote' and a.deleted_at is null
+      and not exists(select 1 from ebook_annotation_retired_ids where id=a.id)`),
+  );
+  const undoToken = binding ? randomUUID() : null;
+  await withReadableErrors(() => atomic((d) => [
+    ...guardNote(d, id, fingerprint),
+    ...(binding ? [d.execute(sql`with converted as materialized (
+      select public.durtal_reader_delete_quote_with_undo(${binding.ebookId}::uuid, ${binding.annotationId}::uuid,
+        ${id}::uuid, ${binding.noteVersion}, ${binding.bindingVersion}, ${undoToken}::uuid) as result)
+      select harmonization_assert(result->>'status'='committed', 'This quote changed elsewhere; reload before deleting') from converted`)] : []),
+    // A retired mark is final: its retained tracker quote is an ordinary note.
+    d.delete(readingNotes).where(eq(readingNotes.id, id)),
+  ]));
   changed();
-  return note;
+  return { ...note, ...(binding ? { readerQuoteUndo: { token: undoToken!, ebookId: binding.ebookId } } : {}) };
 }
 
 /** Puts a deleted note back with the same id; a reading, edition or import gone meanwhile comes back empty */
 export async function restoreReadingNote(input: z.input<typeof noteSnapshotSchema>): Promise<NoteItem> {
-  const snap = noteSnapshotSchema.parse(input);
+  return withReaderWriteRetry(() => restoreNote(input));
+}
+
+async function restoreNote(input: z.input<typeof noteSnapshotSchema>): Promise<NoteItem> {
+  const { readerQuoteUndo, ...snap } = noteSnapshotSchema.parse(input);
+  if (readerQuoteUndo) {
+    await withReadableErrors(() => atomic((d) => [
+      d.execute(sql`with restored as materialized (
+        select public.durtal_reader_restore_quote(${readerQuoteUndo.token}::uuid,${snap.id}::uuid) as result)
+        select harmonization_assert(result->>'status' in ('committed','replayed'),
+          'The highlight or book changed, or Undo expired. Nothing was restored.') from restored`),
+    ]));
+    const restored = await loadNote(snap.id);
+    if (!restored) throw new Error("This quote no longer exists");
+    changed();
+    return restored;
+  }
   await requireBookWork(snap.workId);
   const [reading] = snap.readingId
     ? await db.select({ id: readings.id }).from(readings).where(sql`${readings.id} = ${snap.readingId} and ${readings.workId} = ${snap.workId}`)
@@ -294,6 +351,7 @@ export async function restoreReadingNote(input: z.input<typeof noteSnapshotSchem
   const [imported] = snap.importId ? await db.select({ id: imports.id }).from(imports).where(eq(imports.id, snap.importId)) : [];
   await withReadableErrors(() =>
     atomic((d) => [
+      lockReaderNotes(d, sql`select ${snap.id}::uuid`),
       d.insert(readingNotes).values({
         ...snap,
         readingId: reading?.id ?? null,

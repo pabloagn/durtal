@@ -2,6 +2,10 @@
 
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { CopyBookButton } from "./copy-book-button";
+import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
+import { EbookMark } from "./ebook-mark";
+import { COVER_CORNER } from "./cover-chip";
+import { CatalogueReadLink } from "@/components/ebooks/catalogue-read-action";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -33,6 +37,8 @@ interface BookListItem {
   huntAssessedOn?: string | null;
   isPoison?: boolean;
   isFavourite?: boolean;
+  ebook?: WorkEbookDTO | null;
+  readerReturnTo?: string;
   acquisitionPriority?: string | null;
   /** An open reading, until the summaries load */
   reading?: CardReadingValue;
@@ -133,6 +139,7 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
               </div>
             )}
             {isSelecting && <RowCheckbox checked={isSelected} />}
+            {!isSelecting && book.ebook?.readable && <div className={COVER_CORNER.bottomLeft}><EbookMark ebook={book.ebook} /></div>}
           </div>
 
           <div className="min-w-0 flex-1">
@@ -184,6 +191,7 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
                 />
               )}
               {!isSelecting && <CopyBookButton {...book} />}
+              {!isSelecting && <CatalogueReadLink ebook={book.ebook ?? null} returnTo={book.readerReturnTo} />}
             </CapAlignedControls>
           )}
         </div>

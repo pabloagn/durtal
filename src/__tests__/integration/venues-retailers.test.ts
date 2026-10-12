@@ -1,12 +1,13 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { beforeAll, afterAll, beforeEach, describe, it, expect, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 const url = process.env.DURTAL_VENUES_RETAILERS_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln351_test");
 if (url) { const p = new URL(url); if (!["localhost", "127.0.0.1"].includes(p.hostname) || p.pathname !== "/sln351_test") throw new Error("Venue tests require disposable local sln351_test"); }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({ db: new Proxy({}, { get: (_, key) => { if (!testDb) throw new Error("Local database required"); return Reflect.get(testDb, key); } }) }));
 vi.mock("@/lib/cache", () => ({ invalidate: vi.fn(), CACHE_TAGS: {} }));
@@ -24,16 +25,16 @@ import { addPerfumeRetailerLink, recordRetailerObservation, archivePerfumeRetail
 describe.skipIf(!url)("venues and dated retailer observations", () => {
   const c = client!;
   let workId: string, otherId: string, variantId: string, organizationId: string;
-  beforeAll(async () => { await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" }); await c`alter table works drop constraint works_kind_enabled_check`; }, 30000);
+  beforeAll(async () => { await resetDisposableDatabase(url!, "sln351_test"); await c`alter table works drop constraint works_kind_enabled_check`; }, 30000);
   afterAll(async () => { await client?.end(); });
   beforeEach(async () => {
-    await c`truncate works, publishing_houses, venues, places, harmonization_operations, harmonization_redirects cascade`;
+    await resetDisposableDatabase(url!, "sln351_test", { activateKinds: true });
     const rows = await c`insert into works(title,kind,original_language) values ('Fragrance','perfume',null),('Other','perfume',null) returning id`;
     [workId, otherId] = rows.map(r => r.id);
     await c`insert into perfume_details(work_id) values (${workId}),(${otherId})`;
     const [variant] = await c`insert into perfume_variants(work_id) values (${workId}) returning id`; variantId = variant.id;
     organizationId = (await saveOrganization({ name: "Retailer", roles: ["retailer"] }))!.id;
-  });
+  }, 30000);
   const link = () => addPerfumeRetailerLink({ workId, variantId, organizationId, url: "https://retailer.example/fragrance" });
   it("creates online establishments without invented places and distinct concurrent names", async () => {
     const rows = await Promise.all([createVenue({ name: "Online shop", type: "online_store" }), createVenue({ name: "Online shop", type: "online_store" })]);

@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -10,10 +11,10 @@ import {
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_ORGANIZATION_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln350_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -22,7 +23,7 @@ if (url) {
   )
     throw new Error("Organization tests require disposable local sln350_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -70,20 +71,20 @@ describe.skipIf(!url)(
     const c = client!;
     let bookId: string, editionId: string;
     beforeAll(async () => {
-      await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+      await resetDisposableDatabase(url!, "sln350_test");
     }, 30000);
     afterAll(async () => {
       await client?.end();
     });
     beforeEach(async () => {
-      await c`truncate works, publishing_houses, venues, harmonization_operations, harmonization_redirects cascade`;
+      await resetDisposableDatabase(url!, "sln350_test");
       const [book] =
         await c`insert into works(title,slug) values ('Book','book') returning id`;
       bookId = book.id;
       const [edition] =
         await c`insert into editions(work_id,title) values (${bookId},'Edition') returning id`;
       editionId = edition.id;
-    });
+    }, 30000);
     it("preserves a publisher's identity, aliases and imprint hierarchy in the shared API", async () => {
       const parent = await savePublisher({
         name: "Existing publisher",

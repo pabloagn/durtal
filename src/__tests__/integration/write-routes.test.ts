@@ -1,19 +1,20 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import sharp from "sharp";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { NextRequest } from "next/server";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_WRITE_ROUTES_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln515_write_routes");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln515_write_routes")
     throw new Error("Write route tests require a disposable local sln515_write_routes database");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 
 // An in-memory bucket for every S3 call: no request leaves the machine, and no key is needed
@@ -66,7 +67,7 @@ describe.skipIf(!url)("the write routes SLN-311 left out, with PostgreSQL", () =
   const value = async <T = string>(text: string, args: unknown[] = []) => Object.values((await q(text, args))[0] ?? {})[0] as T;
 
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln515_write_routes");
   }, 60000);
   afterAll(async () => {
     await client?.end();
@@ -77,11 +78,11 @@ describe.skipIf(!url)("the write routes SLN-311 left out, with PostgreSQL", () =
   beforeEach(async () => {
     bucket.clear();
     vi.stubEnv("ADMIN_TOKEN", ADMIN);
-    await q(`truncate works, authors, media, comments, activity_events, image_adjustments cascade`);
+    await resetDisposableDatabase(url!, "sln515_write_routes");
     authorId = await value(`insert into authors(name, slug, first_name, last_name) values ('Clarice Lispector', 'clarice-lispector', 'Clarice', 'Lispector') returning id`);
     bookId = await value(`insert into works(title, slug) values ('The Hour of the Star', 'the-hour-of-the-star') returning id`);
     await q(`insert into work_authors(work_id, author_id, role) values ($1, $2, 'author')`, [bookId, authorId]);
-  });
+  }, 30000);
 
   describe("comments", () => {
     const post = (body: unknown) => createComment(json("POST", "/api/comments", body));
@@ -162,7 +163,7 @@ describe.skipIf(!url)("the write routes SLN-311 left out, with PostgreSQL", () =
       );
       await q(`insert into reading_sessions(reading_id, format, read_on, time_zone, end_page) values ($1, 'print', '2024-03-01', 'Europe/Amsterdam', 40)`, [reading]);
       await q(`insert into reading_notes(work_id, kind, body) values ($1, 'quote', 'Everything in the world began with a yes.')`, [bookId]);
-    });
+    }, 30000);
 
     // Each export, what its file holds, and a format it does not offer
     it.each([

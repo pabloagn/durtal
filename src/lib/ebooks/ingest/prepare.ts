@@ -12,6 +12,8 @@ import type { ByteSource } from "./source";
 import { openZip } from "./zip";
 import { validationFor, type Validation } from "../medallion";
 import type { DrmKind, FileMetadata } from "./inspect/types";
+import { inspectionBudget, retainInspectionText } from "./budget";
+import { boundedJsonBytes } from "../upload/bounded-json";
 
 /*
  * One file made ready to store (SLN-494): what it is, what it says, its
@@ -111,15 +113,19 @@ function cached(cacheDir: string, sha256: string, format: EbookFormat): Prepared
  * metadata; damaged files get a problem in plain words.
  */
 export async function prepareFile(source: ByteSource, sha256: string, format: EbookFormat, cacheDir: string): Promise<PreparedFile> {
-  const hit = cached(cacheDir, sha256, format);
+  const budget = inspectionBudget();
+  // Isolated attempts always use a fresh private scratch cache. Historical CLI
+  // cache files are not a substitute for current bounded inspection evidence.
+  const hit = budget ? null : cached(cacheDir, sha256, format);
   if (hit) return hit;
 
   const inspection = await inspectFile(source, format);
   const derived: DerivedObject[] = [];
   const write = (name: string, bytes: Uint8Array, contentType: string) => {
+    budget?.derivedWrite(bytes.length);
     const at = derivedCachePath(cacheDir, sha256, name);
-    mkdirSync(path.dirname(at), { recursive: true });
-    writeFileSync(at, bytes);
+    mkdirSync(path.dirname(at), { recursive: true, ...(budget ? { mode: 0o700 } : {}) });
+    writeFileSync(at, bytes, budget ? { mode: 0o600, flag: "wx" } : undefined);
     derived.push({ name, sha256: sha256Of(bytes), size: bytes.length, contentType });
   };
 
@@ -142,6 +148,7 @@ export async function prepareFile(source: ByteSource, sha256: string, format: Eb
     await inspection.close?.();
   }
   const manifest = makeManifest({ sha256, format, size: source.size }, inspection.manifest);
+  if (budget) retainInspectionText(boundedJsonBytes(manifest));
   write("manifest.json", new TextEncoder().encode(JSON.stringify(manifest)), "application/json");
 
   const inspected = ["epub", "kepub", "pdf", "mobi", "azw", "azw3", "fb2", "fbz", "cbz", "txt"].includes(format) && !inspection.details.unverified;
@@ -162,7 +169,11 @@ export async function prepareFile(source: ByteSource, sha256: string, format: Eb
     derived,
     opfUuid: (inspection as { opf?: { uuid: string | null } | null }).opf?.uuid ?? null,
   };
-  mkdirSync(path.dirname(inspectCachePath(cacheDir, sha256, format)), { recursive: true });
-  writeFileSync(inspectCachePath(cacheDir, sha256, format), JSON.stringify(prepared));
+  mkdirSync(path.dirname(inspectCachePath(cacheDir, sha256, format)), { recursive: true, ...(budget ? { mode: 0o700 } : {}) });
+  if (budget) {
+    const bytes = boundedJsonBytes(prepared);
+    retainInspectionText(bytes); budget.derivedWrite(bytes); budget.assertHealthy();
+  }
+  writeFileSync(inspectCachePath(cacheDir, sha256, format), JSON.stringify(prepared), budget ? { mode: 0o600, flag: "wx" } : undefined);
   return prepared;
 }

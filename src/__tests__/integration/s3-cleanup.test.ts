@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   afterAll,
   beforeAll,
@@ -10,8 +11,7 @@ import {
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   DeleteObjectsCommand,
   ListObjectsV2Command,
@@ -22,6 +22,7 @@ import { DEFAULT_IMAGE_ADJUSTMENTS } from "@/lib/utils/image-adjustments";
 
 // Opt in with a disposable local database. Never read DATABASE_URL or .env.
 const url = process.env.DURTAL_S3_CLEANUP_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln282_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -30,7 +31,7 @@ if (url) {
   )
     throw new Error("S3 cleanup tests require disposable local sln282_test");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 
 // An in-memory bucket. It lists in pages of 2 to exercise continuation.
@@ -106,19 +107,17 @@ function under(prefix: string) {
 describe.skipIf(!url)("S3 cleanup on delete, with PostgreSQL", () => {
   const db = testDb!;
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln282_test");
   });
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await db.execute(
-      sql`truncate works, authors, comments, activity_events, gallery_layouts, venues, ebook_files, ebooks, image_adjustments, contribution_types cascade`,
-    );
+    await resetDisposableDatabase(url!, "sln282_test");
     bucket.objects.clear();
     bucket.failDelete.clear();
     vi.clearAllMocks();
-  });
+  }, 30000);
 
   async function work(title = "Work") {
     const [row] = await db.insert(schema.works).values({ title }).returning();
@@ -174,7 +173,7 @@ describe.skipIf(!url)("S3 cleanup on delete, with PostgreSQL", () => {
     return { row, attachment };
   }
 
-  it("deleting a work leaves no object under its prefixes", async () => {
+  it("deleting a work retains covers and non-gold while cleaning unused non-cover gold", async () => {
     const w = await work();
     const other = await work("Other");
     const poster = await image({ workId: w.id }, "poster");
@@ -208,12 +207,12 @@ describe.skipIf(!url)("S3 cleanup on delete, with PostgreSQL", () => {
       .values({ workId: other.id, type: "poster", s3Key: borrowed });
     const unrelated = put(`gold/media/work/${other.id}/poster/x.webp`);
 
-    expect(await deleteWork(w.id)).toEqual({ id: w.id, cleanupPending: false });
+    expect(await deleteWork(w.id)).toEqual({ id: w.id, cleanupPending: true });
 
     expect(under(`gold/media/work/${w.id}/`)).toEqual([borrowed]);
-    expect(under(`bronze/media/work/${w.id}/`)).toEqual([]);
-    expect(under(`gold/covers/${edition.id}/`)).toEqual([]);
-    expect(under(`bronze/covers/${edition.id}/`)).toEqual([]);
+    expect(under(`bronze/media/work/${w.id}/`)).toHaveLength(2);
+    expect(under(`gold/covers/${edition.id}/`).sort()).toEqual([cover, thumb].sort());
+    expect(under(`bronze/covers/${edition.id}/`)).toEqual([`bronze/covers/${edition.id}/original.jpg`]);
     expect(under(`gold/comments/work/${w.id}/`)).toEqual([]);
     expect(bucket.objects.has(unrelated)).toBe(true);
     expect(await db.select().from(schema.imageAdjustments)).toEqual([]);
@@ -257,7 +256,7 @@ describe.skipIf(!url)("S3 cleanup on delete, with PostgreSQL", () => {
     await comment("author", a.id);
 
     expect(await deleteAuthor(a.id)).toEqual({ id: a.id, cleanupPending: false });
-    expect(bucket.objects.size).toBe(0);
+    expect([...bucket.objects].every(key => key.startsWith("bronze/"))).toBe(true);
     expect(await db.select().from(schema.comments)).toEqual([]);
     expect(await db.select().from(schema.activityEvents)).toEqual([]);
   });
@@ -353,7 +352,7 @@ describe.skipIf(!url)("S3 cleanup on delete, with PostgreSQL", () => {
     expect(bucket.objects.has(targetPhoto)).toBe(true);
   });
 
-  it("deleting an edition removes its cover but keeps every object an e-book still lists", async () => {
+  it("deleting an edition retains its cover and every object an e-book still lists", async () => {
     const w = await work();
     const [edition] = await db
       .insert(schema.editions)
@@ -385,8 +384,10 @@ describe.skipIf(!url)("S3 cleanup on delete, with PostgreSQL", () => {
       coverKey: fileCover,
     });
 
-    expect(await deleteEdition(edition.id)).toEqual({ id: edition.id, cleanupPending: false });
-    expect([...bucket.objects].sort()).toEqual([file, manifest, fileCover, ebookCover].sort());
+    await db.insert(schema.imageAdjustments).values({ assetKey: cover, sources: [cover], settings: DEFAULT_IMAGE_ADJUSTMENTS });
+    expect(await deleteEdition(edition.id)).toEqual({ id: edition.id, cleanupPending: true });
+    expect((await db.select().from(schema.imageAdjustments)).map(row => row.assetKey)).toEqual([cover]);
+    expect([...bucket.objects].sort()).toEqual([cover, file, manifest, fileCover, ebookCover].sort());
   });
 
   it("deleting a comment removes its files and its timeline event only", async () => {
@@ -484,8 +485,18 @@ describe.skipIf(!url)("S3 cleanup on delete, with PostgreSQL", () => {
     expect(await deleteAuthor(a.id)).toEqual({ id: a.id, cleanupPending: true });
 
     log.mockRestore();
-    expect([...bucket.objects]).toEqual([poster.s3Key]);
+    expect([...bucket.objects].filter(key => key.startsWith("gold/"))).toEqual([poster.s3Key]);
     expect(await db.select().from(schema.imageAdjustments)).toHaveLength(1);
     expect(await db.select().from(schema.authors)).toEqual([]);
   });
+  it("ordinary edition deletion cannot discover a fresh unpublished reader namespace", async () => {
+    const id = randomUUID(), key = put(`gold/covers/${id}/attempt-new/cover.webp`);
+    expect(await deleteEdition(id)).toEqual({ id, cleanupPending: false });
+    expect(bucket.objects.has(key)).toBe(true);
+    // The bucket sees no listing: this is the actual caller boundary, distinct
+    // from a helper regression that deliberately supplies an injected prefix.
+    const { s3 } = await import("@/lib/s3/client");
+    expect(vi.mocked(s3.send).mock.calls.some(([command]) => command instanceof ListObjectsV2Command)).toBe(false);
+  });
+
 });

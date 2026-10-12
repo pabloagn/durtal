@@ -1,4 +1,5 @@
 import { Parser } from "htmlparser2";
+import { inspectionBudget, retainInspectionText } from "../budget";
 
 /*
  * A small XML tree for OPF, NCX, FB2, ComicInfo and container documents
@@ -20,15 +21,22 @@ const localName = (name: string) => name.replace(/^.*:/, "").toLowerCase();
 
 export function parseXml(text: string): XmlElement {
   const root: XmlElement = { name: "#document", local: "#document", attrs: {}, children: [] };
+  retainInspectionText(text.length * 3); // parser names/attribute copies before callbacks
   const stack: XmlElement[] = [root];
+  let nodes = 0;
   const parser = new Parser(
     {
       onopentag(name, attrs) {
+        if (inspectionBudget()) {
+          if (++nodes > 100_000 || stack.length >= 256) inspectionBudget()!.reject("XML tree exceeds its inspection bound");
+          retainInspectionText(name.length + Object.entries(attrs).reduce((total, [key, value]) => total + key.length + value.length, 0));
+        }
         const element: XmlElement = { name, local: localName(name), attrs, children: [] };
         stack[stack.length - 1].children.push(element);
         stack.push(element);
       },
       ontext(data) {
+        retainInspectionText(data.length);
         stack[stack.length - 1].children.push(data);
       },
       onclosetag() {
@@ -86,6 +94,7 @@ export function textOf(node: XmlElement | null | undefined): string {
   const parts: string[] = [];
   const walk = (n: XmlElement) => n.children.forEach((c) => (isElement(c) ? walk(c) : parts.push(c)));
   walk(node);
+  retainInspectionText(parts.reduce((total, part) => total + part.length, 0) * 3);
   return parts.join("").replace(/\s+/g, " ").trim();
 }
 

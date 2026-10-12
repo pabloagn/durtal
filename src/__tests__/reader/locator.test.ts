@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
-import { QUOTE_CHARS, locatorFromRelocate, quoteAt } from "@/lib/reader/engines/foliate/locator";
+import {
+  QUOTE_CHARS,
+  locatorFromRelocate,
+  quoteAt,
+} from "@/lib/reader/engines/foliate/locator";
 
 /* SLN-492: DurtalLocators from the engine's places, with the text at the place */
 
@@ -32,7 +36,7 @@ describe("locatorFromRelocate", () => {
       sectionIndex: 3,
       progression: 1,
       totalProgression: 0,
-      position: 42,
+      position: 43,
       cfi: "epubcfi(/6/8!/4/2/1:0)",
       tocLabel: "Chapter III",
       pageLabel: "139",
@@ -43,14 +47,31 @@ describe("locatorFromRelocate", () => {
     page("<p>Some text on the page</p>");
     const range = document.createRange();
     range.selectNodeContents(document.querySelector("p")!);
-    const locator = locatorFromRelocate({ fileHash: hash, sectionIndex: 4, href: "4", sectionFraction: 0, fraction: 0.5, pdfPage: 5, cfi: "x", range });
+    const locator = locatorFromRelocate({
+      fileHash: hash,
+      sectionIndex: 4,
+      href: "4",
+      sectionFraction: 0,
+      fraction: 0.5,
+      pdfPage: 5,
+      cfi: "x",
+      range,
+    });
     expect(locator.pdf).toEqual({ page: 5 });
     expect(locator.cfi).toBeUndefined();
     expect(locator.text).toBeUndefined();
   });
 
   it("reads a progression that is not a number as 0", () => {
-    expect(locatorFromRelocate({ fileHash: hash, sectionIndex: 0, href: "a", sectionFraction: Number.NaN, fraction: 0.25 })).toMatchObject({
+    expect(
+      locatorFromRelocate({
+        fileHash: hash,
+        sectionIndex: 0,
+        href: "a",
+        sectionFraction: Number.NaN,
+        fraction: 0.25,
+      }),
+    ).toMatchObject({
       progression: 0,
       totalProgression: 0.25,
     });
@@ -59,12 +80,18 @@ describe("locatorFromRelocate", () => {
 
 describe("quoteAt", () => {
   it("takes the first words of the page and the text on either side", () => {
-    page("<p>It was a dark night.</p><p>The <em>rain</em> fell on Fontenay and on the house.</p>");
+    page(
+      "<p>It was a dark night.</p><p>The <em>rain</em> fell on Fontenay and on the house.</p>",
+    );
     const second = document.querySelectorAll("p")[1];
     const range = document.createRange();
     range.setStart(second.firstChild!, 0);
     range.setEnd(second.lastChild!, 8);
-    expect(quoteAt(range)).toEqual({ before: "It was a dark night.", highlight: "The rain fell on", after: " Fontenay and on the house." });
+    expect(quoteAt(range)).toEqual({
+      before: "It was a dark night.",
+      highlight: "The rain fell on",
+      after: " Fontenay and on the house.",
+    });
   });
 
   it("cuts a whole page to its first 64 characters, with what follows as context", () => {
@@ -84,11 +111,31 @@ describe("quoteAt", () => {
     page("<p>Alpha beta gamma.</p>");
     const range = document.createRange();
     range.setStart(document.querySelector("p")!.firstChild!, 6);
-    expect(quoteAt(range)).toEqual({ before: "Alpha ", highlight: "beta gamma." });
+    expect(quoteAt(range)).toEqual({
+      before: "Alpha ",
+      highlight: "beta gamma.",
+    });
 
     page("<p>   </p>");
     const blank = document.createRange();
     blank.selectNodeContents(document.querySelector("p")!);
     expect(quoteAt(blank)).toBeUndefined();
   });
+});
+
+it("quotes the complete selection with context from its end", async () => {
+  const { quoteFromSelection } =
+    await import("@/lib/reader/engines/foliate/locator");
+  const doc = document;
+  const before = "Before the passage ".repeat(5),
+    selected = "The selected passage ".repeat(12),
+    after = "After the passage ".repeat(5);
+  doc.body.textContent = before + selected + after;
+  const range = doc.createRange();
+  range.setStart(doc.body.firstChild!, before.length);
+  range.setEnd(doc.body.firstChild!, before.length + selected.length);
+  const quote = quoteFromSelection(range)!;
+  expect(quote.highlight).toBe(selected.trim());
+  expect(quote.before).toBe(before.slice(-64));
+  expect(quote.after).toBe(after.slice(0, 64));
 });

@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -9,18 +10,18 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { z } from "zod";
 import * as schema from "@/lib/db/schema";
 import { ownedPrefixes } from "@/lib/s3/cleanup";
 
 const url = process.env.DURTAL_PAINTING_SERVICES_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln359_test");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln359_test")
     throw new Error("Painting service tests require disposable local sln359_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 const mocks = vi.hoisted(() => ({
   invalidate: vi.fn(),
@@ -105,7 +106,7 @@ describe.skipIf(!url)("paintings, originals, versions and reproductions", () => 
   });
   const painter = (key: string) => ({ personId: people[key], roleId: "painting.painter" });
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln359_test");
     await c`alter table works drop constraint works_kind_enabled_check`;
   }, 30000);
   afterAll(async () => {
@@ -113,7 +114,7 @@ describe.skipIf(!url)("paintings, originals, versions and reproductions", () => 
   });
   beforeEach(async () => {
     vi.clearAllMocks();
-    await c`truncate works, authors, publishing_houses, venues, locations, custom_taxonomy_items, art_movements, catalogue_dates, comments, activity_events, gallery_layouts, harmonization_operations, harmonization_redirects cascade`;
+    await resetDisposableDatabase(url!, "sln359_test", { emptyLocations: true, activateKinds: true });
     people = {};
     for (const [key, name] of [
       ["leonardo", "Leonardo da Vinci"],
@@ -153,7 +154,7 @@ describe.skipIf(!url)("paintings, originals, versions and reproductions", () => 
     [home, cloud] = (
       await c`insert into locations(name,type) values ('Home','physical'),('Cloud','digital') returning id`
     ).map((r) => r.id);
-  });
+  }, 30000);
 
   const monaLisa = () =>
     createPainting({

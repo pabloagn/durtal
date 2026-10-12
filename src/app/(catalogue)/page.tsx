@@ -1,0 +1,414 @@
+import { Suspense } from "react";
+import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
+import { collectionCounts } from "@/lib/collections/counts";
+import Link from "next/link";
+import {
+  BookOpen,
+  Layers,
+  Copy,
+  Users,
+  Upload,
+  ArrowRight,
+  Star,
+  ShoppingCart,
+  FolderOpen,
+} from "lucide-react";
+import { getLibraryStats } from "@/lib/actions/works";
+import {
+  getCollectionCoverPreviews,
+  getCollections,
+} from "@/lib/actions/collections";
+import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import {
+  loadDomainCounts,
+  loadRecentTiles,
+  type HomeKind,
+} from "@/lib/catalogue/domain-homes";
+import { PageHeader } from "@/components/layout/page-header";
+import { Card, CardContent } from "@/components/ui/card";
+import { buttonClass } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { BookCard } from "@/components/books/book-card";
+import { CollectionCard } from "@/components/collections/collection-card";
+import { DomainAddLink } from "@/components/domains/domain-add-link";
+import { DomainTileCard } from "@/components/domains/domain-tile";
+import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
+import { mediaCrop } from "@/lib/utils/media-style";
+import { getAuthorCoverPreviews, getPersonRoles } from "@/lib/actions/authors";
+import { RecentPeopleGrid } from "@/components/people/recent-people-grid";
+import { SectionHeading } from "@/components/shared/section-heading";
+import { finishedItem, tileItem } from "@/components/reading/hub-cards";
+import { DashboardReading } from "@/components/reading/reading-tiles";
+import { getOpenReadings } from "@/lib/actions/reading";
+import { getRecentlyFinished } from "@/lib/reading/journal";
+import { readingDayStartHour, readingToday } from "@/lib/reading/day";
+import { getGoalProgress } from "@/lib/actions/reading-goals";
+import { readingEstimates } from "@/lib/reading/estimates";
+import { cardReadingOf } from "@/lib/reading/card";
+import { mediaUrl } from "@/lib/s3/media-url";
+
+// The root layout's title template skips a page in its own segment
+export const metadata = { title: { absolute: "Dashboard | Durtal" } };
+
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: number;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-4 py-5">
+        {/* Decoration only: on a phone the count and its label need the room */}
+        <div className="hidden rounded-sm border border-glass-border bg-bg-primary/50 p-2.5 sm:block">
+          <Icon className="h-5 w-5 text-fg-muted" strokeWidth={1.5} />
+        </div>
+        <div>
+          <p className="type-stat text-fg-primary">
+            {value.toLocaleString()}
+          </p>
+          <p className="text-xs text-fg-secondary">{label}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SectionHeader({
+  title,
+  href,
+  icon: Icon,
+}: {
+  title: string;
+  href?: string;
+  icon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+}) {
+  return (
+    <SectionHeading
+      title={title}
+      icon={Icon}
+      action={
+        href && (
+          <Link
+            href={href}
+            className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
+          >
+            View all
+            <ArrowRight className="h-3 w-3" strokeWidth={1.5} />
+          </Link>
+        )
+      }
+    />
+  );
+}
+
+function workToCardProps(work: {
+  id: string;
+  slug: string | null;
+  title: string;
+  rating: number | null;
+  catalogueStatus: string;
+  acquisitionPriority: string;
+  isRare: boolean;
+  huntAssessedOn: string | null;
+  isPoison: boolean;
+  originalYear: number | null;
+  readingState?: string | null;
+  readingPercent?: number | null;
+  workAuthors: Array<{ author: { name: string } }>;
+  editions: Array<{
+    id: string;
+    thumbnailS3Key: string | null;
+    publicationYear: number | null;
+    language: string | null;
+    updatedAt: Date;
+    instances: Array<{ id: string }>;
+  }>;
+  media?: Array<{
+    s3Key: string;
+    thumbnailS3Key: string | null;
+    type: string;
+    isActive: boolean;
+    cropX: number;
+    cropY: number;
+    cropZoom: number;
+    brightness: number;
+    contrast: number;
+    createdAt: Date;
+    tone?: string | null;
+  }>;
+}) {
+  const edition = work.editions[0];
+  const author = work.workAuthors[0]?.author;
+  const instanceCount = work.editions.reduce(
+    (acc, e) => acc + (e.instances?.length ?? 0),
+    0,
+  );
+
+  // Prefer active poster from media table, fall back to edition cover
+  const activePoster = work.media?.find(
+    (m) => m.type === "poster" && m.isActive,
+  );
+  const coverS3Key =
+    activePoster?.thumbnailS3Key ??
+    activePoster?.s3Key ??
+    edition?.thumbnailS3Key;
+  // Versioned as the library's card is, so both share one cached image
+  const coverVersion = activePoster ? activePoster.createdAt : edition?.updatedAt;
+
+  return {
+    workId: work.id,
+    slug: work.slug ?? "",
+    title: work.title,
+    authorName: author?.name ?? "Unknown",
+    coverUrl: coverS3Key
+      ? mediaUrl(coverS3Key, { version: coverVersion })
+      : null,
+    coverCrop: activePoster
+      ? mediaCrop(activePoster)
+      : null,
+    coverTone: activePoster?.tone ?? null,
+    publicationYear: edition?.publicationYear ?? work.originalYear,
+    language: edition?.language,
+    instanceCount,
+    rating: work.rating,
+    catalogueStatus: work.catalogueStatus,
+    acquisitionPriority: work.acquisitionPriority,
+    isRare: work.isRare,
+    huntAssessedOn: work.huntAssessedOn,
+    isPoison: work.isPoison,
+    reading: cardReadingOf(work),
+  };
+}
+
+/** The other open collections: counts, newest records. Books come from getLibraryStats. */
+async function otherDomains() {
+  const kinds = getEnabledWorkKinds().filter(
+    (kind): kind is HomeKind => kind !== "book",
+  );
+  return Promise.all(
+    kinds.map(async (kind) => ({
+      kind,
+      counts: await loadDomainCounts(kind),
+      recent: await loadRecentTiles(kind, 8),
+    })),
+  );
+}
+
+const CREATOR_LABELS: Record<HomeKind, string> = {
+  perfume: "Perfumers",
+  film: "Directors",
+  painting: "Painters",
+};
+
+async function DashboardContent() {
+  const [stats, others, collections, openReadings, finishedReads] = await Promise.all([
+    getLibraryStats(),
+    otherDomains(),
+    getCollections({ limit: 4, offset: 0 }),
+    getOpenReadings(),
+    getRecentlyFinished(4),
+  ]);
+  const digital = await catalogueAvailability([...stats.recentWorks, ...stats.topRatedWorks, ...stats.wantedWorks].map((work) => work.id));
+  // Books being read before paused ones; three at most
+  const currentReads = [...openReadings]
+    .sort((a, b) => Number(a.reading.status === "paused") - Number(b.reading.status === "paused"))
+    .slice(0, 3);
+  const [covers, authorCovers, personRoles, estimates, goal] = await Promise.all([
+    getCollectionCoverPreviews(collections.map((collection) => collection.id)),
+    // Recent authors with no portrait show some of their book covers
+    getAuthorCoverPreviews(
+      stats.recentAuthors.filter((a) => !a.photoS3Key).map((a) => a.id),
+    ),
+    // Every card's roles, in one query
+    getPersonRoles(stats.recentAuthors.map((a) => a.id)),
+    // Time left and the finish date of the reading tiles (SLN-451)
+    readingToday().then((today) => readingEstimates(currentReads.map((o) => o.reading.id), today)),
+    // This year's first goal, for one line under the tiles (SLN-455)
+    Promise.all([readingToday(), readingDayStartHour()]).then(async ([today, dayStartHour]) => {
+      const [progress] = await getGoalProgress(Number(today.slice(0, 4)));
+      return progress ? { progress, serverToday: today, dayStartHour } : null;
+    }),
+  ]);
+  // Newest first across the open collections
+  const recent = [
+    ...stats.recentWorks.map((work) => ({
+      key: work.id,
+      createdAt: work.createdAt,
+      card: <BookCard key={work.id} {...workToCardProps(work)} ebook={digital.get(work.id)?.read ?? null} readerReturnTo="/" />,
+    })),
+    ...others.flatMap(({ kind, recent: tiles }) =>
+      tiles.map((tile) => ({
+        key: tile.id,
+        createdAt: tile.createdAt,
+        card: <DomainTileCard key={tile.id} kind={kind} tile={tile} />,
+      })),
+    ),
+  ]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 8);
+  const singleDomain = others.length === 0;
+
+  return (
+    <>
+      {/* Books: counts and the book actions */}
+      <section>
+        <SectionHeader
+          title={WORK_DOMAINS.book.pluralLabel}
+          icon={DOMAIN_ICONS.book}
+          href={WORK_DOMAINS.book.basePath}
+        />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatCard label="Books" value={stats.works} icon={BookOpen} />
+          <StatCard label="Editions" value={stats.editions} icon={Layers} />
+          <StatCard label="Instances" value={stats.instances} icon={Copy} />
+          <StatCard label="People" value={stats.authors} icon={Users} />
+        </div>
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <DomainAddLink kind="book" />
+          <Link
+            href="/library/import"
+            className={`${buttonClass("secondary", "md")} whitespace-nowrap`}
+          >
+            <Upload className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Import books
+          </Link>
+        </div>
+      </section>
+
+      {/* Reading (SLN-448): light tiles with small props, no book cards */}
+      <DashboardReading tiles={currentReads.map((o) => tileItem(o, estimates[o.reading.id]))} finished={finishedReads.map(finishedItem)} goal={goal} />
+
+      {/* Each other open collection: its counts and its add action */}
+      {others.map(({ kind, counts }) => (
+        <section key={kind} className="mt-12">
+          <SectionHeader
+            title={WORK_DOMAINS[kind].pluralLabel}
+            icon={DOMAIN_ICONS[kind]}
+            href={WORK_DOMAINS[kind].basePath}
+          />
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <StatCard
+              label={WORK_DOMAINS[kind].pluralLabel}
+              value={counts.records}
+              icon={DOMAIN_ICONS[kind]}
+            />
+            <StatCard
+              label={CREATOR_LABELS[kind]}
+              value={counts.creators}
+              icon={Users}
+            />
+          </div>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <DomainAddLink kind={kind} />
+          </div>
+        </section>
+      ))}
+
+      {/* Recent additions, newest first across the open collections */}
+      {recent.length > 0 && (
+        <section className="mt-12">
+          <SectionHeader
+            title="Recent additions"
+            icon={BookOpen}
+            href={singleDomain ? "/library?sort=recent" : undefined}
+          />
+          <div className="catalogue-grid">
+            {recent.map((item) => item.card)}
+          </div>
+        </section>
+      )}
+
+      {/* Collections: the first ones in their curated order */}
+      {collections.length > 0 && (
+        <section className="mt-12">
+          <SectionHeader title="Collections" icon={FolderOpen} href="/collections" />
+          <div className="catalogue-grid">
+            {collections.map((collection) => (
+              <CollectionCard
+                key={collection.id}
+                collection={{
+                  ...collection,
+                  ...collectionCounts(collection),
+                }}
+                covers={covers
+                  .filter((preview) => preview.collectionId === collection.id)
+                  .map((preview) => preview.s3Key)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Highest rated books */}
+      {stats.topRatedWorks.length > 0 && (
+        <section className="mt-12">
+          <SectionHeader
+            title="Highest rated"
+            icon={Star}
+            href="/library?sort=rating"
+          />
+          <div className="catalogue-grid">
+            {stats.topRatedWorks.map((work) => (
+              <BookCard key={work.id} {...workToCardProps(work)} ebook={digital.get(work.id)?.read ?? null} readerReturnTo="/" />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Recent authors */}
+      {stats.recentAuthors.length > 0 && (
+        <section className="mt-12">
+          <SectionHeader
+            title="Recent people"
+            icon={Users}
+            href="/people?sort=recent"
+          />
+          <RecentPeopleGrid
+            people={stats.recentAuthors}
+            covers={Object.fromEntries(stats.recentAuthors.filter((a) => authorCovers[a.id]?.length).map((a) => [a.id, authorCovers[a.id]]))}
+            roles={personRoles}
+          />
+        </section>
+      )}
+
+      {/* Wanted / shortlisted */}
+      {stats.wantedWorks.length > 0 && (
+        <section className="mt-12">
+          <SectionHeader
+            title="Wanted"
+            icon={ShoppingCart}
+            href="/library?status=wanted,shortlisted"
+          />
+          <div className="catalogue-grid">
+            {stats.wantedWorks.map((work) => (
+              <BookCard key={work.id} {...workToCardProps(work)} ebook={digital.get(work.id)?.read ?? null} readerReturnTo="/" />
+            ))}
+          </div>
+        </section>
+      )}
+    </>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <>
+      <PageHeader
+        title="Dashboard"
+      />
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center py-16">
+            <Spinner className="h-6 w-6" />
+          </div>
+        }
+      >
+        <DashboardContent />
+      </Suspense>
+    </>
+  );
+}

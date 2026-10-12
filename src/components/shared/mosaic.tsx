@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
+import { useCoverMenu } from "@/hooks/use-cover-menu";
 import { FadeImage } from "@/components/shared/fade-image";
 import { coverToneStyle, mediaImageStyle } from "@/lib/utils/media-style";
 import type { MediaCrop } from "@/lib/utils/media-style";
@@ -18,6 +19,49 @@ export interface MosaicItem {
   aspect: number;
   /** The picture itself, filling the tile (`MosaicImage`, or a kind's own poster) */
   media: ReactNode;
+  mark?: ReactNode;
+  /** Optional catalogue menu, rendered beside the document link. */
+  actions?: (open: boolean, onOpenChange: (open: boolean) => void) => ReactNode;
+}
+
+function MosaicTile({ item, isSelecting, selected, onSelect }: {
+  item: MosaicItem;
+  isSelecting: boolean;
+  selected: boolean;
+  onSelect?: (key: string) => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Reset before rendering selection so the menu stays closed when it ends.
+  if (isSelecting && menuOpen) setMenuOpen(false);
+  const coverMenu = useCoverMenu(!isSelecting && !!item.actions, () => setMenuOpen(true));
+  const content = <>
+    <span className="mosaic-media">{item.media}</span>
+    {!isSelecting && item.mark}
+    <span className="absolute inset-0" aria-hidden />
+    <span className="mosaic-caption glass" aria-hidden>
+      <span className="block truncate text-xs text-fg-primary">{item.title}</span>
+      {item.subtitle && <span className="block truncate text-micro text-fg-secondary">{item.subtitle}</span>}
+    </span>
+  </>;
+  const className = `mosaic-tile group/tile ${selected ? "mosaic-tile-selected" : ""}`;
+  const link = <Link href={item.href}
+    aria-label={item.subtitle ? `${item.title}, ${item.subtitle}` : item.title}
+    aria-pressed={isSelecting ? selected : undefined}
+    className={item.actions ? "absolute inset-0 outline-none" : className}
+    style={item.actions ? undefined : { "--tile-aspect": item.aspect } as CSSProperties}
+    {...coverMenu}
+    onClick={(event) => {
+      if (!isSelecting || !onSelect) return;
+      event.preventDefault(); onSelect(item.key);
+    }}>{content}</Link>;
+  if (!item.actions) return link;
+  return <div className={`${className} group focus-within:ring-2 focus-within:ring-accent-primary focus-within:[&_.mosaic-caption]:opacity-100 focus-within:[&_.mosaic-caption]:translate-y-0`}
+    style={{ "--tile-aspect": item.aspect } as CSSProperties}>
+    {link}
+    {!isSelecting && <div className={`artwork-actions !bottom-auto !top-1 ${menuOpen ? "before:!opacity-100 [&>div]:!opacity-100" : ""}`}>
+      {item.actions(menuOpen, setMenuOpen)}
+    </div>}
+  </div>;
 }
 
 /**
@@ -60,34 +104,8 @@ export function Mosaic({
         className="mosaic"
         style={{ "--mosaic-per-row": perRow, "--mosaic-aspect": aspect } as CSSProperties}
       >
-        {items.map((item) => {
-          const selected = selectedIds?.has(item.key) ?? false;
-          return (
-            <Link
-              key={item.key}
-              href={item.href}
-              aria-label={item.subtitle ? `${item.title}, ${item.subtitle}` : item.title}
-              aria-pressed={isSelecting ? selected : undefined}
-              className={`mosaic-tile group/tile ${selected ? "mosaic-tile-selected" : ""}`}
-              style={{ "--tile-aspect": item.aspect } as CSSProperties}
-              onClick={(e) => {
-                if (!isSelecting || !onSelect) return;
-                e.preventDefault();
-                onSelect(item.key);
-              }}
-            >
-              <span className="mosaic-media">{item.media}</span>
-              {/* Takes a right-click, so it opens the link's menu, not the picture's */}
-              <span className="absolute inset-0" aria-hidden />
-              <span className="mosaic-caption glass" aria-hidden>
-                <span className="block truncate text-xs text-fg-primary">{item.title}</span>
-                {item.subtitle && (
-                  <span className="block truncate text-micro text-fg-secondary">{item.subtitle}</span>
-                )}
-              </span>
-            </Link>
-          );
-        })}
+        {items.map((item) => <MosaicTile key={item.key} item={item} isSelecting={isSelecting}
+          selected={selectedIds?.has(item.key) ?? false} onSelect={onSelect} />)}
         {/* Takes the free space of the last row, so it keeps its height */}
         <span className="mosaic-fill" aria-hidden />
       </div>

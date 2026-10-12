@@ -5,6 +5,8 @@ import { bookCondition } from "@/lib/catalogue/book-boundary";
 import { NextRequest, NextResponse } from "next/server";
 import { getAcquisitionTargetsForExport } from "@/lib/actions/publishers";
 import { db } from "@/lib/db";
+import { getWorkDigitalAvailability, type WorkDigitalAvailability } from "@/lib/ebooks/work-availability";
+import { ebookExportFormats, workEbookDTO } from "@/lib/ebooks/catalogue-dto";
 import { todayLocal } from "@/lib/utils/date";
 import { isUuid } from "@/lib/utils/uuid";
 import { works, workAuthors, authors } from "@/lib/db/schema";
@@ -42,8 +44,9 @@ import { GOODREADS_EXPORT_HEADER } from "@/lib/reading/import/formats";
 import { parseJournalQuery } from "@/lib/reading/journal-params";
 import { journalReadingIds } from "@/lib/reading/journal";
 import { parseNotesQuery } from "@/lib/reading/notes-params";
+import { exportFormatsFor } from "@/lib/export/formats";
 
-const VALID_FORMATS: ExportFormat[] = ["csv", "tsv", "parquet", "md"];
+const VALID_FORMATS: ExportFormat[] = ["csv", "tsv", "parquet", "md", "json"];
 const VALID_ENTITIES = [
   "works",
   "authors",
@@ -64,12 +67,7 @@ const READING_ENTITIES = ["readings", "reading-sessions", "reading-notes", "good
 type ReadingEntity = (typeof READING_ENTITIES)[number];
 const isReading = (entity: EntityType): entity is ReadingEntity => (READING_ENTITIES as readonly string[]).includes(entity);
 
-/** The formats each export offers: Markdown is the commonplace book only, the Goodreads file is CSV */
-const ENTITY_FORMATS: Partial<Record<EntityType, ExportFormat[]>> = {
-  "reading-notes": ["csv", "tsv", "parquet", "md"],
-  goodreads: ["csv"],
-};
-const formatsOf = (entity: EntityType) => ENTITY_FORMATS[entity] ?? ["csv", "tsv", "parquet"];
+const formatsOf = exportFormatsFor;
 
 /** The journal and the commonplace book export what their filters show: their own URL query */
 const FILTERED_ENTITIES: EntityType[] = ["readings", "reading-notes"];
@@ -129,8 +127,10 @@ async function fetchWorksForExport(ids: string[] | null) {
   // The lookup takes at most 500 works a call: a whole-catalogue export asks in batches
   const found = results.map((w) => w.id);
   const targets: Awaited<ReturnType<typeof getAcquisitionTargetsForExport>> = [];
+  const digital = new Map<string, WorkDigitalAvailability>();
   for (let i = 0; i < found.length; i += 500) {
     targets.push(...(await getAcquisitionTargetsForExport(found.slice(i, i + 500))));
+    for (const [id, value] of await getWorkDigitalAvailability(found.slice(i, i + 500), { includePositions: false })) digital.set(id, value);
   }
   return results.map((w) => {
     const authorNames = w.workAuthors.map((wa) => wa.author.name).join("; ");
@@ -142,6 +142,7 @@ async function fetchWorksForExport(ids: string[] | null) {
 
     return {
       title: w.title,
+      ebook_formats: ebookExportFormats((digital.get(w.id)?.ebooks ?? []).map(workEbookDTO)),
       authors: authorNames,
       original_language: w.originalLanguage ?? "",
       original_year: w.originalYear ?? "",
@@ -345,6 +346,17 @@ export async function POST(req: NextRequest) {
       slug = slugify((rows[0] as { title?: string }).title ?? "");
     }
     const filename = `durtal-${slug || entityType}-${timestamp}${FORMAT_EXT[fmt]}`;
+
+    if (fmt === "json") {
+      // The same explicitly projected book rows as CSV, never the ORM records.
+      return new NextResponse(JSON.stringify(rows), {
+        status: 200,
+        headers: {
+          "Content-Type": FORMAT_MIME.json,
+          "Content-Disposition": `attachment; filename="${filename}"`,
+        },
+      });
+    }
 
     if (fmt === "csv" || fmt === "tsv") {
       const text = fmt === "csv" ? toCSV(rows) : toTSV(rows);

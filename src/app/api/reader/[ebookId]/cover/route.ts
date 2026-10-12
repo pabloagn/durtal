@@ -26,8 +26,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ eboo
   try {
     const cover = await readCatalogueCover(ebookId.toLowerCase());
     if (!cover?.sha256) return notFound();
+    const signed = coverUrlFor(cover, width);
+    if (!signed) return notFound();
     if (ebookDelivery() === "cloudfront") {
-      const signed = coverUrlFor(cover, width)!;
       // The redirect is kept no longer than its signature stays good, less an hour
       const left = Math.floor((signed.expiresAt!.getTime() - Date.now()) / 1000) - 3600;
       return new NextResponse(null, {

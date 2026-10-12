@@ -3,6 +3,7 @@ import { works } from "@/lib/db/schema";
 import { publisherWorkCondition } from "@/lib/publishers/conditions";
 import { marksCondition } from "@/lib/actions/utils/work-marks";
 import type { BookFilterParams, BookTaxonomyKey, CopyFlag } from "./filter-params";
+import { workHasReadableEbookCondition } from "@/lib/ebooks/work-conditions";
 
 /**
  * The tables behind each book taxonomy filter. A hierarchical one matches
@@ -57,6 +58,10 @@ export function bookFilterConditions(filters: BookFilterParams | undefined): SQL
   const out: SQL[] = [];
   if (!filters) return out;
   const workId = works.id;
+  if (filters.hasEbook !== undefined) {
+    const availability = workHasReadableEbookCondition(workId);
+    out.push(filters.hasEbook ? availability : sql`not ${availability}`);
+  }
 
   const marks = marksCondition(filters.marks ?? []);
   if (marks) out.push(marks);

@@ -1,0 +1,152 @@
+[
+  {
+    "case": 0,
+    "event": {
+      "context": {
+        "eventType": "viewer-request"
+      },
+      "request": {
+        "cookies": {},
+        "headers": {},
+        "method": "GET",
+        "querystring": {},
+        "uri": "/gold/ebooks/epub/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/file.epub"
+      },
+      "version": "1.0",
+      "viewer": {
+        "ip": "192.0.2.1"
+      }
+    },
+    "expectedStatus": 0,
+    "output": {
+      "request": {
+        "cookies": {},
+        "headers": {},
+        "method": "GET",
+        "querystring": {},
+        "uri": "/gold/ebooks/epub/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/file.epub"
+      }
+    }
+  },
+  {
+    "case": 1,
+    "event": {
+      "context": {
+        "eventType": "viewer-request"
+      },
+      "request": {
+        "cookies": {},
+        "headers": {},
+        "method": "HEAD",
+        "querystring": {},
+        "uri": "/gold/ebooks/epub/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/file.epub"
+      },
+      "version": "1.0",
+      "viewer": {
+        "ip": "192.0.2.1"
+      }
+    },
+    "expectedStatus": 0,
+    "output": {
+      "request": {
+        "cookies": {},
+        "headers": {},
+        "method": "HEAD",
+        "querystring": {},
+        "uri": "/gold/ebooks/epub/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/file.epub"
+      }
+    }
+  },
+  {
+    "case": 2,
+    "event": {
+      "context": {
+        "eventType": "viewer-request"
+      },
+      "request": {
+        "cookies": {},
+        "headers": {
+          "access-control-request-headers": {
+            "value": "Range"
+          },
+          "access-control-request-method": {
+            "value": "GET"
+          },
+          "origin": {
+            "value": "https://test.invalid"
+          }
+        },
+        "method": "OPTIONS",
+        "querystring": {},
+        "uri": "/gold/ebooks/epub/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/file.epub"
+      },
+      "version": "1.0",
+      "viewer": {
+        "ip": "192.0.2.1"
+      }
+    },
+    "expectedStatus": 204,
+    "output": {
+      "response": {
+        "cookies": {},
+        "headers": {
+          "access-control-allow-headers": {
+            "value": "Range"
+          },
+          "access-control-allow-methods": {
+            "value": "GET, HEAD, OPTIONS"
+          },
+          "access-control-allow-origin": {
+            "value": "*"
+          },
+          "access-control-max-age": {
+            "value": "86400"
+          },
+          "cache-control": {
+            "value": "no-store"
+          },
+          "x-content-type-options": {
+            "value": "nosniff"
+          }
+        },
+        "statusCode": 204,
+        "statusDescription": "No Content"
+      }
+    }
+  },
+  {
+    "case": 3,
+    "event": {
+      "context": {
+        "eventType": "viewer-request"
+      },
+      "request": {
+        "cookies": {},
+        "headers": {},
+        "method": "GET",
+        "querystring": {},
+        "uri": "/gold/media/cover.webp"
+      },
+      "version": "1.0",
+      "viewer": {
+        "ip": "192.0.2.1"
+      }
+    },
+    "expectedStatus": 403,
+    "output": {
+      "response": {
+        "cookies": {},
+        "headers": {
+          "cache-control": {
+            "value": "no-store"
+          },
+          "x-content-type-options": {
+            "value": "nosniff"
+          }
+        },
+        "statusCode": 403,
+        "statusDescription": "Forbidden"
+      }
+    }
+  }
+]

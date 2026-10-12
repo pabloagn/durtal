@@ -1,7 +1,7 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { sql } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 
@@ -12,6 +12,7 @@ import * as schema from "@/lib/db/schema";
  */
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_DUPLICATE_NAMES_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln303_duplicate_names");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -20,7 +21,7 @@ if (url) {
   )
     throw new Error("Duplicate-name tests require disposable local sln303_duplicate_names");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -55,19 +56,19 @@ describe.skipIf(!url)("duplicate names and numbers with PostgreSQL", () => {
   const db = testDb!;
   let workId: string;
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln303_duplicate_names");
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await db.execute(sql`truncate works, authors, keywords, activity_events, publishing_houses cascade`);
+    await resetDisposableDatabase(url!, "sln303_duplicate_names");
     const [work] = await db
       .insert(schema.works)
       .values({ title: "The Rings of Saturn", slug: "the-rings-of-saturn" })
       .returning();
     workId = work.id;
-  });
+  }, 30000);
 
   async function rejection(promise: Promise<unknown>) {
     const error = await promise.then(

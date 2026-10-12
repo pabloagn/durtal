@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { randomUUID } from "node:crypto";
 import {
   beforeAll,
@@ -10,13 +11,12 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { neon, neonConfig } from "@neondatabase/serverless";
-import { drizzle as postgresDrizzle } from "drizzle-orm/postgres-js";
 import { drizzle as neonDrizzle } from "drizzle-orm/neon-http";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { sql } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_NEON_BATCH_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln348_batch_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -27,7 +27,7 @@ if (url) {
       "Neon batch contract tests require disposable local sln348_batch_test",
     );
 }
-const client = url ? postgres(url, { max: 1, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 1, onnotice: () => {} }) : null;
 const httpDb = url ? neonDrizzle(neon(url), { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -89,9 +89,7 @@ describe.skipIf(!url)("production Neon driver batch contract", () => {
   const previousFetch = neonConfig.fetchFunction;
 
   beforeAll(async () => {
-    await migrate(postgresDrizzle(c), {
-      migrationsFolder: "src/lib/db/migrations",
-    });
+    await resetDisposableDatabase(url!, "sln348_batch_test");
     // Neon has already encoded HTTP parameters as PostgreSQL text. postgres-js
     // normally serializes JS booleans with `value === true`; applying it again
     // would turn the valid wire value "true" into false.
@@ -159,9 +157,9 @@ describe.skipIf(!url)("production Neon driver batch contract", () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works cascade`;
+    await resetDisposableDatabase(url!, "sln348_batch_test");
     requests.length = 0;
-  });
+  }, 30000);
 
   it("sends one HTTP batch with ordered queries and maps returning rows", async () => {
     const id = randomUUID();

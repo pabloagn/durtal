@@ -1,6 +1,23 @@
 {
   "BudgetName": "durtal-monthly",
-  "BudgetLimit": { "Amount": "5", "Unit": "USD" },
+  "BudgetLimit": {
+    "Amount": "5",
+    "Unit": "USD"
+  },
   "TimeUnit": "MONTHLY",
-  "BudgetType": "COST"
+  "BudgetType": "COST",
+  "CostFilters": {},
+  "CostTypes": {
+    "IncludeTax": true,
+    "IncludeSubscription": true,
+    "UseBlended": false,
+    "IncludeRefund": true,
+    "IncludeCredit": true,
+    "IncludeUpfront": true,
+    "IncludeRecurring": true,
+    "IncludeOtherSubscription": true,
+    "IncludeSupport": true,
+    "IncludeDiscount": true,
+    "UseAmortized": false
+  }
 }

@@ -2,6 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { makeNonce, readerCsp } from "@/lib/reader/csp";
 import { proxy } from "@/proxy";
+import OfflineReaderPage, { dynamic as offlineReaderRendering } from "@/app/reader/offline/page";
+import { OfflineReader } from "@/components/reader/offline/offline-reader";
+
+// Inspect the server shell contract without loading the client reader/engine.
+vi.mock("@/components/reader/offline/offline-reader", () => ({ OfflineReader: () => null }));
 
 /* SLN-492: the reader page's content policy, which every book frame inherits */
 
@@ -61,6 +66,21 @@ describe("the proxy on reader pages", () => {
     // Next.js reads the nonce for its own scripts from the request
     expect(a.headers.get("x-middleware-request-x-nonce")).toBe(nonceOf(a));
     expect(a.headers.get("content-security-policy")).not.toContain("unsafe-eval");
+  });
+
+  it("keeps the nonce-protected offline shell request-rendered and free of server book props", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    expect(offlineReaderRendering).toBe("force-dynamic");
+    const shell = OfflineReaderPage();
+    expect(shell.type).toBe(OfflineReader);
+    expect(shell.props).toEqual({});
+    const a = visit("/reader/offline")!;
+    const b = visit("/reader/offline")!;
+    expect(nonceOf(a)).toMatch(/^[A-Za-z0-9+/]{22}==$/);
+    expect(nonceOf(b)).not.toBe(nonceOf(a));
+    expect(a.headers.get("x-middleware-request-x-nonce")).toBe(nonceOf(a));
+    expect(a.headers.get("x-middleware-request-content-security-policy")).toBe(a.headers.get("content-security-policy"));
+    expect(directive(a.headers.get("content-security-policy")!, "script-src")).toBe(`script-src 'self' 'nonce-${nonceOf(a)}'`);
   });
 
   it("leaves every other page without it", () => {

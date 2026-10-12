@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from "node:util";
 import { isReadableFormat } from "./formats";
 import { isSha256, parseStageKey } from "./keys";
 import { MEDALLION_VERSION, hashBytes, medallionOf, type StageObject } from "./medallion";
-import { getEbookObjectRange, objectMatches } from "./storage";
+import { checkEbookStorageScope, getEbookObjectRange, objectMatches, type EbookStorageScope } from "./storage";
 import type { PlanFile } from "./ingest/plan";
 
 /** Fail before creating a run when a new plan has inconsistent or noncanonical stage references. */
@@ -70,17 +70,29 @@ export function validateStagePlan(file: PlanFile) {
   }
 }
 
-async function readJson(object: StageObject): Promise<Record<string, unknown>> {
+async function readJson(object: StageObject, scope?: EbookStorageScope): Promise<Record<string, unknown>> {
   if (object.size > 8 * 1024 * 1024) throw new Error("Publication evidence exceeds its limit");
-  const result = await getEbookObjectRange(object.key, 0, object.size - 1);
+  const result = await getEbookObjectRange(object.key, 0, object.size - 1, scope);
   if (!result) throw new Error("Publication evidence is missing");
-  const bytes = new Uint8Array(await new Response(result.body).arrayBuffer());
+  const reader = result.body.getReader(); const chunks: Uint8Array[] = []; let size = 0; let done = false;
+  try {
+    for (;;) {
+      scope?.signal?.throwIfAborted(); const part = await reader.read();
+      if (part.done) { done = true; break; }
+      size += part.value.length;
+      if (size > object.size) throw new Error("Publication evidence exceeds its declared size");
+      chunks.push(part.value);
+    }
+  } finally { try { if (!done) await reader.cancel(); } finally { reader.releaseLock(); } }
+  await checkEbookStorageScope(scope);
+  const bytes = Buffer.concat(chunks, size);
   if (bytes.length !== object.size || hashBytes(bytes) !== object.sha256) throw new Error("Publication evidence checksum differs");
   return JSON.parse(Buffer.from(bytes).toString("utf8"));
 }
 
 /** Recovery and reconciliation verify every stage, including each derived width and marker. */
-export async function verifyPublication(metadata: unknown): Promise<string | null> {
+export async function verifyPublication(metadata: unknown, scope?: EbookStorageScope): Promise<string | null> {
+  await checkEbookStorageScope(scope);
   const stages = medallionOf(metadata);
   if (!stages) return metadata && typeof metadata === "object" && "medallion" in metadata ? "Malformed publication evidence" : null;
   try {
@@ -97,14 +109,14 @@ export async function verifyPublication(metadata: unknown): Promise<string | nul
       return "Invalid publication lineage";
     for (const object of [stages.bronze, stages.silver, ...stages.gold]) {
       const key = parseStageKey(object.key);
-      if (!key || key.sha256 !== bronze.sha256 || key.format !== bronze.format || !(await objectMatches(object.key, object.size, object.sha256)))
+      if (!key || key.sha256 !== bronze.sha256 || key.format !== bronze.format || !(await objectMatches(object.key, object.size, object.sha256, scope)))
         return `Publication object missing or differs: ${object.key}`;
     }
     for (const object of stages.gold) {
       const key = parseStageKey(object.key)!;
       if (key.stage !== "gold" || (key.kind === "derived" && key.reportHash !== stages.silver.sha256)) return "Gold report identity differs";
     }
-    const report = await readJson(stages.silver);
+    const report = await readJson(stages.silver, scope);
     if (report.version !== MEDALLION_VERSION || !isDeepStrictEqual(report.source, stages.bronze) || !isDeepStrictEqual(report.validation, stages.validation))
       return "Silver validation differs from the publication";
     if (!stages.validation.downloadable) return stages.gold.length ? "Unvalidated gold publication" : null;
@@ -124,7 +136,7 @@ export async function verifyPublication(metadata: unknown): Promise<string | nul
       const name = parseStageKey(object.key)?.name;
       if (!artifacts?.some((a) => a.name === name && a.sha256 === object.sha256 && a.size === object.size)) return "Gold artifact differs from silver evidence";
     }
-    const manifest = await readJson(marker);
+    const manifest = await readJson(marker, scope);
     const lineage = manifest.medallion as
       | {
           version?: number;
@@ -144,6 +156,7 @@ export async function verifyPublication(metadata: unknown): Promise<string | nul
       return "Gold publication marker differs from its artifacts";
     return null;
   } catch {
+    scope?.signal?.throwIfAborted();
     return "Publication evidence is unreadable or differs";
   }
 }

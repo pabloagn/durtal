@@ -1,16 +1,17 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { beforeAll, afterAll, beforeEach, describe, it, expect, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_PERFUME_EXPERIENCE_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln366_test");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln366_test")
     throw new Error("Perfume experience tests require disposable local sln366_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -59,14 +60,14 @@ describe.skipIf(!url)("perfume screens: services they need", () => {
   let items: Record<string, string>;
   const year = (value: number) => ({ precision: "year" as const, start: { year: value } });
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln366_test");
     await c`alter table works drop constraint works_kind_enabled_check`;
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, authors, publishing_houses, venues, locations, custom_taxonomy_items, catalogue_dates, media, source_records cascade`;
+    await resetDisposableDatabase(url!, "sln366_test", { emptyLocations: true, activateKinds: true });
     people = {};
     for (const [key, name] of [
       ["guerlain", "Jacques Guerlain"],
@@ -98,7 +99,7 @@ describe.skipIf(!url)("perfume screens: services they need", () => {
         await c`insert into custom_taxonomy_items(family_id,name,slug,parent_id) values (${families[familySlug]},${key},${key},${parent ? items[parent] : null}) returning id`;
       items[key] = row.id;
     }
-  });
+  }, 30000);
 
   const house = (key: string) => ({ organizationId: orgs[key], role: "perfume_house" as const });
   const perfumer = (key: string) => ({ personId: people[key], roleId: "perfume.perfumer" });

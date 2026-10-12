@@ -1,0 +1,6 @@
+{
+  "CallerReference": "durtal-ebooks-__PUBLIC_KEY_SHA256__",
+  "Name": "durtal-ebooks-__PUBLIC_KEY_SHA256_12__",
+  "EncodedKey": "__PUBLIC_RSA_2048_PEM__",
+  "Comment": "Durtal eBook signed URLs; private key in owner login Keychain"
+}

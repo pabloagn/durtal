@@ -1,0 +1,2 @@
+ALTER TABLE "app_settings" ADD COLUMN "lookup_settings" jsonb;--> statement-breakpoint
+ALTER TABLE "app_settings" ADD CONSTRAINT "app_settings_lookup_settings_check" CHECK ("app_settings"."lookup_settings" is null or jsonb_typeof("app_settings"."lookup_settings") = 'object');

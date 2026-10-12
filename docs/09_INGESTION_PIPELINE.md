@@ -436,7 +436,9 @@ file, works out what it is, checks it, reads its metadata, cover and text,
 stores it in the e-book bucket under its checksum, verifies the stored bytes,
 and only then writes its rows. `pnpm ebooks:ingest` runs it on the machine
 that holds the files; the browser upload (SLN-506) will call the same
-library. Every new e-book is `pending`: matching comes in SLN-495.
+library. Every new e-book starts `pending`. SLN-495's proposed integration
+plans matching before registration and applies its approved effects afterwards;
+its reserved schema and writer checkpoint still await generation and acceptance.
 
 **Durtal never moves, changes or deletes a file** in the inbox or any folder
 it reads.
@@ -479,8 +481,17 @@ Non-preview commands require `--aws-profile durtal-personal` and a reviewed `EBO
 ### Plan
 
 `pnpm ebooks:ingest [<folder> ...]` is read-only. The catalogue is read
-through a session that refuses writes (a probe proves it before anything
-runs). Canonical eBook stages and legacy file/derived prefixes are listed; before the AWS setup the
+inside an explicit `BEGIN READ ONLY` transaction. The shared
+`withReadOnlyPlanningConnection` callback requires
+`SHOW transaction_read_only = on`, then a no-op write in a savepoint must fail
+with SQLSTATE `25006`. Every loader and helper receives that same Drizzle
+connection; a failed probe never runs the planner or falls back to the app's
+connection. Startup defaults alone are not protection on the Neon pooler.
+Connections and queries cannot be used after the callback closes.
+The eBook planning/reconcile/verify scope also guards actual S3 SDK dispatch:
+only listing, HEAD and GET may reach the network. The personal CLI bridge
+allows only caller-identity reads and temporary credential export.
+Canonical eBook stages and legacy file/derived prefixes are listed; before the AWS setup the
 bucket does not exist, and the plan says the storage is not set up yet and
 treats it as empty. The plan does five things
 for each file:
@@ -527,18 +538,26 @@ old row becomes `replaced` and the preferred file moves to the new one.
 Every path the run saw is an `ebook_ingest_items` row, so where a file came
 from is always answerable.
 
-The apply ends with a reconciliation. The run is `finished` when it is
-exact, else `failed`, and `/ebooks/runs` shows it.
+The undo log is reserved before the first database write. The command prints
+its run id and undo path before item initialization or uploads. The apply ends
+with a reconciliation, stored on its run and written as
+`reports/ebooks/reconcile-<runId>-<timestamp>.md`. The run is `finished` when it
+is exact, else `failed`, and `/ebooks/runs` shows it.
 
 ### Resume
 
-Ctrl-C stops taking new groups. The run becomes `interrupted`, and so does a
-run whose process died. `pnpm ebooks:ingest --resume <runId> --backup <dump>
+Ctrl-C stops taking new groups. A caught failure marks the run `interrupted`
+when the database is reachable. A hard process kill or database outage can
+leave it labelled `running`; the printed id and reserved undo log still permit
+resume once the connection is restored. `pnpm ebooks:ingest --resume <runId> --backup <dump>
 [--live]` carries on with every item that is not done, from the plan the run
 kept in the cache folder, on the machine that applied it, with the version,
 database and bucket checks of an apply (a run made by another version of the
 tool is not resumed: a new plan adopts what it stored):
 
+- the recorded host, saved plan checksum and undo header must agree; a missing
+  undo log must be restored before resuming;
+- missing initial item rows are inserted without resetting existing outcomes;
 - objects already in S3 are adopted;
 - a multipart upload sends only its missing parts;
 - a group registered just before the stop is not registered again;
@@ -564,8 +583,10 @@ stored, a failed or changed file, a row whose object is missing or differs,
 and an object no row names keep it from being exact. A failed file records
 the error's own words, at most 500 characters, never the failed query.
 
-A source file gone after its object was stored and verified is "no longer in
-the inbox", never an exception: the verified object is the copy. Joris may
+A source changed or gone before complete verified storage remains a blocking
+run exception, even if the directory walk no longer sees it, its new bytes are
+ignored, or another row has those new bytes. A source file gone after its
+publication was stored and verified is "no longer in the inbox", never an exception: the verified object is the copy. Joris may
 empty the inbox once a reconciliation is exact. A file dropped in again is
 recognised by its checksum.
 
@@ -581,6 +602,65 @@ them. After 24 hours an object no row names is a blocking exception of every
 reconciliation, so applies end `failed` until those objects are adopted (plan
 and apply the same files again) or removed. The undo file is written as the run goes, one line per group before its
 atomic, so an interrupted run can be undone too.
+
+### Matching source contract (SLN-495, awaiting acceptance)
+
+`PlanOptions.includeMatching` opts the shared planner into matching. The CLI
+enables it, and tool version 3 distinguishes this frozen plan from version 2.
+Within the protected repeatable-read callback, `planIngestionMatchingOn`
+simulates the same ordered registrations as apply and scores every future group
+alongside the current catalogue. A group has a stable source key, bibliographic
+and delivery-evidence fingerprints, file checksums, candidates and exact edition
+and copy effects. Registration UUIDs are allocated later and proven against the
+actual file rows before matching. Existing Keep/Set aside decisions remain
+bound owner state; an exclusion reason is separate from bibliographic evidence.
+
+`pnpm ebooks:match --sample --ingest-plan PLAN` exports human-label rows from
+these unregistered groups. `--score LABELS.csv --from PLAN` consumes a complete
+sample labelled `right`, `wrong_edition` or `wrong_work`. The receipt binds the
+input plan, model, catalogue, input metadata and candidates. Automatic proposals
+need at least 99% empirical precision and zero wrong-work labels; the report
+exposes the denominator and Wilson 95% interval. These are runtime gates, not
+an assertion that current source fixtures measured production precision.
+Missing labels keep automatic proposals from reaching registration.
+
+Apply validates the frozen approval before any registration write. At the end
+of registration, including resume with every item already done,
+`registeredIngestionGroupsOn` maps keys to real ebook/file ids and
+`planApprovedGroupsOn` refuses changed metadata, delivery evidence, owner
+decisions, catalogue, edition or copy effects. `applyApprovedGroups` applies
+all matching effects in one transaction, with table locks and full snapshot
+assertions ahead of its mutations. Derived classification keeps registration's
+ebook timestamp while recording candidate creation time. Manual linking,
+explicit digital-copy selection and bulk accession use the same guarded
+writers; new copies receive their initial available history.
+
+Each link/accession undo reservation has an operation id, run, plan hash and
+database target. Its committed receipt records full before/after rows, exact
+created parents, moved copies, histories and queued-job ownership. Matching
+undo runs before ingestion undo, checks the committed operation and all current
+FK dependencies in its write transaction, preserves edited/read/annotated or
+otherwise referenced parents, then recomputes classification without linking.
+Keep, Set aside, Restore and explicit `--classification-only` also cannot
+consume automatic proposals. New work enrichment runs after commit at priority
+200 through the supplied database; follow-up failures are returned explicitly.
+
+The upstream SLN-494/498 complete no-op preflight must call
+`ingestionMatchingIsCurrentOn(conn, plan, committedRunId)` inside its protected
+callback, passing the actual committed run UUID resolved from durable run state.
+This proves matching is unchanged, including model version for zero-candidate results.
+Approval binds `externalInputFingerprint` to all loaded ebooks outside the
+selected registration overlay, including decision and file capability evidence
+that affects duplicate preference, shared identifiers and common titles. Apply
+rejects a changed external context before planning writes. Older approvals
+without this binding require a new plan and labels; selected registration UUID
+remapping and same-run completion remain supported.
+Upstream separately proves registration and publication completeness before
+creating a run, reserving undo or transferring objects. This branch's ordinary
+apply entry point still creates bookkeeping and does not by itself satisfy the
+complete zero-write repeat acceptance; integration with that upstream preflight
+is required. Migration 0082 remains ungenerated/unapplied, and writer database,
+precision, performance, native build and reader acceptance are still gated.
 
 ### The cache folder
 

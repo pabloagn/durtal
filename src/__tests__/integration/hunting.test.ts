@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { readFileSync } from "node:fs";
 import {
   beforeAll,
@@ -10,12 +11,12 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { eq, sql } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_HUNT_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln315_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -27,7 +28,7 @@ if (url) {
     );
   }
 }
-const client = url ? postgres(url, { max: 1, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 1, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -56,15 +57,15 @@ import { recordActivity } from "@/lib/activity/record";
 describe.skipIf(!url)("hunting with PostgreSQL", () => {
   const db = testDb!;
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln315_test");
   });
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await db.execute(sql`TRUNCATE works CASCADE`);
+    await resetDisposableDatabase(url!, "sln315_test");
     vi.clearAllMocks();
-  });
+  }, 30000);
   async function book() {
     return (
       await db

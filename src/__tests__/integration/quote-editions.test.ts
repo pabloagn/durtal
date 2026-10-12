@@ -1,19 +1,20 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { NextRequest } from "next/server";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_QUOTE_EDITIONS_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln480_quote_editions");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln480_quote_editions")
     throw new Error("Quote edition tests require a disposable local sln480_quote_editions database");
 }
-const client = url ? postgres(url, { max: 6, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 6, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -72,15 +73,15 @@ describe.skipIf(!url)("quotes tied to editions with PostgreSQL", () => {
   const value = async <T = string>(text: string, values: unknown[] = []) => Object.values((await q(text, values))[0] ?? {})[0] as T;
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln480_quote_editions");
   }, 60000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
     vi.stubEnv("DURTAL_API_TOKEN", TOKEN);
-    await q(`truncate works, authors, locations, activity_events, imports cascade`);
-  });
+    await resetDisposableDatabase(url!, "sln480_quote_editions", { emptyLocations: true });
+  }, 30000);
 
   let serial = 0;
   const book = async (title: string) =>

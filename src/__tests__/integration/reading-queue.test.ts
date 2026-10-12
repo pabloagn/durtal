@@ -1,17 +1,18 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_READING_QUEUE_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln452_reading_queue");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln452_reading_queue")
     throw new Error("Up Next tests require a disposable local sln452_reading_queue database");
 }
-const client = url ? postgres(url, { max: 6, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 6, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -65,14 +66,14 @@ describe.skipIf(!url)("Up Next with PostgreSQL", () => {
   const value = async <T = string>(text: string, params: unknown[] = []) => Object.values((await q(text, params))[0] ?? {})[0] as T;
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln452_reading_queue");
   }, 60000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await q(`truncate works, authors, locations, activity_events, imports cascade`);
-  });
+    await resetDisposableDatabase(url!, "sln452_reading_queue", { emptyLocations: true });
+  }, 30000);
 
   let serial = 0;
   const book = async (title: string, kind = "book") =>
@@ -226,7 +227,7 @@ describe.skipIf(!url)("Up Next with PostgreSQL", () => {
 
     it("keeps the earlier of two queued books, with its note and edition", async () => {
       for (const sourceEarlier of [true, false]) {
-        await q(`truncate works cascade`);
+        await q(`delete from works`);
         const [s, t, x] = [await book("Source"), await book("Target"), await book("Other")];
         const se = await edition(s);
         await addToQueue({ workId: sourceEarlier ? s : t, ...(sourceEarlier ? { editionId: se, note: "source note" } : { note: "target note" }) });

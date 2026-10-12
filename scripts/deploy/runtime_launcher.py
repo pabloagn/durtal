@@ -2,7 +2,8 @@
 """SLN-577 noninteractive exact-main launcher; no installation or secret import.
 
 Reads the existing owner env source in memory; the unchanged reviewed SLN-491
-identity API verifies only the durtal-app IAM pair, without using Keychain. A failed initial
+identity API verifies the durtal-app IAM pair. CloudFront mode alone reads the
+existing signing Keychain item and verifies its public identity in memory. A failed initial
 preflight exits once (launchd KeepAlive=false); only already-running server
 crashes receive a bounded restart attempt. No migrations or tailnet commands.
 """
@@ -28,6 +29,17 @@ from mac_release import (ACCOUNT, Refusal, checked_config, clean_environment, ex
                          file_hash, node_identity, owned_path, read_json, verify_release)
 
 
+SIGNING_SERVICE = 'com.durtal.ebooks.cloudfront-private-key'
+SIGNING_PUBLIC_IDENTITY = '''const fs=require('node:fs'),crypto=require('node:crypto');
+try {
+  const key=crypto.createPrivateKey(fs.readFileSync(0));
+  if(key.asymmetricKeyType!=='rsa'||key.asymmetricKeyDetails?.modulusLength!==2048)
+    process.exit(2);
+  const pem=crypto.createPublicKey(key).export({type:'spki',format:'pem'});
+  process.stdout.write(crypto.createHash('sha256').update(pem).digest('hex'));
+} catch { process.exit(2); }'''
+
+
 class BoundedLog:
     def __init__(self, directory, secrets, limit=10 * 1024 * 1024, copies=5):
         directory = owned_path(directory)
@@ -39,6 +51,9 @@ class BoundedLog:
         self.lock = threading.Lock()
         values = list(secrets.values())
         values += [line for value in values for line in value.splitlines() if len(line) >= 8]
+        # Signing PEM may have arbitrarily short body lines; never emit any.
+        # Keep the existing line policy for ordinary multiline secrets.
+        values += [line for line in secrets.get('signing-pem', '').splitlines() if line]
         self.secrets = sorted(set(v for v in values if v), key=len, reverse=True)
         self._check_files()
 
@@ -94,6 +109,45 @@ def bounded_run(args, **kwargs):
     return subprocess.run(args, **kwargs)
 
 
+def load_signing_helper(config):
+    """Only the existing helper included in the attested release may be loaded."""
+    path = owned_path(Path(config['release']) / 'deploy/macos-secrets.py')
+    manifest = read_json(Path(config['release']) / 'release.json')
+    expected = manifest.get('deploymentToolFiles', {}).get('macos-secrets.py')
+    if not expected or file_hash(path) != expected:
+        raise Refusal('Packaged signing helper identity changed')
+    spec = importlib.util.spec_from_file_location('durtal_signing_secrets', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_signing_key(config, run=bounded_run):
+    """Read one existing signing item; never provision or export a secret."""
+    try:
+        if config.get('account') != ACCOUNT:
+            raise Refusal('Signing account differs')
+        cdn = config['cdn']
+        helper = load_signing_helper(config)
+        store = helper.Keychain(runtime_names=(), budget=False, signing=True)
+        try:
+            raw = store.get(SIGNING_SERVICE, ACCOUNT + ':' + cdn['fingerprint'])
+        finally:
+            store.close()
+        if not isinstance(raw, bytes) or not 0 < len(raw) <= 65536 or b'\x00' in raw:
+            raise Refusal('Signing item unavailable or invalid')
+        raw.decode('utf-8')
+        # The already-pinned Node performs crypto; private bytes travel only
+        # through stdin. stdout is exactly a public fingerprint, never PEM.
+        result = run([config['node']['path'], '-e', SIGNING_PUBLIC_IDENTITY],
+                     input=raw, capture_output=True, timeout=15, env=clean_environment())
+        if result.returncode or result.stderr or result.stdout != cdn['fingerprint'].encode('ascii'):
+            raise Refusal('Signing public identity differs')
+        return raw
+    except Exception:
+        raise Refusal('CloudFront signing preflight failed; sensitive details withheld') from None
+
+
 def load_environment(config, helper, run=bounded_run):
     """Only declared values from the existing owner source enter this process."""
     values = helper.runtime_environment(config['runtimeNames'], config['secretSource'], config['node']['path'], config['aws'])
@@ -103,8 +157,14 @@ def load_environment(config, helper, run=bounded_run):
     env = clean_environment()
     env.update(values)
     env.update(config['environment'])
+    if config['environment']['EBOOK_DELIVERY'] == 'cloudfront':
+        raw_signing = load_signing_key(config, run=run)
+        env['EBOOK_CDN_PRIVATE_KEY'] = base64.b64encode(raw_signing).decode('ascii')
     env.update(NODE_ENV='production', HOSTNAME='127.0.0.1', PORT=str(config['port']))
-    return env, {**values, **({'signing-pem': raw_signing.decode()} if raw_signing else {})}
+    # The redactor knows both PEM and encoded form. They remain process-local
+    # for bounded crash restarts; rotation requires an explicit fresh launch.
+    return env, {**values, **({'signing-pem': raw_signing.decode(),
+                             'EBOOK_CDN_PRIVATE_KEY': env['EBOOK_CDN_PRIVATE_KEY']} if raw_signing else {})}
 
 
 def load_helper(config):

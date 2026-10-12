@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -9,9 +10,9 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 const url = process.env.DURTAL_ACTIVITY_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln297_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -20,7 +21,7 @@ if (url) {
   )
     throw new Error("Activity tests require disposable local sln297_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -54,17 +55,17 @@ describe.skipIf(!url)("activity timeline accuracy", () => {
   const c = client!;
   let workId: string;
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln297_test");
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works,authors,themes,activity_events cascade`;
+    await resetDisposableDatabase(url!, "sln297_test");
     const [work] =
       await c`insert into works(title,slug,kind,original_language) values ('Book','book','book','en') returning id`;
     workId = work.id;
-  });
+  }, 30000);
 
   async function eventsOf(entityId: string, key: string) {
     return c`select metadata from activity_events where entity_id=${entityId} and event_key=${key} order by metadata->>'targetName'`;

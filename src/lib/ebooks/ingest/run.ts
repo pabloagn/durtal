@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
@@ -7,7 +7,7 @@ import type { Db } from "@/lib/catalogue/work-store";
 import { ebookFiles, ebookIngestItems, ebookIngestRuns } from "@/lib/db/schema";
 import type { IngestOutcome, IngestReconciliation } from "@/lib/db/schema/ebook-ingest";
 import { recentBackup } from "@/lib/enrichment/backup";
-import { appendUndoLog, reserveUndoLog } from "@/lib/books/undo-file";
+import { appendUndoLog, readUndoLog, reserveUndoLog } from "@/lib/books/undo-file";
 import { storable, storableText } from "./metadata";
 import { derivedCachePath } from "./prepare";
 import { INGEST_TOOL_VERSION, type IngestPlan, type PlanGroup, type PlanTarget } from "./plan";
@@ -130,6 +130,36 @@ export function checkApply(plan: IngestPlan, options: Pick<ApplyOptions, "target
 /** Where an applied plan is kept, so a resume reads exactly what the run executed */
 const keptPlan = (cacheDir: string, sha256: string) => path.join(cacheDir, "plans", `${sha256}.json`);
 
+/** Rebuild only missing items after interrupted initialization; settled rows stay intact. */
+async function initializeRunItems(runId: string, plan: IngestPlan, options: ApplyOptions, at: Date) {
+  try {
+    // Every path the plan saw, as an item; ignored files and duplicates have nothing left to do
+    const rows = plan.items.map((item) => {
+      const settled = item.outcome === "ignored" || item.outcome === "duplicate_in_run";
+      return {
+        runId,
+        sourceHost: plan.host,
+        sourcePath: item.path,
+        sizeBytes: item.size,
+        sourceMtime: new Date(item.mtimeMs),
+        sha256: item.sha256,
+        format: item.format,
+        state: settled ? ("done" as const) : ("pending" as const),
+        outcome: settled ? item.outcome : null,
+        reason: settled ? item.reason : null,
+        createdAt: at,
+        updatedAt: at,
+      };
+    });
+    for (let i = 0; i < rows.length; i += 500) await options.database.insert(ebookIngestItems).values(rows.slice(i, i + 500))
+        .onConflictDoNothing({ target: [ebookIngestItems.runId, ebookIngestItems.sourcePath] });
+  } catch (error) {
+    await options.database.update(ebookIngestRuns)
+      .set({ state: "interrupted", updatedAt: at }).where(eq(ebookIngestRuns.id, runId));
+    throw error;
+  }
+}
+
 /** Applies a plan: creates the run and its items, then stores and registers every group */
 export async function applyPlan(planFile: string, options: ApplyOptions): Promise<ApplyResult> {
   const text = readFileSync(planFile, "utf8");
@@ -142,33 +172,16 @@ export async function applyPlan(planFile: string, options: ApplyOptions): Promis
   copyFileSync(planFile, keptPlan(options.cacheDir, sha));
 
   const at = new Date(now());
+  const runId = randomUUID();
+  mkdirSync(options.reportDir, { recursive: true });
+  const undoFile = path.join(options.reportDir, `ingest-undo-${runId}.jsonl`);
+  reserveUndoLog(undoFile, { runId, planSha256: sha, createdAt: at.toISOString() });
   const [run] = await options.database
     .insert(ebookIngestRuns)
-    .values({ kind: "apply", host: plan.host, roots: plan.roots, planSha256: sha, toolVersion: INGEST_TOOL_VERSION, startedAt: at, updatedAt: at })
+    .values({ id: runId, kind: "apply", host: plan.host, roots: plan.roots, planSha256: sha, toolVersion: INGEST_TOOL_VERSION, startedAt: at, updatedAt: at })
     .returning({ id: ebookIngestRuns.id });
-  mkdirSync(options.reportDir, { recursive: true });
-  const undoFile = path.join(options.reportDir, `ingest-undo-${run.id}.jsonl`);
-  reserveUndoLog(undoFile, { runId: run.id, planSha256: sha, createdAt: at.toISOString() });
 
-  // Every path the plan saw, as an item; ignored files and duplicates have nothing left to do
-  const rows = plan.items.map((item) => {
-    const settled = item.outcome === "ignored" || item.outcome === "duplicate_in_run";
-    return {
-      runId: run.id,
-      sourceHost: plan.host,
-      sourcePath: item.path,
-      sizeBytes: item.size,
-      sourceMtime: new Date(item.mtimeMs),
-      sha256: item.sha256,
-      format: item.format,
-      state: settled ? ("done" as const) : ("pending" as const),
-      outcome: settled ? item.outcome : null,
-      reason: settled ? item.reason : null,
-      createdAt: at,
-      updatedAt: at,
-    };
-  });
-  for (let i = 0; i < rows.length; i += 500) await options.database.insert(ebookIngestItems).values(rows.slice(i, i + 500));
+  await initializeRunItems(run.id, plan, options, at);
   return processRun(run.id, plan, undoFile, options);
 }
 
@@ -176,6 +189,7 @@ export async function applyPlan(planFile: string, options: ApplyOptions): Promis
 export async function resumeRun(runId: string, options: ApplyOptions): Promise<ApplyResult> {
   const [run] = await options.database.select().from(ebookIngestRuns).where(eq(ebookIngestRuns.id, runId));
   if (!run) throw new Error(`No run ${runId}. Nothing written.`);
+  if (run.host !== options.host) throw new Error("This run belongs to another host: resume from there. Nothing written.");
   if (run.kind !== "apply" || !run.planSha256) throw new Error("Only an apply can be resumed. Nothing written.");
   if (run.state === "finished") throw new Error("The run finished: there is nothing to resume.");
   const file = keptPlan(options.cacheDir, run.planSha256);
@@ -189,13 +203,12 @@ export async function resumeRun(runId: string, options: ApplyOptions): Promise<A
   for (const file of Object.values(plan.files)) validateStagePlan(file);
   if (planSha256(readFileSync(file, "utf8")) !== run.planSha256) throw new Error("The saved plan changed. Nothing written.");
   const undoFile = path.join(options.reportDir, `ingest-undo-${run.id}.jsonl`);
-  if (!existsSync(undoFile))
-    reserveUndoLog(undoFile, {
-      runId: run.id,
-      planSha256: run.planSha256,
-      createdAt: new Date().toISOString(),
-    });
+  if (!existsSync(undoFile)) throw new Error("The run undo file is missing. Nothing written.");
+  const { header } = readUndoLog<{ runId: string; planSha256: string }, unknown>(undoFile);
+  if (header.runId !== run.id || header.planSha256 !== run.planSha256)
+    throw new Error("The run undo file belongs to another plan. Nothing written.");
   await options.database.update(ebookIngestRuns).set({ state: "running", updatedAt: new Date() }).where(eq(ebookIngestRuns.id, run.id));
+  await initializeRunItems(run.id, plan, options, new Date(options.now?.() ?? Date.now()));
   return processRun(run.id, plan, undoFile, options);
 }
 
@@ -215,6 +228,7 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
   const openPaths = new Set(open.map((o) => o.path));
   const registered = new Map(open.filter((o) => o.state === "registered").map((o) => [o.path, o.fileId]));
   const registeredPaths = new Set(registered.keys());
+  const storedPaths = new Set(open.filter((item) => item.state === "stored").map((item) => item.path));
   const work = plan.groups.filter((group) => group.paths.some((p) => openPaths.has(p)));
   const clusters = clusterGroups(work);
 
@@ -268,6 +282,12 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
       const unchanged: string[] = [];
       for (const p of toRegister) {
         const file = plan.files[p];
+        if (storedPaths.has(p)) {
+          const problem = await verifyPublication(file.metadata);
+          if (problem) throw new Error(problem);
+          unchanged.push(p);
+          continue;
+        }
         const info = await stat(p).catch(() => null);
         if (!info || info.size !== file.size || Math.abs(info.mtimeMs - file.mtimeMs) > 1) {
           await setItems([p], {
@@ -283,6 +303,7 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
       // Store the files and their derived objects; already stored ones need nothing
       const catalogue = await readGroupCatalogue(db, group, files);
       for (const file of files) {
+        if (storedPaths.has(file.path)) continue;
         if (catalogue.bySha.has(file.sha256)) {
           const stored = catalogue.bySha.get(file.sha256)!;
           if (stored.metadata && medallionOf(stored.metadata)) {

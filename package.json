@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/vendor-pdfjs.mjs && next dev --turbopack",
-    "build": "node scripts/vendor-pdfjs.mjs && next build",
+    "build": "node scripts/vendor-pdfjs.mjs && next build && node scripts/prepare-native-pdf.mjs && node scripts/prepare-offline.mjs",
     "start": "next start",
     "lint": "eslint src/",
     "deadcode": "knip --include files,dependencies,unlisted",
@@ -19,6 +19,7 @@
     "ebooks:verify": "tsx --tsconfig tsconfig.json scripts/ebooks/verify.ts",
     "ebooks:ingest": "tsx --tsconfig tsconfig.json scripts/ebooks/ingest.ts",
     "ebooks:reconcile": "tsx --tsconfig tsconfig.json scripts/ebooks/reconcile.ts",
+    "ebooks:match": "tsx --tsconfig tsconfig.json scripts/ebooks/match.ts",
     "test": "vitest run",
     "test:local": "python3 scripts/qa/test-local.py",
     "test:watch": "vitest"
@@ -84,6 +85,7 @@
     "eslint": "^10.1.0",
     "eslint-config-next": "^16.2.1",
     "eslint-plugin-react-hooks": "^7.0.1",
+    "fake-indexeddb": "6.2.5",
     "happy-dom": "^20.14.5",
     "knip": "^6.39.0",
     "postgres": "^3.4.8",

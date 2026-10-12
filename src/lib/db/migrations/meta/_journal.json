@@ -575,6 +575,55 @@
       "when": 1791393593792,
       "tag": "0081_ebook_ingest",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1791673079238,
+      "tag": "0082_ebook_matching",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1791692848035,
+      "tag": "0083_ebook_annotations_search",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1791698242927,
+      "tag": "0084_ebook_library",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1791698249599,
+      "tag": "0085_reader_preferences",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1791698256777,
+      "tag": "0086_reader_lookup_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1791698264495,
+      "tag": "0087_reader_tracker_integration",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1791698272754,
+      "tag": "0088_ebook_upload",
+      "breakpoints": true
     }
   ]
 }

@@ -1,3 +1,20 @@
+import { uploadRegistrationTargetSchema } from "../upload/registration-target";
+import { snapshotGuardQueries } from "../match/guards";
+import { classificationQueries } from "../match/classification";
+import type { LoadedMatchCatalogue } from "../match/load";
+import type { MatchResult } from "../match/types";
+import { MATCH_MODEL } from "../match/model";
+import { requireFiniteScore, requireMatchProbability } from "../match/validation";
+import { z } from "zod/v4";
+import { privateRegistrationInput, registrationInputSha256 } from "./registration-input";
+import { immutableMatchingWriterInput } from "../match/writer-input";
+import { reviewOperationSchema } from "@/lib/validations/ebook-review";
+import type { MatchOperationIdentity } from "../match/types";
+import { lockSql } from "@/lib/harmonization/store";
+import { requireUploadAtomicExtension, requireUploadPublicationFiles, requireUploadRegistrationSource,
+  uploadForwardUpdatedAt, uploadTargetSnapshotOf, uploadOriginalCatalogueOf, uploadRegistrationIntentOf,
+  type PreparedUploadAtomicExtension } from "../upload/atomic-extension-registry";
+import { canonicalReviewJson, reviewPayloadHash } from "../review/receipts";
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@/lib/catalogue/work-store";
@@ -226,27 +243,214 @@ export function planRegistration(
   };
 }
 
-/** Writes one registration and its items as one unit: all of it or nothing */
-export async function registerGroup(database: Db, registration: Registration, runId: string): Promise<void> {
-  const r = registration;
+export interface UploadRegistrationClassification {
+  snapshot: Pick<LoadedMatchCatalogue, "rows">;
+  result: MatchResult;
+}
+export interface UploadRegistrationOptions {
+  uploadExtension: PreparedUploadAtomicExtension;
+  operation: MatchOperationIdentity;
+  classification?: UploadRegistrationClassification;
+}
+export function registrationPlanSha256(registration: Registration, classification?: UploadRegistrationClassification): string {
+  return registrationInputSha256(classification === undefined ? registration : { registration, classification });
+}
+function prepareUploadRegistration(r: Registration, runId: string, options: UploadRegistrationOptions) {
+  const operation = reviewOperationSchema.parse(immutableMatchingWriterInput(options.operation));
+  const extension = requireUploadAtomicExtension(options.uploadExtension, {
+    coreWriter: "registration", coreOperation: operation, ebookIds: [r.ebookId], purpose: "effect",
+  });
+  const id = z.uuid();
+  id.parse(r.ebookId); id.parse(runId);
+  if (operation.runId !== runId || operation.planSha256 !== registrationPlanSha256(r, options.classification) ||
+      r.inserts.length !== 1 || r.items.length !== 1 || r.items[0].ebookId !== r.ebookId ||
+      r.items[0].fileId !== r.inserts[0].id || !["new_ebook", "new_format", "replaced_file"].includes(r.items[0].outcome) ||
+      r.newEbook && (r.newEbook.id !== r.ebookId || r.newEbook.matchState !== "pending" || r.newEbook.instanceId != null) ||
+      new Set(r.replaced.map((row) => row.fileId)).size !== r.replaced.length)
+    throw new Error("Upload registration identity, rows or plan hash changed");
+  const f = r.inserts[0];
+  if (!f.id || f.ebookId !== r.ebookId || !f.metadata || !f.manifestKey || f.drm ||
+      f.status !== "stored" || f.sourcePath !== r.items[0].path || r.items[0].reason !== null)
+    throw new Error("Upload registration lacks its verified readable publication");
+  id.parse(f.id);
+  requireUploadPublicationFiles(extension, [{ id: f.id, ebookId: r.ebookId, sha256: f.sha256,
+    format: f.format, sizeBytes: f.sizeBytes, s3Key: f.s3Key, manifestKey: f.manifestKey, metadata: f.metadata }]);
+  requireUploadRegistrationSource(extension, { runId, path: r.items[0].path, sha256: f.sha256,
+    sizeBytes: f.sizeBytes, format: f.format });
+  const current = uploadTargetSnapshotOf(extension);
+  const intent = uploadRegistrationTargetSchema.parse(uploadRegistrationIntentOf(extension));
+  if (intent.kind === "new" ? !r.newEbook || r.replaced.length !== 0 : !!r.newEbook || r.ebookId !== intent.ebookId ||
+      (intent.kind === "add_format" ? r.replaced.length !== 0 : r.replaced.length !== 1 || r.replaced[0].fileId !== intent.fileId) ||
+      intent.beforeFingerprint !== reviewPayloadHash({ version: 1, ebooks: current.ebooks, ebook_files: current.ebook_files }))
+    throw new Error("Upload registration differs from its durable explicit new/add-format/replace intent");
+  if (options.classification) {
+    const result = options.classification.result;
+    if (result.ebookId !== r.ebookId || result.skipped || result.modelVersion !== MATCH_MODEL.version ||
+        !r.newEbook && current.ebooks.find((row) => row.id === r.ebookId)?.match_state !== "pending")
+      throw new Error("Upload classification requires its actual single pending target");
+    for (const candidate of result.candidates) {
+      requireMatchProbability(candidate.probability);
+      requireFiniteScore(candidate.weightBits, candidate.marginBits);
+    }
+  }
+  const ebook = current.ebooks.find((row) => row.id === r.ebookId);
+  if (r.newEbook ? !!ebook : !ebook || ebook.preferred_file_id !== r.preferredBefore || ebook.cover_key !== r.coverBefore)
+    throw new Error("Upload registration before-state differs from its protected catalogue");
+  for (const replacement of r.replaced) {
+    id.parse(replacement.fileId);
+    const old = current.ebook_files.find((row) => row.id === replacement.fileId);
+    if (!old || old.ebook_id !== r.ebookId || old.status !== replacement.previousStatus || old.format !== f.format || old.sha256 === f.sha256)
+      throw new Error("Upload replacement does not name the original same-format file");
+  }
+  const preferred = current.ebook_files.find((row) => row.id === r.preferredAfter);
+  if (r.preferredAfter !== null && r.preferredAfter !== f.id &&
+      (!preferred || preferred.ebook_id !== r.ebookId || r.replaced.some((row) => row.fileId === preferred.id)))
+    throw new Error("Upload preferred file is outside the resulting registration");
+  return extension;
+}
+/** Writes one registration and its items as one unit: all of it or nothing. */
+export function registerGroup(database: Db, registration: Registration, runId: string): Promise<void>;
+export function registerGroup(database: Db, registration: Registration, runId: string,
+  options: UploadRegistrationOptions): Promise<unknown[]>;
+export async function registerGroup(database: Db, registration: Registration, runId: string,
+  options?: UploadRegistrationOptions): Promise<void | unknown[]> {
+  const r = privateRegistrationInput(registration);
+  const classification = options?.classification === undefined ? undefined : immutableMatchingWriterInput(options.classification);
+  const extension = options ? prepareUploadRegistration(r, runId, { ...options, classification }) : undefined;
   const replacedIds = r.replaced.map((x) => x.fileId);
   const preferredChanges = r.newEbook ? r.preferredAfter !== null || r.coverAfter !== null : r.preferredAfter !== r.preferredBefore || r.coverAfter !== r.coverBefore;
-  await withReadableErrors(() =>
-    atomicOn(database, (d) => [
-      ...(r.newEbook ? [d.insert(ebooks).values(r.newEbook)] : []),
-      ...(r.inserts.length ? [d.insert(ebookFiles).values(r.inserts)] : []),
-      ...(replacedIds.length ? [d.update(ebookFiles).set({ status: "replaced", updatedAt: r.at }).where(inArray(ebookFiles.id, replacedIds))] : []),
-      ...(preferredChanges
-        ? [d.update(ebooks).set({ preferredFileId: r.preferredAfter, coverKey: r.coverAfter, updatedAt: r.at }).where(eq(ebooks.id, r.ebookId))]
-        : []),
-      ...r.items.map((item) =>
-        d
-          .update(ebookIngestItems)
-          .set({ state: "registered", outcome: item.outcome, reason: item.reason, ebookId: item.ebookId, fileId: item.fileId, lastError: null, updatedAt: r.at })
-          .where(and(eq(ebookIngestItems.runId, runId), eq(ebookIngestItems.sourcePath, item.path))),
-      ),
-    ]),
-  );
+  const results = await withReadableErrors(() => atomicOn(database, (d) => [
+    ...(classification ? snapshotGuardQueries(d, classification.snapshot, extension!.extraTables)
+      : extension ? [d.execute(lockSql([...extension.extraTables]))] : []),
+    ...(extension?.before(d) ?? []),
+    ...(r.newEbook ? [d.insert(ebooks).values(r.newEbook)] : []),
+    ...(r.inserts.length ? [d.insert(ebookFiles).values(r.inserts)] : []),
+    ...(replacedIds.length ? [d.update(ebookFiles).set({ status: "replaced", updatedAt: extension ? uploadForwardUpdatedAt() : r.at }).where(inArray(ebookFiles.id, replacedIds))] : []),
+    ...(preferredChanges || extension
+      ? [d.update(ebooks).set({ preferredFileId: r.preferredAfter, coverKey: r.coverAfter,
+          updatedAt: extension ? uploadForwardUpdatedAt() : r.at }).where(eq(ebooks.id, r.ebookId))] : []),
+    ...r.items.map((item) => d.update(ebookIngestItems)
+      .set({ state: "registered", outcome: item.outcome, reason: item.reason, ebookId: item.ebookId,
+        fileId: item.fileId, lastError: null, updatedAt: extension ? uploadForwardUpdatedAt() : r.at })
+      .where(and(eq(ebookIngestItems.runId, runId), eq(ebookIngestItems.sourcePath, item.path)))),
+    ...(classification ? classificationQueries(d, [classification.result], r.at, { touchEbook: false }) : []),
+    ...(extension?.after(d) ?? []),
+  ]));
+  if (extension) return results;
+}
+
+const restorationSchema = z.strictObject({
+  ...reviewOperationSchema.shape,
+  kind: z.enum(["restore_registration", "compensate_registration"]),
+  ebookId: z.uuid(),
+  fileId: z.uuid().nullable(),
+  files: z.array(z.strictObject({ fileId: z.uuid(), status: z.enum(["stored", "verified", "missing", "quarantined", "replaced"]) })),
+  preferredAfter: z.uuid().nullable(),
+  coverAfter: z.string().nullable(),
+});
+export type RegistrationRestorationPlan = z.output<typeof restorationSchema>;
+export type RegistrationCatalogueSnapshot = {
+  ebooks: readonly Record<string, unknown>[];
+  ebook_files: readonly Record<string, unknown>[];
+};
+type RestorationEffect = Pick<RegistrationRestorationPlan, "files" | "preferredAfter" | "coverAfter">;
+function registrationRestorationEffect(kind: RegistrationRestorationPlan["kind"], ebookId: string,
+  fileId: string | null, before: RegistrationCatalogueSnapshot, after: RegistrationCatalogueSnapshot): RestorationEffect {
+  const previous = before.ebook_files.filter((row) => row.ebook_id === ebookId);
+  const current = after.ebook_files.filter((row) => row.ebook_id === ebookId);
+  const ebook = after.ebooks.find((row) => row.id === ebookId);
+  if (!ebook) throw new Error("Original registration after-state lacks its e-book");
+  const changes = new Map<string, RegistrationRestorationPlan["files"][number]>();
+  const add = (id: unknown, status: unknown) => {
+    const change = restorationSchema.shape.files.element.parse({ fileId: id, status });
+    changes.set(change.fileId, change);
+  };
+  if (kind === "restore_registration") {
+    const file = previous.find((row) => row.id === fileId);
+    const retained = current.find((row) => row.id === fileId);
+    if (!file || !retained || !["stored", "verified"].includes(String(file.status)) ||
+        retained.status !== "replaced" || retained.sha256 !== file.sha256 || retained.s3_key !== file.s3_key ||
+        retained.format !== file.format || retained.manifest_key !== file.manifest_key || retained.drm !== null)
+      throw new Error("Restore requires the retained original readable file");
+    for (const row of current)
+      if (row.id !== fileId && row.format === file.format && ["stored", "verified"].includes(String(row.status)))
+        add(row.id, "replaced");
+    add(file.id, file.status);
+    return { files: [...changes.values()].sort((a, b) => a.fileId.localeCompare(b.fileId)),
+      preferredAfter: z.uuid().parse(file.id), coverAfter: z.string().nullable().parse(file.cover_key) };
+  }
+  if (fileId !== null) throw new Error("Registration compensation does not select a replacement file");
+  // Keep every registered file, including files referenced by annotations or
+  // places. Only retire files introduced by this registration and restore the
+  // exact earlier statuses/pointers; no row deletion or locator rewriting.
+  for (const row of current) {
+    const old = previous.find((file) => file.id === row.id);
+    if (!old) add(row.id, "replaced");
+    else if (old.status !== row.status) add(row.id, old.status);
+  }
+  const oldEbook = before.ebooks.find((row) => row.id === ebookId);
+  return { files: [...changes.values()].sort((a, b) => a.fileId.localeCompare(b.fileId)),
+    preferredAfter: oldEbook ? z.uuid().nullable().parse(oldEbook.preferred_file_id) : null,
+    coverAfter: oldEbook ? z.string().nullable().parse(oldEbook.cover_key) : null };
+}
+export function registrationRestorationPlanSha256(plan: RegistrationRestorationPlan): string {
+  const { planSha256: _hash, ...content } = restorationSchema.parse(immutableMatchingWriterInput(plan));
+  return reviewPayloadHash(content);
+}
+/** Pure source-bound planning. The adapter obtains these full snapshots under
+ * its read-only protected connection; the writer rechecks the original durable
+ * receipt and exact after-state through its issued capability. */
+export function planRegistrationRestoration(input: {
+  operation: Omit<MatchOperationIdentity, "planSha256">;
+  kind: RegistrationRestorationPlan["kind"];
+  ebookId: string; fileId: string | null;
+  before: RegistrationCatalogueSnapshot; after: RegistrationCatalogueSnapshot;
+}): RegistrationRestorationPlan {
+  const frozen = immutableMatchingWriterInput(input);
+  const plan = restorationSchema.parse({ ...frozen.operation, planSha256: "0".repeat(64),
+    kind: frozen.kind, ebookId: frozen.ebookId, fileId: frozen.fileId,
+    ...registrationRestorationEffect(frozen.kind, frozen.ebookId, frozen.fileId, frozen.before, frozen.after) });
+  plan.planSha256 = registrationRestorationPlanSha256(plan);
+  return immutableMatchingWriterInput(plan);
+}
+async function writeRegistrationRestoration(database: Db, input: RegistrationRestorationPlan, target: string,
+  options: { uploadExtension: PreparedUploadAtomicExtension }, kind: RegistrationRestorationPlan["kind"]): Promise<unknown[]> {
+  const plan = restorationSchema.parse(immutableMatchingWriterInput(input));
+  if (plan.kind !== kind || plan.targetDatabase !== target || plan.planSha256 !== registrationRestorationPlanSha256(plan))
+    throw new Error("Registration restoration target, purpose or plan hash changed");
+  const extension = requireUploadAtomicExtension(options.uploadExtension, { coreWriter: kind,
+    coreOperation: plan, ebookIds: [plan.ebookId], purpose: kind === "restore_registration" ? "restore" : "compensation" });
+  const original = uploadOriginalCatalogueOf(extension);
+  if (original.coreWriter !== "registration" || canonicalReviewJson({ files: plan.files,
+    preferredAfter: plan.preferredAfter, coverAfter: plan.coverAfter }) !== canonicalReviewJson(
+      registrationRestorationEffect(kind, plan.ebookId, plan.fileId, original.catalogueBefore, original.catalogueAfter)))
+    throw new Error("Registration restoration differs from the original committed registration");
+  if (kind === "restore_registration") {
+    const file = original.catalogueAfter.ebook_files.find((row) => row.id === plan.fileId)!;
+    requireUploadPublicationFiles(extension, [{ id: z.uuid().parse(file.id), ebookId: plan.ebookId,
+      sha256: z.string().parse(file.sha256), format: z.string().parse(file.format), sizeBytes: Number(file.size_bytes),
+      s3Key: z.string().parse(file.s3_key), manifestKey: z.string().parse(file.manifest_key),
+      metadata: z.record(z.string(), z.unknown()).parse(file.metadata) }]);
+  }
+  return withReadableErrors(() => atomicOn(database, (d) => [
+    d.execute(lockSql([...extension.extraTables])),
+    ...extension.before(d),
+    // Restrict every changed file to the bound e-book even after full snapshot
+    // verification. Reader rows and immutable source/publication columns remain.
+    ...plan.files.map((file) => d.update(ebookFiles).set({ status: file.status, updatedAt: uploadForwardUpdatedAt() })
+      .where(and(eq(ebookFiles.id, file.fileId), eq(ebookFiles.ebookId, plan.ebookId)))),
+    d.update(ebooks).set({ preferredFileId: plan.preferredAfter, coverKey: plan.coverAfter,
+      updatedAt: uploadForwardUpdatedAt() }).where(eq(ebooks.id, plan.ebookId)),
+    ...extension.after(d),
+  ]));
+}
+export function restoreRegisteredFileOn(database: Db, plan: RegistrationRestorationPlan, target: string,
+  options: { uploadExtension: PreparedUploadAtomicExtension }): Promise<unknown[]> {
+  return writeRegistrationRestoration(database, plan, target, options, "restore_registration");
+}
+export function compensateRegistrationOn(database: Db, plan: RegistrationRestorationPlan, target: string,
+  options: { uploadExtension: PreparedUploadAtomicExtension }): Promise<unknown[]> {
+  return writeRegistrationRestoration(database, plan, target, options, "compensate_registration");
 }
 
 /** One group's line in the undo file, written before its atomic */

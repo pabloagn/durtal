@@ -1,15 +1,15 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
-import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 
 const url = process.env.DURTAL_EBOOK_CONSTRAINTS_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln518_ebook_constraints");
 if (url) {
   const parsed = new URL(url);
   if (!["127.0.0.1", "localhost"].includes(parsed.hostname) || parsed.pathname !== "/sln518_ebook_constraints")
     throw new Error("E-book constraint tests require disposable local sln518_ebook_constraints");
 }
-const client = url ? postgres(url, { max: 2, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 2, onnotice: () => {} }) : null;
 
 /** The SQLSTATE and the constraint a refused statement names; null when it was accepted */
 async function refusal(statement: Promise<unknown>) {
@@ -44,36 +44,44 @@ describe.skipIf(!url)("the e-book constraints", () => {
     })} returning id`;
     return row.id as string;
   };
-  const position = (ebookId: string, fileId: string) =>
+  // Full-chain 0083 annotations require a versioned locator bound to the
+  // actual file digest. The same canonical locator also serves positions.
+  const locator = async (fileId: string) => {
+    const [stored] = await c`select sha256 from ebook_files where id = ${fileId}`;
+    if (!stored) throw new Error("Missing constraint fixture file");
+    return { v: 1, fileHash: stored.sha256, href: "chapter-1.xhtml",
+      sectionIndex: 0, progression: 0.1, totalProgression: 0.1 };
+  };
+  const position = async (ebookId: string, fileId: string) =>
     c`insert into ebook_positions ${c({
       ebook_id: ebookId,
       file_id: fileId,
       device_id: "device",
       device_label: "Mac · Firefox",
-      locator: JSON.stringify({ href: "chapter-1.xhtml" }),
+      locator: c.json(await locator(fileId)),
       progression: 0.1,
       furthest_progression: 0.1,
       client_updated_at: new Date().toISOString(),
     })}`;
-  const annotation = (ebookId: string, fileId: string) =>
+  const annotation = async (ebookId: string, fileId: string) =>
     c`insert into ebook_annotations ${c({
       ebook_id: ebookId,
       file_id: fileId,
       kind: "bookmark",
-      locator: JSON.stringify({ href: "chapter-1.xhtml" }),
+      locator: c.json(await locator(fileId)),
       progression: 0.1,
       client_updated_at: new Date().toISOString(),
     })}`;
 
   beforeAll(async () => {
-    await migrate(drizzle(c), { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln518_ebook_constraints");
   }, 60000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate ebook_annotations, ebook_positions, ebook_files, ebooks cascade`;
-  });
+    await resetDisposableDatabase(url!, "sln518_ebook_constraints");
+  }, 30000);
 
   it("refuses a position, an annotation or a preferred file of another e-book", async () => {
     const labas = await ebook();
@@ -82,7 +90,15 @@ describe.skipIf(!url)("the e-book constraints", () => {
     const reboursFile = await file(rebours);
     const foreignKey = (constraint: string) => ({ code: "23503", constraint });
     expect(await refusal(position(labas, reboursFile))).toEqual(foreignKey("ebook_positions_file_ebook_fk"));
-    expect(await refusal(annotation(labas, reboursFile))).toEqual(foreignKey("ebook_annotations_file_ebook_fk"));
+    // A foreign insert is rejected by the enabled annotation lifecycle guard
+    // before FK enforcement. Exercise the exact composite FK from its parent
+    // side with a valid annotation and no position/preferred-file references.
+    expect(await refusal(annotation(labas, reboursFile))).toEqual({ code: "23514", constraint: "ebook_annotation_locator_file" });
+    const annotationOnlyFile = await file(labas);
+    await annotation(labas, annotationOnlyFile);
+    expect(await refusal(c`update ebook_files set ebook_id = ${rebours} where id = ${annotationOnlyFile}`))
+      .toEqual(foreignKey("ebook_annotations_file_ebook_fk"));
+    expect(await c`select ebook_id from ebook_files where id = ${annotationOnlyFile}`).toEqual([{ ebook_id: labas }]);
     expect(await refusal(c`update ebooks set preferred_file_id = ${reboursFile} where id = ${labas}`)).toEqual(
       foreignKey("ebooks_preferred_file_ebook_fk"),
     );

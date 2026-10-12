@@ -2,7 +2,9 @@
 
 import { db } from "@/lib/db";
 import { locations, subLocations } from "@/lib/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, sql } from "drizzle-orm";
+import { atomic } from "@/lib/db/atomic";
+import { lockReaderEbooks, withReaderWriteRetry } from "@/lib/reading/reader-write-locks";
 import { cached, invalidate, CACHE_TAGS } from "@/lib/cache";
 import {
   createLocationSchema,
@@ -54,7 +56,11 @@ export async function updateLocation(id: string, input: UpdateLocationInput) {
 }
 
 export async function deleteLocation(id: string) {
-  await db.delete(locations).where(eq(locations.id, id));
+  parseId(id);
+  await withReaderWriteRetry(() => atomic((d) => [
+    lockReaderEbooks(d, sql`select eb.id from ebooks eb join instances i on i.id=eb.instance_id where i.location_id=${id}::uuid`),
+    d.delete(locations).where(eq(locations.id, id)),
+  ]));
   // The database clears the default location when it is this one
   invalidate(CACHE_TAGS.locations, CACHE_TAGS.settings);
   return { id };

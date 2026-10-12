@@ -1,17 +1,18 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 import { CROSSING, ENTITIES, SOLARIS, SOLARIS_REMAKE, stubState, wikidataFetch, type StubState } from "@/__tests__/fixtures/films/wikidata";
 
 const url = process.env.DURTAL_FILM_SOURCES_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln376_film_sources");
 if (url) {
   const parsed = new URL(url);
   if (!["127.0.0.1", "localhost"].includes(parsed.hostname) || parsed.pathname !== "/sln376_film_sources")
     throw new Error("Film source tests require disposable local sln376_film_sources");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -47,19 +48,19 @@ describe.skipIf(!url)("film source lookup", () => {
   let russian: string;
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln376_film_sources");
   }, 60000);
   afterAll(async () => {
     vi.unstubAllGlobals();
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, authors, publishing_houses, catalogue_dates, source_records, catalogue_identifiers, activity_events, countries, languages cascade`;
+    await resetDisposableDatabase(url!, "sln376_film_sources");
     state = stubState();
     vi.stubGlobal("fetch", wikidataFetch(state));
     [{ id: france }] = await c`insert into countries(name, alpha_2, alpha_3) values ('France', 'FR', 'FRA') returning id`;
     [{ id: russian }] = await c`insert into languages(name, iso_639_1) values ('Russian', 'ru') returning id`;
-  });
+  }, 30000);
 
   it("finds films of a title, and reviews one against the film here without writing", async () => {
     expect(await searchFilmSource("Solaris")).toMatchObject({

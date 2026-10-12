@@ -1,0 +1,24 @@
+# Separate owned inspector image; default Dockerfile/Compose stay unchanged.
+# Building/installing/running requires root's phase grant. No new npm package.
+FROM node:22-alpine AS dependencies
+WORKDIR /inspector
+RUN apk add --no-cache libc6-compat
+COPY package.json pnpm-lock.yaml ./
+RUN corepack enable pnpm && pnpm install --frozen-lockfile
+
+FROM node:22-alpine AS inspector
+WORKDIR /inspector
+RUN apk add --no-cache libc6-compat
+COPY --from=dependencies /inspector/node_modules ./node_modules
+COPY package.json ./package.json
+COPY src/lib/ebooks ./src/lib/ebooks
+COPY src/lib/utils/language.ts ./src/lib/utils/language.ts
+COPY src/lib/constants/languages.ts src/lib/constants/language-names.ts ./src/lib/constants/
+COPY src/lib/env.ts ./src/lib/env.ts
+COPY infra/ebooks/inspector/tsconfig.json ./tsconfig.json
+COPY infra/ebooks/inspector/worker.mjs ./worker.mjs
+COPY infra/ebooks/inspector/patch-pdf.mjs ./patch-pdf.mjs
+RUN node patch-pdf.mjs > pdf-patch.json && rm patch-pdf.mjs
+# UID/GID are explicitly selected by the owned supervisor to match its spool.
+USER 1001:1001
+ENTRYPOINT ["node", "--max-old-space-size=256", "/inspector/worker.mjs"]

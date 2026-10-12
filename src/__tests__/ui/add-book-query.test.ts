@@ -12,12 +12,17 @@ const none = vi.hoisted(() => async () => []);
 vi.mock("@/lib/actions/works", () => ({ findDuplicateWork: vi.fn(async () => null) }));
 vi.mock("@/lib/actions/wizard", () => ({ createBookFromWizard: vi.fn(), isIsbnInUse: vi.fn(async () => ({ inUse: false })) }));
 vi.mock("@/lib/actions/fast-track", () => ({ fastTrackBook: vi.fn() }));
+// The Next server action is a transport boundary; these query-only cases never
+// save a book or acquire suggestions from the server implementation.
+vi.mock("@/lib/actions/ebook-review-suggestions", () => ({
+  refreshSuggestionsForCreatedBook: vi.fn(async () => { throw new Error("Unexpected saved-book feedback in query fixture"); }),
+}));
 vi.mock("@/lib/actions/recommenders", () => ({ getRecommenders: vi.fn(none) }));
 vi.mock("@/lib/actions/locations", () => ({ getLocations: vi.fn(none) }));
 vi.mock("@/lib/actions/collections", () => ({ getCollections: vi.fn(none) }));
 vi.mock("@/lib/actions/taxonomy", () => new Proxy({}, { get: (_, key) => (key === "then" ? undefined : vi.fn(none)) }));
 
-import { AddBookWizard } from "@/app/library/new/wizard";
+import { AddBookWizard } from "@/app/(catalogue)/library/new/wizard";
 
 beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

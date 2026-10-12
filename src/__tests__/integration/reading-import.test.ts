@@ -1,7 +1,7 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as schema from "@/lib/db/schema";
@@ -10,12 +10,13 @@ import { DURTAL_READING_COLUMNS } from "@/lib/reading/import/durtal-format";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_READING_IMPORT_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln450_reading_import");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln450_reading_import")
     throw new Error("Reading import tests require a disposable local sln450_reading_import database");
 }
-const client = url ? postgres(url, { max: 6, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 6, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 const executed = { count: 0 };
 vi.mock("@/lib/db", () => ({
@@ -68,15 +69,15 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
   const value = async <T = string>(text: string, params: unknown[] = []) => Object.values((await q(text, params))[0] ?? {})[0] as T;
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln450_reading_import");
   }, 60000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await q(`truncate works, authors, locations, activity_events, imports cascade`);
+    await resetDisposableDatabase(url!, "sln450_reading_import", { emptyLocations: true });
     vi.mocked(writeReadings).mockReset();
-  });
+  }, 30000);
 
   let serial = 0;
   async function book(title: string, author: string, over: { goodreadsUrl?: string; rating?: number; kind?: string } = {}) {

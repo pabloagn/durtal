@@ -76,7 +76,7 @@ vi.mock("@/lib/reading/stats", () => {
   };
 });
 
-import ReadingStatsPage from "@/app/reading/stats/page";
+import ReadingStatsPage from "@/app/(catalogue)/reading/stats/page";
 import { ReadingTabs } from "@/components/reading/reading-tabs";
 
 // The dialog's modules take 1 to 4 s to load the first time, more under a full run's load, and that time

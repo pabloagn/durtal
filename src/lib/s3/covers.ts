@@ -8,11 +8,10 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { serverEnv } from "@/lib/env";
 import { s3, S3_BUCKET } from "./client";
-import { goldCoverKey, goldThumbnailKey, bronzeCoverKey } from "./keys";
+import { bronzeCoverKey } from "./keys";
 import { safeFetchImage } from "@/lib/net/safe-fetch";
 import { previewDelete, previewGet, previewPut, previewS3Dir } from "./preview-dir";
-import { extractColorPalette } from "@/lib/color/extract-palette";
-import type { ColorPalette } from "@/lib/types";
+import { allocateCoverStage, renderCoverPair, stageCoverPair, retainCoverAttempt, type VerifiedCoverStage } from "./cover-stage";
 
 /** Upload a buffer to S3 */
 export async function uploadToS3(
@@ -110,43 +109,14 @@ let noChecksumClient: S3Client | null = null;
 export async function processAndUploadCover(
   editionId: string,
   sourceUrl: string,
-): Promise<{ coverKey: string; thumbnailKey: string; palette: ColorPalette | null } | null> {
+): Promise<VerifiedCoverStage | null> {
+  const allocation = allocateCoverStage({ editionId, source: { kind: "url", url: sourceUrl } });
   try {
-    // Cover URLs come from the wizard's free-text field and from book APIs:
-    // download through the SSRF, size and timeout guard. Some APIs still
-    // serve covers over plain http, so http is accepted here.
     const { buffer } = await safeFetchImage(sourceUrl, { allowHttp: true });
-
-    // Dynamic import sharp (it's a native module)
-    const sharp = (await import("sharp")).default;
-
-    // Full cover: 1200x1800 max, webp (sharp on all displays)
-    const coverBuffer = await sharp(buffer)
-      .resize(1200, 1800, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 88 })
-      .toBuffer();
-
-    // Thumbnail: 600x900 max, webp (crisp on retina)
-    const thumbBuffer = await sharp(buffer)
-      .resize(600, 900, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 82 })
-      .toBuffer();
-
-    const coverKey = goldCoverKey(editionId);
-    const thumbnailKey = goldThumbnailKey(editionId);
-
-    const [palette] = await Promise.all([
-      // The thumbnail is plenty for the palette (SLN-405)
-      extractColorPalette(thumbBuffer).catch((error) => {
-        console.warn(`[covers] no palette for edition ${editionId}: ${(error as Error)?.message ?? error}`);
-        return null;
-      }),
-      uploadToS3(coverKey, coverBuffer, "image/webp"),
-      uploadToS3(thumbnailKey, thumbBuffer, "image/webp"),
-    ]);
-
-    return { coverKey, thumbnailKey, palette };
+    const { buffers, palette } = await renderCoverPair(buffer);
+    return await stageCoverPair(allocation, buffers, palette);
   } catch (err) {
+    retainCoverAttempt(allocation, "download, rendering or stage outcome uncertain");
     console.warn(`[covers] cover not stored for edition ${editionId}: ${(err as Error)?.message ?? err}`);
     return null;
   }

@@ -12,6 +12,7 @@ import { formatNoteForCopy, type CopyBook } from "@/lib/reading/notes-text";
 import { showError, undoToast } from "./reading-client";
 import { useReadingDialogs } from "./reading-dialogs-provider";
 import { useOptionalReading } from "./reading-provider";
+import { refreshServerAnnotations } from "@/lib/reader/annotation-server-changes";
 
 const menuButton =
   "action-icon";
@@ -51,10 +52,16 @@ export function NoteControls({ note, book, edition = null }: { note: NoteEdit; b
     try {
       const snapshot = await deleteReadingNote({ id: note.id });
       changed();
+      if (snapshot.readerQuoteUndo) void refreshServerAnnotations(snapshot.readerQuoteUndo.ebookId).catch(() => {
+        toast.error("Quote deleted. Refresh highlights when connected.");
+      });
       undoToast(note.kind === "quote" ? "Quote deleted" : "Note deleted", async () => {
         try {
           await restoreReadingNote(JSON.parse(JSON.stringify(snapshot)));
           changed();
+          if (snapshot.readerQuoteUndo) void refreshServerAnnotations(snapshot.readerQuoteUndo.ebookId).catch(() => {
+            toast.error("Quote restored. Refresh highlights when connected.");
+          });
         } catch (err) {
           showError(err, changed);
         }

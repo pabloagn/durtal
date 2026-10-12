@@ -1,7 +1,7 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { renderToStaticMarkup } from "react-dom/server";
 import { sql } from "drizzle-orm";
 import type { ReactNode } from "react";
@@ -9,12 +9,13 @@ import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_READING_STATS_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln456_reading_stats");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln456_reading_stats")
     throw new Error("Reading stats tests require a disposable local sln456_reading_stats database");
 }
-const client = url ? postgres(url, { max: 6, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 6, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -64,8 +65,8 @@ import {
   yearNumbers,
   yearReview,
 } from "@/lib/reading/stats";
-import ReadingYearsPage from "@/app/reading/year/page";
-import YearInReviewPage from "@/app/reading/year/[year]/page";
+import ReadingYearsPage from "@/app/(catalogue)/reading/year/page";
+import YearInReviewPage from "@/app/(catalogue)/reading/year/[year]/page";
 
 /* Reading stats and the Year in review against PostgreSQL (SLN-456). */
 
@@ -77,7 +78,7 @@ describe.skipIf(!url)("reading stats with PostgreSQL", () => {
   const value = async <T = string>(text: string, params: unknown[] = []) => Object.values((await q(text, params))[0] ?? {})[0] as T;
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln456_reading_stats");
   }, 60000);
   afterAll(async () => {
     await client?.end();
@@ -87,12 +88,12 @@ describe.skipIf(!url)("reading stats with PostgreSQL", () => {
   let mexico = "";
   let kindle = "";
   beforeEach(async () => {
-    await q(`truncate works, authors, locations, activity_events, imports, reading_goals, recommenders cascade`);
+    await resetDisposableDatabase(url!, "sln456_reading_stats", { emptyLocations: true });
     await q(`delete from app_settings`);
     amsterdam = await value(`insert into locations(name, type) values ('Amsterdam', 'physical') returning id`);
     mexico = await value(`insert into locations(name, type) values ('Mexico City', 'physical') returning id`);
     kindle = await value(`insert into locations(name, type) values ('Kindle', 'digital') returning id`);
-  });
+  }, 30000);
 
   let serial = 0;
   const book = async (title: string, o: { rating?: number | null; language?: string | null; year?: number | null; kind?: string } = {}) =>

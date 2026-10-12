@@ -16,9 +16,14 @@ import { TitleCard } from "@/components/shared/no-photo";
 import { useViewData } from "@/lib/hooks/use-view-data";
 import { getReadingSummaries } from "@/lib/actions/reading";
 import type { CardReadingValue } from "@/lib/reading/card";
+import { EbookMark } from "./ebook-mark";
+import { COVER_CORNER } from "./cover-chip";
+import { BookCardActionsMenu } from "./book-card-actions-menu";
 
 /** The list's and table's reading data for the books shown, by work id */
 const loadSummaries = (books: { workId: string }[]) => getReadingSummaries(books.map((b) => b.workId));
+
+import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
 
 interface BookItem {
   workId: string;
@@ -40,7 +45,8 @@ interface BookItem {
   isFavourite?: boolean;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
-  hasDigitalEdition?: boolean;
+  ebook?: WorkEbookDTO | null;
+  readerReturnTo?: string;
   publisher?: string | null;
   binding?: string | null;
   pages?: number | null;
@@ -103,6 +109,10 @@ export function LibraryView({ books, viewMode, gridColumns, isSelecting, selecte
             title: book.title,
             subtitle: book.authorNames?.join(", ") || book.authorName || null,
             aspect: 2 / 3,
+            mark: book.ebook?.readable ? <span className={`${COVER_CORNER.bottomLeft} z-10`}><EbookMark ebook={book.ebook} /></span> : undefined,
+            actions: (open: boolean, onOpenChange: (open: boolean) => void) => <BookCardActionsMenu workId={book.workId} slug={book.slug}
+              title={book.title} authorName={book.authorName} ebook={book.ebook ?? null}
+              readerReturnTo={book.readerReturnTo ?? `/library/${book.slug}`} open={open} onOpenChange={onOpenChange} />,
             media: (
               <MosaicImage
                 src={book.coverUrl}

@@ -46,12 +46,23 @@ open /reader/<id>. With --reader-large DIR as well, the large fixtures that
 50 MB illustrated EPUB, a 300 MB scanned PDF, a 2,000-page EPUB and a 2 MB
 chapter) are stored and catalogued the same way, for scripts/qa/reader-perf.mjs.
 
+With --ebooks M (needs --s3-dir), add M synthetic library eBooks with unique
+valid EPUB bytes, verified bronze/silver/gold lineage and 240/400/800 WebP
+covers. One third link to seeded catalogue copies; separate fixtures cover
+DRM, damage, a missing object and set-aside state. This is local preview data.
+Use 6000 and 7000 for the library performance acceptance runs.
+With --ebooks-acceptance, three existing linked identities (30/33/36) become
+one work's dated editions with genuine different-sized EPUBs, distinct author
+sorts/added dates and old saved places. The standard acceptance fixtures stay
+unchanged. This mode requires private3410, a synthetic seed (no --from-dump),
+and a canonical --s3-dir under /private/tmp.
+
 With --api-token, the app gets a random DURTAL_API_TOKEN for this run only,
 printed once at start, so the phone's /api/readings routes can be checked
 with curl. It is never the live token. Without it the variable stays unset
 and those routes answer 503.
 
-    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE] [--s3-dir DIR [--seed-reader [--reader-large DIR]]] [--api-token]
+    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE] [--s3-dir DIR [--seed-reader [--reader-large DIR]] [--ebooks M]] [--api-token]
 """
 
 import argparse
@@ -174,6 +185,9 @@ READER_EBOOKS = [
     ("00000000-0000-4000-a000-000000000011", "scripted.epub", "epub", "standalone", None, None),
     ("00000000-0000-4000-a000-000000000012", "corrupt.epub", "epub", "standalone", None, None),
     ("00000000-0000-4000-a000-000000000013", "drm.epub", "epub", "pending", None, "adobe-adept"),
+    ("00000000-0000-4000-a000-000000000019", "nav-pagelist.epub", "epub", "standalone", None, None),
+    ("00000000-0000-4000-a000-000000000020", "nav-pagemap.epub", "epub", "standalone", None, None),
+    ("00000000-0000-4000-a000-000000000021", "nav-no-contents.epub", "epub", "standalone", None, None),
 ]
 # The large ones, from --reader-large DIR, all standalone
 READER_LARGE = [
@@ -194,6 +208,9 @@ READER_TITLES = {
     "typical-5mb.epub": ("The Ordinary Year", "en"), "illustrated-50mb.epub": ("The Painted Field", "en"),
     "scanned-300mb.pdf": ("The Scanned Ledger", "en"), "long-2000-pages.epub": ("The Long Road", "en"),
     "single-2mb-chapter.epub": ("The One Room", "en"),
+    "nav-pagelist.epub": ("Là-bas — navigation", "fr"),
+    "nav-pagemap.epub": ("Là-bas — page map", "fr"),
+    "nav-no-contents.epub": ("Là-bas — sections", "fr"),
 }
 READER_TYPES = {
     "epub": "application/epub+zip", "pdf": "application/pdf", "mobi": "application/x-mobipocket-ebook",
@@ -240,6 +257,17 @@ def reader_seed(s3_dir, large_dir=None):
 insert into ebook_files(id, ebook_id, sha256, s3_key, format, size_bytes, content_type, original_filename, status, drm)
   values ('{file_id}', '{ebook_id}', '{sha}', '{key}', '{fmt}', {size}, '{READER_TYPES[fmt]}', {text(name)}, 'stored', {text(drm)});
 update ebooks set preferred_file_id = '{file_id}' where id = '{ebook_id}' and {text(drm)} is null;""")
+    # SLN-493: a PDF of the first EPUB's e-book, with its own immutable bytes.
+    # A trailing PDF comment preserves the text fixture while giving it a unique checksum/key.
+    alternate = (fixtures / "text.pdf").read_bytes() + b"\n% Durtal reader sync alternate format\n"
+    sha = hashlib.sha256(alternate).hexdigest()
+    key = f"files/{sha[:2]}/{sha}.pdf"
+    target = s3_dir.resolve() / "durtal" / key
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(alternate)
+    sql.append(f"""insert into ebook_files(id, ebook_id, sha256, s3_key, format, size_bytes, content_type, original_filename, status)
+  values ('00000000-0000-4000-a000-e00000000001', '{READER_EBOOKS[0][0]}', '{sha}', '{key}', 'pdf',
+    {len(alternate)}, 'application/pdf', 'reader-sync.pdf', 'stored');""")
     return "\n".join(sql)
 
 
@@ -265,6 +293,10 @@ def main():
                         help="keep S3 objects as files under DIR instead of S3")
     parser.add_argument("--seed-reader", action="store_true",
                         help="store and catalogue the e-book fixtures (needs --s3-dir)")
+    parser.add_argument("--ebooks", type=int, metavar="M",
+                        help="add M synthetic eBooks with valid unique medallion fixture objects (needs --s3-dir)")
+    parser.add_argument("--ebooks-acceptance", action="store_true",
+                        help="with --ebooks 6000/7000, synthetic catalogue versions/sort diversity; private3410 only")
     parser.add_argument("--reader-large", type=Path, metavar="DIR",
                         help="with --seed-reader, also the large fixtures make-ebook-fixtures.mjs --large wrote to DIR")
     parser.add_argument("--api-token", action="store_true",
@@ -274,6 +306,10 @@ def main():
         parser.error("--seed-reader needs --s3-dir: the e-books are stored there")
     if args.reader_large and not args.seed_reader:
         parser.error("--reader-large goes with --seed-reader")
+    if args.ebooks and (not args.s3_dir or not 1 <= args.ebooks <= 100000):
+        parser.error("--ebooks requires --s3-dir and a count between 1 and 100000")
+    if args.ebooks_acceptance and (args.from_dump or args.port != 3410 or args.ebooks not in (6000, 7000)):
+        parser.error("--ebooks-acceptance requires synthetic --ebooks 6000/7000 at private3410; no --from-dump")
     run("docker", "image", "inspect", "postgres:16")  # Never implicitly pull.
     container = f"durtal-preview-{secrets.token_hex(4)}"
     password = secrets.token_hex(16)
@@ -344,6 +380,10 @@ def main():
             psql(reader_seed(args.s3_dir, args.reader_large))
             count = len(READER_EBOOKS) + (len(READER_LARGE) if args.reader_large else 0)
             print(f"Reader fixtures: {count} e-books, /reader/{READER_EBOOKS[0][0]} and on", flush=True)
+        if args.ebooks:
+            from ebook_library_seed import ebook_library_seed
+            psql(ebook_library_seed(ROOT, args.s3_dir, args.ebooks, catalogue_acceptance=args.ebooks_acceptance))
+            print(f"Library fixtures: {args.ebooks} eBooks, one third linked, valid unique bytes in {args.s3_dir}", flush=True)
         if args.log_sql:
             args.log_sql.resolve().parent.mkdir(parents=True, exist_ok=True)
             env["DURTAL_PREVIEW_SQL_LOG"] = str(args.log_sql.resolve())
@@ -385,7 +425,8 @@ def main():
         address = f"http://127.0.0.1:{args.port}"
         for _ in range(240):
             try:
-                urllib.request.urlopen(f"{address}/taxonomy", timeout=5)
+                with urllib.request.urlopen(f"{address}/taxonomy", timeout=5) as response:
+                    response.read()
                 break
             except Exception:
                 time.sleep(1)

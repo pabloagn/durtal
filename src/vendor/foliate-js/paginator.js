@@ -1,3 +1,5 @@
+import { dispatchPreparedLoad, ownedDocumentLoad, waitForDocumentLoad } from "./load-preparation.js"
+
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 // A microtask (or rAF alone) resumes before paint. Give input and rendering a
@@ -51,7 +53,7 @@ const SCROLL_RELOCATE_MAX_WAIT = 1000
 // Transforms ALL children of the container so multi-view layouts
 // animate as a unified whole. Extra elements (e.g. background) are
 // also transformed so they slide in sync with the content.
-const cssAnimateScroll = (element, scrollProp, startValue, endValue, duration, extraElements = []) => new Promise(resolve => {
+const cssAnimateScroll = (element, scrollProp, startValue, endValue, duration, extraElements = [], fallbackGrace = 50) => new Promise(resolve => {
     if (document.hidden) {
         element[scrollProp] = endValue
         return resolve()
@@ -129,7 +131,7 @@ const cssAnimateScroll = (element, scrollProp, startValue, endValue, duration, e
     first.addEventListener('transitionend', onTransitionEnd)
 
     // Fallback timeout in case transitionend doesn't fire
-    setTimeout(cleanup, duration + 50)
+    setTimeout(cleanup, duration + fallbackGrace)
 })
 
 // Two-phase page-turn slide for vertical (vertical-rl/lr) paginated books.
@@ -293,20 +295,27 @@ const injectViewTransitionStyles = () => {
         background: var(--foliate-vt-bg, Canvas);
         mix-blend-mode: normal;
     }
+    /* Durtal patch 17 (VENDORED.md): programmatic slide groups share the
+       page timeline; the UA's 250ms group animation otherwise delays finished
+       after a 60ms keyboard/tap slide. Scrub and curl timelines stay intact. */
+    .foliate-vt-slide:not(.foliate-vt-scrub)::view-transition-group(root),
+    .foliate-vt-slide:not(.foliate-vt-scrub)::view-transition-group(foliate-turn) {
+        animation-duration: var(--foliate-vt-slide-duration, 300ms);
+    }
     /* Slide: the moving page travels over the still page with a soft edge
        shadow, like the Apple Books slide. Forward moves the outgoing
        snapshot out on top; backward brings the incoming snapshot in on
        top of the still outgoing page. */
     .foliate-vt-slide.foliate-vt-forward::view-transition-old(foliate-turn) {
         z-index: 1;
-        animation: foliate-turn-slide-out-left 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+        animation: foliate-turn-slide-out-left var(--foliate-vt-slide-duration, 300ms) cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
         box-shadow: 0 0 24px rgba(0, 0, 0, 0.35);
     }
     .foliate-vt-slide.foliate-vt-forward.foliate-vt-right::view-transition-old(foliate-turn) {
         animation-name: foliate-turn-slide-out-right;
     }
     .foliate-vt-slide.foliate-vt-backward::view-transition-new(foliate-turn) {
-        animation: foliate-turn-slide-in-left 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+        animation: foliate-turn-slide-in-left var(--foliate-vt-slide-duration, 300ms) cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
         box-shadow: 0 0 24px rgba(0, 0, 0, 0.35);
     }
     .foliate-vt-slide.foliate-vt-backward.foliate-vt-right::view-transition-new(foliate-turn) {
@@ -707,6 +716,8 @@ class View {
     // The document `load()` has taken `#docDirection` from. A re-render can
     // reach this view earlier, while the iframe holds a section whose load
     // event has not fired yet; see `render()`.
+    #loadOwner = null
+    ready = Promise.resolve()
     #loadedDoc = null
     #directionStyle = null
     #column = true
@@ -761,16 +772,24 @@ class View {
     }
     async load(src, data, afterLoad, beforeRender, waitForIdle) {
         if (typeof src !== 'string') throw new Error(`${src} is not string`)
-        return new Promise(resolve => {
+        this.#loadOwner?.abort()
+        const owner = this.#loadOwner = new AbortController()
+        return this.ready = ownedDocumentLoad(owner.signal, (finish, fail) => {
             this.#iframe.addEventListener('load', async () => {
                 // A background fetch can finish after a swipe has started.
                 // Defer its style/layout work, not just the start of preloading.
                 if (waitForIdle) await waitForIdle()
                 const doc = this.document
-                if (!doc?.documentElement || !doc.body) return resolve()
-                await afterLoad?.(doc)
+                if (owner.signal.aborted || !doc?.documentElement || !doc.body) return finish()
+                try { await afterLoad?.(doc, owner.signal) }
+                catch (error) {
+                    if (owner.signal.aborted || this.document !== doc) return finish()
+                    fail(error)
+                    owner.abort()
+                    return
+                }
                 await yieldToFrame()
-                if (this.document !== doc) return resolve()
+                if (owner.signal.aborted || this.document !== doc) return finish()
 
                 this.#iframe.setAttribute('aria-label', doc.title)
                 // it needs to be visible for Firefox to get computed style
@@ -824,7 +843,7 @@ class View {
                 // Awaiting the background image yields control, so the view may
                 // have been torn down or reloaded meanwhile — don't render into
                 // a stale document.
-                if (this.document !== doc) return resolve()
+                if (owner.signal.aborted || this.document !== doc) return finish()
                 this.#iframe.style.visibility = 'hidden'
 
                 this.#vertical = vertical
@@ -844,9 +863,9 @@ class View {
                 // the resize observer above doesn't work in Firefox
                 // (see https://bugzilla.mozilla.org/show_bug.cgi?id=1832939)
                 // until the bug is fixed we can at least account for font load
-                this.fontReady = fontsReady(doc).then(() => this.expand())
+                this.fontReady = fontsReady(doc).then(() => { if (!owner.signal.aborted) this.expand() })
 
-                resolve()
+                finish()
             }, { once: true })
             if (data) {
                 this.#iframe.srcdoc = data
@@ -1412,6 +1431,7 @@ class View {
             this.#overlayer.clearHole()
     }
     destroy() {
+        this.#loadOwner?.abort()
         if (this.document?.body) this.#observer.unobserve(this.document.body)
         this.destroyLoupe()
     }
@@ -1471,7 +1491,56 @@ export const getColumnGapHostTracks = ({ columnGap, marginLeft, marginRight, hos
 }
 
 // NOTE: everything here assumes the so-called "negative scroll type" for RTL
+// Durtal patch 14 (VENDORED.md): convert the section's column to container
+// coordinates before rounding to a spread. Adjacent sections can begin in
+// the second column; rounding their offset first loses that half-spread.
+// Durtal patch 15 (VENDORED.md): a previously visited nonlinear section
+// must not remain in the linear strip after returning to reading order.
+export const getNavigationExcludedViews = (sections, index, loadedIndices) => {
+    if (!sections[index] || sections[index].linear === 'no') return []
+    return Array.from(loadedIndices).filter(i => i !== index && sections[i]?.linear === 'no')
+}
+
+// Cache retirement uses the real renderer's destruction callback; no synthetic
+// endpoint or range is substituted when a nonlinear view leaves the strip.
+export const retireNonlinearNavigationViews = (sections, index, loadedIndices, retire) => {
+    for (const i of getNavigationExcludedViews(sections, index, loadedIndices)) retire(i)
+}
+
+// The existing sequential reading-order lookup, shared with policy regressions.
+export const getAdjacentLinearIndex = (sections, fromIndex, dir) => {
+    for (let index = fromIndex + dir; index >= 0 && index < sections.length; index += dir)
+        if (sections[index]?.linear !== 'no') return index
+}
+
+export const getPaginatedAnchorPage = ({ offset, size, columnCount, contentPages, fraction }) => {
+    const column = Math.round(fraction * Math.max(0, contentPages - 1))
+    return Math.floor(offset / size + column / columnCount + 0.01)
+}
+
+export const getPaginatedSectionProgress = ({ start, size, columnCount, contentPages }) => ({
+    fraction: contentPages > 0 && size > 0
+        ? Math.max(0, Math.min(1, start / size * columnCount / contentPages)) : 0,
+    size: contentPages > 0 ? columnCount / contentPages : 1,
+})
+
+// Durtal patch 16 (VENDORED.md): distinguish the exact synchronous native
+// anchor focus from a new human focus navigation. Never hold this across await.
+const navigationAnchorFocus = new WeakMap()
+export const getNavigationAnchorFocus = renderer => navigationAnchorFocus.get(renderer) ?? null
+export const focusNavigationAnchor = (renderer, node) => {
+    const previous = navigationAnchorFocus.get(renderer)
+    navigationAnchorFocus.set(renderer, node)
+    try {
+        return node.focus({ preventScroll: true })
+    } finally {
+        if (previous) navigationAnchorFocus.set(renderer, previous)
+        else navigationAnchorFocus.delete(renderer)
+    }
+}
+
 export class Paginator extends HTMLElement {
+    get navigationAnchorFocus() { return getNavigationAnchorFocus(this) }
     static observedAttributes = [
         'flow', 'gap', 'column-gap', 'margin-top', 'margin-bottom', 'margin-left', 'margin-right',
         'max-inline-size', 'max-block-size', 'max-column-count',
@@ -2713,7 +2782,7 @@ export class Paginator extends HTMLElement {
     // furniture turns with the page in both layers); otherwise the outermost
     // shadow host in the document tree is named, since shadow-internal names
     // are tree-scoped away from the document-level pseudo selectors.
-    #vtSetup(style, forward, scrubbing = false) {
+    #vtSetup(style, forward, scrubbing = false, slideDuration = 300) {
         injectViewTransitionStyles()
         const html = document.documentElement
         const side = this.#rtl ? 'right' : 'left'
@@ -2740,6 +2809,7 @@ export class Paginator extends HTMLElement {
                 .getPropertyValue('--theme-bg-color').trim()
             : ''
         html.style.setProperty('--foliate-vt-bg', themeBg || 'Canvas')
+        html.style.setProperty('--foliate-vt-slide-duration', `${slideDuration}ms`)
         html.classList.remove(...VIEW_TRANSITION_CLASSES)
         html.classList.add(...classes)
         return namedHost
@@ -2748,6 +2818,7 @@ export class Paginator extends HTMLElement {
         const html = document.documentElement
         html.classList.remove(...VIEW_TRANSITION_CLASSES)
         html.style.removeProperty('--foliate-vt-bg')
+        html.style.removeProperty('--foliate-vt-slide-duration')
         this.#vtNamedHost?.style.removeProperty('view-transition-name')
         this.#vtNamedHost = null
     }
@@ -3252,6 +3323,12 @@ export class Paginator extends HTMLElement {
             const turning = Math.abs(offset - this.containerPosition) > size / 2
             const layered = !this.scrolled && turning ? this.#layeredTurn : null
             if (layered) return this.#viewTransitionTurn(offset, reason, layered)
+            // Keep programmatic slide/default page turns brief; curl and snaps
+            // retain their timing even when View Transitions is unavailable.
+            const turnStyle = this.getAttribute('turn-style')
+            const fastSlide = reason === 'page'
+                && (turnStyle === null || turnStyle === 'slide')
+            const duration = fastSlide ? 60 : 300
             const startPosition = this.containerPosition
             this.#isAnimating = true
             // Vertical paginated books page along scrollTop but read
@@ -3282,7 +3359,7 @@ export class Paginator extends HTMLElement {
                 const dragStartX = this.#dragTranslateX
                 this.#dragTranslateX = 0
                 return slideTurnAnimation(
-                    this.#container, this.scrollProp, offset, exitSign, width, 300,
+                    this.#container, this.scrollProp, offset, exitSign, width, duration,
                     () => id !== this.#slideTurnId,
                     // Reposition the background segments for the new scroll
                     // offset while both pages are off-screen.
@@ -3308,7 +3385,7 @@ export class Paginator extends HTMLElement {
             // cssAnimateScroll path even for large sections (readest#4768).
             if (!this.hasAttribute('gpu-composite')
                 && this.#renderedViewSize > RAF_ANIMATE_SCROLL_THRESHOLD) {
-                return rafAnimateScroll(startPosition, offset, 300, easeOutQuad, x => {
+                return rafAnimateScroll(startPosition, offset, duration, easeOutQuad, x => {
                     this.#container[this.scrollProp] = x
                     if (!this.scrolled) this.#replaceBackground()
                 }).then(() => {
@@ -3344,7 +3421,9 @@ export class Paginator extends HTMLElement {
                 this.scrollProp,
                 startPosition,
                 offset,
-                300,
+                duration,
+                [],
+                fastSlide ? 16 : 50,
             ).then(() => {
                 this.#isAnimating = false
                 this.#bgAnimContext = null
@@ -3384,7 +3463,9 @@ export class Paginator extends HTMLElement {
         const id = ++this.#slideTurnId
         this.#isAnimating = true
         this.#settleDrag(true)
-        this.#vtSetup(style, forward)
+        // Keyboard/tap page slides are brief; finger-tracked turns keep their
+        // existing timeline through #vtSetup's default duration.
+        this.#vtSetup(style, forward, false, reason === 'page' && style === 'slide' ? 60 : 300)
         const transition = document.startViewTransition(() => {
             this.containerPosition = offset
             if (!this.scrolled) {
@@ -3453,7 +3534,7 @@ export class Paginator extends HTMLElement {
                 if (node && node.focus) {
                     node.tabIndex = -1
                     node.style.outline = 'none'
-                    node.focus({ preventScroll: true })
+                    focusNavigationAnchor(this, node)
                 }
             }
             return
@@ -3477,9 +3558,11 @@ export class Paginator extends HTMLElement {
         // content pages must still settle so #scrollBounds gets seeded.
         if (!textPages) return this.#scrollToPage(pagesBeforePrimary, reason)
         // textPages is in column units; convert to spread page for scrolling
-        const newColumn = Math.round(anchor * (textPages - 1))
-        const newSpreadPage = Math.floor(newColumn / this.columnCount)
-        await this.#scrollToPage(pagesBeforePrimary + newSpreadPage, reason, smooth)
+        const page = getPaginatedAnchorPage({
+            offset: this.#getViewOffset(this.#primaryIndex), size: this.size,
+            columnCount: this.columnCount, contentPages: textPages, fraction: anchor,
+        })
+        await this.#scrollToPage(page, reason, smooth)
     }
     // Get the pixel offset of a view within the container
     #getViewOffset(index) {
@@ -3670,13 +3753,16 @@ export class Paginator extends HTMLElement {
         } else if (this.#renderedPages > 0 && primaryView) {
             const page = this.#renderedPage
             const pagesBeforePrimary = this.#getPagesBeforeView(index)
-            const textPages = primaryView.contentPages
+            const indexView = this.#views.get(index) ?? primaryView
+            const textPages = indexView.contentPages
             this.#header.style.visibility = page > 0 ? 'visible' : 'hidden'
-            // page is in spread units, textPages is in column units
             const localPage = page - pagesBeforePrimary
-            const localColumn = localPage * this.columnCount
-            detail.fraction = textPages > 0 ? Math.max(0, Math.min(1, localColumn / textPages)) : 0
-            detail.size = textPages > 0 ? this.columnCount / textPages : 1
+            // Use actual section-relative pixels, including a clamped final
+            // partial spread; the global spread index drops half-column starts.
+            Object.assign(detail, getPaginatedSectionProgress({
+                start: this.#renderedStart - this.#getViewOffset(index),
+                size: this.size, columnCount: this.columnCount, contentPages: textPages,
+            }))
             if (reason === 'container-scroll' && localPage === 0) return
         }
         // Update per-column backgrounds for the current scroll position
@@ -3692,7 +3778,7 @@ export class Paginator extends HTMLElement {
         const hasFocus = this.#primaryView?.document?.hasFocus()
         if (src) {
             const view = this.#createView(index)
-            const afterLoad = doc => {
+            const afterLoad = (doc, signal) => {
                 if (doc.head) {
                     const $styleBefore = doc.createElement('style')
                     doc.head.prepend($styleBefore)
@@ -3702,7 +3788,7 @@ export class Paginator extends HTMLElement {
                         prop => doc.documentElement.setAttribute('data-' + prop, ''))
                     this.#styleMap.set(doc, [$styleBefore, $style])
                 }
-                return onLoad?.({ doc, index })
+                return onLoad?.({ doc, index, signal })
             }
             const beforeRender = this.#beforeRender.bind(this)
             await view.load(src, data, afterLoad, beforeRender)
@@ -3781,7 +3867,7 @@ export class Paginator extends HTMLElement {
             const src = await section.load()
             const data = await section.loadContent?.()
             const view = this.#createView(index)
-            const afterLoad = async doc => {
+            const afterLoad = async (doc, signal) => {
                 if (doc.head) {
                     const $styleBefore = doc.createElement('style')
                     doc.head.prepend($styleBefore)
@@ -3796,7 +3882,7 @@ export class Paginator extends HTMLElement {
                 this.#applyStyles(doc)
                 await yieldToFrame()
                 if (this.#views.get(index) !== view || view.document !== doc) return
-                this.dispatchEvent(new CustomEvent('load', { detail: { doc, index } }))
+                await dispatchPreparedLoad(this, { doc, index, signal })
             }
             // Adjacent sections reuse the primary view's cached layout
             // — they must NOT call #beforeRender, which would modify
@@ -3863,6 +3949,7 @@ export class Paginator extends HTMLElement {
         if (this.noPreload || this.noContinuousScroll || this.#filling) return
         this.#filling = true
         try {
+            let awaitedAdjacentLayout = false
             const { size } = this
             if (!size) return
             const minPages = 5
@@ -3879,6 +3966,7 @@ export class Paginator extends HTMLElement {
                 if (firstIndex != null && firstIndex >= this.#primaryIndex) {
                     const prevIdx = this.#adjacentIndex(-1, firstIndex)
                     if (prevIdx != null && this.#isSameDirection(prevIdx)) {
+                        awaitedAdjacentLayout = true
                         await this.#loadAdjacentSection(prevIdx)
                     }
                 }
@@ -3898,10 +3986,13 @@ export class Paginator extends HTMLElement {
                 if (nextIdx == null) break
                 // Stop at writing-mode boundaries
                 if (!this.#isSameDirection(nextIdx)) break
+                awaitedAdjacentLayout = true
                 await this.#loadAdjacentSection(nextIdx)
                 if (!this.#views.has(nextIdx)) break
             }
-            if (reanchor) this.#scrollToAnchor(this.#anchor)
+            // With no awaited load, fill did not change the layout that the
+            // caller just positioned. Preserve its anchor without rescanning.
+            if (reanchor && awaitedAdjacentLayout) this.#scrollToAnchor(this.#anchor)
         } finally {
             this.#filling = false
             // Emit stabilized so post-layout processing (e.g. warichu)
@@ -3931,6 +4022,13 @@ export class Paginator extends HTMLElement {
     async #goTo({ index, anchor, select }) {
         const section = this.sections[index]
         if (!section) return
+        const cachedView = this.#views.get(index)
+        if (cachedView) {
+            await waitForDocumentLoad(cachedView)
+            if (this.#views.get(index) !== cachedView || !cachedView.document?.body)
+                throw new DOMException('Retired book page', 'AbortError')
+        }
+        const excludedViews = getNavigationExcludedViews(this.sections, index, this.#views.keys())
         // Check if the target section has a different writing-mode.
         // If direction changes, we must destroy all views and do a full
         // rebuild via #display — mixed-direction views cannot coexist.
@@ -3956,10 +4054,16 @@ export class Paginator extends HTMLElement {
             // produced a hard blank-screen flash on adjacent navigation
             // (readest/readest#4112 follow-up). Paginated mode and discrete
             // no-continuous-scroll still fade to hide the page reposition.
-            const blank = !this.scrolled || this.noContinuousScroll
+            // A prepared target in the current section needs only a new offset,
+            // not an opacity cycle over every column of the same document.
+            const blank = (!this.scrolled || this.noContinuousScroll)
+                && index !== this.#primaryIndex
             if (blank) this.#container.style.opacity = '0'
             const hasFocus = this.#primaryView?.document?.hasFocus()
             this.#primaryIndex = index
+            // Remove nonlinear cached views before computing offsets for the
+            // destination anchor. Linear documents/CFIs remain untouched.
+            retireNonlinearNavigationViews(this.sections, index, this.#views.keys(), i => this.#destroyView(i))
             this.#syncA11y()
             this.#trimDistantViews()
             // In noContinuousScroll mode, destroy all non-primary views
@@ -4011,7 +4115,7 @@ export class Paginator extends HTMLElement {
                 const keep = new Set([index])
                 if (!this.noContinuousScroll) {
                     for (const [i] of this.#views) {
-                        if (Math.abs(i - index) <= 2) keep.add(i)
+                        if (Math.abs(i - index) <= 2 && !excludedViews.includes(i)) keep.add(i)
                     }
                 }
                 this.#clearViewsExcept(keep)
@@ -4023,7 +4127,7 @@ export class Paginator extends HTMLElement {
                 this.#applyStyles(detail.doc)
                 await yieldToFrame()
                 if (this.#views.get(index)?.document !== detail.doc) return
-                this.dispatchEvent(new CustomEvent('load', { detail }))
+                await dispatchPreparedLoad(this, detail)
             }
             await this.#display(Promise.resolve(section.load())
                 .then(async src => {
@@ -4082,8 +4186,7 @@ export class Paginator extends HTMLElement {
     }
     #adjacentIndex(dir, fromIndex) {
         if (fromIndex === undefined) fromIndex = this.#primaryIndex
-        for (let index = fromIndex + dir; this.#canGoToIndex(index); index += dir)
-            if (this.sections[index]?.linear !== 'no') return index
+        return getAdjacentLinearIndex(this.sections, fromIndex, dir)
     }
     async #turnPage(dir, distance) {
         if (this.#locked) return

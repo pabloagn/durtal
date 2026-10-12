@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -9,17 +10,17 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { z } from "zod";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_ART_WHEREABOUTS_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln360_test");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln360_test")
     throw new Error("Whereabouts tests require disposable local sln360_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -93,14 +94,14 @@ describe.skipIf(!url)("sourced whereabouts of original paintings", () => {
   const year = (value: number) => ({ precision: "year" as const, start: { year: value } });
   const history = async () => (await getWhereabouts(objectId))!;
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln360_test");
     await c`alter table works drop constraint works_kind_enabled_check`;
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, authors, publishing_houses, venues, places, locations, catalogue_dates, harmonization_operations, harmonization_redirects cascade`;
+    await resetDisposableDatabase(url!, "sln360_test", { emptyLocations: true, activateKinds: true });
     louvreOrg = (await saveOrganization({ name: "Musée du Louvre", roles: ["museum"] }))!.id;
     louvre = (await createVenue({ name: "Louvre, Paris", type: "museum" })).id;
     tokyo = (await createVenue({ name: "Tokyo National Museum", type: "museum" })).id;
@@ -110,7 +111,7 @@ describe.skipIf(!url)("sourced whereabouts of original paintings", () => {
     objectId = (
       await createArtObject({ workId, kind: "original", ownership: "institutional", ownerOrganizationId: louvreOrg, accessionNumber: "INV 779" })
     ).id;
-  });
+  }, 30000);
   const atLouvre = async (since = year(1797)) =>
     recordWhereabouts(
       { objectId, placeKind: "venue", venueId: louvre, custody: "permanent_collection", certainty: "confirmed", startsOn: since },

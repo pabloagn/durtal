@@ -214,6 +214,13 @@ def verify_preparation(directory, production=False):
         if 'productionNextEnv' not in state:
             raise Refusal('Prepared production declaration expectation is missing')
         expected['next-env.d.ts'] = state['productionNextEnv']
+    if production:
+        # Only new build-generated files may be absent from the archive snapshot.
+        # Archived files stay strict; public output is hashed separately in build.json.
+        for relative in ('public/icons/durtal-192.png', 'public/icons/durtal-512.png',
+                         'public/icons/durtal-maskable-512.png', 'public/offline-assets.json'):
+            if relative not in expected:
+                actual.pop(relative, None)
     if actual != expected or file_hash(source / 'pnpm-lock.yaml') != state['lockSha256']:
         raise Refusal('Prepared source changed from the pinned archive')
     return state, source, public
@@ -365,11 +372,15 @@ def checked_config(config):
         raise Refusal('Runtime config accepts public settings only; no secret/public-build inputs')
     if env.get('AWS_REGION') != 'eu-north-1' or env.get('S3_BUCKET') != 'durtal' or env.get('EBOOKS_REGION') != 'eu-north-1' or env.get('EBOOKS_BUCKET') != 'durtal':
         raise Refusal('Runtime storage must be the approved personal bucket and region')
-    if env.get('EBOOK_DELIVERY') != 'app':
+    if env.get('EBOOK_DELIVERY') not in ('app', 'cloudfront'):
         raise Refusal('Explicit delivery mode is required')
     cdn = config.get('cdn')
     if env['EBOOK_DELIVERY'] == 'cloudfront':
-        if not isinstance(cdn, dict) or set(cdn) != {'fingerprint', 'publicKeyPem'} or not HASH.fullmatch(cdn.get('fingerprint', '')) or digest(cdn['publicKeyPem'].encode()) != cdn['fingerprint']:
+        if (not isinstance(cdn, dict) or set(cdn) != {'fingerprint', 'publicKeyPem'}
+                or not isinstance(cdn.get('fingerprint'), str) or not HASH.fullmatch(cdn['fingerprint'])
+                or not isinstance(cdn.get('publicKeyPem'), str)
+                or not 0 < len(cdn['publicKeyPem'].encode()) <= 8192
+                or digest(cdn['publicKeyPem'].encode()) != cdn['fingerprint']):
             raise Refusal('CloudFront signing public identity is required')
         if not re.fullmatch(r'https://[a-z0-9]+\.cloudfront\.net', env.get('EBOOK_CDN_URL', '')) or not re.fullmatch(r'[A-Z0-9]+', env.get('EBOOK_CDN_KEY_PAIR_ID', '')):
             raise Refusal('Owned CloudFront URL/key ID required')

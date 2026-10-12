@@ -1,3 +1,5 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
+import { eq, sql } from "drizzle-orm";
 import {
   afterAll,
   beforeAll,
@@ -9,12 +11,12 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 import type { WizardBookInput } from "@/lib/validations/wizard";
 
 // Never use DATABASE_URL or load env files: this suite truncates only its own local DB.
 const url = process.env.DURTAL_ATOMIC_BOOK_WRITES_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln281_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -23,7 +25,7 @@ if (url) {
   )
     throw new Error("Atomic book write tests require disposable local sln281_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -56,6 +58,22 @@ import {
   updateOrderStatus,
 } from "@/lib/actions/orders";
 import { processAndUploadCover, deleteFromS3 } from "@/lib/s3/covers";
+vi.mock("@/lib/s3/client", async () => ({ S3_BUCKET: "local-test", s3: { send: (await import("../s3/cover-stage-fixture")).catalogueSend } }));
+import { mintCover, coverBucket, resetCoverBucket } from "../s3/cover-stage-fixture";
+import { createHash } from "node:crypto";
+import { atomicOn } from "@/lib/db/atomic";
+import type { Db } from "@/lib/catalogue/work-store";
+import { readEditionWriteSnapshot, editionWriteGuardQueries, editionUpdateQuery } from "@/lib/catalogue/edition-write-guard";
+import { loadMatchEdition, saveMatch } from "@/lib/match/save";
+import { cleanRecord } from "@/lib/match/source";
+const followup = vi.hoisted(() => ({ reject: false }));
+vi.mock("@/lib/publishers/resolution", async (original) => {
+  const actual = await original<typeof import("@/lib/publishers/resolution")>();
+  return { ...actual, autoResolveEditions: async (...args: Parameters<typeof actual.autoResolveEditions>) => {
+    if (followup.reject) throw new Error("postcommit publisher follow-up failed");
+    return actual.autoResolveEditions(...args);
+  } };
+});
 
 const MISSING = "00000000-0000-4000-8000-000000000000";
 const ISBN = "9780141182605";
@@ -70,15 +88,17 @@ describe.skipIf(!url)("atomic book writes", () => {
   let friend: string;
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln281_test");
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
     vi.resetAllMocks();
+    resetCoverBucket();
+    followup.reject = false;
     vi.mocked(processAndUploadCover).mockResolvedValue(null);
-    await c`truncate works, authors, subjects, genres, tags, recommenders, locations, collections, venues, orders, activity_events, publishing_houses cascade`;
+    await resetDisposableDatabase(url!, "sln281_test", { emptyLocations: true });
     [study] = (
       await c`insert into locations(name,type) values ('Study','physical') returning id`
     ).map((r) => r.id);
@@ -97,7 +117,7 @@ describe.skipIf(!url)("atomic book writes", () => {
     [friend] = (
       await c`insert into recommenders(name) values ('A friend') returning id`
     ).map((r) => r.id);
-  });
+  }, 30000);
 
   /** Every row a book can leave behind, so a failed write can prove it wrote nothing. */
   async function counts() {
@@ -218,12 +238,8 @@ describe.skipIf(!url)("atomic book writes", () => {
       expect(await isIsbnInUse("9780000000002")).toEqual({ inUse: false });
     });
 
-    it("writes nothing when a late part of the book fails, and removes the uploaded cover", async () => {
-      vi.mocked(processAndUploadCover).mockImplementation(async (id) => ({
-        coverKey: `covers/${id}.jpg`,
-        thumbnailKey: `covers/${id}-thumb.jpg`,
-        palette: null,
-      }));
+    it("writes nothing when a late part of the book fails, and retains the uploaded cover for reconciliation", async () => {
+      vi.mocked(processAndUploadCover).mockImplementation(async (id, url) => mintCover(id, url));
       // A shelf that does not exist fails the second copy, near the end of the
       // batch: after the author, work, taxonomy, edition and first copy
       const result = await createBookFromWizard(
@@ -244,10 +260,9 @@ describe.skipIf(!url)("atomic book writes", () => {
       });
       expect(await counts()).toEqual(nothing);
       const editionId = vi.mocked(processAndUploadCover).mock.calls[0][0];
-      expect(vi.mocked(deleteFromS3).mock.calls.map(([key]) => key).sort()).toEqual([
-        `covers/${editionId}-thumb.jpg`,
-        `covers/${editionId}.jpg`,
-      ]);
+      expect(deleteFromS3).not.toHaveBeenCalled();
+      expect([...coverBucket.objects.keys()]).toHaveLength(2);
+      expect([...coverBucket.objects.keys()].every(key => key.startsWith(`gold/covers/${editionId}/attempt-`))).toBe(true);
     });
 
     it("keeps the cover source when the download fails, and says so", async () => {
@@ -325,14 +340,15 @@ describe.skipIf(!url)("atomic book writes", () => {
     });
   });
 
+  async function book() {
+    const result = await createBookFromWizard(
+      wizardBook({ copies: [], collectionIds: [], edition: { title: "The Magic Mountain" } }),
+    );
+    if (!result.ok) throw new Error(result.error);
+    return result;
+  }
+
   describe("edition saves", () => {
-    async function book() {
-      const result = await createBookFromWizard(
-        wizardBook({ copies: [], collectionIds: [], edition: { title: "The Magic Mountain" } }),
-      );
-      if (!result.ok) throw new Error(result.error);
-      return result;
-    }
 
     it("queues the book's identity and research jobs for a new edition with an ISBN, and none without", async () => {
       const { workId } = await book();
@@ -361,13 +377,9 @@ describe.skipIf(!url)("atomic book writes", () => {
       expect(await counts()).toEqual(before);
     });
 
-    it("removes the uploaded cover when the edition write fails", async () => {
+    it("retains the uploaded cover when the edition write fails", async () => {
       const { workId } = await book();
-      vi.mocked(processAndUploadCover).mockImplementation(async (id) => ({
-        coverKey: `covers/${id}.jpg`,
-        thumbnailKey: `covers/${id}-thumb.jpg`,
-        palette: null,
-      }));
+      vi.mocked(processAndUploadCover).mockImplementation(async (id, url) => mintCover(id, url));
       await expect(
         createEdition({
           workId,
@@ -376,7 +388,8 @@ describe.skipIf(!url)("atomic book writes", () => {
           genreIds: [MISSING],
         }),
       ).rejects.toThrow();
-      expect(vi.mocked(deleteFromS3)).toHaveBeenCalledTimes(2);
+      expect(deleteFromS3).not.toHaveBeenCalled();
+      expect(coverBucket.objects.size).toBe(2);
       expect(await c`select id from editions where title='With a cover'`).toEqual([]);
     });
 
@@ -487,4 +500,149 @@ describe.skipIf(!url)("atomic book writes", () => {
       ).toEqual(["placed"]);
     });
   });
+  describe("SLN-572 real cover bytes under guarded catalogue publication", () => {
+    const digest = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
+    function deferred<T>() {
+      let resolve!: (value: T) => void;
+      const promise = new Promise<T>(done => { resolve = done; });
+      return { promise, resolve };
+    }
+    async function aliasedBook() {
+      const ids = await book();
+      const a = await mintCover(ids.editionId, "https://example.com/A.png");
+      const full = `gold/covers/${ids.editionId}/cover.webp`, thumb = `gold/covers/${ids.editionId}/thumb.webp`;
+      coverBucket.objects.set(full, Buffer.from(coverBucket.objects.get(a.coverKey)!));
+      coverBucket.objects.set(thumb, Buffer.from(coverBucket.objects.get(a.thumbnailKey)!));
+      await c`update editions set cover_s3_key=${full}, thumbnail_s3_key=${thumb}, cover_source_url='https://example.com/A.png' where id=${ids.editionId}`;
+      const [sibling] = await c`insert into works(title,slug) values('Sibling','sibling') returning id`;
+      await testDb!.insert(schema.media).values([
+        { workId: ids.workId, type: "poster", isActive: true, s3Key: full, thumbnailS3Key: thumb },
+        { workId: sibling.id, type: "poster", isActive: true, s3Key: full, thumbnailS3Key: thumb },
+      ]);
+      const before = await c`select to_jsonb(e) as row from editions e where id=${ids.editionId}`;
+      const posters = await c`select to_jsonb(m) as row from media m order by id`;
+      return { ...ids, full, thumb, before, posters, hashes: [digest(coverBucket.objects.get(full)!), digest(coverBucket.objects.get(thumb)!)] };
+    }
+    it.each(["tag", "publisher", "contributor"] as const)("invalid %s rolls back staged B pointers/metadata/links while aliased A hashes stay", async field => {
+      const a = await aliasedBook();
+      vi.mocked(processAndUploadCover).mockImplementation((id, url) => mintCover(id, url, "#cc0000"));
+      const invalid = field === "tag" ? { tagIds: [MISSING] } : field === "publisher" ? { publisherIds: [MISSING] } : { contributorIds: [{ authorId: MISSING, role: "translator" }] };
+      await expect(updateEdition(a.editionId, { title: "B", coverSourceUrl: "https://example.com/B.png", ...invalid })).rejects.toThrow();
+      expect(await c`select to_jsonb(e) as row from editions e where id=${a.editionId}`).toEqual(a.before);
+      expect(await c`select to_jsonb(m) as row from media m order by id`).toEqual(a.posters);
+      expect([digest(coverBucket.objects.get(a.full)!), digest(coverBucket.objects.get(a.thumb)!)]).toEqual(a.hashes);
+      expect(deleteFromS3).not.toHaveBeenCalled();
+    });
+    it("winner publishes a complete fresh pair; competing writer on a second client is stale and cannot delete either pair", async () => {
+      const a = await aliasedBook();
+      const otherClient = postgres(url!, { prepare: false, max: 1, onnotice: () => {} });
+      const other = drizzle(otherClient, { schema }) as unknown as Db;
+      try {
+        const expectedA = await readEditionWriteSnapshot(a.editionId, testDb! as unknown as Db);
+        const expectedB = await readEditionWriteSnapshot(a.editionId, other);
+        const winner = await mintCover(a.editionId, "https://example.com/B.png", "#cc0000");
+        const loser = await mintCover(a.editionId, "https://example.com/C.png", "#00cc00");
+        const publish = (conn: Db, expected: typeof expectedA, cover: typeof winner) => atomicOn(conn, d => [
+          ...editionWriteGuardQueries(d, expected),
+          editionUpdateQuery(d, a.editionId, { title: cover === winner ? "Winner" : "Loser", updatedAt: new Date(), coverS3Key: cover.coverKey, thumbnailS3Key: cover.thumbnailKey }),
+        ]);
+        await publish(testDb! as unknown as Db, expectedA, winner);
+        await expect(publish(other, expectedB, loser)).rejects.toThrow(/changed/);
+        const [stored] = await c`select cover_s3_key,thumbnail_s3_key,title from editions where id=${a.editionId}`;
+        expect(stored).toEqual({ cover_s3_key: winner.coverKey, thumbnail_s3_key: winner.thumbnailKey, title: "Winner" });
+        expect([digest(coverBucket.objects.get(winner.coverKey)!), digest(coverBucket.objects.get(winner.thumbnailKey)!)]).toEqual([winner.cover.sha256, winner.thumbnail.sha256]);
+        expect([digest(coverBucket.objects.get(a.full)!), digest(coverBucket.objects.get(a.thumb)!)]).toEqual(a.hashes);
+        expect(coverBucket.objects.has(loser.coverKey)).toBe(true);
+        expect(await c`select to_jsonb(m) as row from media m order by id`).toEqual(a.posters);
+      } finally { await otherClient.end(); }
+    });
+    it.each(["microsecond", "relationship", "deletion"] as const)("refuses %s drift occurring while actual updateEdition stages", async kind => {
+      const a = await aliasedBook(), staged = deferred<void>(), release = deferred<void>();
+      if (kind === "microsecond")
+        await c`update editions set updated_at='2026-10-10T10:00:00.000000Z'::timestamptz where id=${a.editionId}`;
+      vi.mocked(processAndUploadCover).mockImplementation(async (id, url) => {
+        const cover = await mintCover(id, url, "#cc0000"); staged.resolve(); await release.promise; return cover;
+      });
+      const outcome = updateEdition(a.editionId, { title: "Stale", coverSourceUrl: "https://example.com/B.png" }).then(() => null, error => error);
+      await staged.promise;
+      if (kind === "microsecond") {
+        const [old] = await c`select updated_at::text as value from editions where id=${a.editionId}`;
+        // Two distinct DB versions within the same JS millisecond.
+        await c`update editions set updated_at=date_trunc('milliseconds',updated_at)+interval '1 microsecond' where id=${a.editionId}`;
+        expect((await c`select updated_at::text as value from editions where id=${a.editionId}`)[0].value).not.toBe(old.value);
+      } else if (kind === "relationship") await c`insert into edition_tags(edition_id,tag_id) values(${a.editionId},${favourite})`;
+      else await c`delete from editions where id=${a.editionId}`;
+      release.resolve();
+      expect(String(await outcome)).toMatch(/changed/);
+      expect([digest(coverBucket.objects.get(a.full)!), digest(coverBucket.objects.get(a.thumb)!)]).toEqual(a.hashes);
+      expect(deleteFromS3).not.toHaveBeenCalled();
+    });
+    it("a zero-row UPDATE fails and rolls back preceding relation writes", async () => {
+      const a = await aliasedBook(), expected = await readEditionWriteSnapshot(a.editionId, testDb! as unknown as Db);
+      await c`create function sln572_skip_update() returns trigger language plpgsql as $$ begin return null; end $$`;
+      await c`create trigger sln572_skip_update before update on editions for each row execute function sln572_skip_update()`;
+      try {
+        await expect(atomicOn(testDb! as unknown as Db, d => [
+          ...editionWriteGuardQueries(d, expected),
+          d.insert(schema.editionTags).values({ editionId: a.editionId, tagId: favourite }),
+          editionUpdateQuery(d, a.editionId, { title: "Suppressed", updatedAt: new Date() }),
+        ])).rejects.toThrow(/changed/);
+        expect(await c`select * from edition_tags where edition_id=${a.editionId}`).toEqual([]);
+      } finally {
+        await c`drop trigger sln572_skip_update on editions`;
+        await c`drop function sln572_skip_update()`;
+      }
+    });
+    it("saveMatch publishes fresh bytes atomically and refuses stale or duplicate-ISBN publication without altering parent bytes", async () => {
+      const a = await aliasedBook();
+      const current = await loadMatchEdition(a.editionId);
+      const record = cleanRecord({ title: "Matched", coverUrl: "https://example.com/B.png" });
+      const rows = [
+        { field: "title" as const, current: current.title, next: "Matched", checked: true, note: null, blocked: null },
+        { field: "cover" as const, current: current.coverSourceUrl, next: record.coverUrl, checked: true, note: null, blocked: null },
+      ];
+      const input = { source: "google_books" as const, sourceId: "test", record, rows, accepted: rows.map(row => ({ field: row.field, value: row.next })) };
+      vi.mocked(processAndUploadCover).mockImplementation((id, url) => mintCover(id, url, "#cc0000"));
+      expect((await saveMatch(current, input)).changed).toBe(2);
+      const winner = await c`select cover_s3_key,thumbnail_s3_key from editions where id=${a.editionId}`;
+      await expect(saveMatch(current, input)).rejects.toThrow(/changed/);
+      expect(await c`select cover_s3_key,thumbnail_s3_key from editions where id=${a.editionId}`).toEqual(winner);
+      expect([digest(coverBucket.objects.get(a.full)!), digest(coverBucket.objects.get(a.thumb)!)]).toEqual(a.hashes);
+      // Re-read and force an actual unique constraint after staging a complete
+      // pair. The cover/source and metadata must roll back together.
+      await createEdition({ workId: a.workId, title: "Other ISBN owner", isbn13: "9780306406157" });
+      const fresh = await loadMatchEdition(a.editionId);
+      const before = await c`select to_jsonb(e) as row from editions e where id=${a.editionId}`;
+      const duplicateRows = [rows[1], { field: "isbn13" as const, current: fresh.isbn13, next: "9780306406157", checked: true, note: null, blocked: null }];
+      await expect(saveMatch(fresh, { ...input, rows: duplicateRows, accepted: duplicateRows.map(row => ({ field: row.field, value: row.next })) })).rejects.toThrow();
+      expect(await c`select to_jsonb(e) as row from editions e where id=${a.editionId}`).toEqual(before);
+      expect(deleteFromS3).not.toHaveBeenCalled();
+    });
+    it("explicit optional/required rematch cover failure preserves existing pointers", async () => {
+      const a = await aliasedBook(), record = cleanRecord({ coverUrl: "https://example.com/unavailable.png" });
+      const rows = [{ field: "cover" as const, current: "https://example.com/A.png", next: record.coverUrl, checked: true, note: null, blocked: null }];
+      const input = { source: "google_books" as const, sourceId: "test", record, rows, accepted: rows.map(row => ({ field: row.field, value: row.next })) };
+      vi.mocked(processAndUploadCover).mockResolvedValue(null);
+      await expect(saveMatch(await loadMatchEdition(a.editionId), input)).rejects.toThrow("cover could not be downloaded");
+      expect((await saveMatch(await loadMatchEdition(a.editionId), { ...input, coverOptional: true })).coverSkipped).toBe(true);
+      const [stored] = await c`select cover_s3_key,thumbnail_s3_key,cover_source_url from editions where id=${a.editionId}`;
+      expect(stored).toEqual({ cover_s3_key: a.full, thumbnail_s3_key: a.thumb, cover_source_url: "https://example.com/A.png" });
+      expect([digest(coverBucket.objects.get(a.full)!), digest(coverBucket.objects.get(a.thumb)!)]).toEqual(a.hashes);
+    });
+    it("wizard postcommit follow-up failure retains the published cover and exposes its exact recovery paths", async () => {
+      vi.mocked(processAndUploadCover).mockImplementation((id, url) => mintCover(id, url));
+      followup.reject = true;
+      const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const result = await createBookFromWizard(wizardBook({ edition: { title: "The Magic Mountain", coverSourceUrl: "https://example.com/B.png" } }));
+        expect(result.ok).toBe(false);
+        const [published] = await c`select cover_s3_key,thumbnail_s3_key from editions`;
+        expect(coverBucket.objects.has(published.cover_s3_key)).toBe(true);
+        expect(coverBucket.objects.has(published.thumbnail_s3_key)).toBe(true);
+        expect(warning).toHaveBeenCalledWith(expect.stringContaining("retained attempt"), expect.objectContaining({ cleanupPending: true, keys: [published.cover_s3_key, published.thumbnail_s3_key] }));
+        expect(deleteFromS3).not.toHaveBeenCalled();
+      } finally { warning.mockRestore(); followup.reject = false; }
+    });
+  });
+
 });

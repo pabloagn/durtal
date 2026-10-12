@@ -54,12 +54,12 @@ function parse<T>(raw: string | undefined, fallback: T): T {
  * the page does not change after it loads. Instances with the same key stay
  * in sync.
  */
-export function usePreference<T>(key: string, fallback: T) {
+export function usePreference<T>(key: string, fallback: T, initialRaw?: string | null) {
   const serverCookies = useContext(PreferencesContext);
   const raw = useSyncExternalStore(
     subscribe,
     () => readCookie(key),
-    () => serverCookies[key],
+    () => initialRaw ?? serverCookies[key],
   );
   const value = parse(raw, fallback);
   // Latest value, so setValue can resolve updater functions

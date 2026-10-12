@@ -10,11 +10,16 @@ import { makeUnique } from "@/lib/utils/slugify";
  * `taken`. Decided before the write, so the row and its slug are one statement.
  */
 export async function uniqueSlug(
-  table: typeof works | typeof authors | typeof series | typeof taxonomyFamilies,
+  table:
+    | typeof works
+    | typeof authors
+    | typeof series
+    | typeof taxonomyFamilies,
   base: string,
   { own, taken = [] }: { own?: string | null; taken?: Iterable<string> } = {},
+  conn: Pick<typeof db, "select"> = db,
 ) {
-  const rows = await db
+  const rows = await conn
     .select({ slug: table.slug })
     .from(table)
     .where(like(table.slug, `${base}%`));
@@ -30,12 +35,19 @@ export async function uniqueSlug(
  */
 export function isWorkSlugClash(error: unknown) {
   let current = error as
-    | { code?: unknown; constraint?: unknown; constraint_name?: unknown; cause?: unknown }
+    | {
+        code?: unknown;
+        constraint?: unknown;
+        constraint_name?: unknown;
+        cause?: unknown;
+      }
     | undefined;
   for (let depth = 0; current && depth < 6; depth++) {
     if (
       current.code === "23505" &&
-      [current.constraint, current.constraint_name].includes("works_slug_unique")
+      [current.constraint, current.constraint_name].includes(
+        "works_slug_unique",
+      )
     )
       return true;
     current = current.cause as typeof current;

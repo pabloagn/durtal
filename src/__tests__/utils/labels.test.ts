@@ -9,7 +9,7 @@ import {
 import { formatEventDescription } from "@/lib/activity/event-config";
 import { acquisitionMethodLabel, orderStatusLabel } from "@/lib/constants/orders";
 import { COPY_CONDITION_LABELS, COPY_FORMAT_LABELS } from "@/lib/constants/catalogue";
-import { STATUS_LABELS } from "@/app/provenance/order-model";
+import { STATUS_LABELS } from "@/app/(catalogue)/provenance/order-model";
 
 describe("labels (SLN-400)", () => {
   it("labels catalogue statuses and priorities from their config", () => {

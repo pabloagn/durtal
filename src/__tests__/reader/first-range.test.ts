@@ -39,7 +39,11 @@ describe("firstRanges", () => {
       { start: 0, end: PDF_HEAD_BYTES - 1 },
       { start: 300 * MB - PDF_TAIL_BYTES, end: 300 * MB - 1 },
     ]);
-    expect(firstRanges("pdf", PDF_HEAD_BYTES + PDF_TAIL_BYTES)).toEqual([{ start: 0, end: PDF_HEAD_BYTES + PDF_TAIL_BYTES - 1 }]);
+    expect(firstRanges("pdf", PDF_HEAD_BYTES)).toEqual([{ start: 0, end: PDF_HEAD_BYTES - 1 }]);
+    expect(firstRanges("pdf", PDF_HEAD_BYTES + PDF_TAIL_BYTES)).toEqual([
+      { start: 0, end: PDF_HEAD_BYTES - 1 },
+      { start: PDF_HEAD_BYTES, end: PDF_HEAD_BYTES + PDF_TAIL_BYTES - 1 },
+    ]);
   });
 
   it("asks a MOBI for its header and a plain FB2 for the whole file", () => {

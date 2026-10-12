@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -9,10 +10,10 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { eq, sql } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 const url = process.env.DURTAL_PUBLISHER_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln319_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -21,7 +22,7 @@ if (url) {
   )
     throw new Error("Publisher tests require disposable local sln319_test");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -100,17 +101,15 @@ describe.skipIf(!url)(
   () => {
     const db = testDb!;
     beforeAll(async () => {
-      await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+      await resetDisposableDatabase(url!, "sln319_test");
     });
     afterAll(async () => {
       await client?.end();
     });
     beforeEach(async () => {
-      await db.execute(
-        sql`truncate works, authors, publishing_houses, locations, publisher_specialties, ignored_publisher_names cascade`,
-      );
+      await resetDisposableDatabase(url!, "sln319_test", { emptyLocations: true });
       vi.clearAllMocks();
-    });
+    }, 30000);
     async function work(title = "A book") {
       return (
         await db

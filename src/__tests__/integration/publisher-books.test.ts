@@ -1,17 +1,18 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { sql } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_PUBLISHER_BOOKS_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln427_test");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln427_test")
     throw new Error("Publisher page tests require disposable local sln427_test");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -63,18 +64,18 @@ describe.skipIf(!url)("a publishing house's books as a catalogue", () => {
   const db = testDb!;
   let house: string, imprint: string, other: string, location: string;
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln427_test");
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await db.execute(sql`truncate works, authors, publishing_houses, locations, media cascade`);
+    await resetDisposableDatabase(url!, "sln427_test", { emptyLocations: true });
     house = (await savePublisher({ name: "New York Review Books", country: "United States" }))!.id;
     imprint = (await savePublisher({ name: "NYRB Poets", kind: "imprint", parentId: house }))!.id;
     other = (await savePublisher({ name: "Penguin" }))!.id;
     [{ id: location }] = await db.insert(schema.locations).values({ name: "Study", type: "physical" }).returning();
-  });
+  }, 30000);
 
   async function book(
     title: string,

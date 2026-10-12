@@ -6,7 +6,26 @@
       "Threshold": 80,
       "ThresholdType": "PERCENTAGE"
     },
-    "Subscribers": [{ "SubscriptionType": "EMAIL", "Address": "__ALERT_EMAIL__" }]
+    "Subscribers": [
+      {
+        "SubscriptionType": "EMAIL",
+        "Address": "__ALERT_EMAIL_FROM_KEYCHAIN__"
+      }
+    ]
+  },
+  {
+    "Notification": {
+      "NotificationType": "ACTUAL",
+      "ComparisonOperator": "GREATER_THAN",
+      "Threshold": 100,
+      "ThresholdType": "PERCENTAGE"
+    },
+    "Subscribers": [
+      {
+        "SubscriptionType": "EMAIL",
+        "Address": "__ALERT_EMAIL_FROM_KEYCHAIN__"
+      }
+    ]
   },
   {
     "Notification": {
@@ -15,6 +34,11 @@
       "Threshold": 100,
       "ThresholdType": "PERCENTAGE"
     },
-    "Subscribers": [{ "SubscriptionType": "EMAIL", "Address": "__ALERT_EMAIL__" }]
+    "Subscribers": [
+      {
+        "SubscriptionType": "EMAIL",
+        "Address": "__ALERT_EMAIL_FROM_KEYCHAIN__"
+      }
+    ]
   }
 ]

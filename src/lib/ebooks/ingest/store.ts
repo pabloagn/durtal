@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { createReadStream, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { copyFile, mkdir, open, stat, writeFile } from "node:fs/promises";
+import { constants, createReadStream, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFile, mkdir, open, stat, writeFile, type FileHandle } from "node:fs/promises";
 import path from "node:path";
 import {
   AbortMultipartUploadCommand,
@@ -17,6 +17,7 @@ import { ebookObjectHeaders,
   ebookOwner,
   objectMatches,
   ebookS3, ebookStorage, headEbookObject, previewFile, statusOf, type EbookObjectHead,
+  checkEbookStorageScope, type EbookStorageScope,
 } from "../storage";
 
 /*
@@ -52,6 +53,15 @@ export interface StoreOptions {
   /** Above this a file goes multipart (tests make it small) */
   singlePutMax?: number;
   partSize?: number;
+  /** Required by the owned upload service; defaults preserve CLI behavior. */
+  scope?: EbookStorageScope;
+  multipartState?: StoreMultipartState;
+}
+
+export interface StoreMultipartState {
+  read(key: string): Promise<UploadState | null>;
+  write(key: string, state: UploadState): Promise<void>;
+  remove(key: string): Promise<void>;
 }
 
 export interface StoreResult {
@@ -75,11 +85,13 @@ export function isRetryable(error: unknown): boolean {
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /** `run`, tried again after 1, 4 and 16 seconds when S3 or the network failed */
-export async function withRetries<T>(run: () => Promise<T>, sleep: (ms: number) => Promise<void> = defaultSleep): Promise<T> {
+export async function withRetries<T>(run: () => Promise<T>, sleep: (ms: number) => Promise<void> = defaultSleep, scope?: EbookStorageScope): Promise<T> {
   for (let attempt = 0; ; attempt++) {
+    await checkEbookStorageScope(scope);
     try {
-      return await run();
+      const result = await run(); await checkEbookStorageScope(scope); return result;
     } catch (error) {
+      scope?.signal?.throwIfAborted();
       if (attempt >= RETRY_DELAYS_MS.length || !isRetryable(error)) throw error;
       await sleep(RETRY_DELAYS_MS[attempt]);
     }
@@ -89,12 +101,14 @@ export async function withRetries<T>(run: () => Promise<T>, sleep: (ms: number) 
 const hexToBase64 = (hex: string) => Buffer.from(hex, "hex").toString("base64");
 
 /** One slice of the body */
-async function readSlice(body: StoreInput["body"], start: number, length: number): Promise<Uint8Array> {
+async function readSlice(body: StoreInput["body"], start: number, length: number, scope?: EbookStorageScope): Promise<Uint8Array> {
+  scope?.signal?.throwIfAborted();
   if ("bytes" in body) return body.bytes.subarray(start, start + length);
-  const handle = await open(body.file, "r");
+  const handle = await open(body.file, scope ? constants.O_RDONLY | constants.O_NOFOLLOW : "r");
   try {
     const buffer = Buffer.alloc(length);
     const { bytesRead } = await handle.read(buffer, 0, length, start);
+    scope?.signal?.throwIfAborted();
     return buffer.subarray(0, bytesRead);
   } finally {
     await handle.close();
@@ -102,11 +116,13 @@ async function readSlice(body: StoreInput["body"], start: number, length: number
 }
 
 /** The checksum S3 gives a multipart object: the SHA-256 of its parts' SHA-256s, then "-<parts>" */
-export async function compositeChecksum(body: StoreInput["body"], size: number, partSize = PART_SIZE): Promise<string> {
+export async function compositeChecksum(body: StoreInput["body"], size: number, partSize = PART_SIZE, scope?: EbookStorageScope): Promise<string> {
   const parts = Math.max(1, Math.ceil(size / partSize));
   const outer = createHash("sha256");
-  for (let n = 0; n < parts; n++) outer.update(createHash("sha256").update(await readSlice(body, n * partSize, partSize)).digest(),
-    );
+  for (let n = 0; n < parts; n++) {
+    await checkEbookStorageScope(scope);
+    outer.update(createHash("sha256").update(await readSlice(body, n * partSize, partSize, scope)).digest());
+  }
   return `${outer.digest("base64")}-${parts}`;
 }
 
@@ -116,7 +132,7 @@ export async function compositeChecksum(body: StoreInput["body"], size: number, 
  * then only that matches, since the sha256 metadata was written by this same
  * upload from the plan and proves nothing about the bytes.
  */
-async function matches(head: EbookObjectHead, input: StoreInput, partSize: number, sent: string | null = null): Promise<string | null> {
+async function matches(head: EbookObjectHead, input: StoreInput, partSize: number, sent: string | null = null, scope?: EbookStorageScope): Promise<string | null> {
   if (head.size !== input.size) return `its size is ${head.size} bytes, not ${input.size}`;
   if (head.checksumType === "full") return head.sha256 === input.sha256 ? null : "its SHA-256 differs";
   if (sent) {
@@ -124,15 +140,15 @@ async function matches(head: EbookObjectHead, input: StoreInput, partSize: numbe
     return head.checksum === sent ? null : "its multipart checksum is not the parts sent";
   }
   if (head.checksumType === "composite") {
-    const expected = await compositeChecksum(input.body, input.size, partSize);
+    const expected = await compositeChecksum(input.body, input.size, partSize, scope);
     if (head.checksum === expected) return null;
     // Another writer's parts of another size: the sha256 metadata written with it names the whole
-    return (await objectMatches(input.key, input.size, input.sha256)) ? null : "its multipart checksum differs";
+    return (await objectMatches(input.key, input.size, input.sha256, scope)) ? null : "its multipart checksum differs";
   }
-  return (await objectMatches(input.key, input.size, input.sha256)) ? null : "its bytes differ";
+  return (await objectMatches(input.key, input.size, input.sha256, scope)) ? null : "its bytes differ";
 }
 
-interface UploadState {
+export interface UploadState {
   key: string;
   uploadId: string;
   partSize: number;
@@ -154,26 +170,41 @@ function uploadStateFile(cacheDir: string, key: string) {
  * the composite checksum of the parts sent, or null when another upload
  * stored the key first.
  */
-async function multipartUpload(input: StoreInput, options: Required<Pick<StoreOptions, "cacheDir" | "partSize">> & { sleep?: StoreOptions["sleep"] }): Promise<string | null> {
+async function multipartUpload(input: StoreInput, options: StoreOptions & { partSize: number }): Promise<string | null> {
   const s3 = ebookS3();
   const { bucket } = ebookStorage();
-  const retry = <T>(run: () => Promise<T>) => withRetries(run, options.sleep);
-  const stateFile = uploadStateFile(options.cacheDir, input.key);
+  const retry = <T>(run: () => Promise<T>) => withRetries(run, options.sleep, options.scope);
+  // Upload jobs inject bounded durable progress; never make an ungranted local cache.
+  const stateFile = options.multipartState ? null : uploadStateFile(options.cacheDir, input.key);
+  const saveState = async (state: UploadState) => {
+    await checkEbookStorageScope(options.scope);
+    if (options.multipartState) await options.multipartState.write(input.key, state);
+    else writeFileSync(stateFile!, JSON.stringify(state));
+  };
+  const removeState = async () => {
+    await checkEbookStorageScope(options.scope);
+    if (options.multipartState) await options.multipartState.remove(input.key);
+    else rmSync(stateFile!, { force: true });
+  };
   const partSize = options.partSize;
   const count = Math.ceil(input.size / partSize);
 
   // A saved upload of the same key and part size: list what S3 already has
-  let state: UploadState | null = existsSync(stateFile) ? (JSON.parse(readFileSync(stateFile, "utf8")) as UploadState) : null;
+  let state: UploadState | null = options.multipartState ? await options.multipartState.read(input.key)
+    : existsSync(stateFile!) ? (JSON.parse(readFileSync(stateFile!, "utf8")) as UploadState) : null;
   const sent = new Map<number, CompletedPart & { Size?: number }>();
   if (state && (state.bucket !== bucket ||
       state.region !== ebookStorage().region ||
       state.credentialIdentity !== ebookCredentialIdentity() ||
-      state.key !== input.key || state.partSize !== partSize)) state = null;
+      state.key !== input.key || state.partSize !== partSize)) {
+    if (options.scope) throw new Error("Owned multipart storage binding differs; saved custody remains held");
+    state = null;
+  }
   if (state) {
     try {
       let marker: string | undefined;
       do {
-        const page = await retry(() => s3.send(new ListPartsCommand({ Bucket: bucket, ...ebookOwner(), Key: input.key, UploadId: state!.uploadId, PartNumberMarker: marker })));
+        const page = await retry(() => s3.send(new ListPartsCommand({ Bucket: bucket, ...ebookOwner(), Key: input.key, UploadId: state!.uploadId, PartNumberMarker: marker }), { abortSignal: options.scope?.signal }));
         for (const part of page.Parts ?? [])
           if (part.PartNumber) sent.set(part.PartNumber, { PartNumber: part.PartNumber, ETag: part.ETag, ChecksumSHA256: part.ChecksumSHA256, Size: part.Size });
         marker = page.IsTruncated ? page.NextPartNumberMarker : undefined;
@@ -186,7 +217,7 @@ async function multipartUpload(input: StoreInput, options: Required<Pick<StoreOp
   }
   if (!state) {
     const headers = ebookObjectHeaders({ key: input.key, contentType: input.contentType, sha256: input.sha256, filename: input.filename });
-    const created = await retry(() => s3.send(new CreateMultipartUploadCommand({ Bucket: bucket, ...ebookOwner(), Key: input.key, ChecksumAlgorithm: "SHA256", ...headers })));
+    const created = await retry(() => s3.send(new CreateMultipartUploadCommand({ Bucket: bucket, ...ebookOwner(), Key: input.key, ChecksumAlgorithm: "SHA256", ...headers }), { abortSignal: options.scope?.signal }));
     if (!created.UploadId) throw new Error("S3 gave no upload id");
     state = {
       bucket,
@@ -194,14 +225,15 @@ async function multipartUpload(input: StoreInput, options: Required<Pick<StoreOp
       credentialIdentity: ebookCredentialIdentity(),
       key: input.key, uploadId: created.UploadId, partSize,
     };
-    writeFileSync(stateFile, JSON.stringify(state));
+    await saveState(state);
   }
 
   const parts: CompletedPart[] = [];
   const whole = createHash("sha256");
   const outer = createHash("sha256");
   for (let n = 1; n <= count; n++) {
-    const bytes = await readSlice(input.body, (n - 1) * partSize, partSize);
+    await checkEbookStorageScope(options.scope);
+    const bytes = await readSlice(input.body, (n - 1) * partSize, partSize, options.scope);
     const digest = createHash("sha256").update(bytes).digest();
     const checksum = digest.toString("base64");
     whole.update(bytes);
@@ -216,39 +248,48 @@ async function multipartUpload(input: StoreInput, options: Required<Pick<StoreOp
           ...ebookOwner(),
           Key: input.key, UploadId: state!.uploadId, PartNumber: n, Body: bytes, ContentLength: bytes.length, ChecksumSHA256: checksum,
         }),
+        { abortSignal: options.scope?.signal },
       ),
     );
     parts.push({ PartNumber: n, ETag: uploaded.ETag, ChecksumSHA256: uploaded.ChecksumSHA256 ?? checksum });
   }
   if (whole.digest("hex") !== input.sha256) {
-    await s3.send(new AbortMultipartUploadCommand({ Bucket: bucket, ...ebookOwner(), Key: input.key, UploadId: state.uploadId })).catch(() => {});
-    rmSync(stateFile, { force: true });
+    await checkEbookStorageScope(options.scope);
+    const aborted = s3.send(new AbortMultipartUploadCommand({ Bucket: bucket, ...ebookOwner(), Key: input.key, UploadId: state.uploadId }), { abortSignal: options.scope?.signal });
+    if (options.scope) await aborted; else await aborted.catch(() => {});
+    await removeState();
     throw new Error(`The stored object ${input.key} differs from the file: the bytes sent are not the planned SHA-256 (the file changed since the plan)`);
   }
   try {
     await retry(() =>
       s3.send(new CompleteMultipartUploadCommand({ Bucket: bucket, ...ebookOwner(), Key: input.key, UploadId: state!.uploadId, MultipartUpload: { Parts: parts }, IfNoneMatch: "*" }),
+        { abortSignal: options.scope?.signal },
       ),
     );
   } catch (error) {
     // 412: the key exists, so another upload stored the same bytes; this one is dropped and the object verified
     if (statusOf(error) !== 412) throw error;
-    await s3.send(new AbortMultipartUploadCommand({ Bucket: bucket, ...ebookOwner(), Key: input.key, UploadId: state.uploadId })).catch(() => {});
-    rmSync(stateFile, { force: true });
+    await checkEbookStorageScope(options.scope);
+    const aborted = s3.send(new AbortMultipartUploadCommand({ Bucket: bucket, ...ebookOwner(), Key: input.key, UploadId: state.uploadId }), { abortSignal: options.scope?.signal });
+    if (options.scope) await aborted; else await aborted.catch(() => {});
+    await removeState();
     return null;
   }
-  rmSync(stateFile, { force: true });
+  await removeState();
   return `${outer.digest("base64")}-${count}`;
 }
 
 /** Stores one object and verifies it; throws when it cannot be stored or the stored bytes differ */
 export async function storeObject(input: StoreInput, options: StoreOptions): Promise<StoreResult> {
+  await checkEbookStorageScope(options.scope);
+  if (options.scope && !options.multipartState) throw new Error("Owned publication requires durable multipart state");
   const partSize = options.partSize ?? PART_SIZE;
   const singlePutMax = options.singlePutMax ?? SINGLE_PUT_MAX;
-  const retry = <T>(run: () => Promise<T>) => withRetries(run, options.sleep);
+  const retry = <T>(run: () => Promise<T>) => withRetries(run, options.sleep, options.scope);
 
   const dir = previewS3Dir();
   if (dir) {
+    if (options.scope) throw new Error("Owned publication cannot use a preview storage directory");
     const target = previewFile(dir, input.key);
     const existing = await stat(target).catch(() => null);
     if (!existing) {
@@ -262,41 +303,60 @@ export async function storeObject(input: StoreInput, options: StoreOptions): Pro
     return { adopted: !!existing, multipart: false };
   }
 
-  const before = await retry(() => headEbookObject(input.key, { checksum: true }));
+  const before = await retry(() => headEbookObject(input.key, { checksum: true, scope: options.scope }));
   if (before) {
-    const problem = await matches(before, input, partSize);
+    const problem = await matches(before, input, partSize, null, options.scope);
     if (problem) throw new Error(`The stored object ${input.key} differs from the file: ${problem}`);
     return { adopted: true, multipart: false };
   }
 
   const multipart = input.size > singlePutMax;
   let sent: string | null = null;
-  if (multipart) sent = await multipartUpload(input, { cacheDir: options.cacheDir, partSize, sleep: options.sleep });
+  if (multipart) sent = await multipartUpload(input, { ...options, partSize });
   else {
     try {
-      await retry(() =>
-        ebookS3().send(
+      await retry(async () => {
+        // The numeric no-follow flags belong to open(), whose real handle owns
+        // the stream. Keep the scoped path closed even if fencing fails after open.
+        const handle: FileHandle | undefined = "file" in input.body && options.scope
+          ? await open(input.body.file, constants.O_RDONLY | constants.O_NOFOLLOW) : undefined;
+        let body: ReturnType<typeof createReadStream> | Uint8Array | undefined;
+        try {
+          await checkEbookStorageScope(options.scope);
+          body = "file" in input.body
+            ? handle ? handle.createReadStream({ signal: options.scope?.signal }) : createReadStream(input.body.file)
+            : input.body.bytes;
+          return await ebookS3().send(
           new PutObjectCommand({
             Bucket: ebookStorage().bucket,
             ...ebookOwner(),
             Key: input.key,
             // A new stream for each attempt: a retried body starts from its first byte
-            Body: "file" in input.body ? createReadStream(input.body.file) : input.body.bytes,
+            Body: body,
             ContentLength: input.size,
             ChecksumSHA256: hexToBase64(input.sha256),
             IfNoneMatch: "*",
             ...ebookObjectHeaders({ key: input.key, contentType: input.contentType, sha256: input.sha256, filename: input.filename }),
           }),
-        ),
-      );
+          { abortSignal: options.scope?.signal },
+        ); } finally {
+          if (body && !(body instanceof Uint8Array)) {
+            // A failed SDK send can leave the file stream open. Await real FD
+            // closure before job cleanup/physical host ownership can settle.
+            const stream = body;
+            if (!stream.closed) await new Promise<void>((resolve) => { stream.once("close", resolve); stream.destroy(); });
+          }
+          await handle?.close();
+        }
+      });
     } catch (error) {
       // 412: the key exists, which by construction means the same bytes; verified below like any other
       if (statusOf(error) !== 412) throw error;
     }
   }
 
-  const after = await retry(() => headEbookObject(input.key, { checksum: true }));
-  const problem = after ? await matches(after, input, partSize, sent) : "S3 has no object after the upload";
+  const after = await retry(() => headEbookObject(input.key, { checksum: true, scope: options.scope }));
+  const problem = after ? await matches(after, input, partSize, sent, options.scope) : "S3 has no object after the upload";
   if (problem) throw new Error(`The stored object ${input.key} differs from the file: ${problem}`);
   return { adopted: false, multipart };
 }

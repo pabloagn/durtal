@@ -1,6 +1,8 @@
 import type { EbookFormat } from "../../formats";
 import type { ByteSource } from "../source";
 import { emptyInspection, type FileAuthor, type FileMetadata, type Inspection } from "./types";
+import { chargeInspectionDecoded, inspectionBudget, reserveDecodedText } from "../budget";
+import { UPLOAD_LIMITS } from "../../upload/limits";
 
 /*
  * MOBI, AZW and AZW3 (SLN-494): the PalmDB record list, the MOBI header and
@@ -50,6 +52,7 @@ export async function readRecord(source: ByteSource, db: PalmDb, index: number):
   const start = db.offsets[index];
   const end = index + 1 < db.offsets.length ? db.offsets[index + 1] : source.size;
   if (start === undefined || end < start || end > source.size) throw new Error(`Record ${index} is out of the file`);
+  if (inspectionBudget() && end - start > UPLOAD_LIMITS.entryDecodedBytes) inspectionBudget()!.reject("MOBI record exceeds its inspection bound");
   return source.read(start, end - start);
 }
 
@@ -66,23 +69,33 @@ export async function readRecord0(source: ByteSource): Promise<Uint8Array | null
 }
 
 /** PalmDOC's LZ77 (the MOBI format's compression 2) */
-export function palmDocDecompress(input: Uint8Array): Uint8Array {
-  const out: number[] = [];
+export function palmDocDecompress(input: Uint8Array, entryId = "palmdoc"): Uint8Array {
+  const chunks: Uint8Array[] = [];
+  let block = new Uint8Array(65536);
+  let length = 0;
+  const append = (byte: number) => {
+    chargeInspectionDecoded(entryId, 1);
+    if (length && length % block.length === 0) { chunks.push(block); block = new Uint8Array(65536); }
+    block[length++ % block.length] = byte;
+  };
+  const at = (index: number) => index >= chunks.length * block.length ? block[index % block.length] : chunks[Math.floor(index / block.length)][index % block.length];
   for (let i = 0; i < input.length; ) {
     const c = input[i++];
-    if (c === 0 || (c >= 0x09 && c <= 0x7f)) out.push(c);
-    else if (c <= 0x08) for (let n = 0; n < c && i < input.length; n++) out.push(input[i++]);
-    else if (c >= 0xc0) out.push(0x20, c ^ 0x80);
+    if (c === 0 || (c >= 0x09 && c <= 0x7f)) append(c);
+    else if (c <= 0x08) for (let n = 0; n < c && i < input.length; n++) append(input[i++]);
+    else if (c >= 0xc0) { append(0x20); append(c ^ 0x80); }
     else {
       if (i >= input.length) break;
       const pair = (c << 8) | input[i++];
       const distance = (pair >> 3) & 0x07ff;
-      const length = (pair & 0x07) + 3;
-      if (distance === 0 || distance > out.length) break;
-      for (let n = 0; n < length; n++) out.push(out[out.length - distance]);
+      if (distance === 0 || distance > length) break;
+      for (let n = 0; n < ((pair & 0x07) + 3); n++) append(at(length - distance));
     }
   }
-  return Uint8Array.from(out);
+  const result = new Uint8Array(length);
+  for (let i = 0; i < chunks.length; i++) result.set(chunks[i], i * block.length);
+  result.set(block.subarray(0, length - chunks.length * block.length), chunks.length * block.length);
+  return result;
 }
 
 /** The size of a text record's trailing entries, which are not text */
@@ -147,6 +160,7 @@ export function parseMobiHeader(record0: Uint8Array): MobiHeader {
   const nameOffset = u32(record0, 84);
   const nameLength = u32(record0, 88);
   const decoder = new TextDecoder(encoding === 65001 ? "utf-8" : "windows-1252");
+  reserveDecodedText(nameLength);
   const firstImage = u32(record0, 108);
   const exthFlags = u32(record0, 128);
   return {
@@ -166,7 +180,10 @@ export function parseMobiHeader(record0: Uint8Array): MobiHeader {
 
 function metadataOf(header: MobiHeader, palmName: string): FileMetadata {
   const decoder = new TextDecoder(header.encoding === 65001 ? "utf-8" : "windows-1252");
-  const text = (type: number) => header.exth.filter((r) => r.type === type).map((r) => decoder.decode(r.data).replace(/\0+$/, "").trim()).filter(Boolean);
+  const text = (type: number) => header.exth.filter((r) => r.type === type).map((r) => {
+    reserveDecodedText(r.data.length * 3);
+    return decoder.decode(r.data).replace(/\0+$/, "").trim();
+  }).filter(Boolean);
   const first = (type: number) => text(type)[0] ?? null;
   const authors: FileAuthor[] = text(100).flatMap((value) => value.split(/\s*[&;]\s*/)).filter(Boolean).map((name) => ({ name, role: "aut" }));
   const identifiers = [
@@ -216,12 +233,14 @@ export async function inspectMobi(source: ByteSource, format: EbookFormat): Prom
       for (let i = 1; i <= header.textRecords && i < db.offsets.length; i++) {
         const record = await readRecord(source, db, i);
         const body = record.subarray(0, record.length - trailingSize(record, header.extraFlags));
-        parts.push(header.compression === COMPRESSION.palmdoc ? palmDocDecompress(body) : body);
+        if (header.compression === COMPRESSION.none) chargeInspectionDecoded(`mobi:${i}`, body.length);
+        parts.push(header.compression === COMPRESSION.palmdoc ? palmDocDecompress(body, `mobi:${i}`) : body);
       }
     } catch (error) {
       return emptyInspection(format, { metadata, problem: `Damaged MOBI: ${(error as Error).message}` });
     }
     const total = parts.reduce((n, p) => n + p.length, 0);
+    reserveDecodedText(total);
     const all = new Uint8Array(total);
     parts.reduce((at, p) => (all.set(p, at), at + p.length), 0);
     text = { kind: "html", parts: [{ html: decoder.decode(all), matter: "body" }] };

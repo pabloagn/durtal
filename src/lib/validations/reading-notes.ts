@@ -69,6 +69,8 @@ export const noteIdSchema = z.object({ id: z.uuid() }).strict();
 
 /** A deleted note, as deleteReadingNote returned it, for its Undo */
 export const noteSnapshotSchema = z.object({
+  /** Opaque server-held evidence; the snapshot cannot authorize annotation DML. */
+  readerQuoteUndo: z.strictObject({ token: z.uuid(), ebookId: z.uuid() }).optional(),
   id: z.uuid(),
   workId: z.uuid(),
   readingId: z.uuid().nullable(),

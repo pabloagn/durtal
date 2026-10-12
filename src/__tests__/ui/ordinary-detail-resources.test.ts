@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { EditionImageBox } from "@/components/books/edition-cover";
-import { AmbientCrystals, PosterGlow } from "@/app/library/[slug]/ambient-crystals";
+import { AmbientCrystals, PosterGlow } from "@/app/(catalogue)/library/[slug]/ambient-crystals";
 import { coarseImageFallback } from "@/components/shared/coarse-image-source";
 import { imageSourceIdentity, imageAdjustmentRule, DEFAULT_IMAGE_ADJUSTMENTS } from "@/lib/utils/image-adjustment-css";
 import type { CrystalColor } from "@/lib/types";

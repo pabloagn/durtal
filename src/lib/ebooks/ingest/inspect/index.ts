@@ -8,6 +8,7 @@ import { inspectFb2 } from "./fb2";
 import { inspectMobi } from "./mobi";
 import { inspectPdf } from "./pdf";
 import { emptyInspection, type Inspection } from "./types";
+import { chargeInspectionDecoded, reserveDecodedText } from "../budget";
 
 /*
  * One file's inspection by its sniffed format (SLN-494). Formats the reader
@@ -43,6 +44,8 @@ export async function inspectFile(source: ByteSource, format: EbookFormat): Prom
       return emptyInspection(format, { text: { kind: "none", reason: "KFX: its text is not read" } });
     case "txt": {
       if (source.size > MAX_ENTRY_BYTES) return emptyInspection(format, { text: { kind: "none", reason: "Text file larger than 64 MB: not counted" } });
+      chargeInspectionDecoded("plain:text", source.size);
+      reserveDecodedText(source.size);
       const text = new TextDecoder("utf-8").decode(await source.read(0, source.size));
       return emptyInspection(format, { text: { kind: "plain", text } });
     }

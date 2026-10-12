@@ -66,6 +66,7 @@ export function FinishedCovers({ reads, className }: { reads: FinishedItem[]; cl
 }
 
 export interface TileItem {
+  ebookId?: string | null;
   reading: ReadingRef;
   title: string;
   href: string;
@@ -126,6 +127,7 @@ export function DashboardReading({
                     <LogButton reading={tile.reading} title={tile.title} />
                   </div>
                   {tile.estimate && <EstimateLine estimate={tile.estimate} lines="min-h-[2lh] [overflow-wrap:anywhere]" className="mt-1" />}
+                  {tile.ebookId && <a href={`/reader/${tile.ebookId}`} className="mt-1 inline-flex text-xs text-fg-secondary underline touch-hit">Open eBook</a>}
                 </div>
               </div>
             ))}

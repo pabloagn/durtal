@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -10,7 +11,6 @@ import {
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 import {
   dateColumns,
@@ -20,6 +20,7 @@ import {
 import type { SourceOwner } from "@/lib/catalogue/provenance";
 
 const url = process.env.DURTAL_CATALOGUE_PROVENANCE_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln355_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -30,7 +31,7 @@ if (url) {
       "Catalogue provenance tests require disposable local sln355_test",
     );
 }
-const client = url ? postgres(url, { max: 6, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 6, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -71,7 +72,7 @@ describe.skipIf(!url)("typed provenance and uncertain dates", () => {
     payload: { title: "Source title", date: "c. 1900" },
   });
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln355_test");
     // Test future domains only inside this explicitly guarded disposable DB.
     await c`alter table works drop constraint works_kind_enabled_check`;
   }, 30000);
@@ -79,7 +80,7 @@ describe.skipIf(!url)("typed provenance and uncertain dates", () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, authors, publishing_houses, venues, catalogue_dates, harmonization_operations, harmonization_redirects cascade`;
+    await resetDisposableDatabase(url!, "sln355_test", { activateKinds: true });
     owners = {} as typeof owners;
     for (const kind of ["book", "film", "perfume", "painting"] as const) {
       const [row] =
@@ -98,7 +99,7 @@ describe.skipIf(!url)("typed provenance and uncertain dates", () => {
     owners.person = { kind: "person", id: person.id };
     owners.organization = { kind: "organization", id: org.id };
     owners.venue = { kind: "venue", id: venue.id };
-  });
+  }, 30000);
   it("namespaces identical external IDs by provider and entity kind, never by title", async () => {
     const input = {
       owner: owners.book,

@@ -2,6 +2,7 @@ import type { ByteSource } from "../source";
 import { MAX_ENTRY_BYTES, openZip } from "../zip";
 import { attr, childElements, descendants, firstChild, firstDescendant, parseXml, textOf, type XmlElement } from "./xml";
 import { emptyInspection, type FileAuthor, type Inspection } from "./types";
+import { chargeInspectionDecoded, reserveDecodedText, retainInspectionText } from "../budget";
 
 /*
  * FictionBook 2 (SLN-494), plain or zipped (FBZ): title-info (title,
@@ -15,6 +16,7 @@ const BLOCKS = new Set(["p", "v", "title", "subtitle", "section", "stanza", "epi
 
 /** The declared encoding of an XML document ("windows-1251"), else UTF-8 */
 export function decodeXml(bytes: Uint8Array): string {
+  reserveDecodedText(bytes.length);
   const prolog = new TextDecoder("latin1").decode(bytes.subarray(0, 200));
   const declared = /encoding\s*=\s*["']([^"']+)["']/i.exec(prolog)?.[1];
   try {
@@ -36,6 +38,7 @@ function bodyText(body: XmlElement): string {
     }
   };
   walk(body);
+  retainInspectionText(out.reduce((total, part) => total + part.length, 0) * 4);
   return out.join("").replace(/[ \t]+/g, " ").replace(/ *\n\s*/g, "\n").trim();
 }
 
@@ -69,7 +72,11 @@ export function inspectFictionBook(xml: string, format: "fb2" | "fbz"): Inspecti
   const coverHref = attr(coverPage ? firstDescendant(coverPage, "image") : null, "href");
   const binary = coverHref?.startsWith("#") ? descendants(book, "binary").find((b) => attr(b, "id") === coverHref.slice(1)) : undefined;
   const cover = binary
-    ? { kind: "bytes" as const, mediaType: attr(binary, "content-type"), load: async () => Uint8Array.from(Buffer.from(textOf(binary).replace(/\s+/g, ""), "base64")) }
+    ? { kind: "bytes" as const, mediaType: attr(binary, "content-type"), load: async () => {
+      const encoded = textOf(binary).replace(/\s+/g, "");
+      chargeInspectionDecoded("fb2:binary-cover", Math.ceil(encoded.length / 4) * 3);
+      return new Uint8Array(Buffer.from(encoded, "base64"));
+    } }
     : null;
 
   const bodies = childElements(book, "body").filter((b) => (attr(b, "name") ?? "").toLowerCase() !== "notes");
@@ -96,6 +103,7 @@ export function inspectFictionBook(xml: string, format: "fb2" | "fbz"): Inspecti
 export async function inspectFb2(source: ByteSource, format: "fb2" | "fbz"): Promise<Inspection> {
   if (format === "fb2") {
     if (source.size > MAX_ENTRY_BYTES) return emptyInspection(format, { problem: "FB2 larger than 64 MB: not read" });
+    chargeInspectionDecoded("plain:fb2", source.size);
     return inspectFictionBook(decodeXml(await source.read(0, source.size)), format);
   }
   try {

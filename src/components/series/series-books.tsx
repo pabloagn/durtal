@@ -17,6 +17,10 @@ import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { readingBadge } from "@/lib/reading/card";
+import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
+import { EbookMark } from "@/components/books/ebook-mark";
+import { COVER_CORNER } from "@/components/books/cover-chip";
+import { CatalogueReadLink } from "@/components/ebooks/catalogue-read-action";
 
 /** A volume's reading: "Reading 44%", "Read", "Read 2×", "Abandoned" */
 const badge = (book: SeriesBook) =>
@@ -38,6 +42,8 @@ export interface SeriesBook {
   coverCrop: MediaCrop | null;
   owned: boolean;
   status: string;
+  ebook?: WorkEbookDTO | null;
+  readerReturnTo?: string;
   /** The volume's reading state (SLN-449) and the open reading's share */
   readingState?: string | null;
   timesRead?: number;
@@ -132,7 +138,7 @@ export function SeriesBooks({
             href={`/library/${book.slug}`}
             aria-label={`Open ${book.title}`}
           >
-            <div className="h-16 w-11 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
+            <div className="relative h-16 w-11 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
               {book.cover && (
                 <img
                   src={mediaUrl(book.cover)}
@@ -141,6 +147,7 @@ export function SeriesBooks({
                   style={mediaImageStyle(book.coverCrop)}
                 />
               )}
+              {book.ebook?.readable && <div className={COVER_CORNER.bottomLeft}><EbookMark ebook={book.ebook} /></div>}
             </div>
           </Link>
           <div className="min-w-0 flex-1">
@@ -164,6 +171,7 @@ export function SeriesBooks({
                     </span>
                   )}
                   <div className="flex gap-1">
+                    <CatalogueReadLink ebook={book.ebook ?? null} returnTo={book.readerReturnTo} />
                     <Button
                       size="sm"
                       variant="ghost"

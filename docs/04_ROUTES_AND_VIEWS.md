@@ -36,6 +36,7 @@
 /reading/import             Import reading history: upload, past imports
 /reading/import/[id]        One import's preview, decisions, commit and undo
 /ebooks/runs                eBooks: ingestion runs, newest first
+/ebooks/review              Decide unlinked eBooks; bounded sections and filter URLs
 /ebooks/runs/[runId]        One ingestion run: its reconciliation and its files
 /series                     Series index
 /series/[id]                Series detail
@@ -853,6 +854,70 @@ What an import will do, before anything is written (SLN-450), from `getImportPre
 - Decisions are saved at once, one row each. Defaults: Exact rows import, and Want to read rows whose book is neither queued nor being read; Already in Durtal, Cannot import and Not imported rows skip; the rest wait.
 - **Private notes** (SLN-453), after the sections: every row whose Goodreads `Private Notes` is not empty, 50 at a time ("Show 50 more", `?notes=100`). Each: the row's title and author, the book it matched (or "Choose this row's book first"), the note's first three lines (at most 300 characters), and Import and Skip (`decideImportNote`, one UPDATE of `note_decision`), or what happened: "Imported", "Already in Durtal (Same source)", "Too long to import (12,400 characters; at most 10,000)". "Import all private notes" sets every note with a book to import in one UPDATE. A note's decision is its own: a row whose readings are already in Durtal still brings its note. Default on upload: import for rows in Exact, pending otherwise; an import uploaded before this step shows its notes pending. The commit writes each note to import as a note on its book (`source` import, the row's latest read in Durtal, the key `goodreads-note:<Book Id>`), never twice; undo removes the notes not edited since and lists the kept ones.
 
+### Review eBooks (`/ebooks/review`)
+
+The guarded single-item review screen: conflicts, likely matches (including
+stored exact/strong proposals), choices, same author, duplicates, not a book,
+not in Durtal (grouped by author), recent automatic links and partially held
+books. Counts and rows share language, format, ISBN, normalized text, work and
+actual ingestion-run filters. Each section starts at 50; “Show 50 more” keeps
+the filters and other limits in the URL, up to 500 before narrowing the search.
+One count query and one bounded query per visible section include the files
+and candidate metadata. Full matching detail loads only for a focused decision.
+
+Rows stack on phones and have two columns from 640px. The actual service prepares
+the visible effect before confirmation. Accept, Choose a book, New book, Keep,
+Set aside and Match again use its exact request/token, with receipt-backed Undo
+for committed decisions. Stale or expired decisions preserve choices and
+selection; uncertain writes keep the original capability for retry. Recent
+decisions retain their Undo and a 10-second notification. The page's j/k/a/e/x/n/c/u/o
+keys stop while typing, composing, a dialog/menu/palette is open or an operation
+is pending. Reader entry remains a document link and keeps the return origin.
+
+Selection supports checked rows, select all shown, clear and focus first selected.
+Selected or section-shown eBooks can enter a bounded run of at most 50. Keep,
+Set aside and Review matches confirm only the service's prepared prefix; each
+deferred group requires another visible preview and confirmation after the prior
+group commits. Author groups can create books with an explicit shared author and
+language choice; the dialog displays actual accession counts. Progress and
+refusals retain remaining selections. Receipt-backed Undo-all reports completed,
+refused, uncertain and deferred rows, retrying the unchanged original set when
+uncertain. Rows beyond the first 50 remain selected for another run. Actions
+cover shown rows. Section-wide and author-group actions can read the whole
+filtered scope through explicit 50-row UUID-keyset pages. Titles appear before
+preparation; another page loads only after the current one commits or is
+explicitly skipped. Every prepared prefix still needs visible confirmation.
+The pass uses live filtered reads; new arrivals before its cursor need another
+pass. Undo retains each bounded run’s real receipts after stopping.
+Linked rows now offer automatic-link Undo when the stored native method is
+automatic, and fresh Unlink separately. Linked copy rows load their current
+identity on demand for Unlink. Both show a manual preview with copy retention,
+cleanup counts and the absence of an inverse Undo. The UI carries the rendered
+native operation and exact timestamp; uncertainty locks dismissal and unrelated
+decisions while retrying the original request/token. A definite automatic refusal
+allows an explicit fresh Unlink choice and another visible preview. Committed
+results refresh the queue without permanently hiding its returned pending row.
+This source checkpoint requires the independently accepted 495/496 F2 recipe;
+that backend overlay is held for root coordination and has not been imported here.
+Partially held rows and
+the book menu offer a guarded accessioned-status preview. Confirmation writes
+the status and history through the real work service; receipt-bound Undo retains
+the original operation and refuses later status/history/holding/order changes.
+Unknown status or Undo results lock dismissal and retry the original operation.
+
+Nonready previews highlight the service's sanitized author, language, ISBN,
+edition, copy and location issues while keeping choices. Arbitrary messages,
+causes, plans and extra issue fields remain server-only. Author and series pages
+show stored suggestion counts and link to UUID-scoped review filters; these
+controls read existing candidates.
+
+Settings › Integrations and each ingestion run link to the queue; the book page
+shows the count of stored suggestions and a work-filtered Review link. Its
+actions menu and eligible digital-copy rows can search unlinked/standalone eBooks
+and prepare a link. A new copy with an eBook selection puts the descriptive copy
+fields into that one Link intent; confirmation creates and links the copy in the
+service transaction. Ordinary instance creation retains its existing path.
+
 ### Ingestion runs (`/ebooks/runs`)
 
 Every apply of the e-book ingestion, upload batch and verification, newest first (SLN-494), from `listRuns` (`src/lib/ebooks/runs.ts`). Read only. Each row (`RunRow`): the kind, the machine and its folders as a link (one line, the machine and folders in its tooltip), then the start time, how long it ran and its counts ("12 new eBooks · 3 formats added · 1 quarantined"), with a state badge: Running, Interrupted, Reconciled (an exact reconciliation), "N exceptions", Failed or Finished. Shows 50; "Show 50 more" raises the count in the URL (`?show=100`, at most 5,000). Settings › Integrations has a row "Ingestion runs" that links here.
@@ -930,14 +995,46 @@ The works or editions linked to one item.
 
 ### Reader (`/reader/[ebookId]`)
 
-The e-book reader (SLN-492), in the shell's full-viewport branch: no sidebar, no timer chip, no tab row. A full page load (the Read button is a plain link), because the page brings its own Content-Security-Policy (`src/proxy.ts`). The page (`src/app/reader/[ebookId]/page.tsx`) reads everything in one query (`readReaderBook`, `src/lib/ebooks/delivery/reader-book.ts`): the e-book, its readable files (stored or verified, no DRM, a format the reader opens, in the order EPUB, KEPUB, AZW3, MOBI, AZW, FB2, FBZ, PDF, CBZ), the file to open (`?file=` when it names one of them, else the preferred file, else the first), this device's place in it, and the delivery URL. It runs the reader's plug-ins' loaders (`plugins.ts`) beside that query. An inline script asks for the book's first byte ranges as the HTML arrives (docs/07, Reading e-books by range), and the reading font is preloaded. Opens EPUB, KEPUB, MOBI, AZW, AZW3, FB2, FBZ, CBZ and PDF.
+`/reader` permanently redirects (308) to `/ebooks`, keeping `q`.
+The reader's Back fallback is `/ebooks/[ebookId]`.
 
-- **Top bar** (`glass-bar`): Back (to the page the reader came from when it is in Durtal, else the linked book's page, else `/library`), the title with the current chapter, Contents (`t`), Settings (`s`) and Full screen (`f`, only where the Fullscreen API exists, so never on an iPhone). **Bottom bar** (`glass-bar`): the chapter and the percent. Both show on open and hide together after 3 seconds of reading or on a page turn; they come back on a tap in the middle, when the pointer nears the top or bottom edge, or when focus moves into them. Hidden bars are `inert`.
-- **Contents**: a glass dialog with the book's nested table of contents; an item jumps there.
+The e-book reader (SLN-492), in the shell's full-viewport branch: no sidebar, no timer chip, no tab row. A full page load (the Read button is a plain link), because the page brings its own Content-Security-Policy (`src/proxy.ts`). The page (`src/app/reader/[ebookId]/page.tsx`) reads everything in one query (`readReaderBook`, `src/lib/ebooks/delivery/reader-book.ts`): the e-book, its readable files (stored or verified, no DRM, a format the reader opens, in the order EPUB, KEPUB, AZW3, MOBI, AZW, FB2, FBZ, PDF, CBZ), the file to open (`?file=` when it names one of them, else the preferred file, else the first), this device's place in it, its history across files, the newest other-device place, and the delivery URL. It runs the reader's plug-ins' loaders (`plugins.ts`) beside that query. An inline script asks for the book's first byte ranges as the HTML arrives (docs/07, Reading e-books by range), and the reading font is preloaded. Opens EPUB, KEPUB, MOBI, AZW, AZW3, FB2, FBZ, CBZ and PDF.
+
+- **Top bar** (`glass-bar`): Back (to the page the reader came from when it is in Durtal, else the linked book's page, else `/library`), the title with the current chapter, Contents (`t`), Settings (`s`), Reader shortcuts (`?`) and Full screen (`f`, only where the Fullscreen API exists, so never on an iPhone). **Bottom bar** (`glass-bar`): chapter, print page/Location, percent and chapter time, with the scrubber, Go to and Header and footer below. Both show on open and hide together after 3 seconds of reading or on a page turn; they come back on a tap in the middle, when the pointer nears the top or bottom edge, or when focus moves into them. An open navigation surface or Peek holds them visible. Hidden bars are `inert`.
+- **Contents (SLN-499)**: `ReaderSidePanel`, a left drawer with an inner scrolling tree, modal below 1024px and non-modal above. Roots and the current chapter's ancestors expand on open; the engine supplies the exact current fragment even when chapters share a spine file. Arrow keys use a roving tree stop; Enter or Space jumps and closes after paint. Rows show print page or percent. Without usable contents, list only linear sections, using their first heading, title or Section N.
+- **Search (SLN-503)**: toolbar Search in book, `/` and Cmd/Ctrl+F use the shared iframe input and shortcut hook when the format supports text; a second Cmd/Ctrl+F inside the search field stays native. Enter runs the query or advances; Shift+Enter goes back; Down enters a roving results list. Whole words, Match case and Match accents are versioned browser-only preferences. A run reads one pristine section at a time, current-to-end then wraps including nonlinear notes. Bounded DOM tasks preserve original UTF-16 ranges, a same-origin worker folds/searches them and delivers backpressured batches of 200. Stop/new query/close abort owned acquisition/delivery; the renderer keeps its reads. Results stream in book order with Note/page/Location labels, capped at 5,000, with at most 500 painted hits per section. Search has its own decoration group and one shared navigation-history chain. CBZ omits control/keys; confirmed all-pages-empty PDFs can remove them dynamically. PDF producer binding remains an SLN-502 integration gate and missing measurement reports an explicit error.
+- **Notes and links (SLN-503)**: semantic reference types/roles and superscripts use the pinned MIT `footnotes.js` extent helper. Untyped heuristic destinations require nonlinear/note-named sections or headings and at most 1,500 characters; other links navigate normally. Sanitized clones remove scripts, executable attributes, unsafe URLs and backlinks. Parsed notes retain only three documents and popup images have revocable leases. Nested references replace the popup; Go to note creates a footnote jump with the reference mark, while opening a popup emits no reading-location jump. Page turns/jumps close it. Internal links synchronously cancel the vendor default and use app navigation. Only HTTP, HTTPS and mailto open synchronously in a new tab with noopener/noreferrer; controls, credentials and unsafe schemes are blocked. External anchors carry a text arrow and accessible description.
+- **Images and tables (SLN-503)**: an unlinked image/SVG at least 64px per side opens on touch tap or mouse double-click. Linked images retain their link. A native modal owns wheel/pinch, fit/2x double activation, +/-/0 and bounded pan without page turns. Inline SVG is sanitized before becoming an image. Wide tables receive idempotent `cfi-skip` scroll wrappers and `cfi-inert` View table controls, keeping pristine search free of injected text. Horizontal input belongs to a table while that direction can scroll; its physical RTL edge can return a swipe to page turning. Viewer table clones keep sanitized semantics and cleaned local publisher rules in a shadow tree.
 - **Settings**: font (Sans, Serif, System, Original), size, line height, margins and alignment, saved in the `durtal-reader-settings` cookie that Settings › Reader edits too.
-- **Keys**, from the app and from inside the book alike (`src/lib/reader/input.ts`): → and Space for the next page, ← and Shift+Space for the previous one (← and → go left and right, so a right-to-left book turns the right way), PageDown and PageUp, Home and End for the first and last page, `t`, `s`, `f`, and Esc to close the open panel, else leave full screen. No key fires while focus is in a text field or a slider, or while a dialog or the command palette is open (Esc aside).
+- **Keys**, from the app and every section document (`src/lib/reader/keymap.ts`, `input.ts`, `history-input.ts`): the table below owns the epic's keys. Reader shortcuts (`?`) lists only currently registered handlers, including plugins. Editable fields, dialogs, the command palette, trees, sliders and native button activation own their input. Browser Cmd/Ctrl shortcuts pass through; AltGr brackets remain chapter keys. Alt+Left/Right and mouse buttons 3/4 use reader history only when that direction is available, otherwise browser history stays available.
+- **Navigation (SLN-499)**: a session controller owns every jump, including Go there, contents, chapters, links, scrubber and future annotation/search sources. It publishes one jump only after the owned relocate and two animation frames. Ordinary page turns queue across renderer transitions and stay turns. Same-place, failed, cancelled, stale and closing operations add no history or saves. Replacement jumps settle movement and restore the last committed origin silently before proceeding. Back/Forward use a 100-entry in-memory history, preserve Forward through ordinary turns, and mark the exact returned origin. Consecutive search jumps share one origin.
+- **Go to and progress (SLN-499)**: the bottom bar has a label line and a scrubber/buttons row. Go to (`g`) offers print Page when available, Location, Percent and Chapter, remembering the mode for the open book. Roman pages match case-insensitively; missing numeric pages use the preceding label; chapter filtering ignores case and accents. Scrubber pointer/key previews do not move or save the book until release/Enter; Escape, pointer cancellation or release more than 64px above the track restores the original value. `[` returns to the current chapter's start before the previous chapter; `]` skips coincident anchors to the next chapter. End and 100% reach the final page of the last linear section.
+- **Index and time (SLN-499)**: idle indexing begins two seconds after reading input becomes idle, reads one section at a time and scans bounded slices. Large EPUB inflation, decoding and scanning run in a worker. A file-hash cache retains 50 recent files, with section-start estimates until anchors are indexed; jumps use exact hrefs. Page-list wins over Adobe page-map fallback. Running head/foot positions are browser-only preferences. Reading pace is a primary-language EMA of continuous forward paginated dwell (5–90 seconds and at least 200 visible characters), learned after five samples; jump intent, Peek, hidden tabs and reflow interrupt it. No pace/time data is sent to the server. Clock updates occur at most every 30 seconds while visible.
+
+| Context / owner | Keys | Action |
+|---|---|---|
+| Reader core, sub-issue 3 | ←, →, Space, Shift+Space, PageUp, PageDown | Turn left/right or previous/next |
+| Reader core, sub-issue 3 | Home, End, t, s, f, Esc | First/last page, Contents, Settings, full screen, close surface |
+| Navigation, sub-issue 10 | g, [, ], Alt+←, Alt+→, ? | Go to, chapters, history, shortcut sheet |
+| Scrubber, sub-issue 10 | ←/→, Shift+←/→, Home/End, Enter, Esc | Preview 1%/10%, start/end, commit, cancel |
+| Annotations, sub-issue 11 (reserved) | b, h; selection: 1–5, n | Bookmark, highlights; colour, note |
+| Typography, sub-issue 12 (reserved) | +, −, 0 | Size/zoom, reset |
+| Fixed formats, sub-issue 13 (reserved) | p, w | Page strip, fit width/page |
+| Search, sub-issue 14 | /, Cmd/Ctrl+f | Book search |
+| Lookup, sub-issue 15 (reserved, selection) | d | Look up |
+| Read aloud, sub-issue 19 (reflowable source checkpoint) | a, comma, period | Start/pause/resume, previous/next sentence |
+| Registered plugin, selection | q | Plugin selection action |
+
+Reserved future keys have no control or shortcut-sheet entry until their feature registers a handler.
+
+The engine tags relocation origin as human, layout or speech. Owned page turns accept only a matching operation ID and human turn; stale, unowned and non-human arrivals cannot replace that destination. Input reports genuine key/pointer activity separately; only successful painted movement publishes turn activity. Unowned reflow refreshes the exact anchor and context after paint while retaining linear progress, without reading location/activity/end events, saves, pace, history steps or resume dismissal. Genuine human scroll retains its origin and publishes after paint. Speech-labelled arrivals cannot become human turns. SLN-508's owned `speechTo` path waits for paint, reanchors the current position and saves it without tracker location/activity/end events, human jump history or pace samples. Closing the reader aborts active, queued, passive and recovery paint waits.
 - **Touch and mouse**: a tap or click on the left 30% goes left, on the right 30% goes right, in the middle shows or hides the bars; a swipe of 40 px or more, mostly sideways, turns toward where the finger went; a long press selects text and never turns. The wheel turns one page per gesture.
-- **The place**: the reader opens at this device's saved place; a place that no longer resolves opens at the start with a note ("Your place in this book could not be found, so it opens at the start."). After a turn the place is queued and saved at most once every 2 seconds, and sent with `sendBeacon` when the page is hidden or goes away (`POST /api/reader/[ebookId]/position`).
+- **Read aloud (SLN-508 source checkpoint)**: supported reflowable adapters prepare the first actual sentence after first paint in idle work, then enable Read aloud. Start invokes native speech synchronously; a persistent player supplies previous/next sentence, play/pause, six speeds, grouped device voices and Stop. Speed/voice menus use a desktop popover or phone sheet and restore focus. Automatic speech owns its navigation and saves position without human reading activity or automatic completion; manual navigation cancels immediately and resumes only prepared landing text if speech was already playing. Hiding the page pauses; returning never resumes automatically. One polite region coalesces turns and announces jumps and speech state changes without sentence chatter. Measured PDF extraction, independent speech decorations, remaining note/table accessibility, native audits and performance acceptance are still gated; this source checkpoint does not establish ticket completion.
+- **Reader accessibility (SLN-508 source checkpoint)**: Skip to the book precedes the top bar, named book frames, speech player and bottom bar in DOM order. Frames preserve publication language, and off-page book focus requests an owned turn. Pausing selects the actual current CFI after paint; user selections prepare their containing sentence before Read aloud from here enables. These source paths still require native AX/focus, screen-reader, contrast, zoom/text-spacing and performance acceptance. The QUIET-494 source snapshot has unrun follow-up tests; no final validation is claimed.
+
+- **The place (SLN-493)**: the reader opens at this device's saved place. The newest other-device place is offered only when strictly newer and different: another section, more than 0.02 within a section, or more than 0.005 total progression across files. The strip shows Page/percent, chapter where available, device and `formatRelativeTime`, with Go there and Stay. Go there is a jump; Stay or a page turn dismisses it, remembered per e-book/device until a newer save. Another format says About and resumes by total progression in the current file. A device with no history opens directly at the newest other place and shows "Opened where you left off on iPhone" for four seconds. A device with history in another own format resumes that history by fraction. With no position the existing start behavior applies. A saved place that cannot resolve shows a recovery note.
+- **Refresh**: after being hidden for at least 60 seconds, or on coming online, flush and await this device's queue, then GET places once. Concurrent triggers coalesce; local turns, Stay, Go there and close invalidate pending offers. Failed refreshes never block reading. Saves remain throttled to two seconds and lifecycle saves use `sendBeacon`.
+- **Plugins and selection**: isolated client plugins run inside the bridge; production registration is empty until SLN-454. The notice, bottom status and selection actions provide its three ordered slots. The selection toolbar offers Copy and keyboard Tab/Escape behavior without stealing page-turn keys or native button activation.
 - **Failures** never spin forever: "This eBook could not be opened" with the reason ("The file is damaged or not a valid eBook.", "This kind of file cannot be read here.", "The file could not be downloaded. Check the connection."), Retry, "Open the PDF instead" for each other readable file, and Back. An e-book with no readable file says "This eBook cannot be read here".
 
 ### Settings (`/settings`)
@@ -955,3 +1052,25 @@ A settings menu: `src/app/settings/layout.tsx` renders the page title and the me
 - **Data** (`/settings/data`): catalogue counts; review queues (Identify editions and Series suggestions with counts, Publisher names and Harmonize as links); Import reading history (a link to `/reading/import`); the whole catalogue as CSV, TSV or Parquet (`POST /api/export` with `all: true`), books, authors and each open collection; reading (SLN-458): Readings (the Durtal reading CSV), Reading sessions, Quotes and notes (also as the Markdown commonplace book) and the Goodreads file (CSV only; when it carries half-star ratings, a dialog first says "12 half-star ratings will be rounded up", from `getGoodreadsExportNotice`); Enrichment (SLN-468): "Spend this month" (spent and reserved, of the cap) and "Evidence cache" (documents, and the stored size with each object counted once), read by `enrichmentSpend` and `evidenceCacheStats` in `src/lib/settings/data.ts`; refresh cached data.
 - **Shortcuts** (`/settings/shortcuts`): every shortcut of the `?` sheet.
 - **About** (`/settings/about`): Durtal, Next.js, React and Node.js versions; environment; schema state (migrations waiting, compared by journal time); bucket and region; which collections are open.
+
+### eBooks (`/ebooks`, `/ebooks/[ebookId]`)
+
+SLN-497 source preparation adds the eBook library after Reading in the sidebar,
+with **G K**. Grid/list and grid density are remembered through
+`LIST_PREFERENCES.ebooks`; page size uses the shared 24/48/96/192 control.
+Search updates `q` with replace after 150 ms. Linked, format, language, DRM,
+needs-review and excluded filters combine before bounded SQL pagination.
+Title, author, added, opened and size sorts use SQL, with additional list
+column sorts. Cards open detail; their Read link pins eligible bytes with
+`?file=`. Cards wrap naturally and share the current 208px minimum.
+
+Continue reading selects up to 12 eligible targets and retains the newest
+local historical locator, otherwise the newest remote locator. Replacement
+percentages are labelled Saved until resolved. Detail shows catalogue facts,
+identifiers, file status/source/checksum/download, valid device places and the
+latest 20 ingestion events with a total count and run links. Unknown UUIDs are
+404; malformed ids are refused with 400 by the proxy before a query, including
+ids containing dots. Runs, review, highlights and upload static paths are
+exempt. Open first uses the real `setPreferredEbookFile` action with current
+native eligibility and same-book file checks. Matching decisions and Restore await the approved mutation
+contracts; this source checkpoint does not claim matching/review controls are complete.

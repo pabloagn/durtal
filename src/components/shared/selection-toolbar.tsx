@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { DeleteConfirmDialog } from "@/app/library/[slug]/delete-confirm-dialog";
+import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
 
 /** What a list hands its selection toolbar */
 export interface SelectionToolbarProps {

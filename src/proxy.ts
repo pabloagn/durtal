@@ -4,12 +4,15 @@ import { PAGE_SIZES } from "@/lib/utils/pagination";
 import { perPageCookieName } from "@/lib/utils/preference-cookies";
 import { makeNonce, READER_PAGE_RE, readerCsp } from "@/lib/reader/csp";
 import { DEVICE_COOKIE, DEVICE_COOKIE_MAX_AGE, isDeviceId } from "@/lib/reader/device";
+import { LIBRARY_SORT_COOKIE, parseLibrarySortPreference } from "@/lib/library/sort-preference";
+import { isUuid } from "@/lib/utils/uuid";
 
 /**
  * API routes refuse calls from web pages on other origins (task 0255).
  *
  * A list page opened without `perPage` redirects to the page size saved for
  * it, before anything renders. The list loads once, at the right size.
+ * Books also restores the last explicitly selected sort and direction.
  *
  * A reader page gets its Content-Security-Policy with a fresh nonce, and
  * this device its durtal-device cookie when it has none (eBooks sub-issue 3).
@@ -18,14 +21,24 @@ export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/api/")) {
     return crossOriginRefusal(request) ?? undefined;
   }
+  const ebookPath = /^\/ebooks\/([^/]+)\/?$/.exec(request.nextUrl.pathname);
+  if (ebookPath && !["runs", "review", "highlights", "upload", "offline"].includes(ebookPath[1]) && !isUuid(ebookPath[1]))
+    return new NextResponse("Invalid eBook id", { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   if (READER_PAGE_RE.test(request.nextUrl.pathname)) return readerPage(request);
   if (request.method !== "GET") return;
   const url = request.nextUrl.clone();
-  if (url.searchParams.has("perPage")) return;
-  const saved = Number(request.cookies.get(perPageCookieName(url.pathname))?.value);
-  if (!PAGE_SIZES.some((size) => size === saved)) return;
-  url.searchParams.set("perPage", String(saved));
-  return NextResponse.redirect(url);
+  if (url.pathname === "/library" && !url.searchParams.has("sort")) {
+    const savedSort = parseLibrarySortPreference(request.cookies.get(LIBRARY_SORT_COOKIE)?.value);
+    if (savedSort) {
+      url.searchParams.set("sort", savedSort.sort);
+      if (!url.searchParams.has("order")) url.searchParams.set("order", savedSort.order);
+    }
+  }
+  if (!url.searchParams.has("perPage")) {
+    const saved = Number(request.cookies.get(perPageCookieName(url.pathname))?.value);
+    if (PAGE_SIZES.some((size) => size === saved)) url.searchParams.set("perPage", String(saved));
+  }
+  if (url.href !== request.nextUrl.href) return NextResponse.redirect(url);
 }
 
 /** The reader's policy on the request (Next.js puts its nonce on its own scripts) and on the answer */
@@ -61,5 +74,5 @@ function readerPage(request: NextRequest) {
 
 export const config = {
   // Pages (no build assets or files), and the API routes
-  matcher: ["/((?!api/|_next/|.*\\.).*)", "/api/:path*"],
+  matcher: ["/((?!api/|_next/|.*\\.).*)", "/api/:path*", "/ebooks/:path*"],
 };

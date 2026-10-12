@@ -4,6 +4,8 @@ import { getWorks, getWorkCount } from "@/lib/actions/works";
 import { errorResponse } from "@/lib/api/rest";
 import { API_SORTS, parseReadingFilters } from "@/lib/reading/filter-params";
 import { parseBookFilters } from "@/lib/library/filter-params";
+import { getWorkDigitalAvailability } from "@/lib/ebooks/work-availability";
+import { workEbookDTO } from "@/lib/ebooks/catalogue-dto";
 
 /**
  * The book list. Besides `q`, `limit` and `offset`: `reading`, `readFrom`,
@@ -27,8 +29,10 @@ export async function GET(req: NextRequest) {
       getWorks({ search, sort: sort ?? "recent", limit, offset, filters }),
       getWorkCount(search, filters),
     ]);
+    const digital = await getWorkDigitalAvailability(rows.map((work) => work.id), { includePositions: false });
     const works = rows.map(({ readingState, readingPercent, timesRead, lastFinishedOn, lastFinishedPrecision, ...work }) => ({
       ...work,
+      ebooks: (digital.get(work.id)?.ebooks ?? []).map(workEbookDTO),
       reading: { state: readingState, timesRead, lastFinishedOn, lastFinishedPrecision, percent: readingPercent ?? null },
     }));
 

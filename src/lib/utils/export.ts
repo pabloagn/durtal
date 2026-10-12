@@ -2,7 +2,8 @@
 import { ParquetSchema, ParquetWriter } from "@dsnp/parquetjs";
 import { Writable } from "stream";
 
-export type ExportFormat = "csv" | "tsv" | "parquet" | "md";
+export type { ExportFormat } from "@/lib/export/formats";
+export { FORMAT_MIME, FORMAT_EXT } from "@/lib/export/formats";
 
 /**
  * A text cell a spreadsheet would read as a formula: one that begins with
@@ -116,23 +117,3 @@ export async function toParquet(
 
   return Buffer.concat(chunks);
 }
-
-/**
- * MIME types for each export format.
- */
-export const FORMAT_MIME: Record<ExportFormat, string> = {
-  csv: "text/csv",
-  tsv: "text/tab-separated-values",
-  parquet: "application/vnd.apache.parquet",
-  md: "text/markdown; charset=utf-8",
-};
-
-/**
- * File extensions for each export format.
- */
-export const FORMAT_EXT: Record<ExportFormat, string> = {
-  csv: ".csv",
-  tsv: ".tsv",
-  parquet: ".parquet",
-  md: ".md",
-};

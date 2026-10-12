@@ -29,7 +29,12 @@ export const locatorSchema = z.object({
   totalProgression: unit,
   position: z.number().min(0).optional(),
   cfi: z.string().max(4096).optional(),
-  pdf: z.object({ page: z.number().int().min(1), rects: z.array(rect).max(200).optional() }).optional(),
+  pdf: z
+    .object({
+      page: z.number().int().min(1),
+      rects: z.array(rect).max(200).optional(),
+    })
+    .optional(),
   text: z
     .object({
       before: z.string().max(512).optional(),
@@ -53,7 +58,10 @@ export function positionBodySchema(now = Date.now()) {
     clientUpdatedAt: z.iso
       .datetime({ offset: true })
       .transform((at) => new Date(at))
-      .refine((at) => at.getTime() <= now + MAX_CLOCK_SKEW_MS, "clientUpdatedAt is in the future"),
+      .refine(
+        (at) => at.getTime() <= now + MAX_CLOCK_SKEW_MS,
+        "clientUpdatedAt is in the future",
+      ),
   });
 }
 
@@ -84,7 +92,9 @@ export async function ebookAndFile(
 }
 
 export async function ebookExists(ebookId: string): Promise<boolean> {
-  const rows = resultRows(await db.execute(sql`select 1 from ebooks where id = ${ebookId}::uuid`));
+  const rows = resultRows(
+    await db.execute(sql`select 1 from ebooks where id = ${ebookId}::uuid`),
+  );
   return rows.length > 0;
 }
 
@@ -139,11 +149,40 @@ export async function savePosition(input: {
 }
 
 /** This device's place in each file of an e-book, newest first */
-export async function devicePositions(ebookId: string, deviceId: string): Promise<SavedPosition[]> {
+export async function devicePositions(
+  ebookId: string,
+  deviceId: string,
+): Promise<SavedPosition[]> {
   const rows = resultRows<PositionRow>(
     await db.execute(sql`select ${POSITION_COLUMNS} from ebook_positions
       where ebook_id = ${ebookId}::uuid and device_id = ${deviceId}
       order by client_updated_at desc, file_id`),
   );
   return rows.map(toPosition);
+}
+
+/** All file/device places, ordered by the reader clock, without changing save semantics. */
+export async function allDevicePositions(
+  ebookId: string,
+  deviceId: string | null,
+) {
+  const rows = resultRows<PositionRow & { deviceId: string }>(
+    await db.execute(sql`select
+    ${POSITION_COLUMNS}, device_id as "deviceId" from ebook_positions
+    where ebook_id = ${ebookId}::uuid order by client_updated_at desc, device_id, file_id`),
+  );
+  return rows.map((row) => {
+    const place = toPosition(row);
+    return {
+      deviceId: row.deviceId,
+      deviceLabel: place.deviceLabel,
+      fileId: place.fileId,
+      locator: place.locator,
+      progression: place.progression,
+      furthestProgression: place.furthestProgression,
+      chapter: place.chapter,
+      clientUpdatedAt: place.clientUpdatedAt,
+      thisDevice: row.deviceId === deviceId,
+    };
+  });
 }

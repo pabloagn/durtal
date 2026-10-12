@@ -4,16 +4,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
+import { and, eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 
 const url = process.env.DURTAL_EBOOK_CATALOGUE_TEST_DATABASE_URL;
 if (url) {
+  requireDisposableDatabaseUrl(url, "sln490_ebook_catalogue");
   const parsed = new URL(url);
   if (!["127.0.0.1", "localhost"].includes(parsed.hostname) || parsed.pathname !== "/sln490_ebook_catalogue")
     throw new Error("E-book catalogue tests require disposable local sln490_ebook_catalogue");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 const queries: string[] = [];
 vi.mock("@/lib/db", () => ({
@@ -31,6 +34,9 @@ vi.mock("@/lib/db", () => ({
   ),
 }));
 import { getEbook, getEbooksForWork, getRecentlyOpened, getWorkIdsWithEbooks } from "@/lib/ebooks/queries";
+import { getWorkDigitalAvailability } from "@/lib/ebooks/work-availability";
+import { ebookFileKey } from "@/lib/ebooks/keys";
+import { bookFilterConditions } from "@/lib/library/filter-conditions";
 
 /*
  * SLN-490: the e-book catalogue, and the old e-book library's tables and
@@ -53,6 +59,13 @@ describe.skipIf(!url)("the e-book catalogue", () => {
     return dir;
   }
   async function reset(to: string) {
+    requireDisposableDatabaseUrl(url!, "sln490_ebook_catalogue");
+    const [target] = await c<{ database: string; owned: boolean }[]>`
+      select current_database() as database, pg_get_userbyid(datdba) = current_user as owned
+      from pg_database where datname = current_database()
+    `;
+    if (target?.database !== "sln490_ebook_catalogue" || !target.owned)
+      throw new Error("Historical catalogue rehearsal requires its owned disposable database");
     await c.unsafe("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; DROP SCHEMA IF EXISTS drizzle CASCADE;");
     await migrate(testDb!, { migrationsFolder: to });
   }
@@ -163,7 +176,7 @@ describe.skipIf(!url)("the e-book catalogue", () => {
       await reset(after);
     });
     beforeEach(async () => {
-      await c`truncate ebook_annotations, ebook_positions, ebook_files, ebooks, works, locations cascade`;
+      await resetDisposableDatabase(url!, "sln490_ebook_catalogue", { emptyLocations: true });
       const [place] = await c`insert into locations(name, type) values ('eBooks', 'digital') returning id`;
       const [work] = await c`insert into works(title, slug) values ('Là-bas', 'la-bas') returning id`;
       const [edition] = await c`insert into editions(work_id, title) values (${work.id}, 'Là-bas') returning id`;
@@ -227,13 +240,15 @@ describe.skipIf(!url)("the e-book catalogue", () => {
       await expect(c`delete from ebooks where id = ${linked.id}`).rejects.toMatchObject({ code: "23503" });
     });
 
-    it("finds the works that have an e-book in one query, through active copies only", async () => {
+    it("finds the works with readable files in one query, through active linked copies only", async () => {
       const works: string[] = [book.work];
       for (let n = 1; n < 48; n++) {
         const [w] = await c`insert into works(title, slug) values (${`Book ${n}`}, ${`book-${n}`}) returning id`;
         works.push(w.id);
       }
-      await ebook({ instance_id: book.copy, match_state: "linked" });
+      const text = await ebook({ instance_id: book.copy, match_state: "linked" });
+      expect(await getWorkIdsWithEbooks(works)).toEqual(new Set());
+      await file(text.id, 1, { s3_key: ebookFileKey("1".padStart(64, "0"), "epub") });
       // An e-book of a copy that left the collection does not count
       const [gone] = await c`insert into editions(work_id, title) values (${works[1]}, 'Book 1') returning id`;
       const [old] = await c`insert into instances(edition_id, location_id, status) values (${gone.id}, ${book.place}, 'deaccessioned') returning id`;
@@ -244,8 +259,31 @@ describe.skipIf(!url)("the e-book catalogue", () => {
       expect(await getWorkIdsWithEbooks([])).toEqual(new Set());
 
       const [row] = await getEbooksForWork(book.work);
-      expect(row).toMatchObject({ title: "Là-bas", instanceId: book.copy, matchState: "linked", files: [] });
+      expect(row).toMatchObject({ title: "Là-bas", instanceId: book.copy, matchState: "linked", files: [{ nativeReadable: true }] });
       expect(await getEbooksForWork(works[1])).toEqual([]);
+    });
+
+    it("removes Read for unavailable bytes and removed copies while preserving the eBook file", async () => {
+      const text = await ebook({ instance_id: book.copy, match_state: "linked" });
+      const stored = await file(text.id, 1, { s3_key: ebookFileKey("1".padStart(64, "0"), "epub") });
+      const filtered = (hasEbook: boolean) => testDb!.select({ id: schema.works.id }).from(schema.works)
+        .where(and(eq(schema.works.id, book.work), ...bookFilterConditions({ hasEbook })));
+      expect((await getWorkDigitalAvailability([book.work])).get(book.work)?.read?.id).toBe(text.id);
+      expect(await filtered(true)).toEqual([{ id: book.work }]);
+      expect(await filtered(false)).toEqual([]);
+      for (const status of ["missing", "quarantined", "replaced"]) {
+        await c`update ebook_files set status = ${status} where id = ${stored.id}`;
+        expect((await getWorkDigitalAvailability([book.work])).get(book.work)?.read).toBeNull();
+        expect(await getWorkIdsWithEbooks([book.work])).toEqual(new Set());
+        expect(await filtered(true)).toEqual([]);
+        expect(await filtered(false)).toEqual([{ id: book.work }]);
+      }
+      await c`update ebook_files set status = 'stored' where id = ${stored.id}`;
+      await c`delete from instances where id = ${book.copy}`;
+      expect((await getWorkDigitalAvailability([book.work])).size).toBe(0);
+      expect(await filtered(true)).toEqual([]);
+      expect(await c`select id from ebook_files where id = ${stored.id}`).toEqual([{ id: stored.id }]);
+      expect(await c`select match_state from ebooks where id = ${text.id}`).toEqual([{ match_state: "pending" }]);
     });
 
     it("lists a text's files in the reader's order of preference", async () => {
@@ -260,7 +298,7 @@ describe.skipIf(!url)("the e-book catalogue", () => {
     it("gives the newest place of each e-book across devices, without excluded e-books", async () => {
       const a = await ebook({ title: "A" });
       const b = await ebook({ title: "B" });
-      const hidden = await ebook({ title: "Hidden", match_state: "excluded" });
+      const hidden = await ebook({ title: "Hidden", match_state: "excluded", exclusion_reason: "duplicate" });
       const [fa, fb, fh] = [await file(a.id, 1), await file(b.id, 2), await file(hidden.id, 3)];
       const place = (ebookId: string, fileId: string, device: string, progression: number, at: string) =>
         c`insert into ebook_positions ${c({

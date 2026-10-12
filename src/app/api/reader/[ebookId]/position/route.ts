@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { expectedDeviceRefusal } from "@/lib/reader/device-guard";
 import { crossOriginRefusal } from "@/lib/api/same-origin";
 import { readJson } from "@/lib/api/rest";
 import { isUuid } from "@/lib/utils/uuid";
-import { DEVICE_COOKIE, deviceLabel, isDeviceId } from "@/lib/reader/device";
-import { devicePositions, ebookAndFile, ebookExists, positionBodySchema, savePosition } from "@/lib/reader/positions";
+import { DEVICE_COOKIE, deviceLabelFor, isDeviceId } from "@/lib/reader/device";
+import {
+  allDevicePositions,
+  ebookAndFile,
+  ebookExists,
+  positionBodySchema,
+  savePosition,
+} from "@/lib/reader/positions";
 
 /** Prevent Next.js from caching this route handler's response. */
 export const dynamic = "force-dynamic";
@@ -14,7 +21,10 @@ const json = (status: number, body: unknown) =>
   NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
 
 /** The e-book id of the URL, or the answer that refuses it before any database call */
-async function ebookIdOf(req: NextRequest, params: Params["params"]): Promise<string | NextResponse> {
+async function ebookIdOf(
+  req: NextRequest,
+  params: Params["params"],
+): Promise<string | NextResponse> {
   const refused = crossOriginRefusal(req);
   if (refused) return refused;
   const { ebookId } = await params;
@@ -23,9 +33,9 @@ async function ebookIdOf(req: NextRequest, params: Params["params"]): Promise<st
 }
 
 /**
- * GET /api/reader/[ebookId]/position — this device's place in each file of
- * the e-book (the durtal-device cookie): `{ positions: [...] }`, newest
- * first, empty when this device has not read it. 404 for an unknown e-book.
+ * GET /api/reader/[ebookId]/position — every device's place in every file of
+ * the e-book, marked against the durtal-device cookie: `{ positions: [...] }`, newest
+ * first, including when this device has not read it. 404 for an unknown e-book.
  */
 export async function GET(req: NextRequest, { params }: Params) {
   const ebookId = await ebookIdOf(req, params);
@@ -33,7 +43,12 @@ export async function GET(req: NextRequest, { params }: Params) {
   try {
     if (!(await ebookExists(ebookId))) return json(404, { error: "Not found" });
     const device = req.cookies.get(DEVICE_COOKIE)?.value;
-    return json(200, { positions: isDeviceId(device) ? await devicePositions(ebookId, device) : [] });
+    return json(200, {
+      positions: await allDevicePositions(
+        ebookId,
+        isDeviceId(device) ? device : null,
+      ),
+    });
   } catch (err) {
     console.error("[api/reader/position] Failed to read:", err);
     return json(500, { error: "Failed to read the place" });
@@ -51,20 +66,30 @@ export async function GET(req: NextRequest, { params }: Params) {
 export async function POST(req: NextRequest, { params }: Params) {
   const ebookId = await ebookIdOf(req, params);
   if (ebookId instanceof NextResponse) return ebookId;
+  const refused = expectedDeviceRefusal(req);
+  if (refused) return refused;
   const device = req.cookies.get(DEVICE_COOKIE)?.value;
-  if (!isDeviceId(device)) return json(400, { error: "No device id: open the reader first" });
+  if (!isDeviceId(device))
+    return json(400, { error: "No device id: open the reader first" });
   const parsed = positionBodySchema().safeParse((await readJson(req)) ?? {});
   if (!parsed.success) {
-    return json(400, { error: parsed.error.issues[0]?.message ?? "Invalid input", issues: parsed.error.issues });
+    return json(400, {
+      error: parsed.error.issues[0]?.message ?? "Invalid input",
+      issues: parsed.error.issues,
+    });
   }
   try {
     const found = await ebookAndFile(ebookId, parsed.data.fileId.toLowerCase());
     if (!found.ebook) return json(404, { error: "Not found" });
-    if (!found.fileOfEbook) return json(400, { error: "The file is not one of this eBook's" });
+    if (!found.fileOfEbook)
+      return json(400, { error: "The file is not one of this eBook's" });
     const result = await savePosition({
       ebookId,
       deviceId: device,
-      deviceLabel: deviceLabel(req.headers.get("user-agent")),
+      deviceLabel: deviceLabelFor(
+        req.headers.get("user-agent"),
+        req.nextUrl.searchParams.get("touch") === "1",
+      ),
       body: { ...parsed.data, fileId: parsed.data.fileId.toLowerCase() },
     });
     return json(200, result);

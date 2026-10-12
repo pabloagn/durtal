@@ -29,18 +29,27 @@ export const ebooks = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     title: text("title").notNull(),
-    /** Normalised for natural sort */
+    /** Database-owned natural key, ordered with C collation (migration 0084). */
     titleSort: text("title_sort"),
     subtitle: text("subtitle"),
     /** In natural order: "Jorge Luis Borges" */
-    authors: text("authors").array().notNull().default(sql`'{}'::text[]`),
+    authors: text("authors")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     authorSort: text("author_sort"),
     /** ISO 639-1 where one exists, else 639-2/3: the file's declared language */
     language: text("language"),
     /** Valid ISBN-13s only, canonical */
-    isbns: text("isbns").array().notNull().default(sql`'{}'::text[]`),
+    isbns: text("isbns")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     /** Other ids (asin, goodreads, google, openlibrary, oclc, doi, uuid), each a list of strings */
-    identifiers: jsonb("identifiers").$type<Record<string, string[]>>().notNull().default({}),
+    identifiers: jsonb("identifiers")
+      .$type<Record<string, string[]>>()
+      .notNull()
+      .default({}),
     series: text("series"),
     seriesIndex: numeric("series_index", { mode: "number" }),
     publisher: text("publisher"),
@@ -54,9 +63,12 @@ export const ebooks = pgTable(
      * (preferred_file_id, id), written by hand in migration 0080, keeps it one of this
      * e-book's own files (SLN-518); both keys clear it when the file is deleted.
      */
-    preferredFileId: uuid("preferred_file_id").references((): AnyPgColumn => ebookFiles.id, {
-      onDelete: "set null",
-    }),
+    preferredFileId: uuid("preferred_file_id").references(
+      (): AnyPgColumn => ebookFiles.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     /** The digital copy this e-book is. Linked means it is set. */
     instanceId: uuid("instance_id")
       .unique()
@@ -66,23 +78,74 @@ export const ebooks = pgTable(
      * e-book without a book record (readable, not catalogued); excluded: not a
      * book, a duplicate or junk, hidden from the library and never deleted.
      */
-    matchState: text("match_state", { enum: ["pending", "linked", "standalone", "excluded"] })
+    matchState: text("match_state", {
+      enum: ["pending", "linked", "standalone", "excluded"],
+    })
       .notNull()
       .default("pending"),
     /** isbn, identifier, score, manual or accession */
     matchMethod: text("match_method"),
     matchProbability: real("match_probability"),
     matchedAt: timestamp("matched_at", { withTimezone: true }),
+    matchTier:
+      text("match_tier").$type<import("@/lib/ebooks/match/types").MatchTier>(),
+    matchFingerprint: text("match_fingerprint"),
+    /** Also records the model for zero-candidate classifications. */
+    matchModelVersion: integer("match_model_version"),
+    duplicateOfId: uuid("duplicate_of_id").references(
+      (): AnyPgColumn => ebooks.id,
+      { onDelete: "set null" },
+    ),
+    linkWritten: jsonb("link_written").$type<Record<string, unknown>>(),
+    exclusionReason: text("exclusion_reason", {
+      enum: ["duplicate", "not_a_book", "other"],
+    }),
     /** folder or upload */
     importSource: text("import_source").notNull(),
     /** The uuid identifier of a sidecar metadata.opf, so the text's other formats join this e-book */
     importRef: text("import_ref"),
     /** normalizeSearchText(title + subtitle + authors + series) */
     searchText: text("search_text").notNull().default(""),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [
+    check(
+      "ebooks_match_probability_check",
+      sql`${t.matchProbability} is null or (${t.matchProbability} not in ('NaN'::real, 'Infinity'::real, '-Infinity'::real) and ${t.matchProbability} between 0 and 1)`,
+    ),
+    check(
+      "ebooks_match_tier_check",
+      sql`${t.matchTier} is null or (${t.matchState}='pending' and ${t.matchTier} in ('exact','strong','likely','to_choose','same_author','conflict','duplicate','not_a_book','not_in_durtal'))`,
+    ),
+    check(
+      "ebooks_match_fingerprint_check",
+      sql`${t.matchFingerprint} is null or ${t.matchFingerprint} ~ '^[a-f0-9]{64}$'`,
+    ),
+    check(
+      "ebooks_match_model_version_check",
+      sql`${t.matchModelVersion} is null or ${t.matchModelVersion} > 0`,
+    ),
+    check(
+      "ebooks_duplicate_check",
+      sql`${t.duplicateOfId} is null or (${t.duplicateOfId} <> ${t.id} and ${t.matchState}='pending' and ${t.matchTier} is not null and ${t.matchTier}='duplicate')`,
+    ),
+    check(
+      "ebooks_link_written_check",
+      sql`${t.linkWritten} is null or jsonb_typeof(${t.linkWritten})='object'`,
+    ),
+    check(
+      "ebooks_exclusion_reason_check",
+      sql`${t.exclusionReason} is null or ${t.exclusionReason} in ('duplicate','not_a_book','other')`,
+    ),
+    check(
+      "ebooks_exclusion_presence_check",
+      sql`(${t.matchState}='excluded') = (${t.exclusionReason} is not null)`,
+    ),
     check(
       "ebooks_match_state_check",
       sql`${t.matchState} in ('pending', 'linked', 'standalone', 'excluded')`,
@@ -91,7 +154,10 @@ export const ebooks = pgTable(
       "ebooks_linked_check",
       sql`(${t.matchState} = 'linked') = (${t.instanceId} is not null)`,
     ),
-    check("ebooks_import_source_check", sql`${t.importSource} in ('folder', 'upload')`),
+    check(
+      "ebooks_import_source_check",
+      sql`${t.importSource} in ('folder', 'upload')`,
+    ),
     check(
       "ebooks_match_method_check",
       sql`${t.matchMethod} is null or ${t.matchMethod} in ('isbn', 'identifier', 'score', 'manual', 'accession')`,
@@ -101,6 +167,9 @@ export const ebooks = pgTable(
       .where(sql`${t.importRef} is not null`),
     index("ebooks_isbns_idx").using("gin", t.isbns),
     index("ebooks_search_text_trgm_idx").using("gin", t.searchText.op("gin_trgm_ops")),
+    index("ebooks_state_title_sort_idx").on(t.matchState, sql`${t.titleSort} collate "C"`, t.id),
+    index("ebooks_created_at_idx").on(t.createdAt.desc()),
+    index("ebooks_active_title_sort_idx").on(sql`${t.titleSort} collate "C"`, t.id).where(sql`${t.matchState} <> 'excluded'`),
   ],
 );
 
@@ -145,7 +214,9 @@ export const ebookFiles = pgTable(
      * the checksum and size; missing: no object, or it differs; quarantined:
      * unreadable, never served; replaced: superseded by a newer file.
      */
-    status: text("status", { enum: ["stored", "verified", "missing", "quarantined", "replaced"] }).notNull(),
+    status: text("status", {
+      enum: ["stored", "verified", "missing", "quarantined", "replaced"],
+    }).notNull(),
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
     /** adobe-adept, kindle, readium-lcp, apple-fairplay, pdf-password or unknown: stored, never opened */
     drm: text("drm"),
@@ -154,7 +225,10 @@ export const ebookFiles = pgTable(
     sourcePath: text("source_path"),
     sourceMtime: timestamp("source_mtime", { withTimezone: true }),
     /** What the file itself says */
-    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    metadata: jsonb("metadata")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
     // Text counts, agreed with the book enrichment epic (extractBodyText)
     wordCount: integer("word_count"),
     charCount: integer("char_count"),
@@ -165,8 +239,12 @@ export const ebookFiles = pgTable(
     /** Derived objects (S3 keys) */
     manifestKey: text("manifest_key"),
     coverKey: text("cover_key"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [
     // A file belongs to one e-book: the positions, annotations and preferred file name both (SLN-518)

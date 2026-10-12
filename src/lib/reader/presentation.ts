@@ -1,3 +1,8 @@
+import type { ReaderPresentation } from "@/lib/validations/reader-preferences";
+import { readingFontStack } from "./presentation/fonts";
+import { routeFontPresentation } from "./presentation/font-route";
+import { themeColours } from "./presentation/themes";
+import { bookCSS } from "./presentation/book-css";
 import type { Presentation } from "./engine";
 import { READER_FONT_FAMILIES } from "./fonts";
 import type { ReaderThemeSettings } from "./settings-cookie";
@@ -28,10 +33,15 @@ const FALLBACK_COLORS: Presentation["colors"] = {
 };
 
 /** The theme tokens as literal colours, read from the app's root element */
-export function resolveThemeColors(root: Element | null = typeof document === "undefined" ? null : document.documentElement): Presentation["colors"] {
+export function resolveThemeColors(
+  root: Element | null = typeof document === "undefined"
+    ? null
+    : document.documentElement,
+): Presentation["colors"] {
   if (!root) return FALLBACK_COLORS;
   const style = getComputedStyle(root);
-  const read = (key: keyof Presentation["colors"]) => style.getPropertyValue(THEME_TOKENS[key]).trim() || FALLBACK_COLORS[key];
+  const read = (key: keyof Presentation["colors"]) =>
+    style.getPropertyValue(THEME_TOKENS[key]).trim() || FALLBACK_COLORS[key];
   return {
     background: read("background"),
     text: read("text"),
@@ -75,6 +85,9 @@ export function presentationCss(p: Presentation): string {
 html { color-scheme: dark; background: ${background} !important; color: ${text} !important; font-size: ${p.fontSize}px !important; }
 body { background: transparent !important; color: ${text} !important; font-size: 1rem !important; }
 body *:not(a, a *, svg, svg *, math, math *) { color: inherit !important; background-color: transparent !important; }
+a[data-durtal-external]::after { content: "\u2197\ufe0e"; padding-inline-start: .2em; font-size: .8em; }
+figure { break-inside: avoid; }
+aside[role~="doc-footnote"], aside[role~="doc-endnote"] { display: none; }
 a, a * { color: ${link} !important; }
 ${font}
 body, p, li, blockquote, dd, dt, td, th { line-height: ${p.lineHeight} !important; }
@@ -82,7 +95,35 @@ p, li, blockquote, dd { text-align: ${p.textAlign === "justify" ? "justify" : "s
 [align="center"] { text-align: center; }
 [align="right"] { text-align: right; }
 pre { white-space: pre-wrap !important; }
+:focus-visible { outline: 2px solid ${text} !important; outline-offset: 2px !important; }
+@media (prefers-reduced-motion: reduce) { html, body, body * { scroll-behavior: auto !important; animation-duration: 0s !important; transition-duration: 0s !important; } }
 ::selection { background: ${selection}; color: ${text}; }
 aside[epub|type~="footnote"], aside[epub|type~="endnote"], aside[epub|type~="note"], aside[epub|type~="rearnote"] { display: none; }
+`;
+}
+
+/** Mounted readers consume acknowledged rows plus the saver's durable draft preview. */
+export function presentationFromPreferences(policy: ReaderPresentation, origin: string): Presentation {
+  const theme = themeColours(policy);
+  return routeFontPresentation({
+    policy, fontFamily: readingFontStack(policy.font), fontSize: policy.fontSizePx,
+    lineHeight: policy.lineHeight, margin: 0, textAlign: policy.textAlign === "justify" ? "justify" : "left",
+    colors: { background: theme.background, text: theme.text, link: theme.link,
+      selection: theme.selection, muted: theme.text }, fontFaces: "",
+  }, origin);
+}
+
+/** Reader-owned structural rules remain separate from publisher typography. */
+export function policyTypographyCss(p: Presentation): string {
+  if (!p.policy) return presentationCss(p);
+  return `@namespace epub "http://www.idpf.org/2007/ops";
+${p.fontFaces}
+${bookCSS(p.policy, themeColours(p.policy), p.fontFamily).typography}
+a[data-durtal-external]::after { content: "\u2197\ufe0e"; padding-inline-start: .2em; font-size: .8em; }
+figure { break-inside: avoid; }
+pre { white-space: pre-wrap !important; }
+aside[role~="doc-footnote"], aside[role~="doc-endnote"], aside[epub|type~="footnote"], aside[epub|type~="endnote"], aside[epub|type~="note"], aside[epub|type~="rearnote"] { display: none; }
+:focus-visible { outline: 2px solid currentColor !important; outline-offset: 2px !important; }
+@media (prefers-reduced-motion: reduce) { html, body, body * { scroll-behavior: auto !important; animation-duration: 0s !important; transition-duration: 0s !important; } }
 `;
 }

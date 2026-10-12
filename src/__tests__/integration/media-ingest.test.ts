@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -10,18 +11,18 @@ import {
 import postgres from "postgres";
 import sharp from "sharp";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { ListObjectsV2Command, DeleteObjectsCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { z } from "zod";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_MEDIA_INGEST_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln361_test");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln361_test")
     throw new Error("Media ingest tests require disposable local sln361_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 
 // An in-memory bucket: uploads land here, cleanup lists and deletes here.
@@ -112,7 +113,7 @@ describe.skipIf(!url)("one ingest path for every image owner", () => {
   const c = client!;
   let bookId: string, painting: { id: string }, objectId: string, variantId: string, perfumeId: string, orgId: string;
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln361_test");
     await c`alter table works drop constraint works_kind_enabled_check`;
   }, 30000);
   afterAll(async () => {
@@ -122,14 +123,14 @@ describe.skipIf(!url)("one ingest path for every image owner", () => {
     bucket.objects.clear();
     bucket.bodies.clear();
     bucket.failPut.clear();
-    await c`truncate works, authors, publishing_houses, media, catalogue_dates, image_adjustments, harmonization_operations, harmonization_redirects cascade`;
+    await resetDisposableDatabase(url!, "sln361_test", { activateKinds: true });
     [{ id: bookId }] = await c`insert into works(title) values ('A book') returning id`;
     painting = await createPainting({ title: "View of Delft" });
     objectId = (await createArtObject({ workId: painting.id, kind: "original" })).id;
     perfumeId = (await createPerfume({ title: "Shalimar" })).id;
     variantId = (await createPerfumeVariant({ workId: perfumeId, concentration: "extrait" })).id;
     orgId = (await saveOrganization({ name: "Mauritshuis", roles: ["museum"] }))!.id;
-  });
+  }, 30000);
   const keysUnder = (prefix: string) => [...bucket.objects].filter((k) => k.startsWith(prefix)).sort();
 
   it("stores each owner's images in its own folder at its domain's sizes", async () => {

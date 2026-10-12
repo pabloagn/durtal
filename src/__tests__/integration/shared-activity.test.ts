@@ -1,17 +1,18 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { NextRequest } from "next/server";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_SHARED_ACTIVITY_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln372_test");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln372_test")
     throw new Error("Shared activity tests require disposable local sln372_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -57,17 +58,16 @@ import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 describe.skipIf(!url)("activity and comments for every kind of record", () => {
   const c = client!;
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln372_test");
     await c`alter table works drop constraint if exists works_kind_enabled_check`;
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, authors, publishing_houses, venues, places, catalogue_dates, comments, activity_events,
-      gallery_layouts, harmonization_operations, harmonization_redirects, custom_taxonomy_items cascade`;
+    await resetDisposableDatabase(url!, "sln372_test", { activateKinds: true });
     s3.deleteUnusedObjects.mockClear();
-  });
+  }, 30000);
 
   const comment = (entityType: string, entityId: string) =>
     postComment(

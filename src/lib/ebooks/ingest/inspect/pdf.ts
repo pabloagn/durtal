@@ -1,9 +1,10 @@
-import { createRequire } from "node:module";
 import path from "node:path";
 import { getDocument, PDFDataRangeTransport, type PDFDocumentProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
-import { createCanvas } from "@napi-rs/canvas";
+import { createCanvas, type Canvas } from "@napi-rs/canvas";
 import type { ByteSource } from "../source";
 import { emptyInspection, type FileAuthor, type Inspection } from "./types";
+import { inspectionBudget, retainInspectionText } from "../budget";
+import { MiB, UPLOAD_LIMITS } from "../../upload/limits";
 
 /*
  * PDFs with pdf.js's legacy build in Node (SLN-494), read in chunks through
@@ -19,8 +20,39 @@ const CHUNK = 256 * 1024;
 const TEXT_LIMIT_MS = 60_000;
 const COVER_WIDTH = 800;
 
+type NativeCanvas = Canvas;
+type CanvasPair = { canvas: NativeCanvas | null; context: ReturnType<NativeCanvas["getContext"]> | null };
+/** Covers and pdf.js's intermediate canvases reserve native bytes before resize. */
+class BoundedCanvasFactory {
+  private reservations = new Map<NativeCanvas, () => void>();
+  create(width: number, height: number): CanvasPair {
+    const release = inspectionBudget()!.imageAllocation(width, height, width * height * 8 + MiB);
+    try {
+      const canvas = createCanvas(width, height); this.reservations.set(canvas, release);
+      return { canvas, context: canvas.getContext("2d") };
+    } catch (error) { release(); throw error; }
+  }
+  reset(pair: CanvasPair, width: number, height: number): void {
+    if (!pair.canvas || !this.reservations.has(pair.canvas)) throw new Error("PDF canvas ownership differs");
+    const release = inspectionBudget()!.imageAllocation(width, height, width * height * 8 + MiB);
+    // Avoid an intermediate width x old-height surface when resizing.
+    pair.canvas.width = 1; pair.canvas.height = 1;
+    this.reservations.get(pair.canvas)!();
+    pair.canvas.width = width; pair.canvas.height = height; this.reservations.set(pair.canvas, release);
+  }
+  destroy(pair: CanvasPair): void {
+    if (!pair.canvas) throw new Error("PDF canvas is absent");
+    pair.canvas.width = 0; pair.canvas.height = 0;
+    this.reservations.get(pair.canvas)?.(); this.reservations.delete(pair.canvas);
+    pair.canvas = null; pair.context = null;
+  }
+}
+
 /** pdf.js's own fonts, character maps and image decoders, read from its package folder */
-const PDFJS = path.dirname(createRequire(import.meta.url).resolve("pdfjs-dist/package.json"));
+// Use Node's runtime resolver for a filesystem path. A statically analyzed
+// require.resolve can become a Turbopack module ID instead of a path string.
+const PDFJS = path.dirname(process.getBuiltinModule("module")
+  .createRequire(import.meta.url).resolve("pdfjs-dist/package.json"));
 const PDFJS_FILES = {
   standardFontDataUrl: `${PDFJS}/standard_fonts/`,
   cMapUrl: `${PDFJS}/cmaps/`,
@@ -78,6 +110,7 @@ async function pageTexts(doc: PDFDocumentProxy): Promise<string[] | "timeout"> {
     if (Date.now() > deadline) return "timeout";
     const page = await doc.getPage(n);
     const content = await page.getTextContent();
+    retainInspectionText(content.items.reduce((total, item) => total + ("str" in item ? item.str.length + 1 : 0), 0) * 2);
     pages.push(content.items.map((item) => ("str" in item ? item.str + (item.hasEOL ? "\n" : "") : "")).join(""));
     page.cleanup();
   }
@@ -89,6 +122,21 @@ async function renderFirstPage(doc: PDFDocumentProxy): Promise<Uint8Array> {
   const page = await doc.getPage(1);
   const base = page.getViewport({ scale: 1 });
   const viewport = page.getViewport({ scale: COVER_WIDTH / base.width });
+  const budget = inspectionBudget();
+  if (budget) {
+    const width = Math.round(viewport.width); const height = Math.round(viewport.height);
+    if (width > UPLOAD_LIMITS.coverWidth || height > UPLOAD_LIMITS.coverHeight) budget.reject("PDF cover exceeds its bounded viewport");
+    const factory = new BoundedCanvasFactory(); const pair = factory.create(width, height);
+    const releaseOutput = budget.imageAllocation(width, height, width * height * 8 + MiB);
+    try {
+      const context = pair.context!; context.fillStyle = "#ffffff"; context.fillRect(0, 0, width, height);
+      await page.render({ canvas: pair.canvas as unknown as HTMLCanvasElement, canvasContext: context as unknown as CanvasRenderingContext2D, viewport }).promise;
+      const bytes = pair.canvas!.toBuffer("image/png");
+      if (bytes.length > width * height * 8 + MiB) budget.reject("PDF cover encoding exceeds its native envelope");
+      budget.decodedChunk("pdf:cover", bytes.length); budget.imageAllocation(1, 1, bytes.length);
+      return bytes;
+    } finally { page.cleanup(); factory.destroy(pair); releaseOutput(); }
+  }
   const canvas = createCanvas(Math.round(viewport.width), Math.round(viewport.height));
   const context = canvas.getContext("2d");
   context.fillStyle = "#ffffff";
@@ -99,6 +147,12 @@ async function renderFirstPage(doc: PDFDocumentProxy): Promise<Uint8Array> {
 }
 
 export async function inspectPdf(source: ByteSource): Promise<Inspection> {
+  const budget = inspectionBudget();
+  if (budget) {
+    // pdf.js's range cache reserves a whole-length backing buffer. Refuse its
+    // allocation before getDocument, and account for possible syntax strings.
+    budget.decodedChunk("pdf:source", source.size); budget.retainTextPermanent(source.size * 2);
+  }
   const head = await source.read(0, Math.min(source.size, CHUNK));
   const linearized = /\/Linearized\b/.test(Buffer.from(head.subarray(0, 1024)).toString("latin1"));
   const task = getDocument({
@@ -110,6 +164,9 @@ export async function inspectPdf(source: ByteSource): Promise<Inspection> {
     ...PDFJS_FILES,
     verbosity: 0,
     password: "",
+    ...(budget ? { CanvasFactory: BoundedCanvasFactory, maxImageSize: UPLOAD_LIMITS.imagePixels,
+      canvasMaxAreaInBytes: UPLOAD_LIMITS.nativeImageBytes, isOffscreenCanvasSupported: false,
+      isImageDecoderSupported: false, useWasm: false, isEvalSupported: false, stopAtErrors: true } : {}),
   });
   let doc: PDFDocumentProxy;
   try {
@@ -131,7 +188,7 @@ export async function inspectPdf(source: ByteSource): Promise<Inspection> {
     const creators = list(xmp("dc:creator"));
     const authorText = creators.length ? creators : (str(info.Author) ?? "").split(/\s*[;&]\s*|\s+and\s+/).filter(Boolean);
     const isbn = str(xmp("prism:isbn")) ?? str(xmp("pdfx:isbn"));
-    const texts = await pageTexts(doc);
+    const texts = budget ? await budget.pdfText(() => pageTexts(doc), budget.signal) : await pageTexts(doc);
     return emptyInspection("pdf", {
       metadata: {
         title: str(xmp("dc:title")) ?? str(info.Title),

@@ -1,19 +1,20 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { sql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_READING_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln444_reading");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln444_reading")
     throw new Error("Reading tests require a disposable local sln444_reading database");
 }
-const client = url ? postgres(url, { max: 6, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 6, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -86,7 +87,7 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
   const settle = activitySettled;
 
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln444_reading");
   }, 60000);
   afterAll(async () => {
     await client?.end();
@@ -94,8 +95,8 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
   beforeEach(async () => {
     // A history entry left over from the last test must not land after the truncate
     await settle();
-    await q(`truncate works, authors, locations, activity_events, imports cascade`);
-  });
+    await resetDisposableDatabase(url!, "sln444_reading", { emptyLocations: true });
+  }, 30000);
 
   let serial = 0;
   async function book(title = "Watt") {

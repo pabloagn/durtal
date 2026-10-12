@@ -180,6 +180,22 @@ describe.skipIf(!url)("e-book delivery and verification", () => {
     });
   });
 
+  it("returns attachment for a requested download while preserving range and ETag delivery", async () => {
+    const { id: fileId } = await file("A downloadable ebook fixture");
+    const res = await fileRoute(
+      new NextRequest(
+        `http://localhost/api/ebooks/files/${fileId}?download=1`,
+        { headers: { Range: "bytes=0-3" } },
+      ),
+      { params: Promise.resolve({ fileId }) },
+    );
+    expect(res.status).toBe(206);
+    expect(res.headers.get("Content-Disposition")).toContain(
+      'attachment; filename="ebook-',
+    );
+    expect(res.headers.get("ETag")).toMatch(/^"[a-f0-9]{64}"$/);
+    expect(res.headers.get("Content-Length")).toBe("4");
+  });
   describe("verification", () => {
     let dir: string;
     beforeEach(() => {

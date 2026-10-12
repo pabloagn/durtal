@@ -882,3 +882,15 @@ Validates that exactly one of `workId` or `authorId` is set (XOR). Validated aga
 ### `deleteMedia(id)` / `bulkDeleteMedia(ids)`
 
 Deletes the media records first, then their S3 objects (full image, thumbnail and original). A file that another row still stores is kept. `deleteMedia` makes the next image of the same type active when it deletes the active one.
+
+### eBook preferred file (SLN-497)
+
+`setPreferredEbookFile({ ebookId, fileId })` in `src/lib/actions/ebooks.ts`
+uses `preferredEbookFileSchema` UUID validation before any query. It locks the
+same-book ebook/file pair and sets `preferred_file_id` only when the ebook is
+active and the file currently passes shared native readability. Another
+ebook's file, DRM, quarantined, missing, replaced and malformed publication
+evidence are refused. It returns `{ id, preferredFileId }` and revalidates the
+library, detail and reader paths. The Files table offers Open first only for
+eligible non-preferred files. This source is prepared; disposable database
+validation remains gated with the migration sequence.

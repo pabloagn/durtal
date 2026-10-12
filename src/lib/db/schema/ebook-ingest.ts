@@ -109,6 +109,7 @@ export const ebookIngestItems = pgTable(
     unique("ebook_ingest_items_run_path_unique").on(t.runId, t.sourcePath),
     index("ebook_ingest_items_run_state_idx").on(t.runId, t.state),
     index("ebook_ingest_items_sha256_idx").on(t.sha256),
+    index("ebook_ingest_items_ebook_created_idx").on(t.ebookId, t.createdAt.desc(), t.id),
     check(
       "ebook_ingest_items_state_check",
       sql`${t.state} in ('pending', 'stored', 'registered', 'done', 'failed')`,

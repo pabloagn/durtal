@@ -52,6 +52,7 @@ export interface BookFilterParams {
   colors?: ColorBucket[];
   /** With or without an active poster */
   hasPoster?: boolean;
+  hasEbook?: boolean;
 }
 
 const MARK_KEYS = WORK_MARKS.map((m) => m.key) as [WorkMarkKey, ...WorkMarkKey[]];
@@ -76,6 +77,7 @@ export const bookFiltersSchema = z.object({
   taxonomy: z.partialRecord(z.enum(TAXONOMY_KEYS), ids).optional(),
   colors: z.array(z.enum(COLOR_BUCKET_KEYS)).optional(),
   hasPoster: z.boolean().optional(),
+  hasEbook: z.boolean().optional(),
 });
 
 type Params = URLSearchParams | Record<string, string | string[] | undefined>;
@@ -151,6 +153,8 @@ export function parseBookFilters(params: Params): { filters: BookFilterParams; i
 
   const poster = checkList(z.enum(["has", "missing"]), params, "poster", issues);
   if (poster.length === 1) set("hasPoster", poster[0] === "has");
+  const ebook = checkList(z.enum(["yes", "no"]), params, "ebook", issues);
+  if (ebook.length === 1) set("hasEbook", ebook[0] === "yes");
 
   return { filters, issues };
 }

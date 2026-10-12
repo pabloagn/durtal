@@ -11,15 +11,32 @@
  * its own profile, so no saved preference cookie changes the layout.
  */
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROUTES = [
-  "/", "/library", "/authors", "/publishers", "/recommenders", "/series",
-  "/places", "/provenance", "/locations", "/collections", "/taxonomy",
-  "/harmonize", "/settings",
+  "/",
+  "/library",
+  "/ebooks",
+  "/authors",
+  "/publishers",
+  "/recommenders",
+  "/series",
+  "/places",
+  "/provenance",
+  "/locations",
+  "/collections",
+  "/taxonomy",
+  "/harmonize",
+  "/settings",
 ];
 const WIDTHS = [375, 390];
 
@@ -27,14 +44,23 @@ const args = process.argv.slice(2);
 const baseAt = args.indexOf("--base");
 const base = baseAt >= 0 ? args.splice(baseAt, 2)[1] : "http://127.0.0.1:3410";
 const routes = args.length ? args : ROUTES;
-const audit = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "overflow-audit.js"), "utf8");
+const audit = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "overflow-audit.js"),
+  "utf8",
+);
 
 function findChrome() {
   if (process.env.CHROME) return process.env.CHROME;
   const cache = join(homedir(), "Library/Caches/ms-playwright");
-  for (const dir of existsSync(cache) ? readdirSync(cache).sort().reverse() : []) {
+  for (const dir of existsSync(cache)
+    ? readdirSync(cache).sort().reverse()
+    : []) {
     if (!dir.startsWith("chromium_headless_shell-")) continue;
-    for (const build of ["chrome-headless-shell-mac-arm64", "chrome-headless-shell-mac-x64", "chrome-headless-shell-linux64"]) {
+    for (const build of [
+      "chrome-headless-shell-mac-arm64",
+      "chrome-headless-shell-mac-x64",
+      "chrome-headless-shell-linux64",
+    ]) {
       const bin = join(cache, dir, build, "chrome-headless-shell");
       if (existsSync(bin)) return bin;
     }
@@ -45,24 +71,41 @@ function findChrome() {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const port = 9200 + Math.floor(Math.random() * 600);
 const profile = mkdtempSync(join(tmpdir(), "phone-audit-"));
-const chrome = spawn(findChrome(), [`--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "about:blank"], { stdio: "ignore" });
+const chrome = spawn(
+  findChrome(),
+  [
+    `--remote-debugging-port=${port}`,
+    `--user-data-dir=${profile}`,
+    "about:blank",
+  ],
+  { stdio: "ignore" },
+);
 const chromeExited = new Promise((resolve) => chrome.once("exit", resolve));
 process.on("exit", () => {
   chrome.kill();
   // After a crash Chrome may still be writing its profile: retry a file it wrote last
-  rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  rmSync(profile, {
+    recursive: true,
+    force: true,
+    maxRetries: 10,
+    retryDelay: 200,
+  });
 });
 
 let socketUrl;
 for (let i = 0; i < 50 && !socketUrl; i++) {
   try {
-    const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+    const targets = await (
+      await fetch(`http://127.0.0.1:${port}/json/list`)
+    ).json();
     socketUrl = targets.find((t) => t.type === "page")?.webSocketDebuggerUrl;
   } catch {}
   if (!socketUrl) await sleep(200);
 }
 const ws = new WebSocket(socketUrl);
-await new Promise((resolve) => ws.addEventListener("open", resolve, { once: true }));
+await new Promise((resolve) =>
+  ws.addEventListener("open", resolve, { once: true }),
+);
 let nextId = 0;
 const pending = new Map();
 const waiters = [];
@@ -78,33 +121,86 @@ ws.addEventListener("message", (event) => {
 const send = (method, params = {}) =>
   new Promise((resolve, reject) => {
     const id = ++nextId;
-    pending.set(id, (msg) => (msg.error ? reject(new Error(msg.error.message)) : resolve(msg.result)));
+    pending.set(id, (msg) =>
+      msg.error ? reject(new Error(msg.error.message)) : resolve(msg.result),
+    );
     ws.send(JSON.stringify({ id, method, params }));
   });
 const evaluate = async (expression) =>
-  (await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true })).result.value;
+  (
+    await send("Runtime.evaluate", {
+      expression,
+      returnByValue: true,
+      awaitPromise: true,
+    })
+  ).result.value;
 
 await send("Page.enable");
+await send("Network.enable");
 let failed = 0;
 for (const width of WIDTHS) {
-  await send("Emulation.setDeviceMetricsOverride", { width, height: 812, deviceScaleFactor: 2, mobile: true });
+  await send("Emulation.setDeviceMetricsOverride", {
+    width,
+    height: 812,
+    deviceScaleFactor: 2,
+    mobile: true,
+  });
   for (const route of routes) {
-    const loaded = new Promise((resolve) => waiters.push({ method: "Page.loadEventFired", resolve }));
+    const timed = width === 390 && route.split("?")[0] === "/ebooks";
+    await send("Emulation.setCPUThrottlingRate", { rate: timed ? 4 : 1 });
+    await send("Network.emulateNetworkConditions", {
+      offline: false,
+      latency: timed ? 150 : 0,
+      downloadThroughput: timed ? (9 * 1000000) / 8 : -1,
+      uploadThroughput: timed ? (1.6 * 1000000) / 8 : -1,
+    });
+    await send("Network.setCacheDisabled", { cacheDisabled: timed });
+    if (timed) await send("Network.clearBrowserCache");
+    const loaded = new Promise((resolve) =>
+      waiters.push({ method: "Page.loadEventFired", resolve }),
+    );
     await send("Page.navigate", { url: base + route });
     await Promise.race([loaded, sleep(60000)]);
     // Wait for streamed content and fonts, then for transitions to end
-    for (let i = 0; i < 100 && !(await evaluate(`!document.querySelector('div[hidden][id^="S:"]')`)); i++) await sleep(200);
+    for (
+      let i = 0;
+      i < 100 &&
+      !(await evaluate(`!document.querySelector('div[hidden][id^="S:"]')`));
+      i++
+    )
+      await sleep(200);
     await evaluate("document.fonts.ready.then(() => true)");
     await sleep(500);
     const result = await evaluate(audit);
-    const pass = result.overflow <= 0 && result.offenders.length === 0;
+    const fcp = timed
+      ? await evaluate(
+          "performance.getEntriesByName('first-contentful-paint')[0]?.startTime ?? null",
+        )
+      : null;
+    const pass =
+      result.overflow <= 0 &&
+      result.offenders.length === 0 &&
+      (!timed || (fcp !== null && fcp <= 1500));
     if (!pass) failed++;
-    console.log(`${pass ? "ok  " : "FAIL"} ${width}px ${route}: overflow ${result.overflow}px`);
-    for (const o of result.offenders) console.log(`       ${o.element} (right ${o.right}px${o.fixed ? ", fixed" : ""})`);
+    console.log(
+      `${pass ? "ok  " : "FAIL"} ${width}px ${route}: overflow ${result.overflow}px`,
+    );
+    if (timed)
+      console.log(
+        `       Cold FCP ${fcp === null ? "missing" : Math.round(fcp) + "ms"} / 1500ms · 4× CPU, 9Mbps down, 150ms RTT`,
+      );
+    for (const o of result.offenders)
+      console.log(
+        `       ${o.element} (right ${o.right}px${o.fixed ? ", fixed" : ""})`,
+      );
   }
 }
 ws.close();
-console.log(failed ? `${failed} page(s) wider than the screen` : "No page scrolls sideways");
+console.log(
+  failed
+    ? `${failed} page(s) wider than the screen`
+    : "No page scrolls sideways",
+);
 // Chrome writes its profile until it has exited: wait for that, so removing the profile never races it
 chrome.kill();
 await chromeExited;

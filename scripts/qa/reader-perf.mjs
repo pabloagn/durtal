@@ -34,6 +34,8 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { checkNavigation, goto, readerPlace, waitUI } from "./reader-navigation-checks.mjs";
+import { assertTurnStart, partitionTurnEvents } from "./reader-turn-start-checks.mjs";
 
 const config = JSON.parse(readFileSync(new URL("./reader-perf.json", import.meta.url), "utf8"));
 const args = process.argv.slice(2);
@@ -47,6 +49,8 @@ const onlyRows = option("--rows", null)?.split(",");
 const onlyProfiles = option("--profiles", null)?.split(",");
 const jsonOut = option("--json", null);
 const trace = args.includes("--trace");
+const indexDiagnostics = args.includes("--index-diagnostics");
+let diagnosticContext;
 
 const target = URL.parse(base);
 const refusal = !target
@@ -124,7 +128,7 @@ const send = (method, params = {}, sessionId) =>
 const PROBE = `(() => {
   const top = window.top === window;
   const raf = window.requestAnimationFrame.bind(window);
-  const state = top ? (window.__durtalPerfState = { watch: false, frames: 0, timers: [], events: [], loafs: [] }) : null;
+  const state = top ? (window.__durtalPerfState = { watch: false, frames: 0, timers: [], events: [], loafs: [], tasks: [] }) : null;
   const shared = () => { try { return window.top.__durtalPerfState; } catch { return null; } };
   window.requestAnimationFrame = (cb) => raf((t) => { const s = shared(); if (s?.watch) s.frames++; cb(t); });
   for (const name of ["setTimeout", "setInterval"]) {
@@ -140,6 +144,9 @@ const PROBE = `(() => {
     new PerformanceObserver((list) => {
       for (const e of list.getEntries()) state.loafs.push({ start: e.startTime, duration: e.duration, blocking: e.blockingDuration ?? 0 });
     }).observe({ type: "long-animation-frame", buffered: true });
+    new PerformanceObserver((list) => {
+      for (const e of list.getEntries()) state.tasks.push({ start: e.startTime, duration: e.duration });
+    }).observe({ type: "longtask", buffered: true });
   } catch {}
   let first = true;
   addEventListener("relocate", (event) => {
@@ -152,8 +159,43 @@ const PROBE = `(() => {
 
 const ebook = (n) => `00000000-0000-4000-a000-${String(n).padStart(12, "0")}`;
 
+function boundedIndexDiagnostic(event) {
+  const limits = {"phase":80,"errorName":64,"errorCode":64,"filename":512,"compressedBytes":0,"markupLength":0,"fragmentCount":0,"method":0,"workerAt":0,"length":0,"offsetCount":0,"line":0,"column":0,"hrefCount":0,"complete":0,"at":0,"path":256,"value":80};
+  const phases = ["worker-construct","worker-messageerror","worker-abort","worker-loaded-processing-start","worker-decode-complete-scan-start","worker-scan-complete","worker-result","worker-result-error","worker-error","worker-input-posted","index-timer-scheduled","index-timer-fired","index-generator-start","index-generator-complete","index-publish-requested","index-flow-error","public-index-state","diagnostic-payload-rejected","diagnostic-payload-invalid"];
+  const result = {};
+  if (!event || typeof event !== "object" || !phases.includes(event.phase)) return { phase: "diagnostic-payload-invalid" };
+  for (const key of Object.keys(limits)) {
+    const value = event[key], limit = limits[key];
+    if (typeof value === "string" && limit > 0) {
+      if (key === "errorName" && !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(value)) continue;
+      if (key === "errorCode" && !/^[A-Z][A-Z0-9_]{0,63}$/.test(value)) continue;
+      if (key === "filename" && (!/^[A-Za-z0-9_./:@~%-]*$/.test(value) || value.length > 512)) continue;
+      if (key === "path" && !/^\/reader\/[A-Za-z0-9-]+$/.test(value)) continue;
+      if (key === "value" && value !== "ready" && value !== "pending") continue;
+      result[key] = value.slice(0, limit);
+    } else if (typeof value === "number" && Number.isFinite(value)) result[key] = Math.max(-Number.MAX_SAFE_INTEGER, Math.min(Number.MAX_SAFE_INTEGER, value));
+    else if (typeof value === "boolean") result[key] = value;
+  }
+  return result;
+}
+
+const INDEX_DIAGNOSTIC_PROBE = `(() => {
+  const bounded = ${boundedIndexDiagnostic.toString()};
+  if (window.top !== window) return;
+  let count = 0;
+  window.__durtalIndexDiagnostic = event => {
+    if (count++ >= 256) return;
+    const payload = JSON.stringify(bounded({ ...bounded(event), at: performance.now(), path: location.pathname }));
+    if (payload.length <= 4096) window.__durtalIndexDiag?.(payload);
+  };
+  new MutationObserver(records => {
+    for (const record of records) if (record.attributeName === "data-reader-index")
+      window.__durtalIndexDiagnostic({ phase: "public-index-state", value: record.target.getAttribute("data-reader-index") });
+  }).observe(document, { subtree: true, attributes: true, attributeFilter: ["data-reader-index"] });
+})();`;
+
 /** A page in a fresh browser context, under a profile */
-async function newPage(profileName) {
+async function newPage(profileName, diagnoseIndex = false) {
   const p = config.profiles[profileName];
   const { browserContextId } = await send("Target.createBrowserContext", { disposeOnDetach: true });
   const { targetId } = await send("Target.createTarget", { url: "about:blank", browserContextId });
@@ -163,6 +205,7 @@ async function newPage(profileName) {
     call,
     sessionId,
     reports: [],
+    indexDiagnostics: diagnoseIndex ? [] : null,
     requests: new Map(),
     on(method, fn) {
       const listener = (msg) => msg.sessionId === sessionId && msg.method === method && fn(msg.params);
@@ -181,12 +224,22 @@ async function newPage(profileName) {
     offs: [],
   };
   page.offs.push(
-    page.on("Runtime.bindingCalled", ({ name, payload }) => name === "__durtalPerf" && page.reports.push(JSON.parse(payload))),
+    page.on("Runtime.bindingCalled", ({ name, payload }) => {
+      if (name === "__durtalPerf") page.reports.push(JSON.parse(payload));
+      else if (name === "__durtalIndexDiag" && page.indexDiagnostics && page.indexDiagnostics.length < 256) {
+        if (payload.length > 4096) page.indexDiagnostics.push({ phase: "diagnostic-payload-rejected", length: Math.min(payload.length, Number.MAX_SAFE_INTEGER) });
+        else {
+          try { page.indexDiagnostics.push(boundedIndexDiagnostic(JSON.parse(payload))); }
+          catch { page.indexDiagnostics.push({ phase: "diagnostic-payload-invalid" }); }
+        }
+      }
+    }),
     page.on("Network.requestWillBeSent", ({ requestId, request, timestamp, type }) =>
       page.requests.set(requestId, {
         url: request.url,
         method: request.method,
         type,
+        body: request.postData ?? null,
         range: request.headers.Range ?? request.headers.range ?? null,
         status: null,
         start: timestamp,
@@ -214,6 +267,10 @@ async function newPage(profileName) {
   await call("Performance.enable");
   await call("Runtime.addBinding", { name: "__durtalPerf" });
   await call("Page.addScriptToEvaluateOnNewDocument", { source: PROBE });
+  if (diagnoseIndex) {
+    await call("Runtime.addBinding", { name: "__durtalIndexDiag" });
+    await call("Page.addScriptToEvaluateOnNewDocument", { source: INDEX_DIAGNOSTIC_PROBE });
+  }
   await call("Network.emulateNetworkConditions", {
     offline: false,
     latency: p.rttMs,
@@ -276,14 +333,126 @@ async function heapMB(page) {
   return mb(metrics.find((m) => m.name === "JSHeapUsedSize").value);
 }
 
-async function key(page, k, code) {
-  await page.call("Input.dispatchKeyEvent", { type: "rawKeyDown", key: k, code, windowsVirtualKeyCode: code === "ArrowRight" ? 39 : code === "KeyT" ? 84 : 27 });
-  await page.call("Input.dispatchKeyEvent", { type: "keyUp", key: k, code, windowsVirtualKeyCode: code === "ArrowRight" ? 39 : code === "KeyT" ? 84 : 27 });
+async function key(page, k, code, modifiers = 0) {
+  const virtual = { ArrowRight: 39, ArrowLeft: 37, KeyT: 84, KeyG: 71, Enter: 13, Home: 36, End: 35, BracketLeft: 219, BracketRight: 221, Escape: 27 }[code] ?? 0;
+  const nativeEnter = k === "Enter" && code === "Enter" && modifiers === 0;
+  await page.call("Input.dispatchKeyEvent", { type: nativeEnter ? "keyDown" : "rawKeyDown", key: k, code, modifiers, windowsVirtualKeyCode: virtual,
+    ...(nativeEnter ? { text: "\r", unmodifiedText: "\r" } : {}) });
+  await page.call("Input.dispatchKeyEvent", { type: "keyUp", key: k, code, modifiers, windowsVirtualKeyCode: virtual });
 }
+const driver = page => ({
+  open: n => openBook(page, n), evaluate: expression => page.evaluate(expression),
+  key: (k, code, modifiers) => key(page, k, code, modifiers),
+  fill: text => page.call("Input.insertText", { text }),
+  savedPage: async label => {
+    const request = await waitFor(() => [...page.requests.values()].find(request => {
+      if (!isSave(request) || !request.body) return false;
+      try { return JSON.parse(request.body).locator?.pageLabel === label; } catch { return false; }
+    }), 5000, "position with pageLabel");
+    return !!request;
+  },
+});
 
 // ── The rows ────────────────────────────────────────────────────────────────
 
 const MEASURE = {
+  async navigation(row, profileName) {
+    const times = [], smooth = [], tasks = [], loafs = [], inputs = [];
+    const diagnoseIndex = indexDiagnostics && row.action === "index" && profileName === "phone";
+    const diagnosticRuns = diagnoseIndex ? [] : null;
+    for (let run = 0; run < runs; run++) {
+      const page = await newPage(profileName, diagnoseIndex);
+      try {
+        const d = driver(page);
+        await openBook(page, row.fixture);
+        if (row.action === "index") {
+          const first = page.reports.find(report => report.kind === "first").at;
+          await waitUI(d, "document.querySelector('[data-reader-index]')?.getAttribute('data-reader-index') === 'ready'", 30000);
+          times.push(await page.evaluate("performance.now()") - first);
+          tasks.push(await page.evaluate(`window.__durtalPerfState.tasks.filter(task => task.start >= ${first} && task.duration > 50).length`));
+          for (const fixture of row.additionalFixtures ?? []) {
+            await openBook(page, fixture);
+            const beginning = page.reports.find(report => report.kind === "first").at;
+            await waitUI(d, "document.querySelector('[data-reader-index]')?.getAttribute('data-reader-index') === 'ready'", 30000);
+            times.push(await page.evaluate("performance.now()") - beginning);
+            tasks.push(await page.evaluate(`window.__durtalPerfState.tasks.filter(task => task.start >= ${beginning} && task.duration > 50).length`));
+          }
+          continue;
+        }
+        await waitUI(d, "document.querySelector('[data-reader-index]')?.getAttribute('data-reader-index') === 'ready'", 30000);
+        let before = page.reports.length;
+        let start = 0;
+        const mark = async () => { before = page.reports.length; start = await page.evaluate("performance.now()"); };
+        if (row.action === "goto") {
+          d.beforeCommit = mark; await goto(d, "Page", "57");
+        } else if (row.action === "history") {
+          await goto(d, "Percent", "70"); await mark(); await key(page, "ArrowLeft", "ArrowLeft", 1);
+        } else if (row.action === "contents") {
+          await mark(); await key(page, "t", "KeyT");
+          await waitUI(d, "!!document.querySelector('[role=tree] [role=treeitem]')");
+          await page.evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+          const state = await page.evaluate("({ now: performance.now(), events: window.__durtalPerfState.events })");
+          times.push(state.now - start);
+          inputs.push(Math.max(16, ...state.events.filter(event => event.start >= start && event.name === "keydown").map(event => event.duration)));
+          continue;
+        } else if (row.action === "toc") {
+          if (row.preloaded) {
+            await goto(d, "Percent", "0.95");
+            await waitUI(d, "document.querySelector('foliate-view').renderer.getContents().some(section => section.index === 1)");
+          }
+          await key(page, "t", "KeyT");
+          await waitUI(d, "!!document.querySelector('[role=tree]')");
+          await page.evaluate(`(() => {
+            const button = [...document.querySelectorAll('[role=treeitem] button')].find(button => button.textContent.trim() === ${JSON.stringify(row.preloaded ? "Chapter 2" : "Chapter 90")});
+            if (!button) throw Error("Missing contents target");
+            button.setAttribute("data-qa-toc-pick", ""); button.scrollIntoView({ block: "center" });
+          })()`);
+          await sleep(100);
+          const rect = await page.evaluate("(() => { const r = document.querySelector('[data-qa-toc-pick]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()");
+          await mark();
+          await page.call("Input.dispatchMouseEvent", { type: "mousePressed", ...rect, button: "left", clickCount: 1 });
+          await page.call("Input.dispatchMouseEvent", { type: "mouseReleased", ...rect, button: "left", clickCount: 1 });
+        } else if (row.action === "drag" || row.action === "release") {
+          await key(page, "g", "KeyG"); await waitUI(d, "!!document.querySelector('dialog[open]')");
+          await key(page, "Escape", "Escape"); await waitUI(d, "!document.querySelector('dialog[open]')");
+          const rect = await page.evaluate("(() => { const r = document.querySelector('[role=slider]').getBoundingClientRect(); return { x: r.x, y: r.y + r.height / 2, width: r.width }; })()");
+          if (rect.width < 220) throw Error("Scrubber width under 220px");
+          const origin = await page.evaluate(readerPlace);
+          await page.evaluate(`(() => {
+            const state = window.__durtalScrubQA = { intervals: [], start: performance.now(), stopped: false };
+            let previous;
+            const frame = now => { if (previous !== undefined) state.intervals.push(now - previous); previous = now; if (!state.stopped) requestAnimationFrame(frame); };
+            requestAnimationFrame(frame);
+          })()`);
+          await page.call("Input.dispatchMouseEvent", { type: "mousePressed", x: rect.x + 1, y: rect.y, button: "left", clickCount: 1 });
+          for (let tick = 0; tick <= 120; tick++) {
+            await page.call("Input.dispatchMouseEvent", { type: "mouseMoved", x: rect.x + 1 + (rect.width - 2) * tick / 120, y: rect.y, buttons: 1 });
+            await sleep(2000 / 120);
+          }
+          if ((await page.evaluate(readerPlace)).cfi !== origin.cfi) throw Error("Peek moved the book before release");
+          const sampled = await page.evaluate(`(() => {
+            const state = window.__durtalScrubQA; state.stopped = true; const end = performance.now();
+            return { smooth: state.intervals.filter(ms => ms <= 16.7).length / Math.max(1, state.intervals.length) * 100,
+              tasks: window.__durtalPerfState.tasks.filter(task => task.start >= state.start && task.start <= end && task.duration > 50).length,
+              loafs: window.__durtalPerfState.loafs.filter(frame => frame.start >= state.start && frame.start <= end && frame.duration > 50).length };
+          })()`);
+          smooth.push(sampled.smooth); tasks.push(sampled.tasks); loafs.push(sampled.loafs);
+          await mark();
+          await page.call("Input.dispatchMouseEvent", { type: "mouseReleased", x: rect.x + rect.width - 1, y: rect.y, button: "left", clickCount: 1 });
+        }
+        const painted = await waitFor(() => page.reports.slice(before).find(report => report.kind === "painted"), 15000, row.label);
+        times.push(painted.at - start);
+      } catch (error) {
+        if (diagnoseIndex) diagnosticContext = [...diagnosticRuns, { run, events: page.indexDiagnostics }];
+        throw error;
+      } finally {
+        if (diagnoseIndex) diagnosticRuns.push({ run, events: page.indexDiagnostics });
+        await page.close();
+      }
+    }
+    return { ...(diagnoseIndex ? { diagnosticOnly: true, indexDiagnostics: diagnosticRuns } : {}), ms: p75(times), all: times.map(Math.round), inpP95: percentile(inputs, 0.95),
+      smoothPercent: smooth.length ? Math.min(...smooth) : null, longTasks: Math.max(0, ...tasks), longFrames: Math.max(0, ...loafs) };
+  },
   /** A book not seen before: a fresh context per run */
   async open(row, profileName) {
     const times = [];
@@ -328,7 +497,36 @@ const MEASURE = {
     const page = await newPage(profileName);
     try {
       await openBook(page, row.fixture);
+      const resumedPlace = await page.evaluate(readerPlace);
+      await waitUI(driver(page), "document.querySelector('[data-reader-index]')?.getAttribute('data-reader-index') === 'ready'", 30000);
+      // Use the public Go to control; do not erase or bypass saved positions.
+      await goto(driver(page), "Percent", "0");
+      await waitUI(driver(page), `(() => {
+        const view = document.querySelector('foliate-view');
+        return view?.lastLocation?.index === 0 && view.renderer?.atStart === true
+          && document.querySelector('[role="slider"]')?.getAttribute('aria-valuenow') === '0';
+      })()`);
       await sleep(1500);
+      // Wait for setup paint, then establish an explicit clock boundary. A
+      // buffered setup Event Timing entry delivered later is still setup.
+      await page.evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+      const startPrecondition = {
+        target: "public-go-to-percent-zero", resumedPlace,
+        startingPlace: assertTurnStart(await page.evaluate(`(() => {
+          const view = document.querySelector('foliate-view');
+          const location = view?.lastLocation;
+          return {
+            ready: document.querySelector('[data-reader-index]')?.getAttribute('data-reader-index') === 'ready',
+            index: location?.index, sectionCount: location?.section?.total,
+            atStart: view?.renderer?.atStart, atEnd: view?.renderer?.atEnd,
+            percent: document.querySelector('[role="slider"]')?.getAttribute('aria-valuenow'),
+            cfi: location?.cfi, sectionFraction: location?.sectionFraction,
+            first: location?.range?.toString().replace(/\\s+/g, " ").trim().slice(0, 80),
+          };
+        })()`)),
+        measurementStartedAt: await page.evaluate("performance.now()"),
+      };
+      console.log("turns-start-precondition " + JSON.stringify(startPrecondition));
       const inside = [];
       const across = [];
       const insideWindows = [];
@@ -342,7 +540,7 @@ const MEASURE = {
         const moved = await waitFor(() => page.reports.slice(before).find((r) => r.kind === "relocate"), 10_000, `turn ${i}`).catch(() => null);
         await sleep(row.pauseMs);
         const [latency] = await page.evaluate(
-          `window.__durtalPerfState.events.slice(${eventsBefore}).filter((e) => e.name === "keydown").map((e) => e.duration)`,
+          `window.__durtalPerfState.events.slice(${eventsBefore}).filter((e) => e.name === "keydown" && e.start >= ${startPrecondition.measurementStartedAt}).map((e) => e.duration)`,
         );
         const ms = latency ?? 16;
         if (moved && moved.index !== index) {
@@ -364,18 +562,20 @@ const MEASURE = {
         await sleep(400);
       }
       const state = await page.evaluate("({ events: window.__durtalPerfState.events, loafs: window.__durtalPerfState.loafs })");
+      const eventTiming = partitionTurnEvents(state.events, startPrecondition.measurementStartedAt);
       // A long task is one that blocks input: a long frame with no task over 50 ms (the
       // headless compositor waiting) is not one
       const longInside = state.loafs.filter((l) => l.blocking > 0 && insideWindows.some(([a, b]) => l.start >= a && l.start <= b));
       const frames = await page.evaluate("document.querySelector('foliate-view').renderer.getContents().length");
       return {
+        startPrecondition, eventTiming,
         insideP95: percentile(inside, 0.95),
         acrossP95: percentile(across, 0.95),
         insideCount: inside.length,
         acrossCount: across.length,
         longTasksInside: longInside.length,
         longestInside: Math.round(Math.max(0, ...longInside.map((l) => l.duration))),
-        inpP95: percentile(state.events.map((e) => e.duration), 0.95) ?? 16,
+        inpP95: percentile(eventTiming.measured.map((e) => e.duration), 0.95) ?? 16,
         heapMB: heaps.at(-1),
         heapGrowthMB: heaps.length > 1 ? heaps.at(-1) - heaps[0] : 0,
         sectionsLoaded: frames,
@@ -389,8 +589,12 @@ const MEASURE = {
   async idle(row, profileName) {
     const page = await newPage(profileName);
     try {
+      if (row.runningLines) await page.call("Page.addScriptToEvaluateOnNewDocument", { source: `try {
+        localStorage.setItem("durtal-reader-running-lines", JSON.stringify({ v: 1, positions: { chapter: "headerLeft", page: "footerRight", location: "off", percent: "footerRight", timeLeftChapter: "footerLeft", timeLeftBook: "footerRight", clock: "headerRight" } }));
+      } catch {}` });
       await openBook(page, row.fixture);
       await waitFor(() => [...page.requests.values()].find((r) => isSave(r) && r.status), 15_000, "the first position save");
+      await waitUI(driver(page), "document.querySelector('[data-reader-index]')?.getAttribute('data-reader-index') === 'ready'", 30000);
       // The bars hide 3 s after the open
       await sleep(4000);
       const startedAt = Date.now() / 1000;
@@ -433,23 +637,38 @@ function judge(budget, m) {
   if ("timers" in budget) at("timers fired", m.timers.length, budget.timers, "");
   if ("saves" in budget) at("position saves", m.saves, budget.saves, "");
   if ("otherRequests" in budget) at("other requests", m.others.length, budget.otherRequests, "");
+  if ("smoothPercent" in budget) at("frames at 60fps", m.smoothPercent, budget.smoothPercent, "%", m.smoothPercent >= budget.smoothPercent);
+  if ("longTasks" in budget) at("long tasks over 50ms", m.longTasks, budget.longTasks, "");
+  if ("longFrames" in budget) at("animation frames over 50ms", m.longFrames, budget.longFrames, "");
+  if ("minTimerMs" in budget) at("shortest idle timer", m.timers.length ? Math.min(...m.timers.map(timer => Number(timer.split(" ").at(-1)))) : Infinity, budget.minTimerMs, " ms", m.timers.every(timer => Number(timer.split(" ").at(-1)) >= budget.minTimerMs));
   return checks;
 }
 
 let failed = 0;
 const report = [];
 await sleep(300);
+for (const profileName of Object.keys(config.profiles).filter(name => !onlyProfiles || onlyProfiles.includes(name))) {
+  const page = await newPage(profileName);
+  try { await checkNavigation(driver(page)); console.log("ok   navigation assertions (" + profileName + ")"); }
+  catch (error) { failed++; console.log("FAIL navigation assertions (" + profileName + "): " + error.message); }
+  finally { await page.close(); }
+}
 for (const row of config.rows) {
   if (onlyRows && !onlyRows.includes(row.id)) continue;
   for (const [profileName, budget] of Object.entries(row.budgets)) {
     if (onlyProfiles && !onlyProfiles.includes(profileName)) continue;
     let measured;
+    const diagnosticOnly = indexDiagnostics && row.action === "index" && profileName === "phone";
+    if (diagnosticOnly) {
+      diagnosticContext = [];
+      console.log("DIAGNOSTIC-ONLY observations; original budgets remain enforced");
+    }
     try {
       measured = await MEASURE[row.kind](row, profileName);
     } catch (error) {
       failed++;
       console.log(`FAIL ${row.label} (${profileName}): ${error.message}`);
-      report.push({ row: row.id, profile: profileName, error: error.message });
+      report.push({ row: row.id, profile: profileName, error: error.message, ...(diagnosticOnly ? { diagnosticOnly: true, indexDiagnostics: diagnosticContext } : {}) });
       continue;
     }
     const checks = judge(budget, measured);
@@ -460,7 +679,7 @@ for (const row of config.rows) {
     if (measured.all) console.log(`         runs: ${measured.all.join(", ")} ms`);
     if (measured.timers?.length) console.log(`         timers: ${measured.timers.join(", ")}`);
     if (measured.others?.length) console.log(`         requests: ${measured.others.join(", ")}`);
-    report.push({ row: row.id, profile: profileName, ok, measured });
+    report.push({ row: row.id, profile: profileName, ok, measured, ...(diagnosticOnly ? { diagnosticOnly: true } : {}) });
   }
 }
 if (jsonOut) writeFileSync(jsonOut, JSON.stringify(report, null, 2));

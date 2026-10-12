@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -10,7 +11,6 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { eq, sql } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 import {
@@ -18,6 +18,7 @@ import {
   s3ImageSource,
 } from "@/lib/utils/image-adjustments";
 const url = process.env.DURTAL_IMAGE_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln316_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -26,7 +27,7 @@ if (url) {
   )
     throw new Error("Image tests require disposable local sln316_test");
 }
-const client = url ? postgres(url, { max: 4, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -85,16 +86,14 @@ import sharp from "sharp";
 describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
   const db = testDb!;
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln316_test");
   });
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await db.execute(
-      sql`truncate image_adjustments, works, authors, collections, venues, comments cascade`,
-    );
-  });
+    await resetDisposableDatabase(url!, "sln316_test");
+  }, 30000);
   async function poster(author = false, type: "poster" | "gallery" = "poster") {
     const [entity] = author
       ? await db.insert(schema.authors).values({ name: "Portrait" }).returning()

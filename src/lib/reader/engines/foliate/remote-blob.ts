@@ -47,7 +47,9 @@ interface Chunk {
 /** Books that switched to the app route this session */
 function usesAppRoute(ebookId: string): boolean {
   try {
-    return (sessionStorage.getItem(FALLBACK_KEY) ?? "").split(",").includes(ebookId);
+    return (sessionStorage.getItem(FALLBACK_KEY) ?? "")
+      .split(",")
+      .includes(ebookId);
   } catch {
     return false;
   }
@@ -55,7 +57,9 @@ function usesAppRoute(ebookId: string): boolean {
 
 function rememberAppRoute(ebookId: string) {
   try {
-    const ids = new Set((sessionStorage.getItem(FALLBACK_KEY) ?? "").split(",").filter(Boolean));
+    const ids = new Set(
+      (sessionStorage.getItem(FALLBACK_KEY) ?? "").split(",").filter(Boolean),
+    );
     ids.add(ebookId);
     sessionStorage.setItem(FALLBACK_KEY, [...ids].join(","));
   } catch {
@@ -79,12 +83,16 @@ export class RangeSource {
   constructor(options: RangeSourceOptions) {
     this.size = options.size;
     this.#options = options;
-    this.#url = usesAppRoute(options.ebookId) ? options.fallbackUrl : options.url;
+    this.#url = usesAppRoute(options.ebookId)
+      ? options.fallbackUrl
+      : options.url;
     this.#fetch = options.fetch ?? ((...args) => fetch(...args));
     this.#prefetch = options.prefetch
       ? options.prefetch.then(
           (got) => {
-            for (const { start, bytes } of got) if (bytes.byteLength) this.#keep({ start, bytes: new Uint8Array(bytes) });
+            for (const { start, bytes } of got)
+              if (bytes.byteLength)
+                this.#keep({ start, bytes: new Uint8Array(bytes) });
           },
           () => undefined,
         )
@@ -97,11 +105,18 @@ export class RangeSource {
    * miss fetches up to `ahead` when the caller knows what it reads next (a
    * zip entry's data after its header).
    */
-  async read(start: number, end: number = this.size, ahead = 0): Promise<Uint8Array> {
+  async read(
+    start: number,
+    end: number = this.size,
+    ahead = 0,
+    signal?: AbortSignal,
+  ): Promise<Uint8Array> {
+    signal?.throwIfAborted();
     end = Math.min(end, this.size);
     start = Math.max(0, Math.min(start, end));
     if (end === start) return new Uint8Array(0);
     if (this.#prefetch) await this.#prefetch;
+    signal?.throwIfAborted();
     const hit = this.#find(start, end);
     if (hit) return hit;
     // The read's start may be here already (pdf.js asks for a page's image
@@ -110,9 +125,14 @@ export class RangeSource {
     const { parts, to: from } = this.#cachedFrom(start, end);
     let chunk: Chunk | null = null;
     if (from < end) {
-      chunk = await this.#fetchRange(from, Math.min(this.size, Math.max(end, from + MIN_FETCH, ahead)));
+      chunk = await this.#fetchRange(
+        from,
+        Math.min(this.size, Math.max(end, from + MIN_FETCH, ahead)),
+        signal,
+      );
       this.#keep(chunk);
-      if (!parts.length) return chunk.bytes.slice(start - chunk.start, end - chunk.start);
+      if (!parts.length)
+        return chunk.bytes.slice(start - chunk.start, end - chunk.start);
     }
     // Pieces held end to end, then what was fetched
     const bytes = new Uint8Array(end - start);
@@ -121,7 +141,11 @@ export class RangeSource {
       bytes.set(part, at);
       at += part.byteLength;
     }
-    if (chunk) bytes.set(chunk.bytes.subarray(from - chunk.start, end - chunk.start), at);
+    if (chunk)
+      bytes.set(
+        chunk.bytes.subarray(from - chunk.start, end - chunk.start),
+        at,
+      );
     return bytes;
   }
 
@@ -130,7 +154,9 @@ export class RangeSource {
     const parts: Uint8Array[] = [];
     let at = start;
     while (at < end) {
-      const chunk = this.#chunks.find((c) => c.start <= at && c.start + c.bytes.byteLength > at);
+      const chunk = this.#chunks.find(
+        (c) => c.start <= at && c.start + c.bytes.byteLength > at,
+      );
       if (!chunk) break;
       const stop = Math.min(end, chunk.start + chunk.bytes.byteLength);
       parts.push(chunk.bytes.subarray(at - chunk.start, stop - chunk.start));
@@ -162,19 +188,39 @@ export class RangeSource {
     }
   }
 
-  async #fetchRange(start: number, end: number): Promise<Chunk> {
+  async #fetchRange(
+    start: number,
+    end: number,
+    signal?: AbortSignal,
+  ): Promise<Chunk> {
+    signal?.throwIfAborted();
     const viaCdn = this.#url !== this.#options.fallbackUrl;
     try {
       this.requests++;
-      const response = await this.#fetch(this.#url, { headers: { Range: `bytes=${start}-${end - 1}` } });
-      if (response.status === 403 && viaCdn && this.#options.refreshUrl && !this.#refreshed) {
+      const response = await this.#fetch(this.#url, {
+        headers: { Range: `bytes=${start}-${end - 1}` },
+        ...(signal ? { signal } : {}),
+      });
+      if (
+        response.status === 403 &&
+        viaCdn &&
+        this.#options.refreshUrl &&
+        !this.#refreshed
+      ) {
         this.#refreshed = true;
         this.#url = await this.#options.refreshUrl().catch(() => this.#url);
-        return this.#fetchRange(start, end);
+        return this.#fetchRange(start, end, signal);
       }
-      if (response.status === 403) throw new ReadError("expired", "The link to this eBook has expired");
-      if (response.status !== 206 && response.status !== 200)
-        throw new ReadError("network", `The file could not be read (${response.status})`);
+      if (response.status === 403)
+        throw new ReadError("expired", "The link to this eBook has expired");
+      if (response.status !== 206 && response.status !== 200) {
+        // A rejected range is never file bytes, even without Content-Range.
+        void response.body?.cancel().catch(() => {});
+        throw new ReadError(
+          "network",
+          `The file could not be read (${response.status})`,
+        );
+      }
       // Reading the body can fail after fetch has received the headers. It
       // needs the same network recovery as a connection that never opened.
       const body = new Uint8Array(await response.arrayBuffer());
@@ -183,18 +229,24 @@ export class RangeSource {
         // The server sent the whole file: keep the part asked for
         return { start, bytes: body.slice(start, end) };
       }
-      const range = /^bytes (\d+)-(\d+)\//.exec(response.headers.get("content-range") ?? "");
+      const range = /^bytes (\d+)-(\d+)\//.exec(
+        response.headers.get("content-range") ?? "",
+      );
       const from = range ? Number(range[1]) : start;
       return { start: from, bytes: body };
     } catch (error) {
+      signal?.throwIfAborted();
       if (error instanceof ReadError) throw error;
       if (viaCdn) {
         // CloudFront cannot be reached: the app route serves the same bytes
         rememberAppRoute(this.#options.ebookId);
         this.#url = this.#options.fallbackUrl;
-        return this.#fetchRange(start, end);
+        return this.#fetchRange(start, end, signal);
       }
-      throw new ReadError("network", error instanceof Error ? error.message : "The connection failed");
+      throw new ReadError(
+        "network",
+        error instanceof Error ? error.message : "The connection failed",
+      );
     }
   }
 }
@@ -222,10 +274,17 @@ export class RemoteBlob {
   }
 
   slice(start = 0, end: number = this.size): RemoteBlob {
-    const clamp = (n: number) => (n < 0 ? Math.max(0, this.size + n) : Math.min(n, this.size));
+    const clamp = (n: number) =>
+      n < 0 ? Math.max(0, this.size + n) : Math.min(n, this.size);
     const from = clamp(start);
     const to = Math.max(from, clamp(end));
-    return new RemoteBlob(this.source, this.type, this.name, this.start + from, this.start + to);
+    return new RemoteBlob(
+      this.source,
+      this.type,
+      this.name,
+      this.start + from,
+      this.start + to,
+    );
   }
 
   async arrayBuffer(): Promise<ArrayBuffer> {

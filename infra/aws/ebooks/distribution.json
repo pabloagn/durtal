@@ -1,12 +1,14 @@
 {
-  "CallerReference": "durtal-ebooks",
+  "CallerReference": "durtal-ebooks-sln491",
   "Comment": "durtal-ebooks",
-  "Enabled": true,
+  "Enabled": false,
   "HttpVersion": "http2and3",
   "IsIPV6Enabled": true,
   "PriceClass": "PriceClass_All",
   "DefaultRootObject": "",
-  "Aliases": { "Quantity": 0 },
+  "Aliases": {
+    "Quantity": 0
+  },
   "Origins": {
     "Quantity": 1,
     "Items": [
@@ -14,8 +16,15 @@
         "Id": "durtal-ebooks-bucket",
         "DomainName": "__BUCKET__.s3.__REGION__.amazonaws.com",
         "OriginPath": "",
-        "S3OriginConfig": { "OriginAccessIdentity": "" },
-        "OriginAccessControlId": "__OAC_ID__"
+        "CustomHeaders": {
+          "Quantity": 0
+        },
+        "S3OriginConfig": {
+          "OriginAccessIdentity": ""
+        },
+        "OriginAccessControlId": "__NEW_OAC_ID__",
+        "ConnectionAttempts": 3,
+        "ConnectionTimeout": 10
       }
     ]
   },
@@ -24,13 +33,76 @@
     "ViewerProtocolPolicy": "https-only",
     "AllowedMethods": {
       "Quantity": 3,
-      "Items": ["GET", "HEAD", "OPTIONS"],
-      "CachedMethods": { "Quantity": 2, "Items": ["GET", "HEAD"] }
+      "Items": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "CachedMethods": {
+        "Quantity": 2,
+        "Items": [
+          "GET",
+          "HEAD"
+        ]
+      }
     },
-    "Compress": true,
-    "CachePolicyId": "__CACHE_POLICY_ID__",
-    "ResponseHeadersPolicyId": "__RESPONSE_HEADERS_POLICY_ID__",
-    "TrustedKeyGroups": { "Enabled": true, "Quantity": 1, "Items": ["__KEY_GROUP_ID__"] }
+    "Compress": false,
+    "CachePolicyId": "__NEW_CACHE_POLICY_ID__",
+    "ResponseHeadersPolicyId": "__NEW_RESPONSE_HEADERS_POLICY_ID__",
+    "TrustedKeyGroups": {
+      "Enabled": true,
+      "Quantity": 1,
+      "Items": [
+        "__NEW_KEY_GROUP_ID__"
+      ]
+    },
+    "FunctionAssociations": {
+      "Quantity": 1,
+      "Items": [
+        {
+          "FunctionARN": "arn:aws:cloudfront::__ACCOUNT__:function/durtal-ebooks-viewer",
+          "EventType": "viewer-request"
+        }
+      ]
+    },
+    "LambdaFunctionAssociations": {
+      "Quantity": 0
+    },
+    "TrustedSigners": {
+      "Enabled": false,
+      "Quantity": 0
+    }
   },
-  "ViewerCertificate": { "CloudFrontDefaultCertificate": true }
+  "CacheBehaviors": {
+    "Quantity": 0
+  },
+  "CustomErrorResponses": {
+    "Quantity": 2,
+    "Items": [
+      {
+        "ErrorCode": 403,
+        "ErrorCachingMinTTL": 0
+      },
+      {
+        "ErrorCode": 404,
+        "ErrorCachingMinTTL": 0
+      }
+    ]
+  },
+  "ViewerCertificate": {
+    "CloudFrontDefaultCertificate": true
+  },
+  "Restrictions": {
+    "GeoRestriction": {
+      "RestrictionType": "none",
+      "Quantity": 0
+    }
+  },
+  "Logging": {
+    "Enabled": false,
+    "IncludeCookies": false,
+    "Bucket": "",
+    "Prefix": ""
+  },
+  "WebACLId": ""
 }

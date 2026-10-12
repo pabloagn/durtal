@@ -1,0 +1,1091 @@
+{
+  "version": "v1",
+  "tools": {
+    "fontTools": "4.63.0",
+    "brotli": "1.2.0",
+    "zopfli": "0.4.1"
+  },
+  "sourceManifestSha256": "2c5a991098fbb44e72c2e0d1acb589edc01943f8823dab41ef24b43f9685a6a1",
+  "policySha256": "ef9031f944cd480292a14941af1388f439782c9c96475971eab18beb4a2f8022",
+  "policy": {
+    "version": "v1",
+    "opticalSize": 20,
+    "hinting": false,
+    "layoutFeatures": "*",
+    "nameIDs": "0,1,2,3,4,5,6,16,17,25",
+    "nameLanguages": "0x409",
+    "ranges": {
+      "latin": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "latin-ext": "U+0080-02FF,U+0300-036F,U+1D00-1DFF,U+1E00-1EFF,U+2000-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "greek": "U+0370-03FF",
+      "greek-ext": "U+1F00-1FFF",
+      "cyrillic": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+      "cyrillic-ext": "U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F"
+    },
+    "families": {
+      "literata": {
+        "id": "literata",
+        "family": "Durtal Literata",
+        "roman": "roman.ttf",
+        "italic": "italic.ttf"
+      },
+      "eb-garamond": {
+        "id": "garamond",
+        "family": "Durtal EB Garamond",
+        "roman": "roman.ttf",
+        "italic": "italic.ttf"
+      },
+      "inter": {
+        "id": "inter",
+        "family": "Durtal Inter",
+        "roman": "InterVariable.ttf",
+        "italic": "InterVariable-Italic.ttf"
+      }
+    }
+  },
+  "files": [
+    {
+      "id": "literata",
+      "family": "literata",
+      "cssFamily": "Durtal Literata",
+      "style": "roman",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/literata/literata-roman-latin.woff2",
+      "bytes": 57040,
+      "sha256": "66f7fce0ef3effa7bd6c0b4a4a07a737cdf92d6f39f8dc3055c4d3e350493012",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 114,
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "ccmp",
+        "dlig",
+        "dnom",
+        "frac",
+        "liga",
+        "lnum",
+        "locl",
+        "numr",
+        "onum",
+        "ordn",
+        "pnum",
+        "rvrn",
+        "sinf",
+        "smcp",
+        "ss02",
+        "subs",
+        "sups",
+        "tnum",
+        "zero"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "literata",
+      "family": "literata",
+      "cssFamily": "Durtal Literata",
+      "style": "roman",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/literata/literata-roman-latin-ext.woff2",
+      "bytes": 80248,
+      "sha256": "be787c5da474e1d6a8b78826f0e0ffd1e9f31bdd7599c923a03d365543dbed83",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 549,
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "ccmp",
+        "lnum",
+        "locl",
+        "onum",
+        "rvrn",
+        "smcp",
+        "ss02"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "literata",
+      "family": "literata",
+      "cssFamily": "Durtal Literata",
+      "style": "roman",
+      "subset": "greek",
+      "path": "/fonts/reader/v1/literata/literata-roman-greek.woff2",
+      "bytes": 23888,
+      "sha256": "f2539246e231cacfa03ec8c2dfdfb50698a3bfa5979b38c7f47f3eec59e3c2ca",
+      "unicodeRange": "U+0370-03FF",
+      "codepoints": 87,
+      "features": ["aalt", "c2sc", "case", "ccmp", "smcp"],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "literata",
+      "family": "literata",
+      "cssFamily": "Durtal Literata",
+      "style": "roman",
+      "subset": "greek-ext",
+      "path": "/fonts/reader/v1/literata/literata-roman-greek-ext.woff2",
+      "bytes": 12320,
+      "sha256": "aa85504afa32c450961516a85e3e56b0e935cc4e85d69f4be070e14cbcc59268",
+      "unicodeRange": "U+1F00-1FFF",
+      "codepoints": 233,
+      "features": ["aalt", "case", "ccmp", "ss01"],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "literata",
+      "family": "literata",
+      "cssFamily": "Durtal Literata",
+      "style": "roman",
+      "subset": "cyrillic",
+      "path": "/fonts/reader/v1/literata/literata-roman-cyrillic.woff2",
+      "bytes": 40184,
+      "sha256": "a0fb0ef0031787ca5b42d54ce0f0152b49b17afdc84adb63f892b9133bde1076",
+      "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+      "codepoints": 99,
+      "features": ["aalt", "c2sc", "ccmp", "rvrn", "smcp"],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "literata",
+      "family": "literata",
+      "cssFamily": "Durtal Literata",
+      "style": "roman",
+      "subset": "cyrillic-ext",
+      "path": "/fonts/reader/v1/literata/literata-roman-cyrillic-ext.woff2",
+      "bytes": 13488,
+      "sha256": "b4c7883dc0b75937bcc9dde59968d302e9a0012be928246dfb82f9c247a61826",
+      "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
+      "codepoints": 21,
+      "features": ["aalt", "c2sc", "case", "lnum", "onum", "rvrn", "smcp"],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "literata",
+      "family": "literata",
+      "cssFamily": "Durtal Literata",
+      "style": "italic",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/literata/literata-italic-latin.woff2",
+      "bytes": 56536,
+      "sha256": "be4b0e1a35a80ca653b0407b99f7e490608ca6e7632827a0782b49f0323defd5",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 114,
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "ccmp",
+        "dlig",
+        "dnom",
+        "frac",
+        "liga",
+        "lnum",
+        "locl",
+        "numr",
+        "onum",
+        "ordn",
+        "pnum",
+        "rvrn",
+        "sinf",
+        "smcp",
+        "ss02",
+        "subs",
+        "sups",
+        "tnum",
+        "zero"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "literata",
+      "family": "literata",
+      "cssFamily": "Durtal Literata",
+      "style": "italic",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/literata/literata-italic-latin-ext.woff2",
+      "bytes": 80584,
+      "sha256": "656eab5ce0cee5423f099556606fe7f53f236e98836bf2131156645aa48d3a2d",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 549,
+      "features": [
+        "aalt",
+        "c2sc",
+        "case",
+        "ccmp",
+        "lnum",
+        "locl",
+        "onum",
+        "rvrn",
+        "smcp",
+        "ss02"
+      ],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "literata",
+      "family": "literata",
+      "cssFamily": "Durtal Literata",
+      "style": "italic",
+      "subset": "greek",
+      "path": "/fonts/reader/v1/literata/literata-italic-greek.woff2",
+      "bytes": 23244,
+      "sha256": "fd841c7e4e668572ea6748b274f2c42c97393c7661b8f4f6972b93cd95aed709",
+      "unicodeRange": "U+0370-03FF",
+      "codepoints": 87,
+      "features": ["aalt", "c2sc", "case", "ccmp", "smcp"],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "literata",
+      "family": "literata",
+      "cssFamily": "Durtal Literata",
+      "style": "italic",
+      "subset": "greek-ext",
+      "path": "/fonts/reader/v1/literata/literata-italic-greek-ext.woff2",
+      "bytes": 12820,
+      "sha256": "cccea0a03c3afc3678d3bb00801cf01449ba07232953724f91caca29ed383987",
+      "unicodeRange": "U+1F00-1FFF",
+      "codepoints": 233,
+      "features": ["aalt", "case", "ccmp", "ss01"],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "literata",
+      "family": "literata",
+      "cssFamily": "Durtal Literata",
+      "style": "italic",
+      "subset": "cyrillic",
+      "path": "/fonts/reader/v1/literata/literata-italic-cyrillic.woff2",
+      "bytes": 39432,
+      "sha256": "d17af967c2aab3d015160e0c1b9eee85a677253ccb63d6db1f38120389faabd7",
+      "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+      "codepoints": 99,
+      "features": ["aalt", "c2sc", "ccmp", "smcp"],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "literata",
+      "family": "literata",
+      "cssFamily": "Durtal Literata",
+      "style": "italic",
+      "subset": "cyrillic-ext",
+      "path": "/fonts/reader/v1/literata/literata-italic-cyrillic-ext.woff2",
+      "bytes": 13268,
+      "sha256": "1b68caf777a09c09940889fd4deb6305b630ca846eebdba80ea425a7106025bb",
+      "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
+      "codepoints": 21,
+      "features": ["aalt", "c2sc", "case", "lnum", "onum", "rvrn", "smcp"],
+      "axes": {
+        "wght": {
+          "min": 200.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "garamond",
+      "family": "eb-garamond",
+      "cssFamily": "Durtal EB Garamond",
+      "style": "roman",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/eb-garamond/eb-garamond-roman-latin.woff2",
+      "bytes": 95892,
+      "sha256": "a419bcceb20c36b3a8f41e4f9da7c1212894917b9f2c9d9c229eb9c4255d0d6e",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 119,
+      "features": [
+        "aalt",
+        "c2pc",
+        "c2sc",
+        "case",
+        "dlig",
+        "dnom",
+        "frac",
+        "hist",
+        "hlig",
+        "liga",
+        "lnum",
+        "locl",
+        "numr",
+        "onum",
+        "ordn",
+        "pcap",
+        "pnum",
+        "rlig",
+        "sinf",
+        "smcp",
+        "ss01",
+        "ss02",
+        "ss03",
+        "ss04",
+        "ss06",
+        "ss07",
+        "subs",
+        "sups",
+        "swsh",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "garamond",
+      "family": "eb-garamond",
+      "cssFamily": "Durtal EB Garamond",
+      "style": "roman",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/eb-garamond/eb-garamond-roman-latin-ext.woff2",
+      "bytes": 147024,
+      "sha256": "71a14c54ce55d6fb2e08064ab45cda3d013db71761bb8215a14431fb69cf3450",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 1115,
+      "features": [
+        "aalt",
+        "c2sc",
+        "dlig",
+        "hlig",
+        "locl",
+        "ordn",
+        "sinf",
+        "smcp",
+        "ss02",
+        "ss05",
+        "subs",
+        "sups"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "garamond",
+      "family": "eb-garamond",
+      "cssFamily": "Durtal EB Garamond",
+      "style": "roman",
+      "subset": "greek",
+      "path": "/fonts/reader/v1/eb-garamond/eb-garamond-roman-greek.woff2",
+      "bytes": 25516,
+      "sha256": "d380d3b36167d08a6d6a3802a4767655db4359f9bddf5991fe93ff0f0ec2f0b8",
+      "unicodeRange": "U+0370-03FF",
+      "codepoints": 94,
+      "features": ["aalt", "c2sc", "smcp"],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "garamond",
+      "family": "eb-garamond",
+      "cssFamily": "Durtal EB Garamond",
+      "style": "roman",
+      "subset": "greek-ext",
+      "path": "/fonts/reader/v1/eb-garamond/eb-garamond-roman-greek-ext.woff2",
+      "bytes": 10380,
+      "sha256": "0e963861617a79f70329c2586b1fbe6adeccc853fe70f3b7fb8539eabbdc3f57",
+      "unicodeRange": "U+1F00-1FFF",
+      "codepoints": 233,
+      "features": [],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "garamond",
+      "family": "eb-garamond",
+      "cssFamily": "Durtal EB Garamond",
+      "style": "roman",
+      "subset": "cyrillic",
+      "path": "/fonts/reader/v1/eb-garamond/eb-garamond-roman-cyrillic.woff2",
+      "bytes": 25740,
+      "sha256": "542b189b34294995d62125f9413946990e36167a329abb0dfe1ba13ca075ca20",
+      "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+      "codepoints": 101,
+      "features": ["aalt", "hist", "locl", "ss07"],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "garamond",
+      "family": "eb-garamond",
+      "cssFamily": "Durtal EB Garamond",
+      "style": "roman",
+      "subset": "cyrillic-ext",
+      "path": "/fonts/reader/v1/eb-garamond/eb-garamond-roman-cyrillic-ext.woff2",
+      "bytes": 32992,
+      "sha256": "894e7529bb4226b7c082cb062c938222e7909e0a289cd6d00ee744175f6427aa",
+      "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
+      "codepoints": 142,
+      "features": [],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "garamond",
+      "family": "eb-garamond",
+      "cssFamily": "Durtal EB Garamond",
+      "style": "italic",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/eb-garamond/eb-garamond-italic-latin.woff2",
+      "bytes": 110916,
+      "sha256": "389283a31aba3a500e170d9356e124724e6151bb96158a268a0c21bc84269030",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 119,
+      "features": [
+        "aalt",
+        "c2pc",
+        "c2sc",
+        "case",
+        "dlig",
+        "dnom",
+        "fina",
+        "frac",
+        "hist",
+        "hlig",
+        "init",
+        "liga",
+        "lnum",
+        "locl",
+        "numr",
+        "onum",
+        "ordn",
+        "pcap",
+        "pnum",
+        "rlig",
+        "sinf",
+        "smcp",
+        "ss01",
+        "ss02",
+        "ss03",
+        "ss04",
+        "ss06",
+        "ss07",
+        "subs",
+        "sups",
+        "swsh",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "garamond",
+      "family": "eb-garamond",
+      "cssFamily": "Durtal EB Garamond",
+      "style": "italic",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/eb-garamond/eb-garamond-italic-latin-ext.woff2",
+      "bytes": 124052,
+      "sha256": "23b9628d58099b0e4e6ad58d807cc9147cbbd53525e7f54a2ca2ad468b07780e",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 1009,
+      "features": [
+        "aalt",
+        "c2sc",
+        "dlig",
+        "hlig",
+        "sinf",
+        "smcp",
+        "ss02",
+        "ss05",
+        "subs",
+        "sups",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "garamond",
+      "family": "eb-garamond",
+      "cssFamily": "Durtal EB Garamond",
+      "style": "italic",
+      "subset": "greek",
+      "path": "/fonts/reader/v1/eb-garamond/eb-garamond-italic-greek.woff2",
+      "bytes": 18564,
+      "sha256": "6fefb9b08c11b620f79ea49d63015557715b2cc7e8767786d93c43ebf078aebc",
+      "unicodeRange": "U+0370-03FF",
+      "codepoints": 89,
+      "features": [],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "garamond",
+      "family": "eb-garamond",
+      "cssFamily": "Durtal EB Garamond",
+      "style": "italic",
+      "subset": "greek-ext",
+      "path": "/fonts/reader/v1/eb-garamond/eb-garamond-italic-greek-ext.woff2",
+      "bytes": 10780,
+      "sha256": "56ba54ebaa116cff29abcd8495f33ea27c78be1561987dda0870ad2e9407fcfe",
+      "unicodeRange": "U+1F00-1FFF",
+      "codepoints": 233,
+      "features": [],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "garamond",
+      "family": "eb-garamond",
+      "cssFamily": "Durtal EB Garamond",
+      "style": "italic",
+      "subset": "cyrillic",
+      "path": "/fonts/reader/v1/eb-garamond/eb-garamond-italic-cyrillic.woff2",
+      "bytes": 25592,
+      "sha256": "b75b8c2f9c7ae864f699b1bc191328c5a35ca6eaebd8b4ad0d50f7cb237f3330",
+      "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+      "codepoints": 101,
+      "features": [],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "garamond",
+      "family": "eb-garamond",
+      "cssFamily": "Durtal EB Garamond",
+      "style": "italic",
+      "subset": "cyrillic-ext",
+      "path": "/fonts/reader/v1/eb-garamond/eb-garamond-italic-cyrillic-ext.woff2",
+      "bytes": 34484,
+      "sha256": "cef717e5ad26d5a6edcba2203b3320c36af3ccdd04662edff2f38aef57944bd9",
+      "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
+      "codepoints": 142,
+      "features": [],
+      "axes": {
+        "wght": {
+          "min": 400.0,
+          "default": 400.0,
+          "max": 800.0
+        }
+      }
+    },
+    {
+      "id": "inter",
+      "family": "inter",
+      "cssFamily": "Durtal Inter",
+      "style": "roman",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/inter/inter-roman-latin.woff2",
+      "bytes": 48940,
+      "sha256": "6cc11d3568f9488f66faa6584d7de01be38311c86fe6bc3992a40843944dd5a0",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 117,
+      "features": [
+        "aalt",
+        "calt",
+        "case",
+        "cv01",
+        "cv02",
+        "cv03",
+        "cv04",
+        "cv05",
+        "cv06",
+        "cv08",
+        "cv09",
+        "cv10",
+        "cv11",
+        "cv12",
+        "cv13",
+        "dlig",
+        "dnom",
+        "frac",
+        "numr",
+        "ordn",
+        "pnum",
+        "salt",
+        "sinf",
+        "ss01",
+        "ss02",
+        "ss03",
+        "ss04",
+        "ss05",
+        "ss06",
+        "ss07",
+        "ss08",
+        "subs",
+        "sups",
+        "tnum",
+        "zero"
+      ],
+      "axes": {
+        "wght": {
+          "min": 100.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "inter",
+      "family": "inter",
+      "cssFamily": "Durtal Inter",
+      "style": "roman",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/inter/inter-roman-latin-ext.woff2",
+      "bytes": 134384,
+      "sha256": "240b0402ecd7e10e3d0f5d70c9d400b04d387f9603edef698b3390d2cf82ca5d",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 1121,
+      "features": [
+        "aalt",
+        "calt",
+        "case",
+        "ccmp",
+        "cv01",
+        "cv05",
+        "cv06",
+        "cv07",
+        "cv08",
+        "cv09",
+        "cv10",
+        "cv11",
+        "cv12",
+        "cv13",
+        "cv14",
+        "dlig",
+        "dnom",
+        "frac",
+        "locl",
+        "numr",
+        "pnum",
+        "salt",
+        "sinf",
+        "ss01",
+        "ss02",
+        "ss03",
+        "ss04",
+        "ss05",
+        "ss06",
+        "ss07",
+        "ss08",
+        "subs",
+        "sups",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 100.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "inter",
+      "family": "inter",
+      "cssFamily": "Durtal Inter",
+      "style": "roman",
+      "subset": "greek",
+      "path": "/fonts/reader/v1/inter/inter-roman-greek.woff2",
+      "bytes": 18772,
+      "sha256": "44715f79ecbb5ad60030ba9a43240fe06998035717aab06b8902a18b773bfd36",
+      "unicodeRange": "U+0370-03FF",
+      "codepoints": 105,
+      "features": ["aalt", "dlig", "ss07"],
+      "axes": {
+        "wght": {
+          "min": 100.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "inter",
+      "family": "inter",
+      "cssFamily": "Durtal Inter",
+      "style": "roman",
+      "subset": "greek-ext",
+      "path": "/fonts/reader/v1/inter/inter-roman-greek-ext.woff2",
+      "bytes": 11292,
+      "sha256": "6cbe9365567be2901088425ced10771b610b02d83547efb0bd55bb7848693f7b",
+      "unicodeRange": "U+1F00-1FFF",
+      "codepoints": 233,
+      "features": ["aalt", "cv08", "salt", "ss02", "ss04", "ss07"],
+      "axes": {
+        "wght": {
+          "min": 100.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "inter",
+      "family": "inter",
+      "cssFamily": "Durtal Inter",
+      "style": "roman",
+      "subset": "cyrillic",
+      "path": "/fonts/reader/v1/inter/inter-roman-cyrillic.woff2",
+      "bytes": 18036,
+      "sha256": "6680cca84cd913877e623e3635db475dae7e0e81d7d0709f4c606e8b2333cb7a",
+      "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+      "codepoints": 101,
+      "features": [
+        "aalt",
+        "cv08",
+        "cv11",
+        "dlig",
+        "salt",
+        "ss02",
+        "ss04",
+        "ss07"
+      ],
+      "axes": {
+        "wght": {
+          "min": 100.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "inter",
+      "family": "inter",
+      "cssFamily": "Durtal Inter",
+      "style": "roman",
+      "subset": "cyrillic-ext",
+      "path": "/fonts/reader/v1/inter/inter-roman-cyrillic-ext.woff2",
+      "bytes": 25592,
+      "sha256": "fafa65f370a38f206238b2408b8210beb95454660aabcdf18d808aa7b1a9e997",
+      "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
+      "codepoints": 152,
+      "features": ["aalt", "ss07"],
+      "axes": {
+        "wght": {
+          "min": 100.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "inter",
+      "family": "inter",
+      "cssFamily": "Durtal Inter",
+      "style": "italic",
+      "subset": "latin",
+      "path": "/fonts/reader/v1/inter/inter-italic-latin.woff2",
+      "bytes": 52880,
+      "sha256": "c48f5d6cd223a38499be3515c49db8a784b941bdc3e3203089abe995431667eb",
+      "unicodeRange": "U+0000-007F,U+00A0,U+00A9,U+00AE,U+2010-2015,U+2018-201A,U+201C-201E,U+2022,U+2026,U+2032-2033,U+2122,U+FEFF,U+FFFD",
+      "codepoints": 117,
+      "features": [
+        "aalt",
+        "calt",
+        "case",
+        "cv01",
+        "cv02",
+        "cv03",
+        "cv04",
+        "cv05",
+        "cv06",
+        "cv08",
+        "cv09",
+        "cv10",
+        "cv12",
+        "cv13",
+        "dlig",
+        "dnom",
+        "frac",
+        "numr",
+        "ordn",
+        "pnum",
+        "salt",
+        "sinf",
+        "ss01",
+        "ss02",
+        "ss03",
+        "ss04",
+        "ss05",
+        "ss06",
+        "ss07",
+        "ss08",
+        "subs",
+        "sups",
+        "tnum",
+        "zero"
+      ],
+      "axes": {
+        "wght": {
+          "min": 100.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "inter",
+      "family": "inter",
+      "cssFamily": "Durtal Inter",
+      "style": "italic",
+      "subset": "latin-ext",
+      "path": "/fonts/reader/v1/inter/inter-italic-latin-ext.woff2",
+      "bytes": 145252,
+      "sha256": "8ecc52aab7bb13c4f5039016b0b13fa98d511bab3ab4c98c00d713f0e43140e9",
+      "unicodeRange": "U+0080-009F,U+00A1-00A8,U+00AA-00AD,U+00AF-036F,U+1D00-1EFF,U+2000-200F,U+2016-2017,U+201B,U+201F-2021,U+2023-2025,U+2027-2031,U+2034-206F,U+20A0-20CF,U+2113,U+2190-21FF,U+2212,U+2215,U+2C60-2C7F,U+A720-A7FF,U+AB30-AB6F",
+      "codepoints": 1121,
+      "features": [
+        "aalt",
+        "calt",
+        "case",
+        "ccmp",
+        "cv01",
+        "cv05",
+        "cv06",
+        "cv07",
+        "cv08",
+        "cv09",
+        "cv10",
+        "cv12",
+        "cv13",
+        "cv14",
+        "dlig",
+        "dnom",
+        "frac",
+        "locl",
+        "numr",
+        "pnum",
+        "salt",
+        "sinf",
+        "ss01",
+        "ss02",
+        "ss03",
+        "ss04",
+        "ss05",
+        "ss06",
+        "ss07",
+        "ss08",
+        "subs",
+        "sups",
+        "tnum"
+      ],
+      "axes": {
+        "wght": {
+          "min": 100.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "inter",
+      "family": "inter",
+      "cssFamily": "Durtal Inter",
+      "style": "italic",
+      "subset": "greek",
+      "path": "/fonts/reader/v1/inter/inter-italic-greek.woff2",
+      "bytes": 20344,
+      "sha256": "43e98ce2173d3e9896aa691dac9565f5c3bd39571a5f3fa70214e4e4a87add0f",
+      "unicodeRange": "U+0370-03FF",
+      "codepoints": 105,
+      "features": ["aalt", "dlig", "ss07"],
+      "axes": {
+        "wght": {
+          "min": 100.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "inter",
+      "family": "inter",
+      "cssFamily": "Durtal Inter",
+      "style": "italic",
+      "subset": "greek-ext",
+      "path": "/fonts/reader/v1/inter/inter-italic-greek-ext.woff2",
+      "bytes": 12020,
+      "sha256": "5548be0d011266b8795095aded5705c3add9ae00e27b3098d1fc79baf57eb57a",
+      "unicodeRange": "U+1F00-1FFF",
+      "codepoints": 233,
+      "features": ["aalt", "cv08", "salt", "ss02", "ss04", "ss07"],
+      "axes": {
+        "wght": {
+          "min": 100.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "inter",
+      "family": "inter",
+      "cssFamily": "Durtal Inter",
+      "style": "italic",
+      "subset": "cyrillic",
+      "path": "/fonts/reader/v1/inter/inter-italic-cyrillic.woff2",
+      "bytes": 19008,
+      "sha256": "9b201c747d776674bb832462006bfb0259faf53b02644b922fa1ae8a79f9b11d",
+      "unicodeRange": "U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116",
+      "codepoints": 101,
+      "features": ["aalt", "cv08", "dlig", "salt", "ss02", "ss04", "ss07"],
+      "axes": {
+        "wght": {
+          "min": 100.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    },
+    {
+      "id": "inter",
+      "family": "inter",
+      "cssFamily": "Durtal Inter",
+      "style": "italic",
+      "subset": "cyrillic-ext",
+      "path": "/fonts/reader/v1/inter/inter-italic-cyrillic-ext.woff2",
+      "bytes": 26976,
+      "sha256": "935fc5bf62c37935814bcbb4346a745665383f9414ac51c21ce94502c85aae3c",
+      "unicodeRange": "U+0460-048F,U+0492-04AF,U+04B2-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F",
+      "codepoints": 152,
+      "features": ["aalt", "ss07"],
+      "axes": {
+        "wght": {
+          "min": 100.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      }
+    }
+  ],
+  "licences": [
+    {
+      "path": "/fonts/reader/v1/literata/OFL.txt",
+      "bytes": 4389,
+      "sha256": "8742963604cd89dc81437811a850018fc03b2bfad686d7422c8235967c87614e"
+    },
+    {
+      "path": "/fonts/reader/v1/eb-garamond/OFL.txt",
+      "bytes": 4454,
+      "sha256": "058611bd968817d532cedeab6acaa055e882d365a88523df00e7917ad7a0f704"
+    },
+    {
+      "path": "/fonts/reader/v1/inter/OFL.txt",
+      "bytes": 4380,
+      "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
   afterAll,
@@ -9,10 +10,10 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { sql } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 const url = process.env.DURTAL_HARMONIZATION_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln343_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -21,7 +22,7 @@ if (url) {
   )
     throw new Error("Harmonization tests require disposable local sln343_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -50,17 +51,15 @@ import {
 describe.skipIf(!url)("Harmonization with PostgreSQL", () => {
   const db = testDb!;
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln343_test");
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await db.execute(
-      sql`truncate works, authors, publishing_houses, locations, collections, series, recommenders, venues, places, custom_taxonomy_items, genres, sources, comments, activity_events, gallery_layouts, harmonization_decisions, harmonization_operations, harmonization_redirects cascade`,
-    );
+    await resetDisposableDatabase(url!, "sln343_test", { emptyLocations: true });
     await db.execute(sql`delete from taxonomy_families where not is_system`);
-  });
+  }, 30000);
   async function author(
     name: string,
     extra: Partial<typeof schema.authors.$inferInsert> = {},

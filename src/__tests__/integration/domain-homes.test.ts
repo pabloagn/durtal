@@ -1,3 +1,4 @@
+import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   afterAll,
   beforeAll,
@@ -9,10 +10,10 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_DOMAIN_HOMES_TEST_DATABASE_URL;
+if (url) requireDisposableDatabaseUrl(url, "sln364_test");
 if (url) {
   const parsed = new URL(url);
   if (
@@ -21,7 +22,7 @@ if (url) {
   )
     throw new Error("Collection home tests require disposable local sln364_test");
 }
-const client = url ? postgres(url, { max: 5, onnotice: () => {} }) : null;
+const client = url ? postgres(url, { prepare: false, max: 5, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -61,14 +62,14 @@ describe.skipIf(!url)("collection homes and dashboard counts", () => {
   let people: Record<string, string>;
 
   beforeAll(async () => {
-    await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
+    await resetDisposableDatabase(url!, "sln364_test");
     await c`alter table works drop constraint works_kind_enabled_check`;
   }, 30000);
   afterAll(async () => {
     await client?.end();
   });
   beforeEach(async () => {
-    await c`truncate works, authors, publishing_houses, catalogue_dates, activity_events cascade`;
+    await resetDisposableDatabase(url!, "sln364_test", { activateKinds: true });
     people = {};
     for (const [key, name, domain] of [
       ["beaux", "Ernest Beaux", "perfume"],
@@ -82,7 +83,7 @@ describe.skipIf(!url)("collection homes and dashboard counts", () => {
     const [book] =
       await c`insert into works(title,slug,original_language) values ('Doctor Faustus','doctor-faustus','de') returning id`;
     await c`insert into work_authors(work_id,author_id,role,sort_order) values (${book.id},${author.id},'author',0)`;
-  });
+  }, 30000);
 
   async function catalogue() {
     const chanel = (await saveOrganization({
