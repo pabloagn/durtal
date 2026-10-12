@@ -10,7 +10,7 @@ import {
 import { LIST_PREFERENCES, GRID_SIZES } from "@/lib/preferences";
 import type { EbookCardData } from "@/lib/ebooks/library-view";
 import type { EbookLibraryCounts } from "@/lib/ebooks/library-queries";
-import { firstPageHref } from "@/lib/utils/list-params";
+import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 import { parseEbookLibraryParams } from "@/lib/ebooks/library-params";
 import { EbookCard } from "@/components/ebooks/ebook-card";
 import { EbookRow } from "@/components/ebooks/ebook-row";
@@ -43,6 +43,12 @@ export function EbooksView({
   const router = useRouter();
   const search = useSearchParams();
   const params = parseEbookLibraryParams(search);
+  const clearParams = new URLSearchParams(search.toString());
+  clearParams.set("perPage", String(perPage));
+  const clearedHref = clearedListHref("/ebooks", clearParams);
+  const clearHref = params.state === "excluded"
+    ? `${clearedHref}${clearedHref.includes("?") ? "&" : "?"}state=excluded`
+    : clearedHref;
   function sort(key: string) {
     const next = new URLSearchParams(search.toString());
     next.set("sort", key);
@@ -77,11 +83,7 @@ export function EbooksView({
             params.drm !== null ||
             params.needsReview !== null) && (
             <Link
-              href={
-                params.state === "excluded"
-                  ? "/ebooks?state=excluded"
-                  : "/ebooks"
-              }
+              href={clearHref}
               className="mt-3 inline-block text-sm text-accent-primary touch-hit"
             >
               Clear search and filters
