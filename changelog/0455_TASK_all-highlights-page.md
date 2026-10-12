@@ -22,5 +22,8 @@ SLN-500: the reader's annotations panel links "All highlights" to `/ebooks/highl
 
 ## Completion Notes
 
-- Tests: `src/__tests__/ebooks/highlights-params.test.ts` (URL contract, reader link) and `src/__tests__/integration/ebook-highlights.test.ts` (grouping, ordering, per-book listing, accent-free search, colour/kind filters, title sort, paging, deleted marks, book choices) against a disposable PostgreSQL.
+- Tests: `src/__tests__/ebooks/highlights-params.test.ts` (URL contract, reader link), `src/__tests__/integration/ebook-highlights.test.ts` (grouping, ordering, per-book listing, accent-free search, colour/kind filters, title sort, paging, deleted marks, book choices) against a disposable PostgreSQL, and `src/__tests__/reader/open-at-mark.test.ts` (jump, unplaceable, deleted, waiting for the first sync).
+- The reader waits for the first sync of marks (the controller's cursor) before saying a mark is gone: in a fresh browser the local store is empty at first, so the first check in the browser said "no longer in this book" for a mark that existed.
+- Browser checks on a preview with nine seeded marks in three e-books: the alignment, design, overflow and touch audits pass in Chrome, Firefox and WebKit at 1440, 768 and 390px on the list, one book, a search with no result and a filtered title sort (36 of 36). In headless Chrome, "Open in the reader" opened the EPUB fixture at its chapter 3 highlight with "Back to p. 2"; an unplaceable mark and an unknown id each showed their notice.
+- The mark rows first used `content-visibility: auto`; the design audit then found off-screen "Open in the reader" links without a name, so it was removed.
 - No migration, no new package.

@@ -41,7 +41,8 @@ import {
 } from "@/lib/ebooks/upload/service-config";
 
 // Next.js resolves "server-only" to an empty module on the server; this is the server, outside Next.js.
-register("data:text/javascript,export async function resolve(s,c,n){return s==='server-only'?{url:'data:text/javascript,',shortCircuit:true}:n(s,c)}");
+const serverOnlyHook = "data:text/javascript,export async function resolve(s,c,n){return s==='server-only'?{url:'data:text/javascript,',shortCircuit:true}:n(s,c)}";
+register(serverOnlyHook);
 
 const INSPECTOR_REPOSITORY = "durtal-ebook-inspector";
 const SOURCE_LABEL = "io.durtal.ebook-inspector.source";

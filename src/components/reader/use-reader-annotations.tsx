@@ -97,8 +97,10 @@ export function useReaderAnnotations(input: {
   useEffect(() => {
     const target = input.openAt;
     if (!target || openedAt.current === target || !ready || !controllersReady || !engine || !owner.current) return;
-    openedAt.current = target;
     const mark = snapshot.annotations.find(item => item.id === target && !item.deletedAt);
+    // A fresh device has no local marks until the first server sync sets the cursor
+    if (!mark && snapshot.cursor === null) return;
+    openedAt.current = target;
     const unplaced = "That mark could not be placed in this file. It is still listed under Highlights and notes.";
     if (!mark) { latest.current.onNotice("That mark is no longer in this book."); return; }
     if (mark.anchorState === "orphaned") { latest.current.onNotice(unplaced); return; }
@@ -106,7 +108,7 @@ export function useReaderAnnotations(input: {
       if (latest.current.engine !== engine || !result.locator || !["exact", "healed"].includes(result.status)
         || !await latest.current.onJump(result.locator)) latest.current.onNotice(unplaced);
     }).catch(() => latest.current.onNotice(unplaced));
-  }, [input.openAt, ready, controllersReady, engine, snapshot.annotations]);
+  }, [input.openAt, ready, controllersReady, engine, snapshot.annotations, snapshot.cursor]);
   const perform = (work: Promise<unknown>) => { void work.catch(error => input.onNotice(error instanceof Error ? error.message : "That mark could not be saved.")); };
   const create = async (color: AnnotationColor = "ochre", withNote = false, origin?: Document) => {
     const controller = owner.current;

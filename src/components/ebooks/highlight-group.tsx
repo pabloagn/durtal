@@ -50,7 +50,7 @@ export function HighlightGroup({
         />
         <ul className="flex flex-col gap-4">
           {marks.map((mark) => (
-            <li key={mark.id} className="border-b border-glass-border pb-4 [content-visibility:auto] [contain-intrinsic-size:auto_120px]">
+            <li key={mark.id} className="border-b border-glass-border pb-4">
               <div className="flex items-start gap-2">
                 <span aria-hidden className="mt-1 block h-3 w-1 shrink-0 rounded-sm" style={{ backgroundColor: markFill(mark) }} />
                 <div className="min-w-0 flex-1">
