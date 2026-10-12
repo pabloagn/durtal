@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { createPortal, flushSync } from "react-dom";
+import { flushSync } from "react-dom";
 import { ReaderSlotFill, useReaderEvent, useReaderFeatureShortcut } from "@/components/reader/bridge";
 import type { ReaderEngine, SelectionDetails } from "@/lib/reader/engine";
 import { lookupCandidates, lookupSelection } from "@/lib/reader/lookup/candidates";
@@ -18,6 +18,7 @@ import { defaultLookupSettings } from "@/lib/reader/lookup/sources";
 import { lookupSettingsSchema, type LookupSettings } from "@/lib/validations/reader-lookup";
 import { getLookupSettings } from "@/lib/actions/reader-lookup";
 import { LookupPopover, type LookupTab } from "./lookup-popover";
+import { OutsideTapBackdrop } from "../outside-tap-backdrop";
 import type { DictionaryState } from "./dictionary-tab";
 import type { WikipediaState } from "./wikipedia-tab";
 type Model = { dictionary: DictionaryState; wikipedia: WikipediaState };
@@ -241,8 +242,7 @@ export function LookupLayer({ engine, ebook, toolbarRef, enabled = true }: {
         const touch = event.detail !== 0 && window.matchMedia("(pointer: coarse)").matches;
         if (details) open(details, event.detail === 0, event.detail === 0 ? event.currentTarget : undefined, undefined, touch);
       }}>Look up</button></ReaderSlotFill>
-    {opened?.touch && resources && createPortal(<div aria-hidden data-reader-lookup-backdrop
-      className="fixed inset-0 z-40" onPointerDown={() => close("outside")} />, document.body)}
+    <OutsideTapBackdrop kind="lookup" open={!!opened?.touch && !!resources} onClose={() => close("outside")} />
     {opened && resources && <LookupPopover key={opened.id} details={opened.details} language={opened.language}
       guessed={opened.guessed} word={opened.word} passage={opened.passage} keyboard={opened.keyboard}
       reference={opened.reference} avoid={toolbarRef.current?.getBoundingClientRect() ?? null} settings={settings}

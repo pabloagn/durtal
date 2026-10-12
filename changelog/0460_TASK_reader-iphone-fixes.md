@@ -28,9 +28,12 @@ each one.
   layout controls, and puts the rest in a More menu (read aloud, search,
   highlights, download, full screen, shortcuts and the page colours). Wider
   screens keep every button and gain a Page colour menu.
-- An opened menu holds the bars, and a transparent backdrop portalled to the
-  body closes it on the first tap outside (the glass bar's backdrop filter
-  would contain a fixed child).
+- An opened menu holds the bars, and `OutsideTapBackdrop` (a clear layer
+  portalled to the body, since the glass bar would contain a fixed child)
+  closes it on the first tap outside. The layer stays until that tap's click
+  lands on it: removed on touch down, the click fell through and opened
+  whatever lay beneath (closing Look up opened Contents in the phone check).
+  The lookup uses the same layer.
 - A pressed button no longer stays lit. The bar buttons focused themselves on
   tap, so the dialog gave focus back to them on close and iOS showed the focus
   ring and tooltip. `focusOpener` now focuses only for the keyboard or a mouse.
@@ -97,9 +100,22 @@ each one.
 
 ## Completion Notes
 
-- New: `reader-bar-item.tsx`, `font-picker.tsx`, `cloud-speaker.ts`,
-  `src/lib/reader/narration/*`, the two narration routes, 104 font files and
-  7 licences under `public/fonts/reader/v1/`.
+- New: `reader-bar-item.tsx`, `outside-tap-backdrop.tsx`, `font-picker.tsx`,
+  `cloud-speaker.ts`, `src/lib/reader/narration/*`, the two narration routes
+  (in `docs/05_API_REFERENCE.md`), 50 subset files, 10 preview files and 7
+  licences under `public/fonts/reader/v1/` (86 subset files in all).
+- The bar menus sit in `CapAlignedControls`, not `CapAligned`, whose box
+  clips a menu.
+- Checked in headless WebKit and Chrome at 390 and 430 px with touch, and at
+  1440 px: bars inside the screen, the More and Page colour menus, light page
+  applied, no button left pressed, ten fonts set in their own faces and applied
+  to the book, the docked selection toolbar holding still while the selection
+  grows, Look up staying open after the selection clears, a tap outside
+  closing it without pressing what lies beneath, and Read aloud sending
+  sentences to the narration route (stubbed: the cloud cannot reach
+  ElevenLabs or Wikimedia). The alignment audit is empty in every one of those
+  states; the reader engine check (opens, touch, bars, dialogs) passes 90 of
+  90; the reader page is 25 KB of HTML in 30 ms.
 - Tests: narration provider and routes, the natural-voice speaker, natural
   voice choice, ten font families with their previews; the touch-hold lookup
   tests now assert that a hold leaves selection to the browser.

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
 import {
   ArrowLeft,
   Check,
@@ -18,6 +17,7 @@ import {
   Sunset,
 } from "lucide-react";
 import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
+import { OutsideTapBackdrop } from "./outside-tap-backdrop";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -305,18 +305,7 @@ export function ReaderToolbar({
           )}
         </div>
       </div>
-      {/* A tap in the book closes an open menu: the book's frame keeps its own
-          clicks from the page. Outside the bar, whose glass would contain it */}
-      {menu &&
-        createPortal(
-          <div
-            aria-hidden
-            data-reader-menu-backdrop
-            className="fixed inset-0 z-40"
-            onPointerDown={() => setMenu(null)}
-          />,
-          document.body,
-        )}
+      <OutsideTapBackdrop kind="menu" open={menu !== null} onClose={() => setMenu(null)} />
     </header>
   );
 }
