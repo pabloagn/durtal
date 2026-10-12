@@ -6,6 +6,7 @@ vi.mock("@/lib/ebooks/upload/broker", () => ({ installUploadBroker: mock.install
 import { UploadHostClient } from "@/lib/ebooks/upload/host-bridge";
 import { installActualUploadAppBridge, installUploadAppBridgeFromFile } from "@/lib/ebooks/upload-core/app-bridge";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { uploadTargetFingerprint } from "@/lib/ebooks/upload-core/receipts";
@@ -23,7 +24,8 @@ describe("actual authenticated app upload bridge", () => {
     expect(mock.install).not.toHaveBeenCalled();
   });
   it("installs from the private bridge.json the upload service's init wrote", async () => {
-    const folder = await mkdtemp(path.join(tmpdir(), "durtal-bridge-"));
+    // The real temp folder: on macOS tmpdir() is under the /var symlink, which the config reader refuses
+    const folder = await mkdtemp(path.join(realpathSync(tmpdir()), "durtal-bridge-"));
     try {
       const file = path.join(folder, "bridge.json");
       await writeFile(file, JSON.stringify(config()), { mode: 0o600 });

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { chmod, mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
@@ -67,7 +68,8 @@ describe("the upload service configuration (SLN-506)", () => {
 describe("readPrivateConfig", () => {
   let folder: string;
   beforeEach(async () => {
-    folder = path.join(await mkdtemp(path.join(tmpdir(), "durtal-upload-config-")), "state");
+    // The real temp folder: on macOS tmpdir() is under the /var symlink, which the config reader refuses
+    folder = path.join(await mkdtemp(path.join(realpathSync(tmpdir()), "durtal-upload-config-")), "state");
     await mkdir(folder, { mode: 0o700 });
   });
   afterEach(async () => {
