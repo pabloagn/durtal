@@ -6,6 +6,7 @@ import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
 import { Pagination } from "@/components/shared/pagination";
 import { HighlightGroup } from "@/components/ebooks/highlight-group";
 import {
+  GROUPS_PER_PAGE,
   getHighlightBooks,
   getHighlightGroups,
   getHighlightSummary,
@@ -42,7 +43,9 @@ async function HighlightResults({ search }: { search: ListSearchParams }) {
         description="Highlights, notes and bookmarks made in the reader appear here, from every eBook."
       />
     );
-  if (groups.length === 0) return <PageOutOfRange firstPageHref={firstPageHref(BASE, query)} />;
+  // Filtered to one book, pages count its marks; otherwise books
+  if (groups.length === 0 || (params.ebookId && groups[0].marks.length === 0))
+    return <PageOutOfRange firstPageHref={firstPageHref(BASE, query)} />;
   const base = ebookPageCoverBase();
   const here = query.size ? `${BASE}?${query}` : BASE;
   return (
@@ -68,7 +71,11 @@ async function HighlightResults({ search }: { search: ListSearchParams }) {
         })}
       </div>
       <div className="mt-8">
-        <Pagination page={params.page} perPage={params.perPage} total={summary.books} noun="eBooks" />
+        {params.ebookId ? (
+          <Pagination page={params.page} perPage={params.perPage} total={summary.marks} noun="marks" />
+        ) : (
+          <Pagination page={params.page} perPage={params.perPage} total={summary.books} noun="eBooks" sizes={[GROUPS_PER_PAGE]} />
+        )}
       </div>
     </>
   );

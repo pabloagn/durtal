@@ -23,6 +23,7 @@ import {
 import { ContinueReading } from "@/components/ebooks/continue-reading";
 import { EbooksView } from "./ebooks-view";
 import { EbooksMenu } from "./ebooks-menu";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
 export const metadata = { title: "eBooks" };
 const requestTime = cache(() => Date.now());
 function since(date: string | Date, now: number) {
@@ -73,13 +74,22 @@ export default async function EbooksPage({
   );
   return (
     <>
-      <PageHeader title="eBooks" actions={<EbooksMenu />} />
+      <PageHeader
+        title="eBooks"
+        actions={
+          // On the cap-height center of the title's line
+          <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
+            <EbooksMenu />
+          </CapAlignedControls>
+        }
+      />
       <nav
         aria-label="eBook states"
         className="-mt-5 mb-8 flex flex-wrap gap-x-2 gap-y-1 text-sm text-fg-secondary"
       >
         <Link
           href="/ebooks"
+          className="touch-hit"
           aria-current={
             params.state === "active" && params.needsReview === null
               ? "page"
@@ -89,12 +99,13 @@ export default async function EbooksPage({
           {counts.active.toLocaleString("en")} eBooks
         </Link>
         <span aria-hidden>·</span>
-        <Link href="/ebooks?review=yes">
+        <Link href="/ebooks?review=yes" className="touch-hit">
           {counts.review.toLocaleString("en")} to review
         </Link>
         <span aria-hidden>·</span>
         <Link
           href="/ebooks?state=excluded"
+          className="touch-hit"
           aria-current={params.state === "excluded" ? "page" : undefined}
         >
           {counts.excluded.toLocaleString("en")} set aside

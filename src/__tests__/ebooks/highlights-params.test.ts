@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { highlightReaderHref, parseHighlightParams } from "@/lib/ebooks/highlights";
+import { GROUPS_PER_PAGE, highlightReaderHref, parseHighlightParams } from "@/lib/ebooks/highlights";
 
 const BOOK = "0E6F1B4A-1C7E-4C55-9D2B-3B1C2D4E5F60";
 
@@ -32,6 +32,13 @@ describe("parseHighlightParams (SLN-500)", () => {
     expect(parseHighlightParams({ sort: "title" })).toMatchObject({ sort: "title", order: "asc" });
     expect(parseHighlightParams({ sort: "title", order: "desc" }).order).toBe("desc");
     expect(parseHighlightParams({ sort: "random" })).toMatchObject({ sort: "newest", order: "desc" });
+  });
+
+  it("pages a fixed number of books, or one book's marks like any list", () => {
+    expect(parseHighlightParams({ perPage: "192" })).toMatchObject({ perPage: GROUPS_PER_PAGE, offset: 0 });
+    expect(parseHighlightParams({ page: "3" })).toMatchObject({ perPage: GROUPS_PER_PAGE, offset: 2 * GROUPS_PER_PAGE });
+    expect(parseHighlightParams({ ebook: BOOK, page: "2" })).toMatchObject({ perPage: 48, offset: 48 });
+    expect(parseHighlightParams({ ebook: BOOK, perPage: "24", page: "2" })).toMatchObject({ perPage: 24, offset: 24 });
   });
 
   it("folds the search to the index's normalised form", () => {

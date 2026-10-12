@@ -13,9 +13,13 @@ export const HIGHLIGHT_KINDS = ["highlight", "note", "bookmark"] as const;
 export type HighlightKind = (typeof HIGHLIGHT_KINDS)[number];
 export const HIGHLIGHT_SORTS = ["newest", "title"] as const;
 export type HighlightSort = (typeof HIGHLIGHT_SORTS)[number];
-/** Marks shown under each book; filtering to one book shows all of them up to the second bound. */
+/** Marks shown under each book. A page holds GROUPS_PER_PAGE books, which keeps
+ * /ebooks/highlights inside its 300 KB budget (scripts/qa/page-weight.json). */
 export const MARKS_PER_GROUP = 5;
-export const MARKS_IN_ONE_BOOK = 500;
+export const GROUPS_PER_PAGE = 12;
+/** The list shows the first 3 lines of a highlight and a note's start; the reader has the rest. */
+export const SHOWN_TEXT_CHARS = 480;
+export const SHOWN_NOTE_CHARS = 600;
 
 export interface HighlightParams {
   q: string;
@@ -70,15 +74,20 @@ export function parseHighlightParams(input: ListSearchParams | URLSearchParams):
   const sort: HighlightSort = HIGHLIGHT_SORTS.some((value) => value === requested) ? (requested as HighlightSort) : "newest";
   const rawOrder = params.get("order");
   const ebook = params.get("ebook");
+  const ebookId = ebook && isUuid(ebook) ? ebook.toLowerCase() : null;
   return {
     q,
     normalizedSearch: normalizeSearchText(q),
     colors: list(params, "color").filter((value): value is AnnotationColor => ANNOTATION_COLORS.some((color) => color === value)),
     kinds: list(params, "kind").filter((value): value is HighlightKind => HIGHLIGHT_KINDS.some((kind) => kind === value)),
-    ebookId: ebook && isUuid(ebook) ? ebook.toLowerCase() : null,
+    ebookId,
     sort,
     order: rawOrder === "asc" || rawOrder === "desc" ? rawOrder : sort === "newest" ? "desc" : "asc",
-    ...parsePagination(params),
+    // Filtered to one book, the page lists its marks, paged like any list;
+    // otherwise it pages books, a fixed number per page
+    ...(ebookId
+      ? parsePagination(params)
+      : parsePagination(params, { defaultPerPage: GROUPS_PER_PAGE, allowedPerPage: [GROUPS_PER_PAGE] })),
   };
 }
 
@@ -110,27 +119,35 @@ function groupOrder(params: HighlightParams, source: SQL): SQL {
     : sql`${source}.latest ${direction}, e.id asc`;
 }
 
-const markColumns = sql`m.id, m.kind, m.style, m.color, m.text, m.note, m.chapter,
+/** Cut by characters (code points), so a cut never splits a character. */
+const shown = (column: SQL, chars: number) =>
+  sql`case when char_length(${column}) > ${chars} then left(${column}, ${chars - 1}) || '…' else ${column} end`;
+
+const markColumns = sql`m.id, m.kind, m.style, m.color, ${shown(sql`m.text`, SHOWN_TEXT_CHARS)} as text,
+  ${shown(sql`m.note`, SHOWN_NOTE_CHARS)} as note, m.chapter,
   m.locator->>'pageLabel' as "pageLabel", m.progression, m.anchor_state as "anchorState",
   to_char(m.updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "updatedAt"`;
 
-/** One page of books with marks, newest mark first, each with its newest marks. */
+/** One page of books with marks, newest mark first, each with its newest marks.
+ * Filtered to one book: that book, with one page of its marks. */
 export function highlightGroupsQuery(params: HighlightParams): SQL {
-  const perGroup = params.ebookId ? MARKS_IN_ONE_BOOK : MARKS_PER_GROUP;
+  const perGroup = params.ebookId ? params.perPage : MARKS_PER_GROUP;
+  const groupOffset = params.ebookId ? 0 : params.offset;
+  const markOffset = params.ebookId ? params.offset : 0;
   return sql`with marks as (
     select a.* from ebook_annotations a where ${highlightWhere(params)}
   ), g as (
     select ebook_id, count(*)::integer as total, max(updated_at) as latest from marks group by ebook_id
   ), page as (
     select g.ebook_id, g.total, g.latest from g join ebooks e on e.id = g.ebook_id
-    order by ${groupOrder(params, sql`g`)} limit ${params.perPage} offset ${params.offset}
+    order by ${groupOrder(params, sql`g`)} limit ${params.ebookId ? 1 : params.perPage} offset ${groupOffset}
   ) select ${ebookSummaryColumns}, page.total,
     coalesce((select json_agg(json_build_object(
       'id', m.id, 'kind', m.kind, 'style', m.style, 'color', m.color, 'text', m.text, 'note', m.note,
       'chapter', m.chapter, 'pageLabel', m."pageLabel", 'progression', m.progression,
       'anchorState', m."anchorState", 'updatedAt', m."updatedAt") order by m."updatedAt" desc, m.id)
       from (select ${markColumns} from marks m where m.ebook_id = page.ebook_id
-        order by m.updated_at desc, m.id limit ${perGroup}) m), '[]'::json) as marks
+        order by m.updated_at desc, m.id limit ${perGroup} offset ${markOffset}) m), '[]'::json) as marks
   from page join ebooks e on e.id = page.ebook_id
   order by ${groupOrder(params, sql`page`)}`;
 }

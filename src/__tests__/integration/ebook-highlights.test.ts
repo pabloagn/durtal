@@ -8,6 +8,8 @@ import {
   getHighlightSummary,
   MARKS_PER_GROUP,
   parseHighlightParams,
+  SHOWN_NOTE_CHARS,
+  SHOWN_TEXT_CHARS,
 } from "@/lib/ebooks/highlights";
 
 // Added to the local harness manifest automatically. Never connect outside its disposable database.
@@ -97,10 +99,26 @@ describe.skipIf(!url)("the all-highlights queries", () => {
     expect(await summary()).toEqual({ books: 3, marks: MARKS_PER_GROUP + 5 });
   });
 
-  it("shows every mark of one book when filtered to it", async () => {
+  it("shows every mark of one book when filtered to it, paged by marks", async () => {
     const [only] = await groups({ ebook: rebours.id });
     expect(only.marks).toHaveLength(MARKS_PER_GROUP + 3);
     expect(await summary({ ebook: rebours.id })).toEqual({ books: 1, marks: MARKS_PER_GROUP + 3 });
+    const params = parseHighlightParams({ ebook: rebours.id });
+    const [second] = await getHighlightGroups({ ...params, perPage: 3, page: 2, offset: 3 }, database!);
+    expect(second.total).toBe(MARKS_PER_GROUP + 3);
+    expect(second.marks.map((item) => item.id)).toEqual(only.marks.slice(3, 6).map((item) => item.id));
+  });
+
+  it("cuts long text and notes by characters, never inside one", async () => {
+    const long = await book("Les Foules de Lourdes");
+    const astral = "\u{1D504}";
+    await mark(long, { text: "a".repeat(SHOWN_TEXT_CHARS - 2) + astral + "tail", note: "n".repeat(SHOWN_NOTE_CHARS + 5) });
+    const [group] = await groups({ ebook: long.id });
+    const [shown] = group.marks;
+    expect([...shown.text!]).toHaveLength(SHOWN_TEXT_CHARS);
+    expect(shown.text!.endsWith(astral + "…")).toBe(true);
+    expect([...shown.note!]).toHaveLength(SHOWN_NOTE_CHARS);
+    await c`update ebook_annotations set deleted_at = updated_at where ebook_id = ${long.id}`;
   });
 
   it("searches text and notes without accents or case", async () => {
