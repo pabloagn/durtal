@@ -78,6 +78,10 @@ const serverSchema = z.object({
       .transform((v) => v?.replace(/\/+$/, "")),
   ),
   EBOOK_CDN_KEY_PAIR_ID: optional,
+  /** The upload service's private bridge.json (SLN-506); unset, browser uploads answer 503 */
+  EBOOK_UPLOAD_BRIDGE: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().refine((v) => v.startsWith("/"), { error: "must be an absolute path to the upload service's bridge.json" }).optional()),
   EBOOK_CDN_PRIVATE_KEY: z.preprocess(
     (v) => (v === "" ? undefined : v),
     z.string().refine(isBase64PrivateKey, { error: "must be a base64-encoded PEM private key" }).optional()),

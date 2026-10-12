@@ -149,6 +149,14 @@ class ReleaseTests(unittest.TestCase):
             with self.assertRaises(release.Refusal):
                 release.checked_config({**config, **mutation})
 
+    def test_configuration_accepts_only_an_upload_bridge_path(self):
+        root, _ = self.make_release(); config = self.config(root)
+        bridge = str(Path.home() / '.durtal/ebook-upload/bridge.json')
+        release.checked_config({**config, 'environment': {**config['environment'], 'EBOOK_UPLOAD_BRIDGE': bridge}})
+        for value in ('bridge.json', str(Path.home() / '.durtal/ebook-upload/service.json'), str(Path.home() / '.durtal/../x/bridge.json')):
+            with self.assertRaises(release.Refusal):
+                release.checked_config({**config, 'environment': {**config['environment'], 'EBOOK_UPLOAD_BRIDGE': value}})
+
     def test_cloudfront_requires_reviewed_public_identity(self):
         root, _ = self.make_release(); config = self.config(root)
         config['environment']['EBOOK_DELIVERY'] = 'cloudfront'

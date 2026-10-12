@@ -34,6 +34,7 @@ E-books use the existing private bucket and layer-first prefixes (SLN-569; `docs
 | `EBOOK_CDN_URL` | With `cloudfront` | — | The distribution's address, `https://<id>.cloudfront.net` |
 | `EBOOK_CDN_KEY_PAIR_ID` | With `cloudfront` | — | The id of the key group's public key |
 | `EBOOK_CDN_PRIVATE_KEY` | With `cloudfront` | — | Its private key: base64 PEM in the server process environment. The Mac launcher reads the existing owner signing Keychain item and validates its public fingerprint at launch; never put it in env files, runtime config, argv, plists, reports or image layers |
+| `EBOOK_UPLOAD_BRIDGE` | No | — | The absolute path of the upload service's private `bridge.json` (`pnpm ebooks:upload-service init`; docs/11_DEPLOYMENT.md, Browser uploads). Unset, the upload routes answer 503 |
 
 `EBOOK_DELIVERY=cloudfront` with any of the three CDN variables missing stops the server at startup with one message naming each.
 
