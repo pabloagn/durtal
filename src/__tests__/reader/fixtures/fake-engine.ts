@@ -181,6 +181,7 @@ export function fakeEngine() {
       async (owner): Promise<void> => engine.goTo({ fraction: 1 }, owner),
     ),
     setMarginalia: vi.fn(),
+    setMarginaliaHidden: vi.fn(),
     setDecorations: vi.fn(),
     resolveAnnotation: vi.fn(async ({ locator }) => ({
       status: "exact" as const,

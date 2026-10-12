@@ -226,6 +226,17 @@ describe("reader view with a real bridge and fake engine", () => {
       expect(await persistence.snapshot(`${bookId}:${epubId}:${deviceId}`)).toEqual({ queued: [], position: undefined });
     },
   );
+  it("fades the running lines while the bars cover them and brings them back with the page", async () => {
+    await render();
+    await settle();
+    const bars = host.querySelector("[data-reader-bottom-bar]")!;
+    expect(bars.hasAttribute("inert")).toBe(false);
+    expect(fake.engine.setMarginaliaHidden).toHaveBeenLastCalledWith(true);
+    pressRight();
+    await settle();
+    expect(bars.hasAttribute("inert")).toBe(true);
+    expect(fake.engine.setMarginaliaHidden).toHaveBeenLastCalledWith(false);
+  });
   it("publishes turn activity once only after the actual turn settles and paints", async () => {
     await render();
     await settle();

@@ -322,6 +322,8 @@ export interface ReaderEngine {
   firstPage(owner?: NavigationOwner): Promise<void>;
   lastPage(owner?: NavigationOwner): Promise<void>;
   setMarginalia(lines: Marginalia | null): void;
+  /** Fades the running lines out while the bars cover them */
+  setMarginaliaHidden(hidden: boolean): void;
   setDecorations(group: string, decorations: Decoration[]): void;
   next(owner?: NavigationOwner): Promise<void>;
   prev(owner?: NavigationOwner): Promise<void>;
