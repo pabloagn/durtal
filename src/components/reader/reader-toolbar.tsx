@@ -17,7 +17,7 @@ import {
   Sun,
   Sunset,
 } from "lucide-react";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -60,7 +60,7 @@ function ThemeMenu({
   onOpenChange(open: boolean): void;
 }) {
   return (
-    <CapAligned height={32} coarseHeight={44}>
+    <CapAlignedControls height={32} coarseHeight={44}>
       <DropdownMenu
         label="Page colour"
         open={open}
@@ -73,7 +73,7 @@ function ThemeMenu({
       >
         <ThemeItems theme={theme} onTheme={onTheme} />
       </DropdownMenu>
-    </CapAligned>
+    </CapAlignedControls>
   );
 }
 
@@ -253,7 +253,7 @@ export function ReaderToolbar({
               {contents}
               {bookmarkAction}
               {settings}
-              <CapAligned height={32} coarseHeight={44}>
+              <CapAlignedControls height={32} coarseHeight={44}>
                 <DropdownMenu
                   label="More"
                   open={menu === "more"}
@@ -279,7 +279,7 @@ export function ReaderToolbar({
                     )}
                   </ReaderBarMenuItems>
                 </DropdownMenu>
-              </CapAligned>
+              </CapAlignedControls>
             </div>
           ) : (
             <div className="flex shrink-0 gap-1">

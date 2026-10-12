@@ -1293,6 +1293,28 @@ checked before a possibly deleted binding. Invalid input returns 400, a changed
 device returns 409, and temporary save failure returns 503 while the sitting
 remains pending for retry.
 
+### `GET /api/reader/narration`
+
+The reader's natural read-aloud voices. Same-origin only. Without
+`ELEVENLABS_API_KEY` it answers `{ "available": false }` and the reader uses the
+device's voices. With a key it answers `{ "available": true, "provider":
+"ElevenLabs", "voices": [{ "id", "name", "description", "default" }] }`, at most
+100 voices with narration voices first, cached for an hour. The key never
+leaves the server. A refused key, missing credits or a busy service answer
+with a JSON `error` the reader shows.
+
+### `POST /api/reader/narration/speech`
+
+One sentence's audio, as `audio/mpeg`. Same-origin only; `Content-Type:
+application/json`, at most 24,000 bytes, with `text` (1–4,000 characters),
+`voiceId` (letters, digits, `_` and `-`, at most 64), optional `language` (a
+language tag) and optional `previousText` (the sentence before, trimmed to its
+last 1,000 characters, so the intonation carries on). Answers 503 without a
+key, 415 for another content type, 400 for a malformed body, and the
+provider's refusal with its status (402 credits and 401/403 keys become 502,
+429 stays 429). The last 300 sentences (up to 48 MB) are kept in memory, so a
+sentence heard again is not paid for twice.
+
 ### `POST /api/reader/lookup/wikimedia`
 
 Read-only reader lookup relay. The strict JSON body has exactly `operation`
