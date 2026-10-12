@@ -1,5 +1,5 @@
 import { z } from "zod/v4";
-import { UploadError } from "./protocol";
+import { isUploadError, UploadError } from "./protocol";
 
 /** Only the pre-admission generation guard can issue this known refusal.
  * It binds the original request so unrelated HTTP errors never clear pending.
@@ -16,4 +16,8 @@ export class UploadAdmissionRefusal extends UploadError {
     super(409, "generation_changed", "The worker recovered before this admission. Refresh and reselect the original file, or cancel the upload.");
     this.refusal = admissionRefusalSchema.parse(input);
   }
+}
+/** Also a refusal raised by another bundle's copy of this class (see isUploadError). */
+export function isUploadAdmissionRefusal(error: unknown): error is UploadAdmissionRefusal {
+  return error instanceof UploadAdmissionRefusal || (isUploadError(error) && admissionRefusalSchema.safeParse((error as { refusal?: unknown }).refusal).success);
 }

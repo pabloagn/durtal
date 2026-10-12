@@ -35,6 +35,7 @@
 /reading/year/[year]        One year's review, made to print
 /reading/import             Import reading history: upload, past imports
 /reading/import/[id]        One import's preview, decisions, commit and undo
+/ebooks/highlights          Every highlight, note and bookmark, grouped by eBook
 /ebooks/runs                eBooks: ingestion runs, newest first
 /ebooks/review              Decide unlinked eBooks; bounded sections and filter URLs
 /ebooks/runs/[runId]        One ingestion run: its reconciliation and its files
@@ -917,6 +918,12 @@ actions menu and eligible digital-copy rows can search unlinked/standalone eBook
 and prepare a link. A new copy with an eBook selection puts the descriptive copy
 fields into that one Link intent; confirmation creates and links the copy in the
 service transaction. Ordinary instance creation retains its existing path.
+
+### Highlights (`/ebooks/highlights`)
+
+Every live highlight, note and bookmark across the e-books (SLN-500), from `src/lib/ebooks/highlights.ts`. The reader's annotations panel links here ("All highlights"), and so does the eBooks page menu. Marks are grouped by e-book: the cover, the title (both open the e-book), the authors and the number of marks the filters keep, then its five newest marks, each with its colour bar, the highlighted text in EB Garamond (three lines at most; the list sends its first 480 characters), its note (its first 600), and a line with the page (or percentage), the chapter and the date. "Open in the reader" opens `/reader/[ebookId]?at=<mark>&returnTo=<this list>`: once the book is painted the reader resolves the mark and jumps to it, or says it could not be placed. A mark the reader marked as orphaned says "Could not be placed" and has no link. "All N in this book" filters to that book, which then lists its marks, paged like any list (48 a page by default).
+
+Search (`q`) matches the text and the note, without accents or case, through `ebook_annotations_search_idx`. Filters: Kind (`kind`: highlights, with a note, bookmarks), Colour (`color`) and eBook (`ebook`, one book, offered when more than one has marks). Sort: Newest (the book with the newest mark first) or Title. Pagination counts books, 12 a page with no page-size choice, which keeps the page inside its 300 KB budget; filtered to one book, it counts that book's marks. A line above the groups says how many marks in how many books. Deleted marks never show.
 
 ### Ingestion runs (`/ebooks/runs`)
 

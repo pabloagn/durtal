@@ -22,7 +22,7 @@ SHA = re.compile(r'[a-f0-9]{40}')
 HASH = re.compile(r'[a-f0-9]{64}')
 PUBLIC_BUILD_NAMES = frozenset(('NEXT_PUBLIC_MAPBOX_TOKEN',))
 PUBLIC_RUNTIME_NAMES = frozenset(('APP_TIMEZONE', 'AWS_REGION', 'S3_BUCKET', 'EBOOKS_BUCKET', 'EBOOKS_PREFIX',
-    'EBOOKS_REGION', 'EBOOK_DELIVERY', 'EBOOK_CDN_URL', 'EBOOK_CDN_KEY_PAIR_ID'))
+    'EBOOKS_REGION', 'EBOOK_DELIVERY', 'EBOOK_CDN_URL', 'EBOOK_CDN_KEY_PAIR_ID', 'EBOOK_UPLOAD_BRIDGE'))
 SECRET_NAMES = frozenset(('DATABASE_URL', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'DURTAL_API_TOKEN',
     'ADMIN_TOKEN', 'GOOGLE_BOOKS_API_KEY', 'GOOGLE_PLACES_API_KEY', 'ISBNDB_API_KEY', 'ISBNDN_API_KEY',
     'ENRICHMENT_CONTACT', 'ENRICHMENT_MONTHLY_CAP_USD', 'TAVILY_API_KEY', 'BRAVE_SEARCH_API_KEY', 'ANTHROPIC_API_KEY'))
@@ -386,6 +386,11 @@ def checked_config(config):
             raise Refusal('Owned CloudFront URL/key ID required')
     elif cdn or env.get('EBOOK_CDN_URL') or env.get('EBOOK_CDN_KEY_PAIR_ID'):
         raise Refusal('App mode cannot silently carry CDN settings')
+    # A path to the upload service's private bridge.json (SLN-506), never its contents
+    bridge = env.get('EBOOK_UPLOAD_BRIDGE')
+    if bridge is not None and (not Path(bridge).is_absolute() or Path(bridge).name != 'bridge.json'
+                               or os.path.normpath(bridge) != bridge or re.search(r'[\x00-\x1f]', bridge)):
+        raise Refusal('EBOOK_UPLOAD_BRIDGE must be the absolute path of the upload service bridge.json')
     if config.get('secretSource') != str(Path.home() / 'personal/durtal/.env.local'):
         raise Refusal('Only the existing owner app environment source is permitted')
     for field in ('node', 'python', 'helper', 'aws'):

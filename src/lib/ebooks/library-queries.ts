@@ -101,11 +101,12 @@ const positions = sql`coalesce((select json_agg(json_build_object(
   'locator', p.locator, 'chapter', p.chapter, 'clientUpdatedAt', p.client_updated_at
 ) order by p.client_updated_at desc, p.device_id, p.file_id)
 from ebook_positions p where p.ebook_id = e.id), '[]'::json)`;
-const summary = sql`e.id, e.title, e.subtitle, e.authors, e.language,
+/** The card columns of an e-book row aliased `e`, with its files (shared with /ebooks/highlights). */
+export const ebookSummaryColumns = sql`e.id, e.title, e.subtitle, e.authors, e.language,
   e.match_state as "matchState", e.preferred_file_id as "preferredFileId",
   e.cover_key as "coverKey", e.created_at as "createdAt", ${files} as files`;
 
-function normalizedDates<T extends LibraryEbook>(ebook: T): T {
+export function normalizedDates<T extends LibraryEbook>(ebook: T): T {
   return {
     ...ebook,
     createdAt: new Date(ebook.createdAt).toISOString(),
@@ -193,7 +194,7 @@ export function ebookLibraryPageQuery(params: EbookLibraryParams): SQL {
   return sql`with page as (
     select e.* from ebooks e where ${ebookLibraryWhere(params)}
     order by ${ordering(params)} limit ${params.perPage} offset ${params.offset}
-  ) select ${summary} from page e order by ${ordering(params)}`;
+  ) select ${ebookSummaryColumns} from page e order by ${ordering(params)}`;
 }
 export async function getEbookLibraryCounts(
   params: EbookLibraryParams,
@@ -231,7 +232,7 @@ export async function getContinueReading(
     where e.match_state <> 'excluded' and exists (select 1 from ebook_files f where f.ebook_id = e.id
       and ${ebookFileNativeReadableCondition(fileColumns)})
     group by e.id order by opened desc, e.id limit 12
-  ) select ${summary}, ${positions} as positions from recent join ebooks e on e.id = recent.id
+  ) select ${ebookSummaryColumns}, ${positions} as positions from recent join ebooks e on e.id = recent.id
   order by recent.opened desc, e.id`),
   );
   return rows.map(normalizedDates).flatMap((ebook) => {
@@ -251,7 +252,7 @@ export async function getEbookDetail(
   database: Database = db,
 ): Promise<EbookDetail | null> {
   const [row] = resultRows<EbookDetail>(
-    await database.execute(sql`select ${summary}, e.series,
+    await database.execute(sql`select ${ebookSummaryColumns}, e.series,
     e.series_index as "seriesIndex", e.publisher, e.published_year as "publicationYear", e.description, e.isbns, e.identifiers,
     e.exclusion_reason as "exclusionReason", e.match_tier as "matchTier",
     json_build_object('updatedAt', ${reviewTimestampSql(sql`e.updated_at`)},

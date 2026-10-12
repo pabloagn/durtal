@@ -9,7 +9,10 @@
  * on the list page is used ("/library/*" takes the first book on /library;
  * `skip` leaves out slugs such as "new"). `list` reads the links from another
  * page, and `pick: "most"` takes the record linked most often there: the
- * book with the most quotes on /reading/notes (SLN-510). With no such link
+ * book with the most quotes on /reading/notes (SLN-510). A path that ends in
+ * "=*" takes that query value from the first link carrying it, on `list`
+ * (default: the path without its query): "/ebooks/highlights?ebook=*" is one
+ * book's marks, through its "All N in this book" link. With no such link
  * the route fails, unless it has an `ifNone` note: a detail page that may
  * have no record yet ("/reading/import/*" before the first import) is then
  * skipped with that note. Each route is requested once
@@ -43,19 +46,25 @@ async function get(path) {
   };
 }
 
+/** The page a "/*" or "=*" row reads its links from. */
+function listOf(route) {
+  return route.list ?? (route.path.endsWith("/*") ? route.path.slice(0, -2) : route.path.split("?")[0]);
+}
+
 async function resolve(route) {
-  if (!route.path.endsWith("/*")) return route.path;
-  const base = route.path.slice(0, -2);
-  const { body } = await get(route.list ?? base);
+  if (!route.path.endsWith("/*") && !route.path.endsWith("=*")) return route.path;
+  const prefix = route.path.slice(0, -1);
+  const { body } = await get(listOf(route));
   const skip = new Set(route.skip ?? []);
-  const pattern = new RegExp(`href="${base}/([^"/?#]+)"`, "g");
+  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`href="${escaped}([^"/?#&]+)"`, "g");
   const slugs = [...body.matchAll(pattern)].map(([, slug]) => slug).filter((slug) => !skip.has(slug));
   if (!slugs.length) return null;
-  if (route.pick !== "most") return `${base}/${slugs[0]}`;
+  if (route.pick !== "most") return `${prefix}${slugs[0]}`;
   // The record linked most often; the first one linked wins a tie
   const counts = new Map();
   for (const slug of slugs) counts.set(slug, (counts.get(slug) ?? 0) + 1);
-  return `${base}/${[...counts].sort((a, b) => b[1] - a[1])[0][0]}`;
+  return `${prefix}${[...counts].sort((a, b) => b[1] - a[1])[0][0]}`;
 }
 
 let failed = 0;
@@ -65,10 +74,10 @@ for (const route of config.routes) {
   try {
     const path = await resolve(route);
     if (!path && route.ifNone) {
-      line = `skip  ${route.path.padEnd(40)} skipped: ${route.ifNone} (no link on ${route.list ?? route.path.slice(0, -2)})`;
+      line = `skip  ${route.path.padEnd(40)} skipped: ${route.ifNone} (no link on ${listOf(route)})`;
       skipped++;
     } else if (!path) {
-      line = `FAIL  ${route.path.padEnd(40)} no link found on ${route.list ?? route.path.slice(0, -2)}`;
+      line = `FAIL  ${route.path.padEnd(40)} no link found on ${listOf(route)}`;
       failed++;
     } else {
       await get(path);

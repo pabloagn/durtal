@@ -185,13 +185,17 @@ export class UploadHostBridge {
   }
 }
 
+const notRunning = () => new UploadError(503, "upload_unavailable", "The upload service is not running. Start it, then try again.");
+
 /** Install explicitly in the app process using installUploadBroker(client).
  * This client opens no listener and has no inspector/spool/core write access.
  */
 export class UploadHostClient implements UploadGateway {
   constructor(private readonly config: UploadBridgeConfig) { validateConfig(config); }
   private async call(method: string, url: string, channel: UploadCoreContext['channel'], body?: unknown | ReadableStream<Uint8Array>, extra: Record<string, string> = {}, allowReceipt = false): Promise<unknown> {
-    await privateSocket(this.config.socketPath);
+    await privateSocket(this.config.socketPath).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') throw notRunning(); throw error;
+    });
     const stream = body instanceof ReadableStream ? Readable.fromWeb(body as Parameters<typeof Readable.fromWeb>[0]) : null;
     let bytes: Buffer | undefined;
     if (body !== undefined && !stream) { boundedJsonBytes(body, JSON_BYTES); bytes = Buffer.from(JSON.stringify(body)); }
@@ -223,7 +227,8 @@ export class UploadHostClient implements UploadGateway {
       });
       const deadline = setTimeout(() => req.destroy(new Error('Upload bridge wall deadline expired')), UPLOAD_LIMITS.inspectionMs);
       req.setTimeout(UPLOAD_LIMITS.inspectionMs, () => req.destroy(new Error('Upload bridge response deadline expired')));
-      req.once('error', (error) => { stream?.destroy(); finish(error); });
+      // Refused before any byte was sent: the service is down, nothing happened.
+      req.once('error', (error: NodeJS.ErrnoException) => { stream?.destroy(); finish(error.code === 'ECONNREFUSED' ? notRunning() : error); });
       req.once('close', () => stream?.destroy());
       if (stream) { stream.once('error', (error) => req.destroy(error)); stream.pipe(req); }
       else req.end(bytes);

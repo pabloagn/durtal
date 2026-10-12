@@ -57,12 +57,18 @@ sorts/added dates and old saved places. The standard acceptance fixtures stay
 unchanged. This mode requires private3410, a synthetic seed (no --from-dump),
 and a canonical --s3-dir under /private/tmp.
 
+With --seed-highlights N (after --seed-reader or --ebooks M), the first N
+e-books by title get reader marks in every shape /ebooks/highlights draws,
+and the first of them 400 more (scripts/qa/seed-highlights.sql), so the
+page-weight rows for /ebooks/highlights and one book's marks measure a full
+page. Use 30 for the page-weight run.
+
 With --api-token, the app gets a random DURTAL_API_TOKEN for this run only,
 printed once at start, so the phone's /api/readings routes can be checked
 with curl. It is never the live token. Without it the variable stays unset
 and those routes answer 503.
 
-    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE] [--s3-dir DIR [--seed-reader [--reader-large DIR]] [--ebooks M]] [--api-token]
+    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE] [--s3-dir DIR [--seed-reader [--reader-large DIR]] [--ebooks M] [--seed-highlights N]] [--api-token]
 """
 
 import argparse
@@ -297,28 +303,45 @@ def main():
                         help="add M synthetic eBooks with valid unique medallion fixture objects (needs --s3-dir)")
     parser.add_argument("--ebooks-acceptance", action="store_true",
                         help="with --ebooks 6000/7000, synthetic catalogue versions/sort diversity; private3410 only")
+    parser.add_argument("--seed-highlights", type=int, metavar="N",
+                        help="give the first N seeded e-books reader marks (scripts/qa/seed-highlights.sql)")
     parser.add_argument("--reader-large", type=Path, metavar="DIR",
                         help="with --seed-reader, also the large fixtures make-ebook-fixtures.mjs --large wrote to DIR")
     parser.add_argument("--api-token", action="store_true",
                         help="give the app a random API token for this run, printed once")
+    parser.add_argument("--upload-service", type=Path, metavar="DIR",
+                        help="run an e-book upload service for this preview, its state in the new folder DIR "
+                             "(needs --s3-dir and pnpm ebooks:upload-service build-inspector at this commit)")
     args = parser.parse_args()
     if args.seed_reader and not args.s3_dir:
         parser.error("--seed-reader needs --s3-dir: the e-books are stored there")
+    if args.seed_highlights and not (args.seed_reader or args.ebooks):
+        parser.error("--seed-highlights needs e-books: --seed-reader or --ebooks M")
     if args.reader_large and not args.seed_reader:
         parser.error("--reader-large goes with --seed-reader")
     if args.ebooks and (not args.s3_dir or not 1 <= args.ebooks <= 100000):
         parser.error("--ebooks requires --s3-dir and a count between 1 and 100000")
     if args.ebooks_acceptance and (args.from_dump or args.port != 3410 or args.ebooks not in (6000, 7000)):
         parser.error("--ebooks-acceptance requires synthetic --ebooks 6000/7000 at private3410; no --from-dump")
+    if args.upload_service and (not args.s3_dir or args.upload_service.exists()):
+        parser.error("--upload-service needs --s3-dir and a folder that does not exist yet (one per preview database)")
     run("docker", "image", "inspect", "postgres:16")  # Never implicitly pull.
     container = f"durtal-preview-{secrets.token_hex(4)}"
     password = secrets.token_hex(16)
     server = None
+    uploads = None
     state = STATE / f"durtal-preview-{args.port}.json"
 
     def cleanup():
         if server and server.poll() is None:
             os.killpg(server.pid, signal.SIGTERM)
+        if uploads and uploads.poll() is None:
+            # SIGTERM only: the service settles its uploads in the database before it exits
+            os.killpg(uploads.pid, signal.SIGTERM)
+            try:
+                uploads.wait(timeout=60)
+            except subprocess.TimeoutExpired:
+                print("The upload service did not stop within 60 s.", flush=True)
         state.unlink(missing_ok=True)
         subprocess.run(["docker", "rm", "-f", container], capture_output=True)
         print(f"Removed {container}.", flush=True)
@@ -384,6 +407,9 @@ def main():
             from ebook_library_seed import ebook_library_seed
             psql(ebook_library_seed(ROOT, args.s3_dir, args.ebooks, catalogue_acceptance=args.ebooks_acceptance))
             print(f"Library fixtures: {args.ebooks} eBooks, one third linked, valid unique bytes in {args.s3_dir}", flush=True)
+        if args.seed_highlights:
+            seed = (Path(__file__).parent / "seed-highlights.sql").read_text()
+            print(psql(f"\\set n {args.seed_highlights}\n{seed}"), flush=True)
         if args.log_sql:
             args.log_sql.resolve().parent.mkdir(parents=True, exist_ok=True)
             env["DURTAL_PREVIEW_SQL_LOG"] = str(args.log_sql.resolve())
@@ -400,6 +426,14 @@ def main():
         fd = os.open(state, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w") as out:
             json.dump({"databaseUrl": url, "s3Dir": env.get("DURTAL_PREVIEW_S3_DIR")}, out)
+        if args.upload_service:
+            # Bound to this preview's database, so made here, between the database and the app
+            service = ["node_modules/.bin/tsx", "--tsconfig", "tsconfig.json", "scripts/ebooks/upload-service.ts"]
+            where = ["--preview", str(args.port), "--state-dir", str(args.upload_service.resolve())]
+            service_env = {key: os.environ[key] for key in ("PATH", "HOME", "LANG", "TERM", "DOCKER_HOST") if key in os.environ}
+            run(*service, "init", *where, cwd=ROOT, env=service_env)
+            uploads = subprocess.Popen([*service, "start", *where], cwd=ROOT, env=service_env, start_new_session=True)
+            env["EBOOK_UPLOAD_BRIDGE"] = str(args.upload_service.resolve() / "bridge.json")
         # The data cache (unstable_cache) survives restarts: without this, a
         # preview could show records cached by an earlier run on another database.
         shutil.rmtree(ROOT / ".next/dev/cache/fetch-cache", ignore_errors=True)

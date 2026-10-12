@@ -19,6 +19,9 @@ const pages: Record<string, string> = {
   "/books/new": "<main>Add a book</main>",
   "/books/one": "<main>One</main>",
   "/books/two": "<main>Two</main>",
+  // One book's marks, reached through its "All N in this book" link
+  "/marks": '<main><a href="/books/one">One</a><a href="/marks?ebook=b2">All 400 in this book</a><a href="/marks?ebook=b3&amp;page=2">More</a></main>',
+  "/marks?ebook=b2": "<main>400 marks</main>",
 };
 let server: Server;
 let base = "";
@@ -76,6 +79,13 @@ describe("page-weight.js", () => {
     const none = await run([{ path: "/books/*", list: "/empty", pick: "most", maxKB: 400, maxMs: 5000, ifNone: "no quotes" }]);
     expect(none.out).toContain("skipped: no quotes (no link on /empty)");
   });
+  it("takes a query value from the first link carrying it", async () => {
+    const { code, out } = await run([{ path: "/marks?ebook=*", maxKB: 400, maxMs: 5000, ifNone: "no marks" }]);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^ok {4}\/marks\?ebook=b2 /m);
+    const none = await run([{ path: "/empty?ebook=*", maxKB: 400, maxMs: 5000, ifNone: "no marks" }]);
+    expect(none.out).toContain("skipped: no marks (no link on /empty)");
+  });
   it("measures a book, not the add page, and the book with the most quotes", async () => {
     const { readFileSync } = await import("node:fs");
     const config = JSON.parse(readFileSync("scripts/qa/page-weight.json", "utf8")) as {
@@ -88,7 +98,7 @@ describe("page-weight.js", () => {
     ]);
     expect(config.routes.some((r) => r.path === "/library/new")).toBe(true);
   });
-  it("gives the quoted book, the import preview, the Year in review, the reader and the ingestion run rows their notes, and no other row", async () => {
+  it("gives the quoted book, the import preview, the Year in review, one book's marks, the reader and the ingestion run rows their notes, and no other row", async () => {
     const { readFileSync } = await import("node:fs");
     const config = JSON.parse(readFileSync("scripts/qa/page-weight.json", "utf8")) as { routes: { path: string; ifNone?: string; list?: string }[] };
     expect(config.routes.find((r) => r.path === "/reading/import/*")?.ifNone).toBe("no import");
@@ -97,6 +107,7 @@ describe("page-weight.js", () => {
     expect(config.routes.find((r) => r.path === "/ebooks/runs/*")?.ifNone).toBe("no ingestion run");
     expect(config.routes.find((r) => r.path === "/reader/*")?.ifNone).toBe("no e-book");
     expect(config.routes.find((r) => r.path === "/ebooks/*")?.ifNone).toBe("no e-book");
-    expect(config.routes.filter((r) => r.ifNone).map((r) => r.path)).toEqual(["/library/*", "/reading/year/*", "/reading/import/*", "/ebooks/*", "/ebooks/runs/*", "/reader/*"]);
+    expect(config.routes.find((r) => r.path === "/ebooks/highlights?ebook=*")?.ifNone).toBe("no book with more than five marks");
+    expect(config.routes.filter((r) => r.ifNone).map((r) => r.path)).toEqual(["/library/*", "/reading/year/*", "/reading/import/*", "/ebooks/highlights?ebook=*", "/ebooks/*", "/ebooks/runs/*", "/reader/*"]);
   });
 });

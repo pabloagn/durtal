@@ -63,6 +63,13 @@ export const uploadOutcomeSchema = z.strictObject({
 });
 export type UploadOutcome = z.output<typeof uploadOutcomeSchema>;
 
+const uploadErrorBrand = Symbol.for("durtal.ebook-upload.error.v1");
 export class UploadError extends Error {
+  readonly [uploadErrorBrand] = true;
   constructor(readonly status: 400 | 403 | 404 | 409 | 413 | 503, readonly code: string, message: string) { super(message); }
+}
+/** The app's startup (src/instrumentation.ts) installs the upload client from
+ * its own bundle, so its errors are another copy of this class: check the brand. */
+export function isUploadError(error: unknown): error is UploadError {
+  return error instanceof UploadError || (error instanceof Error && (error as unknown as Record<symbol, unknown>)[uploadErrorBrand] === true);
 }
