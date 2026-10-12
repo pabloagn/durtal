@@ -49,6 +49,7 @@ import { themeColours } from "@/lib/reader/presentation/themes";
 import { paginatorAttributes } from "@/lib/reader/presentation/layout";
 import { CHAR_WIDTH_EM } from "@/lib/reader/presentation/fonts";
 import { canPreflightCoreFonts, routeFontPresentation, fontPresentationChangeKind } from "@/lib/reader/presentation/font-route";
+import { createManagedReaderFontAssets } from "@/lib/reader/presentation/managed-font-assets";
 import { UNKNOWN_FONT_FACTS, type FontWindowFacts } from "@/lib/reader/presentation/font-facts";
 import { guardFontResourceLoad } from "./font-resource-gate";
 import { adaptTypographyDeclaration } from "@/lib/reader/presentation/style-policy";
@@ -190,6 +191,9 @@ class FoliateEngine implements ReaderEngine {
   #readingFraction = 0;
   #owner: NavigationOwner | undefined;
   #presentation: Presentation | null = null;
+  #requestedPresentation: Presentation | null = null;
+  #fontEpoch = 0;
+  #fontAssets = createManagedReaderFontAssets(location.origin);
   #appliedPresentation: Presentation | null = null;
   #fontFacts: FontWindowFacts = UNKNOWN_FONT_FACTS;
   #layoutObserver: ResizeObserver | null = null;
@@ -355,6 +359,7 @@ class FoliateEngine implements ReaderEngine {
     // The server makes no speculative reading-font preload. Resolve the selected
     // full/publisher family before book construction can request any resource.
     this.#presentation = this.#fontPresentation(this.#presentation ?? presentation);
+    this.#requestedPresentation = this.#presentation;
     this.#readingFraction =
       at && "v" in at
         ? at.totalProgression
@@ -489,8 +494,13 @@ class FoliateEngine implements ReaderEngine {
     await view.open(book);
     // Swipes, taps and the wheel belong to the reader's input layer (src/lib/reader/input.ts)
     view.renderer.setAttribute("no-swipe", "");
-    // Settings may have changed while the source opened; never restore the old snapshot.
-    this.setPresentation(this.#presentation ?? presentation);
+    // Apply the prepared latest request before ready; replaying the public setter
+    // would restart an asynchronous cache-miss lookup and delay initial typography.
+    let preparedEpoch: number;
+    do {
+      preparedEpoch = await this.#preparePresentationFonts();
+    } while (preparedEpoch !== this.#fontEpoch);
+    this.#applyPresentation(this.#presentation ?? presentation);
     this.#layoutObserver = new ResizeObserver(() => this.#applyLayout());
     this.#layoutObserver.observe(view);
 
@@ -610,6 +620,8 @@ class FoliateEngine implements ReaderEngine {
     this.#view?.close();
     this.#view?.remove();
     this.#book?.destroy?.();
+    this.#fontEpoch++;
+    this.#fontAssets.dispose();
     void this.#pdf?.destroy().catch(() => {});
     this.#pdf = null;
     this.#pdfTextProvider = null;
@@ -1429,8 +1441,27 @@ class FoliateEngine implements ReaderEngine {
   }
 
   setPresentation(presentation: Presentation) {
-    const previous = this.#presentation;
+    if (this.#destroyed) return;
     presentation = this.#fontPresentation(presentation);
+    this.#requestedPresentation = presentation;
+    const epoch = ++this.#fontEpoch;
+    const ready = this.#fontAssets.ready(presentation.fontFaces);
+    if (ready !== null || !this.#source) {
+      this.#fontAssets.cancelPending();
+      this.#applyPresentation({ ...presentation, fontFaces: ready ?? presentation.fontFaces });
+      return;
+    }
+    void this.#fontAssets.prepare(presentation.fontFaces, this.#opening.signal).then(fontFaces => {
+      if (this.#destroyed || epoch !== this.#fontEpoch) return;
+      this.#applyPresentation({ ...presentation, fontFaces });
+    }).catch(() => {
+      if (this.#destroyed || epoch !== this.#fontEpoch || this.#opening.signal.aborted) return;
+      this.#emit("error", { kind: "network", message: "The reading font could not be prepared. Try opening the book again." });
+    });
+  }
+
+  #applyPresentation(presentation: Presentation) {
+    const previous = this.#presentation;
     this.#presentation = presentation;
     if (previous?.policy?.fixedFit !== presentation.policy?.fixedFit) this.#fixedZoom = null;
     const cropChanged = presentation.policy && this.#book?.setPdfPresentation?.(presentation.policy);
@@ -1468,7 +1499,8 @@ class FoliateEngine implements ReaderEngine {
   #fontPresentation(presentation: Presentation): Presentation {
     const fixed = this.#source?.format === "pdf" || this.#source?.format === "cbz" ||
       this.#book?.rendition?.layout === "pre-paginated";
-    return routeFontPresentation(presentation, location.origin, this.#fontFacts, fixed);
+    const routed = routeFontPresentation(presentation, location.origin, this.#fontFacts, fixed);
+    return { ...routed, fontFaces: this.#fontAssets.ready(routed.fontFaces) ?? routed.fontFaces };
   }
 
   async #prepareBookFonts(book: FoliateBook) {
@@ -1495,16 +1527,35 @@ class FoliateEngine implements ReaderEngine {
       })), typeof language === "string" ? language : language?.[0] ?? null, this.#opening.signal);
     }
     this.#opening.signal.throwIfAborted();
-    if (this.#presentation) this.#presentation = this.#fontPresentation(this.#presentation);
+    await this.#preparePresentationFonts();
+  }
+
+  async #preparePresentationFonts() {
+    while (!this.#destroyed) {
+      this.#opening.signal.throwIfAborted();
+      const requested = this.#requestedPresentation ?? this.#presentation;
+      if (!requested) return this.#fontEpoch;
+      const epoch = this.#fontEpoch;
+      const routed = this.#fontPresentation(requested);
+      let fontFaces: string;
+      try { fontFaces = await this.#fontAssets.prepare(routed.fontFaces, this.#opening.signal); }
+      catch (error) {
+        this.#opening.signal.throwIfAborted();
+        if (epoch !== this.#fontEpoch) continue;
+        throw error;
+      }
+      this.#opening.signal.throwIfAborted();
+      if (epoch !== this.#fontEpoch) continue;
+      this.#presentation = { ...routed, fontFaces };
+      return epoch;
+    }
+    throw new DOMException("Reader fonts retired", "AbortError");
   }
 
   #guardBookFontResources(book: FoliateBook) {
     // Fixed formats have no reader-font installation and retain their page-source ownership.
     if (book.rendition?.layout === "pre-paginated") return;
-    const prepare = () => {
-      this.#opening.signal.throwIfAborted();
-      if (this.#presentation) this.#presentation = this.#fontPresentation(this.#presentation);
-    };
+    const prepare = async () => { await this.#preparePresentationFonts(); };
     for (const section of book.sections) {
       if (section.load) section.load = guardFontResourceLoad(section.load.bind(section), prepare, this.#opening.signal);
       if (section.loadContent) section.loadContent = guardFontResourceLoad(section.loadContent.bind(section), prepare, this.#opening.signal);
