@@ -44,17 +44,17 @@
       "roman": "roman.ttf",
       "italic": "italic.ttf"
     },
-    "lora": {
+    "cyreal-serif": {
       "id": "lora",
-      "label": "Lora",
-      "family": "Durtal Lora",
+      "label": "Cyreal Serif",
+      "family": "Durtal Cyreal Serif",
       "roman": "roman.ttf",
       "italic": "italic.ttf"
     },
-    "merriweather": {
+    "sorkin-serif": {
       "id": "merriweather",
-      "label": "Merriweather",
-      "family": "Durtal Merriweather",
+      "label": "Sorkin Serif",
+      "family": "Durtal Sorkin Serif",
       "roman": "roman.ttf",
       "italic": "italic.ttf"
     },
@@ -65,10 +65,10 @@
       "roman": "roman.ttf",
       "italic": "italic.ttf"
     },
-    "libre-baskerville": {
+    "baskerville": {
       "id": "baskerville",
-      "label": "Libre Baskerville",
-      "family": "Durtal Libre Baskerville",
+      "label": "Baskerville",
+      "family": "Durtal Baskerville",
       "roman": "roman.ttf",
       "italic": "italic.ttf"
     },

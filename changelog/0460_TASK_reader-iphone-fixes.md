@@ -86,6 +86,12 @@ each one.
   Hyperlegible Next, from the Google Fonts library at commit
   `bd8f81ddb5c74d5c8897b36ad88b440266245103`, hash-pinned in
   `scripts/reader-fonts/upstream-sources.json`.
+- Lora, Merriweather and Libre Baskerville carry a Reserved Font Name, and a
+  subset is a Modified Version under the OFL, so it may not be presented under
+  that name. They ship as Cyreal Serif, Sorkin Serif and Baskerville (after
+  their foundry, their designer and the historical face), in folders of those
+  names; each upstream `OFL.txt` ships unchanged. The stored preference keys
+  stay `lora`, `merriweather` and `baskerville`, so no saved setting changes.
 - `build.py` pins the width axis at 100 (Merriweather), skips a script subset
   a family covers with fewer than 32 characters (that text uses the fallback
   font whole), and writes a name-only preview file per family for the font
@@ -121,3 +127,8 @@ each one.
   tests now assert that a hold leaves selection to the browser.
 - Configuration: `ELEVENLABS_API_KEY`, optional `ELEVENLABS_VOICE_ID` and
   `ELEVENLABS_MODEL_ID` (`docs/13_CONFIGURATION.md`, `.env.example`).
+- From review: a natural-voice sentence's 45 s start deadline now runs only
+  once it is next to play (the player queues the next sentence as soon as the
+  current one starts, so a long sentence used to fail the next one), with a
+  test; `scripts/deploy/mac_release.py` accepts `ELEVENLABS_API_KEY` as a
+  runtime secret and the voice and model as public runtime names.

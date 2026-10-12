@@ -89,7 +89,7 @@ it("reports the actual source limitations without changing the requested control
   );
   expect(readerFontCapabilityNote("publisher", 300)).toBeNull();
   expect(readerFontCapabilityNote("baskerville", 300)).toBe(
-    "Libre Baskerville starts at weight 400. Lower weights use 400.",
+    "Baskerville starts at weight 400. Lower weights use 400.",
   );
   expect(readerFontCapabilityNote("source-serif", 300)).toBeNull();
   for (const family of ["literata", "eb-garamond"])
@@ -110,10 +110,10 @@ const SCRIPTS: Record<string, string[]> = {
   inter: ["latin", "latin-ext", "greek", "greek-ext", "cyrillic", "cyrillic-ext"],
   "source-serif-4": ["latin", "latin-ext", "greek", "cyrillic", "cyrillic-ext"],
   alegreya: ["latin", "latin-ext", "greek", "greek-ext", "cyrillic", "cyrillic-ext"],
-  lora: ["latin", "latin-ext", "cyrillic", "cyrillic-ext"],
-  merriweather: ["latin", "latin-ext", "cyrillic", "cyrillic-ext"],
+  "cyreal-serif": ["latin", "latin-ext", "cyrillic", "cyrillic-ext"],
+  "sorkin-serif": ["latin", "latin-ext", "cyrillic", "cyrillic-ext"],
   newsreader: ["latin", "latin-ext"],
-  "libre-baskerville": ["latin", "latin-ext"],
+  baskerville: ["latin", "latin-ext"],
   "atkinson-hyperlegible": ["latin", "latin-ext"],
 };
 it("exports every versioned face and licence for a complete offline cache", () => {
@@ -133,6 +133,12 @@ it("exports every versioned face and licence for a complete offline cache", () =
     expect(file.path).toBe(
       `/fonts/reader/v1/${file.family}/${file.family}-${file.style}-${file.subset}.woff2`,
     );
+});
+it("never ships a Reserved Font Name as a modified font's name", () => {
+  const reserved = /lora|merriweather|libre.?baskerville/i;
+  for (const font of Object.values(READER_FONTS)) expect(`${font.label} ${font.family}`).not.toMatch(reserved);
+  for (const file of [...READER_FONT_FILES, ...READER_FONT_PREVIEWS])
+    expect(`${file.cssFamily} ${file.path}`).not.toMatch(reserved);
 });
 it("previews each family's name from a small file of only its letters", () => {
   const ids = Object.values(READER_FONTS).filter((font) => font.family).map((font) => font.id);

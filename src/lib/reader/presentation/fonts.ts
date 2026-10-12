@@ -2,7 +2,12 @@ import type { ReaderPresentation } from "@/lib/validations/reader-preferences";
 import fontAssets from "./font-assets.json";
 import fontMetrics from "./font-metrics.json";
 
-/** Shipped weight ranges; publisher fonts and feature declarations remain the book's. */
+/**
+ * Shipped weight ranges; publisher fonts and feature declarations remain the book's.
+ * Lora, Merriweather and Libre Baskerville reserve their names under the OFL, so
+ * their subsets ship as Cyreal Serif, Sorkin Serif and Baskerville; the stored
+ * keys keep their first names.
+ */
 export const READER_FONTS = {
   literata: {
     id: "literata",
@@ -27,8 +32,8 @@ export const READER_FONTS = {
   },
   baskerville: {
     id: "baskerville",
-    label: "Libre Baskerville",
-    family: "Durtal Libre Baskerville",
+    label: "Baskerville",
+    family: "Durtal Baskerville",
     fallback: "Georgia, serif",
     weightRange: [400, 700],
   },
@@ -41,8 +46,8 @@ export const READER_FONTS = {
   },
   lora: {
     id: "lora",
-    label: "Lora",
-    family: "Durtal Lora",
+    label: "Cyreal Serif",
+    family: "Durtal Cyreal Serif",
     fallback: "Georgia, serif",
     weightRange: [400, 700],
   },
@@ -55,8 +60,8 @@ export const READER_FONTS = {
   },
   merriweather: {
     id: "merriweather",
-    label: "Merriweather",
-    family: "Durtal Merriweather",
+    label: "Sorkin Serif",
+    family: "Durtal Sorkin Serif",
     fallback: "Georgia, serif",
     weightRange: [300, 900],
   },

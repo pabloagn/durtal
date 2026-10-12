@@ -37,16 +37,16 @@
       "advanceEm": 0.44440322383757563
     },
     "lora": {
-      "assetPath": "/fonts/reader/v1/lora/lora-roman-latin.woff2",
-      "assetSha256": "a938fd174ce4fe2f7bd10f10387be575f4f27688bc8d62c7be9bcc842d6446f9",
-      "decodedTTFSha256": "f224e5b029b75c8217bf2f3cdb44f1167dd3175e83ab37f646d46d2fa55e5d17",
+      "assetPath": "/fonts/reader/v1/cyreal-serif/cyreal-serif-roman-latin.woff2",
+      "assetSha256": "606164af4a8c8000d0b8e4f51015ad93857f8d52226456130556a19df8675614",
+      "decodedTTFSha256": "80fa40dc324c31e7774a0f8d0fe26c9e597b9663283e584da12b1d0d2689857b",
       "widthPx": 1149.8800048828125,
       "advanceEm": 0.46366129229145664
     },
     "merriweather": {
-      "assetPath": "/fonts/reader/v1/merriweather/merriweather-roman-latin.woff2",
-      "assetSha256": "52a20482542f6bab7a8b980188df92591e29994d3b6ea022e938eab4e06e483b",
-      "decodedTTFSha256": "c6b61141bed67bd634a017fd14225e084829a60e679da8f185edaf236b937c30",
+      "assetPath": "/fonts/reader/v1/sorkin-serif/sorkin-serif-roman-latin.woff2",
+      "assetSha256": "45f06d7a35a02ed62e0935889fd4a7b7c529c7e089539a88818b26b3c057f105",
+      "decodedTTFSha256": "3d3511919c3703745bf19b6173c40af54ae4691d44dbbfbf203b61cd5db35eaf",
       "widthPx": 1157.8399658203125,
       "advanceEm": 0.46687095395980344
     },
@@ -58,9 +58,9 @@
       "advanceEm": 0.4020242014238911
     },
     "baskerville": {
-      "assetPath": "/fonts/reader/v1/libre-baskerville/libre-baskerville-roman-latin.woff2",
-      "assetSha256": "39f7848c7e365aa8175b8c222c101a3519e0610f66245173657ef102d06b095f",
-      "decodedTTFSha256": "642a07b3b0b89186210c9928deb6d04a983ef5368781f1ad8f35792a64443011",
+      "assetPath": "/fonts/reader/v1/baskerville/baskerville-roman-latin.woff2",
+      "assetSha256": "b7e4e3ef50d53af55677027f186d9b8804c55f20bffef492625648495c948aac",
+      "decodedTTFSha256": "c3b5855781c54b607cdd5747d9f71bd1016158acbd8bbe36afbc8a0b7259d762",
       "widthPx": 1268.199951171875,
       "advanceEm": 0.5113709480531754
     },

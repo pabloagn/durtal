@@ -28,6 +28,8 @@ interface Pending {
   rate: number;
   startTimer: ReturnType<typeof setTimeout> | null;
 }
+/** How long the sentence next to play may take to arrive and start */
+const START_DEADLINE_MS = 45_000;
 const key = (token: SpeechToken) => `${token.generation}:${token.utterance}`;
 
 /**
@@ -90,6 +92,18 @@ export function createCloudSpeechSpeaker(options: {
     item.url = null;
   };
 
+  /**
+   * The sentence next to play must be fetched and started in time: an error,
+   * never a silent stall. Only the head of the queue has this deadline; one
+   * waiting behind a playing sentence (queued as soon as it starts) may wait
+   * as long as that sentence reads.
+   */
+  const armHead = () => {
+    const [id, item] = pending.entries().next().value ?? [];
+    if (!id || !item || item.started || item.startTimer) return;
+    item.startTimer = setTimeout(() => fail(id, "synthesis-failed"), START_DEADLINE_MS);
+  };
+
   /** The oldest sentence plays once its audio is here and nothing else plays */
   const advance = () => {
     if (disposed || playing) return;
@@ -132,6 +146,7 @@ export function createCloudSpeechSpeaker(options: {
     release(item);
     pending.delete(id);
     emit({ kind: "ended", token: item.token });
+    armHead();
     advance();
   };
   const onError = () => {
@@ -194,8 +209,7 @@ export function createCloudSpeechSpeaker(options: {
       startTimer: null,
     };
     pending.set(id, item);
-    // A sentence that cannot be fetched and started in time is an error, never a silent stall
-    item.startTimer = setTimeout(() => fail(id, "synthesis-failed"), 45_000);
+    armHead();
     const language =
       command.segment.lang && command.segment.lang !== "und" ? command.segment.lang : bookLanguage;
     const before = previousText;
