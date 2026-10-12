@@ -206,8 +206,8 @@ describe.skipIf(!url)("Fast Track with PostgreSQL", () => {
     expect(saved.editions[0]).toMatchObject({
       ...input.edition,
       title: "Edited title",
-      coverS3Key: expect.stringMatching(/^gold\/covers\/.+\/attempt-/),
-      thumbnailS3Key: expect.stringMatching(/^gold\/covers\/.+\/attempt-/),
+      coverS3Key: expect.stringMatching(/^gold\/media\/edition\/.+\/cover\/attempt-/),
+      thumbnailS3Key: expect.stringMatching(/^gold\/media\/edition\/.+\/cover\/attempt-/),
     });
     expect(await db.select().from(schema.workRecommenders)).toHaveLength(2);
     expect(saved.copies).toEqual([]);

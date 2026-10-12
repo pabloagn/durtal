@@ -10,11 +10,11 @@ const request = () => new Request("http://localhost/api/media/reprocess", { meth
 beforeEach(() => { vi.clearAllMocks(); vi.stubEnv("ADMIN_TOKEN", "disposable-token"); });
 afterEach(() => { vi.unstubAllEnvs(); });
 describe("authorized reprocess cannot overwrite an edition poster alias", () => {
-  it.each(["thumb.webp", "attempt-abc/thumb.webp"])("refuses %s before any storage write/read and reports failure", async suffix => {
+  it.each(["gold/covers/edition/thumb.webp", "gold/covers/edition/attempt-abc/thumb.webp", "gold/media/edition/edition/cover/attempt-abc/thumb.webp"])("refuses %s before any storage write/read and reports failure", async thumbnailS3Key => {
     const bytes = await realCoverBytes();
     const hash = () => createHash("sha256").update(bytes).digest("hex");
     const beforeHash = hash();
-    state.rows = [{ id: "poster", s3Key: "gold/covers/edition/cover.webp", thumbnailS3Key: `gold/covers/edition/${suffix}`, type: "poster" }];
+    state.rows = [{ id: "poster", s3Key: "gold/covers/edition/cover.webp", thumbnailS3Key, type: "poster" }];
     const before = JSON.stringify(state.rows);
     const response = await POST(request());
     expect(await response.json()).toMatchObject({ total: 1, success: 0, failed: 1, errors: [expect.stringContaining("Protected edition cover")] });
