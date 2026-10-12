@@ -577,6 +577,10 @@ function ReaderSession({
       !controllerReadiness.ready,
   });
 
+  useEffect(() => {
+    engineRef.current?.setMarginaliaHidden(bars.visible);
+  }, [bars.visible, relocation]);
+
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenEnabled) return;
     const request = document.fullscreenElement

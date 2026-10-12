@@ -199,6 +199,7 @@ class FoliateEngine implements ReaderEngine {
   #layoutObserver: ResizeObserver | null = null;
   #publisherDeclarations = new WeakMap<CSSStyleDeclaration, Map<string, { value: string; priority: string }>>();
   #marginalia: Marginalia | null = null;
+  #marginaliaHidden = false;
   #annotationResolver: FoliateAnnotationResolver | null = null;
   #decorations: FoliateDecorations | null = null;
   #decorationSets = new Map<string, Decoration[]>();
@@ -1931,11 +1932,16 @@ class FoliateEngine implements ReaderEngine {
     this.#marginalia = lines;
     this.#writeMarginalia();
   }
+  setMarginaliaHidden(hidden: boolean) {
+    this.#marginaliaHidden = hidden;
+    this.#writeMarginalia();
+  }
   #writeMarginalia() {
     const renderer = this.#view?.renderer;
     if (!renderer) return;
     const lines = this.#marginalia;
     const rtl = this.#book?.dir === "rtl";
+    const fade = !matchMedia("(prefers-reduced-motion: reduce)").matches;
     const draw = (
       elements: HTMLElement[] | null | undefined,
       parts: [string, string] | undefined,
@@ -1945,7 +1951,11 @@ class FoliateEngine implements ReaderEngine {
         element.replaceChildren();
         element.style.cssText =
           "display:flex;direction:ltr;justify-content:space-between;gap:12px;overflow:hidden;font:12px Inter,sans-serif;font-variant-numeric:tabular-nums;color:" +
-          (lines?.color ?? this.#presentation?.colors.muted ?? "inherit");
+          (lines?.color ?? this.#presentation?.colors.muted ?? "inherit") +
+          // The glass bars show the same lines; seen through them, these
+          // would cross the bars' own text and the progress slider
+          (this.#marginaliaHidden ? ";opacity:0" : "") +
+          (fade ? ";transition:opacity 200ms" : "");
       }
       if (!parts) return;
       const first = elements[rtl ? elements.length - 1 : 0];
