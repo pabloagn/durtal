@@ -489,6 +489,24 @@ describe.skipIf(!url)("S3 cleanup on delete, with PostgreSQL", () => {
     expect(await db.select().from(schema.imageAdjustments)).toHaveLength(1);
     expect(await db.select().from(schema.authors)).toEqual([]);
   });
+  it("deleting an edition retains its new gold/media cover and its legacy one, referenced or not (SLN-643)", async () => {
+    const w = await work();
+    const [edition] = await db.insert(schema.editions).values({ workId: w.id, title: "Edition" }).returning();
+    const legacy = put(`gold/covers/${edition.id}/cover.webp`);
+    const current = put(`gold/media/edition/${edition.id}/cover/attempt-${randomUUID()}/cover.webp`);
+    const currentThumb = current.replace("/cover.webp", "/thumb.webp");
+    put(currentThumb);
+    // An unpublished attempt the row never stored
+    const unpublished = put(`gold/media/edition/${edition.id}/cover/attempt-${randomUUID()}/cover.webp`);
+    const neighbour = put(`gold/media/work/${w.id}/poster/${randomUUID()}.webp`);
+    await db.update(schema.editions).set({ coverS3Key: current, thumbnailS3Key: currentThumb }).where(eq(schema.editions.id, edition.id));
+
+    expect(await deleteEdition(edition.id)).toEqual({ id: edition.id, cleanupPending: true });
+
+    expect(under(`gold/media/edition/${edition.id}/`).sort()).toEqual([current, currentThumb, unpublished].sort());
+    expect(bucket.objects.has(legacy)).toBe(true);
+    expect(bucket.objects.has(neighbour)).toBe(true);
+  });
   it("ordinary edition deletion cannot discover a fresh unpublished reader namespace", async () => {
     const id = randomUUID(), key = put(`gold/covers/${id}/attempt-new/cover.webp`);
     expect(await deleteEdition(id)).toEqual({ id, cleanupPending: false });

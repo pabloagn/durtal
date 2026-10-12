@@ -17,7 +17,13 @@ import {
   goldCommentAttachmentKey,
   evidenceRawKey,
   evidenceTextKey,
+  goldCoverStageKeys,
+  editionMediaPrefix,
+  isEditionCoverKey,
+  MEDIA_ENTITY_TYPES,
 } from "@/lib/s3/keys";
+import { ownedPrefixes } from "@/lib/s3/cleanup";
+import { coverKeySha256, parseStageKey } from "@/lib/ebooks/keys";
 
 // ── Evidence keys (SLN-468) ─────────────────────────────────────────────────
 
@@ -164,5 +170,76 @@ describe("key format invariants", () => {
     for (const key of allKeys) {
       expect(key).toMatch(/^(bronze|silver|gold)\//);
     }
+  });
+});
+
+// ── Edition covers (SLN-643) ────────────────────────────────────────────────
+
+describe("edition cover keys", () => {
+  const edition = "6f1c2b9e-3a4d-4e5f-8a7b-9c0d1e2f3a4b";
+  const attempt = "0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e";
+
+  it("puts a new attempt in the edition's own gold/media folder, fresh for each attempt", () => {
+    expect(goldCoverStageKeys(edition, attempt)).toEqual({
+      coverKey: `gold/media/edition/${edition}/cover/attempt-${attempt}/cover.webp`,
+      thumbnailKey: `gold/media/edition/${edition}/cover/attempt-${attempt}/thumb.webp`,
+    });
+    expect(goldCoverStageKeys(edition, "other").coverKey).not.toBe(goldCoverStageKeys(edition, attempt).coverKey);
+    expect(editionMediaPrefix(edition)).toBe(`gold/media/edition/${edition}/`);
+  });
+
+  it("refuses an identity that could leave the folder or name another", () => {
+    for (const bad of ["", "a/b", "..", "a b", "a_b", "x".repeat(129)]) {
+      expect(() => goldCoverStageKeys(bad, attempt)).toThrow("Invalid cover stage identity");
+      expect(() => goldCoverStageKeys(edition, bad)).toThrow("Invalid cover stage identity");
+      expect(() => editionMediaPrefix(bad)).toThrow("Invalid cover stage identity");
+    }
+  });
+
+  it("recognises new and every legacy cover, and nothing else", () => {
+    const covers = [
+      goldCoverKey(edition),
+      goldThumbnailKey(edition),
+      `gold/covers/${edition}/attempt-${attempt}/thumb.webp`,
+      goldCoverStageKeys(edition, attempt).coverKey,
+      goldCoverStageKeys(edition, attempt).thumbnailKey,
+      // Anything in an edition's folder is retained, even a shape no writer makes
+      `gold/media/edition/${edition}/cover.webp`,
+      `gold/media/edition/${edition}/../work/x.webp`,
+    ];
+    for (const key of covers) expect(isEditionCoverKey(key), key).toBe(true);
+    const others = [
+      goldMediaKey("work", edition, "poster", "f"),
+      goldMediaThumbnailKey("author", edition, "photo", "f"),
+      `gold/media/editions/${edition}/cover/attempt-${attempt}/cover.webp`,
+      `gold/media/work/edition/${edition}/cover.webp`,
+      `gold/ebooks/epub/aa/${"a".repeat(64)}/cover-400.webp`,
+      `derived/${"a".repeat(64)}/cover-400.webp`,
+      bronzeCoverKey(edition, "jpg"),
+      silverCoverKey(edition, "png"),
+      goldCommentAttachmentKey("work", edition, "c", "f", "pdf"),
+      `/gold/covers/${edition}/cover.webp`,
+      "gold/mediaedition/x",
+    ];
+    for (const key of others) expect(isEditionCoverKey(key), key).toBe(false);
+  });
+
+  it("keeps the edition folder apart from every image owner's", () => {
+    expect(MEDIA_ENTITY_TYPES).not.toContain("edition");
+    expect(ownedPrefixes.edition(edition)).toEqual([
+      `gold/media/edition/${edition}/`,
+      `gold/covers/${edition}/`,
+      `silver/covers/${edition}/`,
+      `bronze/covers/${edition}/`,
+    ]);
+    for (const type of MEDIA_ENTITY_TYPES)
+      for (const prefix of ownedPrefixes[type](edition))
+        expect(prefix.startsWith("gold/media/edition/")).toBe(false);
+  });
+
+  it("is not an e-book delivery key", () => {
+    const { coverKey } = goldCoverStageKeys(edition, attempt);
+    expect(coverKeySha256(coverKey)).toBeNull();
+    expect(parseStageKey(coverKey)).toBeNull();
   });
 });

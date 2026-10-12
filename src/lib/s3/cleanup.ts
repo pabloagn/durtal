@@ -11,7 +11,7 @@ import {
   media,
   perfumeVariants,
 } from "@/lib/db/schema";
-import { isEditionCoverKey } from "./keys";
+import { EDITION_MEDIA_PREFIX, LEGACY_COVER_PREFIX, isEditionCoverKey } from "./keys";
 import { s3, S3_BUCKET } from "./client";
 import { previewDeleteMany, previewList, previewS3Dir } from "./preview-dir";
 
@@ -75,8 +75,10 @@ export const ownedPrefixes = {
     `gold/media/perfume_variant/${id}/`,
     `bronze/media/perfume_variant/${id}/`,
   ],
+  // Its covers: new attempts under gold/media (SLN-643), older ones under gold/covers
   edition: (id: string) => [
-    `gold/covers/${id}/`,
+    `${EDITION_MEDIA_PREFIX}${id}/`,
+    `${LEGACY_COVER_PREFIX}${id}/`,
     `silver/covers/${id}/`,
     `bronze/covers/${id}/`,
   ],

@@ -59,18 +59,42 @@ export function goldThumbnailKey(editionId: string) {
   return `gold/covers/${editionId}/thumb.webp`;
 }
 
+/**
+ * New edition cover attempts (SLN-643) live under gold/media, in a folder the
+ * edition owns: gold/media/edition/{editionId}/cover/attempt-{attemptId}/.
+ * "edition" is never an image owner (MEDIA_ENTITY_TYPES), so no other record's
+ * images share it. Older covers stay where they are, under gold/covers/, and
+ * keep working: rows store the full key.
+ */
+export const EDITION_MEDIA_PREFIX = "gold/media/edition/";
+/** Covers written before SLN-643: deterministic and immutable-attempt keys alike. */
+export const LEGACY_COVER_PREFIX = "gold/covers/";
+
+const COVER_IDENTITY = /^[a-zA-Z0-9-]{1,128}$/;
+
+/** The edition's own folder under gold/media, for its inventory. */
+export function editionMediaPrefix(editionId: string) {
+  if (!COVER_IDENTITY.test(editionId)) throw new Error("Invalid cover stage identity");
+  return `${EDITION_MEDIA_PREFIX}${editionId}/`;
+}
+
 /** Fresh immutable catalogue cover attempt; legacy key helpers remain read-compatible. */
 export function goldCoverStageKeys(editionId: string, attemptId: string) {
   for (const value of [editionId, attemptId])
-    if (!/^[a-zA-Z0-9-]{1,128}$/.test(value))
+    if (!COVER_IDENTITY.test(value))
       throw new Error("Invalid cover stage identity");
-  const prefix = `gold/covers/${editionId}/attempt-${attemptId}/`;
+  const prefix = `${editionMediaPrefix(editionId)}cover/attempt-${attemptId}/`;
   return { coverKey: `${prefix}cover.webp`, thumbnailKey: `${prefix}thumb.webp` };
 }
 
-/** Includes deterministic legacy objects and every immutable attempt. */
+/**
+ * Whether a key is (or may be) an edition cover: every legacy gold/covers key
+ * and anything in an edition's gold/media folder. It is deliberately broad
+ * there, since a cover it recognises is retained and never reprocessed;
+ * other records' images and e-book files are not covers.
+ */
 export function isEditionCoverKey(key: string): boolean {
-  return key.startsWith("gold/covers/");
+  return key.startsWith(LEGACY_COVER_PREFIX) || key.startsWith(EDITION_MEDIA_PREFIX);
 }
 
 export function goldExportKey(exportId: string) {
