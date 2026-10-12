@@ -126,3 +126,9 @@ enrichment-report.md
 
 # Local e-book source files
 /ingestions/
+
+# Written by scripts/prepare-offline.mjs on every build (release checks expect them absent)
+/public/icons/durtal-192.png
+/public/icons/durtal-512.png
+/public/icons/durtal-maskable-512.png
+/public/offline-assets.json
