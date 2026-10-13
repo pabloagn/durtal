@@ -356,6 +356,16 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
     // Removing a volume updates the authors: none is stored on the series
     await removeWorkFromSeries(s.id, three.id);
     expect((await getSeriesDetail(s.id))!.authors.map((a) => a.name)).toEqual(["Karl Ove Knausgård"]);
+
+    // Equal volumes keep the books' credit order, not the alphabet
+    const pair = await make("Capitalism and Schizophrenia");
+    const [deleuze, guattari] = await db
+      .insert(schema.authors)
+      .values([{ name: "Gilles Deleuze" }, { name: "Félix Guattari" }])
+      .returning();
+    await volume("Anti-Oedipus", pair.id, [deleuze.id, "author"], [guattari.id, "co_author"]);
+    await volume("A Thousand Plateaus", pair.id, [deleuze.id, "author"], [guattari.id, "co_author"]);
+    expect((await getSeriesDetail(pair.id))!.authors.map((a) => a.name)).toEqual(["Gilles Deleuze", "Félix Guattari"]);
   });
   it("counts Accessioned volumes by catalogue status, the same in the list and the detail (SLN-635)", async () => {
     const s = await make("My Struggle");

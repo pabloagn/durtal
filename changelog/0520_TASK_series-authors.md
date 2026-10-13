@@ -16,7 +16,7 @@ SLN-636. A series named no author: My Struggle did not say it was Karl Ove Knaus
 - The authors are read from the series' books, with no new table. The coordinator ruled out a migration for now: migrations from 0089 on have no path to the live database yet.
 - `getSeriesAuthors` (`src/lib/actions/series.ts`) reads, in one query for any number of series:
   - only people credited as writer or co-author of a volume (`work_authors` with `WORK_AUTHOR_ROLES`), so a translator or editor (an edition credit) never becomes a series author;
-  - each person once, the one with most volumes first, then by name.
+  - each person once, the one with most volumes first, then in the books' credit order (Deleuze before Guattari), then by name.
 - `getSeriesDetail` returns `authors` (id, name, slug, volumes). `getSeriesList` returns each row's author names.
 - The series header shows them under the original title. A name links to `/people/[slug]`; a person with no slug is plain text. The cards show the names under the title, wrapped in full; a list row shows them on one line, cut like its title. They are not links, since the whole card or row is one.
 - `docs/04_ROUTES_AND_VIEWS.md`: the Series and Series detail sections.

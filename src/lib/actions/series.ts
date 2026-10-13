@@ -47,7 +47,8 @@ export interface SeriesAuthor {
  * Each series' authors, read from its books (SLN-636): the people credited
  * as writer or co-author of a volume, never a translator or editor (those
  * credits are on editions). Each person once, the one with most volumes
- * first, then by name. A series with no books has none.
+ * first, then in the books' credit order (Deleuze before Guattari), then by
+ * name. A series with no books has none.
  */
 async function getSeriesAuthors(ids: string[]): Promise<Map<string, SeriesAuthor[]>> {
   const bySeries = new Map<string, SeriesAuthor[]>(ids.map((id) => [id, []]));
@@ -61,7 +62,7 @@ async function getSeriesAuthors(ids: string[]): Promise<Map<string, SeriesAuthor
       join authors a on a.id = wa.author_id
       where w.kind = 'book' and w.series_id = any(${uuidArray(ids)})
       group by w.series_id, a.id, a.name, a.slug
-      order by w.series_id, books desc, lower(a.name), a.id`),
+      order by w.series_id, books desc, min(wa.sort_order), lower(a.name), a.id`),
   );
   for (const { seriesId, ...author } of found) bySeries.get(seriesId)?.push(author);
   return bySeries;
