@@ -149,7 +149,7 @@ export function ReaderSidePanel({
         <h2 id={titleId} className="type-item-title min-w-0">
           {title}
         </h2>
-        <CapAligned height={32} coarseHeight={44}>
+        <CapAligned height={28} coarseHeight={44}>
           <button
             type="button"
             onClick={onClose}

@@ -1619,37 +1619,41 @@ function ReaderSession({
       <ReaderNotice bridge={bridge}>
         {notice ??
           (offer && file ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-start gap-2">
+              {/* Padded to the buttons' height, so a wrapped line keeps its first line centred on them;
+                  on a phone the buttons take a row of their own, on the right. */}
+              <p className="min-w-0 flex-1 basis-64 py-1 [@media(pointer:coarse)]:py-2.5">
                 {resumeNoticeText(offer, file.id, relocation?.locator ?? null)}
               </p>
-              <button
-                type="button"
-                aria-label="Go to the newer place"
-                data-tooltip="Go to the newer place"
-                className="h-8 rounded-sm px-2 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11"
-                onClick={() => goToPlace(offer)}
-              >
-                Go there
-              </button>
-              {furthest && <button
-                type="button"
-                aria-label={`Go to your furthest place, ${resumePlaceLabel(furthest, file.id)} on ${furthest.deviceLabel}`}
-                data-tooltip="Go to your furthest place"
-                className="h-8 rounded-sm px-2 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11"
-                onClick={() => goToPlace(furthest)}
-              >
-                Furthest
-              </button>}
-              <button
-                type="button"
-                aria-label="Stay at this place"
-                data-tooltip="Stay at this place"
-                className="h-8 rounded-sm px-2 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11"
-                onClick={() => syncRef.current?.dismiss()}
-              >
-                Stay
-              </button>
+              <div className="ml-auto flex gap-2">
+                <button
+                  type="button"
+                  aria-label="Go to the newer place"
+                  data-tooltip="Go to the newer place"
+                  className="h-8 rounded-sm px-2 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11"
+                  onClick={() => goToPlace(offer)}
+                >
+                  Go there
+                </button>
+                {furthest && <button
+                  type="button"
+                  aria-label={`Go to your furthest place, ${resumePlaceLabel(furthest, file.id)} on ${furthest.deviceLabel}`}
+                  data-tooltip="Go to your furthest place"
+                  className="h-8 rounded-sm px-2 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11"
+                  onClick={() => goToPlace(furthest)}
+                >
+                  Furthest
+                </button>}
+                <button
+                  type="button"
+                  aria-label="Stay at this place"
+                  data-tooltip="Stay at this place"
+                  className="h-8 rounded-sm px-2 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11"
+                  onClick={() => syncRef.current?.dismiss()}
+                >
+                  Stay
+                </button>
+              </div>
             </div>
           ) : null)}
       </ReaderNotice>
