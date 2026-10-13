@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -10,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TitleInput } from "@/components/shared/title-input";
+import { OpenWorkLink } from "@/components/shared/open-work-link";
 import { CatalogueDateField } from "@/components/shared/catalogue-date-field";
 import { TermListField, type TermEntry } from "@/components/catalogue/record-fields";
 import { createFilm, findFilmsByTitle, updateFilm } from "@/lib/actions/films";
@@ -28,6 +28,7 @@ import {
   type FilmCreditEntry,
 } from "./film-fields";
 import { filmDirectors, filmHref, type FilmCardData } from "./film-card";
+import { FilmPoster } from "./film-poster";
 
 /** The identity of a stored film, as the edit form starts from it */
 export interface EditableFilm {
@@ -79,9 +80,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 /**
  * Films already in the catalogue under the title being typed. A remake is
  * a new film, so the form goes on; a cut of the same film is a version of
- * it, added on its page.
+ * it, added on its page. Either link leaves the form: when more than the
+ * title has been entered, it asks first.
  */
-function SameTitle({ title }: { title: string }) {
+function SameTitle({ title, dirty }: { title: string; dirty: boolean }) {
   const [matches, setMatches] = useState<FilmCardData[]>([]);
   useEffect(() => {
     const name = title.trim();
@@ -101,35 +103,46 @@ function SameTitle({ title }: { title: string }) {
   return (
     <div
       role="status"
-      className="space-y-2 rounded-sm border border-accent-gold/20 bg-accent-gold/5 px-3 py-2.5 text-sm"
+      className="space-y-3 rounded-sm border border-accent-gold/20 bg-accent-gold/5 px-3 py-2.5 text-sm"
     >
       <p className="text-fg-primary">
         {matches.length === 1
           ? "A film with this title is already in the catalogue."
           : "Films with this title are already in the catalogue."}
       </p>
-      <ul className="space-y-1">
-        {matches.map((film) => (
-          <li key={film.id} className="text-fg-secondary">
-            <Link
-              href={filmHref(film)}
-              className="text-fg-primary transition-colors hover:text-accent-primary"
-            >
-              {film.title}
-            </Link>
-            {[catalogueDateYears(film.releaseDate), filmDirectors(film)]
-              .filter(Boolean)
-              .map((part) => ` · ${part}`)
-              .join("")}
-            {" · "}
-            <Link
-              href={`${filmHref(film)}?add=version`}
-              className="text-accent-primary transition-colors hover:text-fg-primary"
-            >
-              Add a version to it
-            </Link>
-          </li>
-        ))}
+      <ul className="space-y-3">
+        {matches.map((film) => {
+          const facts = [catalogueDateYears(film.releaseDate), filmDirectors(film)]
+            .filter(Boolean)
+            .join(" · ");
+          return (
+            <li key={film.id} className="flex gap-3">
+              <FilmPoster
+                image={film.poster}
+                title={film.title}
+                small
+                className="w-12 shrink-0 self-start rounded-sm"
+              />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div>
+                  <p className="type-item-title [overflow-wrap:anywhere]">{film.title}</p>
+                  {facts && (
+                    <p className="mt-0.5 text-fg-secondary [overflow-wrap:anywhere]">{facts}</p>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <OpenWorkLink href={filmHref(film)} label="Open this film" dirty={dirty} />
+                  <OpenWorkLink
+                    href={`${filmHref(film)}?add=version`}
+                    label="Add a version to it"
+                    dirty={dirty}
+                    variant="ghost"
+                  />
+                </div>
+              </div>
+            </li>
+          );
+        })}
       </ul>
       <p className="text-xs text-fg-secondary">
         A remake or another film with the same title is a new film: go on
@@ -230,7 +243,21 @@ export function FilmForm(props: Props) {
           maxLength={500}
           required
         />
-        {props.mode === "create" && <SameTitle title={title} />}
+        {props.mode === "create" && (
+          <SameTitle
+            title={title}
+            dirty={
+              !!originalTitle.trim() ||
+              !!description.trim() ||
+              !!release ||
+              countries.length > 0 ||
+              languages.length > 0 ||
+              companies.length > 0 ||
+              credits.length > 0 ||
+              genres.length > 0
+            }
+          />
+        )}
         <Input
           label="Original title"
           value={originalTitle}
