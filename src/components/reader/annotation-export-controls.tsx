@@ -7,7 +7,40 @@ import {
   annotationsToW3C,
   annotationExportFilename,
   type AnnotationExportBook,
+  type AnnotationExportInput,
 } from "@/lib/reader/export";
+export type AnnotationExportFormat = "markdown" | "w3c";
+
+/**
+ * Saves the marks as a Markdown or W3C Web Annotation file, built here in the
+ * browser so it works offline. Returns the object URL, revoked after 30s.
+ */
+export function downloadAnnotationExport(
+  value: AnnotationExportInput,
+  format: AnnotationExportFormat,
+): string {
+  const text =
+    format === "markdown"
+      ? annotationsToMarkdown(value)
+      : JSON.stringify(annotationsToW3C(value), null, 2) + "\n";
+  const url = URL.createObjectURL(
+    new Blob([text], {
+      type:
+        format === "markdown"
+          ? "text/markdown;charset=utf-8"
+          : "application/ld+json;charset=utf-8",
+    }),
+  );
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = annotationExportFilename(value.book.title, format);
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  return url;
+}
+
 export function AnnotationExportControls({
   book,
   annotations,
@@ -28,31 +61,10 @@ export function AnnotationExportControls({
     annotations,
     exportedAt: new Date().toISOString(),
   });
-  const download = (format: "markdown" | "w3c") => {
-    const value = input();
-    const text =
-      format === "markdown"
-        ? annotationsToMarkdown(value)
-        : JSON.stringify(annotationsToW3C(value), null, 2) + "\n";
-    const url = URL.createObjectURL(
-      new Blob([text], {
-        type:
-          format === "markdown"
-            ? "text/markdown;charset=utf-8"
-            : "application/ld+json;charset=utf-8",
-      }),
-    );
+  const download = (format: AnnotationExportFormat) => {
+    const url = downloadAnnotationExport(input(), format);
     urls.current.add(url);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = annotationExportFilename(book.title, format);
-    document.body.append(link);
-    link.click();
-    link.remove();
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-      urls.current.delete(url);
-    }, 30_000);
+    setTimeout(() => urls.current.delete(url), 30_000);
   };
   return (
     <div className="flex flex-wrap gap-2">

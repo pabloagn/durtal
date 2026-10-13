@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import {
+  getEbookMarkCounts,
   getHighlightBooks,
   getHighlightGroups,
   getHighlightSummary,
@@ -146,5 +147,12 @@ describe.skipIf(!url)("the all-highlights queries", () => {
       expect.objectContaining({ marks: 1 }),
       expect.objectContaining({ marks: 1 }),
     ]);
+  });
+
+  it("counts one book's live highlights, notes and bookmarks for its page", async () => {
+    expect(await getEbookMarkCounts(rebours.id, database!)).toEqual({ highlights: MARKS_PER_GROUP + 3, notes: 1, bookmarks: 0 });
+    expect(await getEbookMarkCounts(cathedrale.id, database!)).toEqual({ highlights: 0, notes: 0, bookmarks: 1 });
+    // The deleted mark does not count
+    expect(await getEbookMarkCounts(labas.id, database!)).toEqual({ highlights: 1, notes: 0, bookmarks: 0 });
   });
 });

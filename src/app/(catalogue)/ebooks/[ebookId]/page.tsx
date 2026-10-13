@@ -34,7 +34,11 @@ import { EbookCover } from "@/components/ebooks/ebook-card";
 import { EbookLinkPanel } from "@/components/ebooks/ebook-link-panel";
 import { EbookFilesTable } from "@/components/ebooks/ebook-files-table";
 import { EbookPlaces } from "@/components/ebooks/ebook-places";
+import { EbookMarksExport } from "@/components/ebooks/ebook-marks-export";
+import { getEbookMarkCounts } from "@/lib/ebooks/highlights";
 type Props = { params: Promise<{ ebookId: string }> };
+const plural = (count: number, word: string) =>
+  `${count} ${word}${count === 1 ? "" : "s"}`;
 const load = cache(async (id: string) =>
   isUuid(id) ? getEbookDetail(id.toLowerCase()) : null,
 );
@@ -46,6 +50,8 @@ export default async function EbookPage({ params }: Props) {
   // proxy returns 400 for malformed ids before page or metadata can query.
   const ebook = await load((await params).ebookId);
   if (!ebook) notFound();
+  const marks = await getEbookMarkCounts(ebook.id);
+  const markTotal = marks.highlights + marks.bookmarks;
   const device = (await cookies()).get(DEVICE_COOKIE)?.value;
   const descriptor = continueTarget({
     ebookId: ebook.id,
@@ -202,6 +208,26 @@ export default async function EbookPage({ params }: Props) {
           <section className="mb-8">
             <SectionHeading title="About this eBook" />
             <Prose html={sanitizeHtml(ebook.description)} />
+          </section>
+        )}
+        {markTotal > 0 && (
+          <section className="mb-8">
+            <SectionHeading title="Highlights and notes" />
+            <p className="mb-3 text-sm text-fg-secondary">
+              <Link
+                href={`/ebooks/highlights?ebook=${ebook.id}`}
+                className="text-fg-primary transition-colors hover:text-accent-primary"
+              >
+                {[
+                  plural(marks.highlights, "highlight"),
+                  plural(marks.notes, "note"),
+                  plural(marks.bookmarks, "bookmark"),
+                ].join(" · ")}
+              </Link>
+            </p>
+            <EbookMarksExport
+              book={{ id: ebook.id, title: ebook.title, authors: ebook.authors }}
+            />
           </section>
         )}
         <section className="mb-8">
