@@ -88,7 +88,7 @@ export function ColumnConfigDialog({
                 draggable
                 onDragStart={() => handleDragStart(idx)}
                 onDragOver={(e) => handleDragOver(e, idx)}
-                className={`flex cursor-grab items-center gap-2 rounded-sm px-2 py-1.5 transition-colors ${
+                className={`flex cursor-grab items-center gap-2 rounded-sm px-2 py-1.5 transition-colors pointer-coarse:py-0 ${
                   dragIndex === idx ? "bg-bg-tertiary" : "hover:bg-bg-primary"
                 }`}
               >
@@ -103,7 +103,7 @@ export function ColumnConfigDialog({
                   aria-label={`${col.visible ? "Hide" : "Show"} ${def.label}`}
                   data-tooltip={`${col.visible ? "Hide" : "Show"} ${def.label}`}
                   onClick={() => toggleVisibility(col.key)}
-                  className="text-fg-muted hover:text-fg-secondary"
+                  className="flex shrink-0 items-center justify-center text-fg-muted hover:text-fg-secondary pointer-coarse:-mr-2 pointer-coarse:size-11"
                 >
                   {col.visible ? (
                     <Eye className="h-3.5 w-3.5" strokeWidth={1.5} />

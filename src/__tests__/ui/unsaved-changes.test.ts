@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { act, createElement, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Dialog } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { draftState } from "@/lib/ui/draft-tracker";
 import { hasOpenSurface } from "@/lib/ui/surface-state";
@@ -198,6 +199,29 @@ describe("a dialog with a draft", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it("asks when only a date was picked", () => {
+    const onClose = vi.fn();
+    function EditionDialog() {
+      const [day, setDay] = useState("");
+      return createElement(
+        Dialog,
+        { open: true, onClose, title: "Edit edition", draft: true, children: null },
+        createElement(DatePicker, { label: "Publication date", id: "published", value: day, onChange: setDay }),
+        // What the calendar does with a day
+        createElement("button", { type: "button", id: "day", onClick: () => setDay("2026-10-07") }, "7"),
+      );
+    }
+    act(() => root.render(createElement(EditionDialog)));
+    const day = document.getElementById("day")!;
+    act(() => {
+      day.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    });
+    click(day);
+    escape(document.getElementById("published")!);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(prompt()).not.toBeNull();
+  });
+
   it("leaves an Esc that ends an input method's composition alone", () => {
     const { onClose, notes } = renderEdit();
     type(notes, "かな");
@@ -308,11 +332,13 @@ describe("draftState", () => {
       <button role="switch" aria-checked="true"></button>
       <button aria-label="Remove Borges"></button>
       <div role="combobox">Spanish</div>
+      <button data-draft-value="2026-10-07">2026-10-07</button>
       <input type="search" value="ignored">
       <div role="listbox"><input value="ignored"></div>
       <input data-draft-ignore value="ignored">`;
     expect(draftState(div).split("\u0000")).toEqual([
       "input:a", "TEXTAREA:b", "checkbox:true", "switch:true", "chip:Remove Borges", "choice:Spanish",
+      "value:2026-10-07",
     ]);
   });
 });

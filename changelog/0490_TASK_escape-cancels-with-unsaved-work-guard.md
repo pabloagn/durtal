@@ -22,7 +22,8 @@ One mechanism, shared by every surface:
 
 - `src/lib/ui/draft-tracker.ts`: unsaved work read from the form itself.
   - It reads field values, switches, radios, sliders, a select's shown
-    choice and the chips with Remove.
+    choice, the chips with Remove, and the day a date picker shows
+    (`data-draft-value`).
   - The state is noted at the person's first act in the form (a press, a
     key, a paste or a drop). Values a form loads by itself are not their
     work, and a change put back is no change.
@@ -69,7 +70,8 @@ Wired in:
   shared form footers (reading dialogs, author form, edition form, work form)
   carry it too. Reorder families compares the order itself.
 - Configure columns is a `Dialog` now, so Esc closes it. Before, it was a
-  fixed overlay with no keyboard close.
+  fixed overlay with no keyboard close. Its Hide and Show buttons are 44 px
+  on touch.
 - Page editors: perfume notes, your notes, an edition's publishers,
   acquisition targets.
 - The order panel on Provenance: Esc closes the status list, then the delete
