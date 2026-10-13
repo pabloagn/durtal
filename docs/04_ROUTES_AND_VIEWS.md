@@ -551,7 +551,7 @@ Multi-step wizard that creates a work + edition + instance(s) in one pass.
 
 **Step 2 — Work Confirmation**:
 - If a matching work already exists (by ISBN or title+author): prompt "Add a new edition to existing work [title]?" or "Create as new work?"
-- The prompt shows the work's cover (its poster, else its first edition's cover, as on its library card) and "Open this work", which goes to its page (SLN-667). When something was entered in a step, the first click asks ("What you entered is not saved.": Discard and open, Keep editing); a picked search result alone opens at once.
+- The prompt shows the work's cover (its poster, else its first edition's cover, as on its library card) and "Open this work", which goes to its page (SLN-667). When something was entered in a step, the click asks first, as every link away from unsaved work does (Unsaved changes: Discard, Keep editing; SLN-631); a picked search result alone opens at once.
 - On the Edition step, an ISBN that another edition already has is refused with "Open that book" under the field, which asks the same way.
 - Prevents duplicate work creation
 

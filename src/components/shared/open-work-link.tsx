@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Button, buttonClass } from "@/components/ui/button";
+import { buttonClass } from "@/components/ui/button";
 
 /**
  * A link out of an add form to a work already in the catalogue (SLN-667).
  * Nothing is saved before the form's own save, so when the form holds what
- * the person entered, the first click asks before leaving it behind.
- * SLN-631's shared unsaved-changes guard replaces this question.
+ * the person entered, the form's unsaved-work guard (SLN-631) asks Save,
+ * Discard or Keep editing before the link leaves it. What the form does not
+ * count as entered (a search result picked, a film's title typed to find
+ * it) is no reason to ask: the link then opens at once.
  */
 export function OpenWorkLink({
   href,
@@ -22,54 +23,9 @@ export function OpenWorkLink({
   dirty: boolean;
   variant?: "primary" | "secondary" | "ghost";
 }) {
-  const [asking, setAsking] = useState(false);
-  const link = useRef<HTMLAnchorElement>(null);
-  // "Keep editing" hands focus back to the link it replaced
-  const returning = useRef(false);
-  useEffect(() => {
-    if (asking || !returning.current) return;
-    returning.current = false;
-    link.current?.focus();
-  }, [asking]);
-  const keepEditing = () => {
-    returning.current = true;
-    setAsking(false);
-  };
-  if (!asking || !dirty)
-    return (
-      <Link
-        ref={link}
-        href={href}
-        className={buttonClass(variant)}
-        onClick={(event) => {
-          if (!dirty || event.metaKey || event.ctrlKey || event.shiftKey) return;
-          event.preventDefault();
-          setAsking(true);
-        }}
-      >
-        {label}
-      </Link>
-    );
   return (
-    <span
-      role="group"
-      aria-label="Leave this form?"
-      className="inline-flex flex-wrap items-center gap-3"
-      onKeyDown={(event) => {
-        if (event.key !== "Escape") return;
-        // Handled: the page's own Esc (SLN-631) leaves this key alone
-        event.preventDefault();
-        event.stopPropagation();
-        keepEditing();
-      }}
-    >
-      <span className="text-xs text-fg-secondary">What you entered is not saved.</span>
-      <Link href={href} className={buttonClass("danger")}>
-        Discard and open
-      </Link>
-      <Button variant="ghost" autoFocus onClick={keepEditing}>
-        Keep editing
-      </Button>
-    </span>
+    <Link href={href} className={buttonClass(variant)} data-leave={dirty ? undefined : "free"}>
+      {label}
+    </Link>
   );
 }

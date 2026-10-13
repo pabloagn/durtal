@@ -273,20 +273,21 @@ export function AddBookWizard({
     else router.push("/library");
   }
 
-  // Esc cancels too; with unsaved work, Esc and Cancel ask first. Save is
-  // Fast Track on the work's step and "Add to catalogue" on the review,
-  // the two places a book is saved from (Enter there does the same)
+  // Esc cancels too; with unsaved work, Esc and Cancel ask first. Save adds
+  // the book as it stands: Fast Track on the work's step, as Enter there
+  // does, else "Add to catalogue" with what the steps hold so far. A new
+  // work needs its title and author first.
   const root = useRef<HTMLDivElement>(null);
-  const canFastTrack = !existingWorkId && !!work.title.trim() && !!work.authorName.trim();
+  const canSave = !!existingWorkId || (!!work.title.trim() && !!work.authorName.trim());
   const unsavedPrompt = useEscapeToCancel({
     root,
     cancel,
     enabled: !fastTrackSaving && !isPending,
     dirty: touched && draft !== startingPoint,
     save:
-      step === "details" && canFastTrack ? handleFastTrack
-      : step === "confirm" ? handleSubmit
-      : null,
+      !canSave || step === "search" || step === "duplicate" ? null
+      : step === "details" && !existingWorkId ? handleFastTrack
+      : handleSubmit,
   });
 
   // In a footer, `mr-auto` keeps Cancel beside Back when the row wraps

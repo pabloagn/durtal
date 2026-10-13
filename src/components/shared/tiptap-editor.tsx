@@ -6,7 +6,8 @@ import StarterKit, { type StarterKitOptions } from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Bold, Italic, List, ListOrdered, Quote, Link as LinkIcon } from "lucide-react";
-import { passEscapeThrough } from "@/lib/ui/surface-state";
+import { passEscapeThrough, passSaveThrough } from "@/lib/ui/surface-state";
+import { isMacPlatform } from "@/lib/shortcuts/shortcuts";
 
 /*
  * The rich text field for reviews and notes (SLN-447): bold, italic, link,
@@ -137,8 +138,15 @@ export function TiptapEditor({
 
   const is = (name: string) => editor?.isActive(name) ?? false;
   return (
-    // Esc in the text closes the dialog or page around it (SLN-631)
-    <div className={className} onKeyDownCapture={(e) => passEscapeThrough(e.nativeEvent)}>
+    // Esc in the text closes the dialog or page around it, and ⌘Enter
+    // saves a dialog (SLN-631)
+    <div
+      className={className}
+      onKeyDownCapture={(e) => {
+        passEscapeThrough(e.nativeEvent);
+        if (e.currentTarget.closest("dialog")) passSaveThrough(e.nativeEvent, isMacPlatform());
+      }}
+    >
       {!hideLabel && (
         <label htmlFor={id} className="type-label mb-1.5 block">
           {label}
