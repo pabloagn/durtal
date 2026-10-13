@@ -13,9 +13,11 @@ export const uploadJson = (status: number, body: unknown) => NextResponse.json(b
  */
 export function uploadAccess(req: NextRequest): { channel: "ui" | "api" } | NextResponse {
   const denied = crossOriginRefusal(req); if (denied) return denied;
-  const site = req.headers.get("sec-fetch-site"); const origin = req.headers.get("origin");
-  if (origin && origin !== req.nextUrl.origin) return uploadJson(403, { error: "Refused: the request comes from another origin." });
-  const browser = site === "same-origin" || origin === req.nextUrl.origin;
+  // The refusal above already matched Origin to Host when no Sec-Fetch-Site came.
+  // Never compare with req.nextUrl.origin: the standalone server sees itself as
+  // localhost whatever address the browser used (SLN-671).
+  const site = req.headers.get("sec-fetch-site");
+  const browser = site === "same-origin" || (!site && req.headers.has("origin"));
   if (!browser || req.headers.has("authorization")) {
     const refused = requireApiToken(req); if (refused) return refused;
     return { channel: "api" };
