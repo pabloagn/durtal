@@ -68,7 +68,8 @@ const haystack = sql`search_normalize(${series.title} || ' ' || coalesce(${serie
 const bookCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id")`;
 /** Volumes with a finished reading: a volume being re-read counts as read (SLN-449) */
 const readCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id" and exists (select 1 from readings r where r.work_id = w.id and r.status = 'finished'))`;
-const ownedCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id" and exists (select 1 from editions e join instances i on i.edition_id = e.id where e.work_id = w.id and i.status <> 'deaccessioned'))`;
+/** Volumes whose catalogue status is Accessioned, each once (SLN-635) */
+const accessionedCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id" and w.catalogue_status = 'accessioned')`;
 
 const listSchema = z.object({
   search: z.string().max(200).optional(),
@@ -112,7 +113,7 @@ export async function getSeriesList(options: z.input<typeof listSchema> = {}) {
         isFavourite: series.isFavourite,
         createdAt: series.createdAt,
         bookCount,
-        ownedCount,
+        accessionedCount,
         readCount,
       })
       .from(series)
@@ -173,7 +174,6 @@ export async function getSeriesDetail(id: string) {
               publicationYear: true,
               language: true,
             },
-            with: { instances: { columns: { id: true, status: true } } },
             limit: 1,
           },
           media: {

@@ -40,8 +40,9 @@ export interface SeriesBook {
   position: string | null;
   cover: string | null;
   coverCrop: MediaCrop | null;
-  owned: boolean;
+  /** The canonical catalogue status, as STATUS_CONFIG labels it */
   status: string;
+  statusVariant: "muted" | "blue" | "gold" | "accent" | "sage" | "red";
   ebook?: WorkEbookDTO | null;
   readerReturnTo?: string;
   /** The volume's reading state (SLN-449) and the open reading's share */
@@ -159,11 +160,7 @@ export function SeriesBooks({
               </Link>
               <CapAligned height={32}>
                 <div className="flex h-8 items-center gap-3 font-sans text-sm">
-                  {book.owned ? (
-                    <Badge variant="sage">Owned</Badge>
-                  ) : (
-                    <Badge variant="muted">{book.status}</Badge>
-                  )}
+                  <Badge variant={book.statusVariant}>{book.status}</Badge>
                   {/* Under sm the row has no room: the badge moves to the author line */}
                   {badge(book) && (
                     <span className="hidden sm:inline-flex">

@@ -50,7 +50,7 @@ export default async function SeriesDetailPage({
 
   const digital = await catalogueAvailability(s.works.map((work) => work.id));
   const digitalCount = [...digital.values()].filter((value) => value.read).length;
-  const books: SeriesBook[] = s.works.map((w) => {
+  const books: (SeriesBook & { accessioned: boolean })[] = s.works.map((w) => {
     const poster = w.media?.find((m) => m.type === "poster" && m.isActive);
     return {
       id: w.id,
@@ -66,18 +66,19 @@ export default async function SeriesDetailPage({
         w.editions[0]?.thumbnailS3Key ??
         null,
       coverCrop: poster ? mediaCrop(poster) : null,
-      owned: w.editions.some((e) =>
-        e.instances.some((i) => i.status !== "deaccessioned"),
-      ),
+      accessioned: w.catalogueStatus === "accessioned",
       status:
         STATUS_CONFIG[w.catalogueStatus as CatalogueStatus]?.label ??
         w.catalogueStatus,
+      statusVariant:
+        STATUS_CONFIG[w.catalogueStatus as CatalogueStatus]?.variant ?? "muted",
       readingState: w.readingState,
       timesRead: w.timesRead,
       readingPercent: w.readingPercent,
     };
   });
-  const owned = books.filter((b) => b.owned).length;
+  // The catalogue status, the same rule as the series list (SLN-635)
+  const accessioned = books.filter((b) => b.accessioned).length;
   // Read: at least one finished reading, so a volume being re-read counts
   const read = books.filter((b) => (b.timesRead ?? 0) >= 1).length;
   const count = books.length;
@@ -110,7 +111,7 @@ export default async function SeriesDetailPage({
             </Badge>
             {count > 0 && (
               <Badge variant="sage">
-                {owned} of {s.totalVolumes ?? count} owned
+                {accessioned} of {s.totalVolumes ?? count} accessioned
               </Badge>
             )}
             {read > 0 && (

@@ -293,7 +293,7 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
     expect(rows[0]).toMatchObject({
       title: "The Alexandria Quartet",
       bookCount: 1,
-      ownedCount: 0,
+      accessionedCount: 0,
       covers: ["justine.webp"],
     });
     expect(
@@ -305,6 +305,47 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
     expect(found.map((w) => [w.title, w.seriesTitle, w.cover])).toEqual([
       ["Justine", "The Alexandria Quartet", "justine.webp"],
     ]);
+  });
+  it("counts Accessioned volumes by catalogue status, the same in the list and the detail (SLN-635)", async () => {
+    const s = await make("My Struggle");
+    const [home] = await db
+      .insert(schema.locations)
+      .values({ name: "Home", type: "physical" })
+      .returning();
+    const statuses = ["accessioned", "accessioned", "accessioned", "accessioned", "accessioned", "on_order"] as const;
+    const volumes = [];
+    for (const [i, status] of statuses.entries())
+      volumes.push(
+        await book(
+          `Volume ${i + 1}`,
+          { seriesId: s.id, seriesPosition: String(i + 1), catalogueStatus: status },
+          "Karl Ove Knausgård",
+        ),
+      );
+    // Volume 1 is accessioned with no copy yet; volume 2 has two copies in
+    // two editions; the on-order volume 6 already has a copy in its second edition
+    const editions = await db
+      .insert(schema.editions)
+      .values([
+        { workId: volumes[1].id, title: "Volume 2" },
+        { workId: volumes[1].id, title: "Volume 2, paperback" },
+        { workId: volumes[5].id, title: "Volume 6" },
+        { workId: volumes[5].id, title: "Volume 6, proof" },
+      ])
+      .returning();
+    await db.insert(schema.instances).values([
+      { editionId: editions[0].id, locationId: home.id },
+      { editionId: editions[1].id, locationId: home.id },
+      { editionId: editions[3].id, locationId: home.id },
+    ]);
+
+    const [row] = (await getSeriesList()).rows;
+    expect(row).toMatchObject({ title: "My Struggle", bookCount: 6, accessionedCount: 5 });
+    const detail = await getSeriesDetail(s.id);
+    expect(detail!.works.map((w) => w.catalogueStatus)).toEqual([...statuses]);
+    expect(detail!.works.filter((w) => w.catalogueStatus === "accessioned")).toHaveLength(
+      row.accessionedCount,
+    );
   });
   it("creates a real series through normal book creation and reuses an exact normalized title", async () => {
     const [author] = await db

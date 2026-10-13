@@ -118,7 +118,7 @@ export function BookPicker({
                   <span className="min-w-0 flex-1">
                     <span className="lines-1 text-sm text-fg-primary">{book.title}</span>
                     <span className="lines-1 text-xs text-fg-secondary">
-                      {[book.author, book.owned ? "Owned" : catalogueStatusLabel(book.catalogueStatus), state].filter(Boolean).join(" · ")}
+                      {[book.author, catalogueStatusLabel(book.catalogueStatus), state].filter(Boolean).join(" · ")}
                     </span>
                   </span>
                 </button>
