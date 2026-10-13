@@ -29,13 +29,13 @@ describe("reader sync lifecycle", () => {
     s.sync.dismiss();
     expect(s.remember).toHaveBeenCalledWith(Date.parse(other.clientUpdatedAt));
     const reopened = setup(s.remember.mock.calls[0][0]);
-    expect(reopened.offer).toHaveBeenLastCalledWith(null);
+    expect(reopened.offer).toHaveBeenLastCalledWith(null, null);
     await reopened.sync.refresh();
-    expect(reopened.offer).toHaveBeenLastCalledWith(null);
+    expect(reopened.offer).toHaveBeenLastCalledWith(null, null);
     const newer = { ...other, clientUpdatedAt: "2026-10-09T12:00:00Z" };
     reopened.read.mockResolvedValue([newer]);
     await reopened.sync.refresh();
-    expect(reopened.offer).toHaveBeenLastCalledWith(newer);
+    expect(reopened.offer).toHaveBeenLastCalledWith(newer, null);
   });
   it.each(["Stay", "Go there", "local turn", "destroy"])(
     "invalidates a pending GET on %s",

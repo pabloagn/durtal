@@ -3,17 +3,21 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 
-/** One shared drawer. Native modality below 1024px; desktop keeps the book usable. */
+/** One shared drawer. Native modality below 1024px; desktop keeps the book usable.
+ * The settings sheet sits on the right (at the bottom on a phone) and never dims
+ * the page, so a change can be judged on the text while it is made (SLN-686). */
 export function ReaderSidePanel({
   open,
   title,
   onClose,
   children,
+  variant = "drawer",
 }: {
   open: boolean;
   title: string;
   onClose(): void;
   children: ReactNode;
+  variant?: "drawer" | "settings";
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const origin = useRef<HTMLElement | null>(null);
@@ -21,6 +25,7 @@ export function ReaderSidePanel({
   const focusRun = useRef(0);
   const [viewportWidth, setViewportWidth] = useState<number | null>(null);
   const modal = viewportWidth === null || viewportWidth < 1024;
+  const wide = viewportWidth !== null && viewportWidth >= 768;
   useEffect(() => {
     // Match the reader's viewport contract, including scrollbar boundaries.
     const update = () => setViewportWidth(window.innerWidth);
@@ -103,7 +108,8 @@ export function ReaderSidePanel({
           onClose();
         }
       }}
-      style={{
+      data-reader-settings-sheet={variant === "settings" || undefined}
+      style={variant === "drawer" ? {
         top: 0,
         bottom: 0,
         left: 0,
@@ -111,9 +117,33 @@ export function ReaderSidePanel({
         margin: 0,
         height: "100dvh",
         maxHeight: "none",
-        width: viewportWidth !== null && viewportWidth >= 768 ? 360 : "100vw",
+        width: wide ? 360 : "100vw",
+      } : wide ? {
+        top: 0,
+        bottom: 0,
+        left: "auto",
+        right: 0,
+        margin: 0,
+        height: "100dvh",
+        maxHeight: "none",
+        width: 360,
+      } : {
+        top: "auto",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        margin: 0,
+        height: "min(60dvh, 560px)",
+        maxHeight: "none",
+        width: "100vw",
       }}
-      className="glass-bar fixed inset-y-0 left-0 right-auto z-40 m-0 h-dvh max-h-none w-screen max-w-none overflow-hidden border-0 border-r border-glass-border bg-transparent p-0 text-fg-primary outline-none backdrop:glass-veil open:flex open:flex-col"
+      className={`glass-bar fixed z-40 m-0 max-h-none max-w-none overflow-hidden border-0 border-glass-border bg-transparent p-0 text-fg-primary outline-none open:flex open:flex-col ${
+        variant === "drawer"
+          ? "inset-y-0 left-0 right-auto h-dvh w-screen border-r backdrop:glass-veil"
+          : wide
+            ? "inset-y-0 left-auto right-0 h-dvh border-l backdrop:bg-transparent"
+            : "inset-x-0 bottom-0 top-auto w-screen rounded-t-md border-t pb-[env(safe-area-inset-bottom)] backdrop:bg-transparent"
+      }`}
     >
       <div className="type-item-title flex shrink-0 items-start justify-between gap-4 px-4 py-4">
         <h2 id={titleId} className="type-item-title min-w-0">

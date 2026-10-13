@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  furthestOffer,
   isDifferentPlace,
   newestPlace,
   placeToOffer,
@@ -59,5 +60,15 @@ describe("cross-device places", () => {
     const other = place({ thisDevice: false });
     expect(placeToOffer(null, [other])).toBe(other);
     expect(newestPlace([])).toBeNull();
+  });
+  it("offers the furthest place beside the newest only when it is further than both (SLN-686)", () => {
+    const where = (deviceLabel: string, total: number) =>
+      place({ deviceLabel, thisDevice: false, locator: { ...own.locator, totalProgression: total } });
+    const mine = { ...where("This", 0.3), thisDevice: true };
+    const newest = where("Linux · Chrome", 0.2), furthest = where("Mac · Safari", 0.6);
+    expect(furthestOffer(mine, [newest, furthest], newest)).toBe(furthest);
+    expect(furthestOffer(mine, [newest, furthest], furthest)).toBeNull();
+    expect(furthestOffer({ ...mine, locator: { ...mine.locator, totalProgression: 0.7 } }, [newest, furthest], newest)).toBeNull();
+    expect(furthestOffer(mine, [newest, furthest], null)).toBeNull();
   });
 });

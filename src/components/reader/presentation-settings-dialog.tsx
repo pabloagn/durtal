@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { readerFontCapabilityNote } from "@/lib/reader/presentation/fonts";
 import { FontPicker } from "./font-picker";
+import { ReaderSidePanel } from "./side-panel";
 import type { DeviceClass, ReaderPresentation, PresentationOverride } from "@/lib/validations/reader-preferences";
 
 export function PresentationSettingsDialog(props: {
   defaultsOnly?: boolean;
+  /** In the reader: a sheet beside the text instead of a dialog over it */
+  sheet?: boolean;
   open: boolean; onClose(): void; presentation: ReaderPresentation; deviceClass: DeviceClass;
   error: string | null; saving: boolean; pending: number; recoveryError: string | null;
   onChange(patch: PresentationOverride, scope: "book" | "defaults"): void;
@@ -39,8 +42,8 @@ export function PresentationSettingsDialog(props: {
     <label className="flex min-h-11 items-center gap-3 text-sm" key={key}><input type="checkbox" checked={p[key]} onChange={event => change({ [key]: event.currentTarget.checked })} />{label}</label>
   );
   const capability = readerFontCapabilityNote(p.font, p.fontWeight);
-  return <Dialog open={props.open} onClose={props.onClose} title="Reading settings" className="max-w-lg" expandable={false}>
-    <div className="flex flex-col gap-4" data-reader-widget>
+  const body =
+    <div className={"flex flex-col gap-4" + (props.sheet ? " px-2" : "")} data-reader-widget>
       {!props.defaultsOnly && <SegmentedControl ariaLabel="Save reading settings for" value={scope} onChange={setScope} options={[
         { value: "book", label: "This book" }, { value: "defaults", label: `All books on ${props.deviceClass}` },
       ]} />}
@@ -82,6 +85,8 @@ export function PresentationSettingsDialog(props: {
       <div className="flex flex-wrap gap-2"><Button variant="ghost" size="sm" onClick={() => props.onReset(scope)}>Reset {scope === "book" ? "this book" : "defaults"}</Button>
         {(props.error || props.pending > 0) && <Button variant="ghost" size="sm" onClick={props.onRetry}>Try saving again</Button>}
       </div>
-    </div>
-  </Dialog>;
+    </div>;
+  return props.sheet
+    ? <ReaderSidePanel open={props.open} onClose={props.onClose} title="Reading settings" variant="settings">{body}</ReaderSidePanel>
+    : <Dialog open={props.open} onClose={props.onClose} title="Reading settings" className="max-w-lg" expandable={false}>{body}</Dialog>;
 }

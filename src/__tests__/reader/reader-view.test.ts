@@ -420,7 +420,7 @@ describe("reader view with a real bridge and fake engine", () => {
     await render();
     expect(fake.engine.resolve).toHaveBeenCalledWith(own.locator);
     expect(fake.engine.goTo).toHaveBeenCalledExactlyOnceWith(own.locator);
-    expect(host.textContent).toContain("Page 212 · read on iPhone");
+    expect(host.textContent).toContain("Page 212 · 30% ahead of you · iPhone · Safari");
     await settle();
     expect(report).toHaveBeenCalledWith(
       "location",
@@ -486,17 +486,17 @@ describe("reader view with a real bridge and fake engine", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     await render(null, null, other);
     expect(fake.engine.resolve).toHaveBeenCalledWith(other.locator);
-    expect(host.textContent).toContain("Opened where you left off on iPhone");
+    expect(host.textContent).toContain("Your place from iPhone · Safari");
     expect(host.textContent).not.toContain("Go there");
     expect(positionReads()).toHaveLength(0);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3999);
     });
-    expect(host.textContent).toContain("Opened where you left off");
+    expect(host.textContent).toContain("Your place from");
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1);
     });
-    expect(host.textContent).not.toContain("Opened where you left off");
+    expect(host.textContent).not.toContain("Your place from");
   });
   it("history in another own format is not mistaken for a never-opened device", async () => {
     const pdfOwn = {
@@ -925,7 +925,7 @@ it.each(["valid", "malformed"] as const)("lifecycle replay retains exact intent 
 
 it.each(["pending", "rejected"])("opens the downloaded reader engine while onLine is true and adoption is %s", async kind => {
   vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
-  const scope: PreferenceScope = { deviceClass: classifyDevice({ width: window.innerWidth, height: window.innerHeight,
+  const scope: PreferenceScope = { deviceClass: classifyDevice({ width: window.screen.width, height: window.screen.height,
     coarse: window.matchMedia("(pointer: coarse)").matches }), ebookId: bookId };
   const cached = serializePreferenceCache(scope, [{ ...scope, presentation: { fontSizePx: 28 } }]);
   window.localStorage.setItem(preferenceCacheKey(scope), cached);

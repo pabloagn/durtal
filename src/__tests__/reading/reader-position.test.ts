@@ -40,8 +40,10 @@ describe("counted reader locations", () => {
     ], start);
     expect(result.state.counted.percent).toBe(31);
     expect(result.state.furthestPercent).toBe(61);
-    expect(result.splits).toHaveLength(1);
-    expect(result.splits[0]).toMatchObject({ end: { percent: 61 }, start: { percent: 30 }, goingBack: "went_back" });
+    // SLN-677: the pages jumped over are not read; the next sitting starts at the jump
+    expect(result.splits).toHaveLength(2);
+    expect(result.splits[0]).toEqual({ end: start, start: { percent: 60, chapter: null }, jumped: true });
+    expect(result.splits[1]).toMatchObject({ end: { percent: 61 }, start: { percent: 30 }, goingBack: "went_back" });
   });
   it("does not qualify the end from a pending contents jump", () => {
     const jumped = countReaderPosition(initialReaderPosition(20), { kind: "jump", percent: 100, activeMs: 0 });

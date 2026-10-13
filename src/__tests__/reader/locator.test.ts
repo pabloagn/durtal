@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   QUOTE_CHARS,
   locatorFromRelocate,
+  placeCfi,
   quoteAt,
 } from "@/lib/reader/engines/foliate/locator";
+import * as CFI from "@/vendor/foliate-js/epubcfi.js";
 
 /* SLN-492: DurtalLocators from the engine's places, with the text at the place */
 
@@ -75,6 +77,31 @@ describe("locatorFromRelocate", () => {
       progression: 0,
       totalProgression: 0.25,
     });
+  });
+});
+
+describe("placeCfi (SLN-676)", () => {
+  it("saves the start point of the visible range", () => {
+    expect(placeCfi("epubcfi(/6/2!/4/124,,/2)")).toBe("epubcfi(/6/2!/4/124)");
+    expect(placeCfi("epubcfi(/6/4!/4,/178/1:253,/186/1:85)")).toBe("epubcfi(/6/4!/4/178/1:253)");
+    expect(placeCfi("epubcfi(/6/4!/4/10/1:5)")).toBe("epubcfi(/6/4!/4/10/1:5)");
+    expect(placeCfi("not a cfi")).toBe("not a cfi");
+    expect(
+      locatorFromRelocate({ fileHash: hash, sectionIndex: 1, href: "1", sectionFraction: 0, fraction: 0.27, cfi: "epubcfi(/6/2!/4/124,,/2)" }).cfi,
+    ).toBe("epubcfi(/6/2!/4/124)");
+  });
+
+  it("anchors a page that starts on an image at that image's block", () => {
+    const body = page('<p>Before.</p><div id="plate"><img alt="Plate" src="data:,"></div><p>After.</p>');
+    const plate = body.querySelector("#plate")!;
+    // The visible range of an image page: from the block's start to the image's start
+    const visible = document.createRange();
+    visible.setStart(plate, 0);
+    visible.setEnd(plate.querySelector("img")!, 0);
+    const saved = placeCfi(CFI.fromRange(visible));
+    const point = CFI.toRange(document, CFI.parse(saved));
+    expect(point?.collapsed).toBe(true);
+    expect(point?.startContainer).toBe(plate);
   });
 });
 

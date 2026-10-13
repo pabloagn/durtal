@@ -27,7 +27,9 @@ class FocusView extends HTMLElement {
     goTo: async (target: { index: number; anchor?: number | ((doc: Document) => Range | Element) }) => {
       const range = typeof target.anchor === "function" ? target.anchor(this.frame.contentDocument!) : this.destination;
       if (!("startContainer" in range)) throw new Error("Expected the actual CFI range");
-      this.land(range, "navigation");
+      // Like the paginator, a place's start point lands on the visible page that holds it
+      const page = range.collapsed ? [this.origin, this.destination].find(visible => visible.isPointInRange(range.startContainer, range.startOffset)) : undefined;
+      this.land(page ?? range, "navigation");
       const parent = range.startContainer.nodeType === 1 ? range.startContainer as HTMLElement : range.startContainer.parentElement!;
       parent.tabIndex = -1;
       // The exact production call used by Paginator after scrolling a CFI.

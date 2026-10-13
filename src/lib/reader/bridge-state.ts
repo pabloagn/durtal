@@ -55,6 +55,7 @@ export function createReaderBridge(
   type SelectionCapture = (origin?: Document) => { selection: ReaderSelection; clear(): void } | null;
   let selectionCapture: SelectionCapture | null = null;
   const captures = new WeakMap<ReaderSelection, { current(): boolean; clear(): void }>();
+  const leaving = new Set<() => Promise<unknown>>();
   return {
     bus,
     start: controllers.start,
@@ -98,6 +99,21 @@ export function createReaderBridge(
     subscribeControllerReadiness: controllers.subscribe,
     getControllerReadinessSnapshot: controllers.getSnapshot,
     annotationDeletes: createAnnotationDeleteHooks(),
+    /** Work that must reach the server before the reader leaves for another page
+     * in the app, such as the open reading sitting (SLN-677). */
+    registerLeave(hook: () => Promise<unknown>) {
+      leaving.add(hook);
+      return () => { leaving.delete(hook); };
+    },
+    /** Never holds the reader for longer than `limit` ms, and never throws. */
+    async leave(limit = 2000) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([
+        Promise.allSettled([...leaving].map((hook) => hook())),
+        new Promise((done) => { timer = setTimeout(done, limit); }),
+      ]);
+      clearTimeout(timer);
+    },
     subscribe(fn: () => void) {
       listeners.add(fn);
       return () => {

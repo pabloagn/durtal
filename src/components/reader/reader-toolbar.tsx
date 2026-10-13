@@ -46,6 +46,14 @@ const subscribeCompact = (change: () => void) => {
   return () => query.removeEventListener("change", change);
 };
 const compactNow = () => window.matchMedia(COMPACT_QUERY).matches;
+// A phone under 400px moves Settings into More, so the title keeps a few words (SLN-686)
+const NARROW_QUERY = "(max-width: 399.98px)";
+const subscribeNarrow = (change: () => void) => {
+  const query = window.matchMedia(NARROW_QUERY);
+  query.addEventListener("change", change);
+  return () => query.removeEventListener("change", change);
+};
+const narrowNow = () => window.matchMedia(NARROW_QUERY).matches;
 
 /** Dark, light and sepia pages, one tap away in the bar */
 function ThemeMenu({
@@ -155,6 +163,7 @@ export function ReaderToolbar({
   onMenuChange?(open: boolean): void;
 }) {
   const compact = useSyncExternalStore(subscribeCompact, compactNow, () => false);
+  const narrow = useSyncExternalStore(subscribeNarrow, narrowNow, () => false);
   const [menu, setMenuState] = useState<"more" | "theme" | null>(null);
   const setMenu = (next: "more" | "theme" | null) => {
     setMenuState(next);
@@ -166,7 +175,7 @@ export function ReaderToolbar({
     setMenuState(null);
     onMenuChange?.(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compact]);
+  }, [compact, narrow]);
 
   const contents = (
     <ReaderBarItem
@@ -252,7 +261,7 @@ export function ReaderToolbar({
               {fixedControls}
               {contents}
               {bookmarkAction}
-              {settings}
+              {!narrow && settings}
               <CapAlignedControls height={32} coarseHeight={44}>
                 <DropdownMenu
                   label="More"
@@ -265,6 +274,7 @@ export function ReaderToolbar({
                   }
                 >
                   <ReaderBarMenuItems>
+                    {narrow && settings}
                     {speechControl}
                     {search}
                     {annotationActions}
