@@ -130,7 +130,7 @@ function SameTitle({ title, dirty }: { title: string; dirty: boolean }) {
                     <p className="mt-0.5 text-fg-secondary [overflow-wrap:anywhere]">{facts}</p>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-3">
                   <OpenWorkLink href={filmHref(film)} label="Open this film" dirty={dirty} />
                   <OpenWorkLink
                     href={`${filmHref(film)}?add=version`}

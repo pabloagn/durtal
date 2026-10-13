@@ -14,6 +14,7 @@ import {
   works,
 } from "@/lib/db/schema";
 import { bookCondition } from "@/lib/catalogue/book-boundary";
+import { workHref } from "@/lib/catalogue/work-href";
 import {
   bookAuthorFor,
   newAuthorQueries,
@@ -35,14 +36,15 @@ import { copyShelfMismatch } from "@/lib/catalogue/copy-shelf";
 /** The book that already uses an ISBN-13, for the wizard's edition step. */
 export async function isIsbnInUse(
   isbn13: string,
-): Promise<{ inUse: false } | { inUse: true; title: string | null }> {
+): Promise<{ inUse: false } | { inUse: true; title: string | null; href: string }> {
   const clean = String(isbn13).replace(/[\s-]/g, "");
   if (!/^\d{13}$/.test(clean)) return { inUse: false };
   const existing = await db.query.editions.findFirst({
     where: eq(editions.isbn13, clean),
     columns: { title: true },
+    with: { work: { columns: { id: true, slug: true, kind: true } } },
   });
-  return existing ? { inUse: true, title: existing.title } : { inUse: false };
+  return existing ? { inUse: true, title: existing.title, href: workHref(existing.work) } : { inUse: false };
 }
 
 export type WizardBookResult =

@@ -19,6 +19,9 @@ the warning now opens that work in one click.
 - Add film's "already in the catalogue" panel shows each matching film's
   poster, with **Open this film** beside "Add a version to it" (now a button
   too).
+- Add book's edition step, when the ISBN typed belongs to another edition,
+  now has an **Open that book** button under the ISBN field. When details are
+  entered by hand this is the only duplicate check (review of PR #216).
 - Opening the work leaves the add flow without writing anything. When the
   person has entered something, the first click asks: "What you entered is
   not saved." with **Discard and open** and **Keep editing** (Escape keeps
@@ -41,6 +44,11 @@ nothing to change here.
 - Add book: the wizard tracks `edited`, set by the details, edition, copies
   and categorization steps' changes. `DuplicateStep` takes it and links with
   `workHref` (slug, else id). The copies badge now says "1 copy".
+- `isIsbnInUse` (`src/lib/actions/wizard.ts`) also returns the book's page
+  (`workHref`); the wizard keeps the clash as `{ message, href }` and the
+  edition step shows `OpenWorkLink` under the field, with the same `edited`.
+- The question's buttons are 12px apart (`gap-3`), as are the film match's
+  links, so every gap in the action rows is equal while the question shows.
 - Add film: `SameTitle` takes `dirty` (anything but the title entered) and
   lists each match as a poster (top-aligned, 48px wide), the title in full,
   its year and directors, and the two links.

@@ -10,6 +10,18 @@ vi.mock("next/link", () => ({
     createElement("a", { ...props, ref }),
 }));
 import { DuplicateStep } from "@/app/(catalogue)/library/new/steps/duplicate-step";
+import { EditionStep } from "@/app/(catalogue)/library/new/steps/edition-step";
+import type { EditionDraft } from "@/app/(catalogue)/library/new/wizard-model";
+
+const emptyEdition = (): EditionDraft => ({
+  isbn13: "9780140275360",
+  publisher: "",
+  publicationYear: "",
+  language: "en",
+  pageCount: "",
+  binding: "",
+  coverUrl: "",
+});
 
 const work = (patch: Partial<DuplicateWork> = {}): DuplicateWork => ({
   id: "0b8f6c1e-0000-4000-8000-000000000001",
@@ -106,5 +118,37 @@ describe("the duplicate panel opens the existing work (SLN-667)", () => {
       );
     });
     expect(link("Open this work")).not.toBeNull();
+  });
+});
+
+describe("the ISBN clash on the edition step opens that book (SLN-667)", () => {
+  const renderEdition = (edited: boolean) =>
+    act(() =>
+      root.render(
+        createElement(EditionStep, {
+          edition: emptyEdition(),
+          onChange: () => {},
+          isbnClash: { message: 'Another edition already has this ISBN ("The Iliad"). Open that book to add a copy.', href: "/library/the-iliad" },
+          edited,
+          wishlist: false,
+          checking: false,
+          onBack: () => {},
+          onLeave: () => {},
+          cancel: null,
+        }),
+      ),
+    );
+
+  it("links to the book that holds the ISBN, and asks first when something was entered", () => {
+    renderEdition(true);
+    expect(host.textContent).toContain('Another edition already has this ISBN ("The Iliad")');
+    expect(link("Open that book")?.getAttribute("href")).toBe("/library/the-iliad");
+    expect(click(link("Open that book")!)).toBe(true);
+    expect(link("Discard and open")?.getAttribute("href")).toBe("/library/the-iliad");
+  });
+
+  it("opens at once when nothing was entered", () => {
+    renderEdition(false);
+    expect(click(link("Open that book")!)).toBe(false);
   });
 });

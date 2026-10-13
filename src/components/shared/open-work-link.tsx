@@ -54,7 +54,7 @@ export function OpenWorkLink({
     <span
       role="group"
       aria-label="Leave this form?"
-      className="inline-flex flex-wrap items-center gap-2"
+      className="inline-flex flex-wrap items-center gap-3"
       onKeyDown={(event) => {
         if (event.key !== "Escape") return;
         event.stopPropagation();

@@ -89,7 +89,7 @@ export function AddBookWizard({
   const [edition, setEdition] = useState<EditionDraft>(() =>
     newEditionDraft(appSettings, initialIsbn),
   );
-  const [isbnClash, setIsbnClash] = useState<string | null>(null);
+  const [isbnClash, setIsbnClash] = useState<{ message: string; href: string } | null>(null);
   // The search result it came from
   const [source, setSource] = useState<MetadataSource>({ source: "", sourceId: "" });
   // The person has entered something in a step (a search result alone is not that)
@@ -237,9 +237,10 @@ export function AddBookWizard({
         ? await isIsbnInUse(clean)
         : { inUse: false as const };
       if (clash.inUse) {
-        setIsbnClash(
-          `Another edition already has this ISBN${clash.title ? ` ("${clash.title}")` : ""}. Open that book to add a copy.`,
-        );
+        setIsbnClash({
+          message: `Another edition already has this ISBN${clash.title ? ` ("${clash.title}")` : ""}. Open that book to add a copy.`,
+          href: clash.href,
+        });
         return;
       }
       setIsbnClash(null);
@@ -331,6 +332,7 @@ export function AddBookWizard({
             if (patch.isbn13 !== undefined) setIsbnClash(null);
           }}
           isbnClash={isbnClash}
+          edited={edited}
           wishlist={wishlist}
           checking={isPending}
           onBack={() => setStep(existingWorkId ? "duplicate" : "details")}
