@@ -20,3 +20,11 @@ export function LookupSkeleton() {
 export function LookupAttribution({ wiki, href, label }: { wiki: "Wiktionary" | "Wikipedia"; href: string; label: string }) {
   return <p className="mt-3 text-xs text-fg-secondary">From {wiki} · <a className="underline" href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a> · <a className="underline" href={href} target="_blank" rel="noopener noreferrer">{label} ↗</a></p>;
 }
+/** A source that did not answer: offline, or the source itself could not be reached */
+export function Unreachable({ name, href }: { name: string; href: string }) {
+  const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+  return <p role="status" className="text-fg-secondary">
+    {offline ? "No connection." : name + " could not be reached."}{" "}
+    {!offline && <a className="text-accent-primary underline" href={href} target="_blank" rel="noopener noreferrer">Open {name} ↗</a>}
+  </p>;
+}

@@ -281,7 +281,11 @@ one explicit book and device; late responses from a departed scope are discarded
 Failures remain visible. Annotation conflict UI reads retained shared-store
 rejections and blocked originals, permits downloading the exact draft, and retries
 blocked operations only through existing authenticated exact-reference
-reconciliation. It never relabels or replays a terminal rejection.
+reconciliation. It never relabels or replays a terminal rejection. The one
+relabel is replay's: when an authenticated preflight shows this browser's device
+cookie now carries a different id (two reader tabs opened at once on a fresh
+browser each mint one), unclaimed rows under the superseded id move to the
+current id and are sent, so the queue never stalls on them (SLN-668).
 
 A page-local publisher-ink pass captures native computed source colours before
 its writes, then applies the approved hue/contrast policy. It preserves transparent

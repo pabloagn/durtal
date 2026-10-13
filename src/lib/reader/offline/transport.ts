@@ -79,6 +79,7 @@ export function createReaderTransport(options: TransportOptions) {
     stopped = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let controller: AbortController | null = null;
+  let probedBlocked = false;
   const clearTimer = () => {
     if (timer) clearTimeout(timer);
     timer = null;
@@ -184,7 +185,13 @@ export function createReaderTransport(options: TransportOptions) {
   async function replay(mode: "foreground" | "lifecycle") {
     while (!stopped && reachable() && (visible() || mode === "lifecycle")) {
       const head = (await options.store.inspect())[0];
-      if (!head || head.state === "blocked") return;
+      if (!head) return;
+      // A blocked head is probed once per page, only to learn whether its
+      // device id was superseded; it is never sent from here.
+      if (head.state === "blocked") {
+        if (probedBlocked) return;
+        probedBlocked = true;
+      }
       if (
         head.state === "claimed" &&
         head.claim &&
@@ -193,7 +200,11 @@ export function createReaderTransport(options: TransportOptions) {
         schedule(head.claim.expiresAt - now());
         return;
       }
-      if (head.retryAt !== null && head.retryAt > now()) {
+      if (
+        head.state !== "blocked" &&
+        head.retryAt !== null &&
+        head.retryAt > now()
+      ) {
         schedule(head.retryAt - now());
         return;
       }
@@ -202,10 +213,29 @@ export function createReaderTransport(options: TransportOptions) {
         identity = await deadline(preflight);
       } catch (error) {
         options.onError?.(error);
-        schedule(replayDelay(head.attempts, true)!);
+        if (head.state !== "blocked") schedule(replayDelay(head.attempts, true)!);
         return;
       }
       if (stopped) return;
+      // A superseded device id in this browser, such as the loser of two
+      // reader tabs opened at once, moves to the cookie's id instead of
+      // blocking the queue for good (SLN-668).
+      if (
+        identity.authenticated &&
+        identity.deviceId &&
+        deviceReplayPolicy(head.mutation.deviceId, identity.deviceId) ===
+          "device_identity_changed"
+      ) {
+        if (
+          await options.store.adoptDevice(
+            head.mutation.deviceId,
+            identity.deviceId,
+          )
+        )
+          continue;
+        return;
+      }
+      if (head.state === "blocked") return;
       const ready =
         identity.authenticated &&
         deviceReplayPolicy(head.mutation.deviceId, identity.deviceId) ===
@@ -347,7 +377,8 @@ export function createReaderTransport(options: TransportOptions) {
     },
     requestReplay,
     /** The caller explicitly completed authentication reconciliation. This does
-     * not run from online/visibility/device probes and never relabels originals.
+     * not run from online/visibility/device probes and never relabels originals;
+     * only replay moves rows from a superseded device id to the current one.
      */
     async reconcile(reference: BlockedOperationReference) {
       const identity = await deadline(preflight);

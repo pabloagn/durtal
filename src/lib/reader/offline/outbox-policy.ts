@@ -278,6 +278,29 @@ export function reconcileBlocked(
     return row;
   return { ...row, state: "waiting" };
 }
+/** This browser's queue moves to the device id its cookie now carries. Two
+ * reader pages opened at once on a fresh browser each mint an id, and the
+ * browser keeps only the last one; the outbox and the cookie share one
+ * profile and origin, so a row under the superseded id is this device's own
+ * unsent work (SLN-668). Claimed rows stay with their claimant.
+ */
+export function adoptDevice(
+  row: OutboxRow,
+  superseded: string,
+  current: string,
+): OutboxRow {
+  if (
+    row.state === "claimed" ||
+    deviceReplayPolicy(superseded, current) !== "device_identity_changed" ||
+    row.mutation.deviceId.toLowerCase() !== superseded.toLowerCase()
+  )
+    return row;
+  return {
+    ...row,
+    mutation: { ...row.mutation, deviceId: current.toLowerCase() },
+    state: "waiting",
+  };
+}
 export function releaseClaim(
   row: OutboxRow,
   reference: OperationReference,

@@ -31,6 +31,20 @@ describe("app-mode upload request boundary", () => {
       headers: { "Sec-Fetch-Site": "cross-site", "Content-Type": "application/json" }, body: "{}" }));
     expect(response.status).toBe(403); expect(calls.create).not.toHaveBeenCalled();
   });
+  it("admits the app's own page reached through any address, not only localhost (SLN-671)", async () => {
+    calls.create.mockResolvedValue({ batch: id });
+    // The standalone server sees its own URL as localhost; the browser used the Mac's name.
+    const upload = (headers: Record<string, string>) => handleUploadCreate(new NextRequest("http://localhost:3110/api/ebooks/uploads", {
+      method: "POST", headers: { Host: "durtal-mac.local:3110", "Content-Type": "application/json", ...headers }, body: "{}" }));
+    expect((await upload({ "Sec-Fetch-Site": "same-origin", Origin: "http://durtal-mac.local:3110" })).status).toBe(201);
+    expect((await upload({ Origin: "http://durtal-mac.local:3110" })).status).toBe(201);
+    expect(calls.create).toHaveBeenNthCalledWith(1, {}, "ui");
+    expect(calls.create).toHaveBeenNthCalledWith(2, {}, "ui");
+    expect(calls.token).not.toHaveBeenCalled();
+    expect((await upload({ Origin: "http://localhost:3110" })).status).toBe(403);
+    expect((await upload({ "Sec-Fetch-Site": "same-site", Origin: "http://other.local:3110" })).status).toBe(403);
+    expect(calls.create).toHaveBeenCalledTimes(2);
+  });
   it("rejects excessive metadata before JSON parsing and checks its declared length", async () => {
     const request = (body: string, extra: Record<string, string> = {}) => new NextRequest("https://durtal.test/api/ebooks/uploads", {
       method: "POST", headers: { "Content-Type": "application/json", ...extra }, body,
