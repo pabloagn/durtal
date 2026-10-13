@@ -69,6 +69,8 @@ export function bookCSS(
     typography: typography.join("\n"),
     colours: [
       `html, body { color-scheme: ${colours.colorScheme}; background-color: ${colours.background} !important; color: ${colours.text} !important; }`,
+      // The page turn backs its layers with this, never the browser's grey Canvas
+      `:root { --theme-bg-color: ${colours.background}; }`,
       `${COLOUR_TEXT} { background-color: transparent !important; }`,
       `::selection { background-color: ${colours.selection}; color: ${colours.text}; }`,
       `:where(a) { color: ${colours.text}; text-decoration-line: underline; text-decoration-color: ${colours.link}; }`,

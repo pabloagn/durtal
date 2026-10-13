@@ -95,6 +95,8 @@ type AnyHandler = (detail: never) => void;
 type SelectedRange = { range: Range; index: number; text: string };
 
 const ZIP_FORMATS = new Set<ReaderFormat>(["epub", "kepub", "fbz", "cbz"]);
+/** How far an arrow key scrolls a scrolled book: about two lines */
+const SCROLL_LINE_PX = 48;
 
 /** What later sub-issues may offer, per format */
 function capabilitiesFor(format: ReaderFormat): BookInfo["capabilities"] {
@@ -2171,6 +2173,17 @@ class FoliateEngine implements ReaderEngine {
       this.#turning--;
       this.#owner = undefined;
     }
+  }
+  isScrolled() {
+    return !!this.#view?.renderer?.scrolled;
+  }
+  scrollLines(direction: -1 | 1) {
+    this.scrollBy(direction * SCROLL_LINE_PX);
+  }
+  scrollBy(px: number) {
+    const renderer = this.#view?.renderer;
+    if (!renderer?.scrolled || renderer.containerPosition === undefined) return;
+    renderer.containerPosition += px;
   }
   next(owner?: NavigationOwner) {
     return this.#turn("next", owner);

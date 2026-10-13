@@ -39,6 +39,22 @@ it("rejects rectless and hidden markers even when native DOM range contains them
     expect(pageMarkerPhysicallyVisible(s.marker, s.doc, s.renderer)).toBe(false);
   }
 });
+it("accepts a marker whose page is fading in, but not one held at 0", () => {
+  const s = scene();
+  s.renderer.style.opacity = "0";
+  expect(pageMarkerPhysicallyVisible(s.marker, s.doc, s.renderer)).toBe(false);
+  s.renderer.style.opacity = "1";
+  const fade = { transitionProperty: "opacity" } as unknown as Animation;
+  s.renderer.getAnimations = () => [fade];
+  const computed = window.getComputedStyle;
+  window.getComputedStyle = ((el: Element) => el === s.renderer
+    ? { ...computed(el), opacity: "0" } : computed(el)) as typeof window.getComputedStyle;
+  try {
+    expect(pageMarkerPhysicallyVisible(s.marker, s.doc, s.renderer)).toBe(true);
+    s.renderer.getAnimations = () => [];
+    expect(pageMarkerPhysicallyVisible(s.marker, s.doc, s.renderer)).toBe(false);
+  } finally { window.getComputedStyle = computed; }
+});
 it("rejects points outside the actual clipped container or document cross-axis", () => {
   const s = scene();
   s.marker.getClientRects = () => [new DOMRect(20407, 412, 0, 0)] as unknown as DOMRectList;

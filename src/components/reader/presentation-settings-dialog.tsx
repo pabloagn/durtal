@@ -35,7 +35,7 @@ export function PresentationSettingsDialog(props: {
         }} />
     </label>
   );
-  const toggle = (key: "publisherStyles" | "hyphenate" | "dimImages" | "pdfThemePages", label: string) => (
+  const toggle = (key: "publisherStyles" | "hyphenate" | "dimImages" | "pdfThemePages" | "edgeTaps" | "pinBars", label: string) => (
     <label className="flex min-h-11 items-center gap-3 text-sm" key={key}><input type="checkbox" checked={p[key]} onChange={event => change({ [key]: event.currentTarget.checked })} />{label}</label>
   );
   const capability = readerFontCapabilityNote(p.font, p.fontWeight);
@@ -71,6 +71,8 @@ export function PresentationSettingsDialog(props: {
       {number("marginPx", "Side margins (px)", 8, 96, 8)}
       {select("lineLength", "Line length", [{ value: "narrow", label: "Narrow" }, { value: "medium", label: "Medium" }, { value: "wide", label: "Wide" }, { value: "full", label: "Full width" }])}
       {select("pageTurn", "Page turn", [{ value: "none", label: "Instant" }, { value: "slide", label: "Slide" }])}
+      {toggle("edgeTaps", "Tap the edges to turn pages")}
+      {toggle("pinBars", "Keep the toolbars visible")}
       {number("brightness", "Brightness (%)", 70, 100, 5)}{number("warmth", "Warmth (%)", 0, 100, 10)}{toggle("dimImages", "Dim images in the dark theme")}
       {select("fixedFit", "Fixed page fit", [{ value: "page", label: "Fit page" }, { value: "width", label: "Fit width" }])}
       {select("cropMargins", "PDF page margins", [{ value: "auto", label: "Automatic for scans" }, { value: "on", label: "Crop margins" }, { value: "off", label: "Full page" }])}

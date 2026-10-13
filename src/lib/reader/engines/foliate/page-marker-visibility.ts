@@ -9,10 +9,14 @@ export function pageMarkerPhysicallyVisible(marker: Range | Element, doc: Docume
     const frame = doc.defaultView?.frameElement as HTMLIFrameElement | null;
     if (!frame?.isConnected || frame.contentDocument !== doc || !doc.defaultView) return false;
     const parent = (el: Element): Element | null => el.parentElement ?? (el.getRootNode() as ShadowRoot).host ?? null;
+    // The paginator fades a jump's page in from 0 (vendored patch 20). The
+    // page is placed and on its way to full opacity, so judge it by the end.
+    const revealing = (el: Element) => (el as HTMLElement).style?.opacity === "1" &&
+      !!el.getAnimations?.().some(item => (item as CSSTransition).transitionProperty === "opacity");
     const unsupported = (el: Element) => {
       const style = el.ownerDocument.defaultView!.getComputedStyle(el);
       return style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse" ||
-        Number(style.opacity || 1) === 0 || style.contentVisibility === "hidden" ||
+        (Number(style.opacity || 1) === 0 && !revealing(el)) || style.contentVisibility === "hidden" ||
         (style.transform && style.transform !== "none") ||
         (style.rotate && style.rotate !== "none") || (style.scale && style.scale !== "none") ||
         (style.translate && style.translate !== "none") ||

@@ -58,6 +58,7 @@ import { lazy, Suspense } from "react";
 import { OpenError } from "@/components/reader/open-error";
 import { ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
 import { ReaderShell, useReaderBars } from "@/components/reader/reader-shell";
+import { PageEdges } from "@/components/reader/page-edges";
 import { DownloadButton } from "@/components/reader/offline/download-button";
 import { ReaderToolbar } from "@/components/reader/reader-toolbar";
 import { FixedLayoutControls } from "@/components/reader/fixed-layout-controls";
@@ -293,6 +294,9 @@ function ReaderSession({
   if (typeof window !== "undefined" && file) void preloadFoliate(file.format);
   const preferences = useReaderPreferences({ deviceClass: preferenceClass, ebookId: ebook.id, initialRows: preferenceRows, localPreferenceAdmission });
   const settings = useMemo(() => effectivePresentation(preferenceClass, preferences.rows), [preferenceClass, preferences.rows]);
+  // Read by the input layer at each tap, which outlives a render
+  const edgeTapsRef = useRef(settings.edgeTaps);
+  useEffect(() => { edgeTapsRef.current = settings.edgeTaps; }, [settings.edgeTaps]);
   const annotationPalette = useMemo(() => ({
     fills: highlightColours(settings, settings.theme === "durtal-dark" ? QUIET_GLASS_ANNOTATION_PALETTE.fills : LIGHT_THEME_HIGHLIGHTS[settings.theme], QUIET_GLASS_ANNOTATION_PALETTE.fillOpacity),
     quote: highlightColours(settings, { quote: QUIET_GLASS_ANNOTATION_PALETTE.quote }).quote,
@@ -565,6 +569,7 @@ function ReaderSession({
 
   const bars = useReaderBars({
     held:
+      settings.pinBars ||
       fixedControlsOpen || barMenuOpen || annotations.held ||
       contentsOpen ||
       searchOpen ||
@@ -651,7 +656,7 @@ function ReaderSession({
       activity: (kind) => {
         if (bridge.getControllerReadinessSnapshot().ready) bridge.bus.activity(kind);
       },
-      pointer: (_x, y) => bars.pointerAt(y),
+      pointer: (x, y) => bars.pointerAt(x, y),
     };
   });
 
@@ -725,9 +730,14 @@ function ReaderSession({
           actions.current?.activity?.(kind);
         },
         pointer: (x, y) => actions.current?.pointer?.(x, y),
+        scroll: (direction) => engine?.scrollLines?.(direction),
+        scrollBy: (px) => engine?.scrollBy?.(px),
       },
+      scrolled: () => !!engine?.isScrolled?.(),
+      turning: () => !!navigationRef.current?.busy,
       isBlocked: () => isBlocked() || !bridge.getControllerReadinessSnapshot().ready,
       hasSelection: () => !!engine?.locatorFromSelection(),
+      edgeTaps: () => edgeTapsRef.current,
       selectionEscape: () => {
         if (!engine?.locatorFromSelection()) return false;
         engine.clearSelection();
@@ -1468,6 +1478,14 @@ function ReaderSession({
           }}
         />
       }
+      edges={status.kind === "ready" && (
+        <PageEdges
+          visible={bars.visible}
+          dir={index?.info.dir ?? "ltr"}
+          onLeft={() => actions.current?.left()}
+          onRight={() => actions.current?.right()}
+        />
+      )}
       bottomBar={
         <ReaderBottomBar
           visible={bars.visible}

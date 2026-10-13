@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createReaderNavigation, painted } from "@/lib/reader/navigation";
+import { createReaderNavigation, MAX_QUEUED_TURNS, painted } from "@/lib/reader/navigation";
 import { ReaderHistory } from "@/lib/reader/history";
 import type { DurtalLocator, EngineEvents } from "@/lib/reader/engine";
 import { fakeEngine } from "./fixtures/fake-engine";
@@ -341,6 +341,31 @@ describe("painted session navigation", () => {
     ).toBe(true);
     expect(s.navigation.history.entries).toHaveLength(1);
     expect(s.interrupt).not.toHaveBeenCalled();
+  });
+  it("drops a held key's turns beyond a short queue, so letting go stops the pages (SLN-673)", async () => {
+    const transition = deferred();
+    const s = session();
+    s.engine.next.mockImplementationOnce(async (owner) => {
+      s.arrive(0.1, owner?.id, "turn");
+      await transition.promise;
+    });
+    s.engine.next.mockImplementation(async (owner) =>
+      s.arrive(
+        s.engine.currentLocator()!.totalProgression + 0.1,
+        owner?.id,
+        "turn",
+      ),
+    );
+    // About a second of key repeat while the first page is still turning
+    const turns = Array.from({ length: 30 }, () => s.navigation.turn("next"));
+    const results = await Promise.race([
+      Promise.all(turns.slice(MAX_QUEUED_TURNS + 1)),
+      microtasks().then(() => "pending"),
+    ]);
+    expect(results).toEqual(Array(30 - MAX_QUEUED_TURNS - 1).fill(null));
+    transition.resolve();
+    await Promise.all(turns);
+    expect(s.engine.next).toHaveBeenCalledTimes(MAX_QUEUED_TURNS + 1);
   });
   it("publishes once after paint, never for same-place or unmatched arrivals", async () => {
     const barrier = deferred();

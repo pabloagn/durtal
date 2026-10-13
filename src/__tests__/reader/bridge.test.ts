@@ -140,8 +140,9 @@ describe("reader bridge", () => {
       ],
       "Reader notice",
     );
+    // The place stays beside the status, never replaced by it (SLN-663)
     expect(host.querySelector("footer")!.textContent).toBe(
-      "Chapter IFirstSecond",
+      "Chapter IFirstSecond44%",
     );
     expect(host.querySelector('[role="status"]')!.textContent).toContain(
       "Reader notice",
