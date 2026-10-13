@@ -1,15 +1,16 @@
-import { appendFileSync, cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { takeCalibreSnapshot } from "@/lib/ebooks/calibre/snapshot";
-import { calibreFileMetadata, readSnapshot } from "@/lib/ebooks/calibre/library";
+import { calibreFileMetadata, libraryPath, readSnapshot } from "@/lib/ebooks/calibre/library";
 import { planIngest } from "@/lib/ebooks/ingest/plan";
 import { applyPlan, planSha256, resumeRun } from "@/lib/ebooks/ingest/run";
 import type { Db } from "@/lib/catalogue/work-store";
 import { ARCANE_UUID, CHAMPS_UUID, LIBRARY_ID, NADJA_UUID, POLICEMAN_UUID, makeCalibreLibrary } from "../../fixtures/calibre-library";
+import { makeEpub, makeImage } from "../../fixtures/ebook-builders";
 
 /* SLN-656: Joris's Calibre library read once, read-only, into a snapshot the planner uses */
 
@@ -118,6 +119,7 @@ describe("the snapshot", () => {
     expect(snapshot.files).toEqual({
       missing: [{ bookId: 3, path: "André Breton/Arcane 17 (3)/Arcane 17 - André Breton.epub" }],
       extra: ["André Breton/Nadja (1)/Nadja copy.epub"],
+      outside: [],
     });
     expect(counts).toMatchObject({ books: 4, formats: 5, formatsByType: { epub: 4, pdf: 1 }, withCover: 1, rated: 1, withCustomValues: 3, customColumns: 8, missingFiles: 1, extraFiles: 1 });
   });
@@ -265,6 +267,52 @@ describe("planning from a snapshot", () => {
     const metadata = calibreFileMetadata({ ...snapshot.books[0], title: "Unknown", authors: [{ name: "Unknown", sort: "Unknown" }] });
     expect(metadata).toMatchObject({ title: null, authors: [] });
   });
+
+  it("reads nothing outside the library folder: a \"..\" in metadata.db or a symlink leading out is listed and never opened", async () => {
+    // Outside the library: a book, a cover and an OPF that must never be read
+    const outside = path.join(dir, "Elsewhere");
+    mkdirSync(path.join(outside, "Outside (5)"), { recursive: true });
+    writeFileSync(path.join(outside, "Outside (5)", "Outside.epub"), makeEpub({ salt: "outside" }));
+    writeFileSync(path.join(outside, "secret.epub"), makeEpub({ salt: "secret" }));
+    writeFileSync(path.join(outside, "cover.jpg"), await makeImage("jpeg", { width: 300, height: 450, color: "#aa0000" }));
+    const db = new DatabaseSync(library.dbFile);
+    db.prepare("INSERT INTO books (id, title, sort, path, uuid, has_cover, last_modified) VALUES (5, 'Outside', 'Outside', '../../Elsewhere/Outside (5)', '9e5b6a7f-8c9d-4eaf-b0a1-3c4d5e6f7a8b', 0, '2022-01-01 00:00:00+00:00')").run();
+    db.prepare("INSERT INTO data (book, format, uncompressed_size, name) VALUES (5, 'EPUB', 10, 'Outside')").run();
+    db.close();
+    const champs = path.join(library.champsFolder, "Les Champs magnetiques - Andre Breton.epub");
+    unlinkSync(champs);
+    symlinkSync(path.join(outside, "secret.epub"), champs);
+    unlinkSync(path.join(library.nadjaFolder, "cover.jpg"));
+    symlinkSync(path.join(outside, "cover.jpg"), path.join(library.nadjaFolder, "cover.jpg"));
+
+    expect(libraryPath(library.root, "../../Elsewhere/secret.epub")).toBeNull();
+    expect(libraryPath(library.root, "André Breton/Les Champs magnetiques (4)/Les Champs magnetiques - Andre Breton.epub")).toBeNull();
+    expect(libraryPath(library.root, "André Breton/Nadja (1)/Nadja - André Breton.pdf")).toBe(path.join(library.nadjaFolder, "Nadja - André Breton.pdf"));
+
+    const { snapshot, snapshotFile, reportFile } = await snap();
+    expect(snapshot.files.outside).toEqual([
+      { bookId: 1, path: "André Breton/Nadja (1)/cover.jpg" },
+      { bookId: 4, path: "André Breton/Les Champs magnetiques (4)/Les Champs magnetiques - Andre Breton.epub" },
+      { bookId: 5, path: "../../Elsewhere/Outside (5)/Outside.epub" },
+      { bookId: 5, path: "../../Elsewhere/Outside (5)/metadata.opf" },
+    ]);
+    expect(snapshot.files.missing.map((m) => m.bookId)).toEqual([3]);
+    expect(readFileSync(reportFile, "utf8")).toContain("| Paths leading outside the library, never read | 4 |");
+
+    const result = await plan(snapshotFile);
+    expect(result.calibre!.outside).toEqual([
+      "André Breton/Les Champs magnetiques (4)/Les Champs magnetiques - Andre Breton.epub",
+      "../../Elsewhere/Outside (5)/Outside.epub",
+    ]);
+    expect(result.items.map((i) => path.relative(library.root, i.path)).sort()).toEqual([
+      "André Breton/Nadja (1)/Nadja - André Breton.epub",
+      "André Breton/Nadja (1)/Nadja - André Breton.pdf",
+      "Flann O'Brien/The Third Policeman (2)/The Third Policeman - Flann O'Brien.epub",
+    ]);
+    // The symlinked cover.jpg is not read: Nadja keeps its files' own covers
+    for (const p of result.groups.find((g) => g.importRef === NADJA_UUID)!.paths)
+      expect(result.files[p].derived.some((d) => d.cachePath)).toBe(false);
+  }, 60_000);
 
   it("is refused for more than one folder", async () => {
     const { snapshotFile } = await snap();

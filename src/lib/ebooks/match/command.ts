@@ -28,7 +28,7 @@ import {
   type ApprovedGroupMatching,
   type RegisteredMatchGroup,
 } from "./groups";
-import { scoreCalibration, type LabelledMatch } from "./calibration";
+import { scoreCalibration, type LabelledMatch, type ScoringOptions } from "./calibration";
 import { hashMatchingPlan, type ClassificationPlan } from "./plan";
 import {
   applyApprovedGroups,
@@ -48,6 +48,8 @@ export interface RegisteredMatchingDocument {
   targetDatabase: string;
   createdAt: string;
   planSha256: string;
+  /** SLN-657: planned with one book, one e-book */
+  oneEbookPerWork?: true;
   approval: ApprovedGroupMatching;
   registered: readonly RegisteredMatchGroup[];
 }
@@ -55,6 +57,7 @@ export async function planRegisteredMatchingOn(
   conn: Db,
   target: string,
   ids: readonly string[] | "all" = "all",
+  options: ScoringOptions = {},
 ): Promise<RegisteredMatchingDocument> {
   const loaded = await loadMatchCatalogue(conn);
   const selected = loaded.catalogue.source.ebooks.filter(
@@ -81,7 +84,7 @@ export async function planRegisteredMatchingOn(
     ebook,
   }));
   const approval = {
-    plan: await planGroupMatching(conn, groups, scopeHash),
+    plan: await planGroupMatching(conn, groups, scopeHash, options),
     precision: null,
   };
   const document: RegisteredMatchingDocument = {
@@ -92,6 +95,7 @@ export async function planRegisteredMatchingOn(
     targetDatabase: target,
     createdAt,
     planSha256: "",
+    ...(options.oneEbookPerWork ? { oneEbookPerWork: true as const } : {}),
     approval,
     registered: selected.map((ebook) => ({
       groupKey: `ebook:${ebook.id}`,

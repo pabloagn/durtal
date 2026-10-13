@@ -46,7 +46,7 @@ export function planReport(plan: IngestPlan, planFile: string, options: { bucket
     `Bucket ${plan.target.bucket}${plan.target.prefix ? `, prefix ${plan.target.prefix}` : ""}${plan.target.preview ? " (a preview's folder)" : ""}.`,
     ...(plan.calibre
       ? [
-          `Calibre library ${plan.calibre.libraryId}, from the snapshot ${plan.calibre.snapshot}: ${n(plan.calibre.books)} books, each one eBook; ${n(plan.calibre.missing.length)} listed formats missing on disk${plan.calibre.missing.length ? ` (${plan.calibre.missing.map(md).join(", ")})` : ""}.`,
+          `Calibre library ${plan.calibre.libraryId}, from the snapshot ${plan.calibre.snapshot}: ${n(plan.calibre.books)} books, each one eBook${plan.calibre.selection ? `; ${n(plan.calibre.selection.books)} of them planned, selected by Import existing (${md(plan.calibre.selection.file)})` : ""}; ${n(plan.calibre.missing.length)} listed formats missing on disk${plan.calibre.missing.length ? ` (${plan.calibre.missing.map(md).join(", ")})` : ""}; ${n(plan.calibre.outside?.length ?? 0)} leading outside the library, never read${plan.calibre.outside?.length ? ` (${plan.calibre.outside.map(md).join(", ")})` : ""}.`,
         ]
       : []),
     ...(options.bucketMissing ? ["", bucketMissingLine(plan.target.bucket)] : []),

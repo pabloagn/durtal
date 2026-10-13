@@ -27,6 +27,7 @@ import {
   type CalibreBinding,
   type CalibreBook,
 } from "../calibre/library";
+import { readSelection, requireCurrentSelection } from "../calibre/selection";
 
 /*
  * The plan of an ingestion (SLN-494): read-only. Every file under the roots
@@ -161,6 +162,10 @@ export interface PlanCalibre extends CalibreBinding {
   books: number;
   /** Formats the snapshot lists that are not on disk now, relative to the library */
   missing: string[];
+  /** Formats whose path leads outside the library folder: never read */
+  outside: string[];
+  /** Import existing's selection (SLN-657): only these books were planned */
+  selection?: { file: string; books: number } | null;
 }
 
 export interface PlanOptions {
@@ -177,6 +182,8 @@ export interface PlanOptions {
   storedKeys?: Set<string>;
   /** A Calibre snapshot: the one root is its library, each Calibre book one e-book */
   calibre?: string;
+  /** With calibre: Import existing's selection; only its books are planned */
+  select?: string;
   now?: number;
   onProgress?: (done: number, total: number) => void;
 }
@@ -271,18 +278,28 @@ interface CalibrePlanSource {
  * a file metadata.db does not list is not planned. Refuses a snapshot whose
  * metadata.db has changed since.
  */
-async function calibreSource(roots: string[], snapshotFile: string): Promise<CalibrePlanSource> {
+async function calibreSource(roots: string[], snapshotFile: string, database: Db, selectionFile?: string): Promise<CalibrePlanSource> {
   if (roots.length !== 1) throw new Error("--calibre plans one library folder. Nothing planned.");
   const root = path.resolve(roots[0]);
-  const { snapshot, sha256 } = readSnapshot(snapshotFile);
+  const read = readSnapshot(snapshotFile);
+  const { sha256 } = read;
+  let { snapshot } = read;
+  const selection = selectionFile ? readSelection(selectionFile) : null;
+  if (selection) {
+    await requireCurrentSelection(selection, read, database);
+    const chosen = new Set(selection.books.map((book) => book.uuid));
+    snapshot = { ...snapshot, books: snapshot.books.filter((book) => chosen.has(book.uuid)) };
+  }
   const binding: PlanCalibre = {
     snapshot: path.resolve(snapshotFile),
     snapshotSha256: sha256,
     libraryId: snapshot.library.id,
     libraryPath: root,
     metadataDbSha256: snapshot.metadataDb.sha256,
-    books: snapshot.books.length,
+    books: read.snapshot.books.length,
     missing: [],
+    outside: [],
+    selection: selection ? { file: path.resolve(selectionFile!), books: snapshot.books.length } : null,
   };
   await checkCalibreSource(binding, "Nothing planned.");
   const byFolder = new Map<string, CalibreBook>();
@@ -290,11 +307,16 @@ async function calibreSource(roots: string[], snapshotFile: string): Promise<Cal
   const sidecars = new Map<string, string>();
   for (const book of snapshot.books) {
     const folder = libraryPath(root, book.path);
-    byFolder.set(folder, book);
-    const opf = path.join(folder, SIDECAR_NAME);
-    if (existsSync(opf)) sidecars.set(folder, opf);
+    const opf = libraryPath(root, `${book.path}/${SIDECAR_NAME}`);
+    if (folder) byFolder.set(folder, book);
+    if (folder && opf && existsSync(opf)) sidecars.set(folder, opf);
     for (const format of book.formats) {
       const file = libraryPath(root, format.path);
+      // Read only inside the library: a path leading out, by ".." or a symlink, is listed and never opened
+      if (!folder || !file || path.dirname(file) !== folder) {
+        binding.outside.push(format.path);
+        continue;
+      }
       const info = existsSync(file) ? statSync(file) : null;
       if (!info?.isFile()) {
         binding.missing.push(format.path);
@@ -308,7 +330,8 @@ async function calibreSource(roots: string[], snapshotFile: string): Promise<Cal
 }
 
 /** cacheDir/derived/calibre-cover-<sha256 of cover.jpg>/: a Calibre cover's sizes, shared by the book's formats */
-async function calibreCovers(coverFile: string, cacheDir: string, made: Map<string, Promise<(DerivedObject & { cachePath: string })[] | null>>) {
+async function calibreCovers(coverFile: string | null, cacheDir: string, made: Map<string, Promise<(DerivedObject & { cachePath: string })[] | null>>) {
+  if (!coverFile) return null; // Outside the library: never read
   if (!made.has(coverFile))
     made.set(
       coverFile,
@@ -332,7 +355,8 @@ async function calibreCovers(coverFile: string, cacheDir: string, made: Map<stri
 /** Plans an ingestion of the roots. Writes nothing to the database or the bucket. */
 export async function planIngest(roots: string[], options: PlanOptions): Promise<IngestPlan> {
   const now = options.now ?? Date.now();
-  const calibre = options.calibre ? await calibreSource(roots, options.calibre) : null;
+  if (options.select && !options.calibre) throw new Error("--select takes the Calibre snapshot it was made from: add --calibre. Nothing planned.");
+  const calibre = options.calibre ? await calibreSource(roots, options.calibre, options.database, options.select) : null;
   const { files: walked, sidecars } = calibre ?? (await walkRoots(roots, { exclude: options.exclude }));
   const found = options.limit ? walked.slice(0, options.limit) : walked;
   const hashes = new HashCache(options.cacheDir);

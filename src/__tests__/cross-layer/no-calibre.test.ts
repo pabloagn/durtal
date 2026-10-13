@@ -27,7 +27,8 @@ import path from "node:path";
  * Calibre for good: Durtal still never runs, needs or writes to Calibre. Its
  * name is allowed where that source is read and documented: the ingestion
  * library and commands, their tests, the ingestion pipeline document and the
- * package script that runs the snapshot. Never in a screen, a setting or
+ * package script that runs the snapshot. Import existing (SLN-657) reads the
+ * same source through its own command. Never in a screen, a setting or
  * anything else.
  */
 
@@ -43,10 +44,12 @@ const CALIBRE_SOURCE = [
   "src/lib/ebooks/ingest/",
   "scripts/ebooks/calibre-snapshot.ts",
   "scripts/ebooks/ingest.ts",
+  "scripts/ebooks/import-existing.ts",
   "src/__tests__/ebooks/calibre/",
   "src/__tests__/ebooks/ingest/",
   "src/__tests__/fixtures/calibre-library.ts",
   "src/__tests__/integration/ebook-ingest.test.ts",
+  "src/__tests__/integration/ebook-import-existing.test.ts",
   "docs/09_INGESTION_PIPELINE.md",
 ];
 /** The package script that takes a snapshot; package.json may name Calibre nowhere else */

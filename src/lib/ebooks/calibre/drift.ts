@@ -45,11 +45,12 @@ export function driftFields(book: CalibreBook, opf: FileMetadata): DriftField[] 
   return fields;
 }
 
-/** Each book's OPF against the snapshot; only books that drift are listed */
+/** Each book's OPF against the snapshot; only books that drift are listed. An OPF outside the library is never read. */
 export function driftReport(root: string, books: CalibreBook[]): DriftBook[] {
   const drift: DriftBook[] = [];
   for (const book of books) {
     const file = libraryPath(root, `${book.path}/${SIDECAR_NAME}`);
+    if (!file) continue;
     if (!existsSync(file)) {
       drift.push({ bookId: book.id, path: book.path, missing: true, older: false, fields: [] });
       continue;

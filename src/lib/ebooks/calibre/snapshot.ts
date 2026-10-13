@@ -42,6 +42,7 @@ export interface SnapshotCounts {
   customColumns: number;
   missingFiles: number;
   extraFiles: number;
+  outsideFiles: number;
   opfMissing: number;
   opfOlder: number;
   opfDifferent: number;
@@ -72,7 +73,8 @@ const stampOf = (at: string) => at.replace(/[:.]/g, "-");
 
 /** Copies metadata.db and proves the copy is the file as it was before and after */
 async function copyDatabase(root: string, cacheDir: string, afterCopy?: () => void) {
-  const source = path.join(root, METADATA_DB);
+  const source = libraryPath(root, METADATA_DB);
+  if (!source) throw new Error(`${METADATA_DB} leads outside the library folder: refused. Nothing copied.`);
   for (const journal of JOURNALS) {
     const file = path.join(root, journal);
     if (existsSync(file) && statSync(file).size > 0)
@@ -110,6 +112,7 @@ export function snapshotCounts(snapshot: CalibreSnapshot): SnapshotCounts {
     customColumns: snapshot.columns.length,
     missingFiles: snapshot.files.missing.length,
     extraFiles: snapshot.files.extra.length,
+    outsideFiles: snapshot.files.outside.length,
     opfMissing: snapshot.drift.filter((d) => d.missing).length,
     opfOlder: snapshot.drift.filter((d) => d.older).length,
     opfDifferent: snapshot.drift.filter((d) => d.fields.length > 0).length,
@@ -140,6 +143,7 @@ export function snapshotReport(snapshot: CalibreSnapshot, snapshotFile: string):
     `| Custom columns | ${n(c.customColumns)}; books with a value in one: ${n(c.withCustomValues)} |`,
     `| Formats missing on disk | ${n(c.missingFiles)} |`,
     `| Files metadata.db does not list | ${n(c.extraFiles)} |`,
+    `| Paths leading outside the library, never read | ${n(c.outsideFiles)} |`,
     `| OPFs missing | ${n(c.opfMissing)} |`,
     `| OPFs older than the book | ${n(c.opfOlder)} |`,
     `| OPFs that differ | ${n(c.opfDifferent)}${Object.keys(c.differentFields).length ? ` (${Object.entries(c.differentFields).map(([f, k]) => `${f} ${n(k)}`).join(", ")})` : ""} |`,
@@ -153,6 +157,10 @@ export function snapshotReport(snapshot: CalibreSnapshot, snapshotFile: string):
     "## Files metadata.db does not list",
     "",
     ...list(snapshot.files.extra, "None."),
+    "",
+    "## Paths leading outside the library",
+    "",
+    ...list(snapshot.files.outside.map((o) => `${o.path} (book ${o.bookId})`), "None."),
     "",
     "## Books whose OPF drifts",
     "",
@@ -174,14 +182,20 @@ export async function takeCalibreSnapshot(library: string, options: SnapshotOpti
   const database = await copyDatabase(root, options.cacheDir, options.afterCopy);
   const { libraryId, columns, books } = readCalibreDatabase(database.copy);
 
-  // Every listed format on disk; every other file named
+  // Every listed format on disk; every other file named; nothing outside the library read
   const listed = new Set<string>();
   const missing: { bookId: number; path: string }[] = [];
-  for (const book of books)
+  const outside: { bookId: number; path: string }[] = [];
+  for (const book of books) {
     for (const format of book.formats) {
       listed.add(format.path);
-      if (!existsSync(libraryPath(root, format.path))) missing.push({ bookId: book.id, path: format.path });
+      const file = libraryPath(root, format.path);
+      if (!file) outside.push({ bookId: book.id, path: format.path });
+      else if (!existsSync(file)) missing.push({ bookId: book.id, path: format.path });
     }
+    for (const relative of [book.coverPath, `${book.path}/metadata.opf`])
+      if (relative && !libraryPath(root, relative)) outside.push({ bookId: book.id, path: relative });
+  }
   const bookFolders = new Set(books.map((b) => b.path));
   const { files } = await walkRoots([root]);
   const extra = files
@@ -204,7 +218,7 @@ export async function takeCalibreSnapshot(library: string, options: SnapshotOpti
     metadataDb: { sha256: database.sha256, size: database.size, mtimeMs: database.mtimeMs },
     columns,
     books,
-    files: { missing, extra },
+    files: { missing, extra, outside },
     drift: driftReport(root, books),
   };
 

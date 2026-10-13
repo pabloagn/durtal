@@ -272,7 +272,7 @@ export function ReviewView({ queue, params }: { queue: ReviewQueue; params: Revi
       </div>)}
     </section>}
     {workNotice && <p role="status" className="text-sm text-fg-secondary">{workNotice}</p>}
-    <details className="text-xs text-fg-secondary"><summary className="cursor-pointer">Keyboard shortcuts</summary>
+    <details className="text-xs text-fg-secondary"><summary className="cursor-pointer pointer-coarse:py-3">Keyboard shortcuts</summary>
       <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">{Object.entries(REVIEW_KEYS).map(([key, title]) =>
         <div key={key} className="flex gap-2"><dt><kbd>{key}</kbd></dt><dd>{title}</dd></div>)}</dl>
     </details>

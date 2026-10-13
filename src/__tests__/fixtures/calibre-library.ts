@@ -16,7 +16,7 @@ import { makeEpub, makeImage, makePdf } from "./ebook-builders";
  * 4. Les Champs magnétiques: two authors, Calibre's "no date".
  *
  * Plus a file no book lists, Calibre's own files that are never extra, and
- * a trash folder.
+ * a trash folder. A test may add books of its own after these (`extra`).
  */
 
 export const LIBRARY_ID = "0b7c2f1e-5d4a-4c3b-9a8e-7f6d5c4b3a21";
@@ -55,7 +55,7 @@ CREATE TABLE custom_columns (id INTEGER PRIMARY KEY AUTOINCREMENT, label TEXT NO
   is_multiple BOOL DEFAULT 0 NOT NULL, normalized BOOL NOT NULL, UNIQUE(label));
 `;
 
-interface FixtureBook {
+export interface FixtureBook {
   id: number;
   uuid: string;
   title: string;
@@ -106,8 +106,8 @@ export function calibreOpf(book: Omit<FixtureBook, "formats" | "folder" | "fileN
 </package>`;
 }
 
-/** Builds the library under `root`; returns where its files are */
-export async function makeCalibreLibrary(root: string) {
+/** Builds the library under `root`, with any extra books after the four; returns where its files are */
+export async function makeCalibreLibrary(root: string, options: { extra?: FixtureBook[] } = {}) {
   const cover = await makeImage("jpeg", { width: 500, height: 800, color: "#443322" });
   const books: FixtureBook[] = [
     {
@@ -186,6 +186,7 @@ export async function makeCalibreLibrary(root: string) {
       hasCover: false,
       language: "fra",
     },
+    ...(options.extra ?? []),
   ];
 
   mkdirSync(root, { recursive: true });
