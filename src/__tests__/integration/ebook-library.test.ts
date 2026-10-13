@@ -27,6 +27,7 @@ import {
 } from "../ebooks/publication-fixture";
 import { parseEbookLibraryParams } from "@/lib/ebooks/library-params";
 import { setPreferredFile } from "@/lib/ebooks/preferred-file";
+import { getLinkedBook } from "@/lib/ebooks/linked-book";
 import {
   ebookLibraryPageQuery,
   getEbooksPage,
@@ -332,5 +333,19 @@ describe.skipIf(!url)(
         /ebooks_active_title_sort_idx|ebooks_state_title_sort_idx/,
       );
     }, 30000);
+    it("shows the linked book's cover: the e-book edition's, else the poster, else the book's first edition with one (SLN-666)", async () => {
+      const [work] = await client!`insert into works(title) values ('Linked cover book') returning id`;
+      const [shelf] = await client!`insert into locations(name, type) values ('eBooks', 'digital') returning id`;
+      await client!`insert into editions(work_id, title, cover_s3_key, created_at)
+        values (${work.id}, 'Hardback', 'gold/covers/hardback.webp', now() - interval '1 year')`;
+      const [digital] = await client!`insert into editions(work_id, title) values (${work.id}, 'eBook') returning id`;
+      const [copy] = await client!`insert into instances(edition_id, location_id) values (${digital.id}, ${shelf.id}) returning id`;
+      const cover = async () => (await getLinkedBook(copy.id, database!))?.coverUrl;
+      expect(await cover()).toContain("hardback.webp");
+      await client!`insert into media(work_id, type, s3_key) values (${work.id}, 'poster', 'gold/media/poster.webp')`;
+      expect(await cover()).toContain("poster.webp");
+      await client!`update editions set cover_s3_key = 'gold/covers/digital.webp' where id = ${digital.id}`;
+      expect(await cover()).toContain("digital.webp");
+    });
   },
 );
