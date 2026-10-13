@@ -273,8 +273,9 @@ export function LocationCard({
         <div className="space-y-4">
           {blocking ? (
             <div className="rounded-sm border border-accent-red/30 bg-accent-red/5 p-3 text-xs text-fg-secondary">
-              {name} holds {blocking}. Move them to another location before
-              deleting it.
+              {name} holds {blocking}. Move{" "}
+              {items.films + items.paintings + items.perfumes === 1 ? "it" : "them"}{" "}
+              to another location before deleting it.
             </div>
           ) : (
             items.copies > 0 && (
