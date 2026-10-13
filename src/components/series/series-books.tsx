@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { toast } from "sonner";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,8 +40,9 @@ export interface SeriesBook {
   position: string | null;
   cover: string | null;
   coverCrop: MediaCrop | null;
-  owned: boolean;
+  /** The canonical catalogue status, as STATUS_CONFIG labels it */
   status: string;
+  statusVariant: "muted" | "blue" | "gold" | "accent" | "sage" | "red";
   ebook?: WorkEbookDTO | null;
   readerReturnTo?: string;
   /** The volume's reading state (SLN-449) and the open reading's share */
@@ -87,7 +88,7 @@ function PositionField({
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         if (e.key === "Escape") setValue(book.position ?? "");
       }}
-      className="h-7 w-12 rounded-sm border border-glass-border bg-bg-primary/80 text-center font-mono text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none"
+      className="h-7 w-12 shrink-0 rounded-sm border border-glass-border bg-bg-primary/80 text-center font-mono text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none pointer-coarse:h-11"
     />
   );
 }
@@ -124,101 +125,109 @@ export function SeriesBooks({
 
   return (
     <ol className="space-y-2">
-      {books.map((book, index) => (
-        <li
-          key={book.id}
-          className="flex items-center gap-4 rounded-sm border border-glass-border bg-bg-secondary px-3 py-2.5"
-        >
-          <PositionField
-            key={`${book.id}-${book.position}`}
-            seriesId={seriesId}
-            book={book}
-          />
-          <Link
-            href={`/library/${book.slug}`}
-            aria-label={`Open ${book.title}`}
-          >
-            <div className="relative h-16 w-11 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
-              {book.cover && (
-                <img
-                  src={mediaUrl(book.cover)}
-                  alt=""
-                  className="protected-image h-full w-full object-cover"
-                  style={mediaImageStyle(book.coverCrop)}
-                />
-              )}
-              {book.ebook?.readable && <div className={COVER_CORNER.bottomLeft}><EbookMark ebook={book.ebook} /></div>}
-            </div>
-          </Link>
-          <div className="min-w-0 flex-1">
-            <div className="type-item-title flex items-start gap-4">
-              <Link href={`/library/${book.slug}`} className="min-w-0 flex-1">
-                <h3 className="line-clamp-1 text-fg-primary hover:text-accent-primary">
-                  {book.title}
-                </h3>
-              </Link>
-              <CapAligned height={32}>
-                <div className="flex h-8 items-center gap-3 font-sans text-sm">
-                  {book.owned ? (
-                    <Badge variant="sage">Owned</Badge>
-                  ) : (
-                    <Badge variant="muted">{book.status}</Badge>
-                  )}
-                  {/* Under sm the row has no room: the badge moves to the author line */}
-                  {badge(book) && (
-                    <span className="hidden sm:inline-flex">
-                      <Badge variant={badge(book)!.variant}>{badge(book)!.label}</Badge>
-                    </span>
-                  )}
-                  <div className="flex gap-1">
-                    <CatalogueReadLink ebook={book.ebook ?? null} returnTo={book.readerReturnTo} />
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label={`Move ${book.title} earlier`}
-                      data-tooltip="Move earlier"
-                      disabled={!!busy || index === 0}
-                      onClick={() => act(book, "up")}
-                    >
-                      <ArrowUp size={14} />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label={`Move ${book.title} later`}
-                      data-tooltip="Move later"
-                      disabled={!!busy || index === books.length - 1}
-                      onClick={() => act(book, "down")}
-                    >
-                      <ArrowDown size={14} />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label={`Remove ${book.title} from the series`}
-                      data-tooltip="Remove from series"
-                      disabled={!!busy}
-                      onClick={() => act(book, "remove")}
-                    >
-                      <X size={14} />
-                    </Button>
-                  </div>
-                </div>
-              </CapAligned>
-            </div>
-            <div className="flex items-center gap-2">
-              <p className="line-clamp-1 min-w-0 text-xs text-fg-secondary">
-                {book.authors}
-              </p>
-              {badge(book) && (
-                <span className="shrink-0 sm:hidden">
-                  <Badge variant={badge(book)!.variant}>{badge(book)!.label}</Badge>
-                </span>
-              )}
-            </div>
+      {books.map((book, index) => {
+        // Read, move and remove: beside the title, or on their own row on a phone
+        const controls = (
+          <div className="flex gap-1">
+            <CatalogueReadLink ebook={book.ebook ?? null} returnTo={book.readerReturnTo} />
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label={`Move ${book.title} earlier`}
+              data-tooltip="Move earlier"
+              disabled={!!busy || index === 0}
+              onClick={() => act(book, "up")}
+            >
+              <ArrowUp size={14} />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label={`Move ${book.title} later`}
+              data-tooltip="Move later"
+              disabled={!!busy || index === books.length - 1}
+              onClick={() => act(book, "down")}
+            >
+              <ArrowDown size={14} />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label={`Remove ${book.title} from the series`}
+              data-tooltip="Remove from series"
+              disabled={!!busy}
+              onClick={() => act(book, "remove")}
+            >
+              <X size={14} />
+            </Button>
           </div>
-        </li>
-      ))}
+        );
+        return (
+          <li
+            key={book.id}
+            className="flex items-center gap-4 rounded-sm border border-glass-border bg-bg-secondary px-3 py-2.5"
+          >
+            <PositionField
+              key={`${book.id}-${book.position}`}
+              seriesId={seriesId}
+              book={book}
+            />
+            <Link
+              href={`/library/${book.slug}`}
+              aria-label={`Open ${book.title}`}
+            >
+              <div className="relative h-16 w-11 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
+                {book.cover && (
+                  <img
+                    src={mediaUrl(book.cover)}
+                    alt=""
+                    className="protected-image h-full w-full object-cover"
+                    style={mediaImageStyle(book.coverCrop)}
+                  />
+                )}
+                {book.ebook?.readable && <div className={COVER_CORNER.bottomLeft}><EbookMark ebook={book.ebook} /></div>}
+              </div>
+            </Link>
+            <div className="min-w-0 flex-1">
+              <div className="type-item-title flex items-start gap-4">
+                <Link href={`/library/${book.slug}`} className="min-w-0 flex-1 touch-hit">
+                  <h3 className="break-words text-fg-primary hover:text-accent-primary">
+                    {book.title}
+                  </h3>
+                </Link>
+                {/* Under sm the row has no room: the badges move to the author
+                    line and the controls to a row of their own. CapAlignedControls,
+                    not CapAligned, whose box clips the buttons' focus rings */}
+                <div className="hidden shrink-0 sm:block">
+                  <CapAlignedControls height={32} coarseHeight={44}>
+                    <span className="flex items-center gap-3">
+                      <Badge variant={book.statusVariant}>{book.status}</Badge>
+                      {badge(book) && (
+                        <Badge variant={badge(book)!.variant}>{badge(book)!.label}</Badge>
+                      )}
+                      {controls}
+                    </span>
+                  </CapAlignedControls>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="min-w-0 break-words text-xs text-fg-secondary">
+                  {book.authors}
+                </p>
+                <span className="shrink-0 sm:hidden">
+                  <Badge variant={book.statusVariant}>{book.status}</Badge>
+                </span>
+                {badge(book) && (
+                  <span className="shrink-0 sm:hidden">
+                    <Badge variant={badge(book)!.variant}>{badge(book)!.label}</Badge>
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 sm:hidden">{controls}</div>
+            </div>
+          </li>
+        );
+      })}
     </ol>
   );
 }

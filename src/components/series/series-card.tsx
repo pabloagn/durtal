@@ -11,7 +11,7 @@ export interface SeriesItem {
   title: string;
   originalTitle: string | null;
   bookCount: number;
-  ownedCount: number;
+  accessionedCount: number;
   /** Volumes read at least once (SLN-449) */
   readCount?: number;
   totalVolumes: number | null;
@@ -23,7 +23,7 @@ export interface SeriesItem {
 function countsLabel(s: SeriesItem) {
   const books = `${s.bookCount} ${s.bookCount === 1 ? "book" : "books"}`;
   const of = s.totalVolumes ? ` of ${s.totalVolumes}` : "";
-  return [`${books}${of}`, s.ownedCount ? `${s.ownedCount} owned` : null, s.readCount ? `${s.readCount} read` : null]
+  return [`${books}${of}`, s.accessionedCount ? `${s.accessionedCount} accessioned` : null, s.readCount ? `${s.readCount} read` : null]
     .filter(Boolean)
     .join(" · ");
 }
