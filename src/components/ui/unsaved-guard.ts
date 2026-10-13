@@ -51,6 +51,69 @@ export interface UnsavedGuard {
 /** Cancel buttons carry this mark: a press asks first when work is unsaved */
 export const DISMISS = "[data-dismiss]";
 
+/**
+ * A press on an in-app link that leaves the page (SLN-631): the drafts open
+ * on it ask first, the newest first. Discard follows the link, and a draft
+ * under it may still ask. A link that opens elsewhere (a new tab, a
+ * download, another site), stays on the page (another tab of it, an
+ * anchor) or is a Cancel (`data-dismiss`, asked by its own draft) passes.
+ */
+interface LinkGuard {
+  unsaved(): boolean;
+  request(discard: () => void): boolean;
+}
+const linkGuards: LinkGuard[] = [];
+/** The drafts that already answered Discard for the link being followed */
+let answered: ReadonlySet<LinkGuard> = new Set();
+
+function leavingLink(event: MouseEvent): HTMLAnchorElement | null {
+  if (event.defaultPrevented || event.button !== 0) return null;
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return null;
+  const link = (event.target as Element | null)?.closest?.<HTMLAnchorElement>("a[href]");
+  if (!link || link.hasAttribute("download") || link.closest(DISMISS)) return null;
+  if (link.target && link.target !== "_self") return null;
+  const to = new URL(link.href, location.href);
+  if (to.origin !== location.origin) return null;
+  return to.pathname === location.pathname ? null : link;
+}
+
+function onLinkClick(event: MouseEvent) {
+  const link = leavingLink(event);
+  if (!link) return;
+  const passed = answered;
+  const asking = linkGuards.findLast((g) => !passed.has(g) && g.unsaved());
+  if (!asking) return;
+  event.preventDefault();
+  event.stopPropagation();
+  asking.request(() => {
+    answered = new Set([...passed, asking]);
+    try {
+      link.click();
+    } finally {
+      answered = passed;
+    }
+  });
+}
+
+/**
+ * Leave the page by a key or the command palette: as an in-app link does,
+ * the drafts open on it ask first.
+ */
+export function leavePage(go: () => void, passed: ReadonlySet<LinkGuard> = new Set()) {
+  const asking = linkGuards.findLast((g) => !passed.has(g) && g.unsaved());
+  if (!asking) return go();
+  asking.request(() => leavePage(go, new Set([...passed, asking])));
+}
+
+function guardLinks(guard: LinkGuard) {
+  if (!linkGuards.length) document.addEventListener("click", onLinkClick, true);
+  linkGuards.push(guard);
+  return () => {
+    linkGuards.splice(linkGuards.indexOf(guard), 1);
+    if (!linkGuards.length) document.removeEventListener("click", onLinkClick, true);
+  };
+}
+
 /** Danger buttons (Delete) are never a draft's save */
 function saveOf(root: HTMLElement | null): HTMLButtonElement | null {
   const button = root ? saveButtonIn(root) : null;
@@ -148,6 +211,11 @@ export function useUnsavedGuard({
     element.addEventListener("click", onClick, true);
     return () => element.removeEventListener("click", onClick, true);
   }, [active, root, request, unsaved]);
+
+  // A link away from the page asks too
+  useLayoutEffect(() => {
+    if (active) return guardLinks({ unsaved, request });
+  }, [active, unsaved, request]);
 
   // Back to the field the person was in, once the question is gone
   const refocus = (target: Element | null) =>

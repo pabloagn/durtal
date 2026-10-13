@@ -46,6 +46,7 @@ import { ebookPaletteGroup } from "@/lib/ebooks/palette-group";
 import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
 import { readerEntryHref } from "@/lib/reader/entry-policy";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
+import { leavePage } from "@/components/ui/unsaved-guard";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -154,9 +155,11 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
   const navigate = useCallback(
     (href: string) => {
       onOpenChange(false);
-      startTransition(() => {
-        router.push(href);
-      });
+      leavePage(() =>
+        startTransition(() => {
+          router.push(href);
+        }),
+      );
     },
     [router, onOpenChange],
   );
@@ -285,11 +288,11 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
       run: () => void reading.open({ kind: "note", workId: o.work.id, readingId: o.reading.id, noteKind: "quote" }),
     })),
     { value: "reading:quote", label: "Add a quote...", icon: Quote, run: () => reading.pick("quote") },
-    { value: "reading:notes", label: "Go to Notes", icon: NotebookText, run: () => router.push("/reading/notes") },
+    { value: "reading:notes", label: "Go to Notes", icon: NotebookText, run: () => navigate("/reading/notes") },
     // Up Next (SLN-452); "Add to Up Next" on a book page comes from its R menu under "This page"
-    { value: "reading:next", label: "Go to Up next", icon: ListOrdered, run: () => router.push("/reading/next") },
+    { value: "reading:next", label: "Go to Up next", icon: ListOrdered, run: () => navigate("/reading/next") },
     // Suggestions (SLN-457): Pick one for me
-    { value: "reading:suggest", label: "Suggest a book", icon: Sparkles, run: () => router.push("/reading/suggestions?pick=1") },
+    { value: "reading:suggest", label: "Suggest a book", icon: Sparkles, run: () => navigate("/reading/suggestions?pick=1") },
   ];
   const readingItems = trimmed ? filterBySearch(allReadingItems, trimmed, (i) => i.label) : allReadingItems;
   const firstValue =
