@@ -24,6 +24,14 @@ describe("opened PDF annotation consumers", () => {
     const result = await resolvePdfAnnotation({ provider: p, hash, pageCount: 2, annotation: { kind: "highlight", locator: anchor() }, signal: owner().signal });
     expect(result.status).toBe("exact"); expect(p.locatorForPdfTextOffsets).toHaveBeenCalledWith(expect.objectContaining({ start: 0, end: 15, fileHash: hash }));
   });
+  it("is exact on its own page when the saved rectangles differ slightly, without scanning other pages (SLN-670)", async () => {
+    const p = provider(["First sentence.", "Other page."]);
+    const saved = { ...anchor(), pdf: { page: 1, rects: [[10.06, 20.67, 99.94, 29.2]] as [number, number, number, number][] } };
+    const result = await resolvePdfAnnotation({ provider: p, hash, pageCount: 2, annotation: { kind: "highlight", locator: saved }, signal: owner().signal });
+    expect(result.status).toBe("exact");
+    expect(result.locator?.pdf?.rects).toEqual([[10, 20, 100, 30]]);
+    expect(p.pdfPageText).toHaveBeenCalledTimes(1);
+  });
   it("never fills a repeated ambiguous passage or falls back to a fraction", async () => {
     const result = await resolvePdfAnnotation({ provider: provider(["Repeated. Repeated."]), hash, pageCount: 1, annotation: { kind: "highlight", locator: anchor(0, "Repeated.") }, signal: owner().signal });
     expect(result).toEqual({ status: "orphaned", locator: null });

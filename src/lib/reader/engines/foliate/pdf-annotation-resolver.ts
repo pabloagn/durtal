@@ -1,7 +1,7 @@
 import type { AnnotationResolveResult, DurtalLocator } from "../../engine";
 import type { PdfTextProvider } from "./pdf-text-provider";
 import { matchAnnotationQuote } from "./annotation-anchor";
-import { pdfHealingPages, validPdfRect } from "./pdf-geometry";
+import { pdfHealingPages } from "./pdf-geometry";
 import { speechYield } from "../../speech/dom-sentences";
 
 /** Actual opened-page text and measured user-unit ranges, independent of navigation. */
@@ -34,11 +34,12 @@ export async function resolvePdfAnnotation(input: {
       const measured = await input.provider.locatorForPdfTextOffsets({ ...request, start: match.match.start, end: match.match.end });
       input.signal.throwIfAborted();
       if (!measured) return { status: "pending", locator: null };
-      const stored = locator.pdf?.rects;
-      const current = measured.pdf?.rects;
-      const exactGeometry = stored?.length && current?.length === stored.length &&
-        stored.every((rect, index) => validPdfRect(rect) && rect.every((n, at) => Math.abs(n - current[index][at]) <= 0.02));
-      if (locator.fileHash === input.hash && pageIndex + 1 === oldPage && match.match.passageScore === 1 && exactGeometry)
+      // The same words, alone on their own page of the same file, are the
+      // mark's place. The rectangles saved from the selection differ from the
+      // measured text by a fraction of a line, so they never decide it: when
+      // they did, every mark went on to scan the other pages, whose fuzzy
+      // match defers, and stayed undrawn (SLN-670).
+      if (locator.fileHash === input.hash && pageIndex + 1 === oldPage && match.match.passageScore === 1)
         return { status: "exact", locator: measured };
       candidates.push({ score: match.match.score, locator: measured });
       candidates.sort((a, b) => b.score - a.score);
