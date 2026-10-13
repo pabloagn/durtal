@@ -55,7 +55,7 @@ interface BookItem {
   isFavourite?: boolean;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
-  ebook?: WorkEbookDTO | null;
+  ebook: WorkEbookDTO | null;
   readerReturnTo?: string;
   /** An open reading (SLN-449): the card shows "Reading 44%" */
   reading?: CardReadingValue;

@@ -1,4 +1,4 @@
-# Task 0467: The dead-code check passes again
+# Task 0467: The dead-code check passes again, and every book card must say whether it has an e-book
 
 **Status**: Completed
 **Created**: 2026-10-13
@@ -13,6 +13,11 @@
 unused files and 15 imports of `server-only` as an unlisted dependency, so
 every PR reported it as failing on main too. It passes again. Nothing the app
 runs changes.
+
+The cover mark that replaced the old one (`EbookMark`, SLN-505) was still
+optional on `BookCard`, beside the old `hasDigitalEdition` flag that no
+longer drew anything. A page could leave the mark out unnoticed. The
+e-book is now a required prop, so the type check refuses such a page.
 
 ## Implementation Details
 
@@ -37,8 +42,18 @@ runs changes.
   - `server-only` is ignored as a dependency. Next.js provides it at build
     time and the tests mock it, so it is not a package to install.
 
+- `BookCard`, `BookGrid` items, the library's and publisher list's book
+  items, `RelatedBookCard` and `WorkCarousel` (`ebooks`) take the work's
+  e-book as a required `WorkEbookDTO | null`; `hasDigitalEdition` is gone.
+  Every page already passed it, so nothing renders differently. The
+  publisher list's prop type now says the page adds it (it did at runtime).
+  This stands in for SLN-505's planned source scan of card call sites: the
+  type check covers every call site, including spreads.
+
 ## Completion Notes
 
 - `pnpm deadcode`: exit 0.
-- `pnpm typecheck` is clean, and the two reader suites whose mocks changed
-  pass (32 tests).
+- `pnpm typecheck` is clean. The two reader suites whose mocks changed pass
+  (32 tests), and so do `card-reading.test.ts` and
+  `similar-works-carousel.test.ts` (10 tests). The card test that fed the old
+  flag now checks that the mark follows the e-book alone.
