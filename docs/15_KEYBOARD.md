@@ -98,11 +98,11 @@ Current keys (`src/lib/shortcuts/shortcuts.ts`, `src/lib/catalogue/domains.ts`):
 
 | Keys | Now | Owner's request (SLN-629, 632, 571) | Conflict |
 |---|---|---|---|
-| A | opens the Add menu | A is only a prefix; N opens New | **yes**: A then the next key must not open a menu first (SLN-632) |
-| N | nothing (R then N is Up Next) | opens the New menu | none |
+| A | a prefix only (SLN-632): the next key adds; Esc, another key, a modifier or 1.5 s end it | A is only a prefix; N opens New | resolved |
+| N | opens the New menu (SLN-632; R then N is still Up Next inside the R menu) | opens the New menu | resolved |
 | A B | Add book | Add book | none |
-| A P | Add publisher | Add perfume | **yes**: publisher needs another key (SLN-632) |
-| A E | Add perfume (`keys.add: "e"`) | - | moves when perfume takes P |
+| A P | Add perfume (SLN-632) | Add perfume | resolved |
+| A U | Add publisher (was A P) | - | resolved |
 | A A | Add person | Add person | none |
 | A F | Add film | Favourites (current item) | **yes**: Add film needs a fallback key or only applies where no item is open (SLN-571) |
 | A C | Create collection | Add to collection (current item) | **yes**: same resolution (SLN-571) |
@@ -118,8 +118,8 @@ Current keys (`src/lib/shortcuts/shortcuts.ts`, `src/lib/catalogue/domains.ts`):
 | Alt+F | fix a field's title case or name order | keep | none |
 
 Other notes for SLN-632:
-- The leader menu is not closed on a route change (no `pathname` reset of
-  `menu`); a client navigation while it is open should close it.
+- A client navigation closes an open leader menu and drops a pending A
+  (resolved in SLN-632).
 - The help sheet, the palette's key hints (`command-palette.tsx`) and the
   menus read the same lists, so one registry change updates all three. The
   favourite's "F" tooltip is its own constant and must move with it.
@@ -298,7 +298,7 @@ the identify queue and the harmonize workspace (16 files).
    main button is shown, so Enter presses Next, then Create Order. Read from
    source only; SLN-634 checks it in a browser.
 5. **E and A** as in sections 2 and 3.
-6. **The leader menu** survives a client navigation (section 2).
+6. **The leader menu** survived a client navigation (resolved in SLN-632).
 
 ## 5. Verification plan for the dependent tickets
 
@@ -306,7 +306,7 @@ On a disposable preview only (`scripts/qa/preview-local.py --start
 --seed-large 50 --s3-dir DIR`), headless Chromium, Firefox and WebKit,
 Esc sent as key code 27, nothing written to live data.
 
-- **SLN-632:** N opens New; A then B, P, A, F, C, E, I, R, S, L each run
+- **SLN-632:** N opens New; A then B, P, A, U, F, C, I, R, S, L each run
   their one action; A then Esc, A then an unknown key, A held, A with ⌘,
   and A while typing do nothing; a client navigation closes an open menu;
   the help sheet, the palette and the menu show the same keys.

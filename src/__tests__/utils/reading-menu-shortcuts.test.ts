@@ -4,7 +4,7 @@ import { READING_KEYS, SHORTCUTS, SHORTCUT_GROUPS } from "@/lib/shortcuts/shortc
 describe("Reading menu shortcuts (SLN-447)", () => {
   it("opens with R, apart from the other menus", () => {
     expect(SHORTCUTS.readingMenu).toEqual(["r"]);
-    const menus = [SHORTCUTS.addMenu, SHORTCUTS.goMenu, SHORTCUTS.copyMenu, SHORTCUTS.editMenu];
+    const menus = [SHORTCUTS.newMenu, SHORTCUTS.goMenu, SHORTCUTS.copyMenu, SHORTCUTS.editMenu];
     expect(menus.map((m) => m[0])).not.toContain("r");
   });
 
