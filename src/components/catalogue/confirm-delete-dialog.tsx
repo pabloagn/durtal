@@ -16,6 +16,7 @@ export function ConfirmDeleteDialog({
   name,
   description,
   blockers = [],
+  confirmLabel = "Delete",
   onConfirm,
 }: {
   open: boolean;
@@ -25,6 +26,8 @@ export function ConfirmDeleteDialog({
   name: string;
   description: string;
   blockers?: string[];
+  /** The button's word: "Remove" for a link, which deletes no record */
+  confirmLabel?: string;
   onConfirm: () => Promise<void>;
 }) {
   const [pending, setPending] = useState(false);
@@ -61,7 +64,7 @@ export function ConfirmDeleteDialog({
             }}
           >
             {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
-            Delete
+            {confirmLabel}
           </Button>
         </div>
       </div>

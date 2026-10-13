@@ -118,12 +118,16 @@ describe.skipIf(!url)("sourced links between works", () => {
     expect(perfumeCard.kind !== "book" && perfumeCard.tile.imageUrl).toBeNull();
 
     // A book's cover card, with its editions
+    // Both links are inspirations to a "Malpertuis", so the query orders them by id: compare as a set
     const fromPerfume = await getWorkRelations(perfume);
-    expect(fromPerfume.map((r) => [r.other.id, r.source?.label])).toEqual([
-      [novel, "The house's notes"],
-      [film, "Test"],
-    ]);
-    const bookCard = fromPerfume[0].other.card;
+    expect(fromPerfume.map((r) => [r.other.id, r.source?.label])).toEqual(
+      expect.arrayContaining([
+        [novel, "The house's notes"],
+        [film, "Test"],
+      ]),
+    );
+    expect(fromPerfume).toHaveLength(2);
+    const bookCard = fromPerfume.find((r) => r.other.id === novel)!.other.card;
     expect(bookCard.kind === "book" && bookCard.book.editions.map((e) => e.id)).toEqual([edition]);
 
     // Two links to the same work stay two links, each with the one card

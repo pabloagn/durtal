@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ExternalLink, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -354,6 +353,7 @@ export function LinkedWorksSection({
         title="Remove link"
         name={removing ? `${work.title} · ${removing.other.title}` : ""}
         description="The link is removed; both works and its source stay."
+        confirmLabel="Remove"
         onConfirm={async () => {
           if (!removing) return;
           try {
