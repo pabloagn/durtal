@@ -110,8 +110,8 @@ Current keys (`src/lib/shortcuts/shortcuts.ts`, `src/lib/catalogue/domains.ts`):
 | A I | Add painting | - | none |
 | A R, A S, A L | recommender, series, place | - | none |
 | F | nothing (was the favourite; SLN-571) | A then F | resolved |
-| E W, E M, E T | book page: Work, Media, Taxonomy | keep E W; E M on every page with media | E exists on the book page only (SLN-633) |
-| E C | nothing | Edit collection on a collection page | missing (SLN-633) |
+| E W, E M, E T | Work (book, film, perfume, painting), Media wherever the page has media, Taxonomy (book) | keep E W; E M on every page with media | resolved (SLN-633) |
+| E C, E P, E O, E S, E R | the page's item: Collection; Person, Publisher or Place; Organization; Series; Recommender (SLN-633) | Edit collection on a collection page | resolved: the letter is the first of what it edits |
 | G … | Go to: D, B, F, E, I, A, P, S, C, O, M, T, H, R, K, "," | keep | none |
 | Y … | Copy: N, T, I, D, L | keep | none |
 | R … | book page reading: S, P, U, F, A, L, T, N, Q, H | keep | none |
@@ -133,21 +133,25 @@ Visible actions on each detail page, and the keys that reach them today.
 | Page | Edit | Media / images | Add to collection | Favourite | E menu | Y copy |
 |---|---|---|---|---|---|---|
 | Book `/library/[slug]` | Edit Work, Edit Taxonomy (actions menu) | Manage media | work button (A C), edition buttons | A F | W, M, T | yes |
-| Film `/films/[slug]` | Edit (actions menu) | Images | Collections (A C) | A F (curation star) | none | yes |
-| Perfume `/perfumes/[slug]` | Edit | Images | Collections (A C) | A F (curation star) | none | yes |
-| Painting `/paintings/[slug]` | Edit | Images | Collections (A C) | A F (curation star) | none | yes |
-| Person `/people/[slug]` | Edit | Manage Media | - | A F | none | yes |
-| Publisher `/publishers/[slug]` | Edit (editor page) | Manage media | - | A F | none | yes |
-| Organization `/organizations/[slug]` | Edit | none | - | none | none | yes |
-| Collection `/collections/[id]` | Edit | Artwork | - | A F | none | yes |
-| Series `/series/[id]` | Edit | none | - | A F | none | yes |
-| Place `/places/[slug]` | Edit, Archive | none | - | A F | none | yes |
-| Recommender `/recommenders/[id]` | Edit | none | - | A F | none | yes |
+| Film `/films/[slug]` | Edit (actions menu) | Images | Collections (A C) | A F (curation star) | W, M | yes |
+| Perfume `/perfumes/[slug]` | Edit | Images | Collections (A C) | A F (curation star) | W, M | yes |
+| Painting `/paintings/[slug]` | Edit | Images | Collections (A C) | A F (curation star) | W, M | yes |
+| Person `/people/[slug]` | Edit | Manage Media | - | A F | P, M | yes |
+| Publisher `/publishers/[slug]` | Edit (editor page) | Manage media | - | A F | P (opens the editor page), M | yes |
+| Organization `/organizations/[slug]` | Edit | none | - | none | O | yes |
+| Collection `/collections/[id]` | Edit | Artwork | - | A F | C, M | yes |
+| Series `/series/[id]` | Edit | none | - | A F | S | yes |
+| Place `/places/[slug]` | Edit, Archive | none | - | A F | P | yes |
+| Recommender `/recommenders/[id]` | Edit | none | - | A F | R | yes |
 
-Gaps for SLN-633: E opens nothing outside the book page. Each row above
-with an Edit button needs E then its letter (E then C on a collection; E
-then W on works of every kind, or an agreed letter), and every row with
-media needs E then M on the same dialog its button opens. An organization has no
+Since SLN-633 every row with an Edit button takes E then the first letter
+of what it edits, and every row with media takes E then M. Each runs the
+same dialog (or, for a publisher, the same editor page) as the visible
+button, and the actions menu and the collection's buttons show the keys.
+Not bound, with the reason: Delete (never a key, as Enter never presses
+it), a place's Archive and Restore and a person's Merge (not edits of the
+item's fields), and a series' or collection's Add books (an add, not an
+edit; its own button is one Tab away). An organization has no media and no
 favourite star, so A then F adds a film there.
 
 ## 4. Dialogs

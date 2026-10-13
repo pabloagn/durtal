@@ -23,7 +23,7 @@ import { ordinal } from "@/lib/reading/queue";
 import { toast } from "sonner";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
-import { EDIT_KEYS } from "@/lib/shortcuts/shortcuts";
+import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { ExportMenu } from "@/components/shared/export-menu";
 import { WorkEditDialog } from "./work-edit-dialog";
 import { WorkTaxonomyEditDialog } from "./work-taxonomy-edit-dialog";
@@ -165,19 +165,19 @@ export function WorkActionsMenu({
       label: "Edit Work",
       icon: Pencil,
       onClick: () => setEditOpen(true),
-      shortcut: "E W",
+      shortcut: editHint(EDIT_KEYS.work),
     },
     {
       label: "Edit Taxonomy",
       icon: Tag,
       onClick: () => setTaxonomyOpen(true),
-      shortcut: "E T",
+      shortcut: editHint(EDIT_KEYS.taxonomy),
     },
     {
       label: "Manage Media",
       icon: ImageIcon,
       onClick: () => setMediaOpen(true),
-      shortcut: "E M",
+      shortcut: editHint(EDIT_KEYS.media),
     },
     // With no readings yet, the Reading section is not shown: its first steps are here
     ...(reading && reading.data.rows.length === 0

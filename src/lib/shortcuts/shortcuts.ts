@@ -89,15 +89,35 @@ export const READING_KEYS = {
 } as const;
 
 /**
- * E opens the "Edit" menu: the edit actions the open page offers (now the
- * book page). Pages give their own entries (useEditActions); on a page with
- * none, E does nothing.
+ * E opens the "Edit" menu: the edit actions the open page offers. Pages give
+ * their own entries (useEditActions); on a page with none, E does nothing.
+ * The letter is the first of what it edits: W the work (a book, film,
+ * perfume or painting), M its media, T its taxonomy, and on the other pages
+ * the item itself: C a collection, P a person, publisher or place, O an
+ * organization, S a series, R a recommender (SLN-633).
  */
 export const EDIT_KEYS = {
   work: "w",
   media: "m",
   taxonomy: "t",
+  collection: "c",
+  person: "p",
+  publisher: "p",
+  organization: "o",
+  series: "s",
+  place: "p",
+  recommender: "r",
 } as const;
+
+/** How an action menu shows E then `key`: "E W" */
+export function editHint(key: string) {
+  return `E ${key.toUpperCase()}`;
+}
+
+/** How a tooltip shows E then `key` (`data-tooltip-keys`): "e then w" */
+export function editTooltipKeys(key: string) {
+  return `e then ${key}`;
+}
 
 /** What A then these keys do on an item's page, before the Add entry (SLN-571) */
 export const ITEM_KEY_LABELS: Record<string, string> = {
@@ -178,9 +198,14 @@ export const SHORTCUT_GROUPS: {
     title: "Edit",
     wide: true,
     items: [
-      { keys: ["e", EDIT_KEYS.work], label: "Work (a book)", then: true },
-      { keys: ["e", EDIT_KEYS.media], label: "Media (a book)", then: true },
+      { keys: ["e", EDIT_KEYS.work], label: "Work: a book, film, perfume or painting", then: true },
+      { keys: ["e", EDIT_KEYS.media], label: "Media, images or artwork", then: true },
       { keys: ["e", EDIT_KEYS.taxonomy], label: "Taxonomy (a book)", then: true },
+      { keys: ["e", EDIT_KEYS.collection], label: "Collection", then: true },
+      { keys: ["e", EDIT_KEYS.person], label: "Person, publisher or place", then: true },
+      { keys: ["e", EDIT_KEYS.organization], label: "Organization", then: true },
+      { keys: ["e", EDIT_KEYS.series], label: "Series", then: true },
+      { keys: ["e", EDIT_KEYS.recommender], label: "Recommender", then: true },
     ],
   },
   {
