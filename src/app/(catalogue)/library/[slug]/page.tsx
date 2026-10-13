@@ -90,6 +90,7 @@ import { Prose } from "@/components/shared/prose";
 import { DetailColumns } from "@/components/shared/detail-layout";
 import { LinkedWorksSection } from "@/components/catalogue/work-relations";
 import { getWorkRelations } from "@/lib/actions/work-relations";
+import { linkedBookIds } from "@/lib/catalogue/linked-work-ebooks";
 import { catalogueStatusLabel, priorityLabel } from "@/lib/utils/labels";
 import { languageName } from "@/lib/utils/language";
 import { mediaUrl } from "@/lib/s3/media-url";
@@ -185,6 +186,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     ...relatedGroups.flatMap((group) => group.works.map((related) => related.id)),
     ...markRows.flatMap((row) => row.works.map((related) => related.id)),
     ...similarWorks.filter((related) => related.kind === "book").map((related) => related.id),
+    ...linkedBookIds(links),
   ]);
   const digitalBooks = digital.get(work.id)?.ebooks ?? [];
   const digitalCards = new Map([...digital].map(([id, value]) => [id, value.read]));
@@ -686,6 +688,8 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
         <LinkedWorksSection
           work={{ id: work.id, kind: "book", title: work.title }}
           relations={links}
+          ebooks={Object.fromEntries(linkedBookIds(links).map((id) => [id, digitalCards.get(id) ?? null]))}
+          readerReturnTo={readerReturnTo}
           showEmpty={false}
         />
       </DetailColumns>

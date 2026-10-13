@@ -23,6 +23,7 @@ import {
 } from "@/components/catalogue/curation";
 import { LinkedWorksSection } from "@/components/catalogue/work-relations";
 import { getWorkRelations } from "@/lib/actions/work-relations";
+import { linkedWorkEbooks } from "@/lib/catalogue/linked-work-ebooks";
 import { SourcesSection } from "@/components/catalogue/sources-section";
 import { FilmSourceLookup } from "@/components/films/source-lookup";
 import { FilmPoster } from "@/components/films/film-poster";
@@ -141,6 +142,8 @@ export default async function FilmPage({
       getWorkRelations(film.id),
       getTypedTargets(film.id),
     ]);
+  // The e-book marks of linked books' cards
+  const linkedEbooks = await linkedWorkEbooks(links);
 
   // ── Images ────────────────────────────────────────────────────────────────
   const poster = media.find((m) => m.type === "poster" && m.isActive);
@@ -573,6 +576,8 @@ export default async function FilmPage({
           <LinkedWorksSection
             work={{ id: film.id, kind: "film", title: film.title }}
             relations={links}
+            ebooks={linkedEbooks}
+            readerReturnTo={`/films/${film.slug ?? film.id}`}
           />
 
           <VersionsSection
