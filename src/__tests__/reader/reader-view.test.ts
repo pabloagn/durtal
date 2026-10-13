@@ -9,9 +9,6 @@ vi.mock("@/lib/reader/engines/foliate/engine", () => ({
 vi.mock("@/lib/reader/engines/foliate/preload", () => ({
   preloadFoliate: () => Promise.resolve(),
 }));
-vi.mock("@/components/reader/settings-dialog", () => ({
-  SettingsDialog: () => null,
-}));
 // Model the Next server-action reply at its transport boundary. The real
 // preference hook/saver validates it and controls admission; writes are unexpected.
 vi.mock("@/lib/actions/reader-preferences", async () => {

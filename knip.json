@@ -1,6 +1,10 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["scripts/**/*.{ts,js,mjs}"],
+  "entry": [
+    "scripts/**/*.{ts,js,mjs}",
+    "src/__tests__/reader/offline/store-browser.ts",
+    "src/lib/ebooks/upload/worker-entry.ts"
+  ],
   "project": ["src/**/*.{ts,tsx}", "src/vendor/**/*.js", "scripts/**/*.{ts,js,mjs}"],
   "ignoreDependencies": [
     "@eslint/eslintrc",
@@ -8,6 +12,7 @@
     "postcss-load-config",
     "@types/mapbox-gl",
     "tailwindcss",
-    "tsx"
+    "tsx",
+    "server-only"
   ]
 }
