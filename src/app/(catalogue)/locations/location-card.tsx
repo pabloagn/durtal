@@ -18,6 +18,11 @@ import {
 import { updateLocation, deleteLocation } from "@/lib/actions/locations";
 import type { CreateLocationInput } from "@/lib/validations/locations";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import {
+  describeLocationItems,
+  locationItemTotal,
+  type LocationItemCounts,
+} from "@/lib/catalogue/location-items";
 
 type LocationType = CreateLocationInput["type"];
 
@@ -39,7 +44,8 @@ interface LocationCardProps {
   latitude: number | null;
   longitude: number | null;
   isActive: boolean;
-  instanceCount: number;
+  /** What the location holds, by kind */
+  items: LocationItemCounts;
   subLocations: SubLocation[];
 }
 
@@ -56,9 +62,13 @@ export function LocationCard({
   latitude,
   longitude,
   isActive,
-  instanceCount,
+  items,
   subLocations,
 }: LocationCardProps) {
+  const itemCount = locationItemTotal(items);
+  // Film copies, paintings and bottles keep the location (the database refuses
+  // the delete); book copies are deleted with it
+  const blocking = describeLocationItems(items, ["films", "paintings", "perfumes"]);
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -147,7 +157,7 @@ export function LocationCard({
             <div className="type-item-title flex items-start gap-2">
               <CapAligned height={20}>
                 <span className="block font-mono text-xs text-fg-secondary">
-                  {instanceCount} {instanceCount === 1 ? "item" : "items"}
+                  {itemCount} {itemCount === 1 ? "item" : "items"}
                 </span>
               </CapAligned>
               <CapAligned height={24} coarseHeight={44}>
@@ -261,12 +271,18 @@ export function LocationCard({
         expandable={false}
       >
         <div className="space-y-4">
-          {instanceCount > 0 && (
+          {blocking ? (
             <div className="rounded-sm border border-accent-red/30 bg-accent-red/5 p-3 text-xs text-fg-secondary">
-              This location has {instanceCount}{" "}
-              {instanceCount === 1 ? "item" : "items"} assigned to it. Deleting
-              it will remove the location reference from those items.
+              {name} holds {blocking}. Move them to another location before
+              deleting it.
             </div>
+          ) : (
+            items.copies > 0 && (
+              <div className="rounded-sm border border-accent-red/30 bg-accent-red/5 p-3 text-xs text-fg-secondary">
+                Deleting {name} also deletes the{" "}
+                {describeLocationItems(items, ["copies"])} kept there.
+              </div>
+            )
           )}
           <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
             <Button
@@ -280,7 +296,7 @@ export function LocationCard({
               variant="primary"
               size="sm"
               onClick={handleDelete}
-              disabled={isPending}
+              disabled={isPending || !!blocking}
               className="bg-accent-red/80 hover:bg-accent-red"
             >
               {isPending ? (

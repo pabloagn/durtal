@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { instances, locations, subLocations } from "@/lib/db/schema";
+import { locations, subLocations } from "@/lib/db/schema";
 import { eq, asc, sql } from "drizzle-orm";
 import { atomic } from "@/lib/db/atomic";
 import { lockReaderEbooks, withReaderWriteRetry } from "@/lib/reading/reader-write-locks";
@@ -17,6 +17,8 @@ import {
   type UpdateSubLocationInput,
 } from "@/lib/validations/locations";
 import { parseId } from "@/lib/validations/helpers";
+import { NO_LOCATION_ITEMS, type LocationItemCounts } from "@/lib/catalogue/location-items";
+import { resultRows } from "@/lib/harmonization/store";
 
 export const getLocations = cached(
   () =>
@@ -34,16 +36,29 @@ export const getLocations = cached(
 );
 
 /**
- * How many copies each location holds, keyed by location id; a location with
- * none is absent. Read live, never cached: every copy write, move, delete and
- * cascade changes it, and none of them refresh the cached locations (SLN-575).
+ * What each location holds, by kind, keyed by location id; a location with
+ * nothing is absent. Read live, never cached: every copy, film, painting and
+ * bottle write, move, delete and cascade changes it, and none of them refresh
+ * the cached locations (SLN-575).
  */
-export async function getLocationCopyCounts(): Promise<Map<string, number>> {
-  const rows = await db
-    .select({ locationId: instances.locationId, count: sql<number>`count(*)::int` })
-    .from(instances)
-    .groupBy(instances.locationId);
-  return new Map(rows.map((row) => [row.locationId, row.count]));
+export async function getLocationItemCounts(): Promise<Map<string, LocationItemCounts>> {
+  const rows = resultRows<{ location_id: string; kind: keyof LocationItemCounts; count: number }>(
+    await db.execute(sql`
+      select location_id, 'copies' as kind, count(*)::int as count from instances group by location_id
+      union all
+      select location_id, 'films', count(*)::int from film_holdings where location_id is not null group by location_id
+      union all
+      select location_id, 'paintings', count(*)::int from art_objects where location_id is not null group by location_id
+      union all
+      select location_id, 'perfumes', count(*)::int from perfume_bottles where location_id is not null group by location_id`),
+  );
+  const counts = new Map<string, LocationItemCounts>();
+  for (const row of rows) {
+    const entry = counts.get(row.location_id) ?? { ...NO_LOCATION_ITEMS };
+    entry[row.kind] = row.count;
+    counts.set(row.location_id, entry);
+  }
+  return counts;
 }
 
 export async function createLocation(input: CreateLocationInput) {
