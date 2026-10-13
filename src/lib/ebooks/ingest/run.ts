@@ -18,6 +18,7 @@ import { objectMatches } from "../storage";
 import { isLegacyFileKey } from "../keys";
 import { medallionOf } from "../medallion";
 import { validateStagePlan, verifyPublication } from "../publication";
+import { checkCalibreSource } from "../calibre/library";
 
 export { planIngest } from "./plan";
 
@@ -166,6 +167,8 @@ export async function applyPlan(planFile: string, options: ApplyOptions): Promis
   const plan = readPlan(text);
   const now = options.now ?? Date.now;
   checkApply(plan, { ...options, now: now() });
+  // A plan from a Calibre snapshot holds only while the library's metadata.db is the one it copied
+  if (plan.calibre) await checkCalibreSource(plan.calibre);
   for (const file of Object.values(plan.files)) validateStagePlan(file);
   const sha = planSha256(text);
   mkdirSync(path.dirname(keptPlan(options.cacheDir, sha)), { recursive: true });
@@ -200,6 +203,7 @@ export async function resumeRun(runId: string, options: ApplyOptions): Promise<A
   if (!options.localDatabase && !options.live) throw new Error("This database is not a local preview: a resume of it needs --live. Nothing written.");
   // A run made by another version of the tool is not resumed: a new plan adopts what it stored
   checkPlanTarget(plan, options.target);
+  if (plan.calibre) await checkCalibreSource(plan.calibre);
   for (const file of Object.values(plan.files)) validateStagePlan(file);
   if (planSha256(readFileSync(file, "utf8")) !== run.planSha256) throw new Error("The saved plan changed. Nothing written.");
   const undoFile = path.join(options.reportDir, `ingest-undo-${run.id}.jsonl`);
@@ -343,7 +347,7 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
             const cached =
               object.name === "manifest.json"
                 ? path.join(options.cacheDir, "publications", stages.silver.sha256, "manifest.json")
-                : derivedCachePath(options.cacheDir, file.sha256, object.name);
+                : (object.cachePath ?? derivedCachePath(options.cacheDir, file.sha256, object.name));
             await store(object, cached);
           }
         }
@@ -437,8 +441,8 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
     cacheDir: options.cacheDir,
     includeText: plan.includeText,
     exclude: plan.exclude,
-    // A trial's plan took only its first files: the others are not this run's to account for
-    paths: plan.limit ? plan.items.map((i) => i.path) : undefined,
+    // A trial's plan took only its first files, a Calibre plan only what metadata.db lists: the others are not this run's to account for
+    paths: plan.limit || plan.calibre ? plan.items.map((i) => i.path) : undefined,
     runId,
     now: now(),
   });

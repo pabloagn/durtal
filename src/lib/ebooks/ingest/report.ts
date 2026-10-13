@@ -44,6 +44,11 @@ export function planReport(plan: IngestPlan, planFile: string, options: { bucket
     "",
     `Host ${plan.host}; ${plan.roots.length === 1 ? "folder" : "folders"} ${plan.roots.join(", ")}${plan.limit ? `; the first ${n(plan.limit)} files only` : ""}.`,
     `Bucket ${plan.target.bucket}${plan.target.prefix ? `, prefix ${plan.target.prefix}` : ""}${plan.target.preview ? " (a preview's folder)" : ""}.`,
+    ...(plan.calibre
+      ? [
+          `Calibre library ${plan.calibre.libraryId}, from the snapshot ${plan.calibre.snapshot}: ${n(plan.calibre.books)} books, each one eBook; ${n(plan.calibre.missing.length)} listed formats missing on disk${plan.calibre.missing.length ? ` (${plan.calibre.missing.map(md).join(", ")})` : ""}.`,
+        ]
+      : []),
     ...(options.bucketMissing ? ["", bucketMissingLine(plan.target.bucket)] : []),
     "",
     "Read-only: nothing was written to the database or the bucket. Apply exactly this plan with",

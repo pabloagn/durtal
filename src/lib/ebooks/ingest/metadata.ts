@@ -7,13 +7,14 @@ import type { FileMetadata } from "./inspect/types";
 
 /*
  * One e-book's fields from its files (SLN-494). Each field comes from the
- * first source that has it, in this order: the sidecar OPF (the cleaned
+ * first source that has it, in this order: a Calibre snapshot's book
+ * (SLN-656), the sidecar OPF (the cleaned
  * record a manager exported), the EPUB's OPF, AZW3, MOBI, FB2, PDF, CBZ,
  * then the file name. ISBNs and other identifiers are gathered from all of
  * them; an ISBN that does not validate is kept aside for the report.
  */
 
-export const METADATA_PRECEDENCE = ["sidecar", "epub", "azw3", "mobi", "fb2", "pdf", "cbz", "filename"] as const;
+export const METADATA_PRECEDENCE = ["calibre", "sidecar", "epub", "azw3", "mobi", "fb2", "pdf", "cbz", "filename"] as const;
 export type MetadataSource = (typeof METADATA_PRECEDENCE)[number];
 
 export interface MetadataInput {

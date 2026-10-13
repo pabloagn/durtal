@@ -20,6 +20,7 @@
     "ebooks:ingest": "tsx --tsconfig tsconfig.json scripts/ebooks/ingest.ts",
     "ebooks:reconcile": "tsx --tsconfig tsconfig.json scripts/ebooks/reconcile.ts",
     "ebooks:match": "tsx --tsconfig tsconfig.json scripts/ebooks/match.ts",
+    "ebooks:calibre-snapshot": "tsx --tsconfig tsconfig.json scripts/ebooks/calibre-snapshot.ts",
     "ebooks:upload-service": "tsx --tsconfig tsconfig.json scripts/ebooks/upload-service.ts",
     "test": "vitest run",
     "test:local": "python3 scripts/qa/test-local.py",

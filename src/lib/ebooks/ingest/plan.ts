@@ -1,4 +1,5 @@
-import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { isNotNull } from "drizzle-orm";
 import type { Db } from "@/lib/catalogue/work-store";
@@ -7,7 +8,8 @@ import type { IngestOutcome } from "@/lib/db/schema/ebook-ingest";
 import type { EbookFormat } from "../formats";
 import { ebookExtension } from "../keys";
 import { stageFile, type Medallion } from "../medallion";
-import { groupFiles, walkRoots, type FoundFile } from "./group";
+import { groupFiles, SIDECAR_NAME, walkRoots, type FoundFile } from "./group";
+import { makeCovers } from "./cover";
 import { HashCache } from "./hash";
 import { parseOpf } from "./inspect/opf";
 import type { DrmKind, FileMetadata } from "./inspect/types";
@@ -15,6 +17,16 @@ import { mergeMetadata, storable, storableText, type MergedMetadata, type Metada
 import { derivedCachePath, prepareFile, sniffSource, type DerivedObject, type TextCounts } from "./prepare";
 import { planRegistration, type CatalogueFileRow, type GroupCatalogue } from "./register";
 import { openFileSource, type ByteSource } from "./source";
+import {
+  calibreFileMetadata,
+  calibreLineage,
+  checkCalibreSource,
+  libraryPath,
+  readSnapshot,
+  sha256File,
+  type CalibreBinding,
+  type CalibreBook,
+} from "../calibre/library";
 
 /*
  * The plan of an ingestion (SLN-494): read-only. Every file under the roots
@@ -68,7 +80,8 @@ export interface PlanFile {
   /** ebook_files.metadata: what the file says (with a sidecar's fields over it, the file's own under `embedded`) */
   metadata: Record<string, unknown>;
   text: TextCounts;
-  derived: (DerivedObject & { key: string })[];
+  /** `cachePath`: where the apply reads an object the cache keeps elsewhere than by the file's checksum (a Calibre cover) */
+  derived: (DerivedObject & { key: string; cachePath?: string })[];
   manifestKey: string | null;
   coverKey: string | null;
 }
@@ -78,7 +91,7 @@ export interface PlanGroup {
   folder: string;
   sidecar: string | null;
   importSource: "folder" | "upload";
-  /** The sidecar's uuid: the folder's other formats, and the same book dropped in again, join one e-book */
+  /** The sidecar's uuid, or the Calibre book's: the folder's other formats, and the same book dropped in again, join one e-book */
   importRef: string | null;
   /** The sidecar carries a rating, read dates or custom columns: counted, never imported */
   personalData: boolean;
@@ -140,6 +153,14 @@ export interface IngestPlan {
   files: Record<string, PlanFile>;
   groups: PlanGroup[];
   summary: PlanSummary;
+  /** Planned from a Calibre snapshot: the apply and a resume refuse a library changed since */
+  calibre?: PlanCalibre | null;
+}
+
+export interface PlanCalibre extends CalibreBinding {
+  books: number;
+  /** Formats the snapshot lists that are not on disk now, relative to the library */
+  missing: string[];
 }
 
 export interface PlanOptions {
@@ -154,6 +175,8 @@ export interface PlanOptions {
   uploadSpeed?: number | null;
   /** The keys under files/ in the bucket now: an object there with no row is adopted, not uploaded */
   storedKeys?: Set<string>;
+  /** A Calibre snapshot: the one root is its library, each Calibre book one e-book */
+  calibre?: string;
   now?: number;
   onProgress?: (done: number, total: number) => void;
 }
@@ -226,10 +249,91 @@ function fileMetadata(embedded: FileMetadata, sidecar: FileMetadata | null, extr
   return { ...merged, embedded, sidecar: true, ...extra };
 }
 
+/** A layer of fields over another, one by one: a value on top wins, an empty one does not */
+function layered(base: FileMetadata | null, top: FileMetadata): FileMetadata {
+  const merged: Record<string, unknown> = { ...(base ?? {}) };
+  for (const [field, value] of Object.entries(top)) {
+    const empty = value === null || value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
+    if (!empty) merged[field] = value;
+  }
+  return merged as FileMetadata;
+}
+
+interface CalibrePlanSource {
+  binding: PlanCalibre;
+  byFolder: Map<string, CalibreBook>;
+  files: FoundFile[];
+  sidecars: Map<string, string>;
+}
+
+/**
+ * The files of a Calibre library as its snapshot lists them, never a walk:
+ * a file metadata.db does not list is not planned. Refuses a snapshot whose
+ * metadata.db has changed since.
+ */
+async function calibreSource(roots: string[], snapshotFile: string): Promise<CalibrePlanSource> {
+  if (roots.length !== 1) throw new Error("--calibre plans one library folder. Nothing planned.");
+  const root = path.resolve(roots[0]);
+  const { snapshot, sha256 } = readSnapshot(snapshotFile);
+  const binding: PlanCalibre = {
+    snapshot: path.resolve(snapshotFile),
+    snapshotSha256: sha256,
+    libraryId: snapshot.library.id,
+    libraryPath: root,
+    metadataDbSha256: snapshot.metadataDb.sha256,
+    books: snapshot.books.length,
+    missing: [],
+  };
+  await checkCalibreSource(binding, "Nothing planned.");
+  const byFolder = new Map<string, CalibreBook>();
+  const files: FoundFile[] = [];
+  const sidecars = new Map<string, string>();
+  for (const book of snapshot.books) {
+    const folder = libraryPath(root, book.path);
+    byFolder.set(folder, book);
+    const opf = path.join(folder, SIDECAR_NAME);
+    if (existsSync(opf)) sidecars.set(folder, opf);
+    for (const format of book.formats) {
+      const file = libraryPath(root, format.path);
+      const info = existsSync(file) ? statSync(file) : null;
+      if (!info?.isFile()) {
+        binding.missing.push(format.path);
+        continue;
+      }
+      files.push({ path: file, root, folder, name: path.basename(file), size: info.size, mtimeMs: info.mtimeMs, ino: info.ino });
+    }
+  }
+  files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  return { binding, byFolder, files, sidecars };
+}
+
+/** cacheDir/derived/calibre-cover-<sha256 of cover.jpg>/: a Calibre cover's sizes, shared by the book's formats */
+async function calibreCovers(coverFile: string, cacheDir: string, made: Map<string, Promise<(DerivedObject & { cachePath: string })[] | null>>) {
+  if (!made.has(coverFile))
+    made.set(
+      coverFile,
+      (async () => {
+        if (!existsSync(coverFile)) return null;
+        const image = readFileSync(coverFile);
+        const { covers } = await makeCovers({ kind: "bytes", load: async () => image });
+        if (!covers) return null;
+        const dir = path.join(cacheDir, "derived", `calibre-cover-${await sha256File(coverFile)}`);
+        mkdirSync(dir, { recursive: true });
+        return Object.entries(covers).map(([name, bytes]) => {
+          const cachePath = path.join(dir, name);
+          writeFileSync(cachePath, bytes);
+          return { name, sha256: createHash("sha256").update(bytes).digest("hex"), size: bytes.length, contentType: "image/webp", cachePath };
+        });
+      })(),
+    );
+  return made.get(coverFile)!;
+}
+
 /** Plans an ingestion of the roots. Writes nothing to the database or the bucket. */
 export async function planIngest(roots: string[], options: PlanOptions): Promise<IngestPlan> {
   const now = options.now ?? Date.now();
-  const { files: walked, sidecars } = await walkRoots(roots, { exclude: options.exclude });
+  const calibre = options.calibre ? await calibreSource(roots, options.calibre) : null;
+  const { files: walked, sidecars } = calibre ?? (await walkRoots(roots, { exclude: options.exclude }));
   const found = options.limit ? walked.slice(0, options.limit) : walked;
   const hashes = new HashCache(options.cacheDir);
   let done = 0;
@@ -240,7 +344,8 @@ export async function planIngest(roots: string[], options: PlanOptions): Promise
       if (tooBig) return { found: file, outcome: "ignored", reason: tooBig };
       const source = await openFileSource(file.path, file.name);
       try {
-        const taken = await sniffTaken(source, { sidecar: sidecars.has(file.folder), includeText: !!options.includeText });
+        // Every file Calibre lists is one of its book's formats, as in a sidecar folder
+        const taken = await sniffTaken(source, { sidecar: !!calibre || sidecars.has(file.folder), includeText: !!options.includeText });
         if (taken.reason !== null) return { found: file, outcome: "ignored", reason: taken.reason, format: taken.format ?? undefined };
         const { sha256 } = await hashes.hash(file.path);
         // What a file says reaches rows and reports only as text PostgreSQL stores
@@ -270,7 +375,10 @@ export async function planIngest(roots: string[], options: PlanOptions): Promise
 
   const candidates = examined.filter((e): e is Examined & { sha256: string; format: EbookFormat; prepared: NonNullable<Examined["prepared"]> } => !!e.prepared);
   const { groups: fileGroups, duplicates } = groupFiles(
-    candidates.map((e) => ({ path: e.found.path, folder: e.found.folder, name: e.found.name, sha256: e.sha256, sidecar: sidecarInfo.has(e.found.folder) })),
+    candidates.map((e) => {
+      const book = calibre?.byFolder.get(e.found.folder);
+      return { path: e.found.path, folder: e.found.folder, name: e.found.name, sha256: e.sha256, sidecar: !!book || sidecarInfo.has(e.found.folder), groupKey: book ? `calibre:${book.uuid}` : undefined };
+    }),
   );
   const byPath = new Map(candidates.map((e) => [e.found.path, e]));
 
@@ -293,11 +401,17 @@ export async function planIngest(roots: string[], options: PlanOptions): Promise
   const outcomes = new Map<string, IngestOutcome>();
   /** Sidecar uuids a group of this plan creates an e-book for: a later folder with the same uuid adds to it */
   const plannedRefs = new Set<string>();
+  const coversMade = new Map<string, Promise<(DerivedObject & { cachePath: string })[] | null>>();
   for (const fileGroup of fileGroups) {
     const sidecar = fileGroup.sidecar ? (sidecarInfo.get(fileGroup.folder) ?? null) : null;
+    const book = calibre?.byFolder.get(fileGroup.folder) ?? null;
+    const bookMetadata = book ? storable(calibreFileMetadata(book)) : null;
+    // A Calibre book: the snapshot over its OPF over the file's own
+    const overlay = bookMetadata ? layered(sidecar?.metadata ?? null, bookMetadata) : (sidecar?.metadata ?? null);
     const members = fileGroup.paths.map((p) => byPath.get(p)!);
     const ebook = mergeMetadata(
       [
+        ...(bookMetadata ? [{ source: "calibre" as const, metadata: bookMetadata }] : []),
         ...(sidecar ? [{ source: "sidecar" as const, metadata: sidecar.metadata }] : []),
         ...members.flatMap((m) => (METADATA_SOURCE[m.format] ? [{ source: METADATA_SOURCE[m.format]!, metadata: m.prepared.metadata }] : [])),
       ],
@@ -305,19 +419,28 @@ export async function planIngest(roots: string[], options: PlanOptions): Promise
     );
     for (const m of members) {
       const ext = ebookExtension(m.format);
-      const metadata = fileMetadata(m.prepared.metadata, sidecar?.metadata ?? null, {
-          details: m.prepared.details,
-          ...(m.prepared.problem ? { problem: m.prepared.problem } : {}),
-          ...(m.prepared.text.reason ? { textReason: m.prepared.text.reason } : {}),
-          ...(m.prepared.coverReason ? { coverReason: m.prepared.coverReason } : {}),
+      // Calibre's cover.jpg, when it has one, is the cover of every format of the book
+      const covers =
+        book?.coverPath && m.prepared.validation.downloadable ? await calibreCovers(libraryPath(calibre!.binding.libraryPath, book.coverPath), options.cacheDir, coversMade) : null;
+      const prepared = covers ? { ...m.prepared, coverReason: null, derived: [...covers.map(({ cachePath: _, ...d }) => d), ...m.prepared.derived.filter((d) => !d.name.startsWith("cover-"))] } : m.prepared;
+      const relative = book ? path.relative(calibre!.binding.libraryPath, m.found.path).split(path.sep).join("/") : null;
+      const format = book?.formats.find((f) => f.path === relative);
+      const metadata = fileMetadata(m.prepared.metadata, overlay, {
+          details: prepared.details,
+          ...(prepared.problem ? { problem: prepared.problem } : {}),
+          ...(prepared.text.reason ? { textReason: prepared.text.reason } : {}),
+          ...(prepared.coverReason ? { coverReason: prepared.coverReason } : {}),
+          ...(book && format ? { calibre: storable(calibreLineage(book, format, calibre!.binding)) } : {}),
         });
-      const staged = stageFile(m.prepared, metadata, readFileSync(derivedCachePath(options.cacheDir, m.sha256, "manifest.json")), {
+      const staged = stageFile(prepared, metadata, readFileSync(derivedCachePath(options.cacheDir, m.sha256, "manifest.json")), {
         sourceHost: options.host,
         sourcePath: m.found.path,
         sourceMtimeMs: m.found.mtimeMs,
         plannedAt: new Date(now).toISOString(),
       });
-      const { medallion, derived } = staged;
+      const { medallion } = staged;
+      const coverPaths = new Map((covers ?? []).map((c) => [c.name, c.cachePath]));
+      const derived = staged.derived.map((d) => (coverPaths.has(d.name) ? { ...d, cachePath: coverPaths.get(d.name) } : d));
       const evidenceDir = path.join(options.cacheDir, "silver");
       mkdirSync(evidenceDir, { recursive: true });
       writeFileSync(path.join(evidenceDir, `${medallion.silver.sha256}.json`), staged.report);
@@ -349,7 +472,7 @@ export async function planIngest(roots: string[], options: PlanOptions): Promise
       };
     }
     const files = fileGroup.paths.map((p) => planFiles[p]);
-    const importRef = sidecar?.uuid ?? null;
+    const importRef = book?.uuid || sidecar?.uuid || null;
     const byRef = importRef ? ebookByRef.get(importRef) : undefined;
     const existingId = byRef?.id ?? files.map((f) => filesBySha.get(f.sha256)?.ebookId).find(Boolean) ?? null;
     const existing = existingId ? (catalogueEbooks.find((e) => e.id === existingId) ?? null) : null;
@@ -359,7 +482,7 @@ export async function planIngest(roots: string[], options: PlanOptions): Promise
       sidecar: sidecar?.path ?? null,
       importSource: "folder",
       importRef,
-      personalData: !!sidecar?.personal,
+      personalData: !!sidecar?.personal || (!!book && (book.rating !== null || Object.keys(book.custom).length > 0)),
       existingEbookId: existingId,
       ebook,
       paths: fileGroup.paths,
@@ -410,6 +533,7 @@ export async function planIngest(roots: string[], options: PlanOptions): Promise
     files: planFiles,
     groups,
     summary: summarize(items, planFiles, groups, options.uploadSpeed ?? null, options.storedKeys ?? new Set()),
+    calibre: calibre?.binding ?? null,
   };
 }
 

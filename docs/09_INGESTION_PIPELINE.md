@@ -662,6 +662,78 @@ complete zero-write repeat acceptance; integration with that upstream preflight
 is required. Migration 0082 remains ungenerated/unapplied, and writer database,
 precision, performance, native build and reader acceptance are still gated.
 
+### Calibre library
+
+Joris's e-books live in his Calibre library on an external drive (SLN-656).
+Durtal reads it, never writes to it, and never needs Calibre installed or
+running.
+
+`pnpm ebooks:calibre-snapshot <library folder>` takes a snapshot:
+
+- It copies `metadata.db` into `<cache>/calibre/`, hashing the library's file
+  before and after the copy. If the two hashes or the copy differ, it refuses,
+  because Calibre was writing. A `metadata.db-journal` or `-wal` beside it is
+  refused too. It opens the copy read-only through Node's built-in
+  `node:sqlite` (`src/lib/ebooks/calibre/read-db.ts`).
+- It writes `calibre-snapshot-<libraryId>-<time>.json` into
+  `<cache>/calibre/`.
+- For every book, the snapshot holds:
+  - its Calibre id and uuid, the title and title sort, and its authors with
+    their sort names;
+  - the series and index, the publisher and publication date (null for
+    Calibre's year-101 "no date"), the languages, and every identifier with
+    its type;
+  - the tags, the rating (Calibre's 1 to 10, kept as 0.5 to 5 stars), the
+    description as stored, and `has_cover` with the cover path;
+  - the date added and `last_modified`;
+  - every format, with its size and its path relative to the library folder;
+  - the value of every custom column, by label.
+- It also holds the custom columns' labels, names and types, apart from those
+  Calibre has marked for deletion.
+- The library is known by the uuid in `metadata.db`'s `library_id` table, and
+  each book by its uuid. Paths are relative, so the same drive mounted
+  elsewhere gives the same identities. The mount path and the drive's volume
+  UUID (from `diskutil` on macOS) are kept as lineage only.
+- It checks the files:
+  - A format `metadata.db` lists that is not on disk is named.
+  - A file in the library that `metadata.db` does not list is named too.
+    Calibre's own files never count: `metadata.db` and its backups, the
+    full-text index, `.caltrash`, `.calnotes`, OPFs, covers and a book's
+    `data/` folder. Neither kind is guessed at.
+- Drift: Calibre rewrites each book's `metadata.opf` only now and then. Each
+  OPF is compared with the snapshot for title, authors, series and index,
+  publisher, language, identifiers, tags, description and date. The snapshot
+  counts the OPFs that are missing, older than the book's `last_modified`, or
+  different, and names those books. Where they differ, `metadata.db` wins.
+- It writes a report to `reports/ebooks/calibre-snapshot-<time>.md`, which is
+  git-ignored. The report gives the counts, then names the missing files, the
+  extra files and the books that drift. The terminal prints counts only.
+
+`pnpm ebooks:ingest --calibre <snapshot> [<library folder>]` plans the library
+from its snapshot. The folder defaults to where the snapshot was taken; name
+it when the drive is mounted elsewhere.
+
+- Only the formats the snapshot lists are planned. The library is not
+  walked, so an extra file is never taken.
+- One Calibre book is one e-book with all its formats. Its `import_source`
+  stays `folder` and its `import_ref` is the Calibre uuid, the same key a
+  sidecar uses, so no migration was needed.
+- Each field comes from the snapshot first, then the book's `metadata.opf`,
+  then the file's own (`METADATA_PRECEDENCE` begins with `calibre`).
+- Each file's `ebook_files.metadata.calibre` keeps the book's snapshot fields
+  and its own format. It also keeps the library id, the book id and the
+  snapshot's hash as lineage. A rating or custom-column value is counted as
+  personal data. Nothing imports it yet: that is SLN-658.
+- When `has_cover` is set, Calibre's `cover.jpg` is the cover of every format
+  of the book. The plan makes its sizes once, into
+  `<cache>/derived/calibre-cover-<sha256>/`, and the apply uploads them from
+  there.
+- The plan records the snapshot and the hash of the `metadata.db` it copied.
+  The plan itself, and later its apply or resume, is refused once the
+  library's `metadata.db` has changed or the drive is not mounted: take a new
+  snapshot and plan again. The run's reconciliation accounts only for the
+  files the plan took.
+
 ### The cache folder
 
 `~/.cache/durtal-ebooks` (`--cache-dir`) holds:
@@ -670,6 +742,7 @@ precision, performance, native build and reader acceptance are still gated.
 - each file's inspection (`inspect/`);
 - its covers and manifest (`derived/`), which the apply uploads exactly as
   the plan made them;
+- Calibre snapshots and their copies of `metadata.db` (`calibre/`);
 - the plans that were applied (`plans/`), which a resume reads;
 - unfinished multipart uploads (`uploads/`);
 - the last apply's upload speed.

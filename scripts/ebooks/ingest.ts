@@ -17,11 +17,18 @@
  * - `--resume <runId> --backup <dump>`: carries on with every item not done.
  * - `--undo <file> --backup <dump>`: removes the rows a run created that
  *   nothing has changed since; S3 objects stay.
+ * - `--calibre <snapshot>`: plans a Calibre library from its snapshot
+ *   (`pnpm ebooks:calibre-snapshot`): each Calibre book one e-book, its
+ *   fields over its OPF's over the files' own. The folder defaults to where
+ *   the snapshot was taken; name it when the drive is mounted elsewhere. The
+ *   plan is refused, and later its apply or resume, once the library's
+ *   metadata.db has changed since the snapshot.
  * - `--preview <port>`: a running preview's database and S3 folder.
  *
  * Durtal never moves, changes or deletes a file in the inbox or any folder.
  *
  *   pnpm ebooks:ingest [<folder> ...] [--limit N] [--include-text] [--exclude GLOB]...
+ *   pnpm ebooks:ingest --calibre SNAPSHOT [<library folder>] [--limit N]
  *     [--host LABEL] [--cache-dir DIR] [--report-dir DIR] [--preview PORT] [--env-dir DIR]
  *   pnpm ebooks:ingest --apply PLAN --backup DUMP [--live]
  *   pnpm ebooks:ingest --resume RUN_ID --backup DUMP [--live]
@@ -41,6 +48,7 @@ const { values, positionals } = parseArgs({
     backup: { type: "string" },
     live: { type: "boolean", default: false },
     limit: { type: "string" },
+    calibre: { type: "string" },
     "include-text": { type: "boolean", default: false },
     exclude: { type: "string", multiple: true },
     host: { type: "string" },
@@ -56,6 +64,8 @@ const { values, positionals } = parseArgs({
 });
 const modes = [values.apply, values.resume, values.undo].filter(Boolean).length;
 if (modes > 1) throw new Error("Give one of --apply, --resume and --undo");
+if (values.calibre && (modes === 1 || positionals.length > 1))
+  throw new Error("--calibre plans one library folder: the snapshot's, or the one named");
 if (modes === 1 && positionals.length)
   throw new Error(
     "Folders are planned; --apply, --resume and --undo take the plan, run or undo file only",
@@ -163,7 +173,11 @@ try {
       console.log(`Report: ${result.reconciliationFile}`);
     process.exitCode = result.state === "finished" ? 0 : 1;
   } else {
-    const roots = command.resolveRoots(positionals);
+    const { readSnapshot } = await import("@/lib/ebooks/calibre/library");
+    const calibre = values.calibre ? resolve(values.calibre) : undefined;
+    const roots = command.resolveRoots(
+      calibre && !positionals.length ? [readSnapshot(calibre).snapshot.library.path] : positionals,
+    );
     const { plan, files, notSetUp } = await withReadOnlyPlanningConnection(
       url,
       (database) =>
@@ -178,6 +192,7 @@ try {
           limit,
           includeText: values["include-text"],
           exclude: values.exclude,
+          calibre,
           uploadSpeed: readUploadSpeed(cacheDir),
           onProgress: progress("Read"),
         }),

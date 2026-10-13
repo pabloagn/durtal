@@ -37,6 +37,8 @@ import { currentTarget, planCommand, reconcileCommand, resolveRoots, undoCommand
 import { applyPlan, planSha256, resumeRun, type ApplyOptions } from "@/lib/ebooks/ingest/run";
 import { reconcileIngest } from "@/lib/ebooks/ingest/reconcile";
 import { getRun, listRuns, runSections } from "@/lib/ebooks/runs";
+import { takeCalibreSnapshot } from "@/lib/ebooks/calibre/snapshot";
+import { CHAMPS_UUID, LIBRARY_ID, NADJA_UUID, POLICEMAN_UUID, makeCalibreLibrary } from "../fixtures/calibre-library";
 import { makeCbz, makeCorruptZip, makeEpub, makeFb2, makeImage, makeMobi, makePdf, makeSidecarOpf, encryptionXml } from "../fixtures/ebook-builders";
 
 /*
@@ -768,4 +770,32 @@ describe.skipIf(!url)("e-book ingestion", () => {
     expect(await c`select state from ebook_ingest_items where run_id = ${runId}`).toEqual(expect.arrayContaining([expect.objectContaining({ state: "done" })]));
   });
 
+  it("applies a plan from a Calibre snapshot: one e-book per Calibre book by its uuid, with its fields, lineage and cover, the library untouched", async () => {
+    const calibreRoot = path.join(work, "Calibre Library");
+    await makeCalibreLibrary(calibreRoot);
+    const before = snapshot(calibreRoot);
+    const { snapshotFile } = await takeCalibreSnapshot(calibreRoot, { cacheDir, reportDir, host, volume: () => ({ uuid: null, mountPoint: null }) });
+    const { plan: planned, files } = await withReadOnlyPlanningConnection(url!, (database) =>
+      planCommand({ database, roots: [calibreRoot], host, cacheDir, target: target(), reportDir, calibre: snapshotFile }));
+    expect(readFileSync(files.markdown, "utf8")).toContain(`Calibre library ${LIBRARY_ID}`);
+
+    const result = await applyPlan(files.plan, options());
+    expect(result).toMatchObject({ state: "finished", exact: true });
+    expect(result.counts).toEqual({ new_ebook: 3, new_format: 1 });
+    const ebooks = await c`select id, title, import_source, import_ref, cover_key from ebooks where import_ref in ${c([NADJA_UUID, POLICEMAN_UUID, CHAMPS_UUID])} order by title`;
+    expect(ebooks.map((e) => [e.title, e.import_source, e.import_ref])).toEqual([
+      ["Les Champs magnétiques", "folder", CHAMPS_UUID],
+      ["Nadja", "folder", NADJA_UUID],
+      ["The Third Policeman", "folder", POLICEMAN_UUID],
+    ]);
+    const nadja = ebooks.find((e) => e.import_ref === NADJA_UUID)!;
+    const rows = await c`select source_path, metadata, cover_key from ebook_files where ebook_id = ${nadja.id} order by source_path`;
+    expect(rows.map((r) => path.basename(r.source_path))).toEqual(["Nadja - André Breton.epub", "Nadja - André Breton.pdf"]);
+    for (const row of rows) expect(row.metadata.calibre).toMatchObject({ libraryId: LIBRARY_ID, bookId: 1, uuid: NADJA_UUID, rating: 4 });
+    // The e-book's cover is Calibre's cover.jpg, as the plan made it
+    const planned800 = planned.files[rows[0].source_path].derived.find((d) => d.name === "cover-800.webp")!;
+    expect(nadja.cover_key).toBe(planned800.key);
+    expect(bucket.get(nadja.cover_key)?.bytes.equals(readFileSync(planned800.cachePath!))).toBe(true);
+    expect(snapshot(calibreRoot)).toEqual(before);
+  });
 });

@@ -6,7 +6,7 @@ import { failureMessage } from "@/lib/ebooks/ingest/run";
 
 describe("mergeMetadata", () => {
   it("takes each field from the first source that has it, in precedence order", () => {
-    expect(METADATA_PRECEDENCE).toEqual(["sidecar", "epub", "azw3", "mobi", "fb2", "pdf", "cbz", "filename"]);
+    expect(METADATA_PRECEDENCE).toEqual(["calibre", "sidecar", "epub", "azw3", "mobi", "fb2", "pdf", "cbz", "filename"]);
     const merged = mergeMetadata(
       [
         { source: "pdf", metadata: { title: "PDF Title", publisher: "PDF Press", language: "fr", date: "1990" } },
