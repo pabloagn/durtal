@@ -390,8 +390,9 @@ export default async function PerfumePage({
           </div>
         </div>
         <div className="min-w-0">
-          <div className="flex items-start justify-between gap-3">
-            <h1 className="type-page-title">{perfume.title}</h1>
+          {/* On a phone the actions wrap below a long title */}
+          <div className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
+            <h1 className="type-page-title min-w-0 break-words">{perfume.title}</h1>
             <PerfumeActions
               perfume={{
                 id: perfume.id,
@@ -523,8 +524,9 @@ export default async function PerfumePage({
                 <span className="text-fg-secondary">None kept</span>
               )}
             </dd>
+            {/* The stars are 220px on touch: under sm they take a row of their own */}
             <dt className="text-fg-secondary">Your rating</dt>
-            <dd className="text-fg-primary">
+            <dd className="col-span-2 text-fg-primary sm:col-span-1">
               <RatingControl rating={curation?.rating ?? null} />
             </dd>
           </dl>
