@@ -1,0 +1,315 @@
+# Keyboard: ownership contract and coverage
+
+SLN-630, the first step of SLN-629 (a keyboard-native app). This document
+holds the rules every key follows (the contract), the global key map with
+its conflicts against the owner's requested mappings, the page-action
+coverage by page family, and one row per dialog in the app. Later tickets
+(SLN-632, SLN-571, SLN-633, SLN-634) change the code and update this file.
+
+Source read: `main` plus #223, 13 Oct 2026. "Browser-checked" means a
+headless Chromium, Firefox and WebKit journey ran on a disposable preview
+(the reviews of #217 and #223, and SLN-638's journeys); everything else is
+read from the source and covered by unit tests at most.
+
+## 1. The contract
+
+### Who gets a key
+
+1. **The topmost layer owns the key.** Layers, top first: the unsaved-work
+   question, a list or menu open inside a field (combobox, picker, date
+   picker), a leader menu (A, G, Y, E, R), the command palette, the
+   topmost `Dialog`, a page draft (`useEscapeToCancel`), the page. One
+   layer handles a key and stops it; a layer below never sees a key a layer
+   above handled (`hasOpenSurface`, the surface lease in
+   `src/lib/ui/surface-state.ts`).
+2. **The reader owns its own keys** on `/reader/*` (`READER_VIEW_RE`). The
+   global handler leaves Enter, Esc and letters there to the reader's
+   handlers and its shortcut sheet.
+3. **IME composition is never a key** (`isComposing`: `isComposing` or key
+   code 229). Esc that ends a composition closes nothing; Enter that picks a
+   character saves nothing.
+4. **A held key acts once.** An auto-repeated Enter is consumed (never a
+   second save, submit or click), except in a text box, a rich text field
+   and the reader, where it types. A repeated letter never runs a page key
+   again.
+5. **Page letters never fire** while typing (`isTyping`: inputs, text
+   boxes, selects, comboboxes, contenteditable), with a dialog or surface
+   open, with ⌘, Ctrl or Alt held, or in the reader. "?" and "/" may take
+   Shift; letters never do.
+
+### Enter
+
+| Focus | Plain Enter | Shift+Enter | ⌘Enter |
+|---|---|---|---|
+| One-line field in a native form | the browser submits the form (once) | - | the dialog's or page's save button |
+| One-line field outside a form (`isConfirmField`) | the group's main button (`data-shortcut="next"`, else `data-variant="primary"`) | - | save button |
+| Search, filter or suggestion field with a list | picks the active (else first) result | - | save button |
+| Text box in a dialog (`isDialogTextBox`) | the dialog's main button, once | new line | save button |
+| Text box marked `data-enter="ignore"` (one entry per line) | new line | new line | save button |
+| Text box on a page | new line | new line | save button |
+| Rich text field (Tiptap) | new paragraph | line break | save button (`passSaveThrough`) |
+| The dialog itself, or text in it (`isQuietInDialog`) | the dialog's main button | - | save button |
+| A button, link, checkbox, select, tab, menu item | its own Enter | - | save button |
+
+- **Add book:** Enter and ⌘Enter on the work's details step press Fast Track
+  (`data-shortcut` on the wizard's buttons); on the search and duplicate
+  steps they pick a result.
+- **The main button is never a danger button.** A Delete, Remove, Discard
+  timer or Undo import is pressed by click, Tab then Enter, or Space, never
+  by Enter from a field or the dialog. This is deliberate: an Enter meant
+  for a field must not delete.
+- **Disabled means nothing happens.** When the main button is disabled (the
+  form is invalid, or saving), Enter does nothing and the draft stays.
+- **Native and custom never both run.** The custom handler skips a field in
+  a native form (`el.form`), and a handled key is `preventDefault`ed.
+
+### Esc
+
+- Closes the topmost layer only. A list in a field closes before its
+  dialog; a dialog closes before the page draft.
+- A layer with unsaved work asks first: **Save** (when the form has one;
+  Enter), **Discard**, **Keep editing** (Esc). Keep editing restores focus
+  and the draft unchanged. The same question guards Close, Cancel
+  (`data-dismiss`), the backdrop, a link that leaves the page, the G and A
+  menus and the palette (`leavePage`).
+- **Unsaved** means the fields differ from what the form opened with
+  (`draft`, which also reads `data-draft-value` for pickers), or the form's
+  own comparison (`dirty`). A field changed back is clean again. After a
+  successful save the form closes; a failed save keeps the draft open.
+- **Already saved is not unsaved.** The media manager, Collections ticks and
+  the edition cover dialog save each action as it happens; Esc closes them
+  at once.
+
+### Leader menus
+
+A, G, Y, E and R open a menu (`LeaderMenu`); a letter, or ↑ ↓ then Enter,
+picks; Esc closes; a click outside closes. E and R open only where the page
+registered actions (`useEditActions`, `useReadingActions`).
+
+## 2. Global key map and conflicts
+
+Current keys (`src/lib/shortcuts/shortcuts.ts`, `src/lib/catalogue/domains.ts`):
+
+| Keys | Now | Owner's request (SLN-629, 632, 571) | Conflict |
+|---|---|---|---|
+| A | opens the Add menu | A is only a prefix; N opens New | **yes**: A then the next key must not open a menu first (SLN-632) |
+| N | nothing (R then N is Up Next) | opens the New menu | none |
+| A B | Add book | Add book | none |
+| A P | Add publisher | Add perfume | **yes**: publisher needs another key (SLN-632) |
+| A E | Add perfume (`keys.add: "e"`) | - | moves when perfume takes P |
+| A A | Add person | Add person | none |
+| A F | Add film | Favourites (current item) | **yes**: Add film needs a fallback key or only applies where no item is open (SLN-571) |
+| A C | Create collection | Add to collection (current item) | **yes**: same resolution (SLN-571) |
+| A I | Add painting | - | none |
+| A R, A S, A L | recommender, series, place | - | none |
+| F | favourite the page's item (`FAVOURITE_SHORTCUT`) | A then F | **yes**: bare F goes (SLN-571) |
+| E W, E M, E T | book page: Work, Media, Taxonomy | keep E W; E M on every page with media | E exists on the book page only (SLN-633) |
+| E C | nothing | Edit collection on a collection page | missing (SLN-633) |
+| G … | Go to: D, B, F, E, I, A, P, S, C, O, M, T, H, R, K, "," | keep | none |
+| Y … | Copy: N, T, I, D, L | keep | none |
+| R … | book page reading: S, P, U, F, A, L, T, N, Q, H | keep | none |
+| S, /, ?, ⌘K | palette, search this list, help, palette | keep | none |
+| Alt+F | fix a field's title case or name order | keep | none |
+
+Other notes for SLN-632:
+- The leader menu is not closed on a route change (no `pathname` reset of
+  `menu`); a client navigation while it is open should close it.
+- The help sheet, the palette's key hints (`command-palette.tsx`) and the
+  menus read the same lists, so one registry change updates all three. The
+  favourite's "F" tooltip is its own constant and must move with it.
+
+## 3. Page actions by family
+
+Visible actions on each detail page, and the keys that reach them today.
+"E menu" lists the `useEditActions` entries.
+
+| Page | Edit | Media / images | Add to collection | Favourite | E menu | Y copy |
+|---|---|---|---|---|---|---|
+| Book `/library/[slug]` | Edit Work, Edit Taxonomy (actions menu) | Manage media | edition and work buttons | F | W, M, T | yes |
+| Film `/films/[slug]` | Edit (actions menu) | Images | Collections | F (curation star) | none | yes |
+| Perfume `/perfumes/[slug]` | Edit | Images | Collections | F (curation star) | none | yes |
+| Painting `/paintings/[slug]` | Edit | Images | Collections | F (curation star) | none | yes |
+| Person `/people/[slug]` | Edit | Manage Media | - | F | none | yes |
+| Publisher `/publishers/[slug]` | Edit (editor page) | Manage media | - | F | none | yes |
+| Organization `/organizations/[slug]` | Edit | none | - | none | none | yes |
+| Collection `/collections/[id]` | Edit | Artwork | - | F | none | yes |
+| Series `/series/[id]` | Edit | none | - | F | none | yes |
+| Place `/places/[slug]` | Edit, Archive | none | - | F | none | yes |
+| Recommender `/recommenders/[id]` | Edit | none | - | F | none | yes |
+
+Gaps for SLN-633: E opens nothing outside the book page. Each row above
+with an Edit button needs E then its letter (E then C on a collection; E
+then W on works of every kind, or an agreed letter), and every row with
+media needs E then M on the same dialog its button opens. An organization has no
+favourite star.
+
+## 4. Dialogs
+
+One row per `Dialog` in the source (96). "Where" is the file and line of
+the `<Dialog>`. Kinds:
+
+- **Edit form**: fields and a Save or Create. Enter follows the table
+  above; Esc and every close ask when unsaved.
+- **Confirm**: a question with one main answer. Enter presses it unless it
+  is a danger button.
+- **Picker / manager**: each choice or upload saves at once; nothing is
+  unsaved, Esc closes.
+- **Viewer**: nothing to save; Esc closes.
+- **Reader-local**: the reader's own keys.
+
+The Add book wizard, Add film, Add perfume, Add painting and the publisher
+editor are pages, guarded by `useEscapeToCancel`; so are the in-page
+editors of notes, publishers' links, acquisition targets, order panels,
+the identify queue and the harmonize workspace (16 files).
+
+| # | Dialog | Where | Kind | Main action on Enter | Unsaved guard |
+|---|---|---|---|---|---|
+| 1 | Review prepared fixes | `app/(catalogue)/harmonize/workspace.tsx:682` | Review | Apply prepared fixes | none |
+| 2 | Resolution record | `app/(catalogue)/harmonize/workspace.tsx:737` | Viewer | none | none |
+| 3 | One record, fully connected | `app/(catalogue)/harmonize/workspace.tsx:1233` | Viewer | none | none |
+| 4 | title | `app/(catalogue)/library/[slug]/delete-confirm-dialog.tsx:38` | Confirm | Delete (danger): Enter does nothing; Esc closes | none |
+| 5 | Add Edition | `app/(catalogue)/library/[slug]/edition-add-dialog.tsx:99` | Edit form | Save / Create (submit) | draft |
+| 6 | Edit Edition | `app/(catalogue)/library/[slug]/edition-edit-dialog.tsx:124` | Edit form | Save / Create (submit) | draft |
+| 7 | Add Instance | `app/(catalogue)/library/[slug]/instance-add-dialog.tsx:137` | Edit form | Save / Create (submit) | draft |
+| 8 | Edit Instance | `app/(catalogue)/library/[slug]/instance-edit-dialog.tsx:199` | Edit form | Save / Create (submit) | draft |
+| 9 | Edit Work | `app/(catalogue)/library/[slug]/work-edit-dialog.tsx:124` | Edit form | Save / Create (submit) | draft |
+| 10 | Edit taxonomy | `app/(catalogue)/library/[slug]/work-taxonomy-edit-dialog.tsx:98` | Edit form | Save / Create (submit) | draft |
+| 11 | New location | `app/(catalogue)/locations/actions.tsx:69` | Edit form | Save / Create (submit) | draft |
+| 12 | Edit location | `app/(catalogue)/locations/location-card.tsx:208` | Edit form | Save / Create (submit) | draft |
+| 13 | Delete $name | `app/(catalogue)/locations/location-card.tsx:266` | Confirm | Delete (danger) | none |
+| 14 | Edit person | `app/(catalogue)/people/[slug]/author-edit-dialog.tsx:98` | Edit form | Save / Create (submit) | draft |
+| 15 | Merge people | `app/(catalogue)/people/[slug]/author-merge-dialog.tsx:79` | Edit form | Save / Create (submit) | draft |
+| 16 | Add person | `app/(catalogue)/people/author-create-dialog.tsx:108` | Edit form | Save / Create (submit) | draft |
+| 17 | Link an institution | `app/(catalogue)/places/[slug]/venue-institutions.tsx:181` | Edit form | Save / Create (submit) | draft |
+| 18 | venue ? "Edit venue | `app/(catalogue)/places/venue-create-dialog.tsx:216` | Edit form | Save / Create (submit) | draft |
+| 19 | New Order | `app/(catalogue)/provenance/order-create-dialog.tsx:155` | Edit form | Save / Create (submit) | draft |
+| 20 | Edit Order | `app/(catalogue)/provenance/order-edit-dialog.tsx:171` | Edit form | Save / Create (submit) | draft |
+| 21 | Export for Goodreads | `app/(catalogue)/settings/data/data-actions.tsx:90` | Action | Export | none |
+| 22 | Reset display settings? | `app/(catalogue)/settings/display/display-settings.tsx:174` | Confirm | Reset | none |
+| 23 | Reorder families | `app/(catalogue)/taxonomy/taxonomy-actions.tsx:102` | Edit form | Save order | dirty |
+| 24 | Collections | `components/books/add-to-collection-dialog.tsx:212` | Picker (saves each tick) | none: each tick saves | none |
+| 25 | Configure columns | `components/books/column-config-dialog.tsx:72` | Edit form | Save | dirty + Save |
+| 26 | Mark $count | `components/books/mark-read-dialog.tsx:80` | Confirm | Mark as read | none |
+| 27 | Match again | `components/books/match-again-dialog.tsx:221` | Picker | Pick a result | none |
+| 28 | Edit Work | `components/books/work-quick-edit-dialog.tsx:128` | Edit form | Save / Create (submit) | draft |
+| 29 | title | `components/catalogue/confirm-delete-dialog.tsx:35` | Confirm | Delete (danger): Enter does nothing; Esc closes | none |
+| 30 | Add source | `components/catalogue/sources-section.tsx:142` | Edit form | Save / Create (submit) | draft |
+| 31 | Add to your list | `components/catalogue/wanted-section.tsx:152` | Edit form | Save / Create (submit) | draft |
+| 32 | Order | `components/catalogue/wanted-section.tsx:155` | Edit form | Save / Create (submit) | draft |
+| 33 | Link a work | `components/catalogue/work-relations.tsx:92` | Edit form | Save / Create (submit) | draft |
+| 34 | Add to collection | `components/collections/add-books-dialog.tsx:147` | Edit form | Save / Create (submit) | draft |
+| 35 | Edit collection | `components/collections/collection-controls.tsx:150` | Edit form | Save / Create (submit) | draft |
+| 36 | Delete collection | `components/collections/collection-controls.tsx:196` | Confirm | Delete (danger) | none |
+| 37 | New collection | `components/collections/create-collection-dialog.tsx:78` | Edit form | Save / Create (submit) | draft |
+| 38 | Review all filtered eBooks | `components/ebooks/review-all-dialog.tsx:46` | Confirm | Review these eBooks | none |
+| 39 | titles[action] | `components/ebooks/review-bulk-dialog.tsx:94` | Two-step confirm | Preview next group, then confirm | none |
+| 40 | title | `components/ebooks/review-confirm.tsx:40` | Confirm | Confirm | none |
+| 41 | `$mode === "automatic_undo | `components/ebooks/unlink-ebook-dialog.tsx:41` | Confirm | Unlink | none |
+| 42 | Catalogue status · $work.title | `components/ebooks/work-review-dialog.tsx:54` | Confirm | Confirm | none |
+| 43 | copy ? "Edit copy | `components/films/copy-dialog.tsx:93` | Edit form | Save / Create (submit) | draft |
+| 44 | Edit film | `components/films/film-actions.tsx:61` | Edit form | Save / Create (submit) | draft |
+| 45 | Look up on Wikidata | `components/films/source-lookup.tsx:44` | Edit form | Save / Create (submit) | draft |
+| 46 | version ? "Edit version | `components/films/version-dialog.tsx:105` | Edit form | Save / Create (submit) | draft |
+| 47 | label | `components/media/image-adjustment-editor.tsx:385` | Edit form | Save / Create (submit) | draft |
+| 48 | Manage media | `components/media/media-manager-dialog.tsx:360` | Manager (saves each upload) | none: each upload saves | none |
+| 49 | organization ? "Edit organization | `components/organizations/organization-dialog.tsx:59` | Edit form | Save / Create (submit) | draft |
+| 50 | object ? `Edit $ART_OBJECT_KIND_LABELS[kind].toL | `components/paintings/art-object-dialog.tsx:116` | Edit form | Save / Create (submit) | draft |
+| 51 | Edit painting | `components/paintings/painting-actions.tsx:60` | Edit form | Save / Create (submit) | draft |
+| 52 | Look up in a museum | `components/paintings/source-lookup.tsx:60` | Edit form | Save / Create (submit) | draft |
+| 53 | TITLES[mode] | `components/paintings/whereabouts-dialog.tsx:107` | Edit form | Save / Create (submit) | draft |
+| 54 | bottle ? `Edit $CONTAINER_LABELS[bottle.containe | `components/perfumes/bottle-dialog.tsx:84` | Edit form | Save / Create (submit) | draft |
+| 55 | formulation ? "Edit formulation | `components/perfumes/formulation-dialog.tsx:125` | Edit form | Save / Create (submit) | draft |
+| 56 | Edit perfume | `components/perfumes/perfume-actions.tsx:73` | Edit form | Save / Create (submit) | draft |
+| 57 | Note a retailer | `components/perfumes/retailers-section.tsx:146` | Edit form | Save / Create (submit) | draft |
+| 58 | Record a price | `components/perfumes/retailers-section.tsx:158` | Edit form | Save / Create (submit) | draft |
+| 59 | Look up on Wikidata | `components/perfumes/source-lookup.tsx:44` | Edit form | Save / Create (submit) | draft |
+| 60 | Page controls | `components/reader/fixed-layout-controls.tsx:22` | Reader-local | reader keys | none |
+| 61 | Go to | `components/reader/goto-dialog.tsx:60` | Reader-local | reader keys | none |
+| 62 | Note | `components/reader/note-dialog.tsx:84` | Reader-local | reader keys | none |
+| 63 | Reading settings | `components/reader/presentation-settings-dialog.tsx:42` | Reader-local | reader keys | none |
+| 64 | Reader shortcuts | `components/reader/shortcut-sheet.tsx:14` | Reader-local | reader keys | none |
+| 65 | label | `components/reader/speech-options-menu.tsx:85` | Reader-local | reader keys | none |
+| 66 | title ?? TITLES[purpose] | `components/reading/book-picker.tsx:86` | Picker | Pick a book | none |
+| 67 | Abandon | `components/reading/dialogs/abandon-reading-dialog.tsx:80` | Edit form | Save / Create (submit) | draft |
+| 68 | Edit reading | `components/reading/dialogs/edit-reading-dialog.tsx:339` | Edit form | Save / Create (submit) | draft |
+| 69 | Finished | `components/reading/dialogs/finish-reading-dialog.tsx:79` | Result | Close | none |
+| 70 | Finish | `components/reading/dialogs/finish-reading-dialog.tsx:101` | Edit form | Save / Create (submit) | draft |
+| 71 | stopping ? "Stop the timer | `components/reading/dialogs/log-progress-dialog.tsx:230` | Edit form | Save / Create (submit) | draft |
+| 72 | editing ? `Edit $noun | `components/reading/dialogs/note-dialog.tsx:187` | Edit form | Save / Create (submit) | draft |
+| 73 | Log a past read | `components/reading/dialogs/past-read-dialog.tsx:92` | Edit form | Save / Create (submit) | draft |
+| 74 | editing ? "Edit session | `components/reading/dialogs/session-dialog.tsx:235` | Edit form | Save / Create (submit) | draft |
+| 75 | Start reading | `components/reading/dialogs/start-reading-dialog.tsx:182` | Edit form | Save / Create (submit) | draft |
+| 76 | Set a reading goal | `components/reading/goal-dialog.tsx:98` | Edit form | Save / Create (submit) | draft |
+| 77 | Undo this import | `components/reading/import/import-client.tsx:489` | Confirm | Undo import (danger) | none |
+| 78 | Finished this book? | `components/reading/reader-tracking.tsx:290` | Question | Finish reading | none |
+| 79 | Remove this highlight? | `components/reading/reader-tracking.tsx:295` | Confirm | Remove (danger) | none |
+| 80 | Not for me because… | `components/reading/suggestions/not-for-me-dialog.tsx:32` | Edit form | Save / Create (submit) | draft |
+| 81 | Pick one for me | `components/reading/suggestions/pick-one.tsx:43` | Picker | Start reading | none |
+| 82 | title | `components/reading/timer-chip.tsx:206` | Question | Stop timer | none |
+| 83 | Still reading? | `components/reading/timer-chip.tsx:292` | Question | Still reading | none |
+| 84 | A timer is running for $timer.title | `components/reading/timer-chip.tsx:343` | Question | Stop it and start this one | none |
+| 85 | elapsed < 60 ? `Discard the timer for $timer.tit | `components/reading/timer-chip.tsx:371` | Confirm | Discard timer (danger) | none |
+| 86 | isEdit ? "Edit recommender | `components/recommenders/recommender-form-dialog.tsx:106` | Edit form | Save / Create (submit) | draft |
+| 87 | Add books | `components/series/add-series-books-dialog.tsx:88` | Edit form | Save / Create (submit) | draft |
+| 88 | isEdit ? "Edit series | `components/series/series-form-dialog.tsx:118` | Edit form | Save / Create (submit) | draft |
+| 89 | Keyboard shortcuts | `components/shortcuts/shortcuts-help.tsx:36` | Viewer | none | none |
+| 90 | New taxonomy family | `components/taxonomy/create-family-dialog.tsx:57` | Edit form | Save / Create (submit) | draft |
+| 91 | New $familyName | `components/taxonomy/create-item-dialog.tsx:96` | Edit form | Save / Create (submit) | draft |
+| 92 | Delete $family.name | `components/taxonomy/delete-family-dialog.tsx:61` | Confirm | Delete (danger) | none |
+| 93 | Delete $item.name | `components/taxonomy/delete-item-dialog.tsx:70` | Confirm | Delete (danger) | none |
+| 94 | Edit $family.name | `components/taxonomy/edit-family-dialog.tsx:98` | Edit form | Save / Create (submit) | draft |
+| 95 | Merge Item | `components/taxonomy/merge-dialog.tsx:78` | Edit form | Save / Create (submit) | draft |
+| 96 | Unsaved changes | `components/ui/dialog.tsx:232` | Unsaved question | Save (Enter), Discard, Keep editing (Esc) | none |
+
+### Demonstrated (browser-checked) so far
+
+- The #217 review: Esc on clean, typed and changed-back Add book, Add film,
+  Add painting, Add perfume, the publisher editor; Edit Work's Esc, Close,
+  backdrop and Cancel; a list inside Edit Work taking the first Esc; Add a
+  quote; the acquisition-target editor; Configure columns.
+- The #223 review: Add book's middle steps offering Save; links, G P, A P
+  and the palette asking with typed work; Enter and Shift+Enter in Edit
+  Work's Description; IME Enter; a held Enter sending one save; Ctrl+Enter
+  in Log a past read's review; Table of contents (fixed: it now keeps
+  Enter).
+- SLN-638: the edition cover dialog, a typed address asking on Esc.
+
+### Gaps found by this inventory
+
+1. **Viewers have no Done.** Keyboard shortcuts, Resolution record, One
+   record fully connected, and the reader's sheet close with Esc and their
+   close button, but Enter does nothing. SLN-629 asks for "a meaningful
+   Done/Close". Proposal: a `Done` primary button, so Enter closes them.
+2. **Pickers and managers.** Collections, Manage media, Pick one for me and
+   Match again: Enter with the focus on the dialog does nothing (no primary
+   button). A Done primary would close them, as in 1.
+3. **Danger confirmations** (Delete, Remove highlight, Undo import, Discard
+   timer): Enter does nothing by design. SLN-629 says "Plain Enter invokes
+   the primary Accept". This needs the owner's word before Enter may delete.
+4. **Step dialogs** (New Order, Review bulk eBooks): only the visible step's
+   main button is shown, so Enter presses Next, then Create Order. Read from
+   source only; SLN-634 checks it in a browser.
+5. **E and A** as in sections 2 and 3.
+6. **The leader menu** survives a client navigation (section 2).
+
+## 5. Verification plan for the dependent tickets
+
+On a disposable preview only (`scripts/qa/preview-local.py --start
+--seed-large 50 --s3-dir DIR`), headless Chromium, Firefox and WebKit,
+Esc sent as key code 27, nothing written to live data.
+
+- **SLN-632:** N opens New; A then B, P, A, F, C, E, I, R, S, L each run
+  their one action; A then Esc, A then an unknown key, A held, A with ⌘,
+  and A while typing do nothing; a client navigation closes an open menu;
+  the help sheet, the palette and the menu show the same keys.
+- **SLN-571:** A then F favourites and unfavourites the page's item once
+  (held keys too), and A then C opens that item's collections picker, on a
+  book, a collection, a person, a publisher, a series, a place and a
+  recommender; on a page with no item they fall back as SLN-632 decides.
+- **SLN-633:** on each row of section 3, E then each listed letter opens the
+  same dialog as the visible button, after a direct load and after a client
+  navigation from another family, and never two dialogs.
+- **SLN-634:** each row of section 4: Enter (main action once, or nothing
+  for a danger button), Shift+Enter, Esc clean, Esc dirty then Keep editing
+  and Discard, Close, Cancel and the backdrop; plus the Edit collection
+  Description case, IME, held Enter, and a picker inside a form.
