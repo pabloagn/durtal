@@ -3,7 +3,8 @@ import { matchFingerprint } from "./keys";
 import { MATCH_MODEL } from "./model";
 import { matchInMemory } from "./tiers";
 import { indexCatalogue } from "./catalogue";
-import type { MatchEbook, MatchResult } from "./types";
+import { holdForReview, oneEbookPerWork } from "./clashes";
+import type { MatchEbook, MatchResult, Reason } from "./types";
 
 export type SampleLabel = "right" | "wrong_edition" | "wrong_work";
 export interface LabelledMatch {
@@ -145,12 +146,19 @@ export function requireCalibration(
       "Automatic linking needs valid labelled precision for this model, catalogue and input fingerprint",
     );
 }
+export interface ScoringOptions {
+  /** SLN-657: an e-book that clashes with another for one book never links by itself */
+  oneEbookPerWork?: boolean;
+  /** SLN-657: e-books, by id, that a look wider than this scope sent to review, with its reason */
+  holdForReview?: ReadonlyMap<string, Reason>;
+}
 /** Read-only scoring for SLN-498's inspected, not-yet-registered groups. The
  * caller supplies loader-proven file DTOs; this function never allocates or writes. */
 export function scoreNewGroups(
   loaded: LoadedMatchCatalogue,
   groups: readonly MatchEbook[],
   inputPlanSha256: string,
+  options: ScoringOptions = {},
 ) {
   if (!/^[a-f0-9]{64}$/.test(inputPlanSha256))
     throw new Error("Scoring requires the frozen ingestion input plan hash");
@@ -166,7 +174,9 @@ export function scoreNewGroups(
       ...groups,
     ],
   });
-  const results = matchInMemory(groups, catalogue);
+  const scored = matchInMemory(groups, catalogue);
+  const clashed = options.oneEbookPerWork ? oneEbookPerWork(scored, catalogue) : scored;
+  const results = options.holdForReview?.size ? holdForReview(clashed, options.holdForReview) : clashed;
   const binding: ScoringBinding = {
     modelVersion: MATCH_MODEL.version,
     modelFingerprint: dataFingerprint(MATCH_MODEL),

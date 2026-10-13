@@ -1,7 +1,7 @@
 import { withReadOnlyPlanningConnection } from "@/lib/enrichment/read-only-session";
 import type { Db } from "@/lib/catalogue/work-store";
 import { loadMatchCatalogue, dataFingerprint } from "./load";
-import { scoreNewGroups, requireCalibration, sampleMatches, type CalibrationReceipt } from "./calibration";
+import { scoreNewGroups, requireCalibration, sampleMatches, type CalibrationReceipt, type ScoringOptions } from "./calibration";
 import { MATCH_MODEL } from "./model";
 import { matchFingerprint } from "./keys";
 import type { MatchEbook } from "./types";
@@ -54,6 +54,7 @@ export async function planGroupMatching(
   conn: Db,
   groups: readonly PlannedMatchGroup[],
   inputPlanSha256: string,
+  options: ScoringOptions = {},
 ) {
   const loaded = await loadMatchCatalogue(conn);
   if (
@@ -92,7 +93,7 @@ export async function planGroupMatching(
       throw new Error("Unregistered groups cannot fabricate owner decisions");
     return ebook;
   });
-  const scoring = scoreNewGroups(loaded, ebooks, inputPlanSha256);
+  const scoring = scoreNewGroups(loaded, ebooks, inputPlanSha256, options);
   const resultById = new Map(
     scoring.results.map((result) => [result.ebookId, result]),
   );
