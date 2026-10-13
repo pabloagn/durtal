@@ -270,6 +270,9 @@ const updatePlaybackRate = (animation, rate) => {
     try { animation.playbackRate = rate } catch { /* unsupported */ }
 }
 
+// Durtal patch 20: a keyboard, tap or button page slide (was 60ms)
+const PAGE_SLIDE_MS = 250
+
 const injectViewTransitionStyles = () => {
     const id = 'foliate-view-transition-styles'
     if (document.getElementById(id)) return
@@ -3328,7 +3331,9 @@ export class Paginator extends HTMLElement {
             const turnStyle = this.getAttribute('turn-style')
             const fastSlide = reason === 'page'
                 && (turnStyle === null || turnStyle === 'slide')
-            const duration = fastSlide ? 60 : 300
+            // Durtal patch 20 (VENDORED.md): a 250ms page slide; at 60ms the
+            // turn read as a flash.
+            const duration = fastSlide ? PAGE_SLIDE_MS : 300
             const startPosition = this.containerPosition
             this.#isAnimating = true
             // Vertical paginated books page along scrollTop but read
@@ -3465,7 +3470,7 @@ export class Paginator extends HTMLElement {
         this.#settleDrag(true)
         // Keyboard/tap page slides are brief; finger-tracked turns keep their
         // existing timeline through #vtSetup's default duration.
-        this.#vtSetup(style, forward, false, reason === 'page' && style === 'slide' ? 60 : 300)
+        this.#vtSetup(style, forward, false, reason === 'page' && style === 'slide' ? PAGE_SLIDE_MS : 300)
         const transition = document.startViewTransition(() => {
             this.containerPosition = offset
             if (!this.scrolled) {
@@ -3769,9 +3774,23 @@ export class Paginator extends HTMLElement {
         if (!this.scrolled) this.#replaceBackground()
         this.dispatchEvent(new CustomEvent('relocate', { detail }))
     }
+    // Durtal patch 20: a jump's destination fades in over 150ms instead of
+    // cutting from a blank page (none with reduced motion). Hiding stays
+    // instant, so the page never shows mid-reposition.
+    #hide() {
+        this.#container.style.transition = 'none'
+        this.#container.style.opacity = '0'
+    }
+    #reveal() {
+        const still = this.ownerDocument?.defaultView
+            ?.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+        this.#container.style.transition = still || !this.hasAttribute('animated')
+            ? 'none' : 'opacity 150ms ease-out'
+        this.#container.style.opacity = '1'
+    }
     async #display(promise) {
         this.#stabilizing = true
-        this.#container.style.opacity = '0'
+        this.#hide()
         const { index, src, data, anchor, onLoad, select } = await promise
         this.#primaryIndex = index
         this.#syncA11y()
@@ -3836,7 +3855,7 @@ export class Paginator extends HTMLElement {
         await this.scrollToAnchor(resolvedAnchor, select)
         if (hasFocus) this.focusView()
         // Reveal content now that primary section is positioned
-        this.#container.style.opacity = '1'
+        this.#reveal()
         this.#rendered = true
         // Emit stabilized so listeners can react, but keep #stabilizing
         // true until fill completes to prevent the debounced scroll
@@ -4058,7 +4077,7 @@ export class Paginator extends HTMLElement {
             // not an opacity cycle over every column of the same document.
             const blank = (!this.scrolled || this.noContinuousScroll)
                 && index !== this.#primaryIndex
-            if (blank) this.#container.style.opacity = '0'
+            if (blank) this.#hide()
             const hasFocus = this.#primaryView?.document?.hasFocus()
             this.#primaryIndex = index
             // Remove nonlinear cached views before computing offsets for the
@@ -4098,7 +4117,7 @@ export class Paginator extends HTMLElement {
             if (!this.scrolled) await loadPrev()
             await this.scrollToAnchor(resolvedAnchor, select)
             if (this.scrolled) await loadPrev()
-            if (blank) this.#container.style.opacity = '1'
+            if (blank) this.#reveal()
             if (hasFocus) this.focusView()
             // Load remaining adjacent sections progressively;
             // keep #stabilizing true until fill completes

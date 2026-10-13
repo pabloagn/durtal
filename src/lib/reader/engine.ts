@@ -327,6 +327,10 @@ export interface ReaderEngine {
   setDecorations(group: string, decorations: Decoration[]): void;
   next(owner?: NavigationOwner): Promise<void>;
   prev(owner?: NavigationOwner): Promise<void>;
+  /** Whether the book scrolls (the scroll flow) instead of turning pages */
+  isScrolled?(): boolean;
+  /** Scrolls a scrolled book by a few lines, as an arrow key does (SLN-674) */
+  scrollLines?(direction: -1 | 1): void;
   /** Left and right follow the book's direction: right-to-left books turn the other way */
   goLeft(owner?: NavigationOwner): Promise<void>;
   goRight(owner?: NavigationOwner): Promise<void>;

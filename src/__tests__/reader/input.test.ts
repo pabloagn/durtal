@@ -15,6 +15,10 @@ let actions: {
 };
 let input: ReaderInput;
 let blocked = false;
+let edgeTaps = true;
+let selected = false;
+let scrolled = false;
+let turning = false;
 let clock = 1_000_000;
 
 beforeEach(() => {
@@ -39,8 +43,13 @@ beforeEach(() => {
     escape: fn(),
     activity: fn(),
     pointer: fn(),
+    scroll: fn(),
   };
   blocked = false;
+  edgeTaps = true;
+  selected = false;
+  scrolled = false;
+  turning = false;
   clock = 1_000_000;
   document.body.innerHTML = `<main><p id="text">Some text</p><a id="link" href="#x">a link</a><input id="field" /><input id="box" type="checkbox" /></main>`;
   Object.defineProperty(window, "innerWidth", {
@@ -50,6 +59,10 @@ beforeEach(() => {
   input = createReaderInput({
     actions,
     isBlocked: () => blocked,
+    hasSelection: () => selected,
+    edgeTaps: () => edgeTaps,
+    scrolled: () => scrolled,
+    turning: () => turning,
     now: () => clock,
   });
   input.attach(document);
@@ -266,13 +279,63 @@ describe("taps, swipes and the wheel", () => {
       }),
     );
 
-  it("turns on the outer 30% and shows the bars in the centre", () => {
+  const press = (target: Element = document.getElementById("text")!) =>
+    target.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+
+  it("never turns or toggles on a click in the text; the edge strips turn when edge taps are on (SLN-662)", () => {
+    click(500);
+    click(300);
+    click(700);
+    expect(actions.left).not.toHaveBeenCalled();
+    expect(actions.right).not.toHaveBeenCalled();
+    expect(actions.toggleBars).not.toHaveBeenCalled();
     click(100);
     click(900);
-    click(500);
     expect(actions.left).toHaveBeenCalledTimes(1);
     expect(actions.right).toHaveBeenCalledTimes(1);
-    expect(actions.toggleBars).toHaveBeenCalledTimes(1);
+    edgeTaps = false;
+    click(50);
+    click(950);
+    expect(actions.left).toHaveBeenCalledTimes(1);
+    expect(actions.right).toHaveBeenCalledTimes(1);
+  });
+
+  it("a click that dismisses a selection only dismisses it, even in an edge strip", () => {
+    selected = true;
+    press();
+    selected = false; // the press's default action collapsed it
+    click(950);
+    expect(actions.right).not.toHaveBeenCalled();
+    press();
+    click(950);
+    expect(actions.right).toHaveBeenCalledTimes(1);
+  });
+
+  it("taps by touch: the edge strips turn, the rest shows or hides the bars", () => {
+    touch("touchstart", 100);
+    touch("touchend", 100);
+    touch("touchstart", 500);
+    touch("touchend", 500);
+    clock += 1000;
+    touch("touchstart", 300);
+    touch("touchend", 300);
+    expect(actions.left).toHaveBeenCalledTimes(1);
+    expect(actions.toggleBars).toHaveBeenCalledTimes(2);
+    edgeTaps = false;
+    touch("touchstart", 950);
+    touch("touchend", 950);
+    expect(actions.right).not.toHaveBeenCalled();
+    expect(actions.toggleBars).toHaveBeenCalledTimes(3);
+  });
+
+  it("never turns by touch while the book has a selection", () => {
+    selected = true;
+    touch("touchstart", 950);
+    touch("touchend", 950);
+    touch("touchstart", 600);
+    touch("touchend", 540);
+    expect(actions.right).not.toHaveBeenCalled();
+    expect(actions.toggleBars).not.toHaveBeenCalled();
   });
 
   it("leaves clicks on links and controls to them", () => {
@@ -312,6 +375,37 @@ describe("taps, swipes and the wheel", () => {
     clock += 600;
     touch("touchend", 950);
     expect(actions.right).not.toHaveBeenCalled();
+  });
+
+  it("a held arrow key's repeats turn only once the page before has (SLN-673)", () => {
+    const press = (repeat: boolean) =>
+      document.body.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowRight", repeat, bubbles: true, cancelable: true }),
+      );
+    press(false);
+    turning = true;
+    press(true);
+    press(true);
+    expect(actions.right).toHaveBeenCalledTimes(1);
+    // A deliberate second press still queues behind the turn
+    press(false);
+    expect(actions.right).toHaveBeenCalledTimes(2);
+    turning = false;
+    press(true);
+    expect(actions.right).toHaveBeenCalledTimes(3);
+  });
+
+  it("in the scroll flow, leaves the wheel to the browser and scrolls by lines on the up and down arrows (SLN-674)", () => {
+    scrolled = true;
+    document
+      .getElementById("text")!
+      .dispatchEvent(new WheelEvent("wheel", { deltaY: 100, bubbles: true }));
+    expect(actions.next).not.toHaveBeenCalled();
+    const down = new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true });
+    document.body.dispatchEvent(down);
+    document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true }));
+    expect(down.defaultPrevented).toBe(true);
+    expect(actions.scroll.mock.calls).toEqual([[1], [-1]]);
   });
 
   it("turns one page per wheel gesture", () => {

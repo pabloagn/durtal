@@ -174,3 +174,12 @@ adapter regression source added; native retesting remains pending.
     scan. Relocate/focus/selection, real-load reanchoring, stabilized events,
     viewport geometry and saved CFIs remain unchanged. Source candidate; original
     native responsiveness and navigation/visual gates pending.
+
+20. `paginator.js`: a keyboard, tap or button page slide runs 250ms
+    (`PAGE_SLIDE_MS`, was 60ms, which read as a flash), in both the View
+    Transition and the push paths; finger-tracked and curl timings are
+    unchanged. A jump's destination fades in over 150ms instead of cutting
+    from a blank page (`#hide`/`#reveal`; hiding stays instant, none with
+    reduced motion or without `animated`). Durtal's book CSS sets
+    `--theme-bg-color`, so the turn layers are backed with the page colour,
+    not the browser's grey `Canvas`. SLN-660.

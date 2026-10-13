@@ -159,6 +159,9 @@ export interface FoliateRenderer extends HTMLElement {
   refreshPageSizes?(): void;
   showPageRect?(index: number, rect: { left: number; top: number; right: number; bottom: number }): boolean;
   atEnd: boolean;
+  /** The paginator in the scroll flow; absent on fixed-layout renderers */
+  readonly scrolled?: boolean;
+  containerPosition?: number;
   /** Exact target only during the renderer's synchronous native anchor focus. */
   readonly navigationAnchorFocus?: Element | null;
   heads?: HTMLElement[] | null;

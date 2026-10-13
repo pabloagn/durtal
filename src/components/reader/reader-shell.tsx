@@ -12,14 +12,14 @@ import {
 
 /** The bars hide this long after they show, while reading */
 export const BARS_HIDE_MS = 3000;
-/** The mouse this close to the top or bottom edge brings the bars back */
-const EDGE_PX = 56;
 
 /**
  * The reader's two bars, shown and hidden together (eBooks sub-issue 3).
- * They show on open and hide after 3 seconds, or at once on a page turn.
- * They stay while the pointer is over them, focus is in them, or `held`
- * (a dialog is open, the book is still opening).
+ * They show on open and whenever the mouse moves, anywhere on the page, and
+ * hide 3 seconds after it rests, or at once on a page turn (SLN-663: no hot
+ * strip to hover, so crossing the page never makes them blink). They stay
+ * while the pointer is over them, focus is in them, or `held` (a dialog is
+ * open, the book is still opening, the toolbars are pinned).
  */
 export function useReaderBars({ held }: { held: boolean }) {
   const [visible, setVisible] = useState(true);
@@ -58,10 +58,16 @@ export function useReaderBars({ held }: { held: boolean }) {
     else show();
   }, [hide, show]);
 
-  /** The mouse at y in the viewport */
+  /** The mouse at x, y in the viewport. A layout change can repeat a still
+   * pointer's last position: only real movement counts. */
+  const lastPointer = useRef<{ x: number; y: number } | null>(null);
   const pointerAt = useCallback(
-    (y: number) => {
-      if (y <= EDGE_PX || y >= window.innerHeight - EDGE_PX) show();
+    (x: number, y: number) => {
+      const last = lastPointer.current;
+      lastPointer.current = { x, y };
+      if (last && Math.hypot(x - last.x, y - last.y) < 2) return;
+      if (!last) return;
+      show();
     },
     [show],
   );
@@ -125,6 +131,8 @@ export const ReaderShell = forwardRef<
     topBar: ReactNode;
     bottomBar: ReactNode;
     player?: ReactNode;
+    /** The mouse's page turn buttons, kept up like the bars while hovered */
+    edges?: ReactNode;
     skipLink?: ReactNode;
     barEvents: ReturnType<typeof useReaderBars>["barEvents"];
     /** opening, ready or error: for the reader's checks (scripts/qa/reader-engine-check.mjs) */
@@ -133,7 +141,7 @@ export const ReaderShell = forwardRef<
     children?: ReactNode;
   }
 >(function ReaderShell(
-  { topBar, bottomBar, player, skipLink, barEvents, state, overlay, children },
+  { topBar, bottomBar, player, edges, skipLink, barEvents, state, overlay, children },
   bookRef,
 ) {
   return (
@@ -147,6 +155,7 @@ export const ReaderShell = forwardRef<
       </div>
       <BookFrame ref={bookRef} />
       <div className="contents" {...barEvents}>
+        {edges}
         {player}
         {bottomBar}
       </div>

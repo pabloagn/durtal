@@ -35,6 +35,8 @@ type Command = {
   resolve: (value: DurtalLocator | null) => void;
   reject: (reason: unknown) => void;
 };
+/** Turns waiting behind the one on screen; a held key's extra repeats drop */
+export const MAX_QUEUED_TURNS = 2;
 export const sameLocation = (
   a: DurtalLocator | null,
   b: DurtalLocator | null,
@@ -274,6 +276,14 @@ export function createReaderNavigation(options: {
         // Ordinary turns are deliberate input. Queue each until the renderer's
         // transition and paint settle instead of dropping keys during its lock.
         if (input.turn && active.turn && !active.abort.signal.aborted) {
+          // A held key repeats far faster than pages paint: beyond a short
+          // queue its turns are dropped, so letting go stops the pages (SLN-673).
+          if (
+            pending.filter((item) => item.turn).length >= MAX_QUEUED_TURNS
+          ) {
+            resolve(null);
+            return;
+          }
           pending.push(command);
           return;
         }

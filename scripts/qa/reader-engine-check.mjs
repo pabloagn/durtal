@@ -19,10 +19,13 @@
  *   place      a saved place reopens at the same first visible words; at
  *              390 px with touch, also when the tab was only hidden before it
  *              closed (the save goes out with sendBeacon)
- *   touch      at 390 px with touch (Chrome, WebKit): the right zone turns
- *              forward, the left back, a swipe to the left forward
+ *   touch      at 390 px with touch (Chrome, WebKit): a tap in the middle
+ *              shows or hides the bars, a tap just inside the edge strips
+ *              stays, the outer right strip turns forward, the left back, a
+ *              swipe to the left forward
  *   bars       both bars show on open, hide together after 3 s and come back
- *              together on a tap in the middle
+ *              together on a mouse move; a click anywhere in the text keeps
+ *              the place, and the Next page edge button turns
  *   dialogs    Contents and Settings take focus, keep Tab inside, close with
  *              Escape and give focus back to their button
  *   endurance  only with --only endurance, on a preview started with
@@ -171,7 +174,10 @@ async function resetFixturePosition(n) {
 async function revealBars(page) {
   const viewport = page.viewportSize();
   if (!viewport) throw new Error("Reader QA requires an explicit viewport");
+  // Two samples: the reader ignores a pointer's first position (SLN-663)
   await page.mouse.move(viewport.width / 2, Math.min(8, viewport.height - 1));
+  await page.mouse.move(viewport.width / 2 + 12, Math.min(16, viewport.height - 1));
+  await sleep(200);
 }
 
 
@@ -430,9 +436,19 @@ async function checkTouch(name, browser) {
   const page = await context.newPage();
   const start = await open(page, 5);
   const width = 390;
-  await page.touchscreen.tap(width * 0.85, 420);
+  // Only the outer 12% strips turn (SLN-662); the middle shows the bars
+  const bars = () => page.evaluate(() => !document.querySelector("footer[data-reader-chrome]").inert);
+  const before = await bars();
+  await page.touchscreen.tap(width * 0.5, 420);
+  await sleep(400);
+  const toggled = (await bars()) !== before;
+  const middle = await moved(page, start.fraction);
+  await page.touchscreen.tap(width * 0.7, 420);
+  await sleep(400);
+  const inner = await moved(page, start.fraction);
+  await page.touchscreen.tap(width * 0.95, 420);
   const right = await moved(page, start.fraction);
-  await page.touchscreen.tap(width * 0.15, 420);
+  await page.touchscreen.tap(width * 0.05, 420);
   const left = await moved(page, right.fraction);
   await page.evaluate(() => {
     const view = document.querySelector("foliate-view");
@@ -452,6 +468,8 @@ async function checkTouch(name, browser) {
     fire("touchend", 150, false);
   });
   const swiped = await moved(page, left.fraction);
+  record(name, "touch", "390: a tap in the middle shows or hides the bars and stays", toggled && middle.fraction === start.fraction, `bars ${before} → ${!before === toggled ? !before : before}, ${start.fraction?.toFixed(3)} → ${middle.fraction?.toFixed(3)}`);
+  record(name, "touch", "390: a tap inside the edge strips does not turn", inner.fraction === start.fraction, `${start.fraction?.toFixed(3)} → ${inner.fraction?.toFixed(3)}`);
   record(name, "touch", "390: the right zone turns forward", right.fraction > start.fraction, `${start.fraction?.toFixed(3)} → ${right.fraction?.toFixed(3)}`);
   record(name, "touch", "390: the left zone turns back", left.fraction < right.fraction, `${right.fraction?.toFixed(3)} → ${left.fraction?.toFixed(3)}`);
   record(name, "touch", "390: a swipe to the left turns forward", swiped.fraction > left.fraction, `${left.fraction?.toFixed(3)} → ${swiped.fraction?.toFixed(3)}`);
@@ -463,15 +481,35 @@ async function checkBars(name, browser) {
   const page = await context.newPage();
   const bars = () =>
     page.evaluate(() => [...document.querySelectorAll("header[data-reader-chrome], footer[data-reader-chrome]")].map((el) => !el.inert && getComputedStyle(el).opacity !== "0"));
-  await open(page, 5);
+  // Its own book: the turns below save places other checks must not reopen at
+  await open(page, 10);
   const shown = await bars();
   await sleep(3600);
   const hidden = await bars();
-  await page.mouse.click(720, 450);
+  // Any mouse movement brings them back, not a hot strip (SLN-663)
+  await page.mouse.move(700, 450);
+  await page.mouse.move(720, 460);
   await sleep(400);
   const back = await bars();
   const ok = shown.length === 2 && shown.every(Boolean) && hidden.every((v) => !v) && back.every(Boolean);
-  record(name, "bars", "show on open, hide together, come back together", ok, `${JSON.stringify(shown)} ${JSON.stringify(hidden)} ${JSON.stringify(back)}`);
+  record(name, "bars", "show on open, hide together, come back together on a mouse move", ok, `${JSON.stringify(shown)} ${JSON.stringify(hidden)} ${JSON.stringify(back)}`);
+  await sleep(3600);
+  // A click in the text never turns the page (SLN-662); the edge button does.
+  // The clicks stay off the 12% edge strips: headless Chrome reads as a tablet,
+  // where tapping the edges turns by default.
+  const start = await page.evaluate(readState);
+  for (const [x, y] of [[300, 300], [300, 314], [720, 400], [1100, 300], [1100, 314], [200, 450], [1240, 450]]) {
+    await page.mouse.click(x, y);
+    await sleep(120);
+  }
+  const clicked = await moved(page, start.fraction);
+  record(name, "bars", "a click anywhere in the text keeps the place", clicked.fraction === start.fraction, `${start.fraction?.toFixed(3)} → ${clicked.fraction?.toFixed(3)}`);
+  await page.mouse.move(1380, 450);
+  await page.mouse.move(1410, 452);
+  await sleep(300);
+  await page.getByRole("button", { name: "Next page" }).click();
+  const edge = await moved(page, clicked.fraction);
+  record(name, "bars", "the Next page button at the edge turns forward", edge.fraction > clicked.fraction, `${clicked.fraction?.toFixed(3)} → ${edge.fraction?.toFixed(3)}`);
   await context.close();
 }
 

@@ -56,8 +56,8 @@ export function ReaderBottomBar({
       data-reader-chrome
       data-reader-index={index?.complete ? "ready" : "pending"}
       inert={!visible}
-      className={`glass-bar fixed inset-x-0 bottom-0 z-30 border-t border-glass-border pb-[env(safe-area-inset-bottom)] transition-[opacity,translate] duration-200 motion-reduce:transition-none ${
-        visible ? "" : "pointer-events-none translate-y-full opacity-0"
+      className={`glass-bar fixed inset-x-0 bottom-0 z-30 border-t border-glass-border pb-[env(safe-area-inset-bottom)] transition-opacity duration-150 motion-reduce:transition-none ${
+        visible ? "" : "pointer-events-none opacity-0"
       }`}
     >
       <div className="flex h-9 [@media(pointer:coarse)]:h-11 items-center gap-3 px-4 text-xs text-fg-secondary">
@@ -66,23 +66,22 @@ export function ReaderBottomBar({
         <div
           ref={mount}
           hidden={!slots["toolbar-status"]}
-          className="flex min-w-0 max-w-[60%] shrink-0 items-center overflow-hidden whitespace-nowrap [&_button]:max-w-full [&_button]:truncate"
+          className="flex min-w-0 max-w-[40%] shrink-0 items-center overflow-hidden whitespace-nowrap [&_button]:max-w-full [&_button]:truncate"
         />
-        {!slots["toolbar-status"] && (
-          <div className="flex min-w-0 max-w-[80%] items-center gap-2 tabular-nums">
-            {index && locator && (
-              <span className="truncate">
-                {linear === false
-                  ? "Outside the reading order"
-                  : pageText(locator, index)}
-              </span>
-            )}
-            {percent !== null && <span className="shrink-0">{percent}%</span>}
-            {linear !== false && timeLeftChapter && (
-              <span className="min-w-0 truncate">{timeLeftChapter}</span>
-            )}
-          </div>
-        )}
+        {/* The place shows beside the tracking control too, never instead of it */}
+        <div className="flex min-w-0 max-w-[60%] items-center gap-2 tabular-nums">
+          {index && locator && (
+            <span className="truncate">
+              {linear === false
+                ? "Outside the reading order"
+                : pageText(locator, index)}
+            </span>
+          )}
+          {percent !== null && <span className="shrink-0">{percent}%</span>}
+          {linear !== false && timeLeftChapter && (
+            <span className="min-w-0 truncate">{timeLeftChapter}</span>
+          )}
+        </div>
       </div>
       {index && locator && onScrub && (
         <div className="flex items-center gap-2 px-4 pb-1">

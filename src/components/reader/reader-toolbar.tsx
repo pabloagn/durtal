@@ -219,8 +219,8 @@ export function ReaderToolbar({
     <header
       data-reader-chrome
       inert={!visible}
-      className={`glass-bar fixed inset-x-0 top-0 z-30 border-b border-glass-border pt-[env(safe-area-inset-top)] transition-[opacity,translate] duration-200 motion-reduce:transition-none ${
-        visible ? "" : "pointer-events-none -translate-y-full opacity-0"
+      className={`glass-bar fixed inset-x-0 top-0 z-30 border-b border-glass-border pt-[env(safe-area-inset-top)] transition-opacity duration-150 motion-reduce:transition-none ${
+        visible ? "" : "pointer-events-none opacity-0"
       }`}
     >
       {/* The row carries the title's type: the buttons sit on its cap-height center. On

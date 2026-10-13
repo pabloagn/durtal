@@ -40,6 +40,10 @@ export const presentationSchema = z
     marginPx: stepped(8, 96, 8),
     lineLength: z.enum(["narrow", "medium", "wide", "full"]),
     pageTurn: z.enum(["none", "slide"]),
+    /** A tap or click in the page's edge strips turns it (SLN-662) */
+    edgeTaps: z.boolean(),
+    /** The toolbars stay up instead of hiding while reading (SLN-663) */
+    pinBars: z.boolean(),
     theme: z.enum(["durtal-dark", "sepia", "paper"]),
     brightness: stepped(70, 100, 5),
     warmth: stepped(0, 100, 10),

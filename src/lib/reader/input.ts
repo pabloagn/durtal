@@ -45,6 +45,8 @@ export interface ReaderActions {
   activity?(kind: "key" | "pointer"): void;
   /** The mouse moved, at this point of the reader's viewport (the bars show near an edge) */
   pointer?(x: number, y: number): void;
+  /** A few lines down or up in a scrolled book */
+  scroll?(direction: -1 | 1): void;
 }
 
 export interface ReaderInputOptions {
@@ -53,6 +55,12 @@ export interface ReaderInputOptions {
   isBlocked(): boolean;
   /** Whether a selection stands in the book (a registered key may need one) */
   hasSelection?(): boolean;
+  /** Whether a tap or click in an edge strip turns the page (the edgeTaps setting) */
+  edgeTaps?(): boolean;
+  /** Whether the book scrolls: the wheel and the up and down arrows then scroll it */
+  scrolled?(): boolean;
+  /** Whether a page turn is still on screen: a held key's repeats wait for it */
+  turning?(): boolean;
   now?(): number;
   selectionTab?(event: KeyboardEvent): void;
   selectionEscape?(): boolean;
@@ -234,8 +242,9 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   ].includes(type);
 }
 
-/** Taps, swipes and long presses */
-export const TAP_ZONE = 0.3;
+/** Taps, swipes and long presses. Only the outer strips turn, and only when
+ * the edgeTaps setting is on; a click in the text never turns (SLN-662). */
+export const TAP_ZONE = 0.12;
 export const SWIPE_MIN = 40;
 export const LONG_PRESS_MS = 500;
 const TAP_SLOP = 10;
@@ -267,6 +276,8 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
   let touchStart: Point | null = null;
   let touchMoved = false;
   let lastTouchEnd = -Infinity;
+  /** A selection stood when the press began: the press dismisses it, nothing more */
+  let pressDismisses = false;
   let wheelTotal = 0;
   let wheelTurned = false;
   let wheelTimer: ReturnType<typeof setTimeout> | null = null;
@@ -283,27 +294,35 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
   const viewportWidth = () =>
     typeof window === "undefined" ? 0 : window.innerWidth;
 
+  /** A selection in this document or in the book's (the app's document
+   * cannot see a section's selection) */
   const selectionIn = (doc: Document) => {
     const selection = doc.getSelection?.();
     return (
-      !!selection &&
-      !selection.isCollapsed &&
-      selection.toString().trim().length > 0
+      (!!selection &&
+        !selection.isCollapsed &&
+        selection.toString().trim().length > 0) ||
+      !!options.hasSelection?.()
     );
   };
 
-  const zoneTap = (doc: Document, clientX: number) => {
+  /** The edge strip a point is in, when edge taps are on */
+  const edgeAt = (doc: Document, clientX: number) => {
     const width = viewportWidth();
-    if (!width) return;
+    if (!width || !options.edgeTaps?.()) return null;
     const x = viewportX(doc, clientX) / width;
-    if (x < TAP_ZONE) {
-      actions.left();
-    } else if (x > 1 - TAP_ZONE) {
-      actions.right();
-    } else {
-      actions.toggleBars();
-      actions.activity?.("pointer");
+    return x < TAP_ZONE ? "left" : x > 1 - TAP_ZONE ? "right" : null;
+  };
+
+  /** A touch tap: an edge strip turns, anywhere else shows or hides the bars */
+  const zoneTap = (doc: Document, clientX: number) => {
+    const edge = edgeAt(doc, clientX);
+    if (edge) {
+      actions[edge]();
+      return;
     }
+    actions.toggleBars();
+    actions.activity?.("pointer");
   };
 
   /** Clicks on links, controls and the bars are theirs, not a page turn */
@@ -399,8 +418,20 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
     }
     const turn = (fn: () => void) => {
       event.preventDefault();
+      // A held key repeats faster than pages turn: a repeat only turns once
+      // the page before it has, so letting go stops at once (SLN-673)
+      if (event.repeat && options.turning?.()) return;
       fn();
     };
+    if (
+      (event.key === "ArrowDown" || event.key === "ArrowUp") &&
+      actions.scroll &&
+      options.scrolled?.()
+    ) {
+      event.preventDefault();
+      actions.scroll(event.key === "ArrowDown" ? 1 : -1);
+      return;
+    }
     switch (event.key) {
       case "ArrowRight":
         return turn(actions.right);
@@ -489,7 +520,9 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
       const dx = touch.clientX - start.x;
       const dy = touch.clientY - start.y;
       const held = now() - start.at;
-      if (selectionIn(doc)) return;
+      const dismissing = pressDismisses;
+      pressDismisses = false;
+      if (dismissing || selectionIn(doc)) return;
       if (Math.abs(dx) >= SWIPE_MIN && Math.abs(dx) > Math.abs(dy) * 1.5) {
         // The finger moves left: the page on the right comes in
         if (dx < 0) actions.right();
@@ -505,11 +538,19 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
       if (event.button !== 0 || event.defaultPrevented) return;
       if (options.isBlocked()) return;
       if (now() - lastTouchEnd < GHOST_CLICK_MS) return;
-      if (interactive(event.target) || selectionIn(doc)) return;
+      const dismissing = pressDismisses;
+      pressDismisses = false;
+      if (interactive(event.target) || dismissing || selectionIn(doc)) return;
+      // A mouse click is for selecting and marking text. It turns only in an
+      // edge strip, off the words, when edge taps are on.
+      const edge = edgeAt(doc, event.clientX);
+      if (!edge) return;
       if (doc !== document && mouseHitsWord(doc, event.clientX, event.clientY)) return;
-      zoneTap(doc, event.clientX);
+      actions[edge]();
     };
     const onWheel = (event: WheelEvent) => {
+      // A scrolled book takes the wheel natively, line by line (SLN-674)
+      if (options.scrolled?.()) return;
       if (
         options.isBlocked() ||
         event.ctrlKey ||
@@ -540,7 +581,11 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
       actions.pointer(offset.left + event.clientX, offset.top + event.clientY);
     };
     if (detachers.has(doc)) return detachers.get(doc)!;
-    const onPointerPress = () => actions.activity?.("pointer");
+    const onPointerPress = () => {
+      // Read before the press's default action collapses the selection
+      pressDismisses = selectionIn(doc);
+      actions.activity?.("pointer");
+    };
     doc.addEventListener("pointerdown", onPointerPress, { passive: true });
     doc.addEventListener("keydown", onKeyDown);
     doc.addEventListener("mousemove", onMouseMove, { passive: true });
