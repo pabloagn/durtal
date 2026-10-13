@@ -598,6 +598,8 @@ export function EditionForm({
         <Textarea
           label="Table of contents"
           id="ed-toc"
+          // One chapter a line: Enter starts the next, as in the other lists (SLN-631)
+          data-enter="ignore"
           value={values.tableOfContents}
           onChange={(e) => update("tableOfContents", e.target.value)}
           placeholder="Chapter list or TOC..."

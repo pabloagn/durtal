@@ -263,6 +263,20 @@ export function isConfirmField(el: EventTarget | null): el is HTMLInputElement {
   return !isPickerField(el);
 }
 
+/**
+ * A text box in a dialog: Enter saves there as in a one-line field, and
+ * Shift+Enter starts a new line (SLN-631). On a page a text box keeps its
+ * Enter, and `data-enter="ignore"` keeps it anywhere.
+ */
+export function isDialogTextBox(el: EventTarget | null): el is HTMLTextAreaElement {
+  return (
+    el instanceof HTMLTextAreaElement &&
+    !el.readOnly &&
+    !!el.closest("dialog") &&
+    !el.closest('[data-enter="ignore"], [cmdk-root], [role="combobox"], [role="listbox"]')
+  );
+}
+
 /** Elements with an Enter of their own: a button, a link, a field, a list */
 const OWN_ENTER = [
   "a[href]", "button", "input", "select", "textarea", "summary", "[contenteditable]",

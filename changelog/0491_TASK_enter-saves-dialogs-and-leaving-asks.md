@@ -12,10 +12,9 @@
 The rest of SLN-631, after task 0490 (Esc cancels, and asks first with
 unsaved work):
 
-- Plain Enter presses a dialog's main button from the dialog itself, not
-  only from a one-line field. A text box (a description, notes, a table of
-  contents) keeps Enter for its new line, in a dialog too: ⌘Enter saves
-  from it. Half-typed text is never saved by a stray Enter.
+- Plain Enter presses a dialog's main button from a text box and from the
+  dialog itself, not only from a one-line field. Shift+Enter starts a new
+  line.
 - A held Enter presses once.
 - A link, a Go or Add key, or the command palette that would leave unsaved
   work asks Save, Discard or Keep editing first.
@@ -24,16 +23,20 @@ unsaved work):
 ## Implementation Details
 
 - `src/lib/shortcuts/shortcuts.ts`:
+  - `isDialogTextBox` is a text box in a dialog. `data-enter="ignore"` keeps
+    a text box's own Enter where each line is an entry: "Other names, one
+    per line" in the organization dialog, and an edition's "Table of
+    contents" (review: Enter there had saved the edition with one chapter).
   - `isQuietInDialog` is focus in a dialog on nothing with an Enter of its
     own: the dialog itself (a dialog with no field starts there) or text.
   - `shortcutButton` from the dialog itself looks in that dialog only.
     Before, its walk started at the dialog's parent.
 - `src/components/shortcuts/shortcuts-provider.tsx`:
-  - Enter there presses the main button, as Enter in a one-line field
-    does. A Delete is never the main button.
+  - Enter in those two places presses the main button, as Enter in a
+    one-line field does. A Delete is never the main button.
   - An auto-repeated Enter is consumed: a held key never saves, submits or
-    clicks twice. A text box, a rich text field and the reader keep their own
-    Enter.
+    clicks twice. A text box on a page, a rich text field and the reader keep
+    their own Enter.
   - The reader's text boxes are left as they were.
 - `src/components/ui/unsaved-guard.ts`:
   - Every open draft (a dialog, a page, an editor) registers with one
@@ -59,8 +62,8 @@ unsaved work):
 ## Completion Notes
 
 - `src/__tests__/ui/enter-and-leaving.test.ts` covers the following:
-  - Enter in a dialog's one-line field, and Enter, Shift+Enter, a held
-    Enter and ⌘Enter in its text box;
+  - Enter and Shift+Enter in a dialog's text box, and a text box kept for
+    lines;
   - Enter on the dialog itself, and never on a Delete;
   - a held Enter in a dialog, and a text box on a page;
   - links that leave, links that stay, a new tab, a modified click;
@@ -70,6 +73,3 @@ unsaved work):
   to hold it. A reload or a closed tab asks the browser's own question.
 - Rich text fields (reviews, notes) keep Enter for paragraphs; ⌘Enter saves
   there.
-- Review: Enter in Edit Edition's "Table of contents" saved the edition with
-  one chapter. Every text box now keeps Enter for its new line, decided in
-  the shortcuts provider, not field by field.

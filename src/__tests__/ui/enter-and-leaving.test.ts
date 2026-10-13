@@ -3,8 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { act, createElement, Fragment, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
-// SLN-631: Enter is the main action in every dialog (a text box keeps it for
-// its new line; ⌘Enter saves there), a held Enter presses
+// SLN-631: Enter is the main action in every dialog, a held Enter presses
 // once, and a link, a key or the palette leaving unsaved work asks first.
 
 const nav = vi.hoisted(() => ({ pathname: "/library/new", push: vi.fn() }));
@@ -94,12 +93,12 @@ function withShortcuts(...children: Parameters<typeof createElement>[2][]) {
   });
 }
 
-function EditDialog({ onSave, onDelete }: { onSave: () => void; onDelete?: () => void }) {
+function EditDialog({ onSave, onDelete, aliases = false }: { onSave: () => void; onDelete?: () => void; aliases?: boolean }) {
   return createElement(
     Dialog,
     { open: true, onClose: () => {}, title: "Edit collection", draft: true, children: null },
-    createElement("input", { id: "name", defaultValue: "" }),
     createElement("textarea", { id: "description", defaultValue: "" }),
+    aliases && createElement("textarea", { id: "aliases", "data-enter": "ignore", defaultValue: "" }),
     createElement("button", { type: "button", "data-dismiss": "" }, "Cancel"),
     onDelete
       ? createElement("button", { type: "button", "data-variant": "danger", onClick: onDelete }, "Delete")
@@ -108,23 +107,24 @@ function EditDialog({ onSave, onDelete }: { onSave: () => void; onDelete?: () =>
 }
 
 describe("Enter in a dialog", () => {
-  it("saves from a one-line field", () => {
-    const onSave = vi.fn();
-    act(() => root.render(withShortcuts(createElement(EditDialog, { onSave }))));
-    expect(enter(document.getElementById("name")!).defaultPrevented).toBe(true);
-    expect(onSave).toHaveBeenCalledTimes(1);
-  });
-
-  it("leaves a text box its new line, held or not; ⌘Enter saves from it", () => {
+  it("saves from a text box; Shift+Enter is left for its new line", () => {
     const onSave = vi.fn();
     act(() => root.render(withShortcuts(createElement(EditDialog, { onSave }))));
     const box = document.getElementById("description")!;
-    for (const init of [{}, { shiftKey: true }, { repeat: true }])
-      expect(enter(box, init).defaultPrevented).toBe(false);
+    const shifted = enter(box, { shiftKey: true });
+    expect(shifted.defaultPrevented).toBe(false);
     expect(onSave).not.toHaveBeenCalled();
-    const mod = isMacPlatform() ? { metaKey: true } : { ctrlKey: true };
-    expect(enter(box, mod).defaultPrevented).toBe(true);
+    const plain = enter(box);
+    expect(plain.defaultPrevented).toBe(true);
     expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the new line in a text box marked for lines", () => {
+    const onSave = vi.fn();
+    act(() => root.render(withShortcuts(createElement(EditDialog, { onSave, aliases: true }))));
+    const event = enter(document.getElementById("aliases")!);
+    expect(event.defaultPrevented).toBe(false);
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it("presses the main button with the focus on the dialog itself", () => {
@@ -138,14 +138,14 @@ describe("Enter in a dialog", () => {
     const onDelete = vi.fn();
     act(() => root.render(withShortcuts(createElement(EditDialog, { onSave: () => {}, onDelete }))));
     enter(document.querySelector("dialog[open]")!);
-    enter(document.getElementById("name")!);
+    enter(document.getElementById("description")!);
     expect(onDelete).not.toHaveBeenCalled();
   });
 
   it("presses once while Enter is held", () => {
     const onSave = vi.fn();
     act(() => root.render(withShortcuts(createElement(EditDialog, { onSave }))));
-    const box = document.getElementById("name")!;
+    const box = document.getElementById("description")!;
     enter(box);
     const mod = isMacPlatform() ? { metaKey: true } : { ctrlKey: true };
     const held = [enter(box, { repeat: true }), enter(box, { repeat: true, ...mod })];
