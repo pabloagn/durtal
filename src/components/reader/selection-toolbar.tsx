@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { Ellipsis } from "lucide-react";
 import type { ReaderBridgeController } from "@/lib/reader/bridge-state";
 import type { EngineEvents } from "@/lib/reader/engine";
 
@@ -46,9 +47,11 @@ export const SelectionToolbar = forwardRef<
     speechReady?: boolean;
     /** What covers the bottom of the screen (the bar, the player), for the docked toolbar */
     bottomInset?: number;
+    /** Look up's sheet covers the screen on touch: the toolbar steps aside */
+    covered?: boolean;
   }
 >(function SelectionToolbar(
-  { selection, bridge, onClear, markingActions, onReadAloud, speechReady, bottomInset = 0 },
+  { selection, bridge, onClear, markingActions, onReadAloud, speechReady, bottomInset = 0, covered = false },
   forwardedRef,
 ) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -78,6 +81,18 @@ export const SelectionToolbar = forwardRef<
       bridge.mountSlot("selection-actions", element),
     [bridge],
   );
+  const mountMore = useCallback(
+    (element: HTMLDivElement | null) =>
+      bridge.mountSlot("selection-more", element),
+    [bridge],
+  );
+  // On touch the less used actions wait behind More, so the toolbar is one row
+  const [more, setMore] = useState(false);
+  const [moreFor, setMoreFor] = useState(selection);
+  if (moreFor !== selection) {
+    setMoreFor(selection);
+    if (!selection) setMore(false);
+  }
   const setRef = useCallback(
     (element: HTMLDivElement | null) => {
       ref.current = element;
@@ -135,6 +150,34 @@ export const SelectionToolbar = forwardRef<
       setCopyState({ selection, kind: "failed" });
     }
   };
+  const copyButton = (
+    <button
+      type="button"
+      aria-label="Copy selected text"
+      data-tooltip="Copy selected text"
+      onClick={() => void copy()}
+      className="h-8 shrink-0 rounded-sm px-3 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+    >
+      {failed ? "Copy failed" : copied ? "Copied" : "Copy"}
+    </button>
+  );
+  const readAloud = onReadAloud && (
+    <button
+      type="button"
+      aria-label="Read aloud from here"
+      data-tooltip="Read aloud from here"
+      onClick={onReadAloud}
+      disabled={!speechReady}
+      className="h-8 shrink-0 rounded-sm px-3 hover:bg-bg-tertiary disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+    >
+      Read aloud from here
+    </button>
+  );
+  // Docked, the toolbar sits at the bottom unless the selection is there; then at the top
+  const dockTop =
+    docked &&
+    !!selection &&
+    selection.rect.bottom > window.innerHeight - bottomInset - 96;
   // Keep the slot mounted even without a selection, so plugin order and subscriptions are stable.
   return (
     <div
@@ -142,14 +185,18 @@ export const SelectionToolbar = forwardRef<
       role="toolbar"
       aria-label="Selection actions"
       data-reader-chrome
-      hidden={!selection}
+      hidden={!selection || covered}
       data-docked={docked || undefined}
-      className={`glass fixed z-50 flex flex-wrap items-center gap-1 overflow-hidden p-1 text-sm text-fg-primary ${
-        docked ? "inset-x-4 justify-center" : "max-w-[calc(100%_-_32px)]"
+      className={`glass fixed z-50 overflow-hidden text-sm text-fg-primary ${
+        docked
+          ? "inset-x-2 flex flex-col gap-0.5 p-0.5"
+          : "flex max-w-[calc(100%_-_32px)] flex-wrap items-center gap-1 p-1"
       }`}
       style={
         docked
-          ? { bottom: `calc(max(${bottomInset}px, env(safe-area-inset-bottom)) + 12px)` }
+          ? dockTop
+            ? { top: "calc(env(safe-area-inset-top) + 12px)" }
+            : { bottom: `calc(max(${bottomInset}px, env(safe-area-inset-bottom)) + 12px)` }
           : position
       }
       onPointerDown={(event) => event.preventDefault()}
@@ -160,29 +207,43 @@ export const SelectionToolbar = forwardRef<
         }
       }}
     >
-      {markingActions}
-      <button
-        type="button"
-        aria-label="Copy selected text"
-        data-tooltip="Copy selected text"
-        onClick={() => void copy()}
-        className="h-8 rounded-sm px-3 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
-      >
-        {failed ? "Copy failed" : copied ? "Copied" : "Copy"}
-      </button>
-      {onReadAloud && (
-        <button
-          type="button"
-          aria-label="Read aloud from here"
-          data-tooltip="Read aloud from here"
-          onClick={onReadAloud}
-          disabled={!speechReady}
-          className="h-8 rounded-sm px-3 hover:bg-bg-tertiary disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-        >
-          Read aloud from here
-        </button>
+      {docked ? (
+        <>
+          <div className="flex items-center">
+            {/* One row: what does not fit scrolls, never wraps */}
+            <div className="flex min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&_[role=group]]:flex-nowrap [&_[role=group]]:gap-0">
+              {markingActions}
+              <div ref={mountSlot} className="flex shrink-0 items-center" />
+            </div>
+            <button
+              type="button"
+              aria-label="More actions"
+              aria-expanded={more}
+              data-tooltip="More actions"
+              onClick={() => setMore((open) => !open)}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-sm hover:bg-bg-tertiary"
+            >
+              <Ellipsis className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+          </div>
+          <div
+            hidden={!more}
+            className="flex flex-wrap items-center gap-0.5 border-t border-glass-border pt-0.5"
+          >
+            {copyButton}
+            {readAloud}
+            <div ref={mountMore} className="flex items-center" />
+          </div>
+        </>
+      ) : (
+        <>
+          {markingActions}
+          {copyButton}
+          {readAloud}
+          <div ref={mountMore} className="flex min-w-0 items-center gap-1" />
+          <div ref={mountSlot} className="flex min-w-0 items-center gap-1" />
+        </>
       )}
-      <div ref={mountSlot} className="flex min-w-0 items-center gap-1" />
     </div>
   );
 });

@@ -45,6 +45,7 @@ afterEach(() => {
 const render = (
   selection: EngineEvents["selection"],
   speech?: { ready: boolean; start: () => void },
+  covered = false,
 ) => {
   native = selection ? { text: selection.text, locator: selection.locator, fileId: "epub", chapter: null, percent: 44 } : null;
   act(() =>
@@ -60,6 +61,10 @@ const render = (
           selection: null,
         },
         plugins: [
+          {
+            id: "less-used",
+            node: h(ReaderSlotFill, { slot: "selection-more" }, h("button", { type: "button" }, "Save quote")),
+          },
           {
             id: "extra",
             node: h(
@@ -83,6 +88,7 @@ const render = (
             onClear: clear,
             speechReady: speech?.ready,
             onReadAloud: speech?.start,
+            covered,
           })),
       }),
     ),
@@ -100,7 +106,27 @@ describe("selection toolbar", () => {
     );
     expect(
       [...host.querySelectorAll("button")].map((b) => b.textContent),
-    ).toEqual(["Copy", "Quote"]);
+    ).toEqual(["Copy", "Save quote", "Quote"]);
+  });
+  it("on touch is one row with More holding Copy, Read aloud and the less used actions, and steps aside under Look up (SLN-678)", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((query: string) => ({
+      matches: query === "(pointer: coarse)", media: query, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+    }) as MediaQueryList);
+    render(selected, { ready: true, start: () => {} });
+    const toolbar = host.querySelector<HTMLElement>('[role="toolbar"]')!;
+    expect(toolbar.dataset.docked).toBe("true");
+    const more = host.querySelector<HTMLButtonElement>('[aria-label="More actions"]')!;
+    const row = more.parentElement!;
+    expect([...row.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Quote", ""]);
+    const extra = toolbar.lastElementChild as HTMLElement;
+    expect(extra.hidden).toBe(true);
+    expect([...extra.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Copy", "Read aloud from here", "Save quote"]);
+    act(() => more.click());
+    expect(more.getAttribute("aria-expanded")).toBe("true");
+    expect(extra.hidden).toBe(false);
+    render(selected, { ready: true, start: () => {} }, true);
+    expect(toolbar.hidden).toBe(true);
   });
   it("keeps selection speech disabled until prepared, then invokes the trusted button handler", () => {
     const start = vi.fn();
@@ -117,7 +143,7 @@ describe("selection toolbar", () => {
     expect(start).toHaveBeenCalledOnce();
     expect(
       [...host.querySelectorAll("button")].map((b) => b.textContent),
-    ).toEqual(["Copy", "Read aloud from here", "Quote"]);
+    ).toEqual(["Copy", "Read aloud from here", "Save quote", "Quote"]);
   });
   it("copies through Clipboard API, holds Copied for two seconds and clears on Escape", async () => {
     vi.useFakeTimers();

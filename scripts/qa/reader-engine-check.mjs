@@ -28,6 +28,8 @@
  *              the place, and the Next page edge button turns
  *   dialogs    Contents and Settings take focus, keep Tab inside, close with
  *              Escape and give focus back to their button
+ *   pdfmarks   a highlight made by dragging across a line of the PDF fixture
+ *              is drawn on the page, and still drawn after a reload (SLN-670)
  *   endurance  only with --only endurance, on a preview started with
  *              --reader-large: the 50 MB EPUB and the 300 MB PDF open at
  *              390 px and take 300 page turns without the page crashing or
@@ -64,7 +66,7 @@ const option = (name, fallback) => {
 const base = option("--base", "http://127.0.0.1:3410").replace(/\/$/, "");
 const previewState = option("--preview-state", undefined);
 const browsers = option("--browsers", "chromium,webkit,firefox").split(",");
-const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "dialogs", "navigation", "endurance"];
+const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "dialogs", "navigation", "pdfmarks", "endurance"];
 // endurance needs the large fixtures: it runs only when asked for
 const only = option("--only", CHECKS.filter((c) => c !== "endurance").join(",")).split(",");
 
@@ -513,6 +515,60 @@ async function checkBars(name, browser) {
   await context.close();
 }
 
+/** Rectangles drawn by the PDF marks overlay, over every page frame */
+const pdfMarkRects = async (page) => {
+  let count = 0;
+  for (const frame of page.frames())
+    if (frame !== page.mainFrame())
+      count += await frame.evaluate(() => document.querySelectorAll("[data-durtal-pdf-marks] rect").length).catch(() => 0);
+  return count;
+};
+
+async function checkPdfMarks(name, browser) {
+  const context = await browser.newContext(desktop);
+  const page = await context.newPage();
+  await open(page, 2);
+  let line = null;
+  for (let i = 0; i < 40 && !line; i++) {
+    for (const frame of page.frames()) {
+      if (frame === page.mainFrame()) continue;
+      line = await frame.evaluate(() => {
+        const span = [...document.querySelectorAll(".textLayer span")].filter((s) => s.textContent.trim().length > 20)[6];
+        if (!span) return null;
+        const host = window.frameElement.getBoundingClientRect(), box = span.getBoundingClientRect();
+        const scale = host.width / (window.frameElement.offsetWidth || host.width);
+        // 4 px in: Chromium can leave a drag collapsed when it starts on a glyph's exact midpoint
+        return { left: host.left + box.left * scale + 4, right: host.left + box.right * scale - 2, y: host.top + (box.top + box.height / 2) * scale };
+      }).catch(() => null);
+      if (line) break;
+    }
+    if (!line) await sleep(250);
+  }
+  if (!line) throw new Error("No PDF text layer line");
+  const before = await pdfMarkRects(page);
+  // Marks take no pointer events, so the drag selects even across an earlier run's mark
+  await page.mouse.move(line.left, line.y);
+  await page.mouse.down();
+  await page.mouse.move(line.right, line.y, { steps: 8 });
+  await page.mouse.up();
+  await page.locator('[role="toolbar"][aria-label="Selection actions"] [aria-label="Highlight in sage"]').click({ timeout: 5000 });
+  await page.waitForFunction(
+    (count) => [...document.querySelectorAll("iframe")].reduce((n, f) => n + (f.contentDocument?.querySelectorAll("[data-durtal-pdf-marks] rect").length ?? 0), 0) > count,
+    before, { timeout: 8000 },
+  ).catch(() => {});
+  const drawn = await pdfMarkRects(page);
+  record(name, "pdfmarks", "a new PDF highlight is drawn on its page", drawn > before, `${before} → ${drawn} rectangles`);
+  await page.reload();
+  await page.waitForSelector('[data-reader="ready"]', { timeout: 60_000 });
+  await page.waitForFunction(
+    (count) => [...document.querySelectorAll("iframe")].reduce((n, f) => n + (f.contentDocument?.querySelectorAll("[data-durtal-pdf-marks] rect").length ?? 0), 0) >= count,
+    drawn, { timeout: 10_000 },
+  ).catch(() => {});
+  const reloaded = await pdfMarkRects(page);
+  record(name, "pdfmarks", "PDF highlights are drawn again after a reload", reloaded >= drawn, `${drawn} → ${reloaded} rectangles`);
+  await context.close();
+}
+
 async function checkDialogs(name, browser) {
   const context = await browser.newContext(phone(name));
   const page = await context.newPage();
@@ -583,6 +639,7 @@ async function checkEndurance(name, browser) {
 }
 
 const RUN = {
+  pdfmarks: checkPdfMarks,
   opens: checkOpens,
   script: checkScript,
   font: checkFont,

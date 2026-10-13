@@ -371,6 +371,7 @@ function ReaderSession({
   const [notice, setNotice] = useState<string | null>(null);
   const [selection, setSelection] = useState<EngineEvents["selection"]>(null);
   const selectionToolbarRef = useRef<HTMLDivElement>(null);
+  const [lookupSheet, setLookupSheet] = useState(false);
   const syncRef = useRef<ReturnType<typeof createPlaceSync> | null>(null);
   const [contentsOpen, setContentsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -1235,6 +1236,7 @@ function ReaderSession({
                     changed: setSpeech,
                     audio: new Audio(),
                     fetch: (...args) => window.fetch(...args),
+                    selectsSentences: () => !window.matchMedia("(pointer: coarse)").matches,
                   });
                   if (selectionRef.current)
                     speechRef.current.selection(selectionRef.current.locator);
@@ -1650,10 +1652,12 @@ function ReaderSession({
         markingActions={annotations.markingActions}
         speechReady={speech?.selectionReady}
         bottomInset={speechHeight + (bars.visible ? bottomHeight : 0)}
+        covered={lookupSheet}
       />
       {status.kind === "ready" && engineRef.current && <LookupLayer
         engine={engineRef.current} ebook={ebook} toolbarRef={selectionToolbarRef}
         enabled={controllerReadiness.ready && preferences.ready}
+        onSheet={setLookupSheet}
       />}
       <Suspense fallback={null}>
         {index && contentsOpen && (

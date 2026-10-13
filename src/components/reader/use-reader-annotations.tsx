@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnnotationConflicts } from "./annotation-conflicts";
-import { Highlighter } from "lucide-react";
+import { Highlighter, NotebookPen } from "lucide-react";
 import { useReaderFeatureShortcut } from "./bridge";
 import { ReaderBarItem } from "./reader-bar-item";
 import { BookmarkButton } from "./bookmark-button";
@@ -165,7 +165,12 @@ export function useReaderAnnotations(input: {
       icon={<Highlighter className="h-4 w-4" strokeWidth={1.5} />} />,
     markingActions: ready ? <>
       <AnnotationSwatches onPick={color => perform(create(color))} />
-      <button type="button" onClick={() => perform(create("ochre", true))} className="h-8 rounded-sm px-2 hover:bg-bg-tertiary pointer-coarse:h-11">Note</button>
+      {/* An icon on touch, where the one-row toolbar has no room for words (SLN-678) */}
+      <button type="button" aria-label="Add a note" data-tooltip="Add a note" onClick={() => perform(create("ochre", true))}
+        className="flex h-8 shrink-0 items-center justify-center rounded-sm px-2 hover:bg-bg-tertiary pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:px-0">
+        <span className="pointer-coarse:hidden">Note</span>
+        <NotebookPen aria-hidden className="hidden h-4 w-4 pointer-coarse:block" strokeWidth={1.5} />
+      </button>
     </> : undefined,
     overlays: <>
       {open && <AnnotationsPanel open onClose={() => setOpen(false)} book={input.book} annotations={snapshot.annotations}
