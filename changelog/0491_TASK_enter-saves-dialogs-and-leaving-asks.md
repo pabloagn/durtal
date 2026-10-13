@@ -64,6 +64,8 @@ unsaved work):
 - `src/__tests__/ui/enter-and-leaving.test.ts` covers the following:
   - Enter and Shift+Enter in a dialog's text box, and a text box kept for
     lines;
+  - Edit collection's Description saving on Enter (SLN-629's reported case)
+    and an edition's Table of contents keeping it, both rendered for real;
   - Enter on the dialog itself, and never on a Delete;
   - a held Enter in a dialog, and a text box on a page;
   - links that leave, links that stay, a new tab, a modified click;

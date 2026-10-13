@@ -22,12 +22,26 @@ vi.mock("@/components/collections/create-collection-dialog", () => ({ CreateColl
 vi.mock("@/components/recommenders/recommender-form-dialog", () => ({ RecommenderFormDialog: () => null }));
 vi.mock("@/components/series/series-form-dialog", () => ({ SeriesFormDialog: () => null }));
 vi.mock("@/components/shortcuts/shortcuts-help", () => ({ ShortcutsHelp: () => null }));
+// Edit collection and the edition form, rendered for real (SLN-629's reported case)
+const collections = vi.hoisted(() => ({ updateCollection: vi.fn(async () => {}) }));
+vi.mock("@/lib/actions/collections", () => ({
+  updateCollection: collections.updateCollection,
+  deleteCollection: vi.fn(),
+  moveCollectionMember: vi.fn(),
+  removeEditionFromCollection: vi.fn(),
+  removeWorksFromCollection: vi.fn(),
+}));
+vi.mock("@/components/media/media-manager-dialog", () => ({ MediaManagerDialog: () => null }));
+vi.mock("@/components/collections/add-books-dialog", () => ({ AddCollectionBooksDialog: () => null }));
+vi.mock("@/hooks/use-author-search", () => ({ useAuthorSearch: () => ({ results: [], loading: false }) }));
 
 import { ShortcutsProvider } from "@/components/shortcuts/shortcuts-provider";
 import { Dialog } from "@/components/ui/dialog";
 import { leavePage } from "@/components/ui/unsaved-guard";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { isMacPlatform } from "@/lib/shortcuts/shortcuts";
+import { CollectionControls } from "@/components/collections/collection-controls";
+import { EditionForm, EMPTY_EDITION } from "@/components/books/edition-form";
 
 beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -125,6 +139,53 @@ describe("Enter in a dialog", () => {
     const event = enter(document.getElementById("aliases")!);
     expect(event.defaultPrevented).toBe(false);
     expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("saves Edit collection from its Description with Enter (SLN-629)", async () => {
+    collections.updateCollection.mockClear();
+    const collection = { id: "c1", name: "Decadents", description: "" } as Parameters<typeof CollectionControls>[0]["collection"];
+    act(() => root.render(withShortcuts(createElement(CollectionControls, { collection, editionIds: [] }))));
+    click([...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Edit")!);
+    const box = document.querySelector<HTMLTextAreaElement>("dialog[open] textarea")!;
+    type(box, "Books that rot beautifully");
+    expect(enter(box, { shiftKey: true }).defaultPrevented).toBe(false);
+    expect(collections.updateCollection).not.toHaveBeenCalled();
+    const event = enter(box);
+    await act(async () => {});
+    expect(event.defaultPrevented).toBe(true);
+    expect(collections.updateCollection).toHaveBeenCalledTimes(1);
+    expect(collections.updateCollection).toHaveBeenCalledWith("c1", { name: "Decadents", description: "Books that rot beautifully" });
+  });
+
+  it("keeps Enter for the next chapter in an edition's Table of contents", () => {
+    const onSubmit = vi.fn(async () => {});
+    act(() =>
+      root.render(
+        withShortcuts(
+          createElement(
+            Dialog,
+            { open: true, onClose: () => {}, title: "Edit edition", draft: true, children: null },
+            createElement(EditionForm, {
+              initialValues: { ...EMPTY_EDITION, title: "Against Nature" },
+              availableGenres: [],
+              availableTags: [],
+              onSubmit,
+              submitLabel: "Save",
+              isPending: false,
+            }),
+          ),
+        ),
+      ),
+    );
+    click([...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Content")!);
+    const toc = document.getElementById("ed-toc") as HTMLTextAreaElement;
+    type(toc, "I. Chapter one");
+    expect(enter(toc).defaultPrevented).toBe(false);
+    expect(onSubmit).not.toHaveBeenCalled();
+    // A prose box in the same form saves on Enter
+    const description = document.getElementById("ed-description") as HTMLTextAreaElement;
+    expect(enter(description).defaultPrevented).toBe(true);
+    expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 
   it("presses the main button with the focus on the dialog itself", () => {
