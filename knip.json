@@ -12,7 +12,6 @@
     "postcss-load-config",
     "@types/mapbox-gl",
     "tailwindcss",
-    "tsx",
     "server-only"
   ]
 }
