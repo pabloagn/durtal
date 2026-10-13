@@ -4,6 +4,8 @@ import { furthestOffer, placeToOffer, type ReaderPlace } from "./places";
 export function createPlaceSync(options: {
   own: ReaderPlace | null;
   other: ReaderPlace | null;
+  /** Every other device's place when the page has them, for the furthest */
+  others?: readonly ReaderPlace[];
   declinedAt: number;
   flush: () => Promise<boolean>;
   read: () => Promise<ReaderPlace[]>;
@@ -23,7 +25,7 @@ export function createPlaceSync(options: {
       offer && Date.parse(offer.clientUpdatedAt) > declinedAt ? offer : null;
     options.offer(current, furthestOffer(own, others, current));
   };
-  apply(options.other ? [options.other] : []);
+  apply(options.others?.length ? [...options.others] : options.other ? [options.other] : []);
   const dismiss = () => {
     generation++;
     if (current) {

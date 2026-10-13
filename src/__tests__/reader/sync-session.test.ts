@@ -37,6 +37,14 @@ describe("reader sync lifecycle", () => {
     await reopened.sync.refresh();
     expect(reopened.offer).toHaveBeenLastCalledWith(newer, null);
   });
+  it("offers the furthest place on open, beside the newest, when the page has every place (SLN-686)", () => {
+    const behind = { ...other, locator: { ...other.locator, totalProgression: 0.2 } };
+    const further = place({ thisDevice: false, deviceId: "laptop", locator: { ...place().locator, totalProgression: 0.9 }, clientUpdatedAt: "2026-10-09T10:00:00Z" });
+    const offer = vi.fn();
+    createPlaceSync({ own: place(), other: behind, others: [behind, further], declinedAt: 0, offer, remember: vi.fn(),
+      flush: vi.fn(async () => true), read: vi.fn(async () => []) });
+    expect(offer).toHaveBeenLastCalledWith(behind, further);
+  });
   it.each(["Stay", "Go there", "local turn", "destroy"])(
     "invalidates a pending GET on %s",
     async (intent) => {

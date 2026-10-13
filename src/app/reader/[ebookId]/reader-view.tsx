@@ -227,6 +227,8 @@ type ReaderViewProps = {
   place: ReaderPlace | null;
   devicePlace: ReaderPlace | null;
   otherPlace: ReaderPlace | null;
+  /** Every other device's place, so the offer can name the furthest as well as the newest */
+  otherPlaces?: readonly ReaderPlace[];
   deviceId: string | null;
   backHref: string;
   /** An annotation to jump to once the book is painted (`?at=`) */
@@ -281,6 +283,7 @@ function ReaderSession({
   place: ownPlace,
   devicePlace,
   otherPlace,
+  otherPlaces,
   deviceId,
   backHref,
   openAt,
@@ -797,6 +800,8 @@ function ReaderSession({
     const queue = createDurablePositionQueue({ ebookId: ebook.id, deviceId,
       onError: () => { if (!cancelled) setNotice("Your place could not be saved on this device. Keep this tab open and try again."); },
     });
+    // The book page shows this place on arrival, as it shows the sitting
+    const unregisterLeave = bridge.registerLeave(() => queue.flush());
     const declineKey = `durtal-reader-declined:${ebook.id}:${deviceId ?? "new"}`;
     let declinedAt = 0;
     try {
@@ -807,6 +812,7 @@ function ReaderSession({
     const sync = createPlaceSync({
       own: devicePlace ?? ownPlace,
       other: devicePlace ? otherPlace : null,
+      others: devicePlace ? otherPlaces : undefined,
       declinedAt,
       flush: () => queue.flush(),
       read: async () => {
@@ -1344,6 +1350,7 @@ function ReaderSession({
       window.removeEventListener("online", online);
       sync.destroy();
       syncRef.current = null;
+      unregisterLeave();
       queue.destroy();
       indexAbort.abort();
       if (indexTimer) clearTimeout(indexTimer);
