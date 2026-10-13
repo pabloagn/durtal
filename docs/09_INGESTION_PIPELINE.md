@@ -767,7 +767,9 @@ Import existing runs in three steps:
   - Only the books in scope are then checked on the drive: is each format
     there, and does it carry DRM (a quick look at an EPUB's `encryption.xml`
     and a Kindle file's header; a PDF's DRM is found when the selection is
-    planned). Then they are scored again with what was found.
+    planned). Then they are scored again with what was found. A format whose
+    path leads outside the library folder or its book's folder is never read,
+    and is reported as skipped, apart from a file missing on the drive.
   - One book, one e-book (`src/lib/ebooks/match/clashes.ts`): a book never
     links by itself when another Calibre book proposes the same Durtal book,
     when it scores for several books or is flagged an omnibus, or when the
@@ -775,7 +777,8 @@ Import existing runs in three steps:
   - It writes `reports/ebooks/import-existing-<time>.md`, a `.csv` with one
     row per Calibre book, and a `.selection.json`. The report gives the
     coverage of Durtal's books (by themselves, to review, none in Calibre,
-    and the digital copies waiting for a file), the selection's files and
+    in Calibre with no file to give, and the digital copies waiting for a
+    file), the selection's files and
     size by format with DRM, missing files and the upload estimate, the
     clashes, the counts SLN-658 will need (differences, ratings, read dates)
     and what is left for Bulk import by tier.

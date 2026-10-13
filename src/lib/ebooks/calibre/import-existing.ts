@@ -48,6 +48,8 @@ export interface ImportExistingFormat {
   path: string;
   /** Checked for the books in scope only */
   onDisk: boolean | null;
+  /** Its path leads outside the library folder or its book's folder: never read */
+  outside: boolean;
   drm: string | null;
 }
 
@@ -97,6 +99,8 @@ export interface ImportExistingPlan {
     hasEbook: number;
     /** Works no Calibre book proposes */
     none: { id: string; title: string; authors: string[] }[];
+    /** Works only Calibre books with no file to give propose: missing on the drive, or leading outside the library */
+    noFile: { id: string; title: string; authors: string[]; why: "missing" | "outside" }[];
     /** Durtal's digital copies without a file */
     copiesWaiting: number;
     copiesAuto: number;
@@ -182,8 +186,9 @@ async function checkFormats(root: string, book: CalibreBook): Promise<ImportExis
   return Promise.all(
     book.formats.map(async ({ format, size, path: relative }) => {
       const file = libraryPath(root, relative);
-      const onDisk = !!folder && !!file && path.dirname(file) === folder && existsSync(file) && statSync(file).isFile();
-      return { format, size, path: relative, onDisk, drm: onDisk ? await quickDrm(file!, format) : null };
+      const outside = !folder || !file || path.dirname(file) !== folder;
+      const onDisk = !outside && existsSync(file) && statSync(file).isFile();
+      return { format, size, path: relative, onDisk, outside, drm: onDisk ? await quickDrm(file, format) : null };
     }),
   );
 }
@@ -209,7 +214,7 @@ export async function planImportExisting(
   const at = new Date(options.now ?? Date.now()).toISOString();
   const { snapshot } = source;
   const storedRefs = new Set(loaded.rows.ebooks.filter((row) => row.import_source === "folder" && row.import_ref).map((row) => String(row.import_ref)));
-  const formatsOf = (book: CalibreBook): ImportExistingFormat[] => book.formats.map((f) => ({ format: f.format, size: f.size, path: f.path, onDisk: null, drm: null }));
+  const formatsOf = (book: CalibreBook): ImportExistingFormat[] => book.formats.map((f) => ({ format: f.format, size: f.size, path: f.path, onDisk: null, outside: false, drm: null }));
   const fresh = snapshot.books.filter((book) => !storedRefs.has(book.uuid));
   const ebooks = new Map(fresh.map((book) => [book.uuid, calibreEbook(book, formatsOf(book).map((f) => matchFile(book, f)), at)]));
 
@@ -287,6 +292,14 @@ export async function planImportExisting(
   const autoWorks = new Set(chosen.filter((b) => b.autoLink).map((b) => b.workId!));
   const reviewWorks = new Set(chosen.filter((b) => !b.autoLink).flatMap((b) => b.candidates).filter((id) => !autoWorks.has(id)));
   const withEbook = (work: MatchCatalogue["works"][number]) => work.source.copies.some((copy) => copy.linkedEbookId);
+  // Durtal's books Calibre has an e-book for, but none with a file to give: kept apart from the books Calibre lacks
+  const fileless = new Map<string, "missing" | "outside">();
+  for (const book of books.filter((b) => b.inScope && !b.selected && b.workId)) {
+    const id = book.workId!;
+    if (!autoWorks.has(id) && !reviewWorks.has(id) && fileless.get(id) !== "missing") fileless.set(id, book.formats.some((f) => f.outside) ? "outside" : "missing");
+  }
+  const elsewhere = (work: MatchCatalogue["works"][number]) => autoWorks.has(work.source.id) || reviewWorks.has(work.source.id) || fileless.has(work.source.id);
+  const named = (work: MatchCatalogue["works"][number]) => ({ id: work.source.id, title: work.source.title, authors: work.source.authors.map((a) => a.name) });
   const digital = new Set(loaded.catalogue.source.digitalLocationIds ?? []);
   const waiting = catalogue.works.flatMap((w) => w.source.copies).filter((c) => digital.has(c.locationId) && c.status !== "deaccessioned" && !c.linkedEbookId);
   const filling = (auto: boolean) => new Set(chosen.filter((b) => b.autoLink === auto && b.instanceId).map((b) => b.instanceId!));
@@ -303,10 +316,9 @@ export async function planImportExisting(
       works: catalogue.works.length,
       auto: autoWorks.size,
       review: reviewWorks.size,
-      hasEbook: catalogue.works.filter((w) => !autoWorks.has(w.source.id) && !reviewWorks.has(w.source.id) && withEbook(w)).length,
-      none: catalogue.works
-        .filter((w) => !autoWorks.has(w.source.id) && !reviewWorks.has(w.source.id) && !withEbook(w))
-        .map((w) => ({ id: w.source.id, title: w.source.title, authors: w.source.authors.map((a) => a.name) })),
+      hasEbook: catalogue.works.filter((w) => !elsewhere(w) && withEbook(w)).length,
+      none: catalogue.works.filter((w) => !elsewhere(w) && !withEbook(w)).map(named),
+      noFile: catalogue.works.filter((w) => fileless.has(w.source.id)).map((w) => ({ ...named(w), why: fileless.get(w.source.id)! })),
       copiesWaiting: waiting.length,
       copiesAuto: waiting.filter((c) => copiesAuto.has(c.id)).length,
       copiesReview: waiting.filter((c) => copiesReview.has(c.id) && !copiesAuto.has(c.id)).length,
@@ -359,7 +371,8 @@ export function importExistingCounts(plan: ImportExistingPlan) {
     alreadyStored: books.filter((b) => b.stored).length,
     inScope: books.filter((b) => b.inScope).length,
     selected: chosen.length,
-    noFile: books.filter((b) => b.inScope && !b.selected).length,
+    noFile: books.filter((b) => b.inScope && !b.selected && !b.formats.some((f) => f.outside)).length,
+    outside: books.filter((b) => b.inScope && !b.selected && b.formats.some((f) => f.outside)).length,
     auto: chosen.filter((b) => b.autoLink).length,
     review: chosen.filter((b) => !b.autoLink).length,
     byTier: tally(chosen.map((b) => b.tier!)),
@@ -369,7 +382,8 @@ export function importExistingCounts(plan: ImportExistingPlan) {
     bytes: present.reduce((n, f) => n + f.size, 0),
     bytesByFormat: present.reduce<Record<string, number>>((all, f) => ((all[f.format] = (all[f.format] ?? 0) + f.size), all), {}),
     drm: tally(present.filter((f) => f.drm).map((f) => f.drm!)),
-    missingFiles: chosen.flatMap((b) => b.formats).filter((f) => f.onDisk === false).length,
+    missingFiles: chosen.flatMap((b) => b.formats).filter((f) => f.onDisk === false && !f.outside).length,
+    outsideFiles: chosen.flatMap((b) => b.formats).filter((f) => f.outside).length,
     differences: tally(chosen.flatMap((b) => b.differences)),
     rated: chosen.filter((b) => b.rating !== null).length,
     ratingsDiffer: chosen.filter((b) => b.ratingDiffers).length,
@@ -409,6 +423,7 @@ export function importExistingReport(plan: ImportExistingPlan, files: { selectio
     `| Would go to review | ${n(plan.coverage.review)} |`,
     `| Already have an e-book, and no Calibre book for them | ${n(plan.coverage.hasEbook)} |`,
     `| No e-book in Calibre | ${n(plan.coverage.none.length)} |`,
+    `| An e-book in Calibre, with no file to give | ${n(plan.coverage.noFile.length)}: ${n(plan.coverage.noFile.filter((w) => w.why === "missing").length)} missing on the drive, ${n(plan.coverage.noFile.filter((w) => w.why === "outside").length)} leading outside the library folder, skipped |`,
     `| Digital copies without a file | ${n(plan.coverage.copiesWaiting)}: ${n(plan.coverage.copiesAuto)} would get one by themselves, ${n(plan.coverage.copiesReview)} in review |`,
     "",
     "A book that links by itself still waits for the labelled precision check (99% and no wrong book) after the upload.",
@@ -419,7 +434,7 @@ export function importExistingReport(plan: ImportExistingPlan, files: { selectio
     "|---|---|",
     `| Calibre books | ${n(c.books)} |`,
     `| Already e-books in Durtal, never selected again | ${n(c.alreadyStored)} |`,
-    `| In scope | ${n(c.inScope)}; with no file on the drive: ${n(c.noFile)} |`,
+    `| In scope | ${n(c.inScope)}; no file on the drive: ${n(c.noFile)}; leading outside the library folder, skipped: ${n(c.outside)} |`,
     `| Selected | ${n(c.selected)}: ${n(c.auto)} link by themselves, ${n(c.review)} go to review |`,
     `| By tier | ${listed(c.byTier)} |`,
     `| Edition rule | ${listed(c.byRule)} |`,
@@ -427,7 +442,7 @@ export function importExistingReport(plan: ImportExistingPlan, files: { selectio
     `| Size | ${formatBytes(c.bytes)} (${Object.entries(c.bytesByFormat).sort((a, b) => b[1] - a[1]).map(([f, b]) => `${f} ${formatBytes(b)}`).join(", ") || "none"}) |`,
     `| Upload | ${seconds === null ? "no measured speed yet" : `about ${formatDuration(seconds)} at the last measured speed`} |`,
     `| DRM files | ${listed(c.drm)} (EPUB and Kindle files; a PDF's is found when the selection is planned) |`,
-    `| Formats missing on the drive | ${n(c.missingFiles)} |`,
+    `| Selected books' other formats | ${n(c.missingFiles)} missing on the drive, ${n(c.outsideFiles)} leading outside the library folder, skipped |`,
     "",
     "## Clashes",
     "",
@@ -463,6 +478,14 @@ export function importExistingReport(plan: ImportExistingPlan, files: { selectio
     "",
     ...(plan.coverage.none.length ? plan.coverage.none.map((w) => `- ${line(w.title)}${w.authors.length ? `, ${line(w.authors.join("; "))}` : ""}`) : ["None."]),
     "",
+    "## Durtal's books with an e-book in Calibre, but no file to give",
+    "",
+    "Calibre lists an e-book for these. Its file is missing on the drive, or its path leads outside the library folder and was never read: the snapshot report names those paths.",
+    "",
+    ...(plan.coverage.noFile.length
+      ? plan.coverage.noFile.map((w) => `- ${line(w.title)}${w.authors.length ? `, ${line(w.authors.join("; "))}` : ""}: ${w.why === "missing" ? "missing on the drive" : "leads outside the library folder, skipped"}`)
+      : ["None."]),
+    "",
     "## Next",
     "",
     `1. Plan the selection: \`pnpm ebooks:ingest --calibre ${plan.snapshot.file} --select ${files.selection}\`.`,
@@ -476,7 +499,7 @@ export function importExistingReport(plan: ImportExistingPlan, files: { selectio
 
 /** One row per Calibre book */
 export function importExistingCsv(plan: ImportExistingPlan): string {
-  const columns = ["book_id", "uuid", "title", "authors", "stored", "tier", "selected", "links_by_itself", "clashes", "work_id", "work_title", "edition_rule", "effect", "formats", "missing", "drm", "differences", "rating", "read_date"];
+  const columns = ["book_id", "uuid", "title", "authors", "stored", "tier", "selected", "links_by_itself", "clashes", "work_id", "work_title", "edition_rule", "effect", "formats", "missing", "outside", "drm", "differences", "rating", "read_date"];
   return toCSV(
     plan.books.map((b) => ({
       book_id: b.bookId,
@@ -493,7 +516,8 @@ export function importExistingCsv(plan: ImportExistingPlan): string {
       edition_rule: b.rule ?? "",
       effect: b.effect ?? "",
       formats: b.formats.map((f) => f.format).join("; "),
-      missing: b.formats.filter((f) => f.onDisk === false).map((f) => f.path).join("; "),
+      missing: b.formats.filter((f) => f.onDisk === false && !f.outside).map((f) => f.path).join("; "),
+      outside: b.formats.filter((f) => f.outside).map((f) => f.path).join("; "),
       drm: b.formats.filter((f) => f.drm).map((f) => `${f.format}: ${f.drm}`).join("; "),
       differences: b.differences.join("; "),
       rating: b.rating ?? "",

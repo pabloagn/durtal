@@ -87,4 +87,9 @@ import (SLN-659).
   from `fg-muted` to `fg-secondary`, and the "Other identifiers", "N editions"
   and "Keyboard shortcuts" summaries are 44px tall on touch. Checked in
   Chrome, Firefox and WebKit at 1440, 768 and 390 px.
+- From the review: a format whose path leads outside the library folder is
+  reported as skipped, apart from a file missing on the drive. Durtal's books
+  whose only Calibre e-book has no file to give are listed on their own, never
+  among the books Calibre lacks. The database suite covers it with a symlink
+  leading out of the library.
 - No migration and no new package.

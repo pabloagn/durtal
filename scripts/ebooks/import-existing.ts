@@ -83,7 +83,7 @@ try {
     const c = existing.importExistingCounts(plan);
     console.log(
       `${c.books} Calibre books: ${c.selected} selected (${c.auto} link by themselves, ${c.review} to review), ` +
-        `${c.alreadyStored} already in Durtal, ${c.noFile} in scope with no file on the drive. ` +
+        `${c.alreadyStored} already in Durtal, ${c.noFile} in scope with no file on the drive, ${c.outside} leading outside the library folder (skipped). ` +
         `Durtal's books: ${plan.coverage.auto} by themselves, ${plan.coverage.review} in review, ${plan.coverage.none.length} with no e-book in Calibre.`,
     );
     console.log("Dry run: nothing was written to Durtal, the bucket or the drive.");

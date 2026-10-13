@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import postgres from "postgres";
@@ -302,6 +302,7 @@ describe.skipIf(!url)("Import existing", () => {
       inScope: 9,
       selected: 8,
       noFile: 1,
+      outside: 0,
       auto: 3,
       review: 5,
       clashes: { several_ebooks: 2, several_works: 1 },
@@ -313,7 +314,10 @@ describe.skipIf(!url)("Import existing", () => {
       leftForBulk: { conflict: 2, not_in_durtal: 1, same_author: 1 },
     });
     expect(first.coverage).toMatchObject({ works: 10, auto: 3, hasEbook: 0, copiesWaiting: 1, copiesAuto: 1, copiesReview: 0 });
-    expect(first.coverage.none.map((w) => w.title)).toEqual(expect.arrayContaining(["Ubik", "Arcane 17"]));
+    // Calibre has Arcane 17, but not its file: never among the books Calibre lacks
+    expect(first.coverage.none.map((w) => w.title)).toContain("Ubik");
+    expect(first.coverage.none.map((w) => w.title)).not.toContain("Arcane 17");
+    expect(first.coverage.noFile).toEqual([expect.objectContaining({ title: "Arcane 17", why: "missing" })]);
     expect(first.selection.books.map((b) => b.uuid).sort()).toEqual([NADJA_UUID, POLICEMAN_UUID, CHAMPS_UUID, CHAMPS_AGAIN, HOPSCOTCH, CRIME, OMNIBUS, LOCKED].sort());
 
     const report = readFileSync(files.markdown, "utf8");
@@ -325,6 +329,26 @@ describe.skipIf(!url)("Import existing", () => {
     expect(await catalogueCounts()).toEqual(catalogueBefore);
     expect(await c`select 1 from ebooks`).toHaveLength(0);
     expect(puts()).toEqual([]);
+    expect(disk(root)).toEqual(libraryBefore);
+  });
+
+  it("reports a file leading outside the library apart from a missing one, and never reads it", async () => {
+    const book = byUuid(first, ARCANE_UUID);
+    const link = path.join(root, ...book.formats[0].path.split("/"));
+    const target = path.join(work, "outside.epub");
+    writeFileSync(target, "not read");
+    symlinkSync(target, link);
+    try {
+      const plan = await dryRun();
+      expect(byUuid(plan, ARCANE_UUID)).toMatchObject({ selected: false, formats: [expect.objectContaining({ onDisk: false, outside: true, drm: null })] });
+      expect(importExistingCounts(plan)).toMatchObject({ noFile: 0, outside: 1, selected: 8 });
+      expect(plan.coverage.none.map((w) => w.title)).not.toContain("Arcane 17");
+      expect(plan.coverage.noFile).toEqual([expect.objectContaining({ title: "Arcane 17", why: "outside" })]);
+      expect(plan.selection.books).toEqual(first.selection.books);
+    } finally {
+      rmSync(link);
+      rmSync(target);
+    }
     expect(disk(root)).toEqual(libraryBefore);
   });
 
