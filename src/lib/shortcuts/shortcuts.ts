@@ -99,6 +99,12 @@ export const EDIT_KEYS = {
   taxonomy: "t",
 } as const;
 
+/** What A then these keys do on an item's page, before the Add entry (SLN-571) */
+export const ITEM_KEY_LABELS: Record<string, string> = {
+  f: "favourite the page's item",
+  c: "add the page's item to a collection",
+};
+
 export const SHORTCUTS = {
   palette: ["mod", "k"],
   /** S: the palette from any page but the e-book reader (SLN-477) */
@@ -150,7 +156,12 @@ export const SHORTCUT_GROUPS: {
   {
     title: "Add",
     wide: true,
-    items: ADD.map((a) => ({ keys: ["a", a.key], label: a.label, then: true })),
+    // On an item's page A then F and A then C act on the item (SLN-571)
+    items: ADD.map((a) => ({
+      keys: ["a", a.key],
+      label: a.key in ITEM_KEY_LABELS ? `${a.label}, or ${ITEM_KEY_LABELS[a.key]}` : a.label,
+      then: true,
+    })),
   },
   {
     title: "Copy",

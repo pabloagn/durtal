@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { FolderPlus, ImageIcon, Pencil, Trash2 } from "lucide-react";
-import { AddToCollectionDialog } from "@/components/books/add-to-collection-dialog";
+import { AddToCollectionDialog, CollectionShortcut } from "@/components/books/add-to-collection-dialog";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
@@ -41,6 +41,7 @@ export function PaintingActions({
 
   return (
     <>
+      <CollectionShortcut run={() => setOpen("collections")} />
       <CapAlignedControls height={32} className="type-page-title">
         {children}
         <EntityActionMenu

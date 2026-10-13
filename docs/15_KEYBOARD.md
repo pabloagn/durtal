@@ -105,11 +105,11 @@ Current keys (`src/lib/shortcuts/shortcuts.ts`, `src/lib/catalogue/domains.ts`):
 | A P | Add perfume (SLN-632) | Add perfume | resolved |
 | A U | Add publisher (was A P) | - | resolved |
 | A A | Add person | Add person | none |
-| A F | Add film | Favourites (current item) | **yes**: Add film needs a fallback key or only applies where no item is open (SLN-571) |
-| A C | Create collection | Add to collection (current item) | **yes**: same resolution (SLN-571) |
+| A F | the page's item: favourite it; on a page with no favourite star, Add film (SLN-571) | Favourites (current item) | resolved: the item wins, Add film is the fallback |
+| A C | the page's item: its collections picker; elsewhere, Create collection (SLN-571) | Add to collection (current item) | resolved: the item wins, Create collection is the fallback |
 | A I | Add painting | - | none |
 | A R, A S, A L | recommender, series, place | - | none |
-| F | favourite the page's item (`FAVOURITE_SHORTCUT`) | A then F | **yes**: bare F goes (SLN-571) |
+| F | nothing (was the favourite; SLN-571) | A then F | resolved |
 | E W, E M, E T | book page: Work, Media, Taxonomy | keep E W; E M on every page with media | E exists on the book page only (SLN-633) |
 | E C | nothing | Edit collection on a collection page | missing (SLN-633) |
 | G … | Go to: D, B, F, E, I, A, P, S, C, O, M, T, H, R, K, "," | keep | none |
@@ -132,23 +132,23 @@ Visible actions on each detail page, and the keys that reach them today.
 
 | Page | Edit | Media / images | Add to collection | Favourite | E menu | Y copy |
 |---|---|---|---|---|---|---|
-| Book `/library/[slug]` | Edit Work, Edit Taxonomy (actions menu) | Manage media | edition and work buttons | F | W, M, T | yes |
-| Film `/films/[slug]` | Edit (actions menu) | Images | Collections | F (curation star) | none | yes |
-| Perfume `/perfumes/[slug]` | Edit | Images | Collections | F (curation star) | none | yes |
-| Painting `/paintings/[slug]` | Edit | Images | Collections | F (curation star) | none | yes |
-| Person `/people/[slug]` | Edit | Manage Media | - | F | none | yes |
-| Publisher `/publishers/[slug]` | Edit (editor page) | Manage media | - | F | none | yes |
+| Book `/library/[slug]` | Edit Work, Edit Taxonomy (actions menu) | Manage media | work button (A C), edition buttons | A F | W, M, T | yes |
+| Film `/films/[slug]` | Edit (actions menu) | Images | Collections (A C) | A F (curation star) | none | yes |
+| Perfume `/perfumes/[slug]` | Edit | Images | Collections (A C) | A F (curation star) | none | yes |
+| Painting `/paintings/[slug]` | Edit | Images | Collections (A C) | A F (curation star) | none | yes |
+| Person `/people/[slug]` | Edit | Manage Media | - | A F | none | yes |
+| Publisher `/publishers/[slug]` | Edit (editor page) | Manage media | - | A F | none | yes |
 | Organization `/organizations/[slug]` | Edit | none | - | none | none | yes |
-| Collection `/collections/[id]` | Edit | Artwork | - | F | none | yes |
-| Series `/series/[id]` | Edit | none | - | F | none | yes |
-| Place `/places/[slug]` | Edit, Archive | none | - | F | none | yes |
-| Recommender `/recommenders/[id]` | Edit | none | - | F | none | yes |
+| Collection `/collections/[id]` | Edit | Artwork | - | A F | none | yes |
+| Series `/series/[id]` | Edit | none | - | A F | none | yes |
+| Place `/places/[slug]` | Edit, Archive | none | - | A F | none | yes |
+| Recommender `/recommenders/[id]` | Edit | none | - | A F | none | yes |
 
 Gaps for SLN-633: E opens nothing outside the book page. Each row above
 with an Edit button needs E then its letter (E then C on a collection; E
 then W on works of every kind, or an agreed letter), and every row with
 media needs E then M on the same dialog its button opens. An organization has no
-favourite star.
+favourite star, so A then F adds a film there.
 
 ## 4. Dialogs
 
