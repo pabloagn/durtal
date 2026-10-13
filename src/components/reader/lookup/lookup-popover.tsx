@@ -31,10 +31,10 @@ export function LookupPopover({ details, language, guessed, word, passage, keybo
   return <AnchoredReaderPopover title={word} anchor={details.rect} avoid={avoid} keyboard={keyboard}
     reference={reference} keyDocument={keyDocument} preferBelow={touch} variant="lookup" dialogLabel={"Look up " + word} closeLabel="Close lookup"
     initialFocusSelector='[role="tab"][aria-selected="true"]' onClose={onClose}
-    action={<button type="button" className="h-8 max-w-36 truncate px-2 font-sans text-xs text-fg-secondary pointer-coarse:min-h-11"
-      aria-label={"Lookup language: " + languageName(language) + (guessed ? " (guessed)" : "")}
+    action={<button type="button" className="h-8 max-w-48 truncate px-2 font-sans text-xs text-fg-secondary pointer-coarse:min-h-11"
+      aria-label={"Lookup language: " + languageName(language) + (guessed ? " (guessed)" : "") + (language === target ? "" : ", translate into " + languageName(target))}
       aria-expanded={languagesOpen} aria-controls={id + "-languages"} data-tooltip="Change lookup language or translation target"
-      onClick={() => setLanguagesOpen(value => !value)}>{languageName(language)}{guessed ? " (guessed)" : ""}</button>}
+      onClick={() => setLanguagesOpen(value => !value)}>{languageName(language)}{guessed ? " (guessed)" : ""}{language === target ? "" : ` → ${languageName(target)}`}</button>}
     fixedContent={<>
       {languagesOpen && <div id={id + "-languages"} className="shrink-0 border-b border-glass-border px-4 py-3">
         <div className="grid grid-cols-2 gap-3">

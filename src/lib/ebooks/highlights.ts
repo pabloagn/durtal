@@ -178,3 +178,19 @@ export function highlightReaderHref(ebookId: string, markId: string, returnTo: s
   const params = new URLSearchParams({ at: markId, returnTo });
   return `/reader/${ebookId}?${params}`;
 }
+
+export interface EbookMarkCounts {
+  highlights: number;
+  notes: number;
+  bookmarks: number;
+}
+
+/** One e-book's live marks, counted as the reader's panel tabs count them (SLN-500) */
+export async function getEbookMarkCounts(ebookId: string, database: Database = db): Promise<EbookMarkCounts> {
+  const [row] = resultRows<EbookMarkCounts>(await database.execute(sql`select
+    count(*) filter (where ${KIND_CONDITIONS.highlight})::integer as highlights,
+    count(*) filter (where ${KIND_CONDITIONS.note})::integer as notes,
+    count(*) filter (where ${KIND_CONDITIONS.bookmark})::integer as bookmarks
+    from ebook_annotations a where a.ebook_id = ${ebookId}::uuid and a.deleted_at is null`));
+  return row ?? { highlights: 0, notes: 0, bookmarks: 0 };
+}

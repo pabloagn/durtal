@@ -5,7 +5,7 @@ import type { PackRecord } from "@/lib/reader/lookup/pack-store";
 import { wikimediaTitle } from "@/lib/reader/lookup/policy";
 import { sanitizeXdxf } from "@/lib/reader/lookup/sanitize";
 import { languageName } from "@/lib/utils/language";
-import { LookupAttribution, LookupHtml, LookupSkeleton } from "./lookup-html";
+import { LookupAttribution, LookupHtml, LookupSkeleton, Unreachable } from "./lookup-html";
 type Online = Awaited<ReturnType<typeof lookupWiktionary>>;
 export type DictionaryState = {
   packs: PackRecord[]; entries: PackLookupEntry[]; packsPending: boolean; packError: string | null;
@@ -38,7 +38,7 @@ export function DictionaryTab({ state, language, word }: { state: DictionaryStat
     </section>
     {state.offline ? <p role="status" className="text-fg-secondary">No connection</p> : <>
       <section><h3 className="type-caption mb-2">Wiktionary (English glosses)</h3>
-        {!state.english ? <LookupSkeleton /> : state.english.status === "rejected" ? <p className="text-fg-secondary">No connection</p> :
+        {!state.english ? <LookupSkeleton /> : state.english.status === "rejected" ? <Unreachable name="Wiktionary" href={"https://en.wiktionary.org/w/index.php?search=" + encodeURIComponent(word)} /> :
           english && english.format === "html" ? <LookupHtml html={english.html} base={base} /> :
           english && english.sections.length ? <>
             {!english.found && <p className="mb-3 text-fg-secondary">No {languageName(language)} entry for ‘{word}’. Entries in other languages:</p>}
@@ -54,7 +54,7 @@ export function DictionaryTab({ state, language, word }: { state: DictionaryStat
         {english && <LookupAttribution wiki="Wiktionary" href={base} label="Open the entry" />}
       </section>
       {ownName[language] && <section><h3 className="type-caption mb-2">{ownName[language]}</h3>
-        {!state.own ? <LookupSkeleton /> : state.own.status === "rejected" ? <p className="text-fg-secondary">No connection</p> :
+        {!state.own ? <LookupSkeleton /> : state.own.status === "rejected" ? <Unreachable name={ownName[language]} href={"https://" + language + ".wiktionary.org/w/index.php?search=" + encodeURIComponent(word)} /> :
           own?.found ? <LookupHtml html={own.html} base={"https://" + language + ".wiktionary.org/wiki/" + wikimediaTitle(own.word)} /> :
           <p className="text-fg-secondary">No entry for ‘{word}’ in {ownName[language]}.</p>}
         {own && <LookupAttribution wiki="Wiktionary" href={"https://" + language + ".wiktionary.org/wiki/" + wikimediaTitle(own.word)} label="Open the entry" />}

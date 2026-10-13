@@ -16,6 +16,7 @@ import {
   matchesClaim,
   planReplayClaim,
   reconcileBlocked,
+  adoptDevice,
   releaseClaim,
   type AnnotationItemOutcome,
   type BlockedOperationReference,
@@ -595,6 +596,25 @@ export async function openOfflineStore(options: StoreOptions) {
       });
       for (const ebookId of books) notify(ebookId);
       return affected;
+    },
+    /** Moves every unclaimed row from a superseded device id to the current
+     * one and makes it sendable now. Returns how many rows moved. */
+    async adoptDevice(superseded: string, current: string): Promise<number> {
+      const books = new Set<string>();
+      const moved = await transaction("readwrite", async (tx) => {
+        const queue = tx.objectStore("outbox");
+        let count = 0;
+        for (const row of await rows(tx)) {
+          const adopted = adoptDevice(row, superseded, current);
+          if (adopted === row) continue;
+          await request(queue.put({ ...row, ...adopted, retryAt: null }));
+          books.add(row.mutation.ebookId);
+          count++;
+        }
+        return count;
+      });
+      for (const ebookId of books) notify(ebookId);
+      return moved;
     },
     async reconcile(
       reference: BlockedOperationReference,

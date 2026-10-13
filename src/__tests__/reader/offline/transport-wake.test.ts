@@ -4,15 +4,21 @@ import {
   type ReaderTransport,
 } from "@/lib/reader/offline/transport";
 import {
+  adoptDevice,
   matchesClaim,
   planReplayClaim,
   releaseClaim,
 } from "@/lib/reader/offline/outbox-policy";
 import type { OfflineStore, StoredOperation } from "@/lib/reader/offline/store";
-import { DEVICE, NOW, position } from "./fixtures";
+import { DEVICE, NOW, OTHER, position } from "./fixtures";
 
 function setup(
-  options: { blocked?: boolean; claimAfterInspect?: boolean } = {},
+  options: {
+    blocked?: boolean;
+    claimAfterInspect?: boolean;
+    waiting?: boolean;
+    current?: string;
+  } = {},
 ) {
   let rows: StoredOperation[] = [
     {
@@ -21,11 +27,11 @@ function setup(
       retryAt: null,
       state: options.blocked
         ? "blocked"
-        : options.claimAfterInspect
+        : options.claimAfterInspect || options.waiting
           ? "waiting"
           : "claimed",
       claim:
-        options.blocked || options.claimAfterInspect
+        options.blocked || options.claimAfterInspect || options.waiting
           ? null
           : { token: "abandoned", expiresAt: NOW + 30_000 },
     },
@@ -41,6 +47,15 @@ function setup(
   const store = {
     sealDeletes: vi.fn(async () => 0),
     inspect,
+    adoptDevice: vi.fn(async (superseded: string, current: string) => {
+      const before = rows;
+      rows = rows.map((row) => ({
+        ...row,
+        ...adoptDevice(row, superseded, current),
+      }));
+      return rows.filter((row, i) => row.mutation !== before[i].mutation)
+        .length;
+    }),
     claim: vi.fn(
       async (claimOptions: Parameters<typeof planReplayClaim>[1]) => {
         if (options.claimAfterInspect) {
@@ -83,7 +98,7 @@ function setup(
   const send = vi.fn(async () => ({ status: 200, body: { saved: true } }));
   const preflight = vi.fn(async () => ({
     authenticated: true,
-    deviceId: DEVICE,
+    deviceId: options.current ?? DEVICE,
   }));
   const transport = createReaderTransport({
     store: store as unknown as OfflineStore,
@@ -149,10 +164,48 @@ describe("persisted claim expiry wake", () => {
     transport = test.transport;
     test.visibility("visible");
     await vi.advanceTimersByTimeAsync(31_000);
+    test.visibility("hidden");
+    test.visibility("visible");
+    await vi.advanceTimersByTimeAsync(31_000);
     expect(test.send).not.toHaveBeenCalled();
-    expect(test.preflight).not.toHaveBeenCalled();
+    // One probe per page, to learn whether its device id was superseded
+    expect(test.preflight).toHaveBeenCalledTimes(1);
     expect(vi.getTimerCount()).toBe(0);
     expect(test.rows()[0].state).toBe("blocked");
+  });
+});
+
+describe("a superseded device id (SLN-668)", () => {
+  it("moves a waiting head to the cookie's device and sends it", async () => {
+    const test = setup({ waiting: true, current: OTHER });
+    transport = test.transport;
+    test.visibility("visible");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(test.store.adoptDevice).toHaveBeenCalledWith(DEVICE, OTHER);
+    expect(test.send).toHaveBeenCalledTimes(1);
+    const plan = test.send.mock.calls[0] as unknown[];
+    expect(
+      (plan[0] as { rows: { mutation: { deviceId: string } }[] }).rows[0]
+        .mutation.deviceId,
+    ).toBe(OTHER);
+    expect(test.rows()).toEqual([]);
+  });
+  it("frees a head blocked under the superseded id", async () => {
+    const test = setup({ blocked: true, current: OTHER });
+    transport = test.transport;
+    test.visibility("visible");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(test.send).toHaveBeenCalledTimes(1);
+    expect(test.rows()).toEqual([]);
+  });
+  it("never adopts for a signed-out page", async () => {
+    const test = setup({ waiting: true, current: OTHER });
+    test.preflight.mockResolvedValue({ authenticated: false, deviceId: OTHER });
+    transport = test.transport;
+    test.visibility("visible");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(test.store.adoptDevice).not.toHaveBeenCalled();
+    expect(test.send).not.toHaveBeenCalled();
   });
   it("destroy cancels the scheduled lease wake", async () => {
     const test = setup();

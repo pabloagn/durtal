@@ -45,10 +45,10 @@ export function ReviewRow({ row, detail, selected, focused, busy, returnTo, erro
           row.publisher, row.year,
         ].filter((value) => value !== null && value !== "").join(" · ")}</p>
         {row.isbns.length > 0 && <ul className="mt-2 space-y-1 text-xs text-fg-secondary">
-          {row.isbns.map((isbn) => <li key={isbn}>ISBN {isbn} <span className="text-fg-muted">· valid</span></li>)}
+          {row.isbns.map((isbn) => <li key={isbn}>ISBN {isbn} <span>· valid</span></li>)}
         </ul>}
         {Object.keys(row.identifiers).length > 0 && <details className="mt-2 text-xs text-fg-secondary">
-          <summary className="cursor-pointer">Other identifiers</summary>
+          <summary className="cursor-pointer pointer-coarse:py-3">Other identifiers</summary>
           <dl className="mt-1 space-y-1">{Object.entries(row.identifiers).map(([provider, values]) =>
             <div key={provider} className="flex flex-wrap gap-x-2"><dt>{provider}</dt><dd className="[overflow-wrap:anywhere]">{values.join(", ")}</dd></div>)}</dl>
         </details>}
@@ -80,10 +80,10 @@ export function ReviewRow({ row, detail, selected, focused, busy, returnTo, erro
               candidate.status.replaceAll("_", " "), `${(candidate.probability * 100).toFixed(1)}%`,
             ].filter((value) => value !== null).join(" · ")}</p>
             <ul className="mt-2 space-y-1 text-xs text-fg-secondary">{candidate.reasons.map((reason, reasonIndex) => <li key={`${reason.code}:${reasonIndex}`}>{reason.text}</li>)}</ul>
-            {candidate.flags.length > 0 && <p className="mt-1 text-xs text-fg-muted">{candidate.flags.map((flag) => flags[flag] ?? flag.replaceAll("_", " ")).join(" · ")}</p>}
+            {candidate.flags.length > 0 && <p className="mt-1 text-xs text-fg-secondary">{candidate.flags.map((flag) => flags[flag] ?? flag.replaceAll("_", " ")).join(" · ")}</p>}
             {candidate.rule === "fill_copy" && <p className="mt-2 text-xs">Has a digital copy waiting for its file.</p>}
             {actual && <p className="mt-2 text-sm">{actual.effectText}</p>}
-            <details className="mt-2 text-xs text-fg-secondary"><summary className="cursor-pointer">{candidate.editionCount} editions</summary>
+            <details className="mt-2 text-xs text-fg-secondary"><summary className="cursor-pointer pointer-coarse:py-3">{candidate.editionCount} editions</summary>
               <ul className="mt-1 space-y-1">{candidate.editions.map((edition) => <li key={edition.id}>{[
                 edition.placeholder ? "Edition not identified" : edition.title, edition.language, edition.isbn13,
                 edition.publisher, edition.year, `${edition.copyCount} copies`,

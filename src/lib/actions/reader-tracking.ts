@@ -92,7 +92,9 @@ export async function startReaderReading(raw: z.input<typeof startSchema>) {
     } catch { /* An absent/invalid home means no home, never the digital copy's location. */ }
     const reading = await createReading({ workId: binding.workId, editionId: binding.editionId, instanceId: binding.instanceId,
       locationId: home, format: "ebook", unit: "percent", totalPages: binding.totalPages ?? undefined,
-      startPercent: data.startPercent, timeZone: data.timeZone, startedPrecision: "day" }, {
+      startPercent: data.startPercent, timeZone: data.timeZone,
+      // The day the first counted sitting began (a day precision needs its date).
+      startedOn: readingDay(sitting?.startedAt ?? new Date(), data.timeZone, settings.readingDayStartHour), startedPrecision: "day" }, {
       source: "reader",
       beforeInsert: (d) => [
         lockReaderEbooks(d, sql`select ${data.ebookId}::uuid`),

@@ -561,18 +561,20 @@ export async function runOfflineStoreChecks() {
     },
   );
   await check(
-    "device mismatch is durably blocked without sending or relabeling",
+    "a superseded device id moves to the cookie's id and is sent (SLN-668)",
     async () => {
       await store.enqueue(input(1));
       let sends = 0;
+      const devices: string[] = [];
       const transport = createReaderTransport({
         store,
         now: () => clock,
         window: null,
         locks: null,
         preflight: async () => ({ authenticated: true, deviceId: OTHER }),
-        send: async () => {
+        send: async (plan) => {
           sends++;
+          devices.push(...plan.rows.map((row) => row.mutation.deviceId));
           return { status: 200, body: null };
         },
         positionAcknowledged: () => true,
@@ -580,12 +582,14 @@ export async function runOfflineStoreChecks() {
       });
       try {
         await transport.requestReplay("foreground");
-        const head = (await store.inspect())[0];
+        // The page that lost the race keeps enqueueing under its first id
+        await store.enqueue(input(2, 0.6));
+        await transport.requestReplay("foreground");
         assert(
-          sends === 0 &&
-            head.state === "blocked" &&
-            head.mutation.deviceId === DEVICE,
-          "Identity changed",
+          sends === 2 &&
+            devices.every((device) => device === OTHER) &&
+            (await store.inspect()).length === 0,
+          `Superseded device not adopted: ${sends} sends, ${devices.join(",")}`,
         );
       } finally {
         transport.destroy();

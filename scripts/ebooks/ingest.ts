@@ -23,12 +23,16 @@
  *   the snapshot was taken; name it when the drive is mounted elsewhere. The
  *   plan is refused, and later its apply or resume, once the library's
  *   metadata.db has changed since the snapshot.
+ * - `--select <selection.json>` with `--calibre`: only the books Import
+ *   existing selected (`pnpm ebooks:import-existing`); refused when the
+ *   selection was made from another snapshot, against Durtal's books as they
+ *   were before a change, or with another matching model.
  * - `--preview <port>`: a running preview's database and S3 folder.
  *
  * Durtal never moves, changes or deletes a file in the inbox or any folder.
  *
  *   pnpm ebooks:ingest [<folder> ...] [--limit N] [--include-text] [--exclude GLOB]...
- *   pnpm ebooks:ingest --calibre SNAPSHOT [<library folder>] [--limit N]
+ *   pnpm ebooks:ingest --calibre SNAPSHOT [<library folder>] [--select SELECTION] [--limit N]
  *     [--host LABEL] [--cache-dir DIR] [--report-dir DIR] [--preview PORT] [--env-dir DIR]
  *   pnpm ebooks:ingest --apply PLAN --backup DUMP [--live]
  *   pnpm ebooks:ingest --resume RUN_ID --backup DUMP [--live]
@@ -49,6 +53,7 @@ const { values, positionals } = parseArgs({
     live: { type: "boolean", default: false },
     limit: { type: "string" },
     calibre: { type: "string" },
+    select: { type: "string" },
     "include-text": { type: "boolean", default: false },
     exclude: { type: "string", multiple: true },
     host: { type: "string" },
@@ -66,6 +71,8 @@ const modes = [values.apply, values.resume, values.undo].filter(Boolean).length;
 if (modes > 1) throw new Error("Give one of --apply, --resume and --undo");
 if (values.calibre && (modes === 1 || positionals.length > 1))
   throw new Error("--calibre plans one library folder: the snapshot's, or the one named");
+if (values.select && !values.calibre)
+  throw new Error("--select takes the Calibre snapshot it was made from: add --calibre SNAPSHOT");
 if (modes === 1 && positionals.length)
   throw new Error(
     "Folders are planned; --apply, --resume and --undo take the plan, run or undo file only",
@@ -193,6 +200,7 @@ try {
           includeText: values["include-text"],
           exclude: values.exclude,
           calibre,
+          select: values.select ? resolve(values.select) : undefined,
           uploadSpeed: readUploadSpeed(cacheDir),
           onProgress: progress("Read"),
         }),

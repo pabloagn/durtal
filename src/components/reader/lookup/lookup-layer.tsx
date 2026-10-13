@@ -139,7 +139,8 @@ export function LookupLayer({ engine, ebook, toolbarRef, enabled = true }: {
       const hasDictionary = cache && (cache.dictionary.entries.length ||
         cache.dictionary.english?.status === "fulfilled" && cache.dictionary.english.value.found ||
         cache.dictionary.own?.status === "fulfilled" && cache.dictionary.own.value?.found);
-      setActive(lookup.passage ? "translate" : cache && !hasDictionary && cache.wikipedia.value?.found ? "wikipedia" : "dictionary");
+      // A passage in the target language has nothing to translate: open on its sources.
+      setActive(lookup.passage ? (language.language === currentSettings.current.translateTo ? "sources" : "translate") : cache && !hasDictionary && cache.wikipedia.value?.found ? "wikipedia" : "dictionary");
       setModel(cache ?? initialModel());
     });
   };

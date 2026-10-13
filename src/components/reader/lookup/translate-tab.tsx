@@ -16,6 +16,7 @@ export function TranslateTab({ source, target, text, translator }: {
   const [progress, setProgress] = useState<number | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checked, setChecked] = useState(false);
   const scope = useRef<ReturnType<typeof operationSignal> | null>(null);
   const current = useRef<AbortController | null>(null);
   const running = useRef(false);
@@ -39,13 +40,16 @@ export function TranslateTab({ source, target, text, translator }: {
   useEffect(() => {
     const controller = new AbortController(); current.current = controller;
     const availabilityScope = operationSignal(controller.signal, 10000);
-    setResult(null); setError(null); setProgress(null); setPending(false); setAvailability(null);
+    setResult(null); setError(null); setProgress(null); setPending(false); setAvailability(null); setChecked(false);
     if (valid && source !== target) void translator.availability(source, target, availabilityScope.signal).then(value => {
       if (!controller.signal.aborted) {
         setAvailability(value);
         if (value === "available") run(controller.signal);
       }
-    }).catch(() => {}).finally(() => availabilityScope.dispose());
+    }).catch(() => {}).finally(() => {
+      availabilityScope.dispose();
+      if (!controller.signal.aborted) setChecked(true);
+    });
     return () => { controller.abort(); running.current = false; availabilityScope.dispose(); scope.current?.dispose(); };
     // The session translator outlives a panel. Every text/language generation owns cancellation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -57,7 +61,9 @@ export function TranslateTab({ source, target, text, translator }: {
     {mode === "same-language" ? <p className="text-fg-secondary">This passage is already in {languageName(target)}. Choose another translation target in the language menu.</p> :
       pending ? <><LookupSkeleton />{progress !== null && <p role="status" className="text-xs text-fg-secondary">{Math.round(progress * 100)}% downloaded</p>}</> :
       result ? <><p className="whitespace-pre-wrap">{result}</p><p className="text-xs text-fg-secondary">Translated on this device by Chrome</p></> :
-      mode === "download" ? <Button className="h-auto py-2 text-left [white-space:normal]" onClick={() => current.current && run(current.current.signal)}>Download the {languageName(source)} to {languageName(target)} model (Chrome, on this device)</Button> : null}
+      mode === "download" ? <Button className="h-auto py-2 text-left [white-space:normal]" onClick={() => current.current && run(current.current.signal)}>Download the {languageName(source)} to {languageName(target)} model (Chrome, on this device)</Button> :
+      mode === "links" && checked && !error ? <p className="text-fg-secondary">This browser can&rsquo;t translate {languageName(source)} to {languageName(target)} on the device. Open the passage in:</p> :
+      mode === "links" ? <LookupSkeleton /> : null}
     {error && <p role="status" className="text-fg-secondary">{error}</p>}
     <div className="flex flex-wrap gap-4 text-sm">
       {links.deepl && <a className="min-h-8 py-2 text-accent-primary underline pointer-coarse:min-h-11" href={links.deepl} target="_blank" rel="noopener noreferrer">Open in DeepL ↗</a>}

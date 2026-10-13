@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { createReadStream, existsSync, readFileSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import type { FileMetadata } from "../ingest/inspect/types";
 
@@ -110,6 +110,8 @@ export interface CalibreSnapshot {
     missing: { bookId: number; path: string }[];
     /** Files in the library that metadata.db does not list */
     extra: string[];
+    /** Paths metadata.db names that lead outside the library folder: never read */
+    outside: { bookId: number; path: string }[];
   };
   drift: DriftBook[];
 }
@@ -121,8 +123,25 @@ export async function sha256File(file: string): Promise<string> {
   return hash.digest("hex");
 }
 
-/** A path relative to the library folder, on this machine */
-export const libraryPath = (root: string, relative: string) => path.join(root, ...relative.split("/"));
+const within = (child: string, parent: string) => child === parent || child.startsWith(parent.endsWith(path.sep) ? parent : parent + path.sep);
+
+/**
+ * A path metadata.db names, relative to the library folder, as a path on this
+ * machine; null when it leads outside the folder, by ".." or through a
+ * symlink. Durtal reads nothing outside the library.
+ */
+export function libraryPath(root: string, relative: string): string | null {
+  const base = path.resolve(root);
+  const full = path.resolve(base, ...relative.split("/"));
+  if (!within(full, base)) return null;
+  let real: string;
+  try {
+    real = realpathSync(full);
+  } catch {
+    return full; // Not there: nothing is read, and the caller says it is missing
+  }
+  return within(real, realpathSync(base)) ? full : null;
+}
 
 /** A snapshot file and the SHA-256 of its bytes */
 export function readSnapshot(file: string): { snapshot: CalibreSnapshot; sha256: string } {
@@ -150,8 +169,9 @@ export interface CalibreBinding {
  * snapshot. Reads the file only.
  */
 export async function checkCalibreSource(binding: CalibreBinding, nothing = "Nothing written."): Promise<void> {
-  const db = path.join(binding.libraryPath, METADATA_DB);
   if (!existsSync(binding.libraryPath)) throw new Error(`The Calibre library is not mounted at ${binding.libraryPath}. ${nothing}`);
+  const db = libraryPath(binding.libraryPath, METADATA_DB);
+  if (!db) throw new Error(`${METADATA_DB} in ${binding.libraryPath} leads outside the library folder. ${nothing}`);
   if (!existsSync(db)) throw new Error(`There is no ${METADATA_DB} in ${binding.libraryPath}. ${nothing}`);
   if ((await sha256File(db)) !== binding.metadataDbSha256)
     throw new Error(`The Calibre library changed since its snapshot: take a new snapshot (pnpm ebooks:calibre-snapshot) and plan again. ${nothing}`);

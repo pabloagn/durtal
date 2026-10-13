@@ -7,6 +7,7 @@ import type { CreateWorkInput } from "@/lib/validations";
 import type { WizardBookInput } from "@/lib/validations/wizard";
 import type { InstanceDraft } from "@/components/books/instance-form";
 import type { SearchResult } from "@/lib/api/types";
+import type { PosterImage } from "@/lib/utils/edition-image";
 
 // ── Steps ────────────────────────────────────────────────────────────────────
 
@@ -33,9 +34,18 @@ export const STEPS: { key: Step; label: string }[] = [
 
 export interface DuplicateWork {
   id: string;
+  slug: string | null;
   title: string;
   workAuthors: { author: { name: string } }[];
-  editions: { id: string; instances: { id: string }[] }[];
+  /** The first edition first, as on the work's library card */
+  editions: {
+    id: string;
+    coverS3Key: string | null;
+    thumbnailS3Key: string | null;
+    instances: { id: string }[];
+  }[];
+  /** The active poster, if any */
+  media: PosterImage[];
 }
 
 export interface RefDataItem {

@@ -700,6 +700,9 @@ running.
     Calibre's own files never count: `metadata.db` and its backups, the
     full-text index, `.caltrash`, `.calnotes`, OPFs, covers and a book's
     `data/` folder. Neither kind is guessed at.
+  - A path `metadata.db` names that leads outside the library folder, by `..`
+    or through a symlink, is listed and never read, by the snapshot or the
+    planner. The same holds for `metadata.db` itself.
 - Drift: Calibre rewrites each book's `metadata.opf` only now and then. Each
   OPF is compared with the snapshot for title, authors, series and index,
   publisher, language, identifiers, tags, description and date. The snapshot
@@ -733,6 +736,71 @@ it when the drive is mounted elsewhere.
   library's `metadata.db` has changed or the drive is not mounted: take a new
   snapshot and plan again. The run's reconciliation accounts only for the
   files the plan took.
+
+### Two modes: Import existing, then Bulk import
+
+Durtal does not take the whole Calibre library at once. About 6,000 Calibre
+books meet about 775 Durtal books, so the library is brought in two modes:
+
+1. **Import existing** (SLN-657) gives Durtal's own books their e-books, and
+   nothing else. It never creates a work, an author, a series or a
+   publisher; a new edition under an existing work is allowed. Every other
+   Calibre book is left untouched: not read, hashed, uploaded or registered.
+2. **Bulk import** (SLN-659, later) brings the rest in waves Joris picks,
+   each previewed before it is applied.
+
+Import existing runs in three steps:
+
+- **The dry run**, `pnpm ebooks:import-existing --calibre <snapshot>
+  [<library folder>]`, writes nothing. It reads Durtal's books through the
+  read-only planning session, then, once that session has closed, scores
+  every Calibre book of the snapshot against Durtal's book works with the
+  matching model (`MATCH_MODEL`), from the snapshot's fields alone. Thousands
+  of books take minutes.
+  - A book is in scope when its best tier is `exact`, `strong`, `likely`,
+    `to_choose` or `conflict` with at least one Durtal book as a candidate.
+    `same_author`, `not_in_durtal` and `not_a_book` are left for Bulk import.
+    A book whose Calibre uuid is already an e-book's `import_ref` is never
+    selected again.
+  - Every Calibre book counts for shared ISBNs and common titles. Two Calibre
+    books are never each other's duplicate here: they clash instead.
+  - Only the books in scope are then checked on the drive: is each format
+    there, and does it carry DRM (a quick look at an EPUB's `encryption.xml`
+    and a Kindle file's header; a PDF's DRM is found when the selection is
+    planned). Then they are scored again with what was found. A format whose
+    path leads outside the library folder or its book's folder is never read,
+    and is reported as skipped, apart from a file missing on the drive.
+  - One book, one e-book (`src/lib/ebooks/match/clashes.ts`): a book never
+    links by itself when another Calibre book proposes the same Durtal book,
+    when it scores for several books or is flagged an omnibus, or when the
+    Durtal book already has an e-book. It goes to review with the reason.
+  - It writes `reports/ebooks/import-existing-<time>.md`, a `.csv` with one
+    row per Calibre book, and a `.selection.json`. The report gives the
+    coverage of Durtal's books (by themselves, to review, none in Calibre,
+    in Calibre with no file to give, and the digital copies waiting for a
+    file), the selection's files and
+    size by format with DRM, missing files and the upload estimate, the
+    clashes, the counts SLN-658 will need (differences, ratings, read dates)
+    and what is left for Bulk import by tier.
+  - The selection names the books in scope that have a file on the drive,
+    with whether the dry run sent each to review. It is bound to the
+    snapshot's hash, the catalogue fingerprint and the matching model.
+- **The ingest of the selection**, `pnpm ebooks:ingest --calibre <snapshot>
+  --select <selection.json>`, plans the selected books alone, and its apply,
+  resume and undo are the ingest's own. The plan is refused when the
+  selection was made from another snapshot, against Durtal's books before a
+  change, or with another model: run the dry run again.
+- **The matching of the selection**, `pnpm ebooks:import-existing --match
+  <selection.json>` once the ingest is applied, scores the e-books the
+  selection became with one book, one e-book, and writes the matching report,
+  its sample to label and its plan. A book the dry run sent to review stays
+  there, because the dry run saw the whole library (an ISBN shared with books
+  left out, say). The labels, the precision check (99% and no wrong book) and
+  the apply are `pnpm ebooks:match --score` and `--apply`.
+
+A second dry run right after selects nothing new. After Joris adds books to
+Durtal, a new dry run picks up only the Calibre books that have become
+matchable.
 
 ### The cache folder
 
