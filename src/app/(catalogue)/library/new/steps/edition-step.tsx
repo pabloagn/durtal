@@ -5,6 +5,7 @@ import { ArrowRight, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { OpenWorkLink } from "@/components/shared/open-work-link";
 import { bindingLabel } from "@/lib/utils/binding";
 import { BINDING_TYPES } from "@/lib/types/index";
 import { StepFooter } from "../step-progress";
@@ -15,6 +16,7 @@ export function EditionStep({
   edition,
   onChange,
   isbnClash,
+  edited,
   wishlist,
   checking,
   onBack,
@@ -23,8 +25,10 @@ export function EditionStep({
 }: {
   edition: EditionDraft;
   onChange: (patch: Partial<EditionDraft>) => void;
-  /** Another edition has the ISBN */
-  isbnClash: string | null;
+  /** Another edition has the ISBN: what to say, and that edition's book */
+  isbnClash: { message: string; href: string } | null;
+  /** The person has entered something in the wizard: opening the book asks first */
+  edited: boolean;
   wishlist: boolean;
   /** The ISBN is being checked */
   checking: boolean;
@@ -41,8 +45,9 @@ export function EditionStep({
           value={edition.isbn13}
           onChange={(e) => onChange({ isbn13: e.target.value })}
           placeholder="9780143108269"
-          error={isbnClash ?? undefined}
+          error={isbnClash?.message}
         />
+        {isbnClash && <OpenWorkLink href={isbnClash.href} label="Open that book" dirty={edited} />}
         <div className="grid grid-cols-2 gap-4">
           <Input
             label="Publisher"

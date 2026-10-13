@@ -89,9 +89,11 @@ export function AddBookWizard({
   const [edition, setEdition] = useState<EditionDraft>(() =>
     newEditionDraft(appSettings, initialIsbn),
   );
-  const [isbnClash, setIsbnClash] = useState<string | null>(null);
+  const [isbnClash, setIsbnClash] = useState<{ message: string; href: string } | null>(null);
   // The search result it came from
   const [source, setSource] = useState<MetadataSource>({ source: "", sourceId: "" });
+  // The person has entered something in a step (a search result alone is not that)
+  const [edited, setEdited] = useState(false);
   const updateWork = (patch: Partial<WorkDraft>) => setWork((w) => ({ ...w, ...patch }));
   const updateEdition = (patch: Partial<EditionDraft>) => setEdition((e) => ({ ...e, ...patch }));
 
@@ -235,9 +237,10 @@ export function AddBookWizard({
         ? await isIsbnInUse(clean)
         : { inUse: false as const };
       if (clash.inUse) {
-        setIsbnClash(
-          `Another edition already has this ISBN${clash.title ? ` ("${clash.title}")` : ""}. Open that book to add a copy.`,
-        );
+        setIsbnClash({
+          message: `Another edition already has this ISBN${clash.title ? ` ("${clash.title}")` : ""}. Open that book to add a copy.`,
+          href: clash.href,
+        });
         return;
       }
       setIsbnClash(null);
@@ -289,6 +292,7 @@ export function AddBookWizard({
       {step === "duplicate" && duplicateWork && (
         <DuplicateStep
           duplicateWork={duplicateWork}
+          edited={edited}
           onAddEdition={() => {
             setExistingWorkId(duplicateWork.id);
             setStep("edition");
@@ -304,7 +308,10 @@ export function AddBookWizard({
       {step === "details" && (
         <DetailsStep
           work={work}
-          onChange={updateWork}
+          onChange={(patch) => {
+            setEdited(true);
+            updateWork(patch);
+          }}
           recommenders={recommenders}
           addingEdition={!!existingWorkId}
           fastTrackSaving={fastTrackSaving}
@@ -320,10 +327,12 @@ export function AddBookWizard({
         <EditionStep
           edition={edition}
           onChange={(patch) => {
+            setEdited(true);
             updateEdition(patch);
             if (patch.isbn13 !== undefined) setIsbnClash(null);
           }}
           isbnClash={isbnClash}
+          edited={edited}
           wishlist={wishlist}
           checking={isPending}
           onBack={() => setStep(existingWorkId ? "duplicate" : "details")}
@@ -335,7 +344,10 @@ export function AddBookWizard({
       {step === "instance" && (
         <CopiesStep
           drafts={instanceDrafts}
-          onDraftsChange={setInstanceDrafts}
+          onDraftsChange={(drafts) => {
+            setEdited(true);
+            setInstanceDrafts(drafts);
+          }}
           newDraft={() => newCopyDraft(appSettings, defaultLocationId)}
           locations={locations}
           wishlist={wishlist}
@@ -356,7 +368,10 @@ export function AddBookWizard({
         <CategorizeStep
           lists={lists}
           taxonomy={taxonomy}
-          onChange={(key, ids) => setTaxonomy((t) => ({ ...t, [key]: ids }))}
+          onChange={(key, ids) => {
+            setEdited(true);
+            setTaxonomy((t) => ({ ...t, [key]: ids }));
+          }}
           onBack={() => setStep(skipCopies ? "edition" : "instance")}
           onNext={() => setStep("confirm")}
           cancel={cancelButton("mr-auto")}
