@@ -161,6 +161,8 @@ export interface PlanCalibre extends CalibreBinding {
   books: number;
   /** Formats the snapshot lists that are not on disk now, relative to the library */
   missing: string[];
+  /** Formats whose path leads outside the library folder: never read */
+  outside: string[];
 }
 
 export interface PlanOptions {
@@ -283,6 +285,7 @@ async function calibreSource(roots: string[], snapshotFile: string): Promise<Cal
     metadataDbSha256: snapshot.metadataDb.sha256,
     books: snapshot.books.length,
     missing: [],
+    outside: [],
   };
   await checkCalibreSource(binding, "Nothing planned.");
   const byFolder = new Map<string, CalibreBook>();
@@ -290,11 +293,16 @@ async function calibreSource(roots: string[], snapshotFile: string): Promise<Cal
   const sidecars = new Map<string, string>();
   for (const book of snapshot.books) {
     const folder = libraryPath(root, book.path);
-    byFolder.set(folder, book);
-    const opf = path.join(folder, SIDECAR_NAME);
-    if (existsSync(opf)) sidecars.set(folder, opf);
+    const opf = libraryPath(root, `${book.path}/${SIDECAR_NAME}`);
+    if (folder) byFolder.set(folder, book);
+    if (folder && opf && existsSync(opf)) sidecars.set(folder, opf);
     for (const format of book.formats) {
       const file = libraryPath(root, format.path);
+      // Read only inside the library: a path leading out, by ".." or a symlink, is listed and never opened
+      if (!folder || !file || path.dirname(file) !== folder) {
+        binding.outside.push(format.path);
+        continue;
+      }
       const info = existsSync(file) ? statSync(file) : null;
       if (!info?.isFile()) {
         binding.missing.push(format.path);
@@ -308,7 +316,8 @@ async function calibreSource(roots: string[], snapshotFile: string): Promise<Cal
 }
 
 /** cacheDir/derived/calibre-cover-<sha256 of cover.jpg>/: a Calibre cover's sizes, shared by the book's formats */
-async function calibreCovers(coverFile: string, cacheDir: string, made: Map<string, Promise<(DerivedObject & { cachePath: string })[] | null>>) {
+async function calibreCovers(coverFile: string | null, cacheDir: string, made: Map<string, Promise<(DerivedObject & { cachePath: string })[] | null>>) {
+  if (!coverFile) return null; // Outside the library: never read
   if (!made.has(coverFile))
     made.set(
       coverFile,

@@ -700,6 +700,9 @@ running.
     Calibre's own files never count: `metadata.db` and its backups, the
     full-text index, `.caltrash`, `.calnotes`, OPFs, covers and a book's
     `data/` folder. Neither kind is guessed at.
+  - A path `metadata.db` names that leads outside the library folder, by `..`
+    or through a symlink, is listed and never read, by the snapshot or the
+    planner. The same holds for `metadata.db` itself.
 - Drift: Calibre rewrites each book's `metadata.opf` only now and then. Each
   OPF is compared with the snapshot for title, authors, series and index,
   publisher, language, identifiers, tags, description and date. The snapshot
