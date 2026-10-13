@@ -30,6 +30,7 @@ import {
   type WizardBookInput,
 } from "@/lib/validations/wizard";
 import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
+import { copyShelfMismatch } from "@/lib/catalogue/copy-shelf";
 
 /** The book that already uses an ISBN-13, for the wizard's edition step. */
 export async function isIsbnInUse(
@@ -91,6 +92,8 @@ export async function createBookFromWizard(
     if (found.length !== locationIds.length)
       return { ok: false, error: "A selected location no longer exists" };
   }
+  const shelf = await copyShelfMismatch(book.copies);
+  if (shelf) return { ok: false, error: shelf };
   if (collectionIds.length) {
     const found = await db
       .select({ id: collections.id })

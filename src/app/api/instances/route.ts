@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { editions, locations } from "@/lib/db/schema";
 import { createInstance } from "@/lib/actions/instances";
 import { createInstanceSchema } from "@/lib/validations";
+import { copyShelfMismatch } from "@/lib/catalogue/copy-shelf";
 import { errorResponse, readJson, requireApiToken } from "@/lib/api/rest";
 
 /**
@@ -34,6 +35,8 @@ export async function POST(req: NextRequest) {
     if (!location) {
       return NextResponse.json({ error: "Location not found" }, { status: 404 });
     }
+    const mismatch = await copyShelfMismatch([input]);
+    if (mismatch) return NextResponse.json({ error: mismatch }, { status: 400 });
 
     const instance = await createInstance(input);
     return NextResponse.json(instance, { status: 201 });
