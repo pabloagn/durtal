@@ -77,7 +77,7 @@ export function DialogFooter({
 }) {
   return (
     <div className="flex justify-end gap-2 pt-2">
-      <Button type="button" variant="ghost" onClick={onCancel} className="pointer-coarse:h-11">
+      <Button data-dismiss="" type="button" variant="ghost" onClick={onCancel} className="pointer-coarse:h-11">
         Cancel
       </Button>
       <Button type="submit" variant="primary" data-shortcut="save" disabled={saving || disabled} className="pointer-coarse:h-11">

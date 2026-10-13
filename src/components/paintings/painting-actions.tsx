@@ -58,6 +58,7 @@ export function PaintingActions({
         />
       </CapAlignedControls>
       <Dialog
+        draft
         open={open === "edit"}
         onClose={close}
         title="Edit painting"

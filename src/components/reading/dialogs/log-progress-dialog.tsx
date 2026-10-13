@@ -228,6 +228,7 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
 
   return (
     <Dialog
+      draft
       open
       onClose={onClose}
       title={stopping ? "Stop the timer" : "Log progress"}

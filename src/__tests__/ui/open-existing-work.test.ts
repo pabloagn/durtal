@@ -109,15 +109,16 @@ describe("the duplicate panel opens the existing work (SLN-667)", () => {
     expect(document.activeElement).toBe(link("Open this work"));
   });
 
-  it("Escape keeps editing", () => {
+  it("Escape keeps editing, and the page's own Esc leaves that key alone", () => {
     render(work(), true);
     click(link("Open this work")!);
+    const escape = new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true, cancelable: true });
     act(() => {
-      link("Discard and open")!.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-      );
+      link("Discard and open")!.dispatchEvent(escape);
     });
     expect(link("Open this work")).not.toBeNull();
+    // Handled here: SLN-631's page guard does not ask on top of this question
+    expect(escape.defaultPrevented).toBe(true);
   });
 });
 

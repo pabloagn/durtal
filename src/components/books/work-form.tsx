@@ -573,7 +573,7 @@ export function WorkForm({
                       </button>
                     )}
                   </div>
-                  <button
+                  <button data-dismiss=""
                     type="button"
                     onClick={() => {
                       setShowAuthorAdd(false);
@@ -602,7 +602,7 @@ export function WorkForm({
       {/* Footer */}
       <div className="mt-5 flex items-center justify-end gap-2 border-t border-glass-border pt-4">
         {notice && <div className="mr-auto min-w-0">{notice}</div>}
-        <Button variant="secondary" size="sm" onClick={onCancel} disabled={pending}>
+        <Button data-dismiss="" variant="secondary" size="sm" onClick={onCancel} disabled={pending}>
           Cancel
         </Button>
         <Button

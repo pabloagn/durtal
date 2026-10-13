@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -231,9 +232,21 @@ export function FilmForm(props: Props) {
     }
   }
 
+  // On the create page, Esc cancels like Cancel, asking first when there is
+  // unsaved work. In the edit dialog, the dialog does the same.
+  const root = useRef<HTMLDivElement>(null);
+  const unsavedPrompt = useEscapeToCancel({
+    root,
+    cancel: () => router.push("/films"),
+    enabled: props.mode === "create" && !saving,
+    track: true,
+  });
+
   return (
     // ⌘Enter saves; on the create page this is the page's shortcut scope
-    <div className="space-y-8" data-shortcut-scope="">
+    <>
+    {unsavedPrompt}
+    <div ref={root} className="space-y-8" data-shortcut-scope="">
       <Section title="Titles">
         <TitleInput
           label="Title"
@@ -332,6 +345,7 @@ export function FilmForm(props: Props) {
       <div className="flex flex-wrap justify-end gap-2">
         <Button
           variant="ghost"
+          data-dismiss=""
           onClick={() => (props.mode === "edit" ? props.onCancel() : router.push("/films"))}
           disabled={saving}
         >
@@ -343,5 +357,6 @@ export function FilmForm(props: Props) {
         </Button>
       </div>
     </div>
+    </>
   );
 }

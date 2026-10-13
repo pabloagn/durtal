@@ -57,6 +57,8 @@ export function OpenWorkLink({
       className="inline-flex flex-wrap items-center gap-3"
       onKeyDown={(event) => {
         if (event.key !== "Escape") return;
+        // Handled: the page's own Esc (SLN-631) leaves this key alone
+        event.preventDefault();
         event.stopPropagation();
         keepEditing();
       }}

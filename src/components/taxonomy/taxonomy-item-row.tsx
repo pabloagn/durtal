@@ -145,7 +145,11 @@ export function TaxonomyItemRow({
             onBlur={commitRename}
             onKeyDown={(e) => {
               if (e.key === "Enter") commitRename();
-              if (e.key === "Escape") cancelRename();
+              if (e.key === "Escape") {
+                // One layer per Esc: the rename only
+                e.preventDefault();
+                cancelRename();
+              }
             }}
             className="h-6 w-full rounded-sm border border-accent-primary/40 bg-bg-primary/80 px-1.5 text-sm text-fg-primary outline-none pointer-coarse:h-11"
             onClick={(e) => e.stopPropagation()}

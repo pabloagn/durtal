@@ -86,7 +86,11 @@ function PositionField({
       onBlur={save}
       onKeyDown={(e) => {
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-        if (e.key === "Escape") setValue(book.position ?? "");
+        // Esc puts the number back; one layer per Esc
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setValue(book.position ?? "");
+        }
       }}
       className="h-7 w-12 shrink-0 rounded-sm border border-glass-border bg-bg-primary/80 text-center font-mono text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none pointer-coarse:h-11"
     />

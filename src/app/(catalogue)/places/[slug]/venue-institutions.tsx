@@ -179,6 +179,7 @@ function LinkInstitutionDialog({
 
   return (
     <Dialog
+      draft
       open
       onClose={() => {
         if (!saving) onClose();
@@ -210,7 +211,7 @@ function LinkInstitutionDialog({
           </p>
         )}
         <div className="flex justify-end gap-2 border-t border-glass-border pt-4">
-          <Button size="sm" onClick={onClose} disabled={saving}>
+          <Button data-dismiss="" size="sm" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
           <Button variant="primary" size="sm" data-shortcut="save" disabled={saving || !choice} onClick={save}>

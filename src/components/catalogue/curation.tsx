@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RatingInput } from "@/components/shared/rating";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { Prose } from "@/components/shared/prose";
 import { updateWorkCuration } from "@/lib/actions/curation";
 import type { CurationOwner, CurationPatch } from "@/lib/catalogue/curation";
@@ -141,6 +142,18 @@ export function PersonalNotes({
   const { save, saving } = useCurationSave();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(notes ?? "");
+  // Esc cancels the editor; with unsaved notes it asks first
+  const editor = useRef<HTMLDivElement>(null);
+  const unsavedPrompt = useEscapeToCancel({
+    root: editor,
+    cancel: () => {
+      setDraft(notes ?? "");
+      setEditing(false);
+    },
+    enabled: editing && !saving,
+    track: true,
+    within: true,
+  });
   return (
     <section className="mb-10" aria-labelledby="your-notes">
       <SectionHeading
@@ -156,7 +169,8 @@ export function PersonalNotes({
         }
       />
       {editing ? (
-        <div className="max-w-2xl space-y-3" data-shortcut-scope="">
+        <div ref={editor} className="max-w-2xl space-y-3" data-shortcut-scope="">
+          {unsavedPrompt}
           <Textarea
             aria-label="Your notes"
             autoFocus
@@ -168,6 +182,7 @@ export function PersonalNotes({
           />
           <div className="flex justify-end gap-2">
             <Button
+              data-dismiss=""
               variant="ghost"
               size="sm"
               disabled={saving}

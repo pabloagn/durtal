@@ -86,6 +86,7 @@ export function AddSeriesBooksDialog({
 
   return (
     <Dialog
+      draft
       open={open}
       onClose={() => !saving && onClose()}
       title="Add books"
@@ -175,7 +176,7 @@ export function AddSeriesBooksDialog({
           </p>
         )}
         <div className="flex justify-end gap-2">
-          <Button type="button" disabled={saving} onClick={onClose}>
+          <Button data-dismiss="" type="button" disabled={saving} onClick={onClose}>
             Cancel
           </Button>
           <Button

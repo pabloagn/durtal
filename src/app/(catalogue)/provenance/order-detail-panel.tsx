@@ -20,6 +20,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { updateOrderStatus, deleteOrder } from "@/lib/actions/orders";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -96,6 +97,13 @@ export function OrderDetailPanel({
     }
   }
 
+  // Esc closes the innermost first: the status list, the delete question,
+  // then the panel. While a change saves, Esc waits.
+  const panel = useRef<HTMLDivElement>(null);
+  useEscapeToCancel({ root: panel, cancel: () => !isPending && onClose() });
+  useEscapeToCancel({ root: panel, cancel: () => !isPending && setConfirmDelete(false), enabled: confirmDelete });
+  useEscapeToCancel({ root: statusDropdownRef, cancel: () => setStatusDropdownOpen(false), enabled: statusDropdownOpen });
+
   async function handleDelete() {
     setIsPending(true);
     try {
@@ -115,7 +123,7 @@ export function OrderDetailPanel({
 
   return (
     <>
-      <div className="flex h-full flex-col">
+      <div ref={panel} className="flex h-full flex-col">
         {/* Panel header */}
         <div className="flex items-start justify-between border-b border-glass-border px-5 py-3.5">
           <h2 className="type-item-title">Order Details</h2>

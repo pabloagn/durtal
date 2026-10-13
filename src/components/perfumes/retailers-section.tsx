@@ -144,6 +144,7 @@ export function RetailersSection({
       )}
 
       <Dialog
+        draft
         open={dialog?.kind === "add"}
         onClose={close}
         title="Note a retailer"
@@ -155,6 +156,7 @@ export function RetailersSection({
         )}
       </Dialog>
       <Dialog
+        draft
         open={dialog?.kind === "price"}
         onClose={close}
         title="Record a price"
@@ -228,7 +230,7 @@ function ListingForm({
         error={url && !validUrl ? "Enter an address that starts with http:// or https://" : undefined}
       />
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={onDone} disabled={saving}>
+        <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
         </Button>
         <Button
@@ -323,7 +325,7 @@ function PriceForm({ linkId, onDone }: { linkId: string; onDone: () => void }) {
       <Textarea label="Notes" value={notes} rows={2} maxLength={10000} onChange={(e) => setNotes(e.target.value)} />
       {error && (price || currency || capacity) && <p className="text-xs text-accent-red-text">{error}</p>}
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={onDone} disabled={saving}>
+        <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
         </Button>
         <Button

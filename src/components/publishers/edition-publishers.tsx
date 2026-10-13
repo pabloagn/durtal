@@ -1,11 +1,12 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import {
   PublisherChip,
   PublisherSearch,
@@ -51,6 +52,15 @@ export function EditionPublishers({
       toast.error("Could not load publishers");
     }
   }
+  // Esc cancels the editor; with unsaved links it asks first
+  const editor = useRef<HTMLDivElement>(null);
+  const unsavedPrompt = useEscapeToCancel({
+    root: editor,
+    cancel: () => setEditing(false),
+    enabled: editing && !pending,
+    track: true,
+    within: true,
+  });
   // A name becomes an alias of exactly one house
   const aliasTarget = chosen.length === 1 ? chosen[0] : null;
   function save(reset = false) {
@@ -104,8 +114,9 @@ export function EditionPublishers({
           <span className="text-xs text-fg-secondary">Confirmed</span>
         )}
       </div>
+      {unsavedPrompt}
       {editing && (
-        <div className="max-w-md space-y-3 rounded-sm border border-glass-border p-3">
+        <div ref={editor} className="max-w-md space-y-3 rounded-sm border border-glass-border p-3">
           {chosen.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {chosen.map((p) => (
@@ -171,10 +182,11 @@ export function EditionPublishers({
               </label>
             ))}
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" disabled={pending} onClick={() => save()}>
+            <Button size="sm" data-shortcut="save" disabled={pending} onClick={() => save()}>
               Save links
             </Button>
             <Button
+              data-dismiss=""
               size="sm"
               variant="ghost"
               disabled={pending}

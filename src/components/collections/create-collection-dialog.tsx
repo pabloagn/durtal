@@ -76,6 +76,7 @@ export function CreateCollectionDialog({
         </Button>
       )}
       <Dialog
+        draft
         open={open}
         onClose={() => {
           if (!busy.current) setOpen(false);
@@ -111,7 +112,7 @@ export function CreateCollectionDialog({
             />
           </details>
           <div className="flex justify-end gap-2">
-            <Button
+            <Button data-dismiss=""
               type="button"
               variant="ghost"
               disabled={saving}

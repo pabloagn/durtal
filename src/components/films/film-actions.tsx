@@ -59,6 +59,7 @@ export function FilmActions({
         />
       </CapAlignedControls>
       <Dialog
+        draft
         open={open === "edit"}
         onClose={close}
         title="Edit film"

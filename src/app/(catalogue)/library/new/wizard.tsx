@@ -7,6 +7,7 @@ import type { PickerPurpose } from "@/lib/reading/book-picker";
 import type { SearchResult } from "@/lib/api/types";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { newCopyDraft, type InstanceDraft } from "@/components/books/instance-form";
 import { useAppSettings } from "@/lib/hooks/use-app-settings";
 import { findDuplicateWork } from "@/lib/actions/works";
@@ -111,6 +112,14 @@ export function AddBookWizard({
   // Categorization
   const [taxonomy, setTaxonomy] = useState<TaxonomySelection>(emptyTaxonomy);
 
+  // Unsaved work: what the person typed or chose since the book was started
+  // or filled from a search result. A result filled in is not their work yet,
+  // and a value put back is no change.
+  const draft = JSON.stringify({ work, edition, instanceDrafts, taxonomy, skipCopies });
+  const [startingPoint, setStartingPoint] = useState(draft);
+  const [touched, setTouched] = useState(false);
+  const touch = () => setTouched(true);
+
   // What the steps choose from, loaded when a step first needs it
   const { recommenders, locations, lists, defaultLocationId } = useWizardOptions(
     step,
@@ -134,6 +143,10 @@ export function AddBookWizard({
     updateWork(filled.work);
     setEdition(filled.edition);
     setSource(filled.source);
+    setStartingPoint(JSON.stringify({
+      work: { ...work, ...filled.work }, edition: filled.edition, instanceDrafts, taxonomy, skipCopies,
+    }));
+    setTouched(false);
     checkDuplicate(result.isbn13 ?? "", result.title, result.authors[0] ?? "");
   }
 
@@ -260,6 +273,22 @@ export function AddBookWizard({
     else router.push("/library");
   }
 
+  // Esc cancels too; with unsaved work, Esc and Cancel ask first. Save is
+  // Fast Track on the work's step and "Add to catalogue" on the review,
+  // the two places a book is saved from (Enter there does the same)
+  const root = useRef<HTMLDivElement>(null);
+  const canFastTrack = !existingWorkId && !!work.title.trim() && !!work.authorName.trim();
+  const unsavedPrompt = useEscapeToCancel({
+    root,
+    cancel,
+    enabled: !fastTrackSaving && !isPending,
+    dirty: touched && draft !== startingPoint,
+    save:
+      step === "details" && canFastTrack ? handleFastTrack
+      : step === "confirm" ? handleSubmit
+      : null,
+  });
+
   // In a footer, `mr-auto` keeps Cancel beside Back when the row wraps
   const cancelButton = (className?: string) => (
     <Button
@@ -267,6 +296,7 @@ export function AddBookWizard({
       className={className}
       disabled={fastTrackSaving || isPending}
       onClick={cancel}
+      data-dismiss=""
     >
       Cancel
     </Button>
@@ -277,7 +307,9 @@ export function AddBookWizard({
   return (
     // Enter goes to the next step (on Details, it runs Fast Track); ⌘Enter
     // runs Fast Track or adds the book
-    <div className="max-w-2xl" data-shortcut-scope="">
+    <>
+    {unsavedPrompt}
+    <div ref={root} className="max-w-2xl" data-shortcut-scope="">
       <StepProgress step={step} disabled={fastTrackSaving} onStep={setStep} />
 
       {step === "search" && (
@@ -309,6 +341,7 @@ export function AddBookWizard({
         <DetailsStep
           work={work}
           onChange={(patch) => {
+            touch();
             setEdited(true);
             updateWork(patch);
           }}
@@ -327,6 +360,7 @@ export function AddBookWizard({
         <EditionStep
           edition={edition}
           onChange={(patch) => {
+            touch();
             setEdited(true);
             updateEdition(patch);
             if (patch.isbn13 !== undefined) setIsbnClash(null);
@@ -345,6 +379,7 @@ export function AddBookWizard({
         <CopiesStep
           drafts={instanceDrafts}
           onDraftsChange={(drafts) => {
+            touch();
             setEdited(true);
             setInstanceDrafts(drafts);
           }}
@@ -369,6 +404,7 @@ export function AddBookWizard({
           lists={lists}
           taxonomy={taxonomy}
           onChange={(key, ids) => {
+            touch();
             setEdited(true);
             setTaxonomy((t) => ({ ...t, [key]: ids }));
           }}
@@ -399,5 +435,6 @@ export function AddBookWizard({
         />
       )}
     </div>
+    </>
   );
 }

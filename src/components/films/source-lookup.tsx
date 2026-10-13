@@ -41,7 +41,7 @@ export function FilmSourceLookup({ film }: { film: Film }) {
         <Search className="h-3.5 w-3.5" strokeWidth={1.5} />
         Look up
       </Button>
-      <Dialog open={open} onClose={() => setOpen(false)} title="Look up on Wikidata" description={film.title} className="max-w-xl">
+      <Dialog draft open={open} onClose={() => setOpen(false)} title="Look up on Wikidata" description={film.title} className="max-w-xl">
         {open && <Lookup film={film} onDone={() => setOpen(false)} />}
       </Dialog>
     </>

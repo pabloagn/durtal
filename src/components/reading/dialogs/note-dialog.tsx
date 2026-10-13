@@ -184,7 +184,7 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
 
   const noun = kind === "quote" ? "quote" : "note";
   return (
-    <Dialog open onClose={close} title={editing ? `Edit ${noun}` : `Add a ${noun}`} description={data.workTitle} className="max-w-lg">
+    <Dialog draft open onClose={close} title={editing ? `Edit ${noun}` : `Add a ${noun}`} description={data.workTitle} className="max-w-lg">
       <form ref={form} onSubmit={save} className="space-y-4" data-note-dialog="">
         <SegmentedControl options={KINDS} value={kind} onChange={setKind} ariaLabel="Quote or note" />
         <div className="space-y-1.5">

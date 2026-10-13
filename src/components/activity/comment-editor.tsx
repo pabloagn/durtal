@@ -15,6 +15,7 @@ import {
   Braces,
 } from "lucide-react";
 import { TiptapEditor, ToolbarButton, ToolbarDivider } from "@/components/shared/tiptap-editor";
+import { keepEscape } from "@/lib/ui/surface-state";
 
 const lowlight = createLowlight(common);
 
@@ -128,8 +129,11 @@ export function CommentEditor({
 
       if (event.key === "Escape") {
         if (isEditing) {
+          // One layer per Esc: a dialog or page around it stays
+          keepEscape(event);
           onCancelEdit?.();
         } else if (editorEmpty) {
+          keepEscape(event);
           setExpanded(false);
           editor.commands.blur();
         }

@@ -9,7 +9,7 @@ export default async function NewPublisherPage() {
   return (
     <>
       <PageHeader title="Add publisher" />
-      <PublisherEditor specialties={specialties} />
+      <PublisherEditor specialties={specialties} cancelHref="/publishers" />
     </>
   );
 }

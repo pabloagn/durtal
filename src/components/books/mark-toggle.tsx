@@ -121,6 +121,8 @@ export function MarkToggle({
     }
     function escape(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        // One layer per Esc: the card only
+        event.preventDefault();
         close();
         button.current?.focus();
       }
