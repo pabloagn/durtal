@@ -290,7 +290,7 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
     {reading && data.estimate && percent != null && <ReaderSlotFill slot="top-bar"><span className="text-xs text-fg-secondary" title={data.estimate.explanation}>
       About {hoursWords((100 - percent) * data.estimate.minutesPerPercent)} left
     </span></ReaderSlotFill>}
-    <ReaderSlotFill slot="selection-actions"><Button disabled={busy || !selection} variant="ghost" onClick={() => void quote()}>Save quote</Button></ReaderSlotFill>
+    <ReaderSlotFill slot="selection-more"><Button disabled={busy || !selection} variant="ghost" onClick={() => void quote()}>Save quote</Button></ReaderSlotFill>
     {notice && <aside role="status" data-reader-chrome className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-xl flex-wrap items-center gap-3 rounded-xl bg-bg-primary p-4 text-sm shadow-lg">
       <p className="flex-1">{notice}</p><Button onClick={() => { setNotice(null); void queue.current?.flush(); }}>Retry sync</Button>
     </aside>}

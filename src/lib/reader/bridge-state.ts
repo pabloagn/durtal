@@ -14,9 +14,11 @@ export type ReaderControllerFailureProps = {
   code: ReaderControllerFailureCode;
   onRetry?: () => void;
 };
-export type ReaderSlot = "toolbar-status" | "top-bar" | "selection-actions";
+/** "selection-more" holds the less used selection actions: inline with a
+ * mouse, behind More on touch (SLN-678). */
+export type ReaderSlot = "toolbar-status" | "top-bar" | "selection-actions" | "selection-more";
 type Fill = { element: HTMLElement; order: number; sequence: number; placement: "normal" | "last" };
-const slots: ReaderSlot[] = ["toolbar-status", "top-bar", "selection-actions"];
+const slots: ReaderSlot[] = ["toolbar-status", "top-bar", "selection-actions", "selection-more"];
 
 /** Internal controller: plugin code uses only the bridge's public hooks and fills. */
 export function createReaderBridge(
@@ -35,6 +37,7 @@ export function createReaderBridge(
     "toolbar-status": false,
     "top-bar": false,
     "selection-actions": false,
+    "selection-more": false,
   };
   const notifySlots = () => {
     filled = Object.fromEntries(

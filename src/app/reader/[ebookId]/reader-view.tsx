@@ -343,6 +343,7 @@ function ReaderSession({
   const [speech, setSpeech] = useState<SpeechSnapshot | null>(null);
   const [speechHeight, setSpeechHeight] = useState(0);
   const [bottomHeight, setBottomHeight] = useState(0);
+  const [topHeight, setTopHeight] = useState(0);
   const [relocation, setRelocation] = useState<EngineEvents["relocate"] | null>(
     null,
   );
@@ -373,6 +374,7 @@ function ReaderSession({
   const [notice, setNotice] = useState<string | null>(null);
   const [selection, setSelection] = useState<EngineEvents["selection"]>(null);
   const selectionToolbarRef = useRef<HTMLDivElement>(null);
+  const [lookupSheet, setLookupSheet] = useState(false);
   const syncRef = useRef<ReturnType<typeof createPlaceSync> | null>(null);
   const [contentsOpen, setContentsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -1236,6 +1238,7 @@ function ReaderSession({
                     changed: setSpeech,
                     audio: new Audio(),
                     fetch: (...args) => window.fetch(...args),
+                    selectsSentences: () => !window.matchMedia("(pointer: coarse)").matches,
                   });
                   if (selectionRef.current)
                     speechRef.current.selection(selectionRef.current.locator);
@@ -1368,12 +1371,16 @@ function ReaderSession({
     const bottom = document.querySelector<HTMLElement>(
       "[data-reader-bottom-bar]",
     );
-    if (!bottom) return;
-    const measure = () =>
+    const top = document.querySelector<HTMLElement>("[data-reader-top-bar]");
+    if (!bottom || !top) return;
+    const measure = () => {
       setBottomHeight(bottom.getBoundingClientRect().height);
+      setTopHeight(top.getBoundingClientRect().height);
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(bottom);
+    observer.observe(top);
     return () => observer.disconnect();
   }, []);
 
@@ -1671,10 +1678,13 @@ function ReaderSession({
         markingActions={annotations.markingActions}
         speechReady={speech?.selectionReady}
         bottomInset={speechHeight + (bars.visible ? bottomHeight : 0)}
+        topInset={bars.visible ? topHeight : 0}
+        covered={lookupSheet}
       />
       {status.kind === "ready" && engineRef.current && <LookupLayer
         engine={engineRef.current} ebook={ebook} toolbarRef={selectionToolbarRef}
         enabled={controllerReadiness.ready && preferences.ready}
+        onSheet={setLookupSheet}
       />}
       <Suspense fallback={null}>
         {index && contentsOpen && (

@@ -33,7 +33,7 @@ export function DictionaryTab({ state, language, word }: { state: DictionaryStat
               : <p key={index} className={part.type === "t" ? "mb-2 italic text-fg-secondary" : "mb-2 whitespace-pre-wrap"}>{part.text}</p>)
             : <p className="text-fg-secondary">This entry uses a format Durtal does not show</p>}
         </div>) : state.packs.length ? <p className="text-fg-secondary">No entry for ‘{word}’ in dictionaries on this device.</p> :
-        <p className="text-fg-secondary">No dictionary for {languageName(language)} on this device. <Link className="underline" href="/settings/reader#dictionaries">Add one in Settings › Reader</Link></p>}
+        <p className="text-fg-secondary">No dictionary for {languageName(language)} on this device. <Link className="underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center" href="/settings/reader#dictionaries">Add one in Settings › Reader</Link></p>}
       {state.packError && <p role="status" className="text-fg-secondary">{state.packError}</p>}
     </section>
     {state.offline ? <p role="status" className="text-fg-secondary">No connection</p> : <>

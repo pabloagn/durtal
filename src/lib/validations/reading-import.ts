@@ -6,7 +6,7 @@ import { IMPORT_DECISIONS } from "@/lib/reading/import/match-rules";
  * `imports.status` have no CHECK in the table; these lists are the rule.
  */
 
-export const IMPORT_SOURCES = ["goodreads", "storygraph", "durtal"] as const;
+export const IMPORT_SOURCES = ["goodreads", "storygraph", "durtal", "ebook_library"] as const;
 export const IMPORT_STATUSES = ["pending", "completed", "undone"] as const;
 
 /** One CSV of at most 10 MB */

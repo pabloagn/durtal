@@ -11,7 +11,8 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { handleSurfaceEscape, hasOpenSurface } from "@/lib/ui/surface-state";
+import { handleSurfaceEscape, hasOpenSurface, isPassedThrough } from "@/lib/ui/surface-state";
+import { leavePage } from "@/components/ui/unsaved-guard";
 import { Copy, Link2, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { AuthorCreateDialog } from "@/app/(catalogue)/people/author-create-dialog";
@@ -28,8 +29,10 @@ import {
   GO_TO,
   isComposing,
   isConfirmField,
+  isDialogTextBox,
   isMacPlatform,
   isPickerField,
+  isQuietInDialog,
   isTyping,
   pageSearchField,
   pickerOptions,
@@ -290,7 +293,7 @@ export function ShortcutsProvider({
     (key: string) => {
       const entry = ADD.find((a) => a.key === key);
       if (!entry) return;
-      if ("href" in entry) router.push(entry.href);
+      if ("href" in entry) leavePage(() => router.push(entry.href));
       else setAddDialog(entry.dialog);
     },
     [router],
@@ -335,7 +338,7 @@ export function ShortcutsProvider({
     (name: MenuName, index: number) => {
       setMenu(null);
       if (name === "add") add(ADD[index].key);
-      else if (name === "go") router.push(GO_TO[index].href);
+      else if (name === "go") leavePage(() => router.push(GO_TO[index].href));
       else if (name === "edit") editItems()[index]?.run();
       else if (name === "reading") readingItems()[index]?.run();
       else void copy(copyItems()[index]);
@@ -386,7 +389,7 @@ export function ShortcutsProvider({
 
     function onKeyDown(event: KeyboardEvent) {
       // A handler on the page took the key, or an input method is composing
-      if (event.defaultPrevented || isComposing(event))
+      if ((event.defaultPrevented && !isPassedThrough(event)) || isComposing(event))
         return;
       const target = event.target as HTMLElement | null;
       const mod = mac ? event.metaKey : event.ctrlKey;
@@ -462,6 +465,17 @@ export function ShortcutsProvider({
       }
 
       if (event.key === "Enter" && !event.altKey && !event.shiftKey && !otherMod) {
+        // A held Enter presses once: its repeats never save, submit or
+        // click again (SLN-631). A text box on a page, a rich text field and
+        // the reader keep their own Enter.
+        if (event.repeat) {
+          const own =
+            READER_VIEW_RE.test(pathname) ||
+            (target instanceof HTMLTextAreaElement && !isDialogTextBox(target)) ||
+            !!target?.isContentEditable;
+          if (!own) event.preventDefault();
+          return;
+        }
         // ⌘Enter saves
         if (mod) return press(event, shortcutButton(target, "save"));
         // Enter ticks a checkbox in a list or menu
@@ -471,8 +485,14 @@ export function ShortcutsProvider({
           !target.form
         )
           return press(event, target);
-        // Enter in a one-line field confirms
-        if (isConfirmField(target)) press(event, shortcutButton(target, "next"));
+        // Enter in a one-line field confirms; in a dialog, so does Enter in
+        // a text box (Shift+Enter is its new line) and Enter with the focus
+        // on the dialog itself. The reader keeps its own keys.
+        if (
+          isConfirmField(target) ||
+          (!READER_VIEW_RE.test(pathname) && (isDialogTextBox(target) || isQuietInDialog(target)))
+        )
+          press(event, shortcutButton(target, "next"));
         return;
       }
 

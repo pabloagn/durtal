@@ -16,7 +16,7 @@ import { readingsCommitted, readingsUncommittedSql } from "./notes";
 export const SECTION_PAGE = 50;
 export const SECTION_MAX = 5000;
 
-const IMPORT_SOURCES = sql`('goodreads', 'storygraph', 'durtal')`;
+const IMPORT_SOURCES = sql`('goodreads', 'storygraph', 'durtal', 'ebook_library')`;
 
 export interface ImportListItem {
   id: string;
@@ -34,6 +34,8 @@ export interface ImportListItem {
   queued: number;
   /** Notes it wrote from private notes (SLN-453) */
   notes: number;
+  /** Book ratings it set (SLN-658) */
+  ratings: number;
 }
 
 /** The reading imports, newest first */
@@ -46,7 +48,8 @@ export async function listReadingImports(limit = 100): Promise<ImportListItem[]>
         i.s3_bronze_key is not null as "rawKept",
         (select count(*) from readings r where r.import_id = i.id)::int as readings,
         (select count(*) from reading_queue q where q.import_id = i.id)::int as queued,
-        (select count(*) from reading_notes n where n.import_id = i.id)::int as notes
+        (select count(*) from reading_notes n where n.import_id = i.id)::int as notes,
+        (select count(*) from reading_import_rows x where x.import_id = i.id and coalesce(x.written->'bookRating', 'null'::jsonb) <> 'null'::jsonb)::int as ratings
       from imports i
       where i.source in ${IMPORT_SOURCES}
       order by i.created_at desc, i.id
@@ -73,6 +76,8 @@ export interface ImportSummary {
   ratingsDiffer: number;
   /** Readings the commit button would write */
   toImport: number;
+  /** E-book library ratings the commit would write to their books (SLN-658) */
+  toRate: number;
   /** To-read rows the commit would add to Up Next (SLN-452) */
   toQueue: number;
   /** To-read rows on shelves that are not imported */
@@ -130,7 +135,8 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
         i.s3_bronze_key is not null as "rawKept", i.error_log as "errorLog",
         (select count(*) from readings r where r.import_id = i.id)::int as readings,
         (select count(*) from reading_queue q where q.import_id = i.id)::int as queued,
-        (select count(*) from reading_notes n where n.import_id = i.id)::int as notes
+        (select count(*) from reading_notes n where n.import_id = i.id)::int as notes,
+        (select count(*) from reading_import_rows x where x.import_id = i.id and coalesce(x.written->'bookRating', 'null'::jsonb) <> 'null'::jsonb)::int as ratings
       from imports i where i.id = ${importId}::uuid and i.source in ${IMPORT_SOURCES}`),
   );
   if (!header) return null;
@@ -156,8 +162,12 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
           and w.rating <> (r.data->>'rating')::numeric and r.match->>'section' not in ('present', 'cannot', 'not_imported', 'to_read'))::int as "ratingsDiffer",
         coalesce(sum(case when r.decision = 'import' and ${open} and r.work_id is not null then
           (select count(*) from jsonb_array_elements(r.match->'verdicts') v
-            where v->>'verdict' = 'new' or (r.match->>'section' = 'present' and v->>'reason' = 'Undated read'))
+            where v->>'verdict' = 'new' or (r.match->>'section' = 'present'
+              and v->>'reason' in ('Undated read', 'Another read in Durtal', 'Being read in Durtal')))
           else 0 end), 0)::int as "toImport",
+        count(*) filter (where r.decision = 'import' and ${open} and r.work_id is not null
+          and (r.match->>'rating' = 'set' or (r.match->>'rating' = 'differs' and r.use_file_rating))
+          and r.match->>'section' not in ('present', 'cannot', 'not_imported', 'to_read'))::int as "toRate",
         count(*) filter (where r.decision = 'import' and ${open} and r.match->>'reason' = 'Same ISBN'
           and r.data->>'sourceBookId' is not null and e.goodreads_id is null)::int as identifiers
       from reading_import_rows r

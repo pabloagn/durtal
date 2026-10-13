@@ -263,6 +263,37 @@ export function isConfirmField(el: EventTarget | null): el is HTMLInputElement {
   return !isPickerField(el);
 }
 
+/**
+ * A text box in a dialog: Enter saves there as in a one-line field, and
+ * Shift+Enter starts a new line (SLN-631). On a page a text box keeps its
+ * Enter, and `data-enter="ignore"` keeps it anywhere.
+ */
+export function isDialogTextBox(el: EventTarget | null): el is HTMLTextAreaElement {
+  return (
+    el instanceof HTMLTextAreaElement &&
+    !el.readOnly &&
+    !!el.closest("dialog") &&
+    !el.closest('[data-enter="ignore"], [cmdk-root], [role="combobox"], [role="listbox"]')
+  );
+}
+
+/** Elements with an Enter of their own: a button, a link, a field, a list */
+const OWN_ENTER = [
+  "a[href]", "button", "input", "select", "textarea", "summary", "[contenteditable]",
+  "[cmdk-root]", '[data-enter="ignore"]',
+  ...["button", "link", "menuitem", "option", "tab", "switch", "checkbox", "radio",
+    "combobox", "slider", "listbox", "menu", "tree", "grid"].map((r) => `[role="${r}"]`),
+].join(", ");
+
+/**
+ * Focus in a dialog on nothing with an Enter of its own: the dialog itself
+ * (one with no field starts there, a confirmation) or a passage of text.
+ * Enter presses the dialog's main button.
+ */
+export function isQuietInDialog(el: EventTarget | null): el is HTMLElement {
+  return el instanceof HTMLElement && !!el.closest("dialog") && !el.closest(OWN_ENTER);
+}
+
 /** A field that searches or filters a list: Enter picks from the list */
 export function isPickerField(el: HTMLInputElement): boolean {
   return (
@@ -377,7 +408,9 @@ export function shortcutButton(
 
   const next = lastShown(scope, 'button[data-shortcut="next"]');
   if (next) return usable(next);
-  for (let el = inside?.parentElement ?? null; el; el = el === scope ? null : el.parentElement) {
+  // From the field's group outward; from the dialog itself, the dialog
+  let el = inside === scope ? scope : inside?.parentElement ?? null;
+  for (; el; el = el === scope ? null : el.parentElement) {
     const main = lastShown(el, MAIN_BUTTON);
     if (main) return usable(main);
   }

@@ -52,6 +52,24 @@ export function passEscapeThrough(event: KeyboardEvent) {
   if (event.key === "Escape" && !event.defaultPrevented) passing.add(event);
 }
 
+/**
+ * ⌘Enter (Ctrl+Enter) in a rich text editor saves the dialog around it
+ * (SLN-631), where the editor would break the line: the key is kept from
+ * the editor and left to the shortcuts.
+ */
+export function passSaveThrough(event: KeyboardEvent, mac: boolean) {
+  const mod = mac ? event.metaKey : event.ctrlKey;
+  const other = mac ? event.ctrlKey : event.metaKey;
+  if (event.key !== "Enter" || !mod || other || event.altKey || event.shiftKey || event.defaultPrevented) return;
+  event.preventDefault();
+  passing.add(event);
+}
+
+/** A key an editor marked handled only to pass it on (Esc, ⌘Enter) */
+export function isPassedThrough(event: Event): boolean {
+  return passing.has(event);
+}
+
 /** The editor's own use of Esc (it closes something of its own): it stops there */
 export function keepEscape(event: KeyboardEvent) {
   event.preventDefault();

@@ -9,10 +9,8 @@ import { Input } from "@/components/ui/input";
 import {
   getCollectionSelection,
   createCollection,
-  bulkAddEditionsToCollection,
-  bulkAddWorksToCollection,
-  removeEditionsFromCollection,
-  removeWorksFromCollection,
+  addToCollection,
+  removeFromCollection,
 } from "@/lib/actions/collections";
 import {
   collectionCounts,
@@ -45,10 +43,15 @@ export function AddToCollectionDialog({
     [error, setError] = useState(false);
   const request = useRef("");
   const saving = useRef(false);
+  // A read after a failed change keeps the editions the reader chose
+  const keepChoice = useRef(false);
   const [attempt, setAttempt] = useState(0);
   const selectionKey = JSON.stringify({ workIds, editionId });
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      keepChoice.current = false;
+      return;
+    }
     let cancelled = false;
     const selection = JSON.parse(selectionKey);
     setData(null);
@@ -61,8 +64,11 @@ export function AddToCollectionDialog({
     )
       .then((result) => {
         if (!cancelled) {
+          const ids = result.editions.map((e) => e.id);
+          const keep = keepChoice.current;
+          keepChoice.current = false;
           setData(result);
-          setSelected(result.editions.map((e) => e.id));
+          setSelected((old) => (keep ? old.filter((id) => ids.includes(id)) : ids));
         }
       })
       .catch(() => {
@@ -84,13 +90,9 @@ export function AddToCollectionDialog({
     saving.current = true;
     setBusy(true);
     try {
-      if (remove) {
-        if (selected.length) await removeEditionsFromCollection(id, selected);
-        if (wholeWorks.length) await removeWorksFromCollection(id, wholeWorks);
-      } else {
-        if (selected.length) await bulkAddEditionsToCollection(id, selected);
-        if (wholeWorks.length) await bulkAddWorksToCollection(id, wholeWorks);
-      }
+      // Editions and whole works change together or not at all (SLN-573)
+      const members = { editionIds: selected, workIds: wholeWorks };
+      await (remove ? removeFromCollection(id, members) : addToCollection(id, members));
       setData(
         (current) =>
           current && {
@@ -137,7 +139,10 @@ export function AddToCollectionDialog({
       toast.success(remove ? "Removed from collection" : "Added to collection");
       refreshed();
     } catch {
-      toast.error("Could not update this collection. Please try again.");
+      // Nothing was changed; a book may have gone meanwhile, so read again
+      toast.error("Could not update this collection. Nothing was changed.");
+      keepChoice.current = true;
+      setAttempt((n) => n + 1);
     } finally {
       saving.current = false;
       setBusy(false);

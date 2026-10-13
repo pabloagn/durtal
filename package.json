@@ -22,6 +22,7 @@
     "ebooks:match": "tsx --tsconfig tsconfig.json scripts/ebooks/match.ts",
     "ebooks:calibre-snapshot": "tsx --tsconfig tsconfig.json scripts/ebooks/calibre-snapshot.ts",
     "ebooks:import-existing": "tsx --tsconfig tsconfig.json scripts/ebooks/import-existing.ts",
+    "ebooks:reading-import": "tsx --tsconfig tsconfig.json scripts/ebooks/reading-import.ts",
     "ebooks:upload-service": "tsx --tsconfig tsconfig.json scripts/ebooks/upload-service.ts",
     "test": "vitest run",
     "test:local": "python3 scripts/qa/test-local.py",

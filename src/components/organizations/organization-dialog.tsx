@@ -215,6 +215,7 @@ function OrganizationForm({
     <Textarea
       name="aliases"
       label="Other names, one per line"
+      data-enter="ignore"
       defaultValue={organization?.aliases.join("\n") ?? ""}
       rows={3}
       disabled={saving}

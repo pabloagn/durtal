@@ -22,6 +22,25 @@ describe("PDF overlay ownership (DOM contract, not native geometry certification
     expect(doc.querySelector("[data-durtal-pdf-marks]")).toBeNull();
     marks.destroy();
   });
+  it("lets a selection start on a mark, and opens it on a plain click (SLN-670)", () => {
+    const doc = document.implementation.createHTMLDocument();
+    const view = { renderer: { getContents: () => [{ doc, index: 0 }] } } as unknown as FoliateView;
+    const book = { pdfViewport: () => ({ height: 100, convertToPdfPoint: (x: number, y: number) => [x, y], convertToViewportRectangle: (r: number[]) => r }), pdfCropOffset: () => ({ left: 0, top: 0 }) } as unknown as FoliateBook;
+    const opened: string[] = [];
+    const marks = new PdfDecorations((event) => opened.push(event.decorationId));
+    const item: Decoration = { id: "a", locator: { v: 1, fileHash: hash, href: "0", sectionIndex: 0, progression: 0, totalProgression: 0, pdf: { page: 1, rects: [[10, 20, 30, 40]] } }, style: "highlight", color: "#abc" };
+    marks.set("annotations", [item]); marks.render(view, book, hash, { link: "#abc" });
+    const mark = doc.querySelector<SVGGElement>("[data-decoration-id]")!;
+    expect(mark.style.pointerEvents).toBe("none");
+    doc.querySelector("rect")!.getBoundingClientRect = () => new DOMRect(10, 20, 20, 20);
+    const click = (x: number, y: number) => { const event = new MouseEvent("click", { bubbles: true, cancelable: true, clientX: x, clientY: y }); doc.body.dispatchEvent(event); return event; };
+    expect(click(50, 50).defaultPrevented).toBe(false);
+    expect(click(15, 30).defaultPrevented).toBe(true);
+    expect(opened).toEqual(["a"]);
+    marks.destroy();
+    click(15, 30);
+    expect(opened).toEqual(["a"]);
+  });
   it("does not draw before a real viewport has been adopted", () => {
     const doc = document.implementation.createHTMLDocument();
     const marks = new PdfDecorations(() => {});

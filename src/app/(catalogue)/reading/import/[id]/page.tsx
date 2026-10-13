@@ -60,7 +60,7 @@ export default async function ImportPreviewPage({ params, searchParams }: { para
   // Goodreads private notes (SLN-453), 50 at a time like the sections
   const notes = await getImportNotes(id, Math.min(5000, Math.max(SECTION_PAGE, Number(one(query.notes)) || SECTION_PAGE)));
   const today = await readingToday();
-  const commit = commitWords(summary.toImport, summary.pending, summary.toQueue, notes.toImport);
+  const commit = commitWords(summary.toImport, summary.pending, summary.toQueue, notes.toImport, summary.toRate);
   const carry = cannotCarry(header.source, summary, header.errorLog?.missing ?? []);
   const errors = header.errorLog?.errors ?? [];
   const uploaded = formatReadingDate(calendarDate(new Date(header.createdAt), appTimeZone()), "day");
@@ -72,17 +72,21 @@ export default async function ImportPreviewPage({ params, searchParams }: { para
         <section data-import-header="">
           <SectionHeading
             title={header.fileName ?? "Reading history"}
-            description={`${SOURCE_LABELS[header.source]} export, uploaded ${uploaded}${header.rawKept ? "" : " · Raw file not kept"}`}
+            description={
+              header.source === "ebook_library"
+                ? `Ratings and reads from the e-book library, made ${uploaded}`
+                : `${SOURCE_LABELS[header.source]} export, uploaded ${uploaded}${header.rawKept ? "" : " · Raw file not kept"}`
+            }
             action={<Badge variant={header.status === "completed" ? "sage" : header.status === "pending" ? "gold" : "muted"}>{STATUS_LABEL[header.status]}</Badge>}
           />
           <p className="text-sm text-fg-secondary" data-import-summary="">
             {summaryLine(summary)}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <CommitImport importId={id} label={commit.label} disabled={summary.toImport === 0 && summary.toQueue === 0 && notes.toImport === 0} />
+            <CommitImport importId={id} label={commit.label} disabled={summary.toImport === 0 && summary.toQueue === 0 && notes.toImport === 0 && summary.toRate === 0} />
             <MatchAgain importId={id} show={summary.noBook > 0} />
-            {(header.readings > 0 || header.queued > 0 || header.notes > 0) && (
-              <UndoImport importId={id} readings={header.readings} queued={header.queued} notes={header.notes} />
+            {(header.readings > 0 || header.queued > 0 || header.notes > 0 || header.ratings > 0) && (
+              <UndoImport importId={id} readings={header.readings} queued={header.queued} notes={header.notes} goodreadsIds={header.source !== "ebook_library"} />
             )}
             <Link href="/reading/import" className="text-sm text-fg-secondary transition-colors hover:text-fg-primary touch-hit">
               All imports
