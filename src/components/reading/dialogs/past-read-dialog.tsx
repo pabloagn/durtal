@@ -89,7 +89,7 @@ export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
   }
 
   return (
-    <Dialog open onClose={onClose} title="Log a past read" description={data.workTitle} className="max-w-lg">
+    <Dialog draft open onClose={onClose} title="Log a past read" description={data.workTitle} className="max-w-lg">
       <form
         onSubmit={(e) => {
           e.preventDefault();

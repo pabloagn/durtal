@@ -373,10 +373,7 @@ export function shortcutButton(
   const inside = from && scope.contains(from) ? from : null;
   if (!inside && from && from !== document.body) return null;
 
-  if (mode === "save")
-    return usable(
-      lastShown(scope, 'button[data-shortcut="save"]') ?? lastShown(scope, MAIN_BUTTON),
-    );
+  if (mode === "save") return saveButtonIn(scope);
 
   const next = lastShown(scope, 'button[data-shortcut="next"]');
   if (next) return usable(next);
@@ -385,6 +382,17 @@ export function shortcutButton(
     if (main) return usable(main);
   }
   return null;
+}
+
+/**
+ * The button that saves `scope` (a dialog, a form page): its
+ * `data-shortcut="save"` button, else its last main button. Null while that
+ * button is off (the form is not valid yet, or it is saving).
+ */
+export function saveButtonIn(scope: Element): HTMLButtonElement | null {
+  return usable(
+    lastShown(scope, 'button[data-shortcut="save"]') ?? lastShown(scope, MAIN_BUTTON),
+  );
 }
 
 /** The list search box on this page ("Search people...") */

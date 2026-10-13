@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -182,9 +183,21 @@ export function PerfumeForm(props: Props) {
     }
   }
 
+  // On the create page, Esc cancels like Cancel, asking first when there is
+  // unsaved work. In the edit dialog, the dialog does the same.
+  const root = useRef<HTMLDivElement>(null);
+  const unsavedPrompt = useEscapeToCancel({
+    root,
+    cancel: () => router.push("/perfumes"),
+    enabled: props.mode === "create" && !saving,
+    track: true,
+  });
+
   return (
     // ⌘Enter saves; on the create page this is the page's shortcut scope
-    <div className="space-y-8" data-shortcut-scope="">
+    <>
+    {unsavedPrompt}
+    <div ref={root} className="space-y-8" data-shortcut-scope="">
       {props.mode === "create" && (
         <Section title="Source">
           <SourceLinkField value={sourceLink} onChange={setSourceLink} onUse={takeSource} />
@@ -280,6 +293,7 @@ export function PerfumeForm(props: Props) {
       <div className="flex flex-wrap justify-end gap-2">
         <Button
           variant="ghost"
+          data-dismiss=""
           onClick={() =>
             props.mode === "edit" ? props.onCancel() : router.push("/perfumes")
           }
@@ -298,5 +312,6 @@ export function PerfumeForm(props: Props) {
         </Button>
       </div>
     </div>
+    </>
   );
 }

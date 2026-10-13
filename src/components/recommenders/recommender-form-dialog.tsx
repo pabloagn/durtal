@@ -104,6 +104,7 @@ export function RecommenderFormDialog({
         </Button>
       )}
       <Dialog
+        draft
         open={open}
         onClose={close}
         title={isEdit ? "Edit recommender" : "Add recommender"}
@@ -136,7 +137,7 @@ export function RecommenderFormDialog({
             spellCheck={false}
           />
           <div className="flex justify-end gap-2">
-            <Button type="button" disabled={pending} onClick={close}>
+            <Button data-dismiss="" type="button" disabled={pending} onClick={close}>
               Cancel
             </Button>
             <Button

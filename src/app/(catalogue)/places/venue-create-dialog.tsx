@@ -214,6 +214,7 @@ export function VenueCreateDialog({
       )}
 
       <Dialog
+        draft
         open={open}
         onClose={handleClose}
         title={venue ? "Edit venue" : "Add Venue"}
@@ -397,7 +398,7 @@ export function VenueCreateDialog({
 
         {/* Footer */}
         <div className="mt-5 flex items-center justify-end gap-2 border-t border-glass-border pt-4">
-          <Button
+          <Button data-dismiss=""
             variant="secondary"
             size="sm"
             onClick={handleClose}

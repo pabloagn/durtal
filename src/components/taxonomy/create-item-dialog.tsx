@@ -94,6 +94,7 @@ export function CreateItemDialog({
 
   return (
     <Dialog
+      draft
       open={open}
       onClose={handleClose}
       title={`New ${familyName} Item`}
@@ -149,7 +150,7 @@ export function CreateItemDialog({
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-2 pt-2">
-          <Button
+          <Button data-dismiss=""
             type="button"
             variant="ghost"
             size="sm"

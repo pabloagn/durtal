@@ -95,7 +95,7 @@ export function GoalDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Dialog open onClose={onClose} title="Set a reading goal" description="Optional. Leave a field empty for no goal." className="max-w-lg" expandable={false}>
+    <Dialog draft open onClose={onClose} title="Set a reading goal" description="Optional. Leave a field empty for no goal." className="max-w-lg" expandable={false}>
       {!data || !form || year === null ? (
         <div className="h-64" aria-busy="true" />
       ) : (

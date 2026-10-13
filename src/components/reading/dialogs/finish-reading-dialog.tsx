@@ -99,6 +99,7 @@ export function FinishReadingDialog({ data, row, request, home, onClose, changed
 
   return (
     <Dialog
+      draft
       open
       onClose={onClose}
       title="Finish"

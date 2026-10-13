@@ -169,6 +169,7 @@ export function OrderEditDialog({
 
   return (
     <Dialog
+      draft
       open={open}
       onClose={onClose}
       title="Edit Order"
@@ -294,7 +295,7 @@ export function OrderEditDialog({
       </div>
 
       <div className="mt-5 flex items-center justify-end gap-3 border-t border-glass-border pt-4">
-        <Button
+        <Button data-dismiss=""
           variant="ghost"
           size="sm"
           onClick={onClose}

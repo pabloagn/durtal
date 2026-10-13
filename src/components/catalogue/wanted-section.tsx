@@ -149,10 +149,11 @@ export function WantedSection({
         </ul>
       )}
 
-      <Dialog open={dialog?.kind === "add"} onClose={close} title="Add to your list" description={title} className="max-w-2xl">
+      <Dialog draft open={dialog?.kind === "add"} onClose={close} title="Add to your list" description={title} className="max-w-2xl">
         {dialog?.kind === "add" && <WantForm workId={workId} choices={choices} onDone={close} />}
       </Dialog>
       <Dialog
+        draft
         open={dialog?.kind === "order"}
         onClose={close}
         title="Order"
@@ -224,7 +225,7 @@ function FormFooter({ saving, error, blocked, label, onCancel, onSave }: {
         </p>
       )}
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={onCancel} disabled={saving}>
+        <Button data-dismiss="" variant="ghost" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
         <Button variant="primary" data-shortcut="save" onClick={onSave} disabled={blocked || saving}>

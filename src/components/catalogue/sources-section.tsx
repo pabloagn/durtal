@@ -139,7 +139,7 @@ export function SourcesSection({
         </ul>
       )}
 
-      <Dialog open={adding} onClose={() => setAdding(false)} title="Add source" description={title} className="max-w-xl">
+      <Dialog draft open={adding} onClose={() => setAdding(false)} title="Add source" description={title} className="max-w-xl">
         {adding && (
           <SourceForm owner={owner} examples={examples} onDone={() => setAdding(false)} />
         )}
@@ -193,7 +193,7 @@ function SourceForm({
         placeholder={examples.says}
       />
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={onDone} disabled={saving}>
+        <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
         </Button>
         <Button

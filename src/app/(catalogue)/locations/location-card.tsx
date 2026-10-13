@@ -196,6 +196,7 @@ export function LocationCard({
 
       {/* Edit Dialog */}
       <Dialog
+        draft
         open={editOpen}
         onClose={() => setEditOpen(false)}
         title="Edit location"
@@ -228,7 +229,7 @@ export function LocationCard({
             </div>
           )}
           <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
-            <Button
+            <Button data-dismiss=""
               variant="secondary"
               size="sm"
               onClick={() => setEditOpen(false)}
@@ -269,7 +270,7 @@ export function LocationCard({
             </div>
           )}
           <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
-            <Button
+            <Button data-dismiss=""
               variant="secondary"
               size="sm"
               onClick={() => setDeleteOpen(false)}

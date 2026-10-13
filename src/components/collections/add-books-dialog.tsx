@@ -145,6 +145,7 @@ export function AddCollectionBooksDialog({
   const shown = mode === "editions" ? results.length : works.length;
   return (
     <Dialog
+      draft
       open={open}
       onClose={() => {
         if (!busy.current) onClose();
@@ -350,7 +351,7 @@ export function AddCollectionBooksDialog({
         <div className="flex items-center justify-between gap-2 border-t border-glass-border pt-3">
           <span className="text-xs text-fg-secondary">{count} selected</span>
           <div className="flex gap-2">
-            <Button disabled={saving} onClick={onClose}>
+            <Button data-dismiss="" disabled={saving} onClick={onClose}>
               Cancel
             </Button>
             <Button variant="primary" disabled={saving || !count} onClick={add}>

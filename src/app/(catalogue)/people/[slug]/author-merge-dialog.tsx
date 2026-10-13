@@ -77,6 +77,7 @@ export function AuthorMergeDialog({
 
   return (
     <Dialog
+      draft
       open={open}
       onClose={handleClose}
       title="Merge people"
@@ -178,7 +179,7 @@ export function AuthorMergeDialog({
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
-          <Button
+          <Button data-dismiss=""
             variant="secondary"
             size="sm"
             onClick={handleClose}

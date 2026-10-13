@@ -102,6 +102,7 @@ function ReorderFamiliesDialog({
     <Dialog
       open
       onClose={onClose}
+      dirty={order.some((family, index) => family.id !== families[index].id)}
       title="Reorder families"
       description="The taxonomy directory and every classification editor use this order."
       className="max-w-md"
@@ -149,7 +150,7 @@ function ReorderFamiliesDialog({
         </p>
       )}
       <div className="mt-4 flex items-center justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+        <Button data-dismiss="" type="button" variant="ghost" size="sm" onClick={onClose}>
           Cancel
         </Button>
         <Button

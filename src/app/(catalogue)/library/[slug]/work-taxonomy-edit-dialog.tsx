@@ -96,6 +96,7 @@ export function WorkTaxonomyEditDialog({
       )}
 
       <Dialog
+        draft
         open={open}
         onClose={() => setOpen(false)}
         title="Edit taxonomy"
@@ -118,7 +119,7 @@ export function WorkTaxonomyEditDialog({
           <div className="mr-auto min-w-0">
             <OptionsNotice loading={lists.loading} failed={lists.failed} onRetry={lists.retry} />
           </div>
-          <Button
+          <Button data-dismiss=""
             variant="secondary"
             size="sm"
             onClick={() => setOpen(false)}

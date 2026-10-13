@@ -123,6 +123,7 @@ export function FormulationDialog({
 }) {
   return (
     <Dialog
+      draft
       open={open}
       onClose={onClose}
       title={formulation ? "Edit formulation" : "Add formulation"}
@@ -342,7 +343,7 @@ function FormulationForm({
         </p>
       )}
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={onDone} disabled={saving}>
+        <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
         </Button>
         <Button variant="primary" data-shortcut="save" onClick={save} disabled={blocked || saving}>

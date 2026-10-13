@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { updatePerfume } from "@/lib/actions/perfumes";
 import type { NotePosition } from "@/lib/catalogue/perfume-labels";
 import { NotePyramid } from "./note-pyramid";
@@ -93,8 +94,19 @@ export function NotesSection({
     }
   }
 
+  // Esc cancels the editor; with unsaved notes it asks first
+  const editor = useRef<HTMLDivElement>(null);
+  const unsavedPrompt = useEscapeToCancel({
+    root: editor,
+    cancel: () => setEditing(false),
+    enabled: editing && !saving,
+    track: true,
+    within: true,
+  });
+
   return (
     <section className="mb-10" aria-labelledby="perfume-notes">
+      {unsavedPrompt}
       <SectionHeading
         id="perfume-notes"
         title="Notes"
@@ -110,7 +122,7 @@ export function NotesSection({
         }
       />
       {editing ? (
-        <div className="space-y-4" data-shortcut-scope="">
+        <div ref={editor} className="space-y-4" data-shortcut-scope="">
           {sources.length > 0 && (
             <div className="max-w-sm">
               <Select
@@ -124,7 +136,7 @@ export function NotesSection({
           )}
           <NotePyramidEditor value={draft} onChange={change} />
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" size="sm" disabled={saving} onClick={() => setEditing(false)}>
+            <Button data-dismiss="" variant="ghost" size="sm" disabled={saving} onClick={() => setEditing(false)}>
               Cancel
             </Button>
             <Button variant="primary" size="sm" data-shortcut="save" disabled={saving} onClick={save}>

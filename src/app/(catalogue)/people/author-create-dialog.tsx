@@ -106,6 +106,7 @@ export function AuthorCreateDialog({
       )}
 
       <Dialog
+        draft
         open={open}
         onClose={handleClose}
         title="Add person"

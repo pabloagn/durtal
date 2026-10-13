@@ -804,7 +804,7 @@ export function EditionForm({
       <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
         {notice && <div className="mr-auto min-w-0">{notice}</div>}
         {onCancel && (
-          <Button
+          <Button data-dismiss=""
             type="button"
             variant="secondary"
             size="sm"

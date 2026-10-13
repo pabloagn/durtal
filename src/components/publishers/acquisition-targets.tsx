@@ -1,5 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import {
   type getAcquisitionTargets,
 } from "@/lib/actions/publishers";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 export function AcquisitionTargets({
   workId,
   targets,
@@ -55,8 +56,18 @@ export function AcquisitionTargets({
       }
     });
   }
+  // Esc cancels the new target; with a choice made it asks first
+  const editor = useRef<HTMLDivElement>(null);
+  const unsavedPrompt = useEscapeToCancel({
+    root: editor,
+    cancel: () => setOpen(false),
+    enabled: open && !pending,
+    track: true,
+    within: true,
+  });
   return (
     <section className="mb-8 space-y-3">
+      {unsavedPrompt}
       <SectionHeading
         title="Hunting for"
         action={
@@ -194,7 +205,7 @@ export function AcquisitionTargets({
         ),
       )}
       {open && (
-        <div className="max-w-lg space-y-3 rounded-sm border border-glass-border p-3">
+        <div ref={editor} className="max-w-lg space-y-3 rounded-sm border border-glass-border p-3">
           <Select
             label="Edition preference"
             value={kind}
@@ -235,10 +246,11 @@ export function AcquisitionTargets({
                 (kind === "edition" && !edition)
               }
               onClick={add}
+              data-shortcut="save"
             >
               Add target
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+            <Button data-dismiss="" size="sm" variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
           </div>

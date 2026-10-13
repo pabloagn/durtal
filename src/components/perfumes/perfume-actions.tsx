@@ -71,6 +71,7 @@ export function PerfumeActions({
         />
       </CapAlignedControls>
       <Dialog
+        draft
         open={open === "edit"}
         onClose={close}
         title="Edit perfume"

@@ -116,6 +116,7 @@ export function SeriesFormDialog({
         </Button>
       )}
       <Dialog
+        draft
         open={open}
         onClose={close}
         title={isEdit ? "Edit series" : "Add series"}
@@ -172,7 +173,7 @@ export function SeriesFormDialog({
             </label>
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" disabled={pending} onClick={close}>
+            <Button data-dismiss="" type="button" disabled={pending} onClick={close}>
               Cancel
             </Button>
             <Button

@@ -6,6 +6,7 @@ import StarterKit, { type StarterKitOptions } from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Bold, Italic, List, ListOrdered, Quote, Link as LinkIcon } from "lucide-react";
+import { passEscapeThrough } from "@/lib/ui/surface-state";
 
 /*
  * The rich text field for reviews and notes (SLN-447): bold, italic, link,
@@ -136,7 +137,8 @@ export function TiptapEditor({
 
   const is = (name: string) => editor?.isActive(name) ?? false;
   return (
-    <div className={className}>
+    // Esc in the text closes the dialog or page around it (SLN-631)
+    <div className={className} onKeyDownCapture={(e) => passEscapeThrough(e.nativeEvent)}>
       {!hideLabel && (
         <label htmlFor={id} className="type-label mb-1.5 block">
           {label}

@@ -122,6 +122,7 @@ export function EditionEditDialog({ edition }: EditionEditDialogProps) {
       </Button>
 
       <Dialog
+        draft
         open={open}
         onClose={() => setOpen(false)}
         title="Edit Edition"

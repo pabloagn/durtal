@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { EditionCover } from "@/components/books/edition-cover";
 import { MatchAgainDialog } from "@/components/books/match-again-dialog";
+import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import {
   findEditionCandidates,
   identifyEdition,
@@ -146,6 +147,8 @@ export function IdentifyQueue({
   const [typed, setTyped] = useState<Record<string, string>>({});
   const [showAll, setShowAll] = useState(false);
   const [confirmUse, setConfirmUse] = useState<string | null>(null);
+  // Esc takes back "Use this edition" before it is confirmed
+  useEscapeToCancel({ cancel: () => setConfirmUse(null), enabled: confirmUse !== null });
   const [matching, setMatching] = useState(false);
   const [busy, setBusy] = useState(false);
 

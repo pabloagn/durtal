@@ -29,7 +29,7 @@ export function NotForMeDialog({ workId, title, onClose }: { workId: string; tit
   }
 
   return (
-    <Dialog open onClose={onClose} title="Not for me because…" description={title} className="max-w-md">
+    <Dialog draft open onClose={onClose} title="Not for me because…" description={title} className="max-w-md">
       <form onSubmit={save} className="space-y-4" data-not-for-me="">
         <fieldset aria-labelledby={legend}>
           <p id={legend} className="type-label mb-2">
