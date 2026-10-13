@@ -46,6 +46,7 @@ const render = (
   selection: EngineEvents["selection"],
   speech?: { ready: boolean; start: () => void },
   covered = false,
+  insets: { topInset?: number; bottomInset?: number } = {},
 ) => {
   native = selection ? { text: selection.text, locator: selection.locator, fileId: "epub", chapter: null, percent: 44 } : null;
   act(() =>
@@ -89,6 +90,7 @@ const render = (
             speechReady: speech?.ready,
             onReadAloud: speech?.start,
             covered,
+            ...insets,
           })),
       }),
     ),
@@ -127,6 +129,20 @@ describe("selection toolbar", () => {
     expect(extra.hidden).toBe(false);
     render(selected, { ready: true, start: () => {} }, true);
     expect(toolbar.hidden).toBe(true);
+  });
+  it("docks at the top for a selection near the bottom, below the top bar while it shows (SLN-678)", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((query: string) => ({
+      matches: query === "(pointer: coarse)", media: query, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+    }) as MediaQueryList);
+    const low = { ...selected, rect: { ...selected.rect, top: innerHeight - 140, bottom: innerHeight - 110 } };
+    render(low, undefined, false, { topInset: 57, bottomInset: 93 });
+    const toolbar = host.querySelector<HTMLElement>('[role="toolbar"]')!;
+    expect(toolbar.style.top).toBe("calc(max(57px, env(safe-area-inset-top)) + 12px)");
+    expect(toolbar.style.bottom).toBe("");
+    render(selected, undefined, false, { topInset: 57, bottomInset: 0 });
+    expect(toolbar.style.top).toBe("");
+    expect(toolbar.style.bottom).toBe("calc(max(0px, env(safe-area-inset-bottom)) + 12px)");
   });
   it("keeps selection speech disabled until prepared, then invokes the trusted button handler", () => {
     const start = vi.fn();

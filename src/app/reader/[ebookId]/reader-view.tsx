@@ -342,6 +342,7 @@ function ReaderSession({
   const [speech, setSpeech] = useState<SpeechSnapshot | null>(null);
   const [speechHeight, setSpeechHeight] = useState(0);
   const [bottomHeight, setBottomHeight] = useState(0);
+  const [topHeight, setTopHeight] = useState(0);
   const [relocation, setRelocation] = useState<EngineEvents["relocate"] | null>(
     null,
   );
@@ -1369,12 +1370,16 @@ function ReaderSession({
     const bottom = document.querySelector<HTMLElement>(
       "[data-reader-bottom-bar]",
     );
-    if (!bottom) return;
-    const measure = () =>
+    const top = document.querySelector<HTMLElement>("[data-reader-top-bar]");
+    if (!bottom || !top) return;
+    const measure = () => {
       setBottomHeight(bottom.getBoundingClientRect().height);
+      setTopHeight(top.getBoundingClientRect().height);
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(bottom);
+    observer.observe(top);
     return () => observer.disconnect();
   }, []);
 
@@ -1652,6 +1657,7 @@ function ReaderSession({
         markingActions={annotations.markingActions}
         speechReady={speech?.selectionReady}
         bottomInset={speechHeight + (bars.visible ? bottomHeight : 0)}
+        topInset={bars.visible ? topHeight : 0}
         covered={lookupSheet}
       />
       {status.kind === "ready" && engineRef.current && <LookupLayer

@@ -47,11 +47,13 @@ export const SelectionToolbar = forwardRef<
     speechReady?: boolean;
     /** What covers the bottom of the screen (the bar, the player), for the docked toolbar */
     bottomInset?: number;
+    /** What covers the top of the screen (the bar), for the toolbar docked at the top */
+    topInset?: number;
     /** Look up's sheet covers the screen on touch: the toolbar steps aside */
     covered?: boolean;
   }
 >(function SelectionToolbar(
-  { selection, bridge, onClear, markingActions, onReadAloud, speechReady, bottomInset = 0, covered = false },
+  { selection, bridge, onClear, markingActions, onReadAloud, speechReady, bottomInset = 0, topInset = 0, covered = false },
   forwardedRef,
 ) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -107,6 +109,19 @@ export const SelectionToolbar = forwardRef<
       if (copyTimer.current) clearTimeout(copyTimer.current);
     };
   }, [selection]);
+  const [dockHeight, setDockHeight] = useState(48);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!docked || !element) return;
+    const measure = () => {
+      const height = element.getBoundingClientRect().height;
+      if (height) setDockHeight(height);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [docked]);
   useLayoutEffect(() => {
     if (docked) return;
     const reposition = () => {
@@ -173,11 +188,12 @@ export const SelectionToolbar = forwardRef<
       Read aloud from here
     </button>
   );
-  // Docked, the toolbar sits at the bottom unless the selection is there; then at the top
+  // Docked, the toolbar sits at the bottom unless the selection is there; then at the top.
+  // The room kept is the toolbar's own height, so opening More never covers the selection.
   const dockTop =
     docked &&
     !!selection &&
-    selection.rect.bottom > window.innerHeight - bottomInset - 96;
+    selection.rect.bottom > window.innerHeight - bottomInset - dockHeight - 48;
   // Keep the slot mounted even without a selection, so plugin order and subscriptions are stable.
   return (
     <div
@@ -195,7 +211,7 @@ export const SelectionToolbar = forwardRef<
       style={
         docked
           ? dockTop
-            ? { top: "calc(env(safe-area-inset-top) + 12px)" }
+            ? { top: `calc(max(${topInset}px, env(safe-area-inset-top)) + 12px)` }
             : { bottom: `calc(max(${bottomInset}px, env(safe-area-inset-bottom)) + 12px)` }
           : position
       }
