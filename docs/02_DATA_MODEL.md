@@ -2944,10 +2944,10 @@ sessions into readings.
 ### `ebook_upload_capacity` and `ebook_upload_operations` (0088 source proposal)
 
 SLN-505 declarations in `src/lib/db/schema/ebook-upload.ts` have genuine
-`0088_ebook_upload` SQL/snapshot/journal. The isolated assembly proposal adds the
-exact custom SQL from `EBOOK_UPLOAD_IMMUTABILITY_SQL` in
-`src/lib/ebooks/upload/schema-guards.ts`; source review, disposable database
-rehearsal and live application remain pending.
+`0088_ebook_upload` SQL/snapshot/journal. The same migration installs the custom
+guards: `ebook_upload_operation_immutable` (an operation's identity, input,
+receipt and committed effect never change) and `ebook_upload_history_no_removal`
+(upload history is never deleted or truncated).
 
 `ebook_upload_capacity` is keyed by `volume_id`. It records the binding hash,
 fixed 32 GiB quota / 8 GiB free reserve / 80 MiB global allowance, reserved and

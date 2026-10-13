@@ -13,7 +13,7 @@ export type WorkCardData = RelatedBook;
 /** Book-only presentation also used inside a mixed related shelf. */
 export function RelatedBookCard({ work, ebook, readerReturnTo }: {
   work: WorkCardData;
-  ebook?: WorkEbookDTO | null;
+  ebook: WorkEbookDTO | null;
   readerReturnTo?: string;
 }) {
   const edition = work.editions[0];
@@ -71,14 +71,15 @@ export function WorkCarousel<T extends WorkCardData>({
   titleHref?: string;
   works: T[];
   caption?: (work: T) => ReactNode;
-  ebooks?: ReadonlyMap<string, WorkEbookDTO | null>;
+  /** Each work's readable e-book; a work missing from it has none */
+  ebooks: ReadonlyMap<string, WorkEbookDTO | null>;
   readerReturnTo?: string;
 }) {
   return (
     <HorizontalCarousel title={title} titleHref={titleHref}>
       {works.map((work) => (
         <div key={work.id} className="carousel-card">
-          <RelatedBookCard work={work} ebook={ebooks?.get(work.id)} readerReturnTo={readerReturnTo} />
+          <RelatedBookCard work={work} ebook={ebooks.get(work.id) ?? null} readerReturnTo={readerReturnTo} />
           {caption?.(work)}
         </div>
       ))}

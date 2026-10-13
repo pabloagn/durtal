@@ -23,8 +23,7 @@ interface BookGridItem {
   isPoison?: boolean;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
-  hasDigitalEdition?: boolean;
-  ebook?: WorkEbookDTO | null;
+  ebook: WorkEbookDTO | null;
   readerReturnTo?: string;
   /** An open reading (SLN-449): the card shows "Reading 44%" */
   reading?: CardReadingValue;

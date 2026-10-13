@@ -38,6 +38,7 @@ const card = {
   catalogueStatus: "accessioned",
   acquisitionPriority: "high",
   rating: 4,
+  ebook: null,
 };
 const ebook = {
   id: "11111111-1111-1111-1111-111111111111",
@@ -72,10 +73,8 @@ describe("CardReading", () => {
     expect(host.textContent).toContain("Accessioned");
   });
 
-  it("uses explicit unavailable metadata to override the old linked-row mark without altering status", () => {
-    act(() => root.render(createElement(BookCard, { ...card, hasDigitalEdition: true })));
-    expect(host.querySelector('[aria-label="eBook available"]')).toBeNull();
-    act(() => root.render(createElement(BookCard, { ...card, hasDigitalEdition: true, ebook: null })));
+  it("shows the eBook mark only for a readable e-book, without altering status", () => {
+    act(() => root.render(createElement(BookCard, { ...card, ebook: null })));
     expect(host.querySelector('[aria-label="eBook available"]')).toBeNull();
     expect(host.textContent).toContain("Accessioned");
     act(() => root.render(createElement(BookCard, { ...card, ebook })));

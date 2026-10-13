@@ -45,7 +45,8 @@ interface BookItem {
   isFavourite?: boolean;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
-  ebook?: WorkEbookDTO | null;
+  /** Required, as on `BookCard` */
+  ebook: WorkEbookDTO | null;
   readerReturnTo?: string;
   publisher?: string | null;
   binding?: string | null;
