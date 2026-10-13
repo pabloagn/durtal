@@ -149,7 +149,7 @@ export function AnchoredReaderPopover({
         ? "glass fixed inset-auto z-50 m-0 flex max-h-[min(440px,60vh)] w-[380px] max-w-[calc(100vw-32px)] flex-col overflow-hidden border border-glass-border p-0 text-fg-primary"
         : "glass fixed inset-x-0 bottom-0 top-auto z-50 m-0 flex max-h-[60dvh] w-full flex-col overflow-hidden border border-glass-border p-0 text-fg-primary md:inset-auto md:max-h-[min(50dvh,360px)] md:w-[420px] md:max-w-[calc(100vw-32px)]"}
     >
-      <div className="glass-bar type-item-title flex shrink-0 items-start justify-between gap-2 border-b border-glass-border px-4 py-3">
+      <div className="glass-bar relative type-item-title flex shrink-0 items-start justify-between gap-2 border-b border-glass-border px-4 py-3">
         <h2 id={titleId} className={variant === "lookup" ? "lines-1 min-w-0 flex-1" : undefined}>{title}</h2>
         <CapAligned height={32} coarseHeight={44}>
           <div className="flex items-center gap-2">

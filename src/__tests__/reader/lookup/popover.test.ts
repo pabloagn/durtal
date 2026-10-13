@@ -16,13 +16,13 @@ afterEach(() => { act(() => roots.forEach(root => root.unmount())); roots.length
 const details: SelectionDetails = { text: "lux", sentence: "Lux lucet.", lang: "la",
   locator: { v: 1, fileHash: "a".repeat(64), href: "chapter", sectionIndex: 0, progression: 0, totalProgression: 0 },
   rect: new DOMRectReadOnly(200, 200, 20, 20) };
-function render(passage = false, keyboard = false, onClose = vi.fn(), rect = details.rect) {
+function render(passage = false, keyboard = false, onClose = vi.fn(), rect = details.rect, language = "la") {
   const element = document.createElement("div"); document.body.append(element); elements.push(element);
   const root = createRoot(element); roots.push(root);
   function Harness() {
     const [active, setActive] = useState<LookupTab>(passage ? "translate" : "dictionary");
     return h(LookupPopover, { details: { ...details, rect, text: passage ? "one two three four five six" : details.text },
-      language: "la", guessed: false, word: passage ? "one two three four five six" : "lux", passage, keyboard,
+      language, guessed: false, word: passage ? "one two three four five six" : "lux", passage, keyboard,
       avoid: null, settings: defaultLookupSettings(), target: "en", translator: new BrowserLookupTranslator(),
       dictionary: { packs: [], entries: [], packsPending: true, packError: null, english: null, own: null, offline: false },
       wikipedia: { value: null, pending: true, offline: false }, active, onTab: setActive,
@@ -59,6 +59,28 @@ describe("lookup popover source structure (native positioning acceptance separat
     const { element } = render(true);
     expect(Array.from(element.querySelectorAll('[role="tab"]')).map(tab => tab.textContent)).toEqual(["Your sources", "Translate"]);
     expect(element.textContent).toContain("Open in Google Translate");
+  });
+  it("positions the glass header so its material covers only the header (SLN-661)", () => {
+    const { element } = render(true);
+    const header = element.querySelector('[role="dialog"] .glass-bar')!;
+    expect(header.classList.contains("relative")).toBe(true);
+    expect(header.contains(element.querySelector('[role="tablist"]'))).toBe(false);
+  });
+  it("names the lookup language and the translation target in the header", () => {
+    const { element } = render(true);
+    const control = element.querySelector<HTMLButtonElement>('button[aria-label^="Lookup language"]')!;
+    expect(control.textContent).toBe("Latin → English");
+    expect(control.getAttribute("aria-label")).toBe("Lookup language: Latin, translate into English");
+    const same = render(false, false, vi.fn(), details.rect, "en").element
+      .querySelector<HTMLButtonElement>('button[aria-label^="Lookup language"]')!;
+    expect(same.textContent).toBe("English");
+    expect(same.getAttribute("aria-label")).toBe("Lookup language: English");
+  });
+  it("says why a passage is not translated when this browser has no translator", async () => {
+    const { element } = render(true);
+    await act(async () => { await Promise.resolve(); });
+    expect(element.textContent).toContain("This browser can’t translate Latin to English on the device. Open the passage in:");
+    expect(element.querySelector("[data-lookup-skeleton]")).toBeNull();
   });
   it("gesture opening preserves focus and Escape supplies the close reason", () => {
     const book = document.createElement("button"); document.body.append(book); elements.push(book); book.focus();
