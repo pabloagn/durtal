@@ -9,6 +9,7 @@ import { coverToneStyle } from "@/lib/utils/media-style";
 import { displayYear } from "@/lib/utils/years";
 import type { PersonRole } from "@/lib/catalogue/person-roles";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { PhonePairGrid } from "@/components/shared/phone-pair-grid";
 
 /**
  * The dashboard's recent people (moved from `src/app/page.tsx`, SLN-448): a
@@ -36,7 +37,7 @@ export function RecentPeopleGrid({
   roles: Record<string, PersonRole[]>;
 }) {
   return (
-    <div className="catalogue-grid">
+    <PhonePairGrid>
       {people.map((author) => (
         <Link
           key={author.id}
@@ -82,6 +83,6 @@ export function RecentPeopleGrid({
           </div>
         </Link>
       ))}
-    </div>
+    </PhonePairGrid>
   );
 }

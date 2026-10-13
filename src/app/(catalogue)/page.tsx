@@ -46,6 +46,7 @@ import { getGoalProgress } from "@/lib/actions/reading-goals";
 import { readingEstimates } from "@/lib/reading/estimates";
 import { cardReadingOf } from "@/lib/reading/card";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { PhonePairGrid } from "@/components/shared/phone-pair-grid";
 
 // The root layout's title template skips a page in its own segment
 export const metadata = { title: { absolute: "Dashboard | Durtal" } };
@@ -316,9 +317,9 @@ async function DashboardContent() {
             icon={BookOpen}
             href={singleDomain ? "/library?sort=recent" : undefined}
           />
-          <div className="catalogue-grid">
+          <PhonePairGrid>
             {recent.map((item) => item.card)}
-          </div>
+          </PhonePairGrid>
         </section>
       )}
 
@@ -326,7 +327,7 @@ async function DashboardContent() {
       {collections.length > 0 && (
         <section className="mt-12">
           <SectionHeader title="Collections" icon={FolderOpen} href="/collections" />
-          <div className="catalogue-grid">
+          <PhonePairGrid>
             {collections.map((collection) => (
               <CollectionCard
                 key={collection.id}
@@ -339,7 +340,7 @@ async function DashboardContent() {
                   .map((preview) => preview.s3Key)}
               />
             ))}
-          </div>
+          </PhonePairGrid>
         </section>
       )}
 
@@ -351,11 +352,11 @@ async function DashboardContent() {
             icon={Star}
             href="/library?sort=rating"
           />
-          <div className="catalogue-grid">
+          <PhonePairGrid>
             {stats.topRatedWorks.map((work) => (
               <BookCard key={work.id} {...workToCardProps(work)} ebook={digital.get(work.id)?.read ?? null} readerReturnTo="/" />
             ))}
-          </div>
+          </PhonePairGrid>
         </section>
       )}
 
@@ -383,11 +384,11 @@ async function DashboardContent() {
             icon={ShoppingCart}
             href="/library?status=wanted,shortlisted"
           />
-          <div className="catalogue-grid">
+          <PhonePairGrid>
             {stats.wantedWorks.map((work) => (
               <BookCard key={work.id} {...workToCardProps(work)} ebook={digital.get(work.id)?.read ?? null} readerReturnTo="/" />
             ))}
-          </div>
+          </PhonePairGrid>
         </section>
       )}
     </>
