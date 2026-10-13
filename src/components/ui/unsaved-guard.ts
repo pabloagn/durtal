@@ -56,7 +56,8 @@ export const DISMISS = "[data-dismiss]";
  * on it ask first, the newest first. Discard follows the link, and a draft
  * under it may still ask. A link that opens elsewhere (a new tab, a
  * download, another site), stays on the page (another tab of it, an
- * anchor) or is a Cancel (`data-dismiss`, asked by its own draft) passes.
+ * anchor) or is a Cancel (`data-dismiss`, asked by its own draft) passes,
+ * and so does one its form marks `data-leave="free"` (nothing it would lose).
  */
 interface LinkGuard {
   unsaved(): boolean;
@@ -70,7 +71,7 @@ function leavingLink(event: MouseEvent): HTMLAnchorElement | null {
   if (event.defaultPrevented || event.button !== 0) return null;
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return null;
   const link = (event.target as Element | null)?.closest?.<HTMLAnchorElement>("a[href]");
-  if (!link || link.hasAttribute("download") || link.closest(DISMISS)) return null;
+  if (!link || link.hasAttribute("download") || link.closest(`${DISMISS}, [data-leave="free"]`)) return null;
   if (link.target && link.target !== "_self") return null;
   const to = new URL(link.href, location.href);
   if (to.origin !== location.origin) return null;

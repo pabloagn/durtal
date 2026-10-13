@@ -47,6 +47,11 @@ unsaved work):
     of it) and Cancel links, which their own draft asks for.
   - `leavePage(go)` gives the same rule to a navigation without a link: the
     G and A menus and the command palette.
+- `OpenWorkLink` (task 0495: "Open this work", "Open that book", "Open this
+  film", "Add a version to it") drops its own "Discard and open" question
+  for this one. What its form does not count as entered (a picked search
+  result, a film's title alone) marks it `data-leave="free"`: it opens at
+  once.
 - Add book: Save on the question adds the book as it stands. That is Fast
   Track on the work's step, and "Add to catalogue" with what the steps hold
   on the edition, copies, categories and review steps; a copy with no
