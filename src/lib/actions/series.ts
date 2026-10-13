@@ -16,6 +16,7 @@ import {
   textSearchRank,
 } from "@/lib/actions/utils/text-search";
 import { slugify } from "@/lib/utils/slugify";
+import { WORK_AUTHOR_ROLES } from "@/lib/types";
 import { uniqueSlug } from "@/lib/catalogue/slugs";
 import {
   positionValue,
@@ -29,6 +30,41 @@ const positionOrder = sql`case when ${works.seriesPosition} ~ '^[0-9]+(\\.[0-9]+
 
 function rows<T>(result: unknown): T[] {
   return Array.isArray(result) ? result : (result as { rows: T[] }).rows;
+}
+
+const uuidArray = (ids: string[]) =>
+  sql`ARRAY[${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}]::uuid[]`;
+
+export interface SeriesAuthor {
+  id: string;
+  name: string;
+  slug: string | null;
+  /** Volumes of the series this person wrote or co-wrote */
+  books: number;
+}
+
+/**
+ * Each series' authors, read from its books (SLN-636): the people credited
+ * as writer or co-author of a volume, never a translator or editor (those
+ * credits are on editions). Each person once, the one with most volumes
+ * first, then by name. A series with no books has none.
+ */
+async function getSeriesAuthors(ids: string[]): Promise<Map<string, SeriesAuthor[]>> {
+  const bySeries = new Map<string, SeriesAuthor[]>(ids.map((id) => [id, []]));
+  if (!ids.length) return bySeries;
+  const found = rows<SeriesAuthor & { seriesId: string }>(
+    await db.execute(sql`select w.series_id as "seriesId", a.id, a.name, a.slug,
+        count(distinct w.id)::int as books
+      from works w
+      join work_authors wa on wa.work_id = w.id
+        and wa.role in (${sql.join(WORK_AUTHOR_ROLES.map((role) => sql`${role}`), sql`, `)})
+      join authors a on a.id = wa.author_id
+      where w.kind = 'book' and w.series_id = any(${uuidArray(ids)})
+      group by w.series_id, a.id, a.name, a.slug
+      order by w.series_id, books desc, lower(a.name), a.id`),
+  );
+  for (const { seriesId, ...author } of found) bySeries.get(seriesId)?.push(author);
+  return bySeries;
 }
 
 function changed() {
@@ -132,25 +168,29 @@ export async function getSeriesList(options: z.input<typeof listSchema> = {}) {
             (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = w.id and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null limit 1)
           ) as cover,
           row_number() over (partition by w.series_id order by case when w.series_position ~ '^[0-9]+(\\.[0-9]+)?$' then w.series_position::numeric end nulls last, lower(w.title)) as n
-          from works w where w.kind = 'book' and w.series_id = any(${sql`ARRAY[${sql.join(
-            ids.map((id) => sql`${id}::uuid`),
-            sql`, `,
-          )}]::uuid[]`})
+          from works w where w.kind = 'book' and w.series_id = any(${uuidArray(ids)})
         ) c where n <= 4 and cover is not null order by series_id, n`),
       )
     : [];
+  const authors = await getSeriesAuthors(ids);
   return {
     rows: list.map((s) => ({
       ...s,
       covers: covers.filter((c) => c.seriesId === s.id).map((c) => c.s3Key),
+      authors: (authors.get(s.id) ?? []).map((a) => a.name),
     })),
     total: total.count,
   };
 }
 
-/** One series with its works in reading order (numeric positions, then title). */
+/** One series with its authors and its works in reading order (numeric positions, then title). */
 export async function getSeriesDetail(id: string) {
   if (!z.uuid().safeParse(id).success) return undefined;
+  const [found, authors] = await Promise.all([seriesWithWorks(id), getSeriesAuthors([id])]);
+  return found && { ...found, authors: authors.get(id) ?? [] };
+}
+
+function seriesWithWorks(id: string) {
   return db.query.series.findFirst({
     where: eq(series.id, id),
     with: {

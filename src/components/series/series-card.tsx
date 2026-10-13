@@ -18,6 +18,8 @@ export interface SeriesItem {
   isComplete: boolean;
   isFavourite: boolean;
   covers: string[];
+  /** Its books' authors, most volumes first (SLN-636) */
+  authors: string[];
 }
 
 function countsLabel(s: SeriesItem) {
@@ -60,7 +62,7 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
         <CardHeading
           title={s.title}
           titleClassName="group-hover:text-accent-primary"
-          subtitle={s.originalTitle !== s.title ? s.originalTitle : null}
+          subtitle={s.originalTitle && s.originalTitle !== s.title ? s.originalTitle : undefined}
           subtitleClassName="text-xs italic text-fg-secondary"
           action={
             <FavouriteToggle
@@ -70,6 +72,11 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
             />
           }
         />
+        {s.authors.length > 0 && (
+          <p className="mt-1 break-words text-xs text-fg-secondary">
+            {s.authors.join(", ")}
+          </p>
+        )}
         <div className="mt-2.5 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1 font-mono text-micro text-fg-secondary">
           <span className="min-w-0 [overflow-wrap:anywhere]">{countsLabel(s)}</span>
           {s.isComplete && (
@@ -110,6 +117,11 @@ export function SeriesListItem({ series: s }: { series: SeriesItem }) {
         {s.originalTitle && s.originalTitle !== s.title && (
           <p className="truncate text-xs italic text-fg-secondary">
             {s.originalTitle}
+          </p>
+        )}
+        {s.authors.length > 0 && (
+          <p className="truncate text-xs text-fg-secondary">
+            {s.authors.join(", ")}
           </p>
         )}
       </div>

@@ -306,6 +306,57 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
       ["Justine", "The Alexandria Quartet", "justine.webp"],
     ]);
   });
+  it("names a series' authors from its books: writers and co-authors once each, most volumes first, never a translator (SLN-636)", async () => {
+    const s = await make("My Struggle");
+    const quartet = await make("The Alexandria Quartet");
+    const empty = await make("Empty");
+    const [karl, linda, bartlett, durrell] = await db
+      .insert(schema.authors)
+      .values([
+        { name: "Karl Ove Knausgård", slug: "karl-ove-knausgard" },
+        { name: "Linda Boström Knausgård", slug: "linda-bostrom-knausgard" },
+        { name: "Don Bartlett", slug: "don-bartlett" },
+        { name: "Lawrence Durrell" },
+      ])
+      .returning();
+    async function volume(title: string, seriesId: string | null, ...credits: [string, string][]) {
+      const [work] = await db.insert(schema.works).values({ title, seriesId }).returning();
+      if (credits.length)
+        await db.insert(schema.workAuthors).values(
+          credits.map(([authorId, role], i) => ({ workId: work.id, authorId, role, sortOrder: i })),
+        );
+      return work;
+    }
+    const one = await volume("A Death in the Family", s.id, [karl.id, "author"]);
+    await volume("A Man in Love", s.id, [karl.id, "author"]);
+    // A co-author on one volume
+    const three = await volume("Boyhood Island", s.id, [karl.id, "author"], [linda.id, "co_author"]);
+    await volume("Justine", quartet.id, [durrell.id, "author"]);
+    // A book outside the series, and a translator on a volume's edition
+    await volume("Some Rain Must Fall", null, [karl.id, "author"]);
+    const [edition] = await db.insert(schema.editions).values({ workId: one.id, title: "A Death in the Family" }).returning();
+    await db.insert(schema.editionContributors).values({ editionId: edition.id, authorId: bartlett.id, role: "translator" });
+
+    const detail = (await getSeriesDetail(s.id))!;
+    expect(detail.authors.map((a) => [a.name, a.slug, a.books])).toEqual([
+      ["Karl Ove Knausgård", "karl-ove-knausgard", 3],
+      ["Linda Boström Knausgård", "linda-bostrom-knausgard", 1],
+    ]);
+    // A person with no address yet is still named
+    expect((await getSeriesDetail(quartet.id))!.authors).toMatchObject([{ name: "Lawrence Durrell", slug: null }]);
+    expect((await getSeriesDetail(empty.id))!.authors).toEqual([]);
+
+    const { rows } = await getSeriesList({ sort: "title" });
+    expect(rows.map((r) => [r.title, r.authors])).toEqual([
+      ["Empty", []],
+      ["My Struggle", ["Karl Ove Knausgård", "Linda Boström Knausgård"]],
+      ["The Alexandria Quartet", ["Lawrence Durrell"]],
+    ]);
+
+    // Removing a volume updates the authors: none is stored on the series
+    await removeWorkFromSeries(s.id, three.id);
+    expect((await getSeriesDetail(s.id))!.authors.map((a) => a.name)).toEqual(["Karl Ove Knausgård"]);
+  });
   it("counts Accessioned volumes by catalogue status, the same in the list and the detail (SLN-635)", async () => {
     const s = await make("My Struggle");
     const [home] = await db
