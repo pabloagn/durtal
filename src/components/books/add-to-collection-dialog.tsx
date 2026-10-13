@@ -43,10 +43,15 @@ export function AddToCollectionDialog({
     [error, setError] = useState(false);
   const request = useRef("");
   const saving = useRef(false);
+  // A read after a failed change keeps the editions the reader chose
+  const keepChoice = useRef(false);
   const [attempt, setAttempt] = useState(0);
   const selectionKey = JSON.stringify({ workIds, editionId });
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      keepChoice.current = false;
+      return;
+    }
     let cancelled = false;
     const selection = JSON.parse(selectionKey);
     setData(null);
@@ -59,8 +64,11 @@ export function AddToCollectionDialog({
     )
       .then((result) => {
         if (!cancelled) {
+          const ids = result.editions.map((e) => e.id);
+          const keep = keepChoice.current;
+          keepChoice.current = false;
           setData(result);
-          setSelected(result.editions.map((e) => e.id));
+          setSelected((old) => (keep ? old.filter((id) => ids.includes(id)) : ids));
         }
       })
       .catch(() => {
@@ -133,6 +141,7 @@ export function AddToCollectionDialog({
     } catch {
       // Nothing was changed; a book may have gone meanwhile, so read again
       toast.error("Could not update this collection. Nothing was changed.");
+      keepChoice.current = true;
       setAttempt((n) => n + 1);
     } finally {
       saving.current = false;
