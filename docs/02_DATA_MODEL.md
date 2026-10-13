@@ -2070,7 +2070,7 @@ Pre-computed collage grid layout specifications for gallery media on work and au
 
 ### `imports`
 
-Tracks bulk import operations through the medallion pipeline. A reading history import (SLN-450) is one row: `source` is `goodreads`, `storygraph` or `durtal` (the seed CSV is a Durtal file); `status` is `pending` (the preview), `completed` or `undone`. The table has no CHECK on either; `src/lib/validations/reading-import.ts` holds the lists. Its working state lives in `reading_import_rows`; the raw file in S3 is a best-effort copy, and a reading import never writes a silver key.
+Tracks bulk import operations through the medallion pipeline. A reading history import (SLN-450) is one row: `source` is `goodreads`, `storygraph`, `durtal` (the seed CSV is a Durtal file) or `ebook_library` (the ratings and reads of the e-book library's linked books, SLN-658, made by `pnpm ebooks:reading-import`); `status` is `pending` (the preview), `completed` or `undone`. The table has no CHECK on either; `src/lib/validations/reading-import.ts` holds the lists. Its working state lives in `reading_import_rows`; the raw file in S3 is a best-effort copy, and a reading import never writes a silver key.
 
 | Column | Type | Constraints |
 |---|---|---|
@@ -2105,7 +2105,7 @@ One data row of an uploaded reading history file (SLN-450), so an import's worki
 | `note_decision` | TEXT | NOT NULL, default `'pending'`, CHECK in `pending`, `import`, `skip` | His choice for the row's Goodreads private note (SLN-453, migration 0069), apart from `decision`: a row whose readings are already in Durtal can still bring its note. An upload sets `import` for rows with a note in the Exact section |
 | `use_file_rating` | BOOLEAN | NOT NULL, default `false` | "Use the file's rating": the commit replaces a different book rating |
 | `work_id` | UUID | nullable, FK → `works` SET NULL | The matched or chosen book; trigger `book_parent_required` |
-| `written` | JSONB | nullable | What the commit wrote: each reading's outcome and id, the book rating `{ workId, before, after }`, the Goodreads identifier ids, the Up Next item, and `noteIds`, the note made from the row's private note. Undo reads it. The readings' rules (a decision refused once written, the next commit) look only at the reading outcomes and the Up Next item (`readingsCommitted`), never at `noteIds` |
+| `written` | JSONB | nullable | What the commit wrote: each reading's outcome and id, the book rating `{ workId, before, after }`, the Goodreads identifier ids, the Up Next item, and `noteIds`, the note made from the row's private note. An `ebook_library` row also records `ratingOutcome`, `written` or `kept`: its rating is settled on its own, with or without a reading. Undo reads it. The readings' rules (a decision refused once written, the next commit) look only at the reading outcomes, the Up Next item and `ratingOutcome` (`readingsCommitted`), never at `noteIds` |
 
 A book merge moves `work_id` like any single-column reference. Matching (`src/lib/reading/import/match.ts`) tries, in order: the Durtal work id; a reading that already has one of the row's source keys; the Goodreads Book Id (an edition's `goodreads_id` or a goodreads catalogue identifier); the id in `works.goodreads_url`; an ISBN; then title and author (`strict_word_similarity` both ways after `search_normalize`, 0.8 for likely, 0.5 for a candidate, the author's surname required for likely).
 

@@ -802,6 +802,31 @@ A second dry run right after selects nothing new. After Joris adds books to
 Durtal, a new dry run picks up only the Calibre books that have become
 matchable.
 
+### Ratings and reads (SLN-658)
+
+`pnpm ebooks:reading-import --calibre <snapshot> --read-column <label>
+--read-date-column <label>` turns the library's ratings and reads into a
+reading import, for the books that are linked e-books in Durtal. Only the
+snapshot and Durtal are read. Whether a book was read and when live in custom
+columns that differ from one library to the next, so they are named (with or
+without the `#`); a name the snapshot lacks, or a column of another kind, is
+refused. Either may be named alone: with the date column alone, a dated book
+counts as read.
+
+- Without `--create` it counts and writes nothing. With `--create` it makes
+  the import (`source` `ebook_library`), which waits at
+  `/reading/import/<id>`. A database that is not a preview also needs
+  `--live`.
+- One row for each linked book with a rating or a read. A read is one
+  finished e-book reading; an undated one says "Read, date unknown". The two
+  columns disagreeing (a date, but not read) is shown on the row and no read
+  is imported.
+- The preview flags every conflict. A read already in Durtal is present; a
+  read on another date is a new reading, to import or skip. A rating that
+  differs from the book's is shown, and Durtal's is kept unless the row's
+  "Use the file's rating" is chosen; a book with no rating takes the file's.
+  Commit and undo are the Goodreads import's.
+
 ### The cache folder
 
 `~/.cache/durtal-ebooks` (`--cache-dir`) holds:
