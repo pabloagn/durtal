@@ -416,6 +416,10 @@ Standard CRUD for collections.
 
 What the "Add to collection" dialog shows for the chosen books, films, perfumes and paintings: their editions, the works that join whole, and every collection. The collections come in the order the dialog offers them, newest addition first (SLN-570). Each one's last addition is the latest `added_at` among its edition and work members. That stamp is set once, when a member is added, and re-adding a member that is already there inserts nothing. So a single or bulk addition, or a collection created with members, moves a collection to the top, on every device. Nothing else does that: removals, reordering, renames, a new cover or an addition that fails. A collection that never gained a member follows the others, by name. Every other collection list keeps the curated order.
 
+### `addToCollection(collectionId, { editionIds, workIds })` and `removeFromCollection(...)`
+
+One membership change for editions and whole works together (SLN-573): the "Add to collection" dialog and the collection's "Add books" dialog send their editions and their whole works (films, perfumes, paintings, books with no edition) in one call. Each call runs in one transaction under the collection's lock, with its activity events, so either every member changes or none does; a member deleted meanwhile, or any failed write, leaves the collection as it was. Both return `{ changed }`, the members actually added or removed. The older single-kind actions (`bulkAddEditionsToCollection`, `bulkAddWorksToCollection`, `removeEditionsFromCollection`, `removeWorksFromCollection`) are these calls with one list.
+
 ### `removeEditionFromCollection(collectionId, editionId)`
 
 ```typescript

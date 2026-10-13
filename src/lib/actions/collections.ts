@@ -200,39 +200,104 @@ export async function updateCollection(
   changed();
   return row;
 }
-export async function bulkAddEditionsToCollection(
-  collectionId: string,
-  editionIds: string[],
-) {
-  z.string().uuid().parse(collectionId);
-  const ids = collectionIdsSchema.parse(editionIds);
-  if (!ids.length) return { changed: 0 };
-  const result = await atomic((d) => [
-    d.execute(lockCollection(collectionId)),
-    d.execute(addMembers(collectionId, ids)),
-  ]);
-  changed();
-  return rows<{ changed: number }>(result[1])[0];
-}
-export async function removeEditionsFromCollection(
-  collectionId: string,
-  editionIds: string[],
-) {
-  z.string().uuid().parse(collectionId);
-  const ids = collectionIdsSchema.parse(editionIds);
-  if (!ids.length) return { changed: 0 };
-  const result = await atomic((d) => [
-    d.execute(lockCollection(collectionId)),
-    d.execute(sql`with removed as (
+/** The SQL that removes editions from a collection, with one activity per work */
+function removeEditionMembers(collectionId: string, ids: string[]) {
+  return sql`with removed as (
     delete from collection_editions where collection_id=${collectionId}::uuid and edition_id=any(${idArray(ids)}) returning edition_id
   ), events as (
     insert into activity_events(entity_type,entity_id,event_key,metadata)
     select distinct 'work',e.work_id,'work.collection_removed',jsonb_build_object('collectionName',c.name,'extra',jsonb_build_object('collectionId',c.id))
     from removed join editions e on e.id=removed.edition_id cross join collections c where c.id=${collectionId}::uuid
-  ) select count(*)::int as changed from removed`),
+  ) select count(*)::int as changed from removed`;
+}
+
+/** The SQL that removes whole works from a collection, with one activity each */
+function removeWorkMembers(collectionId: string, ids: string[]) {
+  return sql`with removed as (
+    delete from collection_works where collection_id=${collectionId}::uuid and work_id=any(${idArray(ids)}) returning work_id
+  ), events as (
+    insert into activity_events(entity_type,entity_id,event_key,metadata)
+    select 'work',removed.work_id,'work.collection_removed',jsonb_build_object('collectionName',c.name,'extra',jsonb_build_object('collectionId',c.id))
+    from removed cross join collections c where c.id=${collectionId}::uuid
+  ) select count(*)::int as changed from removed`;
+}
+
+/** Editions and whole works for one membership change, each list checked */
+function memberIds(members: { editionIds?: string[]; workIds?: string[] }) {
+  return {
+    editionIds: collectionIdsSchema.parse(members.editionIds ?? []),
+    workIds: collectionIdsSchema.parse(members.workIds ?? []),
+  };
+}
+
+/** The changed rows of each write after the lock, summed */
+function changedRows(results: unknown[]) {
+  return {
+    changed: results
+      .slice(1)
+      .reduce<number>((sum, result) => sum + (rows<{ changed: number }>(result)[0]?.changed ?? 0), 0),
+  };
+}
+
+/**
+ * Adds editions and whole works (films, perfumes, paintings, or books with
+ * no edition chosen) in one transaction (SLN-573): either every member joins
+ * or none does, so a member deleted meanwhile never leaves the others half
+ * added. New members join the collection's one order after its last member;
+ * members already there are skipped.
+ */
+export async function addToCollection(
+  collectionId: string,
+  members: { editionIds?: string[]; workIds?: string[] },
+) {
+  z.string().uuid().parse(collectionId);
+  const { editionIds, workIds } = memberIds(members);
+  if (!editionIds.length && !workIds.length) return { changed: 0 };
+  if (workIds.length) {
+    // Only works of an open collection can join
+    const open = await db
+      .select({ id: works.id })
+      .from(works)
+      .where(and(inArray(works.id, workIds), inArray(works.kind, getEnabledWorkKinds())));
+    if (open.length !== workIds.length) throw new Error("A work was not found");
+  }
+  const result = await atomic((d) => [
+    d.execute(lockCollection(collectionId)),
+    ...(editionIds.length ? [d.execute(addMembers(collectionId, editionIds))] : []),
+    ...(workIds.length ? [d.execute(addWorkMembers(collectionId, workIds))] : []),
   ]);
   changed();
-  return rows<{ changed: number }>(result[1])[0];
+  return changedRows(result);
+}
+
+/** Removes editions and whole works in one transaction (SLN-573) */
+export async function removeFromCollection(
+  collectionId: string,
+  members: { editionIds?: string[]; workIds?: string[] },
+) {
+  z.string().uuid().parse(collectionId);
+  const { editionIds, workIds } = memberIds(members);
+  if (!editionIds.length && !workIds.length) return { changed: 0 };
+  const result = await atomic((d) => [
+    d.execute(lockCollection(collectionId)),
+    ...(editionIds.length ? [d.execute(removeEditionMembers(collectionId, editionIds))] : []),
+    ...(workIds.length ? [d.execute(removeWorkMembers(collectionId, workIds))] : []),
+  ]);
+  changed();
+  return changedRows(result);
+}
+
+export async function bulkAddEditionsToCollection(
+  collectionId: string,
+  editionIds: string[],
+) {
+  return addToCollection(collectionId, { editionIds });
+}
+export async function removeEditionsFromCollection(
+  collectionId: string,
+  editionIds: string[],
+) {
+  return removeFromCollection(collectionId, { editionIds });
 }
 export async function removeEditionFromCollection(
   collectionId: string,
@@ -241,43 +306,12 @@ export async function removeEditionFromCollection(
   return removeEditionsFromCollection(collectionId, [editionId]);
 }
 
-/**
- * Adds whole works: films, perfumes, paintings, or books with no edition
- * chosen. They join the collection's one order after its last member.
- */
+/** Adds whole works: films, perfumes, paintings, or books with no edition chosen */
 export async function bulkAddWorksToCollection(collectionId: string, workIds: string[]) {
-  z.string().uuid().parse(collectionId);
-  const ids = collectionIdsSchema.parse(workIds);
-  if (!ids.length) return { changed: 0 };
-  // Only works of an open collection can join
-  const open = await db
-    .select({ id: works.id })
-    .from(works)
-    .where(and(inArray(works.id, ids), inArray(works.kind, getEnabledWorkKinds())));
-  if (open.length !== ids.length) throw new Error("A work was not found");
-  const result = await atomic((d) => [
-    d.execute(lockCollection(collectionId)),
-    d.execute(addWorkMembers(collectionId, ids)),
-  ]);
-  changed();
-  return rows<{ changed: number }>(result[1])[0];
+  return addToCollection(collectionId, { workIds });
 }
 export async function removeWorksFromCollection(collectionId: string, workIds: string[]) {
-  z.string().uuid().parse(collectionId);
-  const ids = collectionIdsSchema.parse(workIds);
-  if (!ids.length) return { changed: 0 };
-  const result = await atomic((d) => [
-    d.execute(lockCollection(collectionId)),
-    d.execute(sql`with removed as (
-    delete from collection_works where collection_id=${collectionId}::uuid and work_id=any(${idArray(ids)}) returning work_id
-  ), events as (
-    insert into activity_events(entity_type,entity_id,event_key,metadata)
-    select 'work',removed.work_id,'work.collection_removed',jsonb_build_object('collectionName',c.name,'extra',jsonb_build_object('collectionId',c.id))
-    from removed cross join collections c where c.id=${collectionId}::uuid
-  ) select count(*)::int as changed from removed`),
-  ]);
-  changed();
-  return rows<{ changed: number }>(result[1])[0];
+  return removeFromCollection(collectionId, { workIds });
 }
 
 /**
