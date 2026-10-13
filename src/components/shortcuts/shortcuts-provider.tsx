@@ -29,7 +29,6 @@ import {
   GO_TO,
   isComposing,
   isConfirmField,
-  isDialogTextBox,
   isMacPlatform,
   isPickerField,
   isQuietInDialog,
@@ -466,12 +465,12 @@ export function ShortcutsProvider({
 
       if (event.key === "Enter" && !event.altKey && !event.shiftKey && !otherMod) {
         // A held Enter presses once: its repeats never save, submit or
-        // click again (SLN-631). A text box on a page, a rich text field and
-        // the reader keep their own Enter.
+        // click again (SLN-631). A text box, a rich text field and the
+        // reader keep their own Enter.
         if (event.repeat) {
           const own =
             READER_VIEW_RE.test(pathname) ||
-            (target instanceof HTMLTextAreaElement && !isDialogTextBox(target)) ||
+            target instanceof HTMLTextAreaElement ||
             !!target?.isContentEditable;
           if (!own) event.preventDefault();
           return;
@@ -485,12 +484,13 @@ export function ShortcutsProvider({
           !target.form
         )
           return press(event, target);
-        // Enter in a one-line field confirms; in a dialog, so does Enter in
-        // a text box (Shift+Enter is its new line) and Enter with the focus
-        // on the dialog itself. The reader keeps its own keys.
+        // Enter in a one-line field confirms; in a dialog, so does Enter
+        // with the focus on the dialog itself. A text box keeps Enter for its
+        // new line, in a dialog too: ⌘Enter saves from it. The reader keeps
+        // its own keys.
         if (
           isConfirmField(target) ||
-          (!READER_VIEW_RE.test(pathname) && (isDialogTextBox(target) || isQuietInDialog(target)))
+          (!READER_VIEW_RE.test(pathname) && isQuietInDialog(target))
         )
           press(event, shortcutButton(target, "next"));
         return;
