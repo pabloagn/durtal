@@ -44,6 +44,7 @@ beforeEach(() => {
     activity: fn(),
     pointer: fn(),
     scroll: fn(),
+    scrollBy: fn(),
   };
   blocked = false;
   edgeTaps = true;
@@ -282,32 +283,28 @@ describe("taps, swipes and the wheel", () => {
   const press = (target: Element = document.getElementById("text")!) =>
     target.dispatchEvent(new Event("pointerdown", { bubbles: true }));
 
-  it("never turns or toggles on a click in the text; the edge strips turn when edge taps are on (SLN-662)", () => {
-    click(500);
-    click(300);
-    click(700);
+  it("never turns or toggles on a mouse click, in the edge strips too, whatever edge taps say (SLN-662)", () => {
+    // A laptop window under 1100 px tall reads as a tablet, where edge taps are on
+    for (const on of [true, false]) {
+      edgeTaps = on;
+      for (const x of [50, 100, 300, 500, 700, 900, 950]) click(x);
+    }
     expect(actions.left).not.toHaveBeenCalled();
     expect(actions.right).not.toHaveBeenCalled();
     expect(actions.toggleBars).not.toHaveBeenCalled();
-    click(100);
-    click(900);
-    expect(actions.left).toHaveBeenCalledTimes(1);
-    expect(actions.right).toHaveBeenCalledTimes(1);
-    edgeTaps = false;
-    click(50);
-    click(950);
-    expect(actions.left).toHaveBeenCalledTimes(1);
-    expect(actions.right).toHaveBeenCalledTimes(1);
   });
 
-  it("a click that dismisses a selection only dismisses it, even in an edge strip", () => {
+  it("a tap that dismisses a selection only dismisses it, even in an edge strip", () => {
     selected = true;
     press();
     selected = false; // the press's default action collapsed it
-    click(950);
+    touch("touchstart", 950);
+    touch("touchend", 950);
     expect(actions.right).not.toHaveBeenCalled();
+    clock += 1000;
     press();
-    click(950);
+    touch("touchstart", 950);
+    touch("touchend", 950);
     expect(actions.right).toHaveBeenCalledTimes(1);
   });
 
@@ -367,7 +364,7 @@ describe("taps, swipes and the wheel", () => {
     expect(actions.right).toHaveBeenCalledTimes(1);
     clock += 1000;
     click(950);
-    expect(actions.right).toHaveBeenCalledTimes(2);
+    expect(actions.right).toHaveBeenCalledTimes(1);
   });
 
   it("never turns on a long press, which selects", () => {
@@ -406,6 +403,28 @@ describe("taps, swipes and the wheel", () => {
     document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true }));
     expect(down.defaultPrevented).toBe(true);
     expect(actions.scroll.mock.calls).toEqual([[1], [-1]]);
+  });
+
+  it("in the scroll flow, a wheel beside the text column scrolls the book; over a list it is the list's", () => {
+    scrolled = true;
+    const wheel = (target: Element, init: WheelEventInit) =>
+      target.dispatchEvent(new WheelEvent("wheel", { bubbles: true, composed: true, ...init }));
+    // The paginator's background: nothing under it scrolls
+    wheel(document.getElementById("text")!, { deltaY: 100 });
+    wheel(document.getElementById("text")!, { deltaY: -3, deltaMode: 1 });
+    expect(actions.scrollBy.mock.calls).toEqual([[100], [-120]]);
+    // Something that scrolls by itself keeps its wheel
+    const list = document.createElement("div");
+    list.style.overflowY = "auto";
+    Object.defineProperties(list, { scrollHeight: { value: 500 }, clientHeight: { value: 100 } });
+    document.body.append(list);
+    wheel(list, { deltaY: 100 });
+    // The bars and dialogs keep theirs, and a blocked reader takes none
+    wheel(document.getElementById("link")!, { deltaY: 100 });
+    blocked = true;
+    wheel(document.getElementById("text")!, { deltaY: 100 });
+    expect(actions.scrollBy).toHaveBeenCalledTimes(2);
+    expect(actions.next).not.toHaveBeenCalled();
   });
 
   it("turns one page per wheel gesture", () => {

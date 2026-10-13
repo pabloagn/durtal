@@ -2178,9 +2178,12 @@ class FoliateEngine implements ReaderEngine {
     return !!this.#view?.renderer?.scrolled;
   }
   scrollLines(direction: -1 | 1) {
+    this.scrollBy(direction * SCROLL_LINE_PX);
+  }
+  scrollBy(px: number) {
     const renderer = this.#view?.renderer;
     if (!renderer?.scrolled || renderer.containerPosition === undefined) return;
-    renderer.containerPosition += direction * SCROLL_LINE_PX;
+    renderer.containerPosition += px;
   }
   next(owner?: NavigationOwner) {
     return this.#turn("next", owner);

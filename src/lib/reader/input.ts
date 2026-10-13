@@ -1,5 +1,4 @@
 import { viewerImage } from "./media/content";
-import { mouseHitsWord } from "./word-hit";
 /**
  * The reader's one input layer (eBooks sub-issue 3). It listens on the app's
  * document and on every section document the engine loads, so keys, taps,
@@ -47,6 +46,8 @@ export interface ReaderActions {
   pointer?(x: number, y: number): void;
   /** A few lines down or up in a scrolled book */
   scroll?(direction: -1 | 1): void;
+  /** This many pixels down (or up, negative) in a scrolled book: a wheel beside the text */
+  scrollBy?(px: number): void;
 }
 
 export interface ReaderInputOptions {
@@ -240,6 +241,22 @@ export function isEditableTarget(target: EventTarget | null): boolean {
     "file",
     "color",
   ].includes(type);
+}
+
+/** Whether something under the wheel scrolls by itself: the book's column, a list */
+function scrollsUnder(event: WheelEvent) {
+  return event.composedPath().some((node) => {
+    const el = node as Element;
+    if (el?.nodeType !== 1 || !el.ownerDocument?.defaultView) return false;
+    const { overflowY } = el.ownerDocument.defaultView.getComputedStyle(el);
+    return (overflowY === "auto" || overflowY === "scroll") && el.scrollHeight > el.clientHeight;
+  });
+}
+
+/** A wheel's vertical movement in pixels, whatever unit the browser reports */
+function wheelPixels(event: WheelEvent) {
+  const unit = event.deltaMode === 1 ? 40 : event.deltaMode === 2 ? window.innerHeight : 1;
+  return event.deltaY * unit;
 }
 
 /** Taps, swipes and long presses. Only the outer strips turn, and only when
@@ -541,16 +558,27 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
       const dismissing = pressDismisses;
       pressDismisses = false;
       if (interactive(event.target) || dismissing || selectionIn(doc)) return;
-      // A mouse click is for selecting and marking text. It turns only in an
-      // edge strip, off the words, when edge taps are on.
-      const edge = edgeAt(doc, event.clientX);
-      if (!edge) return;
-      if (doc !== document && mouseHitsWord(doc, event.clientX, event.clientY)) return;
-      actions[edge]();
+      // A mouse click is for selecting and marking text: it never turns. A
+      // laptop window under 1100 px tall reads as a tablet, where edge taps
+      // are on, so the strips are for touch alone; a mouse has the keys, the
+      // wheel and the page buttons.
     };
     const onWheel = (event: WheelEvent) => {
-      // A scrolled book takes the wheel natively, line by line (SLN-674)
-      if (options.scrolled?.()) return;
+      // A scrolled book takes the wheel natively, line by line (SLN-674).
+      // Beside the text column nothing scrolls under the pointer (the
+      // paginator's background, outside the book's frames), so the wheel
+      // moves the book from there.
+      if (options.scrolled?.()) {
+        if (
+          !doc.defaultView?.frameElement &&
+          !options.isBlocked() &&
+          !event.ctrlKey &&
+          !interactive(event.target) &&
+          !scrollsUnder(event)
+        )
+          actions.scrollBy?.(wheelPixels(event));
+        return;
+      }
       if (
         options.isBlocked() ||
         event.ctrlKey ||

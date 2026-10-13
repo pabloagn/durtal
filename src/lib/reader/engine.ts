@@ -331,6 +331,8 @@ export interface ReaderEngine {
   isScrolled?(): boolean;
   /** Scrolls a scrolled book by a few lines, as an arrow key does (SLN-674) */
   scrollLines?(direction: -1 | 1): void;
+  /** Scrolls a scrolled book by this many pixels (a wheel beside the text column) */
+  scrollBy?(px: number): void;
   /** Left and right follow the book's direction: right-to-left books turn the other way */
   goLeft(owner?: NavigationOwner): Promise<void>;
   goRight(owner?: NavigationOwner): Promise<void>;

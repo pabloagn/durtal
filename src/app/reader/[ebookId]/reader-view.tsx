@@ -731,6 +731,7 @@ function ReaderSession({
         },
         pointer: (x, y) => actions.current?.pointer?.(x, y),
         scroll: (direction) => engine?.scrollLines?.(direction),
+        scrollBy: (px) => engine?.scrollBy?.(px),
       },
       scrolled: () => !!engine?.isScrolled?.(),
       turning: () => !!navigationRef.current?.busy,
