@@ -10,8 +10,9 @@ import { CACHE_TAGS, invalidate } from "@/lib/cache";
 import { writeReadings, type WriteOutcome } from "../service";
 import { QUEUE_GAP } from "../constants";
 import type { WriteReadingRow } from "@/lib/validations/reading";
+import { IMPORT_SOURCES } from "@/lib/validations/reading-import";
 import { matchRows, withVerdicts, type MatchedRow } from "./match";
-import { defaultDecision, onlyUndated, type ImportDecision, type ImportMatch, type ImportSection } from "./match-rules";
+import { defaultDecision, importableAnyway, type ImportDecision, type ImportMatch, type ImportSection } from "./match-rules";
 import { parseImportFile } from "./parse";
 import { commitNotes, defaultNoteDecision, noteWritten, readingsCommitted, readingsUncommittedSql, undoNotes } from "./notes";
 import type { ImportReading, ImportRow, ImportSource } from "./types";
@@ -38,6 +39,8 @@ export interface Written {
   queueReason?: string | null;
   /** The note the commit wrote from the row's private note (SLN-453); its readings' rules ignore it */
   noteIds?: string[];
+  /** An e-book library row's rating (SLN-658): written to its book, or the book's kept */
+  ratingOutcome?: "written" | "kept";
 }
 
 export interface StoredRow {
@@ -98,8 +101,23 @@ const asMatched = (r: StoredRow): MatchedRow => ({ rowNo: r.rowNo, data: r.data,
 
 /** Parses, matches and stores a file: the import and its rows in one write. Reads only until then */
 export async function createReadingImport(input: { text: string; fileName: string }): Promise<{ importId: string; source: ImportSource; rows: number }> {
-  const importId = randomUUID();
   const parsed = parseImportFile(input.text);
+  return storeImport({ ...parsed, fileName: displayFileName(input.fileName) });
+}
+
+/**
+ * An e-book library's ratings and reads as an import (SLN-658), from rows
+ * that name their Durtal book, edition and copy. It waits in the preview
+ * like an uploaded file; nothing is written to the books until it is
+ * committed.
+ */
+export async function createLibraryReadingImport(input: { rows: ImportRow[]; rowNos: number[]; name: string; missing?: string[] }) {
+  if (input.rows.length !== input.rowNos.length) throw new Error("Each row needs its number");
+  return storeImport({ source: "ebook_library", rows: input.rows, rowNos: input.rowNos, missing: input.missing ?? [], fileName: input.name.slice(0, 255) });
+}
+
+async function storeImport(parsed: { source: ImportSource; rows: ImportRow[]; rowNos: number[]; missing: string[]; fileName: string }) {
+  const importId = randomUUID();
   const found = await matchRows(parsed.rows);
   const matched: MatchedRow[] = parsed.rows.map((data, i) => {
     const { workId, ...rest } = found[i];
@@ -123,7 +141,7 @@ export async function createReadingImport(input: { text: string; fileName: strin
           id: importId,
           source: parsed.source,
           status: "pending",
-          fileName: displayFileName(input.fileName),
+          fileName: parsed.fileName,
           totalRecords: values.length,
           errorLog,
           startedAt: new Date(),
@@ -147,7 +165,7 @@ async function lockedImport(importId: string, allowed: ImportStatus[]) {
   const [row] = resultRows<{ id: string; status: ImportStatus; source: ImportSource }>(locked);
   if (!row) throw new Error("This import does not exist");
   if (!allowed.includes(row.status)) throw new Error(`This import is ${row.status}`);
-  if (!["goodreads", "storygraph", "durtal"].includes(row.source)) throw new Error("This is not a reading import");
+  if (!(IMPORT_SOURCES as readonly string[]).includes(row.source)) throw new Error("This is not a reading import");
   return row;
 }
 
@@ -214,7 +232,7 @@ export async function decideRow(input: { importId: string; rowNo: number; decisi
     if (row.match.section === "cannot") throw new Error("This row cannot be imported");
     if (row.match.section === "not_imported") throw new Error("Books on this shelf are not imported");
     if (!row.workId) throw new Error("Choose a book first");
-    if (row.match.section === "present" && !onlyUndated(row.match.verdicts)) throw new Error("These reads are already in Durtal");
+    if (row.match.section === "present" && !importableAnyway(row.match.verdicts)) throw new Error("These reads are already in Durtal");
   }
   const updated = await db
     .update(readingImportRows)
@@ -312,6 +330,9 @@ export interface CommitResult {
   /** Private notes written, and already in Durtal (SLN-453) */
   notes: number;
   notesPresent: number;
+  /** E-book library ratings written to their books, and books whose own rating was kept (SLN-658) */
+  ratings?: number;
+  ratingsKept?: number;
 }
 
 /** The total a reading is written with: the file's own, else the edition's, else Goodreads' page count; never below the position */
@@ -350,10 +371,12 @@ export async function commitImport(importId: string): Promise<CommitResult> {
       errors.push({ rowNo: row.rowNo, reason: (match.note ?? "Cannot import").slice(0, 200) });
       return [];
     }
-    const anyway = match.section === "present" && onlyUndated(match.verdicts);
+    const anyway = match.section === "present" && importableAnyway(match.verdicts);
     const items = row.data.readings.map((reading, k) => {
       const verdict = match.verdicts[k];
-      const hold = verdict.verdict === "refused" || verdict.reason === "Already open in Durtal";
+      // An e-book library's read beside Durtal's own (SLN-658) waits for Import anyway: the writer's duplicate rule would take it as new
+      const beside = verdict.reason === "Another read in Durtal" || verdict.reason === "Being read in Durtal";
+      const hold = verdict.verdict === "refused" || verdict.reason === "Already open in Durtal" || (beside && !anyway);
       const send: WriteReadingRow | null = hold
         ? null
         : {
@@ -462,6 +485,13 @@ export async function commitImport(importId: string): Promise<CommitResult> {
       where r.import_id = ${importId}::uuid and r.row_no = v.row_no`);
   }
 
+  // An e-book library row's rating (SLN-658), after its reads: the book takes it when it has none, or when the row says to replace
+  if (imp.source === "ebook_library") {
+    const ratings = await commitLibraryRatings(importId, counted, now);
+    result.ratings = ratings.written;
+    result.ratingsKept = ratings.kept;
+  }
+
   // To-read rows (SLN-452): Up Next items at the bottom, oldest added first
   const queued = await commitQueueItems(importId, all);
   result.queued = queued.written;
@@ -491,6 +521,42 @@ export async function commitImport(importId: string): Promise<CommitResult> {
   ]);
   invalidate(CACHE_TAGS.works, CACHE_TAGS.reading);
   return result;
+}
+
+/**
+ * The ratings of an e-book library import's rows decided "import" (SLN-658), each in
+ * one statement that reads the book's rating as it is now: set when the book
+ * has none, replaced only when the row says so, and journalled for undo. A
+ * row whose rating was settled is never settled again.
+ */
+async function commitLibraryRatings(importId: string, counted: StoredRow[], now: Map<number, ImportMatch>) {
+  const out = { written: 0, kept: 0 };
+  const todo = counted.filter((r) => {
+    const match = now.get(r.rowNo);
+    return r.decision === "import" && r.data.rating !== null && r.written?.ratingOutcome === undefined && match && match.section !== "cannot" && match.rating && match.rating !== "same";
+  });
+  for (const row of todo) {
+    const [result] = (await atomic((d) => [
+      d.execute(sql`
+        with old as (select id, rating from works where id = ${row.workId}::uuid for update),
+        changed as (
+          update works w set rating = ${row.data.rating}::numeric, updated_at = now()
+          from old o where w.id = o.id and (${row.useFileRating} or o.rating is null) and o.rating is distinct from ${row.data.rating}::numeric
+          returning o.rating::float8 as before
+        )
+        update reading_import_rows r set written = coalesce(r.written, '{"readings":[],"bookRating":null,"identifiers":[]}'::jsonb) ||
+          coalesce((select jsonb_build_object('ratingOutcome', 'written', 'bookRating',
+            jsonb_build_object('workId', ${row.workId}::text, 'before', c.before, 'after', ${row.data.rating}::float8)) from changed c),
+            '{"ratingOutcome":"kept"}'::jsonb)
+        where r.import_id = ${importId}::uuid and r.row_no = ${row.rowNo} and r.written->'ratingOutcome' is null
+        returning r.written->>'ratingOutcome' as outcome`),
+    ])) as unknown[];
+    const [settled] = resultRows<{ outcome: string }>(result);
+    if (settled?.outcome === "written") out.written++;
+    else if (settled) out.kept++;
+  }
+  if (out.written) invalidate(CACHE_TAGS.works);
+  return out;
 }
 
 /**

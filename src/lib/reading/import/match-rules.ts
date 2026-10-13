@@ -46,7 +46,11 @@ export interface MatchCandidate {
 export interface ReadingVerdict {
   n: number;
   verdict: "new" | "already_present" | "refused";
-  /** "Same reading", "Same source", "Same finish date", "Undated read", "Already open in Durtal", or why it is refused */
+  /**
+   * "Same reading", "Same source", "Same finish date", "Undated read", "Already
+   * open in Durtal", an e-book library's "Another read in Durtal" or "Being read
+   * in Durtal" (SLN-658), or why it is refused
+   */
   reason: string | null;
   /** The Durtal reading it matched */
   readingId: string | null;
@@ -71,6 +75,20 @@ export interface ImportMatch {
   warnings: string[];
   /** A to-read row's book in Up Next and in reading (SLN-452) */
   queue?: QueueState | null;
+  /**
+   * An e-book library row's rating against its book's (SLN-658), settled by the row
+   * itself rather than by a read: set (the book has none), differs, or same
+   */
+  rating?: RatingState | null;
+}
+
+export type RatingState = "set" | "differs" | "same";
+
+/** A row's rating against its book's: null when the row has none */
+export function ratingState(rowRating: number | null, bookRating: number | null): RatingState | null {
+  if (rowRating === null) return null;
+  if (bookRating === null) return "set";
+  return bookRating === rowRating ? "same" : "differs";
 }
 
 /** Where a to-read row's book stands: its place in Up Next, the row's own key there, an open reading, the last finish */
@@ -142,6 +160,7 @@ export function bookVerdicts(
     { countRule: true },
   );
   const openExisting = existing.find((e) => isOpenStatus(e.status));
+  const matched = new Set(results.flatMap((r) => (r.match ? [r.match.readingId] : [])));
   let openInFile = false;
   const out: ReadingVerdict[][] = rows.map(() => []);
   flat.forEach(({ i, reading }, k) => {
@@ -152,6 +171,19 @@ export function bookVerdicts(
       reason: r.match?.reason ?? null,
       readingId: r.match?.readingId ?? null,
     };
+    // An e-book library keeps one read a book (SLN-658): when Durtal already has
+    // another reading of it, the library's is that one on another date, or a
+    // finish of the open one. Flagged and kept out until Joris imports it anyway.
+    if (source === "ebook_library" && verdict.verdict === "new") {
+      const other = existing.find((e) => !matched.has(e.id));
+      if (other)
+        verdict = {
+          n: reading.n,
+          verdict: "already_present",
+          reason: isOpenStatus(other.status) ? "Being read in Durtal" : "Another read in Durtal",
+          readingId: other.id,
+        };
+    }
     if (verdict.verdict === "new" && isOpenStatus(reading.status)) {
       if (openExisting)
         verdict =
@@ -166,10 +198,13 @@ export function bookVerdicts(
   return out;
 }
 
-/** True when the row is "Already in Durtal" only through the undated count, so "Import anyway" applies */
-export function onlyUndated(verdicts: ReadingVerdict[]) {
+/** Reasons a read counts as in Durtal that "Import anyway" can still write: the undated count, and an e-book library's read beside another (SLN-658) */
+export const ANYWAY_REASONS: readonly (string | null)[] = ["Undated read", "Another read in Durtal", "Being read in Durtal"];
+
+/** True when the row is "Already in Durtal" only through those reasons, so "Import anyway" applies */
+export function importableAnyway(verdicts: ReadingVerdict[]) {
   const present = verdicts.filter((v) => v.verdict === "already_present");
-  return present.length > 0 && present.every((v) => v.reason === "Undated read");
+  return present.length > 0 && present.every((v) => ANYWAY_REASONS.includes(v.reason));
 }
 
 /** Where a row shows, and why when it cannot be imported or is already there */
@@ -179,6 +214,7 @@ export function sectionOf(
   workId: string | null,
   verdicts: ReadingVerdict[],
   queue: QueueState | null = null,
+  rating: RatingState | null = null,
 ): { section: ImportSection; note: string | null } {
   if (row.error) return { section: "cannot", note: row.error };
   if (row.kind === "to_read") {
@@ -191,8 +227,11 @@ export function sectionOf(
   if (!workId) return { section: home, note: null };
   const refused = verdicts.find((v) => v.verdict === "refused");
   if (refused) return { section: "cannot", note: refused.reason };
-  if (verdicts.length && verdicts.every((v) => v.verdict === "already_present"))
-    return { section: "present", note: [...new Set(verdicts.map((v) => v.reason))].join(", ") };
+  // An e-book library row's rating still to settle keeps it importable, its reads already in Durtal or not
+  const settles = rating === "set" || rating === "differs";
+  if (verdicts.length && verdicts.every((v) => v.verdict === "already_present") && !settles)
+    return { section: "present", note: [...new Set([...verdicts.map((v) => v.reason), ...(rating === "same" ? ["Same rating"] : [])])].join(", ") };
+  if (!verdicts.length && rating === "same") return { section: "present", note: "Same rating" };
   return { section: home, note: null };
 }
 

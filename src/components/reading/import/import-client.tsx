@@ -470,16 +470,26 @@ export function UndoImport({
   readings,
   queued = 0,
   notes = 0,
+  goodreadsIds = true,
   size = "md",
 }: {
   importId: string;
   readings: number;
   queued?: number;
   notes?: number;
+  /** Imports made from an e-book library record none (SLN-658) */
+  goodreadsIds?: boolean;
   size?: "sm" | "md";
 }) {
   const { pending, run } = useAction();
   const [asking, setAsking] = useState(false);
+  const removes = [
+    readings ? `the ${readings === 1 ? "reading" : `${readings} readings`} it wrote` : null,
+    queued ? `the ${queued === 1 ? "book" : `${queued} books`} it added to Up Next` : null,
+    notes ? `the ${notes === 1 ? "note" : `${notes} notes`} it imported` : null,
+    "the book ratings it set while they are unchanged",
+    goodreadsIds ? "the Goodreads ids it recorded" : null,
+  ].filter((part): part is string => part !== null);
   return (
     <>
       <Button variant="ghost" size={size} disabled={pending} onClick={() => setAsking(true)} className={coarse} data-import-undo={importId}>
@@ -488,10 +498,9 @@ export function UndoImport({
       {asking && (
         <Dialog open onClose={() => setAsking(false)} title="Undo this import" className="max-w-md" expandable={false}>
           <p className="text-sm text-fg-secondary">
-            This removes the {readings === 1 ? "reading" : `${readings} readings`} it wrote
-            {queued ? `, the ${queued === 1 ? "book" : `${queued} books`} it added to Up Next` : ""}
-            {notes ? `, the ${notes === 1 ? "note" : `${notes} notes`} it imported` : ""}, the book ratings it set while they are unchanged, and the
-            Goodreads ids it recorded. Readings{notes ? " and notes" : ""} you edited since, and Up Next items you moved or edited, are kept. You can import it
+            This removes {removes.slice(0, -1).join(", ")}
+            {removes.length > 1 ? ", and " : ""}
+            {removes[removes.length - 1]}. Readings{notes ? " and notes" : ""} you edited since, and Up Next items you moved or edited, are kept. You can import it
             again later.
           </p>
           <div className="flex justify-end gap-2 pt-4">

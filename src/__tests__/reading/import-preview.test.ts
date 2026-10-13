@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookVerdicts, defaultDecision, judgeCandidates, matchTitle, onlyUndated, sectionOf } from "@/lib/reading/import/match-rules";
+import { bookVerdicts, defaultDecision, judgeCandidates, matchTitle, importableAnyway, ratingState, sectionOf } from "@/lib/reading/import/match-rules";
 import { addBookHref, cannotCarry, commitWords, fileLine, ratingLine, summaryLine, writeLine } from "@/lib/reading/import/preview-text";
 import { rowView } from "@/lib/reading/import/row-view";
 import type { ImportReading } from "@/lib/reading/import/types";
@@ -103,8 +103,8 @@ describe("a book's verdicts", () => {
       ["new", null, null],
       ["already_present", "Same finish date", "dated"],
     ]);
-    expect(onlyUndated(v)).toBe(false);
-    expect(onlyUndated([v[0]])).toBe(true);
+    expect(importableAnyway(v)).toBe(false);
+    expect(importableAnyway([v[0]])).toBe(true);
   });
   it("treats an open read for a book being read by its source", () => {
     const open = [{ id: "open", sourceKey: null, status: "reading" as const, finishedOn: null, finishedPrecision: "unknown" as const }];
@@ -247,5 +247,94 @@ describe("a row as the page sends it", () => {
   it("offers Add this book on a row not in Durtal", () => {
     const view = rowView({ ...base, section: "none", book: null, match: { ...base.match, found: "none", reason: null, verdicts: [] } }, today);
     expect(view).toMatchObject({ empty: "Not in Durtal", actions: { decision: "import", canChoose: true, addHref: "/library/new?isbn=9780140449136" } });
+  });
+});
+
+describe("an e-book library's ratings (SLN-658)", () => {
+  const present = [{ n: 1, verdict: "already_present" as const, reason: "Same finish date", readingId: "r" }];
+  const row = { error: null, kind: "readings" as const };
+  it("tells a rating to set, one that differs and the same one", () => {
+    expect([ratingState(4, null), ratingState(4, 3), ratingState(4, 4), ratingState(null, 3)]).toEqual(["set", "differs", "same", null]);
+  });
+  it("keeps a row importable while its rating is to settle, its read already in Durtal or not", () => {
+    expect(sectionOf(row, "exact", "w", present, null, "differs")).toEqual({ section: "exact", note: null });
+    expect(sectionOf(row, "exact", "w", present, null, "same")).toEqual({ section: "present", note: "Same finish date, Same rating" });
+    expect(sectionOf(row, "exact", "w", [], null, "set")).toEqual({ section: "exact", note: null });
+    expect(sectionOf(row, "exact", "w", [], null, "same")).toEqual({ section: "present", note: "Same rating" });
+    // Other sources are as before
+    expect(sectionOf(row, "exact", "w", present)).toEqual({ section: "present", note: "Same finish date" });
+  });
+  it("flags a library read beside another reading in Durtal, and keeps Durtal's by default", () => {
+    const dated = [{ id: "d", sourceKey: null, status: "finished" as const, finishedOn: "2019-05-04", finishedPrecision: "day" as const }];
+    const undated = [{ id: "u", sourceKey: null, status: "finished" as const, finishedOn: null, finishedPrecision: "unknown" as const }];
+    const open = [{ id: "o", sourceKey: null, status: "reading" as const, finishedOn: null, finishedPrecision: "unknown" as const }];
+    const read = reading({ finishedOn: "2021-03-03", finishedPrecision: "day" });
+    const one = (existing: typeof dated | typeof undated | typeof open) => bookVerdicts("ebook_library", [{ readings: [read] }], existing)[0];
+    expect(one(dated)).toEqual([{ n: 1, verdict: "already_present", reason: "Another read in Durtal", readingId: "d" }]);
+    expect(one(undated)[0]).toMatchObject({ verdict: "already_present", reason: "Another read in Durtal", readingId: "u" });
+    expect(one(open)[0]).toMatchObject({ verdict: "already_present", reason: "Being read in Durtal", readingId: "o" });
+    // The same read, a book with no reading, and other sources are as before
+    expect(bookVerdicts("ebook_library", [{ readings: [reading({ finishedOn: "2019-05-04", finishedPrecision: "day" })] }], dated)[0][0].reason).toBe("Same finish date");
+    expect(one([])[0].verdict).toBe("new");
+    expect(bookVerdicts("goodreads", [{ readings: [read] }], dated)[0][0].verdict).toBe("new");
+    // Already in Durtal, so skipped by default, with Import anyway
+    expect(sectionOf(row, "exact", "w", one(dated))).toEqual({ section: "present", note: "Another read in Durtal" });
+    expect(defaultDecision("present")).toBe("skip");
+    expect([importableAnyway(one(dated)), importableAnyway(one(open)), importableAnyway(present)]).toEqual([true, true, false]);
+    expect(writeLine([read], one(dated), "2026-10-13")).toBe("Durtal's own reading kept: the library's read is not imported");
+    expect(writeLine([read], one(dated), "2026-10-13", { anyway: true })).toContain("2021");
+  });
+  it("names the ratings in the commit, and what the import cannot carry", () => {
+    expect(commitWords(2, 0, 0, 0, 3).label).toBe("Import 2 readings and 3 ratings");
+    expect(commitWords(0, 0, 0, 0, 1).label).toBe("Import 1 rating");
+    expect(commitWords(2, 0, 0, 1, 3).label).toBe("Import 2 readings, 1 note and 3 ratings");
+    expect(cannotCarry("ebook_library", { otherShelves: 0, extras: 0 }, [])).toEqual([
+      "Only the library's books that are e-books in Durtal, linked to their books, are here.",
+      "The library keeps no start dates and one read a book: a reread is not imported.",
+    ]);
+  });
+  it("offers the rating on a row whose read is already in Durtal, and shows what it settled", () => {
+    const today = "2026-10-05";
+    const data = {
+      kind: "readings" as const,
+      sourceBookId: null,
+      title: "Watt",
+      authors: ["Samuel Beckett"],
+      isbn13: null,
+      isbn10: null,
+      fileRating: 4,
+      rating: 4,
+      shelves: [],
+      pages: null,
+      extras: {},
+      workId: "w",
+      editionId: "e",
+      instanceId: "i",
+      warnings: [],
+      error: null,
+      hasNotes: false,
+      readings: [{ ...reading({ finishedOn: "2019-04-14", finishedPrecision: "day", format: "ebook", unit: "percent" }), hasReview: false }],
+    };
+    const view = {
+      rowNo: 7,
+      section: "exact" as const,
+      data,
+      match: { found: "exact" as const, reason: "Same Durtal book", chosen: false, editionId: "e", instanceId: "i", candidates: [], verdicts: present, section: "exact" as const, note: null, warnings: [], rating: "differs" as const },
+      decision: "import" as const,
+      useFileRating: false,
+      written: null,
+      book: { workId: "w", title: "Watt", slug: "watt", author: "Samuel Beckett", year: 1953, cover: null, rating: 3, editionWithoutGoodreads: true },
+      candidates: [],
+    };
+    expect(rowView(view, today)).toMatchObject({
+      lines: [
+        ["reason", "Same Durtal book"],
+        ["writes", "1 read already in Durtal"],
+        ["rating", "Book rating 3 kept (the file says 4)"],
+      ],
+      actions: { decision: "import", canImport: true, ratingChoice: false },
+    });
+    const written = rowView({ ...view, written: { readings: [], bookRating: { workId: "w", before: 3, after: 4 }, identifiers: [], ratingOutcome: "written" } }, today);
+    expect([written.lines, written.actions]).toEqual([[["reason", "Same Durtal book"], ["outcome", "Book rating set to 4"]], null]);
   });
 });

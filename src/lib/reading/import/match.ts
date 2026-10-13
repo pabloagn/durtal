@@ -8,6 +8,7 @@ import {
   CANDIDATE_THRESHOLD,
   judgeCandidates,
   matchTitle,
+  ratingState,
   sectionOf,
   type FoundHow,
   type ImportMatch,
@@ -274,6 +275,18 @@ export async function matchRows(rows: ImportRow[]): Promise<RowMatch[]> {
   return result;
 }
 
+/** The rating each of these books has now */
+async function bookRatings(workIds: string[]): Promise<Map<string, number | null>> {
+  const out = new Map<string, number | null>();
+  for (const batch of batches(unique(workIds))) {
+    for (const r of resultRows<{ id: string; rating: number | null }>(
+      await db.execute(sql`select id::text as id, rating::float8 as rating from works where id in (select value::uuid from jsonb_array_elements_text(${json(batch)}::jsonb))`),
+    ))
+      out.set(r.id, r.rating === null ? null : Number(r.rating));
+  }
+  return out;
+}
+
 /** The readings of these books, as the duplicate rule reads them */
 export async function existingReadingsOf(workIds: string[]): Promise<Map<string, ExistingReading[]>> {
   const out = new Map<string, ExistingReading[]>();
@@ -317,10 +330,13 @@ export async function withVerdicts(source: ImportSource, rows: MatchedRow[]): Pr
     bookVerdicts(source, ordered.map((r) => r.data), existing.get(workId) ?? []).forEach((v, k) => verdicts.set(ordered[k].rowNo, v));
   }
   const queued = await queueStates(rows.filter((r) => r.data.kind === "to_read" && r.data.queueKey && !r.data.error));
+  // An e-book library's row settles its book's rating itself (SLN-658): against the rating the book has now
+  const ratings = source === "ebook_library" ? await bookRatings(counted.filter((r) => r.data.rating !== null).map((r) => r.workId!)) : new Map<string, number | null>();
   return rows.map((r) => {
     const v = verdicts.get(r.rowNo) ?? [];
     const queue = r.data.kind === "to_read" && r.workId ? (queued(r.workId, r.data.queueKey ?? null) ?? null) : null;
-    return { ...r.match, verdicts: v, queue, ...sectionOf(r.data, r.match.found, r.workId, v, queue) };
+    const rating = r.workId && ratings.has(r.workId) && !r.data.error ? ratingState(r.data.rating, ratings.get(r.workId)!) : null;
+    return { ...r.match, verdicts: v, queue, ...(source === "ebook_library" ? { rating } : {}), ...sectionOf(r.data, r.match.found, r.workId, v, queue, rating) };
   });
 }
 
