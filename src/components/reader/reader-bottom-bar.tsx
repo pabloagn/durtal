@@ -7,6 +7,7 @@ import { pageText } from "@/lib/reader/running-lines";
 import { ProgressScrubber } from "./progress-scrubber";
 import { focusOpener } from "./reader-bar-item";
 import { Hash, PanelBottom } from "lucide-react";
+import { formatPercent, samePlace } from "@/lib/reader/place-label";
 
 /**
  * The reader's bottom bar (eBooks sub-issue 3): the chapter and how far
@@ -50,6 +51,14 @@ export function ReaderBottomBar({
       bridge.mountSlot("toolbar-status", element),
     [bridge],
   );
+  const place =
+    index && locator
+      ? linear === false
+        ? "Outside the reading order"
+        : pageText(locator, index)
+      : null;
+  // A comic's contents name its pages, so its chapter is its page: say it once
+  const heading = chapter && !(place && samePlace(chapter, place)) ? chapter : null;
   return (
     <footer
       data-reader-bottom-bar
@@ -61,7 +70,7 @@ export function ReaderBottomBar({
       }`}
     >
       <div className="flex h-9 [@media(pointer:coarse)]:h-11 items-center gap-3 px-4 text-xs text-fg-secondary">
-        <p className="min-w-0 flex-1 truncate">{chapter}</p>
+        <p className="min-w-0 flex-1 truncate">{heading}</p>
         {/* The tracking control: a whole button, never clipped to the row's text */}
         <div
           ref={mount}
@@ -70,14 +79,8 @@ export function ReaderBottomBar({
         />
         {/* The place shows beside the tracking control too, never instead of it */}
         <div className="flex min-w-0 max-w-[60%] items-center gap-2 tabular-nums">
-          {index && locator && (
-            <span className="truncate">
-              {linear === false
-                ? "Outside the reading order"
-                : pageText(locator, index)}
-            </span>
-          )}
-          {percent !== null && <span className="shrink-0">{percent}%</span>}
+          {place && <span className="truncate">{place}</span>}
+          {percent !== null && <span className="shrink-0">{formatPercent(percent)}</span>}
           {linear !== false && timeLeftChapter && (
             <span className="min-w-0 truncate">{timeLeftChapter}</span>
           )}
@@ -87,6 +90,9 @@ export function ReaderBottomBar({
         <div className="flex items-center gap-2 px-4 pb-1">
           <ProgressScrubber
             fraction={locator.totalProgression}
+            restLabel={[heading, place, percent !== null ? formatPercent(percent) : null]
+              .filter(Boolean)
+              .join(" · ")}
             index={index}
             onCommit={onScrub}
             onPeek={onPeek}

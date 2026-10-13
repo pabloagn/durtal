@@ -1,4 +1,5 @@
 import type { BookInfo, DurtalLocator, TocItem } from "./engine";
+import { fractionPercent, locationWords, pageWords, samePlace } from "./place-label";
 
 export const unit = (n: number) =>
   Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0;
@@ -165,22 +166,44 @@ export class PositionIndex {
       : locator.totalProgression;
     return this.locationAt(fraction);
   }
+  /** A page by its label, in the words every view uses (`pageWords`) */
+  pageWords(label: string) {
+    return pageWords(label, this.info.pageList.at(-1)?.label, this.info.layout === "pre-paginated");
+  }
+  /** The page or location at a point of the book: "p. 7 of 32", "Location 6 of 16" */
   positionLabel(fraction: number) {
     const page = this.pageAt(fraction);
     return page
-      ? "p. " + page.label
-      : "Location " + this.locationAt(fraction).toLocaleString();
+      ? this.pageWords(page.label)
+      : locationWords(this.locationAt(fraction), this.info.locationCount);
   }
+  /** The page or location a place starts on, as the bar, the margins and marks name it */
   locatorLabel(locator: DurtalLocator) {
     return locator.pageLabel
-      ? "p. " + locator.pageLabel
-      : "Location " + this.locationFor(locator).toLocaleString();
+      ? this.pageWords(locator.pageLabel)
+      : locationWords(this.locationFor(locator), this.info.locationCount);
+  }
+  /**
+   * The page a contents entry starts on. Page markers usually sit just after
+   * the heading they belong to; a marker within half a location of the entry,
+   * in its section, is its page, not the page before (SLN-680).
+   */
+  entryPage(href: string) {
+    const fraction = this.fraction(href);
+    const section = this.sectionFor(href);
+    const next = this.pages[lower(this.pages, fraction)];
+    const near = this.info.linearSize > 0 ? 750 / this.info.linearSize : 0;
+    if (next && next.fraction - fraction <= near && (!section || this.sectionFor(next.href) === section))
+      return next;
+    return this.pageAt(fraction);
   }
   preview(fraction: number) {
+    const place = this.positionLabel(fraction);
+    const chapter = this.chapterAt(fraction)?.label;
     return [
-      this.chapterAt(fraction)?.label,
-      this.positionLabel(fraction),
-      Math.round(fraction * 100) + "%",
+      chapter && !(place && samePlace(chapter, place)) ? chapter : null,
+      place,
+      fractionPercent(fraction),
     ]
       .filter(Boolean)
       .join(" · ");
