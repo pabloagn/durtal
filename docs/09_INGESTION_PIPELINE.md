@@ -821,8 +821,11 @@ counts as read.
   finished e-book reading; an undated one says "Read, date unknown". The two
   columns disagreeing (a date, but not read) is shown on the row and no read
   is imported.
-- The preview flags every conflict. A read already in Durtal is present; a
-  read on another date is a new reading, to import or skip. A rating that
+- The preview flags every conflict. A read already in Durtal is present. The
+  library keeps one read a book, so when Durtal has another reading of it (on
+  another date, undated, or still open) the library's read is shown as
+  "Another read in Durtal" or "Being read in Durtal" and kept out; "Import
+  anyway" writes it. A rating that
   differs from the book's is shown, and Durtal's is kept unless the row's
   "Use the file's rating" is chosen; a book with no rating takes the file's.
   Commit and undo are the Goodreads import's.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookVerdicts, defaultDecision, judgeCandidates, matchTitle, onlyUndated, ratingState, sectionOf } from "@/lib/reading/import/match-rules";
+import { bookVerdicts, defaultDecision, judgeCandidates, matchTitle, importableAnyway, ratingState, sectionOf } from "@/lib/reading/import/match-rules";
 import { addBookHref, cannotCarry, commitWords, fileLine, ratingLine, summaryLine, writeLine } from "@/lib/reading/import/preview-text";
 import { rowView } from "@/lib/reading/import/row-view";
 import type { ImportReading } from "@/lib/reading/import/types";
@@ -103,8 +103,8 @@ describe("a book's verdicts", () => {
       ["new", null, null],
       ["already_present", "Same finish date", "dated"],
     ]);
-    expect(onlyUndated(v)).toBe(false);
-    expect(onlyUndated([v[0]])).toBe(true);
+    expect(importableAnyway(v)).toBe(false);
+    expect(importableAnyway([v[0]])).toBe(true);
   });
   it("treats an open read for a book being read by its source", () => {
     const open = [{ id: "open", sourceKey: null, status: "reading" as const, finishedOn: null, finishedPrecision: "unknown" as const }];
@@ -263,6 +263,26 @@ describe("an e-book library's ratings (SLN-658)", () => {
     expect(sectionOf(row, "exact", "w", [], null, "same")).toEqual({ section: "present", note: "Same rating" });
     // Other sources are as before
     expect(sectionOf(row, "exact", "w", present)).toEqual({ section: "present", note: "Same finish date" });
+  });
+  it("flags a library read beside another reading in Durtal, and keeps Durtal's by default", () => {
+    const dated = [{ id: "d", sourceKey: null, status: "finished" as const, finishedOn: "2019-05-04", finishedPrecision: "day" as const }];
+    const undated = [{ id: "u", sourceKey: null, status: "finished" as const, finishedOn: null, finishedPrecision: "unknown" as const }];
+    const open = [{ id: "o", sourceKey: null, status: "reading" as const, finishedOn: null, finishedPrecision: "unknown" as const }];
+    const read = reading({ finishedOn: "2021-03-03", finishedPrecision: "day" });
+    const one = (existing: typeof dated | typeof undated | typeof open) => bookVerdicts("ebook_library", [{ readings: [read] }], existing)[0];
+    expect(one(dated)).toEqual([{ n: 1, verdict: "already_present", reason: "Another read in Durtal", readingId: "d" }]);
+    expect(one(undated)[0]).toMatchObject({ verdict: "already_present", reason: "Another read in Durtal", readingId: "u" });
+    expect(one(open)[0]).toMatchObject({ verdict: "already_present", reason: "Being read in Durtal", readingId: "o" });
+    // The same read, a book with no reading, and other sources are as before
+    expect(bookVerdicts("ebook_library", [{ readings: [reading({ finishedOn: "2019-05-04", finishedPrecision: "day" })] }], dated)[0][0].reason).toBe("Same finish date");
+    expect(one([])[0].verdict).toBe("new");
+    expect(bookVerdicts("goodreads", [{ readings: [read] }], dated)[0][0].verdict).toBe("new");
+    // Already in Durtal, so skipped by default, with Import anyway
+    expect(sectionOf(row, "exact", "w", one(dated))).toEqual({ section: "present", note: "Another read in Durtal" });
+    expect(defaultDecision("present")).toBe("skip");
+    expect([importableAnyway(one(dated)), importableAnyway(one(open)), importableAnyway(present)]).toEqual([true, true, false]);
+    expect(writeLine([read], one(dated), "2026-10-13")).toBe("Durtal's own reading kept: the library's read is not imported");
+    expect(writeLine([read], one(dated), "2026-10-13", { anyway: true })).toContain("2021");
   });
   it("names the ratings in the commit, and what the import cannot carry", () => {
     expect(commitWords(2, 0, 0, 0, 3).label).toBe("Import 2 readings and 3 ratings");

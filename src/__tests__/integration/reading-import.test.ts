@@ -698,6 +698,35 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       expect((await readingsOf(molloy.workId)).length).toBe(1);
     });
 
+    it("keeps Durtal's reading when the library's read is beside another, unless imported anyway", async () => {
+      const watt = await libraryBook("Watt");
+      await reading(watt.workId, { finishedOn: "2019-05-04", finishedPrecision: "day", format: "ebook" });
+      const molloy = await libraryBook("Molloy");
+      await reading(molloy.workId, {});
+      const murphy = await libraryBook("Murphy", { rating: 3 });
+      await reading(murphy.workId, { status: "reading", startedOn: "2026-09-01", startedPrecision: "day" });
+      const library = [libraryRow(watt, "Watt", null, "2021-03-03"), libraryRow(molloy, "Molloy", null, "2021-03-03"), libraryRow(murphy, "Murphy", 4, "2021-03-03")];
+      const { importId } = await createLibraryReadingImport({ rows: library, rowNos: [1, 2, 3], name: "E-book library" });
+      expect((await rows(importId)).map((r) => [r.match.section, r.decision, r.match.verdicts.map((v) => v.reason)])).toEqual([
+        ["present", "skip", ["Another read in Durtal"]],
+        ["present", "skip", ["Another read in Durtal"]],
+        // Its rating still settles on its own; the read stays out
+        ["exact", "import", ["Being read in Durtal"]],
+      ]);
+      expect((await getImportPreview(importId))!.summary).toMatchObject({ toImport: 0, toRate: 0 });
+      // Import anyway on one
+      await decideImportRow({ importId, rowNo: 1, decision: "import" });
+      expect((await getImportPreview(importId))!.summary.toImport).toBe(1);
+      expect(await commitReadingImport({ importId })).toMatchObject({ written: 1, ratings: 0, ratingsKept: 1 });
+      expect((await readingsOf(watt.workId)).map((r) => r.finished_on)).toEqual(["2019-05-04", "2021-03-03"]);
+      expect((await readingsOf(molloy.workId)).length).toBe(1);
+      expect((await readingsOf(murphy.workId)).map((r) => r.status)).toEqual(["reading"]);
+      expect(await rating(murphy.workId)).toBe(3);
+      // Again: the read imported anyway is now the library's own
+      const again = await createLibraryReadingImport({ rows: library, rowNos: [1, 2, 3], name: "E-book library" });
+      expect((await rows(again.importId)).map((r) => r.match.verdicts[0].reason)).toEqual(["Same source", "Another read in Durtal", "Being read in Durtal"]);
+    });
+
     it("keeps Durtal's rating unless the row says to replace it", async () => {
       const molloy = await libraryBook("Molloy", { rating: 3 });
       const { importId } = await createLibraryReadingImport({ rows: [libraryRow(molloy, "Molloy", 4, null)], rowNos: [1], name: "E-book library" });

@@ -12,7 +12,7 @@ import { QUEUE_GAP } from "../constants";
 import type { WriteReadingRow } from "@/lib/validations/reading";
 import { IMPORT_SOURCES } from "@/lib/validations/reading-import";
 import { matchRows, withVerdicts, type MatchedRow } from "./match";
-import { defaultDecision, onlyUndated, type ImportDecision, type ImportMatch, type ImportSection } from "./match-rules";
+import { defaultDecision, importableAnyway, type ImportDecision, type ImportMatch, type ImportSection } from "./match-rules";
 import { parseImportFile } from "./parse";
 import { commitNotes, defaultNoteDecision, noteWritten, readingsCommitted, readingsUncommittedSql, undoNotes } from "./notes";
 import type { ImportReading, ImportRow, ImportSource } from "./types";
@@ -232,7 +232,7 @@ export async function decideRow(input: { importId: string; rowNo: number; decisi
     if (row.match.section === "cannot") throw new Error("This row cannot be imported");
     if (row.match.section === "not_imported") throw new Error("Books on this shelf are not imported");
     if (!row.workId) throw new Error("Choose a book first");
-    if (row.match.section === "present" && !onlyUndated(row.match.verdicts)) throw new Error("These reads are already in Durtal");
+    if (row.match.section === "present" && !importableAnyway(row.match.verdicts)) throw new Error("These reads are already in Durtal");
   }
   const updated = await db
     .update(readingImportRows)
@@ -371,10 +371,12 @@ export async function commitImport(importId: string): Promise<CommitResult> {
       errors.push({ rowNo: row.rowNo, reason: (match.note ?? "Cannot import").slice(0, 200) });
       return [];
     }
-    const anyway = match.section === "present" && onlyUndated(match.verdicts);
+    const anyway = match.section === "present" && importableAnyway(match.verdicts);
     const items = row.data.readings.map((reading, k) => {
       const verdict = match.verdicts[k];
-      const hold = verdict.verdict === "refused" || verdict.reason === "Already open in Durtal";
+      // An e-book library's read beside Durtal's own (SLN-658) waits for Import anyway: the writer's duplicate rule would take it as new
+      const beside = verdict.reason === "Another read in Durtal" || verdict.reason === "Being read in Durtal";
+      const hold = verdict.verdict === "refused" || verdict.reason === "Already open in Durtal" || (beside && !anyway);
       const send: WriteReadingRow | null = hold
         ? null
         : {

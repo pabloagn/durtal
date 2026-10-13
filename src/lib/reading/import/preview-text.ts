@@ -1,5 +1,5 @@
 import { formatReadingSpan } from "../dates";
-import type { ImportMatch, ImportSection, ReadingVerdict } from "./match-rules";
+import { ANYWAY_REASONS, type ImportMatch, type ImportSection, type ReadingVerdict } from "./match-rules";
 import type { ImportReading, ImportSource } from "./types";
 
 /*
@@ -46,12 +46,14 @@ export function fileLine(row: { authors: string[]; fileRating: number | null; re
  * "Finished 14 Apr 2019 · 4 stars · review · +2 earlier reads, dates unknown"
  */
 export function writeLine(readings: Reading[], verdicts: ReadingVerdict[], today: string, { anyway = false } = {}): string | null {
-  const isNew = (i: number) => verdicts[i]?.verdict === "new" || (anyway && verdicts[i]?.reason === "Undated read");
+  const isNew = (i: number) => verdicts[i]?.verdict === "new" || (anyway && ANYWAY_REASONS.includes(verdicts[i]?.reason ?? null));
   const fresh = readings.filter((_, i) => isNew(i));
   const presentIdx = readings.map((_, i) => i).filter((i) => verdicts[i]?.verdict === "already_present" && !isNew(i));
   const present = presentIdx.length;
   const presentWord = presentIdx.every((i) => verdicts[i].reason === "Undated read") ? "earlier read" : "read";
-  if (!fresh.length) return present ? `${plural(present, presentWord)} already in Durtal` : null;
+  // An e-book library's read beside Durtal's own (SLN-658): not the same read, and not written
+  const beside = presentIdx.some((i) => verdicts[i].reason === "Another read in Durtal" || verdicts[i].reason === "Being read in Durtal");
+  if (!fresh.length) return beside ? "Durtal's own reading kept: the library's read is not imported" : present ? `${plural(present, presentWord)} already in Durtal` : null;
   const latest = fresh.at(-1)!;
   const earlier = fresh.slice(0, -1);
   const undated = earlier.filter((r) => !r.finishedOn && !r.startedOn).length;

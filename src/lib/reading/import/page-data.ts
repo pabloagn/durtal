@@ -162,7 +162,8 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
           and w.rating <> (r.data->>'rating')::numeric and r.match->>'section' not in ('present', 'cannot', 'not_imported', 'to_read'))::int as "ratingsDiffer",
         coalesce(sum(case when r.decision = 'import' and ${open} and r.work_id is not null then
           (select count(*) from jsonb_array_elements(r.match->'verdicts') v
-            where v->>'verdict' = 'new' or (r.match->>'section' = 'present' and v->>'reason' = 'Undated read'))
+            where v->>'verdict' = 'new' or (r.match->>'section' = 'present'
+              and v->>'reason' in ('Undated read', 'Another read in Durtal', 'Being read in Durtal')))
           else 0 end), 0)::int as "toImport",
         count(*) filter (where r.decision = 'import' and ${open} and r.work_id is not null
           and (r.match->>'rating' = 'set' or (r.match->>'rating' = 'differs' and r.use_file_rating))
