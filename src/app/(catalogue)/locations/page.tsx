@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { MapPin } from "lucide-react";
-import { getLocationCopyCounts, getLocations } from "@/lib/actions/locations";
+import { getLocationItemCounts, getLocations } from "@/lib/actions/locations";
+import { NO_LOCATION_ITEMS } from "@/lib/catalogue/location-items";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
@@ -10,7 +11,7 @@ import { LocationCard } from "./location-card";
 export const metadata = { title: "Locations" };
 
 async function LocationsContent() {
-  const [locations, copyCounts] = await Promise.all([getLocations(), getLocationCopyCounts()]);
+  const [locations, itemCounts] = await Promise.all([getLocations(), getLocationItemCounts()]);
 
   if (locations.length === 0) {
     return (
@@ -39,7 +40,7 @@ async function LocationsContent() {
           latitude={location.latitude}
           longitude={location.longitude}
           isActive={location.isActive}
-          instanceCount={copyCounts.get(location.id) ?? 0}
+          items={itemCounts.get(location.id) ?? NO_LOCATION_ITEMS}
           subLocations={location.subLocations}
         />
       ))}

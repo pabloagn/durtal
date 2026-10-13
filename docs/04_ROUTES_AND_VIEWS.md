@@ -707,10 +707,10 @@ Management interface for physical and digital storage locations.
 - Name
 - Type badge (physical / digital)
 - Sub-locations displayed as badges
-- Instance count
+- Item count: the book copies, film copies, paintings and perfume bottles held there, read live
 - Address details (if physical)
 
-**Actions**: Create location, edit, delete. Create sub-location. Three input modes for address entry:
+**Actions**: Create location, edit, delete. Create sub-location. Delete says that the location's book copies are deleted with it; a location that still holds film copies, paintings or perfume bottles cannot be deleted, and the dialog says to move them first. Three input modes for address entry:
 - Manual form (street, city, region, country, postal code)
 - Postal code lookup (via Nominatim geocoder)
 - Interactive map picker (Leaflet with Carto Dark Matter tiles)
