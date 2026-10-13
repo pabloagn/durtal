@@ -246,6 +246,12 @@ describe.skipIf(!url)("REST write routes with PostgreSQL", () => {
         await answer(await postInstance(request("POST", "/api/instances", { editionId, locationId: MISSING }))),
       ).toEqual({ status: 404, body: { error: "Location not found" } });
       expect((await postInstance(request("POST", "/api/instances", { editionId }))).status).toBe(400);
+      // A sub-location of another location (SLN-574)
+      const [office] = await db.insert(schema.locations).values({ name: "Office", type: "physical" }).returning();
+      const [desk] = await db.insert(schema.subLocations).values({ locationId: office.id, name: "Desk" }).returning();
+      expect(
+        await answer(await postInstance(request("POST", "/api/instances", { editionId, locationId, subLocationId: desk.id }))),
+      ).toEqual({ status: 400, body: { error: "The sub-location belongs to another location" } });
       expect(await db.select().from(schema.instances)).toEqual([]);
     });
   });

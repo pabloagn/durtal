@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { locations, subLocations } from "@/lib/db/schema";
+import { instances, locations, subLocations } from "@/lib/db/schema";
 import { eq, asc, sql } from "drizzle-orm";
 import { atomic } from "@/lib/db/atomic";
 import { lockReaderEbooks, withReaderWriteRetry } from "@/lib/reading/reader-write-locks";
@@ -27,14 +27,24 @@ export const getLocations = cached(
         subLocations: {
           orderBy: asc(subLocations.sortOrder),
         },
-        instances: {
-          columns: { id: true },
-        },
       },
     }),
   ["locations"],
   [CACHE_TAGS.locations],
 );
+
+/**
+ * How many copies each location holds, keyed by location id; a location with
+ * none is absent. Read live, never cached: every copy write, move, delete and
+ * cascade changes it, and none of them refresh the cached locations (SLN-575).
+ */
+export async function getLocationCopyCounts(): Promise<Map<string, number>> {
+  const rows = await db
+    .select({ locationId: instances.locationId, count: sql<number>`count(*)::int` })
+    .from(instances)
+    .groupBy(instances.locationId);
+  return new Map(rows.map((row) => [row.locationId, row.count]));
+}
 
 export async function createLocation(input: CreateLocationInput) {
   const [location] = await db

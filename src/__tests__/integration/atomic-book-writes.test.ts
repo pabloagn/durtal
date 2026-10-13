@@ -303,6 +303,16 @@ describe.skipIf(!url)("atomic book writes", () => {
           copies: [{ locationId: MISSING }],
         }),
       ).toEqual({ ok: false, error: "A selected location no longer exists" });
+      // A sub-location of another location (SLN-574)
+      const [elsewhere] = await c`insert into locations(name,type) values ('Elsewhere','physical') returning id`;
+      const [shelf] = await c`insert into sub_locations(location_id,name) values (${elsewhere.id},'Shelf') returning id`;
+      expect(
+        await createBookFromWizard({
+          existingWorkId: first.workId,
+          edition: { title: "Third" },
+          copies: [{ locationId: study }, { locationId: study, subLocationId: shelf.id }],
+        }),
+      ).toEqual({ ok: false, error: "The sub-location belongs to another location" });
       expect(
         await createBookFromWizard({
           existingWorkId: MISSING,
