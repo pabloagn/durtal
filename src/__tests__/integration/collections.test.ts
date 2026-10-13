@@ -64,6 +64,8 @@ import {
   getCollectionCoverPreviews,
   bulkAddWorksToCollection,
   removeWorksFromCollection,
+  addToCollection,
+  removeFromCollection,
   moveCollectionMember,
   getCollectionsForWork,
   searchWorksForCollection,
@@ -386,6 +388,55 @@ describe.skipIf(!url)("collection workflows with PostgreSQL", () => {
         sql`alter table activity_events drop constraint collection_test_failure`,
       );
     }
+  });
+  it("adds and removes an edition-backed and an editionless book together or not at all (SLN-573)", async () => {
+    const b = await book("Là-bas");
+    const loose = await work("En route", "book");
+    const gone = await work("La Cathédrale", "book");
+    const c = await createCollection({ name: "Durtal" });
+    const editionIds = [b.editions[0].id];
+    const events = async () => (await db.select().from(schema.activityEvents)).map((e) => e.eventKey);
+    const works = async () => (await getCollection(c.id))!.collectionWorks.map((w) => w.workId);
+
+    // A book deleted after the dialog loaded: nothing joins
+    await db.delete(schema.works).where(eq(schema.works.id, gone.id));
+    await expect(addToCollection(c.id, { editionIds, workIds: [gone.id] })).rejects.toThrow("A work was not found");
+    expect(await members(c.id)).toEqual([]);
+    expect(await events()).toEqual([]);
+
+    // The whole works' write fails after the editions' one: the editions roll back with it
+    await db.execute(sql`alter table collection_works add constraint collection_test_failure check(false) not valid`);
+    try {
+      await expect(addToCollection(c.id, { editionIds, workIds: [loose.id] })).rejects.toThrow();
+    } finally {
+      await db.execute(sql`alter table collection_works drop constraint collection_test_failure`);
+    }
+    expect(await members(c.id)).toEqual([]);
+    expect(await works()).toEqual([]);
+    expect(await events()).toEqual([]);
+
+    expect(await addToCollection(c.id, { editionIds, workIds: [loose.id] })).toEqual({ changed: 2 });
+    expect(await addToCollection(c.id, { editionIds, workIds: [loose.id] })).toEqual({ changed: 0 });
+    expect(await members(c.id)).toEqual(editionIds);
+    expect(await works()).toEqual([loose.id]);
+
+    // The same for a removal
+    await db.execute(sql`create function collection_test_refuse() returns trigger language plpgsql as $$ begin raise exception 'refused'; end $$`);
+    await db.execute(sql`create trigger collection_test_refuse before delete on collection_works for each row execute function collection_test_refuse()`);
+    try {
+      await expect(removeFromCollection(c.id, { editionIds, workIds: [loose.id] })).rejects.toThrow();
+    } finally {
+      await db.execute(sql`drop trigger collection_test_refuse on collection_works`);
+      await db.execute(sql`drop function collection_test_refuse()`);
+    }
+    expect(await members(c.id)).toEqual(editionIds);
+    expect(await works()).toEqual([loose.id]);
+    expect((await events()).filter((key) => key === "work.collection_removed")).toEqual([]);
+
+    expect(await removeFromCollection(c.id, { editionIds, workIds: [loose.id] })).toEqual({ changed: 2 });
+    expect(await members(c.id)).toEqual([]);
+    expect(await works()).toEqual([]);
+    expect((await events()).filter((key) => key === "work.collection_removed")).toHaveLength(2);
   });
   it("collects a painting, a perfume, a film and a book edition in one order, kept across reloads", async () => {
     const b = await book("Against Nature", 2);

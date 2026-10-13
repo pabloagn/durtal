@@ -8,8 +8,7 @@ import { Input } from "@/components/ui/input";
 import {
   searchEditionsForPicker,
   searchWorksForCollection,
-  bulkAddEditionsToCollection,
-  bulkAddWorksToCollection,
+  addToCollection,
 } from "@/lib/actions/collections";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
@@ -122,21 +121,14 @@ export function AddCollectionBooksDialog({
     busy.current = true;
     setSaving(true);
     try {
-      const [editionsAdded, worksAdded] = await Promise.all([
-        ids.length
-          ? bulkAddEditionsToCollection(collectionId, ids)
-          : { changed: 0 },
-        workIds.length
-          ? bulkAddWorksToCollection(collectionId, workIds)
-          : { changed: 0 },
-      ]);
-      const changed = editionsAdded.changed + worksAdded.changed;
+      // Editions and whole works join together or not at all (SLN-573)
+      const { changed } = await addToCollection(collectionId, { editionIds: ids, workIds });
       toast.success(`${changed} added to the collection`);
       router.refresh();
       triggerActivityRefresh();
       onClose();
     } catch {
-      toast.error("Could not add these. Your selection is still here.");
+      toast.error("Could not add these, so nothing was added. Your selection is still here.");
     } finally {
       busy.current = false;
       setSaving(false);

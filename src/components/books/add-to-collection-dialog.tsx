@@ -9,10 +9,8 @@ import { Input } from "@/components/ui/input";
 import {
   getCollectionSelection,
   createCollection,
-  bulkAddEditionsToCollection,
-  bulkAddWorksToCollection,
-  removeEditionsFromCollection,
-  removeWorksFromCollection,
+  addToCollection,
+  removeFromCollection,
 } from "@/lib/actions/collections";
 import {
   collectionCounts,
@@ -84,13 +82,9 @@ export function AddToCollectionDialog({
     saving.current = true;
     setBusy(true);
     try {
-      if (remove) {
-        if (selected.length) await removeEditionsFromCollection(id, selected);
-        if (wholeWorks.length) await removeWorksFromCollection(id, wholeWorks);
-      } else {
-        if (selected.length) await bulkAddEditionsToCollection(id, selected);
-        if (wholeWorks.length) await bulkAddWorksToCollection(id, wholeWorks);
-      }
+      // Editions and whole works change together or not at all (SLN-573)
+      const members = { editionIds: selected, workIds: wholeWorks };
+      await (remove ? removeFromCollection(id, members) : addToCollection(id, members));
       setData(
         (current) =>
           current && {
@@ -137,7 +131,9 @@ export function AddToCollectionDialog({
       toast.success(remove ? "Removed from collection" : "Added to collection");
       refreshed();
     } catch {
-      toast.error("Could not update this collection. Please try again.");
+      // Nothing was changed; a book may have gone meanwhile, so read again
+      toast.error("Could not update this collection. Nothing was changed.");
+      setAttempt((n) => n + 1);
     } finally {
       saving.current = false;
       setBusy(false);
