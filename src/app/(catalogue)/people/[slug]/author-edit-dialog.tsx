@@ -96,6 +96,7 @@ export function AuthorEditDialog({
 
   return (
     <Dialog
+      draft
       open={open}
       onClose={() => {
         if (!isPending) onClose();

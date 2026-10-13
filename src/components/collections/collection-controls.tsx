@@ -148,6 +148,7 @@ export function CollectionControls({
         />
       )}
       <Dialog
+        draft
         open={edit}
         onClose={() => {
           if (!busy) setEdit(false);
@@ -175,7 +176,7 @@ export function CollectionControls({
             disabled={busy}
           />
           <div className="flex justify-end gap-2">
-            <Button
+            <Button data-dismiss=""
               type="button"
               disabled={busy}
               onClick={() => setEdit(false)}
@@ -206,7 +207,7 @@ export function CollectionControls({
           edition, copy and other work in it stays in your library.
         </p>
         <div className="flex justify-end gap-2">
-          <Button disabled={busy} onClick={() => setDeleting(false)}>
+          <Button data-dismiss="" disabled={busy} onClick={() => setDeleting(false)}>
             Cancel
           </Button>
           <Button variant="danger" disabled={busy} onClick={remove}>

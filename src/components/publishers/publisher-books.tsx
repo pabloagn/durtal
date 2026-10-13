@@ -13,6 +13,7 @@ import { WORK_MARKS, MARKS_LABEL } from "@/lib/constants/marks";
 import { languageName } from "@/lib/utils/language";
 import { bindingLabel } from "@/lib/utils/binding";
 import type { PublisherBook, PublisherBookFacets } from "@/lib/publishers/books";
+import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
 
 const VIEW_MODES: ViewMode[] = ["grid", "list"];
 const VIEW_KEY = "durtal-publisher-books-view-mode";
@@ -226,7 +227,8 @@ export function PublisherBooksView({
   books,
   pagination,
 }: {
-  books: PublisherBook[];
+  /** With each work's readable e-book, which the page adds */
+  books: (PublisherBook & { ebook: WorkEbookDTO | null; readerReturnTo?: string })[];
   pagination: PaginationData;
 }) {
   const [viewMode] = usePublisherView();

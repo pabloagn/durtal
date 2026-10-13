@@ -179,7 +179,7 @@ export function StartReadingDialog({ data, request, home: storedHome, setHome, o
   }
 
   return (
-    <Dialog open onClose={onClose} title="Start reading" description={data.workTitle} className="max-w-lg">
+    <Dialog draft open onClose={onClose} title="Start reading" description={data.workTitle} className="max-w-lg">
       <form onSubmit={save} className="space-y-4">
         <Select
           label="I'm at"

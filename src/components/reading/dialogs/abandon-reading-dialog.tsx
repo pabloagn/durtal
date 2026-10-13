@@ -77,7 +77,7 @@ export function AbandonReadingDialog({ data, row, onClose, changed }: ReadingDia
   }
 
   return (
-    <Dialog open onClose={onClose} title="Abandon" description={data.workTitle} className="max-w-lg">
+    <Dialog draft open onClose={onClose} title="Abandon" description={data.workTitle} className="max-w-lg">
       <form onSubmit={save} className="space-y-4">
         <ReadingDateField label="Stopped on" value={stopped} onChange={setStopped} />
         {error && (

@@ -57,6 +57,7 @@ export function OrganizationDialog({
   const [saving, setSaving] = useState(false);
   return (
     <Dialog
+      draft
       open={open}
       onClose={() => {
         if (!saving) onClose();
@@ -232,7 +233,7 @@ function OrganizationForm({
       </p>
     )}
     <div className="flex justify-end gap-2 border-t border-glass-border pt-4">
-      <Button type="button" size="sm" onClick={close} disabled={saving}>
+      <Button data-dismiss="" type="button" size="sm" onClick={close} disabled={saving}>
         Cancel
       </Button>
       <Button type="submit" variant="primary" size="sm" data-shortcut="save" disabled={saving}>

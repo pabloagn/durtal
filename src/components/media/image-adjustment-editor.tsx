@@ -383,6 +383,7 @@ export function ImageAdjustButton({
       </button>
       {open && (
         <Dialog
+          draft
           open={open}
           onClose={() => setOpen(false)}
           title={label}

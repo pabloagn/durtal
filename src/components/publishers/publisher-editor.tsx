@@ -1,6 +1,6 @@
 "use client";
 import { PlacePicker, type PlaceValue } from "@/components/shared/place-picker";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { savePublisher } from "@/lib/actions/publishers";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { MultiSelectSection } from "@/components/shared/multi-select-section";
+import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { PublisherChoice, type PublisherOption } from "./publisher-picker";
 
 const KIND_OPTIONS = [
@@ -22,6 +23,7 @@ export function PublisherEditor({
   publisher,
   parent: initialParent = null,
   specialties,
+  cancelHref,
 }: {
   publisher?: PublisherInput & {
     id: string;
@@ -31,6 +33,8 @@ export function PublisherEditor({
   /** The current parent house of an imprint */
   parent?: PublisherOption | null;
   specialties: { id: string; name: string }[];
+  /** Where Esc goes back to: the publisher's page, or the list */
+  cancelHref: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -79,8 +83,18 @@ export function PublisherEditor({
       }
     });
   }
+  // Esc leaves the editor; with unsaved changes it asks first
+  const form = useRef<HTMLFormElement>(null);
+  const unsavedPrompt = useEscapeToCancel({
+    root: form,
+    cancel: () => router.push(cancelHref),
+    enabled: !pending,
+    track: true,
+  });
   return (
-    <form onSubmit={submit} className="max-w-2xl space-y-5">
+    <>
+    {unsavedPrompt}
+    <form ref={form} onSubmit={submit} className="max-w-2xl space-y-5">
       <fieldset disabled={pending} className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
@@ -170,10 +184,11 @@ export function PublisherEditor({
           Alternative names help match imported editions. Shared or ambiguous
           names stay unresolved for review.
         </p>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" data-shortcut="save" disabled={pending}>
           {pending ? "Saving…" : "Save publisher"}
         </Button>
       </fieldset>
     </form>
+    </>
   );
 }

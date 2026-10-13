@@ -76,6 +76,7 @@ export function MergeDialog({
 
   return (
     <Dialog
+      draft
       open={open}
       onClose={handleClose}
       title="Merge Item"
@@ -146,7 +147,7 @@ export function MergeDialog({
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-2 pt-2">
-          <Button
+          <Button data-dismiss=""
             type="button"
             variant="ghost"
             size="sm"

@@ -51,6 +51,7 @@ import type {
   Scan,
 } from "@/lib/harmonization/types";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 
 const ICONS: Record<Category, LucideIcon> = {
   duplicates: GitMerge,
@@ -792,6 +793,8 @@ function FindingReview({
 }) {
   const [targetId, setTargetId] = useState(f.recommendedId || f.records[0].id);
   const [fixConfirm, setFixConfirm] = useState(false);
+  // Esc takes back the prepared change before it is confirmed
+  useEscapeToCancel({ cancel: () => setFixConfirm(false), enabled: fixConfirm });
   return (
     <>
       <div className="h-review-top">

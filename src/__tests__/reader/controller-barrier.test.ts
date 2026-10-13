@@ -5,7 +5,6 @@ import { act, createElement as h, StrictMode, Suspense, useRef, type ComponentPr
 import { createRoot, type Root } from "react-dom/client";
 const mocks = vi.hoisted(() => ({ factory: vi.fn(), preload: vi.fn() }));
 vi.mock("@/lib/reader/engines/foliate/preload", () => ({ preloadFoliate: mocks.preload }));
-vi.mock("@/components/reader/settings-dialog", () => ({ SettingsDialog: () => null }));
 // Model the Next server-action reply at its transport boundary. The real
 // preference hook/saver validates it and controls admission; writes are unexpected.
 vi.mock("@/lib/actions/reader-preferences", async () => {

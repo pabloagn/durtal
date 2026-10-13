@@ -126,6 +126,7 @@ export function WorkQuickEditDialog({
 
   return (
     <Dialog
+      draft
       open={open}
       onClose={() => {
         if (!isPending) onClose();

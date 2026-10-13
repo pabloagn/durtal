@@ -337,6 +337,7 @@ export function EditReadingDialog({
 
   return (
     <Dialog
+      draft
       open
       onClose={onClose}
       title="Edit reading"

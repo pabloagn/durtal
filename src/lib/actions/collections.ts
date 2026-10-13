@@ -32,6 +32,8 @@ import {
 } from "@/lib/validations/collections";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { collectionCounts } from "@/lib/collections/counts";
+import { byAddRecency } from "@/lib/collections/recency";
+import { resultRows } from "@/lib/harmonization/store";
 import { icons } from "lucide-react";
 
 function changed() {
@@ -342,14 +344,33 @@ export async function searchWorksForCollection(search: string, kind: WorkKind, l
   );
 }
 
+/**
+ * When each collection last gained a member, in epoch milliseconds. A
+ * membership's `added_at` is set once, by the insert that adds it: adding
+ * something already there inserts nothing, and removing, reordering, renaming
+ * or a new cover never touch it. So the latest one is the last real addition,
+ * single or bulk, on every device. Read live for the picker (SLN-570).
+ */
+async function collectionAddRecency(): Promise<Map<string, number>> {
+  const rows = resultRows<{ collection_id: string; last_added: number }>(
+    await db.execute(sql`
+      select collection_id, (extract(epoch from max(added_at)) * 1000)::float8 as last_added from (
+        select collection_id, added_at from collection_editions
+        union all
+        select collection_id, added_at from collection_works
+      ) members group by collection_id`),
+  );
+  return new Map(rows.map((row) => [row.collection_id, Number(row.last_added)]));
+}
 export async function getCollectionSelection(
   workIds: string[],
   editionIds: string[] = [],
 ) {
   const wids = collectionIdsSchema.parse(workIds),
     eids = collectionIdsSchema.parse(editionIds);
-  const [cols, selected, selectedWorks] = await Promise.all([
+  const [cols, lastAdded, selected, selectedWorks] = await Promise.all([
     getCollections(),
+    collectionAddRecency(),
     wids.length || eids.length
       ? db.query.editions.findMany({
           where: or(
@@ -380,7 +401,7 @@ export async function getCollectionSelection(
       : [],
   ]);
   return {
-    collections: cols,
+    collections: byAddRecency(cols, lastAdded),
     editions: selected,
     /**
      * Works that join as whole works: films, perfumes, paintings, and books

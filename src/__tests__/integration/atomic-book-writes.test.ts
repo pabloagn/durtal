@@ -234,6 +234,7 @@ describe.skipIf(!url)("atomic book writes", () => {
       expect(await isIsbnInUse(`978-0-14-118260-5`)).toEqual({
         inUse: true,
         title: "The Magic Mountain",
+        href: expect.stringMatching(/^\/library\/.+/),
       });
       expect(await isIsbnInUse("9780000000002")).toEqual({ inUse: false });
     });

@@ -350,7 +350,9 @@ credited names, "Unknown" and reordering), first release of any precision,
 countries, languages, production companies, genres and synopsis. On create, a
 film already in the catalogue under the same title or original title is shown:
 a remake is a new film, and a cut goes to that film as a version ("Add a version
-to it" opens `?add=version`). Dialogs add and edit versions with their
+to it" opens `?add=version`). Each match shows its poster and "Open this film"
+(SLN-667); when anything but the title was entered, both links ask before
+leaving the form. Dialogs add and edit versions with their
 releases, and copies (physical or digital, version and release, status,
 storage, acquisition, disposal). A version a copy names, and a film with
 copies, cannot be deleted; the dialog says what to do first. The page ends with its history and comments (`ActivityTimeline`, reloaded after every save): creation, a new title, each credit, organization and classification item added or removed.
@@ -549,6 +551,8 @@ Multi-step wizard that creates a work + edition + instance(s) in one pass.
 
 **Step 2 — Work Confirmation**:
 - If a matching work already exists (by ISBN or title+author): prompt "Add a new edition to existing work [title]?" or "Create as new work?"
+- The prompt shows the work's cover (its poster, else its first edition's cover, as on its library card) and "Open this work", which goes to its page (SLN-667). When something was entered in a step, the first click asks ("What you entered is not saved.": Discard and open, Keep editing); a picked search result alone opens at once.
+- On the Edition step, an ISBN that another edition already has is refused with "Open that book" under the field, which asks the same way.
 - Prevents duplicate work creation
 
 **Step 3 — Edition Metadata Preview**:

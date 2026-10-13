@@ -57,7 +57,7 @@ export function PaintingSourceLookup({
         <Search className="h-3.5 w-3.5" strokeWidth={1.5} />
         Look up
       </Button>
-      <Dialog open={open} onClose={() => setOpen(false)} title="Look up in a museum" description={painting.title} className="max-w-xl">
+      <Dialog draft open={open} onClose={() => setOpen(false)} title="Look up in a museum" description={painting.title} className="max-w-xl">
         {open && <Lookup painting={painting} originals={originals} onDone={() => setOpen(false)} />}
       </Dialog>
     </>

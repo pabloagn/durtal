@@ -67,6 +67,7 @@ export function LocationActions() {
       </Button>
 
       <Dialog
+        draft
         open={open}
         onClose={() => setOpen(false)}
         title="New location"
@@ -99,7 +100,7 @@ export function LocationActions() {
             </div>
           )}
           <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
-            <Button variant="secondary" size="sm" onClick={() => setOpen(false)}>
+            <Button data-dismiss="" variant="secondary" size="sm" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <Button

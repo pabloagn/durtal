@@ -153,6 +153,7 @@ export function OrderCreateDialog({
       </Button>
 
       <Dialog
+        draft
         open={open}
         onClose={handleClose}
         title="New Order"
@@ -212,7 +213,7 @@ export function OrderCreateDialog({
 
         {/* Footer navigation */}
         <div className="mt-5 flex items-center justify-between border-t border-glass-border pt-4">
-          <Button
+          <Button data-dismiss=""
             variant="ghost"
             size="sm"
             onClick={() => (step === 0 ? handleClose() : setStep((s) => s - 1))}

@@ -96,6 +96,7 @@ export function EditFamilyDialog({
 
   return (
     <Dialog
+      draft
       open
       onClose={onClose}
       title={`Edit ${family.name}`}
@@ -122,7 +123,7 @@ export function EditFamilyDialog({
             </p>
           )}
           <div className="flex items-center justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+            <Button data-dismiss="" type="button" variant="ghost" size="sm" onClick={onClose}>
               Cancel
             </Button>
             <Button

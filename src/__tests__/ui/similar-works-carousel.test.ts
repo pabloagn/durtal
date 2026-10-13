@@ -94,6 +94,7 @@ describe("related shelf presentation", () => {
         createElement(BookCard, {
           workId: "book",
           slug: "book",
+          ebook: null,
           title: "Book",
           authorName: "Author",
           editionNote: note,

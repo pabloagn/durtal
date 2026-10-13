@@ -55,6 +55,7 @@ export function CreateFamilyDialog({
 
   return (
     <Dialog
+      draft
       open={open}
       onClose={onClose}
       title="New taxonomy family"
@@ -69,7 +70,7 @@ export function CreateFamilyDialog({
           </p>
         )}
         <div className="flex items-center justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+          <Button data-dismiss="" type="button" variant="ghost" size="sm" onClick={onClose}>
             Cancel
           </Button>
           <Button

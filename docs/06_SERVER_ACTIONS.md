@@ -412,6 +412,10 @@ Returns collection with all editions fully loaded (including work data and insta
 
 Standard CRUD for collections.
 
+### `getCollectionSelection(workIds, editionIds?)`
+
+What the "Add to collection" dialog shows for the chosen books, films, perfumes and paintings: their editions, the works that join whole, and every collection. The collections come in the order the dialog offers them, newest addition first (SLN-570). Each one's last addition is the latest `added_at` among its edition and work members. That stamp is set once, when a member is added, and re-adding a member that is already there inserts nothing. So a single or bulk addition, or a collection created with members, moves a collection to the top, on every device. Nothing else does that: removals, reordering, renames, a new cover or an addition that fails. A collection that never gained a member follows the others, by name. Every other collection list keeps the curated order.
+
 ### `removeEditionFromCollection(collectionId, editionId)`
 
 ```typescript

@@ -45,10 +45,11 @@ interface BookCardProps {
   isFavourite?: boolean;
   acquisitionPriority?: string | null;
   primaryEditionId?: string | null;
-  /** @deprecated Linked rows alone do not establish reader availability. */
-  hasDigitalEdition?: boolean;
-  /** Shared eligibility projection; a linked-row boolean cannot create a mark. */
-  ebook?: WorkEbookDTO | null;
+  /**
+   * The work's readable e-book, or null: the cover's eBook mark and Read.
+   * Required, so no page that draws book cards can leave the mark out (SLN-505).
+   */
+  ebook: WorkEbookDTO | null;
   readerReturnTo?: string;
   /** When true, show a checkbox overlay instead of navigation on click */
   isSelecting?: boolean;

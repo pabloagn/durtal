@@ -12,7 +12,9 @@ import {
 import { X, Maximize2, Minimize2 } from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { acquireSurface, captureFocusOrigin, restoreFocusOrigin, type FocusOrigin, type SurfaceLease } from "@/lib/ui/surface-state";
-import { useDialogFocusScope } from "./dialog-focus-scope";
+import { DialogFocusScope, useDialogFocusScope } from "./dialog-focus-scope";
+import { Button } from "./button";
+import { useUnsavedGuard, type UnsavedPrompt } from "./unsaved-guard";
 
 interface DialogProps {
   open: boolean;
@@ -24,6 +26,16 @@ interface DialogProps {
   className?: string;
   /** Show the expand/collapse toggle. Defaults to true. */
   expandable?: boolean;
+  /**
+   * The dialog holds a draft: a close (Esc, Close, Cancel, the backdrop)
+   * with unsaved changes in its fields asks Save, Discard or Keep editing
+   * first. Cancel buttons take `data-dismiss` to ask the same way.
+   */
+  draft?: boolean;
+  /** Unsaved work the fields do not show (picked chips, a list in state) */
+  dirty?: boolean;
+  /** Save for the question; by default the dialog's save button */
+  onSave?: () => void;
 }
 
 const FIRST_FIELD =
@@ -43,6 +55,9 @@ export function Dialog({
   children,
   className = "",
   expandable = true,
+  draft = false,
+  dirty,
+  onSave,
 }: DialogProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -54,6 +69,20 @@ export function Dialog({
   closeRef.current = onClose;
 
   const handleClose = useCallback(() => onClose(), [onClose]);
+
+  const guarded = draft || dirty !== undefined;
+  const guard = useUnsavedGuard({
+    root: dialogRef,
+    active: open && guarded,
+    track: draft,
+    dirty,
+    save: onSave,
+    close: onClose,
+  });
+  const requestClose = () => {
+    if (guarded) guard.request();
+    else onClose();
+  };
 
   // Runs before the effect below moves focus into the dialog. However the
   // dialog closes (Esc, Cancel, Close, a confirm, or the page unmounting it),
@@ -78,6 +107,14 @@ export function Dialog({
       });
     };
   }, [open, scope]);
+
+  // Esc reaches the dialog through its surface: unsaved work asks first
+  const unsaved = guard.unsaved, request = guard.request;
+  useLayoutEffect(() => {
+    const lease = scope ?? ownLease.current;
+    if (!open || !guarded || !lease) return;
+    return lease.guard(() => unsaved() && request());
+  }, [open, guarded, scope, unsaved, request]);
 
   useLayoutEffect(() => {
     const el = dialogRef.current;
@@ -110,6 +147,7 @@ export function Dialog({
   const sizeClass = expanded ? "max-w-5xl" : className || "max-w-2xl";
 
   return (
+    <>
     <dialog
       ref={dialogRef}
       tabIndex={-1}
@@ -117,11 +155,11 @@ export function Dialog({
       aria-describedby={description ? descriptionId : undefined}
       onCancel={(event) => {
         event.preventDefault();
-        if ((scope ?? ownLease.current)?.isTop()) onClose();
+        if ((scope ?? ownLease.current)?.isTop()) requestClose();
       }}
       className={`dialog-enter glass m-auto w-full overflow-hidden border-0 bg-transparent p-0 outline-none open:flex open:flex-col text-fg-primary backdrop:glass-veil transition-[max-width] duration-200 ease-out ${sizeClass}`}
       onClick={(e) => {
-        if (e.target === dialogRef.current) onClose();
+        if (e.target === dialogRef.current) requestClose();
       }}
     >
       {/* Header. The row carries the title's type: the buttons sit on the
@@ -153,7 +191,7 @@ export function Dialog({
             )}
             <button
               type="button"
-              onClick={onClose}
+              onClick={requestClose}
               aria-label={`Close ${title}`}
               data-tooltip="Close"
               data-tooltip-keys="esc"
@@ -172,5 +210,56 @@ export function Dialog({
         {children}
       </div>
     </dialog>
+    {guard.prompt && <UnsavedChangesPrompt prompt={guard.prompt} />}
+    </>
+  );
+}
+
+/**
+ * The question before unsaved work is closed. Save is the main action (Enter)
+ * when the form can save as it is; else Discard. Esc keeps editing, with the
+ * draft and the focus as they were. It is its own layer: Enter and Esc here
+ * never reach the form or the page under it.
+ */
+export function UnsavedChangesPrompt({ prompt }: { prompt: UnsavedPrompt }) {
+  const main = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    main.current?.focus();
+  }, []);
+  return (
+    // Its own surface, also inside a dialog that shares its parent's
+    <DialogFocusScope.Provider value={null}>
+      <Dialog
+        open
+        onClose={prompt.keepEditing}
+        title="Unsaved changes"
+        description={
+          prompt.canSave
+            ? "Save your changes before closing?"
+            : "Your changes have not been saved. Discard them?"
+        }
+        className="max-w-sm"
+        expandable={false}
+      >
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="ghost" className="mr-auto" onClick={prompt.keepEditing}>
+            Keep editing
+          </Button>
+          <Button
+            type="button"
+            ref={prompt.canSave ? undefined : main}
+            variant={prompt.canSave ? "secondary" : "primary"}
+            onClick={prompt.discard}
+          >
+            Discard
+          </Button>
+          {prompt.canSave && (
+            <Button type="button" ref={main} variant="primary" onClick={prompt.save}>
+              Save
+            </Button>
+          )}
+        </div>
+      </Dialog>
+    </DialogFocusScope.Provider>
   );
 }

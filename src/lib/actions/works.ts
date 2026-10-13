@@ -28,6 +28,7 @@ import {
   comments,
   activityEvents,
   galleryLayouts,
+  media,
 } from "@/lib/db/schema";
 import {
   sql,
@@ -389,6 +390,33 @@ export async function getWorkBySlug(slug: string) {
   return bookResult(result);
 }
 
+/** What the duplicate panel shows: names, counts and the card's cover */
+const duplicateWith = {
+  workAuthors: {
+    with: { author: true },
+    orderBy: asc(workAuthors.sortOrder),
+  },
+  editions: {
+    columns: { id: true, coverS3Key: true, thumbnailS3Key: true },
+    // The first edition, as on the work's library card
+    orderBy: [asc(editions.createdAt), asc(editions.id)] as SQL[],
+    with: { instances: { columns: { id: true } } },
+  },
+  media: {
+    where: and(eq(media.type, "poster"), eq(media.isActive, true)),
+    columns: {
+      s3Key: true,
+      thumbnailS3Key: true,
+      cropX: true,
+      cropY: true,
+      cropZoom: true,
+      brightness: true,
+      contrast: true,
+    },
+    limit: 1,
+  },
+} as const;
+
 /**
  * Check if a work already exists by ISBN or title+author.
  * Used by the add-book wizard to prevent duplicates.
@@ -402,20 +430,7 @@ export async function findDuplicateWork(opts: {
   if (opts.isbn13) {
     const byIsbn = await db.query.editions.findFirst({
       where: eq(editions.isbn13, opts.isbn13),
-      with: {
-        work: {
-          with: {
-            workAuthors: {
-              with: { author: true },
-              orderBy: asc(workAuthors.sortOrder),
-            },
-            editions: {
-              columns: { id: true },
-              with: { instances: { columns: { id: true } } },
-            },
-          },
-        },
-      },
+      with: { work: { with: duplicateWith } },
     });
     if (byIsbn?.work) return byIsbn.work;
   }
@@ -427,16 +442,7 @@ export async function findDuplicateWork(opts: {
       bookCondition,
       sql`search_normalize(${works.title}) = search_normalize(${opts.title.trim()})`,
     ),
-    with: {
-      workAuthors: {
-        with: { author: true },
-        orderBy: asc(workAuthors.sortOrder),
-      },
-      editions: {
-        columns: { id: true },
-        with: { instances: { columns: { id: true } } },
-      },
-    },
+    with: duplicateWith,
     limit: 5,
   });
 

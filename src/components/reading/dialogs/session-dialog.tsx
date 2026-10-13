@@ -232,7 +232,7 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
         : `From ${atText(start.at, unit)}, where the reading started`;
 
   return (
-    <Dialog open onClose={onClose} title={editing ? "Edit session" : "Add a session"} description={data.workTitle} className="max-w-lg">
+    <Dialog draft open onClose={onClose} title={editing ? "Edit session" : "Add a session"} description={data.workTitle} className="max-w-lg">
       <form onSubmit={save} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <DatePicker label="Date" value={readOn} onChange={(d) => d && setReadOn(d)} />

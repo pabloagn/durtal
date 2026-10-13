@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { GripVertical, X, Eye, EyeOff } from "lucide-react";
+import { GripVertical, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 
 export interface ColumnDef {
   key: string;
@@ -63,23 +64,20 @@ export function ColumnConfigDialog({
     onClose();
   };
 
+  // Esc and Cancel close it; a changed order or visibility asks first
+  const shown = (list: ColumnConfig[]) =>
+    JSON.stringify([...list].sort((a, b) => a.order - b.order).map((c) => [c.key, c.visible]));
+  const dirty = shown(local) !== shown(columns);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg-primary/80">
-      <div className="w-80 rounded-sm border border-glass-border bg-bg-secondary p-4">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="type-item-title">
-            Configure Columns
-          </h3>
-          <button
-            aria-label="Close"
-            data-tooltip="Close"
-            onClick={onClose}
-            className="text-fg-muted hover:text-fg-primary"
-          >
-            <X className="h-4 w-4" strokeWidth={1.5} />
-          </button>
-        </div>
-
+    <Dialog
+      open
+      onClose={onClose}
+      title="Configure columns"
+      className="max-w-xs"
+      expandable={false}
+      dirty={dirty}
+      onSave={handleSave}
+    >
         <div className="mb-4 max-h-64 space-y-1 overflow-y-auto">
           {local.map((col, idx) => {
             const def = allColumns.find((c) => c.key === col.key);
@@ -90,7 +88,7 @@ export function ColumnConfigDialog({
                 draggable
                 onDragStart={() => handleDragStart(idx)}
                 onDragOver={(e) => handleDragOver(e, idx)}
-                className={`flex cursor-grab items-center gap-2 rounded-sm px-2 py-1.5 transition-colors ${
+                className={`flex cursor-grab items-center gap-2 rounded-sm px-2 py-1.5 transition-colors pointer-coarse:py-0 ${
                   dragIndex === idx ? "bg-bg-tertiary" : "hover:bg-bg-primary"
                 }`}
               >
@@ -105,7 +103,7 @@ export function ColumnConfigDialog({
                   aria-label={`${col.visible ? "Hide" : "Show"} ${def.label}`}
                   data-tooltip={`${col.visible ? "Hide" : "Show"} ${def.label}`}
                   onClick={() => toggleVisibility(col.key)}
-                  className="text-fg-muted hover:text-fg-secondary"
+                  className="flex shrink-0 items-center justify-center text-fg-muted hover:text-fg-secondary pointer-coarse:-mr-2 pointer-coarse:size-11"
                 >
                   {col.visible ? (
                     <Eye className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -119,14 +117,13 @@ export function ColumnConfigDialog({
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
-          <Button variant="secondary" size="sm" onClick={onClose}>
+          <Button data-dismiss="" variant="secondary" size="sm" onClick={onClose}>
             Cancel
           </Button>
           <Button variant="primary" size="sm" onClick={handleSave}>
             Save
           </Button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

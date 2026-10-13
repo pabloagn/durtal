@@ -197,6 +197,7 @@ export function InstanceEditDialog({
       </Button>
 
       <Dialog
+        draft
         open={open}
         onClose={close}
         title="Edit Instance"
@@ -228,7 +229,7 @@ export function InstanceEditDialog({
         {!review.prepared && <>
         {review.error && <p role="alert" className="mt-3 text-sm text-accent-red-text">{review.error}</p>}
         <div className="mt-4 flex justify-end gap-2 border-t border-glass-border pt-4">
-          <Button
+          <Button data-dismiss=""
             variant="secondary"
             size="sm"
             onClick={close}
