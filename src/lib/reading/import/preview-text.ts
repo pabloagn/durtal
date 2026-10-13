@@ -12,7 +12,7 @@ const n = (count: number) => count.toLocaleString("en-US");
 const plural = (count: number, one: string, many = `${one}s`) => `${n(count)} ${count === 1 ? one : many}`;
 const stars = (r: number) => `${r} ${r === 1 ? "star" : "stars"}`;
 
-export const SOURCE_LABELS: Record<ImportSource, string> = { goodreads: "Goodreads", storygraph: "StoryGraph", durtal: "Durtal" };
+export const SOURCE_LABELS: Record<ImportSource, string> = { goodreads: "Goodreads", storygraph: "StoryGraph", durtal: "Durtal", ebook_library: "E-book library" };
 
 type Reading = Pick<ImportReading, "status" | "startedOn" | "startedPrecision" | "finishedOn" | "finishedPrecision" | "rating" | "note"> & { hasReview?: boolean };
 
@@ -119,12 +119,12 @@ export function summaryLine(s: SummaryCounts): string {
 }
 
 /** The commit button and the line under it: readings, private notes (SLN-453), books for Up Next (SLN-452) */
-export function commitWords(toImport: number, pending: number, toQueue = 0, toNotes = 0): { label: string; note: string | null } {
-  const imported = [toImport ? plural(toImport, "reading") : null, toNotes ? plural(toNotes, "note") : null].filter(Boolean);
+export function commitWords(toImport: number, pending: number, toQueue = 0, toNotes = 0, toRate = 0): { label: string; note: string | null } {
+  const imported = [toImport ? plural(toImport, "reading") : null, toNotes ? plural(toNotes, "note") : null, toRate ? plural(toRate, "rating") : null].filter(Boolean);
   const queue = toQueue ? `add ${plural(toQueue, "book")} to Up Next` : null;
   return {
     label: imported.length
-      ? `Import ${imported.join(" and ")}${queue ? `${imported.length > 1 ? "," : ""} and ${queue}` : ""}`
+      ? `Import ${imported.length > 2 ? `${imported.slice(0, -1).join(", ")} and ${imported[imported.length - 1]}` : imported.join(" and ")}${queue ? `${imported.length > 1 ? "," : ""} and ${queue}` : ""}`
       : queue
         ? `Add ${plural(toQueue, "book")} to Up Next`
         : "Nothing to import",
@@ -141,6 +141,10 @@ export function cannotCarry(source: ImportSource, counts: { otherShelves: number
   }
   if (source === "storygraph") lines.push("Quarter stars are rounded to the nearest half: 3.75 is saved as 4, 3.25 as 3.5.");
   if (source === "durtal") lines.push("A reading CSV holds readings only: no sessions, notes or quotes.");
+  if (source === "ebook_library") {
+    lines.push("Only the library's books that are e-books in Durtal, linked to their books, are here.");
+    lines.push("The library keeps no start dates and one read a book: a reread is not imported.");
+  }
   if (counts.otherShelves)
     lines.push(`${plural(counts.otherShelves, "book")} on ${counts.otherShelves === 1 ? "a shelf that is" : "shelves that are"} neither read nor to-read ${counts.otherShelves === 1 ? "is" : "are"} kept but not imported.`);
   if (counts.extras) lines.push(`Moods, pace, character questions, content warnings and tags of ${plural(counts.extras, "book")} are kept but not imported.`);

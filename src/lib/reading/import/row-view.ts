@@ -37,7 +37,14 @@ function outcomes(written: NonNullable<PreviewRow["written"]>) {
     const w = outcomeWords(r.outcome, r.reason);
     counts.set(w, (counts.get(w) ?? 0) + 1);
   }
-  return [...counts].map(([w, n]) => (n > 1 ? `${w} (${n})` : w)).join(" · ");
+  // An e-book library row's rating (SLN-658)
+  const rating =
+    written.ratingOutcome === "written" && written.bookRating
+      ? `Book rating set to ${written.bookRating.after}`
+      : written.ratingOutcome === "kept"
+        ? "Book rating kept"
+        : null;
+  return [...[...counts].map(([w, n]) => (n > 1 ? `${w} (${n})` : w)), rating].filter(Boolean).join(" · ");
 }
 
 /** A to-read row's commit (SLN-452): "Added to Up Next", "Already in Up Next", or why it was skipped */
@@ -52,7 +59,8 @@ export function rowView(row: PreviewRow, today: string): RowView {
   const toRead = row.section === "to_read" || (data.kind === "to_read" && !!data.queueKey);
   const anyway = row.section === "present" && onlyUndated(match.verdicts);
   const closed = row.section === "cannot" || row.section === "not_imported";
-  const writes = !written && match.verdicts.some((v) => v.verdict === "new");
+  // An e-book library row writes its rating even when its read is already in Durtal (SLN-658)
+  const writes = !written && (match.verdicts.some((v) => v.verdict === "new") || match.rating === "set" || match.rating === "differs");
   const rating = ratingLine({ section: row.section, fileRating: data.rating, bookRating: book?.rating, useFileRating: row.useFileRating, writes });
   const what = written || closed ? null : toRead ? (book ? "Goes to the bottom of Up Next" : null) : writeLine(data.readings, match.verdicts, today, { anyway: anyway && row.decision === "import" });
   const reason = reasonWords(match);

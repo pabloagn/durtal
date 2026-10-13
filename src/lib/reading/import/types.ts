@@ -7,7 +7,8 @@ import type { AbandonReason, ReadingDatePrecision, ReadingFormat, ReadingStatus,
  * Up Next (SLN-452).
  */
 
-export type ImportSource = "goodreads" | "storygraph" | "durtal";
+/** ebook_library: an e-book library's ratings and reads, made by a command (SLN-658), never uploaded */
+export type ImportSource = "goodreads" | "storygraph" | "durtal" | "ebook_library";
 
 export interface ImportReading {
   /** Its number among the row's reads: 1 for the first */

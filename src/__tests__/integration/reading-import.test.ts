@@ -51,13 +51,14 @@ vi.mock("@/lib/reading/service", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/reading/service")>();
   return { ...real, writeReadings: vi.fn(real.writeReadings) };
 });
-import { chooseBook, createReadingImport } from "@/lib/reading/import/store";
+import { chooseBook, createLibraryReadingImport, createReadingImport } from "@/lib/reading/import/store";
 import { getImportPreview, listReadingImports } from "@/lib/reading/import/page-data";
 import { commitReadingImport, decideImportRow, decideImportSection, rematchImport, undoReadingImport } from "@/lib/actions/reading-import";
 import { writeReadings } from "@/lib/reading/service";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 import { deleteWork } from "@/lib/actions/works";
 import type { ImportMatch } from "@/lib/reading/import/match-rules";
+import type { ImportRow } from "@/lib/reading/import/types";
 import type { Written } from "@/lib/reading/import/store";
 
 /* The reading import against PostgreSQL (SLN-450): matching, the duplicate
@@ -581,6 +582,130 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       expect((await rows(importId))[0].workId).toBeNull();
       await q(`delete from imports where id = $1`, [importId]);
       expect(Number(await value(`select count(*) from reading_import_rows`))).toBe(0);
+    });
+  });
+  describe("an e-book library's ratings and reads (SLN-658)", () => {
+    /** A row as the library command makes it: its book, edition and copy named, its rating the row's own */
+    async function libraryBook(title: string, over: { rating?: number } = {}) {
+      const workId = await book(title, "Samuel Beckett", over);
+      const editionId = await edition(workId);
+      const location = (await value(`select id from locations where name = 'eBooks'`)) ?? (await value(`insert into locations(name, type) values ('eBooks', 'digital') returning id`));
+      const instanceId = await value(`insert into instances(edition_id, location_id) values ($1, $2) returning id`, [editionId, location]);
+      return { workId, editionId, instanceId };
+    }
+    const libraryRow = (ids: { workId: string; editionId: string; instanceId: string }, title: string, rating: number | null, read: string | "undated" | null): ImportRow => ({
+      kind: "readings",
+      sourceBookId: null,
+      title,
+      authors: ["Samuel Beckett"],
+      isbn13: null,
+      isbn10: null,
+      fileRating: rating,
+      rating,
+      reviewHtml: null,
+      shelves: [],
+      privateNotes: null,
+      pages: null,
+      extras: {},
+      ...ids,
+      readings: read
+        ? [
+            {
+              n: 1,
+              status: "finished",
+              startedOn: null,
+              startedPrecision: "unknown",
+              finishedOn: read === "undated" ? null : read,
+              finishedPrecision: read === "undated" ? "unknown" : "day",
+              format: "ebook",
+              unit: "percent",
+              totalPages: null,
+              totalMinutes: null,
+              position: null,
+              rating: null,
+              reviewHtml: null,
+              abandonReason: null,
+              abandonNote: null,
+              readingId: null,
+              sourceKey: `ebook-library:lib:${title.toLowerCase()}#1`,
+            },
+          ]
+        : [],
+      warnings: [],
+      error: null,
+    });
+    const rating = (id: string) => value<number | null>(`select rating::float8 from works where id = $1`, [id]);
+
+    it("flags every rating that differs and every read, writes nothing until committed, and undoes", async () => {
+      const watt = await libraryBook("Watt");
+      const molloy = await libraryBook("Molloy", { rating: 3 });
+      await reading(molloy.workId, { finishedOn: "2019-05-04", finishedPrecision: "day", format: "ebook" });
+      const murphy = await libraryBook("Murphy", { rating: 5 });
+      const malone = await libraryBook("Malone Dies", { rating: 2 });
+      const mercier = await libraryBook("Mercier and Camier");
+      const library = [
+        libraryRow(watt, "Watt", 4, "2020-01-02"),
+        libraryRow(molloy, "Molloy", 4.5, "2019-05-04"),
+        libraryRow(murphy, "Murphy", 5, "2021-03-03"),
+        libraryRow(malone, "Malone Dies", 2, null),
+        libraryRow(mercier, "Mercier and Camier", 3.5, null),
+      ];
+      const before = await readingsOf(molloy.workId);
+      const { importId, source } = await createLibraryReadingImport({ rows: library, rowNos: [11, 12, 13, 14, 15], name: "E-book library" });
+      expect(source).toBe("ebook_library");
+      // Nothing is written until the commit
+      expect([await rating(watt.workId), await rating(molloy.workId), await rating(mercier.workId)]).toEqual([null, 3, null]);
+      expect(await readingsOf(molloy.workId)).toEqual(before);
+
+      const stored = await rows(importId);
+      expect(stored.map((r) => [r.rowNo, r.match.reason, r.match.section, r.match.rating, r.decision, r.match.editionId === library[stored.indexOf(r)].editionId])).toEqual([
+        [11, "Same Durtal book", "exact", "set", "import", true],
+        // Its read is already in Durtal, its rating differs: still to decide, Durtal's kept by default
+        [12, "Same Durtal book", "exact", "differs", "import", true],
+        [13, "Same Durtal book", "exact", "same", "import", true],
+        [14, "Same Durtal book", "present", "same", "skip", true],
+        [15, "Same Durtal book", "exact", "set", "import", true],
+      ]);
+      expect(stored[1].match.verdicts.map((v) => [v.verdict, v.reason])).toEqual([["already_present", "Same finish date"]]);
+      const preview = await getImportPreview(importId);
+      expect(preview!.header.source).toBe("ebook_library");
+      expect(preview!.summary).toMatchObject({ toImport: 2, toRate: 2, ratingsDiffer: 1 });
+
+      // "Use the file's rating" on the one that differs
+      await decideImportRow({ importId, rowNo: 12, useFileRating: true });
+      expect((await getImportPreview(importId))!.summary.toRate).toBe(3);
+      expect(await commitReadingImport({ importId })).toMatchObject({ written: 2, present: 1, ratings: 3, ratingsKept: 0 });
+      expect([await rating(watt.workId), await rating(molloy.workId), await rating(murphy.workId), await rating(malone.workId), await rating(mercier.workId)]).toEqual([4, 4.5, 5, 2, 3.5]);
+      expect((await readingsOf(watt.workId)).map((r) => [r.source_key, r.finished_on, r.rating])).toEqual([["ebook-library:lib:watt#1", "2020-01-02", null]]);
+      expect((await readingsOf(molloy.workId)).length).toBe(1);
+      const after = await rows(importId);
+      expect(after.map((r) => r.written?.ratingOutcome ?? null)).toEqual(["written", "written", null, null, "written"]);
+      expect(after[1].written!.bookRating).toEqual({ workId: molloy.workId, before: 3, after: 4.5 });
+      expect((await getImportPreview(importId))!.header.ratings).toBe(3);
+      // A settled row is frozen, and a second commit writes nothing
+      await expect(decideImportRow({ importId, rowNo: 15, useFileRating: true })).rejects.toThrow("undo the import");
+      expect(await commitReadingImport({ importId })).toMatchObject({ written: 0, ratings: 0 });
+
+      // The same library again: everything is already in Durtal
+      const again = await createLibraryReadingImport({ rows: library, rowNos: [11, 12, 13, 14, 15], name: "E-book library" });
+      expect((await rows(again.importId)).map((r) => r.match.section)).toEqual(["present", "present", "present", "present", "present"]);
+
+      // Undo: the reads go, the ratings come back while they are unchanged
+      await q(`update works set rating = 1 where id = $1`, [mercier.workId]);
+      await undoReadingImport({ importId });
+      expect([await rating(watt.workId), await rating(molloy.workId), await rating(murphy.workId), await rating(mercier.workId)]).toEqual([null, 3, 5, 1]);
+      expect((await readingsOf(watt.workId)).length).toBe(0);
+      expect((await readingsOf(molloy.workId)).length).toBe(1);
+    });
+
+    it("keeps Durtal's rating unless the row says to replace it", async () => {
+      const molloy = await libraryBook("Molloy", { rating: 3 });
+      const { importId } = await createLibraryReadingImport({ rows: [libraryRow(molloy, "Molloy", 4, null)], rowNos: [1], name: "E-book library" });
+      expect((await rows(importId))[0].match).toMatchObject({ section: "exact", rating: "differs" });
+      expect((await getImportPreview(importId))!.summary.toRate).toBe(0);
+      expect(await commitReadingImport({ importId })).toMatchObject({ ratings: 0, ratingsKept: 1 });
+      expect(await rating(molloy.workId)).toBe(3);
+      expect((await rows(importId))[0].written).toMatchObject({ ratingOutcome: "kept", bookRating: null });
     });
   });
 });

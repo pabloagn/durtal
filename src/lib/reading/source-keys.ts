@@ -47,6 +47,7 @@ const PREFIXES = {
   goodreadsToRead: "goodreads-to-read",
   storygraphToRead: "storygraph-to-read",
   goodreadsNote: "goodreads-note",
+  ebookLibrary: "ebook-library",
 } as const;
 
 const key = (source: keyof typeof PREFIXES, body: string) => `${PREFIXES[source]}:${body}`;
@@ -113,4 +114,12 @@ export function storygraphToReadKey(b: { title: string; firstAuthor: string; isb
 /** A Goodreads review or note, for the commonplace book */
 export function goodreadsNoteKey(b: BookIdentity) {
   return key("goodreadsNote", goodreadsIdentity(b));
+}
+
+/** A read from an e-book library (SLN-658), by the library's id and the book's id in it: one read a book */
+export function ebookLibraryReadingKey(b: { libraryId: string; bookId: string }) {
+  const library = b.libraryId.trim().toLowerCase();
+  const book = b.bookId.trim().toLowerCase();
+  if (!library || !book) throw new Error("An e-book library key needs the library's id and the book's id");
+  return key("ebookLibrary", `${library}:${book}#1`);
 }

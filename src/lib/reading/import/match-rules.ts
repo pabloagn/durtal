@@ -71,6 +71,20 @@ export interface ImportMatch {
   warnings: string[];
   /** A to-read row's book in Up Next and in reading (SLN-452) */
   queue?: QueueState | null;
+  /**
+   * An e-book library row's rating against its book's (SLN-658), settled by the row
+   * itself rather than by a read: set (the book has none), differs, or same
+   */
+  rating?: RatingState | null;
+}
+
+export type RatingState = "set" | "differs" | "same";
+
+/** A row's rating against its book's: null when the row has none */
+export function ratingState(rowRating: number | null, bookRating: number | null): RatingState | null {
+  if (rowRating === null) return null;
+  if (bookRating === null) return "set";
+  return bookRating === rowRating ? "same" : "differs";
 }
 
 /** Where a to-read row's book stands: its place in Up Next, the row's own key there, an open reading, the last finish */
@@ -179,6 +193,7 @@ export function sectionOf(
   workId: string | null,
   verdicts: ReadingVerdict[],
   queue: QueueState | null = null,
+  rating: RatingState | null = null,
 ): { section: ImportSection; note: string | null } {
   if (row.error) return { section: "cannot", note: row.error };
   if (row.kind === "to_read") {
@@ -191,8 +206,11 @@ export function sectionOf(
   if (!workId) return { section: home, note: null };
   const refused = verdicts.find((v) => v.verdict === "refused");
   if (refused) return { section: "cannot", note: refused.reason };
-  if (verdicts.length && verdicts.every((v) => v.verdict === "already_present"))
-    return { section: "present", note: [...new Set(verdicts.map((v) => v.reason))].join(", ") };
+  // An e-book library row's rating still to settle keeps it importable, its reads already in Durtal or not
+  const settles = rating === "set" || rating === "differs";
+  if (verdicts.length && verdicts.every((v) => v.verdict === "already_present") && !settles)
+    return { section: "present", note: [...new Set([...verdicts.map((v) => v.reason), ...(rating === "same" ? ["Same rating"] : [])])].join(", ") };
+  if (!verdicts.length && rating === "same") return { section: "present", note: "Same rating" };
   return { section: home, note: null };
 }
 

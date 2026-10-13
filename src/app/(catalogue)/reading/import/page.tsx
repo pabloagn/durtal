@@ -47,6 +47,7 @@ export default async function ReadingImportPage() {
                         `${n(i.totalRecords)} ${i.totalRecords === 1 ? "row" : "rows"}`,
                         i.readings ? `${n(i.readings)} ${i.readings === 1 ? "reading" : "readings"} imported` : null,
                         i.notes ? `${n(i.notes)} ${i.notes === 1 ? "note" : "notes"}` : null,
+                        i.ratings ? `${n(i.ratings)} ${i.ratings === 1 ? "rating" : "ratings"} set` : null,
                         i.errorRecords ? `${n(i.errorRecords)} not written` : null,
                         i.rawKept ? null : "Raw file not kept",
                       ]
@@ -56,8 +57,8 @@ export default async function ReadingImportPage() {
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
                     <Badge variant={STATUS[i.status]?.variant ?? "muted"}>{STATUS[i.status]?.label ?? i.status}</Badge>
-                    {(i.readings > 0 || i.queued > 0 || i.notes > 0) && (
-                      <UndoImport importId={i.id} readings={i.readings} queued={i.queued} notes={i.notes} size="sm" />
+                    {(i.readings > 0 || i.queued > 0 || i.notes > 0 || i.ratings > 0) && (
+                      <UndoImport importId={i.id} readings={i.readings} queued={i.queued} notes={i.notes} goodreadsIds={i.source !== "ebook_library"} size="sm" />
                     )}
                   </div>
                 </li>

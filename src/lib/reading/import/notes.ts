@@ -23,18 +23,19 @@ import type { ImportRow } from "./types";
 interface WrittenShape {
   readings?: { n: number; readingId: string | null }[];
   queueOutcome?: string;
+  ratingOutcome?: string;
   noteIds?: string[];
 }
 
-/** The row's readings or Up Next item were committed; a row with only its note written was not */
+/** The row's readings, Up Next item or library rating were committed; a row with only its note written was not */
 export function readingsCommitted(written: WrittenShape | null | undefined): boolean {
-  return !!written && ((written.readings?.length ?? 0) > 0 || written.queueOutcome !== undefined);
+  return !!written && ((written.readings?.length ?? 0) > 0 || written.queueOutcome !== undefined || written.ratingOutcome !== undefined);
 }
 
 /** The same rule in SQL, for reading_import_rows aliased `alias` */
 export function readingsUncommittedSql(alias = "r") {
   const w = sql.raw(`${alias}.written`);
-  return sql`(${w} is null or (jsonb_array_length(coalesce(${w}->'readings', '[]'::jsonb)) = 0 and ${w}->'queueOutcome' is null))`;
+  return sql`(${w} is null or (jsonb_array_length(coalesce(${w}->'readings', '[]'::jsonb)) = 0 and ${w}->'queueOutcome' is null and ${w}->'ratingOutcome' is null))`;
 }
 
 /** The row's note is in Durtal from this import */

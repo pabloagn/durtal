@@ -28,8 +28,10 @@ import path from "node:path";
  * name is allowed where that source is read and documented: the ingestion
  * library and commands, their tests, the ingestion pipeline document and the
  * package script that runs the snapshot. Import existing (SLN-657) reads the
- * same source through its own command. Never in a screen, a setting or
- * anything else.
+ * same source through its own command, and so does the command that makes
+ * the library's ratings and reads a reading import (SLN-658), which the
+ * reading import itself knows only as "the e-book library". Never in a
+ * screen, a setting or anything else.
  */
 
 const ROOT = path.resolve(__dirname, "../../..");
@@ -45,6 +47,7 @@ const CALIBRE_SOURCE = [
   "scripts/ebooks/calibre-snapshot.ts",
   "scripts/ebooks/ingest.ts",
   "scripts/ebooks/import-existing.ts",
+  "scripts/ebooks/reading-import.ts",
   "src/__tests__/ebooks/calibre/",
   "src/__tests__/ebooks/ingest/",
   "src/__tests__/fixtures/calibre-library.ts",
