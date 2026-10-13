@@ -752,9 +752,11 @@ books meet about 775 Durtal books, so the library is brought in two modes:
 Import existing runs in three steps:
 
 - **The dry run**, `pnpm ebooks:import-existing --calibre <snapshot>
-  [<library folder>]`, writes nothing. Through the read-only planning session
-  it scores every Calibre book of the snapshot against Durtal's book works
-  with the matching model (`MATCH_MODEL`), from the snapshot's fields alone.
+  [<library folder>]`, writes nothing. It reads Durtal's books through the
+  read-only planning session, then, once that session has closed, scores
+  every Calibre book of the snapshot against Durtal's book works with the
+  matching model (`MATCH_MODEL`), from the snapshot's fields alone. Thousands
+  of books take minutes.
   - A book is in scope when its best tier is `exact`, `strong`, `likely`,
     `to_choose` or `conflict` with at least one Durtal book as a candidate.
     `same_author`, `not_in_durtal` and `not_a_book` are left for Bulk import.

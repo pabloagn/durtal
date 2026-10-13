@@ -79,4 +79,12 @@ import (SLN-659).
   is no longer shared by books left out, so a book could link that the dry run
   sent to review. The selection therefore records each book's dry-run verdict,
   and the matching keeps those books in review.
+- 6,000 synthetic Calibre books took about seven minutes to score. Durtal's
+  books are therefore read in one read-only session, and the scoring runs
+  after it closes, with progress on the terminal.
+- The review queue's rows passed the audits only after two fixes in
+  `review-row.tsx` and `review-view.tsx`. "· valid" and the flag line moved
+  from `fg-muted` to `fg-secondary`, and the "Other identifiers", "N editions"
+  and "Keyboard shortcuts" summaries are 44px tall on touch. Checked in
+  Chrome, Firefox and WebKit at 1440, 768 and 390 px.
 - No migration and no new package.

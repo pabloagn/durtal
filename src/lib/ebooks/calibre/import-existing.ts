@@ -70,6 +70,7 @@ export interface ImportExistingBook {
   workId: string | null;
   workTitle: string | null;
   candidates: string[];
+  candidateTitles: string[];
   rule: EditionRule | null;
   instanceId: string | null;
   effect: string | null;
@@ -191,11 +192,19 @@ async function checkFormats(root: string, book: CalibreBook): Promise<ImportExis
 const readDateColumns = (snapshot: CalibreSnapshot) =>
   snapshot.columns.filter((c) => c.type === "datetime" && /read/i.test(`${c.label} ${c.name}`)).map((c) => c.label);
 
+export interface ImportExistingOptions {
+  now?: number;
+  /** Bytes per second of the last apply on this machine, for the upload estimate */
+  uploadSpeed?: number | null;
+  /** Books scored so far */
+  onProgress?: (done: number, total: number) => void;
+}
+
 /** Scores the snapshot against the catalogue and checks the books in scope on the drive */
 export async function planImportExisting(
   loaded: LoadedMatchCatalogue,
   source: { file: string; snapshot: CalibreSnapshot; sha256: string; root: string },
-  options: { now?: number; uploadSpeed?: number | null } = {},
+  options: ImportExistingOptions = {},
 ): Promise<ImportExistingPlan> {
   const at = new Date(options.now ?? Date.now()).toISOString();
   const { snapshot } = source;
@@ -207,7 +216,11 @@ export async function planImportExisting(
   // Every Calibre book counts for shared ISBNs and common titles; none is another's duplicate here
   const indexed = indexCatalogue({ ...loaded.catalogue.source, ebooks: [...loaded.catalogue.source.ebooks, ...ebooks.values()] });
   const catalogue: MatchCatalogue = { ...indexed, duplicateGroups: new Map() };
-  const firstPass = new Map(fresh.map((book) => [book.uuid, matchOne(ebooks.get(book.uuid)!, catalogue)]));
+  const firstPass = new Map<string, MatchResult>();
+  for (const book of fresh) {
+    firstPass.set(book.uuid, matchOne(ebooks.get(book.uuid)!, catalogue));
+    options.onProgress?.(firstPass.size, fresh.length);
+  }
 
   // The books in scope only: their formats on the drive, then scored again with what was found
   const formats = new Map<string, ImportExistingFormat[]>();
@@ -258,6 +271,7 @@ export async function planImportExisting(
       workId: work?.id ?? null,
       workTitle: work?.title ?? null,
       candidates: inScope ? (result?.candidates.map((c) => c.workId) ?? []) : [],
+      candidateTitles: inScope ? (result?.candidates.map((c) => catalogue.byWorkId.get(c.workId)!.source.title) ?? []) : [],
       rule: lead?.effect.rule ?? null,
       instanceId: lead?.effect.instanceId ?? null,
       effect: lead?.effect.text ?? null,
@@ -313,20 +327,25 @@ export async function planImportExisting(
   };
 }
 
-/** The dry run on a read-only planning session: the catalogue and the snapshot's library, both only read */
-export async function planImportExistingOn(
-  database: Db,
-  snapshotFile: string,
-  options: { root?: string; now?: number; uploadSpeed?: number | null } = {},
-): Promise<ImportExistingPlan> {
+/**
+ * The dry run from a catalogue already read: the snapshot's library must be
+ * mounted and unchanged since the snapshot. Scoring thousands of books takes
+ * minutes, so the command reads the catalogue in its read-only session and
+ * scores after that session has closed.
+ */
+export async function planImportExistingFrom(loaded: LoadedMatchCatalogue, snapshotFile: string, options: ImportExistingOptions & { root?: string } = {}): Promise<ImportExistingPlan> {
   const { snapshot, sha256 } = readSnapshot(snapshotFile);
   const root = path.resolve(options.root ?? snapshot.library.path);
   await checkCalibreSource(
     { snapshot: path.resolve(snapshotFile), snapshotSha256: sha256, libraryId: snapshot.library.id, libraryPath: root, metadataDbSha256: snapshot.metadataDb.sha256 },
     "Nothing read.",
   );
-  const loaded = await loadMatchCatalogue(database);
   return planImportExisting(loaded, { file: snapshotFile, snapshot, sha256, root }, options);
+}
+
+/** The dry run on one read-only planning session */
+export async function planImportExistingOn(database: Db, snapshotFile: string, options: ImportExistingOptions & { root?: string } = {}): Promise<ImportExistingPlan> {
+  return planImportExistingFrom(await loadMatchCatalogue(database), snapshotFile, options);
 }
 
 /** Counts only: what the terminal prints and what Linear and the changelog may carry */
@@ -423,7 +442,7 @@ export function importExistingReport(plan: ImportExistingPlan, files: { selectio
     "### Calibre books that score for several books",
     "",
     ...(clashing.some((b) => b.clashes.includes("several_works"))
-      ? clashing.filter((b) => b.clashes.includes("several_works")).map((b) => `- ${line(b.title)} (book ${b.bookId}): ${b.candidates.join(", ")}`)
+      ? clashing.filter((b) => b.clashes.includes("several_works")).map((b) => `- ${line(b.title)} (book ${b.bookId}): ${b.candidateTitles.map(line).join("; ")}`)
       : ["None."]),
     "",
     "### Books that already have an e-book",

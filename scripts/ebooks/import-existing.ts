@@ -69,15 +69,16 @@ try {
     console.log("Read-only: nothing was written. Label the sample, then pnpm ebooks:match --score LABELS --from PLAN.");
     console.log(`Report: ${files.markdown}\nSample: ${files.csv}\nPlan:   ${files.plan}`);
   } else {
-    const plan = await withReadOnlyPlanningConnection(
-      url,
-      (database) =>
-        existing.planImportExistingOn(database, resolve(values.calibre!), {
-          root: positionals[0] ? resolve(positionals[0]) : undefined,
-          uploadSpeed: readUploadSpeed(resolve(values["cache-dir"]!)),
-        }),
-      { isolationLevel: "repeatable read" },
-    );
+    // Durtal's books are read in one read-only session; the scoring, minutes for thousands of books, runs after it closes
+    const { loadMatchCatalogue } = await import("@/lib/ebooks/match/load");
+    const loaded = await withReadOnlyPlanningConnection(url, (database) => loadMatchCatalogue(database), { isolationLevel: "repeatable read" });
+    const plan = await existing.planImportExistingFrom(loaded, resolve(values.calibre!), {
+      root: positionals[0] ? resolve(positionals[0]) : undefined,
+      uploadSpeed: readUploadSpeed(resolve(values["cache-dir"]!)),
+      onProgress: (done, total) => {
+        if (process.stderr.isTTY && (done % 100 === 0 || done === total)) process.stderr.write(`\rScored ${done}/${total}${done === total ? "\n" : ""}`);
+      },
+    });
     const files = existing.writeImportExisting(plan, reportDir);
     const c = existing.importExistingCounts(plan);
     console.log(
