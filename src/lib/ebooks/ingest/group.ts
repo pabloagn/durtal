@@ -98,6 +98,8 @@ export interface GroupCandidate {
   sha256: string;
   /** Whether its folder has a sidecar OPF */
   sidecar: boolean;
+  /** The group it belongs to whatever its folder and name: a Calibre book's ("calibre:<uuid>") */
+  groupKey?: string;
 }
 
 export interface FileGroup {
@@ -123,7 +125,7 @@ export function groupFiles(files: GroupCandidate[]): { groups: FileGroup[]; dupl
   const groups = new Map<string, FileGroup>();
   for (const file of [...files].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))) {
     if (duplicates.has(file.path)) continue;
-    const key = file.sidecar ? `sidecar:${file.folder}` : `name:${file.folder}${path.sep}${baseName(file.name)}`;
+    const key = file.groupKey ?? (file.sidecar ? `sidecar:${file.folder}` : `name:${file.folder}${path.sep}${baseName(file.name)}`);
     const group = groups.get(key) ?? { key, folder: file.folder, sidecar: file.sidecar, paths: [] };
     group.paths.push(file.path);
     groups.set(key, group);
