@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { toast } from "sonner";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -196,17 +196,18 @@ export function SeriesBooks({
                   </h3>
                 </Link>
                 {/* Under sm the row has no room: the badges move to the author
-                    line and the controls to a row of their own */}
+                    line and the controls to a row of their own. CapAlignedControls,
+                    not CapAligned, whose box clips the buttons' focus rings */}
                 <div className="hidden shrink-0 sm:block">
-                  <CapAligned height={32} coarseHeight={44}>
-                    <div className="flex h-8 items-center gap-3 font-sans text-sm pointer-coarse:h-11">
+                  <CapAlignedControls height={32} coarseHeight={44}>
+                    <span className="flex items-center gap-3">
                       <Badge variant={book.statusVariant}>{book.status}</Badge>
                       {badge(book) && (
                         <Badge variant={badge(book)!.variant}>{badge(book)!.label}</Badge>
                       )}
                       {controls}
-                    </div>
-                  </CapAligned>
+                    </span>
+                  </CapAlignedControls>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">

@@ -32,7 +32,9 @@ status, each volume once.
   overflowed before too), and the controls and title were under 44px on
   touch. Under `sm` the status and reading badges now sit on the author line
   and the read, move and remove controls on a row of their own; from `sm` up
-  they stay beside the title, cap-aligned, at 44px on touch. Titles and
+  they stay beside the title, cap-aligned with `CapAlignedControls` (which,
+  unlike `CapAligned`, does not clip the buttons' focus rings), at 44px on
+  touch. Titles and
   authors wrap in full instead of clamping to one line. The position field is
   44px tall on touch.
 - `src/components/reading/book-picker.tsx`: the reading book picker showed
@@ -53,3 +55,7 @@ status, each volume once.
   with no copy, one with copies in two editions) and one On Order volume with
   a copy in its second edition give 5 accessioned in the list and the same 5
   from the detail, with every status kept.
+- Review fixes: the controls moved from `CapAligned` to `CapAlignedControls`
+  (`cap-aligned-menus.test.ts` refuses controls in a clipping box), and
+  `reading-hub.test.ts` expects the picker's "Accessioned" in place of
+  "Owned".

@@ -94,7 +94,7 @@ describe("the book picker", () => {
     ]);
     type(search(), "Dune M");
     await settle();
-    expect(body().querySelector("[data-picker-results]")?.textContent).toContain("Frank Herbert · Owned");
+    expect(body().querySelector("[data-picker-results]")?.textContent).toContain("Frank Herbert · Accessioned");
     expect(addLinks()).toEqual(["/library/new?q=Dune+M&then=start"]);
   });
 
