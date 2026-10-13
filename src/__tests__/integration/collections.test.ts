@@ -291,6 +291,48 @@ describe.skipIf(!url)("collection workflows with PostgreSQL", () => {
     ).toEqual([b.editions[1].id]);
     expect(c.id).toBe(selection.collections[0].id);
   });
+  it("offers the collection added to most recently first, and only a real addition moves one up (SLN-570)", async () => {
+    const one = await book("One", 2);
+    const two = await book("Two");
+    const [film] = await db.insert(schema.works).values({ title: "Film", kind: "film", originalLanguage: null }).returning();
+    const [a, b, c, d] = await Promise.all(
+      ["Alpha", "Beta", "Gamma", "delta"].map((name) => createCollection({ name })),
+    );
+    const curated = (await getCollections()).map((x) => x.id);
+    const order = async (workIds: string[] = [two.work.id]) =>
+      (await getCollectionSelection(workIds)).collections.map((x) => x.name);
+    // Nothing added yet: by name, case aside
+    expect(await order()).toEqual(["Alpha", "Beta", "delta", "Gamma"]);
+
+    await bulkAddEditionsToCollection(b.id, [one.editions[0].id]);
+    await bulkAddEditionsToCollection(a.id, [one.editions[0].id]);
+    // The newest addition first, for another book too, then the never-used ones by name
+    expect(await order()).toEqual(["Alpha", "Beta", "delta", "Gamma"]);
+    // A bulk addition is one use
+    await bulkAddEditionsToCollection(b.id, [two.editions[0].id, one.editions[1].id]);
+    expect(await order([one.work.id])).toEqual(["Beta", "Alpha", "delta", "Gamma"]);
+
+    // Nothing new, a reorder, a rename and a missing edition move nothing, and a
+    // removal never moves one up
+    await bulkAddEditionsToCollection(a.id, [one.editions[0].id]);
+    await removeEditionsFromCollection(a.id, [one.editions[0].id]);
+    await moveCollectionMember(b.id, { kind: "edition", id: two.editions[0].id }, 1);
+    await updateCollection(c.id, { name: "Gamma rays" });
+    await bulkAddEditionsToCollection(c.id, [randomUUID()]).catch(() => null);
+    // (Alpha, emptied, joins the never-used ones)
+    expect(await order()).toEqual(["Beta", "Alpha", "delta", "Gamma rays"]);
+
+    // Adding back what was removed is a real addition
+    await bulkAddEditionsToCollection(a.id, [one.editions[0].id]);
+    expect((await order())[0]).toBe("Alpha");
+    // A whole work counts, and so does a new collection made with its members
+    await bulkAddWorksToCollection(d.id, [film.id]);
+    expect((await order())[0]).toBe("delta");
+    await createCollection({ name: "Epsilon" }, [two.editions[0].id]);
+    expect(await order()).toEqual(["Epsilon", "delta", "Alpha", "Beta", "Gamma rays"]);
+    // Every other list keeps its curated order
+    expect((await getCollections()).map((x) => x.id).filter((id) => curated.includes(id))).toEqual(curated);
+  });
   it("searches titles, accent-insensitive authors and ISBN without treating percent as a wildcard", async () => {
     const b = await book("100% Fiction", 2);
     await book("Unrelated");
