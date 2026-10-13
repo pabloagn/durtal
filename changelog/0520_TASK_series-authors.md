@@ -20,6 +20,7 @@ SLN-636. A series named no author: My Struggle did not say it was Karl Ove Knaus
 - `getSeriesDetail` returns `authors` (id, name, slug, volumes). `getSeriesList` returns each row's author names.
 - The series header shows them under the original title. A name links to `/people/[slug]`; a person with no slug is plain text. The cards show the names under the title, wrapped in full; a list row shows them on one line, cut like its title. They are not links, since the whole card or row is one.
 - `docs/04_ROUTES_AND_VIEWS.md`: the Series and Series detail sections.
+- The list row on `/series` had a fixed 160px counts column, so at phone width (320 and 390px) the title, original title and authors were squeezed to a few pixels. Below the `sm` breakpoint the counts (and "Complete") now go on a line under the names, as on the film, perfume and painting rows. From `sm` up, the counts, badge and favourite star sit on the title's first line, the star on its cap height (`CapAligned`). The placeholder letter of a row with no cover is marked decorative.
 
 ## Completion Notes
 
