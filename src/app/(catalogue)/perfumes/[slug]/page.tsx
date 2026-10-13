@@ -28,6 +28,7 @@ import { WantedSection } from "@/components/catalogue/wanted-section";
 import { getTypedTargets } from "@/lib/actions/acquisitions";
 import { LinkedWorksSection } from "@/components/catalogue/work-relations";
 import { getWorkRelations } from "@/lib/actions/work-relations";
+import { linkedWorkEbooks } from "@/lib/catalogue/linked-work-ebooks";
 import { SourcesSection } from "@/components/catalogue/sources-section";
 import { PerfumeSourceLookup } from "@/components/perfumes/source-lookup";
 import { sourceChoices, sourceViews } from "@/lib/catalogue/source-views";
@@ -115,6 +116,8 @@ export default async function PerfumePage({
       getWorkRelations(perfume.id),
       getTypedTargets(perfume.id),
     ]);
+  // The e-book marks of linked books' cards
+  const linkedEbooks = await linkedWorkEbooks(links);
 
   const base = `/perfumes/${perfume.slug ?? perfume.id}`;
   const chosen = Array.isArray(query.formulation) ? query.formulation[0] : query.formulation;
@@ -618,6 +621,8 @@ export default async function PerfumePage({
       <LinkedWorksSection
         work={{ id: perfume.id, kind: "perfume", title: perfume.title }}
         relations={links}
+        ebooks={linkedEbooks}
+        readerReturnTo={base}
       />
 
       <GallerySection entityType="work" entityId={perfume.id} />

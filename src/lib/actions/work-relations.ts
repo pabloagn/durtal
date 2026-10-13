@@ -18,6 +18,8 @@ import {
   type WorkRelationType,
 } from "@/lib/catalogue/work-relations";
 import { sourceUrlSchema } from "@/lib/catalogue/provenance";
+import { loadRelatedBooks } from "@/lib/catalogue/related-books";
+import { loadRelatedTiles, type SimilarWork } from "@/lib/catalogue/related-tiles";
 import { textSearchCondition } from "./utils/text-search";
 import { citeSource, deleteCitedSource } from "./catalogue-provenance";
 
@@ -45,13 +47,17 @@ export interface WorkRelationView {
     title: string;
     href: string;
     creators: string | null;
+    /** The work's card, as the related rows draw it: a book's cover card, else a tile */
+    card: SimilarWork;
   };
   source: { id: string; label: string; url: string | null } | null;
 }
 
 /**
  * Every link of a work, both ways, with the work at the other end and the
- * cited source. Only links someone recorded: similarity never adds one.
+ * cited source. Only links someone recorded: similarity never adds one. The
+ * cards of the works at the other end load in two batched reads, one for
+ * books and one for the other collections, however many links there are.
  */
 export async function getWorkRelations(workId: string): Promise<WorkRelationView[]> {
   z.uuid().parse(workId);
@@ -81,24 +87,47 @@ export async function getWorkRelations(workId: string): Promise<WorkRelationView
       order by r.type, direction desc, lower(o.title), o.id`),
   );
   const enabled = new Set(getEnabledWorkKinds());
-  return rows
-    .filter((row) => enabled.has(row.otherKind))
-    .map((row) => ({
-      id: row.id,
-      type: row.type,
-      direction: row.direction,
-      notes: row.notes,
-      other: {
-        id: row.otherId,
-        kind: row.otherKind,
-        title: row.otherTitle,
-        href: workHref(row.otherKind, row.otherSlug, row.otherId),
-        creators: row.creators,
+  const shown = rows.filter((row) => enabled.has(row.otherKind));
+  // A work linked twice (two types, or both ways) is loaded once
+  const ids = (books: boolean) => [
+    ...new Set(shown.filter((row) => (row.otherKind === "book") === books).map((row) => row.otherId)),
+  ];
+  const [{ books }, tiles] = await Promise.all([
+    loadRelatedBooks(ids(true).map((id) => ({ workId: id }))),
+    loadRelatedTiles(ids(false)),
+  ]);
+  const cardOf = (row: (typeof shown)[number]): SimilarWork | null => {
+    if (row.otherKind === "book") {
+      const book = books.get(row.otherId);
+      return book ? { id: book.id, title: book.title, kind: "book", book } : null;
+    }
+    const tile = tiles.get(row.otherId);
+    return tile ? { id: tile.id, title: tile.title, kind: row.otherKind, tile } : null;
+  };
+  return shown.flatMap((row) => {
+    const card = cardOf(row);
+    // Both reads see every work the join found; a work deleted in between has lost its links too
+    if (!card) return [];
+    return [
+      {
+        id: row.id,
+        type: row.type,
+        direction: row.direction,
+        notes: row.notes,
+        other: {
+          id: row.otherId,
+          kind: row.otherKind,
+          title: row.otherTitle,
+          href: workHref(row.otherKind, row.otherSlug, row.otherId),
+          creators: row.creators,
+          card,
+        },
+        source: row.sourceId
+          ? { id: row.sourceId, label: row.sourceLabel ?? "Source", url: row.sourceUrl }
+          : null,
       },
-      source: row.sourceId
-        ? { id: row.sourceId, label: row.sourceLabel ?? "Source", url: row.sourceUrl }
-        : null,
-    }));
+    ];
+  });
 }
 
 /** Works to link to, by title, in the open collections of `kinds` */

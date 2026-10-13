@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ExternalLink, Loader2, Plus, Trash2 } from "lucide-react";
+import { ExternalLink, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -12,6 +11,9 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { RelatedBookCard } from "@/components/books/work-carousel";
+import { DomainTileCard } from "@/components/domains/domain-tile";
+import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
 import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
 import { SingleChoiceField } from "./record-fields";
 import type { PickerChoice } from "./search-picker";
@@ -264,17 +266,24 @@ function RelationForm({ work, onDone }: { work: RelatedWorkOwner; onDone: () => 
 /**
  * The links someone recorded between this work and others: adaptations,
  * remakes, flankers, sourced inspirations. They are facts with sources, kept
- * apart from the related rows, which only suggest. With `showEmpty` off (the
- * book page), the section is left out when there is nothing to show and the
- * page's actions menu holds "Link a work".
+ * apart from the related rows, which only suggest. Each linked work is its
+ * card, as in those rows (SLN-637), with the link's source, notes and
+ * "Remove link" under it. With `showEmpty` off (the book page), the section
+ * is left out when there is nothing to show and the page's actions menu holds
+ * "Link a work".
  */
 export function LinkedWorksSection({
   work,
   relations,
+  ebooks,
+  readerReturnTo,
   showEmpty = true,
 }: {
   work: RelatedWorkOwner;
   relations: WorkRelationView[];
+  /** The e-book a linked book's card opens, by work id */
+  ebooks: Readonly<Record<string, WorkEbookDTO | null>>;
+  readerReturnTo?: string;
   showEmpty?: boolean;
 }) {
   const router = useRouter();
@@ -307,59 +316,27 @@ export function LinkedWorksSection({
           sourced inspiration; a shared title or genre is not a link.
         </p>
       ) : (
-        <dl className="space-y-4">
+        <dl className="space-y-6">
           {groups.map((group) => (
             <div key={group.key}>
-              <dt className="type-label mb-1.5">{group.label}</dt>
-              <dd>
-                <ul className="space-y-1.5">
+              <dt className="type-label mb-3">{group.label}</dt>
+              <dd className="@container">
+                {/* Two cards a row on a phone, as the homepage's; each card
+                    and its caption share their row's two tracks, so the
+                    cards in a row are one height and the captions start level */}
+                <ul className="catalogue-grid catalogue-density-compact">
                   {group.items.map((r) => (
-                    <li key={r.id} className="flex items-start gap-3 text-sm">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-fg-primary">
-                          <Link href={r.other.href} className="transition-colors hover:text-accent-primary">
-                            {r.other.title}
-                          </Link>
-                          <span className="text-fg-secondary">
-                            {" · "}
-                            {[WORK_DOMAINS[r.other.kind].label, r.other.creators].filter(Boolean).join(", ")}
-                          </span>
-                        </p>
-                        {(r.source || r.notes) && (
-                          <p className="flex flex-wrap items-start gap-x-1.5 text-xs text-fg-secondary">
-                            {r.source &&
-                              (r.source.url ? (
-                                <>
-                                  <a
-                                    href={r.source.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="transition-colors hover:text-accent-primary"
-                                  >
-                                    Source: {r.source.label}
-                                  </a>
-                                  <CapAligned height={12}>
-                                    <ExternalLink className="h-3 w-3 text-fg-muted" strokeWidth={1.5} aria-hidden />
-                                  </CapAligned>
-                                </>
-                              ) : (
-                                <span>Source: {r.source.label}</span>
-                              ))}
-                            {r.notes && <span>{r.source ? `· ${r.notes}` : r.notes}</span>}
-                          </p>
-                        )}
-                      </div>
-                      <CapAligned height={20}>
-                        <button
-                          type="button"
-                          aria-label={`Remove the link to ${r.other.title}`}
-                          data-tooltip="Remove link"
-                          onClick={() => setRemoving(r)}
-                          className="flex h-5 w-5 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-accent-red-text"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-                        </button>
-                      </CapAligned>
+                    <li key={r.id} className="row-span-2 grid min-w-0 grid-rows-subgrid gap-y-2">
+                      {r.other.card.kind === "book" ? (
+                        <RelatedBookCard
+                          work={r.other.card.book}
+                          ebook={ebooks[r.other.id] ?? null}
+                          readerReturnTo={readerReturnTo}
+                        />
+                      ) : (
+                        <DomainTileCard kind={r.other.card.kind} tile={r.other.card.tile} />
+                      )}
+                      <RelationCaption relation={r} onRemove={() => setRemoving(r)} />
                     </li>
                   ))}
                 </ul>
@@ -376,6 +353,7 @@ export function LinkedWorksSection({
         title="Remove link"
         name={removing ? `${work.title} · ${removing.other.title}` : ""}
         description="The link is removed; both works and its source stay."
+        confirmLabel="Remove"
         onConfirm={async () => {
           if (!removing) return;
           try {
@@ -389,5 +367,53 @@ export function LinkedWorksSection({
         }}
       />
     </section>
+  );
+}
+
+/**
+ * The caption's controls take their full 44px on a touch screen, so their
+ * press areas never overlap each other or the card above
+ */
+const TOUCH_ROW = "flex items-center pointer-coarse:min-h-11";
+
+/** Under a linked work's card: where the link is stated, its notes, and its removal */
+function RelationCaption({
+  relation: r,
+  onRemove,
+}: {
+  relation: WorkRelationView;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col items-start gap-1 text-xs text-fg-secondary">
+      {r.source &&
+        (r.source.url ? (
+          // The mark leads, so a source that wraps never leaves it at the far edge
+          <a
+            href={r.source.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`${TOUCH_ROW} min-w-0 max-w-full transition-colors hover:text-accent-primary`}
+          >
+            <span className="flex min-w-0 items-start gap-1">
+              <CapAligned height={12}>
+                <ExternalLink className="h-3 w-3" strokeWidth={1.5} aria-hidden />
+              </CapAligned>
+              <span className="min-w-0 [overflow-wrap:anywhere]">Source: {r.source.label}</span>
+            </span>
+          </a>
+        ) : (
+          <p className="max-w-full [overflow-wrap:anywhere]">Source: {r.source.label}</p>
+        ))}
+      {r.notes && <p className="max-w-full [overflow-wrap:anywhere]">{r.notes}</p>}
+      <button
+        type="button"
+        aria-label={`Remove link to ${r.other.title}`}
+        onClick={onRemove}
+        className={`${TOUCH_ROW} rounded-sm transition-colors hover:text-accent-red-text`}
+      >
+        Remove link
+      </button>
+    </div>
   );
 }

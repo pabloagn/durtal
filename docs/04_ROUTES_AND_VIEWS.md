@@ -455,9 +455,14 @@ since; the new answer follows the old one, which stays.
 
 `LinkedWorksSection` (`src/components/catalogue/work-relations.tsx`) lists the
 links someone recorded between the work and others, grouped by how they read
-from this work ("Adapted from", "Remade as", "Flankers", "Inspired by"): the
-other work's title (a link to its page), its collection and creators, the cited
-source and notes, and Remove (the source stays). It sits on film pages after
+from this work ("Adapted from", "Remade as", "Flankers", "Inspired by"). Each
+other work is its card, as in the related rows (SLN-637): a book's cover card,
+or the picture card the Similar Works row draws for a film, perfume or
+painting. Under the card are the cited source, the notes and "Remove link"
+(the source stays). The cards sit in a container-aware grid, two a row on a
+phone as on the homepage; the cards in a row are one height and their captions
+start level. `getWorkRelations` loads every card in two batched reads, one for
+books and one for the other collections. It sits on film pages after
 Crew, perfume pages before the gallery and painting pages before Sources, with
 "Link a work"; a book page shows it after Editions only when a link exists,
 and its actions menu holds "Link a Work". These are facts with sources; the
