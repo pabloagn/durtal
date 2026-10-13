@@ -210,6 +210,10 @@ export default async function EbookPage({ params }: Props) {
             <Prose html={sanitizeHtml(ebook.description)} />
           </section>
         )}
+        <section className="mb-8">
+          <SectionHeading title="The book it belongs to" />
+          <EbookLinkPanel ebook={ebook} />
+        </section>
         {markTotal > 0 && (
           <section className="mb-8">
             <SectionHeading title="Highlights and notes" />
@@ -230,10 +234,6 @@ export default async function EbookPage({ params }: Props) {
             />
           </section>
         )}
-        <section className="mb-8">
-          <SectionHeading title="The book it belongs to" />
-          <EbookLinkPanel ebook={ebook} />
-        </section>
         <section className="mb-8">
           <SectionHeading title="Files" count={files.length} />
           <EbookFilesTable ebookId={ebook.id} files={files} />

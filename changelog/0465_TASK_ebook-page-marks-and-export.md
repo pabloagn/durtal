@@ -28,6 +28,8 @@ reader has.
   same Markdown and W3C files with the same names. A failed load says so
   beside the buttons and saves nothing.
 - The block is left out when a book has no marks.
+- The block sits below "The book it belongs to", which stays the page's
+  first section after the description.
 
 ## Completion Notes
 
