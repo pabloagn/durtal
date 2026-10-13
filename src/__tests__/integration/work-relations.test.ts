@@ -92,6 +92,55 @@ describe.skipIf(!url)("sourced links between works", () => {
     ]);
   });
 
+  it("gives each link the card of the work at the other end, a work linked twice once per link (SLN-637)", async () => {
+    const novel = await work("Malpertuis");
+    const film = await work("Malpertuis", "film");
+    const perfume = await work("Malpertuis", "perfume");
+    const [{ id: edition }] = await c`insert into editions(work_id, title, publication_year) values (${novel}, 'Malpertuis', 1943) returning id`;
+    await c`insert into media(work_id, type, s3_key, is_active) values (${film}, 'poster', 'films/malpertuis.jpg', true)`;
+    await createWorkRelation({ type: "adaptation", fromWorkId: film, toWorkId: novel });
+    await createWorkRelation({ type: "inspiration", fromWorkId: perfume, toWorkId: novel, newSource: { attribution: "The house's notes", url: null, retrievedOn: "2026-10-01" } });
+    await createWorkRelation({ type: "inspiration", fromWorkId: perfume, toWorkId: film, newSource: { attribution: "Test", url: null, retrievedOn: "2026-10-01" } });
+
+    const fromNovel = await getWorkRelations(novel);
+    expect(fromNovel.map((r) => [r.type, r.direction, r.other.card.kind, r.other.card.id])).toEqual([
+      ["adaptation", "incoming", "film", film],
+      ["inspiration", "incoming", "perfume", perfume],
+    ]);
+    const filmCard = fromNovel[0].other.card;
+    expect(filmCard.kind !== "book" && filmCard.tile).toMatchObject({
+      title: "Malpertuis",
+      href: `/films/${film}`,
+      imageUrl: expect.stringContaining("films%2Fmalpertuis.jpg"),
+    });
+    // No picture: the card draws its placeholder
+    const perfumeCard = fromNovel[1].other.card;
+    expect(perfumeCard.kind !== "book" && perfumeCard.tile.imageUrl).toBeNull();
+
+    // A book's cover card, with its editions
+    // Both links are inspirations to a "Malpertuis", so the query orders them by id: compare as a set
+    const fromPerfume = await getWorkRelations(perfume);
+    expect(fromPerfume.map((r) => [r.other.id, r.source?.label])).toEqual(
+      expect.arrayContaining([
+        [novel, "The house's notes"],
+        [film, "Test"],
+      ]),
+    );
+    expect(fromPerfume).toHaveLength(2);
+    const bookCard = fromPerfume.find((r) => r.other.id === novel)!.other.card;
+    expect(bookCard.kind === "book" && bookCard.book.editions.map((e) => e.id)).toEqual([edition]);
+
+    // Two links to the same work stay two links, each with the one card
+    const remake = await work("Malpertuis (2)", "film");
+    await createWorkRelation({ type: "remake", fromWorkId: remake, toWorkId: film });
+    await createWorkRelation({ type: "inspiration", fromWorkId: film, toWorkId: remake, newSource: { attribution: "An interview", url: null, retrievedOn: "2026-10-01" } });
+    const fromFilm = await getWorkRelations(film);
+    expect(fromFilm.filter((r) => r.other.id === remake).map((r) => [r.type, r.direction, r.other.card.id])).toEqual([
+      ["inspiration", "outgoing", remake],
+      ["remake", "incoming", remake],
+    ]);
+  });
+
   it("rejects self links, duplicates, inverse duplicates and kinds a type does not join", async () => {
     const novel = await work("Solaris");
     const film = await work("Solaris", "film");

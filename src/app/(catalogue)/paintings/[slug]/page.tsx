@@ -23,6 +23,7 @@ import {
 } from "@/components/catalogue/curation";
 import { LinkedWorksSection } from "@/components/catalogue/work-relations";
 import { getWorkRelations } from "@/lib/actions/work-relations";
+import { linkedWorkEbooks } from "@/lib/catalogue/linked-work-ebooks";
 import { SourcesSection } from "@/components/catalogue/sources-section";
 import { PaintingSourceLookup } from "@/components/paintings/source-lookup";
 import type { StorageLocation } from "@/components/catalogue/holding-fields";
@@ -300,6 +301,8 @@ export default async function PaintingPage({
       getWorkRelations(painting.id),
       getTypedTargets(painting.id),
     ]);
+  // The e-book marks of linked books' cards
+  const linkedEbooks = await linkedWorkEbooks(links);
 
   // ── The picture ───────────────────────────────────────────────────────────
   const picture = media.find((m) => m.type === "poster" && m.isActive);
@@ -613,6 +616,8 @@ export default async function PaintingPage({
           <LinkedWorksSection
             work={{ id: painting.id, kind: "painting", title: painting.title }}
             relations={links}
+            ebooks={linkedEbooks}
+            readerReturnTo={`/paintings/${painting.slug ?? painting.id}`}
           />
 
           <SourcesSection

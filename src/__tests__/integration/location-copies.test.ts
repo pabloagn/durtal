@@ -6,8 +6,9 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 
 /**
- * Book copies and their places: the live copy count per location (SLN-575)
- * and a sub-location that must belong to its copy's location (SLN-574).
+ * Book copies and their places: the live count of what each location holds
+ * (SLN-575, every kind of item) and a sub-location that must belong to its
+ * copy's location (SLN-574).
  */
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
 const url = process.env.DURTAL_LOCATION_COPIES_TEST_DATABASE_URL;
@@ -45,7 +46,7 @@ vi.mock("@/lib/cache", () => ({
   CACHE_TAGS: new Proxy({}, { get: (_, key) => String(key) }),
 }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
-import { getLocationCopyCounts, getLocations } from "@/lib/actions/locations";
+import { deleteLocation, getLocationItemCounts, getLocations } from "@/lib/actions/locations";
 import { createInstance, deleteInstance, updateInstance } from "@/lib/actions/instances";
 
 describe.skipIf(!url)("book copies and their locations with PostgreSQL", () => {
@@ -79,7 +80,9 @@ describe.skipIf(!url)("book copies and their locations with PostgreSQL", () => {
       .returning();
   }, 30000);
 
-  const counts = async () => Object.fromEntries(await getLocationCopyCounts());
+  // Book copies only, as the copy tests below write nothing else
+  const counts = async () =>
+    Object.fromEntries([...(await getLocationItemCounts())].map(([id, items]) => [id, items.copies]));
   const place = async (id: string) => {
     const [row] = await db
       .select({ locationId: schema.instances.locationId, subLocationId: schema.instances.subLocationId })
@@ -114,6 +117,68 @@ describe.skipIf(!url)("book copies and their locations with PostgreSQL", () => {
       await createInstance({ editionId, locationId: home });
       await expect(createInstance({ editionId, locationId: home, subLocationId: officeShelf })).rejects.toThrow();
       expect(await counts()).toEqual({ [home]: 1 });
+    });
+  });
+
+  describe("every kind of item", () => {
+    const sqlValue = async (query: string, params: unknown[] = []) =>
+      (await client!.unsafe(query, params as never[]))[0]?.id as string;
+    async function holdings(at: string) {
+      const kindWork = (kind: string, title: string) =>
+        sqlValue(`insert into works(kind, title, slug, original_language) values ($1, $2, $3, null) returning id`, [
+          kind,
+          title,
+          `${kind}-${title.toLowerCase().replace(/\W+/g, "-")}`,
+        ]);
+      const film = await kindWork("film", "Alien");
+      await client!.unsafe(`insert into film_details(work_id) values ($1)`, [film]);
+      for (const label of ["Blu-ray", "DVD"])
+        await client!.unsafe(
+          `insert into film_holdings(work_id, medium, format_label, status, location_id) values ($1, 'physical', $2, 'held', $3)`,
+          [film, label, at],
+        );
+      const painting = await kindWork("painting", "Nocturne");
+      await client!.unsafe(`insert into painting_details(work_id) values ($1)`, [painting]);
+      await client!.unsafe(
+        `insert into art_objects(work_id, kind, ownership, holding_status, location_id) values ($1, 'original', 'personal', 'held', $2)`,
+        [painting, at],
+      );
+      const perfume = await kindWork("perfume", "Mitsouko");
+      await client!.unsafe(`insert into perfume_details(work_id) values ($1)`, [perfume]);
+      const variant = await sqlValue(
+        `insert into perfume_variants(work_id, concentration) values ($1, 'eau_de_parfum') returning id`,
+        [perfume],
+      );
+      await client!.unsafe(
+        `insert into perfume_bottles(variant_id, container, capacity_value, volume_unit, location_id) values ($1, 'bottle', 50, 'ml', $2)`,
+        [variant, at],
+      );
+    }
+
+    it("counts film copies, paintings and perfume bottles beside book copies, live", async () => {
+      expect((await getLocations()).map((l) => l.name)).toEqual(["Home", "Office"]);
+      await createInstance({ editionId, locationId: home });
+      await holdings(office);
+      expect(Object.fromEntries(await getLocationItemCounts())).toEqual({
+        [home]: { copies: 1, films: 0, paintings: 0, perfumes: 0 },
+        [office]: { copies: 0, films: 2, paintings: 1, perfumes: 1 },
+      });
+      // A bottle moved home shows on the next read, with the cached list still warm
+      await client!.unsafe(`update perfume_bottles set location_id = $1`, [home]);
+      expect((await getLocationItemCounts()).get(home)).toEqual({ copies: 1, films: 0, paintings: 0, perfumes: 1 });
+      expect(cache.store.size).toBe(1);
+    });
+
+    it("a location holding films, paintings or bottles cannot be deleted; one with book copies takes them along", async () => {
+      await holdings(office);
+      await createInstance({ editionId, locationId: office });
+      await expect(deleteLocation(office)).rejects.toThrow();
+      expect((await getLocationItemCounts()).get(office)).toEqual({ copies: 1, films: 2, paintings: 1, perfumes: 1 });
+
+      await createInstance({ editionId, locationId: home });
+      await deleteLocation(home);
+      expect((await getLocationItemCounts()).has(home)).toBe(false);
+      expect(await db.select().from(schema.instances)).toHaveLength(1);
     });
   });
 

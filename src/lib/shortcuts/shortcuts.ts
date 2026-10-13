@@ -140,7 +140,7 @@ export const SHORTCUT_GROUPS: {
       { keys: SHORTCUTS.confirm, label: "Pick, confirm, next step, Fast Track" },
       { keys: SHORTCUTS.save, label: "Save, or Fast Track" },
       { keys: SHORTCUTS.fixField, label: "Fix title case or name order" },
-      { keys: SHORTCUTS.close, label: "Close a search, a list, a menu or a dialog" },
+      { keys: SHORTCUTS.close, label: "Close a search, a list, a menu or a dialog; cancel a form" },
     ],
   },
   {
