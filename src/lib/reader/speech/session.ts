@@ -41,6 +41,9 @@ export function createReaderSpeech(options: {
   /** Plays the natural voice's audio; without it only the device's voices read */
   audio?: HTMLAudioElement;
   fetch?: typeof fetch;
+  /** False on touch: a selected sentence would open the selection toolbar
+   * over the text, so the sentence is only shown (SLN-678) */
+  selectsSentences?(): boolean;
 }) {
   let state = initialSpeechPlayer(),
     open = false,
@@ -233,6 +236,7 @@ export function createReaderSpeech(options: {
             .then(() => {
               if (
                 command.kind === "select" &&
+                options.selectsSentences?.() !== false &&
                 !disposed &&
                 generation === state.generation &&
                 state.current === command.segment

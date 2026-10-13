@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { flushSync } from "react-dom";
+import { BookA } from "lucide-react";
 import { ReaderSlotFill, useReaderEvent, useReaderFeatureShortcut } from "@/components/reader/bridge";
 import type { ReaderEngine, SelectionDetails } from "@/lib/reader/engine";
 import { lookupCandidates, lookupSelection } from "@/lib/reader/lookup/candidates";
@@ -36,9 +37,11 @@ function initialModel(): Model {
 }
 const cacheKey = (language: string, text: string) =>
   language + ":" + text + ":" + (navigator.onLine ? "online" : "offline");
-export function LookupLayer({ engine, ebook, toolbarRef, enabled = true }: {
+export function LookupLayer({ engine, ebook, toolbarRef, enabled = true, onSheet }: {
   engine: ReaderEngine; ebook: { id: string; title: string; language?: string | null; editionLanguage?: string | null };
   toolbarRef: RefObject<HTMLDivElement | null>; enabled?: boolean;
+  /** Whether the touch sheet is open: the selection toolbar steps aside under it (SLN-678) */
+  onSheet?(open: boolean): void;
 }) {
   const [resources, setResources] = useState<Resources | null>(null);
   const [settings, setSettings] = useState<LookupSettings>(defaultLookupSettings);
@@ -93,6 +96,8 @@ export function LookupLayer({ engine, ebook, toolbarRef, enabled = true }: {
     }
   };
   useReaderEvent("location", () => close());
+  const sheet = !!opened?.touch && !!resources;
+  useEffect(() => { onSheet?.(sheet); }, [sheet, onSheet]);
   // The selection as it last stood. A tap on the Look up button can clear the
   // book's selection on iOS before the click arrives; the lookup still opens
   // for the word that was selected.
@@ -237,12 +242,13 @@ export function LookupLayer({ engine, ebook, toolbarRef, enabled = true }: {
   return <>
     <ReaderSlotFill slot="selection-actions" placement="last"><button type="button" aria-label="Look up"
       data-tooltip="Look up" data-tooltip-keys="d" disabled={!enabled || !resources}
-      className="h-8 rounded-sm px-3 hover:bg-bg-tertiary disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+      className="flex h-8 shrink-0 items-center justify-center rounded-sm px-3 hover:bg-bg-tertiary disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:px-0"
       onClick={event => {
         const details = engine.selectionDetails() ?? lastDetails.current;
         const touch = event.detail !== 0 && window.matchMedia("(pointer: coarse)").matches;
         if (details) open(details, event.detail === 0, event.detail === 0 ? event.currentTarget : undefined, undefined, touch);
-      }}>Look up</button></ReaderSlotFill>
+      }}><span className="pointer-coarse:hidden">Look up</span>
+      <BookA aria-hidden className="hidden h-4 w-4 pointer-coarse:block" strokeWidth={1.5} /></button></ReaderSlotFill>
     <OutsideTapBackdrop kind="lookup" open={!!opened?.touch && !!resources} onClose={() => close("outside")} />
     {opened && resources && <LookupPopover key={opened.id} details={opened.details} language={opened.language}
       guessed={opened.guessed} word={opened.word} passage={opened.passage} keyboard={opened.keyboard}

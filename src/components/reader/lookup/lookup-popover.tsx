@@ -1,5 +1,5 @@
 "use client";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Select } from "@/components/ui/select";
 import { AnchoredReaderPopover } from "@/components/reader/anchored-reader-popover";
 import type { SelectionDetails } from "@/lib/reader/engine";
@@ -28,6 +28,9 @@ export function LookupPopover({ details, language, guessed, word, passage, keybo
     ? [{ id: "sources", label: "Your sources" }, { id: "translate", label: "Translate" }]
     : [{ id: "dictionary", label: "Dictionary" }, { id: "wikipedia", label: "Wikipedia" },
       { id: "sources", label: "Your sources" }, { id: "translate", label: "Translate" }];
+  // The tabs are one row that scrolls on a narrow screen: keep the chosen one in view
+  const activeIndex = choices.findIndex(tab => tab.id === active);
+  useEffect(() => { tabs.current[activeIndex]?.scrollIntoView?.({ block: "nearest", inline: "nearest" }); }, [activeIndex]);
   return <AnchoredReaderPopover title={word} anchor={details.rect} avoid={avoid} keyboard={keyboard}
     reference={reference} keyDocument={keyDocument} preferBelow={touch} variant="lookup" dialogLabel={"Look up " + word} closeLabel="Close lookup"
     initialFocusSelector='[role="tab"][aria-selected="true"]' onClose={onClose}
@@ -44,11 +47,11 @@ export function LookupPopover({ details, language, guessed, word, passage, keybo
             onChange={event => { onTarget(event.target.value); setLanguagesOpen(false); }} />
         </div>
       </div>}
-      <div role="tablist" aria-label="Lookup sources" className="flex shrink-0 flex-wrap border-b border-glass-border px-2">
+      <div role="tablist" aria-label="Lookup sources" className="flex shrink-0 overflow-x-auto border-b border-glass-border px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {choices.map((tab, index) => <button key={tab.id} ref={element => { tabs.current[index] = element; }}
           type="button" role="tab" id={id + "-" + tab.id} aria-controls={id + "-panel-" + tab.id}
           aria-selected={active === tab.id} tabIndex={active === tab.id ? 0 : -1}
-          className={"min-h-8 px-2 py-2 text-xs pointer-coarse:min-h-11 " + (active === tab.id ? "text-fg-primary underline underline-offset-8" : "text-fg-secondary")}
+          className={"min-h-8 shrink-0 whitespace-nowrap px-2 py-2 text-xs pointer-coarse:min-h-11 " + (active === tab.id ? "text-fg-primary underline underline-offset-8" : "text-fg-secondary")}
           onClick={() => onTab(tab.id)} onKeyDown={event => {
             const next = event.key === "ArrowRight" ? (index + 1) % choices.length :
               event.key === "ArrowLeft" ? (index + choices.length - 1) % choices.length :

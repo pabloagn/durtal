@@ -46,7 +46,7 @@ afterEach(() => {
   sessions.length = 0;
   vi.useRealTimers();
 });
-function setup() {
+function setup(extra: { selectsSentences?(): boolean } = {}) {
   const fake = fakeEngine();
   const engine: ReaderEngine = fake.engine;
   let first = 1;
@@ -105,6 +105,7 @@ function setup() {
     document,
     storage: null,
     changed: () => {},
+    ...extra,
   });
   sessions.push(session);
   return {
@@ -278,6 +279,19 @@ it("pausing selects the sentence only after its owned navigation settles", async
   expect(selected).not.toHaveBeenCalled();
   await settle();
   expect(selected).toHaveBeenCalledWith(sentence(1).locator);
+});
+it("on touch, pausing shows the sentence without selecting it (SLN-678)", async () => {
+  const s = setup({ selectsSentences: () => false });
+  const selected = vi.fn(() => true);
+  s.engine.selectSpeechSentence = selected;
+  s.session.prepare();
+  await settle();
+  s.session.toggle();
+  s.utterance().dispatchEvent(new Event("start"));
+  await settle();
+  s.session.action({ kind: "pause" });
+  await settle();
+  expect(selected).not.toHaveBeenCalled();
 });
 it("replaced selection preparation and stale paused-selection effects cannot change the new intent", async () => {
   const s = setup();
