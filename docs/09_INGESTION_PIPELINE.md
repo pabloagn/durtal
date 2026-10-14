@@ -590,6 +590,14 @@ publication was stored and verified is "no longer in the inbox", never an except
 empty the inbox once a reconciliation is exact. A file dropped in again is
 recognised by its checksum.
 
+`pnpm ebooks:reconcile --run <runId>` checks again what that run's apply
+checked when it ended, from the plan the run kept in the cache folder, on the
+machine that applied it. It is how a Calibre run is reconciled later: the
+run took only the files its selection named, and only those are its to
+account for, so reconciling the whole library folder would list every other
+book's files as not stored. With no folder and no `--run`, the command
+reconciles the inbox, and says to name a folder or a run when there is none.
+
 ### Undo
 
 `pnpm ebooks:ingest --undo <reports/ebooks/ingest-undo-<runId>.jsonl>
@@ -756,7 +764,9 @@ Import existing runs in three steps:
   read-only planning session, then, once that session has closed, scores
   every Calibre book of the snapshot against Durtal's book works with the
   matching model (`MATCH_MODEL`), from the snapshot's fields alone. Thousands
-  of books take minutes.
+  of books take minutes: 6,000 against 775 took about 5 minutes in a cloud
+  rehearsal. The matcher keeps each title's and name's trigrams, so a
+  string seen again is not split again.
   - A book is in scope when its best tier is `exact`, `strong`, `likely`,
     `to_choose` or `conflict` with at least one Durtal book as a candidate.
     `same_author`, `not_in_durtal` and `not_a_book` are left for Bulk import.
