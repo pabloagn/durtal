@@ -1,3 +1,5 @@
+import { DETAIL_TITLE_ROW } from "./detail-layout";
+
 /**
  * Loading screens (contract section 8, "Loading keeps the page's final
  * layout"). A skeleton draws the page's own layout with these blocks in place
@@ -38,15 +40,28 @@ export function SkeletonLine({ className = "" }: { className?: string }) {
 /**
  * A detail page's title row: the title and, beside it, its actions. On a
  * phone a title of any length pushes the actions below it, so the skeleton
- * draws them there.
+ * draws them there. With `wide`, the book's row (`DetailTitleRow
+ * wideControls`): it wraps where that row does, with no gap under the title.
  */
-export function SkeletonTitleRow() {
+export function SkeletonTitleRow({ wide = false }: { wide?: boolean }) {
+  const actions = (
+    <div className="type-page-title flex h-[1lh] shrink-0 items-center">
+      <SkeletonBlock className="h-8 w-40 pointer-coarse:h-11" />
+    </div>
+  );
+  if (wide)
+    return (
+      <div className="@container">
+        <div className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW.wide}`}>
+          <SkeletonLine className="type-page-title w-full min-w-0 sm:w-2/3" />
+          {actions}
+        </div>
+      </div>
+    );
   return (
     <div className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
       <SkeletonLine className="type-page-title w-2/3 max-sm:w-full" />
-      <div className="type-page-title flex h-[1lh] shrink-0 items-center">
-        <SkeletonBlock className="h-8 w-40 pointer-coarse:h-11" />
-      </div>
+      {actions}
     </div>
   );
 }
