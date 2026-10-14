@@ -111,6 +111,8 @@
   for (const el of main.querySelectorAll("a[href], button, [role=button]")) {
     if (!visible(el) || !text(el) || el.closest("[inert], [aria-hidden=true], dialog, [popover]")) continue;
     if (SKIP_ROLES.has(el.getAttribute("role"))) continue;
+    // The page or step in view reads as a state, not a command
+    if (["page", "step", "location"].includes(el.getAttribute("aria-current"))) continue;
     // An icon, a cover or a heading inside, or a title that is a link: its role shows
     if (el.querySelector("svg, img, picture, video, canvas, h1, h2, h3, h4, [data-decorative]") || el.closest("h1, h2, h3, h4, h5, h6")) continue;
     const s = css(el);

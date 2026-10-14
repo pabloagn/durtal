@@ -17,7 +17,7 @@ SLN-695, from the design audit (SLN-641 slice 1, section 5). Every page passed t
   - `squeezed`: the h1 wraps while it takes under 60% of its row, because controls share the row; or it runs past 2 lines on a screen 400px wide or less.
   - `plainCommands`: a button or link with no box, border, underline or icon, in a text colour (`fg-heading`, `fg-primary`, `fg-secondary`, `fg-muted`) or within 1.25:1 of the text beside it (or of its row when alone). It skips:
     - a link in a sentence of running text;
-    - tabs and menu items;
+    - tabs and menu items, and the page or step in view (`aria-current`);
     - cover and card links, and titles that are links;
     - a button beside a boxed button (Cancel beside Save).
   - `drift`: in a card (an element with a border and a fill, 200px or wider), a block whose first-line ink starts 0.5 to 12px off the content edge of the column holding it.
