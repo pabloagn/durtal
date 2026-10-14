@@ -34,7 +34,7 @@ nothing said which chapter you were in once the bars hid.
 - `ReaderBottomBar` takes `quietChapter`. Where no running lines name the
   chapter (relocation `paginated` is false), the chapter stays at the bottom
   while the bars are hidden, in the same place and type as the bar's own
-  chapter (12px, `fg-secondary`), and crossfades with the bar (150 ms, none
+  chapter (its size and `fg-secondary`), and crossfades with the bar (150 ms, none
   with reduced motion). It is hidden from assistive technology, which reads
   the chapter in the bar.
 
