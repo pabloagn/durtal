@@ -65,3 +65,7 @@ sizes and the browser's own progress bar.
 - Not done here (part 2): Cancel while a file is sending (it stays off until
   Pause), registering automatically when a preview has no conflicts, and
   one real upload from the iPhone on the Mac.
+- From review: a replaced file no longer offers "Replace file…", the Replace
+  picker offers only the replaced file's format, and a refused add or
+  replace says what to do instead (use Add a format, choose Replace again,
+  or the file is already in the library).

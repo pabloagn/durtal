@@ -53,7 +53,16 @@ export function requireExplicitRegistrationIntent(registration:Registration,targ
       : !!registration.newEbook || registration.ebookId!==parsed.ebookId
         || (parsed.kind==="add_format" ? registration.replaced.length!==0
           : registration.replaced.length!==1 || registration.replaced[0].fileId!==parsed.fileId)))
-    throw new UploadError(409,"upload_replace_required","Review an explicit replacement of the selected current file.");
+    throw new UploadError(409,"upload_replace_required",registrationIntentRefusal(registration,parsed.kind));
+}
+/** What the person can do instead, in plain words (SLN-672) */
+function registrationIntentRefusal(registration:Registration,kind:"new"|"add_format"|"replace"):string {
+  if (registration.items[0]?.outcome==="already_stored") return "This exact file is already in the library.";
+  if (kind==="replace") return registration.replaced.length===0
+    ? "Replace takes a file of the same format as the one it replaces. To keep this file beside it, use Add a format instead."
+    : "The file you chose to replace is no longer the eBook's current one. Go back to the eBook and choose Replace file again.";
+  if (kind==="add_format" && registration.replaced.length) return "The eBook already has a file in this format. To change it, use Replace file on that file.";
+  return "Review an explicit replacement of the selected current file.";
 }
 export async function readOriginalRegistrationOn(conn:Db,scope:CoreScope,upload:CoreOperationRow,id:string):Promise<{
   original:NonNullable<UploadAtomicBinding["original"]>;ebookId:string}> {

@@ -12,6 +12,8 @@ import { isUuid } from "@/lib/utils/uuid";
 
 export const metadata: Metadata = { title: "Upload eBooks" };
 const one = (value: string | string[] | undefined) => typeof value === "string" ? value : undefined;
+/** A replacement must be the same format: the picker offers that format's files (a Kobo EPUB ends in .epub) */
+const pickerExtensions = (format: string) => format === "other" ? undefined : format === "kepub" ? ".epub,.kepub" : `.${format}`;
 export default async function UploadEbooksPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const raw = await searchParams;
   const kind = raw.kind ?? "new";
@@ -41,6 +43,7 @@ export default async function UploadEbooksPage({ searchParams }: { searchParams:
   return <div>
     <PageHeader title={target.data.kind === "new" ? "Upload eBooks" : target.data.kind === "add_format" ? "Add a format" : "Replace a file"}
       description={description} />
-    <UploadWorkbench target={target.data} initialBatchId={batch} available={uploadsAvailable()} />
+    <UploadWorkbench target={target.data} initialBatchId={batch} available={uploadsAvailable()}
+      accept={target.data.kind === "replace" && summary?.file ? pickerExtensions(summary.file.format) : undefined} />
   </div>;
 }

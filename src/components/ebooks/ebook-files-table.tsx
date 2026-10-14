@@ -18,6 +18,8 @@ export interface EbookFileData {
   preferred: boolean;
   download: boolean;
   readable: boolean;
+  /** The current file of its format; a replaced one has a successor and cannot be replaced again */
+  replaceable: boolean;
 }
 const columns = [
   { key: "format", label: "Format", defaultVisible: true },
@@ -127,12 +129,14 @@ export function EbookFilesTable({
                     Open first
                   </button>
                 )}
-                <Link
-                  href={`/ebooks/upload?kind=replace&ebookId=${ebookId}&fileId=${file.id}`}
-                  className="touch-hit text-accent-primary"
-                >
-                  Replace file<span className="sr-only"> ({formatLabel(file.format)})</span>…
-                </Link>
+                {file.replaceable && (
+                  <Link
+                    href={`/ebooks/upload?kind=replace&ebookId=${ebookId}&fileId=${file.id}`}
+                    className="touch-hit text-accent-primary"
+                  >
+                    Replace file<span className="sr-only"> ({formatLabel(file.format)})</span>…
+                  </Link>
+                )}
               </div>
             );
           return null;

@@ -36,7 +36,7 @@ function UploadBar({ bytes, total, failed, label }: { bytes: number; total: numb
   </div>;
 }
 type Preview = NonNullable<UploadOutcome["preview"]>;
-export function UploadWorkbench({ target, initialBatchId, available = true }: { target: UploadTarget; initialBatchId: string | null; available?: boolean }) {
+export function UploadWorkbench({ target, initialBatchId, available = true, accept }: { target: UploadTarget; initialBatchId: string | null; available?: boolean; accept?: string }) {
   const [session, setSession] = useState<UploadBrowserSession>({ version: 1, batchId: initialBatchId, pending: null });
   const sessionRef = useRef(session);
   const [loaded, setLoaded] = useState(false); const [batch, setBatch] = useState<UploadBatchView | null>(null);
@@ -198,7 +198,7 @@ export function UploadWorkbench({ target, initialBatchId, available = true }: { 
       <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (!blocked && available) select(Array.from(event.dataTransfer.files)); }}
         className="flex flex-wrap items-center gap-3 rounded-sm border border-dashed border-border-control p-6 text-sm text-fg-secondary">
         <span>{target.kind === "new" ? "Drop eBook files here, or" : "Drop the file here, or"}</span>
-        <input ref={picker} type="file" multiple={target.kind === "new"} disabled={blocked || !available} className="sr-only" tabIndex={-1} aria-label="Choose eBook files"
+        <input ref={picker} type="file" multiple={target.kind === "new"} accept={accept} disabled={blocked || !available} className="sr-only" tabIndex={-1} aria-label="Choose eBook files"
           onChange={(event) => { select(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
         <Button disabled={blocked || !available} onClick={() => picker.current?.click()}>{target.kind === "new" ? "Choose files" : "Choose a file"}</Button>
       </div>

@@ -99,6 +99,7 @@ export default async function EbookPage({ params }: Props) {
     download: isEbookFileDownloadable(file),
     readable:
       ebook.matchState !== "excluded" && isEbookFileNativeReadable(file),
+    replaceable: file.status !== "replaced",
     status: file.drm
       ? `Protected by ${file.drm}, cannot be opened`
       : file.status === "verified"
