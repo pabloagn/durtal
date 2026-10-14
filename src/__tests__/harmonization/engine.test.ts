@@ -190,6 +190,16 @@ describe("catalogue identity heuristics", () => {
       }),
     ).toHaveLength(1);
   });
+  it("keeps numbered titles apart at catalogue scale, and still pairs a misspelling among them (SLN-690)", () => {
+    // Titles that differ by one digit share deletion keys: thousands of pairs, none a duplicate
+    const works = Array.from({ length: 3000 }, (_, i) =>
+      row(`w${i}`, { title: `Seed Library Book ${i + 1}`, kind: "book" }),
+    );
+    works.push(row("typo", { title: "Seed Libary Book 1443", kind: "book" }));
+    const found = duplicates({ works });
+    expect(found.map((f) => f.records.map((r) => r.id).sort())).toEqual([["typo", "w1442"]]);
+    expect(found[0].rule).toBe("duplicate-spelling");
+  });
 });
 
 describe("data quality beyond duplicates", () => {

@@ -146,6 +146,12 @@ export function recordRef(
   return { id: row.id, name, href, context };
 }
 
+/** A name that identifies no one: "Various", "Unknown authors" */
+const nonIdentifying = (name: string) =>
+  /^(?:various|unknown|anonymous|uncredited|multiple)(?: (?:authors|members|contributors|artists|editors))?$/.test(
+    name,
+  );
+
 /** A conservative identity boundary: different families, places or publication contexts never mix. */
 export function sameScope(entity: EntityDefinition, a: Row, b: Row) {
   return (entity.scope || []).every(
@@ -307,24 +313,38 @@ export function scanDataset(data: Dataset): Finding[] {
           buckets.set(key, bucket);
         }
       }
+      // Once per record, not per pair (SLN-690): titles that differ only by
+      // a number ("Book 1443", "Book 1453") share deletion keys, so a large
+      // catalogue can hold tens of thousands of pairs.
+      const idsOf = new Map(rows.map((r) => [r.id, identifiers(r)]));
+      const signatureOf = new Map(
+        [...names].map(([id, name]) => [id, numberSignature(name)]),
+      );
+      const scopeOf = new Map(
+        rows.map((r) => [
+          r.id,
+          (entity.scope || []).map((key) => normalize(r[key])),
+        ]),
+      );
       const pairs = new Set<string>();
       for (const bucket of buckets.values()) {
         for (let i = 0; i < bucket.length; i++)
           for (let j = i + 1; j < bucket.length; j++) {
             const a = bucket[i],
               b = bucket[j];
+            // The cheapest test first. Every test is pure, so the order
+            // changes no finding: different numbers never pair.
+            if (signatureOf.get(a.id) !== signatureOf.get(b.id)) continue;
             const pair = [a.id, b.id].sort().join(":");
             if (pairs.has(pair)) continue;
             pairs.add(pair);
             const na = names.get(a.id)!,
               nb = names.get(b.id)!;
-            const sharedIdentifier = identifiers(a).some((id) =>
-              identifiers(b).includes(id),
-            );
-            const nonIdentifying = (name: string) =>
-              /^(?:various|unknown|anonymous|uncredited|multiple)(?: (?:authors|members|contributors|artists|editors))?$/.test(
-                name,
-              );
+            const idsB = idsOf.get(b.id)!;
+            const sharedIdentifier = idsOf
+              .get(a.id)!
+              .some((id) => idsB.includes(id));
+            const scopeB = scopeOf.get(b.id)!;
             const sharedAlias =
               !nonIdentifying(na) &&
               !nonIdentifying(nb) &&
@@ -333,8 +353,7 @@ export function scanDataset(data: Dataset): Finding[] {
             if (
               nonIdentifying(na) ||
               nonIdentifying(nb) ||
-              !sameScope(entity, a, b) ||
-              numberSignature(na) !== numberSignature(nb) ||
+              !scopeOf.get(a.id)!.every((value, k) => value === scopeB[k]) ||
               (!sharedIdentifier &&
                 !sharedAlias &&
                 (!entity.fuzzy || !closeSpelling(na, nb)))
