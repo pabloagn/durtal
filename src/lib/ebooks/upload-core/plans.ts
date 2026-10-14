@@ -53,7 +53,16 @@ export function requireExplicitRegistrationIntent(registration:Registration,targ
       : !!registration.newEbook || registration.ebookId!==parsed.ebookId
         || (parsed.kind==="add_format" ? registration.replaced.length!==0
           : registration.replaced.length!==1 || registration.replaced[0].fileId!==parsed.fileId)))
-    throw new UploadError(409,"upload_replace_required","Review an explicit replacement of the selected current file.");
+    throw new UploadError(409,"upload_replace_required",registrationIntentRefusal(registration,parsed.kind));
+}
+/** What the person can do instead, in plain words (SLN-672) */
+function registrationIntentRefusal(registration:Registration,kind:"new"|"add_format"|"replace"):string {
+  if (registration.items[0]?.outcome==="already_stored") return "This exact file is already in the library.";
+  if (kind==="replace") return registration.replaced.length===0
+    ? "Replace takes a file of the same format as the one it replaces. To keep this file beside it, use Add a format instead."
+    : "The file you chose to replace is no longer the eBook's current one. Go back to the eBook and choose Replace file again.";
+  if (kind==="add_format" && registration.replaced.length) return "The eBook already has a file in this format. To change it, use Replace file on that file.";
+  return "Review an explicit replacement of the selected current file.";
 }
 export async function readOriginalRegistrationOn(conn:Db,scope:CoreScope,upload:CoreOperationRow,id:string):Promise<{
   original:NonNullable<UploadAtomicBinding["original"]>;ebookId:string}> {
@@ -98,9 +107,9 @@ export async function prepareUploadEffectOn(conn:Db,scope:CoreScope,upload:CoreO
     return {...base,ebookId:registration.ebookId,registration,restoration:null,original:null,
       matching:native.classification??null,coreOperation:{version:1,operationId:newUploadIdentity(),runId:upload.run_id!,
         targetDatabase:scope.databaseFingerprint,planSha256:native.planSha256},
-      effect:registration.newEbook ? "Create this book and register its verified file."
-        : registration.replaced.length ? "Replace the selected file. Retain its original bytes, reading places, passages and notes."
-          : "Add this format to the selected book. Preserve its reading places, passages and notes.",
+      effect:registration.newEbook ? "Adds this file to the library as a new eBook."
+        : registration.replaced.length ? "Replaces the eBook's file with this one. The old file is kept, and the reading places, highlights and notes stay."
+          : "Adds this format to the eBook. Its reading places, highlights and notes stay.",
       publication:[{id:inserted.id,ebookId:registration.ebookId,sha256:inserted.sha256,format:inserted.format,
         sizeBytes:inserted.sizeBytes,s3Key:inserted.s3Key,manifestKey:inserted.manifestKey,metadata:inserted.metadata}]};
   }
