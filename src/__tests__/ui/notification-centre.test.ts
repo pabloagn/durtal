@@ -130,4 +130,17 @@ describe("the notification centre", () => {
     expect(getEntries()).toEqual([]);
     expect(popover().textContent).toContain("No notifications.");
   });
+
+  it("keeps an entry's hidden text inside the list that scrolls, not the panel", async () => {
+    act(() => {
+      toast.error("Unseen");
+    });
+    await wait(50);
+    toggle("open");
+    // The sr-only "(unread)" is placed by its nearest positioned ancestor
+    let box = popover().querySelector(".sr-only")!.parentElement;
+    while (box && !/\b(relative|absolute|fixed|sticky)\b/.test(box.className)) box = box.parentElement;
+    expect(box?.tagName).toBe("UL");
+    expect(box?.className).toContain("overflow-y-auto");
+  });
 });

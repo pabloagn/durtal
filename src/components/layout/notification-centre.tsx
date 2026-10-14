@@ -163,7 +163,10 @@ export function NotificationCentre({
           )}
         </div>
         {entries.length ? (
-          <ul className="min-h-0 flex-1 divide-y divide-glass-border overflow-y-auto overscroll-contain">
+          // Positioned, so each entry's hidden "(unread)" stays inside the
+          // list that scrolls; else it is placed in the panel, which grows a
+          // scroll height of the whole list behind its overflow-hidden
+          <ul className="relative min-h-0 flex-1 divide-y divide-glass-border overflow-y-auto overscroll-contain">
             {entries.map((entry) => (
               <Entry key={entry.id} entry={entry} now={now} />
             ))}
