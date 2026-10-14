@@ -35,3 +35,13 @@ search or full screen. The menu handled Esc only while focus was inside it.
 - Tests: new `highlight-menu-escape.test.ts` (Esc from the page and from a
   book document through the input layer; the lease is let go on close).
 - No migration and no new packages.
+
+## Review fix
+
+- After a mouse click on a mark, the menu's first swatch took focus with a
+  visible focus ring in all three browsers, so its tooltip took the first
+  Esc and a mouse user still needed two. The first button is now focused
+  with `focusVisible: false` unless the mark itself had keyboard focus, and
+  Esc or Close put focus back on the mark, or the book's frame.
+- Tests: new `highlight-menu-focus.test.ts` (no visible focus after a click,
+  visible after the keyboard, focus back on the mark on Esc and on Close).
