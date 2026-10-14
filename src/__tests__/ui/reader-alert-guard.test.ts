@@ -10,7 +10,7 @@ const loading = vi.hoisted(() => {
 });
 vi.mock("@/lib/actions/reading", () => ({ getRunningTimer: vi.fn(), pauseTimer: vi.fn(), resumeTimer: vi.fn(), startTimer: vi.fn(), discardTimer: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), message: vi.fn() }, Toaster: () => null }));
+vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), message: vi.fn() }, Toaster: () => null, useSonner: () => ({ toasts: [] }) }));
 vi.mock("@/components/ui/tooltip", () => ({ TooltipLayer: () => null }));
 vi.mock("@/components/reading/timer-chip", async () => {
   await loading.promise;
