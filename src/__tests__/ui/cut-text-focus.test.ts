@@ -76,3 +76,29 @@ it("shows nothing for a title that fits", async () => {
   await wait(20);
   expect(tooltip()?.hasAttribute("data-open")).toBe(false);
 });
+
+it("keeps a fact's full text when focus nudges its cut line", async () => {
+  // Stats facts: the link sits in a one-line value with its day count
+  const title = "Against Nature, or À Rebours: The Complete Decadent Breviary";
+  const value = document.createElement("dd");
+  value.className = "lines-1";
+  value.dataset.probe = "";
+  value.style.textOverflow = "ellipsis";
+  Object.defineProperty(value, "scrollWidth", { value: 600 });
+  Object.defineProperty(value, "clientWidth", { value: 100 });
+  const link = document.createElement("a");
+  link.href = "/library/a-book";
+  link.textContent = title;
+  value.append(link, " · 20 days from start to finish");
+  document.body.append(value);
+  act(() => link.focus());
+  // The browser scrolls the clipped line to show the focused link
+  act(() => void value.dispatchEvent(new Event("scroll")));
+  await wait(20);
+  expect(tooltip()?.hasAttribute("data-open")).toBe(true);
+  expect(tooltip()?.textContent).toContain(title);
+  // A real scroll still closes it
+  act(() => void document.dispatchEvent(new Event("scroll")));
+  await wait(20);
+  expect(tooltip()?.hasAttribute("data-open")).toBe(false);
+});

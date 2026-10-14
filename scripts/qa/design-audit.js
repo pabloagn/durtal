@@ -198,10 +198,17 @@
     if (cs.borderTopLeftRadius !== "0px") count(radii, cs.borderTopLeftRadius);
   }
 
+  // A mark inside `data-decorative` is skipped, unless a control sits inside
+  // that mark: a control's icon is an interface icon wherever it is
+  const decorative = (svg) => {
+    const mark = svg.closest("[data-decorative]");
+    const control = svg.closest(INTERACTIVE);
+    return !!mark && (!control || control.contains(mark));
+  };
   const iconSizes = {};
   const iconStrokes = {};
   for (const svg of document.querySelectorAll("svg[class*='lucide']")) {
-    if (!visible(svg) || svg.closest("[data-decorative]")) continue;
+    if (!visible(svg) || decorative(svg)) continue;
     count(iconSizes, `${Math.round(svg.getBoundingClientRect().width)}px`);
     count(iconStrokes, svg.getAttribute("stroke-width"));
   }

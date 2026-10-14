@@ -28,3 +28,4 @@ I ran the design audit on an empty preview in Chromium at 1440 and 390, with mai
 - **Contrast**: none before or after.
 - **Browser runner**: 42 of 42 page loads pass on seven of these pages in 3 browsers at 1440 and 390.
 - **UI tests**: 81 files, 496 tests.
+- **From review.** The decorative skip could hide a real oversized icon in a control inside a marked box. The audit still skips the empty-state and placeholder marks, but it now counts the icon of a control inside a decorative box. A placeholder mark inside a card's link is still skipped. `src/__tests__/ui/design-audit-decorative.test.ts` covers all three cases.

@@ -215,9 +215,15 @@ export function TooltipLayer() {
       const tip = shown.current?.anchor ?? pending;
       if (tip && (e as ToggleEvent).newState === "open" && (tip as HTMLButtonElement).popoverTargetElement === e.target) hide();
     };
+    // Focusing a link inside cut text nudges that text box (it hides its
+    // overflow): that is not a scroll, and must not close the full text
+    const onScroll = (e: Event) => {
+      if (e.target instanceof HTMLElement && isCut(e.target)) return;
+      hide();
+    };
     window.addEventListener("keydown", onKeyDown, true);
     window.addEventListener("toggle", onToggle, true);
-    window.addEventListener("scroll", hide, { capture: true, passive: true });
+    window.addEventListener("scroll", onScroll, { capture: true, passive: true });
     window.addEventListener("resize", hide);
     return () => {
       window.clearTimeout(timer);
@@ -228,7 +234,7 @@ export function TooltipLayer() {
       window.removeEventListener("focusout", onFocusOut);
       window.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("toggle", onToggle, true);
-      window.removeEventListener("scroll", hide, { capture: true });
+      window.removeEventListener("scroll", onScroll, { capture: true });
       window.removeEventListener("resize", hide);
     };
   }, []);

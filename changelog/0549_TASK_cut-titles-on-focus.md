@@ -31,3 +31,4 @@ docs/03 (Tooltips) says it.
 - **Browsers.** On a production build with long seeded titles, every cut title on `/reading/stats` shows its full text on hover and on Tab focus. That is 2 titles at 1440 and 3 at 390, in Chromium, Firefox and WebKit.
   - At these widths, `/reading/year/2026` cuts no title with the seeded reads.
 - **Audits.** The shared browser runner passes 24 of 24 page loads on both pages at 1440, 768, 390 and 320. Page weight: `/reading/stats` is 109 of 400 KB.
+- **From review.** On /reading/stats, the Fastest and Slowest titles sit in a one-line value. Focusing the link nudges that clipped box 2px, and the tooltip took that as a page scroll and closed. The tooltip now ignores scrolls of a cut text box. The new test in `cut-text-focus.test.ts` checks that a real scroll still closes it.
