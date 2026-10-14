@@ -192,7 +192,7 @@ export function Pagination({
     <nav
       id={compact ? anchor : undefined}
       aria-label={compact ? "Pagination overview" : "Pagination"}
-      className={`my-4 flex scroll-mt-4 flex-wrap items-center justify-between gap-3 font-mono tabular-nums ${compact ? "max-sm:justify-start" : ""}`}
+      className={`my-4 flex scroll-mt-4 flex-wrap items-center justify-between gap-3 font-mono tabular-nums ${compact ? "max-sm:justify-start max-sm:gap-2" : ""}`}
     >
       {/* Above the list on a phone "1–48 of 775": the words stay for screen readers */}
       <p className="text-xs text-fg-secondary">
@@ -202,7 +202,9 @@ export function Pagination({
         {total.toLocaleString("en-US")}
         <span className={wordsClass}> {noun}</span>
       </p>
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Tighter on a phone above the list, so a 17-page count, its arrows
+          and Select share one row at 390 */}
+      <div className={`flex flex-wrap items-center gap-2 ${compact ? "max-sm:gap-1" : ""}`}>
         {!compact && (
           <span className="hidden md:contents">
             {pageLink(

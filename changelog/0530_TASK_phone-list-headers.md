@@ -40,6 +40,7 @@ The same header is shared by every list page. The first card now starts at 594px
   - browsers: headless Chromium, Firefox and WebKit;
   - result: 252 of 252 pass, with 0 alignment deviations.
 - **Page weight:** `page-weight.js` passes on every route.
+- **Found in review:** with more than one page (806 books, "1 / 17"), Select still took a row of its own at 390. Above the list on a phone the row's gaps are 8px and the arrows' 4px, so the count, its arrows and Select share one row at 390; the first book card sits at 595px rather than 651px. At 320 Select still wraps.
 - **Still open in SLN-639:**
   - the detail page headers (book, edition, perfume, film, painting, person, collection, series, publisher, organization and place);
   - the filter panel's apply and clear flow on a phone;
