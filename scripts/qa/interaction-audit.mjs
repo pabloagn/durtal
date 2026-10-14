@@ -93,6 +93,10 @@ let seq = 0;
 const pending = new Map();
 ws.addEventListener("message", (e) => {
   const m = JSON.parse(e.data);
+  // A form an opener changed (an "Add" that adds a row) asks before the next
+  // page load: leave, or Page.navigate waits on the prompt for ever
+  if (m.method === "Page.javascriptDialogOpening" && m.params?.type === "beforeunload")
+    ws.send(JSON.stringify({ id: ++seq, method: "Page.handleJavaScriptDialog", params: { accept: true } }));
   if (m.id && pending.has(m.id)) {
     pending.get(m.id)(m);
     pending.delete(m.id);

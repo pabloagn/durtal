@@ -35,6 +35,7 @@ SLN-693 part 2. Part 1 gave the edition card the `text-command` style. The layou
   - A known plain, drift or squeezed finding is keyed with its text, numbers as `#` (`phone-audit.mjs`). Before, one entry such as `plain /library/* button.action-control.whitespace-nowrap` covered every command with those classes on the page, so it would have hidden a new one.
   - A known late first card is reported gone only when the page had a card to measure. `/ebooks` (SLN-639) joins the known list: with e-books seeded, its first card is at 526px of 812.
   - A link counts as part of a sentence only when the words around it, without other links and buttons, are a sentence (`layout-audit.js`). Before, the copy's "eBook details" and "Read" passed as sentence links because "EPUB, PDF" and the commands beside them made the line long, with a comma.
+- **The interaction audit** (`interaction-audit.mjs`) leaves a page that asks before unloading. "Add an unknown painter" (and the perfumer and film-person ones) now starts with "Add", so the audit presses it. That adds a row, the form then asks before the next page load, and the audit waited on that prompt for ever.
 - **docs/03** (Buttons) says where text commands go, and that a ghost button carries an icon. Phone widths says how known findings are keyed.
 
 ## Completion Notes
@@ -42,6 +43,7 @@ SLN-693 part 2. Part 1 gave the edition card the `text-command` style. The layou
 - The phone audit's layout check no longer finds any of the SLN-693 entries, and they are removed from `scripts/qa/layout-audit-known.json`. Only the SLN-639 late first cards remain (Books, Authors, Publishers and eBooks).
 - With the e-book fixtures seeded (`--seed-reader`), `phone-audit --strict` passes: 0 new and 8 known findings.
 - On the two books with an e-book copy, the layout audit finds no plain command in Chromium, Firefox or WebKit, at 390 on touch and at 1440. With the copy line's old classes put back in the page, it flags "eBook details", "Read" and "Unlink…".
+- The interaction audit passes on the book page, /reading, /reading/suggestions, /ebooks, a publisher page and /films/new (49 seconds; before the fix above it ran past 50 minutes on /films/new).
 - The page-wide plain-command scan (390 touch and 1440) leaves:
   - card and row titles that are links;
   - the /library/new step list;
