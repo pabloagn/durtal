@@ -38,30 +38,34 @@ export function SkeletonLine({ className = "" }: { className?: string }) {
 }
 
 /**
- * A detail page's title row: the title and, beside it, its actions. On a
- * phone a title of any length pushes the actions below it, so the skeleton
- * draws them there. With `wide`, the book's row (`DetailTitleRow
- * wideControls`): it wraps where that row does, with no gap under the title.
+ * A detail page's title row: the title and its actions.
+ * - With `row`, the row of a page drawn with `DetailTitleRow` (`wide` for the
+ *   book's controls): it wraps where that row does, with no gap under the
+ *   title. On a phone the title takes the row and the actions go under it, as
+ *   they do for nearly every book and publisher. On a wider screen with a
+ *   mouse they stay beside it, as they do for a title that fits there.
+ * - Without, the film's and painting's row: a title that fits on one line
+ *   keeps its star and menu beside it at every width, so the skeleton draws
+ *   that. A longer title takes more lines, which no loading screen can know.
  */
-export function SkeletonTitleRow({ wide = false }: { wide?: boolean }) {
-  const actions = (
-    <div className="type-page-title flex h-[1lh] shrink-0 items-center">
-      <SkeletonBlock className="h-8 w-40 pointer-coarse:h-11" />
-    </div>
-  );
-  if (wide)
+export function SkeletonTitleRow({ row }: { row?: keyof typeof DETAIL_TITLE_ROW }) {
+  if (row)
     return (
       <div className="@container">
-        <div className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW.wide}`}>
-          <SkeletonLine className="type-page-title w-full min-w-0 sm:w-2/3" />
-          {actions}
+        <div className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW[row]}`}>
+          <SkeletonLine className="type-page-title w-full min-w-0 sm:w-2/3 sm:pointer-fine:w-auto sm:pointer-fine:flex-1" />
+          <div className="type-page-title flex h-[1lh] shrink-0 items-center">
+            <SkeletonBlock className="h-8 w-40 pointer-coarse:h-11" />
+          </div>
         </div>
       </div>
     );
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
-      <SkeletonLine className="type-page-title w-2/3 max-sm:w-full" />
-      {actions}
+    <div className="flex items-start justify-between gap-3">
+      <SkeletonLine className="type-page-title w-1/2 sm:w-2/3" />
+      <div className="type-page-title flex h-[1lh] shrink-0 items-center">
+        <SkeletonBlock className="h-8 w-18 pointer-coarse:w-24" />
+      </div>
     </div>
   );
 }
