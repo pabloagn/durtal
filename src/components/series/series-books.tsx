@@ -195,7 +195,7 @@ export function SeriesBooks({
             <div className="min-w-0 flex-1">
               <div className="type-item-title flex items-start gap-4">
                 <Link href={`/library/${book.slug}`} className="min-w-0 flex-1 touch-hit">
-                  <h3 className="break-words text-fg-primary hover:text-accent-primary">
+                  <h3 className="type-item-title break-words text-fg-primary hover:text-accent-primary">
                     {book.title}
                   </h3>
                 </Link>
