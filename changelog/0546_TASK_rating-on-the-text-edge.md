@@ -19,6 +19,7 @@ On a phone the rating row still spans the list under its label. The stars are 22
 - This holds for every caller: the film, painting and perfume facts, the Edit work dialog, and the reading dialogs (finish, past read, edit reading), where the stars sit under a "Rating" label.
 - `scripts/qa/layout-audit.js`: the drifting-edge check also looks at label and value grids (a `dl` laid out as a grid). Each term's and value's first ink is measured against its own cell, up to 16px. A star drawn in layers (absolutely placed halves) counts as ink there.
 - docs/03: Ratings and Phone widths say both.
+- From review: the work form (Edit work and the card's quick edit) scrolls inside its dialog, and its scroller clipped what reached past it: 5px of the first star's target with a mouse, 15px on touch, and its focus ring's left side. The scroller takes `-ml-5 pl-5`, 20px of room inside the dialog's own padding. `src/__tests__/ui/rating-room.test.ts` pins that room against the touch pull.
 
 ## Completion Notes
 
