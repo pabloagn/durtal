@@ -21,6 +21,7 @@ import { useOptionalTimer } from "./timer-provider";
 import { useReadingDialogs } from "./reading-dialogs-provider";
 import { browserZone } from "./reading-client";
 import { hoursWords } from "@/lib/reading/pace";
+import { formatPercent } from "@/lib/reader/place-label";
 import { saveQuoteWithRefresh } from "@/lib/reader/annotation-server-changes";
 
 type Controller = ReturnType<typeof createReadingReaderController>;
@@ -277,7 +278,7 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   const status = timerOwns ? "Manual timer active" : snapshot?.held ? "Starting tracking" : reading?.status === "paused" ? "Paused" : "Tracking";
   return <>
     <ReaderSlotFill slot="toolbar-status">
-      {reading ? <DropdownMenu label="Reading actions" trigger={<Button disabled={busy} variant="ghost">{status}{percent == null ? "" : ` · ${percent.toFixed(1)}%`}</Button>}>
+      {reading ? <DropdownMenu label="Reading actions" trigger={<Button disabled={busy} variant="ghost">{status}{percent == null ? "" : ` · ${formatPercent(percent)}`}</Button>}>
         <DropdownMenuItem disabled={busy} onClick={() => void readingAction("progress")}>Log progress</DropdownMenuItem>
         <DropdownMenuItem disabled={busy || timerOwns} onClick={() => void readingAction("pause")}>{reading.status === "paused" ? "Resume reading" : "Pause reading"}</DropdownMenuItem>
         <DropdownMenuItem disabled={busy} onClick={() => void readingAction("edit")}>Edit reading</DropdownMenuItem>

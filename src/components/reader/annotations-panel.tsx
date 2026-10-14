@@ -20,6 +20,7 @@ import {
   type AnnotationTab,
 } from "@/lib/reader/annotation-panel";
 import type { AnnotationExportBook } from "@/lib/reader/export";
+import { fractionPercent, pageWords } from "@/lib/reader/place-label";
 
 export function AnnotationsPanel({
   open,
@@ -157,8 +158,8 @@ export function AnnotationsPanel({
                       )}
                       <p className="mt-2 text-xs text-fg-secondary">
                         {item.locator.pageLabel
-                          ? `p. ${item.locator.pageLabel}`
-                          : `${Math.round(item.progression * 100)}%`}{" "}
+                          ? pageWords(item.locator.pageLabel, undefined)
+                          : fractionPercent(item.progression)}{" "}
                         · {new Date(item.updatedAt).toLocaleDateString()}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-2">

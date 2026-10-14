@@ -1,5 +1,6 @@
 import type { DurtalLocator, Marginalia, Presentation } from "./engine";
 import type { PositionIndex } from "./position-index";
+import { fractionPercent, locationWords } from "./place-label";
 export const RUNNING_ITEMS = [
   "chapter",
   "page",
@@ -58,21 +59,9 @@ export function saveRunningPositions(
     /* This open still works. */
   }
 }
+/** The page or location a place starts on: one wording for the bar and the margins (SLN-680) */
 export function pageText(locator: DurtalLocator, index: PositionIndex) {
-  const label = locator.pageLabel;
-  if (!label)
-    return (
-      "Location " +
-      index.locationFor(locator).toLocaleString() +
-      " of " +
-      index.info.locationCount.toLocaleString()
-    );
-  const last = index.info.pageList.at(-1)?.label;
-  return (
-    "p. " +
-    label +
-    (last && /^\d+$/.test(last) && /^\d+$/.test(label) ? " of " + last : "")
-  );
+  return index.locatorLabel(locator);
 }
 const rgb = (hex: string) =>
   [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16));
@@ -121,8 +110,8 @@ export function renderRunningLines(input: {
   const values: Record<RunningItem, string> = {
     chapter: input.chapter ?? "",
     page: pageText(locator, index),
-    location: "Location " + index.locationFor(locator).toLocaleString(),
-    percent: Math.round(locator.totalProgression * 100) + "%",
+    location: locationWords(index.locationFor(locator), index.info.locationCount),
+    percent: fractionPercent(locator.totalProgression),
     timeLeftChapter: input.timeLeftChapter,
     timeLeftBook: input.statusFilled ? "" : input.timeLeftBook,
     clock: input.clock,
