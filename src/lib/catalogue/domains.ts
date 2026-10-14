@@ -81,7 +81,7 @@ export const WORK_DOMAINS = {
     label: "Perfume",
     pluralLabel: "Perfumes",
     basePath: "/perfumes",
-    keys: { go: "e", add: "e" },
+    keys: { go: "e", add: "p" },
     enabled: true,
     capabilities: {
       curation: true,

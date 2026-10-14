@@ -160,6 +160,11 @@ export function useReadingActions(items: EditItem[]) {
   }, [context, signature]);
 }
 
+/** How long A waits for the key that says what to add (SLN-632) */
+const ADD_PREFIX_MS = 1500;
+/** Keys that only modify another: they neither end nor cancel A */
+const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock", "Fn"]);
+
 /** Reader view (/reader/{ebookId}) keeps single keys for its own controls */
 const READER_VIEW_RE = /^\/reader\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/|$)/i;
 
@@ -170,7 +175,7 @@ const STATIC_MENUS = {
   go: GO_TO.map((g) => ({ key: g.key, label: g.label, icon: SECTION_ICONS[g.href] })),
 };
 const MENU_TITLES: Record<MenuName, string> = {
-  add: "Add",
+  add: "New",
   go: "Go to",
   copy: "Copy",
   edit: "Edit",
@@ -230,6 +235,8 @@ export function ShortcutsProvider({
   const [addDialog, setAddDialog] = useState<AddDialog | null>(null);
   const [menu, setMenu] = useState<MenuName | null>(null);
   const [menuIndex, setMenuIndex] = useState(0);
+  // When A was pressed, while it waits for its second key (0: not waiting)
+  const addPrefix = useRef(0);
   const [pageShortcuts, setPageShortcuts] = useState<PageShortcut[]>([]);
   // A ref, not state: menus and the palette read it when they open, and the
   // context stays the same object (a new one would make pages register again)
@@ -346,6 +353,13 @@ export function ShortcutsProvider({
     [add, router, copy, copyItems, editItems, readingItems],
   );
 
+  // A new page: an open menu closes and a pending A is dropped, so no key
+  // acts on the page that was left
+  useEffect(() => {
+    setMenu(null);
+    addPrefix.current = 0;
+  }, [pathname]);
+
   // An open menu takes every key first (capture phase)
   useEffect(() => {
     if (!menu) return;
@@ -388,6 +402,14 @@ export function ShortcutsProvider({
     }
 
     function onKeyDown(event: KeyboardEvent) {
+      if (MODIFIER_KEYS.has(event.key)) return;
+      // A then a key adds (SLN-632). The key after A ends the wait: a key
+      // that adds nothing, Esc, or a key the guards below refuse (typing, a
+      // dialog, a modifier, a held key) does nothing. A key that comes too
+      // late is a key of its own.
+      const pendingAdd =
+        addPrefix.current && performance.now() - addPrefix.current < ADD_PREFIX_MS ? addPrefix.current : 0;
+      addPrefix.current = 0;
       // A handler on the page took the key, or an input method is composing
       if ((event.defaultPrevented && !isPassedThrough(event)) || isComposing(event))
         return;
@@ -509,6 +531,13 @@ export function ShortcutsProvider({
       )
         return;
 
+      // A then its key: only a key that adds; the rest is swallowed
+      if (pendingAdd) {
+        event.preventDefault();
+        const entry = ADD.find((a) => a.key === key);
+        if (entry && !event.shiftKey) add(entry.key);
+        return;
+      }
       if (event.key === "?") {
         event.preventDefault();
         setHelpOpen(true);
@@ -539,7 +568,13 @@ export function ShortcutsProvider({
         pageShortcut.run();
         return;
       }
-      const menuKeys: Record<string, MenuName> = { a: "add", g: "go", y: "copy", e: "edit", r: "reading" };
+      // A waits for the key that says what to add; it opens no menu
+      if (key === "a") {
+        event.preventDefault();
+        addPrefix.current = performance.now();
+        return;
+      }
+      const menuKeys: Record<string, MenuName> = { n: "add", g: "go", y: "copy", e: "edit", r: "reading" };
       // E and R open only where the page has edit or reading actions
       if (menuKeys[key] === "edit" && editItems().length === 0) return;
       if (menuKeys[key] === "reading" && readingItems().length === 0) return;
@@ -552,7 +587,7 @@ export function ShortcutsProvider({
     // Window, bubble phase: page handlers run first and can take a key
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [pathname, paletteOpen, onPaletteOpenChange, pageShortcuts, editItems, readingItems]);
+  }, [pathname, paletteOpen, onPaletteOpenChange, pageShortcuts, editItems, readingItems, add]);
 
   const closeAddDialog = () => setAddDialog(null);
 

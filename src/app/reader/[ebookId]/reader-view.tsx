@@ -1414,17 +1414,21 @@ function ReaderSession({
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     const href = event.currentTarget.href;
-    // Back to the page this one was opened from, when it is in this app
+    // Back through history only to the page the link names (SLN-683), so a
+    // click goes where the link says; history keeps that page's scroll
     let from: URL | null = null;
     try {
       from = document.referrer ? new URL(document.referrer) : null;
     } catch {
       from = null;
     }
+    const target = new URL(href);
     if (
       from &&
       from.origin === window.location.origin &&
       !READER_PAGE_RE.test(from.pathname) &&
+      from.pathname === target.pathname &&
+      from.search === target.search &&
       window.history.length > 1
     )
       void bridge.leave().then(() => window.history.back());

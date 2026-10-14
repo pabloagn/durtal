@@ -4,7 +4,7 @@ import { EDIT_KEYS, SHORTCUTS, SHORTCUT_GROUPS } from "@/lib/shortcuts/shortcuts
 describe("Edit menu shortcuts (SLN-421)", () => {
   it("opens with E, apart from the other menus", () => {
     expect(SHORTCUTS.editMenu).toEqual(["e"]);
-    const menus = [SHORTCUTS.addMenu, SHORTCUTS.goMenu, SHORTCUTS.copyMenu];
+    const menus = [SHORTCUTS.newMenu, SHORTCUTS.goMenu, SHORTCUTS.copyMenu];
     expect(menus.map((m) => m[0])).not.toContain("e");
   });
 

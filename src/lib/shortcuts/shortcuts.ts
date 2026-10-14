@@ -37,7 +37,10 @@ export const GO_TO: { key: string; label: string; href: string }[] = [
 /** Add dialogs that open on any page */
 export type AddDialog = "author" | "recommender" | "series" | "collection" | "place";
 
-/** A opens the "Add" menu; then one of these keys */
+/**
+ * What can be added from any page (SLN-632): A then one of these keys adds it
+ * at once, and N opens the "New" menu that lists them. A alone opens nothing.
+ */
 export const ADD: ({ key: string; label: string; section: string } & (
   | { href: string }
   | { dialog: AddDialog }
@@ -49,7 +52,8 @@ export const ADD: ({ key: string; label: string; section: string } & (
     href: `${WORK_DOMAINS[kind].basePath}/new`,
   })),
   { key: "a", label: "Person", section: "/people", dialog: "author" },
-  { key: "p", label: "Publisher", section: "/publishers", href: "/publishers/new" },
+  // P is Perfume (the owner's A then P), so a publisher is A then U
+  { key: "u", label: "Publisher", section: "/publishers", href: "/publishers/new" },
   { key: "r", label: "Recommender", section: "/recommenders", dialog: "recommender" },
   { key: "s", label: "Series", section: "/series", dialog: "series" },
   { key: "c", label: "Collection", section: "/collections", dialog: "collection" },
@@ -100,7 +104,7 @@ export const SHORTCUTS = {
   /** S: the palette from any page but the e-book reader (SLN-477) */
   openSearch: ["s"],
   search: ["/"],
-  addMenu: ["a"],
+  newMenu: ["n"],
   goMenu: ["g"],
   copyMenu: ["y"],
   editMenu: ["e"],
@@ -122,7 +126,7 @@ export const SHORTCUT_GROUPS: {
   {
     title: "Menus",
     items: [
-      { keys: SHORTCUTS.addMenu, label: "Add: book, person, publisher..." },
+      { keys: SHORTCUTS.newMenu, label: "New: book, perfume, person..." },
       { keys: SHORTCUTS.goMenu, label: "Go to a section" },
       { keys: SHORTCUTS.copyMenu, label: "Copy from this page" },
       { keys: SHORTCUTS.editMenu, label: "Edit this page" },

@@ -14,7 +14,7 @@ export default async function IngestionRunsPage({ searchParams }: { searchParams
   const more = Math.min(RUN_ROWS_STEP, total - runs.length);
   return (
     <>
-      <PageHeader title="eBooks" description="How e-book files reach the catalogue: each run, what it stored and whether it reconciled." />
+      <PageHeader title="eBooks" description="How eBook files reach the catalogue: each run, what it stored and whether it reconciled." />
       <section>
         <SectionHeading title="Ingestion runs" count={total} />
         {runs.length > 0 ? (
