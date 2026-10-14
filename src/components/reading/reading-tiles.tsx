@@ -118,10 +118,13 @@ export function DashboardReading({
               <div key={tile.reading.readingId} className="flex gap-3 rounded-sm border border-glass-border bg-bg-secondary p-3" data-dashboard-reading={tile.reading.readingId}>
                 <Cover s3Key={tile.cover} className="h-16 w-11" />
                 <div className="min-w-0 flex-1">
-                  {/* The full title wraps inside the link and keeps its touch area */}
-                  <Link href={tile.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-primary touch-hit">
-                    <span className="block min-h-[1lh] [overflow-wrap:anywhere]">{tile.title}</span>
-                  </Link>
+                  {/* The full title wraps inside the link and keeps its touch area.
+                      The heading names the tile; it keeps the link's type. */}
+                  <h3>
+                    <Link href={tile.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-primary touch-hit">
+                      <span className="block min-h-[1lh] [overflow-wrap:anywhere]">{tile.title}</span>
+                    </Link>
+                  </h3>
                   <ProgressBar value={tile.percent} label={tile.progressLabel} className="mt-2" />
                   <div className="mt-1.5 flex items-center justify-between gap-2">
                     <span className="block min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">{tile.position}</span>
@@ -129,10 +132,11 @@ export function DashboardReading({
                   </div>
                   {tile.estimate && <EstimateLine estimate={tile.estimate} lines="min-h-[2lh] [overflow-wrap:anywhere]" className="mt-1" />}
                   {tile.ebookId && (
-                    <ReaderEntryLink readerPath={`/reader/${tile.ebookId}`} returnTo="/"
-                      className="mt-1 inline-flex text-xs text-accent-primary transition-colors hover:text-fg-primary touch-hit">
-                      Open eBook
-                    </ReaderEntryLink>
+                    <div className="mt-1 text-xs">
+                      <ReaderEntryLink readerPath={`/reader/${tile.ebookId}`} returnTo="/" className="text-command">
+                        Open eBook
+                      </ReaderEntryLink>
+                    </div>
                   )}
                 </div>
               </div>

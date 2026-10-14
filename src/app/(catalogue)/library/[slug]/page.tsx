@@ -572,12 +572,9 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                   <span className="text-xs text-fg-secondary">Recommended by </span>
                   {work.workRecommenders.map((wr, i) => (
                     <span key={wr.recommender.id} className="pointer-coarse:inline-flex pointer-coarse:max-w-full pointer-coarse:items-start pointer-coarse:py-1">
-                      {i > 0 && (
-                        <span className="text-xs text-fg-secondary pointer-coarse:pt-3">, </span>
-                      )}
                       <Link
                         href={`/recommenders/${wr.recommender.id}`}
-                        className="text-xs text-accent-primary transition-colors hover:text-fg-primary pointer-coarse:min-w-11 pointer-coarse:py-3 pointer-coarse:[overflow-wrap:anywhere]"
+                        className="text-xs text-command pointer-coarse:my-0 pointer-coarse:min-w-11 pointer-coarse:py-3 pointer-coarse:[overflow-wrap:anywhere]"
                       >
                         {wr.recommender.name}
                       </Link>
@@ -600,6 +597,11 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                             </span>
                           </span>
                         </span>
+                      )}
+                      {/* The comma ends its name's line, never starts the next, and keeps
+                          its space where the touch row is a flex box */}
+                      {i < work.workRecommenders.length - 1 && (
+                        <span className="whitespace-pre text-xs text-fg-secondary pointer-coarse:pt-3">, </span>
                       )}
                     </span>
                   ))}
