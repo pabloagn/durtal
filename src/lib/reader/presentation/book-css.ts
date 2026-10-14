@@ -1,6 +1,7 @@
 import type { ReaderPresentation } from "@/lib/validations/reader-preferences";
 import { readingFontStack } from "./fonts";
 import type { ReaderTheme } from "./themes";
+import { contrastRatio, fitContrast } from "./contrast";
 
 const BLOCK_TEXT = "body, p, li, dd, dt, blockquote, figcaption, td, th";
 const FAMILY_TEXT =
@@ -11,6 +12,13 @@ const COLOUR_TEXT = "body *:not(svg, svg *, math, math *)";
 export interface BookStyles {
   typography: string;
   colours: string;
+}
+
+/** The theme's link colour at 4.5:1 or better on its page (sepia and paper fall short) */
+function linkInk(colours: ReaderTheme): string {
+  return contrastRatio(colours.link, colours.background) >= 4.5
+    ? colours.link
+    : fitContrast(colours.link, colours.background, colours.text);
 }
 
 /** Font faces are installed separately after the source-bound asset manifest exists. */
@@ -73,7 +81,9 @@ export function bookCSS(
       `:root { --theme-bg-color: ${colours.background}; }`,
       `${COLOUR_TEXT} { background-color: transparent !important; }`,
       `::selection { background-color: ${colours.selection}; color: ${colours.text}; }`,
-      `:where(a) { color: ${colours.text}; text-decoration-line: underline; text-decoration-color: ${colours.link}; }`,
+      // Links in the theme's accent, underlined, over a book's own colours (SLN-681)
+      `a:any-link, a:any-link * { color: ${linkInk(colours)} !important; }`,
+      `a:any-link { text-decoration-line: underline; text-decoration-color: currentColor; }`,
       mediaRules,
       imageRules,
     ]

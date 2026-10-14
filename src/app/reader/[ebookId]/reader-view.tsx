@@ -45,6 +45,7 @@ import {
   type ReaderNavigation,
   type JumpSource,
 } from "@/lib/reader/navigation";
+import { createBrowserHistory, type BrowserHistory } from "@/lib/reader/browser-history";
 import { createHistoryInput } from "@/lib/reader/history-input";
 import type { GoToMode } from "@/lib/reader/goto";
 import { PaceModel } from "@/lib/reader/pace";
@@ -342,6 +343,7 @@ function ReaderSession({
   const [index, setIndex] = useState<PositionIndex | null>(null);
   const indexRef = useRef<PositionIndex | null>(null);
   const navigationRef = useRef<ReaderNavigation | null>(null);
+  const browserHistoryRef = useRef<BrowserHistory | null>(null);
   const speechRef = useRef<ReaderSpeech | null>(null);
   const [speech, setSpeech] = useState<SpeechSnapshot | null>(null);
   const [speechHeight, setSpeechHeight] = useState(0);
@@ -523,6 +525,8 @@ function ReaderSession({
   );
   const historyStep = useCallback((direction: -1 | 1) => {
     if (!bridge.getControllerReadinessSnapshot().ready) return;
+    // Through the browser while it holds the entry: its popstate makes the step
+    if (browserHistoryRef.current?.step(direction)) return;
     void navigationRef.current
       ?.historyStep(direction)
       .catch(() => setNotice("That place could not be opened."));
@@ -1044,6 +1048,7 @@ function ReaderSession({
           beforeHuman: () => speechRef.current?.beginNavigation(),
           afterHuman: () => speechRef.current?.navigationSettled(),
           changed: () => historyChanged((value) => value + 1),
+          pushed: () => browserHistoryRef.current?.pushed(),
           interrupt: () => paceRef.current?.interrupt(),
           fatal: () =>
             setStatus({
@@ -1053,6 +1058,14 @@ function ReaderSession({
             }),
         });
         navigationRef.current = navigation;
+        browserHistoryRef.current = createBrowserHistory({
+          step: (direction) => {
+            if (cancelled) return;
+            void navigation
+              .historyStep(direction)
+              .catch(() => setNotice("That place could not be opened."));
+          },
+        });
         engine.on("relocate", (relocation) => {
           if (cancelled) return;
           latest = relocation;
@@ -1359,6 +1372,8 @@ function ReaderSession({
       historyInput.destroy();
       navigationRef.current?.destroy();
       navigationRef.current = null;
+      browserHistoryRef.current?.destroy();
+      browserHistoryRef.current = null;
       paceRef.current?.interrupt();
       input.destroy();
       speechRef.current?.destroy();
@@ -1421,7 +1436,8 @@ function ReaderSession({
       from.search === target.search &&
       window.history.length > 1
     )
-      void bridge.leave().then(() => window.history.back());
+      // Past the in-book jumps the browser holds, to the page before the reader
+      void bridge.leave().then(() => window.history.go(-1 - (browserHistoryRef.current?.depth ?? 0)));
     // The open sitting reaches the server first, so the book page is current (SLN-677)
     else void bridge.leave().then(() => window.location.assign(href));
   }, [bridge]);

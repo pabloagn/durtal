@@ -93,7 +93,8 @@ export class PublisherInk {
           if (count > 0 && performance.now()-started >= 8) break;
           signal.throwIfAborted(); node = walker.nextNode(); if (!node) break; more = true;
           const element = node.parentElement;
-          if (!node.textContent?.trim() || !element || seen.has(element) || element.closest("svg,math,script,style")) continue;
+          // Links keep the reader's accent: an unstyled link's "ink" is the browser's default blue (SLN-681)
+          if (!node.textContent?.trim() || !element || seen.has(element) || element.closest("svg,math,script,style,a[href]")) continue;
           seen.add(element); const html = element as HTMLElement;
           if (!this.#original.has(html)) {
             if (!foregroundMasked) {

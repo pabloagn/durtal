@@ -61,6 +61,8 @@ export function createReaderNavigation(options: {
   interrupt?: () => void;
   fatal?: (error: unknown) => void;
   paint?: (signal: AbortSignal) => Promise<void>;
+  /** A jump added a history entry (SLN-681) */
+  pushed?: () => void;
 }) {
   const { engine } = options;
   const history = new ReaderHistory();
@@ -167,13 +169,16 @@ export function createReaderNavigation(options: {
       else if (sameAnchor || command.automatic)
         history.reanchor(destination.locator);
       else if (command.turn || command.focus) history.turn(destination.locator);
-      else
+      else {
+        const appended = history.appended;
         history.push(
           origin.locator,
           destination.locator,
           command.source,
           command.originMark ?? origin.originMark,
         );
+        if (history.appended > appended) options.pushed?.();
+      }
       publish({
         ...destination,
         origin: command.automatic ? "speech" : "human",
