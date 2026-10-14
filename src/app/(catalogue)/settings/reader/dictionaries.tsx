@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { SettingsGroup } from "@/components/settings/settings-group";
@@ -71,7 +71,7 @@ export function DictionariesGroup() {
           }); }}>Add to this device</Button>
         </div>}
         {busy && <div className="mt-3 flex flex-wrap gap-3"><p role="status" className="text-sm text-fg-secondary">{busy}</p>
-          <Button variant="ghost" size="sm" onClick={() => operation.current?.abort()}>Cancel</Button></div>}
+          <Button variant="ghost" size="sm" onClick={() => operation.current?.abort()}><X aria-hidden strokeWidth={1.5} />Cancel</Button></div>}
         {error && <p role="alert" className="mt-3 text-sm text-accent-red-text">{error}</p>}
       </div>
       {records.map(record => <div key={record.id} className="flex items-start justify-between gap-3 px-5 py-4">

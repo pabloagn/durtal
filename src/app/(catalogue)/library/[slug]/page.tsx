@@ -570,7 +570,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                       )}
                       <Link
                         href={`/recommenders/${wr.recommender.id}`}
-                        className="text-xs text-accent-primary transition-colors hover:text-fg-primary pointer-coarse:min-w-11 pointer-coarse:py-3 pointer-coarse:[overflow-wrap:anywhere]"
+                        className="text-xs text-command pointer-coarse:my-0 pointer-coarse:min-w-11 pointer-coarse:py-3 pointer-coarse:[overflow-wrap:anywhere]"
                       >
                         {wr.recommender.name}
                       </Link>

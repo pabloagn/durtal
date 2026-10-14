@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -144,11 +144,11 @@ export function LookupSettingsGroup() {
         <Button variant="ghost" disabled={editing !== null} onClick={() => {
           const next = draftOf(defaultLookupSettings()); edit(next); setErrors({});
           queued.current = { value: null, revision: revision.current }; void drain();
-        }}>Restore the default sources</Button>
+        }}><RotateCcw aria-hidden strokeWidth={1.5} />Restore the default sources</Button>
       </div>
       <div className="flex flex-wrap items-start gap-3 px-5 py-3">
         <p role="status" className="text-xs text-fg-secondary">{saving ? "Saving" : notice}</p>
-        {notice && notice !== "Saved" && <Button variant="ghost" size="sm" onClick={() => save()}>Try saving again</Button>}
+        {notice && notice !== "Saved" && <Button variant="ghost" size="sm" onClick={() => save()}><RefreshCw aria-hidden strokeWidth={1.5} />Try saving again</Button>}
       </div>
     </>}
   </SettingsGroup>{question}</div>;

@@ -157,7 +157,7 @@ function FamilyAssignment({
             disabled={saving}
             onClick={() => setSearching(true)}
             aria-label={`Add to ${family.name}`}
-            className="inline-flex items-start gap-1 rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
+            className="-ml-1.5 inline-flex items-start gap-1 rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
           >
             <CapAligned height={12}>
               <Plus className="h-3 w-3" strokeWidth={1.5} />

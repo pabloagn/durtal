@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { ChevronLeft, ChevronRight, Pencil, RefreshCw, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { SettingsGroup, SettingsIntro } from "@/components/settings/settings-group";
@@ -54,7 +55,7 @@ function DeviceDefaults({ deviceClass, rows, initialOverrides }: { deviceClass: 
     finally { if (scope.current === generation) setClearing(null); }
   };
   return <>
-    <SettingsGroup title="Reading defaults" action={<Button variant="ghost" size="sm" disabled={!preferences.ready} onClick={() => setOpen(true)}>Edit settings</Button>}>
+    <SettingsGroup title="Reading defaults" action={<Button variant="ghost" size="sm" disabled={!preferences.ready} onClick={() => setOpen(true)}><Pencil aria-hidden strokeWidth={1.5} />Edit settings</Button>}>
       <p className="text-sm text-fg-secondary">These settings apply to books without their own {deviceClass} override.</p>
       {(preferences.error || preferences.recoveryError) && <p role="alert" className="text-sm text-accent-red-text">{preferences.error ?? preferences.recoveryError}</p>}
       <div aria-label="Reading preview" style={{ backgroundColor: colors.background, color: colors.text, padding: p.marginPx }}>
@@ -66,10 +67,10 @@ function DeviceDefaults({ deviceClass, rows, initialOverrides }: { deviceClass: 
       {error && <p role="alert" className="text-sm text-accent-red-text">{error}</p>}
       {overrides && !overrides.ok && <p role="alert" className="text-sm text-accent-red-text">{overrides.error}</p>}
       {overrides?.ok && <><p className="text-xs text-fg-secondary">{overrides.total} books with {deviceClass} overrides</p>
-        <ul className="flex flex-col gap-3">{overrides.rows.map(item => <li key={item.ebookId} className="flex flex-wrap items-start justify-between gap-2"><Link href={`/reader/${item.ebookId}`} className="min-w-0 flex-1 break-words text-sm text-accent-primary hover:underline">{item.title || "Untitled book"}</Link><Button variant="ghost" size="sm" disabled={loading || clearing !== null} onClick={() => { void clear(item.ebookId); }}>Clear override</Button></li>)}</ul>
-        {overrides.total > overrides.pageSize && <div className="flex gap-2"><Button variant="ghost" disabled={loading || clearing !== null || page === 1} onClick={() => setPage(value => value-1)}>Previous</Button><span className="self-center text-sm">Page {page}</span><Button variant="ghost" disabled={loading || clearing !== null || page*overrides.pageSize >= overrides.total} onClick={() => setPage(value => value+1)}>Next</Button></div>}
+        <ul className="flex flex-col gap-3">{overrides.rows.map(item => <li key={item.ebookId} className="flex flex-wrap items-start justify-between gap-2"><Link href={`/reader/${item.ebookId}`} className="min-w-0 flex-1 break-words text-sm text-accent-primary hover:underline">{item.title || "Untitled book"}</Link><Button variant="ghost" size="sm" disabled={loading || clearing !== null} onClick={() => { void clear(item.ebookId); }}><RotateCcw aria-hidden strokeWidth={1.5} />Clear override</Button></li>)}</ul>
+        {overrides.total > overrides.pageSize && <div className="flex gap-2"><Button variant="ghost" disabled={loading || clearing !== null || page === 1} onClick={() => setPage(value => value-1)}><ChevronLeft aria-hidden strokeWidth={1.5} />Previous</Button><span className="self-center text-sm">Page {page}</span><Button variant="ghost" disabled={loading || clearing !== null || page*overrides.pageSize >= overrides.total} onClick={() => setPage(value => value+1)}>Next<ChevronRight aria-hidden strokeWidth={1.5} /></Button></div>}
       </>}
-      <Button variant="ghost" size="sm" className="-ml-2.5 self-start" disabled={loading || clearing !== null} onClick={() => { setError(null); setRefresh(value => value+1); }}>Refresh overrides</Button>
+      <Button variant="ghost" size="sm" className="-ml-2.5 self-start" disabled={loading || clearing !== null} onClick={() => { setError(null); setRefresh(value => value+1); }}><RefreshCw aria-hidden strokeWidth={1.5} />Refresh overrides</Button>
     </SettingsGroup>
     <PresentationSettingsDialog defaultsOnly open={open} onClose={() => setOpen(false)} presentation={p} deviceClass={deviceClass} error={preferences.error ?? error} saving={preferences.saving} pending={preferences.pending} recoveryError={preferences.recoveryError}
       onChange={patch => { try { preferences.update({ deviceClass, ebookId: null, presentation: patch }); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings could not be changed."); } }}
