@@ -33,7 +33,7 @@ export function SpeechVoiceMenu({
         <>
           {!groups.length && (
             <p className="px-3 py-2 text-sm text-fg-secondary">
-              No voices available on this device.
+              No voices on this device.
             </p>
           )}
           {groups.map((group) => (

@@ -1245,7 +1245,6 @@ function ReaderSession({
                     changed: setSpeech,
                     audio: new Audio(),
                     fetch: (...args) => window.fetch(...args),
-                    selectsSentences: () => !window.matchMedia("(pointer: coarse)").matches,
                   });
                   if (selectionRef.current)
                     speechRef.current.selection(selectionRef.current.locator);

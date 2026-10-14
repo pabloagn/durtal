@@ -507,6 +507,11 @@ export function transitionSpeechPlayer(
       });
     }
     case "error": {
+      // No voice on the device: a retry cannot help, and the player says why
+      if (action.error === "no-voice") {
+        const token = state.active?.token ?? state.queued?.token ?? null;
+        return sameSpeechToken(token, action.token) ? pause(state) : result(state);
+      }
       if (sameSpeechToken(state.queued?.token ?? null, action.token)) {
         if (action.error === "interrupted" || action.error === "canceled")
           return pause(state);

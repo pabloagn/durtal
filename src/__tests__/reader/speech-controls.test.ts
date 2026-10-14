@@ -192,7 +192,7 @@ describe("unmounted read aloud controls", () => {
     expect(button("Read aloud voice")).toBeTruthy();
     render(ready(), { voices: [] });
     expect(button("Play reading aloud").disabled).toBe(true);
-    expect(host.textContent).toContain("No voices available");
+    expect(host.textContent).toContain("No voices on this device");
   });
   it("desktop rate selection has all six values and restores trigger focus after Escape", async () => {
     render();
