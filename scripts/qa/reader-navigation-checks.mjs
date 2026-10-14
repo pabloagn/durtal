@@ -118,3 +118,20 @@ export async function checkNavigation(driver) {
   assert(rapid.cfi === paced.cfi && rapid.first === paced.first && rapid.percent === paced.percent,
     "An ordinary turn during the previous transition or paint was lost");
 }
+/** A jump over a section that is not loaded keeps no page across the gap: one
+ * back turn after Chapter 2 then Chapter 4 ends Chapter 3, not Chapter 2
+ * (SLN-673). Needs the large fixture 14, 30 chapters of eight pages. */
+export async function checkJumpBack(driver) {
+  await driver.open(14);
+  await waitUI(driver, "!!document.querySelector('[data-reader=\"ready\"]')", 30000);
+  for (const [from, to] of [["Chapter 2", "Chapter 4"], ["Chapter 4", "Chapter 6"]]) {
+    await goto(driver, "Chapter", from);
+    await pause(2500);
+    const jumped = await goto(driver, "Chapter", to);
+    await pause(2500);
+    await driver.key("ArrowLeft", "ArrowLeft");
+    await waitUI(driver, `document.querySelector("foliate-view")?.lastLocation?.index !== ${jumped.index}`);
+    const back = await driver.evaluate(readerPlace);
+    assert(back.index === jumped.index - 1, `A back turn from ${to} went to section ${back.index}, not the one before`);
+  }
+}

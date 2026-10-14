@@ -200,3 +200,9 @@ adapter regression source added; native retesting remains pending.
     is blank; without View Transitions it swaps at once. Finger drags and
     their settle keep the push, as with no layered style. `slide` and `curl`
     are unchanged. SLN-660.
+
+24. `paginator.js`: a jump to a section that is not loaded keeps only the
+    loaded views that run unbroken up to it (at most two on each side). It
+    kept any view within two sections, so after a jump from Chapter 2 to
+    Chapter 4 the strip read Chapter 2, Chapter 4, and one back turn went to
+    the end of Chapter 2, skipping Chapter 3. SLN-673.
