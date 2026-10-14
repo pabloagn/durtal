@@ -26,6 +26,9 @@
  *   bars       both bars show on open, hide together after 3 s and come back
  *              together on a mouse move; a click anywhere in the text keeps
  *              the place, and the Next page edge button turns
+ *   clear      SLN-663: with the bars up, the text of the EPUB 3 and the
+ *              pages of the text PDF stay between them, at 1440 and at 390 with
+ *              touch
  *   pointer    SLN-662, at 1440: a double-click selects a word and a drag a
  *              line without turning; with the selection toolbar open, a click
  *              in the text or the margin closes it without turning; a click on
@@ -74,7 +77,7 @@ const option = (name, fallback) => {
 const base = option("--base", "http://127.0.0.1:3410").replace(/\/$/, "");
 const previewState = option("--preview-state", undefined);
 const browsers = option("--browsers", "chromium,webkit,firefox").split(",");
-const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "pointer", "dialogs", "navigation", "pdfmarks", "endurance"];
+const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "clear", "pointer", "dialogs", "navigation", "pdfmarks", "endurance"];
 // endurance needs the large fixtures: it runs only when asked for
 const only = option("--only", CHECKS.filter((c) => c !== "endurance").join(",")).split(",");
 
@@ -523,6 +526,61 @@ async function checkBars(name, browser) {
   await context.close();
 }
 
+/** SLN-663: the bars never cover the text. The text's lines (or a PDF's
+ * pages) on screen, against the bottom of the top bar and the top of the
+ * bottom bar, with both bars up */
+async function checkClear(name, browser) {
+  for (const [width, options] of [[1440, desktop], [390, phone(name)]]) {
+    for (const [n, label] of [[1, "the EPUB 3's text stays"], [2, "the text PDF's pages stay"]]) {
+      const context = await browser.newContext(options);
+      const page = await context.newPage();
+      try {
+        const opened = await open(page, n);
+        if (opened.state !== "ready") throw new Error(`the book did not open (${opened.state})`);
+        await sleep(800);
+        const box = await page.evaluate(() => {
+          const top = document.querySelector("header[data-reader-chrome]").getBoundingClientRect().bottom;
+          const bottom = document.querySelector("footer[data-reader-chrome]").getBoundingClientRect().top;
+          const renderer = document.querySelector("foliate-view").renderer;
+          let first = Infinity, last = -Infinity;
+          const pages = [...(renderer.shadowRoot?.querySelectorAll("iframe") ?? [])]
+            .map((frame) => frame.getBoundingClientRect())
+            .filter((rect) => rect.width > 0 && rect.right > 0 && rect.left < innerWidth);
+          if (renderer.localName === "foliate-fxl")
+            for (const rect of pages) {
+              first = Math.min(first, rect.top);
+              last = Math.max(last, rect.bottom);
+            }
+          else
+            for (const { doc } of renderer.getContents()) {
+              const host = doc.defaultView.frameElement.getBoundingClientRect();
+              const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+              for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+                if (!text.data.trim()) continue;
+                const range = doc.createRange();
+                range.selectNodeContents(text);
+                for (const rect of range.getClientRects()) {
+                  const x = host.left + rect.left;
+                  if (!rect.width || x < 0 || x > innerWidth) continue;
+                  first = Math.min(first, host.top + rect.top);
+                  last = Math.max(last, host.top + rect.bottom);
+                }
+              }
+            }
+          return { top, bottom, first, last };
+        });
+        record(name, "clear", `${width}: ${label} between the bars`,
+          Number.isFinite(box.first) && box.first >= box.top - 0.5 && box.last <= box.bottom + 0.5,
+          `bars end at ${box.top.toFixed(1)} and start at ${box.bottom.toFixed(1)}; content ${box.first.toFixed(1)} to ${box.last.toFixed(1)}`);
+      } catch (error) {
+        record(name, "clear", `${width}: ${label} between the bars`, false, error.message.split("\n")[0]);
+      } finally {
+        await context.close();
+      }
+    }
+  }
+}
+
 /** A word and its line in the first loaded section, in viewport pixels */
 const wordAt = (page) =>
   page.evaluate(() => {
@@ -827,6 +885,7 @@ async function checkEndurance(name, browser) {
 }
 
 const RUN = {
+  clear: checkClear,
   pdfmarks: checkPdfMarks,
   opens: checkOpens,
   script: checkScript,

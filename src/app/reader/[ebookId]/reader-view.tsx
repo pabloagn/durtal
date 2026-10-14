@@ -352,6 +352,13 @@ function ReaderSession({
   const [speechHeight, setSpeechHeight] = useState(0);
   const [bottomHeight, setBottomHeight] = useState(0);
   const [topHeight, setTopHeight] = useState(0);
+  // The text keeps clear of the bars; with the speech player open the book
+  // already ends above it and the bottom bar (SLN-663)
+  const insets = useMemo(
+    () => ({ top: topHeight, bottom: speechHeight ? 0 : bottomHeight }),
+    [topHeight, bottomHeight, speechHeight],
+  );
+  const insetsRef = useRef(insets);
   const [relocation, setRelocation] = useState<EngineEvents["relocate"] | null>(
     null,
   );
@@ -920,6 +927,7 @@ function ReaderSession({
         input.attach(document);
         historyInput.attach(document);
         const openingEngine = createFoliateEngine();
+        openingEngine.setInsets?.(insetsRef.current);
         engine = openingEngine;
         engineRef.current = openingEngine;
         unregisterSelectionCapture = bridge.registerSelectionCapture((origin) => {
@@ -1412,6 +1420,10 @@ function ReaderSession({
       frame.style.bottom = `${speechHeight ? speechHeight + (bars.visible ? bottomHeight : 0) : 0}px`;
   }, [speechHeight, bars.visible, bottomHeight]);
   useEffect(() => {
+    insetsRef.current = insets;
+    engineRef.current?.setInsets?.(insets);
+  }, [insets]);
+  useEffect(() => {
     const bottom = document.querySelector<HTMLElement>(
       "[data-reader-bottom-bar]",
     );
@@ -1597,6 +1609,7 @@ function ReaderSession({
           index={index}
           locator={relocation?.locator}
           linear={relocation?.linear}
+          quietChapter={relocation ? !relocation.paginated : false}
           timeLeftChapter={
             index && relocation
               ? paceRef.current?.remaining(

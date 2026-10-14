@@ -17,11 +17,12 @@ afterEach(() => {
   act(() => root.unmount());
   host.remove();
 });
-const render = (visible: boolean, percent: number | null) =>
+const render = (visible: boolean, percent: number | null, extra: Partial<Parameters<typeof ReaderBottomBar>[0]> = {}) =>
   act(() => root.render(h(ReaderBridgeProvider, {
     context, plugins: [],
-    children: (bridge) => h(ReaderBottomBar, { visible, chapter: "Chapter I", percent, bridge }),
+    children: (bridge) => h(ReaderBottomBar, { visible, chapter: "Chapter I", percent, bridge, ...extra }),
   })));
+const quiet = () => host.querySelector<HTMLElement>("[data-reader-quiet-chapter]");
 const line = () => host.querySelector<HTMLElement>("[data-reader-progress-line]");
 
 describe("the reader's progress line (SLN-663)", () => {
@@ -37,5 +38,24 @@ describe("the reader's progress line (SLN-663)", () => {
     expect(line()?.className).toContain("opacity-0");
     render(false, null);
     expect(line()).toBeNull();
+  });
+  it("keeps the chapter beside the line where no running lines name it", () => {
+    render(false, 44, { quietChapter: true, onScrub: () => {} });
+    expect(quiet()?.textContent).toBe("Chapter I");
+    expect(quiet()?.getAttribute("aria-hidden")).toBe("true");
+    expect(quiet()?.className).not.toContain("opacity-0");
+    render(true, 44, { quietChapter: true, onScrub: () => {} });
+    expect(quiet()?.className).toContain("opacity-0");
+    render(false, 44, { quietChapter: false, onScrub: () => {} });
+    expect(quiet()).toBeNull();
+    render(false, 44, { quietChapter: true, chapter: null, onScrub: () => {} });
+    expect(quiet()).toBeNull();
+  });
+  it("lays the bar's second row out before the book's positions are ready", () => {
+    render(true, null, { onScrub: () => {} });
+    const rows = host.querySelector("footer")!.children;
+    expect(rows).toHaveLength(2);
+    expect(rows[1].className).toContain("min-h-8");
+    expect(rows[1].childElementCount).toBe(0);
   });
 });
