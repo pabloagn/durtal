@@ -24,9 +24,11 @@ Kingdom"). The painting page's whereabouts did the same in WebKit at 320.
   left over keep room for a focus ring on a linked fact. The separators stay
   hidden from screen readers, which read the same facts as before.
 - **Publisher header**: its facts row is `FactsRow`.
-- **Painting page**, where it hangs now: the custody, dates and source are
-  running text in one line box, so there the separator keeps to the word
-  before it with a no-break space and ends the line instead.
+- **Paintings**: where it hangs now on the painting page, the custody text
+  ("On loan for an exhibition · On display", `custodyText`) and the art
+  object card's "Now:" line are running text in one line box, so there the
+  separator keeps to the word before it with a no-break space and ends the
+  line instead (the custody text and the card from the #290 review).
 - The contract named `detail-facts.tsx` and the person, book, film and
   perfume headers too. There is no such file; the publisher header held the
   only separated facts row. The other headers' separators were measured and

@@ -51,7 +51,7 @@ describe("painting names and lines", () => {
     expect(placeText({ placeKind: "unknown", venueName: null, placeLabel: null })).toBe("Whereabouts unknown");
     expect(placeText({ placeKind: "lost", venueName: null, placeLabel: null })).toBe("Lost");
     expect(custodyText({ custody: "temporary_loan", displayStatus: "on_display", placeKind: "venue" })).toBe(
-      "On loan for an exhibition · On display",
+      "On loan for an exhibition\u00a0· On display",
     );
     expect(custodyText({ custody: "unknown", displayStatus: "unknown", placeKind: "unknown" })).toBe("");
     const recordedAt = new Date("2026-10-01T09:00:00Z");
