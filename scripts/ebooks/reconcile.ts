@@ -10,7 +10,7 @@
  *
  * With no folder it reconciles the inbox, ~/Downloads/eBooks. `--run` checks
  * again what an apply checked when it ended, from the plan the run kept: the
- * way to reconcile a Calibre run, which took only some of the library's files.
+ * way to reconcile an e-book library run, which took only some of the library's files.
  * Writes reports/ebooks/reconcile-<time>.md (git-ignored).
  */
 import { parseArgs } from "node:util";
