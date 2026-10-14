@@ -616,6 +616,19 @@ export async function openOfflineStore(options: StoreOptions) {
       for (const ebookId of books) notify(ebookId);
       return moved;
     },
+    /** Makes a waiting head sendable now instead of after its backoff: the
+     * reader's Retry while sync is paused (SLN-668). */
+    async retryNow(): Promise<boolean> {
+      const book = await transaction("readwrite", async (tx) => {
+        const head = (await rows(tx))[0];
+        if (!head || head.state !== "waiting" || head.retryAt === null)
+          return null;
+        await request(tx.objectStore("outbox").put({ ...head, retryAt: null }));
+        return head.mutation.ebookId;
+      });
+      if (book) notify(book);
+      return !!book;
+    },
     async reconcile(
       reference: BlockedOperationReference,
       currentDeviceId: string | null,
