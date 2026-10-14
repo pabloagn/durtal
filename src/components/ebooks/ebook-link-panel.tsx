@@ -38,8 +38,10 @@ function CoverFrame({ book, letter }: { book: LinkedBook | null; letter: string 
   </div>;
 }
 
-export async function EbookLinkPanel({ ebook }: { ebook: EbookDetail }) {
-  const book = ebook.matchState === "linked" && ebook.instanceId ? await getLinkedBook(ebook.instanceId) : null;
+/** `book`: the linked book when the page already read it (SLN-683) */
+export async function EbookLinkPanel({ ebook, book: read }: { ebook: EbookDetail; book?: LinkedBook | null }) {
+  const book = read !== undefined ? read
+    : ebook.matchState === "linked" && ebook.instanceId ? await getLinkedBook(ebook.instanceId) : null;
   if (book) {
     const href = `/library/${book.slug ?? book.workId}`;
     const edition = linkedEditionLine(book);

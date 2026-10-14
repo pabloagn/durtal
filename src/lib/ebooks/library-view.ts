@@ -16,6 +16,8 @@ export interface EbookCardData {
   added: string;
   cover: EbookCoverImage | null;
   readHref: string | null;
+  /** How far the newest place has read, 0 to 1 (SLN-683) */
+  progress: number | null;
 }
 export function ebookCardData(
   ebook: LibraryEbook,
@@ -33,5 +35,6 @@ export function ebookCardData(
     added: ebook.createdAt,
     cover,
     readHref: ebookReadHref(ebook),
+    progress: ebook.progress ?? null,
   };
 }

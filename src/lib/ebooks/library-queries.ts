@@ -39,6 +39,8 @@ export interface LibraryEbook {
   coverKey: string | null;
   createdAt: string;
   files: LibraryFile[];
+  /** The listing only: how far the newest place has read, 0 to 1 */
+  progress?: number | null;
 }
 export interface EbookLibraryCounts {
   total: number;
@@ -102,6 +104,16 @@ const positions = sql`coalesce((select json_agg(json_build_object(
   'locator', p.locator, 'chapter', p.chapter, 'clientUpdatedAt', p.client_updated_at
 ) order by p.client_updated_at desc, p.device_id, p.file_id)
 from ebook_positions p where p.ebook_id = e.id), '[]'::json)`;
+/**
+ * How far the newest place on any device has read, 0 to 1, for a card
+ * (SLN-683). A place on the opening page is only an open (`opened`); null
+ * when there is no other.
+ */
+const progress = sql`(select (p.locator->>'totalProgression')::float8 from ebook_positions p
+  where p.ebook_id = e.id and case when jsonb_typeof(p.locator->'progression') = 'number'
+    and jsonb_typeof(p.locator->'totalProgression') = 'number'
+  then not (p.locator->>'sectionIndex' = '0' and (p.locator->>'progression')::float8 = 0) else false end
+  order by p.client_updated_at desc, p.device_id, p.file_id limit 1)`;
 /** The card columns of an e-book row aliased `e`, with its files (shared with /ebooks/highlights). */
 export const ebookSummaryColumns = sql`e.id, e.title, e.subtitle, e.authors, e.language,
   e.match_state as "matchState", e.preferred_file_id as "preferredFileId",
@@ -202,7 +214,7 @@ export function ebookLibraryPageQuery(params: EbookLibraryParams): SQL {
   return sql`with page as (
     select e.* from ebooks e where ${ebookLibraryWhere(params)}
     order by ${ordering(params)} limit ${params.perPage} offset ${params.offset}
-  ) select ${ebookSummaryColumns} from page e order by ${ordering(params)}`;
+  ) select ${ebookSummaryColumns}, ${progress} as progress from page e order by ${ordering(params)}`;
 }
 export async function getEbookLibraryCounts(
   params: EbookLibraryParams,

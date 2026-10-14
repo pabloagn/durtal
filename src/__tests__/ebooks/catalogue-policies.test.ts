@@ -25,6 +25,7 @@ function descriptor(
     savedPercent: null,
     projection: "none",
     targetPercent: null,
+    bookPercent: null,
     ...overrides,
   };
 }
@@ -139,41 +140,45 @@ describe("catalogue Read target", () => {
   });
 
   it.each([NaN, Infinity, -1, 101, null])(
-    "never labels an invalid target percent %s as a landing",
-    (targetPercent) => {
+    "never labels an invalid book percent %s",
+    (bookPercent) => {
       expect(
         catalogueReadLabel(
           descriptor({
             localAnchor: anchor("new-file", "2026-10-09T10:00:00Z"),
             projection: "same-file",
-            targetPercent,
+            bookPercent,
           }),
         ),
       ).toBe("Continue");
     },
   );
 
-  it("labels only a resolved local landing with a percentage", () => {
+  it("labels the book's one percent, from the newest place on any device (SLN-683)", () => {
     expect(catalogueReadLabel(null)).toBeNull();
     expect(catalogueReadLabel(descriptor({ targetPercent: 44 }))).toBe("Read");
+    // Another device's place counts as this one's would
+    const other = { ...anchor("new-file", "2026-10-09T10:00:00Z"), deviceId: "phone" };
+    expect(
+      catalogueReadLabel(descriptor({ anchor: other, newestOtherAnchor: other, projection: "same-file", bookPercent: 44 })),
+    ).toBe("Continue · 44%");
+    // The book's percent, not this device's: here 15%, on the phone 31%
     expect(
       catalogueReadLabel(
-        descriptor({
-          localAnchor: anchor("new-file", "2026-10-09T10:00:00Z"),
-          projection: "same-file",
-          targetPercent: 44.49,
-        }),
+        descriptor({ localAnchor: anchor("new-file", "2026-10-09T10:00:00Z"), projection: "same-file", targetPercent: 15, bookPercent: 31.2 }),
+      ),
+    ).toBe("Continue · 31%");
+    // A book only opened on its first page is not started
+    const first = { ...other, locator: { ...other.locator, sectionIndex: 0, progression: 0, totalProgression: 0.02 } };
+    expect(catalogueReadLabel(descriptor({ anchor: first, projection: "same-file", targetPercent: 2 }))).toBe("Read");
+    // Whole and rounded down: 99.6% is not finished
+    expect(catalogueReadLabel(descriptor({ anchor: other, projection: "same-file", bookPercent: 99.6 }))).toBe("Continue · 99%");
+    // Another file's place still names the book's percent
+    expect(
+      catalogueReadLabel(
+        descriptor({ localAnchor: anchor("old-file", "2026-10-09T10:00:00Z"), projection: "pending-reanchor", bookPercent: 44 }),
       ),
     ).toBe("Continue · 44%");
-    expect(
-      catalogueReadLabel(
-        descriptor({
-          localAnchor: anchor("old-file", "2026-10-09T10:00:00Z"),
-          projection: "pending-reanchor",
-          targetPercent: 44,
-        }),
-      ),
-    ).toBe("Continue");
   });
 });
 
@@ -202,8 +207,13 @@ describe("public eBook projection and export", () => {
       projection: "pending-reanchor",
       savedPercent: 44,
       targetPercent: null,
+      bookPercent: 44,
+      bookPlace: remote,
     };
     const result = catalogueContinueDTO(raw)!;
+    // The place behind the book's percent stays on the server
+    expect(result).not.toHaveProperty("bookPlace");
+    expect(result.bookPercent).toBe(44);
     expect(result.anchor).toEqual(local);
     expect(result.localAnchor).toEqual(local);
     expect(result.newestOtherAnchor).toEqual(remote);

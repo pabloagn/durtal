@@ -12,8 +12,11 @@ import {
 } from "@/lib/ebooks/read-target";
 import { readerEntryHref } from "@/lib/reader/entry-policy";
 
-const control =
-  "inline-flex h-8 items-center justify-center gap-2 rounded-sm border border-glass-border bg-bg-secondary px-3 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11";
+const shape =
+  "inline-flex h-8 items-center justify-center gap-2 rounded-sm border px-3 text-xs transition-colors pointer-coarse:h-11";
+const control = `${shape} border-glass-border bg-bg-secondary text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary`;
+/** The book page's one way into the reader (SLN-683) */
+const primaryControl = `${shape} border-transparent bg-action-fill font-medium text-action-fg hover:bg-action-hover`;
 const menuItem =
   "dropdown-item py-2 text-sm text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary focus:bg-bg-tertiary focus:text-fg-primary outline-none pointer-coarse:min-h-11";
 
@@ -22,10 +25,12 @@ export function CatalogueReadButton({
   availability,
   originalLanguage,
   returnTo,
+  primary = false,
 }: {
   availability: readonly EbookAvailability[];
   originalLanguage: string | null;
   returnTo?: unknown;
+  primary?: boolean;
 }) {
   const eligible = availability.filter(
     (ebook) => ebook.continue && readerEntryHref(ebook.continue.href, returnTo),
@@ -38,7 +43,7 @@ export function CatalogueReadButton({
       <ReaderEntryLink
         readerPath={target.continue.href}
         returnTo={returnTo}
-        className={control}
+        className={primary ? primaryControl : control}
         data-read-button
         data-tooltip={`Read the eBook (${formats})`}
       >

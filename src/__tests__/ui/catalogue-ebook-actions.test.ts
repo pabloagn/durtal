@@ -118,7 +118,7 @@ describe("descriptor-driven catalogue eBook controls", () => {
     expect(link.hasAttribute("data-reader-entry")).toBe(true);
   });
 
-  it("labels a resolved local landing, and preserves a replaced-file anchor without its old percentage", () => {
+  it("labels a resolved local landing, and keeps the book's percent for a replaced-file anchor", () => {
     act(() =>
       root.render(
         createElement(CatalogueReadButton, {
@@ -151,8 +151,9 @@ describe("descriptor-driven catalogue eBook controls", () => {
         }),
       ),
     );
+    // One number per book (SLN-683): the place still says how far the book is read
     expect(host.querySelector("[data-read-button]")?.textContent).toBe(
-      "Continue",
+      "Continue · 44%",
     );
     expect(
       new URL(

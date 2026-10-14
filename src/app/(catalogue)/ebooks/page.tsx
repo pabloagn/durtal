@@ -67,10 +67,11 @@ export default async function EbooksPage({
               authors: bookAuthors?.length ? bookAuthors : ebook.authors,
             },
             href: descriptor.href,
-            savedPercent: descriptor.savedPercent,
+            // The book's one place, as its card and book page count it (SLN-683)
+            savedPercent: descriptor.bookPercent ?? descriptor.savedPercent,
             projection: descriptor.projection === "pending-reanchor",
-            chapter: descriptor.anchor.chapter,
-            when: since(descriptor.anchor.clientUpdatedAt, now),
+            chapter: (descriptor.bookPlace ?? descriptor.anchor).chapter,
+            when: since((descriptor.bookPlace ?? descriptor.anchor).clientUpdatedAt, now),
           },
         ]
       : [],

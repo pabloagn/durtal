@@ -5,6 +5,7 @@ import { CardHeading } from "@/components/shared/card-heading";
 import { FadeImage } from "@/components/shared/fade-image";
 import { WORK_CARD, WORK_CARD_BODY } from "@/components/shared/work-card";
 import { formatLabel } from "@/lib/ebooks/formats";
+import { fractionPercent } from "@/lib/reader/place-label";
 import type { EbookCardData } from "@/lib/ebooks/library-view";
 
 export function EbookLinkedMark() {
@@ -94,7 +95,15 @@ export function EbookCard({
             {book.formats.map(formatLabel).join(" · ") ||
               "No downloadable files"}
           </span>
-          {book.linked && <EbookLinkedMark />}
+          {/* How far it is read and whether it has its book, on every card (SLN-683) */}
+          <span className="inline-flex items-center gap-2">
+            {book.progress !== null && (
+              <span className="tabular-nums" data-ebook-progress>
+                {fractionPercent(book.progress)}
+              </span>
+            )}
+            {book.linked && <EbookLinkedMark />}
+          </span>
         </div>
       </div>
     </article>

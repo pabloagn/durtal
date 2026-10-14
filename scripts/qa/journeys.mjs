@@ -1525,6 +1525,8 @@ async function ebooksJourney() {
   return run("ebooks", [
     ["book page → reader → Back", async () => {
       await go(book);
+      // One way in: Read comes first and nothing beside it says "Start reading"
+      await waitFor(`document.querySelector('[data-catalogue-read]')?.parentElement.firstElementChild === document.querySelector('[data-catalogue-read]') && ![...document.querySelectorAll('main button')].some((b) => b.textContent.trim() === 'Start reading')`, "Read first, with no Start reading beside it");
       await enter("document.querySelector('main a[data-reader-entry]')", "the book page's Read");
       await turn();
       await back(book);
@@ -1532,7 +1534,7 @@ async function ebooksJourney() {
     ["/ebooks → its page → reader → Back", async () => {
       await go("/ebooks");
       await evaluate(`document.querySelector('main a[href="${ebook}"]').click(), true`);
-      await waitFor(`location.pathname === ${JSON.stringify(ebook)} && document.readyState === 'complete'`, "the eBook page");
+      await waitFor(`location.pathname === ${JSON.stringify(ebook)} && document.readyState === 'complete' && document.querySelector('h1')?.textContent === 'Against Nature'`, "the eBook page, titled after its book");
       await enter("document.querySelector('main a[href^=\"/reader/\"]')", "the eBook page's Read");
       await back(ebook);
     }],

@@ -530,11 +530,11 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                 )}
               </div>
 
-              {/* The reading control, and the Read button for an e-book */}
+              {/* An eBook's Read button is the one way in; the reading control states the reading (SLN-683) */}
               {(canRead || digitalBooks.length > 0) && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {canRead && <ReadingControl />}
-                  {digitalBooks.length > 0 && <ReadButton availability={digitalBooks} originalLanguage={work.originalLanguage} returnTo={readerReturnTo} />}
+                  {digitalBooks.length > 0 && <ReadButton primary availability={digitalBooks} originalLanguage={work.originalLanguage} returnTo={readerReturnTo} />}
+                  {canRead && <ReadingControl ebook={digitalBooks.some((ebook) => ebook.continue)} />}
                 </div>
               )}
               <EbookSuggestionLine workId={work.id} count={ebookSuggestionCount} />
