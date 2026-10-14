@@ -37,13 +37,20 @@ export function SkeletonLine({ className = "" }: { className?: string }) {
   return <div aria-hidden="true" className={`h-[1lh] rounded-sm bg-bg-secondary motion-safe:animate-pulse ${className}`} />;
 }
 
+// The title line takes two thirds of the row where `DETAIL_TITLE_ROW` stops
+// wrapping, and the whole row below it (SLN-698)
+const TITLE_LINE: Record<keyof typeof DETAIL_TITLE_ROW, string> = {
+  standard: "@min-[24rem]:w-2/3",
+  wide: "pointer-fine:@min-[33rem]:w-2/3 pointer-coarse:@min-[39rem]:w-2/3",
+};
+
 /**
  * A detail page's title row: the title and its actions.
  * - With `row`, the row of a page drawn with `DetailTitleRow` (`wide` for the
  *   book's controls): it wraps where that row does, with no gap under the
- *   title. On a phone the title takes the row and the actions go under it, as
- *   they do for nearly every book and publisher. On a wider screen with a
- *   mouse they stay beside it, as they do for a title that fits there.
+ *   title. Below the width where that row stops wrapping, the title takes
+ *   the row and the actions go under it, as they do for every title but the
+ *   shortest; from that width on they stay beside it.
  * - Without, the film's and painting's row: a title that fits on one line
  *   keeps its star and menu beside it at every width, so the skeleton draws
  *   that. A longer title takes more lines, which no loading screen can know.
@@ -53,7 +60,7 @@ export function SkeletonTitleRow({ row }: { row?: keyof typeof DETAIL_TITLE_ROW 
     return (
       <div className="@container">
         <div className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW[row]}`}>
-          <SkeletonLine className="type-page-title w-full min-w-0 sm:w-2/3 sm:pointer-fine:w-auto sm:pointer-fine:flex-1" />
+          <SkeletonLine className={`type-page-title w-full min-w-0 ${TITLE_LINE[row]}`} />
           <div className="type-page-title flex h-[1lh] shrink-0 items-center">
             <SkeletonBlock className="h-8 w-40 pointer-coarse:h-11" />
           </div>
