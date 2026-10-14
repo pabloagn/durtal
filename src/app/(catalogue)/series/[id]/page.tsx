@@ -3,7 +3,7 @@ import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
 import { getSeriesEbookSuggestionCount } from "@/lib/ebooks/review-queue/suggestions";
 import { EbookSuggestionLine } from "@/components/ebooks/ebook-suggestion-line";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
-import { cache } from "react";
+import { cache, Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Layers } from "lucide-react";
@@ -102,6 +102,26 @@ export default async function SeriesDetailPage({
           {s.originalTitle && s.originalTitle !== s.title && (
             <p className="mt-1 text-sm italic text-fg-secondary">
               {s.originalTitle}
+            </p>
+          )}
+          {/* Who wrote it, from its books' authors (SLN-636) */}
+          {s.authors.length > 0 && (
+            <p className="mt-2 text-sm text-fg-secondary" data-series-authors="">
+              {s.authors.map((author, i) => (
+                <Fragment key={author.id}>
+                  {i > 0 && ", "}
+                  {author.slug ? (
+                    <Link
+                      href={`/people/${author.slug}`}
+                      className="transition-colors hover:text-accent-primary"
+                    >
+                      {author.name}
+                    </Link>
+                  ) : (
+                    author.name
+                  )}
+                </Fragment>
+              ))}
             </p>
           )}
           <div className="mt-3 flex flex-wrap items-center gap-2">
