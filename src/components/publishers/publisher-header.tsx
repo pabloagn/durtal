@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Copy, ImageIcon, Library, Pencil } from "lucide-react";
@@ -37,6 +37,7 @@ export function PublisherHeader({
   favourite: boolean;
 }) {
   const router = useRouter();
+  const titleRow = useControlsPlacement(name);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const edit = () => router.push(`/publishers/${slug}/edit`);
@@ -82,12 +83,18 @@ export function PublisherHeader({
 
         <div className="@container min-w-0 flex-1">
           {/* A long name keeps the row's width on a narrow screen: the
-              controls go under it when it would not fit on one line beside
-              them, and stay beside a short name or a wide row's name */}
-          <div className="type-page-title flex flex-wrap items-start gap-x-4 @xl:flex-nowrap">
+              controls go under it when that saves a line or keeps a word
+              whole (useControlsPlacement), and stay beside it otherwise.
+              Under the name the star's padding goes past the column's edge,
+              so the star lines up with the name; beside it the wider gap
+              gives the padding back */}
+          <div
+            ref={titleRow}
+            className="type-page-title flex flex-wrap items-start gap-x-6 pointer-coarse:gap-x-7.5 @xl:flex-nowrap data-[layout=beside]:flex-nowrap data-[layout=under]:flex-wrap data-[layout=under]:[&>h1]:basis-full"
+          >
             <h1 className="type-page-title min-w-0 flex-[1_1_auto] break-words">{name}</h1>
             {/* On the cap-height center of the name's first line */}
-            <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
+            <CapAlignedControls height={32} coarseHeight={44} className="type-page-title -ml-2 pointer-coarse:-ml-3.5">
               <FavouriteToggle
                 favourite={favourite}
                 target={{ entity: "publisher", id }}
@@ -128,4 +135,54 @@ export function PublisherHeader({
       />
     </>
   );
+}
+
+/**
+ * Where the controls go in a title row that wraps: under the title when
+ * that makes the row shorter or keeps a word whole, beside it otherwise.
+ * CSS can only wrap when the title would not fit on one line beside them,
+ * which also drops them under a title that takes as many lines at full
+ * width (and makes the row taller); until this has measured, that rule
+ * stands. Returns the row's ref; sets `data-layout` ("beside" or "under")
+ * on it. The row's first child is the title, its second the controls.
+ */
+function useControlsPlacement(title: string) {
+  const row = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    const place = () => {
+      const heading = el.firstElementChild as HTMLElement | null;
+      const controls = heading?.nextElementSibling as HTMLElement | null;
+      if (!heading || !controls) return;
+      el.dataset.layout = "beside";
+      const beside = heading.getBoundingClientRect();
+      el.dataset.layout = "under";
+      const under = heading.getBoundingClientRect();
+      const slot = controls.getBoundingClientRect().height;
+      // The longest word: wider than the title's room, it breaks
+      heading.style.cssText = "flex: none; width: min-content";
+      const word = heading.getBoundingClientRect().width;
+      heading.style.cssText = "";
+      const shorter = under.height + slot < beside.height - 0.5;
+      const whole = word > beside.width + 0.5 && word <= under.width + 0.5;
+      el.dataset.layout = shorter || whole ? "under" : "beside";
+    };
+    place();
+    let width = el.getBoundingClientRect().width;
+    const observer = new ResizeObserver(([entry]) => {
+      if (Math.abs(entry.contentRect.width - width) < 0.5) return;
+      width = entry.contentRect.width;
+      place();
+    });
+    observer.observe(el);
+    // The title's font may arrive after the first measure
+    let live = true;
+    document.fonts?.ready.then(() => live && place());
+    return () => {
+      live = false;
+      observer.disconnect();
+    };
+  }, [title]);
+  return row;
 }
