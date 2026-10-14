@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { CardHeading } from "@/components/shared/card-heading";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { ExternalLink } from "lucide-react";
@@ -23,10 +24,15 @@ function WebsiteLink({ url, name }: { url: string; name: string }) {
       target="_blank"
       rel="noopener noreferrer"
       aria-label={`${name} website`}
-      className="relative z-20 inline-flex min-w-0 items-center gap-1 pointer-coarse:min-h-11 pointer-coarse:min-w-11 text-xs text-fg-secondary transition-colors hover:text-accent-primary"
+      className="relative z-20 inline-flex min-w-0 items-center pointer-coarse:min-h-11 pointer-coarse:min-w-11 text-xs text-fg-secondary transition-colors hover:text-accent-primary"
     >
-      <ExternalLink className="h-3 w-3 shrink-0" strokeWidth={1.5} />
-      <span className="min-w-0 [overflow-wrap:anywhere]">{websiteLabel(url)}</span>
+      {/* A long address wraps: the icon stays on its first line */}
+      <span className="flex min-w-0 items-start gap-1">
+        <CapAligned height={12}>
+          <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+        </CapAligned>
+        <span className="min-w-0 [overflow-wrap:anywhere]">{websiteLabel(url)}</span>
+      </span>
     </a>
   );
 }
