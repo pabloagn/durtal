@@ -312,6 +312,10 @@ describe.skipIf(!url)("Import existing", () => {
       missingFiles: 0,
       rated: 1,
       readDates: 1,
+      // The library's tags: counted, never written (SLN-658)
+      tagged: 2,
+      tags: 3,
+      distinctTags: 3,
       leftForBulk: { conflict: 2, not_in_durtal: 1, same_author: 1 },
     });
     expect(first.coverage).toMatchObject({ works: 10, auto: 3, hasEbook: 0, copiesWaiting: 1, copiesAuto: 1, copiesReview: 0 });
@@ -323,6 +327,7 @@ describe.skipIf(!url)("Import existing", () => {
 
     const report = readFileSync(files.markdown, "utf8");
     expect(report).toContain("Dry run: nothing was written");
+    expect(report).toContain("Tags: 2 books carry 3 tags (3 different).");
     expect(report).toContain("Ubik");
     expect(readFileSync(files.csv, "utf8").split("\n")).toHaveLength(14);
     expect(readSelection(files.selection)).toEqual(first.selection);
