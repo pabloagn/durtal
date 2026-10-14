@@ -12,12 +12,15 @@ export function ReaderSidePanel({
   onClose,
   children,
   variant = "drawer",
+  side = "left",
 }: {
   open: boolean;
   title: string;
   onClose(): void;
   children: ReactNode;
   variant?: "drawer" | "settings";
+  /** A drawer moves to the right when what it points to sits under it (SLN-675) */
+  side?: "left" | "right";
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const origin = useRef<HTMLElement | null>(null);
@@ -109,11 +112,12 @@ export function ReaderSidePanel({
         }
       }}
       data-reader-settings-sheet={variant === "settings" || undefined}
+      data-reader-side-panel-side={variant === "drawer" && wide ? side : undefined}
       style={variant === "drawer" ? {
         top: 0,
         bottom: 0,
-        left: 0,
-        right: "auto",
+        left: wide && side === "right" ? "auto" : 0,
+        right: wide && side === "right" ? 0 : "auto",
         margin: 0,
         height: "100dvh",
         maxHeight: "none",
@@ -139,7 +143,7 @@ export function ReaderSidePanel({
       }}
       className={`glass-bar fixed z-40 m-0 max-h-none max-w-none overflow-hidden border-0 border-glass-border bg-transparent p-0 text-fg-primary outline-none open:flex open:flex-col ${
         variant === "drawer"
-          ? "inset-y-0 left-0 right-auto h-dvh w-screen border-r backdrop:glass-veil"
+          ? `inset-y-0 h-dvh w-screen backdrop:glass-veil ${wide && side === "right" ? "left-auto right-0 border-l" : "left-0 right-auto border-r"}`
           : wide
             ? "inset-y-0 left-auto right-0 h-dvh border-l backdrop:bg-transparent"
             : "inset-x-0 bottom-0 top-auto w-screen rounded-t-md border-t pb-[env(safe-area-inset-bottom)] backdrop:bg-transparent"

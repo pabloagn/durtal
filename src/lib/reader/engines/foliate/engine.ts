@@ -2,7 +2,7 @@ import { indexDiagnosticEnabled, observeIndexDiagnostic } from "@/lib/reader/ind
 import { flattenContents } from "@/lib/reader/position-index";
 import { pageMarkerPhysicallyVisible } from "./page-marker-visibility";
 import type { PdfSearchProvider } from "./search";
-import { attachWordGestures, detailsFromRange, selectionHostRect } from "./selection";
+import { attachWordGestures, detailsFromRange, frameRectToHost, selectionHostRect } from "./selection";
 import { createNotes } from "./notes";
 import type { SearchRequest, SearchUpdate } from "../../search/types";
 import {
@@ -921,6 +921,39 @@ class FoliateEngine implements ReaderEngine {
     if (doc.body) {
       doc.body.tabIndex = -1;
       doc.body.focus({ preventScroll: true });
+    }
+  }
+
+  locatorRect(locator: DurtalLocator): { left: number; top: number; right: number; bottom: number } | null {
+    if (!this.#source || locator.fileHash !== this.#source.sha256 || !this.#view) return null;
+    try {
+      if (locator.pdf) {
+        const content = this.#view.renderer.getContents().find(item => item.index + 1 === locator.pdf?.page);
+        const viewport = content && this.#book?.pdfViewport?.(content.doc);
+        const frame = content?.doc.defaultView?.frameElement as HTMLElement | null | undefined;
+        const first = locator.pdf.rects?.[0];
+        const box = viewport && first && pdfRectToPage(first, viewport, this.#book?.pdfCropOffset?.(content!.doc) ?? { left: 0, top: 0 });
+        if (!frame || !box) return null;
+        const host = frame.getBoundingClientRect();
+        const scaleX = host.width / (frame.offsetWidth || host.width || 1);
+        const scaleY = host.height / (frame.offsetHeight || host.height || 1);
+        return { left: host.left + box.left * scaleX, top: host.top + box.top * scaleY,
+          right: host.left + box.right * scaleX, bottom: host.top + box.bottom * scaleY };
+      }
+      if (!locator.cfi) return null;
+      const resolved = this.#view.resolveNavigation(locator.cfi);
+      const doc = this.#view.renderer.getContents().find((item) => item.index === resolved?.index)?.doc;
+      if (!doc || !resolved?.anchor) return null;
+      const anchor = resolved.anchor(doc);
+      const range = "nodeType" in anchor ? doc.createRange() : anchor;
+      if ("nodeType" in anchor) range.selectNodeContents(anchor);
+      // The first line only: a match that wraps would otherwise span the column
+      const line = range.getClientRects()[0];
+      if (!line) return null;
+      const rect = frameRectToHost(line, doc);
+      return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+    } catch {
+      return null;
     }
   }
 

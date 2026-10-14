@@ -14,8 +14,12 @@ export function selectionLanguage(node: Node): string | null {
 
 /** Measured iframe scaling applies equally to reflowable, fixed and PDF text. */
 export function selectionHostRect(range: Range): DOMRectReadOnly {
-  const bounds = range.getBoundingClientRect();
-  const frame = range.startContainer.ownerDocument?.defaultView?.frameElement;
+  return frameRectToHost(range.getBoundingClientRect(), range.startContainer.ownerDocument);
+}
+
+/** A rect measured inside a book frame, in the host page's viewport coordinates */
+export function frameRectToHost(bounds: DOMRectReadOnly, doc: Document | null): DOMRectReadOnly {
+  const frame = doc?.defaultView?.frameElement;
   const host = frame?.getBoundingClientRect();
   const scaleX = host && frame ? host.width / ((frame as HTMLElement).offsetWidth || host.width || 1) : 1;
   const scaleY = host && frame ? host.height / ((frame as HTMLElement).offsetHeight || host.height || 1) : 1;
