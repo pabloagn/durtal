@@ -56,6 +56,8 @@ describe.skipIf(!url)("an e-book's differences with its book", () => {
   let serial = 0;
   let place: string;
   beforeEach(async () => {
+    // The last test's journal writes land before the reset, not in the next test
+    await activitySettled();
     await resetDisposableDatabase(url!, "sln658_ebook_differences", { emptyLocations: true });
     place = (await one(`insert into locations(name, type) values ('eBooks', 'digital') returning id`)).id;
   }, 30000);
