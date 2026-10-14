@@ -431,13 +431,43 @@ const RAF_ANIMATE_SCROLL_THRESHOLD = 20000
 
 // collapsed range doesn't return client rects sometimes (or always?)
 // try make get a non-collapsed range or element
-const uncollapse = range => {
+export const uncollapse = range => {
     if (!range?.collapsed) return range
     const { endOffset, endContainer } = range
     if (endContainer.nodeType === 1) {
         const node = endContainer.childNodes[endOffset]
         if (node?.nodeType === 1) return node
         return endContainer
+    }
+    // Durtal: a point before white space anchors on the next glyph. A space a
+    // line wrap leaves hangs at the end of the previous line, in the previous
+    // column, with no width, so a saved place that starts a page there
+    // reopened one page early (SLN-676)
+    const glyph = endContainer.data.slice(endOffset).search(/\S/)
+    if (glyph > 0) {
+        range.setStart(endContainer, endOffset + glyph)
+        range.setEnd(endContainer, endOffset + glyph + 1)
+        return range
+    }
+    // Only white space is left in this text node, so the wrap space ends it
+    // and the next word starts an inline element (italics, a link, a note
+    // mark): anchor on the next glyph or image after it instead
+    if (glyph < 0 && endOffset > 0) {
+        const doc = endContainer.ownerDocument
+        const walker = doc.createTreeWalker(doc.body ?? doc.documentElement,
+            NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT)
+        walker.currentNode = endContainer
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            if (node.nodeType === 1) {
+                if (node.matches('img, svg, image, video, canvas, iframe, hr')) return node
+                continue
+            }
+            const next = node.data.search(/\S/)
+            if (next < 0) continue
+            range.setStart(node, next)
+            range.setEnd(node, next + 1)
+            return range
+        }
     }
     if (endOffset + 1 < endContainer.length) range.setEnd(endContainer, endOffset + 1)
     else if (endOffset > 1) range.setStart(endContainer, endOffset - 1)

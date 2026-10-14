@@ -347,9 +347,13 @@ export default async function CollectionPage({
             </div>
             <div className="min-w-0 flex-1 basis-64">
               {/* The row carries the title's type: the icon sits on the
-                  title's cap-height center (first line) */}
-              <div className="-ml-2 flex items-start gap-1.5 font-serif text-4xl tracking-tight">
-                <CapAligned height={44}>
+                  title's cap-height center (first line). On a phone the
+                  icon and the star float at the ends of the name's first
+                  line, so its later lines take the row's full width; the
+                  star comes first in the source to float there, and its
+                  icon sits on the row's right edge */}
+              <div className="-ml-2 flex items-start gap-1.5 font-serif text-4xl tracking-tight max-md:block">
+                <CapAligned height={44} className="max-md:float-left max-md:mr-1.5">
                   <CollectionIconPicker
                     collectionId={collection.id}
                     value={collection.icon}
@@ -361,10 +365,11 @@ export default async function CollectionPage({
                     />
                   </CollectionIconPicker>
                 </CapAligned>
-                <h1 className="type-page-title min-w-0 break-words">
-                  {collection.name}
-                </h1>
-                <CapAligned height={32} coarseHeight={44} className="ml-1.5 pointer-coarse:ml-0">
+                <CapAligned
+                  height={32}
+                  coarseHeight={44}
+                  className="order-last ml-1.5 pointer-coarse:ml-0 max-md:float-right max-md:-mr-2 max-md:ml-3 max-md:pointer-coarse:-mr-3.5 max-md:pointer-coarse:ml-1.5"
+                >
                   <FavouriteToggle
                     favourite={collection.isFavourite}
                     target={{ entity: "collection", id: collection.id }}
@@ -372,6 +377,12 @@ export default async function CollectionPage({
                     shortcut
                   />
                 </CapAligned>
+                {/* The row starts 8px early for the icon's padding: on a phone
+                    the name's later lines run under the icon, so they start
+                    8px in, on the page's text edge */}
+                <h1 className="type-page-title min-w-0 break-words max-md:pl-2 max-md:[overflow-wrap:anywhere]">
+                  {collection.name}
+                </h1>
               </div>
               {collection.description && (
                 <Prose className="mt-3 whitespace-pre-wrap">

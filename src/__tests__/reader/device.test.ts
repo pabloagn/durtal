@@ -35,6 +35,11 @@ describe("deviceLabelFor", () => {
       "Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/26.0 Chrome/122.0 Safari/537.36",
       "Android · Samsung Internet",
     ],
+    [
+      // Playwright's Chromium on a Mac: a QA check, kept apart from a person's Chrome (SLN-665)
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/130.0.0.0 Safari/537.36",
+      "Mac · Headless Chrome",
+    ],
     ["curl/8.5.0", "Browser"],
     [null, "Browser"],
   ])("labels %s", (ua, label) => {

@@ -40,7 +40,7 @@ vi.mock("@/lib/db", () => ({
 import { readReaderBook } from "@/lib/ebooks/delivery/reader-book";
 import { ebookFileKey } from "@/lib/ebooks/keys";
 import {
-  allDevicePositions,
+  placesToCheck,
   savePosition,
   positionBodySchema,
 } from "@/lib/reader/positions";
@@ -140,7 +140,7 @@ describe.skipIf(!url)("reader sync", () => {
     await save(pdf, phone, 0.7, T0 + 1000);
     await save(epub, phone, 0.6, T0 + 3000);
     await save(epub, mac, 0.9, T0);
-    const rows = await allDevicePositions(ebookId, mac);
+    const rows = await placesToCheck(ebookId, mac);
     expect(
       rows.map((row) => [row.deviceId, row.fileId, row.thisDevice]),
     ).toEqual([
@@ -150,6 +150,28 @@ describe.skipIf(!url)("reader sync", () => {
     ]);
     expect(rows[1].progression).toBeCloseTo(0.4);
     expect(rows[1].furthestProgression).toBeCloseTo(0.9);
+  });
+  it("checks this device's places, the newest other and the furthest other, however many there are (SLN-665)", async () => {
+    const epub = await file("epub"),
+      pdf = await file("pdf");
+    await save(epub, mac, 0.3, T0);
+    await save(pdf, mac, 0.1, T0 - 1000);
+    const others = Array.from({ length: 60 }, () => randomUUID());
+    for (const [i, device] of others.entries())
+      await save(epub, device, 0.2 + (i % 7) / 100, T0 - 60_000 * (i + 1));
+    const furthest = randomUUID(),
+      newest = randomUUID();
+    await save(epub, furthest, 0.95, T0 - 3_600_000 * 24);
+    await save(epub, newest, 0.25, T0 + 5000);
+    const rows = await placesToCheck(ebookId, mac);
+    expect(rows.map((row) => [row.deviceId, row.fileId, row.thisDevice])).toEqual([
+      [newest, epub.id, false],
+      [mac, epub.id, true],
+      [mac, pdf.id, true],
+      [furthest, epub.id, false],
+    ]);
+    // Without a cookie: the newest and the furthest place
+    expect((await placesToCheck(ebookId, null)).map((row) => row.deviceId)).toEqual([newest, furthest]);
   });
   it("GET returns exact all-device fields, cookie flags and anonymous places", async () => {
     const epub = await file("epub");
@@ -218,7 +240,7 @@ describe.skipIf(!url)("reader sync", () => {
     expect(res.status).toBe(200);
     expect((await res.json()).position.deviceLabel).toBe("iPad · Safari");
     await readReaderBook(ebookId, { deviceId: mac });
-    await allDevicePositions(ebookId, mac);
+    await placesToCheck(ebookId, mac);
     expect(await snapshot()).toEqual(before);
     expect(await c`select count(*)::int as n from ebook_positions`).toEqual([
       { n: 1 },

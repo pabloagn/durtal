@@ -43,7 +43,10 @@ export function SectionHeading({
   id?: string;
 }) {
   const heading = (
-    <Tag id={id} className={headingRole(Tag)}>
+    // A word wider than the row (a file name) breaks rather than widening the
+    // page. break-word, not anywhere: the title's narrowest width stays its
+    // longest word, so the row below can tell when that word does not fit
+    <Tag id={id} className={`${headingRole(Tag)} [overflow-wrap:break-word]`}>
       {title}
       {count !== undefined && (
         <span className="text-fg-secondary"> ({count})</span>
@@ -51,8 +54,11 @@ export function SectionHeading({
     </Tag>
   );
   return (
-    <div className={`${Tag === "h4" ? "mb-2" : "mb-4"} flex items-center justify-between gap-4`}>
-      <div className="min-w-0">
+    // When the title's longest word and the action do not fit side by side
+    // (a 320px phone), the action wraps under the title rather than squeezing
+    // the title until a plain word breaks mid-word
+    <div className={`${Tag === "h4" ? "mb-2" : "mb-4"} flex flex-wrap items-center justify-between gap-x-4 gap-y-2`}>
+      <div className="w-min min-w-0 grow">
         {Icon ? (
           // The row carries the title's type: the icon sits on its
           // cap-height center
@@ -77,7 +83,9 @@ export function SectionHeading({
         // A cap-aligned action is one title line tall: it stays on the first
         // line when the title wraps (a phone), not halfway down the title
         <div
-          className={`flex shrink-0 items-center gap-2 ${
+          // ml-auto: when it wraps under the title it stays at the right
+          // edge, so a button's padding never sits off the text column
+          className={`ml-auto flex shrink-0 items-center gap-2 ${
             isValidElement(action) && (action.type === CapAligned || action.type === CapAlignedControls)
               ? "self-start"
               : ""

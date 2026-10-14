@@ -56,7 +56,8 @@ export function ChooseBookFields({ row, onPrepare, disabled, issues = [] }: {
   }
   return <div className="space-y-4">
     <form className="flex items-end gap-2" onSubmit={(event) => { event.preventDefault(); void search(); }}>
-      <div className="min-w-0 flex-1"><Input label="Find a book" value={query} maxLength={200} disabled={disabled || searching}
+      {/* Stays on while the first search runs: a disabled field drops the focus the dialog gives it, and typing starts a new search */}
+      <div className="min-w-0 flex-1"><Input label="Find a book" value={query} maxLength={200} disabled={disabled}
         error={issues.find((issue) => issue.field === "workId")?.message}
         onChange={(event) => { generation.current++; setQuery(event.target.value); setSearching(false); }} /></div>
       <Button type="submit" disabled={disabled || searching || !query.trim()}>Search</Button>

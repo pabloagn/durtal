@@ -181,11 +181,15 @@ for (const route of routes) {
 }
 
 let failed = 0;
+/** A finding's text as a known key holds it: numbers as #, one line, at most 40 characters */
+const label = (words) => words.replace(/\d+(?:[.,]\d+)*/g, "#").replace(/\s+/g, " ").trim().slice(0, 40);
 let layoutNew = 0;
 let layoutKnown = 0;
 const knownSeen = new Set();
 /** Routes that were audited: a skipped one says nothing about its known findings */
 const audited = new Set();
+/** List routes that had a first card to measure: one with no records says nothing about it */
+const carded = new Set();
 for (const width of WIDTHS) {
   await send("Emulation.setDeviceMetricsOverride", {
     width,
@@ -246,24 +250,27 @@ for (const width of WIDTHS) {
         `       ${o.element} (right ${o.right}px${o.fixed ? ", fixed" : ""})`,
       );
     const layout = await evaluate(layoutAudit);
+    if (layout.firstContent) carded.add(route);
     const findings = [
-      ...layout.squeezed.map((f) => ["squeezed", "title", `"${f.title}": ${f.why}`]),
-      ...layout.plainCommands.map((f) => ["plain", f.element, `"${f.text}" looks like its text (${f.ratio}:1, no box, underline or icon)`]),
-      ...layout.drift.map((f) => ["drift", f.element, `"${f.text}" starts ${f.off}px off its column's edge in ${f.card}`]),
+      ...layout.squeezed.map((f) => ["squeezed", "title", `"${f.title}": ${f.why}`, f.title]),
+      ...layout.plainCommands.map((f) => ["plain", f.element, `"${f.text}" looks like its text (${f.ratio}:1, no box, underline or icon)`, f.text]),
+      ...layout.drift.map((f) => ["drift", f.element, `"${f.text}" starts ${f.off}px off its column's edge in ${f.card}`, f.text]),
       ...(layout.firstContent?.late && LISTS.has(route)
-        ? [["first", "card", `first card at ${layout.firstContent.top}px of a ${layout.firstContent.screen}px screen`]]
+        ? [["first", "card", `first card at ${layout.firstContent.top}px of a ${layout.firstContent.screen}px screen`, null]]
         : []),
     ];
-    // One line per kind of element: a list of 50 credits is one finding
+    // A known finding is keyed with its text (numbers as #), so a new command
+    // with the same classes on the same page is still NEW. New ones show one
+    // line per kind of element: a list of 50 credits is one finding.
     const grouped = new Map();
-    for (const [kind, element, detail] of findings) {
-      const key = `${kind} ${route} ${element}`;
-      const group = grouped.get(key) ?? { kind, element, detail, count: 0 };
+    for (const [kind, element, detail, words] of findings) {
+      const exact = words == null ? `${kind} ${route} ${element}` : `${kind} ${route} ${element} "${label(words)}"`;
+      const key = known[exact] ? exact : `${kind} ${route} ${element}`;
+      const group = grouped.get(key) ?? { kind, element, detail, count: 0, ticket: known[exact] };
       group.count++;
       grouped.set(key, group);
     }
-    for (const [key, { kind, element, detail, count }] of grouped) {
-      const ticket = known[key];
+    for (const [key, { kind, element, detail, count, ticket }] of grouped) {
       if (ticket) knownSeen.add(key);
       if (ticket) layoutKnown++;
       else layoutNew++;
@@ -281,7 +288,7 @@ console.log(
 );
 // A known finding that no longer shows on a route that ran: fixed, so its line can go
 for (const key of Object.keys(known))
-  if (audited.has(key.split(" ")[1]) && !knownSeen.has(key))
+  if ((key.startsWith("first ") ? carded : audited).has(key.split(" ")[1]) && !knownSeen.has(key))
     console.log(`Layout: no longer found, remove it from layout-audit-known.json: ${key}`);
 console.log(
   `Layout: ${layoutNew} new and ${layoutKnown} known finding(s)${layoutNew && !strict ? " (pass --strict to fail on new ones)" : ""}`,

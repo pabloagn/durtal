@@ -8,6 +8,8 @@ import type { ReviewUnlinkTarget } from "@/lib/ebooks/review-queue/unlink-types"
 const UnlinkEbookDialog = dynamic(() => import("./unlink-ebook-dialog").then((module) => module.UnlinkEbookDialog), { ssr: false });
 
 let current: ReviewUnlinkTarget | null = null;
+/** "Change the book…": after the unlink, choose its new book */
+let changing = false;
 const listeners = new Set<() => void>();
 const subscribe = (listener: () => void) => {
   listeners.add(listener);
@@ -17,9 +19,12 @@ const read = () => current;
 
 /** The eBook whose Unlink dialog is open, or none */
 export const unlinkDialog = {
-  open(target: ReviewUnlinkTarget) { current = target; listeners.forEach((listener) => listener()); },
-  close() { current = null; listeners.forEach((listener) => listener()); },
+  open(target: ReviewUnlinkTarget, options: { change?: boolean } = {}) {
+    current = target; changing = !!options.change; listeners.forEach((listener) => listener());
+  },
+  close() { current = null; changing = false; listeners.forEach((listener) => listener()); },
 };
+
 export function useUnlinkDialogTarget() {
   return useSyncExternalStore(subscribe, read, () => null);
 }
@@ -34,6 +39,6 @@ export function UnlinkDialogHost() {
   const router = useRouter();
   const target = useUnlinkDialogTarget();
   if (!target) return null;
-  return <UnlinkEbookDialog key={target.id} target={target} initialMode="unlink" onClose={unlinkDialog.close}
-    onCommitted={() => router.refresh()} />;
+  return <UnlinkEbookDialog key={target.id} target={target} initialMode="unlink" change={changing}
+    onClose={unlinkDialog.close} onCommitted={() => router.refresh()} />;
 }

@@ -142,7 +142,9 @@ export function InstanceDetail({
         </div>
 
         {hasActions && (
-          <div className="flex items-center gap-1">
+          // The buttons' padding reaches past the text edges: Edit's ink starts on the
+          // left edge when stacked, and Delete's ends on the right edge beside the place
+          <div className="-ml-2.5 flex items-center gap-1 @min-[440px]:-mr-2.5 @min-[440px]:ml-0">
             <InstanceEditDialog
               instance={instance}
               editionId={instance.editionId}
@@ -277,11 +279,11 @@ export function InstanceDetail({
                       .filter(Boolean)
                       .join(" · ")}
                   </span>
-                  <Link href={`/ebooks/${ebook.id}`} className="ml-3 text-fg-primary transition-colors hover:text-accent-primary">eBook details</Link>
+                  <Link href={`/ebooks/${ebook.id}`} className="ml-3 text-command">eBook details</Link>
                   {ebook.readerPath && <ReaderEntryLink
                     readerPath={ebook.readerPath}
                     returnTo={ebook.returnTo}
-                    className="ml-3 text-fg-primary transition-colors hover:text-accent-primary"
+                    className="ml-3 text-command"
                   >
                     {ebook.readLabel ?? "Read"}
                   </ReaderEntryLink>}
