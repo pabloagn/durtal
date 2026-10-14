@@ -503,6 +503,13 @@ describe("reader view with a real bridge and fake engine", () => {
     act(() => window.dispatchEvent(new Event("pagehide")));
     expect(await persistence.committedPositions()).toEqual([]);
   });
+  it("still saves a book's first open when no device has a place, so it counts as opened (SLN-683)", async () => {
+    await render(null, null, null);
+    await settle();
+    const committed = await persistence.committedPositions();
+    expect(committed).toHaveLength(1);
+    expect(committed[0].mutation).toMatchObject({ kind: "position", deviceId, fileId: epubId });
+  });
   it("history in another own format is not mistaken for a never-opened device", async () => {
     const pdfOwn = {
       ...own,

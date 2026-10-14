@@ -1227,14 +1227,16 @@ function ReaderSession({
           saved = landing.locator;
         } else if (
           landing &&
-          resumeAnchor?.deviceId === deviceId &&
+          (!resumeAnchor || resumeAnchor.deviceId === deviceId) &&
           (!ownPlace ||
             resumed?.status !== "exact" ||
-            resumeAnchor.fileId !== file.id)
+            resumeAnchor?.fileId !== file.id)
         )
-          // This device's own place, found again in another or a changed file,
-          // keeps its own clock
-          save(landing.locator, landing.chapter, resumeAnchor.clientUpdatedAt);
+          // A book's first open with no place anywhere is saved now, under
+          // this moment: it is a real open, and it marks the book opened
+          // (SLN-683). This device's own place, found again in another or a
+          // changed file, keeps its own clock
+          save(landing.locator, landing.chapter, resumeAnchor?.clientUpdatedAt);
         // Opening at another device's place saves nothing for this device
         // until the reader moves: a row under that place's clock would show a
         // device that never read there (SLN-665)

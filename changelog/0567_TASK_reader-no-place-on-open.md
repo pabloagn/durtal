@@ -22,9 +22,11 @@ one win the tie, the server the first.
 
 - `reader-view.tsx`: the save on open now runs only when the place opened
   at is this device's own, carried to another file or found again in a
-  changed one, and it keeps that place's clock as before. Opening at
-  another device's place, or at the start, only primes the unchanged-place
-  guard. The first real move saves under the time of that move.
+  changed one, and it keeps that place's clock as before. A book's first
+  open, with no place on any device, is still saved at once under that
+  moment, so the book counts as opened (SLN-683, the eBooks "Opened" sort).
+  Opening at another device's place only primes the unchanged-place guard.
+  The first real move saves under the time of that move.
 - `positions.ts` (`savePosition`): a save under the same `client_updated_at`
   replaces the row only when its `progression` is greater. The clock is
   still the first key.
@@ -36,7 +38,9 @@ one win the tie, the server the first.
 ## Completion Notes
 
 - Tests:
-  - `reader-view.test.ts`: a never-opened device commits no place on open.
+  - `reader-view.test.ts`: a never-opened device commits no place on open
+    at another device's place; a book with no place anywhere still commits
+    its first open (review fix; it fails without it).
   - `reader-sync` (database): two saves under one clock keep the further,
     in either order, on two devices. It fails on main.
   - Native IndexedDB check (`reader-offline-store.mjs`): under one clock the
