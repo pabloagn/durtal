@@ -10,7 +10,7 @@ import { assertEligible, readReviewBeforeOn, readReviewReceiptOn, replayReviewDe
 import { prepareEbookReview, applyEbookReview, undoEbookReview, freezeReviewContext,
   projectReviewOperation, reviewMessage, reviewOutcome, refreshReviewCaches,
   type ReviewContext, type ReviewOutcome } from "./service";
-import { reviewPreviewCache } from "./preview";
+import { previewRowsLoader, reviewPreviewCache } from "./preview";
 import { reviewPayloadHash, reviewRequestHash, REVIEW_RECEIPT_EVENTS } from "./receipts";
 import { ReviewError, reviewWriteError, type ReviewErrorCode } from "./errors";
 import { readPreparationRefusalOn } from "./preparation-errors";
@@ -121,7 +121,8 @@ export async function applyEbookReviewSelection(input: unknown, ctx: ReviewConte
     throw new ReviewError("unsupported_action", "Prepare one core commit unit before confirming this selection.");
   const previous = await replay(context, await lookup(context, requests), requests);
   if (previous) return previous;
-  const cached = reviewPreviewCache.requireAccession(transport.previewToken, requests, context.channel, context.targetDatabase);
+  const cached = await reviewPreviewCache.requireAccession(transport.previewToken, requests, context.channel, context.targetDatabase,
+    previewRowsLoader(context.planningUrl));
   const { plan, beforeReads } = cached.envelope;
   const seeds: ReceiptSeed[] = requests.map((request) => ({
     version: 1, operation: request.operation, requestHash: reviewRequestHash(request), effectHash: request.effectHash,

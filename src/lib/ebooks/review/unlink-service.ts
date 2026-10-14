@@ -9,7 +9,7 @@ import { readReviewBeforeOn, readReviewReceiptOn, replayReviewDecisionOn,
   prepareReviewUnlinkAtomicWrite, reviewUnlinkEffectHash,
   type ReceiptSeed, type UnlinkRequest, type VerifiedReviewRecord } from "./store";
 import { canonicalReviewJson, reviewRequestHash, REVIEW_RECEIPT_EVENTS } from "./receipts";
-import { reviewPreviewCache } from "./preview";
+import { previewRowsLoader, reviewPreviewCache } from "./preview";
 import { freezeReviewContext, projectReviewOperation, reviewMessage, reviewOutcome,
   refreshReviewCaches, type ReviewContext, type ReviewOutcome } from "./service";
 import { ReviewError, reviewWriteError } from "./errors";
@@ -76,7 +76,8 @@ export async function applyEbookUnlinkReview(input: unknown, ctx: ReviewContext)
     const receipt = await replayReviewDecisionOn(context.writeDb, stored, request);
     refreshReviewCaches(); return reviewOutcome(receipt);
   }
-  const cached = reviewPreviewCache.requireUnlink(transport.previewToken, request, context.channel, context.targetDatabase);
+  const cached = await reviewPreviewCache.requireUnlink(transport.previewToken, request, context.channel, context.targetDatabase,
+    previewRowsLoader(context.planningUrl));
   const { plan, before } = cached.envelope, shown = display(plan);
   const seed: ReceiptSeed = { version: 1, operation: request.operation,
     requestHash: reviewRequestHash(request), effectHash: request.effectHash,

@@ -25,7 +25,7 @@ import {
   type EbookReceipt, type ReceiptSeed, type ReviewBeforeRead, type SupportedDecision, type VerifiedReviewRecord,
 } from "./store";
 import { reviewPayloadHash, reviewRequestHash, canonicalReviewJson, REVIEW_RECEIPT_EVENTS } from "./receipts";
-import { reviewPreviewCache, type ReviewPlan } from "./preview";
+import { previewRowsLoader, reviewPreviewCache, type ReviewPlan } from "./preview";
 import { selectedCandidateHash } from "./candidate-hash";
 import { ReviewError, reviewWriteError } from "./errors";
 import { readPreparationRefusalOn } from "./preparation-errors";
@@ -223,7 +223,8 @@ export async function applyEbookReview(input: unknown, previewToken: string, ctx
     const receipt = await replayReviewDecisionOn(context.writeDb, stored, request);
     refresh(); return outcome(receipt);
   }
-  const cached = reviewPreviewCache.require(transport.previewToken, request, context.channel, context.targetDatabase);
+  const cached = await reviewPreviewCache.require(transport.previewToken, request, context.channel, context.targetDatabase,
+    previewRowsLoader(context.planningUrl));
   const { plan, before } = cached.envelope;
   const seed: ReceiptSeed = {
     version: 1, operation: request.operation, requestHash: reviewRequestHash(request),
