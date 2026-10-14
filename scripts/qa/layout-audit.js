@@ -20,9 +20,10 @@
  *   controls is checked on every line. Mark an intended inset with
  *   `data-inset` on the block or any element around it.
  * - firstContent: where the first card starts. On a list page seen on a
- *   phone it should start in the top 60% of the first screen (506px on a
- *   390 x 844 screen): `late` is true when it does not. Only a runner knows
- *   which pages are lists; a detail page's cards come later by design.
+ *   phone it should start in the top 60% of the first screen (487px on the
+ *   phone audit's 812px tall screen): `late` is true when it does not. Only
+ *   a runner knows which pages are lists; a detail page's cards come later
+ *   by design.
  *
  * Every entry names the element and the numbers that failed.
  * scripts/qa/phone-audit.mjs runs it on every route it checks, and lists the

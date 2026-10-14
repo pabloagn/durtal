@@ -184,6 +184,8 @@ let failed = 0;
 let layoutNew = 0;
 let layoutKnown = 0;
 const knownSeen = new Set();
+/** Routes that were audited: a skipped one says nothing about its known findings */
+const audited = new Set();
 for (const width of WIDTHS) {
   await send("Emulation.setDeviceMetricsOverride", {
     width,
@@ -199,6 +201,7 @@ for (const width of WIDTHS) {
       console.log(`skip ${width}px ${route}: its list links to no record`);
       continue;
     }
+    audited.add(route);
     const timed = width === 390 && route.split("?")[0] === "/ebooks";
     await send("Emulation.setCPUThrottlingRate", { rate: timed ? 4 : 1 });
     await send("Network.emulateNetworkConditions", {
@@ -278,7 +281,7 @@ console.log(
 );
 // A known finding that no longer shows on a route that ran: fixed, so its line can go
 for (const key of Object.keys(known))
-  if (routes.includes(key.split(" ")[1]) && !knownSeen.has(key))
+  if (audited.has(key.split(" ")[1]) && !knownSeen.has(key))
     console.log(`Layout: no longer found, remove it from layout-audit-known.json: ${key}`);
 console.log(
   `Layout: ${layoutNew} new and ${layoutKnown} known finding(s)${layoutNew && !strict ? " (pass --strict to fail on new ones)" : ""}`,
