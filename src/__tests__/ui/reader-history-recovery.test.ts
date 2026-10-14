@@ -12,6 +12,7 @@ vi.mock("@/lib/actions/reader-history", () => ({
   beginReaderHistory: vi.fn(), commitReaderHistory: vi.fn(), finishReaderHistory: vi.fn(), undoReaderHistory: vi.fn(),
 }));
 import { ReaderHistoryRecovery } from "@/app/(catalogue)/settings/reading/ebooks/reader-history-recovery";
+import { beginReaderHistory } from "@/lib/actions/reader-history";
 
 type Rows = Parameters<typeof ReaderHistoryRecovery>[0]["rows"];
 const rows = [{
@@ -37,5 +38,15 @@ describe("reading history recovery", () => {
     act(() => [...host.querySelectorAll<HTMLElement>('[role="option"]')].find((o) => o.textContent?.includes("Finished"))!.click());
     expect(host.querySelector('[role="combobox"]')!.textContent).toContain("Finished");
     expect(finished().disabled).toBe(false);
+  });
+
+  it("keeps its button's label while the recovery runs (SLN-699)", async () => {
+    vi.mocked(beginReaderHistory).mockReturnValue(new Promise(() => {}));
+    act(() => root.render(createElement(ReaderHistoryRecovery, { rows, operations: [] })));
+    const button = host.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    expect(button.textContent).toBe("Add selected history");
+    await act(async () => { host.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    expect(button.textContent).toBe("Add selected history");
   });
 });
