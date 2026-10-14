@@ -18,13 +18,14 @@ function setup(
     claimAfterInspect?: boolean;
     waiting?: boolean;
     current?: string;
+    retryAt?: number;
   } = {},
 ) {
   let rows: StoredOperation[] = [
     {
       ...position(1, 0.5),
       v: 1,
-      retryAt: null,
+      retryAt: options.retryAt ?? null,
       state: options.blocked
         ? "blocked"
         : options.claimAfterInspect || options.waiting
@@ -47,6 +48,13 @@ function setup(
   const store = {
     sealDeletes: vi.fn(async () => 0),
     inspect,
+    retryNow: vi.fn(async () => {
+      const head = rows[0];
+      if (!head || head.state !== "waiting" || head.retryAt === null)
+        return false;
+      rows = [{ ...head, retryAt: null }, ...rows.slice(1)];
+      return true;
+    }),
     adoptDevice: vi.fn(async (superseded: string, current: string) => {
       const before = rows;
       rows = rows.map((row) => ({
@@ -225,5 +233,43 @@ describe("a superseded device id (SLN-668)", () => {
     expect(test.send).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(31_000);
     expect(test.send).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Retry while sync is paused (SLN-668)", () => {
+  it("sends a head waiting out its backoff now", async () => {
+    const test = setup({ waiting: true, retryAt: NOW + 300_000 });
+    transport = test.transport;
+    test.visibility("visible");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(test.send).not.toHaveBeenCalled();
+    await transport.retryNow();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(test.store.retryNow).toHaveBeenCalledTimes(1);
+    expect(test.send).toHaveBeenCalledTimes(1);
+    expect(test.rows()).toEqual([]);
+  });
+  it("probes a blocked head again, once per Retry", async () => {
+    const test = setup({ blocked: true });
+    transport = test.transport;
+    test.visibility("visible");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(test.preflight).toHaveBeenCalledTimes(1);
+    await transport.retryNow();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(test.preflight).toHaveBeenCalledTimes(2);
+    expect(test.send).not.toHaveBeenCalled();
+    expect(test.rows()[0].state).toBe("blocked");
+  });
+  it("frees a blocked head on Retry once the cookie's device has changed", async () => {
+    const test = setup({ blocked: true });
+    transport = test.transport;
+    test.visibility("visible");
+    await vi.advanceTimersByTimeAsync(0);
+    test.preflight.mockResolvedValue({ authenticated: true, deviceId: OTHER });
+    await transport.retryNow();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(test.send).toHaveBeenCalledTimes(1);
+    expect(test.rows()).toEqual([]);
   });
 });

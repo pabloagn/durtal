@@ -376,6 +376,14 @@ export function createReaderTransport(options: TransportOptions) {
       kick();
     },
     requestReplay,
+    /** The reader's Retry while sync is paused (SLN-668): a blocked head is
+     * probed again, and a waiting one goes now instead of after its backoff. */
+    async retryNow() {
+      if (stopped) return;
+      probedBlocked = false;
+      await options.store.retryNow();
+      return requestReplay("foreground");
+    },
     /** The caller explicitly completed authentication reconciliation. This does
      * not run from online/visibility/device probes and never relabels originals;
      * only replay moves rows from a superseded device id to the current one.
