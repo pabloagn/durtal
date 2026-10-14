@@ -4155,8 +4155,17 @@ export class Paginator extends HTMLElement {
             } else {
                 const keep = new Set([index])
                 if (!this.noContinuousScroll) {
-                    for (const [i] of this.#views) {
-                        if (Math.abs(i - index) <= 2 && !excludedViews.includes(i)) keep.add(i)
+                    // Keep only the loaded views that run unbroken up to the
+                    // target. One across a gap (Chapter 2 kept on a jump to
+                    // Chapter 4) sat right beside it, so a back turn went to
+                    // Chapter 2 and skipped Chapter 3 (Durtal, SLN-673)
+                    for (const dir of [-1, 1]) {
+                        let i = index
+                        for (let step = 0; step < 2; step++) {
+                            i = this.#adjacentIndex(dir, i)
+                            if (i == null || !this.#views.has(i) || excludedViews.includes(i)) break
+                            keep.add(i)
+                        }
                     }
                 }
                 this.#clearViewsExcept(keep)

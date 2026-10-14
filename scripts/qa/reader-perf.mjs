@@ -34,7 +34,7 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkNavigation, goto, readerPlace, waitUI } from "./reader-navigation-checks.mjs";
+import { checkJumpBack, checkNavigation, goto, readerPlace, waitUI } from "./reader-navigation-checks.mjs";
 import { assertTurnStart, partitionTurnEvents } from "./reader-turn-start-checks.mjs";
 
 const config = JSON.parse(readFileSync(new URL("./reader-perf.json", import.meta.url), "utf8"));
@@ -649,7 +649,11 @@ const report = [];
 await sleep(300);
 for (const profileName of Object.keys(config.profiles).filter(name => !onlyProfiles || onlyProfiles.includes(name))) {
   const page = await newPage(profileName);
-  try { await checkNavigation(driver(page)); console.log("ok   navigation assertions (" + profileName + ")"); }
+  try {
+    await checkNavigation(driver(page));
+    await checkJumpBack(driver(page));
+    console.log("ok   navigation assertions (" + profileName + ")");
+  }
   catch (error) { failed++; console.log("FAIL navigation assertions (" + profileName + "): " + error.message); }
   finally { await page.close(); }
 }
