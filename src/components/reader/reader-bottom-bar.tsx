@@ -11,6 +11,9 @@ import { formatPercent, samePlace } from "@/lib/reader/place-label";
 import type { ReaderPresentation } from "@/lib/validations/reader-preferences";
 import { themeColours } from "@/lib/reader/presentation/themes";
 
+/** How far scrolled text fades into the top edge: `h-6` on the fade */
+export const QUIET_TOP_FADE_PX = 24;
+
 export type QuietChapter = { background: string; text: string; topFade: boolean };
 
 /**

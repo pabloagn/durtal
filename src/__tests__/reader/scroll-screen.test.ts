@@ -61,6 +61,27 @@ describe("a page turn in the scroll flow (SLN-674)", () => {
     await engine.goRight(); await engine.goLeft();
     expect(view.turns).toEqual([["prev", 770], ["next", 770]]);
   });
+  it("keeps the line clear of what covers the screen's edges", async () => {
+    await open(); view.renderer.scrolled = true;
+    engine.setCovered?.({ top: 24, bottom: 60 });
+    await engine.next();
+    expect(view.turns).toEqual([["next", 686]]);
+  });
+  it("reads the line between the bars at the press, once, and lands it clear of what stays", async () => {
+    await open(); view.renderer.scrolled = true;
+    engine.setCovered?.({ top: 24, bottom: 60 }, { top: 80, bottom: 100 });
+    await engine.next();
+    engine.setCovered?.({ top: 24, bottom: 60 }, { top: 80, bottom: 100 });
+    await engine.prev();
+    await engine.next();
+    expect(view.turns).toEqual([["next", 646], ["prev", 630], ["next", 686]]);
+  });
+  it("ignores covers that would leave less than half the screen", async () => {
+    await open(); view.renderer.scrolled = true;
+    engine.setCovered?.({ top: 300, bottom: 300 });
+    await engine.next();
+    expect(view.turns).toEqual([["next", 770]]);
+  });
   it("never keeps less than half a screen of new text", async () => {
     await open(); view.renderer.scrolled = true; view.renderer.size = 40;
     await engine.next();

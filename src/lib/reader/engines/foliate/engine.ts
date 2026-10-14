@@ -95,6 +95,9 @@ import type {
 type AnyHandler = (detail: never) => void;
 type SelectedRange = { range: Range; index: number; text: string };
 
+/** The part of the screen a page turn reads, in the page's coordinates */
+type ViewBox = { top: number; bottom: number; left: number; width: number; height: number };
+
 const ZIP_FORMATS = new Set<ReaderFormat>(["epub", "kepub", "fbz", "cbz"]);
 /** How far an arrow key scrolls a scrolled book: about two lines */
 const SCROLL_LINE_PX = 48;
@@ -173,6 +176,8 @@ class FoliateEngine implements ReaderEngine {
   #fixedZoom: number | null = null;
   /** The reader's bars, top and bottom, kept clear of the text (SLN-663) */
   #insets = { top: 0, bottom: 0, pinned: false };
+  #covered = { top: 0, bottom: 0 };
+  #coveredNow: { top: number; bottom: number } | null = null;
   #ink = new PublisherInk(() => this.#emit("error", { kind: "damaged", message: "The book colours could not be prepared. Try opening the book again." }));
   #pdfMarks = new PdfDecorations(event => this.#emit("annotation-activated", event));
   #opening = new AbortController();
@@ -1607,6 +1612,12 @@ class FoliateEngine implements ReaderEngine {
     }
   }
 
+  setCovered(covered: { top: number; bottom: number }, now?: { top: number; bottom: number }) {
+    const edges = (e: { top: number; bottom: number }) => ({ top: Math.max(0, e.top), bottom: Math.max(0, e.bottom) });
+    this.#covered = edges(covered);
+    this.#coveredNow = now ? edges(now) : null;
+  }
+
   setInsets(insets: { top: number; bottom: number; pinned: boolean }) {
     const top = Math.max(0, Math.ceil(insets.top)), bottom = Math.max(0, Math.ceil(insets.bottom));
     const { pinned } = insets;
@@ -2296,19 +2307,31 @@ class FoliateEngine implements ReaderEngine {
    * book turns pages.
    */
   #screenDistance(forward: boolean) {
+    const pressed = this.#coveredNow;
+    this.#coveredNow = null;
     const renderer = this.#view?.renderer;
     const size = renderer?.scrolled ? renderer.size : undefined;
     if (!renderer || !size) return undefined;
     const line = this.#lineHeight();
-    const box = renderer.shadowRoot
+    const rect = renderer.shadowRoot
       ?.getElementById("container")
       ?.getBoundingClientRect();
+    // The line is read between the layers over the text at the key press
+    // and lands clear of those left once the turn has hidden the bars,
+    // unless either would leave less than half the screen
+    const fits = (e: { top: number; bottom: number }) => e.top + e.bottom < size / 2;
+    const after = fits(this.#covered) ? this.#covered : { top: 0, bottom: 0 };
+    const now = pressed && fits(pressed) ? pressed : after;
+    const box = rect && {
+      top: rect.top + now.top, bottom: rect.bottom - now.bottom,
+      left: rect.left, width: rect.width, height: rect.height - now.top - now.bottom,
+    };
     const kept = box && this.#keptLine(box, forward, line);
-    const distance = !box || !kept
-      ? size - line
+    const distance = !rect || !kept
+      ? size - (forward ? now.bottom + after.top : now.top + after.bottom) - line
       : forward
-        ? kept.top - box.top
-        : box.bottom - kept.bottom;
+        ? kept.top - (rect.top + after.top)
+        : rect.bottom - after.bottom - kept.bottom;
     return Math.min(size, Math.max(size / 2, distance));
   }
   /**
@@ -2316,7 +2339,7 @@ class FoliateEngine implements ReaderEngine {
    * text block at the edge, and steps past a cut line or a gap between
    * blocks, at most half a screen in.
    */
-  #keptLine(box: DOMRect, forward: boolean, line: number) {
+  #keptLine(box: ViewBox, forward: boolean, line: number) {
     const edge = forward ? box.bottom : box.top;
     const step = forward ? -1 : 1;
     let y = edge + step;
@@ -2348,7 +2371,7 @@ class FoliateEngine implements ReaderEngine {
     return undefined;
   }
   /** The line boxes of the text block at this height, in the page's coordinates */
-  #lineRectsAt(box: DOMRect, y: number) {
+  #lineRectsAt(box: ViewBox, y: number) {
     for (const { doc } of this.#view?.renderer.getContents() ?? []) {
       const frame = doc.defaultView?.frameElement?.getBoundingClientRect();
       if (!frame || y < frame.top || y >= frame.bottom) continue;
