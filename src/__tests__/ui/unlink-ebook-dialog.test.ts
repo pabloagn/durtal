@@ -89,6 +89,13 @@ describe("actual automatic Undo and fresh Unlink dialog", () => {
     expect(review.undoReviewUi).toHaveBeenCalledWith({ ebookId: kept.ebookId, originalOperation: operation });
     expect(host.textContent).toContain("Unlinked. It is back in review.");
   });
+  it("makes the unlink itself a danger button, so Enter alone never confirms it", async () => {
+    await click("Check what changes");
+    const unlink = [...host.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent === "Undo the link")!;
+    expect(unlink.dataset.variant).toBe("danger");
+    expect(unlink.dataset.shortcut).toBe("save");
+    expect(host.querySelectorAll('button[data-variant="primary"]')).toHaveLength(0);
+  });
   it("names what an unlink removes in words, leaving out what it keeps", () => {
     expect(removedWords({ copies: 1, editions: 1, books: 0, authors: 0, series: 0 })).toBe("1 copy and 1 edition");
     expect(removedWords({ copies: 2, editions: 1, books: 1, authors: 0, series: 1 })).toBe("2 copies, 1 edition, 1 book and 1 series");

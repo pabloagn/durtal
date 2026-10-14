@@ -117,7 +117,8 @@ export function UnlinkEbookDialog({ target, initialMode, onClose, onCommitted }:
           <Button onClick={() => { generation.current++; setMode("unlink"); setPrepared(null); setError(null); setPhase("editing"); }}>Unlink instead</Button>}
         {phase === "editing" && <Button variant="primary" onClick={() => void prepare()}>Check what changes</Button>}
         {phase === "preparing" && <Button variant="primary" disabled>Checking…</Button>}
-        {prepared && <Button variant="primary" disabled={phase === "applying" || !prepared.capabilities.canApply} onClick={() => void confirm()}>
+        {/* It removes copies and catalogue entries with no Undo: a danger button, which Enter never presses (⌘Enter does) */}
+        {prepared && <Button variant="danger" data-shortcut="save" disabled={phase === "applying" || !prepared.capabilities.canApply} onClick={() => void confirm()}>
           {phase === "applying" ? "Unlinking…" : phase === "unknown" ? "Try again" : mode === "automatic_undo" ? "Undo the link" : "Unlink"}
         </Button>}
         {phase === "keeping" && <Button variant="primary" disabled>Keeping as an eBook…</Button>}

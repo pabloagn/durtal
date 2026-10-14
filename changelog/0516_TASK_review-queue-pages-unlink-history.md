@@ -61,3 +61,21 @@ page showed that a link or an unlink had happened.
   with "This preview expired"; the same link works on 60 e-books. Likely the
   review preview cache's size limit (`src/lib/ebooks/review/preview.ts`), not
   confirmed.
+
+### Review fixes
+
+- Two presses of Enter unlinked an eBook with no click: the first pressed
+  "Check what changes", the second the primary "Unlink", which removes copies
+  and catalogue entries with no Undo. The Unlink (and "Undo the link") button
+  is now a danger button with `data-shortcut="save"`, as Undo import is: Enter
+  ignores it, ⌘Enter presses it.
+- On the eBook page the dialog closed as soon as the unlink was written: it
+  lived in the linked-book card, which the unlink's refresh removes, so
+  "Undo keep" never showed, and it took the card title's PP Cirka. The dialog
+  is now hosted by the catalogue layout (`unlink-dialog-host.tsx`); the
+  eBook page's menu, a book's copy and the eBook list's Unlink… open it
+  there. Its toasts are gone, as the dialog says what happened.
+- History says "Linked to its book" (a link is also made from the eBook
+  page), and its footer no longer sends you to a run for decisions.
+- Tests: `unlink-ebook-dialog.test.ts` (no primary button once checked) and
+  `unlink-dialog-host.test.ts` (the dialog outlives the card that opened it).

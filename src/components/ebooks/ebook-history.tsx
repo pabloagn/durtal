@@ -6,7 +6,7 @@ import { SectionHeading } from "@/components/shared/section-heading";
 
 /** What a review decision did, as a History line (SLN-684) */
 const DECISIONS: Record<string, string> = {
-  accept: "Linked in review", link: "Linked in review", accession: "Added as a new book",
+  accept: "Linked to its book", link: "Linked to its book", accession: "Added as a new book",
   keep: "Kept as an eBook", exclude: "Set aside", rematch: "Matched again",
   restore: "Returned to review", unlink: "Unlinked", undo: "Decision undone",
 };
@@ -52,7 +52,7 @@ export function EbookHistory({ ebook, decisions, decisionTotal }: {
     )}
     {total > items.length && (
       <p className="mt-3 text-xs text-fg-secondary">
-        Showing the latest {items.length} of {total} events. Open a run for its full history.
+        Showing the latest {items.length} of {total} events.
       </p>
     )}
   </>;
