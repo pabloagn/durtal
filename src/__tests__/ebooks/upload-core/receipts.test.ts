@@ -60,4 +60,11 @@ describe("actual upload permanent identity and held plans (no database)",()=>{
       {kind:"replace",ebookId:id,fileId:other})).toThrow();
     expect(()=>requireExplicitRegistrationIntent(registration,{kind:"replace",ebookId:id,fileId:id})).toThrow();
   });
+  it("says in plain words why a file cannot be added or replaced (SLN-672)",()=>{
+    const added={ebookId:id,newEbook:null,inserts:[{id:other}],items:[{outcome:"new_format"}],replaced:[]} as unknown as Registration;
+    const replacing={...added,items:[{outcome:"replaced_file"}],replaced:[{fileId:other,previousStatus:"stored"}]} as unknown as Registration;
+    expect(()=>requireExplicitRegistrationIntent(added,{kind:"replace",ebookId:id,fileId:other})).toThrow("Replace takes a file of the same format");
+    expect(()=>requireExplicitRegistrationIntent(replacing,{kind:"replace",ebookId:id,fileId:id})).toThrow("no longer the eBook's current one");
+    expect(()=>requireExplicitRegistrationIntent(replacing,{kind:"add_format",ebookId:id})).toThrow("use Replace file on that file");
+  });
 });
