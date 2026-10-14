@@ -238,3 +238,13 @@ adapter regression source added; native retesting remains pending.
     fixed layout for every turn and jump of PDFs and comics, which now read
     `animated` and `turn-style` too. Without View Transitions, or during
     another one, nothing changes. SLN-660.
+
+27. `paginator.js`: a nonlinear section opened from a link (notes) stands
+    alone in the loaded strip (`getStripNeighbourIndex`, exported): no
+    section is kept beside it on the jump, loaded before it to fill a short
+    spread, or preloaded after it. Chained after the chapter before, it began
+    in that chapter's last spread when the chapter ended on a left page, and
+    the settle a quarter second later took the chapter for the current
+    section, so the reader showed the chapter's last page number. Turns out
+    of it, the start and end tests and linear sections' own strips are
+    unchanged.

@@ -6,9 +6,11 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
 import type { Db } from "@/lib/catalogue/work-store";
 vi.mock("server-only", () => ({}));
+// The duplicate refusal comes before any publication is read, so its evidence is taken as accepted here
+vi.mock("@/lib/ebooks/publication-evidence", async (load) => ({ ...await load<object>(), acceptedPublication: () => true }));
 import { readUploadTargetSummary } from "@/lib/ebooks/upload/target-summary";
 import { readUploadTargetSnapshotOn } from "@/lib/ebooks/upload/atomic-snapshots";
-import { uploadTargetRowsFingerprint } from "@/lib/ebooks/ingest/upload-atomic";
+import { planUploadRegistrationOn, uploadTargetRowsFingerprint } from "@/lib/ebooks/ingest/upload-atomic";
 import { targetFingerprintFromRows } from "@/lib/ebooks/upload-core/snapshots";
 
 // The upload page's fingerprint for an add-format or replace link must be the
@@ -42,5 +44,18 @@ describe.skipIf(!url)("upload target summary on PostgreSQL", () => {
     // A change to the eBook changes what the server will check
     await client!`update ebooks set title = 'A rebours' where id = ${one.ebookId}`;
     expect((await readUploadTargetSummary(one.ebookId, null, conn))!.fingerprint).not.toBe(summary!.fingerprint);
+  });
+  it("refuses a file already in the library in plain words, so the page can show why", async () => {
+    const sha256 = randomUUID().replaceAll("-", "").padEnd(64, "0");
+    const [ebook] = await client!`insert into ebooks(title, import_source, search_text) values ('Nadja', 'upload', 'nadja') returning id`;
+    await client!`insert into ebook_files(ebook_id, sha256, s3_key, format, size_bytes, content_type, status)
+      values (${ebook.id}, ${sha256}, ${`ebooks/${randomUUID()}.epub`}, 'epub', 2048, 'application/epub+zip', 'stored')`;
+    const path = `upload:${randomUUID()}`;
+    const file = { path, size: 2048, mtimeMs: 0, sha256, format: "epub", contentType: "application/epub+zip", key: "k",
+      problem: null, drm: null, metadata: {}, manifestKey: null };
+    const group = { key: path, folder: path, sidecar: null, importSource: "upload", importRef: null, personalData: false,
+      existingEbookId: null, ebook: { title: "Nadja" }, paths: [path] };
+    await expect(planUploadRegistrationOn(conn, { group, file, target: { kind: "new" }, runId: randomUUID(), at: new Date() } as never))
+      .rejects.toMatchObject({ status: 409, code: "upload_already_stored", message: "This exact file is already in the library." });
   });
 });

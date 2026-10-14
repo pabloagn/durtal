@@ -115,9 +115,10 @@ const toPosition = (row: PositionRow): SavedPosition => ({
 });
 
 /**
- * Saves a device's place in a file. A place older than the stored one
- * changes nothing but furthest_progression. Returns whether it was the
- * newest, and the row as it stands.
+ * Saves a device's place in a file. A place older than the stored one, or
+ * under the same clock and not further, changes nothing but
+ * furthest_progression. Returns whether its clock is the newest, and the row
+ * as it stands.
  */
 export async function savePosition(input: {
   ebookId: string;
@@ -128,7 +129,11 @@ export async function savePosition(input: {
   const { ebookId, deviceId, deviceLabel, body } = input;
   const progression = body.locator.totalProgression;
   const at = body.clientUpdatedAt.toISOString();
-  const newer = sql`ebook_positions.client_updated_at < excluded.client_updated_at`;
+  // Two saves under one clock keep the further place, so an echo of an older
+  // place can never move it back (SLN-665)
+  const newer = sql`(ebook_positions.client_updated_at < excluded.client_updated_at
+    or (ebook_positions.client_updated_at = excluded.client_updated_at
+      and excluded.progression > ebook_positions.progression))`;
   const [row] = resultRows<PositionRow & { saved: boolean }>(
     await db.execute(sql`insert into ebook_positions
         (ebook_id, file_id, device_id, device_label, locator, progression, furthest_progression, chapter, client_updated_at)

@@ -25,8 +25,9 @@ export function ebookCardData(
 ): EbookCardData {
   return {
     id: ebook.id,
-    title: ebook.title,
-    authors: ebook.authors,
+    // A linked e-book goes by its book's title and authors (SLN-683)
+    title: ebook.bookTitle ?? ebook.title,
+    authors: ebook.bookAuthors ?? ebook.authors,
     formats: availableFormats(ebook),
     language: ebook.language,
     linked: ebook.matchState === "linked",

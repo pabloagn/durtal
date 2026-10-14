@@ -52,6 +52,7 @@ import { catalogueReadLabel } from "@/lib/ebooks/read-target";
 import { getEbookSuggestionCount } from "@/lib/ebooks/review-queue/suggestions";
 import { EbookSuggestionLine } from "@/components/ebooks/ebook-suggestion-line";
 import { formatLabel } from "@/lib/ebooks/formats";
+import { getEbookReach } from "@/lib/ebooks/highlights";
 import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
 import { ReadButton } from "@/components/reader/read-button";
 import { Badge } from "@/components/ui/badge";
@@ -189,6 +190,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     ...linkedBookIds(links),
   ]);
   const digitalBooks = digital.get(work.id)?.ebooks ?? [];
+  const reach = await getEbookReach(digitalBooks.map((e) => e.ebookId));
   const digitalCards = new Map([...digital].map(([id, value]) => [id, value.read]));
   const readerReturnTo = `/library/${slug}`;
   // Quotes by edition (SLN-480): each edition named once for the browser, the groups in the Editions section's order
@@ -211,12 +213,14 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
         e.instanceId,
         {
           id: e.ebookId,
-          formats: e.downloadFormats.map(formatLabel).join(", "),
+          formats: e.downloadFormats.map(formatLabel),
           sizeBytes: e.sizeBytes,
           readerPath: e.continue?.href ?? null,
           readLabel: catalogueReadLabel(e.continue),
           unavailableReason: e.unavailableReason,
           returnTo: `${readerReturnTo}#edition-${e.editionId}`,
+          marks: reach.get(e.ebookId) ?? { highlights: 0, notes: 0, bookmarks: 0 },
+          places: reach.get(e.ebookId)?.places ?? 0,
         },
       ]),
   );

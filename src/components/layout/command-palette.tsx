@@ -139,8 +139,9 @@ function ResultThumb({ src, name, kind }: { src: string | null; name: string; ki
 
 const GROUP_CLASS =
   "text-xs font-medium text-fg-secondary [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5";
+// 44px rows on touch, like every other control a finger presses
 const ITEM_CLASS =
-  "flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-sm text-fg-secondary transition-colors aria-selected:bg-selection-bg/60 aria-selected:text-fg-primary";
+  "flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 pointer-coarse:min-h-11 text-sm text-fg-secondary transition-colors aria-selected:bg-selection-bg/60 aria-selected:text-fg-primary";
 
 export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo }: CommandPaletteProps) {
   const router = useRouter();
