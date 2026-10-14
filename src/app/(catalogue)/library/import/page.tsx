@@ -25,7 +25,7 @@ export default function ImportPage() {
         <Card>
           <CardContent className="py-6">
             <div className="flex flex-col items-center justify-center">
-              <div className="mb-4 rounded-sm border border-glass-border bg-bg-primary p-3">
+              <div aria-hidden="true" data-decorative="" className="mb-4 rounded-sm border border-glass-border bg-bg-primary p-3">
                 <Upload className="h-6 w-6 text-fg-muted" strokeWidth={1.5} />
               </div>
               <h3 className="type-item-title">

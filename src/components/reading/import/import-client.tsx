@@ -79,7 +79,7 @@ export function ImportUpload() {
         over ? "border-accent-primary/40 bg-accent-primary/5" : "border-glass-border bg-bg-secondary"
       }`}
     >
-      <div className="mb-5 rounded-sm border border-glass-border bg-bg-secondary/50 p-3.5">
+      <div data-decorative="" className="mb-5 rounded-sm border border-glass-border bg-bg-secondary/50 p-3.5">
         <Upload className="h-6 w-6 text-fg-muted" strokeWidth={1.5} aria-hidden />
       </div>
       <h2 className="type-item-title">Import reading history</h2>
