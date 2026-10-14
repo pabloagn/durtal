@@ -10,6 +10,7 @@ import { createUploadBatchSchema, uploadBatchViewSchema, uploadCommandSchema, up
   uploadItemViewSchema, type UploadBatchView, type UploadItemView, type UploadCommand, type UploadOutcome } from "./protocol";
 import { canonicalJson } from "./idempotency";
 import { UploadAdmissionRefusal } from "./admission-refusal";
+import { UPLOAD_BROKER_KEY } from "./availability";
 
 /** The app receives this port; spool, supervisor and engine access stay in the
  * owned service process. The authenticated Unix bridge implements the same port.
@@ -153,7 +154,7 @@ export class UploadBroker implements UploadGateway {
   }
 }
 
-const registryKey = Symbol.for("durtal.ebook-upload.broker.v1");
+const registryKey = UPLOAD_BROKER_KEY;
 /** Explicit owned-service composition only. No import-side startup or fallback. */
 export function installUploadBroker(broker: UploadGateway): void {
   const registry = globalThis as unknown as Record<symbol, unknown>;

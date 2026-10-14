@@ -127,7 +127,12 @@ export function EbookFilesTable({
                     Open first
                   </button>
                 )}
-                {!file.download && !file.readable ? "—" : null}
+                <Link
+                  href={`/ebooks/upload?kind=replace&ebookId=${ebookId}&fileId=${file.id}`}
+                  className="touch-hit text-accent-primary"
+                >
+                  Replace file<span className="sr-only"> ({formatLabel(file.format)})</span>…
+                </Link>
               </div>
             );
           return null;

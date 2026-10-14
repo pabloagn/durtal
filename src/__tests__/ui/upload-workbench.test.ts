@@ -18,7 +18,7 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals(); });
 async function flush() { for (let i = 0; i < 12; i++) await new Promise<void>((resolve) => setTimeout(resolve, 0)); }
-async function mount(target: UploadTarget = { kind: 'new' }) { await act(async () => { root.render(createElement(UploadWorkbench, { target, initialBatchId: null })); await flush(); }); }
+async function mount(target: UploadTarget = { kind: 'new' }, available = true) { await act(async () => { root.render(createElement(UploadWorkbench, { target, initialBatchId: null, available })); await flush(); }); }
 function button(label: string): HTMLButtonElement { const found = [...host.querySelectorAll('button')].find((b) => b.textContent === label); if (!found) throw new Error(`Missing ${label}`); return found; }
 async function click(label: string) { await act(async () => { button(label).click(); await flush(); }); }
 async function choose(input: HTMLInputElement) {
@@ -46,16 +46,18 @@ describe('mounted upload recovery and another batch', () => {
       }
       return Response.json({ operationId: itemId, key: command.key, status: 200, message: 'Canceled', preview: null });
     }));
-    await mount(); await choose(host.querySelector('input[type=file]')!);
+    await mount(); await click('Choose the file again'); await choose(host.querySelector('input[aria-label="Choose the file again"]')!);
     const pending = readUploadSession().pending;
     expect(pending).toMatchObject({ body: { action: 'admit', generation: 6 } });
     expect(button('Cancel upload').disabled).toBe(true); expect(button('Start another upload').disabled).toBe(true);
-    await click('Retry saved request');
+    expect(button('Resume').disabled).toBe(true);
+    await click('Send it again');
     expect(commands).toHaveLength(2); expect(commands[1]).toBe(commands[0]);
     expect(readUploadSession()).toMatchObject({ pending: null, lastRefusal: { generation: 6 } });
     expect(button('Cancel upload').disabled).toBe(false);
-    expect(host.querySelector<HTMLInputElement>('input[type=file]')!.disabled).toBe(false);
-    expect(host.textContent).toContain('Admission for generation 6 was refused');
+    // The file chosen again is remembered, so Resume sends it without choosing it a third time
+    expect(button('Resume').disabled).toBe(false);
+    expect(host.textContent).toContain('The server restarted before it took the last file');
     await click('Cancel upload'); expect(JSON.parse(commands[2]).action).toBe('cancel');
   });
   it('starts a second batch with the current replacement target and retains the previous batch link', async () => {
@@ -81,5 +83,55 @@ describe('mounted upload recovery and another batch', () => {
     expect(input.multiple).toBe(false); await choose(input); await click('Start upload');
     expect(creates).toHaveLength(1); expect(creates[0].files[0].target).toEqual(target);
     expect(readUploadSession().batchId).toBe(newBatch); expect(readUploadSession().pending).toBeNull();
+  });
+});
+
+describe('the upload page says what happened (SLN-672)', () => {
+  const ebookId = '55555555-5555-4555-8555-555555555555';
+  it('unlocks the page after a refusal the server will repeat, and Discard drops a lost request', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ error: 'Uploads are not available on this server yet.' }, { status: 503 })));
+    await mount(); await choose(host.querySelector('input[aria-label="Choose eBook files"]')!); await click('Start upload');
+    expect(readUploadSession().pending).toBeNull();
+    expect(host.textContent).toContain('Uploads are not available on this server yet.');
+    expect(button('Start upload').disabled).toBe(false);
+    await act(async () => root.unmount()); root = createRoot(host);
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('network down'); }));
+    await mount(); await choose(host.querySelector('input[aria-label="Choose eBook files"]')!); await click('Start upload');
+    expect(readUploadSession().pending).toMatchObject({ kind: 'create' });
+    expect(button('Start upload').disabled).toBe(true);
+    await click('Discard request');
+    expect(readUploadSession().pending).toBeNull(); expect(button('Start upload').disabled).toBe(false);
+  });
+  it('says up front when uploads are off', async () => {
+    await mount({ kind: 'new' }, false);
+    expect(host.textContent).toContain('Uploads are off on this server');
+    expect(button('Choose files').disabled).toBe(true);
+  });
+  it('leads from a finished file to its eBook, the reader and linking', async () => {
+    writeUploadSession({ version: 1, batchId: oldBatch, pending: null });
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ batch: { id: oldBatch, key: oldBatch, runId,
+      items: [{ ...summary(0, 'completed'), ebookId, fileId: itemId }] }, ready: true })));
+    await mount();
+    expect(host.querySelector(`a[href="/ebooks/${ebookId}"]`)?.textContent).toBe('Open eBook');
+    expect(host.querySelector(`a[href^="/reader/${ebookId}"]`)?.textContent).toBe('Read');
+    expect(host.querySelector(`a[href="/ebooks/${ebookId}#book"]`)?.textContent).toBe('Link to a book…');
+    expect(host.textContent).toContain('Added · 1 KB');
+    expect(host.querySelector('[role=progressbar]')?.getAttribute('aria-valuenow')).toBe('100');
+  });
+  it('previews and confirms every received file in turn', async () => {
+    writeUploadSession({ version: 1, batchId: oldBatch, pending: null });
+    const second = '66666666-6666-4666-8666-666666666666';
+    const items = [{ ...summary(0), state: 'ready' }, { ...summary(0), id: second, name: 'other.epub', sha256: 'c'.repeat(64), state: 'ready' }];
+    const actions: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+      if (!options?.method) return Response.json({ batch: { id: oldBatch, key: oldBatch, runId, items }, ready: true });
+      const command = JSON.parse(String(options.body)); actions.push(`${command.action} ${url.split('/').pop()}`);
+      return Response.json({ operationId: url.split('/').pop(), key: command.key, status: 200, message: 'Previewed',
+        preview: command.action === 'prepare' ? { token: 'd'.repeat(64), effect: 'Adds this file to the library as a new eBook.', expiresAt: new Date(Date.now() + 600_000).toISOString() } : null });
+    }));
+    await mount(); await click('Preview all (2)');
+    expect(actions).toEqual([`prepare ${itemId}`, `prepare ${second}`]);
+    await click('Confirm all (2)');
+    expect(actions.slice(2)).toEqual([`confirm ${itemId}`, `confirm ${second}`]);
   });
 });

@@ -14,6 +14,12 @@ const sessionSchema = z.strictObject({ version: z.literal(1), batchId: z.uuid().
 export type UploadBrowserSession = z.output<typeof sessionSchema>;
 export type PendingUploadRequest = NonNullable<UploadBrowserSession["pending"]>;
 const STORAGE = "durtal.ebook-upload.v1";
+/** A request the server answered with an error status: `definitive` when sending it again cannot change the answer. */
+export class UploadHttpError extends Error {
+  constructor(readonly status: number, message: string) { super(message); }
+  /** 4xx (except timeout and rate limit) and 503 unavailable: the server refused it and applied nothing new (SLN-672) */
+  get definitive(): boolean { return this.status >= 400 && this.status < 500 && this.status !== 408 && this.status !== 429 || this.status === 503; }
+}
 export function readUploadSession(): UploadBrowserSession {
   const raw = localStorage.getItem(STORAGE);
   if (!raw) return { version: 1, batchId: null, pending: null };
@@ -40,6 +46,12 @@ export function settleUploadAdmissionRefusal(session: UploadBrowserSession, requ
   localStorage.setItem(storageKey, evidence); // save original facts before clearing uncertainty
   return { ...session, pending: null, lastRefusal: error.refusal };
 }
+/** The file chosen to resume an upload is not the one it started with */
+export class UploadFileMismatch extends Error {}
+/** Drops the saved request without sending it again. A batch it may have created stays on the server until it expires. */
+export function discardUploadRequest(session: UploadBrowserSession): UploadBrowserSession {
+  return { ...session, pending: null };
+}
 export function startAnotherUploadBatch(session: UploadBrowserSession): UploadBrowserSession {
   if (session.pending) throw new Error("Resolve the saved upload request before starting another batch.");
   const priorBatches = [...new Set([...(session.batchId ? [session.batchId] : []), ...(session.priorBatches ?? [])])].slice(0, 32);
@@ -61,7 +73,7 @@ export async function uploadResponse(response: Response, allowReceipt = false, r
       const receipt = uploadOutcomeSchema.safeParse(body);
       if (receipt.success && receipt.data.status === response.status) return receipt.data;
     }
-    if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : typeof body.message === "string" ? body.message : "The upload request could not be completed.");
+    if (!response.ok) throw new UploadHttpError(response.status, typeof body.error === "string" ? body.error : typeof body.message === "string" ? body.message : "The upload request could not be completed.");
     return body;
   } finally { if (!done) await reader.cancel(); reader.releaseLock(); }
 }
@@ -74,9 +86,9 @@ export async function sendUploadRequest(request: PendingUploadRequest): Promise<
  * timestamps never authorize resume. PUT concurrency is globally four here.
  */
 export async function sendUploadParts(file: File, item: UploadItemView, signal: AbortSignal, acknowledged: (bytes: number) => void, beforeSend: () => Promise<unknown> = async () => {}): Promise<void> {
-  if (file.size !== item.bytes) throw new Error("The selected file has a different size.");
+  if (file.size !== item.bytes) throw new UploadFileMismatch("This is a different file: its size differs from the one being uploaded.");
   const evidence = await fingerprintUploadFile(file, signal);
-  if (evidence.sha256 !== item.sha256) throw new Error("The selected file has different bytes.");
+  if (evidence.sha256 !== item.sha256) throw new UploadFileMismatch("This is a different file: its contents differ from the one being uploaded.");
   const retained = new Set(item.acknowledged.map((part) => part.number));
   const missing = resumeParts({ sourceBytes: item.bytes, generation: item.generation, receipts: item.acknowledged }, item.generation,
     evidence.parts.filter((part) => retained.has(part.number)));

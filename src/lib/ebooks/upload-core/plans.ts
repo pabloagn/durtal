@@ -98,9 +98,9 @@ export async function prepareUploadEffectOn(conn:Db,scope:CoreScope,upload:CoreO
     return {...base,ebookId:registration.ebookId,registration,restoration:null,original:null,
       matching:native.classification??null,coreOperation:{version:1,operationId:newUploadIdentity(),runId:upload.run_id!,
         targetDatabase:scope.databaseFingerprint,planSha256:native.planSha256},
-      effect:registration.newEbook ? "Create this book and register its verified file."
-        : registration.replaced.length ? "Replace the selected file. Retain its original bytes, reading places, passages and notes."
-          : "Add this format to the selected book. Preserve its reading places, passages and notes.",
+      effect:registration.newEbook ? "Adds this file to the library as a new eBook."
+        : registration.replaced.length ? "Replaces the eBook's file with this one. The old file is kept, and the reading places, highlights and notes stay."
+          : "Adds this format to the eBook. Its reading places, highlights and notes stay.",
       publication:[{id:inserted.id,ebookId:registration.ebookId,sha256:inserted.sha256,format:inserted.format,
         sizeBytes:inserted.sizeBytes,s3Key:inserted.s3Key,manifestKey:inserted.manifestKey,metadata:inserted.metadata}]};
   }
