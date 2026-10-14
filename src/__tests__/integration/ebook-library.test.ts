@@ -28,6 +28,7 @@ import {
 import { parseEbookLibraryParams } from "@/lib/ebooks/library-params";
 import { setPreferredFile } from "@/lib/ebooks/preferred-file";
 import { getLinkedBook } from "@/lib/ebooks/linked-book";
+import { getEbookReach } from "@/lib/ebooks/highlights";
 import {
   ebookLibraryPageQuery,
   getEbooksPage,
@@ -272,6 +273,15 @@ describe.skipIf(!url)(
       const reading = await place(1, 0.4, 0.5);
       expect(reading?.bookTitle).toBe("Là-bas");
       expect(reading?.bookAuthors).toEqual(["J.-K. Huysmans"]);
+      // The /ebooks listing names the same book, and its marks and places are counted for the book page
+      const listed = (await getEbooksPage(parseEbookLibraryParams({ q: "down there" }), database!)).find((row) => row.id === ebook.id);
+      expect(listed).toMatchObject({ bookId: work.id, bookTitle: "Là-bas", bookAuthors: ["J.-K. Huysmans"] });
+      const at = { v: 1, fileHash: checksum, href: "chapter", sectionIndex: 1, progression: 0.4, totalProgression: 0.5 };
+      const quoted = JSON.stringify({ ...at, text: { highlight: "a quote" } });
+      await client!`insert into ebook_annotations(ebook_id, file_id, kind, style, color, locator, progression, text, note, client_updated_at)
+        values (${ebook.id}, ${file.id}, 'highlight', 'highlight', 'ochre', ${quoted}, 0.5, 'a quote', 'a note', now()),
+          (${ebook.id}, ${file.id}, 'bookmark', 'highlight', null, ${JSON.stringify(at)}, 0.5, null, null, now())`;
+      expect((await getEbookReach([ebook.id], database!)).get(ebook.id)).toEqual({ highlights: 1, notes: 1, bookmarks: 1, places: 1 });
       // Finished
       expect(await place(3, 1, 1)).toBeUndefined();
     });
