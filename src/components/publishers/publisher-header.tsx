@@ -80,9 +80,12 @@ export function PublisherHeader({
           )}
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="type-page-title flex items-start gap-4">
-            <h1 className="type-page-title min-w-0 flex-1 break-words">{name}</h1>
+        <div className="@container min-w-0 flex-1">
+          {/* A long name keeps the row's width on a narrow screen: the
+              controls go under it when it would not fit on one line beside
+              them, and stay beside a short name or a wide row's name */}
+          <div className="type-page-title flex flex-wrap items-start gap-x-4 @xl:flex-nowrap">
+            <h1 className="type-page-title min-w-0 flex-[1_1_auto] break-words">{name}</h1>
             {/* On the cap-height center of the name's first line */}
             <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
               <FavouriteToggle
