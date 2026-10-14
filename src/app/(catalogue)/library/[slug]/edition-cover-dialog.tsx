@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, ImageIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -41,6 +41,15 @@ export function EditionCoverDialog({ edition, poster }: EditionCoverDialogProps)
   const [showUrl, setShowUrl] = useState(false);
   const [url, setUrl] = useState("");
   const [urlBusy, setUrlBusy] = useState(false);
+  // The button that takes the place of the one just pressed gets the focus,
+  // once the refreshed edition shows it, so focus never falls to the page
+  const focusNext = useRef<"put-back" | "use-book" | null>(null);
+  const takeFocus = (name: "put-back" | "use-book") => (el: HTMLButtonElement | null) => {
+    if (el && focusNext.current === name) {
+      focusNext.current = null;
+      el.focus();
+    }
+  };
 
   const ownKey = edition.thumbnailS3Key ?? edition.coverS3Key;
   const image = editionImage(edition, poster);
@@ -96,6 +105,7 @@ export function EditionCoverDialog({ edition, poster }: EditionCoverDialogProps)
     try {
       await restoreOwnCover(edition.id, cover);
       setReplaced(null);
+      focusNext.current = "use-book";
       toast.success("The edition's own cover is back");
       changed();
     } catch (error) {
@@ -112,9 +122,10 @@ export function EditionCoverDialog({ edition, poster }: EditionCoverDialogProps)
       const { previous, restorable: canRestore } = await showBookCover(edition.id);
       const undo = previous && canRestore ? previous : null;
       setReplaced(undo);
-      toast.success("Now using the book's cover", undo
-        ? { action: { label: "Undo", onClick: () => void putBack(undo) } }
-        : undefined);
+      if (undo) focusNext.current = "put-back";
+      // No Undo on the toast: the modal dialog makes it inert. "Put back this
+      // edition's cover" takes this button's place in the dialog instead.
+      toast.success("Now using the book's cover");
       changed();
     } catch (error) {
       toast.error((error as Error).message || "The cover could not be changed.");
@@ -232,6 +243,7 @@ export function EditionCoverDialog({ edition, poster }: EditionCoverDialogProps)
             <div className="flex flex-wrap items-center gap-2">
               {ownKey && (
                 <Button
+                  ref={takeFocus("use-book")}
                   size="sm"
                   variant="secondary"
                   disabled={busy || !bookCover}
@@ -242,6 +254,7 @@ export function EditionCoverDialog({ edition, poster }: EditionCoverDialogProps)
               )}
               {!ownKey && replaced && (
                 <Button
+                  ref={takeFocus("put-back")}
                   size="sm"
                   variant="secondary"
                   disabled={busy}

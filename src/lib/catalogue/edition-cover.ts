@@ -30,6 +30,7 @@ import {
   type VerifiedCoverStage,
 } from "@/lib/s3/cover-stage";
 import { processAndUploadCover, getS3Object } from "@/lib/s3/covers";
+import { sniffImageType } from "@/lib/net/safe-fetch";
 import { isOwnEditionCoverKey } from "@/lib/s3/keys";
 import { editionCoverPaletteFields } from "@/lib/color/color-buckets";
 import { extractColorPalette } from "@/lib/color/extract-palette";
@@ -88,6 +89,9 @@ async function writeCover(
 }
 
 async function stageFile(editionId: string, bytes: Buffer): Promise<VerifiedCoverStage> {
+  // The declared type is the browser's guess from the name: read the bytes, as
+  // an image address is read, so an SVG or TIFF named .png is never rendered
+  if (!sniffImageType(bytes)) throw new Error(COVER_UNREADABLE);
   const allocation = allocateCoverStage({
     editionId,
     source: {

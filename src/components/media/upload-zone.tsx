@@ -338,7 +338,7 @@ export function UploadZone({
                 {u.status === "error" && (
                   <button
                     type="button"
-                    className="text-fg-secondary hover:text-fg-primary"
+                    className="text-fg-secondary hover:text-fg-primary pointer-coarse:min-h-11"
                     aria-label={`Dismiss error for ${u.filename}`}
                     onClick={() =>
                       setUploads((prev) =>

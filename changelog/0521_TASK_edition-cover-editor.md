@@ -66,3 +66,15 @@ back, or adjust it. No migration: the edition keeps its two cover keys, and
   (the book's cover is adjusted on the book), and a cover picker inside Add
   and Edit edition, which keep their address field.
 - Docs: `docs/04_ROUTES_AND_VIEWS.md` (edition card), `docs/05_API_REFERENCE.md`.
+- Review fixes:
+  - An uploaded file must be a JPEG, PNG, WebP or GIF by its bytes
+    (`sniffImageType`), not by its name. An SVG sent as `cover.png` is
+    refused with 422 and the cover is unchanged.
+  - The toast no longer offers an Undo, which the open dialog made
+    unpressable. "Put back this edition's cover" takes the pressed
+    button's place, and the focus moves to it.
+  - The upload error's Dismiss is 44px high on touch screens.
+- Left open on SLN-638: "Put back" lasts only until the page reloads, and a
+  new upload replaces an own cover with no way back. Also open: a cover
+  picker inside Add and Edit edition, and adjusting inherited artwork for
+  one edition.

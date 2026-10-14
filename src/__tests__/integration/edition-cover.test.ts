@@ -33,7 +33,10 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/cache", () => ({ invalidate: vi.fn(), cached: (fn: unknown) => fn, CACHE_TAGS: {} }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
-vi.mock("@/lib/net/safe-fetch", () => ({ safeFetchImage: vi.fn() }));
+vi.mock("@/lib/net/safe-fetch", async (original) => ({
+  ...(await original<typeof import("@/lib/net/safe-fetch")>()),
+  safeFetchImage: vi.fn(),
+}));
 vi.mock("@/lib/s3/client", async () => ({
   S3_BUCKET: "local-test",
   s3: { send: (await import("../s3/cover-stage-fixture")).catalogueSend },
@@ -272,6 +275,12 @@ describe.skipIf(!url)("an edition's own cover with PostgreSQL (SLN-638)", () => 
     expect((await upload(first.id, new File(["<svg/>"], "cover.svg", { type: "image/svg+xml" }))).status).toBe(400);
     expect((await upload(first.id, new File([], "empty.png", { type: "image/png" }))).status).toBe(400);
     expect((await upload(first.id, new File(["junk"], "junk.png", { type: "image/png" }))).status).toBe(422);
+    // An image only by its name: SVG, TIFF or BMP bytes sent as a PNG are refused unread
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300"><rect width="200" height="300" fill="#a31"/></svg>';
+    const disguised = new File([svg], "cover.png", { type: "image/png" });
+    const kept = (await row(first.id)).coverS3Key;
+    expect((await upload(first.id, disguised)).status).toBe(422);
+    expect((await row(first.id)).coverS3Key).toBe(kept);
 
     const json = (body: unknown) =>
       POST(
