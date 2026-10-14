@@ -63,7 +63,7 @@ interface BookCardProps {
   reading?: CardReadingValue;
 }
 
-function CoverPlaceholder({ letter }: { letter: string }) {
+export function CoverPlaceholder({ letter }: { letter: string }) {
   return (
     <div className="flex h-full items-center justify-center">
       {/* Decoration: the title is in the card's text */}

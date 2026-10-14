@@ -34,11 +34,12 @@ import {
 import { AcquisitionTargets } from "@/components/publishers/acquisition-targets";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { BackLink } from "@/components/shared/back-link";
 import { HuntAssessmentControl } from "@/components/books/hunt-assessment-control";
 import { PoisonToggle } from "@/components/books/poison-toggle";
 import { BookLinks } from "@/components/books/book-links";
 import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import {
   getWorkBySlug,
   getWorksWithMark,
@@ -73,7 +74,7 @@ import { WorkCarousel } from "@/components/books/work-carousel";
 import { SimilarWorksCarousel } from "@/components/books/similar-works-carousel";
 import { getBookRelatedGroups } from "@/lib/actions/book-related";
 import { getSimilarWorks } from "@/lib/actions/similar-works";
-import { WorkPosterImage } from "./work-poster-image";
+import { WorkPosterImage, WorkPosterPlaceholder } from "./work-poster-image";
 import {
   CoarseImageSource,
   coarseImageFallback,
@@ -278,6 +279,8 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   const background = work.media?.find(
     (m) => m.type === "background" && m.isActive,
   );
+  // Without a poster the header shows the first edition that has a cover
+  const editionCover = poster ? undefined : work.editions.find((e) => e.coverS3Key);
   const allPosters = work.media?.filter((m) => m.type === "poster") ?? [];
   const allBackgrounds =
     work.media?.filter((m) => m.type === "background") ?? [];
@@ -371,24 +374,28 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
         {/* Content on top of the backdrop */}
         <div className={background ? "relative z-10 px-4 pt-6 pb-2 md:px-6" : ""}>
           {/* Back link */}
-          <Link
-            href="/library"
-            className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
-          >
-            <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
-            Back to books
-          </Link>
+          <BackLink href="/library">Back to books</BackLink>
 
           {/* Header */}
           <div className={`${background ? "mb-4" : "mb-8"} flex flex-col gap-6 sm:flex-row`}>
-            {/* Poster image */}
-            {poster && (
+            {/* The poster, else the first edition's cover, else a placeholder
+                cover the same size: the header keeps its cover's place, so the
+                loading screen's cover box never jumps (SLN-697) */}
+            {poster ? (
               <WorkPosterImage
                 src={mediaUrl(poster.s3Key)}
                 alt={`${work.title} poster`}
                 crop={mediaCrop(poster)}
                 palette={crystalPalette}
               />
+            ) : editionCover?.coverS3Key ? (
+              <WorkPosterImage
+                src={mediaUrl(editionCover.coverS3Key, { version: editionCover.updatedAt })}
+                alt={`${work.title} cover`}
+                crop={mediaCrop({})}
+              />
+            ) : (
+              <WorkPosterPlaceholder title={work.title} />
             )}
 
             <div className="min-w-0 flex-1">

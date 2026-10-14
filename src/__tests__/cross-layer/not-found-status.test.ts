@@ -50,7 +50,7 @@ describe("missing records answer 404", () => {
     const streamed = pages.filter(
       (p) => callsNotFound(p) && dirsOf(p).some((d) => has(path.join(d, "loading.tsx"))),
     );
-    for (const kind of ["films", "perfumes", "paintings", "organizations", "publishers"]) {
+    for (const kind of ["library", "films", "perfumes", "paintings", "organizations", "publishers"]) {
       expect(streamed).toContain(path.join(app, "(catalogue)", kind, "[slug]", "page.tsx"));
     }
   });
