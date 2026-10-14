@@ -7,13 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { Prose } from "@/components/shared/prose";
 import { GallerySection } from "@/components/shared/gallery-section";
-import {
-  DetailColumns,
-  RecordField,
-  RecordFields,
-  RecordGroup,
-  RecordPanel,
-} from "@/components/shared/detail-layout";
+import { DetailColumns, DetailTitleRow, RecordField, RecordFields, RecordGroup, RecordPanel } from "@/components/shared/detail-layout";
 import { TaxonomyAssignments } from "@/components/taxonomy/taxonomy-assignments";
 import {
   CurationProvider,
@@ -423,9 +417,7 @@ export default async function FilmPage({
               </div>
 
               <div className="min-w-0 flex-1">
-                {/* On a phone the actions wrap below a long title */}
-                <div className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
-                  <h1 className="type-page-title min-w-0 break-words">{film.title}</h1>
+                <DetailTitleRow title={film.title} controls="stacked">
                   <FilmActions
                     film={editable}
                     fingerprint={film.fingerprint}
@@ -435,7 +427,7 @@ export default async function FilmPage({
                   >
                     <CurationFavourite isFavourite={curation?.isFavourite ?? false} />
                   </FilmActions>
-                </div>
+                </DetailTitleRow>
                 {film.originalTitle && film.originalTitle !== film.title && (
                   <p className="mt-1 text-sm italic text-fg-secondary">{film.originalTitle}</p>
                 )}

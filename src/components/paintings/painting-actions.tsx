@@ -6,7 +6,7 @@ import { FolderPlus, ImageIcon, Pencil, Trash2 } from "lucide-react";
 import { AddToCollectionDialog, CollectionShortcut } from "@/components/books/add-to-collection-dialog";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
-import { CapAlignedControls } from "@/components/shared/cap-aligned";
+import { DetailControls } from "@/components/shared/detail-layout";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
@@ -49,7 +49,7 @@ export function PaintingActions({
   return (
     <>
       <CollectionShortcut run={() => setOpen("collections")} />
-      <CapAlignedControls height={32} className="type-page-title">
+      <DetailControls>
         {children}
         <EntityActionMenu
           items={[
@@ -64,7 +64,7 @@ export function PaintingActions({
             },
           ]}
         />
-      </CapAlignedControls>
+      </DetailControls>
       <Dialog
         draft
         open={open === "edit"}

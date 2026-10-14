@@ -7,13 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { Prose } from "@/components/shared/prose";
 import { GallerySection } from "@/components/shared/gallery-section";
-import {
-  DetailColumns,
-  RecordField,
-  RecordFields,
-  RecordGroup,
-  RecordPanel,
-} from "@/components/shared/detail-layout";
+import { DetailColumns, DetailTitleRow, RecordField, RecordFields, RecordGroup, RecordPanel } from "@/components/shared/detail-layout";
 import { TaxonomyAssignments } from "@/components/taxonomy/taxonomy-assignments";
 import {
   CurationProvider,
@@ -440,9 +434,7 @@ export default async function PaintingPage({
           </div>
 
           <div className="min-w-0">
-            {/* On a phone the actions wrap below a long title */}
-            <div className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
-              <h1 className="type-page-title min-w-0 break-words">{painting.title}</h1>
+            <DetailTitleRow title={painting.title} controls="stacked">
               <PaintingActions
                 painting={editable}
                 fingerprint={painting.fingerprint}
@@ -452,7 +444,7 @@ export default async function PaintingPage({
               >
                 <CurationFavourite isFavourite={curation?.isFavourite ?? false} />
               </PaintingActions>
-            </div>
+            </DetailTitleRow>
 
             <dl className="mt-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
               <dt className="text-fg-secondary">Painted by</dt>

@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { DetailTitleRow } from "@/components/shared/detail-layout";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { renderStamp } from "@/lib/activity/render-stamp";
 import Link from "next/link";
@@ -393,9 +394,7 @@ export default async function PerfumePage({
           </div>
         </div>
         <div className="min-w-0">
-          {/* On a phone the actions wrap below a long title */}
-          <div className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
-            <h1 className="type-page-title min-w-0 break-words">{perfume.title}</h1>
+          <DetailTitleRow title={perfume.title} controls="stacked">
             <PerfumeActions
               perfume={{
                 id: perfume.id,
@@ -427,7 +426,7 @@ export default async function PerfumePage({
             >
               <CurationFavourite isFavourite={curation?.isFavourite ?? false} />
             </PerfumeActions>
-          </div>
+          </DetailTitleRow>
 
           {houses.length > 0 && (
             <p className="mt-2 text-sm text-fg-secondary">

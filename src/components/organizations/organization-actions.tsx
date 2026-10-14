@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { CapAlignedControls } from "@/components/shared/cap-aligned";
+import { DetailControls } from "@/components/shared/detail-layout";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
@@ -33,7 +33,7 @@ export function OrganizationActions({
   useEditActions([{ key: EDIT_KEYS.organization, label: "Organization", icon: Pencil, run: () => setOpen("edit") }]);
   return (
     <>
-      <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
+      <DetailControls>
         <EntityActionMenu
           items={[
             { label: "Edit", icon: Pencil, onClick: () => setOpen("edit"), shortcut: editHint(EDIT_KEYS.organization) },
@@ -45,7 +45,7 @@ export function OrganizationActions({
             },
           ]}
         />
-      </CapAlignedControls>
+      </DetailControls>
       {/* The dialogs go to the end of the page, outside the title row */}
       {open &&
         createPortal(
