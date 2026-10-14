@@ -194,3 +194,17 @@ export async function getEbookMarkCounts(ebookId: string, database: Database = d
     from ebook_annotations a where a.ebook_id = ${ebookId}::uuid and a.deleted_at is null`));
   return row ?? { highlights: 0, notes: 0, bookmarks: 0 };
 }
+
+/** Each e-book's live marks and how many devices have a reading place in it, for the book page's copy rows (SLN-683) */
+export async function getEbookReach(ebookIds: readonly string[], database: Database = db): Promise<Map<string, EbookMarkCounts & { places: number }>> {
+  if (!ebookIds.length) return new Map();
+  const rows = resultRows<EbookMarkCounts & { id: string; places: number }>(await database.execute(sql`select e.id,
+    m.highlights, m.notes, m.bookmarks,
+    (select count(distinct p.device_label) from ebook_positions p where p.ebook_id = e.id)::integer as places
+    from ebooks e cross join lateral (select count(*) filter (where ${KIND_CONDITIONS.highlight})::integer as highlights,
+      count(*) filter (where ${KIND_CONDITIONS.note})::integer as notes,
+      count(*) filter (where ${KIND_CONDITIONS.bookmark})::integer as bookmarks
+      from ebook_annotations a where a.ebook_id = e.id and a.deleted_at is null) m
+    where e.id in (${sql.join(ebookIds.map((id) => sql`${id}::uuid`), sql`, `)})`));
+  return new Map(rows.map(({ id, ...counts }) => [id, counts]));
+}

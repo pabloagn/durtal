@@ -135,3 +135,82 @@ describe('the upload page says what happened (SLN-672)', () => {
     expect(actions.slice(2)).toEqual([`confirm ${itemId}`, `confirm ${second}`]);
   });
 });
+
+describe('cancel while sending, and adding on its own (SLN-672)', () => {
+  const ebookId = '55555555-5555-4555-8555-555555555555';
+  /** A server for one file: the part upload waits until it is aborted; `state` is what the batch shows */
+  function server(opts: { target?: UploadTarget; hangPart?: boolean; state: () => string; prepare?: (calls: number) => Response | null }) {
+    const actions: string[] = []; let prepares = 0;
+    const target = opts.target ?? { kind: 'new' };
+    vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+      if (url === '/api/ebooks/uploads' && options?.method === 'POST') {
+        const body = JSON.parse(String(options.body));
+        return Response.json({ id: newBatch, key: body.key, runId, items: [summary(0, 'receiving', target)] });
+      }
+      if (url.startsWith('/api/ebooks/uploads/')) return Response.json({ batch: { id: newBatch, key: newBatch, runId,
+        items: [{ ...summary(0, 'receiving', target), state: opts.state(), ebookId: opts.state() === 'completed' ? ebookId : null }] }, ready: true });
+      if (options?.method === 'PUT') {
+        actions.push('put');
+        if (opts.hangPart) return new Promise<Response>((_, reject) => options.signal!.addEventListener('abort', () => reject(options.signal!.reason)));
+        return Response.json({ number: 1, bytes: 3, sha256: 'a'.repeat(64), generation: 0 });
+      }
+      if (!options?.method) { const { acknowledgedBytes: _unused, ...item } = summary(0, 'receiving', target); return Response.json({ ...item, acknowledged: [] }); }
+      const command = JSON.parse(String(options.body)); actions.push(command.action);
+      if (command.action === 'prepare') { const answer = opts.prepare?.(++prepares); if (answer) return answer; }
+      return Response.json({ operationId: itemId, key: command.key, status: 200, message: command.action === 'cancel' ? 'Upload canceled.' : 'Done',
+        preview: command.action === 'prepare' ? { token: 'd'.repeat(64), effect: 'Adds this file to the library as a new eBook.', expiresAt: new Date(Date.now() + 600_000).toISOString() } : null });
+    }));
+    return actions;
+  }
+  /** Waits through the page's 3 s refreshes until `done`, or until `ms` have passed */
+  async function until(done: () => boolean, ms = 10_000) {
+    const end = Date.now() + ms;
+    while (!done() && Date.now() < end) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 100)); await flush(); });
+  }
+  async function send(target: UploadTarget = { kind: 'new' }) {
+    await mount(target); await choose(host.querySelector('input[aria-label="Choose eBook files"]')!);
+    await act(async () => { button('Start upload').click(); await flush(); });
+  }
+  it('stops the parts in flight and cancels the file while it sends', async () => {
+    const actions = server({ hangPart: true, state: () => 'receiving' });
+    await send();
+    expect(actions).toEqual(['admit', 'put']);
+    expect(button('Cancel upload').disabled).toBe(false);
+    await click('Cancel upload');
+    expect(actions).toEqual(['admit', 'put', 'cancel']);
+    expect(host.textContent).toContain('Upload canceled.');
+    expect(button('Start another upload').disabled).toBe(false);
+  });
+  it('previews and confirms a sent file on its own once it is checked', async () => {
+    let state = 'processing';
+    const actions = server({ state: () => state });
+    await send();
+    expect(actions).toEqual(['admit', 'put', 'complete']);
+    state = 'ready';
+    await until(() => actions.length >= 5);
+    expect(actions.slice(3)).toEqual(['prepare', 'confirm']);
+  }, 20_000);
+  it('tries again while the worker is busy, and leaves a refused file waiting with Preview', async () => {
+    const actions = server({ state: () => 'ready', prepare: (calls) => calls === 1
+      ? Response.json({ code: 'upload_not_settled', error: 'Wait for the upload worker to finish verified cleanup.' }, { status: 409 })
+      : Response.json({ code: 'upload_replace_required', error: 'This exact file is already in the library.' }, { status: 409 }) });
+    await send();
+    expect(actions.slice(3)).toEqual(['prepare']);
+    expect(host.textContent).not.toContain('Wait for the upload worker');
+    await until(() => actions.length >= 5);
+    expect(actions.slice(3)).toEqual(['prepare', 'prepare']);
+    expect(host.textContent).toContain('This exact file is already in the library.');
+    expect(button('Preview').disabled).toBe(false);
+    // Refused: later refreshes do not try it again
+    await until(() => false, 3500);
+    expect(actions.slice(3)).toEqual(['prepare', 'prepare']);
+  }, 20_000);
+  it('waits for Confirm on a replacement', async () => {
+    const target: UploadTarget = { kind: 'replace', ebookId, fileId: itemId, beforeFingerprint: 'b'.repeat(64) };
+    const actions = server({ target, state: () => 'ready' });
+    await send(target);
+    await until(() => false, 3500);
+    expect(actions).toEqual(['admit', 'put', 'complete']);
+    expect(button('Preview').disabled).toBe(false);
+  }, 20_000);
+});

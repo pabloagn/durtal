@@ -78,7 +78,7 @@ export function ReaderHistoryRecovery({ rows, operations }: { rows: Row[]; opera
     finally { setBusy(false); }
   }
 
-  const field = "block min-h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-xs text-fg-primary focus:border-accent-primary focus:outline-none disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:text-sm";
+  const field = "flex h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-xs text-fg-primary focus:border-accent-primary focus:outline-none disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:text-sm";
   return <>
     <Link href="/settings/reading"
       className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit">

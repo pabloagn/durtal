@@ -37,7 +37,8 @@
  *              in an edge strip closes it without turning; a tap on a link
  *              follows it
  *   dialogs    Contents and Settings take focus, keep Tab inside, close with
- *              Escape and give focus back to their button
+ *              Escape and give focus back to their button (More, where
+ *              Settings sits in the More menu)
  *   pdfmarks   a highlight made by dragging across a line of the PDF fixture
  *              is drawn on the page, and still drawn after a reload (SLN-670)
  *   endurance  only with --only endurance, on a preview started with
@@ -719,6 +720,15 @@ async function checkPointer(name, browser) {
   await page.mouse.click(link.x, link.y);
   await page.waitForFunction(() => document.querySelector("footer[data-reader-chrome]")?.textContent.includes("Outside the reading order"), null, { timeout: 5000 }).catch(() => {});
   record(name, "pointer", "1440: a click on a link follows it", (await footer(page)).includes("Outside the reading order"), (await footer(page)).slice(0, 60));
+  // The place stays in the notes once the page settles, never the end of the
+  // chapter before (which saved the book as read to 100%)
+  await sleep(1500);
+  const settled = await page.evaluate(() => {
+    const view = document.querySelector("foliate-view");
+    const { index, fraction } = view?.lastLocation ?? {};
+    return { linear: view?.book?.sections?.[index]?.linear !== "no", index, fraction, footer: document.querySelector("footer[data-reader-chrome]")?.textContent.slice(0, 60) };
+  });
+  record(name, "pointer", "1440: after a link to the notes, the place stays in the notes", !settled.linear && settled.footer.includes("Outside the reading order"), JSON.stringify(settled));
   await context.close();
   if (name === "firefox") return; // Firefox has no touch emulation in Playwright
   const phoneContext = await browser.newContext(phone(name));
@@ -816,8 +826,14 @@ async function checkDialogs(name, browser) {
   await open(page, 1);
   for (const label of ["Contents", "Settings"]) {
     await revealBars(page);
-    const button = page.getByRole("button", { name: label });
-    await button.click();
+    // Below 400px Settings sits in the More menu, and focus goes back to More
+    let button = page.getByRole("button", { name: label, exact: true });
+    if (await button.isVisible()) await button.click();
+    else {
+      button = page.getByRole("button", { name: "More", exact: true });
+      await button.click();
+      await page.getByRole("menuitem", { name: new RegExp(`^${label}`) }).click();
+    }
     await page.waitForSelector("dialog[open]");
     await sleep(200);
     // A modal <dialog> lets Tab pass through the browser's own controls (the body here) on its way round

@@ -177,6 +177,29 @@ describe("shared reader drawer viewport and dialog-cascade regression", () => {
     expect(document.activeElement).toBe(origin);
   });
 
+  it("gives focus back to the menu's button when the drawer was opened from its item", async () => {
+    const wrapper = document.createElement("div");
+    const more = document.createElement("button");
+    more.setAttribute("aria-haspopup", "menu");
+    const menu = document.createElement("div");
+    menu.setAttribute("role", "menu");
+    const item = document.createElement("button");
+    item.setAttribute("role", "menuitem");
+    menu.append(item);
+    wrapper.append(more, menu);
+    document.body.append(wrapper);
+    item.focus();
+    const { panel, onClose } = await renderPanel("Reading settings");
+    // The menu closes as the drawer opens
+    menu.remove();
+    await act(async () => { panel.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Escape", bubbles: true, cancelable: true,
+    })); });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(more);
+    wrapper.remove();
+  });
+
   it("handles native cancel once and restores focus after dismissal", async () => {
     const { panel, onClose } = await renderPanel();
     const cancel = new Event("cancel", { cancelable: true });

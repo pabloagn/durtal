@@ -213,6 +213,12 @@ export async function reserveCoreCommandOn(conn: Db, scope: CoreScope, upload: C
   ]);
   const row=decodeRow(results.at(-1)); verifyRequest(row,request,scope); return row;
 }
+/** A received file waits for its check (the inspection, whose receipt this row
+ * then carries) before it can be previewed, so it shows as being checked rather
+ * than ready: Preview, and adding it on its own, wait for the check (SLN-672) */
+export function viewedUploadState(row: Pick<CoreOperationRow,"state"|"receipt">): UploadItemView["state"] {
+  return row.state==="ready" && row.receipt===null ? "processing" : row.state;
+}
 export function projectUploadItem(row: CoreOperationRow): UploadItemView {
   if (row.kind!=="upload") throw new Error("Not an upload item");
   const source=createUploadBatchSchema.parse({key:row.idempotency_key,protocol:1,files:[{
@@ -225,7 +231,7 @@ export function projectUploadItem(row: CoreOperationRow): UploadItemView {
     retainedUntil:z.string().datetime({offset:true}).nullable(),message:z.string().max(900).nullable()})
     .parse(row.progress.coreView??{ebookId:null,fileId:null,originalOperationId:null,currentFingerprint:null,
       undoAvailable:false,retainedUntil:null,message:null});
-  return uploadItemViewSchema.parse({id:row.id,...source,generation:Number(row.generation),state:row.state,
+  return uploadItemViewSchema.parse({id:row.id,...source,generation:Number(row.generation),state:viewedUploadState(row),
     acknowledged:Object.entries(transport.parts).map(([number,part])=>({number:Number(number),...part})),...facts,
     retainedUntil:row.__retainedUntil});
 }

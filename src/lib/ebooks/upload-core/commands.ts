@@ -61,7 +61,7 @@ export async function commitTransportCommandOn(conn: Db, scope: CoreScope, owner
       extraGuard=sql`not exists(select 1 from ebook_upload_operations effect where effect.parent_operation_id=${upload.id}::uuid
         and effect.input->>'action'='confirm' and effect.state='completed' and effect.receipt_status=200
         and effect.effect_committed_at is not null)`;
-      state="canceled"; message="Upload canceled. Retained bytes remain reserved until verified cleanup."; break;
+      state="canceled"; message="Upload canceled."; break;
     case "retry":
       if (state!=="failed" || upload.receipt!==null || transport.corrupt || upload.reserved_bytes<=0)
         throw new UploadError(409,"upload_retry_unavailable","Recover this upload before retrying it.");

@@ -1559,6 +1559,16 @@ export const getAdjacentLinearIndex = (sections, fromIndex, dir) => {
         if (sections[index]?.linear !== 'no') return index
 }
 
+// Durtal patch 27 (VENDORED.md): the section that joins the loaded strip
+// beside `fromIndex`. A nonlinear section (notes opened from a link) stands
+// alone: chained after the chapter before, it began in that chapter's last
+// spread when the chapter ended on a left page, and the next settle took the
+// chapter for the current section. Turns out of it still go to the adjacent
+// linear section, as a jump.
+export const getStripNeighbourIndex = (sections, fromIndex, dir) =>
+    sections[fromIndex]?.linear === 'no' ? undefined
+        : getAdjacentLinearIndex(sections, fromIndex, dir)
+
 export const getPaginatedAnchorPage = ({ offset, size, columnCount, contentPages, fraction }) => {
     const column = Math.round(fraction * Math.max(0, contentPages - 1))
     return Math.floor(offset / size + column / columnCount + 0.01)
@@ -1846,7 +1856,7 @@ export class Paginator extends HTMLElement {
                     const sorted = this.#sortedViews
                     const lastIndex = sorted[sorted.length - 1]?.[0]
                     if (lastIndex != null) {
-                        const nextIdx = this.#adjacentIndex(1, lastIndex)
+                        const nextIdx = this.#neighbourIndex(1, lastIndex)
                         if (nextIdx != null && !this.#views.has(nextIdx) && this.#isSameDirection(nextIdx)) {
                             this.#filling = true
                             this.#loadAdjacentSection(nextIdx)
@@ -1873,7 +1883,7 @@ export class Paginator extends HTMLElement {
                     const sorted = this.#sortedViews
                     const firstIndex = sorted[0]?.[0]
                     if (firstIndex != null) {
-                        const prevIdx = this.#adjacentIndex(-1, firstIndex)
+                        const prevIdx = this.#neighbourIndex(-1, firstIndex)
                         if (prevIdx != null && !this.#views.has(prevIdx) && this.#isSameDirection(prevIdx)) {
                             this.#filling = true
                             this.#loadAdjacentSection(prevIdx)
@@ -3750,7 +3760,7 @@ export class Paginator extends HTMLElement {
                 const sorted = this.#sortedViews
                 const lastIndex = sorted[sorted.length - 1]?.[0]
                 if (lastIndex == null) break
-                const nextIdx = this.#adjacentIndex(1, lastIndex)
+                const nextIdx = this.#neighbourIndex(1, lastIndex)
                 if (nextIdx == null) break
                 // Stop preloading at writing-mode boundaries
                 if (!this.#isSameDirection(nextIdx)) break
@@ -3895,7 +3905,7 @@ export class Paginator extends HTMLElement {
                 const sorted = this.#sortedViews
                 const firstIndex = sorted[0]?.[0]
                 if (firstIndex != null) {
-                    const prevIdx = this.#adjacentIndex(-1, firstIndex)
+                    const prevIdx = this.#neighbourIndex(-1, firstIndex)
                     if (prevIdx != null && this.#isSameDirection(prevIdx)) {
                         await this.#loadAdjacentSection(prevIdx)
                     }
@@ -4035,7 +4045,7 @@ export class Paginator extends HTMLElement {
                 const sorted = this.#sortedViews
                 const firstIndex = sorted[0]?.[0]
                 if (firstIndex != null && firstIndex >= this.#primaryIndex) {
-                    const prevIdx = this.#adjacentIndex(-1, firstIndex)
+                    const prevIdx = this.#neighbourIndex(-1, firstIndex)
                     if (prevIdx != null && this.#isSameDirection(prevIdx)) {
                         awaitedAdjacentLayout = true
                         await this.#loadAdjacentSection(prevIdx)
@@ -4053,7 +4063,7 @@ export class Paginator extends HTMLElement {
                 const sorted = this.#sortedViews
                 const lastIndex = sorted[sorted.length - 1]?.[0]
                 if (lastIndex == null) break
-                const nextIdx = this.#adjacentIndex(1, lastIndex)
+                const nextIdx = this.#neighbourIndex(1, lastIndex)
                 if (nextIdx == null) break
                 // Stop at writing-mode boundaries
                 if (!this.#isSameDirection(nextIdx)) break
@@ -4162,7 +4172,7 @@ export class Paginator extends HTMLElement {
                 if (!(needsPrev || this.scrolled)) return
                 const firstIndex = this.#sortedViews[0]?.[0]
                 if (firstIndex == null) return
-                const prevIdx = this.#adjacentIndex(-1, firstIndex)
+                const prevIdx = this.#neighbourIndex(-1, firstIndex)
                 if (prevIdx != null && this.#isSameDirection(prevIdx))
                     await this.#loadAdjacentSection(prevIdx)
             }
@@ -4192,7 +4202,7 @@ export class Paginator extends HTMLElement {
                     for (const dir of [-1, 1]) {
                         let i = index
                         for (let step = 0; step < 2; step++) {
-                            i = this.#adjacentIndex(dir, i)
+                            i = this.#neighbourIndex(dir, i)
                             if (i == null || !this.#views.has(i) || excludedViews.includes(i)) break
                             keep.add(i)
                         }
@@ -4267,6 +4277,9 @@ export class Paginator extends HTMLElement {
     #adjacentIndex(dir, fromIndex) {
         if (fromIndex === undefined) fromIndex = this.#primaryIndex
         return getAdjacentLinearIndex(this.sections, fromIndex, dir)
+    }
+    #neighbourIndex(dir, fromIndex) {
+        return getStripNeighbourIndex(this.sections, fromIndex, dir)
     }
     async #turnPage(dir, distance) {
         if (this.#locked) return

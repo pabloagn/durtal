@@ -40,6 +40,7 @@ vi.mock("@/lib/db", () => ({
 import { readReaderBook } from "@/lib/ebooks/delivery/reader-book";
 import { ebookFileKey } from "@/lib/ebooks/keys";
 import {
+  devicePositions,
   placesToCheck,
   savePosition,
   positionBodySchema,
@@ -150,6 +151,17 @@ describe.skipIf(!url)("reader sync", () => {
     ]);
     expect(rows[1].progression).toBeCloseTo(0.4);
     expect(rows[1].furthestProgression).toBeCloseTo(0.9);
+  });
+  it("keeps the further place when two saves share a clock, whichever arrives first (SLN-665)", async () => {
+    const epub = await file("epub");
+    await save(epub, mac, 0.5, T0);
+    await save(epub, mac, 0.48, T0);
+    await save(epub, phone, 0.48, T0);
+    await save(epub, phone, 0.5, T0);
+    for (const device of [mac, phone]) {
+      const [row] = await devicePositions(ebookId, device);
+      expect(row.progression).toBeCloseTo(0.5);
+    }
   });
   it("checks this device's places, the newest other and the furthest other, however many there are (SLN-665)", async () => {
     const epub = await file("epub"),
