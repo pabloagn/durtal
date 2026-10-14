@@ -14,7 +14,7 @@ export interface LeaderMenuItem {
 }
 
 /**
- * The menu that A ("Add"), G ("Go to"), Y ("Copy") and E ("Edit") open. It stays open until a choice
+ * The menu that N ("New"), G ("Go to"), Y ("Copy"), E ("Edit") and R ("Reading") open. It stays open until a choice
  * or Esc: press an item's letter, or move with ↑ ↓ and press Enter, or click.
  * The keys are handled by ShortcutsProvider.
  */

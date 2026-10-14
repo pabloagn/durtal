@@ -66,7 +66,7 @@ describe("collection navigation", () => {
       href: "/perfumes",
     });
     expect(ADD.find((a) => a.section === "/perfumes")).toEqual({
-      key: "e",
+      key: "p",
       label: "Perfume",
       section: "/perfumes",
       href: "/perfumes/new",

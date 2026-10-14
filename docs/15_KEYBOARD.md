@@ -17,7 +17,7 @@ read from the source and covered by unit tests at most.
 
 1. **The topmost layer owns the key.** Layers, top first: the unsaved-work
    question, a list or menu open inside a field (combobox, picker, date
-   picker), a leader menu (A, G, Y, E, R), the command palette, the
+   picker), a leader menu (N, G, Y, E, R), the command palette, the
    topmost `Dialog`, a page draft (`useEscapeToCancel`), the page. One
    layer handles a key and stops it; a layer below never sees a key a layer
    above handled (`hasOpenSurface`, the surface lease in
@@ -76,8 +76,8 @@ read from the source and covered by unit tests at most.
 - A layer with unsaved work asks first: **Save** (when the form has one;
   Enter), **Discard**, **Keep editing** (Esc). Keep editing restores focus
   and the draft unchanged. The same question guards Close, Cancel
-  (`data-dismiss`), the backdrop, a link that leaves the page, the G and A
-  menus and the palette (`leavePage`).
+  (`data-dismiss`), the backdrop, a link that leaves the page, the G and N
+  menus, A then a key, and the palette (`leavePage`).
 - **Unsaved** means the fields differ from what the form opened with
   (`draft`, which also reads `data-draft-value` for pickers), or the form's
   own comparison (`dirty`). A field changed back is clean again. After a
@@ -88,8 +88,9 @@ read from the source and covered by unit tests at most.
 
 ### Leader menus
 
-A, G, Y, E and R open a menu (`LeaderMenu`); a letter, or ↑ ↓ then Enter,
-picks; Esc closes; a click outside closes. E and R open only where the page
+N, G, Y, E and R open a menu (`LeaderMenu`); a letter, or ↑ ↓ then Enter,
+picks; Esc closes; a click outside or a new page closes. A opens no menu: it
+waits for the key that says what to add (section 2). E and R open only where the page
 registered actions (`useEditActions`, `useReadingActions`).
 
 ## 2. Global key map and conflicts
@@ -98,11 +99,11 @@ Current keys (`src/lib/shortcuts/shortcuts.ts`, `src/lib/catalogue/domains.ts`):
 
 | Keys | Now | Owner's request (SLN-629, 632, 571) | Conflict |
 |---|---|---|---|
-| A | opens the Add menu | A is only a prefix; N opens New | **yes**: A then the next key must not open a menu first (SLN-632) |
-| N | nothing (R then N is Up Next) | opens the New menu | none |
+| A | a prefix only (SLN-632): the next key adds; Esc, another key or a modifier end it; a key after 1.5 s acts on its own | A is only a prefix; N opens New | resolved |
+| N | opens the New menu (SLN-632; R then N is still Up Next inside the R menu) | opens the New menu | resolved |
 | A B | Add book | Add book | none |
-| A P | Add publisher | Add perfume | **yes**: publisher needs another key (SLN-632) |
-| A E | Add perfume (`keys.add: "e"`) | - | moves when perfume takes P |
+| A P | Add perfume (SLN-632) | Add perfume | resolved |
+| A U | Add publisher (was A P) | - | resolved |
 | A A | Add person | Add person | none |
 | A F | Add film | Favourites (current item) | **yes**: Add film needs a fallback key or only applies where no item is open (SLN-571) |
 | A C | Create collection | Add to collection (current item) | **yes**: same resolution (SLN-571) |
@@ -118,8 +119,8 @@ Current keys (`src/lib/shortcuts/shortcuts.ts`, `src/lib/catalogue/domains.ts`):
 | Alt+F | fix a field's title case or name order | keep | none |
 
 Other notes for SLN-632:
-- The leader menu is not closed on a route change (no `pathname` reset of
-  `menu`); a client navigation while it is open should close it.
+- A client navigation closes an open leader menu and drops a pending A
+  (resolved in SLN-632).
 - The help sheet, the palette's key hints (`command-palette.tsx`) and the
   menus read the same lists, so one registry change updates all three. The
   favourite's "F" tooltip is its own constant and must move with it.
@@ -298,7 +299,7 @@ the identify queue and the harmonize workspace (16 files).
    main button is shown, so Enter presses Next, then Create Order. Read from
    source only; SLN-634 checks it in a browser.
 5. **E and A** as in sections 2 and 3.
-6. **The leader menu** survives a client navigation (section 2).
+6. **The leader menu** survived a client navigation (resolved in SLN-632).
 
 ## 5. Verification plan for the dependent tickets
 
@@ -306,7 +307,7 @@ On a disposable preview only (`scripts/qa/preview-local.py --start
 --seed-large 50 --s3-dir DIR`), headless Chromium, Firefox and WebKit,
 Esc sent as key code 27, nothing written to live data.
 
-- **SLN-632:** N opens New; A then B, P, A, F, C, E, I, R, S, L each run
+- **SLN-632:** N opens New; A then B, P, A, U, F, C, I, R, S, L each run
   their one action; A then Esc, A then an unknown key, A held, A with ⌘,
   and A while typing do nothing; a client navigation closes an open menu;
   the help sheet, the palette and the menu show the same keys.
