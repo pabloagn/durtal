@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { addWorksToSeries, type SeriesSuggestion } from "@/lib/actions/series";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
+import { Link2 } from "lucide-react";
 
 /**
  * Books whose titles match a series. Nothing is linked until the user
@@ -107,6 +108,7 @@ export function SeriesSuggestions({
                   onClick={() => link(seriesId, [item], item.workId)}
                   busy={busy === item.workId}
                 >
+                  <Link2 aria-hidden strokeWidth={1.5} />
                   Link
                 </Button>
               </li>

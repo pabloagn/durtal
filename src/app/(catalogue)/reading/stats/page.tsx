@@ -265,7 +265,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                   {rated.reread.map((r) => (
                     <li key={r.workId} className="flex items-baseline justify-between gap-3">
                       {/* The title cuts off inside the link: the link's touch area is not clipped */}
-                      <Link href={book(r)} className="min-w-0 text-fg-primary transition-colors hover:text-accent-primary touch-hit">
+                      <Link href={book(r)} className="min-w-0 text-command touch-hit pointer-coarse:my-0 pointer-coarse:py-0">
                         <span className="lines-1">{r.title}</span>
                       </Link>
                       <span className="shrink-0 text-xs text-fg-secondary tabular-nums">{r.reads.map((x) => (x === null ? "unrated" : formatRating(x))).join(" · ")}</span>
@@ -306,7 +306,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                   <div key={label} className="min-w-0">
                     <dt className="text-xs text-fg-secondary">{label}</dt>
                     <dd className="lines-1">
-                      <Link href={book(ref!)} className="text-fg-primary transition-colors hover:text-accent-primary">
+                      <Link href={book(ref!)} className="text-command">
                         {ref!.title}
                       </Link>
                       <span className="text-fg-secondary"> · {words(ref!.value)}</span>

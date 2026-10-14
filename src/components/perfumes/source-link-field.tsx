@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -85,6 +85,7 @@ export function SourceLinkField({
           </p>
           {says.length > 0 && reading.hints.title && (
             <Button variant="ghost" size="sm" onClick={() => onUse({ title: reading.hints.title, review: null })}>
+              <Check aria-hidden strokeWidth={1.5} />
               Use the name
             </Button>
           )}
@@ -117,6 +118,7 @@ export function SourceLinkField({
                 ].join(" · ")}
               </p>
               <Button variant="ghost" size="sm" onClick={() => onUse({ title: review.title, review })}>
+                <Check aria-hidden strokeWidth={1.5} />
                 Use these
               </Button>
             </div>

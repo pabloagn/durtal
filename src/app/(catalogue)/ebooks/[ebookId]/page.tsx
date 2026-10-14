@@ -139,13 +139,13 @@ export default async function EbookPage({ params, searchParams }: Props) {
     <>
       {/* A page under its book: eBooks / the book, titled after it (SLN-683) */}
       <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-baseline gap-x-2 text-xs text-fg-secondary">
-        <Link href="/ebooks" className="touch-hit transition-colors hover:text-fg-primary">
+        <Link href="/ebooks" className="touch-hit text-command">
           eBooks
         </Link>
         {book && (
           <>
             <span aria-hidden="true" className="text-fg-muted">/</span>
-            <Link href={book.href} className="touch-hit transition-colors hover:text-fg-primary [overflow-wrap:anywhere]">
+            <Link href={book.href} className="touch-hit text-command [overflow-wrap:anywhere]">
               {book.title}
             </Link>
           </>

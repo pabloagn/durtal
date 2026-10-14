@@ -47,7 +47,7 @@ export function NoteItemView({ note, meta, controls }: { note: Pick<NoteItem, "i
               <button
                 type="button"
                 onClick={() => setAll(!all)}
-                className="text-fg-secondary underline-offset-2 hover:text-fg-primary hover:underline pointer-coarse:-my-3.5 pointer-coarse:py-3.5"
+                className="text-command"
                 data-note-more=""
               >
                 {all ? "Show less" : "Show all"}

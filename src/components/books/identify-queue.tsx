@@ -27,6 +27,7 @@ import type { CatalogueStatus } from "@/lib/types";
 import { languageName } from "@/lib/utils/language";
 import { bindingLabel } from "@/lib/utils/binding";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
+import { Check, Search } from "lucide-react";
 
 type SearchState =
   | { status: "loading" }
@@ -325,6 +326,7 @@ export function IdentifyQueue({
               disabled={busy}
               onClick={() => keep(current)}
             >
+              <Check aria-hidden strokeWidth={1.5} />
               No ISBN: keep it as it is
             </Button>
             <Button
@@ -333,6 +335,7 @@ export function IdentifyQueue({
               disabled={busy}
               onClick={() => setMatching(true)}
             >
+              <Search aria-hidden strokeWidth={1.5} />
               Other sources
             </Button>
             {current.workSlug && (

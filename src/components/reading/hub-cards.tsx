@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CardHeading } from "@/components/shared/card-heading";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { ReaderEntryLink } from "@/components/reader/reader-entry-link";
 import { buttonClass } from "@/components/ui/button";
 import { ProgressBar } from "@/components/shared/progress-bar";
@@ -74,15 +75,22 @@ export function PausedRow({ open, day }: { open: OpenReading; day: DayContext })
     <li className="flex items-center gap-3 px-3 py-2" data-hub-paused={r.id}>
       <Cover s3Key={open.cover} className="h-12 w-8" />
       <div className="min-w-0 flex-1">
-        {/* The title cuts off inside the link: the link's touch area is not clipped */}
-        <Link href={bookHref(open.work)} className="block text-sm text-fg-primary transition-colors hover:text-accent-primary touch-hit">
-          <span className="block min-h-[1lh] [overflow-wrap:anywhere]">{open.work.title}</span>
-        </Link>
+        {/* The title names the row; Resume sits on its first line, as Up next's controls do */}
+        <div className="flex gap-3 text-sm">
+          <h3 className="min-w-0 flex-1">
+            {/* The full title wraps inside the link and keeps its touch area */}
+            <Link href={bookHref(open.work)} className="block text-fg-primary transition-colors hover:text-accent-primary touch-hit">
+              <span className="block min-h-[1lh] [overflow-wrap:anywhere]">{open.work.title}</span>
+            </Link>
+          </h3>
+          <CapAlignedControls height={32} coarseHeight={44}>
+            <ResumeButton reading={refOf(open)} />
+          </CapAlignedControls>
+        </div>
         <p className="min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">
           {[open.author, positionText(r), since ? `paused ${agoText(since, day)}` : null].filter(Boolean).join(" · ")}
         </p>
       </div>
-      <ResumeButton reading={refOf(open)} />
     </li>
   );
 }

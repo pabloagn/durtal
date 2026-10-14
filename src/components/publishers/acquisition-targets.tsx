@@ -3,7 +3,7 @@ import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, X } from "lucide-react";
+import { PackageX, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { PublisherChoice, type PublisherOption } from "./publisher-picker";
@@ -143,7 +143,7 @@ export function AcquisitionTargets({
             )}
             {orders.length > 0 && (
               <details className="w-full text-xs text-fg-secondary">
-                <summary>Orders ({orders.length})</summary>
+                <summary className="touch-hit">Orders ({orders.length})</summary>
                 {orders.map((o) => (
                   <div key={o.id} className="mt-2 flex items-center gap-3">
                     <span>
@@ -168,6 +168,7 @@ export function AcquisitionTargets({
                           })
                         }
                       >
+                        <PackageX aria-hidden strokeWidth={1.5} />
                         Record return
                       </Button>
                     )}
