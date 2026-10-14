@@ -127,7 +127,6 @@ export function InstanceAddDialog({
           dispatch({ type: "edit", generation: ++generation.current });
           setOpen(true);
         }}
-        className="h-7 gap-1 whitespace-nowrap px-2"
         data-tooltip={`Add instance for ${editionTitle}`}
       >
         <Plus className="h-4 w-4" strokeWidth={1.5} />

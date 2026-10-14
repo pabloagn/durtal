@@ -362,7 +362,7 @@ export function HarmonizeWorkspace({
           <p className="h-eyebrow">
             Library care <span>/</span> Catalogue quality
           </p>
-          <h1>
+          <h1 className="type-page-title mt-3">
             Harmonize<span className="h-title-dot">.</span>
           </h1>
         </div>
@@ -450,7 +450,7 @@ export function HarmonizeWorkspace({
       {view === "history" ? (
         <section className="h-history" aria-label="Resolution activity">
           <div className="h-history-heading">
-            <h2>A record of your decisions</h2>
+            <h2 className="type-section-title">A record of your decisions</h2>
             <p>
               The last 50 resolutions, with original records and relationships
               preserved for inspection.
@@ -768,7 +768,7 @@ function Empty({
   return (
     <div className="h-empty">
       <span className="h-empty-rule" />
-      <h2>{title}</h2>
+      <h2 className="type-section-title">{title}</h2>
       <p>{description}</p>
       {action}
     </div>
@@ -805,7 +805,7 @@ function FindingReview({
         <Confidence finding={f} />
       </div>
       <div className="h-review-body">
-        <h2>{f.title}</h2>
+        <h2 className="type-section-title">{f.title}</h2>
         <p className="h-explanation">{f.explanation}</p>
         <div className="h-evidence">
           <p className="h-section-label">Why it surfaced</p>
@@ -818,7 +818,7 @@ function FindingReview({
         {f.resolution.kind === "merge" && !f.dismissed ? (
           <>
             <div className="h-section-heading">
-              <h3>Choose the record to keep</h3>
+              <h3 className="type-item-title">Choose the record to keep</h3>
               <span>01</span>
             </div>
             <div
@@ -916,7 +916,7 @@ function FindingReview({
                 />
                 <div>
                   <p className="h-section-label">Already in your library</p>
-                  <h3>Give this image a place</h3>
+                  <h3 className="type-item-title">Give this image a place</h3>
                   <p>
                     Assign this stored image as the active poster. The original
                     cover and file are preserved.
@@ -926,7 +926,9 @@ function FindingReview({
             )}
             {!precise(f) && !f.dismissed && (
               <div className="h-guidance">
-                <h3>A decision only you can make</h3>
+                <h3 className="type-item-title">
+                  A decision only you can make
+                </h3>
                 <p>
                   Open the record to correct its details or manage its images,
                   then scan again. If this is intentional, dismiss it.
@@ -1099,7 +1101,7 @@ function MergeReview({
   return (
     <div className="h-merge-review">
       <div className="h-section-heading">
-        <h3>Reconcile the details</h3>
+        <h3 className="type-item-title">Reconcile the details</h3>
         <span>02</span>
       </div>
       {preview.blockers.length > 0 && (
@@ -1238,7 +1240,7 @@ function MergeReview({
       >
         <div className="h-merge-confirm">
           <p className="h-section-label">Keep</p>
-          <h3>{preview.target.name}</h3>
+          <h3 className="type-section-title">{preview.target.name}</h3>
           <p className="h-section-label">Merge into it</p>
           <p>{preview.source.name}</p>
           <div className="h-confirm-summary">

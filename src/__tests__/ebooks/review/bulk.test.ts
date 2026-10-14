@@ -15,7 +15,7 @@ vi.mock("@/lib/cache", () => ({ invalidate: vi.fn(), CACHE_TAGS: {
 vi.mock("@/lib/ebooks/match/accession", () => ({ planAccessionOn: mocks.plan, accessionEbooks: mocks.write }));
 // The confirm reads the catalogue again; the fixture plan was made on an empty one.
 vi.mock("@/lib/ebooks/match/load", async (original) => ({
-  ...await original<typeof import("@/lib/ebooks/match/load")>(), loadMatchCatalogue: async () => ({ rows: {} }),
+  ...await original<typeof import("@/lib/ebooks/match/load")>(), loadMatchRows: async () => ({}),
 }));
 vi.mock("@/lib/ebooks/review/store", async (original) => ({
   ...await original<typeof import("@/lib/ebooks/review/store")>(), readReviewBeforeOn: mocks.before,

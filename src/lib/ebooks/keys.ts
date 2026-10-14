@@ -152,9 +152,9 @@ export function isLegacyFileKey(key: string, sha256?: string, format?: string, p
     (!format || ebookExtension(format as EbookFormat) === match[3])
   );
 }
-export function isDeliveryFileKey(key: string, sha256: string, format: string): boolean {
+export function isDeliveryFileKey(key: string, sha256: string, format: string, prefix?: string): boolean {
   const parsed = parseStageKey(key);
-  return parsed ? parsed.stage === "gold" && parsed.kind === "file" && parsed.sha256 === sha256 && parsed.format === format : isLegacyFileKey(key, sha256, format);
+  return parsed ? parsed.stage === "gold" && parsed.kind === "file" && parsed.sha256 === sha256 && parsed.format === format : isLegacyFileKey(key, sha256, format, prefix);
 }
 export function derivedKeyForWidth(key: string, width: EbookCoverWidth): string | null {
   const stage = parseStageKey(key);

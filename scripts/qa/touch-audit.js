@@ -103,15 +103,28 @@
       const s = getComputedStyle(n);
       const x = width === null ? overflowOn(n, s, "x") : null;
       const y = height === null ? overflowOn(n, s, "y") : null;
-      if (!x && !y) continue;
+      if (!x && !y) {
+        if (inTopLayer(n)) break;
+        continue;
+      }
       const c = n.getBoundingClientRect();
       const view = x === "scroll" || y === "scroll" ? reach(n, c) : null;
       if (x === "scroll") width = Math.min(Math.max(0, right - left), view.width, n.clientWidth);
       if (y === "scroll") height = Math.min(Math.max(0, bottom - top), view.height, n.clientHeight);
       if (x === "clip") ({ left, right } = { left: Math.max(left, c.left), right: Math.min(right, c.right) });
       if (y === "clip") ({ top, bottom } = { top: Math.max(top, c.top), bottom: Math.min(bottom, c.bottom) });
+      if (inTopLayer(n)) break;
     }
     return { width: width ?? Math.max(0, right - left), height: height ?? Math.max(0, bottom - top) };
+  }
+
+  /** A modal dialog or an open popover is drawn in the top layer: its ancestors in the page do not clip it */
+  function inTopLayer(n) {
+    try {
+      return n.matches(":modal, :popover-open");
+    } catch {
+      return n.matches("dialog[open]");
+    }
   }
 
   /**

@@ -19,24 +19,30 @@ interface EntityActionMenuProps {
   items: EntityActionItem[];
   align?: "start" | "center" | "end";
   side?: "top" | "bottom";
+  /** Names the trigger and shows as its tooltip */
+  label?: string;
+  /** The 28px tier for dense rows (an edition card) */
+  size?: "sm" | "md";
 }
 
 export function EntityActionMenu({
   items,
   align = "end",
   side = "bottom",
+  label = "Actions",
+  size = "md",
 }: EntityActionMenuProps) {
   const defaultItems = items.filter((i) => i.variant !== "destructive");
   const destructiveItems = items.filter((i) => i.variant === "destructive");
 
   const trigger = (
-    <button className="action-icon">
+    <button className={size === "sm" ? "action-icon-sm" : "action-icon"}>
       <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
     </button>
   );
 
   return (
-    <DropdownMenu trigger={trigger} label="Actions" align={align} side={side}>
+    <DropdownMenu trigger={trigger} label={label} align={align} side={side}>
       {defaultItems.map((item) => (
         <DropdownMenuItem
           key={item.label}

@@ -80,11 +80,18 @@ export function PublisherHeader({
           )}
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="type-page-title flex items-start gap-4">
-            <h1 className="type-page-title min-w-0 flex-1 break-words">{name}</h1>
+        <div className="@container min-w-0 flex-1">
+          {/* A long name keeps the row's width on a phone: below a 24rem
+              row the controls go under it when it would not fit on one line
+              beside them; from 24rem they stay beside it, as wrapping there
+              can make the header taller. Decided by CSS alone, so nothing
+              moves once the page has loaded. Under the name the star's
+              padding goes past the column's edge, so the star lines up with
+              the name; beside it the wider gap gives the padding back */}
+          <div className="type-page-title flex flex-wrap items-start gap-x-6 pointer-coarse:gap-x-7.5 @min-[24rem]:flex-nowrap">
+            <h1 className="type-page-title min-w-0 flex-[1_1_auto] break-words">{name}</h1>
             {/* On the cap-height center of the name's first line */}
-            <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
+            <CapAlignedControls height={32} coarseHeight={44} className="type-page-title -ml-2 pointer-coarse:-ml-3.5">
               <FavouriteToggle
                 favourite={favourite}
                 target={{ entity: "publisher", id }}

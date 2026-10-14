@@ -102,11 +102,10 @@ function Row({
       </span>
       <Cover s3Key={row.cover} className="h-16 w-11" />
       <div className="min-w-0 flex-1 space-y-0.5">
-        {/* The title cuts off inside the link: the link's touch area is not clipped */}
-        <Link href={row.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-primary touch-hit">
-          <span className="lines-1">{row.title}</span>
+        <Link href={row.href} className="block text-sm text-fg-primary transition-colors [overflow-wrap:anywhere] hover:text-accent-primary touch-hit">
+          {row.title}
         </Link>
-        {row.author && <p className="lines-1 text-xs text-fg-secondary">{row.author}</p>}
+        {row.author && <p className="text-xs text-fg-secondary [overflow-wrap:anywhere]">{row.author}</p>}
         <p className="text-xs text-fg-secondary">{row.line}</p>
         {row.note && <p className="text-xs italic text-fg-secondary">{row.note}</p>}
         <p className="text-xs text-fg-secondary">{row.added}</p>

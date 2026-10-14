@@ -1,6 +1,5 @@
 import { SectionHeading } from "@/components/shared/section-heading";
 import { DetailFacts } from "@/components/shared/detail-facts";
-import { CollectionButton } from "@/components/books/add-to-collection-dialog";
 import Link from "next/link";
 import { EditionPublishers } from "@/components/publishers/edition-publishers";
 import type { PublisherOption } from "@/components/publishers/publisher-picker";
@@ -9,13 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { InstanceDetail, type CopyEbook } from "./instance-detail";
 import { EditionEditDialog } from "./edition-edit-dialog";
 import { EditionCoverDialog } from "./edition-cover-dialog";
-import { EditionDeleteButton } from "./edition-delete-button";
+import { EditionActionsMenu } from "./edition-actions-menu";
 import { EditionQuotes } from "./edition-quotes";
 import { InstanceAddDialog } from "./instance-add-dialog";
-import { EditionMatchButton } from "./edition-match-button";
 import { formatDimensions, formatDate } from "@/lib/utils/format";
 import { languageName } from "@/lib/utils/language";
 import { bindingLabel } from "@/lib/utils/binding";
+import { enumLabel } from "@/lib/utils/labels";
 import { isPlaceholderEdition } from "@/lib/match/identify";
 import { EditionCover } from "@/components/books/edition-cover";
 import type { PosterImage } from "@/lib/utils/edition-image";
@@ -157,6 +156,7 @@ export function EditionDetailCard({
                     (name): name is string => !!name,
                   )}
                   linked={edition.publisherLinks?.map((l) => l.publisher)}
+                  command={!hasActionProps}
                 />
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-fg-secondary">
@@ -174,7 +174,7 @@ export function EditionDetailCard({
                     <Badge variant="gold">Edition not identified</Badge>
                     <Link
                       href={`/library/identify?edition=${edition.id}`}
-                      className="text-accent-blue"
+                      className="text-command"
                     >
                       Identify
                     </Link>
@@ -211,49 +211,65 @@ export function EditionDetailCard({
             )}
 
             {hasActionProps && (
+              // Ghost buttons: the first one's ink starts at the text edge,
+              // on every row when they wrap, and the menu's icon ends at the
+              // right one (6px inset at 28px, 14px at 44px on touch)
               <div
                 role="group"
                 aria-label={`Actions for ${edition.title}`}
-                className="flex flex-wrap items-center gap-2"
+                className="-ml-2.5 -mr-1.5 flex flex-wrap items-center gap-1 pointer-coarse:-mr-3.5"
               >
-                <CollectionButton
-                  editionId={edition.id}
-                  title={edition.title}
-                />
-                <EditionCoverDialog edition={edition} poster={poster} />
-                {workId && (
-                  <EditionMatchButton
-                    workId={workId}
-                    editionId={edition.id}
-                    currentTitle={edition.title}
-                    currentAuthor={authorName ?? ""}
-                    currentMetadataSource={edition.metadataSource}
-                  />
-                )}
                 <EditionEditDialog edition={edition} />
-                <InstanceAddDialog
-                  workId={edition.workId}
-                  editionId={edition.id}
-                  editionTitle={edition.title}
-                  availableLocations={availableLocations}
-                />
-                <EditionDeleteButton
-                  editionId={edition.id}
-                  editionTitle={edition.title}
-                  instanceCount={edition.instances.length}
-                  quoteCount={quotes?.quotes ?? 0}
-                  noteCount={quotes?.notes ?? 0}
-                />
+                <EditionCoverDialog edition={edition} poster={poster} />
+                {/* Add instance and the menu wrap together: a narrow row
+                    keeps the menu at the right, beside a labelled button */}
+                <div className="flex flex-[1_0_auto] items-center gap-1">
+                  <InstanceAddDialog
+                    workId={edition.workId}
+                    editionId={edition.id}
+                    editionTitle={edition.title}
+                    availableLocations={availableLocations}
+                  />
+                  <div className="ml-auto">
+                    <EditionActionsMenu
+                      editionId={edition.id}
+                      editionTitle={edition.title}
+                      workId={workId}
+                      authorName={authorName ?? ""}
+                      metadataSource={edition.metadataSource}
+                      hasPublisherLinks={!!edition.publisherLinks?.length}
+                      instanceCount={edition.instances.length}
+                      quoteCount={quotes?.quotes ?? 0}
+                      noteCount={quotes?.notes ?? 0}
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </div>
         </div>
       </CardHeader>
 
-      {hasDetailGrid && (
+      {(hasDetailGrid || hasContributors) && (
         <div className="border-b border-glass-border px-5 py-4">
-          <p className="type-caption mb-2">Publication Details</p>
+          <SectionHeading as="h4" title="Publication details" />
           <DetailFacts>
+            {Object.entries(contributorsByRole).map(([role, contributors]) => (
+              <DetailRow key={role} label={enumLabel(role)}>
+                {contributors.map((c, i) => (
+                  <span key={`${c.authorId}-${c.role}`}>
+                    {i > 0 && ", "}
+                    {c.author.slug ? (
+                      <Link href={`/people/${c.author.slug}`} className="text-command">
+                        {c.author.name}
+                      </Link>
+                    ) : (
+                      c.author.name
+                    )}
+                  </span>
+                ))}
+              </DetailRow>
+            ))}
             {edition.pageCount && (
               <DetailRow label="Pages">
                 <span className="font-mono">{edition.pageCount}</span>
@@ -324,10 +340,10 @@ export function EditionDetailCard({
       {/* Genres & Tags */}
       {(hasGenres || hasTags) && (
         <div className="border-b border-glass-border px-5 py-4">
-          <div className="space-y-2">
+          <div className="space-y-4">
             {hasGenres && (
               <div>
-                <p className="type-caption mb-1">Genres</p>
+                <SectionHeading as="h4" title="Genres" />
                 <div className="flex flex-wrap gap-1.5">
                   {edition.editionGenres.map(({ genre }) => (
                     <Badge key={genre.id} variant="default">
@@ -339,7 +355,7 @@ export function EditionDetailCard({
             )}
             {hasTags && (
               <div>
-                <p className="type-caption mb-1">Tags</p>
+                <SectionHeading as="h4" title="Tags" />
                 <div className="flex flex-wrap gap-1.5">
                   {edition.editionTags.map(({ tag }) => (
                     <Badge key={tag.id} variant="muted">
@@ -353,44 +369,12 @@ export function EditionDetailCard({
         </div>
       )}
 
-      {/* Contributors */}
-      {hasContributors && (
-        <div className="border-b border-glass-border px-5 py-4">
-          <div className="flex flex-wrap gap-4">
-            {Object.entries(contributorsByRole).map(([role, contributors]) => (
-              <div key={role}>
-                <span className="text-xs text-fg-secondary capitalize">
-                  {role}:{" "}
-                </span>
-                {contributors.map((c, i) => (
-                  <span key={`${c.authorId}-${c.role}`}>
-                    {i > 0 && ", "}
-                    {c.author.slug ? (
-                      <Link
-                        href={`/people/${c.author.slug}`}
-                        className="text-xs text-fg-secondary transition-colors hover:text-accent-primary"
-                      >
-                        {c.author.name}
-                      </Link>
-                    ) : (
-                      <span className="text-xs text-fg-secondary">
-                        {c.author.name}
-                      </span>
-                    )}
-                  </span>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {quotes && <EditionQuotes editionId={edition.id} {...quotes} />}
 
       {/* Instances */}
       <CardContent>
         <SectionHeading
-          as="h3"
+          as="h4"
           title="Copies"
           count={edition.instances.length}
         />

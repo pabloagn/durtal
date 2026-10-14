@@ -93,7 +93,8 @@ const IconGrid = memo(function IconGrid({
   onPick: (name: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-8 gap-0.5">
+    // On touch each icon is a 44px press, as many to a row as the panel fits
+    <div className="grid grid-cols-8 gap-0.5 pointer-coarse:grid-cols-[repeat(auto-fill,minmax(2.75rem,1fr))]">
       {names.map((name) => {
         const Icon = icons[name];
         const selected = name === value;
@@ -105,7 +106,7 @@ const IconGrid = memo(function IconGrid({
             data-tooltip={label(name)}
             aria-label={label(name)}
             aria-pressed={selected}
-            className={`flex h-9 w-9 items-center justify-center rounded-sm transition-colors hover:bg-bg-tertiary hover:text-fg-primary ${selected ? "bg-bg-tertiary text-fg-primary ring-1 ring-accent-primary/60" : "text-fg-secondary"}`}
+            className={`flex h-9 w-9 items-center pointer-coarse:h-11 pointer-coarse:w-full justify-center rounded-sm transition-colors hover:bg-bg-tertiary hover:text-fg-primary ${selected ? "bg-bg-tertiary text-fg-primary ring-1 ring-accent-primary/60" : "text-fg-secondary"}`}
           >
             <Icon
               className="h-[18px] w-[18px]"
@@ -172,7 +173,7 @@ export default function IconPickerPanel({
           <button
             type="button"
             onClick={() => onPick(null)}
-            className="shrink-0 rounded-sm px-2 py-1 text-xs text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
+            className="shrink-0 rounded-sm px-2 py-1 text-xs text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:min-h-11"
           >
             Remove
           </button>
