@@ -234,6 +234,12 @@ Rename an edition, as the Edit Edition dialog does (activity log included). Othe
 
 **Response** `200`: `{ "id", "title", "subtitle", "workId" }`. `404` when the edition does not exist.
 
+### `POST /api/editions/[id]/cover`
+
+A new own cover for the edition, as the Edition cover dialog sends it (SLN-638). Same-origin, like the media uploads. Either a multipart `file` (JPEG, PNG, WebP or GIF, at most 50 MB) or JSON `{ "imageUrl": "https://..." }`, fetched as `/api/media/from-url` does. The image is stored as a new cover and thumbnail under the edition's folder; the edition then points at them in one guarded write. An address is kept as the edition's `coverSourceUrl`; a file clears it. The cover it replaces stays stored.
+
+**Response** `200`: `{ "ok": true }`. **Error** `400`: bad id, no file, too large, type not allowed, empty file, or a body other than `{ imageUrl }`. `404`: the edition does not exist. `409`: the edition changed while the image was stored (nothing is written). `422`: the image could not be read or fetched, or a file is not a JPEG, PNG, WebP or GIF by its bytes (an SVG named `.png`, say).
+
 ---
 
 ## Orders

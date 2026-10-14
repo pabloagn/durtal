@@ -183,3 +183,7 @@ adapter regression source added; native retesting remains pending.
     reduced motion or without `animated`). Durtal's book CSS sets
     `--theme-bg-color`, so the turn layers are backed with the page colour,
     not the browser's grey `Canvas`. SLN-660.
+
+21. `comic-book.js`: a comic's contents name each image "Page N", not its
+    file name inside the archive ("001.jpg"), so the contents, the bar and
+    the scrubber name a page the same way. SLN-680.

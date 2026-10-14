@@ -141,7 +141,8 @@ export const makeComicBook = async ({ entries, loadBlob, getSize, getComment }, 
         unload: () => unload(name),
         size: getSize(name),
     }))
-    book.toc = files.map(name => ({ label: name, href: name }))
+    // Durtal patch 21 (VENDORED.md): pages, not file names, in the contents
+    book.toc = files.map((name, i) => ({ label: `Page ${i + 1}`, href: name }))
     book.rendition = { layout: 'pre-paginated' }
     book.resolveHref = href => ({ index: book.sections.findIndex(s => s.id === href) })
     book.splitTOCHref = href => [href, null]

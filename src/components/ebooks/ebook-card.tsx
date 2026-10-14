@@ -5,6 +5,7 @@ import { CardHeading } from "@/components/shared/card-heading";
 import { FadeImage } from "@/components/shared/fade-image";
 import { WORK_CARD, WORK_CARD_BODY } from "@/components/shared/work-card";
 import { formatLabel } from "@/lib/ebooks/formats";
+import { fractionPercent } from "@/lib/reader/place-label";
 import type { EbookCardData } from "@/lib/ebooks/library-view";
 
 export function EbookLinkedMark() {
@@ -98,7 +99,7 @@ export function EbookCard({
           <span className="inline-flex items-center gap-2">
             {book.progress !== null && (
               <span className="tabular-nums" data-ebook-progress>
-                {Math.floor(book.progress * 100)}%
+                {fractionPercent(book.progress)}
               </span>
             )}
             {book.linked && <EbookLinkedMark />}

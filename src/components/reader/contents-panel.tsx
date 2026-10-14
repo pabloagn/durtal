@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight } from "lucide-react";
+import { CapAligned } from "@/components/shared/cap-aligned";
+import { fractionPercent, samePlace } from "@/lib/reader/place-label";
 import type { TocItem } from "@/lib/reader/engine";
 import type { PositionIndex } from "@/lib/reader/position-index";
 import { ReaderSidePanel } from "./side-panel";
@@ -109,10 +111,16 @@ export function ContentsPanel({
         {visible.map((entry, at) => {
           const selected = entry.id === active?.id;
           const group = entry.item.subitems.length > 0;
-          const page = index.pageAt(index.fraction(entry.item.href));
-          const label = index.info.pageList.length
+          // The page a chapter starts on, as the bar names it (SLN-680)
+          const page = index.entryPage(entry.item.href);
+          const pageLabel = index.info.pageList.length
             ? (page?.label ?? "")
-            : Math.round(index.fraction(entry.item.href) * 100) + "%";
+            : fractionPercent(index.fraction(entry.item.href));
+          // A comic's entries are its pages: "Page 3" needs no "3" beside it
+          const label =
+            page && samePlace(entry.item.label, index.pageWords(page.label))
+              ? ""
+              : pageLabel;
           return (
             <div
               key={entry.id}
@@ -154,7 +162,7 @@ export function ContentsPanel({
                   void pick(entry.item.href);
               }}
               className={
-                "relative flex min-h-9 items-center gap-2 rounded-sm py-1 pr-2 text-sm outline-none hover:bg-bg-tertiary/50 focus-visible:bg-bg-tertiary pointer-coarse:min-h-11 " +
+                "relative flex min-h-9 items-baseline gap-2 rounded-sm py-2 pr-2 text-sm leading-5 outline-none hover:bg-bg-tertiary/50 focus-visible:bg-bg-tertiary pointer-coarse:min-h-11 pointer-coarse:py-3 " +
                 (selected ? "text-fg-primary" : "text-fg-secondary")
               }
               style={{
@@ -169,27 +177,33 @@ export function ContentsPanel({
                   className="absolute inset-y-1 left-0 w-0.5 bg-accent-primary"
                 />
               )}
+              {/* The chevron, title and page share the first line's baseline,
+                  so a two-line title keeps them on its first line */}
               {group ? (
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  aria-label={
-                    (expanded.has(entry.id) ? "Collapse " : "Expand ") +
-                    entry.item.label
-                  }
-                  aria-expanded={expanded.has(entry.id)}
-                  data-tooltip={expanded.has(entry.id) ? "Collapse" : "Expand"}
-                  onClick={() => toggle(entry.id)}
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm pointer-coarse:h-11 pointer-coarse:w-11"
-                >
-                  <ChevronRight
-                    className={
-                      "h-3.5 w-3.5 " +
-                      (expanded.has(entry.id) ? "rotate-90" : "")
+                <CapAligned height={24} coarseHeight={44}>
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    aria-label={
+                      (expanded.has(entry.id) ? "Collapse " : "Expand ") +
+                      entry.item.label
                     }
-                    strokeWidth={1.5}
-                  />
-                </button>
+                    aria-expanded={expanded.has(entry.id)}
+                    data-tooltip={
+                      expanded.has(entry.id) ? "Collapse" : "Expand"
+                    }
+                    onClick={() => toggle(entry.id)}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm pointer-coarse:h-11 pointer-coarse:w-11"
+                  >
+                    <ChevronRight
+                      className={
+                        "h-3.5 w-3.5 " +
+                        (expanded.has(entry.id) ? "rotate-90" : "")
+                      }
+                      strokeWidth={1.5}
+                    />
+                  </button>
+                </CapAligned>
               ) : (
                 <span
                   aria-hidden
@@ -201,9 +215,9 @@ export function ContentsPanel({
                 tabIndex={-1}
                 disabled={!entry.item.href}
                 onClick={() => void pick(entry.item.href)}
-                className="min-w-0 flex-1 text-left pointer-coarse:min-h-11"
+                className="min-w-0 flex-1 text-left pointer-coarse:-my-3 pointer-coarse:py-3"
               >
-                <span className="lines-2">{entry.item.label}</span>
+                <span className="block [overflow-wrap:anywhere]">{entry.item.label}</span>
               </button>
               <span className="shrink-0 text-xs tabular-nums">{label}</span>
             </div>

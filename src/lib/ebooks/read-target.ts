@@ -5,6 +5,7 @@ import {
   type ContinueDescriptor,
   type ContinueFile,
 } from "./continue-target";
+import { formatPercent } from "@/lib/reader/place-label";
 
 /**
  * Read-only public fields of SLN-497's actual ContinueDescriptor. The availability
@@ -85,7 +86,7 @@ export function catalogueReadLabel(
   if (!descriptor) return null;
   const percent = descriptor.bookPercent;
   if (percent !== null && percent !== undefined && Number.isFinite(percent) && percent >= 0 && percent <= 100)
-    return `Continue · ${Math.floor(percent)}%`;
+    return `Continue · ${formatPercent(percent)}`;
   // A place with no usable percent still continues; one on the opening page is only an open
   const place = descriptor.localAnchor ?? descriptor.anchor;
   return !place || opened(place) ? "Read" : "Continue";

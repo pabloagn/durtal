@@ -2,6 +2,7 @@ import { HorizontalCarousel } from "@/components/shared/horizontal-carousel";
 import { ReaderEntryLink } from "@/components/reader/reader-entry-link";
 import { EbookCover } from "./ebook-card";
 import type { EbookCardData } from "@/lib/ebooks/library-view";
+import { formatPercent } from "@/lib/reader/place-label";
 export interface ContinueCard {
   book: EbookCardData;
   href: string;
@@ -50,7 +51,7 @@ export function ContinueReading({ books }: { books: ContinueCard[] }) {
               </div>
               <p className="mt-2 text-xs text-fg-secondary">
                 {item.projection ? "Saved " : ""}
-                {Math.floor(item.savedPercent)}% · {item.when}
+                {formatPercent(item.savedPercent)} · {item.when}
               </p>
               {item.chapter && (
                 <p className="mt-1 text-xs text-fg-secondary [overflow-wrap:anywhere]">

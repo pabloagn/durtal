@@ -22,8 +22,9 @@ eBook page a page under its book, and shows progress on the /ebooks cards.
   book" (`readingControlLabel(readings, { ebook })`). Its menu is unchanged.
 - One percent per book everywhere (review decision, 14 Oct): the newest
   place past the opening page from any device. `continueTarget` returns it as
-  `bookPercent`, and `catalogueReadLabel` shows it as "Continue · 34%", whole
-  and rounded down, so nothing reads 100% before the last screen. The book
+  `bookPercent`, and `catalogueReadLabel` shows it as "Continue · 34%" with
+  the reader's `formatPercent` (#229: whole, one decimal below 10%, rounded
+  down), so nothing reads 100% before the last screen. The book
   page, the eBook page, the /ebooks cards and Continue reading on /ebooks all
   show that number. A place on the opening page (`opened`, new in
   `continue-target.ts`) is only an open, and the button says "Read".
@@ -40,7 +41,7 @@ eBook page a page under its book, and shows progress on the /ebooks cards.
     optional `book`).
   - Read and "Read the PDF" are `ReaderEntryLink`s that return to the page.
 - /ebooks cards: the listing query adds `progress`, the newest place on any
-  device that is past the opening page. Cards show it as a whole percent
+  device that is past the opening page. Cards show it with `fractionPercent`
   beside the linked mark.
 - The book page's sessions toggle (`session-list.tsx`) wrapped at 320 px with
   its chevron 10 px below the first line. The chevron now sits on the first
