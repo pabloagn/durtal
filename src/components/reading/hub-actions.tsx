@@ -158,7 +158,8 @@ export function QueueStartButton({ workId, editionId, title }: { workId: string;
       variant="ghost"
       onClick={() => void open({ kind: "start", workId, editionId })}
       aria-label={`Start reading ${title}`}
-      className="pointer-coarse:h-11"
+      // Under the title: the label starts at the title's edge, the padding reaches past it
+      className="-ml-2.5 pointer-coarse:h-11"
       data-hub-queue-start={workId}
     >
       Start
