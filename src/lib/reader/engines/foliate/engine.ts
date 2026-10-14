@@ -1622,7 +1622,7 @@ class FoliateEngine implements ReaderEngine {
       fontMetrics: CHAR_WIDTH_EM,
     });
     const { animated, ...values } = attributes;
-    for (const [name, value] of Object.entries({ ...values, gap: "0%", "margin-top": "48px", "margin-bottom": "48px", "turn-style": "slide" }))
+    for (const [name, value] of Object.entries({ ...values, gap: "0%", "margin-top": "48px", "margin-bottom": "48px" }))
       if (renderer.getAttribute(name) !== value) renderer.setAttribute(name, value);
     if (animated) renderer.setAttribute("animated", "");
     else renderer.removeAttribute("animated");

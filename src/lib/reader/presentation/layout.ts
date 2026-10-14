@@ -50,6 +50,7 @@ export function paginatorAttributes(
     "margin-right": `${p.marginPx}px`,
     "column-gap": `${2 * p.marginPx}px`,
     animated:
-      p.flow === "paginated" && p.pageTurn === "slide" && !info.reducedMotion,
+      p.flow === "paginated" && p.pageTurn !== "none" && !info.reducedMotion,
+    "turn-style": p.pageTurn === "fade" ? "fade" : "slide",
   };
 }

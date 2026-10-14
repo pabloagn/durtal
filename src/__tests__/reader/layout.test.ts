@@ -44,6 +44,10 @@ it("follows explicit spread, scroll and reduced-motion choices", () => {
   expect(attributes().animated).toBe(true);
   expect(attributes({}, 1440, 900, true).animated).toBe(false);
   expect(attributes({ pageTurn: "none" }).animated).toBe(false);
+  expect(attributes()["turn-style"]).toBe("slide");
+  // Fade crossfades a turn; reduced motion still swaps at once (SLN-660)
+  expect(attributes({ pageTurn: "fade" })).toMatchObject({ animated: true, "turn-style": "fade" });
+  expect(attributes({ pageTurn: "fade" }, 1440, 900, true).animated).toBe(false);
 });
 it.each([
   ["literata", "634px"],

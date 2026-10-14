@@ -193,3 +193,10 @@ adapter regression source added; native retesting remains pending.
     finished meanwhile appended the next section, so the turn went to the
     one after it and skipped a chapter. With no fill in flight nothing
     changes. SLN-673.
+
+23. `paginator.js`: a third turn style, `fade`. A keyboard, tap or button
+    turn lays the outgoing page's View Transition snapshot over the still
+    incoming page and fades it out over 180ms (`PAGE_FADE_MS`), so no frame
+    is blank; without View Transitions it swaps at once. Finger drags and
+    their settle keep the push, as with no layered style. `slide` and `curl`
+    are unchanged. SLN-660.
