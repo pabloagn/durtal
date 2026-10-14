@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, MoreHorizontal, Square, Timer } from "lucide-react";
+import { BookOpen, ChevronDown, MoreHorizontal, Square, Timer } from "lucide-react";
 import { useOptionalTimer } from "./timer-provider";
 import { useStopTimer } from "./timer-chip";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -161,6 +161,7 @@ export function QueueStartButton({ workId, editionId, title }: { workId: string;
       className="pointer-coarse:h-11"
       data-hub-queue-start={workId}
     >
+      <BookOpen aria-hidden strokeWidth={1.5} />
       Start
     </Button>
   );

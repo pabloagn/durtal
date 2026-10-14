@@ -476,7 +476,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                       {author.slug ? (
                         <Link
                           href={`/people/${author.slug}`}
-                          className="transition-colors hover:text-accent-primary"
+                          className="text-command"
                         >
                           {author.name}
                         </Link>

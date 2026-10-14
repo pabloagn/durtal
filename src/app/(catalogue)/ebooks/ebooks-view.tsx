@@ -86,7 +86,7 @@ export function EbooksView({
             params.needsReview !== null) && (
             <Link
               href={clearHref}
-              className="mt-3 inline-block text-sm text-accent-primary touch-hit"
+              className="mt-3 inline-block text-sm text-command"
             >
               Clear search and filters
             </Link>
