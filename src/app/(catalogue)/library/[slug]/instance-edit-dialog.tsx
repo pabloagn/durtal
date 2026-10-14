@@ -242,8 +242,9 @@ export function InstanceEditDialog({
             size="sm"
             onClick={handleSubmit}
             disabled={fieldsDisabled || !draft.locationId || (!!ebook && !choiceReady)}
+            busy={isPending || review.phase === "preparing"}
           >
-            {isPending ? "Saving..." : review.phase === "preparing" ? "Preparing…" : ebook ? "Preview edits and Link" : "Save"}
+            {ebook ? "Preview edits and Link" : "Save"}
           </Button>
         </div></>}
       </Dialog>

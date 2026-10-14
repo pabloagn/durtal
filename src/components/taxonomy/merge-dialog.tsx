@@ -160,8 +160,9 @@ export function MergeDialog({
             variant="primary"
             size="sm"
             disabled={submitting || !targetId}
+            busy={submitting}
           >
-            {submitting ? "Merging..." : "Merge"}
+            Merge
           </Button>
         </div>
       </form>

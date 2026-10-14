@@ -93,7 +93,7 @@ export function SearchPicker({
       <div className="glass absolute left-0 top-8 z-30 w-72 py-1">
         {error && <p className="px-2 py-1 text-xs text-accent-red-text">{error}</p>}
         {!error && choices === null && (
-          <p className="px-2 py-1 text-xs text-fg-secondary">Searching...</p>
+          <p className="px-2 py-1 text-xs text-fg-secondary">Searching…</p>
         )}
         {shown.map((choice) => (
           <button
@@ -116,7 +116,7 @@ export function SearchPicker({
             onClick={create}
             className="block w-full truncate px-2 py-1 text-left text-xs text-accent-primary hover:bg-bg-tertiary"
           >
-            {creating ? "Creating..." : createLabel(name)}
+            {creating ? "Creating…" : createLabel(name)}
           </button>
         )}
       </div>

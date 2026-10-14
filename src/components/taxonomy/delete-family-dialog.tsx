@@ -113,8 +113,9 @@ export function DeleteFamilyDialog({
                 size="sm"
                 disabled={deleting}
                 onClick={handleDelete}
+                busy={deleting}
               >
-                {deleting ? "Deleting..." : "Delete family"}
+                Delete family
               </Button>
             )}
           </div>

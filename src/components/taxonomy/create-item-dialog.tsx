@@ -163,8 +163,9 @@ export function CreateItemDialog({
             variant="primary"
             size="sm"
             disabled={submitting || !name.trim()}
+            busy={submitting}
           >
-            {submitting ? "Creating..." : "Create"}
+            Create
           </Button>
         </div>
       </form>

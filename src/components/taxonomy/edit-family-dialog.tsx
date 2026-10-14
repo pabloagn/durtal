@@ -130,9 +130,10 @@ export function EditFamilyDialog({
               type="submit"
               variant="primary"
               size="sm"
-              disabled={submitting || !value.name.trim() || used === null}
+              disabled={!value.name.trim() || used === null}
+              busy={submitting}
             >
-              {submitting ? "Saving..." : "Save"}
+              Save
             </Button>
           </div>
         </form>

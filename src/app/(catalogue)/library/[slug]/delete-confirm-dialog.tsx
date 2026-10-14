@@ -60,8 +60,9 @@ export function DeleteConfirmDialog({
             size="sm"
             onClick={handleConfirm}
             disabled={isPending}
+            busy={isPending}
           >
-            {isPending ? "Deleting..." : "Delete"}
+            Delete
           </Button>
         </div>
       </div>

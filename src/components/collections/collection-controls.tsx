@@ -200,9 +200,10 @@ export function CollectionControls({
             <Button
               type="submit"
               variant="primary"
-              disabled={busy || !name.trim()}
+              disabled={!name.trim()}
+              busy={busy}
             >
-              {busy ? "Saving…" : "Save"}
+              Save
             </Button>
           </div>
         </form>
@@ -224,8 +225,8 @@ export function CollectionControls({
           <Button data-dismiss="" disabled={busy} onClick={() => setDeleting(false)}>
             Cancel
           </Button>
-          <Button variant="danger" disabled={busy} onClick={remove}>
-            {busy ? "Deleting…" : "Delete collection"}
+          <Button variant="danger" disabled={busy} onClick={remove} busy={busy}>
+            Delete collection
           </Button>
         </div>
       </Dialog>

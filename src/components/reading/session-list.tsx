@@ -145,7 +145,7 @@ export function SessionList({ row, current }: { row: ReadingRow; current: boolea
       </div>
       {open && (
         <ol className="mt-1 text-xs" aria-busy={!list} data-session-list="">
-          {!list && <li className="py-2 text-fg-secondary">Loading sessions...</li>}
+          {!list && <li className="py-2 text-fg-secondary">Loading sessions…</li>}
           {running && (
             <li className="flex items-start gap-3 border-t border-glass-border py-2 first:border-t-0" data-session-running="">
               <SourceIcon source="timer" />

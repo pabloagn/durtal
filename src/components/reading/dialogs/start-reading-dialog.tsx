@@ -221,8 +221,8 @@ export function StartReadingDialog({ data, request, home: storedHome, setHome, o
           <div className="flex items-end gap-2">
             <Input label="Pages to read" inputMode="numeric" value={pages} onChange={(e) => setPages(e.target.value)} className="w-32" />
             {edition && !edition.pageCount && (
-              <Button type="button" variant="ghost" size="sm" onClick={lookUpPages} disabled={finding} className="pointer-coarse:h-11">
-                {finding ? "Looking..." : "Find page count"}
+              <Button type="button" variant="ghost" size="sm" onClick={lookUpPages} disabled={finding} className="pointer-coarse:h-11" busy={finding}>
+                Find page count
               </Button>
             )}
           </div>
