@@ -1,0 +1,13 @@
+{
+  "drift /library/* div.flex.items-center": "SLN-693: a copy's Edit and Delete under its location",
+  "first /authors card": "SLN-639: list headers on a phone",
+  "first /library card": "SLN-639: the Books header on a phone",
+  "first /publishers card": "SLN-639: list headers on a phone",
+  "plain /ebooks a.touch-hit": "SLN-693: eBook summary links as text commands",
+  "plain /ebooks button.touch-hit.rounded-sm": "SLN-693: the eBook sort buttons as commands",
+  "plain /films/* a.py-1.transition-colors": "SLN-693: the digital copy link as a text command",
+  "plain /films/* a.transition-colors": "SLN-693: credits as text commands",
+  "plain /films/* button.action-control.whitespace-nowrap": "SLN-693: Show all credits as a command",
+  "plain /films/* button.h-11.px-2": "SLN-693: the rating's Clear as a command",
+  "plain /library/* a.transition-colors": "SLN-693: the author link as a text command"
+}
