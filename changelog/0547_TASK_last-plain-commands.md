@@ -36,6 +36,7 @@ From the #281 review, the taxonomy fields' Add button: on a film, perfume or pai
   - The title link sits in an `h3`, which names the tile. Preflight leaves its type as it was.
 - **Taxonomy Add** (`taxonomy-assignments.tsx`): the button pulls out by its own 6px padding (`-ml-1.5`). Its icon starts on the column edge when it starts a line, and 6px after the last chip otherwise, the same gap the chips keep between them.
 - **Recommended by**: the links are text commands. `pointer-coarse:my-0` and the existing `pointer-coarse:py-3` keep the tuned touch layout, so the comma and the website icon stay on the name's first line.
+  - From review: on touch each name is a flex box, which dropped the space after a leading comma ("Club,Ana") and could start a wrapped line with the comma. The comma now ends its own name, after the website icon, and keeps its space (`whitespace-pre`). `src/__tests__/ui/recommended-by-commas.test.ts` pins the markup.
 - **/library/new steps**:
   - A done step is still a button. It shows its check and puts the text-command look on its label. The check's stroke is 1.5, not 2.
   - The step in view and the steps ahead are spans, because they are states, not commands. The step in view has `aria-current="step"`.
@@ -50,7 +51,7 @@ From the #281 review, the taxonomy fields' Add button: on a film, perfume or pai
 - **Alignment and touch audits** (shared browser runner): 48 of 48 page loads pass. The runs cover Chromium, Firefox and WebKit at 1440, 768, 390 and 320, on /, /settings/reader, /library/new and the book page. The alignment audit also passes on the Details step.
 - **`phone-audit --strict`**: run with recommenders and a reading tile seeded, it finds one new entry. /recommenders' first card is at 490px of 812. That is the SLN-639 list-header finding: the page had no card to measure before the recommender fixture, and this change does not touch it.
 - **page-weight**: every route passes.
-- **Recommended by**: before and after, every box and every line of ink is in the same place at 1440, 390 and 320. Only the underline is new.
+- **Recommended by**: before the review fix, every box and every line of ink was in the same place at 1440, 390 and 320, with only the underline new. The review fix moves each comma to the end of its name.
 - **Tile title**: wrapping the link in the `h3` leaves its box, type and the tile's height unchanged in Chromium, Firefox and WebKit.
 - **"Open eBook"**: its ink is in the same place. The tile's text column is 1px shorter (1.5px in Firefox and WebKit), because the link is no longer an inline-flex box. On touch the link's target is 47px tall.
 - **Step list**: every step is 26px tall on one row, in Chromium (1440, and 768 on touch), Firefox and WebKit.
