@@ -58,7 +58,10 @@ export interface ReviewQueueRow {
 }
 export interface ReviewQueue {
   counts: Record<ReviewSectionKey, number>;
+  /** The open section only: one page of its rows */
   sections: { key: ReviewSectionKey; rows: ReviewQueueRow[] }[];
+  /** The page shown of the open section, within its pages */
+  page: number;
 }
 export interface ReviewWorkOptions {
   workId: string; title: string; editionCount: number; editions: ReviewEdition[];

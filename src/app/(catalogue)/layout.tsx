@@ -5,6 +5,7 @@ import { rootFontClassName } from "@/styles/root-fonts";
 import { Shell } from "@/components/layout/shell";
 import { ImageGuard } from "@/components/shared/image-guard";
 import { TooltipLayer } from "@/components/ui/tooltip";
+import { UnlinkDialogHost } from "@/components/ebooks/unlink-dialog-host";
 import "@/styles/globals.css";
 import {
   IMAGE_ADJUSTMENTS_STYLESHEET,
@@ -62,7 +63,7 @@ export default async function RootLayout({
         <ImageGuard />
         <TooltipLayer />
         <FavouriteStarSprite />
-        <AppSettingsProvider settings={settings}><PreferencesProvider initial={preferences}><ImageAdjustmentProvider><Shell>{children}</Shell></ImageAdjustmentProvider></PreferencesProvider></AppSettingsProvider>
+        <AppSettingsProvider settings={settings}><PreferencesProvider initial={preferences}><ImageAdjustmentProvider><Shell>{children}</Shell><UnlinkDialogHost /></ImageAdjustmentProvider></PreferencesProvider></AppSettingsProvider>
       </body>
     </html>
   );
