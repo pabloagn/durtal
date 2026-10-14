@@ -80,8 +80,8 @@ export function DialogFooter({
       <Button data-dismiss="" type="button" variant="ghost" onClick={onCancel} className="pointer-coarse:h-11">
         Cancel
       </Button>
-      <Button type="submit" variant="primary" data-shortcut="save" disabled={saving || disabled} className="pointer-coarse:h-11">
-        {saving ? "Saving..." : saveLabel}
+      <Button type="submit" variant="primary" data-shortcut="save" disabled={disabled} busy={saving} className="pointer-coarse:h-11">
+        {saveLabel}
       </Button>
     </div>
   );

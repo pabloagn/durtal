@@ -309,7 +309,7 @@ export function TaxonomyFamilyShell({
 
       {/* Loading indicator for transitions */}
       {isPending && (
-        <div className="mb-2 text-xs text-fg-secondary">Updating...</div>
+        <div className="mb-2 text-xs text-fg-secondary">Updating…</div>
       )}
 
       {/* Tree / list */}

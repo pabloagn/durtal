@@ -3,7 +3,6 @@
 import { useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import {
   previewMatchHouses,
@@ -310,15 +309,11 @@ export function MatchPreviewStep({
           <Button
             variant="primary"
             size="sm"
-            disabled={saving || changes === 0}
+            disabled={changes === 0}
+            busy={saving}
             onClick={() => onSave(accepted, houses.confirmed && relink)}
           >
-            {saving ? (
-              <>
-                <Spinner className="h-3.5 w-3.5" />
-                Saving...
-              </>
-            ) : changes === 0 ? (
+            {changes === 0 ? (
               "Nothing to save"
             ) : (
               `Save ${changes} ${changes === 1 ? "change" : "changes"}`

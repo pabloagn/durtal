@@ -191,7 +191,7 @@ export function SearchStep({
                   <div className="flex items-center gap-2 px-3 py-4">
                     <Loader2 className="h-3.5 w-3.5 animate-spin text-fg-muted" />
                     <span className="text-xs text-fg-secondary">
-                      Searching...
+                      Searching…
                     </span>
                   </div>
                 )}

@@ -273,6 +273,8 @@ export function EditionForm({
 
   return (
     <form onSubmit={handleSubmit} className="@container">
+      {/* While it saves, the fields wait: an edit made then would be lost */}
+      <fieldset disabled={isPending} className="min-w-0">
       {/* Section 1: Title & Identifiers */}
       <Section title="Title & Identifiers" defaultOpen>
         <TitleInput
@@ -801,6 +803,7 @@ export function EditionForm({
           </p>
         )}
       </Section>
+      </fieldset>
 
       {/* Submit */}
       <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
@@ -820,9 +823,10 @@ export function EditionForm({
           type="submit"
           variant="primary"
           size="sm"
-          disabled={isPending || !values.title.trim()}
+          disabled={!values.title.trim()}
+          busy={isPending}
         >
-          {isPending ? "Saving..." : submitLabel}
+          {submitLabel}
         </Button>
       </div>
     </form>

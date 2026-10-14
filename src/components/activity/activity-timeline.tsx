@@ -151,7 +151,7 @@ export function ActivityTimeline({ entityType, entityId, refreshKey }: ActivityT
       {loading ? (
         <div className="flex items-center justify-center py-8">
           <span className="font-mono text-xs text-fg-secondary">
-            Loading activity...
+            Loading activity…
           </span>
         </div>
       ) : events.length === 0 ? (
@@ -210,7 +210,7 @@ export function ActivityTimeline({ entityType, entityId, refreshKey }: ActivityT
                 className="flex items-center gap-1 rounded-sm px-3 py-1.5 font-mono text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:min-h-11"
               >
                 <ChevronDown className="h-3 w-3" strokeWidth={1.5} />
-                {loadingMore ? "Loading..." : "Show more"}
+                {loadingMore ? "Loading…" : "Show more"}
               </button>
             </div>
           )}

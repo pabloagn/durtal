@@ -34,7 +34,7 @@ describe("useViewData state", () => {
     expect(viewDataStatus(true, afterRefresh, state, retry)).toEqual({ status: "loading" });
   });
 
-  // Regression (PR #7 review): a failed load stayed on "Loading..." forever.
+  // Regression (PR #7 review): a failed load stayed on "Loading…" forever.
   it("shows an error with a retry action after a failed load", () => {
     const query: Query = {};
     const onRetry = vi.fn();

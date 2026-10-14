@@ -184,8 +184,8 @@ export function PublisherEditor({
           Alternative names help match imported editions. Shared or ambiguous
           names stay unresolved for review.
         </p>
-        <Button type="submit" data-shortcut="save" disabled={pending}>
-          {pending ? "Saving…" : "Save publisher"}
+        <Button type="submit" data-shortcut="save" busy={pending}>
+          Save publisher
         </Button>
       </fieldset>
     </form>

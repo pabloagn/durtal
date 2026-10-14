@@ -38,7 +38,7 @@ const AuthorsMap = dynamic(
     })),
   {
     ssr: false,
-    loading: () => <ViewStatus label="Loading map..." />,
+    loading: () => <ViewStatus label="Loading map…" />,
   },
 );
 
@@ -49,7 +49,7 @@ const AuthorTimeline = dynamic(
     })),
   {
     ssr: false,
-    loading: () => <ViewStatus label="Loading timeline..." />,
+    loading: () => <ViewStatus label="Loading timeline…" />,
   },
 );
 
@@ -261,7 +261,7 @@ export function AuthorsShell({
           ) : mapAuthors.status === "error" ? (
             <ViewStatus label="Could not load the map." onRetry={mapAuthors.retry} />
           ) : (
-            <ViewStatus label="Loading map..." />
+            <ViewStatus label="Loading map…" />
           )}
         </div>
       )}
@@ -277,7 +277,7 @@ export function AuthorsShell({
           ) : timelineAuthors.status === "error" ? (
             <ViewStatus label="Could not load the timeline." onRetry={timelineAuthors.retry} />
           ) : (
-            <ViewStatus label="Loading timeline..." />
+            <ViewStatus label="Loading timeline…" />
           )}
         </div>
       )}
