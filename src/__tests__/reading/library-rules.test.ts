@@ -158,7 +158,7 @@ describe("the table's reading columns", () => {
 describe("every card mapper passes the reading", () => {
   const root = path.resolve(__dirname, "../../..");
   it.each([
-    "src/app/(catalogue)/library/page.tsx",
+    "src/app/(catalogue)/library/(list)/page.tsx",
     "src/app/(catalogue)/page.tsx",
     "src/components/books/work-carousel.tsx",
     "src/app/(catalogue)/people/[slug]/page.tsx",

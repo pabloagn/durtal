@@ -1,18 +1,14 @@
 import { Suspense } from "react";
-import { Spinner } from "@/components/ui/spinner";
 import { redirect } from "next/navigation";
 import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
-import Link from "next/link";
-import { Library, ListChecks } from "lucide-react";
+import { Library } from "lucide-react";
 import { getWorks, getWorkCount } from "@/lib/actions/works";
-import { PageHeader } from "@/components/layout/page-header";
-import { buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NoResults } from "@/components/shared/no-results";
 import { clearedListHref, hasListQuery } from "@/lib/utils/list-params";
-import { LibraryShell } from "./library-shell";
-import { LibraryFiltersBar } from "./library-filters-bar";
-import { DomainSwitch } from "@/components/domains/domain-switch";
+import { LibraryShell } from "../library-shell";
+import { LibraryFiltersBar } from "../library-filters-bar";
+import { LibraryHeader, LibraryPending } from "../library-header";
 import { DomainAddLink } from "@/components/domains/domain-add-link";
 import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
 import { mediaUrl } from "@/lib/s3/media-url";
@@ -160,27 +156,10 @@ export default async function LibraryPage({ searchParams }: PageProps) {
 
   return (
     <>
-      <PageHeader
-        title="Books"
-        tabs={<DomainSwitch current="book" searchParams={params} />}
-        actions={
-          <>
-            <Link
-              href="/library/identify"
-              className={`${buttonClass("ghost", "sm")} whitespace-nowrap`}
-              aria-label="Identify editions"
-            >
-              <ListChecks className="h-3.5 w-3.5" strokeWidth={1.5} />
-              {/* On a phone the icon alone, so the title and both actions share a row */}
-              <span className="max-sm:hidden">Identify editions</span>
-            </Link>
-            <DomainAddLink kind="book" />
-          </>
-        }
-      />
+      <LibraryHeader searchParams={params} />
 
       <LibraryFiltersBar />
-      <Suspense key={JSON.stringify(params)} fallback={<div className="py-16"><Spinner /></div>}><LibraryContent searchParams={params} /></Suspense>
+      <Suspense key={JSON.stringify(params)} fallback={<LibraryPending />}><LibraryContent searchParams={params} /></Suspense>
     </>
   );
 }

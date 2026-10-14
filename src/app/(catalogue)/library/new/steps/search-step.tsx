@@ -210,10 +210,14 @@ export function SearchStep({
 
       <div className="flex items-center justify-between gap-2 border-t border-glass-border pt-4">
         <button
+          type="button"
           onClick={onManual}
-          className="flex items-center gap-2 text-sm text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
+          className="flex items-start gap-2 text-left text-sm text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
         >
-          <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+          {/* On the first line when the label wraps at 320px */}
+          <CapAligned height={14}>
+            <Plus className="block h-3.5 w-3.5" strokeWidth={1.5} />
+          </CapAligned>
           Enter details manually
         </button>
         {cancel}

@@ -2,8 +2,8 @@ import { cache } from "react";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { renderStamp } from "@/lib/activity/render-stamp";
 import Link from "next/link";
+import { BackLink } from "@/components/shared/back-link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { Prose } from "@/components/shared/prose";
 import { GallerySection } from "@/components/shared/gallery-section";
@@ -409,13 +409,7 @@ export default async function PaintingPage({
           title={painting.title}
         />
 
-        <Link
-          href="/paintings"
-          className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
-        >
-          <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
-          Back to paintings
-        </Link>
+        <BackLink href="/paintings">Back to paintings</BackLink>
 
         {/* The picture, about half the page wide, beside its identity; stacked on a phone */}
         <header className="mb-10 grid gap-6 lg:grid-cols-2 lg:gap-10">

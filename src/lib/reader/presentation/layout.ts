@@ -49,8 +49,17 @@ export function paginatorAttributes(
     "margin-left": `${p.marginPx}px`,
     "margin-right": `${p.marginPx}px`,
     "column-gap": `${2 * p.marginPx}px`,
-    animated:
-      p.flow === "paginated" && p.pageTurn !== "none" && !info.reducedMotion,
+    ...turnAttributes(p, info.reducedMotion),
+  };
+}
+
+/** How pages turn, for every renderer: reflowable books, PDFs and comics (SLN-660) */
+export function turnAttributes(
+  p: Pick<ReaderPresentation, "flow" | "pageTurn">,
+  reducedMotion: boolean,
+) {
+  return {
+    animated: p.flow === "paginated" && p.pageTurn !== "none" && !reducedMotion,
     "turn-style": p.pageTurn === "fade" ? "fade" : "slide",
   };
 }

@@ -80,7 +80,7 @@ export function RecordField({
 }
 
 /** The row's classes: when it may wrap, and the title-to-controls gap (the gap less the star's pulled-out padding) */
-const TITLE_ROW = {
+export const DETAIL_TITLE_ROW = {
   // The star, Edit and the menu: 16px from the title; under it below a 24rem row
   standard: "gap-x-6 pointer-coarse:gap-x-7.5 @min-[24rem]:flex-nowrap",
   // The book's wider set: 12px from the title, as before; under it below a
@@ -116,7 +116,7 @@ export function DetailTitleRow({
 }) {
   return (
     <div className="@container">
-      <div className={`type-page-title flex flex-wrap items-start ${TITLE_ROW[wideControls ? "wide" : "standard"]}`}>
+      <div className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW[wideControls ? "wide" : "standard"]}`}>
         <h1 className="type-page-title min-w-0 flex-[1_1_auto] break-words">{title}</h1>
         <CapAlignedControls height={32} coarseHeight={44} className="type-page-title -ml-2 pointer-coarse:-ml-3.5">
           {children}
