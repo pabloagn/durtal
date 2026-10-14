@@ -1,5 +1,5 @@
 export type ReviewErrorCode =
-  | "ebook_not_found" | "work_not_found" | "stale_review" | "operation_collision" | "preview_expired"
+  | "ebook_not_found" | "work_not_found" | "stale_review" | "operation_collision" | "preview_expired" | "preview_too_large"
   | "ineligible_state" | "unsupported_action" | "unsupported_undo"
   | "preparation_required" | "preparation_unavailable"
   | "outcome_unknown_retry_original" | "invalid_receipt";

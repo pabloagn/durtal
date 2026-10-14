@@ -11,6 +11,7 @@ const messages: Record<ReviewErrorCode, string> = {
   stale_review: "This eBook changed. Reload its proposals before preparing another decision.",
   operation_collision: "This operation no longer matches the stored decision. Reload before continuing.",
   preview_expired: "This preview expired. Prepare and check a new preview.",
+  preview_too_large: "This preview is too large to keep. Prepare it for fewer eBooks.",
   ineligible_state: "This decision is no longer available for this eBook.",
   unsupported_action: "This decision is not available yet.",
   unsupported_undo: "This decision cannot be undone here.",

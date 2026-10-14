@@ -51,7 +51,7 @@ describe("existing copy edit is part of one link intent", () => {
       { ...original, expectedCopyStamp: { ...stamp, metadataFingerprint: "b".repeat(64) } },
     ]) expect(reviewRequestHash(changed)).not.toBe(hash);
   });
-  it("refuses a changed copy edit or stamp with the original frozen preview token", () => {
+  it("refuses a changed copy edit or stamp with the original frozen preview token", async () => {
     const input = decisionFixture(), original = request(), cache = new ReviewPreviewCache(() => 0);
     // Cache binding only: a complete typed DTO, never executable database evidence.
     const envelope: FrozenReviewPreview = { request: original,
@@ -78,10 +78,10 @@ describe("existing copy edit is part of one link intent", () => {
           ebooks: [], ebook_files: [], ebook_match_candidates: [] },
           catalogueFingerprint: "e".repeat(64), inputFingerprint: "f".repeat(64) } },
     };
-    const token = cache.issue(envelope, "ui", "test");
-    expect(() => cache.require(token, { ...original, existingCopyPatch: { notes: "Replaced" } }, "ui", "test")).toThrow();
-    expect(() => cache.require(token, { ...original, expectedCopyStamp: { ...stamp,
-      metadataFingerprint: "b".repeat(64) } }, "ui", "test")).toThrow();
-    expect(cache.require(token, original, "ui", "test").envelope.request).toEqual(original);
+    const token = cache.issue(envelope, "ui", "test"), load = async () => ({ snapshot: envelope.plan.snapshot.rows });
+    await expect(cache.require(token, { ...original, existingCopyPatch: { notes: "Replaced" } }, "ui", "test", load)).rejects.toThrow();
+    await expect(cache.require(token, { ...original, expectedCopyStamp: { ...stamp,
+      metadataFingerprint: "b".repeat(64) } }, "ui", "test", load)).rejects.toThrow();
+    expect((await cache.require(token, original, "ui", "test", load)).envelope.request).toEqual(original);
   });
 });

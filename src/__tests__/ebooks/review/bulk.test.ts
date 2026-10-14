@@ -13,6 +13,10 @@ vi.mock("@/lib/enrichment/read-only-session", () => ({
 vi.mock("@/lib/cache", () => ({ invalidate: vi.fn(), CACHE_TAGS: {
   works: "works", editions: "editions", activity: "activity", authors: "authors", series: "series" } }));
 vi.mock("@/lib/ebooks/match/accession", () => ({ planAccessionOn: mocks.plan, accessionEbooks: mocks.write }));
+// The confirm reads the catalogue again; the fixture plan was made on an empty one.
+vi.mock("@/lib/ebooks/match/load", async (original) => ({
+  ...await original<typeof import("@/lib/ebooks/match/load")>(), loadMatchCatalogue: async () => ({ rows: {} }),
+}));
 vi.mock("@/lib/ebooks/review/store", async (original) => ({
   ...await original<typeof import("@/lib/ebooks/review/store")>(), readReviewBeforeOn: mocks.before,
   readReviewReceiptOn: mocks.read, replayReviewDecisionSetOn: mocks.replay, prepareReviewAtomicWrite: mocks.prepare,

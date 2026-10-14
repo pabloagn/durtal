@@ -40,7 +40,7 @@ describe("unlink service replay/write boundary (module mocks, no database)", () 
     expect(mocks.plan).toHaveBeenCalledWith({}, input.before.matchingLinkReceipt, target, undefined,
       { reviewUnlink: input.plan.reviewUnlink });
     expect(mocks.defaultPlan).not.toHaveBeenCalled(); expect(mocks.prepare).not.toHaveBeenCalled(); expect(mocks.write).not.toHaveBeenCalled();
-    expect(reviewPreviewCache.requireUnlink(result.previewToken, result.request, "api", target).envelope.plan).toEqual(input.plan);
+    expect((await reviewPreviewCache.requireUnlink(result.previewToken, result.request, "api", target, async () => ({}))).envelope.plan).toEqual(input.plan);
   });
   it("refuses a replaced displayed native identity and later automatic metadata before core planning", async () => {
     const input = unlinkFixture(target);
