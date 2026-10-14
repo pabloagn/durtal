@@ -114,18 +114,20 @@ describe("painted session navigation", () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(locked).toBe(false);
       expect(s.engine.next).toHaveBeenCalledOnce();
+      // One turn waits behind the one on screen; a third press drops (SLN-673)
       const third = s.navigation.turn("next");
       barrier.resolve();
       await microtasks();
       expect(s.engine.next).toHaveBeenCalledTimes(2);
       await vi.advanceTimersByTimeAsync(100);
       await vi.advanceTimersByTimeAsync(100);
-      await Promise.all([first, second, third]);
+      expect(await third).toBeNull();
+      await Promise.all([first, second]);
       expect(dropped).toBe(0);
-      expect(starts.map((at) => at - starts[0])).toEqual([0, 100, 200]);
+      expect(starts.map((at) => at - starts[0])).toEqual([0, 100]);
       expect(
         s.commit.mock.calls.map(([place]) => place.locator.totalProgression),
-      ).toEqual([0.1, 0.2, 0.30000000000000004]);
+      ).toEqual([0.1, 0.2]);
       expect(
         s.commit.mock.calls.every(
           ([place]) => place.reason === "turn" && place.origin === "human",
@@ -301,7 +303,7 @@ describe("painted session navigation", () => {
       ),
     ).toEqual([0, 0.55]);
   });
-  it("queues every rapid ordinary turn through transition and paint without publishing stale places", async () => {
+  it("queues a rapid ordinary turn through transition and paint without publishing stale places", async () => {
     const transition = deferred(),
       paint = deferred();
     let firstPaint = true;
@@ -327,11 +329,15 @@ describe("painted session navigation", () => {
     expect(s.engine.next).toHaveBeenCalledOnce();
     transition.resolve();
     await microtasks();
+    // Beyond the one waiting turn, a press drops (SLN-673)
     const third = s.navigation.turn("next");
     expect(s.engine.next).toHaveBeenCalledOnce();
     expect(s.commit).not.toHaveBeenCalled();
     paint.resolve();
-    await Promise.all([first, second, third]);
+    expect(await third).toBeNull();
+    await Promise.all([first, second]);
+    const fourth = s.navigation.turn("next");
+    await fourth;
     expect(s.engine.next).toHaveBeenCalledTimes(3);
     expect(
       s.commit.mock.calls.map(([place]) => place.locator.totalProgression),

@@ -187,3 +187,9 @@ adapter regression source added; native retesting remains pending.
 21. `comic-book.js`: a comic's contents name each image "Page N", not its
     file name inside the archive ("001.jpg"), so the contents, the bar and
     the scrubber name a page the same way. SLN-680.
+
+22. `paginator.js`: a page turn that runs out of pages reads the edge
+    section before awaiting a background fill, not after. A fill that
+    finished meanwhile appended the next section, so the turn went to the
+    one after it and skipped a chapter. With no fill in flight nothing
+    changes. SLN-673.

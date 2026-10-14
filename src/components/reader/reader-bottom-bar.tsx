@@ -11,7 +11,8 @@ import { formatPercent, samePlace } from "@/lib/reader/place-label";
 
 /**
  * The reader's bottom bar (eBooks sub-issue 3): the chapter and how far
- * through the book. Shows and hides with the top bar; hidden, it is inert.
+ * through the book. Shows and hides with the top bar; hidden, it is inert,
+ * and a thin line along the bottom edge keeps how far you are (SLN-663).
  */
 export function ReaderBottomBar({
   visible,
@@ -60,6 +61,18 @@ export function ReaderBottomBar({
   // A comic's contents name its pages, so its chapter is its page: say it once
   const heading = chapter && !(place && samePlace(chapter, place)) ? chapter : null;
   return (
+    <>
+    {percent !== null && (
+      <div
+        data-reader-progress-line
+        aria-hidden
+        className={`pointer-events-none fixed inset-x-0 bottom-[env(safe-area-inset-bottom)] z-30 h-0.5 transition-opacity duration-150 motion-reduce:transition-none ${
+          visible ? "opacity-0" : ""
+        }`}
+      >
+        <div className="h-full bg-fg-muted" style={{ width: `${Math.min(100, Math.max(0, percent))}%` }} />
+      </div>
+    )}
     <footer
       data-reader-bottom-bar
       data-reader-chrome
@@ -130,5 +143,6 @@ export function ReaderBottomBar({
         </div>
       )}
     </footer>
+    </>
   );
 }

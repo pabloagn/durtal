@@ -4213,14 +4213,17 @@ export class Paginator extends HTMLElement {
         const prev = dir === -1
         const shouldGo = await (prev ? this.#scrollPrev(distance) : this.#scrollNext(distance))
         if (shouldGo) {
-            // Wait for any in-progress background pre-loading to complete —
-            // it may already be loading the section we need, so awaiting
-            // it lets #goTo reuse the view instead of loading from scratch
-            if (this.#fillPromise) await this.#fillPromise
+            // The edge is the one the turn ran out of pages at: read before
+            // a background fill can add the next section behind it, which
+            // made the turn skip that section (Durtal, SLN-673)
             const sorted = this.#sortedViews
             const edgeIndex = prev
                 ? sorted[0]?.[0] ?? this.#primaryIndex
                 : sorted[sorted.length - 1]?.[0] ?? this.#primaryIndex
+            // Wait for any in-progress background pre-loading to complete —
+            // it may already be loading the section we need, so awaiting
+            // it lets #goTo reuse the view instead of loading from scratch
+            if (this.#fillPromise) await this.#fillPromise
             await this.#goTo({
                 index: this.#adjacentIndex(dir, edgeIndex),
                 anchor: prev ? () => 1 : () => 0,

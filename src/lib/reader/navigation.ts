@@ -35,8 +35,9 @@ type Command = {
   resolve: (value: DurtalLocator | null) => void;
   reject: (reason: unknown) => void;
 };
-/** Turns waiting behind the one on screen; a held key's extra repeats drop */
-export const MAX_QUEUED_TURNS = 2;
+/** Turns waiting behind the one on screen: one, so letting go of the keys
+ * stops within a turn; further presses drop (SLN-673) */
+export const MAX_QUEUED_TURNS = 1;
 export const sameLocation = (
   a: DurtalLocator | null,
   b: DurtalLocator | null,

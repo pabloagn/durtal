@@ -29,6 +29,8 @@ export interface ReaderActions {
   first(): void;
   last(): void;
   toggleBars(): void;
+  /** Shows the bars: the menu key (SLN-663) */
+  showBars?(): void;
   contents(): void;
   settings(): void;
   search?(): void;
@@ -402,6 +404,10 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
       return;
     }
     if (options.isBlocked() || isEditableTarget(event.target)) return;
+    if (event.key === "ContextMenu") {
+      actions.showBars?.();
+      return;
+    }
     if (event.shiftKey && event.key.startsWith("Arrow")) return;
     if (event.key === "Tab") {
       options.selectionTab?.(event);
