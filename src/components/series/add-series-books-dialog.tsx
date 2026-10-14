@@ -184,8 +184,9 @@ export function AddSeriesBooksDialog({
             variant="primary"
             disabled={saving || !chosen.length}
             onClick={add}
+            busy={saving}
           >
-            {saving ? "Adding…" : `Add ${chosen.length || ""}`.trim()}
+            {`Add ${chosen.length || ""}`.trim()}
           </Button>
         </div>
       </div>

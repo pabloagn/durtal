@@ -170,8 +170,9 @@ export function OrderDetailPanel({
                 size="sm"
                 onClick={handleDelete}
                 disabled={isPending}
+                busy={isPending}
               >
-                {isPending ? "Deleting..." : "Delete"}
+                Delete
               </Button>
               <Button
                 variant="ghost"

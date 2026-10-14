@@ -91,9 +91,9 @@ export function DifferencesSection({ page, step, links, moreHref }: {
     {(keepAll.length > 1 || useAll.length > 1) && <div className="flex flex-wrap items-center gap-2">
       {confirming ? <>
         <p className="text-sm">{CHOICES[confirming]} for the {bulk(confirming).length} rows shown?</p>
-        <Button size="sm" variant="primary" disabled={busy}
+        <Button size="sm" variant="primary" busy={busy}
           onClick={() => void decide(confirming, bulk(confirming), `${CHOICES[confirming]} · ${bulk(confirming).length} ${fieldWord(field!)} rows`)}>
-          {busy ? "Saving…" : "Confirm"}</Button>
+          Confirm</Button>
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(null)}>Cancel</Button>
       </> : <>
         {keepAll.length > 1 && <Button size="sm" disabled={busy} onClick={() => setConfirming("keep")}>Keep Durtal's for these {keepAll.length}…</Button>}

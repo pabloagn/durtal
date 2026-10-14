@@ -158,7 +158,7 @@ export function AuthorMergeDialog({
               {!search.trim()
                 ? "Type a name to search"
                 : isSearching
-                  ? "Searching..."
+                  ? "Searching…"
                   : "No people found"}
             </p>
           )}

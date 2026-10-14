@@ -27,7 +27,7 @@ const WorkTimeline = dynamic(
     })),
   {
     ssr: false,
-    loading: () => <ViewStatus label="Loading timeline..." className="h-[400px]" />,
+    loading: () => <ViewStatus label="Loading timeline…" className="h-[400px]" />,
   },
 );
 
@@ -103,7 +103,7 @@ export function LibraryShell({ books, timelineQuery, pagination }: LibraryShellP
               className="h-[400px]"
             />
           ) : (
-            <ViewStatus label="Loading timeline..." className="h-[400px]" />
+            <ViewStatus label="Loading timeline…" className="h-[400px]" />
           )}
         </div>
       )}

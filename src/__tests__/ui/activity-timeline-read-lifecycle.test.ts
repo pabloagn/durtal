@@ -48,9 +48,9 @@ const reject = (read: ReturnType<typeof deferred>) => act(async () => { read.rej
 describe("activity timeline read lifecycle", () => {
   it("settles an initial failure honestly and retries the actual read", async () => {
     const first = deferred(), retry = deferred(); action.read.mockReturnValueOnce(first.promise).mockReturnValueOnce(retry.promise);
-    render(); expect(host.textContent).toContain("Loading activity..."); await reject(first);
+    render(); expect(host.textContent).toContain("Loading activity…"); await reject(first);
     expect(host.querySelector('[role="alert"]')?.textContent).toContain("Activity could not be loaded.");
-    expect(host.textContent).not.toContain("Loading activity..."); expect(host.textContent).not.toContain("No activity yet");
+    expect(host.textContent).not.toContain("Loading activity…"); expect(host.textContent).not.toContain("No activity yet");
     click("Retry activity"); await resolve(retry, result("recovered"));
     expect(host.textContent).toContain("recovered"); expect(host.querySelector('[role="alert"]')).toBeNull();
     expect(action.read).toHaveBeenLastCalledWith("work", workA, 20, undefined);
@@ -67,8 +67,8 @@ describe("activity timeline read lifecycle", () => {
   it("does not let an older completion overwrite the latest refresh or stop its loader", async () => {
     const older = deferred(), latest = deferred(); action.read.mockReturnValueOnce(older.promise).mockReturnValueOnce(latest.promise);
     render(); act(() => triggerActivityRefresh()); await resolve(older, result("stale"));
-    expect(host.textContent).toContain("Loading activity..."); expect(host.textContent).not.toContain("stale");
-    await resolve(latest, result("latest")); expect(host.textContent).toContain("latest"); expect(host.textContent).not.toContain("Loading activity...");
+    expect(host.textContent).toContain("Loading activity…"); expect(host.textContent).not.toContain("stale");
+    await resolve(latest, result("latest")); expect(host.textContent).toContain("latest"); expect(host.textContent).not.toContain("Loading activity…");
   });
   it("preserves visible rows when a background refresh fails", async () => {
     const first = deferred(), refresh = deferred(); action.read.mockReturnValueOnce(first.promise).mockReturnValueOnce(refresh.promise);

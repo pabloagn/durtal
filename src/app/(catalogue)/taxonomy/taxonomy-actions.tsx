@@ -157,10 +157,10 @@ function ReorderFamiliesDialog({
           type="button"
           variant="primary"
           size="sm"
-          disabled={saving}
+          busy={saving}
           onClick={save}
         >
-          {saving ? "Saving..." : "Save order"}
+          Save order
         </Button>
       </div>
     </Dialog>

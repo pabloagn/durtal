@@ -143,9 +143,10 @@ export function RecommenderFormDialog({
             <Button
               type="submit"
               variant="primary"
-              disabled={pending || !name.trim()}
+              disabled={!name.trim()}
+              busy={pending}
             >
-              {pending ? "Saving…" : isEdit ? "Save" : "Add"}
+              {isEdit ? "Save" : "Add"}
             </Button>
           </div>
         </form>

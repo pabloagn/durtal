@@ -124,8 +124,9 @@ export function CreateCollectionDialog({
               type="submit"
               variant="primary"
               disabled={saving || !name.trim()}
+              busy={saving}
             >
-              {saving ? "Creating…" : "Create collection"}
+              Create collection
             </Button>
           </div>
         </form>
