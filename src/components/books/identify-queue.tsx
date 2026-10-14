@@ -338,7 +338,7 @@ export function IdentifyQueue({
             {current.workSlug && (
               <Link
                 href={`/library/${current.workSlug}`}
-                className="inline-flex items-center px-2 text-xs text-fg-secondary hover:text-fg-primary"
+                className="inline-flex items-center px-2 text-xs text-fg-secondary hover:text-fg-primary pointer-coarse:min-h-11"
               >
                 Open the book
               </Link>

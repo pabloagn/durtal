@@ -1023,6 +1023,50 @@ dialog::backdrop {
   color: var(--color-fg-primary);
 }
 
+/* A toast's cross (SLN-567): small, in the top-right corner, inside the toast.
+   The text and the actions keep clear of it; on a touch screen it is a 44px
+   target that still keeps clear of an action. Unlayered and under :root, so
+   it wins over the styles Sonner injects */
+:root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] {
+  padding-right: 36px;
+}
+:root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button] {
+  top: 6px;
+  right: 6px;
+  left: auto;
+  width: 20px;
+  height: 20px;
+  transform: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-fg-secondary);
+}
+:root [data-sonner-toaster] [data-sonner-toast][data-styled="true"]:hover [data-close-button]:hover,
+:root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button]:hover {
+  background: var(--color-bg-tertiary);
+  border: 0;
+  color: var(--color-fg-primary);
+}
+:root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button]:focus-visible {
+  box-shadow: none;
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: 0;
+}
+@media (pointer: coarse) {
+  :root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] {
+    padding-right: 44px;
+  }
+  :root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button]::after {
+    content: "";
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 44px;
+    height: 44px;
+  }
+}
+
 /* A toast's icon sits on its first line (a 1.5 line-height title), not in the
    middle of a message that wraps */
 [data-sonner-toast][data-styled="true"] [data-icon] {

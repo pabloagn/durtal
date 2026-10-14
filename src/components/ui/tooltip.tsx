@@ -57,6 +57,11 @@ function tipFor(target: EventTarget | null, byKeyboard: boolean): Tip | null {
       byKeyboard,
     };
   }
+  // A toast's cross is drawn by Sonner, which takes no attribute for it:
+  // its label is its tooltip (SLN-567)
+  const cross = target.closest<HTMLElement>("[data-sonner-toast] [data-close-button]");
+  const label = cross?.getAttribute("aria-label");
+  if (cross && label) return { anchor: cross, text: label, keys: null, then: false, side: "top", byKeyboard };
   if (byKeyboard) return null;
   const cut = cutText(target);
   return cut

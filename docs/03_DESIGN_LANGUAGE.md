@@ -300,6 +300,10 @@ Multiple semantic variants:
 
 Sonner toast notifications. Appear at bottom-right. Dark theme matching the application palette. On a phone (600px and narrower) they span the screen between 16px margins (`globals.css` keeps Sonner's list inside the screen).
 
+One toaster for the app and the reader, `AppToaster` (`src/components/layout/app-toaster.tsx`, SLN-567):
+- Every toast has its own cross: a 14px icon in a 20px box, 6px inside the toast's top-right corner, `fg-secondary`, brighter on hover. Its label and tooltip are "Dismiss". It dismisses that toast only and runs none of its actions; an Undo is gone with it. On a touch screen its press area is 44px, and the toast keeps 44px clear on its right so the area never covers the text or an action.
+- Several toasts stack, at most three in view. Pointing at the stack spreads it out, and holds every toast's timer while the pointer stays.
+
 ### Detail pages
 
 A book, author or place page has three parts (`src/components/shared/detail-layout.tsx`):
