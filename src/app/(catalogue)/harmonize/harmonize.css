@@ -1064,16 +1064,17 @@
   .h-tabs button {
     min-height: 44px;
   }
-  .h-text-button {
-    position: relative;
+  /* A real 44px box: a larger pseudo-element press area overlapped the
+     controls beside it (SLN-552) */
+  .h-text-button,
+  .h-record-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    min-width: 44px;
   }
-  .h-text-button::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: max(100%, 44px);
-    height: max(100%, 44px);
-    transform: translate(-50%, -50%);
+  .h-fill-details summary {
+    padding-block: 7px;
+    min-height: 44px;
   }
 }
