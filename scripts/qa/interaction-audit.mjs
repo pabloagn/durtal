@@ -16,6 +16,10 @@
  *   touch     At 390px with a touch screen: no control only shows on hover,
  *             and every control is at least 24px or spaced as WCAG 2.5.8
  *             allows; the ones under the design's 44px are counted.
+ *   details   A page with a closed <details> is checked twice: as it loads,
+ *             then with every closed one opened by Enter on its summary
+ *             (nested ones too), so the controls they fold away are checked
+ *             as well. A summary that Enter does not open fails.
  *
  *   node scripts/qa/interaction-audit.mjs --disposable [--base http://127.0.0.1:3410] [route...]
  *
@@ -52,7 +56,7 @@ if (refusal) {
   console.error(`Refused: ${refusal}`);
   process.exit(2);
 }
-const routes = args.length ? args : ["/perfumes", "/films", "/paintings", "/perfumes/new", "/films/new", "/paintings/new", "@details"];
+const routes = args.length ? args : ["/perfumes", "/films", "/paintings", "/perfumes/new", "/films/new", "/paintings/new", "/harmonize", "@details"];
 /** Controls the audit presses: their label says they open a dialog, a panel or a form */
 const OPENER = /^(edit|add|new|note|write|rename|change|choose|manage|images|details|adjust|link|attach|view|open)\b/i;
 /** Controls it never presses, whatever else the label says: they change data or state */
@@ -116,10 +120,29 @@ async function waitFor(predicate, timeout = 15000) {
   }
   return false;
 }
+/** While set, every page load opens its closed details (the second pass) */
+let unfold = false;
 async function go(path) {
   await send("Page.navigate", { url: base + path });
   await waitFor("document.readyState === 'complete' && !document.getElementById('S:0') && document.querySelector('main')");
   await sleep(600);
+  if (unfold) await openDetails(path);
+}
+/** The summaries of closed details a reader can see now */
+const CLOSED = "[...document.querySelectorAll('details:not([open]) > summary:first-of-type')].filter((s) => !s.closest('[inert], [aria-hidden=true]') && (!s.checkVisibility || s.checkVisibility()))";
+/** Opens every closed details from the keyboard, nested ones after their parent */
+async function openDetails(route) {
+  await evaluate(HELPERS);
+  for (let i = 0; i < 100; i++) {
+    const name = await evaluate(`(() => { const s = ${CLOSED}[0]; if (!s) return null; s.focus({ focusVisible: true }); return __ia.name(s); })()`);
+    if (!name) break;
+    await press("Enter");
+    if (await evaluate("!!document.activeElement?.closest('details')?.open")) continue;
+    fail(route, "details", `Enter on ${name} does not open it`);
+    await evaluate(`(() => { const s = ${CLOSED}[0]; if (s) s.parentElement.open = true; })()`);
+  }
+  // Tab after a blur starts from the last summary: start from the top again
+  await evaluate("(() => { const top = document.createElement('span'); top.tabIndex = -1; document.body.prepend(top); top.focus(); top.blur(); top.remove(); window.scrollTo(0, 0); return true; })()");
 }
 const KEYS = {
   Tab: { code: "Tab", keyCode: 9 },
@@ -184,7 +207,16 @@ const HELPERS = `window.__ia = {
 
 const failures = [];
 const notes = [];
-const fail = (route, check, what) => failures.push(`${route}  ${check}: ${what}`);
+const found = new Set();
+/** The route as reported: the second pass says its details are open */
+const where = (route) => (unfold ? `${route} (details open)` : route);
+const fail = (route, check, what) => {
+  // The details pass repeats what the first pass already found
+  const key = `${route}  ${check}: ${what}`;
+  if (found.has(key)) return;
+  found.add(key);
+  failures.push(`${where(route)}  ${check}: ${what}`);
+};
 
 async function setViewport(width, touch) {
   await send("Emulation.setDeviceMetricsOverride", { width, height: touch ? 844 : 900, deviceScaleFactor: 1, mobile: touch });
@@ -214,7 +246,7 @@ async function keyboard(route) {
     if (stop.hidden) fail(route, "keyboard", `${stop.name} takes focus but cannot be seen`);
     else if (!stop.shows) fail(route, "keyboard", `${stop.name} shows no focus indicator`);
   }
-  notes.push(`${route}: ${stops} tab stops`);
+  notes.push(`${where(route)}: ${stops} tab stops`);
 }
 
 async function menus(route) {
@@ -315,7 +347,7 @@ async function dialogs(route) {
       if (await checkDialog(route, `${trigger} › ${item}`, trigger)) opened++;
     }
   }
-  notes.push(`${route}: ${opened} dialogs`);
+  notes.push(`${where(route)}: ${opened} dialogs`);
 }
 
 /** Every element whose own style animates or transitions movement, or loops, as computed now */
@@ -427,7 +459,7 @@ async function touch(route) {
   })()`);
   for (const h of result.hoverOnly) fail(route, "touch", `${h} only shows on hover`);
   for (const s of result.small) fail(route, "touch", `${s} is under 24px and too close to another control`);
-  notes.push(`${route}: ${result.total} touch controls, ${result.under44} between 24 and 44px`);
+  notes.push(`${where(route)}: ${result.total} touch controls, ${result.under44} between 24 and 44px`);
   await setViewport(1440, false);
 }
 
@@ -445,18 +477,37 @@ async function detailRoutes() {
 await setViewport(1440, false);
 const expanded = [];
 for (const r of routes) expanded.push(...(r === "@details" ? await detailRoutes() : [r]));
+const CHECKS = [["keyboard", keyboard], ["menus", menus], ["dialogs", dialogs], ["motion", motion], ["touch", touch]];
+let unfolded = 0;
 for (const route of expanded) {
-  for (const [check, run] of [["keyboard", keyboard], ["menus", menus], ["dialogs", dialogs], ["motion", motion], ["touch", touch]]) {
-    try {
+  for (unfold of [false, true]) {
+    if (unfold) {
+      // Only a page that folds something away needs the second pass
       await setViewport(1440, false);
+      unfold = false;
       await go(route);
-      await run(route);
-    } catch (error) {
-      fail(route, check, `the check stopped: ${error.message.split("\n")[0]}`);
+      const closed = await evaluate(`${CLOSED}.length`);
+      await setViewport(390, true);
+      await go(route);
+      const closedOnPhone = await evaluate(`${CLOSED}.length`);
+      if (!closed && !closedOnPhone) break;
+      unfold = true;
+      unfolded++;
+    }
+    for (const [check, run] of CHECKS) {
+      try {
+        await setViewport(1440, false);
+        await go(route);
+        await run(route);
+      } catch (error) {
+        fail(route, check, `the check stopped: ${error.message.split("\n")[0]}`);
+      }
     }
   }
+  unfold = false;
   console.log(`checked ${route}`);
 }
+notes.push(`${unfolded} of ${expanded.length} routes checked again with their details open`);
 ws.close();
 const exited = new Promise((r) => chrome.once("exit", r));
 chrome.kill();
