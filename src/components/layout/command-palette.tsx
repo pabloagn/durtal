@@ -251,9 +251,15 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
     : allCopyItems.length > 1
       ? allCopyItems
       : [];
-  const actionItems = trimmed
-    ? filterBySearch(ACTION_ITEMS, trimmed, (i) => i.label)
+  // Where the open item takes A then F or A then C (SLN-571), its Add entry
+  // shows no keys: they favourite the item or open its collections
+  const itemKeys = actions.itemKeys();
+  const allActionItems = itemKeys.length
+    ? ACTION_ITEMS.map((i) => (i.add && itemKeys.includes(i.add) ? { ...i, keys: undefined, then: undefined } : i))
     : ACTION_ITEMS;
+  const actionItems = trimmed
+    ? filterBySearch(allActionItems, trimmed, (i) => i.label)
+    : allActionItems;
   const navigationItems = trimmed
     ? filterBySearch([...NAVIGATION_ITEMS, ...SETTINGS_ITEMS], trimmed, (i) => i.label)
     : NAVIGATION_ITEMS;

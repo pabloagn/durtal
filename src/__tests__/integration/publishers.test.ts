@@ -42,6 +42,19 @@ vi.mock("@/lib/cache", () => ({
 }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
 vi.mock("@/lib/s3/covers", () => ({ processAndUploadCover: vi.fn() }));
+// Pass-throughs a test can pause, to let another writer commit in between (SLN-576)
+vi.mock("@/lib/match/save", async (actual) => {
+  const save = await actual<typeof import("@/lib/match/save")>();
+  return { ...save, loadMatchEdition: vi.fn(save.loadMatchEdition) };
+});
+vi.mock("@/lib/db/atomic", async (actual) => {
+  const atomic = await actual<typeof import("@/lib/db/atomic")>();
+  return { ...atomic, atomic: vi.fn(atomic.atomic) };
+});
+vi.mock("@/lib/s3/cleanup", async (actual) => {
+  const cleanup = await actual<typeof import("@/lib/s3/cleanup")>();
+  return { ...cleanup, deleteUnusedObjects: vi.fn(cleanup.deleteUnusedObjects) };
+});
 import {
   fulfilTargetWithCopy,
   getPublishers,
@@ -68,6 +81,9 @@ import {
   undoAutomaticPublisherDecision,
 } from "@/lib/actions/publisher-names";
 import { applyAutomaticDecisions } from "@/lib/publishers/resolution";
+import { loadMatchEdition } from "@/lib/match/save";
+import { atomic } from "@/lib/db/atomic";
+import { deleteUnusedObjects } from "@/lib/s3/cleanup";
 import { applyTaxonomy, undoTaxonomyRun } from "@/lib/publishers/taxonomy-apply";
 import type { HouseSpec } from "@/lib/publishers/taxonomy";
 import { createEdition, updateEdition } from "@/lib/actions/editions";
@@ -1352,6 +1368,134 @@ describe.skipIf(!url)(
         .where(eq(schema.collectionEditions.collectionId, shelf.id));
       expect(members.map((m) => m.editionId)).toEqual([real.id]);
       expect(await db.select().from(schema.editions).where(eq(schema.editions.id, e.id))).toEqual([]);
+    });
+
+    describe("while another writer changes the edition (SLN-576)", () => {
+      /** The next call to `step` lets `write` commit first ("before") or once it has run ("after") */
+      function interleave<T extends (...args: never[]) => Promise<unknown>>(
+        when: "before" | "after",
+        step: T,
+        write: () => Promise<unknown>,
+      ) {
+        const real = vi.mocked(step).getMockImplementation()!;
+        vi.mocked(step).mockImplementationOnce((async (...args: Parameters<T>) => {
+          if (when === "before") await write();
+          const result = await real(...args);
+          if (when === "after") await write();
+          return result;
+        }) as T);
+      }
+      const setEdition = (id: string, values: Partial<typeof schema.editions.$inferInsert>) =>
+        db.update(schema.editions).set({ ...values, updatedAt: new Date() }).where(eq(schema.editions.id, id));
+      const editionOf = async (id: string) =>
+        (await db.select().from(schema.editions).where(eq(schema.editions.id, id)))[0];
+
+      it("refuses a stale Undo and keeps the newer title", async () => {
+        const w = await work("The Loser");
+        const e = await placeholderEdition(w.id, "The Loser");
+        const fetchMock = isbndb([LOSER]);
+        try {
+          const done = await identifyEdition(e.id, LOSER.isbn13);
+          interleave("after", loadMatchEdition, () => setEdition(e.id, { title: "The Loser, revised" }));
+          await expect(undoIdentification(e.id, done.undo)).rejects.toThrow("changed");
+          expect(await editionOf(e.id)).toMatchObject({
+            title: "The Loser, revised",
+            isbn13: LOSER.isbn13,
+            publisher: "Vintage Books",
+            metadataSource: "isbndb",
+          });
+          // Nothing raced: the same Undo goes through
+          await undoIdentification(e.id, done.undo);
+          expect(await editionOf(e.id)).toMatchObject({ isbn13: null, metadataSource: "phantom_canon" });
+        } finally {
+          fetchMock.mockRestore();
+          vi.unstubAllEnvs();
+        }
+      });
+
+      it("refuses a stale Undo of a cover and leaves the newer cover and source alone", async () => {
+        const w = await work("The Loser");
+        const e = await placeholderEdition(w.id, "The Loser");
+        // As an identification with a cover leaves it
+        await setEdition(e.id, {
+          isbn13: LOSER.isbn13,
+          coverS3Key: "gold/media/covers/loser-1.jpg",
+          thumbnailS3Key: "gold/media/covers/loser-1-thumb.jpg",
+          coverSourceUrl: LOSER.image,
+          metadataSource: "isbndb",
+        });
+        const undo = {
+          before: { isbn13: null, cover: null },
+          after: { isbn13: LOSER.isbn13, cover: LOSER.image },
+          previousSource: "phantom_canon",
+        };
+        // Another tab saves a fresh copy of the same cover, from Google Books
+        interleave("after", loadMatchEdition, () =>
+          setEdition(e.id, {
+            coverS3Key: "gold/media/covers/loser-2.jpg",
+            thumbnailS3Key: "gold/media/covers/loser-2-thumb.jpg",
+            metadataSource: "google_books",
+          }),
+        );
+        await expect(undoIdentification(e.id, undo)).rejects.toThrow("changed");
+        expect(await editionOf(e.id)).toMatchObject({
+          isbn13: LOSER.isbn13,
+          coverS3Key: "gold/media/covers/loser-2.jpg",
+          thumbnailS3Key: "gold/media/covers/loser-2-thumb.jpg",
+          coverSourceUrl: LOSER.image,
+          metadataSource: "google_books",
+        });
+        expect(deleteUnusedObjects).not.toHaveBeenCalled();
+      });
+
+      it("refuses a stale keep without an ISBN once the placeholder is identified", async () => {
+        const w = await work("An old book");
+        const e = await placeholderEdition(w.id, "An old book");
+        interleave("after", loadMatchEdition, () =>
+          setEdition(e.id, { isbn13: LOSER.isbn13, metadataSource: "isbndb" }),
+        );
+        await expect(keepWithoutIsbn(e.id)).rejects.toThrow("changed");
+        expect(await editionOf(e.id)).toMatchObject({ isbn13: LOSER.isbn13, metadataSource: "isbndb" });
+      });
+
+      it("refuses a move once the placeholder is identified, and moves nothing", async () => {
+        const w = await work("Ice");
+        const e = await placeholderEdition(w.id, "Ice");
+        const real = await createEdition({ workId: w.id, title: "Ice", isbn13: isbn("978180533098") });
+        const copy = await own(e.id);
+        const [shelf] = await db.insert(schema.collections).values({ name: `Shelf ${e.id}` }).returning();
+        await db.insert(schema.collectionEditions).values({ collectionId: shelf.id, editionId: e.id });
+        // Identified in another tab after every check, before the move writes
+        interleave("before", atomic, () =>
+          setEdition(e.id, { isbn13: isbn("978180533099"), metadataSource: "isbndb" }),
+        );
+        await expect(moveToExistingEdition(e.id, real.id)).rejects.toThrow("changed");
+        expect(await editionOf(e.id)).toMatchObject({ metadataSource: "isbndb" });
+        const [kept] = await db.select().from(schema.instances).where(eq(schema.instances.id, copy.id));
+        expect(kept.editionId).toBe(e.id);
+        expect(
+          (await db.select().from(schema.collectionEditions).where(eq(schema.collectionEditions.collectionId, shelf.id)))
+            .map((m) => m.editionId),
+        ).toEqual([e.id]);
+      });
+
+      it("refuses a move when the placeholder gains a tag or the edition stops being identified", async () => {
+        const w = await work("Ice");
+        const e = await placeholderEdition(w.id, "Ice");
+        const real = await createEdition({ workId: w.id, title: "Ice", isbn13: isbn("978180533098") });
+        const copy = await own(e.id);
+        const [tag] = await db.insert(schema.tags).values({ name: `tag ${e.id}` }).returning();
+        interleave("before", atomic, () => db.insert(schema.editionTags).values({ editionId: e.id, tagId: tag.id }));
+        await expect(moveToExistingEdition(e.id, real.id)).rejects.toThrow("changed");
+        await db.delete(schema.editionTags).where(eq(schema.editionTags.editionId, e.id));
+        interleave("before", atomic, () => setEdition(real.id, { metadataSource: "phantom_canon" }));
+        await expect(moveToExistingEdition(e.id, real.id)).rejects.toThrow("changed");
+        const [kept] = await db.select().from(schema.instances).where(eq(schema.instances.id, copy.id));
+        expect(kept.editionId).toBe(e.id);
+        // With nothing in between, the move goes through
+        await setEdition(real.id, { metadataSource: "manual" });
+        expect(await moveToExistingEdition(e.id, real.id)).toEqual({ copies: 1, collections: 0 });
+      });
     });
 
     it("finds a duplicate book across accents, case and author name forms (SLN-287)", async () => {

@@ -60,6 +60,7 @@ export function catalogueContinueDTO(
     projection: descriptor.projection,
     savedPercent: descriptor.savedPercent,
     targetPercent: descriptor.targetPercent,
+    bookPercent: descriptor.bookPercent,
     anchor: anchorDTO(descriptor.anchor),
     localAnchor: anchorDTO(descriptor.localAnchor),
     newestOtherAnchor: anchorDTO(descriptor.newestOtherAnchor),

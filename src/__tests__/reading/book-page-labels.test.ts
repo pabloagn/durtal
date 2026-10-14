@@ -27,6 +27,8 @@ const done = (finishedOn: string, over: Partial<ReadingSummary> = {}): ReadingSu
 describe("the header control", () => {
   it("names each state", () => {
     expect(readingControlLabel([])).toBe("Start reading");
+    expect(readingControlLabel([], { ebook: true })).toBe("Not tracked");
+    expect(readingControlLabel([base], { ebook: true })).toBe("Reading · p. 212 of 480 · 44%");
     expect(readingControlLabel([base])).toBe("Reading · p. 212 of 480 · 44%");
     expect(readingControlLabel([{ ...base, unit: "percent" }])).toBe("Reading · 44%");
     expect(readingControlLabel([{ ...base, unit: "minutes", currentMinutes: 192, totalMinutes: 580 }])).toBe("Reading · 3:12 of 9:40");

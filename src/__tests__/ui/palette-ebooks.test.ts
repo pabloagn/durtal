@@ -9,7 +9,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }));
 vi.mock("@/lib/actions/quick-search", () => ({ quickSearch: mocks.search, getPaletteContinueReading: mocks.recent }));
 vi.mock("@/lib/actions/reading", () => ({ getOpenReadings: async () => [] }));
 vi.mock("@/components/shortcuts/shortcuts-provider", () => ({
-  useShortcutActions: () => ({ editItems: () => [], readingItems: () => [], copyItems: () => [] }),
+  useShortcutActions: () => ({ editItems: () => [], readingItems: () => [], copyItems: () => [], itemKeys: () => [] }),
 }));
 vi.mock("@/components/reading/reading-dialogs-provider", () => ({ useReadingDialogs: () => ({}) }));
 vi.mock("@/components/reading/timer-provider", () => ({ useOptionalTimer: () => null }));

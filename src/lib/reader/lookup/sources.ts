@@ -5,7 +5,7 @@ import {
   type LookupSource,
 } from "@/lib/validations/reader-lookup";
 
-export const DEFAULT_LOOKUP_SOURCES: readonly LookupSource[] = [
+const LEGACY_DEFAULT_SOURCES: readonly LookupSource[] = [
   {
     language: "la",
     name: "Logeion",
@@ -40,9 +40,48 @@ export const DEFAULT_LOOKUP_SOURCES: readonly LookupSource[] = [
   { language: "de", name: "DWDS", url: "https://www.dwds.de/wb/{word}" },
 ];
 
+export const DEFAULT_LOOKUP_SOURCES: readonly LookupSource[] = [
+  {
+    language: "en",
+    name: "Merriam-Webster",
+    url: "https://www.merriam-webster.com/dictionary/{word}",
+  },
+  {
+    language: "en",
+    name: "Wiktionary",
+    url: "https://en.wiktionary.org/wiki/{word}",
+  },
+  ...LEGACY_DEFAULT_SOURCES,
+];
+
+const sameSources = (a: readonly LookupSource[], b: readonly LookupSource[]) =>
+  a.length === b.length &&
+  a.every(
+    (source, index) =>
+      source.language === b[index].language &&
+      source.name === b[index].name &&
+      source.url === b[index].url,
+  );
+
+/**
+ * Settings saved before the English sources (version 1) that still hold the
+ * untouched first defaults take the current ones (SLN-687). Version 2 is kept
+ * as saved, so removing the English sources stays removed.
+ */
+export function withCurrentDefaults(settings: LookupSettings): LookupSettings {
+  if (settings.v === 2) return settings;
+  return {
+    ...settings,
+    v: 2,
+    sources: sameSources(settings.sources, LEGACY_DEFAULT_SOURCES)
+      ? DEFAULT_LOOKUP_SOURCES.map((source) => ({ ...source }))
+      : settings.sources,
+  };
+}
+
 export function defaultLookupSettings(): LookupSettings {
   return {
-    v: 1,
+    v: 2,
     sources: DEFAULT_LOOKUP_SOURCES.map((source) => ({ ...source })),
     translateTo: "en",
   };
@@ -51,7 +90,9 @@ export function defaultLookupSettings(): LookupSettings {
 /** Used for both obsolete stored preferences and the optional local offline copy. */
 export function lookupSettings(value: unknown): LookupSettings {
   const parsed = lookupSettingsSchema.safeParse(value);
-  return parsed.success ? parsed.data : defaultLookupSettings();
+  return parsed.success
+    ? withCurrentDefaults(parsed.data)
+    : defaultLookupSettings();
 }
 
 export function sourcesForLanguage(

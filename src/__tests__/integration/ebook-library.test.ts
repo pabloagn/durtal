@@ -253,6 +253,8 @@ describe.skipIf(!url)(
       const elsewhere = await place(2, 0.5, 0.4, phone, "now() - interval '1 day'");
       expect(elsewhere?.descriptor.anchor?.deviceId).toBe(phone);
       expect(elsewhere?.descriptor.savedPercent).toBe(40);
+      expect(elsewhere?.descriptor.bookPercent).toBe(40);
+      expect(elsewhere?.descriptor.bookPlace?.deviceId).toBe(phone);
       // Twelve books opened since are not "continue", and do not push it out
       for (let i = 0; i < 12; i++) {
         const sha = createHash("sha256").update(`opened ${i}`).digest("hex");

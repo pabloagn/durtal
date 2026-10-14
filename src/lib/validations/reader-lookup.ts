@@ -27,7 +27,8 @@ export const lookupSourceSchema = z
 
 export const lookupSettingsSchema = z
   .object({
-    v: z.literal(1),
+    // 2 since SLN-687: a 1 still holding the first defaults gains the English sources
+    v: z.union([z.literal(1), z.literal(2)]),
     sources: z.array(lookupSourceSchema).max(50, "Use at most 50 sources"),
     translateTo: language,
   })

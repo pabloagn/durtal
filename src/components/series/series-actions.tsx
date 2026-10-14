@@ -6,6 +6,8 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
+import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
+import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
 import { deleteSeries } from "@/lib/actions/series";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
@@ -33,6 +35,8 @@ export function SeriesActions({
   const [addOpen, setAddOpen] = useState(initialAdd);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // E then S: the same dialog as the menu's Edit (SLN-633)
+  useEditActions([{ key: EDIT_KEYS.series, label: "Series", icon: Pencil, run: () => setEditOpen(true) }]);
 
   async function remove() {
     try {
@@ -54,7 +58,7 @@ export function SeriesActions({
       </Button>
       <EntityActionMenu
         items={[
-          { label: "Edit", icon: Pencil, onClick: () => setEditOpen(true) },
+          { label: "Edit", icon: Pencil, onClick: () => setEditOpen(true), shortcut: editHint(EDIT_KEYS.series) },
           {
             label: "Delete",
             icon: Trash2,

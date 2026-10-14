@@ -255,7 +255,7 @@ export function SpeechPlayer({
             voiceNotice ??
             (voices.length
               ? `No voice for ${language} on this device. Choose another voice.`
-              : "No voices available on this device.")}
+              : "No voices on this device.")}
         </p>
       )}
     </div>

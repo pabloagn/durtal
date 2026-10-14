@@ -8,12 +8,12 @@ import { setFavourite } from "@/lib/actions/favourites";
 import { FAVOURITE_STAR_ID } from "@/components/shared/favourite-star";
 import type { FavouriteEntity } from "@/lib/constants/favourites";
 
-/** The keyboard shortcut that toggles the favourite on a detail page */
+/** A then this key toggles the favourite on a detail page (SLN-571) */
 export const FAVOURITE_SHORTCUT = "f";
 
-/** Registers F for the page while its own favourite star is shown */
+/** Registers A then F for the page while its own favourite star is shown */
 function FavouriteShortcut({ run }: { run: () => void }) {
-  useShortcut(FAVOURITE_SHORTCUT, "Add to or remove from favourites", run);
+  useShortcut(FAVOURITE_SHORTCUT, "Add to or remove from favourites", run, "a");
   return null;
 }
 
@@ -49,7 +49,7 @@ export function FavouriteToggle({
   /** The item's name, for screen readers: "Add Dune to favourites" */
   name?: string;
   variant?: keyof typeof VARIANTS;
-  /** The page's own item: F toggles it, and the tooltip says so */
+  /** The page's own item: A then F toggles it, and the tooltip says so */
   shortcut?: boolean;
   className?: string;
 }) {
@@ -93,7 +93,7 @@ export function FavouriteToggle({
         aria-pressed={on}
         aria-label={label}
         data-tooltip={tooltip}
-        data-tooltip-keys={shortcut ? FAVOURITE_SHORTCUT : undefined}
+        data-tooltip-keys={shortcut ? `a then ${FAVOURITE_SHORTCUT}` : undefined}
         disabled={pending}
         onClick={(event) => {
           // A star inside a clickable card never opens the card

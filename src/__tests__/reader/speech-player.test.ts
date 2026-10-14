@@ -291,6 +291,12 @@ describe("pure speech player lifecycle", () => {
       current: sentence(1),
     });
   });
+  it("pauses at once with no message when the device has no voice (SLN-679)", () => {
+    const p = started();
+    const commands = p.send({ kind: "error", token: p.token(), error: "no-voice" });
+    expect(commands.find((c) => c.kind === "speak")).toBeUndefined();
+    expect(p.state()).toMatchObject({ phase: "paused", message: null, retry: 0, current: sentence(1) });
+  });
   it.each(["previous", "next"] as const)(
     "gives a newly prepared %s sentence its own one retry after a previous voice failure",
     (direction) => {

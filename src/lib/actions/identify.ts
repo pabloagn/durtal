@@ -7,12 +7,16 @@
  * collections stay attached; the save goes through Match's guardrails and
  * can be undone.
  */
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, type SQL } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import { lockReaderBindings, lockReaderNotes, withReaderWriteRetry } from "@/lib/reading/reader-write-locks";
 import { editions } from "@/lib/db/schema";
+import { readableDatabaseError } from "@/lib/db/errors";
+import { assertSql, lockSql } from "@/lib/harmonization/store";
+import { editionUpdateQuery, editionWriteGuardQueries } from "@/lib/catalogue/edition-write-guard";
+import { STALE_RECORD } from "@/lib/catalogue/work-store";
 import { recordActivity } from "@/lib/activity/record";
 import { autoResolveEditions, resultRows } from "@/lib/publishers/resolution";
 import { getIsbndbBook, searchIsbndbBooks } from "@/lib/api/isbndb";
@@ -39,8 +43,10 @@ import {
 import {
   MATCH_COLUMN,
   loadMatchEdition,
+  matchWriteSnapshot,
   planRecord,
   saveMatch,
+  type MatchEdition,
 } from "@/lib/match/save";
 import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
 
@@ -283,13 +289,41 @@ export async function identifyEdition(
   };
 }
 
+/** Rethrows the guard's refusal in the words of the action that hit it */
+function refusedAs(message: string, error: unknown): never {
+  const readable = readableDatabaseError(error);
+  throw readable instanceof Error && readable.message === STALE_RECORD ? new Error(message) : error;
+}
+
+/**
+ * Writes `updates` only while the edition is exactly as `loadMatchEdition`
+ * read it, its links included: a save committed in between refuses it
+ * (SLN-576).
+ */
+async function writeLoadedEdition(
+  edition: MatchEdition,
+  updates: Partial<typeof editions.$inferInsert>,
+  changed: string,
+) {
+  const expected = matchWriteSnapshot(edition);
+  try {
+    await atomic((d) => [
+      ...editionWriteGuardQueries(d, expected),
+      editionUpdateQuery(d, edition.id, updates),
+    ]);
+  } catch (error) {
+    refusedAs(changed, error);
+  }
+}
+
 /** Keeps a placeholder as it is: an edition without an ISBN (an old book) */
 export async function keepWithoutIsbn(editionId: string): Promise<IdentifyUndo> {
   const edition = await placeholder(editionId);
-  await db
-    .update(editions)
-    .set({ metadataSource: KEPT_WITHOUT_ISBN, updatedAt: new Date() })
-    .where(eq(editions.id, editionId));
+  await writeLoadedEdition(
+    edition,
+    { metadataSource: KEPT_WITHOUT_ISBN, updatedAt: new Date() },
+    "This edition changed in the meantime. Reload the queue.",
+  );
   recordActivity("work", edition.work.id, "work.edition_kept_without_isbn", {
     targetId: editionId,
     targetName: edition.title,
@@ -312,8 +346,9 @@ export async function undoIdentification(editionId: string, input: IdentifyUndo)
       : (edition[MATCH_COLUMN[field]] as MatchValue);
   const changed = fields.some((f) => !sameMatchValue(f, now(f), undo.after[f] ?? null));
   const kept = !fields.length && edition.metadataSource === KEPT_WITHOUT_ISBN;
+  const refused = "The edition changed after this. Undo it by hand.";
   if (changed || (!fields.length && !kept) || (fields.length && edition.metadataSource !== "isbndb"))
-    throw new Error("The edition changed after this. Undo it by hand.");
+    throw new Error(refused);
   if (undo.before.cover !== undefined && undo.before.cover !== null)
     throw new Error("The old cover cannot be restored. Undo it by hand.");
 
@@ -331,7 +366,8 @@ export async function undoIdentification(editionId: string, input: IdentifyUndo)
       Object.assign(updates, { [MATCH_COLUMN[field]]: undo.before[field] ?? null });
     }
   }
-  await db.update(editions).set(updates).where(eq(editions.id, editionId));
+  // Checked against the edition as loaded: another tab's save in between refuses it
+  await writeLoadedEdition(edition, updates, refused);
   await autoResolveEditions([editionId]);
   if (fields.includes("cover"))
     await deleteUnusedObjects(
@@ -356,6 +392,23 @@ export async function moveToExistingEdition(placeholderId: string, editionId: st
   return withReaderWriteRetry(() => moveToExistingEditionOnce(placeholderId, editionId));
 }
 
+const MOVE_CHANGED = "The placeholder or the edition changed in the meantime. Reload the queue.";
+/** What, beyond copies, collections and reading, keeps a placeholder from moving */
+const PLACEHOLDER_REFERENCES: [table: string, label: string][] = [
+  ["orders", "orders"],
+  ["acquisition_targets", "hunting targets"],
+  ["edition_contributors", "contributors"],
+  ["edition_genres", "genres"],
+  ["edition_tags", "tags"],
+  ["custom_taxonomy_item_editions", "taxonomy items"],
+  ["catalogue_identifiers", "identifiers"],
+  ["source_records", "source records"],
+];
+/** One query per reference table, each on the placeholder's rows */
+const referencesOf = (placeholderId: string, select: SQL) =>
+  PLACEHOLDER_REFERENCES.map(([table]) =>
+    sql`(${select} from ${sql.identifier(table)} where edition_id = ${placeholderId}::uuid)`);
+
 async function moveToExistingEditionOnce(placeholderId: string, editionId: string) {
   const source = await placeholder(placeholderId);
   const target = await db.query.editions.findFirst({ where: eq(editions.id, editionId) });
@@ -364,18 +417,10 @@ async function moveToExistingEditionOnce(placeholderId: string, editionId: strin
   if (isPlaceholderEdition(target)) throw new Error("Choose an identified edition");
   if (source.coverS3Key || source.thumbnailS3Key)
     throw new Error("The placeholder has a cover. Delete it by hand.");
-  const [refs] = resultRows<Record<string, number>>(
-    await db.execute(sql`select
-      (select count(*)::int from orders where edition_id = ${placeholderId}::uuid) as orders,
-      (select count(*)::int from acquisition_targets where edition_id = ${placeholderId}::uuid) as "hunting targets",
-      (select count(*)::int from edition_contributors where edition_id = ${placeholderId}::uuid) as contributors,
-      (select count(*)::int from edition_genres where edition_id = ${placeholderId}::uuid) as genres,
-      (select count(*)::int from edition_tags where edition_id = ${placeholderId}::uuid) as tags,
-      (select count(*)::int from custom_taxonomy_item_editions where edition_id = ${placeholderId}::uuid) as "taxonomy items",
-      (select count(*)::int from catalogue_identifiers where edition_id = ${placeholderId}::uuid) as identifiers,
-      (select count(*)::int from source_records where edition_id = ${placeholderId}::uuid) as "source records"`),
+  const [counts] = resultRows<{ counts: number[] }>(
+    await db.execute(sql`select array[${sql.join(referencesOf(placeholderId, sql`select count(*)::int`), sql`, `)}] as counts`),
   );
-  const held = Object.entries(refs).filter(([, n]) => n > 0).map(([k]) => k);
+  const held = PLACEHOLDER_REFERENCES.filter((_, i) => counts.counts[i] > 0).map(([, label]) => label);
   if (held.length)
     throw new Error(`The placeholder still has ${held.join(", ")}. Move them by hand first.`);
 
@@ -389,6 +434,18 @@ async function moveToExistingEditionOnce(placeholderId: string, editionId: strin
       where i.edition_id in (${placeholderId}::uuid,${editionId}::uuid)`,
       sql`select id from reading_notes where edition_id in (${placeholderId}::uuid,${editionId}::uuid)`),
     lockReaderNotes(d, sql`select id from reading_notes where edition_id in (${placeholderId}::uuid,${editionId}::uuid)`),
+    // Everything checked above, checked again where no other save can change
+    // it: the placeholder is still bare and the edition still identified (SLN-576)
+    d.execute(lockSql(["editions", ...PLACEHOLDER_REFERENCES.map(([table]) => table)])),
+    d.execute(assertSql(
+      sql`exists (select 1 from editions p join editions t on t.work_id = p.work_id and t.id <> p.id
+          where p.id = ${placeholderId}::uuid and t.id = ${editionId}::uuid
+            and p.metadata_source = ${PLACEHOLDER_SOURCE}
+            and t.metadata_source is distinct from ${PLACEHOLDER_SOURCE}
+            and p.cover_s3_key is null and p.thumbnail_s3_key is null)
+        and ${sql.join(referencesOf(placeholderId, sql`select 1`).map((rows) => sql`not exists ${rows}`), sql` and `)}`,
+      MOVE_CHANGED,
+    )),
     d.execute(sql`update instances set edition_id = ${editionId}::uuid, updated_at = now()
       where edition_id = ${placeholderId}::uuid`),
     d.execute(sql`insert into collection_editions (collection_id, edition_id, sort_order, added_at)
@@ -405,9 +462,13 @@ async function moveToExistingEditionOnce(placeholderId: string, editionId: strin
     // And the quotes and notes taken against it (SLN-453)
     d.execute(sql`update reading_notes set edition_id = ${editionId}::uuid
       where edition_id = ${placeholderId}::uuid`),
-    d.execute(sql`delete from editions where id = ${placeholderId}::uuid
-      and metadata_source = ${PLACEHOLDER_SOURCE}`),
-  ]);
+    d.execute(sql`with removed as (
+        delete from editions where id = ${placeholderId}::uuid
+          and metadata_source = ${PLACEHOLDER_SOURCE} returning id
+      ) ${assertSql(sql`(select count(*) from removed) = 1`, MOVE_CHANGED)}`),
+  ]).catch((error) => {
+    throw readableDatabaseError(error);
+  });
   recordActivity("work", source.work.id, "work.placeholder_replaced", {
     targetId: editionId,
     targetName: target.title,

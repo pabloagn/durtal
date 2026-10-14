@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useShortcut } from "@/components/shortcuts/shortcuts-provider";
 import {
   getCollectionSelection,
   createCollection,
@@ -306,10 +307,13 @@ export function AddToCollectionDialog({
                   autoFocus
                 />
               </div>
+              {/* ⌘Enter in the field creates too: the dialog's Done is
+                  otherwise its last main button, and would close it */}
               <Button
                 type="submit"
                 disabled={busy || !query.trim() || !chosen}
                 variant="primary"
+                data-shortcut="save"
               >
                 {data.collections.some(
                   (c) =>
@@ -378,7 +382,8 @@ export function AddToCollectionDialog({
           </>
         )}
         <div className="flex justify-end">
-          <Button onClick={onClose} disabled={busy}>
+          {/* The main action: Enter closes the picker, each tick saved */}
+          <Button variant="primary" onClick={onClose} disabled={busy}>
             Done
           </Button>
         </div>
@@ -386,23 +391,37 @@ export function AddToCollectionDialog({
     </Dialog>
   );
 }
+/** A then this key opens the open item's collections (SLN-571) */
+export const COLLECTION_SHORTCUT = "c";
+
+/** Registers A then C for the open item: one call per detail page */
+export function CollectionShortcut({ run }: { run: () => void }) {
+  useShortcut(COLLECTION_SHORTCUT, "Add to a collection", run, "a");
+  return null;
+}
+
 export function CollectionButton({
   workId,
   editionId,
   title,
   size = "sm",
+  shortcut = false,
 }: {
   workId?: string;
   editionId?: string;
   title: string;
   size?: "sm" | "md";
+  /** The page's own item: A then C opens it too */
+  shortcut?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
+      {shortcut && <CollectionShortcut run={() => setOpen(true)} />}
       <button
         type="button"
         data-tooltip="Add to collection"
+        data-tooltip-keys={shortcut ? `a then ${COLLECTION_SHORTCUT}` : undefined}
         aria-label="Add to collection"
         onClick={(e) => {
           e.preventDefault();

@@ -205,15 +205,15 @@ Placeholders only. Reads the ISBNdb record again and saves every field Match wou
 
 ### `keepWithoutIsbn(editionId)`
 
-Placeholders only. Sets the metadata source to `manual`: the edition leaves the queue and loses its badge.
+Placeholders only. Sets the metadata source to `manual`: the edition leaves the queue and loses its badge. Refused when the edition changed after it was read, for instance identified in another tab (SLN-576).
 
 ### `undoIdentification(editionId, undo)`
 
-Restores the old values of an identification (or a "keep without ISBN") and makes the edition a placeholder again. Refused when the edition changed after it.
+Restores the old values of an identification (or a "keep without ISBN") and makes the edition a placeholder again. Refused when the edition changed after it. The write is checked against the edition as Undo read it, its links included, under a lock (the guard `saveMatch` uses): a save committed between that read and the write refuses the Undo, so it never clears a newer title, cover or source. The old cover's files are only released after the write (SLN-576).
 
 ### `moveToExistingEdition(placeholderId, editionId)`
 
-Moves a placeholder's copies and collection memberships to an identified edition of the same book and deletes the placeholder, in one transaction. Refused when anything else refers to the placeholder (orders, hunting targets, contributors, genres, tags, taxonomy items, identifiers, source records) or when it has a cover.
+Moves a placeholder's copies and collection memberships to an identified edition of the same book and deletes the placeholder, in one transaction. Refused when anything else refers to the placeholder (orders, hunting targets, contributors, genres, tags, taxonomy items, identifiers, source records) or when it has a cover. The transaction locks those tables and checks all of this again before it moves anything, with the placeholder still a placeholder and the edition still identified: a change committed after the first checks refuses the move and nothing moves (SLN-576).
 
 ### `deleteEdition(id)`
 

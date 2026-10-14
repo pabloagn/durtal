@@ -3,11 +3,13 @@
 import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { FolderPlus, ImageIcon, Pencil, Trash2 } from "lucide-react";
-import { AddToCollectionDialog } from "@/components/books/add-to-collection-dialog";
+import { AddToCollectionDialog, CollectionShortcut } from "@/components/books/add-to-collection-dialog";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
+import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
+import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 import { deleteFilm } from "@/lib/actions/films";
@@ -39,15 +41,21 @@ export function FilmActions({
   const router = useRouter();
   const [open, setOpen] = useState<"edit" | "images" | "collections" | "delete" | null>(null);
   const close = () => setOpen(null);
+  // E then W or M: the same dialogs as the menu (SLN-633)
+  useEditActions([
+    { key: EDIT_KEYS.work, label: "Film", icon: Pencil, run: () => setOpen("edit") },
+    { key: EDIT_KEYS.media, label: "Images", icon: ImageIcon, run: () => setOpen("images") },
+  ]);
 
   return (
     <>
+      <CollectionShortcut run={() => setOpen("collections")} />
       <CapAlignedControls height={32} className="type-page-title">
         {children}
         <EntityActionMenu
           items={[
-            { label: "Edit", icon: Pencil, onClick: () => setOpen("edit") },
-            { label: "Images", icon: ImageIcon, onClick: () => setOpen("images") },
+            { label: "Edit", icon: Pencil, onClick: () => setOpen("edit"), shortcut: editHint(EDIT_KEYS.work) },
+            { label: "Images", icon: ImageIcon, onClick: () => setOpen("images"), shortcut: editHint(EDIT_KEYS.media) },
             { label: "Collections", icon: FolderPlus, onClick: () => setOpen("collections") },
             {
               label: "Delete",

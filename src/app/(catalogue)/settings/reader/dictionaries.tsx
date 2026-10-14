@@ -7,6 +7,8 @@ import { SettingsGroup } from "@/components/settings/settings-group";
 import { LookupPacksClient } from "@/lib/reader/lookup/packs";
 import type { PackRecord } from "@/lib/reader/lookup/pack-store";
 import { languageName, languageOptions } from "@/lib/utils/language";
+/** Free StarDict packs built from Wiktionary, one per language (SLN-687). */
+const FREE_PACKS = "https://github.com/Vuizur/Wiktionary-Dictionaries";
 type Inspected = Awaited<ReturnType<LookupPacksClient["inspect"]>>;
 const size = (bytes: number) => bytes >= 1024 ** 2 ? (bytes / 1024 ** 2).toFixed(1) + " MB" : Math.ceil(bytes / 1024) + " KB";
 function dictionariesChanged() {
@@ -47,6 +49,7 @@ export function DictionariesGroup() {
     description="Dictionary files stay on this device and work without a connection.">
     {secure === false ? <p className="px-5 py-4 text-sm text-fg-secondary">Offline dictionaries need Durtal’s secure (https) address and a browser with private file storage.</p> : <>
       <div className="px-5 py-4">
+        <p className="mb-3 text-sm text-fg-secondary">Look up reads StarDict dictionaries: a .zip, or its .ifo, .idx and .dict files together. Free ones for many languages, made from Wiktionary: <a className="text-accent-primary underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center" href={FREE_PACKS} target="_blank" rel="noopener noreferrer">Wiktionary dictionaries ↗</a></p>
         <input ref={picker} type="file" multiple accept=".zip,.ifo,.idx,.gz,.dict,.dz,.syn" className="sr-only" tabIndex={-1}
           aria-label="Dictionary pack files" onChange={event => {
             const selected = Array.from(event.target.files ?? []); event.target.value = "";

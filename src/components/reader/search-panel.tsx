@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { DurtalLocator, ReaderEngine } from "@/lib/reader/engine";
 import { queryRuns, type SearchOptions } from "@/lib/reader/search/fold";
@@ -20,6 +20,25 @@ const storage = () => {
   }
 };
 type Status = "idle" | "searching" | "done" | "stopped" | "capped" | "error";
+/** The empty result names the query, and the options that narrow it */
+function noMatches(query: string, options: SearchOptions) {
+  const on = (
+    [
+      ["wholeWords", "Whole words"],
+      ["matchCase", "Match case"],
+      ["matchAccents", "Match accents"],
+    ] as const
+  )
+    .filter(([key]) => options[key])
+    .map(([, label]) => label);
+  const named = query.trim() ? `No matches for “${query.trim()}”.` : "No matches.";
+  if (!on.length) return named;
+  const list = on.length === 1 ? on[0] : `${on.slice(0, -1).join(", ")} and ${on.at(-1)}`;
+  return `${named} ${list} ${on.length === 1 ? "is" : "are"} on; turning ${on.length === 1 ? "it" : "them"} off may find more.`;
+}
+
+/** The drawer's width on a wide screen (`ReaderSidePanel`) */
+const PANEL_WIDTH = 360;
 const order = (a: SearchHit, b: SearchHit) =>
   a.locator.sectionIndex - b.locator.sectionIndex || a.start - b.start;
 
@@ -32,6 +51,8 @@ export function SearchPanel({
   onOpen,
   onJump,
   places,
+  hitRect,
+  escapeRef,
 }: {
   open: boolean;
   engine: ReaderEngine;
@@ -41,6 +62,10 @@ export function SearchPanel({
   onClose(): void;
   onOpen(): void;
   onJump(locator: DurtalLocator, hit: SearchHit): Promise<unknown>;
+  /** Where a hit sits on screen once it is painted, so the panel can move off it */
+  hitRect?(locator: DurtalLocator): { left: number; right: number } | null;
+  /** The reader's Esc, once the panel is closed: true when it ended the search */
+  escapeRef?: MutableRefObject<(() => boolean) | null>;
 }) {
   const [query, setQuery] = useState("");
   const [options, setOptions] = useState<SearchOptions>(() =>
@@ -55,6 +80,8 @@ export function SearchPanel({
   const [progress, setProgress] = useState(0);
   const [limit, setLimit] = useState(200);
   const [engaged, setEngaged] = useState(false);
+  const [side, setSide] = useState<"left" | "right">("left");
+  const [ran, setRan] = useState<{ query: string; options: SearchOptions }>({ query: "", options });
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const run = useRef<{ id: number; abort: AbortController } | null>(null);
@@ -64,9 +91,11 @@ export function SearchPanel({
   const sorted = useMemo(() => [...hits].sort(order), [hits]);
   const current = sorted.findIndex((hit) => hit.id === active);
   const onJumpRef = useRef(onJump);
+  const hitRectRef = useRef(hitRect);
   useEffect(() => {
     onJumpRef.current = onJump;
-  }, [onJump]);
+    hitRectRef.current = hitRect;
+  }, [onJump, hitRect]);
   useEffect(() => {
     if (!open) return;
     const frame = requestAnimationFrame(() => {
@@ -100,11 +129,20 @@ export function SearchPanel({
       setActive(hit.id);
       setFocused(hit.id);
       await onJumpRef.current(hit.locator, hit);
-      if (
-        owner === sequence.current &&
-        !matchMedia("(min-width: 1024px)").matches
-      )
+      if (owner !== sequence.current) return;
+      if (!matchMedia("(min-width: 1024px)").matches) {
         onClose();
+        return;
+      }
+      // The open panel never covers the hit: it moves to the other side (SLN-675)
+      const rect = hitRectRef.current?.(hit.locator);
+      if (!rect) return;
+      const reach = PANEL_WIDTH + 16;
+      setSide((current) =>
+        current === "left"
+          ? rect.left < reach && rect.right <= window.innerWidth - reach ? "right" : "left"
+          : rect.right > window.innerWidth - reach && rect.left >= reach ? "left" : "right",
+      );
     },
     [onClose],
   );
@@ -125,6 +163,7 @@ export function SearchPanel({
     run.current = { id, abort };
     const key = JSON.stringify([nextQuery, nextOptions]);
     executed.current = key;
+    setRan({ query: nextQuery, options: nextOptions });
     pendingJump.current = jump;
     hitsRef.current = [];
     setHits([]);
@@ -200,6 +239,19 @@ export function SearchPanel({
     engine.setDecorations("search", []);
     onClose();
   };
+  // Esc closes the panel first (the reader does that), then the search
+  const barShown = !open && engaged && hits.length > 0;
+  useEffect(() => {
+    if (!escapeRef) return;
+    escapeRef.current = () => {
+      if (!barShown) return false;
+      end();
+      return true;
+    };
+    return () => {
+      escapeRef.current = null;
+    };
+  });
   const shown = sorted.slice(0, limit);
   const groups = new Map<number, SearchHit[]>();
   for (const hit of shown) {
@@ -221,10 +273,10 @@ export function SearchPanel({
               ? `Stopped. ${hits.length} matches.`
               : hits.length
                 ? `${hits.length} matches in ${new Set(hits.map((hit) => hit.locator.sectionIndex)).size} chapters`
-                : "No matches";
+                : noMatches(ran.query, ran.options);
   return (
     <>
-      <ReaderSidePanel open={open} title="Search in book" onClose={end}>
+      <ReaderSidePanel open={open} title="Search in book" onClose={onClose} side={side}>
         <div className="space-y-3 px-2" data-reader-search data-reader-widget>
           <form
             onSubmit={(event) => {
@@ -237,29 +289,45 @@ export function SearchPanel({
               else start(query, options, true);
             }}
           >
-            <input
-              ref={input}
-              type="search"
-              aria-label="Search in book"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              className="w-full rounded-sm border border-glass-border bg-bg-primary/40 px-3 py-2 text-sm outline-none focus:border-accent-blue-text"
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && event.shiftKey && hits.length) {
-                  event.preventDefault();
-                  next(-1);
-                }
-                if (event.key === "ArrowDown" && shown.length) {
-                  event.preventDefault();
-                  const hit =
-                    shown.find((item) => item.id === active) ?? shown[0];
-                  setFocused(hit.id);
-                  list.current
-                    ?.querySelector<HTMLButtonElement>(`[data-hit="${hit.id}"]`)
-                    ?.focus();
-                }
-              }}
-            />
+            <div className="relative">
+              <input
+                ref={input}
+                type="search"
+                aria-label="Search in book"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="w-full rounded-sm border border-glass-border bg-bg-primary/40 py-2 pl-3 pr-9 text-sm outline-none focus:border-accent-blue-text [&::-webkit-search-cancel-button]:appearance-none"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && event.shiftKey && hits.length) {
+                    event.preventDefault();
+                    next(-1);
+                  }
+                  if (event.key === "ArrowDown" && shown.length) {
+                    event.preventDefault();
+                    const hit =
+                      shown.find((item) => item.id === active) ?? shown[0];
+                    setFocused(hit.id);
+                    list.current
+                      ?.querySelector<HTMLButtonElement>(`[data-hit="${hit.id}"]`)
+                      ?.focus();
+                  }
+                }}
+              />
+              {query && (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  data-tooltip="Clear"
+                  className="action-icon-sm absolute inset-y-0 right-1 my-auto"
+                  onClick={() => {
+                    setQuery("");
+                    input.current?.focus();
+                  }}
+                >
+                  <X className="h-4 w-4" strokeWidth={1.5} />
+                </button>
+              )}
+            </div>
             <button
               type="submit"
               className="mt-2 min-h-8 text-sm text-accent-blue-text pointer-coarse:min-h-11"
@@ -401,26 +469,30 @@ export function SearchPanel({
           </div>
         </div>
       </ReaderSidePanel>
-      {!open && engaged && hits.length > 0 && (
+      {barShown && (
         <div
           data-reader-chrome
           data-reader-widget
-          className="glass-bar fixed inset-x-4 bottom-20 z-30 flex items-center justify-center gap-2 rounded-sm border border-glass-border px-2 py-1 text-sm"
+          aria-label="Search results"
+          // Above the Back chip below 1024 px, where the two would share a row
+          className="glass fixed bottom-36 left-1/2 z-30 lg:bottom-20 flex max-w-[calc(100vw-32px)] -translate-x-1/2 items-center gap-1 p-1 text-sm"
         >
           <button
             type="button"
             aria-label="Previous match"
+            data-tooltip="Previous match"
             className="action-icon-sm"
             onClick={() => next(-1)}
           >
             <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
           </button>
-          <span>
+          <span className="whitespace-nowrap px-1 tabular-nums">
             {Math.max(0, current + 1)} of {hits.length}
           </span>
           <button
             type="button"
             aria-label="Next match"
+            data-tooltip="Next match"
             className="action-icon-sm"
             onClick={() => next(1)}
           >
@@ -436,6 +508,8 @@ export function SearchPanel({
           <button
             type="button"
             aria-label="Close search"
+            data-tooltip="Close search"
+            data-tooltip-keys="esc"
             className="action-icon-sm"
             onClick={end}
           >

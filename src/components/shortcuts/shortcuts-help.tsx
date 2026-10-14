@@ -5,6 +5,7 @@ import { KeyCombo } from "@/components/shortcuts/kbd";
 import { SHORTCUT_GROUPS } from "@/lib/shortcuts/shortcuts";
 
 interface PageShortcut {
+  prefix?: string;
   key: string;
   label: string;
 }
@@ -25,7 +26,11 @@ export function ShortcutsHelp({
           {
             title: "This page",
             wide: true,
-            items: pageShortcuts.map((s) => ({ keys: [s.key], label: s.label, then: false })),
+            items: pageShortcuts.map((s) => ({
+              keys: s.prefix ? [s.prefix, s.key] : [s.key],
+              label: s.label,
+              then: !!s.prefix,
+            })),
           },
         ]
       : []),
@@ -39,6 +44,7 @@ export function ShortcutsHelp({
       title="Keyboard shortcuts"
       className="max-w-3xl"
       expandable={false}
+      done
     >
       <div className="grid gap-x-10 gap-y-6 sm:grid-cols-2">
         {groups.map((group) => (

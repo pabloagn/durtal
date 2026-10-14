@@ -290,6 +290,11 @@ export interface ReaderEngine {
   speech(): ReaderSpeech | null;
   focusBook?(): void;
   selectSpeechSentence?(locator: DurtalLocator): boolean;
+  /**
+   * Where a place's first line sits on screen, in host viewport coordinates,
+   * or null when it is not painted (SLN-675: the search panel moves off it).
+   */
+  locatorRect?(locator: DurtalLocator): { left: number; top: number; right: number; bottom: number } | null;
   /** Adapter-owned exact text extraction. Aborting it never cancels visible rendering. */
   prepareSpeech?(request: {
     target: SpeechPreparation;

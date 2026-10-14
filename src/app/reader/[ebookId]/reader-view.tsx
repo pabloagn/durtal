@@ -383,6 +383,10 @@ function ReaderSession({
   const syncRef = useRef<ReturnType<typeof createPlaceSync> | null>(null);
   const [contentsOpen, setContentsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const searchOpenRef = useRef(searchOpen);
+  searchOpenRef.current = searchOpen;
+  // The results bar's Esc, once the panel is closed (SLN-675)
+  const searchEscapeRef = useRef<(() => boolean) | null>(null);
   const [searchMounted, setSearchMounted] = useState(false);
   const [canSearch, setCanSearch] = useState(false);
   const [note, setNote] = useState<EngineEvents["note"]>(null);
@@ -661,6 +665,12 @@ function ReaderSession({
           speechRef.current.action({ kind: "stop" });
           return;
         }
+        // Search: the panel closes first and keeps its hits, then the search ends
+        if (searchOpenRef.current) {
+          setSearchOpen(false);
+          return;
+        }
+        if (searchEscapeRef.current?.()) return;
         if (document.fullscreenElement)
           void document.exitFullscreen().catch(() => {});
       },
@@ -1258,7 +1268,6 @@ function ReaderSession({
                     changed: setSpeech,
                     audio: new Audio(),
                     fetch: (...args) => window.fetch(...args),
-                    selectsSentences: () => !window.matchMedia("(pointer: coarse)").matches,
                   });
                   if (selectionRef.current)
                     speechRef.current.selection(selectionRef.current.locator);
@@ -1739,6 +1748,8 @@ function ReaderSession({
             language={ebook.language ?? null}
             onClose={() => setSearchOpen(false)}
             onOpen={() => setSearchOpen(true)}
+            escapeRef={searchEscapeRef}
+            hitRect={(locator) => engineRef.current?.locatorRect?.(locator) ?? null}
             onJump={async (locator, hit) => {
               if (hit.inNote) {
                 const href = hit.noteHref ?? locator.cfi ?? locator.href;

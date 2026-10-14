@@ -16,6 +16,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
+import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
+import { EDIT_KEYS, editTooltipKeys } from "@/lib/shortcuts/shortcuts";
 import {
   updateCollection,
   deleteCollection,
@@ -57,6 +59,16 @@ export function CollectionControls({
     [name, setName] = useState(collection.name),
     [description, setDescription] = useState(collection.description ?? ""),
     [busy, setBusy] = useState(false);
+  function openEdit() {
+    setName(collection.name);
+    setDescription(collection.description ?? "");
+    setEdit(true);
+  }
+  // E then C or M: the same dialogs as the Edit and Artwork buttons (SLN-633)
+  useEditActions([
+    { key: EDIT_KEYS.collection, label: "Collection", icon: Pencil, run: openEdit },
+    { key: EDIT_KEYS.media, label: "Artwork", icon: ImageIcon, run: () => setArtwork(true) },
+  ]);
   const pending = useRef(false);
   function closeAdd() {
     setAdd(false);
@@ -116,16 +128,18 @@ export function CollectionControls({
           Add
         </Button>
         <Button
-          onClick={() => {
-            setName(collection.name);
-            setDescription(collection.description ?? "");
-            setEdit(true);
-          }}
+          data-tooltip="Edit collection"
+          data-tooltip-keys={editTooltipKeys(EDIT_KEYS.collection)}
+          onClick={openEdit}
         >
           <Pencil size={14} strokeWidth={1.5} />
           Edit
         </Button>
-        <Button onClick={() => setArtwork(true)}>
+        <Button
+          data-tooltip="Edit artwork"
+          data-tooltip-keys={editTooltipKeys(EDIT_KEYS.media)}
+          onClick={() => setArtwork(true)}
+        >
           <ImageIcon size={14} strokeWidth={1.5} />
           Artwork
         </Button>
