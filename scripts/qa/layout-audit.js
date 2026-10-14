@@ -125,8 +125,11 @@
     // A link inside a sentence of running text: its line is the cue (and WCAG's)
     let block = parent;
     while (block && /^inline/.test(css(block).display)) block = block.parentElement;
-    const own = text(el).length;
-    const inSentence = el.tagName === "A" && /^inline/.test(s.display) && block && text(block).length > own + 24 && /[.,;:]/.test(text(block));
+    // The sentence is the block's own words: other links and buttons beside it are not prose
+    let prose = block ? text(block) : "";
+    if (block) for (const c of block.querySelectorAll("a[href], button, [role=button]")) prose = prose.replace(text(c), " ");
+    prose = prose.replace(/\s+/g, " ").trim();
+    const inSentence = el.tagName === "A" && /^inline/.test(s.display) && prose.length > 24 && /[.,;:]/.test(prose);
     if (inSentence && !el.matches("[data-command]")) continue;
     // The text beside it: a text node or element in its row, else the row's colour
     let around = null;

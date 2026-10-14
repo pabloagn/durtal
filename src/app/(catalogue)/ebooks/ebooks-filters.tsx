@@ -142,7 +142,11 @@ export function EbooksFilters({
             key={option.value}
             type="button"
             aria-pressed={parsed.sort === option.value}
-            className="touch-hit rounded-sm px-2 py-1 text-xs text-fg-secondary hover:bg-bg-tertiary"
+            className={`h-8 rounded-sm border px-2.5 text-xs transition-colors pointer-coarse:h-11 ${
+              parsed.sort === option.value
+                ? "border-accent-primary/40 bg-selection-bg text-fg-primary"
+                : "border-glass-border text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
+            }`}
             onClick={() => {
               const params = new URLSearchParams(latest.current);
               params.set("sort", option.value);

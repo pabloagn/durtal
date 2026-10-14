@@ -243,11 +243,10 @@ export function RatingInput({
           disabled={disabled}
           tabIndex={value === null ? -1 : undefined}
           onClick={() => commit(null)}
-          className={`h-11 px-2 text-sm text-fg-secondary transition-colors hover:text-fg-primary ${
-            value === null ? "invisible" : ""
-          }`}
+          className={`h-11 px-2 text-sm ${value === null ? "invisible" : ""}`}
         >
-          Clear
+          {/* The text command's look on the word; the button keeps the 44px box CapAligned centres */}
+          <span className="text-command">Clear</span>
         </button>
       </CapAligned>
     </div>

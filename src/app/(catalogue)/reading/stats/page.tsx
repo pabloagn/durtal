@@ -519,7 +519,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
             action={
               <Link
                 href="/library?reading=unread&holding=owned"
-                className="text-xs whitespace-nowrap text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
+                className="text-xs whitespace-nowrap text-command touch-hit"
                 data-stats-pile-link=""
               >
                 See them
@@ -580,7 +580,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                   <p className="text-sm text-fg-primary">{i.text}.</p>
                   <p className="text-xs text-fg-secondary">
                     {i.numbers} ·{" "}
-                    <Link href={i.href} className="underline-offset-2 hover:text-fg-primary hover:underline">
+                    <Link href={i.href} className="text-command">
                       See them
                     </Link>
                   </p>

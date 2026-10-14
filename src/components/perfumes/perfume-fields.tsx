@@ -223,8 +223,9 @@ export function CreditListField({
             buttonRef={add.button}
           />
           {!value.some((c) => !c.personId) && (
-            <button
-              type="button"
+            <AddButton
+              label="Add an unknown perfumer"
+              text="Unknown"
               onClick={() =>
                 onChange([
                   ...value,
@@ -237,10 +238,7 @@ export function CreditListField({
                   },
                 ])
               }
-              className="rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-            >
-              Unknown
-            </button>
+            />
           )}
         </>
       )}

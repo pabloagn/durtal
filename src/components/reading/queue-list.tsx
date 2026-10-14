@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GripVertical, MoreHorizontal } from "lucide-react";
+import { BookOpen, GripVertical, MoreHorizontal } from "lucide-react";
 import {
   DndContext,
   KeyboardSensor,
@@ -128,6 +128,7 @@ function Row({
             onClick={() => void open({ kind: "start", workId: row.workId, editionId: row.editionId })}
             data-queue-start={row.workId}
           >
+            <BookOpen aria-hidden strokeWidth={1.5} />
             Start reading
           </Button>
           <DropdownMenu

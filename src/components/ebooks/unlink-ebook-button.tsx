@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { readReviewUnlinkTargetUi } from "@/lib/actions/ebook-review-unlink-ui";
 import { unlinkDialog, useUnlinkDialogTarget } from "./unlink-dialog-host";
@@ -23,7 +24,7 @@ export function useUnlinkEbook(ebookId: string): {
 export function UnlinkEbookButton({ ebookId }: { ebookId: string }) {
   const unlink = useUnlinkEbook(ebookId);
   return <>
-    <Button size="sm" variant="ghost" disabled={unlink.busy} onClick={() => void unlink.open()}>{unlink.loading ? "Loading link…" : "Unlink…"}</Button>
+    <Button size="sm" variant="ghost" disabled={unlink.busy} onClick={() => void unlink.open()}><Unlink aria-hidden strokeWidth={1.5} />{unlink.loading ? "Loading link…" : "Unlink…"}</Button>
     {unlink.error && <p role="alert" className="mt-1 text-xs text-accent-red-text">{unlink.error}</p>}
   </>;
 }

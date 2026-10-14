@@ -84,7 +84,7 @@ function renderCell(p: PublisherItem, key: string) {
           href={p.website}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-accent-primary hover:underline"
+          className="text-command"
           onClick={(e) => e.stopPropagation()}
         >
           Link

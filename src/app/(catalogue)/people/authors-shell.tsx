@@ -159,7 +159,7 @@ function renderAuthorCell(author: AuthorItem, key: string, filteredRoles: string
           href={author.website}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-accent-primary hover:underline"
+          className="text-command"
           onClick={(e) => e.stopPropagation()}
         >
           Link
