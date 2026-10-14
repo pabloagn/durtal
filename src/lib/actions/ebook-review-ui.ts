@@ -5,7 +5,8 @@ import { prepareReview, confirmReview, undoReview, readReview } from "./ebook-re
 import { prepareEbookReviewSchema, ebookReviewStampSchema, confirmedEbookReviewSchema,
   undoEbookDecisionSchema } from "@/lib/validations/ebook-review";
 import { reviewUiResult, requireReviewStamp } from "@/lib/ebooks/review-queue/result";
-import { getReviewWorkOptions, searchReviewEbooks } from "@/lib/ebooks/review-queue/queries";
+import { getReviewStamps, getReviewWorkOptions, searchReviewEbooks } from "@/lib/ebooks/review-queue/queries";
+import { ReviewError } from "@/lib/ebooks/review/errors";
 
 const readInput = z.strictObject({ ebookId: z.uuid(), stamp: ebookReviewStampSchema });
 const prepareInput = z.strictObject({ intent: prepareEbookReviewSchema, stamp: ebookReviewStampSchema });
@@ -15,6 +16,15 @@ export async function readReviewUi(raw: unknown) {
     const detail = await readReview(input.ebookId);
     requireReviewStamp(detail.stamp, input.stamp);
     return detail;
+  });
+}
+/** The eBook's current review stamp, for a decision that follows another one, such as Keep as eBook after Unlink (SLN-684) */
+export async function readReviewStampUi(raw: unknown) {
+  return reviewUiResult(async () => {
+    const { ebookId } = z.strictObject({ ebookId: z.uuid() }).parse(raw);
+    const stamp = (await getReviewStamps([ebookId.toLowerCase()])).get(ebookId.toLowerCase());
+    if (!stamp) throw new ReviewError("ebook_not_found", "This eBook is no longer in the library.");
+    return stamp;
   });
 }
 export async function prepareReviewUi(raw: unknown) {

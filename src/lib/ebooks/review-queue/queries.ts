@@ -11,7 +11,7 @@ import type { ReviewUnlinkTarget } from "./unlink-types";
 import { ReviewError } from "@/lib/ebooks/review/errors";
 import { REVIEW_SECTIONS, type ReviewQueue, type ReviewQueueRow, type ReviewSectionKey,
   type ReviewWorkOptions, type ReviewStamp } from "./types";
-import type { ReviewFilters, ReviewParams, ReviewSelectionPageInput } from "./params";
+import { REVIEW_PAGE_SIZE, type ReviewFilters, type ReviewParams, type ReviewSelectionPageInput } from "./params";
 
 /** Alias e/i/ed/w is shared by counts and rows, so filters cannot drift. */
 export function reviewFilterSql(filters: ReviewFilters): SQL {
@@ -115,8 +115,12 @@ export async function loadReviewQueue(conn: Db, params: ReviewParams): Promise<R
     ${from} where ${filter}`));
   const counts = Object.fromEntries(REVIEW_SECTIONS.map(({ key }) => [key, Number(countRow?.[key] ?? 0)])) as ReviewQueue["counts"];
   const sections: ReviewQueue["sections"] = [];
-  for (const { key } of REVIEW_SECTIONS) {
-    if (!counts[key]) continue;
+  // One section, one page of it: the named section, else the first with eBooks (SLN-684)
+  const key = params.section && counts[params.section] ? params.section
+    : REVIEW_SECTIONS.find((section) => counts[section.key])?.key;
+  const pages = key ? Math.ceil(counts[key] / REVIEW_PAGE_SIZE) : 1;
+  const page = Math.min(params.page, Math.max(1, pages));
+  if (key) {
     const rows = resultRows<RawRow>(await conn.execute(sql`select e.id,e.title,e.subtitle,e.authors,e.language,
       e.series,e.series_index::text as "seriesIndex",e.publisher,e.published_year as year,e.isbns,e.identifiers,
       e.match_state as state,e.match_tier as tier,${reviewTimestampSql(sql`e.updated_at`)} as "updatedAt",
@@ -131,10 +135,10 @@ export async function loadReviewQueue(conn: Db, params: ReviewParams): Promise<R
       ${from} where ${filter} and ${reviewSectionSql(key)}
       order by ${key === "automatic" ? sql`e.matched_at desc,` : sql``}
         ${key === "not_in_durtal" ? sql`coalesce(e.author_sort,e.authors[1],''),` : sql``}
-        coalesce(e.title_sort,e.title),e.id limit ${params.shown[key]}`));
+        coalesce(e.title_sort,e.title),e.id limit ${REVIEW_PAGE_SIZE} offset ${(page - 1) * REVIEW_PAGE_SIZE}`));
     sections.push({ key, rows: rows.map(projectRow) });
   }
-  return { counts, sections };
+  return { counts, sections, page };
 }
 export async function getReviewQueue(params: ReviewParams): Promise<ReviewQueue> {
   return withReadOnlyPlanningConnection(serverEnv().DATABASE_URL, (conn) => loadReviewQueue(conn, params),

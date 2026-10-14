@@ -4,7 +4,7 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { prepareReviewUi, readReviewUi, confirmReviewUi, undoReviewUi } from "@/lib/actions/ebook-review-ui";
 import { ReviewRow, type ReviewRowAction } from "@/components/ebooks/review-row";
-import { ReviewSection } from "@/components/ebooks/review-section";
+import { ReviewSection, ReviewSectionNav } from "@/components/ebooks/review-section";
 import { ReviewConfirm } from "@/components/ebooks/review-confirm";
 import { effectWords } from "@/lib/ebooks/review/effect-line";
 import { ChooseBookFields } from "@/components/ebooks/choose-book-dialog";
@@ -233,9 +233,10 @@ export function ReviewView({ queue, params }: { queue: ReviewQueue; params: Revi
     outcome.operation.operationId === toastOutcome?.outcome.operation.operationId)) : undefined;
   return <div className="space-y-9 pb-24">
     <p aria-live="polite" className="sr-only">{announcement}</p>
+    <ReviewSectionNav counts={queue.counts} open={queue.sections[0]?.key ?? null} params={params} />
     {queue.sections.map((section) => {
       const omitted = section.rows.filter((row) => removed.has(row.id)).length;
-      return <ReviewSection key={section.key} section={section.key} count={Math.max(0, queue.counts[section.key] - omitted)}
+      return <ReviewSection key={section.key} section={section.key} count={Math.max(0, queue.counts[section.key] - omitted)} page={queue.page}
         onSelectRows={(rows) => setSelected((existing) => new Set([...existing, ...rows.map((row) => row.id)]))}
         onBulk={openBulk} onAll={openAll}
         rows={section.rows.filter((row) => !removed.has(row.id))} params={params} renderRow={(row) =>

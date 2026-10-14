@@ -3,11 +3,12 @@
 import { Fragment, type ReactNode } from "react";
 import Link from "next/link";
 import { SectionHeading } from "@/components/shared/section-heading";
-import { Button, buttonClass } from "@/components/ui/button";
+import { Pagination } from "@/components/shared/pagination";
+import { Button } from "@/components/ui/button";
 import type { ReviewBulkAction } from "./review-bulk-dialog";
 import type { ReviewAllSource } from "./review-all-dialog";
 import { REVIEW_SECTIONS, type ReviewQueueRow, type ReviewSectionKey } from "@/lib/ebooks/review-queue/types";
-import { REVIEW_MAX_SHOWN, reviewMoreHref, type ReviewParams } from "@/lib/ebooks/review-queue/params";
+import { REVIEW_PAGE_SIZE, reviewPageHref, type ReviewParams } from "@/lib/ebooks/review-queue/params";
 
 /** What each section holds, in words, under its title (SLN-684) */
 const descriptions: Partial<Record<ReviewSectionKey, string>> = {
@@ -21,8 +22,8 @@ const descriptions: Partial<Record<ReviewSectionKey, string>> = {
   automatic: "Linked without asking in the last 30 days, because the match was clear. Undo any that are wrong.",
   partially_held: "Linked to a book that is tracked, wanted, shortlisted or on order. If the eBook is your copy, mark the book accessioned.",
 };
-export function ReviewSection({ section, count, rows, params, renderRow, onSelectRows, onBulk, onAll }: {
-  section: ReviewSectionKey; count: number; rows: ReviewQueueRow[]; params: ReviewParams;
+export function ReviewSection({ section, count, page, rows, params, renderRow, onSelectRows, onBulk, onAll }: {
+  section: ReviewSectionKey; count: number; page: number; rows: ReviewQueueRow[]; params: ReviewParams;
   renderRow: (row: ReviewQueueRow) => ReactNode;
   onSelectRows?: (rows: ReviewQueueRow[]) => void;
   onBulk?: (action: ReviewBulkAction, rows: ReviewQueueRow[]) => void;
@@ -39,7 +40,7 @@ export function ReviewSection({ section, count, rows, params, renderRow, onSelec
         rows.filter((row) => row.stamp !== null && (section !== "likely" || row.candidates.length > 0)).slice(0, 50))}>
         {section === "likely" ? "Review shown matches…" : section === "not_in_durtal" ? "Keep shown eBooks…" : "Set aside shown…"}
       </Button></div>}
-    {onAll && count > 50 && (section === "likely" || section === "duplicate" || section === "not_a_book" || section === "not_in_durtal") &&
+    {onAll && count > REVIEW_PAGE_SIZE && (section === "likely" || section === "duplicate" || section === "not_a_book" || section === "not_in_durtal") &&
       <Button size="sm" onClick={() => onAll(section === "likely" ? "accept" : section === "not_in_durtal" ? "keep" : "exclude",
         { section, filters: params.filters })}>Review all {count} filtered eBooks…</Button>}
     {rows.map((row, index) => {
@@ -56,9 +57,28 @@ export function ReviewSection({ section, count, rows, params, renderRow, onSelec
         {renderRow(row)}
       </Fragment>;
     })}
-    {count > params.shown[section] && params.shown[section] < REVIEW_MAX_SHOWN &&
-      <Link href={reviewMoreHref(params, section)} scroll={false} className={buttonClass("secondary", "sm")}>Show 50 more</Link>}
-    {count > REVIEW_MAX_SHOWN && params.shown[section] === REVIEW_MAX_SHOWN &&
-      <p className="text-xs text-fg-secondary">Showing {REVIEW_MAX_SHOWN}. Narrow the filters to review more.</p>}
+    {count > REVIEW_PAGE_SIZE && <Pagination page={page} perPage={REVIEW_PAGE_SIZE} total={count} noun="eBooks" sizes={[]} anchor="review-sections" />}
   </section>;
+}
+
+/** The sections with eBooks, one listed at a time (SLN-684) */
+export function ReviewSectionNav({ counts, open, params }: {
+  counts: Record<ReviewSectionKey, number>; open: ReviewSectionKey | null; params: ReviewParams;
+}) {
+  const sections = REVIEW_SECTIONS.filter(({ key }) => counts[key] > 0);
+  if (sections.length < 2) return null;
+  return <nav aria-label="Review sections" id="review-sections" className="scroll-mt-6">
+    <ul className="flex flex-wrap gap-1">
+      {sections.map(({ key, title }) => <li key={key}>
+        <Link href={`${reviewPageHref(params, { section: key })}#review-sections`} scroll={false}
+          aria-current={key === open ? "page" : undefined}
+          className={`inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-sm transition-colors pointer-coarse:h-11 ${
+            key === open
+              ? "border-accent-primary/10 bg-selection-bg/80 text-fg-primary"
+              : "border-transparent text-fg-secondary hover:bg-bg-tertiary/50 hover:text-fg-primary"}`}>
+          {title}<span className="text-fg-secondary">{counts[key].toLocaleString("en-US")}</span>
+        </Link>
+      </li>)}
+    </ul>
+  </nav>;
 }

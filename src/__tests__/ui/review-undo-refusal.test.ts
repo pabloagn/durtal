@@ -29,7 +29,7 @@ beforeEach(async () => {
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
   const counts = Object.fromEntries(REVIEW_SECTIONS.map(({ key }) => [key, key === "not_in_durtal" ? 2 : 0])) as ReviewQueue["counts"];
   await act(async () => root.render(createElement(ReviewView, { params: parseReviewParams({}), queue: { counts,
-    sections: [{ key: "not_in_durtal", rows: [reviewRow(), { ...reviewRow(), id: secondId, title: "Second book" }] }] } })));
+    sections: [{ key: "not_in_durtal", rows: [reviewRow(), { ...reviewRow(), id: secondId, title: "Second book" }] }], page: 1 } })));
 });
 afterEach(() => { act(() => root.unmount()); host.remove(); });
 async function click(label: string) {

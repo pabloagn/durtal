@@ -5,10 +5,12 @@ import { createRoot, type Root } from "react-dom/client";
 import { ebookId, stamp, operation } from "../ebooks/review-ui-fixtures";
 import { preparedUnlink, unlinkOutcome, unlinkTarget } from "../ebooks/review-unlink-ui-fixtures";
 const api = vi.hoisted(() => ({ prepareReviewUnlinkUi: vi.fn(), confirmReviewUnlinkUi: vi.fn() }));
+const review = vi.hoisted(() => ({ readReviewStampUi: vi.fn(), prepareReviewUi: vi.fn(), confirmReviewUi: vi.fn(), undoReviewUi: vi.fn() }));
 vi.mock("@/lib/actions/ebook-review-unlink-ui", () => api);
+vi.mock("@/lib/actions/ebook-review-ui", () => review);
 vi.mock("@/components/ui/dialog", () => ({ Dialog: ({ children, onClose }: { children: ReactNode; onClose: () => void }) =>
   createElement("div", { role: "dialog" }, children, createElement("button", { onClick: onClose }, "Dismiss")) }));
-import { UnlinkEbookDialog } from "@/components/ebooks/unlink-ebook-dialog";
+import { UnlinkEbookDialog, removedWords } from "@/components/ebooks/unlink-ebook-dialog";
 let root: Root; let host: HTMLElement;
 const callbacks = { onClose: vi.fn(), onCommitted: vi.fn() };
 beforeAll(() => { (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
@@ -25,19 +27,19 @@ async function click(label: string) { await act(async () => {
 }); }
 describe("actual automatic Undo and fresh Unlink dialog", () => {
   it("prepares the real native identity, displays copy retention and never offers an inverse after commit", async () => {
-    await click("Preview automatic Undo");
+    await click("Check what changes");
     expect(api.prepareReviewUnlinkUi).toHaveBeenCalledWith({ intent: { ebookId, mode: "automatic_undo", originalMatchingOperation: operation }, stamp });
-    expect(host.textContent).toContain("Kept the copy"); expect(host.textContent).toContain("no inverse Undo");
-    expect(api.confirmReviewUnlinkUi).not.toHaveBeenCalled(); await click("Confirm return to review");
+    expect(host.textContent).toContain("Kept the copy"); expect(host.textContent).toContain("To link it again, choose its book in the review queue.");
+    expect(api.confirmReviewUnlinkUi).not.toHaveBeenCalled(); await click("Undo the link");
     expect(callbacks.onCommitted).toHaveBeenCalledWith(unlinkOutcome());
     expect([...host.querySelectorAll("button")].some((item) => /Undo|Confirm|Preview/.test(item.textContent ?? ""))).toBe(false);
   });
   it("locks dismissal and mode changes after uncertainty, retrying the exact capability without preparing again", async () => {
     api.confirmReviewUnlinkUi.mockResolvedValueOnce({ ok: false, error: { retryOriginal: true, message: "Outcome unknown" } });
-    await click("Preview automatic Undo"); await click("Confirm return to review"); await click("Dismiss");
+    await click("Check what changes"); await click("Undo the link"); await click("Dismiss");
     expect(callbacks.onClose).not.toHaveBeenCalled(); expect(callbacks.onCommitted).not.toHaveBeenCalled();
-    expect([...host.querySelectorAll("button")].some((item) => item.textContent === "Choose fresh Unlink instead")).toBe(false);
-    await click("Retry this unlink decision");
+    expect([...host.querySelectorAll("button")].some((item) => item.textContent === "Unlink instead")).toBe(false);
+    await click("Try again");
     const input = { request: preparedUnlink().request, previewToken: preparedUnlink().previewToken };
     expect(api.confirmReviewUnlinkUi.mock.calls).toEqual([[input], [input]]);
     expect(api.prepareReviewUnlinkUi).toHaveBeenCalledOnce();
@@ -45,26 +47,51 @@ describe("actual automatic Undo and fresh Unlink dialog", () => {
   it("offers fresh Unlink only after an explicit mode choice and another visible preview", async () => {
     api.prepareReviewUnlinkUi.mockResolvedValueOnce({ ok: false, error: { code: "stale_review", retryOriginal: false, message: "Automatic link has a later edit" } });
     api.prepareReviewUnlinkUi.mockResolvedValueOnce({ ok: true, value: preparedUnlink("unlink") });
-    await click("Preview automatic Undo"); expect(host.textContent).toContain("later edit");
-    await click("Choose fresh Unlink instead"); expect(api.prepareReviewUnlinkUi).toHaveBeenCalledOnce();
-    await click("Preview Unlink"); expect(api.prepareReviewUnlinkUi).toHaveBeenLastCalledWith({ intent: { ebookId, mode: "unlink", originalMatchingOperation: operation }, stamp });
-    expect(api.confirmReviewUnlinkUi).not.toHaveBeenCalled(); await click("Confirm return to review");
+    await click("Check what changes"); expect(host.textContent).toContain("later edit");
+    await click("Unlink instead"); expect(api.prepareReviewUnlinkUi).toHaveBeenCalledOnce();
+    await click("Check what changes"); expect(api.prepareReviewUnlinkUi).toHaveBeenLastCalledWith({ intent: { ebookId, mode: "unlink", originalMatchingOperation: operation }, stamp });
+    expect(api.confirmReviewUnlinkUi).not.toHaveBeenCalled(); await click("Unlink");
     expect(api.confirmReviewUnlinkUi).toHaveBeenCalledOnce();
   });
   it("ignores a cancelled late preview", async () => {
     let resolve!: (value: unknown) => void;
     api.prepareReviewUnlinkUi.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
-    await click("Preview automatic Undo"); await click("Dismiss");
+    await click("Check what changes"); await click("Dismiss");
     await act(async () => resolve({ ok: true, value: preparedUnlink() }));
-    expect(callbacks.onClose).toHaveBeenCalledOnce(); expect(host.textContent).not.toContain("What will be written");
+    expect(callbacks.onClose).toHaveBeenCalledOnce(); expect(host.textContent).not.toContain("What happens");
     expect(api.confirmReviewUnlinkUi).not.toHaveBeenCalled();
   });
   it("prevents repeat confirmation or dismissal while the original write is in flight", async () => {
     let resolve!: (value: unknown) => void;
     api.confirmReviewUnlinkUi.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
-    await click("Preview automatic Undo"); await click("Confirm return to review"); await click("Dismiss"); await click("Confirming…");
+    await click("Check what changes"); await click("Undo the link"); await click("Dismiss"); await click("Unlinking…");
     expect(callbacks.onClose).not.toHaveBeenCalled(); expect(api.confirmReviewUnlinkUi).toHaveBeenCalledOnce();
     expect(callbacks.onCommitted).not.toHaveBeenCalled(); await act(async () => resolve({ ok: true, value: unlinkOutcome() }));
     expect(callbacks.onCommitted).toHaveBeenCalledWith(unlinkOutcome());
+  });
+  it("unlinks, then keeps it as an eBook when asked, with an Undo of the keep (SLN-684)", async () => {
+    await act(async () => root.render(createElement(UnlinkEbookDialog, { key: "fresh", target: unlinkTarget, initialMode: "unlink", ...callbacks })));
+    const kept = { ...unlinkOutcome(), message: "Kept as a standalone eBook.", undo: { available: true, originalOperation: operation } };
+    review.readReviewStampUi.mockResolvedValue({ ok: true, value: stamp });
+    review.prepareReviewUi.mockResolvedValue({ ok: true, value: { request: { action: "keep" }, previewToken: "keep-token" } });
+    review.confirmReviewUi.mockResolvedValue({ ok: true, value: kept });
+    review.undoReviewUi.mockResolvedValue({ ok: true, value: { ...kept, message: "Returned to review." } });
+    await act(async () => (host.querySelector('input[value="keep"]') as HTMLInputElement).click());
+    api.prepareReviewUnlinkUi.mockResolvedValueOnce({ ok: true, value: preparedUnlink("unlink") });
+    await click("Check what changes"); expect(host.textContent).toContain("Then keeps it as an eBook.");
+    expect(host.textContent).toContain("Takes the eBook off its book."); expect(host.textContent).not.toContain("Returns the eBook to review.");
+    await click("Unlink");
+    expect(review.prepareReviewUi).toHaveBeenCalledWith({ intent: { action: "keep", ebookId }, stamp });
+    expect(review.confirmReviewUi).toHaveBeenCalledWith({ request: { action: "keep" }, previewToken: "keep-token" });
+    expect(callbacks.onCommitted.mock.calls.map(([outcome]) => outcome.message)).toEqual([unlinkOutcome().message, "Kept as a standalone eBook."]);
+    expect(host.textContent).toContain("Unlinked and kept as an eBook.");
+    await click("Undo keep");
+    expect(review.undoReviewUi).toHaveBeenCalledWith({ ebookId: kept.ebookId, originalOperation: operation });
+    expect(host.textContent).toContain("Unlinked. It is back in review.");
+  });
+  it("names what an unlink removes in words, leaving out what it keeps", () => {
+    expect(removedWords({ copies: 1, editions: 1, books: 0, authors: 0, series: 0 })).toBe("1 copy and 1 edition");
+    expect(removedWords({ copies: 2, editions: 1, books: 1, authors: 0, series: 1 })).toBe("2 copies, 1 edition, 1 book and 1 series");
+    expect(removedWords({ copies: 0, editions: 0, books: 0, authors: 0, series: 0 })).toBeNull();
   });
 });
