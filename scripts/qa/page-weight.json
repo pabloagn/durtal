@@ -38,7 +38,9 @@
     { "path": "/ebooks?q=seed", "maxKB": 250, "maxMs": 150 },
     { "path": "/ebooks?q=seed+author", "maxKB": 250, "maxMs": 150 },
     { "path": "/ebooks?q=seed+library+author", "maxKB": 250, "maxMs": 200 },
+    { "path": "/ebooks/review", "maxKB": 300, "maxMs": 800 },
     { "path": "/ebooks/*", "list": "/ebooks", "skip": ["runs", "review", "highlights", "upload"], "maxKB": 200, "maxMs": 300, "ifNone": "no e-book" },
+    { "path": "/ebooks/*", "list": "/ebooks?sort=opened", "skip": ["runs", "review", "highlights", "upload"], "maxKB": 200, "maxMs": 300, "ifNone": "no e-book" },
     { "path": "/ebooks/upload", "maxKB": 150, "maxMs": 300 },
     { "path": "/ebooks/runs/*", "maxKB": 300, "maxMs": 800, "ifNone": "no ingestion run" },
     { "path": "/reader/*", "list": "/library/against-nature-by-joris-karl-huysmans", "maxKB": 400, "maxMs": 800, "ifNone": "no e-book" }

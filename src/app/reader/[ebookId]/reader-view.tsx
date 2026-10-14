@@ -234,6 +234,8 @@ type ReaderViewProps = {
   backHref: string;
   /** An annotation to jump to once the book is painted (`?at=`) */
   openAt?: string | null;
+  /** A device's place chosen on the eBook page (`?from=`): the book opens there (SLN-665) */
+  startPlace?: ReaderPlace | null;
   plugins: import("@/lib/reader/bridge-state").ReaderPluginView[];
   requiredControllerIds?: readonly string[];
   settingsCookie?: string | null;
@@ -288,13 +290,14 @@ function ReaderSession({
   deviceId,
   backHref,
   openAt,
+  startPlace,
   bridge,
   onRetry,
   preferenceClass,
   preferenceRows,
   localPreferenceAdmission,
 }: ReaderViewProps & { bridge: ReaderBridgeController; onRetry(): void; preferenceClass: DeviceClass; preferenceRows: readonly PresentationRow[] }) {
-  const openingPlace = devicePlace ?? ownPlace ?? otherPlace;
+  const openingPlace = startPlace ?? devicePlace ?? ownPlace ?? otherPlace;
   // The engine's code starts downloading as the view first renders, not after it mounts
   if (typeof window !== "undefined" && file) void preloadFoliate(file.format);
   const preferences = useReaderPreferences({ deviceClass: preferenceClass, ebookId: ebook.id, initialRows: preferenceRows, localPreferenceAdmission });
@@ -632,6 +635,7 @@ function ReaderSession({
       first: () => void navigate({ fraction: 0 }, "edge"),
       last: () => void navigate({ fraction: 1 }, "edge"),
       toggleBars: bars.toggle,
+      showBars: bars.show,
       contents: () => {
         paceRef.current?.interrupt();
         setContentsOpen(true);
@@ -673,6 +677,8 @@ function ReaderSession({
         if (searchEscapeRef.current?.()) return;
         if (document.fullscreenElement)
           void document.exitFullscreen().catch(() => {});
+        // With nothing left to close, Esc brings the bars back (SLN-663)
+        bars.show();
       },
       activity: (kind) => {
         if (bridge.getControllerReadinessSnapshot().ready) bridge.bus.activity(kind);
@@ -733,6 +739,7 @@ function ReaderSession({
         first: () => actions.current?.first(),
         last: () => actions.current?.last(),
         toggleBars: () => actions.current?.toggleBars(),
+        showBars: () => actions.current?.showBars?.(),
         contents: () => actions.current?.contents(),
         settings: () => actions.current?.settings(),
         // The stable input instance reads capability changes at dispatch time.
@@ -823,6 +830,10 @@ function ReaderSession({
     } catch {
       /* Storage can be disabled. */
     }
+    // A place chosen on the eBook page is not followed by an offer of the places it was chosen over
+    if (startPlace)
+      for (const place of [otherPlace, ...(otherPlaces ?? [])])
+        if (place) declinedAt = Math.max(declinedAt, Date.parse(place.clientUpdatedAt) || 0);
     const sync = createPlaceSync({
       own: devicePlace ?? ownPlace,
       other: devicePlace ? otherPlace : null,
@@ -1109,7 +1120,7 @@ function ReaderSession({
         let localPlace: DurtalLocator | null = null;
         let localMutation: PositionMutation | null = null;
         let localClientUpdatedAt: string | null = null;
-        if (deviceId) {
+        if (deviceId && !startPlace) {
           try {
             const local = await (await getReaderRuntime()).store.readPosition(
               [ebook.id, file.id, deviceId].map(id => id.toLowerCase()).join(":"));
@@ -1175,8 +1186,9 @@ function ReaderSession({
         // A first open, or a place found again another way: save where the book opened
         const landing = latest as EngineEvents["relocate"] | null;
         // One short line, and none when a link opened the book at a mark (SLN-686)
-        if (!localPlace && !devicePlace && otherPlace && !openAt) {
-          setNotice(`Your place from ${otherPlace.deviceLabel}`);
+        const fromOther = startPlace ? (startPlace.thisDevice ? null : startPlace) : !localPlace && !devicePlace ? otherPlace : null;
+        if (fromOther && !openAt) {
+          setNotice(`Your place from ${fromOther.deviceLabel}`);
           noticeTimer = setTimeout(() => setNotice(null), 4000);
         }
         if (landing) {

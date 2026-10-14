@@ -1,4 +1,5 @@
 import { isUuid } from "@/lib/utils/uuid";
+import { isDeviceId } from "./device";
 
 const origin = "https://durtal.invalid";
 const returnRoutes = [
@@ -76,9 +77,11 @@ export function readerEntryPolicy(
   )
     return null;
   const query = [...url.searchParams.entries()];
+  // A file to open, and a device whose place to open at (SLN-665), each at most once
+  const allowed: Record<string, (value: string) => boolean> = { file: isUuid, from: isDeviceId };
   if (
-    query.length > 1 ||
-    query.some(([key, value]) => key !== "file" || !isUuid(value))
+    new Set(query.map(([key]) => key)).size !== query.length ||
+    query.some(([key, value]) => !Object.hasOwn(allowed, key) || !allowed[key](value))
   )
     return null;
   return {

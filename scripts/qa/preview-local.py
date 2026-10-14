@@ -63,12 +63,21 @@ and the first of them 400 more (scripts/qa/seed-highlights.sql), so the
 page-weight rows for /ebooks/highlights and one book's marks measure a full
 page. Use 30 for the page-weight run.
 
+With --seed-places N (after --seed-reader or --ebooks M), the first e-book
+with a stored file gets N saved places under 40 device names
+(scripts/qa/seed-places.sql), the newest just now, so the page-weight row for
+one e-book's page measures a book read on many devices. Use 1000.
+
+With --seed-review (after --ebooks M), the synthetic pending e-books are
+spread over the review queue's sections, with candidates
+(scripts/qa/seed-review.sql), for the /ebooks/review page-weight row.
+
 With --api-token, the app gets a random DURTAL_API_TOKEN for this run only,
 printed once at start, so the phone's /api/readings routes can be checked
 with curl. It is never the live token. Without it the variable stays unset
 and those routes answer 503.
 
-    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE] [--s3-dir DIR [--seed-reader [--reader-large DIR]] [--ebooks M] [--seed-highlights N]] [--api-token]
+    python3 scripts/qa/preview-local.py [--port 3410] [--from-dump FILE] [--start] [--seed-large N] [--log-sql FILE] [--s3-dir DIR [--seed-reader [--reader-large DIR]] [--ebooks M] [--seed-highlights N] [--seed-places N] [--seed-review]] [--api-token]
 """
 
 import argparse
@@ -305,6 +314,10 @@ def main():
                         help="with --ebooks 6000/7000, synthetic catalogue versions/sort diversity; private3410 only")
     parser.add_argument("--seed-highlights", type=int, metavar="N",
                         help="give the first N seeded e-books reader marks (scripts/qa/seed-highlights.sql)")
+    parser.add_argument("--seed-places", type=int, metavar="N",
+                        help="give the first e-book N saved places (scripts/qa/seed-places.sql)")
+    parser.add_argument("--seed-review", action="store_true",
+                        help="spread the synthetic pending e-books over the review queue (scripts/qa/seed-review.sql)")
     parser.add_argument("--reader-large", type=Path, metavar="DIR",
                         help="with --seed-reader, also the large fixtures make-ebook-fixtures.mjs --large wrote to DIR")
     parser.add_argument("--api-token", action="store_true",
@@ -317,6 +330,10 @@ def main():
         parser.error("--seed-reader needs --s3-dir: the e-books are stored there")
     if args.seed_highlights and not (args.seed_reader or args.ebooks):
         parser.error("--seed-highlights needs e-books: --seed-reader or --ebooks M")
+    if args.seed_places and not (args.seed_reader or args.ebooks):
+        parser.error("--seed-places needs e-books: --seed-reader or --ebooks M")
+    if args.seed_review and not args.ebooks:
+        parser.error("--seed-review needs synthetic e-books: --ebooks M")
     if args.reader_large and not args.seed_reader:
         parser.error("--reader-large goes with --seed-reader")
     if args.ebooks and (not args.s3_dir or not 1 <= args.ebooks <= 100000):
@@ -410,6 +427,11 @@ def main():
         if args.seed_highlights:
             seed = (Path(__file__).parent / "seed-highlights.sql").read_text()
             print(psql(f"\\set n {args.seed_highlights}\n{seed}"), flush=True)
+        if args.seed_places:
+            seed = (Path(__file__).parent / "seed-places.sql").read_text()
+            print(psql(f"\\set n {args.seed_places}\n{seed}"), flush=True)
+        if args.seed_review:
+            print(psql((Path(__file__).parent / "seed-review.sql").read_text()), flush=True)
         # Statistics, as a long-lived database has them. Without them the
         # planner overestimates the freshly seeded tables, and queries far
         # below Postgres's JIT threshold cross it until autovacuum catches

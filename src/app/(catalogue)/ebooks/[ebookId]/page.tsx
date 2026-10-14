@@ -39,25 +39,39 @@ import { EbookLinkPanel } from "@/components/ebooks/ebook-link-panel";
 import { EbookFilesTable } from "@/components/ebooks/ebook-files-table";
 import { EbookPlaces } from "@/components/ebooks/ebook-places";
 import { EbookMarksExport } from "@/components/ebooks/ebook-marks-export";
+import { EbookHistory } from "@/components/ebooks/ebook-history";
+import { getEbookDecisions } from "@/lib/ebooks/review/history";
 import { getEbookMarkCounts } from "@/lib/ebooks/highlights";
 import { getLinkedBook } from "@/lib/ebooks/linked-book";
-type Props = { params: Promise<{ ebookId: string }> };
+type Props = {
+  params: Promise<{ ebookId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+/** Devices the Reading places section shows, and with "Show all devices" (SLN-665) */
+const DEVICES_SHOWN = 5;
+const DEVICES_ALL = 200;
 const plural = (count: number, word: string) =>
   `${count} ${word}${count === 1 ? "" : "s"}`;
-const load = cache(async (id: string) =>
-  isUuid(id) ? getEbookDetail(id.toLowerCase()) : null,
-);
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const ebook = await load((await params).ebookId);
+const load = cache(async (id: string, allDevices: boolean) => {
+  if (!isUuid(id)) return null;
+  const device = (await cookies()).get(DEVICE_COOKIE)?.value;
+  return getEbookDetail(id.toLowerCase(), undefined, {
+    places: { deviceId: isDeviceId(device) ? device : null, devices: allDevices ? DEVICES_ALL : DEVICES_SHOWN },
+  });
+});
+const allDevicesOf = async (searchParams: Props["searchParams"]) => (await searchParams).places === "all";
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
+  const ebook = await load((await params).ebookId, await allDevicesOf(searchParams));
   if (!ebook) return { title: "eBook not found" };
   // Named after its book, as a page under it (SLN-683)
   return { title: ebook.workTitle ? `${ebook.workTitle} · eBook` : ebook.title };
 }
-export default async function EbookPage({ params }: Props) {
+export default async function EbookPage({ params, searchParams }: Props) {
   // proxy returns 400 for malformed ids before page or metadata can query.
-  const ebook = await load((await params).ebookId);
+  const allDevices = await allDevicesOf(searchParams);
+  const ebook = await load((await params).ebookId, allDevices);
   if (!ebook) notFound();
-  const marks = await getEbookMarkCounts(ebook.id);
+  const [marks, decisions] = await Promise.all([getEbookMarkCounts(ebook.id), getEbookDecisions(ebook.id)]);
   const markTotal = marks.highlights + marks.bookmarks;
   const device = (await cookies()).get(DEVICE_COOKIE)?.value;
   const descriptor = continueTarget({
@@ -274,43 +288,11 @@ export default async function EbookPage({ params }: Props) {
           } />
           <EbookFilesTable ebookId={ebook.id} files={files} />
         </section>
-        <section className="mb-8">
-          <SectionHeading title="Reading places" count={ebook.positions.length} />
-          <EbookPlaces ebook={ebook} />
+        <section id="places" className="mb-8 scroll-mt-6">
+          <EbookPlaces ebook={ebook} descriptor={descriptor} returnTo={returnTo} allDevices={allDevices} />
         </section>
         <section className="mb-8">
-          <SectionHeading title="History" count={ebook.historyTotal} />
-          {ebook.history.length ? (
-            <ul className="divide-y divide-glass-border">
-              {ebook.history.map((item) => (
-                <li key={item.id} className="py-3 text-sm">
-                  <Link
-                    href={`/ebooks/runs/${item.runId}`}
-                    className="text-accent-primary"
-                  >
-                    {item.createdAt.slice(0, 10)} ·{" "}
-                    {item.host ?? "Browser upload"}
-                  </Link>
-                  <p className="mt-1 text-xs text-fg-secondary [overflow-wrap:anywhere]">
-                    {item.path} ·{" "}
-                    {item.reason ??
-                      item.outcome?.replace(/_/g, " ") ??
-                      "Recorded"}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-fg-secondary">
-              No ingestion history recorded.
-            </p>
-          )}
-          {ebook.historyTotal > ebook.history.length && (
-            <p className="mt-3 text-xs text-fg-secondary">
-              Showing the latest {ebook.history.length} of {ebook.historyTotal}{" "}
-              events. Open a run for its full history.
-            </p>
-          )}
+          <EbookHistory ebook={ebook} decisions={decisions.decisions} decisionTotal={decisions.total} />
         </section>
       </DetailColumns>
     </>

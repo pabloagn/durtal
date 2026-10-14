@@ -21,6 +21,5 @@ export function LinkedBookMenu({ ebookId }: { ebookId: string }) {
         {unlink.loading ? "Loading link…" : "Unlink from this book…"}
       </DropdownMenuItem>
     </DropdownMenu>
-    {unlink.dialog}
   </>;
 }

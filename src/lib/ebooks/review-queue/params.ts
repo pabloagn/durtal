@@ -3,10 +3,11 @@ import { EBOOK_FORMATS } from "@/lib/ebooks/formats";
 import { normalizeLanguage } from "@/lib/utils/language";
 import { REVIEW_SECTIONS, type ReviewSectionKey } from "./types";
 
-export const REVIEW_PAGE_SIZE = 50;
-export const REVIEW_MAX_SHOWN = 500;
-const shown = z.coerce.number().int().min(REVIEW_PAGE_SIZE).max(REVIEW_MAX_SHOWN)
-  .refine((value) => value % REVIEW_PAGE_SIZE === 0).default(REVIEW_PAGE_SIZE);
+/** One section at a time, a page of rows at a time, so the page stays within its weight budget (SLN-684) */
+export const REVIEW_PAGE_SIZE = 20;
+export const REVIEW_MAX_PAGE = 1000;
+const page = z.coerce.number().int().min(1).max(REVIEW_MAX_PAGE).default(1);
+const sectionKey = z.enum(REVIEW_SECTIONS.map(({ key }) => key) as [ReviewSectionKey, ...ReviewSectionKey[]]);
 const language = z.string().trim().min(1).max(100).transform((value, context) => {
   const canonical = normalizeLanguage(value);
   if (!canonical) {
@@ -30,7 +31,12 @@ export const reviewSelectionPageSchema = z.strictObject({
   authorName: z.string().min(1).max(300).optional(),
 });
 export type ReviewSelectionPageInput = z.output<typeof reviewSelectionPageSchema>;
-export interface ReviewParams { filters: ReviewFilters; shown: Record<ReviewSectionKey, number> }
+export interface ReviewParams {
+  filters: ReviewFilters;
+  /** The section to list; the first one with eBooks when none is named */
+  section: ReviewSectionKey | null;
+  page: number;
+}
 export function parseReviewParams(raw: Record<string, string | string[] | undefined>): ReviewParams {
   const single = (key: string) => {
     const value = raw[key];
@@ -40,18 +46,17 @@ export function parseReviewParams(raw: Record<string, string | string[] | undefi
   const filters = reviewFiltersSchema.parse(Object.fromEntries(
     ["q", "language", "format", "hasIsbn", "work", "run", "author", "series"].map((key) => [key, single(key)]),
   ));
-  return { filters, shown: Object.fromEntries(REVIEW_SECTIONS.map(({ key }) =>
-    [key, shown.parse(single(key))])) as Record<ReviewSectionKey, number> };
+  return { filters, section: sectionKey.optional().parse(single("section")) ?? null, page: page.parse(single("page")) };
 }
 export function reviewParamsSearch(params: ReviewParams): URLSearchParams {
   const result = new URLSearchParams();
   for (const [key, value] of Object.entries(params.filters)) if (value) result.set(key, value);
-  for (const { key } of REVIEW_SECTIONS) if (params.shown[key] > REVIEW_PAGE_SIZE)
-    result.set(key, String(params.shown[key]));
+  if (params.section) result.set("section", params.section);
+  if (params.page > 1) result.set("page", String(params.page));
   return result;
 }
-export function reviewMoreHref(params: ReviewParams, section: ReviewSectionKey): string {
-  const next = reviewParamsSearch(params);
-  next.set(section, String(Math.min(REVIEW_MAX_SHOWN, params.shown[section] + REVIEW_PAGE_SIZE)));
+/** The queue with the same filters, at another section or page */
+export function reviewPageHref(params: ReviewParams, at: { section: ReviewSectionKey; page?: number }): string {
+  const next = reviewParamsSearch({ ...params, section: at.section, page: at.page ?? 1 });
   return `/ebooks/review?${next.toString()}`;
 }

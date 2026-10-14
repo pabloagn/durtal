@@ -25,6 +25,7 @@ import { prepareWorkStatusReview, applyWorkStatusReview, undoWorkStatusReview } 
 import { readWorkReviewBeforeOn, readWorkReviewReceiptOn } from "@/lib/ebooks/review/work-store";
 import { inspectReviewUnlinkOn } from "@/lib/ebooks/review/unlink-inspection";
 import { prepareEbookUnlinkReview, applyEbookUnlinkReview } from "@/lib/ebooks/review/unlink-service";
+import { getEbookDecisions } from "@/lib/ebooks/review/history";
 import { planLinkOn, linkEbook } from "@/lib/ebooks/match/link";
 import { planRegisteredMatchingOn, labelMatchingDocument } from "@/lib/ebooks/match/command";
 import { planApprovedGroupsOn, applyApprovedGroups } from "@/lib/ebooks/match/apply-groups";
@@ -231,6 +232,7 @@ describe.skipIf(!url)("review store on disposable PostgreSQL", () => {
       expect(await c`select to_jsonb(i) as row from instances i where id=${linked.instance_id}`).toEqual(copies);
       expect(await c`select to_jsonb(f) as row from ebook_files f where ebook_id=${ebookId} order by id`).toEqual(files);
       expect(await ledger()).toEqual([{ id: result.operation.operationId }]);
+      expect((await getEbookDecisions(ebookId, database)).decisions.map((decision) => decision.action)).toEqual(["unlink"]);
       expect(await applyEbookUnlinkReview({ ...transport, previewToken: "0".repeat(64) }, ctx)).toEqual(result);
       await c`delete from ebook_files where ebook_id=${ebookId}`;
       await c`delete from ebooks where id=${ebookId}`;
@@ -588,6 +590,11 @@ describe.skipIf(!url)("review store on disposable PostgreSQL", () => {
       expect(await undoEbookReview(request, ctx)).toEqual(result);
       expect(await row()).toEqual(after);
       expect(await ledger()).toHaveLength(2);
+      // The eBook's History lists the decision and its Undo, newest first (SLN-684)
+      const history = await getEbookDecisions(ebookId, database);
+      expect(history.decisions.map((decision) => decision.action)).toEqual(["undo", action]);
+      expect(history.decisions[0].message).toBe("Returned to review.");
+      expect(history.total).toBe(2);
     });
 
     it("commits concurrent confirmation once and replays after cache loss and target deletion", async () => {

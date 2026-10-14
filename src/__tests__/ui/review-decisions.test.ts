@@ -31,7 +31,7 @@ beforeEach(async () => {
   api.undoReviewUi.mockResolvedValue({ ok: true, value: { ...reviewOutcome(), message: "Returned to review.", keptCopy: true, undo: { available: false, originalOperation: null } } });
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
   const counts = Object.fromEntries(REVIEW_SECTIONS.map(({ key }) => [key, key === "not_in_durtal" ? 1 : 0])) as ReviewQueue["counts"];
-  await act(async () => root.render(createElement(ReviewView, { queue: { counts, sections: [{ key: "not_in_durtal", rows: [reviewRow()] }] }, params: parseReviewParams({}) })));
+  await act(async () => root.render(createElement(ReviewView, { queue: { counts, sections: [{ key: "not_in_durtal", rows: [reviewRow()] }], page: 1 }, params: parseReviewParams({}) })));
 });
 afterEach(() => { act(() => root.unmount()); host.remove(); vi.useRealTimers(); });
 function button(label: string): HTMLButtonElement {
