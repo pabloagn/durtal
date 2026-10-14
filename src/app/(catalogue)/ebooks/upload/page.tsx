@@ -34,7 +34,7 @@ export default async function UploadEbooksPage({ searchParams }: { searchParams:
     </div>
   </div>;
   const description = target.data.kind === "new"
-    ? "Each file is checked first; you then confirm what it adds to the library."
+    ? "Each file is checked, then added to the library. One that needs a decision waits here for you."
     : target.data.kind === "add_format"
       ? `Adds another format to “${summary?.title ?? "this eBook"}”. Its reading places, highlights and notes stay.`
       : summary?.file

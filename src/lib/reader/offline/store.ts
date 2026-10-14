@@ -300,11 +300,17 @@ export async function openOfflineStore(options: StoreOptions) {
         if (candidate.kind !== "position")
           throw new Error("Invalid local position kind");
         validate({ mutation: candidate });
+        // Under one clock the further place is the latest, as on the server,
+        // so an echo of an older place never moves it back (SLN-665)
+        const order = comparePositionTimes(
+          candidate.body.clientUpdatedAt,
+          latest.body.clientUpdatedAt,
+        );
         if (
-          comparePositionTimes(
-            candidate.body.clientUpdatedAt,
-            latest.body.clientUpdatedAt,
-          ) > 0
+          order > 0 ||
+          (order === 0 &&
+            candidate.body.locator.totalProgression >
+              latest.body.locator.totalProgression)
         )
           latest = candidate;
         if (
@@ -615,6 +621,19 @@ export async function openOfflineStore(options: StoreOptions) {
       });
       for (const ebookId of books) notify(ebookId);
       return moved;
+    },
+    /** Makes a waiting head sendable now instead of after its backoff: the
+     * reader's Retry while sync is paused (SLN-668). */
+    async retryNow(): Promise<boolean> {
+      const book = await transaction("readwrite", async (tx) => {
+        const head = (await rows(tx))[0];
+        if (!head || head.state !== "waiting" || head.retryAt === null)
+          return null;
+        await request(tx.objectStore("outbox").put({ ...head, retryAt: null }));
+        return head.mutation.ebookId;
+      });
+      if (book) notify(book);
+      return !!book;
     },
     async reconcile(
       reference: BlockedOperationReference,

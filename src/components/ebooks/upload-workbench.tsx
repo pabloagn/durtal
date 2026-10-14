@@ -20,6 +20,8 @@ const stateLabel: Record<UploadItemView["state"], string> = {
   processing: "Checking the file", quiescing: "Waiting for the server", completed: "Added", failed: "Needs attention", canceled: "Canceled", expired: "Expired",
 };
 const SENDING: readonly UploadItemView["state"][] = ["queued", "admitted", "receiving"];
+/** About a minute of refreshes while the server's worker is busy, then the file waits for Preview */
+const AUTO_ADD_TRIES = 20;
 /** Plain words for what went wrong; never a schema dump (SLN-672) */
 function problem(error: unknown): string {
   if (error instanceof z.ZodError || error instanceof SyntaxError) return "The server's answer was not understood. Reload the page and try again.";
@@ -49,6 +51,11 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
   const known = useRef(new Map<string, File>());
   const picker = useRef<HTMLInputElement>(null), reselect = useRef<HTMLInputElement>(null), reselecting = useRef<UploadItemSummary | null>(null);
   const busyRef = useRef(false);
+  // The file being sent now: its Cancel stays on while it sends, and stops it first (SLN-672)
+  const [sending, setSending] = useState<string | null>(null); const canceling = useRef<string | null>(null);
+  // Files sent from this page that are added on their own once checked, unless the preview needs a decision: when to try
+  // next, and how many tries are left while the server's worker is busy with another file
+  const autoAdd = useRef(new Map<string, { notBefore: number; tries: number }>());
   const persist = (next: UploadBrowserSession) => { writeUploadSession(next); sessionRef.current = next; setSession(next); };
   const refresh = useCallback(async (id = sessionRef.current.batchId) => {
     if (!id || refreshActive.current) return;
@@ -127,36 +134,58 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
     setFiles(selected); setMessage(null);
   };
   const create = () => act(async () => {
-    const controller = new AbortController(); abort.current = controller; setCanPause(true);
+    const checking = new AbortController(); abort.current = checking; setCanPause(true);
     const inputs: CreateUploadBatch["files"] = [];
     try {
       for (const file of files) {
         setMessage(`Checking ${file.name}…`);
-        const evidence = await fingerprintUploadFile(file, controller.signal);
+        const evidence = await fingerprintUploadFile(file, checking.signal);
         inputs.push({ name: file.name, bytes: file.size, sha256: evidence.sha256, target }); known.current.set(evidence.sha256, file);
       }
       const created = await request({ kind: "create", body: { protocol: 1, key: crypto.randomUUID(), files: inputs } });
       if (!("items" in created)) throw new Error("The upload creation response differs.");
+      let last: "sent" | "canceled" = "sent";
       for (let index = 0; index < created.items.length; index++) {
         if (created.items[index].sha256 !== inputs[index]?.sha256) throw new Error("The created file order differs.");
-        await performTransfer(created.items[index], files[index], controller);
+        // Each file has its own controller: canceling one goes on to the next, Pause stops them all
+        const controller = new AbortController(); abort.current = controller;
+        last = await performTransfer(created.items[index], files[index], controller);
       }
-      setMessage(null);
+      if (last === "sent") setMessage(null);
     } finally { abort.current = null; setCanPause(false); }
   });
-  const performTransfer = async (summary: UploadItemSummary, file: File, controller: AbortController) => {
-    const raw = await uploadResponse(await fetch(`/api/ebooks/upload-operations/${summary.id}`, { credentials: "same-origin", cache: "no-store", signal: controller.signal }));
-    const item = uploadItemViewSchema.parse(raw);
-    if (item.id !== summary.id || item.sha256 !== summary.sha256) throw new Error("The resumed upload identity differs.");
-    setMessage(`Sending ${item.name}…`);
-    await sendUploadParts(file, item, controller.signal, (bytes) => setProgress((current) => ({ ...current, [item.id]: { generation: item.generation, bytes } })),
-      () => command(item, { action: "admit", key: crypto.randomUUID(), generation: item.generation }));
-    await command(item, { action: "complete", key: crypto.randomUUID(), generation: item.generation, sha256: item.sha256 });
+  /** Sends a file's missing parts and completes it; "canceled" when Cancel stopped it on the way */
+  const performTransfer = async (summary: UploadItemSummary, file: File, controller: AbortController): Promise<"sent" | "canceled"> => {
+    setSending(summary.id);
+    try {
+      const raw = await uploadResponse(await fetch(`/api/ebooks/upload-operations/${summary.id}`, { credentials: "same-origin", cache: "no-store", signal: controller.signal }));
+      const item = uploadItemViewSchema.parse(raw);
+      if (item.id !== summary.id || item.sha256 !== summary.sha256) throw new Error("The resumed upload identity differs.");
+      setMessage(`Sending ${item.name}…`);
+      await sendUploadParts(file, item, controller.signal, (bytes) => setProgress((current) => ({ ...current, [item.id]: { generation: item.generation, bytes } })),
+        () => command(item, { action: "admit", key: crypto.randomUUID(), generation: item.generation }));
+      controller.signal.throwIfAborted();
+      await command(item, { action: "complete", key: crypto.randomUUID(), generation: item.generation, sha256: item.sha256 });
+      // A Cancel pressed while the last answer was on its way still cancels it
+      if (canceling.current !== summary.id) {
+        if (item.target.kind !== "replace") autoAdd.current.set(item.id, { notBefore: 0, tries: AUTO_ADD_TRIES });
+        return "sent";
+      }
+    } catch (error) {
+      if (canceling.current !== summary.id) throw error;
+    } finally { setSending(null); }
+    // Cancel while sending: the parts in flight have stopped, so the server can cancel it now
+    canceling.current = null; setMessage(`Canceling ${summary.name}…`);
+    await command(summary, { action: "cancel", key: crypto.randomUUID() });
+    return "canceled";
+  };
+  const cancelSending = (item: UploadItemSummary) => {
+    canceling.current = item.id; abort.current?.abort(new DOMException("Upload canceled", "AbortError"));
   };
   const transfer = (item: UploadItemSummary, file: File) => act(async () => {
     const controller = new AbortController(); abort.current = controller; setCanPause(true);
     known.current.set(item.sha256, file);
-    try { await performTransfer(item, file, controller); setMessage(null); }
+    try { if (await performTransfer(item, file, controller) === "sent") setMessage(null); }
     catch (error) { if (error instanceof UploadFileMismatch) known.current.delete(item.sha256); throw error; }
     finally { abort.current = null; setCanPause(false); await refresh(); }
   });
@@ -174,6 +203,28 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
   const holds = (item: UploadItemSummary) => !!previews[item.id] && Date.parse(previews[item.id].expiresAt) > now;
   const previewable = batch?.items.filter((item) => item.state === "ready" && !holds(item)) ?? [];
   const confirmable = batch?.items.filter(holds) ?? [];
+  // A file sent from this page is added once its check is done, when the preview needs no decision. The preview and its
+  // confirmation are the same two steps as by hand; a refusal (already in the library, a format clash) waits here with
+  // Preview. A replacement always waits for its Confirm (SLN-672)
+  useEffect(() => {
+    if (busy || !loaded || session.pending || !ready) return;
+    const at = Date.now();
+    const item = batch?.items.find((entry) => entry.state === "ready" && (autoAdd.current.get(entry.id)?.notBefore ?? Infinity) <= at);
+    if (!item) return;
+    const { tries } = autoAdd.current.get(item.id)!; autoAdd.current.delete(item.id);
+    void act(async () => {
+      let prepared: Awaited<ReturnType<typeof command>>;
+      try { prepared = await command(item, { action: "prepare", key: crypto.randomUUID() }); }
+      catch (error) {
+        // The worker is still checking or sending another file: try again on a later refresh
+        if (error instanceof UploadHttpError && error.code === "upload_not_settled" && tries > 1) {
+          autoAdd.current.set(item.id, { notBefore: Date.now() + 2500, tries: tries - 1 }); return;
+        }
+        throw error;
+      }
+      if ("preview" in prepared && prepared.preview) await command(item, { action: "confirm", key: crypto.randomUUID(), previewToken: prepared.preview.token });
+    });
+  }, [batch, busy, loaded, session.pending, ready]); // eslint-disable-line react-hooks/exhaustive-deps
   const returnTo = session.batchId ? `/ebooks/upload?batch=${session.batchId}` : "/ebooks/upload";
   return <div className="space-y-8">
     {!available && <p role="note" className="text-sm text-fg-secondary">Uploads are off on this server: it is running without the upload service, so no file can be sent yet.</p>}
@@ -194,7 +245,9 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
       {session.priorBatches.map((id, index) => <a key={id} className={buttonClass("secondary")} href={`/ebooks/upload?batch=${id}`}>Previous upload {index + 1}</a>)}
     </nav>}
     {!session.batchId && <section>
-      <SectionHeading title="Choose files" description={target.kind === "new" ? "Up to 50 files, 4 GB each. Keep this page open while they send." : "One file, up to 4 GB. Keep this page open while it sends."} />
+      <SectionHeading title="Choose files" description={target.kind === "new" ? "Up to 50 files, 4 GB each. Keep this page open while they send."
+        : target.kind === "add_format" ? "One file, up to 4 GB. Keep this page open while it sends. It is added once it is checked."
+          : "One file, up to 4 GB. Keep this page open while it sends. You confirm the replacement once it is checked."} />
       <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (!blocked && available) select(Array.from(event.dataTransfer.files)); }}
         className="flex flex-wrap items-center gap-3 rounded-sm border border-dashed border-border-control p-6 text-sm text-fg-secondary">
         <span>{target.kind === "new" ? "Drop eBook files here, or" : "Drop the file here, or"}</span>
@@ -237,7 +290,9 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
               : <Button disabled={blocked || !ready} onClick={() => { reselecting.current = item; reselect.current?.click(); }}>Choose the file again</Button>)}
             {item.state === "ready" && <Button disabled={blocked} onClick={() => void act(() => command(item, { action: "prepare", key: crypto.randomUUID() }))}>Preview</Button>}
             {item.state === "failed" && <Button disabled={blocked} onClick={() => void act(() => command(item, { action: "retry", key: crypto.randomUUID() }))}>Try again</Button>}
-            {!["completed", "canceled", "expired"].includes(item.state) && <Button variant="secondary" disabled={blocked} onClick={() => void act(() => command(item, { action: "cancel", key: crypto.randomUUID() }))}>Cancel upload</Button>}
+            {sending === item.id
+              ? <Button variant="secondary" onClick={() => cancelSending(item)}>Cancel upload</Button>
+              : !["completed", "canceled", "expired"].includes(item.state) && <Button variant="secondary" disabled={blocked} onClick={() => void act(() => command(item, { action: "cancel", key: crypto.randomUUID() }))}>Cancel upload</Button>}
             {item.undoAvailable && item.originalOperationId && <Button variant="secondary" disabled={blocked} onClick={() => void act(() => command(item, { action: "undo", key: crypto.randomUUID(), originalOperationId: item.originalOperationId! }))}>Preview undo</Button>}
             {item.target.kind === "replace" && item.originalOperationId && item.currentFingerprint && <Button variant="secondary" disabled={blocked}
               onClick={() => void act(() => command(item, { action: "restore", key: crypto.randomUUID(), originalOperationId: item.originalOperationId!,

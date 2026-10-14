@@ -318,6 +318,15 @@ describe("palette eBook grouping", () => {
     expect(result.continueReading).toBeNull();
   });
 
+  it("lists a linked eBook under its book's title only when the book is not already a result (SLN-683)", () => {
+    const linked = workEbookDTO(ebook({ ebookId: "linked", title: "Against Nature" }));
+    const rows = [{ ebook: linked, matchState: "linked" as const, workId: "book" }];
+    expect(ebookPaletteGroup({ works: [], ebooks: rows, recent: null, emptyQuery: false }).ebooks).toEqual([
+      { id: "linked", title: "Against Nature", href: "/ebooks/linked", readerPath: linked.readerPath },
+    ]);
+    expect(ebookPaletteGroup({ works: [{ id: "book", kind: "book", ebook: linked }], ebooks: rows, recent: null, emptyQuery: false }).ebooks).toEqual([]);
+  });
+
   it("caps the unique unlinked group at five in query rank order", () => {
     const rows = Array.from({ length: 8 }, (_, i) => ({
       ebook: workEbookDTO(ebook({ ebookId: String(i) })),
