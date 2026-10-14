@@ -41,7 +41,8 @@ export function SectionHeading({
   id?: string;
 }) {
   const heading = (
-    <Tag id={id} className={headingRole(Tag)}>
+    // A word wider than the row (a file name) breaks rather than widening the page
+    <Tag id={id} className={`${headingRole(Tag)} [overflow-wrap:anywhere]`}>
       {title}
       {count !== undefined && (
         <span className="text-fg-secondary"> ({count})</span>
