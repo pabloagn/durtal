@@ -16,7 +16,7 @@ import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { ExportMenu } from "@/components/shared/export-menu";
-import { CapAlignedControls } from "@/components/shared/cap-aligned";
+import { DetailControls, DetailTitleRow } from "@/components/shared/detail-layout";
 import { ProtectedImageWrapper } from "@/components/shared/protected-image";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
 import { deleteAuthor } from "@/lib/actions/authors";
@@ -164,20 +164,8 @@ export function AuthorDetailHeader({
         )}
 
         <div className="min-w-0 flex-1">
-          {/* Actions wrap below the name when the column is narrow */}
-          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-            <div className="min-w-0">
-              <h1 className="type-page-title break-words">
-                {name}
-              </h1>
-              {realName && realName !== name && (
-                <p className="mt-1 text-sm text-fg-secondary italic">
-                  {realName}
-                </p>
-              )}
-            </div>
-            {/* On the cap-height center of the name's first line */}
-            <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
+          <DetailTitleRow title={name} controls="free">
+            <DetailControls>
               <FavouriteToggle
                 favourite={isFavourite}
                 target={{ entity: "author", id: authorId }}
@@ -192,8 +180,13 @@ export function AuthorDetailHeader({
                 size="md"
               />
               <EntityActionMenu items={actionItems} />
-            </CapAlignedControls>
-          </div>
+            </DetailControls>
+          </DetailTitleRow>
+          {realName && realName !== name && (
+            <p className="mt-1 text-sm text-fg-secondary italic">
+              {realName}
+            </p>
+          )}
 
           <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
             {countryName &&

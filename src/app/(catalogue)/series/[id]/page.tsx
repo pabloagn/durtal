@@ -10,7 +10,7 @@ import { ArrowLeft, Layers } from "lucide-react";
 import { getSeriesDetail, getSeriesSuggestions } from "@/lib/actions/series";
 import { getSeriesNextToRead } from "@/lib/actions/reading";
 import { Badge } from "@/components/ui/badge";
-import { CapAlignedControls } from "@/components/shared/cap-aligned";
+import { DetailControls, DetailTitleRow } from "@/components/shared/detail-layout";
 import { SeriesActions } from "@/components/series/series-actions";
 import { SeriesBooks, type SeriesBook } from "@/components/series/series-books";
 import { SeriesSuggestions } from "@/components/series/series-suggestions";
@@ -94,91 +94,87 @@ export default async function SeriesDetailPage({
         Back to series
       </Link>
 
-      <header className="mb-8 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-        <div className="min-w-0">
-          <h1 className="type-page-title break-words">
-            {s.title}
-          </h1>
-          {s.originalTitle && s.originalTitle !== s.title && (
-            <p className="mt-1 text-sm italic text-fg-secondary">
-              {s.originalTitle}
-            </p>
-          )}
-          {/* Who wrote it, from its books' authors (SLN-636) */}
-          {s.authors.length > 0 && (
-            <p className="mt-2 text-sm text-fg-secondary" data-series-authors="">
-              {s.authors.map((author, i) => (
-                <Fragment key={author.id}>
-                  {i > 0 && ", "}
-                  {author.slug ? (
-                    <Link
-                      href={`/people/${author.slug}`}
-                      className="transition-colors hover:text-accent-primary"
-                    >
-                      {author.name}
-                    </Link>
-                  ) : (
-                    author.name
-                  )}
-                </Fragment>
-              ))}
-            </p>
-          )}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Badge variant="muted">
-              {count} {count === 1 ? "book" : "books"}
-              {s.totalVolumes ? ` of ${s.totalVolumes}` : ""}
+      <header className="mb-8 min-w-0">
+        <DetailTitleRow title={s.title} controls="free">
+          <DetailControls>
+            <FavouriteToggle
+              favourite={s.isFavourite}
+              target={{ entity: "series", id: s.id }}
+              name={s.title}
+              shortcut
+            />
+            <SeriesActions
+              series={{
+                id: s.id,
+                title: s.title,
+                originalTitle: s.originalTitle,
+                description: s.description,
+                totalVolumes: s.totalVolumes,
+                isComplete: s.isComplete,
+              }}
+              bookCount={count}
+              initialAdd={query.add === "1"}
+            />
+          </DetailControls>
+        </DetailTitleRow>
+        {s.originalTitle && s.originalTitle !== s.title && (
+          <p className="mt-1 text-sm italic text-fg-secondary">
+            {s.originalTitle}
+          </p>
+        )}
+        {/* Who wrote it, from its books' authors (SLN-636) */}
+        {s.authors.length > 0 && (
+          <p className="mt-2 text-sm text-fg-secondary" data-series-authors="">
+            {s.authors.map((author, i) => (
+              <Fragment key={author.id}>
+                {i > 0 && ", "}
+                {author.slug ? (
+                  <Link
+                    href={`/people/${author.slug}`}
+                    className="transition-colors hover:text-accent-primary"
+                  >
+                    {author.name}
+                  </Link>
+                ) : (
+                  author.name
+                )}
+              </Fragment>
+            ))}
+          </p>
+        )}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Badge variant="muted">
+            {count} {count === 1 ? "book" : "books"}
+            {s.totalVolumes ? ` of ${s.totalVolumes}` : ""}
+          </Badge>
+          {count > 0 && (
+            <Badge variant="sage">
+              {accessioned} of {s.totalVolumes ?? count} accessioned
             </Badge>
-            {count > 0 && (
-              <Badge variant="sage">
-                {accessioned} of {s.totalVolumes ?? count} accessioned
-              </Badge>
-            )}
-            {read > 0 && (
-              <Badge variant="blue">
-                Read {read} of {s.totalVolumes ?? count}
-              </Badge>
-            )}
-            {digitalCount > 0 && <Badge variant="blue">{digitalCount} available as eBooks</Badge>}
-            {s.isComplete && <Badge variant="gold">Complete series</Badge>}
-          </div>
-          {/* The volume to read next and where its copy is (SLN-449) */}
-          <EbookSuggestionLine seriesId={id} count={ebookSuggestions} />
-          {next && read > 0 && (
-            <p className="mt-3 text-sm text-fg-secondary" data-next-to-read="">
-              Next to read:{" "}
-              <Link href={`/library/${next.slug ?? next.id}`} className="text-fg-primary transition-colors hover:text-accent-primary">
-                {next.position ? `${next.position}. ` : ""}
-                {next.title}
-              </Link>
-              {` · ${next.whereabouts}`}
-            </p>
           )}
-          {s.description && (
-            <Prose className="mt-4 whitespace-pre-wrap">{s.description}</Prose>
+          {read > 0 && (
+            <Badge variant="blue">
+              Read {read} of {s.totalVolumes ?? count}
+            </Badge>
           )}
+          {digitalCount > 0 && <Badge variant="blue">{digitalCount} available as eBooks</Badge>}
+          {s.isComplete && <Badge variant="gold">Complete series</Badge>}
         </div>
-        {/* On the cap-height center of the title's first line */}
-        <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
-        <FavouriteToggle
-          favourite={s.isFavourite}
-          target={{ entity: "series", id: s.id }}
-          name={s.title}
-          shortcut
-        />
-        <SeriesActions
-          series={{
-            id: s.id,
-            title: s.title,
-            originalTitle: s.originalTitle,
-            description: s.description,
-            totalVolumes: s.totalVolumes,
-            isComplete: s.isComplete,
-          }}
-          bookCount={count}
-          initialAdd={query.add === "1"}
-        />
-        </CapAlignedControls>
+        {/* The volume to read next and where its copy is (SLN-449) */}
+        <EbookSuggestionLine seriesId={id} count={ebookSuggestions} />
+        {next && read > 0 && (
+          <p className="mt-3 text-sm text-fg-secondary" data-next-to-read="">
+            Next to read:{" "}
+            <Link href={`/library/${next.slug ?? next.id}`} className="text-fg-primary transition-colors hover:text-accent-primary">
+              {next.position ? `${next.position}. ` : ""}
+              {next.title}
+            </Link>
+            {` · ${next.whereabouts}`}
+          </p>
+        )}
+        {s.description && (
+          <Prose className="mt-4 whitespace-pre-wrap">{s.description}</Prose>
+        )}
       </header>
 
       <section className="mb-8">
