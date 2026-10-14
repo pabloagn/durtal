@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import {
   continueTarget,
+  underway,
   validContinueAnchor,
   type ContinueAnchor,
   type ContinueDescriptor,
@@ -126,7 +127,14 @@ export function ebookLibraryWhere(params: EbookLibraryParams): SQL {
   if (params.normalizedSearch)
     for (const word of params.normalizedSearch.split(" ").filter(Boolean))
       clauses.push(
-        sql`(e.search_text ilike ${`%${word}%`} or ${word} <% e.search_text)`,
+        // A linked e-book is also found by its book's title and authors (SLN-683)
+        sql`(e.search_text ilike ${`%${word}%`} or ${word} <% e.search_text
+          or exists (select 1 from instances copy join editions edition on edition.id = copy.edition_id
+            join works w on w.id = edition.work_id
+            where copy.id = e.instance_id and e.match_state = 'linked'
+              and (public.search_normalize(w.title || ' ' || coalesce(w.original_title, '')) ilike ${`%${word}%`}
+                or exists (select 1 from work_authors wa join authors a on a.id = wa.author_id
+                  where wa.work_id = w.id and a.search_text ilike ${`%${word}%`}))))`,
       );
   if (params.linked.length) {
     const states = params.linked.map((value) =>
@@ -221,18 +229,35 @@ export async function getEbookLibraryCounts(
   );
   return row;
 }
+/**
+ * A saved place that is being read, as `underway` decides it, in SQL: a
+ * locator whose numbers are not numbers is not.
+ */
+const underwayPosition = sql`case when jsonb_typeof(p.locator->'sectionIndex') = 'number'
+    and jsonb_typeof(p.locator->'progression') = 'number' and jsonb_typeof(p.locator->'totalProgression') = 'number'
+  then (p.locator->>'totalProgression')::float8 < 0.995
+    and not ((p.locator->>'sectionIndex')::float8 = 0 and (p.locator->>'progression')::float8 = 0)
+  else false end`;
 export async function getContinueReading(
   deviceId: string | null,
   database: Database = db,
-): Promise<{ ebook: LibraryEbook; descriptor: ContinueDescriptor }[]> {
-  // Exclude books with no eligible target before LIMIT so obsolete positions do not crowd out readable books.
-  const rows = resultRows<LibraryEbook & { positions: ContinueAnchor[] }>(
+): Promise<{ ebook: LibraryEbook; descriptor: ContinueDescriptor; bookTitle: string | null; bookAuthors: string[] | null }[]> {
+  // Exclude books with no eligible target before LIMIT so obsolete positions do not crowd out readable books,
+  // and count only places being read, so books merely opened or finished do not crowd them out either.
+  const rows = resultRows<LibraryEbook & { positions: ContinueAnchor[]; bookTitle: string | null; bookAuthors: string[] | null }>(
     await database.execute(sql`with recent as (
     select e.id, max(p.client_updated_at) as opened from ebooks e join ebook_positions p on p.ebook_id = e.id
-    where e.match_state <> 'excluded' and exists (select 1 from ebook_files f where f.ebook_id = e.id
+    where e.match_state <> 'excluded' and ${underwayPosition} and exists (select 1 from ebook_files f where f.ebook_id = e.id
       and ${ebookFileNativeReadableCondition(fileColumns)})
     group by e.id order by opened desc, e.id limit 12
-  ) select ${ebookSummaryColumns}, ${positions} as positions from recent join ebooks e on e.id = recent.id
+  ) select ${ebookSummaryColumns}, ${positions} as positions,
+    -- A linked e-book goes by its book's title and authors (SLN-683)
+    book.title as "bookTitle", book.authors as "bookAuthors"
+  from recent join ebooks e on e.id = recent.id
+  left join lateral (select w.title, (select array_agg(a.name order by wa.sort_order, a.name) from work_authors wa
+      join authors a on a.id = wa.author_id where wa.work_id = w.id and wa.role in ('author', 'co_author')) as authors
+    from instances copy join editions edition on edition.id = copy.edition_id join works w on w.id = edition.work_id
+    where copy.id = e.instance_id and e.match_state = 'linked') book on true
   order by recent.opened desc, e.id`),
   );
   return rows.map(normalizedDates).flatMap((ebook) => {
@@ -242,9 +267,13 @@ export async function getContinueReading(
       deviceId,
       preferredFileId: ebook.preferredFileId,
       files: ebook.files,
-      positions: ebook.positions,
+      // A device that only opened the book does not hide another device's place in it
+      positions: ebook.positions.filter((position) => !!position?.locator && underway(position)),
     });
-    return descriptor?.anchor ? [{ ebook, descriptor }] : [];
+    const { bookTitle, bookAuthors, ...rest } = ebook;
+    return descriptor?.anchor
+      ? [{ ebook: rest, descriptor, bookTitle: bookTitle ?? null, bookAuthors: bookAuthors ?? null }]
+      : [];
   });
 }
 export async function getEbookDetail(

@@ -53,6 +53,11 @@
  * note's own address opens its group, and Edit taxonomy shows the book's
  * subject at once and the full list as it loads.
  *
+ * The "ebooks" journey (SLN-683) needs the preview's reader seed
+ * (--seed-reader): the book page, /ebooks, an eBook's page, Continue reading
+ * and the reading hub's Open eBook each open the reader, and its Back lands
+ * where its link says.
+ *
  * The "import" journey (SLN-450) imports a Goodreads file written here into
  * the books scripts/qa/reading-import-journey.sql seeds: upload it, see the
  * summary and "Book rating 3 kept (the file says 4)", use the file's rating
@@ -101,7 +106,7 @@ const COLLECTIONS = {
 };
 // Without a name, every journey that needs no seed runs
 const SEEDLESS = [...Object.keys(COLLECTIONS), "collect", "books", "kinds"];
-const JOURNEYS = [...SEEDLESS, "reading", "import"];
+const JOURNEYS = [...SEEDLESS, "reading", "import", "ebooks"];
 const chosen = only.length ? only : SEEDLESS;
 
 function findChrome() {
@@ -1485,7 +1490,74 @@ if (chosen.includes("import"))
   for (const path of ["/reading/import", "/library/new", "/reading/journal"])
     await fetch(base + path, { signal: AbortSignal.timeout(180000) }).catch(() => {});
 
-const OTHERS = { collect: collectJourney, books: booksJourney, kinds: kindsJourney, reading: readingJourney, import: importJourney };
+/**
+ * The ebooks journey (SLN-683), on the preview's reader seed (--seed-reader):
+ * one path between a book, its eBook and the reader. Every reader entry is a
+ * document link, and the reader's Back lands where its own link says.
+ */
+async function ebooksJourney() {
+  const book = "/library/against-nature-by-joris-karl-huysmans";
+  const ebook = "/ebooks/00000000-0000-4000-a000-000000000001";
+  const BACK = "document.querySelector('a[aria-label=Back]')";
+  const inReader = () => waitFor(`location.pathname.startsWith('/reader/') && ${BACK} && document.querySelector('foliate-view')`, "the reader", 40000);
+  const enter = async (selector, what) => {
+    await waitFor(selector, what);
+    await evaluate(`${selector}.click(), true`);
+    await inReader();
+    await sleep(1500);
+  };
+  /** Back goes where its link says, and that is `path` */
+  const back = async (path) => {
+    const said = await evaluate(`new URL(${BACK}.href).pathname`);
+    if (said !== path) throw new Error(`Back says ${said}, not ${path}`);
+    await evaluate(`${BACK}.click(), true`);
+    await waitFor(`location.pathname === ${JSON.stringify(path)} && document.readyState === 'complete'`, `Back to land on ${path}`);
+    await sleep(500);
+  };
+  const turn = async () => {
+    for (let i = 0; i < 3; i++) {
+      for (const type of ["keyDown", "keyUp"])
+        await send("Input.dispatchKeyEvent", { type, key: "ArrowRight", code: "ArrowRight", windowsVirtualKeyCode: 39 });
+      await sleep(700);
+    }
+    await sleep(2500);
+  };
+  return run("ebooks", [
+    ["book page → reader → Back", async () => {
+      await go(book);
+      await enter("document.querySelector('main a[data-reader-entry]')", "the book page's Read");
+      await turn();
+      await back(book);
+    }],
+    ["/ebooks → its page → reader → Back", async () => {
+      await go("/ebooks");
+      await evaluate(`document.querySelector('main a[href="${ebook}"]').click(), true`);
+      await waitFor(`location.pathname === ${JSON.stringify(ebook)} && document.readyState === 'complete'`, "the eBook page");
+      await enter("document.querySelector('main a[href^=\"/reader/\"]')", "the eBook page's Read");
+      await back(ebook);
+    }],
+    ["Continue reading → reader → Back", async () => {
+      await go("/ebooks");
+      await enter("[...document.querySelectorAll('main section a[data-reader-entry]')].find((a) => a.textContent.includes('Against Nature'))", "Against Nature in Continue reading, by its book's title");
+      await back("/ebooks");
+    }],
+    ["/reading → Open eBook → Back", async () => {
+      await go(book);
+      await enter("document.querySelector('main a[data-reader-entry]')", "the book page's Read");
+      const track = "[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Track this book')";
+      if (await evaluate(`!!${track}`)) {
+        await evaluate(`${track}.click(), true`);
+        await waitFor(toastSays("Now tracking this book"), "tracking to start");
+      }
+      await back(book);
+      await go("/reading");
+      await enter("document.querySelector('main a[data-hub-open-ebook]')", "Open eBook on the hub");
+      await back("/reading");
+    }],
+  ]);
+}
+
+const OTHERS = { collect: collectJourney, books: booksJourney, kinds: kindsJourney, reading: readingJourney, import: importJourney, ebooks: ebooksJourney };
 let failed = 0;
 for (const name of chosen) {
   if (OTHERS[name]) {

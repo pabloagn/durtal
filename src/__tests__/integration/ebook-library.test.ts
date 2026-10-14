@@ -178,6 +178,23 @@ describe.skipIf(!url)(
           q,
         ).toBeGreaterThan(0);
       }
+      // A linked e-book is found by its book's title and author too (SLN-683)
+      const [work] = await client!`insert into works(title, slug, original_title) values ('Against Nature', 'against-nature', 'À rebours') returning id`;
+      const [author] = await client!`insert into authors(name, slug) values ('Joris-Karl Huysmans', 'joris-karl-huysmans') returning id`;
+      await client!`insert into work_authors(work_id, author_id) values (${work.id}, ${author.id})`;
+      const [edition] = await client!`insert into editions(work_id, title) values (${work.id}, 'Against Nature') returning id`;
+      const [shelf] = await client!`insert into locations(name, type) values ('eBooks', 'digital') returning id`;
+      const [copy] = await client!`insert into instances(edition_id, location_id, format) values (${edition.id}, ${shelf.id}, 'epub') returning id`;
+      await client!`insert into ebooks(title, authors, author_sort, language, match_state, instance_id, import_source, search_text)
+        values ('The Distant Orchard', array['Fixture'], 'Fixture', 'en', 'linked', ${copy.id}, 'folder', 'the distant orchard fixture')`;
+      for (const q of ["against nature", "a rebours", "huysmans"])
+        expect(
+          (await getEbooksPage(parseEbookLibraryParams({ q }), database!)).map((book) => book.title),
+          q,
+        ).toEqual(["The Distant Orchard"]);
+      await client!`update ebooks set match_state = 'standalone', instance_id = null where title = 'The Distant Orchard'`;
+      expect((await getEbooksPage(parseEbookLibraryParams({ q: "huysmans" }), database!)).length).toBe(0);
+      await client!`delete from ebooks where title = 'The Distant Orchard'`;
       expect(
         (await getEbooksPage(parseEbookLibraryParams({}), database!)).some(
           (book) => book.matchState === "excluded",
@@ -206,6 +223,55 @@ describe.skipIf(!url)(
       );
       expect(excludedCounts.languages).toEqual(["de"]);
       expect(excludedCounts.formats).toEqual(["pdf"]);
+    });
+    it("continues only books being read, by their book's title and authors (SLN-683)", async () => {
+      const [work] = await client!`insert into works(title, slug) values ('Là-bas', 'la-bas') returning id`;
+      const [author] = await client!`insert into authors(name, slug) values ('J.-K. Huysmans', 'j-k-huysmans') returning id`;
+      await client!`insert into work_authors(work_id, author_id) values (${work.id}, ${author.id})`;
+      const [edition] = await client!`insert into editions(work_id, title) values (${work.id}, 'Là-bas') returning id`;
+      const [shelf] = await client!`insert into locations(name, type) values ('eBooks', 'digital') returning id`;
+      const [copy] = await client!`insert into instances(edition_id, location_id, format) values (${edition.id}, ${shelf.id}, 'epub') returning id`;
+      const [ebook] = await client!`insert into ebooks(title, authors, match_state, instance_id, import_source, search_text)
+        values ('Down There', array['Fixture'], 'linked', ${copy.id}, 'folder', 'down there') returning id`;
+      const bytes = readFileSync("src/__tests__/fixtures/ebooks/epub3.epub");
+      const checksum = createHash("sha256").update(bytes).digest("hex");
+      const [file] = await client!`insert into ebook_files(ebook_id, sha256, s3_key, format, size_bytes, content_type, status)
+        values (${ebook.id}, ${checksum}, ${ebookFileKey(checksum, "epub")}, 'epub', ${bytes.length}, 'application/epub+zip', 'stored') returning id`;
+      const device = randomUUID();
+      const place = async (sectionIndex: number, progression: number, totalProgression: number, on = device, when = "now()") => {
+        const locator = { v: 1, fileHash: checksum, href: "chapter", sectionIndex, progression, totalProgression };
+        await client!`insert into ebook_positions(ebook_id, file_id, device_id, device_label, locator, progression, furthest_progression, chapter, client_updated_at)
+          values (${ebook.id}, ${file.id}, ${on}, 'Mac', ${JSON.stringify(locator)}, ${totalProgression}, ${totalProgression}, null, ${client!.unsafe(when)})
+          on conflict (file_id, device_id) do update set locator = excluded.locator, progression = excluded.progression,
+            client_updated_at = excluded.client_updated_at`;
+        return (await getContinueReading(device, database!)).find((item) => item.ebook.id === ebook.id);
+      };
+      // Only opened: the first page of the first section
+      expect(await place(0, 0, 0.03)).toBeUndefined();
+      // Being read on another device: this device only opening it does not hide that place
+      const phone = randomUUID();
+      const elsewhere = await place(2, 0.5, 0.4, phone, "now() - interval '1 day'");
+      expect(elsewhere?.descriptor.anchor?.deviceId).toBe(phone);
+      expect(elsewhere?.descriptor.savedPercent).toBe(40);
+      // Twelve books opened since are not "continue", and do not push it out
+      for (let i = 0; i < 12; i++) {
+        const sha = createHash("sha256").update(`opened ${i}`).digest("hex");
+        const [opened] = await client!`insert into ebooks(title, import_source, search_text)
+          values (${`Opened ${i}`}, 'folder', ${`opened ${i}`}) returning id`;
+        const [openedFile] = await client!`insert into ebook_files(ebook_id, sha256, s3_key, format, size_bytes, content_type, status)
+          values (${opened.id}, ${sha}, ${ebookFileKey(sha, "epub")}, 'epub', ${bytes.length}, 'application/epub+zip', 'stored') returning id`;
+        await client!`insert into ebook_positions(ebook_id, file_id, device_id, device_label, locator, progression, furthest_progression, chapter, client_updated_at)
+          values (${opened.id}, ${openedFile.id}, ${device}, 'Mac', ${JSON.stringify({ v: 1, fileHash: sha, href: "cover", sectionIndex: 0, progression: 0, totalProgression: 0.02 })}, 0.02, 0.02, null, now())`;
+      }
+      const continuing = await getContinueReading(device, database!);
+      expect(continuing.some((item) => item.ebook.title.startsWith("Opened "))).toBe(false);
+      expect(continuing.find((item) => item.ebook.id === ebook.id)?.descriptor.anchor?.deviceId).toBe(phone);
+      await client!`delete from ebook_positions where ebook_id = ${ebook.id} and device_id = ${phone}`;
+      const reading = await place(1, 0.4, 0.5);
+      expect(reading?.bookTitle).toBe("Là-bas");
+      expect(reading?.bookAuthors).toEqual(["J.-K. Huysmans"]);
+      // Finished
+      expect(await place(3, 1, 1)).toBeUndefined();
     });
     it("keeps a replaced-file anchor intact while selecting a current native target", async () => {
       const [ebook] =

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ReaderEntryLink } from "@/components/reader/reader-entry-link";
 import { Library } from "lucide-react";
 import { CardHeading } from "@/components/shared/card-heading";
 import { FadeImage } from "@/components/shared/fade-image";
@@ -53,9 +54,12 @@ export function EbookCover({
 export function EbookCard({
   book,
   sizes,
+  returnTo,
 }: {
   book: EbookCardData;
   sizes?: string;
+  /** Where the reader's Back goes */
+  returnTo?: string;
 }) {
   return (
     <article className={WORK_CARD} data-ebook-card={book.id}>
@@ -68,13 +72,14 @@ export function EbookCard({
           <EbookCover book={book} sizes={sizes} />
         </Link>
         {book.readHref && (
-          <Link
-            href={book.readHref}
+          <ReaderEntryLink
+            readerPath={book.readHref}
+            returnTo={returnTo}
             className="absolute bottom-2 right-2 glass-chip rounded-sm px-3 py-2 text-xs opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:min-h-11 pointer-coarse:opacity-100"
             aria-label={`Read ${book.title}`}
           >
             Read
-          </Link>
+          </ReaderEntryLink>
         )}
       </div>
       <div className={WORK_CARD_BODY}>

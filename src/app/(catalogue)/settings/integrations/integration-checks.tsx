@@ -182,7 +182,7 @@ export function IntegrationChecks({ overview }: { overview: IntegrationsOverview
         ))}
       </SettingsGroup>
 
-      <SettingsGroup title="eBooks" description="E-book files kept in AWS for the reader.">
+      <SettingsGroup title="eBooks" description="eBook files kept in AWS for the reader.">
         <SettingRow id="ebook-review" label="Review eBooks" description="Decide how unlinked files belong in your catalogue."
           controlHeight={28} labelFor={false}>
           <Link href="/ebooks/review" aria-describedby="ebook-review-description" className={buttonClass("secondary", "sm")}>
