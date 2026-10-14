@@ -176,7 +176,8 @@ export default async function EbookPage({ params }: Props) {
           <div className="w-52 max-w-full shrink-0">
             <EbookCover book={ebookCardData(ebook, cover)} sizes="208px" />
           </div>
-          <div className="min-w-0 flex-1">
+          {/* Beside the cover while it has room for a format button, else below it (no sideways scroll at 320px, SLN-666) */}
+          <div className="min-w-0 flex-1 basis-48">
             <p className="type-item-title [overflow-wrap:anywhere]">
               {ebook.authors.join(", ") || "Unknown author"}
             </p>

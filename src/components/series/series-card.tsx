@@ -3,6 +3,7 @@ import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { Badge } from "@/components/ui/badge";
 import { FadeImage } from "@/components/shared/fade-image";
 import { ShelfSpines } from "@/components/shared/no-photo";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { CardHeading } from "@/components/shared/card-heading";
 import { mediaUrl } from "@/lib/s3/media-url";
 
@@ -18,6 +19,8 @@ export interface SeriesItem {
   isComplete: boolean;
   isFavourite: boolean;
   covers: string[];
+  /** Its books' authors, most volumes first (SLN-636) */
+  authors: string[];
 }
 
 function countsLabel(s: SeriesItem) {
@@ -60,7 +63,7 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
         <CardHeading
           title={s.title}
           titleClassName="group-hover:text-accent-primary"
-          subtitle={s.originalTitle !== s.title ? s.originalTitle : null}
+          subtitle={s.originalTitle && s.originalTitle !== s.title ? s.originalTitle : undefined}
           subtitleClassName="text-xs italic text-fg-secondary"
           action={
             <FavouriteToggle
@@ -70,6 +73,11 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
             />
           }
         />
+        {s.authors.length > 0 && (
+          <p className="mt-1 break-words text-xs text-fg-secondary">
+            {s.authors.join(", ")}
+          </p>
+        )}
         <div className="mt-2.5 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1 font-mono text-micro text-fg-secondary">
           <span className="min-w-0 [overflow-wrap:anywhere]">{countsLabel(s)}</span>
           {s.isComplete && (
@@ -81,10 +89,13 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
   );
 }
 
-/** List row, matching the other list pages. */
+/**
+ * List row, matching the other list pages. On a narrow page the counts go
+ * under the names, so the title and authors keep their room.
+ */
 export function SeriesListItem({ series: s }: { series: SeriesItem }) {
   return (
-    <div className="group relative flex items-center gap-3 rounded-sm px-3 py-2 transition-colors hover:bg-bg-secondary">
+    <div className="group relative flex items-start gap-3 rounded-sm px-3 py-2 transition-colors hover:bg-bg-secondary">
       <Link
         href={`/series/${s.id}`}
         aria-label={`Open ${s.title}`}
@@ -98,31 +109,47 @@ export function SeriesListItem({ series: s }: { series: SeriesItem }) {
             className="h-full w-full object-cover"
           />
         ) : (
-          <span className="font-serif text-xs text-fg-muted/40">
+          <span data-decorative="" aria-hidden="true" className="font-serif text-xs text-fg-muted/40">
             {s.title[0]}
           </span>
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <h3 className="type-item-title truncate group-hover:text-accent-primary">
-          {s.title}
-        </h3>
+        {/* The badge, counts and star sit on the title's first line */}
+        <div className="flex items-start gap-3">
+          <h3 className="type-item-title min-w-0 flex-1 truncate group-hover:text-accent-primary">
+            {s.title}
+          </h3>
+          <div className="type-item-title hidden h-[1lh] shrink-0 items-center gap-3 sm:flex">
+            {s.isComplete && <Badge variant="gold">Complete</Badge>}
+            <span className="w-40 text-right font-mono text-micro text-fg-secondary">
+              {countsLabel(s)}
+            </span>
+          </div>
+          <div className="type-item-title">
+            <CapAligned height={32} coarseHeight={44} className="relative z-20">
+              <FavouriteToggle
+                favourite={s.isFavourite}
+                target={{ entity: "series", id: s.id }}
+                name={s.title}
+              />
+            </CapAligned>
+          </div>
+        </div>
         {s.originalTitle && s.originalTitle !== s.title && (
           <p className="truncate text-xs italic text-fg-secondary">
             {s.originalTitle}
           </p>
         )}
+        {s.authors.length > 0 && (
+          <p className="truncate text-xs text-fg-secondary">
+            {s.authors.join(", ")}
+          </p>
+        )}
+        <p className="truncate font-mono text-micro text-fg-secondary sm:hidden">
+          {[countsLabel(s), s.isComplete ? "Complete" : null].filter(Boolean).join(" · ")}
+        </p>
       </div>
-      {s.isComplete && <Badge variant="gold">Complete</Badge>}
-      <span className="w-40 flex-shrink-0 text-right font-mono text-micro text-fg-secondary">
-        {countsLabel(s)}
-      </span>
-      <FavouriteToggle
-        favourite={s.isFavourite}
-        target={{ entity: "series", id: s.id }}
-        name={s.title}
-        className="relative z-20"
-      />
     </div>
   );
 }
