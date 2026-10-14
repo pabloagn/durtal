@@ -16,7 +16,8 @@ import { KeyCombo } from "@/components/shortcuts/kbd";
  *   tooltip goes to the other side when it does not fit.
  *
  * Text cut short by `truncate`, `lines-1` or `lines-2` shows its full text
- * on hover, with no attribute.
+ * on hover, with no attribute, and on keyboard focus of the link or button
+ * that holds it or sits in it.
  *
  * An icon-only control keeps its own `aria-label`. A tooltip that says more
  * than the control's name is its description while it shows.
@@ -70,22 +71,33 @@ function tipFor(target: EventTarget | null, byKeyboard: boolean): Tip | null {
   const cross = target.closest<HTMLElement>("[data-sonner-toast] [data-close-button]");
   const label = cross?.getAttribute("aria-label");
   if (cross && label) return { anchor: cross, text: label, keys: null, then: false, side: "top", byKeyboard };
-  if (byKeyboard) return null;
-  const cut = cutText(target);
-  return cut
-    ? { anchor: cut, text: cut.textContent!.trim(), keys: null, then: false, side: "top", byKeyboard }
-    : null;
+  // A focused control anchors the tooltip itself, so it closes when focus leaves
+  const cut = cutText(target) ?? (byKeyboard ? cutWithin(target) : null);
+  if (!cut) return null;
+  const at = byKeyboard && target instanceof HTMLElement ? target : cut;
+  return { anchor: at, text: cut.textContent!.trim(), keys: null, then: false, side: "top", byKeyboard };
+}
+
+/** Whether a text box hides part of its text */
+function isCut(el: HTMLElement) {
+  const style = getComputedStyle(el);
+  const clamped = style.webkitLineClamp !== "none" && el.scrollHeight > el.clientHeight + 1;
+  const ellipsis = style.textOverflow === "ellipsis" && el.scrollWidth > el.clientWidth + 1;
+  return (clamped || ellipsis) && !!el.textContent?.trim();
 }
 
 /** The nearest text box (up to three levels) that hides part of its text */
 function cutText(target: Element): HTMLElement | null {
   let el: Element | null = target;
-  for (let depth = 0; el instanceof HTMLElement && depth < 3; depth++, el = el.parentElement) {
-    const style = getComputedStyle(el);
-    const clamped = style.webkitLineClamp !== "none" && el.scrollHeight > el.clientHeight + 1;
-    const ellipsis = style.textOverflow === "ellipsis" && el.scrollWidth > el.clientWidth + 1;
-    if ((clamped || ellipsis) && el.textContent?.trim()) return el;
-  }
+  for (let depth = 0; el instanceof HTMLElement && depth < 3; depth++, el = el.parentElement)
+    if (isCut(el)) return el;
+  return null;
+}
+
+/** A cut text box inside a focused link or button (a ranking's title) */
+function cutWithin(target: Element): HTMLElement | null {
+  for (const el of target.querySelectorAll<HTMLElement>(".truncate, .lines-1, .lines-2"))
+    if (isCut(el)) return el;
   return null;
 }
 

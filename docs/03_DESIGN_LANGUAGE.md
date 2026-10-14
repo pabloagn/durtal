@@ -450,7 +450,7 @@ One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in 
 - `data-tooltip-keys` shows the control's shortcut as key caps: `"b"`, `"alt f"`, `"g then b"` (a sequence).
 - `data-tooltip-side`: `top` (default), `bottom`, `right`, `left`. It flips when it does not fit.
 - A control whose menu or panel is open (`aria-expanded="true"`, or the popover its `popovertarget` names) shows no tooltip, and opening the panel closes it, so the first Escape closes the panel.
-- Text cut by `truncate`, `lines-1` or `lines-2` shows its full text on hover, with no attribute.
+- Text cut by `truncate`, `lines-1` or `lines-2` shows its full text on hover, with no attribute, and on keyboard focus of the link or button that holds it or sits in it (a ranking's one-line title).
 - Style: glass (`glass`), 14px text, 6px from the control. It renders in the top layer, above dialogs.
 
 ---
