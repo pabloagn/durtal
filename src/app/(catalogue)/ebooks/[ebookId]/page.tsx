@@ -12,7 +12,9 @@ import {
   ebookPageCoverBase,
 } from "@/lib/ebooks/library-cover";
 import { ebookCardData } from "@/lib/ebooks/library-view";
-import { continueTarget, opened } from "@/lib/ebooks/continue-target";
+import { continueTarget } from "@/lib/ebooks/continue-target";
+import { catalogueReadLabel } from "@/lib/ebooks/read-target";
+import { catalogueContinueDTO } from "@/lib/ebooks/catalogue-dto";
 import {
   isEbookFileDownloadable,
   isEbookFileNativeReadable,
@@ -77,12 +79,8 @@ export default async function EbookPage({ params }: Props) {
     : null;
   const fold = (text: string) => text.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, " ").trim();
   const own = book && fold(ebook.title) !== fold(book.title) ? ebook.title : null;
-  // The book page's rule: a book only opened is not started (SLN-683)
-  const readLabel = !descriptor?.anchor || opened(descriptor.anchor)
-    ? "Read"
-    : descriptor.projection === "pending-reanchor"
-      ? `Continue · saved ${descriptor.savedPercent}%`
-      : `Continue · ${descriptor.targetPercent}%`;
+  // The book page's label and number: the newest place on any device (SLN-683)
+  const readLabel = descriptor ? catalogueReadLabel(catalogueContinueDTO(descriptor)) : null;
   const identifiers = Object.entries(ebook.identifiers).flatMap(
     ([scheme, values]) =>
       Array.isArray(values)

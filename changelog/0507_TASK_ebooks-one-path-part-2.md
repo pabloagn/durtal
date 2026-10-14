@@ -20,11 +20,16 @@ eBook page a page under its book, and shows progress on the /ebooks cards.
   The reading control follows it. For a book with no reading it says "Not
   tracked" instead of "Start reading", matching the reader's own "Track this
   book" (`readingControlLabel(readings, { ebook })`). Its menu is unchanged.
-- `catalogueReadLabel` counts every device's place. With no place on this
-  device, the reader opens at the newest one (`openingPlace` in
-  `reader-view.tsx`), so the button says "Continue · 34%" for it. A place on
-  the opening page (`opened`, new in `continue-target.ts`) is only an open,
-  and the button says "Read". The eBook page's own Read uses the same rule.
+- One percent per book everywhere (review decision, 14 Oct): the newest
+  place past the opening page from any device. `continueTarget` returns it as
+  `bookPercent`, and `catalogueReadLabel` shows it as "Continue · 34%", whole
+  and rounded down, so nothing reads 100% before the last screen. The book
+  page, the eBook page, the /ebooks cards and Continue reading on /ebooks all
+  show that number. A place on the opening page (`opened`, new in
+  `continue-target.ts`) is only an open, and the button says "Read".
+- Read still opens at this device's own place when it has one, with the
+  read-elsewhere offer (#226) when another device is further on, so the
+  percent can be ahead of where the reader lands.
 - eBook page (`src/app/(catalogue)/ebooks/[ebookId]/page.tsx`):
   - titled after its linked book, with the book's authors;
   - a breadcrumb "eBooks / Against Nature" with the book linked;

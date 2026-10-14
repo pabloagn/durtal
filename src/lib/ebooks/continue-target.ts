@@ -33,6 +33,13 @@ export interface ContinueDescriptor {
   savedPercent: number | null;
   /** Unknown until the engine resolves a cross-file anchor. */
   targetPercent: number | null;
+  /**
+   * How far the book is read: the newest place on any device past the opening
+   * page. The one number every view shows for the book (SLN-683).
+   */
+  bookPercent: number | null;
+  /** The place `bookPercent` is read from */
+  bookPlace: ContinueAnchor | null;
 }
 
 const at = (value: string | Date) =>
@@ -125,9 +132,10 @@ export function continueTarget(input: {
     eligible.find((file) => file.id === input.preferredFileId) ??
     eligible[0];
   const sameFile = !!anchor && anchor.fileId === target.id;
-  const savedPercent = anchor
-    ? Math.round(anchor.locator.totalProgression * 10_000) / 100
-    : null;
+  const bookPlace = positions.find((position) => !opened(position)) ?? null;
+  const percentOf = (place: ContinueAnchor | null | undefined) =>
+    place ? Math.round(place.locator.totalProgression * 10_000) / 100 : null;
+  const savedPercent = percentOf(anchor);
   return {
     target,
     href: `/reader/${input.ebookId}?file=${target.id}`,
@@ -137,5 +145,7 @@ export function continueTarget(input: {
     projection: !anchor ? "none" : sameFile ? "same-file" : "pending-reanchor",
     savedPercent,
     targetPercent: sameFile ? savedPercent : null,
+    bookPercent: percentOf(bookPlace),
+    bookPlace,
   };
 }

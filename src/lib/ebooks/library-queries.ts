@@ -110,7 +110,9 @@ from ebook_positions p where p.ebook_id = e.id), '[]'::json)`;
  * when there is no other.
  */
 const progress = sql`(select (p.locator->>'totalProgression')::float8 from ebook_positions p
-  where p.ebook_id = e.id and not (p.locator->>'sectionIndex' = '0' and (p.locator->>'progression')::float8 = 0)
+  where p.ebook_id = e.id and case when jsonb_typeof(p.locator->'progression') = 'number'
+    and jsonb_typeof(p.locator->'totalProgression') = 'number'
+  then not (p.locator->>'sectionIndex' = '0' and (p.locator->>'progression')::float8 = 0) else false end
   order by p.client_updated_at desc, p.device_id, p.file_id limit 1)`;
 /** The card columns of an e-book row aliased `e`, with its files (shared with /ebooks/highlights). */
 export const ebookSummaryColumns = sql`e.id, e.title, e.subtitle, e.authors, e.language,

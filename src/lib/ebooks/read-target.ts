@@ -14,7 +14,7 @@ import {
 export type CatalogueContinue = Readonly<
   Pick<
     ContinueDescriptor,
-    "href" | "projection" | "savedPercent" | "targetPercent"
+    "href" | "projection" | "savedPercent" | "targetPercent" | "bookPercent"
   >
 > & {
   readonly target: Readonly<Pick<ContinueFile, "id" | "ebookId" | "sha256">>;
@@ -74,21 +74,19 @@ export function readTarget(
   return candidates[0] ?? null;
 }
 
-/** A historical percent is never presented as the landing in a different file. */
+/**
+ * "Read", or "Continue · 34%" with the book's one percent (SLN-683): the
+ * newest place on any device past the opening page, whole and rounded down,
+ * so 99.6% is not 100%. The same number the cards and Continue reading show.
+ */
 export function catalogueReadLabel(
   descriptor: CatalogueContinue | null,
 ): string | null {
   if (!descriptor) return null;
-  // Any device's place counts: with none here, the reader opens at the newest
-  // one (SLN-683). A book only opened, on its first page, is not started.
+  const percent = descriptor.bookPercent;
+  if (percent !== null && percent !== undefined && Number.isFinite(percent) && percent >= 0 && percent <= 100)
+    return `Continue · ${Math.floor(percent)}%`;
+  // A place with no usable percent still continues; one on the opening page is only an open
   const place = descriptor.localAnchor ?? descriptor.anchor;
-  if (!place || opened(place)) return "Read";
-  const percent = descriptor.targetPercent;
-  return descriptor.projection === "same-file" &&
-    percent !== null &&
-    Number.isFinite(percent) &&
-    percent >= 0 &&
-    percent <= 100
-    ? `Continue · ${Math.round(percent)}%`
-    : "Continue";
+  return !place || opened(place) ? "Read" : "Continue";
 }
