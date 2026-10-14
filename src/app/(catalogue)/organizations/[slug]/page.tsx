@@ -12,6 +12,7 @@ import { PerfumeCard } from "@/components/perfumes/perfume-card";
 import { FilmCard } from "@/components/films/film-card";
 import { PaintingCard } from "@/components/paintings/painting-card";
 import { OrganizationActions } from "@/components/organizations/organization-actions";
+import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { getOrganization } from "@/lib/actions/organizations";
 import { getOrganizationContributions } from "@/lib/actions/organization-directory";
 import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
@@ -207,7 +208,7 @@ export default async function OrganizationPage({ params }: { params: Promise<{ s
       </Link>
 
       <header className="mb-10">
-        <DetailTitleRow title={organization.name} controls="icons">
+        <DetailTitleRow title={organization.name} controls="free">
           <OrganizationActions
             organization={{
               id,
@@ -223,7 +224,14 @@ export default async function OrganizationPage({ params }: { params: Promise<{ s
               aliases: organization.aliases.map((a) => a.name),
             }}
             blockers={linked}
-          />
+          >
+            <FavouriteToggle
+              favourite={organization.isFavourite}
+              target={{ entity: "organization", id }}
+              name={organization.name}
+              shortcut
+            />
+          </OrganizationActions>
         </DetailTitleRow>
         {roleText && <p className="mt-1 text-sm text-fg-secondary">{roleText}</p>}
       </header>

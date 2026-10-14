@@ -1,16 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Copy, ImageIcon, Library, Pencil } from "lucide-react";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
-import { DetailControls, DetailTitleRow } from "@/components/shared/detail-layout";
+import { DetailControls, DetailEditButton, DetailTitleRow } from "@/components/shared/detail-layout";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { Monogram } from "@/components/shared/no-photo";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
-import { EDIT_KEYS, editHint, editTooltipKeys } from "@/lib/shortcuts/shortcuts";
+import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 
 /**
  * The head of a publisher page: the house's logo, shown whole on a dark
@@ -89,14 +88,7 @@ export function PublisherHeader({
                 name={name}
                 shortcut
               />
-              <Link
-                href={`/publishers/${slug}/edit`}
-                data-tooltip="Edit publisher"
-                data-tooltip-keys={editTooltipKeys(EDIT_KEYS.publisher)}
-                className="inline-flex h-8 items-center rounded-sm border border-glass-border px-3 text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11"
-              >
-                Edit
-              </Link>
+              <DetailEditButton label="Edit publisher" editKey={EDIT_KEYS.publisher} href={`/publishers/${slug}/edit`} />
               <EntityActionMenu items={actions} />
             </DetailControls>
           </DetailTitleRow>

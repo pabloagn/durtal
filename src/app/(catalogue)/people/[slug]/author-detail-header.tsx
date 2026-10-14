@@ -15,8 +15,8 @@ import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
-import { ExportMenu } from "@/components/shared/export-menu";
-import { DetailControls, DetailTitleRow } from "@/components/shared/detail-layout";
+import { exportActionItems } from "@/components/shared/export-menu";
+import { DetailControls, DetailEditButton, DetailTitleRow } from "@/components/shared/detail-layout";
 import { ProtectedImageWrapper } from "@/components/shared/protected-image";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
 import { deleteAuthor } from "@/lib/actions/authors";
@@ -113,6 +113,7 @@ export function AuthorDetailHeader({
       onClick: () => setMediaOpen(true),
       shortcut: editHint(EDIT_KEYS.media),
     },
+    ...exportActionItems("authors", [authorId], "person"),
     {
       label: "Delete",
       icon: Trash2,
@@ -172,13 +173,7 @@ export function AuthorDetailHeader({
                 name={name}
                 shortcut
               />
-              <ExportMenu
-                entity="authors"
-                ids={[authorId]}
-                side="bottom"
-                align="end"
-                size="md"
-              />
+              <DetailEditButton label="Edit person" editKey={EDIT_KEYS.person} onClick={() => setEditOpen(true)} />
               <EntityActionMenu items={actionItems} />
             </DetailControls>
           </DetailTitleRow>

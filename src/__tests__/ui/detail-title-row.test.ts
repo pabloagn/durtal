@@ -4,12 +4,12 @@ import { createElement } from "react";
 import { readFileSync } from "fs";
 import path from "path";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DetailControls, DetailTitleRow } from "@/components/shared/detail-layout";
+import { DetailControls, DetailEditButton, DetailTitleRow } from "@/components/shared/detail-layout";
 
 // A detail page's title on a phone takes the row's width, its controls going
 // under it, decided by a container query alone (SLN-641, from #260). The
 // browser layout is measured by hand; this pins the classes it rests on.
-function render(controls?: "icons" | "standard" | "wide" | "stacked" | "free") {
+function render(controls?: "standard" | "wide" | "stacked" | "free") {
   const host = document.createElement("div");
   host.innerHTML = renderToStaticMarkup(createElement(DetailTitleRow, {
     title: "Ada or Ardor: A Family Chronicle",
@@ -35,7 +35,6 @@ describe("DetailTitleRow", () => {
   });
 
   it("wraps by the controls' width and each kind's free wrapping, 12px from the title but on the publisher page", () => {
-    expect(classes(render("icons").row)).toEqual(expect.arrayContaining(["gap-x-5", "pointer-coarse:gap-x-6.5", "@min-[14rem]:flex-nowrap"]));
     const wide = classes(render("wide").row);
     expect(wide).toEqual(expect.arrayContaining([
       "gap-x-5", "pointer-coarse:gap-x-6.5",
@@ -53,14 +52,50 @@ describe("DetailTitleRow", () => {
       ["app/(catalogue)/people/[slug]/author-detail-header.tsx", '<DetailTitleRow title={name} controls="free">'],
       ["app/(catalogue)/series/[id]/page.tsx", '<DetailTitleRow title={s.title} controls="free">'],
       ["app/(catalogue)/films/[slug]/page.tsx", '<DetailTitleRow title={film.title} controls="stacked">'],
-      ["app/(catalogue)/paintings/[slug]/page.tsx", '<DetailTitleRow title={painting.title} controls="stacked">'],
-      ["app/(catalogue)/perfumes/[slug]/page.tsx", '<DetailTitleRow title={perfume.title} controls="stacked">'],
-      ["app/(catalogue)/organizations/[slug]/page.tsx", '<DetailTitleRow title={organization.name} controls="icons">'],
-      ["app/(catalogue)/places/[slug]/page.tsx", '<DetailTitleRow title={venue.name} controls="icons">'],
+      ["app/(catalogue)/paintings/[slug]/page.tsx", '<DetailTitleRow title={painting.title} controls="free">'],
+      ["app/(catalogue)/perfumes/[slug]/page.tsx", '<DetailTitleRow title={perfume.title} controls="free">'],
+      ["app/(catalogue)/organizations/[slug]/page.tsx", '<DetailTitleRow title={organization.name} controls="free">'],
+      ["app/(catalogue)/places/[slug]/page.tsx", '<DetailTitleRow title={venue.name} controls="free">'],
     ];
     for (const [file, row] of pages) expect(read(file), file).toContain(row);
     for (const file of ["films/film-actions", "paintings/painting-actions", "perfumes/perfume-actions", "organizations/organization-actions"])
       expect(read(`components/${file}.tsx`), file).toContain("<DetailControls>");
     expect(read("app/(catalogue)/places/[slug]/venue-actions.tsx")).toContain("<DetailControls>");
+  });
+
+  // One visible set on every kind but the book: the favourite, a labelled
+  // Edit and the Actions menu, Export in the menu (SLN-641 piece 3)
+  it("gives every kind but the book the favourite, Edit and the menu", () => {
+    const sets: [string, string][] = [
+      ["components/publishers/publisher-header.tsx", '<DetailEditButton label="Edit publisher" editKey={EDIT_KEYS.publisher}'],
+      ["app/(catalogue)/people/[slug]/author-detail-header.tsx", '<DetailEditButton label="Edit person" editKey={EDIT_KEYS.person}'],
+      ["components/films/film-actions.tsx", '<DetailEditButton label="Edit film" editKey={EDIT_KEYS.work}'],
+      ["components/paintings/painting-actions.tsx", '<DetailEditButton label="Edit painting" editKey={EDIT_KEYS.work}'],
+      ["components/perfumes/perfume-actions.tsx", '<DetailEditButton label="Edit perfume" editKey={EDIT_KEYS.work}'],
+      ["components/organizations/organization-actions.tsx", '<DetailEditButton label="Edit organization" editKey={EDIT_KEYS.organization}'],
+      ["app/(catalogue)/places/[slug]/venue-actions.tsx", '<DetailEditButton label="Edit place" editKey={EDIT_KEYS.place}'],
+    ];
+    for (const [file, edit] of sets) {
+      const source = read(file);
+      expect(source, file).toContain(edit);
+      // Edit sits between the favourite (passed in, or first) and the menu
+      expect(source.indexOf("<DetailEditButton"), file).toBeLessThan(source.indexOf("<EntityActionMenu"));
+      expect(source, file).not.toContain("<ExportMenu");
+    }
+    expect(read("app/(catalogue)/people/[slug]/author-detail-header.tsx")).toContain('...exportActionItems("authors", [authorId], "person")');
+    expect(read("app/(catalogue)/organizations/[slug]/page.tsx")).toContain('target={{ entity: "organization", id }}');
+  });
+
+  it("labels Edit, names the item and its keys in the tooltip", () => {
+    const host = document.createElement("div");
+    host.innerHTML = renderToStaticMarkup(createElement(DetailEditButton, { label: "Edit film", editKey: "w", onClick: () => {} }));
+    const button = host.querySelector("button")!;
+    expect(button.textContent).toBe("Edit");
+    expect(button.getAttribute("type")).toBe("button");
+    expect(button.dataset.tooltip).toBe("Edit film");
+    expect(button.dataset.tooltipKeys).toBe("e then w");
+    expect(classes(button)).toEqual(expect.arrayContaining(["h-8", "pointer-coarse:h-11"]));
+    host.innerHTML = renderToStaticMarkup(createElement(DetailEditButton, { label: "Edit publisher", editKey: "p", href: "/publishers/gallimard/edit" }));
+    expect(host.querySelector("a")!.getAttribute("href")).toBe("/publishers/gallimard/edit");
   });
 });
