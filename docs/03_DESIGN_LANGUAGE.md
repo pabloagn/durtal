@@ -249,6 +249,13 @@ A list's filters open from the Filter button in a `glass` panel (`FilterDropdown
 - **Groups**: a `type-caption` heading with a count badge of its chosen values, then its options. An option is a 14px box (ink selection when chosen) and its label; a count of books sits at the right in 12px mono, `fg-secondary`. A list of 8 options or more has its own search.
 - **Sections** (the library, SLN-405): many groups go in sections. A rail on the left lists them, each with its count badge; the chosen section's groups show beside it, all open. The panel is 34rem wide (the window less 32px on a phone) and keeps one height, so it does not jump between sections. It hangs from the button and moves sideways to stay 16px inside the window.
 - **Colour swatches**: a colour group shows its options in two columns, each with a 14px swatch (2px radius, `glass-border` edge) in place of the box. A chosen swatch takes a check in the ink that reads better on it (`inkOn`) and an `fg-primary` edge. A colour nothing has stays in its place at 40% and cannot be chosen. Swatch colours are muted like the rest of the palette (`COLOR_BUCKETS`, `src/lib/color/color-buckets.ts`).
+- **List header on a phone** (below `sm`, SLN-639), top to bottom:
+  - the title and its actions on one row; a secondary action shows its icon alone (named by `aria-label`), so the title and the main action keep their room;
+  - the collection switch (`DomainSwitch`) as one row of equal tabs without icons; a row too narrow for every label scrolls inside itself, never the page;
+  - the search field on its own row;
+  - the sort as a menu showing the current field, a 44px arrow button beside it that shows and reverses the direction, then Filter (`EntityFilters`; from `sm` up the sorts are chips);
+  - the views, then the card size;
+  - the count ("1–48 of 775", the words kept for screen readers), the arrows and page button, and Select at the end of the same row. Per page is in the pagination under the list. Select sits at the end of the count's row on every width (`Pagination`'s `action`).
 - **Active filters**: under the filter bar, one chip per chosen value (`ActiveFilters`): `bg-secondary`, a `glass-border` edge, 28px high (44px on a touch screen), the group in `fg-secondary`, the value in `fg-primary`, a 12px X. The whole chip removes its filter; "Clear all" in steel text ends the row. These chips are page content, so they are never glass.
 
 ### Ratings

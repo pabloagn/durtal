@@ -91,24 +91,6 @@ export function LibraryShell({ books, timelineQuery, pagination }: LibraryShellP
 
   return (
     <>
-      {/* Select button — hidden in timeline mode */}
-      {!isTimeline && (
-        <div className="mb-4 flex justify-end">
-          <Button
-            variant={selection.isSelecting ? "primary" : "ghost"}
-            size="sm"
-            onClick={() =>
-              selection.isSelecting
-                ? selection.exitSelectionMode()
-                : selection.enterSelectionMode()
-            }
-          >
-            <CheckSquare className="h-3.5 w-3.5" strokeWidth={1.5} />
-            {selection.isSelecting ? "Cancel" : "Select"}
-          </Button>
-        </div>
-      )}
-
       {/* Timeline view */}
       {isTimeline && (
         <div className="h-[calc(100vh-220px)] min-h-[400px]">
@@ -126,7 +108,28 @@ export function LibraryShell({ books, timelineQuery, pagination }: LibraryShellP
         </div>
       )}
 
-      {!isTimeline && <Pagination {...pagination} noun="books" compact />}
+      {/* Select sits in the count's row (SLN-639) */}
+      {!isTimeline && (
+        <Pagination
+          {...pagination}
+          noun="books"
+          compact
+          action={
+            <Button
+              variant={selection.isSelecting ? "primary" : "ghost"}
+              size="sm"
+              onClick={() =>
+                selection.isSelecting
+                  ? selection.exitSelectionMode()
+                  : selection.enterSelectionMode()
+              }
+            >
+              <CheckSquare className="h-3.5 w-3.5" strokeWidth={1.5} />
+              {selection.isSelecting ? "Cancel" : "Select"}
+            </Button>
+          }
+        />
+      )}
 
       {/* Standard list/grid/detailed views */}
       {!isTimeline && (

@@ -65,6 +65,24 @@ describe("books sort controls", () => {
     expect(preference()).toEqual({ sort: "rating", order: "asc" });
   });
 
+  it("on a phone, the menu picks a field and the arrow reverses it, as the chips do (SLN-639)", () => {
+    navigation.query = "sort=year&order=desc";
+    render();
+    const menu = host.querySelector<HTMLSelectElement>('select[aria-label="Sort by"]')!;
+    const arrow = host.querySelector<HTMLButtonElement>('button[aria-label$="reverse the order"]')!;
+    expect(menu.value).toBe("year");
+    expect(arrow.getAttribute("aria-label")).toBe("Descending, reverse the order");
+    act(() => arrow.click());
+    expect(preference()).toEqual({ sort: "year", order: "asc" });
+    expect(navigation.push).toHaveBeenLastCalledWith("/library?sort=year&order=asc");
+    act(() => {
+      menu.value = "recent";
+      menu.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(preference()).toEqual({ sort: "recent", order: "desc" });
+    expect(navigation.push).toHaveBeenLastCalledWith("/library?sort=recent&order=desc");
+  });
+
   it("preserves the existing URL behaviour for other lists", () => {
     act(() => root.render(createElement(EntityFilters, {
       basePath: "/people", defaultSort: "name", sortOptions: [{ value: "name", label: "Name" }],
