@@ -410,6 +410,11 @@ def main():
         if args.seed_highlights:
             seed = (Path(__file__).parent / "seed-highlights.sql").read_text()
             print(psql(f"\\set n {args.seed_highlights}\n{seed}"), flush=True)
+        # Statistics, as a long-lived database has them. Without them the
+        # planner overestimates the freshly seeded tables, and queries far
+        # below Postgres's JIT threshold cross it until autovacuum catches
+        # up: a page timed then measures compilation, not the app (SLN-690).
+        psql("ANALYZE")
         if args.log_sql:
             args.log_sql.resolve().parent.mkdir(parents=True, exist_ok=True)
             env["DURTAL_PREVIEW_SQL_LOG"] = str(args.log_sql.resolve())

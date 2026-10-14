@@ -8,7 +8,7 @@ import { FEATURES, WITHOUT_RATINGS, bayesianMean, betaTrust, boughtText } from "
 import { parseSuggestionParams, suggestionQuery, DEFAULT_SUGGESTION_PARAMS } from "@/lib/reading/suggest/params";
 import { GATE_MIN_BOOKS, evaluatePredictions, gateDue, nextGate, predict, predictionText, type Evaluation } from "@/lib/reading/suggest/predict";
 import { worthRereading } from "@/lib/reading/suggest/rereads";
-import { REASON_SHARE, candidates, diversify, hiddenByFeedback, passes, pausedAuthors, pickOne, reasonsOf, scoreBook, suggest, weightedPick } from "@/lib/reading/suggest/score";
+import { MMR_LAMBDA, REASON_SHARE, candidates, dayOrder, diversify, hiddenByFeedback, likeness, passes, pausedAuthors, pickOne, reasonsOf, scoreBook, suggest, weightedPick, type Scored } from "@/lib/reading/suggest/score";
 import { suggestionRow } from "@/lib/reading/suggest/view";
 import type { QueueEdition } from "@/lib/reading/queue";
 import type { SuggestBook, SuggestLoad } from "@/lib/reading/suggest/types";
@@ -253,6 +253,48 @@ describe("scoring and reasons", () => {
     const ranked = diversify(books.map((b) => scoreBook(b, ctx)));
     // By score alone the four Zolas lead; MMR brings the other book up to second
     expect(ranked.map((s) => s.book.title).slice(0, 2)).toEqual(["Zola A", "Other"]);
+  });
+
+  it("orders as comparing every book with every pick would, though it compares fewer (SLN-690)", () => {
+    // The plain maximal marginal relevance it replaced, as the reference
+    const reference = (items: Scored[], lambda: number, tie: (s: Scored) => number) => {
+      const max = Math.max(...items.map((i) => i.score), 0);
+      const rest = [...items].sort((a, b) => b.score - a.score || tie(a) - tie(b) || a.book.title.localeCompare(b.book.title));
+      const nearest = new Map(rest.map((i) => [i, 0]));
+      const picked: Scored[] = [];
+      while (rest.length) {
+        let best = 0;
+        let bestValue = -Infinity;
+        rest.forEach((item, i) => {
+          const value = lambda * (max ? item.score / max : 0) - (1 - lambda) * nearest.get(item)!;
+          if (value > bestValue) [best, bestValue] = [i, value];
+        });
+        const [next] = rest.splice(best, 1);
+        picked.push(next);
+        for (const item of rest) nearest.set(item, Math.max(nearest.get(item)!, likeness(item.book, next.book)));
+      }
+      return picked;
+    };
+    let seed = 1;
+    const random = () => ((seed = Math.imul(seed, 48271) % 2147483647) & 0x7fffffff) / 2147483647;
+    const pick = <T,>(list: T[]) => list[Math.floor(random() * list.length)];
+    const authors = ["Zola", "Huysmans", "Bloy", "Barbey", "Péladan", "Lorrain"].map(author);
+    const terms = ["g:decadent", "g:gothic", "g:catholic", "t:paris", "t:sin", "t:art", "c:19"].map((key) => ({ key, name: key }));
+    for (const lambda of [0, 0.3, MMR_LAMBDA, 1]) {
+      const books = Array.from({ length: 120 }, (_, i) =>
+        book(`Book ${i % 40}`, {
+          id: `w-${i}`,
+          authors: random() < 0.6 ? [pick(authors)] : [],
+          seriesId: random() < 0.1 ? pick(["s1", "s2"]) : null,
+          originalLanguage: pick(["fr", "en", "de", null]),
+          terms: terms.filter(() => random() < 0.3),
+        }),
+      );
+      // Few distinct scores, so many ties: the order of the day and the title break them
+      const scored = books.map((b) => ({ book: b, score: Math.floor(random() * 4) / 2, contributions: [], reasons: [] }));
+      const tie = dayOrder(TODAY);
+      expect(diversify(scored, lambda, tie)).toEqual(reference(scored, lambda, tie));
+    }
   });
 
   it("orders equal scores by the day, not by title: the same all day, another the next", () => {
