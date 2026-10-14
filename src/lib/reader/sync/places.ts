@@ -54,3 +54,20 @@ export function placeToOffer(
     ? other
     : null;
 }
+
+/** The furthest other place, offered beside the newest when it is further than
+ * both the newest and this device's place (SLN-686). */
+export function furthestOffer(
+  thisDevice: ReaderPlace | null,
+  others: readonly ReaderPlace[],
+  offered: ReaderPlace | null,
+): ReaderPlace | null {
+  if (!offered) return null;
+  const furthest = others
+    .filter((place) => !place.thisDevice)
+    .reduce<ReaderPlace | null>((best, place) =>
+      !best || place.locator.totalProgression > best.locator.totalProgression ? place : best, null);
+  const beyond = (place: ReaderPlace | null) =>
+    !place || furthest!.locator.totalProgression > place.locator.totalProgression + 0.005;
+  return furthest && furthest !== offered && beyond(offered) && beyond(thisDevice) ? furthest : null;
+}

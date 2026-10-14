@@ -90,6 +90,10 @@ describe("durable sitting receipt policy", () => {
   ])("does not merge protected or overlapping sessions: %j", (patch) => {
     expect(canMergeReaderSitting({ ...previous, ...patch }, snapshot, null)).toBe(false);
   });
+  it("keeps a sitting that starts away from the session's end apart: it jumped (SLN-677)", () => {
+    expect(canMergeReaderSitting({ ...previous, endPercent: 10 }, snapshot, null)).toBe(true);
+    expect(canMergeReaderSitting({ ...previous, endPercent: 4 }, snapshot, null)).toBe(false);
+  });
   it("starts a fresh session for a counted move back", () => {
     expect(canMergeReaderSitting(previous, { ...snapshot, goingBack: "went_back" }, null)).toBe(false);
   });

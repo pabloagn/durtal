@@ -3,14 +3,17 @@ import { deviceClass } from "@/lib/reader/presentation/device-class";
 
 it.each([
   [1600, 599, false, "phone"],
-  [1600, 600, false, "tablet"],
-  [1600, 1099, false, "tablet"],
+  [1600, 600, false, "desktop"],
+  [1600, 1099, false, "desktop"],
   [1600, 1100, false, "desktop"],
   [844, 390, false, "phone"],
   [390, 844, true, "phone"],
-  [1366, 1024, false, "tablet"],
-  [1440, 900, false, "tablet"],
+  [1366, 1024, false, "desktop"],
+  // SLN-686: a 1440 × 900 laptop is a desktop, not a tablet
+  [1440, 900, false, "desktop"],
+  [1512, 982, false, "desktop"],
   [1440, 900, true, "tablet"],
+  [1024, 768, true, "tablet"],
   [1600, 1200, true, "tablet"],
   [1100, 1600, false, "desktop"],
 ])("classifies %d × %d, coarse %s as %s", (width, height, coarse, expected) => {

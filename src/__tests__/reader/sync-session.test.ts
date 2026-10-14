@@ -29,13 +29,21 @@ describe("reader sync lifecycle", () => {
     s.sync.dismiss();
     expect(s.remember).toHaveBeenCalledWith(Date.parse(other.clientUpdatedAt));
     const reopened = setup(s.remember.mock.calls[0][0]);
-    expect(reopened.offer).toHaveBeenLastCalledWith(null);
+    expect(reopened.offer).toHaveBeenLastCalledWith(null, null);
     await reopened.sync.refresh();
-    expect(reopened.offer).toHaveBeenLastCalledWith(null);
+    expect(reopened.offer).toHaveBeenLastCalledWith(null, null);
     const newer = { ...other, clientUpdatedAt: "2026-10-09T12:00:00Z" };
     reopened.read.mockResolvedValue([newer]);
     await reopened.sync.refresh();
-    expect(reopened.offer).toHaveBeenLastCalledWith(newer);
+    expect(reopened.offer).toHaveBeenLastCalledWith(newer, null);
+  });
+  it("offers the furthest place on open, beside the newest, when the page has every place (SLN-686)", () => {
+    const behind = { ...other, locator: { ...other.locator, totalProgression: 0.2 } };
+    const further = place({ thisDevice: false, deviceId: "laptop", locator: { ...place().locator, totalProgression: 0.9 }, clientUpdatedAt: "2026-10-09T10:00:00Z" });
+    const offer = vi.fn();
+    createPlaceSync({ own: place(), other: behind, others: [behind, further], declinedAt: 0, offer, remember: vi.fn(),
+      flush: vi.fn(async () => true), read: vi.fn(async () => []) });
+    expect(offer).toHaveBeenLastCalledWith(behind, further);
   });
   it.each(["Stay", "Go there", "local turn", "destroy"])(
     "invalidates a pending GET on %s",

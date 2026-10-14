@@ -93,8 +93,9 @@ export function createReadingReaderController(options: ReaderControllerOptions) 
     const result = countReaderPosition(position, event);
     for (const split of result.splits) {
       save(at, split.end);
+      const back = "goingBack" in split;
       segment = time.startedAt === null ? null : { id: options.uuid(), startedAt: at, activeBase: time.totalActiveMs,
-        startPercent: split.end.percent, revision: 0, goingBack: true };
+        startPercent: back ? split.end.percent : split.start.percent, revision: 0, goingBack: back };
     }
     position = result.state;
   }
@@ -183,6 +184,16 @@ export function createReadingReaderController(options: ReaderControllerOptions) 
         position = initialReaderPosition(event.percent, event.chapter);
         position.activeMs = time.totalActiveMs;
         ensureSegment(at);
+      } else if (event.opening) {
+        // Opening at the saved place is where this sitting starts, not pages read (SLN-677)
+        if (segment?.revision) {
+          save(at);
+          segment = time.startedAt === null ? null : { id: options.uuid(), startedAt: at, activeBase: time.totalActiveMs,
+            startPercent: event.percent, revision: 0, goingBack: false };
+        }
+        position = { ...initialReaderPosition(event.percent, event.chapter), activeMs: time.totalActiveMs };
+        if (segment) segment.startPercent = event.percent;
+        else ensureSegment(at);
       } else settlePosition({ kind: event.kind, activeMs: time.totalActiveMs, percent: event.percent, chapter: event.chapter }, at);
       if (event.percent < 99.5) { rawEnd = false; offeredEnd = false; }
       offerEnd(); options.changed(); schedule();

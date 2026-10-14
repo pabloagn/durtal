@@ -49,6 +49,18 @@ const sessions = [
   session("last", 300, "2026-09-02"),
 ];
 
+describe("reader sessions that start ahead (SLN-677)", () => {
+  it("keeps where the reader opened, so the pages jumped over are not read", () => {
+    const opened = { ...session("reader", 590, "2026-09-03"), source: "reader", format: "ebook", startPercent: 97.72, endPercent: 97.9 } as Session;
+    const plan = planPositions(reading, [...sessions, opened]);
+    expect(plan.starts.get("last")?.startPercent).toBe(40);
+    expect(plan.starts.get("reader")).toEqual({ startPercent: 97.72, startPage: 586, startMinutes: null });
+    // A manual log never jumps: it starts where the one before ended
+    const manual = { ...opened, source: "manual" } as Session;
+    expect(planPositions(reading, [...sessions, manual]).starts.get("reader")?.startPercent).toBe(50);
+  });
+});
+
 describe("reading edit session plan", () => {
   it.each([{ page: 180 }, { percent: 30 }, { minutes: 180 }, { page: 420 }])(
     "corrects the last log for %j without replacing its history",

@@ -38,11 +38,13 @@ export interface ReaderBook {
   /** Latest history in any file, to distinguish a new device from a new format. */
   devicePlace: ReaderPlace | null;
   otherPlace: ReaderPlace | null;
+  /** Every other device's place, newest first: the offer's newest and furthest (SLN-686) */
+  otherPlaces: ReaderPlace[];
 }
 
 type Row = Omit<
   ReaderBook,
-  "file" | "place" | "devicePlace" | "otherPlace" | "files"
+  "file" | "place" | "devicePlace" | "otherPlace" | "otherPlaces" | "files"
 > & {
   preferredFileId: string | null;
   matchState: string;
@@ -112,5 +114,6 @@ export async function readReaderBook(
     place,
     devicePlace: places.find((p) => p.thisDevice) ?? null,
     otherPlace: places.find((p) => !p.thisDevice) ?? null,
+    otherPlaces: places.filter((p) => !p.thisDevice),
   };
 }

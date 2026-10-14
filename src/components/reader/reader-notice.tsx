@@ -1,19 +1,38 @@
 "use client";
 import { useCallback, useSyncExternalStore, type ReactNode } from "react";
 import type { ReaderBridgeController } from "@/lib/reader/bridge-state";
+import type { DurtalLocator } from "@/lib/reader/engine";
 import type { ReaderPlace } from "@/lib/reader/sync/places";
 import { formatRelativeTime } from "@/lib/utils/relative-time";
 
-export function resumeNoticeText(place: ReaderPlace, fileId: string): string {
+/** Where a saved place is: its page, else its share of the book and chapter */
+export function resumePlaceLabel(place: ReaderPlace, fileId: string): string {
   const locator = place.locator;
   const percent = Math.round(locator.totalProgression * 100);
-  const position =
-    place.fileId !== fileId
-      ? `About ${percent}%`
-      : locator.pageLabel
-        ? `Page ${locator.pageLabel}`
-        : `${percent}%${place.chapter ? ` · ${place.chapter}` : ""}`;
-  return `${position} · read on ${place.deviceLabel.split(" · ")[0]} · ${formatRelativeTime(place.clientUpdatedAt)}`;
+  return place.fileId !== fileId
+    ? `About ${percent}%`
+    : locator.pageLabel
+      ? `Page ${locator.pageLabel}`
+      : `${percent}%${place.chapter ? ` · ${place.chapter}` : ""}`;
+}
+
+/** How far the other place is from this one, in pages when both have numbered pages */
+function placeDistance(place: ReaderPlace, fileId: string, here: DurtalLocator | null): string | null {
+  if (!here || place.fileId !== fileId) return null;
+  const page = (label?: string) => (label && /^\d+$/.test(label) ? Number(label) : null);
+  const there = page(place.locator.pageLabel), mine = page(here.pageLabel);
+  const [amount, unit] = there !== null && mine !== null
+    ? [there - mine, Math.abs(there - mine) === 1 ? " page" : " pages"]
+    : [Math.round((place.locator.totalProgression - here.totalProgression) * 100), "%"];
+  if (amount === 0) return null;
+  return `${Math.abs(amount)}${unit} ${amount < 0 ? "behind" : "ahead of"} you`;
+}
+
+/** The other device's place, how far it is from yours, and the device with its browser (SLN-686) */
+export function resumeNoticeText(place: ReaderPlace, fileId: string, here: DurtalLocator | null = null): string {
+  const distance = placeDistance(place, fileId, here);
+  return [resumePlaceLabel(place, fileId), distance, place.deviceLabel, formatRelativeTime(place.clientUpdatedAt)]
+    .filter(Boolean).join(" · ");
 }
 export function ReaderNotice({
   bridge,

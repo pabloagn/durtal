@@ -69,17 +69,17 @@ export function effectivePresentation(
   deviceClass: DeviceClass,
   rows: readonly PresentationRow[],
 ): ReaderPresentation {
-  const defaults = rows.find(
-    (row) => row.deviceClass === deviceClass && row.ebookId === null,
+  const scoped = (device: DeviceClass) => [
+    rows.find((row) => row.deviceClass === device && row.ebookId === null),
+    rows.find((row) => row.deviceClass === device && row.ebookId !== null),
+  ];
+  // Until SLN-686 a laptop was classed as a tablet: its settings carry over to
+  // the desktop, field by field, until desktop settings replace them.
+  const inherited = deviceClass === "desktop" ? scoped("tablet") : [];
+  return Object.assign(
+    { ...PRESENTATION_DEFAULTS[deviceClass] },
+    ...[...inherited, ...scoped(deviceClass)].map((row) => parseStoredPresentation(row?.presentation)),
   );
-  const book = rows.find(
-    (row) => row.deviceClass === deviceClass && row.ebookId !== null,
-  );
-  return {
-    ...PRESENTATION_DEFAULTS[deviceClass],
-    ...parseStoredPresentation(defaults?.presentation),
-    ...parseStoredPresentation(book?.presentation),
-  };
 }
 
 /** Keyboard edits follow the scope that supplies this particular field. */

@@ -64,6 +64,7 @@ import { bindPdfTextProvider, type PdfTextProvider } from "./pdf-text-provider";
 import { clientRectToPdf, pdfLocatorFromGeometry } from "./pdf-geometry";
 import {
   locatorFromRelocate,
+  placeCfi,
   quoteFromSelection,
   visibleOriginRange,
 } from "./locator";
@@ -568,7 +569,9 @@ class FoliateEngine implements ReaderEngine {
         status: "failed" as const,
         locator: null,
       }));
-      if (resolved.locator) await this.goTo(resolved.locator);
+      // A place saved before SLN-676 is a visible range: open at its start point
+      if (resolved.locator)
+        await this.goTo(resolved.locator.cfi ? { ...resolved.locator, cfi: placeCfi(resolved.locator.cfi) } : resolved.locator);
     }
     if (!resolved?.locator) {
       if (indexDiagnosticEnabled()) observeIndexDiagnostic("engine-initial-start-start");

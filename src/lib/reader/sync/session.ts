@@ -1,13 +1,16 @@
-import { placeToOffer, type ReaderPlace } from "./places";
+import { furthestOffer, placeToOffer, type ReaderPlace } from "./places";
 
 /** One reader open: local intent invalidates even a response already in flight. */
 export function createPlaceSync(options: {
   own: ReaderPlace | null;
   other: ReaderPlace | null;
+  /** Every other device's place when the page has them, for the furthest */
+  others?: readonly ReaderPlace[];
   declinedAt: number;
   flush: () => Promise<boolean>;
   read: () => Promise<ReaderPlace[]>;
-  offer: (place: ReaderPlace | null) => void;
+  /** The newest other place, and the furthest when it is further still */
+  offer: (place: ReaderPlace | null, furthest?: ReaderPlace | null) => void;
   remember: (at: number) => void;
 }) {
   let own = options.own;
@@ -20,9 +23,9 @@ export function createPlaceSync(options: {
     const offer = placeToOffer(own, others);
     current =
       offer && Date.parse(offer.clientUpdatedAt) > declinedAt ? offer : null;
-    options.offer(current);
+    options.offer(current, furthestOffer(own, others, current));
   };
-  apply(options.other ? [options.other] : []);
+  apply(options.others?.length ? [...options.others] : options.other ? [options.other] : []);
   const dismiss = () => {
     generation++;
     if (current) {

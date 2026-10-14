@@ -76,7 +76,7 @@ async function saveOnce(input: ReaderSessionSnapshot, owner: { ebookId: string; 
     const owned = last ? all.filter((r) => r.originalSessionId === last.id) : [];
     if (last && owned.length && owned.every((r) => r.state === "active" && r.sessionId === last.id && r.ebookId === owner.ebookId) &&
       canMergeReaderSitting({ readingId: last.readingId, sessionId: last.id, source: last.source, endedAt: last.endedAt,
-        format: last.format, editionId: last.editionId, durationSeconds: last.durationSeconds, retired: false, edited: false }, input, binding.editionId)) canonical = last;
+        format: last.format, editionId: last.editionId, durationSeconds: last.durationSeconds, endPercent: last.endPercent, retired: false, edited: false }, input, binding.editionId)) canonical = last;
   }
   const sessionId = canonical?.id ?? input.sittingId;
   const owned = all.filter((r) => r.sessionId === sessionId && r.state === "active" && r.sittingId !== input.sittingId);
@@ -97,7 +97,7 @@ async function saveOnce(input: ReaderSessionSnapshot, owner: { ebookId: string; 
     ...(canonical ?? {
       id: sessionId, readingId: reading.id, editionId: binding.editionId, format: "ebook", source: "reader",
       readOn: readingDay(first.startedAt, first.timeZone, dayHour), timeZone: first.timeZone,
-      startPage: null, startPercent: null, startMinutes: null, pagesRead: null, pagesTotal: binding.totalPages ?? reading.totalPages,
+      startPage: null, startPercent: first.startPercent, startMinutes: null, pagesRead: null, pagesTotal: binding.totalPages ?? reading.totalPages,
       note: null, pausedAt: null, pausedSeconds: 0, createdAt: now,
     }),
     startedAt: first.startedAt, endedAt: new Date(Math.max(...cumulative.map((r) => r.endedAt.getTime()))),
