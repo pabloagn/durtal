@@ -69,6 +69,16 @@ export function validContinueAnchor(
   );
 }
 
+/**
+ * A place that is being read (SLN-683): past the opening page and short of
+ * the end. A book only opened on a device, or finished, is not "continue".
+ */
+export function underway(anchor: ContinueAnchor): boolean {
+  const { locator } = anchor;
+  const opened = locator.sectionIndex === 0 && locator.progression === 0;
+  return !opened && locator.totalProgression < 0.995;
+}
+
 /** Select bytes to open separately from the saved place used to find the landing. */
 export function continueTarget(input: {
   ebookId: string;

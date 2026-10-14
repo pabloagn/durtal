@@ -57,15 +57,18 @@ export default async function EbooksPage({
     );
   const base = ebookPageCoverBase();
   const now = requestTime();
-  const continuation = recent.flatMap(({ ebook, descriptor }) =>
+  const continuation = recent.flatMap(({ ebook, descriptor, bookTitle, bookAuthors }) =>
     descriptor.anchor && descriptor.savedPercent !== null
       ? [
           {
-            book: ebookCardData(ebook, ebookCoverImage(ebook, base)),
+            book: {
+              ...ebookCardData(ebook, ebookCoverImage(ebook, base)),
+              title: bookTitle ?? ebook.title,
+              authors: bookAuthors?.length ? bookAuthors : ebook.authors,
+            },
             href: descriptor.href,
             savedPercent: descriptor.savedPercent,
             projection: descriptor.projection === "pending-reanchor",
-            device: descriptor.anchor.deviceLabel,
             chapter: descriptor.anchor.chapter,
             when: since(descriptor.anchor.clientUpdatedAt, now),
           },

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { CardHeading } from "@/components/shared/card-heading";
+import { ReaderEntryLink } from "@/components/reader/reader-entry-link";
+import { buttonClass } from "@/components/ui/button";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { formatReadingDate } from "@/lib/reading/dates";
 import { agoText, lastReadText, positionText, type DayContext } from "@/lib/reading/labels";
@@ -31,9 +33,10 @@ export function CurrentReadingCard({ open, day, estimate }: { open: OpenReading;
   const href = bookHref(open.work);
   const last = lastReadText(r.lastReadAt, day);
   return (
-    <article className="flex gap-4 rounded-sm border border-glass-border bg-bg-secondary p-4" data-hub-card={r.id}>
-      <Cover s3Key={open.cover} className="h-24 w-16" />
-      <div className="min-w-0 flex-1">
+    // The actions sit under the text, or under the cover and text when the card is too narrow for them
+    <article className="@container grid grid-cols-[4rem_minmax(0,1fr)] gap-x-4 rounded-sm border border-glass-border bg-bg-secondary p-4 @[280px]:grid-rows-[auto_1fr]" data-hub-card={r.id}>
+      <Cover s3Key={open.cover} className="h-24 w-16 @[280px]:row-span-2" />
+      <div className="min-w-0">
         <CardHeading
           title={
             <Link href={href} className="transition-colors hover:text-accent-primary">
@@ -48,10 +51,16 @@ export function CurrentReadingCard({ open, day, estimate }: { open: OpenReading;
           {last ? ` · last read ${last}` : ""}
         </p>
         {estimate && <EstimateLine estimate={estimate} lines="min-h-[2lh] [overflow-wrap:anywhere]" className="mt-1" />}
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <ReadingCardActions reading={refOf(open)} href={href} title={open.work.title} />
-          {open.ebookId && <a href={`/reader/${open.ebookId}`} className="touch-hit text-xs text-fg-secondary underline">Open eBook</a>}
-        </div>
+      </div>
+      <div className="col-span-2 mt-3 flex flex-wrap items-center gap-2 self-start @[280px]:col-span-1 @[280px]:col-start-2">
+        {/* The book's eBook opens in the reader, which feeds this reading (SLN-683) */}
+        {open.ebookId && (
+          <ReaderEntryLink readerPath={`/reader/${open.ebookId}`} returnTo="/reading"
+            className={buttonClass("secondary", "md")} data-hub-open-ebook={r.id}>
+            Open eBook
+          </ReaderEntryLink>
+        )}
+        <ReadingCardActions reading={refOf(open)} href={href} title={open.work.title} />
       </div>
     </article>
   );

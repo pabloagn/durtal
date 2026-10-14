@@ -239,7 +239,7 @@ export default async function EbookPage({ params }: Props) {
           <EbookFilesTable ebookId={ebook.id} files={files} />
         </section>
         <section className="mb-8">
-          <SectionHeading title="Places" count={ebook.positions.length} />
+          <SectionHeading title="Reading places" count={ebook.positions.length} />
           <EbookPlaces ebook={ebook} />
         </section>
         <section className="mb-8">

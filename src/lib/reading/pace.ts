@@ -71,7 +71,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
   ja: "Japanese",
   la: "Latin",
 };
-const FORMAT_WORDS: Record<ReadingFormat, string> = { print: "print", ebook: "e-books", audio: "audio" };
+const FORMAT_WORDS: Record<ReadingFormat, string> = { print: "print", ebook: "eBooks", audio: "audio" };
 
 /** His usual pages an hour for this language and format, else the format, else everything, else 30 */
 export function priorFor(priors: PacePriors, language: string | null, format: ReadingFormat): { value: number; of: string | null } {
