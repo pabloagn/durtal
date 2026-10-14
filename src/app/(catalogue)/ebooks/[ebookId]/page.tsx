@@ -12,7 +12,7 @@ import {
   ebookPageCoverBase,
 } from "@/lib/ebooks/library-cover";
 import { ebookCardData } from "@/lib/ebooks/library-view";
-import { continueTarget } from "@/lib/ebooks/continue-target";
+import { continueTarget, opened } from "@/lib/ebooks/continue-target";
 import {
   isEbookFileDownloadable,
   isEbookFileNativeReadable,
@@ -31,11 +31,13 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { Prose } from "@/components/shared/prose";
 import { buttonClass } from "@/components/ui/button";
 import { EbookCover } from "@/components/ebooks/ebook-card";
+import { ReaderEntryLink } from "@/components/reader/reader-entry-link";
 import { EbookLinkPanel } from "@/components/ebooks/ebook-link-panel";
 import { EbookFilesTable } from "@/components/ebooks/ebook-files-table";
 import { EbookPlaces } from "@/components/ebooks/ebook-places";
 import { EbookMarksExport } from "@/components/ebooks/ebook-marks-export";
 import { getEbookMarkCounts } from "@/lib/ebooks/highlights";
+import { getLinkedBook } from "@/lib/ebooks/linked-book";
 type Props = { params: Promise<{ ebookId: string }> };
 const plural = (count: number, word: string) =>
   `${count} ${word}${count === 1 ? "" : "s"}`;
@@ -44,7 +46,9 @@ const load = cache(async (id: string) =>
 );
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const ebook = await load((await params).ebookId);
-  return { title: ebook?.title ?? "eBook not found" };
+  if (!ebook) return { title: "eBook not found" };
+  // Named after its book, as a page under it (SLN-683)
+  return { title: ebook.workTitle ? `${ebook.workTitle} · eBook` : ebook.title };
 }
 export default async function EbookPage({ params }: Props) {
   // proxy returns 400 for malformed ids before page or metadata can query.
@@ -62,7 +66,19 @@ export default async function EbookPage({ params }: Props) {
     positions: ebook.positions,
   });
   const cover = ebookCoverImage(ebook, ebookPageCoverBase());
-  const readLabel = !descriptor?.anchor
+  const returnTo = `/ebooks/${ebook.id}`;
+  // A linked eBook is a page under its book: titled after it, its own title kept as a note
+  const linked =
+    ebook.matchState === "linked" && ebook.instanceId
+      ? await getLinkedBook(ebook.instanceId)
+      : null;
+  const book = linked
+    ? { title: linked.title, authors: linked.authors, href: `/library/${linked.slug ?? linked.workId}` }
+    : null;
+  const fold = (text: string) => text.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, " ").trim();
+  const own = book && fold(ebook.title) !== fold(book.title) ? ebook.title : null;
+  // The book page's rule: a book only opened is not started (SLN-683)
+  const readLabel = !descriptor?.anchor || opened(descriptor.anchor)
     ? "Read"
     : descriptor.projection === "pending-reanchor"
       ? `Continue · saved ${descriptor.savedPercent}%`
@@ -107,20 +123,32 @@ export default async function EbookPage({ params }: Props) {
   }));
   return (
     <>
-      <Link
-        href="/ebooks"
-        className="mb-4 inline-block text-xs text-fg-secondary touch-hit"
-      >
-        eBooks
-      </Link>
+      {/* A page under its book: eBooks / the book, titled after it (SLN-683) */}
+      <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-baseline gap-x-2 text-xs text-fg-secondary">
+        <Link href="/ebooks" className="touch-hit transition-colors hover:text-fg-primary">
+          eBooks
+        </Link>
+        {book && (
+          <>
+            <span aria-hidden="true" className="text-fg-muted">/</span>
+            <Link href={book.href} className="touch-hit transition-colors hover:text-fg-primary [overflow-wrap:anywhere]">
+              {book.title}
+            </Link>
+          </>
+        )}
+      </nav>
       <PageHeader
-        title={ebook.title}
-        description={ebook.subtitle ?? undefined}
+        title={book?.title ?? ebook.title}
+        description={
+          book
+            ? `The eBook of this book${own ? `, titled “${own}” in its files` : ""}.`
+            : (ebook.subtitle ?? undefined)
+        }
         actions={
           descriptor && (
-            <Link href={descriptor.href} className={buttonClass("primary")}>
+            <ReaderEntryLink readerPath={descriptor.href} returnTo={returnTo} className={buttonClass("primary")}>
               {readLabel}
-            </Link>
+            </ReaderEntryLink>
           )
         }
       />
@@ -179,7 +207,7 @@ export default async function EbookPage({ params }: Props) {
           {/* Beside the cover while it has room for a format button, else below it (no sideways scroll at 320px, SLN-666) */}
           <div className="min-w-0 flex-1 basis-48">
             <p className="type-item-title [overflow-wrap:anywhere]">
-              {ebook.authors.join(", ") || "Unknown author"}
+              {(book?.authors.length ? book.authors : ebook.authors).join(", ") || "Unknown author"}
             </p>
             {descriptor?.projection === "pending-reanchor" && (
               <p className="mt-3 text-sm text-fg-secondary">
@@ -193,13 +221,14 @@ export default async function EbookPage({ params }: Props) {
                 aria-label="Readable formats"
               >
                 {alternatives.map((file) => (
-                  <Link
+                  <ReaderEntryLink
                     key={file.id}
-                    href={`/reader/${ebook.id}?file=${file.id}`}
+                    readerPath={`/reader/${ebook.id}?file=${file.id}`}
+                    returnTo={returnTo}
                     className={buttonClass("secondary", "sm")}
                   >
                     Read the {formatLabel(file.format)}
-                  </Link>
+                  </ReaderEntryLink>
                 ))}
               </nav>
             )}
@@ -213,7 +242,7 @@ export default async function EbookPage({ params }: Props) {
         )}
         <section className="mb-8">
           <SectionHeading title="The book it belongs to" />
-          <EbookLinkPanel ebook={ebook} />
+          <EbookLinkPanel ebook={ebook} book={linked} />
         </section>
         {markTotal > 0 && (
           <section className="mb-8">

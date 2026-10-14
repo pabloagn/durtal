@@ -94,7 +94,15 @@ export function EbookCard({
             {book.formats.map(formatLabel).join(" · ") ||
               "No downloadable files"}
           </span>
-          {book.linked && <EbookLinkedMark />}
+          {/* How far it is read and whether it has its book, on every card (SLN-683) */}
+          <span className="inline-flex items-center gap-2">
+            {book.progress !== null && (
+              <span className="tabular-nums" data-ebook-progress>
+                {Math.floor(book.progress * 100)}%
+              </span>
+            )}
+            {book.linked && <EbookLinkedMark />}
+          </span>
         </div>
       </div>
     </article>

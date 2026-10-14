@@ -128,11 +128,14 @@ export function SessionList({ row, current }: { row: ReadingRow; current: boolea
           type="button"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="inline-flex h-8 items-center gap-1 rounded-sm text-xs text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:h-11"
+          // A narrow card wraps the totals: the chevron stays on the first line, the line centred in the 32px row
+          className="inline-flex min-h-8 items-start gap-1 rounded-sm py-[calc((2rem-1lh)/2)] text-left text-xs text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:min-h-11 pointer-coarse:py-[calc((2.75rem-1lh)/2)]"
           data-sessions-toggle=""
         >
-          <Chevron className="h-4 w-4" strokeWidth={1.5} aria-hidden />
-          {count || runningId ? sessionTotals(count, row.totalSeconds) : "No sessions yet"}
+          <CapAligned height={16}>
+            <Chevron className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+          </CapAligned>
+          <span>{count || runningId ? sessionTotals(count, row.totalSeconds) : "No sessions yet"}</span>
         </button>
         {current && (
           <Button size="sm" variant="ghost" onClick={() => openDialog({ kind: "session", readingId: r.id })} className="pointer-coarse:h-11" data-session-add="">

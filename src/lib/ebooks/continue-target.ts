@@ -74,9 +74,11 @@ export function validContinueAnchor(
  * the end. A book only opened on a device, or finished, is not "continue".
  */
 export function underway(anchor: ContinueAnchor): boolean {
-  const { locator } = anchor;
-  const opened = locator.sectionIndex === 0 && locator.progression === 0;
-  return !opened && locator.totalProgression < 0.995;
+  return !opened(anchor) && anchor.locator.totalProgression < 0.995;
+}
+/** A place on the book's opening page: the book was opened, not started */
+export function opened({ locator }: Pick<ContinueAnchor, "locator">): boolean {
+  return locator.sectionIndex === 0 && locator.progression === 0;
 }
 
 /** Select bytes to open separately from the saved place used to find the landing. */

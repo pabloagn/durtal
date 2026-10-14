@@ -1,8 +1,9 @@
 import { formatRank, type EbookFormat } from "./formats";
-import type {
-  ContinueAnchor,
-  ContinueDescriptor,
-  ContinueFile,
+import {
+  opened,
+  type ContinueAnchor,
+  type ContinueDescriptor,
+  type ContinueFile,
 } from "./continue-target";
 
 /**
@@ -78,7 +79,10 @@ export function catalogueReadLabel(
   descriptor: CatalogueContinue | null,
 ): string | null {
   if (!descriptor) return null;
-  if (!descriptor.localAnchor) return "Read";
+  // Any device's place counts: with none here, the reader opens at the newest
+  // one (SLN-683). A book only opened, on its first page, is not started.
+  const place = descriptor.localAnchor ?? descriptor.anchor;
+  if (!place || opened(place)) return "Read";
   const percent = descriptor.targetPercent;
   return descriptor.projection === "same-file" &&
     percent !== null &&

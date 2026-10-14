@@ -153,9 +153,17 @@ describe("catalogue Read target", () => {
     },
   );
 
-  it("labels only a resolved local landing with a percentage", () => {
+  it("labels only a resolved landing with a percentage, from any device", () => {
     expect(catalogueReadLabel(null)).toBeNull();
     expect(catalogueReadLabel(descriptor({ targetPercent: 44 }))).toBe("Read");
+    // Another device's place: the reader opens there when this one has none (SLN-683)
+    const other = { ...anchor("new-file", "2026-10-09T10:00:00Z"), deviceId: "phone" };
+    expect(
+      catalogueReadLabel(descriptor({ anchor: other, newestOtherAnchor: other, projection: "same-file", targetPercent: 44 })),
+    ).toBe("Continue · 44%");
+    // A book only opened on its first page is not started
+    const first = { ...other, locator: { ...other.locator, sectionIndex: 0, progression: 0, totalProgression: 0.02 } };
+    expect(catalogueReadLabel(descriptor({ anchor: first, projection: "same-file", targetPercent: 2 }))).toBe("Read");
     expect(
       catalogueReadLabel(
         descriptor({
