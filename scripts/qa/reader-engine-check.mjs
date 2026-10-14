@@ -588,9 +588,12 @@ const notesLink = (page) =>
       for (const a of doc.querySelectorAll('a[href*="notes.xhtml"]')) {
         const box = a.getBoundingClientRect();
         const x = host.left + box.left + box.width / 2, y = host.top + box.top + box.height / 2;
-        // Hidden bars are inert, so a press passes through them to the book
+        // Hidden bars are inert, so a press passes through them to the book.
+        // On touch a press in the outer strips turns; a mouse only needs to
+        // stay clear of the page buttons
+        const edge = matchMedia("(pointer: coarse)").matches ? 0.15 : 0.04;
         const over = document.elementFromPoint(x, y);
-        if (box.width > 0 && x > innerWidth * 0.15 && x < innerWidth * 0.85 && y > 0 && y < innerHeight
+        if (box.width > 0 && x > innerWidth * edge && x < innerWidth * (1 - edge) && y > 0 && y < innerHeight
           && (over?.tagName === "FOLIATE-VIEW" || !!over?.closest("[inert]"))) return { x, y };
       }
     }
