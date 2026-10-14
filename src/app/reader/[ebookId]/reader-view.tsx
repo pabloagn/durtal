@@ -2,7 +2,7 @@
 import type { ReaderSpeech, SpeechSnapshot } from "@/lib/reader/speech/session";
 import { useReaderAnnotations } from "@/components/reader/use-reader-annotations";
 import { QUIET_GLASS_ANNOTATION_PALETTE } from "@/lib/reader/annotation-colors";
-import { highlightColours, LIGHT_THEME_HIGHLIGHTS } from "@/lib/reader/presentation/themes";
+import { highlightColours, LIGHT_THEME_HIGHLIGHTS, themeColours } from "@/lib/reader/presentation/themes";
 import { SkipToBook } from "@/components/reader/skip-to-book";
 import { ReaderAnnouncer } from "@/components/reader/reader-announcer";
 
@@ -355,8 +355,8 @@ function ReaderSession({
   // The text keeps clear of the bars; with the speech player open the book
   // already ends above it and the bottom bar (SLN-663)
   const insets = useMemo(
-    () => ({ top: topHeight, bottom: speechHeight ? 0 : bottomHeight }),
-    [topHeight, bottomHeight, speechHeight],
+    () => ({ top: topHeight, bottom: speechHeight ? 0 : bottomHeight, pinned: settings.pinBars }),
+    [topHeight, bottomHeight, speechHeight, settings.pinBars],
   );
   const insetsRef = useRef(insets);
   const [relocation, setRelocation] = useState<EngineEvents["relocate"] | null>(
@@ -422,6 +422,15 @@ function ReaderSession({
     [settings],
   );
   const presentationRef = useRef(presentation);
+  // Where no running lines name the chapter, the bars hidden leave it in a
+  // slim band in the page's colours; scrolled text also fades into the top
+  const unpaginated = relocation ? !relocation.paginated : false;
+  const quiet = useMemo(() => {
+    const policy = presentation?.policy;
+    if (!unpaginated || settings.pinBars || !policy) return null;
+    const { background, text } = themeColours(policy);
+    return { background, text, topFade: file?.format === "epub" && policy.flow === "scrolled" };
+  }, [unpaginated, settings.pinBars, presentation, file?.format]);
   useEffect(() => {
     presentationRef.current = presentation;
     paceRef.current?.interrupt();
@@ -1609,7 +1618,7 @@ function ReaderSession({
           index={index}
           locator={relocation?.locator}
           linear={relocation?.linear}
-          quietChapter={relocation ? !relocation.paginated : false}
+          quiet={quiet}
           timeLeftChapter={
             index && relocation
               ? paceRef.current?.remaining(

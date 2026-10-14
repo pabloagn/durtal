@@ -172,7 +172,7 @@ class FoliateEngine implements ReaderEngine {
   #pageTarget: { label: string; index: number; anchor(doc: Document): Range | Element } | null = null;
   #fixedZoom: number | null = null;
   /** The reader's bars, top and bottom, kept clear of the text (SLN-663) */
-  #insets = { top: 0, bottom: 0 };
+  #insets = { top: 0, bottom: 0, pinned: false };
   #ink = new PublisherInk(() => this.#emit("error", { kind: "damaged", message: "The book colours could not be prepared. Try opening the book again." }));
   #pdfMarks = new PdfDecorations(event => this.#emit("annotation-activated", event));
   #opening = new AbortController();
@@ -1052,6 +1052,7 @@ class FoliateEngine implements ReaderEngine {
       }).finally(() => this.#preparingPageColours.delete(doc)));
     }
     this.#documents.set(doc, index);
+    this.#edgeRoom(doc, false);
     this.#notes?.prefetch(doc, index);
     void import("../../media/document").then(({ attachReaderMedia }) => {
       if (this.#destroyed || this.#mediaDetach.has(doc)) return;
@@ -1606,21 +1607,52 @@ class FoliateEngine implements ReaderEngine {
     }
   }
 
-  setInsets(insets: { top: number; bottom: number }) {
+  setInsets(insets: { top: number; bottom: number; pinned: boolean }) {
     const top = Math.max(0, Math.ceil(insets.top)), bottom = Math.max(0, Math.ceil(insets.bottom));
-    if (top === this.#insets.top && bottom === this.#insets.bottom) return;
-    this.#insets = { top, bottom };
+    const { pinned } = insets;
+    if (top === this.#insets.top && bottom === this.#insets.bottom && pinned === this.#insets.pinned) return;
+    this.#insets = { top, bottom, pinned };
     this.#applyLayout();
   }
 
   /** Paginated text keeps the bars in its top and bottom margins, where the
-   * running lines are; scrolled text, PDFs and comics stop short of them */
+   * running lines are. Scrolled text, PDFs and comics use the whole screen,
+   * under bars that come and go, and stop short of them only while the bars
+   * are kept visible */
   #reserveInsets(view: FoliateView, margins: boolean) {
-    const { top, bottom } = margins ? { top: 0, bottom: 0 } : this.#insets;
+    const { top, bottom } = margins || !this.#insets.pinned ? { top: 0, bottom: 0 } : this.#insets;
     const padding = top || bottom ? `${top}px 0px ${bottom}px` : "";
     if (view.style.padding === padding) return;
     view.style.boxSizing = padding ? "border-box" : "";
     view.style.padding = padding;
+  }
+
+  /** Scrolled text under bars that come and go: the book's first line starts
+   * below the top bar and its last line ends above the bottom bar, so the
+   * first and last screens are never covered */
+  #edgeRoom(doc: Document, render = true) {
+    const index = this.#documents.get(doc);
+    const sections = this.#book?.sections;
+    const scrolled = this.#presentation?.policy?.flow === "scrolled" && this.#book?.rendition?.layout !== "pre-paginated";
+    // Vertical text pads its block ends itself
+    const vertical = doc.defaultView?.getComputedStyle(doc.body ?? doc.documentElement).writingMode.startsWith("vertical");
+    const rules: string[] = [];
+    if (scrolled && !vertical && !this.#insets.pinned && index !== undefined && sections) {
+      if (index === sections.findIndex((section) => section.linear !== "no"))
+        rules.push(`padding-top: ${this.#insets.top}px !important;`);
+      if (index === sections.findLastIndex((section) => section.linear !== "no"))
+        rules.push(`padding-bottom: ${this.#insets.bottom}px !important;`);
+    }
+    const text = rules.length ? `html { ${rules.join(" ")} }` : "";
+    let sheet = doc.querySelector<HTMLStyleElement>("style[data-durtal-edge-room]");
+    if ((sheet?.textContent ?? "") === text) return;
+    if (!sheet) {
+      sheet = doc.createElement("style");
+      sheet.setAttribute("data-durtal-edge-room", "");
+      doc.head?.append(sheet);
+    }
+    sheet.textContent = text;
+    if (render) this.#view?.renderer.render?.();
   }
 
   #applyLayout() {
@@ -1631,7 +1663,8 @@ class FoliateEngine implements ReaderEngine {
     if (this.#book?.rendition?.layout === "pre-paginated") {
       this.#reserveInsets(view, false);
       const rect = view.getBoundingClientRect();
-      const area = { width: rect.width, height: rect.height - this.#insets.top - this.#insets.bottom };
+      const kept = this.#insets.pinned ? this.#insets.top + this.#insets.bottom : 0;
+      const area = { width: rect.width, height: rect.height - kept };
       const doc = renderer.getContents()[0]?.doc;
       const meta = doc?.querySelector('meta[name="viewport"]')?.getAttribute("content") ?? "";
       const width = Number(meta.match(/width=([\d.]+)/)?.[1]), height = Number(meta.match(/height=([\d.]+)/)?.[1]);
@@ -1646,7 +1679,7 @@ class FoliateEngine implements ReaderEngine {
     }
     this.#reserveInsets(view, p.flow !== "scrolled");
     const rect = view.getBoundingClientRect();
-    const size = p.flow === "scrolled"
+    const size = p.flow === "scrolled" && this.#insets.pinned
       ? { width: rect.width, height: rect.height - this.#insets.top - this.#insets.bottom }
       : rect;
     if (size.width <= 0 || size.height <= 0) return;
@@ -1659,6 +1692,7 @@ class FoliateEngine implements ReaderEngine {
       if (renderer.getAttribute(name) !== value) renderer.setAttribute(name, value);
     if (animated) renderer.setAttribute("animated", "");
     else renderer.removeAttribute("animated");
+    for (const { doc } of renderer.getContents()) this.#edgeRoom(doc);
   }
 
   #applyPagePolicy(doc: Document, typography = true) {

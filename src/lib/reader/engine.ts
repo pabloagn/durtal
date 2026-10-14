@@ -359,8 +359,9 @@ export interface ReaderEngine {
   setFixedZoom?(percent: number | null): void;
   currentLocator(): DurtalLocator | null;
   setPresentation(presentation: Presentation): void;
-  /** The heights of the reader's bars, which the text keeps clear of (SLN-663) */
-  setInsets?(insets: { top: number; bottom: number }): void;
+  /** The heights of the reader's bars, which the text keeps clear of, and
+   * whether the bars are kept visible (SLN-663) */
+  setInsets?(insets: { top: number; bottom: number; pinned: boolean }): void;
   /** A locator for the current selection inside the book, or null */
   locatorFromSelection(): DurtalLocator | null;
   /** A book-document origin is exact; an absent origin uses the current selection document. */

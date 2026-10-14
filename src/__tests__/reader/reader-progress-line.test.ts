@@ -39,17 +39,24 @@ describe("the reader's progress line (SLN-663)", () => {
     render(false, null);
     expect(line()).toBeNull();
   });
-  it("keeps the chapter beside the line where no running lines name it", () => {
-    render(false, 44, { quietChapter: true, onScrub: () => {} });
+  it("keeps the chapter in a slim band in the page's colours where no running lines name it", () => {
+    const quietBand = { background: "#ecebe6", text: "#1e2120", topFade: false };
+    render(false, 44, { quiet: quietBand, onScrub: () => {} });
     expect(quiet()?.textContent).toBe("Chapter I");
     expect(quiet()?.getAttribute("aria-hidden")).toBe("true");
     expect(quiet()?.className).not.toContain("opacity-0");
-    render(true, 44, { quietChapter: true, onScrub: () => {} });
+    expect(quiet()?.style.background).toContain("#ecebe6");
+    expect(host.querySelector("[data-reader-top-fade]")).toBeNull();
+    render(true, 44, { quiet: quietBand, onScrub: () => {} });
     expect(quiet()?.className).toContain("opacity-0");
-    render(false, 44, { quietChapter: false, onScrub: () => {} });
+    render(false, 44, { quiet: null, onScrub: () => {} });
     expect(quiet()).toBeNull();
-    render(false, 44, { quietChapter: true, chapter: null, onScrub: () => {} });
+    render(false, 44, { quiet: quietBand, chapter: null, onScrub: () => {} });
     expect(quiet()).toBeNull();
+  });
+  it("fades scrolled text into the top edge", () => {
+    render(false, 44, { quiet: { background: "#07090d", text: "#c5cacb", topFade: true } });
+    expect(host.querySelector<HTMLElement>("[data-reader-top-fade]")?.style.background).toContain("#07090d");
   });
   it("lays the bar's second row out before the book's positions are ready", () => {
     render(true, null, { onScrub: () => {} });

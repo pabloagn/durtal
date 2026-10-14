@@ -27,7 +27,7 @@ export function ReaderBottomBar({
   onRunningLines,
   onScrub,
   onPeek,
-  quietChapter = false,
+  quiet = null,
 }: {
   visible: boolean;
   chapter: string | null;
@@ -42,9 +42,10 @@ export function ReaderBottomBar({
   onRunningLines?(): void;
   onScrub?(fraction: number): void;
   onPeek?(active: boolean): void;
-  /** No running lines name the chapter (scrolled text, PDFs, comics): it
-   * stays beside the line while the bars are hidden */
-  quietChapter?: boolean;
+  /** No running lines name the chapter (scrolled text, PDFs, comics): while
+   * the bars are hidden it stays in a slim band at the foot of the page, in
+   * the page's colours, and scrolled text fades into the top edge */
+  quiet?: { background: string; text: string; topFade: boolean } | null;
 }) {
   const slots = useSyncExternalStore(
     bridge.subscribeSlots,
@@ -77,19 +78,30 @@ export function ReaderBottomBar({
         <div className="h-full bg-fg-muted" style={{ width: `${Math.min(100, Math.max(0, percent))}%` }} />
       </div>
     )}
-    {quietChapter && heading && (
-      // Laid out like the bar, so the chapter sits where the bar shows it
+    {quiet?.topFade && (
+      <div
+        data-reader-top-fade
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 z-20 h-6"
+        style={{ background: `linear-gradient(to top, transparent, ${quiet.background})` }}
+      />
+    )}
+    {quiet && heading && (
+      // The text fades out over 24px above the chapter's own row
       <div
         data-reader-quiet-chapter
         aria-hidden
-        className={`pointer-events-none fixed inset-x-0 bottom-0 z-30 border-t border-transparent pb-[env(safe-area-inset-bottom)] transition-opacity duration-150 motion-reduce:transition-none ${
+        className={`pointer-events-none fixed inset-x-0 bottom-0 z-20 pt-6 pb-[env(safe-area-inset-bottom)] transition-opacity duration-150 motion-reduce:transition-none ${
           visible ? "opacity-0" : ""
         }`}
+        style={{
+          background: `linear-gradient(to bottom, transparent, ${quiet.background} 24px)`,
+          color: `color-mix(in srgb, ${quiet.text} 70%, ${quiet.background})`,
+        }}
       >
-        <div className="flex h-9 [@media(pointer:coarse)]:h-11 items-center px-4 text-xs text-fg-secondary">
-          <p className="min-w-0 flex-1 truncate">{heading}</p>
+        <div className="flex h-9 [@media(pointer:coarse)]:h-11 items-center justify-center px-4 text-xs">
+          <p className="min-w-0 max-w-[720px] truncate">{heading}</p>
         </div>
-        {onScrub && <div className="min-h-8 pb-1 pointer-coarse:min-h-12" />}
       </div>
     )}
     <footer
