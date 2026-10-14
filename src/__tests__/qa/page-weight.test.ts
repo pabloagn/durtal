@@ -22,6 +22,9 @@ const pages: Record<string, string> = {
   // One book's marks, reached through its "All N in this book" link
   "/marks": '<main><a href="/books/one">One</a><a href="/marks?ebook=b2">All 400 in this book</a><a href="/marks?ebook=b3&amp;page=2">More</a></main>',
   "/marks?ebook=b2": "<main>400 marks</main>",
+  // A reader link carries its file and the page to return to (SLN-688)
+  "/shelf": '<main><a href="/reader/r1?file=f1&amp;returnTo=%2Fshelf">Read</a></main>',
+  "/reader/r1": "<main>The reader</main>",
 };
 let server: Server;
 let base = "";
@@ -85,6 +88,16 @@ describe("page-weight.js", () => {
     expect(out).toMatch(/^ok {4}\/marks\?ebook=b2 /m);
     const none = await run([{ path: "/empty?ebook=*", maxKB: 400, maxMs: 5000, ifNone: "no marks" }]);
     expect(none.out).toContain("skipped: no marks (no link on /empty)");
+  });
+  it("measures a reader link without its query", async () => {
+    const { code, out } = await run([{ path: "/reader/*", list: "/shelf", maxKB: 400, maxMs: 5000, ifNone: "no e-book" }]);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^ok {4}\/reader\/r1 /m);
+  });
+  it("measures the upload page", async () => {
+    const { readFileSync } = await import("node:fs");
+    const config = JSON.parse(readFileSync("scripts/qa/page-weight.json", "utf8")) as { routes: { path: string; list?: string }[] };
+    expect(config.routes.map((r) => r.path)).toEqual(expect.arrayContaining(["/ebooks/upload"]));
   });
   it("measures a book, not the add page, and the book with the most quotes", async () => {
     const { readFileSync } = await import("node:fs");

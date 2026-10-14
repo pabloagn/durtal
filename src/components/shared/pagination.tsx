@@ -33,6 +33,8 @@ interface Props extends PaginationData {
   anchor?: string;
   /** The page sizes offered; with one or none, no size choice shows */
   sizes?: readonly number[];
+  /** A control for the list, such as Select, at the end of the row (SLN-639) */
+  action?: React.ReactNode;
 }
 const control =
   "inline-flex h-8 min-w-8 items-center justify-center gap-1 rounded-sm border border-glass-border px-2 text-xs text-fg-secondary hover:bg-bg-tertiary disabled:pointer-events-none disabled:opacity-35 pointer-coarse:h-11 pointer-coarse:min-w-11";
@@ -45,6 +47,7 @@ export function Pagination({
   compact = false,
   anchor = "list-start",
   sizes = PAGE_SIZES,
+  action,
 }: Props) {
   const pathname = usePathname();
   const params = useSearchParams();
@@ -138,6 +141,10 @@ export function Pagination({
     router.push(href(Math.max(1, Math.min(totalPages, Math.trunc(value)))));
     setMobileJump(false);
   }
+  // Above the list on a phone, the arrows alone (named by aria-label) and a
+  // bare count: the count and the page controls share a row (SLN-639)
+  const labelClass = compact ? "max-sm:hidden" : undefined;
+  const wordsClass = compact ? "max-sm:sr-only" : undefined;
   function pageLink(
     p: number,
     label: string,
@@ -148,12 +155,12 @@ export function Pagination({
     return disabled ? (
       <button type="button" className={control} disabled aria-label={label}>
         <CapAligned height={14}>{icon}</CapAligned>
-        <span>{label}</span>
+        <span className={labelClass}>{label}</span>
       </button>
     ) : (
       <Link className={control} href={href(p)} rel={rel} aria-label={label}>
         <CapAligned height={14}>{icon}</CapAligned>
-        <span>{label}</span>
+        <span className={labelClass}>{label}</span>
       </Link>
     );
   }
@@ -185,15 +192,19 @@ export function Pagination({
     <nav
       id={compact ? anchor : undefined}
       aria-label={compact ? "Pagination overview" : "Pagination"}
-      className="my-4 flex scroll-mt-4 flex-wrap items-center justify-between gap-3 font-mono tabular-nums"
+      className={`my-4 flex scroll-mt-4 flex-wrap items-center justify-between gap-3 font-mono tabular-nums ${compact ? "max-sm:justify-start max-sm:gap-2" : ""}`}
     >
+      {/* Above the list on a phone "1–48 of 775": the words stay for screen readers */}
       <p className="text-xs text-fg-secondary">
-        Showing{" "}
+        <span className={wordsClass}>Showing </span>
         {total ? ((current - 1) * perPage + 1).toLocaleString("en-US") : 0}–
         {Math.min(current * perPage, total).toLocaleString("en-US")} of{" "}
-        {total.toLocaleString("en-US")} {noun}
+        {total.toLocaleString("en-US")}
+        <span className={wordsClass}> {noun}</span>
       </p>
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Tighter on a phone above the list, so a 17-page count, its arrows
+          and Select share one row at 390 */}
+      <div className={`flex flex-wrap items-center gap-2 ${compact ? "max-sm:gap-1" : ""}`}>
         {!compact && (
           <span className="hidden md:contents">
             {pageLink(
@@ -266,8 +277,9 @@ export function Pagination({
         )}
       </div>
       {sizes.length > 1 && (
+        // Above the list on a phone the size is left to the controls below it
         <label
-          className="flex items-center gap-2 text-xs text-fg-secondary"
+          className={`flex items-center gap-2 text-xs text-fg-secondary ${compact ? "max-sm:hidden" : ""}`}
           htmlFor={`${id}-size`}
         >
           Per page
@@ -285,6 +297,7 @@ export function Pagination({
           </select>
         </label>
       )}
+      {action && <div className="ml-auto flex items-center font-sans">{action}</div>}
       {!compact && (
         <div className={mobileJump ? "w-full" : "hidden w-full md:block"}>
           {jumpForm}

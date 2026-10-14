@@ -11,6 +11,12 @@
  * A second pass checks the icon controls beside each heading (a title row's
  * buttons and menu): each control's box against the heading's cap height.
  *
+ * A third pass checks quiet (transparent) text buttons that start a line
+ * under a text column: their label, or leading icon, starts at the column's
+ * text edge, not one padding to the right of it. Tabs, pill groups and
+ * toolbars (two or more controls in the button's row) line up by their boxes
+ * and are not checked.
+ *
  * Every front-end change must pass this with an empty result on each page it
  * touches (see CLAUDE.md, "Pixel-perfect alignment").
  */
@@ -231,6 +237,60 @@
           where: label(control.querySelector("svg")),
         });
     }
+  }
+
+  // Quiet text buttons under a text column (a ghost "eBook details" below a
+  // title): a transparent button's padding indents its label, so the label,
+  // or its leading icon, must start at the column's text edge (SLN-688). A
+  // button set apart from the column's edge (in a row after other buttons,
+  // right-aligned, centered) is not checked.
+  const transparent = (color) => color === "transparent" || /^rgba\(.*,\s*0\)$/.test(color);
+  for (const control of document.querySelectorAll('button, a[href], [role="button"]')) {
+    if (!visible(control) || control.parentElement.closest('button, a[href], [role="button"]')) continue;
+    const cs = getComputedStyle(control);
+    const pad = parseFloat(cs.paddingLeft);
+    if (!pad || !transparent(cs.backgroundColor) || (parseFloat(cs.borderLeftWidth) && !transparent(cs.borderLeftColor))) continue;
+    // Tabs and pill groups line up by their boxes: the current one is filled
+    const group = control.closest('ul, ol, [role="tablist"], nav');
+    if (group && [...group.querySelectorAll('button, a[href], [role="button"], [role="tab"]')].some((other) =>
+      other !== control && visible(other) && !transparent(getComputedStyle(other).backgroundColor))) continue;
+    // A toolbar's controls line up by their boxes, as a group
+    let row = control.parentElement;
+    while (row && getComputedStyle(row).display === "contents") row = row.parentElement;
+    const controlsIn = (el) => [...el.querySelectorAll('button, a[href], [role="button"]')].filter((other) =>
+      visible(other) && !other.parentElement.closest('button, a[href], [role="button"]'));
+    if (row && controlsIn(row).length > 1) continue;
+    const name = firstText(control);
+    if (!name || name.textContent.trim().length <= 2) continue;
+    const own = firstLine(name);
+    if (!own) continue;
+    const icon = [...control.querySelectorAll("svg")].find(visible);
+    const start = Math.min(own.rect.left, icon ? icon.getBoundingClientRect().left : Infinity);
+    const box = control.getBoundingClientRect();
+    // The nearest text block above the button, in the same column
+    let column = null;
+    for (let el = control, depth = 0; el.parentElement && depth < 4 && column === null; el = el.parentElement, depth++) {
+      if (el.matches(DIALOG)) break;
+      for (let sib = el.previousElementSibling; sib && column === null; sib = sib.previousElementSibling) {
+        if (!visible(sib) || sib.getBoundingClientRect().bottom > box.top + 1) continue;
+        const t = firstText(sib);
+        // Under a row of padded controls (sort buttons), the button is part of that toolbar
+        const owner = t?.parentElement.closest('button, a[href], [role="button"]');
+        if (owner && parseFloat(getComputedStyle(owner).paddingLeft)) { column = NaN; break; }
+        const line = t && firstLine(t);
+        if (line) column = line.rect.left;
+      }
+    }
+    if (column === null || Number.isNaN(column) || Math.abs(box.left - column) > pad + TOLERANCE) continue;
+    checked++;
+    const off = +(start - column).toFixed(2);
+    if (Math.abs(off) > TOLERANCE)
+      issues.push({
+        off,
+        text: name.textContent.trim().slice(0, 32),
+        font: cs.fontSize,
+        where: `${label(control)} (text column)`,
+      });
   }
 
   return { page: location.pathname, checked, issues };

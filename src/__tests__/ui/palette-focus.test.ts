@@ -14,7 +14,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), prefetch: () => {} }),
   useSearchParams: () => new URLSearchParams(),
 }));
-vi.mock("sonner", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }), Toaster: () => null }));
+vi.mock("sonner", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }), Toaster: () => null, useSonner: () => ({ toasts: [] }) }));
 vi.mock("@/components/layout/sidebar", () => ({ Sidebar: () => null }));
 vi.mock("@/components/layout/mobile-nav-bar", () => ({ MobileNavBar: () => null }));
 vi.mock("@/components/reading/reading-dialogs-provider", () => ({

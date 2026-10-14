@@ -26,7 +26,7 @@ export default async function ReviewEbooksPage({ searchParams }: {
     .reduce((total, [, count]) => total + count, 0);
   const selectClass = "h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-xs text-fg-primary pointer-coarse:h-11";
   return <div>
-    <PageHeader title="Review eBooks" description={`${pending.toLocaleString()} to review · ${queue.counts.not_in_durtal.toLocaleString()} not in Durtal · ${queue.counts.automatic.toLocaleString()} linked automatically`} />
+    <PageHeader title="Review eBooks" description={`${(pending + queue.counts.not_in_durtal).toLocaleString()} to review, ${queue.counts.not_in_durtal.toLocaleString()} of them not in Durtal · ${queue.counts.automatic.toLocaleString()} linked automatically · ${queue.counts.partially_held.toLocaleString()} partially held`} />
     <form action="/ebooks/review" method="get" className="mb-8 grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(10rem,2fr)_1fr_1fr_1fr_auto]">
       <Input label="Title or author" name="q" defaultValue={params.filters.q} maxLength={200} type="search" />
       <label className="space-y-1.5"><span className="type-label block">Language</span>

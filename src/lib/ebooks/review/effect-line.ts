@@ -233,3 +233,17 @@ export function bulkEffectLine(
       return `Mark ${count(effects.works)} accessioned · records each status change`;
   }
 }
+
+/**
+ * A stored effect sentence as a reader sees it (SLN-684): the language of a
+ * new edition by its name, not its code, and once the decision is made, in
+ * the past tense ("Added a digital copy of Nadja"). Display only: the stored
+ * text, which plans and receipts hash, never changes.
+ */
+export function effectWords(text: string, tense: "now" | "done" = "now"): string {
+  const named = text.replace(/^(Adds an edition in )([a-z]{2,3})(?=[ (]|$)/,
+    (_, lead: string, code: string) => lead + (languageName(code) ?? code));
+  if (tense === "now") return named;
+  return named.replace(/^Adds /, "Added ").replace(/^Fills /, "Filled ")
+    .replace(/^Moves (.*) and fills it$/, "Moved $1 and filled it");
+}

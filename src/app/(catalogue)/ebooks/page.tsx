@@ -24,6 +24,8 @@ import { ContinueReading } from "@/components/ebooks/continue-reading";
 import { EbooksView } from "./ebooks-view";
 import { EbooksMenu } from "./ebooks-menu";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
+import { buttonClass } from "@/components/ui/button";
+import { Upload } from "lucide-react";
 export const metadata = { title: "eBooks" };
 const requestTime = cache(() => Date.now());
 function since(date: string | Date, now: number) {
@@ -83,6 +85,10 @@ export default async function EbooksPage({
         actions={
           // On the cap-height center of the title's line
           <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
+            <Link href="/ebooks/upload" className={`${buttonClass("secondary")} whitespace-nowrap`}>
+              <Upload className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Upload eBooks
+            </Link>
             <EbooksMenu />
           </CapAlignedControls>
         }
@@ -103,7 +109,7 @@ export default async function EbooksPage({
           {counts.active.toLocaleString("en")} eBooks
         </Link>
         <span aria-hidden>·</span>
-        <Link href="/ebooks?review=yes" className="touch-hit">
+        <Link href="/ebooks/review" className="touch-hit">
           {counts.review.toLocaleString("en")} to review
         </Link>
         <span aria-hidden>·</span>
@@ -115,6 +121,15 @@ export default async function EbooksPage({
           {counts.excluded.toLocaleString("en")} set aside
         </Link>
       </nav>
+      {params.needsReview === true && (
+        <p className="-mt-4 mb-8 text-sm text-fg-secondary">
+          These eBooks wait for a decision.{" "}
+          <Link href="/ebooks/review" className="text-accent-primary underline underline-offset-2">
+            Review them in the queue
+          </Link>
+          , where each one shows the book it may belong to.
+        </p>
+      )}
       <ContinueReading books={continuation} />
       <EbooksView
         books={books.map((ebook) =>

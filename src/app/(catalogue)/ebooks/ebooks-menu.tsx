@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { Highlighter, History, ListChecks } from "lucide-react";
+import { Highlighter, History, ListChecks, Upload } from "lucide-react";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 export function EbooksMenu() {
   const router = useRouter();
@@ -8,9 +8,14 @@ export function EbooksMenu() {
     <EntityActionMenu
       items={[
         {
+          label: "Upload eBooks",
+          icon: Upload,
+          onClick: () => router.push("/ebooks/upload"),
+        },
+        {
           label: "Needs review",
           icon: ListChecks,
-          onClick: () => router.push("/ebooks?review=yes"),
+          onClick: () => router.push("/ebooks/review"),
         },
         {
           label: "Highlights",

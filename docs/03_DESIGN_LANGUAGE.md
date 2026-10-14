@@ -249,6 +249,13 @@ A list's filters open from the Filter button in a `glass` panel (`FilterDropdown
 - **Groups**: a `type-caption` heading with a count badge of its chosen values, then its options. An option is a 14px box (ink selection when chosen) and its label; a count of books sits at the right in 12px mono, `fg-secondary`. A list of 8 options or more has its own search.
 - **Sections** (the library, SLN-405): many groups go in sections. A rail on the left lists them, each with its count badge; the chosen section's groups show beside it, all open. The panel is 34rem wide (the window less 32px on a phone) and keeps one height, so it does not jump between sections. It hangs from the button and moves sideways to stay 16px inside the window.
 - **Colour swatches**: a colour group shows its options in two columns, each with a 14px swatch (2px radius, `glass-border` edge) in place of the box. A chosen swatch takes a check in the ink that reads better on it (`inkOn`) and an `fg-primary` edge. A colour nothing has stays in its place at 40% and cannot be chosen. Swatch colours are muted like the rest of the palette (`COLOR_BUCKETS`, `src/lib/color/color-buckets.ts`).
+- **List header on a phone** (below `sm`, SLN-639), top to bottom:
+  - the title and its actions on one row; a secondary action shows its icon alone (named by `aria-label`), so the title and the main action keep their room;
+  - the collection switch (`DomainSwitch`) as one row of equal tabs without icons; a row too narrow for every label scrolls inside itself, never the page;
+  - the search field on its own row;
+  - the sort as a menu showing the current field, a 44px arrow button beside it that shows and reverses the direction, then Filter (`EntityFilters`; from `sm` up the sorts are chips);
+  - the views, then the card size;
+  - the count ("1–48 of 775", the words kept for screen readers), the arrows and page button, and Select at the end of the same row. Per page is in the pagination under the list. Select sits at the end of the count's row on every width (`Pagination`'s `action`).
 - **Active filters**: under the filter bar, one chip per chosen value (`ActiveFilters`): `bg-secondary`, a `glass-border` edge, 28px high (44px on a touch screen), the group in `fg-secondary`, the value in `fg-primary`, a 12px X. The whole chip removes its filter; "Clear all" in steel text ends the row. These chips are page content, so they are never glass.
 
 ### Ratings
@@ -299,6 +306,17 @@ Multiple semantic variants:
 ### Toasts
 
 Sonner toast notifications. Appear at bottom-right. Dark theme matching the application palette. On a phone (600px and narrower) they span the screen between 16px margins (`globals.css` keeps Sonner's list inside the screen).
+
+One toaster for the app and the reader, `AppToaster` (`src/components/layout/app-toaster.tsx`, SLN-567):
+- Every toast has its own cross: a 14px icon in a 20px box, 6px inside the toast's top-right corner, `fg-secondary`, brighter on hover. Its label and tooltip are "Dismiss". It dismisses that toast only and runs none of its actions; an Undo is gone with it. On a touch screen its press area is 44px, and the toast keeps 44px clear on its right so the area never covers the text or an action.
+- Several toasts stack, at most three in view. Pointing at the stack spreads it out, and holds every toast's timer while the pointer stays.
+
+Errors and warnings also go to the notification history (`src/lib/notifications/history.ts`, SLN-567). Routine confirmations ("Saved") stay out of it.
+- Kept in this browser's storage: it survives navigation, the reader and a reload, and follows other open tabs. It keeps the latest 50 for 14 days. A private window keeps it for the page's life only.
+- The same toast updated (a pending one that failed) changes its entry. The same message again within a minute counts on the newest entry ("3 times") instead of adding one.
+- A bell opens it: in the sidebar footer, in the icon column beside the motto, and in the phone bar before Search. A small red dot on the bell means unread entries; its label says how many.
+- The history is a glass popover beside the bell, inside the 16px gutter, at most 480px high; its list scrolls. Each entry has its kind's icon, the title, the description, how long ago, and a Remove cross on the cap-height center of the title (`CapAligned`, 44px on touch). Mark all read and Clear all sit in its header.
+- Entries seen while it is open count as read when it closes. Dismissing a toast marks nothing read. Escape or a click outside closes it, and focus returns to the bell.
 
 ### Detail pages
 
@@ -411,6 +429,7 @@ One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in 
 - Add `data-tooltip="Label"` to the control. It shows on hover after 300 ms and at once on keyboard focus; Escape, a click, scroll or leaving closes it.
 - `data-tooltip-keys` shows the control's shortcut as key caps: `"b"`, `"alt f"`, `"g then b"` (a sequence).
 - `data-tooltip-side`: `top` (default), `bottom`, `right`, `left`. It flips when it does not fit.
+- A control whose menu or panel is open (`aria-expanded="true"`, or the popover its `popovertarget` names) shows no tooltip, and opening the panel closes it, so the first Escape closes the panel.
 - Text cut by `truncate`, `lines-1` or `lines-2` shows its full text on hover, with no attribute.
 - Style: glass (`glass`), 14px text, 6px from the control. It renders in the top layer, above dialogs.
 

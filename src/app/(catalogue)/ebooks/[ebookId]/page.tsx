@@ -30,6 +30,7 @@ import {
   RecordField,
 } from "@/components/shared/detail-layout";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { Prose } from "@/components/shared/prose";
 import { buttonClass } from "@/components/ui/button";
 import { EbookCover } from "@/components/ebooks/ebook-card";
@@ -119,6 +120,7 @@ export default async function EbookPage({ params, searchParams }: Props) {
     download: isEbookFileDownloadable(file),
     readable:
       ebook.matchState !== "excluded" && isEbookFileNativeReadable(file),
+    replaceable: file.status !== "replaced",
     status: file.drm
       ? `Protected by ${file.drm}, cannot be opened`
       : file.status === "verified"
@@ -250,7 +252,7 @@ export default async function EbookPage({ params, searchParams }: Props) {
             <Prose html={sanitizeHtml(ebook.description)} />
           </section>
         )}
-        <section className="mb-8">
+        <section id="book" className="mb-8 scroll-mt-8">
           <SectionHeading title="The book it belongs to" />
           <EbookLinkPanel ebook={ebook} book={linked} />
         </section>
@@ -275,7 +277,13 @@ export default async function EbookPage({ params, searchParams }: Props) {
           </section>
         )}
         <section className="mb-8">
-          <SectionHeading title="Files" count={files.length} />
+          <SectionHeading title="Files" count={files.length} action={
+            <CapAlignedControls height={28} coarseHeight={44} className="type-section-title">
+              <Link href={`/ebooks/upload?kind=add_format&ebookId=${ebook.id}`} className={`${buttonClass("secondary", "sm")} whitespace-nowrap`}>
+                Add a format…
+              </Link>
+            </CapAlignedControls>
+          } />
           <EbookFilesTable ebookId={ebook.id} files={files} />
         </section>
         <section id="places" className="mb-8 scroll-mt-6">
