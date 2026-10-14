@@ -28,7 +28,7 @@ import { readerReturnDestination } from "@/lib/reader/entry-policy";
 
 type PageProps = {
   params: Promise<{ ebookId: string }>;
-  searchParams: Promise<{ file?: string | string[]; returnTo?: string | string[]; at?: string | string[] }>;
+  searchParams: Promise<{ file?: string | string[]; returnTo?: string | string[]; at?: string | string[]; from?: string | string[] }>;
 };
 
 export const dynamic = "force-dynamic";
@@ -36,14 +36,14 @@ export const dynamic = "force-dynamic";
 const ZIP_FORMATS = new Set(["epub", "kepub", "fbz", "cbz"]);
 
 const loadBook = cache(
-  (ebookId: string, deviceId: string | null, fileId: string | null) =>
-    readReaderBook(ebookId, { deviceId, fileId }),
+  (ebookId: string, deviceId: string | null, fileId: string | null, fromDeviceId: string | null = null) =>
+    readReaderBook(ebookId, { deviceId, fileId, fromDeviceId }),
 );
 
 async function readRequest({ params, searchParams }: PageProps) {
   const { ebookId } = await params;
   if (!isUuid(ebookId)) notFound();
-  const { file, returnTo, at } = await searchParams;
+  const { file, returnTo, at, from } = await searchParams;
   const jar = await cookies();
   const device = jar.get(DEVICE_COOKIE)?.value;
   return {
@@ -56,12 +56,14 @@ async function readRequest({ params, searchParams }: PageProps) {
     returnTo: readerReturnDestination(returnTo),
     // A mark to open at (/ebooks/highlights): resolved in the browser once the book is painted
     at: typeof at === "string" && isUuid(at) ? at.toLowerCase() : null,
+    // A device whose place to open at, chosen under Reading places on the eBook page (SLN-665)
+    from: isDeviceId(from) ? from : null,
   };
 }
 
 export async function generateMetadata(props: PageProps): Promise<Metadata> {
-  const { ebookId, deviceId, fileId } = await readRequest(props);
-  const book = await loadBook(ebookId, deviceId, fileId);
+  const { ebookId, deviceId, fileId, from } = await readRequest(props);
+  const book = await loadBook(ebookId, deviceId, fileId, from);
   return { title: book ? book.title : "eBook not found" };
 }
 
@@ -108,7 +110,7 @@ export default async function ReaderPage(props: PageProps) {
   const request = await readRequest(props);
   const requiredControllerIds = getRequiredReaderControllerIds();
   const [bookResult, pluginsResult, runtimeResult, preferencesResult] = await Promise.allSettled([
-    loadBook(request.ebookId, request.deviceId, request.fileId),
+    loadBook(request.ebookId, request.deviceId, request.fileId, request.from),
     loadReaderPlugins(request),
     loadReaderRuntime(request.homeCookie),
     getReaderPreferences(request.ebookId),
@@ -167,6 +169,7 @@ export default async function ReaderPage(props: PageProps) {
         deviceId={request.deviceId}
         backHref={request.returnTo ?? `/ebooks/${book.id}`}
         openAt={request.at}
+        startPlace={book.startPlace}
         plugins={plugins}
         requiredControllerIds={requiredControllerIds}
         preferences={preferences}

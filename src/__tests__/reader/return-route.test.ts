@@ -86,6 +86,7 @@ describe("full reader navigation return contract", () => {
     expect(store.book).toHaveBeenCalledExactlyOnceWith(ebookId, {
       deviceId: null,
       fileId,
+      fromDeviceId: null,
     });
   });
 

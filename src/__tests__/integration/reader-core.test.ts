@@ -206,6 +206,32 @@ describe.skipIf(!url)("reader core", () => {
       expect((await readReaderBook(ebookId))!.place).toBeNull();
     });
 
+    it("opens at the device the eBook page's Reading places chose, in that place's file (SLN-665)", async () => {
+      const epub = await file("epub");
+      const pdf = await file("pdf");
+      await savePosition({ ebookId, deviceId: phone, deviceLabel: "iPhone · Safari", body: body(epub.id, epub.sha256, 0.3, T0) });
+      await savePosition({ ebookId, deviceId: laptop, deviceLabel: "Mac · Firefox", body: body(pdf.id, pdf.sha256, 0.7, T0) });
+      const book = await readReaderBook(ebookId, { deviceId: phone, fromDeviceId: laptop });
+      expect(book!.startPlace).toMatchObject({ deviceId: laptop, fileId: pdf.id, thisDevice: false });
+      expect(book!.file?.id).toBe(pdf.id);
+      expect((await readReaderBook(ebookId, { deviceId: phone }))!.startPlace).toBeNull();
+      expect((await readReaderBook(ebookId, { deviceId: phone, fromDeviceId: randomUUID() }))!.startPlace).toBeNull();
+    });
+
+    it("reads each other device's newest place and the furthest, not every place (SLN-665)", async () => {
+      const epub = await file("epub");
+      const [newest, furthest, older, ipad] = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+      await savePosition({ ebookId, deviceId: newest, deviceLabel: "Mac · Firefox", body: body(epub.id, epub.sha256, 0.4, T0) });
+      await savePosition({ ebookId, deviceId: furthest, deviceLabel: "Mac · Firefox", body: body(epub.id, epub.sha256, 0.9, T0 - 3_600_000) });
+      await savePosition({ ebookId, deviceId: older, deviceLabel: "Mac · Firefox", body: body(epub.id, epub.sha256, 0.5, T0 - 7_200_000) });
+      await savePosition({ ebookId, deviceId: ipad, deviceLabel: "iPad · Safari", body: body(epub.id, epub.sha256, 0.2, T0 - 9_000_000) });
+      const book = (await readReaderBook(ebookId, { deviceId: phone }))!;
+      expect(book.otherPlaces.map((place) => place.deviceId)).toEqual([newest, furthest, ipad]);
+      expect(book.otherPlace?.deviceId).toBe(newest);
+      // A device the eBook page chose is read whatever its age
+      expect((await readReaderBook(ebookId, { deviceId: phone, fromDeviceId: older }))!.startPlace?.deviceId).toBe(older);
+    });
+
     it("links the book's page while its copy is held", async () => {
       const [work] = await c`insert into works(title, slug) values ('À rebours', 'a-rebours') returning id`;
       const [edition] = await c`insert into editions(work_id, title) values (${work.id}, 'À rebours') returning id`;

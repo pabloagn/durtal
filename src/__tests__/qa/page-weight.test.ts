@@ -107,7 +107,9 @@ describe("page-weight.js", () => {
     expect(config.routes.find((r) => r.path === "/ebooks/runs/*")?.ifNone).toBe("no ingestion run");
     expect(config.routes.find((r) => r.path === "/reader/*")?.ifNone).toBe("no e-book");
     expect(config.routes.find((r) => r.path === "/ebooks/*")?.ifNone).toBe("no e-book");
+    // The most recently opened e-book: with --seed-places 1000, one read on many devices (SLN-665)
+    expect(config.routes.find((r) => r.list === "/ebooks?sort=opened")?.ifNone).toBe("no e-book");
     expect(config.routes.find((r) => r.path === "/ebooks/highlights?ebook=*")?.ifNone).toBe("no book with more than five marks");
-    expect(config.routes.filter((r) => r.ifNone).map((r) => r.path)).toEqual(["/library/*", "/reading/year/*", "/reading/import/*", "/ebooks/highlights?ebook=*", "/ebooks/*", "/ebooks/runs/*", "/reader/*"]);
+    expect(config.routes.filter((r) => r.ifNone).map((r) => r.path)).toEqual(["/library/*", "/reading/year/*", "/reading/import/*", "/ebooks/highlights?ebook=*", "/ebooks/*", "/ebooks/*", "/ebooks/runs/*", "/reader/*"]);
   });
 });

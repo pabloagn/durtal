@@ -70,6 +70,8 @@ export interface EbookDetail extends LibraryEbook {
   editionPublisher: string | null;
   editionYear: number | null;
   positions: ContinueAnchor[];
+  /** With `places`: each device's newest place, newest first, and how many devices there are (SLN-665) */
+  places?: { devices: ContinueAnchor[]; deviceCount: number };
   history: {
     id: string;
     runId: string;
@@ -288,9 +290,33 @@ export async function getContinueReading(
       : [];
   });
 }
+/** Enough of the newest places for Continue to find the newest one past the opening page */
+const CONTINUE_PLACES = 20;
+/** A device is its label: one browser on one machine can hold several device ids */
+const placeJson = sql`json_build_object('deviceId', p.device_id, 'deviceLabel', p.device_label, 'fileId', p.file_id,
+  'locator', p.locator, 'chapter', p.chapter, 'clientUpdatedAt', p.client_updated_at)`;
+/**
+ * The e-book page's places, bounded however many there are (SLN-665): what
+ * Continue needs (this device's places and the newest few) as `positions`,
+ * and each device's newest place, at most `devices` of them.
+ */
+function pagePlaces(deviceId: string | null, devices: number): SQL {
+  return sql`coalesce((select json_agg(${placeJson} order by p.client_updated_at desc, p.device_id, p.file_id)
+      from ebook_positions p where p.id in (
+        (select id from ebook_positions where ebook_id = e.id
+          order by client_updated_at desc, device_id, file_id limit ${CONTINUE_PLACES})
+        union select id from ebook_positions where ebook_id = e.id and device_id = ${deviceId ?? ""})), '[]'::json) as positions,
+    (select json_build_object(
+      'devices', coalesce((select json_agg(${placeJson} order by p.client_updated_at desc, p.device_label)
+        from (select * from (select distinct on (device_label) * from ebook_positions where ebook_id = e.id
+          order by device_label, client_updated_at desc, device_id, file_id) latest
+          order by client_updated_at desc, device_label limit ${devices}) p), '[]'::json),
+      'deviceCount', (select count(distinct device_label)::integer from ebook_positions where ebook_id = e.id))) as places`;
+}
 export async function getEbookDetail(
   id: string,
   database: Database = db,
+  options: { places?: { deviceId: string | null; devices: number } } = {},
 ): Promise<EbookDetail | null> {
   const [row] = resultRows<EbookDetail>(
     await database.execute(sql`select ${ebookSummaryColumns}, e.series,
@@ -301,7 +327,7 @@ export async function getEbookDetail(
     w.id as "workId", w.catalogue_status as "workStatus",
     w.slug as "workSlug", w.title as "workTitle", e.instance_id as "instanceId", edition.id as "editionId",
     edition.publisher as "editionPublisher", edition.publication_year as "editionYear",
-    ${positions} as positions,
+    ${options.places ? pagePlaces(options.places.deviceId, options.places.devices) : sql`${positions} as positions`},
     (select count(*)::integer from ebook_ingest_items item where item.ebook_id = e.id) as "historyTotal",
     coalesce((select json_agg(history order by history."createdAt" desc, history.id) from (
       select item.id, item.run_id as "runId", item.created_at as "createdAt", run.host,
@@ -314,16 +340,14 @@ export async function getEbookDetail(
     where e.id = ${id}::uuid`),
   );
   const stamp = ebookReviewStampSchema.safeParse(row?.reviewStamp);
+  const valid = (place: ContinueAnchor) =>
+    validContinueAnchor(place, row.files.find((file) => file.id === place.fileId));
   return row
     ? normalizedDates({
         ...row,
         reviewStamp: stamp.success ? stamp.data : null,
-        positions: row.positions.filter((place) =>
-          validContinueAnchor(
-            place,
-            row.files.find((file) => file.id === place.fileId),
-          ),
-        ),
+        positions: row.positions.filter(valid),
+        ...(row.places ? { places: { ...row.places, devices: row.places.devices.filter(valid) } } : {}),
       })
     : null;
 }
