@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -122,6 +122,7 @@ export function ConfirmStep({
               size="sm"
               onClick={() => onEdit(existingWork ? "edition" : "details")}
             >
+              <Pencil aria-hidden strokeWidth={1.5} />
               Edit
             </Button>
           </div>
@@ -160,6 +161,7 @@ export function ConfirmStep({
               size="sm"
               onClick={() => onEdit("edition")}
             >
+              <Pencil aria-hidden strokeWidth={1.5} />
               Edit
             </Button>
           </div>
@@ -218,6 +220,7 @@ export function ConfirmStep({
               </div>
             </div>
             <Button variant="ghost" size="sm" onClick={onEditCopies}>
+              <Pencil aria-hidden strokeWidth={1.5} />
               Edit
             </Button>
           </div>
@@ -251,6 +254,7 @@ export function ConfirmStep({
                 size="sm"
                 onClick={() => onEdit("categorize")}
               >
+                <Pencil aria-hidden strokeWidth={1.5} />
                 Edit
               </Button>
             </div>

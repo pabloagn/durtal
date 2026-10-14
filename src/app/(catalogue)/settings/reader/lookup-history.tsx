@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { ChevronDown, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SettingsGroup } from "@/components/settings/settings-group";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
@@ -29,18 +30,18 @@ export function LookupHistoryGroup() {
     description="Kept only in this browser. Durtal’s server never sees it.">
     <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4">
       <p className="text-sm text-fg-secondary">{count.toLocaleString()} lookups</p>
-      <Button variant="ghost" size="sm" disabled={busy || count === 0} onClick={() => setConfirm(true)}>Clear history</Button>
+      <Button variant="ghost" size="sm" disabled={busy || count === 0} onClick={() => setConfirm(true)}><Trash2 aria-hidden strokeWidth={1.5} />Clear history</Button>
     </div>
     {entries.map(entry => <div key={entry.id} className="px-5 py-4">
       <p className="break-words text-sm">{entry.word} <span className="text-xs text-fg-secondary">· {languageName(entry.language)}</span></p>
-      <p className="mt-1 text-xs text-fg-secondary"><Link className="underline" href={"/ebooks/" + entry.ebookId}>{entry.ebookTitle || "Untitled book"}</Link> · <time className="font-mono" dateTime={entry.at}>{new Date(entry.at).toLocaleDateString()}</time></p>
+      <p className="mt-1 text-xs text-fg-secondary"><Link className="text-command" href={"/ebooks/" + entry.ebookId}>{entry.ebookTitle || "Untitled book"}</Link> · <time className="font-mono" dateTime={entry.at}>{new Date(entry.at).toLocaleDateString()}</time></p>
       <p className="lines-2 mt-2 text-sm text-fg-secondary">{entry.sentence}</p>
     </div>)}
     <div className="px-5 py-4">
       {busy && <p role="status" className="text-sm text-fg-secondary">Loading lookup history</p>}
       {error && <p role="alert" className="text-sm text-accent-red-text">{error}</p>}
-      {entries.length < count && <Button variant="ghost" disabled={busy} onClick={() => setLimit(value => Math.min(5000, value + 50))}>Show 50 more</Button>}
-      {error && <Button variant="ghost" onClick={() => setRefresh(value => value + 1)}>Try again</Button>}
+      {entries.length < count && <Button variant="ghost" disabled={busy} onClick={() => setLimit(value => Math.min(5000, value + 50))}><ChevronDown aria-hidden strokeWidth={1.5} />Show 50 more</Button>}
+      {error && <Button variant="ghost" onClick={() => setRefresh(value => value + 1)}><RefreshCw aria-hidden strokeWidth={1.5} />Try again</Button>}
     </div>
     <ConfirmDeleteDialog open={confirm} onClose={() => setConfirm(false)} title="Clear lookup history"
       name="Lookup history on this device" description="Clear the lookup history on this device? This cannot be undone."

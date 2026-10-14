@@ -34,11 +34,12 @@ import {
 import { AcquisitionTargets } from "@/components/publishers/acquisition-targets";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { BackLink } from "@/components/shared/back-link";
 import { HuntAssessmentControl } from "@/components/books/hunt-assessment-control";
 import { PoisonToggle } from "@/components/books/poison-toggle";
 import { BookLinks } from "@/components/books/book-links";
 import { CapAligned } from "@/components/shared/cap-aligned";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import {
   getWorkBySlug,
   getWorksWithMark,
@@ -74,7 +75,7 @@ import { WorkCarousel } from "@/components/books/work-carousel";
 import { SimilarWorksCarousel } from "@/components/books/similar-works-carousel";
 import { getBookRelatedGroups } from "@/lib/actions/book-related";
 import { getSimilarWorks } from "@/lib/actions/similar-works";
-import { WorkPosterImage } from "./work-poster-image";
+import { WorkPosterImage, WorkPosterPlaceholder } from "./work-poster-image";
 import {
   CoarseImageSource,
   coarseImageFallback,
@@ -282,6 +283,8 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   const background = work.media?.find(
     (m) => m.type === "background" && m.isActive,
   );
+  // Without a poster the header shows the first edition that has a cover
+  const editionCover = poster ? undefined : work.editions.find((e) => e.coverS3Key);
   const allPosters = work.media?.filter((m) => m.type === "poster") ?? [];
   const allBackgrounds =
     work.media?.filter((m) => m.type === "background") ?? [];
@@ -375,24 +378,28 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
         {/* Content on top of the backdrop */}
         <div className={background ? "relative z-10 px-4 pt-6 pb-2 md:px-6" : ""}>
           {/* Back link */}
-          <Link
-            href="/library"
-            className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
-          >
-            <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
-            Back to books
-          </Link>
+          <BackLink href="/library">Back to books</BackLink>
 
           {/* Header */}
           <div className={`${background ? "mb-4" : "mb-8"} flex flex-col gap-6 sm:flex-row`}>
-            {/* Poster image */}
-            {poster && (
+            {/* The poster, else the first edition's cover, else a placeholder
+                cover the same size: the header keeps its cover's place, so the
+                loading screen's cover box never jumps (SLN-697) */}
+            {poster ? (
               <WorkPosterImage
                 src={mediaUrl(poster.s3Key)}
                 alt={`${work.title} poster`}
                 crop={mediaCrop(poster)}
                 palette={crystalPalette}
               />
+            ) : editionCover?.coverS3Key ? (
+              <WorkPosterImage
+                src={mediaUrl(editionCover.coverS3Key, { version: editionCover.updatedAt })}
+                alt={`${work.title} cover`}
+                crop={mediaCrop({})}
+              />
+            ) : (
+              <WorkPosterPlaceholder title={work.title} />
             )}
 
             <div className="min-w-0 flex-1">
@@ -567,12 +574,9 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                   <span className="text-xs text-fg-secondary">Recommended by </span>
                   {work.workRecommenders.map((wr, i) => (
                     <span key={wr.recommender.id} className="pointer-coarse:inline-flex pointer-coarse:max-w-full pointer-coarse:items-start pointer-coarse:py-1">
-                      {i > 0 && (
-                        <span className="text-xs text-fg-secondary pointer-coarse:pt-3">, </span>
-                      )}
                       <Link
                         href={`/recommenders/${wr.recommender.id}`}
-                        className="text-xs text-accent-primary transition-colors hover:text-fg-primary pointer-coarse:min-w-11 pointer-coarse:py-3 pointer-coarse:[overflow-wrap:anywhere]"
+                        className="text-xs text-command pointer-coarse:my-0 pointer-coarse:min-w-11 pointer-coarse:py-3 pointer-coarse:[overflow-wrap:anywhere]"
                       >
                         {wr.recommender.name}
                       </Link>
@@ -595,6 +599,11 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                             </span>
                           </span>
                         </span>
+                      )}
+                      {/* The comma ends its name's line, never starts the next, and keeps
+                          its space where the touch row is a flex box */}
+                      {i < work.workRecommenders.length - 1 && (
+                        <span className="whitespace-pre text-xs text-fg-secondary pointer-coarse:pt-3">, </span>
                       )}
                     </span>
                   ))}

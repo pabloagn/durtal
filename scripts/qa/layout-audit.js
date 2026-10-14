@@ -18,7 +18,9 @@
  *   the box of a boxed element such as a badge or field) starts between 0.5
  *   and 12px off the left edge of the column holding it. A wrapping row of
  *   controls is checked on every line. Mark an intended inset with
- *   `data-inset` on the block or any element around it.
+ *   `data-inset` on the block or any element around it. A label and value
+ *   list laid out as a grid (a `dl`, such as a film's facts) is checked the
+ *   same way, up to 16px: each term's and value's ink against its own cell.
  * - firstContent: where the first card starts. On a list page seen on a
  *   phone it should start in the top 60% of the first screen (487px on the
  *   phone audit's 812px tall screen): `late` is true when it does not. Only
@@ -160,11 +162,12 @@
     return true;
   };
   /** Where a block's first line of ink starts: text, an icon or a boxed element */
-  function inkLeft(block) {
+  /** `layered`: count absolutely placed ink too (a star drawn in layers) */
+  function inkLeft(block, layered = false) {
     if (boxed(block)) return block.getBoundingClientRect().left;
     const marks = [];
     const walk = (el) => {
-      if (!visible(el) || ["absolute", "fixed"].includes(css(el).position)) return;
+      if (!visible(el) || (!layered && ["absolute", "fixed"].includes(css(el).position))) return;
       if (el !== block && (boxed(el) || el.matches("svg, img, input, select, textarea, video, canvas, picture"))) {
         marks.push(el.getBoundingClientRect());
         return;
@@ -223,6 +226,27 @@
             drift.push({ element: name(start), text: text(start), off: round(off), column: name(column), card: name(card) });
           }
         }
+      }
+    }
+  }
+
+  // ── Drifting edges in label and value grids ─────────────────────────────
+  // A value that spans the grid (a control too wide for its column) is held
+  // to the cell's edge too, which is the labels' edge
+  const LIST_DRIFT_MAX = 16;
+  for (const list of main.querySelectorAll("dl")) {
+    if (!visible(list) || !css(list).display.includes("grid")) continue;
+    for (const cell of list.children) {
+      if (!cell.matches("dt, dd") || !visible(cell) || seen.has(cell) || intended(cell, list) || boxed(cell)) continue;
+      const s = css(cell);
+      if (s.textAlign === "center" || s.textAlign === "right" || s.textAlign === "end") continue;
+      const ink = inkLeft(cell, true);
+      if (ink === null) continue;
+      const r = cell.getBoundingClientRect();
+      const off = ink - (r.left + parseFloat(s.borderLeftWidth) + parseFloat(s.paddingLeft));
+      if (Math.abs(off) > DRIFT_MIN && Math.abs(off) <= LIST_DRIFT_MAX) {
+        seen.add(cell);
+        drift.push({ element: name(cell), text: text(cell), off: round(off), column: name(cell), card: name(list) });
       }
     }
   }

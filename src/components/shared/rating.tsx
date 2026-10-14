@@ -16,6 +16,17 @@ type StarSize = 12 | 14 | 16;
 
 const ICON: Record<StarSize, string> = { 12: "h-3 w-3", 14: "h-3.5 w-3.5", 16: "h-4 w-4" };
 
+/**
+ * How far the input reaches past its column: half the space around a star in
+ * its 24px target (44px on touch), so the first star starts on the text edge
+ * like the label above or beside it
+ */
+const PULL: Record<StarSize, string> = {
+  12: "-ml-1.5 pointer-coarse:-ml-4",
+  14: "-ml-1.25 pointer-coarse:-ml-3.75",
+  16: "-ml-1 pointer-coarse:-ml-3.5",
+};
+
 /** One star: empty (outlined), half (the left half filled) or full */
 function StarGlyph({ fill, size }: { fill: 0 | 0.5 | 1; size: StarSize }) {
   const icon = ICON[size];
@@ -203,7 +214,7 @@ export function RatingInput({
   const text = value === null ? "Not rated" : `${formatRating(value)} ${value === 1 ? "star" : "stars"}`;
   // The Clear button wraps under the stars where the row is too narrow for both
   return (
-    <div className="flex flex-wrap items-start gap-y-6">
+    <div className={`flex flex-wrap items-start gap-y-6 ${PULL[size]}`}>
       <CapAligned height={24} coarseHeight={44}>
         <div
           ref={row}

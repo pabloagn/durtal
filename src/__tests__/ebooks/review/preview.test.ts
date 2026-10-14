@@ -96,7 +96,9 @@ describe("private frozen review preview", () => {
       expect(hash).toBe(reviewPayloadHash(first));
     }
     expect(reads).toEqual([["snapshot"], ["snapshot"]]);
-  });
+    // Building and hashing 31 MB of rows twice takes about two seconds alone and
+    // ran past the 5 s default in a loaded machine's full run
+  }, 30_000);
   it("refuses a confirm when the library changed after the preview, and reads nothing it does not need", async () => {
     const cache = new ReviewPreviewCache(() => 0), envelope = fixture();
     const token = cache.issue(envelope, "ui", "test");

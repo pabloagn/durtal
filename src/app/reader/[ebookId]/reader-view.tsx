@@ -58,7 +58,7 @@ import {
 } from "@/lib/reader/running-lines";
 import { lazy, Suspense } from "react";
 import { OpenError } from "@/components/reader/open-error";
-import { ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
+import { quietChapter, ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
 import { ReaderShell, useReaderBars } from "@/components/reader/reader-shell";
 import { PageEdges } from "@/components/reader/page-edges";
 import { DownloadButton } from "@/components/reader/offline/download-button";
@@ -353,6 +353,13 @@ function ReaderSession({
   const [speechHeight, setSpeechHeight] = useState(0);
   const [bottomHeight, setBottomHeight] = useState(0);
   const [topHeight, setTopHeight] = useState(0);
+  // The text keeps clear of the bars; with the speech player open the book
+  // already ends above it and the bottom bar (SLN-663)
+  const insets = useMemo(
+    () => ({ top: topHeight, bottom: speechHeight ? 0 : bottomHeight, pinned: settings.pinBars }),
+    [topHeight, bottomHeight, speechHeight, settings.pinBars],
+  );
+  const insetsRef = useRef(insets);
   const [relocation, setRelocation] = useState<EngineEvents["relocate"] | null>(
     null,
   );
@@ -417,6 +424,12 @@ function ReaderSession({
     [settings],
   );
   const presentationRef = useRef(presentation);
+  // Scrolled text names its chapter in a slim band while the bars are hidden
+  const paginated = relocation ? relocation.paginated : true;
+  const pageByPage = !!relocation && engineRef.current?.fixedPages?.() != null;
+  const quiet = useMemo(() => quietChapter({
+    policy: presentation?.policy, paginated, pageByPage, pinBars: settings.pinBars, format: file?.format,
+  }), [paginated, pageByPage, settings.pinBars, presentation, file?.format]);
   useEffect(() => {
     presentationRef.current = presentation;
     paceRef.current?.interrupt();
@@ -922,6 +935,7 @@ function ReaderSession({
         input.attach(document);
         historyInput.attach(document);
         const openingEngine = createFoliateEngine();
+        openingEngine.setInsets?.(insetsRef.current);
         engine = openingEngine;
         engineRef.current = openingEngine;
         unregisterSelectionCapture = bridge.registerSelectionCapture((origin) => {
@@ -1423,6 +1437,10 @@ function ReaderSession({
       frame.style.bottom = `${speechHeight ? speechHeight + (bars.visible ? bottomHeight : 0) : 0}px`;
   }, [speechHeight, bars.visible, bottomHeight]);
   useEffect(() => {
+    insetsRef.current = insets;
+    engineRef.current?.setInsets?.(insets);
+  }, [insets]);
+  useEffect(() => {
     const bottom = document.querySelector<HTMLElement>(
       "[data-reader-bottom-bar]",
     );
@@ -1608,6 +1626,7 @@ function ReaderSession({
           index={index}
           locator={relocation?.locator}
           linear={relocation?.linear}
+          quiet={quiet}
           timeLeftChapter={
             index && relocation
               ? paceRef.current?.remaining(

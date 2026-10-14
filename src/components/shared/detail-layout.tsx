@@ -90,7 +90,7 @@ export function RecordField({
  * taller; in a wider row a long title can be shorter either way. Each kind
  * keeps the wrapping it had where that was already free, so no header grows.
  */
-const TITLE_ROW = {
+export const DETAIL_TITLE_ROW = {
   // The publisher's star, Edit and menu (157px on touch): 16px from the
   // title; under it below a 24rem row
   standard: "gap-x-6 pointer-coarse:gap-x-7.5 @min-[24rem]:flex-nowrap",
@@ -128,14 +128,14 @@ export function DetailTitleRow({
   children,
 }: {
   title: ReactNode;
-  /** How wide the controls are (TITLE_ROW) */
-  controls?: keyof typeof TITLE_ROW;
+  /** How wide the controls are (DETAIL_TITLE_ROW) */
+  controls?: keyof typeof DETAIL_TITLE_ROW;
   /** `DetailControls`, or a component that renders them */
   children: ReactNode;
 }) {
   return (
     <div className="@container">
-      <div className={`type-page-title flex flex-wrap items-start ${TITLE_ROW[controls]}`}>
+      <div className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW[controls]}`}>
         <h1 className="type-page-title min-w-0 flex-[1_1_auto] break-words">{title}</h1>
         {children}
       </div>

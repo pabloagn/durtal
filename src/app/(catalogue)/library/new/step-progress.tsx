@@ -61,23 +61,28 @@ export function StepProgress({
                   className={`h-px w-4 ${isCompleted ? "bg-accent-sage" : "bg-bg-tertiary"}`}
                 />
               )}
-              <button
-                type="button"
-                disabled={!isCompleted || disabled}
-                onClick={() => isCompleted && onStep(s.key)}
-                className={`flex items-center gap-1 rounded-sm px-2 py-1 text-micro font-medium transition-colors ${
-                  isCurrent
-                    ? "bg-selection-bg text-accent-primary"
-                    : isCompleted
-                      ? "text-fg-secondary hover:text-fg-primary cursor-pointer"
-                      : "text-fg-secondary cursor-default"
-                }`}
-              >
-                {isCompleted && (
-                  <Check className="h-2.5 w-2.5" strokeWidth={2} />
-                )}
-                {s.label}
-              </button>
+              {isCompleted ? (
+                // A done step opens again: its label is a text command
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onStep(s.key)}
+                  className="flex items-center gap-1 rounded-sm px-2 py-1 cursor-pointer text-micro font-medium text-fg-secondary disabled:cursor-default"
+                >
+                  <Check className="h-2.5 w-2.5" strokeWidth={1.5} aria-hidden />
+                  <span className={disabled ? undefined : "text-command"}>{s.label}</span>
+                </button>
+              ) : (
+                // The step in view and the steps ahead are states, not commands
+                <span
+                  aria-current={isCurrent ? "step" : undefined}
+                  className={`flex items-center gap-1 rounded-sm px-2 py-1 text-micro font-medium ${
+                    isCurrent ? "bg-selection-bg text-accent-primary" : "text-fg-secondary"
+                  }`}
+                >
+                  {s.label}
+                </span>
+              )}
             </div>
           );
         })}
