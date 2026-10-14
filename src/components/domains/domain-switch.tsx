@@ -26,8 +26,10 @@ export function DomainSwitch({
     if (first) params.set(key, first);
   }
   return (
-    <nav aria-label="Collections" className="mt-6">
-      <ul className="flex flex-wrap gap-1">
+    <nav aria-label="Collections" className="mt-6 max-sm:mt-4">
+      {/* On a phone one row of equal tabs without icons; a row too narrow
+          for every label scrolls inside itself, never the page (SLN-639) */}
+      <ul className="flex flex-wrap gap-1 max-sm:grid max-sm:auto-cols-[minmax(max-content,1fr)] max-sm:grid-flow-col max-sm:overflow-x-auto">
         {kinds.map((kind) => {
           const Icon = DOMAIN_ICONS[kind];
           const active = kind === current;
@@ -36,13 +38,13 @@ export function DomainSwitch({
               <Link
                 href={domainSwitchHref(kind, params)}
                 aria-current={active ? "page" : undefined}
-                className={`inline-flex h-8 items-center gap-2 rounded-sm border px-3 text-sm transition-colors pointer-coarse:h-11 ${
+                className={`inline-flex h-8 items-center gap-2 rounded-sm border px-3 text-sm transition-colors pointer-coarse:h-11 max-sm:w-full max-sm:justify-center max-sm:px-2 ${
                   active
                     ? "border-accent-primary/10 bg-selection-bg/80 text-fg-primary"
                     : "border-transparent text-fg-secondary hover:bg-bg-tertiary/50 hover:text-fg-primary"
                 }`}
               >
-                <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+                <Icon className="h-3.5 w-3.5 shrink-0 max-sm:hidden" strokeWidth={1.5} />
                 {WORK_DOMAINS[kind].pluralLabel}
               </Link>
             </li>

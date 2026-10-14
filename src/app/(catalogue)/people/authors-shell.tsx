@@ -254,24 +254,6 @@ export function AuthorsShell({
 
   return (
     <>
-      {/* Select / Cancel button — hidden in map and timeline views */}
-      {viewMode !== "map" && viewMode !== "timeline" && (
-        <div className="mb-4 flex justify-end">
-          <Button
-            variant={selection.isSelecting ? "primary" : "ghost"}
-            size="sm"
-            onClick={() =>
-              selection.isSelecting
-                ? selection.exitSelectionMode()
-                : selection.enterSelectionMode()
-            }
-          >
-            <CheckSquare className="h-3.5 w-3.5" strokeWidth={1.5} />
-            {selection.isSelecting ? "Cancel" : "Select"}
-          </Button>
-        </div>
-      )}
-
       {viewMode === "map" && (
         <div className="h-[calc(100vh-220px)] min-h-[400px]">
           {mapAuthors.status === "ready" ? (
@@ -300,7 +282,28 @@ export function AuthorsShell({
         </div>
       )}
 
-      {viewMode !== "map" && viewMode !== "timeline" && <Pagination {...pagination} noun="people" compact />}
+      {/* Select sits in the count's row; none in the map or timeline (SLN-639) */}
+      {viewMode !== "map" && viewMode !== "timeline" && (
+        <Pagination
+          {...pagination}
+          noun="people"
+          compact
+          action={
+            <Button
+              variant={selection.isSelecting ? "primary" : "ghost"}
+              size="sm"
+              onClick={() =>
+                selection.isSelecting
+                  ? selection.exitSelectionMode()
+                  : selection.enterSelectionMode()
+              }
+            >
+              <CheckSquare className="h-3.5 w-3.5" strokeWidth={1.5} />
+              {selection.isSelecting ? "Cancel" : "Select"}
+            </Button>
+          }
+        />
+      )}
 
       {viewMode === "grid" && (
         <div className="@container">
