@@ -19,14 +19,23 @@ function rawRow() {
       manifest_key: file.manifestKey, content_type: "application/epub+zip", source_path: "/inbox/Nadja.epub" }] };
 }
 describe("bounded queue query composition", () => {
-  it("uses one counts query and one row query per nonempty section, independent of row count", async () => {
-    const counts = Object.fromEntries(REVIEW_SECTIONS.map(({ key }) => [key, key === "not_in_durtal" ? 50 : 0]));
-    const execute = vi.fn().mockResolvedValueOnce([counts]).mockResolvedValueOnce(Array.from({ length: 50 }, rawRow));
+  it("uses one counts query and one page of one section, independent of row count (SLN-684)", async () => {
+    const counts = Object.fromEntries(REVIEW_SECTIONS.map(({ key }) => [key, key === "not_in_durtal" ? 60 : key === "duplicate" ? 3 : 0]));
+    const execute = vi.fn().mockResolvedValueOnce([counts]).mockResolvedValueOnce(Array.from({ length: 20 }, rawRow));
     const queue = await loadReviewQueue({ execute } as unknown as Db, parseReviewParams({}));
-    expect(execute).toHaveBeenCalledTimes(2); expect(queue.sections[0].rows).toHaveLength(50);
+    expect(execute).toHaveBeenCalledTimes(2); expect(queue.sections.map((section) => section.key)).toEqual(["duplicate"]);
+    expect(queue.page).toBe(1);
     const rowQuery = compile(execute.mock.calls[1][0]);
     expect(rowQuery.sql).toContain("ebook_match_candidates");
-    expect(rowQuery.sql).toContain("jsonb_agg"); expect(rowQuery.params).toContain(50);
+    expect(rowQuery.sql).toContain("jsonb_agg"); expect(rowQuery.params).toContain(20);
+  });
+  it("opens the named section at its page, and the last page for one past the end (SLN-684)", async () => {
+    const counts = Object.fromEntries(REVIEW_SECTIONS.map(({ key }) => [key, key === "not_in_durtal" ? 60 : key === "duplicate" ? 3 : 0]));
+    const execute = vi.fn().mockResolvedValueOnce([counts]).mockResolvedValueOnce([rawRow()]);
+    const queue = await loadReviewQueue({ execute } as unknown as Db, parseReviewParams({ section: "not_in_durtal", page: "9" }));
+    expect(queue.sections.map((section) => section.key)).toEqual(["not_in_durtal"]);
+    expect(queue.page).toBe(3);
+    expect(compile(execute.mock.calls[1][0]).params).toContain(40);
   });
   it("retains exact microseconds and strips private object keys/full digests from client files", async () => {
     const execute = vi.fn().mockResolvedValueOnce([{ not_in_durtal: 1 }]).mockResolvedValueOnce([rawRow()]);

@@ -39,6 +39,8 @@ import { EbookLinkPanel } from "@/components/ebooks/ebook-link-panel";
 import { EbookFilesTable } from "@/components/ebooks/ebook-files-table";
 import { EbookPlaces } from "@/components/ebooks/ebook-places";
 import { EbookMarksExport } from "@/components/ebooks/ebook-marks-export";
+import { EbookHistory } from "@/components/ebooks/ebook-history";
+import { getEbookDecisions } from "@/lib/ebooks/review/history";
 import { getEbookMarkCounts } from "@/lib/ebooks/highlights";
 import { getLinkedBook } from "@/lib/ebooks/linked-book";
 type Props = {
@@ -69,7 +71,7 @@ export default async function EbookPage({ params, searchParams }: Props) {
   const allDevices = await allDevicesOf(searchParams);
   const ebook = await load((await params).ebookId, allDevices);
   if (!ebook) notFound();
-  const marks = await getEbookMarkCounts(ebook.id);
+  const [marks, decisions] = await Promise.all([getEbookMarkCounts(ebook.id), getEbookDecisions(ebook.id)]);
   const markTotal = marks.highlights + marks.bookmarks;
   const device = (await cookies()).get(DEVICE_COOKIE)?.value;
   const descriptor = continueTarget({
@@ -290,38 +292,7 @@ export default async function EbookPage({ params, searchParams }: Props) {
           <EbookPlaces ebook={ebook} descriptor={descriptor} returnTo={returnTo} allDevices={allDevices} />
         </section>
         <section className="mb-8">
-          <SectionHeading title="History" count={ebook.historyTotal} />
-          {ebook.history.length ? (
-            <ul className="divide-y divide-glass-border">
-              {ebook.history.map((item) => (
-                <li key={item.id} className="py-3 text-sm">
-                  <Link
-                    href={`/ebooks/runs/${item.runId}`}
-                    className="text-accent-primary"
-                  >
-                    {item.createdAt.slice(0, 10)} ·{" "}
-                    {item.host ?? "Browser upload"}
-                  </Link>
-                  <p className="mt-1 text-xs text-fg-secondary [overflow-wrap:anywhere]">
-                    {item.path} ·{" "}
-                    {item.reason ??
-                      item.outcome?.replace(/_/g, " ") ??
-                      "Recorded"}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-fg-secondary">
-              No ingestion history recorded.
-            </p>
-          )}
-          {ebook.historyTotal > ebook.history.length && (
-            <p className="mt-3 text-xs text-fg-secondary">
-              Showing the latest {ebook.history.length} of {ebook.historyTotal}{" "}
-              events. Open a run for its full history.
-            </p>
-          )}
+          <EbookHistory ebook={ebook} decisions={decisions.decisions} decisionTotal={decisions.total} />
         </section>
       </DetailColumns>
     </>

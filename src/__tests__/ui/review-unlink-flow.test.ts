@@ -29,7 +29,7 @@ function queue(returned = false): ReviewQueue {
     ...(returned ? [] : [{ key: "automatic" as const, rows: [linked()] }]),
     { key: "not_in_durtal", rows: [...(returned ? [{ ...reviewRow(), stamp: { ...reviewRow().stamp!, updatedAt: "2026-10-10T10:00:00.000002Z" } }] : []),
       { ...reviewRow(), id: secondId, title: "Second book" }] },
-  ] };
+  ], page: 1 };
 }
 beforeAll(() => { (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
 beforeEach(async () => {
@@ -48,11 +48,11 @@ async function click(label: string) { await act(async () => {
 describe("mounted automatic link to fresh review receipt", () => {
   it("blocks unrelated writes on unknown, keeps native identity and lets the authoritative pending row return without an inverse", async () => {
     await click("Undo automatic link…"); expect(api.prepareReviewUnlinkUi).not.toHaveBeenCalled();
-    await click("Preview automatic Undo"); expect(api.prepareReviewUnlinkUi.mock.calls[0][0].intent.originalMatchingOperation).toEqual(operation);
-    await click("Confirm return to review"); await click("Keep as eBook"); expect(api.prepareReviewUi).not.toHaveBeenCalled();
+    await click("Check what changes"); expect(api.prepareReviewUnlinkUi.mock.calls[0][0].intent.originalMatchingOperation).toEqual(operation);
+    await click("Undo the link"); await click("Keep as eBook"); expect(api.prepareReviewUi).not.toHaveBeenCalled();
     expect(api.refresh).not.toHaveBeenCalled(); expect(host.querySelector(`[data-review-row="${ebookId}"]`)?.textContent).toContain("Linked to");
-    await click("Retry this unlink decision"); expect(api.confirmReviewUnlinkUi.mock.calls[0]).toEqual(api.confirmReviewUnlinkUi.mock.calls[1]);
-    expect(api.refresh).toHaveBeenCalledOnce(); await click("Close");
+    await click("Try again"); expect(api.confirmReviewUnlinkUi.mock.calls[0]).toEqual(api.confirmReviewUnlinkUi.mock.calls[1]);
+    expect(api.refresh).toHaveBeenCalledOnce(); await click("Done");
     expect(host.querySelector('[aria-label="Recent decisions"]')?.textContent).toContain("Kept the copy");
     expect([...host.querySelectorAll("button")].some((item) => item.textContent === "Undo" || item.textContent === "Undo decision")).toBe(false);
     await act(async () => root.render(createElement(ReviewView, { queue: queue(true), params: parseReviewParams({}) })));
