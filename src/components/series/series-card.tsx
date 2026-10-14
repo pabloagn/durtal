@@ -117,7 +117,7 @@ export function SeriesListItem({ series: s }: { series: SeriesItem }) {
       <div className="min-w-0 flex-1">
         {/* The badge, counts and star sit on the title's first line */}
         <div className="flex items-start gap-3">
-          <h3 className="type-item-title min-w-0 flex-1 truncate group-hover:text-accent-primary">
+          <h3 className="type-item-title min-w-0 flex-1 [overflow-wrap:anywhere] group-hover:text-accent-primary">
             {s.title}
           </h3>
           <div className="type-item-title hidden h-[1lh] shrink-0 items-center gap-3 sm:flex">
@@ -137,12 +137,12 @@ export function SeriesListItem({ series: s }: { series: SeriesItem }) {
           </div>
         </div>
         {s.originalTitle && s.originalTitle !== s.title && (
-          <p className="truncate text-xs italic text-fg-secondary">
+          <p className="text-xs italic text-fg-secondary [overflow-wrap:anywhere]">
             {s.originalTitle}
           </p>
         )}
         {s.authors.length > 0 && (
-          <p className="truncate text-xs text-fg-secondary">
+          <p className="text-xs text-fg-secondary [overflow-wrap:anywhere]">
             {s.authors.join(", ")}
           </p>
         )}

@@ -18,8 +18,15 @@ export const REVIEW_RECEIPT_EVENTS = {
   workUndo: "ebook.review.catalogue_status_undo.v1",
 } as const;
 
-/** JSON canonicalization for hashes, with no lossy undefined/NaN/date serialization. */
-export function canonicalReviewJson(value: unknown): string {
+/** JSON canonicalization for hashes, with no lossy undefined/NaN/date serialization.
+ * `known` holds values already canonicalized, such as a plan's table rows, so
+ * a whole envelope is not walked twice. */
+export function canonicalReviewJson(value: unknown, known?: ReadonlyMap<object, string>): string {
+  if (known && typeof value === "object" && value !== null) {
+    const text = known.get(value);
+    if (text !== undefined) return text;
+  }
+  const canonical = known ? (item: unknown) => canonicalReviewJson(item, known) : canonicalPlain;
   if (value === null || typeof value === "boolean" || typeof value === "string")
     return JSON.stringify(value);
   if (typeof value === "number" && Number.isFinite(value))
@@ -33,7 +40,7 @@ export function canonicalReviewJson(value: unknown): string {
       ).some((present) => !present)
     )
       throw new Error("Sparse or augmented arrays are not canonical JSON");
-    return `[${value.map(canonicalReviewJson).join(",")}]`;
+    return `[${value.map(canonical).join(",")}]`;
   }
   if (
     typeof value === "object" &&
@@ -46,12 +53,13 @@ export function canonicalReviewJson(value: unknown): string {
       .sort()
       .map(
         (key) =>
-          `${JSON.stringify(key)}:${canonicalReviewJson((value as Record<string, unknown>)[key])}`,
+          `${JSON.stringify(key)}:${canonical((value as Record<string, unknown>)[key])}`,
       )
       .join(",")}}`;
   }
   throw new Error("Review hashes require plain finite JSON values");
 }
+const canonicalPlain = (value: unknown) => canonicalReviewJson(value);
 export function reviewPayloadHash(value: unknown): string {
   return createHash("sha256").update(canonicalReviewJson(value)).digest("hex");
 }

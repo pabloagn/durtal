@@ -26,6 +26,14 @@
  *   bars       both bars show on open, hide together after 3 s and come back
  *              together on a mouse move; a click anywhere in the text keeps
  *              the place, and the Next page edge button turns
+ *   pointer    SLN-662, at 1440: a double-click selects a word and a drag a
+ *              line without turning; with the selection toolbar open, a click
+ *              in the text or the margin closes it without turning; a click on
+ *              a link follows it; once the bars hide, the page button of the
+ *              margin the mouse rests in stays up. At 390 with touch (Chrome,
+ *              WebKit): a long press keeps the place; with a selection, a tap
+ *              in an edge strip closes it without turning; a tap on a link
+ *              follows it
  *   dialogs    Contents and Settings take focus, keep Tab inside, close with
  *              Escape and give focus back to their button
  *   pdfmarks   a highlight made by dragging across a line of the PDF fixture
@@ -75,7 +83,7 @@ const option = (name, fallback) => {
 const base = option("--base", "http://127.0.0.1:3410").replace(/\/$/, "");
 const previewState = option("--preview-state", undefined);
 const browsers = option("--browsers", "chromium,webkit,firefox").split(",");
-const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "dialogs", "navigation", "pdfmarks", "turns", "endurance"];
+const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "pointer", "dialogs", "navigation", "pdfmarks", "turns", "endurance"];
 // endurance needs the large fixtures: it runs only when asked for
 const only = option("--only", CHECKS.filter((c) => c !== "endurance").join(",")).split(",");
 
@@ -524,6 +532,186 @@ async function checkBars(name, browser) {
   await context.close();
 }
 
+/** A word and its line in the first loaded section, in viewport pixels */
+const wordAt = (page) =>
+  page.evaluate(() => {
+    const { doc } = document.querySelector("foliate-view").renderer.getContents()[0];
+    const host = doc.defaultView.frameElement.getBoundingClientRect();
+    const visible = (rect) => rect.width > 0 && host.left + rect.left > 0 && host.left + rect.right < innerWidth * 0.8;
+    for (const p of doc.querySelectorAll("p")) {
+      const text = p.firstChild;
+      if (text?.nodeType !== 3 || text.data.length < 60) continue;
+      const at = text.data.indexOf(" ", 12) + 1;
+      const end = text.data.indexOf(" ", at);
+      const range = doc.createRange();
+      range.setStart(text, at);
+      range.setEnd(text, end);
+      const box = range.getBoundingClientRect();
+      if (!visible(box)) continue;
+      return { x: host.left + box.left + box.width / 2, y: host.top + box.top + box.height / 2, left: host.left + box.left + 1, width: box.width };
+    }
+    return null;
+  });
+/** The selected text in the book, the selection toolbar, and the place */
+const selectionState = (page) =>
+  page.evaluate(() => {
+    const view = document.querySelector("foliate-view");
+    const text = view.renderer.getContents().map(({ doc }) => doc.getSelection()?.toString() ?? "").join("").trim();
+    const bar = document.querySelector('[role="toolbar"][aria-label="Selection actions"]');
+    const toolbar = !!bar && !bar.closest("[inert]") && getComputedStyle(bar).opacity !== "0" && bar.getBoundingClientRect().width > 0;
+    return { text, toolbar, fraction: view.lastLocation?.fraction ?? null };
+  });
+/** Selects a word in the first loaded section from script, as a long press would */
+const selectWord = (page) =>
+  page.evaluate(() => {
+    const { doc } = document.querySelector("foliate-view").renderer.getContents()[0];
+    const text = [...doc.querySelectorAll("p")].map((p) => p.firstChild).find((t) => t?.nodeType === 3 && t.data.length > 60);
+    const range = doc.createRange();
+    range.setStart(text, 0);
+    range.setEnd(text, text.data.indexOf(" ", 4));
+    doc.getSelection().removeAllRanges();
+    doc.getSelection().addRange(range);
+    doc.dispatchEvent(new Event("selectionchange"));
+  });
+/** A link to the notes, not covered by the reader's own controls. The Back
+ * to chip stays over the bottom lines for three turns after a jump, and where
+ * the link falls depends on the browser's layout: Go to page 24, then turn on
+ * until it shows */
+const turnToNotesLink = async (page, turn) => {
+  await goto(notesDriver(page), "Page", "24");
+  for (let turns = 0; turns < 12; turns++) {
+    await sleep(300);
+    const link = await notesLink(page);
+    if (link) return link;
+    const before = await page.evaluate(readState);
+    await turn();
+    await moved(page, before.fraction);
+  }
+  const at = await page.evaluate(() => document.querySelector("footer[data-reader-chrome]")?.textContent.slice(0, 40));
+  throw new Error(`No uncovered notes link within twelve turns of page 24 at ${page.viewportSize().width} (ended at ${at})`);
+};
+const notesLink = (page) =>
+  page.evaluate(() => {
+    for (const { doc } of document.querySelector("foliate-view").renderer.getContents()) {
+      const host = doc.defaultView.frameElement.getBoundingClientRect();
+      for (const a of doc.querySelectorAll('a[href*="notes.xhtml"]')) {
+        const box = a.getBoundingClientRect();
+        const x = host.left + box.left + box.width / 2, y = host.top + box.top + box.height / 2;
+        // Hidden bars are inert, so a press passes through them to the book.
+        // On touch a press in the outer strips turns; a mouse only needs to
+        // stay clear of the page buttons
+        const edge = matchMedia("(pointer: coarse)").matches ? 0.15 : 0.04;
+        const over = document.elementFromPoint(x, y);
+        if (box.width > 0 && x > innerWidth * edge && x < innerWidth * (1 - edge) && y > 0 && y < innerHeight
+          && (over?.tagName === "FOLIATE-VIEW" || !!over?.closest("[inert]"))) return { x, y };
+      }
+    }
+    return null;
+  });
+const footer = (page) => page.evaluate(() => document.querySelector("footer[data-reader-chrome]")?.textContent ?? "");
+const notesDriver = (page) => ({
+  evaluate: (expression) => page.evaluate(expression),
+  selectMode: (mode) => page.getByRole("dialog", { name: "Go to", exact: true }).getByRole("radio", { name: mode, exact: true }).click(),
+  fill: (text) => page.locator("dialog[open] input").fill(text),
+  commit: () => page.locator("dialog[open] input").press("Enter"),
+  key: (key) => page.keyboard.press(key),
+});
+
+/** SLN-662: pointer presses select, mark and follow links; they never turn.
+ * The link rows use fixture 20: the navigation check's history rows start
+ * from wherever fixture 19 was left. */
+async function checkPointer(name, browser) {
+  const context = await browser.newContext(desktop);
+  const page = await context.newPage();
+  await open(page, 6);
+  await sleep(400);
+  const word = await wordAt(page);
+  if (!word) throw new Error("No word on the first page");
+  const start = await selectionState(page);
+  // A double-click selects the word and looks it up; Escape closes the lookup
+  await page.mouse.dblclick(word.x, word.y);
+  await sleep(500);
+  const double = await selectionState(page);
+  record(name, "pointer", "1440: a double-click selects a word and keeps the place",
+    double.text.length > 0 && !double.text.includes(" ") && double.fraction === start.fraction, `"${double.text}", ${start.fraction?.toFixed(3)} → ${double.fraction?.toFixed(3)}`);
+  await page.keyboard.press("Escape");
+  await sleep(300);
+  // Low in the text column, clear of the toolbar above the selection
+  await page.mouse.click(word.x, 760);
+  await sleep(500);
+  const closed = await selectionState(page);
+  record(name, "pointer", "1440: with a selection, a click in the text clears it and keeps the place",
+    double.toolbar && !closed.toolbar && !closed.text && closed.fraction === start.fraction, `toolbar ${double.toolbar} → ${closed.toolbar}, "${closed.text.slice(0, 20)}", ${closed.fraction?.toFixed(3)}`);
+  const drag = async () => {
+    await page.mouse.move(word.left, word.y);
+    await page.mouse.down();
+    await page.mouse.move(word.left + 220, word.y, { steps: 10 });
+    await page.mouse.up();
+    await sleep(500);
+    return selectionState(page);
+  };
+  const dragged = await drag();
+  record(name, "pointer", "1440: a drag selects and keeps the place",
+    dragged.text.includes(" ") && dragged.toolbar && dragged.fraction === start.fraction, `"${dragged.text.slice(0, 30)}", toolbar ${dragged.toolbar}, ${dragged.fraction?.toFixed(3)}`);
+  // The margin beside the text, above the Next page button
+  await page.mouse.click(1400, 220);
+  await sleep(500);
+  const margin = await selectionState(page);
+  record(name, "pointer", "1440: with a selection, a click in the margin clears it and keeps the place",
+    !margin.toolbar && !margin.text && margin.fraction === start.fraction, `toolbar ${margin.toolbar}, ${margin.fraction?.toFixed(3)}`);
+  // The mouse rests in the right margin: once the bars hide, only its button stays
+  await page.mouse.move(1405, 300);
+  await page.mouse.move(1410, 306);
+  await sleep(3700);
+  const edges = await page.evaluate(() => {
+    const up = (el) => !!el && !el.inert && !el.closest("[inert]") && getComputedStyle(el).opacity !== "0";
+    return { bars: up(document.querySelector("header[data-reader-chrome]")),
+      next: up(document.querySelector('[aria-label="Next page"]')), previous: up(document.querySelector('[aria-label="Previous page"]')) };
+  });
+  record(name, "pointer", "1440: once the bars hide, the button of the margin the mouse rests in stays up",
+    !edges.bars && edges.next && !edges.previous, JSON.stringify(edges));
+  await open(page, 20);
+  const link = await turnToNotesLink(page, () => page.keyboard.press("ArrowRight"));
+  await page.mouse.click(link.x, link.y);
+  await page.waitForFunction(() => document.querySelector("footer[data-reader-chrome]")?.textContent.includes("Outside the reading order"), null, { timeout: 5000 }).catch(() => {});
+  record(name, "pointer", "1440: a click on a link follows it", (await footer(page)).includes("Outside the reading order"), (await footer(page)).slice(0, 60));
+  await context.close();
+  if (name === "firefox") return; // Firefox has no touch emulation in Playwright
+  const phoneContext = await browser.newContext(phone(name));
+  const touch = await phoneContext.newPage();
+  await open(touch, 6);
+  await sleep(400);
+  const before = await selectionState(touch);
+  // A long press in the middle of the text: Playwright has none, so the touches are sent to the book's page
+  await touch.evaluate(async () => {
+    const { doc } = document.querySelector("foliate-view").renderer.getContents()[0];
+    const win = doc.defaultView, target = doc.body;
+    const point = (x, y) => (doc.createTouch ? doc.createTouch(win, target, 1, x, y, x, y) : new win.Touch({ identifier: 1, target, clientX: x, clientY: y }));
+    const list = (...touches) => (doc.createTouchList ? doc.createTouchList(...touches) : touches);
+    const fire = (type, down) =>
+      target.dispatchEvent(new win.TouchEvent(type, { bubbles: true, cancelable: true, touches: down ? list(point(win.innerWidth * 0.9, 300)) : list(), changedTouches: list(point(win.innerWidth * 0.9, 300)) }));
+    fire("touchstart", true);
+    await new Promise((r) => setTimeout(r, 800));
+    fire("touchend", false);
+  });
+  const pressed = await moved(touch, before.fraction, 1500);
+  record(name, "pointer", "390: a long press keeps the place", pressed.fraction === before.fraction, `${before.fraction?.toFixed(3)} → ${pressed.fraction?.toFixed(3)}`);
+  await selectWord(touch);
+  await sleep(500);
+  const selected = await selectionState(touch);
+  await touch.touchscreen.tap(390 * 0.95, 420);
+  await sleep(600);
+  const tapped = await selectionState(touch);
+  record(name, "pointer", "390: with a selection, a tap in an edge strip clears it and does not turn",
+    !!selected.text && !tapped.text && !tapped.toolbar && tapped.fraction === before.fraction, `"${selected.text}" → "${tapped.text}", ${before.fraction?.toFixed(3)} → ${tapped.fraction?.toFixed(3)}`);
+  await open(touch, 20);
+  const phoneLink = await turnToNotesLink(touch, () => touch.touchscreen.tap(390 * 0.95, 420));
+  await touch.touchscreen.tap(phoneLink.x, phoneLink.y);
+  await touch.waitForFunction(() => document.querySelector("footer[data-reader-chrome]")?.textContent.includes("Outside the reading order"), null, { timeout: 5000 }).catch(() => {});
+  record(name, "pointer", "390: a tap on a link follows it", (await footer(touch)).includes("Outside the reading order"), (await footer(touch)).slice(0, 60));
+  await phoneContext.close();
+}
+
 /** Rectangles drawn by the PDF marks overlay, over every page frame */
 const pdfMarkRects = async (page) => {
   let count = 0;
@@ -814,6 +1002,7 @@ const RUN = {
   place: checkPlace,
   touch: checkTouch,
   bars: checkBars,
+  pointer: checkPointer,
   dialogs: checkDialogs,
   navigation: async (name, browser) => {
     for (const width of WIDTHS) {

@@ -4,14 +4,15 @@ import type { Db } from "@/lib/catalogue/work-store";
 import { resultRows } from "@/lib/harmonization/store";
 import { stableStringify } from "@/lib/harmonization/normalize";
 import {
-  isEbookFileDownloadable,
-  isEbookFileNativeReadable,
+  isEbookFileDownloadableWithPrefix,
+  isEbookFileNativeReadableWithPrefix,
 } from "../conditions";
 import { acceptedPublication } from "../publication-evidence";
-import { parseStageKey, coverKeySha256 } from "../keys";
+import { parseStageKey, coverKeySha256, ebooksPrefix } from "../keys";
 import { indexCatalogue, type MatchCatalogue } from "./catalogue";
 import { digitalLocationAllowed } from "./location-policy";
 import { matchFingerprint } from "./keys";
+import { sealParsedJson } from "./writer-input";
 import type { MatchAuthor, MatchEbook, MatchEdition, MatchWork } from "./types";
 
 /** Some tables have composite keys or a boolean settings key. */
@@ -53,6 +54,16 @@ const strings = (value: unknown): string[] =>
     ? value.filter((v): v is string => typeof v === "string")
     : [];
 const byId = (a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id);
+/** Rows by one column's value, each group in table order. */
+function groupBy(rows: readonly StoredRow[], column: string) {
+  const groups = new Map<unknown, StoredRow[]>();
+  for (const row of rows) {
+    const group = groups.get(row[column]);
+    if (group) group.push(row);
+    else groups.set(row[column], [row]);
+  }
+  return groups;
+}
 function addId(
   ids: Record<string, string[]>,
   provider: string,
@@ -79,7 +90,8 @@ function externalIds(
     addId(ids, String(observation.provider), observation.external_id);
   return ids;
 }
-export function matchFileFromStoredRow(row: StoredRow) {
+/** `prefix` is EBOOKS_PREFIX when the caller has read it already. */
+export function matchFileFromStoredRow(row: StoredRow, prefix?: string) {
   const metadata = row.metadata;
   const file = {
     id: storedId(row),
@@ -94,9 +106,9 @@ export function matchFileFromStoredRow(row: StoredRow) {
     metadata,
     manifestKey: stringOrNull(row.manifest_key),
   };
-  const deliverable = isEbookFileDownloadable(file);
+  const deliverable = isEbookFileDownloadableWithPrefix(file, prefix);
   const stages = acceptedPublication(metadata, file);
-  const native = isEbookFileNativeReadable(file);
+  const native = isEbookFileNativeReadableWithPrefix(file, prefix);
   const cover = stringOrNull(row.cover_key);
   const parsed = cover ? parseStageKey(cover) : null;
   const validCover =
@@ -112,7 +124,7 @@ export function matchFileFromStoredRow(row: StoredRow) {
           (object) =>
             object.key === cover && object.contentType.startsWith("image/"),
         )
-      : coverKeySha256(cover) === file.sha256);
+      : coverKeySha256(cover, prefix) === file.sha256);
   return {
     id: file.id,
     sha256: file.sha256,
@@ -128,6 +140,44 @@ export function matchFileFromStoredRow(row: StoredRow) {
     textLanguage: stringOrNull(row.text_language),
     coverKey: validCover ? cover : null,
   };
+}
+/** A table's hash: its rows as the database's JSON text, sorted as the
+ * database sorts them, one per line. */
+const sha256Hex = (text: string) => createHash("sha256").update(text).digest("hex");
+export const tableDigestSql = (table: string) =>
+  sql`(select encode(sha256(convert_to(coalesce(string_agg(x.s, chr(10) order by x.s), ''), 'UTF8')), 'hex')
+    from (select to_jsonb(r)::text s from ${sql.identifier(table)} r) x)`;
+/** The hash of each table as read, by the frozen rows it read. A writer's
+ * guard has the database compare it under lock, rather than sending 30 MB of
+ * rows back on 6,000 eBooks (SLN-691). */
+const readDigests = new WeakMap<readonly StoredRow[], string>();
+export const storedTableDigest = (rows: readonly StoredRow[] | undefined) =>
+  rows ? readDigests.get(rows) : undefined;
+/** The matching tables' raw JSON rows alone, in the order the transaction
+ * guards compare them, without indexing a catalogue. */
+export async function loadMatchRows(
+  conn: Db,
+  bounds?: { maxRowsPerTable: number; maxSnapshotBytes: number },
+): Promise<Record<MatchTable, readonly StoredRow[]>> {
+  let loadedBytes = 0;
+  const rows = {} as Record<MatchTable, StoredRow[]>;
+  for (const table of MATCH_TABLES) {
+    const texts = resultRows<{ s: string }>(
+      await conn.execute(
+        sql`select to_jsonb(r)::text as s from ${sql.identifier(table)} r order by s
+          ${bounds ? sql`limit ${bounds.maxRowsPerTable + 1}` : sql``}`,
+      ),
+    ).map(({ s }) => s);
+    // Sealed as read: a plan's writer input then shares them, not a copy
+    rows[table] = sealParsedJson(texts.map((text) => JSON.parse(text) as StoredRow));
+    readDigests.set(rows[table], sha256Hex(texts.join("\n")));
+    if (bounds) {
+      loadedBytes += Buffer.byteLength(JSON.stringify(rows[table]), "utf8");
+      if (rows[table].length > bounds.maxRowsPerTable || loadedBytes > bounds.maxSnapshotBytes)
+        throw new Error("Matching snapshot changed beyond the post-create bound");
+    }
+  }
+  return rows;
 }
 /** Explicit connection only. Await every table read in the protected callback.
  * Raw JSON rows preserve full values/timestamps for later transaction guards. */
@@ -153,21 +203,30 @@ export async function loadMatchCatalogue(
         throw new Error("Matching snapshot exceeds the post-create byte bound");
     }
   }
-  let loadedBytes = 0;
-  const rows = {} as Record<MatchTable, StoredRow[]>;
-  for (const table of MATCH_TABLES) {
-    rows[table] = resultRows<{ row: StoredRow }>(
-      await conn.execute(
-        sql`select to_jsonb(r) as row from ${sql.identifier(table)} r order by to_jsonb(r)::text
-          ${bounds ? sql`limit ${bounds.maxRowsPerTable + 1}` : sql``}`,
-      ),
-    ).map(({ row }) => row);
-    if (bounds) {
-      loadedBytes += Buffer.byteLength(JSON.stringify(rows[table]), "utf8");
-      if (rows[table].length > bounds.maxRowsPerTable || loadedBytes > bounds.maxSnapshotBytes)
-        throw new Error("Matching snapshot changed beyond the post-create bound");
-    }
+  const rows = await loadMatchRows(conn, bounds);
+  // One pass per table: filtering every child table for each parent row was
+  // quadratic, about 3 s of each review decision on 6,000 eBooks (SLN-691)
+  const aliasesByPerson = groupBy(rows.person_aliases, "person_id");
+  const filesByEbook = groupBy(rows.ebook_files, "ebook_id");
+  // Validating the environment for each file's legacy key was about 1.4 s of
+  // each read on 6,000 eBooks; an invalid one still blocks every file
+  let prefix: string | undefined;
+  try { prefix = ebooksPrefix(); } catch { prefix = undefined; }
+  const editionsByWork = groupBy(rows.editions, "work_id");
+  const creditsByWork = groupBy(rows.work_authors, "work_id");
+  // A work's copies keep the instances table's order, as the filter did
+  const workOfEdition = new Map(rows.editions.map((edition) => [String(edition.id), edition.work_id]));
+  const copiesByWork = new Map<unknown, StoredRow[]>();
+  for (const copy of rows.instances) {
+    if (!workOfEdition.has(String(copy.edition_id))) continue;
+    const work = workOfEdition.get(String(copy.edition_id));
+    const group = copiesByWork.get(work);
+    if (group) group.push(copy);
+    else copiesByWork.set(work, [copy]);
   }
+  const seriesById = new Map(rows.series.map((series) => [series.id, series]));
+  const identifiersByEdition = groupBy(rows.catalogue_identifiers, "edition_id");
+  const identifiersByWork = groupBy(rows.catalogue_identifiers, "work_id");
   const authors: MatchAuthor[] = rows.authors.map((row) => ({
     id: storedId(row),
     name: String(row.name),
@@ -175,9 +234,7 @@ export async function loadMatchCatalogue(
     realName: stringOrNull(row.real_name),
     firstName: stringOrNull(row.first_name),
     lastName: stringOrNull(row.last_name),
-    aliases: rows.person_aliases
-      .filter((alias) => alias.person_id === row.id)
-      .map((alias) => String(alias.name)),
+    aliases: (aliasesByPerson.get(row.id) ?? []).map((alias) => String(alias.name)),
   }));
   const authorMap = new Map(authors.map((author) => [author.id, author]));
   const ebooks: MatchEbook[] = rows.ebooks.map((row) => ({
@@ -194,9 +251,7 @@ export async function loadMatchCatalogue(
     publishedYear: numberOrNull(row.published_year),
     coverKey: stringOrNull(row.cover_key),
     preferredFileId: stringOrNull(row.preferred_file_id),
-    files: rows.ebook_files
-      .filter((file) => file.ebook_id === row.id)
-      .map(matchFileFromStoredRow),
+    files: (filesByEbook.get(row.id) ?? []).map((file) => matchFileFromStoredRow(file, prefix)),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
     instanceId: stringOrNull(row.instance_id),
@@ -204,11 +259,15 @@ export async function loadMatchCatalogue(
     matchFingerprint: stringOrNull(row.match_fingerprint),
     exclusionReason: row.exclusion_reason as MatchEbook["exclusionReason"],
   }));
+  const linked = new Map(
+    ebooks
+      .filter((ebook) => ebook.instanceId)
+      .map((ebook) => [ebook.instanceId, ebook.id]),
+  );
   const works: MatchWork[] = rows.works
     .filter((row) => row.kind === "book")
     .map((row) => {
-      const editions: MatchEdition[] = rows.editions
-        .filter((edition) => edition.work_id === row.id)
+      const editions: MatchEdition[] = (editionsByWork.get(row.id) ?? [])
         .map((edition) => ({
           id: storedId(edition),
           workId: storedId(row),
@@ -219,19 +278,13 @@ export async function loadMatchCatalogue(
           isbn10: stringOrNull(edition.isbn_10),
           identifiers: externalIds(
             edition,
-            rows.catalogue_identifiers,
+            identifiersByEdition.get(edition.id) ?? [],
             "edition_id",
           ),
           metadataSource: stringOrNull(edition.metadata_source),
           metadataLocked: edition.metadata_locked === true,
           updatedAt: String(edition.updated_at),
         }));
-      const editionIds = new Set(editions.map((edition) => edition.id));
-      const linked = new Map(
-        ebooks
-          .filter((ebook) => ebook.instanceId)
-          .map((ebook) => [ebook.instanceId, ebook.id]),
-      );
       return {
         id: storedId(row),
         kind: "book",
@@ -240,18 +293,13 @@ export async function loadMatchCatalogue(
         originalLanguage: stringOrNull(row.original_language),
         originalYear: numberOrNull(row.original_year),
         catalogueStatus: String(row.catalogue_status),
-        authors: rows.work_authors
-          .filter(
-            (credit) =>
-              credit.work_id === row.id &&
-              ["author", "co_author"].includes(String(credit.role)),
-          )
+        authors: (creditsByWork.get(row.id) ?? [])
+          .filter((credit) => ["author", "co_author"].includes(String(credit.role)))
           .map((credit) => authorMap.get(String(credit.author_id))!)
           .filter(Boolean),
-        identifiers: externalIds(row, rows.catalogue_identifiers, "work_id"),
+        identifiers: externalIds(row, identifiersByWork.get(row.id) ?? [], "work_id"),
         editions,
-        copies: rows.instances
-          .filter((copy) => editionIds.has(String(copy.edition_id)))
+        copies: (copiesByWork.get(row.id) ?? [])
           .map((copy) => ({
             id: storedId(copy),
             editionId: String(copy.edition_id),
@@ -263,7 +311,7 @@ export async function loadMatchCatalogue(
         series: [
           stringOrNull(row.series_name),
           stringOrNull(
-            rows.series.find((series) => series.id === row.series_id)?.title,
+            seriesById.get(row.series_id)?.title,
           ),
         ].filter((s): s is string => !!s),
         seriesPosition: stringOrNull(row.series_position),

@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { immutableMatchingWriterInput } from "../match/link";
 import type { LinkPlan } from "../match/link";
 import type { AccessionPlan } from "../match/accession";
@@ -8,7 +8,7 @@ import type { SupportedDecision, ReviewBeforeRead } from "./store";
 import type { WorkBeforeRead, WorkRequest } from "./work-store";
 import type { ReviewUnlinkPlan } from "./unlink-contract";
 import type { UnlinkRequest } from "./store";
-import { loadMatchCatalogue, type StoredRow } from "../match/load";
+import { loadMatchRows, storedTableDigest, type StoredRow } from "../match/load";
 import { loadMatchDependencies } from "../match/dependencies";
 import { withReadOnlyPlanningConnection } from "@/lib/enrichment/read-only-session";
 import { ReviewError } from "./errors";
@@ -53,16 +53,26 @@ export type PreviewRowsLoader = (sets: readonly RowSet[]) => Promise<Partial<Rec
 /** The current row sets, read in one repeatable-read snapshot. */
 export function previewRowsLoader(planningUrl: string): PreviewRowsLoader {
   return (sets) => withReadOnlyPlanningConnection(planningUrl, async (conn) => ({
-    ...(sets.includes("snapshot") ? { snapshot: (await loadMatchCatalogue(conn)).rows } : {}),
+    ...(sets.includes("snapshot") ? { snapshot: await loadMatchRows(conn) } : {}),
     ...(sets.includes("dependencies") ? { dependencies: (await loadMatchDependencies(conn)).rows } : {}),
   }), { isolationLevel: "repeatable read" });
 }
 const ROW_SETS: readonly RowSet[] = ["snapshot", "dependencies"];
 type PlanRows = Partial<Record<RowSet, { rows?: Rows }>>;
 const planOf = (envelope: Envelope) => (envelope as { plan?: PlanRows }).plan;
-const tableDigests = (rows: Rows) =>
-  Object.fromEntries(Object.keys(rows).sort().map((table) => [table, reviewPayloadHash(rows[table])]));
-function compact(envelope: Envelope): { envelope: Envelope; digests: RowDigests } {
+const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
+/** One hash per table: the database's own, for rows read with it, else a hash
+ * of the canonical rows. `known` keeps each table's canonical text, so the
+ * whole envelope's hash reuses it rather than walking 30 MB again. */
+const tableDigests = (rows: Rows, known?: Map<object, string>) =>
+  Object.fromEntries(Object.keys(rows).sort().map((table) => {
+    const stored = storedTableDigest(rows[table]);
+    if (stored && !known) return [table, `db:${stored}`];
+    const text = canonicalReviewJson(rows[table]);
+    known?.set(rows[table], text);
+    return [table, stored ? `db:${stored}` : sha256(text)];
+  }));
+function compact(envelope: Envelope, known: Map<object, string>): { envelope: Envelope; digests: RowDigests } {
   const plan = planOf(envelope);
   const digests: RowDigests = {};
   if (!plan) return { envelope, digests };
@@ -70,7 +80,7 @@ function compact(envelope: Envelope): { envelope: Envelope; digests: RowDigests 
   for (const set of ROW_SETS) {
     const rows = plan[set]?.rows;
     if (!rows) continue;
-    digests[set] = tableDigests(rows);
+    digests[set] = tableDigests(rows, known);
     lean[set] = { ...plan[set], rows: {} };
   }
   return { envelope: { ...envelope, plan: lean } as unknown as Envelope, digests };
@@ -105,8 +115,9 @@ export class ReviewPreviewCache {
   }
   private store(input: Envelope, kind: Entry["kind"], channel: "ui" | "api", target: string) {
     this.prune();
-    const full = immutableMatchingWriterInput(input), hash = reviewPayloadHash(full);
-    const { envelope, digests } = compact(full);
+    const full = immutableMatchingWriterInput(input), known = new Map<object, string>();
+    const { envelope, digests } = compact(full, known);
+    const hash = sha256(canonicalReviewJson(full, known));
     const bytes = Buffer.byteLength(canonicalReviewJson({ envelope, digests }), "utf8");
     if (bytes > MAX_BYTES)
       throw new ReviewError("preview_too_large", "This preview is too large to keep. Prepare it for fewer eBooks.");

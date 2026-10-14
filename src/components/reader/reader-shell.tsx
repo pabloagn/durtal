@@ -12,6 +12,8 @@ import {
 
 /** The bars hide this long after they show, while reading */
 export const BARS_HIDE_MS = 3000;
+/** The outer share of the width where a resting mouse keeps that side's page button up */
+export const EDGE_HOVER = 0.12;
 
 /**
  * The reader's two bars, shown and hidden together (eBooks sub-issue 3).
@@ -58,11 +60,16 @@ export function useReaderBars({ held }: { held: boolean }) {
     else show();
   }, [hide, show]);
 
+  /** The margin the mouse is in: its page button stays up there after the
+   * bars hide (SLN-662), without a hot strip that brings the bars back */
+  const [edge, setEdge] = useState<"left" | "right" | null>(null);
   /** The mouse at x, y in the viewport. A layout change can repeat a still
    * pointer's last position: only real movement counts. */
   const lastPointer = useRef<{ x: number; y: number } | null>(null);
   const pointerAt = useCallback(
     (x: number, y: number) => {
+      const width = typeof window === "undefined" ? 0 : window.innerWidth;
+      setEdge(!width ? null : x < width * EDGE_HOVER ? "left" : x > width * (1 - EDGE_HOVER) ? "right" : null);
       const last = lastPointer.current;
       lastPointer.current = { x, y };
       if (last && Math.hypot(x - last.x, y - last.y) < 2) return;
@@ -90,6 +97,13 @@ export function useReaderBars({ held }: { held: boolean }) {
 
   useEffect(() => clear, []);
 
+  // A mouse that leaves the window is in neither margin
+  useEffect(() => {
+    const left = () => setEdge(null);
+    document.documentElement.addEventListener("mouseleave", left);
+    return () => document.documentElement.removeEventListener("mouseleave", left);
+  }, []);
+
   /** Spread on what wraps the bars */
   const barEvents = {
     onPointerEnter: () => {
@@ -111,7 +125,7 @@ export function useReaderBars({ held }: { held: boolean }) {
     },
   };
 
-  return { visible, visibleRef, show, hide, toggle, pointerAt, barEvents };
+  return { visible, visibleRef, edge, show, hide, toggle, pointerAt, barEvents };
 }
 
 const BookFrame = memo(

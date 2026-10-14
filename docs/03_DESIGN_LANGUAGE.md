@@ -491,7 +491,16 @@ Selection uses the ink selection token as background with primary foreground tex
 
 The application is designed desktop-first but must be usable on all screen sizes. No separate mobile app — responsive web only. PWA if needed later.
 
-A page must not scroll sideways at 375px. Check it with `node scripts/qa/phone-audit.mjs --base <app url>` (headless Chrome, `scripts/qa/overflow-audit.js` at 375 and 390px). A backdrop that bleeds to the edges of `main` (`-mx-4 md:-mx-6`) must match the page gutter.
+A page must not scroll sideways at 375px. Check it with `node scripts/qa/phone-audit.mjs --base <app url>` (headless Chrome with a touch screen, `scripts/qa/overflow-audit.js` at 375 and 390px, on the main lists and the first book, publisher and film).
+
+The same run reports what those audits pass but a reader still sees (`scripts/qa/layout-audit.js`, SLN-695):
+
+- **Squeezed title**: the h1 wraps while it takes under 60% of its row, because controls share the row, or it runs past 2 lines on a phone.
+- **Text-looking command**: a button or link with no box, border, underline or icon, in a text colour or within 1.25:1 of the text beside it, so only hover tells it apart (see Text commands).
+- **Drifting edge**: in a card, a block whose first ink (text, icon, or a badge's or field's box) starts 0.5 to 12px off its column's edge. Mark an intended inset with `data-inset`.
+- **First card**: on a list page, the first card starts below the top 60% of the phone's first screen.
+
+Findings in `scripts/qa/layout-audit-known.json` show as known, with their ticket; the run says when one is no longer found, so its line can go. A new finding is listed but fails the run only with `--strict`. A backdrop that bleeds to the edges of `main` (`-mx-4 md:-mx-6`) must match the page gutter.
 
 ### Progress bars and rich text
 

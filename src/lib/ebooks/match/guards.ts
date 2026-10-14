@@ -1,7 +1,7 @@
 import { sql, type SQL } from "drizzle-orm";
 import type { Db } from "@/lib/catalogue/work-store";
 import { assertSql, lockSql } from "@/lib/harmonization/store";
-import { MATCH_TABLES, type LoadedMatchCatalogue, type StoredRow } from "./load";
+import { MATCH_TABLES, storedTableDigest, tableDigestSql, type LoadedMatchCatalogue, type StoredRow } from "./load";
 
 export type AdditionalSnapshotRows = Readonly<Partial<Record<"sub_locations", readonly StoredRow[]>>>;
 
@@ -22,14 +22,19 @@ export function snapshotGuardQueries(
   const tables = [...MATCH_TABLES, ...names];
   return [
     d.execute(lockSql([...new Set([...tables, ...extraTables])].sort())),
-    ...tables.map((table) =>
-      d.execute(
+    ...tables.map((table) => {
+      const rows = table === "sub_locations" ? additionalSnapshotRows.sub_locations : loaded.rows[table as keyof typeof loaded.rows];
+      // Rows read with the database's hash compare by that hash
+      const digest = storedTableDigest(rows);
+      return d.execute(
         assertSql(
-          sql`(select coalesce(jsonb_agg(to_jsonb(r) order by to_jsonb(r)::text), '[]'::jsonb) from ${sql.identifier(table)} r) = ${JSON.stringify(table === "sub_locations" ? additionalSnapshotRows.sub_locations : loaded.rows[table as keyof typeof loaded.rows])}::jsonb`,
+          digest
+            ? sql`${tableDigestSql(table)} = ${digest}`
+            : sql`(select coalesce(jsonb_agg(to_jsonb(r) order by to_jsonb(r)::text), '[]'::jsonb) from ${sql.identifier(table)} r) = ${JSON.stringify(rows)}::jsonb`,
           `Matching snapshot changed in ${table}; make a new plan`,
         ),
-      ),
-    ),
+      );
+    }),
   ];
 }
 export function rowSnapshotCondition(
