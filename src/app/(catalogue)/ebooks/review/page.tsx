@@ -5,10 +5,21 @@ import { Input } from "@/components/ui/input";
 import { EBOOK_FORMATS } from "@/lib/ebooks/formats";
 import { languageOptions } from "@/lib/utils/language";
 import { getReviewQueue } from "@/lib/ebooks/review-queue/queries";
-import { parseReviewParams } from "@/lib/ebooks/review-queue/params";
+import { parseReviewParams, reviewParamsSearch } from "@/lib/ebooks/review-queue/params";
+import { DifferencesSection } from "@/components/ebooks/differences-section";
+import { DIFFERENCE_FIELDS, type DifferenceField } from "@/lib/ebooks/differences/compare";
+import { getDifferences } from "@/lib/ebooks/differences/store";
 import { ReviewView } from "./review-view";
 
 export const metadata: Metadata = { title: "Review eBooks" };
+const DIFFERENCES_PAGE = 50;
+const DIFFERENCES_MAX = 500;
+/** The Differences section's field and how many of its rows are shown; anything else falls back to the first field */
+function differenceParams(raw: Record<string, string | string[] | undefined>) {
+  const field = typeof raw.difference === "string" && (DIFFERENCE_FIELDS as readonly string[]).includes(raw.difference) ? (raw.difference as DifferenceField) : null;
+  const shown = typeof raw.differences === "string" ? Number(raw.differences) : DIFFERENCES_PAGE;
+  return { field, shown: Number.isInteger(shown) && shown >= DIFFERENCES_PAGE && shown <= DIFFERENCES_MAX ? shown - (shown % DIFFERENCES_PAGE) : DIFFERENCES_PAGE };
+}
 export default async function ReviewEbooksPage({ searchParams }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
@@ -21,7 +32,13 @@ export default async function ReviewEbooksPage({ searchParams }: {
         <button className={buttonClass()} type="submit">Clear review filters</button>
       </form></div>;
   }
-  const queue = await getReviewQueue(params);
+  const [queue, differences] = await Promise.all([getReviewQueue(params), getDifferences(differenceParams(raw))]);
+  const differenceHref = (field: DifferenceField | null, shown: number) => {
+    const search = reviewParamsSearch(params);
+    if (field) search.set("difference", field);
+    if (shown > DIFFERENCES_PAGE) search.set("differences", String(shown));
+    return `/ebooks/review?${search.toString()}#review-section-differences`;
+  };
   const pending = Object.entries(queue.counts).filter(([key]) => !["automatic", "partially_held", "not_in_durtal"].includes(key))
     .reduce((total, [, count]) => total + count, 0);
   const selectClass = "h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-xs text-fg-primary pointer-coarse:h-11";
@@ -47,6 +64,9 @@ export default async function ReviewEbooksPage({ searchParams }: {
       {params.filters.series && <input type="hidden" name="series" value={params.filters.series} />}
       <Button type="submit">Apply filters</Button>
     </form>
-    <ReviewView queue={queue} params={params} />
+    <ReviewView queue={queue} params={params} differences={<DifferencesSection page={differences}
+      links={Object.fromEntries(DIFFERENCE_FIELDS.filter((f) => differences.counts[f]).map((f) => [f, differenceHref(f, DIFFERENCES_PAGE)]))}
+      moreHref={differences.field && (differences.counts[differences.field] ?? 0) > differences.shown && differences.shown < DIFFERENCES_MAX
+        ? differenceHref(differences.field, differences.shown + DIFFERENCES_PAGE) : null} />} />
   </div>;
 }

@@ -89,10 +89,20 @@ describe("reader document entry", () => {
     `/reader/${ebookId}?file=not-an-id`,
     `/reader/${ebookId}?file=${fileId}&file=${fileId}`,
     `/reader/${ebookId}?redirect=https://evil.example`,
+    `/reader/${ebookId}?from=not-a-device`,
+    `/reader/${ebookId}?from=${fileId}&from=${fileId}`,
     `/reader/${ebookId}#script`,
     `/reader/../library/${ebookId}`,
     `/reader/${ebookId}\n`,
   ])("refuses invalid reader entry %s", (path) => {
     expect(readerEntryPolicy(path, "/library")).toBeNull();
+  });
+
+  it("opens at another device's place when the link names it (SLN-665)", () => {
+    const deviceId = "33333333-3333-4333-8333-333333333333";
+    expect(readerEntryPolicy(`${readerPath}&from=${deviceId}`, "/ebooks")?.readerPath)
+      .toBe(`${readerPath}&from=${deviceId}`);
+    expect(readerEntryPolicy(`/reader/${ebookId}?from=${deviceId}`, "/ebooks")?.readerPath)
+      .toBe(`/reader/${ebookId}?from=${deviceId}`);
   });
 });

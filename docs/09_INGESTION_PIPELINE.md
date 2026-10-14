@@ -830,6 +830,16 @@ counts as read.
   "Use the file's rating" is chosen; a book with no rating takes the file's.
   Commit and undo are the Goodreads import's.
 
+### Differences and tags (SLN-658)
+
+Once Import existing has linked the library's e-books, where an e-book and its
+book disagree is decided in the Differences section of `/ebooks/review`
+(`04_ROUTES_AND_VIEWS.md`). Nothing applies by itself, and every choice can be
+undone. The library's tags are counted in the Import existing report (the books
+that carry them, how many, how many different) and in its CSV, and stay in the
+file metadata as evidence for the enrichment epic (SLN-460); none is written to
+the taxonomy.
+
 ### The cache folder
 
 `~/.cache/durtal-ebooks` (`--cache-dir`) holds:

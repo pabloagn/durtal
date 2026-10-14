@@ -30,8 +30,11 @@ import path from "node:path";
  * package script that runs the snapshot. Import existing (SLN-657) reads the
  * same source through its own command, and so does the command that makes
  * the library's ratings and reads a reading import (SLN-658), which the
- * reading import itself knows only as "the e-book library". Never in a
- * screen, a setting or anything else.
+ * reading import itself knows only as "the e-book library". The differences
+ * between the library's e-books and their books (SLN-658) find those e-books
+ * by the lineage the ingest stored under that name, in one query of their
+ * store; their screen never names it. Never in a screen, a setting or
+ * anything else.
  */
 
 const ROOT = path.resolve(__dirname, "../../..");
@@ -48,11 +51,13 @@ const CALIBRE_SOURCE = [
   "scripts/ebooks/ingest.ts",
   "scripts/ebooks/import-existing.ts",
   "scripts/ebooks/reading-import.ts",
+  "src/lib/ebooks/differences/store.ts",
   "src/__tests__/ebooks/calibre/",
   "src/__tests__/ebooks/ingest/",
   "src/__tests__/fixtures/calibre-library.ts",
   "src/__tests__/integration/ebook-ingest.test.ts",
   "src/__tests__/integration/ebook-import-existing.test.ts",
+  "src/__tests__/integration/ebook-differences.test.ts",
   "docs/09_INGESTION_PIPELINE.md",
 ];
 /** The package script that takes a snapshot; package.json may name Calibre nowhere else */
