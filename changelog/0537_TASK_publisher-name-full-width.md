@@ -17,16 +17,13 @@ at 320px. The facts and the books fell below the first screen.
 
 ## Implementation Details
 
-`src/components/publishers/publisher-header.tsx`: the name's row can
-wrap below a 36rem container (`@container`, `@xl:flex-nowrap`), and the
-controls go under the name, starting at its left edge in the name's
-cap-aligned slot. CSS alone wraps whenever the name would not fit on one
-line beside the controls, which also drops them under a name that takes
-as many lines at full width, so a header grows. `useControlsPlacement`
-measures once after layout, on a width change and when the fonts arrive. It
-puts the controls under the name only when that makes the header shorter
-or keeps a word whole, and beside it otherwise (`data-layout`). Until it has
-measured, the CSS rule stands.
+`src/components/publishers/publisher-header.tsx`: below a 24rem row
+(`@container`, `@min-[24rem]:flex-nowrap`) the name's row can wrap, and the
+controls go under a name that would not fit on one line beside them,
+starting at its left edge in the name's cap-aligned slot. From 24rem they
+stay beside the name as before, because wrapping there can make a header
+taller. CSS alone decides, so nothing moves after the first paint (an
+earlier measured placement was dropped in the second review below).
 
 Only the publisher header changes. The other detail headers have the same
 pattern; the book page's actions on a phone are an open question to Joris,
@@ -95,3 +92,11 @@ and 320, with touch below 800 in Chromium and WebKit. That is 276 renders.
 - Where the measured placement differs from the CSS rule (a name that
   wraps on one line beside the controls and as many at full width), the
   controls move once, when the page's script has loaded.
+
+Second review: the measured placement decided after hydration, so the CSS
+default showed first and the controls moved once the script ran (in 228 of
+462 renders; 26 of them changed the header's height by 32 to 52px, a layout
+shift of 0.14 to 0.21). It is replaced by a CSS rule: the row wraps only
+below 24rem (`@min-[24rem]:flex-nowrap`), where wrapping never made a header
+taller in the review's 462 renders, and from 24rem the controls stay beside
+the name as on main. Nothing moves after the first paint.
