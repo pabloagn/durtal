@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
-import { getNavigationExcludedViews, retireNonlinearNavigationViews, getAdjacentLinearIndex } from "@/vendor/foliate-js/paginator.js";
+import { getNavigationExcludedViews, retireNonlinearNavigationViews, getAdjacentLinearIndex, getStripNeighbourIndex } from "@/vendor/foliate-js/paginator.js";
 
 describe("visited nonlinear frames and the linear reading strip", () => {
   const sections = [{ id: "preface" }, { id: "book" }, { id: "notes", linear: "no" }];
@@ -65,5 +65,16 @@ describe("visited nonlinear frames and the linear reading strip", () => {
     expect(getNavigationExcludedViews(spine, 2, [0,1,2])).toEqual([]);
     expect(getNavigationExcludedViews(spine, 0, [0,1,2])).toEqual([1,2]);
     expect(getAdjacentLinearIndex(spine, 0, 1)).toBeUndefined();
+  });
+  it("lets notes opened from a link stand alone in the loaded strip, while turns out of them still reach reading order", () => {
+    // Fixture 20: Chapitre I ends on a left page, so chained after it the
+    // notes began in its last spread and the next settle reported Chapitre I
+    expect(getStripNeighbourIndex(sections, 2, -1)).toBeUndefined();
+    expect(getStripNeighbourIndex(sections, 2, 1)).toBeUndefined();
+    expect(getAdjacentLinearIndex(sections, 2, -1)).toBe(1);
+    const spine = [{ id: "first" }, { linear: "no" }, { id: "last" }];
+    expect(getStripNeighbourIndex(spine, 1, 1)).toBeUndefined();
+    expect(getStripNeighbourIndex(spine, 0, 1)).toBe(2);
+    expect(getStripNeighbourIndex(spine, 2, -1)).toBe(0);
   });
 });
