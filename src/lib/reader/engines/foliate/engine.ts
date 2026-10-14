@@ -46,7 +46,7 @@ import { FoliateDecorations } from "./decorations";
 import { presentationCss, policyTypographyCss } from "@/lib/reader/presentation";
 import { bookCSS } from "@/lib/reader/presentation/book-css";
 import { themeColours } from "@/lib/reader/presentation/themes";
-import { paginatorAttributes } from "@/lib/reader/presentation/layout";
+import { paginatorAttributes, turnAttributes } from "@/lib/reader/presentation/layout";
 import { CHAR_WIDTH_EM } from "@/lib/reader/presentation/fonts";
 import { canPreflightCoreFonts, routeFontPresentation, fontPresentationChangeKind } from "@/lib/reader/presentation/font-route";
 import { createManagedReaderFontAssets } from "@/lib/reader/presentation/managed-font-assets";
@@ -1611,8 +1611,11 @@ class FoliateEngine implements ReaderEngine {
       const spread = page && area.width > 0 && area.height > 0 ? fixedSpreadMode({ preference: p.spread, areaWidth: area.width, areaHeight: area.height, pageWidth: page.width, pageHeight: page.height, renditionSpread: this.#book.rendition.spread }) : "none";
       const values = { zoom: this.#fixedZoom === null ? (p.fixedFit === "width" ? "fit-width" : "fit-page") : String(fixedZoomScale(this.#isPdf() ? "pdf" : this.#source?.format === "cbz" ? "cbz" : "epub", this.#fixedZoom)), spread,
         flow: p.flow === "scrolled" ? "scrolled" : "paginated" };
-      for (const [name, value] of Object.entries(values))
+      const { animated, ...turn } = turnAttributes(p, window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+      for (const [name, value] of Object.entries({ ...values, ...turn }))
         if (renderer.getAttribute(name) !== value) renderer.setAttribute(name, value);
+      if (animated) renderer.setAttribute("animated", "");
+      else renderer.removeAttribute("animated");
       return;
     }
     const size = view.getBoundingClientRect();
