@@ -79,7 +79,8 @@ export function ReaderBottomBar({
         />
         {/* The place shows beside the tracking control too, never instead of it */}
         <div className="flex min-w-0 max-w-[60%] items-center gap-2 tabular-nums">
-          {place && <span className="truncate">{place}</span>}
+          {/* The place is never cut ("p. 2…" at 320); the time left gives way */}
+          {place && <span className="shrink-0 whitespace-nowrap">{place}</span>}
           {percent !== null && <span className="shrink-0">{formatPercent(percent)}</span>}
           {linear !== false && timeLeftChapter && (
             <span className="min-w-0 truncate">{timeLeftChapter}</span>
