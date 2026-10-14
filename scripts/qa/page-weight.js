@@ -15,7 +15,8 @@
  * book's marks, through its "All N in this book" link. With no such link
  * the route fails, unless it has an `ifNone` note: a detail page that may
  * have no record yet ("/reading/import/*" before the first import) is then
- * skipped with that note. Each route is requested once
+ * skipped with that note. A link's query and fragment are left out
+ * ("/reader/<id>?file=…" measures "/reader/<id>"). Each route is requested once
  * before it is measured, so dev-server compilation is not counted.
  *
  * PAGE_WEIGHT_CONFIG names another budget file (the script's own test).
@@ -57,7 +58,9 @@ async function resolve(route) {
   const { body } = await get(listOf(route));
   const skip = new Set(route.skip ?? []);
   const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(`href="${escaped}([^"/?#&]+)"`, "g");
+  // The record's id or slug, before any query or fragment: reader links carry
+  // ?file=…&returnTo=… and are measured without them (SLN-688)
+  const pattern = new RegExp(`href="${escaped}([^"/?#&]+)(?:[?#&][^"]*)?"`, "g");
   const slugs = [...body.matchAll(pattern)].map(([, slug]) => slug).filter((slug) => !skip.has(slug));
   if (!slugs.length) return null;
   if (route.pick !== "most") return `${prefix}${slugs[0]}`;

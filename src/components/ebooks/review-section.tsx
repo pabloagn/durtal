@@ -9,6 +9,18 @@ import type { ReviewAllSource } from "./review-all-dialog";
 import { REVIEW_SECTIONS, type ReviewQueueRow, type ReviewSectionKey } from "@/lib/ebooks/review-queue/types";
 import { REVIEW_MAX_SHOWN, reviewMoreHref, type ReviewParams } from "@/lib/ebooks/review-queue/params";
 
+/** What each section holds, in words, under its title (SLN-684) */
+const descriptions: Partial<Record<ReviewSectionKey, string>> = {
+  conflict: "Its ISBN or identifiers contradict the book, or the ISBN is shared by more than one book. Check the file before you link.",
+  likely: "A book in Durtal is very probably this eBook. Review the match to link it.",
+  to_choose: "More than one book could be this eBook. Choose the right one.",
+  same_author: "No title matches, but Durtal has books by the same author.",
+  duplicate: "Another eBook is the same book. Set the extra one aside.",
+  not_a_book: "Looks like a sample, an article or a periodical rather than a book.",
+  not_in_durtal: "No book in Durtal matches. Keep them as eBooks, or add them as new books.",
+  automatic: "Linked without asking in the last 30 days, because the match was clear. Undo any that are wrong.",
+  partially_held: "Linked to a book that is tracked, wanted, shortlisted or on order. If the eBook is your copy, mark the book accessioned.",
+};
 export function ReviewSection({ section, count, rows, params, renderRow, onSelectRows, onBulk, onAll }: {
   section: ReviewSectionKey; count: number; rows: ReviewQueueRow[]; params: ReviewParams;
   renderRow: (row: ReviewQueueRow) => ReactNode;
@@ -19,6 +31,7 @@ export function ReviewSection({ section, count, rows, params, renderRow, onSelec
   if (!count) return null;
   return <section aria-labelledby={`review-section-${section}`} className="space-y-3">
     <SectionHeading id={`review-section-${section}`} title={REVIEW_SECTIONS.find((item) => item.key === section)!.title} count={count}
+      description={descriptions[section]}
       action={onSelectRows && rows.some((row) => row.state === "pending" && row.stamp) ?
         <Button size="sm" onClick={() => onSelectRows(rows.filter((row) => row.state === "pending" && row.stamp))}>Select shown</Button> : undefined} />
     {onBulk && ["likely", "duplicate", "not_a_book", "not_in_durtal"].includes(section) && rows.some((row) => row.stamp) &&

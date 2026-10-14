@@ -88,6 +88,35 @@ export function EntityFilters({
     [router, searchParams, basePath],
   );
 
+  // The same field again reverses its direction; another field starts at
+  // its default direction
+  function pickSort(value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    const nextOrder = value === currentSort
+      ? effectiveOrder === "asc" ? "desc" : "asc"
+      : defaultSortOrders?.[value] ?? "asc";
+    if (value === currentSort) {
+      // Toggle direction
+      const defaultOrder = defaultSortOrders?.[value] ?? "asc";
+      if (nextOrder === defaultOrder) {
+        params.delete("order"); // clean URL when using default
+      } else {
+        params.set("order", nextOrder);
+      }
+    } else {
+      params.set("sort", value);
+      params.delete("order"); // reset to default for new sort field
+    }
+    if (onSortChange) {
+      // Keep the complete selection in the URL even when it uses
+      // the default field/direction, so restoration cannot override it.
+      params.set("sort", value);
+      params.set("order", nextOrder);
+      onSortChange(value, nextOrder);
+    }
+    router.push(firstPageHref(basePath, params));
+  }
+
   return (
     <div className={className ?? `mb-6 ${FILTER_ROW_CLASSES}`}>
       {/* Search */}
@@ -112,39 +141,39 @@ export function EntityFilters({
         />
       </div>
 
-      {/* Sort */}
+      {/* Sort: chips from sm up; on a phone one menu for the field and one
+          button for the direction, so eight sorts take one row (SLN-639) */}
       <div className="flex items-center gap-1">
+        <select
+          aria-label="Sort by"
+          value={currentSort}
+          onChange={(e) => pickSort(e.target.value)}
+          className="h-8 rounded-sm border border-glass-border bg-bg-primary px-2 text-xs text-fg-primary pointer-coarse:h-11 sm:hidden"
+        >
+          {sortOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => pickSort(currentSort)}
+          aria-label={effectiveOrder === "asc" ? "Ascending, reverse the order" : "Descending, reverse the order"}
+          data-tooltip="Reverse the order"
+          className="flex h-8 w-8 items-center justify-center rounded-sm border border-glass-border text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11 pointer-coarse:w-11 sm:hidden"
+        >
+          {effectiveOrder === "asc" ? (
+            <ArrowUp className="h-3.5 w-3.5" strokeWidth={1.5} />
+          ) : (
+            <ArrowDown className="h-3.5 w-3.5" strokeWidth={1.5} />
+          )}
+        </button>
         {sortOptions.map((opt) => (
           <button
             key={opt.value}
-            onClick={() => {
-              const params = new URLSearchParams(searchParams.toString());
-              const nextOrder = opt.value === currentSort
-                ? effectiveOrder === "asc" ? "desc" : "asc"
-                : defaultSortOrders?.[opt.value] ?? "asc";
-              if (opt.value === currentSort) {
-                // Toggle direction
-                const defaultOrder =
-                  defaultSortOrders?.[opt.value] ?? "asc";
-                if (nextOrder === defaultOrder) {
-                  params.delete("order"); // clean URL when using default
-                } else {
-                  params.set("order", nextOrder);
-                }
-              } else {
-                params.set("sort", opt.value);
-                params.delete("order"); // reset to default for new sort field
-              }
-              if (onSortChange) {
-                // Keep the complete selection in the URL even when it uses
-                // the default field/direction, so restoration cannot override it.
-                params.set("sort", opt.value);
-                params.set("order", nextOrder);
-                onSortChange(opt.value, nextOrder);
-              }
-              router.push(firstPageHref(basePath, params));
-            }}
-            className={`rounded-sm px-2.5 py-1 text-xs transition-colors pointer-coarse:min-h-11 ${
+            onClick={() => pickSort(opt.value)}
+            className={`rounded-sm px-2.5 py-1 text-xs transition-colors pointer-coarse:min-h-11 max-sm:hidden ${
               currentSort === opt.value
                 ? "bg-selection-bg text-fg-primary"
                 : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
