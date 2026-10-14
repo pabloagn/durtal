@@ -40,6 +40,8 @@ function codeForName(name: string): string | null {
   return codesByName.get(name.toLowerCase()) ?? null;
 }
 
+const normalized = new Map<string, string | null>();
+
 /**
  * The stored code for a language given as a code ("en", "eng", "fre"), a
  * regional tag ("en-US", "en_GB") or an English name ("English"). Null when
@@ -50,6 +52,16 @@ export function normalizeLanguage(
 ): string | null {
   const value = raw?.trim();
   if (!value) return null;
+  // Matching asks for the same few values millions of times
+  const known = normalized.get(value);
+  if (known !== undefined) return known;
+  const code = codeOf(value);
+  if (normalized.size >= 1_000) normalized.clear();
+  normalized.set(value, code);
+  return code;
+}
+
+function codeOf(value: string): string | null {
   if (/^[a-z]{2,3}([-_][a-z0-9]+)*$/i.test(value)) {
     try {
       const [tag] = Intl.getCanonicalLocales(value.replace(/_/g, "-"));

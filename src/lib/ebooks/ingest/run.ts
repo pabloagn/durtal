@@ -188,6 +188,24 @@ export async function applyPlan(planFile: string, options: ApplyOptions): Promis
   return processRun(run.id, plan, undoFile, options);
 }
 
+// A trial's plan took only its first files, a Calibre plan only what metadata.db lists: the others are not this run's to account for
+const planPaths = (plan: IngestPlan) => (plan.limit || plan.calibre ? plan.items.map((i) => i.path) : undefined);
+
+/**
+ * `pnpm ebooks:reconcile --run ID`: what the run's apply reconciled, from the
+ * plan it kept. A Calibre run took only some of the library's files, and
+ * only those are its to account for.
+ */
+export async function runReconcileScope(database: Db, runId: string, cacheDir: string) {
+  const [run] = await database.select().from(ebookIngestRuns).where(eq(ebookIngestRuns.id, runId));
+  if (!run) throw new Error(`No run ${runId}.`);
+  if (run.kind !== "apply" || !run.planSha256) throw new Error("Only an apply's run can be reconciled by its id.");
+  const file = keptPlan(cacheDir, run.planSha256);
+  if (!existsSync(file)) throw new Error(`The run's plan is not in ${path.dirname(file)}: reconcile on the machine that applied it.`);
+  const plan = readPlan(readFileSync(file, "utf8"));
+  return { roots: plan.roots, host: plan.host, includeText: plan.includeText, exclude: plan.exclude, paths: planPaths(plan), runId: run.id };
+}
+
 /** Carries on with a run's items that are not done, from the plan it executed */
 export async function resumeRun(runId: string, options: ApplyOptions): Promise<ApplyResult> {
   const [run] = await options.database.select().from(ebookIngestRuns).where(eq(ebookIngestRuns.id, runId));
@@ -441,8 +459,7 @@ async function processRun(runId: string, plan: IngestPlan, undoFile: string, opt
     cacheDir: options.cacheDir,
     includeText: plan.includeText,
     exclude: plan.exclude,
-    // A trial's plan took only its first files, a Calibre plan only what metadata.db lists: the others are not this run's to account for
-    paths: plan.limit || plan.calibre ? plan.items.map((i) => i.path) : undefined,
+    paths: planPaths(plan),
     runId,
     now: now(),
   });

@@ -32,7 +32,8 @@ vi.mock("@/lib/db", () => ({
 
 import { withReadOnlyPlanningConnection } from "@/lib/enrichment/read-only-session";
 import { currentTarget, planCommand, undoCommand } from "@/lib/ebooks/ingest/command";
-import { applyPlan, planSha256, resumeRun, type ApplyOptions } from "@/lib/ebooks/ingest/run";
+import { applyPlan, planSha256, resumeRun, runReconcileScope, type ApplyOptions } from "@/lib/ebooks/ingest/run";
+import { reconcileIngest } from "@/lib/ebooks/ingest/reconcile";
 import { takeCalibreSnapshot } from "@/lib/ebooks/calibre/snapshot";
 import { importExistingCounts, planImportExistingOn, planSelectionMatchingOn, writeImportExisting, type ImportExistingPlan } from "@/lib/ebooks/calibre/import-existing";
 import { readSelection } from "@/lib/ebooks/calibre/selection";
@@ -392,6 +393,14 @@ describe.skipIf(!url)("Import existing", () => {
     const resumed = await resumeRun(runId, options());
     expect(resumed).toMatchObject({ state: "finished", exact: true });
     undoFile = resumed.undoFile;
+
+    // Reconciled again later by the run's id: the selection's files alone. The
+    // whole library is not this run's to account for.
+    const scope = await runReconcileScope(database, runId, cacheDir);
+    expect(scope).toMatchObject({ roots: [root], host, runId });
+    expect(scope.paths?.sort()).toEqual(Object.keys(plan.files).sort());
+    expect((await reconcileIngest({ database, cacheDir, ...scope })).exact).toBe(true);
+    expect((await reconcileIngest({ database, cacheDir, roots: [root], host })).exact).toBe(false);
 
     const refs = await c`select import_ref from ebooks order by import_ref`;
     expect(refs.map((r) => r.import_ref)).toEqual(first.selection.books.map((b) => b.uuid).sort());
