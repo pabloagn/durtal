@@ -1227,11 +1227,18 @@ function ReaderSession({
           saved = landing.locator;
         } else if (
           landing &&
+          resumeAnchor?.deviceId === deviceId &&
           (!ownPlace ||
             resumed?.status !== "exact" ||
-            resumeAnchor?.fileId !== file.id)
+            resumeAnchor.fileId !== file.id)
         )
-          save(landing.locator, landing.chapter, resumeAnchor?.clientUpdatedAt);
+          // This device's own place, found again in another or a changed file,
+          // keeps its own clock
+          save(landing.locator, landing.chapter, resumeAnchor.clientUpdatedAt);
+        // Opening at another device's place saves nothing for this device
+        // until the reader moves: a row under that place's clock would show a
+        // device that never read there (SLN-665)
+        else if (landing) saved = landing.locator;
         unregisterShortcuts = registerCoreReaderShortcuts([
           "arrowleft",
           "arrowright",

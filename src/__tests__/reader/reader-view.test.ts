@@ -498,6 +498,11 @@ describe("reader view with a real bridge and fake engine", () => {
     });
     expect(host.textContent).not.toContain("Your place from");
   });
+  it("saves no place for a never-opened device until the reader moves (SLN-665)", async () => {
+    await render(null, null, other);
+    act(() => window.dispatchEvent(new Event("pagehide")));
+    expect(await persistence.committedPositions()).toEqual([]);
+  });
   it("history in another own format is not mistaken for a never-opened device", async () => {
     const pdfOwn = {
       ...own,

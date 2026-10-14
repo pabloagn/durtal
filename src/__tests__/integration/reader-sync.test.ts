@@ -151,6 +151,16 @@ describe.skipIf(!url)("reader sync", () => {
     expect(rows[1].progression).toBeCloseTo(0.4);
     expect(rows[1].furthestProgression).toBeCloseTo(0.9);
   });
+  it("keeps the further place when two saves share a clock, whichever arrives first (SLN-665)", async () => {
+    const epub = await file("epub");
+    await save(epub, mac, 0.5, T0);
+    await save(epub, mac, 0.48, T0);
+    await save(epub, phone, 0.48, T0);
+    await save(epub, phone, 0.5, T0);
+    const rows = await allDevicePositions(ebookId, mac);
+    expect(rows.map((row) => [row.deviceId, Number(row.progression.toFixed(2))]).sort())
+      .toEqual([[mac, 0.5], [phone, 0.5]].sort());
+  });
   it("GET returns exact all-device fields, cookie flags and anonymous places", async () => {
     const epub = await file("epub");
     await save(epub, mac, 0.4);

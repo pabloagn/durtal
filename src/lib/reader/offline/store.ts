@@ -300,11 +300,17 @@ export async function openOfflineStore(options: StoreOptions) {
         if (candidate.kind !== "position")
           throw new Error("Invalid local position kind");
         validate({ mutation: candidate });
+        // Under one clock the further place is the latest, as on the server,
+        // so an echo of an older place never moves it back (SLN-665)
+        const order = comparePositionTimes(
+          candidate.body.clientUpdatedAt,
+          latest.body.clientUpdatedAt,
+        );
         if (
-          comparePositionTimes(
-            candidate.body.clientUpdatedAt,
-            latest.body.clientUpdatedAt,
-          ) > 0
+          order > 0 ||
+          (order === 0 &&
+            candidate.body.locator.totalProgression >
+              latest.body.locator.totalProgression)
         )
           latest = candidate;
         if (

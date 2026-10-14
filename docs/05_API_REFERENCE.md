@@ -1209,7 +1209,7 @@ A client may append `?touch=1` to the shared position URL when a Macintosh user 
 | `chapter` | string \| null | no | Trimmed and cut to 300 characters |
 | `clientUpdatedAt` | ISO 8601 | yes | When the reader was there, by its own clock; at most 5 minutes in the future |
 
-The newest place by `clientUpdatedAt` wins: an older one changes only `furthestProgression`, the greatest progression ever sent. The reader also sends it with `sendBeacon` when the page is hidden or goes away.
+The newest place by `clientUpdatedAt` wins, and under the same `clientUpdatedAt` the further one: any other changes only `furthestProgression`, the greatest progression ever sent. The reader also sends it with `sendBeacon` when the page is hidden or goes away.
 
 **Response** `200`: `{ "saved": true | false, "position": { ... } }` (`saved` is false when a newer place was already stored). **Error** `400`: invalid body, a file of another e-book, or no device cookie. `404`: no such e-book.
 
