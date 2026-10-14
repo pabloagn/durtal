@@ -9,6 +9,8 @@ import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { PosterGlow } from "./ambient-crystals";
 import type { CrystalColor } from "@/lib/types";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
+import { CoverPlaceholder } from "@/components/books/book-card";
+import { WORK_POSTER_BOX } from "./work-poster-box";
 
 interface WorkPosterImageProps {
   src: string;
@@ -27,9 +29,7 @@ export function WorkPosterImage({
 
   return (
     <>
-      <div
-        className="relative h-64 w-44 flex-shrink-0 overflow-visible"
-      >
+      <div className={`${WORK_POSTER_BOX} overflow-visible`}>
         {/* Color glow behind the poster */}
         {palette && palette.length > 0 && (
           <PosterGlow palette={palette} />
@@ -68,5 +68,14 @@ export function WorkPosterImage({
         onClose={() => setLightboxOpen(false)}
       />
     </>
+  );
+}
+
+/** A book with no poster and no edition cover keeps its cover's place */
+export function WorkPosterPlaceholder({ title }: { title: string }) {
+  return (
+    <div className={`${WORK_POSTER_BOX} overflow-hidden rounded-sm bg-bg-tertiary`}>
+      <CoverPlaceholder letter={title[0] ?? ""} />
+    </div>
   );
 }

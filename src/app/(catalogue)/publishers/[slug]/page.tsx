@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
 import { cache } from "react";
 import Link from "next/link";
+import { BackLink } from "@/components/shared/back-link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, Library } from "lucide-react";
+import { Library } from "lucide-react";
 import { getPublisher } from "@/lib/actions/publishers";
 import { getPublisherSuggestionSummary } from "@/lib/actions/publisher-names";
 import {
@@ -224,13 +225,7 @@ export default async function PublisherPage({
           </FullBleedLayer>
         )}
         <div className={background ? "relative z-10 px-6 pt-6 pb-2" : ""}>
-          <Link
-            href="/publishers"
-            className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
-          >
-            <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
-            Back to publishers
-          </Link>
+          <BackLink href="/publishers">Back to publishers</BackLink>
           <PublisherHeader
             id={p.id}
             slug={p.slug}

@@ -2,8 +2,8 @@ import { cache } from "react";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { renderStamp } from "@/lib/activity/render-stamp";
 import Link from "next/link";
+import { BackLink } from "@/components/shared/back-link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { Prose } from "@/components/shared/prose";
 import { GallerySection } from "@/components/shared/gallery-section";
@@ -400,13 +400,7 @@ export default async function FilmPage({
           )}
 
           <div className={still ? "relative z-10 px-6 pt-6 pb-2" : ""}>
-            <Link
-              href="/films"
-              className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
-            >
-              <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
-              Back to films
-            </Link>
+            <BackLink href="/films">Back to films</BackLink>
 
             <header className="flex flex-col gap-6 sm:flex-row">
               <div className="w-36 shrink-0 sm:w-44">
