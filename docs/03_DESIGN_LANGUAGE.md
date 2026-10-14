@@ -500,7 +500,7 @@ The same run reports what those audits pass but a reader still sees (`scripts/qa
 - **Drifting edge**: in a card, a block whose first ink (text, icon, or a badge's or field's box) starts 0.5 to 12px off its column's edge. Mark an intended inset with `data-inset`.
 - **First card**: on a list page, the first card starts below the top 60% of the phone's first screen.
 
-Findings in `scripts/qa/layout-audit-known.json` show as known, with their ticket; the run says when one is no longer found, so its line can go. A new finding is listed but fails the run only with `--strict`. A backdrop that bleeds to the edges of `main` (`-mx-4 md:-mx-6`) must match the page gutter.
+Findings in `scripts/qa/layout-audit-known.json` show as known, with their ticket; the run says when one is no longer found on a page it checked, so its line can go. A known squeezed, plain or drift finding is keyed with its text (`plain /library/* a.transition-colors "Read"`, numbers as `#`), so another command with the same classes on that page still shows as new. A new finding is listed but fails the run only with `--strict`. A backdrop that bleeds to the edges of `main` (`-mx-4 md:-mx-6`) must match the page gutter.
 
 ### Progress bars and rich text
 

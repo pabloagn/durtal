@@ -273,11 +273,11 @@ export function InstanceDetail({
                       .filter(Boolean)
                       .join(" · ")}
                   </span>
-                  <Link href={`/ebooks/${ebook.id}`} className="ml-3 text-fg-primary transition-colors hover:text-accent-primary">eBook details</Link>
+                  <Link href={`/ebooks/${ebook.id}`} className="ml-3 text-command">eBook details</Link>
                   {ebook.readerPath && <ReaderEntryLink
                     readerPath={ebook.readerPath}
                     returnTo={ebook.returnTo}
-                    className="ml-3 text-fg-primary transition-colors hover:text-accent-primary"
+                    className="ml-3 text-command"
                   >
                     {ebook.readLabel ?? "Read"}
                   </ReaderEntryLink>}
