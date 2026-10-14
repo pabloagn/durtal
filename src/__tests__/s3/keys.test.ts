@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  isOwnEditionCoverKey,
   bronzeImportKey,
   bronzeCoverKey,
   bronzeUploadKey,
@@ -241,5 +242,22 @@ describe("edition cover keys", () => {
     const { coverKey } = goldCoverStageKeys(edition, attempt);
     expect(coverKeySha256(coverKey)).toBeNull();
     expect(parseStageKey(coverKey)).toBeNull();
+  });
+});
+
+describe("isOwnEditionCoverKey (SLN-638)", () => {
+  const edition = "10000000-0000-4000-8000-000000000001";
+  const other = "10000000-0000-4000-8000-000000000002";
+  it("owns keys under the edition's media and legacy cover folders", () => {
+    expect(isOwnEditionCoverKey(edition, `gold/media/edition/${edition}/a/cover.webp`)).toBe(true);
+    expect(isOwnEditionCoverKey(edition, `gold/covers/${edition}/cover.webp`)).toBe(true);
+  });
+  it("refuses another edition's, a work's, a climbing or an ill-formed key", () => {
+    expect(isOwnEditionCoverKey(edition, `gold/media/edition/${other}/a/cover.webp`)).toBe(false);
+    expect(isOwnEditionCoverKey(edition, `gold/media/edition/${edition}0/cover.webp`)).toBe(false);
+    expect(isOwnEditionCoverKey(edition, `gold/media/work/${edition}/poster.webp`)).toBe(false);
+    expect(isOwnEditionCoverKey(edition, `gold/media/edition/${edition}/../${other}/cover.webp`)).toBe(false);
+    expect(isOwnEditionCoverKey("../x", "gold/covers/../x/cover.webp")).toBe(false);
+    expect(isOwnEditionCoverKey("", "gold/covers//cover.webp")).toBe(false);
   });
 });

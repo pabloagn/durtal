@@ -114,6 +114,7 @@ See [12_DEVELOPMENT.md](12_DEVELOPMENT.md) for the full command reference.
 | [11_DEPLOYMENT.md](11_DEPLOYMENT.md) | Docker, CI/CD, osmium.rh, Traefik, Authelia, Tailscale |
 | [12_DEVELOPMENT.md](12_DEVELOPMENT.md) | Nix environment, project structure, commands, dependencies |
 | [13_CONFIGURATION.md](13_CONFIGURATION.md) | Environment variables, config files, Taskfile |
+| [15_KEYBOARD.md](15_KEYBOARD.md) | Keyboard ownership contract, key map and conflicts, page-action and dialog coverage |
 
 ---
 

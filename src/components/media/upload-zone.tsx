@@ -6,10 +6,7 @@ import { Upload } from "lucide-react";
 import type { MediaType } from "@/lib/types";
 import type { MonochromeParams } from "@/lib/validations/media";
 
-interface UploadZoneProps {
-  entityType: "work" | "author" | "collection" | "perfume_variant" | "organization";
-  entityId: string;
-  mediaType: MediaType;
+interface ZoneOptions {
   onUploadComplete?: () => void;
   className?: string;
   accept?: string;
@@ -18,6 +15,34 @@ interface UploadZoneProps {
   /** What the image is called in the drop prompt: defaults to the media type ("poster") */
   noun?: string;
 }
+
+/** Where an image goes that is not a media row: an edition's cover (SLN-638) */
+export interface UploadTarget {
+  file: (file: File) => Promise<void>;
+  url: (imageUrl: string) => Promise<void>;
+}
+
+type UploadZoneProps = ZoneOptions &
+  (
+    | {
+        entityType:
+          | "work"
+          | "author"
+          | "collection"
+          | "perfume_variant"
+          | "organization";
+        entityId: string;
+        mediaType: MediaType;
+        send?: never;
+      }
+    | {
+        send: UploadTarget;
+        noun: string;
+        entityType?: never;
+        entityId?: never;
+        mediaType?: never;
+      }
+  );
 
 interface UploadState {
   id: string;
@@ -98,6 +123,7 @@ export function UploadZone({
   multiple = false,
   processingParams,
   noun,
+  send,
 }: UploadZoneProps) {
   const [uploads, setUploads] = useState<UploadState[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -112,19 +138,21 @@ export function UploadZone({
       ]);
 
       try {
-        await uploadMediaFile(() => {
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("entityType", entityType);
-          formData.append("entityId", entityId);
-          formData.append("mediaType", mediaType);
-          if (processingParams)
-            formData.append(
-              "processingParams",
-              JSON.stringify(processingParams),
-            );
-          return formData;
-        });
+        if (send) await send.file(file);
+        else
+          await uploadMediaFile(() => {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("entityType", entityType!);
+            formData.append("entityId", entityId!);
+            formData.append("mediaType", mediaType!);
+            if (processingParams)
+              formData.append(
+                "processingParams",
+                JSON.stringify(processingParams),
+              );
+            return formData;
+          });
 
         setUploads((prev) =>
           prev.map((u) => (u.id === id ? { ...u, status: "done" } : u)),
@@ -148,7 +176,7 @@ export function UploadZone({
         );
       }
     },
-    [entityType, entityId, mediaType, onUploadComplete, processingParams],
+    [entityType, entityId, mediaType, onUploadComplete, processingParams, send],
   );
 
   const processUrl = useCallback(
@@ -161,19 +189,22 @@ export function UploadZone({
       setUploads((prev) => [...prev, { id, filename, status: "uploading" }]);
 
       try {
-        const res = await fetch("/api/media/from-url", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            entityType,
-            entityId,
-            mediaType,
-            imageUrl,
-            ...(processingParams ? { processingParams } : {}),
-          }),
-        });
+        if (send) await send.url(imageUrl);
+        else {
+          const res = await fetch("/api/media/from-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              entityType,
+              entityId,
+              mediaType,
+              imageUrl,
+              ...(processingParams ? { processingParams } : {}),
+            }),
+          });
 
-        if (!res.ok) throw await mediaResponseError(res);
+          if (!res.ok) throw await mediaResponseError(res);
+        }
 
         setUploads((prev) =>
           prev.map((u) => (u.id === id ? { ...u, status: "done" } : u)),
@@ -197,7 +228,7 @@ export function UploadZone({
         );
       }
     },
-    [entityType, entityId, mediaType, onUploadComplete, processingParams],
+    [entityType, entityId, mediaType, onUploadComplete, processingParams, send],
   );
 
   const handleFiles = useCallback(
@@ -307,7 +338,7 @@ export function UploadZone({
                 {u.status === "error" && (
                   <button
                     type="button"
-                    className="text-fg-secondary hover:text-fg-primary"
+                    className="text-fg-secondary hover:text-fg-primary pointer-coarse:min-h-11"
                     aria-label={`Dismiss error for ${u.filename}`}
                     onClick={() =>
                       setUploads((prev) =>

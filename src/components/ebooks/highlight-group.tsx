@@ -5,6 +5,7 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { QUIET_GLASS_ANNOTATION_PALETTE } from "@/lib/reader/annotation-colors";
 import type { EbookCardData } from "@/lib/ebooks/library-view";
 import type { HighlightMark } from "@/lib/ebooks/highlights";
+import { fractionPercent, pageWords } from "@/lib/reader/place-label";
 
 function markFill(mark: HighlightMark): string {
   if (mark.style === "quote" || !mark.color) return QUIET_GLASS_ANNOTATION_PALETTE.quote;
@@ -13,7 +14,7 @@ function markFill(mark: HighlightMark): string {
 
 function markPlace(mark: HighlightMark): string {
   return [
-    mark.pageLabel ? `p. ${mark.pageLabel}` : `${Math.round(mark.progression * 100)}%`,
+    mark.pageLabel ? pageWords(mark.pageLabel, undefined) : fractionPercent(mark.progression),
     mark.chapter,
     mark.updatedAt.slice(0, 10),
   ].filter(Boolean).join(" · ");

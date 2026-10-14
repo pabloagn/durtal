@@ -4,6 +4,7 @@ import type {
   ContinueDescriptor,
   ContinueFile,
 } from "./continue-target";
+import { formatPercent } from "@/lib/reader/place-label";
 
 /**
  * Read-only public fields of SLN-497's actual ContinueDescriptor. The availability
@@ -85,6 +86,6 @@ export function catalogueReadLabel(
     Number.isFinite(percent) &&
     percent >= 0 &&
     percent <= 100
-    ? `Continue · ${Math.round(percent)}%`
+    ? `Continue · ${formatPercent(percent)}`
     : "Continue";
 }

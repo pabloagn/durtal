@@ -36,6 +36,7 @@ import { EbookFilesTable } from "@/components/ebooks/ebook-files-table";
 import { EbookPlaces } from "@/components/ebooks/ebook-places";
 import { EbookMarksExport } from "@/components/ebooks/ebook-marks-export";
 import { getEbookMarkCounts } from "@/lib/ebooks/highlights";
+import { formatPercent } from "@/lib/reader/place-label";
 type Props = { params: Promise<{ ebookId: string }> };
 const plural = (count: number, word: string) =>
   `${count} ${word}${count === 1 ? "" : "s"}`;
@@ -65,8 +66,12 @@ export default async function EbookPage({ params }: Props) {
   const readLabel = !descriptor?.anchor
     ? "Read"
     : descriptor.projection === "pending-reanchor"
-      ? `Continue · saved ${descriptor.savedPercent}%`
-      : `Continue · ${descriptor.targetPercent}%`;
+      ? descriptor.savedPercent === null
+        ? "Continue"
+        : `Continue · saved ${formatPercent(descriptor.savedPercent)}`
+      : descriptor.targetPercent === null
+        ? "Continue"
+        : `Continue · ${formatPercent(descriptor.targetPercent)}`;
   const identifiers = Object.entries(ebook.identifiers).flatMap(
     ([scheme, values]) =>
       Array.isArray(values)

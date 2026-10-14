@@ -8,7 +8,9 @@ import type { ColorPalette } from "@/lib/types";
 
 export type CoverSource =
   | Readonly<{ kind: "url"; url: string }>
-  | Readonly<{ kind: "ebook"; ebookId: string; key: string; sha256: string | null; size: number | null }>;
+  | Readonly<{ kind: "ebook"; ebookId: string; key: string; sha256: string | null; size: number | null }>
+  // A file chosen or dropped in the edition's cover editor (SLN-638)
+  | Readonly<{ kind: "upload"; sha256: string; size: number }>;
 
 /** Allocation is safe before storage writes, for reservation/recovery receipts. */
 export interface AllocatedCoverStage {
@@ -47,7 +49,10 @@ export function allocateCoverStage(input: {
   const operationId = input.operationId ?? randomUUID();
   if (!operationId || (input.targetDatabase !== undefined && !input.targetDatabase))
     throw new Error("Missing cover operation/target identity");
-  if (input.source.kind === "url" ? !input.source.url : !input.source.ebookId || !input.source.key)
+  const source = input.source;
+  if (source.kind === "url" ? !source.url
+    : source.kind === "upload" ? !/^[0-9a-f]{64}$/.test(source.sha256) || !(source.size > 0)
+    : !source.ebookId || !source.key)
     throw new Error("Missing cover source identity");
   const stage = Object.freeze({
     editionId: input.editionId, attemptId, operationId,

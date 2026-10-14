@@ -1,7 +1,6 @@
 import { SectionHeading } from "@/components/shared/section-heading";
 import { DetailFacts } from "@/components/shared/detail-facts";
 import { CollectionButton } from "@/components/books/add-to-collection-dialog";
-import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import Link from "next/link";
 import { EditionPublishers } from "@/components/publishers/edition-publishers";
 import type { PublisherOption } from "@/components/publishers/publisher-picker";
@@ -9,6 +8,7 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { InstanceDetail, type CopyEbook } from "./instance-detail";
 import { EditionEditDialog } from "./edition-edit-dialog";
+import { EditionCoverDialog } from "./edition-cover-dialog";
 import { EditionDeleteButton } from "./edition-delete-button";
 import { EditionQuotes } from "./edition-quotes";
 import { InstanceAddDialog } from "./instance-add-dialog";
@@ -32,7 +32,6 @@ import type {
 import type { InferSelectModel } from "drizzle-orm";
 import type { editionContributors } from "@/lib/db/schema";
 import type { LocationWithSubLocations } from "@/lib/types/index";
-import { mediaUrl } from "@/lib/s3/media-url";
 
 type Contributor = InferSelectModel<typeof editionContributors> & {
   author: Author;
@@ -221,15 +220,7 @@ export function EditionDetailCard({
                   editionId={edition.id}
                   title={edition.title}
                 />
-                {(edition.coverS3Key || edition.thumbnailS3Key) && (
-                  <ImageAdjustButton
-                    source={mediaUrl(
-                      (edition.coverS3Key || edition.thumbnailS3Key)!,
-                    )}
-                    label="Adjust edition cover"
-                    appearance="ghost"
-                  />
-                )}
+                <EditionCoverDialog edition={edition} poster={poster} />
                 {workId && (
                   <EditionMatchButton
                     workId={workId}

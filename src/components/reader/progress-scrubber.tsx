@@ -8,8 +8,12 @@ export function ProgressScrubber({
   index,
   onCommit,
   onPeek,
+  restLabel,
 }: {
   fraction: number;
+  /** The place the bar names (SLN-680): said at rest, so the slider and the
+   * bar never name two pages. A drag or a key previews by fraction. */
+  restLabel?: string;
   index: PositionIndex;
   onCommit(fraction: number): void;
   onPeek?(active: boolean): void;
@@ -25,7 +29,7 @@ export function ProgressScrubber({
   const [width, setWidth] = useState(220);
   const [keyboard, setKeyboard] = useState<number | null>(null);
   const rtl = index.info.dir === "rtl";
-  const write = (value: number, stay = false) => {
+  const write = (value: number, stay = false, rest = false) => {
     preview.current = value;
     const px =
       (rtl ? 1 - value : value) * (track.current?.clientWidth ?? width);
@@ -37,7 +41,7 @@ export function ProgressScrubber({
       "aria-valuenow",
       String(Math.round(value * 100)),
     );
-    const label = index.preview(value);
+    const label = rest && restLabel ? restLabel : index.preview(value);
     track.current?.setAttribute("aria-valuetext", label);
     if (bubble.current) {
       bubble.current.textContent = stay ? "Release to stay" : label;
@@ -54,7 +58,7 @@ export function ProgressScrubber({
     setPeeking(false);
     setKeyboard(null);
     onPeek?.(false);
-    write(fraction);
+    write(fraction, false, true);
   };
   useEffect(() => {
     if (track.current) {
@@ -67,7 +71,7 @@ export function ProgressScrubber({
   }, []);
   useEffect(() => {
     if (peeking) write(preview.current);
-    else if (!dragging.current && keyboard === null) write(fraction);
+    else if (!dragging.current && keyboard === null) write(fraction, false, true);
   });
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
@@ -104,7 +108,7 @@ export function ProgressScrubber({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(value * 100)}
-      aria-valuetext={index.preview(value)}
+      aria-valuetext={keyboard === null && restLabel ? restLabel : index.preview(value)}
       data-reader-widget
       className="relative h-6 min-w-0 flex-1 touch-none outline-none focus-visible:ring-1 focus-visible:ring-accent-primary pointer-coarse:h-11"
       onPointerDown={(event) => {
@@ -140,7 +144,7 @@ export function ProgressScrubber({
         event.currentTarget.releasePointerCapture(event.pointerId);
         setPeeking(false);
         onPeek?.(false);
-        write(fraction);
+        write(fraction, false, true);
         if (!stay) onCommit(target);
       }}
       onPointerCancel={cancel}

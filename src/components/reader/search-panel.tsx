@@ -8,6 +8,8 @@ import {
   writeSearchOptions,
 } from "@/lib/reader/search/preferences";
 import type { SearchHit } from "@/lib/reader/search/types";
+import type { PositionIndex } from "@/lib/reader/position-index";
+import { pageWords } from "@/lib/reader/place-label";
 import { ReaderSidePanel } from "./side-panel";
 
 const storage = () => {
@@ -29,10 +31,13 @@ export function SearchPanel({
   onClose,
   onOpen,
   onJump,
+  places,
 }: {
   open: boolean;
   engine: ReaderEngine;
   language: string | null;
+  /** Names each hit's place as the bar names it (SLN-680) */
+  places?: PositionIndex | null;
   onClose(): void;
   onOpen(): void;
   onJump(locator: DurtalLocator, hit: SearchHit): Promise<unknown>;
@@ -374,9 +379,11 @@ export function SearchPanel({
                     </span>
                     <span className="mt-1 block text-xs text-fg-secondary">
                       {hit.inNote && "Note · "}
-                      {hit.locator.pageLabel
-                        ? `Page ${hit.locator.pageLabel}`
-                        : `Location ${hit.locator.position ?? 1}`}
+                      {places
+                        ? places.locatorLabel(hit.locator)
+                        : hit.locator.pageLabel
+                          ? pageWords(hit.locator.pageLabel, undefined)
+                          : `Location ${hit.locator.position ?? 1}`}
                     </span>
                   </button>
                 ))}

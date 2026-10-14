@@ -420,7 +420,7 @@ describe("reader view with a real bridge and fake engine", () => {
     await render();
     expect(fake.engine.resolve).toHaveBeenCalledWith(own.locator);
     expect(fake.engine.goTo).toHaveBeenCalledExactlyOnceWith(own.locator);
-    expect(host.textContent).toContain("Page 212 · 30% ahead of you · iPhone · Safari");
+    expect(host.textContent).toContain("p. 212 · 30% ahead of you · iPhone · Safari");
     await settle();
     expect(report).toHaveBeenCalledWith(
       "location",

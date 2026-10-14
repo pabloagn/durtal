@@ -4,34 +4,43 @@ import type { ReaderBridgeController } from "@/lib/reader/bridge-state";
 import type { DurtalLocator } from "@/lib/reader/engine";
 import type { ReaderPlace } from "@/lib/reader/sync/places";
 import { formatRelativeTime } from "@/lib/utils/relative-time";
+import type { PositionIndex } from "@/lib/reader/position-index";
+import { formatPercent, fractionPercent, pageWords } from "@/lib/reader/place-label";
 
-/** Where a saved place is: its page, else its share of the book and chapter */
-export function resumePlaceLabel(place: ReaderPlace, fileId: string): string {
+/** Where a saved place is: its page, else its share of the book and chapter (SLN-680: as the bar names it) */
+export function resumePlaceLabel(place: ReaderPlace, fileId: string, index?: PositionIndex | null): string {
   const locator = place.locator;
-  const percent = Math.round(locator.totalProgression * 100);
-  return place.fileId !== fileId
-    ? `About ${percent}%`
-    : locator.pageLabel
-      ? `Page ${locator.pageLabel}`
-      : `${percent}%${place.chapter ? ` · ${place.chapter}` : ""}`;
+  const percent = fractionPercent(locator.totalProgression);
+  if (place.fileId !== fileId) return `About ${percent}`;
+  const page = index ? index.firstPage(locator) : locator.pageLabel;
+  return page
+    ? index ? index.pageWords(page) : pageWords(page, undefined)
+    : `${percent}${place.chapter ? ` · ${place.chapter}` : ""}`;
 }
 
 /** How far the other place is from this one, in pages when both have numbered pages */
-function placeDistance(place: ReaderPlace, fileId: string, here: DurtalLocator | null): string | null {
+function placeDistance(place: ReaderPlace, fileId: string, here: DurtalLocator | null, index?: PositionIndex | null): string | null {
   if (!here || place.fileId !== fileId) return null;
-  const page = (label?: string) => (label && /^\d+$/.test(label) ? Number(label) : null);
-  const there = page(place.locator.pageLabel), mine = page(here.pageLabel);
-  const [amount, unit] = there !== null && mine !== null
-    ? [there - mine, Math.abs(there - mine) === 1 ? " page" : " pages"]
-    : [Math.round((place.locator.totalProgression - here.totalProgression) * 100), "%"];
-  if (amount === 0) return null;
-  return `${Math.abs(amount)}${unit} ${amount < 0 ? "behind" : "ahead of"} you`;
+  const page = (locator: DurtalLocator) => {
+    const label = index ? index.firstPage(locator) : locator.pageLabel;
+    return label && /^\d+$/.test(label) ? Number(label) : null;
+  };
+  const there = page(place.locator), mine = page(here);
+  if (there !== null && mine !== null) {
+    const amount = there - mine;
+    if (amount === 0) return null;
+    return `${Math.abs(amount)}${Math.abs(amount) === 1 ? " page" : " pages"} ${amount < 0 ? "behind" : "ahead of"} you`;
+  }
+  const amount = (place.locator.totalProgression - here.totalProgression) * 100;
+  const words = formatPercent(Math.abs(amount));
+  if (words === "0%") return null;
+  return `${words} ${amount < 0 ? "behind" : "ahead of"} you`;
 }
 
 /** The other device's place, how far it is from yours, and the device with its browser (SLN-686) */
-export function resumeNoticeText(place: ReaderPlace, fileId: string, here: DurtalLocator | null = null): string {
-  const distance = placeDistance(place, fileId, here);
-  return [resumePlaceLabel(place, fileId), distance, place.deviceLabel, formatRelativeTime(place.clientUpdatedAt)]
+export function resumeNoticeText(place: ReaderPlace, fileId: string, here: DurtalLocator | null = null, index: PositionIndex | null = null): string {
+  const distance = placeDistance(place, fileId, here, index);
+  return [resumePlaceLabel(place, fileId, index), distance, place.deviceLabel, formatRelativeTime(place.clientUpdatedAt)]
     .filter(Boolean).join(" · ");
 }
 export function ReaderNotice({
