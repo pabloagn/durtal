@@ -1,6 +1,7 @@
 "use client";
 import { buttonClass } from "@/components/ui/button";
 import { useLayoutEffect, useRef, useState } from "react";
+import { acquireSurface } from "@/lib/ui/surface-state";
 import type {
   AnnotationColor,
   ReaderAnnotation,
@@ -31,6 +32,14 @@ export function HighlightMenu({
   const ref = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: 16, top: 16 });
   const [copy, setCopy] = useState<"ready" | "copied" | "failed">("ready");
+  // A surface like the reader's dialogs: Esc closes it from anywhere, also
+  // when focus stayed in the book after the click on the mark that opened it
+  const close = useRef(onClose);
+  useLayoutEffect(() => { close.current = onClose; });
+  useLayoutEffect(() => {
+    const lease = acquireSurface(() => close.current());
+    return () => lease.release();
+  }, []);
   useLayoutEffect(() => {
     const place = () => {
       if (ref.current)
