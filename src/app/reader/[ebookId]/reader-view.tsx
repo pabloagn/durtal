@@ -1582,6 +1582,7 @@ function ReaderSession({
       edges={status.kind === "ready" && (
         <PageEdges
           visible={bars.visible}
+          hovered={bars.edge}
           dir={index?.info.dir ?? "ltr"}
           onLeft={() => actions.current?.left()}
           onRight={() => actions.current?.right()}
