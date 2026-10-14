@@ -7,9 +7,11 @@ export interface PaletteBookRead {
   readonly ebook: WorkEbookDTO | null;
 }
 
-export interface PaletteUnlinkedEbook {
+export interface PaletteEbook {
   readonly ebook: WorkEbookDTO;
   readonly matchState: "pending" | "linked" | "standalone" | "excluded";
+  /** A linked eBook's book: it is titled after it, and left out when the book is already a result (SLN-683) */
+  readonly workId?: string | null;
 }
 
 export interface PaletteEbookItem {
@@ -22,7 +24,7 @@ export interface PaletteEbookItem {
 /** Pure grouping of query results: no matching, eligibility checks or extra fetches. */
 export function ebookPaletteGroup(input: {
   readonly works: readonly PaletteBookRead[];
-  readonly ebooks: readonly PaletteUnlinkedEbook[];
+  readonly ebooks: readonly PaletteEbook[];
   readonly recent: WorkEbookDTO | null;
   readonly emptyQuery: boolean;
 }): {
@@ -36,10 +38,12 @@ export function ebookPaletteGroup(input: {
       bookReaderPaths.set(work.id, work.ebook.readerPath);
   }
   const seen = new Set<string>();
+  const books = new Set(input.works.map((work) => work.id));
   const ebooks: PaletteEbookItem[] = [];
   for (const row of input.ebooks) {
-    if (row.matchState !== "pending" && row.matchState !== "standalone")
-      continue;
+    if (row.matchState === "excluded") continue;
+    // A linked eBook stays with its book in Books; it is listed here only when its book is not a result
+    if (row.matchState === "linked" && (!row.workId || books.has(row.workId))) continue;
     const ebook = row.ebook;
     if (seen.has(ebook.id)) continue;
     seen.add(ebook.id);

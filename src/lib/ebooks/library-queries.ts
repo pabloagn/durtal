@@ -41,6 +41,10 @@ export interface LibraryEbook {
   files: LibraryFile[];
   /** The listing only: how far the newest place has read, 0 to 1 */
   progress?: number | null;
+  /** The listing only: a linked e-book's book, whose title and authors it goes by (SLN-683) */
+  bookTitle?: string | null;
+  bookAuthors?: string[] | null;
+  bookId?: string | null;
 }
 export interface EbookLibraryCounts {
   total: number;
@@ -116,6 +120,11 @@ const progress = sql`(select (p.locator->>'totalProgression')::float8 from ebook
     and jsonb_typeof(p.locator->'totalProgression') = 'number'
   then not (p.locator->>'sectionIndex' = '0' and (p.locator->>'progression')::float8 = 0) else false end
   order by p.client_updated_at desc, p.device_id, p.file_id limit 1)`;
+/** A linked e-book's book (its copy's work), as `book`: id, title and authors in their order (SLN-683) */
+const linkedBook = sql`left join lateral (select w.id, w.title, (select array_agg(a.name order by wa.sort_order, a.name) from work_authors wa
+      join authors a on a.id = wa.author_id where wa.work_id = w.id and wa.role in ('author', 'co_author')) as authors
+    from instances copy join editions edition on edition.id = copy.edition_id join works w on w.id = edition.work_id
+    where copy.id = e.instance_id and e.match_state = 'linked') book on true`;
 /** The card columns of an e-book row aliased `e`, with its files (shared with /ebooks/highlights). */
 export const ebookSummaryColumns = sql`e.id, e.title, e.subtitle, e.authors, e.language,
   e.match_state as "matchState", e.preferred_file_id as "preferredFileId",
@@ -221,7 +230,9 @@ export function ebookLibraryPageQuery(params: EbookLibraryParams): SQL {
   return sql`with page as (
     select e.* from ebooks e where ${ebookLibraryWhere(params)}
     order by ${ordering(params)} limit ${params.perPage} offset ${params.offset}
-  ) select ${ebookSummaryColumns}, ${progress} as progress from page e order by ${ordering(params)}`;
+  ) select ${ebookSummaryColumns}, ${progress} as progress,
+    book.id as "bookId", book.title as "bookTitle", book.authors as "bookAuthors"
+  from page e ${linkedBook} order by ${ordering(params)}`;
 }
 export async function getEbookLibraryCounts(
   params: EbookLibraryParams,
@@ -272,11 +283,7 @@ export async function getContinueReading(
   ) select ${ebookSummaryColumns}, ${positions} as positions,
     -- A linked e-book goes by its book's title and authors (SLN-683)
     book.title as "bookTitle", book.authors as "bookAuthors"
-  from recent join ebooks e on e.id = recent.id
-  left join lateral (select w.title, (select array_agg(a.name order by wa.sort_order, a.name) from work_authors wa
-      join authors a on a.id = wa.author_id where wa.work_id = w.id and wa.role in ('author', 'co_author')) as authors
-    from instances copy join editions edition on edition.id = copy.edition_id join works w on w.id = edition.work_id
-    where copy.id = e.instance_id and e.match_state = 'linked') book on true
+  from recent join ebooks e on e.id = recent.id ${linkedBook}
   order by recent.opened desc, e.id`),
   );
   return rows.map(normalizedDates).flatMap((ebook) => {
