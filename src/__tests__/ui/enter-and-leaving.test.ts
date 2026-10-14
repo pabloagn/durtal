@@ -208,6 +208,34 @@ describe("Enter in a dialog", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("adds from a Done dialog's field on ⌘Enter, and keeps the dialog open", () => {
+    // Collections and Manage media: a field with its own Add, then Done
+    const onClose = vi.fn();
+    const onAdd = vi.fn((e: { preventDefault(): void }) => e.preventDefault());
+    act(() =>
+      root.render(
+        withShortcuts(
+          createElement(Dialog, {
+            open: true,
+            onClose,
+            title: "Collections",
+            done: true,
+            children: createElement(
+              "form",
+              { onSubmit: onAdd },
+              createElement("input", { id: "add-field", defaultValue: "Zeta" }),
+              createElement("button", { type: "submit", "data-shortcut": "save" }, "Create & add"),
+            ),
+          }),
+        ),
+      ),
+    );
+    const mod = isMacPlatform() ? { metaKey: true } : { ctrlKey: true };
+    enter(document.getElementById("add-field")!, mod);
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("never presses a Delete", () => {
     const onDelete = vi.fn();
     act(() => root.render(withShortcuts(createElement(EditDialog, { onSave: () => {}, onDelete }))));

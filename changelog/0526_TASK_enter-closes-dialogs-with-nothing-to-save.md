@@ -68,3 +68,4 @@ New Order by keyboard only, in the same three browsers and widths (54 of
 - Enter with no book picked stays on step 1.
 - With a book, Esc asks first, and Esc on the question keeps the book.
 - Enter moves through the steps, and on the last it creates the order.
+- Review of #237: ⌘Enter in the Collections name field or the Manage media URL field pressed Done, the dialog's last main button, and lost what was typed. Their Create & add and Add buttons now carry `data-shortcut="save"`, so ⌘Enter there adds and the dialog stays open. New test in `enter-and-leaving.test.ts`; `15_KEYBOARD.md`, gap 2.

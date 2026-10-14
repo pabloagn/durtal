@@ -307,10 +307,13 @@ export function AddToCollectionDialog({
                   autoFocus
                 />
               </div>
+              {/* ⌘Enter in the field creates too: the dialog's Done is
+                  otherwise its last main button, and would close it */}
               <Button
                 type="submit"
                 disabled={busy || !query.trim() || !chosen}
                 variant="primary"
+                data-shortcut="save"
               >
                 {data.collections.some(
                   (c) =>

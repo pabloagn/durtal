@@ -301,7 +301,9 @@ the identify queue and the harmonize workspace (16 files).
    closes them. "One record, fully connected" is a merge confirmation, not
    a viewer: Enter does not press Merge, as with a danger button.
 2. **Pickers and managers** (resolved in SLN-634). Collections and Manage
-   media close on Enter through Done. Pick one for me presses Start
+   media close on Enter through Done. ⌘Enter in their own field (the
+   collection name, the image URL) presses that field's Create & add or
+   Add (`data-shortcut="save"`), not Done. Pick one for me presses Start
    reading. In Match again the selected source filter is the primary, so
    Enter presses it again and nothing changes.
 3. **Danger confirmations** (Delete, Remove highlight, Undo import, Discard

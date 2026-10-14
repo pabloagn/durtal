@@ -660,8 +660,10 @@ export function MediaManagerDialog({
                     disabled={urlLoading}
                     className="flex-1"
                   />
+                  {/* ⌘Enter adds the URL, not the dialog's Done */}
                   <button
                     type="submit"
+                    data-shortcut="save"
                     disabled={urlLoading || !url.trim()}
                     className="inline-flex h-8 shrink-0 items-center gap-2 rounded-sm bg-selection-bg px-4 text-sm font-medium text-fg-primary transition-colors hover:bg-accent-underlay disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11"
                   >
