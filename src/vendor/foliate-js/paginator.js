@@ -449,6 +449,26 @@ export const uncollapse = range => {
         range.setEnd(endContainer, endOffset + glyph + 1)
         return range
     }
+    // Only white space is left in this text node, so the wrap space ends it
+    // and the next word starts an inline element (italics, a link, a note
+    // mark): anchor on the next glyph or image after it instead
+    if (glyph < 0 && endOffset > 0) {
+        const doc = endContainer.ownerDocument
+        const walker = doc.createTreeWalker(doc.body ?? doc.documentElement,
+            NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT)
+        walker.currentNode = endContainer
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            if (node.nodeType === 1) {
+                if (node.matches('img, svg, image, video, canvas, iframe, hr')) return node
+                continue
+            }
+            const next = node.data.search(/\S/)
+            if (next < 0) continue
+            range.setStart(node, next)
+            range.setEnd(node, next + 1)
+            return range
+        }
+    }
     if (endOffset + 1 < endContainer.length) range.setEnd(endContainer, endOffset + 1)
     else if (endOffset > 1) range.setStart(endContainer, endOffset - 1)
     else return endContainer.parentNode

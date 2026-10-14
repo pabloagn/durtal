@@ -212,4 +212,6 @@ adapter regression source added; native retesting remains pending.
     visible point of the screen; when a page starts after a line wrap, that
     point is the space the wrap leaves hanging at the end of the previous
     column, whose only boxes have no width and sit in that column, so the
-    reopen scrolled one page early. SLN-676.
+    reopen scrolled one page early. When only white space is left in the
+    text node (the next word starts italics, a link or a note mark), it walks
+    on to the next glyph, or anchors on an image met first. SLN-676.
