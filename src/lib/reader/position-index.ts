@@ -1,5 +1,5 @@
 import type { BookInfo, DurtalLocator, TocItem } from "./engine";
-import { fractionPercent, locationWords, pageWords, samePlace } from "./place-label";
+import { fractionPercent, locationWords, pageRangeWords, pageWords, samePlace } from "./place-label";
 
 export const unit = (n: number) =>
   Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0;
@@ -158,13 +158,58 @@ export class PositionIndex {
       ),
     );
   }
-  /** Never interpret the old persisted numeric position field as a new one-based location. */
-  locationFor(locator: DurtalLocator) {
+  /**
+   * Where a screen starts, as a fraction of the book. A locator's
+   * `totalProgression` is where the screen ends (foliate's fraction is the end
+   * of the visible spread); its `progression` is the start within the section.
+   */
+  startFraction(locator: DurtalLocator) {
     const section = this.info.sections[locator.sectionIndex];
-    const fraction = section?.linear
+    return section?.linear
       ? section.start + locator.progression * (section.end - section.start)
       : locator.totalProgression;
-    return this.locationAt(fraction);
+  }
+  /** Never interpret the old persisted numeric position field as a new one-based location. */
+  locationFor(locator: DurtalLocator) {
+    return this.locationAt(this.startFraction(locator));
+  }
+  /**
+   * The page in force at a point, where a page marker just after the point
+   * (within a line or two, in the same section) is that point's page: a
+   * marker usually sits just after the heading or line it belongs to. At a
+   * section's start the file's head comes first, so its first marker within
+   * a location (1,500 characters) is the page it opens on.
+   */
+  pageNear(fraction: number, section = this.sectionAt(fraction)) {
+    const next = this.pages[lower(this.pages, fraction)];
+    const opening = section && Math.abs(fraction - section.start) < 1e-9;
+    const near = this.info.linearSize > 0 ? (opening ? 1500 : 150) / this.info.linearSize : 0;
+    if (next && next.fraction - fraction <= near && (!section || this.sectionFor(next.href) === section))
+      return next;
+    return this.pageAt(fraction);
+  }
+  sectionAt(fraction: number) {
+    return this.info.sections.find(
+      (section) => section.linear && fraction >= section.start - 1e-9 && fraction < section.end - 1e-9,
+    );
+  }
+  /**
+   * The first and last page a screen shows (SLN-680), by the same rule as the
+   * contents (`entryPage`), so opening an entry lands on a screen that names
+   * its page. Null without page markers, or before they are all indexed.
+   */
+  screenPages(locator: DurtalLocator) {
+    if (!this.pages.length || !this.complete) return null;
+    const start = this.startFraction(locator);
+    const first = this.pageNear(start, this.info.sections[locator.sectionIndex]);
+    if (!first) return null;
+    const end = Math.max(start, locator.totalProgression - 1e-6);
+    // The engine names the last page marker on screen (`pageLabel`); the end
+    // fraction is measured by layout, the markers by text, so take the later
+    const named = locator.pageLabel ? this.pages.find((page) => page.label === locator.pageLabel) : undefined;
+    const last = [this.pageAt(end), named].reduce<typeof first | null | undefined>(
+      (later, page) => (page && (!later || page.fraction > later.fraction) ? page : later), null);
+    return { first, last: last && last.fraction > first.fraction ? last : first };
   }
   /** A page by its label, in the words every view uses (`pageWords`) */
   pageWords(label: string) {
@@ -177,25 +222,27 @@ export class PositionIndex {
       ? this.pageWords(page.label)
       : locationWords(this.locationAt(fraction), this.info.locationCount);
   }
-  /** The page or location a place starts on, as the bar, the margins and marks name it */
+  /** The pages or location a screen shows, as the bar, the margins and search name it */
   locatorLabel(locator: DurtalLocator) {
+    const pages = this.screenPages(locator);
+    if (pages)
+      return pageRangeWords(pages.first.label, pages.last.label, this.info.pageList.at(-1)?.label,
+        this.info.layout === "pre-paginated");
     return locator.pageLabel
       ? this.pageWords(locator.pageLabel)
       : locationWords(this.locationFor(locator), this.info.locationCount);
   }
+  /** The first page a place shows, by label, for marks and the read-elsewhere offer */
+  firstPage(locator: DurtalLocator) {
+    return this.screenPages(locator)?.first.label ?? locator.pageLabel ?? null;
+  }
   /**
    * The page a contents entry starts on. Page markers usually sit just after
-   * the heading they belong to; a marker within half a location of the entry,
+   * the heading they belong to; a marker within a line or two of the entry,
    * in its section, is its page, not the page before (SLN-680).
    */
   entryPage(href: string) {
-    const fraction = this.fraction(href);
-    const section = this.sectionFor(href);
-    const next = this.pages[lower(this.pages, fraction)];
-    const near = this.info.linearSize > 0 ? 750 / this.info.linearSize : 0;
-    if (next && next.fraction - fraction <= near && (!section || this.sectionFor(next.href) === section))
-      return next;
-    return this.pageAt(fraction);
+    return this.pageNear(this.fraction(href), this.sectionFor(href));
   }
   preview(fraction: number) {
     const place = this.positionLabel(fraction);

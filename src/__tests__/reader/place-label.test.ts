@@ -4,6 +4,7 @@ import {
   formatPercent,
   fractionPercent,
   locationWords,
+  pageRangeWords,
   pageWords,
   samePlace,
 } from "@/lib/reader/place-label";
@@ -27,11 +28,17 @@ describe("place labels (SLN-680)", () => {
     expect(pageWords("iv", "32")).toBe("p. iv");
     expect(pageWords("3", "6", true)).toBe("Page 3 of 6");
     expect(locationWords(6, 16)).toBe("Location 6 of 16");
+    expect(pageRangeWords("8", "9", "32")).toBe("pp. 8–9 of 32");
+    expect(pageRangeWords("iv", "v", "32")).toBe("pp. iv–v");
+    expect(pageRangeWords("1", "2", "6", true)).toBe("Pages 1–2 of 6");
+    expect(pageRangeWords("7", "7", "32")).toBe("p. 7 of 32");
   });
   it("treats a comic page heading beside its page as a repeat", () => {
     expect(samePlace("Page 3", "Page 3 of 6")).toBe(true);
     expect(samePlace("Page 1", "Page 10 of 12")).toBe(false);
     expect(samePlace("Chapter 1", "p. 8 of 200")).toBe(false);
+    expect(samePlace("Page 1", "Pages 1–2 of 6")).toBe(true);
+    expect(samePlace("Page 1", "Pages 10–11 of 12")).toBe(false);
   });
   it("gives a chapter the page it starts on, not the page before it", () => {
     // Chapter 1's parts start just before the next page marker: every part
@@ -44,8 +51,8 @@ describe("place labels (SLN-680)", () => {
       layout: "reflowable",
       locationCount: 10,
       linearSize: 15000,
-      toc: [item("c1", "Chapter 1"), item("c1#b", "Part 2"), item("c2", "Chapter 2")],
-      pageList: [item("c1#p8", "8"), item("c1#p9", "9"), item("c2#p12", "12")],
+      toc: [item("c1", "Chapter 1"), item("c1#b", "Part 2"), item("c1#c", "Part 3"), item("c2", "Chapter 2")],
+      pageList: [item("c1#p8", "8"), item("c1#p9", "9"), item("c1#p10", "10"), item("c2#p12", "12")],
       sections: [
         { href: "c1", label: "1", linear: true, start: 0, end: 0.5 },
         { href: "c2", label: "2", linear: true, start: 0.5, end: 1 },
@@ -56,12 +63,27 @@ describe("place labels (SLN-680)", () => {
       c1: 0,
       "c1#p8": 0.01,
       "c1#b": 0.2,
-      "c1#p9": 0.21,
+      "c1#p9": 0.205,
+      "c1#c": 0.3,
+      "c1#p10": 0.35,
       c2: 0.5,
-      "c2#p12": 0.5,
+      // A section's first marker comes after the file's head
+      "c2#p12": 0.55,
     });
     expect(index.entryPage("c1")?.label).toBe("8");
     expect(index.entryPage("c1#b")?.label).toBe("9");
+    // A marker 750 characters on belongs to the text before it
+    expect(index.entryPage("c1#c")?.label).toBe("9");
     expect(index.entryPage("c2")?.label).toBe("12");
+    // A screen is named by the pages it shows, the first by the contents' rule
+    const at = (sectionIndex: number, progression: number, totalProgression: number) =>
+      index.locatorLabel({ v: 1, fileHash: "a".repeat(64), href: "c", sectionIndex, progression, totalProgression });
+    expect(at(0, 0, 0.1)).toBe("p. 8 of 12");
+    expect(at(0, 0.4, 0.3)).toBe("p. 9 of 12");
+    expect(at(0, 0, 0.3)).toBe("pp. 8–9 of 12");
+    expect(at(1, 0, 0.6)).toBe("p. 12 of 12");
+    // The engine's last visible marker counts when the layout's end falls short
+    expect(index.locatorLabel({ v: 1, fileHash: "a".repeat(64), href: "c", sectionIndex: 0, progression: 0,
+      totalProgression: 0.1, pageLabel: "9" })).toBe("pp. 8–9 of 12");
   });
 });

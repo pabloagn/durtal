@@ -1638,7 +1638,7 @@ function ReaderSession({
               {/* Padded to the buttons' height, so a wrapped line keeps its first line centred on them;
                   on a phone the buttons take a row of their own, on the right. */}
               <p className="min-w-0 flex-1 basis-64 py-1 [@media(pointer:coarse)]:py-2.5">
-                {resumeNoticeText(offer, file.id, relocation?.locator ?? null)}
+                {resumeNoticeText(offer, file.id, relocation?.locator ?? null, index)}
               </p>
               <div className="ml-auto flex gap-2">
                 <button
@@ -1652,7 +1652,7 @@ function ReaderSession({
                 </button>
                 {furthest && <button
                   type="button"
-                  aria-label={`Go to your furthest place, ${resumePlaceLabel(furthest, file.id)} on ${furthest.deviceLabel}`}
+                  aria-label={`Go to your furthest place, ${resumePlaceLabel(furthest, file.id, index)} on ${furthest.deviceLabel}`}
                   data-tooltip="Go to your furthest place"
                   className="h-8 rounded-sm px-2 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11"
                   onClick={() => goToPlace(furthest)}
@@ -1703,7 +1703,7 @@ function ReaderSession({
             current={
               relocation?.tocItem ??
               (relocation
-                ? index.chapterAt(relocation.locator.totalProgression)
+                ? index.chapterAt(index.startFraction(relocation.locator))
                 : null)
             }
             onPick={pick}
