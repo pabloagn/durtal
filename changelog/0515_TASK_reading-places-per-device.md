@@ -43,8 +43,16 @@ book at that device's place.
 
 ## Completion Notes
 
+- The reader page read every place too: 518 KB at 1,000 places, over its
+  400 KB budget. `readReaderBook` now reads this device's and the chosen
+  device's places, each other device's newest, and the furthest other one,
+  which is all the offer of another device's place uses: 43 KB.
+- Measured on the 6,000 e-book preview with `--seed-places 1000` (40 device
+  names): the eBook page went from 631 KB to 79 KB (33 ms), 196 KB with
+  `?places=all`.
 - Not covered: History (the ticket's other part needs a migration), and the
-  reader and its place API still read every place of the book.
+  reader's place API (`GET /api/reader/[ebookId]/position`), which still
+  returns every place when the reader checks for a newer one.
 - Tests: `src/__tests__/ui/ebook-places.test.ts`, the entry policy, the
   page-weight config, and database tests in `ebook-library` (1,000 places,
   41 devices) and `reader-core` (`fromDeviceId`).
