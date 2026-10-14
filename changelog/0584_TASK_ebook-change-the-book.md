@@ -49,3 +49,6 @@ receipt, rather than adding a relink service:
   does not open on them ("The decision could not be verified"). Real links
   carry one.
 - No migration and no new packages.
+- Review: "Find a book" stays on while the first search runs, so the
+  chooser keeps the focus it opens with (Chromium and Firefox dropped it,
+  here and when opening Choose a book by hand).
