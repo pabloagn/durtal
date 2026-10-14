@@ -736,6 +736,16 @@ Deletes the import's readings not edited since (their `updated_at` equals their 
 
 ---
 
+## E-book differences (`src/lib/actions/ebook-differences.ts`, SLN-658)
+
+The Differences section of `/ebooks/review`. The work is in `src/lib/ebooks/differences/store.ts`; what counts as a difference, in `compare.ts`. Each call returns `{ ok: true, value }`, or `{ ok: false, message }` when it could not be read or confirmed.
+
+### `decideEbookDifferences({ choice, items })`
+`choice` is `keep` or `use`; `items` are 1 to 500 `{ ebookId, field, durtal, file }`, the values as the page showed them. Each item is read again and refused when its difference is gone or shows other values ("This difference changed. Reload to see it."), or when the choice is not offered on it; a refused item does not stop the rest. Keep sets the e-book's own field to the book's value, compared and set in one statement with its `work.ebook_difference_kept` event. Use writes the book through `updateEdition` (title, subtitle, language, year, publisher, ISBN) or `updateWork` (series by name, number in series), then records `work.ebook_difference_used`; a cover is copied through the matching's cover stage and set on an edition that still has none, with its event, in one statement. Each event holds the field and both values. Returns `{ done: [{ eventId, ebookId, field, bookTitle, message }], refused: [{ ebookId, field, message }] }`.
+
+### `undoEbookDifferences({ eventIds })`
+1 to 500 choices to undo. Each puts the value back only while the one the choice wrote is still there, and claims one `work.ebook_difference_undone` event, so a choice is undone once; a refused undo leaves no claim. Returns `{ done: [{ eventId, message }], refused: [{ eventId, message }] }`.
+
 ## Perfume sources (`src/lib/actions/perfume-sources.ts`, SLN-377)
 
 Wikidata is the one perfume source with a documented public API

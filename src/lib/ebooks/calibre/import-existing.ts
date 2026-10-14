@@ -83,6 +83,8 @@ export interface ImportExistingBook {
   /** Durtal rates the book otherwise */
   ratingDiffers: boolean;
   readDate: string | null;
+  /** The library's tags on the book: counted, kept in the file metadata, never written to the taxonomy */
+  tags: string[];
 }
 
 export interface ImportExistingPlan {
@@ -285,6 +287,7 @@ export async function planImportExisting(
       rating: book.rating,
       ratingDiffers: book.rating !== null && durtalRating !== null && durtalRating !== book.rating,
       readDate,
+      tags: book.tags,
     };
   });
 
@@ -388,6 +391,9 @@ export function importExistingCounts(plan: ImportExistingPlan) {
     rated: chosen.filter((b) => b.rating !== null).length,
     ratingsDiffer: chosen.filter((b) => b.ratingDiffers).length,
     readDates: chosen.filter((b) => b.readDate).length,
+    tagged: chosen.filter((b) => b.tags.length > 0).length,
+    tags: chosen.reduce((sum, b) => sum + b.tags.length, 0),
+    distinctTags: new Set(chosen.flatMap((b) => b.tags.map((t) => t.trim().toLowerCase()))).size,
     leftForBulk: tally(books.filter((b) => !b.stored && !b.inScope).map((b) => b.tier ?? "none")),
   };
 }
@@ -470,6 +476,8 @@ export function importExistingReport(plan: ImportExistingPlan, files: { selectio
     "",
     `Metadata differences: ${listed(c.differences)}. Rated in Calibre: ${n(c.rated)}, of which ${n(c.ratingsDiffer)} differ from Durtal's rating. Read dates: ${n(c.readDates)}.`,
     "",
+    `Tags: ${n(c.tagged)} books carry ${n(c.tags)} tags (${n(c.distinctTags)} different). They stay in the file metadata, as evidence for the enrichment step; none is written to the taxonomy.`,
+    "",
     "## Left for Bulk import",
     "",
     `${listed(c.leftForBulk)}.`,
@@ -499,7 +507,7 @@ export function importExistingReport(plan: ImportExistingPlan, files: { selectio
 
 /** One row per Calibre book */
 export function importExistingCsv(plan: ImportExistingPlan): string {
-  const columns = ["book_id", "uuid", "title", "authors", "stored", "tier", "selected", "links_by_itself", "clashes", "work_id", "work_title", "edition_rule", "effect", "formats", "missing", "outside", "drm", "differences", "rating", "read_date"];
+  const columns = ["book_id", "uuid", "title", "authors", "stored", "tier", "selected", "links_by_itself", "clashes", "work_id", "work_title", "edition_rule", "effect", "formats", "missing", "outside", "drm", "differences", "rating", "read_date", "tags"];
   return toCSV(
     plan.books.map((b) => ({
       book_id: b.bookId,
@@ -522,6 +530,7 @@ export function importExistingCsv(plan: ImportExistingPlan): string {
       differences: b.differences.join("; "),
       rating: b.rating ?? "",
       read_date: b.readDate ?? "",
+      tags: b.tags.length,
     })),
     columns,
   );
