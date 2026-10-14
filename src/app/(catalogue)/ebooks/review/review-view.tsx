@@ -6,6 +6,7 @@ import { prepareReviewUi, readReviewUi, confirmReviewUi, undoReviewUi } from "@/
 import { ReviewRow, type ReviewRowAction } from "@/components/ebooks/review-row";
 import { ReviewSection } from "@/components/ebooks/review-section";
 import { ReviewConfirm } from "@/components/ebooks/review-confirm";
+import { effectWords } from "@/lib/ebooks/review/effect-line";
 import { ChooseBookFields } from "@/components/ebooks/choose-book-dialog";
 import { NewBookFields } from "@/components/ebooks/new-book-dialog";
 import { ReviewSelectionBar, selectableReviewRows } from "@/components/ebooks/review-selection-bar";
@@ -21,9 +22,13 @@ import { Select } from "@/components/ui/select";
 import { REVIEW_KEYS, useReviewKeys, type ReviewKey } from "@/hooks/use-review-keys";
 import { initialReviewDecision, reviewDecisionReducer } from "@/lib/ebooks/review-queue/decision-state";
 import { reviewParamsSearch, type ReviewParams } from "@/lib/ebooks/review-queue/params";
-import type { PrepareEbookReview, PreparedReview, ReviewDetail, ReviewOutcome, ReviewQueue, ReviewQueueRow, ReviewUiResult } from "@/lib/ebooks/review-queue/types";
+import type { PrepareEbookReview, PreparedReview, ReviewDetail, ReviewOutcome, ReviewPreparationIssue, ReviewQueue, ReviewQueueRow, ReviewUiResult } from "@/lib/ebooks/review-queue/types";
 
 type Modal = { row: ReviewQueueRow; action: ReviewRowAction; rank?: number };
+/** Issues these dialogs show at their own fields, so the dialog's list leaves them out (SLN-684) */
+const DIALOG_FIELDS: Partial<Record<ReviewRowAction, readonly ReviewPreparationIssue["field"][]>> = {
+  choose: ["workId", "language", "isbn13", "locationId"], new: ["authors", "language"],
+};
 const titles: Record<ReviewRowAction, string> = { accept: "Review this match", choose: "Choose a book",
   new: "Create a book", keep: "Keep as eBook", exclude: "Set aside", rematch: "Match again" };
 const unavailable = <T,>(): ReviewUiResult<T> => ({ ok: false, error: {
@@ -234,7 +239,7 @@ export function ReviewView({ queue, params }: { queue: ReviewQueue; params: Revi
         onSelectRows={(rows) => setSelected((existing) => new Set([...existing, ...rows.map((row) => row.id)]))}
         onBulk={openBulk} onAll={openAll}
         rows={section.rows.filter((row) => !removed.has(row.id))} params={params} renderRow={(row) =>
-          <ReviewRow row={row} detail={details[row.id]?.stamp.updatedAt === row.stamp?.updatedAt &&
+          <ReviewRow row={row} section={section.key} detail={details[row.id]?.stamp.updatedAt === row.stamp?.updatedAt &&
             details[row.id]?.stamp.matchFingerprint === row.stamp?.matchFingerprint ? details[row.id] : undefined}
             selected={selected.has(row.id)} focused={focused === row.id} busy={busy || undoUnknown.size > 0} error={errors[row.id]}
             outcome={outcomes[row.id]?.outcome} returnTo={returnTo}
@@ -248,7 +253,7 @@ export function ReviewView({ queue, params }: { queue: ReviewQueue; params: Revi
     {Object.keys(outcomes).length > 0 && <section aria-label="Recent decisions" className="space-y-2">
       <h2 className="type-section-title">Recent decisions</h2>
       {Object.entries(outcomes).map(([id, entry]) => <div key={id} className="rounded-sm border border-glass-border px-3 py-2">
-        <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm">{entry.title} · {entry.outcome.message}</p>
+        <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm">{entry.title} · {effectWords(entry.outcome.message, "done")}</p>
           {entry.outcome.undo.available && <Button size="sm" disabled={busy || modal !== null || (undoUnknown.size > 0 && !undoUnknown.has(id))}
             onClick={() => void undo(id)}>{undoBusy === id ? "Undoing…" : undoUnknown.has(id) ? "Retry this Undo" : "Undo"}</Button>}
         </div>{errors[id] && <p role="alert" className="mt-1 text-xs text-accent-red-text">{errors[id]}</p>}
@@ -272,7 +277,7 @@ export function ReviewView({ queue, params }: { queue: ReviewQueue; params: Revi
       </div>)}
     </section>}
     {workNotice && <p role="status" className="text-sm text-fg-secondary">{workNotice}</p>}
-    <details className="text-xs text-fg-secondary"><summary className="cursor-pointer pointer-coarse:py-3">Keyboard shortcuts</summary>
+    <details className="text-xs text-fg-secondary"><summary className="cursor-pointer pointer-coarse:py-3.5">Keyboard shortcuts</summary>
       <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">{Object.entries(REVIEW_KEYS).map(([key, title]) =>
         <div key={key} className="flex gap-2"><dt><kbd>{key}</kbd></dt><dd>{title}</dd></div>)}</dl>
     </details>
@@ -281,12 +286,13 @@ export function ReviewView({ queue, params }: { queue: ReviewQueue; params: Revi
       onSelectAll={() => setSelected(new Set(eligibleRows.map((row) => row.id)))} onClear={() => setSelected(new Set())}
       onFocus={() => { const id = selectedVisible[0]?.id; if (id) document.querySelector<HTMLElement>(`[data-review-row="${id}"]`)?.focus(); }} />
     {toastOutcome && <div role="status" className="glass fixed bottom-56 left-3 right-3 z-40 mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-2 rounded-sm border border-glass-border px-4 py-3 sm:bottom-24">
-      <p className="text-sm">{toastOutcome.outcome.message}</p>
+      <p className="text-sm">{effectWords(toastOutcome.outcome.message, "done")}</p>
       {toastRun ? <Button size="sm" disabled={busy || modal !== null || bulkModal !== null}
         onClick={() => document.querySelector<HTMLButtonElement>(`[data-review-undo-run="${toastRun.key}"]`)?.click()}>Undo all {toastRun.outcomes.length}</Button> :
         toastOutcome.outcome.undo.available && <Button size="sm" disabled={busy || modal !== null || bulkModal !== null || (undoUnknown.size > 0 && !undoUnknown.has(toast!))} onClick={() => void undo(toast!)}>Undo</Button>}
     </div>}
     {modal && <ReviewConfirm title={`${titles[modal.action]} · ${modal.row.title}`} state={decision}
+      fields={DIALOG_FIELDS[modal.action]}
       onClose={close} onConfirm={() => void confirm()} onEdit={() => dispatch({ type: "edit", generation: ++generation.current })}>
       {modal.action === "choose" && <ChooseBookFields key={modal.row.id} row={modal.row} disabled={fieldsDisabled}
         issues={decision.issues.filter((issue) => issue.ebookId === modal.row.id)}

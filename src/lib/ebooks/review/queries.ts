@@ -1,3 +1,4 @@
+import { effectWords } from "./effect-line";
 import type { Db } from "@/lib/catalogue/work-store";
 import { withReadOnlyPlanningConnection } from "@/lib/enrichment/read-only-session";
 import { loadMatchCatalogue } from "../match/load";
@@ -26,7 +27,7 @@ export async function loadEbookReview(conn: Db, ebookId: string) {
         (row.instance_id ?? null) === (effect.movedFromEditionId ? null : effect.instanceId);
       return [{
         rank, workId: work.source.id, title: work.source.title,
-        probability: Number(row.probability), eligible, effectText: effect.text,
+        probability: Number(row.probability), eligible, effectText: effectWords(effect.text),
         candidateHash: selectedCandidateHash(text, rank, before.snapshot.matchFingerprint, modelVersion, effect),
       }];
     });
