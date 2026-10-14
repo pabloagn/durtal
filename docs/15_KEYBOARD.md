@@ -56,8 +56,14 @@ read from the source and covered by unit tests at most.
   steps they pick a result.
 - **The main button is never a danger button.** A Delete, Remove, Discard
   timer or Undo import is pressed by click, Tab then Enter, or Space, never
-  by Enter from a field or the dialog. This is deliberate: an Enter meant
-  for a field must not delete.
+  by plain Enter from a field or the dialog. This is deliberate: an Enter
+  meant for a field must not delete. ⌘Enter is the exception where the
+  danger button is marked `data-shortcut="save"`: the shared delete
+  confirmation (`ConfirmDeleteDialog`: films, paintings, perfumes, their
+  copies, versions, bottles and formulations, organizations, venues,
+  retailers, work links, readings, lookup history) and Undo import. The
+  book's own Delete (`delete-confirm-dialog.tsx`) has no mark, so ⌘Enter
+  does nothing there.
 - **Disabled means nothing happens.** When the main button is disabled (the
   form is invalid, or saving), Enter does nothing and the draft stays.
 - **Native and custom never both run.** The custom handler skips a field in
@@ -145,7 +151,7 @@ favourite star.
 
 ## 4. Dialogs
 
-One row per `Dialog` in the source (96). "Where" is the file and line of
+One row per `Dialog` in the source (97). "Where" is the file and line of
 the `<Dialog>`. Kinds:
 
 - **Edit form**: fields and a Save or Create. Enter follows the table
@@ -168,98 +174,99 @@ the identify queue and the harmonize workspace (16 files).
 | 2 | Resolution record | `app/(catalogue)/harmonize/workspace.tsx:737` | Viewer | none | none |
 | 3 | One record, fully connected | `app/(catalogue)/harmonize/workspace.tsx:1233` | Viewer | none | none |
 | 4 | title | `app/(catalogue)/library/[slug]/delete-confirm-dialog.tsx:38` | Confirm | Delete (danger): Enter does nothing; Esc closes | none |
-| 5 | Add Edition | `app/(catalogue)/library/[slug]/edition-add-dialog.tsx:99` | Edit form | Save / Create (submit) | draft |
-| 6 | Edit Edition | `app/(catalogue)/library/[slug]/edition-edit-dialog.tsx:124` | Edit form | Save / Create (submit) | draft |
-| 7 | Add Instance | `app/(catalogue)/library/[slug]/instance-add-dialog.tsx:137` | Edit form | Save / Create (submit) | draft |
-| 8 | Edit Instance | `app/(catalogue)/library/[slug]/instance-edit-dialog.tsx:199` | Edit form | Save / Create (submit) | draft |
-| 9 | Edit Work | `app/(catalogue)/library/[slug]/work-edit-dialog.tsx:124` | Edit form | Save / Create (submit) | draft |
-| 10 | Edit taxonomy | `app/(catalogue)/library/[slug]/work-taxonomy-edit-dialog.tsx:98` | Edit form | Save / Create (submit) | draft |
-| 11 | New location | `app/(catalogue)/locations/actions.tsx:69` | Edit form | Save / Create (submit) | draft |
-| 12 | Edit location | `app/(catalogue)/locations/location-card.tsx:208` | Edit form | Save / Create (submit) | draft |
-| 13 | Delete $name | `app/(catalogue)/locations/location-card.tsx:266` | Confirm | Delete (danger) | none |
-| 14 | Edit person | `app/(catalogue)/people/[slug]/author-edit-dialog.tsx:98` | Edit form | Save / Create (submit) | draft |
-| 15 | Merge people | `app/(catalogue)/people/[slug]/author-merge-dialog.tsx:79` | Edit form | Save / Create (submit) | draft |
-| 16 | Add person | `app/(catalogue)/people/author-create-dialog.tsx:108` | Edit form | Save / Create (submit) | draft |
-| 17 | Link an institution | `app/(catalogue)/places/[slug]/venue-institutions.tsx:181` | Edit form | Save / Create (submit) | draft |
-| 18 | venue ? "Edit venue | `app/(catalogue)/places/venue-create-dialog.tsx:216` | Edit form | Save / Create (submit) | draft |
-| 19 | New Order | `app/(catalogue)/provenance/order-create-dialog.tsx:155` | Edit form | Save / Create (submit) | draft |
-| 20 | Edit Order | `app/(catalogue)/provenance/order-edit-dialog.tsx:171` | Edit form | Save / Create (submit) | draft |
-| 21 | Export for Goodreads | `app/(catalogue)/settings/data/data-actions.tsx:90` | Action | Export | none |
-| 22 | Reset display settings? | `app/(catalogue)/settings/display/display-settings.tsx:174` | Confirm | Reset | none |
-| 23 | Reorder families | `app/(catalogue)/taxonomy/taxonomy-actions.tsx:102` | Edit form | Save order | dirty |
-| 24 | Collections | `components/books/add-to-collection-dialog.tsx:212` | Picker (saves each tick) | none: each tick saves | none |
-| 25 | Configure columns | `components/books/column-config-dialog.tsx:72` | Edit form | Save | dirty + Save |
-| 26 | Mark $count | `components/books/mark-read-dialog.tsx:80` | Confirm | Mark as read | none |
-| 27 | Match again | `components/books/match-again-dialog.tsx:221` | Picker | Pick a result | none |
-| 28 | Edit Work | `components/books/work-quick-edit-dialog.tsx:128` | Edit form | Save / Create (submit) | draft |
-| 29 | title | `components/catalogue/confirm-delete-dialog.tsx:35` | Confirm | Delete (danger): Enter does nothing; Esc closes | none |
-| 30 | Add source | `components/catalogue/sources-section.tsx:142` | Edit form | Save / Create (submit) | draft |
-| 31 | Add to your list | `components/catalogue/wanted-section.tsx:152` | Edit form | Save / Create (submit) | draft |
-| 32 | Order | `components/catalogue/wanted-section.tsx:155` | Edit form | Save / Create (submit) | draft |
-| 33 | Link a work | `components/catalogue/work-relations.tsx:92` | Edit form | Save / Create (submit) | draft |
-| 34 | Add to collection | `components/collections/add-books-dialog.tsx:147` | Edit form | Save / Create (submit) | draft |
-| 35 | Edit collection | `components/collections/collection-controls.tsx:150` | Edit form | Save / Create (submit) | draft |
-| 36 | Delete collection | `components/collections/collection-controls.tsx:196` | Confirm | Delete (danger) | none |
-| 37 | New collection | `components/collections/create-collection-dialog.tsx:78` | Edit form | Save / Create (submit) | draft |
-| 38 | Review all filtered eBooks | `components/ebooks/review-all-dialog.tsx:46` | Confirm | Review these eBooks | none |
-| 39 | titles[action] | `components/ebooks/review-bulk-dialog.tsx:94` | Two-step confirm | Preview next group, then confirm | none |
-| 40 | title | `components/ebooks/review-confirm.tsx:40` | Confirm | Confirm | none |
-| 41 | `$mode === "automatic_undo | `components/ebooks/unlink-ebook-dialog.tsx:41` | Confirm | Unlink | none |
-| 42 | Catalogue status · $work.title | `components/ebooks/work-review-dialog.tsx:54` | Confirm | Confirm | none |
-| 43 | copy ? "Edit copy | `components/films/copy-dialog.tsx:93` | Edit form | Save / Create (submit) | draft |
-| 44 | Edit film | `components/films/film-actions.tsx:61` | Edit form | Save / Create (submit) | draft |
-| 45 | Look up on Wikidata | `components/films/source-lookup.tsx:44` | Edit form | Save / Create (submit) | draft |
-| 46 | version ? "Edit version | `components/films/version-dialog.tsx:105` | Edit form | Save / Create (submit) | draft |
-| 47 | label | `components/media/image-adjustment-editor.tsx:385` | Edit form | Save / Create (submit) | draft |
-| 48 | Manage media | `components/media/media-manager-dialog.tsx:360` | Manager (saves each upload) | none: each upload saves | none |
-| 49 | organization ? "Edit organization | `components/organizations/organization-dialog.tsx:59` | Edit form | Save / Create (submit) | draft |
-| 50 | object ? `Edit $ART_OBJECT_KIND_LABELS[kind].toL | `components/paintings/art-object-dialog.tsx:116` | Edit form | Save / Create (submit) | draft |
-| 51 | Edit painting | `components/paintings/painting-actions.tsx:60` | Edit form | Save / Create (submit) | draft |
-| 52 | Look up in a museum | `components/paintings/source-lookup.tsx:60` | Edit form | Save / Create (submit) | draft |
-| 53 | TITLES[mode] | `components/paintings/whereabouts-dialog.tsx:107` | Edit form | Save / Create (submit) | draft |
-| 54 | bottle ? `Edit $CONTAINER_LABELS[bottle.containe | `components/perfumes/bottle-dialog.tsx:84` | Edit form | Save / Create (submit) | draft |
-| 55 | formulation ? "Edit formulation | `components/perfumes/formulation-dialog.tsx:125` | Edit form | Save / Create (submit) | draft |
-| 56 | Edit perfume | `components/perfumes/perfume-actions.tsx:73` | Edit form | Save / Create (submit) | draft |
-| 57 | Note a retailer | `components/perfumes/retailers-section.tsx:146` | Edit form | Save / Create (submit) | draft |
-| 58 | Record a price | `components/perfumes/retailers-section.tsx:158` | Edit form | Save / Create (submit) | draft |
-| 59 | Look up on Wikidata | `components/perfumes/source-lookup.tsx:44` | Edit form | Save / Create (submit) | draft |
-| 60 | Page controls | `components/reader/fixed-layout-controls.tsx:22` | Reader-local | reader keys | none |
-| 61 | Go to | `components/reader/goto-dialog.tsx:60` | Reader-local | reader keys | none |
-| 62 | Note | `components/reader/note-dialog.tsx:84` | Reader-local | reader keys | none |
-| 63 | Reading settings | `components/reader/presentation-settings-dialog.tsx:42` | Reader-local | reader keys | none |
-| 64 | Reader shortcuts | `components/reader/shortcut-sheet.tsx:14` | Reader-local | reader keys | none |
-| 65 | label | `components/reader/speech-options-menu.tsx:85` | Reader-local | reader keys | none |
-| 66 | title ?? TITLES[purpose] | `components/reading/book-picker.tsx:86` | Picker | Pick a book | none |
-| 67 | Abandon | `components/reading/dialogs/abandon-reading-dialog.tsx:80` | Edit form | Save / Create (submit) | draft |
-| 68 | Edit reading | `components/reading/dialogs/edit-reading-dialog.tsx:339` | Edit form | Save / Create (submit) | draft |
-| 69 | Finished | `components/reading/dialogs/finish-reading-dialog.tsx:79` | Result | Close | none |
-| 70 | Finish | `components/reading/dialogs/finish-reading-dialog.tsx:101` | Edit form | Save / Create (submit) | draft |
-| 71 | stopping ? "Stop the timer | `components/reading/dialogs/log-progress-dialog.tsx:230` | Edit form | Save / Create (submit) | draft |
-| 72 | editing ? `Edit $noun | `components/reading/dialogs/note-dialog.tsx:187` | Edit form | Save / Create (submit) | draft |
-| 73 | Log a past read | `components/reading/dialogs/past-read-dialog.tsx:92` | Edit form | Save / Create (submit) | draft |
-| 74 | editing ? "Edit session | `components/reading/dialogs/session-dialog.tsx:235` | Edit form | Save / Create (submit) | draft |
-| 75 | Start reading | `components/reading/dialogs/start-reading-dialog.tsx:182` | Edit form | Save / Create (submit) | draft |
-| 76 | Set a reading goal | `components/reading/goal-dialog.tsx:98` | Edit form | Save / Create (submit) | draft |
-| 77 | Undo this import | `components/reading/import/import-client.tsx:489` | Confirm | Undo import (danger) | none |
-| 78 | Finished this book? | `components/reading/reader-tracking.tsx:290` | Question | Finish reading | none |
-| 79 | Remove this highlight? | `components/reading/reader-tracking.tsx:295` | Confirm | Remove (danger) | none |
-| 80 | Not for me because… | `components/reading/suggestions/not-for-me-dialog.tsx:32` | Edit form | Save / Create (submit) | draft |
-| 81 | Pick one for me | `components/reading/suggestions/pick-one.tsx:43` | Picker | Start reading | none |
-| 82 | title | `components/reading/timer-chip.tsx:206` | Question | Stop timer | none |
-| 83 | Still reading? | `components/reading/timer-chip.tsx:292` | Question | Still reading | none |
-| 84 | A timer is running for $timer.title | `components/reading/timer-chip.tsx:343` | Question | Stop it and start this one | none |
-| 85 | elapsed < 60 ? `Discard the timer for $timer.tit | `components/reading/timer-chip.tsx:371` | Confirm | Discard timer (danger) | none |
-| 86 | isEdit ? "Edit recommender | `components/recommenders/recommender-form-dialog.tsx:106` | Edit form | Save / Create (submit) | draft |
-| 87 | Add books | `components/series/add-series-books-dialog.tsx:88` | Edit form | Save / Create (submit) | draft |
-| 88 | isEdit ? "Edit series | `components/series/series-form-dialog.tsx:118` | Edit form | Save / Create (submit) | draft |
-| 89 | Keyboard shortcuts | `components/shortcuts/shortcuts-help.tsx:36` | Viewer | none | none |
-| 90 | New taxonomy family | `components/taxonomy/create-family-dialog.tsx:57` | Edit form | Save / Create (submit) | draft |
-| 91 | New $familyName | `components/taxonomy/create-item-dialog.tsx:96` | Edit form | Save / Create (submit) | draft |
-| 92 | Delete $family.name | `components/taxonomy/delete-family-dialog.tsx:61` | Confirm | Delete (danger) | none |
-| 93 | Delete $item.name | `components/taxonomy/delete-item-dialog.tsx:70` | Confirm | Delete (danger) | none |
-| 94 | Edit $family.name | `components/taxonomy/edit-family-dialog.tsx:98` | Edit form | Save / Create (submit) | draft |
-| 95 | Merge Item | `components/taxonomy/merge-dialog.tsx:78` | Edit form | Save / Create (submit) | draft |
-| 96 | Unsaved changes | `components/ui/dialog.tsx:232` | Unsaved question | Save (Enter), Discard, Keep editing (Esc) | none |
+| 5 | Edition cover | `app/(catalogue)/library/[slug]/edition-cover-dialog.tsx:149` | Manager (saves each action) | Add the typed image address | dirty (a typed address) |
+| 6 | Add Edition | `app/(catalogue)/library/[slug]/edition-add-dialog.tsx:99` | Edit form | Save / Create (submit) | draft |
+| 7 | Edit Edition | `app/(catalogue)/library/[slug]/edition-edit-dialog.tsx:124` | Edit form | Save / Create (submit) | draft |
+| 8 | Add Instance | `app/(catalogue)/library/[slug]/instance-add-dialog.tsx:137` | Edit form | Save / Create (submit) | draft |
+| 9 | Edit Instance | `app/(catalogue)/library/[slug]/instance-edit-dialog.tsx:199` | Edit form | Save / Create (submit) | draft |
+| 10 | Edit Work | `app/(catalogue)/library/[slug]/work-edit-dialog.tsx:124` | Edit form | Save / Create (submit) | draft |
+| 11 | Edit taxonomy | `app/(catalogue)/library/[slug]/work-taxonomy-edit-dialog.tsx:98` | Edit form | Save / Create (submit) | draft |
+| 12 | New location | `app/(catalogue)/locations/actions.tsx:69` | Edit form | Save / Create (submit) | draft |
+| 13 | Edit location | `app/(catalogue)/locations/location-card.tsx:208` | Edit form | Save / Create (submit) | draft |
+| 14 | Delete $name | `app/(catalogue)/locations/location-card.tsx:266` | Confirm | Delete (danger) | none |
+| 15 | Edit person | `app/(catalogue)/people/[slug]/author-edit-dialog.tsx:98` | Edit form | Save / Create (submit) | draft |
+| 16 | Merge people | `app/(catalogue)/people/[slug]/author-merge-dialog.tsx:79` | Edit form | Save / Create (submit) | draft |
+| 17 | Add person | `app/(catalogue)/people/author-create-dialog.tsx:108` | Edit form | Save / Create (submit) | draft |
+| 18 | Link an institution | `app/(catalogue)/places/[slug]/venue-institutions.tsx:181` | Edit form | Save / Create (submit) | draft |
+| 19 | venue ? "Edit venue | `app/(catalogue)/places/venue-create-dialog.tsx:216` | Edit form | Save / Create (submit) | draft |
+| 20 | New Order | `app/(catalogue)/provenance/order-create-dialog.tsx:155` | Edit form | Save / Create (submit) | draft |
+| 21 | Edit Order | `app/(catalogue)/provenance/order-edit-dialog.tsx:171` | Edit form | Save / Create (submit) | draft |
+| 22 | Export for Goodreads | `app/(catalogue)/settings/data/data-actions.tsx:90` | Action | Export | none |
+| 23 | Reset display settings? | `app/(catalogue)/settings/display/display-settings.tsx:174` | Confirm | Reset | none |
+| 24 | Reorder families | `app/(catalogue)/taxonomy/taxonomy-actions.tsx:102` | Edit form | Save order | dirty |
+| 25 | Collections | `components/books/add-to-collection-dialog.tsx:217` | Picker (saves each tick) | none: each tick saves | none |
+| 26 | Configure columns | `components/books/column-config-dialog.tsx:72` | Edit form | Save | dirty + Save |
+| 27 | Mark $count | `components/books/mark-read-dialog.tsx:80` | Confirm | Mark as read | none |
+| 28 | Match again | `components/books/match-again-dialog.tsx:221` | Picker | Pick a result | none |
+| 29 | Edit Work | `components/books/work-quick-edit-dialog.tsx:128` | Edit form | Save / Create (submit) | draft |
+| 30 | title | `components/catalogue/confirm-delete-dialog.tsx:35` | Confirm | Delete (danger): Enter does nothing; ⌘Enter deletes (`data-shortcut="save"`); Esc closes | none |
+| 31 | Add source | `components/catalogue/sources-section.tsx:142` | Edit form | Save / Create (submit) | draft |
+| 32 | Add to your list | `components/catalogue/wanted-section.tsx:152` | Edit form | Save / Create (submit) | draft |
+| 33 | Order | `components/catalogue/wanted-section.tsx:155` | Edit form | Save / Create (submit) | draft |
+| 34 | Link a work | `components/catalogue/work-relations.tsx:92` | Edit form | Save / Create (submit) | draft |
+| 35 | Add to collection | `components/collections/add-books-dialog.tsx:139` | Edit form | Save / Create (submit) | draft |
+| 36 | Edit collection | `components/collections/collection-controls.tsx:150` | Edit form | Save / Create (submit) | draft |
+| 37 | Delete collection | `components/collections/collection-controls.tsx:196` | Confirm | Delete (danger) | none |
+| 38 | New collection | `components/collections/create-collection-dialog.tsx:78` | Edit form | Save / Create (submit) | draft |
+| 39 | Review all filtered eBooks | `components/ebooks/review-all-dialog.tsx:46` | Confirm | Review these eBooks | none |
+| 40 | titles[action] | `components/ebooks/review-bulk-dialog.tsx:94` | Two-step confirm | Preview next group, then confirm | none |
+| 41 | title | `components/ebooks/review-confirm.tsx:40` | Confirm | Confirm | none |
+| 42 | `$mode === "automatic_undo | `components/ebooks/unlink-ebook-dialog.tsx:41` | Confirm | Unlink | none |
+| 43 | Catalogue status · $work.title | `components/ebooks/work-review-dialog.tsx:54` | Confirm | Confirm | none |
+| 44 | copy ? "Edit copy | `components/films/copy-dialog.tsx:93` | Edit form | Save / Create (submit) | draft |
+| 45 | Edit film | `components/films/film-actions.tsx:61` | Edit form | Save / Create (submit) | draft |
+| 46 | Look up on Wikidata | `components/films/source-lookup.tsx:44` | Edit form | Save / Create (submit) | draft |
+| 47 | version ? "Edit version | `components/films/version-dialog.tsx:105` | Edit form | Save / Create (submit) | draft |
+| 48 | label | `components/media/image-adjustment-editor.tsx:385` | Edit form | Save / Create (submit) | draft |
+| 49 | Manage media | `components/media/media-manager-dialog.tsx:360` | Manager (saves each upload) | none: each upload saves | none |
+| 50 | organization ? "Edit organization | `components/organizations/organization-dialog.tsx:59` | Edit form | Save / Create (submit) | draft |
+| 51 | object ? `Edit $ART_OBJECT_KIND_LABELS[kind].toL | `components/paintings/art-object-dialog.tsx:116` | Edit form | Save / Create (submit) | draft |
+| 52 | Edit painting | `components/paintings/painting-actions.tsx:60` | Edit form | Save / Create (submit) | draft |
+| 53 | Look up in a museum | `components/paintings/source-lookup.tsx:60` | Edit form | Save / Create (submit) | draft |
+| 54 | TITLES[mode] | `components/paintings/whereabouts-dialog.tsx:107` | Edit form | Save / Create (submit) | draft |
+| 55 | bottle ? `Edit $CONTAINER_LABELS[bottle.containe | `components/perfumes/bottle-dialog.tsx:84` | Edit form | Save / Create (submit) | draft |
+| 56 | formulation ? "Edit formulation | `components/perfumes/formulation-dialog.tsx:125` | Edit form | Save / Create (submit) | draft |
+| 57 | Edit perfume | `components/perfumes/perfume-actions.tsx:73` | Edit form | Save / Create (submit) | draft |
+| 58 | Note a retailer | `components/perfumes/retailers-section.tsx:146` | Edit form | Save / Create (submit) | draft |
+| 59 | Record a price | `components/perfumes/retailers-section.tsx:158` | Edit form | Save / Create (submit) | draft |
+| 60 | Look up on Wikidata | `components/perfumes/source-lookup.tsx:44` | Edit form | Save / Create (submit) | draft |
+| 61 | Page controls | `components/reader/fixed-layout-controls.tsx:22` | Reader-local | reader keys | none |
+| 62 | Go to | `components/reader/goto-dialog.tsx:60` | Reader-local | reader keys | none |
+| 63 | Note | `components/reader/note-dialog.tsx:84` | Reader-local | reader keys | none |
+| 64 | Reading settings | `components/reader/presentation-settings-dialog.tsx:91` | Reader-local | reader keys | none |
+| 65 | Reader shortcuts | `components/reader/shortcut-sheet.tsx:14` | Reader-local | reader keys | none |
+| 66 | label | `components/reader/speech-options-menu.tsx:85` | Reader-local | reader keys | none |
+| 67 | title ?? TITLES[purpose] | `components/reading/book-picker.tsx:86` | Picker | Pick a book | none |
+| 68 | Abandon | `components/reading/dialogs/abandon-reading-dialog.tsx:80` | Edit form | Save / Create (submit) | draft |
+| 69 | Edit reading | `components/reading/dialogs/edit-reading-dialog.tsx:339` | Edit form | Save / Create (submit) | draft |
+| 70 | Finished | `components/reading/dialogs/finish-reading-dialog.tsx:79` | Result | Close | none |
+| 71 | Finish | `components/reading/dialogs/finish-reading-dialog.tsx:101` | Edit form | Save / Create (submit) | draft |
+| 72 | stopping ? "Stop the timer | `components/reading/dialogs/log-progress-dialog.tsx:230` | Edit form | Save / Create (submit) | draft |
+| 73 | editing ? `Edit $noun | `components/reading/dialogs/note-dialog.tsx:187` | Edit form | Save / Create (submit) | draft |
+| 74 | Log a past read | `components/reading/dialogs/past-read-dialog.tsx:92` | Edit form | Save / Create (submit) | draft |
+| 75 | editing ? "Edit session | `components/reading/dialogs/session-dialog.tsx:235` | Edit form | Save / Create (submit) | draft |
+| 76 | Start reading | `components/reading/dialogs/start-reading-dialog.tsx:182` | Edit form | Save / Create (submit) | draft |
+| 77 | Set a reading goal | `components/reading/goal-dialog.tsx:98` | Edit form | Save / Create (submit) | draft |
+| 78 | Undo this import | `components/reading/import/import-client.tsx:499` | Confirm | Undo import (danger): Enter does nothing; ⌘Enter undoes (`data-shortcut="save"`) | none |
+| 79 | Finished this book? | `components/reading/reader-tracking.tsx:297` | Question | Finish reading | none |
+| 80 | Remove this highlight? | `components/reading/reader-tracking.tsx:302` | Confirm | Remove (danger) | none |
+| 81 | Not for me because… | `components/reading/suggestions/not-for-me-dialog.tsx:32` | Edit form | Save / Create (submit) | draft |
+| 82 | Pick one for me | `components/reading/suggestions/pick-one.tsx:43` | Picker | Start reading | none |
+| 83 | title | `components/reading/timer-chip.tsx:206` | Question | Stop timer | none |
+| 84 | Still reading? | `components/reading/timer-chip.tsx:292` | Question | Still reading | none |
+| 85 | A timer is running for $timer.title | `components/reading/timer-chip.tsx:343` | Question | Stop it and start this one | none |
+| 86 | elapsed < 60 ? `Discard the timer for $timer.tit | `components/reading/timer-chip.tsx:371` | Confirm | Discard timer (danger) | none |
+| 87 | isEdit ? "Edit recommender | `components/recommenders/recommender-form-dialog.tsx:106` | Edit form | Save / Create (submit) | draft |
+| 88 | Add books | `components/series/add-series-books-dialog.tsx:88` | Edit form | Save / Create (submit) | draft |
+| 89 | isEdit ? "Edit series | `components/series/series-form-dialog.tsx:118` | Edit form | Save / Create (submit) | draft |
+| 90 | Keyboard shortcuts | `components/shortcuts/shortcuts-help.tsx:36` | Viewer | none | none |
+| 91 | New taxonomy family | `components/taxonomy/create-family-dialog.tsx:57` | Edit form | Save / Create (submit) | draft |
+| 92 | New $familyName | `components/taxonomy/create-item-dialog.tsx:96` | Edit form | Save / Create (submit) | draft |
+| 93 | Delete $family.name | `components/taxonomy/delete-family-dialog.tsx:61` | Confirm | Delete (danger) | none |
+| 94 | Delete $item.name | `components/taxonomy/delete-item-dialog.tsx:70` | Confirm | Delete (danger) | none |
+| 95 | Edit $family.name | `components/taxonomy/edit-family-dialog.tsx:98` | Edit form | Save / Create (submit) | draft |
+| 96 | Merge Item | `components/taxonomy/merge-dialog.tsx:78` | Edit form | Save / Create (submit) | draft |
+| 97 | Unsaved changes | `components/ui/dialog.tsx:232` | Unsaved question | Save (Enter), Discard, Keep editing (Esc) | none |
 
 ### Demonstrated (browser-checked) so far
 
@@ -284,7 +291,8 @@ the identify queue and the harmonize workspace (16 files).
    Match again: Enter with the focus on the dialog does nothing (no primary
    button). A Done primary would close them, as in 1.
 3. **Danger confirmations** (Delete, Remove highlight, Undo import, Discard
-   timer): Enter does nothing by design. SLN-629 says "Plain Enter invokes
+   timer): plain Enter does nothing by design; ⌘Enter presses Delete in the
+   shared delete confirmation and Undo import (section 1). SLN-629 says "Plain Enter invokes
    the primary Accept". This needs the owner's word before Enter may delete.
 4. **Step dialogs** (New Order, Review bulk eBooks): only the visible step's
    main button is shown, so Enter presses Next, then Create Order. Read from

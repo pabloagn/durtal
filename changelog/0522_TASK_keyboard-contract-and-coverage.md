@@ -23,7 +23,7 @@ tickets work from.
      resolves it;
   3. the visible actions of 11 detail-page families and the keys that reach
      them;
-  4. one row per `Dialog` in the source (96), with its kind, its main action
+  4. one row per `Dialog` in the source (97), with its kind, its main action
      on Enter and its unsaved-work guard, plus the page drafts;
   5. a disposable-preview verification plan for SLN-632, 571, 633 and 634.
 - No code change.
