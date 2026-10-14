@@ -239,15 +239,25 @@ export async function getEbookLibraryCounts(
   );
   return row;
 }
+/**
+ * A saved place that is being read, as `underway` decides it, in SQL: a
+ * locator whose numbers are not numbers is not.
+ */
+const underwayPosition = sql`case when jsonb_typeof(p.locator->'sectionIndex') = 'number'
+    and jsonb_typeof(p.locator->'progression') = 'number' and jsonb_typeof(p.locator->'totalProgression') = 'number'
+  then (p.locator->>'totalProgression')::float8 < 0.995
+    and not ((p.locator->>'sectionIndex')::float8 = 0 and (p.locator->>'progression')::float8 = 0)
+  else false end`;
 export async function getContinueReading(
   deviceId: string | null,
   database: Database = db,
 ): Promise<{ ebook: LibraryEbook; descriptor: ContinueDescriptor; bookTitle: string | null; bookAuthors: string[] | null }[]> {
-  // Exclude books with no eligible target before LIMIT so obsolete positions do not crowd out readable books.
+  // Exclude books with no eligible target before LIMIT so obsolete positions do not crowd out readable books,
+  // and count only places being read, so books merely opened or finished do not crowd them out either.
   const rows = resultRows<LibraryEbook & { positions: ContinueAnchor[]; bookTitle: string | null; bookAuthors: string[] | null }>(
     await database.execute(sql`with recent as (
     select e.id, max(p.client_updated_at) as opened from ebooks e join ebook_positions p on p.ebook_id = e.id
-    where e.match_state <> 'excluded' and exists (select 1 from ebook_files f where f.ebook_id = e.id
+    where e.match_state <> 'excluded' and ${underwayPosition} and exists (select 1 from ebook_files f where f.ebook_id = e.id
       and ${ebookFileNativeReadableCondition(fileColumns)})
     group by e.id order by opened desc, e.id limit 12
   ) select ${ebookSummaryColumns}, ${positions} as positions,
@@ -267,10 +277,11 @@ export async function getContinueReading(
       deviceId,
       preferredFileId: ebook.preferredFileId,
       files: ebook.files,
-      positions: ebook.positions,
+      // A device that only opened the book does not hide another device's place in it
+      positions: ebook.positions.filter((position) => !!position?.locator && underway(position)),
     });
     const { bookTitle, bookAuthors, ...rest } = ebook;
-    return descriptor?.anchor && underway(descriptor.anchor)
+    return descriptor?.anchor
       ? [{ ebook: rest, descriptor, bookTitle: bookTitle ?? null, bookAuthors: bookAuthors ?? null }]
       : [];
   });
