@@ -111,10 +111,10 @@ A heading never picks its own size and color: it uses its role. Each role sets f
 | `type-stat` | Serif 38px, tight tracking | The number in a stat tile |
 | `type-dialog-title` | Sans 16px, medium, heading | Functional dialog title |
 | `type-label` | Sans 14px, medium, secondary | The label above a form field |
-| `type-caption` | Mono 12px, uppercase, 0.05em, secondary | Eyebrows, stat and column labels |
+| `type-caption` | Mono 12px, uppercase, 0.05em, secondary | Eyebrows, stat and column labels, the groups inside a card |
 | `type-prose` | EB Garamond 21px on 32px lines, primary, old-style figures, at most 26em (about 65 characters) | Long reading text: book descriptions, bios, collection and series descriptions. Use `<Prose>` (`src/components/shared/prose.tsx`), which loads the font |
 
-`SectionHeading` (`src/components/shared/section-heading.tsx`) is the only way to title a block on a page: title, optional count, icon, description and action, with 16px below. A block inside a titled section (a row of cards under "Perfumes") uses `SectionHeading` with `as="h3"`, which takes `type-item-title`; `HorizontalCarousel` passes `as` through. Sections are 32px apart (`mb-8`). Body and metadata text use the scale directly (`text-sm`, `text-xs`). Long reading text never uses the body size: it uses `<Prose>`.
+`SectionHeading` (`src/components/shared/section-heading.tsx`) is the only way to title a block on a page: title, optional count, icon, description and action, with 16px below. A block inside a titled section (a row of cards under "Perfumes") uses `SectionHeading` with `as="h3"`, which takes `type-item-title`; `HorizontalCarousel` passes `as` through. A group inside a card (an edition card's Publication details, Quotes and Copies) uses `as="h4"`, which takes `type-caption` with 8px below; one card uses one group style. Sections are 32px apart (`mb-8`). Body and metadata text use the scale directly (`text-sm`, `text-xs`). Long reading text never uses the body size: it uses `<Prose>`.
 
 ---
 
@@ -233,6 +233,8 @@ Fine-pointer heights are 28/32/36px for sm/md/lg, with 14px labels, 6px gaps and
 | lg · 36px | Roomier standalone confirmations, never a utility menu beside smaller controls | Use a labelled `Button` |
 
 `action-control` supplies shared alignment, 4px corners, transitions, disabled opacity and an inset steel focus outline that survives a cap box or glass edge. `action-ghost` supplies the quiet utility surface: transparent at rest, a neutral highlight on hover/menu-open and a subdued active fill. The ellipsis has no persistent box or border; it stays at its row's hierarchy. Favourite controls keep their gold mark and the same neutral surface states. Interface action icons are 16px with 1.5px strokes, including Copy, Collection and Export. Cover controls keep the restrained glass material and 28px visible desktop scale.
+
+**Text commands.** A command or link that sits in a line of text (a publisher or contributor name, "Add a quote", "Identify") takes `text-command`: `accent-primary` with a quiet underline at rest, brighter on hover, so it never reads as the text beside it. On touch its box grows to 44px tall without moving the line. A command that is not part of a line of text is a `Button`. Commands do not share a line with the metadata they act on: an edition card keeps its facts and publishers above one action bar (Edit, Cover, Add instance), and its rarer actions (Add to collection, Match again, publisher links) sit in its Actions menu, with Delete last and set apart, as on the book's own menu.
 
 Keep neighbouring targets separate: each icon utility grows its actual box to 44 × 44px on touch, and labelled buttons grow to at least 44px high/wide. Do not add `touch-hit` to these growing controls. Use 8px between header actions, 4px in dense edition/dialog rows, and `CapAlignedControls` (with the matching height and `coarseHeight={44}`) beside titles. Rows wrap whole controls when labels need room; preserve the cap center and avoid clipping focus. Hover, focus, active/menu-open, pressed and disabled states must not change padding, borders or dimensions. Export keeps its label and swaps a same-size busy icon to avoid shifting the row. Sidebar/navigation geometry and dropdown content spacing have their own guidance.
 
@@ -489,7 +491,16 @@ Selection uses the ink selection token as background with primary foreground tex
 
 The application is designed desktop-first but must be usable on all screen sizes. No separate mobile app — responsive web only. PWA if needed later.
 
-A page must not scroll sideways at 375px. Check it with `node scripts/qa/phone-audit.mjs --base <app url>` (headless Chrome, `scripts/qa/overflow-audit.js` at 375 and 390px). A backdrop that bleeds to the edges of `main` (`-mx-4 md:-mx-6`) must match the page gutter.
+A page must not scroll sideways at 375px. Check it with `node scripts/qa/phone-audit.mjs --base <app url>` (headless Chrome with a touch screen, `scripts/qa/overflow-audit.js` at 375 and 390px, on the main lists and the first book, publisher and film).
+
+The same run reports what those audits pass but a reader still sees (`scripts/qa/layout-audit.js`, SLN-695):
+
+- **Squeezed title**: the h1 wraps while it takes under 60% of its row, because controls share the row, or it runs past 2 lines on a phone.
+- **Text-looking command**: a button or link with no box, border, underline or icon, in a text colour or within 1.25:1 of the text beside it, so only hover tells it apart (see Text commands).
+- **Drifting edge**: in a card, a block whose first ink (text, icon, or a badge's or field's box) starts 0.5 to 12px off its column's edge. Mark an intended inset with `data-inset`.
+- **First card**: on a list page, the first card starts below the top 60% of the phone's first screen.
+
+Findings in `scripts/qa/layout-audit-known.json` show as known, with their ticket; the run says when one is no longer found, so its line can go. A new finding is listed but fails the run only with `--strict`. A backdrop that bleeds to the edges of `main` (`-mx-4 md:-mx-6`) must match the page gutter.
 
 ### Progress bars and rich text
 

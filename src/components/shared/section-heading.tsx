@@ -13,10 +13,12 @@ import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned"
  * stays on the title's first line when the title wraps.
  *
  * As an h3 it titles a block inside a titled section, in the item title role
- * (`headingRole("h3")`); the same rules apply with that class.
+ * (`headingRole("h3")`); the same rules apply with that class. As an h4 it
+ * titles a group inside a card (an edition's Publication details, Quotes,
+ * Copies) in the caption role, with 8px below.
  */
-export function headingRole(tag: "h2" | "h3" = "h2") {
-  return tag === "h3" ? "type-item-title" : "type-section-title";
+export function headingRole(tag: "h2" | "h3" | "h4" = "h2") {
+  return tag === "h4" ? "type-caption" : tag === "h3" ? "type-item-title" : "type-section-title";
 }
 
 export function SectionHeading({
@@ -37,7 +39,7 @@ export function SectionHeading({
   }>;
   description?: React.ReactNode;
   action?: React.ReactNode;
-  as?: "h2" | "h3";
+  as?: "h2" | "h3" | "h4";
   id?: string;
 }) {
   const heading = (
@@ -50,7 +52,7 @@ export function SectionHeading({
     </Tag>
   );
   return (
-    <div className="mb-4 flex items-center justify-between gap-4">
+    <div className={`${Tag === "h4" ? "mb-2" : "mb-4"} flex items-center justify-between gap-4`}>
       <div className="min-w-0">
         {Icon ? (
           // The row carries the title's type: the icon sits on its

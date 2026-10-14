@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -22,17 +22,27 @@ function editionsText(n: number) {
   return `${n} other edition${n === 1 ? "" : "s"}`;
 }
 
+const EDIT_EVENT = "durtal:edit-publisher-links";
+
+/** Opens an edition's publisher links editor from elsewhere: the edition card's Actions menu */
+export function editPublisherLinks(editionId: string) {
+  window.dispatchEvent(new CustomEvent(EDIT_EVENT, { detail: editionId }));
+}
+
 export function EditionPublishers({
   editionId,
   confirmed,
   linked = [],
   publicationNames = [],
+  command = true,
 }: {
   editionId: string;
   confirmed: boolean;
   linked?: PublisherOption[];
   /** Preserve raw publisher/imprint names beside linked houses; identical names share one link. */
   publicationNames?: string[];
+  /** Its own Edit publisher links button; off where a menu opens the editor (`editPublisherLinks`) */
+  command?: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -52,6 +62,14 @@ export function EditionPublishers({
       toast.error("Could not load publishers");
     }
   }
+  const openFromMenu = useEffectEvent(() => void open());
+  useEffect(() => {
+    const onEdit = (e: Event) => {
+      if ((e as CustomEvent<string>).detail === editionId) openFromMenu();
+    };
+    window.addEventListener(EDIT_EVENT, onEdit);
+    return () => window.removeEventListener(EDIT_EVENT, onEdit);
+  }, [editionId]);
   // Esc cancels the editor; with unsaved links it asks first
   const editor = useRef<HTMLDivElement>(null);
   const unsavedPrompt = useEscapeToCancel({
@@ -88,34 +106,38 @@ export function EditionPublishers({
       }
     });
   }
+  // Publisher/imprint text that no linked house shows already
+  const plainNames = [...new Set(publicationNames)].filter((name) => !linked.some((p) => p.name === name));
   return (
     <div className="space-y-2 text-xs [overflow-wrap:anywhere]">
-      <div className="flex flex-wrap items-center gap-2 pointer-coarse:gap-y-5">
-        {[...new Set(publicationNames)]
-          .filter((name) => !linked.some((p) => p.name === name))
-          .map((name) => (
+      {(command || plainNames.length > 0 || linked.length > 0) && (
+        <div className="flex flex-wrap items-center gap-2 pointer-coarse:gap-y-5">
+          {plainNames.map((name) => (
             <span key={name} className="text-fg-secondary">
               {name}
             </span>
           ))}
-        {linked.map((p) => (
-          <Link
-            key={p.id}
-            href={`/publishers/${p.slug}`}
-            className="text-accent-blue hover:underline touch-hit"
-          >
-            {p.name}
-          </Link>
-        ))}
-        {/* Alone on its line, its label starts at the text edge (SLN-688) */}
-        <Button type="button" variant="ghost" size="sm" onClick={open}
-          className={linked.length || publicationNames.some((name) => !linked.some((p) => p.name === name)) ? undefined : "-ml-2.5"}>
-          {linked.length ? "Edit publisher links" : "Link publisher"}
-        </Button>
-        {confirmed && (
-          <span className="text-xs text-fg-secondary">Confirmed</span>
-        )}
-      </div>
+          {linked.map((p) => (
+            <Link
+              key={p.id}
+              href={`/publishers/${p.slug}`}
+              className="text-command"
+            >
+              {p.name}
+            </Link>
+          ))}
+          {/* Alone on its line, its label starts at the text edge (SLN-688) */}
+          {command && (
+            <Button type="button" variant="ghost" size="sm" onClick={open}
+              className={linked.length || plainNames.length ? undefined : "-ml-2.5"}>
+              {linked.length ? "Edit publisher links" : "Link publisher"}
+            </Button>
+          )}
+          {confirmed && (
+            <span className="text-xs text-fg-secondary">Confirmed</span>
+          )}
+        </div>
+      )}
       {unsavedPrompt}
       {editing && (
         <div ref={editor} className="max-w-md space-y-3 rounded-sm border border-glass-border p-3">
