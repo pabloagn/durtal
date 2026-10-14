@@ -43,6 +43,8 @@ export function EbooksView({
   const router = useRouter();
   const search = useSearchParams();
   const params = parseEbookLibraryParams(search);
+  // The reader's Back returns to this page as it is: filters, sort and page
+  const returnTo = `/ebooks${search.size ? `?${search.toString()}` : ""}`;
   const clearParams = new URLSearchParams(search.toString());
   clearParams.set("perPage", String(perPage));
   const clearedHref = clearedListHref("/ebooks", clearParams);
@@ -108,6 +110,7 @@ export function EbooksView({
                   <EbookCard
                     key={book.id}
                     book={book}
+                    returnTo={returnTo}
                     sizes={`${maxCardWidth(columns)}px`}
                   />
                 ))}
@@ -152,7 +155,7 @@ export function EbooksView({
                 </thead>
                 <tbody>
                   {books.map((book) => (
-                    <EbookRow key={book.id} book={book} />
+                    <EbookRow key={book.id} book={book} returnTo={returnTo} />
                   ))}
                 </tbody>
               </table>

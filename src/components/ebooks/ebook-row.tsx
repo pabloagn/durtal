@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { ReaderEntryLink } from "@/components/reader/reader-entry-link";
 import { EbookCover, EbookLinkedMark } from "./ebook-card";
 import { formatLabel } from "@/lib/ebooks/formats";
 import { formatBytes } from "@/lib/ebooks/run-text";
 import { languageName } from "@/lib/utils/language";
 import type { EbookCardData } from "@/lib/ebooks/library-view";
-export function EbookRow({ book }: { book: EbookCardData }) {
+export function EbookRow({ book, returnTo }: { book: EbookCardData; returnTo?: string }) {
   return (
     <tr className="border-b border-glass-border align-top">
       <td className="w-12 py-3 pr-3">
@@ -20,12 +21,13 @@ export function EbookRow({ book }: { book: EbookCardData }) {
           {book.title}
         </Link>
         {book.readHref && (
-          <Link
-            href={book.readHref}
+          <ReaderEntryLink
+            readerPath={book.readHref}
+            returnTo={returnTo}
             className="mt-1 inline-block text-xs text-accent-primary touch-hit"
           >
             Read
-          </Link>
+          </ReaderEntryLink>
         )}
       </td>
       <td className="min-w-48 py-3 pr-4 text-xs">

@@ -23,7 +23,7 @@ import { useOptionalTimer } from "./timer-provider";
 const SOURCE: Record<SessionSource, { icon: typeof Timer; label: string }> = {
   manual: { icon: PenLine, label: "Logged by hand" },
   timer: { icon: Timer, label: "Timed" },
-  reader: { icon: BookOpen, label: "From the e-book reader" },
+  reader: { icon: BookOpen, label: "From the eBook reader" },
   import: { icon: Download, label: "Imported" },
 };
 const MIN_PACE_SECONDS = 5 * 60;

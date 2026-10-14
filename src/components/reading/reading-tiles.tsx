@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, BookCheck, BookMarked, BookOpen, BookText, Headphones, Tablet } from "lucide-react";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { ReaderEntryLink } from "@/components/reader/reader-entry-link";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { RatingStars } from "@/components/shared/rating";
 import { Badge } from "@/components/ui/badge";
@@ -127,7 +128,12 @@ export function DashboardReading({
                     <LogButton reading={tile.reading} title={tile.title} />
                   </div>
                   {tile.estimate && <EstimateLine estimate={tile.estimate} lines="min-h-[2lh] [overflow-wrap:anywhere]" className="mt-1" />}
-                  {tile.ebookId && <a href={`/reader/${tile.ebookId}`} className="mt-1 inline-flex text-xs text-fg-secondary underline touch-hit">Open eBook</a>}
+                  {tile.ebookId && (
+                    <ReaderEntryLink readerPath={`/reader/${tile.ebookId}`} returnTo="/"
+                      className="mt-1 inline-flex text-xs text-accent-primary transition-colors hover:text-fg-primary touch-hit">
+                      Open eBook
+                    </ReaderEntryLink>
+                  )}
                 </div>
               </div>
             ))}
