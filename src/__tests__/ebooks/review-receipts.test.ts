@@ -70,6 +70,14 @@ describe("canonical request and receipt identities (no database commit proof)", 
     expect(() => canonicalReviewJson(array)).toThrow();
     expect(() => canonicalReviewJson({ [Symbol("hidden")]: 1 })).toThrow();
   });
+  it("reuses text it was given for a value without changing the result (SLN-691)", () => {
+    const rows = [{ b: 1, a: [true, null] }, { a: "x" }];
+    const envelope = { plan: { snapshot: { rows: { works: rows } } }, z: 2 };
+    expect(canonicalReviewJson(envelope, new Map([[rows, canonicalReviewJson(rows)]])))
+      .toBe(canonicalReviewJson(envelope));
+    expect(canonicalReviewJson(envelope, new Map([[rows, "[]"]])))
+      .toBe('{"plan":{"snapshot":{"rows":{"works":[]}}},"z":2}');
+  });
   it("returns a verified committed decision for matching retries without needing current row state", () => {
     const receipt = keepReceipt();
     expect(verifyReviewRetry(receipt, keepRequest())).toEqual(receipt);
