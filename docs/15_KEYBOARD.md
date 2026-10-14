@@ -24,7 +24,10 @@ read from the source and covered by unit tests at most.
    `src/lib/ui/surface-state.ts`).
 2. **The reader owns its own keys** on `/reader/*` (`READER_VIEW_RE`). The
    global handler leaves Enter, Esc and letters there to the reader's
-   handlers and its shortcut sheet.
+   handlers and its shortcut sheet. The reader's Esc takes one layer per
+   press: a dialog or the panel the focus is in; then, from the page,
+   read-aloud, the open search panel, the search itself (its results bar
+   and marks, SLN-675), and full screen.
 3. **IME composition is never a key** (`isComposing`: `isComposing` or key
    code 229). Esc that ends a composition closes nothing; Enter that picks a
    character saves nothing.
