@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { prepareReviewUi, readReviewUi, confirmReviewUi, undoReviewUi } from "@/lib/actions/ebook-review-ui";
 import { ReviewRow, type ReviewRowAction } from "@/components/ebooks/review-row";
@@ -33,7 +33,7 @@ const uncertain = <T,>(): ReviewUiResult<T> => ({ ok: false, error: {
   code: "outcome_unknown_retry_original", message: "The outcome could not be confirmed. Retry this same decision.", retryOriginal: true,
 } });
 
-export function ReviewView({ queue, params }: { queue: ReviewQueue; params: ReviewParams }) {
+export function ReviewView({ queue, params, differences }: { queue: ReviewQueue; params: ReviewParams; differences?: ReactNode }) {
   const router = useRouter();
   const [focused, setFocused] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -245,6 +245,7 @@ export function ReviewView({ queue, params }: { queue: ReviewQueue; params: Revi
       />;
     })}
     {queue.sections.length === 0 && <p className="text-sm text-fg-secondary">No eBooks match these review filters.</p>}
+    {differences}
     {Object.keys(outcomes).length > 0 && <section aria-label="Recent decisions" className="space-y-2">
       <h2 className="type-section-title">Recent decisions</h2>
       {Object.entries(outcomes).map(([id, entry]) => <div key={id} className="rounded-sm border border-glass-border px-3 py-2">

@@ -52,6 +52,9 @@ export const EVENT_CONFIG: Record<string, EventDisplayConfig> = {
   "work.taxonomy_removed":          { icon: "Tag",          color: RED,       category: "relation" },
   "work.enrichment_applied":        { icon: "Tag",          color: MUTED,     category: "update" },
   "work.enrichment_undone":         { icon: "RefreshCw",    color: MUTED,     category: "update" },
+  "work.ebook_difference_kept":     { icon: "BookOpen",     color: MUTED,     category: "update" },
+  "work.ebook_difference_used":     { icon: "Pencil",       color: SECONDARY, category: "update" },
+  "work.ebook_difference_undone":   { icon: "RefreshCw",    color: MUTED,     category: "update" },
   "work.edition_added":             { icon: "BookOpen",     color: MUTED,     category: "relation" },
   "work.edition_updated":           { icon: "BookOpen",     color: MUTED,     category: "update" },
   "work.edition_deleted":           { icon: "BookOpen",     color: RED,       category: "delete" },
@@ -202,6 +205,11 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
   "work.taxonomy_removed":          (m) => [text(`Removed ${m?.taxonomyType ?? "taxonomy"} `), label(m?.targetName ?? "")],
   "work.enrichment_applied":        (m) => [text("Accepted an enrichment value"), ...(m?.targetName ? [text(" for "), label(m.targetName)] : [])],
   "work.enrichment_undone":         () => [text("Undid an enrichment value")],
+  "work.ebook_difference_kept":     (m) => [text("Kept the book's "), label(String(m?.targetName ?? "value").toLowerCase()), text(" for its e-book")],
+  "work.ebook_difference_used":     (m) => m?.newValue
+    ? [text(`Took the e-book's ${String(m?.targetName ?? "value").toLowerCase()}: `), label(String(m.newValue))]
+    : [text(`Took the e-book's ${String(m?.targetName ?? "value").toLowerCase()}`)],
+  "work.ebook_difference_undone":   (m) => [text("Undid a choice between the book and its e-book"), ...(m?.targetName ? [text(": "), label(String(m.targetName).toLowerCase())] : [])],
   "work.edition_added":             (m) => m?.editionIsbn
     ? [text("Added edition "), label(`ISBN: ${m.editionIsbn}`)]
     : [text("Added edition "), label(m?.targetName ?? "")],

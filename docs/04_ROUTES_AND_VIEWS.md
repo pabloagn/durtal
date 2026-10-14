@@ -918,6 +918,31 @@ the status and history through the real work service; receipt-bound Undo retains
 the original operation and refuses later status/history/holding/order changes.
 Unknown status or Undo results lock dismissal and retry the original operation.
 
+**Differences** (SLN-658), after the review sections: where a linked e-book
+from the e-book library and its book disagree, from `src/lib/ebooks/differences/`.
+Nothing is stored: each difference is computed from the e-book's own fields and
+the book's (edition title, subtitle, language, year, publisher and ISBN; the
+work's authors, series and number), after normalisation (case, accents,
+punctuation, author name forms), and only for a value the file has. A cover
+differs when the edition has none and the e-book has one; a wanted or on-order
+book with its e-book here is a Status row with "Mark accessioned…" (the work
+status dialog above). Links per field, with counts, choose the rows shown
+(`?difference=<field>`, 50 at a time up to 500 with `?differences=`). Each row
+shows the book, the e-book's cover, Durtal's value and the file's side by side:
+- **Keep Durtal's** sets the e-book's own field to the book's value, compared
+  and set in one statement; the library's original stays in the file metadata.
+- **Use the file's** writes the book through `updateEdition` or `updateWork`
+  (a series is found or made by name); a cover goes through the matching's
+  cover stage. Authors are changed on the book's page; a locked edition, or a
+  file with several ISBNs, offers Keep only. The row says when the edition has
+  other copies the change reaches.
+Each choice records a work history event holding both values
+(`work.ebook_difference_kept` or `_used`), which its Undo reads: the undo
+claims one `work.ebook_difference_undone` event, and is refused when the value
+has changed since. Both choices also apply to every row shown, after a
+confirmation, with "Undo all N". A row whose values changed since the page
+loaded is refused, with "Reload to see it".
+
 Nonready previews highlight the service's sanitized author, language, ISBN,
 edition, copy and location issues while keeping choices. Arbitrary messages,
 causes, plans and extra issue fields remain server-only. Author and series pages
