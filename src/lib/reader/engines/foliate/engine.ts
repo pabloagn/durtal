@@ -171,6 +171,8 @@ class FoliateEngine implements ReaderEngine {
   // visible. Ordinary turns continue to use Foliate's natural visible-page label.
   #pageTarget: { label: string; index: number; anchor(doc: Document): Range | Element } | null = null;
   #fixedZoom: number | null = null;
+  /** The reader's bars, top and bottom, kept clear of the text (SLN-663) */
+  #insets = { top: 0, bottom: 0, pinned: false };
   #ink = new PublisherInk(() => this.#emit("error", { kind: "damaged", message: "The book colours could not be prepared. Try opening the book again." }));
   #pdfMarks = new PdfDecorations(event => this.#emit("annotation-activated", event));
   #opening = new AbortController();
@@ -1050,6 +1052,7 @@ class FoliateEngine implements ReaderEngine {
       }).finally(() => this.#preparingPageColours.delete(doc)));
     }
     this.#documents.set(doc, index);
+    this.#edgeRoom(doc, false);
     this.#notes?.prefetch(doc, index);
     void import("../../media/document").then(({ attachReaderMedia }) => {
       if (this.#destroyed || this.#mediaDetach.has(doc)) return;
@@ -1522,12 +1525,20 @@ class FoliateEngine implements ReaderEngine {
     renderer.setAttribute("gap", `${presentation.margin}%`);
     renderer.setAttribute("margin-left", "0px");
     renderer.setAttribute("margin-right", "0px");
-    renderer.setAttribute("margin-top", "48px");
-    renderer.setAttribute("margin-bottom", "48px");
+    for (const [name, value] of Object.entries(this.#blockMargins())) renderer.setAttribute(name, value);
     renderer.setAttribute("max-inline-size", "720px");
     renderer.setAttribute("max-column-count", "2");
     renderer.setStyles?.(presentationCss(presentation));
     this.#appliedPresentation = presentation;
+  }
+
+  /** The paginator's top and bottom margins: 48px, or in pages the bar there
+   * if it is taller. Scrolled text already stops short of the bars. */
+  #blockMargins(scrolled = false) {
+    return {
+      "margin-top": `${scrolled ? 48 : Math.max(48, this.#insets.top)}px`,
+      "margin-bottom": `${scrolled ? 48 : Math.max(48, this.#insets.bottom)}px`,
+    };
   }
 
   #fontPresentation(presentation: Presentation): Presentation {
@@ -1596,13 +1607,64 @@ class FoliateEngine implements ReaderEngine {
     }
   }
 
+  setInsets(insets: { top: number; bottom: number; pinned: boolean }) {
+    const top = Math.max(0, Math.ceil(insets.top)), bottom = Math.max(0, Math.ceil(insets.bottom));
+    const { pinned } = insets;
+    if (top === this.#insets.top && bottom === this.#insets.bottom && pinned === this.#insets.pinned) return;
+    this.#insets = { top, bottom, pinned };
+    this.#applyLayout();
+  }
+
+  /** Paginated text keeps the bars in its top and bottom margins, where the
+   * running lines are. Scrolled text, PDFs and comics use the whole screen,
+   * under bars that come and go, and stop short of them only while the bars
+   * are kept visible */
+  #reserveInsets(view: FoliateView, margins: boolean) {
+    const { top, bottom } = margins || !this.#insets.pinned ? { top: 0, bottom: 0 } : this.#insets;
+    const padding = top || bottom ? `${top}px 0px ${bottom}px` : "";
+    if (view.style.padding === padding) return;
+    view.style.boxSizing = padding ? "border-box" : "";
+    view.style.padding = padding;
+  }
+
+  /** Scrolled text under bars that come and go: the book's first line starts
+   * below the top bar and its last line ends above the bottom bar, so the
+   * first and last screens are never covered */
+  #edgeRoom(doc: Document, render = true) {
+    const index = this.#documents.get(doc);
+    const sections = this.#book?.sections;
+    const scrolled = this.#presentation?.policy?.flow === "scrolled" && this.#book?.rendition?.layout !== "pre-paginated";
+    // Vertical text pads its block ends itself
+    const vertical = doc.defaultView?.getComputedStyle(doc.body ?? doc.documentElement).writingMode.startsWith("vertical");
+    const rules: string[] = [];
+    if (scrolled && !vertical && !this.#insets.pinned && index !== undefined && sections) {
+      if (index === sections.findIndex((section) => section.linear !== "no"))
+        rules.push(`padding-top: ${this.#insets.top}px !important;`);
+      if (index === sections.findLastIndex((section) => section.linear !== "no"))
+        rules.push(`padding-bottom: ${this.#insets.bottom}px !important;`);
+    }
+    const text = rules.length ? `html { ${rules.join(" ")} }` : "";
+    let sheet = doc.querySelector<HTMLStyleElement>("style[data-durtal-edge-room]");
+    if ((sheet?.textContent ?? "") === text) return;
+    if (!sheet) {
+      sheet = doc.createElement("style");
+      sheet.setAttribute("data-durtal-edge-room", "");
+      doc.head?.append(sheet);
+    }
+    sheet.textContent = text;
+    if (render) this.#view?.renderer.render?.();
+  }
+
   #applyLayout() {
     const p = this.#presentation?.policy;
     const view = this.#view;
     if (!p || !view || this.#destroyed) return;
     const renderer = view.renderer;
     if (this.#book?.rendition?.layout === "pre-paginated") {
-      const area = view.getBoundingClientRect();
+      this.#reserveInsets(view, false);
+      const rect = view.getBoundingClientRect();
+      const kept = this.#insets.pinned ? this.#insets.top + this.#insets.bottom : 0;
+      const area = { width: rect.width, height: rect.height - kept };
       const doc = renderer.getContents()[0]?.doc;
       const meta = doc?.querySelector('meta[name="viewport"]')?.getAttribute("content") ?? "";
       const width = Number(meta.match(/width=([\d.]+)/)?.[1]), height = Number(meta.match(/height=([\d.]+)/)?.[1]);
@@ -1618,17 +1680,22 @@ class FoliateEngine implements ReaderEngine {
       else renderer.removeAttribute("animated");
       return;
     }
-    const size = view.getBoundingClientRect();
+    this.#reserveInsets(view, p.flow !== "scrolled");
+    const rect = view.getBoundingClientRect();
+    const size = p.flow === "scrolled" && this.#insets.pinned
+      ? { width: rect.width, height: rect.height - this.#insets.top - this.#insets.bottom }
+      : rect;
     if (size.width <= 0 || size.height <= 0) return;
     const attributes = paginatorAttributes(p, size, {
       reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       fontMetrics: CHAR_WIDTH_EM,
     });
     const { animated, ...values } = attributes;
-    for (const [name, value] of Object.entries({ ...values, gap: "0%", "margin-top": "48px", "margin-bottom": "48px" }))
+    for (const [name, value] of Object.entries({ ...values, gap: "0%", ...this.#blockMargins(p.flow === "scrolled") }))
       if (renderer.getAttribute(name) !== value) renderer.setAttribute(name, value);
     if (animated) renderer.setAttribute("animated", "");
     else renderer.removeAttribute("animated");
+    for (const { doc } of renderer.getContents()) this.#edgeRoom(doc);
   }
 
   #applyPagePolicy(doc: Document, typography = true) {

@@ -28,6 +28,11 @@
  *   bars       both bars show on open, hide together after 3 s and come back
  *              together on a mouse move; a click anywhere in the text keeps
  *              the place, and the Next page edge button turns
+ *   clear      SLN-663: with the bars up, the text of the EPUB 3 stays
+ *              between them; the text PDF's pages stay between them with
+ *              "Keep the toolbars visible" on, and are larger with it off at
+ *              1440, where they then use the screen's height. At 1440 and at
+ *              390 with touch
  *   pointer    SLN-662, at 1440: a double-click selects a word and a drag a
  *              line without turning; with the selection toolbar open, a click
  *              in the text or the margin closes it without turning; a click on
@@ -86,7 +91,7 @@ const option = (name, fallback) => {
 const base = option("--base", "http://127.0.0.1:3410").replace(/\/$/, "");
 const previewState = option("--preview-state", undefined);
 const browsers = option("--browsers", "chromium,webkit,firefox").split(",");
-const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "pointer", "dialogs", "navigation", "pdfmarks", "turns", "endurance"];
+const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "clear", "pointer", "dialogs", "navigation", "pdfmarks", "turns", "endurance"];
 // endurance needs the large fixtures: it runs only when asked for
 const only = option("--only", CHECKS.filter((c) => c !== "endurance").join(",")).split(",");
 
@@ -586,6 +591,106 @@ async function checkBars(name, browser) {
   await context.close();
 }
 
+/** SLN-663: the bars never cover the text. The text's lines (or a PDF's
+ * pages) on screen, against the bottom of the top bar and the top of the
+ * bottom bar, with both bars up */
+/** Opens Settings, from the More menu where the bar has no room for it */
+async function openSettings(page) {
+  await revealBars(page);
+  const button = page.getByRole("button", { name: "Settings", exact: true });
+  if (await button.isVisible()) await button.click();
+  else {
+    await page.getByRole("button", { name: "More", exact: true }).click();
+    await page.getByRole("menuitem", { name: /^Settings/ }).click();
+  }
+  return page.getByRole("dialog", { name: "Reading settings", exact: true });
+}
+
+async function closeSettings(page, dialog) {
+  await dialog.getByRole("status").filter({ hasText: /^Settings saved$/ }).waitFor();
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.querySelector("dialog[open]"));
+}
+
+/** Where the bars end and start, and the text or pages on screen */
+const clearBox = () => {
+  const top = document.querySelector("header[data-reader-chrome]").getBoundingClientRect().bottom;
+  const bottom = document.querySelector("footer[data-reader-chrome]").getBoundingClientRect().top;
+  const renderer = document.querySelector("foliate-view").renderer;
+  let first = Infinity, last = -Infinity;
+  const pages = [...(renderer.shadowRoot?.querySelectorAll("iframe") ?? [])]
+    .map((frame) => frame.getBoundingClientRect())
+    .filter((rect) => rect.width > 0 && rect.right > 0 && rect.left < innerWidth);
+  if (renderer.localName === "foliate-fxl")
+    for (const rect of pages) {
+      first = Math.min(first, rect.top);
+      last = Math.max(last, rect.bottom);
+    }
+  else
+    for (const { doc } of renderer.getContents()) {
+      const host = doc.defaultView.frameElement.getBoundingClientRect();
+      const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+      for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+        if (!text.data.trim()) continue;
+        const range = doc.createRange();
+        range.selectNodeContents(text);
+        for (const rect of range.getClientRects()) {
+          const x = host.left + rect.left;
+          if (!rect.width || x < 0 || x > innerWidth) continue;
+          first = Math.min(first, host.top + rect.top);
+          last = Math.max(last, host.top + rect.bottom);
+        }
+      }
+    }
+  return { top, bottom, first, last, height: innerHeight };
+};
+const between = (box) => Number.isFinite(box.first) && box.first >= box.top - 0.5 && box.last <= box.bottom + 0.5;
+const describe = (box) => `bars end at ${box.top.toFixed(1)} and start at ${box.bottom.toFixed(1)}; content ${box.first.toFixed(1)} to ${box.last.toFixed(1)}`;
+
+async function checkClear(name, browser) {
+  for (const [width, options] of [[1440, desktop], [390, phone(name)]]) {
+    const context = await browser.newContext(options);
+    const page = await context.newPage();
+    try {
+      const opened = await open(page, 1);
+      if (opened.state !== "ready") throw new Error(`the book did not open (${opened.state})`);
+      await sleep(800);
+      const box = await page.evaluate(clearBox);
+      record(name, "clear", `${width}: the EPUB 3's text stays between the bars`, between(box), describe(box));
+    } catch (error) {
+      record(name, "clear", `${width}: the EPUB 3's text stays between the bars`, false, error.message.split("\n")[0]);
+    }
+    let pinned = false;
+    try {
+      const opened = await open(page, 2);
+      if (opened.state !== "ready") throw new Error(`the book did not open (${opened.state})`);
+      await sleep(800);
+      const free = await page.evaluate(clearBox);
+      let dialog = await openSettings(page);
+      await dialog.getByRole("radio", { name: "This book", exact: true }).click();
+      await dialog.getByRole("checkbox", { name: "Keep the toolbars visible", exact: true }).check();
+      pinned = true;
+      await closeSettings(page, dialog);
+      await sleep(800);
+      const kept = await page.evaluate(clearBox);
+      record(name, "clear", `${width}: with the toolbars kept visible, the text PDF's pages stay between them`, between(kept), describe(kept));
+      const freeSize = free.last - free.first, keptSize = kept.last - kept.first;
+      record(name, "clear", `${width}: with the toolbars free, the text PDF's pages are ${width === 1440 ? "larger and use the screen's height" : "no smaller"}`,
+        width === 1440 ? freeSize > keptSize + 1 && free.first <= 0.5 && free.last >= free.height - 0.5 : freeSize >= keptSize - 0.5,
+        `free ${free.first.toFixed(1)} to ${free.last.toFixed(1)}, kept ${kept.first.toFixed(1)} to ${kept.last.toFixed(1)}`);
+      dialog = await openSettings(page);
+      await dialog.getByRole("radio", { name: "This book", exact: true }).click();
+      await dialog.getByRole("button", { name: "Reset this book", exact: true }).click();
+      pinned = false;
+      await closeSettings(page, dialog);
+    } catch (error) {
+      record(name, "clear", `${width}: the text PDF's pages${pinned ? " (left with the toolbars kept)" : ""}`, false, error.message.split("\n")[0]);
+    } finally {
+      await context.close();
+    }
+  }
+}
+
 /** A word and its line in the first loaded section, in viewport pixels */
 const wordAt = (page) =>
   page.evaluate(() => {
@@ -1062,6 +1167,7 @@ const navigationDriver = (page) => ({
 });
 
 const RUN = {
+  clear: checkClear,
   turns: checkTurns,
   pdfmarks: checkPdfMarks,
   opens: checkOpens,
