@@ -296,7 +296,7 @@ export function InstanceDetail({
               <>
                 <dt className="text-fg-secondary">Highlights</dt>
                 <dd>
-                  <Link href={`/ebooks/highlights?ebook=${ebook.id}`} className="text-fg-primary transition-colors hover:text-accent-primary">
+                  <Link href={`/ebooks/highlights?ebook=${ebook.id}`} className="text-command">
                     {[
                       count(ebook.marks.highlights, "highlight"),
                       count(ebook.marks.notes, "note"),
@@ -310,7 +310,7 @@ export function InstanceDetail({
               <>
                 <dt className="text-fg-secondary">Reading places</dt>
                 <dd>
-                  <Link href={`/ebooks/${ebook.id}#places`} className="text-fg-primary transition-colors hover:text-accent-primary">
+                  <Link href={`/ebooks/${ebook.id}#places`} className="text-command">
                     {ebook.places === 1 ? "On 1 device" : `On ${ebook.places} devices`}
                   </Link>
                 </dd>

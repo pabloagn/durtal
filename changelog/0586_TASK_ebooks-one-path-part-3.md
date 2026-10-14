@@ -26,6 +26,9 @@ the eBook page; the command palette listed only unlinked eBooks; and the
   eBook page's Reading places section), each only when there is something.
   `getEbookReach` (`src/lib/ebooks/highlights.ts`) counts both for the book's
   eBooks in one query.
+  Both links are text commands, like "eBook details" and "Continue" beside
+  them (review): the command colour and underline, and a 44px box on touch
+  (`copy-ebook-links` test).
 - **/ebooks cards and rows**: a linked eBook goes by its book's title and
   authors, as Continue reading already did. The listing joins the linked
   book (`linkedBook` in `library-queries.ts`, now shared with Continue
