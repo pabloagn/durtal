@@ -927,7 +927,7 @@ punctuation, author name forms), and only for a value the file has. A cover
 differs when the edition has none and the e-book has one; a wanted or on-order
 book with its e-book here is a Status row with "Mark accessioned…" (the work
 status dialog above). Links per field, with counts, choose the rows shown
-(`?difference=<field>`, 50 at a time up to 500 with `?differences=`). Each row
+(`?difference=<field>`, 20 at a time up to 500 with `?differences=`). Each row
 shows the book, the e-book's cover, Durtal's value and the file's side by side:
 - **Keep Durtal's** sets the e-book's own field to the book's value, compared
   and set in one statement; the library's original stays in the file metadata.

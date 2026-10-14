@@ -26,8 +26,10 @@ const value = (d: Difference, side: string | null) => {
  * e-book and its book disagree, both values side by side, field by field,
  * with the two choices per row or for every row shown, and an undo for each.
  */
-export function DifferencesSection({ page, links, moreHref }: {
+export function DifferencesSection({ page, step, links, moreHref }: {
   page: DifferencesPage;
+  /** Rows a "Show more" adds */
+  step: number;
   links: Partial<Record<DifferenceField, string>>;
   moreHref: string | null;
 }) {
@@ -123,7 +125,7 @@ export function DifferencesSection({ page, links, moreHref }: {
         </div>
       </div>
     </article>)}
-    {moreHref && <Link href={moreHref} scroll={false} className={buttonClass("secondary", "sm")}>Show 50 more</Link>}
+    {moreHref && <Link href={moreHref} scroll={false} className={buttonClass("secondary", "sm")}>Show {step} more</Link>}
     {runs.length > 0 && <div className="space-y-2">
       <h3 className="type-item-title">Recent choices</h3>
       {runs.map((run) => <div key={run.id} className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-glass-border px-3 py-2">

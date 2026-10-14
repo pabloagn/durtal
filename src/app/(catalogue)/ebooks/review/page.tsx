@@ -12,7 +12,8 @@ import { getDifferences } from "@/lib/ebooks/differences/store";
 import { ReviewView } from "./review-view";
 
 export const metadata: Metadata = { title: "Review eBooks" };
-const DIFFERENCES_PAGE = 50;
+/** As the review sections: 20 rows a page keeps the page within its weight after a large load */
+const DIFFERENCES_PAGE = 20;
 const DIFFERENCES_MAX = 500;
 /** The Differences section's field and how many of its rows are shown; anything else falls back to the first field */
 function differenceParams(raw: Record<string, string | string[] | undefined>) {
@@ -64,7 +65,7 @@ export default async function ReviewEbooksPage({ searchParams }: {
       {params.filters.series && <input type="hidden" name="series" value={params.filters.series} />}
       <Button type="submit">Apply filters</Button>
     </form>
-    <ReviewView queue={queue} params={params} differences={<DifferencesSection page={differences}
+    <ReviewView queue={queue} params={params} differences={<DifferencesSection page={differences} step={DIFFERENCES_PAGE}
       links={Object.fromEntries(DIFFERENCE_FIELDS.filter((f) => differences.counts[f]).map((f) => [f, differenceHref(f, DIFFERENCES_PAGE)]))}
       moreHref={differences.field && (differences.counts[differences.field] ?? 0) > differences.shown && differences.shown < DIFFERENCES_MAX
         ? differenceHref(differences.field, differences.shown + DIFFERENCES_PAGE) : null} />} />

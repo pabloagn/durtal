@@ -37,6 +37,7 @@ vi.mock("@/lib/ebooks/match/covers", () => ({
 vi.mock("@/lib/s3/cover-stage", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/s3/cover-stage")>()), retainCoverAttempt: vi.fn() }));
 import { getDifferences, decideDifferences, undoDifferences, readDifferenceSides, DIFFERENCE_EVENTS } from "@/lib/ebooks/differences/store";
 import { differencesOf, type Difference, type DifferenceField } from "@/lib/ebooks/differences/compare";
+import { activitySettled } from "@/lib/activity/record";
 
 /* The Differences section (SLN-658): a library e-book against its book, both
    choices per row and in bulk, their undo, and nothing written without one. */
@@ -96,7 +97,11 @@ describe.skipIf(!url)("an e-book's differences with its book", () => {
     return sides ? differencesOf(sides) : [];
   }
   const find = async (ebookId: string, field: DifferenceField) => (await differences(ebookId)).find((d) => d.field === field);
-  const events = async () => (await q(`select event_key, metadata from activity_events order by created_at, id`)).map((r) => r.event_key as string);
+  // The catalogue's writers journal after they return (recordActivity), so a read waits for those writes
+  const events = async () => {
+    await activitySettled();
+    return (await q(`select event_key, metadata from activity_events order by created_at, id`)).map((r) => r.event_key as string);
+  };
 
   it("lists each field that differs after normalisation, for the library's linked e-books only", async () => {
     const nadja = await linked({
@@ -175,6 +180,7 @@ describe.skipIf(!url)("an e-book's differences with its book", () => {
     expect(run.done.map((d) => d.message)).toEqual(["The book takes the file's year.", "The book takes the file's year."]);
     expect((await q(`select publication_year from editions order by publication_year`)).map((r) => r.publication_year)).toEqual([2004, 2012]);
     expect((await getDifferences({ field: "year", shown: 50 })).counts.year).toBeUndefined();
+    await activitySettled();
     expect((await q(`select event_key from activity_events where entity_id = $1 order by created_at`, [a.work])).map((r) => r.event_key))
       .toEqual(expect.arrayContaining(["work.edition_updated", DIFFERENCE_EVENTS.used]));
 
