@@ -250,7 +250,7 @@ export function ReaderToolbar({
             </a>
           </CapAligned>
           <div className="flex min-w-0 flex-1 items-baseline gap-3 px-1">
-            <h1 className="min-w-0 truncate">{title}</h1>
+            <h1 className="type-item-title min-w-0 truncate">{title}</h1>
             {chapter && (
               <p className="hidden min-w-0 flex-1 basis-0 truncate font-sans text-sm text-fg-secondary md:block">
                 {chapter}
