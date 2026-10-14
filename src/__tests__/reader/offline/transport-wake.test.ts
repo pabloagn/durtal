@@ -7,6 +7,7 @@ import {
   adoptDevice,
   matchesClaim,
   planReplayClaim,
+  reconcileBlocked,
   releaseClaim,
 } from "@/lib/reader/offline/outbox-policy";
 import type { OfflineStore, StoredOperation } from "@/lib/reader/offline/store";
@@ -55,6 +56,16 @@ function setup(
       rows = [{ ...head, retryAt: null }, ...rows.slice(1)];
       return true;
     }),
+    reconcile: vi.fn(
+      async (
+        reference: Parameters<OfflineStore["reconcile"]>[0],
+        current: string | null,
+      ) => {
+        const before = rows[0];
+        rows = rows.map((row) => ({ ...row, ...reconcileBlocked(row, reference, current) }));
+        return rows[0].state !== before.state;
+      },
+    ),
     adoptDevice: vi.fn(async (superseded: string, current: string) => {
       const before = rows;
       rows = rows.map((row) => ({
@@ -249,17 +260,30 @@ describe("Retry while sync is paused (SLN-668)", () => {
     expect(test.send).toHaveBeenCalledTimes(1);
     expect(test.rows()).toEqual([]);
   });
-  it("probes a blocked head again, once per Retry", async () => {
+  it("probes a blocked head again on Retry, and keeps it while still signed out", async () => {
     const test = setup({ blocked: true });
     transport = test.transport;
     test.visibility("visible");
     await vi.advanceTimersByTimeAsync(0);
     expect(test.preflight).toHaveBeenCalledTimes(1);
+    test.preflight.mockResolvedValue({ authenticated: false, deviceId: null } as never);
     await transport.retryNow();
     await vi.advanceTimersByTimeAsync(0);
-    expect(test.preflight).toHaveBeenCalledTimes(2);
+    expect(test.preflight).toHaveBeenCalledTimes(3);
     expect(test.send).not.toHaveBeenCalled();
     expect(test.rows()[0].state).toBe("blocked");
+  });
+  it("sends a blocked head on Retry once signed in again under this device", async () => {
+    const test = setup({ blocked: true });
+    transport = test.transport;
+    test.visibility("visible");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(test.send).not.toHaveBeenCalled();
+    await transport.retryNow();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(test.store.reconcile).toHaveBeenCalledTimes(1);
+    expect(test.send).toHaveBeenCalledTimes(1);
+    expect(test.rows()).toEqual([]);
   });
   it("frees a blocked head on Retry once the cookie's device has changed", async () => {
     const test = setup({ blocked: true });

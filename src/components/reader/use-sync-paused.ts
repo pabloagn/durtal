@@ -13,6 +13,8 @@ export function useSyncPaused() {
   const [paused, setPaused] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const check = useRef<() => Promise<void>>(async () => {});
+  // The head this page has seen first in the queue, and since when
+  const first = useRef<{ seq: number; at: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -23,7 +25,12 @@ export function useSyncPaused() {
       if (cancelled) return;
       try {
         const rows = await (await getReaderRuntime()).store.inspect();
-        if (!cancelled) setPaused(syncPaused(rows, navigator.onLine));
+        const head = rows[0];
+        if (!head) first.current = null;
+        else if (first.current?.seq !== head.seq)
+          first.current = { seq: head.seq, at: Date.now() };
+        const firstMs = first.current ? Date.now() - first.current.at : 0;
+        if (!cancelled) setPaused(syncPaused(rows, navigator.onLine, firstMs));
       } catch {
         /* no reader persistence here: nothing to say */
       }
@@ -31,7 +38,12 @@ export function useSyncPaused() {
         timer = setTimeout(() => void run(), CHECK_MS);
     };
     check.current = run;
-    const wake = () => void run();
+    const wake = (event: Event) => {
+      // Time hidden or offline is not time stuck: the queue does not send then
+      if (event.type === "visibilitychange" || event.type === "online")
+        first.current = null;
+      void run();
+    };
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("online", wake);
     window.addEventListener("offline", wake);

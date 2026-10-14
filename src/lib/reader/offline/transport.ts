@@ -3,6 +3,7 @@ import {
   deviceReplayPolicy,
   EXPECTED_DEVICE_HEADER,
   type Json,
+  mutationWireJson,
 } from "./mutations";
 import {
   annotationAcknowledgments,
@@ -381,6 +382,30 @@ export function createReaderTransport(options: TransportOptions) {
     async retryNow() {
       if (stopped) return;
       probedBlocked = false;
+      // A person pressing Retry is the explicit reconciliation a blocked head
+      // waits for: signed in again under this device, it can go (review #273)
+      const head = (await options.store.inspect())[0];
+      if (head?.state === "blocked") {
+        try {
+          const identity = await deadline(preflight);
+          if (identity.authenticated)
+            await options.store.reconcile(
+              {
+                seq: head.seq,
+                operationId: head.mutation.operationId,
+                revision: head.mutation.revision,
+                ebookId: head.mutation.ebookId,
+                fileId: head.mutation.fileId,
+                deviceId: head.mutation.deviceId,
+                attempts: head.attempts,
+                wireJson: mutationWireJson(head.mutation),
+              },
+              identity.deviceId,
+            );
+        } catch (error) {
+          options.onError?.(error);
+        }
+      }
       await options.store.retryNow();
       return requestReplay("foreground");
     },
