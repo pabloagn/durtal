@@ -12,6 +12,11 @@ export class ReaderHistory {
   #entries: HistoryEntry[] = [];
   #cursor = -1;
   #searchChain = false;
+  #appended = 0;
+  /** How many entries a jump has added, for the browser's history (SLN-681) */
+  get appended() {
+    return this.#appended;
+  }
   get entries(): readonly HistoryEntry[] {
     return this.#entries;
   }
@@ -63,6 +68,7 @@ export class ReaderHistory {
     else {
       this.#entries.push(entry);
       this.#cursor++;
+      this.#appended++;
     }
     if (this.#entries.length > 100) {
       this.#entries.shift();

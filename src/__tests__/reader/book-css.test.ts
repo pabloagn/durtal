@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { bookCSS, bookLanguage } from "@/lib/reader/presentation/book-css";
 import { PRESENTATION_DEFAULTS } from "@/lib/reader/presentation/defaults";
 import { themeColours } from "@/lib/reader/presentation/themes";
+import { contrastRatio } from "@/lib/reader/presentation/contrast";
 import type { ReaderPresentation } from "@/lib/validations/reader-preferences";
 
 const styles = (patch: Partial<ReaderPresentation> = {}) => {
@@ -116,6 +117,18 @@ describe("book CSS layers", () => {
     expect(styles({ theme: "sepia", dimImages: true }).colours).not.toContain(
       "filter:",
     );
+  });
+  it("writes links in the theme's accent, underlined, at 4.5:1 in every theme (SLN-681)", () => {
+    for (const theme of ["durtal-dark", "sepia", "paper"] as const) {
+      const css = styles({ theme });
+      const ink = css.colours.match(/a:any-link, a:any-link \* \{ color: (#[0-9a-f]{6}) !important; \}/i)?.[1];
+      expect(ink, theme).toBeTruthy();
+      const page = themeColours({ ...PRESENTATION_DEFAULTS.desktop, theme });
+      expect(contrastRatio(ink!, page.background), theme).toBeGreaterThanOrEqual(4.5);
+      expect(css.colours).toContain("a:any-link { text-decoration-line: underline;");
+    }
+    // The dark theme's own link colour already passes and is kept
+    expect(styles().colours).toContain(`color: ${themeColours(PRESENTATION_DEFAULTS.desktop).link} !important`);
   });
 });
 
