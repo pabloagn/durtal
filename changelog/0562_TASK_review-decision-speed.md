@@ -67,6 +67,11 @@ Profiled on the 6,000 eBook preview (`preview-local.py --ebooks 6000
   table, an unchanged library passes, a changed title is refused). New
   `writer-input.test.ts`; `review-receipts.test.ts` checks reused text gives
   the same canonical JSON. `load.test.ts` reads rows as text.
+- Review: the shared-values set first kept every nested object, so each
+  garbage collection walked millions of entries; `ebooks:match --apply` on
+  the rehearsal's 609 links slowed from 0.65 s to about 4 s a link after the
+  first fifty. Only roots are kept now, the apply takes about 10 minutes as
+  on main, and a test checks nested values are not shared.
 - Not covered: the plan hash (`hashMatchingPlan`) and the preview's envelope
   hash still walk all rows once each per decision, and every decision still
   reads the whole catalogue twice. Making plans hold per-table hashes instead

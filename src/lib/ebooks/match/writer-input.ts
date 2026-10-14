@@ -1,7 +1,9 @@
-/** Every object built below: a deeply frozen, checked DTO that can never
- * change, so a later call shares it instead of copying it again. A review
- * plan on 6,000 eBooks holds about 30 MB of rows, and each copy took most of
- * a second (SLN-691). */
+/** Roots built below: deeply frozen, checked DTOs that can never change, so
+ * a later call shares one instead of copying it again. A review plan on
+ * 6,000 eBooks holds about 30 MB of rows, and each copy took most of a second
+ * (SLN-691). Only roots are kept: a weak entry for every nested object made
+ * each garbage collection walk millions of them, and applying 609 links went
+ * from 0.65 s a link to about 4 s after the first fifty. */
 const sealed = new WeakSet<object>();
 /** Plans and receipt snapshots are DTOs. Make a private deep copy before an
  * await; freezing a Date/Map or a caller's top-level object would leave mutable
@@ -34,11 +36,11 @@ export function immutableMatchingWriterInput<T>(input: T): T {
         writable: true, configurable: true });
     }
     visiting.delete(value);
-    const frozen = Object.freeze(result);
-    sealed.add(frozen);
-    return frozen;
+    return Object.freeze(result);
   };
-  return copy(input) as T;
+  const root = copy(input);
+  if (typeof root === "object" && root !== null) sealed.add(root);
+  return root as T;
 }
 /** Seals values fresh from JSON.parse, such as rows a query just read, in
  * place rather than copying them: nothing else holds them yet, and parsed
@@ -62,8 +64,9 @@ export function sealParsedJson<T>(input: T): T {
       for (const key of Object.keys(value)) seal((value as Record<string, unknown>)[key]);
     }
     visiting.delete(value);
-    sealed.add(Object.freeze(value));
+    Object.freeze(value);
   };
   seal(input);
+  if (typeof input === "object" && input !== null) sealed.add(input);
   return input;
 }

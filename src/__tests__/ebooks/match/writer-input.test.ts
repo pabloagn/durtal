@@ -14,6 +14,14 @@ describe("sealed matching writer inputs (SLN-691)", () => {
     expect(() => { (rows[0] as { id: string }).id = "b"; }).toThrow(TypeError);
     expect(immutableMatchingWriterInput({ rows }).rows).toBe(rows);
   });
+  it("keeps only roots shared, so the collector does not walk every nested object", () => {
+    const plan = immutableMatchingWriterInput({ snapshot: { rows: { works: [{ id: "a" }] } } });
+    expect(immutableMatchingWriterInput(plan)).toBe(plan);
+    // Applying 609 links slowed from 0.65 s to about 4 s a link when every nested object was kept
+    const later = immutableMatchingWriterInput({ snapshot: plan.snapshot });
+    expect(later.snapshot).not.toBe(plan.snapshot);
+    expect(later.snapshot).toEqual(plan.snapshot);
+  });
   it.each([
     ["a Date", [new Date(0)]],
     ["undefined", [undefined]],
