@@ -166,27 +166,86 @@ function hash(text: string): number {
  */
 export const dayOrder = (day: string) => (s: Scored) => hash(`${day}:${s.book.id}`);
 
-/** Maximal marginal relevance: each next pick weighs its score (λ) against its likeness to those picked before (1 − λ) */
+/**
+ * Maximal marginal relevance: each next pick weighs its score (λ) against its
+ * likeness to those picked before (1 − λ).
+ *
+ * Lazily (SLN-690): a book's value only falls as picks are added, so a value
+ * measured against fewer picks is an upper bound. The heap holds each book
+ * at its last measured value; a book at the top that is behind is measured
+ * against the newer picks and goes back, and one that is up to date is the
+ * next pick. The order is the same as comparing every book with every pick,
+ * which took 300 ms at 2,000 books.
+ */
 export function diversify(items: Scored[], lambda = MMR_LAMBDA, tie: (s: Scored) => number = () => 0): Scored[] {
   const max = Math.max(...items.map((i) => i.score), 0);
-  const rest = [...items].sort((a, b) => b.score - a.score || tie(a) - tie(b) || a.book.title.localeCompare(b.book.title));
+  const sorted = [...items].sort((a, b) => b.score - a.score || tie(a) - tie(b) || a.book.title.localeCompare(b.book.title));
+  // Per book, by its place in `sorted`: its likeness to the nearest pick, and how many picks that covers
+  const nearest = new Float64Array(sorted.length);
+  const seen = new Int32Array(sorted.length);
+  const value = (i: number) => lambda * (max ? sorted[i].score / max : 0) - (1 - lambda) * nearest[i];
+  const values = sorted.map((_, i) => value(i));
+  // The higher value first; on a tie the earlier place, as a scan of `sorted` would pick
+  const before = (a: number, b: number) => values[a] > values[b] || (values[a] === values[b] && a < b);
+  const heap = new MaxHeap(sorted.map((_, i) => i), before);
   const picked: Scored[] = [];
-  const nearest = new Map(rest.map((i) => [i, 0]));
-  while (rest.length) {
-    let best = 0,
-      bestValue = -Infinity;
-    for (let i = 0; i < rest.length; i++) {
-      const value = lambda * (max ? rest[i].score / max : 0) - (1 - lambda) * nearest.get(rest[i])!;
-      if (value > bestValue) {
-        bestValue = value;
-        best = i;
-      }
+  while (heap.size) {
+    const top = heap.peek();
+    // Likeness is at most 1: a book that far from the picks is up to date
+    if (seen[top] === picked.length || nearest[top] === 1) {
+      heap.pop();
+      picked.push(sorted[top]);
+      continue;
     }
-    const [next] = rest.splice(best, 1);
-    picked.push(next);
-    for (const item of rest) nearest.set(item, Math.max(nearest.get(item)!, likeness(item.book, next.book)));
+    for (let p = seen[top]; p < picked.length && nearest[top] < 1; p++)
+      nearest[top] = Math.max(nearest[top], likeness(sorted[top].book, picked[p].book));
+    seen[top] = picked.length;
+    values[top] = value(top);
+    heap.siftDownTop();
   }
   return picked;
+}
+
+/** A binary max-heap of indices, ordered by `before`, whose top can be lowered in place */
+class MaxHeap {
+  private items: number[];
+  constructor(
+    items: number[],
+    private before: (a: number, b: number) => boolean,
+  ) {
+    this.items = items;
+    for (let i = (items.length >> 1) - 1; i >= 0; i--) this.down(i);
+  }
+  get size() {
+    return this.items.length;
+  }
+  peek() {
+    return this.items[0];
+  }
+  pop() {
+    const last = this.items.pop()!;
+    if (this.items.length) {
+      this.items[0] = last;
+      this.down(0);
+    }
+  }
+  /** After the top's value fell */
+  siftDownTop() {
+    this.down(0);
+  }
+  private down(i: number) {
+    const a = this.items;
+    for (;;) {
+      const l = 2 * i + 1;
+      const r = l + 1;
+      let m = i;
+      if (l < a.length && this.before(a[l], a[m])) m = l;
+      if (r < a.length && this.before(a[r], a[m])) m = r;
+      if (m === i) return;
+      [a[i], a[m]] = [a[m], a[i]];
+      i = m;
+    }
+  }
 }
 
 /** The suggestions for these constraints: scored, then varied */
