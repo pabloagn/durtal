@@ -84,3 +84,6 @@ order by client_updated_at, updated_at;
   places it was the whole table (2.7 MB at 5,000, review section 4); now it
   is at most this device's places plus two rows.
 - Not covered: History (needs a migration), and the reader's save on open.
+- Review fix: when two other devices are equally far at the same moment,
+  the furthest place is now the first by device and file, as the reader
+  picks it from every row.

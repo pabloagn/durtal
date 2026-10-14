@@ -179,7 +179,7 @@ export async function placesToCheck(
       or p.id = (select o.id from ebook_positions o where o.ebook_id = ${ebookId}::uuid and o.device_id <> ${device}
         order by o.client_updated_at desc, o.device_id, o.file_id limit 1)
       or p.id = (select o.id from ebook_positions o where o.ebook_id = ${ebookId}::uuid and o.device_id <> ${device}
-        order by (o.locator->>'totalProgression')::float8 desc nulls last, o.client_updated_at desc limit 1))
+        order by (o.locator->>'totalProgression')::float8 desc nulls last, o.client_updated_at desc, o.device_id, o.file_id limit 1))
     order by client_updated_at desc, device_id, file_id`),
   );
   return rows.map((row) => {
