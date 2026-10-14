@@ -31,6 +31,7 @@ beforeEach(() => {
     first: fn(),
     last: fn(),
     toggleBars: fn(),
+    showBars: fn(),
     contents: fn(),
     settings: fn(),
     search: fn(),
@@ -178,6 +179,15 @@ describe("keys", () => {
     expect(actions.left).toHaveBeenCalledTimes(1);
     expect(actions.prev).not.toHaveBeenCalled();
     expect(actions.next).not.toHaveBeenCalled();
+  });
+
+  it("shows the bars on the menu key, never while a dialog is open (SLN-663)", () => {
+    key("ContextMenu");
+    expect(actions.showBars).toHaveBeenCalledTimes(1);
+    expect(actions.toggleBars).not.toHaveBeenCalled();
+    blocked = true;
+    key("ContextMenu");
+    expect(actions.showBars).toHaveBeenCalledTimes(1);
   });
 
   it("lets only Esc through to the reader while nothing is open, nothing while a dialog or the palette is", () => {

@@ -632,6 +632,7 @@ function ReaderSession({
       first: () => void navigate({ fraction: 0 }, "edge"),
       last: () => void navigate({ fraction: 1 }, "edge"),
       toggleBars: bars.toggle,
+      showBars: bars.show,
       contents: () => {
         paceRef.current?.interrupt();
         setContentsOpen(true);
@@ -673,6 +674,8 @@ function ReaderSession({
         if (searchEscapeRef.current?.()) return;
         if (document.fullscreenElement)
           void document.exitFullscreen().catch(() => {});
+        // With nothing left to close, Esc brings the bars back (SLN-663)
+        bars.show();
       },
       activity: (kind) => {
         if (bridge.getControllerReadinessSnapshot().ready) bridge.bus.activity(kind);
@@ -733,6 +736,7 @@ function ReaderSession({
         first: () => actions.current?.first(),
         last: () => actions.current?.last(),
         toggleBars: () => actions.current?.toggleBars(),
+        showBars: () => actions.current?.showBars?.(),
         contents: () => actions.current?.contents(),
         settings: () => actions.current?.settings(),
         // The stable input instance reads capability changes at dispatch time.
