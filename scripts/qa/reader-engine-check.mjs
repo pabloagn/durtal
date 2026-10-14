@@ -720,6 +720,15 @@ async function checkPointer(name, browser) {
   await page.mouse.click(link.x, link.y);
   await page.waitForFunction(() => document.querySelector("footer[data-reader-chrome]")?.textContent.includes("Outside the reading order"), null, { timeout: 5000 }).catch(() => {});
   record(name, "pointer", "1440: a click on a link follows it", (await footer(page)).includes("Outside the reading order"), (await footer(page)).slice(0, 60));
+  // The place stays in the notes once the page settles, never the end of the
+  // chapter before (which saved the book as read to 100%)
+  await sleep(1500);
+  const settled = await page.evaluate(() => {
+    const view = document.querySelector("foliate-view");
+    const { index, fraction } = view?.lastLocation ?? {};
+    return { linear: view?.book?.sections?.[index]?.linear !== "no", index, fraction, footer: document.querySelector("footer[data-reader-chrome]")?.textContent.slice(0, 60) };
+  });
+  record(name, "pointer", "1440: after a link to the notes, the place stays in the notes", !settled.linear && settled.footer.includes("Outside the reading order"), JSON.stringify(settled));
   await context.close();
   if (name === "firefox") return; // Firefox has no touch emulation in Playwright
   const phoneContext = await browser.newContext(phone(name));
