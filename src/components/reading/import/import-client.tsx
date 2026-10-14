@@ -459,8 +459,9 @@ export function CommitImport({ importId, label, disabled }: { importId: string; 
           },
         )
       }
+      busy={pending}
     >
-      {pending ? "Importing..." : label}
+      {label}
     </Button>
   );
 }

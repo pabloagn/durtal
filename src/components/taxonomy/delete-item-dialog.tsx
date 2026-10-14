@@ -127,8 +127,9 @@ export function DeleteItemDialog({
             variant="danger"
             size="sm"
             disabled={submitting}
+            busy={submitting}
           >
-            {submitting ? "Deleting..." : "Delete"}
+            Delete
           </Button>
         </div>
       </form>

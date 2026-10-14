@@ -179,9 +179,10 @@ export function SeriesFormDialog({
             <Button
               type="submit"
               variant="primary"
-              disabled={pending || !title.trim()}
+              disabled={!title.trim()}
+              busy={pending}
             >
-              {pending ? "Saving…" : isEdit ? "Save" : "Add"}
+              {isEdit ? "Save" : "Add"}
             </Button>
           </div>
         </form>

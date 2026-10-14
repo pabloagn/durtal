@@ -41,7 +41,7 @@ export function SkeletonLine({ className = "" }: { className?: string }) {
  * A detail page's title row: the title and, beside it, its actions. On a
  * phone a title of any length pushes the actions below it, so the skeleton
  * draws them there. With `wide`, the book's row (`DetailTitleRow
- * wideControls`): it wraps where that row does, with no gap under the title.
+ * controls="wide"`): it wraps where that row does, with no gap under the title.
  */
 export function SkeletonTitleRow({ wide = false }: { wide?: boolean }) {
   const actions = (

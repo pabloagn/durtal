@@ -7,13 +7,7 @@ import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
 import { Prose } from "@/components/shared/prose";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { HorizontalCarousel } from "@/components/shared/horizontal-carousel";
-import {
-  DetailColumns,
-  RecordField,
-  RecordFields,
-  RecordGroup,
-  RecordPanel,
-} from "@/components/shared/detail-layout";
+import { DetailColumns, DetailTitleRow, RecordField, RecordFields, RecordGroup, RecordPanel } from "@/components/shared/detail-layout";
 import { PerfumeCard } from "@/components/perfumes/perfume-card";
 import { FilmCard } from "@/components/films/film-card";
 import { PaintingCard } from "@/components/paintings/painting-card";
@@ -213,8 +207,7 @@ export default async function OrganizationPage({ params }: { params: Promise<{ s
       </Link>
 
       <header className="mb-10">
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="type-page-title min-w-0 break-words">{organization.name}</h1>
+        <DetailTitleRow title={organization.name} controls="icons">
           <OrganizationActions
             organization={{
               id,
@@ -231,7 +224,7 @@ export default async function OrganizationPage({ params }: { params: Promise<{ s
             }}
             blockers={linked}
           />
-        </div>
+        </DetailTitleRow>
         {roleText && <p className="mt-1 text-sm text-fg-secondary">{roleText}</p>}
       </header>
 

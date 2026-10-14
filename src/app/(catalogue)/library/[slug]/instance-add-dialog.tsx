@@ -173,7 +173,7 @@ export function InstanceAddDialog({
             onClick={handleSubmit}
             disabled={isPending || !draft.locationId}
           >
-            {isPending ? ebook ? "Preparing…" : "Creating..." : ebook ? "Preview copy and eBook" : "Create instance"}
+            {isPending ? ebook ? "Preparing…" : "Creating…" : ebook ? "Preview copy and eBook" : "Create instance"}
           </Button>
         </div>
         </>}

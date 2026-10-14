@@ -1,4 +1,11 @@
-import { forwardRef, type ButtonHTMLAttributes } from "react";
+import {
+  Children,
+  forwardRef,
+  isValidElement,
+  type ButtonHTMLAttributes,
+  type ReactNode,
+} from "react";
+import { LoaderCircle } from "lucide-react";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
@@ -6,6 +13,13 @@ type Size = "sm" | "md" | "lg";
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
+  /**
+   * The button's action is running (saving, deleting). The button keeps its
+   * label and width: a leading icon turns into a spinner of the same size, a
+   * button with no icon gains none. It is disabled and says it is busy with
+   * `aria-busy` (contract section 8, "A busy button keeps its width").
+   */
+  busy?: boolean;
 }
 
 const variantStyles: Record<Variant, string> = {
@@ -30,8 +44,24 @@ export function buttonClass(variant: Variant = "secondary", size: Size = "md") {
   return `${BASE} ${variantStyles[variant]} ${sizeStyles[size]} ${COARSE}`;
 }
 
+/** A leading icon is an element other than a plain tag ("span", "kbd") */
+function isIcon(node: ReactNode) {
+  return isValidElement(node) && typeof node.type !== "string";
+}
+
+/** The children with a leading icon swapped for a spinner of its size */
+function busyChildren(children: ReactNode) {
+  const [first, ...rest] = Children.toArray(children);
+  if (!isIcon(first)) return children;
+  const iconClass = (first as { props: { className?: string } }).props.className ?? "";
+  return [
+    <LoaderCircle key="busy" className={`${iconClass} animate-spin`} strokeWidth={1.5} aria-hidden="true" />,
+    ...rest,
+  ];
+}
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = "secondary", size = "md", className = "", ...props }, ref) => {
+  ({ variant = "secondary", size = "md", className = "", busy = false, disabled, children, ...props }, ref) => {
     return (
       <button
         ref={ref}
@@ -39,8 +69,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         data-variant={variant}
         // A label never wraps: a narrow row wraps whole buttons instead
         className={`${buttonClass(variant, size)} ${className}`}
+        disabled={disabled || busy}
+        aria-busy={busy || undefined}
         {...props}
-      />
+      >
+        {busy ? busyChildren(children) : children}
+      </button>
     );
   },
 );

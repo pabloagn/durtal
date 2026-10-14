@@ -105,8 +105,9 @@ export function SeriesSuggestions({
                   variant="ghost"
                   disabled={!!busy}
                   onClick={() => link(seriesId, [item], item.workId)}
+                  busy={busy === item.workId}
                 >
-                  {busy === item.workId ? "Linking…" : "Link"}
+                  Link
                 </Button>
               </li>
             ))}

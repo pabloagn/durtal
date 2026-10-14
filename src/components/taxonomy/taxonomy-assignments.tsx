@@ -247,7 +247,7 @@ export function TaxonomyItemSearch({
       <div className="absolute left-0 top-7 z-20 w-64 rounded-sm border border-glass-border bg-bg-secondary py-1 shadow-lg">
         {error && <p className="px-2 py-1 text-xs text-accent-red-text">{error}</p>}
         {!error && result === null && (
-          <p className="px-2 py-1 text-xs text-fg-secondary">Searching...</p>
+          <p className="px-2 py-1 text-xs text-fg-secondary">Searching…</p>
         )}
         {choices.map((item) => (
           <button
@@ -277,7 +277,7 @@ export function TaxonomyItemSearch({
             onClick={create}
             className="block w-full truncate px-2 py-1 text-left text-xs text-accent-primary hover:bg-bg-tertiary"
           >
-            {creating ? "Creating..." : `Create “${name}”`}
+            {creating ? "Creating…" : `Create “${name}”`}
           </button>
         )}
       </div>

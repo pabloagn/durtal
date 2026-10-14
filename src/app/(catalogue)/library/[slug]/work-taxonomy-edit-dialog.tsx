@@ -131,9 +131,9 @@ export function WorkTaxonomyEditDialog({
             variant="primary"
             size="sm"
             onClick={handleSave}
-            disabled={isPending}
+            busy={isPending}
           >
-            {isPending ? "Saving..." : "Save"}
+            Save
           </Button>
         </div>
       </Dialog>
