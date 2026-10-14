@@ -762,6 +762,26 @@ export async function runOfflineStoreChecks() {
     assert(all[0].state === "blocked" && all[1].state === "waiting" && all[1].annotation?.undo?.state === "sealed",
       "Sealing changed blockers or skipped deferred intent");
   });
+  await check("two places under one clock keep the further as the latest, in either order (SLN-665)", async () => {
+    const time = new Date(NOW).toISOString();
+    const further = { mutation: position(1, 0.5, { time }).mutation };
+    const echo = { mutation: position(2, 0.48, { time }).mutation };
+    await store.enqueue(further); await store.enqueue(echo);
+    let local = await store.readPosition(mutationKey(further.mutation));
+    assert(local?.latest.operationId === further.mutation.operationId, "An echo under the same clock moved the place back");
+    store.close();
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.deleteDatabase(name);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+    store = await open();
+    await store.enqueue({ mutation: position(3, 0.48, { time }).mutation });
+    const later = { mutation: position(4, 0.5, { time }).mutation };
+    await store.enqueue(later);
+    local = await store.readPosition(mutationKey(later.mutation));
+    assert(local?.latest.operationId === later.mutation.operationId, "The further place under the same clock was not kept");
+  });
   await check("Retry clears a waiting head's backoff and leaves a blocked one blocked (SLN-668)", async () => {
     await store.enqueue(input(1)); const claimed = await store.claim(claimOptions());
     assert(claimed.kind === "claim", "Expected position claim");
