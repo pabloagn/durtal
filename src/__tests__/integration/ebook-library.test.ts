@@ -275,6 +275,35 @@ describe.skipIf(!url)(
       // Finished
       expect(await place(3, 1, 1)).toBeUndefined();
     });
+    it("reads one place per device for the page, however many places there are (SLN-665)", async () => {
+      const [ebook] = await client!`insert into ebooks(title, import_source, search_text) values ('Many places', 'folder', 'many places') returning id`;
+      const checksum = createHash("sha256").update("many places").digest("hex");
+      const [file] = await client!`insert into ebook_files(ebook_id, sha256, s3_key, format, size_bytes, content_type, status)
+        values (${ebook.id}, ${checksum}, ${ebookFileKey(checksum, "epub")}, 'epub', 1000, 'application/epub+zip', 'stored') returning id`;
+      // 1,000 places from 1,000 device ids under 40 device names, the newest just now
+      await client!`insert into ebook_positions(ebook_id, file_id, device_id, device_label, locator, progression, furthest_progression, chapter, client_updated_at)
+        select ${ebook.id}, ${file.id}, md5('many-' || d)::uuid::text, 'Device ' || (d % 40 + 1),
+          jsonb_build_object('v', 1, 'fileHash', ${checksum}::text, 'href', 'chapter', 'sectionIndex', 1,
+            'progression', 0.5, 'totalProgression', (d % 90 + 5) / 100.0), 0.5, 0.5, null, now() - (d || ' minutes')::interval
+        from generate_series(1, 1000) d`;
+      // This device read it last a week ago: Continue still needs its place
+      const mine = randomUUID();
+      await client!`insert into ebook_positions(ebook_id, file_id, device_id, device_label, locator, progression, furthest_progression, chapter, client_updated_at)
+        values (${ebook.id}, ${file.id}, ${mine}, 'This Mac', ${JSON.stringify({ v: 1, fileHash: checksum, href: "chapter", sectionIndex: 1, progression: 0.5, totalProgression: 0.3 })},
+          0.3, 0.3, null, now() - interval '7 days')`;
+      const detail = (await getEbookDetail(String(ebook.id), database!, { places: { deviceId: mine, devices: 5 } }))!;
+      expect(detail.positions.length).toBeLessThanOrEqual(21);
+      expect(detail.positions.some((place) => place.deviceId === mine)).toBe(true);
+      expect(detail.places?.deviceCount).toBe(41);
+      expect(detail.places?.devices.map((place) => place.deviceLabel)).toEqual(["Device 2", "Device 3", "Device 4", "Device 5", "Device 6"]);
+      // Each device's newest place, newest first
+      expect(detail.places?.devices[0].deviceId).toBe((await client!`select md5('many-1')::uuid::text as id`)[0].id);
+      const all = (await getEbookDetail(String(ebook.id), database!, { places: { deviceId: mine, devices: 200 } }))!;
+      expect(all.places?.devices).toHaveLength(41);
+      expect(all.places?.devices.at(-1)?.deviceLabel).toBe("This Mac");
+      // The API's read is unchanged: every place
+      expect((await getEbookDetail(String(ebook.id), database!))?.positions).toHaveLength(1001);
+    });
     it("keeps a replaced-file anchor intact while selecting a current native target", async () => {
       const [ebook] =
         await client!`insert into ebooks(title, import_source, search_text) values ('Historical places', 'folder', 'historical places') returning id`;

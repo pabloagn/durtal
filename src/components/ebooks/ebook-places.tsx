@@ -1,34 +1,117 @@
+import Link from "next/link";
 import { formatLabel } from "@/lib/ebooks/formats";
 import type { EbookDetail } from "@/lib/ebooks/library-queries";
-import { runTime } from "./run-row";
+import type { ContinueAnchor, ContinueDescriptor } from "@/lib/ebooks/continue-target";
+import { isEbookFileNativeReadable } from "@/lib/ebooks/conditions";
 import { fractionPercent } from "@/lib/reader/place-label";
-export function EbookPlaces({ ebook }: { ebook: EbookDetail }) {
-  if (!ebook.positions.length)
-    return <p className="text-sm text-fg-secondary">No saved places yet.</p>;
+import { formatFullDate, formatRelativeTime } from "@/lib/utils/relative-time";
+import { SectionHeading } from "@/components/shared/section-heading";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
+import { ReaderEntryLink } from "@/components/reader/reader-entry-link";
+import { buttonClass } from "@/components/ui/button";
+
+/** The Continue line: where Read opens, and from which device */
+function continueLine(descriptor: ContinueDescriptor | null): string | undefined {
+  const anchor = descriptor?.anchor;
+  if (!anchor) return undefined;
+  const fraction = Math.min(1, Math.max(0, anchor.locator.totalProgression));
+  return `Read opens at ${fractionPercent(fraction)}${anchor.chapter ? ` · ${anchor.chapter}` : ""}, from ${anchor.deviceLabel}.`;
+}
+const sameDevice = (a: ContinueAnchor | null, b: ContinueAnchor) => !!a && a.deviceLabel === b.deviceLabel;
+
+/**
+ * Reading places, one row per device (SLN-665): where each device was last,
+ * how far that is, and a link that opens the book there. The page reads
+ * only each device's newest place, so a book read on many devices, or in many
+ * sittings, stays a short list; the newest five show, the rest behind "Show
+ * all devices".
+ */
+export function EbookPlaces({
+  ebook,
+  descriptor,
+  returnTo,
+  allDevices,
+}: {
+  ebook: EbookDetail;
+  descriptor: ContinueDescriptor | null;
+  returnTo: string;
+  allDevices: boolean;
+}) {
+  const devices = ebook.places?.devices ?? ebook.positions;
+  const count = ebook.places?.deviceCount ?? devices.length;
+  const heading = (description?: string) => (
+    <SectionHeading title="Reading places" count={count || undefined} description={description} />
+  );
+  if (!devices.length)
+    return <>
+      {heading()}
+      <p className="text-sm text-fg-secondary">Not opened on any device yet.</p>
+    </>;
   return (
-    <ul className="divide-y divide-glass-border">
-      {ebook.positions.map((place) => {
-        const file = ebook.files.find((file) => file.id === place.fileId);
-        const percent = fractionPercent(place.locator.totalProgression);
-        return (
-          <li
-            key={`${place.deviceId}-${place.fileId}`}
-            className="py-3 text-sm"
-          >
-            <p>
-              {place.deviceLabel} · Saved {percent}
-              {place.chapter ? ` · ${place.chapter}` : ""}
-            </p>
-            <p className="mt-1 text-xs text-fg-secondary">
-              {file ? formatLabel(file.format) : "Historical file"} ·{" "}
-              {runTime(new Date(place.clientUpdatedAt))}
-              {file?.status === "replaced"
-                ? " · Replaced file; resumes in the current file"
-                : ""}
-            </p>
-          </li>
-        );
-      })}
-    </ul>
+    <>
+      {heading(continueLine(descriptor))}
+      <ul className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary/70">
+        {devices.map((place) => {
+          const file = ebook.files.find((candidate) => candidate.id === place.fileId);
+          const fraction = Math.min(1, Math.max(0, place.locator.totalProgression));
+          const opensNext = sameDevice(descriptor?.anchor ?? null, place);
+          // A replaced file's place opens in the current file of that format
+          const readable = file && isEbookFileNativeReadable(file) && file.status !== "replaced";
+          const query = new URLSearchParams({ ...(readable ? { file: place.fileId } : {}), from: place.deviceId });
+          return (
+            // On a phone the button goes under the place, so the place keeps a readable width
+            <li key={place.deviceLabel} className="flex flex-wrap items-start gap-x-4 gap-y-3 px-4 py-3 text-sm">
+              <div className="min-w-48 flex-1">
+                {/* Wrapped under a long name, the marker starts at the name's edge */}
+                <p className="flex flex-wrap items-baseline gap-x-2 text-fg-primary">
+                  <span>{place.deviceLabel}</span>
+                  {opensNext && <span className="whitespace-nowrap text-xs text-accent-primary">Opens next</span>}
+                </p>
+                <p className="mt-1 text-fg-secondary">
+                  {fractionPercent(fraction)}
+                  {place.chapter ? ` · ${place.chapter}` : ""}
+                </p>
+                <div className="mt-2 h-0.5 max-w-60 rounded-full bg-glass-border" aria-hidden>
+                  <div className="h-full rounded-full bg-fg-secondary" style={{ width: `${fraction * 100}%` }} />
+                </div>
+                <p className="mt-2 text-xs text-fg-secondary">
+                  <time dateTime={new Date(place.clientUpdatedAt).toISOString()} data-tooltip={formatFullDate(place.clientUpdatedAt)}>
+                    {formatRelativeTime(place.clientUpdatedAt)}
+                  </time>
+                  {" · "}
+                  {file ? formatLabel(file.format) : "Earlier file"}
+                  {file?.status === "replaced" || !file ? " · opens in the current file" : ""}
+                </p>
+              </div>
+              {descriptor && (
+                <CapAlignedControls height={28} coarseHeight={44}>
+                  <ReaderEntryLink
+                    readerPath={`/reader/${ebook.id}?${query}`}
+                    returnTo={returnTo}
+                    className={buttonClass("secondary", "sm")}
+                    aria-label={`Read from ${place.deviceLabel}'s place`}
+                  >
+                    Read from here
+                  </ReaderEntryLink>
+                </CapAlignedControls>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {count > devices.length && allDevices ? (
+        <p className="mt-3 text-sm text-fg-secondary">The newest {devices.length} of {count} devices.</p>
+      ) : count > devices.length ? (
+        <Link href={`/ebooks/${ebook.id}?places=all#places`} scroll={false}
+          className="touch-hit mt-3 inline-block text-sm text-accent-primary">
+          Show all {count} devices
+        </Link>
+      ) : allDevices && count > 5 ? (
+        <Link href={`/ebooks/${ebook.id}#places`} scroll={false}
+          className="touch-hit mt-3 inline-block text-sm text-accent-primary">
+          Show the newest five
+        </Link>
+      ) : null}
+    </>
   );
 }

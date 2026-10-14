@@ -10,7 +10,8 @@ import { continueTarget, validContinueAnchor } from "../continue-target";
 /*
  * What the reader page needs, in one query (eBooks sub-issue 3): the
  * e-book, its readable files (stored or verified, no DRM, a format the
- * reader opens), the linked book's page, this device's history and the newest other place.
+ * reader opens), the linked book's page, this device's history, and each
+ * other device's newest place and the furthest one (SLN-665).
  * Like the readers in files.ts, it is the only other place that makes
  * CatalogueFiles: the rows were read in this request.
  */
@@ -38,13 +39,15 @@ export interface ReaderBook {
   /** Latest history in any file, to distinguish a new device from a new format. */
   devicePlace: ReaderPlace | null;
   otherPlace: ReaderPlace | null;
-  /** Every other device's place, newest first: the offer's newest and furthest (SLN-686) */
+  /** Each other device's newest place and the furthest, newest first: the offer's newest and furthest (SLN-686, SLN-665) */
   otherPlaces: ReaderPlace[];
+  /** The newest place of the device `from` names, which the book opens at (SLN-665) */
+  startPlace: ReaderPlace | null;
 }
 
 type Row = Omit<
   ReaderBook,
-  "file" | "place" | "devicePlace" | "otherPlace" | "otherPlaces" | "files"
+  "file" | "place" | "devicePlace" | "otherPlace" | "otherPlaces" | "startPlace" | "files"
 > & {
   preferredFileId: string | null;
   matchState: string;
@@ -55,8 +58,10 @@ type Row = Omit<
 /** The reader's e-book, or null when there is none */
 export async function readReaderBook(
   ebookId: string,
-  options: { deviceId?: string | null; fileId?: string | null } = {},
+  options: { deviceId?: string | null; fileId?: string | null; fromDeviceId?: string | null } = {},
 ): Promise<ReaderBook | null> {
+  // However many places the book has (SLN-665): this device's and the chosen
+  // device's, each other device's newest, and the furthest other one
   const [row] = resultRows<Row>(
     await db.execute(sql`select eb.id, eb.title, eb.authors, eb.language, e.language as "editionLanguage",
         eb.preferred_file_id as "preferredFileId", eb.match_state as "matchState", w.slug as "workSlug",
@@ -71,7 +76,11 @@ export async function readReaderBook(
             'clientUpdatedAt', p.client_updated_at, 'thisDevice', p.device_id = ${options.deviceId ?? ""})
             order by p.client_updated_at desc, p.device_id, p.file_id)
           from ebook_positions p
-          where p.ebook_id = eb.id), '[]'::json) as places
+          where p.ebook_id = eb.id and (p.device_id in (${options.deviceId ?? ""}, ${options.fromDeviceId ?? ""})
+            or p.id in (select distinct on (o.device_label) o.id from ebook_positions o where o.ebook_id = eb.id
+              order by o.device_label, o.client_updated_at desc, o.device_id, o.file_id)
+            or p.id = (select o.id from ebook_positions o where o.ebook_id = eb.id and o.device_id <> ${options.deviceId ?? ""}
+              order by (o.locator->>'totalProgression')::float8 desc nulls last, o.client_updated_at desc limit 1))), '[]'::json) as places
       from ebooks eb
       left join instances i on i.id = eb.instance_id and i.status <> 'deaccessioned'
       left join editions e on e.id = i.edition_id
@@ -98,7 +107,10 @@ export async function readReaderBook(
     files: row.files,
     positions: places,
   });
-  const file = byId(options.fileId) ?? byId(continuation?.target.id) ?? null;
+  const startPlace = options.fromDeviceId
+    ? (places.find((p) => p.deviceId === options.fromDeviceId) ?? null)
+    : null;
+  const file = byId(options.fileId) ?? byId(startPlace?.fileId) ?? byId(continuation?.target.id) ?? null;
   const place = file
     ? (places.find((p) => p.thisDevice && p.fileId === file.id) ?? null)
     : null;
@@ -115,5 +127,6 @@ export async function readReaderBook(
     devicePlace: places.find((p) => p.thisDevice) ?? null,
     otherPlace: places.find((p) => !p.thisDevice) ?? null,
     otherPlaces: places.filter((p) => !p.thisDevice),
+    startPlace,
   };
 }
