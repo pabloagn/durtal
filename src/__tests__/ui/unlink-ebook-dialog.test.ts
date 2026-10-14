@@ -11,6 +11,7 @@ vi.mock("@/lib/actions/ebook-review-ui", () => review);
 vi.mock("@/components/ui/dialog", () => ({ Dialog: ({ children, onClose }: { children: ReactNode; onClose: () => void }) =>
   createElement("div", { role: "dialog" }, children, createElement("button", { onClick: onClose }, "Dismiss")) }));
 import { UnlinkEbookDialog, removedWords } from "@/components/ebooks/unlink-ebook-dialog";
+import { chooseBookNext } from "@/components/ebooks/choose-book-next";
 let root: Root; let host: HTMLElement;
 const callbacks = { onClose: vi.fn(), onCommitted: vi.fn() };
 beforeAll(() => { (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
@@ -88,6 +89,23 @@ describe("actual automatic Undo and fresh Unlink dialog", () => {
     await click("Undo keep");
     expect(review.undoReviewUi).toHaveBeenCalledWith({ ebookId: kept.ebookId, originalOperation: operation });
     expect(host.textContent).toContain("Unlinked. It is back in review.");
+  });
+  it("changes the book: unlinks, closes and leaves \"Choose a book\" to open for it once (SLN-666)", async () => {
+    await act(async () => root.render(createElement(UnlinkEbookDialog, { key: "change", target: unlinkTarget, initialMode: "unlink", change: true, ...callbacks })));
+    expect(host.textContent).toContain("then you choose its new one");
+    expect((host.querySelector('input[value="choose"]') as HTMLInputElement).checked).toBe(true);
+    api.prepareReviewUnlinkUi.mockResolvedValueOnce({ ok: true, value: preparedUnlink("unlink") });
+    await click("Check what changes");
+    expect(host.textContent).toContain("Then you choose its new book."); expect(host.textContent).toContain("Takes the eBook off its book.");
+    await click("Unlink and choose");
+    expect(callbacks.onCommitted).toHaveBeenCalledWith(unlinkOutcome()); expect(callbacks.onClose).toHaveBeenCalledOnce();
+    expect(review.prepareReviewUi).not.toHaveBeenCalled();
+    expect(chooseBookNext.take(ebookId)).toBe(true); expect(chooseBookNext.take(ebookId)).toBe(false);
+  });
+  it("offers choosing a new book only from \"Change the book…\"", async () => {
+    await act(async () => root.render(createElement(UnlinkEbookDialog, { key: "plain", target: unlinkTarget, initialMode: "unlink", ...callbacks })));
+    expect(host.querySelector('input[value="choose"]')).toBeNull();
+    expect((host.querySelector('input[value="review"]') as HTMLInputElement).checked).toBe(true);
   });
   it("makes the unlink itself a danger button, so Enter alone never confirms it", async () => {
     await click("Check what changes");
