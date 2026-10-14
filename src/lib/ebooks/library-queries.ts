@@ -139,14 +139,19 @@ export function ebookLibraryWhere(params: EbookLibraryParams): SQL {
   if (params.normalizedSearch)
     for (const word of params.normalizedSearch.split(" ").filter(Boolean))
       clauses.push(
-        // A linked e-book is also found by its book's title and authors (SLN-683)
+        // A linked e-book is also found by its book's title and authors (SLN-683).
+        // The copies are one uncorrelated set per word: correlated subqueries
+        // made the planner's estimate cross Postgres's JIT thresholds, and a
+        // three-word search spent 2 s compiling (SLN-688).
         sql`(e.search_text ilike ${`%${word}%`} or ${word} <% e.search_text
-          or exists (select 1 from instances copy join editions edition on edition.id = copy.edition_id
-            join works w on w.id = edition.work_id
-            where copy.id = e.instance_id and e.match_state = 'linked'
-              and (public.search_normalize(w.title || ' ' || coalesce(w.original_title, '')) ilike ${`%${word}%`}
-                or exists (select 1 from work_authors wa join authors a on a.id = wa.author_id
-                  where wa.work_id = w.id and a.search_text ilike ${`%${word}%`}))))`,
+          or (e.match_state = 'linked' and e.instance_id in (
+            select copy.id from instances copy join editions edition on edition.id = copy.edition_id
+              join works w on w.id = edition.work_id
+              where public.search_normalize(w.title || ' ' || coalesce(w.original_title, '')) ilike ${`%${word}%`}
+            union all
+            select copy.id from instances copy join editions edition on edition.id = copy.edition_id
+              join work_authors wa on wa.work_id = edition.work_id join authors a on a.id = wa.author_id
+              where a.search_text ilike ${`%${word}%`})))`,
       );
   if (params.linked.length) {
     const states = params.linked.map((value) =>

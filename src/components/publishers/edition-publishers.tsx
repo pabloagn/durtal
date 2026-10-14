@@ -107,7 +107,9 @@ export function EditionPublishers({
             {p.name}
           </Link>
         ))}
-        <Button type="button" variant="ghost" size="sm" onClick={open}>
+        {/* Alone on its line, its label starts at the text edge (SLN-688) */}
+        <Button type="button" variant="ghost" size="sm" onClick={open}
+          className={linked.length || publicationNames.some((name) => !linked.some((p) => p.name === name)) ? undefined : "-ml-2.5"}>
           {linked.length ? "Edit publisher links" : "Link publisher"}
         </Button>
         {confirmed && (
