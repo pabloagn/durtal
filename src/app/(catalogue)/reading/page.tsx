@@ -134,7 +134,7 @@ export default async function ReadingPage() {
                   <li key={item.workId} className="min-w-0" data-hub-next-item={item.workId}>
                     <Link href={`/library/${item.slug ?? item.workId}`} className="group block">
                       <Cover s3Key={item.cover} className="aspect-[2/3] w-full" />
-                      <span className="lines-1 mt-2 text-sm text-fg-primary transition-colors group-hover:text-accent-primary">{item.title}</span>
+                      <span className="mt-2 block text-sm text-fg-primary transition-colors [overflow-wrap:anywhere] group-hover:text-accent-primary">{item.title}</span>
                     </Link>
                     <div className="mt-1">
                       <QueueStartButton workId={item.workId} editionId={item.editionId} title={item.title} />
@@ -162,11 +162,10 @@ export default async function ReadingPage() {
                       <Cover s3Key={row.cover} className="h-20 w-14" />
                     </Link>
                     <div className="min-w-0 flex-1 space-y-1">
-                      {/* The title cuts off inside the link: the link's touch area is not clipped */}
-                      <Link href={row.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-primary touch-hit">
-                        <span className="lines-1">{row.title}</span>
+                      <Link href={row.href} className="block text-sm text-fg-primary transition-colors [overflow-wrap:anywhere] hover:text-accent-primary touch-hit">
+                        {row.title}
                       </Link>
-                      {row.author && <p className="lines-1 text-xs text-fg-secondary">{row.author}</p>}
+                      {row.author && <p className="text-xs text-fg-secondary [overflow-wrap:anywhere]">{row.author}</p>}
                       {row.reasons[0] && <p className="lines-2 text-xs text-fg-primary">{row.reasons[0]}</p>}
                       <SuggestionActions row={row} compact />
                     </div>
