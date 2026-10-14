@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, ChevronDown, MoreHorizontal, Square, Timer } from "lucide-react";
+import { BookOpen, ChevronDown, MoreHorizontal, PenLine, Square, Timer } from "lucide-react";
 import { useOptionalTimer } from "./timer-provider";
 import { useStopTimer } from "./timer-chip";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -180,6 +180,7 @@ export function LogButton({ reading, title }: { reading: ReadingRef; title: stri
       className="pointer-coarse:h-11"
       data-dashboard-log={reading.readingId}
     >
+      <PenLine aria-hidden strokeWidth={1.5} />
       Log
     </Button>
   );

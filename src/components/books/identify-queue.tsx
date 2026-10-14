@@ -454,7 +454,7 @@ export function IdentifyQueue({
         {search?.status === "loading" || !search ? (
           <div className="flex items-center gap-2 py-8 text-xs text-fg-secondary">
             <Spinner className="h-4 w-4" />
-            Searching ISBNdb...
+            Searching ISBNdb…
           </div>
         ) : search.status === "error" ? (
           <p className="py-4 text-sm text-fg-secondary">{search.error}</p>

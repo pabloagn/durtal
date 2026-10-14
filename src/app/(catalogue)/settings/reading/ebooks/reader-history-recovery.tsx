@@ -25,6 +25,10 @@ export function ReaderHistoryRecovery({ rows, operations }: { rows: Row[]; opera
   const [message, setMessage] = useState<string | null>(null);
   const [outcomes, setOutcomes] = useState<Record<string, string>>({});
   const [pending, setPending] = useState<{ id: string; choices: Parameters<typeof commitReaderHistory>[0]["rows"] } | null>(null);
+  const label = pending ? "Retry recovery" : "Add selected history";
+  // A run sets `pending` as it starts: the busy button keeps the label it was
+  // pressed with, so it neither changes its word nor its width (SLN-699)
+  const [heldLabel, setHeldLabel] = useState<string | null>(null);
   const change = (id: string, patch: Partial<Edit>) => setEdits((current) => ({ ...current, [id]: { ...current[id], ...patch } }));
   const selected = rows.filter((row) => !row.imported && edits[row.ebookId].selected);
 
@@ -36,6 +40,7 @@ export function ReaderHistoryRecovery({ rows, operations }: { rows: Row[]; opera
         startedOn: edit.startedOn || null, finishedOn: edit.finishedOn || null, percent: Number(edit.percent) };
     }) };
     if (!operation.choices.length) return;
+    setHeldLabel(label);
     setPending(operation);
     setBusy(true);
     setMessage("Saving reading history…");
@@ -64,10 +69,11 @@ export function ReaderHistoryRecovery({ rows, operations }: { rows: Row[]; opera
     } catch (error) {
       setMessage(`${error instanceof Error ? error.message : "Recovery could not finish."} Saved batches remain safe. Retry to continue the same operation.`);
       router.refresh();
-    } finally { setBusy(false); }
+    } finally { setBusy(false); setHeldLabel(null); }
   }
 
   async function undo(id: string) {
+    setHeldLabel(label);
     setBusy(true);
     try {
       const removed = await undoReaderHistory(id);
@@ -75,7 +81,7 @@ export function ReaderHistoryRecovery({ rows, operations }: { rows: Row[]; opera
       if (pending?.id === id) setPending(null);
       router.refresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not undo this recovery."); }
-    finally { setBusy(false); }
+    finally { setBusy(false); setHeldLabel(null); }
   }
 
   const field = "flex h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-xs text-fg-primary focus:border-accent-primary focus:outline-none disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:text-sm";
@@ -92,7 +98,7 @@ export function ReaderHistoryRecovery({ rows, operations }: { rows: Row[]; opera
     {rows.length ? <form onSubmit={(event) => { event.preventDefault(); void recover(); }} className="mb-8 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-fg-secondary">{selected.length} of {rows.length} selected</p>
-        <Button type="submit" variant="primary" disabled={busy || (!pending && !selected.length)}>{busy ? "Saving…" : pending ? "Retry recovery" : "Add selected history"}</Button>
+        <Button type="submit" variant="primary" disabled={!pending && !selected.length} busy={busy}>{heldLabel ?? label}</Button>
       </div>
       <div className="space-y-3">{rows.map((row) => {
         const edit = edits[row.ebookId];

@@ -78,8 +78,9 @@ export function CreateFamilyDialog({
             variant="primary"
             size="sm"
             disabled={submitting || !value.name.trim() || !value.scopes.length}
+            busy={submitting}
           >
-            {submitting ? "Creating..." : "Create family"}
+            Create family
           </Button>
         </div>
       </form>

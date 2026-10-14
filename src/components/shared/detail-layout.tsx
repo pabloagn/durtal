@@ -79,19 +79,38 @@ export function RecordField({
   );
 }
 
-/** The row's classes: when it may wrap, and the title-to-controls gap (the gap less the star's pulled-out padding) */
+/**
+ * The row's classes: when the controls may go under the title, and the
+ * title-to-controls gap (the gap less the star's pulled-out padding).
+ *
+ * Wrapping can make a header taller: a title too long for one line across
+ * the row takes a line for the controls under it as well. Below about twice
+ * the controls' width with their gap, a title that wraps beside them takes
+ * at least one more line than across the row, so wrapping there is never
+ * taller; in a wider row a long title can be shorter either way. Each kind
+ * keeps the wrapping it had where that was already free, so no header grows.
+ */
 export const DETAIL_TITLE_ROW = {
-  // The star, Edit and the menu: 16px from the title; under it below a 24rem row
+  // The publisher's star, Edit and menu (157px on touch): 16px from the
+  // title; under it below a 24rem row
   standard: "gap-x-6 pointer-coarse:gap-x-7.5 @min-[24rem]:flex-nowrap",
-  // The book's wider set: 12px from the title, as before; under it below a
-  // 33rem row (39rem on touch, where the controls are 44px)
-  wide: "gap-x-5 pointer-coarse:gap-x-6.5 pointer-fine:@min-[33rem]:flex-nowrap pointer-coarse:@min-[39rem]:flex-nowrap",
+  // The book's set (249px, 297px on touch): 12px from the title; under it
+  // below a 33rem row, 39rem on touch
+  wide: "gap-x-5 pointer-coarse:gap-x-6.5 not-pointer-coarse:@min-[33rem]:flex-nowrap pointer-coarse:@min-[39rem]:flex-nowrap",
+  // An organization's menu, a place's star and menu (96px on touch): 12px
+  // from the title, beside it from a 14rem row
+  icons: "gap-x-5 pointer-coarse:gap-x-6.5 @min-[14rem]:flex-nowrap",
+  // A film's, painting's or perfume's star and menu: under a title too long
+  // for them below sm, where the header stacks over its image
+  stacked: "gap-x-5 pointer-coarse:gap-x-6.5 sm:flex-nowrap",
+  // A person's and a series' set (to 214px on touch): under any title too
+  // long for them
+  free: "gap-x-5 pointer-coarse:gap-x-6.5",
 };
 
 /**
- * The title row of a detail page's header: the h1 and its controls (the
- * star, Edit, the Actions menu), on the cap-height center of the title's
- * first line.
+ * The title row of a detail page's header: the h1 and its controls, in
+ * `DetailControls`, on the cap-height center of the title's first line.
  *
  * A long title keeps the row's width on a phone: in a narrow row the
  * controls go under it when it would not fit on one line beside them; in a
@@ -105,23 +124,34 @@ export const DETAIL_TITLE_ROW = {
  */
 export function DetailTitleRow({
   title,
-  wideControls = false,
+  controls = "standard",
   children,
 }: {
   title: ReactNode;
-  /** The book's controls (the favourite, collection, copy, Export and the menu), about 300px on touch */
-  wideControls?: boolean;
-  /** The controls, the favourite first */
+  /** How wide the controls are (DETAIL_TITLE_ROW) */
+  controls?: keyof typeof DETAIL_TITLE_ROW;
+  /** `DetailControls`, or a component that renders them */
   children: ReactNode;
 }) {
   return (
     <div className="@container">
-      <div className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW[wideControls ? "wide" : "standard"]}`}>
+      <div className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW[controls]}`}>
         <h1 className="type-page-title min-w-0 flex-[1_1_auto] break-words">{title}</h1>
-        <CapAlignedControls height={32} coarseHeight={44} className="type-page-title -ml-2 pointer-coarse:-ml-3.5">
-          {children}
-        </CapAlignedControls>
+        {children}
       </div>
     </div>
+  );
+}
+
+/**
+ * A detail header's controls, the favourite (or the first icon button)
+ * first: 32px, 44px on touch. Pulled left by the first button's padding, so
+ * under a wrapped title its icon lines up with the title's edge.
+ */
+export function DetailControls({ children }: { children: ReactNode }) {
+  return (
+    <CapAlignedControls height={32} coarseHeight={44} className="type-page-title -ml-2 pointer-coarse:-ml-3.5">
+      {children}
+    </CapAlignedControls>
   );
 }

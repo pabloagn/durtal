@@ -346,8 +346,8 @@ export function AddCollectionBooksDialog({
             <Button data-dismiss="" disabled={saving} onClick={onClose}>
               Cancel
             </Button>
-            <Button variant="primary" disabled={saving || !count} onClick={add}>
-              {saving ? "Adding…" : count ? `Add ${count}` : "Add"}
+            <Button variant="primary" disabled={saving || !count} onClick={add} busy={saving}>
+              {count ? `Add ${count}` : "Add"}
             </Button>
           </div>
         </div>

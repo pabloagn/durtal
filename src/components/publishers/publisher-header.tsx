@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Copy, ImageIcon, Library, Pencil } from "lucide-react";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
-import { DetailTitleRow } from "@/components/shared/detail-layout";
+import { DetailControls, DetailTitleRow } from "@/components/shared/detail-layout";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { Monogram } from "@/components/shared/no-photo";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
@@ -82,21 +82,23 @@ export function PublisherHeader({
 
         <div className="min-w-0 flex-1">
           <DetailTitleRow title={name}>
-            <FavouriteToggle
-              favourite={favourite}
-              target={{ entity: "publisher", id }}
-              name={name}
-              shortcut
-            />
-            <Link
-              href={`/publishers/${slug}/edit`}
-              data-tooltip="Edit publisher"
-              data-tooltip-keys={editTooltipKeys(EDIT_KEYS.publisher)}
-              className="inline-flex h-8 items-center rounded-sm border border-glass-border px-3 text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11"
-            >
-              Edit
-            </Link>
-            <EntityActionMenu items={actions} />
+            <DetailControls>
+              <FavouriteToggle
+                favourite={favourite}
+                target={{ entity: "publisher", id }}
+                name={name}
+                shortcut
+              />
+              <Link
+                href={`/publishers/${slug}/edit`}
+                data-tooltip="Edit publisher"
+                data-tooltip-keys={editTooltipKeys(EDIT_KEYS.publisher)}
+                className="inline-flex h-8 items-center rounded-sm border border-glass-border px-3 text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11"
+              >
+                Edit
+              </Link>
+              <EntityActionMenu items={actions} />
+            </DetailControls>
           </DetailTitleRow>
           {facts.length > 0 && (
             <p className="mt-3 flex flex-wrap items-baseline gap-x-2 text-sm text-fg-secondary">
