@@ -130,7 +130,7 @@ function connection(rows: Record<MatchTable, StoredRow[]>) {
       if (!table) throw new Error("Unexpected query");
       expect(text).not.toContain("order by r.id"); // aliases have a composite key.
       seen.push(table);
-      return rows[table].map((row) => ({ row }));
+      return rows[table].map((row) => ({ s: JSON.stringify(row) }));
     }),
   } as unknown as Db;
   return { conn, seen };

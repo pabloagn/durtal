@@ -21,6 +21,15 @@ export interface EbookFileEligibility {
 
 /** Recorded eligibility; storage verification belongs to the publication writer. */
 export function isEbookFileDownloadable(file: EbookFileEligibility): boolean {
+  return isEbookFileDownloadableWithPrefix(file, undefined);
+}
+
+export function isEbookFileNativeReadable(file: EbookFileEligibility): boolean {
+  return isEbookFileNativeReadableWithPrefix(file, undefined);
+}
+
+/** The checks above with EBOOKS_PREFIX the caller has read already, for a pass over many files */
+export function isEbookFileDownloadableWithPrefix(file: EbookFileEligibility, prefix: string | undefined): boolean {
   try {
     if (
       (file.status !== "stored" && file.status !== "verified") ||
@@ -30,7 +39,7 @@ export function isEbookFileDownloadable(file: EbookFileEligibility): boolean {
       !isEbookFormat(file.format) ||
       !Number.isSafeInteger(file.sizeBytes) ||
       file.sizeBytes <= 0 ||
-      !isDeliveryFileKey(file.s3Key, file.sha256, file.format)
+      !isDeliveryFileKey(file.s3Key, file.sha256, file.format, prefix)
     )
       return false;
     const metadata = file.metadata === undefined ? {} : file.metadata;
@@ -43,8 +52,8 @@ export function isEbookFileDownloadable(file: EbookFileEligibility): boolean {
   }
 }
 
-export function isEbookFileNativeReadable(file: EbookFileEligibility): boolean {
-  if (!isEbookFileDownloadable(file) || !isReadableFormat(file.format))
+export function isEbookFileNativeReadableWithPrefix(file: EbookFileEligibility, prefix: string | undefined): boolean {
+  if (!isEbookFileDownloadableWithPrefix(file, prefix) || !isReadableFormat(file.format))
     return false;
   return (
     !parseStageKey(file.s3Key) ||

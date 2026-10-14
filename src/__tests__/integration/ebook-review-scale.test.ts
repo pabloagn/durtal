@@ -8,6 +8,11 @@ import type { Db } from "@/lib/catalogue/work-store";
 import { ebookFileKey } from "@/lib/ebooks/keys";
 import { databaseFingerprint } from "@/lib/ebooks/ingest/command";
 import { applyEbookReview, prepareEbookReview, type ReviewContext } from "@/lib/ebooks/review/service";
+import { atomicOn } from "@/lib/db/atomic";
+import { MATCH_TABLES, loadMatchRows, storedTableDigest, tableDigestSql } from "@/lib/ebooks/match/load";
+import { snapshotGuardQueries } from "@/lib/ebooks/match/guards";
+import { sql } from "drizzle-orm";
+import { resultRows } from "@/lib/harmonization/store";
 
 // SLN-691: a review preview on a library of 6,000 eBooks. Opt-in disposable
 // database only, created by test:local; no DATABASE_URL fallback.
@@ -48,7 +53,7 @@ describe.skipIf(!url)("review previews on a 6,000 eBook library", () => {
         ${prefix} || 'files/' || left(h, 2) || '/' || h || '.epub', 'stored',
         jsonb_build_object('description', repeat('A long imported description. ', 140), 'subjects', jsonb_build_array('Fiction', 'Scale ' || n))
       from (select n, encode(sha256(convert_to('scale ' || n, 'UTF8')), 'hex') h from generate_series(1, ${EBOOKS}) n) f`;
-    ids = (await c`select id from ebooks order by id limit 3`).map((row) => String(row.id));
+    ids = (await c`select id from ebooks order by id limit 4`).map((row) => String(row.id));
   }, 180_000);
   afterAll(async () => { await client?.end(); });
 
@@ -64,5 +69,31 @@ describe.skipIf(!url)("review previews on a 6,000 eBook library", () => {
       .rejects.toMatchObject({ code: "stale_review", message: expect.stringContaining("library changed") });
     const kept = await c`select id from ebooks where match_state='standalone' order by id`;
     expect(kept.map((row) => String(row.id))).toEqual(ids.slice(0, 1));
+  }, 300_000);
+
+  // A review decision on 6,000 eBooks took 7 to 12 s to prepare and about
+  // 9.5 s to confirm (SLN-691 review). Budgets with room for a slow runner.
+  it("prepares and confirms a keep within its time budget", async () => {
+    let started = performance.now();
+    const keep = await prepareEbookReview({ action: "keep", ebookId: ids[2] }, context());
+    const prepared = performance.now() - started;
+    started = performance.now();
+    expect((await applyEbookReview(keep.request, keep.previewToken, context())).message).toBe("Kept as a standalone eBook.");
+    const confirmed = performance.now() - started;
+    console.info(`Keep on ${EBOOKS} eBooks: prepared in ${Math.round(prepared)} ms, confirmed in ${Math.round(confirmed)} ms`);
+    expect(prepared).toBeLessThan(6000);
+    expect(confirmed).toBeLessThan(4500);
+  }, 300_000);
+
+  it("guards a write with the database's own hash of each table, which still refuses a change", async () => {
+    const rows = await loadMatchRows(database);
+    for (const table of MATCH_TABLES) {
+      const [{ digest }] = resultRows<{ digest: string }>(await database.execute(sql`select ${tableDigestSql(table)} as digest`));
+      expect(storedTableDigest(rows[table]), table).toBe(digest);
+    }
+    await expect(atomicOn(database, (d) => snapshotGuardQueries(d, { rows }))).resolves.toBeDefined();
+    await c`update ebooks set title = title || ' changed' where id = ${ids[3]}`;
+    await expect(atomicOn(database, (d) => snapshotGuardQueries(d, { rows })))
+      .rejects.toThrow("Matching snapshot changed in ebooks");
   }, 300_000);
 });
