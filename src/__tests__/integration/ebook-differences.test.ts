@@ -231,4 +231,17 @@ describe.skipIf(!url)("an e-book's differences with its book", () => {
     expect(await events()).toEqual([]);
     expect((await one(`select publisher from ebooks where id = $1`, [ebook])).publisher).toBe("Folio");
   });
+
+  it("names the edition that already holds a file's ISBN, and writes ISBN in capitals", async () => {
+    await linked({ title: "Arcane 17", author: "André Breton", isbn13: "9780802150264", ebook: {} });
+    const { ebook, edition } = await linked({ title: "Nadja", author: "André Breton", ebook: { isbns: ["9780802150264"] } });
+    const isbn = (await find(ebook, "isbn"))!;
+    expect((await decideDifferences("use", [item(isbn)])).refused).toEqual([
+      { ebookId: ebook, field: "isbn", message: 'An edition with ISBN 9780802150264 already exists ("Arcane 17")' },
+    ]);
+    expect((await one(`select isbn_13 from editions where id = $1`, [edition])).isbn_13).toBeNull();
+    const kept = await decideDifferences("keep", [item(isbn)]);
+    expect(kept.done.map((d) => d.message)).toEqual(["Kept Durtal's ISBN for the e-book."]);
+    expect((await undoDifferences(kept.done.map((d) => d.eventId))).done.map((d) => d.message)).toEqual(["The e-book's ISBN is back."]);
+  });
 });

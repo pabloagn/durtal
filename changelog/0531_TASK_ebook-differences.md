@@ -67,3 +67,13 @@ library's tags are counted in the Import existing report.
 - Unit tests: `ebooks/differences.test.ts` (normalisation, what the file
   has, series numbers, notes and refusals).
 - No migration and no new package.
+
+### Review fix
+
+- An ISBN another edition already holds was refused with "This choice could
+  not be saved. Nothing changed.": the catalogue's message ends with that
+  edition's title in brackets, not a full stop, so the refusal filter dropped
+  it. Catalogue sentences now reach the row without a final stop; anything
+  naming a query, relation, column or constraint still does not.
+- Messages and history lines wrote "isbn": `fieldWord` keeps ISBN in capitals.
+- `ebook-differences.test.ts` gains a test of both.

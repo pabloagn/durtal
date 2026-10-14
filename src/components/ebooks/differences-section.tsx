@@ -9,7 +9,7 @@ import { CardHeading } from "@/components/shared/card-heading";
 import { Button, buttonClass } from "@/components/ui/button";
 import { WorkReviewDialog } from "@/components/ebooks/work-review-dialog";
 import { decideEbookDifferences, undoEbookDifferences } from "@/lib/actions/ebook-differences";
-import { DIFFERENCE_FIELDS, DIFFERENCE_LABELS, type Difference, type DifferenceField } from "@/lib/ebooks/differences/compare";
+import { DIFFERENCE_FIELDS, DIFFERENCE_LABELS, fieldWord, type Difference, type DifferenceField } from "@/lib/ebooks/differences/compare";
 import type { DifferenceOutcome, DifferencesPage } from "@/lib/ebooks/differences/store";
 import { languageName } from "@/lib/utils/language";
 
@@ -90,7 +90,7 @@ export function DifferencesSection({ page, links, moreHref }: {
       {confirming ? <>
         <p className="text-sm">{CHOICES[confirming]} for the {bulk(confirming).length} rows shown?</p>
         <Button size="sm" variant="primary" disabled={busy}
-          onClick={() => void decide(confirming, bulk(confirming), `${CHOICES[confirming]} · ${bulk(confirming).length} ${DIFFERENCE_LABELS[field!].toLowerCase()} rows`)}>
+          onClick={() => void decide(confirming, bulk(confirming), `${CHOICES[confirming]} · ${bulk(confirming).length} ${fieldWord(field!)} rows`)}>
           {busy ? "Saving…" : "Confirm"}</Button>
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(null)}>Cancel</Button>
       </> : <>

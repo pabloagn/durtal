@@ -153,6 +153,11 @@ function fieldChanged(
 }
 
 const languageLabel = (code: string) => languageName(code) ?? code;
+/** A difference's field inside a sentence: lower case, but ISBN keeps its capitals */
+const differenceWord = (m?: ActivityMetadata | null) => {
+  const name = String(m?.targetName ?? "value");
+  return name === "ISBN" ? name : name.toLowerCase();
+};
 /** "director", "perfume house": the role a credit or organization event names */
 const roleWord = (m?: ActivityMetadata | null) => String(m?.extra?.role ?? "credit").toLowerCase();
 /** " (Film genres)": the family a classification event names */
@@ -205,11 +210,11 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
   "work.taxonomy_removed":          (m) => [text(`Removed ${m?.taxonomyType ?? "taxonomy"} `), label(m?.targetName ?? "")],
   "work.enrichment_applied":        (m) => [text("Accepted an enrichment value"), ...(m?.targetName ? [text(" for "), label(m.targetName)] : [])],
   "work.enrichment_undone":         () => [text("Undid an enrichment value")],
-  "work.ebook_difference_kept":     (m) => [text("Kept the book's "), label(String(m?.targetName ?? "value").toLowerCase()), text(" for its e-book")],
+  "work.ebook_difference_kept":     (m) => [text("Kept the book's "), label(differenceWord(m)), text(" for its e-book")],
   "work.ebook_difference_used":     (m) => m?.newValue
-    ? [text(`Took the e-book's ${String(m?.targetName ?? "value").toLowerCase()}: `), label(String(m.newValue))]
-    : [text(`Took the e-book's ${String(m?.targetName ?? "value").toLowerCase()}`)],
-  "work.ebook_difference_undone":   (m) => [text("Undid a choice between the book and its e-book"), ...(m?.targetName ? [text(": "), label(String(m.targetName).toLowerCase())] : [])],
+    ? [text(`Took the e-book's ${differenceWord(m)}: `), label(String(m.newValue))]
+    : [text(`Took the e-book's ${differenceWord(m)}`)],
+  "work.ebook_difference_undone":   (m) => [text("Undid a choice between the book and its e-book"), ...(m?.targetName ? [text(": "), label(differenceWord(m))] : [])],
   "work.edition_added":             (m) => m?.editionIsbn
     ? [text("Added edition "), label(`ISBN: ${m.editionIsbn}`)]
     : [text("Added edition "), label(m?.targetName ?? "")],

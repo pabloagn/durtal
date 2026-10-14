@@ -12,7 +12,7 @@ import { copyPlannedCover, planCoverCopy } from "@/lib/ebooks/match/covers";
 import type { LoadedMatchCatalogue } from "@/lib/ebooks/match/load";
 import { normalizeSearchText } from "@/lib/utils/search-text";
 import { languageName } from "@/lib/utils/language";
-import { DIFFERENCE_FIELDS, DIFFERENCE_LABELS, differencesOf, type Difference, type DifferenceField, type DifferenceSides } from "./compare";
+import { DIFFERENCE_FIELDS, DIFFERENCE_LABELS, differencesOf, fieldWord, type Difference, type DifferenceField, type DifferenceSides } from "./compare";
 
 /*
  * The Differences section of /ebooks/review (SLN-658): every disagreement
@@ -158,7 +158,7 @@ async function keep(sides: DifferenceSides, d: Difference): Promise<DifferenceOu
       returning id::text as id`),
   );
   if (!row) throw new DifferenceRefused(STALE);
-  return { eventId: row.id, ebookId: d.ebookId, field, bookTitle: d.bookTitle, message: `Kept Durtal's ${DIFFERENCE_LABELS[field].toLowerCase()} for the e-book.` };
+  return { eventId: row.id, ebookId: d.ebookId, field, bookTitle: d.bookTitle, message: `Kept Durtal's ${fieldWord(field)} for the e-book.` };
 }
 
 const EDITION_FIELDS = { title: "title", subtitle: "subtitle", language: "language", year: "publicationYear", publisher: "publisher", isbn: "isbn13" } as const;
@@ -199,7 +199,7 @@ async function takeFile(sides: DifferenceSides, d: Difference): Promise<Differen
     return takeCover(sides, d);
   } else throw new DifferenceRefused("Use the file's is not offered here.");
   const eventId = await insertEvent(d.workId, DIFFERENCE_EVENTS.used, metadata(d, extra, d.durtal, d.file));
-  return { eventId, ebookId: d.ebookId, field: d.field, bookTitle: d.bookTitle, message: `The book takes the file's ${DIFFERENCE_LABELS[d.field].toLowerCase()}.` };
+  return { eventId, ebookId: d.ebookId, field: d.field, bookTitle: d.bookTitle, message: `The book takes the file's ${fieldWord(d.field)}.` };
 }
 
 /** The e-book's cover becomes the edition's, through the cover stage the matching uses */
@@ -252,8 +252,9 @@ export async function decideDifferences(choice: DifferenceChoice, items: Differe
 const refusal = (error: unknown) => {
   if (error instanceof DifferenceRefused) return error.message;
   const message = error instanceof Error ? error.message : "";
-  // The catalogue's own refusals read as sentences (an ISBN another edition holds); nothing else reaches the page
-  return /^[A-Z][^\n]{0,200}[.!]$/.test(message) && !/sql|relation|column|constraint|violates/i.test(message) ? message : "This choice could not be saved. Nothing changed.";
+  // The catalogue's own refusals read as sentences, though not all end in a stop: an ISBN another
+  // edition holds ends with that edition's title in brackets. Nothing else reaches the page.
+  return /^[A-Z][^\n]{0,200}$/.test(message) && !/sql|query|relation|column|constraint|violates/i.test(message) ? message : "This choice could not be saved. Nothing changed.";
 };
 
 interface StoredChoice {
@@ -287,7 +288,7 @@ async function undoOne(eventId: string): Promise<string> {
   );
   if (!stored) throw new DifferenceRefused("This choice was not found.");
   const { field, ebookId, editionId, before, after } = stored.metadata.extra;
-  const label = DIFFERENCE_LABELS[field].toLowerCase();
+  const label = fieldWord(field);
   const undone = JSON.stringify({ targetName: DIFFERENCE_LABELS[field], targetId: ebookId, extra: { field, ebookId, editionId, undoOf: eventId } });
   // The claim: one undo for each choice, taken before anything is written
   const claim = sql`insert into activity_events (entity_type, entity_id, event_key, metadata)

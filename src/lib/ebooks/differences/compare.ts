@@ -24,6 +24,9 @@ export const DIFFERENCE_LABELS: Record<DifferenceField, string> = {
   status: "Status",
 };
 
+/** A field's name inside a sentence: lower case, but an acronym keeps its capitals */
+export const fieldWord = (field: DifferenceField) => (field === "isbn" ? DIFFERENCE_LABELS[field] : DIFFERENCE_LABELS[field].toLowerCase());
+
 /** The statuses of a book Durtal does not hold yet, though its e-book is here */
 export const NOT_HELD_STATUSES = ["wanted", "on_order"] as const;
 
