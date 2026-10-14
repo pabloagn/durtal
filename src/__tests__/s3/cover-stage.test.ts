@@ -87,4 +87,12 @@ describe("immutable complete catalogue cover stages", () => {
       expect(coverBucket.calls).toEqual([]);
     } finally { await rm(dir, { recursive: true, force: true }); }
   });
+  it("allocates an uploaded file's stage only with its hash and size (SLN-638)", () => {
+    const sha256 = "a".repeat(64);
+    const stage = allocateCoverStage({ editionId: id, source: { kind: "upload", sha256, size: 10 } });
+    expect(stage.source).toEqual({ kind: "upload", sha256, size: 10 });
+    expect(stage.coverKey.startsWith(`gold/media/edition/${id}/`)).toBe(true);
+    for (const source of [{ sha256: "xyz", size: 10 }, { sha256, size: 0 }, { sha256: sha256.toUpperCase(), size: 1 }])
+      expect(() => allocateCoverStage({ editionId: id, source: { kind: "upload", ...source } })).toThrow("source identity");
+  });
 });
