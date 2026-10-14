@@ -38,6 +38,14 @@ const GAP = 6;
 const EDGE = 8;
 const SIDES: Side[] = ["top", "bottom", "right", "left"];
 
+/** The control's menu or panel is open, and would sit under its tooltip */
+function isOpen(anchor: HTMLElement): boolean {
+  if (anchor.dataset.tooltipExpanded === "true") return false;
+  if (anchor.getAttribute("aria-expanded") === "true") return true;
+  const target = (anchor as HTMLButtonElement).popoverTargetElement;
+  return !!target?.matches(":popover-open");
+}
+
 function tipFor(target: EventTarget | null, byKeyboard: boolean): Tip | null {
   if (!(target instanceof Element)) return null;
   const anchor = target.closest<HTMLElement>("[data-tooltip]");
@@ -45,7 +53,7 @@ function tipFor(target: EventTarget | null, byKeyboard: boolean): Tip | null {
     const text = anchor.dataset.tooltip?.trim();
     // No tooltip on a control whose menu is open. A persistent layout
     // toggle can opt in: its expanded state does not cover its tooltip.
-    if (!text || (anchor.getAttribute("aria-expanded") === "true" && anchor.dataset.tooltipExpanded !== "true")) return null;
+    if (!text || isOpen(anchor)) return null;
     const tokens = anchor.dataset.tooltipKeys?.trim().split(/\s+/) ?? null;
     const side = anchor.dataset.tooltipSide as Side | undefined;
     return {
@@ -127,6 +135,7 @@ export function TooltipLayer() {
       pending = next.anchor;
       timer = window.setTimeout(() => {
         pending = null;
+        if (isOpen(next.anchor)) return;
         setTip(next);
       }, delay);
     };
@@ -188,7 +197,14 @@ export function TooltipLayer() {
     window.addEventListener("pointerdown", onPointerDown, true);
     window.addEventListener("focusin", onFocusIn);
     window.addEventListener("focusout", onFocusOut);
+    // A panel opened from the control (the bell's history) closes its
+    // tooltip, else the tooltip would take the Escape meant for the panel
+    const onToggle = (e: Event) => {
+      const tip = shown.current?.anchor ?? pending;
+      if (tip && (e as ToggleEvent).newState === "open" && (tip as HTMLButtonElement).popoverTargetElement === e.target) hide();
+    };
     window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("toggle", onToggle, true);
     window.addEventListener("scroll", hide, { capture: true, passive: true });
     window.addEventListener("resize", hide);
     return () => {
@@ -199,6 +215,7 @@ export function TooltipLayer() {
       window.removeEventListener("focusin", onFocusIn);
       window.removeEventListener("focusout", onFocusOut);
       window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("toggle", onToggle, true);
       window.removeEventListener("scroll", hide, { capture: true });
       window.removeEventListener("resize", hide);
     };
@@ -209,21 +226,23 @@ export function TooltipLayer() {
     const el = ref.current;
     if (!el) return;
     const previous = shown.current;
-    shown.current = tip;
-    if (previous && previous.anchor !== tip?.anchor) undescribe(previous.anchor);
+    // Its panel opened before the tooltip rendered: the tooltip stays away
+    const next = tip && !isOpen(tip.anchor) ? tip : null;
+    shown.current = next;
+    if (previous && previous.anchor !== next?.anchor) undescribe(previous.anchor);
     if (el.matches(":popover-open")) el.hidePopover();
-    if (!tip) return;
+    if (!next) return;
 
     el.showPopover();
-    const { left, top } = place(tip.anchor.getBoundingClientRect(), el.getBoundingClientRect(), tip.side);
+    const { left, top } = place(next.anchor.getBoundingClientRect(), el.getBoundingClientRect(), next.side);
     el.style.left = `${Math.round(left)}px`;
     el.style.top = `${Math.round(top)}px`;
-    if (!accessibleName(tip.anchor).toLowerCase().includes(tip.text.toLowerCase()))
-      describe(tip.anchor, el.id);
+    if (!accessibleName(next.anchor).toLowerCase().includes(next.text.toLowerCase()))
+      describe(next.anchor, el.id);
 
     // A control that leaves the page takes its tooltip with it
     const watch = window.setInterval(() => {
-      if (!tip.anchor.isConnected) setTip(null);
+      if (!next.anchor.isConnected) setTip(null);
     }, 250);
     return () => window.clearInterval(watch);
   }, [tip]);
