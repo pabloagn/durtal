@@ -379,7 +379,8 @@ export function AddToCollectionDialog({
           </>
         )}
         <div className="flex justify-end">
-          <Button onClick={onClose} disabled={busy}>
+          {/* The main action: Enter closes the picker, each tick saved */}
+          <Button variant="primary" onClick={onClose} disabled={busy}>
             Done
           </Button>
         </div>

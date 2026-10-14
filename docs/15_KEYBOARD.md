@@ -161,11 +161,15 @@ the `<Dialog>`. Kinds:
 
 - **Edit form**: fields and a Save or Create. Enter follows the table
   above; Esc and every close ask when unsaved.
+- **Step form**: an edit form shown one step at a time. Enter presses the
+  visible step's main button (Next, then the last step's Create).
 - **Confirm**: a question with one main answer. Enter presses it unless it
   is a danger button.
 - **Picker / manager**: each choice or upload saves at once; nothing is
-  unsaved, Esc closes.
-- **Viewer**: nothing to save; Esc closes.
+  unsaved. Esc closes, and Enter presses Done where the dialog has no other
+  main action (SLN-634).
+- **Viewer**: nothing to save. Esc closes, and Enter presses Done
+  (`Dialog`'s `done` prop, SLN-634).
 - **Reader-local**: the reader's own keys.
 
 The Add book wizard, Add film, Add perfume, Add painting and the publisher
@@ -176,8 +180,8 @@ the identify queue and the harmonize workspace (16 files).
 | # | Dialog | Where | Kind | Main action on Enter | Unsaved guard |
 |---|---|---|---|---|---|
 | 1 | Review prepared fixes | `app/(catalogue)/harmonize/workspace.tsx:682` | Review | Apply prepared fixes | none |
-| 2 | Resolution record | `app/(catalogue)/harmonize/workspace.tsx:737` | Viewer | none | none |
-| 3 | One record, fully connected | `app/(catalogue)/harmonize/workspace.tsx:1233` | Viewer | none | none |
+| 2 | Resolution record | `app/(catalogue)/harmonize/workspace.tsx:737` | Viewer | Done | none |
+| 3 | One record, fully connected | `app/(catalogue)/harmonize/workspace.tsx:1234` | Confirm | none: Merge is not pressed by Enter, as a danger button | none |
 | 4 | title | `app/(catalogue)/library/[slug]/delete-confirm-dialog.tsx:38` | Confirm | Delete (danger): Enter does nothing; Esc closes | none |
 | 5 | Edition cover | `app/(catalogue)/library/[slug]/edition-cover-dialog.tsx:149` | Manager (saves each action) | Add the typed image address | dirty (a typed address) |
 | 6 | Add Edition | `app/(catalogue)/library/[slug]/edition-add-dialog.tsx:99` | Edit form | Save / Create (submit) | draft |
@@ -194,12 +198,12 @@ the identify queue and the harmonize workspace (16 files).
 | 17 | Add person | `app/(catalogue)/people/author-create-dialog.tsx:108` | Edit form | Save / Create (submit) | draft |
 | 18 | Link an institution | `app/(catalogue)/places/[slug]/venue-institutions.tsx:181` | Edit form | Save / Create (submit) | draft |
 | 19 | venue ? "Edit venue | `app/(catalogue)/places/venue-create-dialog.tsx:216` | Edit form | Save / Create (submit) | draft |
-| 20 | New Order | `app/(catalogue)/provenance/order-create-dialog.tsx:155` | Edit form | Save / Create (submit) | draft |
+| 20 | New Order | `app/(catalogue)/provenance/order-create-dialog.tsx:163` | Step form | Next, then Create Order | draft, picked book, method or status |
 | 21 | Edit Order | `app/(catalogue)/provenance/order-edit-dialog.tsx:171` | Edit form | Save / Create (submit) | draft |
 | 22 | Export for Goodreads | `app/(catalogue)/settings/data/data-actions.tsx:90` | Action | Export | none |
 | 23 | Reset display settings? | `app/(catalogue)/settings/display/display-settings.tsx:174` | Confirm | Reset | none |
 | 24 | Reorder families | `app/(catalogue)/taxonomy/taxonomy-actions.tsx:102` | Edit form | Save order | dirty |
-| 25 | Collections | `components/books/add-to-collection-dialog.tsx:217` | Picker (saves each tick) | none: each tick saves | none |
+| 25 | Collections | `components/books/add-to-collection-dialog.tsx:218` | Picker (saves each tick) | Done (each tick saves) | none |
 | 26 | Configure columns | `components/books/column-config-dialog.tsx:72` | Edit form | Save | dirty + Save |
 | 27 | Mark $count | `components/books/mark-read-dialog.tsx:80` | Confirm | Mark as read | none |
 | 28 | Match again | `components/books/match-again-dialog.tsx:221` | Picker | Pick a result | none |
@@ -223,7 +227,7 @@ the identify queue and the harmonize workspace (16 files).
 | 46 | Look up on Wikidata | `components/films/source-lookup.tsx:44` | Edit form | Save / Create (submit) | draft |
 | 47 | version ? "Edit version | `components/films/version-dialog.tsx:105` | Edit form | Save / Create (submit) | draft |
 | 48 | label | `components/media/image-adjustment-editor.tsx:385` | Edit form | Save / Create (submit) | draft |
-| 49 | Manage media | `components/media/media-manager-dialog.tsx:360` | Manager (saves each upload) | none: each upload saves | none |
+| 49 | Manage media | `components/media/media-manager-dialog.tsx:360` | Manager (saves each upload) | Done (each upload saves) | none |
 | 50 | organization ? "Edit organization | `components/organizations/organization-dialog.tsx:59` | Edit form | Save / Create (submit) | draft |
 | 51 | object ? `Edit $ART_OBJECT_KIND_LABELS[kind].toL | `components/paintings/art-object-dialog.tsx:116` | Edit form | Save / Create (submit) | draft |
 | 52 | Edit painting | `components/paintings/painting-actions.tsx:60` | Edit form | Save / Create (submit) | draft |
@@ -264,7 +268,7 @@ the identify queue and the harmonize workspace (16 files).
 | 87 | isEdit ? "Edit recommender | `components/recommenders/recommender-form-dialog.tsx:106` | Edit form | Save / Create (submit) | draft |
 | 88 | Add books | `components/series/add-series-books-dialog.tsx:88` | Edit form | Save / Create (submit) | draft |
 | 89 | isEdit ? "Edit series | `components/series/series-form-dialog.tsx:118` | Edit form | Save / Create (submit) | draft |
-| 90 | Keyboard shortcuts | `components/shortcuts/shortcuts-help.tsx:36` | Viewer | none | none |
+| 90 | Keyboard shortcuts | `components/shortcuts/shortcuts-help.tsx:41` | Viewer | Done | none |
 | 91 | New taxonomy family | `components/taxonomy/create-family-dialog.tsx:57` | Edit form | Save / Create (submit) | draft |
 | 92 | New $familyName | `components/taxonomy/create-item-dialog.tsx:96` | Edit form | Save / Create (submit) | draft |
 | 93 | Delete $family.name | `components/taxonomy/delete-family-dialog.tsx:61` | Confirm | Delete (danger) | none |
@@ -285,23 +289,30 @@ the identify queue and the harmonize workspace (16 files).
   in Log a past read's review; Table of contents (fixed: it now keeps
   Enter).
 - SLN-638: the edition cover dialog, a typed address asking on Esc.
+- SLN-634: 11 dialogs (seven forms, two viewers or managers, the
+  Collections picker, Delete collection) at 1280 and 390px, each through
+  Enter, Shift+Enter, Esc clean and with typed work, the question's Esc and
+  Discard, Close, the backdrop and Done; New Order's steps by keyboard.
 
 ### Gaps found by this inventory
 
-1. **Viewers have no Done.** Keyboard shortcuts, Resolution record, One
-   record fully connected, and the reader's sheet close with Esc and their
-   close button, but Enter does nothing. SLN-629 asks for "a meaningful
-   Done/Close". Proposal: a `Done` primary button, so Enter closes them.
-2. **Pickers and managers.** Collections, Manage media, Pick one for me and
-   Match again: Enter with the focus on the dialog does nothing (no primary
-   button). A Done primary would close them, as in 1.
+1. **Viewers have no Done** (resolved in SLN-634). Keyboard shortcuts and
+   Resolution record show a Done primary (`Dialog`'s `done`), so Enter
+   closes them. "One record, fully connected" is a merge confirmation, not
+   a viewer: Enter does not press Merge, as with a danger button.
+2. **Pickers and managers** (resolved in SLN-634). Collections and Manage
+   media close on Enter through Done. Pick one for me presses Start
+   reading. In Match again the selected source filter is the primary, so
+   Enter presses it again and nothing changes.
 3. **Danger confirmations** (Delete, Remove highlight, Undo import, Discard
    timer): plain Enter does nothing by design; ⌘Enter presses Delete in the
    shared delete confirmation and Undo import (section 1). SLN-629 says "Plain Enter invokes
    the primary Accept". This needs the owner's word before Enter may delete.
-4. **Step dialogs** (New Order, Review bulk eBooks): only the visible step's
-   main button is shown, so Enter presses Next, then Create Order. Read from
-   source only; SLN-634 checks it in a browser.
+4. **Step dialogs** (browser-checked in SLN-634). In New Order, Enter
+   presses the visible step's main button: Next on each step, then Create
+   Order. A picked book, method or status is unsaved work, so Esc asks
+   first (fixed in SLN-634: Esc closed it before). Review bulk eBooks is
+   read from source only.
 5. **E and A** as in sections 2 and 3.
 6. **The leader menu** survived a client navigation (resolved in SLN-632).
 

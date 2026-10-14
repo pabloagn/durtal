@@ -44,6 +44,7 @@ export function ShortcutsHelp({
       title="Keyboard shortcuts"
       className="max-w-3xl"
       expandable={false}
+      done
     >
       <div className="grid gap-x-10 gap-y-6 sm:grid-cols-2">
         {groups.map((group) => (

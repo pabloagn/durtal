@@ -363,6 +363,7 @@ export function MediaManagerDialog({
       title="Manage media"
       description={title}
       className="max-w-3xl"
+      done
     >
       <div className="space-y-4">
         {/* Tabs */}
