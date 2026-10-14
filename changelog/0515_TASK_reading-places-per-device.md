@@ -26,10 +26,13 @@ book at that device's place.
   number of devices. Without the option it reads every place, as the API did.
 - The page (`src/app/(catalogue)/ebooks/[ebookId]/page.tsx`) reads five
   devices, or 200 with `?places=all`.
+- The section's description is the Continue line: "Read opens at 49% ·
+  Chapitre II, from Mac · Chrome."
 - `src/components/ebooks/ebook-places.tsx`: one bordered list, a row per
   device with its name, "Opens next" on the device Read opens at, percent and
   chapter, a thin progress bar, when and in which format, and "Read from
-  here" on the first line's cap-height center.
+  here" on the first line's cap-height center. On a phone the button goes
+  under the place, so the place keeps at least 192px.
 - "Read from here" opens `/reader/<id>?from=<device id>` (and `file=` when
   that place's file can still be opened). The entry policy allows `from`
   once, as a device id. `readReaderBook` returns that device's newest place
@@ -52,7 +55,9 @@ book at that device's place.
   `?places=all`.
 - Not covered: History (the ticket's other part needs a migration), and the
   reader's place API (`GET /api/reader/[ebookId]/position`), which still
-  returns every place when the reader checks for a newer one.
+  returns every place when the reader checks for a newer one. Nor does it look
+  into why one Mac and browser got several device ids (the ticket's last
+  check).
 - Tests: `src/__tests__/ui/ebook-places.test.ts`, the entry policy, the
   page-weight config, and database tests in `ebook-library` (1,000 places,
   41 devices) and `reader-core` (`fromDeviceId`).

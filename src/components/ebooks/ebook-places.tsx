@@ -10,6 +10,13 @@ import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { ReaderEntryLink } from "@/components/reader/reader-entry-link";
 import { buttonClass } from "@/components/ui/button";
 
+/** The Continue line: where Read opens, and from which device */
+function continueLine(descriptor: ContinueDescriptor | null): string | undefined {
+  const anchor = descriptor?.anchor;
+  if (!anchor) return undefined;
+  const fraction = Math.min(1, Math.max(0, anchor.locator.totalProgression));
+  return `Read opens at ${fractionPercent(fraction)}${anchor.chapter ? ` · ${anchor.chapter}` : ""}, from ${anchor.deviceLabel}.`;
+}
 const sameDevice = (a: ContinueAnchor | null, b: ContinueAnchor) => !!a && a.deviceLabel === b.deviceLabel;
 
 /**
@@ -42,7 +49,7 @@ export function EbookPlaces({
     </>;
   return (
     <>
-      {heading(count === 1 ? "Read opens at this place." : "Read opens at the newest place.")}
+      {heading(continueLine(descriptor))}
       <ul className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary/70">
         {devices.map((place) => {
           const file = ebook.files.find((candidate) => candidate.id === place.fileId);
@@ -52,11 +59,13 @@ export function EbookPlaces({
           const readable = file && isEbookFileNativeReadable(file) && file.status !== "replaced";
           const query = new URLSearchParams({ ...(readable ? { file: place.fileId } : {}), from: place.deviceId });
           return (
-            <li key={place.deviceLabel} className="flex items-start gap-4 px-4 py-3 text-sm">
-              <div className="min-w-0 flex-1">
-                <p className="text-fg-primary">
-                  {place.deviceLabel}
-                  {opensNext && <span className="ml-2 inline-block whitespace-nowrap text-xs text-accent-primary">Opens next</span>}
+            // On a phone the button goes under the place, so the place keeps a readable width
+            <li key={place.deviceLabel} className="flex flex-wrap items-start gap-x-4 gap-y-3 px-4 py-3 text-sm">
+              <div className="min-w-48 flex-1">
+                {/* Wrapped under a long name, the marker starts at the name's edge */}
+                <p className="flex flex-wrap items-baseline gap-x-2 text-fg-primary">
+                  <span>{place.deviceLabel}</span>
+                  {opensNext && <span className="whitespace-nowrap text-xs text-accent-primary">Opens next</span>}
                 </p>
                 <p className="mt-1 text-fg-secondary">
                   {fractionPercent(fraction)}

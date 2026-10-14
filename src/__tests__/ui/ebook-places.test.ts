@@ -26,7 +26,7 @@ describe("Reading places", () => {
   it("shows each device's newest place, and marks the one Read opens", () => {
     const html = render([place(1, "Mac · Firefox", 0.42), place(2, "iPhone · Safari", 0.3)], 2);
     expect(html).toContain("Reading places");
-    expect(html).toContain("Read opens at the newest place.");
+    expect(html).toContain("Read opens at 42% · Chapter II, from Mac · Firefox.");
     expect(html).toContain("Mac · Firefox");
     expect(html).toContain("42% · Chapter II");
     expect(html.match(/Opens next/g)).toHaveLength(1);
