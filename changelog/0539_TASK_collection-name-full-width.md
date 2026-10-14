@@ -67,3 +67,9 @@ is 300 renders.
 - Keyboard order is unchanged (icon, then star). A screen reader now reads
   the star's button just before the name.
 - /collections page weight: 89 KB, 38 ms.
+
+Review fix: the title row starts 8px early for the icon button's padding, so
+on a phone the name's later lines, running under the icon, started 8px left
+of the cover and description. The name takes `max-md:pl-2`: the first line
+still starts after the icon, and later lines start on the page's text edge.
+Pinned by `collection-title-edge`.

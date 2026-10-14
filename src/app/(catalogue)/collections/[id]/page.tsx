@@ -377,7 +377,10 @@ export default async function CollectionPage({
                     shortcut
                   />
                 </CapAligned>
-                <h1 className="type-page-title min-w-0 break-words max-md:[overflow-wrap:anywhere]">
+                {/* The row starts 8px early for the icon's padding: on a phone
+                    the name's later lines run under the icon, so they start
+                    8px in, on the page's text edge */}
+                <h1 className="type-page-title min-w-0 break-words max-md:pl-2 max-md:[overflow-wrap:anywhere]">
                   {collection.name}
                 </h1>
               </div>
