@@ -300,6 +300,17 @@ Multiple semantic variants:
 
 Sonner toast notifications. Appear at bottom-right. Dark theme matching the application palette. On a phone (600px and narrower) they span the screen between 16px margins (`globals.css` keeps Sonner's list inside the screen).
 
+One toaster for the app and the reader, `AppToaster` (`src/components/layout/app-toaster.tsx`, SLN-567):
+- Every toast has its own cross: a 14px icon in a 20px box, 6px inside the toast's top-right corner, `fg-secondary`, brighter on hover. Its label and tooltip are "Dismiss". It dismisses that toast only and runs none of its actions; an Undo is gone with it. On a touch screen its press area is 44px, and the toast keeps 44px clear on its right so the area never covers the text or an action.
+- Several toasts stack, at most three in view. Pointing at the stack spreads it out, and holds every toast's timer while the pointer stays.
+
+Errors and warnings also go to the notification history (`src/lib/notifications/history.ts`, SLN-567). Routine confirmations ("Saved") stay out of it.
+- Kept in this browser's storage: it survives navigation, the reader and a reload, and follows other open tabs. It keeps the latest 50 for 14 days. A private window keeps it for the page's life only.
+- The same toast updated (a pending one that failed) changes its entry. The same message again within a minute counts on the newest entry ("3 times") instead of adding one.
+- A bell opens it: in the sidebar footer, in the icon column beside the motto, and in the phone bar before Search. A small red dot on the bell means unread entries; its label says how many.
+- The history is a glass popover beside the bell, inside the 16px gutter, at most 480px high; its list scrolls. Each entry has its kind's icon, the title, the description, how long ago, and a Remove cross on the cap-height center of the title (`CapAligned`, 44px on touch). Mark all read and Clear all sit in its header.
+- Entries seen while it is open count as read when it closes. Dismissing a toast marks nothing read. Escape or a click outside closes it, and focus returns to the bell.
+
 ### Detail pages
 
 A book, author or place page has three parts (`src/components/shared/detail-layout.tsx`):
@@ -411,6 +422,7 @@ One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in 
 - Add `data-tooltip="Label"` to the control. It shows on hover after 300 ms and at once on keyboard focus; Escape, a click, scroll or leaving closes it.
 - `data-tooltip-keys` shows the control's shortcut as key caps: `"b"`, `"alt f"`, `"g then b"` (a sequence).
 - `data-tooltip-side`: `top` (default), `bottom`, `right`, `left`. It flips when it does not fit.
+- A control whose menu or panel is open (`aria-expanded="true"`, or the popover its `popovertarget` names) shows no tooltip, and opening the panel closes it, so the first Escape closes the panel.
 - Text cut by `truncate`, `lines-1` or `lines-2` shows its full text on hover, with no attribute.
 - Style: glass (`glass`), 14px text, 6px from the control. It renders in the top layer, above dialogs.
 

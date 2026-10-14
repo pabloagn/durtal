@@ -7,6 +7,8 @@ import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
+import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
+import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 import { removeOrganization } from "@/lib/actions/organization-directory";
 import { OrganizationDialog, type EditableOrganization } from "./organization-dialog";
@@ -27,12 +29,14 @@ export function OrganizationActions({
   const router = useRouter();
   const [open, setOpen] = useState<"edit" | "delete" | null>(null);
   const close = () => setOpen(null);
+  // E then O: the same dialog as the menu's Edit (SLN-633)
+  useEditActions([{ key: EDIT_KEYS.organization, label: "Organization", icon: Pencil, run: () => setOpen("edit") }]);
   return (
     <>
       <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
         <EntityActionMenu
           items={[
-            { label: "Edit", icon: Pencil, onClick: () => setOpen("edit") },
+            { label: "Edit", icon: Pencil, onClick: () => setOpen("edit"), shortcut: editHint(EDIT_KEYS.organization) },
             {
               label: "Delete",
               icon: Trash2,

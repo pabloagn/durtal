@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Check, Copy, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
+import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
+import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { RecommenderFormDialog } from "@/components/recommenders/recommender-form-dialog";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
 import { deleteRecommender } from "@/lib/actions/recommenders";
@@ -21,6 +23,8 @@ export function RecommenderActions({
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  // E then R: the same dialog as the menu's Edit (SLN-633)
+  useEditActions([{ key: EDIT_KEYS.recommender, label: "Recommender", icon: Pencil, run: () => setEditOpen(true) }]);
 
   async function copyName() {
     try {
@@ -52,7 +56,7 @@ export function RecommenderActions({
             icon: copied ? Check : Copy,
             onClick: copyName,
           },
-          { label: "Edit", icon: Pencil, onClick: () => setEditOpen(true) },
+          { label: "Edit", icon: Pencil, onClick: () => setEditOpen(true), shortcut: editHint(EDIT_KEYS.recommender) },
           {
             label: "Delete",
             icon: Trash2,

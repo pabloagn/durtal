@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useContext, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ContextType, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Toaster } from "sonner";
+import { AppToaster } from "@/components/layout/app-toaster";
 import { TimerProvider, useOptionalTimer } from "@/components/reading/timer-provider";
 import { ReadingDialogsProvider, PendingDialog } from "@/components/reading/reading-dialogs-provider";
 import { DialogFocusScope } from "@/components/ui/dialog-focus-scope";
@@ -199,10 +199,7 @@ export function ReaderRuntimeProvider({ runtime, children }: { runtime: ReaderRu
     <ReaderCommands />
     {runtime.status === "ready" && <ReaderTimerAlerts />}
     <TooltipLayer />
-    <Toaster position="bottom-right" toastOptions={{ style: {
-      background: "var(--color-bg-secondary)", border: "1px solid var(--color-bg-tertiary)", color: "var(--color-fg-primary)",
-      fontFamily: "var(--font-sans)", fontSize: "0.875rem", borderRadius: "var(--radius-sm)",
-    } }} />
+    <AppToaster />
     {runtime.status === "unavailable" && <aside role="alert" data-reader-runtime-unavailable="" className="fixed bottom-4 right-4 z-50 rounded-sm bg-bg-secondary p-4 text-sm text-fg-primary">
       <p>Reading timer settings are unavailable. Timer changes are disabled.</p>
       <button type="button" className="mt-2 underline pointer-coarse:min-h-11" onClick={() => router.refresh()}>Retry reading settings</button>

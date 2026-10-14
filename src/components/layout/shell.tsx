@@ -9,7 +9,7 @@ import { ShortcutsProvider } from "@/components/shortcuts/shortcuts-provider";
 import { ReadingDialogsProvider } from "@/components/reading/reading-dialogs-provider";
 import { TimerProvider } from "@/components/reading/timer-provider";
 import { TimerAlerts } from "@/components/reading/timer-chip";
-import { Toaster } from "sonner";
+import { AppToaster } from "./app-toaster";
 import { useSidebarPreference } from "@/lib/hooks/use-sidebar-preference";
 import { lockPageScroll } from "@/lib/utils/scroll-lock";
 import { acquireSurface, hasOpenSurface, type SurfaceLease } from "@/lib/ui/surface-state";
@@ -129,19 +129,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <TimerAlerts />
           </ReadingDialogsProvider>
         </TimerProvider>
-        <Toaster
-          position="bottom-right"
-          toastOptions={{
-            style: {
-              background: "var(--color-bg-secondary)",
-              border: "1px solid var(--color-bg-tertiary)",
-              color: "var(--color-fg-primary)",
-              fontFamily: "var(--font-sans)",
-              fontSize: "0.875rem",
-              borderRadius: "var(--radius-sm)",
-            },
-          }}
-        />
+        <AppToaster />
       </ShortcutsProvider>
     );
   }
@@ -185,19 +173,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <TimerAlerts />
       </ReadingDialogsProvider>
       </TimerProvider>
-      <Toaster
-        position="bottom-right"
-        toastOptions={{
-          style: {
-            background: "var(--color-bg-secondary)",
-            border: "1px solid var(--color-bg-tertiary)",
-            color: "var(--color-fg-primary)",
-            fontFamily: "var(--font-sans)",
-            fontSize: "0.875rem",
-            borderRadius: "var(--radius-sm)",
-          },
-        }}
-      />
+      <AppToaster />
     </ShortcutsProvider>
   );
 }

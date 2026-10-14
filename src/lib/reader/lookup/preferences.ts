@@ -1,5 +1,5 @@
 import { lookupSettingsSchema, type LookupSettings } from "@/lib/validations/reader-lookup";
-import { defaultLookupSettings } from "./sources";
+import { defaultLookupSettings, withCurrentDefaults } from "./sources";
 export const LOOKUP_SETTINGS_KEY = "durtal-lookup-settings";
 export const LOOKUP_SETTINGS_CHANGED = "durtal:lookup-settings";
 export function readLocalLookupSettings(): LookupSettings {
@@ -7,7 +7,7 @@ export function readLocalLookupSettings(): LookupSettings {
     const raw = localStorage.getItem(LOOKUP_SETTINGS_KEY);
     if (!raw || raw.length > 170000) return defaultLookupSettings();
     const parsed = lookupSettingsSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : defaultLookupSettings();
+    return parsed.success ? withCurrentDefaults(parsed.data) : defaultLookupSettings();
   } catch { return defaultLookupSettings(); }
 }
 export function writeLocalLookupSettings(input: unknown): void {

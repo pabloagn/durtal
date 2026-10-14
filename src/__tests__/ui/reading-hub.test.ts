@@ -25,7 +25,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("next/link", () => ({
   default: ({ children, ...props }: Record<string, unknown>) => createElement("a", props, children as never),
 }));
-vi.mock("sonner", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }), Toaster: () => null }));
+vi.mock("sonner", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }), Toaster: () => null, useSonner: () => ({ toasts: [] }) }));
 // The shell's heavy neighbours: only the reading dialogs are under test
 vi.mock("@/components/layout/sidebar", () => ({ Sidebar: () => null }));
 vi.mock("@/components/layout/mobile-nav-bar", () => ({ MobileNavBar: () => null }));

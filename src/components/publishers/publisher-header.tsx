@@ -9,6 +9,8 @@ import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { Monogram } from "@/components/shared/no-photo";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
+import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
+import { EDIT_KEYS, editHint, editTooltipKeys } from "@/lib/shortcuts/shortcuts";
 
 /**
  * The head of a publisher page: the house's logo, shown whole on a dark
@@ -37,6 +39,12 @@ export function PublisherHeader({
   const router = useRouter();
   const [mediaOpen, setMediaOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const edit = () => router.push(`/publishers/${slug}/edit`);
+  // E then P or M: the same editor page and dialog as the buttons (SLN-633)
+  useEditActions([
+    { key: EDIT_KEYS.publisher, label: "Publisher", icon: Pencil, run: edit },
+    { key: EDIT_KEYS.media, label: "Media", icon: ImageIcon, run: () => setMediaOpen(true) },
+  ]);
 
   const actions = [
     {
@@ -48,8 +56,8 @@ export function PublisherHeader({
         setTimeout(() => setCopied(false), 1500);
       },
     },
-    { label: "Edit", icon: Pencil, onClick: () => router.push(`/publishers/${slug}/edit`) },
-    { label: "Manage media", icon: ImageIcon, onClick: () => setMediaOpen(true) },
+    { label: "Edit", icon: Pencil, onClick: edit, shortcut: editHint(EDIT_KEYS.publisher) },
+    { label: "Manage media", icon: ImageIcon, onClick: () => setMediaOpen(true), shortcut: editHint(EDIT_KEYS.media) },
     { label: "View in library", icon: Library, onClick: () => router.push(`/library?publisher=${id}`) },
   ];
 
@@ -85,6 +93,8 @@ export function PublisherHeader({
               />
               <Link
                 href={`/publishers/${slug}/edit`}
+                data-tooltip="Edit publisher"
+                data-tooltip-keys={editTooltipKeys(EDIT_KEYS.publisher)}
                 className="inline-flex h-8 items-center rounded-sm border border-glass-border px-3 text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11"
               >
                 Edit

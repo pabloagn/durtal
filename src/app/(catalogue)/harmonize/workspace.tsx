@@ -740,6 +740,7 @@ export function HarmonizeWorkspace({
         title="Resolution record"
         description={String(audit?.label || "")}
         className="max-w-4xl"
+        done
       >
         <p className="h-audit-note">
           The original records, relationships and resulting state are retained
