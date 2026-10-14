@@ -103,7 +103,7 @@ export default async function EbooksPage({
           {counts.active.toLocaleString("en")} eBooks
         </Link>
         <span aria-hidden>·</span>
-        <Link href="/ebooks?review=yes" className="touch-hit">
+        <Link href="/ebooks/review" className="touch-hit">
           {counts.review.toLocaleString("en")} to review
         </Link>
         <span aria-hidden>·</span>
@@ -115,6 +115,15 @@ export default async function EbooksPage({
           {counts.excluded.toLocaleString("en")} set aside
         </Link>
       </nav>
+      {params.needsReview === true && (
+        <p className="-mt-4 mb-8 text-sm text-fg-secondary">
+          These eBooks wait for a decision.{" "}
+          <Link href="/ebooks/review" className="text-accent-primary underline underline-offset-2">
+            Review them in the queue
+          </Link>
+          , where each one shows the book it may belong to.
+        </p>
+      )}
       <ContinueReading books={continuation} />
       <EbooksView
         books={books.map((ebook) =>

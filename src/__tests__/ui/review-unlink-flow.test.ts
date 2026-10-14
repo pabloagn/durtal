@@ -57,7 +57,7 @@ describe("mounted automatic link to fresh review receipt", () => {
     expect([...host.querySelectorAll("button")].some((item) => item.textContent === "Undo" || item.textContent === "Undo decision")).toBe(false);
     await act(async () => root.render(createElement(ReviewView, { queue: queue(true), params: parseReviewParams({}) })));
     const returned = host.querySelector(`[data-review-row="${ebookId}"]`);
-    expect(returned).not.toBeNull(); expect(returned?.textContent).toContain("Choose a book");
+    expect(returned).not.toBeNull(); expect(returned?.textContent).toContain("Keep as eBook"); expect(returned?.textContent).toContain("Other choices");
     expect(returned?.querySelector<HTMLInputElement>('input[type="checkbox"]')!.disabled).toBe(false);
   });
 });

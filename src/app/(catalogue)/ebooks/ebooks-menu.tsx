@@ -10,7 +10,7 @@ export function EbooksMenu() {
         {
           label: "Needs review",
           icon: ListChecks,
-          onClick: () => router.push("/ebooks?review=yes"),
+          onClick: () => router.push("/ebooks/review"),
         },
         {
           label: "Highlights",
