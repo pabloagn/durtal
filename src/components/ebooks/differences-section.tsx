@@ -104,7 +104,7 @@ export function DifferencesSection({ page, step, links, moreHref }: {
     {rows.map((d) => <article key={key(d)} data-difference-row={key(d)} className="card-body rounded-sm border border-glass-border bg-bg-secondary/70 p-4">
       <div className="flex items-start gap-3">
         {d.ebookCover && <Image src={`/api/reader/${d.ebookId}/cover?w=240`} width={60} height={88} alt="" unoptimized
-          loading="lazy" className="h-22 w-15 shrink-0 rounded-xs object-cover" />}
+          loading="lazy" className="h-22 w-15 shrink-0 rounded-sm object-cover" />}
         <div className="min-w-0 flex-1">
           <CardHeading title={d.slug ? <a href={`/library/${d.slug}`}>{d.bookTitle}</a> : d.bookTitle} subtitle={DIFFERENCE_LABELS[d.field]} />
           <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">

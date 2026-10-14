@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
 
 /**
  * The body of a detail page, under its header: the reading column (what the
@@ -74,6 +75,53 @@ export function RecordField({
     <div>
       <dt className="text-xs text-fg-secondary">{label}</dt>
       <dd className="mt-0.5 text-sm text-fg-primary">{children}</dd>
+    </div>
+  );
+}
+
+/** The row's classes: when it may wrap, and the title-to-controls gap (the gap less the star's pulled-out padding) */
+export const DETAIL_TITLE_ROW = {
+  // The star, Edit and the menu: 16px from the title; under it below a 24rem row
+  standard: "gap-x-6 pointer-coarse:gap-x-7.5 @min-[24rem]:flex-nowrap",
+  // The book's wider set: 12px from the title, as before; under it below a
+  // 33rem row (39rem on touch, where the controls are 44px)
+  wide: "gap-x-5 pointer-coarse:gap-x-6.5 pointer-fine:@min-[33rem]:flex-nowrap pointer-coarse:@min-[39rem]:flex-nowrap",
+};
+
+/**
+ * The title row of a detail page's header: the h1 and its controls (the
+ * star, Edit, the Actions menu), on the cap-height center of the title's
+ * first line.
+ *
+ * A long title keeps the row's width on a phone: in a narrow row the
+ * controls go under it when it would not fit on one line beside them; in a
+ * wider row they stay beside it, as wrapping there can make the header
+ * taller. The row is narrow below about twice the controls' width with their
+ * gap: there a title too long to fit beside them takes at least one more line
+ * beside them than across the row, the line the controls take under it.
+ * Decided by CSS alone, so nothing moves once the page has loaded. Under the
+ * title the star's padding goes past the row's edge, so the star lines up
+ * with the title; beside it the wider gap gives the padding back.
+ */
+export function DetailTitleRow({
+  title,
+  wideControls = false,
+  children,
+}: {
+  title: ReactNode;
+  /** The book's controls (the favourite, collection, copy, Export and the menu), about 300px on touch */
+  wideControls?: boolean;
+  /** The controls, the favourite first */
+  children: ReactNode;
+}) {
+  return (
+    <div className="@container">
+      <div className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW[wideControls ? "wide" : "standard"]}`}>
+        <h1 className="type-page-title min-w-0 flex-[1_1_auto] break-words">{title}</h1>
+        <CapAlignedControls height={32} coarseHeight={44} className="type-page-title -ml-2 pointer-coarse:-ml-3.5">
+          {children}
+        </CapAlignedControls>
+      </div>
     </div>
   );
 }

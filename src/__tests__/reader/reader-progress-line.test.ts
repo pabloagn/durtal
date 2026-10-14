@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { act, createElement as h } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { ReaderBridgeProvider } from "@/components/reader/bridge";
-import { ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
+import { quietChapter, ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
+import { PRESENTATION_DEFAULTS } from "@/lib/reader/presentation/defaults";
 
 let root: Root, host: HTMLElement;
 const context = { ebookId: "book", fileId: "epub", format: "epub" as const, locator: null, percent: null, chapter: null, selection: null };
@@ -17,11 +18,12 @@ afterEach(() => {
   act(() => root.unmount());
   host.remove();
 });
-const render = (visible: boolean, percent: number | null) =>
+const render = (visible: boolean, percent: number | null, extra: Partial<Parameters<typeof ReaderBottomBar>[0]> = {}) =>
   act(() => root.render(h(ReaderBridgeProvider, {
     context, plugins: [],
-    children: (bridge) => h(ReaderBottomBar, { visible, chapter: "Chapter I", percent, bridge }),
+    children: (bridge) => h(ReaderBottomBar, { visible, chapter: "Chapter I", percent, bridge, ...extra }),
   })));
+const quiet = () => host.querySelector<HTMLElement>("[data-reader-quiet-chapter]");
 const line = () => host.querySelector<HTMLElement>("[data-reader-progress-line]");
 
 describe("the reader's progress line (SLN-663)", () => {
@@ -37,5 +39,44 @@ describe("the reader's progress line (SLN-663)", () => {
     expect(line()?.className).toContain("opacity-0");
     render(false, null);
     expect(line()).toBeNull();
+  });
+  it("keeps the chapter in a slim band in the page's colours where no running lines name it", () => {
+    const quietBand = { background: "#ecebe6", text: "#1e2120", topFade: false };
+    render(false, 44, { quiet: quietBand, onScrub: () => {} });
+    expect(quiet()?.textContent).toBe("Chapter I");
+    expect(quiet()?.getAttribute("aria-hidden")).toBe("true");
+    expect(quiet()?.className).not.toContain("opacity-0");
+    expect(quiet()?.style.background).toContain("#ecebe6");
+    expect(host.querySelector("[data-reader-top-fade]")).toBeNull();
+    render(true, 44, { quiet: quietBand, onScrub: () => {} });
+    expect(quiet()?.className).toContain("opacity-0");
+    render(false, 44, { quiet: null, onScrub: () => {} });
+    expect(quiet()).toBeNull();
+    render(false, 44, { quiet: quietBand, chapter: null, onScrub: () => {} });
+    expect(quiet()).toBeNull();
+  });
+  it("fades scrolled text into the top edge", () => {
+    render(false, 44, { quiet: { background: "#07090d", text: "#c5cacb", topFade: true } });
+    expect(host.querySelector<HTMLElement>("[data-reader-top-fade]")?.style.background).toContain("#07090d");
+  });
+  it("bands only scrolled reflowable text: page-by-page books keep the whole page", () => {
+    const scrolled = { ...PRESENTATION_DEFAULTS.desktop, flow: "scrolled" as const };
+    const band = (over: Partial<Parameters<typeof quietChapter>[0]>) =>
+      quietChapter({ policy: scrolled, paginated: false, pageByPage: false, pinBars: false, format: "epub", ...over });
+    expect(band({})).toMatchObject({ topFade: true });
+    expect(band({ format: "mobi" })).toMatchObject({ topFade: false });
+    expect(band({ pageByPage: true, format: "pdf" })).toBeNull();
+    expect(band({ pageByPage: true, format: "cbz" })).toBeNull();
+    expect(band({ pageByPage: true, format: "epub" })).toBeNull();
+    expect(band({ paginated: true })).toBeNull();
+    expect(band({ pinBars: true })).toBeNull();
+    expect(band({ policy: null })).toBeNull();
+  });
+  it("lays the bar's second row out before the book's positions are ready", () => {
+    render(true, null, { onScrub: () => {} });
+    const rows = host.querySelector("footer")!.children;
+    expect(rows).toHaveLength(2);
+    expect(rows[1].className).toContain("min-h-8");
+    expect(rows[1].childElementCount).toBe(0);
   });
 });

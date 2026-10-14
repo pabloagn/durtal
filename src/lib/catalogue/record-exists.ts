@@ -77,3 +77,14 @@ export async function publisherExists(slug: string): Promise<boolean> {
     .limit(1);
   return !!row;
 }
+
+/** A book by slug, as `getWorkBySlug` finds it (the page does not decode it) */
+export async function bookRecordExists(slug: string): Promise<boolean> {
+  if (slug.length < 1 || slug.length > 1000) return false;
+  const [row] = await db
+    .select({ id: works.id })
+    .from(works)
+    .where(and(eq(works.kind, "book"), eq(works.slug, slug)))
+    .limit(1);
+  return !!row;
+}

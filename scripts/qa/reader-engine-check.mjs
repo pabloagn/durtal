@@ -28,6 +28,11 @@
  *   bars       both bars show on open, hide together after 3 s and come back
  *              together on a mouse move; a click anywhere in the text keeps
  *              the place, and the Next page edge button turns
+ *   clear      SLN-663: with the bars up, the text of the EPUB 3 stays
+ *              between them; the text PDF's pages stay between them with
+ *              "Keep the toolbars visible" on, and are larger with it off at
+ *              1440, where they then use the screen's height. At 1440 and at
+ *              390 with touch
  *   pointer    SLN-662, at 1440: a double-click selects a word and a drag a
  *              line without turning; with the selection toolbar open, a click
  *              in the text or the margin closes it without turning; a click on
@@ -37,9 +42,19 @@
  *              in an edge strip closes it without turning; a tap on a link
  *              follows it
  *   dialogs    Contents and Settings take focus, keep Tab inside, close with
- *              Escape and give focus back to their button
+ *              Escape and give focus back to their button (More, where
+ *              Settings sits in the More menu)
  *   pdfmarks   a highlight made by dragging across a line of the PDF fixture
  *              is drawn on the page, and still drawn after a reload (SLN-670)
+ *   turns      no frame of a jump in the EPUB 3 (Back from a far page), of
+ *              a turn in the text PDF or of a turn in the comic shows a blank
+ *              page, at 1440 and 390 (SLN-660). Chrome's frames come from
+ *              its screencast, WebKit's from screenshots taken back to back,
+ *              leaving out those taken while a transition's update runs;
+ *              a lone blank frame between two of the unchanged page, as a
+ *              snapshot is taken, is counted apart. Headless Firefox
+ *              captures leave out the View Transition layers, so it is not
+ *              checked
  *   endurance  only with --only endurance, on a preview started with
  *              --reader-large: the 50 MB EPUB and the 300 MB PDF open at
  *              390 px and take 300 page turns without the page crashing or
@@ -76,7 +91,7 @@ const option = (name, fallback) => {
 const base = option("--base", "http://127.0.0.1:3410").replace(/\/$/, "");
 const previewState = option("--preview-state", undefined);
 const browsers = option("--browsers", "chromium,webkit,firefox").split(",");
-const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "pointer", "dialogs", "navigation", "pdfmarks", "endurance"];
+const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "clear", "pointer", "dialogs", "navigation", "pdfmarks", "turns", "endurance"];
 // endurance needs the large fixtures: it runs only when asked for
 const only = option("--only", CHECKS.filter((c) => c !== "endurance").join(",")).split(",");
 
@@ -576,6 +591,106 @@ async function checkBars(name, browser) {
   await context.close();
 }
 
+/** SLN-663: the bars never cover the text. The text's lines (or a PDF's
+ * pages) on screen, against the bottom of the top bar and the top of the
+ * bottom bar, with both bars up */
+/** Opens Settings, from the More menu where the bar has no room for it */
+async function openSettings(page) {
+  await revealBars(page);
+  const button = page.getByRole("button", { name: "Settings", exact: true });
+  if (await button.isVisible()) await button.click();
+  else {
+    await page.getByRole("button", { name: "More", exact: true }).click();
+    await page.getByRole("menuitem", { name: /^Settings/ }).click();
+  }
+  return page.getByRole("dialog", { name: "Reading settings", exact: true });
+}
+
+async function closeSettings(page, dialog) {
+  await dialog.getByRole("status").filter({ hasText: /^Settings saved$/ }).waitFor();
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.querySelector("dialog[open]"));
+}
+
+/** Where the bars end and start, and the text or pages on screen */
+const clearBox = () => {
+  const top = document.querySelector("header[data-reader-chrome]").getBoundingClientRect().bottom;
+  const bottom = document.querySelector("footer[data-reader-chrome]").getBoundingClientRect().top;
+  const renderer = document.querySelector("foliate-view").renderer;
+  let first = Infinity, last = -Infinity;
+  const pages = [...(renderer.shadowRoot?.querySelectorAll("iframe") ?? [])]
+    .map((frame) => frame.getBoundingClientRect())
+    .filter((rect) => rect.width > 0 && rect.right > 0 && rect.left < innerWidth);
+  if (renderer.localName === "foliate-fxl")
+    for (const rect of pages) {
+      first = Math.min(first, rect.top);
+      last = Math.max(last, rect.bottom);
+    }
+  else
+    for (const { doc } of renderer.getContents()) {
+      const host = doc.defaultView.frameElement.getBoundingClientRect();
+      const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+      for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+        if (!text.data.trim()) continue;
+        const range = doc.createRange();
+        range.selectNodeContents(text);
+        for (const rect of range.getClientRects()) {
+          const x = host.left + rect.left;
+          if (!rect.width || x < 0 || x > innerWidth) continue;
+          first = Math.min(first, host.top + rect.top);
+          last = Math.max(last, host.top + rect.bottom);
+        }
+      }
+    }
+  return { top, bottom, first, last, height: innerHeight };
+};
+const between = (box) => Number.isFinite(box.first) && box.first >= box.top - 0.5 && box.last <= box.bottom + 0.5;
+const describe = (box) => `bars end at ${box.top.toFixed(1)} and start at ${box.bottom.toFixed(1)}; content ${box.first.toFixed(1)} to ${box.last.toFixed(1)}`;
+
+async function checkClear(name, browser) {
+  for (const [width, options] of [[1440, desktop], [390, phone(name)]]) {
+    const context = await browser.newContext(options);
+    const page = await context.newPage();
+    try {
+      const opened = await open(page, 1);
+      if (opened.state !== "ready") throw new Error(`the book did not open (${opened.state})`);
+      await sleep(800);
+      const box = await page.evaluate(clearBox);
+      record(name, "clear", `${width}: the EPUB 3's text stays between the bars`, between(box), describe(box));
+    } catch (error) {
+      record(name, "clear", `${width}: the EPUB 3's text stays between the bars`, false, error.message.split("\n")[0]);
+    }
+    let pinned = false;
+    try {
+      const opened = await open(page, 2);
+      if (opened.state !== "ready") throw new Error(`the book did not open (${opened.state})`);
+      await sleep(800);
+      const free = await page.evaluate(clearBox);
+      let dialog = await openSettings(page);
+      await dialog.getByRole("radio", { name: "This book", exact: true }).click();
+      await dialog.getByRole("checkbox", { name: "Keep the toolbars visible", exact: true }).check();
+      pinned = true;
+      await closeSettings(page, dialog);
+      await sleep(800);
+      const kept = await page.evaluate(clearBox);
+      record(name, "clear", `${width}: with the toolbars kept visible, the text PDF's pages stay between them`, between(kept), describe(kept));
+      const freeSize = free.last - free.first, keptSize = kept.last - kept.first;
+      record(name, "clear", `${width}: with the toolbars free, the text PDF's pages are ${width === 1440 ? "larger and use the screen's height" : "no smaller"}`,
+        width === 1440 ? freeSize > keptSize + 1 && free.first <= 0.5 && free.last >= free.height - 0.5 : freeSize >= keptSize - 0.5,
+        `free ${free.first.toFixed(1)} to ${free.last.toFixed(1)}, kept ${kept.first.toFixed(1)} to ${kept.last.toFixed(1)}`);
+      dialog = await openSettings(page);
+      await dialog.getByRole("radio", { name: "This book", exact: true }).click();
+      await dialog.getByRole("button", { name: "Reset this book", exact: true }).click();
+      pinned = false;
+      await closeSettings(page, dialog);
+    } catch (error) {
+      record(name, "clear", `${width}: the text PDF's pages${pinned ? " (left with the toolbars kept)" : ""}`, false, error.message.split("\n")[0]);
+    } finally {
+      await context.close();
+    }
+  }
+}
+
 /** A word and its line in the first loaded section, in viewport pixels */
 const wordAt = (page) =>
   page.evaluate(() => {
@@ -719,6 +834,15 @@ async function checkPointer(name, browser) {
   await page.mouse.click(link.x, link.y);
   await page.waitForFunction(() => document.querySelector("footer[data-reader-chrome]")?.textContent.includes("Outside the reading order"), null, { timeout: 5000 }).catch(() => {});
   record(name, "pointer", "1440: a click on a link follows it", (await footer(page)).includes("Outside the reading order"), (await footer(page)).slice(0, 60));
+  // The place stays in the notes once the page settles, never the end of the
+  // chapter before (which saved the book as read to 100%)
+  await sleep(1500);
+  const settled = await page.evaluate(() => {
+    const view = document.querySelector("foliate-view");
+    const { index, fraction } = view?.lastLocation ?? {};
+    return { linear: view?.book?.sections?.[index]?.linear !== "no", index, fraction, footer: document.querySelector("footer[data-reader-chrome]")?.textContent.slice(0, 60) };
+  });
+  record(name, "pointer", "1440: after a link to the notes, the place stays in the notes", !settled.linear && settled.footer.includes("Outside the reading order"), JSON.stringify(settled));
   await context.close();
   if (name === "firefox") return; // Firefox has no touch emulation in Playwright
   const phoneContext = await browser.newContext(phone(name));
@@ -816,8 +940,14 @@ async function checkDialogs(name, browser) {
   await open(page, 1);
   for (const label of ["Contents", "Settings"]) {
     await revealBars(page);
-    const button = page.getByRole("button", { name: label });
-    await button.click();
+    // Below 400px Settings sits in the More menu, and focus goes back to More
+    let button = page.getByRole("button", { name: label, exact: true });
+    if (await button.isVisible()) await button.click();
+    else {
+      button = page.getByRole("button", { name: "More", exact: true });
+      await button.click();
+      await page.getByRole("menuitem", { name: new RegExp(`^${label}`) }).click();
+    }
     await page.waitForSelector("dialog[open]");
     await sleep(200);
     // A modal <dialog> lets Tab pass through the browser's own controls (the body here) on its way round
@@ -879,7 +1009,166 @@ async function checkEndurance(name, browser) {
   await context.close();
 }
 
+/** Every frame painted while `action` runs, as base64 PNGs, with one before */
+async function paintedFrames(page, name, action) {
+  const shots = [];
+  let cdp = null;
+  let shooting = null;
+  let stop = false;
+  if (name === "chromium") {
+    cdp = await page.context().newCDPSession(page);
+    cdp.on("Page.screencastFrame", ({ data, sessionId }) => {
+      shots.push(data);
+      cdp.send("Page.screencastFrameAck", { sessionId }).catch(() => {});
+    });
+    await cdp.send("Page.startScreencast", { format: "png", everyNthFrame: 1 });
+  } else {
+    // A screenshot paints the page as it is, even while a View Transition's
+    // update runs, when the screen still shows the snapshot taken before it;
+    // a shot taken then is left out
+    await page.evaluate(() => {
+      const start = document.startViewTransition?.bind(document);
+      if (!start) return;
+      window.__inUpdate = 0;
+      document.startViewTransition = (update) => start(async () => {
+        window.__inUpdate++;
+        try {
+          return await update?.();
+        } finally {
+          window.__inUpdate--;
+        }
+      });
+    });
+    const inUpdate = () => page.evaluate(() => window.__inUpdate > 0).catch(() => false);
+    shooting = (async () => {
+      while (!stop) {
+        const before = await inUpdate();
+        const shot = (await page.screenshot()).toString("base64");
+        if (!before && !(await inUpdate())) shots.push(shot);
+      }
+    })();
+  }
+  await sleep(400);
+  await action();
+  await sleep(600);
+  stop = true;
+  await shooting;
+  if (cdp) {
+    await cdp.send("Page.stopScreencast").catch(() => {});
+    await cdp.detach().catch(() => {});
+  }
+  return shots;
+}
+
+/** How much each frame varies inside `rect`: a blank page is one flat colour */
+async function frameVariation(context, shots, rect) {
+  const page = await context.newPage();
+  try {
+    return await page.evaluate(async ({ shots, rect }) => {
+      const canvas = new OffscreenCanvas(Math.ceil(rect.width / 4), Math.ceil(rect.height / 4));
+      const g = canvas.getContext("2d", { willReadFrequently: true });
+      const out = [];
+      for (const shot of shots) {
+        const blob = await (await fetch(`data:image/png;base64,${shot}`)).blob();
+        const image = await createImageBitmap(blob);
+        const scale = image.width / innerWidth || 1;
+        g.drawImage(image, rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale, 0, 0, canvas.width, canvas.height);
+        const { data } = g.getImageData(0, 0, canvas.width, canvas.height);
+        let sum = 0, squares = 0;
+        const n = data.length / 4;
+        for (let i = 0; i < data.length; i += 4) {
+          const y = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+          sum += y;
+          squares += y * y;
+        }
+        out.push(Math.sqrt(Math.max(0, squares / n - (sum / n) ** 2)));
+      }
+      return out;
+    }, { shots, rect });
+  } finally {
+    await page.close();
+  }
+}
+
+// A frame is blank below 15% of the first frame's variation. Headless
+// Chromium's screencast and WebKit's screenshots can show one blank frame as
+// a View Transition takes its snapshot, with the unchanged page on the frames
+// either side, even for a transition that changes nothing; a lone blank frame
+// like that is counted apart, not as the page going blank.
+function blankFrames(variation) {
+  const baseline = variation[0];
+  const isBlank = (value) => value < baseline * 0.15;
+  const unchanged = (value) => value !== undefined && value >= baseline * 0.9;
+  let blank = 0;
+  let ignored = 0;
+  variation.forEach((value, i) => {
+    if (!isBlank(value)) return;
+    if (unchanged(variation[i - 1]) && unchanged(variation[i + 1])) ignored++;
+    else blank++;
+  });
+  return { blank, ignored };
+}
+
+async function checkTurns(name, browser) {
+  if (name === "firefox") return; // headless Firefox captures leave out the View Transition layers
+  const cases = [
+    // Go to keeps its dialog up until the page opens, so the jump measured is
+    // the one back, which has none
+    {
+      n: 1,
+      label: "a jump back from a far page of the EPUB 3",
+      prepare: (page) => goto(navigationDriver(page), "Page", "1500"),
+      run: (page) => page.keyboard.press("Alt+ArrowLeft"),
+    },
+    { n: 2, label: "a turn of the text PDF", run: (page) => page.keyboard.press("ArrowRight") },
+    { n: 7, label: "a turn of the comic", run: (page) => page.keyboard.press("ArrowRight") },
+  ];
+  for (const width of [1440, 390]) {
+    for (const { n, label, prepare, run } of cases) {
+      await resetFixturePosition(n);
+      const context = await browser.newContext(width === 390 ? phone(name) : desktop);
+      const page = await context.newPage();
+      try {
+        const opened = await open(page, n);
+        if (opened.state !== "ready") throw new Error(`the book did not open (${opened.state})`);
+        await sleep(1500);
+        await prepare?.(page);
+        // The bars hide once the mouse rests
+        if (width !== 390) await page.mouse.move(width / 2, 450);
+        await sleep(3600);
+        const rect = await page.evaluate(() => {
+          const box = document.querySelector("foliate-view").getBoundingClientRect();
+          return { x: box.x, y: box.y + box.height * 0.1, width: box.width, height: box.height * 0.8 };
+        });
+        const start = await page.evaluate(readState);
+        const shots = await paintedFrames(page, name, () => run(page));
+        const after = await page.evaluate(readState);
+        const variation = await frameVariation(context, shots, rect);
+        const baseline = variation[0];
+        const { blank, ignored } = blankFrames(variation);
+        record(name, "turns", `${width}: no blank frame during ${label}`,
+          shots.length > 1 && baseline > 0 && after.fraction !== start.fraction && blank === 0,
+          `${blank} of ${shots.length} frames blank${ignored ? `, ${ignored} lone capture frame${ignored > 1 ? "s" : ""} ignored` : ""} (lowest ${Math.min(...variation).toFixed(1)} against ${baseline?.toFixed(1)}), ${start.fraction?.toFixed(3)} → ${after.fraction?.toFixed(3)}`);
+      } catch (error) {
+        record(name, "turns", `${width}: no blank frame during ${label}`, false, error.message.split("\n")[0]);
+      } finally {
+        await context.close();
+      }
+    }
+  }
+}
+
+const navigationDriver = (page) => ({
+  evaluate: (expression) => page.evaluate(expression),
+  selectMode: (mode) => page.getByRole("dialog", { name: "Go to", exact: true }).getByRole("radio", { name: mode, exact: true }).click(),
+  fill: (text) => page.locator("dialog[open] input").fill(text),
+  commit: () => page.locator("dialog[open] input").press("Enter"),
+  key: (key) => page.keyboard.press(key),
+});
+
 const RUN = {
+  clear: checkClear,
+  turns: checkTurns,
   pdfmarks: checkPdfMarks,
   opens: checkOpens,
   script: checkScript,

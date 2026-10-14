@@ -157,6 +157,8 @@ export interface FoliateRenderer extends HTMLElement {
   }[];
   primaryIndex?: number;
   refreshPageSizes?(): void;
+  /** Lays every loaded section out again; the paginator only */
+  render?(): void;
   showPageRect?(index: number, rect: { left: number; top: number; right: number; bottom: number }): boolean;
   atEnd: boolean;
   /** The paginator in the scroll flow; absent on fixed-layout renderers */

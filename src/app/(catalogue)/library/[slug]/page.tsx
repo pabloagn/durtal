@@ -34,11 +34,12 @@ import {
 import { AcquisitionTargets } from "@/components/publishers/acquisition-targets";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { BackLink } from "@/components/shared/back-link";
 import { HuntAssessmentControl } from "@/components/books/hunt-assessment-control";
 import { PoisonToggle } from "@/components/books/poison-toggle";
 import { BookLinks } from "@/components/books/book-links";
-import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { CapAligned } from "@/components/shared/cap-aligned";
+import { ExternalLink } from "lucide-react";
 import {
   getWorkBySlug,
   getWorksWithMark,
@@ -74,7 +75,7 @@ import { WorkCarousel } from "@/components/books/work-carousel";
 import { SimilarWorksCarousel } from "@/components/books/similar-works-carousel";
 import { getBookRelatedGroups } from "@/lib/actions/book-related";
 import { getSimilarWorks } from "@/lib/actions/similar-works";
-import { WorkPosterImage } from "./work-poster-image";
+import { WorkPosterImage, WorkPosterPlaceholder } from "./work-poster-image";
 import {
   CoarseImageSource,
   coarseImageFallback,
@@ -88,7 +89,7 @@ import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { formatBookClipboardText } from "@/lib/utils/copy-book";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { Prose } from "@/components/shared/prose";
-import { DetailColumns } from "@/components/shared/detail-layout";
+import { DetailColumns, DetailTitleRow } from "@/components/shared/detail-layout";
 import { LinkedWorksSection } from "@/components/catalogue/work-relations";
 import { getWorkRelations } from "@/lib/actions/work-relations";
 import { linkedBookIds } from "@/lib/catalogue/linked-work-ebooks";
@@ -282,6 +283,8 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   const background = work.media?.find(
     (m) => m.type === "background" && m.isActive,
   );
+  // Without a poster the header shows the first edition that has a cover
+  const editionCover = poster ? undefined : work.editions.find((e) => e.coverS3Key);
   const allPosters = work.media?.filter((m) => m.type === "poster") ?? [];
   const allBackgrounds =
     work.media?.filter((m) => m.type === "background") ?? [];
@@ -375,101 +378,98 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
         {/* Content on top of the backdrop */}
         <div className={background ? "relative z-10 px-4 pt-6 pb-2 md:px-6" : ""}>
           {/* Back link */}
-          <Link
-            href="/library"
-            className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
-          >
-            <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
-            Back to books
-          </Link>
+          <BackLink href="/library">Back to books</BackLink>
 
           {/* Header */}
           <div className={`${background ? "mb-4" : "mb-8"} flex flex-col gap-6 sm:flex-row`}>
-            {/* Poster image */}
-            {poster && (
+            {/* The poster, else the first edition's cover, else a placeholder
+                cover the same size: the header keeps its cover's place, so the
+                loading screen's cover box never jumps (SLN-697) */}
+            {poster ? (
               <WorkPosterImage
                 src={mediaUrl(poster.s3Key)}
                 alt={`${work.title} poster`}
                 crop={mediaCrop(poster)}
                 palette={crystalPalette}
               />
+            ) : editionCover?.coverS3Key ? (
+              <WorkPosterImage
+                src={mediaUrl(editionCover.coverS3Key, { version: editionCover.updatedAt })}
+                alt={`${work.title} cover`}
+                crop={mediaCrop({})}
+              />
+            ) : (
+              <WorkPosterPlaceholder title={work.title} />
             )}
 
             <div className="min-w-0 flex-1">
-              {/* On a phone the actions wrap below a long title */}
-              <div className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
-                <h1 className="type-page-title min-w-0 break-words">
-                  {work.title}
-                </h1>
-                {/* On the cap-height center of the title's first line */}
-                <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
-                  <FavouriteToggle
-                    favourite={work.isFavourite}
-                    target={{ entity: "work", id: work.id }}
-                    name={work.title}
-                    shortcut
-                  />
-                  <CollectionButton workId={work.id} title={work.title} size="md" shortcut />
-                  <CopyBookButton
-                    size="md"
-                    title={work.title}
-                    authorNames={primaryAuthors.map((a) => a.name)}
-                  />
-                  <WorkActionsMenu
-                    hasLinkedEbook={digitalBooks.length > 0}
-                    work={{
-                      id: work.id,
-                      slug: work.slug ?? "",
-                      title: work.title,
-                      originalLanguage: work.originalLanguage,
-                      originalYear: work.originalYear ?? null,
-                      description: work.description ?? null,
-                      seriesName: work.seriesName ?? null,
-                      seriesPosition: work.seriesPosition ?? null,
-                      seriesId: work.seriesId ?? null,
-                      isAnthology: work.isAnthology,
-                      workTypeId: work.workTypeId ?? null,
-                      notes: work.notes ?? null,
-                      rating: work.rating ?? null,
-                      catalogueStatus: work.catalogueStatus,
-                      acquisitionPriority: work.acquisitionPriority,
-                      goodreadsUrl: work.goodreadsUrl ?? null,
-                      storygraphUrl: work.storygraphUrl ?? null,
-                      recommenderIds: work.workRecommenders.map(
-                        (wr) => wr.recommender.id,
-                      ),
-                    }}
-                    workAuthors={work.workAuthors.map((wa) => ({
-                      id: wa.author.id,
-                      name: wa.author.name,
-                      role: wa.role,
-                    }))}
-                    authorName={primaryAuthors.map((a) => a.name).join(", ")}
-                    readingCounts={readingCounts}
-                    editionCount={work.editions.length}
-                    instanceCount={work.editions.reduce(
-                      (acc, e) => acc + (e.instances?.length ?? 0),
-                      0,
-                    )}
-                    posterCount={allPosters.length}
-                    backgroundCount={allBackgrounds.length}
-                    galleryCount={galleryMedia.length}
-                    chosen={{
-                      series: work.series ? [{ id: work.series.id, name: work.series.title }] : [],
-                      workTypes: work.workType ? [{ id: work.workType.id, name: work.workType.name }] : [],
-                      recommenders: work.workRecommenders.map((wr) => option(wr.recommender)),
-                      subjects: work.workSubjects.map((ws) => option(ws.subject)),
-                      categories: work.workCategories.map((wc) => option(wc.category)),
-                      themes: work.workThemes.map((wt) => option(wt.theme)),
-                      literaryMovements: work.workLiteraryMovements.map((wlm) => option(wlm.literaryMovement)),
-                      artTypes: work.workArtTypes.map((wat) => option(wat.artType)),
-                      artMovements: work.workArtMovements.map((wam) => option(wam.artMovement)),
-                      keywords: work.workKeywords.map((wk) => option(wk.keyword)),
-                      attributes: work.workAttributes.map((wa) => option(wa.attribute)),
-                    }}
-                  />
-                </CapAlignedControls>
-              </div>
+              <DetailTitleRow title={work.title} wideControls>
+                <FavouriteToggle
+                  favourite={work.isFavourite}
+                  target={{ entity: "work", id: work.id }}
+                  name={work.title}
+                  shortcut
+                />
+                <CollectionButton workId={work.id} title={work.title} size="md" shortcut />
+                <CopyBookButton
+                  size="md"
+                  title={work.title}
+                  authorNames={primaryAuthors.map((a) => a.name)}
+                />
+                <WorkActionsMenu
+                  hasLinkedEbook={digitalBooks.length > 0}
+                  work={{
+                    id: work.id,
+                    slug: work.slug ?? "",
+                    title: work.title,
+                    originalLanguage: work.originalLanguage,
+                    originalYear: work.originalYear ?? null,
+                    description: work.description ?? null,
+                    seriesName: work.seriesName ?? null,
+                    seriesPosition: work.seriesPosition ?? null,
+                    seriesId: work.seriesId ?? null,
+                    isAnthology: work.isAnthology,
+                    workTypeId: work.workTypeId ?? null,
+                    notes: work.notes ?? null,
+                    rating: work.rating ?? null,
+                    catalogueStatus: work.catalogueStatus,
+                    acquisitionPriority: work.acquisitionPriority,
+                    goodreadsUrl: work.goodreadsUrl ?? null,
+                    storygraphUrl: work.storygraphUrl ?? null,
+                    recommenderIds: work.workRecommenders.map(
+                      (wr) => wr.recommender.id,
+                    ),
+                  }}
+                  workAuthors={work.workAuthors.map((wa) => ({
+                    id: wa.author.id,
+                    name: wa.author.name,
+                    role: wa.role,
+                  }))}
+                  authorName={primaryAuthors.map((a) => a.name).join(", ")}
+                  readingCounts={readingCounts}
+                  editionCount={work.editions.length}
+                  instanceCount={work.editions.reduce(
+                    (acc, e) => acc + (e.instances?.length ?? 0),
+                    0,
+                  )}
+                  posterCount={allPosters.length}
+                  backgroundCount={allBackgrounds.length}
+                  galleryCount={galleryMedia.length}
+                  chosen={{
+                    series: work.series ? [{ id: work.series.id, name: work.series.title }] : [],
+                    workTypes: work.workType ? [{ id: work.workType.id, name: work.workType.name }] : [],
+                    recommenders: work.workRecommenders.map((wr) => option(wr.recommender)),
+                    subjects: work.workSubjects.map((ws) => option(ws.subject)),
+                    categories: work.workCategories.map((wc) => option(wc.category)),
+                    themes: work.workThemes.map((wt) => option(wt.theme)),
+                    literaryMovements: work.workLiteraryMovements.map((wlm) => option(wlm.literaryMovement)),
+                    artTypes: work.workArtTypes.map((wat) => option(wat.artType)),
+                    artMovements: work.workArtMovements.map((wam) => option(wam.artMovement)),
+                    keywords: work.workKeywords.map((wk) => option(wk.keyword)),
+                    attributes: work.workAttributes.map((wa) => option(wa.attribute)),
+                  }}
+                />
+              </DetailTitleRow>
 
               {/* Author links */}
               {primaryAuthors.length > 0 && (

@@ -1,4 +1,5 @@
 import { dispatchPreparedLoad, ownedDocumentLoad, waitForDocumentLoad } from "./load-preparation.js"
+import { changeUnderHold } from "./page-hold.js"
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -1569,6 +1570,16 @@ export const getAdjacentLinearIndex = (sections, fromIndex, dir) => {
         if (sections[index]?.linear !== 'no') return index
 }
 
+// Durtal patch 27 (VENDORED.md): the section that joins the loaded strip
+// beside `fromIndex`. A nonlinear section (notes opened from a link) stands
+// alone: chained after the chapter before, it began in that chapter's last
+// spread when the chapter ended on a left page, and the next settle took the
+// chapter for the current section. Turns out of it still go to the adjacent
+// linear section, as a jump.
+export const getStripNeighbourIndex = (sections, fromIndex, dir) =>
+    sections[fromIndex]?.linear === 'no' ? undefined
+        : getAdjacentLinearIndex(sections, fromIndex, dir)
+
 export const getPaginatedAnchorPage = ({ offset, size, columnCount, contentPages, fraction }) => {
     const column = Math.round(fraction * Math.max(0, contentPages - 1))
     return Math.floor(offset / size + column / columnCount + 0.01)
@@ -1653,6 +1664,8 @@ export class Paginator extends HTMLElement {
     #fillPromise = null // tracks in-progress #fillVisibleArea for awaiting
     #stabilizing = false // true while #display is stabilizing layout
     #rendered = false // true after first #display completes
+    // Durtal patch 26: a held snapshot covers the page while it changes
+    #holding = false
     #lastLayout = null // cached layout from the last #beforeRender call
     #columnGap = null // px; set by `column-gap`, overrides the centre gap of a spread
     // Cache of section index → vertical (boolean). Populated as views
@@ -1856,7 +1869,7 @@ export class Paginator extends HTMLElement {
                     const sorted = this.#sortedViews
                     const lastIndex = sorted[sorted.length - 1]?.[0]
                     if (lastIndex != null) {
-                        const nextIdx = this.#adjacentIndex(1, lastIndex)
+                        const nextIdx = this.#neighbourIndex(1, lastIndex)
                         if (nextIdx != null && !this.#views.has(nextIdx) && this.#isSameDirection(nextIdx)) {
                             this.#filling = true
                             this.#loadAdjacentSection(nextIdx)
@@ -1883,7 +1896,7 @@ export class Paginator extends HTMLElement {
                     const sorted = this.#sortedViews
                     const firstIndex = sorted[0]?.[0]
                     if (firstIndex != null) {
-                        const prevIdx = this.#adjacentIndex(-1, firstIndex)
+                        const prevIdx = this.#neighbourIndex(-1, firstIndex)
                         if (prevIdx != null && !this.#views.has(prevIdx) && this.#isSameDirection(prevIdx)) {
                             this.#filling = true
                             this.#loadAdjacentSection(prevIdx)
@@ -2669,6 +2682,7 @@ export class Paginator extends HTMLElement {
             return this.#goTo({
                 index: this.#adjacentIndex(dir, edgeIndex),
                 anchor: dir < 0 ? () => 1 : () => 0,
+                turn: dir,
             })
         }
         // Out of range — skip animation, go straight to adjacent section
@@ -3774,7 +3788,7 @@ export class Paginator extends HTMLElement {
                 const sorted = this.#sortedViews
                 const lastIndex = sorted[sorted.length - 1]?.[0]
                 if (lastIndex == null) break
-                const nextIdx = this.#adjacentIndex(1, lastIndex)
+                const nextIdx = this.#neighbourIndex(1, lastIndex)
                 if (nextIdx == null) break
                 // Stop preloading at writing-mode boundaries
                 if (!this.#isSameDirection(nextIdx)) break
@@ -3854,10 +3868,13 @@ export class Paginator extends HTMLElement {
     // cutting from a blank page (none with reduced motion). Hiding stays
     // instant, so the page never shows mid-reposition.
     #hide() {
+        // Durtal patch 26: under a held snapshot nothing needs hiding
+        if (this.#holding) return
         this.#container.style.transition = 'none'
         this.#container.style.opacity = '0'
     }
     #reveal() {
+        if (this.#holding) return
         const still = this.ownerDocument?.defaultView
             ?.matchMedia?.('(prefers-reduced-motion: reduce)').matches
         this.#container.style.transition = still || !this.hasAttribute('animated')
@@ -3919,7 +3936,7 @@ export class Paginator extends HTMLElement {
                 const sorted = this.#sortedViews
                 const firstIndex = sorted[0]?.[0]
                 if (firstIndex != null) {
-                    const prevIdx = this.#adjacentIndex(-1, firstIndex)
+                    const prevIdx = this.#neighbourIndex(-1, firstIndex)
                     if (prevIdx != null && this.#isSameDirection(prevIdx)) {
                         await this.#loadAdjacentSection(prevIdx)
                     }
@@ -4059,7 +4076,7 @@ export class Paginator extends HTMLElement {
                 const sorted = this.#sortedViews
                 const firstIndex = sorted[0]?.[0]
                 if (firstIndex != null && firstIndex >= this.#primaryIndex) {
-                    const prevIdx = this.#adjacentIndex(-1, firstIndex)
+                    const prevIdx = this.#neighbourIndex(-1, firstIndex)
                     if (prevIdx != null && this.#isSameDirection(prevIdx)) {
                         awaitedAdjacentLayout = true
                         await this.#loadAdjacentSection(prevIdx)
@@ -4077,7 +4094,7 @@ export class Paginator extends HTMLElement {
                 const sorted = this.#sortedViews
                 const lastIndex = sorted[sorted.length - 1]?.[0]
                 if (lastIndex == null) break
-                const nextIdx = this.#adjacentIndex(1, lastIndex)
+                const nextIdx = this.#neighbourIndex(1, lastIndex)
                 if (nextIdx == null) break
                 // Stop at writing-mode boundaries
                 if (!this.#isSameDirection(nextIdx)) break
@@ -4114,7 +4131,40 @@ export class Paginator extends HTMLElement {
     #canGoToIndex(index) {
         return index >= 0 && index <= this.sections.length - 1
     }
-    async #goTo({ index, anchor, select }) {
+    // Durtal patch 26 (SLN-660): a jump, or a turn into a section that is
+    // not loaded, keeps the page on screen until the next one is ready, then
+    // crossfades (a jump) or turns as the turn style says (`turn`: 1 or -1),
+    // instead of cutting to a blank page and fading in from it.
+    async #goTo(target) {
+        const { index, turn } = target
+        const blank = (!this.scrolled || this.noContinuousScroll) && index !== this.#primaryIndex
+        if (!blank || !this.#rendered || this.hasAttribute('eink')
+            || this.#vtDrag || this.#vtFinishing || this.#vtProgrammatic) return this.#goToNow(target)
+        const animated = this.hasAttribute('animated')
+        const style = turn ? (this.getAttribute('turn-style') === 'fade' ? 'fade' : 'slide') : null
+        return changeUnderHold(this, async held => {
+            this.#holding = held
+            try {
+                await this.#goToNow(target)
+            } finally {
+                this.#holding = false
+            }
+        }, {
+            turn: style,
+            forward: turn !== -1,
+            rtl: this.#rtl,
+            duration: !animated ? 0 : style === 'slide' ? PAGE_SLIDE_MS : PAGE_FADE_MS,
+            background: this.#themeBackground(),
+        })
+    }
+    #themeBackground() {
+        const doc = this.#primaryView?.document
+        return doc?.documentElement
+            ? doc.defaultView.getComputedStyle(doc.documentElement)
+                .getPropertyValue('--theme-bg-color').trim()
+            : ''
+    }
+    async #goToNow({ index, anchor, select }) {
         const section = this.sections[index]
         if (!section) return
         const cachedView = this.#views.get(index)
@@ -4186,7 +4236,7 @@ export class Paginator extends HTMLElement {
                 if (!(needsPrev || this.scrolled)) return
                 const firstIndex = this.#sortedViews[0]?.[0]
                 if (firstIndex == null) return
-                const prevIdx = this.#adjacentIndex(-1, firstIndex)
+                const prevIdx = this.#neighbourIndex(-1, firstIndex)
                 if (prevIdx != null && this.#isSameDirection(prevIdx))
                     await this.#loadAdjacentSection(prevIdx)
             }
@@ -4216,7 +4266,7 @@ export class Paginator extends HTMLElement {
                     for (const dir of [-1, 1]) {
                         let i = index
                         for (let step = 0; step < 2; step++) {
-                            i = this.#adjacentIndex(dir, i)
+                            i = this.#neighbourIndex(dir, i)
                             if (i == null || !this.#views.has(i) || excludedViews.includes(i)) break
                             keep.add(i)
                         }
@@ -4292,6 +4342,9 @@ export class Paginator extends HTMLElement {
         if (fromIndex === undefined) fromIndex = this.#primaryIndex
         return getAdjacentLinearIndex(this.sections, fromIndex, dir)
     }
+    #neighbourIndex(dir, fromIndex) {
+        return getStripNeighbourIndex(this.sections, fromIndex, dir)
+    }
     async #turnPage(dir, distance) {
         if (this.#locked) return
         this.#locked = true
@@ -4312,6 +4365,7 @@ export class Paginator extends HTMLElement {
             await this.#goTo({
                 index: this.#adjacentIndex(dir, edgeIndex),
                 anchor: prev ? () => 1 : () => 0,
+                turn: dir,
             })
         }
         if (shouldGo || !this.hasAttribute('animated')) await wait(100)

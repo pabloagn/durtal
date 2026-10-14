@@ -215,6 +215,39 @@ adapter regression source added; native retesting remains pending.
     reopen scrolled one page early. When only white space is left in the
     text node (the next word starts italics, a link or a note mark), it walks
     on to the next glyph, or anchors on an image met first. SLN-676.
+26. `page-hold.js` (new, Durtal's), `paginator.js`, `fixed-layout.js`: a page
+    change that has to load first keeps the page on screen until the next one
+    is ready, then lets it go: a jump fades it (180ms), a turn slides (250ms)
+    or fades (180ms) it in its direction. With `animated` off it swaps at
+    once, nothing moves when the page did not change, and a hold lasts at
+    most 3 s. A View Transition takes the snapshot. Chromium and Firefox run
+    no animation frames inside its update callback, and loading needs them,
+    so there the snapshot is taken with an empty update and held by an
+    endless animation while the page changes under it; only the book is
+    held, with the reader's controls (`[data-reader-chrome]`) kept above it,
+    since Chromium can leave the book out of a whole-screen snapshot. WebKit
+    does run frames there but keeps a book snapshot's new layer blank, so it
+    changes the page inside the update and holds the whole screen, fading
+    turns too. Which engine this is, the first hold finds by waiting for a
+    frame inside the update, for three of the page's frames measured just
+    before (100 to 500ms), so a busy page is not misjudged. That first hold
+    has named the book: in WebKit the name goes inside the update, so the
+    new page is taken with the screen, and the held book fades. The
+    paginator uses it for jumps and for turns into a section that is not
+    loaded, where it hid the page and faded it in from blank (patch 20); the
+    fixed layout for every turn and jump of PDFs and comics, which now read
+    `animated` and `turn-style` too. Without View Transitions, or during
+    another one, nothing changes. SLN-660.
+
+27. `paginator.js`: a nonlinear section opened from a link (notes) stands
+    alone in the loaded strip (`getStripNeighbourIndex`, exported): no
+    section is kept beside it on the jump, loaded before it to fill a short
+    spread, or preloaded after it. Chained after the chapter before, it began
+    in that chapter's last spread when the chapter ended on a left page, and
+    the settle a quarter second later took the chapter for the current
+    section, so the reader showed the chapter's last page number. Turns out
+    of it, the start and end tests and linear sections' own strips are
+    unchanged.
 
 28. `paginator.js`: switching between pages and the scroll flow keeps the
     place. The switch scrolled to the anchor while the views still had the
