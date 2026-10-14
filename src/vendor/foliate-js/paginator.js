@@ -431,13 +431,23 @@ const RAF_ANIMATE_SCROLL_THRESHOLD = 20000
 
 // collapsed range doesn't return client rects sometimes (or always?)
 // try make get a non-collapsed range or element
-const uncollapse = range => {
+export const uncollapse = range => {
     if (!range?.collapsed) return range
     const { endOffset, endContainer } = range
     if (endContainer.nodeType === 1) {
         const node = endContainer.childNodes[endOffset]
         if (node?.nodeType === 1) return node
         return endContainer
+    }
+    // Durtal: a point before white space anchors on the next glyph. A space a
+    // line wrap leaves hangs at the end of the previous line, in the previous
+    // column, with no width, so a saved place that starts a page there
+    // reopened one page early (SLN-676)
+    const glyph = endContainer.data.slice(endOffset).search(/\S/)
+    if (glyph > 0) {
+        range.setStart(endContainer, endOffset + glyph)
+        range.setEnd(endContainer, endOffset + glyph + 1)
+        return range
     }
     if (endOffset + 1 < endContainer.length) range.setEnd(endContainer, endOffset + 1)
     else if (endOffset > 1) range.setStart(endContainer, endOffset - 1)

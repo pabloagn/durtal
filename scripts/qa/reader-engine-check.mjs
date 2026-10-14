@@ -18,7 +18,9 @@
  *              Japanese ones, and the other key turns back
  *   place      a saved place reopens at the same first visible words; at
  *              390 px with touch, also when the tab was only hidden before it
- *              closed (the save goes out with sendBeacon)
+ *              closed (the save goes out with sendBeacon); at 768, a screen
+ *              that starts on an image, on a chapter's first line or
+ *              mid-paragraph reopens on that same screen (SLN-676)
  *   touch      at 390 px with touch (Chrome, WebKit): a tap in the middle
  *              shows or hides the bars, a tap just inside the edge strips
  *              stays, the outer right strip turns forward, the left back, a
@@ -202,6 +204,7 @@ function readState() {
     state: document.querySelector("[data-reader]")?.getAttribute("data-reader") ?? null,
     index: location?.index ?? null,
     fraction: location?.fraction ?? null,
+    cfi: location?.cfi ?? null,
     first: location?.range ? squash(location.range.toString()).slice(0, 48) : null,
     text: squash(contents.map(({ doc }) => doc.body?.innerText ?? "").join(" ")).slice(0, 80),
     images: contents.reduce(
@@ -430,7 +433,57 @@ async function checkPlace(name, browser) {
     `hidden at "${hiddenAt}", reopened at "${back.first}"`,
   );
   await mobile.close();
+
+  // SLN-676: a screen that starts on an image, on a chapter's first line or
+  // mid-paragraph reopens on that same screen, not one or more early. At
+  // 768 the EPUB 3's orchard image starts a screen of its own.
+  const starts = {
+    "starts on an image": () => {
+      const range = document.querySelector("foliate-view").lastLocation?.range;
+      return range?.startContainer.nodeType === 1 && !!range.cloneContents().querySelector("img") && !range.toString().trim().length;
+    },
+    "is a chapter's first": () => {
+      const location = document.querySelector("foliate-view").lastLocation;
+      return location?.index > 0 && location.range?.startContainer.nodeType === 1 && /^H\d$/.test(location.range.startContainer.nodeName);
+    },
+    // Chromium starts such a screen on the space the line wrap leaves at the
+    // end of the previous line; look for one there, as that was the case
+    // that reopened a screen early
+    "starts mid-paragraph": (engine) => {
+      const range = document.querySelector("foliate-view").lastLocation?.range;
+      if (range?.startContainer.nodeType !== 3 || range.startOffset === 0) return false;
+      return engine !== "chromium" || /\s/.test(range.startContainer.data[range.startOffset] ?? "");
+    },
+  };
+  for (const [label, test] of Object.entries(starts)) {
+    await resetFixturePosition(1);
+    const tablet = await browser.newContext({ viewport: { width: 768, height: 900 } });
+    page = await tablet.newPage();
+    s = await open(page, 1);
+    await page.mouse.click(384, 450);
+    let found = await page.evaluate(test, name);
+    for (let i = 0; i < 40 && !found; i++) {
+      await page.keyboard.press("ArrowRight");
+      s = await moved(page, s.fraction);
+      found = await page.evaluate(test, name);
+    }
+    const savedAt = page.waitForResponse(isSave(1), { timeout: 10_000 }).catch(() => null);
+    const left = { label: await pageLabel(page), cfi: s.cfi };
+    const saved = await savedAt;
+    await page.close();
+    page = await tablet.newPage();
+    const back = await open(page, 1);
+    await sleep(600);
+    const reopened = { label: await pageLabel(page), cfi: await page.evaluate(() => document.querySelector("foliate-view")?.lastLocation?.cfi ?? null) };
+    record(name, "place", `768: a screen that ${label} reopens on that screen`, found && !!saved?.ok() && reopened.cfi === left.cfi,
+      `left at ${left.label} ${left.cfi}, reopened at ${reopened.label} ${reopened.cfi}${back.state === "ready" ? "" : ` (${back.state})`}`);
+    await tablet.close();
+  }
 }
+
+/** The page label in the bottom bar: "p. 8 of 32" or "pp. 8–9 of 32" */
+const pageLabel = (page) =>
+  page.evaluate(() => document.querySelector("footer[data-reader-chrome]")?.textContent.match(/pp?\. \S+ of \d+/)?.[0] ?? null);
 
 async function checkTouch(name, browser) {
   if (name === "firefox") return; // Firefox has no touch emulation in Playwright

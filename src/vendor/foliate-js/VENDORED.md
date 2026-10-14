@@ -206,3 +206,10 @@ adapter regression source added; native retesting remains pending.
     kept any view within two sections, so after a jump from Chapter 2 to
     Chapter 4 the strip read Chapter 2, Chapter 4, and one back turn went to
     the end of Chapter 2, skipping Chapter 3. SLN-673.
+
+25. `paginator.js`: `uncollapse` (exported) anchors a collapsed point that
+    sits before white space on the next glyph. A saved place is the first
+    visible point of the screen; when a page starts after a line wrap, that
+    point is the space the wrap leaves hanging at the end of the previous
+    column, whose only boxes have no width and sit in that column, so the
+    reopen scrolled one page early. SLN-676.
