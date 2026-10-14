@@ -5,7 +5,7 @@ import {
   type LookupSource,
 } from "@/lib/validations/reader-lookup";
 
-export const DEFAULT_LOOKUP_SOURCES: readonly LookupSource[] = [
+const LEGACY_DEFAULT_SOURCES: readonly LookupSource[] = [
   {
     language: "la",
     name: "Logeion",
@@ -40,6 +40,39 @@ export const DEFAULT_LOOKUP_SOURCES: readonly LookupSource[] = [
   { language: "de", name: "DWDS", url: "https://www.dwds.de/wb/{word}" },
 ];
 
+export const DEFAULT_LOOKUP_SOURCES: readonly LookupSource[] = [
+  {
+    language: "en",
+    name: "Merriam-Webster",
+    url: "https://www.merriam-webster.com/dictionary/{word}",
+  },
+  {
+    language: "en",
+    name: "Wiktionary",
+    url: "https://en.wiktionary.org/wiki/{word}",
+  },
+  ...LEGACY_DEFAULT_SOURCES,
+];
+
+const sameSources = (a: readonly LookupSource[], b: readonly LookupSource[]) =>
+  a.length === b.length &&
+  a.every(
+    (source, index) =>
+      source.language === b[index].language &&
+      source.name === b[index].name &&
+      source.url === b[index].url,
+  );
+
+/** Saved sources that are still the untouched first defaults (no English) take the current ones (SLN-687). */
+export function withCurrentDefaults(settings: LookupSettings): LookupSettings {
+  return sameSources(settings.sources, LEGACY_DEFAULT_SOURCES)
+    ? {
+        ...settings,
+        sources: DEFAULT_LOOKUP_SOURCES.map((source) => ({ ...source })),
+      }
+    : settings;
+}
+
 export function defaultLookupSettings(): LookupSettings {
   return {
     v: 1,
@@ -51,7 +84,9 @@ export function defaultLookupSettings(): LookupSettings {
 /** Used for both obsolete stored preferences and the optional local offline copy. */
 export function lookupSettings(value: unknown): LookupSettings {
   const parsed = lookupSettingsSchema.safeParse(value);
-  return parsed.success ? parsed.data : defaultLookupSettings();
+  return parsed.success
+    ? withCurrentDefaults(parsed.data)
+    : defaultLookupSettings();
 }
 
 export function sourcesForLanguage(

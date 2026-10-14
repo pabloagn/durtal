@@ -71,14 +71,31 @@ describe("lookup languages and selection candidates", () => {
 
 describe("lookup sources and preferences", () => {
   const source = DEFAULT_LOOKUP_SOURCES[0];
-  it("has the eight complete defaults, and independent fallback values", () => {
-    expect(DEFAULT_LOOKUP_SOURCES).toHaveLength(8);
+  it("has the ten complete defaults, and independent fallback values", () => {
+    expect(DEFAULT_LOOKUP_SOURCES).toHaveLength(10);
     for (const value of DEFAULT_LOOKUP_SOURCES)
       expect(lookupSourceSchema.safeParse(value).success).toBe(true);
     const first = lookupSettings(null);
     first.sources[0].name = "Changed";
     expect(lookupSettings({ v: 2 })).toEqual(defaultLookupSettings());
-    expect(DEFAULT_LOOKUP_SOURCES[0].name).toBe("Logeion");
+    expect(DEFAULT_LOOKUP_SOURCES[0].name).toBe("Merriam-Webster");
+  });
+  it("offers English sources, and upgrades saved settings that kept the first defaults", () => {
+    expect(
+      sourcesForLanguage(DEFAULT_LOOKUP_SOURCES, "en").map((value) => value.name),
+    ).toEqual(["Merriam-Webster", "Wiktionary"]);
+    const first = DEFAULT_LOOKUP_SOURCES.slice(2).map((value) => ({ ...value }));
+    expect(lookupSettings({ v: 1, sources: first, translateTo: "es" })).toEqual({
+      ...defaultLookupSettings(),
+      translateTo: "es",
+    });
+    const edited = [...first.slice(1), first[0]];
+    expect(
+      lookupSettings({ v: 1, sources: edited, translateTo: "es" }).sources,
+    ).toEqual(edited);
+    expect(
+      lookupSettings({ v: 1, sources: [], translateTo: "es" }).sources,
+    ).toEqual([]);
   });
   it("encodes every placeholder and selects any-language sources", () => {
     expect(
