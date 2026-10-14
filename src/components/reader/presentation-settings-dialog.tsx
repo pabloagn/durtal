@@ -73,7 +73,7 @@ export function PresentationSettingsDialog(props: {
       {select("spread", "Spreads", [{ value: "auto", label: "Automatic" }, { value: "none", label: "One page" }, { value: "both", label: "Two pages" }])}
       {number("marginPx", "Side margins (px)", 8, 96, 8)}
       {select("lineLength", "Line length", [{ value: "narrow", label: "Narrow" }, { value: "medium", label: "Medium" }, { value: "wide", label: "Wide" }, { value: "full", label: "Full width" }])}
-      {select("pageTurn", "Page turn", [{ value: "none", label: "Instant" }, { value: "slide", label: "Slide" }])}
+      {select("pageTurn", "Page turn", [{ value: "slide", label: "Slide" }, { value: "fade", label: "Fade" }, { value: "none", label: "Instant" }])}
       {toggle("edgeTaps", "Tap the edges to turn pages")}
       {toggle("pinBars", "Keep the toolbars visible")}
       {number("brightness", "Brightness (%)", 70, 100, 5)}{number("warmth", "Warmth (%)", 0, 100, 10)}{toggle("dimImages", "Dim images in the dark theme")}

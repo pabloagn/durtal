@@ -39,7 +39,8 @@ export const presentationSchema = z
     spread: z.enum(["auto", "none", "both"]),
     marginPx: stepped(8, 96, 8),
     lineLength: z.enum(["narrow", "medium", "wide", "full"]),
-    pageTurn: z.enum(["none", "slide"]),
+    /** Fade crossfades a turn (SLN-660) */
+    pageTurn: z.enum(["none", "slide", "fade"]),
     /** A tap or click in the page's edge strips turns it (SLN-662) */
     edgeTaps: z.boolean(),
     /** The toolbars stay up instead of hiding while reading (SLN-663) */

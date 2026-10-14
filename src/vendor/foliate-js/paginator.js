@@ -195,7 +195,7 @@ const slideTurnAnimation = (element, scrollProp, endValue, exitSign, width, dura
 // in a document-level stylesheet because the ::view-transition pseudo tree
 // attaches to the document root, not to the paginator's shadow root.
 const VIEW_TRANSITION_CLASSES = [
-    'foliate-vt', 'foliate-vt-slide', 'foliate-vt-curl',
+    'foliate-vt', 'foliate-vt-slide', 'foliate-vt-curl', 'foliate-vt-fade',
     'foliate-vt-scrub',
     'foliate-vt-forward', 'foliate-vt-backward',
     'foliate-vt-left', 'foliate-vt-right',
@@ -272,6 +272,8 @@ const updatePlaybackRate = (animation, rate) => {
 
 // Durtal patch 20: a keyboard, tap or button page slide (was 60ms)
 const PAGE_SLIDE_MS = 250
+// Durtal patch 23 (SLN-660): the Fade page turn's crossfade
+const PAGE_FADE_MS = 180
 
 const injectViewTransitionStyles = () => {
     const id = 'foliate-view-transition-styles'
@@ -331,6 +333,17 @@ const injectViewTransitionStyles = () => {
     .foliate-vt-scrub::view-transition-new(foliate-turn) {
         animation-timing-function: linear !important;
     }
+    /* Durtal patch 23: Fade lays the outgoing page over the still incoming
+       one and fades it out, so the turn is never blank in between. */
+    .foliate-vt-fade::view-transition-group(root),
+    .foliate-vt-fade::view-transition-group(foliate-turn) {
+        animation-duration: var(--foliate-vt-slide-duration, 180ms);
+    }
+    .foliate-vt-fade::view-transition-old(foliate-turn) {
+        z-index: 1;
+        animation: foliate-turn-fade-out var(--foliate-vt-slide-duration, 180ms) ease-out both;
+    }
+    @keyframes foliate-turn-fade-out { to { opacity: 0; } }
     @keyframes foliate-turn-slide-out-left { to { transform: translateX(-100%); } }
     @keyframes foliate-turn-slide-out-right { to { transform: translateX(100%); } }
     @keyframes foliate-turn-slide-in-left { from { transform: translateX(-100%); } }
@@ -3317,7 +3330,15 @@ export class Paginator extends HTMLElement {
         }
         // FIXME: vertical-rl only, not -lr
         if (this.scrolled && this.#vertical) offset = -offset
-        if ((reason === 'snap' || smooth) && this.hasAttribute('animated') && !this.hasAttribute('eink')) {
+        // Durtal patch 23 (SLN-660): a Fade turn crossfades through a View
+        // Transition, and swaps at once where there is none. A finger drag's
+        // settle (snap) keeps the push, as the page has followed the finger.
+        const fadeTurn = this.getAttribute('turn-style') === 'fade' && reason !== 'snap'
+            && !this.scrolled && Math.abs(offset - this.containerPosition) > size / 2
+        if (fadeTurn && smooth && this.hasAttribute('animated') && !this.hasAttribute('eink')
+            && typeof document.startViewTransition === 'function')
+            return this.#viewTransitionTurn(offset, reason, 'fade')
+        if ((reason === 'snap' || smooth) && !fadeTurn && this.hasAttribute('animated') && !this.hasAttribute('eink')) {
             // Layered turn styles: snapshot the outgoing page and animate it
             // over the live, stationary incoming page (readest#555). Works
             // for every writing mode since the snapshot is axis-agnostic —
@@ -3470,7 +3491,8 @@ export class Paginator extends HTMLElement {
         this.#settleDrag(true)
         // Keyboard/tap page slides are brief; finger-tracked turns keep their
         // existing timeline through #vtSetup's default duration.
-        this.#vtSetup(style, forward, false, reason === 'page' && style === 'slide' ? PAGE_SLIDE_MS : 300)
+        this.#vtSetup(style, forward, false, style === 'fade' ? PAGE_FADE_MS
+            : reason === 'page' && style === 'slide' ? PAGE_SLIDE_MS : 300)
         const transition = document.startViewTransition(() => {
             this.containerPosition = offset
             if (!this.scrolled) {
