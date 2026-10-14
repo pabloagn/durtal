@@ -2201,7 +2201,13 @@ class FoliateEngine implements ReaderEngine {
     this.#owner = owner;
     this.#turning++;
     try {
-      await this.#view?.[direction]();
+      const forward =
+        direction === "next" ||
+        (direction !== "prev" &&
+          (direction === "goRight") === (this.#view?.book.dir !== "rtl"));
+      const screen = this.#screenDistance(forward);
+      if (screen === undefined) await this.#view?.[direction]();
+      else await this.#view?.[forward ? "next" : "prev"](screen);
       await this.#waitInk();
       if (owner?.signal.aborted)
         throw new DOMException("Cancelled", "AbortError");
@@ -2212,6 +2218,98 @@ class FoliateEngine implements ReaderEngine {
   }
   isScrolled() {
     return !!this.#view?.renderer?.scrolled;
+  }
+  /**
+   * In the scroll flow a page turn scrolls a screen less one line: the last
+   * line wholly on screen comes to the top, or going back the first comes to
+   * the bottom, so the reader keeps their line (SLN-674). Undefined when the
+   * book turns pages.
+   */
+  #screenDistance(forward: boolean) {
+    const renderer = this.#view?.renderer;
+    const size = renderer?.scrolled ? renderer.size : undefined;
+    if (!renderer || !size) return undefined;
+    const line = this.#lineHeight();
+    const box = renderer.shadowRoot
+      ?.getElementById("container")
+      ?.getBoundingClientRect();
+    const kept = box && this.#keptLine(box, forward, line);
+    const distance = !box || !kept
+      ? size - line
+      : forward
+        ? kept.top - box.top
+        : box.bottom - kept.bottom;
+    return Math.min(size, Math.max(size / 2, distance));
+  }
+  /**
+   * The line wholly on screen nearest the edge a turn leaves by: probes the
+   * text block at the edge, and steps past a cut line or a gap between
+   * blocks, at most half a screen in.
+   */
+  #keptLine(box: DOMRect, forward: boolean, line: number) {
+    const edge = forward ? box.bottom : box.top;
+    const step = forward ? -1 : 1;
+    let y = edge + step;
+    for (let probes = 0; probes < 40 && Math.abs(y - edge) < box.height / 2; probes++) {
+      const rects = this.#lineRectsAt(box, y);
+      if (!rects?.length) {
+        y += step * (line / 2);
+        continue;
+      }
+      const whole = rects.filter((r) =>
+        forward ? r.bottom <= edge + 0.5 : r.top >= edge - 0.5,
+      );
+      if (whole.length) {
+        const kept = whole.reduce((a, b) =>
+          forward ? (b.bottom > a.bottom ? b : a) : b.top < a.top ? b : a,
+        );
+        // An image seen whole is not shown again: the turn starts after it
+        if (!kept.image) return kept;
+        const at = forward ? kept.bottom : kept.top;
+        return { top: at, bottom: at, image: true };
+      }
+      // Every line of this block is cut by the edge: probe the next one in.
+      // A block whose lines all lie past the probe (its padding) steps on
+      const next = forward
+        ? Math.min(...rects.map((r) => r.top)) - 1
+        : Math.max(...rects.map((r) => r.bottom)) + 1;
+      y = (next - y) * step > 0 ? next : y + step * (line / 2);
+    }
+    return undefined;
+  }
+  /** The line boxes of the text block at this height, in the page's coordinates */
+  #lineRectsAt(box: DOMRect, y: number) {
+    for (const { doc } of this.#view?.renderer.getContents() ?? []) {
+      const frame = doc.defaultView?.frameElement?.getBoundingClientRect();
+      if (!frame || y < frame.top || y >= frame.bottom) continue;
+      const x = Math.max(frame.left, box.left) + Math.min(frame.width, box.width) / 2;
+      const element = doc.elementFromPoint(x - frame.left, y - frame.top);
+      if (!element || element === doc.body || element === doc.documentElement)
+        return null;
+      // A block with no text (an image, or the paragraph holding one) is one
+      // box: one cut by the edge is stepped past whole
+      const image = !element.textContent?.trim();
+      const range = doc.createRange();
+      range.selectNodeContents(element);
+      const lines = image ? [element.getBoundingClientRect()] : [...range.getClientRects()];
+      return lines
+        .filter((r) => r.width > 0 && r.height > 0)
+        .map((r) => ({ top: r.top + frame.top, bottom: r.bottom + frame.top, image }));
+    }
+    return null;
+  }
+  /** The text's line height, or the arrow keys' step where the text has none */
+  #lineHeight() {
+    const doc = this.#view?.renderer.getContents()[0]?.doc;
+    const body = doc?.body;
+    const style = body ? doc.defaultView?.getComputedStyle(body) : undefined;
+    if (!style) return SCROLL_LINE_PX;
+    const lineHeight = parseFloat(style.lineHeight);
+    if (Number.isFinite(lineHeight) && lineHeight > 0) return lineHeight;
+    const fontSize = parseFloat(style.fontSize);
+    return Number.isFinite(fontSize) && fontSize > 0
+      ? fontSize * 1.2
+      : SCROLL_LINE_PX;
   }
   scrollLines(direction: -1 | 1) {
     this.scrollBy(direction * SCROLL_LINE_PX);

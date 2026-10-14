@@ -58,4 +58,22 @@ describe("anchoring a saved point", () => {
     range.collapse(true);
     expect(uncollapse(range)).toBe(figure);
   });
+  it("anchors a range that covers nothing on screen on its start (SLN-674)", () => {
+    const p = document.createElement("p");
+    const img = document.createElement("img");
+    p.append(img);
+    document.body.replaceChildren(p);
+    const range = document.createRange();
+    range.setStart(p, 0);
+    range.setEnd(img, 0);
+    Object.defineProperty(range, "getClientRects", { value: () => [] });
+    expect(uncollapse(range)).toBe(img);
+    expect([range.startContainer, range.endContainer]).toEqual([p, img]);
+  });
+  it("keeps a range that has boxes", () => {
+    const range = point("city candle distant", 0);
+    range.setEnd(range.startContainer, 6);
+    Object.defineProperty(range, "getClientRects", { value: () => [{ width: 40, height: 20 }] });
+    expect(uncollapse(range)).toBe(range);
+  });
 });

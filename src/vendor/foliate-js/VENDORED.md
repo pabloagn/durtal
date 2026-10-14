@@ -215,3 +215,14 @@ adapter regression source added; native retesting remains pending.
     reopen scrolled one page early. When only white space is left in the
     text node (the next word starts italics, a link or a note mark), it walks
     on to the next glyph, or anchors on an image met first. SLN-676.
+
+28. `paginator.js`: switching between pages and the scroll flow keeps the
+    place. The switch scrolled to the anchor while the views still had the
+    old flow's size, so the scroll was clamped short (into the scroll flow,
+    up to three screens back at 390px) and the next settle kept that spot.
+    Two frames later, once the views have grown, it scrolls to the same
+    anchor again unless a navigation or a scroll replaced it. And
+    `uncollapse` anchors a range with no boxes on its start: a page holding
+    only an image reports the point before the image (its paragraph's start
+    to the image's start), so the switch on that page went to the book's
+    start. SLN-674.
