@@ -22,7 +22,6 @@ function linkInk(colours: ReaderTheme): string {
 }
 
 /** Font faces are installed separately after the source-bound asset manifest exists. */
-
 export function bookCSS(
   p: ReaderPresentation,
   colours: ReaderTheme,

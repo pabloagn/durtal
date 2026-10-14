@@ -37,6 +37,11 @@ history entry, so browser Back left the reader.
     entry, so the two never drift apart.
   - Entries carry a token per open, so entries left by an earlier open of
     the book are not this reader's.
+  - A reload takes over the token and depth the browser kept in
+    `history.state` and starts above them (`floor`), so the reader's Back
+    still leaves past every in-book entry. Browser Back into an entry from
+    before the reload goes on to the page the reader was opened from, and a
+    popstate on another address is ignored (review of #235).
 - Leaving the reader (`reader-view.tsx`): its Back goes past the in-book
   entries to the page the reader was opened from
   (`history.go(-1 - depth)`).
