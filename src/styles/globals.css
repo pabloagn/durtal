@@ -1192,14 +1192,22 @@ dialog::backdrop {
   :has(> [data-catalogue-view="grid"]) > .grid-size-slider .grid-size-desktop { display: none; }
   :has(> [data-catalogue-view="grid"]) > .grid-size-slider .grid-size-mobile { display: block; }
   .catalogue-density-grid { grid-template-columns: minmax(0, 1fr); }
-  .catalogue-density-compact { gap: 8px; }
+  /* Compact is two cards a row, with a tighter gap and card padding. A
+     container too narrow for two (a 320px phone) keeps one ordinary card a
+     row, its text at the card's usual inset. Each card is a container of its
+     own, so the grid's width reaches the cards through --compact-inset;
+     unset, the fallbacks are the cards' usual padding and star offset */
   @container (min-width: 328px) {
-    .catalogue-density-compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .catalogue-density-compact {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      --compact-inset: 8px;
+      --compact-hit-end: 0px;
+    }
   }
-  .catalogue-density-compact > * .card-body,
-  .catalogue-density-compact > * > .compact-card-section { padding-left: 8px; padding-right: 8px; }
-  .catalogue-density-compact > * .card-body { padding-top: 8px; padding-bottom: 8px; }
-  .catalogue-density-compact > * .icon-hit-end { margin-right: 0; }
+  .catalogue-density-compact > * .card-body { padding: var(--compact-inset, 0.875rem); }
+  .catalogue-density-compact > * > .compact-card-section { padding-inline: var(--compact-inset, 1rem); }
+  .catalogue-density-compact > * .icon-hit-end { margin-right: var(--compact-hit-end, -0.875rem); }
 }
 
 /* Phone book atmosphere: retain palette and feathered field, paint one plane.
