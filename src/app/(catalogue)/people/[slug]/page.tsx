@@ -326,7 +326,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                           href={link.href}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-accent-primary transition-colors hover:text-fg-primary"
+                          className="text-sm text-command"
                         >
                           {link.label}
                         </a>

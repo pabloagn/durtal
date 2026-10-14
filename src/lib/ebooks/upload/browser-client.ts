@@ -16,7 +16,8 @@ export type PendingUploadRequest = NonNullable<UploadBrowserSession["pending"]>;
 const STORAGE = "durtal.ebook-upload.v1";
 /** A request the server answered with an error status: `definitive` when sending it again cannot change the answer. */
 export class UploadHttpError extends Error {
-  constructor(readonly status: number, message: string) { super(message); }
+  /** `code`: the server's reason, such as `upload_not_settled` (the worker is still busy) */
+  constructor(readonly status: number, message: string, readonly code?: string) { super(message); }
   /** 4xx (except timeout and rate limit) and 503 unavailable: the server refused it and applied nothing new (SLN-672) */
   get definitive(): boolean { return this.status >= 400 && this.status < 500 && this.status !== 408 && this.status !== 429 || this.status === 503; }
 }
@@ -73,7 +74,8 @@ export async function uploadResponse(response: Response, allowReceipt = false, r
       const receipt = uploadOutcomeSchema.safeParse(body);
       if (receipt.success && receipt.data.status === response.status) return receipt.data;
     }
-    if (!response.ok) throw new UploadHttpError(response.status, typeof body.error === "string" ? body.error : typeof body.message === "string" ? body.message : "The upload request could not be completed.");
+    if (!response.ok) throw new UploadHttpError(response.status, typeof body.error === "string" ? body.error : typeof body.message === "string" ? body.message : "The upload request could not be completed.",
+      typeof body.code === "string" ? body.code : undefined);
     return body;
   } finally { if (!done) await reader.cancel(); reader.releaseLock(); }
 }

@@ -72,7 +72,7 @@ export function AddButton({
   label: string;
   text?: string;
   onClick: () => void;
-  buttonRef: React.Ref<HTMLButtonElement>;
+  buttonRef?: React.Ref<HTMLButtonElement>;
 }) {
   return (
     <button

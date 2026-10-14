@@ -437,7 +437,8 @@ export function CommitImport({ importId, label, disabled }: { importId: string; 
     <Button
       variant="primary"
       disabled={pending || disabled}
-      className={coarse}
+      // The label grows with the import's counts: on a phone it wraps inside the button
+      className="h-auto! min-h-8 max-w-full whitespace-normal! py-1.5 text-left"
       data-import-commit=""
       onClick={() =>
         run(

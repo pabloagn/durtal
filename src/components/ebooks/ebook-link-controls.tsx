@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -8,6 +8,7 @@ import { ChooseBookFields } from "./choose-book-dialog";
 import { NewBookFields } from "./new-book-dialog";
 import { ReviewConfirm } from "./review-confirm";
 import { UnlinkEbookButton } from "./unlink-ebook-button";
+import { chooseBookNext } from "./choose-book-next";
 import { prepareReviewUi, confirmReviewUi } from "@/lib/actions/ebook-review-ui";
 import { initialReviewDecision, reviewDecisionReducer } from "@/lib/ebooks/review-queue/decision-state";
 import { notifyReviewOutcome } from "@/lib/ebooks/review-queue/feedback";
@@ -67,6 +68,15 @@ export function EbookLinkControls({ row }: { row: ReviewQueueRow }) {
       router.refresh();
     }
   }
+  // "Change the book…" unlinked it: choose its new book now (SLN-666)
+  const unlinkedNow = row.state === "pending" || row.state === "standalone";
+  useEffect(() => {
+    if (unlinkedNow && row.stamp && chooseBookNext.take(row.id)) {
+      edit(); setAction("choose");
+    }
+    // Once, when the refreshed page first shows it unlinked
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.id, unlinkedNow, !!row.stamp]);
   function prepareSimple() {
     if (action === "keep" || action === "rematch")
       void prepare({ action, ebookId: row.id });

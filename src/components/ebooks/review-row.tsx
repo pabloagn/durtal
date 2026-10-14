@@ -52,7 +52,7 @@ export function ReviewRow({ row, section, detail, selected, focused, busy, retur
       <div className="min-w-0">
         <div className="flex items-start gap-3">
           {row.hasCover && <Image src={`/api/reader/${row.id}/cover?w=240`} width={60} height={88} alt="" unoptimized
-            loading="lazy" className="h-22 w-15 shrink-0 rounded-xs object-cover" />}
+            loading="lazy" className="h-22 w-15 shrink-0 rounded-sm object-cover" />}
           <div className="min-w-0 flex-1"><CardHeading title={row.title} subtitle={row.subtitle ?? row.authors.join(" & ")}
             action={<label className="inline-flex h-8 w-8 items-center justify-center pointer-coarse:h-11 pointer-coarse:w-11">
               <input type="checkbox" checked={selected} disabled={!pending || !row.stamp || busy}

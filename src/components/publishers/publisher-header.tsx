@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Copy, ImageIcon, Library, Pencil } from "lucide-react";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
-import { CapAlignedControls } from "@/components/shared/cap-aligned";
+import { DetailTitleRow } from "@/components/shared/detail-layout";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { Monogram } from "@/components/shared/no-photo";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
@@ -80,35 +80,24 @@ export function PublisherHeader({
           )}
         </div>
 
-        <div className="@container min-w-0 flex-1">
-          {/* A long name keeps the row's width on a phone: below a 24rem
-              row the controls go under it when it would not fit on one line
-              beside them; from 24rem they stay beside it, as wrapping there
-              can make the header taller. Decided by CSS alone, so nothing
-              moves once the page has loaded. Under the name the star's
-              padding goes past the column's edge, so the star lines up with
-              the name; beside it the wider gap gives the padding back */}
-          <div className="type-page-title flex flex-wrap items-start gap-x-6 pointer-coarse:gap-x-7.5 @min-[24rem]:flex-nowrap">
-            <h1 className="type-page-title min-w-0 flex-[1_1_auto] break-words">{name}</h1>
-            {/* On the cap-height center of the name's first line */}
-            <CapAlignedControls height={32} coarseHeight={44} className="type-page-title -ml-2 pointer-coarse:-ml-3.5">
-              <FavouriteToggle
-                favourite={favourite}
-                target={{ entity: "publisher", id }}
-                name={name}
-                shortcut
-              />
-              <Link
-                href={`/publishers/${slug}/edit`}
-                data-tooltip="Edit publisher"
-                data-tooltip-keys={editTooltipKeys(EDIT_KEYS.publisher)}
-                className="inline-flex h-8 items-center rounded-sm border border-glass-border px-3 text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11"
-              >
-                Edit
-              </Link>
-              <EntityActionMenu items={actions} />
-            </CapAlignedControls>
-          </div>
+        <div className="min-w-0 flex-1">
+          <DetailTitleRow title={name}>
+            <FavouriteToggle
+              favourite={favourite}
+              target={{ entity: "publisher", id }}
+              name={name}
+              shortcut
+            />
+            <Link
+              href={`/publishers/${slug}/edit`}
+              data-tooltip="Edit publisher"
+              data-tooltip-keys={editTooltipKeys(EDIT_KEYS.publisher)}
+              className="inline-flex h-8 items-center rounded-sm border border-glass-border px-3 text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11"
+            >
+              Edit
+            </Link>
+            <EntityActionMenu items={actions} />
+          </DetailTitleRow>
           {facts.length > 0 && (
             <p className="mt-3 flex flex-wrap items-baseline gap-x-2 text-sm text-fg-secondary">
               {facts.map((fact, i) => (

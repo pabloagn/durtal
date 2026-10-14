@@ -115,9 +115,10 @@ const toPosition = (row: PositionRow): SavedPosition => ({
 });
 
 /**
- * Saves a device's place in a file. A place older than the stored one
- * changes nothing but furthest_progression. Returns whether it was the
- * newest, and the row as it stands.
+ * Saves a device's place in a file. A place older than the stored one, or
+ * under the same clock and not further, changes nothing but
+ * furthest_progression. Returns whether its clock is the newest, and the row
+ * as it stands.
  */
 export async function savePosition(input: {
   ebookId: string;
@@ -128,7 +129,11 @@ export async function savePosition(input: {
   const { ebookId, deviceId, deviceLabel, body } = input;
   const progression = body.locator.totalProgression;
   const at = body.clientUpdatedAt.toISOString();
-  const newer = sql`ebook_positions.client_updated_at < excluded.client_updated_at`;
+  // Two saves under one clock keep the further place, so an echo of an older
+  // place can never move it back (SLN-665)
+  const newer = sql`(ebook_positions.client_updated_at < excluded.client_updated_at
+    or (ebook_positions.client_updated_at = excluded.client_updated_at
+      and excluded.progression > ebook_positions.progression))`;
   const [row] = resultRows<PositionRow & { saved: boolean }>(
     await db.execute(sql`insert into ebook_positions
         (ebook_id, file_id, device_id, device_label, locator, progression, furthest_progression, chapter, client_updated_at)
@@ -161,15 +166,26 @@ export async function devicePositions(
   return rows.map(toPosition);
 }
 
-/** All file/device places, ordered by the reader clock, without changing save semantics. */
-export async function allDevicePositions(
+/**
+ * The places the reader checks for a newer one (SLN-665): this device's, the
+ * newest other device's and the furthest other one, newest first. That is
+ * all the offer uses (placeToOffer, furthestOffer), however many places the
+ * e-book has. Reading changes nothing.
+ */
+export async function placesToCheck(
   ebookId: string,
   deviceId: string | null,
 ) {
+  const device = deviceId ?? "";
   const rows = resultRows<PositionRow & { deviceId: string }>(
     await db.execute(sql`select
-    ${POSITION_COLUMNS}, device_id as "deviceId" from ebook_positions
-    where ebook_id = ${ebookId}::uuid order by client_updated_at desc, device_id, file_id`),
+    ${POSITION_COLUMNS}, device_id as "deviceId" from ebook_positions p
+    where p.ebook_id = ${ebookId}::uuid and (p.device_id = ${device}
+      or p.id = (select o.id from ebook_positions o where o.ebook_id = ${ebookId}::uuid and o.device_id <> ${device}
+        order by o.client_updated_at desc, o.device_id, o.file_id limit 1)
+      or p.id = (select o.id from ebook_positions o where o.ebook_id = ${ebookId}::uuid and o.device_id <> ${device}
+        order by (o.locator->>'totalProgression')::float8 desc nulls last, o.client_updated_at desc, o.device_id, o.file_id limit 1))
+    order by client_updated_at desc, device_id, file_id`),
   );
   return rows.map((row) => {
     const place = toPosition(row);

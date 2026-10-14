@@ -26,13 +26,16 @@ interface LocationOption {
 /** The e-book linked to a copy: it is that digital copy (SLN-490) */
 export interface CopyEbook {
   id: string;
-  /** "EPUB, PDF" */
-  formats: string;
+  /** ["EPUB", "PDF"]: the copy's format chips, one per format the e-book has (SLN-683) */
+  formats: string[];
   sizeBytes: number;
   readerPath: string | null;
   readLabel: string | null;
   unavailableReason: string | null;
   returnTo: string;
+  /** Its highlights, notes and bookmarks, and the devices with a reading place in it: the book page leads to both (SLN-683) */
+  marks: { highlights: number; notes: number; bookmarks: number };
+  places: number;
 }
 
 interface InstanceDetailProps {
@@ -44,6 +47,8 @@ interface InstanceDetailProps {
 }
 
 const DIGITAL_FORMATS = new Set(["ebook", "audiobook", "pdf", "epub"]);
+/** "3 highlights", or nothing for none */
+const count = (n: number, word: string) => (n ? `${n} ${word}${n === 1 ? "" : "s"}` : null);
 
 function isDigitalFormat(format: string | null): boolean {
   return !!format && DIGITAL_FORMATS.has(format.toLowerCase());
@@ -103,9 +108,10 @@ export function InstanceDetail({
               </span>
             )}
           </span>
-          {instance.format && (
-            <Badge variant="muted">{enumLabel(instance.format)}</Badge>
-          )}
+          {/* A copy that is an e-book shows the e-book's formats, not the one the copy was entered with (SLN-683) */}
+          {ebook?.formats.length
+            ? ebook.formats.map((format) => <Badge key={format} variant="muted">{format}</Badge>)
+            : instance.format && <Badge variant="muted">{enumLabel(instance.format)}</Badge>}
           {instance.condition && (
             <Badge variant="sage">{enumLabel(instance.condition)}</Badge>
           )}
@@ -136,7 +142,9 @@ export function InstanceDetail({
         </div>
 
         {hasActions && (
-          <div className="flex items-center gap-1">
+          // The buttons' padding reaches past the text edges: Edit's ink starts on the
+          // left edge when stacked, and Delete's ends on the right edge beside the place
+          <div className="-ml-2.5 flex items-center gap-1 @min-[440px]:-mr-2.5 @min-[440px]:ml-0">
             <InstanceEditDialog
               instance={instance}
               editionId={instance.editionId}
@@ -263,7 +271,7 @@ export function InstanceDetail({
                   <span className="font-mono">
                     {/* The size keeps its number and unit on one line; an e-book with no file has none */}
                     {[
-                      ebook.formats,
+                      ebook.formats.join(", "),
                       ebook.sizeBytes
                         ? formatFileSize(ebook.sizeBytes).replace(" ", "\u00a0")
                         : null,
@@ -271,16 +279,40 @@ export function InstanceDetail({
                       .filter(Boolean)
                       .join(" · ")}
                   </span>
-                  <Link href={`/ebooks/${ebook.id}`} className="ml-3 text-fg-primary transition-colors hover:text-accent-primary">eBook details</Link>
+                  <Link href={`/ebooks/${ebook.id}`} className="ml-3 text-command">eBook details</Link>
                   {ebook.readerPath && <ReaderEntryLink
                     readerPath={ebook.readerPath}
                     returnTo={ebook.returnTo}
-                    className="ml-3 text-fg-primary transition-colors hover:text-accent-primary"
+                    className="ml-3 text-command"
                   >
                     {ebook.readLabel ?? "Read"}
                   </ReaderEntryLink>}
                   {ebook.unavailableReason && <p className="mt-1 text-xs text-fg-secondary">{ebook.unavailableReason}</p>}
                   <UnlinkEbookButton ebookId={ebook.id} />
+                </dd>
+              </>
+            )}
+            {ebook && ebook.marks.highlights + ebook.marks.bookmarks > 0 && (
+              <>
+                <dt className="text-fg-secondary">Highlights</dt>
+                <dd>
+                  <Link href={`/ebooks/highlights?ebook=${ebook.id}`} className="text-command">
+                    {[
+                      count(ebook.marks.highlights, "highlight"),
+                      count(ebook.marks.notes, "note"),
+                      count(ebook.marks.bookmarks, "bookmark"),
+                    ].filter(Boolean).join(" · ")}
+                  </Link>
+                </dd>
+              </>
+            )}
+            {ebook && ebook.places > 0 && (
+              <>
+                <dt className="text-fg-secondary">Reading places</dt>
+                <dd>
+                  <Link href={`/ebooks/${ebook.id}#places`} className="text-command">
+                    {ebook.places === 1 ? "On 1 device" : `On ${ebook.places} devices`}
+                  </Link>
                 </dd>
               </>
             )}

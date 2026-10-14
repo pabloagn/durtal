@@ -3,6 +3,7 @@ import {
   deviceReplayPolicy,
   EXPECTED_DEVICE_HEADER,
   type Json,
+  mutationWireJson,
 } from "./mutations";
 import {
   annotationAcknowledgments,
@@ -376,6 +377,38 @@ export function createReaderTransport(options: TransportOptions) {
       kick();
     },
     requestReplay,
+    /** The reader's Retry while sync is paused (SLN-668): a blocked head is
+     * probed again, and a waiting one goes now instead of after its backoff. */
+    async retryNow() {
+      if (stopped) return;
+      probedBlocked = false;
+      // A person pressing Retry is the explicit reconciliation a blocked head
+      // waits for: signed in again under this device, it can go (review #273)
+      const head = (await options.store.inspect())[0];
+      if (head?.state === "blocked") {
+        try {
+          const identity = await deadline(preflight);
+          if (identity.authenticated)
+            await options.store.reconcile(
+              {
+                seq: head.seq,
+                operationId: head.mutation.operationId,
+                revision: head.mutation.revision,
+                ebookId: head.mutation.ebookId,
+                fileId: head.mutation.fileId,
+                deviceId: head.mutation.deviceId,
+                attempts: head.attempts,
+                wireJson: mutationWireJson(head.mutation),
+              },
+              identity.deviceId,
+            );
+        } catch (error) {
+          options.onError?.(error);
+        }
+      }
+      await options.store.retryNow();
+      return requestReplay("foreground");
+    },
     /** The caller explicitly completed authentication reconciliation. This does
      * not run from online/visibility/device probes and never relabels originals;
      * only replay moves rows from a superseded device id to the current one.

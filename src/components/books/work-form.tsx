@@ -294,7 +294,8 @@ export function WorkForm({
 
   return (
     <>
-      <div className="max-h-[75vh] overflow-y-auto pr-1">
+      {/* Room on the left for the rating's first star target and its focus ring, which reach past the column (SLN-641) */}
+      <div className="-ml-5 max-h-[75vh] overflow-y-auto pl-5 pr-1">
         <div className="space-y-6">
           {/* Core Details */}
           <section>

@@ -5,9 +5,9 @@ import { readJson } from "@/lib/api/rest";
 import { isUuid } from "@/lib/utils/uuid";
 import { DEVICE_COOKIE, deviceLabelFor, isDeviceId } from "@/lib/reader/device";
 import {
-  allDevicePositions,
   ebookAndFile,
   ebookExists,
+  placesToCheck,
   positionBodySchema,
   savePosition,
 } from "@/lib/reader/positions";
@@ -33,9 +33,11 @@ async function ebookIdOf(
 }
 
 /**
- * GET /api/reader/[ebookId]/position — every device's place in every file of
- * the e-book, marked against the durtal-device cookie: `{ positions: [...] }`, newest
- * first, including when this device has not read it. 404 for an unknown e-book.
+ * GET /api/reader/[ebookId]/position — the places the reader checks for a
+ * newer one, marked against the durtal-device cookie: this device's in every
+ * file, the newest other device's and the furthest other one (placesToCheck),
+ * as `{ positions: [...] }`, newest first, including when this device has
+ * not read it. 404 for an unknown e-book.
  */
 export async function GET(req: NextRequest, { params }: Params) {
   const ebookId = await ebookIdOf(req, params);
@@ -44,7 +46,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     if (!(await ebookExists(ebookId))) return json(404, { error: "Not found" });
     const device = req.cookies.get(DEVICE_COOKIE)?.value;
     return json(200, {
-      positions: await allDevicePositions(
+      positions: await placesToCheck(
         ebookId,
         isDeviceId(device) ? device : null,
       ),

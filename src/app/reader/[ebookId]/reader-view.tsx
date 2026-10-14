@@ -87,6 +87,7 @@ import {
 } from "@/lib/reader/input";
 import { createDurablePositionQueue } from "@/lib/reader/offline/position-adapter";
 import { getReaderRuntime } from "@/lib/reader/offline/runtime";
+import { useSyncPaused } from "@/components/reader/use-sync-paused";
 import { comparePositionTimes } from "@/lib/reader/offline/outbox-policy";
 import type { PositionMutation } from "@/lib/reader/offline/mutations";
 import { isExactLocalOpeningPosition } from "@/lib/reader/opening-position";
@@ -387,6 +388,7 @@ function ReaderSession({
   const [offer, setOffer] = useState<ReaderPlace | null>(null);
   const [furthest, setFurthest] = useState<ReaderPlace | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const sync = useSyncPaused();
   const [selection, setSelection] = useState<EngineEvents["selection"]>(null);
   const selectionToolbarRef = useRef<HTMLDivElement>(null);
   const [lookupSheet, setLookupSheet] = useState(false);
@@ -1241,11 +1243,20 @@ function ReaderSession({
           saved = landing.locator;
         } else if (
           landing &&
+          (!resumeAnchor || resumeAnchor.deviceId === deviceId) &&
           (!ownPlace ||
             resumed?.status !== "exact" ||
             resumeAnchor?.fileId !== file.id)
         )
+          // A book's first open with no place anywhere is saved now, under
+          // this moment: it is a real open, and it marks the book opened
+          // (SLN-683). This device's own place, found again in another or a
+          // changed file, keeps its own clock
           save(landing.locator, landing.chapter, resumeAnchor?.clientUpdatedAt);
+        // Opening at another device's place saves nothing for this device
+        // until the reader moves: a row under that place's clock would show a
+        // device that never read there (SLN-665)
+        else if (landing) saved = landing.locator;
         unregisterShortcuts = registerCoreReaderShortcuts([
           "arrowleft",
           "arrowright",
@@ -1728,6 +1739,24 @@ function ReaderSession({
                   onClick={() => syncRef.current?.dismiss()}
                 >
                   Stay
+                </button>
+              </div>
+            </div>
+          ) : sync.paused ? (
+            <div className="flex flex-wrap items-start gap-2">
+              <p className="min-w-0 flex-1 basis-64 py-1 [@media(pointer:coarse)]:py-2.5">
+                Sync paused. Your places and highlights are kept on this device until it resumes.
+              </p>
+              <div className="ml-auto flex gap-2">
+                <button
+                  type="button"
+                  aria-label="Retry sync"
+                  data-tooltip="Retry sync"
+                  disabled={sync.retrying}
+                  className="h-8 rounded-sm px-2 hover:bg-bg-tertiary disabled:text-fg-muted [@media(pointer:coarse)]:min-h-11"
+                  onClick={() => void sync.retry()}
+                >
+                  {sync.retrying ? "Retrying" : "Retry"}
                 </button>
               </div>
             </div>

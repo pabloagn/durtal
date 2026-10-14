@@ -69,6 +69,14 @@ describe("ebook cards", () => {
     expect(host.textContent).toContain(ebook.title);
     expect(host.querySelector(".lines-2")).toBeNull();
   });
+  it("titles a linked eBook after its book, with the book's authors (SLN-683)", () => {
+    const ebook = { ...book(), bookTitle: "Against Nature", bookAuthors: ["J.-K. Huysmans"], bookId: BOOK };
+    act(() => root.render(createElement(EbookCard, { book: ebookCardData(ebook, null) })));
+    expect(host.textContent).toContain("Against Nature");
+    expect(host.textContent).toContain("J.-K. Huysmans");
+    expect(host.textContent).not.toContain("A deliberately long title");
+    expect(host.querySelector('a[aria-label^="Read "]')?.getAttribute("aria-label")).toBe("Read Against Nature");
+  });
   it.each(["quarantined", "missing", "replaced"])(
     "never offers Read for %s-only files",
     (status) => {
