@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { SectionHeading } from "@/components/shared/section-heading";
 import { beginReaderHistory, commitReaderHistory, finishReaderHistory, undoReaderHistory,
   type previewReaderHistory, type readerHistoryOperations } from "@/lib/actions/reader-history";
 
@@ -74,48 +76,57 @@ export function ReaderHistoryRecovery({ rows, operations }: { rows: Row[]; opera
     finally { setBusy(false); }
   }
 
-  return <section className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
-    <Link href="/settings/reading" className="text-sm text-fg-secondary underline">Reading settings</Link>
-    <div className="space-y-2"><h1 className="text-2xl font-semibold">Recover eBook reading history</h1>
-      <p className="text-sm text-fg-secondary">Review the preserved history before adding it to Reading. Blank dates stay unknown. Recovery adds no reading time, ratings, or private notes.</p></div>
-    {message && <p role="status" className="rounded-lg bg-bg-secondary p-3 text-sm">{message}</p>}
-    {rows.length ? <form onSubmit={(event) => { event.preventDefault(); void recover(); }} className="space-y-4">
+  const field = "block min-h-8 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-xs text-fg-primary focus:border-accent-primary focus:outline-none disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:text-sm";
+  return <>
+    <Link href="/settings/reading"
+      className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit">
+      <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
+      Back to Reading settings
+    </Link>
+    {/* Under Settings since SLN-641: it had no app layout, so it showed unstyled */}
+    <SectionHeading title="Recover eBook reading history"
+      description="Review the preserved history before adding it to Reading. Blank dates stay unknown. Recovery adds no reading time, ratings, or private notes." />
+    {message && <p role="status" className="mb-6 rounded-sm border border-glass-border bg-bg-secondary px-5 py-3 text-sm text-fg-primary">{message}</p>}
+    {rows.length ? <form onSubmit={(event) => { event.preventDefault(); void recover(); }} className="mb-8 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm">{selected.length} of {rows.length} selected</p>
+        <p className="text-sm text-fg-secondary">{selected.length} of {rows.length} selected</p>
         <Button type="submit" variant="primary" disabled={busy || (!pending && !selected.length)}>{busy ? "Saving…" : pending ? "Retry recovery" : "Add selected history"}</Button>
       </div>
       <div className="space-y-3">{rows.map((row) => {
         const edit = edits[row.ebookId];
         const disabled = busy || !!pending || row.imported;
-        return <fieldset key={row.ebookId} disabled={disabled} className="rounded-xl border border-border-primary p-4">
-          <legend className="px-1 text-sm font-medium">{row.title}</legend>
-          <label className="mb-3 flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={edit.selected}
+        return <fieldset key={row.ebookId} disabled={disabled} className="rounded-sm border border-glass-border bg-bg-secondary px-5 py-4">
+          <legend className="type-item-title float-left mb-2 w-full">{row.title}</legend>
+          <label className="clear-both mb-3 flex min-h-8 items-center gap-2 text-sm text-fg-primary pointer-coarse:min-h-11"><input type="checkbox" checked={edit.selected}
             onChange={(event) => change(row.ebookId, { selected: event.target.checked })} />{row.imported ? "Already recovered" : "Add this history"}</label>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="space-y-1 text-sm"><span>Status</span><select className="block min-h-11 w-full rounded border border-border-primary bg-bg-primary px-2" value={edit.status}
+            <label className="space-y-1.5"><span className="type-label block">Status</span><select className={field} value={edit.status}
               onChange={(event) => change(row.ebookId, { status: event.target.value as Edit["status"] })}>
               <option value="reading">Reading</option><option value="paused">Paused</option><option value="finished">Finished</option></select></label>
-            <label className="space-y-1 text-sm"><span>Started · optional</span><input type="date" className="block min-h-11 w-full rounded border border-border-primary bg-bg-primary px-2" value={edit.startedOn}
+            <label className="space-y-1.5"><span className="type-label block">Started · optional</span><input type="date" className={field} value={edit.startedOn}
               onChange={(event) => change(row.ebookId, { startedOn: event.target.value })} /></label>
-            <label className="space-y-1 text-sm"><span>Finished · optional</span><input type="date" disabled={disabled || edit.status !== "finished"}
-              className="block min-h-11 w-full rounded border border-border-primary bg-bg-primary px-2" value={edit.finishedOn}
+            <label className="space-y-1.5"><span className="type-label block">Finished · optional</span><input type="date" disabled={disabled || edit.status !== "finished"}
+              className={field} value={edit.finishedOn}
               onChange={(event) => change(row.ebookId, { finishedOn: event.target.value })} /></label>
-            <label className="space-y-1 text-sm"><span>Progress · percent</span><input type="number" min="0" max="100" step="0.01" required
-              className="block min-h-11 w-full rounded border border-border-primary bg-bg-primary px-2" value={edit.percent}
+            <label className="space-y-1.5"><span className="type-label block">Progress · percent</span><input type="number" min="0" max="100" step="0.01" required
+              className={field} value={edit.percent}
               onChange={(event) => change(row.ebookId, { percent: event.target.value })} /></label>
           </div>
-          {row.reason === "already_open" && <p className="mt-2 text-sm text-fg-secondary">This book already has an open reading. Only finished history can be added.</p>}
-          {row.reason === "end_without_finish" && <p className="mt-2 text-sm text-fg-secondary">The saved position is at the end, but no finish date was preserved. Check this before selecting it.</p>}
-          {row.reason === "low_or_old" && <p className="mt-2 text-sm text-fg-secondary">Low progress or older history. Check whether you want to keep it.</p>}
-          {outcomes[row.ebookId] && <p className="mt-2 text-sm">{outcomes[row.ebookId]}</p>}
+          {row.reason === "already_open" && <p className="mt-3 text-xs text-fg-secondary">This book already has an open reading. Only finished history can be added.</p>}
+          {row.reason === "end_without_finish" && <p className="mt-3 text-xs text-fg-secondary">The saved position is at the end, but no finish date was preserved. Check this before selecting it.</p>}
+          {row.reason === "low_or_old" && <p className="mt-3 text-xs text-fg-secondary">Low progress or older history. Check whether you want to keep it.</p>}
+          {outcomes[row.ebookId] && <p className="mt-3 text-sm text-fg-primary">{outcomes[row.ebookId]}</p>}
         </fieldset>;
       })}</div>
-    </form> : <p className="text-sm text-fg-secondary">No preserved, linked eBook history is available to recover.</p>}
-    {operations.length > 0 && <section className="space-y-3"><h2 className="text-lg font-medium">Recovery operations</h2>
-      {operations.map((operation) => <div key={operation.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-primary p-3 text-sm">
-        <span>{new Date(operation.createdAt).toLocaleDateString()} · {operation.status} · {operation.processedRecords} readings</span>
-        <Button disabled={busy || operation.status === "undone"} onClick={() => void undo(operation.id)}>Undo recovery</Button>
-      </div>)}
+    </form> : <p className="mb-8 text-sm text-fg-secondary">No preserved, linked eBook history is available to recover.</p>}
+    {operations.length > 0 && <section>
+      <SectionHeading as="h3" title="Recovery operations" />
+      <div className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary">
+        {operations.map((operation) => <div key={operation.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm text-fg-primary">
+          <span>{new Date(operation.createdAt).toLocaleDateString()} · {operation.status} · {operation.processedRecords} readings</span>
+          <Button disabled={busy || operation.status === "undone"} onClick={() => void undo(operation.id)}>Undo recovery</Button>
+        </div>)}
+      </div>
     </section>}
-  </section>;
+  </>;
 }

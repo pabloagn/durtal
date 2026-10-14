@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Select } from "@/components/ui/select";
+import { buttonClass } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { SettingRow, SettingsGroup, SettingsIntro, settingDescriptionId, settingLabelId } from "@/components/settings/settings-group";
 import { updateAppSettings, type AppSettings } from "@/lib/actions/settings";
@@ -82,7 +83,7 @@ export function ReadingSettings({ settings: saved }: { settings: ReadingValues }
         </SettingRow>
         <SettingRow id="reading-recover-ebooks" label="Earlier eBook reading" labelFor={false}
           description="Review preserved history and choose which readings to recover. Unknown dates remain blank.">
-          <Link href="/settings/reading/ebooks" className="text-sm underline">Review reading history</Link>
+          <Link href="/settings/reading/ebooks" className={buttonClass("secondary", "md")}>Review reading history</Link>
         </SettingRow>
       </SettingsGroup>
       <SettingsGroup title="Days and weeks">
