@@ -109,4 +109,9 @@ describe("private frozen review preview", () => {
     const never: PreviewRowsLoader = async () => { throw new Error("An unlink without row sets reads no rows"); };
     expect((await cache.requireUnlink(unlinkToken, unlink.request, "ui", "test", never)).envelope.plan).toEqual(unlink.plan);
   });
+  it("says a preview is too large, not expired, if one could still exceed the cache", () => {
+    const envelope = fixture();
+    const huge = { ...envelope, before: { ...envelope.before, rawEbookSnapshotText: "x".repeat(33 * 1024 * 1024) } };
+    expect(() => new ReviewPreviewCache(() => 0).issue(huge, "ui", "test")).toThrow(expect.objectContaining({ code: "preview_too_large" }));
+  });
 });

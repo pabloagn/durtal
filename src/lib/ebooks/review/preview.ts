@@ -109,7 +109,7 @@ export class ReviewPreviewCache {
     const { envelope, digests } = compact(full);
     const bytes = Buffer.byteLength(canonicalReviewJson({ envelope, digests }), "utf8");
     if (bytes > MAX_BYTES)
-      throw new ReviewError("preview_expired", "This preview exceeds the private cache limit.");
+      throw new ReviewError("preview_too_large", "This preview is too large to keep. Prepare it for fewer eBooks.");
     while (this.entries.size >= MAX_ENTRIES || this.bytes + bytes > MAX_BYTES) {
       const oldest = this.entries.keys().next().value;
       if (oldest === undefined) break;

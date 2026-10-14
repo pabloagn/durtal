@@ -37,6 +37,9 @@ metadata went over the limit, which is refused with the same
   as before.
 - `service.ts`, `bulk.ts` and `unlink-service.ts` await the cache with the
   loader. Book status previews have no row sets and read nothing.
+- A preview that could still go over the 32 MB limit is refused as
+  `preview_too_large`, "This preview is too large to keep. Prepare it for
+  fewer eBooks.", not as expired.
 
 ## Completion Notes
 
