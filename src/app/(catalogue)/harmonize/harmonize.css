@@ -45,14 +45,6 @@
   color: var(--color-fg-secondary);
   margin-inline: 10px;
 }
-.h-header h1 {
-  font-family: var(--font-serif);
-  font-size: var(--text-4xl);
-  line-height: 1.12;
-  font-weight: 400;
-  letter-spacing: -0.025em;
-  margin-top: 12px;
-}
 /* Rose for text: accent-primary is 2.6:1 here, under 3:1 even at 46px */
 .h-title-dot {
   color: var(--color-accent-primary);
@@ -76,7 +68,7 @@
   border: 1px solid var(--h-line, rgba(193, 198, 196, 0.12));
   background: var(--color-bg-tertiary);
   color: var(--color-fg-primary);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   font-size: var(--text-micro);
   line-height: 20px;
 }
@@ -84,12 +76,15 @@
   background: #1b1d22;
   border-color: rgba(193, 198, 196, 0.22);
 }
+/* A confirmation, as the shared primary button: dark ink on the action fill */
 .h-button-primary {
-  background: var(--color-accent-primary);
-  border-color: #94566a;
+  background: var(--color-action-fill);
+  border-color: var(--color-action-fill);
+  color: var(--color-action-fg);
 }
 .h-button-primary:hover {
-  background: #8f4b61;
+  background: var(--color-action-hover);
+  border-color: var(--color-action-hover);
 }
 .h-icon-label {
   display: inline-flex;
@@ -105,7 +100,7 @@
 }
 .h-stat {
   border: 1px solid var(--h-line);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   padding: 17px 18px 15px;
   text-align: left;
   background: var(--color-bg-secondary);
@@ -184,7 +179,7 @@
   color: var(--color-fg-primary);
   background: var(--color-bg-secondary);
   border: 1px solid var(--h-line);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   padding: 8px 12px;
   font-size: var(--text-micro);
   height: 36px;
@@ -205,7 +200,7 @@
   border: 1px solid var(--h-line);
   color: var(--color-fg-secondary);
   font-size: var(--text-micro) !important;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 .h-filter-active {
   background: rgba(118, 148, 106, 0.07);
@@ -222,7 +217,7 @@
   display: grid;
   grid-template-columns: minmax(240px, 0.82fr) minmax(0, 1.4fr);
   min-height: 560px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   background: var(--color-bg-secondary);
 }
 .h-queue {
@@ -338,7 +333,7 @@
   font: var(--text-micro) var(--font-mono);
   border: 1px solid var(--h-line);
   padding: 1px 3px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 .h-load-more {
   display: block;
@@ -373,7 +368,7 @@
   background: var(--h-soft);
   color: var(--color-fg-secondary);
   border: 1px solid var(--h-line);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 .h-confidence-high {
   color: #a1b797;
@@ -388,10 +383,6 @@
   flex: 1;
   max-height: 640px;
   overflow-y: auto;
-}
-.h-review-body > h2 {
-  font: var(--text-2xl)/1.1 var(--font-serif);
-  letter-spacing: -0.01em;
 }
 .h-explanation {
   color: var(--color-fg-secondary);
@@ -422,11 +413,6 @@
   align-items: baseline;
   gap: 10px;
 }
-.h-section-heading h3,
-.h-artwork-preview h3,
-.h-guidance h3 {
-  font: var(--text-lg)/1.3 var(--font-serif);
-}
 .h-section-heading > span {
   font: var(--text-micro) var(--font-mono);
   color: var(--color-fg-secondary);
@@ -438,7 +424,7 @@
 }
 .h-record-option {
   border: 1px solid var(--h-line);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   display: flex;
   flex-direction: column;
   background: rgba(3, 5, 7, 0.25);
@@ -543,7 +529,7 @@
   border: 1px solid var(--h-line);
   padding: 10px;
   cursor: pointer;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 .h-field-options input {
   margin-top: 3px;
@@ -734,9 +720,6 @@
   background: #735a68;
   margin: 0 auto 22px;
 }
-.h-empty h2 {
-  font: var(--text-2xl) var(--font-serif);
-}
 .h-empty p {
   color: var(--color-fg-secondary);
   font-size: var(--text-micro);
@@ -788,6 +771,15 @@
   border-top: 0;
   background: var(--color-bg-secondary);
 }
+/* The batch bar continues the workspace above it: one box, rounded at its
+   outer corners only */
+.h-workspace:has(+ .h-batch-bar) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.h-batch-bar {
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
 .h-batch-bar strong {
   font-size: var(--text-micro);
   font-weight: 500;
@@ -811,9 +803,6 @@
   padding: 24px;
   margin-top: 18px;
   min-height: 360px;
-}
-.h-history-heading h2 {
-  font: var(--text-2xl) var(--font-serif);
 }
 .h-history-heading p {
   color: var(--color-fg-secondary);
@@ -845,7 +834,6 @@
   margin-top: 24px;
 }
 .h-merge-confirm h3 {
-  font: var(--text-2xl) var(--font-serif);
   margin: 8px 0 22px;
 }
 .h-merge-confirm > p:not(.h-section-label) {
@@ -954,9 +942,6 @@
   }
   .h-scan-control > p {
     margin: 0;
-  }
-  .h-header h1 {
-    font-size: var(--text-4xl);
   }
   .h-workspace {
     grid-template-columns: 1fr;
