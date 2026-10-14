@@ -10,6 +10,7 @@ import type { MatchEbook, MatchOperationIdentity } from "../match/types";
 import { reviewPayloadHash, canonicalReviewJson } from "../review/receipts";
 import { acceptedPublication } from "../publication-evidence";
 import { readUploadTargetSnapshotOn } from "../upload/atomic-snapshots";
+import { UploadError } from "../upload/protocol";
 import type { UploadAtomicBinding, PreparedUploadAtomicExtension } from "../upload/atomic-extension";
 import { privateRegistrationInput } from "./registration-input";
 import { readGroupCatalogue, planRegistration, registerGroup, registrationPlanSha256,
@@ -44,7 +45,8 @@ export async function planUploadRegistrationOn(conn: Db, input: {
         s3Key: file.key, manifestKey: file.manifestKey }))
     throw new Error("Upload planning requires actual canonical verified publication");
   const base = await readGroupCatalogue(conn, frozen.group, [file]);
-  if (base.bySha.size) throw new Error("These exact source bytes already belong to the catalogue");
+  // A plain refusal the page can show, not an uncertain outcome: the file waits with Preview (SLN-672)
+  if (base.bySha.size) throw new UploadError(409, "upload_already_stored", "This exact file is already in the library.");
   let catalogue: GroupCatalogue = { bySha: base.bySha, ebook: null };
   if (target.kind !== "new") {
     const snapshot = await readUploadTargetSnapshotOn(conn, { ebookIds: [target.ebookId], runId });

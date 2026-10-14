@@ -28,6 +28,12 @@ then Confirm, even when nothing needed a decision.
   refused (the file is already in the library, a format clash), the page
   says why and the file waits with Preview. A replacement always waits for
   its Confirm. The page and the Choose files text say which.
+- **A file already in the library** (review): the preview refused it as an
+  uncertain answer ("The upload response is uncertain..."), which the page
+  would now show after every duplicate upload. `planUploadRegistrationOn`
+  (`ingest/upload-atomic.ts`) now refuses it as `upload_already_stored`
+  (409), "This exact file is already in the library.", and the file waits
+  with Preview, as for any other refusal.
 - **The server's worker is busy**: the preview is refused while the upload
   worker checks or receives another file (`upload_not_settled`). The page
   then tries again on later refreshes, about a minute in all, then leaves
@@ -44,7 +50,8 @@ then Confirm, even when nothing needed a decision.
 - Tests: `upload-workbench` (Cancel while sending stops the part and sends
   only the cancel; a sent file is previewed and confirmed once checked; a
   busy worker is tried again and a refused file waits with Preview; a
-  replacement waits for Confirm) and `viewed-state`.
+  replacement waits for Confirm), `viewed-state`, and `ebook-upload-target`
+  (a file already in the library is refused in plain words).
 - `pnpm test:local` passes the upload suites (23 files, 213 tests).
 - The upload page and a batch with a file being checked, one ready, one
   canceled and one sending (upload API mocked): the alignment, design,
