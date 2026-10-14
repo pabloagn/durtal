@@ -8,6 +8,29 @@ import { ProgressScrubber } from "./progress-scrubber";
 import { focusOpener } from "./reader-bar-item";
 import { Hash, PanelBottom } from "lucide-react";
 import { formatPercent, samePlace } from "@/lib/reader/place-label";
+import type { ReaderPresentation } from "@/lib/validations/reader-preferences";
+import { themeColours } from "@/lib/reader/presentation/themes";
+
+export type QuietChapter = { background: string; text: string; topFade: boolean };
+
+/**
+ * Scrolled reflowable text has no running lines to name the chapter, so while
+ * the bars are hidden it stays in a slim band at the foot of the screen, and
+ * the text fades into the top edge. Page-by-page books (PDFs, comics, fixed
+ * layout) keep the whole page and show the chapter in the bars only, as a band
+ * there would sit over the page's foot. Kept bars name the chapter themselves.
+ */
+export function quietChapter({ policy, paginated, pageByPage, pinBars, format }: {
+  policy: ReaderPresentation | null | undefined;
+  paginated: boolean;
+  pageByPage: boolean;
+  pinBars: boolean;
+  format: string | undefined;
+}): QuietChapter | null {
+  if (!policy || paginated || pageByPage || pinBars) return null;
+  const { background, text } = themeColours(policy);
+  return { background, text, topFade: format === "epub" && policy.flow === "scrolled" };
+}
 
 /**
  * The reader's bottom bar (eBooks sub-issue 3): the chapter and how far
@@ -42,10 +65,8 @@ export function ReaderBottomBar({
   onRunningLines?(): void;
   onScrub?(fraction: number): void;
   onPeek?(active: boolean): void;
-  /** No running lines name the chapter (scrolled text, PDFs, comics): while
-   * the bars are hidden it stays in a slim band at the foot of the page, in
-   * the page's colours, and scrolled text fades into the top edge */
-  quiet?: { background: string; text: string; topFade: boolean } | null;
+  /** The chapter's band while the bars are hidden: see `quietChapter` */
+  quiet?: QuietChapter | null;
 }) {
   const slots = useSyncExternalStore(
     bridge.subscribeSlots,

@@ -2,7 +2,7 @@
 import type { ReaderSpeech, SpeechSnapshot } from "@/lib/reader/speech/session";
 import { useReaderAnnotations } from "@/components/reader/use-reader-annotations";
 import { QUIET_GLASS_ANNOTATION_PALETTE } from "@/lib/reader/annotation-colors";
-import { highlightColours, LIGHT_THEME_HIGHLIGHTS, themeColours } from "@/lib/reader/presentation/themes";
+import { highlightColours, LIGHT_THEME_HIGHLIGHTS } from "@/lib/reader/presentation/themes";
 import { SkipToBook } from "@/components/reader/skip-to-book";
 import { ReaderAnnouncer } from "@/components/reader/reader-announcer";
 
@@ -58,7 +58,7 @@ import {
 } from "@/lib/reader/running-lines";
 import { lazy, Suspense } from "react";
 import { OpenError } from "@/components/reader/open-error";
-import { ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
+import { quietChapter, ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
 import { ReaderShell, useReaderBars } from "@/components/reader/reader-shell";
 import { PageEdges } from "@/components/reader/page-edges";
 import { DownloadButton } from "@/components/reader/offline/download-button";
@@ -422,15 +422,12 @@ function ReaderSession({
     [settings],
   );
   const presentationRef = useRef(presentation);
-  // Where no running lines name the chapter, the bars hidden leave it in a
-  // slim band in the page's colours; scrolled text also fades into the top
-  const unpaginated = relocation ? !relocation.paginated : false;
-  const quiet = useMemo(() => {
-    const policy = presentation?.policy;
-    if (!unpaginated || settings.pinBars || !policy) return null;
-    const { background, text } = themeColours(policy);
-    return { background, text, topFade: file?.format === "epub" && policy.flow === "scrolled" };
-  }, [unpaginated, settings.pinBars, presentation, file?.format]);
+  // Scrolled text names its chapter in a slim band while the bars are hidden
+  const paginated = relocation ? relocation.paginated : true;
+  const pageByPage = !!relocation && engineRef.current?.fixedPages?.() != null;
+  const quiet = useMemo(() => quietChapter({
+    policy: presentation?.policy, paginated, pageByPage, pinBars: settings.pinBars, format: file?.format,
+  }), [paginated, pageByPage, settings.pinBars, presentation, file?.format]);
   useEffect(() => {
     presentationRef.current = presentation;
     paceRef.current?.interrupt();

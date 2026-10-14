@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { act, createElement as h } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { ReaderBridgeProvider } from "@/components/reader/bridge";
-import { ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
+import { quietChapter, ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
+import { PRESENTATION_DEFAULTS } from "@/lib/reader/presentation/defaults";
 
 let root: Root, host: HTMLElement;
 const context = { ebookId: "book", fileId: "epub", format: "epub" as const, locator: null, percent: null, chapter: null, selection: null };
@@ -57,6 +58,19 @@ describe("the reader's progress line (SLN-663)", () => {
   it("fades scrolled text into the top edge", () => {
     render(false, 44, { quiet: { background: "#07090d", text: "#c5cacb", topFade: true } });
     expect(host.querySelector<HTMLElement>("[data-reader-top-fade]")?.style.background).toContain("#07090d");
+  });
+  it("bands only scrolled reflowable text: page-by-page books keep the whole page", () => {
+    const scrolled = { ...PRESENTATION_DEFAULTS.desktop, flow: "scrolled" as const };
+    const band = (over: Partial<Parameters<typeof quietChapter>[0]>) =>
+      quietChapter({ policy: scrolled, paginated: false, pageByPage: false, pinBars: false, format: "epub", ...over });
+    expect(band({})).toMatchObject({ topFade: true });
+    expect(band({ format: "mobi" })).toMatchObject({ topFade: false });
+    expect(band({ pageByPage: true, format: "pdf" })).toBeNull();
+    expect(band({ pageByPage: true, format: "cbz" })).toBeNull();
+    expect(band({ pageByPage: true, format: "epub" })).toBeNull();
+    expect(band({ paginated: true })).toBeNull();
+    expect(band({ pinBars: true })).toBeNull();
+    expect(band({ policy: null })).toBeNull();
   });
   it("lays the bar's second row out before the book's positions are ready", () => {
     render(true, null, { onScrub: () => {} });
