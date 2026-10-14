@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GripVertical, MoreHorizontal } from "lucide-react";
+import { BookOpen, GripVertical, MoreHorizontal } from "lucide-react";
 import {
   DndContext,
   KeyboardSensor,
@@ -112,11 +112,13 @@ function Row({
       </div>
       {/* Beside the title on a wide list. On a narrow one (a phone) they go under the text, which
           keeps the width: a plain 32 px (44 px on touch) row, not centered on a line (SLN-539).
-          There the label lines up with the title: the button reaches into the gap by its padding */}
+          There the label lines up with the title: the button reaches into the gap by its padding.
+          On the narrowest phones (a 320 px screen) the title's column is narrower than the
+          controls, so they start under the cover instead and the label lines up with it */}
       <CapAlignedControls
         height={32}
         coarseHeight={44}
-        className="col-start-4 text-sm @max-[34rem]:h-auto @max-[34rem]:*:block @max-[34rem]:*:my-0 @[34rem]:col-start-5"
+        className="col-start-4 text-sm @max-[34rem]:h-auto @max-[34rem]:*:block @max-[34rem]:*:my-0 @max-[20rem]:col-span-2 @max-[20rem]:col-start-3 @[34rem]:col-start-5"
       >
         <span className="flex items-center gap-1">
           <Button
@@ -126,6 +128,7 @@ function Row({
             onClick={() => void open({ kind: "start", workId: row.workId, editionId: row.editionId })}
             data-queue-start={row.workId}
           >
+            <BookOpen aria-hidden strokeWidth={1.5} />
             Start reading
           </Button>
           <DropdownMenu

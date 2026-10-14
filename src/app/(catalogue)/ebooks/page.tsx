@@ -28,6 +28,8 @@ import { buttonClass } from "@/components/ui/button";
 import { Upload } from "lucide-react";
 export const metadata = { title: "eBooks" };
 const requestTime = cache(() => Date.now());
+/** The state counts are text commands; the one in view reads as plain text */
+const STATE_LINK = "text-command aria-[current=page]:text-fg-primary aria-[current=page]:no-underline";
 function since(date: string | Date, now: number) {
   const minutes = Math.max(
     0,
@@ -99,7 +101,7 @@ export default async function EbooksPage({
       >
         <Link
           href="/ebooks"
-          className="touch-hit"
+          className={STATE_LINK}
           aria-current={
             params.state === "active" && params.needsReview === null
               ? "page"
@@ -109,13 +111,13 @@ export default async function EbooksPage({
           {counts.active.toLocaleString("en")} eBooks
         </Link>
         <span aria-hidden>·</span>
-        <Link href="/ebooks/review" className="touch-hit">
+        <Link href="/ebooks/review" className={STATE_LINK}>
           {counts.review.toLocaleString("en")} to review
         </Link>
         <span aria-hidden>·</span>
         <Link
           href="/ebooks?state=excluded"
-          className="touch-hit"
+          className={STATE_LINK}
           aria-current={params.state === "excluded" ? "page" : undefined}
         >
           {counts.excluded.toLocaleString("en")} set aside

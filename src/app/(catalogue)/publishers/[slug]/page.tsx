@@ -36,7 +36,7 @@ import { PublisherHeader } from "@/components/publishers/publisher-header";
 import { PublisherBooksFilters, PublisherBooksView } from "@/components/publishers/publisher-books";
 import { mediaUrl } from "@/lib/s3/media-url";
 
-const LINK = "text-accent-primary transition-colors hover:text-fg-primary";
+const LINK = "text-command";
 /** One read per request for the page and its title */
 const loadPublisher = cache(getPublisher);
 

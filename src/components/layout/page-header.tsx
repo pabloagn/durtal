@@ -18,7 +18,7 @@ export function PageHeader({
         <div className="min-w-0 max-w-full">
           <h1 className="type-page-title [overflow-wrap:anywhere]">{title}</h1>
           {description && (
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-fg-secondary">
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-fg-secondary [overflow-wrap:anywhere]">
               {description}
             </p>
           )}

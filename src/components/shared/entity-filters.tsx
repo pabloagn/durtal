@@ -141,8 +141,9 @@ export function EntityFilters({
         />
       </div>
 
-      {/* Sort: chips from sm up; on a phone one menu for the field and one
-          button for the direction, so eight sorts take one row (SLN-639) */}
+      {/* Sort: chips from sm up, outlined like a segmented control (SLN-693); on
+          a phone one menu for the field and one button for the direction, so
+          eight sorts take one row (SLN-639) */}
       <div className="flex items-center gap-1">
         <select
           aria-label="Sort by"
@@ -172,11 +173,13 @@ export function EntityFilters({
         {sortOptions.map((opt) => (
           <button
             key={opt.value}
+            type="button"
             onClick={() => pickSort(opt.value)}
-            className={`rounded-sm px-2.5 py-1 text-xs transition-colors pointer-coarse:min-h-11 max-sm:hidden ${
+            aria-pressed={currentSort === opt.value}
+            className={`h-8 rounded-sm border px-2.5 text-xs transition-colors pointer-coarse:h-11 max-sm:hidden ${
               currentSort === opt.value
-                ? "bg-selection-bg text-fg-primary"
-                : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
+                ? "border-accent-primary/40 bg-selection-bg text-fg-primary"
+                : "border-glass-border text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
             }`}
           >
             {/* The arrow sits on the label's cap-height center */}

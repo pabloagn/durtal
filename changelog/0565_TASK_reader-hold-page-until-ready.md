@@ -32,7 +32,11 @@ with no slide or fade.
   - WebKit runs frames inside the update but keeps a held book's new layer
     blank, so it changes the page inside the update, waits three frames for
     it to paint, and holds the whole screen, fading turns too. Which engine
-    this is, is found on the first hold. That first hold in WebKit has
+    this is, is found on the first hold, which waits for a frame inside the
+    update for three of the page's frames, measured just before (100 to
+    500 ms; it waited a flat 100 ms, so a busy page in WebKit was taken for
+    an engine that runs none, and the jump showed blank). That first hold in
+    WebKit has
     named the book: the name goes inside the update, so the new page is
     taken with the rest of the screen, and the held book fades (merge
     review: before, it swapped at once and could show the page blank while
@@ -68,11 +72,11 @@ with no slide or fade.
   four blank frames, then the fade in from blank); the PDF and comic rows
   pass (they cut, with no blank frame). With this change all 12 rows pass,
   with one lone capture frame counted apart on each Chromium jump.
-- New `page-hold.test.ts` (13 tests): the fallback without View
-  Transitions, the book held for a jump, the four slide directions, an
-  instant swap, no movement when nothing changed, a nested hold, the
-  Chromium and WebKit orders, WebKit's first hold and later ones, and a
-  failed change.
+- New `page-hold.test.ts` (14 tests): a busy page whose frames take 150 ms,
+  the fallback without View Transitions, the book held for a jump, the four
+  slide directions, an instant swap, no movement when nothing changed, a
+  nested hold, the Chromium and WebKit orders, WebKit's first hold and later
+  ones, and a failed change.
 - Alignment, design and overflow audits are clean on the EPUB 3, the text
   PDF and the comic after a turn, in Chromium, WebKit and Firefox at 1440,
   390 and 320 (27 of 27).

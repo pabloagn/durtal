@@ -29,7 +29,7 @@ import {
 } from "@/lib/catalogue/organizations";
 import { VENUE_TYPE_LABELS } from "@/lib/catalogue/venues";
 
-const LINK = "text-accent-primary transition-colors hover:text-fg-primary";
+const LINK = "text-command";
 
 /** One read per request for the page and its title; a malformed or overlong address finds nothing */
 const loadOrganization = cache(async (slug: string) => {

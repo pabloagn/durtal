@@ -207,6 +207,14 @@ adapter regression source added; native retesting remains pending.
     Chapter 4 the strip read Chapter 2, Chapter 4, and one back turn went to
     the end of Chapter 2, skipping Chapter 3. SLN-673.
 
+25. `paginator.js`: `uncollapse` (exported) anchors a collapsed point that
+    sits before white space on the next glyph. A saved place is the first
+    visible point of the screen; when a page starts after a line wrap, that
+    point is the space the wrap leaves hanging at the end of the previous
+    column, whose only boxes have no width and sit in that column, so the
+    reopen scrolled one page early. When only white space is left in the
+    text node (the next word starts italics, a link or a note mark), it walks
+    on to the next glyph, or anchors on an image met first. SLN-676.
 26. `page-hold.js` (new, Durtal's), `paginator.js`, `fixed-layout.js`: a page
     change that has to load first keeps the page on screen until the next one
     is ready, then lets it go: a jump fades it (180ms), a turn slides (250ms)
@@ -220,9 +228,11 @@ adapter regression source added; native retesting remains pending.
     since Chromium can leave the book out of a whole-screen snapshot. WebKit
     does run frames there but keeps a book snapshot's new layer blank, so it
     changes the page inside the update and holds the whole screen, fading
-    turns too. Its first hold, before that is known, has named the book:
-    the name goes inside the update, so the new page is taken with the
-    screen, and the held book fades. The
+    turns too. Which engine this is, the first hold finds by waiting for a
+    frame inside the update, for three of the page's frames measured just
+    before (100 to 500ms), so a busy page is not misjudged. That first hold
+    has named the book: in WebKit the name goes inside the update, so the
+    new page is taken with the screen, and the held book fades. The
     paginator uses it for jumps and for turns into a section that is not
     loaded, where it hid the page and faded it in from blank (patch 20); the
     fixed layout for every turn and jump of PDFs and comics, which now read
