@@ -2,6 +2,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { captureFocusOrigin, type FocusOrigin } from "@/lib/ui/surface-state";
 
 /** One shared drawer. Native modality below 1024px; desktop keeps the book usable.
  * The settings sheet sits on the right (at the bottom on a phone) and never dims
@@ -23,7 +24,7 @@ export function ReaderSidePanel({
   side?: "left" | "right";
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const origin = useRef<HTMLElement | null>(null);
+  const origin = useRef<FocusOrigin | null>(null);
   const titleId = useId();
   const focusRun = useRef(0);
   const [viewportWidth, setViewportWidth] = useState<number | null>(null);
@@ -39,8 +40,9 @@ export function ReaderSidePanel({
   useEffect(() => {
     const panel = ref.current;
     if (!panel || !open) return;
-    if (!origin.current)
-      origin.current = document.activeElement as HTMLElement | null;
+    // Opened from a menu, the item goes with the menu: focus then goes back
+    // to the menu's button
+    if (!origin.current) origin.current = captureFocusOrigin();
     // Capture interaction before native close/show can move focus or scroll.
     const active = panel.ownerDocument.activeElement;
     const focused = panel.open && active instanceof HTMLElement && panel.contains(active)
@@ -85,8 +87,9 @@ export function ReaderSidePanel({
       if (panel?.open) panel.close();
       queueMicrotask(() => {
         if (runRef.current !== run) return;
-        if (origin.current?.isConnected)
-          origin.current.focus({ preventScroll: true });
+        const back = [origin.current?.target, origin.current?.menuButton]
+          .find((element) => element?.isConnected);
+        back?.focus({ preventScroll: true });
         origin.current = null;
       });
     };
