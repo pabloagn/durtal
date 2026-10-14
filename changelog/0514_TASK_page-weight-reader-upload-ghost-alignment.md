@@ -46,6 +46,9 @@ whose label sits one padding to the right of the text column above it.
   - "Link publisher" on a book page, when nothing precedes it on its line
     (`edition-publishers.tsx`);
   - "Refresh overrides" in Settings › Reader (`reader-defaults.tsx`).
+  - "Export" on /reading/journal at phone widths, where it wraps under the
+    counts: its wrapper has `-ml-2.5`; at the end of the counts' line it only
+    narrows the gap (found in review).
 
 ## Completion Notes
 
