@@ -1,4 +1,5 @@
 import type { DurtalLocator } from "@/lib/reader/engine";
+import { collapse } from "@/vendor/foliate-js/epubcfi.js";
 import { normalizeQuoteText, type TextQuote } from "./quote-match";
 
 /**
@@ -157,6 +158,21 @@ export interface RelocateInput {
 const unit = (n: number) =>
   Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0;
 
+/**
+ * A place is the first visible point, never the visible range. A range that
+ * starts on an element boundary (an image page) has no boxes in Chromium, so
+ * reopening it fell back to the start of the chapter (SLN-676). The start
+ * point anchors on that element itself.
+ */
+export function placeCfi(cfi: string): string {
+  if (!/^epubcfi\(.*,.*\)$/.test(cfi)) return cfi;
+  try {
+    return collapse(cfi) || cfi;
+  } catch {
+    return cfi;
+  }
+}
+
 /** A relocate from the engine as a DurtalLocator */
 export function locatorFromRelocate(input: RelocateInput): DurtalLocator {
   const locator: DurtalLocator = {
@@ -172,7 +188,7 @@ export function locatorFromRelocate(input: RelocateInput): DurtalLocator {
   if (input.pdfPage) {
     locator.pdf = { page: input.pdfPage };
   } else if (input.cfi) {
-    locator.cfi = input.cfi;
+    locator.cfi = placeCfi(input.cfi);
   }
   const text = input.range && !input.pdfPage ? quoteAt(input.range) : undefined;
   if (text) locator.text = text;

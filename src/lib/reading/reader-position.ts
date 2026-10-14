@@ -13,8 +13,10 @@ export type SittingPositionEvent =
   | { kind: "turn" | "jump"; activeMs: number; percent: number; chapter?: string | null };
 export interface PositionDecision {
   state: ReaderPositionState;
-  /** Flush the preceding segment before allocating a new sitting for this move. */
-  splits: { end: CountedPlace; start: CountedPlace; goingBack: "went_back" }[];
+  /** Flush the preceding segment before allocating a new sitting for this move:
+   * going back, or reading on from a short forward jump, whose skipped pages
+   * were never read (SLN-677). */
+  splits: ({ end: CountedPlace; start: CountedPlace; goingBack: "went_back" } | { end: CountedPlace; start: CountedPlace; jumped: true })[];
 }
 
 function place(percent: number, chapter?: string | null): CountedPlace {
@@ -43,7 +45,14 @@ export function countReaderPosition(previous: ReaderPositionState, event: Sittin
   // Settle a qualified jump before another navigation, even if no timer ran at its deadline.
   if (state.pending && event.activeMs - state.pending.sinceActiveMs >= JUMP_ACTIVE_MS)
     count(state.pending.place);
-  if (event.kind === "turn") count(place(event.percent, event.chapter));
+  if (event.kind === "turn") {
+    // Reading on from a jump that has not qualified: the new sitting starts at the jump
+    if (state.pending && state.pending.place.percent > state.counted.percent) {
+      splits.push({ end: state.counted, start: state.pending.place, jumped: true });
+      state.counted = state.pending.place;
+    }
+    count(place(event.percent, event.chapter));
+  }
   else if (event.kind === "jump") {
     const next = place(event.percent, event.chapter);
     if (next.percent === state.counted.percent) state.pending = null;

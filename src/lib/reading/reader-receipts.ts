@@ -60,6 +60,8 @@ export interface ReaderMergeCandidate {
   format: string;
   editionId: string | null;
   durationSeconds: number | null;
+  /** Where the session ended: a sitting that starts elsewhere jumped, and stays apart */
+  endPercent?: number | null;
   retired: boolean;
   edited: boolean;
 }
@@ -73,6 +75,7 @@ export function canMergeReaderSitting(
   if (previous.source !== "reader" || previous.retired || previous.edited || !previous.endedAt ||
     previous.readingId !== input.readingId || previous.format !== "ebook" || previous.editionId !== editionId ||
     input.goingBack === "went_back") return false;
+  if (previous.endPercent != null && Math.abs(input.startPercent - previous.endPercent) > 1e-6) return false;
   const gap = input.startedAt.getTime() - previous.endedAt.getTime();
   return gap >= 0 && gap < SITTING_MERGE_MS &&
     (previous.durationSeconds ?? 0) + input.activeSeconds <= 86_400;

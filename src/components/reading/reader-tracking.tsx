@@ -4,7 +4,7 @@ import { readerUuid } from "@/lib/reader/uuid";
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ReaderSlotFill, useBeforeAnnotationDelete, useReaderContext, useReaderController, useReaderControllerFailure, useReaderSelectionCapture } from "@/components/reader/bridge";
+import { ReaderSlotFill, useBeforeAnnotationDelete, useBeforeReaderLeave, useReaderContext, useReaderController, useReaderControllerFailure, useReaderSelectionCapture } from "@/components/reader/bridge";
 import type { ReaderControllerFailureProps } from "@/lib/reader/bridge-state";
 import type { PreparedAnnotationDelete } from "@/lib/reader/annotation-deletion";
 import type { ReaderSelection } from "@/lib/reader/events";
@@ -225,6 +225,12 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
       ? { status: "proceed", effect: { action: choice, ...versions } } : { status: "cancel" };
   });
 
+  // The book page shows this sitting on arrival: it is sent before the reader leaves
+  useBeforeReaderLeave(async () => {
+    controller.current?.flush();
+    for (let attempt = 0; attempt < 3 && queue.current?.pending; attempt++) await queue.current.flush();
+  });
+
   async function synchronize() {
     endUndo();
     controller.current?.holdWrites(false);
@@ -266,7 +272,8 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   if (fatal) return <ReaderTrackingFailure id={READER_TRACKING_CONTROLLER_ID} code="reader_controller_failed" />;
   if (!data.linked) return null;
   const reading = data.linked.reading;
-  const percent = snapshot?.counted?.percent ?? reading?.percent;
+  // The place shown follows the reader, also after a jump that is not counted yet
+  const percent = context.percent ?? snapshot?.counted?.percent ?? reading?.percent;
   const status = timerOwns ? "Manual timer active" : snapshot?.held ? "Starting tracking" : reading?.status === "paused" ? "Paused" : "Tracking";
   return <>
     <ReaderSlotFill slot="toolbar-status">

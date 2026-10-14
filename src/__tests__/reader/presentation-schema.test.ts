@@ -190,4 +190,15 @@ describe("stored presentation recovery", () => {
     expect(JSON.stringify(rows)).toBe(before);
     expect(PRESENTATION_DEFAULTS.desktop.fontSizePx).toBe(20);
   });
+  it("carries a laptop's settings from when it was classed as a tablet, under the desktop's own (SLN-686)", () => {
+    const rows = [
+      { deviceClass: "tablet" as const, ebookId: null, presentation: { marginPx: 64, theme: "paper" } },
+      { deviceClass: "tablet" as const, ebookId: "book", presentation: { fontSizePx: 26 } },
+      { deviceClass: "desktop" as const, ebookId: null, presentation: { theme: "sepia" } },
+    ];
+    expect(effectivePresentation("desktop", rows)).toEqual({
+      ...PRESENTATION_DEFAULTS.desktop, marginPx: 64, fontSizePx: 26, theme: "sepia",
+    });
+    expect(effectivePresentation("phone", rows)).toEqual(PRESENTATION_DEFAULTS.phone);
+  });
 });

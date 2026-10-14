@@ -163,6 +163,7 @@ export default async function ReaderPage(props: PageProps) {
         place={book.place}
         devicePlace={book.devicePlace}
         otherPlace={book.otherPlace}
+        otherPlaces={book.otherPlaces}
         deviceId={request.deviceId}
         backHref={request.returnTo ?? `/ebooks/${book.id}`}
         openAt={request.at}

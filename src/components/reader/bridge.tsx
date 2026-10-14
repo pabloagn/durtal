@@ -203,6 +203,15 @@ export function useBeforeAnnotationDelete(handler: BeforeAnnotationDelete) {
     [bridge],
   );
 }
+/** Runs before the reader leaves for another page in the app; bounded by the bridge. */
+export function useBeforeReaderLeave(handler: () => Promise<unknown>) {
+  const bridge = useBridge();
+  const latest = useRef(handler);
+  useLayoutEffect(() => {
+    latest.current = handler;
+  });
+  useEffect(() => bridge.registerLeave(() => latest.current()), [bridge]);
+}
 export function useReaderContext(): ReaderContext {
   const bridge = useBridge();
   return useSyncExternalStore(

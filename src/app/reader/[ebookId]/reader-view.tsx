@@ -23,6 +23,7 @@ import {
 import { hasOpenSurface } from "@/lib/ui/surface-state";
 import {
   ReaderNotice,
+  resumePlaceLabel,
   resumeNoticeText,
 } from "@/components/reader/reader-notice";
 import { SelectionToolbar } from "@/components/reader/selection-toolbar";
@@ -226,6 +227,8 @@ type ReaderViewProps = {
   place: ReaderPlace | null;
   devicePlace: ReaderPlace | null;
   otherPlace: ReaderPlace | null;
+  /** Every other device's place, so the offer can name the furthest as well as the newest */
+  otherPlaces?: readonly ReaderPlace[];
   deviceId: string | null;
   backHref: string;
   /** An annotation to jump to once the book is painted (`?at=`) */
@@ -240,7 +243,7 @@ export function ReaderView(props: ReaderViewProps) {
   const [attempt, setAttempt] = useState(0);
   const [preferenceClass, setPreferenceClass] = useState<DeviceClass | null>(null);
   useEffect(() => {
-    setPreferenceClass(classifyDevice({ width: window.innerWidth, height: window.innerHeight,
+    setPreferenceClass(classifyDevice({ width: window.screen.width, height: window.screen.height,
       coarse: window.matchMedia("(pointer: coarse)").matches }));
   }, []);
   const preferences: ReaderPreferencesRead = props.preferences ?? { ok: true, ebookId: props.ebook.id, rows: [] };
@@ -280,6 +283,7 @@ function ReaderSession({
   place: ownPlace,
   devicePlace,
   otherPlace,
+  otherPlaces,
   deviceId,
   backHref,
   openAt,
@@ -369,6 +373,7 @@ function ReaderSession({
   );
   const [percent, setPercent] = useState<number | null>(null);
   const [offer, setOffer] = useState<ReaderPlace | null>(null);
+  const [furthest, setFurthest] = useState<ReaderPlace | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [selection, setSelection] = useState<EngineEvents["selection"]>(null);
   const selectionToolbarRef = useRef<HTMLDivElement>(null);
@@ -795,6 +800,8 @@ function ReaderSession({
     const queue = createDurablePositionQueue({ ebookId: ebook.id, deviceId,
       onError: () => { if (!cancelled) setNotice("Your place could not be saved on this device. Keep this tab open and try again."); },
     });
+    // The book page shows this place on arrival, as it shows the sitting
+    const unregisterLeave = bridge.registerLeave(() => queue.flush());
     const declineKey = `durtal-reader-declined:${ebook.id}:${deviceId ?? "new"}`;
     let declinedAt = 0;
     try {
@@ -805,6 +812,7 @@ function ReaderSession({
     const sync = createPlaceSync({
       own: devicePlace ?? ownPlace,
       other: devicePlace ? otherPlace : null,
+      others: devicePlace ? otherPlaces : undefined,
       declinedAt,
       flush: () => queue.flush(),
       read: async () => {
@@ -812,7 +820,7 @@ function ReaderSession({
         if (!res.ok) throw new Error("Places unavailable");
         return (await res.json()).positions as ReaderPlace[];
       },
-      offer: setOffer,
+      offer: (place, further) => { setOffer(place); setFurthest(further ?? null); },
       remember: (at) => {
         try {
           localStorage.setItem(declineKey, String(at));
@@ -1142,10 +1150,9 @@ function ReaderSession({
         setStatus({ kind: "ready" });
         // A first open, or a place found again another way: save where the book opened
         const landing = latest as EngineEvents["relocate"] | null;
-        if (!localPlace && !devicePlace && otherPlace) {
-          setNotice(
-            `Opened where you left off on ${otherPlace.deviceLabel.split(" · ")[0]}`,
-          );
+        // One short line, and none when a link opened the book at a mark (SLN-686)
+        if (!localPlace && !devicePlace && otherPlace && !openAt) {
+          setNotice(`Your place from ${otherPlace.deviceLabel}`);
           noticeTimer = setTimeout(() => setNotice(null), 4000);
         }
         if (landing) {
@@ -1343,6 +1350,7 @@ function ReaderSession({
       window.removeEventListener("online", online);
       sync.destroy();
       syncRef.current = null;
+      unregisterLeave();
       queue.destroy();
       indexAbort.abort();
       if (indexTimer) clearTimeout(indexTimer);
@@ -1391,6 +1399,10 @@ function ReaderSession({
   useEffect(() => { if (annotations.held) bars.show(); }, [annotations.held, bars.show]);
 
   const onBack = useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
+    // A new tab or window keeps the link's own behaviour
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    const href = event.currentTarget.href;
     // Back to the page this one was opened from, when it is in this app
     let from: URL | null = null;
     try {
@@ -1403,11 +1415,51 @@ function ReaderSession({
       from.origin === window.location.origin &&
       !READER_PAGE_RE.test(from.pathname) &&
       window.history.length > 1
-    ) {
-      event.preventDefault();
-      window.history.back();
-    }
-  }, []);
+    )
+      void bridge.leave().then(() => window.history.back());
+    // The open sitting reaches the server first, so the book page is current (SLN-677)
+    else void bridge.leave().then(() => window.location.assign(href));
+  }, [bridge]);
+
+  // The other device's place, through the same resolve as opening (newest or furthest)
+  const goToPlace = (target: ReaderPlace) => {
+    if (!file) return;
+    syncRef.current?.dismiss();
+    const engine = engineRef.current;
+    if (!engine) return;
+    const before = engine.currentLocator();
+    void resolveContinueAnchor(
+      {
+        target: { id: file.id, sha256: file.sha256 },
+        anchor: target,
+      },
+      {
+        resolve: (locator) => engine.resolve(locator),
+        currentLocator: () => engine.currentLocator(),
+        goTo: async (locator) => {
+          if (engine.currentLocator() !== before)
+            throw new Error(
+              "Your place changed while locating the saved passage.",
+            );
+          resumeClock.current = target.clientUpdatedAt;
+          try {
+            if (!(await navigate(locator, "resume")))
+              throw new Error(
+                "Your saved place could not be opened.",
+              );
+          } finally {
+            resumeClock.current = null;
+          }
+        },
+      },
+    ).catch((error) =>
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Your saved place could not be opened.",
+      ),
+    );
+  };
 
   const overlay =
     !preferences.ready && (preferences.error || preferencesTimedOut) ? (
@@ -1581,65 +1633,41 @@ function ReaderSession({
       <ReaderNotice bridge={bridge}>
         {notice ??
           (offer && file ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="min-w-0 flex-1">
-                {resumeNoticeText(offer, file.id)}
+            <div className="flex flex-wrap items-start gap-2">
+              {/* Padded to the buttons' height, so a wrapped line keeps its first line centred on them;
+                  on a phone the buttons take a row of their own, on the right. */}
+              <p className="min-w-0 flex-1 basis-64 py-1 [@media(pointer:coarse)]:py-2.5">
+                {resumeNoticeText(offer, file.id, relocation?.locator ?? null)}
               </p>
-              <button
-                type="button"
-                aria-label="Go to the newer place"
-                data-tooltip="Go to the newer place"
-                className="h-8 rounded-sm px-2 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11"
-                onClick={() => {
-                  const target = offer;
-                  syncRef.current?.dismiss();
-                  const engine = engineRef.current;
-                  if (!engine) return;
-                  const before = engine.currentLocator();
-                  void resolveContinueAnchor(
-                    {
-                      target: { id: file.id, sha256: file.sha256 },
-                      anchor: target,
-                    },
-                    {
-                      resolve: (locator) => engine.resolve(locator),
-                      currentLocator: () => engine.currentLocator(),
-                      goTo: async (locator) => {
-                        if (engine.currentLocator() !== before)
-                          throw new Error(
-                            "Your place changed while locating the saved passage.",
-                          );
-                        resumeClock.current = target.clientUpdatedAt;
-                        try {
-                          if (!(await navigate(locator, "resume")))
-                            throw new Error(
-                              "Your saved place could not be opened.",
-                            );
-                        } finally {
-                          resumeClock.current = null;
-                        }
-                      },
-                    },
-                  ).catch((error) =>
-                    setNotice(
-                      error instanceof Error
-                        ? error.message
-                        : "Your saved place could not be opened.",
-                    ),
-                  );
-                }}
-              >
-                Go there
-              </button>
-              <button
-                type="button"
-                aria-label="Stay at this place"
-                data-tooltip="Stay at this place"
-                className="h-8 rounded-sm px-2 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11"
-                onClick={() => syncRef.current?.dismiss()}
-              >
-                Stay
-              </button>
+              <div className="ml-auto flex gap-2">
+                <button
+                  type="button"
+                  aria-label="Go to the newer place"
+                  data-tooltip="Go to the newer place"
+                  className="h-8 rounded-sm px-2 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11"
+                  onClick={() => goToPlace(offer)}
+                >
+                  Go there
+                </button>
+                {furthest && <button
+                  type="button"
+                  aria-label={`Go to your furthest place, ${resumePlaceLabel(furthest, file.id)} on ${furthest.deviceLabel}`}
+                  data-tooltip="Go to your furthest place"
+                  className="h-8 rounded-sm px-2 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11"
+                  onClick={() => goToPlace(furthest)}
+                >
+                  Furthest
+                </button>}
+                <button
+                  type="button"
+                  aria-label="Stay at this place"
+                  data-tooltip="Stay at this place"
+                  className="h-8 rounded-sm px-2 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11"
+                  onClick={() => syncRef.current?.dismiss()}
+                >
+                  Stay
+                </button>
+              </div>
             </div>
           ) : null)}
       </ReaderNotice>
@@ -1764,6 +1792,7 @@ function ReaderSession({
         )}
       </Suspense>
       <PresentationSettingsDialog
+        sheet
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         presentation={settings}

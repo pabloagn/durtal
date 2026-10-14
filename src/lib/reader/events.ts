@@ -30,6 +30,8 @@ export interface ReaderEvents {
   location: {
     at: number;
     kind: "turn" | "jump";
+    /** The engine's first landing in this file: the place the reader opened at */
+    opening?: true;
     percent: number;
     chapter: string | null;
     locator: DurtalLocator;
@@ -158,6 +160,7 @@ export function createReaderEventBus(
         emit("location", {
           at: now(),
           kind: first ? "jump" : kind,
+          ...(first ? { opening: true as const } : {}),
           percent: readerPercent(locator),
           chapter,
           locator,

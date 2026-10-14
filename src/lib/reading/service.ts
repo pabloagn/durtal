@@ -123,7 +123,8 @@ const currentOf = (r: Reading): Pos => ({
  * order: a session starts where the one before it ended (the reading's start
  * for the first); an open reading is where its latest session ended, read
  * through the share of the work when that session used another edition. A
- * reader sitting that ends behind the furthest point leaves the position.
+ * reader sitting that ends behind the furthest point leaves the position; one
+ * that starts ahead of the session before it keeps its own start.
  */
 export function planPositions(reading: Reading, ordered: Session[]) {
   const starts = new Map<string, { startPage: number | null; startPercent: number | null; startMinutes: number | null }>();
@@ -135,7 +136,14 @@ export function planPositions(reading: Reading, ordered: Session[]) {
     position = { page: reading.totalPages ? 0 : null, percent: 0, minutes: reading.totalMinutes ? 0 : null, chapter: null };
   for (const s of ordered) {
     const sameEdition = s.editionId === prevEdition;
-    starts.set(s.id, {
+    // A reader sitting starts where the reader opened, or where it read on from a
+    // short jump: the pages it jumped over were not read (SLN-677).
+    const opened = s.source === "reader" && s.startPercent != null && prev.percent != null && s.startPercent > prev.percent;
+    starts.set(s.id, opened ? {
+      startPercent: s.startPercent,
+      startPage: s.pagesTotal ? Math.round((s.startPercent! / 100) * s.pagesTotal) : null,
+      startMinutes: null,
+    } : {
       startPercent: prev.percent,
       startPage: sameEdition ? prev.page : s.pagesTotal && prev.percent != null ? Math.round((prev.percent / 100) * s.pagesTotal) : null,
       startMinutes: prev.minutes,

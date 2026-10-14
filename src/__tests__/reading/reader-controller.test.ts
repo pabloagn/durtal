@@ -18,8 +18,8 @@ function setup(overrides: Partial<ReaderControllerOptions> = {}) {
     initialPlace: { percent: 10, chapter: "One" }, start, save: (snapshot) => saved.push(snapshot),
     reachedEnd: end, selection: vi.fn(), changed: vi.fn(), failed: vi.fn(), ...overrides });
   const activity = () => controller.handlers.activity({ at: Date.now(), kind: "turn" });
-  const location = (percent: number, kind: "turn" | "jump" = "turn") => controller.handlers.location({ at: Date.now(), percent,
-    chapter: "One", kind, fileId: readingId, locator: { ...locator, totalProgression: percent / 100 } });
+  const location = (percent: number, kind: "turn" | "jump" = "turn", opening?: true) => controller.handlers.location({ at: Date.now(), percent,
+    chapter: "One", kind, fileId: readingId, locator: { ...locator, totalProgression: percent / 100 }, ...(opening ? { opening } : {}) });
   return { controller, saved, start, end, activity, location };
 }
 
@@ -105,6 +105,34 @@ describe("eager reading controller", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(t.end).toHaveBeenCalledOnce();
     expect(t.saved.at(-1)?.endPercent).toBe(100);
+    await t.controller.dispose();
+  });
+
+  it("starts the sitting at the place the reader opened at, and counts no short jump as read (SLN-677)", async () => {
+    const t = setup({ initialPlace: { percent: 0, chapter: null } });
+    t.activity();
+    t.location(97.72, "jump", true);
+    await vi.advanceTimersByTimeAsync(7000);
+    t.location(97.9);
+    await vi.advanceTimersByTimeAsync(7000);
+    t.controller.flush();
+    expect(t.saved.at(-1)).toMatchObject({ startPercent: 97.72, endPercent: 97.9 });
+    expect(new Set(t.saved.map((snapshot) => snapshot.sittingId)).size).toBe(1);
+    // Home, then reading on from the start: a new sitting from 0, never 97.9 → 1
+    t.location(0, "jump");
+    await vi.advanceTimersByTimeAsync(5000);
+    t.location(1);
+    await vi.advanceTimersByTimeAsync(5000);
+    t.controller.flush();
+    expect(t.saved.at(-1)).toMatchObject({ startPercent: 97.9, endPercent: 1, goingBack: "went_back" });
+    // A short forward jump read on from starts a new sitting at the jump
+    t.location(40, "jump");
+    await vi.advanceTimersByTimeAsync(5000);
+    t.location(41);
+    await vi.advanceTimersByTimeAsync(5000);
+    t.controller.flush();
+    expect(t.saved.at(-1)).toMatchObject({ startPercent: 40, endPercent: 41 });
+    expect(t.saved.at(-1)?.goingBack).toBeUndefined();
     await t.controller.dispose();
   });
 
