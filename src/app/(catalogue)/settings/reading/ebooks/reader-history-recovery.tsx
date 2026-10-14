@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { beginReaderHistory, commitReaderHistory, finishReaderHistory, undoReaderHistory,
   type previewReaderHistory, type readerHistoryOperations } from "@/lib/actions/reader-history";
@@ -12,6 +13,7 @@ import { beginReaderHistory, commitReaderHistory, finishReaderHistory, undoReade
 type Row = Awaited<ReturnType<typeof previewReaderHistory>>[number];
 type Operation = Awaited<ReturnType<typeof readerHistoryOperations>>[number];
 type Edit = { selected: boolean; status: "reading" | "paused" | "finished"; startedOn: string; finishedOn: string; percent: string };
+const STATUS_OPTIONS = [{ value: "reading", label: "Reading" }, { value: "paused", label: "Paused" }, { value: "finished", label: "Finished" }];
 
 export function ReaderHistoryRecovery({ rows, operations }: { rows: Row[]; operations: Operation[] }) {
   const router = useRouter();
@@ -100,9 +102,9 @@ export function ReaderHistoryRecovery({ rows, operations }: { rows: Row[]; opera
           <label className="clear-both mb-3 flex min-h-8 items-center gap-2 text-sm text-fg-primary pointer-coarse:min-h-11"><input type="checkbox" checked={edit.selected}
             onChange={(event) => change(row.ebookId, { selected: event.target.checked })} />{row.imported ? "Already recovered" : "Add this history"}</label>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="space-y-1.5"><span className="type-label block">Status</span><select className={field} value={edit.status}
-              onChange={(event) => change(row.ebookId, { status: event.target.value as Edit["status"] })}>
-              <option value="reading">Reading</option><option value="paused">Paused</option><option value="finished">Finished</option></select></label>
+            {/* The app's menu: a native select keeps the system's grey look in Safari */}
+            <Select label="Status" options={STATUS_OPTIONS} value={edit.status} disabled={disabled}
+              onChange={(event) => change(row.ebookId, { status: event.target.value as Edit["status"] })} />
             <label className="space-y-1.5"><span className="type-label block">Started · optional</span><input type="date" className={field} value={edit.startedOn}
               onChange={(event) => change(row.ebookId, { startedOn: event.target.value })} /></label>
             <label className="space-y-1.5"><span className="type-label block">Finished · optional</span><input type="date" disabled={disabled || edit.status !== "finished"}
