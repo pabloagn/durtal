@@ -12,7 +12,7 @@ import { getLookupSettings, updateLookupSettings } from "@/lib/actions/reader-lo
 import { lookupSettingsSchema, type LookupSettings, type LookupSource } from "@/lib/validations/reader-lookup";
 import { defaultLookupSettings } from "@/lib/reader/lookup/sources";
 import { afterLookupFirstPaint, readLocalLookupSettings, writeLocalLookupSettings } from "@/lib/reader/lookup/preferences";
-type Draft = { v: 1; sources: (LookupSource & { key: string })[]; translateTo: string };
+type Draft = { v: LookupSettings["v"]; sources: (LookupSource & { key: string })[]; translateTo: string };
 const draftOf = (value: LookupSettings): Draft => ({ ...value, sources: value.sources.map(source => ({ ...source, key: crypto.randomUUID() })) });
 /** The site a source opens, for its row: "merriam-webster.com". */
 const siteOf = (url: string) => {

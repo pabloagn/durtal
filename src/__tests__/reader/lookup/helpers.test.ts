@@ -77,7 +77,7 @@ describe("lookup sources and preferences", () => {
       expect(lookupSourceSchema.safeParse(value).success).toBe(true);
     const first = lookupSettings(null);
     first.sources[0].name = "Changed";
-    expect(lookupSettings({ v: 2 })).toEqual(defaultLookupSettings());
+    expect(lookupSettings({ v: 3 })).toEqual(defaultLookupSettings());
     expect(DEFAULT_LOOKUP_SOURCES[0].name).toBe("Merriam-Webster");
   });
   it("offers English sources, and upgrades saved settings that kept the first defaults", () => {
@@ -96,6 +96,14 @@ describe("lookup sources and preferences", () => {
     expect(
       lookupSettings({ v: 1, sources: [], translateTo: "es" }).sources,
     ).toEqual([]);
+  });
+  it("keeps the English sources removed once settings are saved again", () => {
+    // Removing both English sources leaves exactly the first defaults
+    const first = DEFAULT_LOOKUP_SOURCES.slice(2).map((value) => ({ ...value }));
+    expect(lookupSettings({ v: 2, sources: first, translateTo: "en" }).sources).toEqual(first);
+    // An upgraded version 1 is saved as version 2
+    expect(lookupSettings({ v: 1, sources: [], translateTo: "en" }).v).toBe(2);
+    expect(defaultLookupSettings().v).toBe(2);
   });
   it("encodes every placeholder and selects any-language sources", () => {
     expect(

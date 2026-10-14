@@ -63,19 +63,25 @@ const sameSources = (a: readonly LookupSource[], b: readonly LookupSource[]) =>
       source.url === b[index].url,
   );
 
-/** Saved sources that are still the untouched first defaults (no English) take the current ones (SLN-687). */
+/**
+ * Settings saved before the English sources (version 1) that still hold the
+ * untouched first defaults take the current ones (SLN-687). Version 2 is kept
+ * as saved, so removing the English sources stays removed.
+ */
 export function withCurrentDefaults(settings: LookupSettings): LookupSettings {
-  return sameSources(settings.sources, LEGACY_DEFAULT_SOURCES)
-    ? {
-        ...settings,
-        sources: DEFAULT_LOOKUP_SOURCES.map((source) => ({ ...source })),
-      }
-    : settings;
+  if (settings.v === 2) return settings;
+  return {
+    ...settings,
+    v: 2,
+    sources: sameSources(settings.sources, LEGACY_DEFAULT_SOURCES)
+      ? DEFAULT_LOOKUP_SOURCES.map((source) => ({ ...source }))
+      : settings.sources,
+  };
 }
 
 export function defaultLookupSettings(): LookupSettings {
   return {
-    v: 1,
+    v: 2,
     sources: DEFAULT_LOOKUP_SOURCES.map((source) => ({ ...source })),
     translateTo: "en",
   };

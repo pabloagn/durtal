@@ -34,7 +34,8 @@ takes or where to get one.
   Wiktionary lead the defaults. Saved settings whose sources are still the
   first 8 defaults, untouched, read as the current defaults
   (`withCurrentDefaults`, on the server and the browser copy); edited lists
-  stay as they are.
+  stay as they are. Settings are now version 2: only a version 1 value is
+  upgraded, so a list that removes both English sources stays that way.
 - Dictionaries (`dictionaries.tsx`): one line says Look up reads StarDict
   dictionaries (a .zip, or the .ifo, .idx and .dict files), with a link to
   free packs made from Wiktionary.
