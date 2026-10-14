@@ -1,6 +1,7 @@
 "use client";
 import { buttonClass } from "@/components/ui/button";
 import { useLayoutEffect, useRef, useState } from "react";
+import { acquireSurface } from "@/lib/ui/surface-state";
 import type {
   AnnotationColor,
   ReaderAnnotation,
@@ -31,6 +32,22 @@ export function HighlightMenu({
   const ref = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: 16, top: 16 });
   const [copy, setCopy] = useState<"ready" | "copied" | "failed">("ready");
+  const opener = useRef<HTMLElement | null>(null);
+  // Escape and Close put focus back on the mark, or the book, as other menus do
+  const close = useRef(() => {});
+  useLayoutEffect(() => {
+    close.current = () => {
+      const mark = opener.current;
+      onClose();
+      if (mark?.isConnected) mark.focus({ preventScroll: true });
+    };
+  });
+  // A surface like the reader's dialogs: Esc closes it from anywhere, also
+  // when focus stayed in the book after the click on the mark that opened it
+  useLayoutEffect(() => {
+    const lease = acquireSurface(() => close.current());
+    return () => lease.release();
+  }, []);
   useLayoutEffect(() => {
     const place = () => {
       if (ref.current)
@@ -46,9 +63,18 @@ export function HighlightMenu({
     place();
     const observer = new ResizeObserver(place);
     if (ref.current) observer.observe(ref.current);
-    ref.current
-      ?.querySelector<HTMLElement>("button")
-      ?.focus({ preventScroll: true });
+    // The mark lives in the book's frame. A click there leaves the page's
+    // own focus heuristics thinking the keyboard moved focus, so the first
+    // swatch would show its focus tooltip, and that tooltip takes the first
+    // Escape (SLN-670). Its focus is visible only when the mark was opened
+    // from the keyboard.
+    const mark = markInFrame();
+    opener.current ??= mark;
+    // `focusVisible` is newer than TypeScript's DOM types; browsers without it ignore it
+    ref.current?.querySelector<HTMLElement>("button")?.focus({
+      preventScroll: true,
+      focusVisible: !!mark?.matches(":focus-visible"),
+    } as FocusOptions);
     addEventListener("resize", place);
     return () => {
       observer.disconnect();
@@ -67,7 +93,7 @@ export function HighlightMenu({
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           event.preventDefault();
-          onClose();
+          close.current();
         }
         if (event.key === "Delete" || event.key === "Backspace") {
           event.preventDefault();
@@ -131,10 +157,35 @@ export function HighlightMenu({
       <button
         type="button"
         className={buttonClass("ghost", "sm")}
-        onClick={onClose}
+        onClick={() => close.current()}
       >
         Close
       </button>
     </div>
   );
+}
+
+/**
+ * The focused element in the book's frame (the reader's view keeps the frame
+ * in a shadow root): the mark, else the frame itself. Null when focus is not
+ * in a frame.
+ */
+function markInFrame(): HTMLElement | null {
+  let el: Element | null = document.activeElement;
+  let frame: HTMLIFrameElement | null = null;
+  while (el) {
+    if (el.shadowRoot?.activeElement) el = el.shadowRoot.activeElement;
+    else if (el instanceof HTMLIFrameElement) {
+      frame = el;
+      try {
+        el = el.contentDocument?.activeElement ?? null;
+      } catch {
+        // A frame from another origin keeps its focus to itself
+        el = null;
+      }
+    } else break;
+  }
+  if (!frame) return null;
+  const doc = frame.contentDocument;
+  return el && doc && el !== doc.body && el !== doc.documentElement && "focus" in el ? (el as HTMLElement) : frame;
 }
