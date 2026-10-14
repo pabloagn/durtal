@@ -50,6 +50,13 @@ export async function loadMatchEdition(editionId: string) {
 }
 export type MatchEdition = Awaited<ReturnType<typeof loadMatchEdition>>;
 
+/** The exact state `loadMatchEdition` read: a guarded write refuses any other */
+export function matchWriteSnapshot(edition: MatchEdition): EditionWriteSnapshot {
+  const expected = matchWriteSnapshots.get(edition);
+  if (!expected) throw new Error("Load a fresh edition before saving the match");
+  return expected;
+}
+
 function currentValues(e: MatchEdition): MatchCurrent {
   return {
     title: e.title,
@@ -157,8 +164,7 @@ export async function saveMatch(
   };
   if (!accepted.length && !relink) return result;
 
-  const expected = matchWriteSnapshots.get(edition);
-  if (!expected) throw new Error("Load a fresh edition before saving the match");
+  const expected = matchWriteSnapshot(edition);
   const updates: Partial<typeof editions.$inferInsert> = {};
   let coverUrl: string | null = null;
   for (const { field, value } of accepted) {
