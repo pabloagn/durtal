@@ -25,4 +25,11 @@ From the design audit, SLN-641 slice 2, P2 "Alignment deviations".
 
 ## Completion Notes
 
-See the PR for the measurements.
+Measured on a disposable preview against main in Chromium (1440, 1024, 390
+and 320 with touch), Firefox (1440 and 390) and WebKit (1440, 390 and 320
+with touch):
+- Reading hub: the alignment audit found the 4 Up Next Start labels 10px
+  in from their titles at every width in all three browsers; now 0.
+- Recommenders: the website icon was 10 to 10.5px off its first line on
+  touch at 390 in Chromium and WebKit; now 0.
+- Overflow, design and touch audits: no issue. No other page changed.
