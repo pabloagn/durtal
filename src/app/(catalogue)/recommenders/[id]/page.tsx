@@ -74,7 +74,7 @@ export default async function RecommenderPage({
                 href={recommender.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-w-0 items-center gap-1.5 font-medium text-fg-primary transition-colors hover:text-accent-primary"
+                className="inline-flex min-w-0 items-center gap-1.5 font-medium text-fg-primary transition-colors hover:text-accent-primary touch-hit"
               >
                 <ExternalLink
                   className="h-3.5 w-3.5 shrink-0"
