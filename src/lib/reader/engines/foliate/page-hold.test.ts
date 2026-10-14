@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 let changeUnderHold: typeof import("@/vendor/foliate-js/page-hold.js").changeUnderHold;
 /** A fresh module, which finds again whether frames run inside an update */
-async function load(framesInUpdate: boolean) {
+async function load(framesInUpdate: boolean, frameMs = 1) {
   vi.resetModules();
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) =>
-    framesInUpdate ? setTimeout(() => callback(0), 1) : 0);
+    framesInUpdate ? setTimeout(() => callback(0), frameMs) : 0);
   ({ changeUnderHold } = await import("@/vendor/foliate-js/page-hold.js"));
 }
 
@@ -126,15 +126,31 @@ describe("a page change under a held snapshot (SLN-660)", () => {
     expect(mock.order).toEqual(["ready", "change"]);
   });
 
-  it("changes the page inside the update where frames run there (WebKit), showing it at once the first time", async () => {
+  it("changes the page inside the update where frames run there (WebKit), and fades the book the first time", async () => {
     await load(true);
     const mock = mockTransitions();
     let held: boolean | undefined;
-    await changeUnderHold(document.body, async (isHeld) => { held = isHeld; mock.order.push("change"); }, { duration: 180 });
+    let nameAtChange: string | undefined;
+    await changeUnderHold(document.body, async (isHeld) => {
+      held = isHeld;
+      nameAtChange = document.body.style.viewTransitionName;
+      mock.order.push("change");
+    }, { turn: "slide", forward: false, duration: 250 });
     expect(mock.order).toEqual(["change", "ready"]);
     expect(held).toBe(true);
-    expect(mock.started).toEqual([]);
-    expect(mock.skipped).toEqual([true]);
+    // The book was named before frames were known to run there: its name
+    // goes before the change, so the new page is taken with the screen, and
+    // the old book fades, a slide included
+    expect(nameAtChange).toBe("");
+    expect(mock.started).toEqual([{ pseudo: "::view-transition-old(foliate-hold)", keyframes: [{ opacity: 1 }, { opacity: 0 }], duration: 250 }]);
+    expect(mock.skipped).toEqual([]);
+  });
+
+  it("finds frames inside the update on a busy page whose frames take 150 ms (WebKit)", async () => {
+    await load(true, 150);
+    const mock = mockTransitions();
+    await changeUnderHold(document.body, async () => { mock.order.push("change"); }, { duration: 180 });
+    expect(mock.order).toEqual(["change", "ready"]);
   });
 
   it("holds the whole screen in WebKit once it is known, and fades a turn", async () => {

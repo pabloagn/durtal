@@ -32,8 +32,11 @@ with no slide or fade.
   - WebKit runs frames inside the update but keeps a held book's new layer
     blank, so it changes the page inside the update, waits three frames for
     it to paint, and holds the whole screen, fading turns too. Which engine
-    this is, is found on the first hold; that first hold in WebKit swaps at
-    once.
+    this is, is found on the first hold. That first hold in WebKit has
+    named the book: the name goes inside the update, so the new page is
+    taken with the rest of the screen, and the held book fades (merge
+    review: before, it swapped at once and could show the page blank while
+    it loaded).
 - `paginator.js`: `#goTo` runs a change to another section under the hold
   (patch 20's hide and fade-in stand down while it holds). Page turns into a
   section that is not loaded pass their direction. Same-section turns keep

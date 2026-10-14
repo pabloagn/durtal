@@ -25,6 +25,17 @@ const frameWithin = ms => new Promise(resolve => {
     const timer = setTimeout(() => resolve(false), ms)
     requestAnimationFrame(() => { clearTimeout(timer); resolve(true) })
 })
+// How long to wait for a frame inside the first update: three of this
+// page's frames, measured just before, so a busy page is not taken for one
+// that runs no frames there; at most half a second
+const probeWait = () => new Promise(resolve => {
+    const start = performance.now()
+    const timer = setTimeout(() => resolve(500), 200)
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        clearTimeout(timer)
+        resolve(Math.min(500, Math.max(100, 1.5 * (performance.now() - start))))
+    }))
+})
 // Whether `promise` settled within `ms`
 const settlesWithin = (promise, ms) => {
     let timer
@@ -110,7 +121,7 @@ export async function changeUnderHold(host, change, options = {}) {
     const whole = framesInUpdate === true
     const named = whole ? null : bookElement(host)
     if (named?.style.viewTransitionName) return change(false)
-    const slide = !whole && options.turn === 'slide'
+    let slide = !whole && options.turn === 'slide'
     injectStyles()
     const image = whole ? '(root)' : `(${NAME})`
     const OLD = `::view-transition-old${image}`
@@ -127,14 +138,22 @@ export async function changeUnderHold(host, change, options = {}) {
         html.style.removeProperty('--foliate-hold-bg')
         if (named?.style.viewTransitionName === NAME) named.style.removeProperty('view-transition-name')
     }
+    const wait = framesInUpdate === null ? await probeWait() : 0
     let changing = null
     const start = () => (changing ??= Promise.resolve().then(() => change(true)))
     let settled = true
     let transition
     try {
         transition = document.startViewTransition(async () => {
-            framesInUpdate ??= await frameWithin(100)
+            framesInUpdate ??= await frameWithin(wait)
             if (!framesInUpdate) return
+            // The first hold in WebKit named the book, whose new layer would
+            // stay blank: the page as it was stays held, and the new one is
+            // taken with the rest of the screen, then the old one fades
+            if (named) {
+                named.style.removeProperty('view-transition-name')
+                slide = false
+            }
             settled = await settlesWithin(start(), HOLD_LIMIT_MS)
             // Let the new page paint before WebKit takes it as the new layer
             for (let i = 0; settled && i < PAINT_FRAMES; i++) await frameWithin(100)
@@ -159,10 +178,7 @@ export async function changeUnderHold(host, change, options = {}) {
         const moved = !timedOut && await changing.then(result => result !== false, () => false)
         const holds = html.getAnimations({ subtree: true })
             .filter(animation => animation.effect?.pseudoElement === OLD)
-        // The first hold in WebKit held the book, whose new layer is blank:
-        // it shows the new page at once
-        if (named && framesInUpdate) transition.skipTransition?.()
-        else if (moved && duration > 0) {
+        if (moved && duration > 0) {
             const timing = { duration, easing: SLIDE_EASING, fill: 'forwards' }
             const away = `translateX(${rtl ? 100 : -100}%)`
             if (!slide)

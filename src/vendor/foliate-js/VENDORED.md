@@ -220,7 +220,9 @@ adapter regression source added; native retesting remains pending.
     since Chromium can leave the book out of a whole-screen snapshot. WebKit
     does run frames there but keeps a book snapshot's new layer blank, so it
     changes the page inside the update and holds the whole screen, fading
-    turns too; its first hold, before that is known, swaps at once. The
+    turns too. Its first hold, before that is known, has named the book:
+    the name goes inside the update, so the new page is taken with the
+    screen, and the held book fades. The
     paginator uses it for jumps and for turns into a section that is not
     loaded, where it hid the page and faded it in from blank (patch 20); the
     fixed layout for every turn and jump of PDFs and comics, which now read
