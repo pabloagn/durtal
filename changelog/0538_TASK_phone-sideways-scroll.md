@@ -54,3 +54,12 @@ Measured on a disposable preview against main in Chromium (1440, 1024,
   measure the same as main except the import preview (a build of main
   without #259 differed on /harmonize only by that PR's headings).
 - Page weight: 44 of 44 routes within budget.
+
+Review fix: with the heading's `overflow-wrap: anywhere`, "Institution" on a
+place page broke as "Institutio / n" at 320, squeezed to 104px by "Link an
+institution". `SectionHeading`'s row now wraps: the title column is `w-min
+min-w-0 grow`, so its narrowest width is its longest word, and when that word
+and the action do not fit side by side the action goes under the title at
+the right (`ml-auto`). The heading uses `break-word`, so a file name wider
+than the screen still breaks. Pinned by `section-heading-wrap`; the reviewer
+measured every heading on 38 routes in three browsers against main.
