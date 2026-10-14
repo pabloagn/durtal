@@ -98,6 +98,11 @@ Seven sizes, defined in `src/styles/globals.css`. Tailwind's own sizes are clear
 | `text-3xl` | 38px | Stat numbers |
 | `text-4xl` | 46px | Page titles |
 
+Two things are drawn outside the scale on purpose, so the design audit's off-scale findings for them are expected:
+
+- the reader settings' type preview (`/settings/reader`) shows the reader's own chosen size, 20px by default;
+- text drawn inside a picture's SVG, such as the stand-in flacon's initials (`flacon` in `globals.css`), uses 11px.
+
 ### Roles
 
 A heading never picks its own size and color: it uses its role. Each role sets family, size, line height, tracking and color.
@@ -131,6 +136,8 @@ A heading never picks its own size and color: it uses its role. Each role sets f
 --space-2xl:    48px
 --space-3xl:    64px
 ```
+
+**Quiet buttons start on the text edge.** A ghost button that starts a row under a column of text, or starts the line of a wrapping row, pulls itself out by its own horizontal padding: `-ml-2.5` at `sm`, `-ml-3` at `md`. Its icon or label then starts where the text above it starts. A row that ends on the right does the same with `-mr-*`. Where a control's padding grows on touch, the pull grows with it (the rating's stars, Ratings). The layout audit's drifting-edge check measures this in cards and in label and value grids (Phone widths). An inset that is meant to be there carries `data-inset`.
 
 ### Border Radius
 
@@ -192,7 +199,8 @@ In CSS, write `-webkit-backdrop-filter` before `backdrop-filter`. In the other o
 - Hover: a quiet surface lift and restrained petrol shadow, without a coloured rim
 - The cover shows its art. Only the marks that make a copy special sit on it: rare, poison and digital edition, as one cluster in the bottom-left corner. Their chips (`src/components/books/cover-chip.ts`) share one size and inset and the shared `glass-chip` material, so they read on white and on black covers alike. Controls on a cover (the actions menu, copy, image adjustment) show on hover and keyboard focus, and always on a touch screen, which has no hover (`hover-reveal` in `globals.css`).
 - Text uses `CardHeading`: 21px Cirka titles and full-width 16px Inter identifying metadata. Titles take their natural height and metadata sits 4px below the last title line. Metadata reserves a minimum line but never clamps; longer text grows naturally. The favourite action floats beside only the first title line; it never narrows the metadata column. Ordinary words wrap at spaces; an exceptionally long unbroken token may wrap to prevent overflow. Essential names never require hover to read.
-- Catalogue grids treat density as a maximum column count and keep at least 208px per card including its padding. Below that available width, one card fits the container. Related shelves use container-relative 208–256px cards instead of fixed 160px thumbnails. Cards stretch to the tallest item in their row, and flexible bodies align footer metadata at the bottom without clipping titles. Horizontal overflow belongs to the shelf, never the page. Height remains content-driven, including in short viewports.
+- Catalogue grids treat density as a maximum column count and keep at least 208px per card including its padding. Below that available width, one card fits the container.
+- A phone is the one exception: on a touch screen under 768px, the Compact size keeps two cards a row once its container is 328px wide, with an 8px gap and 8px card padding (`catalogue-density-compact`; `PhonePairGrid` on the dashboard and people shelves). At 390px each card is about 173px. The library is about its covers, and two a row shows more of them on the first screen. The Large size keeps one card a row. Related shelves use container-relative 208–256px cards instead of fixed 160px thumbnails. Cards stretch to the tallest item in their row, and flexible bodies align footer metadata at the bottom without clipping titles. Horizontal overflow belongs to the shelf, never the page. Height remains content-driven, including in short viewports.
 - Info row, in secondary text: the status as a colored dot and its label (`CardStatus`; the tooltip adds the priority and the number of copies), the language from 200px card width, then on the right the rating (a gold star and the number, `CardRating`, from 160px) and the year (from 160px; 220px beside a rating). The status always fits whole.
 
 ### Work cards
@@ -299,11 +307,21 @@ Multiple semantic variants:
 
 ### Empty States
 
-- Centered layout
-- Serif title text, muted
-- Brief description
-- Single action button
+- Centered layout (`EmptyState`, `src/components/ui/empty-state.tsx`)
+- A decorative 24px mark in a quiet box, marked `data-decorative` so the design audit does not count it as an interface icon
+- The title in `type-item-title`, then one sentence in secondary text
+- Where there is something to do, one Button
+- A section of a detail page with nothing to show is left out, and its Add goes in the page's menu (Detail pages)
 - No illustrations, no emoji
+
+**Errors, loading and busy controls.**
+
+- **Errors** use the same block (`SectionError`): what happened, Try again, and a link back to a page that works. The catalogue's root error page still has its own button and no way back; slice 3 piece D moves it onto `SectionError`.
+- **Loading** keeps the page's final layout: skeletons the size of the content they replace, so nothing jumps when the page arrives. The SLN-641 slice 3 audit (`sln-641-slice-3.md`) found pages without a loading state and a film skeleton that does not match its page; its pieces A and B make this hold.
+- **A busy button keeps its width.**
+  - A button with an icon swaps the icon for a same-size spinner and keeps its label, as Export does.
+  - A button without an icon keeps its label, is disabled and sets `aria-busy`.
+  - Slice 3 found Save buttons that change width while they save; its piece C makes this hold.
 
 ### Toasts
 
@@ -432,7 +450,7 @@ One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in 
 - `data-tooltip-keys` shows the control's shortcut as key caps: `"b"`, `"alt f"`, `"g then b"` (a sequence).
 - `data-tooltip-side`: `top` (default), `bottom`, `right`, `left`. It flips when it does not fit.
 - A control whose menu or panel is open (`aria-expanded="true"`, or the popover its `popovertarget` names) shows no tooltip, and opening the panel closes it, so the first Escape closes the panel.
-- Text cut by `truncate`, `lines-1` or `lines-2` shows its full text on hover, with no attribute.
+- Text cut by `truncate`, `lines-1` or `lines-2` shows its full text on hover, with no attribute, and on keyboard focus of the link or button that holds it or sits in it (a ranking's one-line title).
 - Style: glass (`glass`), 14px text, 6px from the control. It renders in the top layer, above dialogs.
 
 ---
@@ -451,6 +469,7 @@ One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in 
 Rules:
 - Icons **supplement** text. An icon-only control (a menu trigger, a copy button) has an `aria-label` and a tooltip (`data-tooltip`, see Tooltips)
 - An image placeholder (an empty cover, an empty collection, a card with no photo) may use a larger, decorative icon at low contrast, 20-40px; it is not an interface icon
+- A chosen emblem, such as a collection's own icon, is the record's picture and not an interface icon. It may be larger than 16px, like a cover, and it sits in a 44px button (`collection-icon-picker.tsx`). The interface icons beside it, such as the favourite star and the menu, stay at 16px
 - No emoji anywhere in the interface
 - Icons inherit text color. A mark or status icon takes its accent: rare in gold, poison in red
 - An icon or drawing that repeats on every card of a grid stays light (page weight, SLN-481). The star draws the page's star symbol (`<svg><use href="#favourite-star"/></svg>`, `favourite-star.tsx`, in the root layout): the favourite toggle and the card rating (`CardRating`) both do. A drawing's colors go in a CSS utility, not inline on each shape: the stand-in flacon (`Flacon`) uses `flacon` in `globals.css`. A Lucide icon inline costs about 650 bytes a card, its symbol about 100
