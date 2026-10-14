@@ -8,6 +8,7 @@ import {
   type SpeechAction,
   type SpeechPlayerState,
   type SpeechCommand,
+  type SpeechSegment,
 } from "./player";
 import {
   choosePassageVoice,
@@ -41,9 +42,6 @@ export function createReaderSpeech(options: {
   /** Plays the natural voice's audio; without it only the device's voices read */
   audio?: HTMLAudioElement;
   fetch?: typeof fetch;
-  /** False on touch: a selected sentence would open the selection toolbar
-   * over the text, so the sentence is only shown (SLN-678) */
-  selectsSentences?(): boolean;
 }) {
   let state = initialSpeechPlayer(),
     open = false,
@@ -119,6 +117,11 @@ export function createReaderSpeech(options: {
       chosen: SpeechPreferences,
       bookLanguage: string | null,
     ) {
+      // No voice at all: nothing can speak, so nothing is tried (SLN-679)
+      if (!voices.length) {
+        queueMicrotask(() => dispatch({ kind: "error", token: command.token, error: "no-voice" }));
+        return;
+      }
       const choice = choosePassageVoice(voices, command.segment.lang, bookLanguage, chosen);
       if (cloud && choice.kind === "available" && isNaturalVoice(choice.voice) && Date.now() >= deviceUntil) {
         native.cancel();
@@ -220,7 +223,8 @@ export function createReaderSpeech(options: {
           options.navigation.cancelSpeech();
           break;
         case "clear":
-          break; // SLN-500's independent speech decoration group is still gated.
+          mark(null);
+          break;
         case "prepare":
         case "request-next":
           void extracting(command);
@@ -235,13 +239,11 @@ export function createReaderSpeech(options: {
             .speechTo(command.segment.locator)
             .then(() => {
               if (
-                command.kind === "select" &&
-                options.selectsSentences?.() !== false &&
                 !disposed &&
                 generation === state.generation &&
                 state.current === command.segment
               )
-                options.engine.selectSpeechSentence?.(command.segment.locator);
+                mark(command.segment);
             })
             .catch(() => {
               if (
@@ -259,6 +261,25 @@ export function createReaderSpeech(options: {
         }
       }
     }
+  }
+  /** The sentence being read, marked quietly; never a selection, so pausing opens no toolbar (SLN-679) */
+  function mark(segment: SpeechSegment | null) {
+    options.engine.setDecorations(
+      "speech",
+      segment
+        ? [
+            {
+              id: "speech-sentence",
+              locator: {
+                ...segment.locator,
+                text: { ...segment.locator.text, highlight: segment.text },
+              },
+              style: "highlight",
+              color: "link",
+            },
+          ]
+        : [],
+    );
   }
   const playing = () =>
     state.phase === "playing" ||
@@ -297,6 +318,11 @@ export function createReaderSpeech(options: {
       }
       if (!snapshot().selectionReady) return;
       open = true;
+      // With no voice the player opens and says so, and does not start
+      if (!voices.length) {
+        notify();
+        return;
+      }
       dispatch({ kind: "play" });
     },
     toggle() {
@@ -311,6 +337,10 @@ export function createReaderSpeech(options: {
         return;
       }
       open = true;
+      if (!playing() && !voices.length) {
+        notify();
+        return;
+      }
       dispatch({ kind: playing() ? "pause" : "play" });
     },
     action(

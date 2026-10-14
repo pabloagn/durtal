@@ -46,7 +46,7 @@ afterEach(() => {
   sessions.length = 0;
   vi.useRealTimers();
 });
-function setup(extra: { selectsSentences?(): boolean } = {}) {
+function setup(extra: { voices?: SpeechSynthesisVoice[] } = {}) {
   const fake = fakeEngine();
   const engine: ReaderEngine = fake.engine;
   let first = 1;
@@ -83,7 +83,8 @@ function setup(extra: { selectsSentences?(): boolean } = {}) {
   const platform = Object.assign(new EventTarget(), {
     paused: false,
     getVoices: () =>
-      [
+      extra.voices ??
+      ([
         {
           voiceURI: "en",
           name: "English",
@@ -91,7 +92,7 @@ function setup(extra: { selectsSentences?(): boolean } = {}) {
           default: true,
           localService: true,
         },
-      ] as SpeechSynthesisVoice[],
+      ] as SpeechSynthesisVoice[]),
     speak: vi.fn(),
     cancel: vi.fn(),
     resume: vi.fn(),
@@ -105,7 +106,6 @@ function setup(extra: { selectsSentences?(): boolean } = {}) {
     document,
     storage: null,
     changed: () => {},
-    ...extra,
   });
   sessions.push(session);
   return {
@@ -266,32 +266,43 @@ it("prepares an explicit selection without speaking and starts that prepared sen
   expect(s.platform.speak).toHaveBeenCalledOnce();
   expect(s.utterance().text).toBe("Sentence 4.");
 });
-it("pausing selects the sentence only after its owned navigation settles", async () => {
+it("marks the sentence being read, keeps the mark on pause, and never selects it (SLN-679)", async () => {
   const s = setup();
   const selected = vi.fn(() => true);
   s.engine.selectSpeechSentence = selected;
+  const decorations = vi.mocked(s.engine.setDecorations);
+  const speechMarks = () => decorations.mock.calls.filter(([group]) => group === "speech");
   s.session.prepare();
   await settle();
   s.session.toggle();
   s.utterance().dispatchEvent(new Event("start"));
   await settle();
+  expect(speechMarks().at(-1)?.[1]).toEqual([
+    expect.objectContaining({
+      style: "highlight",
+      color: "link",
+      locator: expect.objectContaining({ cfi: sentence(1).locator.cfi, text: expect.objectContaining({ highlight: "Sentence 1." }) }),
+    }),
+  ]);
   s.session.action({ kind: "pause" });
-  expect(selected).not.toHaveBeenCalled();
   await settle();
-  expect(selected).toHaveBeenCalledWith(sentence(1).locator);
+  expect(speechMarks().at(-1)?.[1]).toHaveLength(1);
+  expect(selected).not.toHaveBeenCalled();
+  // Stopping clears the mark
+  s.session.action({ kind: "stop" });
+  await settle();
+  expect(speechMarks().some(([, items]) => items.length === 0)).toBe(true);
 });
-it("on touch, pausing shows the sentence without selecting it (SLN-678)", async () => {
-  const s = setup({ selectsSentences: () => false });
-  const selected = vi.fn(() => true);
-  s.engine.selectSpeechSentence = selected;
+it("with no voice on the device, opens the player without starting it (SLN-679)", async () => {
+  const s = setup({ voices: [] });
   s.session.prepare();
   await settle();
   s.session.toggle();
-  s.utterance().dispatchEvent(new Event("start"));
   await settle();
-  s.session.action({ kind: "pause" });
-  await settle();
-  expect(selected).not.toHaveBeenCalled();
+  expect(s.platform.speak).not.toHaveBeenCalled();
+  expect(s.session.snapshot.open).toBe(true);
+  expect(s.session.snapshot.state.phase).not.toBe("playing");
+  expect(s.session.snapshot.state.message).toBeNull();
 });
 it("replaced selection preparation and stale paused-selection effects cannot change the new intent", async () => {
   const s = setup();
