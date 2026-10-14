@@ -25,7 +25,8 @@ saved.
   spinner. It is `disabled` and carries `aria-busy="true"`. A caller's own
   `disabled` still applies when it is not busy.
 - **Adopted** by every `Button` that swapped its label for a busy word:
-  - the 12 "Saving" buttons: reading dialogs' Save, the edition form (Save
+  - the 13 "Saving" buttons: reading dialogs' Save, the reading-history
+    recovery's Add selected history, the edition form (Save
     changes, Add edition), the copy's Edit, a book's taxonomy, series,
     recommender, collection, publisher, family edit, taxonomy order, the
     match preview (which had its own spinner and "Saving...") and the eBook
@@ -46,8 +47,7 @@ saved.
   busy, spinner in the icon's place with its size, none without an icon,
   `aria-busy` and `disabled`; and the ellipsis rule.
 - Measured in the browser: see the PR.
-- Not changed, listed for later: the reader history recovery's "Saving…"
-  (settings, eBook reader history; left to the eBook thread), and busy labels
+- Not changed, listed for later: busy labels
   on plain `<button>` elements that are not the shared `Button` (Harmonize's
   Scan, Apply and Confirm merge; the pickers' "Create …" rows); the eBook
   review dialogs' Confirming and Undoing buttons.

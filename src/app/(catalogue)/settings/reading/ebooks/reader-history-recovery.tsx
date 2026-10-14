@@ -92,7 +92,7 @@ export function ReaderHistoryRecovery({ rows, operations }: { rows: Row[]; opera
     {rows.length ? <form onSubmit={(event) => { event.preventDefault(); void recover(); }} className="mb-8 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-fg-secondary">{selected.length} of {rows.length} selected</p>
-        <Button type="submit" variant="primary" disabled={busy || (!pending && !selected.length)}>{busy ? "Saving…" : pending ? "Retry recovery" : "Add selected history"}</Button>
+        <Button type="submit" variant="primary" disabled={!pending && !selected.length} busy={busy}>{pending ? "Retry recovery" : "Add selected history"}</Button>
       </div>
       <div className="space-y-3">{rows.map((row) => {
         const edit = edits[row.ebookId];
