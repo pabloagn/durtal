@@ -96,7 +96,7 @@ describe("N and A (SLN-632)", () => {
     expect(document.getElementById("add-person")).not.toBeNull();
   });
 
-  it("does nothing after A for Esc, an unknown key, a late key, Shift or a modifier", () => {
+  it("does nothing after A for Esc, an unknown key, Shift or a modifier", () => {
     for (const [second, init] of [
       ["Escape", {}],
       ["x", {}],
@@ -108,11 +108,19 @@ describe("N and A (SLN-632)", () => {
       press(second, init);
       press("b");
     }
+    expect(nav.push).not.toHaveBeenCalled();
+    expect(menu()).toBeNull();
+  });
+
+  it("lets a key that comes too late after A act on its own", () => {
     press("a");
     now += 1600;
     press("b");
     expect(nav.push).not.toHaveBeenCalled();
-    expect(menu()).toBeNull();
+    press("a");
+    now += 1600;
+    press("g");
+    expect(menu()?.getAttribute("aria-label")).toBe("Go to");
   });
 
   it("waits through Shift alone, and never starts while typing or on a held A", () => {

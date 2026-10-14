@@ -26,9 +26,9 @@ nothing.
   - N opens the menu that A opened.
   - A records when it was pressed. The next key adds when it is an Add key,
     unshifted and within 1.5 seconds (`ADD_PREFIX_MS`); any other key, Esc,
-    a late key, a modifier chord, a held key, a key while typing or in a
-    dialog ends the wait and does nothing. Shift, Ctrl, Alt and Meta alone
-    keep it waiting.
+    a modifier chord, a held key, a key while typing or in a dialog ends the
+    wait and does nothing. A key after 1.5 seconds acts on its own. Shift,
+    Ctrl, Alt and Meta alone keep it waiting.
   - A client navigation closes an open leader menu and drops a pending A.
 - The palette's "Add a …" entries keep their A then key hints, from the same
   list.
@@ -36,8 +36,8 @@ nothing.
 ## Completion Notes
 
 - `src/__tests__/ui/new-menu-and-add-keys.test.ts`: N opens New and A
-  nothing; A then B, P, U and A; Esc, an unknown key, Shift, ⌘ and Ctrl, a
-  late key; Shift alone; typing and a held A; a page change; the sheet, the
+  nothing; A then B, P, U and A; Esc, an unknown key, Shift, ⌘ and Ctrl; a
+  late key acting on its own; Shift alone; typing and a held A; a page change; the sheet, the
   menu and the registry agree.
 - Updated: `domain-navigation.test.ts` (perfume's Add key),
   `edit-menu-shortcuts.test.ts` and `reading-menu-shortcuts.test.ts`.

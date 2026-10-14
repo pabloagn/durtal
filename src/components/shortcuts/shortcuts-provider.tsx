@@ -403,10 +403,12 @@ export function ShortcutsProvider({
 
     function onKeyDown(event: KeyboardEvent) {
       if (MODIFIER_KEYS.has(event.key)) return;
-      // A then a key adds (SLN-632). Whatever comes after A ends the wait: a
-      // key that adds nothing, Esc, a late key, or a key the guards below
-      // refuse (typing, a dialog, a modifier, a held key) does nothing.
-      const pendingAdd = addPrefix.current;
+      // A then a key adds (SLN-632). The key after A ends the wait: a key
+      // that adds nothing, Esc, or a key the guards below refuse (typing, a
+      // dialog, a modifier, a held key) does nothing. A key that comes too
+      // late is a key of its own.
+      const pendingAdd =
+        addPrefix.current && performance.now() - addPrefix.current < ADD_PREFIX_MS ? addPrefix.current : 0;
       addPrefix.current = 0;
       // A handler on the page took the key, or an input method is composing
       if ((event.defaultPrevented && !isPassedThrough(event)) || isComposing(event))
@@ -529,11 +531,11 @@ export function ShortcutsProvider({
       )
         return;
 
-      // A then its key: only a key that adds, in time; the rest is swallowed
+      // A then its key: only a key that adds; the rest is swallowed
       if (pendingAdd) {
         event.preventDefault();
         const entry = ADD.find((a) => a.key === key);
-        if (entry && !event.shiftKey && performance.now() - pendingAdd < ADD_PREFIX_MS) add(entry.key);
+        if (entry && !event.shiftKey) add(entry.key);
         return;
       }
       if (event.key === "?") {
