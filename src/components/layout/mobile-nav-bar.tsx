@@ -5,6 +5,7 @@ import { forwardRef } from "react";
 import { Menu, Search } from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { TimerChip } from "@/components/reading/timer-chip";
+import { NotificationCentre } from "./notification-centre";
 
 const BUTTON =
   "inline-flex h-11 w-11 items-center justify-center rounded-sm text-fg-secondary transition-colors duration-150 hover:bg-bg-tertiary/50 hover:text-fg-primary";
@@ -42,6 +43,9 @@ export const MobileNavBar = forwardRef<
         <div className="ml-auto flex">
         {/* The running timer, between the name and Search (SLN-451) */}
         <TimerChip layout="phone" />
+        <CapAligned height={44}>
+          <NotificationCentre tooltipSide="bottom" className={BUTTON} />
+        </CapAligned>
         <CapAligned height={44}>
           <button
             type="button"

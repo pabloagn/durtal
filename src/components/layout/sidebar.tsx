@@ -10,6 +10,7 @@ import { GO_TO } from "@/lib/shortcuts/shortcuts";
 import { SIDEBAR } from "@/lib/preferences";
 import { TimerChip } from "@/components/reading/timer-chip";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { NotificationCentre } from "./notification-centre";
 
 /**
  * From md up: the fixed sidebar, resizable and collapsible (`width`).
@@ -226,8 +227,13 @@ export function Sidebar({
 
       {/* Footer */}
       <div
-        className="flex h-11 shrink-0 items-center overflow-hidden border-t border-glass-border px-5"
+        className="flex h-11 shrink-0 items-center gap-0.5 overflow-hidden border-t border-glass-border pl-1.5 pr-5"
       >
+        {/* Notifications sit in the icon column, beside the motto (SLN-567) */}
+        <NotificationCentre
+          tooltipSide="right"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-sm text-fg-secondary transition-colors duration-150 hover:bg-bg-tertiary/50 hover:text-fg-primary focus-visible:-outline-offset-2"
+        />
         <p className={`truncate font-mono text-micro text-fg-secondary ${isCollapsed ? "md:invisible" : ""}`}>
           catalogue &middot; index &middot; archive
         </p>
