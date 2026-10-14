@@ -82,7 +82,7 @@ export function PresentationSettingsDialog(props: {
       {toggle("pdfThemePages", "Apply the book theme to PDF pages")}
       {(props.error || props.recoveryError) && <p role="alert" className="text-sm text-accent-red-text">{props.error ?? props.recoveryError}</p>}
       <p role="status" className="text-xs text-fg-secondary">{props.saving ? "Saving settings" : props.pending ? "Changes are waiting to save" : "Settings saved"}</p>
-      <div className="flex flex-wrap gap-2"><Button variant="ghost" size="sm" onClick={() => props.onReset(scope)}>Reset {scope === "book" ? "this book" : "defaults"}</Button>
+      <div className="flex flex-wrap gap-2"><Button variant="ghost" size="sm" className="-ml-2.5" onClick={() => props.onReset(scope)}>Reset {scope === "book" ? "this book" : "defaults"}</Button>
         {(props.error || props.pending > 0) && <Button variant="ghost" size="sm" onClick={props.onRetry}>Try saving again</Button>}
       </div>
     </div>;

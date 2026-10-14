@@ -29,10 +29,22 @@ closed, and the `dialogs` check could not reach Settings there.
 - `src/components/reader/side-panel.tsx`: the drawer takes its focus origin
   from `captureFocusOrigin`, which keeps the menu's button beside the item,
   and gives focus back to the button when the item went with its menu.
+- `presentation-settings-dialog.tsx`: the quiet Reset button's label starts
+  at the settings column's text edge (it sat 10px in, found by the alignment
+  audit with Settings open).
 - `scripts/qa/reader-engine-check.mjs`: the `dialogs` check opens Settings
   from the More menu when the bar has no room for it, and expects focus back
-  on More.
+  on More. A new `pointer` row waits for the page to settle after a link to
+  the notes and asserts the place is still in the notes, since the old row
+  passed by catching the notes for a moment.
 
 ## Completion Notes
 
-See the PR for the checks.
+- Reader checks `navigation`, `pointer` and `dialogs`: 42 of 42 in Chromium,
+  WebKit and Firefox. On main, `navigation` failed at every width in all
+  three browsers and `dialogs` could not run Settings.
+- `paginator-reading-order.test.ts` and `side-panel.test.ts` add a test each;
+  the side panel one fails without the fix.
+- Alignment, design and overflow audits are clean on the notes view and with
+  Settings open, in all three browsers at 1440, 390 and 320 (18 of 18).
+- No migration and no new packages.
