@@ -331,6 +331,30 @@ dialog::backdrop {
   @apply text-fg-secondary hover:bg-glass-highlight hover:text-fg-primary active:bg-bg-tertiary/80 aria-expanded:bg-glass-highlight aria-expanded:text-fg-primary;
 }
 
+/* A command or link set in a line of text (docs/03, Buttons): the interaction
+   colour with a quiet underline at rest, so it never reads as the text beside
+   it; hover brightens both. On touch its box grows to 44px tall around the
+   line without moving it: padding, cancelled by a negative margin on a
+   button (inline-block); a link ignores both for layout. */
+@utility text-command {
+  color: var(--color-accent-primary);
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  text-decoration-color: color-mix(in oklab, currentColor 45%, transparent);
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, text-decoration-color 0.15s;
+  &:hover {
+    color: var(--color-fg-primary);
+    text-decoration-color: currentColor;
+  }
+  @media (pointer: coarse) {
+    --text-command-grow: calc((44px - 1em) / 2);
+    padding-block: var(--text-command-grow);
+    margin-block: calc(-1 * var(--text-command-grow));
+  }
+}
+
 /* Default utility action: 32px, a 16px icon, independent 44px touch boxes. */
 @utility action-icon {
   @apply action-control action-ghost size-8 p-0 pointer-coarse:size-11;
