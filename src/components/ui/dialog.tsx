@@ -36,6 +36,12 @@ interface DialogProps {
   dirty?: boolean;
   /** Save for the question; by default the dialog's save button */
   onSave?: () => void;
+  /**
+   * A dialog with nothing to save (a viewer, a manager whose every change
+   * saves at once) shows a Done button under its body: its main action, so
+   * Enter closes it as Esc does (SLN-634).
+   */
+  done?: boolean;
 }
 
 const FIRST_FIELD =
@@ -58,6 +64,7 @@ export function Dialog({
   draft = false,
   dirty,
   onSave,
+  done = false,
 }: DialogProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -206,9 +213,17 @@ export function Dialog({
       {/* Body. It scrolls, not the dialog: the glass stays behind every
           line, and the header stays in view. It grows from its content
           (flex-auto): from a zero basis, Safari gives it no height */}
-      <div className="min-h-0 flex-auto overflow-y-auto px-6 pb-6 pt-3">
+      <div className={`min-h-0 flex-auto overflow-y-auto px-6 pt-3 ${done ? "pb-4" : "pb-6"}`}>
         {children}
       </div>
+      {/* Outside the scrolling body, so it stays in view */}
+      {done && (
+        <div className="flex shrink-0 justify-end border-t border-glass-border px-6 py-4">
+          <Button type="button" variant="primary" onClick={requestClose}>
+            Done
+          </Button>
+        </div>
+      )}
     </dialog>
     {guard.prompt && <UnsavedChangesPrompt prompt={guard.prompt} />}
     </>

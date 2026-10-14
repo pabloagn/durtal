@@ -44,6 +44,8 @@ interface PageShortcut {
   key: string;
   label: string;
   run: () => void;
+  /** "a": the key follows A, for the open item (A then F, A then C: SLN-571) */
+  prefix?: "a";
 }
 
 /** An edit action the open page offers (E menu): "Work", opens the edit dialog */
@@ -69,6 +71,8 @@ interface ShortcutsContextValue {
   openHelp: () => void;
   /** Runs an "Add" entry by its key ("b" adds a book) */
   add: (key: string) => void;
+  /** Keys the open item takes after A (F, C): there A then the key is not Add */
+  itemKeys: () => string[];
   /** What Y copies on this page, the link last */
   copyItems: () => CopyItem[];
   copy: (item: CopyItem) => void;
@@ -88,10 +92,12 @@ export function useShortcutActions() {
 }
 
 /**
- * A single-key shortcut for the page that is open. It
- * shows in the shortcuts sheet under "This page" while the page is open.
+ * A shortcut for the page that is open: a single key, or with `prefix` "a"
+ * a key after A for the open item, which wins over the Add entry of the same
+ * key (A then F favourites the item, else adds a film). It shows in the
+ * shortcuts sheet under "This page" while the page is open.
  */
-export function useShortcut(key: string, label: string, run: () => void) {
+export function useShortcut(key: string, label: string, run: () => void, prefix?: "a") {
   const context = useContext(ShortcutsContext);
   const runRef = useRef(run);
   useEffect(() => {
@@ -99,8 +105,8 @@ export function useShortcut(key: string, label: string, run: () => void) {
   });
   useEffect(() => {
     if (!context) return;
-    return context.register({ key, label, run: () => runRef.current() });
-  }, [context, key, label]);
+    return context.register({ key, label, prefix, run: () => runRef.current() });
+  }, [context, key, label, prefix]);
 }
 
 /**
@@ -238,6 +244,14 @@ export function ShortcutsProvider({
   // When A was pressed, while it waits for its second key (0: not waiting)
   const addPrefix = useRef(0);
   const [pageShortcuts, setPageShortcuts] = useState<PageShortcut[]>([]);
+  const pageShortcutsRef = useRef(pageShortcuts);
+  useEffect(() => {
+    pageShortcutsRef.current = pageShortcuts;
+  }, [pageShortcuts]);
+  const itemKeys = useCallback(
+    () => pageShortcutsRef.current.filter((s) => s.prefix === "a").map((s) => s.key),
+    [],
+  );
   // A ref, not state: menus and the palette read it when they open, and the
   // context stays the same object (a new one would make pages register again)
   const pageCopyItems = useRef<CopyItem[]>([]);
@@ -314,12 +328,13 @@ export function ShortcutsProvider({
       registerReading,
       openHelp: () => setHelpOpen(true),
       add,
+      itemKeys,
       copyItems,
       copy,
       editItems,
       readingItems,
     }),
-    [register, registerCopy, registerEdit, registerReading, add, copyItems, copy, editItems, readingItems],
+    [register, registerCopy, registerEdit, registerReading, add, itemKeys, copyItems, copy, editItems, readingItems],
   );
 
   const openMenu = (name: MenuName) => {
@@ -531,11 +546,14 @@ export function ShortcutsProvider({
       )
         return;
 
-      // A then its key: only a key that adds; the rest is swallowed
+      // A then its key: the open item's action for that key (A then F, A
+      // then C), else the Add entry. The rest is swallowed.
       if (pendingAdd) {
         event.preventDefault();
-        const entry = ADD.find((a) => a.key === key);
-        if (entry && !event.shiftKey) add(entry.key);
+        if (event.shiftKey) return;
+        const item = pageShortcuts.findLast((s) => s.prefix === "a" && s.key === key);
+        if (item) item.run();
+        else if (ADD.some((a) => a.key === key)) add(key);
         return;
       }
       if (event.key === "?") {
@@ -562,7 +580,7 @@ export function ShortcutsProvider({
         return;
       }
 
-      const pageShortcut = pageShortcuts.findLast((s) => s.key === key);
+      const pageShortcut = pageShortcuts.findLast((s) => !s.prefix && s.key === key);
       if (pageShortcut) {
         event.preventDefault();
         pageShortcut.run();

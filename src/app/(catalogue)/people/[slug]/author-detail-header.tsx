@@ -13,6 +13,8 @@ import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { CoarseImageSource } from "@/components/shared/coarse-image-source";
 import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
+import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
+import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { ExportMenu } from "@/components/shared/export-menu";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { ProtectedImageWrapper } from "@/components/shared/protected-image";
@@ -62,6 +64,11 @@ export function AuthorDetailHeader({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  // E then P or M: the same dialogs as the menu (SLN-633)
+  useEditActions([
+    { key: EDIT_KEYS.person, label: "Person", icon: Pencil, run: () => setEditOpen(true) },
+    { key: EDIT_KEYS.media, label: "Media", icon: ImageIcon, run: () => setMediaOpen(true) },
+  ]);
 
   async function handleCopyName() {
     const fullName =
@@ -98,11 +105,13 @@ export function AuthorDetailHeader({
       label: "Edit",
       icon: Pencil,
       onClick: () => setEditOpen(true),
+      shortcut: editHint(EDIT_KEYS.person),
     },
     {
       label: "Manage Media",
       icon: ImageIcon,
       onClick: () => setMediaOpen(true),
+      shortcut: editHint(EDIT_KEYS.media),
     },
     {
       label: "Delete",

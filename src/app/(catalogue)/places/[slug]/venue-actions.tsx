@@ -7,6 +7,8 @@ import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
+import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
+import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 import { removeVenue, setVenueArchived } from "@/lib/actions/venue-pages";
 import { VenueCreateDialog, type EditableVenue } from "../venue-create-dialog";
@@ -31,6 +33,8 @@ export function VenueActions({
   const router = useRouter();
   const [open, setOpen] = useState<"edit" | "delete" | null>(null);
   const close = () => setOpen(null);
+  // E then P: the same dialog as the menu's Edit (SLN-633)
+  useEditActions([{ key: EDIT_KEYS.place, label: "Place", icon: Pencil, run: () => setOpen("edit") }]);
 
   async function archive(next: boolean) {
     try {
@@ -47,7 +51,7 @@ export function VenueActions({
       <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
         <EntityActionMenu
           items={[
-            { label: "Edit", icon: Pencil, onClick: () => setOpen("edit") },
+            { label: "Edit", icon: Pencil, onClick: () => setOpen("edit"), shortcut: editHint(EDIT_KEYS.place) },
             archived
               ? { label: "Restore", icon: ArchiveRestore, onClick: () => void archive(false) }
               : { label: "Archive", icon: Archive, onClick: () => void archive(true) },

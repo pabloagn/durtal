@@ -53,8 +53,16 @@ export function OrderCreateDialog({
     currency: homeCurrency,
   }));
   const [notes, setNotes] = useState("");
+  // The book it opened with (from a target) is not the owner's own work yet
+  const [arrivedWith, setArrivedWith] = useState(seed?.work ?? null);
+  // Unsaved work the fields do not show: a picked book, method or status
+  const picked =
+    selectedWork !== arrivedWith ||
+    method !== "online_order" ||
+    status !== "placed";
 
   function resetForm() {
+    setArrivedWith(null);
     setStep(0);
     setSelectedWork(null);
     setTargetValue({ acquisitionTargetId: "", editionId: "" });
@@ -154,6 +162,8 @@ export function OrderCreateDialog({
 
       <Dialog
         draft
+        dirty={picked}
+        onSave={handleSubmit}
         open={open}
         onClose={handleClose}
         title="New Order"

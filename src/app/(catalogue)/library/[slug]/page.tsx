@@ -405,7 +405,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                     name={work.title}
                     shortcut
                   />
-                  <CollectionButton workId={work.id} title={work.title} size="md" />
+                  <CollectionButton workId={work.id} title={work.title} size="md" shortcut />
                   <CopyBookButton
                     size="md"
                     title={work.title}
