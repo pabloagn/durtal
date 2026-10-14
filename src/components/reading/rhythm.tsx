@@ -22,7 +22,7 @@ export function Rhythm({ rhythm, dayStartHour }: { rhythm: RhythmData & { target
         action={
           <Link
             href="/settings/reading#reading-rhythm-days"
-            className="flex items-center whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:min-h-11"
+            className="whitespace-nowrap text-xs text-command touch-hit"
           >
             Change
           </Link>

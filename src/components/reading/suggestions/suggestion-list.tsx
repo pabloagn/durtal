@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MoreHorizontal } from "lucide-react";
+import { Clock, ListPlus, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { CapAligned } from "@/components/shared/cap-aligned";
@@ -47,10 +47,12 @@ export function SuggestionActions({ row, compact = false }: { row: SuggestionRow
       </Button>
       {!compact && (
         <Button size="sm" variant="ghost" onClick={() => void queue()} disabled={queued} className="pointer-coarse:h-11" data-suggestion-queue="">
+          <ListPlus aria-hidden strokeWidth={1.5} />
           {queued ? "In Up Next" : "Add to Up Next"}
         </Button>
       )}
       <Button size="sm" variant="ghost" onClick={() => void give(row.workId, row.title, "not_now")} className="pointer-coarse:h-11" data-suggestion-not-now="">
+        <Clock aria-hidden strokeWidth={1.5} />
         Not now
       </Button>
       {!compact && (

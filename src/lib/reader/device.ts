@@ -31,6 +31,8 @@ const DEVICES: [RegExp, string][] = [
 
 // Order matters: every Chromium browser also says Chrome and Safari
 const BROWSERS: [RegExp, string][] = [
+  // An automated check (Playwright, a QA script), never merged with a person's Chrome
+  [/HeadlessChrome\//, "Headless Chrome"],
   [/EdgiOS|EdgA?\//, "Edge"],
   [/OPR\/|OPiOS|Opera/, "Opera"],
   [/SamsungBrowser/, "Samsung Internet"],

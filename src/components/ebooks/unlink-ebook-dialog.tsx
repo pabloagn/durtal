@@ -7,6 +7,7 @@ import { prepareReviewUnlinkUi, confirmReviewUnlinkUi } from "@/lib/actions/eboo
 import { confirmReviewUi, prepareReviewUi, readReviewStampUi, undoReviewUi } from "@/lib/actions/ebook-review-ui";
 import type { ReviewUnlinkTarget, ReviewUnlinkMode, PreparedUnlinkReview } from "@/lib/ebooks/review-queue/unlink-types";
 import type { ReviewOutcome } from "@/lib/ebooks/review-queue/types";
+import { chooseBookNext } from "./choose-book-next";
 
 const counted = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 /** "1 copy and 2 editions": what an unlink removes, in words, leaving out what it keeps (SLN-684) */
@@ -21,7 +22,7 @@ export function removedWords(deleted: PreparedUnlinkReview["preview"]["deleted"]
   if (!parts.length) return null;
   return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
 }
-type Then = "review" | "keep";
+type Then = "review" | "keep" | "choose";
 async function keepAsEbook(ebookId: string): Promise<{ ok: true; outcome: ReviewOutcome } | { ok: false; message: string }> {
   const stamp = await readReviewStampUi({ ebookId }).catch(() => null);
   if (!stamp?.ok) return { ok: false, message: stamp && !stamp.ok ? stamp.error.message : "The eBook could not be read." };
@@ -31,14 +32,16 @@ async function keepAsEbook(ebookId: string): Promise<{ ok: true; outcome: Review
   if (!kept?.ok) return { ok: false, message: kept && !kept.ok ? kept.error.message : "Keep as eBook could not be confirmed." };
   return { ok: true, outcome: kept.value };
 }
-export function UnlinkEbookDialog({ target, initialMode, onClose, onCommitted }: {
+export function UnlinkEbookDialog({ target, initialMode, change = false, onClose, onCommitted }: {
   target: ReviewUnlinkTarget; initialMode: ReviewUnlinkMode;
+  /** "Change the book…": offer, and start on, choosing its new book next (SLN-666) */
+  change?: boolean;
   onClose: () => void; onCommitted: (outcome: ReviewOutcome) => void;
 }) {
   const [mode, setMode] = useState(initialMode), [prepared, setPrepared] = useState<PreparedUnlinkReview | null>(null);
   const [phase, setPhase] = useState<"editing" | "preparing" | "prepared" | "applying" | "unknown" | "keeping" | "committed">("editing");
   const [error, setError] = useState<string | null>(null), [outcome, setOutcome] = useState<string | null>(null);
-  const [then, setThen] = useState<Then>("review");
+  const [then, setThen] = useState<Then>(change ? "choose" : "review");
   /** The keep that followed the unlink, while it can be undone here */
   const [kept, setKept] = useState<ReviewOutcome | null>(null), [undoing, setUndoing] = useState(false);
   const generation = useRef(0), lock = useRef(false);
@@ -64,7 +67,14 @@ export function UnlinkEbookDialog({ target, initialMode, onClose, onCommitted }:
       setError(result && !result.ok ? result.error.message : "Whether it was unlinked could not be confirmed. Try again: it is not unlinked twice.");
       return;
     }
-    setPrepared(null); onCommitted(result.value);
+    setPrepared(null);
+    if (then === "choose" && mode === "unlink") {
+      // The page refreshes into the unlinked card, whose controls open "Choose a book" for it
+      chooseBookNext.set(target.id); onCommitted(result.value);
+      lock.current = false; generation.current++; onClose();
+      return;
+    }
+    onCommitted(result.value);
     if (then === "keep" && mode === "unlink") {
       // A second decision on the eBook now back in review: it has an Undo of its own
       setPhase("keeping");
@@ -84,15 +94,18 @@ export function UnlinkEbookDialog({ target, initialMode, onClose, onCommitted }:
     else setError(result && !result.ok ? result.error.message : "Whether the keep was undone could not be confirmed. Try again.");
   }
   const removed = prepared ? removedWords(prepared.preview.deleted) : null;
-  return <Dialog open title={mode === "automatic_undo" ? `Undo the automatic link of “${target.title}”` : `Unlink “${target.title}”`}
+  return <Dialog open title={mode === "automatic_undo" ? `Undo the automatic link of “${target.title}”`
+    : change ? `Change the book of “${target.title}”` : `Unlink “${target.title}”`}
     onClose={close} expandable={false}>
     <div className="space-y-4">
       {!outcome && <p className="text-sm text-fg-secondary">{mode === "automatic_undo"
         ? "This takes the eBook off the book it was linked to automatically. It can't if the eBook has changed since."
-        : "This takes the eBook off its book. Copies and catalogue entries made only for it are removed."}</p>}
+        : change ? "This takes the eBook off its book, then you choose its new one. Copies and catalogue entries made only for the old link are removed."
+          : "This takes the eBook off its book. Copies and catalogue entries made only for it are removed."}</p>}
       {!outcome && mode === "unlink" && <fieldset className="space-y-2" disabled={locked}>
         <legend className="type-label mb-2">Then</legend>
-        {([["review", "Return it to review", "Choose its book again later."], ["keep", "Keep it as an eBook", "It stays in the library on its own. You can undo this."]] as const)
+        {([...(change ? [["choose", "Choose its new book", "Next, pick the book it belongs to. If you stop there, it waits in review."]] as const : []),
+          ["review", "Return it to review", "Choose its book again later."], ["keep", "Keep it as an eBook", "It stays in the library on its own. You can undo this."]] as const)
           .map(([value, label, help]) => <label key={value} className="flex items-start gap-2 text-sm">
             <input type="radio" name="unlink-then" value={value} checked={then === value} onChange={() => setThen(value)}
               className="mt-1" />
@@ -100,14 +113,15 @@ export function UnlinkEbookDialog({ target, initialMode, onClose, onCommitted }:
           </label>)}
       </fieldset>}
       {prepared && <div className="space-y-2 rounded-sm border border-glass-border bg-glass-highlight p-4">
-        <p className="type-label">What happens</p><p className="text-sm">{then === "keep" && mode === "unlink"
+        <p className="type-label">What happens</p><p className="text-sm">{then !== "review" && mode === "unlink"
           ? prepared.preview.text.replace(/^Returns the eBook to review\./, "Takes the eBook off its book.")
           : prepared.preview.text}</p>
         {removed && <p className="text-xs text-fg-secondary">Removes {removed}.</p>}
         {prepared.preview.restoredCopy && <p className="text-xs text-fg-secondary">Puts the existing copy back where it was before the link.</p>}
         <p className="text-xs text-fg-secondary">{then === "keep" && mode === "unlink"
           ? "Then keeps it as an eBook."
-          : "To link it again, choose its book in the review queue."}</p>
+          : then === "choose" && mode === "unlink" ? "Then you choose its new book."
+            : "To link it again, choose its book in the review queue."}</p>
       </div>}
       {outcome && <p role="status" className="text-sm">{outcome}</p>}
       {error && <p role="alert" className="text-sm text-accent-red-text">{error}</p>}
@@ -119,7 +133,8 @@ export function UnlinkEbookDialog({ target, initialMode, onClose, onCommitted }:
         {phase === "preparing" && <Button variant="primary" disabled>Checking…</Button>}
         {/* It removes copies and catalogue entries with no Undo: a danger button, which Enter never presses (⌘Enter does) */}
         {prepared && <Button variant="danger" data-shortcut="save" disabled={phase === "applying" || !prepared.capabilities.canApply} onClick={() => void confirm()}>
-          {phase === "applying" ? "Unlinking…" : phase === "unknown" ? "Try again" : mode === "automatic_undo" ? "Undo the link" : "Unlink"}
+          {phase === "applying" ? "Unlinking…" : phase === "unknown" ? "Try again" : mode === "automatic_undo" ? "Undo the link"
+            : then === "choose" ? "Unlink and choose" : "Unlink"}
         </Button>}
         {phase === "keeping" && <Button variant="primary" disabled>Keeping as an eBook…</Button>}
         {phase === "committed" && kept?.undo.available && <Button disabled={undoing} onClick={() => void undoKeep()}>{undoing ? "Undoing…" : "Undo keep"}</Button>}

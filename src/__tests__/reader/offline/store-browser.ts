@@ -782,6 +782,20 @@ export async function runOfflineStoreChecks() {
     local = await store.readPosition(mutationKey(later.mutation));
     assert(local?.latest.operationId === later.mutation.operationId, "The further place under the same clock was not kept");
   });
+  await check("Retry clears a waiting head's backoff and leaves a blocked one blocked (SLN-668)", async () => {
+    await store.enqueue(input(1)); const claimed = await store.claim(claimOptions());
+    assert(claimed.kind === "claim", "Expected position claim");
+    await store.settle(claimed.references, "retry", { retryAt: NOW + 300_000 });
+    assert((await store.inspect())[0].retryAt === NOW + 300_000, "Backoff not stored");
+    assert(await store.retryNow(), "Retry did not clear the backoff");
+    const [head] = await store.inspect();
+    assert(head.state === "waiting" && head.retryAt === null && head.attempts === 1, "Retry rewrote the head");
+    assert(!(await store.retryNow()), "A head with no backoff was rewritten");
+    const again = await store.claim(claimOptions());
+    assert(again.kind === "claim", "Expected a claim after Retry");
+    await store.settle(again.references, "blocked");
+    assert(!(await store.retryNow()) && (await store.inspect())[0].state === "blocked", "Retry unblocked a head");
+  });
   await check("oversized head on hide still seals a following delete", async () => {
     await store.enqueue({ mutation: annotations(1,{ note: "界".repeat(22_000) }).mutation });
     const operation = deletion(2); await store.enqueue(operation);

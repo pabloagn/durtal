@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   ebookExists: vi.fn(),
   ebookAndFile: vi.fn(),
   savePosition: vi.fn(),
-  allDevicePositions: vi.fn(),
+  placesToCheck: vi.fn(),
 }));
 vi.mock("@/lib/reader/positions", async (original) => ({
   ...(await original<typeof import("@/lib/reader/positions")>()),
@@ -83,7 +83,7 @@ beforeEach(() => {
     saved: true,
     position: { fileId: body.fileId },
   }));
-  mocks.allDevicePositions.mockResolvedValue([{ fileId }]);
+  mocks.placesToCheck.mockResolvedValue([{ fileId }]);
 });
 
 describe("POST /api/reader/[ebookId]/position", () => {
@@ -222,14 +222,14 @@ describe("POST /api/reader/[ebookId]/position", () => {
 });
 
 describe("GET /api/reader/[ebookId]/position", () => {
-  it("lists all places and uses the cookie only to identify this device", async () => {
+  it("lists the places to check and uses the cookie only to identify this device", async () => {
     const res = await GET(...request("GET"));
     expect(await res.json()).toEqual({ positions: [{ fileId }] });
-    expect(mocks.allDevicePositions).toHaveBeenCalledWith(ebookId, device);
+    expect(mocks.placesToCheck).toHaveBeenCalledWith(ebookId, device);
     const anonymous = await GET(...request("GET", { cookie: null }));
     expect(await anonymous.json()).toEqual({ positions: [{ fileId }] });
-    expect(mocks.allDevicePositions).toHaveBeenLastCalledWith(ebookId, null);
-    expect(mocks.allDevicePositions).toHaveBeenCalledTimes(2);
+    expect(mocks.placesToCheck).toHaveBeenLastCalledWith(ebookId, null);
+    expect(mocks.placesToCheck).toHaveBeenCalledTimes(2);
   });
 
   it("answers 404 for an unknown e-book", async () => {

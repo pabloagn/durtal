@@ -436,7 +436,7 @@ export default async function PerfumePage({
                   {i > 0 && ", "}
                   <Link
                     href={`/perfumes?house=${house.organizationId}`}
-                    className="text-fg-primary transition-colors hover:text-accent-primary"
+                    className="text-command"
                   >
                     {house.name}
                   </Link>
@@ -458,7 +458,7 @@ export default async function PerfumePage({
                     {p.personId ? (
                       <Link
                         href={`/perfumes?perfumer=${p.personId}`}
-                        className="transition-colors hover:text-accent-primary"
+                        className="text-command"
                       >
                         {p.name}
                       </Link>
@@ -520,7 +520,7 @@ export default async function PerfumePage({
             <dt className="text-fg-secondary">In the collection</dt>
             <dd className="text-fg-primary">
               {heldSummary ? (
-                <a href="#perfume-bottles" className="transition-colors hover:text-accent-primary">
+                <a href="#perfume-bottles" className="text-command">
                   {heldSummary}
                 </a>
               ) : (

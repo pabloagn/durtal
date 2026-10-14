@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,7 @@ const SHOWN = 12;
 export function CreditName({ credit }: { credit: CreditView }) {
   if (credit.href)
     return (
-      <Link href={credit.href} className="transition-colors hover:text-accent-primary">
+      <Link href={credit.href} className="text-command">
         {credit.name}
       </Link>
     );
@@ -75,6 +76,7 @@ export function CastSection({ cast }: { cast: CreditView[] }) {
           aria-controls="film-cast-list"
           onClick={() => setOpen(!open)}
         >
+          {open ? <ChevronUp aria-hidden strokeWidth={1.5} /> : <ChevronDown aria-hidden strokeWidth={1.5} />}
           {open ? "Show fewer" : `Show all ${cast.length}`}
         </Button>
       )}
