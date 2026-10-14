@@ -206,3 +206,23 @@ adapter regression source added; native retesting remains pending.
     kept any view within two sections, so after a jump from Chapter 2 to
     Chapter 4 the strip read Chapter 2, Chapter 4, and one back turn went to
     the end of Chapter 2, skipping Chapter 3. SLN-673.
+
+26. `page-hold.js` (new, Durtal's), `paginator.js`, `fixed-layout.js`: a page
+    change that has to load first keeps the page on screen until the next one
+    is ready, then lets it go: a jump fades it (180ms), a turn slides (250ms)
+    or fades (180ms) it in its direction. With `animated` off it swaps at
+    once, nothing moves when the page did not change, and a hold lasts at
+    most 3 s. A View Transition takes the snapshot. Chromium and Firefox run
+    no animation frames inside its update callback, and loading needs them,
+    so there the snapshot is taken with an empty update and held by an
+    endless animation while the page changes under it; only the book is
+    held, with the reader's controls (`[data-reader-chrome]`) kept above it,
+    since Chromium can leave the book out of a whole-screen snapshot. WebKit
+    does run frames there but keeps a book snapshot's new layer blank, so it
+    changes the page inside the update and holds the whole screen, fading
+    turns too; its first hold, before that is known, swaps at once. The
+    paginator uses it for jumps and for turns into a section that is not
+    loaded, where it hid the page and faded it in from blank (patch 20); the
+    fixed layout for every turn and jump of PDFs and comics, which now read
+    `animated` and `turn-style` too. Without View Transitions, or during
+    another one, nothing changes. SLN-660.

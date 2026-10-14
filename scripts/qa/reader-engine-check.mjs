@@ -30,6 +30,15 @@
  *              Escape and give focus back to their button
  *   pdfmarks   a highlight made by dragging across a line of the PDF fixture
  *              is drawn on the page, and still drawn after a reload (SLN-670)
+ *   turns      no frame of a jump in the EPUB 3 (Back from a far page), of
+ *              a turn in the text PDF or of a turn in the comic shows a blank
+ *              page, at 1440 and 390 (SLN-660). Chrome's frames come from
+ *              its screencast, WebKit's from screenshots taken back to back,
+ *              leaving out those taken while a transition's update runs;
+ *              a lone blank frame between two of the unchanged page, as a
+ *              snapshot is taken, is counted apart. Headless Firefox
+ *              captures leave out the View Transition layers, so it is not
+ *              checked
  *   endurance  only with --only endurance, on a preview started with
  *              --reader-large: the 50 MB EPUB and the 300 MB PDF open at
  *              390 px and take 300 page turns without the page crashing or
@@ -56,7 +65,7 @@ import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { checkNavigation } from "./reader-navigation-checks.mjs";
+import { checkNavigation, goto } from "./reader-navigation-checks.mjs";
 
 const args = process.argv.slice(2);
 const option = (name, fallback) => {
@@ -66,7 +75,7 @@ const option = (name, fallback) => {
 const base = option("--base", "http://127.0.0.1:3410").replace(/\/$/, "");
 const previewState = option("--preview-state", undefined);
 const browsers = option("--browsers", "chromium,webkit,firefox").split(",");
-const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "dialogs", "navigation", "pdfmarks", "endurance"];
+const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "dialogs", "navigation", "pdfmarks", "turns", "endurance"];
 // endurance needs the large fixtures: it runs only when asked for
 const only = option("--only", CHECKS.filter((c) => c !== "endurance").join(",")).split(",");
 
@@ -638,7 +647,165 @@ async function checkEndurance(name, browser) {
   await context.close();
 }
 
+/** Every frame painted while `action` runs, as base64 PNGs, with one before */
+async function paintedFrames(page, name, action) {
+  const shots = [];
+  let cdp = null;
+  let shooting = null;
+  let stop = false;
+  if (name === "chromium") {
+    cdp = await page.context().newCDPSession(page);
+    cdp.on("Page.screencastFrame", ({ data, sessionId }) => {
+      shots.push(data);
+      cdp.send("Page.screencastFrameAck", { sessionId }).catch(() => {});
+    });
+    await cdp.send("Page.startScreencast", { format: "png", everyNthFrame: 1 });
+  } else {
+    // A screenshot paints the page as it is, even while a View Transition's
+    // update runs, when the screen still shows the snapshot taken before it;
+    // a shot taken then is left out
+    await page.evaluate(() => {
+      const start = document.startViewTransition?.bind(document);
+      if (!start) return;
+      window.__inUpdate = 0;
+      document.startViewTransition = (update) => start(async () => {
+        window.__inUpdate++;
+        try {
+          return await update?.();
+        } finally {
+          window.__inUpdate--;
+        }
+      });
+    });
+    const inUpdate = () => page.evaluate(() => window.__inUpdate > 0).catch(() => false);
+    shooting = (async () => {
+      while (!stop) {
+        const before = await inUpdate();
+        const shot = (await page.screenshot()).toString("base64");
+        if (!before && !(await inUpdate())) shots.push(shot);
+      }
+    })();
+  }
+  await sleep(400);
+  await action();
+  await sleep(600);
+  stop = true;
+  await shooting;
+  if (cdp) {
+    await cdp.send("Page.stopScreencast").catch(() => {});
+    await cdp.detach().catch(() => {});
+  }
+  return shots;
+}
+
+/** How much each frame varies inside `rect`: a blank page is one flat colour */
+async function frameVariation(context, shots, rect) {
+  const page = await context.newPage();
+  try {
+    return await page.evaluate(async ({ shots, rect }) => {
+      const canvas = new OffscreenCanvas(Math.ceil(rect.width / 4), Math.ceil(rect.height / 4));
+      const g = canvas.getContext("2d", { willReadFrequently: true });
+      const out = [];
+      for (const shot of shots) {
+        const blob = await (await fetch(`data:image/png;base64,${shot}`)).blob();
+        const image = await createImageBitmap(blob);
+        const scale = image.width / innerWidth || 1;
+        g.drawImage(image, rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale, 0, 0, canvas.width, canvas.height);
+        const { data } = g.getImageData(0, 0, canvas.width, canvas.height);
+        let sum = 0, squares = 0;
+        const n = data.length / 4;
+        for (let i = 0; i < data.length; i += 4) {
+          const y = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+          sum += y;
+          squares += y * y;
+        }
+        out.push(Math.sqrt(Math.max(0, squares / n - (sum / n) ** 2)));
+      }
+      return out;
+    }, { shots, rect });
+  } finally {
+    await page.close();
+  }
+}
+
+// A frame is blank below 15% of the first frame's variation. Headless
+// Chromium's screencast and WebKit's screenshots can show one blank frame as
+// a View Transition takes its snapshot, with the unchanged page on the frames
+// either side, even for a transition that changes nothing; a lone blank frame
+// like that is counted apart, not as the page going blank.
+function blankFrames(variation) {
+  const baseline = variation[0];
+  const isBlank = (value) => value < baseline * 0.15;
+  const unchanged = (value) => value !== undefined && value >= baseline * 0.9;
+  let blank = 0;
+  let ignored = 0;
+  variation.forEach((value, i) => {
+    if (!isBlank(value)) return;
+    if (unchanged(variation[i - 1]) && unchanged(variation[i + 1])) ignored++;
+    else blank++;
+  });
+  return { blank, ignored };
+}
+
+async function checkTurns(name, browser) {
+  if (name === "firefox") return; // headless Firefox captures leave out the View Transition layers
+  const cases = [
+    // Go to keeps its dialog up until the page opens, so the jump measured is
+    // the one back, which has none
+    {
+      n: 1,
+      label: "a jump back from a far page of the EPUB 3",
+      prepare: (page) => goto(navigationDriver(page), "Page", "1500"),
+      run: (page) => page.keyboard.press("Alt+ArrowLeft"),
+    },
+    { n: 2, label: "a turn of the text PDF", run: (page) => page.keyboard.press("ArrowRight") },
+    { n: 7, label: "a turn of the comic", run: (page) => page.keyboard.press("ArrowRight") },
+  ];
+  for (const width of [1440, 390]) {
+    for (const { n, label, prepare, run } of cases) {
+      await resetFixturePosition(n);
+      const context = await browser.newContext(width === 390 ? phone(name) : desktop);
+      const page = await context.newPage();
+      try {
+        const opened = await open(page, n);
+        if (opened.state !== "ready") throw new Error(`the book did not open (${opened.state})`);
+        await sleep(1500);
+        await prepare?.(page);
+        // The bars hide once the mouse rests
+        if (width !== 390) await page.mouse.move(width / 2, 450);
+        await sleep(3600);
+        const rect = await page.evaluate(() => {
+          const box = document.querySelector("foliate-view").getBoundingClientRect();
+          return { x: box.x, y: box.y + box.height * 0.1, width: box.width, height: box.height * 0.8 };
+        });
+        const start = await page.evaluate(readState);
+        const shots = await paintedFrames(page, name, () => run(page));
+        const after = await page.evaluate(readState);
+        const variation = await frameVariation(context, shots, rect);
+        const baseline = variation[0];
+        const { blank, ignored } = blankFrames(variation);
+        record(name, "turns", `${width}: no blank frame during ${label}`,
+          shots.length > 1 && baseline > 0 && after.fraction !== start.fraction && blank === 0,
+          `${blank} of ${shots.length} frames blank${ignored ? `, ${ignored} lone capture frame${ignored > 1 ? "s" : ""} ignored` : ""} (lowest ${Math.min(...variation).toFixed(1)} against ${baseline?.toFixed(1)}), ${start.fraction?.toFixed(3)} → ${after.fraction?.toFixed(3)}`);
+      } catch (error) {
+        record(name, "turns", `${width}: no blank frame during ${label}`, false, error.message.split("\n")[0]);
+      } finally {
+        await context.close();
+      }
+    }
+  }
+}
+
+const navigationDriver = (page) => ({
+  evaluate: (expression) => page.evaluate(expression),
+  selectMode: (mode) => page.getByRole("dialog", { name: "Go to", exact: true }).getByRole("radio", { name: mode, exact: true }).click(),
+  fill: (text) => page.locator("dialog[open] input").fill(text),
+  commit: () => page.locator("dialog[open] input").press("Enter"),
+  key: (key) => page.keyboard.press(key),
+});
+
 const RUN = {
+  turns: checkTurns,
   pdfmarks: checkPdfMarks,
   opens: checkOpens,
   script: checkScript,

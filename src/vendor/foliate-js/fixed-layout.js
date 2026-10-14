@@ -1,5 +1,6 @@
 import 'construct-style-sheets-polyfill'
 import { FixedScrollOwnership } from './fixed-scroll-ownership.js'
+import { changeUnderHold } from './page-hold.js'
 
 const parseViewport = str => str
     ?.split(/[,;\s]/) // NOTE: technically, only the comma is valid
@@ -2005,7 +2006,23 @@ export class FixedLayout extends HTMLElement {
         const section = book.sections[resolved.index]
         if (!section) return
         const { index, side } = this.getSpreadOf(section)
-        await this.goToSpread(index, side)
+        await this.#held(null, () => this.goToSpread(index, side))
+    }
+    // Durtal patch 26 (SLN-660): the page stays on screen while the next one
+    // renders, then a turn slides or fades in its direction and a jump
+    // crossfades, as the paginator does; `animated` and `turn-style` are the
+    // paginator's attributes. Nothing moves when the page did not change.
+    #held(direction, change) {
+        if (this.#scrollMode || this.#index < 0) return change()
+        const place = () => `${this.#index}:${this.#side}`
+        const before = place()
+        const style = !direction ? null : this.getAttribute('turn-style') === 'fade' ? 'fade' : 'slide'
+        const duration = !this.hasAttribute('animated') ? 0 : style === 'slide' ? 250 : 180
+        const background = getComputedStyle(document.body).backgroundColor
+        return changeUnderHold(this, async () => {
+            await change()
+            return place() !== before
+        }, { turn: style, forward: direction > 0, rtl: this.rtl, duration, background })
     }
     async next(distance) {
         if (this.#scrollMode) {
@@ -2017,8 +2034,10 @@ export class FixedLayout extends HTMLElement {
             }
             return
         }
-        const s = this.rtl ? this.#goLeft() : this.#goRight()
-        if (!s) return this.goToSpread(this.#index + 1, this.rtl ? 'right' : 'left', 'page')
+        return this.#held(1, async () => {
+            const s = this.rtl ? this.#goLeft() : this.#goRight()
+            if (!s) await this.goToSpread(this.#index + 1, this.rtl ? 'right' : 'left', 'page')
+        })
     }
     async prev(distance) {
         if (this.#scrollMode) {
@@ -2030,8 +2049,10 @@ export class FixedLayout extends HTMLElement {
             }
             return
         }
-        const s = this.rtl ? this.#goRight() : this.#goLeft()
-        if (!s) return this.goToSpread(this.#index - 1, this.rtl ? 'left' : 'right', 'page')
+        return this.#held(-1, async () => {
+            const s = this.rtl ? this.#goRight() : this.#goLeft()
+            if (!s) await this.goToSpread(this.#index - 1, this.rtl ? 'left' : 'right', 'page')
+        })
     }
     nextSection() {
         if (!this.#scrollMode) return

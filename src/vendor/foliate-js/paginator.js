@@ -1,4 +1,5 @@
 import { dispatchPreparedLoad, ownedDocumentLoad, waitForDocumentLoad } from "./load-preparation.js"
+import { changeUnderHold } from "./page-hold.js"
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -1613,6 +1614,8 @@ export class Paginator extends HTMLElement {
     #fillPromise = null // tracks in-progress #fillVisibleArea for awaiting
     #stabilizing = false // true while #display is stabilizing layout
     #rendered = false // true after first #display completes
+    // Durtal patch 26: a held snapshot covers the page while it changes
+    #holding = false
     #lastLayout = null // cached layout from the last #beforeRender call
     #columnGap = null // px; set by `column-gap`, overrides the centre gap of a spread
     // Cache of section index → vertical (boolean). Populated as views
@@ -2615,6 +2618,7 @@ export class Paginator extends HTMLElement {
             return this.#goTo({
                 index: this.#adjacentIndex(dir, edgeIndex),
                 anchor: dir < 0 ? () => 1 : () => 0,
+                turn: dir,
             })
         }
         // Out of range — skip animation, go straight to adjacent section
@@ -3800,10 +3804,13 @@ export class Paginator extends HTMLElement {
     // cutting from a blank page (none with reduced motion). Hiding stays
     // instant, so the page never shows mid-reposition.
     #hide() {
+        // Durtal patch 26: under a held snapshot nothing needs hiding
+        if (this.#holding) return
         this.#container.style.transition = 'none'
         this.#container.style.opacity = '0'
     }
     #reveal() {
+        if (this.#holding) return
         const still = this.ownerDocument?.defaultView
             ?.matchMedia?.('(prefers-reduced-motion: reduce)').matches
         this.#container.style.transition = still || !this.hasAttribute('animated')
@@ -4060,7 +4067,40 @@ export class Paginator extends HTMLElement {
     #canGoToIndex(index) {
         return index >= 0 && index <= this.sections.length - 1
     }
-    async #goTo({ index, anchor, select }) {
+    // Durtal patch 26 (SLN-660): a jump, or a turn into a section that is
+    // not loaded, keeps the page on screen until the next one is ready, then
+    // crossfades (a jump) or turns as the turn style says (`turn`: 1 or -1),
+    // instead of cutting to a blank page and fading in from it.
+    async #goTo(target) {
+        const { index, turn } = target
+        const blank = (!this.scrolled || this.noContinuousScroll) && index !== this.#primaryIndex
+        if (!blank || !this.#rendered || this.hasAttribute('eink')
+            || this.#vtDrag || this.#vtFinishing || this.#vtProgrammatic) return this.#goToNow(target)
+        const animated = this.hasAttribute('animated')
+        const style = turn ? (this.getAttribute('turn-style') === 'fade' ? 'fade' : 'slide') : null
+        return changeUnderHold(this, async held => {
+            this.#holding = held
+            try {
+                await this.#goToNow(target)
+            } finally {
+                this.#holding = false
+            }
+        }, {
+            turn: style,
+            forward: turn !== -1,
+            rtl: this.#rtl,
+            duration: !animated ? 0 : style === 'slide' ? PAGE_SLIDE_MS : PAGE_FADE_MS,
+            background: this.#themeBackground(),
+        })
+    }
+    #themeBackground() {
+        const doc = this.#primaryView?.document
+        return doc?.documentElement
+            ? doc.defaultView.getComputedStyle(doc.documentElement)
+                .getPropertyValue('--theme-bg-color').trim()
+            : ''
+    }
+    async #goToNow({ index, anchor, select }) {
         const section = this.sections[index]
         if (!section) return
         const cachedView = this.#views.get(index)
@@ -4258,6 +4298,7 @@ export class Paginator extends HTMLElement {
             await this.#goTo({
                 index: this.#adjacentIndex(dir, edgeIndex),
                 anchor: prev ? () => 1 : () => 0,
+                turn: dir,
             })
         }
         if (shouldGo || !this.hasAttribute('animated')) await wait(100)
