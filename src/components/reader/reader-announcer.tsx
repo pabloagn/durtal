@@ -2,12 +2,13 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { EngineEvents } from "@/lib/reader/engine";
 import type { SpeechPhase } from "@/lib/reader/speech/player";
+import { fractionPercent } from "@/lib/reader/place-label";
 
 type Location = EngineEvents["relocate"];
 const pageOrPercent = (location: Location, jump: boolean) => {
   const label = location.locator.pageLabel;
   if (label) return `${jump ? "page" : "Page"} ${label}`;
-  return `${Math.round(Math.max(0, Math.min(1, location.locator.totalProgression)) * 100)}%`;
+  return fractionPercent(location.locator.totalProgression);
 };
 export function readerLocationAnnouncement(location: Location): string {
   if (location.origin === "speech" || location.origin === "layout") return "";

@@ -78,6 +78,16 @@ export function editionMediaPrefix(editionId: string) {
   return `${EDITION_MEDIA_PREFIX}${editionId}/`;
 }
 
+/**
+ * A key the edition owns: under its gold/media folder, or its legacy
+ * gold/covers folder. Only such a key can be put back as its cover (SLN-638).
+ */
+export function isOwnEditionCoverKey(editionId: string, key: string) {
+  if (!COVER_IDENTITY.test(editionId) || key.split("/").includes("..")) return false;
+  return key.startsWith(`${EDITION_MEDIA_PREFIX}${editionId}/`) ||
+    key.startsWith(`${LEGACY_COVER_PREFIX}${editionId}/`);
+}
+
 /** Fresh immutable catalogue cover attempt; legacy key helpers remain read-compatible. */
 export function goldCoverStageKeys(editionId: string, attemptId: string) {
   for (const value of [editionId, attemptId])
