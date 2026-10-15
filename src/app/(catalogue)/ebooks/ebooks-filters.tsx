@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, ArrowDown, ArrowUp } from "lucide-react";
+import { Search, ArrowDown, ArrowUp, X } from "lucide-react";
 import {
   FilterDropdown,
   type FilterGroup,
@@ -59,6 +59,20 @@ export function EbooksFilters({
     if (input.current && document.activeElement !== input.current)
       setQuery(parsed.q);
   }, [parsed.q]);
+  /** Sends the search after `wait` ms; a newer key cancels it */
+  function send(q: string, wait: number) {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      const params = new URLSearchParams(latest.current);
+      if (q) params.set("q", q);
+      else params.delete("q");
+      navigate(() =>
+        router.replace(firstPageHref("/ebooks", params), {
+          scroll: false,
+        }),
+      );
+    }, wait);
+  }
   function change(key: string, values: string[]) {
     if (timer.current) clearTimeout(timer.current);
     const params = new URLSearchParams(latest.current);
@@ -124,24 +138,34 @@ export function EbooksFilters({
           data-shortcut-search=""
           placeholder="Search eBooks…"
           value={query}
-          className="h-8 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 pr-3 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none pointer-coarse:h-11"
+          // The browser's own clear button is hidden for the one below, whose X
+          // mirrors the search glyph 12px in from the edge (SLN-789)
+          className={`h-8 w-full rounded-sm border border-glass-border bg-bg-primary pl-9 text-sm text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none pointer-coarse:h-11 [&::-webkit-search-cancel-button]:hidden ${
+            query ? "pr-8 pointer-coarse:pr-11" : "pr-3"
+          }`}
           onChange={(event) => {
             const q = event.target.value;
             setQuery(q);
             list?.begin();
-            if (timer.current) clearTimeout(timer.current);
-            timer.current = setTimeout(() => {
-              const params = new URLSearchParams(latest.current);
-              if (q) params.set("q", q);
-              else params.delete("q");
-              navigate(() =>
-                router.replace(firstPageHref("/ebooks", params), {
-                  scroll: false,
-                }),
-              );
-            }, 150);
+            send(q, 150);
           }}
         />
+        {query && (
+          <button
+            type="button"
+            aria-label="Clear search"
+            data-tooltip="Clear search"
+            className="absolute right-0 top-0 flex h-8 w-8 items-center justify-end rounded-sm pr-3 text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:h-11 pointer-coarse:w-11"
+            onClick={() => {
+              setQuery("");
+              list?.begin();
+              send("", 0);
+              input.current?.focus();
+            }}
+          >
+            <X aria-hidden size={14} strokeWidth={1.5} />
+          </button>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-1">
         {EBOOK_SORT_OPTIONS.map((option) => (
