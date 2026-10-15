@@ -49,7 +49,7 @@ The book page alone had three of the four.
   seed database, against main, in Chromium, Firefox and WebKit at 1440 and
   390 (touch at 390). Pages: Reading Now, Up next, Journal and Suggestions,
   the book page, a collection, Books and a person.
-  - On main: 37 book icons at 1440 (Reading pages), one empty box and one
+  - On main: 36 book icons at 1440 on the Reading pages, one empty box and one
     "No cover" on the book page, 9 icons in the collection.
   - On this branch every one is the letter. Sizes: 14px in 32 and 44px
     thumbs, 21px in 56 to 109px boxes, 38px from 171px. Each is centered in
