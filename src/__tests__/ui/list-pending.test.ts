@@ -74,6 +74,28 @@ describe("ListPendingSwap", () => {
     expect(results().parentElement!.className).toBe("contents");
   });
 
+  it("gives focus back to the control inside the results that started the wait", async () => {
+    function Sorted() {
+      const [q, setQ] = useState("");
+      const navigate = useListNavigate();
+      return createElement(
+        ListPendingSwap,
+        null,
+        createElement("button", { onClick: () => navigate(() => setQ("dune")) }, "Title"),
+        createElement(Suspense, { fallback: null }, createElement(Results, { q })),
+      );
+    }
+    await act(async () => root.render(createElement(ListPendingProvider, null, createElement(Sorted))));
+    const header = host.querySelector("button")!;
+    header.focus();
+    await act(async () => header.click());
+    // A browser drops focus from a control that is hidden
+    header.blur();
+    expect(document.activeElement).toBe(document.body);
+    await act(async () => answer("dune").resolve("Dune"));
+    expect(document.activeElement).toBe(header);
+  });
+
   it("navigates plainly outside a provider", () => {
     let ran = false;
     function Plain() {

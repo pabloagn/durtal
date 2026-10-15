@@ -21,6 +21,7 @@ SLN-753. This was finding 5 of the second loading and speed audit (`findings/aud
   - `ListPendingProvider` goes around a list's filters and its results. The results go in `ListPendingSwap`.
   - From the first key of a search (`begin`), or from a sort or filter, the results are swapped for the list's wait. The swap lasts until the new results are in: the navigation runs in a transition (`navigate`), and the list stays busy while that transition is pending.
   - The old results stay mounted underneath, hidden, so they keep their state.
+  - The control that started a wait gets focus back when the results arrive, if hiding the results dropped it to the page (the eBooks table's sort headers). Focus the user moved elsewhere stays where it is. This came from the review.
   - Outside a provider, `useListNavigate` navigates as before. So the other lists that use `EntityFilters` do not change.
 - **People** (`people/page.tsx`, `authors-filters-bar.tsx`):
   - The provider goes around the toolbar and the results.
@@ -37,6 +38,7 @@ SLN-753. This was finding 5 of the second loading and speed audit (`findings/aud
 - **Test:** `ui/list-pending.test.ts` checks that:
   - a key shows the wait at once, and the old results stay mounted and hidden;
   - the list stays busy while the new results are on their way, and shows them once they arrive;
+  - a sort header inside the results gets focus back when the new order arrives;
   - outside a provider, a navigation runs as before.
 - **Timing** was measured on the seeded production preview, with every database round trip held at 800 ms by the preview bridge (audit-only, not committed). A search was typed at 60 ms a key, and each time is from the first key.
 

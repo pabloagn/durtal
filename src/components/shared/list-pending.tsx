@@ -4,7 +4,9 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
 } from "react";
@@ -44,16 +46,35 @@ export function ListPendingProvider({
 }) {
   const [isPending, startTransition] = useTransition();
   const [waiting, setWaiting] = useState(false);
-  const begin = useCallback(() => setWaiting(true), []);
+  // The control that started the wait. Hiding the results drops focus from a
+  // control inside them (the eBooks table's sort headers); it comes back to it
+  const from = useRef<Element | null>(null);
+  const begin = useCallback(() => {
+    from.current = document.activeElement;
+    setWaiting(true);
+  }, []);
   const navigate = useCallback((go: () => void) => {
+    from.current = document.activeElement;
     startTransition(() => {
       setWaiting(false);
       go();
     });
   }, []);
+  const busy = waiting || isPending;
+  useEffect(() => {
+    if (busy) return;
+    const control = from.current;
+    from.current = null;
+    if (
+      control instanceof HTMLElement &&
+      control.isConnected &&
+      (document.activeElement === null || document.activeElement === document.body)
+    )
+      control.focus({ preventScroll: true });
+  }, [busy]);
   const value = useMemo(
-    () => ({ busy: waiting || isPending, begin, navigate }),
-    [waiting, isPending, begin, navigate],
+    () => ({ busy, begin, navigate }),
+    [busy, begin, navigate],
   );
   return (
     <ListBusyContext.Provider value={value}>
