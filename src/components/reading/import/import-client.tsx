@@ -234,7 +234,7 @@ export function ImportRows({ importId, rows }: { importId: string; rows: RowView
           <div className="flex min-w-0 items-center gap-3">
             {row.book ? (
               <>
-                <Cover s3Key={row.book.cover} className="h-12 w-8" />
+                <Cover s3Key={row.book.cover} title={row.book.title} className="h-12 w-8" />
                 <div className="min-w-0">
                   {/* The title cuts off inside the link: the link's touch area is not clipped */}
                   <Link href={row.book.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-primary touch-hit" data-import-book="">
