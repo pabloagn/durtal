@@ -41,6 +41,7 @@ import { createPerfume } from "@/lib/actions/perfumes";
 import { createPerson } from "@/lib/actions/people";
 import { saveOrganization } from "@/lib/actions/organizations";
 import { createVenue, archiveVenue } from "@/lib/actions/venues";
+import { searchPlaces } from "@/lib/actions/places";
 
 describe.skipIf(!url)("search and lists across the collections", () => {
   const c = client!;
@@ -133,6 +134,25 @@ describe.skipIf(!url)("search and lists across the collections", () => {
     expect(found.venues).toEqual([
       { id: venue.id, name: "Guerlain Champs-Élysées", href: `/places/${venue.slug}`, type: "Perfumery" },
     ]);
+  });
+
+  it("finds a place in the place picker whatever its accents", async () => {
+    await c`insert into places(name, type) values ('Zürich', 'city'), ('Bogotá', 'city'), ('Saint-Étienne', 'city'), ('Zurich Lake', 'region'), ('Paris', 'city')`;
+    const names = async (q: string) => (await searchPlaces(q)).map((p) => p.name).sort();
+    expect(await names("zurich")).toEqual(["Zurich Lake", "Zürich"]);
+    expect(await names("Zürich")).toEqual(["Zurich Lake", "Zürich"]);
+    expect(await names("BOGOTA")).toEqual(["Bogotá"]);
+    expect(await names("saint etienne")).toEqual(["Saint-Étienne"]);
+    expect(await names("%")).toEqual([]);
+  });
+
+  it("keeps in the picker's first few every place the search as typed finds", async () => {
+    // Older places that match only once accents are folded come first on disk
+    await c`insert into places(name, type) select 'Zurich ' || g, 'venue' from generate_series(1, 9) g`;
+    await c`insert into places(name, type) values ('Kunsthaus Zürich', 'venue'), ('Zürich', 'city')`;
+    const names = async (q: string) => (await searchPlaces(q, 8)).map((p) => p.name);
+    expect(await names("Zürich")).toEqual(["Zürich", "Kunsthaus Zürich", "Zurich 1", "Zurich 2", "Zurich 3", "Zurich 4", "Zurich 5", "Zurich 6"]);
+    expect((await names("zurich"))[0]).toBe("Zürich");
   });
 
   it("pages a director's films in a stable order, with counts that match the pages", async () => {

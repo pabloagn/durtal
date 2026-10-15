@@ -345,20 +345,9 @@ export default async function CollectionPage({
                   style={mediaImageStyle(mediaCrop(poster))}
                 />
               ) : (
-                <div className="flex h-full flex-col items-center justify-center gap-2">
-                  <FolderOpen
-                    aria-hidden="true"
-                    data-decorative=""
-                    className="h-10 w-10 text-fg-muted/20"
-                    strokeWidth={1}
-                  />
-                  <span
-                    aria-hidden="true"
-                    data-decorative
-                    className="font-serif text-4xl text-fg-muted/20"
-                  >
-                    {collection.name[0]}
-                  </span>
+                // No artwork: the name's letter, as every blank cover
+                <div className={`h-full ${COVER_BLANK}`}>
+                  <CoverLetter title={collection.name} />
                 </div>
               )}
             </div>

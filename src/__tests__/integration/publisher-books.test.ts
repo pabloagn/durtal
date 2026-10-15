@@ -160,6 +160,27 @@ describe.skipIf(!url)("a publishing house's books as a catalogue", () => {
     });
   });
 
+  it("searches titles, edition titles and authors whatever their accents", async () => {
+    await book("À rebours", "Joris-Karl Huysmans", [{ publisher: house, year: 1977 }]);
+    await book("Parallel Stories", "Péter Nádas", [{ publisher: house, year: 2011 }]);
+    const down = await book("Down There", "J.-K. Huysmans", [{ publisher: imprint, year: 1924 }]);
+    await db.update(schema.editions).set({ title: "Là-bas" }).where(sql`id = ${down.editions[0]}`);
+    await book("100% Pure", "Ann Author", [{ publisher: house, year: 2000 }]);
+    const titles = async (q: string) => (await run({ q })).books.map((b) => b.title);
+    expect(await titles("a rebours")).toEqual(["À rebours"]);
+    expect(await titles("A REBOURS")).toEqual(["À rebours"]);
+    expect(await titles("la bas")).toEqual(["Down There"]);
+    expect(await titles("nadas")).toEqual(["Parallel Stories"]);
+    expect(await titles("peter nadas")).toEqual(["Parallel Stories"]);
+    expect(await titles("joris karl")).toEqual(["À rebours"]);
+    // Every word of a name, in any order, as in the library's author search
+    expect(await titles("nadas peter")).toEqual(["Parallel Stories"]);
+    // Punctuation still matches as typed, and alone it matches nothing extra
+    expect(await titles("100%")).toEqual(["100% Pure"]);
+    expect(await titles("%")).toEqual(["100% Pure"]);
+    expect(await titles("—")).toEqual([]);
+  });
+
   it("sorts and pages on the server", async () => {
     for (let i = 0; i < 30; i++) await book(`Book ${String(i).padStart(2, "0")}`, `Author ${i}`, [{ publisher: house, year: 1950 + i }]);
     const first = await run({ perPage: "24" });

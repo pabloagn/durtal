@@ -1,5 +1,6 @@
-import { sql, type SQL } from "drizzle-orm";
+import { sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { searchTokens } from "@/lib/utils/search-text";
+import { containsPattern } from "@/lib/utils/like";
 
 /**
  * Ranked, accent-insensitive, typo-tolerant text search (task 0119), shared by
@@ -93,4 +94,15 @@ export function textSearchRank(haystack: SQL, name: SQL, query: string): SQL {
     else 0 end
     + 100 * strict_word_similarity(${q}, ${haystack})
     + 50 * similarity(${q}, ${nameNorm}))`;
+}
+
+/**
+ * `text` contains the search as typed, or once accents, case and punctuation
+ * are folded on both sides by `search_normalize`, as author names are:
+ * "editions de minuit" finds "Éditions de Minuit", "a rebours" "À rebours".
+ * A search of punctuation alone folds to nothing and keeps the plain match.
+ * For text that is not already normalized; every plain match stays a match.
+ */
+export function textContains(text: AnyColumn | SQL, search: string): SQL {
+  return sql`(${text} ilike ${containsPattern(search)} or (search_normalize(${search}) <> '' and search_normalize(${text}) like '%' || search_normalize(${search}) || '%'))`;
 }
