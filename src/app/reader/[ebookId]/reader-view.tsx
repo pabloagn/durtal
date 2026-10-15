@@ -391,6 +391,8 @@ function ReaderSession({
   const [offer, setOffer] = useState<ReaderPlace | null>(null);
   const [furthest, setFurthest] = useState<ReaderPlace | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /** The other device a first open took its place from, named in the bottom bar (SLN-729) */
+  const [placeFrom, setPlaceFrom] = useState<string | null>(null);
   const sync = useSyncPaused();
   const [selection, setSelection] = useState<EngineEvents["selection"]>(null);
   const selectionToolbarRef = useRef<HTMLDivElement>(null);
@@ -1088,6 +1090,7 @@ function ReaderSession({
             if (reason === "turn") {
               sync.localTurn(local);
               setNotice(null);
+              setPlaceFrom(null);
             } else sync.localPlace(local);
             save(locator, label);
             bridge.bus.location({
@@ -1226,8 +1229,8 @@ function ReaderSession({
         // One short line, and none when a link opened the book at a mark (SLN-686)
         const fromOther = startPlace ? (startPlace.thisDevice ? null : startPlace) : !localPlace && !devicePlace ? otherPlace : null;
         if (fromOther && !openAt) {
-          setNotice(`Your place from ${fromOther.deviceLabel}`);
-          noticeTimer = setTimeout(() => setNotice(null), 4000);
+          setPlaceFrom(fromOther.deviceLabel);
+          noticeTimer = setTimeout(() => setPlaceFrom(null), 4000);
         }
         if (landing) {
           navigation.start(landing);
@@ -1660,6 +1663,7 @@ function ReaderSession({
           locator={relocation?.locator}
           linear={relocation?.linear}
           quiet={quiet}
+          placeFrom={placeFrom}
           timeLeftChapter={
             index && relocation
               ? paceRef.current?.remaining(

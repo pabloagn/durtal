@@ -54,6 +54,7 @@ export function ReaderBottomBar({
   onScrub,
   onPeek,
   quiet = null,
+  placeFrom = null,
 }: {
   visible: boolean;
   chapter: string | null;
@@ -70,6 +71,9 @@ export function ReaderBottomBar({
   onPeek?(active: boolean): void;
   /** The chapter's band while the bars are hidden: see `quietChapter` */
   quiet?: QuietChapter | null;
+  /** The device whose place the book opened at: named for a moment where the
+   * chapter sits, so it covers no text (SLN-729) */
+  placeFrom?: string | null;
 }) {
   const slots = useSyncExternalStore(
     bridge.subscribeSlots,
@@ -91,6 +95,10 @@ export function ReaderBottomBar({
   const heading = chapter && !(place && samePlace(chapter, place)) ? chapter : null;
   return (
     <>
+    {/* Outside the bar, which is inert while hidden: the place is announced either way */}
+    <p role="status" aria-live="polite" className="sr-only">
+      {placeFrom ? `Your place from ${placeFrom}` : ""}
+    </p>
     {percent !== null && (
       <div
         data-reader-progress-line
@@ -138,11 +146,21 @@ export function ReaderBottomBar({
       }`}
     >
       <div className="flex h-9 [@media(pointer:coarse)]:h-11 items-center gap-3 px-4 text-xs text-fg-secondary">
-        <p className="min-w-0 flex-1 truncate">{heading}</p>
+        {placeFrom ? (
+          // One line at 320: the short form under 480px, and the tracking
+          // control and time left give it their room while it shows
+          <p data-reader-place-from aria-hidden className="min-w-0 flex-1 truncate">
+            <span className="max-[479px]:hidden">Your place from </span>
+            <span className="min-[480px]:hidden">From </span>
+            {placeFrom}
+          </p>
+        ) : (
+          <p className="min-w-0 flex-1 truncate">{heading}</p>
+        )}
         {/* The tracking control: a whole button, never clipped to the row's text */}
         <div
           ref={mount}
-          hidden={!slots["toolbar-status"]}
+          hidden={!slots["toolbar-status"] || !!placeFrom}
           className="flex min-w-0 max-w-[40%] shrink-0 items-center overflow-hidden whitespace-nowrap [&_button]:max-w-full [&_button]:truncate"
         />
         {/* The place shows beside the tracking control too, never instead of it */}
@@ -150,7 +168,7 @@ export function ReaderBottomBar({
           {/* The place is never cut ("p. 2…" at 320); the time left gives way */}
           {place && <span className="shrink-0 whitespace-nowrap">{place}</span>}
           {percent !== null && <span className="shrink-0">{formatPercent(percent)}</span>}
-          {linear !== false && timeLeftChapter && (
+          {linear !== false && timeLeftChapter && !placeFrom && (
             <span className="min-w-0 truncate">{timeLeftChapter}</span>
           )}
         </div>
