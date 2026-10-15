@@ -53,7 +53,8 @@ page itself when the screen has none, and the place never moves.
 - PDF in all three engines at 1440: Tab from the top bar's last control lands
   on the page, then Previous page and the bottom bar; the place does not move.
 - 0 alignment and design-audit findings on the reader (EPUB and PDF) in all
-  three engines at 1440, 390 and 320; `page-weight.js` within budget.
+  three engines at 1440, 390 and 320; `page-weight.js` within budget;
+  `reader-engine-check.mjs` 284 of 284.
 - Tests: `book-tab.test.ts` covers `entersBook()` from both bars and
   `enterBook()` with links off screen in the same and other sections;
   `input.test.ts` covers the routing; `reader-view.test.ts` presses Tab on
