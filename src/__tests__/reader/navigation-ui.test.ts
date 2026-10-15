@@ -172,6 +172,34 @@ describe("owned controls", () => {
     expect(commit).toHaveBeenCalledWith(0.75);
     expect(commit).toHaveBeenCalledOnce();
   });
+  it("lists a PDF's pages as pages when it has no contents (SLN-731)", async () => {
+    const pdf = new PositionIndex(
+      {
+        title: "Scan",
+        authors: [],
+        language: "en",
+        dir: "ltr",
+        layout: "pre-paginated",
+        locationCount: 2,
+        linearSize: 2,
+        pageList: [],
+        toc: [],
+        pagedSections: true,
+        sections: [
+          { href: "0", label: "Page 1", linear: true, start: 0, end: 0.5 },
+          { href: "1", label: "Page 2", linear: true, start: 0.5, end: 1 },
+        ],
+        capabilities: { search: true, tts: false, spreads: true, scrolled: true },
+      },
+      {},
+    );
+    await act(async () => {
+      root.render(h(ContentsPanel, { open: true, index: pdf, current: null, onClose: vi.fn(), onPick: vi.fn(async () => true) }));
+    });
+    expect(document.body.textContent).toContain("Its pages are listed in order.");
+    expect(document.body.textContent).toContain("Page 2");
+    expect(document.body.textContent).not.toMatch(/section/i);
+  });
   it("reveals current ancestors, uses one roving tree stop and owns arrows, wheel and touch", async () => {
     const book = actions(),
       close = vi.fn(),

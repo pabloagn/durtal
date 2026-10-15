@@ -538,9 +538,11 @@ class FoliateEngine implements ReaderEngine {
       pageList: tocFrom(book.pageList),
       linearSize,
       locationCount: Math.max(1, Math.ceil(linearSize / 1500)),
+      // A PDF's or a comic's sections are its pages: name them so (SLN-731)
+      pagedSections: source.format === "pdf" || source.format === "cbz",
       sections: book.sections.map((section, index) => ({
         href: String(section.id ?? index),
-        label: "Section " + (index + 1),
+        label: (source.format === "pdf" || source.format === "cbz" ? "Page " : "Section ") + (index + 1),
         linear: section.linear !== "no",
         start: fractions[index] ?? 0,
         end: fractions[index + 1] ?? 1,
