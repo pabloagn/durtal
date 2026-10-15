@@ -179,19 +179,19 @@ only those drawn:
 5. **Highest rated** (`#highest-rated`), **Wanted** (`#wanted`) and **Recent
    people** (`#people`): book sections.
 
-**Statistics** (SLN-742): pages on the shelves, languages, authors' countries and the share read, then when the books were written (years or decades), with "View all" to `/statistics`. Its body (`DashboardStatistics`, `src/components/statistics/dashboard-statistics.tsx`) loads in its own Suspense boundary; the dashboard draws the section and its heading.
+**Statistics** (SLN-742): pages on the shelves, languages, authors' countries and the share read, then the year with the most books as five of its covers, then when the books were written (years or decades), with "View all" to `/statistics`. Its body (`DashboardStatistics`, `src/components/statistics/dashboard-statistics.tsx`) loads in its own Suspense boundary; the dashboard draws the section and its heading.
 
 ### Statistics (`/statistics`)
 
 The books he owns (a copy that is not deaccessioned, as the library counts them), after Letterboxd's member stats (SLN-742), from `src/lib/statistics/library.ts`: aggregate queries only, computed per request and never cached. Each section is left out without data; with no owned book the page is one empty state. `loading.tsx` draws the header, the cover strip and the number tiles at once.
 
 - A strip of the five best-rated covers, then **In numbers**: books, editions, copies, pages, authors, publishers, languages (original) and countries (the writers' nationalities).
-- **When they were written**: a timeline of thin bars by the work's original year (`WrittenChart`), Years or Decades. Years start at the decade of the earliest 2% and go back at most 200 years; Decades at most 60, with older books in one "Before …" bar (`src/lib/statistics/charts.ts`).
-- **Years with the most books**: the three busiest years with five covers each, the year linked to the library filtered to it.
-- **Languages, countries and categories**, **Authors and publishers**, **Copies** (formats, places, copies by the year they came): ranked lists (`RankList`, toned sage, blue or gold) linking to the library filtered, the person or the house.
+- **When they were written**: a timeline of thin bars by the work's original year (`WrittenChart`), Years or Decades. Years start at the decade of the earliest 2% and go back at most 200 years; Decades go back until a run of more than eight empty decades, at most 60, with older books in one "Before …" bar (`src/lib/statistics/charts.ts`).
+- **Years with the most books**: the three busiest years with five covers each (books with a cover first, then the best rated; a blank shows the title's letter), the year linked to the library filtered to it.
+- **Languages, countries and categories**, **Authors and publishers**, **Copies** (formats, places, copies by the year they came): ranked lists (`RankList`, toned sage, blue or gold) linking to the library filtered (a country to the books by its writers, `authorCountry`), the person or the house.
 - **Breakdown**: rings for read, rated, in translation (editions) and on paper (copies) (`SplitRing`); **Ratings**: books by half star.
 - **At the edges**: the oldest, newest, longest and shortest book, each with its cover.
-- **Reading**: all-time totals from the reading stats, linking to `/reading/stats`; **The other collections**: their records and creators.
+- **Reading**: all-time totals from the reading stats, linking to `/reading/stats` (which links back); its books finished count every book finished, owned or not, so it can exceed Read in the Breakdown; **The other collections**: their records and creators.
 
 ---
 
@@ -226,7 +226,7 @@ The Filter button opens one panel with a rail of six sections (`FilterDropdown` 
 - **Collection**: Status (`status`: Accessioned, Wanted, Shortlisted, Tracked, On Order, Deaccessioned, checked against the enum; there is no `status=owned`), Holding (`holding`: Owned or Not owned; Owned is a copy that is not deaccessioned, `ownedBookCondition`; one replaces the other), Priority (`priority`), Location (`location`, ids), Format (`format`: Hardcover, Paperback, Ebook, Audiobook, PDF, EPUB, Other) and Copy (`copy`: `signed`, `first` for a first printing). Location, format and copy match one held copy together: "a signed first printing in the study" is one copy
 - **Reading** (SLN-449): Reading (`reading`: Unread, Reading, Paused, Read, Abandoned, and In Up Next, `queued`, SLN-452, not a reading state), Re-read (`reread=true`: two finished readings or more), Read in (`readFrom`, `readTo`: a finished reading in these years, at any precision; reversed years are swapped). "Unread I own" is `/library?reading=unread&holding=owned`
 - **Marks**: Marks (`mark`: Rare, Anathema, Favourite; the old `rare=true` still selects Rare) and Min rating (`rating`: 5, 4.5+, 4+, 3.5+, 3+, one at a time)
-- **Book**: Language (`lang`: an edition in that language), Original language (`origLang`), First published (`yearFrom`, `yearTo`: the work's original year), Series (`series`: `in` or `none`, one at a time) and Publisher (`publisher`, ids; a house matches its imprints)
+- **Book**: Language (`lang`: an edition in that language), Original language (`origLang`), Author's country (`authorCountry`: ISO alpha-2 codes; a writer, not a translator, from that country), First published (`yearFrom`, `yearTo`: the work's original year), Series (`series`: `in` or `none`, one at a time) and Publisher (`publisher`, ids; a house matches its imprints)
 - **Subjects**: Subjects (`subject`), Categories (`category`), Themes (`theme`), Literary movements (`movement`), Art types (`artType`), Art movements (`artMovement`), Keywords (`keyword`), Attributes (`attribute`), all item ids; only the taxonomies books use are shown. A broader category, theme or movement matches the books under its narrower ones; its option shows "Fiction › Gothic" for a narrower item
 - **Cover**: Colour (`color`: red, orange, yellow, green, blue, purple, pink, brown, beige, white, grey, black, as swatches; a colour no cover has cannot be chosen) and Picture (`poster`: `has` or `missing`)
 

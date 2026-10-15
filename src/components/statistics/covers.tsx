@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { n } from "@/lib/reading/charts";
+import { yearLabel } from "@/lib/statistics/charts";
 import { FadeImage } from "@/components/shared/fade-image";
 import { mediaUrl } from "@/lib/s3/media-url";
-import type { CoverBook } from "@/lib/statistics/library";
+import type { BusiestYear, CoverBook } from "@/lib/statistics/library";
 
 /*
  * Books on the statistics pages as their covers (SLN-742): where the page
@@ -34,9 +36,11 @@ export function CoverFrame({ book }: { book: CoverBook }) {
           className="protected-image absolute inset-0 h-full w-full object-cover"
         />
       ) : (
-        // Decoration: the title is the link's name
-        <span aria-hidden data-decorative className="absolute inset-0 flex items-center justify-center font-serif text-2xl text-fg-muted/40">
-          {book.title[0]}
+        // The title's letter, as every blank cover (#352); decoration: the title is the link's name
+        <span className="@container/cover absolute inset-0 flex items-center justify-center">
+          <span aria-hidden data-decorative className="font-serif text-xs leading-none text-fg-muted/30 @[56px]/cover:text-lg @[120px]/cover:text-3xl">
+            {Array.from(book.title.trim())[0] ?? ""}
+          </span>
         </span>
       )}
     </span>
@@ -59,6 +63,37 @@ export function CoverStrip({ books }: { books: CoverBook[] }) {
           <CoverFrame book={book} />
         </div>
       ))}
+    </div>
+  );
+}
+
+/** The library's list of the books he owns from one year */
+export const yearHref = (year: number) => `/library?yearFrom=${year}&yearTo=${year}&holding=owned`;
+
+/**
+ * A year with many books: the year, linked to its books, and their count,
+ * beside up to five of its covers. The cover column keeps five slots, so
+ * the covers are the same size in every year's row.
+ */
+export function YearCovers({ year, caption }: { year: BusiestYear; /** Where no heading says what the year is */ caption?: string }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-[8rem_1fr]" data-stats-year={year.year}>
+      <div>
+        {caption && <p className="type-caption mb-1">{caption}</p>}
+        <Link href={yearHref(year.year)} className="type-stat block text-fg-primary transition-colors hover:text-accent-primary">
+          {yearLabel(year.year)}
+        </Link>
+        <p className="text-xs text-fg-secondary">
+          {n(year.books)} {year.books === 1 ? "book" : "books"}
+        </p>
+      </div>
+      <ul className="grid max-w-[44rem] grid-cols-5 gap-2 sm:gap-3">
+        {year.covers.map((book) => (
+          <li key={book.workId}>
+            <CoverLink book={book} />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

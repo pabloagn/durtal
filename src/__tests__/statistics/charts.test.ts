@@ -72,14 +72,27 @@ describe("decades", () => {
   });
 
   it("gathers the decades past sixty into one bar before them", () => {
-    const bars = decadeBuckets([
-      { year: -800, count: 2 },
-      { year: 1400, count: 1 },
-      { year: 2020, count: 4 },
-    ]);
+    const years = Array.from({ length: 80 }, (_, i) => ({ year: 1215 + i * 10, count: 1 }));
+    const bars = decadeBuckets([{ year: -800, count: 2 }, ...years]);
     expect(bars).toHaveLength(61);
-    expect(bars[0]).toEqual({ start: null, label: "Before 1430", count: 3 });
-    expect(bars[1].label).toBe("1430s");
-    expect(bars.at(-1)).toEqual({ start: 2020, label: "2020s", count: 4 });
+    expect(bars[0]).toEqual({ start: null, label: "Before 1410", count: 2 + 20 });
+    expect(bars[1].label).toBe("1410s");
+    expect(bars.at(-1)).toEqual({ start: 2000, label: "2000s", count: 1 });
+  });
+
+  it("stops at a long run of empty decades, so a few ancient books leave no blank chart", () => {
+    const bars = decadeBuckets([
+      { year: -800, count: 1 },
+      { year: 1200, count: 1 },
+      { year: 1857, count: 2 },
+      { year: 1884, count: 3 },
+      { year: 1957, count: 4 },
+    ]);
+    expect(bars[0]).toEqual({ start: null, label: "Before 1850", count: 2 });
+    expect(bars[1]).toEqual({ start: 1850, label: "1850s", count: 2 });
+    expect(bars.at(-1)).toEqual({ start: 1950, label: "1950s", count: 4 });
+    expect(bars).toHaveLength(12);
+    // A short gap is part of the history: the 1950s and 1880s stay one chart
+    expect(bars.filter((b) => b.count === 0)).toHaveLength(8);
   });
 });
