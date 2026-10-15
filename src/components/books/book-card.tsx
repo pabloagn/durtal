@@ -64,10 +64,10 @@ interface BookCardProps {
   reading?: CardReadingValue;
 }
 
-export function CoverPlaceholder({ letter }: { letter: string }) {
+export function CoverPlaceholder({ title }: { title: string }) {
   return (
     <div className={`h-full ${COVER_BLANK}`}>
-      <CoverLetter title={letter} />
+      <CoverLetter title={title} />
     </div>
   );
 }
@@ -75,14 +75,12 @@ export function CoverPlaceholder({ letter }: { letter: string }) {
 function CoverImage({
   src,
   alt,
-  fallbackLetter,
   crop,
   sizes,
   priority = false,
 }: {
   src: string;
   alt: string;
-  fallbackLetter: string;
   crop?: CoverCrop | null;
   sizes: string;
   priority?: boolean;
@@ -91,7 +89,7 @@ function CoverImage({
   const maxRetries = 3;
 
   if (retries >= maxRetries) {
-    return <CoverPlaceholder letter={fallbackLetter} />;
+    return <CoverPlaceholder title={alt} />;
   }
 
   // Append retry count to bust the browser's failed-request cache
@@ -189,13 +187,12 @@ export function BookCard({
               <CoverImage
                 src={coverUrl}
                 alt={title}
-                fallbackLetter={title[0]}
                 crop={coverCrop}
                 sizes={coverSizes}
                 priority={coverPriority}
               />
             ) : (
-              <CoverPlaceholder letter={title[0]} />
+              <CoverPlaceholder title={title} />
             )}
 
             {/* The cover shows its art: only the marks that make a copy
