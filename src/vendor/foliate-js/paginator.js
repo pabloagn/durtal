@@ -2115,6 +2115,13 @@ export class Paginator extends HTMLElement {
                 if (this.#filling || this.#stabilizing || this.scrolled) return
                 if (this.#primaryIndex === index)
                     this.#scrollToAnchor(this.#anchor)
+                // Durtal patch 30 (SLN-728): a section before the primary one
+                // that re-lays out after a resize (it fits its text in fewer
+                // or more pages) moves every page after it, so the screen
+                // stops on the anchor's page and the next settle takes the
+                // page it slid to as the place. Go back to the anchor.
+                else if (index < this.#primaryIndex && !this.#isAnimating && !this.#aligningSpread)
+                    this.#scrollToAnchor(this.#anchor)
             },
         })
         this.#views.set(index, view)
@@ -3374,18 +3381,19 @@ export class Paginator extends HTMLElement {
                     ({ left: viewSize - right, right: viewSize - left })
                 : f => f
     }
-    async #scrollToRect(rect, reason) {
+    async #scrollToRect(rect, reason, index = this.#primaryIndex) {
+        // rect is in iframe-local coordinates. Convert to container
+        // coordinates by adding its view's offset. Durtal patch 30: that is
+        // the anchor's own view, which in a spread two chapters share (or on
+        // a scrolled screen showing two chapters) need not be the primary one.
+        const view = this.#views.get(index)
         if (this.scrolled) {
-            // rect is in iframe-local coordinates; add view offset
-            // to convert to container scroll coordinates
-            const localOffset = this.#getRectMapper()(rect).left - 3
-            const viewOffset = this.#getViewOffset(this.#primaryIndex)
+            const localOffset = this.#getRectMapper(view)(rect).left - 3
+            const viewOffset = this.#getViewOffset(view ? index : this.#primaryIndex)
             return this.#scrollTo(viewOffset + localOffset, reason)
         }
-        // rect is in iframe-local coordinates. Convert to container
-        // coordinates by adding the primary view's offset.
-        const localOffset = this.#getRectMapper()(rect).left
-        const viewOffset = this.#getViewOffset(this.#primaryIndex)
+        const localOffset = this.#getRectMapper(view)(rect).left
+        const viewOffset = this.#getViewOffset(view ? index : this.#primaryIndex)
         const containerOffset = viewOffset + localOffset
         return this.#scrollToPage(Math.floor(containerOffset / this.size + 0.01), reason)
     }
@@ -3624,7 +3632,9 @@ export class Paginator extends HTMLElement {
             if (!rect) return this.scrolled
                 ? this.#scrollTo(this.#getViewOffset(this.#primaryIndex), reason)
                 : this.#scrollToPage(this.#getPagesBeforeView(this.#primaryIndex), reason)
-            await this.#scrollToRect(rect, reason)
+            const doc = anchor.startContainer?.ownerDocument ?? anchor.ownerDocument
+            const own = this.#sortedViews.find(([, view]) => view.document === doc)
+            await this.#scrollToRect(rect, reason, own?.[0])
             // focus the element when navigating with keyboard or screen reader
             if (reason === 'navigation') {
                 let node = anchor.focus ? anchor : undefined
@@ -3734,6 +3744,20 @@ export class Paginator extends HTMLElement {
             this.#renderedStart - viewOffset,
             this.#renderedEnd - viewOffset,
             this.#getRectMapper(targetView))
+        if (range && !range.collapsed) return { range, index: this.#primaryIndex }
+        // Durtal patch 30 (SLN-728): a spread two chapters share can show
+        // only the blank end of the primary chapter beside the next one's
+        // first page. Its collapsed range would make the place that
+        // chapter's start; the place is the next chapter's text.
+        for (const [index, view] of this.#sortedViews) {
+            if (index === this.#primaryIndex || !view.document) continue
+            const offset = this.#getViewOffset(index)
+            const size = view.element.getBoundingClientRect()[this.sideProp]
+            if (offset + size <= this.#renderedStart || offset >= this.#renderedEnd) continue
+            const other = getVisibleRange(view.document, this.#renderedStart - offset,
+                this.#renderedEnd - offset, this.#getRectMapper(view))
+            if (other && !other.collapsed) return { range: other, index }
+        }
         return range ? { range, index: this.#primaryIndex } : undefined
     }
     // Whether the current Range anchor starts inside the visible range.
@@ -3743,12 +3767,24 @@ export class Paginator extends HTMLElement {
         const anchor = this.#anchor
         if (!anchor?.startContainer) return false
         const node = anchor.startContainer
+        if (!node.isConnected) return false
         // comparePoint throws for a node rooted outside the range's document,
         // i.e. an anchor in another section or in a torn-down document.
-        if (!node.isConnected || node.ownerDocument !== range.startContainer.ownerDocument)
-            return false
+        // Durtal patch 30 (SLN-728): a spread two chapters share shows the
+        // primary chapter's range, while the anchor can begin in the other;
+        // measure the anchor's own chapter on the same screen.
+        let visible = range
+        if (node.ownerDocument !== range.startContainer.ownerDocument) {
+            const entry = this.#sortedViews.find(([, view]) => view.document === node.ownerDocument)
+            if (!entry) return false
+            const [index, view] = entry
+            const offset = this.#getViewOffset(index)
+            visible = getVisibleRange(view.document, this.#renderedStart - offset,
+                this.#renderedEnd - offset, this.#getRectMapper(view))
+            if (!visible) return false
+        }
         try {
-            return range.comparePoint(node, anchor.startOffset) === 0
+            return visible.comparePoint(node, anchor.startOffset) === 0
         } catch {
             // The anchored text node has been shortened since (IndexSizeError).
             return false

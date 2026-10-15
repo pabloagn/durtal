@@ -55,8 +55,8 @@ export function ReviewAllDialog({ source, action, onClose, onCommitted, onUndone
       <div className="flex flex-wrap justify-end gap-2">
         <Button onClick={close}>Stop here</Button>
         {unavailable.length > 0 && <Button onClick={() => { setSkipped((existing) => new Set([...existing, ...unavailable.map((row) => row.id)]));
-          setProgress((value) => ({ ...value, skipped: value.skipped + unavailable.length })); }}>Skip {unavailable.length} unavailable review rows</Button>}
-        {remaining.length > 0 ? <Button variant="primary" disabled={unavailable.length > 0} onClick={() => { setRunRows(remaining); setShowPage(true); }}>Review these {remaining.length} eBooks</Button> :
+          setProgress((value) => ({ ...value, skipped: value.skipped + unavailable.length })); }}>Skip {unavailable.length} unavailable {unavailable.length === 1 ? "review row" : "review rows"}</Button>}
+        {remaining.length > 0 ? <Button variant="primary" disabled={unavailable.length > 0} onClick={() => { setRunRows(remaining); setShowPage(true); }}>{remaining.length === 1 ? "Review this eBook" : `Review these ${remaining.length} eBooks`}</Button> :
           (!fetched || nextCursor) && <Button busy={loading} onClick={() => void load()}>Load next 50 filtered eBooks</Button>}
       </div>
     </div>
