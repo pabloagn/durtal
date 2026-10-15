@@ -248,6 +248,52 @@ describe("search panel delivery and keyboard ownership", () => {
     expect(host.querySelector("[data-reader-search-bar]")).toBeNull();
     expect(onDockHeight).toHaveBeenLastCalledWith(0);
   });
+  it("keeps focus on the field and on Next as Enter steps through the matches, though a jump focuses the book", async () => {
+    const hits = [0, 1, 2].map((n) => ({
+      ...hit, id: `0:${n}:9`, start: n * 10, end: n * 10 + 4,
+      locator: { ...hit.locator, cfi: `epubcfi(/6/2!/4/${n + 2})`, position: 12 + n },
+    }));
+    const search = vi.fn(async function* (): AsyncGenerator<SearchUpdate> {
+      yield { kind: "hits", hits };
+      yield { kind: "complete", capped: false, count: hits.length };
+    });
+    const engine = { search, currentLocator: () => null, setDecorations: vi.fn() } as unknown as ReaderEngine;
+    // The book: an EPUB jump focuses the passage it lands on
+    const book = document.createElement("div");
+    book.tabIndex = -1;
+    document.body.append(book);
+    const onJump = vi.fn(async (_locator: SearchHit["locator"], _hit: SearchHit) => {
+      book.focus();
+      return true;
+    });
+    const render = (open: boolean) =>
+      root.render(
+        createElement(SearchPanel, { open, engine, language: "en", onJump, onClose: vi.fn(), onOpen: vi.fn() }),
+      );
+    await act(async () => render(true));
+    const field = host.querySelector<HTMLInputElement>('input[type="search"]')!;
+    field.focus();
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, "text");
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const enter = () =>
+      act(async () => {
+        host.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      });
+    await enter();
+    await enter();
+    expect(onJump.mock.calls.map(([locator]) => locator.position)).toEqual([12, 13]);
+    expect(document.activeElement).toBe(field);
+    // Next in the results bar keeps the focus too
+    await act(async () => render(false));
+    const next = host.querySelector<HTMLButtonElement>('[aria-label="Next match"]')!;
+    next.focus();
+    await act(async () => next.click());
+    expect(onJump.mock.calls.at(-1)?.[0]?.position).toBe(14);
+    expect(document.activeElement).toBe(next);
+    book.remove();
+  });
   it("leaves a second Mod+F in the field to the browser", async () => {
     const engine = {
       currentLocator: () => null,

@@ -134,14 +134,25 @@ export function SearchPanel({
   const pick = useCallback(
     async (hit: SearchHit) => {
       const owner = sequence.current;
+      // An EPUB jump focuses the passage in the book: give focus back to the
+      // field or Next, so the next Enter steps on to the next match
+      const origin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      const keep = (within: Element | null) => {
+        if (origin?.isConnected && within?.contains(origin) && document.activeElement !== origin)
+          origin.focus({ preventScroll: true });
+      };
       setActive(hit.id);
       setFocused(hit.id);
       await onJumpRef.current(hit.locator, hit);
       if (owner !== sequence.current) return;
       if (!matchMedia("(min-width: 1024px)").matches) {
+        // The panel closes onto the hit (focus back on its opener); the
+        // results bar stays
         onClose();
+        keep(bar.current);
         return;
       }
+      keep(origin?.closest("[data-reader-search], [data-reader-search-bar]") ?? null);
       // The open panel never covers the hit: it moves to the other side (SLN-675)
       const rect = hitRectRef.current?.(hit.locator);
       if (!rect) return;
