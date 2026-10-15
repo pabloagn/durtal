@@ -28,9 +28,9 @@ gallery read its images and then its layout.
     collection covers.
   - The gallery's and the custom families' reads start as soon as the book
     is found.
-- `src/components/shared/gallery-section.tsx`: `preloadGallery(type, id)`
-  starts the gallery's reads early; the section renders from the same read
-  (React `cache`, once per request).
+- The gallery starts through `preloadGallery(type, id)` from
+  `src/components/shared/gallery-section.tsx`, shared with the person page
+  (#393); the section renders from the same read.
 - `src/lib/actions/gallery-layouts.ts`: `getGalleryWithLayout` reads the
   images and the stored layout side by side. The person, film, perfume and
   painting pages get this too.

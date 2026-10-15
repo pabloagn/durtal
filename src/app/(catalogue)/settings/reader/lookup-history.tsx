@@ -29,7 +29,7 @@ export function LookupHistoryGroup() {
   return <div id="lookup-history" className="scroll-mt-8"><SettingsGroup title="Lookup history"
     description="Kept only in this browser. Durtal’s server never sees it.">
     <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4">
-      <p className="text-sm text-fg-secondary">{count.toLocaleString()} lookups</p>
+      <p className="text-sm text-fg-secondary">{count.toLocaleString("en")} {count === 1 ? "lookup" : "lookups"}</p>
       <Button variant="ghost" size="sm" disabled={busy || count === 0} onClick={() => setConfirm(true)}><Trash2 aria-hidden strokeWidth={1.5} />Clear history</Button>
     </div>
     {entries.map(entry => <div key={entry.id} className="px-5 py-4">

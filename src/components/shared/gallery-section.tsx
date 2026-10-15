@@ -2,15 +2,16 @@ import { cache } from "react";
 import { getGalleryWithLayout } from "@/lib/actions/gallery-layouts";
 import { GallerySectionClient } from "./gallery-section-client";
 
-/** The gallery's images and layout, read once per request */
-const galleryWithLayout = cache(getGalleryWithLayout);
+/** One read per request: a page can start it early, and the section reuses it */
+const loadGallery = cache(getGalleryWithLayout);
 
 /**
- * Starts the gallery's reads now, so they go out with the page's own instead
- * of after them; the section then renders from the same read.
+ * Starts the gallery's reads now, so they run beside the page's own instead
+ * of after them; the section later takes the same result.
  */
-export function preloadGallery(entityType: GallerySectionProps["entityType"], entityId: string) {
-  void galleryWithLayout(entityType, entityId);
+export function preloadGallery(entityType: "work" | "author", entityId: string) {
+  // A failure surfaces where the section awaits it
+  loadGallery(entityType, entityId).catch(() => {});
 }
 
 interface GallerySectionProps {
@@ -28,10 +29,7 @@ export async function GallerySection({
   entityId,
   title = "Gallery",
 }: GallerySectionProps) {
-  const { mediaItems, layout } = await galleryWithLayout(
-    entityType,
-    entityId,
-  );
+  const { mediaItems, layout } = await loadGallery(entityType, entityId);
 
   if (mediaItems.length === 0) return null;
 

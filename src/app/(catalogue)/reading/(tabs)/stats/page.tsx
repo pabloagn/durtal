@@ -4,6 +4,7 @@ import { buttonClass } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ReadingTabs } from "@/components/reading/reading-tabs";
+import { StatsYears } from "@/components/reading/stats-years";
 import { GoalDialogButton } from "@/components/reading/goal-dialog-button";
 import { StartBookButton } from "@/components/reading/hub-actions";
 import { GoalCards } from "@/components/reading/goal-card";
@@ -16,7 +17,7 @@ import { getAppSettings } from "@/lib/actions/settings";
 import { readingDay } from "@/lib/reading/dates";
 import { appTimeZone } from "@/lib/utils/date";
 import { ABANDON_REASON_LABELS, type AbandonReason } from "@/lib/reading/constants";
-import { MONTHS, MONTHS_SHORT, WEEKDAYS, dayLabel, durationWords, minutesLabel, n, parseStatsYear, peakWords } from "@/lib/reading/charts";
+import { MONTHS, MONTHS_SHORT, WEEKDAYS, dayLabel, durationWords, minutesLabel, n, parseStatsYear, peakWords, unreadPileText } from "@/lib/reading/charts";
 import { insights } from "@/lib/reading/insights";
 import { pastGoalText, reachedText } from "@/lib/reading/goals";
 import {
@@ -102,23 +103,13 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
         }
         tabs={<ReadingTabs />}
       />
-      <nav aria-label="Year" className="-mt-4 mb-8">
-        <ul className="flex gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none]" data-stats-years="">
-          {[null, ...(years.includes(current) ? years : [current, ...years])].map((y) => (
-            <li key={y ?? "all"} className="shrink-0">
-              <Link
-                href={y === null ? "/reading/stats?year=all" : y === current ? "/reading/stats" : `/reading/stats?year=${y}`}
-                aria-current={y === year ? "page" : undefined}
-                className={`inline-flex h-8 items-center rounded-sm border px-3 text-sm transition-colors pointer-coarse:h-11 ${
-                  y === year ? "border-accent-primary/10 bg-selection-bg/80 text-fg-primary" : "border-transparent text-fg-secondary hover:bg-bg-tertiary/50 hover:text-fg-primary"
-                }`}
-              >
-                {y ?? "All time"}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <StatsYears
+        years={[null, ...(years.includes(current) ? years : [current, ...years])].map((y) => ({
+          label: y === null ? "All time" : String(y),
+          href: y === null ? "/reading/stats?year=all" : y === current ? "/reading/stats" : `/reading/stats?year=${y}`,
+          current: y === year,
+        }))}
+      />
 
       {empty && (
         // As the Reading page's own empty view: the next step is a book (SLN-755)
@@ -131,7 +122,16 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
       )}
       <div className="space-y-14">
         {!empty && (
-          <StatsSection title={year === null ? "All time in numbers" : `${year} in numbers`} id="numbers">
+          <StatsSection
+            title={year === null ? "All time in numbers" : `${year} in numbers`}
+            id="numbers"
+            action={
+              // The books on the shelves have their own statistics (SLN-742)
+              <Link href="/statistics" className="text-xs whitespace-nowrap text-command touch-hit" data-stats-library-link="">
+                Library statistics
+              </Link>
+            }
+          >
             <NumberTiles
               tiles={[
                 { label: "Books finished", value: n(numbers.books) },
@@ -535,8 +535,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
             }
           >
             <p className="text-sm text-fg-primary" data-stats-pile="">
-              {count(pile.books, "book")} you own and have not read, {count(pile.pages, "page")}
-              {pile.years !== null ? `: at your pace over the last three years, about ${durationWords(pile.years * 365.25)} to read them all` : ""}.
+              {unreadPileText(pile)}
             </p>
             {pile.atHand.some((h) => h.books) && (
               <p className="text-sm text-fg-secondary" data-stats-pile-homes="">

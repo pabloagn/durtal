@@ -43,6 +43,7 @@ import {
   ne,
 } from "drizzle-orm";
 import { containsPattern } from "@/lib/utils/like";
+import { textContains } from "@/lib/actions/utils/text-search";
 import { z } from "zod";
 import {
   createWorkSchema,
@@ -76,16 +77,6 @@ import {
 } from "@/lib/reading/summary";
 import type { ReadingFilterParams } from "@/lib/reading/filter-params";
 import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
-
-/**
- * `text` contains the search as typed, or once accents, case and punctuation
- * are folded on both sides by `search_normalize`, as author names already are:
- * "editions de minuit" finds "Éditions de Minuit", "a rebours" "À rebours".
- * A search of punctuation alone folds to nothing and keeps the plain match.
- */
-function textMatches(text: AnyColumn | SQL, search: string): SQL {
-  return sql`(${text} ilike ${containsPattern(search)} or (search_normalize(${search}) <> '' and search_normalize(${text}) like '%' || search_normalize(${search}) || '%'))`;
-}
 
 /**
  * Build a search condition that matches works by title, author, ISBN,
@@ -148,7 +139,7 @@ function buildSearchCondition(search: string): SQL {
       db
         .select({ workId: editions.workId })
         .from(editions)
-        .where(textMatches(editions.publisher, search)),
+        .where(textContains(editions.publisher, search)),
     ),
     inArray(
       works.id,
@@ -161,16 +152,16 @@ function buildSearchCondition(search: string): SQL {
           eq(publishingHouses.id, editionPublishers.publisherId),
         )
         .where(
-          sql`${textMatches(publishingHouses.name, search)} or exists (select 1 from publisher_aliases a where a.publisher_id = ${publishingHouses.id} and ${textMatches(sql`a.name`, search)})`,
+          sql`${textContains(publishingHouses.name, search)} or exists (select 1 from publisher_aliases a where a.publisher_id = ${publishingHouses.id} and ${textContains(sql`a.name`, search)})`,
         ),
     ),
   );
 
   // Title match OR series name match OR related-table matches
   return or(
-    textMatches(works.title, search),
-    textMatches(works.seriesName, search),
-    sql`exists (select 1 from series where series.id = ${works.seriesId} and ${textMatches(sql`series.title`, search)})`,
+    textContains(works.title, search),
+    textContains(works.seriesName, search),
+    sql`exists (select 1 from series where series.id = ${works.seriesId} and ${textContains(sql`series.title`, search)})`,
     ...related,
   )!;
 }

@@ -11,6 +11,7 @@ import { Button, buttonClass } from "@/components/ui/button";
  * A section of the app that failed to load (its error.tsx): what happened,
  * try again, or leave for a page that works. The tab says something went
  * wrong (a failed page otherwise has no title). The error goes to the console.
+ * Try again is the primary action, the way out the secondary one (SLN-754).
  */
 export function SectionError({
   error,
@@ -18,12 +19,15 @@ export function SectionError({
   description = "An error occurred while loading this page.",
   backHref,
   backLabel,
+  heading = "h1",
 }: {
   error: Error & { digest?: string };
   reset: () => void;
   description?: string;
   backHref: string;
   backLabel: string;
+  /** `h2` under a section heading its layout keeps, as Settings does */
+  heading?: "h1" | "h2";
 }) {
   const router = useRouter();
   const [retrying, startRetry] = useTransition();
@@ -43,13 +47,13 @@ export function SectionError({
       <title>Something went wrong | Durtal</title>
       <EmptyState
         tone="error"
-        heading="h1"
+        heading={heading}
         icon={AlertCircle}
         title="Something went wrong"
         description={description}
         action={
           <div className="flex gap-3">
-            <Button onClick={retry} busy={retrying}>
+            <Button variant="primary" onClick={retry} busy={retrying}>
               Try again
             </Button>
             <Link href={backHref} className={buttonClass("secondary")}>
@@ -79,6 +83,7 @@ export function ListSectionError({
 }: {
   error: Error & { digest?: string };
   reset: () => void;
+  heading?: "h1" | "h2";
   basePath: string;
   listDescription: string;
   recordDescription?: string;

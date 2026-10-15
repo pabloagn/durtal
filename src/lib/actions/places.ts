@@ -2,8 +2,9 @@
 
 import { db } from "@/lib/db";
 import { places, countries } from "@/lib/db/schema";
-import { eq, ilike, and, isNull } from "drizzle-orm";
+import { eq, ilike, and, isNull, sql } from "drizzle-orm";
 import { containsPattern, escapeLike } from "@/lib/utils/like";
+import { textContains } from "@/lib/actions/utils/text-search";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import {
   createPlaceSchema,
@@ -32,7 +33,17 @@ export async function createPlace(input: {
 
 export async function searchPlaces(query: string, limit = 20) {
   return db.query.places.findMany({
-    where: ilike(places.name, containsPattern(query)),
+    // "Zurich" finds "Zürich" (SLN-765's fold)
+    where: textContains(places.name, query),
+    // The picker shows the first few: the place named exactly so, then the
+    // names that contain the search as typed (all that it found before the
+    // fold), then the others, shortest first
+    orderBy: [
+      sql`search_normalize(${places.name}) = search_normalize(${query}) desc`,
+      sql`${places.name} ilike ${containsPattern(query)} desc`,
+      sql`length(${places.name})`,
+      places.name,
+    ],
     limit,
     with: {
       country: { columns: { name: true, alpha2: true } },

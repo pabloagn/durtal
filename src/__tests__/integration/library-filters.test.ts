@@ -151,6 +151,32 @@ describe.skipIf(!url)("library filters with PostgreSQL", () => {
     expect(await titles(fromUrl("lang=fr&yearFrom=1925&yearTo=1600"))).toEqual(["Quixote"]);
   });
 
+  it("filters by a writer's country; a translator's does not count, and the option counts the same books (SLN-742)", async () => {
+    const france = await value(`insert into countries(name, alpha_2, alpha_3) values ('France', 'FR', 'FRA') returning id`);
+    const belgium = await value(`insert into countries(name, alpha_2, alpha_3) values ('Belgium', 'BE', 'BEL') returning id`);
+    const person = (name: string, country: string) =>
+      value(`insert into authors(name, slug, nationality_id) values ($1, $2, $3) returning id`, [name, `person-${++serial}`, country]);
+    const huysmans = await person("Huysmans", france);
+    const rodenbach = await person("Rodenbach", belgium);
+    const translator = await person("Translator", france);
+    const writes = (workId: string, authorId: string) =>
+      q(`insert into work_authors(work_id, author_id, role, sort_order) values ($1, $2, 'author', 0)`, [workId, authorId]);
+
+    const enRoute = await book("En Route", { language: "fr" });
+    await writes(enRoute, huysmans);
+    const bruges = await book("Bruges-la-Morte", { language: "fr" });
+    await writes(bruges, rodenbach);
+    await q(`insert into edition_contributors(edition_id, author_id, role, sort_order) values ($1, $2, 'translator', 0)`, [await edition(bruges), translator]);
+    await book("Anonymous");
+
+    expect(await titles(fromUrl("authorCountry=FR"))).toEqual(["En Route"]);
+    expect(await titles(fromUrl("authorCountry=FR,BE"))).toEqual(["Bruges-la-Morte", "En Route"]);
+    expect((await getLibraryFilterOptions()).authorCountries).toEqual([
+      { value: "BE", label: "Belgium", count: 1 },
+      { value: "FR", label: "France", count: 1 },
+    ]);
+  });
+
   it("filters by held copies: place, format, signed and first printing, all on one copy", async () => {
     const a = await book("Signed paperback in the study");
     await copy(await edition(a), { signed: true });

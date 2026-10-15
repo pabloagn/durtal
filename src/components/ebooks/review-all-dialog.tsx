@@ -45,7 +45,7 @@ export function ReviewAllDialog({ source, action, onClose, onCommitted, onUndone
       setProgress((value) => ({ ...value, committed: value.committed + outcomes.length })); onCommitted(outcomes, run, page); }} />;
   return <Dialog open title="Review all filtered eBooks" onClose={close} expandable={false}>
     <div className="space-y-4">
-      <p role="status" className="text-sm">{progress.committed} committed · {progress.skipped} explicitly skipped{count !== null ? ` · ${count} pending at the latest page read` : ""}.</p>
+      <p role="status" className="text-sm">{progress.committed.toLocaleString("en")} committed · {progress.skipped.toLocaleString("en")} explicitly skipped{count !== null ? ` · ${count.toLocaleString("en")} pending at the latest page read` : ""}.</p>
       <p className="text-sm text-fg-secondary">Load at most 50 filtered eBooks at a time. Review this page’s titles, then check and confirm each prepared group. New arrivals before the cursor need another pass. Undo remains in the page’s review runs after stopping.</p>
       {remaining.length > 0 && <ul aria-label="Next filtered eBooks" className="max-h-64 space-y-1 overflow-auto text-sm">
         {remaining.map((row) => <li key={row.id}>{row.title} · {row.authors.join(" & ") || "Author unknown"} · {row.language ?? "Language unknown"}</li>)}
