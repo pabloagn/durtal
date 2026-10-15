@@ -261,7 +261,7 @@ One order with its work, edition, venue, places and status history.
 
 ### `POST /api/orders`
 
-Create an order, as the New Order dialog does: the initial status history entry is written and the work's catalogue status follows (usually `on_order`). Needs the token.
+Create an order, as the New order dialog does: the initial status history entry is written and the work's catalogue status follows (usually `on_order`). Needs the token.
 
 **Body**: the fields of `createOrderSchema` (`src/lib/validations/orders.ts`). Required: `workId`, `acquisitionMethod`, `orderDate`. Money fields are strings (`"12.50"`).
 

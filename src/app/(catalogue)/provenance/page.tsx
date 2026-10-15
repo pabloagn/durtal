@@ -90,6 +90,8 @@ async function OrderHistory({ params }: { params: ListSearchParams }) {
   const { page, perPage, offset } = parsePagination(params);
   const { orders, total } = await getOrderTimeline(undefined, { limit: perPage, offset });
   if (page > lastPage(total, perPage)) redirect(pageHref("/provenance", params, lastPage(total, perPage)));
+  // With no order at all, the empty state above says so once
+  if (!total) return null;
   return <section className="mt-10">
     <SectionHeading title="Acquisition history" />
     <PaginatedSection page={page} perPage={perPage} total={total} noun="orders">
@@ -97,7 +99,6 @@ async function OrderHistory({ params }: { params: ListSearchParams }) {
         <span><span className="block text-sm text-fg-primary">{order.work.title}</span><span className="text-xs text-fg-secondary">{order.work.workAuthors.map((wa) => wa.author.name).join(", ")}</span></span>
         <span className="font-mono text-xs text-fg-secondary">{order.orderDate} · {orderStatusLabel(order.status)}{order.venue ? ` · ${order.venue.name}` : ""}</span>
       </Link>)}</div>
-      {!total && <p className="py-6 text-sm text-fg-secondary">No acquisitions yet.</p>}
     </PaginatedSection>
   </section>;
 }
