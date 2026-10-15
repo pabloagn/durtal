@@ -78,23 +78,28 @@ export default async function ReadingNotesPage({ searchParams }: { searchParams:
   const params = await searchParams;
   // The chosen book's editions feed the Edition filter (SLN-480)
   const facets = await getNotesFacets(parseNotesQuery(params).workId);
+  // With none, no toolbar over nothing and one Add, in the empty state (SLN-842)
+  if (facets.total === 0) {
+    return (
+      <>
+        <PageHeader title="Reading" tabs={<ReadingTabs />} />
+        <EmptyState
+          icon={Quote}
+          heading="h2"
+          title="No quotes yet"
+          description="A quote is a passage you keep from a book, with your own note if you like. Add one, then find it again by a few words you remember."
+          action={<AddQuoteButton variant="secondary" />}
+        />
+      </>
+    );
+  }
   return (
     <>
       <PageHeader title="Reading" actions={<AddQuoteButton variant="primary" />} tabs={<ReadingTabs />} />
-      {facets.total === 0 ? (
-        <EmptyState
-          icon={Quote}
-          title="No quotes yet"
-          action={<AddQuoteButton variant="secondary" />}
-        />
-      ) : (
-        <>
-          <NotesFilters facets={facets} />
-          <Suspense key={toSearchParams(params).toString()} fallback={<div className="h-96" />}>
-            <NotesResults params={params} total={facets.total} />
-          </Suspense>
-        </>
-      )}
+      <NotesFilters facets={facets} />
+      <Suspense key={toSearchParams(params).toString()} fallback={<div className="h-96" />}>
+        <NotesResults params={params} total={facets.total} />
+      </Suspense>
     </>
   );
 }
