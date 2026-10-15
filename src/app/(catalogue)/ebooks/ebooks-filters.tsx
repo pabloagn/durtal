@@ -12,6 +12,7 @@ import { GridSizeSlider } from "@/components/books/grid-size-slider";
 import { firstPageHref } from "@/lib/utils/list-params";
 import { parseEbookLibraryParams } from "@/lib/ebooks/library-params";
 import { formatLabel } from "@/lib/ebooks/formats";
+import { useListBusy, useListNavigate } from "@/components/shared/list-pending";
 import { languageName } from "@/lib/utils/language";
 import type { EbookLibraryCounts } from "@/lib/ebooks/library-queries";
 
@@ -36,6 +37,9 @@ export function EbooksFilters({
   setColumns: (columns: number) => void;
 }) {
   const router = useRouter();
+  // The eBooks show busy from the first key until the new ones arrive (SLN-753)
+  const list = useListBusy();
+  const navigate = useListNavigate();
   const search = useSearchParams();
   const parsed = parseEbookLibraryParams(search);
   const input = useRef<HTMLInputElement>(null);
@@ -60,7 +64,7 @@ export function EbooksFilters({
     const params = new URLSearchParams(latest.current);
     params.delete(key);
     values.forEach((value) => params.append(key, value));
-    router.push(firstPageHref("/ebooks", params), { scroll: false });
+    navigate(() => router.push(firstPageHref("/ebooks", params), { scroll: false }));
   }
   const groups: FilterGroup[] = [
     {
@@ -124,14 +128,17 @@ export function EbooksFilters({
           onChange={(event) => {
             const q = event.target.value;
             setQuery(q);
+            list?.begin();
             if (timer.current) clearTimeout(timer.current);
             timer.current = setTimeout(() => {
               const params = new URLSearchParams(latest.current);
               if (q) params.set("q", q);
               else params.delete("q");
-              router.replace(firstPageHref("/ebooks", params), {
-                scroll: false,
-              });
+              navigate(() =>
+                router.replace(firstPageHref("/ebooks", params), {
+                  scroll: false,
+                }),
+              );
             }, 150);
           }}
         />
@@ -160,7 +167,7 @@ export function EbooksFilters({
                     ? "desc"
                     : "asc",
               );
-              router.push(firstPageHref("/ebooks", params), { scroll: false });
+              navigate(() => router.push(firstPageHref("/ebooks", params), { scroll: false }));
             }}
           >
             {/* The arrow sits on the label's cap-height center */}
@@ -196,7 +203,7 @@ export function EbooksFilters({
           const params = new URLSearchParams(latest.current);
           for (const key of ["linked", "format", "language", "drm", "review"])
             params.delete(key);
-          router.push(firstPageHref("/ebooks", params), { scroll: false });
+          navigate(() => router.push(firstPageHref("/ebooks", params), { scroll: false }));
         }}
       />
       <ViewModeSwitcher

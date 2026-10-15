@@ -1,19 +1,8 @@
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
 import { collectionCounts } from "@/lib/collections/counts";
 import Link from "next/link";
-import {
-  BookOpen,
-  Layers,
-  Copy,
-  Users,
-  Upload,
-  ArrowRight,
-  Star,
-  ShoppingCart,
-  FolderOpen,
-  BarChart3,
-} from "lucide-react";
+import { Upload, ArrowRight } from "lucide-react";
 import { getLibraryStats } from "@/lib/actions/works";
 import {
   getCollectionCoverPreviews,
@@ -26,18 +15,17 @@ import {
   type HomeKind,
 } from "@/lib/catalogue/domain-homes";
 import { PageHeader } from "@/components/layout/page-header";
-import { Card, CardContent } from "@/components/ui/card";
 import { buttonClass } from "@/components/ui/button";
 import { SkeletonBlock } from "@/components/shared/skeleton";
 import { BookCard } from "@/components/books/book-card";
 import { CollectionCard } from "@/components/collections/collection-card";
 import { DomainAddLink } from "@/components/domains/domain-add-link";
 import { DomainTileCard } from "@/components/domains/domain-tile";
-import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { getAuthorCoverPreviews, getPersonRoles } from "@/lib/actions/authors";
 import { RecentPeopleGrid } from "@/components/people/recent-people-grid";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { SectionRail } from "@/components/shared/section-rail";
 import { finishedItem, tileItem } from "@/components/reading/hub-cards";
 import { DashboardReading } from "@/components/reading/reading-tiles";
 import { getOpenReadings } from "@/lib/actions/reading";
@@ -47,99 +35,107 @@ import { getGoalProgress } from "@/lib/actions/reading-goals";
 import { readingEstimates } from "@/lib/reading/estimates";
 import { cardReadingOf } from "@/lib/reading/card";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { appTimeZone } from "@/lib/utils/date";
 import { PhonePairGrid } from "@/components/shared/phone-pair-grid";
 import { DashboardStatistics } from "@/components/statistics/dashboard-statistics";
 
 // The root layout's title template skips a page in its own segment
 export const metadata = { title: { absolute: "Dashboard | Durtal" } };
 
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  /** Held while the dashboard loads */
-  value?: number;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-}) {
+/*
+ * The dashboard is the library's front page (SLN-741): what is being read,
+ * what came in, the numbers, then what is curated, best loved and still
+ * hunted. The counts sit in one index under the title instead of a block of
+ * tiles per collection. Each section has a rule above it and a tick on the
+ * section rail (SLN-740).
+ */
+
+/** One figure of the index; held while the dashboard loads */
+function Figure({ label, value }: { label: string; value?: number }) {
   return (
-    <Card>
-      <CardContent className="flex items-center gap-4 py-5">
-        {/* Decoration only: on a phone the count and its label need the room */}
-        <div className="hidden rounded-sm border border-glass-border bg-bg-primary/50 p-2.5 sm:block">
-          <Icon className="h-5 w-5 text-fg-muted" strokeWidth={1.5} />
-        </div>
-        <div>
-          {value === undefined ? (
-            // The darker block: a line's tone is the card's own and would not show
-            <SkeletonBlock className="type-stat h-[1lh] w-12" />
-          ) : (
-            <p className="type-stat text-fg-primary">{value.toLocaleString()}</p>
-          )}
-          <p className="text-xs text-fg-secondary">{label}</p>
-        </div>
-      </CardContent>
-    </Card>
+    // The label is the term; the number shows above it
+    <div className="flex min-w-0 flex-col-reverse justify-end">
+      <dt className="text-xs text-fg-secondary [overflow-wrap:break-word]">{label}</dt>
+      <dd>
+        {value === undefined ? (
+          <SkeletonBlock className="type-stat h-[1lh] w-12" />
+        ) : (
+          <span className="type-stat block tabular-nums text-fg-primary">{value.toLocaleString()}</span>
+        )}
+      </dd>
+    </div>
   );
 }
 
-function SectionHeader({
-  title,
-  href,
-  icon: Icon,
-}: {
-  title: string;
-  href?: string;
-  icon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-}) {
-  return (
-    <SectionHeading
-      title={title}
-      icon={Icon}
-      action={
-        href && (
-          <Link
-            href={href}
-            className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
-          >
-            View all
-            <ArrowRight className="h-3 w-3" strokeWidth={1.5} />
-          </Link>
-        )
-      }
-    />
-  );
+const CREATOR_LABELS: Record<HomeKind, string> = {
+  perfume: "Perfumers",
+  film: "Directors",
+  painting: "Painters",
+};
+
+interface IndexCounts {
+  books?: { works: number; editions: number; instances: number; authors: number };
+  others?: Partial<Record<HomeKind, { records: number; creators: number }>>;
 }
 
 /**
- * Books: counts and the book actions. While the dashboard loads, the counts
- * are held and the rest is drawn as it will be (task 0614).
+ * The library's index: each open collection's name, linked to its home, over
+ * its figures. Books take two columns: they have four figures.
  */
-function BookCounts({ stats }: { stats?: { works: number; editions: number; instances: number; authors: number } }) {
+function LibraryIndex({ books, others }: IndexCounts) {
+  const kinds = getEnabledWorkKinds().filter((kind): kind is HomeKind => kind !== "book");
   return (
-    <section>
-      <SectionHeader
-        title={WORK_DOMAINS.book.pluralLabel}
-        icon={DOMAIN_ICONS.book}
-        href={WORK_DOMAINS.book.basePath}
+    <div className="grid grid-cols-1 gap-x-8 gap-y-6 border-t border-glass-border pt-6 min-[375px]:grid-cols-2 xl:grid-cols-[repeat(var(--index-columns),minmax(0,1fr))]" style={{ "--index-columns": 2 + kinds.length } as React.CSSProperties} data-dashboard-index="">
+      <IndexGroup kind="book" wide>
+        <Figure label="Books" value={books?.works} />
+        <Figure label="Editions" value={books?.editions} />
+        <Figure label="Instances" value={books?.instances} />
+        <Figure label="People" value={books?.authors} />
+      </IndexGroup>
+      {kinds.map((kind) => (
+        <IndexGroup key={kind} kind={kind}>
+          <Figure label={WORK_DOMAINS[kind].pluralLabel} value={others?.[kind]?.records} />
+          <Figure label={CREATOR_LABELS[kind]} value={others?.[kind]?.creators} />
+        </IndexGroup>
+      ))}
+    </div>
+  );
+}
+
+function IndexGroup({ kind, wide = false, children }: { kind: keyof typeof WORK_DOMAINS; wide?: boolean; children: ReactNode }) {
+  const domain = WORK_DOMAINS[kind];
+  return (
+    <section aria-label={domain.pluralLabel} className={wide ? "col-span-full xl:col-span-2" : ""}>
+      <Link href={domain.basePath} className="type-caption inline-flex items-center gap-1 transition-colors hover:text-fg-primary touch-hit">
+        {domain.pluralLabel}
+        <ArrowRight className="h-3 w-3" strokeWidth={1.5} aria-hidden />
+      </Link>
+      <dl className={`mt-2 grid gap-4 ${wide ? "grid-cols-2 min-[375px]:grid-cols-4" : "grid-cols-2"}`}>{children}</dl>
+    </section>
+  );
+}
+
+/** A section of the front page: a rule, its title with "View all", then its content */
+function DashboardSection({ id, title, href, children }: { id: string; title: string; href?: string; children: ReactNode }) {
+  return (
+    // Focus lands here after a jump from the rail; the heading names it
+    <section id={id} tabIndex={-1} aria-labelledby={`${id}-title`} className="mt-12 scroll-mt-16 border-t border-glass-border pt-8 outline-none md:scroll-mt-6">
+      <SectionHeading
+        id={`${id}-title`}
+        title={title}
+        action={
+          href && (
+            <Link
+              href={href}
+              className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
+            >
+              View all
+              <ArrowRight className="h-3 w-3" strokeWidth={1.5} />
+            </Link>
+          )
+        }
       />
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Books" value={stats?.works} icon={BookOpen} />
-        <StatCard label="Editions" value={stats?.editions} icon={Layers} />
-        <StatCard label="Instances" value={stats?.instances} icon={Copy} />
-        <StatCard label="People" value={stats?.authors} icon={Users} />
-      </div>
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <DomainAddLink kind="book" />
-        <Link
-          href="/library/import"
-          className={`${buttonClass("secondary", "md")} whitespace-nowrap`}
-        >
-          <Upload className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Import books
-        </Link>
-      </div>
+      {children}
     </section>
   );
 }
@@ -237,12 +233,6 @@ async function otherDomains() {
   );
 }
 
-const CREATOR_LABELS: Record<HomeKind, string> = {
-  perfume: "Perfumers",
-  film: "Directors",
-  painting: "Painters",
-};
-
 async function DashboardContent() {
   const [stats, others, collections, openReadings, finishedReads] = await Promise.all([
     getLibraryStats(),
@@ -290,130 +280,103 @@ async function DashboardContent() {
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     .slice(0, 8);
   const singleDomain = others.length === 0;
+  const book = (work: Parameters<typeof workToCardProps>[0]) => (
+    <BookCard key={work.id} {...workToCardProps(work)} ebook={digital.get(work.id)?.read ?? null} readerReturnTo="/" />
+  );
+
+  // The front page's order. A section with nothing to show is left out, and
+  // the rail lists only the sections the page draws
+  const sections: { id: string; title: string; href?: string; content: ReactNode }[] = [];
+  if (currentReads.length > 0 || finishedReads.length > 0 || goal) {
+    sections.push({
+      id: "reading",
+      title: "Reading",
+      href: "/reading",
+      content: <DashboardReading tiles={currentReads.map((o) => tileItem(o, estimates[o.reading.id]))} finished={finishedReads.map(finishedItem)} goal={goal} />,
+    });
+  }
+  if (recent.length > 0) {
+    sections.push({
+      id: "recent",
+      title: "Recent additions",
+      href: singleDomain ? "/library?sort=recent" : undefined,
+      content: <PhonePairGrid>{recent.map((item) => item.card)}</PhonePairGrid>,
+    });
+  }
+  // The numbers, between what is new and what is curated (SLN-742); the body loads on its own
+  sections.push({ id: "statistics", title: "Statistics", href: "/statistics", content: <DashboardStatistics /> });
+  if (collections.length > 0) {
+    sections.push({
+      id: "collections",
+      title: "Collections",
+      href: "/collections",
+      content: (
+        <PhonePairGrid>
+          {collections.map((collection) => (
+            <CollectionCard
+              key={collection.id}
+              collection={{ ...collection, ...collectionCounts(collection) }}
+              covers={covers
+                .filter((preview) => preview.collectionId === collection.id)
+                .map((preview) => preview.s3Key)}
+            />
+          ))}
+        </PhonePairGrid>
+      ),
+    });
+  }
+  if (stats.topRatedWorks.length > 0) {
+    sections.push({
+      id: "highest-rated",
+      title: "Highest rated",
+      href: "/library?sort=rating",
+      content: <PhonePairGrid>{stats.topRatedWorks.map(book)}</PhonePairGrid>,
+    });
+  }
+  if (stats.wantedWorks.length > 0) {
+    sections.push({
+      id: "wanted",
+      title: "Wanted",
+      href: "/library?status=wanted,shortlisted",
+      content: <PhonePairGrid>{stats.wantedWorks.map(book)}</PhonePairGrid>,
+    });
+  }
+  if (stats.recentAuthors.length > 0) {
+    sections.push({
+      id: "people",
+      title: "Recent people",
+      href: "/people?sort=recent",
+      content: (
+        <RecentPeopleGrid
+          people={stats.recentAuthors}
+          covers={Object.fromEntries(stats.recentAuthors.filter((a) => authorCovers[a.id]?.length).map((a) => [a.id, authorCovers[a.id]]))}
+          roles={personRoles}
+        />
+      ),
+    });
+  }
 
   return (
     <>
-      <BookCounts stats={stats} />
-
-      {/* Reading (SLN-448): light tiles with small props, no book cards */}
-      <DashboardReading tiles={currentReads.map((o) => tileItem(o, estimates[o.reading.id]))} finished={finishedReads.map(finishedItem)} goal={goal} />
-
-      {/* Each other open collection: its counts and its add action */}
-      {others.map(({ kind, counts }) => (
-        <section key={kind} className="mt-12">
-          <SectionHeader
-            title={WORK_DOMAINS[kind].pluralLabel}
-            icon={DOMAIN_ICONS[kind]}
-            href={WORK_DOMAINS[kind].basePath}
-          />
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard
-              label={WORK_DOMAINS[kind].pluralLabel}
-              value={counts.records}
-              icon={DOMAIN_ICONS[kind]}
-            />
-            <StatCard
-              label={CREATOR_LABELS[kind]}
-              value={counts.creators}
-              icon={Users}
-            />
-          </div>
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <DomainAddLink kind={kind} />
-          </div>
-        </section>
+      <LibraryIndex
+        books={stats}
+        others={Object.fromEntries(others.map(({ kind, counts }) => [kind, counts]))}
+      />
+      {sections.map(({ id, title, href, content }) => (
+        <DashboardSection key={id} id={id} title={title} href={href}>
+          {content}
+        </DashboardSection>
       ))}
-
-      {/* Recent additions, newest first across the open collections */}
-      {recent.length > 0 && (
-        <section className="mt-12">
-          <SectionHeader
-            title="Recent additions"
-            icon={BookOpen}
-            href={singleDomain ? "/library?sort=recent" : undefined}
-          />
-          <PhonePairGrid>
-            {recent.map((item) => item.card)}
-          </PhonePairGrid>
-        </section>
-      )}
-
-      {/* Collections: the first ones in their curated order */}
-      {collections.length > 0 && (
-        <section className="mt-12">
-          <SectionHeader title="Collections" icon={FolderOpen} href="/collections" />
-          <PhonePairGrid>
-            {collections.map((collection) => (
-              <CollectionCard
-                key={collection.id}
-                collection={{
-                  ...collection,
-                  ...collectionCounts(collection),
-                }}
-                covers={covers
-                  .filter((preview) => preview.collectionId === collection.id)
-                  .map((preview) => preview.s3Key)}
-              />
-            ))}
-          </PhonePairGrid>
-        </section>
-      )}
-
-      {/* Highest rated books */}
-      {stats.topRatedWorks.length > 0 && (
-        <section className="mt-12">
-          <SectionHeader
-            title="Highest rated"
-            icon={Star}
-            href="/library?sort=rating"
-          />
-          <PhonePairGrid>
-            {stats.topRatedWorks.map((work) => (
-              <BookCard key={work.id} {...workToCardProps(work)} ebook={digital.get(work.id)?.read ?? null} readerReturnTo="/" />
-            ))}
-          </PhonePairGrid>
-        </section>
-      )}
-
-      {/* Recent authors */}
-      {stats.recentAuthors.length > 0 && (
-        <section className="mt-12">
-          <SectionHeader
-            title="Recent people"
-            icon={Users}
-            href="/people?sort=recent"
-          />
-          <RecentPeopleGrid
-            people={stats.recentAuthors}
-            covers={Object.fromEntries(stats.recentAuthors.filter((a) => authorCovers[a.id]?.length).map((a) => [a.id, authorCovers[a.id]]))}
-            roles={personRoles}
-          />
-        </section>
-      )}
-
-      {/* Wanted / shortlisted */}
-      {stats.wantedWorks.length > 0 && (
-        <section className="mt-12">
-          <SectionHeader
-            title="Wanted"
-            icon={ShoppingCart}
-            href="/library?status=wanted,shortlisted"
-          />
-          <PhonePairGrid>
-            {stats.wantedWorks.map((work) => (
-              <BookCard key={work.id} {...workToCardProps(work)} ebook={digital.get(work.id)?.read ?? null} readerReturnTo="/" />
-            ))}
-          </PhonePairGrid>
-        </section>
-      )}
-
-      {/* Statistics (SLN-742): the section's body loads on its own */}
-      <section id="statistics" className="mt-12">
-        <SectionHeader title="Statistics" icon={BarChart3} href="/statistics" />
-        <DashboardStatistics />
-      </section>
+      <SectionRail label="Dashboard sections" sections={sections.map(({ id, title }) => ({ id, label: title }))} />
     </>
   );
+}
+
+/** The date in the library's time zone, as a dateline: "Wednesday 15 October 2026" */
+function dateline() {
+  return new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: appTimeZone() })
+    .format(new Date())
+    .replace(",", "");
 }
 
 export default function DashboardPage() {
@@ -421,11 +384,22 @@ export default function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
+        description={dateline()}
+        actions={
+          <>
+            <DomainAddLink kind="book" size="md" />
+            <Link href="/library/import" className={`${buttonClass("secondary", "md")} whitespace-nowrap`}>
+              <Upload className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Import books
+            </Link>
+          </>
+        }
       />
       <Suspense
         fallback={
+          // The index with its figures held; the sections arrive with it
           <div role="status" aria-label="Loading the dashboard">
-            <BookCounts />
+            <LibraryIndex />
           </div>
         }
       >

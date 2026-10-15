@@ -104,7 +104,10 @@ export default async function ReadingPage() {
           {reading.length > 0 && (
             <section>
               <SectionHeading title="Currently reading" count={reading.length} />
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {/* Each card at least 30rem wide, so Open eBook, Log progress,
+                  the timer and the menu share one line under the text: a third
+                  of the column (357px at 1440) stacked them like a phone's */}
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,30rem),1fr))] gap-4">
                 {reading.map((o) => (
                   <CurrentReadingCard key={o.reading.id} open={o} day={day} estimate={estimates[o.reading.id]} />
                 ))}

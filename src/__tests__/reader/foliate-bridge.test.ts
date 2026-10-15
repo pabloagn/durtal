@@ -39,13 +39,16 @@ vi.mock("@/vendor/foliate-js/epub.js", () => ({
   },
 }));
 vi.mock("@/vendor/foliate-js/view.js", () => ({}));
+vi.mock("@/lib/reader/engines/foliate/comic-book", () => ({
+  makeDurtalComicBook: async () => fixtures.book,
+}));
 import { createFoliateEngine } from "@/lib/reader/engines/foliate/engine";
 import { createReaderNavigation } from "@/lib/reader/navigation";
 import { parseGoTo } from "@/lib/reader/goto";
 import { PositionIndex } from "@/lib/reader/position-index";
 import { PaceModel } from "@/lib/reader/pace";
 import { resolveContinueAnchor } from "@/lib/ebooks/continue-resolve";
-import type { ReaderEngine } from "@/lib/reader/engine";
+import type { BookInfo, ReaderEngine } from "@/lib/reader/engine";
 import {
   presentationFrom,
   resolveThemeColors,
@@ -541,6 +544,30 @@ describe("foliate bridge adapter", () => {
     expect(book.pageList).toEqual([
       { label: "xii", href: "maps/a#p12", subitems: [] },
     ]);
+  });
+  it("names a paged book's sections by each page's own label (SLN-731)", async () => {
+    engine.destroy();
+    host.replaceChildren();
+    fixtures.book = {
+      sections: ["i", "ii", "1"].map((id) => ({ id, size: 100, linear: "yes" })),
+      metadata: { title: "Labelled" },
+      resolveHref: () => ({ index: 0 }),
+      pageList: [
+        { label: "i", href: "i" },
+        { label: "ii", href: "ii" },
+        { label: "1", href: "1" },
+      ],
+    };
+    engine = createFoliateEngine();
+    let info: BookInfo | null = null;
+    engine.on("ready", (value) => { info = value; });
+    await engine.open(
+      { ebookId: "book", fileId: "cbz", format: "cbz", size: 1000, sha256: "b".repeat(64), url: "/unused", fallbackUrl: "/unused" },
+      { container: host, presentation: presentationFrom(READER_DEFAULTS, resolveThemeColors(), "") },
+    );
+    // As the bar names them: a Roman page is "p. ii", a numbered one "Page 1"
+    expect(info!.sections.map((section) => section.label)).toEqual(["p. i", "p. ii", "Page 1"]);
+    expect(info!.pagedSections).toBe(true);
   });
   it("retains the linear projection in real note locators and rehydrates it before the note anchor", async () => {
     await withNotes();

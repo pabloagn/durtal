@@ -74,6 +74,16 @@ describe("useFocusThroughBusy", () => {
     expect(document.activeElement).toBe(byId("field"));
   });
 
+  it("goes to the field, not the dialog, when the dialog had the focus (Safari's click on Add)", () => {
+    act(() => root.render(createElement(Row, { busy: false })));
+    const dialog = document.querySelector("dialog") as HTMLDialogElement;
+    dialog.tabIndex = -1;
+    dialog.focus();
+    act(() => root.render(createElement(Row, { busy: true })));
+    act(() => root.render(createElement(Row, { busy: false })));
+    expect(document.activeElement).toBe(byId("field"));
+  });
+
   it("leaves the focus where the reader put it while the add ran", () => {
     act(() => root.render(createElement(Row, { busy: false })));
     byId("field").focus();

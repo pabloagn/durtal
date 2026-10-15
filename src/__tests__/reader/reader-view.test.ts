@@ -487,6 +487,9 @@ describe("reader view with a real bridge and fake engine", () => {
     await render(null, null, other);
     expect(fake.engine.resolve).toHaveBeenCalledWith(other.locator);
     expect(host.textContent).toContain("Your place from iPhone · Safari");
+    // Named in the bottom bar, where it covers no text, never in the floating notice (SLN-729)
+    expect(host.querySelector("[data-reader-bottom-bar] [data-reader-place-from]")?.textContent).toContain("iPhone · Safari");
+    expect(host.querySelector("[role=status][data-reader-chrome]")?.textContent ?? "").not.toContain("iPhone");
     expect(host.textContent).not.toContain("Go there");
     expect(positionReads()).toHaveLength(0);
     await act(async () => {
@@ -497,6 +500,7 @@ describe("reader view with a real bridge and fake engine", () => {
       await vi.advanceTimersByTimeAsync(1);
     });
     expect(host.textContent).not.toContain("Your place from");
+    expect(host.querySelector("[data-reader-place-from]")).toBeNull();
   });
   it("saves no place for a never-opened device until the reader moves (SLN-665)", async () => {
     await render(null, null, other);
@@ -735,6 +739,45 @@ describe("reader view with a real bridge and fake engine", () => {
       outside.remove();
     }
     expect(fake.engine.clearSelection).not.toHaveBeenCalled();
+  });
+  describe("Escape with nothing open asks before leaving the book (SLN-744)", () => {
+    const escape = (target: EventTarget = document) => {
+      const event = new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true, cancelable: true });
+      act(() => {
+        target.dispatchEvent(event);
+      });
+    };
+    const prompt = () => host.querySelector("[data-reader-leave-prompt]")?.closest("dialog") ?? null;
+    // The prompt opens once the key is done (a task later)
+    const afterKey = () => act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    it("Escape twice stays in the book, Escape from inside the book's frame too", async () => {
+      await render();
+      await settle();
+      const doc = document.implementation.createHTMLDocument("book");
+      act(() => fake.emit("document", { doc }));
+      escape(doc);
+      await afterKey();
+      expect(prompt()?.textContent).toContain("Leave the book?");
+      expect(document.activeElement).toBe(button("Leave"));
+      escape(document.activeElement!);
+      await settle();
+      expect(prompt()).toBeNull();
+      expect(host.querySelector('[data-reader="ready"]')).not.toBeNull();
+    });
+    it("Leave saves the place first, then goes to the page the reader came from", async () => {
+      const assign = vi.fn();
+      vi.stubGlobal("location", Object.assign(new URL(window.location.href), { assign }));
+      await render();
+      await settle();
+      escape();
+      await afterKey();
+      act(() => button("Leave").click());
+      await persistence.waitFor(() => assign.mock.calls.length === 1, "the leave after the place is saved");
+      expect(assign).toHaveBeenCalledWith(new URL("/library", window.location.href).href);
+      expect(button("Leave").getAttribute("aria-busy")).toBe("true");
+    });
   });
 });
 

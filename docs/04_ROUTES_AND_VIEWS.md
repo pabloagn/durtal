@@ -145,24 +145,39 @@ The root `Shell` component wraps all page content:
 
 ### Dashboard (`/`)
 
-The landing page: each open collection, then what is new and curated across them.
+The library's front page (SLN-739, SLN-741): what is being read, what came in,
+then what is curated, best loved and still hunted. It reads as a magazine's
+front page, not a grid of tiles: one index of counts under the title, then
+sections in a set order, each under a rule, each a tick on the section rail
+(SLN-740, `SectionRail`; see `docs/03_DESIGN_LANGUAGE.md`, Section rail).
 
-**One block per open collection** (Books first): a heading with its icon and
-"View all" to its home, its counts and its add actions.
-- Books: Books (book works only), Editions, Instances, Authors; Add book,
-  Import books.
-- Perfumes, Films, Paintings: the record count and the people with the
-  collection's first creator role (perfumers, directors, painters); Add perfume,
-  film or painting.
+**Header**: "Dashboard", today's date in the library's time zone, Add book and
+Import books. The other collections' add actions are in the New menu (N, or A
+then the collection's key), the command palette and their homes.
 
-**Recent additions**: the 8 newest records across the open collections, newest
-first. A book shows as its book card; other records as a `DomainTileCard`.
+**Index**: each open collection's name (linked to its home) over its figures.
+Books: Books (book works only), Editions, Instances, People. Perfumes, Films,
+Paintings: the record count and the people with the collection's first creator
+role (perfumers, directors, painters). While the page loads, the index is drawn
+with its figures held (the loading screen), and the sections arrive with it.
 
-**Collections**: the first 4 collections in their curated order, with "View all".
+**Sections**, in this order; each is left out when empty, and the rail lists
+only those drawn:
 
-**Currently reading** (SLN-448), after the Books block: up to three open readings, reading before paused, as light tiles (cover, title, progress bar, position, a Log button that opens Log progress, and the estimate as server text with a client info button, SLN-451). **Recently finished**: up to four covers with the read's rating and the finish date. Each is left out when empty. Both are one client component with small props (`DashboardReading`, `src/components/reading/reading-tiles.tsx`), and Recent people is too (`RecentPeopleGrid`), so "/" stays within its 300 KB budget. With a goal this year (SLN-455), one line under the tiles: "12 of 30 books this year · on pace" (alone under a "Reading" heading when nothing is being read), redrawn with the browser's reading day.
-
-**Highest rated**, **Recent authors** and **Wanted**: book sections.
+1. **Reading** (`#reading`): up to three open readings, reading before paused,
+   each with its cover, title, author, progress, position, the estimate
+   (SLN-451), Log and Open eBook; this year's goal line (SLN-455); then
+   **Recently finished**, up to four covers with the read's rating and finish
+   date. One client component with small props (`DashboardReading`,
+   `src/components/reading/reading-tiles.tsx`), as Recent people is
+   (`RecentPeopleGrid`), so "/" stays within its 300 KB budget.
+2. **Recent additions** (`#recent`): the 8 newest records across the open
+   collections, newest first. A book shows as its book card; other records as
+   a `DomainTileCard`.
+3. **Statistics**: the place for SLN-742's section.
+4. **Collections** (`#collections`): the first 4 in their curated order.
+5. **Highest rated** (`#highest-rated`), **Wanted** (`#wanted`) and **Recent
+   people** (`#people`): book sections.
 
 **Statistics** (SLN-742): pages on the shelves, languages, authors' countries and the share read, then when the books were written (years or decades), with "View all" to `/statistics`. Its body (`DashboardStatistics`, `src/components/statistics/dashboard-statistics.tsx`) loads in its own Suspense boundary; the dashboard draws the section and its heading.
 
@@ -759,8 +774,8 @@ image or the first four members' images.
 
 **Collection page** (`/collections/[id]`): one ordered list of member cards
 (`MemberCard`): an edition (cover, publisher and year, ISBN; "also collected
-as the book" when the whole book is in too), a whole book ("The book, no
-edition chosen"), a film (poster or title card, directors, year and runtime),
+as the book" when the whole book is in too), a whole book (one line: "Any
+edition", then its reading), a film (poster or title card, directors, year and runtime),
 a perfume (bottle, house, concentrations) or a painting (picture, painters,
 date). Each card moves earlier or later in the one order and can be removed;
 the header counts books, editions, films, perfumes and paintings.
@@ -1076,7 +1091,7 @@ The e-book reader (SLN-492), in the shell's full-viewport branch: no sidebar, no
 | Context / owner | Keys | Action |
 |---|---|---|
 | Reader core, sub-issue 3 | ←, →, Space, Shift+Space, PageUp, PageDown | Turn left/right or previous/next |
-| Reader core, sub-issue 3 | Home, End, t, s, f, Esc | First/last page, Contents, Settings, full screen, close surface |
+| Reader core, sub-issue 3 | Home, End, t, s, f, Esc | First/last page, Contents, Settings, full screen, close surface (with none open, ask to leave the book) |
 | Navigation, sub-issue 10 | g, [, ], Alt+←, Alt+→, ? | Go to, chapters, history, shortcut sheet |
 | Scrubber, sub-issue 10 | ←/→, Shift+←/→, Home/End, Enter, Esc | Preview 1%/10%, start/end, commit, cancel |
 | Annotations, sub-issue 11 (reserved) | b, h; selection: 1–5, n | Bookmark, highlights; colour, note |

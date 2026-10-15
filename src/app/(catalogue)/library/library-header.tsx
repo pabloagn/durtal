@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ListChecks } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { buttonClass } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { ListPending } from "@/components/shared/list-pending";
 import { DomainSwitch } from "@/components/domains/domain-switch";
 import { DomainAddLink } from "@/components/domains/domain-add-link";
 
@@ -38,10 +38,4 @@ export function LibraryHeader({
 }
 
 /** Where the books go while they load: the loading screen and the page's own wait */
-export function LibraryPending() {
-  return (
-    <div className="py-16">
-      <Spinner />
-    </div>
-  );
-}
+export const LibraryPending = ListPending;
