@@ -27,6 +27,7 @@ import { loadFilmCards } from "@/lib/catalogue/film-store";
 import { loadPaintingCards } from "@/lib/catalogue/painting-store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { textSearchCondition, textSearchRank } from "./utils/text-search";
+import { naturalOrder } from "./utils/natural-order";
 import { deleteOrganization, saveOrganization } from "./organizations";
 
 /** Works shown per group on an organization's page; each count is complete */
@@ -94,8 +95,8 @@ export async function getOrganizationDirectory(input: z.input<typeof directorySc
   const options = directorySchema.parse(input);
   const where = sql`${matches(options.query)} and ${options.role ? hasRole(options.role) : sql`true`}`;
   const order = options.query
-    ? sql`${textSearchRank(sql`o.search_text`, sql`o.name`, options.query)} desc, o.name, o.id`
-    : sql`o.name, o.id`;
+    ? sql`${textSearchRank(sql`o.search_text`, sql`o.name`, options.query)} desc, ${naturalOrder(sql`o.name`)}, o.name, o.id`
+    : sql`${naturalOrder(sql`o.name`)}, o.name, o.id`;
   const [rows, totals] = await Promise.all([
     db
       .execute(sql`select o.id, o.name, o.slug, o.kind, o.country,
