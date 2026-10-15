@@ -162,9 +162,11 @@ export default async function ReadingPage() {
                       <Cover s3Key={row.cover} className="h-20 w-14" />
                     </Link>
                     <div className="min-w-0 flex-1 space-y-1">
-                      <Link href={row.href} className="block text-sm text-fg-primary transition-colors [overflow-wrap:anywhere] hover:text-accent-primary touch-hit">
-                        {row.title}
-                      </Link>
+                      <h3>
+                        <Link href={row.href} className="block text-sm text-fg-primary transition-colors [overflow-wrap:anywhere] hover:text-accent-primary touch-hit">
+                          {row.title}
+                        </Link>
+                      </h3>
                       {row.author && <p className="text-xs text-fg-secondary [overflow-wrap:anywhere]">{row.author}</p>}
                       {row.reasons[0] && <p className="lines-2 text-xs text-fg-primary">{row.reasons[0]}</p>}
                       <SuggestionActions row={row} compact />

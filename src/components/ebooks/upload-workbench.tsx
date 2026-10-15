@@ -14,6 +14,7 @@ import { uploadBatchViewSchema, uploadItemViewSchema, uploadOutcomeSchema, type 
 import { UPLOAD_LIMITS } from "@/lib/ebooks/upload/limits";
 import { formatBytes } from "@/lib/ebooks/run-text";
 import { readerEntryHref } from "@/lib/reader/entry-policy";
+import { Trash2 } from "lucide-react";
 
 const stateLabel: Record<UploadItemView["state"], string> = {
   queued: "Waiting for space", admitted: "Ready to send", receiving: "Sending", ready: "Received, ready to preview",
@@ -233,7 +234,7 @@ export function UploadWorkbench({ target, initialBatchId, available = true, acce
       <p className="text-sm text-fg-primary">The last request got no answer, so Durtal does not know whether it worked. Send it again to find out, or discard it.</p>
       <div className="flex flex-wrap gap-3">
         <Button disabled={busy} onClick={() => void act(() => request(session.pending!))}>Send it again</Button>
-        <Button variant="ghost" disabled={busy} onClick={() => { persist(discardUploadRequest(sessionRef.current)); setMessage(null); }}>Discard request</Button>
+        <Button variant="ghost" disabled={busy} onClick={() => { persist(discardUploadRequest(sessionRef.current)); setMessage(null); }}><Trash2 aria-hidden strokeWidth={1.5} />Discard request</Button>
       </div>
     </div>}
     {session.lastRefusal && <p className="text-sm text-fg-secondary">The server restarted before it took the last file, so nothing of it was lost. Choose Resume on it to send it again.</p>}

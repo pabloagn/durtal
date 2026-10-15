@@ -86,7 +86,7 @@ export function WorkRecord({
           action={
             <Link
               href="/provenance"
-              className="text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
+              className="text-xs text-command touch-hit"
             >
               Pipeline
             </Link>

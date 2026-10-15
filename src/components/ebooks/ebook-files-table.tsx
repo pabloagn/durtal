@@ -93,11 +93,13 @@ export function EbookFilesTable({
           if (column === "added") return file.added.slice(0, 10);
           if (column === "actions")
             return (
-              <div className="flex flex-wrap gap-2">
+              // On touch a text command grows 44px tall around its line: a
+              // wrapped command keeps its row clear of the one above it
+              <div className="flex flex-wrap gap-2 pointer-coarse:gap-y-7">
                 {file.download ? (
                   <Link
                     href={`/api/ebooks/files/${file.id}?download=1`}
-                    className="touch-hit text-accent-primary"
+                    className="touch-hit text-command"
                   >
                     Download
                   </Link>
@@ -106,7 +108,7 @@ export function EbookFilesTable({
                   <button
                     type="button"
                     disabled={pending}
-                    className="touch-hit text-accent-primary disabled:opacity-40"
+                    className="touch-hit text-command disabled:opacity-40"
                     onClick={() => {
                       setError(null);
                       startTransition(async () => {
@@ -132,7 +134,7 @@ export function EbookFilesTable({
                 {file.replaceable && (
                   <Link
                     href={`/ebooks/upload?kind=replace&ebookId=${ebookId}&fileId=${file.id}`}
-                    className="touch-hit text-accent-primary"
+                    className="touch-hit text-command"
                   >
                     Replace file<span className="sr-only"> ({formatLabel(file.format)})</span>…
                   </Link>

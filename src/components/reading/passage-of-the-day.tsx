@@ -9,6 +9,7 @@ import { getPassageOfTheDay, type NoteWithBook } from "@/lib/actions/reading-not
 import type { NoteEdition } from "@/lib/reading/edition-label";
 import { noteWhereText } from "@/lib/reading/notes-text";
 import { showError } from "./reading-client";
+import { Shuffle } from "lucide-react";
 
 /** A passage longer than this opens clamped, with "Show all" */
 const LONG = 600;
@@ -62,6 +63,7 @@ export function PassageOfTheDay({
         action={
           candidates > 1 ? (
             <Button variant="ghost" size="sm" onClick={() => void another()} disabled={loading} className="pointer-coarse:h-11" data-hub-passage-another="">
+              <Shuffle aria-hidden strokeWidth={1.5} />
               Another
             </Button>
           ) : undefined
@@ -74,7 +76,7 @@ export function PassageOfTheDay({
           </Prose>
         </blockquote>
         <figcaption className="mt-2 pl-4.5 text-xs text-fg-secondary">
-          <Link href={`/library/${note.book.slug ?? note.book.id}`} className="text-fg-primary transition-colors hover:text-accent-primary">
+          <Link href={`/library/${note.book.slug ?? note.book.id}`} className="text-command">
             {note.book.title}
           </Link>
           {[note.book.author, where].filter(Boolean).map((part) => ` · ${part}`)}

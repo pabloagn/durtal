@@ -6,6 +6,7 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { ReaderEntryLink } from "@/components/reader/reader-entry-link";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { RatingStars } from "@/components/shared/rating";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { Badge } from "@/components/ui/badge";
 import type { ReadingFormat } from "@/lib/reading/constants";
 import type { ReadingEstimate } from "@/lib/reading/pace";
@@ -181,23 +182,30 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
           <li key={row.reading.readingId} className="flex items-center gap-3 px-3 py-2" data-journal-row={row.reading.readingId}>
             <Cover s3Key={row.cover} className="h-12 w-8" />
             <div className="min-w-0 flex-1">
-              {/* The full title wraps inside the link and keeps its touch area */}
-              <Link href={row.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-primary touch-hit">
-                <span className="block min-h-[1lh] [overflow-wrap:anywhere]">{row.title}</span>
-              </Link>
+              {/* The title names the row; its marks and menu sit on its first line, as in Up next */}
+              <div className="flex gap-3 text-sm">
+                <h3 className="min-w-0 flex-1">
+                  {/* The full title wraps inside the link and keeps its touch area */}
+                  <Link href={row.href} className="block text-fg-primary transition-colors hover:text-accent-primary touch-hit">
+                    <span className="block min-h-[1lh] [overflow-wrap:anywhere]">{row.title}</span>
+                  </Link>
+                </h3>
+                <CapAlignedControls height={32} coarseHeight={44}>
+                  <span className="flex items-center gap-3">
+                    {row.translated && (
+                      <span className="hidden sm:inline-flex">
+                        <Badge variant="blue">{row.translated}</Badge>
+                      </span>
+                    )}
+                    <span className="hidden text-fg-secondary sm:inline-flex" aria-label={FORMAT_LABEL[row.format]} data-tooltip={FORMAT_LABEL[row.format]} role="img">
+                      <Icon className="h-4 w-4" strokeWidth={1.5} />
+                    </span>
+                    <RatingStars value={row.rating} />
+                    <JournalRowMenu reading={row.reading} title={row.title} />
+                  </span>
+                </CapAlignedControls>
+              </div>
               <p className="min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">{row.line}</p>
-            </div>
-            <div className="flex shrink-0 items-center gap-3">
-              {row.translated && (
-                <span className="hidden sm:inline-flex">
-                  <Badge variant="blue">{row.translated}</Badge>
-                </span>
-              )}
-              <span className="hidden text-fg-secondary sm:inline-flex" aria-label={FORMAT_LABEL[row.format]} data-tooltip={FORMAT_LABEL[row.format]} role="img">
-                <Icon className="h-4 w-4" strokeWidth={1.5} />
-              </span>
-              <RatingStars value={row.rating} />
-              <JournalRowMenu reading={row.reading} title={row.title} />
             </div>
           </li>
         );

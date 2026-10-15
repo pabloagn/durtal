@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Unlink } from "lucide-react";
 
 import { CardHeading } from "@/components/shared/card-heading";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -131,7 +131,7 @@ export function ReviewRow({ row, section, detail, selected, focused, busy, retur
           <Button size="sm" onClick={onWorkStatus} disabled={busy}>Mark book accessioned…</Button>}
         {onUnlink && row.state === "linked" && row.matching && <div className="flex flex-wrap gap-2">
           {row.matching.automatic && <Button size="sm" disabled={decisionDisabled} onClick={() => onUnlink("automatic_undo")}>Undo automatic link…</Button>}
-          <Button size="sm" variant="ghost" disabled={decisionDisabled} onClick={() => onUnlink("unlink")}>Unlink…</Button>
+          <Button size="sm" variant="ghost" disabled={decisionDisabled} onClick={() => onUnlink("unlink")}><Unlink aria-hidden strokeWidth={1.5} />Unlink…</Button>
         </div>}
         {row.state === "linked" && !row.matching && <p className="text-xs text-fg-secondary">The stored matching operation cannot be verified for Unlink.</p>}
         {!row.stamp && <p role="alert" className="text-xs text-accent-red-text">This row has an invalid review timestamp. Its decisions are unavailable.</p>}
