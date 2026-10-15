@@ -21,7 +21,7 @@ interface Existing {
 }
 
 /**
- * Add or edit a series. Without `series` it renders its own "Add Series"
+ * Add or edit a series. Without `series` it renders its own "Add series"
  * button; with it, it is controlled by the page's action menu.
  */
 export function SeriesFormDialog({
@@ -112,7 +112,7 @@ export function SeriesFormDialog({
           onClick={() => setInternalOpen(true)}
         >
           <Plus className="h-4 w-4" strokeWidth={1.5} />
-          Add Series
+          Add series
         </Button>
       )}
       <Dialog
