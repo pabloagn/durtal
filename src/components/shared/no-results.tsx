@@ -35,8 +35,9 @@ export function NoResults({ noun, search, hasFilters, clearHref }: NoResultsProp
       title={`No ${noun} found`}
       description={description}
       action={
-        // A link styled as a button: a button inside a link is two controls
-        <Link href={clearHref} className={buttonClass("ghost", "sm")}>
+        // A link styled as a button (a button inside a link is two controls),
+        // in the secondary look: a ghost link here read as plain text (task 0611)
+        <Link href={clearHref} className={buttonClass("secondary")}>
           {clearLabel}
         </Link>
       }
@@ -57,7 +58,7 @@ export function PageOutOfRange({ firstPageHref }: PageOutOfRangeProps) {
       title="Nothing on this page"
       description="This page is past the end of the results."
       action={
-        <Link href={firstPageHref} className={buttonClass("ghost", "sm")}>
+        <Link href={firstPageHref} className={buttonClass("secondary")}>
           Go to first page
         </Link>
       }

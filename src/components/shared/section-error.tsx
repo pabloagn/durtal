@@ -2,7 +2,7 @@
 
 import { useEffect, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -58,5 +58,43 @@ export function SectionError({
         }
       />
     </>
+  );
+}
+
+/**
+ * The error view of a section with a list of its own (task 0612). On the list
+ * it leads to the dashboard; on any page under it, back to the list, where
+ * the shared view would have offered only the dashboard. On one record (the
+ * list's address and one more part that is not one of `pages`) it says that
+ * record failed.
+ */
+export function ListSectionError({
+  basePath,
+  listDescription,
+  recordDescription,
+  backLabel,
+  pages = [],
+  ...props
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+  basePath: string;
+  listDescription: string;
+  recordDescription?: string;
+  backLabel: string;
+  pages?: string[];
+}) {
+  const pathname = usePathname();
+  const rest = pathname?.startsWith(`${basePath}/`) ? pathname.slice(basePath.length + 1) : "";
+  if (!rest)
+    return <SectionError {...props} description={listDescription} backHref="/" backLabel="Go to the dashboard" />;
+  const record = !!recordDescription && !rest.includes("/") && !pages.includes(rest);
+  return (
+    <SectionError
+      {...props}
+      description={record ? recordDescription : undefined}
+      backHref={basePath}
+      backLabel={backLabel}
+    />
   );
 }
