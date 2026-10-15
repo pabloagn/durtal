@@ -24,6 +24,7 @@ import { ReaderView } from "@/app/reader/[ebookId]/reader-view";
 import { useReaderController, useReaderControllerFailure, readerControllerFailureVisible } from "@/components/reader/bridge";
 import type { ReaderControllerFailureProps } from "@/lib/reader/bridge-state";
 import { fakeEngine } from "./fixtures/fake-engine";
+import { earlyEscapeScript } from "@/lib/reader/early-escape";
 // The provider returns a fresh real runtime built with primitive/platform
 // injection. The mounted durable queue and store/domain logic remain actual.
 const persistenceProvider = vi.hoisted(() => ({
@@ -126,6 +127,44 @@ describe("ReaderSession controller admission", () => {
     document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })); expect(activity).not.toHaveBeenCalled();
     await act(async () => root.render(h(ReaderView, props(true)))); await flush();
     expect(fake.engine.open).toHaveBeenCalledOnce(); expect(location).toHaveBeenCalledOnce();
+  });
+  it("asks before leaving on one Escape while the book is still opening (SLN-811)", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("location", Object.assign(new URL(window.location.href), { assign }));
+    const escape = (target: EventTarget = document) => act(() => {
+      target.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true, cancelable: true }));
+    });
+    // The prompt opens once the key is done (a task later)
+    const afterKey = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    const prompts = () => [...host.querySelectorAll("[data-reader-leave-prompt]")];
+    const leave = () => [...host.querySelectorAll("button")].find((button) => button.textContent === "Leave");
+    await act(async () => root.render(h(ReaderView, props(false))));
+    expect(host.querySelector('[data-reader="opening"]')?.textContent).toContain("Opening the book");
+    escape();
+    await afterKey();
+    expect(prompts()).toHaveLength(1);
+    expect(prompts()[0].closest("dialog")?.textContent).toContain("Leave the book?");
+    expect(document.activeElement).toBe(leave());
+    // A second Escape closes it and the book goes on opening
+    escape(document.activeElement!);
+    await afterKey();
+    expect(prompts()).toHaveLength(0);
+    // Once the book is ready, one Escape still opens one prompt
+    await act(async () => root.render(h(ReaderView, props(true)))); await flush();
+    expect(host.querySelector('[data-reader="ready"]')).not.toBeNull();
+    escape();
+    await afterKey();
+    expect(prompts()).toHaveLength(1);
+    act(() => leave()!.click());
+    await persistence.waitFor(() => assign.mock.calls.length === 1, "the leave after the place is saved");
+    expect(assign).toHaveBeenCalledWith(new URL("/library", window.location.href).href);
+  });
+  it("asks before leaving for an Escape pressed before the reader's code ran (SLN-811)", async () => {
+    new Function(earlyEscapeScript())();
+    document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true, cancelable: true }));
+    await act(async () => root.render(h(ReaderView, props(false))));
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    expect(host.querySelectorAll("[data-reader-leave-prompt]")).toHaveLength(1);
   });
   it("keeps exactly one functional subscriber and open through StrictMode reacquisition", async () => {
     // Cache this fixture before concurrent StrictMode imports enter Vitest's mock resolver.
