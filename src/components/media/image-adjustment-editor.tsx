@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import {
   getImagePresentation,
   saveImagePresentation,
@@ -21,65 +22,37 @@ import {
 import { useImageAdjustmentUpdate } from "./image-adjustment-provider";
 
 type Presentation = Awaited<ReturnType<typeof getImagePresentation>>;
+type Group = "tone" | "colour" | "framing";
+
+// Three groups, each shown whole: the light of the image, its colour, and
+// (for a cropped subject) what part of it the frame shows
+const GROUPS: readonly { value: Group; label: string }[] = [
+  { value: "tone", label: "Tone" },
+  { value: "colour", label: "Colour" },
+  { value: "framing", label: "Framing" },
+];
 const controls = [
-  {
-    key: "exposure",
-    label: "Exposure",
-    min: -2,
-    max: 2,
-    step: 0.05,
-    unit: " EV",
-  },
-  {
-    key: "brightness",
-    label: "Brightness",
-    min: 0,
-    max: 200,
-    step: 1,
-    unit: "%",
-  },
-  { key: "contrast", label: "Contrast", min: 0, max: 200, step: 1, unit: "%" },
-  {
-    key: "saturation",
-    label: "Saturation",
-    min: 0,
-    max: 200,
-    step: 1,
-    unit: "%",
-    color: true,
-  },
-  {
-    key: "grayscale",
-    label: "Monochrome",
-    min: 0,
-    max: 100,
-    step: 1,
-    unit: "%",
-    color: true,
-  },
-  {
-    key: "sepia",
-    label: "Sepia",
-    min: 0,
-    max: 100,
-    step: 1,
-    unit: "%",
-    color: true,
-  },
-  {
-    key: "softness",
-    label: "Softness",
-    min: 0,
-    max: 8,
-    step: 0.1,
-    unit: " px",
-  },
+  { key: "exposure", label: "Exposure", min: -2, max: 2, step: 0.05, unit: " EV", group: "tone" },
+  { key: "brightness", label: "Brightness", min: 0, max: 200, step: 1, unit: "%", group: "tone" },
+  { key: "contrast", label: "Contrast", min: 0, max: 200, step: 1, unit: "%", group: "tone" },
+  { key: "softness", label: "Softness", min: 0, max: 8, step: 0.1, unit: " px", group: "tone" },
+  { key: "saturation", label: "Saturation", min: 0, max: 200, step: 1, unit: "%", group: "colour" },
+  { key: "grayscale", label: "Monochrome", min: 0, max: 100, step: 1, unit: "%", group: "colour" },
+  { key: "sepia", label: "Sepia", min: 0, max: 100, step: 1, unit: "%", group: "colour" },
 ] as const;
 const cropControls = [
-  { key: "cropZoom", label: "Zoom", min: 100, max: 300, step: 1, unit: "%" },
-  { key: "cropX", label: "Position X", min: 0, max: 100, step: 1, unit: "%" },
-  { key: "cropY", label: "Position Y", min: 0, max: 100, step: 1, unit: "%" },
+  { key: "cropZoom", label: "Zoom", min: 100, max: 300, step: 1, unit: "%", group: "framing" },
+  { key: "cropX", label: "Horizontal", min: 0, max: 100, step: 1, unit: "%", group: "framing" },
+  { key: "cropY", label: "Vertical", min: 0, max: 100, step: 1, unit: "%", group: "framing" },
 ] as const;
+const CROP_DEFAULTS = { cropX: 50, cropY: 50, cropZoom: 100 };
+
+/** A value as its slider steps: "+0.35 EV", "120%", "1.5 px" */
+function formatValue(value: number, step: number, unit: string, signed: boolean) {
+  const decimals = step < 1 ? String(step).split(".")[1]?.length ?? 0 : 0;
+  const text = value.toFixed(decimals);
+  return `${signed && value > 0 ? "+" : ""}${text}${unit}`;
+}
 
 function LoadedEditor({
   initial,
@@ -92,7 +65,7 @@ function LoadedEditor({
   const [source, setSource] = useState(initial.source);
   const [settings, setSettings] = useState(initial.settings);
   const [crop, setCrop] = useState(initial.crop);
-  const [active, setActive] = useState("exposure");
+  const [group, setGroup] = useState<Group>("tone");
   const [compare, setCompare] = useState(false);
   const [saving, setSaving] = useState(false);
   const [baseline, setBaseline] = useState({
@@ -104,17 +77,25 @@ function LoadedEditor({
   const update = useImageAdjustmentUpdate();
   const router = useRouter();
   const id = useId();
+  // Author monochrome locks the colour controls; only a cropped subject frames
   const available = [
     ...controls.filter(
-      (control) => !(initial.monochrome && "color" in control),
+      (control) => !(initial.monochrome && control.group === "colour"),
     ),
     ...(crop ? cropControls : []),
   ];
-  const control = available.find((item) => item.key === active) ?? available[0];
-  const value =
-    control.key in settings
-      ? settings[control.key as keyof ImageAdjustments]
-      : crop![control.key as keyof NonNullable<typeof crop>];
+  const groups = GROUPS.filter((item) =>
+    available.some((control) => control.group === item.value),
+  );
+  const shown = groups.some((item) => item.value === group) ? group : groups[0].value;
+  const valueOf = (key: string) =>
+    key in settings
+      ? settings[key as keyof ImageAdjustments]
+      : crop![key as keyof NonNullable<typeof crop>];
+  const defaultOf = (key: string) =>
+    key in settings
+      ? enforceImagePolicy({ ...DEFAULT_IMAGE_ADJUSTMENTS }, initial.monochrome)[key as keyof ImageAdjustments]
+      : CROP_DEFAULTS[key as keyof typeof CROP_DEFAULTS];
   const dirty = JSON.stringify({ settings, crop }) !== JSON.stringify(baseline);
   const previewSettings = compare ? baseline.settings : settings;
   const previewCrop = compare ? baseline.crop : crop;
@@ -214,48 +195,56 @@ function LoadedEditor({
       )}
       <fieldset disabled={saving} className="space-y-3">
         <legend className="sr-only">Image adjustments</legend>
-        <div
-          className="flex flex-wrap gap-1"
-          role="group"
-          aria-label="Choose adjustment"
-        >
-          {available.map((item) => (
-            <button
-              type="button"
-              key={item.key}
-              aria-pressed={control.key === item.key}
-              onClick={() => setActive(item.key)}
-              className={`rounded-sm px-2 py-1 text-xs pointer-coarse:min-h-11 ${control.key === item.key ? "bg-accent-primary/20 text-fg-primary" : "text-fg-secondary hover:text-fg-primary"}`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center justify-between text-xs">
-          <label htmlFor={id}>{control.label}</label>
-          <output htmlFor={id} className="font-mono text-fg-secondary">
-            {value}
-            {control.unit}
-          </output>
-        </div>
-        <input
-          id={id}
-          type="range"
-          min={control.min}
-          max={control.max}
-          step={control.step}
-          value={value}
-          className="crop-range-slider w-full"
-          onChange={(event) => {
-            const next = Number(event.target.value);
-            if (control.key in settings)
-              setSettings((previous) => ({ ...previous, [control.key]: next }));
-            else
-              setCrop(
-                (previous) => previous && { ...previous, [control.key]: next },
-              );
-          }}
+        {/* One group at a time, every control in it in view: a label, its
+            value (brighter once it moves off the default) and its slider */}
+        <SegmentedControl
+          options={groups}
+          value={shown}
+          onChange={setGroup}
+          ariaLabel="Adjustments"
+          disabled={saving}
         />
+        <div className="space-y-3 pointer-coarse:space-y-0">
+          {available
+            .filter((control) => control.group === shown)
+            .map((control) => {
+              const value = valueOf(control.key);
+              const changed = value !== defaultOf(control.key);
+              return (
+                <div key={control.key}>
+                  <div className="flex items-baseline justify-between gap-3 text-xs leading-5">
+                    <label htmlFor={`${id}-${control.key}`} className="text-fg-secondary">
+                      {control.label}
+                    </label>
+                    <output
+                      htmlFor={`${id}-${control.key}`}
+                      className={`font-mono tabular-nums ${changed ? "text-fg-primary" : "text-fg-secondary"}`}
+                    >
+                      {formatValue(value, control.step, control.unit, control.min < 0)}
+                    </output>
+                  </div>
+                  <input
+                    id={`${id}-${control.key}`}
+                    type="range"
+                    min={control.min}
+                    max={control.max}
+                    step={control.step}
+                    value={value}
+                    className="crop-range-slider w-full"
+                    onChange={(event) => {
+                      const next = Number(event.target.value);
+                      if (control.key in settings)
+                        setSettings((previous) => ({ ...previous, [control.key]: next }));
+                      else
+                        setCrop(
+                          (previous) => previous && { ...previous, [control.key]: next },
+                        );
+                    }}
+                  />
+                </div>
+              );
+            })}
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button
             type="button"
@@ -282,7 +271,7 @@ function LoadedEditor({
                 setCompare(false);
               }}
             >
-              Reset
+              Reset all
             </Button>
             <Button
               type="button"
