@@ -185,10 +185,10 @@ only those drawn:
 
 The books he owns (a copy that is not deaccessioned, as the library counts them), after Letterboxd's member stats (SLN-742), from `src/lib/statistics/library.ts`: aggregate queries only, computed per request and never cached. Each section is left out without data; with no owned book the page is one empty state. `loading.tsx` draws the header, the cover strip and the number tiles at once.
 
-- A strip of the five best-rated covers, then **In numbers**: books, editions, copies, pages, authors, publishers, languages (original) and countries (the writers' nationalities).
+- A strip of the five best-rated covers, then **In numbers**: books, editions, copies, pages (left out when no book has a page count; a count of 0 is none), authors, publishers, languages (original) and countries (the writers' nationalities).
 - **When they were written**: a timeline of thin bars by the work's original year (`WrittenChart`), Years or Decades. Years start at the decade of the earliest 2% and go back at most 200 years; Decades at most 60, with older books in one "Before …" bar (`src/lib/statistics/charts.ts`).
 - **Years with the most books**: the three busiest years with five covers each, the year linked to the library filtered to it.
-- **Languages, countries and categories**, **Authors and publishers**, **Copies** (formats, places, copies by the year they came): ranked lists (`RankList`, toned sage, blue or gold) linking to the library filtered, the person or the house.
+- **Languages, countries and categories** (its title names only the lists it shows: "Languages", "Languages and categories"; `originsTitle`), **Authors and publishers**, **Copies** (formats, places, copies by the year they came): ranked lists (`RankList`, toned sage, blue or gold) linking to the library filtered, the person or the house.
 - **Breakdown**: rings for read, rated, in translation (editions) and on paper (copies) (`SplitRing`); **Ratings**: books by half star.
 - **At the edges**: the oldest, newest, longest and shortest book, each with its cover.
 - **Reading**: all-time totals from the reading stats, linking to `/reading/stats`; **The other collections**: their records and creators.

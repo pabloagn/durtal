@@ -83,3 +83,13 @@ export function decadeBuckets(years: YearCount[]): Bucket[] {
 export function percentOf(part: number, total: number): number {
   return total > 0 ? Math.round((part / total) * 100) : 0;
 }
+
+/**
+ * The title of the languages, countries and categories section names only
+ * the lists it shows (SLN-825): "Languages", "Languages and categories"
+ */
+export function originsTitle(shown: { languages: boolean; countries: boolean; categories: boolean }): string {
+  const words = (["languages", "countries", "categories"] as const).filter((list) => shown[list]);
+  const text = words.length > 1 ? `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}` : (words[0] ?? "");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
