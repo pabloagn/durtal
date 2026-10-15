@@ -6,6 +6,7 @@ import type { PositionIndex } from "@/lib/reader/position-index";
 import { pageText } from "@/lib/reader/running-lines";
 import { ProgressScrubber } from "./progress-scrubber";
 import { focusOpener } from "./reader-bar-item";
+import { FitWords } from "./fit-words";
 import { Hash, PanelBottom } from "lucide-react";
 import { formatPercent, samePlace } from "@/lib/reader/place-label";
 import type { ReaderPresentation } from "@/lib/validations/reader-preferences";
@@ -124,7 +125,7 @@ export function ReaderBottomBar({
         }}
       >
         <div className="flex h-9 [@media(pointer:coarse)]:h-11 items-center justify-center px-4 text-xs">
-          <p className="min-w-0 max-w-[720px] truncate">{heading}</p>
+          <p className="min-w-0 max-w-[720px]"><FitWords text={heading} /></p>
         </div>
       </div>
     )}
@@ -138,20 +139,21 @@ export function ReaderBottomBar({
       }`}
     >
       <div className="flex h-9 [@media(pointer:coarse)]:h-11 items-center gap-3 px-4 text-xs text-fg-secondary">
-        <p className="min-w-0 flex-1 truncate">{heading}</p>
+        {/* Whole words only, and nothing when not one fits (SLN-730) */}
+        <p className="min-w-0 flex-1">{heading && <FitWords text={heading} />}</p>
         {/* The tracking control: a whole button, never clipped to the row's text */}
         <div
           ref={mount}
           hidden={!slots["toolbar-status"]}
-          className="flex min-w-0 max-w-[40%] shrink-0 items-center overflow-hidden whitespace-nowrap [&_button]:max-w-full [&_button]:truncate"
+          className="flex shrink-0 items-center whitespace-nowrap"
         />
         {/* The place shows beside the tracking control too, never instead of it */}
         <div className="flex min-w-0 max-w-[60%] items-center gap-2 tabular-nums">
-          {/* The place is never cut ("p. 2…" at 320); the time left gives way */}
+          {/* The place is never cut ("p. 2…" at 320); the time left gives way whole */}
           {place && <span className="shrink-0 whitespace-nowrap">{place}</span>}
           {percent !== null && <span className="shrink-0">{formatPercent(percent)}</span>}
           {linear !== false && timeLeftChapter && (
-            <span className="min-w-0 truncate">{timeLeftChapter}</span>
+            <FitWords whole text={timeLeftChapter} />
           )}
         </div>
       </div>

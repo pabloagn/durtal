@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
 import { OutsideTapBackdrop } from "./outside-tap-backdrop";
+import { FitWords } from "./fit-words";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -54,6 +55,15 @@ const subscribeNarrow = (change: () => void) => {
   return () => query.removeEventListener("change", change);
 };
 const narrowNow = () => window.matchMedia(NARROW_QUERY).matches;
+// Under 360px Bookmark moves into More too, and Contents beside Page controls,
+// so the title keeps two words (SLN-730)
+const TINY_QUERY = "(max-width: 359.98px)";
+const subscribeTiny = (change: () => void) => {
+  const query = window.matchMedia(TINY_QUERY);
+  query.addEventListener("change", change);
+  return () => query.removeEventListener("change", change);
+};
+const tinyNow = () => window.matchMedia(TINY_QUERY).matches;
 
 /** Dark, light and sepia pages, one tap away in the bar */
 function ThemeMenu({
@@ -164,6 +174,7 @@ export function ReaderToolbar({
 }) {
   const compact = useSyncExternalStore(subscribeCompact, compactNow, () => false);
   const narrow = useSyncExternalStore(subscribeNarrow, narrowNow, () => false);
+  const tiny = useSyncExternalStore(subscribeTiny, tinyNow, () => false);
   const [menu, setMenuState] = useState<"more" | "theme" | null>(null);
   const setMenu = (next: "more" | "theme" | null) => {
     setMenuState(next);
@@ -250,18 +261,18 @@ export function ReaderToolbar({
             </a>
           </CapAligned>
           <div className="flex min-w-0 flex-1 items-baseline gap-3 px-1">
-            <h1 className="type-item-title min-w-0 truncate">{title}</h1>
+            <h1 className="type-item-title min-w-0"><FitWords text={title} /></h1>
             {chapter && (
-              <p className="hidden min-w-0 flex-1 basis-0 truncate font-sans text-sm text-fg-secondary md:block">
-                {chapter}
+              <p className="hidden min-w-0 flex-1 basis-0 font-sans text-sm text-fg-secondary md:block">
+                <FitWords text={chapter} />
               </p>
             )}
           </div>
           {compact ? (
             <div className="flex shrink-0 gap-1">
               {fixedControls}
-              {contents}
-              {bookmarkAction}
+              {!(tiny && fixedControls) && contents}
+              {!tiny && bookmarkAction}
               {!narrow && settings}
               <CapAlignedControls height={32} coarseHeight={44}>
                 <DropdownMenu
@@ -275,6 +286,9 @@ export function ReaderToolbar({
                   }
                 >
                   <ReaderBarMenuItems>
+                    {/* Page controls list every page, so Contents can wait in More */}
+                    {tiny && fixedControls && contents}
+                    {tiny && bookmarkAction}
                     {narrow && settings}
                     {speechControl}
                     {search}
