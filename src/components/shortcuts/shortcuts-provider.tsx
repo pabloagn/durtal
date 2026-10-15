@@ -30,6 +30,7 @@ import {
   isComposing,
   isConfirmField,
   isDialogTextBox,
+  enterButtonOff,
   isMacPlatform,
   isPickerField,
   isQuietInDialog,
@@ -528,8 +529,11 @@ export function ShortcutsProvider({
         if (
           isConfirmField(target) ||
           (!READER_VIEW_RE.test(pathname) && (isDialogTextBox(target) || isQuietInDialog(target)))
-        )
-          press(event, shortcutButton(target, "next"));
+        ) {
+          // Disabled means nothing happens: no new line in a text box either
+          if (isDialogTextBox(target) && enterButtonOff(target)) event.preventDefault();
+          else press(event, shortcutButton(target, "next"));
+        }
         return;
       }
 
