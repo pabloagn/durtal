@@ -5,7 +5,7 @@ import { QUIET_GLASS_ANNOTATION_PALETTE } from "@/lib/reader/annotation-colors";
 import { highlightColours, LIGHT_THEME_HIGHLIGHTS } from "@/lib/reader/presentation/themes";
 import { SkipToBook } from "@/components/reader/skip-to-book";
 import { ReaderAnnouncer } from "@/components/reader/reader-announcer";
-import { closeLatestReaderPanel } from "@/components/reader/side-panel";
+import { closeLatestReaderPanel, subscribeReaderPanelInset } from "@/components/reader/side-panel";
 
 import {
   useCallback,
@@ -1457,6 +1457,14 @@ function ReaderSession({
     if (frame)
       frame.style.bottom = `${speechHeight ? speechHeight + (bars.visible ? bottomHeight : 0) : 0}px`;
   }, [speechHeight, bars.visible, bottomHeight]);
+  // On a wide screen the book stands beside an open drawer, never under it;
+  // the book keeps its place as it reflows (SLN-728)
+  useEffect(() => subscribeReaderPanelInset(({ left, right }) => {
+    const frame = bookRef.current;
+    if (!frame) return;
+    frame.style.left = `${left}px`;
+    frame.style.right = `${right}px`;
+  }), []);
   useEffect(() => {
     insetsRef.current = insets;
     engineRef.current?.setInsets?.(insets);
@@ -1842,7 +1850,6 @@ function ReaderSession({
             onClose={() => setSearchOpen(false)}
             onOpen={() => setSearchOpen(true)}
             escapeRef={searchEscapeRef}
-            hitRect={(locator) => engineRef.current?.locatorRect?.(locator) ?? null}
             onJump={async (locator, hit) => {
               if (hit.inNote) {
                 const href = hit.noteHref ?? locator.cfi ?? locator.href;
