@@ -112,6 +112,8 @@ export function EbooksView({
             {view === "grid" ? (
               <div className="@container">
                 <div
+                  data-catalogue-grid=""
+                  data-grid-density={columns}
                   className={`grid items-stretch gap-4 ${COL_CLASSES[columns]}`}
                 >
                   {books.map((book) => (
