@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
-import { collectionCountLabel } from "@/lib/collections/counts";
+import { collectionCountLine } from "@/lib/collections/counts";
+import type { WorkKind } from "@/lib/catalogue/kinds";
 import { FolderOpen } from "lucide-react";
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
@@ -30,6 +31,9 @@ export interface CollectionCardData {
   isFavourite?: boolean;
   /** Whole works shown (films, perfumes, paintings, books with no edition chosen) */
   workCount?: number;
+  /** What it holds, for the count line */
+  collectionEditions?: { edition?: { workId: string } | null }[];
+  collectionWorks?: { workId: string; work?: { kind: WorkKind } | null }[];
   media?: ArtworkRow[];
 }
 
@@ -60,7 +64,7 @@ export function CollectionCard({
   footer?: React.ReactNode;
 }) {
   const poster = collectionPoster(collection.media);
-  const count = collectionCountLabel(collection);
+  const count = collectionCountLine(collection) ?? "Empty";
   return (
     <div className="catalogue-card group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive">
       <Link

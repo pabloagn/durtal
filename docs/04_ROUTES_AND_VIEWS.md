@@ -753,9 +753,11 @@ Grid of curated collections. A collection holds book editions and whole works
 of every open collection: books with no edition chosen, films, perfumes and
 paintings (SLN-362).
 
-**Per collection card**: Name, description, count ("12 editions" when it holds
-only editions, else "5 items", a book held both ways counted once), cover
-image or the first four members' images.
+**Per collection card**: Name, description, count line by kind ("6 books",
+"4 editions", "3 books · 1 perfume"; "Empty"; a book held both ways counted
+once, as its edition; `collectionCountLine`), cover image or the first four
+members' images. The collection page shows the same line under its name, and
+none when it is empty (its empty state says so).
 
 **Collection page** (`/collections/[id]`): one ordered list of member cards
 (`MemberCard`): an edition (cover, publisher and year, ISBN; "also collected

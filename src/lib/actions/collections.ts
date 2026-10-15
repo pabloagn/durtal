@@ -56,7 +56,8 @@ const memberSummary = {
     columns: { editionId: true },
     with: { edition: { columns: { workId: true } } },
   },
-  collectionWorks: { columns: { workId: true } },
+  // Each whole work's kind, for the count line ("3 books · 1 perfume")
+  collectionWorks: { columns: { workId: true }, with: { work: { columns: { kind: true } } } },
   media: activeArtwork,
 } as const;
 

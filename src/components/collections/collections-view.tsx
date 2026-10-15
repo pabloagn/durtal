@@ -8,7 +8,7 @@ import { COL_CLASSES } from "@/components/shared/grid-columns";
 import { Mosaic, MosaicImage, mosaicPerRow } from "@/components/shared/mosaic";
 import { CoverFan, TitleCard } from "@/components/shared/no-photo";
 import { mediaCrop } from "@/lib/utils/media-style";
-import { collectionCountLabel } from "@/lib/collections/counts";
+import { collectionCountLine } from "@/lib/collections/counts";
 import { CollectionCard, collectionPoster, type CollectionCardData } from "./collection-card";
 import { mediaUrl } from "@/lib/s3/media-url";
 
@@ -61,7 +61,7 @@ export function CollectionsView({
             key: collection.id,
             href: `/collections/${collection.id}`,
             title: collection.name,
-            subtitle: collectionCountLabel(collection),
+            subtitle: collectionCountLine(collection) ?? "Empty",
             aspect: 2 / 3,
             media: (
               <MosaicImage
