@@ -47,3 +47,10 @@ findings 4, 6 and 7; SLN-720, SLN-721, SLN-722).
 - Tests: `settings-ui.test.ts` (the site's break points), `phone-text-breaks`
   (the journal counts and the palette's author line).
 - No migration, no new package.
+- Review fix (second reviewer): in the palette, a book with an e-book ended
+  its row with "Read Ctrl ↵" and the year, which left its title about 70px
+  at 320 and broke it inside words ("Again / st / Natur / e"). The key combo
+  is hidden below `sm`, where there are no keys to press; "Read" stays. In
+  the journal, each count now carries its dot after it behind a no-break
+  space, so a line never starts with "·" (it did at 320: "· 3 re-reads").
+  Tests: `catalogue-ebook-actions.test.ts`, `phone-text-breaks.test.ts`.
