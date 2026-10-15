@@ -424,7 +424,11 @@ export default async function CollectionPage({
                 {...member.card}
                 actions={
                   <>
-                    {member.copy ?? <span />}
+                    {member.copy && (
+                      <div className="-ml-1.5 flex items-center gap-1 pointer-coarse:-ml-3.5">
+                        {member.copy}
+                      </div>
+                    )}
                     <CollectionMemberControls
                       collectionId={id}
                       member={{ kind: member.kind, id: member.id }}
