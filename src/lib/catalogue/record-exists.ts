@@ -2,6 +2,8 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
+  authors,
+  ebooks,
   filmDetails,
   paintingDetails,
   perfumeDetails,
@@ -9,14 +11,16 @@ import {
   works,
 } from "@/lib/db/schema";
 import { publisherCondition } from "@/lib/catalogue/publisher-boundary";
+import { isUuid } from "@/lib/utils/uuid";
 
 /**
  * Whether a detail page's record exists, checked by its layout before the
  * page's loading screen starts the response: a missing record then answers
  * 404, not a 200 with "not found" in it. Each check matches the page's own
  * lookup (`getFilm`, `getPerfume`, `getPainting`, `getOrganization`,
- * `getPublisher`) in one small query. An address that is not valid text, or
- * longer than the lookup accepts, does not exist.
+ * `getPublisher`, `getAuthorBySlug`, `getEbookDetail`) in one small query.
+ * An address that is not valid text, or longer than the lookup accepts, does
+ * not exist.
  */
 
 /** The decoded address part, or null when it cannot be decoded */
@@ -86,5 +90,19 @@ export async function bookRecordExists(slug: string): Promise<boolean> {
     .from(works)
     .where(and(eq(works.kind, "book"), eq(works.slug, slug)))
     .limit(1);
+  return !!row;
+}
+
+/** A person by slug, as `getAuthorBySlug` finds it (the page does not decode it) */
+export async function authorExists(slug: string): Promise<boolean> {
+  if (slug.length < 1 || slug.length > 1000) return false;
+  const [row] = await db.select({ id: authors.id }).from(authors).where(eq(authors.slug, slug)).limit(1);
+  return !!row;
+}
+
+/** An eBook by id, as its page finds it: any other text is no eBook */
+export async function ebookExists(id: string): Promise<boolean> {
+  if (!isUuid(id)) return false;
+  const [row] = await db.select({ id: ebooks.id }).from(ebooks).where(eq(ebooks.id, id.toLowerCase())).limit(1);
   return !!row;
 }
