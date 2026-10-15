@@ -202,13 +202,14 @@ function ObjectItem({
               {object.now ? (
                 <>
                   <span className="text-fg-primary">{object.now.place}</span>
-                  {[object.now.custody, object.now.since].filter(Boolean).map((part) => ` · ${part}`)}
-                  {" · "}
+                  {/* A separator keeps to the word before it, so it never starts a line */}
+                  {[object.now.custody, object.now.since].filter(Boolean).map((part) => `\u00a0· ${part}`)}
+                  {"\u00a0· "}
                   <span className={object.now.stale ? "text-accent-gold" : undefined}>
                     {object.now.checked}
                     {object.now.stale && ", check again"}
                   </span>
-                  {object.now.source && ` · Source: ${object.now.source}`}
+                  {object.now.source && `\u00a0· Source: ${object.now.source}`}
                 </>
               ) : (
                 <span>Not recorded</span>
