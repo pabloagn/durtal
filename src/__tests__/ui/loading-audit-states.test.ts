@@ -43,6 +43,7 @@ import OrganizationsError from "../../app/(catalogue)/organizations/error";
 import RecommendersError from "../../app/(catalogue)/recommenders/error";
 import TaxonomyError from "../../app/(catalogue)/taxonomy/error";
 import LocationsError from "../../app/(catalogue)/locations/error";
+import GlobalNotFound from "../../app/global-not-found";
 import { EbooksView } from "../../app/(catalogue)/ebooks/ebooks-view";
 import { HarmonizeWorkspace } from "../../app/(catalogue)/harmonize/workspace";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
@@ -204,6 +205,16 @@ describe("a page that is only an error or not-found view", () => {
     expect(back(`/reader/${id}`)).toEqual([`/ebooks/${id}`, "Back to the eBook"]);
     expect(back("/reader/offline")).toEqual(["/library", "Back to library"]);
     expect(back("/reader/not-an-id")).toEqual(["/library", "Back to library"]);
+  });
+
+  it("words the root's own way back as the app's views do (SLN-814)", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const failed = html(createElement(GlobalError, { error: new Error("boom"), reset: () => {} }));
+    const missing = html(createElement(GlobalNotFound));
+    for (const view of [failed, missing]) {
+      const back = view.querySelector("a")!;
+      expect([back.textContent, back.getAttribute("href"), back.className]).toEqual(["Go to the dashboard", "/", buttonClass("secondary")]);
+    }
   });
 
   it("keeps the shared empty view's h3 everywhere else", () => {
