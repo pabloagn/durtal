@@ -51,6 +51,14 @@ panel was busy:
 - `src/components/ui/segmented-control.tsx`: an opt-in `fill` prop lays the
   choices out in equal columns with tighter padding. The tabs use it, so
   they keep to one line in a 320px panel on touch; no other caller changes.
+- Reading settings get a Done button (docs/03: viewers and pickers have a
+  Done that Enter presses). In the reader, the sheet's footer ends with Done,
+  and Enter on the sheet itself presses it; Enter on one of its controls (a
+  page colour, a switch) still sets that control. `ReaderSidePanel` takes an
+  optional `onDone` for this, since the reader's routes leave Enter to the
+  page. On /settings/reader the dialog uses the `Dialog`'s own Done.
+- `src/app/(catalogue)/settings/reader/reader-defaults.tsx`: a book's name in
+  "Books with their own settings" is a 44px target on touch.
 - `scripts/qa/reader-engine-check.mjs`: the pdfmarks row clicks the passage
   (`data-annotation-go`) instead of a "Go to mark" button.
 
