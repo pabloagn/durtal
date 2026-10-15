@@ -27,4 +27,8 @@ Unread / Reading / Read). Design-polish pass three, item 4
 
 ## Completion Notes
 
-See the PR for the browser checks.
+- Headless Chromium, Firefox and WebKit at 1440, 390 and 320 (touch at 390
+  and 320), on Against Nature (with an e-book: "Read" then "Unread") and
+  The Magic Mountain (no e-book: "Start reading"). Alignment, overflow,
+  layout, touch and design audits are clean in all 18 runs. Page weight
+  passes every route.
