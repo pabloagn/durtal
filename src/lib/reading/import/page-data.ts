@@ -16,7 +16,8 @@ import { readingsCommitted, readingsUncommittedSql } from "./notes";
 export const SECTION_PAGE = 50;
 export const SECTION_MAX = 5000;
 
-const IMPORT_SOURCES = sql`('goodreads', 'storygraph', 'durtal', 'ebook_library')`;
+/** The sources whose imports the reading pages list and preview */
+export const IMPORT_SOURCES = sql`('goodreads', 'storygraph', 'durtal', 'ebook_library')`;
 
 export interface ImportListItem {
   id: string;

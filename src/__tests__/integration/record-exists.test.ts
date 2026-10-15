@@ -30,6 +30,8 @@ import {
   ebookExists,
   organizationExists,
   publisherExists,
+  readingImportExists,
+  reviewYearExists,
   seriesExists,
   workRecordExists,
 } from "@/lib/catalogue/record-exists";
@@ -126,5 +128,29 @@ describe.skipIf(!url)("detail layouts know a missing record before the page star
     expect(await seriesExists(series as string)).toBe(true);
     expect(await seriesExists(collection as string)).toBe(false);
     expect(await seriesExists("durtal-cycle")).toBe(false);
+  });
+
+  it("finds a year in review only for a year with a book finished at a known date (SLN-815)", async () => {
+    const book = await work("book", "en-route");
+    await c`insert into readings(work_id, status, started_precision, finished_on, finished_precision) values (${book}, 'finished', 'unknown', '1895-03-01', 'month')`;
+    // An undated finish counts in no year
+    await c`insert into readings(work_id, status, started_precision, finished_on, finished_precision) values (${book}, 'finished', 'unknown', null, 'unknown')`;
+    // A reading still under way finishes in no year either
+    await c`insert into readings(work_id, status, started_on, started_precision) values (${book}, 'reading', '1898-01-01', 'day')`;
+    expect(await reviewYearExists("1895")).toBe(true);
+    expect(await reviewYearExists("1898")).toBe(false);
+    expect(await reviewYearExists("1896")).toBe(false);
+    expect(await reviewYearExists("95")).toBe(false);
+    expect(await reviewYearExists("1895a")).toBe(false);
+  });
+
+  it("finds a reading import by id, in either case, and no other kind of import (SLN-815)", async () => {
+    const [{ id: reading }] = await c`insert into imports(source, status) values ('goodreads', 'pending') returning id`;
+    const [{ id: other }] = await c`insert into imports(source, status) values ('calibre', 'pending') returning id`;
+    expect(await readingImportExists(reading as string)).toBe(true);
+    expect(await readingImportExists((reading as string).toUpperCase())).toBe(true);
+    expect(await readingImportExists(other as string)).toBe(false);
+    expect(await readingImportExists("00000000-0000-4000-a000-000000000000")).toBe(false);
+    expect(await readingImportExists("goodreads")).toBe(false);
   });
 });
