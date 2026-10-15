@@ -1,7 +1,7 @@
 /**
  * This device, for the reader's places (eBooks sub-issue 3): a random id in
- * the durtal-device cookie, set by src/proxy.ts on the first visit to a
- * reader page, and a label such as "iPhone · Safari" read from the user
+ * the durtal-device cookie, made by POST /api/reader/device the first time
+ * this browser opens the reader (src/lib/reader/device-handshake.ts), and a label such as "iPhone · Safari" read from the user
  * agent. A place is kept per file and device (ebook_positions).
  */
 
@@ -9,6 +9,15 @@ export const DEVICE_COOKIE = "durtal-device";
 
 /** 400 days, the longest a browser keeps a cookie */
 export const DEVICE_COOKIE_MAX_AGE = 400 * 24 * 60 * 60;
+
+/** The durtal-device cookie's attributes: only the server reads it */
+export const deviceCookieOptions = (secure: boolean) => ({
+  path: "/",
+  maxAge: DEVICE_COOKIE_MAX_AGE,
+  sameSite: "lax" as const,
+  httpOnly: true,
+  secure,
+});
 
 const DEVICE_ID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

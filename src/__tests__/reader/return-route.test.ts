@@ -5,9 +5,10 @@ const store = vi.hoisted(() => ({
   book: vi.fn(),
   plugins: vi.fn(),
   view: vi.fn(),
+  device: "33333333-3333-4333-8333-333333333333" as string | undefined,
 }));
 vi.mock("next/headers", () => ({
-  cookies: async () => ({ get: () => undefined }),
+  cookies: async () => ({ get: (name: string) => name === "durtal-device" && store.device ? { name, value: store.device } : undefined }),
   headers: async () => ({ get: () => null }),
 }));
 vi.mock("@/lib/ebooks/delivery/reader-book", () => ({
@@ -29,12 +30,14 @@ vi.mock("@/app/reader/[ebookId]/reader-view", () => ({
 }));
 
 import ReaderPage from "@/app/reader/[ebookId]/page";
+import { DeviceHandshake } from "@/components/reader/device-handshake";
 import { readerEntryHref } from "@/lib/reader/entry-policy";
 
 const ebookId = "11111111-1111-1111-1111-111111111111";
 const fileId = "22222222-2222-2222-2222-222222222222";
 beforeEach(() => {
   vi.clearAllMocks();
+  store.device = "33333333-3333-4333-8333-333333333333";
   store.book.mockResolvedValue({
     id: ebookId,
     title: "Nadja",
@@ -84,7 +87,7 @@ describe("full reader navigation return contract", () => {
     expect(props.backHref).toBe(destination);
     expect(props.ebook).toMatchObject({ language: "en", editionLanguage: "fr" });
     expect(store.book).toHaveBeenCalledExactlyOnceWith(ebookId, {
-      deviceId: null,
+      deviceId: store.device,
       fileId,
       fromDeviceId: null,
     });
@@ -103,4 +106,18 @@ describe("full reader navigation return contract", () => {
       expect(store.book).toHaveBeenCalledOnce();
     },
   );
+});
+
+describe("a browser with no device id yet (SLN-668)", () => {
+  it("gets one before the book loads, keeping the way back", async () => {
+    store.device = undefined;
+    const tree = await ReaderPage({
+      params: Promise.resolve({ ebookId }),
+      searchParams: Promise.resolve({ returnTo: "/series/surrealism" }),
+    });
+    expect(isValidElement(tree) && tree.type).toBe(DeviceHandshake);
+    expect(isValidElement<{ ebookId: string; backHref: string }>(tree) && tree.props).toEqual({ ebookId, backHref: "/series/surrealism" });
+    expect(store.book).not.toHaveBeenCalled();
+    expect(store.plugins).not.toHaveBeenCalled();
+  });
 });

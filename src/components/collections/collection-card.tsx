@@ -124,7 +124,8 @@ export function CollectionCard({
               />
             )
           }
-          subtitle={collection.description}
+          // No description, no line: two blank lines read as a gap under the name
+          subtitle={collection.description || undefined}
           subtitleLines={2}
           subtitleClassName="lines-2 text-sm text-fg-secondary"
           action={
