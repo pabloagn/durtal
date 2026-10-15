@@ -3,6 +3,8 @@ import { SearchX } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonClass } from "@/components/ui/button";
 
+export const metadata = { title: "Organization not found" };
+
 /** An address that names no organization: it was deleted, merged or mistyped. */
 export default function OrganizationNotFound() {
   return (
