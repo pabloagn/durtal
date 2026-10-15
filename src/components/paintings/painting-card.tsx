@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { CardHeading } from "@/components/shared/card-heading";
 import { WORK_CARD, WORK_CARD_BODY, WorkCardInfo } from "@/components/shared/work-card";
+import { WorkRow } from "@/components/shared/work-row";
 import { Frame } from "lucide-react";
 import type { getPaintings } from "@/lib/actions/paintings";
 import { catalogueDateYears } from "@/lib/catalogue/dates";
@@ -40,10 +41,14 @@ function originalOwner(painting: PaintingCardData) {
 }
 
 /** "1889 · Museum of Modern Art": the date and who owns the original */
+export function paintingFactParts(painting: PaintingCardData) {
+  return [catalogueDateYears(painting.creationDate), originalOwner(painting)].filter(
+    (fact): fact is string => !!fact,
+  );
+}
+
 export function paintingFacts(painting: PaintingCardData) {
-  return [catalogueDateYears(painting.creationDate), originalOwner(painting)]
-    .filter(Boolean)
-    .join(" · ");
+  return paintingFactParts(painting).join(" · ");
 }
 
 function ownedText(count: number) {
@@ -118,16 +123,12 @@ export function PaintingCard({
   );
 }
 
-/**
- * A painting in a list: a small picture, title, painters and facts, the
- * objects owned. On a narrow page the objects go under the facts, so the
- * names stay whole.
- */
+/** A painting in a list (`WorkRow`): a small picture, title, painters and facts, the objects owned */
 export function PaintingRow({ painting }: { painting: PaintingCardData }) {
-  const owned = painting.personalCount ? ownedText(painting.personalCount) : null;
   return (
-    <div className="flex items-center gap-3 rounded-sm border border-transparent px-3 py-2 transition-colors hover:border-glass-border hover:bg-bg-secondary/60">
-      <Link href={paintingHref(painting)} className="flex min-w-0 flex-1 items-center gap-3">
+    <WorkRow
+      href={paintingHref(painting)}
+      thumbnail={
         <PaintingImage
           image={painting.poster}
           title={painting.title}
@@ -135,26 +136,11 @@ export function PaintingRow({ painting }: { painting: PaintingCardData }) {
           small
           className="w-10 shrink-0 rounded-sm"
         />
-        <div className="min-w-0 flex-1">
-          <p className="type-item-title truncate">{painting.title}</p>
-          <p className="truncate text-sm text-fg-secondary">
-            {[paintingPainters(painting) ?? "Painter unknown", paintingFacts(painting)]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-          {owned && <p className="truncate text-xs text-fg-secondary sm:hidden">{owned}</p>}
-        </div>
-        {owned && (
-          <span className="hidden shrink-0 text-xs leading-6 text-fg-secondary sm:block">
-            {owned}
-          </span>
-        )}
-      </Link>
-      <FavouriteToggle
-        favourite={painting.isFavourite}
-        target={{ entity: "work", id: painting.id }}
-        name={painting.title}
-      />
-    </div>
+      }
+      title={painting.title}
+      facts={[paintingPainters(painting) ?? "Painter unknown", ...paintingFactParts(painting)]}
+      held={painting.personalCount ? ownedText(painting.personalCount) : null}
+      favourite={{ on: painting.isFavourite, workId: painting.id }}
+    />
   );
 }

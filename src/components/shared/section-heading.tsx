@@ -48,8 +48,11 @@ export function SectionHeading({
     // longest word, so the row below can tell when that word does not fit
     <Tag id={id} className={`${headingRole(Tag)} [overflow-wrap:break-word]`}>
       {title}
+      {/* The count holds on to the title's last word (a no-break space): on a
+          phone "Formulations (3)" moves its action under it rather than
+          leaving "(3)" on a line of its own (SLN-835) */}
       {count !== undefined && (
-        <span className="text-fg-secondary"> ({count})</span>
+        <span className="whitespace-nowrap text-fg-secondary">{"\u00a0"}({count})</span>
       )}
     </Tag>
   );

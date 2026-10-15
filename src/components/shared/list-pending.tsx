@@ -35,6 +35,26 @@ interface ListBusy {
 const ListBusyContext = createContext<ListBusy | null>(null);
 
 /**
+ * The controls that take focus if the one that started a wait is gone when
+ * the results are in (SLN-838), nearest first. In a `data-focus-group` (the
+ * active filter chips) a removed `data-focus-item` hands focus to the next
+ * item, or the previous one when it was the last.
+ */
+function focusSuccessors(control: Element | null): Element[] {
+  const group = control?.closest("[data-focus-group]");
+  if (!control || !group) return [];
+  const items = [...group.querySelectorAll("[data-focus-item]")];
+  const i = items.indexOf(control);
+  return i < 0 ? [] : [...items.slice(i + 1), ...items.slice(0, i).reverse()];
+}
+
+/** With nothing near left (the last chip removed, Clear all): the list's Filter button, else its search field */
+const LIST_FOCUS = ['[data-list-focus="filters"]', '[data-list-focus="search"]'];
+
+const shown = (el: Element): el is HTMLElement =>
+  el instanceof HTMLElement && el.isConnected && el.getClientRects().length > 0;
+
+/**
  * Around a list's filters and its results, so a search, sort or filter marks
  * the results busy the moment it changes, not when the server first answers
  * (SLN-753). The results go in `ListPendingSwap`.
@@ -47,30 +67,39 @@ export function ListPendingProvider({
   const [isPending, startTransition] = useTransition();
   const [waiting, setWaiting] = useState(false);
   // The control that started the wait. Hiding the results drops focus from a
-  // control inside them (the eBooks table's sort headers); it comes back to it
+  // control inside them (the eBooks table's sort headers); it comes back to it.
+  // A control the results removed (a filter chip) hands focus on instead
   const from = useRef<Element | null>(null);
-  const begin = useCallback(() => {
+  const successors = useRef<Element[]>([]);
+  const record = useCallback(() => {
     from.current = document.activeElement;
-    setWaiting(true);
+    successors.current = focusSuccessors(from.current);
   }, []);
+  const begin = useCallback(() => {
+    record();
+    setWaiting(true);
+  }, [record]);
   const navigate = useCallback((go: () => void) => {
-    from.current = document.activeElement;
+    record();
     startTransition(() => {
       setWaiting(false);
       go();
     });
-  }, []);
+  }, [record]);
   const busy = waiting || isPending;
   useEffect(() => {
     if (busy) return;
     const control = from.current;
+    const next = successors.current;
     from.current = null;
-    if (
-      control instanceof HTMLElement &&
-      control.isConnected &&
-      (document.activeElement === null || document.activeElement === document.body)
-    )
-      control.focus({ preventScroll: true });
+    successors.current = [];
+    if (!(control instanceof HTMLElement)) return;
+    if (document.activeElement !== null && document.activeElement !== document.body) return;
+    const target = control.isConnected
+      ? control
+      : (next.find(shown) ??
+        LIST_FOCUS.map((s) => [...document.querySelectorAll(s)].find(shown)).find(Boolean));
+    target?.focus({ preventScroll: true });
   }, [busy]);
   const value = useMemo(
     () => ({ busy, begin, navigate }),

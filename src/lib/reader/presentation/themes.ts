@@ -1,4 +1,5 @@
 import type { ReaderPresentation } from "@/lib/validations/reader-preferences";
+import { QUIET_GLASS_ANNOTATION_PALETTE } from "@/lib/reader/annotation-colors";
 import { filterColour, fitBackgroundContrast, fitContrast } from "./contrast";
 
 export interface ReaderTheme {
@@ -37,20 +38,32 @@ export const READER_THEMES = {
 /** Dark/quote/search fills are supplied by SLN-500's approved decoration contract. */
 export const LIGHT_THEME_HIGHLIGHTS = {
   sepia: {
-    ochre: "#e0c47f",
-    sage: "#c3cfa8",
-    slate: "#bccbcc",
-    rose: "#e3b9b9",
-    violet: "#cdbfd6",
+    ochre: "#dcb783",
+    sage: "#9ccca0",
+    slate: "#80cae1",
+    rose: "#eaa9b9",
+    violet: "#bdb5ee",
   },
   paper: {
-    ochre: "#ead39a",
-    sage: "#cbdbbf",
-    slate: "#c6d3d8",
-    rose: "#ecc7cf",
-    violet: "#d8cde6",
+    ochre: "#dcb783",
+    sage: "#9ccca0",
+    slate: "#80cae1",
+    rose: "#eaa9b9",
+    violet: "#bdb5ee",
   },
 } as const;
+
+/**
+ * How mark fills meet the page. They are drawn above the text, so they blend
+ * rather than cover it: `lighten` on the dark page and `multiply` on the light
+ * ones tint the paper and keep the letters at full contrast (SLN-682). Multiply
+ * mutes a fill, so light pages lay it on thicker to keep the five apart.
+ */
+export function markInk(theme: ReaderPresentation["theme"]) {
+  return READER_THEMES[theme].colorScheme === "dark"
+    ? { blend: "lighten", opacity: QUIET_GLASS_ANNOTATION_PALETTE.fillOpacity }
+    : { blend: "multiply", opacity: 0.5 };
+}
 
 /** Only page colours change; the host's tokens and chrome are never mutated. */
 export function themeColours(p: ReaderPresentation): ReaderTheme {
