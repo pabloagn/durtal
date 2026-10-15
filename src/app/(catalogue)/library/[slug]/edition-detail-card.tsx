@@ -356,7 +356,7 @@ export function EditionDetailCard({
             {hasTags && (
               <div>
                 <SectionHeading as="h4" title="Tags" />
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5 [overflow-wrap:anywhere]">
                   {edition.editionTags.map(({ tag }) => (
                     <Badge key={tag.id} variant="muted">
                       {tag.name}
