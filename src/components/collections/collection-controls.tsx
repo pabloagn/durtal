@@ -77,8 +77,14 @@ export function CollectionControls({
     [name, setName] = useState(collection.name),
     [description, setDescription] = useState(collection.description ?? ""),
     [busy, setBusy] = useState(false);
+  const addButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    const onAdd = () => setAdd(true);
+    // The empty state's button leaves once something is added, so the
+    // dialog opens from the header's Add and hands focus back to it
+    const onAdd = () => {
+      addButton.current?.focus();
+      setAdd(true);
+    };
     window.addEventListener(ADD_EVENT, onAdd);
     return () => window.removeEventListener(ADD_EVENT, onAdd);
   }, []);
@@ -146,7 +152,7 @@ export function CollectionControls({
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="secondary" size="sm" onClick={() => setAdd(true)}>
+        <Button ref={addButton} variant="secondary" size="sm" onClick={() => setAdd(true)}>
           <Plus size={14} strokeWidth={1.5} />
           Add
         </Button>
