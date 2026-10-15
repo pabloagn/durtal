@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { SlidersHorizontal, Lock, RotateCcw, RotateCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
@@ -49,45 +49,99 @@ const cropControls = [
 ] as const;
 const CROP_DEFAULTS = { cropX: 50, cropY: 50, cropZoom: 100, turn: 0, straighten: 0 };
 
+/** The preview's longest side, scaled down once when it is turned */
+const PREVIEW_SIDE = 1200;
+
 /**
- * The preview image turned and straightened as Save writes it (SLN-333): the
- * largest centred box left by the rotation, drawn at most 1200px on its long
- * side. The crop preview then frames this image as it frames an upright one.
+ * The image scaled down to at most 1200px on its long side, once per image,
+ * ready to be drawn turned. Loaded only once the image is turned.
  */
-function useRotatedPreview(src: string, turn: number, straighten: number): string {
-  const [image, setImage] = useState<HTMLImageElement | null>(null);
-  const rotated = !!turn || !!straighten;
+function useScaledImage(src: string, wanted: boolean): HTMLCanvasElement | null {
+  const [scaled, setScaled] = useState<{ src: string; canvas: HTMLCanvasElement } | null>(null);
+  const ready = scaled?.src === src;
   useEffect(() => {
-    if (!rotated) return;
+    if (!wanted || ready) return;
     let live = true;
     const img = new Image();
-    img.onload = () => live && setImage(img);
+    img.onload = () => {
+      if (!live || !img.naturalWidth) return;
+      const k = Math.min(1, PREVIEW_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(img.naturalWidth * k));
+      canvas.height = Math.max(1, Math.round(img.naturalHeight * k));
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.imageSmoothingQuality = "high";
+      context.drawImage(img, 0, 0, canvas.width, canvas.height);
+      setScaled({ src, canvas });
+    };
     img.src = src;
     return () => {
       live = false;
     };
-  }, [src, rotated]);
-  return useMemo(() => {
-    if ((!turn && !straighten) || !image?.naturalWidth || image.src !== new URL(src, location.href).href) return src;
-    const k = Math.min(1, 1200 / Math.max(image.naturalWidth, image.naturalHeight));
-    const w = image.naturalWidth * k;
-    const h = image.naturalHeight * k;
-    const frame = rotatedFrame(w, h, turn, straighten);
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.floor(frame.width));
-    canvas.height = Math.max(1, Math.floor(frame.height));
-    const context = canvas.getContext("2d");
-    if (!context) return src;
-    context.translate(canvas.width / 2, canvas.height / 2);
+  }, [src, wanted, ready]);
+  return ready ? scaled.canvas : null;
+}
+
+/**
+ * The preview turned and straightened as Save writes it (SLN-333): the
+ * largest centred box left by the rotation, which the crop then frames as it
+ * frames an upright image. Each step of a slider only draws the scaled image
+ * turned on a canvas, with nothing encoded, so the preview keeps up with the
+ * slider on a slow phone; the full-size file is written on Save.
+ */
+function AdjustmentPreview({
+  src,
+  turn,
+  straighten,
+  className,
+  style,
+}: {
+  src: string;
+  turn: number;
+  straighten: number;
+  className: string;
+  style: React.CSSProperties;
+}) {
+  const turned = !!turn || !!straighten;
+  const scaled = useScaledImage(src, turned);
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const drawn = turned && !!scaled;
+  useLayoutEffect(() => {
+    const el = canvas.current;
+    if (!drawn || !el || !scaled) return;
+    const frame = rotatedFrame(scaled.width, scaled.height, turn, straighten);
+    // Setting the size clears the canvas and its transform
+    el.width = Math.max(1, Math.floor(frame.width));
+    el.height = Math.max(1, Math.floor(frame.height));
+    const context = el.getContext("2d");
+    if (!context) return;
+    context.translate(el.width / 2, el.height / 2);
     context.rotate(((turn + straighten) * Math.PI) / 180);
-    context.drawImage(image, -w / 2, -h / 2, w, h);
-    try {
-      return canvas.toDataURL("image/jpeg", 0.9);
-    } catch {
-      // An image from another origin taints the canvas: preview it upright
-      return src;
-    }
-  }, [image, src, turn, straighten]);
+    context.drawImage(scaled, -scaled.width / 2, -scaled.height / 2);
+  }, [drawn, scaled, turn, straighten]);
+  // Upright, or until the turned image is ready: the image itself
+  if (!drawn)
+    return (
+      <img
+        data-adjustment-preview
+        src={src}
+        alt="Image adjustment preview"
+        draggable={false}
+        className={className}
+        style={style}
+      />
+    );
+  return (
+    <canvas
+      ref={canvas}
+      data-adjustment-preview
+      role="img"
+      aria-label="Image adjustment preview"
+      className={className}
+      style={style}
+    />
+  );
 }
 
 /** A value as its slider steps: "+0.35 EV", "120%", "1.5 px" */
@@ -120,12 +174,14 @@ function LoadedEditor({
   const update = useImageAdjustmentUpdate();
   const router = useRouter();
   const id = useId();
-  // Author monochrome locks the colour controls; only a cropped subject frames
+  // Author monochrome locks the colour controls; only a cropped subject frames.
+  // A painting or a perfume is shown whole: it turns and straightens only
+  const framed = !!crop && !initial.contained;
   const available = [
     ...controls.filter(
       (control) => !(initial.monochrome && control.group === "colour"),
     ),
-    ...(crop ? cropControls : []),
+    ...(crop ? cropControls.filter((control) => framed || control.key === "straighten") : []),
   ];
   const groups = GROUPS.filter((item) =>
     available.some((control) => control.group === item.value),
@@ -142,11 +198,6 @@ function LoadedEditor({
   const dirty = JSON.stringify({ settings, crop }) !== JSON.stringify(baseline);
   const previewSettings = compare ? baseline.settings : settings;
   const previewCrop = compare ? baseline.crop : crop;
-  const previewSource = useRotatedPreview(
-    initial.preview,
-    previewCrop?.turn ?? 0,
-    previewCrop?.straighten ?? 0,
-  );
 
   async function save() {
     if (savingRef.current) return;
@@ -177,16 +228,16 @@ function LoadedEditor({
   return (
     <div className="space-y-4">
       <div
-        className={`mx-auto overflow-hidden rounded-sm border border-glass-border bg-bg-primary ${crop ? "touch-none cursor-grab active:cursor-grabbing" : ""}`}
+        className={`mx-auto overflow-hidden rounded-sm border border-glass-border bg-bg-primary ${framed ? "touch-none cursor-grab active:cursor-grabbing" : ""}`}
         onPointerDown={(event) => {
-          if (!crop || saving) return;
+          if (!framed || saving) return;
           event.preventDefault();
           event.currentTarget.setPointerCapture(event.pointerId);
           drag.current = { x: event.clientX, y: event.clientY };
           setCompare(false);
         }}
         onPointerMove={(event) => {
-          if (!drag.current || !crop || saving) return;
+          if (!drag.current || !crop || !framed || saving) return;
           const rect = event.currentTarget.getBoundingClientRect();
           const dx =
             (((event.clientX - drag.current.x) / rect.width) * 80) /
@@ -217,15 +268,14 @@ function LoadedEditor({
             : {}),
         }}
       >
-        <img
-          data-adjustment-preview
-          src={previewSource}
-          alt="Image adjustment preview"
-          draggable={false}
-          className={`h-full w-full ${previewCrop ? "object-cover" : "object-contain"}`}
+        <AdjustmentPreview
+          src={initial.preview}
+          turn={previewCrop?.turn ?? 0}
+          straighten={previewCrop?.straighten ?? 0}
+          className={`h-full w-full ${previewCrop && framed ? "object-cover" : "object-contain"}`}
           style={{
             filter: imageAdjustmentFilter(previewSettings, initial.monochrome),
-            ...(previewCrop
+            ...(previewCrop && framed
               ? {
                   objectPosition: `${previewCrop.cropX}% ${previewCrop.cropY}%`,
                   transform: `scale(${previewCrop.cropZoom / 100})`,
