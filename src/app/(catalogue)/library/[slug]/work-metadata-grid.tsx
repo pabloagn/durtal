@@ -50,7 +50,7 @@ export function WorkDetails({ work }: WorkDetailsProps) {
           <RecordField label="Series">
             <Link
               href={`/series/${series.id}`}
-              className="transition-colors hover:text-accent-primary"
+              className="text-command"
             >
               {series.title}
             </Link>

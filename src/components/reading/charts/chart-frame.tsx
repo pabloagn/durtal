@@ -98,7 +98,7 @@ export function ChartFrame({
           aria-expanded={showTable}
           aria-controls={tableId}
           onClick={() => setShowTable(!showTable)}
-          className="text-xs text-fg-secondary underline-offset-2 hover:text-fg-primary hover:underline pointer-coarse:min-h-11"
+          className="text-xs text-command pointer-coarse:my-0 pointer-coarse:min-h-11 pointer-coarse:py-0"
           data-chart-table-toggle=""
         >
           {showTable ? "Hide table" : "Show as table"}

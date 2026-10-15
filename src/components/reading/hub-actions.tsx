@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, ChevronDown, MoreHorizontal, PenLine, Square, Timer } from "lucide-react";
+import { BookOpen, ChevronDown, MoreHorizontal, PenLine, Play, Square, Timer } from "lucide-react";
 import { useOptionalTimer } from "./timer-provider";
 import { useStopTimer } from "./timer-chip";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -144,6 +144,7 @@ export function ResumeButton({ reading }: { reading: ReadingRef }) {
   const { setPaused } = useReadingDialogs();
   return (
     <Button variant="ghost" onClick={() => void setPaused(false, reading)} className="pointer-coarse:h-11" data-hub-resume={reading.readingId}>
+      <Play aria-hidden strokeWidth={1.5} />
       Resume
     </Button>
   );

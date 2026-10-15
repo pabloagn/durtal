@@ -515,6 +515,19 @@ describe("painted session navigation", () => {
     await microtasks();
     expect(s.commit).toHaveBeenCalledOnce();
   });
+  it("publishes a same-place layout arrival only when the flow changed", async () => {
+    const s = session();
+    await s.navigation.navigate({ fraction: 0.8 }, { source: "goto" });
+    s.commit.mockClear();
+    s.navigation.relocate({ ...relocation(0.8), reason: "layout", origin: "layout" });
+    await microtasks();
+    expect(s.commit).not.toHaveBeenCalled();
+    s.navigation.relocate({ ...relocation(0.8), reason: "layout", origin: "layout", paginated: false });
+    await microtasks();
+    expect(s.commit).toHaveBeenCalledOnce();
+    expect(s.navigation.current).toMatchObject({ reason: "layout", paginated: false, locator: { cfi: "cfi0.8" } });
+    expect(s.navigation.history.entries).toHaveLength(2);
+  });
   it("does not invent turn activity for a painted same-anchor endpoint turn", async () => {
     const s = session();
     s.engine.next.mockImplementation(async owner => {

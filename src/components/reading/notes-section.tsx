@@ -10,6 +10,7 @@ import { noteGroups, noteWhereText, quotesAnchor, type CopyBook } from "@/lib/re
 import { NoteControls } from "./note-controls";
 import { NoteItemView } from "./note-item";
 import { useReading } from "./reading-provider";
+import { Plus } from "lucide-react";
 
 /** The words under a quote or note on its book page: "Note · p. 212 · ch. 7 · 2nd read"; the group names the edition */
 export function noteMeta(note: NoteEdit) {
@@ -119,7 +120,7 @@ function Notes({ notes, book, editions }: { notes: NoteEdit[]; book: CopyBook; e
               focusNew.current = true;
               setAll(true);
             }}
-            className="text-xs text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:-my-3.5 pointer-coarse:py-3.5"
+            className="text-xs text-command"
             data-notes-show-all=""
           >
             Show all {notes.length}
@@ -165,6 +166,7 @@ export function NotesSection({
             className="pointer-coarse:h-11"
             data-notes-add=""
           >
+            <Plus aria-hidden strokeWidth={1.5} />
             Add a quote
           </Button>
         }

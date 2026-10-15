@@ -433,6 +433,16 @@ const RAF_ANIMATE_SCROLL_THRESHOLD = 20000
 // collapsed range doesn't return client rects sometimes (or always?)
 // try make get a non-collapsed range or element
 export const uncollapse = range => {
+    // Durtal (SLN-674): a range that covers nothing on screen anchors on its
+    // start. A page that holds only an image reports the point before the
+    // image as its range (its paragraph's start to the image's start), which
+    // has no boxes, so switching to the scroll flow on it lost the place
+    if (range && !range.collapsed && range.getClientRects?.().length === 0
+        && range.startContainer) {
+        const start = range.cloneRange()
+        start.collapse(true)
+        return uncollapse(start)
+    }
     if (!range?.collapsed) return range
     const { endOffset, endContainer } = range
     if (endContainer.nodeType === 1) {
@@ -2019,9 +2029,23 @@ export class Paginator extends HTMLElement {
     }
     attributeChangedCallback(name, _, value) {
         switch (name) {
-            case 'flow':
+            case 'flow': {
                 this.render()
+                // Durtal patch 28 (SLN-674): the switch scrolls to the anchor
+                // while the views still have the old flow's size, so the
+                // scroll is clamped short (into the scroll flow, often several
+                // screens back) and the next scroll settle takes that spot as
+                // the place. Once the views have grown into the new flow, go
+                // to the same anchor again, unless something moved it since.
+                const anchor = this.#anchor
+                if (this.#views.size > 0) requestAnimationFrame(() =>
+                    requestAnimationFrame(() => {
+                        if (this.getAttribute('flow') !== value
+                            || this.#anchor !== anchor || this.#views.size === 0) return
+                        this.#scrollToAnchor(anchor)
+                    }))
                 break
+            }
             case 'column-gap': {
                 const px = parseFloat(value)
                 this.#columnGap = Number.isFinite(px) ? px : null

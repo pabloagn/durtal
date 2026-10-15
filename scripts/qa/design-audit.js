@@ -115,6 +115,8 @@
   }
 
   function visible(el) {
+    // A closed <details> keeps its content's boxes in Chromium, with no text
+    if (el.closest("details:not([open])") && !el.closest("summary")) return false;
     const r = el.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) return false;
     const cs = getComputedStyle(el);

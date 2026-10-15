@@ -163,6 +163,8 @@ export interface FoliateRenderer extends HTMLElement {
   atEnd: boolean;
   /** The paginator in the scroll flow; absent on fixed-layout renderers */
   readonly scrolled?: boolean;
+  /** The container's length along the flow, in pixels */
+  readonly size?: number;
   containerPosition?: number;
   /** Exact target only during the renderer's synchronous native anchor focus. */
   readonly navigationAnchorFocus?: Element | null;
@@ -201,8 +203,9 @@ export interface FoliateView extends HTMLElement {
   }): Promise<void>;
   goTo(target: unknown): Promise<unknown>;
   goToFraction(fraction: number): Promise<void>;
-  next(): Promise<void>;
-  prev(): Promise<void>;
+  /** In the scroll flow, distance is how far to scroll (a screen without it) */
+  next(distance?: number): Promise<void>;
+  prev(distance?: number): Promise<void>;
   goLeft(): Promise<void>;
   goRight(): Promise<void>;
   getCFI(index: number, range?: Range): string;
