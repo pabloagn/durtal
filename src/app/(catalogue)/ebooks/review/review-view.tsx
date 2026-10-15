@@ -17,7 +17,10 @@ import { ReviewAllDialog, type ReviewAllSource } from "@/components/ebooks/revie
 import { UnlinkEbookDialog } from "@/components/ebooks/unlink-ebook-dialog";
 import type { ReviewUnlinkMode, ReviewUnlinkTarget } from "@/lib/ebooks/review-queue/unlink-types";
 import type { WorkReviewOutcome } from "@/lib/ebooks/review/work-service";
+import { BookOpenText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { NoResults } from "@/components/shared/no-results";
 import { Select } from "@/components/ui/select";
 import { REVIEW_KEYS, useReviewKeys, type ReviewKey } from "@/hooks/use-review-keys";
 import { initialReviewDecision, reviewDecisionReducer } from "@/lib/ebooks/review-queue/decision-state";
@@ -251,7 +254,7 @@ export function ReviewView({ queue, params, differences }: { queue: ReviewQueue;
             onWorkStatus={row.work ? () => openWork(row.work!) : undefined} onUnlink={(mode) => openUnlink(row, mode)} />}
       />;
     })}
-    {queue.sections.length === 0 && <p className="text-sm text-fg-secondary">No eBooks match these review filters.</p>}
+    {queue.sections.length === 0 && <ReviewEmpty params={params} />}
     {differences}
     {Object.keys(outcomes).length > 0 && <section aria-label="Recent decisions" className="space-y-2">
       <h2 className="type-section-title">Recent decisions</h2>
@@ -339,4 +342,15 @@ export function ReviewView({ queue, params, differences }: { queue: ReviewQueue;
         detailCache.current.clear(); setAnnouncement(outcome.message); setToast(outcome.ebookId); router.refresh();
       }} />}
   </div>;
+}
+
+/** Nothing in any section: with a search or filters, a way to clear them */
+function ReviewEmpty({ params }: { params: ReviewParams }) {
+  const { q, ...rest } = params.filters;
+  const hasFilters = Object.values(rest).some(Boolean);
+  if (!q && !hasFilters)
+    return <EmptyState icon={BookOpenText} title="No eBooks to review"
+      description="eBooks you import come here to be matched with your books." />;
+  const clear = reviewParamsSearch({ filters: {}, section: params.section, page: 1 }).toString();
+  return <NoResults noun="eBooks" search={q} hasFilters={hasFilters} clearHref={`/ebooks/review${clear ? `?${clear}` : ""}`} />;
 }
