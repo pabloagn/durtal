@@ -31,11 +31,14 @@ const config = JSON.parse(
 );
 const baseUrl = (process.argv[2] ?? config.baseUrl).replace(/\/$/, "");
 const TIMEOUT_MS = 120_000;
+// A browser that has opened the reader before: without the cookie a reader
+// page is only the step that makes this device's id (SLN-668), not the reader
+const DEVICE_COOKIE = "durtal-device=00000000-0000-4000-8000-0000000000aa";
 
 async function get(path) {
   const start = performance.now();
   const res = await fetch(baseUrl + path, {
-    headers: { "accept-encoding": "identity" },
+    headers: { "accept-encoding": "identity", cookie: DEVICE_COOKIE },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   const body = await res.text();
