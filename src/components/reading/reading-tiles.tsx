@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, BookText, Headphones, Tablet } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { SpriteIcon, type SpriteIconName } from "@/components/ui/sprite-icon";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { CardHeading } from "@/components/shared/card-heading";
 import { WORK_CARD, WORK_CARD_BODY } from "@/components/shared/work-card";
@@ -187,7 +188,8 @@ export function DashboardReading({
   );
 }
 
-const FORMAT_ICON: Record<ReadingFormat, typeof BookText> = { print: BookText, ebook: Tablet, audio: Headphones };
+// Drawn from the sprite: a journal page repeats them in every row (SLN-809)
+const FORMAT_ICON: Record<ReadingFormat, SpriteIconName> = { print: "book-text", ebook: "tablet", audio: "headphones" };
 const FORMAT_LABEL: Record<ReadingFormat, string> = { print: "Print", ebook: "eBook", audio: "Audiobook" };
 
 export interface JournalItem {
@@ -208,7 +210,6 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
   return (
     <ul className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary">
       {rows.map((row) => {
-        const Icon = FORMAT_ICON[row.format];
         return (
           // The cover starts on the title's first line, as in Up next, however far the title wraps
           <li key={row.reading.readingId} className="flex items-start gap-3 px-3 py-2" data-journal-row={row.reading.readingId}>
@@ -230,7 +231,7 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
                       </span>
                     )}
                     <span className="hidden text-fg-secondary sm:inline-flex" aria-label={FORMAT_LABEL[row.format]} data-tooltip={FORMAT_LABEL[row.format]} role="img">
-                      <Icon className="h-4 w-4" strokeWidth={1.5} />
+                      <SpriteIcon name={FORMAT_ICON[row.format]} className="h-4 w-4" />
                     </span>
                     <RatingStars value={row.rating} />
                     <JournalRowMenu reading={row.reading} title={row.title} />
