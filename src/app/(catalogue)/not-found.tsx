@@ -12,6 +12,7 @@ export const metadata = { title: "Page not found" };
 export default function NotFound() {
   return (
     <EmptyState
+      heading="h1"
       icon={FileX}
       title="Page not found"
       description="The page you are looking for does not exist or has been moved."
