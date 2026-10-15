@@ -3,10 +3,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Building2, ListChecks, Plus } from "lucide-react";
 import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
-import { hasListQuery } from "@/lib/utils/list-params";
 import {
   getPublishers,
   getPublisherCountries,
+  hasPublishers,
   type PublisherListOptions,
 } from "@/lib/actions/publishers";
 import { PageHeader } from "@/components/layout/page-header";
@@ -35,8 +35,7 @@ function flatParams(params: Params) {
   return flat;
 }
 
-async function PublishersContent({ params }: { params: Params }) {
-  const flat = flatParams(params);
+function listOptions(params: Params): PublisherListOptions {
   const { page, perPage } = parsePagination({
     page: one(params.page),
     perPage: one(params.perPage),
@@ -48,7 +47,7 @@ async function PublishersContent({ params }: { params: Params }) {
     | undefined;
   const sort = one(params.sort);
   const order = one(params.order);
-  const { rows, total } = await getPublishers({
+  return {
     search: one(params.q),
     sort: ["relevance", "name", "editions", "recent"].includes(sort ?? "")
       ? (sort as PublisherListOptions["sort"])
@@ -59,29 +58,24 @@ async function PublishersContent({ params }: { params: Params }) {
     countries: many(params.country),
     page,
     perPage,
+  };
+}
+
+async function PublishersContent({
+  params,
+  list,
+}: {
+  params: Params;
+  list: ReturnType<typeof getPublishers>;
+}) {
+  const flat = flatParams(params);
+  const { page, perPage } = parsePagination({
+    page: one(params.page),
+    perPage: one(params.perPage),
   });
+  const { rows, total } = await list;
   if (page > lastPage(total, perPage))
     redirect(pageHref("/publishers", flat, lastPage(total, perPage)));
-
-  // Full-page empty state only when there are no publishers at all. A search
-  // or filter with no match is handled by the shell, below the toolbar.
-  if (total === 0 && !hasListQuery(flat)) {
-    return (
-      <EmptyState
-        icon={Building2}
-        title="No publishers yet"
-        action={
-          <Link
-            href="/publishers/new"
-            className={buttonClass("secondary", "sm")}
-          >
-            <Plus className="h-4 w-4" strokeWidth={1.5} />
-            Add publisher
-          </Link>
-        }
-      />
-    );
-  }
 
   const publishers: PublisherItem[] = rows.map(
     ({ publisher: p, editionCount, parentName, logoKey, logoCard }) => ({
@@ -122,7 +116,40 @@ export default async function PublishersPage({
 }: {
   searchParams: Promise<Params>;
 }) {
+  // Whether there is any publisher and the list itself, read side by side
+  const any = hasPublishers();
   const params = await searchParams;
+  const list = getPublishers(listOptions(params));
+  // With none the list is never awaited: its failure must not go unhandled
+  list.catch(() => {});
+  const names = (
+    <Link href="/publishers/review" className={buttonClass("ghost", "sm")}>
+      <ListChecks className="h-4 w-4" strokeWidth={1.5} />
+      Publisher names
+    </Link>
+  );
+  const add = (
+    <Link href="/publishers/new" className={buttonClass("secondary", "sm")}>
+      <Plus className="h-4 w-4" strokeWidth={1.5} />
+      Add publisher
+    </Link>
+  );
+  // With none, no toolbar over nothing: one empty state with one Add. The
+  // names an edition gives stay a step away, to make publishers from them
+  if (!(await any)) {
+    return (
+      <>
+        <PageHeader title="Publishers" actions={names} />
+        <EmptyState
+          icon={Building2}
+          heading="h2"
+          title="No publishers yet"
+          description="A publisher is the house, imprint or group behind an edition. Add one, or choose one when you add a book."
+          action={add}
+        />
+      </>
+    );
+  }
   return (
     <>
       <PageHeader
@@ -130,20 +157,8 @@ export default async function PublishersPage({
         description="Edition counts refer to your catalogue"
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href="/publishers/review"
-              className={buttonClass("ghost", "sm")}
-            >
-              <ListChecks className="h-4 w-4" strokeWidth={1.5} />
-              Publisher names
-            </Link>
-            <Link
-              href="/publishers/new"
-              className={buttonClass("secondary", "sm")}
-            >
-              <Plus className="h-4 w-4" strokeWidth={1.5} />
-              Add Publisher
-            </Link>
+            {names}
+            {add}
           </div>
         }
       />
@@ -160,7 +175,7 @@ export default async function PublishersPage({
           </div>
         }
       >
-        <PublishersContent params={params} />
+        <PublishersContent params={params} list={list} />
       </Suspense>
     </>
   );

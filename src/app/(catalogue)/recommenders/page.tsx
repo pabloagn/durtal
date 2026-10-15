@@ -22,8 +22,8 @@ interface SearchParams {
   favourites?: string;
 }
 
-async function RecommendersContent({ params }: { params: SearchParams }) {
-  const { page, perPage, offset } = parsePagination(params);
+function listOptions(params: SearchParams) {
+  const { perPage, offset } = parsePagination(params);
   const sort = ["relevance", "name", "books", "recent"].includes(
     params.sort ?? "",
   )
@@ -31,16 +31,27 @@ async function RecommendersContent({ params }: { params: SearchParams }) {
     : undefined;
   const order =
     params.order === "asc" || params.order === "desc"
-      ? params.order
+      ? (params.order as "asc" | "desc")
       : undefined;
-  const { rows, total } = await getRecommenderList({
+  return {
     search: params.q,
     sort,
     order,
     limit: perPage,
     offset,
     favourites: favouritesOnly(params.favourites) || undefined,
-  });
+  };
+}
+
+async function RecommendersContent({
+  params,
+  list,
+}: {
+  params: SearchParams;
+  list: ReturnType<typeof getRecommenderList>;
+}) {
+  const { page, perPage } = parsePagination(params);
+  const { rows, total } = await list;
   if (page > lastPage(total, perPage))
     redirect(pageHref("/recommenders", params, lastPage(total, perPage)));
 
@@ -63,9 +74,14 @@ export default async function RecommendersPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const [params, any] = await Promise.all([searchParams, hasRecommenders()]);
+  // Whether there is any recommender and the list itself, read side by side
+  const any = hasRecommenders();
+  const params = await searchParams;
+  const list = getRecommenderList(listOptions(params));
+  // With none the list is never awaited: its failure must not go unhandled
+  list.catch(() => {});
   // With none, no toolbar over nothing: one empty state with one Add (SLN-834)
-  if (!any) {
+  if (!(await any)) {
     return (
       <>
         <PageHeader title="Recommenders" />
@@ -94,7 +110,7 @@ export default async function RecommendersPage({
           </div>
         }
       >
-        <RecommendersContent params={params} />
+        <RecommendersContent params={params} list={list} />
       </Suspense>
     </>
   );
