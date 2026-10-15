@@ -12,6 +12,9 @@ import { GoalDialogButton } from "@/components/reading/goal-dialog-button";
 import { getGoalProgress, getRhythm } from "@/lib/actions/reading-goals";
 import { CurrentReadingCard, PausedRow, finishedItem } from "@/components/reading/hub-cards";
 import { Cover, FinishedCovers } from "@/components/reading/reading-tiles";
+import { CardHeading } from "@/components/shared/card-heading";
+import { WORK_CARD, WORK_CARD_BODY } from "@/components/shared/work-card";
+import { fullRowAttributes } from "@/components/shared/phone-pair-grid";
 import { getQueueHead } from "@/lib/actions/reading-queue";
 import { getOpenReadings } from "@/lib/actions/reading";
 import { getPassageOfTheDay } from "@/lib/actions/reading-notes";
@@ -132,19 +135,28 @@ export default async function ReadingPage() {
                   </Link>
                 }
               />
-              <ol className="grid grid-cols-3 gap-4 sm:grid-cols-5">
-                {next.map((item) => (
-                  <li key={item.workId} className="min-w-0" data-hub-next-item={item.workId}>
-                    <Link href={`/library/${item.slug ?? item.workId}`} className="group block">
-                      <Cover s3Key={item.cover} title={item.title} className="aspect-[2/3] w-full" />
-                      <span className="mt-2 block text-sm text-fg-primary transition-colors [overflow-wrap:anywhere] group-hover:text-accent-primary">{item.title}</span>
-                    </Link>
-                    <div className="mt-1">
-                      <QueueStartButton workId={item.workId} editionId={item.editionId} title={item.title} />
-                    </div>
-                  </li>
-                ))}
-              </ol>
+              {/* The house's work cards (SLN-769), as Recently finished below; the row ends full (SLN-774) */}
+              <div className="@container">
+                <ol className="catalogue-grid catalogue-density-compact full-rows" {...fullRowAttributes(next.length)}>
+                  {next.map((item) => (
+                    <li key={item.workId} className={WORK_CARD} data-hub-next-item={item.workId}>
+                      <Link href={`/library/${item.slug ?? item.workId}`} aria-label={item.title} className="block cover-shadow">
+                        <Cover s3Key={item.cover} title={item.title} className="aspect-[2/3] w-full" />
+                      </Link>
+                      {/* As the library's cards: the link covers the text, Start sits above it */}
+                      <div className="relative flex flex-1 flex-col">
+                        <Link href={`/library/${item.slug ?? item.workId}`} aria-label={item.title} tabIndex={-1} className="absolute inset-0 z-10" />
+                        <div className={WORK_CARD_BODY}>
+                          <CardHeading title={item.title} />
+                          <div className="relative z-20 flex items-center self-start">
+                            <QueueStartButton workId={item.workId} editionId={item.editionId} title={item.title} />
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
             </section>
           )}
           {suggestions.length > 0 && (
@@ -193,7 +205,9 @@ export default async function ReadingPage() {
           {finished.length > 0 && (
             <section>
               <SectionHeading title="Recently finished" />
-              <FinishedCovers reads={finished.map(finishedItem)} className="grid grid-cols-3 gap-4 sm:grid-cols-6" />
+              <div className="@container">
+                <FinishedCovers reads={finished.map(finishedItem)} className="catalogue-grid catalogue-density-compact" />
+              </div>
             </section>
           )}
         </div>

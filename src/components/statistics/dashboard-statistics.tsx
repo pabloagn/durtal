@@ -26,7 +26,8 @@ async function Content() {
     <div className="space-y-6" data-dashboard-statistics="">
       <NumberTiles
         tiles={[
-          { label: "Pages on your shelves", value: n(numbers.pages) },
+          // No page count is not zero pages, as on /statistics (SLN-824)
+          numbers.pages > 0 ? { label: "Pages on your shelves", value: n(numbers.pages) } : { label: "No page counts yet", value: "\u2014" },
           { label: "Languages", value: n(numbers.languages) },
           { label: "Authors' countries", value: n(numbers.countries) },
           { label: "Read", value: `${percentOf(split.read, split.read + split.unread)}%` },
