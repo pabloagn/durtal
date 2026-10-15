@@ -20,6 +20,7 @@ import { getReaderPreferences } from "@/lib/ebooks/preferences";
 import { zipCdOffset } from "@/lib/reader/manifest";
 import { READER_SETTINGS_KEY, READING_HOME_KEY } from "@/lib/preferences";
 import { loadReaderRuntime } from "@/lib/reader/runtime-loader";
+import { earlyEscapeScript } from "@/lib/reader/early-escape";
 import { PreferencesProvider } from "@/lib/hooks/use-preference";
 import { ReaderRuntimeProvider } from "@/components/reader/runtime-provider";
 import { DeviceHandshake } from "@/components/reader/device-handshake";
@@ -111,7 +112,16 @@ export default async function ReaderPage(props: PageProps) {
   const request = await readRequest(props);
   // No device id yet: get one first, shared with any other reader tab (SLN-668)
   if (!request.deviceId)
-    return <DeviceHandshake ebookId={request.ebookId} backHref={request.returnTo ?? `/ebooks/${request.ebookId}`} />;
+    return (
+      <>
+        <script
+          nonce={(await headers()).get("x-nonce") ?? undefined}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: earlyEscapeScript() }}
+        />
+        <DeviceHandshake ebookId={request.ebookId} backHref={request.returnTo ?? `/ebooks/${request.ebookId}`} />
+      </>
+    );
   const requiredControllerIds = getRequiredReaderControllerIds();
   const [bookResult, pluginsResult, runtimeResult, preferencesResult] = await Promise.allSettled([
     loadBook(request.ebookId, request.deviceId, request.fileId, request.from),
@@ -150,6 +160,13 @@ export default async function ReaderPage(props: PageProps) {
               worker,
             }),
           }}
+        />
+      )}
+      {file && (
+        <script
+          nonce={nonce}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: earlyEscapeScript() }}
         />
       )}
       <PreferencesProvider initial={request.homeCookie === null ? {} : { [READING_HOME_KEY]: request.homeCookie }}>
