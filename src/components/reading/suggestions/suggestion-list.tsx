@@ -87,7 +87,7 @@ export function SuggestionItem({ row }: { row: SuggestionRow }) {
   return (
     <li className="flex items-start gap-4 border-t border-glass-border px-3 py-4 first:border-t-0" data-suggestion={row.workId}>
       <Link href={row.href} tabIndex={-1} aria-label={row.title} className="shrink-0">
-        <Cover s3Key={row.cover} className="h-24 w-16" />
+        <Cover s3Key={row.cover} title={row.title} className="h-24 w-16" />
       </Link>
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex gap-1.5 text-sm">

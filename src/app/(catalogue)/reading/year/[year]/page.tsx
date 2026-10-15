@@ -138,7 +138,7 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
                         data-tooltip={b.rating !== null ? `${b.title} · ${formatRating(b.rating)}` : b.title}
                         className="block rounded-sm transition-opacity hover:opacity-80"
                       >
-                        <Cover s3Key={b.cover} className="aspect-[2/3] w-14" eager />
+                        <Cover s3Key={b.cover} title={b.title} className="aspect-[2/3] w-14" eager />
                       </Link>
                     </li>
                   ))}
@@ -168,7 +168,7 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
                 <li key={label} className="min-w-0 break-inside-avoid">
                   <Link href={book(b!)} className="group block">
                     <span className="mb-2 block text-xs text-fg-secondary">{label}</span>
-                    <Cover s3Key={b!.cover} className="aspect-[2/3] w-full" eager />
+                    <Cover s3Key={b!.cover} title={b!.title} className="aspect-[2/3] w-full" eager />
                     <div className="mt-2">
                       <CardHeading title={b!.title} subtitle={words(b!)} titleClassName="transition-colors group-hover:text-accent-primary" />
                     </div>

@@ -44,7 +44,9 @@ describe("ordinary book detail resource bounds", () => {
     expect(new URL(own.querySelector("img")!.getAttribute("src")!, "https://fixture.invalid").searchParams.get("w")).toBe("240");
     const absent = markup(createElement(EditionImageBox, { image: null, title: "Fixture" }));
     expect(absent.querySelector("img")).toBeNull();
-    expect(absent.textContent).toContain("No cover");
+    // The title's letter, as on every blank cover; "no cover" for a screen reader
+    expect(absent.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe("Fixture: no cover");
+    expect(absent.textContent).toBe("F");
   });
 
   it("bounds only owned fallback URLs and preserves version and asset identity", () => {

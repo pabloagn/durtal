@@ -21,6 +21,7 @@ import { SessionList } from "./session-list";
 import { EstimateLine } from "./estimate-line";
 import { clockText } from "@/lib/reading/timer";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 
 const FORMAT_ICON: Record<ReadingFormat, typeof BookText> = { print: BookText, ebook: Tablet, audio: Headphones };
 const FORMAT_LABEL: Record<ReadingFormat, string> = { print: "Print", ebook: "eBook", audio: "Audiobook" };
@@ -56,10 +57,12 @@ function CurrentReading({ row }: { row: ReadingRow }) {
   const last = lastReadText(r.lastReadAt, data);
   return (
     <div className="mb-6 flex gap-4 rounded-sm border border-glass-border p-4" data-reading="current">
-      <div className="h-16 w-11 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
-        {edition?.cover && (
+      <div className={`h-16 w-11 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary ${COVER_BLANK}`}>
+        {edition?.cover ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={mediaUrl(edition.cover)} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <CoverLetter title={data.workTitle} />
         )}
       </div>
       <div className="min-w-0 flex-1 space-y-1.5">

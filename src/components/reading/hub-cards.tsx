@@ -36,7 +36,7 @@ export function CurrentReadingCard({ open, day, estimate }: { open: OpenReading;
   return (
     // The actions sit under the text, or under the cover and text when the card is too narrow for them
     <article className="@container grid grid-cols-[4rem_minmax(0,1fr)] gap-x-4 rounded-sm border border-glass-border bg-bg-secondary p-4 @[280px]:grid-rows-[auto_1fr]" data-hub-card={r.id}>
-      <Cover s3Key={open.cover} className="h-24 w-16 @[280px]:row-span-2" />
+      <Cover s3Key={open.cover} title={open.work.title} className="h-24 w-16 @[280px]:row-span-2" />
       <div className="min-w-0">
         <CardHeading
           title={
@@ -74,7 +74,7 @@ export function PausedRow({ open, day }: { open: OpenReading; day: DayContext })
   return (
     // The cover starts on the title's first line, as in Up next, however far the title wraps
     <li className="flex items-start gap-3 px-3 py-2" data-hub-paused={r.id}>
-      <Cover s3Key={open.cover} className="h-12 w-8" />
+      <Cover s3Key={open.cover} title={open.work.title} className="h-12 w-8" />
       <div className="min-w-0 flex-1">
         {/* The title names the row; Resume sits on its first line, as Up next's controls do */}
         <div className="flex gap-3 text-sm">

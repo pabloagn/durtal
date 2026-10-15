@@ -100,7 +100,7 @@ function Row({
       <span className="w-6 shrink-0 text-right text-sm tabular-nums text-fg-secondary" data-queue-place="">
         {shownPlace}
       </span>
-      <Cover s3Key={row.cover} className="h-16 w-11" />
+      <Cover s3Key={row.cover} title={row.title} className="h-16 w-11" />
       <div className="min-w-0 flex-1 space-y-0.5">
         <h3>
           <Link href={row.href} className="block text-sm text-fg-primary transition-colors [overflow-wrap:anywhere] hover:text-accent-primary touch-hit">
