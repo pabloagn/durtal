@@ -40,7 +40,8 @@ Finding 5 of the reader audit (SLN-727). In Search in book:
   did nothing. `pick` gives focus back to where the step came from; Firefox
   needs the window focused first, as it ignores focus() on the page while
   the book's frame holds it. On a phone the panel still closes onto the hit
-  with focus on More.
+  with focus on More. It only takes focus back from the book: a panel opened
+  while the jump runs (Next, then T for Contents) keeps it.
 
 ## Completion Notes
 

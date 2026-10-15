@@ -139,6 +139,8 @@ export function SearchPanel({
       const origin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       const keep = (within: Element | null) => {
         if (!origin?.isConnected || !within?.contains(origin) || document.activeElement === origin) return;
+        // Only focus the jump took into the book: a panel opened meanwhile keeps it
+        if (!document.getElementById("reader-book")?.contains(document.activeElement)) return;
         // Firefox ignores focus() here while the book's frame holds the focus
         window.focus();
         origin.focus({ preventScroll: true });
