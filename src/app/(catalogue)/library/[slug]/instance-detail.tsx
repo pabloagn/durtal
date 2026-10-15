@@ -268,8 +268,9 @@ export function InstanceDetail({
               <>
                 <dt className="text-fg-secondary">eBook</dt>
                 {/* The size, then the commands, each whole: a command that
-                    wraps starts on the column's edge, 12px from the one before */}
-                <dd className="flex min-w-0 flex-wrap items-baseline gap-x-3 text-fg-secondary">
+                    wraps starts on the column's edge, 12px from the one before; on
+                    touch, wrapped rows sit 28px apart so the 44px press areas never overlap */}
+                <dd className="flex min-w-0 flex-wrap items-baseline gap-x-3 pointer-coarse:gap-y-7 text-fg-secondary">
                   <span className="font-mono">
                     {/* The size keeps its number and unit on one line; an e-book with no file has none */}
                     {[

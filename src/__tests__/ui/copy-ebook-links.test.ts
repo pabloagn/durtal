@@ -28,5 +28,5 @@ it("keeps the eBook line's commands whole and on the line, and names the size on
   expect(digital).toContain("instance.fileSizeBytes != null && !ebook?.sizeBytes");
   const button = readFileSync(path.resolve(__dirname, "../../components/ebooks/unlink-ebook-button.tsx"), "utf8");
   expect(button).toContain('className="whitespace-nowrap text-command');
-  expect(line).toContain('<dd className="flex min-w-0 flex-wrap items-baseline gap-x-3 text-fg-secondary">');
+  expect(line).toContain('<dd className="flex min-w-0 flex-wrap items-baseline gap-x-3 pointer-coarse:gap-y-7 text-fg-secondary">');
 });

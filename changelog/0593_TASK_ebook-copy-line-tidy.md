@@ -39,3 +39,7 @@ a phone.
 - `copy-ebook-links.test.ts` pins the row, the whole commands, the inline
   Unlink and the single size.
 - No migration, no new package.
+- Review fix: at 320 on touch, a tap on "eBook details" opened Unlink…,
+  whose 44px press area reached over the row above. On touch, wrapped rows
+  now sit 28px apart (`pointer-coarse:gap-y-7`, as the e-book files table's
+  commands do), so the press areas never overlap.
