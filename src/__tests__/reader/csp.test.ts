@@ -97,15 +97,9 @@ describe("the proxy on reader pages", () => {
     expect(csp).toContain("connect-src 'self' https://d123.cloudfront.net");
   });
 
-  it("gives a new device its id cookie once, and keeps a valid one", () => {
-    const fresh = visit(page)!;
-    const cookie = fresh.headers.get("set-cookie") ?? "";
-    expect(cookie).toMatch(/^durtal-device=[0-9a-f-]{36}; /);
-    expect(cookie).toMatch(/Max-Age=34560000/);
-    expect(cookie).toMatch(/SameSite=lax/i);
-    expect(cookie).toMatch(/HttpOnly/i);
-    expect(cookie).toMatch(/Secure/i);
+  it("never makes the device cookie: two pages at once would make two (SLN-668)", () => {
+    expect(visit(page)!.headers.get("set-cookie")).toBeNull();
     expect(visit(page, `durtal-device=${device}`)!.headers.get("set-cookie")).toBeNull();
-    expect(visit(page, "durtal-device=forged")!.headers.get("set-cookie")).toMatch(/^durtal-device=[0-9a-f-]{36}; /);
+    expect(visit(page, "durtal-device=forged")!.headers.get("set-cookie")).toBeNull();
   });
 });

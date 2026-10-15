@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -214,8 +214,7 @@ function LinkInstitutionDialog({
           <Button data-dismiss="" size="sm" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button variant="primary" size="sm" data-shortcut="save" disabled={saving || !choice} onClick={save}>
-            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
+          <Button variant="primary" size="sm" data-shortcut="save" busy={saving} disabled={!choice} onClick={save}>
             Link
           </Button>
         </div>

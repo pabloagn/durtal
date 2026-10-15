@@ -216,16 +216,17 @@ export async function getReviewSelectionPage(input: ReviewSelectionPageInput) {
  * native receipt, catalogue snapshot or mutation service in the returned DTO. */
 export async function loadReviewUnlinkTarget(conn: Db, ebookId: string): Promise<ReviewUnlinkTarget> {
   const [row] = resultRows<{ id: string; title: string; updatedAt: string; matchFingerprint: string | null;
-    nativeMatchingOperation: unknown; matchMethod: string | null }>(await conn.execute(sql`
+    nativeMatchingOperation: unknown; matchMethod: string | null; workId: string | null; workTitle: string | null }>(await conn.execute(sql`
     select e.id,e.title,${reviewTimestampSql(sql`e.updated_at`)} as "updatedAt",e.match_fingerprint as "matchFingerprint",
-      ${matchingIdentitySql} as "nativeMatchingOperation",e.match_method as "matchMethod"
+      ${matchingIdentitySql} as "nativeMatchingOperation",e.match_method as "matchMethod",w.id as "workId",w.title as "workTitle"
     ${from} where e.id=${ebookId}::uuid and e.match_state='linked' and i.status<>'deaccessioned'`));
   if (!row) throw new ReviewError("ebook_not_found", "The linked eBook is unavailable.");
   const stamp = ebookReviewStampSchema.safeParse({ updatedAt: row.updatedAt, matchFingerprint: row.matchFingerprint });
   const identity = reviewOperationSchema.safeParse(row.nativeMatchingOperation);
   if (!stamp.success || !identity.success) throw new ReviewError("invalid_receipt", "The native link identity cannot be reviewed.");
   return { id: row.id, title: row.title, stamp: stamp.data, matching: { operation: identity.data,
-    automatic: ["isbn", "identifier", "score"].includes(row.matchMethod ?? "") } };
+    automatic: ["isbn", "identifier", "score"].includes(row.matchMethod ?? "") },
+    book: row.workId && row.workTitle ? { workId: row.workId, title: row.workTitle } : null };
 }
 export async function getReviewUnlinkTarget(ebookId: string) {
   return withReadOnlyPlanningConnection(serverEnv().DATABASE_URL, (conn) => loadReviewUnlinkTarget(conn, ebookId),

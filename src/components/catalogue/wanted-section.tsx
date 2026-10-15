@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, ShoppingBag, Trash2 } from "lucide-react";
+import { Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -228,8 +228,7 @@ function FormFooter({ saving, error, blocked, label, onCancel, onSave }: {
         <Button data-dismiss="" variant="ghost" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
-        <Button variant="primary" data-shortcut="save" onClick={onSave} disabled={blocked || saving}>
-          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
+        <Button variant="primary" data-shortcut="save" onClick={onSave} busy={saving} disabled={blocked}>
           {label}
         </Button>
       </div>

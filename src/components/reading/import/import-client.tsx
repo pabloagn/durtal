@@ -86,8 +86,8 @@ export function ImportUpload() {
       <p className="mt-2 max-w-md text-sm leading-relaxed text-fg-secondary">
         A Goodreads or StoryGraph export, or a Durtal reading CSV. You see every row and its book before anything is written.
       </p>
-      <Button variant="primary" className={`mt-5 ${coarse}`} disabled={busy} onClick={() => input.current?.click()} data-import-choose="">
-        {busy ? "Reading the file..." : "Choose a CSV file"}
+      <Button variant="primary" className={`mt-5 ${coarse}`} busy={busy} onClick={() => input.current?.click()} data-import-choose="">
+        Choose a CSV file
       </Button>
       <input
         ref={input}

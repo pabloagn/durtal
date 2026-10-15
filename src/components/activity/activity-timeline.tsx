@@ -7,7 +7,7 @@ import { onActivityRefresh } from "@/lib/activity/refresh-event";
 import { ActivityEventItem } from "./activity-event-item";
 import { CommentItem } from "./comment-item";
 import { CommentEditor } from "./comment-editor";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, LoaderCircle } from "lucide-react";
 import { SectionHeading } from "@/components/shared/section-heading";
 
 interface ActivityTimelineProps {
@@ -207,10 +207,15 @@ export function ActivityTimeline({ entityType, entityId, refreshKey }: ActivityT
               <button
                 onClick={loadMore}
                 disabled={loadingMore}
+                aria-busy={loadingMore || undefined}
                 className="flex items-center gap-1 rounded-sm px-3 py-1.5 font-mono text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:min-h-11"
               >
-                <ChevronDown className="h-3 w-3" strokeWidth={1.5} />
-                {loadingMore ? "Loading…" : "Show more"}
+                {loadingMore ? (
+                  <LoaderCircle className="h-3 w-3 animate-spin" strokeWidth={1.5} aria-hidden="true" />
+                ) : (
+                  <ChevronDown className="h-3 w-3" strokeWidth={1.5} />
+                )}
+                Show more
               </button>
             </div>
           )}

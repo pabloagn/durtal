@@ -25,11 +25,11 @@ export function useUnlinkEbook(ebookId: string): {
 /** `inline`: a command among the facts of a book's eBook copy, on their line rather than a button above it */
 export function UnlinkEbookButton({ ebookId, inline = false }: { ebookId: string; inline?: boolean }) {
   const unlink = useUnlinkEbook(ebookId);
-  const label = unlink.loading ? "Loading link…" : "Unlink…";
+  // A busy command keeps its words and width (contract section 8, SLN-713)
   return <>
     {inline
-      ? <button type="button" disabled={unlink.busy} onClick={() => void unlink.open()} className="whitespace-nowrap text-command disabled:opacity-40">{label}</button>
-      : <Button size="sm" variant="ghost" disabled={unlink.busy} onClick={() => void unlink.open()}><Unlink aria-hidden strokeWidth={1.5} />{label}</Button>}
+      ? <button type="button" disabled={unlink.busy} aria-busy={unlink.loading || undefined} onClick={() => void unlink.open()} className="whitespace-nowrap text-command disabled:opacity-40">Unlink…</button>
+      : <Button size="sm" variant="ghost" busy={unlink.loading} disabled={unlink.busy} onClick={() => void unlink.open()}><Unlink aria-hidden strokeWidth={1.5} />Unlink…</Button>}
     {unlink.error && <p role="alert" className="mt-1 w-full text-xs text-accent-red-text">{unlink.error}</p>}
   </>;
 }

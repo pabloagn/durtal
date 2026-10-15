@@ -3,7 +3,6 @@ import { crossOriginRefusal } from "@/lib/api/same-origin";
 import { PAGE_SIZES } from "@/lib/utils/pagination";
 import { perPageCookieName } from "@/lib/utils/preference-cookies";
 import { makeNonce, READER_PAGE_RE, readerCsp } from "@/lib/reader/csp";
-import { DEVICE_COOKIE, DEVICE_COOKIE_MAX_AGE, isDeviceId } from "@/lib/reader/device";
 import { LIBRARY_SORT_COOKIE, parseLibrarySortPreference } from "@/lib/library/sort-preference";
 import { isUuid } from "@/lib/utils/uuid";
 
@@ -14,8 +13,10 @@ import { isUuid } from "@/lib/utils/uuid";
  * it, before anything renders. The list loads once, at the right size.
  * Books also restores the last explicitly selected sort and direction.
  *
- * A reader page gets its Content-Security-Policy with a fresh nonce, and
- * this device its durtal-device cookie when it has none (eBooks sub-issue 3).
+ * A reader page gets its Content-Security-Policy with a fresh nonce. Its
+ * durtal-device cookie is not made here: two reader pages opened at once
+ * would make two (SLN-668); the reader asks for one under a lock instead
+ * (src/lib/reader/device-handshake.ts).
  */
 export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/api/")) {
@@ -51,24 +52,8 @@ function readerPage(request: NextRequest) {
   const headers = new Headers(request.headers);
   headers.set("x-nonce", nonce);
   headers.set("content-security-policy", csp);
-  const saved = request.cookies.get(DEVICE_COOKIE)?.value;
-  const deviceId = isDeviceId(saved) ? null : crypto.randomUUID();
-  if (deviceId) {
-    // The page reads the new id in this same request
-    const cookie = headers.get("cookie");
-    headers.set("cookie", `${cookie ? `${cookie}; ` : ""}${DEVICE_COOKIE}=${deviceId}`);
-  }
   const response = NextResponse.next({ request: { headers } });
   response.headers.set("Content-Security-Policy", csp);
-  if (deviceId) {
-    response.cookies.set(DEVICE_COOKIE, deviceId, {
-      path: "/",
-      maxAge: DEVICE_COOKIE_MAX_AGE,
-      sameSite: "lax",
-      httpOnly: true,
-      secure: request.nextUrl.protocol === "https:",
-    });
-  }
   return response;
 }
 

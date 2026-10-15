@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { History } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { buttonClass } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { RunRow } from "@/components/ebooks/run-row";
 import { listRuns, RUN_ROWS_STEP, shownRows } from "@/lib/ebooks/runs";
 
@@ -24,9 +26,11 @@ export default async function IngestionRunsPage({ searchParams }: { searchParams
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-fg-secondary">
-            No runs yet. The ingest command, run on the machine that holds the files, records each apply here.
-          </p>
+          <EmptyState
+            icon={History}
+            title="No runs yet"
+            description="Each apply, upload batch and verification is listed here. Applies come from the ingest command, run on the machine that holds the files."
+          />
         )}
         {more > 0 && (
           <Link href={`/ebooks/runs?show=${runs.length + more}`} scroll={false} className={`mt-4 ${buttonClass("secondary", "sm")}`}>

@@ -224,7 +224,8 @@ export function ReviewView({ queue, params, differences }: { queue: ReviewQueue;
   function openUnlink(row: ReviewQueueRow, mode: ReviewUnlinkMode) {
     if (!row.stamp || !row.matching || row.state !== "linked" || writeLock.current || modal || bulkModal || workModal || unlinkModal || undoUnknown.size > 0) return;
     if (mode === "automatic_undo" && !row.matching.automatic) return;
-    setUnlinkModal({ target: { id: row.id, title: row.title, stamp: row.stamp, matching: row.matching }, mode });
+    setUnlinkModal({ target: { id: row.id, title: row.title, stamp: row.stamp, matching: row.matching,
+      book: row.work ? { workId: row.work.id, title: row.work.title } : null }, mode });
   }
 
   const fieldsDisabled = decision.phase === "preparing" || decision.prepared !== null || busy;
@@ -256,8 +257,9 @@ export function ReviewView({ queue, params, differences }: { queue: ReviewQueue;
       <h2 className="type-section-title">Recent decisions</h2>
       {Object.entries(outcomes).map(([id, entry]) => <div key={id} className="rounded-sm border border-glass-border px-3 py-2">
         <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm">{entry.title} · {effectWords(entry.outcome.message, "done")}</p>
-          {entry.outcome.undo.available && <Button size="sm" disabled={busy || modal !== null || (undoUnknown.size > 0 && !undoUnknown.has(id))}
-            onClick={() => void undo(id)}>{undoBusy === id ? "Undoing…" : undoUnknown.has(id) ? "Retry this Undo" : "Undo"}</Button>}
+          {entry.outcome.undo.available && <Button size="sm" busy={undoBusy === id}
+            disabled={busy || modal !== null || (undoUnknown.size > 0 && !undoUnknown.has(id))}
+            onClick={() => void undo(id)}>{undoUnknown.has(id) ? "Retry this Undo" : "Undo"}</Button>}
         </div>{errors[id] && <p role="alert" className="mt-1 text-xs text-accent-red-text">{errors[id]}</p>}
       </div>)}
     </section>}

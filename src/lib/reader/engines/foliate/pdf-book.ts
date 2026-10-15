@@ -8,6 +8,7 @@ import { pdfGeometryViewport, pdfTextLayerTransform } from "./pdf-viewport";
 import { cropEnabled, isScannedPage, type ContentBox } from "./pdf-crop";
 import { pdfImageCoverage } from "./pdf-image-coverage";
 import { applyPdfPageTheme } from "./pdf-page-theme";
+import { attachMarginSelect } from "./pdf-margin-select";
 import type { ReaderPresentation } from "@/lib/validations/reader-preferences";
 
 type PdfApi = Pick<typeof import("pdfjs-dist"), "TextLayer" | "OPS">;
@@ -248,6 +249,7 @@ export async function makePdfBook(
                 frameSignal.removeEventListener("abort", abort);
               }
               assertCurrent();
+              attachMarginSelect(doc);
               // Durtal exposes safe link annotations through the common navigation
               // path. PDF JavaScript, forms, launch actions and embedded files do not run.
               const page = await session.acquirePage(index, frameSignal);

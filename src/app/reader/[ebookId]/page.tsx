@@ -22,6 +22,7 @@ import { READER_SETTINGS_KEY, READING_HOME_KEY } from "@/lib/preferences";
 import { loadReaderRuntime } from "@/lib/reader/runtime-loader";
 import { PreferencesProvider } from "@/lib/hooks/use-preference";
 import { ReaderRuntimeProvider } from "@/components/reader/runtime-provider";
+import { DeviceHandshake } from "@/components/reader/device-handshake";
 import { getRequiredReaderControllerIds, loadReaderPlugins } from "./plugins";
 import { ReaderView, type ReaderViewFile } from "./reader-view";
 import { readerReturnDestination } from "@/lib/reader/entry-policy";
@@ -108,6 +109,9 @@ async function viewFile(file: ReaderFile): Promise<ReaderViewFile> {
  */
 export default async function ReaderPage(props: PageProps) {
   const request = await readRequest(props);
+  // No device id yet: get one first, shared with any other reader tab (SLN-668)
+  if (!request.deviceId)
+    return <DeviceHandshake ebookId={request.ebookId} backHref={request.returnTo ?? `/ebooks/${request.ebookId}`} />;
   const requiredControllerIds = getRequiredReaderControllerIds();
   const [bookResult, pluginsResult, runtimeResult, preferencesResult] = await Promise.allSettled([
     loadBook(request.ebookId, request.deviceId, request.fileId, request.from),

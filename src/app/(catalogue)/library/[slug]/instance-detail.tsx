@@ -270,7 +270,8 @@ export function InstanceDetail({
                 {/* The size, then the commands, each whole: a command that
                     wraps starts on the column's edge, 12px from the one before; on
                     touch, wrapped rows sit 28px apart, and 4px more below the line keeps
-                    the next fact's command off the last row, so 44px press areas never overlap */}
+                    the next fact's command off the last row, so 44px press areas never overlap.
+                    A flex item is no inline text link, so a short Read takes a 44px-wide press area */}
                 <dd className="flex min-w-0 flex-wrap items-baseline gap-x-3 pointer-coarse:gap-y-7 pointer-coarse:pb-1 text-fg-secondary">
                   <span className="font-mono">
                     {/* The size keeps its number and unit on one line; an e-book with no file has none */}
@@ -287,7 +288,7 @@ export function InstanceDetail({
                   {ebook.readerPath && <ReaderEntryLink
                     readerPath={ebook.readerPath}
                     returnTo={ebook.returnTo}
-                    className="whitespace-nowrap text-command"
+                    className="touch-hit whitespace-nowrap text-command"
                   >
                     {ebook.readLabel ?? "Read"}
                   </ReaderEntryLink>}

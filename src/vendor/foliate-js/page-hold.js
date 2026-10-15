@@ -73,15 +73,19 @@ const injectStyles = () => {
         background: var(--foliate-hold-bg, Canvas);
     }
     html.${HOLD}-out::view-transition-old(${NAME}),
-    html.${HOLD}-over::view-transition-new(${NAME}) {
+    html.${HOLD}-over::view-transition-new(${NAME}),
+    html.${HOLD}-whole.${HOLD}-out::view-transition-old(root),
+    html.${HOLD}-whole.${HOLD}-over::view-transition-new(root) {
         box-shadow: 0 0 24px rgba(0, 0, 0, 0.35);
     }
-    html.${HOLD}-over::view-transition-new(${NAME}) {
+    html.${HOLD}-over::view-transition-new(${NAME}),
+    html.${HOLD}-whole.${HOLD}-over::view-transition-new(root) {
         z-index: 2;
     }
-    /* Only the book is held: the reader's bars and controls over it keep
-       their own layers above it */
-    html.${HOLD}-book [data-reader-chrome] {
+    /* Only the book is held, or slides: the reader's bars and controls over
+       it keep their own layers above it */
+    html.${HOLD}-book [data-reader-chrome],
+    html.${HOLD}-whole [data-reader-chrome] {
         view-transition-name: match-element;
     }
     @keyframes foliate-hold { to { opacity: 1; } }
@@ -121,7 +125,9 @@ export async function changeUnderHold(host, change, options = {}) {
     const whole = framesInUpdate === true
     const named = whole ? null : bookElement(host)
     if (named?.style.viewTransitionName) return change(false)
-    let slide = !whole && options.turn === 'slide'
+    // WebKit holds the whole screen, with the reader's controls on layers of
+    // their own, so a turn slides the page there too (SLN-660)
+    let slide = options.turn === 'slide'
     injectStyles()
     const image = whole ? '(root)' : `(${NAME})`
     const OLD = `::view-transition-old${image}`

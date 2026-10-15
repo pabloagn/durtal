@@ -171,9 +171,10 @@ export function InstanceAddDialog({
             variant="primary"
             size="sm"
             onClick={handleSubmit}
-            disabled={isPending || !draft.locationId}
+            busy={isPending}
+            disabled={!draft.locationId}
           >
-            {isPending ? ebook ? "Preparing…" : "Creating…" : ebook ? "Preview copy and eBook" : "Create instance"}
+            {ebook ? "Preview copy and eBook" : "Create instance"}
           </Button>
         </div>
         </>}

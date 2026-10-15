@@ -1194,7 +1194,7 @@ An e-book's cover: its preferred file's derived WebP, at one width.
 
 ### `GET /api/reader/[ebookId]/position` and `POST`
 
-Every device's place in an e-book (SLN-493), in `ebook_positions` (docs/02). The device is the `durtal-device` cookie, which the proxy sets on the first reader page. Same-origin only; a malformed id answers `400` before any database call. `Cache-Control: no-store`.
+Every device's place in an e-book (SLN-493), in `ebook_positions` (docs/02). The device is the `durtal-device` cookie, which `POST /api/reader/device` makes on the first reader page. Same-origin only; a malformed id answers `400` before any database call. `Cache-Control: no-store`.
 
 **GET response** `200`: `{ "positions": [{ "deviceId", "deviceLabel", "fileId", "locator", "progression", "furthestProgression", "chapter", "clientUpdatedAt", "thisDevice" }] }`. The places the reader checks for a newer one, however many the e-book has (SLN-665): this device's place in each file, the newest other device's place and the furthest other one (by `locator.totalProgression`), ordered newest first by `clientUpdatedAt` with deterministic device/file tie-breaking. `thisDevice` compares the HttpOnly cookie; without a valid cookie there is no "this device", so the answer is the newest and the furthest place, with `thisDevice: false`. The eBook page lists every device (`getEbookDetail`). `404`: no such e-book. POST's body, response and conflict semantics are unchanged.
 
@@ -1285,6 +1285,13 @@ GET /api/geocode?mode=search&q=Amsterdam
 `GET /api/reader/device` returns `{ deviceId }`, using the validated HTTP-only
 reader cookie or null. It is read-only, never rotates the cookie, refuses
 cross-origin requests and uses `Cache-Control: no-store`.
+
+`POST /api/reader/device` returns `{ deviceId }` and sets the cookie when the
+browser has no valid one (a missing or malformed cookie gets a new uuid; a valid
+one is returned unchanged, never rotated). A reader page opened without the
+cookie calls it under the `durtal-reader-device` Web Lock, reads the cookie back
+with `GET`, then reloads, so tabs opened at once share one id (SLN-668).
+Same-origin only, `Cache-Control: no-store`.
 
 `GET /api/reader/[ebookId]/annotations` validates the e-book UUID and optional
 `since` cursor, then returns the annotation pull. `POST` validates the annotation

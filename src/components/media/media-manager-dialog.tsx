@@ -665,14 +665,9 @@ export function MediaManagerDialog({
                     type="submit"
                     data-shortcut="save"
                     disabled={urlLoading || !url.trim()}
+                    aria-busy={urlLoading || undefined}
                     className="inline-flex h-8 shrink-0 items-center gap-2 rounded-sm bg-selection-bg px-4 text-sm font-medium text-fg-primary transition-colors hover:bg-accent-underlay disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11"
                   >
-                    {urlLoading && (
-                      <Loader2
-                        className="h-3.5 w-3.5 animate-spin"
-                        strokeWidth={1.5}
-                      />
-                    )}
                     Add
                   </button>
                 </form>
@@ -692,16 +687,9 @@ export function MediaManagerDialog({
                   onClick={() =>
                     setPendingDelete({ kind: "bulk", count: selected.size })
                   }
-                  disabled={deleting}
+                  busy={deleting}
                 >
-                  {deleting ? (
-                    <Loader2
-                      className="h-4 w-4 animate-spin"
-                      strokeWidth={1.5}
-                    />
-                  ) : (
-                    <Trash2 className="h-4 w-4" strokeWidth={1.5} />
-                  )}
+                  <Trash2 className="h-4 w-4" strokeWidth={1.5} />
                   Delete selected
                 </Button>
               </div>

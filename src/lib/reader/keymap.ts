@@ -90,3 +90,14 @@ export const readerKey = (
   key: string,
   context: ReaderShortcut["context"] = "always",
 ) => READER_KEYMAP.find((item) => item.key === key && item.context === context);
+/** One row per action: an action with two shortcuts (Page Up or ⇧ Space)
+ * lists both on its row, as key caps */
+export function shortcutRows(shortcuts: readonly ReaderShortcut[]) {
+  const rows: { group: string; label: string; context: ReaderShortcut["context"]; keys: string[][] }[] = [];
+  for (const item of shortcuts) {
+    const row = rows.find((row) => row.group === item.group && row.label === item.label && row.context === item.context);
+    if (row) row.keys.push(item.key.split(" "));
+    else rows.push({ group: item.group, label: item.label, context: item.context, keys: [item.key.split(" ")] });
+  }
+  return rows;
+}
