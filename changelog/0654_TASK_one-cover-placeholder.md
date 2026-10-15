@@ -27,7 +27,9 @@ The book page alone had three of the four.
   first letter in the serif, `fg-muted` at 30%, decorative. `COVER_BLANK` makes
   the box the `cover` size container. The letter keeps to the type scale as
   the box grows: 14px under 56px wide, 21px from 56px, 38px from 120px (a
-  card's cover, the size the library's cards already used).
+  card's cover, the size the library's cards already used). Its line is
+  trimmed to the cap height and baseline (`text-box`), so the box centers
+  the capital: on its line box the serif sat 0.1em above the middle.
 - `book-card.tsx`: `CoverPlaceholder` draws it, so the library's cards look as
   before.
 - `reading-tiles.tsx`: `Cover` takes the title and draws the letter instead
@@ -52,8 +54,10 @@ The book page alone had three of the four.
   - On main: 36 book icons at 1440 on the Reading pages, one empty box and one
     "No cover" on the book page, 9 icons in the collection.
   - On this branch every one is the letter. Sizes: 14px in 32 and 44px
-    thumbs, 21px in 56 to 109px boxes, 38px from 171px. Each is centered in
-    its box (0.0px off in x and y).
+    thumbs, 21px in 56 to 109px boxes, 38px from 171px. Each capital is
+    centered in its box: measured on the glyph's cap height, at most 0.4px
+    off (it was 1.5 to 4.5px high, the library cards' letters included,
+    before the line was trimmed).
   - Library and person cards are unchanged (38px, centered).
 - Alignment and overflow audits are clean, the design audit finds no
   low-contrast text, and every page uses only the seven sizes.

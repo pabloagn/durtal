@@ -8,9 +8,9 @@ import path from "path";
 // edition card. Every blank cover now shows the letter (`CoverLetter`).
 const read = (file: string) => readFileSync(path.resolve(__dirname, "../..", file), "utf8");
 
-it("keeps the letter to the type scale as the box grows", () => {
+it("keeps the letter to the type scale as the box grows, centered on its cap height", () => {
   const letter = read("components/books/cover-letter.tsx");
-  expect(letter).toContain("font-serif text-xs leading-none text-fg-muted/30 @[56px]/cover:text-lg @[120px]/cover:text-3xl");
+  expect(letter).toContain("font-serif text-xs leading-none text-fg-muted/30 [text-box:trim-both_cap_alphabetic] @[56px]/cover:text-lg @[120px]/cover:text-3xl");
   expect(letter).toContain('data-decorative=""');
   expect(letter).toContain('"@container/cover flex items-center justify-center"');
 });
