@@ -170,6 +170,16 @@ describe("a page change under a held snapshot (SLN-660)", () => {
     expect(mock.started).toEqual([{ pseudo: "::view-transition-old(root)", keyframes: [{ opacity: 1 }, { opacity: 0 }], duration: 250 }]);
   });
 
+  it("fades a turn in a whole-screen hold where the bars cannot keep their own layers (an older Safari)", async () => {
+    await load(true);
+    let mock = mockTransitions();
+    await changeUnderHold(document.body, async () => {}, { duration: 180 });
+    vi.stubGlobal("CSS", { supports: (property: string, value: string) => !(property === "view-transition-name" && value === "match-element") });
+    mock = mockTransitions();
+    await changeUnderHold(document.body, async () => {}, { turn: "slide", forward: true, duration: 250 });
+    expect(mock.started).toEqual([{ pseudo: "::view-transition-old(root)", keyframes: [{ opacity: 1 }, { opacity: 0 }], duration: 250 }]);
+  });
+
   it("passes on a failed change after letting go", async () => {
     const mock = mockTransitions();
     await expect(changeUnderHold(document.body, async () => { throw new Error("Retired book page"); }, { duration: 180 }))

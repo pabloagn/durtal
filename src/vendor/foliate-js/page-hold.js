@@ -18,6 +18,7 @@ const SLIDE_EASING = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
 const CLASSES = [HOLD, `${HOLD}-whole`, `${HOLD}-book`, `${HOLD}-out`, `${HOLD}-over`]
 
 let active = null
+const matchElement = () => typeof CSS !== 'undefined' && CSS.supports?.('view-transition-name', 'match-element') === true
 // Whether animation frames run inside an update callback (WebKit)
 let framesInUpdate = null
 
@@ -127,7 +128,9 @@ export async function changeUnderHold(host, change, options = {}) {
     if (named?.style.viewTransitionName) return change(false)
     // WebKit holds the whole screen, with the reader's controls on layers of
     // their own, so a turn slides the page there too (SLN-660)
-    let slide = options.turn === 'slide'
+    // A whole-screen hold slides only where the reader's bars can keep their
+    // own layers (match-element): an older Safari would slide them too
+    let slide = options.turn === 'slide' && (!whole || matchElement())
     injectStyles()
     const image = whole ? '(root)' : `(${NAME})`
     const OLD = `::view-transition-old${image}`

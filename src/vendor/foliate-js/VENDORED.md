@@ -229,7 +229,10 @@ adapter regression source added; native retesting remains pending.
     does run frames there but keeps a book snapshot's new layer blank, so it
     changes the page inside the update and holds the whole screen, with the
     reader's controls on layers of their own, so a turn slides there too
-    (only WebKit's first hold, which finds out which engine this is, fades). Which engine this is, the first hold finds by waiting for a
+    (only WebKit's first hold, which finds out which engine this is, fades,
+    and so does a Safari too old for `view-transition-name: match-element`,
+    where the controls would slide with the page). Which engine this is, the
+    first hold finds by waiting for a
     frame inside the update, for three of the page's frames measured just
     before (100 to 500ms), so a busy page is not misjudged. That first hold
     has named the book: in WebKit the name goes inside the update, so the
