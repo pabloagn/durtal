@@ -215,9 +215,12 @@ export function SeriesBooks({
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <p className="min-w-0 break-words text-xs text-fg-secondary">
-                  {book.authors}
-                </p>
+                {/* A book with no author has no line here, so its badges start on the title's edge */}
+                {book.authors && (
+                  <p className="min-w-0 break-words text-xs text-fg-secondary">
+                    {book.authors}
+                  </p>
+                )}
                 <span className="shrink-0 sm:hidden">
                   <Badge variant={book.statusVariant}>{book.status}</Badge>
                 </span>
@@ -227,7 +230,10 @@ export function SeriesBooks({
                   </span>
                 )}
               </div>
-              <div className="mt-1 sm:hidden">{controls}</div>
+              {/* Pulled out by the first button's padding, so its icon sits on the title's edge:
+                  Read's 8px, or a ghost icon button's 10px (14px on touch) */}
+              <div className={`mt-1 sm:hidden ${book.ebook?.readable && book.ebook.readerPath
+                ? "-ml-2" : "-ml-2.5 pointer-coarse:-ml-3.5"}`}>{controls}</div>
             </div>
           </li>
         );
