@@ -71,6 +71,7 @@ to unrelated pages. Now:
   012 and 013, both e-book pages, `/ebooks/<unknown>`, `/reader/<unknown>`,
   `/ebooks/runs`, an unknown run and `/reader/offline`: 81 of 81 with 0
   alignment, design-audit, overflow and touch findings.
+- `reader-engine-check.mjs` 284 of 284; `page-weight.js` within budget.
 - Tests: `reader-view.test.ts` (a damaged file offers no Retry, its
   replacement and only Back, and is recorded; a network failure offers a
   secondary Retry and records nothing; an open clears a record);
