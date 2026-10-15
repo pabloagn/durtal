@@ -138,8 +138,10 @@ export function SearchPanel({
       // field or Next, so the next Enter steps on to the next match
       const origin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       const keep = (within: Element | null) => {
-        if (origin?.isConnected && within?.contains(origin) && document.activeElement !== origin)
-          origin.focus({ preventScroll: true });
+        if (!origin?.isConnected || !within?.contains(origin) || document.activeElement === origin) return;
+        // Firefox ignores focus() here while the book's frame holds the focus
+        window.focus();
+        origin.focus({ preventScroll: true });
       };
       setActive(hit.id);
       setFocused(hit.id);
