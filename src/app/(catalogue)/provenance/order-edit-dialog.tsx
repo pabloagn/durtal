@@ -51,12 +51,12 @@ const ACQUISITION_METHOD_OPTIONS: {
   value: AcquisitionMethod;
   label: string;
 }[] = [
-  { value: "online_order", label: "Online Order" },
+  { value: "online_order", label: "Online order" },
   { value: "in_store_purchase", label: "In-Store Purchase" },
   { value: "gift", label: "Gift" },
-  { value: "digital_purchase", label: "Digital Purchase" },
+  { value: "digital_purchase", label: "Digital purchase" },
   { value: "auction", label: "Auction" },
-  { value: "event_purchase", label: "Event Purchase" },
+  { value: "event_purchase", label: "Event purchase" },
 ];
 
 interface OrderEditDialogProps {
@@ -171,7 +171,7 @@ export function OrderEditDialog({
       draft
       open={open}
       onClose={onClose}
-      title="Edit Order"
+      title="Edit order"
       className="max-w-2xl"
     >
       <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
@@ -183,14 +183,14 @@ export function OrderEditDialog({
           />
         )}
         <Select
-          label="Acquisition Method"
+          label="Acquisition method"
           options={ACQUISITION_METHOD_OPTIONS}
           value={method}
           onChange={(e) => setMethod(e.target.value as AcquisitionMethod)}
         />
 
         <DatePicker
-          label="Order Date"
+          label="Order date"
           value={orderDate}
           onChange={(v) => setOrderDate(v)}
           required
@@ -218,7 +218,7 @@ export function OrderEditDialog({
                 placeholder="USPS, UPS, DHL..."
               />
               <Input
-                label="Tracking Number"
+                label="Tracking number"
                 value={trackingNumber}
                 onChange={(e) => setTrackingNumber(e.target.value)}
               />
@@ -232,20 +232,20 @@ export function OrderEditDialog({
             />
             <div className="grid grid-cols-2 gap-3">
               <DatePicker
-                label="Shipped Date"
+                label="Shipped date"
                 value={shippedDate}
                 onChange={(v) => setShippedDate(v)}
                 min={orderDate || undefined}
               />
               <DatePicker
-                label="Estimated Delivery"
+                label="Estimated delivery"
                 value={estimatedDeliveryDate}
                 onChange={(v) => setEstimatedDeliveryDate(v)}
                 min={orderDate || undefined}
               />
             </div>
             <DatePicker
-              label="Actual Delivery Date"
+              label="Actual delivery date"
               value={actualDeliveryDate}
               onChange={(v) => setActualDeliveryDate(v)}
               min={orderDate || undefined}
@@ -255,7 +255,7 @@ export function OrderEditDialog({
 
         {isGift && (
           <DatePicker
-            label="Received Date"
+            label="Received date"
             value={actualDeliveryDate}
             onChange={(v) => setActualDeliveryDate(v)}
           />

@@ -50,12 +50,12 @@ export const ACQUISITION_METHOD_OPTIONS: {
   value: AcquisitionMethod;
   label: string;
 }[] = [
-  { value: "online_order", label: "Online Order" },
+  { value: "online_order", label: "Online order" },
   { value: "in_store_purchase", label: "In-Store Purchase" },
   { value: "gift", label: "Gift" },
-  { value: "digital_purchase", label: "Digital Purchase" },
+  { value: "digital_purchase", label: "Digital purchase" },
   { value: "auction", label: "Auction" },
-  { value: "event_purchase", label: "Event Purchase" },
+  { value: "event_purchase", label: "Event purchase" },
 ];
 
 export function getStatusOptionsForMethod(
@@ -409,7 +409,7 @@ export function MethodStep({
   return (
     <div className="space-y-4">
       <Select
-        label="Acquisition Method"
+        label="Acquisition method"
         options={ACQUISITION_METHOD_OPTIONS}
         value={method}
         onChange={(e) => {
@@ -424,7 +424,7 @@ export function MethodStep({
         required
       />
       <Select
-        label="Initial Status"
+        label="Initial status"
         options={statusOptions}
         value={status}
         onChange={(e) => onStatusChange(e.target.value as OrderStatus)}
@@ -483,7 +483,7 @@ export function DetailsStep({
               placeholder="USPS, UPS, DHL..."
             />
             <Input
-              label="Tracking Number"
+              label="Tracking number"
               value={form.trackingNumber}
               onChange={(e) => onChange("trackingNumber", e.target.value)}
             />
@@ -496,7 +496,7 @@ export function DetailsStep({
             placeholder="https://..."
           />
           <DatePicker
-            label="Estimated Delivery Date"
+            label="Estimated delivery date"
             value={form.estimatedDeliveryDate}
             onChange={(v) => onChange("estimatedDeliveryDate", v)}
             min={form.orderDate || undefined}
@@ -515,7 +515,7 @@ export function DetailsStep({
 
       {isGift && (
         <Input
-          label="Gift From"
+          label="Gift from"
           value={form.originDescription}
           onChange={(e) => onChange("originDescription", e.target.value)}
           placeholder="Name of the person or organization"
