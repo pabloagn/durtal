@@ -719,9 +719,11 @@ function ReaderSession({
           void document.exitFullscreen().catch(() => {});
           return;
         }
-        // With nothing left to close, Esc asks before leaving the book (SLN-744)
+        // With nothing left to close, Esc asks before leaving the book
+        // (SLN-744). It opens once this key is done: a modal dialog open
+        // while the key's default action runs would take it as its cancel.
         paceRef.current?.interrupt();
-        setLeaveOpen(true);
+        setTimeout(() => setLeaveOpen(true));
       },
       activity: (kind) => {
         if (bridge.getControllerReadinessSnapshot().ready) bridge.bus.activity(kind);

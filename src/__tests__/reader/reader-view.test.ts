@@ -744,13 +744,17 @@ describe("reader view with a real bridge and fake engine", () => {
       });
     };
     const prompt = () => host.querySelector("[data-reader-leave-prompt]")?.closest("dialog") ?? null;
+    // The prompt opens once the key is done (a task later)
+    const afterKey = () => act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     it("Escape twice stays in the book, Escape from inside the book's frame too", async () => {
       await render();
       await settle();
       const doc = document.implementation.createHTMLDocument("book");
       act(() => fake.emit("document", { doc }));
       escape(doc);
-      await settle();
+      await afterKey();
       expect(prompt()?.textContent).toContain("Leave the book?");
       expect(document.activeElement).toBe(button("Leave"));
       escape(document.activeElement!);
@@ -764,7 +768,7 @@ describe("reader view with a real bridge and fake engine", () => {
       await render();
       await settle();
       escape();
-      await settle();
+      await afterKey();
       act(() => button("Leave").click());
       await persistence.waitFor(() => assign.mock.calls.length === 1, "the leave after the place is saved");
       expect(assign).toHaveBeenCalledWith(new URL("/library", window.location.href).href);
