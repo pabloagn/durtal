@@ -313,12 +313,13 @@ export default async function PublisherPage({
           )}
         </section>
 
-        {/* Cover cards, as every book list; the heading opens the full list */}
+        {/* Cover cards, as every book list. The heading is no link: the
+            house's book list counts its editions, so a book wanted from the
+            house with no edition of it catalogued would not be there */}
         {wantedWorks.length > 0 && (
           <section className="mb-8" aria-label="Wanted from this publisher">
             <WorkCarousel
               title="Wanted from this publisher"
-              titleHref={`${basePath}?state=wanted,on_order#list-start`}
               count={wantedIds.length}
               works={wantedWorks}
               ebooks={new Map([...digital].map(([id, value]) => [id, value.read]))}

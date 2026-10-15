@@ -7,8 +7,9 @@
  * An icon beside a stack of two or more text blocks (a number over a label)
  * is checked against the stack's center instead. Icons that do not share a
  * line with the text (a large placeholder above a title) are skipped, and so
- * is a mark inside `data-decorative` (a blank cover's book icon), which
- * centres in its own box; a control's icon is checked wherever it is.
+ * is a `data-decorative` mark centred alone in a larger box (a blank cover's
+ * book icon); an icon beside text, or a control's icon, is checked however
+ * it is marked.
  *
  * A second pass checks the icon controls beside each heading (a title row's
  * buttons and menu): each control's box against the heading's cap height.
@@ -133,12 +134,17 @@
     return parts.join(" > ");
   }
 
-  // As in the design audit: a decorative mark, unless a control holds it
+  // A decorative mark centred alone in its own box (a blank cover's book
+  // icon): the box, not the icon, lines up with the text beside it. The box
+  // holds no text, is not a control, and is larger than the icon. An icon
+  // beside text, or a control's own icon, is checked however it is marked
   const CONTROL = "a[href], button, [role=button], input, select, textarea, summary";
   const decorative = (svg) => {
-    const mark = svg.closest("[data-decorative]");
-    const control = svg.closest(CONTROL);
-    return !!mark && (!control || control.contains(mark));
+    const frame = svg.parentElement;
+    if (!svg.closest("[data-decorative]") || !frame || frame.textContent.trim() || frame.matches(CONTROL)) return false;
+    const f = frame.getBoundingClientRect();
+    const b = svg.getBoundingClientRect();
+    return f.width >= b.width + 8 && f.height >= b.height + 8;
   };
   const issues = [];
   let checked = 0;

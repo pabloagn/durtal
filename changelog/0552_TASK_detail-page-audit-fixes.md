@@ -23,7 +23,7 @@ An audit of main on 15 Oct (every detail kind, `/library` and the reading pages,
 - **Publisher's wanted books** (`publishers/[slug]/page.tsx`).
   - "Wanted from this publisher" was a bordered list of plain title links: 24px tall on touch, and counted as text by the scan.
   - It is now a shelf of book cards (`WorkCarousel`, as "More in this series"), with each card's target under it ("Gallimard · Wanted"; a book wanted from the house and an imprint shows both).
-  - The shelf holds the first 24 books. Its heading counts them all and opens the Books list filtered to wanted and on order.
+  - The shelf holds the first 24 books. Its heading counts them all. It is no link: the house's Books list counts its catalogued editions, so a book wanted from the house with no edition of it catalogued would not be there.
   - `WorkCarousel` passes an optional `count` to its heading.
 - **Placeholder letters**: an edition with no cover in a person's contributions showed its initial in `fg-muted/30` without `data-decorative`. The design audit failed /people/[slug] on it at every width. It and three like it now carry `aria-hidden="true" data-decorative`, as the book and collection cards' letters do:
   - the venue list;
@@ -36,8 +36,10 @@ An audit of main on 15 Oct (every detail kind, `/library` and the reading pages,
   - At 320 a long edition name wraps, and the centred row left Remove 12px off its first line (alignment audit, Chromium and Firefox). The row now aligns on baselines (`items-baseline`): the state, Order and Remove (in `CapAlignedControls`) sit on the name's first line.
 - **Journal and paused rows** (`reading-tiles.tsx`, `hub-cards.tsx`).
   - The cover starts on the title's first line (`items-start`), as in Up next. A title wrapping to five or six lines on a phone had left the centred cover 56 to 68px below it.
-  - A blank cover's book icon is `data-decorative`. The alignment audit (`scripts/qa/alignment-audit.js`) now skips a mark inside `data-decorative` unless a control holds it, as the design audit does since 0550: the icon centres in its 32×48 cover, not on the text beside the cover.
+  - A blank cover's book icon is `data-decorative`. The alignment audit (`scripts/qa/alignment-audit.js`) now skips a `data-decorative` mark centred alone in a larger box: the box holds no text, is not a control, and is at least 8px larger than the icon each way. The icon centres in its 32×48 cover, not on the text beside the cover. An icon beside text, or a control's icon, is still checked however it is marked (`src/__tests__/ui/alignment-audit-decorative.test.ts`).
   - Noted in `docs/03_DESIGN_LANGUAGE.md`, Empty States.
+
+**Review fix:** the second reviewer found the first version of the audit skip hid any decorative icon, including one 5px off a button's label, and that the wanted shelf's heading linked to a list without those books. Both are fixed as above.
 
 **Not changed:** the audit's 1px slip in the phone pagination summary. Measured on each text node, "1–26 of 26" and "1 / 1" share a line top. The probe had read the summary's screen-reader-only "Showing" instead.
 

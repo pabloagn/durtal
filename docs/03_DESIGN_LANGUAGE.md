@@ -308,7 +308,7 @@ Multiple semantic variants:
 ### Empty States
 
 - Centered layout (`EmptyState`, `src/components/ui/empty-state.tsx`)
-- A decorative 24px mark in a quiet box, marked `data-decorative` so the design audit does not count it as an interface icon. A blank cover's book icon is marked the same way: it centres in its cover, and the alignment audit does not line it up with the text beside the cover. A control's icon counts in both audits wherever it sits
+- A decorative 24px mark in a quiet box, marked `data-decorative` so the design audit does not count it as an interface icon. A blank cover's book icon is marked the same way: it centres alone in its cover, a box larger than itself, so the alignment audit does not line it up with the text beside the cover. The alignment audit still checks an icon beside text, or a control's icon, however it is marked; the design audit still counts a control's icon
 - The title in `type-item-title`, then one sentence in secondary text
 - Where there is something to do, one Button
 - A section of a detail page with nothing to show is left out, and its Add goes in the page's menu (Detail pages)
