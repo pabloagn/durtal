@@ -71,3 +71,14 @@ describe("the place picker's wait", () => {
     expect(rows()).toEqual([]);
   });
 });
+
+// A long place name widened the edit form past a 320px phone, because a
+// fieldset sizes to its content's narrowest width. The browser layout is
+// measured by hand; this pins the class it rests on (SLN-820)
+it("keeps long place names inside the list's width", async () => {
+  type("par");
+  act(() => vi.advanceTimersByTime(300));
+  await act(async () => pending.get("par")!(place("Paris 6e Arrondissement, Saint-Germain-des-Prés, Île-de-France, France")));
+  const list = host.querySelector("button")!.parentElement!;
+  expect(list.className.split(" ")).toEqual(expect.arrayContaining(["overflow-y-auto", "[contain:inline-size]"]));
+});

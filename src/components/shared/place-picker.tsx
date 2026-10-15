@@ -157,7 +157,10 @@ export function PlacePicker({ label, value, onChange, disabled }: PlacePickerPro
       />
 
       {q && (
-        <div className="max-h-48 overflow-y-auto rounded-sm border border-glass-border bg-bg-secondary">
+        // contain:inline-size: a long place name truncates inside the list
+        // instead of widening the form, which sizes a fieldset to its
+        // content's narrowest width (SLN-820)
+        <div className="max-h-48 overflow-y-auto rounded-sm border border-glass-border bg-bg-secondary [contain:inline-size]">
           {local.map((p) => (
             <button key={p.id} type="button" disabled={busy} onClick={() => select(p)} className={rowClass}>
               <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
