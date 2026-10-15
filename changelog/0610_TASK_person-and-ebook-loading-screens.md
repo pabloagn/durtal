@@ -31,6 +31,12 @@ at every width. The eBook page was the same, for shorter.
     where nearly every title takes the row);
   - then the cover and its author.
 
+A loading screen starts the response, so a page under one can no longer
+answer 404 itself (SLN-546). The person's layout and a new eBook layout
+check the record first, as the books' do: `authorExists` and `ebookExists`
+in `src/lib/catalogue/record-exists.ts`, one small query each, matching the
+pages' own lookups.
+
 A linked eBook always has the line under its title ("The eBook of this
 book."). An eBook with no book and no subtitle has none, and its page then
 starts 34 px higher than the loading screen.
@@ -49,3 +55,7 @@ starts 34 px higher than the loading screen.
       every record's loading screen (SLN-698).
 - `src/__tests__/ui/loading-audit-states.test.ts`: both loading screens say
   what is loading, with their way back.
+- `src/__tests__/integration/record-exists.test.ts`: a person by slug, an
+  eBook by id in either case, and missing ones. The production preview
+  answers 404 for a missing person and a missing eBook, and 200 for real
+  ones and for the eBooks' own pages (review, upload, highlights).
