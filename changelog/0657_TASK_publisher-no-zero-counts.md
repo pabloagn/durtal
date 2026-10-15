@@ -33,5 +33,5 @@ Owned 0, Read 0, Wanted 0 and On order 0.
   - Alignment, overflow and layout audits are clean.
 - The seed has no publisher with books, so the case with counts was not
   seen in a browser. Its markup is unchanged; only the condition is new.
-- `page-weight.js` passes. Typecheck and lint clean. No migration, no new
+- `page-weight.js` passes. Typecheck clean; lint has no new warnings. No migration, no new
   package.
