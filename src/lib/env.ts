@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { parseAllowedHosts } from "@/lib/api/allowed-hosts";
 
 /**
  * Environment variables. Every variable the app reads is declared here.
@@ -42,6 +43,10 @@ const serverSchema = z.object({
   ISBNDB_API_KEY: optional,
   ADMIN_TOKEN: optional,
   DURTAL_API_TOKEN: optional,
+  /** Names besides localhost, IP addresses, .local and Tailscale names that the app answers to (task 0608) */
+  DURTAL_ALLOWED_HOSTS: optional.refine((v) => !v || parseAllowedHosts(v).invalid.length === 0, {
+    error: "must be host names separated by commas, without a port or a scheme, such as durtal.example.com",
+  }),
   /** The contact in the enrichment User-Agent (SLN-460) */
   ENRICHMENT_CONTACT: optional,
   /** The research agent's main search (Tavily) and its fallback (Brave Search), SLN-469 */

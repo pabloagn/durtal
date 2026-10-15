@@ -16,7 +16,7 @@ export default function NotFound() {
       title="Page not found"
       description="The page you are looking for does not exist or has been moved."
       action={
-        <Link href="/" className={buttonClass("ghost")}>
+        <Link href="/" className={buttonClass("secondary")}>
           Go to the dashboard
         </Link>
       }

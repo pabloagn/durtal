@@ -13,7 +13,7 @@ export default function BookNotFound() {
       title="Book not found"
       description="It may have been deleted or merged, or the address may be mistyped."
       action={
-        <Link href="/library" className={buttonClass("ghost")}>
+        <Link href="/library" className={buttonClass("secondary")}>
           Back to books
         </Link>
       }

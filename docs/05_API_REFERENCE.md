@@ -22,6 +22,10 @@ Every `/api/*` route refuses a call that a web page on another origin makes thro
 
 The browser says where a call comes from. The check reads `Sec-Fetch-Site` (`same-origin` and `none` pass) and, when an older browser does not send it, compares `Origin` with `Host`. A call with neither header does not come from a web page (curl, the TUI, a script) and passes. This check does not replace the write token. It does not stop another device on the network either: binding the dev server to `127.0.0.1` does that.
 
+### Host check
+
+A page can point its own name at the Mac (DNS rebinding). The browser then treats the app as that page's own origin, and the same-origin check lets its calls through. So before the same-origin check, `src/proxy.ts` refuses every page and API request whose `Host` is not one of the app's names, with `421` and a plain-text reason (`src/lib/api/allowed-hosts.ts`). The app's names are `localhost` and names under `.localhost`, any IP address, names under `.local` (the Mac's own network name), Tailscale names under `.ts.net` (Tailscale assigns them and their addresses), and the names in `DURTAL_ALLOWED_HOSTS` (docs/13). `X-Forwarded-Host` is never read: a page on a rebound name can set it. A request with no `Host` header does not come from a browser and passes.
+
 ---
 
 ## Health

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { hostRefusal } from "@/lib/api/allowed-hosts";
 import { crossOriginRefusal } from "@/lib/api/same-origin";
 import { PAGE_SIZES } from "@/lib/utils/pagination";
 import { perPageCookieName } from "@/lib/utils/preference-cookies";
@@ -8,6 +9,9 @@ import { LIBRARY_SORT_COOKIE, parseLibrarySortPreference } from "@/lib/library/s
 import { isUuid } from "@/lib/utils/uuid";
 
 /**
+ * A request on a name that is not Durtal's is refused first, so a page that
+ * points its own name at the Mac (DNS rebinding) reaches nothing (task 0608).
+ *
  * API routes refuse calls from web pages on other origins (task 0255).
  *
  * A list page opened without `perPage` redirects to the page size saved for
@@ -18,6 +22,8 @@ import { isUuid } from "@/lib/utils/uuid";
  * this device its durtal-device cookie when it has none (eBooks sub-issue 3).
  */
 export function proxy(request: NextRequest) {
+  const misdirected = hostRefusal(request);
+  if (misdirected) return misdirected;
   if (request.nextUrl.pathname.startsWith("/api/")) {
     return crossOriginRefusal(request) ?? undefined;
   }
