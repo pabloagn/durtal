@@ -34,9 +34,11 @@ import ReadingError from "../../app/(catalogue)/reading/error";
 import { EbooksView } from "../../app/(catalogue)/ebooks/ebooks-view";
 import { HarmonizeWorkspace } from "../../app/(catalogue)/harmonize/workspace";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
+import { SectionError } from "@/components/shared/section-error";
+import PersonNotFound from "../../app/(catalogue)/people/not-found";
 import { buttonClass } from "@/components/ui/button";
 
-// Loading, empty and error states audit, 15 Oct (tasks 0610 to 0612)
+// Loading, empty and error states audit, 15 Oct (tasks 0610 to 0612, 0614 to 0616)
 function html(element: React.ReactElement) {
   const host = document.createElement("div");
   host.innerHTML = renderToStaticMarkup(element);
@@ -62,6 +64,8 @@ describe("loading screens", () => {
     expect(status.querySelector(".h-scan-control button")!.getAttribute("aria-busy")).toBe("true");
     expect([...status.querySelectorAll(".h-stat .h-stat-number")].map((n) => n.textContent)).toEqual(["—", "—", "—", "—"]);
     expect(status.querySelector(".h-toolbar input")!.hasAttribute("disabled")).toBe(true);
+    // One line at 320, as the page's own line is
+    expect(status.querySelector(".h-scan-control p")!.textContent).toBe("Scanning the catalogue");
   });
 });
 
@@ -130,5 +134,22 @@ describe("error views that lead back to their own list", () => {
     [ReadingError, "/reading", ["/", "Go to the dashboard", "Reading could not be loaded."]],
   ] as const)("%o on %s", (Error, pathname, expected) => {
     expect(back(Error, pathname)).toEqual(expected);
+  });
+});
+
+describe("a page that is only an error or not-found view", () => {
+  // Its heading was an h3, so the page had no main heading (finding 11)
+  it("has its heading as the page's h1, and leads back with a secondary button", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const failed = html(createElement(SectionError, { error: new Error("boom"), reset: () => {}, backHref: "/people", backLabel: "Back to people" }));
+    expect(failed.querySelector("h1")!.textContent).toBe("Something went wrong");
+    expect(failed.querySelector("h3")).toBeNull();
+    expect(failed.querySelector("a")!.className).toBe(buttonClass("secondary"));
+    expect(html(createElement(PersonNotFound)).querySelector("h1")!.textContent).toBe("Person not found");
+  });
+
+  it("keeps the shared empty view's h3 everywhere else", () => {
+    const host = html(createElement(NoResults, { noun: "books", search: "zz", hasFilters: false, clearHref: "/library" }));
+    expect([host.querySelector("h1"), host.querySelector("h3")!.textContent]).toEqual([null, "No books found"]);
   });
 });

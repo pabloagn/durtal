@@ -9,6 +9,7 @@ export const metadata = { title: "Person not found" };
 export default function PersonNotFound() {
   return (
     <EmptyState
+      heading="h1"
       icon={SearchX}
       title="Person not found"
       description="They may have been merged or deleted, or the address may be mistyped."

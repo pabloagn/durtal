@@ -9,6 +9,7 @@ export const metadata = { title: "Painting not found" };
 export default function PaintingNotFound() {
   return (
     <EmptyState
+      heading="h1"
       icon={SearchX}
       title="Painting not found"
       description="It may have been deleted, or the address may be mistyped."

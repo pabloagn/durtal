@@ -7,6 +7,8 @@ interface EmptyStateProps {
   action?: React.ReactNode;
   /** An error view: the same block, its icon in the red text colour (contract section 8) */
   tone?: "error";
+  /** `h1` when the view is the whole page, as an error or not-found view is (task 0615) */
+  heading?: "h1" | "h3";
 }
 
 export function EmptyState({
@@ -15,6 +17,7 @@ export function EmptyState({
   description,
   action,
   tone,
+  heading: Heading = "h3",
 }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-20">
@@ -25,7 +28,7 @@ export function EmptyState({
           strokeWidth={1.5}
         />
       </div>
-      <h3 className="type-item-title">{title}</h3>
+      <Heading className="type-item-title">{title}</Heading>
       {description && (
         <p className="mt-2 max-w-sm text-center text-sm leading-relaxed text-fg-secondary">
           {description}
