@@ -15,8 +15,20 @@ export function StatsYears({ years }: { years: { label: string; href: string; cu
   useEffect(() => {
     const ul = row.current, chip = ul?.querySelector('[aria-current="page"]');
     if (!ul || !chip) return;
+    ul.style.paddingInlineEnd = "";
     const box = ul.getBoundingClientRect(), at = chip.getBoundingClientRect();
-    if (at.right > box.right + 0.5 || at.left < box.left - 0.5) ul.scrollLeft += at.left - box.left;
+    if (at.right <= box.right + 0.5 && at.left >= box.left - 0.5) return;
+    const max = ul.scrollWidth - ul.clientWidth;
+    let start = ul.scrollLeft + at.left - box.left;
+    if (start > max) {
+      // One of the last years cannot reach the start, and the row's end
+      // would begin partway through a year: begin on the first whole year
+      // there, with the little room that takes after the last one
+      const starts = [...ul.querySelectorAll("a")].map((a) => ul.scrollLeft + a.getBoundingClientRect().left - box.left);
+      start = Math.min(...starts.filter((s) => s >= max - 0.5));
+      if (start > max) ul.style.paddingInlineEnd = `${Math.ceil(start - max)}px`;
+    }
+    ul.scrollLeft = start;
   }, [chosen]);
   return (
     <nav aria-label="Year" className="-mt-4 mb-8">

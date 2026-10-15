@@ -44,3 +44,8 @@ Design-polish pass three, item 3 (findings/design-polish-3-2026-10-15.md).
   all three engines at every width, the chosen year (2026, 2001, 1995, All
   time) is always in view and the first visible year's text starts on the
   page's edge. Audits clean in all 45 runs of the Stats and Now pages.
+- Review (findings/review-pr-375.md): choosing one of the last years
+  scrolled the row only as far as it goes, so it began partway through a
+  year (18px off at 320 in WebKit). It now begins on a whole year, adding
+  the little room that takes after the last one. Applied as the reviewer
+  wrote it, with its test `src/__tests__/reading/stats-years-scroll.test.ts`.
