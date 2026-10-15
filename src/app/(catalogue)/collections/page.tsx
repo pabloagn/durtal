@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { collectionCounts } from "@/lib/collections/counts";
+import { collectionCountLine, collectionCounts } from "@/lib/collections/counts";
 import { FavouritesFilter } from "@/components/shared/favourites-filter";
 import { FAVOURITES_PARAM, favouritesOnly } from "@/lib/constants/favourites";
 import {
@@ -68,6 +68,10 @@ async function CollectionsContent({ params }: { params: ListSearchParams }) {
           collection: {
             ...collection,
             ...collectionCounts(collection),
+            // The line, not every member, goes to the client (SLN-781)
+            countLine: collectionCountLine(collection),
+            collectionEditions: undefined,
+            collectionWorks: undefined,
           },
           covers: previews
             .filter((p) => p.collectionId === collection.id)

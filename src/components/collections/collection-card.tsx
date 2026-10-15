@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
-import { collectionCountLabel } from "@/lib/collections/counts";
+import { collectionCountLine } from "@/lib/collections/counts";
+import type { WorkKind } from "@/lib/catalogue/kinds";
 import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { CollectionIcon } from "./collection-icon";
 import { CardHeading } from "@/components/shared/card-heading";
+import { CountParts } from "./count-parts";
 import { FadeImage } from "@/components/shared/fade-image";
 import { mediaUrl } from "@/lib/s3/media-url";
 
@@ -30,6 +32,11 @@ export interface CollectionCardData {
   isFavourite?: boolean;
   /** Whole works shown (films, perfumes, paintings, books with no edition chosen) */
   workCount?: number;
+  /** What it holds, for the count line */
+  collectionEditions?: { edition?: { workId: string } | null }[];
+  collectionWorks?: { workId: string; work?: { kind: WorkKind } | null }[];
+  /** The count line worked out on the server, so a list sends its members' lines, not the members */
+  countLine?: string | null;
   media?: ArtworkRow[];
 }
 
@@ -60,7 +67,7 @@ export function CollectionCard({
   footer?: React.ReactNode;
 }) {
   const poster = collectionPoster(collection.media);
-  const count = collectionCountLabel(collection);
+  const count = collection.countLine ?? collectionCountLine(collection) ?? "Empty";
   return (
     <div className="catalogue-card group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive">
       <Link
@@ -138,8 +145,9 @@ export function CollectionCard({
         />
         <div className="mt-2.5 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1 font-mono text-micro text-fg-secondary">
           {footer && <span className="min-w-0 [overflow-wrap:anywhere]">{footer}</span>}
-          <span className="ml-auto shrink-0">
-            {count}
+          {/* A line of several kinds wraps between them, inside the card */}
+          <span className="ml-auto min-w-0 text-right">
+            <CountParts line={count} />
           </span>
         </div>
       </div>
