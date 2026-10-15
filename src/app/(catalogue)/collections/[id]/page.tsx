@@ -18,8 +18,9 @@ import { loadPerfumeCards } from "@/lib/catalogue/perfume-store";
 import { loadPaintingCards } from "@/lib/catalogue/painting-store";
 import { catalogueDateYears } from "@/lib/catalogue/dates";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
-import { collectableNouns } from "@/lib/collections/counts";
+import { collectableNouns, collectionCountLine } from "@/lib/collections/counts";
 import { MemberCard } from "@/components/collections/member-card";
+import { CountParts } from "@/components/collections/count-parts";
 import { EmptyState } from "@/components/ui/empty-state";
 import { readingStatesFor } from "@/lib/reading/states";
 import { readingBadge } from "@/lib/reading/card";
@@ -244,25 +245,17 @@ function collectionBookIds(collection: Collection) {
 }
 
 function memberCounts(collection: Collection, reading: Awaited<ReturnType<typeof readingStatesFor>>) {
+  // The card's count line (an empty collection says so once, in its empty
+  // state below), then how many of its books are read
+  const line = collectionCountLine(collection);
+  if (!line) return null;
   const bookIds = collectionBookIds(collection);
   const books = bookIds.length;
   // Read: a finished reading at least, so a book being re-read counts (SLN-449)
   const read = bookIds.filter((id) => (reading.get(id)?.timesRead ?? 0) >= 1).length;
-  const of = (kind: string) => collection.collectionWorks.filter((m) => m.work.kind === kind).length;
-  const editionCount = collection.collectionEditions.length;
-  const parts: [number, string, string][] = [
-    [books, "book", "books"],
-    [editionCount, "edition", "editions"],
-    [of("film"), "film", "films"],
-    [of("perfume"), "perfume", "perfumes"],
-    [of("painting"), "painting", "paintings"],
-  ];
-  const shown = parts.filter(([n]) => n > 0);
-  // An empty collection says so once, in its empty state below
-  if (!shown.length) return null;
-  const counts = shown.map(([n, one, many]) => `${n} ${n === 1 ? one : many}`);
-  if (read) counts.push(`${read} of ${books} ${books === 1 ? "book" : "books"} read`);
-  return counts.join(" · ");
+  return read
+    ? `${line} · ${read.toLocaleString("en-US")} of ${books.toLocaleString("en-US")} ${books === 1 ? "book" : "books"} read`
+    : line;
 }
 
 /** One read per request for the page and its title */
@@ -345,20 +338,9 @@ export default async function CollectionPage({
                   style={mediaImageStyle(mediaCrop(poster))}
                 />
               ) : (
-                <div className="flex h-full flex-col items-center justify-center gap-2">
-                  <FolderOpen
-                    aria-hidden="true"
-                    data-decorative=""
-                    className="h-10 w-10 text-fg-muted/20"
-                    strokeWidth={1}
-                  />
-                  <span
-                    aria-hidden="true"
-                    data-decorative
-                    className="font-serif text-4xl text-fg-muted/20"
-                  >
-                    {collection.name[0]}
-                  </span>
+                // No artwork: the name's letter, as every blank cover
+                <div className={`h-full ${COVER_BLANK}`}>
+                  <CoverLetter title={collection.name} />
                 </div>
               )}
             </div>
@@ -406,7 +388,7 @@ export default async function CollectionPage({
                   {collection.description}
                 </Prose>
               )}
-              {counts && <p className="my-4 text-xs text-fg-secondary">{counts}</p>}
+              {counts && <p className="my-4 text-xs text-fg-secondary"><CountParts line={counts} /></p>}
               <div className={counts ? undefined : "mt-4"}>
                 <CollectionControls
                   collection={collection}

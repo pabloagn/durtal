@@ -1508,6 +1508,18 @@ export async function getSeriesNextToRead(seriesId: string) {
   if (!next) return null;
   const { copyWhereabouts } = await import("@/lib/reading/at-hand");
   const { catalogueStatusLabel } = await import("@/lib/utils/labels");
+  // The copy, the catalogue status and today, together: each needs only the volume
+  const [copyRows, [work], today] = await Promise.all([
+    db.execute(sql`select i.status, i.location_id as "locationId", l.type as "locationType", l.name as "locationName",
+        sl.name as "subLocationName", i.lent_to as "lentTo", i.lent_date::text as "lentDate"
+      from instances i join editions e on e.id = i.edition_id join locations l on l.id = i.location_id
+      left join sub_locations sl on sl.id = i.sub_location_id
+      where e.work_id = ${next.id}::uuid and i.status <> 'deaccessioned'
+      order by (i.status = 'available' and l.type = 'physical') desc, (i.status = 'available') desc, i.created_at, i.id
+      limit 1`),
+    db.select({ catalogueStatus: works.catalogueStatus }).from(works).where(eq(works.id, next.id)),
+    readingToday(),
+  ]);
   const [copy] = resultRows<{
     status: string;
     locationId: string;
@@ -1516,23 +1528,14 @@ export async function getSeriesNextToRead(seriesId: string) {
     subLocationName: string | null;
     lentTo: string | null;
     lentDate: string | null;
-  }>(
-    await db.execute(sql`select i.status, i.location_id as "locationId", l.type as "locationType", l.name as "locationName",
-        sl.name as "subLocationName", i.lent_to as "lentTo", i.lent_date::text as "lentDate"
-      from instances i join editions e on e.id = i.edition_id join locations l on l.id = i.location_id
-      left join sub_locations sl on sl.id = i.sub_location_id
-      where e.work_id = ${next.id}::uuid and i.status <> 'deaccessioned'
-      order by (i.status = 'available' and l.type = 'physical') desc, (i.status = 'available') desc, i.created_at, i.id
-      limit 1`),
-  );
-  const [work] = await db.select({ catalogueStatus: works.catalogueStatus }).from(works).where(eq(works.id, next.id));
+  }>(copyRows);
   return {
     id: next.id,
     title: next.title,
     slug: next.slug ?? null,
     position: next.position ?? null,
     whereabouts: copy
-      ? copyWhereabouts(copy, { today: await readingToday() })
+      ? copyWhereabouts(copy, { today })
       : ["Not owned", work ? catalogueStatusLabel(work.catalogueStatus) : null].filter(Boolean).join(" · "),
   };
 }

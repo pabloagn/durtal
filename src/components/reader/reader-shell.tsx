@@ -26,7 +26,9 @@ export const EDGE_HOVER = 0.12;
 export function useReaderBars({ held }: { held: boolean }) {
   const [visible, setVisible] = useState(true);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const over = useRef(false);
+  // The pointer over the bars, and focus in them: each keeps them up
+  const pointerOver = useRef(false);
+  const focusIn = useRef(false);
   const heldRef = useRef(held);
   const visibleRef = useRef(visible);
 
@@ -34,7 +36,7 @@ export function useReaderBars({ held }: { held: boolean }) {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
   };
-  const kept = () => over.current || heldRef.current;
+  const kept = () => pointerOver.current || focusIn.current || heldRef.current;
 
   const hideSoon = useCallback(() => {
     clear();
@@ -55,6 +57,18 @@ export function useReaderBars({ held }: { held: boolean }) {
     setVisible(false);
   }, []);
 
+  /**
+   * Reading on (a turn, a scroll) lets go of focus left in the bars, as when
+   * a panel closes back onto the button that opened it: they go as after any
+   * turn, and focus with them; Tab brings both back. A moving mouse lets go
+   * of it too (`pointerAt`).
+   */
+  const release = useCallback(() => {
+    if (!focusIn.current) return;
+    focusIn.current = false;
+    if (visibleRef.current) hideSoon();
+  }, [hideSoon]);
+
   const toggle = useCallback(() => {
     if (visibleRef.current) hide();
     else show();
@@ -74,6 +88,11 @@ export function useReaderBars({ held }: { held: boolean }) {
       lastPointer.current = { x, y };
       if (last && Math.hypot(x - last.x, y - last.y) < 2) return;
       if (!last) return;
+      // A mouse that moves is a reader's hand, not a keyboard user's focus
+      focusIn.current = false;
+      // and over the book it is off the bars, though Firefox sends no leave
+      // when a menu or panel opened from them closes under it
+      if (document.elementFromPoint(x, y)?.closest("#reader-book")) pointerOver.current = false;
       show();
     },
     [show],
@@ -107,25 +126,25 @@ export function useReaderBars({ held }: { held: boolean }) {
   /** Spread on what wraps the bars */
   const barEvents = {
     onPointerEnter: () => {
-      over.current = true;
+      pointerOver.current = true;
     },
     onPointerLeave: () => {
-      over.current = false;
+      pointerOver.current = false;
       hideSoon();
     },
     onFocus: () => {
-      over.current = true;
+      focusIn.current = true;
       show();
     },
     onBlur: (event: React.FocusEvent<HTMLElement>) => {
       if (event.currentTarget.contains(event.relatedTarget as Node | null))
         return;
-      over.current = false;
+      focusIn.current = false;
       hideSoon();
     },
   };
 
-  return { visible, visibleRef, edge, show, hide, toggle, pointerAt, barEvents };
+  return { visible, visibleRef, edge, show, hide, release, toggle, pointerAt, barEvents };
 }
 
 const BookFrame = memo(
