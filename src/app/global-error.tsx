@@ -2,15 +2,12 @@
 
 import { useEffect } from "react";
 import { MinimalRoot } from "@/components/layout/minimal-root";
-import {
-  RouteFallback,
-  routeFallbackActionClass,
-} from "@/components/shared/route-fallback";
+import { RouteFallback } from "@/components/shared/route-fallback";
+import { buttonClass } from "@/components/ui/button";
 
 /** A root failure must not need the root's settings or media queries to recover. */
 export default function GlobalError({
   error,
-  reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
@@ -26,11 +23,13 @@ export default function GlobalError({
           title="Something went wrong"
           description="An unexpected error occurred. Please try again."
         >
-          <button type="button" onClick={reset} className={routeFallbackActionClass}>
+          {/* A failure on the server is held in the page data, so `reset` alone
+              draws it again: Try again loads the page anew (SLN-754) */}
+          <button type="button" onClick={() => window.location.reload()} className={buttonClass("primary")}>
             Try again
           </button>
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- A root failure needs a fresh document independent of the failed router. */}
-          <a href="/" className={routeFallbackActionClass}>
+          <a href="/" className={buttonClass("secondary")}>
             Go to dashboard
           </a>
         </RouteFallback>

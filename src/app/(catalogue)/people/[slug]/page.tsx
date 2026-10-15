@@ -27,7 +27,7 @@ import { loadFilmCards } from "@/lib/catalogue/film-store";
 import { loadPerfumeCards } from "@/lib/catalogue/perfume-store";
 import { loadPaintingCards } from "@/lib/catalogue/painting-store";
 import { AuthorDetailHeader } from "./author-detail-header";
-import { GallerySection } from "@/components/shared/gallery-section";
+import { GallerySection, preloadGallery } from "@/components/shared/gallery-section";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { FullBleedLayer } from "@/components/shared/full-bleed-layer";
@@ -76,9 +76,22 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
 
   if (!author) notFound();
 
+  const works = author.workAuthors.map((wa) => ({
+    ...wa.work,
+    role: wa.role,
+  }));
+
+  // Everything that needs only the person, at once: the gallery (rendered at
+  // the foot) and the books' e-book availability beside the credits
+  preloadGallery("author", author.id);
   // Every collection's credits: the summary in the record, and a section for
   // each collection other than books (books keep their cards below)
-  const [credits, noteCounts, ebookSuggestions] = await Promise.all([getPersonWorkCredits(author.id), getPersonNoteCounts(author.id), getAuthorEbookSuggestionCount(author.id)]);
+  const [credits, noteCounts, ebookSuggestions, digital] = await Promise.all([
+    getPersonWorkCredits(author.id),
+    getPersonNoteCounts(author.id),
+    getAuthorEbookSuggestionCount(author.id),
+    catalogueAvailability(works.map((work) => work.id)),
+  ]);
   const byKind = new Map<WorkKind, typeof credits>();
   for (const c of credits) byKind.set(c.kind, [...(byKind.get(c.kind) ?? []), c]);
   // Roles in one fixed order, Author first, not in the order of the titles
@@ -116,11 +129,6 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
     cards: otherCards[kind]!,
   }));
 
-  const works = author.workAuthors.map((wa) => ({
-    ...wa.work,
-    role: wa.role,
-  }));
-
   // Reading (SLN-449): "Read 7 of 12", the Reading record, and All / Unread / Reading / Read
   const query = await searchParams;
   const record = readingRecordOf(works);
@@ -130,7 +138,6 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
     query,
   );
 
-  const digital = await catalogueAvailability(works.map((work) => work.id));
   const digitalCount = [...digital.values()].filter((value) => value.read).length;
   const readerReturnTo = pageHref(`/people/${slug}`, query, paging.page);
 

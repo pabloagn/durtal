@@ -192,10 +192,10 @@ keeps 8.
 
 The books he owns (a copy that is not deaccessioned, as the library counts them), after Letterboxd's member stats (SLN-742), from `src/lib/statistics/library.ts`: aggregate queries only, computed per request and never cached. Each section is left out without data; with no owned book the page is one empty state. `loading.tsx` draws the header, the cover strip and the number tiles at once.
 
-- A strip of the five best-rated covers, then **In numbers**: books, editions, copies, pages, authors, publishers, languages (original) and countries (the writers' nationalities).
+- A strip of the five best-rated covers, then **In numbers**: books, editions, copies, pages (a dash and "No page counts yet" when no book has one, so the tiles keep full rows; a count of 0 is none), authors, publishers, languages (original) and countries (the writers' nationalities).
 - **When they were written**: a timeline of thin bars by the work's original year (`WrittenChart`), Years or Decades. Years start at the decade of the earliest 2% and go back at most 200 years; Decades go back until a run of more than eight empty decades with fewer books beyond it than after it, at most 60, with older books in one "Before …" bar (`src/lib/statistics/charts.ts`).
 - **Years with the most books**: the three busiest years with five covers each (books with a cover first, then the best rated; a blank shows the title's letter), the year linked to the library filtered to it.
-- **Languages, countries and categories**, **Authors and publishers**, **Copies** (formats, places, copies by the year they came): ranked lists (`RankList`, toned sage, blue or gold) linking to the library filtered (a country to the books by its writers, `authorCountry`), the person or the house.
+- **Languages, countries and categories** (its title names only the lists it shows: "Languages", "Languages and categories"; `originsTitle`), **Authors and publishers**, **Copies** (formats, places, copies by the year they came): ranked lists (`RankList`, toned sage, blue or gold) linking to the library filtered (a country to the books by its writers, `authorCountry`), the person or the house.
 - **Breakdown**: rings for read, rated, in translation (editions) and on paper (copies) (`SplitRing`); **Ratings**: books by half star.
 - **At the edges**: the oldest, newest, longest and shortest book, each with its cover.
 - **Reading**: all-time totals from the reading stats, linking to `/reading/stats` (which links back); its books finished count every book finished, owned or not, so it can exceed Read in the Breakdown; **The other collections**: their records and creators.
@@ -775,9 +775,11 @@ Grid of curated collections. A collection holds book editions and whole works
 of every open collection: books with no edition chosen, films, perfumes and
 paintings (SLN-362).
 
-**Per collection card**: Name, description, count ("12 editions" when it holds
-only editions, else "5 items", a book held both ways counted once), cover
-image or the first four members' images.
+**Per collection card**: Name, description, count line by kind ("6 books",
+"4 editions", "3 books · 1 perfume"; "Empty"; a book held both ways counted
+once, as its edition; `collectionCountLine`), cover image or the first four
+members' images. The collection page shows the same line under its name, and
+none when it is empty (its empty state says so).
 
 **Collection page** (`/collections/[id]`): one ordered list of member cards
 (`MemberCard`): an edition (cover, publisher and year, ISBN; "also collected
@@ -804,10 +806,10 @@ The reading hub (SLN-448). `PageHeader` "Reading" with "Log a past read" and "St
 - **This week** (SLN-455), when the rhythm is set: this week's seven days in the order of the week start (a filled mark on a reading day, today marked), "4 of 5 days this week", then the 12 weeks before as bars, "kept 9 of the last 12 weeks". A reading day has an ended session (by `read_on`) or a finish at day precision; the running timer never counts. No streak.
 - Goals and the rhythm render with the server's reading day, then the browser's; when the browser's reading year differs (late on 31 December in Mexico City) the cards load that year's goals.
 - **The goal dialog** (`GoalDialogButton`, `src/components/reading/goal-dialog-button.tsx`, the one trigger; the hub menu, Settings and the stats page): this year or next, a target for books, pages and hours (empty means no goal), "Count re-reads", the work types to leave out, and the past years ("28 of 30 books in 2025").
-- **Up next** (SLN-452): the first five covers of Up Next, each with Start (the Start dialog with the queued edition), and View all.
+- **Up next** (SLN-452): the first five covers of Up Next, each with Start (the Start dialog with the queued edition), and View all. The row ends full: at four columns it shows four (`full-rows`, as the dashboard's shelves).
 - **Passage of the day** (SLN-453): one of his quotes in `Prose`, with its book (a link), author, page and edition ("Nadja · André Breton · p. 212 · Gallimard, 1928 · ch. 7", SLN-480), and "Another" when there are two or more. Hidden with no quotes. The day is the server's reading day (`readingDay(new Date(), appTimeZone(), dayStartHour)`), so the passage is the same all day on every device; `choosePassage` (`src/lib/reading/passage.ts`) takes his favourite quotes when there are at least 30, else all his quotes with the favourites first, each group in the order of the SHA-256 of its id, and picks (days since 1970-01-01) modulo their number. "Another" steps to the next one in that order in the browser only. A passage over 600 characters opens clamped to 8 lines with "Show all".
 - **Paused**: one line each with "paused 3 weeks ago" and Resume.
-- **Recently finished**: the last six finished reads: cover, title, the read's rating, the finish date at its precision.
+- **Recently finished**: the last six finished reads: cover, title, the read's rating, the finish date at its precision. The rows end full, as Up next's.
 - **On this day** (SLN-456), one line above the sections: the books finished or started on this calendar day in earlier years, at day precision only, at most three, "On this day in 2019 you finished Nadja (4.5); in 2017 you started Watt." with the read's rating. The server sends the matches for its reading day and one day on each side (`onThisDay`); the line shows the browser's reading day. In January it adds "Your 2025 in review", a link to the year just ended when that year has finished books. Hidden otherwise.
 - **Suggestions** (SLN-457), after Up next: the top three Owned suggestions, each with its cover, title, author, strongest reason, Start reading, Not now and a menu (Add to Up Next, Never, Not for me because…, Already read it), and "See all".
 - With no reading at all and nothing to suggest: `EmptyState` with Start a book and "Import from Goodreads or StoryGraph" (a link to `/reading/import`).
