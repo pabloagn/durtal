@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Loader2, X, Check, Trash2, SlidersHorizontal } from "lucide-react";
@@ -30,6 +30,7 @@ import {
 } from "@/lib/validations/media";
 import { toast } from "@/lib/notifications/toast";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { useFocusThroughBusy } from "@/hooks/use-focus-through-busy";
 
 type TabType = "poster" | "background" | "gallery";
 
@@ -153,6 +154,8 @@ export function MediaManagerDialog({
   const [showUrlSection, setShowUrlSection] = useState(false);
   const [url, setUrl] = useState("");
   const [urlLoading, setUrlLoading] = useState(false);
+  const urlField = useRef<HTMLInputElement>(null);
+  useFocusThroughBusy(urlLoading, urlField);
 
   const [adjustmentVersion, setAdjustmentVersion] = useState(0);
   // An organization's logo tab makes logo cards; a saved card can be adjusted
@@ -659,6 +662,8 @@ export function MediaManagerDialog({
                   className="mt-2 flex items-center gap-2"
                 >
                   <Input
+                    ref={urlField}
+                    aria-label="Image URL"
                     placeholder="Paste image URL..."
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
