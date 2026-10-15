@@ -144,17 +144,17 @@ describe("reader bridge", () => {
     expect(host.querySelector("footer")!.textContent).toBe(
       "Chapter IFirstSecond44%",
     );
-    expect(host.querySelector('[role="status"]')!.textContent).toContain(
+    expect(host.querySelector('[role="status"][data-reader-chrome]')!.textContent).toContain(
       "Reader notice",
     );
-    expect(host.querySelector<HTMLElement>('[role="status"] div')!.hidden).toBe(
+    expect(host.querySelector<HTMLElement>('[role="status"][data-reader-chrome] div')!.hidden).toBe(
       true,
     );
     render([
       { id: "first", node: h(Fill, { text: "First" }) },
       { id: "second", node: h(Fill, { text: "Second" }) },
     ]);
-    expect(host.querySelector<HTMLElement>('[role="status"] div')!.hidden).toBe(
+    expect(host.querySelector<HTMLElement>('[role="status"][data-reader-chrome] div')!.hidden).toBe(
       false,
     );
     expect(

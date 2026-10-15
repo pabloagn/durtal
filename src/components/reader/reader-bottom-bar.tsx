@@ -55,6 +55,7 @@ export function ReaderBottomBar({
   onScrub,
   onPeek,
   quiet = null,
+  placeFrom = null,
 }: {
   visible: boolean;
   chapter: string | null;
@@ -71,6 +72,9 @@ export function ReaderBottomBar({
   onPeek?(active: boolean): void;
   /** The chapter's band while the bars are hidden: see `quietChapter` */
   quiet?: QuietChapter | null;
+  /** The device whose place the book opened at: named for a moment where the
+   * chapter sits, so it covers no text (SLN-729) */
+  placeFrom?: string | null;
 }) {
   const slots = useSyncExternalStore(
     bridge.subscribeSlots,
@@ -92,6 +96,10 @@ export function ReaderBottomBar({
   const heading = chapter && !(place && samePlace(chapter, place)) ? chapter : null;
   return (
     <>
+    {/* Outside the bar, which is inert while hidden: the place is announced either way */}
+    <p role="status" aria-live="polite" className="sr-only">
+      {placeFrom ? `Your place from ${placeFrom}` : ""}
+    </p>
     {percent !== null && (
       <div
         data-reader-progress-line
@@ -139,20 +147,35 @@ export function ReaderBottomBar({
       }`}
     >
       <div className="flex h-9 [@media(pointer:coarse)]:h-11 items-center gap-3 px-4 text-xs text-fg-secondary">
-        {/* Whole words only, and nothing when not one fits (SLN-730) */}
-        <p className="min-w-0 flex-1">{heading && <FitWords text={heading} />}</p>
+        {placeFrom ? (
+          // One line at 320: the short form under 480px, and the tracking
+          // control and time left give it their room while it shows. Whole
+          // words only, like the chapter (SLN-729, SLN-730)
+          <p data-reader-place-from aria-hidden className="min-w-0 flex-1">
+            <FitWords className="max-[480px]:hidden" text={`Your place from ${placeFrom}`} />
+            <FitWords className="min-[480px]:hidden" text={`From ${placeFrom}`} />
+          </p>
+        ) : (
+          // Whole words only, and nothing when not one fits (SLN-730)
+          <p className="min-w-0 flex-1">{heading && <FitWords text={heading} />}</p>
+        )}
         {/* The tracking control: a whole button, never clipped to the row's text */}
         <div
           ref={mount}
-          hidden={!slots["toolbar-status"]}
+          hidden={!slots["toolbar-status"] || !!placeFrom}
           className="flex shrink-0 items-center whitespace-nowrap"
         />
         {/* The place shows beside the tracking control too, never instead of it */}
         <div className="flex min-w-0 max-w-[60%] items-center gap-2 tabular-nums">
           {/* The place is never cut ("p. 2…" at 320); the time left gives way whole */}
           {place && <span className="shrink-0 whitespace-nowrap">{place}</span>}
-          {percent !== null && <span className="shrink-0">{formatPercent(percent)}</span>}
-          {linear !== false && timeLeftChapter && (
+          {/* Under 480px the percent gives "From iPhone · Safari" its room while it shows */}
+          {percent !== null && (
+            <span className={`shrink-0${placeFrom ? " max-[480px]:hidden" : ""}`}>
+              {formatPercent(percent)}
+            </span>
+          )}
+          {linear !== false && timeLeftChapter && !placeFrom && (
             <FitWords whole text={timeLeftChapter} />
           )}
         </div>
