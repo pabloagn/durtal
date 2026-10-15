@@ -4,8 +4,35 @@ import { X } from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { captureFocusOrigin, type FocusOrigin } from "@/lib/ui/surface-state";
 
+/** The drawer's width beside the book on a wide screen */
+export const READER_PANEL_WIDTH = 360;
+
 /** The open panels that leave the book usable (1024px and up), latest last */
-const nonModal: { close: () => void }[] = [];
+const nonModal: { close: () => void; side: "left" | "right" }[] = [];
+
+/** How far the book insets from each side for the panels open beside it */
+export type ReaderPanelInset = { left: number; right: number };
+const insetListeners = new Set<(inset: ReaderPanelInset) => void>();
+function panelInset(): ReaderPanelInset {
+  return {
+    left: nonModal.some((entry) => entry.side === "left") ? READER_PANEL_WIDTH : 0,
+    right: nonModal.some((entry) => entry.side === "right") ? READER_PANEL_WIDTH : 0,
+  };
+}
+function publishInset() {
+  const inset = panelInset();
+  for (const listener of insetListeners) listener(inset);
+}
+
+/** On a wide screen the book insets beside an open panel, so no text lies
+ * under it (SLN-728). Phones keep their panels modal, over the book. */
+export function subscribeReaderPanelInset(listener: (inset: ReaderPanelInset) => void) {
+  insetListeners.add(listener);
+  listener(panelInset());
+  return () => {
+    insetListeners.delete(listener);
+  };
+}
 
 /** Esc from the book or the bars closes the latest such panel: focus can
  * leave a panel that is not modal, and Escape still cancels it */
@@ -57,15 +84,19 @@ export function ReaderSidePanel({
   useEffect(() => {
     closeRef.current = onClose;
   });
+  // The settings sheet always stands on the right
+  const placed = variant === "settings" ? "right" : side;
   useEffect(() => {
     if (!open || modal) return;
-    const entry = { close: () => closeRef.current() };
+    const entry = { close: () => closeRef.current(), side: placed };
     nonModal.push(entry);
+    publishInset();
     return () => {
       const at = nonModal.indexOf(entry);
       if (at >= 0) nonModal.splice(at, 1);
+      publishInset();
     };
-  }, [open, modal]);
+  }, [open, modal, placed]);
   useEffect(() => {
     const panel = ref.current;
     if (!panel || !open) return;
@@ -158,7 +189,7 @@ export function ReaderSidePanel({
         margin: 0,
         height: "100dvh",
         maxHeight: "none",
-        width: wide ? 360 : "100vw",
+        width: wide ? READER_PANEL_WIDTH : "100vw",
       } : wide ? {
         top: 0,
         bottom: 0,
@@ -167,7 +198,7 @@ export function ReaderSidePanel({
         margin: 0,
         height: "100dvh",
         maxHeight: "none",
-        width: 360,
+        width: READER_PANEL_WIDTH,
       } : {
         top: "auto",
         bottom: 0,
