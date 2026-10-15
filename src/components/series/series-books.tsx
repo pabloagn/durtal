@@ -230,8 +230,10 @@ export function SeriesBooks({
                   </span>
                 )}
               </div>
-              {/* Pulled out by the first button's padding, so its icon sits on the title's edge */}
-              <div className="mt-1 -ml-2.5 pointer-coarse:-ml-3.5 sm:hidden">{controls}</div>
+              {/* Pulled out by the first button's padding, so its icon sits on the title's edge:
+                  Read's 8px, or a ghost icon button's 10px (14px on touch) */}
+              <div className={`mt-1 sm:hidden ${book.ebook?.readable && book.ebook.readerPath
+                ? "-ml-2" : "-ml-2.5 pointer-coarse:-ml-3.5"}`}>{controls}</div>
             </div>
           </li>
         );

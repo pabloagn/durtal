@@ -59,3 +59,9 @@ Three findings of the main audit of 15 Oct 2026
   preview's series fixture.
 - `detail-title-row.test.ts` pins the marks and their CSS.
 - No migration, no new package.
+- Review fix: on a phone, a readable book's controls row was pulled out by a
+  ghost icon button's padding (14px on touch), so Read, whose padding is 8px,
+  started 6px past the title's edge. The row is now pulled out by its first
+  control's own padding: Read's 8px, or the icon button's 10px (14px on
+  touch). Every row's first icon is on the title's edge (0px) in Chromium,
+  Firefox and WebKit at 600, 390 and 320.
