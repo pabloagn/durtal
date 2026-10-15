@@ -118,7 +118,9 @@ export function EntityFilters({
   }
 
   return (
-    <div className={className ?? `mb-6 ${FILTER_ROW_CLASSES}`}>
+    // On a phone 16px to the count row, as on Books, so the first card
+    // reaches the first screen (SLN-641)
+    <div className={className ?? `mb-4 sm:mb-6 ${FILTER_ROW_CLASSES}`}>
       {/* Search */}
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted" />

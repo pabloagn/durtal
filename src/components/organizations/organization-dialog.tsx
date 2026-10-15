@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -237,8 +237,7 @@ function OrganizationForm({
       <Button data-dismiss="" type="button" size="sm" onClick={close} disabled={saving}>
         Cancel
       </Button>
-      <Button type="submit" variant="primary" size="sm" data-shortcut="save" disabled={saving}>
-        {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
+      <Button type="submit" variant="primary" size="sm" data-shortcut="save" busy={saving}>
         {organization ? "Save" : "Add"}
       </Button>
     </div>

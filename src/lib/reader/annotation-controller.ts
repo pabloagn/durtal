@@ -69,6 +69,45 @@ const emptyBook = (): AnnotationBookState => ({
 });
 const fingerprint = (item: ReaderAnnotation) =>
   JSON.stringify([item.kind, item.fileId, item.locator, item.anchorState]);
+/** A JSON value written the same whatever the order of its keys: a measured
+ * locator lists its fields in another order than the stored one */
+const canonical = (value: unknown): string =>
+  Array.isArray(value)
+    ? `[${value.map(canonical).join(",")}]`
+    : value && typeof value === "object"
+      ? `{${Object.entries(value)
+          .filter(([, field]) => field !== undefined)
+          .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+          .map(([key, field]) => `${JSON.stringify(key)}:${canonical(field)}`)
+          .join(",")}}`
+      : (JSON.stringify(value) ?? "null");
+/** How far apart two browsers measure the same text: in PDF points (0.98
+ * seen), and as a reading position (0.0003 seen) */
+const PDF_RECT_TOLERANCE = 2;
+const PROGRESSION_TOLERANCE = 0.001;
+const near = (a: number | undefined, b: number | undefined) =>
+  a === b || (a !== undefined && b !== undefined && Math.abs(a - b) <= PROGRESSION_TOLERANCE);
+/** The same place: the same fields whatever their order, and on a PDF page
+ * rectangles and reading positions a hair apart. Each browser measures the
+ * text a little differently, so a mark opened on another device is no move,
+ * and two windows in two browsers would otherwise rewrite each other's marks */
+const samePlace = (a: DurtalLocator, b: DurtalLocator): boolean => {
+  const { pdf: pdfA, progression: progressionA, totalProgression: totalA, ...restA } = a;
+  const { pdf: pdfB, progression: progressionB, totalProgression: totalB, ...restB } = b;
+  if (canonical(restA) !== canonical(restB)) return false;
+  if (!near(progressionA, progressionB) || !near(totalA, totalB)) return false;
+  if (!pdfA || !pdfB) return !pdfA && !pdfB;
+  const { rects: rectsA = [], ...pageA } = pdfA;
+  const { rects: rectsB = [], ...pageB } = pdfB;
+  return (
+    canonical(pageA) === canonical(pageB) &&
+    rectsA.length === rectsB.length &&
+    rectsA.every((rect, i) =>
+      rect.length === rectsB[i].length &&
+      rect.every((n, j) => Math.abs(n - rectsB[i][j]) <= PDF_RECT_TOLERANCE),
+    )
+  );
+};
 
 /** One book's display/actions over the injected common queue. This controller
  * owns no database, claim, lifecycle seal or HTTP mutation/replay loop.
@@ -232,7 +271,10 @@ export function createAnnotationController(
             confirmed.clientUpdatedAt === item.clientUpdatedAt &&
             (targetFile !== item.fileId ||
               result.status !== item.anchorState ||
-              JSON.stringify(locator) !== JSON.stringify(item.locator)) &&
+              // The same place in another key order, or measured a fraction
+              // of a point apart, is no move: writing it again rewrote every
+              // PDF mark on each open (SLN-670)
+              !samePlace(locator, item.locator)) &&
             !book.pending.some(
               (row) =>
                 row.mutation.id === item.id && row.mutation.op === "reanchor",

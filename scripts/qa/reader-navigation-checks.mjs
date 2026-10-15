@@ -32,6 +32,11 @@ export async function goto(driver, mode, text) {
   await waitUI(driver, "!document.querySelector('dialog[open]:not([data-reader-side-panel])')");
   return driver.evaluate(readerPlace);
 }
+/** Contents is open and holds the focus, so Escape reaches it */
+const contentsOpen = (driver) => waitUI(driver, `(() => {
+  const panel = document.querySelector("[data-reader-side-panel]");
+  return !!panel?.open && panel.contains(document.activeElement);
+})()`);
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 export async function checkNavigation(driver) {
   await driver.open(19);
@@ -52,6 +57,7 @@ export async function checkNavigation(driver) {
   })()`);
   assert(panel.modal === panel.expectedModal && Math.abs(panel.width - panel.expectedWidth) <= 0.5 && panel.overflow === "hidden",
     "Contents modality, drawer width or inner scrolling contract failed");
+  await contentsOpen(driver);
   await driver.key("Escape", "Escape");
   await waitUI(driver, "!document.querySelector('[data-reader-side-panel]')");
   const text30 = await goto(driver, "Page", "30");
@@ -76,6 +82,9 @@ export async function checkNavigation(driver) {
   await driver.open(21);
   await waitUI(driver, "document.querySelector('[data-reader-index]')?.getAttribute('data-reader-index') === 'ready'", 30000);
   await driver.key("t", "KeyT");
+  // The panel renders its text a moment before it opens and takes the focus:
+  // an Escape in between reaches the book, not the panel (WebKit)
+  await contentsOpen(driver);
   const fallback = await waitUI(driver, "document.querySelector('[data-reader-side-panel]')?.textContent");
   assert(fallback.includes("Sections are listed in reading order") && fallback.includes("Préface") && !fallback.includes("Notes hors lecture"), "Fallback sections or heading labels failed");
   await driver.key("Escape", "Escape");

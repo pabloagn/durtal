@@ -105,7 +105,7 @@ export function EbooksFilters({
     },
   ];
   return (
-    <div className={`mb-6 ${FILTER_ROW_CLASSES}`}>
+    <div className={`mb-4 sm:mb-6 ${FILTER_ROW_CLASSES}`}>
       <div className="relative flex-1">
         <Search
           aria-hidden

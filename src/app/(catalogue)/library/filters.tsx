@@ -91,12 +91,18 @@ const HOLDING_OPTIONS = [
   { value: "not_owned", label: "Not owned" },
 ];
 const REREAD_OPTIONS = [{ value: "true", label: "Re-reads only" }];
+// Whether the E-book library holds a copy to read (SLN-641: in the panel,
+// no longer a row of its own under the bar)
+const EBOOK_OPTIONS = [
+  { value: "yes", label: "Available in the reader" },
+  { value: "no", label: "No readable eBook" },
+];
 
 /** The panel's sections, in order (SLN-405) */
 const SECTIONS = ["Collection", "Reading", "Marks", "Book", "Subjects", "Cover"];
 
 /** Groups where one value replaces the other: two would cancel out, or mean nothing */
-const SINGLE_KEYS = new Set(["holding", "series", "poster", "rating"]);
+const SINGLE_KEYS = new Set(["holding", "series", "poster", "rating", "ebook"]);
 
 /** Every URL key a filter sets: Clear all removes them */
 const FILTER_KEYS = ["status", "holding", "reading", "reread", "readFrom", "readTo", ...BOOK_FILTER_KEYS];
@@ -218,6 +224,7 @@ export function LibraryFilters({
     },
     { section: "Reading", key: "reading", label: "Reading", options: READING_OPTIONS },
     { section: "Reading", key: "reread", label: "Re-read", options: REREAD_OPTIONS },
+    { section: "Reading", key: "ebook", label: "eBook", options: EBOOK_OPTIONS },
     ...rangeGroup(RANGES[0], "Reading", options?.readYears),
     {
       section: "Marks",

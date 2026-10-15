@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -305,9 +304,9 @@ export function PerfumeForm(props: Props) {
           variant="primary"
           data-shortcut="save"
           onClick={save}
-          disabled={blocked || saving}
+          busy={saving}
+          disabled={blocked}
         >
-          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
           {props.mode === "create" ? "Add perfume" : "Save"}
         </Button>
       </div>

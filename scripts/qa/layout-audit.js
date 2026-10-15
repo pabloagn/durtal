@@ -6,7 +6,8 @@
  *
  * - squeezed: the page title (the h1 in main) wraps while it is narrower than
  *   60% of its row, because controls share that row; or it runs to more than
- *   2 lines on a phone (a screen 400px wide or less).
+ *   2 lines on a phone (a screen 400px wide or less), 4 for a long title the
+ *   phone sets a size smaller (`data-title-length`).
  * - plainCommands: a button or link that looks like text at rest. It has no
  *   box, border, underline or icon, and it is in a text colour (fg-heading,
  *   fg-primary, fg-secondary or fg-muted) or within 1.25:1 of the text beside
@@ -103,7 +104,10 @@
       if (share < 0.6 && lines > 1)
         squeezed.push({ title: text(h1), why: `${Math.round(share * 100)}% of its row`, controls: controls.length });
     }
-    if (innerWidth <= 400 && lines > 2) squeezed.push({ title: text(h1), why: `${lines} lines at ${innerWidth}px` });
+    // A long title steps down the type scale on a phone (DetailTitleRow's
+    // data-title-length) and may take four lines; any other, two
+    const allowed = h1.hasAttribute("data-title-length") ? 4 : 2;
+    if (innerWidth <= 400 && lines > allowed) squeezed.push({ title: text(h1), why: `${lines} lines at ${innerWidth}px` });
   }
 
   // ── Commands that look like text ────────────────────────────────────────

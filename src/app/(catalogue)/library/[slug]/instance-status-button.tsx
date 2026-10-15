@@ -120,9 +120,10 @@ export function InstanceStatusButton({
                 <button
                   type="submit"
                   disabled={isPending}
+                  aria-busy={isPending || undefined}
                   className="flex-1 rounded-sm bg-accent-primary/10 px-2 py-1 text-xs text-accent-primary hover:bg-accent-primary/20 disabled:opacity-50"
                 >
-                  {isPending ? "..." : "Confirm"}
+                  Confirm
                 </button>
                 <button
                   type="button"

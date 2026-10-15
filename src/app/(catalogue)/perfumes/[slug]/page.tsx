@@ -491,9 +491,12 @@ export default async function PerfumePage({
             )}
             {perfume.variants.length > 0 && (
               <>
-                <dt className="text-fg-secondary leading-7">Concentration</dt>
-                <dd>
-                  <nav aria-label="Formulations" className="flex flex-wrap gap-1.5">
+                {/* The label sits on the first chip's baseline. On touch each
+                    chip keeps its 26px box and takes a 44px press area; rows
+                    of chips sit 18px apart so those areas do not overlap */}
+                <dt className="self-baseline text-fg-secondary">Concentration</dt>
+                <dd className="self-baseline">
+                  <nav aria-label="Formulations" className="flex flex-wrap gap-1.5 pointer-coarse:gap-y-4.5">
                     {perfume.variants.map((v) => {
                       const current = v.id === selected?.id;
                       return (
@@ -502,7 +505,7 @@ export default async function PerfumePage({
                           href={current ? base : `${base}?formulation=${v.id}`}
                           scroll={false}
                           aria-current={current ? "true" : undefined}
-                          className={`rounded-sm border px-2 py-0.5 text-xs leading-5 transition-colors pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center ${
+                          className={`rounded-sm border px-2 py-0.5 text-xs leading-5 transition-colors touch-hit ${
                             current
                               ? "border-accent-primary/40 bg-selection-bg text-fg-primary"
                               : "border-glass-border text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"

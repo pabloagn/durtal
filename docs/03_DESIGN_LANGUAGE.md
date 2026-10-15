@@ -109,7 +109,7 @@ A heading never picks its own size and color: it uses its role. Each role sets f
 
 | Role | Look | Use |
 |---|---|---|
-| `type-page-title` | Serif 46px, tight tracking, heading | The h1 of every page (`PageHeader`) |
+| `type-page-title` | Serif 46px, tight tracking, heading | The h1 of every page (`PageHeader`). On a phone a detail title past 40 letters is 38px, past 60 it is 30px (`DetailTitleRow`) |
 | `type-section-title` | Serif 30px, primary | Every titled block on a page, through `SectionHeading` |
 | `type-item-title` | Serif 21px, line height 1.375, primary | Card titles, the title of a block inside a section, empty and error states |
 | `type-group-title` | Sans 21px, secondary | A group of fields in a form or dialog |
@@ -308,7 +308,7 @@ Multiple semantic variants:
 ### Empty States
 
 - Centered layout (`EmptyState`, `src/components/ui/empty-state.tsx`)
-- A decorative 24px mark in a quiet box, marked `data-decorative` so the design audit does not count it as an interface icon
+- A decorative 24px mark in a quiet box, marked `data-decorative` so the design audit does not count it as an interface icon. A blank cover's book icon is marked the same way: it centres alone in its cover, a box larger than itself, so the alignment audit does not line it up with the text beside the cover. The alignment audit still checks an icon beside text, or a control's icon, however it is marked; the design audit still counts a control's icon
 - The title in `type-item-title`, then one sentence in secondary text
 - Where there is something to do, one Button
 - A section of a detail page with nothing to show is left out, and its Add goes in the page's menu (Detail pages)
@@ -446,7 +446,7 @@ The e-book reader (`/reader/[ebookId]`, SLN-492/499; docs/04, Reader) opens with
 
 One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in the root layout). Never use the native `title` attribute: it shows late, in the system's light style, and never on keyboard focus.
 
-- Add `data-tooltip="Label"` to the control. It shows on hover after 300 ms and at once on keyboard focus; Escape, a click, scroll or leaving closes it.
+- Add `data-tooltip="Label"` to the control. It shows on hover after 300 ms and at once on keyboard focus (focus that Tab or an arrow key moved; focus the app moves itself, such as a dialog's first control or the button a closed dialog gives focus back to, shows none); Escape, a click, scroll or leaving closes it. While a dialog, menu, popover or the command palette is open, one Escape closes the tooltip and that layer together.
 - `data-tooltip-keys` shows the control's shortcut as key caps: `"b"`, `"alt f"`, `"g then b"` (a sequence).
 - `data-tooltip-side`: `top` (default), `bottom`, `right`, `left`. It flips when it does not fit.
 - A control whose menu or panel is open (`aria-expanded="true"`, or the popover its `popovertarget` names) shows no tooltip, and opening the panel closes it, so the first Escape closes the panel.

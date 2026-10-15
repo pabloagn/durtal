@@ -55,7 +55,7 @@ export function VenueListItem({
             />
           ) : (
             <div className="flex h-full items-center justify-center">
-              <span className="font-serif text-xs text-fg-muted/40">
+              <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/40">
                 {name[0]}
               </span>
             </div>

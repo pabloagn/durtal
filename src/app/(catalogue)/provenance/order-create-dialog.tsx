@@ -7,7 +7,7 @@ import {
 } from "@/components/publishers/order-target-fields";
 import type { getTargetOrderSeed } from "@/lib/actions/publishers";
 import { useRouter } from "next/navigation";
-import { Plus, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -254,19 +254,10 @@ export function OrderCreateDialog({
               variant="primary"
               size="sm"
               onClick={handleSubmit}
-              disabled={isPending || !selectedWork}
+              busy={isPending}
+              disabled={!selectedWork}
             >
-              {isPending ? (
-                <>
-                  <Loader2
-                    className="h-3.5 w-3.5 animate-spin"
-                    strokeWidth={1.5}
-                  />
-                  Creating
-                </>
-              ) : (
-                "Create Order"
-              )}
+              Create order
             </Button>
           )}
         </div>

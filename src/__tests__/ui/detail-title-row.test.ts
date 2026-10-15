@@ -99,3 +99,25 @@ describe("DetailTitleRow", () => {
     expect(host.querySelector("a")!.getAttribute("href")).toBe("/publishers/gallimard/edit");
   });
 });
+
+// On a phone a long title steps down the scale (SLN-641, main audit 10):
+// the attribute globals.css sizes it by, on the h1 and the row its controls
+// take their line from
+describe("DetailTitleRow's long titles", () => {
+  const rowOf = (title: string) => {
+    const host = document.createElement("div");
+    host.innerHTML = renderToStaticMarkup(createElement(DetailTitleRow, { title, children: null }));
+    return { row: host.firstElementChild!.firstElementChild!, h1: host.querySelector("h1")! };
+  };
+  it("marks a title past 40 letters long and past 60 longer", () => {
+    expect(rowOf("x".repeat(40)).h1.getAttribute("data-title-length")).toBeNull();
+    for (const [length, mark] of [[41, "long"], [60, "long"], [61, "longer"]] as const) {
+      const { row, h1 } = rowOf("x".repeat(length));
+      expect(h1.getAttribute("data-title-length")).toBe(mark);
+      expect(row.getAttribute("data-title-length")).toBe(mark);
+    }
+    const css = read("styles/globals.css");
+    expect(css).toMatch(/@media \(max-width: 639px\) \{\s*\.type-page-title\[data-title-length="long"\] \{\s*font-size: var\(--text-3xl\);/);
+    expect(css).toContain('.type-page-title[data-title-length="longer"] {\n    font-size: var(--text-2xl);');
+  });
+});

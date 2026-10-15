@@ -113,10 +113,11 @@ export function SearchPicker({
           <button
             type="button"
             disabled={creating}
+            aria-busy={creating || undefined}
             onClick={create}
             className="block w-full truncate px-2 py-1 text-left text-xs text-accent-primary hover:bg-bg-tertiary"
           >
-            {creating ? "Creating…" : createLabel(name)}
+            {createLabel(name)}
           </button>
         )}
       </div>

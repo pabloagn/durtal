@@ -3,6 +3,8 @@ import { SearchX } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonClass } from "@/components/ui/button";
 
+export const metadata = { title: "Publisher not found" };
+
 /** An address that names no publishing house: it was merged, deleted or mistyped. */
 export default function PublisherNotFound() {
   return (

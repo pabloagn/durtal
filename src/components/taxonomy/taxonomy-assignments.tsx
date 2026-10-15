@@ -105,10 +105,12 @@ function FamilyAssignment({
     }
   }
 
+  // The label and Add take a 26px line, a chip's height (its 20px line,
+  // padding and border), so all three share one text line
   return (
     <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5 text-sm">
       <span
-        className={labelled ? "w-32 shrink-0 text-xs leading-6 text-fg-secondary" : "sr-only"}
+        className={labelled ? "w-32 shrink-0 text-xs leading-6.5 text-fg-secondary" : "sr-only"}
       >
         {family.name}
       </span>
@@ -157,7 +159,7 @@ function FamilyAssignment({
             disabled={saving}
             onClick={() => setSearching(true)}
             aria-label={`Add to ${family.name}`}
-            className="-ml-1.5 inline-flex items-start gap-1 rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
+            className="-ml-1.5 inline-flex items-start gap-1 rounded-sm px-1.5 text-xs leading-6.5 text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
           >
             <CapAligned height={12}>
               <Plus className="h-3 w-3" strokeWidth={1.5} />
@@ -274,10 +276,11 @@ export function TaxonomyItemSearch({
           <button
             type="button"
             disabled={creating}
+            aria-busy={creating || undefined}
             onClick={create}
             className="block w-full truncate px-2 py-1 text-left text-xs text-accent-primary hover:bg-bg-tertiary"
           >
-            {creating ? "Creating…" : `Create “${name}”`}
+            {`Create “${name}”`}
           </button>
         )}
       </div>
