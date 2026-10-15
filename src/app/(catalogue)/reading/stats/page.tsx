@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ReadingTabs } from "@/components/reading/reading-tabs";
 import { GoalDialogButton } from "@/components/reading/goal-dialog-button";
+import { StartBookButton } from "@/components/reading/hub-actions";
 import { GoalCards } from "@/components/reading/goal-card";
 import { BarChart } from "@/components/reading/charts/bar-chart";
 import { CalendarHeatmap } from "@/components/reading/charts/calendar-heatmap";
@@ -83,7 +84,6 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
     insightInputs(year),
     year === null ? Promise.resolve([]) : getGoalProgress(year),
   ]);
-  const span = year === null ? "all time" : String(year);
   const review = year !== null && finished.some((f) => f.year === year) ? `/reading/year/${year}` : "/reading/year";
   const empty = numbers.books === 0 && numbers.pages === 0 && numbers.hours === 0 && numbers.abandoned === 0;
   const found = insights(inputs, year);
@@ -120,7 +120,15 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
         </ul>
       </nav>
 
-      {empty && <EmptyState icon={BarChart3} title={`No reading in ${span}`} />}
+      {empty && (
+        // As the Reading page's own empty view: the next step is a book (SLN-755)
+        <EmptyState
+          icon={BarChart3}
+          title={year === null ? "No reading yet" : `No reading in ${year}`}
+          description={`The books you start, finish or set aside${year === null ? "" : ` in ${year}`} make up these numbers.`}
+          action={<StartBookButton />}
+        />
+      )}
       <div className="space-y-14">
         {!empty && (
           <StatsSection title={year === null ? "All time in numbers" : `${year} in numbers`} id="numbers">
