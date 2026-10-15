@@ -38,6 +38,7 @@ import { PublisherHeader } from "@/components/publishers/publisher-header";
 import { WorkCarousel } from "@/components/books/work-carousel";
 import { loadRelatedBooks } from "@/lib/catalogue/related-books";
 import { PublisherBooksFilters, PublisherBooksView } from "@/components/publishers/publisher-books";
+import { ListPendingProvider, ListPendingSwap } from "@/components/shared/list-pending";
 import { mediaUrl } from "@/lib/s3/media-url";
 
 const LINK = "text-command";
@@ -301,24 +302,30 @@ export default async function PublisherPage({
               )}
             </div>
           )}
-          {counts.books > 0 && <PublisherBooksFilters basePath={basePath} facets={facets} />}
-          {books.length > 0 ? (
-            <PublisherBooksView books={digitalBooks} pagination={{ page: query.page, perPage: query.perPage, total }} />
-          ) : counts.books > 0 && hasListQuery(filterParams) ? (
-            <NoResults
-              noun="books"
-              search={query.q}
-              hasFilters={[...filterParams.keys()].some((k) => k !== "q" && hasListQuery(new URLSearchParams([[k, filterParams.get(k)!]])))}
-              clearHref={clearedListHref(basePath, urlParams)}
-            />
-          ) : (
-            <EmptyState
-              icon={Library}
-              title="No books yet"
-              description={`No edition in the catalogue names ${p.name} as its publisher.`}
-              action={suggested.editions > 0 ? undefined : <DomainAddLink kind="book" size="md" />}
-            />
-          )}
+          {/* A search, sort or filter marks the books busy at once, as on the
+              other lists (SLN-806) */}
+          <ListPendingProvider>
+            {counts.books > 0 && <PublisherBooksFilters basePath={basePath} facets={facets} />}
+            <ListPendingSwap>
+              {books.length > 0 ? (
+                <PublisherBooksView books={digitalBooks} pagination={{ page: query.page, perPage: query.perPage, total }} />
+              ) : counts.books > 0 && hasListQuery(filterParams) ? (
+                <NoResults
+                  noun="books"
+                  search={query.q}
+                  hasFilters={[...filterParams.keys()].some((k) => k !== "q" && hasListQuery(new URLSearchParams([[k, filterParams.get(k)!]])))}
+                  clearHref={clearedListHref(basePath, urlParams)}
+                />
+              ) : (
+                <EmptyState
+                  icon={Library}
+                  title="No books yet"
+                  description={`No edition in the catalogue names ${p.name} as its publisher.`}
+                  action={suggested.editions > 0 ? undefined : <DomainAddLink kind="book" size="md" />}
+                />
+              )}
+            </ListPendingSwap>
+          </ListPendingProvider>
         </section>
 
         {/* Cover cards, as every book list. The heading is no link: the

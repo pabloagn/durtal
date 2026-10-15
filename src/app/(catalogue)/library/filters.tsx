@@ -16,6 +16,7 @@ import {
   type RangeFilterGroup,
 } from "@/components/shared/filter-dropdown";
 import { ActiveFilters, type ActiveFilterChip } from "@/components/shared/active-filters";
+import { useListNavigate } from "@/components/shared/list-pending";
 import { WORK_READING_STATES, WORK_READING_STATE_LABELS } from "@/lib/reading/constants";
 import { getLibraryFilterOptions } from "@/lib/actions/library-filters";
 import { useLazyOptions } from "@/hooks/use-lazy-options";
@@ -152,9 +153,10 @@ export function LibraryFilters({
     if (needsNames) start();
   }, [needsNames, start]);
 
+  const navigate = useListNavigate();
   const push = useCallback(
-    (params: URLSearchParams) => router.push(firstPageHref("/library", params)),
-    [router],
+    (params: URLSearchParams) => navigate(() => router.push(firstPageHref("/library", params))),
+    [navigate, router],
   );
 
   const activeFilters: Record<string, string[]> = {};
