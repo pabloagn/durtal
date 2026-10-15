@@ -254,11 +254,16 @@ export function assertSql(condition: SQL, message: string) {
 export function lockSql(tables: string[]) {
   return sql`lock table ${sql.join([...new Set(tables)].sort().map(ident), sql`, `)} in share row exclusive mode`;
 }
+// Once the migration has made them, the tables and the guard stay for the
+// process's life: a yes is kept, so later checks cost no round trip (task 0613)
+let persistenceReady = false;
 export async function persistenceAvailable() {
+  if (persistenceReady) return true;
   const rows = resultRows<{ ready: boolean }>(
     await db.execute(
       sql`select to_regclass('public.harmonization_operations') is not null and to_regprocedure('harmonization_assert(boolean,text)') is not null as ready`,
     ),
   );
-  return rows[0].ready;
+  persistenceReady = rows[0].ready;
+  return persistenceReady;
 }
