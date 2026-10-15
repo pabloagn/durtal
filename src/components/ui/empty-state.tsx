@@ -7,8 +7,8 @@ interface EmptyStateProps {
   action?: React.ReactNode;
   /** An error view: the same block, its icon in the red text colour (contract section 8) */
   tone?: "error";
-  /** `h1` when the view is the whole page, as an error or not-found view is (task 0615) */
-  heading?: "h1" | "h3";
+  /** `h1` when the view is the whole page, as an error or not-found view is (task 0615); `h2` under a page's own title */
+  heading?: "h1" | "h2" | "h3";
 }
 
 export function EmptyState({
