@@ -201,4 +201,24 @@ describe("stored presentation recovery", () => {
     });
     expect(effectivePresentation("phone", rows)).toEqual(PRESENTATION_DEFAULTS.phone);
   });
+  it("lets a real tablet's settings reach a desktop that has none of its own, on purpose (SLN-686)", () => {
+    // The rows say only which class saved them, so a real tablet's settings
+    // and an old laptop's look the same; both carry over, field by field,
+    // and the desktop's own settings win once it has any. Only what the
+    // tablet saved carries over, never the tablet's defaults
+    const rows = [
+      { deviceClass: "tablet" as const, ebookId: null, presentation: { fontSizePx: 24, flow: "scrolled", theme: "paper" } },
+    ];
+    expect(effectivePresentation("desktop", rows)).toEqual({
+      ...PRESENTATION_DEFAULTS.desktop, fontSizePx: 24, flow: "scrolled", theme: "paper",
+    });
+    expect(effectivePresentation("desktop", rows).edgeTaps).toBe(false);
+    const own = [...rows, { deviceClass: "desktop" as const, ebookId: null, presentation: { fontSizePx: 18, flow: "paginated" } }];
+    expect(effectivePresentation("desktop", own)).toEqual({
+      ...PRESENTATION_DEFAULTS.desktop, fontSizePx: 18, theme: "paper",
+    });
+    expect(effectivePresentation("tablet", own)).toEqual({
+      ...PRESENTATION_DEFAULTS.tablet, fontSizePx: 24, flow: "scrolled", theme: "paper",
+    });
+  });
 });
