@@ -227,8 +227,9 @@ adapter regression source added; native retesting remains pending.
     held, with the reader's controls (`[data-reader-chrome]`) kept above it,
     since Chromium can leave the book out of a whole-screen snapshot. WebKit
     does run frames there but keeps a book snapshot's new layer blank, so it
-    changes the page inside the update and holds the whole screen, fading
-    turns too. Which engine this is, the first hold finds by waiting for a
+    changes the page inside the update and holds the whole screen, with the
+    reader's controls on layers of their own, so a turn slides there too
+    (only WebKit's first hold, which finds out which engine this is, fades). Which engine this is, the first hold finds by waiting for a
     frame inside the update, for three of the page's frames measured just
     before (100 to 500ms), so a busy page is not misjudged. That first hold
     has named the book: in WebKit the name goes inside the update, so the
