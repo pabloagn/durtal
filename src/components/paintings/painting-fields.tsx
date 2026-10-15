@@ -61,7 +61,7 @@ export function PaintersField({
                   ),
                 )
               }
-              className="h-5 rounded-sm border border-transparent bg-transparent px-0.5 text-xs leading-5 text-fg-secondary hover:border-glass-border focus:border-accent-primary focus:outline-none pointer-coarse:h-11 pointer-coarse:min-w-11"
+              className="h-5 shrink-0 rounded-sm border border-transparent bg-transparent px-0.5 text-xs leading-5 text-fg-secondary hover:border-glass-border focus:border-accent-primary focus:outline-none pointer-coarse:h-11 pointer-coarse:min-w-11"
             >
               {ATTRIBUTION_CHOICES.map((choice) => (
                 <option key={choice.value} value={choice.value}>
