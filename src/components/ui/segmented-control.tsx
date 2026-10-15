@@ -16,6 +16,8 @@ interface SegmentedControlProps<T extends string> {
   /** The id of the text that names the group */
   ariaLabelledby?: string;
   disabled?: boolean;
+  /** Equal columns across the row, so a few short choices keep to one line in a narrow panel */
+  fill?: boolean;
 }
 
 /**
@@ -30,6 +32,7 @@ export function SegmentedControl<T extends string>({
   ariaLabel,
   ariaLabelledby,
   disabled,
+  fill,
 }: SegmentedControlProps<T>) {
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const chosen = options.findIndex((option) => option.value === value);
@@ -45,7 +48,8 @@ export function SegmentedControl<T extends string>({
       role="radiogroup"
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledby}
-      className="flex flex-wrap gap-1"
+      // Equal columns while every label fits; a label that does not widens its own
+      className={fill ? "grid auto-cols-[minmax(max-content,1fr)] grid-flow-col gap-1" : "flex flex-wrap gap-1"}
     >
       {options.map((option, index) => {
         const active = index === chosen;
@@ -71,7 +75,7 @@ export function SegmentedControl<T extends string>({
                 move(index, -1);
               }
             }}
-            className={`h-8 rounded-sm border px-3 text-xs transition-colors pointer-coarse:h-11 pointer-coarse:text-sm pointer-coarse:min-w-11 disabled:cursor-not-allowed disabled:opacity-40 ${
+            className={`h-8 rounded-sm border ${fill ? "min-w-0 px-2" : "px-3"} text-xs transition-colors pointer-coarse:h-11 pointer-coarse:text-sm pointer-coarse:min-w-11 disabled:cursor-not-allowed disabled:opacity-40 ${
               active
                 ? "border-accent-primary/40 bg-selection-bg text-fg-primary"
                 : "border-glass-border text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
