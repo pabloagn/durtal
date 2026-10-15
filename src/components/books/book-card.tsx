@@ -171,8 +171,11 @@ export function BookCard({
     >
       {/* Cover area — relative wrapper so the dropdown menu escapes overflow-hidden */}
       <div className="relative">
+        {/* Named by the title: a blank cover shows one letter, or none for a
+            title with no letter or digit ("!!!") */}
         <Link
           href={href}
+          aria-label={title}
           className={`block ${isSelecting ? "pointer-events-none" : ""}`}
           tabIndex={isSelecting ? -1 : undefined}
           {...coverMenu}
