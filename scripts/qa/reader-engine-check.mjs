@@ -45,11 +45,12 @@
  *              Escape and give focus back to their button (More, where
  *              Settings sits in the More menu)
  *   pdfmarks   at 1440 and 390, a highlight and a saved quote made by dragging
- *              across lines of the PDF fixture are drawn on their text, and
- *              again after a reload; at 1440 the selection toolbar sits
- *              beside the selection, the marks stay on their text after
- *              zooming in twice, and Go to mark from three pages on draws
- *              the highlight (SLN-670)
+ *              across lines of the PDF fixture are drawn on their text, stay
+ *              on it after zooming in twice, and are drawn again after a
+ *              reload, and Go to mark from three pages on draws the
+ *              highlight; at 1440 the selection toolbar sits beside the
+ *              selection, and a drag that starts in the margin beside a
+ *              line selects that line (SLN-670)
  *   turns      no frame of a jump in the EPUB 3 (Back from a far page), of
  *              a turn in the text PDF or of a turn in the comic shows a blank
  *              page, at 1440 and 390 (SLN-660). Chrome's frames come from
@@ -940,7 +941,7 @@ async function pdfLine(page, n) {
         const top = host.top + box.top * scale, bottom = host.top + box.bottom * scale;
         if (top < 60 || bottom > height - 120) return null;
         // 4 px in: Chromium can leave a drag collapsed when it starts on a glyph's exact midpoint
-        return { left: host.left + box.left * scale + 4, right: host.left + box.right * scale - 2, y: (top + bottom) / 2, top, bottom };
+        return { left: host.left + box.left * scale + 4, right: host.left + box.right * scale - 2, y: (top + bottom) / 2, top, bottom, text: span.textContent.replace(/\s+/g, " ").trim() };
       }, { n, height: viewport.height }).catch(() => null);
       if (line) return line;
     }
@@ -1025,25 +1026,45 @@ async function checkPdfMarks(name, browser) {
         const across = t ? Math.min(t.x + t.width, line.right) - Math.max(t.x, line.left) : 0;
         record(name, "pdfmarks", "1440: the selection toolbar sits beside the selection", gap >= 0 && gap <= 48 && across > 0, t ? `${gap.toFixed(0)} px from the line, ${across.toFixed(0)} px across it` : "no toolbar");
       }
+      if (width === 1440) {
+        // A drag that starts in the margin beside a line selects from that line
+        const line = await pdfLine(page, 12);
+        await page.mouse.move(line.left - 28, line.y);
+        await page.mouse.down();
+        await page.mouse.move(line.right, line.y, { steps: 8 });
+        await page.mouse.up();
+        const toolbar = await page.locator('[role="toolbar"][aria-label="Selection actions"]').waitFor({ state: "visible", timeout: 5000 }).then(() => true, () => false);
+        let selected = "";
+        for (const frame of page.frames()) {
+          if (frame === page.mainFrame()) continue;
+          selected ||= await frame.evaluate(() => document.getSelection()?.toString().replace(/\s+/g, " ").trim() ?? "").catch(() => "");
+        }
+        record(name, "pdfmarks", "1440: a drag that starts beside a line selects that line", toolbar && selected.startsWith(line.text.slice(0, 20)) && line.text.startsWith(selected.slice(0, 20)), `selected "${selected.slice(0, 40)}", line "${line.text.slice(0, 40)}"${toolbar ? "" : ", no toolbar"}`);
+        await page.keyboard.press("Escape");
+        await sleep(300);
+      }
       const quote = await markPdfLine(page, 9, "Save quote");
       record(name, "pdfmarks", `${width}: a saved quote is underlined on its line`, onText(quote.rects) && quote.rects.every((r) => r.underline), describeMark(quote.rects));
       const ids = [highlight.id, quote.id].filter(Boolean);
-      if (width === 1440) {
+      {
         await pageControls(page, ["Zoom in", "Zoom in"]);
         await waitForMark(page, ids);
         let marks = await pdfMarks(page);
-        record(name, "pdfmarks", "1440: after zooming in twice the marks stay on their text", ids.every((id) => onText(marks[id])), ids.map((id) => describeMark(marks[id])).join("; "));
+        record(name, "pdfmarks", `${width}: after zooming in twice the marks stay on their text`, ids.every((id) => onText(marks[id])), ids.map((id) => describeMark(marks[id])).join("; "));
         await pageControls(page, ["Reset zoom"]);
         for (let i = 0; i < 3; i++) { await page.keyboard.press("PageDown"); await sleep(500); }
         await sleep(800);
         const away = Object.keys(await pdfMarks(page)).filter((id) => ids.includes(id)).length;
         await revealBarsFromPage(page);
-        await page.getByRole("button", { name: /^Highlights and notes/ }).click();
+        // A phone's bar keeps the panel under More; its shortcut opens it anywhere
+        const panelButton = page.getByRole("button", { name: /^Highlights and notes/ });
+        if (await panelButton.isVisible()) await panelButton.click();
+        else await page.keyboard.press("h");
         // The panel lists marks in book order: the highlight comes first
         await page.getByRole("button", { name: "Go to mark" }).first().click({ timeout: 5000 });
         await waitForMark(page, [highlight.id]);
         marks = await pdfMarks(page);
-        record(name, "pdfmarks", "1440: Go to mark from another page draws the mark", away === 0 && onText(marks[highlight.id]), `${away} of the marks drawn three pages on; then ${describeMark(marks[highlight.id])}`);
+        record(name, "pdfmarks", `${width}: Go to mark from another page draws the mark`, away === 0 && onText(marks[highlight.id]), `${away} of the marks drawn three pages on; then ${describeMark(marks[highlight.id])}`);
       }
       await page.reload();
       await page.waitForSelector('[data-reader="ready"]', { timeout: 60_000 });
