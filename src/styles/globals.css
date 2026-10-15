@@ -116,6 +116,19 @@ body {
   min-height: 100dvh;
 }
 
+/* A dialog opens in the top layer but inherits type from where it is
+   mounted: a detail page's dialogs sit in its serif title row. It keeps the
+   document's type instead. In the base layer, so a dialog's own classes win. */
+@layer base {
+  dialog {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    letter-spacing: normal;
+    font-weight: 400;
+  }
+}
+
 /* Modal dialog centering */
 dialog[open] {
   position: fixed;

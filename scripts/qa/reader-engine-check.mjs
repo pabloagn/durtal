@@ -11,7 +11,7 @@
  *   script     the scripted EPUB's inline and file scripts never run: their
  *              globals stay unset in the page and in every section frame
  *   font       with publisher typography the obfuscated font loads on a secure
- *              origin; on plain http (Chrome: durtal.test mapped to this
+ *              origin; on plain http (Chrome: durtal.local mapped to this
  *              computer) it cannot be decoded and the book still opens
  *   direction  after a click into the text, → turns forward in a
  *              left-to-right book and ← in the right-to-left and vertical
@@ -45,11 +45,12 @@
  *              Escape and give focus back to their button (More, where
  *              Settings sits in the More menu)
  *   pdfmarks   at 1440 and 390, a highlight and a saved quote made by dragging
- *              across lines of the PDF fixture are drawn on their text, and
- *              again after a reload; at 1440 the selection toolbar sits
- *              beside the selection, the marks stay on their text after
- *              zooming in twice, and Go to mark from three pages on draws
- *              the highlight (SLN-670)
+ *              across lines of the PDF fixture are drawn on their text, stay
+ *              on it after zooming in twice, and are drawn again after a
+ *              reload, and Go to mark from three pages on draws the
+ *              highlight; at 1440 the selection toolbar sits beside the
+ *              selection, and a drag that starts in the margin beside a
+ *              line selects that line (SLN-670)
  *   turns      no frame of a jump in the EPUB 3 (Back from a far page), of
  *              a turn in the text PDF or of a turn in the comic shows a blank
  *              page, at 1440 and 390 (SLN-660). Chrome's frames come from
@@ -339,6 +340,12 @@ async function checkScript(name, browser) {
   await context.close();
 }
 
+/** Turns a settings switch on (role="switch": Playwright's check() is for checkboxes) */
+async function switchOn(control) {
+  if ((await control.getAttribute("aria-checked")) !== "true") await control.click();
+  await control.and(control.page().locator('[aria-checked="true"]')).waitFor();
+}
+
 /** Exercise the current publisher typography controls, then close Settings. */
 async function pickPublisherFont(page) {
   await revealBars(page);
@@ -347,7 +354,7 @@ async function pickPublisherFont(page) {
   await dialog.getByRole("radio", { name: "This book", exact: true }).click();
   // The font is a group of radio buttons (the font picker)
   await dialog.getByRole("radio", { name: /^Publisher/ }).click();
-  await dialog.getByRole("checkbox", { name: "Use publisher typography", exact: true }).check();
+  await switchOn(dialog.getByRole("switch", { name: "Use publisher typography", exact: true }));
   await dialog.getByRole("status").filter({ hasText: /^Settings saved$/ }).waitFor();
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !document.querySelector("dialog[open]"));
@@ -383,11 +390,12 @@ async function checkFont(name, browser) {
   await context.close();
 
   if (name !== "chromium") return;
-  // Plain http on a name that is not this computer's: no crypto.subtle, so no de-obfuscation
-  const insecure = await chromium.launch({ executablePath: process.env.CHROME || undefined, args: [`--host-resolver-rules=MAP durtal.test 127.0.0.1`] });
+  // Plain http on a name that is not this computer's: no crypto.subtle, so no de-obfuscation.
+  // A .local name, which the host guard lets through (task 0608) and browsers do not trust
+  const insecure = await chromium.launch({ executablePath: process.env.CHROME || undefined, args: [`--host-resolver-rules=MAP durtal.local 127.0.0.1`] });
   const http = await (await insecure.newContext(desktop)).newPage();
   await resetFixturePosition(10);
-  s = await open(http, 10, `http://durtal.test:${target.port || 80}`).catch((error) => ({ state: `failed: ${error.message}` }));
+  s = await open(http, 10, `http://durtal.local:${target.port || 80}`).catch((error) => ({ state: `failed: ${error.message}` }));
   if (s.state === "ready") await pickPublisherFont(http);
   const secure = await http.evaluate(() => isSecureContext).catch(() => null);
   record(
@@ -449,6 +457,44 @@ async function checkPlace(name, browser) {
     `left at "${left}", reopened at "${back.first}"`,
   );
   await context.close();
+
+  // SLN-696: in two-page spreads a chapter can begin on a right-hand page,
+  // so a reopen that loads fewer chapters can put the saved first words on
+  // the right, a page early. Turn one to three pages, save, reopen, twelve
+  // times over: every reopen starts at the same first words, at once and
+  // once settled.
+  await resetFixturePosition(1);
+  const spreads = await browser.newContext(desktop);
+  page = await spreads.newPage();
+  s = await open(page, 1);
+  const misses = [];
+  const rounds = 12;
+  for (let round = 0; round < rounds; round++) {
+    await page.mouse.click(720, 450);
+    for (let i = 0; i <= round % 3; i++) {
+      const before = s.fraction;
+      await page.keyboard.press("ArrowRight");
+      s = await moved(page, before);
+      // At the book's end, back to the start and on
+      if (s.fraction === before) {
+        await page.keyboard.press("Home");
+        s = await moved(page, before);
+      }
+    }
+    const turned = page.waitForResponse(isSave(1), { timeout: 10_000 }).catch(() => null);
+    await turned;
+    await page.close();
+    page = await spreads.newPage();
+    const first = await open(page, 1);
+    await sleep(1200);
+    const settled = await page.evaluate(readState);
+    if (first.first !== s.first || settled.first !== s.first)
+      misses.push(`round ${round + 1}: left at "${s.first}", reopened at "${first.first}", settled at "${settled.first}"`);
+    s = settled;
+  }
+  record(name, "place", `1440 spreads: ${rounds} reopens start at the saved first words`, misses.length === 0,
+    misses.length ? `${misses.length} of ${rounds} off; ${misses[0]}` : `${rounds} of ${rounds}`);
+  await spreads.close();
 
   // At 390 px: turns, the tab hidden at once (before the 2 s save), closed, reopened
   const touch = name !== "firefox";
@@ -699,7 +745,7 @@ async function checkClear(name, browser) {
       const free = await page.evaluate(clearBox);
       let dialog = await openSettings(page);
       await dialog.getByRole("radio", { name: "This book", exact: true }).click();
-      await dialog.getByRole("checkbox", { name: "Keep the toolbars visible", exact: true }).check();
+      await switchOn(dialog.getByRole("switch", { name: "Keep the toolbars visible", exact: true }));
       pinned = true;
       await closeSettings(page, dialog);
       await sleep(800);
@@ -967,7 +1013,7 @@ async function pdfLine(page, n) {
         const top = host.top + box.top * scale, bottom = host.top + box.bottom * scale;
         if (top < 60 || bottom > height - 120) return null;
         // 4 px in: Chromium can leave a drag collapsed when it starts on a glyph's exact midpoint
-        return { left: host.left + box.left * scale + 4, right: host.left + box.right * scale - 2, y: (top + bottom) / 2, top, bottom };
+        return { left: host.left + box.left * scale + 4, right: host.left + box.right * scale - 2, y: (top + bottom) / 2, top, bottom, text: span.textContent.replace(/\s+/g, " ").trim() };
       }, { n, height: viewport.height }).catch(() => null);
       if (line) return line;
     }
@@ -1052,25 +1098,45 @@ async function checkPdfMarks(name, browser) {
         const across = t ? Math.min(t.x + t.width, line.right) - Math.max(t.x, line.left) : 0;
         record(name, "pdfmarks", "1440: the selection toolbar sits beside the selection", gap >= 0 && gap <= 48 && across > 0, t ? `${gap.toFixed(0)} px from the line, ${across.toFixed(0)} px across it` : "no toolbar");
       }
+      if (width === 1440) {
+        // A drag that starts in the margin beside a line selects from that line
+        const line = await pdfLine(page, 12);
+        await page.mouse.move(line.left - 28, line.y);
+        await page.mouse.down();
+        await page.mouse.move(line.right, line.y, { steps: 8 });
+        await page.mouse.up();
+        const toolbar = await page.locator('[role="toolbar"][aria-label="Selection actions"]').waitFor({ state: "visible", timeout: 5000 }).then(() => true, () => false);
+        let selected = "";
+        for (const frame of page.frames()) {
+          if (frame === page.mainFrame()) continue;
+          selected ||= await frame.evaluate(() => document.getSelection()?.toString().replace(/\s+/g, " ").trim() ?? "").catch(() => "");
+        }
+        record(name, "pdfmarks", "1440: a drag that starts beside a line selects that line", toolbar && selected.startsWith(line.text.slice(0, 20)) && line.text.startsWith(selected.slice(0, 20)), `selected "${selected.slice(0, 40)}", line "${line.text.slice(0, 40)}"${toolbar ? "" : ", no toolbar"}`);
+        await page.keyboard.press("Escape");
+        await sleep(300);
+      }
       const quote = await markPdfLine(page, 9, "Save quote");
       record(name, "pdfmarks", `${width}: a saved quote is underlined on its line`, onText(quote.rects) && quote.rects.every((r) => r.underline), describeMark(quote.rects));
       const ids = [highlight.id, quote.id].filter(Boolean);
-      if (width === 1440) {
+      {
         await pageControls(page, ["Zoom in", "Zoom in"]);
         await waitForMark(page, ids);
         let marks = await pdfMarks(page);
-        record(name, "pdfmarks", "1440: after zooming in twice the marks stay on their text", ids.every((id) => onText(marks[id])), ids.map((id) => describeMark(marks[id])).join("; "));
+        record(name, "pdfmarks", `${width}: after zooming in twice the marks stay on their text`, ids.every((id) => onText(marks[id])), ids.map((id) => describeMark(marks[id])).join("; "));
         await pageControls(page, ["Reset zoom"]);
         for (let i = 0; i < 3; i++) { await page.keyboard.press("PageDown"); await sleep(500); }
         await sleep(800);
         const away = Object.keys(await pdfMarks(page)).filter((id) => ids.includes(id)).length;
         await revealBarsFromPage(page);
-        await page.getByRole("button", { name: /^Highlights and notes/ }).click();
+        // A phone's bar keeps the panel under More; its shortcut opens it anywhere
+        const panelButton = page.getByRole("button", { name: /^Highlights and notes/ });
+        if (await panelButton.isVisible()) await panelButton.click();
+        else await page.keyboard.press("h");
         // The panel lists marks in book order: the highlight comes first
         await page.locator("dialog[open] [data-annotation-go]").first().click({ timeout: 5000 });
         await waitForMark(page, [highlight.id]);
         marks = await pdfMarks(page);
-        record(name, "pdfmarks", "1440: Go to mark from another page draws the mark", away === 0 && onText(marks[highlight.id]), `${away} of the marks drawn three pages on; then ${describeMark(marks[highlight.id])}`);
+        record(name, "pdfmarks", `${width}: Go to mark from another page draws the mark`, away === 0 && onText(marks[highlight.id]), `${away} of the marks drawn three pages on; then ${describeMark(marks[highlight.id])}`);
       }
       await page.reload();
       await page.waitForSelector('[data-reader="ready"]', { timeout: 60_000 });

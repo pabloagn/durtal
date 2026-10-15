@@ -101,3 +101,17 @@ describe("error files", () => {
     expect(readFileSync(path.join(app, file), "utf8")).toContain("<SectionError");
   });
 });
+
+// A not-found view's way back is its only action: it takes the secondary
+// button look, so it never reads as plain text (main audit, 15 Oct)
+describe("not-found files", () => {
+  const app = path.resolve(__dirname, "../../app/(catalogue)");
+  it.each(["", "library", "people", "films", "paintings", "perfumes", "publishers", "organizations"])(
+    "%s/not-found.tsx leads back with a secondary button",
+    (dir) => {
+      const source = readFileSync(path.join(app, dir, "not-found.tsx"), "utf8");
+      expect(source).toContain('className={buttonClass("secondary")}');
+      expect(source).not.toContain('buttonClass("ghost")');
+    },
+  );
+});

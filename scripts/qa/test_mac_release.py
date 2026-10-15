@@ -165,6 +165,12 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaises(release.Refusal):
             release.checked_config({**config, 'environment': {**config['environment'], 'ELEVENLABS_API_KEY': 'private'}})
 
+    def test_allowed_hosts_is_a_public_runtime_setting(self):
+        root, _ = self.make_release(); config = self.config(root)
+        release.checked_config({**config, 'environment': {**config['environment'], 'DURTAL_ALLOWED_HOSTS': 'durtal.example.com'}})
+        with self.assertRaises(release.Refusal):
+            release.checked_config({**config, 'runtimeNames': [*config['runtimeNames'], 'DURTAL_ALLOWED_HOSTS']})
+
     def test_cloudfront_requires_reviewed_public_identity(self):
         root, _ = self.make_release(); config = self.config(root)
         config['environment']['EBOOK_DELIVERY'] = 'cloudfront'

@@ -47,6 +47,16 @@ describe("real book and author choice mapping", () => {
     await act(async () => [...host.querySelectorAll("form")].at(-1)!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(onPrepare).toHaveBeenCalledWith({ action: "link", ebookId, workId, choice: { kind: "fill_copy", editionId, instanceId: copyId } });
   });
+  it("opens on the book it was unlinked from, and goes back to a search from it (SLN-684)", async () => {
+    await act(async () => root.render(createElement(ChooseBookFields, { row: reviewRow(), disabled: false, onPrepare: vi.fn(), startWorkId: workId })));
+    expect(api.readReviewWorkOptions).toHaveBeenCalledWith({ workId, ebookId });
+    expect(api.searchWorksForCollection).not.toHaveBeenCalled();
+    expect(host.querySelector('input[name="edition-choice"]')).not.toBeNull();
+    await click("Choose another book");
+    expect(api.searchWorksForCollection).toHaveBeenCalledOnce();
+    expect(host.querySelector('input[name="edition-choice"]')).toBeNull();
+    expect(host.querySelector('[aria-label="Book search results"]')!.textContent).toContain("André Breton");
+  });
   it("offers no new-edition ISBN that is held elsewhere", async () => {
     api.readReviewWorkOptions.mockResolvedValue({ ok: true, value: { ...options,
       isbnHolders: [{ isbn13: "9782070368228", workId, title: "Other book" }] } });

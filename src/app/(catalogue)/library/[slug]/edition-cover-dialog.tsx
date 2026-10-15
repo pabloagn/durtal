@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { useRouter } from "next/navigation";
 import { ChevronRight, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -194,10 +195,13 @@ export function EditionCoverDialog({ edition, poster }: EditionCoverDialogProps)
               aria-expanded={showUrl}
               className="mt-3 flex items-center gap-1 text-xs text-fg-secondary cursor-pointer hover:text-fg-primary transition-colors pointer-coarse:min-h-11"
             >
-              <ChevronRight
-                className={`h-3 w-3 transition-transform ${showUrl ? "rotate-90" : ""}`}
-                strokeWidth={1.5}
-              />
+              {/* On the label's cap height, not its line box */}
+              <CapAligned height={12}>
+                <ChevronRight
+                  className={`h-3 w-3 transition-transform ${showUrl ? "rotate-90" : ""}`}
+                  strokeWidth={1.5}
+                />
+              </CapAligned>
               Or paste image URL
             </button>
             {showUrl && (
