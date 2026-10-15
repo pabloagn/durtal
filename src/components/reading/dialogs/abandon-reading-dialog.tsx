@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,9 @@ export function AbandonReadingDialog({ data, row, onClose, changed }: ReadingDia
   const [reason, setReason] = useState<AbandonReason>("lost_interest");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [pausing, setPausing] = useState(false);
+  // One write at a time: Abandon and Pause instead each wait for the other
+  const inFlight = useRef(false);
   const error = finishDateError(r, stopped);
   const value = readNumber(reached);
   const reachedError =
@@ -35,7 +38,8 @@ export function AbandonReadingDialog({ data, row, onClose, changed }: ReadingDia
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (error || reachedError) return;
+    if (error || reachedError || inFlight.current) return;
+    inFlight.current = true;
     setSaving(true);
     try {
       const result = await abandonReading({
@@ -61,11 +65,15 @@ export function AbandonReadingDialog({ data, row, onClose, changed }: ReadingDia
     } catch (err) {
       showError(err, changed);
     } finally {
+      inFlight.current = false;
       setSaving(false);
     }
   }
 
   async function pauseInstead() {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setPausing(true);
     try {
       await pauseReading({ readingId: r.id, fingerprint: row!.fingerprint });
       toast.success("Paused");
@@ -73,6 +81,9 @@ export function AbandonReadingDialog({ data, row, onClose, changed }: ReadingDia
       changed();
     } catch (err) {
       showError(err, changed);
+    } finally {
+      inFlight.current = false;
+      setPausing(false);
     }
   }
 
@@ -102,11 +113,11 @@ export function AbandonReadingDialog({ data, row, onClose, changed }: ReadingDia
         <Textarea aria-label="Note" placeholder="A note (optional)" value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={2000} />
         <p className="flex flex-wrap items-center gap-2 text-xs text-fg-secondary">
           Might come back to it?
-          <Button type="button" size="sm" variant="ghost" onClick={pauseInstead} className="pointer-coarse:h-11">
+          <Button type="button" size="sm" variant="ghost" onClick={pauseInstead} busy={pausing} disabled={saving} className="pointer-coarse:h-11">
             Pause instead
           </Button>
         </p>
-        <DialogFooter onCancel={onClose} saving={saving} saveLabel="Abandon" disabled={!!error || !!reachedError} />
+        <DialogFooter onCancel={onClose} saving={saving} saveLabel="Abandon" disabled={!!error || !!reachedError || pausing} />
       </form>
     </Dialog>
   );
