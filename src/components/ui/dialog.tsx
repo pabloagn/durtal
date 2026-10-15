@@ -136,6 +136,25 @@ export function Dialog({
     if (!open && el.open) el.close();
   }, [open]);
 
+  // A dialog that loads its fields after it opens (Edit person) starts in
+  // the first field once they arrive, unless focus has moved on by then
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (!open || !el || el.querySelector(FIRST_FIELD)) return;
+    const observer = new MutationObserver(() => {
+      if (document.activeElement !== el) {
+        if (el.contains(document.activeElement)) observer.disconnect();
+        return;
+      }
+      const field = el.querySelector<HTMLElement>(FIRST_FIELD);
+      if (!field) return;
+      observer.disconnect();
+      field.focus();
+    });
+    observer.observe(el, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [open]);
+
   // Reset expanded state when dialog closes
   useEffect(() => {
     if (!open) setExpanded(false);

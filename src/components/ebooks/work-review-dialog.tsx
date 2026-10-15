@@ -65,7 +65,7 @@ export function WorkReviewDialog({ work, original, onClose, onCommitted, onUndon
       <div className="flex flex-wrap justify-end gap-2">
         <Button onClick={close} disabled={locked}>Close</Button>
         {(phase === "editing" || phase === "preparing") &&
-          <Button busy={phase === "preparing"} onClick={() => void prepare()}>Preview accessioned status</Button>}
+          <Button variant="primary" busy={phase === "preparing"} onClick={() => void prepare()}>Preview accessioned status</Button>}
         {prepared && <Button variant="primary" busy={phase === "applying"} onClick={() => void confirm()}>
           {phase === "unknown" || (phase === "applying" && retrying) ? "Retry this status decision" : "Confirm status change"}
         </Button>}
