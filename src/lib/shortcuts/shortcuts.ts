@@ -248,7 +248,28 @@ export function keyLabel(token: string, mac: boolean): string {
     case "enter":
       return "↵";
     case "esc":
+    case "escape":
       return "Esc";
+    case "arrowleft":
+      return "←";
+    case "arrowright":
+      return "→";
+    case "arrowup":
+      return "↑";
+    case "arrowdown":
+      return "↓";
+    case "space":
+      return "Space";
+    case "pageup":
+      return "Page Up";
+    case "pagedown":
+      return "Page Down";
+    case "home":
+      return "Home";
+    case "end":
+      return "End";
+    case "tab":
+      return "Tab";
     default:
       return token.toUpperCase();
   }
