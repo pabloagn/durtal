@@ -24,8 +24,10 @@ Design-polish pass three, item 3 (findings/design-polish-3-2026-10-15.md).
   one row that scrolls sideways, as before, with the chosen year kept in
   view: a long record holds dozens of years, which would wrap to seven to
   nine rows on a phone (review of #375). Its chips are smaller and quieter
-  than the tabs (12px type, 28px tall, the chosen year outlined, not
-  filled), so the two rows read apart.
+  than the tabs (14px type against 16px, 28px tall, the chosen year outlined, not
+  filled), so the two rows read apart. The row is pulled out by a chip's
+  padding so a year's text starts on the page's edge, and it snaps to whole
+  years; a chosen year out of view starts the row.
 - Test: `src/__tests__/reading/reading-tabs-wrap.test.ts` renders the tabs
   and checks the row wraps and each label stays whole (it fails on main),
   and that the years scroll in smaller chips than the tabs.
@@ -38,3 +40,7 @@ Design-polish pass three, item 3 (findings/design-polish-3-2026-10-15.md).
   at 390 and three at 320; tabs are 44px tall on touch.
 - Alignment, overflow, layout, touch and design audits are clean in all 72
   runs. Page weight passes every route.
+- With 32 years of readings (1995 to 2026): the year row stays one line in
+  all three engines at every width, the chosen year (2026, 2001, 1995, All
+  time) is always in view and the first visible year's text starts on the
+  page's edge. Audits clean in all 45 runs of the Stats and Now pages.
