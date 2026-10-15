@@ -27,9 +27,9 @@ const toasts = vi.hoisted(() => ({ list: [] as { message: string; undo?: () => v
 vi.mock("@/lib/actions/reading", () => actions);
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }));
 vi.mock("@/components/reading/reading-dialogs-provider", () => ({ useReadingDialogs: () => ({ open: (r: unknown) => opened.list.push(r) }) }));
-vi.mock("sonner", () => {
+vi.mock("@/lib/notifications/toast", () => {
   const push = (message: string, opts?: { action?: { onClick: () => void } }) => toasts.list.push({ message, undo: opts?.action?.onClick });
-  return { toast: Object.assign(push, { success: push, error: push, message: push }) };
+  return { toast: Object.assign(push, { success: push, error: push, message: push, info: push }) };
 });
 
 import { TimerProvider, useTimer } from "@/components/reading/timer-provider";

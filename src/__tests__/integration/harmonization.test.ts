@@ -37,7 +37,8 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/cache", () => ({ invalidate: vi.fn(), CACHE_TAGS: {} }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-import { redirectMergedRecord } from "@/lib/harmonization/redirect";
+import { liveRecord, redirectMergedRecord } from "@/lib/harmonization/redirect";
+import { authorExists } from "@/lib/catalogue/record-exists";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 import { loadSnapshot, loadDataset } from "@/lib/harmonization/store";
 import {
@@ -580,6 +581,23 @@ describe.skipIf(!url)("Harmonization with PostgreSQL", () => {
     await expect(
       redirectMergedRecord("authors", "old-author"),
     ).resolves.toBeUndefined();
+  });
+  // Task 0613: a record layout checks the record once, and the redirect only when it is missing
+  it("opens a live record with one check, and follows a merged one", async () => {
+    const a = await author("A", { slug: "old-author" }),
+      b = await author("B", { slug: "survivor" });
+    const checked: string[] = [];
+    const exists = (slug: string) => (checked.push(slug), authorExists(slug));
+    const execute = vi.spyOn(db, "execute");
+    await expect(liveRecord("authors", "survivor", exists)).resolves.toBe(true);
+    expect(execute).not.toHaveBeenCalled(); // no redirect lookup for a live record
+    execute.mockRestore();
+    await merge("authors", a.id, b.id);
+    await expect(liveRecord("authors", "old-author", exists)).rejects.toMatchObject({
+      digest: expect.stringContaining("/people/survivor"),
+    });
+    await expect(liveRecord("authors", "nobody", exists)).resolves.toBe(false);
+    expect(checked).toEqual(["survivor", "old-author", "nobody"]);
   });
   it("shows readable names for differing foreign-key fields", async () => {
     const [p1, p2] = await db

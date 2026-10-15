@@ -25,7 +25,7 @@ import { setFavourites } from "@/lib/actions/favourites";
 import { MARKS_LABEL, WORK_MARKS, type WorkMark } from "@/lib/constants/marks";
 import { bulkSetPoison } from "@/lib/actions/poison";
 import { addManyToQueue } from "@/lib/actions/reading-queue";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import {
   STATUS_CONFIG,
   PRIORITY_CONFIG,
@@ -52,17 +52,18 @@ export function BulkActionToolbar({
   /** Up Next (SLN-452): appended in the order of the selection */
   async function queueSelected() {
     setIsUpdating(true);
+    const progress = toast.pending("Adding to Up Next");
     try {
       const ids = allIds.filter((id) => selectedIds.has(id));
       const { added, alreadyQueued, beingRead } = await addManyToQueue({ workIds: ids.length ? ids : Array.from(selectedIds) });
-      toast.success(
+      progress.success(
         [`Added ${added}`, alreadyQueued ? `${alreadyQueued} already in Up Next` : null, beingRead ? `${beingRead} being read` : null]
           .filter(Boolean)
           .join(" · "),
       );
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not add to Up Next");
+      progress.error(err instanceof Error ? err.message : "Could not add to Up Next");
     } finally {
       setIsUpdating(false);
     }
@@ -72,17 +73,18 @@ export function BulkActionToolbar({
     setIsUpdating(true);
     const ids = Array.from(selectedIds);
     let updated = 0;
+    const progress = toast.pending(`Updating ${ids.length} ${ids.length === 1 ? "work" : "works"}`);
     try {
       for (const id of ids) {
         await updateWork(id, { [field]: value });
         updated++;
       }
-      toast.success(
+      progress.success(
         `${updated} ${updated === 1 ? "work" : "works"} updated`,
       );
       router.refresh();
     } catch {
-      toast.error(
+      progress.error(
         `Updated ${updated} of ${ids.length} works before error`,
       );
     } finally {
@@ -92,6 +94,7 @@ export function BulkActionToolbar({
 
   async function setMark(mark: WorkMark, on: boolean) {
     setIsUpdating(true);
+    const progress = toast.pending(`${mark.label}: updating`);
     try {
       const ids = Array.from(selectedIds);
       // Rarity keeps its assessment date; other marks are plain flags
@@ -106,14 +109,14 @@ export function BulkActionToolbar({
           : mark.key === "favourite"
             ? await setFavourites({ entity: "work", ids, favourite: on })
             : await bulkSetPoison(ids, on);
-      toast.success(
+      progress.success(
         updated === 0
           ? `${mark.label}: no books changed`
           : `${mark.label}: ${updated} ${updated === 1 ? "book" : "books"} ${on ? "marked" : "unmarked"}`,
       );
       router.refresh();
     } catch {
-      toast.error(`Could not update the ${mark.label} mark. Please try again.`);
+      progress.error(`Could not update the ${mark.label} mark. Please try again.`);
     } finally {
       setIsUpdating(false);
     }

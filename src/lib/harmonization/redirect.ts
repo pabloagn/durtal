@@ -30,3 +30,20 @@ export async function redirectMergedRecord(
       `${route}/${["series", "collections", "recommenders"].includes(entityKey) ? rows[0].id : rows[0].slug || rows[0].id}`,
     );
 }
+
+/**
+ * Whether a record page's record is live, checked by its layout before its
+ * loading screen starts the response. A merged record opens the record it was
+ * merged into. A redirect never applies to a live record, so it is looked up
+ * only for a missing one: a live record costs one query before its loading
+ * screen shows (task 0613).
+ */
+export async function liveRecord(
+  entityKey: string,
+  slugOrId: string,
+  exists: (slugOrId: string) => Promise<unknown>,
+): Promise<boolean> {
+  if (await exists(slugOrId)) return true;
+  await redirectMergedRecord(entityKey, slugOrId);
+  return false;
+}

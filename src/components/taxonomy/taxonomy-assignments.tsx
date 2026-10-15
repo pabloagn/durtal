@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
 import {
   createTaxonomyItem,

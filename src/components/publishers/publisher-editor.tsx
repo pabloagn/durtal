@@ -2,7 +2,7 @@
 import { PlacePicker, type PlaceValue } from "@/components/shared/place-picker";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { savePublisher } from "@/lib/actions/publishers";
 import type { PublisherInput } from "@/lib/validations/publishers";
 import { PARENT_KIND, type HouseKind } from "@/lib/publishers/kinds";

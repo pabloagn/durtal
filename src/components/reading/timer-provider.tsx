@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { useAppSettings } from "@/lib/hooks/use-app-settings";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { discardTimer, getRunningTimer, pauseTimer, resumeTimer, startTimer } from "@/lib/actions/reading";
@@ -201,7 +201,7 @@ export function TimerProvider({ children, initial }: {
         toast.error("The timer is unavailable. Retry before changing it.");
         return;
       }
-      if (running) return running.readingId === target.readingId ? void toast.message(`The timer is running for ${running.title}`) : setConflict(target);
+      if (running) return running.readingId === target.readingId ? void toast.info(`The timer is running for ${running.title}`) : setConflict(target);
       try {
         await runMutation(async () => {
           await startTimer({ readingId: target.readingId, timeZone: browserZone() });
@@ -284,7 +284,7 @@ export function TimerProvider({ children, initial }: {
   );
   return <TimerContext.Provider value={value}>
     {children}
-    {availability === "unavailable" && <aside role="alert" data-timer-unavailable="" className="fixed bottom-4 right-4 z-50 rounded-sm bg-bg-secondary p-4 text-sm text-fg-primary">
+    {availability === "unavailable" && <aside role="alert" data-timer-unavailable="" data-toast-avoid="" className="fixed bottom-4 right-4 z-50 rounded-sm bg-bg-secondary p-4 text-sm text-fg-primary">
       <p>The timer is unavailable. Changes are disabled until it reconnects.</p>
       <button type="button" onClick={() => { void refresh().catch(() => undefined); }} className="mt-2 underline pointer-coarse:min-h-11">Retry timer</button>
     </aside>}

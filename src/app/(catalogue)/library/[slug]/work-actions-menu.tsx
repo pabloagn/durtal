@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { useOptionalReading } from "@/components/reading/reading-provider";
 import { ordinal } from "@/lib/reading/queue";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { firstPageHref } from "@/lib/utils/list-params";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Pencil, Plus, Search, Tags, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";

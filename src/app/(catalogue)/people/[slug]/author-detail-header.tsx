@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Copy, Check, Merge, Pencil, ImageIcon, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { AuthorEditDialog } from "./author-edit-dialog";
 import { AuthorMergeDialog } from "./author-merge-dialog";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";

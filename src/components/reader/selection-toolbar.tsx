@@ -203,6 +203,8 @@ export const SelectionToolbar = forwardRef<
       data-reader-chrome
       hidden={!selection || covered}
       data-docked={docked || undefined}
+      // Docked at the bottom, the toasts sit above it (AppToaster)
+      data-toast-avoid={docked && !dockTop ? "" : undefined}
       className={`glass fixed z-50 overflow-hidden text-sm text-fg-primary ${
         docked
           ? "inset-x-2 flex flex-col gap-0.5 p-0.5"

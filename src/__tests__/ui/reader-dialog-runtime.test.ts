@@ -11,7 +11,7 @@ const actions = vi.hoisted(() => ({ getReadingDialogData: vi.fn(), pauseReading:
 const rendered = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/actions/reading", () => actions);
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock("@/lib/notifications/toast", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock("@/components/reading/reading-dialog-host", () => ({
   ReadingDialogHost: ({ dialog, onClose }: ReadingDialogHostProps) => { rendered(dialog); return h("section", null,
     h("pre", { "data-request": "" }, JSON.stringify(dialog?.request)),

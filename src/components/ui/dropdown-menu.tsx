@@ -252,6 +252,16 @@ export function DropdownMenu({
             aria-label={label}
             popover="manual"
             className="glass dropdown-panel fixed z-50 overflow-hidden"
+            // Escape in the menu closes the menu only. Stopped here, before a
+            // panel or the page around it can take it as its own Escape (the
+            // reader's side panels close on any Escape inside them)
+            onKeyDown={(e) => {
+              if (e.key !== "Escape" || isComposing(e.nativeEvent)) return;
+              e.preventDefault();
+              e.stopPropagation();
+              setOpen(false);
+              triggerRef.current?.focus();
+            }}
           >
             <div className="dropdown-list overflow-y-auto overscroll-contain py-1">
               {children}

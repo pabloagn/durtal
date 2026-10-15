@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCheck, Trash2, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
 
@@ -67,16 +67,17 @@ export function SelectionToolbar({
     setIsDeleting(true);
     let deleted = 0;
     const ids = Array.from(selectedIds);
+    const progress = toast.pending(`Deleting ${ids.length} ${ids.length === 1 ? one : many}`);
     try {
       for (const id of ids) {
         await deleteOne(id);
         deleted++;
       }
-      toast.success(`${deleted} ${deleted === 1 ? one : many} deleted`);
+      progress.success(`${deleted} ${deleted === 1 ? one : many} deleted`);
       onExitSelection();
       router.refresh();
     } catch {
-      toast.error(`Deleted ${deleted} of ${ids.length} ${many} before error`);
+      progress.error(`Deleted ${deleted} of ${ids.length} ${many} before error`);
     } finally {
       setIsDeleting(false);
       setDeleteOpen(false);
@@ -86,7 +87,7 @@ export function SelectionToolbar({
   return (
     <>
       {/* On a narrow screen the bar wraps onto a second row and stays inside the screen (SLN-452) */}
-      <div className="glass fixed bottom-6 left-1/2 z-50 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-x-3 gap-y-3 px-4 py-2.5">
+      <div data-toast-avoid="" className="glass fixed bottom-6 left-1/2 z-50 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-x-3 gap-y-3 px-4 py-2.5">
         {/* Selection info */}
         <span className="whitespace-nowrap text-sm text-fg-secondary">
           <span className="font-mono text-fg-primary">{selectedCount}</span>{" "}

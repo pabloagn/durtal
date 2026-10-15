@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

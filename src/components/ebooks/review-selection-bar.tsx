@@ -13,7 +13,7 @@ export function ReviewSelectionBar({ selected, shown, onSelectAll, onClear, onFo
   rows?: readonly ReviewQueueRow[]; onBulk?: (action: ReviewBulkAction) => void;
 }) {
   if (!selected) return null;
-  return <div className="glass fixed inset-x-3 bottom-3 z-30 mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-2 rounded-md border border-glass-border px-4 py-3 shadow-lg"
+  return <div data-toast-avoid="" className="glass fixed inset-x-3 bottom-3 z-30 mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-2 rounded-md border border-glass-border px-4 py-3 shadow-lg"
     role="region" aria-label="Selected eBooks">
     <p className="text-sm">{selected} selected{selected > 50 && <span className="block text-xs text-fg-secondary">Next run covers the first 50 shown.</span>}</p>
     <div className="flex flex-wrap items-center gap-2">

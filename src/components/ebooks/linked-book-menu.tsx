@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { MoreHorizontal, Replace, Unlink } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useUnlinkEbook } from "./unlink-ebook-button";
 

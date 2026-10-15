@@ -33,8 +33,21 @@ export function SkeletonBlock({
  * type's class, such as `type-page-title` or `text-sm`), so the text below it
  * starts where it will.
  */
-export function SkeletonLine({ className = "" }: { className?: string }) {
-  return <div aria-hidden="true" className={`h-[1lh] rounded-sm bg-bg-secondary motion-safe:animate-pulse ${className}`} />;
+export function SkeletonLine({
+  className = "",
+  titleLength,
+}: {
+  className?: string;
+  /** A title line's step down on a phone, as `DetailTitleRow` marks it */
+  titleLength?: "short";
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      data-title-length={titleLength}
+      className={`h-[1lh] rounded-sm bg-bg-secondary motion-safe:animate-pulse ${className}`}
+    />
+  );
 }
 
 // The title line takes two thirds of the row where `DETAIL_TITLE_ROW` stops
@@ -61,8 +74,9 @@ export function SkeletonTitleRow({ row }: { row?: keyof typeof TITLE_LINE }) {
   if (row)
     return (
       <div className="@container">
-        <div className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW[row]}`}>
-          <SkeletonLine className={`type-page-title w-full min-w-0 ${TITLE_LINE[row]}`} />
+        <div data-title-length="short" className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW[row]}`}>
+          {/* Sized as a short title: under 375px that is one step down */}
+          <SkeletonLine titleLength="short" className={`type-page-title w-full min-w-0 ${TITLE_LINE[row]}`} />
           <div className="type-page-title flex h-[1lh] shrink-0 items-center">
             <SkeletonBlock className="h-8 w-40 pointer-coarse:h-11" />
           </div>
@@ -71,7 +85,7 @@ export function SkeletonTitleRow({ row }: { row?: keyof typeof TITLE_LINE }) {
     );
   return (
     <div className="flex items-start justify-between gap-3">
-      <SkeletonLine className="type-page-title w-1/2 sm:w-2/3" />
+      <SkeletonLine titleLength="short" className="type-page-title w-1/2 sm:w-2/3" />
       <div className="type-page-title flex h-[1lh] shrink-0 items-center">
         <SkeletonBlock className="h-8 w-18 pointer-coarse:w-24" />
       </div>
