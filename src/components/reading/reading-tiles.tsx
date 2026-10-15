@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, BookOpen, BookText, Headphones, Tablet } from "lucide-react";
+import { ArrowRight, BookText, Headphones, Tablet } from "lucide-react";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { CardHeading } from "@/components/shared/card-heading";
 import { ReaderEntryLink } from "@/components/reader/reader-entry-link";
@@ -17,6 +17,7 @@ import { GoalLine } from "./goal-card";
 import type { GoalProgress } from "@/lib/actions/reading-goals";
 import type { ReadingRef } from "./reading-dialogs-provider";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 
 /*
  * The reading lists that repeat (SLN-448): the dashboard's tiles, the finished
@@ -25,15 +26,19 @@ import { mediaUrl } from "@/lib/s3/media-url";
  * "/" stays within its 300 KB budget and a journal page of 48 rows within its.
  */
 
-/** A book's cover, or a book icon on the blank thumb; `icon={false}` leaves a tiny thumb blank; `eager` loads it at once (a page meant for print) */
-export function Cover({ s3Key, className, icon = true, eager = false }: { s3Key: string | null; className: string; icon?: boolean; eager?: boolean }) {
+/**
+ * A book's cover, or on the blank the title's letter, as on every other cover
+ * (`CoverLetter`); with no `title` the blank stays empty (the timer chip's
+ * tiny thumb). `eager` loads it at once (a page meant for print)
+ */
+export function Cover({ s3Key, className, title, eager = false }: { s3Key: string | null; className: string; title?: string; eager?: boolean }) {
   return (
-    <span className={`flex shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-tertiary ${className}`}>
+    <span className={`${COVER_BLANK} shrink-0 overflow-hidden rounded-sm bg-bg-tertiary ${className}`}>
       {s3Key ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={mediaUrl(s3Key)} alt="" loading={eager ? "eager" : "lazy"} decoding="async" className="h-full w-full object-cover" />
       ) : (
-        icon && <BookOpen className="h-4 w-4 text-fg-muted" strokeWidth={1.5} aria-hidden data-decorative="" />
+        title && <CoverLetter title={title} />
       )}
     </span>
   );
@@ -55,7 +60,7 @@ export function FinishedCovers({ reads, className }: { reads: FinishedItem[]; cl
     <div className={className}>
       {reads.map((read) => (
         <Link key={read.id} href={read.href} className="group block min-w-0" data-hub-finished={read.id}>
-          <Cover s3Key={read.cover} className="aspect-[2/3] w-full" />
+          <Cover s3Key={read.cover} title={read.title} className="aspect-[2/3] w-full" />
           <span className="block min-h-[1lh] [overflow-wrap:anywhere] mt-2 text-sm text-fg-primary transition-colors group-hover:text-accent-primary">{read.title}</span>
           {/* Stars, then the date: a narrow cover (six to a row) has no room for both on one line */}
           <span className="mt-1 flex h-5 items-center">
@@ -117,7 +122,7 @@ export function DashboardReading({
           {tiles.map((tile) => (
             <article key={tile.reading.readingId} className="@container flex gap-3 rounded-sm border border-glass-border bg-bg-secondary p-3 @xs:gap-4 @xs:p-4" data-dashboard-reading={tile.reading.readingId}>
               {/* A narrow card (a 320px phone) keeps its text column for the estimate */}
-              <Cover s3Key={tile.cover} className="aspect-[2/3] w-12 self-start @xs:w-20" />
+              <Cover s3Key={tile.cover} title={tile.title} className="aspect-[2/3] w-12 self-start @xs:w-20" />
               <div className="flex min-w-0 flex-1 flex-col">
                 {/* The full title wraps; the heading names the card */}
                 <CardHeading
@@ -192,7 +197,7 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
         return (
           // The cover starts on the title's first line, as in Up next, however far the title wraps
           <li key={row.reading.readingId} className="flex items-start gap-3 px-3 py-2" data-journal-row={row.reading.readingId}>
-            <Cover s3Key={row.cover} className="h-12 w-8" />
+            <Cover s3Key={row.cover} title={row.title} className="h-12 w-8" />
             <div className="min-w-0 flex-1">
               {/* The title names the row; its marks and menu sit on its first line, as in Up next */}
               <div className="flex gap-3 text-sm">

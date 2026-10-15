@@ -154,7 +154,7 @@ describe("search panel delivery and keyboard ownership", () => {
       true,
     );
   });
-  it("moves off a hit it would cover, and names the query when nothing matches", async () => {
+  it("stays on its side as hits are picked, and names the query when nothing matches", async () => {
     vi.stubGlobal("innerWidth", 1280);
     let complete = true;
     const search = vi.fn(async function* (): AsyncGenerator<SearchUpdate> {
@@ -162,12 +162,11 @@ describe("search panel delivery and keyboard ownership", () => {
       yield { kind: "complete", capped: false, count: complete ? 1 : 0 };
     });
     const engine = { search, currentLocator: () => null, setDecorations: vi.fn() } as unknown as ReaderEngine;
-    let rect = { left: 84, right: 133 };
     const render = () =>
       root.render(
         createElement(SearchPanel, {
           open: true, engine, language: "en", onJump: vi.fn(async () => true),
-          onClose: vi.fn(), onOpen: vi.fn(), hitRect: () => rect,
+          onClose: vi.fn(), onOpen: vi.fn(),
         }),
       );
     await act(async () => render());
@@ -183,13 +182,9 @@ describe("search panel delivery and keyboard ownership", () => {
     };
     const side = () => host.querySelector("dialog")?.style.right === "0px" ? "right" : "left";
     await type("text");
-    // A hit under the left drawer sends it right; one under the right drawer sends it back
-    expect(side()).toBe("right");
-    rect = { left: 1100, right: 1150 };
-    await act(async () => host.querySelector<HTMLButtonElement>("[data-hit]")!.click());
+    // On a wide screen the book insets beside the drawer (SLN-728): no hit
+    // is under it, so picking one never moves the drawer
     expect(side()).toBe("left");
-    // A hit clear of the drawer leaves it where it is
-    rect = { left: 600, right: 650 };
     await act(async () => host.querySelector<HTMLButtonElement>("[data-hit]")!.click());
     expect(side()).toBe("left");
     complete = false;

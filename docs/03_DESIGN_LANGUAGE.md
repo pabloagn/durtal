@@ -361,6 +361,7 @@ A card never shows an empty box. `src/components/shared/no-photo.tsx` holds one 
 - Author with books: up to three of their covers, fanned (`CoverFan`). Author with no books: initials in the serif (`Monogram`).
 - Place: a label with its kind and city in small capitals, a rule, and its street in the serif (`PlacePlate`).
 - Series with no book yet: a shelf of spines, one per known volume (`ShelfSpines`).
+- Book (or film, perfume, painting) with no cover, wherever its cover box shows (cards, the reading lists, a collection's items, an edition, a reading): the title's first letter in the serif, faint, on the `bg-tertiary` blank (`CoverLetter`, `src/components/books/cover-letter.tsx`). The letter keeps to the type scale as the box grows: 14px in a thumbnail, 21px from 56px wide, 38px from 120px. Only the timer chip's tiny thumb stays blank.
 - While an image loads, its frame shows the poster's main color, dimmed, and the image fades in (`FadeImage`, `coverToneStyle`).
 
 ### Reading timer chip

@@ -1,6 +1,7 @@
 "use client";
 
 import { CopyBookButton } from "./copy-book-button";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -65,9 +66,8 @@ interface BookCardProps {
 
 export function CoverPlaceholder({ letter }: { letter: string }) {
   return (
-    <div className="flex h-full items-center justify-center">
-      {/* Decoration: the title is in the card's text */}
-      <span aria-hidden="true" data-decorative className="font-serif text-3xl text-fg-muted/30">{letter}</span>
+    <div className={`h-full ${COVER_BLANK}`}>
+      <CoverLetter title={letter} />
     </div>
   );
 }

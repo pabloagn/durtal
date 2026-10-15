@@ -302,6 +302,52 @@ describe.skipIf(!url)("library filters with PostgreSQL", () => {
     }
   });
 
+  // SLN-765: titles, series and publishers fold accents, case and
+  // punctuation as author names do, and every plain match stays
+  it("finds titles, series and publishers whatever their accents", async () => {
+    const withEdition = async (title: string, { series = null as string | null, publisher = null as string | null } = {}) => {
+      const id = await book(title, { seriesName: series });
+      const ed = await value(`insert into editions(work_id, title, language, publisher) values ($1, 'E', 'fr', $2) returning id`, [id, publisher]);
+      return { id, ed };
+    };
+    await withEdition("À rebours", { publisher: "Éditions de Minuit" });
+    await withEdition("L'Œuvre", { series: "Les Rougon-Macquart" });
+    const labas = await withEdition("Là-bas");
+    const nana = await withEdition("Nana");
+    await withEdition("100% Pure");
+    await withEdition("Unrelated");
+    const cycle = await value(`insert into series(title, slug) values ('Cycle de Durtal', 'cycle-de-durtal') returning id`);
+    await q(`update works set series_id = $1 where id = $2`, [cycle, labas.id]);
+    const house = await value(`insert into publishing_houses(name, slug) values ('Éditions Gallimard', 'gallimard') returning id`);
+    await q(`insert into publisher_aliases(publisher_id, name) values ($1, 'Librairie Générale Française')`, [house]);
+    await q(`insert into edition_publishers(edition_id, publisher_id) values ($1, $2)`, [nana.ed, house]);
+
+    const found = async (search: string) => {
+      const list = (await getWorks({ search, sort: "title", limit: 100 })).map((w) => w.title).sort();
+      expect(await getWorkCount(search)).toBe(list.length);
+      return list;
+    };
+    // Title, without its accents or in capitals, and as typed
+    expect(await found("a rebours")).toEqual(["À rebours"]);
+    expect(await found("A REBOURS")).toEqual(["À rebours"]);
+    expect(await found("À rebours")).toEqual(["À rebours"]);
+    expect(await found("l oeuvre")).toEqual(["L'Œuvre"]);
+    expect(await found("la bas")).toEqual(["Là-bas"]);
+    // Series name and series record
+    expect(await found("rougon macquart")).toEqual(["L'Œuvre"]);
+    expect(await found("cycle de durtal")).toEqual(["Là-bas"]);
+    // Publisher text, the publisher record and its alias
+    expect(await found("editions de minuit")).toEqual(["À rebours"]);
+    expect(await found("minuit")).toEqual(["À rebours"]);
+    expect(await found("editions gallimard")).toEqual(["Nana"]);
+    expect(await found("librairie generale")).toEqual(["Nana"]);
+    // Punctuation is still matched as typed, and alone it does not match everything
+    expect(await found("100%")).toEqual(["100% Pure"]);
+    expect(await found("%")).toEqual(["100% Pure"]);
+    expect(await found("—")).toEqual([]);
+    expect(await found("nothing like this")).toEqual([]);
+  });
+
   it("refuses filters the browser sends back that the page would not have parsed", async () => {
     await expect(getWorksForTimeline({ filters: { colors: ["teal" as "red"] } })).rejects.toThrow();
     await expect(getWorksForTimeline({ filters: { locationIds: ["not-an-id"] } })).rejects.toThrow();

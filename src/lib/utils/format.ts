@@ -87,3 +87,8 @@ export function formatDate(dateStr: string | null): string | null {
   // Year only or fallback
   return dateStr;
 }
+
+/** How many of a list's books can be read here: "1 available as an eBook", "3 available as eBooks" */
+export function ebooksAvailableText(count: number): string {
+  return `${count.toLocaleString("en")} available as ${count === 1 ? "an eBook" : "eBooks"}`;
+}

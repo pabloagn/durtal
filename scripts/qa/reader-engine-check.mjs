@@ -96,7 +96,7 @@ const option = (name, fallback) => {
 const base = option("--base", "http://127.0.0.1:3410").replace(/\/$/, "");
 const previewState = option("--preview-state", undefined);
 const browsers = option("--browsers", "chromium,webkit,firefox").split(",");
-const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "clear", "pointer", "dialogs", "navigation", "pdfmarks", "turns", "endurance"];
+const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "clear", "pointer", "dialogs", "drawers", "navigation", "pdfmarks", "turns", "endurance"];
 // endurance needs the large fixtures: it runs only when asked for
 const only = option("--only", CHECKS.filter((c) => c !== "endurance").join(",")).split(",");
 
@@ -429,6 +429,34 @@ async function checkDirection(name, browser) {
     await page.close();
   }
   await context.close();
+}
+
+/**
+ * Sets (or with null clears) a seeded book's own flow, as Reading settings
+ * would for this book on every device. Call it after resetFixturePosition,
+ * which opens the preview's guarded database bridge.
+ */
+async function setFixtureFlow(n, flow) {
+  await previewBridge;
+  const fixture = FIXTURES.find((item) => item.n === n);
+  const fileId = `00000000-0000-4000-a000-f${String(n).padStart(11, "0")}`;
+  const response = await fetch("http://127.0.0.1/sql", {
+    method: "POST",
+    body: JSON.stringify({
+      query: `with fixture as (
+        select e.id from ebooks e join ebook_files f on f.ebook_id = e.id
+        where e.id = $1::uuid and e.authors = ARRAY['Durtal Fixtures']::text[]
+          and f.id = $2::uuid and f.original_filename = $3
+      ), cleared as (
+        delete from reader_preferences p using fixture f where p.ebook_id = f.id returning p.id
+      ) insert into reader_preferences (device_class, ebook_id, presentation)
+        select d, f.id, jsonb_build_object('flow', $4::text) from fixture f,
+          unnest(ARRAY['phone', 'tablet', 'desktop']) d
+        where $4::text is not null`,
+      params: [ebook(n), fileId, fixture.file, flow],
+    }),
+  });
+  if (!response.ok) throw new Error("Synthetic fixture flow change failed");
 }
 
 const isSave = (n) => (response) =>
@@ -1186,6 +1214,77 @@ async function checkDialogs(name, browser) {
   await context.close();
 }
 
+/** SLN-728: from 1024px up the book stands beside an open drawer */
+async function checkDrawers(name, browser) {
+  // Reopened near a chapter's end, the chapters before it re-lay out after
+  // each resize: three drawers opened and closed keep the same first words
+  await resetFixturePosition(1);
+  const context = await browser.newContext(desktop);
+  let page = await context.newPage();
+  let s = await open(page, 1);
+  await page.mouse.click(720, 450);
+  for (let i = 0; i < 16; i++) {
+    await page.keyboard.press("ArrowRight");
+    s = await moved(page, s.fraction);
+  }
+  await page.waitForResponse(isSave(1), { timeout: 10_000 }).catch(() => null);
+  await page.close();
+  page = await context.newPage();
+  s = await open(page, 1);
+  await page.mouse.click(720, 450);
+  for (let i = 0; i < 4; i++) {
+    await page.keyboard.press("ArrowRight");
+    s = await moved(page, s.fraction);
+  }
+  const start = await settled(page);
+  const insets = [];
+  let now = start;
+  for (let round = 0; round < 3; round++) {
+    await page.keyboard.press("t");
+    await page.waitForSelector("dialog[open][data-reader-side-panel]", { timeout: 3000 }).catch(() => {});
+    await settled(page);
+    insets.push(await page.evaluate(() => document.getElementById("reader-book")?.style.left ?? null));
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector("dialog[open][data-reader-side-panel]"), null, { timeout: 3000 }).catch(() => {});
+    now = await settled(page);
+    if (now.first !== start.first) break;
+  }
+  const back = await page.evaluate(() => document.getElementById("reader-book")?.style.left ?? null);
+  record(name, "drawers", "1440: Contents insets the book, and three opened and closed keep the place at a chapter's end",
+    insets.length > 0 && insets.every((left) => left === "360px") && back === "0px" && now.first === start.first,
+    `insets ${insets.join(", ")} then ${back}; "${start.first}" -> "${now.first}"`);
+  await context.close();
+
+  // Scrolled, at the next chapter's start with the end of the one before
+  // still on screen: the place is in the second chapter, and the reflow
+  // beside the drawer keeps it there
+  await resetFixturePosition(5);
+  await setFixtureFlow(5, "scrolled");
+  const scrolled = await browser.newContext({ viewport: { width: 1024, height: 900 } });
+  try {
+    page = await scrolled.newPage();
+    s = await open(page, 5);
+    await page.mouse.click(512, 450);
+    for (let i = 0; i < 8 && s.index < 1; i++) {
+      await page.keyboard.press("PageDown");
+      await sleep(700);
+      s = await settled(page);
+    }
+    await page.keyboard.press("t");
+    await page.waitForSelector("dialog[open][data-reader-side-panel]", { timeout: 3000 }).catch(() => {});
+    const beside = await settled(page);
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector("dialog[open][data-reader-side-panel]"), null, { timeout: 3000 }).catch(() => {});
+    const after = await settled(page);
+    record(name, "drawers", "1024, scrolled: Contents opened and closed at a chapter's start keeps the place",
+      s.index === 1 && beside.first === s.first && after.first === s.first,
+      `"${s.first}" -> "${beside.first}" -> "${after.first}"`);
+  } finally {
+    await scrolled.close();
+    await setFixtureFlow(5, null);
+  }
+}
+
 // The large fixtures of preview-local.py --reader-large
 const LARGE = [
   { n: 15, name: "50 MB illustrated EPUB" },
@@ -1398,6 +1497,7 @@ const RUN = {
   bars: checkBars,
   pointer: checkPointer,
   dialogs: checkDialogs,
+  drawers: checkDrawers,
   navigation: async (name, browser) => {
     for (const width of WIDTHS) {
       const context = await browser.newContext(width === 390 ? phone(name) : { viewport: { width, height: 900 } });

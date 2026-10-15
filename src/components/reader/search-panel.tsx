@@ -40,8 +40,6 @@ function noMatches(query: string, options: SearchOptions) {
   return `${named} ${list} ${on.length === 1 ? "is" : "are"} on; turning ${on.length === 1 ? "it" : "them"} off may find more.`;
 }
 
-/** The drawer's width on a wide screen (`ReaderSidePanel`) */
-const PANEL_WIDTH = 360;
 const order = (a: SearchHit, b: SearchHit) =>
   a.locator.sectionIndex - b.locator.sectionIndex || a.start - b.start;
 
@@ -54,7 +52,6 @@ export function SearchPanel({
   onOpen,
   onJump,
   places,
-  hitRect,
   escapeRef,
   onDockHeight,
 }: {
@@ -66,8 +63,6 @@ export function SearchPanel({
   onClose(): void;
   onOpen(): void;
   onJump(locator: DurtalLocator, hit: SearchHit): Promise<unknown>;
-  /** Where a hit sits on screen once it is painted, so the panel can move off it */
-  hitRect?(locator: DurtalLocator): { left: number; right: number } | null;
   /** The reader's Esc, once the panel is closed: true when it ended the search */
   escapeRef?: MutableRefObject<(() => boolean) | null>;
   /** The results bar's height while it stands in the bottom bar's place, else 0 */
@@ -86,7 +81,6 @@ export function SearchPanel({
   const [progress, setProgress] = useState(0);
   const [limit, setLimit] = useState(200);
   const [engaged, setEngaged] = useState(false);
-  const [side, setSide] = useState<"left" | "right">("left");
   const [ran, setRan] = useState<{ query: string; options: SearchOptions }>({ query: "", options });
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -99,11 +93,9 @@ export function SearchPanel({
   const sorted = useMemo(() => [...hits].sort(order), [hits]);
   const current = sorted.findIndex((hit) => hit.id === active);
   const onJumpRef = useRef(onJump);
-  const hitRectRef = useRef(hitRect);
   useEffect(() => {
     onJumpRef.current = onJump;
-    hitRectRef.current = hitRect;
-  }, [onJump, hitRect]);
+  }, [onJump]);
   useEffect(() => {
     if (!open) return;
     const frame = requestAnimationFrame(() => {
@@ -156,16 +148,9 @@ export function SearchPanel({
         keep(bar.current);
         return;
       }
+      // On a wide screen the panel stays open and the book stands beside it,
+      // so no hit is ever under it (SLN-728)
       keep(origin?.closest("[data-reader-search], [data-reader-search-bar]") ?? null);
-      // The open panel never covers the hit: it moves to the other side (SLN-675)
-      const rect = hitRectRef.current?.(hit.locator);
-      if (!rect) return;
-      const reach = PANEL_WIDTH + 16;
-      setSide((current) =>
-        current === "left"
-          ? rect.left < reach && rect.right <= window.innerWidth - reach ? "right" : "left"
-          : rect.right > window.innerWidth - reach && rect.left >= reach ? "left" : "right",
-      );
     },
     [onClose],
   );
@@ -317,7 +302,7 @@ export function SearchPanel({
                 : noMatches(ran.query, ran.options);
   return (
     <>
-      <ReaderSidePanel open={open} title="Search in book" onClose={onClose} side={side}>
+      <ReaderSidePanel open={open} title="Search in book" onClose={onClose}>
         <div className="space-y-3 px-2" data-reader-search data-reader-widget>
           <form
             className="flex items-start gap-2"
