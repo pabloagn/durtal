@@ -11,6 +11,8 @@ let root: Root;
 let host: HTMLElement;
 const wait = (ms: number) => act(() => new Promise((resolve) => setTimeout(resolve, ms)));
 const tooltip = () => document.getElementById("app-tooltip");
+/** Tab went down: the focus that follows is the reader's own */
+const tab = () => act(() => void window.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" })));
 
 beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -60,6 +62,7 @@ function row(title: string, cut: boolean) {
 it("shows a cut title in full when its link takes keyboard focus", async () => {
   const title = "Ada or Ardor: A Family Chronicle, Being the Complete and Unabridged Text";
   const link = row(title, true);
+  tab();
   act(() => link.focus());
   await wait(20);
   expect(tooltip()?.hasAttribute("data-open")).toBe(true);
@@ -72,6 +75,7 @@ it("shows a cut title in full when its link takes keyboard focus", async () => {
 
 it("shows nothing for a title that fits", async () => {
   const link = row("Ada", false);
+  tab();
   act(() => link.focus());
   await wait(20);
   expect(tooltip()?.hasAttribute("data-open")).toBe(false);
@@ -91,6 +95,7 @@ it("keeps a fact's full text when focus nudges its cut line", async () => {
   link.textContent = title;
   value.append(link, " · 20 days from start to finish");
   document.body.append(value);
+  tab();
   act(() => link.focus());
   // The browser scrolls the clipped line to show the focused link
   act(() => void value.dispatchEvent(new Event("scroll")));

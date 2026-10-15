@@ -46,15 +46,20 @@ const escape = (target: Element) => {
   return event;
 };
 const tooltipText = () => document.getElementById("app-tooltip")?.textContent ?? "";
+/** Tab went down: the focus that follows is the reader's own */
+const tab = () => act(() => void window.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" })));
 
 describe("keyboard tooltip", () => {
-  function renderWithButton() {
+  function renderWithButton(inDialog = false) {
+    const controls = [
+      createElement("button", { key: "b", type: "button", "data-tooltip": "Expand", id: "first" }, "x"),
+      createElement("input", { key: "i", id: "field" }),
+    ];
     act(() =>
       root.render(
         createElement("div", null,
           createElement(TooltipLayer),
-          createElement("button", { type: "button", "data-tooltip": "Expand", id: "first" }, "x"),
-          createElement("input", { id: "field" }),
+          inDialog ? createElement("dialog", { open: true }, controls) : controls,
         ),
       ),
     );
@@ -78,10 +83,30 @@ describe("keyboard tooltip", () => {
 
   it("still shows on keyboard focus, and Escape closes it first", async () => {
     const { button } = renderWithButton();
+    tab();
     act(() => button.focus());
     await wait();
     expect(tooltipText()).toContain("Expand");
     expect(escape(button).defaultPrevented).toBe(true);
+    expect(tooltipText()).toBe("");
+  });
+
+  it("does not show for focus the app moves itself, after the key that opened a dialog", async () => {
+    const { button } = renderWithButton(true);
+    act(() => void window.dispatchEvent(new KeyboardEvent("keydown", { key: "t" })));
+    act(() => button.focus());
+    await wait();
+    expect(tooltipText()).toBe("");
+    expect(escape(button).defaultPrevented).toBe(false);
+  });
+
+  it("in a dialog, one Escape closes the tooltip and reaches the dialog", async () => {
+    const { button } = renderWithButton(true);
+    tab();
+    act(() => button.focus());
+    await wait();
+    expect(tooltipText()).toContain("Expand");
+    expect(escape(button).defaultPrevented).toBe(false);
     expect(tooltipText()).toBe("");
   });
 });

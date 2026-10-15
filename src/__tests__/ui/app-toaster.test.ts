@@ -59,7 +59,9 @@ describe("the app's toasts", () => {
     expect(crosses[0].textContent).toBe("");
     expect(crosses[0].querySelector("svg")).not.toBeNull();
 
-    // Sonner takes no attribute for its cross: its label is its tooltip
+    // Sonner takes no attribute for its cross: its label is its tooltip.
+    // Tab reaches it (a focus that follows no key shows no tooltip)
+    act(() => void window.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" })));
     act(() => crosses[0].focus());
     await wait(20);
     expect(document.getElementById("app-tooltip")?.textContent).toContain("Dismiss");
