@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, ImageIcon, Loader2 } from "lucide-react";
+import { ChevronRight, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -217,8 +217,7 @@ export function EditionCoverDialog({ edition, poster }: EditionCoverDialogProps)
                   disabled={urlBusy}
                   className="flex-1"
                 />
-                <Button type="submit" size="sm" variant="secondary" disabled={urlBusy || !url.trim()}>
-                  {urlBusy && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
+                <Button type="submit" size="sm" variant="secondary" busy={urlBusy} disabled={!url.trim()}>
                   Add
                 </Button>
               </form>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { SlidersHorizontal, Lock, Loader2 } from "lucide-react";
+import { SlidersHorizontal, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -288,10 +288,11 @@ function LoadedEditor({
               type="button"
               size="sm"
               variant="primary"
-              disabled={!dirty || saving}
+              busy={saving}
+              disabled={!dirty}
               onClick={save}
             >
-              {saving && <Loader2 className="h-3 w-3 animate-spin" />}Save
+Save
             </Button>
           </div>
         </div>

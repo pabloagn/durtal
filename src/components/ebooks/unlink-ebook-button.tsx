@@ -25,7 +25,7 @@ export function useUnlinkEbook(ebookId: string): {
 export function UnlinkEbookButton({ ebookId }: { ebookId: string }) {
   const unlink = useUnlinkEbook(ebookId);
   return <>
-    <Button size="sm" variant="ghost" disabled={unlink.busy} onClick={() => void unlink.open()}><Unlink aria-hidden strokeWidth={1.5} />{unlink.loading ? "Loading link…" : "Unlink…"}</Button>
+    <Button size="sm" variant="ghost" busy={unlink.loading} disabled={unlink.busy} onClick={() => void unlink.open()}><Unlink aria-hidden strokeWidth={1.5} />Unlink…</Button>
     {unlink.error && <p role="alert" className="mt-1 text-xs text-accent-red-text">{unlink.error}</p>}
   </>;
 }

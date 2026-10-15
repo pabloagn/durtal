@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,13 +107,9 @@ export function LocationActions() {
               variant="primary"
               size="sm"
               onClick={handleSubmit}
-              disabled={isPending}
+              busy={isPending}
             >
-              {isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                "Create"
-              )}
+              Create
             </Button>
           </div>
         </div>

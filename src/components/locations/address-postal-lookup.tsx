@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Search, Loader2 } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -133,14 +133,10 @@ export function AddressPostalLookup({ value, onChange }: AddressPostalLookupProp
           variant="secondary"
           size="md"
           onClick={handleLookup}
-          disabled={isPending}
+          busy={isPending}
           className="mb-[1px]"
         >
-          {isPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
-          ) : (
-            <Search className="h-3.5 w-3.5" strokeWidth={1.5} />
-          )}
+          <Search className="h-3.5 w-3.5" strokeWidth={1.5} />
           Look up
         </Button>
       </div>
