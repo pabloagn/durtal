@@ -171,7 +171,7 @@ only those drawn:
    date. One client component with small props (`DashboardReading`,
    `src/components/reading/reading-tiles.tsx`), as Recent people is
    (`RecentPeopleGrid`), so "/" stays within its 300 KB budget.
-2. **Recent additions** (`#recent`): the 8 newest records across the open
+2. **Recent additions** (`#recent`): the 10 newest records across the open
    collections, newest first. A book shows as its book card; other records as
    a `DomainTileCard`.
 3. **Statistics**: the place for SLN-742's section.
@@ -180,6 +180,13 @@ only those drawn:
    people** (`#people`): book sections.
 
 **Statistics** (SLN-742): pages on the shelves, languages, authors' countries and the share read, then when the books were written (years or decades), with "View all" to `/statistics`. Its body (`DashboardStatistics`, `src/components/statistics/dashboard-statistics.tsx`) loads in its own Suspense boundary; the dashboard draws the section and its heading.
+
+The card shelves (Recent additions, Collections, Highest rated, Wanted, Recent
+people) end on a full row (`PhonePairGrid`): a shelf takes 10 books (12
+people), two full rows at five columns, and at another column count the
+cards that would sit alone on a last row are left out. A shelf no longer than
+one row keeps all its cards. `getLibraryStats` takes the shelf size; the API
+keeps 8.
 
 ### Statistics (`/statistics`)
 

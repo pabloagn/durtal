@@ -438,6 +438,43 @@ dialog::backdrop {
   gap: 16px;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 208px), 1fr));
 }
+/* A shelf that ends on a full row (PhonePairGrid): at each column count the
+   grid makes, the cards that would sit alone on a last row are left out.
+   data-rem-N says how many, for N columns (fullRowAttributes). The bands
+   are catalogue-grid's: N columns from N x 208px plus the gaps. On a phone's
+   touch screen, Compact makes two columns at any width from 328px. */
+@media (not (pointer: coarse)) or (min-width: 768px) {
+  @container (432px <= width < 656px) {
+    .full-rows[data-rem-2="1"] > :nth-last-child(-n + 1) { display: none; }
+  }
+  @container (656px <= width < 880px) {
+    .full-rows[data-rem-3="1"] > :nth-last-child(-n + 1),
+    .full-rows[data-rem-3="2"] > :nth-last-child(-n + 2) { display: none; }
+  }
+  @container (880px <= width < 1104px) {
+    .full-rows[data-rem-4="1"] > :nth-last-child(-n + 1),
+    .full-rows[data-rem-4="2"] > :nth-last-child(-n + 2),
+    .full-rows[data-rem-4="3"] > :nth-last-child(-n + 3) { display: none; }
+  }
+  @container (1104px <= width < 1328px) {
+    .full-rows[data-rem-5="1"] > :nth-last-child(-n + 1),
+    .full-rows[data-rem-5="2"] > :nth-last-child(-n + 2),
+    .full-rows[data-rem-5="3"] > :nth-last-child(-n + 3),
+    .full-rows[data-rem-5="4"] > :nth-last-child(-n + 4) { display: none; }
+  }
+  @container (width >= 1328px) {
+    .full-rows[data-rem-6="1"] > :nth-last-child(-n + 1),
+    .full-rows[data-rem-6="2"] > :nth-last-child(-n + 2),
+    .full-rows[data-rem-6="3"] > :nth-last-child(-n + 3),
+    .full-rows[data-rem-6="4"] > :nth-last-child(-n + 4),
+    .full-rows[data-rem-6="5"] > :nth-last-child(-n + 5) { display: none; }
+  }
+}
+@media (pointer: coarse) and (max-width: 767px) {
+  @container (width >= 328px) {
+    .full-rows[data-rem-2="1"] > :nth-last-child(-n + 1) { display: none; }
+  }
+}
 @utility carousel-card {
   display: flex;
   flex-direction: column;
