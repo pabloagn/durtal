@@ -25,13 +25,16 @@ describe("an empty collection", () => {
     const controls = source("components/collections/collection-controls.tsx");
     expect(controls).toMatch(/export function AddToCollectionButton[\s\S]*?dispatchEvent\(new CustomEvent\(ADD_EVENT\)\)/);
     expect(controls).toMatch(/addEventListener\(ADD_EVENT, onAdd\)/);
-    expect(controls).toMatch(/const onAdd = \(\) => setAdd\(true\)/);
+    // From the header's Add, which outlives the empty state, so focus has
+    // somewhere to return after an add
+    expect(controls).toMatch(/const onAdd = \(\) => \{\s*addButton\.current\?\.focus\(\);\s*setAdd\(true\);/);
+    expect(controls).toMatch(/<Button ref=\{addButton\}/);
   });
 });
 
 describe("an empty publisher's Books section", () => {
-  it("offers to add a book", () => {
+  it("offers to add a book, unless its Review line is the next step", () => {
     const page = source("app/(catalogue)/publishers/[slug]/page.tsx");
-    expect(page).toMatch(/title="No books yet"[\s\S]*?action=\{\s*<Link href="\/library\/new"[\s\S]*?Add a book/);
+    expect(page).toMatch(/title="No books yet"[\s\S]*?action=\{suggested\.editions > 0 \? undefined : <DomainAddLink kind="book" size="md" \/>\}/);
   });
 });

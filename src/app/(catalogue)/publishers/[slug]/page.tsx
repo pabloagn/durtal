@@ -26,7 +26,7 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { Prose } from "@/components/shared/prose";
 import { NoResults } from "@/components/shared/no-results";
 import { EmptyState } from "@/components/ui/empty-state";
-import { buttonClass } from "@/components/ui/button";
+import { DomainAddLink } from "@/components/domains/domain-add-link";
 import {
   DetailColumns,
   RecordField,
@@ -316,11 +316,7 @@ export default async function PublisherPage({
               icon={Library}
               title="No books yet"
               description={`No edition in the catalogue names ${p.name} as its publisher.`}
-              action={
-                <Link href="/library/new" className={buttonClass("secondary")}>
-                  Add a book
-                </Link>
-              }
+              action={suggested.editions > 0 ? undefined : <DomainAddLink kind="book" size="md" />}
             />
           )}
         </section>
