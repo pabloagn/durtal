@@ -204,7 +204,7 @@ function LoadedEditor({
           ariaLabel="Adjustments"
           disabled={saving}
         />
-        <div className="space-y-3 pointer-coarse:space-y-0">
+        <div className="space-y-4 pointer-coarse:space-y-0">
           {available
             .filter((control) => control.group === shown)
             .map((control) => {
@@ -230,7 +230,10 @@ function LoadedEditor({
                     max={control.max}
                     step={control.step}
                     value={value}
-                    className="crop-range-slider w-full"
+                    // A block, so no line box adds space above it; with a mouse the
+                    // 14px thumb needs room under the label, on touch the 44px
+                    // slider holds it
+                    className="crop-range-slider mt-2.5 block w-full pointer-coarse:mt-0"
                     onChange={(event) => {
                       const next = Number(event.target.value);
                       if (control.key in settings)
