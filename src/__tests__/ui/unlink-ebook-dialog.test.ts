@@ -8,6 +8,8 @@ const api = vi.hoisted(() => ({ prepareReviewUnlinkUi: vi.fn(), confirmReviewUnl
 const review = vi.hoisted(() => ({ readReviewStampUi: vi.fn(), prepareReviewUi: vi.fn(), confirmReviewUi: vi.fn(), undoReviewUi: vi.fn() }));
 vi.mock("@/lib/actions/ebook-review-unlink-ui", () => api);
 vi.mock("@/lib/actions/ebook-review-ui", () => review);
+const nav = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: nav.push }) }));
 vi.mock("@/components/ui/dialog", () => ({ Dialog: ({ children, onClose }: { children: ReactNode; onClose: () => void }) =>
   createElement("div", { role: "dialog" }, children, createElement("button", { onClick: onClose }, "Dismiss")) }));
 import { UnlinkEbookDialog, removedWords } from "@/components/ebooks/unlink-ebook-dialog";
@@ -100,7 +102,7 @@ describe("actual automatic Undo and fresh Unlink dialog", () => {
     await click("Unlink and choose");
     expect(callbacks.onCommitted).toHaveBeenCalledWith(unlinkOutcome()); expect(callbacks.onClose).toHaveBeenCalledOnce();
     expect(review.prepareReviewUi).not.toHaveBeenCalled();
-    expect(chooseBookNext.take(ebookId)).toBe(true); expect(chooseBookNext.take(ebookId)).toBe(false);
+    expect(chooseBookNext.take(ebookId)).toEqual({ workId: null }); expect(chooseBookNext.take(ebookId)).toBe(false);
   });
   it("offers choosing a new book only from \"Change the book…\"", async () => {
     await act(async () => root.render(createElement(UnlinkEbookDialog, { key: "plain", target: unlinkTarget, initialMode: "unlink", ...callbacks })));
@@ -113,6 +115,31 @@ describe("actual automatic Undo and fresh Unlink dialog", () => {
     expect(unlink.dataset.variant).toBe("danger");
     expect(unlink.dataset.shortcut).toBe("save");
     expect(host.querySelectorAll('button[data-variant="primary"]')).toHaveLength(0);
+  });
+  it("offers Link it back after an unlink that keeps its book, opening the eBook's page on that book (SLN-684)", async () => {
+    const target = { ...unlinkTarget, book: { workId: "88888888-8888-4888-8888-888888888888", title: "Nadja (book)" } };
+    await act(async () => root.render(createElement(UnlinkEbookDialog, { key: "back", target, initialMode: "unlink", ...callbacks })));
+    api.prepareReviewUnlinkUi.mockResolvedValueOnce({ ok: true, value: preparedUnlink("unlink") });
+    await click("Check what changes");
+    expect(host.textContent).toContain("Afterwards, Link it back chooses “Nadja (book)” again.");
+    expect([...host.querySelectorAll("button")].some((item) => item.textContent === "Link it back")).toBe(false);
+    await click("Unlink"); await click("Link it back");
+    expect(callbacks.onClose).toHaveBeenCalledOnce(); expect(nav.push).toHaveBeenCalledWith(`/ebooks/${ebookId}`);
+    expect(chooseBookNext.take(ebookId)).toEqual({ workId: "88888888-8888-4888-8888-888888888888" });
+  });
+  it("offers no Link it back when the unlink removes the book, or the book is unknown", async () => {
+    const target = { ...unlinkTarget, book: { workId: "88888888-8888-4888-8888-888888888888", title: "Nadja (book)" } };
+    await act(async () => root.render(createElement(UnlinkEbookDialog, { key: "gone", target, initialMode: "unlink", ...callbacks })));
+    const removing = preparedUnlink("unlink");
+    api.prepareReviewUnlinkUi.mockResolvedValueOnce({ ok: true, value: { ...removing, preview: { ...removing.preview, deleted: { ...removing.preview.deleted, books: 1 } } } });
+    await click("Check what changes");
+    expect(host.textContent).toContain("To link it again, choose its book in the review queue.");
+    await click("Unlink");
+    expect([...host.querySelectorAll("button")].some((item) => item.textContent === "Link it back")).toBe(false);
+    await act(async () => root.render(createElement(UnlinkEbookDialog, { key: "unknown", target: unlinkTarget, initialMode: "unlink", ...callbacks })));
+    api.prepareReviewUnlinkUi.mockResolvedValueOnce({ ok: true, value: preparedUnlink("unlink") });
+    await click("Check what changes"); await click("Unlink");
+    expect([...host.querySelectorAll("button")].some((item) => item.textContent === "Link it back")).toBe(false);
   });
   it("names what an unlink removes in words, leaving out what it keeps", () => {
     expect(removedWords({ copies: 1, editions: 1, books: 0, authors: 0, series: 0 })).toBe("1 copy and 1 edition");
