@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { Suspense, act, createElement, use, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { ListPendingProvider, ListPendingSwap, useListBusy, useListNavigate } from "@/components/shared/list-pending";
+import { ActiveFilters, type ActiveFilterChip } from "@/components/shared/active-filters";
 
 // A search marks its list busy from the first key until the new results are
 // in, with the books list's own wait (SLN-753)
@@ -104,5 +105,77 @@ describe("ListPendingSwap", () => {
     }
     act(() => root.render(createElement(Plain)));
     expect(ran).toBe(true);
+  });
+});
+
+// Removing a filter chip hands focus on rather than dropping it to the page
+// (SLN-838): to the next chip, the previous one when it was the last, and the
+// Filter button (or the search field) when none is left
+describe("focus after a filter chip goes", () => {
+  const CHIPS: ActiveFilterChip[] = ["French", "German", "Italian"].map((label) => ({
+    key: "lang",
+    value: label.toLowerCase(),
+    group: "Language",
+    label,
+  }));
+
+  function Filtered({ filterButton = true }: { filterButton?: boolean }) {
+    const [chips, setChips] = useState(CHIPS);
+    const navigate = useListNavigate();
+    return createElement(
+      "div",
+      null,
+      createElement("input", { "data-list-focus": "search", "aria-label": "Search" }),
+      filterButton && createElement("button", { "data-list-focus": "filters" }, "Filter"),
+      createElement(ActiveFilters, {
+        chips,
+        onRemove: (chip: ActiveFilterChip) => navigate(() => setChips((all) => all.filter((c) => c !== chip))),
+        onClearAll: () => navigate(() => setChips([])),
+      }),
+    );
+  }
+  const chip = (label: string) => host.querySelector<HTMLButtonElement>(`button[aria-label="Remove filter: Language ${label}"]`)!;
+  // A removed control takes focus with it, as a browser does
+  async function press(button: HTMLButtonElement) {
+    button.focus();
+    await act(async () => button.click());
+    if (!button.isConnected && document.activeElement === button) button.blur();
+  }
+
+  it("goes to the next chip, then the previous one, then the Filter button", async () => {
+    await act(async () => root.render(createElement(ListPendingProvider, null, createElement(Filtered))));
+    await press(chip("French"));
+    expect(document.activeElement).toBe(chip("German"));
+    await press(chip("Italian"));
+    expect(document.activeElement).toBe(chip("German"));
+    await press(chip("German"));
+    expect(document.activeElement?.textContent).toBe("Filter");
+  });
+
+  it("goes to the Filter button after Clear all, or the search field with no Filter button", async () => {
+    await act(async () => root.render(createElement(ListPendingProvider, null, createElement(Filtered))));
+    await press([...host.querySelectorAll("button")].find((b) => b.textContent === "Clear all")!);
+    expect(document.activeElement?.textContent).toBe("Filter");
+
+    act(() => root.unmount());
+    root = createRoot(host);
+    await act(async () =>
+      root.render(createElement(ListPendingProvider, null, createElement(Filtered, { filterButton: false }))),
+    );
+    await press(chip("French"));
+    await press(chip("German"));
+    await press(chip("Italian"));
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Search");
+  });
+
+  it("leaves focus alone when it moved on by itself", async () => {
+    await act(async () => root.render(createElement(ListPendingProvider, null, createElement(Filtered))));
+    const search = host.querySelector("input")!;
+    chip("French").focus();
+    await act(async () => {
+      chip("French").click();
+      search.focus();
+    });
+    expect(document.activeElement).toBe(search);
   });
 });

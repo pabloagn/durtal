@@ -66,7 +66,7 @@ describe("loading screens", () => {
   it("draws Harmonize's own header, cards and toolbar", () => {
     const host = html(createElement(HarmonizeLoading));
     const status = host.querySelector(".harmonize[role=status]")!;
-    expect(status.querySelector(".h-header h1")!.textContent).toBe("Harmonize.");
+    expect(status.querySelector(".h-header h1")!.textContent).toBe("Harmonize");
     expect(status.querySelector(".h-eyebrow")!.textContent).toContain("Catalogue quality");
     expect(status.querySelector(".h-scan-control button")!.getAttribute("aria-busy")).toBe("true");
     expect([...status.querySelectorAll(".h-stat .h-stat-number")].map((n) => n.textContent)).toEqual(["—", "—", "—", "—"]);
@@ -178,6 +178,19 @@ describe("a page that is only an error or not-found view", () => {
       expect([failed.querySelector("button")!.className, failed.querySelector("a")!.className])
         .toEqual([buttonClass("primary"), buttonClass("secondary")]);
     }
+  });
+
+  it("leads a failed reader back to the eBook's page, or to the library when the address names none (SLN-818)", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const back = (pathname: string) => {
+      navigation.pathname = pathname;
+      const link = html(createElement(ReaderError, { error: new Error("boom"), reset: () => {} })).querySelector("a")!;
+      return [link.getAttribute("href"), link.textContent];
+    };
+    const id = "00000000-0000-4000-a000-000000000001";
+    expect(back(`/reader/${id}`)).toEqual([`/ebooks/${id}`, "Back to the eBook"]);
+    expect(back("/reader/offline")).toEqual(["/library", "Back to library"]);
+    expect(back("/reader/not-an-id")).toEqual(["/library", "Back to library"]);
   });
 
   it("keeps the shared empty view's h3 everywhere else", () => {

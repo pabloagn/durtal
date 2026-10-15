@@ -42,9 +42,9 @@ export interface EditableVenue {
 }
 
 /**
- * Add Venue, or edit one when `venue` is given. With `open` and
+ * Add venue, or edit one when `venue` is given. With `open` and
  * `onOpenChange` the caller controls it (the A menu, the venue page's menu);
- * otherwise it shows its own "Add Venue" button. Mount an edit dialog per
+ * otherwise it shows its own "Add venue" button. Mount an edit dialog per
  * opening, so it starts from the venue as it is now. A Google place is
  * optional: every field can be typed by hand.
  */

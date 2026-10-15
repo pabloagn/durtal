@@ -22,13 +22,13 @@ let root: Root, host: HTMLElement;
 let onJump: ReturnType<typeof vi.fn<(at: DurtalLocator) => Promise<boolean>>>, onNotice: ReturnType<typeof vi.fn<(message: string) => void>>;
 const unplaced = "That mark could not be placed in this file. It is still listed under Highlights and notes.";
 
-function Reader({ owner, openAt, engine }: { owner: ReaderBridgeController; openAt: string; engine: ReturnType<typeof fakeEngine>["engine"] }) {
+function Reader({ owner, openAt, engine, imagesOnly }: { owner: ReaderBridgeController; openAt: string; engine: ReturnType<typeof fakeEngine>["engine"]; imagesOnly?: boolean }) {
   const annotations = useReaderAnnotations({ book: { id: id(2), title: "Là-bas", authors: [] },
     fileId: id(3), deviceId: id(4), engine, painted: true, bridge: owner, selection: null,
-    locator, palette: QUIET_GLASS_ANNOTATION_PALETTE, onJump, onNotice, openAt });
-  return h("div", null, annotations.markingActions);
+    locator, palette: QUIET_GLASS_ANNOTATION_PALETTE, onJump, onNotice, openAt, imagesOnly });
+  return h("div", null, annotations.markingActions, annotations.toolbar);
 }
-async function open(state: AnnotationBookState, openAt: string, placed = true) {
+async function open(state: AnnotationBookState, openAt: string, placed = true, imagesOnly = false) {
   const transport: AnnotationTransport = {
     readBook: async () => structuredClone(state),
     transactBook: async (_id, reduce) => structuredClone(reduce(state)),
@@ -40,7 +40,7 @@ async function open(state: AnnotationBookState, openAt: string, placed = true) {
   await act(async () => {
     root.render(h(ReaderBridgeProvider, { context: { ebookId: id(2), fileId: id(3), format: "epub",
       locator, selection: null, chapter: null, percent: 44 },
-      plugins: [], children: (owner) => h(Reader, { owner, openAt, engine }) }));
+      plugins: [], children: (owner) => h(Reader, { owner, openAt, engine, imagesOnly }) }));
   });
   await act(async () => { await new Promise((done) => setTimeout(done, 0)); });
   return engine;
@@ -79,5 +79,15 @@ describe("opening the reader at a mark (SLN-500)", () => {
     await open({ annotations: [], pending: [], cursor: null }, id(1));
     expect(onJump).not.toHaveBeenCalled();
     expect(onNotice).not.toHaveBeenCalled();
+  });
+});
+
+describe("the panel's button (SLN-682)", () => {
+  it("is Highlights and notes in a book of text, and Bookmarks in a comic", async () => {
+    await open({ annotations: [], pending: [], cursor: at }, "");
+    expect(host.querySelector('button[aria-label="Highlights and notes"]')).not.toBeNull();
+    await open({ annotations: [], pending: [], cursor: at }, "", true, true);
+    expect(host.querySelector('button[aria-label="Highlights and notes"]')).toBeNull();
+    expect(host.querySelector('button[aria-label="Bookmarks"]')).not.toBeNull();
   });
 });

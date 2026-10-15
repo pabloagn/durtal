@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -24,10 +25,28 @@ export interface HiddenRow {
 /** The Hidden view (SLN-457): every Not now, Never and Not for me, each with Undo, which makes the book a candidate again */
 export function HiddenList({ rows }: { rows: HiddenRow[] }) {
   const router = useRouter();
+  // A row stays busy from the press until the refresh takes it away, so a
+  // second press cannot run the removal again
+  const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
+  const inFlight = useRef(new Set<string>());
+  const release = (workId: string) => {
+    inFlight.current.delete(workId);
+    setBusy(new Set(inFlight.current));
+  };
+  // Once the refresh has taken a row away, it is free again: Undo in the
+  // toast brings it back pressable
+  useEffect(() => {
+    const shown = new Set(rows.map((row) => row.workId));
+    for (const workId of inFlight.current) if (!shown.has(workId)) release(workId);
+  }, [rows]);
   async function undo(row: HiddenRow) {
+    if (inFlight.current.has(row.workId)) return;
+    inFlight.current.add(row.workId);
+    setBusy(new Set(inFlight.current));
     try {
       const removed = await removeSuggestionFeedback({ workId: row.workId });
       router.refresh();
+      if (!removed) release(row.workId);
       if (removed)
         undoToast(`${row.title} is back in suggestions`, async () => {
           try {
@@ -38,6 +57,7 @@ export function HiddenList({ rows }: { rows: HiddenRow[] }) {
           }
         });
     } catch (err) {
+      release(row.workId);
       showError(err, () => router.refresh());
     }
   }
@@ -59,7 +79,7 @@ export function HiddenList({ rows }: { rows: HiddenRow[] }) {
             {row.note && <p className="text-xs italic text-fg-secondary">{row.note}</p>}
             <p className="text-xs text-fg-secondary">{row.date}</p>
           </div>
-          <Button size="sm" variant="ghost" onClick={() => void undo(row)} className="pointer-coarse:h-11" data-hidden-undo={row.workId}>
+          <Button size="sm" variant="ghost" onClick={() => void undo(row)} busy={busy.has(row.workId)} className="pointer-coarse:h-11" data-hidden-undo={row.workId}>
             <Undo2 aria-hidden strokeWidth={1.5} />
             Undo
           </Button>

@@ -21,6 +21,7 @@ import { BOOK_IN_HAND_STATUSES, getValidTransitions, orderStatusLabel, type Orde
 import { formatMoney } from "@/lib/utils/money";
 import { DEFAULT_CURRENCY } from "@/lib/constants/currencies";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { EmptyState } from "@/components/ui/empty-state";
 import { OrderDetailPanel } from "./order-detail-panel";
 import {
   PIPELINE_COLUMNS,
@@ -166,7 +167,18 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
   const totalSpentSubtext =
     otherSpend.length > 0
       ? `+ ${otherSpend.map(formatSpend).join(" + ")} · all time`
-      : "all time";
+      : "All time";
+
+  // No order yet: one empty state instead of four zeros and an empty board
+  if (optimisticOrders.length === 0 && stats.orderCount === 0)
+    return (
+      <EmptyState
+        icon={Package}
+        heading="h2"
+        title="No orders yet"
+        description="An order follows a book you buy from the shop to your shelves: placed, shipped and delivered. Start one with New order."
+      />
+    );
 
   return (
     <div className="flex gap-6">
@@ -176,38 +188,36 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
         <div className="mb-8 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:grid-cols-4">
           <StatCard
             icon={Truck}
-            label="In Transit"
+            label="In transit"
             value={stats.inTransit}
-            subtext="shipped orders"
+            subtext="Shipped, not yet here"
             accentColor={stats.inTransit > 0 ? "text-accent-sage" : undefined}
           />
           <StatCard
             icon={CalendarDays}
-            label="Arriving This Week"
+            label="Arriving this week"
             value={stats.arrivingThisWeek}
-            subtext="next 7 days"
+            subtext="In the next 7 days"
             accentColor={
               stats.arrivingThisWeek > 0 ? "text-accent-gold" : undefined
             }
           />
           <StatCard
             icon={Package}
-            label="Active Orders"
+            label="Active orders"
             value={stats.activeOrders}
-            subtext="non-terminal"
+            subtext="Not yet delivered"
           />
           <StatCard
             icon={Wallet}
-            label="Total Spent"
+            label="Total spent"
             value={totalSpentFormatted}
             subtext={totalSpentSubtext}
           />
         </div>
 
         {/* Pipeline board */}
-        <SectionHeading
-          title="Active Pipeline"
-        />
+        <SectionHeading title="Orders in progress" />
 
         <DndContext
           // A fixed id: the server and the browser make the same aria ids
@@ -216,8 +226,10 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="overflow-x-auto pb-4">
-            <div className="flex min-w-max gap-3 pt-3">
+          {/* One status a row, its orders side by side: nothing is ever cut at
+              the page's edge, as a sideways board of seven columns was */}
+          <div className="pb-4">
+            <div className="grid gap-3 pt-3" data-pipeline="">
               {PIPELINE_COLUMNS.map((col) => (
                 <PipelineColumn
                   key={col.status}
@@ -247,7 +259,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
         {/* Immediate acquisitions (in-store / gifts) */}
         {immediateOrders.length > 0 && (
           <div className="mt-8">
-            <SectionHeading title="Immediate Acquisitions" />
+            <SectionHeading title="Immediate acquisitions" />
             <div className="space-y-2">
               {immediateOrders.map((order) => {
                 const posterUrl = getPosterUrl(order.work);
