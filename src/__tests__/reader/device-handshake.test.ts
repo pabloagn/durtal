@@ -81,6 +81,16 @@ describe("settleDeviceId", () => {
     expect(await settleDeviceId({ fetch: answers(DEVICE, null), locks: free })).toBe("cookies-off");
   });
 
+  it("takes another tab's stored id: without Web Locks two tabs can race (#305 review)", async () => {
+    expect(await settleDeviceId({ fetch: answers(DEVICE, "5d1f0c2e-8b1a-4c3d-9e2f-0a1b2c3d4e5f") })).toBe("ready");
+  });
+
+  it("gives up on a stalled request, so it does not hold the lock for ever (#305 review)", async () => {
+    const fetch = answers(DEVICE, DEVICE);
+    await settleDeviceId({ fetch, locks: free });
+    expect(fetch.mock.calls.every(([, init]) => init?.signal instanceof AbortSignal)).toBe(true);
+  });
+
   it("fails when the app cannot be reached", async () => {
     const fetch = vi.fn(async () => new Response("down", { status: 503 }));
     await expect(settleDeviceId({ fetch, locks: free })).rejects.toThrow("503");

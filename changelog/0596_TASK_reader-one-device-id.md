@@ -75,3 +75,9 @@ one. The ticket's two-tab end-to-end check comes with it.
   never sets the cookie. `return-route.test.ts`: a request without the cookie
   renders the handshake, keeps Back and loads no book.
 - No migration, no new package.
+- Review fix: over plain http (a Mac's `.local` address) Web Locks are
+  missing, so two first tabs can still race, and the read-back called the
+  losing tab "cookies-off" (2 of 8 runs). The read-back now accepts any
+  stored id (0 of 19). Each handshake request gives up after 15 s, so a
+  stalled one shows "Durtal could not be reached" with Retry and frees the
+  lock for the other reader tabs.

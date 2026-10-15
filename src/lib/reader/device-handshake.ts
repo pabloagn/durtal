@@ -12,6 +12,9 @@ export type DeviceHandshake = "ready" | "cookies-off";
 
 export const DEVICE_LOCK = "durtal-reader-device";
 
+/** A stalled request would hold the lock, and every reader tab behind it, for good */
+const ASK_TIMEOUT_MS = 15_000;
+
 type Locks = { request(name: string, callback: () => Promise<DeviceHandshake>): Promise<DeviceHandshake> };
 
 export async function settleDeviceId({
@@ -19,16 +22,18 @@ export async function settleDeviceId({
   locks = typeof navigator === "undefined" ? undefined : (navigator as Navigator & { locks?: Locks }).locks,
 }: { fetch?: typeof fetch; locks?: Locks } = {}): Promise<DeviceHandshake> {
   const ask = async (method: "GET" | "POST") => {
-    const response = await doFetch("/api/reader/device", { method, cache: "no-store", credentials: "same-origin", redirect: "error" });
+    const response = await doFetch("/api/reader/device", { method, cache: "no-store", credentials: "same-origin", redirect: "error", signal: AbortSignal.timeout(ASK_TIMEOUT_MS) });
     if (!response.ok) throw new Error(`Device request answered ${response.status}`);
     const body = (await response.json()) as { deviceId?: unknown };
     return typeof body.deviceId === "string" ? body.deviceId : null;
   };
   const handshake = async (): Promise<DeviceHandshake> => {
     const made = await ask("POST");
-    // Read back: only a stored cookie reaches the reader's later requests
-    return made && (await ask("GET")) === made ? "ready" : "cookies-off";
+    // Read back: only a stored cookie reaches the reader's later requests. Any
+    // stored id will do: without Web Locks (plain http, such as a Mac's .local
+    // address) another tab may have stored its own meanwhile
+    return made && (await ask("GET")) ? "ready" : "cookies-off";
   };
-  // Without Web Locks (older browsers) two tabs can still race, as before
+  // Without Web Locks (older browsers, plain http) two tabs can still race, as before
   return locks ? locks.request(DEVICE_LOCK, handshake) : handshake();
 }
