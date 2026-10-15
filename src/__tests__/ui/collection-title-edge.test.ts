@@ -11,6 +11,6 @@ it("starts a wrapped collection name's later lines on the page's text edge", () 
   const source = readFileSync(path.resolve(__dirname, "../../app/(catalogue)/collections/[id]/page.tsx"), "utf8");
   const row = source.match(/className="(-ml-2 [^"]*max-md:block[^"]*)"/);
   expect(row?.[1].split(" ")).toContain("-ml-2");
-  const h1 = source.match(/<h1 className="([^"]*)">\s*\{collection\.name\}/);
+  const h1 = source.match(/<h1 [^>]*className="([^"]*)">\s*\{collection\.name\}/);
   expect(h1?.[1].split(" ")).toContain("max-md:pl-2");
 });

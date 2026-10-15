@@ -49,6 +49,7 @@ import {
   type ListSearchParams,
 } from "@/lib/utils/pagination";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { titleLength } from "@/components/shared/detail-layout";
 import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { Prose } from "@/components/shared/prose";
 import { mediaUrl } from "@/lib/s3/media-url";
@@ -354,7 +355,7 @@ export default async function CollectionPage({
                   line, so its later lines take the row's full width; the
                   star comes first in the source to float there, and its
                   icon sits on the row's right edge */}
-              <div className="-ml-2 flex items-start gap-1.5 font-serif text-4xl tracking-tight max-md:block">
+              <div data-title-length={titleLength(collection.name)} className="-ml-2 flex items-start gap-1.5 font-serif text-4xl tracking-tight max-md:block">
                 <CapAligned height={44} className="max-md:float-left max-md:mr-1.5">
                   <CollectionIconPicker
                     collectionId={collection.id}
@@ -382,7 +383,7 @@ export default async function CollectionPage({
                 {/* The row starts 8px early for the icon's padding: on a phone
                     the name's later lines run under the icon, so they start
                     8px in, on the page's text edge */}
-                <h1 className="type-page-title min-w-0 break-words max-md:pl-2 max-md:[overflow-wrap:anywhere]">
+                <h1 data-title-length={titleLength(collection.name)} className="type-page-title min-w-0 break-words max-md:pl-2">
                   {collection.name}
                 </h1>
               </div>

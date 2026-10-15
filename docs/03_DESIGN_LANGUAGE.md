@@ -109,7 +109,7 @@ A heading never picks its own size and color: it uses its role. Each role sets f
 
 | Role | Look | Use |
 |---|---|---|
-| `type-page-title` | Serif 46px, tight tracking, heading | The h1 of every page (`PageHeader`). On a phone a detail title past 40 letters is 38px, past 60 it is 30px (`DetailTitleRow`) |
+| `type-page-title` | Serif 46px, tight tracking, heading | The h1 of every page (`PageHeader`). On a phone a detail title past 30 letters is 38px, past 60 it is 30px; under 375px a shorter one is 38px and both longer bands 30px (`DetailTitleRow`, and a collection's name through `titleLength`) |
 | `type-section-title` | Serif 30px, primary | Every titled block on a page, through `SectionHeading` |
 | `type-item-title` | Serif 21px, line height 1.375, primary | Card titles, the title of a block inside a section, empty and error states |
 | `type-group-title` | Sans 21px, secondary | A group of fields in a form or dialog |

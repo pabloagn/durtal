@@ -131,9 +131,10 @@ export function SeriesBooks({
     <ol className="space-y-2">
       {books.map((book, index) => {
         // Read, move and remove: beside the title, or on their own row on a phone
-        const controls = (
-          <div className="flex gap-1">
-            <CatalogueReadLink ebook={book.ebook ?? null} returnTo={book.readerReturnTo} />
+        const readable = !!(book.ebook?.readable && book.ebook.readerPath);
+        const read = <CatalogueReadLink ebook={book.ebook ?? null} returnTo={book.readerReturnTo} />;
+        const moves = (
+          <>
             <Button
               size="sm"
               variant="ghost"
@@ -164,8 +165,10 @@ export function SeriesBooks({
             >
               <X size={14} />
             </Button>
-          </div>
+          </>
         );
+        // Centred: Read is 32px tall, the buttons 28px
+        const controls = <div className="flex items-center gap-1">{read}{moves}</div>;
         return (
           <li
             key={book.id}
@@ -231,9 +234,18 @@ export function SeriesBooks({
                 )}
               </div>
               {/* Pulled out by the first button's padding, so its icon sits on the title's edge:
-                  Read's 8px, or a ghost icon button's 10px (14px on touch) */}
-              <div className={`mt-1 sm:hidden ${book.ebook?.readable && book.ebook.readerPath
-                ? "-ml-2" : "-ml-2.5 pointer-coarse:-ml-3.5"}`}>{controls}</div>
+                  Read's 8px, or a ghost icon button's 10px (14px on touch). Where the column
+                  is too narrow for Read and the three buttons (320px), the buttons take a line
+                  of their own, pulled out by their own padding */}
+              <div className="@container mt-1 sm:hidden">
+                <div className={`flex flex-wrap items-center ${readable ? "-ml-2" : "-ml-2.5 pointer-coarse:-ml-3.5"}`}>
+                  {read}
+                  <div className={`flex items-center gap-1 ${readable
+                    ? "ml-1 @max-[13rem]:-ml-0.5 @max-[13rem]:basis-full @max-[13rem]:pointer-coarse:-ml-1.5" : ""}`}>
+                    {moves}
+                  </div>
+                </div>
+              </div>
             </div>
           </li>
         );
