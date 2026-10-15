@@ -495,11 +495,12 @@ export default async function PaintingPage({
                         ) : (
                           now.place
                         )}
-                        {now.custody && <span className="text-fg-secondary"> · {now.custody}</span>}
+                        {/* A separator keeps to the word before it, so it never starts a line */}
+                        {now.custody && <span className="text-fg-secondary">{"\u00a0· "}{now.custody}</span>}
                         <span className={`block text-xs ${now.stale ? "text-accent-gold" : "text-fg-secondary"}`}>
-                          {[now.since, now.checked].filter(Boolean).join(" · ")}
+                          {[now.since, now.checked].filter(Boolean).join("\u00a0· ")}
                           {now.stale && ", check again"}
-                          {now.source && ` · Source: ${now.source}`}
+                          {now.source && `\u00a0· Source: ${now.source}`}
                         </span>
                       </>
                     ) : (

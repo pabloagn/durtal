@@ -112,13 +112,14 @@ Key constraints:
 - Text contrast is at least 4.5:1: text a reader needs uses `fg-secondary` or brighter; `fg-muted` is for placeholders, disabled text, separators and decoration only; interaction and red text use `accent-primary` / `accent-red-text`; primary confirmations use `action-fill` with `action-fg`. Check with `scripts/qa/design-audit.js`
 - Typography: literary page/content headings (PP Cirka), functional dialog/form headings and body (Inter); long reading text (descriptions, bios) in EB Garamond through `<Prose>` (`src/components/shared/prose.tsx`, role `type-prose`)
 - Type: seven sizes only (12, 14, 16, 21, 30, 38, 46px). Headings use the `type-*` roles; every titled block on a page uses `SectionHeading` (`src/components/shared/section-heading.tsx`). See `docs/03_DESIGN_LANGUAGE.md`, Typography
-- Icons: Lucide, 1.5px stroke, 16px max for interface icons (image placeholders may use larger decorative ones)
+- Icons: Lucide, 1.5px stroke, 16px max for interface icons (image placeholders and a chosen emblem, such as a collection's icon, may be larger)
 - Tooltips: `data-tooltip` (and `data-tooltip-keys` for a shortcut), never the `title` attribute. Every icon-only control has an `aria-label` and a tooltip. See `docs/03_DESIGN_LANGUAGE.md`, Tooltips
 - Glass: one material (`glass`, `glass-bar`, `glass-veil` in `globals.css`) for surfaces that float above the page: command palette, menus, popovers, tooltips, dialogs, selection toolbars. Never on page content. A glass surface never scrolls: it takes `overflow-hidden` and an element inside it scrolls. See `docs/03_DESIGN_LANGUAGE.md`, Glass
 - Alignment is pixel-perfect:
   - An icon or small button beside text sits on the cap-height center of the text's first line: use `CapAligned` (`src/components/shared/cap-aligned.tsx`), never plain `items-center` beside serif text
   - Siblings in a row keep equal gaps
-  - Cards stretch to the tallest item in their row. Titles and identifying metadata must wrap in full, never clamp for equal height. Use `CardHeading`, `card-body`, and container-aware grids/shelves with a 208px readable minimum (or the available width if smaller).
+  - A ghost button that starts a row under text pulls out by its own horizontal padding (`-ml-2.5` at sm), so its icon or label starts on the text edge (docs/03, Spacing Scale)
+  - Cards stretch to the tallest item in their row. Titles and identifying metadata must wrap in full, never clamp for equal height. Use `CardHeading`, `card-body`, and container-aware grids/shelves with a 208px readable minimum (or the available width if smaller). A phone is the one exception: its Compact size keeps two cards a row (docs/03, Book cards).
   - Book cover badges share one size and inset (`src/components/books/cover-chip.ts`). A cover carries only the rare, poison and digital marks; status and rating sit in the card's info row
 
 ---

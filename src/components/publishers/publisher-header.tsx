@@ -7,6 +7,7 @@ import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { DetailControls, DetailEditButton, DetailTitleRow } from "@/components/shared/detail-layout";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { Monogram } from "@/components/shared/no-photo";
+import { FactsRow } from "@/components/shared/facts-row";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
@@ -92,16 +93,7 @@ export function PublisherHeader({
               <EntityActionMenu items={actions} />
             </DetailControls>
           </DetailTitleRow>
-          {facts.length > 0 && (
-            <p className="mt-3 flex flex-wrap items-baseline gap-x-2 text-sm text-fg-secondary">
-              {facts.map((fact, i) => (
-                <span key={i} className="flex items-baseline gap-x-2">
-                  {i > 0 && <span aria-hidden="true">·</span>}
-                  {fact}
-                </span>
-              ))}
-            </p>
-          )}
+          <FactsRow facts={facts} className="mt-3" />
         </div>
       </div>
 

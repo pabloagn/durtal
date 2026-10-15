@@ -12,7 +12,9 @@
  * - unnamed: links, buttons and fields with no accessible name.
  * - nested: interactive elements inside other interactive elements.
  * - fontSizes, offTokenColors, radii, iconSizes, iconStrokes: what the page
- *   really renders, to compare against docs/03_DESIGN_LANGUAGE.md.
+ *   really renders, to compare against docs/03_DESIGN_LANGUAGE.md. An icon
+ *   inside `data-decorative` (an empty state's mark, a placeholder) is not an
+ *   interface icon and is not counted: docs/03 lets it be larger.
  *
  * Keyboard focus rings need a real Tab key and are not checked here.
  */
@@ -196,10 +198,17 @@
     if (cs.borderTopLeftRadius !== "0px") count(radii, cs.borderTopLeftRadius);
   }
 
+  // A mark inside `data-decorative` is skipped, unless a control sits inside
+  // that mark: a control's icon is an interface icon wherever it is
+  const decorative = (svg) => {
+    const mark = svg.closest("[data-decorative]");
+    const control = svg.closest(INTERACTIVE);
+    return !!mark && (!control || control.contains(mark));
+  };
   const iconSizes = {};
   const iconStrokes = {};
   for (const svg of document.querySelectorAll("svg[class*='lucide']")) {
-    if (!visible(svg)) continue;
+    if (!visible(svg) || decorative(svg)) continue;
     count(iconSizes, `${Math.round(svg.getBoundingClientRect().width)}px`);
     count(iconStrokes, svg.getAttribute("stroke-width"));
   }

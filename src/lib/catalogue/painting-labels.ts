@@ -165,7 +165,8 @@ export function custodyText(record: { custody: string; displayStatus: string; pl
     parts.push(CUSTODY_LABELS[record.custody as WhereaboutsCustody]);
   if (record.placeKind === "venue" && record.displayStatus !== "unknown")
     parts.push(DISPLAY_LABELS[record.displayStatus as DisplayStatus]);
-  return parts.join(" · ");
+  // A no-break space keeps the separator to the word before, so it never starts a line
+  return parts.join("\u00a0· ");
 }
 
 /**
