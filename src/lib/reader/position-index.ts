@@ -242,7 +242,17 @@ export class PositionIndex {
    * in its section, is its page, not the page before (SLN-680).
    */
   entryPage(href: string) {
-    return this.pageNear(this.fraction(href), this.sectionFor(href));
+    const section = this.sectionFor(href);
+    // An anchor not yet indexed stands at its section's start, and so does
+    // every page marker in it: until they are placed no page is named, rather
+    // than the section's last one for every entry (SLN-724)
+    if (!this.placed(href) || this.pages.some((page) => !this.placed(page.href) && this.sectionFor(page.href) === section))
+      return null;
+    return this.pageNear(this.fraction(href), section);
+  }
+  /** A file's own start needs no indexing; an anchor inside it does */
+  placed(href: string) {
+    return this.#indexed.has(href) || !href.includes("#");
   }
   preview(fraction: number) {
     const place = this.positionLabel(fraction);

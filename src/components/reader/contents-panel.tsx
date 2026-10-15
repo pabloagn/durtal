@@ -115,7 +115,9 @@ export function ContentsPanel({
           const page = index.entryPage(entry.item.href);
           const pageLabel = index.info.pageList.length
             ? (page?.label ?? "")
-            : fractionPercent(index.fraction(entry.item.href));
+            : index.placed(entry.item.href)
+              ? fractionPercent(index.fraction(entry.item.href))
+              : "";
           // A comic's entries are its pages: "Page 3" needs no "3" beside it
           const label =
             page && samePlace(entry.item.label, index.pageWords(page.label))
