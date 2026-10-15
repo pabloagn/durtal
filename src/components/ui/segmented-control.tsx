@@ -48,7 +48,8 @@ export function SegmentedControl<T extends string>({
       role="radiogroup"
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledby}
-      className={fill ? "grid auto-cols-fr grid-flow-col gap-1" : "flex flex-wrap gap-1"}
+      // Equal columns while every label fits; a label that does not widens its own
+      className={fill ? "grid auto-cols-[minmax(max-content,1fr)] grid-flow-col gap-1" : "flex flex-wrap gap-1"}
     >
       {options.map((option, index) => {
         const active = index === chosen;

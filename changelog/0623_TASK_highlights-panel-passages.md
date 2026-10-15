@@ -51,6 +51,9 @@ panel was busy:
 - `src/components/ui/segmented-control.tsx`: an opt-in `fill` prop lays the
   choices out in equal columns with tighter padding. The tabs use it, so
   they keep to one line in a 320px panel on touch; no other caller changes.
+  From #326's review: a column is never narrower than its label
+  (`minmax(max-content, 1fr)`), so at 320 on touch "Bookmarks" no longer
+  runs over its border; while every label fits the columns stay equal.
 - Reading settings get a Done button (docs/03: viewers and pickers have a
   Done that Enter presses). In the reader, the sheet's footer ends with Done,
   and Enter on the sheet itself presses it; Enter on one of its controls (a
