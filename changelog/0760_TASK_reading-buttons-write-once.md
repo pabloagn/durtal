@@ -30,6 +30,9 @@ that write stayed live while their write ran:
   - Abandon and Pause instead share one `inFlight` ref.
   - Pause instead is `busy` while it pauses, and disabled while Abandon saves.
   - Abandon is disabled while Pause instead runs.
+  - On a 320px screen Pause instead wraps under "Might come back to it?" and
+    sat 10px right of the text's edge. It now pulls out by its own padding
+    (`-ml-2.5`), with the gap after the question widened to `gap-x-3`.
 - **`hidden-list.tsx`**:
   - A row's Undo is `busy` from the press until the refresh takes the row
     away. Only that row waits.
@@ -41,6 +44,19 @@ that write stayed live while their write ran:
 
 ## Completion Notes
 
+- I checked a production preview with each write held 1.5 s, using a double
+  click or a double tap. It ran in Chromium, Firefox and WebKit at 1440, 390
+  and 320, with touch at 390 and 320 (except in Firefox).
+  - **Save anyway** sent one write and logged one read each time. While it
+    ran, it and Log read were busy.
+  - **Pause instead** sent one pause. It was busy, and Abandon was disabled.
+  - **Undo** in Hidden suggestions sent one removal. Only its own row was
+    busy.
+- The alignment, touch and design audits report nothing on the three
+  dialogs, in all three browsers at all three widths, both at rest and busy.
+  This is after the Pause instead fix above. Before it, the button sat 9.9px
+  off the text edge at 320 in all three browsers.
+- `page-weight.js` passes every route.
 - Typecheck is clean, and lint reports nothing on the three files.
 - The reading dialog tests pass.
 - No migration, no new package.

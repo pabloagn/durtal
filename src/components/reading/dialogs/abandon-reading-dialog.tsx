@@ -111,9 +111,11 @@ export function AbandonReadingDialog({ data, row, onClose, changed }: ReadingDia
           options={ABANDON_REASONS.map((value) => ({ value, label: ABANDON_REASON_LABELS[value] }))}
         />
         <Textarea aria-label="Note" placeholder="A note (optional)" value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={2000} />
-        <p className="flex flex-wrap items-center gap-2 text-xs text-fg-secondary">
+        {/* Pause instead pulls out by its padding, so on a narrow screen,
+            where it wraps under the question, its label starts on the text's edge */}
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-fg-secondary">
           Might come back to it?
-          <Button type="button" size="sm" variant="ghost" onClick={pauseInstead} busy={pausing} disabled={saving} className="pointer-coarse:h-11">
+          <Button type="button" size="sm" variant="ghost" onClick={pauseInstead} busy={pausing} disabled={saving} className="-ml-2.5 pointer-coarse:h-11">
             Pause instead
           </Button>
         </p>
