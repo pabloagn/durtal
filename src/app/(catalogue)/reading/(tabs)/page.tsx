@@ -136,7 +136,7 @@ export default async function ReadingPage() {
                 {next.map((item) => (
                   <li key={item.workId} className="min-w-0" data-hub-next-item={item.workId}>
                     <Link href={`/library/${item.slug ?? item.workId}`} className="group block">
-                      <Cover s3Key={item.cover} className="aspect-[2/3] w-full" />
+                      <Cover s3Key={item.cover} title={item.title} className="aspect-[2/3] w-full" />
                       <span className="mt-2 block text-sm text-fg-primary transition-colors [overflow-wrap:anywhere] group-hover:text-accent-primary">{item.title}</span>
                     </Link>
                     <div className="mt-1">
@@ -162,7 +162,7 @@ export default async function ReadingPage() {
                 {suggestions.map((row) => (
                   <li key={row.workId} className="flex min-w-0 gap-3" data-hub-suggestion={row.workId}>
                     <Link href={row.href} tabIndex={-1} aria-label={row.title} className="shrink-0">
-                      <Cover s3Key={row.cover} className="h-20 w-14" />
+                      <Cover s3Key={row.cover} title={row.title} className="h-20 w-14" />
                     </Link>
                     <div className="min-w-0 flex-1 space-y-1">
                       <h3>

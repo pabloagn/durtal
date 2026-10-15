@@ -284,3 +284,29 @@ adapter regression source added; native retesting remains pending.
     move (`#aligningSpread`): inserting a chapter scrolls the container, and
     taken as a move that scroll replaced the saved place, so the alignment
     stopped before it scrolled back. SLN-696.
+
+30. `paginator.js`: a resize keeps the place at a chapter's end and on a
+    spread two chapters share. The reader's drawers inset the book at
+    1024px and up, so every drawer opened and closed is such a resize.
+    SLN-728. Four parts:
+    - The chapters loaded before the current one re-lay out after the
+      paginator has scrolled to the anchor, and fitting their text in fewer
+      or more pages slides every page after them. Only the current
+      chapter's re-layout went back to the anchor, so the next settle took
+      the page the screen slid to as the place: in Firefox each narrowing
+      and widening moved on a page. An earlier chapter's re-layout now goes
+      back to the anchor too, except during a page turn or while a reopen
+      lines up its spread.
+    - A spread two chapters share (the last page of one, the first of the
+      next) reports the primary chapter's range, so a settle on it took an
+      anchor beginning in the other chapter as gone and replaced it. The
+      anchor is now measured in its own chapter on the same screen.
+    - Scrolling to a range anchor placed it by the primary view's offset;
+      it now uses the view holding the anchor, which on such a spread need
+      not be the primary one. The same holds in scrolled mode, where a
+      screen can show the end of one chapter above the start of the next:
+      placed by the first chapter's offset, the next chapter's start became
+      the first chapter's start.
+    - Where the primary chapter shows only its blank end beside the next
+      chapter's first page, its collapsed range made the place that
+      chapter's start; the visible range is now the next chapter's text.

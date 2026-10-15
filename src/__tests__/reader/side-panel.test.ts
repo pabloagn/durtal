@@ -5,7 +5,7 @@ import { cwd } from "node:process";
 import { act, createElement as h, StrictMode, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ReaderSidePanel, closeLatestReaderPanel } from "@/components/reader/side-panel";
+import { ReaderSidePanel, closeLatestReaderPanel, subscribeReaderPanelInset, type ReaderPanelInset } from "@/components/reader/side-panel";
 import { SearchPanel } from "@/components/reader/search-panel";
 import type { ReaderEngine } from "@/lib/reader/engine";
 
@@ -198,6 +198,30 @@ describe("shared reader drawer viewport and dialog-cascade regression", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(document.activeElement).toBe(more);
     wrapper.remove();
+  });
+
+  it("insets the book beside a drawer open on a wide screen, never on a phone or tablet (SLN-728)", async () => {
+    const insets: ReaderPanelInset[] = [];
+    const stop = subscribeReaderPanelInset((inset) => insets.push(inset));
+    expect(insets.at(-1)).toEqual({ left: 0, right: 0 });
+    setViewport(1024);
+    const { onClose } = await renderPanel();
+    expect(insets.at(-1)).toEqual({ left: 360, right: 0 });
+    await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Close"]')!.click());
+    expect(onClose).toHaveBeenCalled();
+    expect(insets.at(-1)).toEqual({ left: 0, right: 0 });
+    // The settings sheet stands on the right
+    await act(async () => root.render(h(ReaderSidePanel, { open: true, title: "Reading settings", variant: "settings", onClose: vi.fn(), children: null })));
+    expect(insets.at(-1)).toEqual({ left: 0, right: 360 });
+    await act(async () => root.render(h(ReaderSidePanel, { open: false, title: "Reading settings", variant: "settings", onClose: vi.fn(), children: null })));
+    expect(insets.at(-1)).toEqual({ left: 0, right: 0 });
+    // Below 1024 the drawer is modal, over the book
+    setViewport(1023);
+    await act(async () => window.dispatchEvent(new Event("resize")));
+    const seen = insets.length;
+    await act(async () => root.render(h(ReaderSidePanel, { open: true, title: "Contents", onClose: vi.fn(), children: null })));
+    expect(insets.slice(seen).every((inset) => inset.left === 0 && inset.right === 0)).toBe(true);
+    stop();
   });
 
   it("closes a panel beside the book on the reader's Escape, never a modal one", async () => {
