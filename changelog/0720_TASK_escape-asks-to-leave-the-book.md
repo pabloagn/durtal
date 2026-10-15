@@ -32,9 +32,9 @@ comics alike, also when the focus is inside the book's frame.
   now takes its own press. The prompt opens a task after the key: a modal
   dialog opened while the key's default action is still to run takes that
   same Esc as its cancel (in a PDF or a comic, where the focus is on the
-  page and not in the book's frame, it closed as it opened). The back link's code is now `leave(href)`, shared
-  by the link and the prompt, so both save the place and the open sitting
-  (`bridge.leave()`) before going.
+  page and not in the book's frame, it closed as it opened). The back
+  link's code is now `leave(href)`, shared by the link and the prompt, so
+  both save the place and the open sitting (`bridge.leave()`) before going.
 - `src/lib/reader/keymap.ts`: the shortcut sheet's Esc reads "Close the
   active surface, else leave the book".
 - Docs: `docs/15_KEYBOARD.md` (who gets a key) and
@@ -55,8 +55,9 @@ comics alike, also when the focus is inside the book's frame.
   prompt open the alignment audit is empty and the design audit finds no
   low-contrast text and no unnamed control; buttons are 44px on touch.
   234 of 234 checks passed.
-- Before the fix above, the PDF and comic prompt closed as it opened in
-  all three browsers, and a quick Esc, Enter missed Leave twice in WebKit.
+- Before the fixes above, the PDF and comic prompt closed as it opened
+  (Chromium), and a quick Esc, Enter missed Leave in the text PDF at 390
+  and 320 (WebKit).
 - The prompt is the shared `Dialog` at `max-w-sm`: at 390 it is 384px wide,
   at 320 the full width, as every app dialog.
 - Page weight: `/reader/<id>` 23 of 400 KB.
