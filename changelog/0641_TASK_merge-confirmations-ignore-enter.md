@@ -53,3 +53,8 @@ search could submit it.
   audit's "plain-looking" item names on the family page are on main too.
   `page-weight.js` passes. Typecheck clean, lint no errors, UI tests pass
   (94 files). No migration, no new package.
+- Review of #323: beside "Will be kept", a phone left the picked chips a
+  90px column, and with the 44px cross a name like "Seed Person 101" took
+  13 lines at 320 in WebKit. Below `sm` the kept person now goes under the
+  list and the arrow hides, so a chip has the full width (the reviewer's
+  fix, with its test).

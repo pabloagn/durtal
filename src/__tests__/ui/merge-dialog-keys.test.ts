@@ -40,6 +40,11 @@ describe("Merge confirmations", () => {
     expect(people).toMatch(/placeholder="Search for duplicates\.\.\."\s+className="[^"]*pointer-coarse:h-11/);
     expect(people).toMatch(/onClick=\{\(\) => addSource\(a\)\}\s+className="[^"]*pointer-coarse:min-h-11/);
     expect(people).toMatch(/<CapAligned height=\{12\} coarseHeight=\{44\}>\s*<button\s+aria-label=\{`Remove \$\{s\.name\}`\}/);
+    // Beside the kept person a phone left the chips 90px: a 44px cross
+    // squeezed "Seed Person 101" to 13 lines at 320px (review of #323)
+    expect(people).toContain('<div className="flex items-start gap-3 max-sm:flex-col">');
+    expect(people).toContain('<CapAligned height={16} className="text-xs max-sm:hidden">');
+    expect(people).toContain('<div className="min-w-0 sm:flex-shrink-0 sm:text-right">');
     const taxonomy = read("components/taxonomy/merge-dialog.tsx");
     expect(taxonomy).toMatch(/onClick=\{\(\) => setTargetId\(target\.id\)\}\s+className=\{`[^`]*pointer-coarse:min-h-11/);
   });

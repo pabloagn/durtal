@@ -87,9 +87,10 @@ export function AuthorMergeDialog({
       description={targetAuthorName}
     >
       <div className="space-y-4">
-        {/* Selected sources → Target visual */}
+        {/* Selected sources → Target visual. On a phone the kept person goes
+            under the list, so a chip and its 44px cross get the full width */}
         <div className="rounded-sm border border-glass-border bg-bg-primary px-4 py-3">
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-3 max-sm:flex-col">
             <div className="min-w-0 flex-1">
               <p className="text-xs text-fg-secondary">
                 Will be deleted ({selectedSources.length})
@@ -125,10 +126,10 @@ export function AuthorMergeDialog({
               )}
             </div>
             {/* The arrow sits on the label line, so it stays put as names wrap */}
-            <CapAligned height={16} className="text-xs">
+            <CapAligned height={16} className="text-xs max-sm:hidden">
               <ArrowRight className="h-4 w-4 text-fg-muted" strokeWidth={1.5} />
             </CapAligned>
-            <div className="min-w-0 flex-shrink-0 text-right">
+            <div className="min-w-0 sm:flex-shrink-0 sm:text-right">
               <p className="text-xs text-fg-secondary">Will be kept</p>
               <p className="text-sm font-medium text-accent-primary">
                 {targetAuthorName}
