@@ -2,7 +2,7 @@ import Link from "next/link";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { collectionCountLine } from "@/lib/collections/counts";
 import type { WorkKind } from "@/lib/catalogue/kinds";
-import { FolderOpen } from "lucide-react";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { CollectionIcon } from "./collection-icon";
@@ -99,11 +99,9 @@ export function CollectionCard({
             ))}
           </div>
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2">
-            <FolderOpen className="h-8 w-8 text-fg-muted/20" strokeWidth={1} />
-            <span aria-hidden="true" data-decorative className="font-serif text-sm text-fg-muted/30">
-              {collection.name[0]}
-            </span>
+          // No artwork and nothing in it: the name's letter, as every blank cover
+          <div className={`h-full ${COVER_BLANK}`}>
+            <CoverLetter title={collection.name} />
           </div>
         )}
 

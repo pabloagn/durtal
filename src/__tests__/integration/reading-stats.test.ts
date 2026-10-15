@@ -436,14 +436,20 @@ describe.skipIf(!url)("reading stats with PostgreSQL", () => {
       const u7 = await book("Started");
       await copy(await edition(u7));
       await past(u7, { status: "reading", on: null, startedOn: addDays(today, -5) });
+      // A page count of 0 is no page count (SLN-802), even with a counted edition elsewhere
+      const u8 = await book("Zero pages");
+      await copy(await edition(u8, { pages: 0 }), { at: mexico });
+      const u9 = await book("Zero, then counted");
+      await copy(await edition(u9, { pages: 0 }), { at: mexico });
+      await edition(u9, { pages: 80 });
 
       const pile = await unreadPile(today);
-      expect(pile).toMatchObject({ books: 4, pages: 650, withoutPages: 1, pagesPerYear: 300 });
-      expect(pile.years).toBeCloseTo(650 / 300, 10);
+      expect(pile).toMatchObject({ books: 6, pages: 730, withoutPages: 2, pagesPerYear: 300 });
+      expect(pile.years).toBeCloseTo(730 / 300, 10);
       expect(pile.books).toBe(await getWorkCount(undefined, { reading: ["unread"], holding: "owned" }));
       expect(pile.atHand.map((h) => [h.home, h.books])).toEqual([
         ["Amsterdam", 2],
-        ["Mexico City", 2],
+        ["Mexico City", 4],
       ]);
     });
   });
