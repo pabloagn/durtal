@@ -15,6 +15,7 @@ import { editionImage, type PosterImage } from "@/lib/utils/edition-image";
 import { mediaResponseError } from "@/lib/utils/media-upload";
 import { isOwnEditionCoverKey } from "@/lib/s3/keys";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { useFocusThroughBusy } from "@/hooks/use-focus-through-busy";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { showBookCover, restoreOwnCover } from "@/lib/actions/edition-cover";
 import type { OwnCover } from "@/lib/catalogue/edition-cover";
@@ -42,6 +43,8 @@ export function EditionCoverDialog({ edition, poster }: EditionCoverDialogProps)
   const [showUrl, setShowUrl] = useState(false);
   const [url, setUrl] = useState("");
   const [urlBusy, setUrlBusy] = useState(false);
+  const urlField = useRef<HTMLInputElement>(null);
+  useFocusThroughBusy(urlBusy, urlField);
   // The button that takes the place of the one just pressed gets the focus,
   // once the refreshed edition shows it, so focus never falls to the page
   const focusNext = useRef<"put-back" | "use-book" | null>(null);
@@ -213,6 +216,7 @@ export function EditionCoverDialog({ edition, poster }: EditionCoverDialogProps)
                 className="mt-2 flex items-center gap-2"
               >
                 <Input
+                  ref={urlField}
                   type="url"
                   aria-label="Image URL"
                   placeholder="Paste image URL..."
