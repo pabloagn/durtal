@@ -25,11 +25,16 @@ export function ReaderSidePanel({
   children,
   variant = "drawer",
   side = "left",
+  onDone,
 }: {
   open: boolean;
   title: string;
   onClose(): void;
   children: ReactNode;
+  /** A panel whose every change saves at once: Enter on the panel itself
+   * presses its Done (the app's dialogs do so through the shortcuts, which
+   * leave the reader's keys alone) */
+  onDone?(): void;
   variant?: "drawer" | "settings";
   /** A drawer moves to the right when what it points to sits under it (SLN-675) */
   side?: "left" | "right";
@@ -136,6 +141,11 @@ export function ReaderSidePanel({
         if (event.key === "Escape" && !event.defaultPrevented) {
           event.preventDefault();
           onClose();
+        }
+        else if (onDone && event.key === "Enter" && event.target === event.currentTarget && !event.repeat &&
+          !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey && !event.nativeEvent.isComposing) {
+          event.preventDefault();
+          onDone();
         }
       }}
       data-reader-settings-sheet={variant === "settings" || undefined}

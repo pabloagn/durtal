@@ -47,6 +47,10 @@ interface DialogProps {
 const FIRST_FIELD =
   'input:not([type="hidden"],[type="checkbox"],[type="radio"],[type="file"],[type="range"],[type="color"],[type="button"],[type="submit"]):not(:disabled), textarea:not(:disabled), [contenteditable="true"]';
 
+/** Anything in a dialog's body a person can work with, field or not */
+const CONTROL =
+  'input:not([type="hidden"]), select, textarea, button, a[href], [contenteditable="true"], [tabindex]:not([tabindex="-1"])';
+
 /**
  * Where focus goes back to when a dialog closes. A dialog opened from a menu
  * item opens after the menu is gone, with focus already on the page body, so
@@ -69,6 +73,7 @@ export function Dialog({
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const scope = useDialogFocusScope();
   const ownLease = useRef<SurfaceLease | null>(null);
@@ -134,6 +139,30 @@ export function Dialog({
       (el.querySelector<HTMLElement>(FIRST_FIELD) ?? el).focus();
     }
     if (!open && el.open) el.close();
+  }, [open]);
+
+  // A dialog that loads its fields after it opens (Edit person) starts in
+  // the first field once they arrive, unless focus has moved on by then.
+  // Only when that field comes first: a dialog that opened with other
+  // controls above a late field (Log a past read's lists above its Review
+  // editor) stays at its top, as it opened
+  useEffect(() => {
+    const el = dialogRef.current;
+    const body = bodyRef.current;
+    if (!open || !el || !body || el.querySelector(FIRST_FIELD)) return;
+    if (body.querySelector(CONTROL)) return;
+    const observer = new MutationObserver(() => {
+      if (document.activeElement !== el) {
+        if (el.contains(document.activeElement)) observer.disconnect();
+        return;
+      }
+      const first = body.querySelector<HTMLElement>(CONTROL);
+      if (!first) return;
+      observer.disconnect();
+      if (first.matches(FIRST_FIELD)) first.focus();
+    });
+    observer.observe(el, { childList: true, subtree: true });
+    return () => observer.disconnect();
   }, [open]);
 
   // Reset expanded state when dialog closes
@@ -213,7 +242,7 @@ export function Dialog({
       {/* Body. It scrolls, not the dialog: the glass stays behind every
           line, and the header stays in view. It grows from its content
           (flex-auto): from a zero basis, Safari gives it no height */}
-      <div className={`min-h-0 flex-auto overflow-y-auto px-6 pt-3 ${done ? "pb-4" : "pb-6"}`}>
+      <div ref={bodyRef} className={`min-h-0 flex-auto overflow-y-auto px-6 pt-3 ${done ? "pb-4" : "pb-6"}`}>
         {children}
       </div>
       {/* Outside the scrolling body, so it stays in view */}

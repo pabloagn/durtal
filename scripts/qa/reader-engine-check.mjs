@@ -1133,7 +1133,7 @@ async function checkPdfMarks(name, browser) {
         if (await panelButton.isVisible()) await panelButton.click();
         else await page.keyboard.press("h");
         // The panel lists marks in book order: the highlight comes first
-        await page.getByRole("button", { name: "Go to mark" }).first().click({ timeout: 5000 });
+        await page.locator("dialog[open] [data-annotation-go]").first().click({ timeout: 5000 });
         await waitForMark(page, [highlight.id]);
         marks = await pdfMarks(page);
         record(name, "pdfmarks", `${width}: Go to mark from another page draws the mark`, away === 0 && onText(marks[highlight.id]), `${away} of the marks drawn three pages on; then ${describeMark(marks[highlight.id])}`);

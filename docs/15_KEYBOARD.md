@@ -224,7 +224,7 @@ the identify queue and the harmonize workspace (16 files).
 | 40 | titles[action] | `components/ebooks/review-bulk-dialog.tsx:94` | Two-step confirm | Preview next group, then confirm | none |
 | 41 | title | `components/ebooks/review-confirm.tsx:40` | Confirm | Confirm | none |
 | 42 | `$mode === "automatic_undo | `components/ebooks/unlink-ebook-dialog.tsx:41` | Confirm | Unlink | none |
-| 43 | Catalogue status · $work.title | `components/ebooks/work-review-dialog.tsx:54` | Confirm | Confirm | none |
+| 43 | Catalogue status · $work.title | `components/ebooks/work-review-dialog.tsx:56` | Step form | Preview accessioned status, then Confirm status change | none |
 | 44 | copy ? "Edit copy | `components/films/copy-dialog.tsx:93` | Edit form | Save / Create (submit) | draft |
 | 45 | Edit film | `components/films/film-actions.tsx:61` | Edit form | Save / Create (submit) | draft |
 | 46 | Look up on Wikidata | `components/films/source-lookup.tsx:44` | Edit form | Save / Create (submit) | draft |
