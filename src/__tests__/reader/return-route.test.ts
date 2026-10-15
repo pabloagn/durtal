@@ -115,8 +115,12 @@ describe("a browser with no device id yet (SLN-668)", () => {
       params: Promise.resolve({ ebookId }),
       searchParams: Promise.resolve({ returnTo: "/series/surrealism" }),
     });
-    expect(isValidElement(tree) && tree.type).toBe(DeviceHandshake);
-    expect(isValidElement<{ ebookId: string; backHref: string }>(tree) && tree.props).toEqual({ ebookId, backHref: "/series/surrealism" });
+    const parts = isValidElement<{ children: ReactNode }>(tree) ? Children.toArray(tree.props.children) : [];
+    const handshake = parts.find((part) => isValidElement(part) && part.type === DeviceHandshake);
+    expect(isValidElement<{ ebookId: string; backHref: string }>(handshake) && handshake.props).toEqual({ ebookId, backHref: "/series/surrealism" });
+    // An Escape before the page's code runs is kept for the handshake (SLN-811)
+    expect(parts.some((part) => isValidElement<{ dangerouslySetInnerHTML?: { __html: string } }>(part)
+      && part.type === "script" && part.props.dangerouslySetInnerHTML?.__html.includes("__durtalEarlyEscape"))).toBe(true);
     expect(store.book).not.toHaveBeenCalled();
     expect(store.plugins).not.toHaveBeenCalled();
   });

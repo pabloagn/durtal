@@ -1,10 +1,15 @@
-import type { ReactNode } from "react";
+import { cache, type ReactNode } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import type { WorkWithRelations } from "@/lib/types";
 import { getTaxonomyAssignments } from "@/lib/actions/taxonomy-families";
 import { TaxonomyAssignments } from "@/components/taxonomy/taxonomy-assignments";
 import { RecordGroup } from "@/components/shared/detail-layout";
+
+/** A book's custom families, read once per request; the page starts it early */
+export const workTaxonomyAssignments = cache((workId: string) =>
+  getTaxonomyAssignments({ kind: "book", level: "work", ownerId: workId }),
+);
 
 interface WorkTaxonomySectionProps {
   work: WorkWithRelations;
@@ -48,11 +53,7 @@ export async function WorkTaxonomySection({
   work,
   headerAction,
 }: WorkTaxonomySectionProps) {
-  const custom = await getTaxonomyAssignments({
-    kind: "book",
-    level: "work",
-    ownerId: work.id,
-  });
+  const custom = await workTaxonomyAssignments(work.id);
   const subjects = work.workSubjects.map((ws) => ({
     name: ws.subject.name,
     slug: ws.subject.slug,

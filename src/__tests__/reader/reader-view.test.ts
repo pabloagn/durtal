@@ -45,6 +45,7 @@ vi.mock("@/lib/reader/offline/runtime", async (importOriginal) => {
 });
 import { mutationWireJson, EXPECTED_DEVICE_HEADER } from "@/lib/reader/offline/mutations";
 import { mountedPersistence } from "./fixtures/mounted-persistence";
+import { BARS_HIDE_MS } from "@/components/reader/reader-shell";
 let persistence: Awaited<ReturnType<typeof mountedPersistence>>;
 let host: HTMLElement, root: Root, fake: ReturnType<typeof fakeEngine>;
 // Canonical identities also reach preference and durable annotation consumers.
@@ -935,6 +936,64 @@ it("puts Skip to the book before top-bar controls and delegates focus to the act
   act(() => first.click());
   expect(focus).toHaveBeenCalledOnce();
 });
+
+it("lets go of focus left on a bar control on a scroll, a turn or a mouse move, so the bars go", async () => {
+  await render();
+  await settle();
+  const footer = () => host.querySelector<HTMLElement>("footer[data-reader-chrome]")!;
+  const control = () => host.querySelector<HTMLButtonElement>("[data-reader-top-bar] button")!;
+  // As a panel's close returns focus to the bar button that opened it
+  act(() => control().focus());
+  // A scroll in a scrolled book: the bars go after the usual wait
+  fake.emit("relocate", {
+    locator: { ...own.locator, cfi: "scrolled", progression: 0.6, totalProgression: 0.6 },
+    chapter: "Next", reason: "turn", origin: "human", activity: "scroll",
+    atEnd: false, tocItem: null, visibleChars: 300, linear: true, paginated: false,
+  });
+  await settle();
+  expect(footer().inert).toBe(false);
+  await act(() => new Promise((resolve) => setTimeout(resolve, BARS_HIDE_MS + 50)));
+  expect(footer().inert).toBe(true);
+  // Tab brings them back; a turn from a bar control sends them away at once
+  act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true })));
+  expect(footer().inert).toBe(false);
+  act(() => control().focus());
+  act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
+  await settle();
+  expect(footer().inert).toBe(true);
+  // A mouse moving over the book lets go of it too, after the usual wait
+  act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true })));
+  act(() => control().focus());
+  for (const x of [300, 340]) act(() => document.dispatchEvent(new MouseEvent("mousemove", { clientX: x, clientY: 400, bubbles: true })));
+  expect(footer().inert).toBe(false);
+  await act(() => new Promise((resolve) => setTimeout(resolve, BARS_HIDE_MS + 50)));
+  expect(footer().inert).toBe(true);
+}, 15_000);
+
+it("lets the bars go once the mouse is over the book, though no leave came from a menu that closed under it", async () => {
+  await render();
+  await settle();
+  const footer = () => host.querySelector<HTMLElement>("footer[data-reader-chrome]")!;
+  // The pointer enters the bars (as over a bar's menu), and the menu closes
+  // under it: Firefox then sends no leave
+  const control = host.querySelector<HTMLButtonElement>("[data-reader-top-bar] button")!;
+  const enter = () => act(() => control.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, relatedTarget: null })));
+  const move = (x: number) => act(() => document.dispatchEvent(new MouseEvent("mousemove", { clientX: x, clientY: 400, bubbles: true })));
+  vi.spyOn(document, "elementFromPoint").mockReturnValue(host.querySelector<HTMLElement>("#reader-book")!);
+  enter();
+  // With the mouse resting over the book, a turn sends them away at once
+  move(300);
+  act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
+  await settle();
+  expect(footer().inert).toBe(true);
+  // A mouse moving over the book lets them go after the usual wait
+  act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true })));
+  enter();
+  for (const x of [340, 380]) move(x);
+  expect(footer().inert).toBe(false);
+  await act(() => new Promise((resolve) => setTimeout(resolve, BARS_HIDE_MS + 50)));
+  expect(footer().inert).toBe(true);
+}, 15_000);
 
 it.each(["valid", "malformed"] as const)("lifecycle replay retains exact intent until a %s acknowledgement", async acknowledgement => {
   await render(); await settle();

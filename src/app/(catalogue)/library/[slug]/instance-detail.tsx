@@ -273,17 +273,11 @@ export function InstanceDetail({
                     the next fact's command off the last row, so 44px press areas never overlap.
                     A flex item is no inline text link, so a short Read takes a 44px-wide press area */}
                 <dd className="flex min-w-0 flex-wrap items-baseline gap-x-3 pointer-coarse:gap-y-7 pointer-coarse:pb-1 text-fg-secondary">
-                  <span className="font-mono">
-                    {/* The size keeps its number and unit on one line; an e-book with no file has none */}
-                    {[
-                      ebook.formats.join(", "),
-                      ebook.sizeBytes
-                        ? formatFileSize(ebook.sizeBytes).replace(" ", "\u00a0")
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </span>
+                  {/* The size, its number and unit on one line; an e-book with no file has none.
+                      The formats are the copy's chips above, not named again here (SLN-805) */}
+                  {ebook.sizeBytes ? (
+                    <span className="font-mono">{formatFileSize(ebook.sizeBytes).replace(" ", "\u00a0")}</span>
+                  ) : null}
                   <Link href={`/ebooks/${ebook.id}`} className="whitespace-nowrap text-command">eBook details</Link>
                   {ebook.readerPath && <ReaderEntryLink
                     readerPath={ebook.readerPath}
