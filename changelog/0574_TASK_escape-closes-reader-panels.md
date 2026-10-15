@@ -28,7 +28,7 @@ Escape cancels everywhere, so it now closes the latest such panel.
 - Browser check (scratch script), 1440 px, Chromium, WebKit and Firefox:
   Contents and Settings each close on one Escape with focus in the panel,
   on a toolbar button and in the book: 18 of 18 together with 0573's
-  tooltip fix (main: 6 of 18). Without 0573, a toolbar button that
+  tooltip fix (6 of 18 with 0573 alone). Without 0573, a toolbar button that
   keyboard focus reached shows its tooltip, which takes that Escape.
 - Test: `side-panel.test.ts` (closes a panel beside the book, never a
   modal one).
