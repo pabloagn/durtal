@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { toast } from "@/lib/notifications/toast";
+import { DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -289,7 +290,8 @@ export function PerfumeForm(props: Props) {
           {error}
         </p>
       )}
-      <div className="flex flex-wrap justify-end gap-2">
+      {/* In the edit dialog, under its body and always in view */}
+      <DialogFooter outside="">
         <Button
           variant="ghost"
           data-dismiss=""
@@ -309,7 +311,7 @@ export function PerfumeForm(props: Props) {
         >
           {props.mode === "create" ? "Add perfume" : "Save"}
         </Button>
-      </div>
+      </DialogFooter>
     </div>
     </>
   );

@@ -2,6 +2,7 @@
 
 import type { Dispatch, SetStateAction } from "react";
 import { Button } from "@/components/ui/button";
+import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { AuthorNameInput } from "@/components/shared/author-name-input";
 import { Select } from "@/components/ui/select";
@@ -228,7 +229,7 @@ export function AuthorForm({
     onChange((current) => ({ ...current, [key]: value }));
   return (
     <>
-      <div className="max-h-[75vh] overflow-y-auto pr-1">
+      <div>
         <div className="space-y-6">
           {/* Identity */}
           <section>
@@ -387,8 +388,7 @@ export function AuthorForm({
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="mt-5 flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+      <DialogFooter>
         <Button data-dismiss="" variant="secondary" size="sm" onClick={onCancel} disabled={pending}>
           Cancel
         </Button>
@@ -401,7 +401,7 @@ export function AuthorForm({
         >
           {mode === "create" ? "Add person" : "Save changes"}
         </Button>
-      </div>
+      </DialogFooter>
     </>
   );
 }

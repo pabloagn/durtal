@@ -104,7 +104,7 @@ export function EditionAddDialog({
         description={workTitle}
         className="max-w-3xl"
       >
-        <div className="max-h-[75vh] overflow-y-auto">
+        <div>
           <EditionForm
             initialValues={initialValues}
             availableGenres={lists.options.genres ?? []}

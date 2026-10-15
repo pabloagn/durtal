@@ -4,7 +4,7 @@ import { useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
 import { Plus } from "lucide-react";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
   InstanceForm,
@@ -140,7 +140,7 @@ export function InstanceAddDialog({
         title="Add Instance"
         description={editionTitle}
       >
-        <fieldset disabled={isPending || review.prepared !== null || review.phase === "confirming"} className="max-h-[75vh] overflow-y-auto">
+        <fieldset disabled={isPending || review.prepared !== null || review.phase === "confirming"} >
           <InstanceForm
             value={draft}
             onChange={setDraft}
@@ -158,7 +158,7 @@ export function InstanceAddDialog({
             onEdit={() => dispatch({ type: "edit", generation: ++generation.current })} />
         </div> : <>
         {review.error && <p role="alert" className="mt-3 text-sm text-accent-red-text">{review.error}</p>}
-        <div className="mt-4 flex justify-end gap-2 border-t border-glass-border pt-4">
+        <DialogFooter>
           <Button data-dismiss=""
             variant="secondary"
             size="sm"
@@ -176,7 +176,7 @@ export function InstanceAddDialog({
           >
             {ebook ? "Preview copy and eBook" : "Create instance"}
           </Button>
-        </div>
+        </DialogFooter>
         </>}
       </Dialog>
     </>
