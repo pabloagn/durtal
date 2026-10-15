@@ -136,6 +136,8 @@ export function EntityFilters({
           type="text"
           // "/" focuses this field (keyboard shortcuts)
           data-shortcut-search=""
+          // Focus falls back here with no Filter button (SLN-838)
+          data-list-focus="search"
           placeholder={searchPlaceholder}
           defaultValue={currentQuery}
           onChange={(e) => {
