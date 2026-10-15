@@ -19,6 +19,7 @@ import { loadPaintingCards } from "@/lib/catalogue/painting-store";
 import { catalogueDateYears } from "@/lib/catalogue/dates";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { MemberCard } from "@/components/collections/member-card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { readingStatesFor } from "@/lib/reading/states";
 import { readingBadge } from "@/lib/reading/card";
 import { FilmPoster } from "@/components/films/film-poster";
@@ -29,6 +30,7 @@ import { PaintingImage } from "@/components/paintings/painting-image";
 import { paintingFacts, paintingHref, paintingPainters } from "@/components/paintings/painting-card";
 import {
   CollectionControls,
+  AddToCollectionButton,
   CollectionMemberControls,
 } from "@/components/collections/collection-controls";
 import { CopyBookButton } from "@/components/books/copy-book-button";
@@ -247,7 +249,8 @@ function memberCounts(collection: Collection, reading: Awaited<ReturnType<typeof
     [of("painting"), "painting", "paintings"],
   ];
   const shown = parts.filter(([n]) => n > 0);
-  if (!shown.length) return "Nothing yet";
+  // An empty collection says so once, in its empty state below
+  if (!shown.length) return null;
   const counts = shown.map(([n, one, many]) => `${n} ${n === 1 ? one : many}`);
   if (read) counts.push(`${read} of ${books} ${books === 1 ? "book" : "books"} read`);
   return counts.join(" · ");
@@ -394,21 +397,23 @@ export default async function CollectionPage({
                   {collection.description}
                 </Prose>
               )}
-              <p className="my-4 text-xs text-fg-secondary">{counts}</p>
-              <CollectionControls
-                collection={collection}
-                editionIds={collection.collectionEditions.map(
-                  (m) => m.editionId,
-                )}
-                workIds={collection.collectionWorks.map((m) => m.workId)}
-                kinds={[
-                  ...collectionBookIds(collection).map(() => "book" as const),
-                  ...collection.collectionWorks
-                    .filter((m) => m.work.kind !== "book")
-                    .map((m) => m.work.kind),
-                ]}
-                initialAdd={query.add === "1"}
-              />
+              {counts && <p className="my-4 text-xs text-fg-secondary">{counts}</p>}
+              <div className={counts ? undefined : "mt-4"}>
+                <CollectionControls
+                  collection={collection}
+                  editionIds={collection.collectionEditions.map(
+                    (m) => m.editionId,
+                  )}
+                  workIds={collection.collectionWorks.map((m) => m.workId)}
+                  kinds={[
+                    ...collectionBookIds(collection).map(() => "book" as const),
+                    ...collection.collectionWorks
+                      .filter((m) => m.work.kind !== "book")
+                      .map((m) => m.work.kind),
+                  ]}
+                  initialAdd={query.add === "1"}
+                />
+              </div>
             </div>
           </header>
         </div>
@@ -446,14 +451,13 @@ export default async function CollectionPage({
           </div>
         </PaginatedSection>
       ) : (
-        <div className="rounded-sm border border-dashed border-glass-border px-6 py-14 text-center">
-          <BookOpen
-            className="mx-auto mb-3 text-fg-muted"
-            size={24}
-            strokeWidth={1}
-          />
-          <h2 className="type-item-title">Build your collection</h2>
-        </div>
+        <EmptyState
+          icon={FolderOpen}
+          heading="h2"
+          title="Nothing in this collection yet"
+          description="Add books, editions, films, perfumes or paintings to it."
+          action={<AddToCollectionButton />}
+        />
       )}
     </>
   );

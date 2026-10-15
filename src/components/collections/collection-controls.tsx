@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowUp,
@@ -30,6 +30,24 @@ import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { collectionDeletedMessage } from "@/lib/collections/counts";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 
+const ADD_EVENT = "durtal:collection-add";
+
+/**
+ * The empty collection's own Add button: it opens the same dialog as the
+ * header's Add, at once and with no round trip
+ */
+export function AddToCollectionButton() {
+  return (
+    <Button
+      variant="secondary"
+      onClick={() => window.dispatchEvent(new CustomEvent(ADD_EVENT))}
+    >
+      <Plus size={14} strokeWidth={1.5} />
+      Add to the collection
+    </Button>
+  );
+}
+
 type Collection = {
   id: string;
   name: string;
@@ -59,6 +77,11 @@ export function CollectionControls({
     [name, setName] = useState(collection.name),
     [description, setDescription] = useState(collection.description ?? ""),
     [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const onAdd = () => setAdd(true);
+    window.addEventListener(ADD_EVENT, onAdd);
+    return () => window.removeEventListener(ADD_EVENT, onAdd);
+  }, []);
   function openEdit() {
     setName(collection.name);
     setDescription(collection.description ?? "");
