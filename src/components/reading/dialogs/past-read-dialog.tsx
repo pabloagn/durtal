@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
@@ -42,6 +42,9 @@ export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
   const [reason, setReason] = useState<AbandonReason>("lost_interest");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  // One save at a time: a second press of Log read or Save anyway before the
+  // first returns would log the read twice
+  const inFlight = useRef(false);
   const [duplicate, setDuplicate] = useState<string | null>(null);
   const error = finishDateError({ startedOn: start.date, startedPrecision: start.precision }, finish);
 
@@ -53,7 +56,8 @@ export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
   }
 
   async function submit(allowPossibleDuplicate = false) {
-    if (error) return;
+    if (error || inFlight.current) return;
+    inFlight.current = true;
     setSaving(true);
     try {
       const result = await addPastReading({
@@ -84,6 +88,7 @@ export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
     } catch (err) {
       showError(err, changed);
     } finally {
+      inFlight.current = false;
       setSaving(false);
     }
   }
@@ -157,7 +162,7 @@ export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
         {duplicate && (
           <div className="flex flex-wrap items-center gap-2 rounded-sm border border-glass-border p-3 text-sm text-fg-secondary" role="alert">
             {duplicate}
-            <Button type="button" size="sm" variant="ghost" onClick={() => void submit(true)} className="pointer-coarse:h-11">
+            <Button type="button" size="sm" variant="ghost" onClick={() => void submit(true)} busy={saving} className="pointer-coarse:h-11">
               Save anyway
             </Button>
           </div>
