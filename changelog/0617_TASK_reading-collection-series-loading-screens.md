@@ -42,8 +42,9 @@ arrived. With every query slowed to 800 ms:
 - **A collection and a series** draw their pages' layout while they load:
   - a collection: the way back, the poster's box, the name, the counts line and
     its four controls, held at their widths;
-  - a series: the way back, the title row with its star and menu (under the
-    title in a narrow row), the authors line and the counts.
+  - a series: the way back, the title row with its star and menu (at the
+    row's end, under the title in a narrow row), the authors line, the counts,
+    then its books a row each, as the page lists them.
 - Their layouts now check the record first with `collectionExists` and
   `seriesExists` (`src/lib/catalogue/record-exists.ts`) through `liveRecord`, as
   the book and person layouts do. A missing one still answers 404, and a merged
