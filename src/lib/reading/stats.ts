@@ -507,9 +507,10 @@ export async function unreadPile(today: string): Promise<UnreadPile> {
     rows<{ books: number; pages: number; withoutPages: number }>(sql`
       select count(*)::float8 as books, coalesce(sum(p.pages), 0)::float8 as pages, count(*) filter (where p.pages is null)::float8 as "withoutPages"
       from (select w.id, coalesce(
-          (select e.page_count from instances i join editions e on e.id = i.edition_id
+          -- A page count of 0 is no page count (SLN-802)
+          (select nullif(e.page_count, 0) from instances i join editions e on e.id = i.edition_id
             where e.work_id = w.id and i.status <> 'deaccessioned' order by i.created_at, i.id limit 1),
-          (select max(e.page_count) from editions e where e.work_id = w.id)) as pages
+          (select max(nullif(e.page_count, 0)) from editions e where e.work_id = w.id)) as pages
         from works w where ${PILE}) p`),
     rows<{ pages: number }>(sql`with ${BASE}
       select coalesce(sum(cp.pages), 0)::float8 as pages from cp
