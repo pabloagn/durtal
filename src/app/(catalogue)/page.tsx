@@ -12,6 +12,7 @@ import {
   Star,
   ShoppingCart,
   FolderOpen,
+  BarChart3,
 } from "lucide-react";
 import { getLibraryStats } from "@/lib/actions/works";
 import {
@@ -47,6 +48,7 @@ import { readingEstimates } from "@/lib/reading/estimates";
 import { cardReadingOf } from "@/lib/reading/card";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { PhonePairGrid } from "@/components/shared/phone-pair-grid";
+import { DashboardStatistics } from "@/components/statistics/dashboard-statistics";
 
 // The root layout's title template skips a page in its own segment
 export const metadata = { title: { absolute: "Dashboard | Durtal" } };
@@ -404,6 +406,12 @@ async function DashboardContent() {
           </PhonePairGrid>
         </section>
       )}
+
+      {/* Statistics (SLN-742): the section's body loads on its own */}
+      <section id="statistics" className="mt-12">
+        <SectionHeader title="Statistics" icon={BarChart3} href="/statistics" />
+        <DashboardStatistics />
+      </section>
     </>
   );
 }
