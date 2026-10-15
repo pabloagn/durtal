@@ -35,3 +35,5 @@ SLN-557. The image adjustment editor showed a wrapping row of ten small buttons 
   - Each group was opened in Chromium, Firefox and WebKit at 1440 (mouse), 390 and 320 (touch).
   - The alignment and design audits are clean on all 27 loads, with no overflow.
   - On touch the groups and sliders are 44px tall.
+
+**Review fix (#317):** when only one group is left (a person's image keeps monochrome, so no Colour, and an image with no crop has no Framing), the editor shows Tone's sliders with no one-option switch over them.

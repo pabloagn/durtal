@@ -196,14 +196,17 @@ function LoadedEditor({
       <fieldset disabled={saving} className="space-y-3">
         <legend className="sr-only">Image adjustments</legend>
         {/* One group at a time, every control in it in view: a label, its
-            value (brighter once it moves off the default) and its slider */}
-        <SegmentedControl
-          options={groups}
-          value={shown}
-          onChange={setGroup}
-          ariaLabel="Adjustments"
-          disabled={saving}
-        />
+            value (brighter once it moves off the default) and its slider.
+            A lone group (author monochrome, no crop) needs no switch */}
+        {groups.length > 1 && (
+          <SegmentedControl
+            options={groups}
+            value={shown}
+            onChange={setGroup}
+            ariaLabel="Adjustments"
+            disabled={saving}
+          />
+        )}
         <div className="space-y-4 pointer-coarse:space-y-0">
           {available
             .filter((control) => control.group === shown)

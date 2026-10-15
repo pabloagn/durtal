@@ -65,8 +65,11 @@ describe("image adjustment groups", () => {
 
   it("leaves out Colour while author monochrome is locked on", async () => {
     await open({ monochrome: true, settings: { ...DEFAULT_IMAGE_ADJUSTMENTS, grayscale: 100, saturation: 0 } });
-    expect(groups()).toEqual(["Tone"]);
     expect(host.textContent).toContain("Author monochrome stays on");
+    // Tone alone: its controls with no one-option switch over them
+    expect(groups()).toEqual([]);
+    expect(host.querySelector('[role="radiogroup"]')).toBeNull();
+    expect(sliders()).toEqual(["Exposure", "Brightness", "Contrast", "Softness"]);
   });
 
   it("brightens a value once it leaves the default, and signs a positive exposure", async () => {
