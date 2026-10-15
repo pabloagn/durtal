@@ -359,11 +359,11 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
 
   // ── Real crop: the crop is in the files, the uncropped image is kept ──────
 
-  async function croppablePoster(author = false) {
+  async function croppablePoster(author = false, workKind?: "painting" | "perfume") {
     store.clear();
     const [owner] = author
       ? await db.insert(schema.authors).values({ name: "Portrait" }).returning()
-      : await db.insert(schema.works).values({ title: "Cover" }).returning();
+      : await db.insert(schema.works).values({ title: "Cover", ...(workKind ? { kind: workKind, originalLanguage: null } : {}) }).returning();
     const kind = author ? "author" : "work";
     const s3Key = `gold/media/${kind}/${owner.id}/poster/upload.webp`;
     const thumbnailS3Key = `gold/media/${kind}/${owner.id}/poster/upload_thumb.webp`;
@@ -553,6 +553,31 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
       appliedCrop: null,
     });
     expect(store.get(item.s3Key)).toEqual(image);
+  });
+
+  it("shows a painting's or a perfume's poster whole: centred, turned, never cut", async () => {
+    for (const kind of ["painting", "perfume"] as const) {
+      const { item, image } = await croppablePoster(false, kind);
+      // A framing saved as CSS before is left behind: the editor starts centred
+      await db.update(schema.media).set({ cropX: 25, cropY: 70, cropZoom: 135 }).where(eq(schema.media.id, item.id));
+      const presentation = await getImagePresentation(s3ImageSource(item.s3Key));
+      expect(presentation).toMatchObject({
+        contained: true,
+        aspect: null,
+        crop: { cropX: 50, cropY: 50, cropZoom: 100, turn: 0, straighten: 0 },
+      });
+      // A zoom or a move is refused; a turn keeps the whole image
+      await expect(cropTo(s3ImageSource(item.s3Key), 0, 0, 200)).rejects.toThrow(/shown whole/);
+      await saveImagePresentation(s3ImageSource(item.s3Key), {
+        settings: { contrast: 100 },
+        crop: { ...presentation.crop!, turn: 90 },
+      });
+      const turned = await row(item.id);
+      expect(turned).toMatchObject({ uncroppedS3Key: item.s3Key, cropX: 50, cropY: 50, cropZoom: 100 });
+      const { width, height } = await sharp(store.get(turned.s3Key)!).metadata();
+      expect([width, height]).toEqual([450, 300]);
+      expect(store.get(item.s3Key)).toEqual(image);
+    }
   });
 
   it("refuses a turn that is not a quarter and a straightening past 45 degrees", async () => {
