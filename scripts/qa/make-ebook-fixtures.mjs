@@ -787,7 +787,7 @@ function small() {
       title: "The Distant Orchard",
       author: "Durtal Fixtures",
       chapters: [
-        ...three.chapters.slice(0, 1).map((c) => ({ ...c, body: `${c.body}\n<p><img src="cover.png" alt="An orchard at dusk"/></p>` })),
+        ...three.chapters.slice(0, 1).map((c) => ({ ...c, body: `${c.body}\n<p style="break-before: column; margin: 0"><img src="cover.png" alt="An orchard at dusk" style="display: block; height: 100em"/></p>` })),
         ...three.chapters.slice(1),
       ],
       files: [{ id: "cover", href: "cover.png", type: "image/png", data: cover, properties: "cover-image", store: true }],
