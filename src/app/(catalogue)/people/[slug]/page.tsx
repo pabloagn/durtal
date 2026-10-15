@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ebooksAvailableText } from "@/lib/utils/format";
 import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
 import { getAuthorEbookSuggestionCount } from "@/lib/ebooks/review-queue/suggestions";
 import { EbookSuggestionLine } from "@/components/ebooks/ebook-suggestion-line";
@@ -85,7 +86,8 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
     return {
       kind,
       label: WORK_DOMAINS[kind].pluralLabel,
-      roles: [...roles].map(([role, ids]) => `${role} ${ids.size}`).join(", "),
+      // "Author · 2 books", one role a line: a bare "Author 2" read as a name
+      roles: [...roles].map(([role, ids]) => `${role} · ${ids.size.toLocaleString("en")} ${ids.size === 1 ? WORK_DOMAINS[kind].label.toLowerCase() : WORK_DOMAINS[kind].pluralLabel.toLowerCase()}`),
     };
   });
   // Films, perfumes and paintings as their collections' cards, like the books
@@ -272,7 +274,9 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                   <RecordFields>
                     {creditSummary.map((group) => (
                       <RecordField key={group.kind} label={group.label}>
-                        {group.roles}
+                        {group.roles.map((role) => (
+                          <span key={role} className="block" data-person-credit="">{role}</span>
+                        ))}
                       </RecordField>
                     ))}
                   </RecordFields>
@@ -354,7 +358,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
             {/* Works as author */}
             {works.length > 0 && (
               <section className="mb-8">
-                <SectionHeading title="Books" count={works.length} description={[readOfText(record), digitalCount ? `${digitalCount} available as eBooks` : null].filter(Boolean).join(" · ")} />
+                <SectionHeading title="Books" count={works.length} description={[readOfText(record), digitalCount ? ebooksAvailableText(digitalCount) : null].filter(Boolean).join(" · ")} />
                 {record.read > 0 && (
                   <div className="mb-4">
                     <ReadingTabSwitch value={readingTab} />

@@ -5,6 +5,7 @@ import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { languageName } from "@/lib/utils/language";
 import {
   searchEditionsForPicker,
   searchWorksForCollection,
@@ -236,7 +237,7 @@ export function AddCollectionBooksDialog({
                       {e.authorName}
                     </span>
                     <span className="block text-xs text-fg-secondary">
-                      {[e.publisher, e.publicationYear, e.language, e.isbn13]
+                      {[e.publisher, e.publicationYear, languageName(e.language), e.isbn13]
                         .filter(Boolean)
                         .join(" · ")}
                     </span>

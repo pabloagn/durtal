@@ -58,7 +58,7 @@ import { candidates, passes, suggest } from "@/lib/reading/suggest/score";
 import { readingToday } from "@/lib/reading/day";
 import { addDays } from "@/lib/reading/goals";
 import { GET as getSuggestions } from "@/app/api/readings/suggestions/route";
-import SuggestionsPage from "@/app/(catalogue)/reading/suggestions/page";
+import SuggestionsPage from "@/app/(catalogue)/reading/(tabs)/suggestions/page";
 
 /* Suggestions against PostgreSQL (SLN-457): the context load, feedback, merges, the gate, the API. */
 
