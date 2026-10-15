@@ -5,6 +5,7 @@ import { QUIET_GLASS_ANNOTATION_PALETTE } from "@/lib/reader/annotation-colors";
 import { highlightColours, LIGHT_THEME_HIGHLIGHTS } from "@/lib/reader/presentation/themes";
 import { SkipToBook } from "@/components/reader/skip-to-book";
 import { ReaderAnnouncer } from "@/components/reader/reader-announcer";
+import { closeLatestReaderPanel } from "@/components/reader/side-panel";
 
 import {
   useCallback,
@@ -702,6 +703,9 @@ function ReaderSession({
           setSearchOpen(false);
           return;
         }
+        // A panel beside the book (Contents, Settings, Highlights at 1024px
+        // and up) closes even when focus has left it
+        if (closeLatestReaderPanel()) return;
         if (searchEscapeRef.current?.()) return;
         if (document.fullscreenElement)
           void document.exitFullscreen().catch(() => {});

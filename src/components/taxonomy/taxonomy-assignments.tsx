@@ -276,10 +276,11 @@ export function TaxonomyItemSearch({
           <button
             type="button"
             disabled={creating}
+            aria-busy={creating || undefined}
             onClick={create}
             className="block w-full truncate px-2 py-1 text-left text-xs text-accent-primary hover:bg-bg-tertiary"
           >
-            {creating ? "Creating…" : `Create “${name}”`}
+            {`Create “${name}”`}
           </button>
         )}
       </div>

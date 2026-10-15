@@ -255,6 +255,24 @@ async function open(page, n, url = base) {
   return { ms: Date.now() - started, ...(await page.evaluate(readState)) };
 }
 
+/**
+ * Waits until the place has stopped changing for `quiet` ms. A late font can
+ * reflow the opening screen (Firefox), which relocates once more with the same
+ * first words but a later end, so a key press counted from the first relocate
+ * would be counted against that reflow instead.
+ */
+async function settled(page, quiet = 600, timeout = 5000) {
+  const until = Date.now() + timeout;
+  let last = await page.evaluate(readState);
+  let since = Date.now();
+  while (Date.now() < until && Date.now() - since < quiet) {
+    await sleep(100);
+    const now = await page.evaluate(readState);
+    if (now.fraction !== last.fraction || now.cfi !== last.cfi) [last, since] = [now, Date.now()];
+  }
+  return last;
+}
+
 /** Waits for the place to move away from `fraction`; returns the new state */
 async function moved(page, fraction, timeout = 4000) {
   try {
@@ -327,7 +345,8 @@ async function pickPublisherFont(page) {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Reading settings", exact: true });
   await dialog.getByRole("radio", { name: "This book", exact: true }).click();
-  await dialog.getByRole("combobox", { name: "Font", exact: true }).selectOption("publisher");
+  // The font is a group of radio buttons (the font picker)
+  await dialog.getByRole("radio", { name: /^Publisher/ }).click();
   await dialog.getByRole("checkbox", { name: "Use publisher typography", exact: true }).check();
   await dialog.getByRole("status").filter({ hasText: /^Settings saved$/ }).waitFor();
   await page.keyboard.press("Escape");
@@ -389,10 +408,10 @@ async function checkDirection(name, browser) {
     [9, "vertical Japanese", "ArrowLeft", "ArrowRight"],
   ]) {
     const page = await context.newPage();
-    const start = await open(page, n);
+    await open(page, n);
     // Into the text first: the middle of the page shows or hides the bars, and focus goes into the book
     await page.mouse.click(720, 450);
-    await sleep(300);
+    const start = await settled(page);
     await page.keyboard.press(forward);
     const after = await moved(page, start.fraction);
     await page.keyboard.press(back);
@@ -462,8 +481,8 @@ async function checkPlace(name, browser) {
   await mobile.close();
 
   // SLN-676: a screen that starts on an image, on a chapter's first line or
-  // mid-paragraph reopens on that same screen, not one or more early. At
-  // 768 the EPUB 3's orchard image starts a screen of its own.
+  // mid-paragraph reopens on that same screen, not one or more early. The
+  // EPUB 3's orchard image breaks before it, so it starts a screen of its own.
   const starts = {
     "starts on an image": () => {
       const range = document.querySelector("foliate-view").lastLocation?.range;
@@ -486,6 +505,9 @@ async function checkPlace(name, browser) {
     await resetFixturePosition(1);
     const tablet = await browser.newContext({ viewport: { width: 768, height: 900 } });
     page = await tablet.newPage();
+    // Every save, from the landing on: the one that matters carries the screen left on
+    const saves = [];
+    page.on("response", (response) => { if (isSave(1)(response)) saves.push(response); });
     s = await open(page, 1);
     await page.mouse.click(384, 450);
     let found = await page.evaluate(test, name);
@@ -494,16 +516,21 @@ async function checkPlace(name, browser) {
       s = await moved(page, s.fraction);
       found = await page.evaluate(test, name);
     }
-    const savedAt = page.waitForResponse(isSave(1), { timeout: 10_000 }).catch(() => null);
     const left = { label: await pageLabel(page), cfi: s.cfi };
-    const saved = await savedAt;
+    // The save carries the screen's start, the range CFI collapsed to its first point
+    const start = left.cfi?.replace(/^epubcfi\(([^,]*),([^,]*),[^)]*\)$/, "epubcfi($1$2)");
+    let saved = null;
+    for (let i = 0; i < 40 && !saved; i++) {
+      saved = saves.find((response) => start && (response.request().postData() ?? "").includes(`"cfi":"${start}"`)) ?? null;
+      if (!saved) await sleep(250);
+    }
     await page.close();
     page = await tablet.newPage();
     const back = await open(page, 1);
     await sleep(600);
     const reopened = { label: await pageLabel(page), cfi: await page.evaluate(() => document.querySelector("foliate-view")?.lastLocation?.cfi ?? null) };
     record(name, "place", `768: a screen that ${label} reopens on that screen`, found && !!saved?.ok() && reopened.cfi === left.cfi,
-      `left at ${left.label} ${left.cfi}, reopened at ${reopened.label} ${reopened.cfi}${back.state === "ready" ? "" : ` (${back.state})`}`);
+      `left at ${left.label} ${left.cfi}, reopened at ${reopened.label} ${reopened.cfi}${back.state === "ready" ? "" : ` (${back.state})`}${found ? "" : ", no such screen found"}${saved ? "" : `, no save of ${start} (saved ${saves.map((response) => (response.request().postData() ?? "").match(/"cfi":"([^"]*)"/)?.[1]).join(" ")})`}`);
     await tablet.close();
   }
 }
@@ -1083,6 +1110,7 @@ async function checkDialogs(name, browser) {
       await page.keyboard.press("Tab");
       trapped = await inside();
     }
+    // One Escape, also when focus rests on the Close button and shows its tooltip
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => !document.querySelector("dialog[open]"), null, { timeout: 3000 }).catch(() => {});
     const closed = await page.evaluate(() => !document.querySelector("dialog[open]"));

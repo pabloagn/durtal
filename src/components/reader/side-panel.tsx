@@ -4,6 +4,17 @@ import { X } from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { captureFocusOrigin, type FocusOrigin } from "@/lib/ui/surface-state";
 
+/** The open panels that leave the book usable (1024px and up), latest last */
+const nonModal: { close: () => void }[] = [];
+
+/** Esc from the book or the bars closes the latest such panel: focus can
+ * leave a panel that is not modal, and Escape still cancels it */
+export function closeLatestReaderPanel(): boolean {
+  const latest = nonModal.at(-1);
+  latest?.close();
+  return !!latest;
+}
+
 /** One shared drawer. Native modality below 1024px; desktop keeps the book usable.
  * The settings sheet sits on the right (at the bottom on a phone) and never dims
  * the page, so a change can be judged on the text while it is made (SLN-686). */
@@ -37,6 +48,19 @@ export function ReaderSidePanel({
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
+  useEffect(() => {
+    if (!open || modal) return;
+    const entry = { close: () => closeRef.current() };
+    nonModal.push(entry);
+    return () => {
+      const at = nonModal.indexOf(entry);
+      if (at >= 0) nonModal.splice(at, 1);
+    };
+  }, [open, modal]);
   useEffect(() => {
     const panel = ref.current;
     if (!panel || !open) return;

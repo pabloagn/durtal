@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -215,13 +215,11 @@ export function DetailsStep({
             variant="primary"
             data-shortcut="next"
             onClick={onFastTrack}
-            disabled={fastTrackSaving || !work.title.trim() || !work.authorName.trim()}
+            busy={fastTrackSaving}
+            disabled={!work.title.trim() || !work.authorName.trim()}
             data-tooltip="Save now, skipping copies and categorization"
             data-tooltip-keys="enter"
           >
-            {fastTrackSaving && (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
-            )}
             Fast Track
           </Button>
         )}

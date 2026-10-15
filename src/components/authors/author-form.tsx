@@ -1,7 +1,6 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AuthorNameInput } from "@/components/shared/author-name-input";
@@ -397,18 +396,10 @@ export function AuthorForm({
           variant="primary"
           size="sm"
           onClick={onSubmit}
-          disabled={pending || !values.name.trim()}
+          busy={pending}
+          disabled={!values.name.trim()}
         >
-          {pending ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
-              {mode === "create" ? "Creating" : "Saving"}
-            </>
-          ) : mode === "create" ? (
-            "Add person"
-          ) : (
-            "Save Changes"
-          )}
+          {mode === "create" ? "Add person" : "Save changes"}
         </Button>
       </div>
     </>

@@ -1,6 +1,10 @@
 "use client";
+import { Fragment } from "react";
 import { Dialog } from "@/components/ui/dialog";
+import { KeyCombo } from "@/components/shortcuts/kbd";
+import { shortcutRows } from "@/lib/reader/keymap";
 import { useReaderShortcutList } from "./bridge";
+
 export function ShortcutSheet({
   open,
   onClose,
@@ -8,8 +12,8 @@ export function ShortcutSheet({
   open: boolean;
   onClose(): void;
 }) {
-  const shortcuts = useReaderShortcutList();
-  const groups = [...new Set(shortcuts.map((item) => item.group))];
+  const rows = shortcutRows(useReaderShortcutList());
+  const groups = [...new Set(rows.map((row) => row.group))];
   return (
     <Dialog
       open={open}
@@ -22,28 +26,29 @@ export function ShortcutSheet({
         {groups.map((group) => (
           <section key={group}>
             <h3 className="type-label mb-2">{group}</h3>
-            <dl className="space-y-2">
-              {shortcuts
-                .filter((item) => item.group === group)
-                .map((item, at) => (
-                  <div
-                    key={item.key + at}
-                    className="flex justify-between gap-4 text-sm"
+            <ul>
+              {rows
+                .filter((row) => row.group === group)
+                .map((row) => (
+                  <li
+                    key={`${row.context} ${row.label}`}
+                    className="flex items-start justify-between gap-4 border-b border-glass-border py-1.5 text-sm leading-5 text-fg-secondary"
                   >
-                    <dt>
-                      {item.label}
-                      {item.context === "selection" && (
-                        <span className="text-fg-muted"> · with selection</span>
-                      )}
-                    </dt>
-                    <dd className="shrink-0">
-                      <kbd className="rounded-sm border border-border-primary px-2 py-0.5 font-sans text-xs">
-                        {item.key}
-                      </kbd>
-                    </dd>
-                  </div>
+                    <span className="min-w-0">
+                      {row.label}
+                      {row.context === "selection" && <span> · with selection</span>}
+                    </span>
+                    <span className="inline-flex shrink-0 flex-wrap items-center justify-end gap-1">
+                      {row.keys.map((keys, at) => (
+                        <Fragment key={keys.join(" ")}>
+                          {at > 0 && <span className="text-micro text-fg-secondary">or</span>}
+                          <KeyCombo keys={keys} />
+                        </Fragment>
+                      ))}
+                    </span>
+                  </li>
                 ))}
-            </dl>
+            </ul>
           </section>
         ))}
       </div>

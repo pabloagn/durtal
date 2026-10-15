@@ -4,6 +4,8 @@ export interface ReviewDecisionState {
   generation: number; phase: "editing" | "preparing" | "prepared" | "confirming" | "unknown" | "failed" | "committed";
   prepared: PreparedReview | null; error: string | null; outcome: ReviewOutcome | null;
   issues: readonly ReviewPreparationIssue[];
+  /** The confirmation running now retries an unknown outcome: its button keeps saying so */
+  retrying?: boolean;
 }
 export const initialReviewDecision: ReviewDecisionState = {
   generation: 0, phase: "editing", prepared: null, error: null, outcome: null, issues: [],
@@ -25,7 +27,7 @@ export function reviewDecisionReducer(state: ReviewDecisionState, event: ReviewD
     return { ...initialReviewDecision, generation: event.generation, phase: "preparing" };
   }
   if (event.type === "confirm") return state.prepared && ["prepared", "unknown"].includes(state.phase)
-    ? { ...state, phase: "confirming", error: null } : state;
+    ? { ...state, phase: "confirming", error: null, retrying: state.phase === "unknown" } : state;
   if (event.generation !== state.generation) return state;
   if (event.type === "prepared") {
     if (state.phase !== "preparing") return state;

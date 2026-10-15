@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,8 +133,7 @@ export function ImageDetailsEditor({
         />
       </div>
       <div className="flex justify-end">
-        <Button type="submit" variant="primary" size="sm" disabled={!dirty || saving}>
-          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
+        <Button type="submit" variant="primary" size="sm" busy={saving} disabled={!dirty}>
           Save details
         </Button>
       </div>

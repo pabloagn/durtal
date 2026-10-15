@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { RotateCcw, Loader2 } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { DEFAULT_MONOCHROME_PARAMS, type MonochromeParams } from "@/lib/validations/media";
@@ -130,16 +130,10 @@ export function MonochromeControls({
           variant="primary"
           size="sm"
           onClick={handleApply}
-          disabled={applying || !hasChanges}
+          busy={applying}
+          disabled={!hasChanges}
         >
-          {applying ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
-              Applying
-            </>
-          ) : (
-            "Apply"
-          )}
+          Apply
         </Button>
       </div>
     </div>

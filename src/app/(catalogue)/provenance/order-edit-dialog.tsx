@@ -6,7 +6,6 @@ import {
 } from "@/components/publishers/order-target-fields";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -307,16 +306,10 @@ export function OrderEditDialog({
           variant="primary"
           size="sm"
           onClick={handleSubmit}
-          disabled={isPending || !orderDate}
+          busy={isPending}
+          disabled={!orderDate}
         >
-          {isPending ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
-              Saving
-            </>
-          ) : (
-            "Save Changes"
-          )}
+          Save changes
         </Button>
       </div>
     </Dialog>

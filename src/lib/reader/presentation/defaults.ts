@@ -74,7 +74,9 @@ export function effectivePresentation(
     rows.find((row) => row.deviceClass === device && row.ebookId !== null),
   ];
   // Until SLN-686 a laptop was classed as a tablet: its settings carry over to
-  // the desktop, field by field, until desktop settings replace them.
+  // the desktop, field by field, until desktop settings replace them. The rows
+  // cannot tell an old laptop from a real tablet, so a real tablet's settings
+  // carry over too, on purpose: a desktop with none starts from them.
   const inherited = deviceClass === "desktop" ? scoped("tablet") : [];
   return Object.assign(
     { ...PRESENTATION_DEFAULTS[deviceClass] },

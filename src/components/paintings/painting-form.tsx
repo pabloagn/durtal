@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -220,8 +219,7 @@ export function PaintingForm(props: Props) {
         >
           Cancel
         </Button>
-        <Button variant="primary" data-shortcut="save" onClick={save} disabled={blocked || saving}>
-          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
+        <Button variant="primary" data-shortcut="save" onClick={save} busy={saving} disabled={blocked}>
           {props.mode === "create" ? "Add painting" : "Save"}
         </Button>
       </div>

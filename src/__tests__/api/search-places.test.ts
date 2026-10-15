@@ -70,12 +70,19 @@ describe("POST /api/venues/search-places", () => {
     expect(google).not.toHaveBeenCalled();
   });
 
-  it("answers 503 when no key is set, and tells a refused key from other Google errors", async () => {
+  it("answers 503 when no key is set, and tells a refused key and a spent quota from other Google errors", async () => {
     env.GOOGLE_PLACES_API_KEY = undefined;
     expect((await search({ query: "Paris" })).status).toBe(503);
     env.GOOGLE_PLACES_API_KEY = "test-places-key";
     google.mockResolvedValueOnce(new Response("denied", { status: 403 }));
-    expect((await search({ query: "Paris" })).status).toBe(503);
+    const refused = await search({ query: "Paris" });
+    expect(refused.status).toBe(503);
+    expect((await refused.json()).error).toBe("Google Places refused the key. Check it in Settings, Integrations.");
+    // SLN-424: a spent quota says so, rather than a generic failure
+    google.mockResolvedValueOnce(new Response("quota", { status: 429 }));
+    const spent = await search({ query: "Paris" });
+    expect(spent.status).toBe(503);
+    expect((await spent.json()).error).toBe("Google Places is over its quota. Try again later.");
     google.mockResolvedValueOnce(new Response("busy", { status: 500 }));
     expect((await search({ query: "Paris" })).status).toBe(502);
   });

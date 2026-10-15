@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Loader2, RefreshCw } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -76,14 +76,10 @@ export function ExportRow({
         </div>
         <Button
           onClick={download}
-          disabled={exporting}
+          busy={exporting}
           aria-label={`Download ${label.toLowerCase()}`}
         >
-          {exporting ? (
-            <Loader2 className="h-4 w-4 motion-safe:animate-spin" strokeWidth={1.5} aria-hidden />
-          ) : (
-            <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden />
-          )}
+          <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden />
           Download
         </Button>
       </div>
