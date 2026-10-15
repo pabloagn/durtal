@@ -47,6 +47,9 @@ text. With nothing changed they hid as usual. All three engines.
   Tab brings them back.
 - Seen on main as well, not changed here: in Firefox, Tab from inside the
   book never reaches the bars.
+- `reader-engine-check.mjs`: 278 of 278 rows pass. 0 alignment and
+  design-audit findings on the reader (EPUB and PDF) in all three engines at
+  1440, 390 and 320; `page-weight.js` within budget.
 - Test: `reader-view.test.ts` puts focus on a top-bar button, then checks that
   the bars go after a scroll, a turn and a mouse move. It fails without the
   fix.
