@@ -314,7 +314,7 @@ export function WorkForm({
                 language={values.originalLanguage}
                 required
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Select
                   id={id("language")}
                   label="Original Language"
@@ -333,7 +333,7 @@ export function WorkForm({
                   placeholder="e.g. 1984"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Select
                   id={id("work-type")}
                   label="Work Type"
@@ -367,7 +367,7 @@ export function WorkForm({
             <h3 className="type-group-title mb-3">
               Status
             </h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Select
                 id={id("catalogue-status")}
                 label="Catalogue Status"
