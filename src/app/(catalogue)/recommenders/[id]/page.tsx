@@ -85,7 +85,8 @@ export default async function RecommenderPage({
             />
           </DetailControls>
         </DetailTitleRow>
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+        {/* As tall as the website link (24px), with or without one, as the loading screen draws it */}
+        <div className="mt-3 flex min-h-6 flex-wrap items-center gap-3 text-sm">
           {recommender.url && (
             <a
               href={recommender.url}
