@@ -21,7 +21,8 @@ export function ReaderDefaults({ initial, initialOverrides }: { initial: ReaderP
 function SavedDefaults({ rows, initialOverrides }: { rows: readonly PresentationRow[]; initialOverrides: Overrides }) {
   const [deviceClass, setDeviceClass] = useState<DeviceClass>("desktop");
   return <><SettingsIntro>Choose defaults for each device size. Books can keep their own overrides.</SettingsIntro>
-    <SegmentedControl ariaLabel="Reader device size" value={deviceClass} onChange={setDeviceClass} options={[{ value: "desktop", label: "Desktop" }, { value: "tablet", label: "Tablet" }, { value: "phone", label: "Phone" }]} />
+    {/* The device switch keeps the groups' gap from the first group's title */}
+    <div className="mb-8"><SegmentedControl ariaLabel="Reader device size" value={deviceClass} onChange={setDeviceClass} options={[{ value: "desktop", label: "Desktop" }, { value: "tablet", label: "Tablet" }, { value: "phone", label: "Phone" }]} /></div>
     <DeviceDefaults key={deviceClass} deviceClass={deviceClass} rows={rows} initialOverrides={deviceClass === "desktop" ? initialOverrides : null} />
   </>;
 }
@@ -56,21 +57,29 @@ function DeviceDefaults({ deviceClass, rows, initialOverrides }: { deviceClass: 
   };
   return <>
     <SettingsGroup title="Reading defaults" action={<Button variant="ghost" size="sm" disabled={!preferences.ready} onClick={() => setOpen(true)}><Pencil aria-hidden strokeWidth={1.5} />Edit settings</Button>}>
+      {/* One padded row, as every settings row: the note, then the sample page */}
+      <div className="space-y-4 px-5 py-4">
       <p className="text-sm text-fg-secondary">These settings apply to books without their own {deviceClass} override.</p>
       {(preferences.error || preferences.recoveryError) && <p role="alert" className="text-sm text-accent-red-text">{preferences.error ?? preferences.recoveryError}</p>}
-      <div aria-label="Reading preview" style={{ backgroundColor: colors.background, color: colors.text, padding: p.marginPx }}>
+      <div aria-label="Reading preview" className="rounded-sm" style={{ backgroundColor: colors.background, color: colors.text, padding: p.marginPx }}>
         <p style={{ fontFamily: readingFontStack(p.font) ?? undefined, fontSize: p.fontSizePx, fontWeight: p.fontWeight, lineHeight: p.lineHeight, textAlign: p.textAlign === "book" ? "start" : p.textAlign, letterSpacing: `${p.letterSpacingEm}em`, wordSpacing: `${p.wordSpacingEm}em` }}>The study was quiet. Rain moved over the windows, and the lamp threw a narrow circle of light across the desk, where a closed book waited beside a cup of cold tea.</p>
+      </div>
       </div>
     </SettingsGroup>
     <SettingsGroup title="Books with overrides">
-      {loading && <p role="status" className="text-sm text-fg-secondary">Loading book overrides</p>}
-      {error && <p role="alert" className="text-sm text-accent-red-text">{error}</p>}
-      {overrides && !overrides.ok && <p role="alert" className="text-sm text-accent-red-text">{overrides.error}</p>}
-      {overrides?.ok && <><p className="text-xs text-fg-secondary">{overrides.total} books with {deviceClass} overrides</p>
-        <ul className="flex flex-col gap-3">{overrides.rows.map(item => <li key={item.ebookId} className="flex flex-wrap items-start justify-between gap-2"><Link href={`/reader/${item.ebookId}`} className="min-w-0 flex-1 break-words text-sm text-accent-primary hover:underline pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center">{item.title || "Untitled book"}</Link><Button variant="ghost" size="sm" disabled={loading || clearing !== null} onClick={() => { void clear(item.ebookId); }}><RotateCcw aria-hidden strokeWidth={1.5} />Clear override</Button></li>)}</ul>
-        {overrides.total > overrides.pageSize && <div className="flex gap-2"><Button variant="ghost" disabled={loading || clearing !== null || page === 1} onClick={() => setPage(value => value-1)}><ChevronLeft aria-hidden strokeWidth={1.5} />Previous</Button><span className="self-center text-sm">Page {page}</span><Button variant="ghost" disabled={loading || clearing !== null || page*overrides.pageSize >= overrides.total} onClick={() => setPage(value => value+1)}>Next<ChevronRight aria-hidden strokeWidth={1.5} /></Button></div>}
-      </>}
-      <Button variant="ghost" size="sm" className="-ml-2.5 self-start" disabled={loading || clearing !== null} onClick={() => { setError(null); setRefresh(value => value+1); }}><RefreshCw aria-hidden strokeWidth={1.5} />Refresh overrides</Button>
+      {/* The count and Refresh share the first row, as the lookup history's count and Clear do; each book is a row */}
+      {/* Under 640 Refresh goes under the count, pulled out by its padding so its icon starts on the text's edge */}
+      <div className="flex flex-col items-start gap-3 px-5 py-4 sm:flex-row sm:justify-between">
+        {overrides?.ok && <p className="text-sm text-fg-secondary">{`${overrides.total.toLocaleString()} ${overrides.total === 1 ? "book" : "books"} with a ${deviceClass} override`}</p>}
+        <Button variant="ghost" size="sm" className="-ml-2.5 sm:ml-auto" disabled={loading || clearing !== null} onClick={() => { setError(null); setRefresh(value => value+1); }}><RefreshCw aria-hidden strokeWidth={1.5} />Refresh overrides</Button>
+      </div>
+      {(loading || error || (overrides && !overrides.ok)) && <div className="space-y-1 px-5 py-4">
+        {loading && <p role="status" className="text-sm text-fg-secondary">Loading book overrides</p>}
+        {error && <p role="alert" className="text-sm text-accent-red-text">{error}</p>}
+        {overrides && !overrides.ok && <p role="alert" className="text-sm text-accent-red-text">{overrides.error}</p>}
+      </div>}
+      {overrides?.ok && overrides.rows.map(item => <div key={item.ebookId} className="flex flex-wrap items-start justify-between gap-2 px-5 py-3"><Link href={`/reader/${item.ebookId}`} className="min-w-0 flex-1 break-words text-sm text-accent-primary hover:underline pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center">{item.title || "Untitled book"}</Link><Button variant="ghost" size="sm" disabled={loading || clearing !== null} onClick={() => { void clear(item.ebookId); }}><RotateCcw aria-hidden strokeWidth={1.5} />Clear override</Button></div>)}
+      {overrides?.ok && overrides.total > overrides.pageSize && <div className="flex gap-2 px-5 py-3"><Button variant="ghost" className="-ml-3" disabled={loading || clearing !== null || page === 1} onClick={() => setPage(value => value-1)}><ChevronLeft aria-hidden strokeWidth={1.5} />Previous</Button><span className="self-center text-sm">Page {page}</span><Button variant="ghost" disabled={loading || clearing !== null || page*overrides.pageSize >= overrides.total} onClick={() => setPage(value => value+1)}>Next<ChevronRight aria-hidden strokeWidth={1.5} /></Button></div>}
     </SettingsGroup>
     <PresentationSettingsDialog defaultsOnly open={open} onClose={() => setOpen(false)} presentation={p} deviceClass={deviceClass} error={preferences.error ?? error} saving={preferences.saving} pending={preferences.pending} recoveryError={preferences.recoveryError}
       onChange={patch => { try { preferences.update({ deviceClass, ebookId: null, presentation: patch }); } catch (cause) { setError(cause instanceof Error ? cause.message : "Settings could not be changed."); } }}
