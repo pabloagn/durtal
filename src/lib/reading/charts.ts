@@ -151,7 +151,7 @@ export function unreadPileText(pile: { books: number; pages: number; withoutPage
   const counted = pile.books - pile.withoutPages;
   if (counted <= 0) return `${books}.`;
   const pages = `${n(pile.pages)} ${Math.round(pile.pages) === 1 ? "page" : "pages"}`;
-  const which = pile.withoutPages > 0 ? ` in the ${n(counted)} with a page count` : "";
+  const which = pile.withoutPages > 0 ? ` in the ${counted === 1 ? "one" : n(counted)} with a page count` : "";
   const time = pile.years !== null && pile.pages > 0
     ? `: at your pace over the last three years, about ${durationWords(pile.years * 365.25)} to read ${pile.withoutPages > 0 ? "those" : "them all"}`
     : "";

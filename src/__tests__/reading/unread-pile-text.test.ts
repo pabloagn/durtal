@@ -14,6 +14,7 @@ describe("the unread pile's line", () => {
       "12 books you own and have not read, 3,420 pages in the 10 with a page count: at your pace over the last three years, about 1.5 years to read those.",
     );
     expect(unreadPileText({ books: 3, pages: 210, withoutPages: 1, years: null })).toBe("3 books you own and have not read, 210 pages in the 2 with a page count.");
+    expect(unreadPileText({ books: 2, pages: 720, withoutPages: 1, years: null })).toBe("2 books you own and have not read, 720 pages in the one with a page count.");
   });
 
   it("keeps the whole line when every book has a page count", () => {

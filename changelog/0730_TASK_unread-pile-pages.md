@@ -31,4 +31,9 @@ three, item 5 (findings/design-polish-3-2026-10-15.md).
 
 ## Completion Notes
 
-See the PR for the browser checks.
+- On the preview: with no page counts the line reads "2 books you own and
+  have not read."; with one, "2 books you own and have not read, 720 pages
+  in the one with a page count."
+- Headless Chromium, Firefox and WebKit at 1440, 390 and 320 (touch at 390
+  and 320) on Stats for all time and this year: alignment, overflow, layout,
+  touch and design audits are clean in all 18 runs. Page weight passes.
