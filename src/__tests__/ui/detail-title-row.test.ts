@@ -109,9 +109,8 @@ describe("DetailTitleRow's long titles", () => {
     host.innerHTML = renderToStaticMarkup(createElement(DetailTitleRow, { title, children: null }));
     return { row: host.firstElementChild!.firstElementChild!, h1: host.querySelector("h1")! };
   };
-  it("marks a title past 40 letters long and past 60 longer", () => {
-    expect(rowOf("x".repeat(40)).h1.getAttribute("data-title-length")).toBeNull();
-    for (const [length, mark] of [[41, "long"], [60, "long"], [61, "longer"]] as const) {
+  it("marks a title short up to 32 letters, long past 32 and longer past 56", () => {
+    for (const [length, mark] of [[1, "short"], [32, "short"], [33, "long"], [56, "long"], [57, "longer"]] as const) {
       const { row, h1 } = rowOf("x".repeat(length));
       expect(h1.getAttribute("data-title-length")).toBe(mark);
       expect(row.getAttribute("data-title-length")).toBe(mark);
@@ -119,5 +118,13 @@ describe("DetailTitleRow's long titles", () => {
     const css = read("styles/globals.css");
     expect(css).toMatch(/@media \(max-width: 639px\) \{\s*\.type-page-title\[data-title-length="long"\] \{\s*font-size: var\(--text-3xl\);/);
     expect(css).toContain('.type-page-title[data-title-length="longer"] {\n    font-size: var(--text-2xl);');
+    // Under 375px every band steps down once more, so lines rise with length
+    expect(css).toMatch(/@media \(max-width: 374px\) \{\s*\.type-page-title\[data-title-length="short"\] \{\s*font-size: var\(--text-3xl\);[^}]*\}\s*\.type-page-title\[data-title-length="long"\] \{\s*font-size: var\(--text-2xl\);/);
+  });
+
+  it("leaves a title that is not plain text unmarked", () => {
+    const host = document.createElement("div");
+    host.innerHTML = renderToStaticMarkup(createElement(DetailTitleRow, { title: createElement("em", null, "x"), children: null }));
+    expect(host.querySelector("h1")!.hasAttribute("data-title-length")).toBe(false);
   });
 });

@@ -768,15 +768,27 @@ dialog::backdrop {
   color: var(--color-fg-heading);
 }
 
-/* A detail page's long title on a phone (DetailTitleRow): past 40 letters
-   one step down the scale, past 60 two, so an 80-letter title takes three
-   lines at 390px and four at 320px rather than five and seven */
+/* A detail page's title on a phone (DetailTitleRow): past 32 letters one
+   step down the scale, past 56 two. Under 375px a short title is 38px and
+   both longer bands 30px: at 46px there a 30-letter title took three lines
+   while a 33-letter one at 38px took two. So lines rise with length, and an
+   80-letter title takes three lines at 390px and three or four at 320px */
 @media (max-width: 639px) {
   .type-page-title[data-title-length="long"] {
     font-size: var(--text-3xl);
     line-height: var(--text-3xl--line-height);
   }
   .type-page-title[data-title-length="longer"] {
+    font-size: var(--text-2xl);
+    line-height: var(--text-2xl--line-height);
+  }
+}
+@media (max-width: 374px) {
+  .type-page-title[data-title-length="short"] {
+    font-size: var(--text-3xl);
+    line-height: var(--text-3xl--line-height);
+  }
+  .type-page-title[data-title-length="long"] {
     font-size: var(--text-2xl);
     line-height: var(--text-2xl--line-height);
   }

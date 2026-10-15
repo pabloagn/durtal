@@ -106,7 +106,7 @@
     }
     // A long title steps down the type scale on a phone (DetailTitleRow's
     // data-title-length) and may take four lines; any other, two
-    const allowed = h1.hasAttribute("data-title-length") ? 4 : 2;
+    const allowed = ["long", "longer"].includes(h1.getAttribute("data-title-length")) ? 4 : 2;
     if (innerWidth <= 400 && lines > allowed) squeezed.push({ title: text(h1), why: `${lines} lines at ${innerWidth}px` });
   }
 

@@ -124,8 +124,13 @@ export const DETAIL_TITLE_ROW = {
  * title the star's padding goes past the row's edge, so the star lines up
  * with the title; beside it the wider gap gives the padding back.
  */
-/** Past 40 letters a title is 38px on a phone, past 60 it is 30px; shorter titles keep 46px */
-export const LONG_TITLE = 40, LONGER_TITLE = 60;
+/**
+ * On a phone a title past 32 letters is 38px and past 56 it is 30px; shorter
+ * titles keep 46px. Under 375px each band is a step smaller again (38px, then
+ * 30px for both longer bands), so a longer title never takes fewer lines than
+ * a shorter one at a band's edge
+ */
+export const LONG_TITLE = 32, LONGER_TITLE = 56;
 
 export function DetailTitleRow({
   title,
@@ -141,7 +146,8 @@ export function DetailTitleRow({
   // On a phone a long title steps down the type scale (globals.css), so it
   // keeps to three or four lines and the page's picture stays near the top
   const length = typeof title === "string" ? title.length : 0;
-  const titleLength = length > LONGER_TITLE ? "longer" : length > LONG_TITLE ? "long" : undefined;
+  const titleLength = typeof title !== "string" ? undefined
+    : length > LONGER_TITLE ? "longer" : length > LONG_TITLE ? "long" : "short";
   return (
     <div className="@container">
       <div data-title-length={titleLength} className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW[controls]}`}>
