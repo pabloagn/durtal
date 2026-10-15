@@ -2,6 +2,7 @@ import Link from "next/link";
 import { n } from "@/lib/reading/charts";
 import { yearLabel } from "@/lib/statistics/charts";
 import { FadeImage } from "@/components/shared/fade-image";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { mediaUrl } from "@/lib/s3/media-url";
 import type { BusiestYear, CoverBook } from "@/lib/statistics/library";
 
@@ -36,12 +37,9 @@ export function CoverFrame({ book }: { book: CoverBook }) {
           className="protected-image absolute inset-0 h-full w-full object-cover"
         />
       ) : (
-        // The title's letter, as every blank cover (#352), its line trimmed to the
-        // cap height so the box centers the capital; decoration: the title is the link's name
-        <span className="@container/cover absolute inset-0 flex items-center justify-center">
-          <span aria-hidden data-decorative className="font-serif text-xs leading-none text-fg-muted/30 [text-box:trim-both_cap_alphabetic] @[56px]/cover:text-lg @[120px]/cover:text-3xl">
-            {Array.from(book.title.trim())[0] ?? ""}
-          </span>
+        // The title's letter, as every blank cover; the title is the link's name
+        <span className={`absolute inset-0 ${COVER_BLANK}`}>
+          <CoverLetter title={book.title} />
         </span>
       )}
     </span>
