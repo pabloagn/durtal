@@ -157,6 +157,7 @@ export function EditionCoverDialog({ edition, poster }: EditionCoverDialogProps)
         description={edition.title}
         className="max-w-lg"
         expandable={false}
+        done
         dirty={url.trim() !== ""}
         onSave={() => void addFromUrl()}
       >
@@ -221,7 +222,7 @@ export function EditionCoverDialog({ edition, poster }: EditionCoverDialogProps)
                   disabled={urlBusy}
                   className="flex-1"
                 />
-                <Button type="submit" size="sm" variant="secondary" busy={urlBusy} disabled={!url.trim()}>
+                <Button type="submit" size="sm" variant="secondary" busy={urlBusy} disabled={!url.trim()} data-shortcut="save">
                   Add
                 </Button>
               </form>
