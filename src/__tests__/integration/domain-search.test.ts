@@ -146,6 +146,15 @@ describe.skipIf(!url)("search and lists across the collections", () => {
     expect(await names("%")).toEqual([]);
   });
 
+  it("keeps in the picker's first few every place the search as typed finds", async () => {
+    // Older places that match only once accents are folded come first on disk
+    await c`insert into places(name, type) select 'Zurich ' || g, 'venue' from generate_series(1, 9) g`;
+    await c`insert into places(name, type) values ('Kunsthaus Zürich', 'venue'), ('Zürich', 'city')`;
+    const names = async (q: string) => (await searchPlaces(q, 8)).map((p) => p.name);
+    expect(await names("Zürich")).toEqual(["Zürich", "Kunsthaus Zürich", "Zurich 1", "Zurich 2", "Zurich 3", "Zurich 4", "Zurich 5", "Zurich 6"]);
+    expect((await names("zurich"))[0]).toBe("Zürich");
+  });
+
   it("pages a director's films in a stable order, with counts that match the pages", async () => {
     const carpenter = (await createPerson({ name: "John Carpenter", domains: ["film"] })).id;
     const ids: string[] = [];
