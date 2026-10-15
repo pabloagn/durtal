@@ -45,6 +45,10 @@ leaves.
 - 0 alignment and design-audit findings on the reader (EPUB and PDF) and on
   the device-id page with the prompt open, in all three engines at 1440, 390
   and 320; `page-weight.js` within budget.
+- `reader-engine-check.mjs`: 282 of 284 rows pass. The two Firefox "opens"
+  rows that failed (EPUB 3 and text PDF at 1440, "A reader feature could not
+  start" after 30 s) ran while a build ran beside them; all 39 Firefox
+  "opens" rows pass when run on their own.
 - Tests: `controller-barrier.test.ts` presses Escape while the reader's
   features are still starting: one prompt, a second Escape closes it, and
   after the book is ready one Escape opens one prompt and Leave leaves. A
