@@ -191,7 +191,6 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                     key={metric}
                     label={`${metric === "books" ? "Books finished" : "Pages read"} by ${year === null ? "year" : "month"}`}
                     bars={bars}
-                    summaryUnit={metric}
                     tone={metric === "books" ? "sage" : "blue"}
                     columns={[year === null ? "Year" : "Month", metric === "books" ? "Books" : "Pages"]}
                     minRows={months.bars.length + (months.unknown ? 1 : 0)}
@@ -219,7 +218,6 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                   {(() => {
                     const timed = days.weekdays.some((w) => w.minutes > 0);
                     const value = (x: { minutes: number; sessions: number }) => Math.round(timed ? x.minutes : x.sessions);
-                    const unit = timed ? "minutes" : "sessions";
                     return (
                       <>
                         <BarChart
@@ -229,7 +227,6 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                             value: value(w),
                             text: `${WEEKDAYS[w.weekday - 1]}: ${timed ? minutesLabel(w.minutes) : count(w.sessions, "session")}`,
                           }))}
-                          summaryUnit={unit}
                           columns={["Weekday", timed ? "Minutes" : "Sessions"]}
                         />
                         <BarChart
@@ -239,7 +236,6 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                             value: value(p),
                             text: `${PARTS[p.part]}: ${timed ? minutesLabel(p.minutes) : count(p.sessions, "session")}`,
                           }))}
-                          summaryUnit={unit}
                           tone="blue"
                           columns={["Time of day", timed ? "Minutes" : "Sessions"]}
                           footnote={days.withoutStart ? `${count(days.withoutStart, "session")} with no start time ${days.withoutStart === 1 ? "is" : "are"} left out.` : undefined}
@@ -260,9 +256,8 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
               bars={rated.distribution.map((d) => ({
                 label: formatRating(d.rating),
                 value: d.count,
-                text: `${formatRating(d.rating)} stars: ${count(d.count, "book")}`,
+                text: `${formatRating(d.rating)} ${d.rating === 1 ? "star" : "stars"}: ${count(d.count, "book")}`,
               }))}
-              summaryUnit="books"
               columns={["Rating", "Books"]}
             />
             {rated.reread.length > 0 && (
@@ -296,7 +291,6 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                   value: l.count,
                   text: `${l.label} pages: ${count(l.count, "book")}`,
                 }))}
-                summaryUnit="books"
                 columns={["Pages", "Books"]}
               />
             )}
@@ -420,7 +414,6 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                   value: d.count,
                   text: `The ${d.decade}s: ${count(d.count, "book")}`,
                 }))}
-                summaryUnit="books"
                 columns={["Decade", "Books"]}
                 footnote={`By century: ${written.centuries.map((c) => `${c.century}${c.century === 1 ? "st" : c.century === 2 ? "nd" : c.century === 3 ? "rd" : c.century === 21 ? "st" : "th"} ${n(c.count)}`).join(", ")}.`}
               />

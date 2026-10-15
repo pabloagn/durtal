@@ -32,6 +32,7 @@ import {
 } from "@/lib/constants/catalogue";
 import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
 import { formatRating, HALF_STEPS } from "@/lib/utils/rating";
+import { countLabel } from "@/lib/utils/format";
 
 /** The library's selection bar: status, priority, marks, rating, reading, collections, Up Next and export */
 export function BulkActionToolbar({
@@ -85,7 +86,7 @@ export function BulkActionToolbar({
       router.refresh();
     } catch {
       progress.error(
-        `Updated ${updated} of ${ids.length} works before error`,
+        `Updated ${updated.toLocaleString("en")} of ${countLabel(ids.length, "work")} before error`,
       );
     } finally {
       setIsUpdating(false);

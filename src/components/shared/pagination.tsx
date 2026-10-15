@@ -27,7 +27,16 @@ export interface PaginationData {
   perPage: number;
   total: number;
 }
+/** Nouns whose one is not the plural without its "s" */
+const ONE: Record<string, string> = { people: "person", series: "series", "quotes and notes": "quote or note" };
+
+/** The pager's noun for its total: "of 1 publisher", "of 2 publishers" */
+export function pagerNoun(noun: string, total: number) {
+  return total === 1 ? (ONE[noun] ?? noun.replace(/s$/, "")) : noun;
+}
+
 interface Props extends PaginationData {
+  /** The plural: "books", "people"; the pager says the one form for a total of 1 */
   noun: string;
   compact?: boolean;
   anchor?: string;
@@ -257,7 +266,7 @@ export function Pagination({
         {total ? ((current - 1) * perPage + 1).toLocaleString("en-US") : 0}–
         {Math.min(current * perPage, total).toLocaleString("en-US")} of{" "}
         {total.toLocaleString("en-US")}
-        <span className={wordsClass}> {noun}</span>
+        <span className={wordsClass}> {pagerNoun(noun, total)}</span>
       </p>}
       {/* Tighter on a phone above the list, so a 17-page count, its arrows
           and Select share one row at 390 */}

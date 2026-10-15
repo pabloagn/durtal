@@ -9,10 +9,13 @@ import { Select } from "@/components/ui/select";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { beginReaderHistory, commitReaderHistory, finishReaderHistory, undoReaderHistory,
   type previewReaderHistory, type readerHistoryOperations } from "@/lib/actions/reader-history";
+import { countLabel } from "@/lib/utils/format";
 
 type Row = Awaited<ReturnType<typeof previewReaderHistory>>[number];
 type Operation = Awaited<ReturnType<typeof readerHistoryOperations>>[number];
 type Edit = { selected: boolean; status: "reading" | "paused" | "finished"; startedOn: string; finishedOn: string; percent: string };
+/** A recovery operation's stored status, in words */
+const OPERATION_STATUS: Record<string, string> = { pending: "Not finished", completed: "Complete", undone: "Undone" };
 const STATUS_OPTIONS = [{ value: "reading", label: "Reading" }, { value: "paused", label: "Paused" }, { value: "finished", label: "Finished" }];
 
 export function ReaderHistoryRecovery({ rows, operations }: { rows: Row[]; operations: Operation[] }) {
@@ -60,11 +63,11 @@ export function ReaderHistoryRecovery({ rows, operations }: { rows: Row[]; opera
           outcome.outcome === "written" ? "Added to Reading" : outcome.reason ?? outcome.match?.reason ?? outcome.outcome.replaceAll("_", " ")])) }));
         written += result.filter((row) => row.outcome === "written").length;
         skipped += result.filter((row) => row.outcome !== "written").length;
-        setMessage(`Saved ${written} readings. ${skipped ? `${skipped} already present or skipped. ` : ""}Processing ${Math.min(at + 100, operation.choices.length)} of ${operation.choices.length}…`);
+        setMessage(`Saved ${countLabel(written, "reading")}. ${skipped ? `${skipped.toLocaleString("en")} already present or skipped. ` : ""}Processing ${Math.min(at + 100, operation.choices.length).toLocaleString("en")} of ${operation.choices.length.toLocaleString("en")}…`);
       }
       await finishReaderHistory(operation.id);
       setPending(null);
-      setMessage(`Recovery complete. ${written} readings added; ${skipped} already present or skipped. You can undo this operation below.`);
+      setMessage(`Recovery complete. ${countLabel(written, "reading")} added; ${skipped.toLocaleString("en")} already present or skipped. You can undo this operation below.`);
       router.refresh();
     } catch (error) {
       setMessage(`${error instanceof Error ? error.message : "Recovery could not finish."} Saved batches remain safe. Retry to continue the same operation.`);
@@ -131,7 +134,7 @@ export function ReaderHistoryRecovery({ rows, operations }: { rows: Row[]; opera
       <SectionHeading as="h3" title="Recovery operations" />
       <div className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary">
         {operations.map((operation) => <div key={operation.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm text-fg-primary">
-          <span>{new Date(operation.createdAt).toLocaleDateString()} · {operation.status} · {operation.processedRecords} readings</span>
+          <span>{new Date(operation.createdAt).toLocaleDateString()} · {OPERATION_STATUS[operation.status] ?? "Not known"} · {countLabel(operation.processedRecords, "reading")}</span>
           <Button disabled={busy || operation.status === "undone"} onClick={() => void undo(operation.id)}>Undo recovery</Button>
         </div>)}
       </div>
