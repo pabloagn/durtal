@@ -1,6 +1,6 @@
 # Task 0680: The dashboard as a front page, with a section rail
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-15
 **Priority**: MEDIUM
 **Type**: Enhancement
@@ -42,3 +42,13 @@ sake. Proposal: `/mnt/project-files/design/dashboard-2026-10-15/proposal.md`.
   `docs/04_ROUTES_AND_VIEWS.md` (Dashboard).
 
 ## Completion Notes
+
+- Checked on a production build with the synthetic catalogue plus 20 demo
+  books (covers, 3 open readings, 5 finished, 4 collections, a goal):
+  `/` is 229 of 300 KB; the browser audits pass in Chromium, Firefox and
+  WebKit at 1440, 768 and 390; no page scrolls sideways at 375 or 390; the
+  interaction audit finds nothing on `/`.
+- The audits caught the reading card's cover link, which had no name; the
+  cover is a picture again and the title is the card's link.
+- Under 375px each collection of the index takes its own row, so no label
+  breaks mid-word at 320.

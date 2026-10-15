@@ -116,9 +116,7 @@ export function DashboardReading({
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {tiles.map((tile) => (
             <article key={tile.reading.readingId} className="flex gap-4 rounded-sm border border-glass-border bg-bg-secondary p-4" data-dashboard-reading={tile.reading.readingId}>
-              <Link href={tile.href} tabIndex={-1} aria-hidden="true" className="shrink-0 self-start">
-                <Cover s3Key={tile.cover} className="aspect-[2/3] w-20" />
-              </Link>
+              <Cover s3Key={tile.cover} className="aspect-[2/3] w-20 self-start" />
               <div className="flex min-w-0 flex-1 flex-col">
                 {/* The full title wraps; the heading names the card */}
                 <CardHeading
