@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnnotationConflicts } from "./annotation-conflicts";
-import { Highlighter, NotebookPen } from "lucide-react";
+import { BookMarked, Highlighter, NotebookPen } from "lucide-react";
 import { useReaderFeatureShortcut } from "./bridge";
 import { ReaderBarItem } from "./reader-bar-item";
 import { BookmarkButton } from "./bookmark-button";
@@ -38,6 +38,8 @@ export function useReaderAnnotations(input: {
   onNotice(message: string): void;
   /** A mark to jump to once, after the book is painted and its marks load (`?at=`) */
   openAt?: string | null;
+  /** Pages are pictures (a comic): only bookmarks apply (SLN-682) */
+  imagesOnly?: boolean;
 }) {
   const { engine, painted, fileId, deviceId, bridge } = input;
   const ebookId = input.book.id;
@@ -156,13 +158,15 @@ export function useReaderAnnotations(input: {
   const edit = (item: ReaderAnnotation, patch: { color?: AnnotationColor; style?: "highlight" | "underline" }) => {
     if (admitted() && owner.current) perform(owner.current.edit(item.id, patch));
   };
+  const panelName = input.imagesOnly ? "Bookmarks" : "Highlights and notes";
   return {
     held: open || !!active || !!editedNote,
     bookmark: <BookmarkButton active={!!bookmark} disabled={!ready} onToggle={() => perform(toggleBookmark())} />,
+    // A comic's panel holds only bookmarks, so its button says so (SLN-682)
     toolbar: <ReaderBarItem
-      label={snapshot.conflicts.length || snapshot.problems?.length ? "Highlights and notes: changes need attention" : "Highlights and notes"}
-      tooltip="Highlights and notes" keys="h" disabled={!ready} onSelect={showPanel}
-      icon={<Highlighter className="h-4 w-4" strokeWidth={1.5} />} />,
+      label={`${panelName}${snapshot.conflicts.length || snapshot.problems?.length ? ": changes need attention" : ""}`}
+      tooltip={panelName} keys="h" disabled={!ready} onSelect={showPanel}
+      icon={input.imagesOnly ? <BookMarked className="h-4 w-4" strokeWidth={1.5} /> : <Highlighter className="h-4 w-4" strokeWidth={1.5} />} />,
     markingActions: ready ? <>
       <AnnotationSwatches onPick={color => perform(create(color))} />
       {/* An icon on touch, where the one-row toolbar has no room for words (SLN-678) */}
@@ -173,7 +177,7 @@ export function useReaderAnnotations(input: {
       </button>
     </> : undefined,
     overlays: <>
-      {open && <AnnotationsPanel open onClose={() => setOpen(false)} book={input.book} annotations={snapshot.annotations}
+      {open && <AnnotationsPanel open onClose={() => setOpen(false)} book={input.book} annotations={snapshot.annotations} imagesOnly={input.imagesOnly}
         conflictContent={<AnnotationConflicts snapshot={snapshot} onRefresh={async () => { if (admitted()) await owner.current?.pull(); }} onRetry={async (id,revision) => admitted() ? await owner.current?.retryBlocked(id,revision) ?? false : false} />}
         onPick={async item => {
           if (!admitted() || !engine || item.anchorState === "orphaned") return false;

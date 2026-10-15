@@ -6,6 +6,7 @@ import { z } from "zod";
 import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
+import { readTogether } from "@/lib/db/read-together";
 import { readableDatabaseError, withReadableErrors } from "@/lib/db/errors";
 import {
   authors,
@@ -84,7 +85,7 @@ import {
 } from "@/lib/catalogue/work-store";
 import { filmHoldings as summarizeFilmHoldings } from "@/lib/catalogue/holdings";
 import { normalizeCatalogueDate } from "@/lib/catalogue/dates";
-import { alphabeticalWorkIds } from "./utils/alphabetical-works";
+import { alphabeticalWorkIds, alphabeticalWorkPage } from "./utils/alphabetical-works";
 import { getCreditRoles, getWorkCredits } from "./credits";
 import { generateWorkSlug } from "@/lib/utils/slugify";
 import { isWorkSlugClash, uniqueSlug } from "@/lib/catalogue/slugs";
@@ -136,47 +137,67 @@ function uniqueLabel(workId: string, label: string | null, excludeId?: string) {
 export async function getFilms(input: FilmQuery = {}) {
   const q = filmQuerySchema.parse(input);
   const where = filmWhere(q);
-  let ids: string[];
-  if (q.sort === "title")
-    ids = await alphabeticalWorkIds(
-      where,
-      q.limit,
-      q.offset,
-      q.order ?? "asc",
-      filmDomain,
-    );
-  else {
-    const direction = q.order ?? "desc";
-    const key =
-      q.sort === "release"
-        ? filmReleaseStart
-        : q.sort === "runtime"
-          ? primaryRuntime
-          : q.sort === "rating"
-            ? sql`${works.rating}`
-            : sql`${works.createdAt}`;
-    const rows = await db
-      .select({ id: works.id })
-      .from(works)
-      .where(and(filmDomain, where))
-      .orderBy(
-        direction === "asc"
-          ? sql`${key} asc nulls last`
-          : sql`${key} desc nulls last`,
-        asc(works.id),
-      )
-      .limit(q.limit)
-      .offset(q.offset);
-    ids = rows.map((row) => row.id);
-  }
+  const ids =
+    q.sort === "title"
+      ? await alphabeticalWorkIds(where, q.limit, q.offset, q.order ?? "asc", filmDomain)
+      : (await filmIdsQuery(db, q, where)).map((row) => row.id);
   return loadFilmCards(ids);
 }
 export async function getFilmCount(input: FilmQuery = {}) {
-  const [row] = await db
+  const [row] = await filmCountQuery(db, filmWhere(filmQuerySchema.parse(input)));
+  return row.count;
+}
+
+/**
+ * One page of films and how many match, for the film home: the count and the
+ * page's ids go in one round trip, then the page's cards (SLN-790). A page past
+ * the end comes back empty, with the count, for the caller to redirect.
+ */
+export async function getFilmPage(input: FilmQuery & { limit: number; offset: number }) {
+  // An offset past what the list reads is past the end of any catalogue: only the count is read
+  const beyond = input.offset > FILM_MAX_OFFSET;
+  const q = filmQuerySchema.parse(beyond ? { ...input, offset: 0 } : input);
+  const where = filmWhere(q);
+  if (q.sort === "title") {
+    // The alphabetical order reads every match's title, so it counts them too
+    const { ids, total } = await alphabeticalWorkPage(where, q.limit, q.offset, q.order ?? "asc", filmDomain);
+    return { total, films: beyond ? [] : await loadFilmCards(ids) };
+  }
+  if (beyond) return { total: (await filmCountQuery(db, where))[0].count, films: [] };
+  const [[{ count }], rows] = await readTogether((d) => [filmCountQuery(d, where), filmIdsQuery(d, q, where)] as const);
+  return { total: count, films: await loadFilmCards(rows.map((row) => row.id)) };
+}
+
+const FILM_MAX_OFFSET = 1_000_000;
+
+function filmCountQuery(d: Db, where: SQL | undefined) {
+  return d
     .select({ count: sql<number>`count(*)::int` })
     .from(works)
-    .where(and(filmDomain, filmWhere(filmQuerySchema.parse(input))));
-  return row.count;
+    .where(and(filmDomain, where));
+}
+
+/** The ids of one page of films in a sort other than by title */
+function filmIdsQuery(d: Db, q: z.output<typeof filmQuerySchema>, where: SQL | undefined) {
+  const direction = q.order ?? "desc";
+  const key =
+    q.sort === "release"
+      ? filmReleaseStart
+      : q.sort === "runtime"
+        ? primaryRuntime
+        : q.sort === "rating"
+          ? sql`${works.rating}`
+          : sql`${works.createdAt}`;
+  return d
+    .select({ id: works.id })
+    .from(works)
+    .where(and(filmDomain, where))
+    .orderBy(
+      direction === "asc" ? sql`${key} asc nulls last` : sql`${key} desc nulls last`,
+      asc(works.id),
+    )
+    .limit(q.limit)
+    .offset(q.offset);
 }
 
 /** People credited in one role on any film, with how many films each */

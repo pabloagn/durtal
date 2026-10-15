@@ -44,7 +44,7 @@ afterEach(() => {
   host?.remove();
 });
 
-function render(annotations: ReaderAnnotation[], onPick = vi.fn(async () => true)) {
+function render(annotations: ReaderAnnotation[], onPick = vi.fn(async () => true), imagesOnly = false) {
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
@@ -59,6 +59,7 @@ function render(annotations: ReaderAnnotation[], onPick = vi.fn(async () => true
         onNote: () => {},
         onEdit: () => {},
         onDelete: () => {},
+        imagesOnly,
       }),
     ),
   );
@@ -95,5 +96,72 @@ describe("the Highlights and notes panel", () => {
     render([mark("a", { anchorState: "orphaned" })]);
     expect(host.querySelector("[data-annotation-go]")).toBeNull();
     expect(host.textContent).toContain("Could not be placed");
+  });
+
+  describe("SLN-682", () => {
+    const at = (id: string, cfi: string, progression: number) =>
+      mark(id, { locator: { href: "c1.xhtml", progression, sectionIndex: 0, cfi } as ReaderAnnotation["locator"], text: `Passage ${id}` });
+    const passages = () => [...host.querySelectorAll('[data-annotation-go] [id$="-text"]')].map((el) => el.textContent);
+
+    it("lists marks in the order they come in the book, by position, not by the page they were made on", () => {
+      // p. 32 was made on a page whose progression is lower than p. 31's
+      render([at("p32", "epubcfi(/6/4!/4/64/1:0)", 0.2), at("p31", "epubcfi(/6/4!/4/62/1:0)", 0.3)]);
+      expect(passages()).toEqual(["Passage p31", "Passage p32"]);
+    });
+
+    // happy-dom has no layout: a clamped element reports its overflow through these
+    const layout = (cut: (el: HTMLElement) => boolean) => {
+      const own = (name: "scrollHeight" | "clientHeight", value: (el: HTMLElement) => number) =>
+        vi.spyOn(HTMLElement.prototype, name, "get").mockImplementation(function (this: HTMLElement) { return value(this); });
+      own("clientHeight", () => 100);
+      own("scrollHeight", (el) => (cut(el) ? 400 : 100));
+    };
+    const menu = async () => {
+      await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Highlight actions"]')!.click());
+      return [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].map((item) => item.textContent);
+    };
+
+    it("offers the whole text only when the clamp cuts some (SLN-682)", async () => {
+      layout(() => false);
+      render([mark("a", { text: "word ".repeat(40), note: "word ".repeat(80) })]);
+      const items = await menu();
+      expect(items).toContain("Delete highlight and note");
+      expect(items).not.toContain("Show the full passage");
+      expect(items).not.toContain("Show the full note");
+      vi.restoreAllMocks();
+    });
+
+    it("offers a short verse cut by its line breaks whole", async () => {
+      layout((el) => el.id.endsWith("-text") && el.className.includes("line-clamp-3"));
+      render([mark("a", { text: "Sweet are the uses\nof adversity,\nwhich, like the toad,\nugly and venomous" })]);
+      expect(await menu()).toContain("Show the full passage");
+      vi.restoreAllMocks();
+    });
+
+    it("cuts a long note at six lines and offers it whole from the row's menu", async () => {
+      layout((el) => el.className.includes("line-clamp-6"));
+      render([mark("a", { note: "word ".repeat(400) })]);
+      const note = () => host.querySelector('[id$="-note"]')!;
+      expect(note().className).toContain("line-clamp-6");
+      await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Highlight actions"]')!.click());
+      const whole = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((item) => item.textContent === "Show the full note");
+      expect(whole).toBeDefined();
+      await act(async () => whole!.click());
+      expect(note().className).not.toContain("line-clamp-6");
+      expect(await menu()).toContain("Show less");
+      vi.restoreAllMocks();
+    });
+
+    it("labels a quote", () => {
+      render([mark("q", { style: "quote", color: null })]);
+      expect(host.querySelector('[id$="-place"]')?.textContent).toMatch(/^Quote · /);
+    });
+
+    it("keeps a comic to its bookmarks and says why", () => {
+      render([mark("a"), mark("b", { kind: "bookmark", color: null, text: null })], vi.fn(async () => true), true);
+      expect(host.textContent).toContain("cannot be highlighted. Bookmarks still work.");
+      expect(buttons()).not.toContain("Highlights");
+      expect(host.querySelectorAll("[data-annotation-go]")).toHaveLength(1);
+    });
   });
 });

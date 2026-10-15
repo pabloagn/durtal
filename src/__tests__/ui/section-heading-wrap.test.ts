@@ -23,3 +23,15 @@ it("wraps the action under the title instead of breaking a plain word", () => {
   expect(heading.className).toContain("[overflow-wrap:break-word]");
   expect(heading.className).not.toContain("anywhere");
 });
+
+// A perfume's "Formulations (3)" beside "Add formulation" at 390: "(3)" wrapped
+// to a line of its own. Bound to the last word, the count makes the title's
+// narrowest width "Formulations (3)", so the action wraps under it (SLN-835).
+it("keeps the count with the title's last word", () => {
+  const host = document.createElement("div");
+  host.innerHTML = renderToStaticMarkup(createElement(SectionHeading, {
+    title: "Formulations", count: 3, action: createElement("button", null, "Add formulation") }));
+  const heading = host.querySelector("h2")!;
+  expect(heading.textContent).toBe("Formulations (3)");
+  expect(heading.querySelector("span")!.className.split(" ")).toContain("whitespace-nowrap");
+});

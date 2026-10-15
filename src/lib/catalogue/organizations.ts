@@ -52,11 +52,16 @@ export const ORGANIZATION_ROLE_LABELS: Record<
   gallery: { one: "Gallery", many: "Galleries" },
 };
 
+/** ["Perfume house", "Retailer"]: an organization's roles, in the directory's order */
+export function organizationRoleLabels(roles: readonly string[]) {
+  return DIRECTORY_ROLES.filter((role) => roles.includes(role)).map(
+    (role) => ORGANIZATION_ROLE_LABELS[role].one,
+  );
+}
+
 /** "Perfume house · Retailer": an organization's roles, in the directory's order */
 export function organizationRoleText(roles: readonly string[]) {
-  return DIRECTORY_ROLES.filter((role) => roles.includes(role))
-    .map((role) => ORGANIZATION_ROLE_LABELS[role].one)
-    .join(" · ");
+  return organizationRoleLabels(roles).join(" · ");
 }
 
 /** Counts on a directory row stop here: a row shows "999+" past it */
@@ -93,10 +98,14 @@ const NOUNS: Record<keyof ContributionCounts, [string, string]> = {
   supplied: ["copy supplied", "copies supplied"],
 };
 
-/** "124 editions · 3 films": what an organization takes part in, bounded */
-export function contributionText(counts: ContributionCounts) {
+/** ["124 editions", "3 films"]: what an organization takes part in, bounded */
+export function contributionParts(counts: ContributionCounts) {
   return (Object.keys(NOUNS) as (keyof ContributionCounts)[])
     .filter((key) => counts[key] > 0)
-    .map((key) => `${boundedCount(counts[key])} ${NOUNS[key][counts[key] === 1 ? 0 : 1]}`)
-    .join(" · ");
+    .map((key) => `${boundedCount(counts[key])} ${NOUNS[key][counts[key] === 1 ? 0 : 1]}`);
+}
+
+/** "124 editions · 3 films": what an organization takes part in, bounded */
+export function contributionText(counts: ContributionCounts) {
+  return contributionParts(counts).join(" · ");
 }
