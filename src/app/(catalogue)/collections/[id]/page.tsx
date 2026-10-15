@@ -18,6 +18,7 @@ import { loadPerfumeCards } from "@/lib/catalogue/perfume-store";
 import { loadPaintingCards } from "@/lib/catalogue/painting-store";
 import { catalogueDateYears } from "@/lib/catalogue/dates";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
+import { collectableNouns } from "@/lib/collections/counts";
 import { MemberCard } from "@/components/collections/member-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { readingStatesFor } from "@/lib/reading/states";
@@ -455,7 +456,7 @@ export default async function CollectionPage({
           icon={FolderOpen}
           heading="h2"
           title="Nothing in this collection yet"
-          description="Add books, editions, films, perfumes or paintings to it."
+          description={`Add ${collectableNouns()} to it.`}
           action={<AddToCollectionButton />}
         />
       )}
