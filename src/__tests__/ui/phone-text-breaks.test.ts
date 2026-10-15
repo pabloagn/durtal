@@ -10,7 +10,7 @@ const read = (file: string) => readFileSync(path.resolve(__dirname, "../..", fil
 describe("text that wraps at its natural breaks on a phone", () => {
   it("keeps each journal count whole, breaking only between counts", () => {
     // At 390px it broke as "0 re- / reads"
-    const page = read("app/(catalogue)/reading/journal/page.tsx");
+    const page = read("app/(catalogue)/reading/(tabs)/journal/page.tsx");
     // At 320px it broke as "2 abandoned / · 3 re-reads": the dot stays with the count before it
     expect(page).toContain('{index > 0 && " "}<span className="whitespace-nowrap">{part}{index < parts.length - 1 && "\\u00a0·"}</span>');
   });

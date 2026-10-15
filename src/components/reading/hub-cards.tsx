@@ -53,7 +53,9 @@ export function CurrentReadingCard({ open, day, estimate }: { open: OpenReading;
         </p>
         {estimate && <EstimateLine estimate={estimate} lines="min-h-[2lh] [overflow-wrap:anywhere]" className="mt-1" />}
       </div>
-      <div className="col-span-2 mt-3 flex flex-wrap items-center gap-2 self-start @[280px]:col-span-1 @[280px]:col-start-2">
+      {/* Beside the cover the actions sit at the card's foot, so cards side
+          by side keep them on one line when one title wraps longer */}
+      <div className="col-span-2 mt-3 flex flex-wrap items-center gap-2 self-start @[280px]:col-span-1 @[280px]:col-start-2 @[280px]:self-end">
         {/* The book's eBook opens in the reader, which feeds this reading (SLN-683) */}
         {open.ebookId && (
           <ReaderEntryLink readerPath={`/reader/${open.ebookId}`} returnTo="/reading"
@@ -115,6 +117,8 @@ export function tileItem(open: OpenReading, estimate?: ReadingEstimate): TileIte
     reading: refOf(open),
     ebookId: open.ebookId,
     title: open.work.title,
+    author: open.author,
+    paused: open.reading.status === "paused",
     href: bookHref(open.work),
     cover: open.cover,
     percent: open.reading.currentPercent ?? 0,

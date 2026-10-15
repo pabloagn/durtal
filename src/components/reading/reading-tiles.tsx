@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, BookCheck, BookMarked, BookOpen, BookText, Headphones, Tablet } from "lucide-react";
+import { ArrowRight, BookOpen, BookText, Headphones, Tablet } from "lucide-react";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { CardHeading } from "@/components/shared/card-heading";
 import { ReaderEntryLink } from "@/components/reader/reader-entry-link";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { RatingStars } from "@/components/shared/rating";
@@ -80,6 +81,8 @@ export interface TileItem {
   progressLabel: string;
   /** Time left and the finish date (SLN-451) */
   estimate?: ReadingEstimate;
+  author?: string | null;
+  paused?: boolean;
 }
 
 function SectionLink({ href }: { href: string }) {
@@ -91,7 +94,12 @@ function SectionLink({ href }: { href: string }) {
   );
 }
 
-/** The dashboard's reading: up to three tiles with Log, up to four finished covers; each left out when empty */
+/**
+ * The dashboard's reading, under its "Reading" heading: up to three books
+ * open, each with its cover large enough to know it by, then this year's goal
+ * and up to four finished covers. The page leaves the section out when all
+ * three are empty.
+ */
 export function DashboardReading({
   tiles,
   finished,
@@ -102,55 +110,58 @@ export function DashboardReading({
   /** This year's first goal, for one line under the tiles (SLN-455) */
   goal?: { progress: GoalProgress; serverToday: string; dayStartHour: number } | null;
 }) {
-  const goalLine = goal ? <GoalLine goal={goal.progress} serverToday={goal.serverToday} dayStartHour={goal.dayStartHour} /> : null;
   return (
     <>
-      {tiles.length === 0 && goalLine && (
-        <section className="mt-12">
-          <SectionHeading title="Reading" icon={BookMarked} action={<SectionLink href="/reading" />} />
-          {goalLine}
-        </section>
-      )}
       {tiles.length > 0 && (
-        <section className="mt-12">
-          <SectionHeading title="Currently reading" icon={BookMarked} action={<SectionLink href="/reading" />} />
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {tiles.map((tile) => (
-              <div key={tile.reading.readingId} className="flex gap-3 rounded-sm border border-glass-border bg-bg-secondary p-3" data-dashboard-reading={tile.reading.readingId}>
-                <Cover s3Key={tile.cover} className="h-16 w-11" />
-                <div className="min-w-0 flex-1">
-                  {/* The full title wraps inside the link and keeps its touch area.
-                      The heading names the tile; it keeps the link's type. */}
-                  <h3>
-                    <Link href={tile.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-primary touch-hit">
-                      <span className="block min-h-[1lh] [overflow-wrap:anywhere]">{tile.title}</span>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {tiles.map((tile) => (
+            <article key={tile.reading.readingId} className="@container flex gap-3 rounded-sm border border-glass-border bg-bg-secondary p-3 @xs:gap-4 @xs:p-4" data-dashboard-reading={tile.reading.readingId}>
+              {/* A narrow card (a 320px phone) keeps its text column for the estimate */}
+              <Cover s3Key={tile.cover} className="aspect-[2/3] w-12 self-start @xs:w-20" />
+              <div className="flex min-w-0 flex-1 flex-col">
+                {/* The full title wraps; the heading names the card */}
+                <CardHeading
+                  title={
+                    <Link href={tile.href} className="transition-colors hover:text-accent-primary">
+                      {tile.title}
                     </Link>
-                  </h3>
-                  <ProgressBar value={tile.percent} label={tile.progressLabel} className="mt-2" />
-                  <div className="mt-1.5 flex items-center justify-between gap-2">
-                    <span className="block min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">{tile.position}</span>
+                  }
+                  subtitle={tile.author ?? ""}
+                />
+                <ProgressBar value={tile.percent} label={tile.progressLabel} className="mt-3" />
+                <p className="mt-2 min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">
+                  {tile.paused ? `Paused · ${tile.position}` : tile.position}
+                </p>
+                {tile.estimate && <EstimateLine estimate={tile.estimate} lines="min-h-[2lh] [overflow-wrap:anywhere]" className="mt-1" />}
+                {/* The actions at the foot of the card, starting on the text edge */}
+                <div className="mt-auto flex flex-wrap items-center gap-x-4 pt-2 text-xs">
+                  <span className="-ml-2.5">
                     <LogButton reading={tile.reading} title={tile.title} />
-                  </div>
-                  {tile.estimate && <EstimateLine estimate={tile.estimate} lines="min-h-[2lh] [overflow-wrap:anywhere]" className="mt-1" />}
+                  </span>
                   {tile.ebookId && (
-                    <div className="mt-1 text-xs">
-                      <ReaderEntryLink readerPath={`/reader/${tile.ebookId}`} returnTo="/" className="text-command">
-                        Open eBook
-                      </ReaderEntryLink>
-                    </div>
+                    <ReaderEntryLink readerPath={`/reader/${tile.ebookId}`} returnTo="/" className="text-command">
+                      Open eBook
+                    </ReaderEntryLink>
                   )}
                 </div>
               </div>
-            ))}
-          </div>
-          {goalLine && <div className="mt-3">{goalLine}</div>}
-        </section>
+            </article>
+          ))}
+        </div>
+      )}
+      {goal && (
+        <div className={tiles.length > 0 ? "mt-4" : ""}>
+          <GoalLine goal={goal.progress} serverToday={goal.serverToday} dayStartHour={goal.dayStartHour} />
+        </div>
       )}
       {finished.length > 0 && (
-        <section className="mt-12">
-          <SectionHeading title="Recently finished" icon={BookCheck} action={<SectionLink href="/reading/journal" />} />
-          <FinishedCovers reads={finished} className="catalogue-grid" />
-        </section>
+        <div className={tiles.length > 0 || goal ? "mt-10" : ""}>
+          <SectionHeading as="h3" title="Recently finished" action={<SectionLink href="/reading/journal" />} />
+          {/* Two covers a row on a phone, as the dashboard's other cover grids */}
+          <div className="@container">
+            <FinishedCovers reads={finished} className="catalogue-grid catalogue-density-compact" />
+          </div>
+        </div>
       )}
     </>
   );

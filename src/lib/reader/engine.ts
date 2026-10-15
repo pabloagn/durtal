@@ -97,6 +97,8 @@ export interface BookInfo {
   locationCount: number;
   /** Linear markup size, for the browser-only text estimate. */
   linearSize: number;
+  /** Each section is one page (a PDF, a comic), so the fallback contents list pages */
+  pagedSections?: boolean;
   /** Sections also provide immediate fallback contents while anchor indexing runs. */
   sections: {
     href: string;

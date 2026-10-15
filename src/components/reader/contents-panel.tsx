@@ -104,7 +104,9 @@ export function ContentsPanel({
     <ReaderSidePanel open={open} onClose={onClose} title="Contents">
       {index.fallback && (
         <p className="px-2 pb-3 text-sm text-fg-secondary">
-          This book has no contents. Sections are listed in reading order.
+          {index.info.pagedSections
+            ? "This book has no contents. Its pages are listed in order."
+            : "This book has no contents. Sections are listed in reading order."}
         </p>
       )}
       <div ref={root} role="tree" aria-label="Contents" data-reader-widget>

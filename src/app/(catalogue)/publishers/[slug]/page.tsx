@@ -137,18 +137,24 @@ export default async function PublisherPage({
     p.specialties.length > 0 ||
     p.isbnPrefixes.length > 0;
 
+  // A house with nothing in the catalogue leaves the counts out: six zeros
+  // only repeat the empty Books section (docs/03, a group with nothing to
+  // show is left out)
+  const inCatalogue = [counts.books, counts.editions, counts.owned, counts.read, counts.wanted, counts.onOrder].some((n) => n > 0);
   const record = (
     <RecordPanel>
-      <RecordGroup title="In the catalogue">
-        <RecordFields>
-          <RecordField label="Books">{counts.books}</RecordField>
-          <RecordField label="Editions">{counts.editions}</RecordField>
-          <RecordField label="Owned">{counts.owned}</RecordField>
-          <RecordField label="Read">{counts.read}</RecordField>
-          <RecordField label="Wanted">{counts.wanted}</RecordField>
-          <RecordField label="On order">{counts.onOrder}</RecordField>
-        </RecordFields>
-      </RecordGroup>
+      {inCatalogue && (
+        <RecordGroup title="In the catalogue">
+          <RecordFields>
+            <RecordField label="Books">{counts.books}</RecordField>
+            <RecordField label="Editions">{counts.editions}</RecordField>
+            <RecordField label="Owned">{counts.owned}</RecordField>
+            <RecordField label="Read">{counts.read}</RecordField>
+            <RecordField label="Wanted">{counts.wanted}</RecordField>
+            <RecordField label="On order">{counts.onOrder}</RecordField>
+          </RecordFields>
+        </RecordGroup>
+      )}
       {hasDetails && (
         <RecordGroup title="Details">
           <RecordFields>

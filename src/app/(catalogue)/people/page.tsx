@@ -25,7 +25,7 @@ import {
 } from "@/lib/utils/nationality-param";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Spinner } from "@/components/ui/spinner";
+import { ListPending, ListPendingProvider, ListPendingSwap } from "@/components/shared/list-pending";
 import { AuthorsShell, type AuthorItem } from "./authors-shell";
 import { AuthorsFiltersBar } from "./authors-filters-bar";
 import { AuthorCreateDialog } from "./author-create-dialog";
@@ -290,20 +290,18 @@ export default async function AuthorsPage({ searchParams }: PageProps) {
         actions={<AuthorCreateDialog />}
       />
 
-      <Suspense fallback={<div className="mb-6 h-8" aria-hidden />}>
-        <AuthorsToolbar />
-      </Suspense>
+      {/* A search, sort or filter marks the results busy at once (SLN-753) */}
+      <ListPendingProvider>
+        <Suspense fallback={<div className="mb-6 h-8" aria-hidden />}>
+          <AuthorsToolbar />
+        </Suspense>
 
-      <Suspense
-        key={JSON.stringify(params)}
-        fallback={
-          <div className="flex items-center justify-center py-16">
-            <Spinner className="h-6 w-6" />
-          </div>
-        }
-      >
-        <AuthorsContent searchParams={params} />
-      </Suspense>
+        <ListPendingSwap>
+          <Suspense key={JSON.stringify(params)} fallback={<ListPending />}>
+            <AuthorsContent searchParams={params} />
+          </Suspense>
+        </ListPendingSwap>
+      </ListPendingProvider>
     </>
   );
 }

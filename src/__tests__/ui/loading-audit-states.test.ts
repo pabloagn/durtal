@@ -157,9 +157,8 @@ describe("a page that is only an error or not-found view", () => {
 });
 
 describe("the dashboard's loading view", () => {
-  // A held count sits on its card, whose tone (bg-bg-secondary) is a
-  // SkeletonLine's own, so a line there does not show
-  it("holds each count with a block darker than its card", () => {
+  // A held figure of the index is a block, as tall as the number it holds
+  it("holds each count with a block", () => {
     const source = readFileSync(join(process.cwd(), "src/app/(catalogue)/page.tsx"), "utf8");
     expect(source).toContain('<SkeletonBlock className="type-stat h-[1lh] w-12" />');
     expect(source).not.toContain("<SkeletonLine");
