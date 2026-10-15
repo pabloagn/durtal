@@ -6,14 +6,15 @@ interface BadgeProps {
   className?: string;
 }
 
+/** One class per variant (`badge-*` in globals.css): a grid repeats them on every card (page weight) */
 const variantStyles: Record<Variant, string> = {
-  default: "bg-bg-tertiary/60 text-fg-secondary border border-glass-border",
-  accent: "bg-accent-primary/10 text-accent-primary border border-accent-primary/15",
-  gold: "bg-accent-gold/10 text-accent-gold border border-accent-gold/15",
-  sage: "bg-accent-sage/10 text-accent-sage border border-accent-sage/15",
-  blue: "bg-accent-blue/10 text-accent-blue-text border border-accent-blue/15",
-  red: "bg-accent-red/10 text-accent-red-text border border-accent-red/15",
-  muted: "bg-bg-tertiary/40 text-fg-secondary border border-glass-border",
+  default: "badge-default",
+  accent: "badge-accent",
+  gold: "badge-gold",
+  sage: "badge-sage",
+  blue: "badge-blue",
+  red: "badge-red",
+  muted: "badge-muted",
 };
 
 export function Badge({
@@ -23,7 +24,7 @@ export function Badge({
 }: BadgeProps) {
   return (
     <span
-      className={`inline-flex items-center rounded-sm px-1.5 py-0.5 font-mono text-micro tracking-wider ${variantStyles[variant]} ${className}`}
+      className={`${variantStyles[variant]} ${className}`}
     >
       {children}
     </span>

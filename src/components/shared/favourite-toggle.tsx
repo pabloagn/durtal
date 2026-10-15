@@ -19,7 +19,7 @@ function FavouriteShortcut({ run }: { run: () => void }) {
 
 const VARIANTS = {
   /** A 32px target around the 16px star (44px on touch): cards, rows, headers */
-  icon: "action-control flex icon-hit hover:bg-glass-highlight active:bg-bg-tertiary/80",
+  icon: "fav-hit",
   /** Legacy detail-page variant, now the same quiet 32px action family. */
   boxed:
     "action-control flex size-8 hover:bg-glass-highlight active:bg-bg-tertiary/80 pointer-coarse:size-11",
