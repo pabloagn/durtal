@@ -81,16 +81,21 @@ const canonical = (value: unknown): string =>
           .map(([key, field]) => `${JSON.stringify(key)}:${canonical(field)}`)
           .join(",")}}`
       : (JSON.stringify(value) ?? "null");
-/** How far apart, in PDF points, two browsers measure the same text */
-const PDF_RECT_TOLERANCE = 1;
+/** How far apart two browsers measure the same text: in PDF points (0.98
+ * seen), and as a reading position (0.0003 seen) */
+const PDF_RECT_TOLERANCE = 2;
+const PROGRESSION_TOLERANCE = 0.001;
+const near = (a: number | undefined, b: number | undefined) =>
+  a === b || (a !== undefined && b !== undefined && Math.abs(a - b) <= PROGRESSION_TOLERANCE);
 /** The same place: the same fields whatever their order, and on a PDF page
- * rectangles a fraction of a point apart. Each browser measures the text a
- * little differently, so a mark opened on another device is no move, and two
- * windows in two browsers would otherwise rewrite each other's marks */
+ * rectangles and reading positions a hair apart. Each browser measures the
+ * text a little differently, so a mark opened on another device is no move,
+ * and two windows in two browsers would otherwise rewrite each other's marks */
 const samePlace = (a: DurtalLocator, b: DurtalLocator): boolean => {
-  const { pdf: pdfA, ...restA } = a;
-  const { pdf: pdfB, ...restB } = b;
+  const { pdf: pdfA, progression: progressionA, totalProgression: totalA, ...restA } = a;
+  const { pdf: pdfB, progression: progressionB, totalProgression: totalB, ...restB } = b;
   if (canonical(restA) !== canonical(restB)) return false;
+  if (!near(progressionA, progressionB) || !near(totalA, totalB)) return false;
   if (!pdfA || !pdfB) return !pdfA && !pdfB;
   const { rects: rectsA = [], ...pageA } = pdfA;
   const { rects: rectsB = [], ...pageB } = pdfB;

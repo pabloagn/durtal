@@ -142,8 +142,10 @@ describe("injected annotation controller", () => {
   });
   it("writes no reanchor for a PDF mark another browser measures a fraction of a point apart, and one for a real move (SLN-670)", async () => {
     const pdf = { page: 3, rects: [[10.12, 20.4, 100.5, 30.2]] as [number, number, number, number][] };
-    const shifted = (by: number) => ({ ...locator, pdf: { page: 3, rects: pdf.rects.map((rect) => rect.map((n) => n + by) as [number, number, number, number]) } });
-    for (const [by, writes] of [[0.37, 0], [6, 1]] as const) {
+    // Rectangles 0.98 pt and positions 0.0003 apart were measured between two browsers
+    const shifted = (by: number) => ({ ...locator, progression: locator.progression + (by < 2 ? 0.0003 : 0), totalProgression: locator.totalProgression - (by < 2 ? 0.0003 : 0),
+      pdf: { page: 3, rects: pdf.rects.map((rect) => rect.map((n) => n + by) as [number, number, number, number]) } });
+    for (const [by, writes] of [[0.98, 0], [6, 1]] as const) {
       const f = fixture({ annotations: [annotation({ locator: { ...locator, pdf } })], pending: [], cursor: at });
       f.engine.resolveAnnotation.mockImplementation(async () => ({ status: "exact" as const, locator: shifted(by) }));
       await f.controller.ready;

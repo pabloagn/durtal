@@ -23,8 +23,8 @@ automated check covered one highlight at 1440 only.
   `before` before `highlight`), so every PDF mark was rewritten on every
   open: 35 writes for the fixture's 35 marks, each time. It now compares the
   two as JSON values whatever their key order, with a PDF mark's rectangles
-  allowed a point apart: each browser measures the text a fraction of a
-  point differently, so opening the book on another device rewrote every
+  allowed two points apart and its reading position 0.001: each browser
+  measures the text a little differently (0.98 pt and 0.0003 seen), so opening the book on another device rewrote every
   mark, and two windows in two browsers rewrote each other's (review).
 - `src/lib/reader/engines/foliate/pdf-annotation-resolver.ts`: on a replaced
   file the resolver looks for the mark's words page by page. A page whose
@@ -51,7 +51,7 @@ automated check covered one highlight at 1440 only.
 - Opening the PDF fixture with 36 marks now sends no annotation writes (main
   sends one per mark on every open).
 - Tests: `annotation-controller.test.ts` (no write for a reordered place,
-  or for rectangles 0.37 pt apart; one for a 6 pt move; each fails without
+  or for rectangles 0.98 pt and positions 0.0003 apart; one for a 6 pt move; each fails without
   its fix), `pdf-consumers.test.ts` (an exact quote heals while a long page
   defers; a near quote, or the same words with other words around them,
   still waits).
