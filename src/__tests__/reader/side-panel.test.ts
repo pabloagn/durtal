@@ -5,7 +5,7 @@ import { cwd } from "node:process";
 import { act, createElement as h, StrictMode, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ReaderSidePanel } from "@/components/reader/side-panel";
+import { ReaderSidePanel, closeLatestReaderPanel } from "@/components/reader/side-panel";
 import { SearchPanel } from "@/components/reader/search-panel";
 import type { ReaderEngine } from "@/lib/reader/engine";
 
@@ -198,6 +198,22 @@ describe("shared reader drawer viewport and dialog-cascade regression", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(document.activeElement).toBe(more);
     wrapper.remove();
+  });
+
+  it("closes a panel beside the book on the reader's Escape, never a modal one", async () => {
+    setViewport(1440);
+    const wide = await renderPanel();
+    expect(closeLatestReaderPanel()).toBe(true);
+    await act(async () => {});
+    expect(wide.onClose).toHaveBeenCalledOnce();
+    expect(host.querySelector("dialog")).toBeNull();
+    // Closed, it is no longer the latest
+    expect(closeLatestReaderPanel()).toBe(false);
+    await act(async () => root.render(h("div")));
+    setViewport(768);
+    const narrow = await renderPanel();
+    expect(closeLatestReaderPanel()).toBe(false);
+    expect(narrow.onClose).not.toHaveBeenCalled();
   });
 
   it("handles native cancel once and restores focus after dismissal", async () => {
