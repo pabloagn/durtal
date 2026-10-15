@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { CardHeading } from "@/components/shared/card-heading";
 import { WORK_CARD, WORK_CARD_BODY, WorkCardInfo } from "@/components/shared/work-card";
+import { WorkRow } from "@/components/shared/work-row";
 import { Disc3 } from "lucide-react";
 import type { getFilms } from "@/lib/actions/films";
 import { catalogueDateYears } from "@/lib/catalogue/dates";
@@ -27,15 +28,18 @@ export function filmDirectors(film: FilmCardData) {
   return names.length ? names.join(", ") : null;
 }
 
-/** "1982 · 1h 49m · US": the release year, runtime and production countries */
-export function filmFacts(film: FilmCardData) {
+/** The release year, runtime and production countries: "1982", "1h 49m", "US" */
+export function filmFactParts(film: FilmCardData) {
   return [
     catalogueDateYears(film.releaseDate),
     formatRuntime(film.runtimeSeconds),
     film.countries.map((c) => c.alpha2).join(", ") || null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  ].filter((fact): fact is string => !!fact);
+}
+
+/** "1982 · 1h 49m · US": the release year, runtime and production countries */
+export function filmFacts(film: FilmCardData) {
+  return filmFactParts(film).join(" · ");
 }
 
 /**
@@ -100,41 +104,16 @@ export function FilmCard({
   );
 }
 
-/**
- * A film in a list: a small poster, title, directors and facts, what is held.
- * On a narrow page what is held goes under the facts, so the names stay whole.
- */
+/** A film in a list (`WorkRow`): a small poster, title, directors and facts, what is held */
 export function FilmRow({ film }: { film: FilmCardData }) {
-  const held = filmHoldingsText(film.holdings);
   return (
-    <div className="flex items-center gap-3 rounded-sm border border-transparent px-3 py-2 transition-colors hover:border-glass-border hover:bg-bg-secondary/60">
-      <Link href={filmHref(film)} className="flex min-w-0 flex-1 items-center gap-3">
-        <FilmPoster
-          image={film.poster}
-          title={film.title}
-          small
-          className="w-8 shrink-0 rounded-sm"
-        />
-        <div className="min-w-0 flex-1">
-          <p className="type-item-title truncate">{film.title}</p>
-          <p className="truncate text-sm text-fg-secondary">
-            {[filmDirectors(film) ?? "Director unknown", filmFacts(film)]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-          {held && <p className="truncate text-xs text-fg-secondary sm:hidden">{held}</p>}
-        </div>
-        {held && (
-          <span className="hidden shrink-0 text-xs leading-6 text-fg-secondary sm:block">
-            {held}
-          </span>
-        )}
-      </Link>
-      <FavouriteToggle
-        favourite={film.isFavourite}
-        target={{ entity: "work", id: film.id }}
-        name={film.title}
-      />
-    </div>
+    <WorkRow
+      href={filmHref(film)}
+      thumbnail={<FilmPoster image={film.poster} title={film.title} small className="w-8 shrink-0 rounded-sm" />}
+      title={film.title}
+      facts={[filmDirectors(film) ?? "Director unknown", ...filmFactParts(film)]}
+      held={filmHoldingsText(film.holdings)}
+      favourite={{ on: film.isFavourite, workId: film.id }}
+    />
   );
 }
