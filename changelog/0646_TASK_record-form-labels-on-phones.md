@@ -32,8 +32,32 @@ fields' own labels (Title, dates) already sat over their inputs.
   (0642, 0643), and now also below `sm` with a mouse. Used by the house,
   perfumer and painter chips. The film credit row's name wraps below `sm`
   the same way.
+- `CHIP_NAME` (new, shared): below `sm` a plain chip's name (a country, a
+  studio, a movement) wraps in full instead of being cut; on touch its
+  lines keep the 44px line's center for the cross. Used by every plain chip
+  in `record-fields.tsx`, `film-fields.tsx` and `perfume-fields.tsx`.
 - Test: `src/__tests__/ui/chip-touch-targets.test.ts`.
 
 ## Completion Notes
 
-RESULTS
+- Measured on a production preview of a disposable seed database in
+  Chromium, Firefox and WebKit, at 1440, 640, 639, 390 and 320 (touch below
+  800): Edit film, painting and perfume, their add pages, Add copy, Add a
+  reproduction and Link a work, 13 to 14 forms a width.
+  - Below 640 every row's label sits over its chips (6px gap), and the
+    chips take the row's full width: 272px at 320 in Chromium and Firefox,
+    260px in WebKit (148px and 136px on main). From 640 up every row is
+    as on main, label beside chips.
+  - WebKit also stacks at exactly 640, as it does every `max-sm` rule
+    there.
+  - A row-starting Add or Choose sits on the label's edge (0.00px). Before
+    the pull-out the alignment audit read it 6px in.
+  - Alignment, touch and overflow audits are clean in every form at every
+    width.
+- Long names ("Maison Francis Kurkdjian Parfums de Paris" in every chip),
+  with touch and with a mouse, at 390 and 320 in three engines: no chip's
+  name is cut, nothing overflows, and the audits are clean. With a mouse
+  before `CHIP_NAME`, 7 chip names were cut in Edit film at 320 and 3 in
+  Edit painting.
+- `page-weight.js` passes. Typecheck clean, lint no errors, UI tests pass
+  (103 files). No migration, no new package.
