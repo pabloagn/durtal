@@ -507,6 +507,14 @@ export async function getSeriesSuggestions(seriesId?: string) {
   return rows<SeriesSuggestion>(result);
 }
 
+/** Whether there are books and series to match: what an empty suggestions page says (SLN-755) */
+export async function getSeriesSuggestionScope() {
+  const [scope] = rows<{ books: boolean; series: boolean }>(
+    await db.execute(sql`select exists (select 1 from works where kind = 'book') as books, exists (select 1 from series) as series`),
+  );
+  return scope;
+}
+
 /** Works for the add-books picker, with the series each one is in now. */
 export async function searchWorksForSeries(query: string) {
   const q = z.string().max(200).parse(query).trim();
