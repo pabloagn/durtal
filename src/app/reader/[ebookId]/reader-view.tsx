@@ -397,6 +397,10 @@ function ReaderSession({
   const [lookupSheet, setLookupSheet] = useState(false);
   const syncRef = useRef<ReturnType<typeof createPlaceSync> | null>(null);
   const [contentsOpen, setContentsOpen] = useState(false);
+  // Moving through Contents is not reading: it must not keep postponing the
+  // index that gives Contents its page numbers (SLN-724 review)
+  const contentsOpenRef = useRef(false);
+  useEffect(() => { contentsOpenRef.current = contentsOpen; }, [contentsOpen]);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchOpenRef = useRef(searchOpen);
   searchOpenRef.current = searchOpen;
@@ -786,7 +790,7 @@ function ReaderSession({
         shortcuts: () => actions.current?.shortcuts?.(),
         escape: () => actions.current?.escape(),
         activity: (kind) => {
-          postponeIndex();
+          if (!contentsOpenRef.current) postponeIndex();
           actions.current?.activity?.(kind);
         },
         pointer: (x, y) => actions.current?.pointer?.(x, y),

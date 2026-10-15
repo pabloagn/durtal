@@ -87,3 +87,40 @@ describe("place labels (SLN-680)", () => {
       totalProgression: 0.1, pageLabel: "9" })).toBe("pp. 8–9 of 12");
   });
 });
+
+describe("contents pages before the book is indexed (SLN-724)", () => {
+  const info: BookInfo = {
+    title: "Test",
+    authors: [],
+    language: "en",
+    dir: "ltr",
+    layout: "reflowable",
+    locationCount: 10,
+    linearSize: 15000,
+    toc: [item("c1", "Chapter 1"), item("c1#b", "Part 2"), item("c2", "Chapter 2"), item("c2#b", "Part 2")],
+    pageList: [item("c1#p1", "1"), item("c1#p4", "4"), item("c2#p8", "8"), item("c2#p11", "11")],
+    sections: [
+      { href: "c1", label: "1", linear: true, start: 0, end: 0.5 },
+      { href: "c2", label: "2", linear: true, start: 0.5, end: 1 },
+    ],
+    capabilities: { search: true, tts: true, spreads: true, scrolled: true },
+  };
+  it("names no page for an entry whose section is not placed yet, then the right one", () => {
+    // Every anchor unplaced stands at its section's start: each entry used to
+    // get its section's last page (Chapter 1 and its parts all "4")
+    const index = new PositionIndex(info);
+    for (const href of ["c1", "c1#b", "c2", "c2#b"]) expect(index.entryPage(href)).toBeNull();
+    expect(index.placed("c1")).toBe(true);
+    expect(index.placed("c1#b")).toBe(false);
+    // The first section placed, the second not
+    for (const [href, fraction] of [["c1#p1", 0.01], ["c1#b", 0.2], ["c1#p4", 0.205]] as const) index.set(href, fraction);
+    index.rebuild();
+    expect(index.entryPage("c1")?.label).toBe("1");
+    expect(index.entryPage("c1#b")?.label).toBe("4");
+    expect(index.entryPage("c2")).toBeNull();
+    for (const [href, fraction] of [["c2#p8", 0.51], ["c2#b", 0.7], ["c2#p11", 0.705]] as const) index.set(href, fraction);
+    index.rebuild();
+    expect(index.entryPage("c2")?.label).toBe("8");
+    expect(index.entryPage("c2#b")?.label).toBe("11");
+  });
+});
