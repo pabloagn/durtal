@@ -36,10 +36,14 @@ EPUB and the text PDF at 1440 and 390), and it took two lines at 320.
   and 320 in Chromium and WebKit), on the EPUB and the text PDF, with a place
   from "iPhone · Safari" and "Android · Firefox": the line is in the bar, one
   line, never cut, over no text, the bar showing; it is gone by 5.4 s.
-  The engine check's bars and touch rows pass with a place from another
-  device waiting. Before,
-  on main's code, it covered 2 to 6 text lines in each case at 1440 and 390.
-- 0 alignment deviations on the reader while it shows.
+  Before, on main's code, it covered 2 to 6 text lines at
+  1440 and 1 or 2 on the EPUB at 390 and 320.
+- `reader-engine-check.mjs`, run with places from other devices saved: 278
+  rows, the bars and touch rows among them, pass (the two WebKit PDF "clear"
+  rows failed once while a build ran beside the check, and passed on a rerun
+  alone).
+- 0 alignment deviations on the reader while it shows; `page-weight.js`
+  within budget.
 - Test: `reader-view.test.ts` checks the line is in the bottom bar and not
   in the floating notice, and that it goes after four seconds.
 - No migration and no new packages.
