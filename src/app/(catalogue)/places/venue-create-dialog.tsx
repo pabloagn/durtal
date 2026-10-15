@@ -204,12 +204,12 @@ export function VenueCreateDialog({
           size="sm"
           onClick={() => setOpen(true)}
           type="button"
-          data-tooltip="Add Venue"
+          data-tooltip="Add place"
           data-tooltip-keys="a then l"
           className="shrink-0 whitespace-nowrap"
         >
           <Plus className="h-4 w-4" strokeWidth={1.5} />
-          Add Venue
+          Add place
         </Button>
       )}
 
@@ -217,7 +217,7 @@ export function VenueCreateDialog({
         draft
         open={open}
         onClose={handleClose}
-        title={venue ? "Edit venue" : "Add Venue"}
+        title={venue ? "Edit place" : "Add place"}
         description={venue?.name}
       >
         <div className="max-h-[75vh] overflow-y-auto pr-1">

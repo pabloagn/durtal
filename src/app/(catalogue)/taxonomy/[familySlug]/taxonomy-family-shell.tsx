@@ -319,7 +319,12 @@ export function TaxonomyFamilyShell({
             icon={Tags}
             heading="h2"
             title="No items yet"
-            description={`Each item is one value of ${family.name} that a work can have. Add the first, then choose it when you edit a work.`}
+            // Say what it applies to: a family can be for editions, perfumes or paintings, not only works
+            description={
+              scopeLabels.length > 0
+                ? `Each item is one value of ${family.name} for ${scopeLabels.join(", ").toLowerCase()}. Add the first, then choose it when you edit one.`
+                : `Each item is one value of ${family.name}. Add the first, then choose it when you edit a record.`
+            }
             action={
               <Button
                 variant="primary"
