@@ -171,7 +171,7 @@ function OrganizationForm({
             <ul className="space-y-1">
               {group.roles.map((role) => (
                 <li key={role}>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-fg-primary">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-fg-primary pointer-coarse:min-h-11">
                     <input
                       type="checkbox"
                       checked={roles.includes(role)}
