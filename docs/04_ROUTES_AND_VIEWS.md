@@ -280,7 +280,7 @@ list; unknown or malformed values are dropped (`perfumeQueryFromParams`,
 | `from`, `to` | Release years (negative for BC); reversed years swap |
 
 A card (`PerfumeCard`) shows the bottle contained in a square frame over its
-own tone (or a flacon drawn from the title), the title on two fixed lines, the
+own tone (or the title's letter, `CoverLetter`), the title on two fixed lines, the
 house, and the release year with the concentrations ("1925 · EDP · Extrait").
 Chips mark a favourite and the count held. The grid takes its cards per row from
 the size slider, inside an `@container`: a narrow page holds fewer
@@ -356,8 +356,7 @@ are dropped (`filmQueryFromParams`, `src/lib/catalogue/film-params.ts`):
 | `from`, `to` | Release years; reversed years swap; an unknown date never matches |
 
 A card (`FilmCard`) shows the poster in a 2:3 frame, cropped as framed, over its
-own tone (or a title card drawn from the title and year, `TitleCard`,
-`src/components/shared/no-photo.tsx`), the title on two fixed lines, the
+own tone (or the title's letter, `CoverLetter`), the title on two fixed lines, the
 directors, and "1982 · 1h 49m · US". Chips mark a favourite and the copies held.
 A list row (`FilmRow`) shows a small poster, title, directors and facts, and
 the copies held (under the facts on a phone).
@@ -365,7 +364,7 @@ the copies held (under the facts on a phone).
 ### Film detail (`/films/[slug]`)
 
 The active still (a `background` image) lies behind the header, dimmed, as on a
-book page. The header has the poster (or the title card), the title with the
+book page. The header has the poster (or the title's letter), the title with the
 favourite toggle and the action menu (Edit, Images, Delete) on its cap-height
 center, the original title, and: directed by (links to `/films?director=`),
 written by, starring (the first three, links to `/films?cast=`), released,
@@ -436,7 +435,7 @@ in the URL, with the same rules as the other homes (`paintingQueryFromParams`,
 | `from`, `to` | Years the creation period overlaps; reversed years swap; an unknown date never matches |
 
 A card (`PaintingCard`) shows the whole picture in a fixed 4:5 frame, contained
-and never cropped, over its own tone (or a title card, `TitleCard`), so every
+and never cropped, over its own tone (or the title's letter, `CoverLetter`), so every
 card of a grid has one height; then the title on two fixed lines, the painters,
 and "1889 · Museum of Modern Art". Chips mark a favourite and the objects you own.
 
@@ -782,7 +781,7 @@ image or the first four members' images.
 **Collection page** (`/collections/[id]`): one ordered list of member cards
 (`MemberCard`): an edition (cover, publisher and year, ISBN; "also collected
 as the book" when the whole book is in too), a whole book (one line: "Any
-edition", then its reading), a film (poster or title card, directors, year and runtime),
+edition", then its reading), a film (poster or the title's letter, directors, year and runtime),
 a perfume (bottle, house, concentrations) or a painting (picture, painters,
 date). Each card moves earlier or later in the one order and can be removed;
 the header counts books, editions, films, perfumes and paintings.

@@ -6,7 +6,8 @@ import { ViewModeSwitcher } from "@/components/books/view-mode-switcher";
 import { GridSizeSlider } from "@/components/books/grid-size-slider";
 import { COL_CLASSES } from "@/components/shared/grid-columns";
 import { Mosaic, MosaicImage, mosaicPerRow } from "@/components/shared/mosaic";
-import { CoverFan, TitleCard } from "@/components/shared/no-photo";
+import { CoverFan } from "@/components/shared/no-photo";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { collectionCountLabel } from "@/lib/collections/counts";
 import { CollectionCard, collectionPoster, type CollectionCardData } from "./collection-card";
@@ -68,7 +69,7 @@ export function CollectionsView({
                 src={poster ? mediaUrl(poster.thumbnailS3Key ?? poster.s3Key) : null}
                 crop={poster ? mediaCrop(poster) : null}
                 fallback={
-                  covers.length ? <CoverFan covers={covers.map((key) => mediaUrl(key))} /> : <TitleCard title={collection.name} />
+                  covers.length ? <CoverFan covers={covers.map((key) => mediaUrl(key))} /> : <span className={`absolute inset-0 ${COVER_BLANK}`}><CoverLetter title={collection.name} /></span>
                 }
               />
             ),

@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import { FadeImage } from "@/components/shared/fade-image";
 
 /**
@@ -109,80 +108,6 @@ export function Monogram({ name }: { name: string }) {
   );
 }
 
-const PLATE_TONES: Record<string, string> = {
-  accent: "--color-accent-primary",
-  gold: "--color-accent-gold",
-  sage: "--color-accent-sage",
-  blue: "--color-accent-blue",
-  muted: "--color-accent-slate",
-};
-
-/**
- * A label for a place, like a drawer label: its kind and city in small
- * capitals, a rule, and its street in the serif ("Online" with no address)
- */
-export function PlacePlate({
-  kind,
-  city,
-  street,
-  tone,
-}: {
-  kind: string;
-  city: string | null;
-  street: string | null;
-  /** A badge variant (accent, gold, sage, blue, muted); none keeps the frame */
-  tone?: string;
-}) {
-  return (
-    <div
-      className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center"
-      style={tone ? tint(PLATE_TONES[tone] ?? PLATE_TONES.muted, 10) : undefined}
-      aria-hidden
-    >
-      <span className="type-caption">{city ? `${kind} · ${city}` : kind}</span>
-      <span className="h-px w-8 bg-fg-muted" />
-      <span className="lines-1 max-w-full font-serif text-lg text-fg-primary">
-        {street ?? "Online"}
-      </span>
-    </div>
-  );
-}
-
-/**
- * A flacon for a perfume with no image: cap, neck and glass in a tint taken
- * from the name, and the initials on its label. Drawn in a 64×96 box that
- * keeps its shape in any frame. Without `initials` (small thumbnails) the
- * label stays blank.
- */
-export function Flacon({ name, initials = true }: { name: string; initials?: boolean }) {
-  const tone = TONES[hash(name) % TONES.length];
-  const words = name.replace(/[^\p{L}\p{N}\s]/gu, " ").trim().split(/\s+/).filter(Boolean);
-  const letters = (
-    words.length > 1 ? `${words[0][0]}${words[1][0]}` : (words[0]?.slice(0, 1) ?? "")
-  ).toUpperCase();
-  return (
-    <div className="flacon" style={{ "--tone": `var(${tone})` } as CSSProperties} aria-hidden>
-      {/* Colors and type in the flacon utility (globals.css), by element order */}
-      <svg viewBox="0 0 64 96">
-        {/* Cap and neck */}
-        <rect x="22" y="4" width="20" height="16" rx="1.5" />
-        <rect x="27" y="20" width="10" height="6" />
-        {/* Glass: shoulders and body */}
-        <path d="M27 26H37L52 33Q54 34 54 36V89Q54 92 51 92H13Q10 92 10 89V36Q10 34 12 33Z" />
-        {/* A line of light down the glass */}
-        <rect x="14.5" y="40" width="1.5" height="44" rx="0.75" />
-        {/* Label */}
-        <rect x="17" y="52" width="30" height="22" rx="1" />
-        {initials && letters && (
-          <text x="32" y="63">
-            {letters}
-          </text>
-        )}
-      </svg>
-    </div>
-  );
-}
-
 /** A shelf of spines, one per volume of the series (three when unknown) */
 export function ShelfSpines({ seed, volumes }: { seed: string; volumes: number | null }) {
   const count = Math.min(Math.max(volumes ?? 3, 1), 12);
@@ -202,48 +127,6 @@ export function ShelfSpines({ seed, volumes }: { seed: string; volumes: number |
         ))}
       </div>
       <span className="absolute inset-x-[18%] bottom-[22%] h-px translate-y-full bg-fg-muted" />
-    </div>
-  );
-}
-
-/**
- * A title card for a film with no poster, like the card that opens an old
- * print: a thin inset frame on a tint taken from the title, the title in the
- * serif, a rule and the year. Without `lettering` (small thumbnails) only
- * the frame shows. The card's own `@container` sets the type size.
- */
-export function TitleCard({
-  title,
-  year,
-  lettering = true,
-}: {
-  title: string;
-  year?: string | null;
-  lettering?: boolean;
-}) {
-  return (
-    <div
-      className="absolute inset-0 p-[7%]"
-      style={tint(TONES[hash(title) % TONES.length], 10)}
-      aria-hidden
-    >
-      <div className="flex h-full w-full flex-col items-center justify-center gap-2 border border-white/[0.08] px-[9%] text-center">
-        {lettering && (
-          <>
-            <span
-              className="overflow-hidden font-serif text-sm leading-snug text-fg-primary [-webkit-box-orient:vertical] [-webkit-line-clamp:4] [display:-webkit-box] [overflow-wrap:anywhere] @[220px]:text-lg"
-            >
-              {title}
-            </span>
-            {year && (
-              <>
-                <span className="h-px w-6 bg-fg-muted" />
-                <span className="type-caption">{year}</span>
-              </>
-            )}
-          </>
-        )}
-      </div>
     </div>
   );
 }

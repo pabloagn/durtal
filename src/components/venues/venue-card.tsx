@@ -9,8 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import type { VenueType } from "@/lib/catalogue/venues";
 import { FadeImage } from "@/components/shared/fade-image";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
-import { PlacePlate } from "@/components/shared/no-photo";
-import { cityFromAddress, streetFromAddress } from "@/lib/utils/address";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 
 
 
@@ -66,13 +65,11 @@ export function VenueCard({
                 className="h-full w-full object-cover group-hover:scale-[1.02]"
               />
             ) : (
-              // A venue's own color stays its background
-              <PlacePlate
-                kind={VENUE_TYPE_LABELS[type]}
-                city={cityFromAddress(formattedAddress)}
-                street={streetFromAddress(formattedAddress)}
-                tone={color ? undefined : badgeVariant}
-              />
+              // The name's letter, as on the place's page; a venue's own
+              // color stays its background
+              <span className={`absolute inset-0 ${COVER_BLANK}`}>
+                <CoverLetter title={name} />
+              </span>
             )}
           </div>
         </div>
