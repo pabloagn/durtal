@@ -216,7 +216,7 @@ export function Select({
             }
           }}
           onKeyDown={handleKeyDown}
-          className={`flex h-8 w-full items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-left text-xs transition-colors duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:text-sm ${
+          className={`flex h-8 w-full items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-left text-xs transition-colors duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-60 pointer-coarse:h-11 pointer-coarse:text-sm ${
             error ? "border-accent-red" : ""
           } ${isOpen ? "border-accent-primary" : ""} ${className}`}
         >

@@ -21,7 +21,7 @@
 (() => {
   const TOKENS = {
     "07090d": "bg-primary", "0e1319": "bg-secondary", "171e26": "bg-tertiary",
-    d8dcd8: "fg-heading", c5cacb: "fg-primary", "9ba4ad": "fg-secondary", "727b83": "fg-muted",
+    d8dcd8: "fg-heading", c5cacb: "fg-primary", "9ba4ad": "fg-secondary", "7d868e": "fg-muted",
     "8c9fae": "accent-primary", "17232d": "selection-bg", "1c2a35": "accent-underlay",
     c5cdcf: "action-fill", d4dadb: "action-hover", "10151a": "action-fg",
     "252e37": "border-subtle", "687987": "border-control",

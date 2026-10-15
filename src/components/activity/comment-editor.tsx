@@ -161,12 +161,12 @@ export function CommentEditor({
           Leave a comment...
         </span>
         <Paperclip
-          className="h-3.5 w-3.5 text-fg-muted/50"
+          className="h-3.5 w-3.5 text-fg-muted"
           strokeWidth={1.5}
         />
         <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-fg-muted/10">
           <ArrowUp
-            className="h-3 w-3 text-fg-muted/50"
+            className="h-3 w-3 text-fg-muted"
             strokeWidth={2}
           />
         </div>

@@ -28,7 +28,7 @@ Approved in SLN-556. Neutral ink, charcoal and smoke, with muted steel interacti
 | `fg-heading` | #D8DCD8 | Page headings |
 | `fg-primary` | #C5CACB | Body text |
 | `fg-secondary` | #9BA4AD | Labels, metadata, needed secondary text |
-| `fg-muted` | #727B83 | Decoration, placeholders and disabled content |
+| `fg-muted` | #7D868E | Decoration, placeholders and disabled content |
 | `accent-primary` | #8C9FAE | Interaction, focus, links |
 | `selection-bg` / `selection-fg` | #17232D / #D8DCD8 | Selected regions |
 | `action-fill` / `action-hover` | #C5CDCF / #D4DADB | Main confirmation |
@@ -44,7 +44,7 @@ Approved in SLN-556. Neutral ink, charcoal and smoke, with muted steel interacti
 
 All tokens have the `--color-` prefix in CSS. Named roles replace the old rose/plum/crimson theme. Status still has a label or icon; colour is supplementary.
 
-**Contrast.** Needed text is at least 4.5:1 (3:1 for qualifying large text). Secondary text is at least 6.65:1 across the three opaque surfaces. `fg-muted` is reserved for decoration and disabled content. Use `scripts/qa/design-audit.js`, then separately inspect pixels over glass and imagery: a DOM audit cannot fully measure the composited backdrop. Essential state indicators or boundaries meet 3:1; decorative panel edges need not.
+**Contrast.** Needed text is at least 4.5:1 (3:1 for qualifying large text). Secondary text is at least 6.65:1 across the three opaque surfaces. `fg-muted` is reserved for decoration, placeholders and disabled content; at #7D868E a placeholder reads 4.5:1 or more on all three surfaces, and an icon-only control in it 3:1 or more. A disabled control is the control at 60% opacity: clearly quiet, yet its label or icon still reads at about 3:1 or more (a primary button's 4.7:1, a ghost's 3.4:1). Use `scripts/qa/design-audit.js`, then separately inspect pixels over glass and imagery: a DOM audit cannot fully measure the composited backdrop. Essential state indicators or boundaries meet 3:1; decorative panel edges need not.
 
 ### Artwork, atmosphere and gradients
 
