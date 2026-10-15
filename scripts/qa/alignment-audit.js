@@ -30,11 +30,21 @@
   const DIALOG = "dialog, [role=dialog]";
   const ctx = document.createElement("canvas").getContext("2d");
 
+  // Text for screen readers only (`sr-only`: a clipped 1px box pulled 1px
+  // out) is not on screen, so nothing lines up with it
+  function screenReaderOnly(node, root) {
+    for (let el = node.parentElement; el && root.contains(el); el = el.parentElement) {
+      const r = el.getBoundingClientRect();
+      if (r.width <= 1 && r.height <= 1 && getComputedStyle(el).overflow === "hidden") return true;
+    }
+    return false;
+  }
+
   function firstText(el) {
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
       acceptNode: (n) =>
         // Decoration (a cover's placeholder letter) is not the text a control lines up with
-        n.textContent.trim() && !n.parentElement.closest("svg, [data-decorative]")
+        n.textContent.trim() && !n.parentElement.closest("svg, [data-decorative]") && !screenReaderOnly(n, el)
           ? NodeFilter.FILTER_ACCEPT
           : NodeFilter.FILTER_SKIP,
     });
