@@ -243,7 +243,8 @@ export interface EngineEvents {
   } | null;
   link: { href: string; external: boolean; originMark?: string };
   capabilities: BookInfo["capabilities"];
-  error: { kind: OpenErrorKind; message: string };
+  /** `cause`: the file's own error, set only when the file itself failed to open (SLN-685) */
+  error: { kind: OpenErrorKind; message: string; cause?: string };
   /** A section's document loaded: the input layer listens there too */
   document: { doc: Document };
 }
