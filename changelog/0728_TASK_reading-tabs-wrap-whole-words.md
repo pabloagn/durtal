@@ -20,10 +20,15 @@ Design-polish pass three, item 3 (findings/design-polish-3-2026-10-15.md).
 - `src/components/reading/reading-tabs.tsx`: the row is `flex flex-wrap
   gap-1`; each tab keeps its label on one line (`whitespace-nowrap`). The
   effect that scrolled the current tab into view is gone with the scroller.
-- `src/app/(catalogue)/reading/stats/page.tsx`: the Stats year row, built
-  the same way, wraps too.
+- `src/components/reading/stats-years.tsx` (new): the Stats year row stays
+  one row that scrolls sideways, as before, with the chosen year kept in
+  view: a long record holds dozens of years, which would wrap to seven to
+  nine rows on a phone (review of #375). Its chips are smaller and quieter
+  than the tabs (12px type, 28px tall, the chosen year outlined, not
+  filled), so the two rows read apart.
 - Test: `src/__tests__/reading/reading-tabs-wrap.test.ts` renders the tabs
-  and checks the row wraps and each label stays whole. It fails on main.
+  and checks the row wraps and each label stays whole (it fails on main),
+  and that the years scroll in smaller chips than the tabs.
 
 ## Completion Notes
 
