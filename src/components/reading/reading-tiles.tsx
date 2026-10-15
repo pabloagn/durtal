@@ -32,7 +32,7 @@ export function Cover({ s3Key, className, icon = true, eager = false }: { s3Key:
         // eslint-disable-next-line @next/next/no-img-element
         <img src={mediaUrl(s3Key)} alt="" loading={eager ? "eager" : "lazy"} decoding="async" className="h-full w-full object-cover" />
       ) : (
-        icon && <BookOpen className="h-4 w-4 text-fg-muted" strokeWidth={1.5} aria-hidden />
+        icon && <BookOpen className="h-4 w-4 text-fg-muted" strokeWidth={1.5} aria-hidden data-decorative="" />
       )}
     </span>
   );
@@ -179,7 +179,8 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
       {rows.map((row) => {
         const Icon = FORMAT_ICON[row.format];
         return (
-          <li key={row.reading.readingId} className="flex items-center gap-3 px-3 py-2" data-journal-row={row.reading.readingId}>
+          // The cover starts on the title's first line, as in Up next, however far the title wraps
+          <li key={row.reading.readingId} className="flex items-start gap-3 px-3 py-2" data-journal-row={row.reading.readingId}>
             <Cover s3Key={row.cover} className="h-12 w-8" />
             <div className="min-w-0 flex-1">
               {/* The title names the row; its marks and menu sit on its first line, as in Up next */}
