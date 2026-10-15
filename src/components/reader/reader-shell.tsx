@@ -90,6 +90,9 @@ export function useReaderBars({ held }: { held: boolean }) {
       if (!last) return;
       // A mouse that moves is a reader's hand, not a keyboard user's focus
       focusIn.current = false;
+      // and over the book it is off the bars, though Firefox sends no leave
+      // when a menu or panel opened from them closes under it
+      if (document.elementFromPoint(x, y)?.closest("#reader-book")) pointerOver.current = false;
       show();
     },
     [show],

@@ -33,6 +33,10 @@ text. With nothing changed they hid as usual. All three engines.
   usual wait). When they go, focus leaves them with them; Tab brings both
   back, onto the control after the one that had focus.
 - A keyboard user who tabs into the bars and waits keeps them up, as before.
+- From review: in Firefox, a menu or panel opened from the bars that closes
+  under the mouse sends no pointer leave, so the bars stayed up for good. A
+  real mouse move over the book now lets go of the pointer too; a menu or
+  page button on top still keeps them.
 
 ## Completion Notes
 

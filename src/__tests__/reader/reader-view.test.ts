@@ -955,6 +955,22 @@ it("lets go of focus left on a bar control on a scroll, a turn or a mouse move, 
   expect(footer().inert).toBe(true);
 }, 15_000);
 
+it("lets the bars go once the mouse is over the book, though no leave came from a menu that closed under it", async () => {
+  await render();
+  await settle();
+  const footer = () => host.querySelector<HTMLElement>("footer[data-reader-chrome]")!;
+  // The pointer enters the bars (as over a bar's menu), and the menu closes
+  // under it: Firefox then sends no leave
+  const control = host.querySelector<HTMLButtonElement>("[data-reader-top-bar] button")!;
+  act(() => control.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, relatedTarget: null })));
+  const book = host.querySelector<HTMLElement>("#reader-book")!;
+  vi.spyOn(document, "elementFromPoint").mockReturnValue(book);
+  for (const x of [300, 340]) act(() => document.dispatchEvent(new MouseEvent("mousemove", { clientX: x, clientY: 400, bubbles: true })));
+  expect(footer().inert).toBe(false);
+  await act(() => new Promise((resolve) => setTimeout(resolve, BARS_HIDE_MS + 50)));
+  expect(footer().inert).toBe(true);
+}, 15_000);
+
 it.each(["valid", "malformed"] as const)("lifecycle replay retains exact intent until a %s acknowledgement", async acknowledgement => {
   await render(); await settle();
   act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
