@@ -226,8 +226,10 @@ export const SelectionToolbar = forwardRef<
       {docked ? (
         <>
           <div className="flex items-center">
-            {/* One row: what does not fit scrolls, never wraps */}
-            <div className="flex min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&_[role=group]]:flex-nowrap [&_[role=group]]:gap-0">
+            {/* One row, never wrapped: on the narrowest phones the swatches
+                give up width (never under 32px, always 44px tall) so Note and
+                Look up stay whole beside More (SLN-678) */}
+            <div className="flex min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&_[role=group]]:min-w-0 [&_[role=group]]:shrink [&_[role=group]]:flex-nowrap [&_[role=group]]:gap-0 [&_[role=group]>button]:min-w-8 [&_[role=group]>button]:shrink">
               {markingActions}
               <div ref={mountSlot} className="flex shrink-0 items-center" />
             </div>
