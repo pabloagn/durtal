@@ -68,3 +68,12 @@ it("keeps a new source open until it is valid, and Cancel takes it away unsaved"
   expect(host.querySelectorAll('button[data-tooltip="Edit"]')).toHaveLength(10);
   expect(host.textContent).not.toContain("Give the source a name");
 });
+
+// Main audit 2026-10-15: at 320px "logeion.uchicago.edu" broke as "uchicago.e / du"
+it("lets a source's site wrap only after a dot", async () => {
+  const { hostBreaks } = await import("@/app/(catalogue)/settings/reader/lookup-settings");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  expect(renderToStaticMarkup(createElement("p", null, hostBreaks("logeion.uchicago.edu"))))
+    .toBe("<p>logeion.<wbr/>uchicago.<wbr/>edu</p>");
+  expect(renderToStaticMarkup(createElement("p", null, hostBreaks("No address yet")))).toBe("<p>No address yet</p>");
+});
