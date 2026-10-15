@@ -427,6 +427,44 @@ async function checkPlace(name, browser) {
   );
   await context.close();
 
+  // SLN-696: in two-page spreads a chapter can begin on a right-hand page,
+  // so a reopen that loads fewer chapters can put the saved first words on
+  // the right, a page early. Turn one to three pages, save, reopen, twelve
+  // times over: every reopen starts at the same first words, at once and
+  // once settled.
+  await resetFixturePosition(1);
+  const spreads = await browser.newContext(desktop);
+  page = await spreads.newPage();
+  s = await open(page, 1);
+  const misses = [];
+  const rounds = 12;
+  for (let round = 0; round < rounds; round++) {
+    await page.mouse.click(720, 450);
+    for (let i = 0; i <= round % 3; i++) {
+      const before = s.fraction;
+      await page.keyboard.press("ArrowRight");
+      s = await moved(page, before);
+      // At the book's end, back to the start and on
+      if (s.fraction === before) {
+        await page.keyboard.press("Home");
+        s = await moved(page, before);
+      }
+    }
+    const turned = page.waitForResponse(isSave(1), { timeout: 10_000 }).catch(() => null);
+    await turned;
+    await page.close();
+    page = await spreads.newPage();
+    const first = await open(page, 1);
+    await sleep(1200);
+    const settled = await page.evaluate(readState);
+    if (first.first !== s.first || settled.first !== s.first)
+      misses.push(`round ${round + 1}: left at "${s.first}", reopened at "${first.first}", settled at "${settled.first}"`);
+    s = settled;
+  }
+  record(name, "place", `1440 spreads: ${rounds} reopens start at the saved first words`, misses.length === 0,
+    misses.length ? `${misses.length} of ${rounds} off; ${misses[0]}` : `${rounds} of ${rounds}`);
+  await spreads.close();
+
   // At 390 px: turns, the tab hidden at once (before the 2 s save), closed, reopened
   const touch = name !== "firefox";
   const mobile = await browser.newContext(phone(name));

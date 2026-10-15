@@ -275,4 +275,8 @@ adapter regression source added; native retesting remains pending.
     a chapter, a mark or a search result is unchanged.
     And the first place is taken on the book's own fonts: `#display` waits
     for the view's `fontReady`, at most a second, before anchoring, as
-    Firefox laid the screen out on a fallback font first. SLN-696.
+    Firefox laid the screen out on a fallback font first. While those
+    earlier chapters load, the paginated container scroll is not taken as a
+    move (`#aligningSpread`): inserting a chapter scrolls the container, and
+    taken as a move that scroll replaced the saved place, so the alignment
+    stopped before it scrolled back. SLN-696.

@@ -1668,6 +1668,9 @@ export class Paginator extends HTMLElement {
     #filling = false // true while #fillVisibleArea is running
     #fillPromise = null // tracks in-progress #fillVisibleArea for awaiting
     #stabilizing = false // true while #display is stabilizing layout
+    // Durtal patch 29: true while earlier chapters load to align a saved
+    // place to its spread; the scroll those loads cause is not a move away
+    #aligningSpread = false
     #rendered = false // true after first #display completes
     // Durtal patch 26: a held snapshot covers the page while it changes
     #holding = false
@@ -1847,7 +1850,7 @@ export class Paginator extends HTMLElement {
                 scrolledScrollRelocate()
                 // Backward preloading is handled eagerly in the (non-debounced)
                 // scroll listener below, mirroring the forward buffer.
-            } else if (!this.scrolled) {
+            } else if (!this.scrolled && !this.#aligningSpread) {
               this.#afterScroll('container-scroll')
             }
         }, 250)
@@ -3986,6 +3989,14 @@ export class Paginator extends HTMLElement {
     // test for a point before scrolling, as `uncollapse` widens the range.
     async #alignSpreadStart(anchor) {
         if (this.scrolled || this.columnCount < 2 || this.noPreload || this.noContinuousScroll) return
+        // A chapter inserted before the place scrolls the container; taken as
+        // a move, that scroll replaced the saved place, and the alignment
+        // stopped before scrolling back to it. Hold it back during the loads.
+        this.#aligningSpread = true
+        try { await this.#alignSpreadSteps(anchor) }
+        finally { this.#aligningSpread = false }
+    }
+    async #alignSpreadSteps(anchor) {
         // The strip's last spread is cut short where the strip ends, so a
         // point on a chapter's last page sat on the right until the next
         // chapter came in (as it does next anyway)

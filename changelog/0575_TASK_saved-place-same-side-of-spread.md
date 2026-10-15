@@ -48,4 +48,13 @@ first place before the book's fonts arrived. SLN-696.
   - Loading only the previous chapter first: 8 of 60, because the fixture's
     13-page chapters flip the sides and one chapter is not enough.
   - This change: 0 of 60.
+- Review: a race. While the earlier chapters load, the scroll their
+  insertion causes could be taken as a move, replace the saved place and stop
+  the alignment before it scrolled back (seen once in WebKit and once in
+  Chromium on a slowed CPU). That scroll is now held back while the chapters
+  load (`#aligningSpread`). The reviewer's 20 slowed reopens landed right.
+- The spread check is now a row of the reader engine check (`place`, "1440
+  spreads"): twelve reopens after one to three turns.
+- Reopens that need an earlier chapter take about 0.6 s longer (570 to
+  1150 ms), an accepted trade-off.
 - No migration and no new packages.
