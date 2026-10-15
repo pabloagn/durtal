@@ -1,6 +1,7 @@
 import type { AnnotationColor, ReaderAnnotation } from "./annotations";
 import { normalizeSearchText } from "@/lib/utils/search-text";
 import { compareAnnotationTimes } from "./sync/annotation-time";
+import { compareBookPlaces } from "./book-order";
 export type AnnotationTab = "highlights" | "notes" | "bookmarks";
 export function annotationCounts(items: readonly ReaderAnnotation[]) {
   const live = items.filter((item) => !item.deletedAt);
@@ -39,9 +40,7 @@ export function annotationPanelGroups(
     filter.order === "newest"
       ? compareAnnotationTimes(b.updatedAt, a.updatedAt) ||
         a.id.localeCompare(b.id)
-      : a.locator.sectionIndex - b.locator.sectionIndex ||
-        a.locator.progression - b.locator.progression ||
-        a.id.localeCompare(b.id),
+      : compareBookPlaces(a.locator, b.locator) || a.id.localeCompare(b.id),
   );
   const groups = new Map<
     string,

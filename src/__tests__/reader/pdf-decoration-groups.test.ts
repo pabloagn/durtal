@@ -41,6 +41,19 @@ describe("PDF overlay ownership (DOM contract, not native geometry certification
     click(15, 30);
     expect(opened).toEqual(["a"]);
   });
+  it("lays a page's marks on in its own ink, so the letters under them keep their contrast (SLN-682)", () => {
+    const doc = document.implementation.createHTMLDocument();
+    const view = { renderer: { getContents: () => [{ doc, index: 0 }] } } as unknown as FoliateView;
+    const book = { pdfViewport: () => ({ height: 100, convertToPdfPoint: (x: number, y: number) => [x, y], convertToViewportRectangle: (r: number[]) => r }), pdfCropOffset: () => ({ left: 0, top: 0 }) } as unknown as FoliateBook;
+    const marks = new PdfDecorations(() => {});
+    const item: Decoration = { id: "a", locator: { v: 1, fileHash: hash, href: "0", sectionIndex: 0, progression: 0, totalProgression: 0, pdf: { page: 1, rects: [[10, 20, 30, 40]] } }, style: "highlight", color: "#abc" };
+    marks.set("annotations", [item]); marks.set("search", [{ ...item, id: "s" }]);
+    marks.render(view, book, hash, { link: "#abc", blend: "multiply", opacity: 0.5 });
+    expect((doc.querySelector("[data-durtal-pdf-marks]") as SVGSVGElement).style.mixBlendMode).toBe("multiply");
+    expect(doc.querySelector('[data-decoration-id="a"] rect')?.getAttribute("fill-opacity")).toBe("0.5");
+    expect(doc.querySelector('[data-decoration-id="s"] rect')?.getAttribute("fill-opacity")).toBe("0.24");
+    marks.destroy();
+  });
   it("does not draw before a real viewport has been adopted", () => {
     const doc = document.implementation.createHTMLDocument();
     const marks = new PdfDecorations(() => {});

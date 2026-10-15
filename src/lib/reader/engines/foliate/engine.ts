@@ -46,7 +46,7 @@ import { FoliateAnnotationResolver } from "./annotation-resolver";
 import { FoliateDecorations } from "./decorations";
 import { presentationCss, policyTypographyCss } from "@/lib/reader/presentation";
 import { bookCSS } from "@/lib/reader/presentation/book-css";
-import { themeColours } from "@/lib/reader/presentation/themes";
+import { markInk, themeColours } from "@/lib/reader/presentation/themes";
 import { paginatorAttributes, turnAttributes } from "@/lib/reader/presentation/layout";
 import { CHAR_WIDTH_EM } from "@/lib/reader/presentation/fonts";
 import { canPreflightCoreFonts, routeFontPresentation, fontPresentationChangeKind } from "@/lib/reader/presentation/font-route";
@@ -1559,6 +1559,12 @@ class FoliateEngine implements ReaderEngine {
     if (presentation.policy) {
       const change = fontPresentationChangeKind(this.#appliedPresentation, presentation);
       for (const { doc } of renderer.getContents()) this.#applyPagePolicy(doc, change === "layout");
+      // The overlayer's fills take the page's ink; a fixed layout keeps its own page colours
+      if (this.#book?.rendition?.layout !== "pre-paginated") {
+        const ink = markInk(presentation.policy.theme);
+        renderer.style.setProperty("--overlayer-highlight-blend-mode", ink.blend);
+        renderer.style.setProperty("--durtal-mark-opacity", String(ink.opacity));
+      }
       // Changing colours owns only a page-local sheet. Never call setStyles or paginator attributes.
       if (change === "layout") {
         this.#applyLayout();
@@ -2241,7 +2247,11 @@ class FoliateEngine implements ReaderEngine {
   }
   #drawPdfMarks() {
     if (this.#isPdf() && this.#view && this.#book && this.#source && this.#presentation && !this.#destroyed)
-      this.#pdfMarks.render(this.#view, this.#book, this.#source.sha256, this.#presentation.colors);
+      this.#pdfMarks.render(this.#view, this.#book, this.#source.sha256, {
+        link: this.#presentation.colors.link,
+        // Themed pages take the theme's ink; an unthemed page is white paper
+        ...markInk(this.#presentation.policy?.pdfThemePages ? this.#presentation.policy.theme : "paper"),
+      });
   }
   #pdfLocatorVisible(locator: DurtalLocator) {
     const content = this.#view?.renderer.getContents().find(item => item.index + 1 === locator.pdf?.page);

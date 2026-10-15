@@ -2,7 +2,7 @@
 import type { ReaderSpeech, SpeechSnapshot } from "@/lib/reader/speech/session";
 import { useReaderAnnotations } from "@/components/reader/use-reader-annotations";
 import { QUIET_GLASS_ANNOTATION_PALETTE } from "@/lib/reader/annotation-colors";
-import { highlightColours, LIGHT_THEME_HIGHLIGHTS } from "@/lib/reader/presentation/themes";
+import { highlightColours, LIGHT_THEME_HIGHLIGHTS, markInk } from "@/lib/reader/presentation/themes";
 import { SkipToBook } from "@/components/reader/skip-to-book";
 import { ReaderAnnouncer } from "@/components/reader/reader-announcer";
 import { LeavePrompt } from "@/components/reader/leave-prompt";
@@ -311,7 +311,7 @@ function ReaderSession({
   const edgeTapsRef = useRef(settings.edgeTaps);
   useEffect(() => { edgeTapsRef.current = settings.edgeTaps; }, [settings.edgeTaps]);
   const annotationPalette = useMemo(() => ({
-    fills: highlightColours(settings, settings.theme === "durtal-dark" ? QUIET_GLASS_ANNOTATION_PALETTE.fills : LIGHT_THEME_HIGHLIGHTS[settings.theme], QUIET_GLASS_ANNOTATION_PALETTE.fillOpacity),
+    fills: highlightColours(settings, settings.theme === "durtal-dark" ? QUIET_GLASS_ANNOTATION_PALETTE.fills : LIGHT_THEME_HIGHLIGHTS[settings.theme], markInk(settings.theme).opacity),
     quote: highlightColours(settings, { quote: QUIET_GLASS_ANNOTATION_PALETTE.quote }).quote,
   }), [settings]);
   const [preferencesTimedOut, setPreferencesTimedOut] = useState(false);
@@ -616,6 +616,7 @@ function ReaderSession({
     palette: annotationPalette,
     onJump: locator => navigate(locator, "annotation"), onNotice: setNotice,
     openAt: openAt ?? null,
+    imagesOnly: file?.format === "cbz",
   });
 
   const bars = useReaderBars({
