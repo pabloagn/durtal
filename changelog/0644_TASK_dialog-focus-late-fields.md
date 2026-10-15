@@ -46,3 +46,8 @@ secondary, so Enter and ⌘Enter did nothing on its first step.
   people's 36px search is fixed in #323. `page-weight.js` passes.
   Typecheck clean, lint no errors, UI tests pass (96 files). No migration,
   no new package.
+- Review of #328: Log a past read opens with its lists at the top and
+  mounts its Review editor after it opens, so the new focus move would have
+  jumped past the lists into Review. A late field now takes focus only when
+  it is the dialog's first control; a dialog that opened with other
+  controls stays at its top (the reviewer's fix, with its tests).

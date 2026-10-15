@@ -42,6 +42,21 @@ const render = (loaded: boolean) =>
     ),
   );
 const dialog = () => document.querySelector("dialog") as HTMLDialogElement;
+// Log a past read: lists at the top, the Review editor mounts after open
+const renderWithLists = (editor: boolean) =>
+  act(() =>
+    root.render(
+      createElement(Dialog, {
+        open: true,
+        onClose: () => {},
+        title: "Log a past read",
+        children: [
+          createElement("select", { key: "status", "aria-label": "Status" }),
+          editor ? createElement("div", { key: "review", id: "review", contentEditable: true, suppressContentEditableWarning: true }) : null,
+        ],
+      }),
+    ),
+  );
 
 describe("Dialog focus with fields that load late", () => {
   it("starts in the first field once it arrives", async () => {
@@ -60,5 +75,32 @@ describe("Dialog focus with fields that load late", () => {
     render(true);
     await wait();
     expect(document.activeElement).toBe(close);
+  });
+
+  it("stays at the top when the late field comes after other controls", async () => {
+    renderWithLists(false);
+    expect(document.activeElement).toBe(dialog());
+    renderWithLists(true);
+    await wait();
+    expect(document.activeElement).toBe(dialog());
+  });
+
+  it("starts in a late field that comes after only text", async () => {
+    render(false);
+    act(() =>
+      root.render(
+        createElement(Dialog, {
+          open: true,
+          onClose: () => {},
+          title: "Note",
+          children: [
+            createElement("p", { key: "hint" }, "A note on this read"),
+            createElement("div", { key: "body", id: "body", contentEditable: true, suppressContentEditableWarning: true }),
+          ],
+        }),
+      ),
+    );
+    await wait();
+    expect(document.activeElement?.id).toBe("body");
   });
 });
