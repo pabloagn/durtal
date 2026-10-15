@@ -109,7 +109,37 @@ describe("the Highlights and notes panel", () => {
       expect(passages()).toEqual(["Passage p31", "Passage p32"]);
     });
 
+    // happy-dom has no layout: a clamped element reports its overflow through these
+    const layout = (cut: (el: HTMLElement) => boolean) => {
+      const own = (name: "scrollHeight" | "clientHeight", value: (el: HTMLElement) => number) =>
+        vi.spyOn(HTMLElement.prototype, name, "get").mockImplementation(function (this: HTMLElement) { return value(this); });
+      own("clientHeight", () => 100);
+      own("scrollHeight", (el) => (cut(el) ? 400 : 100));
+    };
+    const menu = async () => {
+      await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Highlight actions"]')!.click());
+      return [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].map((item) => item.textContent);
+    };
+
+    it("offers the whole text only when the clamp cuts some (SLN-682)", async () => {
+      layout(() => false);
+      render([mark("a", { text: "word ".repeat(40), note: "word ".repeat(80) })]);
+      const items = await menu();
+      expect(items).toContain("Delete highlight and note");
+      expect(items).not.toContain("Show the full passage");
+      expect(items).not.toContain("Show the full note");
+      vi.restoreAllMocks();
+    });
+
+    it("offers a short verse cut by its line breaks whole", async () => {
+      layout((el) => el.id.endsWith("-text") && el.className.includes("line-clamp-3"));
+      render([mark("a", { text: "Sweet are the uses\nof adversity,\nwhich, like the toad,\nugly and venomous" })]);
+      expect(await menu()).toContain("Show the full passage");
+      vi.restoreAllMocks();
+    });
+
     it("cuts a long note at six lines and offers it whole from the row's menu", async () => {
+      layout((el) => el.className.includes("line-clamp-6"));
       render([mark("a", { note: "word ".repeat(400) })]);
       const note = () => host.querySelector('[id$="-note"]')!;
       expect(note().className).toContain("line-clamp-6");
@@ -118,6 +148,8 @@ describe("the Highlights and notes panel", () => {
       expect(whole).toBeDefined();
       await act(async () => whole!.click());
       expect(note().className).not.toContain("line-clamp-6");
+      expect(await menu()).toContain("Show less");
+      vi.restoreAllMocks();
     });
 
     it("labels a quote", () => {

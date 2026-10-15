@@ -59,6 +59,14 @@ is cut at six lines, and a comic's panel offers only bookmarks and says why.
   Light (3.64:1 and 4.12:1 over today's paler marks). Sepia's link colour is
   already 3.86:1 on the bare page, so that theme's links fall short with or
   without a mark.
+- From the review (the Sixth reviewer's fix, applied as sent): the fills are
+  drawn above the text, so they now blend with the page instead of covering
+  it (`markInk()` in `themes.ts`: lighten on the dark page, multiply at 0.5 on
+  the light ones, in EPUBs and PDFs), and reading text keeps 4.5:1 inside
+  every mark on Dark, Sepia and Light (`annotation-colors.test.ts`). A row's
+  menu offers "Show the full passage" or "Show the full note" only when its
+  clamp actually cuts some text, measured as the menu opens, and "Show less"
+  once expanded; a comic's filter field is named Filter bookmarks.
 - Not done here: the note dialog showing the passage and making a mark only
   when saved; merging a repeated mark; stopping a selection at the page edge;
   one toolbar design for new and existing marks; sending a delete when the

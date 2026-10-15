@@ -1,5 +1,5 @@
 "use client";
-import { useId, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { MoreHorizontal, NotebookPen, Trash2 } from "lucide-react";
 import { Prose } from "@/components/shared/prose";
@@ -31,10 +31,23 @@ const EMPTY: Record<AnnotationTab, string> = {
   bookmarks: "No bookmarks yet. Bookmark a page from the top bar.",
 };
 
-/** A passage longer than this may be cut at three lines; its menu offers it whole */
-const LONG_PASSAGE = 100;
-/** A note longer than this may be cut at six lines (SLN-682): one of 9,500 letters ran 8,000px */
-const LONG_NOTE = 300;
+/**
+ * What the row's clamp cuts (a passage at three lines, a note at six: one of
+ * 9,500 letters ran 8,000px, SLN-682), measured as its menu opens, so the menu
+ * offers the whole text exactly when some is hidden: a short verse or a list
+ * cut by its line breaks too, and never a long passage that fits a wide panel.
+ * The row is on screen then, so content-visibility has laid it out.
+ */
+function useCut() {
+  const passageRef = useRef<HTMLSpanElement>(null);
+  const noteRef = useRef<HTMLSpanElement>(null);
+  const [cut, setCut] = useState<"passage" | "note" | null>(null);
+  const measure = useCallback(() => {
+    const over = (el: HTMLElement | null) => !!el && el.scrollHeight > el.clientHeight + 1;
+    setCut(over(passageRef.current) ? "passage" : over(noteRef.current) ? "note" : null);
+  }, []);
+  return [passageRef, noteRef, cut, measure] as const;
+}
 
 const capital = (word: string) => word[0].toUpperCase() + word.slice(1);
 
@@ -68,8 +81,7 @@ function MarkRow({ item, orphaned, expanded, onToggle, onGo, onNote, onEdit, onD
     item.locator.text?.highlight?.trim().split(/\s+/).slice(0, 8).join(" ") ??
     "Bookmark";
   const highlight = item.kind === "highlight";
-  const longPassage = !!item.text && item.text.length > LONG_PASSAGE;
-  const longNote = !!item.note && item.note.length > LONG_NOTE;
+  const [passageRef, noteRef, cut, measure] = useCut();
   // Named by its passage, described by its note and place
   const id = useId();
   const body = (
@@ -78,8 +90,8 @@ function MarkRow({ item, orphaned, expanded, onToggle, onGo, onNote, onEdit, onD
         <span aria-hidden className="block h-3 w-1 rounded-sm" style={{ backgroundColor: markFill(item) }} />
       </CapAligned>
       <span className="block min-w-0 flex-1">
-        <span id={`${id}-text`} className={`whitespace-pre-wrap break-words text-fg-primary ${expanded ? "block" : "line-clamp-3"}`}>{text}</span>
-        {item.note && <span id={`${id}-note`} className={`mt-2 whitespace-pre-wrap break-words text-fg-secondary ${expanded ? "block" : "line-clamp-6"}`}>{item.note}</span>}
+        <span ref={passageRef} id={`${id}-text`} className={`whitespace-pre-wrap break-words text-fg-primary ${expanded ? "block" : "line-clamp-3"}`}>{text}</span>
+        {item.note && <span ref={noteRef} id={`${id}-note`} className={`mt-2 whitespace-pre-wrap break-words text-fg-secondary ${expanded ? "block" : "line-clamp-6"}`}>{item.note}</span>}
         <span id={`${id}-place`} className="mt-2 block font-sans text-xs text-fg-secondary">
           {markPlace(item)}
         </span>
@@ -106,6 +118,8 @@ function MarkRow({ item, orphaned, expanded, onToggle, onGo, onNote, onEdit, onD
         <CapAlignedControls height={28} coarseHeight={44} className="mt-1">
           <DropdownMenu
             label={highlight ? "Highlight actions" : "Bookmark actions"}
+            // Expanded, the row keeps what was cut, so its menu offers Show less
+            onOpenChange={(open) => open && !expanded && measure()}
             align="end"
             trigger={
               <button type="button" className="action-icon-sm">
@@ -113,9 +127,9 @@ function MarkRow({ item, orphaned, expanded, onToggle, onGo, onNote, onEdit, onD
               </button>
             }
           >
-            {(longPassage || longNote) && (
+            {(expanded || cut) && (
               <DropdownMenuItem onClick={onToggle}>
-                {expanded ? "Show less" : longPassage ? "Show the full passage" : "Show the full note"}
+                {expanded ? "Show less" : cut === "passage" ? "Show the full passage" : "Show the full note"}
               </DropdownMenuItem>
             )}
             {!orphaned && highlight && (
@@ -218,7 +232,7 @@ export function AnnotationsPanel({
         {counts[tab] > 0 && <>
           <input
             type="search"
-            aria-label="Filter highlights and notes"
+            aria-label={imagesOnly ? "Filter bookmarks" : "Filter highlights and notes"}
             // The count rides the field, so the tabs keep to one line in a 320px panel
             placeholder={`Find in ${counts[tab]} ${counts[tab] === 1 ? tab.slice(0, -1) : tab}`}
             value={query}
