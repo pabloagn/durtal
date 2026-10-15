@@ -16,17 +16,31 @@ export function collectionCounts(collection: {
   return { editionCount: editions.length, workCount: works.length };
 }
 
-/** "12 editions" for a collection of book editions only, else "5 items" */
-export function collectionCountLabel({
-  editionCount,
-  workCount = 0,
-}: {
-  editionCount: number;
-  workCount?: number;
+/**
+ * A collection's one count line, the same on its card and its page: "6
+ * books", "4 editions", "3 books · 1 perfume", "1,050 films". Counted as `collectionCounts`
+ * counts (an edition stands for its book); `null` when it holds nothing, so
+ * the card says "Empty" and the page leaves the line out.
+ */
+export function collectionCountLine(collection: {
+  collectionEditions?: { edition?: { workId: string } | null }[];
+  collectionWorks?: { workId: string; work?: { kind: WorkKind } | null }[];
 }) {
-  if (!workCount) return `${editionCount} ${editionCount === 1 ? "edition" : "editions"}`;
-  const total = editionCount + workCount;
-  return `${total} ${total === 1 ? "item" : "items"}`;
+  const editions = collection.collectionEditions ?? [];
+  const byEdition = new Set(editions.flatMap((m) => (m.edition ? [m.edition.workId] : [])));
+  const works = (collection.collectionWorks ?? []).filter((m) => !byEdition.has(m.workId));
+  const of = (kind: WorkKind) => works.filter((m) => (m.work?.kind ?? "book") === kind).length;
+  const parts: [number, string, string][] = [
+    [of("book"), "book", "books"],
+    [editions.length, "edition", "editions"],
+    [of("film"), "film", "films"],
+    [of("perfume"), "perfume", "perfumes"],
+    [of("painting"), "painting", "paintings"],
+  ];
+  const shown = parts.filter(([n]) => n > 0);
+  return shown.length
+    ? shown.map(([n, one, many]) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`).join(" · ")
+    : null;
 }
 
 /**

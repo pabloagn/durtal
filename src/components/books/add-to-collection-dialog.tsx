@@ -14,15 +14,20 @@ import {
   removeFromCollection,
 } from "@/lib/actions/collections";
 import {
-  collectionCounts,
-  collectionCountLabel,
+  collectionCountLine,
   collectionCreatedMessage,
 } from "@/lib/collections/counts";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { useFocusThroughBusy } from "@/hooks/use-focus-through-busy";
 import { CollectionIconLazy } from "@/components/collections/collection-icon-lazy";
+import { CountParts } from "@/components/collections/count-parts";
 
 type Data = Awaited<ReturnType<typeof getCollectionSelection>>;
+
+/** A work joining a collection, with its kind for the row's count line */
+function workKind(data: Data, workId: string) {
+  return { kind: data.works.find((w) => w.id === workId)?.kind ?? ("book" as const) };
+}
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -134,7 +139,7 @@ export function AddToCollectionDialog({
                           ...c.collectionWorks,
                           ...wholeWorks
                             .filter((wid) => !c.collectionWorks.some((w) => w.workId === wid))
-                            .map((workId) => ({ workId })),
+                            .map((workId) => ({ workId, work: workKind(current, workId) })),
                         ],
                   },
             ),
@@ -188,7 +193,7 @@ export function AddToCollectionDialog({
                       editionId,
                   },
                 })),
-                collectionWorks: wholeWorks.map((workId) => ({ workId })),
+                collectionWorks: wholeWorks.map((workId) => ({ workId, work: workKind(current, workId) })),
                 media: [],
               },
             ],
@@ -369,8 +374,9 @@ export function AddToCollectionDialog({
                       <span className="min-w-0 flex-1 truncate text-sm">
                         {c.name}
                       </span>
-                      <span className="text-xs text-fg-secondary">
-                        {collectionCountLabel(collectionCounts(c))}
+                      {/* At most half the row, so a long count never hides the name */}
+                      <span className="max-w-[50%] shrink-0 text-right text-xs text-fg-secondary">
+                        <CountParts line={collectionCountLine(c) ?? "Empty"} />
                       </span>
                     </button>
                   );
