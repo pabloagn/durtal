@@ -339,6 +339,12 @@ async function checkScript(name, browser) {
   await context.close();
 }
 
+/** Turns a settings switch on (role="switch": Playwright's check() is for checkboxes) */
+async function switchOn(control) {
+  if ((await control.getAttribute("aria-checked")) !== "true") await control.click();
+  await control.and(control.page().locator('[aria-checked="true"]')).waitFor();
+}
+
 /** Exercise the current publisher typography controls, then close Settings. */
 async function pickPublisherFont(page) {
   await revealBars(page);
@@ -347,7 +353,7 @@ async function pickPublisherFont(page) {
   await dialog.getByRole("radio", { name: "This book", exact: true }).click();
   // The font is a group of radio buttons (the font picker)
   await dialog.getByRole("radio", { name: /^Publisher/ }).click();
-  await dialog.getByRole("checkbox", { name: "Use publisher typography", exact: true }).check();
+  await switchOn(dialog.getByRole("switch", { name: "Use publisher typography", exact: true }));
   await dialog.getByRole("status").filter({ hasText: /^Settings saved$/ }).waitFor();
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !document.querySelector("dialog[open]"));
@@ -699,7 +705,7 @@ async function checkClear(name, browser) {
       const free = await page.evaluate(clearBox);
       let dialog = await openSettings(page);
       await dialog.getByRole("radio", { name: "This book", exact: true }).click();
-      await dialog.getByRole("checkbox", { name: "Keep the toolbars visible", exact: true }).check();
+      await switchOn(dialog.getByRole("switch", { name: "Keep the toolbars visible", exact: true }));
       pinned = true;
       await closeSettings(page, dialog);
       await sleep(800);

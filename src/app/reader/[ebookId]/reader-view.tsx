@@ -1911,6 +1911,7 @@ function ReaderSession({
       </Suspense>
       <PresentationSettingsDialog
         sheet
+        kind={file?.format === "pdf" ? "pdf" : index?.info.layout === "pre-paginated" ? "fixed" : "reflowable"}
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         presentation={settings}
