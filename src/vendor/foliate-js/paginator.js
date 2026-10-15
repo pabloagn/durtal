@@ -3382,18 +3382,16 @@ export class Paginator extends HTMLElement {
                 : f => f
     }
     async #scrollToRect(rect, reason, index = this.#primaryIndex) {
-        if (this.scrolled) {
-            // rect is in iframe-local coordinates; add view offset
-            // to convert to container scroll coordinates
-            const localOffset = this.#getRectMapper()(rect).left - 3
-            const viewOffset = this.#getViewOffset(this.#primaryIndex)
-            return this.#scrollTo(viewOffset + localOffset, reason)
-        }
         // rect is in iframe-local coordinates. Convert to container
         // coordinates by adding its view's offset. Durtal patch 30: that is
-        // the anchor's own view, which in a spread two chapters share need
-        // not be the primary one.
+        // the anchor's own view, which in a spread two chapters share (or on
+        // a scrolled screen showing two chapters) need not be the primary one.
         const view = this.#views.get(index)
+        if (this.scrolled) {
+            const localOffset = this.#getRectMapper(view)(rect).left - 3
+            const viewOffset = this.#getViewOffset(view ? index : this.#primaryIndex)
+            return this.#scrollTo(viewOffset + localOffset, reason)
+        }
         const localOffset = this.#getRectMapper(view)(rect).left
         const viewOffset = this.#getViewOffset(view ? index : this.#primaryIndex)
         const containerOffset = viewOffset + localOffset

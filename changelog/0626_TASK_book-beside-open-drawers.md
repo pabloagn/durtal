@@ -45,6 +45,10 @@ Chromium, 19 of 41 lines of the EPUB and 27 of 83 of the text PDF).
     range anchor by the wrong chapter's offset, and a screen showing only
     the first chapter's blank end made the place that chapter's start. The
     anchor is now measured, placed and read in its own chapter.
+  - In scrolled mode, a screen showing the end of one chapter above the
+    start of the next placed the anchor by the first chapter's offset, so
+    opening a drawer there jumped to the book's first line. Scrolling now
+    places it by its own chapter's view too (review of #342).
 
 ## Completion Notes
 
@@ -60,7 +64,8 @@ Chromium, 19 of 41 lines of the EPUB and 27 of 83 of the text PDF).
   engines; before patch 30, Firefox moved on a page each time and WebKit
   went back one. `reader-engine-check.mjs` gains a drawers row for this
   (Contents opened and closed three times on a chapter's first page after a
-  reopen); 281 of 281 rows pass.
+  reopen), and one for a scrolled screen at a chapter's start (Contents
+  opened and closed at 1024); 284 of 284 rows pass.
 - `page-weight.js`: the reader within its budget.
 - Tests: `side-panel.test.ts` (the inset beside a drawer open on a wide
   screen, never on a phone or tablet) and `search-panel.test.ts` (the drawer

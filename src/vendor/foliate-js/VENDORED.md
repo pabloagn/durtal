@@ -303,7 +303,10 @@ adapter regression source added; native retesting remains pending.
       anchor is now measured in its own chapter on the same screen.
     - Scrolling to a range anchor placed it by the primary view's offset;
       it now uses the view holding the anchor, which on such a spread need
-      not be the primary one.
+      not be the primary one. The same holds in scrolled mode, where a
+      screen can show the end of one chapter above the start of the next:
+      placed by the first chapter's offset, the next chapter's start became
+      the first chapter's start.
     - Where the primary chapter shows only its blank end beside the next
       chapter's first page, its collapsed range made the place that
       chapter's start; the visible range is now the next chapter's text.
