@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { DetailControls } from "@/components/shared/detail-layout";
+import { DetailControls, DetailEditButton } from "@/components/shared/detail-layout";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
@@ -15,16 +15,19 @@ import { OrganizationDialog, type EditableOrganization } from "./organization-di
 
 /**
  * The organization's own actions beside its name, on the name's cap-height
- * center: edit it, or delete it. An organization that records still link to
+ * center: its favourite, edit it, or delete it. An organization that records still link to
  * cannot be deleted; the dialog lists them.
  */
 export function OrganizationActions({
   organization,
   blockers,
+  children,
 }: {
   organization: EditableOrganization;
   /** What still links to it, such as "124 editions" */
   blockers: string[];
+  /** Controls before Edit: the favourite */
+  children?: ReactNode;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState<"edit" | "delete" | null>(null);
@@ -34,6 +37,8 @@ export function OrganizationActions({
   return (
     <>
       <DetailControls>
+        {children}
+        <DetailEditButton label="Edit organization" editKey={EDIT_KEYS.organization} onClick={() => setOpen("edit")} />
         <EntityActionMenu
           items={[
             { label: "Edit", icon: Pencil, onClick: () => setOpen("edit"), shortcut: editHint(EDIT_KEYS.organization) },

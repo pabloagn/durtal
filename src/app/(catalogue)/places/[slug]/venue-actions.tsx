@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { DetailControls } from "@/components/shared/detail-layout";
+import { DetailControls, DetailEditButton } from "@/components/shared/detail-layout";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
@@ -53,6 +53,7 @@ export function VenueActions({
     <>
       <DetailControls>
         {children}
+        <DetailEditButton label="Edit place" editKey={EDIT_KEYS.place} onClick={() => setOpen("edit")} />
         <EntityActionMenu
           items={[
             { label: "Edit", icon: Pencil, onClick: () => setOpen("edit"), shortcut: editHint(EDIT_KEYS.place) },

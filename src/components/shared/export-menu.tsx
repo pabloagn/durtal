@@ -9,6 +9,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import type { EntityActionItem } from "@/components/shared/entity-action-menu";
 import { exportFormatsFor, type ExportFormat } from "@/lib/export/formats";
 
 export type { ExportFormat } from "@/lib/export/formats";
@@ -55,6 +56,23 @@ export const EXPORT_FORMAT_LABELS: Record<ExportFormat, string> = {
   md: "Markdown (.md)",
   json: "JSON (.json)",
 };
+
+/**
+ * One record's export as Actions menu entries, a format each ("Export as
+ * CSV"): a detail header keeps Export in its menu (SLN-641).
+ */
+export function exportActionItems(entity: ExportEntity, ids: string[], noun?: string): EntityActionItem[] {
+  return exportFormats(entity).map((format) => ({
+    label: `Export as ${EXPORT_FORMAT_LABELS[format].replace(/ \(.*\)$/, "")}`,
+    icon: Download,
+    onClick: () => {
+      triggerExport(entity, ids, format).then(
+        () => toast.success(`Exported ${ids.length} ${noun ?? entity} as ${format.toUpperCase()}`),
+        (err) => toast.error(err instanceof Error ? err.message : "Export failed"),
+      );
+    },
+  }));
+}
 
 /** Download an export: these records, every one ("all"), or what a page's filters show. */
 export async function triggerExport(
