@@ -65,8 +65,9 @@ function lastFinished(readings: ReadingSummary[]) {
 export function readingControlLabel(readings: ReadingSummary[], { ebook = false } = {}): string {
   const state = bookReadingState(readings);
   // Beside the eBook's Read button, "Start reading" read as a second way in;
-  // the reader itself offers "Track this book" (SLN-683)
-  if (state === "unread") return ebook ? "Not tracked" : "Start reading";
+  // the reader itself offers "Track this book" (SLN-683). "Not tracked" sat
+  // beside the catalogue's "Tracked" chip, so it says the state (SLN-801)
+  if (state === "unread") return ebook ? "Unread" : "Start reading";
   if (state === "reading") return `Reading · ${positionText(readings.find((r) => r.status === "reading")!)}`;
   if (state === "paused") return `Paused at ${percent(readings.find((r) => r.status === "paused")!)}`;
   if (state === "read") {
