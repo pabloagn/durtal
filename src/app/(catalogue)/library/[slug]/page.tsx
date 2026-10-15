@@ -76,6 +76,7 @@ import { SimilarWorksCarousel } from "@/components/books/similar-works-carousel"
 import { getBookRelatedGroups } from "@/lib/actions/book-related";
 import { getSimilarWorks } from "@/lib/actions/similar-works";
 import { WorkPosterImage, WorkPosterPlaceholder } from "./work-poster-image";
+import { cardEdition } from "./card-edition";
 import {
   CoarseImageSource,
   coarseImageFallback,
@@ -283,8 +284,9 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   const background = work.media?.find(
     (m) => m.type === "background" && m.isActive,
   );
-  // Without a poster the header shows the first edition that has a cover
-  const editionCover = poster ? undefined : work.editions.find((e) => e.coverS3Key);
+  // Without a poster the header shows the cover the book's card shows, else a placeholder
+  const firstEdition = cardEdition(work.editions);
+  const editionCoverKey = poster ? null : (firstEdition?.coverS3Key ?? firstEdition?.thumbnailS3Key ?? null);
   const allPosters = work.media?.filter((m) => m.type === "poster") ?? [];
   const allBackgrounds =
     work.media?.filter((m) => m.type === "background") ?? [];
@@ -382,7 +384,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
 
           {/* Header */}
           <div className={`${background ? "mb-4" : "mb-8"} flex flex-col gap-6 sm:flex-row`}>
-            {/* The poster, else the first edition's cover, else a placeholder
+            {/* The poster, else the card's edition cover, else a placeholder
                 cover the same size: the header keeps its cover's place, so the
                 loading screen's cover box never jumps (SLN-697) */}
             {poster ? (
@@ -392,9 +394,9 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                 crop={mediaCrop(poster)}
                 palette={crystalPalette}
               />
-            ) : editionCover?.coverS3Key ? (
+            ) : editionCoverKey ? (
               <WorkPosterImage
-                src={mediaUrl(editionCover.coverS3Key, { version: editionCover.updatedAt })}
+                src={mediaUrl(editionCoverKey, { version: firstEdition?.updatedAt })}
                 alt={`${work.title} cover`}
                 crop={mediaCrop({})}
               />

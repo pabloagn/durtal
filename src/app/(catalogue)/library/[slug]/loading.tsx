@@ -18,7 +18,7 @@ export default function BookLoading() {
           <SkeletonBlock className={WORK_POSTER_BOX} />
 
           <div className="min-w-0 flex-1">
-            <SkeletonTitleRow wide />
+            <SkeletonTitleRow row="wide" />
             {/* Author */}
             <SkeletonBlock text className="mt-2 h-6 w-40" />
             {/* Year, rating and marks */}
