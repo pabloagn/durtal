@@ -475,11 +475,12 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                 </DetailControls>
               </DetailTitleRow>
 
-              {/* Author links */}
+              {/* Author links. A name wraps in full, however long its one
+                  word: never cut, and the page never scrolls sideways */}
               {primaryAuthors.length > 0 && (
                 <div className="mt-2 flex flex-wrap items-center gap-1">
                   {primaryAuthors.map((author, i) => (
-                    <span key={author.id} className="text-sm text-fg-secondary">
+                    <span key={author.id} className="min-w-0 text-sm text-fg-secondary [overflow-wrap:anywhere]">
                       {i > 0 && <span className="mr-1 text-fg-secondary">,</span>}
                       {author.slug ? (
                         <Link
