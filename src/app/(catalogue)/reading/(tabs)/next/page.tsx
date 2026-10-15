@@ -8,8 +8,7 @@ import { ReadingTabs } from "@/components/reading/reading-tabs";
 import { HubActions } from "@/components/reading/hub-actions";
 import { QueueList, type QueueRow } from "@/components/reading/queue-list";
 import { QueueHomeFilter } from "@/components/reading/queue-home-filter";
-import { db } from "@/lib/db";
-import { locations } from "@/lib/db/schema";
+import { getLocations } from "@/lib/actions/locations";
 import { getQueue } from "@/lib/actions/reading-queue";
 import { getPaceContext } from "@/lib/actions/reading";
 import { READING_HOME_KEY } from "@/lib/preferences";
@@ -38,7 +37,8 @@ export default async function UpNextPage({ searchParams }: { searchParams: Promi
   } catch {
     stored = null;
   }
-  const places = await db.select({ id: locations.id, name: locations.name, type: locations.type, isActive: locations.isActive }).from(locations);
+  // The cached places: no round trip before the queue
+  const places = await getLocations();
   const homes = readingHomes(places);
   const home = homes.find((h) => h.id === stored) ?? null;
   const [items, pace, today] = await Promise.all([getQueue({ homeId: home?.id ?? null }), getPaceContext([]), readingToday()]);

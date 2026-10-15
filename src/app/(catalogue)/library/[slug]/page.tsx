@@ -476,12 +476,13 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
               </DetailTitleRow>
 
               {/* Author links. A name wraps in full, however long its one
-                  word: never cut, and the page never scrolls sideways */}
+                  word: never cut, and the page never scrolls sideways. Each
+                  comma stays with the name before it, so a wrapped line never
+                  starts with one */}
               {primaryAuthors.length > 0 && (
                 <div className="mt-2 flex flex-wrap items-center gap-1">
                   {primaryAuthors.map((author, i) => (
                     <span key={author.id} className="min-w-0 text-sm text-fg-secondary [overflow-wrap:anywhere]">
-                      {i > 0 && <span className="mr-1 text-fg-secondary">,</span>}
                       {author.slug ? (
                         <Link
                           href={`/people/${author.slug}`}
@@ -492,6 +493,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                       ) : (
                         author.name
                       )}
+                      {i < primaryAuthors.length - 1 && ","}
                     </span>
                   ))}
                 </div>

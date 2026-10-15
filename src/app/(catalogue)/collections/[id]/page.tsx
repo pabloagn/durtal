@@ -54,6 +54,8 @@ import { CopyShortcuts } from "@/components/shortcuts/copy-shortcuts";
 import { Prose } from "@/components/shared/prose";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
+import { languageName } from "@/lib/utils/language";
+import { bindingLabel } from "@/lib/utils/binding";
 
 type Collection = NonNullable<Awaited<ReturnType<typeof getCollection>>>;
 
@@ -125,7 +127,9 @@ async function collectionMembers(
         title: e.title,
         mark: ebook && <div className={COVER_CORNER.bottomLeft}><EbookMark ebook={ebook} /></div>,
         byline: names.join(" & "),
-        facts: [e.publisher, e.publicationYear, e.language, e.binding].filter(Boolean).join(" · "),
+        // The language's and the binding's names, as the book page shows
+        // them: a bare "fr" or "saddle_stitch" read as a code
+        facts: [e.publisher, e.publicationYear, languageName(e.language), bindingLabel(e.binding)].filter(Boolean).join(" · "),
         // A book held both ways shows as its edition, and says so
         note: [e.isbn13, heldAsWork.has(work.id) ? "also collected as the book" : null, state(work.id)].filter(Boolean).join(" · ") || null,
         noteMono: true,

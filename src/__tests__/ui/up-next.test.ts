@@ -17,7 +17,7 @@ const toasts = vi.hoisted(() => ({ list: [] as { message: string; undo?: () => v
 vi.mock("@/lib/actions/reading-queue", () => actions);
 vi.mock("@/lib/actions/reading", () => ({ getPaceContext: async () => ({ readings: {}, priors: { byLanguageFormat: {}, byFormat: {}, overall: null } }) }));
 vi.mock("@/lib/reading/day", () => ({ readingToday: async () => "2026-10-05" }));
-vi.mock("@/lib/db", () => ({ db: { select: () => ({ from: async () => [] }) } }));
+vi.mock("@/lib/actions/locations", () => ({ getLocations: async () => [] }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {}, push: () => {} }), usePathname: () => "/reading/next" }));
 vi.mock("@/lib/activity/refresh-event", () => ({ triggerActivityRefresh: () => {} }));
@@ -30,7 +30,7 @@ vi.mock("@/lib/notifications/toast", () => {
 });
 
 import { QueueList, type QueueRow } from "@/components/reading/queue-list";
-import UpNextPage from "@/app/(catalogue)/reading/next/page";
+import UpNextPage from "@/app/(catalogue)/reading/(tabs)/next/page";
 
 let coarse = false;
 beforeAll(() => {

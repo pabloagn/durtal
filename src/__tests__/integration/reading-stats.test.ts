@@ -65,7 +65,7 @@ import {
   yearNumbers,
   yearReview,
 } from "@/lib/reading/stats";
-import ReadingYearsPage from "@/app/(catalogue)/reading/year/page";
+import ReadingYearsPage from "@/app/(catalogue)/reading/(tabs)/year/page";
 import YearInReviewPage from "@/app/(catalogue)/reading/year/[year]/page";
 
 /* Reading stats and the Year in review against PostgreSQL (SLN-456). */

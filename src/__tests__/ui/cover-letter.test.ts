@@ -39,9 +39,9 @@ it("names the title on every reading cover but the timer chip's", () => {
     "components/reading/suggestions/pick-one.tsx",
     "components/reading/suggestions/suggestion-list.tsx",
     "components/reading/import/import-client.tsx",
-    "app/(catalogue)/reading/page.tsx",
+    "app/(catalogue)/reading/(tabs)/page.tsx",
     "app/(catalogue)/reading/year/[year]/page.tsx",
-    "app/(catalogue)/reading/suggestions/page.tsx",
+    "app/(catalogue)/reading/(tabs)/suggestions/page.tsx",
   ];
   for (const file of files) {
     for (const call of read(file).match(/<Cover s3Key=[^\n]*/g) ?? []) expect(call, file).toContain(" title={");
