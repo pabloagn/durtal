@@ -1061,7 +1061,7 @@ The e-book reader (SLN-492), in the shell's full-viewport branch: no sidebar, no
 | Context / owner | Keys | Action |
 |---|---|---|
 | Reader core, sub-issue 3 | ←, →, Space, Shift+Space, PageUp, PageDown | Turn left/right or previous/next |
-| Reader core, sub-issue 3 | Home, End, t, s, f, Esc | First/last page, Contents, Settings, full screen, close surface |
+| Reader core, sub-issue 3 | Home, End, t, s, f, Esc | First/last page, Contents, Settings, full screen, close surface (with none open, ask to leave the book) |
 | Navigation, sub-issue 10 | g, [, ], Alt+←, Alt+→, ? | Go to, chapters, history, shortcut sheet |
 | Scrubber, sub-issue 10 | ←/→, Shift+←/→, Home/End, Enter, Esc | Preview 1%/10%, start/end, commit, cancel |
 | Annotations, sub-issue 11 (reserved) | b, h; selection: 1–5, n | Bookmark, highlights; colour, note |

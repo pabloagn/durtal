@@ -5,6 +5,7 @@ import { QUIET_GLASS_ANNOTATION_PALETTE } from "@/lib/reader/annotation-colors";
 import { highlightColours, LIGHT_THEME_HIGHLIGHTS } from "@/lib/reader/presentation/themes";
 import { SkipToBook } from "@/components/reader/skip-to-book";
 import { ReaderAnnouncer } from "@/components/reader/reader-announcer";
+import { LeavePrompt } from "@/components/reader/leave-prompt";
 import { closeLatestReaderPanel } from "@/components/reader/side-panel";
 
 import {
@@ -374,6 +375,7 @@ function ReaderSession({
   const [gotoOpen, setGotoOpen] = useState(false);
   const [gotoMode, setGotoMode] = useState<GoToMode | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
   const [runningOpen, setRunningOpen] = useState(false);
   const [peeking, setPeeking] = useState(false);
   const [positions, setPositions] = useState<RunningPositions>(() =>
@@ -715,10 +717,15 @@ function ReaderSession({
         // and up) closes even when focus has left it
         if (closeLatestReaderPanel()) return;
         if (searchEscapeRef.current?.()) return;
-        if (document.fullscreenElement)
+        if (document.fullscreenElement) {
           void document.exitFullscreen().catch(() => {});
-        // With nothing left to close, Esc brings the bars back (SLN-663)
-        bars.show();
+          return;
+        }
+        // With nothing left to close, Esc asks before leaving the book
+        // (SLN-744). It opens once this key is done: a modal dialog open
+        // while the key's default action runs would take it as its cancel.
+        paceRef.current?.interrupt();
+        setTimeout(() => setLeaveOpen(true));
       },
       activity: (kind) => {
         if (bridge.getControllerReadinessSnapshot().ready) bridge.bus.activity(kind);
@@ -1506,11 +1513,8 @@ function ReaderSession({
 
   useEffect(() => { if (annotations.held) bars.show(); }, [annotations.held, bars.show]);
 
-  const onBack = useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
-    // A new tab or window keeps the link's own behaviour
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    event.preventDefault();
-    const href = event.currentTarget.href;
+  /** Leaves for `href` once the place and the open sitting are saved */
+  const leave = useCallback((href: string) => {
     // Back through history only to the page the link names (SLN-683), so a
     // click goes where the link says; history keeps that page's scroll
     let from: URL | null = null;
@@ -1533,6 +1537,13 @@ function ReaderSession({
     // The open sitting reaches the server first, so the book page is current (SLN-677)
     else void bridge.leave().then(() => window.location.assign(href));
   }, [bridge]);
+
+  const onBack = useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
+    // A new tab or window keeps the link's own behaviour
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    leave(event.currentTarget.href);
+  }, [leave]);
 
   // The other device's place, through the same resolve as opening (newest or furthest)
   const goToPlace = (target: ReaderPlace) => {
@@ -1894,6 +1905,12 @@ function ReaderSession({
         )}
         {shortcutsOpen && (
           <ShortcutSheet open onClose={() => setShortcutsOpen(false)} />
+        )}
+        {leaveOpen && (
+          <LeavePrompt
+            onStay={() => setLeaveOpen(false)}
+            onLeave={() => leave(new URL(backHref, window.location.href).href)}
+          />
         )}
         {runningOpen && (
           <RunningLinesPopover

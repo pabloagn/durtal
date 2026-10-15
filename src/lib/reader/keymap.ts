@@ -34,7 +34,7 @@ export const READER_KEYMAP: readonly ReaderShortcut[] = [
     t: "Contents",
     s: "Settings",
     f: "Full screen",
-    escape: "Close the active surface",
+    escape: "Close the active surface, else leave the book",
   }),
   ...group("Finding your way", 10, "always", {
     g: "Go to",

@@ -8,7 +8,7 @@ import { viewerImage } from "./media/content";
  * Keys: → and Space for the next page, ← and Shift+Space for the previous
  * one (← and → go left and right, so a right-to-left book turns the right
  * way), PageDown and PageUp, Home and End, t contents, s settings, f full
- * screen, Esc closes. No key fires while focus is in a text field or a
+ * screen, Esc closes (with nothing open, it asks to leave the book). No key fires while focus is in a text field or a
  * slider, or while the command palette or a dialog is open (Esc aside).
  * Touch and mouse: the left 30% goes left, the right 30% goes right, the
  * centre shows or hides the bars; a swipe of 40 px or more, mostly
@@ -40,7 +40,7 @@ export interface ReaderActions {
   goto?(): void;
   chapter?(direction: -1 | 1): void;
   shortcuts?(): void;
-  /** Esc: closes the open panel, else leaves full screen */
+  /** Esc: closes the open panel, else leaves full screen, else asks to leave the book */
   escape(): void;
   /** Human input only. Successful turn activity belongs to painted navigation. */
   activity?(kind: "key" | "pointer"): void;
