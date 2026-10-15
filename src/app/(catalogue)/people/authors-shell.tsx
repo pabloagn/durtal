@@ -120,7 +120,7 @@ function renderAuthorCell(author: AuthorItem, key: string, filteredRoles: string
                 style={mediaImageStyle(author.posterCrop)}
               />
             ) : (
-              <span className="font-serif text-xs text-fg-muted/40">{author.name[0]}</span>
+              <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/40">{author.name[0]}</span>
             )}
           </div>
           <span className="truncate">{author.name}</span>

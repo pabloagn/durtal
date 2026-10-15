@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Pencil, Trash2, Loader2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -250,13 +250,9 @@ export function LocationCard({
               variant="primary"
               size="sm"
               onClick={handleEdit}
-              disabled={isPending}
+              busy={isPending}
             >
-              {isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                "Save"
-              )}
+              Save
             </Button>
           </div>
         </div>
@@ -298,14 +294,11 @@ export function LocationCard({
               variant="primary"
               size="sm"
               onClick={handleDelete}
-              disabled={isPending || !!blocking}
+              busy={isPending}
+              disabled={!!blocking}
               className="bg-accent-red/80 hover:bg-accent-red"
             >
-              {isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                "Delete"
-              )}
+              Delete
             </Button>
           </div>
         </div>

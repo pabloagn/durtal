@@ -63,4 +63,28 @@ describe("busy labels", () => {
     );
     expect(dots).toEqual([]);
   });
+
+  // SLN-713: a busy button keeps its words and width (contract section 8).
+  // A busy word in place of the label, a spinner in place of it, or a
+  // spinner added beside it all move the buttons around it. The reader keeps
+  // its own controls.
+  it("never replace a button's label or add a spinner beside it", async () => {
+    const { readdirSync, readFileSync } = await import("node:fs");
+    const path = await import("node:path");
+    const root = path.resolve(__dirname, "../../..");
+    const files = readdirSync(path.join(root, "src"), { recursive: true, encoding: "utf8" })
+      .filter((f) => f.endsWith(".tsx") && !f.startsWith("__tests__") && !f.includes("components/reader/"));
+    // Each rule ends at the button's closing tag, so status lines and
+    // spinners in search fields are not counted
+    const rules = [
+      /\? "(Saving|Creating|Confirming|Undoing|Unlinking|Applying|Merging|Working|Deleting|Preparing|Checking|Reading the)\b[^"]*"[^<]*<\/[Bb]utton>/g,
+      /\{\s*\w+ \? \(\s*<(Loader2|LoaderCircle|Spinner)\b[^>]*\/>\s*\) : \(\s*"[^<]*<\/[Bb]utton>/g,
+      /\{\s*\w+ && \(?\s*<(Loader2|LoaderCircle)\b[^>]*\/>\s*\)?\}(?:[^<{]|\{[^}]*\})*<\/[Bb]utton>/g,
+    ];
+    const found = files.flatMap((f) => {
+      const source = readFileSync(path.join(root, "src", f), "utf8");
+      return rules.flatMap((rule) => [...source.matchAll(rule)].map((m) => `${f}: ${m[0].replace(/\s+/g, " ")}`));
+    });
+    expect(found).toEqual([]);
+  });
 });

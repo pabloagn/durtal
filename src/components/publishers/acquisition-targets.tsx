@@ -3,7 +3,7 @@ import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, X } from "lucide-react";
+import { PackageX, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { PublisherChoice, type PublisherOption } from "./publisher-picker";
@@ -16,6 +16,7 @@ import {
   type getAcquisitionTargets,
 } from "@/lib/actions/publishers";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 export function AcquisitionTargets({
   workId,
@@ -84,9 +85,11 @@ export function AcquisitionTargets({
       )}
       {targets.map(
         ({ target, state, publisher: p, edition: e, copies, orders }) => (
+          // On the first line of the edition's name, which can wrap on a
+          // phone: its state, Order and Remove share that line's baseline
           <div
             key={target.id}
-            className="flex flex-wrap items-center gap-3 rounded-sm border border-glass-border p-3 text-sm"
+            className="flex flex-wrap items-baseline gap-3 rounded-sm border border-glass-border p-3 text-sm"
           >
             <span className="flex-1">
               {p ? (
@@ -107,7 +110,7 @@ export function AcquisitionTargets({
             </span>
             {state === "wanted" && (
               <Link
-                className="text-xs text-accent-blue"
+                className="text-xs text-accent-blue touch-hit"
                 href={`/provenance?target=${target.id}`}
               >
                 Order
@@ -143,7 +146,7 @@ export function AcquisitionTargets({
             )}
             {orders.length > 0 && (
               <details className="w-full text-xs text-fg-secondary">
-                <summary>Orders ({orders.length})</summary>
+                <summary className="touch-hit">Orders ({orders.length})</summary>
                 {orders.map((o) => (
                   <div key={o.id} className="mt-2 flex items-center gap-3">
                     <span>
@@ -168,6 +171,7 @@ export function AcquisitionTargets({
                           })
                         }
                       >
+                        <PackageX aria-hidden strokeWidth={1.5} />
                         Record return
                       </Button>
                     )}
@@ -176,30 +180,32 @@ export function AcquisitionTargets({
               </details>
             )}
             {state === "wanted" && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-7 px-0"
-                data-tooltip="Remove target"
-                aria-label="Remove target"
-                disabled={pending}
-                onClick={() =>
-                  start(async () => {
-                    try {
-                      await cancelAcquisitionTarget(target.id);
-                      router.refresh();
-                    } catch (err) {
-                      toast.error(
-                        err instanceof Error
-                          ? err.message
-                          : "Could not remove target",
-                      );
-                    }
-                  })
-                }
-              >
-                <X className="h-4 w-4" strokeWidth={1.5} />
-              </Button>
+              <CapAlignedControls height={28} coarseHeight={44}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-7 px-0"
+                  data-tooltip="Remove target"
+                  aria-label="Remove target"
+                  disabled={pending}
+                  onClick={() =>
+                    start(async () => {
+                      try {
+                        await cancelAcquisitionTarget(target.id);
+                        router.refresh();
+                      } catch (err) {
+                        toast.error(
+                          err instanceof Error
+                            ? err.message
+                            : "Could not remove target",
+                        );
+                      }
+                    })
+                  }
+                >
+                  <X className="h-4 w-4" strokeWidth={1.5} />
+                </Button>
+              </CapAlignedControls>
             )}
           </div>
         ),

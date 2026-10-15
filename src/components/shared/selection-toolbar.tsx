@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, X } from "lucide-react";
+import { CheckCheck, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
@@ -100,11 +100,13 @@ export function SelectionToolbar({
         <Button variant="ghost" size="sm"
           onClick={() => onSelectAll(allIds)}
         >
+          <CheckCheck aria-hidden strokeWidth={1.5} />
           Select all
         </Button>
         <Button variant="ghost" size="sm"
           onClick={onDeselectAll}
         >
+          <X aria-hidden strokeWidth={1.5} />
           Deselect
         </Button>
 

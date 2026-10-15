@@ -31,9 +31,9 @@ export function ReviewDecisionControls({ state, onClose, onConfirm, onEdit, fiel
     <div className="flex flex-wrap justify-end gap-2">
       {state.prepared && !locked && <Button variant="ghost" onClick={onEdit}>Change choices</Button>}
       <Button onClick={onClose} disabled={locked}>Cancel</Button>
-      {state.prepared && <Button variant="primary" onClick={onConfirm}
+      {state.prepared && <Button variant="primary" onClick={onConfirm} busy={state.phase === "confirming"}
         disabled={state.phase !== "prepared" && state.phase !== "unknown"}>
-        {state.phase === "confirming" ? "Confirming…" : state.phase === "unknown" ? "Retry this decision" : "Confirm decision"}
+        {state.phase === "unknown" || (state.phase === "confirming" && state.retrying) ? "Retry this decision" : "Confirm decision"}
       </Button>}
     </div>
   </>;

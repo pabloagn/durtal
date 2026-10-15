@@ -211,8 +211,7 @@ export function LogoCardUpload({
             >
               Cancel
             </Button>
-            <Button variant="primary" onClick={save} disabled={saving || rendering || !!error || !preview}>
-              {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
+            <Button variant="primary" onClick={save} busy={saving} disabled={rendering || !!error || !preview}>
               Save logo
             </Button>
           </div>

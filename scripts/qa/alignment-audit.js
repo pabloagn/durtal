@@ -6,7 +6,10 @@
  *
  * An icon beside a stack of two or more text blocks (a number over a label)
  * is checked against the stack's center instead. Icons that do not share a
- * line with the text (a large placeholder above a title) are skipped.
+ * line with the text (a large placeholder above a title) are skipped, and so
+ * is a `data-decorative` mark centred alone in a larger box (a blank cover's
+ * book icon); an icon beside text, or a control's icon, is checked however
+ * it is marked.
  *
  * A second pass checks the icon controls beside each heading (a title row's
  * buttons and menu): each control's box against the heading's cap height.
@@ -30,11 +33,21 @@
   const DIALOG = "dialog, [role=dialog]";
   const ctx = document.createElement("canvas").getContext("2d");
 
+  // Text for screen readers only (`sr-only`: a clipped 1px box pulled 1px
+  // out) is not on screen, so nothing lines up with it
+  function screenReaderOnly(node, root) {
+    for (let el = node.parentElement; el && root.contains(el); el = el.parentElement) {
+      const r = el.getBoundingClientRect();
+      if (r.width <= 1 && r.height <= 1 && getComputedStyle(el).overflow === "hidden") return true;
+    }
+    return false;
+  }
+
   function firstText(el) {
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
       acceptNode: (n) =>
         // Decoration (a cover's placeholder letter) is not the text a control lines up with
-        n.textContent.trim() && !n.parentElement.closest("svg, [data-decorative]")
+        n.textContent.trim() && !n.parentElement.closest("svg, [data-decorative]") && !screenReaderOnly(n, el)
           ? NodeFilter.FILTER_ACCEPT
           : NodeFilter.FILTER_SKIP,
     });
@@ -131,10 +144,22 @@
     return parts.join(" > ");
   }
 
+  // A decorative mark centred alone in its own box (a blank cover's book
+  // icon): the box, not the icon, lines up with the text beside it. The box
+  // holds no text, is not a control, and is larger than the icon. An icon
+  // beside text, or a control's own icon, is checked however it is marked
+  const CONTROL = "a[href], button, [role=button], input, select, textarea, summary";
+  const decorative = (svg) => {
+    const frame = svg.parentElement;
+    if (!svg.closest("[data-decorative]") || !frame || frame.textContent.trim() || frame.matches(CONTROL)) return false;
+    const f = frame.getBoundingClientRect();
+    const b = svg.getBoundingClientRect();
+    return f.width >= b.width + 8 && f.height >= b.height + 8;
+  };
   const issues = [];
   let checked = 0;
   for (const svg of document.querySelectorAll("svg")) {
-    if (svg.parentElement?.closest("svg") || !visible(svg)) continue;
+    if (svg.parentElement?.closest("svg") || !visible(svg) || decorative(svg)) continue;
     const box = svg.getBoundingClientRect();
     if (box.width > MAX_ICON || box.height > MAX_ICON) continue;
 

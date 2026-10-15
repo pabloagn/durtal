@@ -610,16 +610,10 @@ export function WorkForm({
           variant="primary"
           size="sm"
           onClick={onSubmit}
-          disabled={pending || !values.title.trim()}
+          busy={pending}
+          disabled={!values.title.trim()}
         >
-          {pending ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
-              Saving
-            </>
-          ) : (
-            "Save Changes"
-          )}
+          Save changes
         </Button>
       </div>
     </>

@@ -31,7 +31,8 @@ export function NotePyramid({ notes }: { notes: PyramidNote[] }) {
   const disputed = [...places.values()].filter((p) => p.positions.length > 1);
   return (
     <>
-      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2.5">
+      {/* Each tier's caption on its notes' baseline: the caption is 12px, the notes 14px */}
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-6 gap-y-2.5">
         {groups.map(({ position, notes: list }) => (
           <div key={position} className="contents">
             <dt className="type-caption leading-6">

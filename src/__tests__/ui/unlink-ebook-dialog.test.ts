@@ -67,7 +67,7 @@ describe("actual automatic Undo and fresh Unlink dialog", () => {
   it("prevents repeat confirmation or dismissal while the original write is in flight", async () => {
     let resolve!: (value: unknown) => void;
     api.confirmReviewUnlinkUi.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
-    await click("Check what changes"); await click("Undo the link"); await click("Dismiss"); await click("Unlinking…");
+    await click("Check what changes"); await click("Undo the link"); await click("Dismiss"); await click("Undo the link");
     expect(callbacks.onClose).not.toHaveBeenCalled(); expect(api.confirmReviewUnlinkUi).toHaveBeenCalledOnce();
     expect(callbacks.onCommitted).not.toHaveBeenCalled(); await act(async () => resolve({ ok: true, value: unlinkOutcome() }));
     expect(callbacks.onCommitted).toHaveBeenCalledWith(unlinkOutcome());

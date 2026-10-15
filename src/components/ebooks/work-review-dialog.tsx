@@ -16,6 +16,8 @@ export function WorkReviewDialog({ work, original, onClose, onCommitted, onUndon
   const [outcome, setOutcome] = useState<WorkReviewOutcome | null>(original ?? null);
   const [phase, setPhase] = useState<"editing" | "preparing" | "prepared" | "applying" | "unknown" | "committed" | "undoing" | "undo_unknown" | "undone">(original ? "committed" : "editing");
   const [error, setError] = useState<string | null>(null);
+  /** The write running now retries an unknown outcome: its button keeps saying so */
+  const [retrying, setRetrying] = useState(false);
   const lock = useRef(false), generation = useRef(0);
   const locked = ["applying", "unknown", "undoing", "undo_unknown"].includes(phase);
   function close() { if (!lock.current && !locked) { generation.current++; onClose(); } }
@@ -29,7 +31,7 @@ export function WorkReviewDialog({ work, original, onClose, onCommitted, onUndon
   }
   async function confirm() {
     if (lock.current || !prepared || !["prepared", "unknown"].includes(phase)) return;
-    const exact = prepared; lock.current = true; setPhase("applying"); setError(null);
+    const exact = prepared; lock.current = true; setRetrying(phase === "unknown"); setPhase("applying"); setError(null);
     const result = await confirmWorkReviewUi({ request: exact.request, previewToken: exact.previewToken }).catch(() => null);
     lock.current = false;
     if (result?.ok) { setOutcome(result.value); setPrepared(null); setPhase("committed"); onCommitted(result.value); }
@@ -42,7 +44,7 @@ export function WorkReviewDialog({ work, original, onClose, onCommitted, onUndon
   async function undo() {
     const originalOperation = outcome?.undo.originalOperation;
     if (lock.current || !originalOperation || !["committed", "undo_unknown"].includes(phase)) return;
-    lock.current = true; setPhase("undoing"); setError(null);
+    lock.current = true; setRetrying(phase === "undo_unknown"); setPhase("undoing"); setError(null);
     const result = await undoWorkReviewUi({ workId: work.id, originalOperation }).catch(() => null);
     lock.current = false;
     if (result?.ok) { setOutcome(result.value); setPhase("undone"); onUndone(result.value); }
@@ -62,13 +64,13 @@ export function WorkReviewDialog({ work, original, onClose, onCommitted, onUndon
       {error && <p role="alert" className="text-sm text-accent-red-text">{error}</p>}
       <div className="flex flex-wrap justify-end gap-2">
         <Button onClick={close} disabled={locked}>Close</Button>
-        {phase === "editing" && <Button onClick={() => void prepare()}>Preview accessioned status</Button>}
-        {phase === "preparing" && <Button disabled>Preparing…</Button>}
-        {prepared && <Button variant="primary" disabled={phase === "applying"} onClick={() => void confirm()}>
-          {phase === "applying" ? "Confirming…" : phase === "unknown" ? "Retry this status decision" : "Confirm status change"}
+        {(phase === "editing" || phase === "preparing") &&
+          <Button busy={phase === "preparing"} onClick={() => void prepare()}>Preview accessioned status</Button>}
+        {prepared && <Button variant="primary" busy={phase === "applying"} onClick={() => void confirm()}>
+          {phase === "unknown" || (phase === "applying" && retrying) ? "Retry this status decision" : "Confirm status change"}
         </Button>}
-        {outcome?.undo.available && <Button disabled={phase === "undoing"} onClick={() => void undo()}>
-          {phase === "undoing" ? "Undoing…" : phase === "undo_unknown" ? "Retry this status Undo" : "Undo status change"}
+        {outcome?.undo.available && <Button busy={phase === "undoing"} onClick={() => void undo()}>
+          {phase === "undo_unknown" || (phase === "undoing" && retrying) ? "Retry this status Undo" : "Undo status change"}
         </Button>}
       </div>
     </div>

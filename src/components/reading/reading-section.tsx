@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BookText, Headphones, MoreHorizontal, Tablet } from "lucide-react";
+import { BookText, Check, Headphones, MoreHorizontal, Pause, PenLine, Play, RotateCcw, Square, Tablet, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { SectionHeading } from "@/components/shared/section-heading";
@@ -88,17 +88,23 @@ function CurrentReading({ row }: { row: ReadingRow }) {
             <Button size="sm" variant="ghost" onClick={toggleTimer} className="pointer-coarse:h-11" data-reading-timer="">
               {timing ? (
                 <>
+                  <Square aria-hidden strokeWidth={1.5} />
                   Stop timer <span className="tabular-nums text-fg-secondary">{clockText(timer.elapsed)}</span>
                 </>
               ) : (
-                "Start timer"
+                <>
+                  <Timer aria-hidden strokeWidth={1.5} />
+                  Start timer
+                </>
               )}
             </Button>
           )}
           <Button size="sm" variant="ghost" onClick={() => run(r.status === "paused" ? "resume" : "pause", row)} className="pointer-coarse:h-11">
+            {r.status === "paused" ? <Play aria-hidden strokeWidth={1.5} /> : <Pause aria-hidden strokeWidth={1.5} />}
             {r.status === "paused" ? "Resume" : "Pause"}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => run("finish", row)} className="pointer-coarse:h-11">
+            <Check aria-hidden strokeWidth={1.5} />
             Finish
           </Button>
           <RowMenu
@@ -231,6 +237,7 @@ export function ReadingSection() {
         count={data.rows.length}
         action={
           <Button variant="ghost" size="sm" onClick={() => run(openRow ? "progress" : "reread")} className="pointer-coarse:h-11">
+            {openRow ? <PenLine aria-hidden strokeWidth={1.5} /> : <RotateCcw aria-hidden strokeWidth={1.5} />}
             {openRow ? "Log progress" : "Re-read"}
           </Button>
         }

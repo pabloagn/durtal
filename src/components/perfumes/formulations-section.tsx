@@ -111,7 +111,8 @@ export function FormulationsSection({
                   className="h-12 w-12 shrink-0 self-center rounded-sm"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="type-item-title">
+                  {/* The name heads its row, so the link reads as a title (SLN-693) */}
+                  <h3 className="type-item-title">
                     <Link
                       href={selected ? clearHref : f.href}
                       scroll={false}
@@ -120,7 +121,7 @@ export function FormulationsSection({
                     >
                       {f.name}
                     </Link>
-                  </p>
+                  </h3>
                   <p className="mt-0.5 text-sm text-fg-secondary">{f.facts}</p>
                 </div>
                 <CapAlignedControls height={32} className="type-item-title">

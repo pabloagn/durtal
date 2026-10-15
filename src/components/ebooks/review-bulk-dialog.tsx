@@ -22,6 +22,8 @@ export function ReviewBulkDialog({ rows, action, onClose, onCommitted, onUndone,
 }) {
   const [remaining, setRemaining] = useState(() => rows.slice(0, 50));
   const [phase, setPhase] = useState<Phase>("editing");
+  /** The confirm running now retries an unknown outcome: its button keeps saying so */
+  const [retrying, setRetrying] = useState(false);
   const [prepared, setPrepared] = useState<PreparedReviewSelection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [issues, setIssues] = useState<readonly ReviewPreparationIssue[]>([]);
@@ -66,7 +68,7 @@ export function ReviewBulkDialog({ rows, action, onClose, onCommitted, onUndone,
   }
   async function confirm() {
     if (!prepared || writeLock.current || !["prepared", "unknown"].includes(phase)) return;
-    const exact = prepared; writeLock.current = true; setPhase("applying"); setError(null);
+    const exact = prepared; writeLock.current = true; setRetrying(phase === "unknown"); setPhase("applying"); setError(null);
     const result = await confirmReviewSelectionUi({ requests: exact.requests, previewToken: exact.previewToken }).catch(() => null);
     writeLock.current = false;
     if (!result || !result.ok) {
@@ -123,8 +125,8 @@ export function ReviewBulkDialog({ rows, action, onClose, onCommitted, onUndone,
         {changed.length > 0 && !locked && <Button onClick={skipChanged}>Skip these {changed.length} refused eBooks</Button>}
         {remaining.length > 0 && !prepared && changed.length === 0 && action !== "accession" &&
           <Button variant="primary" disabled={editingDisabled} onClick={() => void prepare()}>Preview next group</Button>}
-        {prepared && <Button variant="primary" disabled={phase !== "prepared" && phase !== "unknown"} onClick={() => void confirm()}>
-          {phase === "applying" ? "Confirming…" : phase === "unknown" ? "Retry this same group" : `Confirm ${prepared.preparedCount} ${prepared.preparedCount === 1 ? "decision" : "decisions"}`}
+        {prepared && <Button variant="primary" busy={phase === "applying"} disabled={phase !== "prepared" && phase !== "unknown"} onClick={() => void confirm()}>
+          {phase === "unknown" || (phase === "applying" && retrying) ? "Retry this same group" : `Confirm ${prepared.preparedCount} ${prepared.preparedCount === 1 ? "decision" : "decisions"}`}
         </Button>}
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 
 /**
  * Placeholder for a view whose data loads on demand (map, timeline): a
@@ -21,6 +22,7 @@ export function ViewStatus({
       <p>{label}</p>
       {onRetry && (
         <Button variant="ghost" size="sm" onClick={onRetry}>
+          <RefreshCw aria-hidden strokeWidth={1.5} />
           Retry
         </Button>
       )}

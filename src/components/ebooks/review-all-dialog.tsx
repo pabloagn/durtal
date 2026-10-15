@@ -57,7 +57,7 @@ export function ReviewAllDialog({ source, action, onClose, onCommitted, onUndone
         {unavailable.length > 0 && <Button onClick={() => { setSkipped((existing) => new Set([...existing, ...unavailable.map((row) => row.id)]));
           setProgress((value) => ({ ...value, skipped: value.skipped + unavailable.length })); }}>Skip {unavailable.length} unavailable review rows</Button>}
         {remaining.length > 0 ? <Button variant="primary" disabled={unavailable.length > 0} onClick={() => { setRunRows(remaining); setShowPage(true); }}>Review these {remaining.length} eBooks</Button> :
-          (!fetched || nextCursor) && <Button disabled={loading} onClick={() => void load()}>{loading ? "Loading…" : "Load next 50 filtered eBooks"}</Button>}
+          (!fetched || nextCursor) && <Button busy={loading} onClick={() => void load()}>Load next 50 filtered eBooks</Button>}
       </div>
     </div>
   </Dialog>;

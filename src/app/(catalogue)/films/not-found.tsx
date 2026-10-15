@@ -3,6 +3,8 @@ import { SearchX } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonClass } from "@/components/ui/button";
 
+export const metadata = { title: "Film not found" };
+
 /** An address that names no film: it was deleted, or mistyped. */
 export default function FilmNotFound() {
   return (

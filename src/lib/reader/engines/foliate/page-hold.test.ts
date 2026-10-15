@@ -153,15 +153,21 @@ describe("a page change under a held snapshot (SLN-660)", () => {
     expect(mock.order).toEqual(["change", "ready"]);
   });
 
-  it("holds the whole screen in WebKit once it is known, and fades a turn", async () => {
+  it("holds the whole screen in WebKit once it is known, and slides a turn either way", async () => {
     await load(true);
     let mock = mockTransitions();
     await changeUnderHold(document.body, async () => {}, { duration: 180 });
     mock = mockTransitions();
     await changeUnderHold(document.body, async () => {}, { turn: "slide", forward: true, duration: 250 });
     expect(mock.classes()).toEqual(["foliate-hold", "foliate-hold-whole"]);
-    expect(mock.started).toEqual([{ pseudo: "::view-transition-old(root)", keyframes: [{ opacity: 1 }, { opacity: 0 }], duration: 250 }]);
+    expect(mock.started).toEqual([{ pseudo: "::view-transition-old(root)", keyframes: [{ transform: "none" }, { transform: "translateX(-100%)" }], duration: 250 }]);
     expect(mock.skipped).toEqual([]);
+    mock = mockTransitions();
+    await changeUnderHold(document.body, async () => {}, { turn: "slide", forward: false, duration: 250 });
+    expect(mock.started).toEqual([{ pseudo: "::view-transition-new(root)", keyframes: [{ transform: "translateX(-100%)" }, { transform: "none" }], duration: 250 }]);
+    mock = mockTransitions();
+    await changeUnderHold(document.body, async () => {}, { turn: "fade", duration: 250 });
+    expect(mock.started).toEqual([{ pseudo: "::view-transition-old(root)", keyframes: [{ opacity: 1 }, { opacity: 0 }], duration: 250 }]);
   });
 
   it("passes on a failed change after letting go", async () => {

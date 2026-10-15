@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookOpen, ChevronDown, ChevronRight, Download, MoreHorizontal, PenLine, Timer } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronRight, Download, MoreHorizontal, PenLine, Plus, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
@@ -139,6 +139,7 @@ export function SessionList({ row, current }: { row: ReadingRow; current: boolea
         </button>
         {current && (
           <Button size="sm" variant="ghost" onClick={() => openDialog({ kind: "session", readingId: r.id })} className="pointer-coarse:h-11" data-session-add="">
+            <Plus aria-hidden strokeWidth={1.5} />
             Add a session
           </Button>
         )}

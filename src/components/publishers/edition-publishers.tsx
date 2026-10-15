@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useEffectEvent, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, Link2, WandSparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -130,6 +130,7 @@ export function EditionPublishers({
           {command && (
             <Button type="button" variant="ghost" size="sm" onClick={open}
               className={linked.length || plainNames.length ? undefined : "-ml-2.5"}>
+              <Link2 aria-hidden strokeWidth={1.5} />
               {linked.length ? "Edit publisher links" : "Link publisher"}
             </Button>
           )}
@@ -225,6 +226,7 @@ export function EditionPublishers({
                 disabled={pending}
                 onClick={() => save(true)}
               >
+                <WandSparkles aria-hidden strokeWidth={1.5} />
                 Use automatic matching
               </Button>
             )}

@@ -21,7 +21,7 @@ interface Existing {
 
 /**
  * Add or edit a recommender (name and website). Without `recommender` it
- * renders its own "Add Recommender" button; with it, it is controlled.
+ * renders its own "Add recommender" button; with it, it is controlled.
  */
 export function RecommenderFormDialog({
   recommender,
@@ -100,7 +100,7 @@ export function RecommenderFormDialog({
           onClick={() => setInternalOpen(true)}
         >
           <Plus className="h-4 w-4" strokeWidth={1.5} />
-          Add Recommender
+          Add recommender
         </Button>
       )}
       <Dialog

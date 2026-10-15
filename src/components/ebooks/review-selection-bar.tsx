@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import type { ReviewQueueRow } from "@/lib/ebooks/review-queue/types";
 import type { ReviewBulkAction } from "./review-bulk-dialog";
+import { X } from "lucide-react";
 
 export function selectableReviewRows(rows: readonly ReviewQueueRow[]): ReviewQueueRow[] {
   return rows.filter((row) => row.state === "pending" && row.stamp !== null);
@@ -25,7 +26,7 @@ export function ReviewSelectionBar({ selected, shown, onSelectAll, onClear, onFo
         {rows.length > 0 && rows.every((row) => row.authors.length === 1 && row.authors[0] === rows[0].authors[0]) &&
           <Button size="sm" onClick={() => onBulk("accession")}>New books…</Button>}
       </>}
-      <Button size="sm" variant="ghost" onClick={onClear}>Clear</Button>
+      <Button size="sm" variant="ghost" onClick={onClear}><X aria-hidden strokeWidth={1.5} />Clear</Button>
     </div>
   </div>;
 }

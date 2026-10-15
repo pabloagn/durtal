@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Upload } from "lucide-react";
+import { Undo2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -86,8 +86,8 @@ export function ImportUpload() {
       <p className="mt-2 max-w-md text-sm leading-relaxed text-fg-secondary">
         A Goodreads or StoryGraph export, or a Durtal reading CSV. You see every row and its book before anything is written.
       </p>
-      <Button variant="primary" className={`mt-5 ${coarse}`} disabled={busy} onClick={() => input.current?.click()} data-import-choose="">
-        {busy ? "Reading the file..." : "Choose a CSV file"}
+      <Button variant="primary" className={`mt-5 ${coarse}`} busy={busy} onClick={() => input.current?.click()} data-import-choose="">
+        Choose a CSV file
       </Button>
       <input
         ref={input}
@@ -495,6 +495,7 @@ export function UndoImport({
   return (
     <>
       <Button variant="ghost" size={size} disabled={pending} onClick={() => setAsking(true)} className={coarse} data-import-undo={importId}>
+        <Undo2 aria-hidden strokeWidth={1.5} />
         Undo
       </Button>
       {asking && (

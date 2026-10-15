@@ -2630,8 +2630,9 @@ and `coverReason` (why there is no cover).
 
 The reader's place in one file, per device, written by the reader (SLN-492) through
 `POST /api/reader/[ebookId]/position` (`savePosition`, `src/lib/reader/positions.ts`).
-`device_id` is the `durtal-device` cookie (a random uuid the proxy sets on the first
-reader page) and `device_label` comes from the user agent ("iPhone · Safari").
+`device_id` is the `durtal-device` cookie (a random uuid that `POST /api/reader/device`
+makes the first time a browser opens the reader, under a Web Lock so tabs opened at
+once share one; SLN-668) and `device_label` comes from the user agent ("iPhone · Safari").
 
 The rule: the newest place by the reader's own clock wins. A save upserts on
 (`file_id`, `device_id`) and changes `locator`, `progression`, `chapter`,

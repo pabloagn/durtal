@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { KeyCombo } from "@/components/shortcuts/kbd";
+import { noteTooltipKey, resetTooltipKeys, tooltipKeyMovedAt } from "@/lib/ui/tooltip-keys";
 
 /**
  * One tooltip for the whole app, mounted once in the root layout. Any
@@ -38,6 +39,20 @@ const DELAY = 300;
 const GAP = 6;
 const EDGE = 8;
 const SIDES: Side[] = ["top", "bottom", "right", "left"];
+/** The keys that move focus, and how long after one a focus counts as its */
+const MOVED_MS = 500;
+/** The layers an Escape closes */
+const LAYER = 'dialog[open], [popover], [role="dialog"], [role="menu"], [role="listbox"], [cmdk-root]';
+
+/** The control sits in a layer, or one is open beside it (Tab leaves a non-modal panel or the palette) */
+function inLayer(anchor: HTMLElement): boolean {
+  if (anchor.closest(LAYER)) return true;
+  for (const el of document.querySelectorAll<HTMLElement>(LAYER)) {
+    if (el.id === "app-tooltip" || (el.hasAttribute("popover") && !el.matches(":popover-open"))) continue;
+    if (el.getClientRects().length) return true;
+  }
+  return false;
+}
 
 /** The control's menu or panel is open, and would sit under its tooltip */
 function isOpen(anchor: HTMLElement): boolean {
@@ -141,6 +156,9 @@ export function TooltipLayer() {
     let closedAt = 0;
     // A click closes the tooltip until the pointer leaves that control
     let clicked: HTMLElement | null = null;
+    // When Tab or an arrow key last went down (here or in the book's
+    // pages): the focus that follows it is the reader's own
+    resetTooltipKeys();
 
     const show = (next: Tip, delay: number) => {
       window.clearTimeout(timer);
@@ -178,6 +196,13 @@ export function TooltipLayer() {
     const onFocusIn = (e: FocusEvent) => {
       const el = e.target;
       if (!(el instanceof HTMLElement) || !el.matches(":focus-visible")) return;
+      // Focus the app moves itself (a dialog's or menu's first control,
+      // after the key that opened it) shows no tooltip: only Tab and the
+      // arrow keys move the reader's own focus
+      if (performance.now() - tooltipKeyMovedAt() > MOVED_MS) {
+        if (shown.current?.byKeyboard) hide();
+        return;
+      }
       const next = tipFor(el, true);
       if (next && next.anchor === el) show(next, 0);
       else if (shown.current?.byKeyboard) hide();
@@ -192,12 +217,15 @@ export function TooltipLayer() {
       }
     };
     const onKeyDown = (e: KeyboardEvent) => {
+      noteTooltipKey(e);
       if (!(shown.current || pending)) return;
       // Pressing the control (it may open a menu) closes its tooltip
       if (e.key === "Enter" || e.key === " ") return hide();
       if (e.key !== "Escape") return;
-      // Escape closes a focus tooltip first; a hover tooltip lets it through
-      if (shown.current?.byKeyboard) {
+      // Escape closes a focus tooltip first; a hover tooltip lets it
+      // through. While a dialog, menu or popover is open one Escape closes
+      // the tooltip and that layer together.
+      if (shown.current?.byKeyboard && !inLayer(shown.current.anchor)) {
         e.preventDefault();
         e.stopImmediatePropagation();
       }

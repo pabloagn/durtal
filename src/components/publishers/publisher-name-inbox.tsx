@@ -16,6 +16,7 @@ import {
   type PublisherNameRow,
 } from "@/lib/actions/publisher-names";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { Ban, Plus, RotateCcw, Search, Undo2 } from "lucide-react";
 
 type Decision = Parameters<typeof resolvePublisherNames>[0][number];
 type Inbox = Awaited<ReturnType<typeof getPublisherNameInbox>>;
@@ -114,13 +115,16 @@ function NameRow({
           {ambiguous && ` · Matches ${row.candidates} houses with this name`}
         </p>
       </div>
-      <div className="flex gap-1.5">
+      {/* On touch each cover's press area grows to 44px wide into a gap wide enough to keep
+          them apart, and the strip wraps on a narrow phone */}
+      <div className="flex flex-wrap gap-1.5 pointer-coarse:gap-3">
         {row.editions.slice(0, COVERS).map((e) => (
           <Link
             key={e.id}
             href={`/library/${e.workSlug}#edition-${e.id}`}
             aria-label={e.workTitle}
             data-tooltip={e.workTitle}
+            className="touch-hit"
           >
             <EditionImageBox image={e.image} title={e.workTitle} size="sm" />
           </Link>
@@ -174,6 +178,7 @@ function NameRow({
           onClick={() => setChoosing(!choosing)}
           aria-expanded={choosing}
         >
+          <Search aria-hidden strokeWidth={1.5} />
           {row.suggestions.length ? "Choose another house" : "Choose a house"}
         </Button>
         {!ambiguous && (
@@ -184,6 +189,7 @@ function NameRow({
             onClick={() => decide([{ key: row.key, action: "create", usePrefixes }])}
             className="max-w-full"
           >
+            <Plus aria-hidden strokeWidth={1.5} />
             <span className="min-w-0 truncate">Create &ldquo;{row.cleanName}&rdquo;</span>
           </Button>
         )}
@@ -194,6 +200,7 @@ function NameRow({
           onClick={() => decide([{ key: row.key, action: "ignore" }])}
           data-tooltip="A distributor or printer: this name never links to a house"
         >
+          <Ban aria-hidden strokeWidth={1.5} />
           Not a publisher
         </Button>
       </div>
@@ -339,6 +346,7 @@ export function PublisherNameInbox({
                       })
                     }
                   >
+                    <Undo2 aria-hidden strokeWidth={1.5} />
                     Undo
                   </Button>
                 )}
@@ -368,6 +376,7 @@ export function PublisherNameInbox({
                     })
                   }
                 >
+                  <RotateCcw aria-hidden strokeWidth={1.5} />
                   Restore
                 </Button>
               </li>

@@ -13,7 +13,6 @@ import {
   BookOpen,
   CheckCircle,
   Circle,
-  RefreshCw,
   Pencil,
   Trash2,
 } from "lucide-react";
@@ -407,19 +406,10 @@ export function OrderDetailPanel({
                   size="sm"
                   className="flex-1"
                   onClick={() => handleStatusChange(nextStatus)}
-                  disabled={isPending}
+                  busy={isPending}
                 >
-                  {isPending ? (
-                    <RefreshCw
-                      className="h-3.5 w-3.5 animate-spin"
-                      strokeWidth={1.5}
-                    />
-                  ) : (
-                    <>
-                      <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-                      Mark as {STATUS_LABELS[nextStatus] ?? nextStatus}
-                    </>
-                  )}
+                  <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Mark as {STATUS_LABELS[nextStatus] ?? nextStatus}
                 </Button>
               )}
 

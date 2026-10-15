@@ -77,14 +77,23 @@ export function GridSizeSlider({ value, onChange }: GridSizeSliderProps) {
   }, [value]);
 
   const compact = value > 2;
-  const feedback =
+  // On a phone the line under the slider names the size, so the slider
+  // needs no labels at its ends and fits beside the views (SLN-641)
+  const size = compact ? "Compact" : "Large";
+  // The line never wraps or runs past the slider: the count shows from a
+  // 7.5rem slider ("Compact · 2 per row" is about 118px), the narrow-space
+  // note only beside a 17rem one (the whole line is about 205px, plus the
+  // slider's 44px and the 12px gap)
+  const count =
     layout?.items === 0
-      ? "No cards"
+      ? " · no cards"
       : layout
-        ? `${layout.columns} per row${compact && layout.width < 328 ? " · narrow space" : ""}`
-        : compact
-          ? "Compact"
-          : "Large";
+        ? ` · ${layout.columns} per row`
+        : "";
+  const narrow =
+    layout && layout.items > 0 && compact && layout.width < 328
+      ? " · narrow space"
+      : "";
   const rangeClass =
     "h-1 w-20 cursor-pointer appearance-none rounded-full bg-bg-tertiary accent-accent-primary [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent-primary pointer-coarse:h-11 pointer-coarse:rounded-none pointer-coarse:bg-transparent pointer-coarse:bg-[linear-gradient(var(--color-bg-tertiary),var(--color-bg-tertiary))] pointer-coarse:bg-[length:100%_4px] pointer-coarse:bg-center pointer-coarse:bg-no-repeat";
   return (
@@ -101,29 +110,27 @@ export function GridSizeSlider({ value, onChange }: GridSizeSliderProps) {
           className={rangeClass}
         />
       </div>
-      <div className="grid-size-mobile">
-        <div className="flex items-center gap-2">
-          <span className="text-micro text-fg-secondary">Large</span>
+      {/* With room, the line sits beside the slider rather than under it */}
+      <div className="grid-size-mobile @container">
+        <div className="flex flex-col @min-[12rem]:flex-row @min-[12rem]:items-center @min-[12rem]:gap-3">
           <input
             type="range"
             aria-label="Card size: Large or Compact"
-            aria-valuetext={compact ? "Compact" : "Large"}
+            aria-valuetext={size}
             min={0}
             max={1}
             value={compact ? 1 : 0}
             onChange={(e) =>
               onChange(mobileGridPreference(value, e.target.value === "1"))
             }
-            className={rangeClass}
+            className="card-size-range @min-[12rem]:min-w-11 @min-[12rem]:flex-1"
           />
-          <span className="text-micro text-fg-secondary">Compact</span>
+          <output aria-live="polite" className="block whitespace-nowrap text-micro text-fg-secondary">
+            {size}
+            {count && <span className="hidden @min-[7.5rem]:inline">{count}</span>}
+            {narrow && <span className="hidden @min-[17rem]:inline">{narrow}</span>}
+          </output>
         </div>
-        <output
-          aria-live="polite"
-          className="block min-h-[2lh] max-w-52 text-micro text-fg-secondary"
-        >
-          {feedback}
-        </output>
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionError } from "@/components/shared/section-error";
 import { Spinner } from "@/components/ui/spinner";
@@ -22,21 +23,48 @@ export function DomainLoading({ kind }: { kind: WorkKind }) {
   );
 }
 
-/** A collection page that failed: try again, or leave for the dashboard. */
+/**
+ * Whether an address is one record of a collection (`/films/<slug>`), not its
+ * list or a page such as `/films/new`. A record's layout checks the record
+ * before its page, outside the record's own error view, so a failure there
+ * (the database unreachable) lands on the collection's error view.
+ */
+export function isRecordPath(basePath: string, pathname: string | null) {
+  const rest = pathname?.startsWith(`${basePath}/`) ? pathname.slice(basePath.length + 1) : "";
+  return !!rest && !rest.includes("/") && !["new", "identify", "import"].includes(rest);
+}
+
+/**
+ * A collection page that failed: try again, or leave for the dashboard. With
+ * `record`, or on a record's address, one of its records failed: it says so,
+ * and the way back is the collection's list.
+ */
 export function DomainError({
   kind,
   error,
   reset,
+  record = false,
 }: {
   kind: WorkKind;
   error: Error & { digest?: string };
   reset: () => void;
+  record?: boolean;
 }) {
-  return (
+  const domain = WORK_DOMAINS[kind];
+  const pathname = usePathname();
+  return record || isRecordPath(domain.basePath, pathname) ? (
     <SectionError
       error={error}
       reset={reset}
-      description={`${WORK_DOMAINS[kind].pluralLabel} could not be loaded.`}
+      description={`This ${domain.label.toLowerCase()} could not be loaded.`}
+      backHref={domain.basePath}
+      backLabel={`Back to ${domain.pluralLabel.toLowerCase()}`}
+    />
+  ) : (
+    <SectionError
+      error={error}
+      reset={reset}
+      description={`${domain.pluralLabel} could not be loaded.`}
       backHref="/"
       backLabel="Go to the dashboard"
     />

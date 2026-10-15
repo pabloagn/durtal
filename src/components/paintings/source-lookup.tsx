@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink, Loader2, Search } from "lucide-react";
+import { ExternalLink, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -335,8 +335,7 @@ function Lookup({
           <Button variant="ghost" disabled={busy} onClick={() => setReview(null)}>
             Back
           </Button>
-          <Button variant="primary" data-shortcut="save" disabled={busy || locked} onClick={save}>
-            {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
+          <Button variant="primary" data-shortcut="save" busy={busy} disabled={locked} onClick={save}>
             Save
           </Button>
         </div>
@@ -373,8 +372,7 @@ function Lookup({
         <div className="min-w-0 flex-1">
           <Input label="Title" value={query} onChange={(e) => setQuery(e.target.value)} maxLength={300} />
         </div>
-        <Button type="submit" variant="secondary" disabled={busy || !query.trim()}>
-          {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
+        <Button type="submit" variant="secondary" busy={busy} disabled={!query.trim()}>
           Search
         </Button>
       </form>

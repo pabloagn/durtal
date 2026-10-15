@@ -89,7 +89,9 @@ describe("real review view confirmation flow", () => {
     api.confirmReviewUi.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
     await click("Keep as eBook"); await click("Confirm decision"); await click("Close dialog");
     expect(host.querySelector('[role="dialog"]')).not.toBeNull();
-    expect(button("Confirming…").disabled).toBe(true);
+    // Busy, it keeps its label (contract section 8)
+    expect(button("Confirm decision").disabled).toBe(true);
+    expect(button("Confirm decision").getAttribute("aria-busy")).toBe("true");
     expect(api.confirmReviewUi).toHaveBeenCalledOnce();
     await act(async () => resolve({ ok: true, value: reviewOutcome() }));
     expect(host.querySelector('[role="dialog"]')).toBeNull();

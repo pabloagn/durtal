@@ -172,14 +172,10 @@ export function AddressMapPicker({ value, onChange }: AddressMapPickerProps) {
           variant="secondary"
           size="md"
           onClick={handleSearch}
-          disabled={isSearching}
+          busy={isSearching}
           className="mb-[1px]"
         >
-          {isSearching ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
-          ) : (
-            <Search className="h-3.5 w-3.5" strokeWidth={1.5} />
-          )}
+          <Search className="h-3.5 w-3.5" strokeWidth={1.5} />
           Search
         </Button>
       </div>

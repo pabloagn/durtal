@@ -124,6 +124,9 @@ export const DETAIL_TITLE_ROW = {
  * title the star's padding goes past the row's edge, so the star lines up
  * with the title; beside it the wider gap gives the padding back.
  */
+/** Past 40 letters a title is 38px on a phone, past 60 it is 30px; shorter titles keep 46px */
+export const LONG_TITLE = 40, LONGER_TITLE = 60;
+
 export function DetailTitleRow({
   title,
   controls = "standard",
@@ -135,10 +138,14 @@ export function DetailTitleRow({
   /** `DetailControls`, or a component that renders them */
   children: ReactNode;
 }) {
+  // On a phone a long title steps down the type scale (globals.css), so it
+  // keeps to three or four lines and the page's picture stays near the top
+  const length = typeof title === "string" ? title.length : 0;
+  const titleLength = length > LONGER_TITLE ? "longer" : length > LONG_TITLE ? "long" : undefined;
   return (
     <div className="@container">
-      <div className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW[controls]}`}>
-        <h1 className="type-page-title min-w-0 flex-[1_1_auto] break-words">{title}</h1>
+      <div data-title-length={titleLength} className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW[controls]}`}>
+        <h1 data-title-length={titleLength} className="type-page-title min-w-0 flex-[1_1_auto] break-words">{title}</h1>
         {children}
       </div>
     </div>

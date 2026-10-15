@@ -37,8 +37,8 @@ export function ReviewBulkUndo({ outcomes, onUndone, onBusy, disabled, runKey }:
   }
   if (!requests.length) return null;
   return <div className="space-y-1">
-    <Button size="sm" disabled={pending || finished || (disabled && !uncertain)} data-review-undo-run={runKey}
-      onClick={() => void undo()}>{pending ? "Undoing…" : finished ? "Undone" : uncertain ? "Retry this Undo set" : `Undo all ${requests.length}`}</Button>
+    <Button size="sm" busy={pending} disabled={finished || (disabled && !uncertain)} data-review-undo-run={runKey}
+      onClick={() => void undo()}>{finished ? "Undone" : uncertain ? "Retry this Undo set" : `Undo all ${requests.length}`}</Button>
     {message && <p role={uncertain ? "alert" : "status"} className="text-xs text-fg-secondary">{message}</p>}
   </div>;
 }
