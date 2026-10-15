@@ -165,7 +165,7 @@ export function AuthorDetailHeader({
         )}
 
         <div className="min-w-0 flex-1">
-          <DetailTitleRow title={name} controls="free">
+          <DetailTitleRow title={name} controls="wide">
             <DetailControls>
               <FavouriteToggle
                 favourite={isFavourite}

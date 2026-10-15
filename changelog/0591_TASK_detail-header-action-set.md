@@ -35,9 +35,12 @@ the piece.
 - **Where the controls go under a long title**: the wider set grows headers
   whose controls stay beside a long title. Each kind takes the row rule
   that grows its header least, measured against piece 2 with the contract's
-  fixtures: the film keeps `stacked`; the painting, perfume, organization
-  and place take `free` (under any title too long for the set). The
-  organization's and place's own `icons` rule is gone.
+  fixtures: the film keeps `stacked`; the person, painting, perfume,
+  organization and place take the book's `wide` rule. The review measured
+  588 headers: `wide` is never taller than `free` for those kinds, and a
+  line shorter in 23 (long titles at 1024 and up, the painting's column at
+  1440); the place ties. The organization's and place's own `icons` rule is
+  gone, and `free` is left to the series.
 
 ## Completion Notes
 

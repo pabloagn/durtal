@@ -208,7 +208,7 @@ export default async function OrganizationPage({ params }: { params: Promise<{ s
       </Link>
 
       <header className="mb-10">
-        <DetailTitleRow title={organization.name} controls="free">
+        <DetailTitleRow title={organization.name} controls="wide">
           <OrganizationActions
             organization={{
               id,

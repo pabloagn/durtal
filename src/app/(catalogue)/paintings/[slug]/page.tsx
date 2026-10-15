@@ -428,7 +428,7 @@ export default async function PaintingPage({
           </div>
 
           <div className="min-w-0">
-            <DetailTitleRow title={painting.title} controls="free">
+            <DetailTitleRow title={painting.title} controls="wide">
               <PaintingActions
                 painting={editable}
                 fingerprint={painting.fingerprint}

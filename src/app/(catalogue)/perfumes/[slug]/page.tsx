@@ -394,7 +394,7 @@ export default async function PerfumePage({
           </div>
         </div>
         <div className="min-w-0">
-          <DetailTitleRow title={perfume.title} controls="free">
+          <DetailTitleRow title={perfume.title} controls="wide">
             <PerfumeActions
               perfume={{
                 id: perfume.id,

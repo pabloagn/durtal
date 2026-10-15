@@ -97,14 +97,16 @@ export const DETAIL_TITLE_ROW = {
   // The publisher's star, Edit and menu (157px on touch): 16px from the
   // title; under it below a 24rem row
   standard: "gap-x-6 pointer-coarse:gap-x-7.5 @min-[24rem]:flex-nowrap",
-  // The book's set (249px, 297px on touch): 12px from the title; under it
-  // below a 33rem row, 39rem on touch
+  // The book's set (249px, 297px on touch), and the favourite, Edit and
+  // menu of a person, painting, perfume, organization and place: 12px from
+  // the title; under it below a 33rem row, 39rem on touch. For those five
+  // it is never taller than `free`, and a line shorter where a long title
+  // fits beside the set (1024 and up, the painting's column at 1440)
   wide: "gap-x-5 pointer-coarse:gap-x-6.5 not-pointer-coarse:@min-[33rem]:flex-nowrap pointer-coarse:@min-[39rem]:flex-nowrap",
   // A film's set: under a title too long for it below sm, where the header
   // stacks over its poster
   stacked: "gap-x-5 pointer-coarse:gap-x-6.5 sm:flex-nowrap",
-  // A person's, painting's, perfume's, organization's, place's and series'
-  // set: under any title too long for it
+  // A series' set: under any title too long for it
   free: "gap-x-5 pointer-coarse:gap-x-6.5",
 };
 

@@ -49,13 +49,13 @@ describe("DetailTitleRow", () => {
     const pages: [string, string][] = [
       ["app/(catalogue)/library/[slug]/page.tsx", '<DetailTitleRow title={work.title} controls="wide">'],
       ["components/publishers/publisher-header.tsx", "<DetailTitleRow title={name}>"],
-      ["app/(catalogue)/people/[slug]/author-detail-header.tsx", '<DetailTitleRow title={name} controls="free">'],
+      ["app/(catalogue)/people/[slug]/author-detail-header.tsx", '<DetailTitleRow title={name} controls="wide">'],
       ["app/(catalogue)/series/[id]/page.tsx", '<DetailTitleRow title={s.title} controls="free">'],
       ["app/(catalogue)/films/[slug]/page.tsx", '<DetailTitleRow title={film.title} controls="stacked">'],
-      ["app/(catalogue)/paintings/[slug]/page.tsx", '<DetailTitleRow title={painting.title} controls="free">'],
-      ["app/(catalogue)/perfumes/[slug]/page.tsx", '<DetailTitleRow title={perfume.title} controls="free">'],
-      ["app/(catalogue)/organizations/[slug]/page.tsx", '<DetailTitleRow title={organization.name} controls="free">'],
-      ["app/(catalogue)/places/[slug]/page.tsx", '<DetailTitleRow title={venue.name} controls="free">'],
+      ["app/(catalogue)/paintings/[slug]/page.tsx", '<DetailTitleRow title={painting.title} controls="wide">'],
+      ["app/(catalogue)/perfumes/[slug]/page.tsx", '<DetailTitleRow title={perfume.title} controls="wide">'],
+      ["app/(catalogue)/organizations/[slug]/page.tsx", '<DetailTitleRow title={organization.name} controls="wide">'],
+      ["app/(catalogue)/places/[slug]/page.tsx", '<DetailTitleRow title={venue.name} controls="wide">'],
     ];
     for (const [file, row] of pages) expect(read(file), file).toContain(row);
     for (const file of ["films/film-actions", "paintings/painting-actions", "perfumes/perfume-actions", "organizations/organization-actions"])
