@@ -48,7 +48,7 @@ export function PaintersField({
   return (
     <FieldRow label={label}>
       {value.map((entry, index) => (
-        <span key={entry.key} className={`${CHIP} pointer-coarse:flex-wrap pointer-coarse:leading-11`}>
+        <span key={entry.key} className={`${CHIP} pointer-coarse:flex-wrap`}>
           {entry.personId && (
             <select
               aria-label={`Attribution of ${painterName(entry)}`}
@@ -69,11 +69,10 @@ export function PaintersField({
               ))}
             </select>
           )}
-          <span className={`truncate pointer-coarse:order-first pointer-coarse:basis-full pointer-coarse:whitespace-normal pointer-coarse:break-words pointer-coarse:leading-6 ${entry.personId ? "" : "italic"}`}>
+          <span className={`truncate pointer-coarse:order-first pointer-coarse:basis-full pointer-coarse:whitespace-normal pointer-coarse:break-words pointer-coarse:py-2.5 pointer-coarse:leading-6 ${entry.personId ? "" : "italic"}`}>
             {painterName(entry)}
           </span>
           <RemoveButton
-            touchTarget
             label={`Remove ${painterName(entry)}`}
             onClick={() => onChange(value.filter((_, i) => i !== index))}
           />

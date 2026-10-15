@@ -62,6 +62,10 @@ export interface ReaderInputOptions {
   edgeTaps?(): boolean;
   /** Whether the book scrolls: the wheel and the up and down arrows then scroll it */
   scrolled?(): boolean;
+  /** Whether the book's pages are images (a comic, a fixed-layout book): a
+   * tap on a page's image is then a tap on the page, and a double tap
+   * opens it in the image viewer */
+  pageImages?(): boolean;
   /** Whether a page turn is still on screen: a held key's repeats wait for it */
   turning?(): boolean;
   now?(): number;
@@ -349,7 +353,7 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
     const el = target as Element | null;
     if (!el || el.nodeType !== 1) return false;
     return (
-      !!viewerImage(el) ||
+      (!!viewerImage(el) && !options.pageImages?.()) ||
       !!el.closest(
         "a[href], button, input, select, textarea, label, summary, [role=button], [role=dialog], [role=slider], [role=tree], dialog, [data-reader-chrome]",
       )

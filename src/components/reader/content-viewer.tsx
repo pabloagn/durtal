@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Minus, Plus, RotateCcw, X } from "lucide-react";
 import {
   cleanedTableStyles,
@@ -28,6 +28,8 @@ export function ContentViewer({
   const stage = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const command = useRef<(action: string) => void>(() => {});
+  // The media that could not be shown; a new one starts afresh
+  const [failed, setFailed] = useState<ReaderMedia | null>(null);
   useEffect(() => {
     const modal = dialog.current!;
     const viewport = stage.current!;
@@ -243,9 +245,9 @@ export function ContentViewer({
         size.contentWidth = Math.max(1, table.scrollWidth);
         size.contentHeight = Math.max(1, table.scrollHeight);
       } else {
-        let blob: Blob;
-        if (media.element.localName === "svg")
-          blob = new Blob(
+        let src: string;
+        if (media.element.localName === "svg") {
+          const blob = new Blob(
             [
               new XMLSerializer().serializeToString(
                 sanitizedSvg(media.element),
@@ -253,17 +255,19 @@ export function ContentViewer({
             ],
             { type: "image/svg+xml" },
           );
-        else {
+          url = URL.createObjectURL(blob);
+          src = url;
+        } else {
+          // The book's own blob or data URL, shown as is: the reader's
+          // policy lets images load from blob: but not fetch() them
+          // (connect-src), so a copy through fetch failed in every engine
           const image = media.element as HTMLImageElement;
-          const src = image.currentSrc || image.src;
+          src = image.currentSrc || image.src;
           if (!/^(blob:|data:image\/)/i.test(src))
             throw new Error("The image resource is unavailable.");
-          blob = await (await fetch(src, { signal: abort.signal })).blob();
         }
-        if (abort.signal.aborted) return;
-        url = URL.createObjectURL(blob);
         const image = document.createElement("img");
-        image.src = url;
+        image.src = src;
         image.alt = media.caption;
         image.draggable = false;
         image.style.cssText = "max-width:none;max-height:none;display:block;";
@@ -279,12 +283,8 @@ export function ContentViewer({
       host.style.height = `${size.contentHeight}px`;
       loaded = true;
       reset();
-    })().catch((error) => {
-      if (!abort.signal.aborted)
-        host.textContent =
-          error instanceof Error
-            ? error.message
-            : "Content could not be opened.";
+    })().catch(() => {
+      if (!abort.signal.aborted) setFailed(media);
     });
     return () => {
       abort.abort();
@@ -366,6 +366,16 @@ export function ContentViewer({
           ref={content}
           className="absolute left-1/2 top-1/2 origin-center"
         />
+        {failed === media && (
+          <p
+            role="alert"
+            className="absolute inset-x-4 top-1/2 -translate-y-1/2 text-center text-sm text-fg-secondary"
+          >
+            {media.kind === "table"
+              ? "This table could not be opened."
+              : "This image could not be opened."}
+          </p>
+        )}
       </div>
       {media.caption && (
         <p className="absolute inset-x-4 bottom-4 line-clamp-2 text-center text-sm text-fg-secondary">

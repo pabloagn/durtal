@@ -156,7 +156,7 @@ export function CatalogueDateField({
           </div>
         )}
         {dated && allowApproximate && (
-          <label className="flex h-8 items-center gap-2 text-xs text-fg-secondary">
+          <label className="flex h-8 items-center gap-2 text-xs text-fg-secondary pointer-coarse:h-11">
             <input
               type="checkbox"
               checked={draft.approximate}

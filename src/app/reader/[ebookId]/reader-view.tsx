@@ -800,6 +800,7 @@ function ReaderSession({
         scrollBy: (px) => engine?.scrollBy?.(px),
       },
       scrolled: () => !!engine?.isScrolled?.(),
+      pageImages: () => engine?.fixedPages?.() != null,
       turning: () => !!navigationRef.current?.busy,
       isBlocked: () => isBlocked() || !bridge.getControllerReadinessSnapshot().ready,
       hasSelection: () => !!engine?.locatorFromSelection(),
