@@ -936,6 +936,33 @@ it("puts Skip to the book before top-bar controls and delegates focus to the act
   expect(focus).toHaveBeenCalledOnce();
 });
 
+it("Tab from the top bar's last control, or Shift+Tab from Previous page, enters the book itself when the screen has no link (SLN-826)", async () => {
+  const reader: import("@/lib/reader/engine").ReaderEngine = fake.engine;
+  const focus = vi.fn(), documents = vi.fn(() => [document.implementation.createHTMLDocument("section")]);
+  reader.focusBook = focus;
+  reader.bookDocuments = documents;
+  // happy-dom lays nothing out: every control counts as shown
+  vi.spyOn(HTMLElement.prototype, "getClientRects").mockImplementation(() => [{}] as unknown as DOMRectList);
+  await render();
+  await settle();
+  const tab = (target: HTMLElement, shiftKey = false) => {
+    target.focus();
+    const event = new KeyboardEvent("keydown", { key: "Tab", shiftKey, bubbles: true, cancelable: true });
+    act(() => target.dispatchEvent(event));
+    return event.defaultPrevented;
+  };
+  const controls = [...host.querySelectorAll<HTMLElement>("header button:not(:disabled), header a[href]")];
+  expect(tab(controls.at(-1)!)).toBe(true);
+  expect(documents).toHaveBeenCalledOnce();
+  expect(focus).toHaveBeenCalledOnce();
+  expect(tab(host.querySelector<HTMLElement>('button[aria-label="Previous page"]')!, true)).toBe(true);
+  expect(focus).toHaveBeenCalledTimes(2);
+  // Tab that does not lead into the book keeps the browser's own order
+  expect(tab(controls.at(-1)!, true)).toBe(false);
+  expect(tab(host.querySelector<HTMLElement>('button[aria-label="Previous page"]')!)).toBe(false);
+  expect(focus).toHaveBeenCalledTimes(2);
+});
+
 it.each(["valid", "malformed"] as const)("lifecycle replay retains exact intent until a %s acknowledgement", async acknowledgement => {
   await render(); await settle();
   act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));

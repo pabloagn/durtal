@@ -923,6 +923,12 @@ class FoliateEngine implements ReaderEngine {
       this.#nameFrame(doc, index);
   }
 
+  bookDocuments() {
+    return [...(this.#view?.renderer.getContents() ?? [])]
+      .sort((a, b) => a.index - b.index)
+      .map((item) => item.doc);
+  }
+
   focusBook() {
     const contents = this.#view?.renderer.getContents() ?? [];
     const doc = (

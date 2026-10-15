@@ -291,6 +291,8 @@ export interface ReaderEngine {
   }): Promise<DurtalLocator | null>;
   speech(): ReaderSpeech | null;
   focusBook?(): void;
+  /** The documents of the sections drawn now, in reading order (SLN-826) */
+  bookDocuments?(): Document[];
   selectSpeechSentence?(locator: DurtalLocator): boolean;
   /**
    * Where a place's first line sits on screen, in host viewport coordinates,
