@@ -56,6 +56,44 @@ describe("ReviewFilters", () => {
     await act(async () => { input.dispatchEvent(enter); });
     expect(submit).toHaveBeenCalledTimes(1);
     expect(enter.defaultPrevented).toBe(true);
+    // Enter that ends an input method's composition only confirms the text
+    const composing = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, isComposing: true });
+    await act(async () => { input.dispatchEvent(composing); });
+    expect(submit).toHaveBeenCalledTimes(1);
+    await act(async () => formRoot.unmount());
+  });
+
+  it("closes on Esc with focus back on Filter, as the other lists' Filter does", async () => {
+    await render(0);
+    const toggle = host.querySelector("button")!;
+    await act(async () => toggle.click());
+    const select = host.querySelector("select")!;
+    select.focus();
+    const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    await act(async () => { select.dispatchEvent(escape); });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(escape.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it("offers Clear all when a choice is set: it unsets the choices and submits", async () => {
+    await render(0);
+    expect(host.textContent).not.toContain("Clear all");
+    const form = document.createElement("form"); host.append(form);
+    const formRoot = createRoot(form);
+    await act(async () => formRoot.render(createElement(ReviewFilters, {
+      active: 1, search: createElement("input", { name: "q", defaultValue: "Huysmans" }),
+      filters: createElement("select", { name: "format", defaultValue: "epub" },
+        createElement("option", { value: "" }, "All formats"), createElement("option", { value: "epub" }, "EPUB")),
+    })));
+    const submit = vi.fn();
+    form.requestSubmit = submit;
+    const clear = [...form.querySelectorAll("button")].find((button) => button.textContent === "Clear all")!;
+    expect(clear.className.split(/\s+/)).toContain("sm:hidden");
+    await act(async () => clear.click());
+    expect(form.querySelector("select")!.value).toBe("");
+    expect(form.querySelector("input")!.value).toBe("Huysmans");
+    expect(submit).toHaveBeenCalledTimes(1);
     await act(async () => formRoot.unmount());
   });
 });

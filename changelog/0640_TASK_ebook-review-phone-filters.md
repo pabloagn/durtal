@@ -51,3 +51,11 @@ Every other list page now shows its first card in the top 60% (0592).
 - Tests: `review-filters.test.ts` covers Filter, its count, Enter, and the
   section row's classes. The UI and e-book tests pass (206 files).
 - No migration, no new package.
+- Review fix (first reviewer): the phone Filter panel now closes on Escape,
+  with focus back on Filter, and has Clear all when a choice is set (it
+  unsets language, format and ISBN and keeps the search and the queue's own
+  scope); on touch its fields sit 16px apart so Clear all and Apply keep
+  separate press areas. An Enter that confirms an input method's
+  composition no longer sends the search (`isComposing`). The section row
+  brings the open chip into view from either side, in whole pixels, so it
+  shows after Back. Tests in `review-filters.test.ts`.

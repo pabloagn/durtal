@@ -68,12 +68,15 @@ export function ReviewSectionNav({ counts, open, params }: {
   const sections = REVIEW_SECTIONS.filter(({ key }) => counts[key] > 0);
   const row = useRef<HTMLUListElement>(null);
   // On a phone the row scrolls inside itself, as the reading tabs do: bring
-  // the open section into view, without moving the page
+  // the open section into view from either side (Back returns to a section
+  // the row has scrolled past), without moving the page. Whole pixels: a
+  // fractional scroll falls short by one in WebKit
   useEffect(() => {
     const list = row.current, current = list?.querySelector('[aria-current="page"]');
     if (!list || !current) return;
-    const past = current.getBoundingClientRect().right - list.getBoundingClientRect().right;
-    if (past > 0) list.scrollLeft += past;
+    const box = list.getBoundingClientRect(), chip = current.getBoundingClientRect();
+    if (chip.left < box.left) list.scrollLeft -= Math.ceil(box.left - chip.left);
+    else if (chip.right > box.right) list.scrollLeft += Math.ceil(chip.right - box.right);
   }, [open]);
   if (sections.length < 2) return null;
   return <nav aria-label="Review sections" id="review-sections" className="scroll-mt-6">
