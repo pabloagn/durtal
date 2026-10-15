@@ -8,6 +8,8 @@ import { getReadYearRange } from "@/lib/actions/reading";
 import { BOOK_TAXONOMY_TABLES, coverColorSql } from "@/lib/library/filter-conditions";
 import { BOOK_TAXONOMY_FILTERS, type BookTaxonomyKey } from "@/lib/library/filter-params";
 import { languageName } from "@/lib/utils/language";
+import { countryDisplayName } from "@/lib/utils/labels";
+import { WORK_AUTHOR_ROLES } from "@/lib/types";
 import type { ColorBucket } from "@/lib/color/color-buckets";
 
 export interface CountedOption {
@@ -53,7 +55,7 @@ const byLabel = (a: CountedOption, b: CountedOption) =>
  * once when a filter that needs a name (a place, a subject) is in the URL.
  */
 export async function getLibraryFilterOptions() {
-  const [publishers, readYears, languages, originalLanguages, [years], locations, formats, [copies], colors, ...taxonomy] =
+  const [publishers, readYears, languages, originalLanguages, authorCountries, [years], locations, formats, [copies], colors, ...taxonomy] =
     await Promise.all([
       getPublisherOptions(),
       getReadYearRange(),
@@ -61,6 +63,11 @@ export async function getLibraryFilterOptions() {
         from editions e join works w on w.id = e.work_id and w.kind = 'book' group by e.language`),
       db.execute(sql`select w.original_language as code, count(*)::int as count
         from works w where w.kind = 'book' and w.original_language is not null group by w.original_language`),
+      db.execute(sql`select c.alpha_2 as code, c.name, count(distinct wa.work_id)::int as count
+        from countries c join authors a on a.nationality_id = c.id
+        join work_authors wa on wa.author_id = a.id and wa.role in (${sql.raw(WORK_AUTHOR_ROLES.map((r) => `'${r}'`).join(", "))})
+        join works w on w.id = wa.work_id and w.kind = 'book'
+        where c.alpha_2 is not null group by c.alpha_2, c.name`),
       db.execute(sql`select min(original_year)::int as min, max(original_year)::int as max from works where kind = 'book'`).then(
         (r) => resultRows<{ min: number | null; max: number | null }>(r),
       ),
@@ -91,6 +98,9 @@ export async function getLibraryFilterOptions() {
     readYears,
     languages: named(languages),
     originalLanguages: named(originalLanguages),
+    authorCountries: resultRows<{ code: string; name: string; count: number }>(authorCountries)
+      .map((r) => ({ value: r.code, label: countryDisplayName({ name: r.name, alpha2: r.code }) ?? r.name, count: r.count }))
+      .sort(byLabel),
     years: years?.min != null && years.max != null ? { min: years.min, max: years.max } : null,
     locations: resultRows<{ id: string; name: string; count: number }>(locations)
       .map((r) => ({ value: r.id, label: r.name, count: r.count }))

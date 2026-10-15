@@ -17,6 +17,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { flushSync } from "react-dom";
+import { besideBook, nextInBook } from "@/lib/reader/book-tab";
 import {
   ReaderBridgeProvider,
   useReaderSlotFilled,
@@ -395,6 +396,9 @@ function ReaderSession({
   const [offer, setOffer] = useState<ReaderPlace | null>(null);
   const [furthest, setFurthest] = useState<ReaderPlace | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /** "Opening the book" stays until the text shows, then fades out as the
+   * text fades in (SLN-733) */
+  const [openingLine, setOpeningLine] = useState<"held" | "fading" | "gone">("held");
   /** The other device a first open took its place from, named in the bottom bar (SLN-729) */
   const [placeFrom, setPlaceFrom] = useState<string | null>(null);
   const sync = useSyncPaused();
@@ -776,6 +780,8 @@ function ReaderSession({
     let postponeIndex = () => {};
     let speechSelectionTimer: ReturnType<typeof setTimeout> | null = null;
     setStatus({ kind: "opening" });
+    setOpeningLine("held");
+    let openingLineTimer: ReturnType<typeof setTimeout> | null = null;
 
     const input = createReaderInput({
       actions: {
@@ -836,6 +842,24 @@ function ReaderSession({
           event.preventDefault();
           button.focus();
         }
+      },
+      bookTab: (event) => {
+        // Tab visits the links on this screen, then leaves the book for the
+        // bars, which it brings back first (SLN-810)
+        const doc = event.currentTarget as Document;
+        const frame = doc.defaultView?.frameElement;
+        const book = bookRef.current;
+        if (!frame || !book) return;
+        const area = book.getBoundingClientRect();
+        const next = nextInBook(doc, event.shiftKey, (el) => {
+          const at = frame.getBoundingClientRect(), rect = el.getBoundingClientRect();
+          const left = at.left + rect.left, top = at.top + rect.top;
+          return left < area.right && left + rect.width > area.left && top < area.bottom && top + rect.height > area.top;
+        });
+        event.preventDefault();
+        if (next) return next.focus({ preventScroll: true });
+        flushSync(() => actions.current?.showBars?.());
+        besideBook(book, event.shiftKey)?.focus({ preventScroll: true });
       },
     });
     const historyInput = createHistoryInput({
@@ -1233,6 +1257,19 @@ function ReaderSession({
         opened = true;
         clearTimeout(timeout);
         setStatus({ kind: "ready" });
+        // A reopen lines up its spread with the text hidden: the opening line
+        // stays over the empty page until the text shows, adding no wait
+        const textShows = () => {
+          if (cancelled) return;
+          if (matchMedia("(prefers-reduced-motion: reduce)").matches) return setOpeningLine("gone");
+          setOpeningLine("fading");
+          openingLineTimer = setTimeout(() => setOpeningLine("gone"), 150);
+        };
+        // Without motion, text already showing takes the line away in the
+        // same render as ready; else it fades out with the text's fade in
+        if (!engine.whenTextShows || (matchMedia("(prefers-reduced-motion: reduce)").matches && !engine.textHidden?.()))
+          setOpeningLine("gone");
+        else void engine.whenTextShows(startupAbort.signal).then(textShows);
         // A first open, or a place found again another way: save where the book opened
         const landing = latest as EngineEvents["relocate"] | null;
         // One short line, and none when a link opened the book at a mark (SLN-686)
@@ -1440,6 +1477,7 @@ function ReaderSession({
       if (speechSelectionTimer) clearTimeout(speechSelectionTimer);
       clearTimeout(timeout);
       if (noticeTimer) clearTimeout(noticeTimer);
+      if (openingLineTimer) clearTimeout(openingLineTimer);
       document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("online", online);
       sync.destroy();
@@ -1606,10 +1644,11 @@ function ReaderSession({
         ebookId={ebook.id}
         backHref={backHref}
       />
-    ) : status.kind === "opening" ? (
+    ) : status.kind === "opening" || (status.kind === "ready" && openingLine !== "gone") ? (
       <p
-        role="status"
-        className="absolute inset-0 flex items-center justify-center text-sm text-fg-secondary"
+        role={openingLine === "fading" ? undefined : "status"}
+        aria-hidden={openingLine === "fading" || undefined}
+        className={`absolute inset-0 flex items-center justify-center text-sm text-fg-secondary transition-opacity duration-150 ${status.kind === "ready" ? "pointer-events-none" : ""} ${openingLine === "fading" ? "opacity-0" : ""}`}
       >
         Opening the book
       </p>

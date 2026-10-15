@@ -4,6 +4,7 @@ import { publisherWorkCondition } from "@/lib/publishers/conditions";
 import { marksCondition } from "@/lib/actions/utils/work-marks";
 import type { BookFilterParams, BookTaxonomyKey, CopyFlag } from "./filter-params";
 import { workHasReadableEbookCondition } from "@/lib/ebooks/work-conditions";
+import { WORK_AUTHOR_ROLES } from "@/lib/types";
 
 /**
  * The tables behind each book taxonomy filter. A hierarchical one matches
@@ -20,6 +21,9 @@ const TAXONOMY_TABLES: Record<BookTaxonomyKey, { join: string; column: string; i
   attribute: { join: "work_attributes", column: "attribute_id", items: "attributes", hierarchical: false },
 };
 export { TAXONOMY_TABLES as BOOK_TAXONOMY_TABLES };
+
+/** A writer of the work, not a translator or an editor */
+const WRITER = sql.raw(`wa.role in (${WORK_AUTHOR_ROLES.map((r) => `'${r}'`).join(", ")})`);
 
 const uuids = (values: string[]) => sql`array[${sql.join(values.map((v) => sql`${v}`), sql`, `)}]::uuid[]`;
 const texts = (values: string[]) => sql`(${sql.join(values.map((v) => sql`${v}`), sql`, `)})`;
@@ -79,6 +83,9 @@ export function bookFilterConditions(filters: BookFilterParams | undefined): SQL
   if (filters.languages?.length)
     out.push(sql`exists (select 1 from editions e where e.work_id = ${workId} and e.language in ${texts(filters.languages)})`);
   if (filters.originalLanguages?.length) out.push(inArray(works.originalLanguage, filters.originalLanguages));
+  if (filters.authorCountries?.length)
+    out.push(sql`exists (select 1 from work_authors wa join authors a on a.id = wa.author_id join countries c on c.id = a.nationality_id
+      where wa.work_id = ${workId} and ${WRITER} and c.alpha_2 in ${texts(filters.authorCountries)})`);
   if (filters.yearFrom !== undefined) out.push(gte(works.originalYear, filters.yearFrom));
   if (filters.yearTo !== undefined) out.push(lte(works.originalYear, filters.yearTo));
   if (filters.series === "in") out.push(or(isNotNull(works.seriesId), isNotNull(works.seriesName))!);

@@ -31,6 +31,7 @@ import { COLOR_BUCKETS } from "@/lib/color/color-buckets";
 import { COPY_FORMAT_LABELS } from "@/lib/constants/catalogue";
 import { INSTANCE_FORMATS } from "@/lib/types";
 import { languageName } from "@/lib/utils/language";
+import { countryDisplayName } from "@/lib/utils/labels";
 import { LIBRARY_SORT_COOKIE } from "@/lib/library/sort-preference";
 import { writeCookie } from "@/lib/utils/preference-cookies";
 
@@ -235,6 +236,7 @@ export function LibraryFilters({
     { section: "Marks", key: "rating", label: "Min rating", options: RATING_OPTIONS },
     { section: "Book", key: "lang", label: "Language", options: options?.languages ?? [] },
     { section: "Book", key: "origLang", label: "Original language", options: options?.originalLanguages ?? [] },
+    { section: "Book", key: "authorCountry", label: "Author's country", options: options?.authorCountries ?? [] },
     ...rangeGroup(RANGES[1], "Book", options?.years),
     { section: "Book", key: "series", label: "Series", options: [...SERIES_FILTERS] },
     {
@@ -300,7 +302,11 @@ export function LibraryFilters({
       const option = group.options.find((o) => o.value === value);
       const label =
         option?.label ??
-        (group.key === "lang" || group.key === "origLang" ? (languageName(value) ?? value) : "…");
+        (group.key === "lang" || group.key === "origLang"
+          ? (languageName(value) ?? value)
+          : group.key === "authorCountry"
+            ? (countryDisplayName({ name: value, alpha2: value }) ?? value)
+            : "…");
       chips.push({ key: group.key, value, group: group.label, label, swatch: option?.swatch });
     }
     if (group.key === "reread")

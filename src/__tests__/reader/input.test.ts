@@ -238,6 +238,31 @@ describe("keys", () => {
     key("ArrowRight", {}, section.body);
     expect(actions.right).toHaveBeenCalledTimes(1);
   });
+
+  it("hands Tab in a book's page to bookTab, unless the selection's toolbar took it (SLN-810)", () => {
+    input.destroy();
+    let toolbar = false;
+    const bookTab = vi.fn<(event: KeyboardEvent) => void>();
+    input = createReaderInput({
+      actions,
+      isBlocked: () => blocked,
+      selectionTab: (event) => {
+        if (toolbar) event.preventDefault();
+      },
+      bookTab,
+    });
+    input.attach(document);
+    const section = document.implementation.createHTMLDocument("section");
+    input.attach(section);
+    key("Tab");
+    expect(bookTab).not.toHaveBeenCalled();
+    key("Tab", { shiftKey: true }, section.body);
+    expect(bookTab).toHaveBeenCalledTimes(1);
+    expect(bookTab.mock.calls[0][0].shiftKey).toBe(true);
+    toolbar = true;
+    key("Tab", {}, section.body);
+    expect(bookTab).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("isEditableTarget", () => {

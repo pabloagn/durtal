@@ -214,4 +214,16 @@ describe.skipIf(!url)("library statistics with PostgreSQL", () => {
     expect(ends.shortest).toMatchObject({ title: "Bruges-la-Morte", value: 120, cover: null });
     expect((await favouriteCovers()).map((c) => c.title)).toEqual(["Against Nature", "En Route"]);
   });
+
+  // Last: it adds a book
+  it("shows a year's covered books before its blank ones, best rated first among each", async () => {
+    const blank = await work("A Rebours", { year: 1884, rating: 5 });
+    await copy(await edition(blank));
+    const [year] = await busiestYears((await writtenYears()).years, 1);
+    expect(year.covers.map((c) => [c.title, c.cover])).toEqual([
+      ["Against Nature", "covers/a.jpg"],
+      ["En Route", "covers/b.jpg"],
+      ["A Rebours", null],
+    ]);
+  });
 });

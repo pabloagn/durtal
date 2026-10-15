@@ -77,13 +77,15 @@ export function GridSizeSlider({ value, onChange }: GridSizeSliderProps) {
   }, [value]);
 
   const compact = value > 2;
-  // On a phone the line under the slider names the size, so the slider
-  // needs no labels at its ends and fits beside the views (SLN-641)
+  // On a phone the line beside the slider names the size, so the slider
+  // needs no labels at its ends and fits beside the views (SLN-641). Every
+  // list draws it as one row, the slider then its line (SLN-804)
   const size = compact ? "Compact" : "Large";
-  // The line never wraps or runs past the slider: the count shows from a
-  // 7.5rem slider ("Compact · 2 per row" is about 118px), the narrow-space
-  // note only beside a 17rem one (the whole line is about 205px, plus the
-  // slider's 44px and the 12px gap)
+  // The line never wraps or pushes the slider under 44px: "Compact" alone
+  // needs a 7.5rem box (about 55px, the 12px gap and the slider's 44px; a
+  // narrower box takes a row of its own, globals.css), the count a 12rem one
+  // ("Compact · 2 per row" is about 118px), the narrow-space note a 17rem
+  // one (the whole line is about 205px)
   const count =
     layout?.items === 0
       ? " · no cards"
@@ -110,9 +112,8 @@ export function GridSizeSlider({ value, onChange }: GridSizeSliderProps) {
           className={rangeClass}
         />
       </div>
-      {/* With room, the line sits beside the slider rather than under it */}
       <div className="grid-size-mobile @container">
-        <div className="flex flex-col @min-[12rem]:flex-row @min-[12rem]:items-center @min-[12rem]:gap-3">
+        <div className="flex items-center gap-3">
           <input
             type="range"
             aria-label="Card size: Large or Compact"
@@ -123,11 +124,11 @@ export function GridSizeSlider({ value, onChange }: GridSizeSliderProps) {
             onChange={(e) =>
               onChange(mobileGridPreference(value, e.target.value === "1"))
             }
-            className="card-size-range @min-[12rem]:min-w-11 @min-[12rem]:flex-1"
+            className="card-size-range min-w-11 flex-1"
           />
           <output aria-live="polite" className="block whitespace-nowrap text-micro text-fg-secondary">
             {size}
-            {count && <span className="hidden @min-[7.5rem]:inline">{count}</span>}
+            {count && <span className="hidden @min-[12rem]:inline">{count}</span>}
             {narrow && <span className="hidden @min-[17rem]:inline">{narrow}</span>}
           </output>
         </div>

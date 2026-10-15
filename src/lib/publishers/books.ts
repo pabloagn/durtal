@@ -9,6 +9,7 @@ import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { acquisitionTargets, media, publishingHouses as houses, works } from "@/lib/db/schema";
 import { targetState } from "./conditions";
+import { textContains, textSearchCondition } from "@/lib/actions/utils/text-search";
 import { resultRows } from "@/lib/harmonization/store";
 import { parsePagination, type ListSearchParams, toSearchParams } from "@/lib/utils/pagination";
 import { parseMarks, type WorkMarkKey } from "@/lib/constants/marks";
@@ -164,10 +165,12 @@ export async function getPublisherBooks(publisherId: string, query: PublisherBoo
   if (query.imprints.length)
     filters.push(sql`exists (select 1 from edition_publishers ep where ep.edition_id = e.id and ep.publisher_id in (${sql.join(query.imprints.map((i) => sql`${i}::uuid`), sql`, `)}))`);
   if (query.q) {
-    const like = `%${query.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
     const digits = query.q.replace(/[^0-9xX]/g, "");
-    filters.push(sql`(w.title ilike ${like} or e.title ilike ${like}
-      or exists (select 1 from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id and a.name ilike ${like})
+    // Accents, case and punctuation aside, as in the library's search (SLN-765)
+    const author = textSearchCondition(sql`a.search_text`, query.q, { fuzzy: false });
+    filters.push(sql`(${textContains(sql`w.title`, query.q)} or ${textContains(sql`e.title`, query.q)}
+      or exists (select 1 from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id
+        and (${textContains(sql`a.name`, query.q)}${author ? sql` or ${author}` : sql``}))
       ${digits.length >= 10 ? sql`or e.isbn_13 = ${digits} or e.isbn_10 = ${digits}` : sql``})`);
   }
   const where = filters.length ? sql` and ${sql.join(filters, sql` and `)}` : sql``;
