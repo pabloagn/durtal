@@ -312,7 +312,7 @@ Multiple semantic variants:
 - The title in `type-item-title`, then one sentence in secondary text
 - Where there is something to do, one Button
 - A section of a detail page with nothing to show is left out, and its Add goes in the page's menu (Detail pages)
-- A list page with nothing in it at all (`EmptyIndex`, `src/components/shared/empty-index.tsx`, SLN-842) is its title, any collection tabs, and one empty state that says what the page holds, with the one Add. No toolbar over nothing, no Add in the header, no count line. It reads whether anything exists alongside the list, never before it, so the page still waits on one database wave. A search or filter that matches nothing keeps the toolbar, so the query can change
+- A list page with nothing in it at all (`EmptyIndex`, `src/components/shared/empty-index.tsx`, SLN-842) is its title, any collection tabs, and one empty state that says what the page holds, with the one Add. No toolbar over nothing, no Add in the header, no count line. It reads whether anything exists alongside the list, never before it, so the page still waits on one database wave. A search or filter that matches nothing keeps the toolbar, so the query can change. The Reading tabs share one header with Start a book and Log a past read: those stay, and an empty tab offers only what they lack (Notes' Add a quote, Now's import), never a second Start a book
 - No illustrations, no emoji
 
 **Errors, loading and busy controls.**
