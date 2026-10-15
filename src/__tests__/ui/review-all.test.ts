@@ -50,4 +50,8 @@ describe("bounded full-filter review orchestration", () => {
     expect(api.readReviewSelectionPageUi.mock.calls).toEqual([[{ ...source, cursor: null }], [{ ...source, cursor: secondId }]]);
     expect(host.textContent).toContain("last page"); expect(callbacks.onCommitted).toHaveBeenCalledOnce();
   });
+  it("groups thousands in the pending count (SLN-808)", async () => {
+    await click("Load next 50 filtered eBooks");
+    expect(host.textContent).toContain("0 committed · 0 explicitly skipped · 6,000 pending at the latest page read.");
+  });
 });

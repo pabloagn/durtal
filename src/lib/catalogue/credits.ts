@@ -81,3 +81,18 @@ export const CREDIT_ROLES: {
   },
   { id: "painting.painter", kind: "painting", level: "work", label: "Painter" },
 ];
+
+const ROLE_RANK = new Map(CREDIT_ROLES.map((role, index) => [role.id, index]));
+
+/**
+ * One order for a person's roles wherever they are listed (SLN-793): the
+ * seeded roles in the order above, so Author leads and Translator follows
+ * Co-author; a role added later comes after them, by its label.
+ */
+export function compareCreditRoles(
+  a: { roleId: string; role: string },
+  b: { roleId: string; role: string },
+): number {
+  const rank = (ROLE_RANK.get(a.roleId) ?? Infinity) - (ROLE_RANK.get(b.roleId) ?? Infinity);
+  return Number.isNaN(rank) || rank === 0 ? a.role.localeCompare(b.role, "en") : rank;
+}
