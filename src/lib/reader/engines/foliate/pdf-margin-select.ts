@@ -23,21 +23,26 @@ function caretAt(doc: Document, container: Element, x: number, y: number): TextP
 }
 
 /** The point in the text nearest (x, y) on the line through y, at most
- * `near` px beside it */
+ * `near` px beside it. A point in the gap between two lines is on the nearer
+ * one, as a drag started there means it (review of SLN-670). */
 export function textPointNear(container: Element, x: number, y: number, near: number): TextPoint | null {
   const doc = container.ownerDocument;
-  let best: { span: Element; distance: number; after: boolean } | null = null;
+  let best: { span: Element; rect: DOMRect; above: number; distance: number; after: boolean } | null = null;
   for (const span of container.querySelectorAll("span")) {
     if (span.firstElementChild || !span.textContent?.trim()) continue;
     const r = span.getBoundingClientRect();
-    if (!r.width || y < r.top || y > r.bottom) continue;
+    if (!r.width) continue;
+    // Off the line by up to its own height: a gap, not the page's margin
+    const above = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+    if (above > r.height) continue;
     const distance = x < r.left ? r.left - x : x > r.right ? x - r.right : 0;
-    if (distance > near || (best && best.distance <= distance)) continue;
-    best = { span, distance, after: x > r.right };
+    if (distance > near) continue;
+    if (best && (best.above < above || (best.above === above && best.distance <= distance))) continue;
+    best = { span, rect: r, above, distance, after: x > r.right };
   }
   if (!best) return null;
   if (best.distance === 0) {
-    const caret = caretAt(doc, container, x, y);
+    const caret = caretAt(doc, container, x, best.above ? (best.rect.top + best.rect.bottom) / 2 : y);
     if (caret && best.span.contains(caret.node)) return caret;
   }
   const walker = doc.createTreeWalker(best.span, NodeFilter.SHOW_TEXT);

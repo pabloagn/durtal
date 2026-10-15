@@ -25,13 +25,22 @@ describe("PDF drag beside a line", () => {
     expect(point?.offset).toBe(0);
   });
 
-  it("finds the end of the line for a point to its right, and nothing too far off or between lines", () => {
+  it("finds the end of the line for a point to its right, and nothing too far off", () => {
     const { container, spans } = layer();
     const point = textPointNear(container, 430, 105, 64);
     expect(point?.node).toBe(spans[0].firstChild);
     expect(point?.offset).toBe(spans[0].textContent!.length);
     expect(textPointNear(container, 20, 105, 64)).toBeNull();
-    expect(textPointNear(container, 80, 117, 64)).toBeNull();
+    expect(textPointNear(container, 80, 60, 64)).toBeNull();
+  });
+
+  it("takes a point in the gap between two lines as on the nearer line", () => {
+    const { container, spans } = layer();
+    expect(textPointNear(container, 80, 116, 64)?.node).toBe(spans[0].firstChild);
+    expect(textPointNear(container, 80, 119, 64)?.node).toBe(spans[1].firstChild);
+    const after = textPointNear(container, 430, 116, 64);
+    expect(after?.node).toBe(spans[0].firstChild);
+    expect(after?.offset).toBe(spans[0].textContent!.length);
   });
 
   it("selects from the line's start when a mouse drag starts in the margin", () => {

@@ -41,3 +41,8 @@ first letter, so highlighting a PDF line often marked the wrong passage.
   off or between lines, a margin drag selects the line, a drag on text, a
   touch and a Shift-click are left alone).
 - No migration and no new packages.
+- Review: a drag that starts in the gap between two lines went wrong too
+  (from the page top in Firefox and WebKit, nothing in Chromium). A point
+  off a line by up to that line's height now counts as on the nearer line;
+  a point further off, such as the page's top margin, is still left to the
+  browser.
