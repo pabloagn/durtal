@@ -12,7 +12,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: api.refresh }) 
 vi.mock("@/lib/actions/instances", () => ({ createInstance: api.createInstance }));
 vi.mock("@/lib/actions/ebook-review-ui", () => ({ prepareReviewUi: api.prepareReviewUi, confirmReviewUi: api.confirmReviewUi }));
 vi.mock("@/lib/ebooks/review-queue/feedback", () => ({ notifyReviewOutcome: api.notifyReviewOutcome }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("@/lib/notifications/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/lib/activity/refresh-event", () => ({ triggerActivityRefresh: vi.fn() }));
 vi.mock("@/lib/hooks/use-app-settings", () => ({ useAppSettings: () => ({ newCopyLocationId: "99999999-9999-4999-8999-999999999999", newCopyFormat: "ebook", newCopyCondition: "mint" }) }));
 vi.mock("@/components/ui/dialog", () => ({ Dialog: ({ open, children, onClose }: { open: boolean; children: ReactNode; onClose: () => void }) =>

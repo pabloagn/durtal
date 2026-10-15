@@ -15,7 +15,7 @@ import { AddToCollectionDialog } from "@/components/books/add-to-collection-dial
 import { MatchAgainDialog } from "@/components/books/match-again-dialog";
 import { WorkQuickEditDialog } from "@/components/books/work-quick-edit-dialog";
 import { deleteWork } from "@/lib/actions/works";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { EbookReadMenuItem } from "@/components/ebooks/catalogue-read-action";
 import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
 

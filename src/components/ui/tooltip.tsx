@@ -48,7 +48,8 @@ const LAYER = 'dialog[open], [popover], [role="dialog"], [role="menu"], [role="l
 function inLayer(anchor: HTMLElement): boolean {
   if (anchor.closest(LAYER)) return true;
   for (const el of document.querySelectorAll<HTMLElement>(LAYER)) {
-    if (el.id === "app-tooltip" || (el.hasAttribute("popover") && !el.matches(":popover-open"))) continue;
+    // The toasts' layer is always up; it is not one an Escape closes
+    if (el.id === "app-tooltip" || el.hasAttribute("data-toast-layer") || (el.hasAttribute("popover") && !el.matches(":popover-open"))) continue;
     if (el.getClientRects().length) return true;
   }
   return false;

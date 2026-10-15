@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Globe, Loader2, MapPin, Plus, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { Input } from "@/components/ui/input";
 import {
   createPlace,

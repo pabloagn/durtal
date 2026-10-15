@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { Building2, FolderPlus, RefreshCw, Trash2 } from "lucide-react";
 import { EntityActionMenu, type EntityActionItem } from "@/components/shared/entity-action-menu";
 import { AddToCollectionDialog } from "@/components/books/add-to-collection-dialog";

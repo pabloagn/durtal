@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { BookCheck, BookMarked, BookPlus, BookX, CalendarClock, History, ListMinus, ListPlus, Pause, Play, Quote, Square, Timer } from "lucide-react";
 import { useReadingActions, type EditItem } from "@/components/shortcuts/shortcuts-provider";
 import { usePreference } from "@/lib/hooks/use-preference";

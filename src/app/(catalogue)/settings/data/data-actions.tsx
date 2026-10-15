@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Download, RefreshCw } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { SettingRow, settingDescriptionId } from "@/components/settings/settings-group";
@@ -37,11 +37,12 @@ export function ExportRow({
 
   async function save() {
     setExporting(true);
+    const progress = toast.pending(`Exporting ${label.toLowerCase()}`);
     try {
       await triggerExport(entity, "all", format);
-      toast.success(`${label} exported`);
+      progress.success(`${label} exported`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Export failed");
+      progress.error(error instanceof Error ? error.message : "Export failed");
     } finally {
       setExporting(false);
     }

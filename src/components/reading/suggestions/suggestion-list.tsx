@@ -16,7 +16,7 @@ import { Cover } from "../reading-tiles";
 import { NotForMeDialog } from "./not-for-me-dialog";
 import { useSuggestionFeedback } from "./use-feedback";
 import { WhyThis } from "./why-this";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 
 const menuButton =
   "action-icon";

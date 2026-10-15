@@ -8,7 +8,7 @@ import {
 import type { getTargetOrderSeed } from "@/lib/actions/publishers";
 import { useRouter } from "next/navigation";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { createOrder, createOrderForNewBook } from "@/lib/actions/orders";

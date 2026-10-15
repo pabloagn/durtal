@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Star } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -32,20 +32,21 @@ export function FavouriteBulkMenu({
 
   async function apply(favourite: boolean) {
     setPending(true);
+    const progress = toast.pending("Favourites: updating");
     try {
       const { updated } = await setFavourites({
         entity,
         ids: Array.from(ids),
         favourite,
       });
-      toast.success(
+      progress.success(
         updated === 0
           ? `Favourites: no ${noun[1]} changed`
           : `Favourites: ${updated} ${updated === 1 ? noun[0] : noun[1]} ${favourite ? "marked" : "removed"}`,
       );
       router.refresh();
     } catch {
-      toast.error("Could not update the favourites. Try again.");
+      progress.error("Could not update the favourites. Try again.");
     } finally {
       setPending(false);
     }

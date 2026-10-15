@@ -7,7 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 // query or ISBN fills the search and runs it.
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }) }));
-vi.mock("sonner", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {}, warning: () => {} }) }));
+vi.mock("@/lib/notifications/toast", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {}, warning: () => {} }) }));
 const none = vi.hoisted(() => async () => []);
 vi.mock("@/lib/actions/works", () => ({ findDuplicateWork: vi.fn(async () => null) }));
 vi.mock("@/lib/actions/wizard", () => ({ createBookFromWizard: vi.fn(), isIsbnInUse: vi.fn(async () => ({ inUse: false })) }));

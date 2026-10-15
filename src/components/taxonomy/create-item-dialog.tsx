@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, type FormEvent } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";

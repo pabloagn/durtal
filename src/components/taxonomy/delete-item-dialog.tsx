@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, type FormEvent } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { AlertTriangle } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";

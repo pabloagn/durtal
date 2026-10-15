@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useDebouncedSearch } from "@/lib/hooks/use-debounced-search";
 import type { PickerPurpose } from "@/lib/reading/book-picker";
 import type { SearchResult } from "@/lib/api/types";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
