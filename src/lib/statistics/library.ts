@@ -91,19 +91,27 @@ export interface CoverBook {
   cover: string | null;
 }
 
-/** The years with the most books, each with its best-rated books' covers (Letterboxd's "1957, 11 films") */
-export async function busiestYears(years: YearCount[], count = 3, per = 5): Promise<{ year: number; books: number; covers: CoverBook[] }[]> {
+export interface BusiestYear {
+  year: number;
+  books: number;
+  covers: CoverBook[];
+}
+
+/** The years with the most books, each with covers of its books, best rated first (Letterboxd's "1957, 11 films") */
+export async function busiestYears(years: YearCount[], count = 3, per = 5): Promise<BusiestYear[]> {
   const top = [...years].sort((a, b) => b.count - a.count || b.year - a.year).slice(0, count);
   if (!top.length || top[0].count < 2) return [];
   const chosen = top.filter((y) => y.count >= 2);
   const covers = await rows<CoverBook & { year: number }>(sql`with ${OWNED}
     select year, "workId", slug, title, author, cover from (
-      select w.original_year::float8 as year, w.id::text as "workId", w.slug, w.title,
-        (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id and ${WRITER} order by wa.sort_order, a.name limit 1) as author,
-        ${COVER(sql`w.id`)} as cover,
-        row_number() over (partition by w.original_year order by w.rating desc nulls last, w.title, w.id) as position
-      from works w join owned o on o.id = w.id
-      where w.original_year in (${sql.join(chosen.map((y) => sql`${y.year}`), sql`, `)})
+      -- Covered books first, so a year shows its pictures before any blank, then the best rated
+      select *, row_number() over (partition by year order by cover is null, rating desc nulls last, title, "workId") as position from (
+        select w.original_year::float8 as year, w.id::text as "workId", w.slug, w.title, w.rating,
+          (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id and ${WRITER} order by wa.sort_order, a.name limit 1) as author,
+          ${COVER(sql`w.id`)} as cover
+        from works w join owned o on o.id = w.id
+        where w.original_year in (${sql.join(chosen.map((y) => sql`${y.year}`), sql`, `)})
+      ) books
     ) ranked where position <= ${per} order by year, position`);
   return chosen.map((y) => ({
     year: y.year,

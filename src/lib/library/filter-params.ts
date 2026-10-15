@@ -42,6 +42,8 @@ export interface BookFilterParams {
   /** An edition in one of these languages (codes) */
   languages?: string[];
   originalLanguages?: string[];
+  /** Written by an author from one of these countries (ISO alpha-2) */
+  authorCountries?: string[];
   /** First published in these years (the work's original year); reversed years are swapped */
   yearFrom?: number;
   yearTo?: number;
@@ -57,6 +59,7 @@ export interface BookFilterParams {
 
 const MARK_KEYS = WORK_MARKS.map((m) => m.key) as [WorkMarkKey, ...WorkMarkKey[]];
 const language = z.string().regex(/^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$/).max(35);
+const country = z.string().regex(/^[A-Z]{2}$/);
 const year = z.coerce.number().int().min(-3000).max(2999);
 const ids = z.array(z.uuid()).max(100);
 
@@ -71,6 +74,7 @@ export const bookFiltersSchema = z.object({
   copyFlags: z.array(z.enum(["signed", "first"])).optional(),
   languages: z.array(language).max(100).optional(),
   originalLanguages: z.array(language).max(100).optional(),
+  authorCountries: z.array(country).max(100).optional(),
   yearFrom: z.number().int().min(-3000).max(2999).optional(),
   yearTo: z.number().int().min(-3000).max(2999).optional(),
   series: z.enum(["in", "none"]).optional(),
@@ -131,6 +135,7 @@ export function parseBookFilters(params: Params): { filters: BookFilterParams; i
   set("copyFlags", checkList(z.enum(["signed", "first"]), params, "copy", issues));
   set("languages", checkList(language, params, "lang", issues));
   set("originalLanguages", checkList(language, params, "origLang", issues));
+  set("authorCountries", checkList(country, params, "authorCountry", issues));
 
   let yearFrom = checkOne(year, params, "yearFrom", issues);
   let yearTo = checkOne(year, params, "yearTo", issues);
