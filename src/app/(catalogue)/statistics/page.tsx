@@ -85,8 +85,8 @@ export default async function StatisticsPage() {
                 { label: "Books", value: n(numbers.books) },
                 { label: "Editions", value: n(numbers.editions) },
                 { label: "Copies", value: n(numbers.copies) },
-                // No page count is not zero pages (SLN-824): without one, no tile
-                ...(numbers.pages > 0 ? [{ label: "Pages", value: n(numbers.pages) }] : []),
+                // No page count is not zero pages (SLN-824): a dash, and the tile stays so the rows end full
+                numbers.pages > 0 ? { label: "Pages", value: n(numbers.pages) } : { label: "No page counts yet", value: "\u2014" },
                 { label: "Authors", value: n(numbers.authors) },
                 { label: "Publishers", value: n(numbers.publishers) },
                 { label: "Languages", value: n(numbers.languages) },

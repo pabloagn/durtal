@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { originsTitle } from "@/lib/statistics/charts";
 
-// Design polish 3, items 9 and 10: no page count is not "0 Pages" (SLN-824),
+// Design polish 3, items 9 and 10: no page count is not "0 Pages" but a dash (SLN-824),
 // and the origins section is titled by the lists it shows (SLN-825)
 
 const state = vi.hoisted(() => ({
@@ -38,11 +38,13 @@ describe("the Pages tile", () => {
     expect(tiles(await render())).toEqual(["Books", "Editions", "Copies", "Pages", "Authors", "Publishers", "Languages", "Countries"]);
   });
 
-  it("is left out when no book has one", async () => {
+  it("shows a dash, not 0, when no book has one, and keeps the rows full", async () => {
     state.pages = 0;
     const page = await render();
-    expect(tiles(page)).toEqual(["Books", "Editions", "Copies", "Authors", "Publishers", "Languages", "Countries"]);
-    expect(page.body.textContent).not.toContain("Pages");
+    expect(tiles(page)).toEqual(["Books", "Editions", "Copies", "No page counts yet", "Authors", "Publishers", "Languages", "Countries"]);
+    const dash = [...page.querySelectorAll('[data-stats-section="numbers"] dt')].find((dt) => dt.textContent === "No page counts yet");
+    expect(dash?.previousElementSibling?.textContent).toBe("\u2014");
+    expect(page.body.textContent).not.toMatch(/0\s*Pages/);
   });
 });
 

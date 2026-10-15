@@ -1,4 +1,4 @@
-# Task 0734: Statistics leaves out "0 Pages" and titles its lists by what they show
+# Task 0734: Statistics says "No page counts yet", not "0 Pages", and titles its lists by what they show
 
 **Status**: Completed
 **Created**: 2026-10-15
@@ -16,8 +16,9 @@ rank, the section was still titled "Languages, countries and categories".
 
 ## Implementation Details
 
-- `src/app/(catalogue)/statistics/page.tsx`: the Pages tile shows only when
-  the books' page counts add up to more than 0. `libraryNumbers` already sums
+- `src/app/(catalogue)/statistics/page.tsx`: when the books' page counts add
+  up to 0, the Pages tile shows a dash over "No page counts yet". The tile
+  stays, so the eight tiles keep full rows (four at 1440, pairs on a phone). `libraryNumbers` already sums
   them, so a page count of 0 counts as none, as the unread pile does (#381).
 - `src/lib/statistics/charts.ts`: `originsTitle` names the lists the section
   shows, joined in words ("Languages", "Languages and categories",
