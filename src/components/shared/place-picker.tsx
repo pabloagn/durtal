@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Globe, Loader2, MapPin, Plus, X } from "lucide-react";
+import { Globe, MapPin, Plus, X } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/lib/notifications/toast";
 import { Input } from "@/components/ui/input";
 import {
@@ -48,19 +49,26 @@ export function PlacePicker({ label, value, onChange, disabled }: PlacePickerPro
 
   const q = query.trim();
 
+  // The newest search: an older answer that arrives late is dropped
+  const latestRef = useRef(0);
+
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    const search = ++latestRef.current;
     setGeo(null);
     if (!q) {
       setLocal([]);
+      setSearching(false);
       return;
     }
+    // Busy from the first key, not from the end of the typing pause (SLN-806)
+    setSearching(true);
     debounceRef.current = setTimeout(async () => {
-      setSearching(true);
       try {
-        setLocal(await searchPlaces(q, 8));
+        const found = await searchPlaces(q, 8);
+        if (search === latestRef.current) setLocal(found);
       } finally {
-        setSearching(false);
+        if (search === latestRef.current) setSearching(false);
       }
     }, 300);
     return () => {
@@ -76,15 +84,16 @@ export function PlacePicker({ label, value, onChange, disabled }: PlacePickerPro
   }
 
   async function searchWorldwide() {
+    const search = latestRef.current;
     setSearching(true);
     try {
       const res = await fetch(`/api/geocode?mode=search&q=${encodeURIComponent(q)}`);
       const data = (await res.json()) as { results?: GeocodingResult[] };
-      setGeo(data.results ?? []);
+      if (search === latestRef.current) setGeo(data.results ?? []);
     } catch {
-      toast.error("Place search failed");
+      if (search === latestRef.current) toast.error("Place search failed");
     } finally {
-      setSearching(false);
+      if (search === latestRef.current) setSearching(false);
     }
   }
 
@@ -142,9 +151,7 @@ export function PlacePicker({ label, value, onChange, disabled }: PlacePickerPro
         // Always set, so the field keeps its focus when the spinner shows
         suffix={
           <span className="flex h-6 w-6 items-center justify-center text-fg-secondary">
-            {(searching || busy) && (
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
-            )}
+            {(searching || busy) && <Spinner />}
           </span>
         }
       />

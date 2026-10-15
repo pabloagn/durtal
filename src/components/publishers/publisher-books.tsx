@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { EntityFilters, FILTER_ROW_CLASSES } from "@/components/shared/entity-filters";
+import { useListNavigate } from "@/components/shared/list-pending";
 import { FilterDropdown, type AnyFilterGroup, type FilterGroup } from "@/components/shared/filter-dropdown";
 import { Pagination, type PaginationData } from "@/components/shared/pagination";
 import { LibraryView } from "@/components/books/library-view";
@@ -91,6 +92,12 @@ export function PublisherBooksFilters({
   facets: PublisherBookFacets;
 }) {
   const router = useRouter();
+  const navigate = useListNavigate();
+  // Inside the page's ListPendingProvider, so the books show busy at once (SLN-806)
+  const push = useCallback(
+    (params: URLSearchParams) => navigate(() => router.push(firstPageHref(basePath, params))),
+    [navigate, router, basePath],
+  );
   const searchParams = useSearchParams();
   const [viewMode, setViewMode] = usePublisherView();
   const [gridColumns, setGridColumns] = usePublisherColumns();
@@ -170,7 +177,7 @@ export function PublisherBooksFilters({
               else params.delete("yearMin");
               if (to !== max) params.set("yearMax", String(to));
               else params.delete("yearMax");
-              router.push(firstPageHref(basePath, params));
+              push(params);
             },
           },
           ...groups.slice(3),
@@ -184,16 +191,16 @@ export function PublisherBooksFilters({
       if (key === "state") params.delete("filter");
       if (next.length) params.set(key, next.join(","));
       else params.delete(key);
-      router.push(firstPageHref(basePath, params));
+      push(params);
     },
-    [router, searchParams, basePath],
+    [push, searchParams],
   );
 
   const onClearAll = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString());
     for (const key of FILTER_KEYS) params.delete(key);
-    router.push(firstPageHref(basePath, params));
-  }, [router, searchParams, basePath]);
+    push(params);
+  }, [push, searchParams]);
 
   return (
     <div className="mb-4">
