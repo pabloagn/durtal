@@ -1,6 +1,5 @@
 "use server";
 
-import { cache } from "react";
 import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
 
 import {
@@ -79,85 +78,102 @@ import type { ReadingFilterParams } from "@/lib/reading/filter-params";
 import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
 
 /**
+ * `text` contains the search as typed, or once accents, case and punctuation
+ * are folded on both sides by `search_normalize`, as author names already are:
+ * "editions de minuit" finds "Éditions de Minuit", "a rebours" "À rebours".
+ * A search of punctuation alone folds to nothing and keeps the plain match.
+ */
+function textMatches(text: AnyColumn | SQL, search: string): SQL {
+  return sql`(${text} ilike ${containsPattern(search)} or (search_normalize(${search}) <> '' and search_normalize(${text}) like '%' || search_normalize(${search}) || '%'))`;
+}
+
+/**
  * Build a search condition that matches works by title, author, ISBN,
  * publisher, or series name. Detects ISBN-shaped queries and prioritises
- * edition-level ISBN lookup. Memoised per request, so the list and the
- * count on one page run the related-table lookups once.
+ * edition-level ISBN lookup. Each related-table match is a subquery of the
+ * list's own where clause, so a search adds no round trip before the list
+ * and its count (SLN-750).
  */
-const buildSearchCondition = cache(async (search: string) => {
+function buildSearchCondition(search: string): SQL {
   const stripped = search.replace(/[-\s]/g, "");
   const isIsbn = /^\d{10,13}$/.test(stripped);
 
-  // Collect work IDs that match via related tables
-  const relatedWorkIds = new Set<string>();
+  // Works that match through related tables
+  const related: SQL[] = [];
 
   // 1. ISBN lookup (always, not just when the query "looks like" an ISBN —
   //    this lets partial-ISBN or hyphenated-ISBN queries still match)
   if (isIsbn || /\d{4,}/.test(stripped)) {
     const target = isIsbn ? stripped : search.trim();
-    const isbnEditions = await db
-      .select({ workId: editions.workId })
-      .from(editions)
-      .where(
-        or(
-          eq(editions.isbn13, target),
-          eq(editions.isbn10, target),
-          ilike(editions.isbn13, containsPattern(target)),
-          ilike(editions.isbn10, containsPattern(target)),
+    const isbnWorks = inArray(
+      works.id,
+      db
+        .select({ workId: editions.workId })
+        .from(editions)
+        .where(
+          or(
+            eq(editions.isbn13, target),
+            eq(editions.isbn10, target),
+            ilike(editions.isbn13, containsPattern(target)),
+            ilike(editions.isbn10, containsPattern(target)),
+          ),
         ),
-      );
-    for (const r of isbnEditions) relatedWorkIds.add(r.workId);
-
+    );
     // Pure ISBN query — don't bother with title/author text matching
-    if (isIsbn) {
-      return relatedWorkIds.size > 0
-        ? inArray(works.id, [...relatedWorkIds])
-        : eq(works.id, "00000000-0000-0000-0000-000000000000"); // no match
-    }
+    if (isIsbn) return isbnWorks;
+    related.push(isbnWorks);
   }
 
   // 2. Author name match (accent/case-insensitive, any word order; no typo
   //    matching here, so book results stay precise)
   const authorCondition = authorSearchCondition(search, { fuzzy: false });
   if (authorCondition) {
-    const authorMatches = await db
-      .select({ workId: workAuthors.workId })
-      .from(workAuthors)
-      .innerJoin(authors, eq(workAuthors.authorId, authors.id))
-      .where(authorCondition);
-    for (const r of authorMatches) relatedWorkIds.add(r.workId);
-  }
-
-  // 3. Publisher match (via editions)
-  const publisherMatches = await db
-    .select({ workId: editions.workId })
-    .from(editions)
-    .where(ilike(editions.publisher, containsPattern(search)));
-  for (const r of publisherMatches) relatedWorkIds.add(r.workId);
-  const identityMatches = await db
-    .selectDistinct({ workId: editions.workId })
-    .from(editions)
-    .innerJoin(editionPublishers, eq(editionPublishers.editionId, editions.id))
-    .innerJoin(
-      publishingHouses,
-      eq(publishingHouses.id, editionPublishers.publisherId),
-    )
-    .where(
-      sql`strpos(lower(${publishingHouses.name}),lower(${search})) > 0 or exists (select 1 from publisher_aliases a where a.publisher_id = ${publishingHouses.id} and strpos(lower(a.name),lower(${search})) > 0)`,
+    related.push(
+      inArray(
+        works.id,
+        db
+          .select({ workId: workAuthors.workId })
+          .from(workAuthors)
+          .innerJoin(authors, eq(workAuthors.authorId, authors.id))
+          .where(authorCondition),
+      ),
     );
-  for (const r of identityMatches) relatedWorkIds.add(r.workId);
-
-  // Build OR condition: title match OR series name match OR related-table matches
-  const orConditions = [
-    ilike(works.title, containsPattern(search)),
-    ilike(works.seriesName, containsPattern(search)),
-    sql`exists (select 1 from series where series.id = ${works.seriesId} and series.title ilike ${containsPattern(search)})`,
-  ];
-  if (relatedWorkIds.size > 0) {
-    orConditions.push(inArray(works.id, [...relatedWorkIds]));
   }
-  return or(...orConditions)!;
-});
+
+  // 3. Publisher match (via editions): the edition's publisher text, and the
+  //    publisher record it links to or one of that record's aliases
+  related.push(
+    inArray(
+      works.id,
+      db
+        .select({ workId: editions.workId })
+        .from(editions)
+        .where(textMatches(editions.publisher, search)),
+    ),
+    inArray(
+      works.id,
+      db
+        .select({ workId: editions.workId })
+        .from(editions)
+        .innerJoin(editionPublishers, eq(editionPublishers.editionId, editions.id))
+        .innerJoin(
+          publishingHouses,
+          eq(publishingHouses.id, editionPublishers.publisherId),
+        )
+        .where(
+          sql`${textMatches(publishingHouses.name, search)} or exists (select 1 from publisher_aliases a where a.publisher_id = ${publishingHouses.id} and ${textMatches(sql`a.name`, search)})`,
+        ),
+    ),
+  );
+
+  // Title match OR series name match OR related-table matches
+  return or(
+    textMatches(works.title, search),
+    textMatches(works.seriesName, search),
+    sql`exists (select 1 from series where series.id = ${works.seriesId} and ${textMatches(sql`series.title`, search)})`,
+    ...related,
+  )!;
+}
 
 export type WorkFilters = ReadingFilterParams &
   BookFilterParams & {
@@ -183,7 +199,7 @@ async function buildWorkConditions(
 ): Promise<SQL | undefined> {
   const conditions = [bookCondition];
   if (search) {
-    conditions.push(await buildSearchCondition(search));
+    conditions.push(buildSearchCondition(search));
   }
   if (filters?.isRare !== undefined) {
     conditions.push(eq(works.isRare, filters.isRare));

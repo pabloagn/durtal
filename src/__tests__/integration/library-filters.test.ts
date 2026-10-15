@@ -13,7 +13,11 @@ if (url) {
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln405_library_filters")
     throw new Error("Library filter tests require a disposable local sln405_library_filters database");
 }
-const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
+// Each query the app sends, while a test listens
+let debugHook: ((query: string) => void) | null = null;
+const client = url
+  ? postgres(url, { prepare: false, max: 4, onnotice: () => {}, debug: (_connection, query) => debugHook?.(query) })
+  : null;
 const testDb = client ? drizzle(client, { schema }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
@@ -242,6 +246,106 @@ describe.skipIf(!url)("library filters with PostgreSQL", () => {
     const bad = await listWorks(new NextRequest("http://localhost/api/works?color=teal"));
     expect(bad.status).toBe(400);
     expect((await bad.json()).issues[0].path[0]).toBe("color");
+  });
+
+  // SLN-750: the search's related-table matches are subqueries of the list's
+  // own where clause, so a search costs no round trip before the list query.
+  // These are the matches it had before, one query kind at a time.
+  it("searches title, series, author, ISBN and publisher in the list query itself", async () => {
+    const searchBook = async (title: string, { series = null as string | null, isbn13 = null as string | null, publisher = null as string | null } = {}) => {
+      const id = await book(title, { seriesName: series });
+      const ed = await value(`insert into editions(work_id, title, language, isbn_13, publisher) values ($1, 'E', 'en', $2, $3) returning id`, [id, isbn13, publisher]);
+      return { id, ed };
+    };
+    const ficciones = await searchBook("Ficciones", { isbn13: "9780802130303", publisher: "Grove Press" });
+    await searchBook("Labyrinths", { series: "Ficciones and more" });
+    const aleph = await searchBook("The Aleph", { isbn13: "9780142437889" });
+    const satantango = await searchBook("Satantango", { publisher: "New Directions" });
+    await searchBook("Unrelated");
+    const borges = await value(`insert into authors(name, slug) values ('Jorge Luis Borges', 'jorge-luis-borges') returning id`);
+    for (const w of [ficciones.id, aleph.id]) await q(`insert into work_authors(work_id, author_id) values ($1, $2)`, [w, borges]);
+    const nyrb = await value(`insert into publishing_houses(name, slug) values ('New York Review Books', 'nyrb') returning id`);
+    await q(`insert into publisher_aliases(publisher_id, name) values ($1, 'NYRB Classics')`, [nyrb]);
+    await q(`insert into edition_publishers(edition_id, publisher_id) values ($1, $2)`, [satantango.ed, nyrb]);
+
+    const found = async (search: string) => {
+      const list = (await getWorks({ search, sort: "title", limit: 100 })).map((w) => w.title).sort();
+      expect(await getWorkCount(search)).toBe(list.length);
+      return list;
+    };
+    // Title, and series name
+    expect(await found("ficciones")).toEqual(["Ficciones", "Labyrinths"]);
+    // Author, accents and word order aside
+    expect(await found("borges jorge")).toEqual(["Ficciones", "The Aleph"]);
+    // A whole ISBN finds its book alone; a hyphenated or partial one too
+    expect(await found("978-0-14-243788-9")).toEqual(["The Aleph"]);
+    expect(await found("0802130")).toEqual(["Ficciones"]);
+    expect(await found("9780000000000")).toEqual([]);
+    // Publisher text, the publisher record and its alias
+    expect(await found("grove")).toEqual(["Ficciones"]);
+    expect(await found("new york review")).toEqual(["Satantango"]);
+    expect(await found("nyrb")).toEqual(["Satantango"]);
+    expect(await found("nothing matches this")).toEqual([]);
+
+    // The list and its count each run as one query, with or without a search
+    const asked: string[] = [];
+    const listen = (query: string) => asked.push(query);
+    debugHook = listen;
+    try {
+      await Promise.all([getWorks({ search: "borges", sort: "title", limit: 100 }), getWorkCount("borges")]);
+      const searched = asked.length;
+      asked.length = 0;
+      await Promise.all([getWorks({ sort: "title", limit: 100 }), getWorkCount(undefined)]);
+      expect(searched).toBe(asked.length);
+    } finally {
+      debugHook = null;
+    }
+  });
+
+  // SLN-765: titles, series and publishers fold accents, case and
+  // punctuation as author names do, and every plain match stays
+  it("finds titles, series and publishers whatever their accents", async () => {
+    const withEdition = async (title: string, { series = null as string | null, publisher = null as string | null } = {}) => {
+      const id = await book(title, { seriesName: series });
+      const ed = await value(`insert into editions(work_id, title, language, publisher) values ($1, 'E', 'fr', $2) returning id`, [id, publisher]);
+      return { id, ed };
+    };
+    await withEdition("À rebours", { publisher: "Éditions de Minuit" });
+    await withEdition("L'Œuvre", { series: "Les Rougon-Macquart" });
+    const labas = await withEdition("Là-bas");
+    const nana = await withEdition("Nana");
+    await withEdition("100% Pure");
+    await withEdition("Unrelated");
+    const cycle = await value(`insert into series(title, slug) values ('Cycle de Durtal', 'cycle-de-durtal') returning id`);
+    await q(`update works set series_id = $1 where id = $2`, [cycle, labas.id]);
+    const house = await value(`insert into publishing_houses(name, slug) values ('Éditions Gallimard', 'gallimard') returning id`);
+    await q(`insert into publisher_aliases(publisher_id, name) values ($1, 'Librairie Générale Française')`, [house]);
+    await q(`insert into edition_publishers(edition_id, publisher_id) values ($1, $2)`, [nana.ed, house]);
+
+    const found = async (search: string) => {
+      const list = (await getWorks({ search, sort: "title", limit: 100 })).map((w) => w.title).sort();
+      expect(await getWorkCount(search)).toBe(list.length);
+      return list;
+    };
+    // Title, without its accents or in capitals, and as typed
+    expect(await found("a rebours")).toEqual(["À rebours"]);
+    expect(await found("A REBOURS")).toEqual(["À rebours"]);
+    expect(await found("À rebours")).toEqual(["À rebours"]);
+    expect(await found("l oeuvre")).toEqual(["L'Œuvre"]);
+    expect(await found("la bas")).toEqual(["Là-bas"]);
+    // Series name and series record
+    expect(await found("rougon macquart")).toEqual(["L'Œuvre"]);
+    expect(await found("cycle de durtal")).toEqual(["Là-bas"]);
+    // Publisher text, the publisher record and its alias
+    expect(await found("editions de minuit")).toEqual(["À rebours"]);
+    expect(await found("minuit")).toEqual(["À rebours"]);
+    expect(await found("editions gallimard")).toEqual(["Nana"]);
+    expect(await found("librairie generale")).toEqual(["Nana"]);
+    // Punctuation is still matched as typed, and alone it does not match everything
+    expect(await found("100%")).toEqual(["100% Pure"]);
+    expect(await found("%")).toEqual(["100% Pure"]);
+    expect(await found("—")).toEqual([]);
+    expect(await found("nothing like this")).toEqual([]);
   });
 
   it("refuses filters the browser sends back that the page would not have parsed", async () => {

@@ -28,7 +28,7 @@ export function MemberCard({
   byline: string | null;
   /** Publisher and year, runtime and countries, concentrations, date and medium */
   facts: string | null;
-  /** What is collected: "Paperback · 1998 edition", "The book, no edition chosen", "Film" */
+  /** What is collected: "Paperback · 1998 edition", "Any edition · Reading", "Film" */
   note: string | null;
   noteMono?: boolean;
   /** Copy and Read first, pulled out by their padding so the first icon sits

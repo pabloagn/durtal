@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ebooksAvailableText } from "@/lib/utils/format";
 import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
 import { getSeriesEbookSuggestionCount } from "@/lib/ebooks/review-queue/suggestions";
 import { EbookSuggestionLine } from "@/components/ebooks/ebook-suggestion-line";
@@ -157,7 +158,7 @@ export default async function SeriesDetailPage({
               Read {read} of {s.totalVolumes ?? count}
             </Badge>
           )}
-          {digitalCount > 0 && <Badge variant="blue">{digitalCount} available as eBooks</Badge>}
+          {digitalCount > 0 && <Badge variant="blue">{ebooksAvailableText(digitalCount)}</Badge>}
           {s.isComplete && <Badge variant="gold">Complete series</Badge>}
         </div>
         {/* The volume to read next and where its copy is (SLN-449) */}
