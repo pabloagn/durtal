@@ -103,13 +103,13 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
         tabs={<ReadingTabs />}
       />
       <nav aria-label="Year" className="-mt-4 mb-8">
-        <ul className="flex gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none]" data-stats-years="">
+        <ul className="flex flex-wrap gap-1" data-stats-years="">
           {[null, ...(years.includes(current) ? years : [current, ...years])].map((y) => (
             <li key={y ?? "all"} className="shrink-0">
               <Link
                 href={y === null ? "/reading/stats?year=all" : y === current ? "/reading/stats" : `/reading/stats?year=${y}`}
                 aria-current={y === year ? "page" : undefined}
-                className={`inline-flex h-8 items-center rounded-sm border px-3 text-sm transition-colors pointer-coarse:h-11 ${
+                className={`inline-flex h-8 items-center whitespace-nowrap rounded-sm border px-3 text-sm transition-colors pointer-coarse:h-11 ${
                   y === year ? "border-accent-primary/10 bg-selection-bg/80 text-fg-primary" : "border-transparent text-fg-secondary hover:bg-bg-tertiary/50 hover:text-fg-primary"
                 }`}
               >
