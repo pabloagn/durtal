@@ -632,6 +632,8 @@ function ReaderSession({
       !controllerReadiness.ready,
   });
 
+  const releaseBars = bars.release;
+
   useEffect(() => {
     engineRef.current?.setMarginaliaHidden(bars.visible);
   }, [bars.visible, relocation]);
@@ -664,6 +666,7 @@ function ReaderSession({
         });
       }
       // Visual/resume intent is immediate; reading activity waits for painted movement.
+      bars.release();
       bars.hide();
       syncRef.current?.dismiss();
       void navigationRef.current
@@ -1121,6 +1124,8 @@ function ReaderSession({
               clientUpdatedAt: resumeClock.current ?? new Date().toISOString(),
             };
             if (reason === "turn") {
+              // A scroll lets the bars go too, as a turn does (above)
+              if (relocation.activity === "scroll") releaseBars();
               sync.localTurn(local);
               setNotice(null);
               setPlaceFrom(null);
