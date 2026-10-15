@@ -103,9 +103,12 @@ export async function getGalleryWithLayout(
   entityType: "work" | "author",
   entityId: string,
 ): Promise<{ mediaItems: Awaited<ReturnType<typeof fetchGalleryMedia>>; layout: CollageLayoutData }> {
-  const items = await fetchGalleryMedia(entityType, entityId);
-
-  let layout = await getGalleryLayout(entityType, entityId);
+  // The images and their stored layout, read together
+  const [items, stored] = await Promise.all([
+    fetchGalleryMedia(entityType, entityId),
+    getGalleryLayout(entityType, entityId),
+  ]);
+  let layout = stored;
 
   // Recompute if missing or stale: the layout must place exactly the current images
   if (

@@ -232,43 +232,44 @@ async function otherDomains() {
     (kind): kind is HomeKind => kind !== "book",
   );
   return Promise.all(
-    kinds.map(async (kind) => ({
-      kind,
-      counts: await loadDomainCounts(kind),
-      recent: await loadRecentTiles(kind, SHELF),
-    })),
+    kinds.map(async (kind) => {
+      const [counts, recent] = await Promise.all([loadDomainCounts(kind), loadRecentTiles(kind, SHELF)]);
+      return { kind, counts, recent };
+    }),
   );
 }
 
 async function DashboardContent() {
-  const [stats, others, collections, openReadings, finishedReads] = await Promise.all([
-    getLibraryStats({ shelf: SHELF }),
-    otherDomains(),
-    getCollections({ limit: 4, offset: 0 }),
-    getOpenReadings(),
-    getRecentlyFinished(4),
-  ]);
-  const digital = await catalogueAvailability([...stats.recentWorks, ...stats.topRatedWorks, ...stats.wantedWorks].map((work) => work.id));
+  // Each read starts once what it needs is in, not when every read above is
+  const statsRead = getLibraryStats({ shelf: SHELF });
+  const collectionsRead = getCollections({ limit: 4, offset: 0 });
   // Books being read before paused ones; three at most
-  const currentReads = [...openReadings]
-    .sort((a, b) => Number(a.reading.status === "paused") - Number(b.reading.status === "paused"))
-    .slice(0, 3);
-  const [covers, authorCovers, personRoles, estimates, goal] = await Promise.all([
-    getCollectionCoverPreviews(collections.map((collection) => collection.id)),
-    // Recent authors with no portrait show some of their book covers
-    getAuthorCoverPreviews(
-      stats.recentAuthors.filter((a) => !a.photoS3Key).map((a) => a.id),
-    ),
-    // Every card's roles, in one query
-    getPersonRoles(stats.recentAuthors.map((a) => a.id)),
-    // Time left and the finish date of the reading tiles (SLN-451)
-    readingToday().then((today) => readingEstimates(currentReads.map((o) => o.reading.id), today)),
-    // This year's first goal, for one line under the tiles (SLN-455)
-    Promise.all([readingToday(), readingDayStartHour()]).then(async ([today, dayStartHour]) => {
-      const [progress] = await getGoalProgress(Number(today.slice(0, 4)));
-      return progress ? { progress, serverToday: today, dayStartHour } : null;
-    }),
-  ]);
+  const currentRead = getOpenReadings().then((open) =>
+    [...open]
+      .sort((a, b) => Number(a.reading.status === "paused") - Number(b.reading.status === "paused"))
+      .slice(0, 3),
+  );
+  const [stats, others, collections, currentReads, finishedReads, digital, covers, authorCovers, personRoles, estimates, goal] =
+    await Promise.all([
+      statsRead,
+      otherDomains(),
+      collectionsRead,
+      currentRead,
+      getRecentlyFinished(4),
+      statsRead.then((s) => catalogueAvailability([...s.recentWorks, ...s.topRatedWorks, ...s.wantedWorks].map((work) => work.id))),
+      collectionsRead.then((shelf) => getCollectionCoverPreviews(shelf.map((collection) => collection.id))),
+      // Recent authors with no portrait show some of their book covers
+      statsRead.then((s) => getAuthorCoverPreviews(s.recentAuthors.filter((a) => !a.photoS3Key).map((a) => a.id))),
+      // Every card's roles, in one query
+      statsRead.then((s) => getPersonRoles(s.recentAuthors.map((a) => a.id))),
+      // Time left and the finish date of the reading tiles (SLN-451)
+      Promise.all([readingToday(), currentRead]).then(([today, reads]) => readingEstimates(reads.map((o) => o.reading.id), today)),
+      // This year's first goal, for one line under the tiles (SLN-455)
+      Promise.all([readingToday(), readingDayStartHour()]).then(async ([today, dayStartHour]) => {
+        const [progress] = await getGoalProgress(Number(today.slice(0, 4)));
+        return progress ? { progress, serverToday: today, dayStartHour } : null;
+      }),
+    ]);
   // Newest first across the open collections
   const recent = [
     ...stats.recentWorks.map((work) => ({

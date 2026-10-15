@@ -3,8 +3,7 @@ import { favouritesOnly } from "@/lib/constants/favourites";
 import { redirect } from "next/navigation";
 import { ThumbsUp } from "lucide-react";
 import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
-import { hasListQuery } from "@/lib/utils/list-params";
-import { getRecommenderList } from "@/lib/actions/recommenders";
+import { getRecommenderList, hasRecommenders } from "@/lib/actions/recommenders";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
@@ -45,21 +44,6 @@ async function RecommendersContent({ params }: { params: SearchParams }) {
   if (page > lastPage(total, perPage))
     redirect(pageHref("/recommenders", params, lastPage(total, perPage)));
 
-  const flat = new URLSearchParams(
-    Object.entries(params).filter(
-      (e): e is [string, string] => typeof e[1] === "string",
-    ),
-  );
-  if (total === 0 && !hasListQuery(flat)) {
-    return (
-      <EmptyState
-        icon={ThumbsUp}
-        title="No recommenders yet"
-        action={<RecommenderFormDialog />}
-      />
-    );
-  }
-
   return (
     <RecommendersShell
       recommenders={rows.map((r) => ({
@@ -79,7 +63,22 @@ export default async function RecommendersPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const params = await searchParams;
+  const [params, any] = await Promise.all([searchParams, hasRecommenders()]);
+  // With none, no toolbar over nothing: one empty state with one Add (SLN-834)
+  if (!any) {
+    return (
+      <>
+        <PageHeader title="Recommenders" />
+        <EmptyState
+          icon={ThumbsUp}
+          heading="h2"
+          title="No recommenders yet"
+          description="A recommender is whoever suggested a book to you: a friend, a critic, a podcast. Add one, then link them to the books they suggested."
+          action={<RecommenderFormDialog />}
+        />
+      </>
+    );
+  }
   return (
     <>
       <PageHeader
