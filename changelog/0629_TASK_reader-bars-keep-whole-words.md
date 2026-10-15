@@ -41,6 +41,7 @@ controls.
 - More at 320 holds Bookmark (and Contents for the PDF); at 390 the bar is as
   before.
 - Alignment and design audits: 0 findings at 1440, 390 and 320 on the three
-  books in all three engines; `page-weight.js` within budget.
+  books in all three engines; `page-weight.js` within budget;
+  `reader-engine-check.mjs` 278 of 278.
 - Test: `fit-words.test.ts` for the word fitting.
 - No migration and no new packages.
