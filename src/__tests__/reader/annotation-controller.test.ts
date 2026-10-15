@@ -128,6 +128,18 @@ describe("injected annotation controller", () => {
     expect(f.transport.requestReplay).not.toHaveBeenCalled();
     expect(f.controller.getSnapshot().cursor).toBe(later);
   });
+  it("writes no reanchor when the resolved place only lists its fields in another order (SLN-670)", async () => {
+    const f = fixture();
+    const { text, ...rest } = locator;
+    const reordered = { text: { after: text.after, highlight: text.highlight, before: text.before }, ...rest, cfi: locator.cfi, extra: undefined };
+    f.engine.resolveAnnotation.mockImplementation(async () => ({ status: "exact" as const, locator: reordered }));
+    await f.controller.ready;
+    f.controller.firstPaint();
+    await f.controller.pull();
+    await vi.waitFor(() => expect(f.engine.resolveAnnotation).toHaveBeenCalled());
+    await new Promise((done) => setTimeout(done, 0));
+    expect(f.enqueued).toEqual([]);
+  });
   it("publishes a new highlight only after the captured operation commits durably", async () => {
     const f = fixture({ annotations: [], pending: [], cursor: null });
     await f.controller.ready;

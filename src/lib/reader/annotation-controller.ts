@@ -69,6 +69,18 @@ const emptyBook = (): AnnotationBookState => ({
 });
 const fingerprint = (item: ReaderAnnotation) =>
   JSON.stringify([item.kind, item.fileId, item.locator, item.anchorState]);
+/** A JSON value written the same whatever the order of its keys: a measured
+ * locator lists its fields in another order than the stored one */
+const canonical = (value: unknown): string =>
+  Array.isArray(value)
+    ? `[${value.map(canonical).join(",")}]`
+    : value && typeof value === "object"
+      ? `{${Object.entries(value)
+          .filter(([, field]) => field !== undefined)
+          .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+          .map(([key, field]) => `${JSON.stringify(key)}:${canonical(field)}`)
+          .join(",")}}`
+      : (JSON.stringify(value) ?? "null");
 
 /** One book's display/actions over the injected common queue. This controller
  * owns no database, claim, lifecycle seal or HTTP mutation/replay loop.
@@ -232,7 +244,9 @@ export function createAnnotationController(
             confirmed.clientUpdatedAt === item.clientUpdatedAt &&
             (targetFile !== item.fileId ||
               result.status !== item.anchorState ||
-              JSON.stringify(locator) !== JSON.stringify(item.locator)) &&
+              // The same place in another key order is no move: writing it
+              // again rewrote every PDF mark on each open (SLN-670)
+              canonical(locator) !== canonical(item.locator)) &&
             !book.pending.some(
               (row) =>
                 row.mutation.id === item.id && row.mutation.op === "reanchor",

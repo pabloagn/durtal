@@ -20,15 +20,18 @@ export async function resolvePdfAnnotation(input: {
   if (!highlight) return kind === "bookmark"
     ? { status: "approximate", locator: { ...locator, fileHash: input.hash, cfi: undefined, sectionIndex: page, href: String(page), pdf: { page: page + 1 } } }
     : { status: "orphaned", locator: null };
-  const candidates: { score: number; locator: DurtalLocator }[] = [];
-  let ambiguous = false;
+  const candidates: { score: number; exact: boolean; locator: DurtalLocator }[] = [];
+  let ambiguous = false, deferred = false;
   for (const pageIndex of pdfHealingPages(page, input.pageCount)) {
     input.signal.throwIfAborted();
     const request = { fileHash: input.hash, pageIndex, signal: input.signal };
     const text = await input.provider.pdfPageText(request);
     input.signal.throwIfAborted();
     const match = matchAnnotationQuote(text.text, { ...locator.text, highlight }, { signal: input.signal });
-    if (match.status === "deferred") return { status: "pending", locator: null };
+    // A page too long for a bounded fuzzy search leaves only an exact copy
+    // of the words elsewhere able to decide the mark: one there still
+    // heals it, so a changed file's mark is not left waiting (SLN-670)
+    if (match.status === "deferred") deferred = true;
     if (match.status === "ambiguous") ambiguous = true;
     if (match.status === "found") {
       const measured = await input.provider.locatorForPdfTextOffsets({ ...request, start: match.match.start, end: match.match.end });
@@ -41,7 +44,7 @@ export async function resolvePdfAnnotation(input: {
       // match defers, and stayed undrawn (SLN-670).
       if (locator.fileHash === input.hash && pageIndex + 1 === oldPage && match.match.passageScore === 1)
         return { status: "exact", locator: measured };
-      candidates.push({ score: match.match.score, locator: measured });
+      candidates.push({ score: match.match.score, exact: match.match.passageScore === 1, locator: measured });
       candidates.sort((a, b) => b.score - a.score);
       if (candidates.length > 2) candidates.pop();
     }
@@ -50,7 +53,8 @@ export async function resolvePdfAnnotation(input: {
   }
   if (ambiguous || (candidates[1] && candidates[0].score - candidates[1].score < 0.01))
     return { status: "orphaned", locator: null };
-  if (candidates[0]) return { status: "healed", locator: candidates[0].locator };
+  if (candidates[0] && (!deferred || candidates[0].exact)) return { status: "healed", locator: candidates[0].locator };
+  if (deferred) return { status: "pending", locator: null };
   return kind === "bookmark"
     ? { status: "approximate", locator: { ...locator, fileHash: input.hash, cfi: undefined, sectionIndex: page, href: String(page), pdf: { page: page + 1 } } }
     : { status: "orphaned", locator: null };

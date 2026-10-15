@@ -44,8 +44,12 @@
  *   dialogs    Contents and Settings take focus, keep Tab inside, close with
  *              Escape and give focus back to their button (More, where
  *              Settings sits in the More menu)
- *   pdfmarks   a highlight made by dragging across a line of the PDF fixture
- *              is drawn on the page, and still drawn after a reload (SLN-670)
+ *   pdfmarks   at 1440 and 390, a highlight and a saved quote made by dragging
+ *              across lines of the PDF fixture are drawn on their text, and
+ *              again after a reload; at 1440 the selection toolbar sits
+ *              beside the selection, the marks stay on their text after
+ *              zooming in twice, and Go to mark from three pages on draws
+ *              the highlight (SLN-670)
  *   turns      no frame of a jump in the EPUB 3 (Back from a far page), of
  *              a turn in the text PDF or of a turn in the comic shows a blank
  *              page, at 1440 and 390 (SLN-660). Chrome's frames come from
@@ -880,58 +884,179 @@ async function checkPointer(name, browser) {
   await phoneContext.close();
 }
 
-/** Rectangles drawn by the PDF marks overlay, over every page frame */
-const pdfMarkRects = async (page) => {
-  let count = 0;
-  for (const frame of page.frames())
-    if (frame !== page.mainFrame())
-      count += await frame.evaluate(() => document.querySelectorAll("[data-durtal-pdf-marks] rect").length).catch(() => 0);
-  return count;
+/** Each drawn PDF mark by id: its rectangles in page pixels, and how far
+ * each sits from the text-layer line it covers (a highlight's centre, an
+ * underline's bottom against the line's bottom), as a share of that line */
+const pdfMarks = async (page) => {
+  const marks = {};
+  for (const frame of page.frames()) {
+    if (frame === page.mainFrame()) continue;
+    const found = await frame.evaluate(() => {
+      const host = window.frameElement.getBoundingClientRect();
+      const scale = host.width / (window.frameElement.offsetWidth || host.width);
+      const lines = [...document.querySelectorAll(".textLayer span")].map((s) => s.getBoundingClientRect()).filter((r) => r.width && r.height);
+      const out = {};
+      for (const mark of document.querySelectorAll("[data-durtal-pdf-marks] g[data-decoration-id]")) {
+        out[mark.dataset.decorationId] = [...mark.querySelectorAll("rect")].map((el) => {
+          const r = el.getBoundingClientRect(), underline = r.height <= 3;
+          let best = null;
+          for (const line of lines) {
+            const across = Math.min(r.right, line.right) - Math.max(r.left, line.left);
+            if (across <= 0) continue;
+            const off = underline ? Math.abs(r.bottom - line.bottom) : Math.abs((r.top + r.bottom) / 2 - (line.top + line.bottom) / 2);
+            if (!best || off < best.off) best = { off, share: off / line.height };
+          }
+          return { top: host.top + r.top * scale, left: host.left + r.left * scale, right: host.left + r.right * scale, underline, share: best ? best.share : Infinity };
+        });
+      }
+      return out;
+    }).catch(() => ({}));
+    for (const [id, rects] of Object.entries(found)) (marks[id] ??= []).push(...rects);
+  }
+  return marks;
 };
+/** A mark is on its text when every rectangle sits within a fifth of a
+ * line of the line it covers (an underline: within the line's lower half) */
+const onText = (rects) => !!rects?.length && rects.every((r) => r.share <= (r.underline ? 0.5 : 0.2));
+const describeMark = (rects) => rects?.length
+  ? `${rects.length} rectangles, worst ${Math.max(...rects.map((r) => r.share)).toFixed(2)} of a line off`
+  : "not drawn";
+const waitForMark = (page, ids, timeout = 10_000) => page.waitForFunction(
+  (ids) => ids.every((id) => [...document.querySelectorAll("iframe")].some((f) => f.contentDocument?.querySelector(`[data-durtal-pdf-marks] g[data-decoration-id="${id}"]`))),
+  ids, { timeout },
+).catch(() => {});
 
-async function checkPdfMarks(name, browser) {
-  const context = await browser.newContext(desktop);
-  const page = await context.newPage();
-  await open(page, 2);
-  let line = null;
-  for (let i = 0; i < 40 && !line; i++) {
+/** A text-layer line of the PDF fixture well inside the screen, in page pixels */
+async function pdfLine(page, n) {
+  const viewport = page.viewportSize();
+  for (let i = 0; i < 40; i++) {
     for (const frame of page.frames()) {
       if (frame === page.mainFrame()) continue;
-      line = await frame.evaluate(() => {
-        const span = [...document.querySelectorAll(".textLayer span")].filter((s) => s.textContent.trim().length > 20)[6];
+      const line = await frame.evaluate(({ n, height }) => {
+        const span = [...document.querySelectorAll(".textLayer span")].filter((s) => s.textContent.trim().length > 20)[n];
         if (!span) return null;
         const host = window.frameElement.getBoundingClientRect(), box = span.getBoundingClientRect();
         const scale = host.width / (window.frameElement.offsetWidth || host.width);
+        const top = host.top + box.top * scale, bottom = host.top + box.bottom * scale;
+        if (top < 60 || bottom > height - 120) return null;
         // 4 px in: Chromium can leave a drag collapsed when it starts on a glyph's exact midpoint
-        return { left: host.left + box.left * scale + 4, right: host.left + box.right * scale - 2, y: host.top + (box.top + box.height / 2) * scale };
-      }).catch(() => null);
-      if (line) break;
+        return { left: host.left + box.left * scale + 4, right: host.left + box.right * scale - 2, y: (top + bottom) / 2, top, bottom };
+      }, { n, height: viewport.height }).catch(() => null);
+      if (line) return line;
     }
-    if (!line) await sleep(250);
+    await sleep(250);
   }
-  if (!line) throw new Error("No PDF text layer line");
-  const before = await pdfMarkRects(page);
+  throw new Error(`No PDF text layer line ${n}`);
+}
+
+async function selectPdfLine(page, n) {
+  const line = await pdfLine(page, n);
   // Marks take no pointer events, so the drag selects even across an earlier run's mark
   await page.mouse.move(line.left, line.y);
   await page.mouse.down();
   await page.mouse.move(line.right, line.y, { steps: 8 });
   await page.mouse.up();
-  await page.locator('[role="toolbar"][aria-label="Selection actions"] [aria-label="Highlight in sage"]').click({ timeout: 5000 });
-  await page.waitForFunction(
-    (count) => [...document.querySelectorAll("iframe")].reduce((n, f) => n + (f.contentDocument?.querySelectorAll("[data-durtal-pdf-marks] rect").length ?? 0), 0) > count,
-    before, { timeout: 8000 },
-  ).catch(() => {});
-  const drawn = await pdfMarkRects(page);
-  record(name, "pdfmarks", "a new PDF highlight is drawn on its page", drawn > before, `${before} → ${drawn} rectangles`);
-  await page.reload();
-  await page.waitForSelector('[data-reader="ready"]', { timeout: 60_000 });
-  await page.waitForFunction(
-    (count) => [...document.querySelectorAll("iframe")].reduce((n, f) => n + (f.contentDocument?.querySelectorAll("[data-durtal-pdf-marks] rect").length ?? 0), 0) >= count,
-    drawn, { timeout: 10_000 },
-  ).catch(() => {});
-  const reloaded = await pdfMarkRects(page);
-  record(name, "pdfmarks", "PDF highlights are drawn again after a reload", reloaded >= drawn, `${drawn} → ${reloaded} rectangles`);
-  await context.close();
+  const toolbar = page.locator('[role="toolbar"][aria-label="Selection actions"]');
+  await toolbar.waitFor({ state: "visible", timeout: 5000 });
+  return { line, toolbar };
+}
+
+/** The ids of the PDF fixture's saved marks */
+const savedMarks = (page) => page.evaluate(async (ebookId) => {
+  const response = await fetch(`/api/reader/${ebookId}/annotations`, { cache: "no-store" });
+  return (await response.json()).annotations.filter((item) => !item.deletedAt).map((item) => item.id);
+}, ebook(2));
+
+async function markPdfLine(page, n, action) {
+  // The new mark is the one the reader saves: earlier marks can still be
+  // coming onto the page
+  const known = await savedMarks(page);
+  const { line, toolbar } = await selectPdfLine(page, n);
+  const box = await toolbar.boundingBox();
+  const button = toolbar.getByRole("button", { name: action, exact: true });
+  if (!(await button.isVisible())) await toolbar.getByRole("button", { name: "More actions", exact: true }).click();
+  await button.click({ timeout: 5000 });
+  let id;
+  for (let i = 0; i < 40 && !id; i++) {
+    id = (await savedMarks(page)).find((item) => !known.includes(item));
+    if (!id) await sleep(250);
+  }
+  if (!id) throw new Error(`${action}: no new mark was saved`);
+  // Save quote opens the quote to edit once it is saved; Escape keeps it as saved
+  const quote = page.getByRole("dialog", { name: "Edit quote" });
+  if (action === "Save quote" && await quote.waitFor({ state: "visible", timeout: 5000 }).then(() => true, () => false)) {
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector("dialog[open]"));
+  }
+  await waitForMark(page, [id]);
+  return { id, rects: (await pdfMarks(page))[id], line, toolbar: box };
+}
+
+/** The bars come back for a pointer that moves to the top from the page */
+async function revealBarsFromPage(page) {
+  const viewport = page.viewportSize();
+  await page.mouse.move(viewport.width / 2, viewport.height / 2);
+  await revealBars(page);
+}
+
+async function pageControls(page, click) {
+  await revealBarsFromPage(page);
+  await page.getByRole("button", { name: "Page controls", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Page controls", exact: true });
+  for (const label of click) { await dialog.getByRole("button", { name: label, exact: true }).click(); await sleep(600); }
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.querySelector("dialog[open]"));
+  await sleep(1200);
+}
+
+async function checkPdfMarks(name, browser) {
+  for (const [width, options] of [[1440, desktop], [390, phone(name)]]) {
+    const context = await browser.newContext(options);
+    const page = await context.newPage();
+    try {
+      await open(page, 2);
+      await page.keyboard.press("Home");
+      await sleep(1200);
+      const highlight = await markPdfLine(page, 6, "Highlight in sage");
+      record(name, "pdfmarks", `${width}: a new PDF highlight is drawn on its text`, onText(highlight.rects), describeMark(highlight.rects));
+      if (width === 1440) {
+        const { toolbar: t, line } = highlight;
+        const gap = t ? (t.y + t.height <= line.top ? line.top - (t.y + t.height) : t.y - line.bottom) : NaN;
+        const across = t ? Math.min(t.x + t.width, line.right) - Math.max(t.x, line.left) : 0;
+        record(name, "pdfmarks", "1440: the selection toolbar sits beside the selection", gap >= 0 && gap <= 48 && across > 0, t ? `${gap.toFixed(0)} px from the line, ${across.toFixed(0)} px across it` : "no toolbar");
+      }
+      const quote = await markPdfLine(page, 9, "Save quote");
+      record(name, "pdfmarks", `${width}: a saved quote is underlined on its line`, onText(quote.rects) && quote.rects.every((r) => r.underline), describeMark(quote.rects));
+      const ids = [highlight.id, quote.id].filter(Boolean);
+      if (width === 1440) {
+        await pageControls(page, ["Zoom in", "Zoom in"]);
+        await waitForMark(page, ids);
+        let marks = await pdfMarks(page);
+        record(name, "pdfmarks", "1440: after zooming in twice the marks stay on their text", ids.every((id) => onText(marks[id])), ids.map((id) => describeMark(marks[id])).join("; "));
+        await pageControls(page, ["Reset zoom"]);
+        for (let i = 0; i < 3; i++) { await page.keyboard.press("PageDown"); await sleep(500); }
+        await sleep(800);
+        const away = Object.keys(await pdfMarks(page)).filter((id) => ids.includes(id)).length;
+        await revealBarsFromPage(page);
+        await page.getByRole("button", { name: /^Highlights and notes/ }).click();
+        // The panel lists marks in book order: the highlight comes first
+        await page.getByRole("button", { name: "Go to mark" }).first().click({ timeout: 5000 });
+        await waitForMark(page, [highlight.id]);
+        marks = await pdfMarks(page);
+        record(name, "pdfmarks", "1440: Go to mark from another page draws the mark", away === 0 && onText(marks[highlight.id]), `${away} of the marks drawn three pages on; then ${describeMark(marks[highlight.id])}`);
+      }
+      await page.reload();
+      await page.waitForSelector('[data-reader="ready"]', { timeout: 60_000 });
+      await waitForMark(page, ids);
+      await sleep(600);
+      const marks = await pdfMarks(page);
+      record(name, "pdfmarks", `${width}: the highlight and the quote are drawn again after a reload`, ids.length === 2 && ids.every((id) => onText(marks[id])), ids.map((id) => describeMark(marks[id])).join("; "));
+    } catch (error) {
+      record(name, "pdfmarks", `${width}: PDF marks`, false, error.message.split("\n")[0]);
+    } finally {
+      await context.close();
+    }
+  }
 }
 
 async function checkDialogs(name, browser) {

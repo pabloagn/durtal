@@ -43,6 +43,16 @@ describe("opened PDF annotation consumers", () => {
     const result = await resolvePdfAnnotation({ provider: provider(["Other page.", "First sentence."]), hash, pageCount: 2, annotation: { kind: "highlight", locator: { ...anchor(), fileHash: "b".repeat(64) } }, signal: owner().signal });
     expect(result.status).toBe("healed"); expect(result.locator?.pdf?.page).toBe(2);
   });
+  it("heals a replaced file by an exact quote while a long page defers its fuzzy search (SLN-670)", async () => {
+    const long = "word ".repeat(2000);
+    const result = await resolvePdfAnnotation({ provider: provider([long, "First sentence."]), hash, pageCount: 2, annotation: { kind: "highlight", locator: { ...anchor(), fileHash: "b".repeat(64) } }, signal: owner().signal });
+    expect(result.status).toBe("healed"); expect(result.locator?.pdf?.page).toBe(2);
+  });
+  it("keeps waiting when only a near quote was found and another page deferred", async () => {
+    const long = "word ".repeat(2000);
+    const result = await resolvePdfAnnotation({ provider: provider([long, "First sentenze."]), hash, pageCount: 2, annotation: { kind: "highlight", locator: { ...anchor(), fileHash: "b".repeat(64) } }, signal: owner().signal });
+    expect(result).toEqual({ status: "pending", locator: null });
+  });
   it("honors an already aborted owner without reading a page", async () => {
     const abort = owner(); abort.abort(); const p = provider(["First sentence."]);
     await expect(resolvePdfAnnotation({ provider: p, hash, pageCount: 1, annotation: { kind: "highlight", locator: anchor() }, signal: abort.signal })).rejects.toHaveProperty("name", "AbortError");
