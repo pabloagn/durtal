@@ -769,10 +769,10 @@ dialog::backdrop {
 }
 
 /* A detail page's title on a phone (DetailTitleRow, and a collection's
-   name): past 32 letters one step down the scale, past 56 two. Under 375px
+   name): past 30 letters one step down the scale, past 60 two. Under 375px
    a short title is 38px and both longer bands 30px: at 46px there a 30-letter title took three lines
-   while a 33-letter one at 38px took two. So lines rise with length, and an
-   80-letter title takes three lines at 390px and three or four at 320px */
+   while a 33-letter one at 38px took two. So lines mostly rise with length, and an
+   80-letter title takes three or four lines at 390px and four or five at 320px */
 @media (max-width: 639px) {
   [data-title-length="long"] {
     font-size: var(--text-3xl);

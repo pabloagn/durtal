@@ -125,12 +125,13 @@ export const DETAIL_TITLE_ROW = {
  * with the title; beside it the wider gap gives the padding back.
  */
 /**
- * On a phone a title past 32 letters is 38px and past 56 it is 30px; shorter
+ * On a phone a title past 30 letters is 38px and past 60 it is 30px; shorter
  * titles keep 46px. Under 375px each band is a step smaller again (38px, then
- * 30px for both longer bands), so a longer title never takes fewer lines than
- * a shorter one at a band's edge
+ * 30px for both longer bands). The steps sit where a longer title seldom
+ * takes fewer lines than a shorter one at a band's edge, measured on
+ * generated titles from 320 to 639px
  */
-export const LONG_TITLE = 32, LONGER_TITLE = 56;
+export const LONG_TITLE = 30, LONGER_TITLE = 60;
 
 /** The mark that steps a page title down on a phone (globals.css) */
 export function titleLength(title: ReactNode) {

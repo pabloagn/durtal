@@ -109,8 +109,8 @@ describe("DetailTitleRow's long titles", () => {
     host.innerHTML = renderToStaticMarkup(createElement(DetailTitleRow, { title, children: null }));
     return { row: host.firstElementChild!.firstElementChild!, h1: host.querySelector("h1")! };
   };
-  it("marks a title short up to 32 letters, long past 32 and longer past 56", () => {
-    for (const [length, mark] of [[1, "short"], [32, "short"], [33, "long"], [56, "long"], [57, "longer"]] as const) {
+  it("marks a title short up to 30 letters, long past 30 and longer past 60", () => {
+    for (const [length, mark] of [[1, "short"], [30, "short"], [31, "long"], [60, "long"], [61, "longer"]] as const) {
       const { row, h1 } = rowOf("x".repeat(length));
       expect(h1.getAttribute("data-title-length")).toBe(mark);
       expect(row.getAttribute("data-title-length")).toBe(mark);
