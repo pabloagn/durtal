@@ -32,6 +32,8 @@ const lower = (entries: readonly IndexedEntry[], fraction: number) => {
 export class PositionIndex {
   #fractions: Record<string, number>;
   #indexed: Set<string>;
+  /** Sections with a page marker not yet placed; cached for Contents, which asks per entry */
+  #unplaced: Set<unknown> | null = null;
   #sections = new Map<string, number>();
   #sectionRoots = new Map<string, BookInfo["sections"][number]>();
   #textRatios = new Map<string, number>();
@@ -97,6 +99,7 @@ export class PositionIndex {
   ) {
     this.#fractions[href] = unit(fraction);
     this.#indexed.add(href);
+    this.#unplaced = null;
     const section = this.sectionFor(href);
     if (
       section && textRatio !== undefined && Number.isFinite(textRatio) &&
@@ -128,6 +131,7 @@ export class PositionIndex {
       (item) => this.sectionFor(item.href)?.linear !== false,
     );
     this.pages = entries(this.info.pageList);
+    this.#unplaced = null;
   }
   chapterAt(fraction: number) {
     return (
@@ -246,8 +250,8 @@ export class PositionIndex {
     // An anchor not yet indexed stands at its section's start, and so does
     // every page marker in it: until they are placed no page is named, rather
     // than the section's last one for every entry (SLN-724)
-    if (!this.placed(href) || this.pages.some((page) => !this.placed(page.href) && this.sectionFor(page.href) === section))
-      return null;
+    this.#unplaced ??= new Set(this.pages.filter((page) => !this.placed(page.href)).map((page) => this.sectionFor(page.href)));
+    if (!this.placed(href) || this.#unplaced.has(section)) return null;
     return this.pageNear(this.fraction(href), section);
   }
   /** A file's own start needs no indexing; an anchor inside it does */

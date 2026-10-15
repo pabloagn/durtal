@@ -42,4 +42,12 @@ number out until it is known. SLN-724, from the reader audit of 15 Oct.
 - Alignment, design, overflow and touch audits on Contents with the EPUB
   and the PDF, Chromium and WebKit at 1440 and 390: no new issues (only the
   Highlights panel's "All highlights" link, SLN-726).
+- Review: arrow keys and taps in Contents counted as reading activity and
+  kept postponing the index, so the numbers never came while someone moved
+  through the list. Activity while Contents is open no longer postpones it;
+  the numbers then arrive in 1.3 to 2.1 s with keys still going (reviewer's
+  measurement).
+- Review: each entry scanned the whole page list for an unplaced marker in
+  its section (about 130 ms per key on a 2,000-entry book). The sections with
+  unplaced markers are now found once per index change.
 - No migration and no new packages.
