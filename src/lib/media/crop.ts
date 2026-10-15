@@ -17,9 +17,49 @@ export interface AppliedCrop {
   y: number;
   /** Zoom, 100-300 % */
   zoom: number;
+  /** Quarter turns clockwise, in degrees: 0, 90, 180 or 270 (SLN-333). Absent is 0 */
+  turn?: number;
+  /** Straightening after the turn, -45 to 45 degrees clockwise. Absent is 0 */
+  straighten?: number;
 }
 
 export const NO_CROP: AppliedCrop = { x: 50, y: 50, zoom: 100 };
+
+export const TURNS = [0, 90, 180, 270] as const;
+export const MAX_STRAIGHTEN = 45;
+
+/** A turn of `by` degrees (±90) after `turn`, kept in 0-270 */
+export function nextTurn(turn: number, by: number): number {
+  return (((turn + by) % 360) + 360) % 360;
+}
+
+/**
+ * The image a turn and a straightening make, before any crop: the size of
+ * the turned image, and the largest centred box of that aspect left once
+ * it is straightened, so no corner shows the background.
+ * `scale` is that box's size relative to the turned image (1 when straight).
+ */
+export function rotatedFrame(
+  width: number,
+  height: number,
+  turn = 0,
+  straighten = 0,
+): { width: number; height: number; scale: number } {
+  const sideways = turn === 90 || turn === 270;
+  const w = sideways ? height : width;
+  const h = sideways ? width : height;
+  const a = (Math.abs(straighten) * Math.PI) / 180;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  // A box of w:h scaled by `scale`, turned back by the angle, fits in w x h
+  const scale = Math.min(w / (w * cos + h * sin), h / (w * sin + h * cos));
+  return { width: w * scale, height: h * scale, scale };
+}
+
+/** True when the crop leaves the image upright */
+export function isUpright(crop: AppliedCrop | null): boolean {
+  return !crop || (!crop.turn && !crop.straighten);
+}
 
 /** Frame aspect (width / height) of a media type that can be cropped. */
 export function mediaFrameAspect(type: string): number | null {
@@ -33,12 +73,13 @@ export function mediaFrameAspect(type: string): number | null {
  * the image's own aspect it removes nothing.
  */
 export function isNoCrop(crop: AppliedCrop): boolean {
-  return crop.x === NO_CROP.x && crop.y === NO_CROP.y && crop.zoom === NO_CROP.zoom;
+  return crop.x === NO_CROP.x && crop.y === NO_CROP.y && crop.zoom === NO_CROP.zoom && isUpright(crop);
 }
 
 export function sameCrop(a: AppliedCrop | null, b: AppliedCrop | null): boolean {
   if (!a || !b) return a === b;
-  return a.x === b.x && a.y === b.y && a.zoom === b.zoom;
+  return a.x === b.x && a.y === b.y && a.zoom === b.zoom &&
+    (a.turn ?? 0) === (b.turn ?? 0) && (a.straighten ?? 0) === (b.straighten ?? 0);
 }
 
 export interface CropRegion {

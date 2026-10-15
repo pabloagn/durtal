@@ -255,7 +255,7 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
       s3ImageSource(row.thumbnailS3Key!),
     ]);
     const poster = await getImagePresentation(s3ImageSource(row.s3Key));
-    expect(poster.crop).toEqual({ cropX: 30, cropY: 40, cropZoom: 120 });
+    expect(poster.crop).toEqual({ cropX: 30, cropY: 40, cropZoom: 120, turn: 0, straighten: 0 });
     expect(poster.aspect).toBe(2 / 3);
     expect(poster.settings.exposure).toBe(1);
     const background = await getImagePresentation(
@@ -483,7 +483,7 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
     expect(store.size).toBe(2);
     expect(
       (await getImagePresentation(s3ImageSource(item.s3Key))).crop,
-    ).toEqual({ cropX: 30, cropY: 80, cropZoom: 100 });
+    ).toEqual({ cropX: 30, cropY: 80, cropZoom: 100, turn: 0, straighten: 0 });
   });
 
   it("cuts an image of another shape to the frame without zoom", async () => {
@@ -500,6 +500,71 @@ describe.skipIf(!url)("shared image adjustments with PostgreSQL", () => {
     });
     const top = await sharp(store.get(after.s3Key)!).extract({ left: 0, top: 0, width: 300, height: 225 }).toBuffer();
     expect(await colorOf(top)).toBe("red");
+  });
+
+  it("turns and straightens into new files, keeps the original, and a reset restores it (SLN-333)", async () => {
+    const { item, image } = await croppablePoster();
+    // A quarter turn right: the red top-left quadrant goes to the top right
+    await saveImagePresentation(s3ImageSource(item.s3Key), {
+      settings: { contrast: 100 },
+      crop: { cropX: 50, cropY: 50, cropZoom: 100, turn: 90, straighten: 0 },
+    });
+    const turned = await row(item.id);
+    expect(turned).toMatchObject({
+      uncroppedS3Key: item.s3Key,
+      appliedCrop: { x: 50, y: 50, zoom: 100, turn: 90 },
+      // 450 x 300 turned, cut to the 2:3 frame at the centre
+      width: 200,
+      height: 300,
+    });
+    expect(store.get(item.s3Key)).toEqual(image);
+    const corner = (left: number, top: number) =>
+      sharp(store.get(turned.s3Key)!).extract({ left, top, width: 20, height: 20 }).toBuffer();
+    expect(await colorOf(await corner(180, 0))).toBe("red");
+    expect(await colorOf(await corner(0, 0))).toBe("white");
+    expect(await colorOf(await corner(180, 280))).toBe("green");
+    expect(
+      (await getImagePresentation(s3ImageSource(turned.s3Key))).crop,
+    ).toEqual({ cropX: 50, cropY: 50, cropZoom: 100, turn: 90, straighten: 0 });
+
+    // A straightening alone writes files too, with no transparent corners
+    await saveImagePresentation(s3ImageSource(turned.s3Key), {
+      settings: { contrast: 100 },
+      crop: { cropX: 50, cropY: 50, cropZoom: 100, turn: 0, straighten: 1 },
+    });
+    const straight = await row(item.id);
+    expect(straight.appliedCrop).toEqual({ x: 50, y: 50, zoom: 100, straighten: 1 });
+    expect(straight.uncroppedS3Key).toBe(item.s3Key);
+    expect(store.has(turned.s3Key)).toBe(false);
+    const { width, height } = await sharp(store.get(straight.s3Key)!).metadata();
+    expect(Math.abs(width! / height! - 2 / 3)).toBeLessThan(0.01);
+    expect(width).toBeLessThan(300);
+    const stats = await sharp(store.get(straight.s3Key)!).stats();
+    expect(stats.isOpaque).toBe(true);
+
+    // Upright again: the original image is shown, as after any reset
+    await saveImagePresentation(s3ImageSource(straight.s3Key), {
+      settings: { contrast: 100 },
+      crop: { cropX: 50, cropY: 50, cropZoom: 100, turn: 0, straighten: 0 },
+    });
+    expect(await row(item.id)).toMatchObject({
+      s3Key: item.s3Key,
+      uncroppedS3Key: null,
+      appliedCrop: null,
+    });
+    expect(store.get(item.s3Key)).toEqual(image);
+  });
+
+  it("refuses a turn that is not a quarter and a straightening past 45 degrees", async () => {
+    const { item } = await croppablePoster();
+    for (const crop of [
+      { cropX: 50, cropY: 50, cropZoom: 100, turn: 45, straighten: 0 },
+      { cropX: 50, cropY: 50, cropZoom: 100, turn: 0, straighten: 46 },
+    ])
+      await expect(
+        saveImagePresentation(s3ImageSource(item.s3Key), { settings: { contrast: 100 }, crop }),
+      ).rejects.toThrow();
+    expect((await row(item.id)).uncroppedS3Key).toBeNull();
   });
 
   it("never deletes a file another record still uses", async () => {

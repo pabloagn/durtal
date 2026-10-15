@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-import { SlidersHorizontal, Lock } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { SlidersHorizontal, Lock, RotateCcw, RotateCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { MAX_STRAIGHTEN, nextTurn, rotatedFrame } from "@/lib/media/crop";
 import {
   getImagePresentation,
   saveImagePresentation,
@@ -44,8 +45,50 @@ const cropControls = [
   { key: "cropZoom", label: "Zoom", min: 100, max: 300, step: 1, unit: "%", group: "framing" },
   { key: "cropX", label: "Horizontal", min: 0, max: 100, step: 1, unit: "%", group: "framing" },
   { key: "cropY", label: "Vertical", min: 0, max: 100, step: 1, unit: "%", group: "framing" },
+  { key: "straighten", label: "Straighten", min: -MAX_STRAIGHTEN, max: MAX_STRAIGHTEN, step: 1, unit: "°", group: "framing" },
 ] as const;
-const CROP_DEFAULTS = { cropX: 50, cropY: 50, cropZoom: 100 };
+const CROP_DEFAULTS = { cropX: 50, cropY: 50, cropZoom: 100, turn: 0, straighten: 0 };
+
+/**
+ * The preview image turned and straightened as Save writes it (SLN-333): the
+ * largest centred box left by the rotation, drawn at most 1200px on its long
+ * side. The crop preview then frames this image as it frames an upright one.
+ */
+function useRotatedPreview(src: string, turn: number, straighten: number): string {
+  const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const rotated = !!turn || !!straighten;
+  useEffect(() => {
+    if (!rotated) return;
+    let live = true;
+    const img = new Image();
+    img.onload = () => live && setImage(img);
+    img.src = src;
+    return () => {
+      live = false;
+    };
+  }, [src, rotated]);
+  return useMemo(() => {
+    if ((!turn && !straighten) || !image?.naturalWidth || image.src !== new URL(src, location.href).href) return src;
+    const k = Math.min(1, 1200 / Math.max(image.naturalWidth, image.naturalHeight));
+    const w = image.naturalWidth * k;
+    const h = image.naturalHeight * k;
+    const frame = rotatedFrame(w, h, turn, straighten);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.floor(frame.width));
+    canvas.height = Math.max(1, Math.floor(frame.height));
+    const context = canvas.getContext("2d");
+    if (!context) return src;
+    context.translate(canvas.width / 2, canvas.height / 2);
+    context.rotate(((turn + straighten) * Math.PI) / 180);
+    context.drawImage(image, -w / 2, -h / 2, w, h);
+    try {
+      return canvas.toDataURL("image/jpeg", 0.9);
+    } catch {
+      // An image from another origin taints the canvas: preview it upright
+      return src;
+    }
+  }, [image, src, turn, straighten]);
+}
 
 /** A value as its slider steps: "+0.35 EV", "120%", "1.5 px" */
 function formatValue(value: number, step: number, unit: string, signed: boolean) {
@@ -99,6 +142,11 @@ function LoadedEditor({
   const dirty = JSON.stringify({ settings, crop }) !== JSON.stringify(baseline);
   const previewSettings = compare ? baseline.settings : settings;
   const previewCrop = compare ? baseline.crop : crop;
+  const previewSource = useRotatedPreview(
+    initial.preview,
+    previewCrop?.turn ?? 0,
+    previewCrop?.straighten ?? 0,
+  );
 
   async function save() {
     if (savingRef.current) return;
@@ -171,7 +219,7 @@ function LoadedEditor({
       >
         <img
           data-adjustment-preview
-          src={initial.preview}
+          src={previewSource}
           alt="Image adjustment preview"
           draggable={false}
           className={`h-full w-full ${previewCrop ? "object-cover" : "object-contain"}`}
@@ -250,12 +298,36 @@ function LoadedEditor({
                 </div>
               );
             })}
+          {shown === "framing" && crop && (
+            // Quarter turns; the slider above straightens within 45 degrees
+            <div className="-ml-2.5 flex gap-2">
+              {([
+                [-90, "Turn left", RotateCcw],
+                [90, "Turn right", RotateCw],
+              ] as const).map(([by, label, Icon]) => (
+                <Button
+                  key={label}
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() =>
+                    setCrop((previous) => previous && { ...previous, turn: nextTurn(previous.turn, by) })
+                  }
+                >
+                  <Icon className="h-4 w-4" strokeWidth={1.5} />
+                  {label}
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button
             type="button"
             size="sm"
             variant="ghost"
+            // Its label starts on the sliders' edge (docs/03, Spacing Scale)
+            className="-ml-2.5"
             aria-pressed={compare}
             onClick={() => setCompare((previous) => !previous)}
           >
@@ -273,7 +345,7 @@ function LoadedEditor({
                     initial.monochrome,
                   ),
                 );
-                if (crop) setCrop({ cropX: 50, cropY: 50, cropZoom: 100 });
+                if (crop) setCrop({ ...CROP_DEFAULTS });
                 setCompare(false);
               }}
             >
