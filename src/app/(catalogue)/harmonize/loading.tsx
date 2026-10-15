@@ -19,7 +19,8 @@ export default function Loading() {
               Scan library
             </IconLabel>
           </button>
-          <p>Scanning the entire catalogue</p>
+          {/* Short enough for one line at 320, as the page's own line is (task 0616) */}
+          <p>Scanning the catalogue</p>
         </div>
       </header>
       <div className="h-stats">

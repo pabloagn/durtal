@@ -190,13 +190,158 @@ describe("search panel delivery and keyboard ownership", () => {
     complete = false;
     await type("zzqx");
     expect(host.querySelector('[role="status"]')?.textContent).toBe("No matches for “zzqx”.");
-    await act(async () => host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+    await act(async () => host.querySelector<HTMLButtonElement>('[role="switch"]')!.click());
     expect(host.querySelector('[role="status"]')?.textContent).toBe(
       "No matches for “zzqx”. Whole words is on; turning it off may find more.",
     );
     // The field's own clear control
     await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Clear search"]')!.click());
     expect(field.value).toBe("");
+  });
+  it("keeps one field while typing, uses switches, and docks its results bar in the bottom bar's place (SLN-727)", async () => {
+    const search = vi.fn(async function* (): AsyncGenerator<SearchUpdate> {
+      yield { kind: "hits", hits: [hit] };
+      yield { kind: "complete", capped: false, count: 1 };
+    });
+    const engine = { search, currentLocator: () => null, setDecorations: vi.fn() } as unknown as ReaderEngine;
+    const rect = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute("data-reader-search-bar") ? ({ height: 45 } as DOMRect) : rect.call(this);
+    });
+    const onDockHeight = vi.fn();
+    const escapeRef = { current: null as (() => boolean) | null };
+    const render = (open: boolean) =>
+      root.render(
+        createElement(SearchPanel, {
+          open, engine, language: "en", onJump: vi.fn(async () => true),
+          onClose: vi.fn(), onOpen: vi.fn(), escapeRef, onDockHeight,
+        }),
+      );
+    await act(async () => render(true));
+    expect(host.querySelector('input[type="checkbox"]')).toBeNull();
+    expect([...host.querySelectorAll('[role="switch"]')].map((item) => item.getAttribute("aria-labelledby") && document.getElementById(item.getAttribute("aria-labelledby")!)?.textContent))
+      .toEqual(["Whole words", "Match case", "Match accents"]);
+    expect(host.querySelector('button[type="submit"]')?.textContent).toBe("Search");
+    const field = host.querySelector<HTMLInputElement>('input[type="search"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, "text");
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    // The clear button arrives without remounting the field (which would lose focus)
+    expect(host.querySelector('[aria-label="Clear search"]')).not.toBeNull();
+    expect(host.querySelector('input[type="search"]')).toBe(field);
+    await act(async () =>
+      host.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })),
+    );
+    expect(onDockHeight).not.toHaveBeenCalledWith(45);
+    await act(async () => render(false));
+    expect(host.querySelector('[data-reader-search-bar] [role="toolbar"]')?.getAttribute("aria-label")).toBe("Search results");
+    expect(onDockHeight).toHaveBeenLastCalledWith(45);
+    await act(async () => {
+      escapeRef.current?.();
+    });
+    expect(host.querySelector("[data-reader-search-bar]")).toBeNull();
+    expect(onDockHeight).toHaveBeenLastCalledWith(0);
+  });
+  it("keeps focus on the field and on Next as Enter steps through the matches, though a jump focuses the book", async () => {
+    const hits = [0, 1, 2].map((n) => ({
+      ...hit, id: `0:${n}:9`, start: n * 10, end: n * 10 + 4,
+      locator: { ...hit.locator, cfi: `epubcfi(/6/2!/4/${n + 2})`, position: 12 + n },
+    }));
+    const search = vi.fn(async function* (): AsyncGenerator<SearchUpdate> {
+      yield { kind: "hits", hits };
+      yield { kind: "complete", capped: false, count: hits.length };
+    });
+    const engine = { search, currentLocator: () => null, setDecorations: vi.fn() } as unknown as ReaderEngine;
+    // The book: an EPUB jump focuses the passage it lands on
+    const frame = Object.assign(document.createElement("div"), { id: "reader-book" });
+    const book = document.createElement("div");
+    book.tabIndex = -1;
+    frame.append(book);
+    document.body.append(frame);
+    const onJump = vi.fn(async (_locator: SearchHit["locator"], _hit: SearchHit) => {
+      book.focus();
+      return true;
+    });
+    const render = (open: boolean) =>
+      root.render(
+        createElement(SearchPanel, { open, engine, language: "en", onJump, onClose: vi.fn(), onOpen: vi.fn() }),
+      );
+    await act(async () => render(true));
+    const field = host.querySelector<HTMLInputElement>('input[type="search"]')!;
+    field.focus();
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, "text");
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const enter = () =>
+      act(async () => {
+        host.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      });
+    await enter();
+    await enter();
+    expect(onJump.mock.calls.map(([locator]) => locator.position)).toEqual([12, 13]);
+    expect(document.activeElement).toBe(field);
+    // Next in the results bar keeps the focus too
+    await act(async () => render(false));
+    const next = host.querySelector<HTMLButtonElement>('[aria-label="Next match"]')!;
+    next.focus();
+    await act(async () => next.click());
+    expect(onJump.mock.calls.at(-1)?.[0]?.position).toBe(14);
+    expect(document.activeElement).toBe(next);
+    frame.remove();
+  });
+  it("leaves the focus on a panel opened while a jump runs", async () => {
+    const hits = [0, 1].map((n) => ({
+      ...hit, id: `0:${n}:9`, start: n * 10, end: n * 10 + 4,
+      locator: { ...hit.locator, cfi: `epubcfi(/6/2!/4/${n + 2})`, position: 12 + n },
+    }));
+    const search = vi.fn(async function* (): AsyncGenerator<SearchUpdate> {
+      yield { kind: "hits", hits };
+      yield { kind: "complete", capped: false, count: hits.length };
+    });
+    const engine = { search, currentLocator: () => null, setDecorations: vi.fn() } as unknown as ReaderEngine;
+    const frame = Object.assign(document.createElement("div"), { id: "reader-book" });
+    const book = document.createElement("div");
+    book.tabIndex = -1;
+    frame.append(book);
+    // Contents, opened with T before the jump lands
+    const contents = document.createElement("button");
+    document.body.append(frame, contents);
+    let land = () => {};
+    const onJump = vi.fn(
+      (_locator: SearchHit["locator"], _hit: SearchHit) =>
+        onJump.mock.calls.length === 1 ? (book.focus(), Promise.resolve(true)) : new Promise<boolean>((resolve) => {
+          land = () => {
+            book.focus();
+            contents.focus();
+            resolve(true);
+          };
+        }),
+    );
+    const render = (open: boolean) =>
+      root.render(
+        createElement(SearchPanel, { open, engine, language: "en", onJump, onClose: vi.fn(), onOpen: vi.fn() }),
+      );
+    await act(async () => render(true));
+    const field = host.querySelector<HTMLInputElement>('input[type="search"]')!;
+    field.focus();
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, "text");
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => {
+      host.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+    await act(async () => render(false));
+    const next = host.querySelector<HTMLButtonElement>('[aria-label="Next match"]')!;
+    next.focus();
+    await act(async () => next.click());
+    expect(onJump).toHaveBeenCalledTimes(2);
+    await act(async () => land());
+    expect(document.activeElement).toBe(contents);
+    frame.remove();
+    contents.remove();
   });
   it("leaves a second Mod+F in the field to the browser", async () => {
     const engine = {
