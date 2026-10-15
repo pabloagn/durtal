@@ -110,3 +110,4 @@ Checks on a production build of this branch with that seed:
 - **Journal and paused rows**, after moving their controls:
   - The alignment audit is clean with the controls on the title line. With them centred under the heading, it measured 10px off, and 20px on touch.
   - The runner passes 48 of 48 page loads on /, /reading, /reading/journal and /reading/year, and 18 of 18 with an 82-character title and a rated reading.
+- **Review fix:** on touch, the e-book files table's Actions cell parts wrapped rows by 28px (`pointer-coarse:gap-y-7`). The text commands' 44px press areas had overlapped, so Download and Open first only took taps on 28px of their height; they now take 48px. `ebook-file-actions.test.ts` holds the gap.

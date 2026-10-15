@@ -93,7 +93,9 @@ export function EbookFilesTable({
           if (column === "added") return file.added.slice(0, 10);
           if (column === "actions")
             return (
-              <div className="flex flex-wrap gap-2">
+              // On touch a text command grows 44px tall around its line: a
+              // wrapped command keeps its row clear of the one above it
+              <div className="flex flex-wrap gap-2 pointer-coarse:gap-y-7">
                 {file.download ? (
                   <Link
                     href={`/api/ebooks/files/${file.id}?download=1`}
