@@ -24,10 +24,15 @@ comics alike, also when the focus is inside the book's frame.
   tooltip: a focused control's tooltip takes the first Esc, which would make
   Esc twice need three presses. While leaving, Leave is busy and Stay is
   disabled; a return from the browser's page cache closes the prompt.
+  Leave takes the focus in the commit that opens the dialog, so a quick
+  Esc, Enter already finds it.
 - `src/app/reader/[ebookId]/reader-view.tsx`: the Esc action keeps its
   order (read aloud, search panel, a side panel, the search itself, full
   screen) and ends with the prompt instead of showing the bars. Full screen
-  now takes its own press. The back link's code is now `leave(href)`, shared
+  now takes its own press. The prompt opens a task after the key: a modal
+  dialog opened while the key's default action is still to run takes that
+  same Esc as its cancel (in a PDF or a comic, where the focus is on the
+  page and not in the book's frame, it closed as it opened). The back link's code is now `leave(href)`, shared
   by the link and the prompt, so both save the place and the open sitting
   (`bridge.leave()`) before going.
 - `src/lib/reader/keymap.ts`: the shortcut sheet's Esc reads "Close the
@@ -40,5 +45,21 @@ comics alike, also when the focus is inside the book's frame.
 
 ## Completion Notes
 
-See the PR for the headless Chromium, Firefox and WebKit results at 1440,
-390 and 320.
+- Headless Chromium, Firefox and WebKit at 1440, 390 and 320 (touch at
+  390 and 320), on a production preview with the reader fixtures, for the
+  EPUB 3, the text PDF and the CBZ: Esc shows the prompt with the focus on
+  Leave; Esc closes it and the book stays where it was; Esc, Enter leaves
+  for the e-book's page and the book reopens at the place it was left;
+  opened from the e-book's page, Esc, Enter goes back in history to it;
+  Contents and Reader shortcuts close on Esc without the prompt. With the
+  prompt open the alignment audit is empty and the design audit finds no
+  low-contrast text and no unnamed control; buttons are 44px on touch.
+  234 of 234 checks passed.
+- Before the fix above, the PDF and comic prompt closed as it opened in
+  all three browsers, and a quick Esc, Enter missed Leave twice in WebKit.
+- The prompt is the shared `Dialog` at `max-w-sm`: at 390 it is 384px wide,
+  at 320 the full width, as every app dialog.
+- Page weight: `/reader/<id>` 23 of 400 KB.
+- The local full suite ran with no failures for 30 minutes and was stopped
+  at the session's time limit (it shared the machine with builds); CI runs
+  the database suites.

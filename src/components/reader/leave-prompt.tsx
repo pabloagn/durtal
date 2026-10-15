@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/shortcuts/kbd";
@@ -20,7 +20,9 @@ export function LeavePrompt({
 }) {
   const leaveRef = useRef<HTMLButtonElement>(null);
   const [leaving, setLeaving] = useState(false);
-  useEffect(() => {
+  // In the commit that opens the dialog (after its own layout effect), so
+  // an Enter right after the Esc already finds Leave
+  useLayoutEffect(() => {
     leaveRef.current?.focus();
   }, []);
   // Back to the reader from the browser's page cache: the book is open again
