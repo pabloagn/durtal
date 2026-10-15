@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { DetailTitleRow } from "@/components/shared/detail-layout";
 import { SectionHeading } from "@/components/shared/section-heading";
 import {
   DetailColumns,
@@ -148,45 +149,39 @@ async function PlaceContent({ slug }: { slug: string }) {
 
         {/* Title block */}
         <div className="min-w-0 flex-1">
-          {/* The row carries the name's type: the star sits on the
-              cap-height center of the name's first line */}
-          <div className="mb-2 flex items-start gap-3">
-            <div className="type-page-title flex min-w-0 flex-1 items-start gap-3">
-              <h1 className="type-page-title min-w-0 break-words">
-                {venue.name}
-              </h1>
-              <CapAligned height={32} coarseHeight={44}>
+          <div className="mb-2">
+            <DetailTitleRow title={venue.name} controls="icons">
+              <VenueActions
+                venue={{
+                  id: venue.id,
+                  name: venue.name,
+                  type: venue.type,
+                  subtype: venue.subtype,
+                  description: venue.description,
+                  website: venue.website,
+                  instagramHandle: venue.instagramHandle,
+                  formattedAddress: venue.formattedAddress,
+                  phone: venue.phone,
+                  email: venue.email,
+                  specialties: venue.specialties,
+                  notes: venue.notes,
+                  tags: venue.tags,
+                  isFavorite: venue.isFavorite,
+                  personalRating: venue.personalRating,
+                  firstVisitDate: venue.firstVisitDate,
+                  lastVisitDate: venue.lastVisitDate,
+                }}
+                archived={venue.archivedAt !== null}
+                blockers={blockerLines(references)}
+              >
                 <FavouriteToggle
                   favourite={venue.isFavorite}
                   target={{ entity: "venue", id: venue.id }}
                   name={venue.name}
                   shortcut
                 />
-              </CapAligned>
-            </div>
-            <VenueActions
-              venue={{
-                id: venue.id,
-                name: venue.name,
-                type: venue.type,
-                subtype: venue.subtype,
-                description: venue.description,
-                website: venue.website,
-                instagramHandle: venue.instagramHandle,
-                formattedAddress: venue.formattedAddress,
-                phone: venue.phone,
-                email: venue.email,
-                specialties: venue.specialties,
-                notes: venue.notes,
-                tags: venue.tags,
-                isFavorite: venue.isFavorite,
-                personalRating: venue.personalRating,
-                firstVisitDate: venue.firstVisitDate,
-                lastVisitDate: venue.lastVisitDate,
-              }}
-              archived={venue.archivedAt !== null}
-              blockers={blockerLines(references)}
-            />
+              </VenueActions>
+            </DetailTitleRow>
           </div>
 
           <div className="mb-3 flex items-center gap-2">

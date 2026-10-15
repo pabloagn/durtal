@@ -369,6 +369,8 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
         {optimisticOrders.length === 0 && (
           <div className="mt-12 flex flex-col items-center justify-center text-center">
             <Package
+              aria-hidden="true"
+              data-decorative=""
               className="mb-4 h-10 w-10 text-fg-muted/30"
               strokeWidth={1}
             />

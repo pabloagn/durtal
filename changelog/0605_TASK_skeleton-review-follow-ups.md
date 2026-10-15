@@ -29,9 +29,10 @@ different cover from the book's card.
     Abyss") still lands 52px higher: keeping the actions beside it there
     would move nearly every other book instead (20 of 24 in review, against
     4 with this rule).
-- **Without `row`** (the film and the painting, until they take
-  `DetailTitleRow`), the skeleton draws a title that fits on one line, with
-  its star and menu beside it at every width (72px, 96px on touch).
+- **Without `row`** (the film and the painting, whose `stacked` row keeps a
+  one-line title's star and menu beside it), the skeleton draws a title that
+  fits on one line, with its star and menu beside it at every width (72px,
+  96px on touch).
   - Before, the actions were drawn under the title on a phone, so a short
     title's facts moved up 64px. A long title takes more lines, which no
     loading screen can know.

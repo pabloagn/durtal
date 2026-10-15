@@ -332,6 +332,8 @@ export default async function CollectionPage({
               ) : (
                 <div className="flex h-full flex-col items-center justify-center gap-2">
                   <FolderOpen
+                    aria-hidden="true"
+                    data-decorative=""
                     className="h-10 w-10 text-fg-muted/20"
                     strokeWidth={1}
                   />

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { CapAlignedControls } from "@/components/shared/cap-aligned";
+import { DetailControls } from "@/components/shared/detail-layout";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
@@ -24,11 +24,14 @@ export function VenueActions({
   venue,
   archived,
   blockers,
+  children,
 }: {
   venue: EditableVenue;
   archived: boolean;
   /** What still refers to the venue, such as "3 orders" */
   blockers: string[];
+  /** Controls before the menu: the favourite */
+  children?: React.ReactNode;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState<"edit" | "delete" | null>(null);
@@ -48,7 +51,8 @@ export function VenueActions({
 
   return (
     <>
-      <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
+      <DetailControls>
+        {children}
         <EntityActionMenu
           items={[
             { label: "Edit", icon: Pencil, onClick: () => setOpen("edit"), shortcut: editHint(EDIT_KEYS.place) },
@@ -63,7 +67,7 @@ export function VenueActions({
             },
           ]}
         />
-      </CapAlignedControls>
+      </DetailControls>
       {open &&
         createPortal(
           <>

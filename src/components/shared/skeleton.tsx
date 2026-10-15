@@ -39,23 +39,25 @@ export function SkeletonLine({ className = "" }: { className?: string }) {
 
 // The title line takes two thirds of the row where `DETAIL_TITLE_ROW` stops
 // wrapping, and the whole row below it (SLN-698)
-const TITLE_LINE: Record<keyof typeof DETAIL_TITLE_ROW, string> = {
+const TITLE_LINE = {
   standard: "@min-[24rem]:w-2/3",
-  wide: "pointer-fine:@min-[33rem]:w-2/3 pointer-coarse:@min-[39rem]:w-2/3",
-};
+  wide: "not-pointer-coarse:@min-[33rem]:w-2/3 pointer-coarse:@min-[39rem]:w-2/3",
+} satisfies Partial<Record<keyof typeof DETAIL_TITLE_ROW, string>>;
 
 /**
  * A detail page's title row: the title and its actions.
- * - With `row`, the row of a page drawn with `DetailTitleRow` (`wide` for the
- *   book's controls): it wraps where that row does, with no gap under the
- *   title. Below the width where that row stops wrapping, the title takes
- *   the row and the actions go under it, as they do for every title but the
- *   shortest; from that width on they stay beside it.
- * - Without, the film's and painting's row: a title that fits on one line
- *   keeps its star and menu beside it at every width, so the skeleton draws
- *   that. A longer title takes more lines, which no loading screen can know.
+ * - With `row`, the row of a page drawn with `DetailTitleRow controls="…"`
+ *   (`wide` for the book, `standard` for the publisher): it wraps where that
+ *   row does, with no gap under the title. Below the width where that row
+ *   stops wrapping, the title takes the row and the actions go under it, as
+ *   they do for every title but the shortest; from that width on they stay
+ *   beside it.
+ * - Without, the film's and painting's row (`stacked`): a title that fits on
+ *   one line keeps its star and menu beside it at every width, so the
+ *   skeleton draws that. A longer title takes more lines, which no loading
+ *   screen can know.
  */
-export function SkeletonTitleRow({ row }: { row?: keyof typeof DETAIL_TITLE_ROW }) {
+export function SkeletonTitleRow({ row }: { row?: keyof typeof TITLE_LINE }) {
   if (row)
     return (
       <div className="@container">
