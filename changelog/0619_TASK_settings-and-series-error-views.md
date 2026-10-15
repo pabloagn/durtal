@@ -34,6 +34,11 @@ review's optional point.
 - **`SectionError`**: Try again is the primary button, and the way back stays
   secondary, on every error view built on it, including the domains'
   `DomainError`.
+- **The reader's and the root's own error views** (`src/app/reader/error.tsx`,
+  `src/app/global-error.tsx`) are not built on `SectionError`. Their Try again
+  is primary and their way back secondary too, as `buttonClass` styles them.
+  - Their Try again called `reset` alone, which draws a failure on the server
+    again, so it never recovered. It now loads the page anew.
 
 ## Completion Notes
 
@@ -49,3 +54,6 @@ review's optional point.
   - the Series and Settings error views' way back and description;
   - Try again is primary;
   - the settings error's h2.
+  - the reader's and the root's error views lead with a primary Try again.
+- With the failing read fixed, Try again brings back the reader and a page
+  whose root failed, in Chromium, Firefox and WebKit.

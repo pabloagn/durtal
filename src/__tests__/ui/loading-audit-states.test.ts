@@ -18,6 +18,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/hooks/use-preference", () => ({ usePreference: () => [4, () => {}], useViewModePreference: () => ["grid", () => {}] }));
 vi.mock("@/components/shared/pagination", () => ({ Pagination: () => null }));
+vi.mock("@/components/layout/minimal-root", () => ({ MinimalRoot: ({ children }: { children: unknown }) => children }));
 vi.mock("@/components/ebooks/ebook-card", () => ({ EbookCard: () => null }));
 vi.mock("@/components/ebooks/ebook-row", () => ({ EbookRow: () => null }));
 vi.mock("../../app/(catalogue)/ebooks/ebooks-filters", () => ({ EbooksFilters: () => null }));
@@ -35,6 +36,8 @@ import CollectionsError from "../../app/(catalogue)/collections/error";
 import ReadingError from "../../app/(catalogue)/reading/error";
 import SeriesError from "../../app/(catalogue)/series/error";
 import SettingsError from "../../app/(catalogue)/settings/error";
+import ReaderError from "../../app/reader/error";
+import GlobalError from "../../app/global-error";
 import { EbooksView } from "../../app/(catalogue)/ebooks/ebooks-view";
 import { HarmonizeWorkspace } from "../../app/(catalogue)/harmonize/workspace";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
@@ -166,6 +169,15 @@ describe("a page that is only an error or not-found view", () => {
     navigation.pathname = "/settings/integrations";
     const failed = html(createElement(SettingsError, { error: new Error("boom"), reset: () => {} }));
     expect([failed.querySelector("h1"), failed.querySelector("h2")!.textContent]).toEqual([null, "Something went wrong"]);
+  });
+
+  it("leads with Try again on the reader's and the root's own error views too", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    for (const view of [ReaderError, GlobalError]) {
+      const failed = html(createElement(view, { error: new Error("boom"), reset: () => {} }));
+      expect([failed.querySelector("button")!.className, failed.querySelector("a")!.className])
+        .toEqual([buttonClass("primary"), buttonClass("secondary")]);
+    }
   });
 
   it("keeps the shared empty view's h3 everywhere else", () => {
