@@ -35,6 +35,13 @@ Finding 5 of the reader audit (SLN-727). In Search in book:
   the bottom bar stays hidden, and the speech player and the selection
   toolbar stand above the results bar instead of the bottom bar.
 
+- From #332's review: in an EPUB, landing on a hit focuses the passage in
+  the book, so a second Enter on the field (or on Next in the results bar)
+  did nothing. `pick` gives focus back to where the step came from; Firefox
+  needs the window focused first, as it ignores focus() on the page while
+  the book's frame holds it. On a phone the panel still closes onto the hit
+  with focus on More.
+
 ## Completion Notes
 
 - Chromium, WebKit and Firefox at 1440, 390 and 320, in the EPUB fixture,
