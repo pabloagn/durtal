@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { besideBook, nextInBook, tabbables } from "@/lib/reader/book-tab";
+import { besideBook, enterBook, entersBook, nextInBook, tabbables } from "@/lib/reader/book-tab";
 
 // happy-dom lays nothing out: every element counts as shown unless marked
 beforeEach(() => {
@@ -85,5 +85,59 @@ describe("besideBook (SLN-810)", () => {
   it("never picks a control inside the book", () => {
     document.querySelectorAll("header, div, footer").forEach((el) => el.remove());
     expect(besideBook(book(), false)).toBeNull();
+  });
+});
+
+describe("entering the book from a bar (SLN-826)", () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <header><button id="back">Back</button><button id="full">Full screen</button></header>
+      <div id="book"><span id="inside" tabindex="0">page</span></div>
+      <button id="prev">Previous page</button><button id="next">Next page</button>
+      <footer><button id="contents">Contents</button></footer>`;
+  });
+  const book = () => document.getElementById("book")!;
+  const el = (id: string) => document.getElementById(id)!;
+
+  it("is the next stop from the top bar's last control, or from the first after the book with Shift", () => {
+    expect(entersBook(book(), el("full"), false)).toBe(true);
+    expect(entersBook(book(), el("prev"), true)).toBe(true);
+  });
+
+  it("is not the next stop from anywhere else", () => {
+    expect(entersBook(book(), el("back"), false)).toBe(false);
+    expect(entersBook(book(), el("full"), true)).toBe(false);
+    expect(entersBook(book(), el("prev"), false)).toBe(false);
+    expect(entersBook(book(), el("contents"), false)).toBe(false);
+    expect(entersBook(book(), el("contents"), true)).toBe(false);
+    expect(entersBook(book(), el("inside"), false)).toBe(false);
+  });
+
+  it("is the next stop when nothing lies between the control and the book", () => {
+    document.body.innerHTML = `<button id="full">Full screen</button><div id="book"></div>`;
+    expect(entersBook(book(), el("full"), false)).toBe(true);
+    expect(entersBook(book(), el("full"), true)).toBe(false);
+  });
+});
+
+describe("enterBook (SLN-826)", () => {
+  const section = (html: string) => {
+    const doc = document.implementation.createHTMLDocument("section");
+    doc.body.innerHTML = html;
+    return doc;
+  };
+
+  it("lands on the screen's first link going forward and its last going back, across the drawn sections", () => {
+    const one = section(`<a id="c1-far" href="#a" data-off>far</a><a id="c1-on" href="#b">on</a>`);
+    const two = section(`<a id="c2-on" href="#c">on</a><a id="c2-far" href="#d" data-off>far</a>`);
+    expect(enterBook([one, two], false, onScreen)?.id).toBe("c1-on");
+    expect(enterBook([one, two], true, onScreen)?.id).toBe("c2-on");
+  });
+
+  it("gives null when every link is in another chapter or further on", () => {
+    const one = section(`<a id="far" href="#a" data-off>far</a>`);
+    expect(enterBook([one], false, onScreen)).toBeNull();
+    expect(enterBook([one], true, onScreen)).toBeNull();
+    expect(enterBook([], false, onScreen)).toBeNull();
   });
 });

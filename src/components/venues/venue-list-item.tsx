@@ -1,7 +1,7 @@
 "use client";
 
 import { VENUE_TYPE_LABELS } from "@/lib/catalogue/venues";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
 import Link from "next/link";
 import { Star, MapPin, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -39,11 +39,40 @@ export function VenueListItem({
 }: VenueListItemProps) {
   const location = formattedAddress ?? placeName ?? null;
 
+  const meta = (
+    <>
+      <Badge variant="muted">{VENUE_TYPE_LABELS[type]}</Badge>
+      {archived && <Badge variant="muted">Archived</Badge>}
+      {personalRating != null && personalRating > 0 && (
+        // On the kind's cap height: the line is set in the badge's mono type,
+        // as plain centring sits 0.75px off it in Chromium
+        <CapAligned height={10} className="font-mono text-micro">
+          <span className="flex gap-0.5" aria-label={`Rated ${personalRating} of 5`}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star
+                key={i}
+                className={`h-2.5 w-2.5 ${
+                  i < personalRating
+                    ? "fill-accent-gold text-accent-gold"
+                    : "fill-transparent text-fg-muted/20"
+                }`}
+                strokeWidth={1.5}
+              />
+            ))}
+          </span>
+        </CapAligned>
+      )}
+    </>
+  );
+
+  // The name and address wrap in full. Under 640px the kind and rating go
+  // under them, so the name has the row's width; from 640px they sit at the
+  // row's end. The star and the website link sit on the name's first line.
   return (
-    <div className="group relative flex items-center gap-3 rounded-sm px-3 py-2 transition-colors hover:bg-bg-secondary">
+    <div className="group relative flex items-start gap-3 rounded-sm px-3 py-2 transition-colors hover:bg-bg-secondary">
       <Link
         href={`/places/${slug}`}
-        className="flex min-w-0 flex-1 items-center gap-3"
+        className="flex min-w-0 flex-1 items-start gap-3"
       >
         {/* Small thumbnail */}
         <div className="relative h-10 w-14 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
@@ -64,56 +93,42 @@ export function VenueListItem({
 
         {/* Info */}
         <div className="min-w-0 flex-1">
-          <div className="type-item-title flex items-start gap-2">
-            <h3 className="type-item-title truncate group-hover:text-accent-primary">
-              {name}
-            </h3>
-          </div>
+          <h3 className="type-item-title [overflow-wrap:anywhere] group-hover:text-accent-primary">
+            {name}
+          </h3>
           {location && (
-            <p className="flex items-start gap-1 truncate text-xs text-fg-secondary">
+            <p className="flex items-start gap-1 text-xs text-fg-secondary [overflow-wrap:anywhere]">
               <CapAligned height={10}><MapPin className="h-2.5 w-2.5 shrink-0" strokeWidth={1.5} /></CapAligned>
-              {location}
+              <span className="min-w-0">{location}</span>
             </p>
           )}
+          <div className="mt-1.5 flex flex-wrap items-center gap-3 sm:hidden">{meta}</div>
         </div>
 
         {/* Meta */}
-        <div className="flex flex-shrink-0 items-center gap-3">
-          <Badge variant="muted">{VENUE_TYPE_LABELS[type]}</Badge>
-          {archived && <Badge variant="muted">Archived</Badge>}
-
-          {personalRating != null && personalRating > 0 && (
-            <div className="flex items-center gap-0.5">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star
-                  key={i}
-                  className={`h-2.5 w-2.5 ${
-                    i < personalRating
-                      ? "fill-accent-gold text-accent-gold"
-                      : "fill-transparent text-fg-muted/20"
-                  }`}
-                  strokeWidth={1.5}
-                />
-              ))}
-            </div>
-          )}        </div>
+        <div className="type-item-title hidden flex-shrink-0 items-center gap-3 sm:flex">
+          <span className="flex h-[1lh] items-center gap-3 font-sans">{meta}</span>
+        </div>
       </Link>
-      <FavouriteToggle
-        favourite={isFavorite}
-        target={{ entity: "venue", id }}
-        name={name}
-      />
-          {website && (
-            <a
-              href={website}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-fg-muted transition-colors hover:text-accent-primary"
-              aria-label={`Visit ${name} website`}
-            >
-              <CapAligned height={14} className="font-serif text-xs"><ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} /></CapAligned>
-            </a>
-          )}
+      <CapAlignedControls height={32} coarseHeight={44} className="type-item-title">
+        <FavouriteToggle
+          favourite={isFavorite}
+          target={{ entity: "venue", id }}
+          name={name}
+        />
+        {website && (
+          <a
+            href={website}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="action-control flex icon-hit text-fg-secondary transition-colors hover:text-accent-primary"
+            aria-label={`Visit ${name} website`}
+            data-tooltip="Website"
+          >
+            <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
+          </a>
+        )}
+      </CapAlignedControls>
     </div>
   );
 }

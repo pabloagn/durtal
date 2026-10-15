@@ -36,7 +36,7 @@ vi.mock("@/lib/s3/cleanup", async (importOriginal) => ({
 // This search request has no reader device cookie.
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 import { quickSearch } from "@/lib/actions/quick-search";
-import { createFilm, getFilmCount, getFilmFilterOptions, getFilms } from "@/lib/actions/films";
+import { createFilm, getFilmCount, getFilmFilterOptions, getFilmPage, getFilms } from "@/lib/actions/films";
 import { createPerfume } from "@/lib/actions/perfumes";
 import { createPerson } from "@/lib/actions/people";
 import { saveOrganization } from "@/lib/actions/organizations";
@@ -174,6 +174,15 @@ describe.skipIf(!url)("search and lists across the collections", () => {
       // The same page twice reads the same
       expect((await getFilms({ ...query, limit: 2, offset: 2 })).map((f) => f.id)).toEqual(pages.slice(2, 4));
       expect(await getFilmCount({ directorIds: [carpenter] })).toBe(6);
+      // The film home reads the count with the page: the same pages and count (SLN-790)
+      for (let offset = 0; offset < 6; offset += 2) {
+        const page = await getFilmPage({ ...query, limit: 2, offset });
+        expect(page.total).toBe(6);
+        expect(page.films.map((f) => f.id)).toEqual(pages.slice(offset, offset + 2));
+      }
+      // A page past the end: empty, with the count to redirect by, even past the list's widest offset
+      expect(await getFilmPage({ ...query, limit: 2, offset: 6 })).toEqual({ total: 6, films: [] });
+      expect(await getFilmPage({ ...query, limit: 48, offset: 2_000_000 })).toEqual({ total: 6, films: [] });
     }
     expect(await getFilmCount()).toBe(7);
     expect((await getFilmFilterOptions()).directors.map((d) => d.name)).toEqual(["John Carpenter"]);

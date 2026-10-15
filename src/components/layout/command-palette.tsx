@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import {
   Building2,
-  Library,
   MapPin,
   Search,
   Keyboard,
@@ -95,7 +94,6 @@ const ACTION_ITEMS: PaletteItem[] = [
     keys: ["a", a.key],
     then: true,
   })),
-  { label: "Import books", href: "/library/import", icon: Library },
   { label: "Keyboard shortcuts", run: "help", icon: Keyboard, keys: SHORTCUTS.help },
 ];
 

@@ -8,6 +8,7 @@ import { venues, places } from "@/lib/db/schema";
 import { eq, and, asc, inArray, count, sql, isNull, isNotNull } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { slugify } from "@/lib/utils/slugify";
+import { naturalOrder } from "./utils/natural-order";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { createVenueSchema, updateVenueSchema, venueSearchSchema, type CreateVenueInput } from "@/lib/validations/venues";
 import { assertSql, resultRows } from "@/lib/harmonization/store";
@@ -43,7 +44,12 @@ export async function getVenues(input: SearchInput = {}) {
   const direction = opts.order ?? (opts.sort === "name" ? "asc" : "desc");
   return db.query.venues.findMany({
     where: venueWhere(opts),
-    orderBy: [direction === "asc" ? sql`${column} asc nulls last` : sql`${column} desc nulls last`, asc(venues.id)],
+    orderBy: [
+      // Names sort with their numbers in order: "Galerie 2" before "Galerie 10"
+      ...(opts.sort === "name" ? [direction === "asc" ? sql`${naturalOrder(venues.name)} asc` : sql`${naturalOrder(venues.name)} desc`] : []),
+      direction === "asc" ? sql`${column} asc nulls last` : sql`${column} desc nulls last`,
+      asc(venues.id),
+    ],
     limit: opts.limit, offset: opts.offset,
     with: { place: { columns: { id: true, name: true, fullName: true } } },
   });

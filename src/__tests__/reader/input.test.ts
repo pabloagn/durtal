@@ -263,6 +263,26 @@ describe("keys", () => {
     key("Tab", {}, section.body);
     expect(bookTab).toHaveBeenCalledTimes(1);
   });
+
+  it("hands Tab on a reader control to intoBook, and Tab in a book's page only to bookTab (SLN-826)", () => {
+    input.destroy();
+    const bookTab = vi.fn<(event: KeyboardEvent) => void>();
+    const intoBook = vi.fn<(event: KeyboardEvent) => void>();
+    input = createReaderInput({ actions, isBlocked: () => blocked, bookTab, intoBook });
+    input.attach(document);
+    const section = document.implementation.createHTMLDocument("section");
+    input.attach(section);
+    key("Tab", { shiftKey: true });
+    expect(intoBook).toHaveBeenCalledTimes(1);
+    expect(intoBook.mock.calls[0][0].shiftKey).toBe(true);
+    key("Tab", {}, section.body);
+    expect(intoBook).toHaveBeenCalledTimes(1);
+    expect(bookTab).toHaveBeenCalledTimes(1);
+    blocked = true;
+    key("Tab");
+    expect(intoBook).toHaveBeenCalledTimes(1);
+    blocked = false;
+  });
 });
 
 describe("isEditableTarget", () => {

@@ -1,4 +1,17 @@
 /**
+ * The letter a blank cover shows: the title's first letter or digit,
+ * uppercased, after any leading quote marks and punctuation ("«Quoted»"
+ * shows Q, "études" É, "1984" 1). A title with none shows no letter. An
+ * accent written as a separate mark stays on its letter.
+ */
+export function coverLetter(title: string) {
+  const first = title.normalize("NFC").match(/[\p{L}\p{Nd}]\p{M}*/u)?.[0] ?? "";
+  const upper = first.toUpperCase();
+  // "ß" uppercases to "SS": a letter that would become two stays as written
+  return Array.from(upper).length > Array.from(first).length ? first : upper;
+}
+
+/**
  * A cover's blank when the book (or film, perfume, painting) has none: the
  * title's first letter in the serif, faint, the same on every page (docs/03,
  * Cards without a photo). Decoration: the title is always in the text beside
@@ -15,7 +28,7 @@ export function CoverLetter({ title }: { title: string }) {
       data-decorative=""
       className="font-serif text-xs leading-none text-fg-muted/30 [text-box:trim-both_cap_alphabetic] @[56px]/cover:text-lg @[120px]/cover:text-3xl"
     >
-      {Array.from(title.trim())[0] ?? ""}
+      {coverLetter(title)}
     </span>
   );
 }
