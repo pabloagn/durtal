@@ -13,7 +13,7 @@ export default function FilmNotFound() {
       title="Film not found"
       description="It may have been deleted, or the address may be mistyped."
       action={
-        <Link href="/films" className={buttonClass("ghost")}>
+        <Link href="/films" className={buttonClass("secondary")}>
           Back to films
         </Link>
       }

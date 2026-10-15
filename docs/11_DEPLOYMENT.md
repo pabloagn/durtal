@@ -169,6 +169,8 @@ services:
       - AWS_REGION=${DURTAL_AWS_REGION}
       - S3_BUCKET=${DURTAL_S3_BUCKET}
       - GOOGLE_BOOKS_API_KEY=${DURTAL_GOOGLE_BOOKS_API_KEY}
+      # The public name: any other name answers 421 (docs/13)
+      - DURTAL_ALLOWED_HOSTS=${SUBDOMAIN_DURTAL}.${DOMAIN}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.durtal.rule=Host(`${SUBDOMAIN_DURTAL}.${DOMAIN}`)"

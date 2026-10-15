@@ -13,7 +13,7 @@ export default function OrganizationNotFound() {
       title="Organization not found"
       description="It may have been deleted or merged, or the address may be mistyped."
       action={
-        <Link href="/organizations" className={buttonClass("ghost")}>
+        <Link href="/organizations" className={buttonClass("secondary")}>
           Back to organizations
         </Link>
       }

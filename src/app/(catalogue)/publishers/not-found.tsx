@@ -13,7 +13,7 @@ export default function PublisherNotFound() {
       title="Publisher not found"
       description="It may have been merged or deleted, or the address may be mistyped."
       action={
-        <Link href="/publishers" className={buttonClass("ghost")}>
+        <Link href="/publishers" className={buttonClass("secondary")}>
           Back to publishers
         </Link>
       }

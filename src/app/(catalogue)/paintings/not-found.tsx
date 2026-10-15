@@ -13,7 +13,7 @@ export default function PaintingNotFound() {
       title="Painting not found"
       description="It may have been deleted, or the address may be mistyped."
       action={
-        <Link href="/paintings" className={buttonClass("ghost")}>
+        <Link href="/paintings" className={buttonClass("secondary")}>
           Back to paintings
         </Link>
       }

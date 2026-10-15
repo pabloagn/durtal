@@ -13,7 +13,7 @@ export default function PerfumeNotFound() {
       title="Perfume not found"
       description="It may have been deleted, or the address may be mistyped."
       action={
-        <Link href="/perfumes" className={buttonClass("ghost")}>
+        <Link href="/perfumes" className={buttonClass("secondary")}>
           Back to perfumes
         </Link>
       }

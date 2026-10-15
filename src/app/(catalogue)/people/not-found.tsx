@@ -13,7 +13,7 @@ export default function PersonNotFound() {
       title="Person not found"
       description="They may have been merged or deleted, or the address may be mistyped."
       action={
-        <Link href="/people" className={buttonClass("ghost")}>
+        <Link href="/people" className={buttonClass("secondary")}>
           Back to people
         </Link>
       }
