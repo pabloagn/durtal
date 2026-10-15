@@ -33,7 +33,7 @@ export function ChooseBookFields({ row, onPrepare, disabled, issues = [], startW
   const [locationId, setLocation] = useState("");
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const generation = useRef(0);
+  const generation = useRef(0), searchForm = useRef<HTMLFormElement>(null);
   async function search(text = query) {
     if (!text.trim()) return;
     const current = ++generation.current;
@@ -57,7 +57,7 @@ export function ChooseBookFields({ row, onPrepare, disabled, issues = [], startW
     setSearching(false);
   }
   return <div className="space-y-4">
-    <form className="flex items-end gap-2" onSubmit={(event) => { event.preventDefault(); void search(); }}>
+    <form ref={searchForm} className="flex items-end gap-2" onSubmit={(event) => { event.preventDefault(); void search(); }}>
       {/* Stays on while the first search runs: a disabled field drops the focus the dialog gives it, and typing starts a new search */}
       <div className="min-w-0 flex-1"><Input label="Find a book" value={query} maxLength={200} disabled={disabled}
         error={issues.find((issue) => issue.field === "workId")?.message}
@@ -79,6 +79,8 @@ export function ChooseBookFields({ row, onPrepare, disabled, issues = [], startW
         {/* Back to the books found, searching first when it opened on a book */}
         <button type="button" className="text-command text-xs" disabled={disabled} onClick={() => {
           generation.current++; setOptions(null); setSearching(false); if (searched === null) void search();
+          // The button goes with the book: focus stays in the dialog, on the search
+          searchForm.current?.querySelector("input")?.focus();
         }}>Choose another book</button>
       </p>
       <EditionChoiceFields options={options} row={row} choice={choice} onChange={setChoice} disabled={disabled} issues={issues} />

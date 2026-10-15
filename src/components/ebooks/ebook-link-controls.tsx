@@ -74,10 +74,15 @@ export function EbookLinkControls({ row }: { row: ReviewQueueRow }) {
   // "Link it back": choose the book it had (SLN-684)
   const unlinkedNow = row.state === "pending" || row.state === "standalone";
   useEffect(() => {
-    const next = unlinkedNow && row.stamp ? chooseBookNext.take(row.id) : false;
-    if (next) {
-      edit(); setStartWorkId(next.workId); setAction("choose");
+    function takeNext() {
+      const next = unlinkedNow && row.stamp ? chooseBookNext.take(row.id) : false;
+      if (next) {
+        edit(); setStartWorkId(next.workId); setAction("choose");
+      }
     }
+    takeNext();
+    // Link it back pressed on this eBook's own page, already showing it unlinked
+    return chooseBookNext.subscribe(takeNext);
     // Once, when the refreshed page first shows it unlinked
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [row.id, unlinkedNow, !!row.stamp]);

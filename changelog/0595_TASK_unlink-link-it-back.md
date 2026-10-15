@@ -48,3 +48,9 @@ presses it), and its preview names what it removes.
   unknown), `review-dialogs` (Choose a book opens on a book and goes back to
   a search), `review-queue` (the target's book).
 - No migration, no new package.
+- Review fix: on the eBook's own page, Link it back opened nothing (its link
+  controls were already showing it unlinked and never took the choice, which
+  then popped up later after leaving and coming back). `chooseBookNext` now
+  tells subscribers when a choice is set, and `EbookLinkControls` listens
+  while mounted, so Choose a book opens at once on the old book. "Choose
+  another book" keeps focus in the dialog, on the search field.

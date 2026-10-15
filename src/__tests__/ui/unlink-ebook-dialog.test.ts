@@ -147,3 +147,17 @@ describe("actual automatic Undo and fresh Unlink dialog", () => {
     expect(removedWords({ copies: 0, editions: 0, books: 0, authors: 0, series: 0 })).toBeNull();
   });
 });
+
+// Link it back on the eBook's own page: its controls already show it
+// unlinked and are not mounted again, so they hear of the choice (#303 review)
+describe("chooseBookNext listeners", () => {
+  it("tells a page already showing the eBook, once, and stops after unsubscribe", () => {
+    const heard = vi.fn(() => chooseBookNext.take(ebookId));
+    const stop = chooseBookNext.subscribe(heard);
+    chooseBookNext.set(ebookId, "88888888-8888-4888-8888-888888888888");
+    expect(heard).toHaveBeenCalledTimes(1); expect(heard).toHaveReturnedWith({ workId: "88888888-8888-4888-8888-888888888888" });
+    expect(chooseBookNext.take(ebookId)).toBe(false);
+    stop(); chooseBookNext.set(ebookId); expect(heard).toHaveBeenCalledTimes(1);
+    expect(chooseBookNext.take(ebookId)).toEqual({ workId: null });
+  });
+});
