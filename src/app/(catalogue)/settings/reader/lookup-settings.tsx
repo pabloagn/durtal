@@ -138,7 +138,10 @@ export function LookupSettingsGroup() {
             <Trash2 className="h-4 w-4" strokeWidth={1.5} /></button>
         </CapAlignedControls>
       </div>)}
-      <div className="flex flex-wrap gap-3 px-5 py-4">
+      {/* The last row: the source buttons, then the save status under them only while it says something
+          (the live region stays for screen readers, and a row of its own would end the panel in an empty band) */}
+      <div className="px-5 py-4">
+      <div className="flex flex-wrap gap-3">
         <Button id="lookup-source-add" disabled={draft.sources.length >= 50 || editing !== null} data-tooltip={draft.sources.length >= 50 ? "Use at most 50 sources" : undefined}
           onClick={() => {
             const key = crypto.randomUUID(); before.current = current.current;
@@ -149,9 +152,10 @@ export function LookupSettingsGroup() {
           queued.current = { value: null, revision: revision.current }; void drain();
         }}><RotateCcw aria-hidden strokeWidth={1.5} />Restore the default sources</Button>
       </div>
-      <div className="flex flex-wrap items-start gap-3 px-5 py-3">
+      <div className={saving || notice ? "mt-3 flex flex-wrap items-start gap-3" : "sr-only"}>
         <p role="status" className="text-xs text-fg-secondary">{saving ? "Saving" : notice}</p>
         {notice && notice !== "Saved" && <Button variant="ghost" size="sm" onClick={() => save()}><RefreshCw aria-hidden strokeWidth={1.5} />Try saving again</Button>}
+      </div>
       </div>
     </>}
   </SettingsGroup>{question}</div>;

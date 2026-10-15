@@ -442,6 +442,14 @@ The e-book reader (`/reader/[ebookId]`, SLN-492/499; docs/04, Reader) opens with
 - **Content viewer (SLN-503).** Images and tables use a native modal with a deep scrim, named 16px controls and 44px coarse targets. Fit contains the full content within 90% of the available viewport; zoom stays between fit and eight times fit. The caption is 14px, at most two lines. Tables keep semantics and publisher rules in an isolated shadow tree; scroll wrappers and View table controls are invisible to CFI.
 - **Errors** are a plain panel in the page: the title, the reason in one sentence, Retry, "Open the PDF instead" for another readable file, and Back. A place that no longer resolves opens at the start with a recovery notice in the strip.
 
+### Section rail
+
+A long page of sections (the dashboard) carries its outline as a rail of ticks on the window's right edge, as Notion does (`SectionRail`, `src/components/shared/section-rail.tsx`, SLN-740). One tick per section: the one being read is 16px and `fg-heading`, those already passed `fg-secondary`, those ahead `fg-muted`, all 2px high and 10px apart. A section counts as being read once its top passes 35% of the window; at the foot of the page the last one does.
+
+- Pointing at the rail, or tabbing into it, opens the outline over the ticks: a 224px `glass` panel with the section names in 14px, the current one in `fg-heading` with a 2px mark at its left. A name scrolls to its section (at once with reduced motion) and moves the focus there; each section has `tabIndex={-1}` and a scroll margin.
+- On a touch screen, and on a phone, which has no margin for it: a 44px `glass` button at the bottom right, "2/6 Recent additions", that opens the same list as a menu with the current section checked. It appears from the first section on, so it never covers the page's title.
+- Fewer than three sections draw no rail.
+
 ### Tooltips
 
 One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in the root layout). Never use the native `title` attribute: it shows late, in the system's light style, and never on keyboard focus.

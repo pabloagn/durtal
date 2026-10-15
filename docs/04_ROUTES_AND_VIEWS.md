@@ -30,6 +30,7 @@
 /reading/journal            Every reading, by year of finish, filtered and sorted
 /reading/notes              Notes: every quote and note, searched and filtered
 /reading/stats              Stats: a year, or all time, in numbers and charts
+/statistics                 Statistics: the books on the shelves, in numbers, charts and covers
 /reading/suggestions        Suggestions: what to read next, with reasons
 /reading/year               Year in review: the years with finished books
 /reading/year/[year]        One year's review, made to print
@@ -144,24 +145,53 @@ The root `Shell` component wraps all page content:
 
 ### Dashboard (`/`)
 
-The landing page: each open collection, then what is new and curated across them.
+The library's front page (SLN-739, SLN-741): what is being read, what came in,
+then what is curated, best loved and still hunted. It reads as a magazine's
+front page, not a grid of tiles: one index of counts under the title, then
+sections in a set order, each under a rule, each a tick on the section rail
+(SLN-740, `SectionRail`; see `docs/03_DESIGN_LANGUAGE.md`, Section rail).
 
-**One block per open collection** (Books first): a heading with its icon and
-"View all" to its home, its counts and its add actions.
-- Books: Books (book works only), Editions, Instances, Authors; Add book,
-  Import books.
-- Perfumes, Films, Paintings: the record count and the people with the
-  collection's first creator role (perfumers, directors, painters); Add perfume,
-  film or painting.
+**Header**: "Dashboard", today's date in the library's time zone, Add book and
+Import books. The other collections' add actions are in the New menu (N, or A
+then the collection's key), the command palette and their homes.
 
-**Recent additions**: the 8 newest records across the open collections, newest
-first. A book shows as its book card; other records as a `DomainTileCard`.
+**Index**: each open collection's name (linked to its home) over its figures.
+Books: Books (book works only), Editions, Instances, People. Perfumes, Films,
+Paintings: the record count and the people with the collection's first creator
+role (perfumers, directors, painters). While the page loads, the index is drawn
+with its figures held (the loading screen), and the sections arrive with it.
 
-**Collections**: the first 4 collections in their curated order, with "View all".
+**Sections**, in this order; each is left out when empty, and the rail lists
+only those drawn:
 
-**Currently reading** (SLN-448), after the Books block: up to three open readings, reading before paused, as light tiles (cover, title, progress bar, position, a Log button that opens Log progress, and the estimate as server text with a client info button, SLN-451). **Recently finished**: up to four covers with the read's rating and the finish date. Each is left out when empty. Both are one client component with small props (`DashboardReading`, `src/components/reading/reading-tiles.tsx`), and Recent people is too (`RecentPeopleGrid`), so "/" stays within its 300 KB budget. With a goal this year (SLN-455), one line under the tiles: "12 of 30 books this year · on pace" (alone under a "Reading" heading when nothing is being read), redrawn with the browser's reading day.
+1. **Reading** (`#reading`): up to three open readings, reading before paused,
+   each with its cover, title, author, progress, position, the estimate
+   (SLN-451), Log and Open eBook; this year's goal line (SLN-455); then
+   **Recently finished**, up to four covers with the read's rating and finish
+   date. One client component with small props (`DashboardReading`,
+   `src/components/reading/reading-tiles.tsx`), as Recent people is
+   (`RecentPeopleGrid`), so "/" stays within its 300 KB budget.
+2. **Recent additions** (`#recent`): the 8 newest records across the open
+   collections, newest first. A book shows as its book card; other records as
+   a `DomainTileCard`.
+3. **Statistics**: the place for SLN-742's section.
+4. **Collections** (`#collections`): the first 4 in their curated order.
+5. **Highest rated** (`#highest-rated`), **Wanted** (`#wanted`) and **Recent
+   people** (`#people`): book sections.
 
-**Highest rated**, **Recent authors** and **Wanted**: book sections.
+**Statistics** (SLN-742): pages on the shelves, languages, authors' countries and the share read, then when the books were written (years or decades), with "View all" to `/statistics`. Its body (`DashboardStatistics`, `src/components/statistics/dashboard-statistics.tsx`) loads in its own Suspense boundary; the dashboard draws the section and its heading.
+
+### Statistics (`/statistics`)
+
+The books he owns (a copy that is not deaccessioned, as the library counts them), after Letterboxd's member stats (SLN-742), from `src/lib/statistics/library.ts`: aggregate queries only, computed per request and never cached. Each section is left out without data; with no owned book the page is one empty state. `loading.tsx` draws the header, the cover strip and the number tiles at once.
+
+- A strip of the five best-rated covers, then **In numbers**: books, editions, copies, pages, authors, publishers, languages (original) and countries (the writers' nationalities).
+- **When they were written**: a timeline of thin bars by the work's original year (`WrittenChart`), Years or Decades. Years start at the decade of the earliest 2% and go back at most 200 years; Decades at most 60, with older books in one "Before …" bar (`src/lib/statistics/charts.ts`).
+- **Years with the most books**: the three busiest years with five covers each, the year linked to the library filtered to it.
+- **Languages, countries and categories**, **Authors and publishers**, **Copies** (formats, places, copies by the year they came): ranked lists (`RankList`, toned sage, blue or gold) linking to the library filtered, the person or the house.
+- **Breakdown**: rings for read, rated, in translation (editions) and on paper (copies) (`SplitRing`); **Ratings**: books by half star.
+- **At the edges**: the oldest, newest, longest and shortest book, each with its cover.
+- **Reading**: all-time totals from the reading stats, linking to `/reading/stats`; **The other collections**: their records and creators.
 
 ---
 
@@ -744,8 +774,8 @@ image or the first four members' images.
 
 **Collection page** (`/collections/[id]`): one ordered list of member cards
 (`MemberCard`): an edition (cover, publisher and year, ISBN; "also collected
-as the book" when the whole book is in too), a whole book ("The book, no
-edition chosen"), a film (poster or title card, directors, year and runtime),
+as the book" when the whole book is in too), a whole book (one line: "Any
+edition", then its reading), a film (poster or title card, directors, year and runtime),
 a perfume (bottle, house, concentrations) or a painting (picture, painters,
 date). Each card moves earlier or later in the one order and can be removed;
 the header counts books, editions, films, perfumes and paintings.

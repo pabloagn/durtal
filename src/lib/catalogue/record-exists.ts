@@ -3,11 +3,13 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import {
   authors,
+  collections,
   ebooks,
   filmDetails,
   paintingDetails,
   perfumeDetails,
   publishingHouses,
+  series,
   works,
 } from "@/lib/db/schema";
 import { publisherCondition } from "@/lib/catalogue/publisher-boundary";
@@ -18,7 +20,8 @@ import { isUuid } from "@/lib/utils/uuid";
  * page's loading screen starts the response: a missing record then answers
  * 404, not a 200 with "not found" in it. Each check matches the page's own
  * lookup (`getFilm`, `getPerfume`, `getPainting`, `getOrganization`,
- * `getPublisher`, `getAuthorBySlug`, `getEbookDetail`) in one small query.
+ * `getPublisher`, `getAuthorBySlug`, `getEbookDetail`, `getCollection`,
+ * `getSeriesDetail`) in one small query.
  * An address that is not valid text, or longer than the lookup accepts, does
  * not exist.
  */
@@ -104,5 +107,19 @@ export async function authorExists(slug: string): Promise<boolean> {
 export async function ebookExists(id: string): Promise<boolean> {
   if (!isUuid(id)) return false;
   const [row] = await db.select({ id: ebooks.id }).from(ebooks).where(eq(ebooks.id, id.toLowerCase())).limit(1);
+  return !!row;
+}
+
+/** A collection by id, as `getCollection` finds it */
+export async function collectionExists(id: string): Promise<boolean> {
+  if (!z.uuid().safeParse(id).success) return false;
+  const [row] = await db.select({ id: collections.id }).from(collections).where(eq(collections.id, id)).limit(1);
+  return !!row;
+}
+
+/** A series by id, as `getSeriesDetail` finds it */
+export async function seriesExists(id: string): Promise<boolean> {
+  if (!z.uuid().safeParse(id).success) return false;
+  const [row] = await db.select({ id: series.id }).from(series).where(eq(series.id, id)).limit(1);
   return !!row;
 }

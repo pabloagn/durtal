@@ -11,3 +11,12 @@ it("wraps an author's name in the book page's byline, however long its one word"
   const byline = page.slice(page.indexOf("{primaryAuthors.map((author, i) => ("), page.indexOf("{/* Year and rating."));
   expect(byline).toContain('<span key={author.id} className="min-w-0 text-sm text-fg-secondary [overflow-wrap:anywhere]">');
 });
+
+// Review of #355: a wrapped byline started its new line with the comma
+// (", Hugo von Hofmannsthal")
+it("keeps each comma with the name before it", () => {
+  const byline = page.slice(page.indexOf("{primaryAuthors.map((author, i) => ("), page.indexOf("{/* Year and rating."));
+  expect(byline).toContain('{i < primaryAuthors.length - 1 && ","}');
+  expect(byline).not.toContain("{i > 0 &&");
+  expect(byline.indexOf('","}')).toBeGreaterThan(byline.indexOf("author.name"));
+});
