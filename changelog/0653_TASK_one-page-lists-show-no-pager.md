@@ -29,7 +29,10 @@ journal and notes.
     (more items than the smallest size). The arrows, "1 / 1" and the jump
     go.
   - Below the list nothing renders. Every list that pages on its own states
-    its count above it (journal, notes, highlights).
+    its count above it (journal, notes, highlights). The size alone stays
+    there while a smaller page would split the list: it is the size's only
+    place on a phone and on the journal, notes and highlights, so a size
+    chosen there can be changed back (review).
   - With two or more pages nothing changes.
 - Test: `src/__tests__/ui/pagination-one-page.test.ts`.
 

@@ -60,6 +60,16 @@ describe("Pagination with one page", () => {
     expect(render({ compact: true, total: 25 }).size).not.toBeNull();
   });
 
+  // Above the list a phone hides the size, and the journal, notes and
+  // highlights page with this pager alone: a size of 96 chosen for 55 items
+  // could not be changed back (review of #350)
+  it("keeps the size alone below the list while a smaller page would split it", () => {
+    const below = render({ perPage: 96, total: 55 });
+    expect(below.size).not.toBeNull();
+    expect(below.links).toEqual([]);
+    expect(below.text).not.toContain("of 55");
+  });
+
   it("keeps the list's action", () => {
     const above = render({ compact: true, action: createElement("button", { type: "button" }, "Select") });
     expect(above.links).toEqual(["Select"]);

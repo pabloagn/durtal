@@ -191,9 +191,13 @@ export function Pagination({
   // numbers or "Go to page". Above the list the count stays (with the size,
   // which still splits a list longer than the smallest page, and the list's
   // action); below it nothing repeats, since every list that pages alone
-  // states its own count above it (journal, notes, highlights)
+  // states its own count above it (journal, notes, highlights). Below it the
+  // size stays while a smaller page would split the list: it is the size's
+  // only place on a phone, and on a list that pages alone, so a size chosen
+  // there can always be changed back
   const onePage = totalPages === 1;
-  if (onePage && !compact && !action) return null;
+  const splits = sizes.length > 1 && total > Math.min(...sizes);
+  if (onePage && !compact && !action && !splits) return null;
 
   return (
     <nav
@@ -202,13 +206,13 @@ export function Pagination({
       className={`my-4 flex scroll-mt-4 flex-wrap items-center justify-between gap-3 font-mono tabular-nums ${compact ? "max-sm:justify-start max-sm:gap-2" : ""}`}
     >
       {/* Above the list on a phone "1–48 of 775": the words stay for screen readers */}
-      <p className="text-xs text-fg-secondary">
+      {(compact || !onePage) && <p className="text-xs text-fg-secondary">
         <span className={wordsClass}>Showing </span>
         {total ? ((current - 1) * perPage + 1).toLocaleString("en-US") : 0}–
         {Math.min(current * perPage, total).toLocaleString("en-US")} of{" "}
         {total.toLocaleString("en-US")}
         <span className={wordsClass}> {noun}</span>
-      </p>
+      </p>}
       {/* Tighter on a phone above the list, so a 17-page count, its arrows
           and Select share one row at 390 */}
       {!onePage && <div className={`flex flex-wrap items-center gap-2 ${compact ? "max-sm:gap-1" : ""}`}>
@@ -283,7 +287,7 @@ export function Pagination({
           </span>
         )}
       </div>}
-      {sizes.length > 1 && (!onePage || total > Math.min(...sizes)) && (
+      {sizes.length > 1 && (!onePage || splits) && (
         // Above the list on a phone the size is left to the controls below it
         <label
           className={`flex items-center gap-2 text-xs text-fg-secondary ${compact ? "max-sm:hidden" : ""}`}
