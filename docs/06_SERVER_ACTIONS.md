@@ -655,7 +655,7 @@ Not an action: what the suggestions page, the hub, the book page and the API rea
 
 ## Reading stats (`src/lib/reading/stats.ts`, SLN-456)
 
-Server functions for `/reading/stats`, the Year in review and On this day: not server actions (no page calls them from the browser), and never cached. Each takes a year, or `null` for all time, and returns plain numbers (every numeric column and average cast to `float8`), from a handful of aggregate queries, never one per book. The rules every section follows:
+Server functions for `/reading/stats`, the Year in review and On this day: not server actions (no page calls them from the browser), and never cached. Each takes a year, or `null` for all time, and returns plain numbers (every numeric column and average cast to `float8`), from a handful of aggregate queries, never one per book. Their reads go through `batchedRows` (`src/lib/db/read-batch.ts`): the reads one `Promise.all` starts go to Neon as one request (`db.batch`), so the stats page costs a round trip per wave, not one per query. The rules every section follows:
 - **Pages** come only from `countedPagesSql`, filtered by its day and precision, summed, then rounded. An audiobook without a page count counts none, and each section that shows pages says how many it leaves out.
 - **Hours and reading days** come from ended sessions; the running timer never counts. A reading day has an ended session (by `read_on`) or a finish at day precision.
 - **Ratings** are the read's (`readingRatingSql`) everywhere but the recommenders, which use taste evidence (`tasteRatingSql`). A rating on a book with no finished read appears nowhere.
@@ -666,7 +666,7 @@ Server functions for `/reading/stats`, the Year in review and On this day: not s
 The stats page's sections, one function each. Shelf time counts a book when its first reading's start has day or month precision and is on or after the earliest acquisition date of its copies that are not deaccessioned; the others are counted for the footnote. Formats count per session, so a session in an audiobook edition of a print reading is audio; a finished reading without sessions counts under its own format. Insights (`src/lib/reading/insights.ts`) speak only with at least 5 books in each group and a difference of half a star or 20%.
 
 ### `unreadPile(today)`
-Always all time: the owned books whose reading state is unread (the library's `reading=unread&holding=owned`, same count), their pages (the edition of the first copy that is not deaccessioned, else the largest edition), those without a page count, the pages a year over the last three years, the years the pile would take at that pace, and the books with a copy at hand per home (`atHandCopySql` for each of `homeOptions`).
+Always all time: the owned books whose reading state is unread (the library's `reading=unread&holding=owned`, same count), their pages (the edition of the first copy that is not deaccessioned, else the largest edition), those without a page count, the pages a year over the last three years, the years the pile would take at that pace, and the books with a copy at hand per home (`atHandCopySql` for each active physical location, the homes `homeOptions` offers, by name; one query, so all three reads go out at once).
 
 ### `statsYears()` / `finishedYears()`
 The years the stats page offers (any reading or session with a known date), and the years with finished books with their counts (the Year in review list).
