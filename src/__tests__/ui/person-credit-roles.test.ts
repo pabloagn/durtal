@@ -31,6 +31,7 @@ vi.mock("@/components/paintings/painting-card", () => stub("PaintingCard"));
 vi.mock("@/components/books/book-card", () => stub("BookCard"));
 vi.mock("../../app/(catalogue)/people/[slug]/author-detail-header", () => stub("AuthorDetailHeader"));
 vi.mock("@/components/activity/activity-timeline", () => stub("ActivityTimeline"));
+// The page starts the gallery's reads early (#393)
 vi.mock("@/components/shared/gallery-section", () => ({ ...stub("GallerySection"), preloadGallery: () => {} }));
 vi.mock("@/components/shortcuts/copy-shortcuts", () => stub("CopyShortcuts"));
 vi.mock("@/components/ebooks/ebook-suggestion-line", () => stub("EbookSuggestionLine"));
