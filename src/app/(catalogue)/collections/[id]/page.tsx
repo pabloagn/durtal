@@ -11,7 +11,7 @@ import { cache } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
-import { ArrowLeft, BookOpen } from "lucide-react";
+import { ArrowLeft, BookOpen, FolderOpen } from "lucide-react";
 import { getCollection } from "@/lib/actions/collections";
 import { loadFilmCards } from "@/lib/catalogue/film-store";
 import { loadPerfumeCards } from "@/lib/catalogue/perfume-store";
