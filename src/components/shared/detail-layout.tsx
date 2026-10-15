@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
+import { editTooltipKeys } from "@/lib/shortcuts/shortcuts";
 
 /**
  * The body of a detail page, under its header: the reading column (what the
@@ -88,23 +90,23 @@ export function RecordField({
  * the controls' width with their gap, a title that wraps beside them takes
  * at least one more line than across the row, so wrapping there is never
  * taller; in a wider row a long title can be shorter either way. Each kind
- * keeps the wrapping it had where that was already free, so no header grows.
+ * takes the rule that, measured with long and short titles, grows its
+ * header least.
  */
 export const DETAIL_TITLE_ROW = {
   // The publisher's star, Edit and menu (157px on touch): 16px from the
   // title; under it below a 24rem row
   standard: "gap-x-6 pointer-coarse:gap-x-7.5 @min-[24rem]:flex-nowrap",
-  // The book's set (249px, 297px on touch): 12px from the title; under it
-  // below a 33rem row, 39rem on touch
+  // The book's set (249px, 297px on touch), and the favourite, Edit and
+  // menu of a person, painting, perfume, organization and place: 12px from
+  // the title; under it below a 33rem row, 39rem on touch. For those five
+  // it is never taller than `free`, and a line shorter where a long title
+  // fits beside the set (1024 and up, the painting's column at 1440)
   wide: "gap-x-5 pointer-coarse:gap-x-6.5 not-pointer-coarse:@min-[33rem]:flex-nowrap pointer-coarse:@min-[39rem]:flex-nowrap",
-  // An organization's menu, a place's star and menu (96px on touch): 12px
-  // from the title, beside it from a 14rem row
-  icons: "gap-x-5 pointer-coarse:gap-x-6.5 @min-[14rem]:flex-nowrap",
-  // A film's, painting's or perfume's star and menu: under a title too long
-  // for them below sm, where the header stacks over its image
+  // A film's set: under a title too long for it below sm, where the header
+  // stacks over its poster
   stacked: "gap-x-5 pointer-coarse:gap-x-6.5 sm:flex-nowrap",
-  // A person's and a series' set (to 214px on touch): under any title too
-  // long for them
+  // A series' set: under any title too long for it
   free: "gap-x-5 pointer-coarse:gap-x-6.5",
 };
 
@@ -153,5 +155,39 @@ export function DetailControls({ children }: { children: ReactNode }) {
     <CapAlignedControls height={32} coarseHeight={44} className="type-page-title -ml-2 pointer-coarse:-ml-3.5">
       {children}
     </CapAlignedControls>
+  );
+}
+
+const EDIT_BUTTON =
+  "inline-flex h-8 items-center rounded-sm border border-glass-border px-3 text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:h-11";
+
+/**
+ * A detail header's labelled Edit, between the favourite and the Actions
+ * menu: the same set on every kind (SLN-641). A link to an editor page, or
+ * a button that opens the edit dialog; its tooltip names the item and the
+ * E then letter key that does the same.
+ */
+export function DetailEditButton({
+  label,
+  editKey,
+  href,
+  onClick,
+}: {
+  /** The tooltip: "Edit film" */
+  label: string;
+  /** The letter after E (`EDIT_KEYS`) */
+  editKey: string;
+  href?: string;
+  onClick?: () => void;
+}) {
+  const tooltip = { "data-tooltip": label, "data-tooltip-keys": editTooltipKeys(editKey) };
+  return href ? (
+    <Link href={href} {...tooltip} className={EDIT_BUTTON}>
+      Edit
+    </Link>
+  ) : (
+    <button type="button" onClick={onClick} {...tooltip} className={EDIT_BUTTON}>
+      Edit
+    </button>
   );
 }

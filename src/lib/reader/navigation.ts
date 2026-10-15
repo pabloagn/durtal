@@ -251,7 +251,13 @@ export function createReaderNavigation(options: {
               },
             }
           : { ...relocation, origin: "human" };
-        if (sameLocation(committed.locator, destination.locator)) return;
+        if (sameLocation(committed.locator, destination.locator)) {
+          // The same place in the other flow still tells the reader that
+          // the book now scrolls or turns (SLN-674)
+          if (layout && destination.paginated !== committed.paginated)
+            publish({ ...destination, locator: committed.locator });
+          return;
+        }
         if (layout) history.reanchor(destination.locator);
         else history.turn(destination.locator);
         publish(destination);

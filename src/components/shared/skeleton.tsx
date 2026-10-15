@@ -37,31 +37,44 @@ export function SkeletonLine({ className = "" }: { className?: string }) {
   return <div aria-hidden="true" className={`h-[1lh] rounded-sm bg-bg-secondary motion-safe:animate-pulse ${className}`} />;
 }
 
+// The title line takes two thirds of the row where `DETAIL_TITLE_ROW` stops
+// wrapping, and the whole row below it (SLN-698)
+const TITLE_LINE = {
+  standard: "@min-[24rem]:w-2/3",
+  wide: "not-pointer-coarse:@min-[33rem]:w-2/3 pointer-coarse:@min-[39rem]:w-2/3",
+} satisfies Partial<Record<keyof typeof DETAIL_TITLE_ROW, string>>;
+
 /**
- * A detail page's title row: the title and, beside it, its actions. On a
- * phone a title of any length pushes the actions below it, so the skeleton
- * draws them there. With `wide`, the book's row (`DetailTitleRow
- * controls="wide"`): it wraps where that row does, with no gap under the title.
+ * A detail page's title row: the title and its actions.
+ * - With `row`, the row of a page drawn with `DetailTitleRow controls="…"`
+ *   (`wide` for the book, `standard` for the publisher): it wraps where that
+ *   row does, with no gap under the title. Below the width where that row
+ *   stops wrapping, the title takes the row and the actions go under it, as
+ *   they do for every title but the shortest; from that width on they stay
+ *   beside it.
+ * - Without, the film's and painting's row (`stacked`): a title that fits on
+ *   one line keeps its star and menu beside it at every width, so the
+ *   skeleton draws that. A longer title takes more lines, which no loading
+ *   screen can know.
  */
-export function SkeletonTitleRow({ wide = false }: { wide?: boolean }) {
-  const actions = (
-    <div className="type-page-title flex h-[1lh] shrink-0 items-center">
-      <SkeletonBlock className="h-8 w-40 pointer-coarse:h-11" />
-    </div>
-  );
-  if (wide)
+export function SkeletonTitleRow({ row }: { row?: keyof typeof TITLE_LINE }) {
+  if (row)
     return (
       <div className="@container">
-        <div className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW.wide}`}>
-          <SkeletonLine className="type-page-title w-full min-w-0 sm:w-2/3" />
-          {actions}
+        <div className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW[row]}`}>
+          <SkeletonLine className={`type-page-title w-full min-w-0 ${TITLE_LINE[row]}`} />
+          <div className="type-page-title flex h-[1lh] shrink-0 items-center">
+            <SkeletonBlock className="h-8 w-40 pointer-coarse:h-11" />
+          </div>
         </div>
       </div>
     );
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
-      <SkeletonLine className="type-page-title w-2/3 max-sm:w-full" />
-      {actions}
+    <div className="flex items-start justify-between gap-3">
+      <SkeletonLine className="type-page-title w-1/2 sm:w-2/3" />
+      <div className="type-page-title flex h-[1lh] shrink-0 items-center">
+        <SkeletonBlock className="h-8 w-18 pointer-coarse:w-24" />
+      </div>
     </div>
   );
 }

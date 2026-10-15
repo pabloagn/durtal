@@ -150,7 +150,7 @@ async function PlaceContent({ slug }: { slug: string }) {
         {/* Title block */}
         <div className="min-w-0 flex-1">
           <div className="mb-2">
-            <DetailTitleRow title={venue.name} controls="icons">
+            <DetailTitleRow title={venue.name} controls="wide">
               <VenueActions
                 venue={{
                   id: venue.id,

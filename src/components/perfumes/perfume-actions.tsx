@@ -6,7 +6,7 @@ import { FolderPlus, ImageIcon, Pencil, Trash2 } from "lucide-react";
 import { AddToCollectionDialog, CollectionShortcut } from "@/components/books/add-to-collection-dialog";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
-import { DetailControls } from "@/components/shared/detail-layout";
+import { DetailControls, DetailEditButton } from "@/components/shared/detail-layout";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
@@ -64,6 +64,7 @@ export function PerfumeActions({
       <CollectionShortcut run={() => setOpen("collections")} />
       <DetailControls>
         {children}
+        <DetailEditButton label="Edit perfume" editKey={EDIT_KEYS.work} onClick={() => setOpen("edit")} />
         <EntityActionMenu
           items={[
             { label: "Edit", icon: Pencil, onClick: () => setOpen("edit"), shortcut: editHint(EDIT_KEYS.work) },
