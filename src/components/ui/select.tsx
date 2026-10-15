@@ -245,6 +245,8 @@ export function Select({
             <div
               ref={listRef}
               role="listbox"
+              // Named as its field is
+              aria-label={ariaLabel ?? label}
               className="max-h-56 overflow-y-auto"
             >
               {allOptions.map((opt, idx) => {
