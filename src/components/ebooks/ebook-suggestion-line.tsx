@@ -9,7 +9,7 @@ export function EbookSuggestionLine({ workId, authorId, seriesId, count, classNa
   if (!count) return null;
   const scope = workId ? `work=${workId}` : authorId ? `author=${authorId}` : seriesId ? `series=${seriesId}` : null;
   if (!scope) return null;
-  return <p className={`text-xs text-fg-secondary ${className}`}>{count} {count === 1 ? "eBook suggestion" : "eBook suggestions"} {workId ? "for this book" : authorId ? "for this author’s books" : "for this series"} ·{" "}
+  return <p className={`text-xs text-fg-secondary ${className}`}>{count.toLocaleString("en")} {count === 1 ? "eBook suggestion" : "eBook suggestions"} {workId ? "for this book" : authorId ? "for this author’s books" : "for this series"} ·{" "}
     <Link href={`/ebooks/review?${scope}`} className="text-fg-primary underline underline-offset-2">Review</Link>
   </p>;
 }

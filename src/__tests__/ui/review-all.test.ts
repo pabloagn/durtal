@@ -36,9 +36,9 @@ describe("bounded full-filter review orchestration", () => {
     expect(callbacks.onCommitted).not.toHaveBeenCalled(); await click("Review these 2 eBooks"); await click("Commit first shown");
     expect(host.querySelector("[data-run-size]")?.getAttribute("data-run-size")).toBe("2");
     await click("Close group"); expect(hasButton("Load next 50 filtered eBooks")).toBeUndefined();
-    expect(hasButton("Review these 1 eBooks")).toBeDefined();
+    expect(hasButton("Review this eBook")).toBeDefined();
     // Reopen with the remaining real descriptor; source test bridge skips it.
-    await click("Review these 1 eBooks"); await click("Close group");
+    await click("Review this eBook"); await click("Close group");
     expect(api.readReviewSelectionPageUi).toHaveBeenCalledOnce();
     expect(callbacks.onCommitted.mock.calls[0][2].map((row: ReviewQueueRow) => row.id)).toEqual([ebookId, secondId]);
   });
