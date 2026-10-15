@@ -35,7 +35,8 @@ export function WorkRow({
         {thumbnail}
         <div className="min-w-0 flex-1">
           <p className="type-item-title [overflow-wrap:anywhere]">{title}</p>
-          <FactsRow facts={facts.filter((f): f is string => !!f)} />
+          {/* A one-word name longer than the row breaks rather than push the page sideways */}
+          <FactsRow facts={facts.filter((f): f is string => !!f)} className="[overflow-wrap:anywhere]" />
           {held && <p className="text-xs text-fg-secondary sm:hidden">{held}</p>}
         </div>
         {held && (

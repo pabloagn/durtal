@@ -15,6 +15,8 @@ describe("film, perfume and painting rows", () => {
     expect(row).not.toMatch(/\btruncate\b/);
     expect(row).toContain('<p className="type-item-title [overflow-wrap:anywhere]">{title}</p>');
     expect(row).toContain("<FactsRow facts=");
+    // A one-word maker longer than the row breaks inside the row
+    expect(row).toContain('className="[overflow-wrap:anywhere]" />');
   });
 
   it("keep the star on the title's first line", () => {
@@ -41,6 +43,10 @@ describe("a place's row", () => {
   it("puts the kind and rating under the name below 640px", () => {
     expect(row).toContain('<div className="mt-1.5 flex flex-wrap items-center gap-3 sm:hidden">{meta}</div>');
     expect(row).toContain("hidden flex-shrink-0 items-center gap-3 sm:flex");
+  });
+
+  it("sets the rating on the kind's cap height", () => {
+    expect(row).toContain('<CapAligned height={10} className="font-mono text-micro">');
   });
 
   it("gives the website link a tooltip", () => {

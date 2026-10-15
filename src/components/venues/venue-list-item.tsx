@@ -44,19 +44,23 @@ export function VenueListItem({
       <Badge variant="muted">{VENUE_TYPE_LABELS[type]}</Badge>
       {archived && <Badge variant="muted">Archived</Badge>}
       {personalRating != null && personalRating > 0 && (
-        <span className="flex items-center gap-0.5" aria-label={`Rated ${personalRating} of 5`}>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Star
-              key={i}
-              className={`h-2.5 w-2.5 ${
-                i < personalRating
-                  ? "fill-accent-gold text-accent-gold"
-                  : "fill-transparent text-fg-muted/20"
-              }`}
-              strokeWidth={1.5}
-            />
-          ))}
-        </span>
+        // On the kind's cap height: the line is set in the badge's mono type,
+        // as plain centring sits 0.75px off it in Chromium
+        <CapAligned height={10} className="font-mono text-micro">
+          <span className="flex gap-0.5" aria-label={`Rated ${personalRating} of 5`}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star
+                key={i}
+                className={`h-2.5 w-2.5 ${
+                  i < personalRating
+                    ? "fill-accent-gold text-accent-gold"
+                    : "fill-transparent text-fg-muted/20"
+                }`}
+                strokeWidth={1.5}
+              />
+            ))}
+          </span>
+        </CapAligned>
       )}
     </>
   );
