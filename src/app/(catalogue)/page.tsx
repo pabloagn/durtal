@@ -84,7 +84,7 @@ interface IndexCounts {
 function LibraryIndex({ books, others }: IndexCounts) {
   const kinds = getEnabledWorkKinds().filter((kind): kind is HomeKind => kind !== "book");
   return (
-    <div className="grid grid-cols-1 gap-x-8 gap-y-6 border-t border-glass-border pt-6 min-[375px]:grid-cols-2 lg:grid-cols-[repeat(var(--index-columns),minmax(0,1fr))]" style={{ "--index-columns": 2 + kinds.length } as React.CSSProperties} data-dashboard-index="">
+    <div className="grid grid-cols-1 gap-x-8 gap-y-6 border-t border-glass-border pt-6 min-[375px]:grid-cols-2 xl:grid-cols-[repeat(var(--index-columns),minmax(0,1fr))]" style={{ "--index-columns": 2 + kinds.length } as React.CSSProperties} data-dashboard-index="">
       <IndexGroup kind="book" wide>
         <Figure label="Books" value={books?.works} />
         <Figure label="Editions" value={books?.editions} />
@@ -104,7 +104,7 @@ function LibraryIndex({ books, others }: IndexCounts) {
 function IndexGroup({ kind, wide = false, children }: { kind: keyof typeof WORK_DOMAINS; wide?: boolean; children: ReactNode }) {
   const domain = WORK_DOMAINS[kind];
   return (
-    <section aria-label={domain.pluralLabel} className={wide ? "col-span-full lg:col-span-2" : ""}>
+    <section aria-label={domain.pluralLabel} className={wide ? "col-span-full xl:col-span-2" : ""}>
       <Link href={domain.basePath} className="type-caption inline-flex items-center gap-1 transition-colors hover:text-fg-primary touch-hit">
         {domain.pluralLabel}
         <ArrowRight className="h-3 w-3" strokeWidth={1.5} aria-hidden />

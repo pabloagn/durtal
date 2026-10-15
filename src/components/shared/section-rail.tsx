@@ -98,8 +98,10 @@ export function SectionRail({ sections, label }: { sections: RailSection[]; labe
             />
           ))}
         </div>
-        {/* The outline opens over the ticks, centered on them */}
-        <div className="glass pointer-events-none invisible absolute right-0 top-1/2 w-56 -translate-y-1/2 overflow-hidden rounded-md p-2 opacity-0 transition-[opacity,visibility] duration-150 group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:visible group-focus-within:opacity-100">
+        {/* The outline opens over the ticks, centered on them. Hidden by opacity, not
+            visibility, so its names stay in the tab order and in a screen reader's
+            view: tabbing to one opens the outline */}
+        <div className="glass pointer-events-none absolute right-0 top-1/2 w-56 -translate-y-1/2 overflow-hidden rounded-md p-2 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
           <ol>
             {sections.map((section, i) => (
               <li key={section.id}>

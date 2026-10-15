@@ -113,10 +113,11 @@ export function DashboardReading({
   return (
     <>
       {tiles.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {tiles.map((tile) => (
-            <article key={tile.reading.readingId} className="flex gap-4 rounded-sm border border-glass-border bg-bg-secondary p-4" data-dashboard-reading={tile.reading.readingId}>
-              <Cover s3Key={tile.cover} className="aspect-[2/3] w-20 self-start" />
+            <article key={tile.reading.readingId} className="@container flex gap-3 rounded-sm border border-glass-border bg-bg-secondary p-3 @xs:gap-4 @xs:p-4" data-dashboard-reading={tile.reading.readingId}>
+              {/* A narrow card (a 320px phone) keeps its text column for the estimate */}
+              <Cover s3Key={tile.cover} className="aspect-[2/3] w-12 self-start @xs:w-20" />
               <div className="flex min-w-0 flex-1 flex-col">
                 {/* The full title wraps; the heading names the card */}
                 <CardHeading
@@ -156,7 +157,10 @@ export function DashboardReading({
       {finished.length > 0 && (
         <div className={tiles.length > 0 || goal ? "mt-10" : ""}>
           <SectionHeading as="h3" title="Recently finished" action={<SectionLink href="/reading/journal" />} />
-          <FinishedCovers reads={finished} className="catalogue-grid" />
+          {/* Two covers a row on a phone, as the dashboard's other cover grids */}
+          <div className="@container">
+            <FinishedCovers reads={finished} className="catalogue-grid catalogue-density-compact" />
+          </div>
         </div>
       )}
     </>
