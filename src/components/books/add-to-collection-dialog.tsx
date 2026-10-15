@@ -19,6 +19,7 @@ import {
   collectionCreatedMessage,
 } from "@/lib/collections/counts";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
+import { useFocusThroughBusy } from "@/hooks/use-focus-through-busy";
 import { CollectionIconLazy } from "@/components/collections/collection-icon-lazy";
 
 type Data = Awaited<ReturnType<typeof getCollectionSelection>>;
@@ -43,6 +44,8 @@ export function AddToCollectionDialog({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(false);
   const request = useRef("");
+  const field = useRef<HTMLInputElement>(null);
+  useFocusThroughBusy(busy, field);
   const saving = useRef(false);
   // A read after a failed change keeps the editions the reader chose
   const keepChoice = useRef(false);
@@ -295,6 +298,7 @@ export function AddToCollectionDialog({
             <form onSubmit={create} className="flex gap-2">
               <div className="min-w-0 flex-1">
                 <Input
+                  ref={field}
                   aria-label="Find or create a collection"
                   placeholder="Find or create a collection…"
                   value={query}

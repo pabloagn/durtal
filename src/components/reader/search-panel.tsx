@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { DurtalLocator, ReaderEngine } from "@/lib/reader/engine";
 import { queryRuns, type SearchOptions } from "@/lib/reader/search/fold";
@@ -10,6 +10,9 @@ import {
 import type { SearchHit } from "@/lib/reader/search/types";
 import type { PositionIndex } from "@/lib/reader/position-index";
 import { pageWords } from "@/lib/reader/place-label";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { ReaderSidePanel } from "./side-panel";
 
 const storage = () => {
@@ -19,16 +22,16 @@ const storage = () => {
     return null;
   }
 };
+const OPTIONS = [
+  ["wholeWords", "Whole words"],
+  ["matchCase", "Match case"],
+  ["matchAccents", "Match accents"],
+] as const;
+
 type Status = "idle" | "searching" | "done" | "stopped" | "capped" | "error";
 /** The empty result names the query, and the options that narrow it */
 function noMatches(query: string, options: SearchOptions) {
-  const on = (
-    [
-      ["wholeWords", "Whole words"],
-      ["matchCase", "Match case"],
-      ["matchAccents", "Match accents"],
-    ] as const
-  )
+  const on = OPTIONS
     .filter(([key]) => options[key])
     .map(([, label]) => label);
   const named = query.trim() ? `No matches for “${query.trim()}”.` : "No matches.";
@@ -53,6 +56,7 @@ export function SearchPanel({
   places,
   hitRect,
   escapeRef,
+  onDockHeight,
 }: {
   open: boolean;
   engine: ReaderEngine;
@@ -66,6 +70,8 @@ export function SearchPanel({
   hitRect?(locator: DurtalLocator): { left: number; right: number } | null;
   /** The reader's Esc, once the panel is closed: true when it ended the search */
   escapeRef?: MutableRefObject<(() => boolean) | null>;
+  /** The results bar's height while it stands in the bottom bar's place, else 0 */
+  onDockHeight?(height: number): void;
 }) {
   const [query, setQuery] = useState("");
   const [options, setOptions] = useState<SearchOptions>(() =>
@@ -84,6 +90,8 @@ export function SearchPanel({
   const [ran, setRan] = useState<{ query: string; options: SearchOptions }>({ query: "", options });
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
+  const ids = useId();
   const run = useRef<{ id: number; abort: AbortController } | null>(null);
   const sequence = useRef(0);
   const pendingJump = useRef(false);
@@ -126,14 +134,29 @@ export function SearchPanel({
   const pick = useCallback(
     async (hit: SearchHit) => {
       const owner = sequence.current;
+      // An EPUB jump focuses the passage in the book: give focus back to the
+      // field or Next, so the next Enter steps on to the next match
+      const origin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      const keep = (within: Element | null) => {
+        if (!origin?.isConnected || !within?.contains(origin) || document.activeElement === origin) return;
+        // Only focus the jump took into the book: a panel opened meanwhile keeps it
+        if (!document.getElementById("reader-book")?.contains(document.activeElement)) return;
+        // Firefox ignores focus() here while the book's frame holds the focus
+        window.focus();
+        origin.focus({ preventScroll: true });
+      };
       setActive(hit.id);
       setFocused(hit.id);
       await onJumpRef.current(hit.locator, hit);
       if (owner !== sequence.current) return;
       if (!matchMedia("(min-width: 1024px)").matches) {
+        // The panel closes onto the hit (focus back on its opener); the
+        // results bar stays
         onClose();
+        keep(bar.current);
         return;
       }
+      keep(origin?.closest("[data-reader-search], [data-reader-search-bar]") ?? null);
       // The open panel never covers the hit: it moves to the other side (SLN-675)
       const rect = hitRectRef.current?.(hit.locator);
       if (!rect) return;
@@ -252,6 +275,24 @@ export function SearchPanel({
       escapeRef.current = null;
     };
   });
+  // The results bar takes the bottom bar's place, in the margin below the
+  // text, so it never covers a line of the book (SLN-727)
+  const onDockHeightRef = useRef(onDockHeight);
+  useEffect(() => {
+    onDockHeightRef.current = onDockHeight;
+  }, [onDockHeight]);
+  useEffect(() => {
+    const element = bar.current;
+    if (!barShown || !element) return;
+    const report = () => onDockHeightRef.current?.(element.getBoundingClientRect().height);
+    report();
+    const observer = new ResizeObserver(report);
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      onDockHeightRef.current?.(0);
+    };
+  }, [barShown]);
   const shown = sorted.slice(0, limit);
   const groups = new Map<number, SearchHit[]>();
   for (const hit of shown) {
@@ -279,6 +320,7 @@ export function SearchPanel({
       <ReaderSidePanel open={open} title="Search in book" onClose={onClose} side={side}>
         <div className="space-y-3 px-2" data-reader-search data-reader-widget>
           <form
+            className="flex items-start gap-2"
             onSubmit={(event) => {
               event.preventDefault();
               if (
@@ -289,14 +331,15 @@ export function SearchPanel({
               else start(query, options, true);
             }}
           >
-            <div className="relative">
-              <input
+            <div className="min-w-0 flex-1">
+              <Input
                 ref={input}
                 type="search"
                 aria-label="Search in book"
+                placeholder="Words or a phrase"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                className="w-full rounded-sm border border-glass-border bg-bg-primary/40 py-2 pl-3 pr-9 text-sm outline-none focus:border-accent-blue-text [&::-webkit-search-cancel-button]:appearance-none"
+                className="[&::-webkit-search-cancel-button]:appearance-none"
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && event.shiftKey && hits.length) {
                     event.preventDefault();
@@ -312,56 +355,54 @@ export function SearchPanel({
                       ?.focus();
                   }
                 }}
+                // Always a suffix, so the field is never remounted (and
+                // never loses focus) when the clear button comes and goes
+                suffix={
+                  <>
+                    {query && (
+                      <button
+                        type="button"
+                        aria-label="Clear search"
+                        data-tooltip="Clear"
+                        className="action-icon-sm"
+                        onClick={() => {
+                          setQuery("");
+                          input.current?.focus();
+                        }}
+                      >
+                        <X className="h-4 w-4" strokeWidth={1.5} />
+                      </button>
+                    )}
+                  </>
+                }
               />
-              {query && (
-                <button
-                  type="button"
-                  aria-label="Clear search"
-                  data-tooltip="Clear"
-                  className="action-icon-sm absolute inset-y-0 right-1 my-auto"
-                  onClick={() => {
-                    setQuery("");
-                    input.current?.focus();
-                  }}
-                >
-                  <X className="h-4 w-4" strokeWidth={1.5} />
-                </button>
-              )}
             </div>
-            <button
-              type="submit"
-              className="mt-2 min-h-8 text-sm text-accent-blue-text pointer-coarse:min-h-11"
-            >
+            <Button type="submit" variant="secondary">
               Search
-            </button>
+            </Button>
           </form>
-          <div className="flex flex-wrap gap-x-3 text-xs text-fg-secondary">
-            {(
-              [
-                ["wholeWords", "Whole words"],
-                ["matchCase", "Match case"],
-                ["matchAccents", "Match accents"],
-              ] as const
-            ).map(([key, label]) => (
-              <label
-                key={key}
-                className="flex min-h-8 items-center gap-1.5 pointer-coarse:min-h-11"
-              >
-                <input
-                  type="checkbox"
+          <div role="group" aria-label="Search options" className="flex flex-col gap-2">
+            {OPTIONS.map(([key, label]) => (
+              <div key={key} className="flex items-center gap-2">
+                <Switch
+                  id={`${ids}-${key}`}
                   checked={options[key]}
-                  onChange={(event) => {
-                    const nextOptions = {
-                      ...options,
-                      [key]: event.target.checked,
-                    };
+                  aria-labelledby={`${ids}-${key}-label`}
+                  onCheckedChange={(checked) => {
+                    const nextOptions = { ...options, [key]: checked };
                     setOptions(nextOptions);
                     writeSearchOptions(storage(), nextOptions);
                     start(query, nextOptions);
                   }}
                 />
-                {label}
-              </label>
+                <label
+                  id={`${ids}-${key}-label`}
+                  htmlFor={`${ids}-${key}`}
+                  className="flex cursor-pointer items-center text-sm pointer-coarse:min-h-11"
+                >
+                  {label}
+                </label>
+              </div>
             ))}
           </div>
           <div className="flex items-baseline justify-between gap-2 text-xs text-fg-secondary">
@@ -369,9 +410,11 @@ export function SearchPanel({
               {statusText}
             </p>
             {status === "searching" && (
-              <button
+              <Button
                 type="button"
-                className="min-h-8 text-accent-blue-text pointer-coarse:min-h-11"
+                variant="ghost"
+                size="sm"
+                className="-mr-2.5 shrink-0"
                 onClick={() => {
                   run.current?.abort.abort();
                   pendingJump.current = false;
@@ -379,7 +422,7 @@ export function SearchPanel({
                 }}
               >
                 Stop
-              </button>
+              </Button>
             )}
           </div>
           {status === "searching" && (
@@ -458,63 +501,67 @@ export function SearchPanel({
               </section>
             ))}
             {limit < sorted.length && (
-              <button
+              <Button
                 type="button"
-                className="min-h-8 px-2 text-sm text-accent-blue-text pointer-coarse:min-h-11"
+                variant="ghost"
+                size="sm"
+                className="mt-2"
                 onClick={() => setLimit((value) => value + 200)}
               >
                 Show 200 more
-              </button>
+              </Button>
             )}
           </div>
         </div>
       </ReaderSidePanel>
       {barShown && (
         <div
+          ref={bar}
           data-reader-chrome
           data-reader-widget
-          aria-label="Search results"
-          // Above the Back chip below 1024 px, where the two would share a row
-          className="glass fixed bottom-36 left-1/2 z-30 lg:bottom-20 flex max-w-[calc(100vw-32px)] -translate-x-1/2 items-center gap-1 p-1 text-sm"
+          data-reader-search-bar
+          className="glass-bar fixed inset-x-0 bottom-0 z-30 border-t border-glass-border pb-[env(safe-area-inset-bottom)]"
         >
-          <button
-            type="button"
-            aria-label="Previous match"
-            data-tooltip="Previous match"
-            className="action-icon-sm"
-            onClick={() => next(-1)}
+          <div
+            role="toolbar"
+            aria-label="Search results"
+            className="flex h-9 items-center justify-center gap-1 px-2 text-sm pointer-coarse:h-11"
           >
-            <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
-          </button>
-          <span className="whitespace-nowrap px-1 tabular-nums">
-            {Math.max(0, current + 1)} of {hits.length}
-          </span>
-          <button
-            type="button"
-            aria-label="Next match"
-            data-tooltip="Next match"
-            className="action-icon-sm"
-            onClick={() => next(1)}
-          >
-            <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
-          </button>
-          <button
-            type="button"
-            className="min-h-8 px-2 text-accent-blue-text pointer-coarse:min-h-11"
-            onClick={onOpen}
-          >
-            Results
-          </button>
-          <button
-            type="button"
-            aria-label="Close search"
-            data-tooltip="Close search"
-            data-tooltip-keys="esc"
-            className="action-icon-sm"
-            onClick={end}
-          >
-            <X className="h-4 w-4" strokeWidth={1.5} />
-          </button>
+            <button
+              type="button"
+              aria-label="Previous match"
+              data-tooltip="Previous match"
+              className="action-icon-sm"
+              onClick={() => next(-1)}
+            >
+              <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+            <span className="whitespace-nowrap px-1 tabular-nums">
+              {Math.max(0, current + 1)} of {hits.length}
+            </span>
+            <button
+              type="button"
+              aria-label="Next match"
+              data-tooltip="Next match"
+              className="action-icon-sm"
+              onClick={() => next(1)}
+            >
+              <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+            <Button type="button" variant="ghost" size="sm" onClick={onOpen}>
+              Results
+            </Button>
+            <button
+              type="button"
+              aria-label="Close search"
+              data-tooltip="Close search"
+              data-tooltip-keys="esc"
+              className="action-icon-sm"
+              onClick={end}
+            >
+              <X className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+          </div>
         </div>
       )}
     </>
