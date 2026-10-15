@@ -1,7 +1,11 @@
 "use client";
 import Link from "next/link";
+import { BookOpenText } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { NoResults } from "@/components/shared/no-results";
 import { Pagination } from "@/components/shared/pagination";
+import { EmptyState } from "@/components/ui/empty-state";
+import { buttonClass } from "@/components/ui/button";
 import { COL_CLASSES, maxCardWidth } from "@/components/shared/grid-columns";
 import {
   usePreference,
@@ -51,6 +55,13 @@ export function EbooksView({
   const clearHref = params.state === "excluded"
     ? `${clearedHref}${clearedHref.includes("?") ? "&" : "?"}state=excluded`
     : clearedHref;
+  const otherFilters =
+    params.linked.length > 0 ||
+    params.formats.length > 0 ||
+    params.languages.length > 0 ||
+    params.drm !== null ||
+    params.needsReview !== null;
+  const filtered = !!params.q || otherFilters;
   function sort(key: string) {
     const next = new URLSearchParams(search.toString());
     next.set("sort", key);
@@ -70,28 +81,22 @@ export function EbooksView({
         setColumns={setColumns}
       />
       {!books.length ? (
-        <div className="py-12">
-          <h2 className="type-item-title">
-            {params.q
-              ? `No eBook matches “${params.q}”.`
-              : counts.active + counts.excluded
-                ? "No eBooks match these filters."
-                : "No eBooks yet."}
-          </h2>
-          {(params.q ||
-            params.linked.length ||
-            params.formats.length ||
-            params.languages.length ||
-            params.drm !== null ||
-            params.needsReview !== null) && (
-            <Link
-              href={clearHref}
-              className="mt-3 inline-block text-sm text-command"
-            >
-              Clear search and filters
-            </Link>
-          )}
-        </div>
+        // As every list: the shared views, with their mark and a way on (task 0611)
+        filtered ? (
+          <NoResults noun="eBooks" search={params.q || null} hasFilters={otherFilters} clearHref={clearHref} />
+        ) : counts.active + counts.excluded ? (
+          <EmptyState icon={BookOpenText} title="No eBooks found" description="No eBooks match these filters." />
+        ) : (
+          <EmptyState
+            icon={BookOpenText}
+            title="No eBooks yet"
+            action={
+              <Link href="/ebooks/upload" className={buttonClass("secondary")}>
+                Upload eBooks
+              </Link>
+            }
+          />
+        )
       ) : (
         <>
           <Pagination

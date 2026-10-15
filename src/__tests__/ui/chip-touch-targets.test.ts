@@ -53,6 +53,13 @@ describe("Record form touch targets", () => {
     expect(fields).toMatch(/pointer-coarse:min-w-11 pointer-coarse:leading-11 max-sm:first:-ml-1\.5"/);
   });
 
+  it("gives a house's name a line of its own on touch, as a credit's", () => {
+    // Beside the 44px role menu and cross, the name kept 38px at 320 (review of #327)
+    const perfume = read("components/perfumes/perfume-fields.tsx");
+    expect(perfume).toContain("<span key={`${entry.organizationId}:${entry.role}`} className={`${CHIP} pointer-coarse:flex-wrap`}>");
+    expect(perfume).toMatch(/className="truncate pointer-coarse:order-first pointer-coarse:basis-full [^"]*">\s*\{entry\.name\}/);
+  });
+
   it("makes a house's role menu, date precision and checkbox lists 44px on touch", () => {
     expect(read("components/perfumes/perfume-fields.tsx")).toMatch(/aria-label=\{`Role of \$\{entry\.name\}`\}[\s\S]*?pointer-coarse:h-11 pointer-coarse:min-w-11"/);
     expect(read("components/shared/catalogue-date-field.tsx")).toContain('<label className="flex h-8 items-center gap-2 text-xs text-fg-secondary pointer-coarse:h-11">');

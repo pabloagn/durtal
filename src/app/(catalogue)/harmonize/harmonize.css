@@ -744,9 +744,6 @@
   justify-content: space-between;
   gap: 16px;
 }
-.h-error button {
-  align-self: start;
-}
 .h-preview-error {
   margin-top: 20px;
 }

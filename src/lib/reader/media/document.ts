@@ -1,10 +1,19 @@
 import { physicalTableScrollLeft, tableCanTakeSwipe } from "./table-policy";
 import { viewerImage, type ReaderMedia } from "./content";
+import { TAP_ZONE } from "../input";
 
-/** Installs trusted document input. DOM unit tests exercise policy, never prove native gestures. */
+/** Two taps this close in time and place are a double tap */
+const DOUBLE_TAP_MS = 350;
+const DOUBLE_TAP_SLOP = 30;
+
+/** Installs trusted document input. DOM unit tests exercise policy, never prove native gestures.
+ * With `pageImages` (a comic or fixed-layout book, whose pages are images),
+ * one tap on an image is the page's (it turns at an edge, or shows the
+ * bars) and a double tap away from the edges opens it in the viewer. */
 export function attachReaderMedia(
   doc: Document,
   publish: (media: ReaderMedia) => void,
+  { pageImages = false }: { pageImages?: boolean } = {},
 ) {
   const view = doc.defaultView;
   if (!view) return () => {};
@@ -20,6 +29,7 @@ export function attachReaderMedia(
     at: number;
     claimed: boolean;
   } | null = null;
+  let lastTap: { x: number; y: number; at: number } | null = null;
   const open = (element: Element, kind: ReaderMedia["kind"]) =>
     publish({
       kind,
@@ -153,11 +163,29 @@ export function attachReaderMedia(
     )
       return;
     const image = viewerImage(gesture.target);
-    if (image) {
-      event.preventDefault();
-      event.stopPropagation();
-      open(image, "image");
+    if (!image) return;
+    if (pageImages) {
+      // The edge strips turn pages, however fast they are tapped
+      const frame = view.frameElement?.getBoundingClientRect();
+      const width = view.top?.innerWidth ?? view.innerWidth;
+      const x = ((frame?.left ?? 0) + point.clientX) / width;
+      const at = performance.now();
+      const previous = lastTap;
+      lastTap = null;
+      if (x < TAP_ZONE || x > 1 - TAP_ZONE) return;
+      if (
+        !previous ||
+        at - previous.at > DOUBLE_TAP_MS ||
+        Math.hypot(point.clientX - previous.x, point.clientY - previous.y) >
+          DOUBLE_TAP_SLOP
+      ) {
+        lastTap = { x: point.clientX, y: point.clientY, at };
+        return;
+      }
     }
+    event.preventDefault();
+    event.stopPropagation();
+    open(image, "image");
   };
   const cancelTouch = () => {
     touch = null;
