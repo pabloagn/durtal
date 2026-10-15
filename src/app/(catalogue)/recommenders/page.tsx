@@ -5,7 +5,7 @@ import { ThumbsUp } from "lucide-react";
 import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
 import { getRecommenderList, hasRecommenders } from "@/lib/actions/recommenders";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyIndex } from "@/components/shared/empty-index";
 import { Spinner } from "@/components/ui/spinner";
 import { RecommenderFormDialog } from "@/components/recommenders/recommender-form-dialog";
 import { RecommendersFiltersBar } from "./recommenders-filters-bar";
@@ -83,16 +83,13 @@ export default async function RecommendersPage({
   // With none, no toolbar over nothing: one empty state with one Add (SLN-834)
   if (!(await any)) {
     return (
-      <>
-        <PageHeader title="Recommenders" />
-        <EmptyState
-          icon={ThumbsUp}
-          heading="h2"
-          title="No recommenders yet"
-          description="A recommender is whoever suggested a book to you: a friend, a critic, a podcast. Add one, then link them to the books they suggested."
-          action={<RecommenderFormDialog />}
-        />
-      </>
+      <EmptyIndex
+        title="Recommenders"
+        icon={ThumbsUp}
+        empty="No recommenders yet"
+        description="A recommender is whoever suggested a book to you: a friend, a critic, a podcast. Add one, then link them to the books they suggested."
+        action={<RecommenderFormDialog />}
+      />
     );
   }
   return (

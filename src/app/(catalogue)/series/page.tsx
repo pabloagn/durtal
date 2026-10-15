@@ -6,7 +6,7 @@ import { Layers, Sparkles } from "lucide-react";
 import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
 import { getSeriesList, getSeriesSuggestions, hasSeries } from "@/lib/actions/series";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyIndex } from "@/components/shared/empty-index";
 import { Spinner } from "@/components/ui/spinner";
 import { buttonClass } from "@/components/ui/button";
 import { SeriesFormDialog } from "@/components/series/series-form-dialog";
@@ -88,16 +88,13 @@ export default async function SeriesPage({
   // With none, no toolbar over nothing: one empty state with one Add
   if (!(await any)) {
     return (
-      <>
-        <PageHeader title="Series" />
-        <EmptyState
-          icon={Layers}
-          heading="h2"
-          title="No series yet"
-          description="A series is a run of books that belong together in order, such as a trilogy. Add one, then add its books by their place in it."
-          action={<SeriesFormDialog />}
-        />
-      </>
+      <EmptyIndex
+        title="Series"
+        icon={Layers}
+        empty="No series yet"
+        description="A series is a run of books that belong together in order, such as a trilogy. Add one, then add its books by their place in it."
+        action={<SeriesFormDialog />}
+      />
     );
   }
   return (

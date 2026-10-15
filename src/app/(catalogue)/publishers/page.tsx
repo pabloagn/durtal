@@ -10,7 +10,7 @@ import {
   type PublisherListOptions,
 } from "@/lib/actions/publishers";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyIndex } from "@/components/shared/empty-index";
 import { Spinner } from "@/components/ui/spinner";
 import { buttonClass } from "@/components/ui/button";
 import type { PublisherItem } from "@/components/publishers/publisher-card";
@@ -134,20 +134,16 @@ export default async function PublishersPage({
       Add publisher
     </Link>
   );
-  // With none, no toolbar over nothing: one empty state with one Add. The
-  // names an edition gives stay a step away, to make publishers from them
+  // With none, no toolbar over nothing: one empty state with one Add
   if (!(await any)) {
     return (
-      <>
-        <PageHeader title="Publishers" actions={names} />
-        <EmptyState
-          icon={Building2}
-          heading="h2"
-          title="No publishers yet"
-          description="A publisher is the house, imprint or group behind an edition. Add one, or choose one when you add a book."
-          action={add}
-        />
-      </>
+      <EmptyIndex
+        title="Publishers"
+        icon={Building2}
+        empty="No publishers yet"
+        description="A publisher is the house, imprint or group behind an edition. Add one, or choose one when you add a book."
+        action={add}
+      />
     );
   }
   return (
