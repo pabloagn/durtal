@@ -14,6 +14,7 @@ import { ImageAdjustmentEditor } from "@/components/media/image-adjustment-edito
 import { DEFAULT_IMAGE_ADJUSTMENTS } from "@/lib/utils/image-adjustment-css";
 
 const SOURCE = "/api/media/covers/a.jpg";
+const UPRIGHT = { cropX: 50, cropY: 50, cropZoom: 100, turn: 0, straighten: 0 };
 const presentation = (over: Record<string, unknown> = {}) => ({
   source: SOURCE,
   preview: SOURCE,
@@ -57,10 +58,34 @@ describe("image adjustment groups", () => {
   });
 
   it("offers Framing only for a cropped subject", async () => {
-    await open({ crop: { cropX: 50, cropY: 50, cropZoom: 100 } });
+    await open({ crop: UPRIGHT });
     expect(groups()).toEqual(["Tone", "Colour", "Framing"]);
     await choose("Framing");
-    expect(sliders()).toEqual(["Zoom", "Horizontal", "Vertical"]);
+    expect(sliders()).toEqual(["Zoom", "Horizontal", "Vertical", "Straighten"]);
+  });
+
+  // SLN-333: quarter turns and a straightening are saved with the crop
+  it("turns in quarter turns and saves the turn and straightening with the crop", async () => {
+    await open({ crop: UPRIGHT });
+    await choose("Framing");
+    const button = (label: string) =>
+      [...host.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent === label)!;
+    await act(async () => button("Turn left").click());
+    await act(async () => button("Turn left").click());
+    await act(async () => button("Turn right").click());
+    const straighten = host.querySelector<HTMLInputElement>('input[type="range"][max="45"]')!;
+    expect(straighten.min).toBe("-45");
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(straighten, "-3");
+      straighten.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect([...host.querySelectorAll("output")].at(-1)!.textContent).toBe("-3°");
+    api.saveImagePresentation.mockResolvedValue({ assetKey: "a", sources: [SOURCE], settings: { ...DEFAULT_IMAGE_ADJUSTMENTS } });
+    await act(async () => button("Save").click());
+    expect(api.saveImagePresentation).toHaveBeenCalledWith(
+      SOURCE,
+      expect.objectContaining({ crop: { ...UPRIGHT, turn: 270, straighten: -3 } }),
+    );
   });
 
   it("leaves out Colour while author monochrome is locked on", async () => {

@@ -20,7 +20,7 @@ import {
   type StoredImageAdjustments,
 } from "@/lib/utils/image-adjustments";
 import { updateMediaCropSchema } from "@/lib/validations/media";
-import { mediaFrameAspect } from "@/lib/media/crop";
+import { MAX_STRAIGHTEN, mediaFrameAspect } from "@/lib/media/crop";
 import {
   buildDisplayFiles,
   commitDisplay,
@@ -130,7 +130,7 @@ export async function getImagePresentation(source: string) {
     monochrome: asset.monochrome,
     settings: enforceImagePolicy(settings, asset.monochrome),
     crop: crop
-      ? { cropX: crop.x, cropY: crop.y, cropZoom: crop.zoom }
+      ? { cropX: crop.x, cropY: crop.y, cropZoom: crop.zoom, turn: crop.turn ?? 0, straighten: crop.straighten ?? 0 }
       : null,
     aspect: framed ? mediaFrameAspect(framed.type) : null,
   };
@@ -141,6 +141,11 @@ const presentationSchema = z
     settings: imageAdjustmentsSchema,
     crop: updateMediaCropSchema
       .pick({ cropX: true, cropY: true, cropZoom: true })
+      .extend({
+        // SLN-333: a quarter turn, then a straightening of up to 45 degrees
+        turn: z.number().int().min(0).max(270).multipleOf(90).default(0),
+        straighten: z.number().int().min(-MAX_STRAIGHTEN).max(MAX_STRAIGHTEN).default(0),
+      })
       .optional(),
   })
   .strict();
@@ -173,10 +178,13 @@ export async function saveImagePresentation(
   }
 
   // A crop is written into new files. The uncropped image is never modified.
+  // Turn and straightening are kept only when set, so an upright crop reads as before
   const crop = data.crop && {
     x: data.crop.cropX,
     y: data.crop.cropY,
     zoom: data.crop.cropZoom,
+    ...(data.crop.turn ? { turn: data.crop.turn } : {}),
+    ...(data.crop.straighten ? { straighten: data.crop.straighten } : {}),
   };
   const files = crop ? await buildDisplayFiles(item, crop) : null;
   const updated = await commitDisplay(

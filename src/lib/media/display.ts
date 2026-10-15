@@ -28,8 +28,10 @@ import {
 import {
   cropRegion,
   isNoCrop,
+  isUpright,
   mediaFrameAspect,
   NO_CROP,
+  rotatedFrame,
   sameCrop,
   type AppliedCrop,
 } from "./crop";
@@ -161,15 +163,18 @@ export async function buildDisplayFiles(
   uncropped?: Buffer,
 ): Promise<DisplayFiles | null> {
   const aspect = mediaFrameAspect(row.type);
-  const asked = isNoCrop(crop) ? null : { x: crop.x, y: crop.y, zoom: crop.zoom };
+  const asked = isNoCrop(crop) ? null : { ...crop };
   if (asked && !aspect) throw new Error("This image does not support framed cropping");
+  // A turn or straightening is in the files too; a crop is only a framing
+  const framing = !!asked && (asked.x !== NO_CROP.x || asked.y !== NO_CROP.y || asked.zoom !== NO_CROP.zoom);
+  const rotated = !isUpright(asked);
   // Sizes follow the owner's image policy; a contained image is never cut.
   const owner = mediaOwnerOf(row);
   const policy = imagePolicy(
     { type: owner.type, kind: await mediaOwnerKind(owner) },
     row.type as MediaType,
   );
-  if (asked && policy.fit === "contain")
+  if (framing && policy.fit === "contain")
     throw new Error("This image is always shown whole and cannot be cropped");
   if (!uncropped && sameCrop(displayedCrop(row), asked)) return null;
 
@@ -182,10 +187,40 @@ export async function buildDisplayFiles(
   const width = (turned ? meta.height : meta.width) ?? 0;
   const height = (turned ? meta.width : meta.height) ?? 0;
   if (!width || !height) throw new Error("Could not read the image size");
+  // The upright image (its own EXIF turn applied), then the editor's turn and
+  // straightening, cut to the largest box with no background in its corners.
+  // Lossless in between; the original file is never touched.
+  let upright = source;
+  let uprightWidth = width;
+  let uprightHeight = height;
+  if (rotated && asked) {
+    const level = await sharp(source).rotate().png().toBuffer();
+    const spun = await sharp(level)
+      .rotate((asked.turn ?? 0) + (asked.straighten ?? 0), { background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png()
+      .toBuffer({ resolveWithObject: true });
+    const frame = rotatedFrame(width, height, asked.turn ?? 0, asked.straighten ?? 0);
+    // A pixel in from each side when straightened: the edge pixels are blended
+    const inset = asked.straighten ? 2 : 0;
+    const boxWidth = Math.max(1, Math.min(spun.info.width, Math.floor(frame.width) - inset));
+    const boxHeight = Math.max(1, Math.min(spun.info.height, Math.floor(frame.height) - inset));
+    const box = sharp(spun.data)
+      .extract({
+        left: Math.floor((spun.info.width - boxWidth) / 2),
+        top: Math.floor((spun.info.height - boxHeight) / 2),
+        width: boxWidth,
+        height: boxHeight,
+      });
+    // The turn's background never shows, so an opaque image stays opaque
+    upright = await (meta.hasAlpha ? box : box.removeAlpha()).png().toBuffer();
+    uprightWidth = boxWidth;
+    uprightHeight = boxHeight;
+  }
   // A crop that keeps the whole image cuts nothing: no cropped file
-  const region = asked && aspect ? cropRegion(width, height, aspect, asked) : null;
-  const cut = region && (region.width < width || region.height < height) ? region : null;
-  if (!uncropped && !cut && !row.uncroppedS3Key) return null;
+  // A contained image is turned but never cut to the frame
+  const region = asked && aspect && policy.fit !== "contain" ? cropRegion(uprightWidth, uprightHeight, aspect, asked) : null;
+  const cut = region && (region.width < uprightWidth || region.height < uprightHeight) ? region : null;
+  if (!uncropped && !cut && !rotated && !row.uncroppedS3Key) return null;
 
   const keys = goldMediaVersionKeys(owner.type, owner.id, row.type, row.id, version());
   const created: string[] = [];
@@ -201,7 +236,8 @@ export async function buildDisplayFiles(
       await put(uncroppedKey, source);
     }
     const framed = () => {
-      const image = sharp(source).rotate();
+      // The rotated image is upright already; the source still needs its EXIF turn
+      const image = rotated ? sharp(upright) : sharp(source).rotate();
       return cut ? image.extract(cut) : image;
     };
 
@@ -215,7 +251,7 @@ export async function buildDisplayFiles(
         .webp({ quality: 82 })
         .toBuffer(),
     );
-    if (!cut)
+    if (!cut && !rotated)
       return {
         s3Key: uncroppedKey,
         thumbnailS3Key: keys.thumbnail,

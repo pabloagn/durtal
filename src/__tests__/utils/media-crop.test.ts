@@ -2,8 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   cropRegion,
   isNoCrop,
+  isUpright,
   mediaFrameAspect,
+  nextTurn,
   NO_CROP,
+  rotatedFrame,
   sameCrop,
 } from "@/lib/media/crop";
 
@@ -84,5 +87,50 @@ describe("crop helpers", () => {
     expect(sameCrop(null, null)).toBe(true);
     expect(sameCrop(NO_CROP, null)).toBe(false);
     expect(sameCrop({ x: 1, y: 2, zoom: 3 }, { x: 1, y: 2, zoom: 3 })).toBe(true);
+  });
+});
+
+describe("turns and straightening (SLN-333)", () => {
+  it("turns in quarter turns, kept in 0-270", () => {
+    expect(nextTurn(0, 90)).toBe(90);
+    expect(nextTurn(270, 90)).toBe(0);
+    expect(nextTurn(0, -90)).toBe(270);
+    expect(nextTurn(90, -90)).toBe(0);
+  });
+
+  it("swaps the sides on a quarter turn and keeps them on a half turn", () => {
+    expect(rotatedFrame(1000, 1500, 90)).toEqual({ width: 1500, height: 1000, scale: 1 });
+    expect(rotatedFrame(1000, 1500, 270)).toEqual({ width: 1500, height: 1000, scale: 1 });
+    expect(rotatedFrame(1000, 1500, 180)).toEqual({ width: 1000, height: 1500, scale: 1 });
+  });
+
+  it("straightens into the largest box with no corner outside the image", () => {
+    for (const [w, h, angle] of [[1000, 1500, 1], [1000, 1500, -7], [1600, 900, 30], [500, 500, 45]] as const) {
+      const frame = rotatedFrame(w, h, 0, angle);
+      expect(frame.scale).toBeLessThan(1);
+      expect(frame.width / frame.height).toBeCloseTo(w / h, 9);
+      // Each corner of the box, turned back by the angle, lies inside the image
+      const a = (angle * Math.PI) / 180;
+      for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+        const [x, y] = [(sx * frame.width) / 2, (sy * frame.height) / 2];
+        const bx = x * Math.cos(a) - y * Math.sin(a);
+        const by = x * Math.sin(a) + y * Math.cos(a);
+        expect(Math.abs(bx)).toBeLessThanOrEqual(w / 2 + 1e-6);
+        expect(Math.abs(by)).toBeLessThanOrEqual(h / 2 + 1e-6);
+      }
+    }
+    // A 1 degree straightening of a poster loses a few percent
+    expect(rotatedFrame(1000, 1500, 0, 1).scale).toBeCloseTo(0.9746, 3);
+  });
+
+  it("counts a turn or a straightening as a change", () => {
+    expect(isUpright(null)).toBe(true);
+    expect(isUpright(NO_CROP)).toBe(true);
+    expect(isUpright({ ...NO_CROP, turn: 0, straighten: 0 })).toBe(true);
+    expect(isUpright({ ...NO_CROP, turn: 90 })).toBe(false);
+    expect(isNoCrop({ ...NO_CROP, straighten: -1 })).toBe(false);
+    expect(sameCrop(NO_CROP, { ...NO_CROP, turn: 0 })).toBe(true);
+    expect(sameCrop(NO_CROP, { ...NO_CROP, turn: 180 })).toBe(false);
+    expect(sameCrop({ ...NO_CROP, straighten: 2 }, { ...NO_CROP, straighten: 3 })).toBe(false);
   });
 });
