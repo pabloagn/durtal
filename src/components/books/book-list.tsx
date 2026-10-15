@@ -78,10 +78,14 @@ export function RowCheckbox({ checked }: { checked: boolean }) {
   );
 }
 
-/** The reader link's width, kept in rows without one so every row's status and year line up */
+/**
+ * The reader link's width, kept in rows without one so every row's status and
+ * year line up. Under 640px the Read link leads the actions instead, so the
+ * star and Copy keep the row's end without it and the facts keep the room.
+ */
 function ReadSlot() {
   return (
-    <span aria-hidden="true" className="invisible inline-flex min-h-8 items-center gap-1.5 px-2 text-xs pointer-coarse:min-h-11" data-read-slot="">
+    <span aria-hidden="true" className="invisible hidden min-h-8 @[40rem]/list:inline-flex items-center gap-1.5 px-2 text-xs pointer-coarse:min-h-11" data-read-slot="">
       <span className="h-3.5 w-3.5" />Read
     </span>
   );
@@ -220,7 +224,14 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
                 />
               )}
               {!isSelecting && <CopyBookButton {...book} />}
-              {!isSelecting && (readable ? <CatalogueReadLink ebook={book.ebook ?? null} returnTo={book.readerReturnTo} /> : readSlot && <ReadSlot />)}
+              {!isSelecting &&
+                (readable ? (
+                  <span className="flex @max-[40rem]/list:order-first">
+                    <CatalogueReadLink ebook={book.ebook ?? null} returnTo={book.readerReturnTo} />
+                  </span>
+                ) : (
+                  readSlot && <ReadSlot />
+                ))}
             </CapAlignedControls>
           )}
         </div>

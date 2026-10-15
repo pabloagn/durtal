@@ -50,3 +50,7 @@ line up from row to row.
   nine runs of the list view.
 - Page weight: /library 118 of 300 KB; every route passes.
 - Typecheck clean, lint no new warnings. No migration, no new package.
+- Review (findings/review-pr-373.md): under 640px Read now leads the
+  actions, and rows without Read keep no placeholder there, so the star and
+  Copy keep the row's end and the facts line takes two lines instead of
+  three or four. Applied as the reviewer wrote it.
