@@ -110,7 +110,9 @@ const RESULT_KINDS = getEnabledWorkKinds();
  * one height. The box is fixed, so the list never moves while it loads. With
  * no picture, a work shows its title's letter as every blank cover does
  * (`CoverLetter`), and a person the initials on the tint taken from the name,
- * as on the cards.
+ * as on the cards. The initials' line is trimmed to the cap height, as the
+ * letter's is, so the box centers the capitals: the serif's line box would
+ * put them 1px above the middle.
  */
 function ResultThumb({ src, name, kind }: { src: string | null; name: string; kind: "book" | "author" }) {
   const words = name.replace(/[^\p{L}\s]/gu, " ").trim().split(/\s+/).filter(Boolean);
@@ -134,7 +136,7 @@ function ResultThumb({ src, name, kind }: { src: string | null; name: string; ki
         ) : blankWork ? (
           <CoverLetter title={name} />
         ) : (
-          <span aria-hidden="true" className="font-serif text-micro text-fg-primary">
+          <span aria-hidden="true" className="font-serif text-micro leading-none text-fg-primary [text-box:trim-both_cap_alphabetic]">
             {initials.toUpperCase()}
           </span>
         )}

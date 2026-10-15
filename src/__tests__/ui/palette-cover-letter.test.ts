@@ -10,7 +10,7 @@ const palette = readFileSync(path.resolve(__dirname, "../../components/layout/co
 
 it("shows a blank work's title letter, and a person's initials", () => {
   expect(palette).toContain('const blankWork = !src && kind === "book";');
-  expect(palette).toMatch(/blankWork \? \(\s*<CoverLetter title=\{name\} \/>\s*\) : \(\s*<span aria-hidden="true" className="font-serif text-micro text-fg-primary">\s*\{initials\.toUpperCase\(\)\}/);
+  expect(palette).toMatch(/blankWork \? \(\s*<CoverLetter title=\{name\} \/>\s*\) : \(\s*<span aria-hidden="true" className="font-serif text-micro leading-none text-fg-primary \[text-box:trim-both_cap_alphabetic\]">\s*\{initials\.toUpperCase\(\)\}/);
   // the letter's box is the cover container, with no name tint behind it
   expect(palette).toContain('${blankWork ? COVER_BLANK : "flex items-center justify-center"}');
   expect(palette).toContain("style={src || blankWork ? undefined : monogramTint(name)}");
