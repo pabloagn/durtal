@@ -5,6 +5,8 @@ interface EmptyStateProps {
   title: string;
   description?: string;
   action?: React.ReactNode;
+  /** An error view: the same block, its icon in the red text colour (contract section 8) */
+  tone?: "error";
 }
 
 export function EmptyState({
@@ -12,12 +14,16 @@ export function EmptyState({
   title,
   description,
   action,
+  tone,
 }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-20">
       {/* The mark is decoration: the title says what the page is (docs/03, Iconography) */}
       <div aria-hidden="true" data-decorative="" className="mb-5 rounded-sm border border-glass-border bg-bg-secondary/50 p-3.5">
-        <Icon className="h-6 w-6 text-fg-muted" strokeWidth={1.5} />
+        <Icon
+          className={`h-6 w-6 ${tone === "error" ? "text-accent-red-text" : "text-fg-muted"}`}
+          strokeWidth={1.5}
+        />
       </div>
       <h3 className="type-item-title">{title}</h3>
       {description && (

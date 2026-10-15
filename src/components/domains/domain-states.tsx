@@ -22,21 +22,36 @@ export function DomainLoading({ kind }: { kind: WorkKind }) {
   );
 }
 
-/** A collection page that failed: try again, or leave for the dashboard. */
+/**
+ * A collection page that failed: try again, or leave for the dashboard. With
+ * `record`, one of its records failed: it says so, and the way back is the
+ * collection's list.
+ */
 export function DomainError({
   kind,
   error,
   reset,
+  record = false,
 }: {
   kind: WorkKind;
   error: Error & { digest?: string };
   reset: () => void;
+  record?: boolean;
 }) {
-  return (
+  const domain = WORK_DOMAINS[kind];
+  return record ? (
     <SectionError
       error={error}
       reset={reset}
-      description={`${WORK_DOMAINS[kind].pluralLabel} could not be loaded.`}
+      description={`This ${domain.label.toLowerCase()} could not be loaded.`}
+      backHref={domain.basePath}
+      backLabel={`Back to ${domain.pluralLabel.toLowerCase()}`}
+    />
+  ) : (
+    <SectionError
+      error={error}
+      reset={reset}
+      description={`${domain.pluralLabel} could not be loaded.`}
       backHref="/"
       backLabel="Go to the dashboard"
     />

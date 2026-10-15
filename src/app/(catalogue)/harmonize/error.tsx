@@ -1,17 +1,17 @@
 "use client";
-export default function HarmonizeError({ reset }: { reset: () => void }) {
+
+import { SectionError } from "@/components/shared/section-error";
+
+export default function HarmonizeError(props: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
   return (
-    <div className="py-20">
-      <h1 className="type-item-title">The catalogue scan was interrupted</h1>
-      <p className="mt-3 text-sm text-fg-secondary">
-        Your records are unchanged. Retry when the connection is available.
-      </p>
-      <button
-        onClick={reset}
-        className="mt-6 rounded-sm border border-glass-border px-4 py-2 text-sm"
-      >
-        Try again
-      </button>
-    </div>
+    <SectionError
+      {...props}
+      description="The catalogue scan was interrupted. Your records are unchanged: try again when the connection is back."
+      backHref="/"
+      backLabel="Go to the dashboard"
+    />
   );
 }

@@ -8,7 +8,8 @@ import { Button, buttonClass } from "@/components/ui/button";
 
 /**
  * A section of the app that failed to load (its error.tsx): what happened,
- * try again, or leave for a page that works. The error goes to the console.
+ * try again, or leave for a page that works. The tab says something went
+ * wrong (a failed page otherwise has no title). The error goes to the console.
  */
 export function SectionError({
   error,
@@ -27,18 +28,22 @@ export function SectionError({
     console.error(error);
   }, [error]);
   return (
-    <EmptyState
-      icon={AlertCircle}
-      title="Something went wrong"
-      description={description}
-      action={
-        <div className="flex gap-3">
-          <Button onClick={reset}>Try again</Button>
-          <Link href={backHref} className={buttonClass("ghost")}>
-            {backLabel}
-          </Link>
-        </div>
-      }
-    />
+    <>
+      <title>Something went wrong | Durtal</title>
+      <EmptyState
+        tone="error"
+        icon={AlertCircle}
+        title="Something went wrong"
+        description={description}
+        action={
+          <div className="flex gap-3">
+            <Button onClick={reset}>Try again</Button>
+            <Link href={backHref} className={buttonClass("ghost")}>
+              {backLabel}
+            </Link>
+          </div>
+        }
+      />
+    </>
   );
 }
