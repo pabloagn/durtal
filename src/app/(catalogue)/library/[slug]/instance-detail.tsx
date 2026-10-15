@@ -267,7 +267,9 @@ export function InstanceDetail({
             {ebook && (
               <>
                 <dt className="text-fg-secondary">eBook</dt>
-                <dd className="text-fg-secondary">
+                {/* The size, then the commands, each whole: a command that
+                    wraps starts on the column's edge, 12px from the one before */}
+                <dd className="flex min-w-0 flex-wrap items-baseline gap-x-3 text-fg-secondary">
                   <span className="font-mono">
                     {/* The size keeps its number and unit on one line; an e-book with no file has none */}
                     {[
@@ -279,16 +281,16 @@ export function InstanceDetail({
                       .filter(Boolean)
                       .join(" · ")}
                   </span>
-                  <Link href={`/ebooks/${ebook.id}`} className="ml-3 text-command">eBook details</Link>
+                  <Link href={`/ebooks/${ebook.id}`} className="whitespace-nowrap text-command">eBook details</Link>
                   {ebook.readerPath && <ReaderEntryLink
                     readerPath={ebook.readerPath}
                     returnTo={ebook.returnTo}
-                    className="ml-3 text-command"
+                    className="whitespace-nowrap text-command"
                   >
                     {ebook.readLabel ?? "Read"}
                   </ReaderEntryLink>}
-                  {ebook.unavailableReason && <p className="mt-1 text-xs text-fg-secondary">{ebook.unavailableReason}</p>}
-                  <UnlinkEbookButton ebookId={ebook.id} />
+                  <UnlinkEbookButton ebookId={ebook.id} inline />
+                  {ebook.unavailableReason && <p className="mt-1 w-full text-xs text-fg-secondary">{ebook.unavailableReason}</p>}
                 </dd>
               </>
             )}
@@ -319,7 +321,8 @@ export function InstanceDetail({
             {canLinkEbook && workId && <><dt className="text-fg-secondary">eBook</dt><dd>
               <LinkEbookButton workId={workId} workTitle={workTitle ?? "this book"}
                 editionId={instance.editionId} instanceId={instance.id} /></dd></>}
-            {instance.fileSizeBytes != null && (
+            {/* The eBook line names its size already */}
+            {instance.fileSizeBytes != null && !ebook?.sizeBytes && (
               <>
                 <dt className="text-fg-secondary">File Size</dt>
                 <dd className="font-mono text-fg-secondary">

@@ -22,10 +22,14 @@ export function useUnlinkEbook(ebookId: string): {
   }
   return { open, loading, busy: loading || shown?.id === ebookId, error };
 }
-export function UnlinkEbookButton({ ebookId }: { ebookId: string }) {
+/** `inline`: a command among the facts of a book's eBook copy, on their line rather than a button above it */
+export function UnlinkEbookButton({ ebookId, inline = false }: { ebookId: string; inline?: boolean }) {
   const unlink = useUnlinkEbook(ebookId);
+  const label = unlink.loading ? "Loading link…" : "Unlink…";
   return <>
-    <Button size="sm" variant="ghost" disabled={unlink.busy} onClick={() => void unlink.open()}><Unlink aria-hidden strokeWidth={1.5} />{unlink.loading ? "Loading link…" : "Unlink…"}</Button>
-    {unlink.error && <p role="alert" className="mt-1 text-xs text-accent-red-text">{unlink.error}</p>}
+    {inline
+      ? <button type="button" disabled={unlink.busy} onClick={() => void unlink.open()} className="whitespace-nowrap text-command disabled:opacity-40">{label}</button>
+      : <Button size="sm" variant="ghost" disabled={unlink.busy} onClick={() => void unlink.open()}><Unlink aria-hidden strokeWidth={1.5} />{label}</Button>}
+    {unlink.error && <p role="alert" className="mt-1 w-full text-xs text-accent-red-text">{unlink.error}</p>}
   </>;
 }
