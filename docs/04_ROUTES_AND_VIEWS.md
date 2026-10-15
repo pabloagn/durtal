@@ -8,7 +8,7 @@
 /library/[slug]             Work detail page (slug format: {title}-by-{author})
 /library/new                Add new book (wizard); ?q= or ?isbn= searches at once,
                             &then=start or past opens that reading dialog on the new book
-/library/import             Bulk import interface
+/library/import             Book import: not available yet
 /library/identify           Identify placeholder editions (one at a time)
 /people                     People index (every collection; /authors redirects here, 308)
 /people/[slug]              Person detail (slug format: {name}; /authors/[slug] redirects here)
@@ -120,7 +120,7 @@ Groups:
 - **Log progress** (SLN-448), first: when the query is a position ("212", "44%", "+20", "3:12", "p 212") that fits an open reading, one "Log p. 212 · Title" per such reading. When a book found for the query has it as a word of its title ("451", "84", "Catch-22"), the books come first and this group follows them (`queryNamesATitle`). It opens Log progress with what was typed; "+20" stays relative (the server adds it to the row it checks). Services: `paletteReadingItems` in `src/lib/reading/palette.ts`
 - **This page**: the page's Edit menu entries ("Edit work", `E W`), Reading menu entries ("Log progress", `R P`) and Copy menu entries
 - **Reading**: "Log progress · Title" for each open reading, "Start timer · Title" for each open reading ("Stop timer · Title" while a timer runs; SLN-451), "Start reading..." and "Log a past read..." (the book picker). The open readings load each time the palette opens (`getOpenReadings`), never with the page; every item sends its reading's fingerprint
-- **Actions**: one "Add a …" entry per New menu item (hint: A then its key), Import books, Keyboard shortcuts
+- **Actions**: one "Add a …" entry per New menu item (hint: A then its key), Keyboard shortcuts
 - **Go to**: every `NAV_SECTIONS` entry
 
 Features:
@@ -151,8 +151,8 @@ front page, not a grid of tiles: one index of counts under the title, then
 sections in a set order, each under a rule, each a tick on the section rail
 (SLN-740, `SectionRail`; see `docs/03_DESIGN_LANGUAGE.md`, Section rail).
 
-**Header**: "Dashboard", today's date in the library's time zone, Add book and
-Import books. The other collections' add actions are in the New menu (N, or A
+**Header**: "Dashboard", today's date in the library's time zone, and Add book
+(no Import until importing books exists, SLN-832). The other collections' add actions are in the New menu (N, or A
 then the collection's key), the command palette and their homes.
 
 **Index**: each open collection's name (linked to its home) over its figures.
@@ -627,22 +627,7 @@ Multi-step wizard that creates a work + edition + instance(s) in one pass.
 
 ### Bulk Import (`/library/import`)
 
-Interface for importing books in bulk from external sources. Reading history (Goodreads, StoryGraph, the seed spreadsheet) is imported at `/reading/import`; a line under the header links there.
-
-**Supported sources**:
-- Custom CSV
-
-**Interface**:
-- Drag-and-drop upload zone
-- Processing pipeline visualization (bronze -> silver -> gold)
-- Preview of parsed records before committing
-- Conflict resolution: skip, overwrite, merge
-- Progress indicator with per-record status
-
-**Info cards** displayed:
-- CSV Import guide
-- Python ingestion scripts reference
-- Import history
+Importing books in bulk is not built yet. The page says so in one empty state ("Importing books isn't available yet") and offers what works today: Add book, and Import reading history (`/reading/import`, Goodreads, StoryGraph and the seed spreadsheet). Nothing links to it until the import exists: the dashboard and the command palette offer no Import (SLN-832).
 
 ---
 

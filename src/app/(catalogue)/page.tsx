@@ -2,7 +2,7 @@ import { Suspense, type ReactNode } from "react";
 import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
 import { collectionCounts } from "@/lib/collections/counts";
 import Link from "next/link";
-import { Upload, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { getLibraryStats } from "@/lib/actions/works";
 import {
   getCollectionCoverPreviews,
@@ -15,7 +15,6 @@ import {
   type HomeKind,
 } from "@/lib/catalogue/domain-homes";
 import { PageHeader } from "@/components/layout/page-header";
-import { buttonClass } from "@/components/ui/button";
 import { SkeletonBlock } from "@/components/shared/skeleton";
 import { BookCard } from "@/components/books/book-card";
 import { CollectionCard } from "@/components/collections/collection-card";
@@ -393,13 +392,8 @@ export default function DashboardPage() {
         title="Dashboard"
         description={dateline()}
         actions={
-          <>
-            <DomainAddLink kind="book" size="md" />
-            <Link href="/library/import" className={`${buttonClass("secondary", "md")} whitespace-nowrap`}>
-              <Upload className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Import books
-            </Link>
-          </>
+          // No Import: importing books is not built yet (SLN-832)
+          <DomainAddLink kind="book" size="md" />
         }
       />
       <Suspense
