@@ -13,6 +13,8 @@ Design polish pass 1, finding 4 (`findings/design-polish-2026-10-15.md`). Up nex
 ## Implementation Details
 - `src/components/reading/reading-tiles.tsx`, `FinishedCovers`: each finished read is a work card (`WORK_CARD`, `WORK_CARD_BODY`): the cover, the title in `CardHeading`, then the stars and the finish date at the card's foot. The dashboard's Recently finished uses the same component, so it changes too.
 - `src/app/(catalogue)/reading/(tabs)/page.tsx`: Up next's items are the same cards, with Start at the foot (its label on the text edge). Both rows sit in `catalogue-grid catalogue-density-compact` in a size container: 208px readable minimum, two a row on a phone (one on a 320px phone), titles wrap in full.
+- Both rows, and the dashboard's Recently finished, end on a full row (`full-rows` and `fullRowAttributes` from SLN-774, #383): at four columns Up next shows four of its five.
+- As on the library's cards, the cover is the card's one tab stop and a link with `tabIndex={-1}` covers the text, so the whole card is a touch target (a title link alone was 29px tall); Start sits above it.
 - Test: `src/__tests__/ui/reading-hub-cover-cards.test.ts`.
 
 ## Completion Notes

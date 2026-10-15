@@ -14,6 +14,7 @@ import { CurrentReadingCard, PausedRow, finishedItem } from "@/components/readin
 import { Cover, FinishedCovers } from "@/components/reading/reading-tiles";
 import { CardHeading } from "@/components/shared/card-heading";
 import { WORK_CARD, WORK_CARD_BODY } from "@/components/shared/work-card";
+import { fullRowAttributes } from "@/components/shared/phone-pair-grid";
 import { getQueueHead } from "@/lib/actions/reading-queue";
 import { getOpenReadings } from "@/lib/actions/reading";
 import { getPassageOfTheDay } from "@/lib/actions/reading-notes";
@@ -134,20 +135,22 @@ export default async function ReadingPage() {
                   </Link>
                 }
               />
-              {/* The house's work cards (SLN-769), as Recently finished below */}
+              {/* The house's work cards (SLN-769), as Recently finished below; the row ends full (SLN-774) */}
               <div className="@container">
-                <ol className="catalogue-grid catalogue-density-compact">
+                <ol className="catalogue-grid catalogue-density-compact full-rows" {...fullRowAttributes(next.length)}>
                   {next.map((item) => (
                     <li key={item.workId} className={WORK_CARD} data-hub-next-item={item.workId}>
-                      <Link href={`/library/${item.slug ?? item.workId}`} aria-label={item.title} tabIndex={-1} className="block cover-shadow">
+                      <Link href={`/library/${item.slug ?? item.workId}`} aria-label={item.title} className="block cover-shadow">
                         <Cover s3Key={item.cover} title={item.title} className="aspect-[2/3] w-full" />
                       </Link>
-                      <div className={WORK_CARD_BODY}>
-                        <Link href={`/library/${item.slug ?? item.workId}`}>
+                      {/* As the library's cards: the link covers the text, Start sits above it */}
+                      <div className="relative flex flex-1 flex-col">
+                        <Link href={`/library/${item.slug ?? item.workId}`} aria-label={item.title} tabIndex={-1} className="absolute inset-0 z-10" />
+                        <div className={WORK_CARD_BODY}>
                           <CardHeading title={item.title} />
-                        </Link>
-                        <div className="flex items-center">
-                          <QueueStartButton workId={item.workId} editionId={item.editionId} title={item.title} />
+                          <div className="relative z-20 flex items-center self-start">
+                            <QueueStartButton workId={item.workId} editionId={item.editionId} title={item.title} />
+                          </div>
                         </div>
                       </div>
                     </li>

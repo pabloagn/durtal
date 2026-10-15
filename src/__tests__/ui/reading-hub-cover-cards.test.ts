@@ -12,10 +12,20 @@ const tiles = source("components/reading/reading-tiles.tsx");
 
 describe("the Reading hub's cover rows", () => {
   it("share the catalogue grid: 208px readable minimum, two a row on a phone", () => {
-    expect(hub).toMatch(/data-hub-next=""[\s\S]*?<div className="@container">\s*<ol className="catalogue-grid catalogue-density-compact">/);
+    expect(hub).toMatch(/data-hub-next=""[\s\S]*?<div className="@container">\s*<ol className="catalogue-grid catalogue-density-compact full-rows" \{\.\.\.fullRowAttributes\(next\.length\)\}>/);
     expect(hub).toMatch(/<div className="@container">\s*<FinishedCovers reads=\{finished\.map\(finishedItem\)\} className="catalogue-grid catalogue-density-compact" \/>/);
     expect(hub).not.toContain("sm:grid-cols-5");
     expect(hub).not.toContain("sm:grid-cols-6");
+  });
+
+  it("end on a full row (SLN-774)", () => {
+    expect(tiles).toContain("<div className={`${className} full-rows`} {...fullRowAttributes(reads.length)}>");
+  });
+
+  it("cover their text with the card's link, a whole-card touch target, as the library's cards", () => {
+    expect(hub).toMatch(/<Link href=\{`\/library\/\$\{item\.slug \?\? item\.workId\}`\} aria-label=\{item\.title\} tabIndex=\{-1\} className="absolute inset-0 z-10" \/>/);
+    expect(hub).toContain('<div className="relative z-20 flex items-center self-start">');
+    expect(tiles).toContain('<Link href={read.href} aria-label={read.title} tabIndex={-1} className="absolute inset-0 z-10" />');
   });
 
   it("are work cards whose titles wrap in full in CardHeading", () => {

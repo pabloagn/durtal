@@ -5,6 +5,7 @@ import { ArrowRight, BookText, Headphones, Tablet } from "lucide-react";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { CardHeading } from "@/components/shared/card-heading";
 import { WORK_CARD, WORK_CARD_BODY } from "@/components/shared/work-card";
+import { fullRowAttributes } from "@/components/shared/phone-pair-grid";
 import { ReaderEntryLink } from "@/components/reader/reader-entry-link";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { RatingStars } from "@/components/shared/rating";
@@ -59,24 +60,26 @@ export interface FinishedItem {
  * Finished reads as the house's work cards (SLN-769): the cover, the title in
  * `CardHeading`, then the read's rating and its finish date at the card's
  * foot. The grid sets the width (`catalogue-grid`: 208px readable minimum,
- * two a row on a phone)
+ * two a row on a phone), and the row ends full (`full-rows`, SLN-774)
  */
 export function FinishedCovers({ reads, className }: { reads: FinishedItem[]; className: string }) {
   return (
-    <div className={className}>
+    <div className={`${className} full-rows`} {...fullRowAttributes(reads.length)}>
       {reads.map((read) => (
         <article key={read.id} className={WORK_CARD} data-hub-finished={read.id}>
-          <Link href={read.href} aria-label={read.title} tabIndex={-1} className="block cover-shadow">
+          <Link href={read.href} aria-label={read.title} className="block cover-shadow">
             <Cover s3Key={read.cover} title={read.title} className="aspect-[2/3] w-full" />
           </Link>
-          <div className={WORK_CARD_BODY}>
-            <Link href={read.href}>
+          {/* As the library's cards: the link covers the text, so the whole card is the target */}
+          <div className="relative flex flex-1 flex-col">
+            <Link href={read.href} aria-label={read.title} tabIndex={-1} className="absolute inset-0 z-10" />
+            <div className={WORK_CARD_BODY}>
               <CardHeading title={read.title} />
-            </Link>
-            {/* Stars, then the date; on a narrow card the date takes its own line */}
-            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-              <RatingStars value={read.rating} />
-              <span className="font-mono text-micro text-fg-secondary [overflow-wrap:anywhere]">{read.date}</span>
+              {/* Stars, then the date; on a narrow card the date takes its own line */}
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                <RatingStars value={read.rating} />
+                <span className="font-mono text-micro text-fg-secondary [overflow-wrap:anywhere]">{read.date}</span>
+              </div>
             </div>
           </div>
         </article>
