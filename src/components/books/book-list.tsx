@@ -3,8 +3,6 @@
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { CopyBookButton } from "./copy-book-button";
 import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
-import { EbookMark } from "./ebook-mark";
-import { COVER_CORNER } from "./cover-chip";
 import { CatalogueReadLink } from "@/components/ebooks/catalogue-read-action";
 
 import Image from "next/image";
@@ -80,15 +78,30 @@ export function RowCheckbox({ checked }: { checked: boolean }) {
   );
 }
 
+/** The reader link's width, kept in rows without one so every row's status and year line up */
+function ReadSlot() {
+  return (
+    <span aria-hidden="true" className="invisible inline-flex min-h-8 items-center gap-1.5 px-2 text-xs pointer-coarse:min-h-11" data-read-slot="">
+      <span className="h-3.5 w-3.5" />Read
+    </span>
+  );
+}
+
 /**
  * A list row is two lines beside its thumbnail. The first line holds the
- * title, then the marks, status and rating, then the copy button: each on
- * the title's cap-height center. The second line holds the author, the year
- * and the copies, on the author's baseline.
+ * title, then the marks, status and rating, then the actions: each on the
+ * title's cap-height center. The second line holds the author, the year and
+ * the copies, on the author's baseline. Titles and authors wrap in full.
+ *
+ * In a list narrower than 640px (a phone) the marks, status, year and copies
+ * go to a third line under the author, with the actions at its end, so the
+ * title and author take the row's whole width.
  */
 export function BookList({ books, isSelecting = false, selectedIds, onSelect }: BookListProps) {
+  // When any row can be read here, every row keeps the Read link's room
+  const readSlot = !isSelecting && books.some((book) => book.ebook?.readable && book.ebook.readerPath);
   return (
-    <div className="space-y-px">
+    <div className="@container/list space-y-px">
       {books.map((book) => {
         const isSelected = selectedIds?.has(book.workId) ?? false;
 
@@ -107,19 +120,44 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
             ? PRIORITY_CONFIG[book.acquisitionPriority as AcquisitionPriority]
             : null;
         const badge = readingBadge(book.readingSummary, book.reading);
+        const readable = !!(book.ebook?.readable && book.ebook.readerPath);
+
+        const marks = (
+          <>
+            <HuntBadge {...book} />
+            <PoisonBadge isPoison={book.isPoison} />
+            {priorityInfo && (
+              <span
+                className={`inline-block h-2 w-2 rounded-full ${priorityInfo.dotColor}`}
+                role="img"
+                aria-label={`${priorityInfo.label} priority`}
+                data-tooltip={`${priorityInfo.label} priority`}
+              />
+            )}
+            {statusInfo && <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>}
+            {badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
+            {book.rating != null && <Badge variant="gold">{formatRating(book.rating)}/5</Badge>}
+          </>
+        );
+        const year = book.publicationYear ? (
+          <span className="font-mono text-micro text-fg-secondary">{book.publicationYear}</span>
+        ) : null;
+        const copies = `${book.instanceCount} ${book.instanceCount === 1 ? "copy" : "copies"}`;
 
         return (
         <div
           key={book.workId}
-          className={`group flex items-start gap-3 rounded-sm px-3 py-2.5 transition-colors hover:bg-bg-secondary/60 ${isSelected ? "bg-accent-primary/5" : ""}`}
+          className={`group grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 rounded-sm px-3 py-2.5 transition-colors hover:bg-bg-secondary/60 @[40rem]/list:flex @[40rem]/list:items-start ${isSelected ? "bg-accent-primary/5" : ""}`}
           onClick={handleRowClick}
+          data-book-row=""
         >
           <Link
             href={`/library/${book.slug}`}
-            className={`flex min-w-0 flex-1 items-center gap-3 ${isSelecting ? "pointer-events-none" : ""}`}
+            className={`col-span-2 flex min-w-0 flex-1 items-start gap-3 ${isSelecting ? "pointer-events-none" : ""}`}
             tabIndex={isSelecting ? -1 : undefined}
           >
-          {/* Small thumbnail; in selection mode it carries the checkbox */}
+          {/* Small thumbnail; in selection mode it carries the checkbox. The
+              row's Read says it can be read here, so no mark covers it. */}
           <div className="relative h-10 w-7 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
             {book.coverUrl ? (
               <Image
@@ -139,50 +177,41 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
               </div>
             )}
             {isSelecting && <RowCheckbox checked={isSelected} />}
-            {!isSelecting && book.ebook?.readable && <div className={COVER_CORNER.bottomLeft}><EbookMark ebook={book.ebook} /></div>}
           </div>
 
           <div className="min-w-0 flex-1">
-            {/* First line: the title, then the marks, status and rating */}
+            {/* First line: the title, then (from 640px) the marks, status and rating */}
             <div className="type-item-title flex gap-3">
-              <h3 className="type-item-title min-w-0 flex-1 truncate transition-colors group-hover:text-accent-primary">
+              <h3 className="type-item-title min-w-0 flex-1 transition-colors [overflow-wrap:anywhere] group-hover:text-accent-primary" data-book-row-title="">
                 {book.title}
               </h3>
-              <CapAlignedControls height={20}>
-                <HuntBadge {...book} />
-                <PoisonBadge isPoison={book.isPoison} />
-                {priorityInfo && (
-                  <span
-                    className={`inline-block h-2 w-2 rounded-full ${priorityInfo.dotColor}`}
-                    role="img"
-                    aria-label={`${priorityInfo.label} priority`}
-                    data-tooltip={`${priorityInfo.label} priority`}
-                  />
-                )}
-                {statusInfo && <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>}
-                {badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
-                {book.rating != null && <Badge variant="gold">{formatRating(book.rating)}/5</Badge>}
-              </CapAlignedControls>
+              <span className="hidden @[40rem]/list:contents">
+                <CapAlignedControls height={20}>{marks}</CapAlignedControls>
+              </span>
             </div>
-            {/* Second line: the author, then the year and the copies */}
+            {/* Second line: the author, then (from 640px) the year and the copies */}
             <div className="flex items-baseline gap-3">
-              <p className="min-w-0 flex-1 truncate text-sm text-fg-secondary">
+              <p className="min-w-0 flex-1 text-sm text-fg-secondary [overflow-wrap:anywhere]">
                 {book.authorName}
               </p>
-              {book.publicationYear && (
-                <span className="font-mono text-micro text-fg-secondary">
-                  {book.publicationYear}
+              <span className="hidden @[40rem]/list:contents">
+                {year}
+                <span className="w-16 whitespace-nowrap text-right font-mono text-micro text-fg-secondary">
+                  {copies}
                 </span>
-              )}
-              <span className="w-16 whitespace-nowrap text-right font-mono text-micro text-fg-secondary">
-                {book.instanceCount} {book.instanceCount === 1 ? "copy" : "copies"}
               </span>
             </div>
           </div>
           </Link>
-          {/* On the title's cap-height center, beside the first line */}
+          {/* Under 640px: the marks, status, year and copies under the author */}
+          <div className="col-start-1 mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 pl-10 @[40rem]/list:hidden" data-book-row-facts="">
+            {marks}
+            {year}
+            <span className="whitespace-nowrap font-mono text-micro text-fg-secondary">{copies}</span>
+          </div>
+          {/* Beside the title's first line from 640px; at the end of the facts line under it */}
           {(book.isFavourite !== undefined || !isSelecting) && (
-            <CapAlignedControls height={32} coarseHeight={44} className="type-item-title">
+            <CapAlignedControls height={32} coarseHeight={44} className="col-start-2 row-start-2 self-center type-item-title @[40rem]/list:self-auto">
               {book.isFavourite !== undefined && (
                 <FavouriteToggle
                   favourite={book.isFavourite}
@@ -191,7 +220,7 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
                 />
               )}
               {!isSelecting && <CopyBookButton {...book} />}
-              {!isSelecting && <CatalogueReadLink ebook={book.ebook ?? null} returnTo={book.readerReturnTo} />}
+              {!isSelecting && (readable ? <CatalogueReadLink ebook={book.ebook ?? null} returnTo={book.readerReturnTo} /> : readSlot && <ReadSlot />)}
             </CapAlignedControls>
           )}
         </div>
