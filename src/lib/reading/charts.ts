@@ -141,6 +141,23 @@ export function durationWords(days: number): string {
   return `${Math.round(days)} ${Math.round(days) === 1 ? "day" : "days"}`;
 }
 
+/**
+ * The unread pile's line (SLN-802): the pages only for books with a page
+ * count, and none when no book has one, so it never says "0 pages" beside
+ * "2 without a page count"; the time to read them only with pages to count.
+ */
+export function unreadPileText(pile: { books: number; pages: number; withoutPages: number; years: number | null }): string {
+  const books = `${n(pile.books)} ${Math.round(pile.books) === 1 ? "book" : "books"} you own and have not read`;
+  const counted = pile.books - pile.withoutPages;
+  if (counted <= 0) return `${books}.`;
+  const pages = `${n(pile.pages)} ${Math.round(pile.pages) === 1 ? "page" : "pages"}`;
+  const which = pile.withoutPages > 0 ? ` in the ${n(counted)} with a page count` : "";
+  const time = pile.years !== null && pile.pages > 0
+    ? `: at your pace over the last three years, about ${durationWords(pile.years * 365.25)} to read ${pile.withoutPages > 0 ? "those" : "them all"}`
+    : "";
+  return `${books}, ${pages}${which}${time}.`;
+}
+
 /** A year's reading days by week: the weeks of the year (calendar rows), the weeks with a reading day, and those with `target` days or more */
 export function yearRhythm(days: Iterable<string>, year: number, weekStart: 1 | 7, target: number | null): { weeks: number; weeksRead: number; kept: number | null } {
   const cells = calendarCells(year, weekStart);
