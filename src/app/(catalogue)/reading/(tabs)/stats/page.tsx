@@ -4,6 +4,7 @@ import { buttonClass } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ReadingTabs } from "@/components/reading/reading-tabs";
+import { StatsYears } from "@/components/reading/stats-years";
 import { GoalDialogButton } from "@/components/reading/goal-dialog-button";
 import { StartBookButton } from "@/components/reading/hub-actions";
 import { GoalCards } from "@/components/reading/goal-card";
@@ -102,23 +103,13 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
         }
         tabs={<ReadingTabs />}
       />
-      <nav aria-label="Year" className="-mt-4 mb-8">
-        <ul className="flex gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none]" data-stats-years="">
-          {[null, ...(years.includes(current) ? years : [current, ...years])].map((y) => (
-            <li key={y ?? "all"} className="shrink-0">
-              <Link
-                href={y === null ? "/reading/stats?year=all" : y === current ? "/reading/stats" : `/reading/stats?year=${y}`}
-                aria-current={y === year ? "page" : undefined}
-                className={`inline-flex h-8 items-center rounded-sm border px-3 text-sm transition-colors pointer-coarse:h-11 ${
-                  y === year ? "border-accent-primary/10 bg-selection-bg/80 text-fg-primary" : "border-transparent text-fg-secondary hover:bg-bg-tertiary/50 hover:text-fg-primary"
-                }`}
-              >
-                {y ?? "All time"}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <StatsYears
+        years={[null, ...(years.includes(current) ? years : [current, ...years])].map((y) => ({
+          label: y === null ? "All time" : String(y),
+          href: y === null ? "/reading/stats?year=all" : y === current ? "/reading/stats" : `/reading/stats?year=${y}`,
+          current: y === year,
+        }))}
+      />
 
       {empty && (
         // As the Reading page's own empty view: the next step is a book (SLN-755)

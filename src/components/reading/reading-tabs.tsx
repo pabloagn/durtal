@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -39,20 +38,16 @@ export function readingTabs(pathname: string, tabs: readonly { href: string; lab
 
 export function ReadingTabs() {
   const pathname = usePathname();
-  const row = useRef<HTMLUListElement>(null);
-  // At 390px the row scrolls inside itself: keep the current tab in view
-  useEffect(() => {
-    row.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [pathname]);
+  // On a phone the row wraps onto a second line: a tab is never cut (SLN-800)
   return (
     <nav aria-label="Reading" className="mt-6">
-      <ul ref={row} className="flex gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none]">
+      <ul className="flex flex-wrap gap-1" data-reading-tabs="">
         {readingTabs(pathname).map((tab) => (
           <li key={tab.href} className="shrink-0">
             <Link
               href={tab.href}
               aria-current={tab.current ? "page" : undefined}
-              className={`inline-flex h-8 items-center rounded-sm border px-3 text-sm transition-colors pointer-coarse:h-11 ${
+              className={`inline-flex h-8 items-center whitespace-nowrap rounded-sm border px-3 text-sm transition-colors pointer-coarse:h-11 ${
                 tab.current
                   ? "border-accent-primary/10 bg-selection-bg/80 text-fg-primary"
                   : "border-transparent text-fg-secondary hover:bg-bg-tertiary/50 hover:text-fg-primary"
