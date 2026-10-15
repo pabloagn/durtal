@@ -50,5 +50,8 @@ Settings, Reader was the one settings page that looked unfinished:
 - Alignment, overflow, layout, touch and design audits are clean in all nine
   runs. A first build put Refresh 10px off the text edge at 390 and 320 where
   it wrapped under the count; fixed above.
+- Review (findings/review-pr-362.md): with more than 50 overrides the pager
+  row's Previous sat 12px inside the titles' edge; it now pulls out by its
+  padding (`-ml-3`) and starts on it.
 - Page weight passes every route; /settings/reader is 64 KB of HTML.
 - Typecheck clean, lint no new warnings. No migration, no new package.
