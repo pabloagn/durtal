@@ -18,7 +18,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { flushSync } from "react-dom";
-import { besideBook, nextInBook } from "@/lib/reader/book-tab";
+import { besideBook, enterBook, entersBook, nextInBook, onBookScreen } from "@/lib/reader/book-tab";
 import {
   ReaderBridgeProvider,
   useReaderSlotFilled,
@@ -868,19 +868,34 @@ function ReaderSession({
         // Tab visits the links on this screen, then leaves the book for the
         // bars, which it brings back first (SLN-810)
         const doc = event.currentTarget as Document;
-        const frame = doc.defaultView?.frameElement;
         const book = bookRef.current;
-        if (!frame || !book) return;
-        const area = book.getBoundingClientRect();
-        const next = nextInBook(doc, event.shiftKey, (el) => {
-          const at = frame.getBoundingClientRect(), rect = el.getBoundingClientRect();
-          const left = at.left + rect.left, top = at.top + rect.top;
-          return left < area.right && left + rect.width > area.left && top < area.bottom && top + rect.height > area.top;
-        });
+        if (!doc.defaultView?.frameElement || !book) return;
+        const next = nextInBook(doc, event.shiftKey, onBookScreen(book));
         event.preventDefault();
         if (next) return next.focus({ preventScroll: true });
         flushSync(() => actions.current?.showBars?.());
-        besideBook(book, event.shiftKey)?.focus({ preventScroll: true });
+        const beside = besideBook(book, event.shiftKey);
+        beside?.focus({ preventScroll: true });
+        // Firefox can keep focus in the frame once Tab has been out to its
+        // own toolbar: the page's window takes it first, then the control
+        if (beside && document.activeElement !== beside) {
+          window.focus();
+          beside.focus({ preventScroll: true });
+        }
+      },
+      intoBook: (event) => {
+        // Tab from a bar into the book lands on this screen's first link, or
+        // its last with Shift, or on the page itself: the browser's own order
+        // would take a link in another chapter and move the book (SLN-826)
+        const book = bookRef.current, engine = engineRef.current;
+        const from = document.activeElement;
+        if (!book || !engine?.bookDocuments || !from || !entersBook(book, from, event.shiftKey)) return;
+        event.preventDefault();
+        const next = enterBook(engine.bookDocuments(), event.shiftKey, onBookScreen(book));
+        if (!next) return engine.focusBook?.();
+        // Firefox moves focus into a frame only once the frame itself has it
+        (next.ownerDocument.defaultView?.frameElement as HTMLElement | null)?.focus({ preventScroll: true });
+        next.focus({ preventScroll: true });
       },
     });
     const historyInput = createHistoryInput({
