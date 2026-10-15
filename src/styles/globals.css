@@ -1270,10 +1270,11 @@ dialog::backdrop {
   :has(> [data-catalogue-view="grid"]) > .grid-size-slider .grid-size-desktop { display: none; }
   :has(> [data-catalogue-view="grid"]) > .grid-size-slider .grid-size-mobile { display: block; }
   /* The card size takes the rest of the views' row, so the first card
-     reaches the first screen (SLN-641); under 4rem it takes a row */
-  :has(> [data-catalogue-view="grid"]) > .grid-size-slider { flex: 1 1 4rem; min-width: 0; }
-  /* The slider's line hangs under the row: the controls share their top,
-     the slider as tall as the views' outlined row */
+     reaches the first screen (SLN-641); under 7.5rem, too narrow for the
+     slider and "Compact" side by side, it takes a row (SLN-804) */
+  :has(> [data-catalogue-view="grid"]) > .grid-size-slider { flex: 1 1 7.5rem; min-width: 0; }
+  /* The controls share their top, the slider as tall as the views'
+     outlined row */
   :has(> [data-catalogue-view="grid"]) > * { align-self: flex-start; }
   .catalogue-density-grid { grid-template-columns: minmax(0, 1fr); }
   /* Compact is two cards a row, with a tighter gap and card padding. A
