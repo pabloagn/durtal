@@ -10,7 +10,15 @@ vi.mock("next/link", () => ({
     createElement("a", { href, ...rest }, children as never),
 }));
 
-import { DomainError } from "@/components/domains/domain-states";
+const navigation = vi.hoisted(() => ({ pathname: "/films", refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => navigation.pathname,
+  useRouter: () => ({ refresh: navigation.refresh }),
+}));
+
+import { act } from "react";
+import { createRoot } from "react-dom/client";
+import { DomainError, isRecordPath } from "@/components/domains/domain-states";
 
 // Error views (SLN-700): a record that fails names the record and leads back
 // to its list; every error view sets the tab's title and offers a shared
@@ -39,6 +47,46 @@ describe("DomainError", () => {
     const host = render({ kind: "painting", error, reset: () => {} });
     expect(host.textContent).toContain("Paintings could not be loaded.");
     expect(host.querySelector("a")!.getAttribute("href")).toBe("/");
+  });
+});
+
+describe("a record that fails in its layout", () => {
+  // The record's layout checks it before the page, outside the record's own
+  // error view: with the database unreachable the failure lands on the list's
+  // view, which still names the record and leads back to its list
+  it("names the record from the list's error view", () => {
+    quiet();
+    navigation.pathname = "/films/seed-film-1";
+    const host = render({ kind: "film", error, reset: () => {} });
+    expect(host.textContent).toContain("This film could not be loaded.");
+    expect(host.querySelector("a")!.textContent).toBe("Back to films");
+    navigation.pathname = "/films";
+  });
+  it("tells a record's address from a list or a page of its own", () => {
+    expect(isRecordPath("/films", "/films/seed-film-1")).toBe(true);
+    expect(isRecordPath("/library", "/library/against-nature")).toBe(true);
+    for (const page of ["/films", "/films/", "/films/new", "/library/identify", "/library/import", "/films/a/b", "/filmsx/a", null])
+      expect(isRecordPath(page?.startsWith("/library") ? "/library" : "/films", page)).toBe(false);
+  });
+});
+
+describe("Try again", () => {
+  // A page that failed on the server holds its error in its page data, so
+  // clearing the error view alone draws the same error again
+  it("fetches the page anew, then clears the error view", () => {
+    quiet();
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const reset = vi.fn();
+    navigation.refresh.mockClear();
+    act(() => root.render(createElement(DomainError, { kind: "film", error, reset })));
+    act(() => host.querySelector("button")!.click());
+    expect(navigation.refresh).toHaveBeenCalledTimes(1);
+    expect(reset).toHaveBeenCalledTimes(1);
+    act(() => root.unmount());
+    host.remove();
   });
 });
 

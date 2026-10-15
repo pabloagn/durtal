@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -24,9 +25,19 @@ export function SectionError({
   backHref: string;
   backLabel: string;
 }) {
+  const router = useRouter();
+  const [retrying, startRetry] = useTransition();
   useEffect(() => {
     console.error(error);
   }, [error]);
+  // A page that failed on the server holds its error in the page data:
+  // `reset` alone draws the same error again, so the page is fetched anew
+  // first (as Next's own retry does)
+  const retry = () =>
+    startRetry(() => {
+      router.refresh();
+      reset();
+    });
   return (
     <>
       <title>Something went wrong | Durtal</title>
@@ -37,7 +48,9 @@ export function SectionError({
         description={description}
         action={
           <div className="flex gap-3">
-            <Button onClick={reset}>Try again</Button>
+            <Button onClick={retry} busy={retrying}>
+              Try again
+            </Button>
             <Link href={backHref} className={buttonClass("ghost")}>
               {backLabel}
             </Link>

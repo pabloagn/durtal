@@ -33,6 +33,15 @@ dashboard. A failing book or film page left the tab with no title.
 - `DomainError` takes `record`: "This film could not be loaded." and "Back to
   films". `library/[slug]`, `films/[slug]`, `paintings/[slug]` and
   `perfumes/[slug]` get an `error.tsx` that uses it.
+- From the review: Try again fetches the page anew, then clears the view, in
+  one transition, and shows as busy meanwhile. `reset` alone drew the same
+  error again, since a page that failed on the server keeps its error in the
+  page data it has.
+- From the review: a record's layout checks the record before its page,
+  outside the record's `error.tsx`, so an unreachable database landed on the
+  list's error view. `isRecordPath` tells a record's address from the list or
+  a page such as `/films/new`; on a record's address `DomainError` and the
+  books' error view use the record's words.
 - `src/__tests__/ui/error-views.test.ts` pins the wording, the way back, the
   title and the error files.
 
