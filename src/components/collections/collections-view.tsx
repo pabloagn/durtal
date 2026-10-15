@@ -28,7 +28,7 @@ export function CollectionsViewSwitcher() {
   const [view, setView] = useCollectionsView();
   const [size, setSize] = useCollectionsSize();
   return (
-    <div className="flex shrink-0 items-center gap-3">
+    <div className="flex shrink-0 items-center justify-end gap-3">
       <ViewModeSwitcher
         value={view}
         onChange={(mode) => {

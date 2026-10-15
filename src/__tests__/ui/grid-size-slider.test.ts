@@ -170,7 +170,7 @@ describe("phone size projection and saved preference", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(host.querySelector("output")!.textContent).toBe(
-      "1 per row · narrow space",
+      "Compact · 1 per row · narrow space",
     );
     expect(readCookie("durtal-grid-columns")).toBe("8");
   });
