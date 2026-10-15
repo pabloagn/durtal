@@ -34,10 +34,14 @@ import {
   RecordPanel,
 } from "@/components/shared/detail-layout";
 import { PublisherHeader } from "@/components/publishers/publisher-header";
+import { WorkCarousel } from "@/components/books/work-carousel";
+import { loadRelatedBooks } from "@/lib/catalogue/related-books";
 import { PublisherBooksFilters, PublisherBooksView } from "@/components/publishers/publisher-books";
 import { mediaUrl } from "@/lib/s3/media-url";
 
 const LINK = "text-command";
+/** Wanted books shown on the house's page; its heading opens them all */
+const WANTED_SHELF = 24;
 /** One read per request for the page and its title */
 const loadPublisher = cache(getPublisher);
 
@@ -90,7 +94,17 @@ export default async function PublisherPage({
   if (query.page > lastPage(total, query.perPage))
     redirect(pageHref(basePath, raw, lastPage(total, query.perPage)));
 
-  const digital = await catalogueAvailability(books.map((book) => book.workId));
+  // The books wanted from the house, one card each (a book can be wanted
+  // from the house and from an imprint), the first WANTED_SHELF of them
+  const wantedIds = [...new Set(targets.map((t) => t.work.id))];
+  const [digital, wanted] = await Promise.all([
+    catalogueAvailability([...books.map((book) => book.workId), ...wantedIds.slice(0, WANTED_SHELF)]),
+    loadRelatedBooks(wantedIds.slice(0, WANTED_SHELF).map((workId) => ({ workId }))),
+  ]);
+  const wantedWorks = wantedIds.slice(0, WANTED_SHELF).flatMap((id) => {
+    const work = wanted.books.get(id);
+    return work ? [{ ...work, targets: targets.filter((t) => t.work.id === id) }] : [];
+  });
   const digitalBooks = books.map((book) => ({ ...book, ebook: digital.get(book.workId)?.read ?? null, readerReturnTo: pageHref(basePath, raw, query.page) }));
   const { logo, background } = images;
   const facts = [
@@ -299,21 +313,23 @@ export default async function PublisherPage({
           )}
         </section>
 
-        {targets.length > 0 && (
-          <section className="mb-8">
-            <SectionHeading title="Wanted from this publisher" count={targets.length} />
-            <ul className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary">
-              {targets.map((t) => (
-                <li key={t.id} className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3 text-sm">
-                  <Link href={`/library/${t.work.slug ?? t.work.id}`} className="text-fg-primary transition-colors hover:text-accent-primary">
-                    {t.work.title}
-                  </Link>
-                  <span className="text-fg-secondary">
-                    {t.publisher} · {t.state === "on_order" ? "On order" : "Wanted"}
-                  </span>
-                </li>
-              ))}
-            </ul>
+        {/* Cover cards, as every book list. The heading is no link: the
+            house's book list counts its editions, so a book wanted from the
+            house with no edition of it catalogued would not be there */}
+        {wantedWorks.length > 0 && (
+          <section className="mb-8" aria-label="Wanted from this publisher">
+            <WorkCarousel
+              title="Wanted from this publisher"
+              count={wantedIds.length}
+              works={wantedWorks}
+              ebooks={new Map([...digital].map(([id, value]) => [id, value.read]))}
+              readerReturnTo={pageHref(basePath, raw, query.page)}
+              caption={(w) => (
+                <p className="mt-1.5 text-micro text-fg-secondary">
+                  {w.targets.map((t) => `${t.publisher} · ${t.state === "on_order" ? "On order" : "Wanted"}`).join("; ")}
+                </p>
+              )}
+            />
           </section>
         )}
       </DetailColumns>
