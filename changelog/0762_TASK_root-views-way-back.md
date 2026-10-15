@@ -33,5 +33,12 @@ through its review fix, and made Try again reload the page. What was left:
 
 ## Completion Notes
 
+- **Browser.** In a production preview, an address outside the app's
+  sections answers 404 with "Page not found" and one secondary button, "Go
+  to the dashboard", in Chromium, Firefox and WebKit at 1440, 390 and 320.
+  The alignment, touch and design audits report nothing there, and the page
+  does not scroll sideways. The app-wide error view only shows when the root
+  layout itself fails, which a preview cannot cause, so its label is checked
+  by the unit test.
 - Typecheck is clean, and the error view tests pass.
 - No migration, no new package.
