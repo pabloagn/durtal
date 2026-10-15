@@ -10,6 +10,7 @@ import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { RatingInput } from "@/components/shared/rating";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { findOrCreateAuthor } from "@/lib/actions/authors";
 import { LANGUAGES } from "@/lib/constants/languages";
 import { normalizeSearchText } from "@/lib/utils/search-text";
@@ -494,35 +495,43 @@ export function WorkForm({
             </h3>
             <div className="space-y-2">
               {values.authors.map((author) => (
+                // The name wraps in full, never cut. On touch, where the menu
+                // and the cross are 44px, and on a phone's width, it takes a
+                // line of its own with them under it, as a record form's
+                // role chip does (record-fields.tsx)
                 <div
                   key={author.id}
-                  className="flex items-center gap-2 rounded-sm border border-glass-border bg-bg-primary px-3 py-2"
+                  className="flex flex-wrap items-start gap-x-2 rounded-sm border border-glass-border bg-bg-primary px-3 py-2 text-sm leading-7 pointer-coarse:py-0 pointer-coarse:leading-11"
                 >
-                  <span className="min-w-0 flex-1 truncate text-sm text-fg-primary">
+                  <span className="min-w-0 flex-1 break-words py-0.5 leading-6 text-fg-primary max-sm:basis-full pointer-coarse:basis-full pointer-coarse:py-2.5">
                     {author.name}
                   </span>
-                  <select
-                    aria-label={`Role of ${author.name}`}
-                    value={author.role}
-                    onChange={(e) => updateAuthorRole(author.id, e.target.value)}
-                    className="h-7 pointer-coarse:h-11 pointer-coarse:text-sm appearance-none rounded-sm border border-glass-border bg-bg-secondary px-2 text-xs text-fg-secondary transition-colors focus:border-accent-primary focus:outline-none"
-                  >
-                    {AUTHOR_ROLE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => removeAuthor(author.id)}
-                    disabled={values.authors.length <= 1}
-                    className="rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary disabled:pointer-events-none disabled:opacity-30"
-                    aria-label="Remove author"
-                    data-tooltip="Remove author"
-                  >
-                    <X className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  </button>
+                  <CapAligned height={28} coarseHeight={44}>
+                    <select
+                      aria-label={`Role of ${author.name}`}
+                      value={author.role}
+                      onChange={(e) => updateAuthorRole(author.id, e.target.value)}
+                      className="block h-7 pointer-coarse:h-11 pointer-coarse:text-sm appearance-none rounded-sm border border-glass-border bg-bg-secondary px-2 text-xs text-fg-secondary transition-colors focus:border-accent-primary focus:outline-none"
+                    >
+                      {AUTHOR_ROLE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </CapAligned>
+                  <CapAligned height={22} coarseHeight={44}>
+                    <button
+                      type="button"
+                      onClick={() => removeAuthor(author.id)}
+                      disabled={values.authors.length <= 1}
+                      className="flex size-[22px] items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary disabled:pointer-events-none disabled:opacity-30 pointer-coarse:size-11"
+                      aria-label="Remove author"
+                      data-tooltip="Remove author"
+                    >
+                      <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    </button>
+                  </CapAligned>
                 </div>
               ))}
 

@@ -21,7 +21,7 @@ describe("Record form touch targets", () => {
     const fields = read("components/catalogue/record-fields.tsx");
     expect(fields).toContain('<span className="w-28 shrink-0 pt-px text-xs leading-6 text-fg-secondary pointer-coarse:leading-11 max-sm:');
     expect(fields).toMatch(/px-1\.5 pt-px text-xs leading-6 [^"]*pointer-coarse:leading-11 /);
-    expect(fields).toContain("pointer-coarse:basis-full pointer-coarse:whitespace-normal pointer-coarse:break-words pointer-coarse:py-2.5 pointer-coarse:leading-6");
+    expect(fields).toContain('export const CHIP_NAME = "min-w-0 whitespace-normal break-words pointer-coarse:py-2.5 pointer-coarse:leading-6";');
   });
 
   it("gives a role chip's name a line of its own on touch and on a phone", () => {
@@ -29,20 +29,22 @@ describe("Record form touch targets", () => {
     // and vanished with a mouse (reviews of #327 and #331)
     const fields = read("components/catalogue/record-fields.tsx");
     expect(fields).toContain("export const ROLE_CHIP = `${CHIP} pointer-coarse:flex-wrap max-sm:flex-wrap`;");
-    expect(fields).toMatch(/export const ROLE_CHIP_NAME =\s*"truncate pointer-coarse:order-first [^"]* max-sm:order-first max-sm:basis-full max-sm:whitespace-normal max-sm:break-words"/);
+    expect(fields).toContain("export const ROLE_CHIP_NAME = `${CHIP_NAME} pointer-coarse:order-first pointer-coarse:basis-full max-sm:order-first max-sm:basis-full`;");
     const perfume = read("components/perfumes/perfume-fields.tsx");
     expect(perfume).toContain("<span key={`${entry.organizationId}:${entry.role}`} className={ROLE_CHIP}>");
     expect(perfume).toMatch(/<span className=\{ROLE_CHIP_NAME\}>\s*\{entry\.name\}/);
     expect(perfume).toContain("className={`${ROLE_CHIP_NAME} ${entry.personId ? \"\" : \"italic\"}`}");
     expect(read("components/paintings/painting-fields.tsx")).toContain("<span key={entry.key} className={ROLE_CHIP}>");
-    expect(read("components/films/film-fields.tsx")).toContain("pointer-coarse:break-words max-sm:basis-full max-sm:whitespace-normal max-sm:break-words");
+    expect(read("components/films/film-fields.tsx")).toContain("min-w-0 flex-1 whitespace-normal break-words pointer-coarse:basis-full max-sm:basis-full");
+    // The menu keeps its width beside a name that wraps
+    for (const file of ["components/perfumes/perfume-fields.tsx", "components/paintings/painting-fields.tsx"])
+      expect(read(file)).not.toMatch(/<select[^>]*className="h-5 rounded-sm/);
   });
 
-  it("wraps every chip's name in full on a phone instead of cutting it", () => {
-    const fields = read("components/catalogue/record-fields.tsx");
-    expect(fields).toContain('"truncate max-sm:whitespace-normal max-sm:break-words max-sm:pointer-coarse:py-2.5 max-sm:pointer-coarse:leading-6"');
+  it("wraps every chip's name in full at every width instead of cutting it", () => {
+    // From 640 up, names over about 50 letters were still cut (review of #335)
     for (const file of ["components/catalogue/record-fields.tsx", "components/films/film-fields.tsx", "components/perfumes/perfume-fields.tsx", "components/paintings/painting-fields.tsx"])
-      expect(read(file)).not.toContain('<span className="truncate">');
+      expect(read(file)).not.toMatch(/<span className="truncate|CHIP_NAME =\s*"truncate/);
   });
 
   it("puts a row's label over its chips on a phone, with a row-starting Add on the label's edge", () => {
