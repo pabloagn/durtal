@@ -20,9 +20,10 @@ EPUB and the text PDF at 1440 and 390), and it took two lines at 320.
   device in the bar's left cell, where the chapter sits, for as long as the
   line shows. The text never runs under the bar, so the line covers nothing.
   Under 480px it reads "From iPhone · Safari"; wider, "Your place from
-  iPhone · Safari". While it shows, the tracking control and the time left
-  give it their room, so the place and percent stay and the line is never
-  cut. A live region outside the bar (which is inert while hidden) announces
+  iPhone · Safari"; exactly one wording applies at every width. While it
+  shows, the tracking control and the time left give it their room, and
+  under 480px the percent too, so the place stays and the line is never cut,
+  even beside "pp. 87–88 of 320" (review of #351). A live region outside the bar (which is inert while hidden) announces
   "Your place from ..." either way.
 - `src/app/reader/[ebookId]/reader-view.tsx`: the open sets `placeFrom`
   instead of the floating notice, and a page turn clears it as it cleared the
