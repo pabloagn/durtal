@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import Link from "next/link";
 import type { WhyPart } from "@/lib/reading/suggest/view";
 
@@ -8,18 +9,29 @@ import type { WhyPart } from "@/lib/reading/suggest/view";
  * Why this? (SLN-457): every feature's share of the score as a labelled bar,
  * its reason and its evidence links, in a glass popover. A feature that
  * lowers the score says so.
+ *
+ * The popover's content renders the first time it opens, not with the page:
+ * a page of suggestions would otherwise carry every row's reasons and links
+ * in its HTML (SLN-809).
  */
 export function WhyThis({ title, parts, prediction }: { title: string; parts: WhyPart[]; prediction?: string | null }) {
   const id = useId();
   const button = useRef<HTMLButtonElement>(null);
   const pop = useRef<HTMLDivElement>(null);
+  const [opened, setOpened] = useState(false);
 
   // Under the button, or above it when the screen ends first; always inside a 16px gutter
   useEffect(() => {
     const el = pop.current;
     if (!el) return;
+    // In the DOM before the popover shows, so it is placed at its real height
+    const fill = (e: Event) => {
+      if ((e as ToggleEvent).newState === "open") flushSync(() => setOpened(true));
+    };
     const place = (e: Event) => {
       if ((e as ToggleEvent).newState !== "open" || !button.current) return;
+      // A browser without beforetoggle fills it here
+      flushSync(() => setOpened(true));
       const b = button.current.getBoundingClientRect();
       const width = Math.min(352, window.innerWidth - 32);
       el.style.width = `${width}px`;
@@ -27,8 +39,12 @@ export function WhyThis({ title, parts, prediction }: { title: string; parts: Wh
       const below = b.bottom + 4;
       el.style.top = `${below + el.offsetHeight > window.innerHeight - 16 ? Math.max(16, b.top - 4 - el.offsetHeight) : below}px`;
     };
+    el.addEventListener("beforetoggle", fill);
     el.addEventListener("toggle", place);
-    return () => el.removeEventListener("toggle", place);
+    return () => {
+      el.removeEventListener("beforetoggle", fill);
+      el.removeEventListener("toggle", place);
+    };
   }, []);
 
   const sorted = [...parts].sort((a, b) => Number(a.lowers) - Number(b.lowers) || b.share - a.share);
@@ -52,20 +68,21 @@ export function WhyThis({ title, parts, prediction }: { title: string; parts: Wh
         className="glass fixed inset-auto m-0 overflow-hidden border-0 bg-transparent p-0 text-xs text-fg-primary"
         data-why-popover=""
       >
-        <div className="max-h-[70vh] space-y-3 overflow-y-auto p-3">
-          <p className="text-fg-secondary">What makes {title} a suggestion, by its share of the score</p>
-          {prediction && <p data-why-prediction="">{prediction}</p>}
-          <ul className="space-y-3">
-            {sorted.map((part) => (
-              <li key={part.key} data-why-part={part.key}>
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-fg-primary">{part.label}</span>
-                  <span className="shrink-0 text-fg-secondary tabular-nums">{part.lowers ? "halves the score" : `${Math.round(part.share * 100)}%`}</span>
-                </div>
-                {!part.lowers && (
-                  <div className="mt-1 h-1 rounded-sm bg-bg-tertiary" aria-hidden>
-                    <div className="h-full rounded-sm bg-accent-sage/70" style={{ width: `${Math.max(2, part.share * 100)}%` }} />
+        {opened && (
+          <div className="max-h-[70vh] space-y-3 overflow-y-auto p-3">
+            <p className="text-fg-secondary">What makes {title} a suggestion, by its share of the score</p>
+            {prediction && <p data-why-prediction="">{prediction}</p>}
+            <ul className="space-y-3">
+              {sorted.map((part) => (
+                <li key={part.key} data-why-part={part.key}>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-fg-primary">{part.label}</span>
+                    <span className="shrink-0 text-fg-secondary tabular-nums">{part.lowers ? "halves the score" : `${Math.round(part.share * 100)}%`}</span>
                   </div>
+                  {!part.lowers && (
+                    <div className="mt-1 h-1 rounded-sm bg-bg-tertiary" aria-hidden>
+                      <div className="h-full rounded-sm bg-accent-sage/70" style={{ width: `${Math.max(2, part.share * 100)}%` }} />
+                    </div>
                 )}
                 {part.reason && <p className="mt-1 text-fg-secondary">{part.reason}</p>}
                 {part.evidence.length > 0 && (
@@ -88,6 +105,7 @@ export function WhyThis({ title, parts, prediction }: { title: string; parts: Wh
             ))}
           </ul>
         </div>
+        )}
       </div>
     </>
   );
