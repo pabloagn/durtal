@@ -38,12 +38,21 @@ const contentsOpen = (driver) => waitUI(driver, `(() => {
   return !!panel?.open && panel.contains(document.activeElement);
 })()`);
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
+/** The bottom bar names the page: it follows the landing a beat after Go to closes */
+async function footerShows(driver, label, message) {
+  const shows = `(document.querySelector("footer[data-reader-chrome]")?.textContent ?? "").includes(${JSON.stringify(label)})`;
+  try { await waitUI(driver, shows, 5000); }
+  catch {
+    const place = await driver.evaluate(readerPlace);
+    throw new Error(`${message}: the bottom bar reads "${place.footer}" at "${place.first}"`);
+  }
+}
 export async function checkNavigation(driver) {
   await driver.open(19);
-  const roman = await goto(driver, "Page", "xii");
-  assert(roman.footer.includes("p. xii"), "EPUB 3 Roman page label missing");
-  const page57 = await goto(driver, "Page", "57");
-  assert(page57.footer.includes("p. 57"), "EPUB 3 numeric page label missing");
+  await goto(driver, "Page", "xii");
+  await footerShows(driver, "p. xii", "EPUB 3 Roman page label missing");
+  await goto(driver, "Page", "57");
+  await footerShows(driver, "p. 57", "EPUB 3 numeric page label missing");
   if (driver.savedPage) assert(await driver.savedPage("57"), "Saved locator lost pageLabel");
   await goto(driver, "Chapter", "Chapitre II");
   await driver.key("t", "KeyT");
