@@ -27,7 +27,7 @@ import {
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonClass } from "@/components/ui/button";
-import { SkeletonLine } from "@/components/shared/skeleton";
+import { SkeletonBlock } from "@/components/shared/skeleton";
 import { BookCard } from "@/components/books/book-card";
 import { CollectionCard } from "@/components/collections/collection-card";
 import { DomainAddLink } from "@/components/domains/domain-add-link";
@@ -70,7 +70,8 @@ function StatCard({
         </div>
         <div>
           {value === undefined ? (
-            <SkeletonLine className="type-stat w-12" />
+            // The darker block: a line's tone is the card's own and would not show
+            <SkeletonBlock className="type-stat h-[1lh] w-12" />
           ) : (
             <p className="type-stat text-fg-primary">{value.toLocaleString()}</p>
           )}

@@ -2,6 +2,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 vi.mock("next/link", () => ({
   default: ({ href, children, ...rest }: { href: string; children: unknown }) =>
@@ -151,5 +153,15 @@ describe("a page that is only an error or not-found view", () => {
   it("keeps the shared empty view's h3 everywhere else", () => {
     const host = html(createElement(NoResults, { noun: "books", search: "zz", hasFilters: false, clearHref: "/library" }));
     expect([host.querySelector("h1"), host.querySelector("h3")!.textContent]).toEqual([null, "No books found"]);
+  });
+});
+
+describe("the dashboard's loading view", () => {
+  // A held count sits on its card, whose tone (bg-bg-secondary) is a
+  // SkeletonLine's own, so a line there does not show
+  it("holds each count with a block darker than its card", () => {
+    const source = readFileSync(join(process.cwd(), "src/app/(catalogue)/page.tsx"), "utf8");
+    expect(source).toContain('<SkeletonBlock className="type-stat h-[1lh] w-12" />');
+    expect(source).not.toContain("<SkeletonLine");
   });
 });

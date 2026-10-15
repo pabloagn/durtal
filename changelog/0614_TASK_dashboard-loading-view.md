@@ -21,7 +21,8 @@ then replaced.
 - While the dashboard loads (`role="status"`, "Loading the dashboard"):
   - the section heading, the four count cards with their marks and labels, and
     the two book actions are drawn as on the page;
-  - only the counts are held, as `SkeletonLine`s of the stat type.
+  - only the counts are held, as `SkeletonBlock`s one stat line high: a
+    `SkeletonLine` has the card's own tone and would not show.
 - The sections below appear under it when the page arrives.
 - It is built from the page's own parts and the shared skeleton, so the
   dashboard revamp (SLN-740) can drop it with no other change.
@@ -32,7 +33,10 @@ then replaced.
   WebKit at 1440, 390 and 320:
   - The title, section heading, cards, labels and actions measure 0 px against
     the page.
-  - The counts' lines hold their height: 0 px.
+  - The counts' blocks hold their height: 0 px.
 - The alignment, touch, design and layout audits report nothing on the loading
   view and on the page.
 - Page weight: `/` 138 of 300 KB.
+- Review (#336): the held counts first used `SkeletonLine`, the same tone as
+  the card (rgb(14, 19, 25)), so the cards looked empty. They now use the
+  darker block, as the icon tiles.
