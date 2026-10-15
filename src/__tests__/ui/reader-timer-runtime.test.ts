@@ -8,7 +8,7 @@ const actions = vi.hoisted(() => ({ getRunningTimer: vi.fn(), pauseTimer: vi.fn(
 const toastError = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/actions/reading", () => actions);
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-vi.mock("sonner", () => ({ toast: { error: toastError, success: vi.fn(), message: vi.fn() } }));
+vi.mock("@/lib/notifications/toast", () => ({ toast: { error: toastError, success: vi.fn(), message: vi.fn(), info: vi.fn() } }));
 import { TimerProvider, useTimer } from "@/components/reading/timer-provider";
 
 function deferred<T>() {

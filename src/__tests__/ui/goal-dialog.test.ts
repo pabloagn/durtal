@@ -17,7 +17,7 @@ const actions = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/actions/reading-goals", () => actions);
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {}, push: () => {} }) }));
-vi.mock("sonner", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }) }));
+vi.mock("@/lib/notifications/toast", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }) }));
 // The lazy dialog, loaded through React.lazy so the test can wait for it
 vi.mock("next/dynamic", async () => {
   const React = await import("react");

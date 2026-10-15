@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
 import { deleteAuthor } from "@/lib/actions/authors";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 
 interface AuthorCardActionsMenuProps {
   authorId: string;

@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Gem } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { localToday, type HuntAssessment } from "@/lib/constants/hunting";
 import {
   huntAssessmentSchema,

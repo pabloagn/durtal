@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { ChevronDown } from "lucide-react";
 import { updateInstance } from "@/lib/actions/instances";
 import { todayLocal } from "@/lib/utils/date";

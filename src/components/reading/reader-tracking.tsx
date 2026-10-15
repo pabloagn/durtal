@@ -3,7 +3,7 @@
 import { readerUuid } from "@/lib/reader/uuid";
 
 import { useLayoutEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { ReaderSlotFill, useBeforeAnnotationDelete, useBeforeReaderLeave, useReaderContext, useReaderController, useReaderControllerFailure, useReaderSelectionCapture } from "@/components/reader/bridge";
 import type { ReaderControllerFailureProps } from "@/lib/reader/bridge-state";
 import type { PreparedAnnotationDelete } from "@/lib/reader/annotation-deletion";

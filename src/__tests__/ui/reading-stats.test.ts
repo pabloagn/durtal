@@ -8,7 +8,7 @@ import { createRoot, type Root } from "react-dom/client";
 
 const nav = vi.hoisted(() => ({ pathname: "/reading/stats" }));
 vi.mock("next/navigation", () => ({ usePathname: () => nav.pathname, useRouter: () => ({ refresh: () => {}, push: () => {} }) }));
-vi.mock("sonner", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }) }));
+vi.mock("@/lib/notifications/toast", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }) }));
 vi.mock("next/dynamic", async () => {
   const React = await import("react");
   return {

@@ -1,7 +1,7 @@
 "use client";
 import { useId, useState } from "react";
 import { Loader2, Plus, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { Input } from "@/components/ui/input";
 import { usePublisherSearch } from "@/hooks/use-publisher-search";

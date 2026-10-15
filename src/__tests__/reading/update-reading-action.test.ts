@@ -22,7 +22,7 @@ vi.mock("@/lib/db", () => ({ db: { select: () => ({ from: (table: Parameters<typ
   if (getTableName(table) !== "editions") throw new Error("Unexpected database read");
   return [{ title: "Other edition" }];
 } }) }) } }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("@/lib/notifications/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/components/shared/tiptap-editor", () => ({ TiptapEditor: () => createElement("div", { "data-editor": "" }) }));
 vi.mock("@/lib/reading/activity", () => ({ readingEvent: vi.fn(), progressEvent: vi.fn() }));
 vi.mock("@/lib/cache", () => ({ cached: (fn: unknown) => fn, invalidate: vi.fn(), CACHE_TAGS: {} }));

@@ -24,9 +24,9 @@ vi.mock("@/lib/activity/refresh-event", () => ({ triggerActivityRefresh: () => {
 vi.mock("@/components/reading/reading-dialogs-provider", () => ({ useReadingDialogs: () => ({ open: (r: unknown) => opened.list.push(r) }) }));
 vi.mock("@/components/reading/hub-actions", () => ({ HubActions: () => null }));
 vi.mock("@/components/layout/page-header", () => ({ PageHeader: ({ tabs }: { tabs?: ReactNode }) => createElement("header", null, tabs) }));
-vi.mock("sonner", () => {
+vi.mock("@/lib/notifications/toast", () => {
   const push = (message: string, opts?: { action?: { onClick: () => void } }) => toasts.list.push({ message, undo: opts?.action?.onClick });
-  return { toast: Object.assign(push, { success: push, error: push, message: push }) };
+  return { toast: Object.assign(push, { success: push, error: push, message: push, info: push }) };
 });
 
 import { QueueList, type QueueRow } from "@/components/reading/queue-list";
