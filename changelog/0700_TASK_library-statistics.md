@@ -47,3 +47,6 @@ Reading keeps its own stats (`/reading/stats`); the page links there.
 - Checked on a production preview with a disposable seed of 146 books,
   163 copies and generated covers, in Chromium, Firefox and WebKit at 1440,
   390 and 320.
+- Review fixes: an edge's cover stays at the top of its row however long the
+  author's name, and the Breakdown says "Not finished" (it counts the books
+  being read, which Reading stats' unread pile leaves out).

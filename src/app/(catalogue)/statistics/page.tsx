@@ -164,7 +164,7 @@ export default async function StatisticsPage() {
 
           <StatsSection title="Breakdown" id="breakdown">
             <div className="grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-4">
-              <SplitRing title="Read" first={{ label: "Read", value: split.read }} second={{ label: "Unread", value: split.unread }} />
+              <SplitRing title="Read" first={{ label: "Read", value: split.read }} second={{ label: "Not finished", value: split.unread }} />
               <SplitRing title="Rated" first={{ label: "Rated", value: split.rated }} second={{ label: "Unrated", value: split.unrated }} />
               <SplitRing
                 title="In translation"
@@ -173,7 +173,7 @@ export default async function StatisticsPage() {
               />
               <SplitRing title="On paper" first={{ label: "Print", value: split.print }} second={{ label: "Digital", value: split.digital }} />
             </div>
-            <Footnote>Read and rated count books; translation counts editions with both languages recorded; print and digital count copies.</Footnote>
+            <Footnote>Read and rated count books; not finished includes the books you are reading now, which the unread pile on Reading stats leaves out. Translation counts editions with both languages recorded; print and digital count copies.</Footnote>
           </StatsSection>
 
           {ratings.some((r) => r.count) && (
@@ -273,8 +273,9 @@ export default async function StatisticsPage() {
                   .filter(([, book]) => book)
                   .map(([label, book, value]) => (
                     <li key={label} className="min-w-0" data-stats-edge={label}>
-                      {/* One link: the cover and its words */}
-                      <Link href={bookHref(book!)} className="group flex min-w-0 gap-4">
+                      {/* One link: the cover and its words, the cover at the top so a
+                          long title or author never stretches its frame below it */}
+                      <Link href={bookHref(book!)} className="group flex min-w-0 items-start gap-4">
                         <span className="cover-shadow w-20 shrink-0">
                           <CoverFrame book={book!} />
                         </span>
