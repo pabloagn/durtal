@@ -3,6 +3,9 @@
 import {
   AddButton,
   CHIP,
+  CHIP_NAME,
+  ROLE_CHIP,
+  ROLE_CHIP_NAME,
   FieldRow,
   RemoveButton,
   useAddButton,
@@ -53,10 +56,9 @@ export function OrganizationRolesField({
   return (
     <FieldRow label="House">
       {value.map((entry, index) => (
-        // On touch the name takes a line of its own, as a credit's does: beside
-        // a 44px role menu and cross it kept two letters at 320px
-        <span key={`${entry.organizationId}:${entry.role}`} className={`${CHIP} pointer-coarse:flex-wrap`}>
-          <span className="truncate pointer-coarse:order-first pointer-coarse:basis-full pointer-coarse:whitespace-normal pointer-coarse:break-words pointer-coarse:py-2.5 pointer-coarse:leading-6">
+        // A role chip: beside its menu and cross the name kept two letters at 320px
+        <span key={`${entry.organizationId}:${entry.role}`} className={ROLE_CHIP}>
+          <span className={ROLE_CHIP_NAME}>
             {entry.name}
           </span>
           <select
@@ -164,9 +166,9 @@ export function CreditListField({
   return (
     <FieldRow label={label}>
       {value.map((entry, index) => (
-        <span key={entry.id ?? `${entry.personId ?? "unknown"}:${index}`} className={`${CHIP} pointer-coarse:flex-wrap`}>
+        <span key={entry.id ?? `${entry.personId ?? "unknown"}:${index}`} className={ROLE_CHIP}>
           <span
-            className={`truncate pointer-coarse:order-first pointer-coarse:basis-full pointer-coarse:whitespace-normal pointer-coarse:break-words pointer-coarse:py-2.5 pointer-coarse:leading-6 ${entry.personId ? "" : "italic"}`}
+            className={`${ROLE_CHIP_NAME} ${entry.personId ? "" : "italic"}`}
           >
             {creditName(entry)}
           </span>
@@ -281,7 +283,7 @@ function PositionRow({
     <FieldRow label={label}>
       {notes.map((note) => (
         <span key={note.itemId} className={CHIP}>
-          <span className="truncate">{note.name}</span>
+          <span className={CHIP_NAME}>{note.name}</span>
           <RemoveButton
             label={`Remove ${note.name} from ${label.toLowerCase()}`}
             onClick={() => onRemove(note)}

@@ -4,7 +4,7 @@ import { act, Component, createElement as h, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { ReaderRuntime } from "@/lib/reader/runtime";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-vi.mock("sonner", () => ({ Toaster: () => null, useSonner: () => ({ toasts: [] }), toast: { error: vi.fn(), success: vi.fn(), message: vi.fn() } }));
+vi.mock("sonner", () => ({ Toaster: () => null, useSonner: () => ({ toasts: [] }), toast: { error: vi.fn(), success: vi.fn(), message: vi.fn(), info: vi.fn() } }));
 vi.mock("@/lib/actions/reading", () => ({ getRunningTimer: vi.fn(), startTimer: vi.fn(), pauseTimer: vi.fn(), resumeTimer: vi.fn(), discardTimer: vi.fn() }));
 vi.mock("@/components/ui/tooltip", () => ({ TooltipLayer: () => null }));
 const control = vi.hoisted(() => ({ paletteCrash: true, timerCrash: true, wait: null as Promise<void> | null }));

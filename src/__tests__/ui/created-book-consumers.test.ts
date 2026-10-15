@@ -13,7 +13,7 @@ import { workId } from "../ebooks/review-ui-fixtures";
 const api = vi.hoisted(() => ({ wizard: vi.fn(), fastTrack: vi.fn(), suggestions: vi.fn(), duplicate: vi.fn(),
   push: vi.fn(), back: vi.fn(), setQuery: vi.fn(), clearResults: vi.fn(), success: vi.fn(), info: vi.fn(), error: vi.fn(), warning: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: api.push, back: api.back }) }));
-vi.mock("sonner", () => ({ toast: { success: api.success, info: api.info, error: api.error, warning: api.warning } }));
+vi.mock("@/lib/notifications/toast", () => ({ toast: { success: api.success, info: api.info, error: api.error, warning: api.warning } }));
 vi.mock("@/lib/actions/wizard", () => ({ createBookFromWizard: api.wizard, isIsbnInUse: vi.fn() }));
 vi.mock("@/lib/actions/fast-track", () => ({ fastTrackBook: api.fastTrack }));
 vi.mock("@/lib/actions/works", () => ({ findDuplicateWork: api.duplicate }));

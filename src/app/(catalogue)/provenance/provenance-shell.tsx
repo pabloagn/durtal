@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { updateOrderStatus } from "@/lib/actions/orders";
 import { todayLocal } from "@/lib/utils/date";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { BOOK_IN_HAND_STATUSES, getValidTransitions, orderStatusLabel, type OrderStatus } from "@/lib/constants/orders";
 import { formatMoney } from "@/lib/utils/money";
 import { DEFAULT_CURRENCY } from "@/lib/constants/currencies";

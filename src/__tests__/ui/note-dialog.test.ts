@@ -12,9 +12,9 @@ const actions = vi.hoisted(() => ({
 const toasts = vi.hoisted(() => ({ list: [] as string[] }));
 vi.mock("@/lib/actions/reading-notes", () => actions);
 vi.mock("@/lib/actions/reading", () => ({ logProgress: vi.fn(), undoProgress: vi.fn(), updateReading: vi.fn(), stopTimer: vi.fn(), undoStopTimer: vi.fn() }));
-vi.mock("sonner", () => {
+vi.mock("@/lib/notifications/toast", () => {
   const push = (message: string) => toasts.list.push(message);
-  return { toast: Object.assign(push, { success: push, error: push, message: push }) };
+  return { toast: Object.assign(push, { success: push, error: push, message: push, info: push }) };
 });
 const editorControl = vi.hoisted(() => ({ crash: false }));
 // Mock the actual editor resource; the real feature loader still runs.

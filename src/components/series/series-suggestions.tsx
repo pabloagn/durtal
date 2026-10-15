@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { addWorksToSeries, type SeriesSuggestion } from "@/lib/actions/series";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";

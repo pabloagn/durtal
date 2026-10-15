@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import type { EntityActionItem } from "@/components/shared/entity-action-menu";
 import { exportFormatsFor, type ExportFormat } from "@/lib/export/formats";
 
@@ -66,9 +66,10 @@ export function exportActionItems(entity: ExportEntity, ids: string[], noun?: st
     label: `Export as ${EXPORT_FORMAT_LABELS[format].replace(/ \(.*\)$/, "")}`,
     icon: Download,
     onClick: () => {
+      const progress = toast.pending(`Exporting as ${format.toUpperCase()}`);
       triggerExport(entity, ids, format).then(
-        () => toast.success(`Exported ${ids.length} ${noun ?? entity} as ${format.toUpperCase()}`),
-        (err) => toast.error(err instanceof Error ? err.message : "Export failed"),
+        () => progress.success(`Exported ${ids.length} ${noun ?? entity} as ${format.toUpperCase()}`),
+        (err) => progress.error(err instanceof Error ? err.message : "Export failed"),
       );
     },
   }));
@@ -128,15 +129,16 @@ export function ExportMenu({
 
   async function handleExport(format: ExportFormat) {
     setIsExporting(true);
+    const progress = toast.pending(`Exporting as ${format === "md" ? "Markdown" : format.toUpperCase()}`);
     try {
       await triggerExport(entity, selection, format);
-      toast.success(
+      progress.success(
         Array.isArray(selection)
           ? `Exported ${selection.length} ${noun ?? entity} as ${format.toUpperCase()}`
           : `Exported ${noun ?? entity} as ${format === "md" ? "Markdown" : format.toUpperCase()}`,
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Export failed");
+      progress.error(err instanceof Error ? err.message : "Export failed");
     } finally {
       setIsExporting(false);
     }

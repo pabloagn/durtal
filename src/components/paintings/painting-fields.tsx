@@ -2,7 +2,8 @@
 
 import {
   AddButton,
-  CHIP,
+  ROLE_CHIP,
+  ROLE_CHIP_NAME,
   FieldRow,
   RemoveButton,
   useAddButton,
@@ -48,7 +49,7 @@ export function PaintersField({
   return (
     <FieldRow label={label}>
       {value.map((entry, index) => (
-        <span key={entry.key} className={`${CHIP} pointer-coarse:flex-wrap`}>
+        <span key={entry.key} className={ROLE_CHIP}>
           {entry.personId && (
             <select
               aria-label={`Attribution of ${painterName(entry)}`}
@@ -69,7 +70,7 @@ export function PaintersField({
               ))}
             </select>
           )}
-          <span className={`truncate pointer-coarse:order-first pointer-coarse:basis-full pointer-coarse:whitespace-normal pointer-coarse:break-words pointer-coarse:py-2.5 pointer-coarse:leading-6 ${entry.personId ? "" : "italic"}`}>
+          <span className={`${ROLE_CHIP_NAME} ${entry.personId ? "" : "italic"}`}>
             {painterName(entry)}
           </span>
           <RemoveButton

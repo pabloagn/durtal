@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Skull } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { setPoison } from "@/lib/actions/poison";
 import { MARKS } from "@/lib/constants/marks";
 import { MarkToggle } from "./mark-toggle";

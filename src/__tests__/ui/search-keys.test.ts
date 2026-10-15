@@ -22,7 +22,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("next/link", () => ({
   default: ({ children, ...props }: Record<string, unknown>) => createElement("a", props, children as never),
 }));
-vi.mock("sonner", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }) }));
+vi.mock("@/lib/notifications/toast", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }) }));
 vi.mock("@/lib/actions/places", () => places);
 vi.mock("@/lib/actions/orders", () => ({ searchWorksForOrder: vi.fn(async () => []) }));
 vi.mock("@/lib/actions/authors", () => ({

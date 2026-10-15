@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { undoReviewUi } from "@/lib/actions/ebook-review-ui";
 import type { ReviewOutcome } from "./types";
 

@@ -19,9 +19,9 @@ const actions = vi.hoisted(() => ({
 }));
 const toasts = vi.hoisted(() => ({ list: [] as { message: string; undo?: () => void }[] }));
 vi.mock("@/lib/actions/reading", () => actions);
-vi.mock("sonner", () => {
+vi.mock("@/lib/notifications/toast", () => {
   const push = (message: string, opts?: { action?: { onClick: () => void } }) => toasts.list.push({ message, undo: opts?.action?.onClick });
-  return { toast: Object.assign(push, { success: push, error: push, message: push }) };
+  return { toast: Object.assign(push, { success: push, error: push, message: push, info: push }) };
 });
 vi.mock("@/components/shared/tiptap-editor", () => ({
   TiptapEditor: () => createElement("div", { "data-editor": "" }),
