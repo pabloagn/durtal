@@ -44,8 +44,12 @@ Before:
     - The layer is shown again after each move, so it stays above the dialog. When the dialog closes it comes back to the page.
   - **Placement** (`useClearance`): toasts keep 16px plus the safe-area inset from the bottom. They sit 12px above any bar under their column:
     - the reader's bottom bar (`data-reader-bottom-bar`), which keeps its place while hidden so toasts don't jump;
-    - a selection toolbar, or the timer's unavailable notice (`data-toast-avoid`).
-  - No reader file changed.
+    - a selection toolbar, or the timer's unavailable notice (`data-toast-avoid`);
+    - the reader's text selection toolbar while it is docked at the bottom on a phone, and the e-book review queue's selection bar;
+    - an open modal dialog's actions (the row of its `data-dismiss` Cancel), so a lasting error toast never covers Save.
+  - Bars stack: lowest first, a bar that sits on one already cleared (the reader's docked selection toolbar on its bottom bar) counts as at the bottom too.
+  - The spoken regions render inside the toasts' holder, so they move into an open modal dialog with the toasts and are not made inert.
+  - The only reader change is the one `data-toast-avoid` line in `selection-toolbar.tsx` (review fix).
 - `src/components/ui/tooltip.tsx`: the toasts' layer, always open, does not count as a layer an Escape closes.
 - Reduced motion: Sonner already drops its transitions under `prefers-reduced-motion`. Timers already hold while the stack is hovered or focused.
 

@@ -33,11 +33,13 @@ export function AppToaster() {
   return (
     <>
       <NotificationRecorder />
-      <ToastAnnouncer section={section} mounted={!!holder} />
       <ToastFocus />
       {/* In the top layer, so a toast shows over an open dialog; it lets
-          every click outside a toast through */}
-      {holder && createPortal(<div
+          every click outside a toast through. The spoken regions go with it:
+          outside an open modal dialog they would be inert, and not read */}
+      {holder && createPortal(<>
+      <ToastAnnouncer section={section} mounted />
+      <div
         ref={layer}
         popover="manual"
         data-toast-layer=""
@@ -70,7 +72,8 @@ export function AppToaster() {
             },
           }}
         />
-      </div>, holder)}
+      </div>
+      </>, holder)}
     </>
   );
 }
@@ -163,8 +166,9 @@ const TOAST_WIDTH = 356;
 
 /**
  * How far up from the bottom of the screen a bar marked `data-toast-avoid`
- * (a selection toolbar) or the reader's bottom bar reaches, so the toasts
- * sit above it. A bar beside the toasts' column, not under it, is left alone.
+ * (a selection toolbar), the reader's bottom bar or an open modal dialog's
+ * actions reach, so the toasts sit above them. A bar beside the toasts'
+ * column, not under it, is left alone.
  */
 function useClearance() {
   const [clear, setClear] = useState(0);
@@ -175,18 +179,29 @@ function useClearance() {
     function measure() {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        let reach = 0;
-        for (const el of document.querySelectorAll(AVOID)) {
+        // Sonner's toasts span a phone's width, else sit at the right
+        const left = innerWidth <= 600 ? 16 : innerWidth - 16 - TOAST_WIDTH;
+        const bars: DOMRect[] = [];
+        // An open modal dialog's actions (the row of its Cancel, marked
+        // `data-dismiss`): a toast there, which stays until it is read, would
+        // cover Save
+        const actions = [...document.querySelectorAll("dialog[open] [data-dismiss]")]
+          .filter((el) => el.closest("dialog")?.matches(":modal"))
+          .map((el) => el.parentElement)
+          .filter((el): el is HTMLElement => !!el);
+        for (const el of [...document.querySelectorAll(AVOID), ...actions]) {
           if (!watched.has(el)) {
             watched.add(el);
             sizes.observe(el);
           }
           const r = el.getBoundingClientRect();
-          // Sonner's toasts span a phone's width, else sit at the right
-          const left = innerWidth <= 600 ? 16 : innerWidth - 16 - TOAST_WIDTH;
-          const under = r.right > left && r.left < innerWidth - 16;
-          if (r.height > 0 && under && r.bottom >= innerHeight - NEAR_BOTTOM) reach = Math.max(reach, innerHeight - r.top);
+          if (r.height > 0 && r.right > left && r.left < innerWidth - 16) bars.push(r);
         }
+        // Lowest first: a bar that sits on another (the reader's selection
+        // toolbar docked on its bottom bar) counts as at the bottom too
+        bars.sort((a, b) => b.bottom - a.bottom);
+        let reach = 0;
+        for (const r of bars) if (r.bottom >= innerHeight - reach - NEAR_BOTTOM) reach = Math.max(reach, innerHeight - r.top);
         setClear(Math.round(reach));
       });
     }

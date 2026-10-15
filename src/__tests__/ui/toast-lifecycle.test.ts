@@ -100,6 +100,10 @@ describe("the toast lifecycle", () => {
     expect(said("assertive")).toEqual(["Could not reach the server"]);
     // Sonner's own list no longer speaks
     expect(document.querySelector("section[aria-live]")?.getAttribute("aria-live")).toBe("off");
+    // The regions travel with the toasts, into an open modal dialog, where
+    // they are not inert
+    for (const region of document.querySelectorAll("[data-toast-announcer]"))
+      expect(region.closest("[data-toast-holder]")).not.toBeNull();
   });
 
   it("keeps a repeat to one toast that is said once", async () => {
