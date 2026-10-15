@@ -19,12 +19,11 @@ export function EbookRow({ book, returnTo }: { book: EbookCardData; returnTo?: s
         {/* Read sits on the title's first line, apart from it: run together
             they read "The Broken SealRead" */}
         <div className="type-item-title flex items-start justify-between gap-3">
-          <Link
-            href={`/ebooks/${book.id}`}
-            className="min-w-0 [overflow-wrap:anywhere]"
-          >
-            {book.title}
-          </Link>
+          {/* The title stays a text link, not a box: as a flex item it would
+              be a 29px control on touch */}
+          <div className="min-w-0 [overflow-wrap:anywhere]">
+            <Link href={`/ebooks/${book.id}`}>{book.title}</Link>
+          </div>
           {book.readHref && (
             <CapAligned height={32} coarseHeight={44}>
               <ReaderEntryLink

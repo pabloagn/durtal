@@ -24,7 +24,7 @@ describe("the eBooks list on a phone", () => {
   });
 
   it("keeps Read apart from the title, on its first line", () => {
-    expect(row).toMatch(/flex items-start justify-between gap-3">\s*<Link[\s\S]*?\{book\.title\}[\s\S]*?<CapAligned height=\{32\} coarseHeight=\{44\}>\s*<ReaderEntryLink/);
+    expect(row).toMatch(/flex items-start justify-between gap-3">[\s\S]*?<div className="min-w-0[^"]*">\s*<Link[^>]*>\{book\.title\}<\/Link>\s*<\/div>[\s\S]*?<CapAligned height=\{32\} coarseHeight=\{44\}>\s*<ReaderEntryLink/);
   });
 
   it("sorts from the sort row, and the headers are 44px on touch where the table stays", () => {
