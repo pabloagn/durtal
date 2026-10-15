@@ -10,6 +10,7 @@ import { DifferencesSection } from "@/components/ebooks/differences-section";
 import { DIFFERENCE_FIELDS, type DifferenceField } from "@/lib/ebooks/differences/compare";
 import { getDifferences } from "@/lib/ebooks/differences/store";
 import { ReviewView } from "./review-view";
+import { ReviewFilters } from "./review-filters";
 
 export const metadata: Metadata = { title: "Review eBooks" };
 /** As the review sections: 20 rows a page keeps the page within its weight after a large load */
@@ -46,24 +47,27 @@ export default async function ReviewEbooksPage({ searchParams }: {
   return <div>
     <PageHeader title="Review eBooks" description={`${(pending + queue.counts.not_in_durtal).toLocaleString()} to review, ${queue.counts.not_in_durtal.toLocaleString()} of them not in Durtal · ${queue.counts.automatic.toLocaleString()} linked automatically · ${queue.counts.partially_held.toLocaleString()} partially held`} />
     <form action="/ebooks/review" method="get" className="mb-8 grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(10rem,2fr)_1fr_1fr_1fr_auto]">
-      <Input label="Title or author" name="q" defaultValue={params.filters.q} maxLength={200} type="search" />
-      <label className="space-y-1.5"><span className="type-label block">Language</span>
-        <select name="language" defaultValue={params.filters.language ?? ""} className={selectClass}>
-          <option value="">All languages</option>{languageOptions(params.filters.language).map((language) => <option key={language.value} value={language.value}>{language.label}</option>)}
-        </select></label>
-      <label className="space-y-1.5"><span className="type-label block">Format</span>
-        <select name="format" defaultValue={params.filters.format ?? ""} className={selectClass}>
-          <option value="">All formats</option>{EBOOK_FORMATS.map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
-        </select></label>
-      <label className="space-y-1.5"><span className="type-label block">ISBN</span>
-        <select name="hasIsbn" defaultValue={params.filters.hasIsbn ?? ""} className={selectClass}>
-          <option value="">Any ISBN</option><option value="yes">Has ISBN</option><option value="no">No ISBN</option>
-        </select></label>
+      <ReviewFilters active={[params.filters.language, params.filters.format, params.filters.hasIsbn].filter(Boolean).length}
+        search={<Input label="Title or author" name="q" defaultValue={params.filters.q} maxLength={200} type="search" />}
+        filters={<>
+          <label className="space-y-1.5"><span className="type-label block">Language</span>
+            <select name="language" defaultValue={params.filters.language ?? ""} className={selectClass}>
+              <option value="">All languages</option>{languageOptions(params.filters.language).map((language) => <option key={language.value} value={language.value}>{language.label}</option>)}
+            </select></label>
+          <label className="space-y-1.5"><span className="type-label block">Format</span>
+            <select name="format" defaultValue={params.filters.format ?? ""} className={selectClass}>
+              <option value="">All formats</option>{EBOOK_FORMATS.map((format) => <option key={format} value={format}>{format.toUpperCase()}</option>)}
+            </select></label>
+          <label className="space-y-1.5"><span className="type-label block">ISBN</span>
+            <select name="hasIsbn" defaultValue={params.filters.hasIsbn ?? ""} className={selectClass}>
+              <option value="">Any ISBN</option><option value="yes">Has ISBN</option><option value="no">No ISBN</option>
+            </select></label>
+          <Button type="submit">Apply filters</Button>
+        </>} />
       {params.filters.work && <input type="hidden" name="work" value={params.filters.work} />}
       {params.filters.run && <input type="hidden" name="run" value={params.filters.run} />}
       {params.filters.author && <input type="hidden" name="author" value={params.filters.author} />}
       {params.filters.series && <input type="hidden" name="series" value={params.filters.series} />}
-      <Button type="submit">Apply filters</Button>
     </form>
     <ReviewView queue={queue} params={params} differences={<DifferencesSection page={differences} step={DIFFERENCES_PAGE}
       links={Object.fromEntries(DIFFERENCE_FIELDS.filter((f) => differences.counts[f]).map((f) => [f, differenceHref(f, DIFFERENCES_PAGE)]))}

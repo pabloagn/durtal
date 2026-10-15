@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { Pagination } from "@/components/shared/pagination";
@@ -66,10 +66,22 @@ export function ReviewSectionNav({ counts, open, params }: {
   counts: Record<ReviewSectionKey, number>; open: ReviewSectionKey | null; params: ReviewParams;
 }) {
   const sections = REVIEW_SECTIONS.filter(({ key }) => counts[key] > 0);
+  const row = useRef<HTMLUListElement>(null);
+  // On a phone the row scrolls inside itself, as the reading tabs do: bring
+  // the open section into view from either side (Back returns to a section
+  // the row has scrolled past), without moving the page. Whole pixels: a
+  // fractional scroll falls short by one in WebKit
+  useEffect(() => {
+    const list = row.current, current = list?.querySelector('[aria-current="page"]');
+    if (!list || !current) return;
+    const box = list.getBoundingClientRect(), chip = current.getBoundingClientRect();
+    if (chip.left < box.left) list.scrollLeft -= Math.ceil(box.left - chip.left);
+    else if (chip.right > box.right) list.scrollLeft += Math.ceil(chip.right - box.right);
+  }, [open]);
   if (sections.length < 2) return null;
   return <nav aria-label="Review sections" id="review-sections" className="scroll-mt-6">
-    <ul className="flex flex-wrap gap-1">
-      {sections.map(({ key, title }) => <li key={key}>
+    <ul ref={row} className="flex flex-wrap gap-1 max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:whitespace-nowrap max-sm:[scrollbar-width:none]">
+      {sections.map(({ key, title }) => <li key={key} className="shrink-0">
         <Link href={`${reviewPageHref(params, { section: key })}#review-sections`} scroll={false}
           aria-current={key === open ? "page" : undefined}
           className={`inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-sm transition-colors pointer-coarse:h-11 ${
