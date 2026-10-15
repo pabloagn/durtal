@@ -32,18 +32,23 @@ describe("Stats years", () => {
   const html = renderToStaticMarkup(createElement(StatsYears, { years }));
   const tabs = renderToStaticMarkup(createElement(ReadingTabs));
 
-  it("is one row that scrolls sideways", () => {
+  it("is one row that scrolls sideways on touch, and wraps with a mouse", () => {
     const row = html.match(/<ul[^>]*data-stats-years[^>]*>/)?.[0] ?? "";
-    expect(row).toMatch(/\boverflow-x-auto\b/);
-    expect(row).not.toMatch(/\bflex-wrap\b/);
+    const classes = row.match(/class="([^"]*)"/)![1].split(" ");
+    expect(classes).toContain("overflow-x-auto");
+    expect(classes).not.toContain("flex-wrap");
+    // A mouse has no swipe, and the row shows no scrollbar (SLN-821)
+    expect(classes).toEqual(expect.arrayContaining(["pointer-fine:flex-wrap", "pointer-fine:overflow-x-visible"]));
     expect(html.match(/<a /g)).toHaveLength(33);
   });
 
-  it("uses smaller type than the tabs, and no fill for the chosen year", () => {
+  it("uses smaller type than the tabs, and a fill of its own for the chosen year", () => {
     const chip = html.match(/<a [^>]*aria-current="page"[^>]*class="([^"]*)"|<a [^>]*class="([^"]*)"[^>]*aria-current="page"/);
     const chosen = chip?.[1] ?? chip?.[2] ?? "";
     expect(chosen).toMatch(/\btext-xs\b/);
-    expect(chosen).not.toMatch(/\bbg-/);
+    // Clearly chosen, but not the tabs' selection fill (SLN-821)
+    expect(chosen).toMatch(/\bbg-bg-tertiary\b/);
+    expect(chosen).not.toMatch(/\bbg-selection-bg/);
     expect(tabs).toMatch(/\btext-sm\b/);
   });
 });
