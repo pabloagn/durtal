@@ -41,6 +41,7 @@ import { useOptionalTimer } from "@/components/reading/timer-provider";
 import { useStopTimer } from "@/components/reading/timer-chip";
 import { getOpenReadings } from "@/lib/actions/reading";
 import { paletteReadingItems, queryNamesATitle, type PaletteOpenReading } from "@/lib/reading/palette";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { PaletteEbookReadAction } from "@/components/ebooks/catalogue-read-action";
 import { ebookPaletteGroup } from "@/lib/ebooks/palette-group";
@@ -106,19 +107,21 @@ const RESULT_KINDS = getEnabledWorkKinds();
 /**
  * A result's picture: the work's cover or poster, 24x36 like a small card, or
  * the person's portrait, 28px square. Both sit on a 36px row, so every row keeps
- * one height. The box is fixed, so the list never moves while it loads; with
- * no picture, the box shows the initials on the tint taken from the name, as
- * on the cards.
+ * one height. The box is fixed, so the list never moves while it loads. With
+ * no picture, a work shows its title's letter as every blank cover does
+ * (`CoverLetter`), and a person the initials on the tint taken from the name,
+ * as on the cards.
  */
 function ResultThumb({ src, name, kind }: { src: string | null; name: string; kind: "book" | "author" }) {
   const words = name.replace(/[^\p{L}\s]/gu, " ").trim().split(/\s+/).filter(Boolean);
   const initials = words.length > 1 ? `${words[0][0]}${words[words.length - 1][0]}` : (words[0]?.[0] ?? "?");
   const frame = kind === "book" ? "h-9 w-6" : "size-7";
+  const blankWork = !src && kind === "book";
   return (
     <span className="flex h-9 shrink-0 items-center">
       <span
-        className={`relative flex ${frame} items-center justify-center overflow-hidden rounded-[2px] bg-bg-tertiary ring-1 ring-glass-border`}
-        style={src ? undefined : monogramTint(name)}
+        className={`relative ${frame} overflow-hidden rounded-[2px] bg-bg-tertiary ring-1 ring-glass-border ${blankWork ? COVER_BLANK : "flex items-center justify-center"}`}
+        style={src || blankWork ? undefined : monogramTint(name)}
       >
         {src ? (
           <img
@@ -128,6 +131,8 @@ function ResultThumb({ src, name, kind }: { src: string | null; name: string; ki
             decoding="async"
             className={`protected-image absolute inset-0 h-full w-full object-cover ${kind === "author" ? "object-[50%_25%]" : ""}`}
           />
+        ) : blankWork ? (
+          <CoverLetter title={name} />
         ) : (
           <span aria-hidden="true" className="font-serif text-micro text-fg-primary">
             {initials.toUpperCase()}
