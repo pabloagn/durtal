@@ -112,6 +112,8 @@ export function EbooksView({
             {view === "grid" ? (
               <div className="@container">
                 <div
+                  data-catalogue-grid=""
+                  data-grid-density={columns}
                   className={`grid items-stretch gap-4 ${COL_CLASSES[columns]}`}
                 >
                   {books.map((book) => (
@@ -125,10 +127,12 @@ export function EbooksView({
                 </div>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="@container overflow-x-auto">
                 <table className="w-full text-left text-fg-secondary">
                   <caption className="sr-only">eBook library</caption>
-                  <thead>
+                  {/* Where the columns would not fit (under 52rem) the rows
+                      stack and sort from the sort row above */}
+                  <thead className="@max-[52rem]:hidden">
                     <tr className="border-b border-glass-border type-caption">
                       <th aria-label="Cover" />
                       {[
@@ -152,7 +156,7 @@ export function EbooksView({
                           }
                         >
                           <button
-                            className="touch-hit whitespace-nowrap"
+                            className="touch-hit whitespace-nowrap pointer-coarse:min-h-11"
                             onClick={() => sort(key)}
                           >
                             {label}

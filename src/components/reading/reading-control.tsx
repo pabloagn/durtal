@@ -34,8 +34,8 @@ const KEY_OF: Partial<Record<ReadingMenuAction, string>> = {
  * The book's reading state as one button in the header (SLN-447): "Start
  * reading", "Reading · p. 212 of 480 · 44%", "Read 3 times · 2024", with the
  * actions that make sense in a menu. Beside an eBook's Read button it only
- * states an untracked book ("Not tracked", as the reader's "Track this
- * book"): Read is the way in (SLN-683).
+ * states an untracked book ("Unread"; the reader offers "Track this
+ * book"): Read is the way in (SLN-683, SLN-801).
  */
 export function ReadingControl({ ebook = false }: { ebook?: boolean }) {
   const { data, run, queuable, toggleQueue } = useReading();

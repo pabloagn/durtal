@@ -7,13 +7,15 @@ import {
 import { mediaImageStyle } from "@/lib/utils/media-style";
 import { FadeImage } from "@/components/shared/fade-image";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 
 const SIZES = { md: "h-24 w-16", sm: "h-12 w-8" } as const;
 
 /**
  * An edition image chosen by `editionImage` (64×96, or 32×48 when small).
- * Posters keep their crop and adjustments. Without an image the box says
- * "No cover" (small boxes only carry it as a label).
+ * Posters keep their crop and adjustments. Without an image the box shows
+ * the title's letter, as every blank cover does, and names "no cover" to a
+ * screen reader.
  */
 export function EditionImageBox({
   image,
@@ -41,18 +43,17 @@ export function EditionImageBox({
           className="h-full w-full object-cover"
           style={mediaImageStyle(image.crop)}
         />
-      ) : size === "md" ? (
-        <span className="flex h-full items-center justify-center text-center text-micro text-fg-secondary">
-          No cover
-        </span>
       ) : (
-        <span role="img" aria-label={`${title}: no cover`} className="block h-full" />
+        // The title's letter, as on every other blank cover
+        <span role="img" aria-label={`${title}: no cover`} className={`h-full ${COVER_BLANK}`}>
+          <CoverLetter title={title} />
+        </span>
       )}
     </div>
   );
 }
 
-/** The edition's cover, else the book poster, else "No cover" */
+/** The edition's cover, else the book poster, else the title's letter */
 export function EditionCover({
   edition,
   poster,

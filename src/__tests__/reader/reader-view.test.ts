@@ -502,6 +502,21 @@ describe("reader view with a real bridge and fake engine", () => {
     expect(host.textContent).not.toContain("Your place from");
     expect(host.querySelector("[data-reader-place-from]")).toBeNull();
   });
+  it("keeps the opening line over the empty page until the text shows (SLN-733)", async () => {
+    let show = () => {};
+    Object.assign(fake.engine, {
+      textHidden: () => true,
+      whenTextShows: vi.fn(() => new Promise<void>((resolve) => { show = resolve; })),
+    });
+    await render();
+    await settle();
+    // Ready, with the spread still lining up behind the line
+    expect(host.textContent).toContain("Opening the book");
+    await act(async () => show());
+    // It fades out as the text fades in
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 200)); });
+    expect(host.textContent).not.toContain("Opening the book");
+  });
   it("saves no place for a never-opened device until the reader moves (SLN-665)", async () => {
     await render(null, null, other);
     act(() => window.dispatchEvent(new Event("pagehide")));

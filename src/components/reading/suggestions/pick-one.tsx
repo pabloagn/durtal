@@ -42,7 +42,7 @@ export function PickOne({ top, initiallyOpen = false }: { top: SuggestionRow[]; 
       {current && (
         <Dialog open onClose={() => setCurrent(null)} title="Pick one for me" className="max-w-md">
           <div className="flex gap-4" data-pick={current.workId}>
-            <Cover s3Key={current.cover} className="h-28 w-20" />
+            <Cover s3Key={current.cover} title={current.title} className="h-28 w-20" />
             <div className="min-w-0 flex-1 space-y-1">
               <Link href={current.href} className="type-item-title block text-fg-primary transition-colors hover:text-accent-primary">
                 {current.title}

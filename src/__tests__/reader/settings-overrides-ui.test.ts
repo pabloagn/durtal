@@ -27,3 +27,13 @@ it("clears exactly the displayed book and device, and retains server failure", a
   expect(actions.reset).toHaveBeenCalledWith({ deviceClass: "desktop", ebookId: "11111111-1111-4111-8111-111111111111" });
   expect(host.textContent).toContain("Preferences migration is unavailable."); expect(host.textContent).toContain("Named book");
 });
+// Design polish 2: the panels' text sat on their borders and the switch on the first title
+it("pads every row of the defaults and overrides panels, and spaces the device switch", async () => {
+  actions.list.mockResolvedValue(list("desktop","Named book"));
+  await act(async () => root.render(createElement(ReaderDefaults,{ initial: { ok: true, ebookId: null, rows: [] }, initialOverrides: list("desktop","Named book") })));
+  const panels = [...host.querySelectorAll("section > div.divide-y")];
+  expect(panels).toHaveLength(2);
+  for (const panel of panels) for (const row of panel.children) expect(row.className, row.textContent ?? "").toMatch(/\bpx-5\b/);
+  expect(host.textContent).toContain("1 book with a desktop override");
+  expect(host.querySelector('[role="radiogroup"]')?.parentElement?.className).toContain("mb-8");
+});

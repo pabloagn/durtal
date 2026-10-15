@@ -37,6 +37,7 @@ import { cardReadingOf } from "@/lib/reading/card";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { appTimeZone } from "@/lib/utils/date";
 import { PhonePairGrid } from "@/components/shared/phone-pair-grid";
+import { DashboardStatistics } from "@/components/statistics/dashboard-statistics";
 
 // The root layout's title template skips a page in its own segment
 export const metadata = { title: { absolute: "Dashboard | Durtal" } };
@@ -302,7 +303,8 @@ async function DashboardContent() {
       content: <PhonePairGrid>{recent.map((item) => item.card)}</PhonePairGrid>,
     });
   }
-  // SLN-742's Statistics section goes here, between what is new and what is curated
+  // The numbers, between what is new and what is curated (SLN-742); the body loads on its own
+  sections.push({ id: "statistics", title: "Statistics", href: "/statistics", content: <DashboardStatistics /> });
   if (collections.length > 0) {
     sections.push({
       id: "collections",

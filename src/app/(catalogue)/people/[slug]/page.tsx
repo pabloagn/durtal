@@ -53,6 +53,7 @@ import {
   enumLabel,
   metadataSourceLabel,
 } from "@/lib/utils/labels";
+import { PhonePairGrid } from "@/components/shared/phone-pair-grid";
 import { mediaUrl } from "@/lib/s3/media-url";
 
 interface PageProps {
@@ -86,7 +87,8 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
     return {
       kind,
       label: WORK_DOMAINS[kind].pluralLabel,
-      roles: [...roles].map(([role, ids]) => `${role} ${ids.size}`).join(", "),
+      // "Author · 2 books", one role a line: a bare "Author 2" read as a name
+      roles: [...roles].map(([role, ids]) => `${role} · ${ids.size.toLocaleString("en")} ${ids.size === 1 ? WORK_DOMAINS[kind].label.toLowerCase() : WORK_DOMAINS[kind].pluralLabel.toLowerCase()}`),
     };
   });
   // Films, perfumes and paintings as their collections' cards, like the books
@@ -273,7 +275,9 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                   <RecordFields>
                     {creditSummary.map((group) => (
                       <RecordField key={group.kind} label={group.label}>
-                        {group.roles}
+                        {group.roles.map((role) => (
+                          <span key={role} className="block" data-person-credit="">{role}</span>
+                        ))}
                       </RecordField>
                     ))}
                   </RecordFields>
@@ -362,9 +366,8 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                   </div>
                 )}
                 <PaginatedSection {...paging} noun="books">
-                <div
-                  className="catalogue-grid"
-                >
+                {/* Two cards a row on a phone, as every other cover grid */}
+                <PhonePairGrid>
                   {paging.items.map((work) => {
                     const workActivePoster = work.media?.find(
                       (m) => m.type === "poster" && m.isActive,
@@ -415,7 +418,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                       />
                     );
                   })}
-                </div>
+                </PhonePairGrid>
                 </PaginatedSection>
               </section>
             )}
@@ -424,9 +427,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
             {otherCollections.map((group) => (
               <section key={group.kind} className="mb-8">
                 <SectionHeading title={group.label} count={group.cards.length} />
-                <div
-                  className="catalogue-grid"
-                >
+                <PhonePairGrid>
                   {group.cards.map(({ id, card }) => (
                     <div key={id}>
                       {card}
@@ -436,7 +437,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                       </p>
                     </div>
                   ))}
-                </div>
+                </PhonePairGrid>
               </section>
             ))}
 

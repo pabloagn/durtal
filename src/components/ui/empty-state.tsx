@@ -7,11 +7,7 @@ interface EmptyStateProps {
   action?: React.ReactNode;
   /** An error view: the same block, its icon in the red text colour (contract section 8) */
   tone?: "error";
-  /**
-   * `h1` when the view is the whole page, as an error or not-found view is
-   * (task 0615); `h2` when it is the whole of a page under a heading of its
-   * section's, as a settings page's error view is under "Settings"
-   */
+  /** `h1` when the view is the whole page, as an error or not-found view is (task 0615); `h2` under a page's own title */
   heading?: "h1" | "h2" | "h3";
 }
 

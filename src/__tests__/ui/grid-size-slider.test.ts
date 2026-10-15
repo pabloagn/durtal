@@ -201,11 +201,15 @@ describe("phone size projection and saved preference", () => {
       span.className,
     ]);
     expect(parts).toEqual([
-      [" · 1 per row", "hidden @min-[7.5rem]:inline"],
+      [" · 1 per row", "hidden @min-[12rem]:inline"],
       [" · narrow space", "hidden @min-[17rem]:inline"],
     ]);
     // The container that sets them is the slider's own box
     expect(output.closest(".grid-size-mobile")!.classList.contains("@container")).toBe(true);
+    // One row on every list, the line beside the slider, never under it (SLN-804)
+    const row = output.parentElement!;
+    expect(row.className).toBe("flex items-center gap-3");
+    expect(row.firstElementChild!.className).toContain("min-w-11 flex-1");
   });
 
   it("emits the same native controls on server render and first hydration", async () => {

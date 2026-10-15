@@ -70,8 +70,9 @@ export function DictionariesGroup() {
             signal.throwIfAborted(); setRecords(rows => [...rows, installed.record]); setPersisted(installed.persisted); setFiles([]); setMetadata(null); dictionariesChanged();
           }); }}>Add to this device</Button>
         </div>}
-        {busy && <div className="mt-3 flex flex-wrap gap-3"><p role="status" className="text-sm text-fg-secondary">{busy}</p>
-          <Button variant="ghost" size="sm" onClick={() => operation.current?.abort()}><X aria-hidden strokeWidth={1.5} />Cancel</Button></div>}
+        {/* Under 640 Cancel goes under the status, pulled out by its padding so its icon starts on the text's edge */}
+        {busy && <div className="mt-3 flex flex-col items-start gap-3 sm:flex-row"><p role="status" className="text-sm text-fg-secondary">{busy}</p>
+          <Button variant="ghost" size="sm" className="-ml-2.5 sm:ml-0" onClick={() => operation.current?.abort()}><X aria-hidden strokeWidth={1.5} />Cancel</Button></div>}
         {error && <p role="alert" className="mt-3 text-sm text-accent-red-text">{error}</p>}
       </div>
       {records.map(record => <div key={record.id} className="flex items-start justify-between gap-3 px-5 py-4">

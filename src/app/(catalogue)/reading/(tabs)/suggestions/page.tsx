@@ -160,7 +160,7 @@ export default async function SuggestionsPage({ searchParams }: { searchParams: 
               {rereads.map(({ book, text }) => (
                 <li key={book.id} className="flex items-start gap-3" data-reread={book.id}>
                   <Link href={`/library/${book.slug ?? book.id}`} tabIndex={-1} aria-label={book.title} className="shrink-0">
-                    <Cover s3Key={bookEdition(book, ctx)?.thumbnail ?? book.cover ?? book.editions.find((e) => e.thumbnail)?.thumbnail ?? null} className="h-16 w-11" />
+                    <Cover s3Key={bookEdition(book, ctx)?.thumbnail ?? book.cover ?? book.editions.find((e) => e.thumbnail)?.thumbnail ?? null} title={book.title} className="h-16 w-11" />
                   </Link>
                   <div className="min-w-0 space-y-1">
                     <p className="text-sm text-fg-primary">{text}</p>
