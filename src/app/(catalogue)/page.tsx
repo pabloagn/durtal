@@ -27,7 +27,7 @@ import {
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonClass } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { SkeletonLine } from "@/components/shared/skeleton";
 import { BookCard } from "@/components/books/book-card";
 import { CollectionCard } from "@/components/collections/collection-card";
 import { DomainAddLink } from "@/components/domains/domain-add-link";
@@ -57,7 +57,8 @@ function StatCard({
   icon: Icon,
 }: {
   label: string;
-  value: number;
+  /** Held while the dashboard loads */
+  value?: number;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
 }) {
   return (
@@ -68,9 +69,11 @@ function StatCard({
           <Icon className="h-5 w-5 text-fg-muted" strokeWidth={1.5} />
         </div>
         <div>
-          <p className="type-stat text-fg-primary">
-            {value.toLocaleString()}
-          </p>
+          {value === undefined ? (
+            <SkeletonLine className="type-stat w-12" />
+          ) : (
+            <p className="type-stat text-fg-primary">{value.toLocaleString()}</p>
+          )}
           <p className="text-xs text-fg-secondary">{label}</p>
         </div>
       </CardContent>
@@ -103,6 +106,38 @@ function SectionHeader({
         )
       }
     />
+  );
+}
+
+/**
+ * Books: counts and the book actions. While the dashboard loads, the counts
+ * are held and the rest is drawn as it will be (task 0614).
+ */
+function BookCounts({ stats }: { stats?: { works: number; editions: number; instances: number; authors: number } }) {
+  return (
+    <section>
+      <SectionHeader
+        title={WORK_DOMAINS.book.pluralLabel}
+        icon={DOMAIN_ICONS.book}
+        href={WORK_DOMAINS.book.basePath}
+      />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Books" value={stats?.works} icon={BookOpen} />
+        <StatCard label="Editions" value={stats?.editions} icon={Layers} />
+        <StatCard label="Instances" value={stats?.instances} icon={Copy} />
+        <StatCard label="People" value={stats?.authors} icon={Users} />
+      </div>
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <DomainAddLink kind="book" />
+        <Link
+          href="/library/import"
+          className={`${buttonClass("secondary", "md")} whitespace-nowrap`}
+        >
+          <Upload className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Import books
+        </Link>
+      </div>
+    </section>
   );
 }
 
@@ -255,30 +290,7 @@ async function DashboardContent() {
 
   return (
     <>
-      {/* Books: counts and the book actions */}
-      <section>
-        <SectionHeader
-          title={WORK_DOMAINS.book.pluralLabel}
-          icon={DOMAIN_ICONS.book}
-          href={WORK_DOMAINS.book.basePath}
-        />
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard label="Books" value={stats.works} icon={BookOpen} />
-          <StatCard label="Editions" value={stats.editions} icon={Layers} />
-          <StatCard label="Instances" value={stats.instances} icon={Copy} />
-          <StatCard label="People" value={stats.authors} icon={Users} />
-        </div>
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <DomainAddLink kind="book" />
-          <Link
-            href="/library/import"
-            className={`${buttonClass("secondary", "md")} whitespace-nowrap`}
-          >
-            <Upload className="h-3.5 w-3.5" strokeWidth={1.5} />
-            Import books
-          </Link>
-        </div>
-      </section>
+      <BookCounts stats={stats} />
 
       {/* Reading (SLN-448): light tiles with small props, no book cards */}
       <DashboardReading tiles={currentReads.map((o) => tileItem(o, estimates[o.reading.id]))} finished={finishedReads.map(finishedItem)} goal={goal} />
@@ -403,8 +415,8 @@ export default function DashboardPage() {
       />
       <Suspense
         fallback={
-          <div className="flex items-center justify-center py-16">
-            <Spinner className="h-6 w-6" />
+          <div role="status" aria-label="Loading the dashboard">
+            <BookCounts />
           </div>
         }
       >
