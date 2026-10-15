@@ -355,6 +355,8 @@ function ReaderSession({
   const [speech, setSpeech] = useState<SpeechSnapshot | null>(null);
   const [speechHeight, setSpeechHeight] = useState(0);
   const [bottomHeight, setBottomHeight] = useState(0);
+  // Search's results bar, while it stands in the bottom bar's place (SLN-727)
+  const [searchBarHeight, setSearchBarHeight] = useState(0);
   const [topHeight, setTopHeight] = useState(0);
   // The text keeps clear of the bars; with the speech player open the book
   // already ends above it and the bottom bar (SLN-663)
@@ -1452,11 +1454,15 @@ function ReaderSession({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file?.id, preferences.ready]);
 
+  // What stands at the foot of the screen under the speech player: the
+  // bottom bar, or search's results bar in its place
+  const bottomShown = bars.visible && !searchBarHeight;
+  const footHeight = bottomShown ? bottomHeight : searchBarHeight;
   useEffect(() => {
     const frame = bookRef.current;
     if (frame)
-      frame.style.bottom = `${speechHeight ? speechHeight + (bars.visible ? bottomHeight : 0) : 0}px`;
-  }, [speechHeight, bars.visible, bottomHeight]);
+      frame.style.bottom = `${speechHeight ? speechHeight + footHeight : 0}px`;
+  }, [speechHeight, footHeight]);
   useEffect(() => {
     insetsRef.current = insets;
     engineRef.current?.setInsets?.(insets);
@@ -1651,7 +1657,7 @@ function ReaderSession({
       )}
       bottomBar={
         <ReaderBottomBar
-          visible={bars.visible}
+          visible={bottomShown}
           chapter={chapter}
           percent={percent}
           bridge={bridge}
@@ -1699,7 +1705,7 @@ function ReaderSession({
               preferences={speech.preferences}
               voiceNotice={speech.voiceNotice}
               bookLanguage={ebook.language ?? index?.info.language ?? null}
-              bottomInset={bars.visible ? bottomHeight : 0}
+              bottomInset={footHeight}
               onAction={(action) => {
                 speechRef.current?.action(action);
                 if (action.kind === "stop") {
@@ -1807,7 +1813,7 @@ function ReaderSession({
         }
         markingActions={annotations.markingActions}
         speechReady={speech?.selectionReady}
-        bottomInset={speechHeight + (bars.visible ? bottomHeight : 0)}
+        bottomInset={speechHeight + footHeight}
         topInset={bars.visible ? topHeight : 0}
         covered={lookupSheet}
       />
@@ -1842,6 +1848,7 @@ function ReaderSession({
             onClose={() => setSearchOpen(false)}
             onOpen={() => setSearchOpen(true)}
             escapeRef={searchEscapeRef}
+            onDockHeight={setSearchBarHeight}
             hitRect={(locator) => engineRef.current?.locatorRect?.(locator) ?? null}
             onJump={async (locator, hit) => {
               if (hit.inNote) {

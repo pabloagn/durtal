@@ -195,13 +195,58 @@ describe("search panel delivery and keyboard ownership", () => {
     complete = false;
     await type("zzqx");
     expect(host.querySelector('[role="status"]')?.textContent).toBe("No matches for “zzqx”.");
-    await act(async () => host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+    await act(async () => host.querySelector<HTMLButtonElement>('[role="switch"]')!.click());
     expect(host.querySelector('[role="status"]')?.textContent).toBe(
       "No matches for “zzqx”. Whole words is on; turning it off may find more.",
     );
     // The field's own clear control
     await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Clear search"]')!.click());
     expect(field.value).toBe("");
+  });
+  it("keeps one field while typing, uses switches, and docks its results bar in the bottom bar's place (SLN-727)", async () => {
+    const search = vi.fn(async function* (): AsyncGenerator<SearchUpdate> {
+      yield { kind: "hits", hits: [hit] };
+      yield { kind: "complete", capped: false, count: 1 };
+    });
+    const engine = { search, currentLocator: () => null, setDecorations: vi.fn() } as unknown as ReaderEngine;
+    const rect = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute("data-reader-search-bar") ? ({ height: 45 } as DOMRect) : rect.call(this);
+    });
+    const onDockHeight = vi.fn();
+    const escapeRef = { current: null as (() => boolean) | null };
+    const render = (open: boolean) =>
+      root.render(
+        createElement(SearchPanel, {
+          open, engine, language: "en", onJump: vi.fn(async () => true),
+          onClose: vi.fn(), onOpen: vi.fn(), escapeRef, onDockHeight,
+        }),
+      );
+    await act(async () => render(true));
+    expect(host.querySelector('input[type="checkbox"]')).toBeNull();
+    expect([...host.querySelectorAll('[role="switch"]')].map((item) => item.getAttribute("aria-labelledby") && document.getElementById(item.getAttribute("aria-labelledby")!)?.textContent))
+      .toEqual(["Whole words", "Match case", "Match accents"]);
+    expect(host.querySelector('button[type="submit"]')?.textContent).toBe("Search");
+    const field = host.querySelector<HTMLInputElement>('input[type="search"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, "text");
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    // The clear button arrives without remounting the field (which would lose focus)
+    expect(host.querySelector('[aria-label="Clear search"]')).not.toBeNull();
+    expect(host.querySelector('input[type="search"]')).toBe(field);
+    await act(async () =>
+      host.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })),
+    );
+    expect(onDockHeight).not.toHaveBeenCalledWith(45);
+    await act(async () => render(false));
+    expect(host.querySelector('[data-reader-search-bar] [role="toolbar"]')?.getAttribute("aria-label")).toBe("Search results");
+    expect(onDockHeight).toHaveBeenLastCalledWith(45);
+    await act(async () => {
+      escapeRef.current?.();
+    });
+    expect(host.querySelector("[data-reader-search-bar]")).toBeNull();
+    expect(onDockHeight).toHaveBeenLastCalledWith(0);
   });
   it("leaves a second Mod+F in the field to the browser", async () => {
     const engine = {
