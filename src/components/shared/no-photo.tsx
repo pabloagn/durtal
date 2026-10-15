@@ -161,7 +161,7 @@ export function Flacon({ name, initials = true }: { name: string; initials?: boo
     words.length > 1 ? `${words[0][0]}${words[1][0]}` : (words[0]?.slice(0, 1) ?? "")
   ).toUpperCase();
   return (
-    <div className="flacon" style={{ "--tone": `var(${tone})` } as CSSProperties} aria-hidden>
+    <div className="flacon" style={{ "--tone": `var(${tone})` } as CSSProperties} aria-hidden data-decorative="">
       {/* Colors and type in the flacon utility (globals.css), by element order */}
       <svg viewBox="0 0 64 96">
         {/* Cap and neck */}

@@ -72,6 +72,8 @@ export interface ReaderInputOptions {
   selectionTab?(event: KeyboardEvent): void;
   /** Tab inside a book's page, when the selection's toolbar did not take it (SLN-810) */
   bookTab?(event: KeyboardEvent): void;
+  /** Tab on a reader control, which may lead into the book (SLN-826) */
+  intoBook?(event: KeyboardEvent): void;
   selectionEscape?(): boolean;
 }
 
@@ -417,7 +419,9 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
     if (event.shiftKey && event.key.startsWith("Arrow")) return;
     if (event.key === "Tab") {
       options.selectionTab?.(event);
-      if (!event.defaultPrevented && event.currentTarget !== document) options.bookTab?.(event);
+      if (event.defaultPrevented) return;
+      if (event.currentTarget !== document) options.bookTab?.(event);
+      else options.intoBook?.(event);
       return;
     }
     // Real controls keep native Space/Enter activation, including slot buttons.
