@@ -744,8 +744,8 @@ image or the first four members' images.
 
 **Collection page** (`/collections/[id]`): one ordered list of member cards
 (`MemberCard`): an edition (cover, publisher and year, ISBN; "also collected
-as the book" when the whole book is in too), a whole book ("The book, no
-edition chosen"), a film (poster or title card, directors, year and runtime),
+as the book" when the whole book is in too), a whole book (one line: "Any
+edition", then its reading), a film (poster or title card, directors, year and runtime),
 a perfume (bottle, house, concentrations) or a painting (picture, painters,
 date). Each card moves earlier or later in the one order and can be removed;
 the header counts books, editions, films, perfumes and paintings.
