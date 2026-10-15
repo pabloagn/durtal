@@ -18,7 +18,7 @@ export function collectionCounts(collection: {
 
 /**
  * A collection's one count line, the same on its card and its page: "6
- * books", "4 editions", "3 books · 1 perfume". Counted as `collectionCounts`
+ * books", "4 editions", "3 books · 1 perfume", "1,050 films". Counted as `collectionCounts`
  * counts (an edition stands for its book); `null` when it holds nothing, so
  * the card says "Empty" and the page leaves the line out.
  */
@@ -38,7 +38,9 @@ export function collectionCountLine(collection: {
     [of("painting"), "painting", "paintings"],
   ];
   const shown = parts.filter(([n]) => n > 0);
-  return shown.length ? shown.map(([n, one, many]) => `${n} ${n === 1 ? one : many}`).join(" · ") : null;
+  return shown.length
+    ? shown.map(([n, one, many]) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`).join(" · ")
+    : null;
 }
 
 /**

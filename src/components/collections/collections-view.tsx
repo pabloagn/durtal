@@ -61,7 +61,7 @@ export function CollectionsView({
             key: collection.id,
             href: `/collections/${collection.id}`,
             title: collection.name,
-            subtitle: collectionCountLine(collection) ?? "Empty",
+            subtitle: collection.countLine ?? collectionCountLine(collection) ?? "Empty",
             aspect: 2 / 3,
             media: (
               <MosaicImage

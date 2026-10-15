@@ -18,6 +18,11 @@ describe("a collection's count line", () => {
     expect(collectionCountLine({ collectionEditions: [edition("a")], collectionWorks: [work("f", "film"), work("g", "painting"), work("h", "painting")] })).toBe("1 edition · 1 film · 2 paintings");
   });
 
+  it("writes thousands with a comma", () => {
+    const films = Array.from({ length: 1050 }, (_, i) => work(`f${i}`, "film"));
+    expect(collectionCountLine({ collectionWorks: [...films, work("b")] })).toBe("1 book · 1,050 films");
+  });
+
   it("counts a book held both ways once, as its edition", () => {
     expect(collectionCountLine({ collectionEditions: [edition("a")], collectionWorks: [work("a")] })).toBe("1 edition");
   });

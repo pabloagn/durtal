@@ -20,6 +20,7 @@ import { catalogueDateYears } from "@/lib/catalogue/dates";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { collectableNouns, collectionCountLine } from "@/lib/collections/counts";
 import { MemberCard } from "@/components/collections/member-card";
+import { CountParts } from "@/components/collections/count-parts";
 import { EmptyState } from "@/components/ui/empty-state";
 import { readingStatesFor } from "@/lib/reading/states";
 import { readingBadge } from "@/lib/reading/card";
@@ -252,7 +253,9 @@ function memberCounts(collection: Collection, reading: Awaited<ReturnType<typeof
   const books = bookIds.length;
   // Read: a finished reading at least, so a book being re-read counts (SLN-449)
   const read = bookIds.filter((id) => (reading.get(id)?.timesRead ?? 0) >= 1).length;
-  return read ? `${line} · ${read} of ${books} ${books === 1 ? "book" : "books"} read` : line;
+  return read
+    ? `${line} · ${read.toLocaleString("en-US")} of ${books.toLocaleString("en-US")} ${books === 1 ? "book" : "books"} read`
+    : line;
 }
 
 /** One read per request for the page and its title */
@@ -396,7 +399,7 @@ export default async function CollectionPage({
                   {collection.description}
                 </Prose>
               )}
-              {counts && <p className="my-4 text-xs text-fg-secondary">{counts}</p>}
+              {counts && <p className="my-4 text-xs text-fg-secondary"><CountParts line={counts} /></p>}
               <div className={counts ? undefined : "mt-4"}>
                 <CollectionControls
                   collection={collection}

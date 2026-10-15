@@ -20,6 +20,7 @@ import {
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { useFocusThroughBusy } from "@/hooks/use-focus-through-busy";
 import { CollectionIconLazy } from "@/components/collections/collection-icon-lazy";
+import { CountParts } from "@/components/collections/count-parts";
 
 type Data = Awaited<ReturnType<typeof getCollectionSelection>>;
 
@@ -373,8 +374,9 @@ export function AddToCollectionDialog({
                       <span className="min-w-0 flex-1 truncate text-sm">
                         {c.name}
                       </span>
-                      <span className="text-xs text-fg-secondary">
-                        {collectionCountLine(c) ?? "Empty"}
+                      {/* At most half the row, so a long count never hides the name */}
+                      <span className="max-w-[50%] shrink-0 text-right text-xs text-fg-secondary">
+                        <CountParts line={collectionCountLine(c) ?? "Empty"} />
                       </span>
                     </button>
                   );
