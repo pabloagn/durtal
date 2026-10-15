@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect, useCallback, useLayoutEffect } from "react";
 import { SlidersHorizontal, ChevronDown, Search, Check } from "lucide-react";
 import { RangeSlider } from "@/components/ui/range-slider";
+import { Button } from "@/components/ui/button";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
 import { inkOn } from "@/lib/color/color-math";
 import { CapAligned } from "./cap-aligned";
@@ -160,6 +161,7 @@ export function FilterDropdown({
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const doneRef = useRef<HTMLButtonElement>(null);
   const [groupSearchTerms, setGroupSearchTerms] = useState<Record<string, string>>({});
   const [section, setSection] = useState<string | null>(null);
 
@@ -234,10 +236,17 @@ export function FilterDropdown({
 
   // Esc closes the panel, from its search fields too, and focus goes back to
   // the Filter button (SLN-477). The page's search field keeps its own Esc.
+  // Enter in the panel presses Done, from an option or a search field; a
+  // button, a link or a section tab keeps its own Enter (SLN-641)
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
-      if (e.key !== "Escape" || e.defaultPrevented || isComposing(e)) return;
+      if (e.defaultPrevented || isComposing(e)) return;
+      const target = e.target instanceof Element ? e.target : null;
+      const enter =
+        e.key === "Enter" && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey &&
+        !!target && !!panelRef.current?.contains(target) && !target.closest("button, a[href], [role=tab]");
+      if (e.key !== "Escape" && !enter) return;
       e.preventDefault();
       setOpen(false);
       triggerRef.current?.focus();
@@ -302,7 +311,7 @@ export function FilterDropdown({
                   [group.key]: e.target.value,
                 }))
               }
-              className="w-full rounded-sm border border-glass-border bg-bg-primary py-1 pl-7 pr-2 text-xs text-fg-secondary outline-none placeholder:text-fg-muted/60 focus:border-accent-primary"
+              className="w-full rounded-sm border border-glass-border bg-bg-primary py-1 pl-7 pr-2 text-xs pointer-coarse:h-11 text-fg-secondary outline-none placeholder:text-fg-muted/60 focus:border-accent-primary"
             />
           </div>
         )}
@@ -363,6 +372,7 @@ export function FilterDropdown({
         }}
         onPointerEnter={onIntent}
         onFocus={onIntent}
+        aria-expanded={open}
         // Outlined like the sort chips and view modes beside it, so a wrapped row starts on the same edge
         className={`flex h-8 items-center gap-1.5 rounded-sm border px-2.5 text-xs transition-colors pointer-coarse:h-11 ${
           activeCount > 0
@@ -387,23 +397,6 @@ export function FilterDropdown({
             sections ? "w-[34rem] overflow-hidden" : "min-w-56"
           }`}
         >
-          {/* Header with clear all */}
-          {activeCount > 0 && (
-            <div className="flex items-center justify-between border-b border-glass-border px-3 py-2">
-              <span className="text-xs text-fg-secondary">
-                {activeCount} active
-              </span>
-              <button
-                onClick={() => {
-                  onClearAll();
-                }}
-                className="text-xs text-accent-primary transition-colors hover:text-accent-primary/80"
-              >
-                Clear all
-              </button>
-            </div>
-          )}
-
           {sections && currentSection ? (
             /* A rail of sections, and the chosen section's groups beside it */
             <div className="flex h-[min(26rem,60vh)]">
@@ -476,7 +469,7 @@ export function FilterDropdown({
                       <button
                         type="button"
                         onClick={() => toggleGroup(group.key)}
-                        className="flex w-full items-center justify-between px-3 pb-1 pt-2.5 text-left"
+                        className="flex w-full items-center justify-between px-3 pb-1 pt-2.5 text-left pointer-coarse:min-h-11"
                       >
                         <div className="flex items-center gap-1.5">
                           <span className="type-caption">
@@ -500,6 +493,42 @@ export function FilterDropdown({
               </div>
             </>
           )}
+
+          {/* What is chosen, Clear all and Done: each choice applies at once,
+              Done closes the panel over the list it filtered (SLN-641) */}
+          <div className="flex items-center justify-between gap-3 border-t border-glass-border px-3 py-2">
+            <p className="flex min-w-0 items-baseline gap-3 text-xs text-fg-secondary">
+              {activeCount > 0 ? (
+                <>
+                  <span>{activeCount} active</span>
+                  {/* Clear all leaves with the last choice: focus stays in the panel, on Done */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClearAll();
+                      doneRef.current?.focus();
+                    }}
+                    className="text-command text-xs"
+                  >
+                    Clear all
+                  </button>
+                </>
+              ) : (
+                <span>No filters</span>
+              )}
+            </p>
+            <Button
+              ref={doneRef}
+              type="button"
+              variant="primary"
+              onClick={() => {
+                setOpen(false);
+                triggerRef.current?.focus();
+              }}
+            >
+              Done
+            </Button>
+          </div>
         </div>
       )}
     </div>

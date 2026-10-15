@@ -875,6 +875,45 @@ dialog::backdrop {
   color: var(--color-fg-secondary);
 }
 
+/* ── Phone card size: Large or Compact ────────────────────────────────────
+   A 46px target (the views' height) across the slider's width, a 4px track and a square thumb
+   at either end; the line under it names the size */
+.card-size-range {
+  display: block;
+  width: 100%;
+  height: 46px;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.card-size-range::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+.card-size-range::-moz-range-track {
+  height: 4px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+.card-size-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border: 1px solid var(--color-accent-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+}
+.card-size-range::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--color-accent-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+}
+
 /* ── Crop range slider ─────────────────────────────────────────────────── */
 .crop-range-slider {
   appearance: none;
@@ -1191,6 +1230,12 @@ dialog::backdrop {
 @media (pointer: coarse) and (max-width: 767px) {
   :has(> [data-catalogue-view="grid"]) > .grid-size-slider .grid-size-desktop { display: none; }
   :has(> [data-catalogue-view="grid"]) > .grid-size-slider .grid-size-mobile { display: block; }
+  /* The card size takes the rest of the views' row, so the first card
+     reaches the first screen (SLN-641); under 4rem it takes a row */
+  :has(> [data-catalogue-view="grid"]) > .grid-size-slider { flex: 1 1 4rem; min-width: 0; }
+  /* The slider's line hangs under the row: the controls share their top,
+     the slider as tall as the views' outlined row */
+  :has(> [data-catalogue-view="grid"]) > * { align-self: flex-start; }
   .catalogue-density-grid { grid-template-columns: minmax(0, 1fr); }
   /* Compact is two cards a row, with a tighter gap and card padding. A
      container too narrow for two (a 320px phone) keeps one ordinary card a

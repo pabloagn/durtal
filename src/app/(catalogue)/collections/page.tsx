@@ -111,7 +111,8 @@ export default async function CollectionsPage({
           </button>
         </form>
         <FavouritesFilter basePath="/collections" />
-        <div className="ml-auto">
+        {/* On a phone the views and card size take a row, as on Books (SLN-641) */}
+        <div className="ml-auto pointer-coarse:max-md:basis-full">
           <CollectionsViewSwitcher />
         </div>
       </div>
