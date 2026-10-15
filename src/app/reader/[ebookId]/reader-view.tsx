@@ -6,6 +6,7 @@ import { highlightColours, LIGHT_THEME_HIGHLIGHTS } from "@/lib/reader/presentat
 import { SkipToBook } from "@/components/reader/skip-to-book";
 import { ReaderAnnouncer } from "@/components/reader/reader-announcer";
 import { LeavePrompt } from "@/components/reader/leave-prompt";
+import { takeEarlyEscape } from "@/lib/reader/early-escape";
 import { closeLatestReaderPanel, subscribeReaderPanelInset } from "@/components/reader/side-panel";
 
 import {
@@ -761,6 +762,23 @@ function ReaderSession({
     return () => document.removeEventListener("keydown", onKeyDown, true);
   }, [visibleRef, showBars]);
 
+  // While the book opens, the input layer waits for the reader's features;
+  // Escape still asks before leaving, so one press does it (SLN-811). A press
+  // before this code ran was noted by the page's script.
+  const inputListening = useRef(false);
+  const opening = status.kind === "opening";
+  useEffect(() => {
+    if (!opening) return;
+    if (takeEarlyEscape() && !isBlocked()) actions.current?.escape();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.defaultPrevented || inputListening.current || isBlocked()) return;
+      actions.current?.escape();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [opening]);
+
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
 
@@ -993,6 +1011,7 @@ function ReaderSession({
         }
         phase = "engine";
         input.attach(document);
+        inputListening.current = true;
         historyInput.attach(document);
         const openingEngine = createFoliateEngine();
         openingEngine.setInsets?.(insetsRef.current);
@@ -1499,6 +1518,7 @@ function ReaderSession({
       browserHistoryRef.current = null;
       paceRef.current?.interrupt();
       input.destroy();
+      inputListening.current = false;
       speechRef.current?.destroy();
       speechRef.current = null;
       engine?.destroy();
