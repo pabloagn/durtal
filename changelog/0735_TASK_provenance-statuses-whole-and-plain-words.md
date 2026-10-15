@@ -25,13 +25,17 @@ the page was four zeros over an empty board.
 - `pipeline.tsx` (`PipelineColumn`): the status's label wraps whole words,
   with the dot on its first line (`CapAligned`) and the count apart from it.
   An empty status is its header alone. Order cards show the title, author and
-  shop in full, instead of clamping or cutting them.
+  shop in full, instead of clamping or cutting them. A card is a column with
+  its footer at the foot (`mt-auto`), so the cards of a row, stretched to the
+  tallest, start their titles and end their footers on one line (a button
+  centres its content otherwise).
 - Tiles: "In transit" (Shipped, not yet here), "Arriving this week" (In the
   next 7 days), "Active orders" (Not yet delivered), "Total spent" (All time).
 - With no order ever, one empty state says what an order is and points at
   New order. The acquisition history's own "No acquisitions yet" goes.
 - Sentence case across the page and its dialogs: New order, Edit order, the
-  status columns, the method options and the form labels.
+  status columns, the method options ("In-store purchase" too) and the form
+  labels.
 - docs/05 and docs/15 name the dialog "New order"; `scripts/qa/journeys.mjs`
   waits for "New order".
 - Test: `src/__tests__/provenance/pipeline-and-words.test.ts`.

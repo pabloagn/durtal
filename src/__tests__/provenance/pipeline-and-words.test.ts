@@ -48,6 +48,9 @@ describe("the provenance page", () => {
     // The title and author wrap in full
     const card = page.querySelector('[data-pipeline-column="out_for_delivery"] button')!;
     expect(card.innerHTML).not.toMatch(/line-clamp|truncate/);
+    // Stretched to its row's tallest, a card keeps its content at the top and its footer at the foot
+    expect(card.className.split(" ")).toEqual(expect.arrayContaining(["flex", "flex-col"]));
+    expect(card.lastElementChild!.className.split(" ")).toContain("mt-auto");
   });
 
   it("speaks in sentence case, without jargon", () => {
@@ -62,6 +65,7 @@ describe("words elsewhere", () => {
 
   it("uses sentence case on the buttons and headings pass 4 found", () => {
     expect(read("app/(catalogue)/provenance/order-create-dialog.tsx")).not.toContain("New Order");
+    for (const file of ["order-create-steps.tsx", "order-edit-dialog.tsx"]) expect(read(`app/(catalogue)/provenance/${file}`)).toContain('"In-store purchase"');
     expect(read("app/(catalogue)/places/venue-create-dialog.tsx")).not.toContain("Add Venue");
     expect(read("app/(catalogue)/taxonomy/[familySlug]/[itemSlug]/page.tsx")).toContain('title="Associated works"');
   });

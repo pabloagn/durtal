@@ -84,7 +84,7 @@ export function PipelineOrderCard({
       onClick={() => onClick(order)}
       {...listeners}
       {...attributes}
-      className={`w-full rounded-sm border border-glass-border bg-bg-primary/60 p-2.5 text-left transition-all duration-150 hover:border-fg-muted/15 hover:bg-bg-primary active:scale-[0.99] ${
+      className={`flex w-full flex-col rounded-sm border border-glass-border bg-bg-primary/60 p-2.5 text-left transition-all duration-150 hover:border-fg-muted/15 hover:bg-bg-primary active:scale-[0.99] ${
         isDragging && !isDragOverlay ? "opacity-30" : ""
       } ${isDragOverlay ? "shadow-[0_8px_24px_rgba(0,0,0,0.5)] ring-1 ring-accent-primary/40" : ""}`}
     >
@@ -126,8 +126,9 @@ export function PipelineOrderCard({
         </div>
       </div>
 
-      {/* Footer badges */}
-      <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+      {/* Footer badges: at the card's foot, so a row's cards, stretched to its
+          tallest, start their titles and end their footers on one line */}
+      <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-2">
         <span className="font-mono text-micro text-fg-secondary">
           {days === 0 ? "today" : `${days}d ago`}
         </span>

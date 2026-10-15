@@ -52,7 +52,7 @@ const ACQUISITION_METHOD_OPTIONS: {
   label: string;
 }[] = [
   { value: "online_order", label: "Online order" },
-  { value: "in_store_purchase", label: "In-Store Purchase" },
+  { value: "in_store_purchase", label: "In-store purchase" },
   { value: "gift", label: "Gift" },
   { value: "digital_purchase", label: "Digital purchase" },
   { value: "auction", label: "Auction" },

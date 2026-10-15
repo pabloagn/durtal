@@ -45,7 +45,6 @@
   color: var(--color-fg-secondary);
   margin-inline: 10px;
 }
-/* Rose for text: accent-primary is 2.6:1 here, under 3:1 even at 46px */
 .h-scan-control {
   text-align: right;
   padding-bottom: 3px;
