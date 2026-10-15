@@ -20,6 +20,24 @@ import { SearchPicker, type PickerChoice } from "./search-picker";
 export const CHIP =
   "inline-flex max-w-full items-start gap-1 rounded-sm border border-glass-border bg-bg-secondary/60 py-0.5 pl-2 pr-1 text-xs leading-5 text-fg-secondary pointer-coarse:py-0 pointer-coarse:leading-11";
 
+/**
+ * A chip's name. On a phone's width it wraps in full instead of being cut
+ * (a long organization in 260px); on touch its lines keep the 44px line's
+ * center for the cross
+ */
+export const CHIP_NAME =
+  "truncate max-sm:whitespace-normal max-sm:break-words max-sm:pointer-coarse:py-2.5 max-sm:pointer-coarse:leading-6";
+
+/**
+ * A chip that holds a menu besides its name (a role, an attribution). On
+ * touch, where the menu and the cross are 44px, and on a phone's width, the
+ * name takes a line of its own, so it is never cut, with the menu and the
+ * cross under it. On touch the name's line centers where a 44px line does
+ */
+export const ROLE_CHIP = `${CHIP} pointer-coarse:flex-wrap max-sm:flex-wrap`;
+export const ROLE_CHIP_NAME =
+  "truncate pointer-coarse:order-first pointer-coarse:basis-full pointer-coarse:whitespace-normal pointer-coarse:break-words pointer-coarse:py-2.5 pointer-coarse:leading-6 max-sm:order-first max-sm:basis-full max-sm:whitespace-normal max-sm:break-words";
+
 /** The remove button of a chip, on the cap-height center of its text; 44px on touch */
 export function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
@@ -66,13 +84,15 @@ export function AddButton({
   onClick: () => void;
   buttonRef?: React.Ref<HTMLButtonElement>;
 }) {
+  // On a phone, starting a row under its label, it pulls out by its padding
+  // so its icon starts on the label's edge (docs/03, Spacing Scale)
   return (
     <button
       ref={buttonRef}
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="inline-flex items-start gap-1 rounded-sm px-1.5 pt-px text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:min-w-11 pointer-coarse:leading-11"
+      className="inline-flex items-start gap-1 rounded-sm px-1.5 pt-px text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:min-w-11 pointer-coarse:leading-11 max-sm:first:-ml-1.5"
     >
       <CapAligned height={12}>
         <Plus className="h-3 w-3" strokeWidth={1.5} />
@@ -124,7 +144,7 @@ export function SingleChoiceField({
     <FieldRow label={label}>
       {value ? (
         <span className={CHIP}>
-          <span className="truncate">{value.label}</span>
+          <span className={CHIP_NAME}>{value.label}</span>
           <RemoveButton label={`Remove ${value.label}`} onClick={() => onChange(null)} />
         </span>
       ) : add.open ? (
@@ -249,7 +269,7 @@ export function TermListField({
     <FieldRow label={label}>
       {value.map((term) => (
         <span key={term.id} className={CHIP}>
-          <span className="truncate">
+          <span className={CHIP_NAME}>
             {term.parentName && <span>{term.parentName} › </span>}
             {term.name}
           </span>

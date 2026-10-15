@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, X } from "lucide-react";
 import {
   AddButton,
   CHIP,
+  CHIP_NAME,
   FieldRow,
   RemoveButton,
   useAddButton,
@@ -72,7 +73,7 @@ export function ChoiceListField({
     <FieldRow label={label}>
       {value.map((entry) => (
         <span key={entry.id} className={CHIP}>
-          <span className="truncate">{entry.name}</span>
+          <span className={CHIP_NAME}>{entry.name}</span>
           <RemoveButton
             label={`Remove ${entry.name}`}
             onClick={() => onChange(value.filter((c) => c.id !== entry.id))}
@@ -124,7 +125,7 @@ export function CompaniesField({
     <FieldRow label="Production">
       {value.map((entry) => (
         <span key={entry.organizationId} className={CHIP}>
-          <span className="truncate">{entry.name}</span>
+          <span className={CHIP_NAME}>{entry.name}</span>
           <RemoveButton
             label={`Remove ${entry.name}`}
             onClick={() =>
@@ -221,9 +222,9 @@ function CreditRow({
   const cast = entry.roleId === "film.cast";
   return (
     <li className="rounded-sm border border-glass-border bg-bg-secondary/40 px-2.5 py-2">
-      <div className="flex items-start gap-2 text-sm pointer-coarse:flex-wrap pointer-coarse:leading-11">
+      <div className="flex items-start gap-2 text-sm pointer-coarse:flex-wrap pointer-coarse:leading-11 max-sm:flex-wrap">
         <span
-          className={`min-w-0 flex-1 truncate pointer-coarse:basis-full pointer-coarse:whitespace-normal pointer-coarse:break-words ${entry.personId ? "text-fg-primary" : "italic text-fg-secondary"}`}
+          className={`min-w-0 flex-1 truncate pointer-coarse:basis-full pointer-coarse:whitespace-normal pointer-coarse:break-words max-sm:basis-full max-sm:whitespace-normal max-sm:break-words ${entry.personId ? "text-fg-primary" : "italic text-fg-secondary"}`}
         >
           {name}
         </span>
