@@ -50,6 +50,13 @@ describe("parseBookFilters", () => {
     expect(parse("series=in,none&poster=has,missing").filters).toEqual({});
   });
 
+  it("reads the authors' countries as ISO codes (SLN-742)", () => {
+    const { filters, issues } = parse("authorCountry=FR,BE,france");
+    expect(filters).toEqual({ authorCountries: ["FR", "BE"] });
+    expect(issues.map((i) => String(i.path[0]))).toEqual(["authorCountry"]);
+    expect(bookFiltersSchema.parse(filters)).toEqual(filters);
+  });
+
   it("has no filter when nothing is chosen", () => {
     expect(hasBookFilters(parse("q=dune&sort=title").filters)).toBe(false);
   });

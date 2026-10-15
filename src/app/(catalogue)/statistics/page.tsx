@@ -5,7 +5,7 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { EmptyState } from "@/components/ui/empty-state";
 import { BarChart } from "@/components/reading/charts/bar-chart";
 import { Footnote, NumberTiles, RankList, StatsSection } from "@/components/reading/stats-parts";
-import { CoverFrame, CoverLink, CoverStrip, bookHref } from "@/components/statistics/covers";
+import { CoverFrame, CoverStrip, YearCovers, bookHref } from "@/components/statistics/covers";
 import { SplitRing } from "@/components/statistics/split-ring";
 import { WrittenChart } from "@/components/statistics/written-chart";
 import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
@@ -28,7 +28,7 @@ import {
 } from "@/lib/statistics/library";
 import type { InstanceFormat } from "@/lib/types";
 import { languageName } from "@/lib/utils/language";
-import { nationalityFilterHref, shortCountryName } from "@/lib/utils/nationality-param";
+import { shortCountryName } from "@/lib/utils/nationality-param";
 import { formatRating } from "@/lib/utils/rating";
 
 export const metadata = { title: "Statistics" };
@@ -107,21 +107,7 @@ export default async function StatisticsPage() {
             <StatsSection title="Years with the most books" id="years">
               <div className="space-y-8">
                 {years.map((y) => (
-                  <div key={y.year} className="grid gap-4 sm:grid-cols-[8rem_1fr]" data-stats-year={y.year}>
-                    <div>
-                      <Link href={owned(`yearFrom=${y.year}&yearTo=${y.year}`)} className="type-stat block text-fg-primary transition-colors hover:text-accent-primary">
-                        {yearLabel(y.year)}
-                      </Link>
-                      <p className="text-xs text-fg-secondary">{count(y.books, "book")}</p>
-                    </div>
-                    <ul className="grid max-w-[44rem] grid-cols-5 gap-2 sm:gap-3">
-                      {y.covers.map((book) => (
-                        <li key={book.workId}>
-                          <CoverLink book={book} />
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  <YearCovers key={y.year} year={y} />
                 ))}
               </div>
             </StatsSection>
@@ -147,7 +133,7 @@ export default async function StatisticsPage() {
                   tone="blue"
                   items={ranks.countries.map((c) => ({
                     label: shortCountryName(c.name),
-                    href: nationalityFilterHref(c.key),
+                    href: owned(`authorCountry=${c.key}`),
                     value: c.count,
                     text: count(c.count, "book"),
                   }))}
@@ -314,6 +300,7 @@ export default async function StatisticsPage() {
                   { label: "Reading days", value: n(reading.readingDays) },
                 ]}
               />
+              <Footnote>Every book you finished, owned or not, so it can be more than Read in the Breakdown, which counts the books on your shelves.</Footnote>
             </StatsSection>
           ) : null}
 
