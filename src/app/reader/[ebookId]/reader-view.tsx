@@ -874,7 +874,14 @@ function ReaderSession({
         event.preventDefault();
         if (next) return next.focus({ preventScroll: true });
         flushSync(() => actions.current?.showBars?.());
-        besideBook(book, event.shiftKey)?.focus({ preventScroll: true });
+        const beside = besideBook(book, event.shiftKey);
+        beside?.focus({ preventScroll: true });
+        // Firefox can keep focus in the frame once Tab has been out to its
+        // own toolbar: the page's window takes it first, then the control
+        if (beside && document.activeElement !== beside) {
+          window.focus();
+          beside.focus({ preventScroll: true });
+        }
       },
       intoBook: (event) => {
         // Tab from a bar into the book lands on this screen's first link, or

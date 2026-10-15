@@ -62,4 +62,8 @@ page itself when the screen has none, and the place never moves.
   the handler.
 - Also covers 0633's "Not covered yet": Shift+Tab back into the book now
   lands on the screen's last link rather than the page.
+- From the review: in Firefox, once Tab had been out to the browser's own
+  toolbar, Shift+Tab out of the top of the book could leave focus on the
+  page. The reader now gives the page's window focus first, then the
+  control (the reviewer's fix, applied as sent).
 - No migration and no new packages.
