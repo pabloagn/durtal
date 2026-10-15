@@ -37,3 +37,10 @@ three, item 5 (findings/design-polish-3-2026-10-15.md).
 - Headless Chromium, Firefox and WebKit at 1440, 390 and 320 (touch at 390
   and 320) on Stats for all time and this year: alignment, overflow, layout,
   touch and design audits are clean in all 18 runs. Page weight passes.
+- Review (findings/review-pr-381.md): one book is "it", not "those" or
+  "them all" (the reviewer's fix, applied as written, with its test). And a
+  page count of 0 counts as none: `unreadPile` reads it as missing in both
+  the first copy's edition and the largest edition, and the line leaves a
+  0-page total out. `src/__tests__/integration/reading-stats.test.ts` adds a
+  0-page book and a 0-page copy whose other edition has 80 pages; the
+  database suite passes locally.

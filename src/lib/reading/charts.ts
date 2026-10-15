@@ -149,11 +149,11 @@ export function durationWords(days: number): string {
 export function unreadPileText(pile: { books: number; pages: number; withoutPages: number; years: number | null }): string {
   const books = `${n(pile.books)} ${Math.round(pile.books) === 1 ? "book" : "books"} you own and have not read`;
   const counted = pile.books - pile.withoutPages;
-  if (counted <= 0) return `${books}.`;
+  if (counted <= 0 || pile.pages <= 0) return `${books}.`;
   const pages = `${n(pile.pages)} ${Math.round(pile.pages) === 1 ? "page" : "pages"}`;
   const which = pile.withoutPages > 0 ? ` in the ${counted === 1 ? "one" : n(counted)} with a page count` : "";
   const time = pile.years !== null && pile.pages > 0
-    ? `: at your pace over the last three years, about ${durationWords(pile.years * 365.25)} to read ${pile.withoutPages > 0 ? "those" : "them all"}`
+    ? `: at your pace over the last three years, about ${durationWords(pile.years * 365.25)} to read ${(pile.withoutPages > 0 ? counted : pile.books) === 1 ? "it" : pile.withoutPages > 0 ? "those" : "them all"}`
     : "";
   return `${books}, ${pages}${which}${time}.`;
 }
