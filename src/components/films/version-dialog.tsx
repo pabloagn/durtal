@@ -146,13 +146,14 @@ function ReleaseFields({
       {/* The row carries the label's type: the button sits on its cap-height center */}
       <div className="type-label flex items-start justify-between gap-3">
         <p>{label}</p>
-        <CapAligned height={24}>
+        {/* 44px on touch */}
+        <CapAligned height={24} coarseHeight={44}>
           <button
             type="button"
             aria-label={`Remove ${label.toLowerCase()}`}
             data-tooltip="Remove release"
             onClick={onRemove}
-            className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary"
+            className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted pointer-coarse:h-11 pointer-coarse:w-11 transition-colors hover:bg-bg-tertiary hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary"
           >
             <X className="h-3.5 w-3.5" strokeWidth={1.5} />
           </button>
@@ -353,6 +354,7 @@ function VersionForm({
         <Button
           variant="ghost"
           size="sm"
+          className="-ml-2.5"
           onClick={() => setReleases((list) => [...list, releaseDraft()])}
         >
           <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
