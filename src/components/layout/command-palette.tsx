@@ -26,6 +26,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { KeyCombo, Kbd } from "@/components/shortcuts/kbd";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { useShortcutActions } from "@/components/shortcuts/shortcuts-provider";
 import { quickSearch, getPaletteContinueReading, type QuickSearchResult } from "@/lib/actions/quick-search";
 import { ADD, COPY_KEYS, GO_TO, SHORTCUTS, type Keys } from "@/lib/shortcuts/shortcuts";
@@ -147,7 +148,19 @@ const GROUP_CLASS =
   "text-xs font-medium text-fg-secondary [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5";
 // 44px rows on touch, like every other control a finger presses
 const ITEM_CLASS =
-  "flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 pointer-coarse:min-h-11 text-sm text-fg-secondary transition-colors aria-selected:bg-selection-bg/60 aria-selected:text-fg-primary";
+  "group flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 pointer-coarse:min-h-11 text-sm text-fg-secondary transition-colors aria-selected:bg-selection-bg/60 aria-selected:text-fg-primary";
+
+// A row's words wrap in full at every width, never cut: a title, a person's
+// or a house's roles, a command (pass 5, SLN-849)
+const LABEL_CLASS = "min-w-0 flex-1 break-words";
+/** An icon on the first line of a row that wraps */
+function RowIcon({ icon: Icon }: { icon: LucideIcon }) {
+  return (
+    <CapAligned height={16} className="self-start">
+      <Icon className="h-4 w-4" strokeWidth={1.5} />
+    </CapAligned>
+  );
+}
 
 export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo }: CommandPaletteProps) {
   const router = useRouter();
@@ -161,6 +174,16 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  // A shorter placeholder on a phone, where the long one was cut
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia?.("(max-width: 639px)");
+    if (!query) return;
+    const update = () => setNarrow(query.matches);
+    update();
+    query.addEventListener?.("change", update);
+    return () => query.removeEventListener?.("change", update);
+  }, []);
   const [recentFromQuery, setRecentFromQuery] = useState<WorkEbookDTO | null>(null);
 
   const navigate = useCallback(
@@ -391,7 +414,7 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
               ref={inputRef}
               value={query}
               onValueChange={setQuery}
-              placeholder="Search the catalogue, or type a command..."
+              placeholder={narrow ? "Search, or type a command…" : "Search the catalogue, or type a command…"}
               className="h-11 w-full bg-transparent text-sm text-fg-primary outline-none placeholder:text-fg-muted"
               autoFocus
             />
@@ -423,13 +446,12 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
                       className={ITEM_CLASS}
                     >
                       <ResultThumb src={work.cover} name={work.title} kind="book" />
-                      {/* On a phone the author is a second line, never cut off;
-                          both lines wrap in full */}
-                      <span className="min-w-0 flex-1 truncate max-sm:whitespace-normal max-sm:break-words">
+                      {/* On a phone the author is a second line; both wrap in full */}
+                      <span className={LABEL_CLASS}>
                         {work.title}
                         {work.creators.length > 0 && (
                           <span className="text-fg-secondary max-sm:block">
-                            <span className="max-sm:hidden">{"  ·  "}</span>
+                            <span className="max-sm:hidden">{"\u00a0· "}</span>
                             {work.creators.slice(0, 2).join(", ")}
                           </span>
                         )}
@@ -454,14 +476,14 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
               <Command.Group heading="eBooks" className={GROUP_CLASS}>
                 {ebookGroup.continueReading && (
                   <Command.Item value="ebook:continue" className={ITEM_CLASS} onSelect={() => readEbook(ebookGroup.continueReading!.readerPath!)}>
-                    <BookOpen className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                    <span className="min-w-0 flex-1 truncate">{ebookGroup.continueReading.title}</span>
+                    <RowIcon icon={BookOpen} />
+                    <span className={LABEL_CLASS}>{ebookGroup.continueReading.title}</span>
                   </Command.Item>
                 )}
                 {ebookGroup.ebooks.map((ebook) => (
                   <Command.Item key={ebook.id} value={`ebook:${ebook.id}`} className={ITEM_CLASS} onSelect={() => navigate(ebook.href)}>
-                    <BookOpen className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                    <span className="min-w-0 flex-1 truncate">{ebook.title}</span>
+                    <RowIcon icon={BookOpen} />
+                    <span className={LABEL_CLASS}>{ebook.title}</span>
                   </Command.Item>
                 ))}
               </Command.Group>
@@ -477,11 +499,11 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
                     className={ITEM_CLASS}
                   >
                     <ResultThumb src={person.photo} name={person.name} kind="author" />
-                    <span className="min-w-0 flex-1 truncate">
+                    <span className={LABEL_CLASS}>
                       {person.name}
                       {person.roles && (
-                        <span className="text-fg-secondary">
-                          {"  ·  "}
+                        <span className="text-fg-secondary max-sm:block">
+                          <span className="max-sm:hidden">{"\u00a0· "}</span>
                           {person.roles}
                         </span>
                       )}
@@ -500,12 +522,12 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
                     onSelect={() => navigate(organization.href)}
                     className={ITEM_CLASS}
                   >
-                    <Building2 className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                    <span className="min-w-0 flex-1 truncate">
+                    <RowIcon icon={Building2} />
+                    <span className={LABEL_CLASS}>
                       {organization.name}
                       {organization.roles && (
-                        <span className="text-fg-secondary">
-                          {"  ·  "}
+                        <span className="text-fg-secondary max-sm:block">
+                          <span className="max-sm:hidden">{"\u00a0· "}</span>
                           {organization.roles}
                         </span>
                       )}
@@ -524,11 +546,11 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
                     onSelect={() => navigate(venue.href)}
                     className={ITEM_CLASS}
                   >
-                    <MapPin className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                    <span className="min-w-0 flex-1 truncate">
+                    <RowIcon icon={MapPin} />
+                    <span className={LABEL_CLASS}>
                       {venue.name}
-                      <span className="text-fg-secondary">
-                        {"  ·  "}
+                      <span className="text-fg-secondary max-sm:block">
+                        <span className="max-sm:hidden">{"\u00a0· "}</span>
                         {venue.type}
                       </span>
                     </span>
@@ -551,8 +573,8 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
                   }}
                   className={ITEM_CLASS}
                 >
-                  <RotateCw className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                  <span className="min-w-0 flex-1 truncate">Search again</span>
+                  <RowIcon icon={RotateCw} />
+                  <span className={LABEL_CLASS}>Search again</span>
                 </Command.Item>
               </Command.Group>
             )}
@@ -568,8 +590,8 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
                     }
                     className={ITEM_CLASS}
                   >
-                    <Search className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                    <span className="min-w-0 flex-1 truncate">
+                    <RowIcon icon={Search} />
+                    <span className={LABEL_CLASS}>
                       Search {domain.label.toLowerCase()} for &ldquo;{trimmed}&rdquo;
                     </span>
                   </Command.Item>
@@ -681,8 +703,8 @@ function PaletteRow({
 }) {
   return (
     <Command.Item value={value} onSelect={onSelect} className={ITEM_CLASS}>
-      <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      <RowIcon icon={item.icon} />
+      <span className={LABEL_CLASS}>{item.label}</span>
       {item.keys && <KeyCombo keys={item.keys} then={item.then} />}
     </Command.Item>
   );
