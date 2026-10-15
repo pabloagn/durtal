@@ -362,6 +362,12 @@ export interface ReaderEngine {
   /** The heights of the reader's bars, which the text keeps clear of, and
    * whether the bars are kept visible (SLN-663) */
   setInsets?(insets: { top: number; bottom: number; pinned: boolean }): void;
+  /** How much of the screen's top and bottom the reader's own layers cover
+   * while reading with the bars hidden (the chapter band, the top fade),
+   * and, for the next turn only, what covers it at the key press (floating
+   * bars): a page turn in the scroll flow keeps a line read between the
+   * layers at the press and lands it clear of those after it (SLN-674) */
+  setCovered?(covered: { top: number; bottom: number }, now?: { top: number; bottom: number }): void;
   /** A locator for the current selection inside the book, or null */
   locatorFromSelection(): DurtalLocator | null;
   /** A book-document origin is exact; an absent origin uses the current selection document. */

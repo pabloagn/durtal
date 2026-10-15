@@ -58,7 +58,7 @@ import {
 } from "@/lib/reader/running-lines";
 import { lazy, Suspense } from "react";
 import { OpenError } from "@/components/reader/open-error";
-import { quietChapter, ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
+import { QUIET_TOP_FADE_PX, quietChapter, ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
 import { ReaderShell, useReaderBars } from "@/components/reader/reader-shell";
 import { PageEdges } from "@/components/reader/page-edges";
 import { DownloadButton } from "@/components/reader/offline/download-button";
@@ -334,6 +334,8 @@ function ReaderSession({
   useReaderFeatureShortcut("-", 12, () => adjustText(-1), preferences.ready);
   useReaderFeatureShortcut("0", 12, () => adjustText(0), preferences.ready);
   const bookRef = useRef<HTMLDivElement>(null);
+  // What covers the text with the bars hidden while scrolling (SLN-674)
+  const coveredRef = useRef<{ top: number; bottom: number } | null>(null);
   const engineRef = useRef<ReaderEngine | null>(null);
   const resumeClock = useRef<string | null>(null);
   const [status, setStatus] = useState<Status>(
@@ -635,6 +637,17 @@ function ReaderSession({
       failure: string,
     ) => {
       if (!bridge.getControllerReadinessSnapshot().ready) return;
+      // Floating bars cover the text the reader sees at this press; the
+      // turn hides them, so the line it keeps is read above and below them
+      const covered = coveredRef.current, book = bookRef.current?.getBoundingClientRect();
+      if (covered && book && bars.visibleRef.current) {
+        const top = document.querySelector("[data-reader-top-bar]")?.getBoundingClientRect();
+        const bottom = document.querySelector("[data-reader-bottom-bar]")?.getBoundingClientRect();
+        engineRef.current?.setCovered?.(covered, {
+          top: top ? top.bottom - book.top : covered.top,
+          bottom: bottom ? book.bottom - bottom.top : covered.bottom,
+        });
+      }
       // Visual/resume intent is immediate; reading activity waits for painted movement.
       bars.hide();
       syncRef.current?.dismiss();
@@ -1440,6 +1453,17 @@ function ReaderSession({
     insetsRef.current = insets;
     engineRef.current?.setInsets?.(insets);
   }, [insets]);
+  // A page turn in the scroll flow keeps its line clear of what lies over
+  // the text once the turn has hidden the bars: the chapter band and the
+  // top fade (kept bars already stand outside the book)
+  useEffect(() => {
+    const band = document.querySelector<HTMLElement>("[data-reader-quiet-chapter]");
+    coveredRef.current = quiet && {
+      top: quiet.topFade ? QUIET_TOP_FADE_PX : 0,
+      bottom: band?.offsetHeight ?? 0,
+    };
+    engineRef.current?.setCovered?.(coveredRef.current ?? { top: 0, bottom: 0 });
+  }, [quiet, chapter, status.kind]);
   useEffect(() => {
     const bottom = document.querySelector<HTMLElement>(
       "[data-reader-bottom-bar]",
