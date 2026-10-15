@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ebooksAvailableText } from "@/lib/utils/format";
 import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
 import { getAuthorEbookSuggestionCount } from "@/lib/ebooks/review-queue/suggestions";
 import { EbookSuggestionLine } from "@/components/ebooks/ebook-suggestion-line";
@@ -354,7 +355,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
             {/* Works as author */}
             {works.length > 0 && (
               <section className="mb-8">
-                <SectionHeading title="Books" count={works.length} description={[readOfText(record), digitalCount ? `${digitalCount} available as eBooks` : null].filter(Boolean).join(" · ")} />
+                <SectionHeading title="Books" count={works.length} description={[readOfText(record), digitalCount ? ebooksAvailableText(digitalCount) : null].filter(Boolean).join(" · ")} />
                 {record.read > 0 && (
                   <div className="mb-4">
                     <ReadingTabSwitch value={readingTab} />
