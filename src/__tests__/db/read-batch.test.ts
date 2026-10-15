@@ -35,6 +35,29 @@ describe("batchedRows", () => {
     expect([a, b, c]).toEqual([[{ n: 0 }], [{ n: 1 }], [{ n: 2 }]]);
   });
 
+  it("splits a large wave into even batches sent side by side", async () => {
+    conn.execute.mockImplementation(lazy);
+    let open = 0, most = 0;
+    conn.batch!.mockImplementation(async (queries: { query: unknown }[]) => {
+      most = Math.max(most, ++open);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      open--;
+      return queries.map((q) => ({ rows: [{ q: q.query }] }));
+    });
+    const queries = Array.from({ length: 31 }, (_, i) => sql`select ${i}`);
+    const rows = await Promise.all(queries.map((query) => batchedRows(query)));
+    expect(conn.batch!.mock.calls.map((call) => call[0].length)).toEqual([8, 8, 8, 7]);
+    expect(most).toBe(4);
+    expect(rows).toEqual(queries.map((q) => [{ q }]));
+  });
+
+  it("fails only the batch a failing read was in", async () => {
+    conn.execute.mockImplementation(lazy);
+    conn.batch!.mockRejectedValueOnce(new Error("connection lost")).mockImplementation(async (queries: unknown[]) => queries.map(() => ({ rows: [] })));
+    const results = await Promise.allSettled(Array.from({ length: 10 }, (_, i) => batchedRows(sql`select ${i}`)));
+    expect(results.map((r) => r.status)).toEqual([...Array(5).fill("rejected"), ...Array(5).fill("fulfilled")]);
+  });
+
   it("sends a read that waited on another in a batch of its own", async () => {
     conn.execute.mockImplementation(lazy);
     conn.batch!.mockImplementation(async (queries: unknown[]) => queries.map(() => ({ rows: [] })));
