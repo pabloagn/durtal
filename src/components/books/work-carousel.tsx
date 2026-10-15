@@ -62,6 +62,7 @@ export function RelatedBookCard({ work, ebook, readerReturnTo }: {
 export function WorkCarousel<T extends WorkCardData>({
   title,
   titleHref,
+  count,
   works,
   caption,
   ebooks,
@@ -69,6 +70,8 @@ export function WorkCarousel<T extends WorkCardData>({
 }: {
   title: string;
   titleHref?: string;
+  /** Shown after the title */
+  count?: number;
   works: T[];
   caption?: (work: T) => ReactNode;
   /** Each work's readable e-book; a work missing from it has none */
@@ -76,7 +79,7 @@ export function WorkCarousel<T extends WorkCardData>({
   readerReturnTo?: string;
 }) {
   return (
-    <HorizontalCarousel title={title} titleHref={titleHref}>
+    <HorizontalCarousel title={title} titleHref={titleHref} count={count}>
       {works.map((work) => (
         <div key={work.id} className="carousel-card">
           <RelatedBookCard work={work} ebook={ebooks.get(work.id) ?? null} readerReturnTo={readerReturnTo} />

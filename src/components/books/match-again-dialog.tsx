@@ -368,7 +368,7 @@ export function MatchAgainDialog({
                     />
                   ) : (
                     <div className="flex h-16 w-11 flex-shrink-0 items-center justify-center rounded-sm bg-bg-tertiary/60">
-                      <span className="font-serif text-xs text-fg-muted/40">
+                      <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/40">
                         {result.title[0]}
                       </span>
                     </div>

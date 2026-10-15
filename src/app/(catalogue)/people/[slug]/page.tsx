@@ -341,7 +341,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
       >
         {hasReading ? (
           <>
-            <EbookSuggestionLine authorId={author.id} count={ebookSuggestions} />
+            <EbookSuggestionLine authorId={author.id} count={ebookSuggestions} className="mb-8" />
             {/* Bio */}
             {author.bio && (
               <section className="mb-8">
@@ -462,7 +462,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                         </div>
                       ) : (
                         <div className="flex h-12 w-8 flex-shrink-0 items-center justify-center rounded-sm bg-bg-primary">
-                          <span className="font-serif text-xs text-fg-muted/30">
+                          <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/30">
                             {(edition.title ?? "?")[0]}
                           </span>
                         </div>
