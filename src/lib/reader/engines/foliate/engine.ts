@@ -1067,7 +1067,7 @@ class FoliateEngine implements ReaderEngine {
       const detach = attachReaderMedia(doc, (media) => {
         this.closeNote();
         this.#emit("media", media);
-      });
+      }, { pageImages: this.#book?.rendition?.layout === "pre-paginated" });
       this.#mediaDetach.set(doc, detach);
       for (const old of this.#mediaDocs)
         if (!old.deref()) this.#mediaDocs.delete(old);
