@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { readFileSync } from "fs";
 import path from "path";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DetailControls, DetailEditButton, DetailTitleRow } from "@/components/shared/detail-layout";
+import { DetailControls, DetailEditButton, DetailTitleRow, titleLength } from "@/components/shared/detail-layout";
 
 // A detail page's title on a phone takes the row's width, its controls going
 // under it, decided by a container query alone (SLN-641, from #260). The
@@ -116,10 +116,18 @@ describe("DetailTitleRow's long titles", () => {
       expect(row.getAttribute("data-title-length")).toBe(mark);
     }
     const css = read("styles/globals.css");
-    expect(css).toMatch(/@media \(max-width: 639px\) \{\s*\.type-page-title\[data-title-length="long"\] \{\s*font-size: var\(--text-3xl\);/);
-    expect(css).toContain('.type-page-title[data-title-length="longer"] {\n    font-size: var(--text-2xl);');
+    expect(css).toMatch(/@media \(max-width: 639px\) \{\s*\[data-title-length="long"\] \{\s*font-size: var\(--text-3xl\);/);
+    expect(css).toContain('  [data-title-length="longer"] {\n    font-size: var(--text-2xl);');
     // Under 375px every band steps down once more, so lines rise with length
-    expect(css).toMatch(/@media \(max-width: 374px\) \{\s*\.type-page-title\[data-title-length="short"\] \{\s*font-size: var\(--text-3xl\);[^}]*\}\s*\.type-page-title\[data-title-length="long"\] \{\s*font-size: var\(--text-2xl\);/);
+    expect(css).toMatch(/@media \(max-width: 374px\) \{\s*\[data-title-length="short"\] \{\s*font-size: var\(--text-3xl\);[^}]*\}\s*\[data-title-length="long"\] \{\s*font-size: var\(--text-2xl\);/);
+  });
+
+  it("marks a collection's name the same way, on its h1 and the row its icon and star sit on", () => {
+    const page = read("app/(catalogue)/collections/[id]/page.tsx");
+    expect(page.match(/data-title-length=\{titleLength\(collection\.name\)\}/g)).toHaveLength(2);
+    // Only a word too long for the line breaks inside itself
+    expect(page).not.toContain("[overflow-wrap:anywhere]\">");
+    expect(titleLength("x".repeat(40))).toBe("long");
   });
 
   it("leaves a title that is not plain text unmarked", () => {

@@ -132,6 +132,12 @@ export const DETAIL_TITLE_ROW = {
  */
 export const LONG_TITLE = 32, LONGER_TITLE = 56;
 
+/** The mark that steps a page title down on a phone (globals.css) */
+export function titleLength(title: ReactNode) {
+  if (typeof title !== "string") return undefined;
+  return title.length > LONGER_TITLE ? "longer" : title.length > LONG_TITLE ? "long" : "short";
+}
+
 export function DetailTitleRow({
   title,
   controls = "standard",
@@ -145,13 +151,11 @@ export function DetailTitleRow({
 }) {
   // On a phone a long title steps down the type scale (globals.css), so it
   // keeps to three or four lines and the page's picture stays near the top
-  const length = typeof title === "string" ? title.length : 0;
-  const titleLength = typeof title !== "string" ? undefined
-    : length > LONGER_TITLE ? "longer" : length > LONG_TITLE ? "long" : "short";
+  const mark = titleLength(title);
   return (
     <div className="@container">
-      <div data-title-length={titleLength} className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW[controls]}`}>
-        <h1 data-title-length={titleLength} className="type-page-title min-w-0 flex-[1_1_auto] break-words">{title}</h1>
+      <div data-title-length={mark} className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW[controls]}`}>
+        <h1 data-title-length={mark} className="type-page-title min-w-0 flex-[1_1_auto] break-words">{title}</h1>
         {children}
       </div>
     </div>

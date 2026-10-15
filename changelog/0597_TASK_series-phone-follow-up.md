@@ -1,4 +1,4 @@
-# Task 0597: Series rows at 320, and detail titles stepping down by length
+# Task 0597: Series rows at 320, detail and collection titles stepping down by length
 
 **Status**: Completed
 **Created**: 2026-10-15
@@ -9,7 +9,8 @@
 
 ## Overview
 
-Two follow-ups to 0594.
+Follow-ups to 0594 and 0593, two of them from the main audit of 15 October
+(`/mnt/project-files/findings/audit-2026-10-15.md`, finding 2).
 
 - The series page scrolled sideways at 320 when a book could be read: Read and
   the three buttons (earlier, later, remove) did not fit the row's column on
@@ -17,6 +18,11 @@ Two follow-ups to 0594.
 - A detail title's single step at 40 letters let a 38-letter title wrap to
   four lines at 320 while a 61-letter one took three. Titles now step at 32
   and 56 letters, with sizes chosen so a longer title does not take fewer lines.
+- A collection's name, in a header of its own rather than `DetailTitleRow`,
+  never stepped down: a 60-letter name took 4 lines at 390 and 5 at 320. On a
+  phone it could also break inside a word beside its floating icon.
+- On a book's eBook line (0593), Read became a flex item, so it no longer
+  counted as a link inside text, and its press area was 34px wide on touch.
 
 ## Implementation Details
 
@@ -33,6 +39,13 @@ Two follow-ups to 0594.
   30px. Under 375px `short` is 38px and both longer bands are 30px: at 46px
   there, a 30-letter title could take three lines while a 33-letter one at
   38px took two.
+- `titleLength(title)` in `detail-layout.tsx` gives the mark, and the rules in
+  `globals.css` match `[data-title-length]` on any element. The collection
+  page marks its name and the row its icon and star sit on, so they stay on
+  the name's first line at each size. Its `max-md:[overflow-wrap:anywhere]` is
+  gone: only a word too long for the line breaks inside itself.
+- `instance-detail.tsx`: Read on the eBook line takes `touch-hit`, a 44px
+  press area on touch. "eBook details" and Unlink were already wide enough.
 - `layout-audit.js` allows four lines for `long` and `longer` titles only.
 - Docs: the `type-page-title` row in `docs/03_DESIGN_LANGUAGE.md`.
 
