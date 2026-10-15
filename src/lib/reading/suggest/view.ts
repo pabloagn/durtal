@@ -20,7 +20,8 @@ export interface WhyPart {
   /** Its share of the score, 0 to 1 */
   share: number;
   reason: string | null;
-  evidence: Evidence[];
+  /** Its links, without the ids the API returns: the page reads only these (SLN-809) */
+  evidence: Pick<Evidence, "label" | "href">[];
   /** It lowers the whole score (a too_long rejection) */
   lowers: boolean;
 }
@@ -41,6 +42,22 @@ export interface SuggestionRow {
   why: WhyPart[];
   score: number;
 }
+
+/** What Pick one for me shows of a suggestion: its top ten go to the browser without their Why this? (SLN-809) */
+export type PickRow = Pick<SuggestionRow, "workId" | "title" | "href" | "author" | "cover" | "editionId" | "line" | "reasons" | "prediction" | "score">;
+
+export const pickRow = ({ workId, title, href, author, cover, editionId, line, reasons, prediction, score }: SuggestionRow): PickRow => ({
+  workId,
+  title,
+  href,
+  author,
+  cover,
+  editionId,
+  line,
+  reasons,
+  prediction,
+  score,
+});
 
 export function suggestionRow(s: Scored, ctx: SuggestContext): SuggestionRow {
   const { book } = s;
@@ -66,7 +83,7 @@ export function suggestionRow(s: Scored, ctx: SuggestContext): SuggestionRow {
     reasons: s.reasons,
     prediction: p ? predictionText(p) : null,
     predictionSource: p ? predictionSource(p) : null,
-    why: s.contributions.map((c) => ({ key: c.key, label: c.label, share: c.share, reason: c.reason, evidence: c.evidence.slice(0, 6), lowers: (c.factor ?? 1) < 1 })),
+    why: s.contributions.map((c) => ({ key: c.key, label: c.label, share: c.share, reason: c.reason, evidence: c.evidence.slice(0, 6).map(({ label, href }) => ({ label, href })), lowers: (c.factor ?? 1) < 1 })),
     score: s.score,
   };
 }
