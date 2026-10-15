@@ -95,4 +95,13 @@ describe("decades", () => {
     // A short gap is part of the history: the 1950s and 1880s stay one chart
     expect(bars.filter((b) => b.count === 0)).toHaveLength(8);
   });
+
+  it("crosses a long empty run when most books lie beyond it", () => {
+    // An old library and one new book: the chart is the old library, not "Before 2020"
+    const years = Array.from({ length: 50 }, (_, i) => ({ year: 1850 + i, count: 2 }));
+    const bars = decadeBuckets([...years, { year: 2021, count: 1 }]);
+    expect(bars[0]).toEqual({ start: 1850, label: "1850s", count: 20 });
+    expect(bars.at(-1)).toEqual({ start: 2020, label: "2020s", count: 1 });
+    expect(bars).toHaveLength(18);
+  });
 });

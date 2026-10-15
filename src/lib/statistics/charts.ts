@@ -66,8 +66,8 @@ export function yearBuckets(years: YearCount[]): { bars: Bucket[]; earlier: numb
 /**
  * Every decade from the first shown to the last, empty ones included. The
  * chart goes back from the newest decade until a run of more than eight
- * empty decades, or 60 decades in all; the older books are one "Before …"
- * bar at the start.
+ * empty decades with fewer books beyond it than after it, or 60 decades in
+ * all; the older books are one "Before …" bar at the start.
  */
 export function decadeBuckets(years: YearCount[]): Bucket[] {
   if (!years.length) return [];
@@ -76,10 +76,15 @@ export function decadeBuckets(years: YearCount[]): Bucket[] {
   const decades = [...counts.keys()].sort((a, b) => a - b);
   const last = decades[decades.length - 1];
   const floor = last - (MAX_DECADES - 1) * 10;
-  let first = last;
+  const total = years.reduce((s, y) => s + y.count, 0);
+  let first = last,
+    shown = counts.get(last)!;
   for (let i = decades.length - 2; i >= 0; i--) {
-    if (decades[i] < floor || (first - decades[i]) / 10 - 1 > MAX_GAP) break;
+    // A long empty run ends the chart only when fewer books lie beyond it than
+    // after it: one new book never turns an old library into "Before …"
+    if (decades[i] < floor || ((first - decades[i]) / 10 - 1 > MAX_GAP && total - shown < shown)) break;
     first = decades[i];
+    shown += counts.get(first)!;
   }
   const bars: Bucket[] = [];
   const earlier = decades.filter((d) => d < first).reduce((s, d) => s + counts.get(d)!, 0);

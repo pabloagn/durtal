@@ -36,9 +36,10 @@ export function CoverFrame({ book }: { book: CoverBook }) {
           className="protected-image absolute inset-0 h-full w-full object-cover"
         />
       ) : (
-        // The title's letter, as every blank cover (#352); decoration: the title is the link's name
+        // The title's letter, as every blank cover (#352), its line trimmed to the
+        // cap height so the box centers the capital; decoration: the title is the link's name
         <span className="@container/cover absolute inset-0 flex items-center justify-center">
-          <span aria-hidden data-decorative className="font-serif text-xs leading-none text-fg-muted/30 @[56px]/cover:text-lg @[120px]/cover:text-3xl">
+          <span aria-hidden data-decorative className="font-serif text-xs leading-none text-fg-muted/30 [text-box:trim-both_cap_alphabetic] @[56px]/cover:text-lg @[120px]/cover:text-3xl">
             {Array.from(book.title.trim())[0] ?? ""}
           </span>
         </span>
