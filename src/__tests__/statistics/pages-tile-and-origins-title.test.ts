@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
+import { readFileSync } from "fs";
+import path from "path";
 import { originsTitle } from "@/lib/statistics/charts";
 
 // Design polish 3, items 9 and 10: no page count is not "0 Pages" but a dash (SLN-824),
@@ -45,6 +47,11 @@ describe("the Pages tile", () => {
     const dash = [...page.querySelectorAll('[data-stats-section="numbers"] dt')].find((dt) => dt.textContent === "No page counts yet");
     expect(dash?.previousElementSibling?.textContent).toBe("\u2014");
     expect(page.body.textContent).not.toMatch(/0\s*Pages/);
+  });
+
+  it("is the same on the dashboard's statistics", () => {
+    const source = readFileSync(path.resolve(__dirname, "../../components/statistics/dashboard-statistics.tsx"), "utf8");
+    expect(source).toContain('numbers.pages > 0 ? { label: "Pages on your shelves", value: n(numbers.pages) } : { label: "No page counts yet", value: "\\u2014" }');
   });
 });
 
