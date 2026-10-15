@@ -25,7 +25,6 @@ or perfume. Names should never be cut.
   name never squeezes the menu.
 - `film-fields.tsx`: a credit row's name wraps at every width too.
 - Test: `src/__tests__/ui/chip-touch-targets.test.ts`.
-- 0646's label size read 14px; it is 12px (`type-label`).
 
 ## Completion Notes
 
