@@ -21,6 +21,7 @@ import {
   type OrganizationInput,
 } from "@/lib/validations/organizations";
 import { textSearchCondition, textSearchRank } from "./utils/text-search";
+import { naturalOrder } from "./utils/natural-order";
 import { slugify } from "@/lib/utils/slugify";
 import { assertSql } from "@/lib/harmonization/store";
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
@@ -88,6 +89,7 @@ export async function getOrganizations(
               ),
             ]
           : []),
+        asc(naturalOrder(identities.name)),
         asc(identities.name),
         asc(identities.id),
       ],

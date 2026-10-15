@@ -180,6 +180,19 @@ describe("a page that is only an error or not-found view", () => {
     }
   });
 
+  it("leads a failed reader back to the eBook's page, or to the library when the address names none (SLN-818)", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const back = (pathname: string) => {
+      navigation.pathname = pathname;
+      const link = html(createElement(ReaderError, { error: new Error("boom"), reset: () => {} })).querySelector("a")!;
+      return [link.getAttribute("href"), link.textContent];
+    };
+    const id = "00000000-0000-4000-a000-000000000001";
+    expect(back(`/reader/${id}`)).toEqual([`/ebooks/${id}`, "Back to the eBook"]);
+    expect(back("/reader/offline")).toEqual(["/library", "Back to library"]);
+    expect(back("/reader/not-an-id")).toEqual(["/library", "Back to library"]);
+  });
+
   it("keeps the shared empty view's h3 everywhere else", () => {
     const host = html(createElement(NoResults, { noun: "books", search: "zz", hasFilters: false, clearHref: "/library" }));
     expect([host.querySelector("h1"), host.querySelector("h3")!.textContent]).toEqual([null, "No books found"]);

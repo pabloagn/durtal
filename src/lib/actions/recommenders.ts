@@ -37,6 +37,12 @@ const listSchema = z.object({
   favourites: z.boolean().optional(),
 });
 
+/** Whether there is any recommender: with none, the list page shows only its empty state */
+export async function hasRecommenders() {
+  const [row] = await db.select({ id: recommenders.id }).from(recommenders).limit(1);
+  return !!row;
+}
+
 /** Recommenders with their book counts, searched with the shared engine. */
 export async function getRecommenderList(
   options: z.input<typeof listSchema> = {},

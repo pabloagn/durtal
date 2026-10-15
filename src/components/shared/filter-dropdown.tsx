@@ -373,6 +373,8 @@ export function FilterDropdown({
         onPointerEnter={onIntent}
         onFocus={onIntent}
         aria-expanded={open}
+        // Where focus goes when a list loses the control that had it (SLN-838)
+        data-list-focus="filters"
         // Outlined like the sort chips and view modes beside it, so a wrapped row starts on the same edge
         className={`flex h-8 items-center gap-1.5 rounded-sm border px-2.5 text-xs transition-colors pointer-coarse:h-11 ${
           activeCount > 0

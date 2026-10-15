@@ -2,6 +2,7 @@ import type { Decoration, DecorationStyle } from "@/lib/reader/engine";
 import { DecorationsIndex } from "@/lib/reader/decorations-index";
 import type { FoliateView, FoliateOverlayer } from "./foliate";
 import { normalizeQuoteText } from "./quote-match";
+import { QUIET_GLASS_ANNOTATION_PALETTE } from "@/lib/reader/annotation-colors";
 
 interface Mark {
   id: string;
@@ -54,10 +55,12 @@ function drawMark(
     const g = svg("g");
     const options = { color: mark.color, width: 2, writingMode };
     if (mark.style === "highlight") {
-      const fill = drawing.highlight(rects, { ...options, opacity: 0.24 });
-      // The vendored fill uses a theme CSS variable; an explicit opacity owns
-      // this group's palette without changing search or history drawing.
-      fill.style.opacity = "0.24";
+      const opacity = QUIET_GLASS_ANNOTATION_PALETTE.fillOpacity;
+      const fill = drawing.highlight(rects, { ...options, opacity });
+      // The vendored fill uses a theme CSS variable; this group takes the
+      // page's own ink (markInk, set by the engine) without changing search
+      // or history drawing.
+      fill.style.opacity = `var(--durtal-mark-opacity, ${opacity})`;
       g.append(fill);
     } else if (mark.style === "quote") {
       g.append(drawing.underline(rects, { ...options, width: 1, padding: 0 }));
@@ -122,6 +125,9 @@ export class FoliateDecorations {
     for (const overlayer of this.#drawn.keys())
       if (!live.has(overlayer)) this.#drawn.delete(overlayer);
     for (const { doc, index, overlayer } of contents) {
+      // The page's blend (engine.ts) goes on the layer itself: Firefox blends
+      // an SVG's groups only with the SVG, never with the text beneath it
+      overlayer?.element?.style.setProperty("mix-blend-mode", "var(--overlayer-highlight-blend-mode, normal)");
       if (!overlayer || (only && !only.has(index))) continue;
       const desired = this.#index.section(index);
       const drawn = this.#drawn.get(overlayer) ?? new Map();

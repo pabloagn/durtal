@@ -116,10 +116,11 @@ describe("DetailTitleRow's long titles", () => {
       expect(row.getAttribute("data-title-length")).toBe(mark);
     }
     const css = read("styles/globals.css");
-    expect(css).toMatch(/@media \(max-width: 639px\) \{\s*\[data-title-length="long"\] \{\s*font-size: var\(--text-3xl\);/);
-    expect(css).toContain('  [data-title-length="longer"] {\n    font-size: var(--text-2xl);');
+    // The controls take the title's size, so they stay on its cap height
+    const band = (mark: string) => `\\[data-title-length="${mark}"\\],\\s*\\[data-title-length="${mark}"\\] \\.type-page-title \\{\\s*font-size: `;
+    expect(css).toMatch(new RegExp(`@media \\(max-width: 639px\\) \\{\\s*${band("long")}var\\(--text-3xl\\);[^}]*\\}\\s*${band("longer")}var\\(--text-2xl\\);`));
     // Under 375px every band steps down once more, so lines rise with length
-    expect(css).toMatch(/@media \(max-width: 374px\) \{\s*\[data-title-length="short"\] \{\s*font-size: var\(--text-3xl\);[^}]*\}\s*\[data-title-length="long"\] \{\s*font-size: var\(--text-2xl\);/);
+    expect(css).toMatch(new RegExp(`@media \\(max-width: 374px\\) \\{\\s*${band("short")}var\\(--text-3xl\\);[^}]*\\}\\s*${band("long")}var\\(--text-2xl\\);`));
   });
 
   it("marks a collection's name the same way, on its h1 and the row its icon and star sit on", () => {

@@ -75,7 +75,7 @@ export function WorkPosterImage({
 export function WorkPosterPlaceholder({ title }: { title: string }) {
   return (
     <div className={`${WORK_POSTER_BOX} overflow-hidden rounded-sm bg-bg-tertiary`}>
-      <CoverPlaceholder letter={title[0] ?? ""} />
+      <CoverPlaceholder title={title} />
     </div>
   );
 }

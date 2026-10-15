@@ -1,4 +1,5 @@
 import type { ReaderAnnotation } from "./annotations";
+import { compareBookPlaces } from "./book-order";
 
 export interface AnnotationExportBook {
   id: string;
@@ -18,10 +19,7 @@ function exportAnnotations(input: AnnotationExportInput) {
     .filter((item) => item.ebookId === input.book.id && !item.deletedAt)
     .slice()
     .sort(
-      (a, b) =>
-        a.locator.sectionIndex - b.locator.sectionIndex ||
-        a.locator.progression - b.locator.progression ||
-        a.id.localeCompare(b.id),
+      (a, b) => compareBookPlaces(a.locator, b.locator) || a.id.localeCompare(b.id),
     );
 }
 
