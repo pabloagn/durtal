@@ -26,10 +26,12 @@ controls.
 - `src/components/reader/reader-toolbar.tsx`: the title and the chapter line
   use it. Under 360px Bookmark moves into More (as Settings does under 400),
   and beside Page controls, which list every page, Contents does too, so the
-  title keeps two words.
+  title keeps two words. An open More closes when the width crosses 360, so
+  its items never jump in or out under the reader (review of #353).
 - `src/components/reader/reader-bottom-bar.tsx`: the chapter and the quiet
   chapter band use it; the time left shows whole or gives way; the tracking
   control is no longer clipped ("Track this bo…") and keeps its whole label.
+  "Your place from iPhone · Safari" (#351) drops whole words too.
 
 ## Completion Notes
 

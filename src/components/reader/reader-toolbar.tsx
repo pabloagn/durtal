@@ -186,7 +186,7 @@ export function ReaderToolbar({
     setMenuState(null);
     onMenuChange?.(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compact, narrow]);
+  }, [compact, narrow, tiny]);
 
   const contents = (
     <ReaderBarItem
