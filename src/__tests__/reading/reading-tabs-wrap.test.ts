@@ -39,6 +39,9 @@ describe("Stats years", () => {
     expect(classes).not.toContain("flex-wrap");
     // A mouse has no swipe, and the row shows no scrollbar (SLN-821)
     expect(classes).toEqual(expect.arrayContaining(["pointer-fine:flex-wrap", "pointer-fine:overflow-x-visible"]));
+    // Its boxes start on the page's edge, as the tabs' do: the chosen year's
+    // fill never sits past it
+    expect(classes.some((c) => c.startsWith("-ml-"))).toBe(false);
     expect(html.match(/<a /g)).toHaveLength(33);
   });
 

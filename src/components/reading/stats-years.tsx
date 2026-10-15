@@ -33,10 +33,12 @@ export function StatsYears({ years }: { years: { label: string; href: string; cu
   }, [chosen]);
   return (
     <nav aria-label="Year" className="-mt-4 mb-8">
-      {/* Pulled out by a chip's padding, so a year's text starts on the page's
-          edge. On touch one row that scrolls and stops on a whole year; with a
-          mouse, which has no swipe and no scrollbar here, the years wrap (SLN-821) */}
-      <ul ref={row} className="-ml-2.5 flex snap-x snap-mandatory gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] pointer-fine:flex-wrap pointer-fine:overflow-x-visible" data-stats-years="">
+      {/* A row of chips with a filled chosen year, so it lines up by its
+          boxes like the tabs above: a pulled-out row put the chosen year's
+          fill past the page's edge. On touch one row that scrolls and stops on
+          a whole year; with a mouse, which has no swipe and no scrollbar here,
+          the years wrap (SLN-821) */}
+      <ul ref={row} className="flex snap-x snap-mandatory gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] pointer-fine:flex-wrap pointer-fine:overflow-x-visible" data-stats-years="">
         {years.map((y) => (
           <li key={y.label} className="shrink-0 snap-start">
             <Link

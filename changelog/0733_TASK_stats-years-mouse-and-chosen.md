@@ -20,7 +20,7 @@ chosen year is filled.
 - `src/components/reading/stats-years.tsx`: `pointer-fine:flex-wrap
   pointer-fine:overflow-x-visible` on the row; the chosen year adds
   `bg-bg-tertiary` to its inset ring, a fill of its own, not the tabs'
-  selection fill. With every year in view the scroll effect does nothing.
+  selection fill. With every year in view the scroll effect does nothing. The row is no longer pulled out by a chip's padding: with the chosen year filled it lines up by its boxes, as the tabs above do, so the fill never starts 10px past the page's edge (on a phone the chosen year always starts the row).
 - Test: `src/__tests__/reading/reading-tabs-wrap.test.ts` checks the touch
   and mouse rows and the chosen year's fill.
 
