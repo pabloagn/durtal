@@ -81,6 +81,28 @@ const canonical = (value: unknown): string =>
           .map(([key, field]) => `${JSON.stringify(key)}:${canonical(field)}`)
           .join(",")}}`
       : (JSON.stringify(value) ?? "null");
+/** How far apart, in PDF points, two browsers measure the same text */
+const PDF_RECT_TOLERANCE = 1;
+/** The same place: the same fields whatever their order, and on a PDF page
+ * rectangles a fraction of a point apart. Each browser measures the text a
+ * little differently, so a mark opened on another device is no move, and two
+ * windows in two browsers would otherwise rewrite each other's marks */
+const samePlace = (a: DurtalLocator, b: DurtalLocator): boolean => {
+  const { pdf: pdfA, ...restA } = a;
+  const { pdf: pdfB, ...restB } = b;
+  if (canonical(restA) !== canonical(restB)) return false;
+  if (!pdfA || !pdfB) return !pdfA && !pdfB;
+  const { rects: rectsA = [], ...pageA } = pdfA;
+  const { rects: rectsB = [], ...pageB } = pdfB;
+  return (
+    canonical(pageA) === canonical(pageB) &&
+    rectsA.length === rectsB.length &&
+    rectsA.every((rect, i) =>
+      rect.length === rectsB[i].length &&
+      rect.every((n, j) => Math.abs(n - rectsB[i][j]) <= PDF_RECT_TOLERANCE),
+    )
+  );
+};
 
 /** One book's display/actions over the injected common queue. This controller
  * owns no database, claim, lifecycle seal or HTTP mutation/replay loop.
@@ -244,9 +266,10 @@ export function createAnnotationController(
             confirmed.clientUpdatedAt === item.clientUpdatedAt &&
             (targetFile !== item.fileId ||
               result.status !== item.anchorState ||
-              // The same place in another key order is no move: writing it
-              // again rewrote every PDF mark on each open (SLN-670)
-              canonical(locator) !== canonical(item.locator)) &&
+              // The same place in another key order, or measured a fraction
+              // of a point apart, is no move: writing it again rewrote every
+              // PDF mark on each open (SLN-670)
+              !samePlace(locator, item.locator)) &&
             !book.pending.some(
               (row) =>
                 row.mutation.id === item.id && row.mutation.op === "reanchor",

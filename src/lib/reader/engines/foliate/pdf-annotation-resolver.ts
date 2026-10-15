@@ -29,8 +29,10 @@ export async function resolvePdfAnnotation(input: {
     input.signal.throwIfAborted();
     const match = matchAnnotationQuote(text.text, { ...locator.text, highlight }, { signal: input.signal });
     // A page too long for a bounded fuzzy search leaves only an exact copy
-    // of the words elsewhere able to decide the mark: one there still
-    // heals it, so a changed file's mark is not left waiting (SLN-670)
+    // of the words and of the words around them elsewhere able to decide the
+    // mark: one there still heals it, so a changed file's mark is not left
+    // waiting (SLN-670). The words alone could be a passage that repeats,
+    // with the mark's own copy on the page that was not searched.
     if (match.status === "deferred") deferred = true;
     if (match.status === "ambiguous") ambiguous = true;
     if (match.status === "found") {
@@ -44,7 +46,7 @@ export async function resolvePdfAnnotation(input: {
       // match defers, and stayed undrawn (SLN-670).
       if (locator.fileHash === input.hash && pageIndex + 1 === oldPage && match.match.passageScore === 1)
         return { status: "exact", locator: measured };
-      candidates.push({ score: match.match.score, exact: match.match.passageScore === 1, locator: measured });
+      candidates.push({ score: match.match.score, exact: match.match.score >= 1 - 1e-9, locator: measured });
       candidates.sort((a, b) => b.score - a.score);
       if (candidates.length > 2) candidates.pop();
     }
