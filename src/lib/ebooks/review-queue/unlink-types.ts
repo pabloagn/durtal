@@ -4,6 +4,8 @@ export type ReviewUnlinkMode = "automatic_undo" | "unlink";
 export interface ReviewUnlinkTarget {
   id: string; title: string; stamp: ReviewStamp;
   matching: { operation: ReviewOperation; automatic: boolean };
+  /** The book it is linked to: after an unlink that keeps it, "Link it back" chooses it again (SLN-684) */
+  book?: { workId: string; title: string } | null;
 }
 type ActualPrepared = Awaited<ReturnType<typeof prepareReviewUnlink>>;
 export interface PreparedUnlinkReview {

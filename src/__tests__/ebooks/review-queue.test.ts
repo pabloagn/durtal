@@ -91,15 +91,16 @@ describe("bounded queue query composition", () => {
   });
   it("projects only real native matching identity for linked rows and rejects a malformed native receipt", async () => {
     const execute = vi.fn().mockResolvedValueOnce([{ id: ebookId, title: "Nadja", updatedAt: stamp.updatedAt,
-      matchFingerprint: stamp.matchFingerprint, nativeMatchingOperation: operation, matchMethod: "isbn" }]);
+      matchFingerprint: stamp.matchFingerprint, nativeMatchingOperation: operation, matchMethod: "isbn", workId, workTitle: "Nadja" }]);
+    // With the book it is linked to, for "Link it back" (SLN-684)
     expect(await loadReviewUnlinkTarget({ execute } as unknown as Db, ebookId)).toEqual({ id: ebookId, title: "Nadja", stamp,
-      matching: { operation, automatic: true } });
+      matching: { operation, automatic: true }, book: { workId, title: "Nadja" } });
     expect(execute).toHaveBeenCalledOnce(); const query = compile(execute.mock.calls[0][0]);
     expect(query.params).toContain(ebookId); expect(query.sql).toContain("e.link_written->'operationId'");
-    expect(query.sql).not.toContain("to_jsonb(e)");
+    expect(query.sql).not.toContain("to_jsonb(e)"); expect(query.sql).toContain('w.id as "workId"');
     execute.mockResolvedValue([{ id: ebookId, title: "Nadja", updatedAt: stamp.updatedAt,
-      matchFingerprint: stamp.matchFingerprint, nativeMatchingOperation: operation, matchMethod: "manual" }]);
-    expect(await loadReviewUnlinkTarget({ execute } as unknown as Db, ebookId)).toMatchObject({ matching: { automatic: false } });
+      matchFingerprint: stamp.matchFingerprint, nativeMatchingOperation: operation, matchMethod: "manual", workId: null, workTitle: null }]);
+    expect(await loadReviewUnlinkTarget({ execute } as unknown as Db, ebookId)).toMatchObject({ matching: { automatic: false }, book: null });
     execute.mockResolvedValue([{ id: ebookId, title: "Nadja", updatedAt: stamp.updatedAt,
       matchFingerprint: stamp.matchFingerprint, nativeMatchingOperation: { operationId: "made-up" }, matchMethod: "score" }]);
     await expect(loadReviewUnlinkTarget({ execute } as unknown as Db, ebookId)).rejects.toMatchObject({ code: "invalid_receipt" });

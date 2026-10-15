@@ -224,7 +224,8 @@ export function ReviewView({ queue, params, differences }: { queue: ReviewQueue;
   function openUnlink(row: ReviewQueueRow, mode: ReviewUnlinkMode) {
     if (!row.stamp || !row.matching || row.state !== "linked" || writeLock.current || modal || bulkModal || workModal || unlinkModal || undoUnknown.size > 0) return;
     if (mode === "automatic_undo" && !row.matching.automatic) return;
-    setUnlinkModal({ target: { id: row.id, title: row.title, stamp: row.stamp, matching: row.matching }, mode });
+    setUnlinkModal({ target: { id: row.id, title: row.title, stamp: row.stamp, matching: row.matching,
+      book: row.work ? { workId: row.work.id, title: row.work.title } : null }, mode });
   }
 
   const fieldsDisabled = decision.phase === "preparing" || decision.prepared !== null || busy;

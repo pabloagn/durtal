@@ -27,6 +27,8 @@ export function EbookLinkControls({ row }: { row: ReviewQueueRow }) {
   const router = useRouter();
   const [action, setAction] = useState<Action | null>(null);
   const [reason, setReason] = useState<"duplicate" | "not_a_book" | "other">("other");
+  /** "Link it back": Choose a book starts on the book it was unlinked from */
+  const [startWorkId, setStartWorkId] = useState<string | null>(null);
   const [state, dispatch] = useReducer(reviewDecisionReducer, initialReviewDecision);
   const generation = useRef(0), writeLock = useRef(false);
   const locked = state.phase === "confirming" || state.phase === "unknown";
@@ -37,11 +39,11 @@ export function EbookLinkControls({ row }: { row: ReviewQueueRow }) {
   }
   function close() {
     if (locked || writeLock.current) return;
-    edit(); setAction(null);
+    edit(); setAction(null); setStartWorkId(null);
   }
   function open(next: Action) {
     if (!row.stamp || action || locked || writeLock.current) return;
-    edit(); setReason("other"); setAction(next);
+    edit(); setReason("other"); setStartWorkId(null); setAction(next);
   }
   async function prepare(intent: PrepareEbookReview) {
     if (!row.stamp || locked || writeLock.current || intent.ebookId !== row.id) return;
@@ -69,12 +71,19 @@ export function EbookLinkControls({ row }: { row: ReviewQueueRow }) {
       router.refresh();
     }
   }
-  // "Change the book…" unlinked it: choose its new book now (SLN-666)
+  // "Change the book…" unlinked it: choose its new book now (SLN-666); or
+  // "Link it back": choose the book it had (SLN-684)
   const unlinkedNow = row.state === "pending" || row.state === "standalone";
   useEffect(() => {
-    if (unlinkedNow && row.stamp && chooseBookNext.take(row.id)) {
-      edit(); setAction("choose");
+    function takeNext() {
+      const next = unlinkedNow && row.stamp ? chooseBookNext.take(row.id) : false;
+      if (next) {
+        edit(); setStartWorkId(next.workId); setAction("choose");
+      }
     }
+    takeNext();
+    // Link it back pressed on this eBook's own page, already showing it unlinked
+    return chooseBookNext.subscribe(takeNext);
     // Once, when the refreshed page first shows it unlinked
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [row.id, unlinkedNow, !!row.stamp]);
@@ -108,7 +117,7 @@ export function EbookLinkControls({ row }: { row: ReviewQueueRow }) {
     </p>}
     {action && <ReviewConfirm title={titles[action]} state={state} onClose={close}
       onConfirm={() => void confirm()} onEdit={edit}>
-      {!state.prepared && action === "choose" && <ChooseBookFields row={row} disabled={busy}
+      {!state.prepared && action === "choose" && <ChooseBookFields row={row} disabled={busy} startWorkId={startWorkId}
         issues={state.issues} onPrepare={(intent) => void prepare(intent)} />}
       {!state.prepared && action === "new" && <NewBookFields row={row} disabled={busy}
         issues={state.issues} onPrepare={(intent) => void prepare(intent)} />}

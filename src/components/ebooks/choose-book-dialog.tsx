@@ -18,9 +18,11 @@ export function rankBooks<T extends { title: string }>(books: readonly T[], quer
     .sort((a, b) => a.rank - b.rank || a.index - b.index).map(({ book }) => book);
 }
 
-export function ChooseBookFields({ row, onPrepare, disabled, issues = [] }: {
+export function ChooseBookFields({ row, onPrepare, disabled, issues = [], startWorkId = null }: {
   row: ReviewQueueRow; onPrepare: (intent: PrepareEbookReview) => void; disabled: boolean;
   issues?: readonly ReviewPreparationIssue[];
+  /** "Link it back" (SLN-684): open on this book's editions rather than a search */
+  startWorkId?: string | null;
 }) {
   // Starts from the eBook's own title, already searched (SLN-684)
   const [query, setQuery] = useState(() => row.title.split(/[:;]/)[0].trim() || row.title);
@@ -31,7 +33,7 @@ export function ChooseBookFields({ row, onPrepare, disabled, issues = [] }: {
   const [locationId, setLocation] = useState("");
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const generation = useRef(0);
+  const generation = useRef(0), searchForm = useRef<HTMLFormElement>(null);
   async function search(text = query) {
     if (!text.trim()) return;
     const current = ++generation.current;
@@ -42,7 +44,7 @@ export function ChooseBookFields({ row, onPrepare, disabled, issues = [] }: {
     } catch { if (generation.current === current) setError("The book search could not be loaded."); }
     finally { if (generation.current === current) setSearching(false); }
   }
-  useEffect(() => { void search(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void (startWorkId ? select(startWorkId) : search()); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   async function select(workId: string) {
     const current = ++generation.current;
     setSearching(true); setError(null);
@@ -55,7 +57,7 @@ export function ChooseBookFields({ row, onPrepare, disabled, issues = [] }: {
     setSearching(false);
   }
   return <div className="space-y-4">
-    <form className="flex items-end gap-2" onSubmit={(event) => { event.preventDefault(); void search(); }}>
+    <form ref={searchForm} className="flex items-end gap-2" onSubmit={(event) => { event.preventDefault(); void search(); }}>
       {/* Stays on while the first search runs: a disabled field drops the focus the dialog gives it, and typing starts a new search */}
       <div className="min-w-0 flex-1"><Input label="Find a book" value={query} maxLength={200} disabled={disabled}
         error={issues.find((issue) => issue.field === "workId")?.message}
@@ -72,7 +74,15 @@ export function ChooseBookFields({ row, onPrepare, disabled, issues = [] }: {
     </div>}
     {options && <form className="space-y-4" onSubmit={(event) => { event.preventDefault();
       onPrepare({ action: "link", ebookId: row.id, workId: options.workId, choice, ...(locationId ? { locationId } : {}) }); }}>
-      <p className="type-item-title">{options.title}</p>
+      <p className="flex flex-wrap items-baseline gap-x-3">
+        <span className="type-item-title">{options.title}</span>
+        {/* Back to the books found, searching first when it opened on a book */}
+        <button type="button" className="text-command text-xs" disabled={disabled} onClick={() => {
+          generation.current++; setOptions(null); setSearching(false); if (searched === null) void search();
+          // The button goes with the book: focus stays in the dialog, on the search
+          searchForm.current?.querySelector("input")?.focus();
+        }}>Choose another book</button>
+      </p>
       <EditionChoiceFields options={options} row={row} choice={choice} onChange={setChoice} disabled={disabled} issues={issues} />
       {choice.kind !== "fill_copy" && <ReviewCopyFields options={options} locationId={locationId} onLocation={setLocation} disabled={disabled} issues={issues} />}
       <Button variant="primary" type="submit" disabled={disabled || (choice.kind === "new_edition" && !choice.language)}>Preview link</Button>
