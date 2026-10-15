@@ -21,10 +21,11 @@ these review filters.", with no way to clear them.
   search and filters. Clearing keeps the open section. With no search or
   filter, the queue is simply empty: `EmptyState` says "No eBooks to
   review", with no clear.
-- `no-results.tsx` (shared by 15 list pages): Clear and "Go to first page"
-  take the secondary button look instead of ghost. A ghost button with
-  only a label reads as text (docs/03), and the layout audit flagged it as a
-  plain-looking command, as it did for the not-found views (0609).
+- `NoResults`' Clear is a ghost button on main, which the layout audit
+  flags as a plain-looking command. #325 (task 0611) gives it the
+  secondary look on all 15 list pages, so this change leaves
+  `no-results.tsx` to it and the review queue takes that look when #325
+  lands.
 - Test: `src/__tests__/ui/review-empty-state.test.ts`.
 
 ## Completion Notes
@@ -37,8 +38,9 @@ these review filters.", with no way to clear them.
   - alignment, overflow, design and touch audits are clean, and Clear is
     44px tall on touch.
 - With the ghost look, the layout audit listed Clear as a plain-looking
-  command in all three engines. With the secondary look, nothing is
-  listed on the 12 list pages measured, in three engines at 1440, 390 and
+  command in all three engines. With the secondary look (first drafted
+  here, then left to #325), nothing is listed on the 12 list pages
+  measured, in three engines at 1440, 390 and
   320: review (search, filters), books, people, films, series, publishers,
   organizations, places, recommenders, the journal and highlights.
   Alignment, overflow, touch and design are clean there too.

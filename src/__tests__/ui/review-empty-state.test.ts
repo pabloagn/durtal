@@ -14,7 +14,6 @@ vi.mock("@/components/ui/dialog", () => ({ Dialog: ({ children }: { children: Re
 vi.mock("@/components/ebooks/choose-book-dialog", () => ({ ChooseBookFields: () => null }));
 vi.mock("@/components/ebooks/new-book-dialog", () => ({ NewBookFields: () => null }));
 import { ReviewView } from "@/app/(catalogue)/ebooks/review/review-view";
-import { buttonClass } from "@/components/ui/button";
 
 // An empty queue says why, and a filtered one offers to clear its filters
 // (loading-states audit, finding 9).
@@ -47,10 +46,5 @@ describe("Review queue empty state", () => {
     await render({});
     expect(host.querySelector("h3")?.textContent).toBe("No eBooks to review");
     expect(clear()).toBeUndefined();
-  });
-
-  it("draws Clear as a button, not a bare label that reads as text", async () => {
-    await render({ q: "huysmans" });
-    expect(clear()?.className).toBe(buttonClass("secondary", "sm"));
   });
 });
