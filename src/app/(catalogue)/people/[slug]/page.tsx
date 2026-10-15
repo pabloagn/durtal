@@ -53,6 +53,7 @@ import {
   enumLabel,
   metadataSourceLabel,
 } from "@/lib/utils/labels";
+import { PhonePairGrid } from "@/components/shared/phone-pair-grid";
 import { mediaUrl } from "@/lib/s3/media-url";
 
 interface PageProps {
@@ -365,9 +366,8 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                   </div>
                 )}
                 <PaginatedSection {...paging} noun="books">
-                <div
-                  className="catalogue-grid"
-                >
+                {/* Two cards a row on a phone, as every other cover grid */}
+                <PhonePairGrid>
                   {paging.items.map((work) => {
                     const workActivePoster = work.media?.find(
                       (m) => m.type === "poster" && m.isActive,
@@ -418,7 +418,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                       />
                     );
                   })}
-                </div>
+                </PhonePairGrid>
                 </PaginatedSection>
               </section>
             )}
@@ -427,9 +427,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
             {otherCollections.map((group) => (
               <section key={group.kind} className="mb-8">
                 <SectionHeading title={group.label} count={group.cards.length} />
-                <div
-                  className="catalogue-grid"
-                >
+                <PhonePairGrid>
                   {group.cards.map(({ id, card }) => (
                     <div key={id}>
                       {card}
@@ -439,7 +437,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                       </p>
                     </div>
                   ))}
-                </div>
+                </PhonePairGrid>
               </section>
             ))}
 

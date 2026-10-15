@@ -1,5 +1,6 @@
 import { BackLink } from "@/components/shared/back-link";
 import { DetailColumns } from "@/components/shared/detail-layout";
+import { PhonePairGrid } from "@/components/shared/phone-pair-grid";
 import { SkeletonBlock, SkeletonLine, SkeletonTitleRow } from "@/components/shared/skeleton";
 
 /**
@@ -25,11 +26,11 @@ export default function PersonLoading() {
       <DetailColumns record={<SkeletonBlock className="mb-8 h-64" />}>
         <section className="mb-8">
           <SkeletonLine className="type-section-title mb-4 w-32" />
-          <div className="catalogue-grid">
+          <PhonePairGrid>
             {Array.from({ length: 6 }, (_, i) => (
               <SkeletonBlock key={i} className="aspect-[2/3]" />
             ))}
-          </div>
+          </PhonePairGrid>
         </section>
       </DetailColumns>
     </div>
