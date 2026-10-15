@@ -1471,6 +1471,33 @@ class FoliateEngine implements ReaderEngine {
     this.#emit("selection", null);
   }
 
+  // The paginator holds its pages at opacity 0 until a reopen's spread is
+  // lined up (patch 29); the fixed-layout renderer never hides them
+  #textContainer(): HTMLElement | null {
+    return this.#view?.renderer?.shadowRoot?.getElementById("container") ?? null;
+  }
+
+  textHidden(): boolean {
+    return this.#textContainer()?.style.opacity === "0";
+  }
+
+  whenTextShows(signal?: AbortSignal): Promise<void> {
+    const container = this.#textContainer();
+    if (!container || container.style.opacity !== "0" || signal?.aborted) return Promise.resolve();
+    return new Promise((resolve) => {
+      const done = () => {
+        observer.disconnect();
+        signal?.removeEventListener("abort", done);
+        resolve();
+      };
+      const observer = new MutationObserver(() => {
+        if (container.style.opacity !== "0") done();
+      });
+      observer.observe(container, { attributes: true, attributeFilter: ["style"] });
+      signal?.addEventListener("abort", done, { once: true });
+    });
+  }
+
   fixedPages(): TocItem[] | null { return this.#book?.rendition?.layout === "pre-paginated" ? (this.#info?.pageList.length ? this.#info.pageList : this.#info?.sections.map(section => ({ href: section.href, label: section.label, subitems: [] })) ?? []) : null; }
   adjustFixedZoom(direction: -1 | 0 | 1) { this.setFixedZoom(direction === 0 ? null : stepFixedZoom(this.#fixedZoom ?? 100, direction)); }
   fixedZoom(): number | null { return this.#fixedZoom; }
