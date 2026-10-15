@@ -356,6 +356,11 @@ export interface ReaderEngine {
   closeNote?(): void;
   search?(request: SearchRequest): AsyncIterable<SearchUpdate>;
   fixedPages?(): TocItem[] | null;
+  /** Resolves once the book's text shows: a reopen keeps it hidden until its
+   * spread lines up (SLN-733). At once when nothing is hidden. */
+  whenTextShows?(signal?: AbortSignal): Promise<void>;
+  /** Whether the book's text is held hidden right now (see `whenTextShows`) */
+  textHidden?(): boolean;
   adjustFixedZoom?(direction: -1 | 0 | 1): void;
   fixedZoom?(): number | null;
   setFixedZoom?(percent: number | null): void;
