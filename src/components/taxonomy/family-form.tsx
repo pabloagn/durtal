@@ -102,7 +102,7 @@ export function FamilyForm({
               return (
                 <label
                   key={key}
-                  className="flex cursor-pointer items-center gap-2 has-[:disabled]:cursor-default"
+                  className="flex cursor-pointer items-center gap-2 has-[:disabled]:cursor-default pointer-coarse:min-h-11"
                 >
                   <input
                     type="checkbox"
@@ -134,7 +134,7 @@ export function FamilyForm({
       </fieldset>
 
       <div className="space-y-1.5">
-        <label className="flex cursor-pointer items-center gap-2 has-[:disabled]:cursor-default">
+        <label className="flex cursor-pointer items-center gap-2 has-[:disabled]:cursor-default pointer-coarse:min-h-11">
           <input
             type="checkbox"
             checked={value.hierarchical}

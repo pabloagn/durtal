@@ -16,28 +16,20 @@ import { SearchPicker, type PickerChoice } from "./search-picker";
  * and person searches, and vocabulary terms.
  */
 
+/** A chip is one 44px line on touch, so its Remove and role menu are 44px targets */
 export const CHIP =
-  "inline-flex max-w-full items-start gap-1 rounded-sm border border-glass-border bg-bg-secondary/60 py-0.5 pl-2 pr-1 text-xs leading-5 text-fg-secondary";
+  "inline-flex max-w-full items-start gap-1 rounded-sm border border-glass-border bg-bg-secondary/60 py-0.5 pl-2 pr-1 text-xs leading-5 text-fg-secondary pointer-coarse:py-0 pointer-coarse:leading-11";
 
-/** The remove button of a chip, on the cap-height center of its text */
-export function RemoveButton({
-  label,
-  onClick,
-  touchTarget = false,
-}: {
-  label: string;
-  onClick: () => void;
-  /** The credit row reserves room for separate 44px targets on touch. */
-  touchTarget?: boolean;
-}) {
+/** The remove button of a chip, on the cap-height center of its text; 44px on touch */
+export function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <CapAligned height={16} coarseHeight={touchTarget ? 44 : undefined}>
+    <CapAligned height={16} coarseHeight={44}>
       <button
         type="button"
         aria-label={label}
         data-tooltip={label}
         onClick={onClick}
-        className={`flex h-4 w-4 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary ${touchTarget ? "pointer-coarse:size-11" : ""}`}
+        className="flex h-4 w-4 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary pointer-coarse:size-11"
       >
         <X className="h-3 w-3" strokeWidth={1.5} />
       </button>
@@ -80,7 +72,7 @@ export function AddButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="inline-flex items-start gap-1 rounded-sm px-1.5 text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+      className="inline-flex items-start gap-1 rounded-sm px-1.5 pt-px text-xs leading-6 text-fg-secondary transition-colors hover:text-fg-primary pointer-coarse:min-w-11 pointer-coarse:leading-11"
     >
       <CapAligned height={12}>
         <Plus className="h-3 w-3" strokeWidth={1.5} />
@@ -90,11 +82,15 @@ export function AddButton({
   );
 }
 
-/** A labelled row of chips: the label on the left, chips and Add on the right */
+/**
+ * A labelled row of chips: the label on the left, chips and Add on the right.
+ * Every first line, the label's included, centers 1px lower than its line
+ * (the chip's border): 13px down, 23px on touch, where chips are 44px.
+ */
 export function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5">
-      <span className="w-28 shrink-0 text-xs leading-6 text-fg-secondary">{label}</span>
+      <span className="w-28 shrink-0 pt-px text-xs leading-6 text-fg-secondary pointer-coarse:leading-11">{label}</span>
       <div className="flex min-w-0 flex-1 flex-wrap items-start gap-1.5">{children}</div>
     </div>
   );
