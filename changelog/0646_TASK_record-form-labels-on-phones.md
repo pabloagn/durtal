@@ -21,7 +21,7 @@ fields' own labels (Title, dates) already sat over their inputs.
 ## Implementation Details
 
 - `record-fields.tsx`, `FieldRow`: below `sm` the label sits over the chips
-  in the field label's look (`type-label`: 14px, medium, 20px line) and the chips take the
+  in the field label's look (`type-label`: 12px, medium, 20px line) and the chips take the
   row's full width. From `sm` up nothing changes.
 - `AddButton` ("Add", "Choose"): below `sm`, when it starts the chips' row,
   it pulls out by its padding so its icon starts on the label's edge
