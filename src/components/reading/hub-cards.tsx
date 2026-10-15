@@ -115,6 +115,8 @@ export function tileItem(open: OpenReading, estimate?: ReadingEstimate): TileIte
     reading: refOf(open),
     ebookId: open.ebookId,
     title: open.work.title,
+    author: open.author,
+    paused: open.reading.status === "paused",
     href: bookHref(open.work),
     cover: open.cover,
     percent: open.reading.currentPercent ?? 0,

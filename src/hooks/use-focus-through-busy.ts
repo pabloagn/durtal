@@ -8,8 +8,15 @@ function focusLost(field: HTMLElement): boolean {
   return !active || active === document.body || active === field.closest("dialog");
 }
 
-function canTakeFocus(el: Element | null): el is HTMLElement {
-  return el instanceof HTMLElement && el.isConnected && !el.matches(":disabled") && el !== document.body;
+/** A control to go back to: not the page, nor the dialog itself (Safari's click leaves the focus there) */
+function canTakeFocus(el: Element | null, field: HTMLElement): el is HTMLElement {
+  return (
+    el instanceof HTMLElement &&
+    el.isConnected &&
+    !el.matches(":disabled") &&
+    el !== document.body &&
+    el !== field.closest("dialog")
+  );
 }
 
 /**
@@ -26,7 +33,7 @@ export function useFocusThroughBusy(busy: boolean, field: RefObject<HTMLElement 
     if (busy && !wasBusy.current) had.current = document.activeElement;
     if (!busy && wasBusy.current && field.current && focusLost(field.current)) {
       const back = had.current;
-      (canTakeFocus(back) && field.current.closest("dialog")?.contains(back) ? back : field.current).focus();
+      (canTakeFocus(back, field.current) && field.current.closest("dialog")?.contains(back) ? back : field.current).focus();
     }
     if (!busy) had.current = null;
     wasBusy.current = busy;

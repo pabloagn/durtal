@@ -216,13 +216,15 @@ export function DropdownMenu({
     return () => menu.removeEventListener("keydown", handleKey);
   }, [isOpen]);
 
-  // Focus first item when menu opens
+  // Focus the chosen item when the menu opens (a set of choices), else the first
   useEffect(() => {
     if (!isOpen || !menuRef.current) return;
     requestAnimationFrame(() => {
-      const first = menuRef.current?.querySelector<HTMLElement>(
-        '[role^="menuitem"]:not([aria-disabled="true"])',
-      );
+      const first =
+        menuRef.current?.querySelector<HTMLElement>('[aria-checked="true"]:not([aria-disabled="true"])') ??
+        menuRef.current?.querySelector<HTMLElement>(
+          '[role^="menuitem"]:not([aria-disabled="true"])',
+        );
       first?.focus();
     });
   }, [isOpen]);

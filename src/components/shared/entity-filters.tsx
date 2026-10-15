@@ -10,6 +10,7 @@ import {
   type ViewMode,
 } from "@/components/books/view-mode-switcher";
 import { GridSizeSlider } from "@/components/books/grid-size-slider";
+import { useListBusy, useListNavigate } from "@/components/shared/list-pending";
 
 /**
  * The filter row without its margin. On a phone the search takes its own row;
@@ -75,6 +76,12 @@ export function EntityFilters({
     if (input.value !== currentQuery) input.value = currentQuery;
   }, [currentQuery]);
 
+  // Inside a ListPendingProvider the results show busy from the first key
+  // until the new ones arrive (SLN-753)
+  const list = useListBusy();
+  const navigate = useListNavigate();
+  const go = useCallback((href: string) => navigate(() => router.push(href)), [navigate, router]);
+
   const updateParams = useCallback(
     (key: string, value: string) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -83,9 +90,9 @@ export function EntityFilters({
       } else {
         params.delete(key);
       }
-      router.push(firstPageHref(basePath, params));
+      go(firstPageHref(basePath, params));
     },
-    [router, searchParams, basePath],
+    [go, searchParams, basePath],
   );
 
   // The same field again reverses its direction; another field starts at
@@ -114,7 +121,7 @@ export function EntityFilters({
       params.set("order", nextOrder);
       onSortChange(value, nextOrder);
     }
-    router.push(firstPageHref(basePath, params));
+    go(firstPageHref(basePath, params));
   }
 
   return (
@@ -133,6 +140,7 @@ export function EntityFilters({
           defaultValue={currentQuery}
           onChange={(e) => {
             const val = e.target.value;
+            list?.begin();
             clearTimeout((window as unknown as Record<string, ReturnType<typeof setTimeout>>).__searchTimeout);
             (window as unknown as Record<string, ReturnType<typeof setTimeout>>).__searchTimeout = setTimeout(
               () => updateParams("q", val),

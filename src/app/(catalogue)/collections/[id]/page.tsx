@@ -149,8 +149,10 @@ async function collectionMembers(
             title: w.title,
             mark: digital.get(w.id)?.read && <div className={COVER_CORNER.bottomLeft}><EbookMark ebook={digital.get(w.id)!.read} /></div>,
             byline: names.join(" & "),
-            facts: "The book, no edition chosen",
-            note: [label, state(w.id)].filter(Boolean).join(" · "),
+            // One line, not "The book, no edition chosen" over "Book · Reading"
+            // on every row: what is collected, then where the reading stands
+            facts: null,
+            note: ["Any edition", state(w.id)].filter(Boolean).join(" · "),
           },
           copy: <><CopyBookButton title={w.title} authorNames={names} /><CatalogueReadLink ebook={digital.get(w.id)?.read ?? null} returnTo={readerReturnTo} /></>,
         },
