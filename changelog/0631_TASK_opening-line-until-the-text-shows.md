@@ -40,6 +40,10 @@ WebKit and Firefox.
   0.3 s, and WebKit and Firefox for 47 to 79 ms in three of four opens.
 - Reduced motion in all three engines: the text appears at once and the line
   goes on the same sample.
+- `reader-engine-check.mjs`: 278 of 278 rows pass.
+- 0 alignment and design-audit findings on the reader (EPUB and PDF) in
+  Chromium, WebKit and Firefox at 1440, 390 and 320; `page-weight.js` within
+  budget on every route.
 - Test: `reader-view.test.ts` holds the text hidden past ready and checks the
   line stays, then goes once the text shows.
 - No migration and no new packages.
