@@ -23,5 +23,16 @@ it("names every list search, not only by its placeholder", () => {
 });
 
 it("names a Select's open list as its field", () => {
-  expect(read("components/ui/select.tsx")).toMatch(/role="listbox"\s*\/\/[^\n]*\n\s*aria-label=\{ariaLabel \?\? label\}/);
+  const select = read("components/ui/select.tsx");
+  // By its own name, else by the label that names the field: the Select's
+  // own, or a setting row's (settingLabelId), which share one id
+  expect(select).toContain("id={`${id}-label`}");
+  expect(select).toContain("aria-label={ariaLabel}\n              aria-labelledby={ariaLabel ? undefined : `${id}-label`}");
+  expect(read("components/settings/settings-group.tsx")).toContain("settingLabelId = (id: string) => `${id}-label`");
+});
+
+it("names the edition form's new contributor fields", () => {
+  const form = read("components/books/edition-form.tsx");
+  expect(form).toContain('aria-label="Contributor\'s name"');
+  expect(form).toContain('ariaLabel="Contributor\'s role"');
 });

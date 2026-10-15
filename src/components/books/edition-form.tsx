@@ -677,6 +677,7 @@ export function EditionForm({
               <Input
                 id="ed-contributor-name"
                 placeholder="Author name..."
+                aria-label="Contributor's name"
                 value={newContributorName}
                 onChange={(e) => {
                   setNewContributorName(e.target.value);
@@ -705,6 +706,7 @@ export function EditionForm({
             </div>
             <Select
               id="ed-contributor-role"
+              ariaLabel="Contributor's role"
               value={newContributorRole}
               onChange={(e) => setNewContributorRole(e.target.value)}
               options={EDITION_CONTRIBUTOR_ROLES.map((r) => ({

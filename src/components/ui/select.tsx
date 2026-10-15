@@ -186,6 +186,7 @@ export function Select({
     <div className="space-y-1.5" ref={containerRef}>
       {label && (
         <label
+          id={`${id}-label`}
           htmlFor={id}
           className="type-label block"
         >
@@ -245,8 +246,11 @@ export function Select({
             <div
               ref={listRef}
               role="listbox"
-              // Named as its field is
-              aria-label={ariaLabel ?? label}
+              // Named as its field is: by its own name, else by the label
+              // that names the field (its own, or a setting row's, which
+              // takes the same `${id}-label` id)
+              aria-label={ariaLabel}
+              aria-labelledby={ariaLabel ? undefined : `${id}-label`}
               className="max-h-56 overflow-y-auto"
             >
               {allOptions.map((opt, idx) => {
