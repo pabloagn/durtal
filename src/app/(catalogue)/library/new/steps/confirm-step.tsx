@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Loader2, Pencil, Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -267,13 +267,9 @@ export function ConfirmStep({
         <Button
           variant="primary"
           onClick={onSubmit}
-          disabled={saving}
+          busy={saving}
         >
-          {saving ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
-          )}
+          <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
           Add to catalogue
         </Button>
       </StepFooter>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
@@ -53,7 +52,8 @@ export function ConfirmDeleteDialog({
             variant="danger"
             size="sm"
             data-shortcut="save"
-            disabled={pending || blockers.length > 0}
+            busy={pending}
+            disabled={blockers.length > 0}
             onClick={async () => {
               setPending(true);
               try {
@@ -63,7 +63,6 @@ export function ConfirmDeleteDialog({
               }
             }}
           >
-            {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
             {confirmLabel}
           </Button>
         </div>

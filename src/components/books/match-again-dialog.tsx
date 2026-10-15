@@ -306,13 +306,10 @@ export function MatchAgainDialog({
               variant="secondary"
               size="md"
               onClick={handleSearch}
-              disabled={loading || !query.trim()}
+              busy={loading}
+              disabled={!query.trim()}
             >
-              {loading ? (
-                <Spinner className="h-3.5 w-3.5" />
-              ) : (
-                <Search className="h-3.5 w-3.5" strokeWidth={1.5} />
-              )}
+              <Search className="h-3.5 w-3.5" strokeWidth={1.5} />
               Search
             </Button>
           </div>

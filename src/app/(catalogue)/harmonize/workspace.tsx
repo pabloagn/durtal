@@ -15,6 +15,7 @@ import {
   Check,
   GitMerge,
   ImageIcon,
+  LoaderCircle,
   RefreshCw,
   ShieldCheck,
   Sparkles,
@@ -67,17 +68,24 @@ const NOTES: Record<Category, string> = {
 };
 const CATEGORIES = Object.keys(CATEGORY_LABELS) as Category[];
 const token = (f: Finding) => ({ key: f.key, fingerprint: f.fingerprint });
+/** A busy label keeps its words: its icon turns into a spinner (contract section 8) */
 function IconLabel({
   icon: Icon,
+  busy = false,
   children,
 }: {
   icon: LucideIcon;
+  busy?: boolean;
   children: ReactNode;
 }) {
   return (
     <span className="h-icon-label">
       <CapAligned height={14}>
-        <Icon size={14} strokeWidth={1.5} />
+        {busy ? (
+          <LoaderCircle size={14} strokeWidth={1.5} className="animate-spin" aria-hidden="true" />
+        ) : (
+          <Icon size={14} strokeWidth={1.5} />
+        )}
       </CapAligned>
       <span>{children}</span>
     </span>
@@ -138,6 +146,7 @@ export function HarmonizeWorkspace({
   const [scan, setScan] = useState(initialScan);
   const [error, setError] = useState(initialError);
   const [busy, setBusy] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [category, setCategory] = useState<Category | "all">("all");
   const [entity, setEntity] = useState("all");
   const [query, setQuery] = useState("");
@@ -247,6 +256,7 @@ export function HarmonizeWorkspace({
 
   async function refresh() {
     setBusy(true);
+    setScanning(true);
     setError(null);
     try {
       const result = await load();
@@ -256,6 +266,7 @@ export function HarmonizeWorkspace({
       setError("The scan could not reach the server. Please try again.");
     } finally {
       setBusy(false);
+      setScanning(false);
     }
   }
   async function fix(items: Finding[]) {
@@ -367,9 +378,14 @@ export function HarmonizeWorkspace({
           </h1>
         </div>
         <div className="h-scan-control">
-          <button className="h-button" onClick={refresh} disabled={busy}>
-            <IconLabel icon={RefreshCw}>
-              {busy ? "Working…" : "Scan library"}
+          <button
+            className="h-button"
+            onClick={refresh}
+            disabled={busy}
+            aria-busy={scanning || undefined}
+          >
+            <IconLabel icon={RefreshCw} busy={scanning}>
+              Scan library
             </IconLabel>
           </button>
           <p>
@@ -728,9 +744,10 @@ export function HarmonizeWorkspace({
           <button
             className="h-button h-button-primary"
             disabled={busy || !selectedFixes.length}
+            aria-busy={busy || undefined}
             onClick={() => fix(selectedFixes)}
           >
-            {busy ? "Applying…" : `Apply ${selectedFixes.length} fixes`}
+            {`Apply ${selectedFixes.length} ${selectedFixes.length === 1 ? "fix" : "fixes"}`}
           </button>
         </div>
       </Dialog>
@@ -1270,9 +1287,10 @@ function MergeReview({
           <button
             className="h-button h-button-primary"
             disabled={pending}
+            aria-busy={pending || undefined}
             onClick={merge}
           >
-            {pending ? "Merging…" : "Confirm merge"}
+            Confirm merge
           </button>
         </div>
       </Dialog>

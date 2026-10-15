@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -369,8 +369,7 @@ function VersionForm({
         <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
         </Button>
-        <Button variant="primary" data-shortcut="save" onClick={save} disabled={blocked}>
-          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
+        <Button variant="primary" data-shortcut="save" onClick={save} busy={saving} disabled={blocked}>
           {version ? "Save" : "Add version"}
         </Button>
       </div>

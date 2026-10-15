@@ -41,6 +41,8 @@ export function UnlinkEbookDialog({ target, initialMode, change = false, onClose
   const [mode, setMode] = useState(initialMode), [prepared, setPrepared] = useState<PreparedUnlinkReview | null>(null);
   const [phase, setPhase] = useState<"editing" | "preparing" | "prepared" | "applying" | "unknown" | "keeping" | "committed">("editing");
   const [error, setError] = useState<string | null>(null), [outcome, setOutcome] = useState<string | null>(null);
+  /** The unlink running now retries an unknown outcome: its button keeps saying so */
+  const [retrying, setRetrying] = useState(false);
   const [then, setThen] = useState<Then>(change ? "choose" : "review");
   /** The keep that followed the unlink, while it can be undone here */
   const [kept, setKept] = useState<ReviewOutcome | null>(null), [undoing, setUndoing] = useState(false);
@@ -58,7 +60,7 @@ export function UnlinkEbookDialog({ target, initialMode, change = false, onClose
   }
   async function confirm() {
     if (lock.current || !prepared?.capabilities.canApply || !["prepared", "unknown"].includes(phase)) return;
-    const exact = prepared; lock.current = true; setPhase("applying"); setError(null);
+    const exact = prepared; lock.current = true; setRetrying(phase === "unknown"); setPhase("applying"); setError(null);
     const result = await confirmReviewUnlinkUi({ request: exact.request, previewToken: exact.previewToken }).catch(() => null);
     if (!result?.ok) {
       lock.current = false;
@@ -129,15 +131,15 @@ export function UnlinkEbookDialog({ target, initialMode, change = false, onClose
         <Button disabled={locked} onClick={close}>{phase === "committed" ? "Done" : "Cancel"}</Button>
         {!locked && phase !== "preparing" && phase !== "committed" && mode === "automatic_undo" &&
           <Button onClick={() => { generation.current++; setMode("unlink"); setPrepared(null); setError(null); setPhase("editing"); }}>Unlink instead</Button>}
-        {phase === "editing" && <Button variant="primary" onClick={() => void prepare()}>Check what changes</Button>}
-        {phase === "preparing" && <Button variant="primary" disabled>Checking…</Button>}
+        {(phase === "editing" || phase === "preparing") &&
+          <Button variant="primary" busy={phase === "preparing"} onClick={() => void prepare()}>Check what changes</Button>}
         {/* It removes copies and catalogue entries with no Undo: a danger button, which Enter never presses (⌘Enter does) */}
-        {prepared && <Button variant="danger" data-shortcut="save" disabled={phase === "applying" || !prepared.capabilities.canApply} onClick={() => void confirm()}>
-          {phase === "applying" ? "Unlinking…" : phase === "unknown" ? "Try again" : mode === "automatic_undo" ? "Undo the link"
+        {prepared && <Button variant="danger" data-shortcut="save" busy={phase === "applying"} disabled={!prepared.capabilities.canApply} onClick={() => void confirm()}>
+          {phase === "unknown" || (phase === "applying" && retrying) ? "Try again" : mode === "automatic_undo" ? "Undo the link"
             : then === "choose" ? "Unlink and choose" : "Unlink"}
         </Button>}
         {phase === "keeping" && <Button variant="primary" disabled>Keeping as an eBook…</Button>}
-        {phase === "committed" && kept?.undo.available && <Button disabled={undoing} onClick={() => void undoKeep()}>{undoing ? "Undoing…" : "Undo keep"}</Button>}
+        {phase === "committed" && kept?.undo.available && <Button busy={undoing} onClick={() => void undoKeep()}>Undo keep</Button>}
       </div>
     </div>
   </Dialog>;

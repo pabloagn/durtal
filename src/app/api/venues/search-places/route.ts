@@ -4,6 +4,7 @@ import {
   fetchWithTimeout,
 } from "@/lib/api/external-fetch";
 import { serverEnv } from "@/lib/env";
+import { placesRefusal } from "@/lib/api/google-places";
 
 const PLACES_API_BASE = "https://places.googleapis.com/v1/places:searchText";
 
@@ -135,12 +136,8 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         );
       }
-      if (res.status === 403) {
-        return NextResponse.json(
-          { error: "Places API key invalid or quota exceeded" },
-          { status: 503 },
-        );
-      }
+      const refusal = placesRefusal(res.status);
+      if (refusal) return NextResponse.json({ error: refusal.error }, { status: refusal.status });
       return NextResponse.json(
         { error: "Places search failed" },
         { status: 502 },

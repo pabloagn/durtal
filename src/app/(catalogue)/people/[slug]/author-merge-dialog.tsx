@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, X, ArrowRight } from "lucide-react";
+import { X, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -191,16 +191,10 @@ export function AuthorMergeDialog({
             variant="primary"
             size="sm"
             onClick={handleMerge}
-            disabled={isPending || sourceIds.length === 0}
+            busy={isPending}
+            disabled={sourceIds.length === 0}
           >
-            {isPending ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
-                Merging
-              </>
-            ) : (
-              `Merge ${sourceIds.length > 0 ? sourceIds.length : ""} ${sourceIds.length === 1 ? "person" : sourceIds.length > 1 ? "people" : ""}`.trim()
-            )}
+            {`Merge ${sourceIds.length > 0 ? sourceIds.length : ""} ${sourceIds.length === 1 ? "person" : sourceIds.length > 1 ? "people" : ""}`.trim()}
           </Button>
         </div>
       </div>

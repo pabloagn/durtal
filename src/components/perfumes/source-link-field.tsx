@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Loader2 } from "lucide-react";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -102,8 +102,7 @@ export function SourceLinkField({
             </label>
           )}
           {reading.source?.access === "lookup" && reading.externalId && !review && (
-            <Button variant="secondary" size="sm" disabled={looking} onClick={lookUp}>
-              {looking && <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />}
+            <Button variant="secondary" size="sm" busy={looking} onClick={lookUp}>
               Look up {reading.externalId}
             </Button>
           )}
