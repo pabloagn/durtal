@@ -91,6 +91,27 @@ describe("shared dropdown keyboard and focus", () => {
     expect(document.activeElement).toBe(trigger());
     expect(run).not.toHaveBeenCalled();
   });
+  it("closes only itself on Escape inside a panel that closes on any Escape (the reader's side panels)", async () => {
+    const closePanel = vi.fn();
+    const onDocument = vi.fn();
+    document.addEventListener("keydown", onDocument);
+    act(() =>
+      root.render(
+        h("div", { onKeyDown: (event: { key: string; defaultPrevented: boolean }) => { if (event.key === "Escape" && !event.defaultPrevented) closePanel(); } }, h(Menu, { run: () => {} })),
+      ),
+    );
+    act(() => trigger().click());
+    await settle();
+    key(items()[1], "Escape");
+    expect(host.querySelector('[role="menu"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger());
+    expect(closePanel).not.toHaveBeenCalled();
+    expect(onDocument).not.toHaveBeenCalled();
+    // With the menu shut, the next Escape is the panel's
+    key(trigger(), "Escape");
+    expect(closePanel).toHaveBeenCalledOnce();
+    document.removeEventListener("keydown", onDocument);
+  });
   it("activates a command once with the keyboard while keeping shortcut text separate", async () => {
     const run = vi.fn();
     act(() => root.render(h(Menu, { run })));
