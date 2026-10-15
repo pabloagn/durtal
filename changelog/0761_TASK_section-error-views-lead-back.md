@@ -33,5 +33,24 @@ Test: `src/__tests__/ui/loading-audit-states.test.ts` gains a row per view.
 
 ## Completion Notes
 
+- **Browser.** I ran a production preview with every database query failing,
+  in Chromium, Firefox and WebKit at 1440, 390 and 320. Each view showed
+  Try again first, then its way back:
+
+  | Address | Description | Way back |
+  |---|---|---|
+  | `/places` | Places could not be loaded. | Go to the dashboard |
+  | A place | This place could not be loaded. | Back to places |
+  | An organization | This organization could not be loaded. | Back to organizations |
+  | A recommender | This recommender could not be loaded. | Back to recommenders |
+  | A taxonomy family | This family could not be loaded. | Back to taxonomy |
+  | A taxonomy item | An error occurred while loading this page. | Back to taxonomy |
+  | `/locations` | Locations could not be loaded. | Go to the dashboard |
+
+  - `/taxonomy` itself kept showing its cached list, so its own error view
+    was checked by the unit test only.
+- **Audits.** The alignment, touch and design audits report nothing on any
+  of these views, and no page scrolls sideways, in all three browsers at all
+  three widths.
 - Typecheck is clean, and the error view tests pass.
 - No migration, no new package.
