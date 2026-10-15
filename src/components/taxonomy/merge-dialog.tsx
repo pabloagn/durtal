@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, type FormEvent } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { Merge } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
@@ -44,9 +44,8 @@ export function MergeDialog({
     onClose();
   }, [onClose]);
 
-  const handleSubmit = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault();
+  const handleMerge = useCallback(
+    async () => {
       if (!targetId) return;
 
       setSubmitting(true);
@@ -84,7 +83,8 @@ export function MergeDialog({
       className="max-w-lg"
       expandable={false}
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      {/* No form: Enter in the search never submits the merge */}
+      <div className="space-y-4">
         {/* Source info */}
         <div className="rounded-sm border border-glass-border bg-bg-primary/60 px-3 py-2.5">
           <div className="flex items-center gap-2">
@@ -122,7 +122,7 @@ export function MergeDialog({
                   key={target.id}
                   type="button"
                   onClick={() => setTargetId(target.id)}
-                  className={`flex w-full items-center px-3 py-1.5 text-left text-sm transition-colors ${
+                  className={`flex w-full items-center px-3 py-1.5 pointer-coarse:min-h-11 text-left text-sm transition-colors ${
                     targetId === target.id
                       ? "bg-accent-primary/10 text-fg-primary"
                       : "text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
@@ -155,17 +155,20 @@ export function MergeDialog({
           >
             Cancel
           </Button>
+          {/* Merging removes the item: a danger button, which Enter and
+              ⌘Enter never press (docs/03, Dialog keys) */}
           <Button
-            type="submit"
-            variant="primary"
+            type="button"
+            variant="danger"
             size="sm"
+            onClick={() => void handleMerge()}
             disabled={submitting || !targetId}
             busy={submitting}
           >
             Merge
           </Button>
         </div>
-      </form>
+      </div>
     </Dialog>
   );
 }
