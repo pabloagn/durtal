@@ -175,6 +175,39 @@ describe("phone size projection and saved preference", () => {
     expect(readCookie("durtal-grid-columns")).toBe("8");
   });
 
+  it("keeps the phone's line on one line, dropping what its slider has no room for", async () => {
+    const original = HTMLElement.prototype.getBoundingClientRect;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        return this.hasAttribute("data-catalogue-grid")
+          ? ({ ...original.call(this), width: 300 } as DOMRect)
+          : original.call(this);
+      },
+    );
+    document.cookie = "durtal-grid-columns=8; Path=/";
+    render();
+    const grid = host.querySelector("[data-catalogue-grid]") as HTMLElement;
+    grid.style.gridTemplateColumns = "300px";
+    await act(async () => {
+      grid.setAttribute("data-grid-density", "8");
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const output = host.querySelector("output")!;
+    // Wrapped, the line broke mid-phrase under an 80px slider ("Compact · 2 /
+    // per row") and, beside a 12rem one, ran 45-65px past it (SLN-641)
+    expect(output.classList.contains("whitespace-nowrap")).toBe(true);
+    const parts = [...output.querySelectorAll("span")].map((span) => [
+      span.textContent,
+      span.className,
+    ]);
+    expect(parts).toEqual([
+      [" · 1 per row", "hidden @min-[7.5rem]:inline"],
+      [" · narrow space", "hidden @min-[17rem]:inline"],
+    ]);
+    // The container that sets them is the slider's own box
+    expect(output.closest(".grid-size-mobile")!.classList.contains("@container")).toBe(true);
+  });
+
   it("emits the same native controls on server render and first hydration", async () => {
     const props = { value: 8, onChange: () => {} };
     const node = createElement(PreferencesProvider, {

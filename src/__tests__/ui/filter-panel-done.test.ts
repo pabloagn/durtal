@@ -117,6 +117,19 @@ describe("filter panel: apply and clear", () => {
     expect(panelOpen()).toBe(false);
   });
 
+  it("keeps focus in the panel, on Done, when Clear all goes with the last choice", () => {
+    url.set("lang", "fr");
+    act(() => root.render(createElement(Harness)));
+    act(() => button("Filter")!.click());
+    const clear = button("Clear all")!;
+    act(() => clear.focus());
+    act(() => clear.click());
+    expect(button("Clear all")).toBeNull();
+    expect(panelOpen()).toBe(true);
+    // Without this a keyboard user is left on the page body
+    expect(document.activeElement).toBe(button("Done"));
+  });
+
   it("keeps Clear all and Done at 44px on touch", () => {
     url.set("lang", "fr");
     act(() => root.render(createElement(Harness)));

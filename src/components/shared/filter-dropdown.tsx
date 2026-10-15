@@ -161,6 +161,7 @@ export function FilterDropdown({
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const doneRef = useRef<HTMLButtonElement>(null);
   const [groupSearchTerms, setGroupSearchTerms] = useState<Record<string, string>>({});
   const [section, setSection] = useState<string | null>(null);
 
@@ -500,7 +501,15 @@ export function FilterDropdown({
               {activeCount > 0 ? (
                 <>
                   <span>{activeCount} active</span>
-                  <button type="button" onClick={onClearAll} className="text-command text-xs">
+                  {/* Clear all leaves with the last choice: focus stays in the panel, on Done */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClearAll();
+                      doneRef.current?.focus();
+                    }}
+                    className="text-command text-xs"
+                  >
                     Clear all
                   </button>
                 </>
@@ -509,6 +518,7 @@ export function FilterDropdown({
               )}
             </p>
             <Button
+              ref={doneRef}
               type="button"
               variant="primary"
               onClick={() => {

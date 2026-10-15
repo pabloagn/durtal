@@ -80,12 +80,20 @@ export function GridSizeSlider({ value, onChange }: GridSizeSliderProps) {
   // On a phone the line under the slider names the size, so the slider
   // needs no labels at its ends and fits beside the views (SLN-641)
   const size = compact ? "Compact" : "Large";
-  const feedback =
+  // The line never wraps or runs past the slider: the count shows from a
+  // 7.5rem slider ("Compact · 2 per row" is about 118px), the narrow-space
+  // note only beside a 17rem one (the whole line is about 205px, plus the
+  // slider's 44px and the 12px gap)
+  const count =
     layout?.items === 0
-      ? `${size} · no cards`
+      ? " · no cards"
       : layout
-        ? `${size} · ${layout.columns} per row${compact && layout.width < 328 ? " · narrow space" : ""}`
-        : size;
+        ? ` · ${layout.columns} per row`
+        : "";
+  const narrow =
+    layout && layout.items > 0 && compact && layout.width < 328
+      ? " · narrow space"
+      : "";
   const rangeClass =
     "h-1 w-20 cursor-pointer appearance-none rounded-full bg-bg-tertiary accent-accent-primary [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent-primary pointer-coarse:h-11 pointer-coarse:rounded-none pointer-coarse:bg-transparent pointer-coarse:bg-[linear-gradient(var(--color-bg-tertiary),var(--color-bg-tertiary))] pointer-coarse:bg-[length:100%_4px] pointer-coarse:bg-center pointer-coarse:bg-no-repeat";
   return (
@@ -117,8 +125,10 @@ export function GridSizeSlider({ value, onChange }: GridSizeSliderProps) {
             }
             className="card-size-range @min-[12rem]:min-w-11 @min-[12rem]:flex-1"
           />
-          <output aria-live="polite" className="block text-micro text-fg-secondary @min-[12rem]:whitespace-nowrap">
-            {feedback}
+          <output aria-live="polite" className="block whitespace-nowrap text-micro text-fg-secondary">
+            {size}
+            {count && <span className="hidden @min-[7.5rem]:inline">{count}</span>}
+            {narrow && <span className="hidden @min-[17rem]:inline">{narrow}</span>}
           </output>
         </div>
       </div>

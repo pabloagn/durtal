@@ -55,3 +55,16 @@ or a tap outside, and its Clear all sat at the top, away from the choices.
 - New test `filter-panel-done.test.ts` (apply, Done, Clear all, Enter and
   Esc, touch classes).
 - No migration, no new package.
+
+### Review fixes
+
+- The card size line never wraps or runs past its slider: it names the size,
+  then shows "· 2 per row" from a 7.5rem slider and "· narrow space" only
+  beside a 17rem one (container queries on the slider's box). Before, it
+  split after "Compact · 2" on People at 390, took four lines on Books at
+  340, and ran 65px past the slider on Collections and Recommenders at 330
+  to 350.
+- Clear all, pressed from the keyboard, removes itself with the last
+  choice: focus now moves to Done rather than dropping to the page.
+- Tests: `grid-size-slider` (one line, what drops), `filter-panel-done`
+  (focus on Done after Clear all).
