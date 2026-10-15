@@ -38,8 +38,10 @@ export interface RankItem {
   text: string;
 }
 
+const RANK_TONES = { sage: "bg-accent-sage/70", blue: "bg-accent-blue/70", gold: "bg-accent-gold/70" } as const;
+
 /** A ranked list: the label (a link when there is a page), its number, and a thin bar for its share */
-export function RankList({ title, items }: { title?: string; items: RankItem[] }) {
+export function RankList({ title, items, tone = "sage" }: { title?: string; items: RankItem[]; tone?: keyof typeof RANK_TONES }) {
   if (!items.length) return null;
   const max = Math.max(...items.map((i) => i.value), 1);
   return (
@@ -61,7 +63,7 @@ export function RankList({ title, items }: { title?: string; items: RankItem[] }
               <span className="shrink-0 text-xs text-fg-secondary tabular-nums">{item.text}</span>
             </div>
             <div className="mt-1 h-1 rounded-sm bg-bg-tertiary" aria-hidden>
-              <div className="h-full rounded-sm bg-accent-sage/70" style={{ width: `${Math.max(2, (item.value / max) * 100)}%` }} />
+              <div className={`h-full rounded-sm ${RANK_TONES[tone]}`} style={{ width: `${Math.max(2, (item.value / max) * 100)}%` }} />
             </div>
           </li>
         ))}

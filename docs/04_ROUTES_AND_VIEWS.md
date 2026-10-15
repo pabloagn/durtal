@@ -30,6 +30,7 @@
 /reading/journal            Every reading, by year of finish, filtered and sorted
 /reading/notes              Notes: every quote and note, searched and filtered
 /reading/stats              Stats: a year, or all time, in numbers and charts
+/statistics                 Statistics: the books on the shelves, in numbers, charts and covers
 /reading/suggestions        Suggestions: what to read next, with reasons
 /reading/year               Year in review: the years with finished books
 /reading/year/[year]        One year's review, made to print
@@ -177,6 +178,20 @@ only those drawn:
 4. **Collections** (`#collections`): the first 4 in their curated order.
 5. **Highest rated** (`#highest-rated`), **Wanted** (`#wanted`) and **Recent
    people** (`#people`): book sections.
+
+**Statistics** (SLN-742): pages on the shelves, languages, authors' countries and the share read, then when the books were written (years or decades), with "View all" to `/statistics`. Its body (`DashboardStatistics`, `src/components/statistics/dashboard-statistics.tsx`) loads in its own Suspense boundary; the dashboard draws the section and its heading.
+
+### Statistics (`/statistics`)
+
+The books he owns (a copy that is not deaccessioned, as the library counts them), after Letterboxd's member stats (SLN-742), from `src/lib/statistics/library.ts`: aggregate queries only, computed per request and never cached. Each section is left out without data; with no owned book the page is one empty state. `loading.tsx` draws the header, the cover strip and the number tiles at once.
+
+- A strip of the five best-rated covers, then **In numbers**: books, editions, copies, pages, authors, publishers, languages (original) and countries (the writers' nationalities).
+- **When they were written**: a timeline of thin bars by the work's original year (`WrittenChart`), Years or Decades. Years start at the decade of the earliest 2% and go back at most 200 years; Decades at most 60, with older books in one "Before …" bar (`src/lib/statistics/charts.ts`).
+- **Years with the most books**: the three busiest years with five covers each, the year linked to the library filtered to it.
+- **Languages, countries and categories**, **Authors and publishers**, **Copies** (formats, places, copies by the year they came): ranked lists (`RankList`, toned sage, blue or gold) linking to the library filtered, the person or the house.
+- **Breakdown**: rings for read, rated, in translation (editions) and on paper (copies) (`SplitRing`); **Ratings**: books by half star.
+- **At the edges**: the oldest, newest, longest and shortest book, each with its cover.
+- **Reading**: all-time totals from the reading stats, linking to `/reading/stats`; **The other collections**: their records and creators.
 
 ---
 
