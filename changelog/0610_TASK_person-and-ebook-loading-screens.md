@@ -59,3 +59,7 @@ starts 34 px higher than the loading screen.
   eBook by id in either case, and missing ones. The production preview
   answers 404 for a missing person and a missing eBook, and 200 for real
   ones and for the eBooks' own pages (review, upload, highlights).
+- Review (#325): under 375px a short title steps down one size on its page,
+  so the shared title skeleton (`SkeletonTitleRow`) now marks its line as a
+  short title. The person and book loading screens then measure 0 px against
+  their pages at 320 too.
