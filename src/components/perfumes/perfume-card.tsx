@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { CardHeading } from "@/components/shared/card-heading";
 import { WORK_CARD, WORK_CARD_BODY, WorkCardInfo } from "@/components/shared/work-card";
+import { WorkRow } from "@/components/shared/work-row";
 import { Droplet } from "lucide-react";
 import type { getPerfumes } from "@/lib/actions/perfumes";
 import { catalogueDateYears } from "@/lib/catalogue/dates";
@@ -33,13 +34,17 @@ export function perfumeMakers(perfume: PerfumeCardData) {
 }
 
 /** "1925 · EDP · Extrait": the release and the concentrations made */
-export function perfumeFacts(perfume: PerfumeCardData) {
+export function perfumeFactParts(perfume: PerfumeCardData) {
   const concentrations = [
     ...new Set(perfume.formulations.map((f) => formulationName(f, { short: true }))),
   ];
-  return [catalogueDateYears(perfume.releaseDate), ...concentrations]
-    .filter(Boolean)
-    .join(" · ");
+  return [catalogueDateYears(perfume.releaseDate), ...concentrations].filter(
+    (fact): fact is string => !!fact,
+  );
+}
+
+export function perfumeFacts(perfume: PerfumeCardData) {
+  return perfumeFactParts(perfume).join(" · ");
 }
 
 function heldCounts(perfume: PerfumeCardData) {
@@ -106,40 +111,16 @@ export function PerfumeCard({
   );
 }
 
-/**
- * A perfume in a list: a small bottle, title, house and facts, what is held.
- * On a narrow page what is held goes under the facts, so the house stays whole.
- */
+/** A perfume in a list (`WorkRow`): a small bottle, title, house and facts, what is held */
 export function PerfumeRow({ perfume }: { perfume: PerfumeCardData }) {
-  const held = holdingsSummary(heldCounts(perfume));
   return (
-    <div className="flex items-center gap-3 rounded-sm border border-transparent px-3 py-2 transition-colors hover:border-glass-border hover:bg-bg-secondary/60">
-      <Link href={perfumeHref(perfume)} className="flex min-w-0 flex-1 items-center gap-3">
-        <PerfumeImage
-          image={perfume.poster}
-          title={perfume.title}
-          className="h-12 w-12 shrink-0 rounded-sm"
-        />
-        <div className="min-w-0 flex-1">
-          <p className="type-item-title truncate">{perfume.title}</p>
-          <p className="truncate text-sm text-fg-secondary">
-            {[perfumeMakers(perfume) ?? "Unknown house", perfumeFacts(perfume)]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-          {held && <p className="truncate text-xs text-fg-secondary sm:hidden">{held}</p>}
-        </div>
-        {held && (
-          <span className="hidden shrink-0 text-xs leading-6 text-fg-secondary sm:block">
-            {held}
-          </span>
-        )}
-      </Link>
-      <FavouriteToggle
-        favourite={perfume.isFavourite}
-        target={{ entity: "work", id: perfume.id }}
-        name={perfume.title}
-      />
-    </div>
+    <WorkRow
+      href={perfumeHref(perfume)}
+      thumbnail={<PerfumeImage image={perfume.poster} title={perfume.title} className="h-12 w-12 shrink-0 rounded-sm" />}
+      title={perfume.title}
+      facts={[perfumeMakers(perfume) ?? "Unknown house", ...perfumeFactParts(perfume)]}
+      held={holdingsSummary(heldCounts(perfume))}
+      favourite={{ on: perfume.isFavourite, workId: perfume.id }}
+    />
   );
 }

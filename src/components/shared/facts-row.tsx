@@ -12,11 +12,20 @@ import type { ReactNode } from "react";
  * The separators are hidden from screen readers, which read the facts as
  * before.
  */
-export function FactsRow({ facts, className = "" }: { facts: ReactNode[]; className?: string }) {
+export function FactsRow({
+  facts,
+  small = false,
+  className = "",
+}: {
+  facts: ReactNode[];
+  /** 12px, for a list row's secondary lines; 14px otherwise */
+  small?: boolean;
+  className?: string;
+}) {
   if (facts.length === 0) return null;
   return (
     <p
-      className={`-ml-5 flex flex-wrap items-baseline text-sm text-fg-secondary [clip-path:inset(-0.5rem_-0.5rem_-0.5rem_1rem)] ${className}`}
+      className={`-ml-5 flex flex-wrap items-baseline ${small ? "text-xs" : "text-sm"} text-fg-secondary [clip-path:inset(-0.5rem_-0.5rem_-0.5rem_1rem)] ${className}`}
     >
       {facts.map((fact, i) => (
         <span key={i} className="relative ml-5 min-w-0">

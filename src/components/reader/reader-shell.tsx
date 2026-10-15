@@ -37,6 +37,15 @@ export function useReaderBars({ held }: { held: boolean }) {
     timer.current = null;
   };
   const kept = () => pointerOver.current || focusIn.current || heldRef.current;
+  /** The mouse at x, y in the viewport. A layout change can repeat a still
+   * pointer's last position: only real movement counts. */
+  const lastPointer = useRef<{ x: number; y: number } | null>(null);
+  // A mouse over the book is off the bars, though Firefox sends no leave
+  // when a menu or panel opened from them closes under it
+  const offBars = () => {
+    const at = lastPointer.current;
+    if (at && document.elementFromPoint(at.x, at.y)?.closest("#reader-book")) pointerOver.current = false;
+  };
 
   const hideSoon = useCallback(() => {
     clear();
@@ -61,12 +70,13 @@ export function useReaderBars({ held }: { held: boolean }) {
    * Reading on (a turn, a scroll) lets go of focus left in the bars, as when
    * a panel closes back onto the button that opened it: they go as after any
    * turn, and focus with them; Tab brings both back. A moving mouse lets go
-   * of it too (`pointerAt`).
+   * of it too (`pointerAt`), and a mouse resting over the book is off them.
    */
   const release = useCallback(() => {
-    if (!focusIn.current) return;
+    const keeping = focusIn.current || pointerOver.current;
     focusIn.current = false;
-    if (visibleRef.current) hideSoon();
+    offBars();
+    if (keeping && visibleRef.current) hideSoon();
   }, [hideSoon]);
 
   const toggle = useCallback(() => {
@@ -77,9 +87,6 @@ export function useReaderBars({ held }: { held: boolean }) {
   /** The margin the mouse is in: its page button stays up there after the
    * bars hide (SLN-662), without a hot strip that brings the bars back */
   const [edge, setEdge] = useState<"left" | "right" | null>(null);
-  /** The mouse at x, y in the viewport. A layout change can repeat a still
-   * pointer's last position: only real movement counts. */
-  const lastPointer = useRef<{ x: number; y: number } | null>(null);
   const pointerAt = useCallback(
     (x: number, y: number) => {
       const width = typeof window === "undefined" ? 0 : window.innerWidth;
@@ -90,9 +97,7 @@ export function useReaderBars({ held }: { held: boolean }) {
       if (!last) return;
       // A mouse that moves is a reader's hand, not a keyboard user's focus
       focusIn.current = false;
-      // and over the book it is off the bars, though Firefox sends no leave
-      // when a menu or panel opened from them closes under it
-      if (document.elementFromPoint(x, y)?.closest("#reader-book")) pointerOver.current = false;
+      offBars();
       show();
     },
     [show],

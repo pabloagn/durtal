@@ -49,6 +49,7 @@ import {
   getRecommender,
   getRecommenderList,
   getRecommenders,
+  hasRecommenders,
 } from "@/lib/actions/recommenders";
 
 describe.skipIf(!url)("recommenders with PostgreSQL", () => {
@@ -85,6 +86,12 @@ describe.skipIf(!url)("recommenders with PostgreSQL", () => {
   async function link(recommenderId: string, workId: string) {
     await db.insert(schema.workRecommenders).values({ recommenderId, workId });
   }
+
+  it("says whether there is any recommender, so an empty page shows only its empty state (SLN-834)", async () => {
+    expect(await hasRecommenders()).toBe(false);
+    await created({ name: "Life on Books" });
+    expect(await hasRecommenders()).toBe(true);
+  });
 
   it("creates with a normalized website and refreshes the cached list", async () => {
     const r = await createRecommender({

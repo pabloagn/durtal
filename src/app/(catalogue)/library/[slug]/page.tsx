@@ -59,6 +59,7 @@ import { ReadButton } from "@/components/reader/read-button";
 import { Badge } from "@/components/ui/badge";
 import { priorityVariant } from "@/lib/constants/catalogue";
 import { WorkRecord } from "./work-record";
+import { workTaxonomyAssignments } from "./work-taxonomy-section";
 import { EditionDetailCard } from "./edition-detail-card";
 import { EditionAddDialog } from "./edition-add-dialog";
 import { WorkActionsMenu } from "./work-actions-menu";
@@ -81,7 +82,7 @@ import {
   CoarseImageSource,
   coarseImageFallback,
 } from "@/components/shared/coarse-image-source";
-import { GallerySection } from "@/components/shared/gallery-section";
+import { GallerySection, preloadGallery } from "@/components/shared/gallery-section";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { AmbientCrystals } from "./ambient-crystals";
 import type { CrystalColor, ColorPalette } from "@/lib/types";
@@ -146,6 +147,11 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   const [work, allLocations] = await Promise.all([loadWork(slug), getLocations()]);
 
   if (!work) notFound();
+  // The gallery and the record's custom families render after the page's own
+  // data: their reads go out now, alongside it, rather than after it
+  preloadGallery("work", work.id);
+  void workTaxonomyAssignments(work.id);
+  const canRead = canUseWorkCapability(work.kind, "reading");
 
   // Get orders, e-books, and related works for this work
   const primaryAuthor = work.workAuthors[0]?.author;
@@ -161,6 +167,9 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     links,
     readingRows,
     readingNotes,
+    dayStartHour,
+    queued,
+    gateOn,
   ] = await Promise.all([
     getOrdersForWork(work.id),
     getEbookSuggestionCount(work.id),
@@ -181,18 +190,43 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     getWorkRelations(work.id),
     getReadingsForWork(work.id),
     // Quotes and notes (SLN-453): books only
-    canUseWorkCapability(work.kind, "reading") ? getNotesForWork(work.id) : Promise.resolve([]),
+    canRead ? getNotesForWork(work.id) : Promise.resolve([]),
+    readingDayStartHour(),
+    // The book's place in Up Next (SLN-452)
+    getQueuePlace(work.id),
+    // The predicted rating (SLN-457) shows only while the gate is on
+    canRead ? predictionGateOn() : Promise.resolve(false),
   ]);
-  const digital = await catalogueAvailability([
-    work.id,
-    ...seriesWorks.map((related) => related.id),
-    ...relatedGroups.flatMap((group) => group.works.map((related) => related.id)),
-    ...markRows.flatMap((row) => row.works.map((related) => related.id)),
-    ...similarWorks.filter((related) => related.kind === "book").map((related) => related.id),
-    ...linkedBookIds(links),
+  const zone = appTimeZone();
+  const today = readingDay(new Date(), zone, dayStartHour);
+  // Everything that needs the reads above goes out together
+  const [[digital, reach], estimates, predictionContext, collectionCovers] = await Promise.all([
+    catalogueAvailability([
+      work.id,
+      ...seriesWorks.map((related) => related.id),
+      ...relatedGroups.flatMap((group) => group.works.map((related) => related.id)),
+      ...markRows.flatMap((row) => row.works.map((related) => related.id)),
+      ...similarWorks.filter((related) => related.kind === "book").map((related) => related.id),
+      ...linkedBookIds(links),
+    ]).then(async (digital) => {
+      const ebooks = digital.get(work.id)?.ebooks ?? [];
+      return [digital, await getEbookReach(ebooks.map((e) => e.ebookId))] as const;
+    }),
+    // Time left and the finish date of the open reading (SLN-451)
+    readingEstimates(
+      readingRows.filter((r) => r.reading.status === "reading" || r.reading.status === "paused").map((r) => r.reading.id),
+      today,
+    ),
+    // Only for an unread book, and only with enough similar books
+    canRead && gateOn && !readingRows.some((r) => r.reading.status === "finished")
+      ? getBookPredictionContext(work.id)
+      : Promise.resolve(null),
+    // Member-cover collage only for collections without a poster
+    getCollectionCoverPreviews(
+      workCollections.filter((c) => !collectionPoster(c.media)).map((c) => c.id),
+    ),
   ]);
   const digitalBooks = digital.get(work.id)?.ebooks ?? [];
-  const reach = await getEbookReach(digitalBooks.map((e) => e.ebookId));
   const digitalCards = new Map([...digital].map(([id, value]) => [id, value.read]));
   const readerReturnTo = `/library/${slug}`;
   // Quotes by edition (SLN-480): each edition named once for the browser, the groups in the Editions section's order
@@ -233,10 +267,6 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     notes: readingNotes.filter((n) => n.kind === "note").length,
   };
   // The reading control, section and dialogs (SLN-447)
-  const canRead = canUseWorkCapability(work.kind, "reading");
-  const zone = appTimeZone();
-  const dayStartHour = await readingDayStartHour();
-  const today = readingDay(new Date(), zone, dayStartHour);
   let homeCookie: string | null = null;
   try {
     const raw = (await cookies()).get(READING_HOME_KEY)?.value;
@@ -254,18 +284,13 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     homes: readingHomes(allLocations),
     today,
     zone,
-    // Time left and the finish date of the open reading (SLN-451)
-    // The book's place in Up Next (SLN-452)
-    queuePlace: (await getQueuePlace(work.id))?.place ?? null,
-    estimates: await readingEstimates(
-      readingRows.filter((r) => r.reading.status === "reading" || r.reading.status === "paused").map((r) => r.reading.id),
-      today,
-    ),
+    queuePlace: queued?.place ?? null,
+    estimates,
   };
   // The predicted rating of an unread book (SLN-457): only while the gate is on, and only with enough similar books
   let prediction: { text: string; why: string } | null = null;
-  if (canRead && !readingRows.some((r) => r.reading.status === "finished") && (await predictionGateOn())) {
-    const ctx = await getBookPredictionContext(work.id);
+  if (predictionContext) {
+    const ctx = predictionContext;
     const book = ctx.byId.get(work.id);
     const p = book && ctx.gate?.on ? predict(book, ctx) : null;
     if (p)
@@ -274,10 +299,6 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
         why: `${predictionSource(p).replace(/^from/, "From")}.\n\n${p.neighbours.map((x) => `${x.book.title}: ${formatRating(x.rating)}`).join("\n")}`,
       };
   }
-  // Member-cover collage only for collections without a poster
-  const collectionCovers = await getCollectionCoverPreviews(
-    workCollections.filter((c) => !collectionPoster(c.media)).map((c) => c.id),
-  );
 
   const primaryAuthors = work.workAuthors.map((wa) => wa.author);
   const poster = work.media?.find((m) => m.type === "poster" && m.isActive);

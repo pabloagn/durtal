@@ -53,6 +53,30 @@ describe("eBook search draft", () => {
   it("updates an unfocused input from navigation without initiating a search", () => {
     input().blur(); route.query = "q=from+navigation&perPage=48"; render(); expect(input().value).toBe("from navigation"); advance(150); expect(route.replace).not.toHaveBeenCalled();
   });
+  it("clears the field with the app's own button, at once, keeping the filters (SLN-789)", () => {
+    route.query = "q=old&perPage=48&page=3&format=epub"; render();
+    const clear = () => host.querySelector('button[aria-label="Clear search"]') as HTMLButtonElement | null;
+    expect(clear()!.dataset.tooltip).toBe("Clear search");
+    expect(clear()!.hasAttribute("title")).toBe(false);
+    // The browser's own clear button is hidden
+    expect(input().className).toContain("[&::-webkit-search-cancel-button]:hidden");
+    type("pending draft");
+    act(() => clear()!.click());
+    expect(input().value).toBe("");
+    expect(document.activeElement).toBe(input());
+    expect(clear()).toBeNull();
+    advance(0);
+    // The draft's search never runs: one navigation, without the query
+    expect(route.replace).toHaveBeenCalledOnce();
+    const url = new URL(route.replace.mock.lastCall![0], "http://127.0.0.1:3410");
+    expect(url.searchParams.has("q")).toBe(false); expect(url.searchParams.has("page")).toBe(false);
+    expect(url.searchParams.get("perPage")).toBe("48"); expect(url.searchParams.get("format")).toBe("epub");
+    advance(150); expect(route.replace).toHaveBeenCalledOnce();
+  });
+  it("shows no clear button on an empty field", () => {
+    route.query = "perPage=48"; input().blur(); render();
+    expect(host.querySelector('button[aria-label="Clear search"]')).toBeNull();
+  });
   it("coalesces edits and cancels the pending debounce on unmount", () => {
     type("first"); advance(100); type("second"); advance(149); expect(route.replace).not.toHaveBeenCalled(); advance(1); expect(route.replace).toHaveBeenCalledOnce();
     route.replace.mockClear(); type("discarded"); act(() => root.unmount()); advance(150); expect(route.replace).not.toHaveBeenCalled();

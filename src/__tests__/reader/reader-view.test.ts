@@ -977,10 +977,19 @@ it("lets the bars go once the mouse is over the book, though no leave came from 
   // The pointer enters the bars (as over a bar's menu), and the menu closes
   // under it: Firefox then sends no leave
   const control = host.querySelector<HTMLButtonElement>("[data-reader-top-bar] button")!;
-  act(() => control.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, relatedTarget: null })));
-  const book = host.querySelector<HTMLElement>("#reader-book")!;
-  vi.spyOn(document, "elementFromPoint").mockReturnValue(book);
-  for (const x of [300, 340]) act(() => document.dispatchEvent(new MouseEvent("mousemove", { clientX: x, clientY: 400, bubbles: true })));
+  const enter = () => act(() => control.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, relatedTarget: null })));
+  const move = (x: number) => act(() => document.dispatchEvent(new MouseEvent("mousemove", { clientX: x, clientY: 400, bubbles: true })));
+  vi.spyOn(document, "elementFromPoint").mockReturnValue(host.querySelector<HTMLElement>("#reader-book")!);
+  enter();
+  // With the mouse resting over the book, a turn sends them away at once
+  move(300);
+  act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
+  await settle();
+  expect(footer().inert).toBe(true);
+  // A mouse moving over the book lets them go after the usual wait
+  act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true })));
+  enter();
+  for (const x of [340, 380]) move(x);
   expect(footer().inert).toBe(false);
   await act(() => new Promise((resolve) => setTimeout(resolve, BARS_HIDE_MS + 50)));
   expect(footer().inert).toBe(true);

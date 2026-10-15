@@ -8,7 +8,7 @@ import { DomainSwitch } from "@/components/domains/domain-switch";
 import { DomainAddLink } from "@/components/domains/domain-add-link";
 import { FilmFilters } from "@/components/films/film-filters";
 import { FilmGrid } from "@/components/films/film-grid";
-import { getFilmCount, getFilms } from "@/lib/actions/films";
+import { getFilmCount, getFilmPage } from "@/lib/actions/films";
 import { filmQueryFromParams, hasFilmFilters } from "@/lib/catalogue/film-params";
 import {
   lastPage,
@@ -23,13 +23,11 @@ export const metadata = { title: "Films" };
 async function FilmResults({ params }: { params: ListSearchParams }) {
   const query = filmQueryFromParams(params);
   const { page, perPage, offset } = parsePagination(params);
-  // Count first: a page past the end goes to the last page before any read
-  // with an offset beyond what the list accepts
-  const total = await getFilmCount(query);
+  // The count and the page in one round trip (SLN-790); a page past the end
+  // comes back empty, and goes to the last page
+  const { total, films } = await getFilmPage({ ...query, limit: perPage, offset });
   if (total > 0 && page > lastPage(total, perPage))
     redirect(pageHref("/films", params, lastPage(total, perPage)));
-  const films =
-    offset < total ? await getFilms({ ...query, limit: perPage, offset }) : [];
   return (
     <FilmGrid
       films={films}
