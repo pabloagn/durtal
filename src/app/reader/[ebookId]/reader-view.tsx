@@ -17,6 +17,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { flushSync } from "react-dom";
+import { besideBook, nextInBook } from "@/lib/reader/book-tab";
 import {
   ReaderBridgeProvider,
   useReaderSlotFilled,
@@ -836,6 +837,24 @@ function ReaderSession({
           event.preventDefault();
           button.focus();
         }
+      },
+      bookTab: (event) => {
+        // Tab visits the links on this screen, then leaves the book for the
+        // bars, which it brings back first (SLN-810)
+        const doc = event.currentTarget as Document;
+        const frame = doc.defaultView?.frameElement;
+        const book = bookRef.current;
+        if (!frame || !book) return;
+        const area = book.getBoundingClientRect();
+        const next = nextInBook(doc, event.shiftKey, (el) => {
+          const at = frame.getBoundingClientRect(), rect = el.getBoundingClientRect();
+          const left = at.left + rect.left, top = at.top + rect.top;
+          return left < area.right && left + rect.width > area.left && top < area.bottom && top + rect.height > area.top;
+        });
+        event.preventDefault();
+        if (next) return next.focus({ preventScroll: true });
+        flushSync(() => actions.current?.showBars?.());
+        besideBook(book, event.shiftKey)?.focus({ preventScroll: true });
       },
     });
     const historyInput = createHistoryInput({
