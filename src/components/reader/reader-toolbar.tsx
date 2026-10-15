@@ -129,6 +129,7 @@ function ThemeItems({
  */
 export function ReaderToolbar({
   visible,
+  backOnly = false,
   title,
   chapter,
   backHref,
@@ -149,6 +150,8 @@ export function ReaderToolbar({
   onMenuChange,
 }: {
   visible: boolean;
+  /** A book that did not open: the bar keeps Back and the title, and no control that needs the book (SLN-685) */
+  backOnly?: boolean;
   title: string;
   chapter: string | null;
   backHref: string;
@@ -268,7 +271,7 @@ export function ReaderToolbar({
               </p>
             )}
           </div>
-          {compact ? (
+          {backOnly ? null : compact ? (
             <div className="flex shrink-0 gap-1">
               {fixedControls}
               {!(tiny && fixedControls) && contents}

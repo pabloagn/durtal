@@ -155,6 +155,12 @@ export function openErrorKind(error: unknown): OpenErrorKind {
   return "damaged";
 }
 
+/** What the file's own failure said, for the record of a damaged file (SLN-685) */
+function errorCause(error: unknown): string {
+  const text = error instanceof Error ? error.message || error.name : String(error);
+  return text.trim().slice(0, 300) || "The file could not be opened.";
+}
+
 const ERROR_MESSAGES: Record<OpenErrorKind, string> = {
   damaged: "The file is damaged or not a valid eBook.",
   unsupported: "This kind of file cannot be read here.",
@@ -287,7 +293,7 @@ class FoliateEngine implements ReaderEngine {
     this.#pdfSearchProvider = undefined;
         this.#pdfCss = "";
         const kind = openErrorKind(error);
-        this.#emit("error", { kind, message: ERROR_MESSAGES[kind] });
+        this.#emit("error", { kind, message: ERROR_MESSAGES[kind], cause: errorCause(error) });
       });
       try {
         const book = await makePdfBook(session, api, this.#pdfCss, this.#presentation?.policy);
@@ -393,7 +399,7 @@ class FoliateEngine implements ReaderEngine {
       if (!book.sections?.length) throw new Error("The book has no pages");
     } catch (error) {
       const kind = openErrorKind(error);
-      this.#emit("error", { kind, message: ERROR_MESSAGES[kind] });
+      this.#emit("error", { kind, message: ERROR_MESSAGES[kind], cause: errorCause(error) });
       throw error;
     }
     if (this.#destroyed) return { resolved: null };

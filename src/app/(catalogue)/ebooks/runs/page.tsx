@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { History } from "lucide-react";
+import { ArrowLeft, History } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { buttonClass } from "@/components/ui/button";
@@ -16,9 +16,17 @@ export default async function IngestionRunsPage({ searchParams }: { searchParams
   const more = Math.min(RUN_ROWS_STEP, total - runs.length);
   return (
     <>
-      <PageHeader title="eBooks" description="How eBook files reach the catalogue: each run, what it stored and whether it reconciled." />
+      {/* Under eBooks, titled by what it lists, like a run's own page (SLN-685) */}
+      <Link
+        href="/ebooks"
+        className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
+      >
+        <ArrowLeft className="h-3 w-3" strokeWidth={1.5} aria-hidden />
+        eBooks
+      </Link>
+      <PageHeader title="Ingestion runs" description="How eBook files reach the catalogue: each run, what it stored and whether it reconciled." />
       <section>
-        <SectionHeading title="Ingestion runs" count={total} />
+        <SectionHeading title="All runs" count={total} />
         {runs.length > 0 ? (
           <ul className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary" data-run-list="">
             {runs.map((run) => (

@@ -1186,6 +1186,12 @@ Where the browser reads one file: a fresh URL, for a reader whose URL expired wh
 **Response** `200`: `{ "url": "https://<cdn>/files/..?Expires=..&Key-Pair-Id=..&Signature=..", "expiresAt": "2026-10-08T00:00:00.000Z" }` with CloudFront (a signed URL, valid at least 6 hours; the same URL for 6 hours), or `{ "url": "/api/ebooks/files/<id>", "expiresAt": null }` when the app delivers. `Cache-Control: no-store`.
 **Error** `400`: malformed id. `404`: unknown file, or a file that is not served.
 
+### `POST /api/ebooks/files/[fileId]/open-failure` and `DELETE`
+
+The reader could not open this file (SLN-685). `POST` with `{ "reason": "..." }` keeps the reason (at most 300 characters) and the time under the file's `metadata.openFailure`; the e-book page then says the file is damaged. `DELETE` clears it once the file opens. The file's status does not change.
+
+**Response** `204`. **Error** `400`: malformed id, or no `reason` string. `404` (`POST`): unknown file, or one the reader is never given (not stored or verified, or DRM).
+
 ### `GET /api/reader/[ebookId]/cover`
 
 An e-book's cover: its preferred file's derived WebP, at one width.
