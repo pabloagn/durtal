@@ -2,6 +2,7 @@ import type { Decoration, DecorationStyle } from "@/lib/reader/engine";
 import { DecorationsIndex } from "@/lib/reader/decorations-index";
 import type { FoliateView, FoliateOverlayer } from "./foliate";
 import { normalizeQuoteText } from "./quote-match";
+import { QUIET_GLASS_ANNOTATION_PALETTE } from "@/lib/reader/annotation-colors";
 
 interface Mark {
   id: string;
@@ -54,10 +55,11 @@ function drawMark(
     const g = svg("g");
     const options = { color: mark.color, width: 2, writingMode };
     if (mark.style === "highlight") {
-      const fill = drawing.highlight(rects, { ...options, opacity: 0.24 });
+      const opacity = QUIET_GLASS_ANNOTATION_PALETTE.fillOpacity;
+      const fill = drawing.highlight(rects, { ...options, opacity });
       // The vendored fill uses a theme CSS variable; an explicit opacity owns
       // this group's palette without changing search or history drawing.
-      fill.style.opacity = "0.24";
+      fill.style.opacity = String(opacity);
       g.append(fill);
     } else if (mark.style === "quote") {
       g.append(drawing.underline(rects, { ...options, width: 1, padding: 0 }));

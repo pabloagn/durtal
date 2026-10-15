@@ -1,6 +1,7 @@
 import type { Decoration, EngineEvents } from "../../engine";
 import type { FoliateBook, FoliateView } from "./foliate";
 import { pdfRectToPage } from "./pdf-geometry";
+import { QUIET_GLASS_ANNOTATION_PALETTE } from "@/lib/reader/annotation-colors";
 
 const NS = "http://www.w3.org/2000/svg";
 /** Page-local overlays use real opened page viewports and stored user-unit rectangles. */
@@ -65,7 +66,7 @@ export class PdfDecorations {
           rect.setAttribute("width", String(Math.max(0, box.right - box.left))); rect.setAttribute("height", String(underline ? 2 : box.bottom - box.top));
           rect.setAttribute("fill", item.style === "outline" ? "none" : color);
           if (item.style === "outline") { rect.setAttribute("stroke", color); rect.setAttribute("stroke-width", item.current ? "3" : "1"); }
-          rect.setAttribute("fill-opacity", item.style === "highlight" ? "0.24" : "1"); mark.append(rect);
+          rect.setAttribute("fill-opacity", item.style !== "highlight" ? "1" : group === "annotations" ? String(QUIET_GLASS_ANNOTATION_PALETTE.fillOpacity) : "0.24"); mark.append(rect);
           if (item.style === "quote") { const line = rect.cloneNode(true) as SVGRectElement; line.setAttribute("y", String(box.bottom - 5)); mark.append(line); }
         }
         if (!mark.childNodes.length) continue;

@@ -614,6 +614,7 @@ function ReaderSession({
     palette: annotationPalette,
     onJump: locator => navigate(locator, "annotation"), onNotice: setNotice,
     openAt: openAt ?? null,
+    imagesOnly: file?.format === "cbz",
   });
 
   const bars = useReaderBars({

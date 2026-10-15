@@ -37,18 +37,18 @@ export const READER_THEMES = {
 /** Dark/quote/search fills are supplied by SLN-500's approved decoration contract. */
 export const LIGHT_THEME_HIGHLIGHTS = {
   sepia: {
-    ochre: "#e0c47f",
-    sage: "#c3cfa8",
-    slate: "#bccbcc",
-    rose: "#e3b9b9",
-    violet: "#cdbfd6",
+    ochre: "#dcb783",
+    sage: "#9ccca0",
+    slate: "#80cae1",
+    rose: "#eaa9b9",
+    violet: "#bdb5ee",
   },
   paper: {
-    ochre: "#ead39a",
-    sage: "#cbdbbf",
-    slate: "#c6d3d8",
-    rose: "#ecc7cf",
-    violet: "#d8cde6",
+    ochre: "#dcb783",
+    sage: "#9ccca0",
+    slate: "#80cae1",
+    rose: "#eaa9b9",
+    violet: "#bdb5ee",
   },
 } as const;
 

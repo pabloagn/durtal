@@ -33,6 +33,8 @@ const EMPTY: Record<AnnotationTab, string> = {
 
 /** A passage longer than this may be cut at three lines; its menu offers it whole */
 const LONG_PASSAGE = 100;
+/** A note longer than this may be cut at six lines (SLN-682): one of 9,500 letters ran 8,000px */
+const LONG_NOTE = 300;
 
 const capital = (word: string) => word[0].toUpperCase() + word.slice(1);
 
@@ -41,10 +43,10 @@ function markFill(item: ReaderAnnotation) {
   return QUIET_GLASS_ANNOTATION_PALETTE.fills[item.color];
 }
 
-/** The page, or the percent, then the day, written as on /ebooks/highlights */
+/** A quote says so (SLN-682), then the page, or the percent, then the day, written as on /ebooks/highlights */
 function markPlace(item: ReaderAnnotation) {
   const place = item.locator.pageLabel ? pageWords(item.locator.pageLabel, undefined) : fractionPercent(item.progression);
-  return [place, item.updatedAt.slice(0, 10)].filter(Boolean).join(" · ");
+  return [item.style === "quote" ? "Quote" : null, place, item.updatedAt.slice(0, 10)].filter(Boolean).join(" · ");
 }
 
 /**
@@ -66,6 +68,8 @@ function MarkRow({ item, orphaned, expanded, onToggle, onGo, onNote, onEdit, onD
     item.locator.text?.highlight?.trim().split(/\s+/).slice(0, 8).join(" ") ??
     "Bookmark";
   const highlight = item.kind === "highlight";
+  const longPassage = !!item.text && item.text.length > LONG_PASSAGE;
+  const longNote = !!item.note && item.note.length > LONG_NOTE;
   // Named by its passage, described by its note and place
   const id = useId();
   const body = (
@@ -75,7 +79,7 @@ function MarkRow({ item, orphaned, expanded, onToggle, onGo, onNote, onEdit, onD
       </CapAligned>
       <span className="block min-w-0 flex-1">
         <span id={`${id}-text`} className={`whitespace-pre-wrap break-words text-fg-primary ${expanded ? "block" : "line-clamp-3"}`}>{text}</span>
-        {item.note && <span id={`${id}-note`} className="mt-2 block whitespace-pre-wrap break-words text-fg-secondary">{item.note}</span>}
+        {item.note && <span id={`${id}-note`} className={`mt-2 whitespace-pre-wrap break-words text-fg-secondary ${expanded ? "block" : "line-clamp-6"}`}>{item.note}</span>}
         <span id={`${id}-place`} className="mt-2 block font-sans text-xs text-fg-secondary">
           {markPlace(item)}
         </span>
@@ -109,8 +113,10 @@ function MarkRow({ item, orphaned, expanded, onToggle, onGo, onNote, onEdit, onD
               </button>
             }
           >
-            {item.text && item.text.length > LONG_PASSAGE && (
-              <DropdownMenuItem onClick={onToggle}>{expanded ? "Show less" : "Show the full passage"}</DropdownMenuItem>
+            {(longPassage || longNote) && (
+              <DropdownMenuItem onClick={onToggle}>
+                {expanded ? "Show less" : longPassage ? "Show the full passage" : "Show the full note"}
+              </DropdownMenuItem>
             )}
             {!orphaned && highlight && (
               <DropdownMenuItem onClick={onNote} icon={<NotebookPen className="h-4 w-4" strokeWidth={1.5} />}>
@@ -152,8 +158,11 @@ export function AnnotationsPanel({
   onEdit,
   onDelete,
   conflictContent,
+  imagesOnly = false,
 }: {
   conflictContent?: React.ReactNode;
+  /** A comic's pages are pictures: there is no text to highlight, only pages to bookmark */
+  imagesOnly?: boolean;
   open: boolean;
   onClose(): void;
   book: AnnotationExportBook;
@@ -163,7 +172,8 @@ export function AnnotationsPanel({
   onEdit(annotation: ReaderAnnotation, edit: { color: AnnotationColor }): void;
   onDelete(annotation: ReaderAnnotation): void;
 }) {
-  const [tab, setTab] = useState<AnnotationTab>("highlights");
+  const [chosenTab, setTab] = useState<AnnotationTab>("highlights");
+  const tab = imagesOnly ? "bookmarks" : chosenTab;
   const [color, setColor] = useState<AnnotationColor | "all">("all");
   const [query, setQuery] = useState("");
   const [order, setOrder] = useState<"book" | "newest">("book");
@@ -187,10 +197,14 @@ export function AnnotationsPanel({
       return next;
     });
   return (
-    <ReaderSidePanel open={open} title="Highlights and notes" onClose={onClose}>
+    <ReaderSidePanel open={open} title={imagesOnly ? "Bookmarks" : "Highlights and notes"} onClose={onClose}>
       <div data-reader-widget className="flex flex-col gap-4 px-2">
         {conflictContent}
-        <SegmentedControl
+        {imagesOnly ? (
+          <p className="text-sm text-fg-secondary">
+            A comic&rsquo;s pages are pictures, so they cannot be highlighted. Bookmarks still work.
+          </p>
+        ) : <SegmentedControl
           ariaLabel="Annotations"
           fill
           value={tab}
@@ -200,7 +214,7 @@ export function AnnotationsPanel({
             { value: "notes", label: "Notes" },
             { value: "bookmarks", label: "Bookmarks" },
           ]}
-        />
+        />}
         {counts[tab] > 0 && <>
           <input
             type="search"
