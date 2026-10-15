@@ -3,7 +3,7 @@ import { useEffect, useEffectEvent, useRef, useState, useTransition } from "reac
 import Link from "next/link";
 import { Check, Link2, WandSparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";

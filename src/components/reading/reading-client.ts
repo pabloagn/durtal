@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { readingDay } from "@/lib/reading/dates";
 import type { getReadingsForWork } from "@/lib/actions/reading";
 import type { EditionOption, HomeOption } from "@/lib/reading/page-data";

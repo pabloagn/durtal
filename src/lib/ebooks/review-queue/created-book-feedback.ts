@@ -1,5 +1,5 @@
 "use client";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { refreshSuggestionsForCreatedBook } from "@/lib/actions/ebook-review-suggestions";
 /** Called only with the confirmed create result. Suggestion availability never
  * turns a saved book into a failed create or another create attempt. */

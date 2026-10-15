@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { useShortcut } from "@/components/shortcuts/shortcuts-provider";
 import { setFavourite } from "@/lib/actions/favourites";
 import { FAVOURITE_STAR_ID } from "@/components/shared/favourite-star";

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { SpriteIcon } from "@/components/ui/sprite-icon";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { copyBookText } from "@/lib/utils/copy-book";
 
 interface Props {

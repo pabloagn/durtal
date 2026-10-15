@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import Link from "next/link";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -58,7 +58,7 @@ export function FinishReadingDialog({ data, row, request, home, onClose, changed
       undoToast(`Finished ${data.workTitle}`, async () => {
         try {
           const back = await reopenReading({ readingId: r.id, fingerprint: result.reading.fingerprint, ...result.undo });
-          if (back.message) toast.message(back.message);
+          if (back.message) toast.info(back.message);
           changed();
         } catch (err) {
           showError(err, changed);

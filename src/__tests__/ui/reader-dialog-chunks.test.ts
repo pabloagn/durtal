@@ -13,7 +13,7 @@ const control = vi.hoisted(() => {
   return { wait, reject, loads: 0, past, note, finishPast, finishNote };
 });
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock("@/lib/notifications/toast", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock("@/lib/actions/reading", () => ({
   getReadingDialogData: vi.fn(async () => ({ workId: "one", workTitle: "One", homes: [], rows: [] })),
   pauseReading: vi.fn(), resumeReading: vi.fn(),

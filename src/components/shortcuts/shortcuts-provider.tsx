@@ -14,7 +14,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { handleSurfaceEscape, hasOpenSurface, isPassedThrough } from "@/lib/ui/surface-state";
 import { leavePage } from "@/components/ui/unsaved-guard";
 import { Copy, Link2, type LucideIcon } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { AuthorCreateDialog } from "@/app/(catalogue)/people/author-create-dialog";
 import { VenueCreateDialog } from "@/app/(catalogue)/places/venue-create-dialog";
 import { CreateCollectionDialog } from "@/components/collections/create-collection-dialog";

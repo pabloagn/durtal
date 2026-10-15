@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Undo2, Upload } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { BookPicker } from "@/components/reading/book-picker";
@@ -400,7 +400,7 @@ export function MatchAgain({ importId, show }: { importId: string; show: boolean
       () => rematchImport({ importId }),
       (r) => {
         const matched = (r as { matched: number }).matched;
-        if (!quiet || matched) toast.message(matched ? `${matched} more ${matched === 1 ? "row" : "rows"} matched a book` : "No new matches");
+        if (!quiet || matched) toast.info(matched ? `${matched} more ${matched === 1 ? "row" : "rows"} matched a book` : "No new matches");
       },
     );
   const latest = useRef(again);

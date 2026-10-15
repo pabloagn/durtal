@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { MoreHorizontal } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";

@@ -10,7 +10,7 @@ import {
   ListOrdered,
   RemoveFormatting,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { isSafeLinkUrl, plainTextToHtml } from "@/lib/utils/html-text";
 
 interface RichTextEditorProps {

@@ -18,7 +18,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => nav.router,
   useSearchParams: () => new URLSearchParams(),
 }));
-vi.mock("sonner", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }) }));
+vi.mock("@/lib/notifications/toast", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }) }));
 vi.mock("next/image", () => ({ default: () => null }));
 vi.mock("@/lib/actions/favourites", () => favourites);
 vi.mock("@/app/(catalogue)/people/author-create-dialog", () => ({ AuthorCreateDialog: () => null }));

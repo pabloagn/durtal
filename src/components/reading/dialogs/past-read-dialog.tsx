@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -77,7 +77,7 @@ export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
         setDuplicate(result.message ?? "This may be a read you already logged");
         return;
       }
-      if (result.outcome === "already_present") toast.message(result.message ?? "You already logged this read");
+      if (result.outcome === "already_present") toast.info(result.message ?? "You already logged this read");
       else toast.success("Logged a past read");
       onClose();
       changed();

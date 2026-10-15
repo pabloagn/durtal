@@ -13,7 +13,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: nav.push, replace: vi.fn(), refresh: vi.fn(), prefetch: () => {} }),
   useSearchParams: () => new URLSearchParams(),
 }));
-vi.mock("sonner", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }) }));
+vi.mock("@/lib/notifications/toast", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }) }));
 vi.mock("next/image", () => ({ default: () => null }));
 vi.mock("@/app/(catalogue)/people/author-create-dialog", () => ({
   AuthorCreateDialog: () => createElement("div", { id: "add-person" }),

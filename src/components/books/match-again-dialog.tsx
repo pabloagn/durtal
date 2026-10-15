@@ -18,7 +18,7 @@ import type { MatchField, MatchValue } from "@/lib/match/plan";
 import type { MatchSource } from "@/lib/match/source";
 import { MatchPreviewStep } from "@/components/books/match-preview";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 
 interface MatchResult {
   id: string;

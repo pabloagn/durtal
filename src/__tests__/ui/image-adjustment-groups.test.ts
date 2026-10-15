@@ -9,7 +9,7 @@ import { createRoot, type Root } from "react-dom/client";
 const api = vi.hoisted(() => ({ getImagePresentation: vi.fn(), saveImagePresentation: vi.fn() }));
 vi.mock("@/lib/actions/image-adjustments", () => api);
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("@/lib/notifications/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 import { ImageAdjustmentEditor } from "@/components/media/image-adjustment-editor";
 import { DEFAULT_IMAGE_ADJUSTMENTS } from "@/lib/utils/image-adjustment-css";
 

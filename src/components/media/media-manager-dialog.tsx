@@ -28,7 +28,7 @@ import {
   parseProcessingParams,
   type MonochromeParams,
 } from "@/lib/validations/media";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { mediaUrl } from "@/lib/s3/media-url";
 
 type TabType = "poster" | "background" | "gallery";
@@ -337,6 +337,7 @@ export function MediaManagerDialog({
 
   async function handleReprocess(params: MonochromeParams) {
     if (!tuningId) return;
+    const progress = toast.pending("Reprocessing the image");
     try {
       const res = await fetch("/api/media/reprocess-author", {
         method: "POST",
@@ -344,12 +345,12 @@ export function MediaManagerDialog({
         body: JSON.stringify({ mediaId: tuningId, processingParams: params }),
       });
       if (!res.ok) throw new Error("Reprocessing failed");
-      toast.success("Image reprocessed");
+      progress.success("Image reprocessed");
       await fetchItems();
       router.refresh();
       triggerActivityRefresh();
     } catch {
-      toast.error("Failed to reprocess image");
+      progress.error("Failed to reprocess image");
     }
   }
 

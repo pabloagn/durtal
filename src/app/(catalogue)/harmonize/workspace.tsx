@@ -18,7 +18,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { Dialog } from "@/components/ui/dialog";
 import {

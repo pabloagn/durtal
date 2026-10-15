@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { FolderPlus, ImageIcon, Pencil, Trash2 } from "lucide-react";
 import { AddToCollectionDialog, CollectionShortcut } from "@/components/books/add-to-collection-dialog";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { DetailControls, DetailEditButton } from "@/components/shared/detail-layout";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";

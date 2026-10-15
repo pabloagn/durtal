@@ -13,7 +13,7 @@ const action = vi.hoisted(() => ({
   error: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }));
-vi.mock("sonner", () => ({ toast: { success: () => {}, error: action.error } }));
+vi.mock("@/lib/notifications/toast", () => ({ toast: { success: () => {}, error: action.error } }));
 vi.mock("@/lib/activity/refresh-event", () => ({ triggerActivityRefresh: () => {} }));
 vi.mock("@/components/collections/collection-icon-lazy", () => ({ CollectionIconLazy: () => null }));
 vi.mock("@/lib/actions/collections", () => ({

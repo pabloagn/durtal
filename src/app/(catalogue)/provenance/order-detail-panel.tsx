@@ -22,7 +22,7 @@ import { CapAligned } from "@/components/shared/cap-aligned";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { updateOrderStatus, deleteOrder } from "@/lib/actions/orders";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import type { OrderStatus } from "@/lib/constants/orders";
 import { getValidTransitions, orderStatusLabel } from "@/lib/constants/orders";
 import { OrderEditDialog } from "./order-edit-dialog";

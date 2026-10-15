@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState } from "react";
 import { DeferredFeature } from "@/components/ui/feature-renderer";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";

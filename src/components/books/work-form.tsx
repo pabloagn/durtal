@@ -2,7 +2,7 @@
 
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { X, Plus, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { SeriesFields } from "@/components/books/series-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

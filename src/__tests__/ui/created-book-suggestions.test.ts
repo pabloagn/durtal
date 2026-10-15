@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { workId } from "../ebooks/review-ui-fixtures";
 const api = vi.hoisted(() => ({ refresh: vi.fn(), info: vi.fn() }));
 vi.mock("@/lib/actions/ebook-review-suggestions", () => ({ refreshSuggestionsForCreatedBook: api.refresh }));
-vi.mock("sonner", () => ({ toast: { info: api.info } }));
+vi.mock("@/lib/notifications/toast", () => ({ toast: { info: api.info } }));
 import { notifyCreatedBookSuggestions } from "@/lib/ebooks/review-queue/created-book-feedback";
 beforeEach(() => vi.resetAllMocks());
 describe("stored suggestions after confirmed creation", () => {
