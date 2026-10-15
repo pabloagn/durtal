@@ -259,3 +259,20 @@ adapter regression source added; native retesting remains pending.
     only an image reports the point before the image (its paragraph's start
     to the image's start), so the switch on that page went to the book's
     start. SLN-674.
+
+29. `paginator.js`: a saved place reopens on the same side of the spread.
+    In two-page spreads a chapter can begin on a right-hand page, in the
+    previous chapter's last spread, so the side each page takes depends on
+    every chapter loaded before it (a chapter with an odd column count flips
+    the sides after it). Read on from the book's start, every earlier chapter
+    is in the strip; reopened, only the chapter itself was, so half the time
+    the saved first words came up on the right with the page already read on
+    the left. A navigation to a collapsed point (what a saved place is) that
+    lands on a later page of its spread now loads earlier chapters, one at a
+    time and at most four (`SPREAD_ALIGN_SECTIONS`), until the point begins
+    the spread. The strip's last spread is cut short where the strip ends, so
+    a point on a chapter's last page first loads the next chapter. A jump to
+    a chapter, a mark or a search result is unchanged.
+    And the first place is taken on the book's own fonts: `#display` waits
+    for the view's `fontReady`, at most a second, before anchoring, as
+    Firefox laid the screen out on a fallback font first. SLN-696.

@@ -430,6 +430,11 @@ const rafAnimateScroll = (a, b, duration, ease, render) => new Promise(resolve =
 // this accumulated rendered-view size, animate the native scroll offset instead.
 const RAF_ANIMATE_SCROLL_THRESHOLD = 20000
 
+// Durtal patch 29: at most this many earlier chapters load to bring a saved
+// place to the left-hand page of its spread
+const SPREAD_ALIGN_SECTIONS = 4
+const isPoint = anchor => anchor?.collapsed === true && !!anchor.startContainer
+
 // collapsed range doesn't return client rects sometimes (or always?)
 // try make get a non-collapsed range or element
 export const uncollapse = range => {
@@ -3930,6 +3935,14 @@ export class Paginator extends HTMLElement {
         // - Scrolled mode with anchor in top half — so the user can
         //   scroll backward into the previous section immediately
         const primaryView = this.#primaryView
+        // Durtal patch 29 (VENDORED.md): the first place is taken on the
+        // book's own fonts. Firefox laid the screen out on a fallback font,
+        // reported that place, then moved once the fonts arrived. At most a
+        // second late, so a font that never loads does not hold the book.
+        if (src && primaryView?.fontReady) {
+            await Promise.race([primaryView.fontReady, new Promise(resolve => setTimeout(resolve, 1000))])
+            if (this.#primaryView !== primaryView) return
+        }
         if (!this.noPreload && !this.noContinuousScroll && primaryView) {
             const needsPrev = (primaryView.contentPages > 0 && primaryView.contentPages < this.columnCount)
             if (needsPrev || this.scrolled) {
@@ -3945,7 +3958,9 @@ export class Paginator extends HTMLElement {
         }
         const resolvedAnchor = (typeof anchor === 'function'
             ? anchor(primaryView.document) : anchor) ?? 0
+        const point = isPoint(resolvedAnchor)
         await this.scrollToAnchor(resolvedAnchor, select)
+        if (point) await this.#alignSpreadStart(resolvedAnchor)
         if (hasFocus) this.focusView()
         // Reveal content now that primary section is positioned
         this.#reveal()
@@ -3960,6 +3975,46 @@ export class Paginator extends HTMLElement {
         this.#fillPromise = this.#fillVisibleArea(
             { reanchor: !this.scrolled })
         this.#fillPromise.then(() => { this.#stabilizing = false })
+    }
+    // Durtal patch 29 (VENDORED.md): a saved place is the point where a
+    // screen began. In two-page spreads a chapter can begin on a right-hand
+    // page, in the previous chapter's last spread, so which side a page takes
+    // depends on every chapter loaded before it. Reopened with fewer of them,
+    // the saved words came up on the right with the page already read on the
+    // left. A point that lands on a later page of its spread brings in
+    // earlier chapters, one at a time, until it begins the spread. Callers
+    // test for a point before scrolling, as `uncollapse` widens the range.
+    async #alignSpreadStart(anchor) {
+        if (this.scrolled || this.columnCount < 2 || this.noPreload || this.noContinuousScroll) return
+        // The strip's last spread is cut short where the strip ends, so a
+        // point on a chapter's last page sat on the right until the next
+        // chapter came in (as it does next anyway)
+        const lastIndex = this.#sortedViews.at(-1)?.[0]
+        const nextIdx = lastIndex === this.#primaryIndex ? this.#neighbourIndex(1, lastIndex) : null
+        if (this.#anchorColumn(anchor) && nextIdx != null && this.#isSameDirection(nextIdx)) {
+            await this.#loadAdjacentSection(nextIdx)
+            if (this.#anchor !== anchor) return
+            await this.#scrollToAnchor(anchor)
+        }
+        for (let added = 0; added < SPREAD_ALIGN_SECTIONS; added++) {
+            if (!this.#anchorColumn(anchor)) return
+            const firstIndex = this.#sortedViews[0]?.[0]
+            const prevIdx = firstIndex == null ? null : this.#neighbourIndex(-1, firstIndex)
+            if (prevIdx == null || !this.#isSameDirection(prevIdx)) return
+            await this.#loadAdjacentSection(prevIdx)
+            if (!this.#views.has(prevIdx) || this.#anchor !== anchor) return
+            await this.#scrollToAnchor(anchor)
+        }
+    }
+    // The page of the screen an anchor sits on: 0 for the left-hand page
+    #anchorColumn(anchor) {
+        const rects = uncollapse(anchor)?.getClientRects?.()
+        const rect = rects && (Array.from(rects)
+            .find(r => r.width > 0 && r.height > 0 && r.x >= 0 && r.y >= 0) || rects[0])
+        if (!rect || !this.size) return null
+        const at = this.#getViewOffset(this.#primaryIndex)
+            + this.#getRectMapper()(rect).left - this.#renderedStart
+        return Math.max(0, Math.floor(at / this.size * this.columnCount + 0.01))
     }
     // Load an adjacent section without changing primary index
     async #loadAdjacentSection(index) {
@@ -4241,7 +4296,9 @@ export class Paginator extends HTMLElement {
                     await this.#loadAdjacentSection(prevIdx)
             }
             if (!this.scrolled) await loadPrev()
+            const point = isPoint(resolvedAnchor)
             await this.scrollToAnchor(resolvedAnchor, select)
+            if (point) await this.#alignSpreadStart(resolvedAnchor)
             if (this.scrolled) await loadPrev()
             if (blank) this.#reveal()
             if (hasFocus) this.focusView()
