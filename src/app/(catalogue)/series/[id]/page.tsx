@@ -40,8 +40,10 @@ export default async function SeriesDetailPage({
   searchParams,
 }: PageProps) {
   const { id } = await params;
-  const [s, suggestions, query, next, ebookSuggestions] = await Promise.all([
+  // The volumes' e-book availability follows the series alone, beside the rest
+  const [s, digital, suggestions, query, next, ebookSuggestions] = await Promise.all([
     loadSeries(id),
+    loadSeries(id).then((series) => catalogueAvailability(series?.works.map((work) => work.id) ?? [])),
     getSeriesSuggestions(id).catch(() => []),
     searchParams,
     getSeriesNextToRead(id).catch(() => null),
@@ -49,7 +51,6 @@ export default async function SeriesDetailPage({
   ]);
   if (!s) notFound();
 
-  const digital = await catalogueAvailability(s.works.map((work) => work.id));
   const digitalCount = [...digital.values()].filter((value) => value.read).length;
   const books: (SeriesBook & { accessioned: boolean })[] = s.works.map((w) => {
     const poster = w.media?.find((m) => m.type === "poster" && m.isActive);

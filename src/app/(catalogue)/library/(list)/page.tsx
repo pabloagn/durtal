@@ -8,6 +8,7 @@ import { NoResults } from "@/components/shared/no-results";
 import { clearedListHref, hasListQuery } from "@/lib/utils/list-params";
 import { LibraryShell } from "../library-shell";
 import { LibraryFiltersBar } from "../library-filters-bar";
+import { ListPendingProvider, ListPendingSwap } from "@/components/shared/list-pending";
 import { LibraryHeader, LibraryPending } from "../library-header";
 import { DomainAddLink } from "@/components/domains/domain-add-link";
 import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
@@ -158,8 +159,14 @@ export default async function LibraryPage({ searchParams }: PageProps) {
     <>
       <LibraryHeader searchParams={params} />
 
-      <LibraryFiltersBar />
-      <Suspense key={JSON.stringify(params)} fallback={<LibraryPending />}><LibraryContent searchParams={params} /></Suspense>
+      {/* A search, sort or filter marks the books busy at once, as on People
+          and eBooks (SLN-806) */}
+      <ListPendingProvider>
+        <LibraryFiltersBar />
+        <ListPendingSwap>
+          <Suspense key={JSON.stringify(params)} fallback={<LibraryPending />}><LibraryContent searchParams={params} /></Suspense>
+        </ListPendingSwap>
+      </ListPendingProvider>
     </>
   );
 }
