@@ -1,6 +1,7 @@
 "use client";
 
 import type { Dispatch, ReactNode, SetStateAction } from "react";
+import Link from "next/link";
 import { ArrowRight, Plus, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InstanceForm, type InstanceDraft } from "@/components/books/instance-form";
@@ -51,9 +52,9 @@ export function CopiesStep({
       {locations.length === 0 ? (
         <div className="rounded-sm border border-accent-red/30 bg-accent-red/5 p-4 text-xs text-fg-secondary">
           No locations exist yet. Go to{" "}
-          <a href="/locations" className="text-accent-primary underline">
+          <Link href="/locations" className="text-accent-primary underline">
             /locations
-          </a>{" "}
+          </Link>{" "}
           to create one first.
         </div>
       ) : (

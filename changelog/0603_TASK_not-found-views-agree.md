@@ -27,7 +27,9 @@ shell, so no menu to leave by.
   matches and calls `notFound()`, so a mistyped address shows the catalogue's
   not-found view inside the app shell, with its menu, and answers 404.
   `global-not-found.tsx` stays the fallback when the shell itself cannot
-  render.
+  render. With every address now a page, ESLint's
+  `no-html-link-for-pages` flags the add-book wizard's plain `<a>` to
+  `/locations`; it becomes a `Link`.
 - Every collection's not-found view sets the tab's title ("Film not found |
   Durtal"); the film, perfume, painting, publisher and organization ones had
   none.
