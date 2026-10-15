@@ -27,7 +27,9 @@ read from the source and covered by unit tests at most.
    handlers and its shortcut sheet. The reader's Esc takes one layer per
    press: a dialog or the panel the focus is in; then, from the page,
    read-aloud, the open search panel, the search itself (its results bar
-   and marks, SLN-675), and full screen.
+   and marks, SLN-675), and full screen. With nothing left, Esc asks
+   "Leave the book?" (SLN-744): Leave holds the focus, so Esc then Enter
+   leaves (the place saved first) and Esc twice stays.
 3. **IME composition is never a key** (`isComposing`: `isComposing` or key
    code 229). Esc that ends a composition closes nothing; Enter that picks a
    character saves nothing.

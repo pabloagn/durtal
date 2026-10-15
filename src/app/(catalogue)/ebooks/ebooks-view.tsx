@@ -19,6 +19,7 @@ import { parseEbookLibraryParams } from "@/lib/ebooks/library-params";
 import { EbookCard } from "@/components/ebooks/ebook-card";
 import { EbookRow } from "@/components/ebooks/ebook-row";
 import { EbooksFilters } from "./ebooks-filters";
+import { ListPendingSwap, useListNavigate } from "@/components/shared/list-pending";
 
 export function EbooksView({
   books,
@@ -45,6 +46,7 @@ export function EbooksView({
     ? savedColumns
     : preference.grid.fallback;
   const router = useRouter();
+  const navigate = useListNavigate();
   const search = useSearchParams();
   const params = parseEbookLibraryParams(search);
   // The reader's Back returns to this page as it is: filters, sort and page
@@ -69,7 +71,7 @@ export function EbooksView({
       "order",
       params.sort === key && params.order === "asc" ? "desc" : "asc",
     );
-    router.push(firstPageHref("/ebooks", next), { scroll: false });
+    navigate(() => router.push(firstPageHref("/ebooks", next), { scroll: false }));
   }
   return (
     <>
@@ -80,100 +82,102 @@ export function EbooksView({
         columns={columns}
         setColumns={setColumns}
       />
-      {!books.length ? (
-        // As every list: the shared views, with their mark and a way on (task 0611)
-        filtered ? (
-          <NoResults noun="eBooks" search={params.q || null} hasFilters={otherFilters} clearHref={clearHref} />
-        ) : counts.active + counts.excluded ? (
-          <EmptyState icon={BookOpenText} title="No eBooks found" description="No eBooks match these filters." />
-        ) : (
-          <EmptyState
-            icon={BookOpenText}
-            title="No eBooks yet"
-            action={
-              <Link href="/ebooks/upload" className={buttonClass("secondary")}>
-                Upload eBooks
-              </Link>
-            }
-          />
-        )
-      ) : (
-        <>
-          <Pagination
-            page={page}
-            perPage={perPage}
-            total={counts.total}
-            noun="eBooks"
-            compact
-          />
-          {view === "grid" ? (
-            <div className="@container">
-              <div
-                className={`grid items-stretch gap-4 ${COL_CLASSES[columns]}`}
-              >
-                {books.map((book) => (
-                  <EbookCard
-                    key={book.id}
-                    book={book}
-                    returnTo={returnTo}
-                    sizes={`${maxCardWidth(columns)}px`}
-                  />
-                ))}
-              </div>
-            </div>
+      <ListPendingSwap>
+        {!books.length ? (
+          // As every list: the shared views, with their mark and a way on (task 0611)
+          filtered ? (
+            <NoResults noun="eBooks" search={params.q || null} hasFilters={otherFilters} clearHref={clearHref} />
+          ) : counts.active + counts.excluded ? (
+            <EmptyState icon={BookOpenText} title="No eBooks found" description="No eBooks match these filters." />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-fg-secondary">
-                <caption className="sr-only">eBook library</caption>
-                <thead>
-                  <tr className="border-b border-glass-border type-caption">
-                    <th aria-label="Cover" />
-                    {[
-                      ["title", "Title"],
-                      ["author", "Authors"],
-                      ["format", "Formats"],
-                      ["language", "Language"],
-                      ["size", "Size"],
-                      ["linked", "In Durtal"],
-                      ["added", "Added"],
-                    ].map(([key, label]) => (
-                      <th
-                        key={key}
-                        className="pr-4 pb-2 font-normal"
-                        aria-sort={
-                          params.sort === key
-                            ? params.order === "asc"
-                              ? "ascending"
-                              : "descending"
-                            : "none"
-                        }
-                      >
-                        <button
-                          className="touch-hit whitespace-nowrap"
-                          onClick={() => sort(key)}
-                        >
-                          {label}
-                        </button>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
+            <EmptyState
+              icon={BookOpenText}
+              title="No eBooks yet"
+              action={
+                <Link href="/ebooks/upload" className={buttonClass("secondary")}>
+                  Upload eBooks
+                </Link>
+              }
+            />
+          )
+        ) : (
+          <>
+            <Pagination
+              page={page}
+              perPage={perPage}
+              total={counts.total}
+              noun="eBooks"
+              compact
+            />
+            {view === "grid" ? (
+              <div className="@container">
+                <div
+                  className={`grid items-stretch gap-4 ${COL_CLASSES[columns]}`}
+                >
                   {books.map((book) => (
-                    <EbookRow key={book.id} book={book} returnTo={returnTo} />
+                    <EbookCard
+                      key={book.id}
+                      book={book}
+                      returnTo={returnTo}
+                      sizes={`${maxCardWidth(columns)}px`}
+                    />
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <Pagination
-            page={page}
-            perPage={perPage}
-            total={counts.total}
-            noun="eBooks"
-          />
-        </>
-      )}
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-fg-secondary">
+                  <caption className="sr-only">eBook library</caption>
+                  <thead>
+                    <tr className="border-b border-glass-border type-caption">
+                      <th aria-label="Cover" />
+                      {[
+                        ["title", "Title"],
+                        ["author", "Authors"],
+                        ["format", "Formats"],
+                        ["language", "Language"],
+                        ["size", "Size"],
+                        ["linked", "In Durtal"],
+                        ["added", "Added"],
+                      ].map(([key, label]) => (
+                        <th
+                          key={key}
+                          className="pr-4 pb-2 font-normal"
+                          aria-sort={
+                            params.sort === key
+                              ? params.order === "asc"
+                                ? "ascending"
+                                : "descending"
+                              : "none"
+                          }
+                        >
+                          <button
+                            className="touch-hit whitespace-nowrap"
+                            onClick={() => sort(key)}
+                          >
+                            {label}
+                          </button>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {books.map((book) => (
+                      <EbookRow key={book.id} book={book} returnTo={returnTo} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <Pagination
+              page={page}
+              perPage={perPage}
+              total={counts.total}
+              noun="eBooks"
+            />
+          </>
+        )}
+      </ListPendingSwap>
     </>
   );
 }

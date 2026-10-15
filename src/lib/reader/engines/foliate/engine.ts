@@ -1,5 +1,6 @@
 import { indexDiagnosticEnabled, observeIndexDiagnostic } from "@/lib/reader/index-diagnostics";
 import { flattenContents } from "@/lib/reader/position-index";
+import { pageWords } from "@/lib/reader/place-label";
 import { pageMarkerPhysicallyVisible } from "./page-marker-visibility";
 import type { PdfSearchProvider } from "./search";
 import { attachWordGestures, detailsFromRange, frameRectToHost, selectionHostRect } from "./selection";
@@ -521,6 +522,7 @@ class FoliateEngine implements ReaderEngine {
     );
     const linearSize = sizes.reduce((sum, size) => sum + size, 0);
     const fractions = this.sectionFractions();
+    const paged = source.format === "pdf" || source.format === "cbz";
     const info: BookInfo = {
       title: localized(book.metadata?.title),
       authors: contributors(book.metadata?.author),
@@ -538,9 +540,14 @@ class FoliateEngine implements ReaderEngine {
       pageList: tocFrom(book.pageList),
       linearSize,
       locationCount: Math.max(1, Math.ceil(linearSize / 1500)),
+      // A PDF's or a comic's sections are its pages: name them so (SLN-731),
+      // by the page's own label, as the bar names it ("p. iii", "Page 3")
+      pagedSections: paged,
       sections: book.sections.map((section, index) => ({
         href: String(section.id ?? index),
-        label: "Section " + (index + 1),
+        label: paged
+          ? pageWords(book.pageList?.[index]?.label?.trim() || String(index + 1), undefined, true)
+          : "Section " + (index + 1),
         linear: section.linear !== "no",
         start: fractions[index] ?? 0,
         end: fractions[index + 1] ?? 1,

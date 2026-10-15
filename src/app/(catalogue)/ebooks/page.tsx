@@ -23,6 +23,7 @@ import {
 import { ContinueReading } from "@/components/ebooks/continue-reading";
 import { EbooksView } from "./ebooks-view";
 import { EbooksMenu } from "./ebooks-menu";
+import { ListPendingProvider } from "@/components/shared/list-pending";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { buttonClass } from "@/components/ui/button";
 import { Upload } from "lucide-react";
@@ -133,14 +134,17 @@ export default async function EbooksPage({
         </p>
       )}
       <ContinueReading books={continuation} />
-      <EbooksView
-        books={books.map((ebook) =>
-          ebookCardData(ebook, ebookCoverImage(ebook, base)),
-        )}
-        counts={counts}
-        page={params.page}
-        perPage={params.perPage}
-      />
+      {/* A search, sort or filter marks the eBooks busy at once (SLN-753) */}
+      <ListPendingProvider>
+        <EbooksView
+          books={books.map((ebook) =>
+            ebookCardData(ebook, ebookCoverImage(ebook, base)),
+          )}
+          counts={counts}
+          page={params.page}
+          perPage={params.perPage}
+        />
+      </ListPendingProvider>
     </>
   );
 }

@@ -6,6 +6,7 @@ import { firstPageHref } from "@/lib/utils/list-params";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePreference } from "@/lib/hooks/use-preference";
 import { EntityFilters } from "@/components/shared/entity-filters";
+import { useListNavigate } from "@/components/shared/list-pending";
 import { FilterDropdown, type AnyFilterGroup } from "@/components/shared/filter-dropdown";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
 import { ZODIAC_LABELS, ZODIAC_SIGNS } from "@/lib/utils/zodiac";
@@ -58,6 +59,9 @@ export function AuthorsFiltersBar({
 }: AuthorsFiltersBarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // A filter marks the results busy at once, as the search does (SLN-753)
+  const navigate = useListNavigate();
+  const go = (href: string) => navigate(() => router.push(href));
   const isSearching = !!searchParams.get("q")?.trim();
 
   const [viewMode, setViewMode] = usePreference<ViewMode>(
@@ -200,7 +204,7 @@ export function AuthorsFiltersBar({
               } else {
                 params.delete("birthYearMax");
               }
-      router.push(firstPageHref("/people", params));
+      go(firstPageHref("/people", params));
             },
           } satisfies AnyFilterGroup,
         ]
@@ -226,7 +230,7 @@ export function AuthorsFiltersBar({
               } else {
                 params.delete("deathYearMax");
               }
-      router.push(firstPageHref("/people", params));
+      go(firstPageHref("/people", params));
             },
           } satisfies AnyFilterGroup,
         ]
@@ -248,7 +252,7 @@ export function AuthorsFiltersBar({
     } else {
       params.delete(key);
     }
-      router.push(firstPageHref("/people", params));
+      go(firstPageHref("/people", params));
   }
 
   function handleClearAll() {
@@ -264,7 +268,7 @@ export function AuthorsFiltersBar({
     params.delete("birthYearMax");
     params.delete("deathYearMin");
     params.delete("deathYearMax");
-      router.push(firstPageHref("/people", params));
+      go(firstPageHref("/people", params));
   }
 
   return (

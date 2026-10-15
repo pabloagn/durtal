@@ -224,7 +224,7 @@ function CreditRow({
     <li className="rounded-sm border border-glass-border bg-bg-secondary/40 px-2.5 py-2">
       <div className="flex items-start gap-2 text-sm pointer-coarse:flex-wrap pointer-coarse:leading-11 max-sm:flex-wrap">
         <span
-          className={`min-w-0 flex-1 truncate pointer-coarse:basis-full pointer-coarse:whitespace-normal pointer-coarse:break-words max-sm:basis-full max-sm:whitespace-normal max-sm:break-words ${entry.personId ? "text-fg-primary" : "italic text-fg-secondary"}`}
+          className={`min-w-0 flex-1 whitespace-normal break-words pointer-coarse:basis-full max-sm:basis-full ${entry.personId ? "text-fg-primary" : "italic text-fg-secondary"}`}
         >
           {name}
         </span>
