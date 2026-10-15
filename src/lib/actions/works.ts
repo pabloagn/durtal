@@ -766,8 +766,8 @@ export async function getWorksWithMark(
   return results.sort(compareWorks);
 }
 
-/** Dashboard stats */
-export async function getLibraryStats() {
+/** Dashboard stats; `shelf` is how many books each shelf takes (the API keeps 8) */
+export async function getLibraryStats({ shelf = 8 }: { shelf?: number } = {}) {
   // The library card's first edition, so a shelf shows the cover the library shows
   const firstEdition = [asc(editions.createdAt), asc(editions.id)];
   const worksWith = {
@@ -811,7 +811,7 @@ export async function getLibraryStats() {
 
   const wantedIds = await alphabeticalWorkIds(
     inArray(works.catalogueStatus, ["wanted", "shortlisted"]),
-    8,
+    shelf,
   );
   const [
     [workCount],
@@ -831,7 +831,7 @@ export async function getLibraryStats() {
     db.query.works.findMany({
       where: bookCondition,
       orderBy: desc(works.createdAt),
-      limit: 8,
+      limit: shelf,
       extras: readingExtras,
       with: worksWith,
     }),
@@ -839,7 +839,7 @@ export async function getLibraryStats() {
     db.query.works.findMany({
       where: and(bookCondition, isNotNull(works.rating)),
       orderBy: [sql`${works.rating} desc nulls last`, desc(works.createdAt)],
-      limit: 8,
+      limit: shelf,
       extras: readingExtras,
       with: worksWith,
     }),

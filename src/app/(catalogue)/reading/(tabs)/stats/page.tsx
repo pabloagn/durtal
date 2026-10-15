@@ -131,7 +131,16 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
       )}
       <div className="space-y-14">
         {!empty && (
-          <StatsSection title={year === null ? "All time in numbers" : `${year} in numbers`} id="numbers">
+          <StatsSection
+            title={year === null ? "All time in numbers" : `${year} in numbers`}
+            id="numbers"
+            action={
+              // The books on the shelves have their own statistics (SLN-742)
+              <Link href="/statistics" className="text-xs whitespace-nowrap text-command touch-hit" data-stats-library-link="">
+                Library statistics
+              </Link>
+            }
+          >
             <NumberTiles
               tiles={[
                 { label: "Books finished", value: n(numbers.books) },

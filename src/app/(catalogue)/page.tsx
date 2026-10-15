@@ -219,6 +219,13 @@ function workToCardProps(work: {
   };
 }
 
+/**
+ * Cards a shelf takes: two full rows at five columns (a 1440px window), and
+ * full rows at two; at three or four columns the last row's spares are left
+ * out (PhonePairGrid)
+ */
+const SHELF = 10;
+
 /** The other open collections: counts, newest records. Books come from getLibraryStats. */
 async function otherDomains() {
   const kinds = getEnabledWorkKinds().filter(
@@ -228,14 +235,14 @@ async function otherDomains() {
     kinds.map(async (kind) => ({
       kind,
       counts: await loadDomainCounts(kind),
-      recent: await loadRecentTiles(kind, 8),
+      recent: await loadRecentTiles(kind, SHELF),
     })),
   );
 }
 
 async function DashboardContent() {
   const [stats, others, collections, openReadings, finishedReads] = await Promise.all([
-    getLibraryStats(),
+    getLibraryStats({ shelf: SHELF }),
     otherDomains(),
     getCollections({ limit: 4, offset: 0 }),
     getOpenReadings(),
@@ -278,7 +285,7 @@ async function DashboardContent() {
     ),
   ]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, 8);
+    .slice(0, SHELF);
   const singleDomain = others.length === 0;
   const book = (work: Parameters<typeof workToCardProps>[0]) => (
     <BookCard key={work.id} {...workToCardProps(work)} ebook={digital.get(work.id)?.read ?? null} readerReturnTo="/" />
