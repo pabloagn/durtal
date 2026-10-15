@@ -197,7 +197,7 @@ the identify queue and the harmonize workspace (16 files).
 | 13 | Edit location | `app/(catalogue)/locations/location-card.tsx:208` | Edit form | Save / Create (submit) | draft |
 | 14 | Delete $name | `app/(catalogue)/locations/location-card.tsx:266` | Confirm | Delete (danger) | none |
 | 15 | Edit person | `app/(catalogue)/people/[slug]/author-edit-dialog.tsx:98` | Edit form | Save / Create (submit) | draft |
-| 16 | Merge people | `app/(catalogue)/people/[slug]/author-merge-dialog.tsx:79` | Edit form | Save / Create (submit) | draft |
+| 16 | Merge people | `app/(catalogue)/people/[slug]/author-merge-dialog.tsx:82` | Confirm | none: Merge is not pressed by Enter or ⌘Enter, as a danger button | draft |
 | 17 | Add person | `app/(catalogue)/people/author-create-dialog.tsx:108` | Edit form | Save / Create (submit) | draft |
 | 18 | Link an institution | `app/(catalogue)/places/[slug]/venue-institutions.tsx:181` | Edit form | Save / Create (submit) | draft |
 | 19 | venue ? "Edit venue | `app/(catalogue)/places/venue-create-dialog.tsx:216` | Edit form | Save / Create (submit) | draft |
@@ -277,7 +277,7 @@ the identify queue and the harmonize workspace (16 files).
 | 93 | Delete $family.name | `components/taxonomy/delete-family-dialog.tsx:61` | Confirm | Delete (danger) | none |
 | 94 | Delete $item.name | `components/taxonomy/delete-item-dialog.tsx:70` | Confirm | Delete (danger) | none |
 | 95 | Edit $family.name | `components/taxonomy/edit-family-dialog.tsx:98` | Edit form | Save / Create (submit) | draft |
-| 96 | Merge Item | `components/taxonomy/merge-dialog.tsx:78` | Edit form | Save / Create (submit) | draft |
+| 96 | Merge Item | `components/taxonomy/merge-dialog.tsx:77` | Confirm | none: Merge is not pressed by Enter or ⌘Enter, as a danger button (no form) | draft |
 | 97 | Unsaved changes | `components/ui/dialog.tsx:232` | Unsaved question | Save (Enter), Discard, Keep editing (Esc) | none |
 
 ### Demonstrated (browser-checked) so far

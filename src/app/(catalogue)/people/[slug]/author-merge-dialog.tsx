@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { X, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +27,7 @@ export function AuthorMergeDialog({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
   const [selectedSources, setSelectedSources] = useState<AuthorOption[]>([]);
   const sourceIds = selectedSources.map((s) => s.id);
 
@@ -39,6 +40,8 @@ export function AuthorMergeDialog({
   function addSource(author: AuthorOption) {
     setSelectedSources((prev) => [...prev, author]);
     setSearch("");
+    // The picked row leaves the list: focus stays in the search, not on the page
+    searchRef.current?.focus();
   }
 
   function removeSource(id: string) {
@@ -84,9 +87,10 @@ export function AuthorMergeDialog({
       description={targetAuthorName}
     >
       <div className="space-y-4">
-        {/* Selected sources → Target visual */}
+        {/* Selected sources → Target visual. On a phone the kept person goes
+            under the list, so a chip and its 44px cross get the full width */}
         <div className="rounded-sm border border-glass-border bg-bg-primary px-4 py-3">
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-3 max-sm:flex-col">
             <div className="min-w-0 flex-1">
               <p className="text-xs text-fg-secondary">
                 Will be deleted ({selectedSources.length})
@@ -96,19 +100,22 @@ export function AuthorMergeDialog({
                   {selectedSources.map((s) => (
                     <span
                       key={s.id}
-                      className="inline-flex items-center gap-1 rounded-sm border border-glass-border bg-bg-secondary px-2 py-0.5 text-xs text-fg-secondary"
+                      className="inline-flex max-w-full gap-1 rounded-sm border border-glass-border bg-bg-secondary px-2 py-0.5 text-xs text-fg-secondary pointer-coarse:py-4"
                     >
-                      {s.name}
-                      <button
-                        aria-label={`Remove ${s.name}`}
-                        data-tooltip={`Remove ${s.name}`}
-                        type="button"
-                        onClick={() => removeSource(s.id)}
-                        disabled={isPending}
-                        className="text-fg-muted transition-colors hover:text-fg-primary"
-                      >
-                        <X className="h-3 w-3" strokeWidth={1.5} />
-                      </button>
+                      {/* A long name wraps; the cross stays on its first line (PublisherChip) */}
+                      <span className="min-w-0 break-words">{s.name}</span>
+                      <CapAligned height={12} coarseHeight={44}>
+                        <button
+                          aria-label={`Remove ${s.name}`}
+                          data-tooltip={`Remove ${s.name}`}
+                          type="button"
+                          onClick={() => removeSource(s.id)}
+                          disabled={isPending}
+                          className="flex size-3 items-center justify-center text-fg-muted transition-colors hover:text-fg-primary pointer-coarse:size-11"
+                        >
+                          <X className="h-3 w-3" strokeWidth={1.5} />
+                        </button>
+                      </CapAligned>
                     </span>
                   ))}
                 </div>
@@ -119,10 +126,10 @@ export function AuthorMergeDialog({
               )}
             </div>
             {/* The arrow sits on the label line, so it stays put as names wrap */}
-            <CapAligned height={16} className="text-xs">
+            <CapAligned height={16} className="text-xs max-sm:hidden">
               <ArrowRight className="h-4 w-4 text-fg-muted" strokeWidth={1.5} />
             </CapAligned>
-            <div className="min-w-0 flex-shrink-0 text-right">
+            <div className="min-w-0 sm:flex-shrink-0 sm:text-right">
               <p className="text-xs text-fg-secondary">Will be kept</p>
               <p className="text-sm font-medium text-accent-primary">
                 {targetAuthorName}
@@ -133,11 +140,12 @@ export function AuthorMergeDialog({
 
         {/* Search */}
         <input
+          ref={searchRef}
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search for duplicates..."
-          className="h-9 w-full rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none"
+          className="h-9 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none"
         />
 
         {/* Results */}
@@ -148,7 +156,7 @@ export function AuthorMergeDialog({
                 key={a.id}
                 type="button"
                 onClick={() => addSource(a)}
-                className="flex w-full items-center px-3 py-2 text-left text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
+                className="flex w-full items-center px-3 py-2 pointer-coarse:min-h-11 text-left text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
               >
                 {a.name}
               </button>
@@ -187,8 +195,10 @@ export function AuthorMergeDialog({
           >
             Cancel
           </Button>
+          {/* Merging deletes the duplicates for good: a danger button, which
+              Enter and ⌘Enter never press (docs/03, Dialog keys) */}
           <Button
-            variant="primary"
+            variant="danger"
             size="sm"
             onClick={handleMerge}
             busy={isPending}
