@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Pencil, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,9 @@ const draftOf = (value: LookupSettings): Draft => ({ ...value, sources: value.so
 const siteOf = (url: string) => {
   try { return new URL(url.replaceAll("{word}", "word")).hostname.replace(/^www\./, ""); } catch { return "No address yet"; }
 };
+/** A host name that may wrap only after a dot: "logeion. / uchicago.edu", never "uchicago.e / du" */
+export const hostBreaks = (host: string) =>
+  host.split(".").map((part, index) => index ? <Fragment key={index}>.<wbr />{part}</Fragment> : part);
 const valueOf = (draft: Draft) => ({ v: draft.v, sources: draft.sources.map(({ key: _key, ...source }) => source), translateTo: draft.translateTo });
 export function LookupSettingsGroup() {
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -124,7 +127,7 @@ export function LookupSettingsGroup() {
       </div> : <div key={item.key} className="flex items-start justify-between gap-3 px-5 py-3 text-sm">
         <div className="min-w-0">
           <p className="break-words text-fg-primary">{item.name || "Unnamed source"}</p>
-          <p className="mt-1 break-words text-xs text-fg-secondary">{item.language === "*" ? "Any language" : languageName(item.language)} · {siteOf(item.url)}</p>
+          <p className="mt-1 break-words text-xs text-fg-secondary">{item.language === "*" ? "Any language" : languageName(item.language)} · {hostBreaks(siteOf(item.url))}</p>
         </div>
         <CapAlignedControls height={28} coarseHeight={44}>
           <button type="button" id={"lookup-source-edit-" + item.key} className="action-icon-sm" disabled={editing !== null}

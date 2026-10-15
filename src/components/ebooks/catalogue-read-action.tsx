@@ -63,7 +63,9 @@ export function PaletteEbookReadAction({
         onRead?.();
       }}
     >
-      Read <KeyCombo keys={["mod", "enter"]} />
+      Read
+      {/* A phone has no keys to press, and its title needs the room */}
+      <span className="max-sm:hidden"><KeyCombo keys={["mod", "enter"]} /></span>
     </ReaderEntryLink>
   );
 }

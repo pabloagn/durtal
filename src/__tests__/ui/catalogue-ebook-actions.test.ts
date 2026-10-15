@@ -286,5 +286,9 @@ describe("descriptor-driven catalogue eBook controls", () => {
     expect(onRead).toHaveBeenCalledOnce();
     expect(parent).not.toHaveBeenCalled();
     expect(read.getAttribute("data-tooltip-keys")).toBe("mod enter");
+    // On a phone the keys go, so the title beside it keeps whole words
+    // (review of #319: at 320px "Again / st / Natur / e")
+    expect(read.querySelector("kbd")!.closest(".max-sm\\:hidden")).not.toBeNull();
+    expect(read.textContent).toMatch(/^Read/);
   });
 });

@@ -401,11 +401,13 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
                       className={ITEM_CLASS}
                     >
                       <ResultThumb src={work.cover} name={work.title} kind="book" />
-                      <span className="min-w-0 flex-1 truncate">
+                      {/* On a phone the author is a second line, never cut off;
+                          both lines wrap in full */}
+                      <span className="min-w-0 flex-1 truncate max-sm:whitespace-normal max-sm:break-words">
                         {work.title}
                         {work.creators.length > 0 && (
-                          <span className="text-fg-secondary">
-                            {"  ·  "}
+                          <span className="text-fg-secondary max-sm:block">
+                            <span className="max-sm:hidden">{"  ·  "}</span>
                             {work.creators.slice(0, 2).join(", ")}
                           </span>
                         )}

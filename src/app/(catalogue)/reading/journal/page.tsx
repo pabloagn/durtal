@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Fragment, Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/shared/section-heading";
@@ -77,12 +77,14 @@ async function JournalResults({ params }: { params: ListSearchParams }) {
     <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-fg-secondary" data-journal-summary="">
+          {/* Each count stays whole, its dot after it: the line breaks between
+              counts, never at "re- / reads", and never starts with a dot */}
           {[
             count(summary.readings, "reading"),
             `${summary.finished.toLocaleString("en-US")} finished`,
             `${summary.abandoned.toLocaleString("en-US")} abandoned`,
             count(summary.rereads, "re-read"),
-          ].join(" · ")}
+          ].map((part, index, parts) => <Fragment key={index}>{index > 0 && " "}<span className="whitespace-nowrap">{part}{index < parts.length - 1 && "\u00a0·"}</span></Fragment>)}
         </p>
         {/* Every reading the filters keep, not only this page. Wrapped under
             the counts on a phone, its label starts at their text edge; at the
