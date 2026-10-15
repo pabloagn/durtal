@@ -17,7 +17,7 @@ import { getAppSettings } from "@/lib/actions/settings";
 import { readingDay } from "@/lib/reading/dates";
 import { appTimeZone } from "@/lib/utils/date";
 import { ABANDON_REASON_LABELS, type AbandonReason } from "@/lib/reading/constants";
-import { MONTHS, MONTHS_SHORT, WEEKDAYS, dayLabel, durationWords, minutesLabel, n, parseStatsYear, peakWords } from "@/lib/reading/charts";
+import { MONTHS, MONTHS_SHORT, WEEKDAYS, dayLabel, durationWords, minutesLabel, n, parseStatsYear, peakWords, unreadPileText } from "@/lib/reading/charts";
 import { insights } from "@/lib/reading/insights";
 import { pastGoalText, reachedText } from "@/lib/reading/goals";
 import {
@@ -122,7 +122,16 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
       )}
       <div className="space-y-14">
         {!empty && (
-          <StatsSection title={year === null ? "All time in numbers" : `${year} in numbers`} id="numbers">
+          <StatsSection
+            title={year === null ? "All time in numbers" : `${year} in numbers`}
+            id="numbers"
+            action={
+              // The books on the shelves have their own statistics (SLN-742)
+              <Link href="/statistics" className="text-xs whitespace-nowrap text-command touch-hit" data-stats-library-link="">
+                Library statistics
+              </Link>
+            }
+          >
             <NumberTiles
               tiles={[
                 { label: "Books finished", value: n(numbers.books) },
@@ -526,8 +535,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
             }
           >
             <p className="text-sm text-fg-primary" data-stats-pile="">
-              {count(pile.books, "book")} you own and have not read, {count(pile.pages, "page")}
-              {pile.years !== null ? `: at your pace over the last three years, about ${durationWords(pile.years * 365.25)} to read them all` : ""}.
+              {unreadPileText(pile)}
             </p>
             {pile.atHand.some((h) => h.books) && (
               <p className="text-sm text-fg-secondary" data-stats-pile-homes="">

@@ -50,6 +50,7 @@ export const BOOK_FILTER_KEYS = [
   "copy",
   "lang",
   "origLang",
+  "authorCountry",
   "yearFrom",
   "yearTo",
   "series",

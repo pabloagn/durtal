@@ -17,6 +17,7 @@ import { notesHref } from "@/lib/reading/notes-params";
 import { notesCountText } from "@/lib/reading/notes-text";
 import { DOMAIN_ORDER, WORK_DOMAINS } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
+import { compareCreditRoles } from "@/lib/catalogue/credits";
 import { Badge } from "@/components/ui/badge";
 import { BookCard } from "@/components/books/book-card";
 import { FilmCard } from "@/components/films/film-card";
@@ -53,6 +54,7 @@ import {
   enumLabel,
   metadataSourceLabel,
 } from "@/lib/utils/labels";
+import { PhonePairGrid } from "@/components/shared/phone-pair-grid";
 import { mediaUrl } from "@/lib/s3/media-url";
 
 interface PageProps {
@@ -79,9 +81,11 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
   const [credits, noteCounts, ebookSuggestions] = await Promise.all([getPersonWorkCredits(author.id), getPersonNoteCounts(author.id), getAuthorEbookSuggestionCount(author.id)]);
   const byKind = new Map<WorkKind, typeof credits>();
   for (const c of credits) byKind.set(c.kind, [...(byKind.get(c.kind) ?? []), c]);
+  // Roles in one fixed order, Author first, not in the order of the titles
+  const byRole = [...credits].sort(compareCreditRoles);
   const creditSummary = DOMAIN_ORDER.filter((kind) => byKind.has(kind)).map((kind) => {
     const roles = new Map<string, Set<string>>();
-    for (const c of byKind.get(kind)!)
+    for (const c of byRole.filter((c) => c.kind === kind))
       roles.set(c.role, (roles.get(c.role) ?? new Set()).add(c.workId));
     return {
       kind,
@@ -93,7 +97,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
   // Films, perfumes and paintings as their collections' cards, like the books
   // below; the person's roles on each go under its card
   const creditRoles = new Map<string, string[]>();
-  for (const c of credits)
+  for (const c of byRole)
     if (c.kind !== "book") creditRoles.set(c.workId, [...(creditRoles.get(c.workId) ?? []), c.role]);
   const idsOf = (kind: WorkKind) => [...new Set((byKind.get(kind) ?? []).map((c) => c.workId))];
   const [films, perfumes, paintings] = await Promise.all([
@@ -365,9 +369,8 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                   </div>
                 )}
                 <PaginatedSection {...paging} noun="books">
-                <div
-                  className="catalogue-grid"
-                >
+                {/* Two cards a row on a phone, as every other cover grid */}
+                <PhonePairGrid>
                   {paging.items.map((work) => {
                     const workActivePoster = work.media?.find(
                       (m) => m.type === "poster" && m.isActive,
@@ -418,7 +421,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                       />
                     );
                   })}
-                </div>
+                </PhonePairGrid>
                 </PaginatedSection>
               </section>
             )}
@@ -427,9 +430,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
             {otherCollections.map((group) => (
               <section key={group.kind} className="mb-8">
                 <SectionHeading title={group.label} count={group.cards.length} />
-                <div
-                  className="catalogue-grid"
-                >
+                <PhonePairGrid>
                   {group.cards.map(({ id, card }) => (
                     <div key={id}>
                       {card}
@@ -439,7 +440,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                       </p>
                     </div>
                   ))}
-                </div>
+                </PhonePairGrid>
               </section>
             ))}
 

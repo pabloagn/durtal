@@ -29,7 +29,7 @@ export function LookupHistoryGroup() {
   return <div id="lookup-history" className="scroll-mt-8"><SettingsGroup title="Lookup history"
     description="Kept only in this browser. Durtal’s server never sees it.">
     <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4">
-      <p className="text-sm text-fg-secondary">{count.toLocaleString()} lookups</p>
+      <p className="text-sm text-fg-secondary">{count.toLocaleString("en")} {count === 1 ? "lookup" : "lookups"}</p>
       <Button variant="ghost" size="sm" disabled={busy || count === 0} onClick={() => setConfirm(true)}><Trash2 aria-hidden strokeWidth={1.5} />Clear history</Button>
     </div>
     {entries.map(entry => <div key={entry.id} className="px-5 py-4">
@@ -41,8 +41,11 @@ export function LookupHistoryGroup() {
     {(busy || error || entries.length < count) && <div className="px-5 py-4">
       {busy && <p role="status" className="text-sm text-fg-secondary">Loading lookup history</p>}
       {error && <p role="alert" className="text-sm text-accent-red-text">{error}</p>}
-      {entries.length < count && <Button variant="ghost" disabled={busy} onClick={() => setLimit(value => Math.min(5000, value + 50))}><ChevronDown aria-hidden strokeWidth={1.5} />Show 50 more</Button>}
-      {error && <Button variant="ghost" onClick={() => setRefresh(value => value + 1)}><RefreshCw aria-hidden strokeWidth={1.5} />Try again</Button>}
+      {/* Ghost buttons starting a line under text pull out by their padding, so their icons start on its edge */}
+      {(entries.length < count || error) && <div className="-ml-3 flex flex-wrap gap-3">
+        {entries.length < count && <Button variant="ghost" disabled={busy} onClick={() => setLimit(value => Math.min(5000, value + 50))}><ChevronDown aria-hidden strokeWidth={1.5} />Show 50 more</Button>}
+        {error && <Button variant="ghost" onClick={() => setRefresh(value => value + 1)}><RefreshCw aria-hidden strokeWidth={1.5} />Try again</Button>}
+      </div>}
     </div>}
     <ConfirmDeleteDialog open={confirm} onClose={() => setConfirm(false)} title="Clear lookup history"
       name="Lookup history on this device" description="Clear the lookup history on this device? This cannot be undone."

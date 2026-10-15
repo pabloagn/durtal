@@ -42,7 +42,7 @@ export function ReviewSection({ section, count, page, rows, params, renderRow, o
       </Button></div>}
     {onAll && count > REVIEW_PAGE_SIZE && (section === "likely" || section === "duplicate" || section === "not_a_book" || section === "not_in_durtal") &&
       <Button size="sm" onClick={() => onAll(section === "likely" ? "accept" : section === "not_in_durtal" ? "keep" : "exclude",
-        { section, filters: params.filters })}>Review all {count} filtered eBooks…</Button>}
+        { section, filters: params.filters })}>Review all {count.toLocaleString("en")} filtered eBooks…</Button>}
     {rows.map((row, index) => {
       const author = row.authors.join(" & ") || "Author unknown";
       const previous = rows[index - 1];

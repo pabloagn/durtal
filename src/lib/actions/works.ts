@@ -43,6 +43,7 @@ import {
   ne,
 } from "drizzle-orm";
 import { containsPattern } from "@/lib/utils/like";
+import { textContains } from "@/lib/actions/utils/text-search";
 import { z } from "zod";
 import {
   createWorkSchema,
@@ -76,16 +77,6 @@ import {
 } from "@/lib/reading/summary";
 import type { ReadingFilterParams } from "@/lib/reading/filter-params";
 import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
-
-/**
- * `text` contains the search as typed, or once accents, case and punctuation
- * are folded on both sides by `search_normalize`, as author names already are:
- * "editions de minuit" finds "Éditions de Minuit", "a rebours" "À rebours".
- * A search of punctuation alone folds to nothing and keeps the plain match.
- */
-function textMatches(text: AnyColumn | SQL, search: string): SQL {
-  return sql`(${text} ilike ${containsPattern(search)} or (search_normalize(${search}) <> '' and search_normalize(${text}) like '%' || search_normalize(${search}) || '%'))`;
-}
 
 /**
  * Build a search condition that matches works by title, author, ISBN,
@@ -148,7 +139,7 @@ function buildSearchCondition(search: string): SQL {
       db
         .select({ workId: editions.workId })
         .from(editions)
-        .where(textMatches(editions.publisher, search)),
+        .where(textContains(editions.publisher, search)),
     ),
     inArray(
       works.id,
@@ -161,16 +152,16 @@ function buildSearchCondition(search: string): SQL {
           eq(publishingHouses.id, editionPublishers.publisherId),
         )
         .where(
-          sql`${textMatches(publishingHouses.name, search)} or exists (select 1 from publisher_aliases a where a.publisher_id = ${publishingHouses.id} and ${textMatches(sql`a.name`, search)})`,
+          sql`${textContains(publishingHouses.name, search)} or exists (select 1 from publisher_aliases a where a.publisher_id = ${publishingHouses.id} and ${textContains(sql`a.name`, search)})`,
         ),
     ),
   );
 
   // Title match OR series name match OR related-table matches
   return or(
-    textMatches(works.title, search),
-    textMatches(works.seriesName, search),
-    sql`exists (select 1 from series where series.id = ${works.seriesId} and ${textMatches(sql`series.title`, search)})`,
+    textContains(works.title, search),
+    textContains(works.seriesName, search),
+    sql`exists (select 1 from series where series.id = ${works.seriesId} and ${textContains(sql`series.title`, search)})`,
     ...related,
   )!;
 }
@@ -766,8 +757,8 @@ export async function getWorksWithMark(
   return results.sort(compareWorks);
 }
 
-/** Dashboard stats */
-export async function getLibraryStats() {
+/** Dashboard stats; `shelf` is how many books each shelf takes (the API keeps 8) */
+export async function getLibraryStats({ shelf = 8 }: { shelf?: number } = {}) {
   // The library card's first edition, so a shelf shows the cover the library shows
   const firstEdition = [asc(editions.createdAt), asc(editions.id)];
   const worksWith = {
@@ -811,7 +802,7 @@ export async function getLibraryStats() {
 
   const wantedIds = await alphabeticalWorkIds(
     inArray(works.catalogueStatus, ["wanted", "shortlisted"]),
-    8,
+    shelf,
   );
   const [
     [workCount],
@@ -831,7 +822,7 @@ export async function getLibraryStats() {
     db.query.works.findMany({
       where: bookCondition,
       orderBy: desc(works.createdAt),
-      limit: 8,
+      limit: shelf,
       extras: readingExtras,
       with: worksWith,
     }),
@@ -839,7 +830,7 @@ export async function getLibraryStats() {
     db.query.works.findMany({
       where: and(bookCondition, isNotNull(works.rating)),
       orderBy: [sql`${works.rating} desc nulls last`, desc(works.createdAt)],
-      limit: 8,
+      limit: shelf,
       extras: readingExtras,
       with: worksWith,
     }),

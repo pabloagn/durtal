@@ -1,8 +1,7 @@
 import { sql, type SQL } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { resultRows } from "@/lib/harmonization/store";
+import { batchedRows } from "@/lib/db/read-batch";
 import { ownedBookCondition } from "@/lib/catalogue/holdings";
-import { atHandCopySql, homeOptions } from "./at-hand";
+import { atHandCopySql } from "./at-hand";
 import { countedPagesSql, readingOrdinalSql, readingRatingSql, readingStateSql, rereadSql, tasteRatingSql } from "./summary";
 import { WORK_AUTHOR_ROLES } from "@/lib/types";
 
@@ -46,9 +45,8 @@ const activeIn = (year: StatsYear, alias = "rr") => {
         or exists (select 1 from ss where ss.reading_id = ${r}.id and extract(year from ss.read_on) = ${year}))`;
 };
 
-async function rows<T>(query: SQL): Promise<T[]> {
-  return resultRows<T>(await db.execute(query));
-}
+// The stats run many reads at once: they go to the database as one batch
+const rows = batchedRows;
 
 /* ── 1. The year in numbers ─────────────────────────────────────────────── */
 
@@ -100,14 +98,17 @@ export interface PeriodBar {
  */
 export async function overTheYear(year: StatsYear): Promise<{ bars: PeriodBar[]; unknown: PeriodBar | null; undated: number }> {
   if (year === null) {
-    const bars = await rows<PeriodBar>(sql`with ${BASE}
+    // Both at once: the undated count needs nothing from the bars
+    const [bars, [{ undated }]] = await Promise.all([
+      rows<PeriodBar>(sql`with ${BASE}
       select y.key::int as key, coalesce(b.books, 0)::float8 as books, coalesce(p.pages, 0)::float8 as pages
       from (select distinct extract(year from rr.finished_on)::int as key from rr where rr.status = 'finished' and rr.finished_on is not null
             union select distinct extract(year from cp.day)::int from cp where cp.day is not null) y
       left join (select extract(year from rr.finished_on)::int as key, count(*) as books from rr where rr.status = 'finished' and rr.finished_on is not null group by 1) b on b.key = y.key
       left join (select extract(year from cp.day)::int as key, round(sum(cp.pages)) as pages from cp where cp.day is not null group by 1) p on p.key = y.key
-      order by 1`);
-    const [{ undated }] = await rows<{ undated: number }>(sql`select count(*)::float8 as undated from readings where status = 'finished' and finished_precision = 'unknown'`);
+      order by 1`),
+      rows<{ undated: number }>(sql`select count(*)::float8 as undated from readings where status = 'finished' and finished_precision = 'unknown'`),
+    ]);
     return { bars, unknown: null, undated };
   }
   const months = await rows<PeriodBar & { precision: string }>(sql`with ${BASE}
@@ -203,7 +204,7 @@ export interface RatingsStats {
 }
 
 export async function ratings(year: StatsYear): Promise<RatingsStats> {
-  const [distribution, reread] = await Promise.all([
+  const [distribution, reread, [{ higher }]] = await Promise.all([
     rows<{ rating: number; count: number }>(sql`with ${BASE}
       select rr.read_rating::float8 as rating, count(*)::float8 as count from rr
       where ${finishedIn(year)} and rr.read_rating is not null group by 1 order by 1`),
@@ -215,11 +216,11 @@ export async function ratings(year: StatsYear): Promise<RatingsStats> {
       where (select count(*) from rr f where f.work_id = w.id and f.status = 'finished') >= 2
         and exists (select 1 from rr where rr.work_id = w.id and ${finishedIn(year)})
       order by (select count(*) from rr f where f.work_id = w.id and f.status = 'finished') desc, w.title limit 6`),
-  ]);
-  const [{ higher }] = await rows<{ higher: number }>(sql`with ${BASE}, ordered as (
+    rows<{ higher: number }>(sql`with ${BASE}, ordered as (
       select rr.*, lag(rr.read_rating) over (partition by rr.work_id order by ${sql.raw("coalesce(rr.started_on, rr.finished_on) asc nulls first, rr.source_key asc nulls last, rr.created_at asc, rr.id asc")}) as before
       from rr where rr.status = 'finished')
-    select count(*)::float8 as higher from ordered rr where ${finishedIn(year)} and rr.reread and rr.read_rating > rr.before`);
+    select count(*)::float8 as higher from ordered rr where ${finishedIn(year)} and rr.reread and rr.read_rating > rr.before`),
+  ]);
   // Every half star, so the chart never skips one
   const halves = Array.from({ length: 10 }, (_, i) => (i + 1) / 2).map((rating) => ({ rating, count: distribution.find((d) => d.rating === rating)?.count ?? 0 }));
   return { distribution: halves, reread, higherOnReread: higher };
@@ -500,28 +501,27 @@ export interface UnreadPile {
 const PILE = sql`w.kind = 'book' and ${readingStateSql(sql`w.id`)} = 'unread' and ${ownedBookCondition(sql`w.id`)}`;
 
 export async function unreadPile(today: string): Promise<UnreadPile> {
-  const locations = await rows<{ id: string; name: string; type: string; isActive: boolean }>(
-    sql`select id::text as id, name, type, is_active as "isActive" from locations order by name`,
-  );
-  const homes = homeOptions(locations);
+  // The homes (active physical locations, as homeOptions picks them) come
+  // with their counts, so the three reads go out at once
   const [pile, pace, atHand] = await Promise.all([
     rows<{ books: number; pages: number; withoutPages: number }>(sql`
       select count(*)::float8 as books, coalesce(sum(p.pages), 0)::float8 as pages, count(*) filter (where p.pages is null)::float8 as "withoutPages"
       from (select w.id, coalesce(
-          (select e.page_count from instances i join editions e on e.id = i.edition_id
+          -- A page count of 0 is no page count (SLN-802)
+          (select nullif(e.page_count, 0) from instances i join editions e on e.id = i.edition_id
             where e.work_id = w.id and i.status <> 'deaccessioned' order by i.created_at, i.id limit 1),
-          (select max(e.page_count) from editions e where e.work_id = w.id)) as pages
+          (select max(nullif(e.page_count, 0)) from editions e where e.work_id = w.id)) as pages
         from works w where ${PILE}) p`),
     rows<{ pages: number }>(sql`with ${BASE}
       select coalesce(sum(cp.pages), 0)::float8 as pages from cp
       where cp.day is not null and cp.day > (${today}::date - interval '3 years') and cp.day <= ${today}::date`),
-    homes.length
-      ? rows<{ homeId: string; books: number }>(sql`
-          select h.id::text as "homeId", count(w.id)::float8 as books
-          from (select unnest(${`{${homes.map((h) => h.id).join(",")}}`}::uuid[]) as id) h
-          left join works w on ${PILE} and exists (${atHandCopySql(sql`w.id`, sql`h.id`)})
-          group by h.id`)
-      : Promise.resolve([] as { homeId: string; books: number }[]),
+    rows<{ homeId: string; home: string; books: number }>(sql`
+      select h.id::text as "homeId", h.name as home, count(w.id)::float8 as books
+      from locations h
+      left join works w on ${PILE} and exists (${atHandCopySql(sql`w.id`, sql`h.id`)})
+      where h.type = 'physical' and h.is_active
+      group by h.id, h.name
+      order by h.name`),
   ]);
   const pagesPerYear = (pace[0]?.pages ?? 0) / 3;
   const { books, pages, withoutPages } = pile[0];
@@ -531,7 +531,7 @@ export async function unreadPile(today: string): Promise<UnreadPile> {
     withoutPages,
     pagesPerYear,
     years: pagesPerYear > 0 ? pages / pagesPerYear : null,
-    atHand: homes.map((h) => ({ homeId: h.id, home: h.name, books: atHand.find((a) => a.homeId === h.id)?.books ?? 0 })),
+    atHand,
   };
 }
 

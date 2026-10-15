@@ -37,6 +37,7 @@ import { cardReadingOf } from "@/lib/reading/card";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { appTimeZone } from "@/lib/utils/date";
 import { PhonePairGrid } from "@/components/shared/phone-pair-grid";
+import { DashboardStatistics } from "@/components/statistics/dashboard-statistics";
 
 // The root layout's title template skips a page in its own segment
 export const metadata = { title: { absolute: "Dashboard | Durtal" } };
@@ -218,6 +219,13 @@ function workToCardProps(work: {
   };
 }
 
+/**
+ * Cards a shelf takes: two full rows at five columns (a 1440px window), and
+ * full rows at two; at three or four columns the last row's spares are left
+ * out (PhonePairGrid)
+ */
+const SHELF = 10;
+
 /** The other open collections: counts, newest records. Books come from getLibraryStats. */
 async function otherDomains() {
   const kinds = getEnabledWorkKinds().filter(
@@ -227,14 +235,14 @@ async function otherDomains() {
     kinds.map(async (kind) => ({
       kind,
       counts: await loadDomainCounts(kind),
-      recent: await loadRecentTiles(kind, 8),
+      recent: await loadRecentTiles(kind, SHELF),
     })),
   );
 }
 
 async function DashboardContent() {
   const [stats, others, collections, openReadings, finishedReads] = await Promise.all([
-    getLibraryStats(),
+    getLibraryStats({ shelf: SHELF }),
     otherDomains(),
     getCollections({ limit: 4, offset: 0 }),
     getOpenReadings(),
@@ -277,7 +285,7 @@ async function DashboardContent() {
     ),
   ]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, 8);
+    .slice(0, SHELF);
   const singleDomain = others.length === 0;
   const book = (work: Parameters<typeof workToCardProps>[0]) => (
     <BookCard key={work.id} {...workToCardProps(work)} ebook={digital.get(work.id)?.read ?? null} readerReturnTo="/" />
@@ -302,7 +310,8 @@ async function DashboardContent() {
       content: <PhonePairGrid>{recent.map((item) => item.card)}</PhonePairGrid>,
     });
   }
-  // SLN-742's Statistics section goes here, between what is new and what is curated
+  // The numbers, between what is new and what is curated (SLN-742); the body loads on its own
+  sections.push({ id: "statistics", title: "Statistics", href: "/statistics", content: <DashboardStatistics /> });
   if (collections.length > 0) {
     sections.push({
       id: "collections",

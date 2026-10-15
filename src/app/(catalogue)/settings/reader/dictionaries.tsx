@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -70,8 +70,13 @@ export function DictionariesGroup() {
             signal.throwIfAborted(); setRecords(rows => [...rows, installed.record]); setPersisted(installed.persisted); setFiles([]); setMetadata(null); dictionariesChanged();
           }); }}>Add to this device</Button>
         </div>}
-        {busy && <div className="mt-3 flex flex-wrap gap-3"><p role="status" className="text-sm text-fg-secondary">{busy}</p>
-          <Button variant="ghost" size="sm" onClick={() => operation.current?.abort()}><X aria-hidden strokeWidth={1.5} />Cancel</Button></div>}
+        {/* Under 640 Cancel goes under the status, pulled out by its padding so its icon starts on the text's edge.
+            Beside it from 640 up, it sits on the status's cap height, as CapAligned (height 28, 44 on touch) does,
+            here only from 640 (SLN-808) */}
+        {busy && <div className="mt-3 flex flex-col items-start gap-3 text-sm sm:flex-row"><p role="status" className="text-sm text-fg-secondary">{busy}</p>
+          <span className="shrink-0 sm:block sm:h-[1lh]"><span className="sm:cap-box sm:cap-touch" style={{ "--cap-box": "28px" } as CSSProperties}>
+            <Button variant="ghost" size="sm" className="-ml-2.5 sm:ml-0" onClick={() => operation.current?.abort()}><X aria-hidden strokeWidth={1.5} />Cancel</Button>
+          </span></span></div>}
         {error && <p role="alert" className="mt-3 text-sm text-accent-red-text">{error}</p>}
       </div>
       {records.map(record => <div key={record.id} className="flex items-start justify-between gap-3 px-5 py-4">

@@ -109,7 +109,7 @@ export default async function EbooksPage({
               : undefined
           }
         >
-          {counts.active.toLocaleString("en")} eBooks
+          {counts.active.toLocaleString("en")} {counts.active === 1 ? "eBook" : "eBooks"}
         </Link>
         <span aria-hidden>·</span>
         <Link href="/ebooks/review" className={STATE_LINK}>

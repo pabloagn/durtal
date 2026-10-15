@@ -148,6 +148,7 @@ List works with pagination, search and the library's filters. The library page a
 | `publisher` | list of ids | — | An edition or a wanted edition from these houses or the houses below them |
 | `location`, `format`, `copy` | lists | — | A held copy (not deaccessioned) in these places (ids), in these formats (`hardcover`, `paperback`, `ebook`, `audiobook`, `pdf`, `epub`, `other`), with these details (`signed`, `first`); one copy must match all three |
 | `lang`, `origLang` | lists of language codes | — | An edition in these languages; the work's original language |
+| `authorCountry` | list of ISO alpha-2 codes | — | A writer (author or co-author) from these countries |
 | `yearFrom`, `yearTo` | year | — | The work's original year; reversed years are swapped |
 | `series` | string | — | `in` (in a series) or `none` (standalone); both is no filter |
 | `subject`, `category`, `theme`, `movement`, `artType`, `artMovement`, `keyword`, `attribute` | lists of ids | — | Taxonomy items; a broader category, theme or movement matches its narrower items |

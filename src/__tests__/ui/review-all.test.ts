@@ -36,9 +36,9 @@ describe("bounded full-filter review orchestration", () => {
     expect(callbacks.onCommitted).not.toHaveBeenCalled(); await click("Review these 2 eBooks"); await click("Commit first shown");
     expect(host.querySelector("[data-run-size]")?.getAttribute("data-run-size")).toBe("2");
     await click("Close group"); expect(hasButton("Load next 50 filtered eBooks")).toBeUndefined();
-    expect(hasButton("Review these 1 eBooks")).toBeDefined();
+    expect(hasButton("Review this eBook")).toBeDefined();
     // Reopen with the remaining real descriptor; source test bridge skips it.
-    await click("Review these 1 eBooks"); await click("Close group");
+    await click("Review this eBook"); await click("Close group");
     expect(api.readReviewSelectionPageUi).toHaveBeenCalledOnce();
     expect(callbacks.onCommitted.mock.calls[0][2].map((row: ReviewQueueRow) => row.id)).toEqual([ebookId, secondId]);
   });
@@ -49,5 +49,9 @@ describe("bounded full-filter review orchestration", () => {
     expect(api.readReviewSelectionPageUi).toHaveBeenCalledOnce(); await click("Load next 50 filtered eBooks");
     expect(api.readReviewSelectionPageUi.mock.calls).toEqual([[{ ...source, cursor: null }], [{ ...source, cursor: secondId }]]);
     expect(host.textContent).toContain("last page"); expect(callbacks.onCommitted).toHaveBeenCalledOnce();
+  });
+  it("groups thousands in the pending count (SLN-808)", async () => {
+    await click("Load next 50 filtered eBooks");
+    expect(host.textContent).toContain("0 committed · 0 explicitly skipped · 6,000 pending at the latest page read.");
   });
 });
