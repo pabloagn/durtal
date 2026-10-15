@@ -9,16 +9,17 @@
 
 ## Overview
 
-SLN-702, piece F of the SLN-641 slice 3 audit. Two dialog titles were in
-title case where every other is in sentence case. The eBook runs page said
+SLN-702, piece F of the SLN-641 slice 3 audit. Two add buttons were in
+title case where the app's labels are in sentence case. The eBook runs page said
 it had no runs in one grey sentence, where every other list draws an empty
 state. The audit also reported a 1px alignment deviation on
 `/organizations` at 390 and 320 in Chromium, Firefox and WebKit.
 
 ## Implementation Details
 
-- **Sentence case**: the series dialog's "Add Series" and the recommender
-  dialog's "Add Recommender" become "Add series" and "Add recommender".
+- **Sentence case**: the series page's "Add Series" button and the
+  recommenders page's "Add Recommender" button become "Add series" and "Add
+  recommender".
 - **`/ebooks/runs` with no runs** draws the shared `EmptyState`: a history
   icon, "No runs yet", and what the page lists (each apply, upload batch and
   verification) and where applies come from (the ingest command, run on the
