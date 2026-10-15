@@ -112,7 +112,7 @@ export function AddButton({
 export function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5 max-sm:flex-col">
-      <span className="w-28 shrink-0 pt-px text-xs leading-6 text-fg-secondary pointer-coarse:leading-11 max-sm:w-auto max-sm:pt-0 max-sm:font-medium max-sm:leading-4 max-sm:pointer-coarse:leading-4">
+      <span className="w-28 shrink-0 pt-px text-xs leading-6 text-fg-secondary pointer-coarse:leading-11 max-sm:w-auto max-sm:pt-0 max-sm:font-medium max-sm:leading-5 max-sm:pointer-coarse:leading-5">
         {label}
       </span>
       <div className="flex min-w-0 flex-1 flex-wrap items-start gap-1.5 max-sm:w-full max-sm:flex-none">{children}</div>

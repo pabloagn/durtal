@@ -48,7 +48,8 @@ describe("Record form touch targets", () => {
   it("puts a row's label over its chips on a phone, with a row-starting Add on the label's edge", () => {
     const fields = read("components/catalogue/record-fields.tsx");
     expect(fields).toContain('<div className="flex flex-wrap items-start gap-x-3 gap-y-1.5 max-sm:flex-col">');
-    expect(fields).toContain("max-sm:w-auto max-sm:pt-0 max-sm:font-medium max-sm:leading-4 max-sm:pointer-coarse:leading-4");
+    // The field label's look (type-label: 14px, medium, 20px line), so it sits as far over its chips as a field's label over its input
+    expect(fields).toContain("max-sm:w-auto max-sm:pt-0 max-sm:font-medium max-sm:leading-5 max-sm:pointer-coarse:leading-5");
     expect(fields).toContain('<div className="flex min-w-0 flex-1 flex-wrap items-start gap-1.5 max-sm:w-full max-sm:flex-none">');
     expect(fields).toMatch(/pointer-coarse:min-w-11 pointer-coarse:leading-11 max-sm:first:-ml-1\.5"/);
   });
