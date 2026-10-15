@@ -79,6 +79,8 @@ function readerPage(request: NextRequest) {
 }
 
 export const config = {
-  // Pages (no build assets or files), and the API routes
-  matcher: ["/((?!api/|_next/|.*\\.).*)", "/api/:path*", "/ebooks/:path*"],
+  // Everything but the build's own files. A path with a dot is a page too: the
+  // catch-all not-found page answers it and runs any server action posted to
+  // it, so the host guard has to see it (task 0608)
+  matcher: ["/((?!api/|_next/).*)", "/api/:path*", "/ebooks/:path*"],
 };

@@ -16,7 +16,9 @@
  *   `studio.local`, which only the local network answers);
  * - any name under `.ts.net` (a Tailscale name): Tailscale assigns these
  *   names and their addresses, and outside a tailnet a name there resolves
- *   only to Tailscale's own relays, never to an address a page chooses.
+ *   only to Tailscale's own relays, never to an address a page chooses;
+ * - any one-word name, such as `studio` (a Tailscale MagicDNS short name or a
+ *   LAN name): a page can only own a name with a dot in it.
  *
  * Any other name (a public or a custom name) is listed in
  * `DURTAL_ALLOWED_HOSTS`, comma-separated, without a port: it is allowed on
@@ -54,7 +56,8 @@ export function isAllowedHost(host: string, allowed: ReadonlySet<string>) {
   if (!name) return false;
   if (name.startsWith("[")) return /^\[[0-9a-f:.]+\]$/.test(name);
   if (IPV4.test(name)) return true;
-  if (name === "localhost" || [".localhost", ".local", ".ts.net"].some((suffix) => name.endsWith(suffix))) return true;
+  if (!NAME.test(name)) return false;
+  if (!name.includes(".") || [".localhost", ".local", ".ts.net"].some((suffix) => name.endsWith(suffix))) return true;
   return allowed.has(name);
 }
 

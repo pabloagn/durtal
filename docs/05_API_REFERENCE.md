@@ -24,7 +24,7 @@ The browser says where a call comes from. The check reads `Sec-Fetch-Site` (`sam
 
 ### Host check
 
-A page can point its own name at the Mac (DNS rebinding). The browser then treats the app as that page's own origin, and the same-origin check lets its calls through. So before the same-origin check, `src/proxy.ts` refuses every page and API request whose `Host` is not one of the app's names, with `421` and a plain-text reason (`src/lib/api/allowed-hosts.ts`). The app's names are `localhost` and names under `.localhost`, any IP address, names under `.local` (the Mac's own network name), Tailscale names under `.ts.net` (Tailscale assigns them and their addresses), and the names in `DURTAL_ALLOWED_HOSTS` (docs/13). `X-Forwarded-Host` is never read: a page on a rebound name can set it. A request with no `Host` header does not come from a browser and passes.
+A page can point its own name at the Mac (DNS rebinding). The browser then treats the app as that page's own origin, and the same-origin check lets its calls through. So before the same-origin check, `src/proxy.ts` refuses every page and API request whose `Host` is not one of the app's names, with `421` and a plain-text reason (`src/lib/api/allowed-hosts.ts`). The app's names are `localhost` and names under `.localhost`, any IP address, names under `.local` (the Mac's own network name), Tailscale names under `.ts.net` (Tailscale assigns them and their addresses), one-word names such as a Tailscale short name (a page can only own a name with a dot), and the names in `DURTAL_ALLOWED_HOSTS` (docs/13). `X-Forwarded-Host` is never read: a page on a rebound name can set it. A request with no `Host` header does not come from a browser and passes.
 
 ---
 

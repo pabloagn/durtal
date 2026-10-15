@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { hostName, isAllowedHost, parseAllowedHosts } from "@/lib/api/allowed-hosts";
 import { serverEnv } from "@/lib/env";
-import { proxy } from "@/proxy";
+import { config, proxy } from "@/proxy";
 
 // Task 0608: requests on a name that is not Durtal's (DNS rebinding) are refused.
 
@@ -18,6 +19,7 @@ describe("isAllowedHost", () => {
     "127.0.0.1", "127.0.0.1:3410", "[::1]:3000", "[::1]",
     "192.168.1.20:3110", "100.101.102.103:3110", "10.0.0.5",
     "studio.local:3100", "Studio-Mac.local", "studio.tail1234.ts.net:3110",
+    "studio:3110", "Studio", "studio.:3110",
   ])("allows %s, which no outside page can own", (host) => {
     expect(isAllowedHost(host, none)).toBe(true);
   });
@@ -26,6 +28,7 @@ describe("isAllowedHost", () => {
     "evil.example:3410", "evil.example", "localhost.evil.example", "127.0.0.1.nip.io",
     "studio.local.evil.example", "studio.ts.net.evil.example", "evilts.net", "256.1.1.1", "01.2.3.4",
     "", "a b", "evil.example:", "evil.example:x", "[::1]x", "[::1", "[evil.example]",
+    "evil.example#.local", "evil.example/.ts.net", "studio_mac", "-studio",
   ])("refuses %s", (host) => {
     expect(isAllowedHost(host, none)).toBe(false);
   });
@@ -81,6 +84,8 @@ describe("the proxy on another name", () => {
     expect(proxy(request("http://localhost:3100/library", "localhost:3100"))).toBeUndefined();
     expect(proxy(request("http://studio.local:3110/api/stats", "studio.local:3110"))).toBeUndefined();
     expect(proxy(request("http://studio.tail1234.ts.net:3110/library", "studio.tail1234.ts.net:3110"))).toBeUndefined();
+    // A Tailscale short name (MagicDNS)
+    expect(proxy(request("http://studio:3110/library", "studio:3110"))).toBeUndefined();
     expect(proxy(request("http://durtal.example.com/library", "durtal.example.com"))?.status).toBe(421);
     vi.stubEnv("DURTAL_ALLOWED_HOSTS", "durtal.example.com");
     expect(proxy(request("http://durtal.example.com/library", "durtal.example.com"))).toBeUndefined();
@@ -98,5 +103,19 @@ describe("DURTAL_ALLOWED_HOSTS at startup", () => {
     expect(serverEnv().DURTAL_ALLOWED_HOSTS).toBe("mac.tail1234.ts.net,durtal.example.com");
     vi.stubEnv("DURTAL_ALLOWED_HOSTS", "");
     expect(serverEnv().DURTAL_ALLOWED_HOSTS).toBeUndefined();
+  });
+});
+
+describe("which requests the guard sees", () => {
+  it.each(["/library", "/zz.y", "/library/a.b", "/api/stats", "/ebooks/x", "/favicon.ico", "/sw.js"])(
+    "runs on %s: a server action posted to a path with a dot reaches the catch-all page",
+    (path) => {
+      expect(unstable_doesMiddlewareMatch({ config, url: `http://evil.example${path}` })).toBe(true);
+    },
+  );
+
+  it("leaves the build's own files and the dev server's hot reload alone", () => {
+    for (const path of ["/_next/static/chunks/app.js", "/_next/webpack-hmr"])
+      expect(unstable_doesMiddlewareMatch({ config, url: `http://localhost:3100${path}` })).toBe(false);
   });
 });

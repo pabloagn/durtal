@@ -11,7 +11,7 @@
  *   script     the scripted EPUB's inline and file scripts never run: their
  *              globals stay unset in the page and in every section frame
  *   font       with publisher typography the obfuscated font loads on a secure
- *              origin; on plain http (Chrome: durtal.test mapped to this
+ *              origin; on plain http (Chrome: durtal.local mapped to this
  *              computer) it cannot be decoded and the book still opens
  *   direction  after a click into the text, → turns forward in a
  *              left-to-right book and ← in the right-to-left and vertical
@@ -364,11 +364,12 @@ async function checkFont(name, browser) {
   await context.close();
 
   if (name !== "chromium") return;
-  // Plain http on a name that is not this computer's: no crypto.subtle, so no de-obfuscation
-  const insecure = await chromium.launch({ executablePath: process.env.CHROME || undefined, args: [`--host-resolver-rules=MAP durtal.test 127.0.0.1`] });
+  // Plain http on a name that is not this computer's: no crypto.subtle, so no de-obfuscation.
+  // A .local name, which the host guard lets through (task 0608) and browsers do not trust
+  const insecure = await chromium.launch({ executablePath: process.env.CHROME || undefined, args: [`--host-resolver-rules=MAP durtal.local 127.0.0.1`] });
   const http = await (await insecure.newContext(desktop)).newPage();
   await resetFixturePosition(10);
-  s = await open(http, 10, `http://durtal.test:${target.port || 80}`).catch((error) => ({ state: `failed: ${error.message}` }));
+  s = await open(http, 10, `http://durtal.local:${target.port || 80}`).catch((error) => ({ state: `failed: ${error.message}` }));
   if (s.state === "ready") await pickPublisherFont(http);
   const secure = await http.evaluate(() => isSecureContext).catch(() => null);
   record(
