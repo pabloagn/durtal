@@ -32,7 +32,19 @@ leaves.
 
 ## Completion Notes
 
-- Pending browser checks.
+- Chromium, WebKit and Firefox at 1440, with the book's file held back so
+  "Opening the book" stays: one Escape opens "Leave the book?" on a
+  browser's first open (the device-id page), on a press made before the
+  page's code runs and on a press after it; Enter then leaves to the
+  e-book's page. Escape twice stays, the book then opens, and once it is
+  ready one Escape opens the prompt as before. On main the first press did
+  nothing in all three.
+- `src/components/reader/device-handshake.tsx`: a browser's first open goes
+  through the device-id page, which reloads into the book. It now asks on
+  Escape too, and its reload waits while the question is up.
+- 0 alignment and design-audit findings on the reader (EPUB and PDF) and on
+  the device-id page with the prompt open, in all three engines at 1440, 390
+  and 320; `page-weight.js` within budget.
 - Tests: `controller-barrier.test.ts` presses Escape while the reader's
   features are still starting: one prompt, a second Escape closes it, and
   after the book is ready one Escape opens one prompt and Leave leaves. A
