@@ -22,6 +22,7 @@ row.
   reading stands: "Any edition · Reading", or "Any edition" when it has no
   reading. Editions, films, perfumes and paintings are unchanged.
 - `member-card.tsx`: the comment's example follows.
+- `docs/04_ROUTES_AND_VIEWS.md`: the collection page's whole-book card follows.
 - Test: `src/__tests__/ui/collection-book-row.test.ts`.
 
 ## Completion Notes
