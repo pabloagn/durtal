@@ -96,7 +96,7 @@ const option = (name, fallback) => {
 const base = option("--base", "http://127.0.0.1:3410").replace(/\/$/, "");
 const previewState = option("--preview-state", undefined);
 const browsers = option("--browsers", "chromium,webkit,firefox").split(",");
-const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "clear", "pointer", "dialogs", "navigation", "pdfmarks", "turns", "endurance"];
+const CHECKS = ["opens", "script", "font", "direction", "place", "touch", "bars", "clear", "pointer", "dialogs", "drawers", "navigation", "pdfmarks", "turns", "endurance"];
 // endurance needs the large fixtures: it runs only when asked for
 const only = option("--only", CHECKS.filter((c) => c !== "endurance").join(",")).split(",");
 
@@ -1186,6 +1186,48 @@ async function checkDialogs(name, browser) {
   await context.close();
 }
 
+/** SLN-728: from 1024px up the book stands beside an open drawer */
+async function checkDrawers(name, browser) {
+  // Reopened near a chapter's end, the chapters before it re-lay out after
+  // each resize: three drawers opened and closed keep the same first words
+  await resetFixturePosition(1);
+  const context = await browser.newContext(desktop);
+  let page = await context.newPage();
+  let s = await open(page, 1);
+  await page.mouse.click(720, 450);
+  for (let i = 0; i < 16; i++) {
+    await page.keyboard.press("ArrowRight");
+    s = await moved(page, s.fraction);
+  }
+  await page.waitForResponse(isSave(1), { timeout: 10_000 }).catch(() => null);
+  await page.close();
+  page = await context.newPage();
+  s = await open(page, 1);
+  await page.mouse.click(720, 450);
+  for (let i = 0; i < 4; i++) {
+    await page.keyboard.press("ArrowRight");
+    s = await moved(page, s.fraction);
+  }
+  const start = await settled(page);
+  const insets = [];
+  let now = start;
+  for (let round = 0; round < 3; round++) {
+    await page.keyboard.press("t");
+    await page.waitForSelector("dialog[open][data-reader-side-panel]", { timeout: 3000 }).catch(() => {});
+    await settled(page);
+    insets.push(await page.evaluate(() => document.getElementById("reader-book")?.style.left ?? null));
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector("dialog[open][data-reader-side-panel]"), null, { timeout: 3000 }).catch(() => {});
+    now = await settled(page);
+    if (now.first !== start.first) break;
+  }
+  const back = await page.evaluate(() => document.getElementById("reader-book")?.style.left ?? null);
+  record(name, "drawers", "1440: Contents insets the book, and three opened and closed keep the place at a chapter's end",
+    insets.length > 0 && insets.every((left) => left === "360px") && back === "0px" && now.first === start.first,
+    `insets ${insets.join(", ")} then ${back}; "${start.first}" -> "${now.first}"`);
+  await context.close();
+}
+
 // The large fixtures of preview-local.py --reader-large
 const LARGE = [
   { n: 15, name: "50 MB illustrated EPUB" },
@@ -1398,6 +1440,7 @@ const RUN = {
   bars: checkBars,
   pointer: checkPointer,
   dialogs: checkDialogs,
+  drawers: checkDrawers,
   navigation: async (name, browser) => {
     for (const width of WIDTHS) {
       const context = await browser.newContext(width === 390 ? phone(name) : { viewport: { width, height: 900 } });
