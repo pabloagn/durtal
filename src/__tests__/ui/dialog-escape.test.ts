@@ -144,3 +144,24 @@ describe("Select and Escape", () => {
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
   });
 });
+
+describe("keyboard tooltip from a book page", () => {
+  it("shows for Tab pressed in a watched page, whose keys never reach this window", async () => {
+    const { watchTooltipKeys } = await import("@/lib/ui/tooltip-keys");
+    act(() =>
+      root.render(
+        createElement("div", null,
+          createElement(TooltipLayer),
+          createElement("button", { type: "button", "data-tooltip": "Previous page", id: "prev" }, "x"),
+        ),
+      ),
+    );
+    const page = document.implementation.createHTMLDocument("book");
+    const unwatch = watchTooltipKeys(page);
+    act(() => void page.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" })));
+    act(() => (document.getElementById("prev") as HTMLButtonElement).focus());
+    await wait();
+    expect(tooltipText()).toContain("Previous page");
+    unwatch();
+  });
+});

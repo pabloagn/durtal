@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { KeyCombo } from "@/components/shortcuts/kbd";
+import { noteTooltipKey, resetTooltipKeys, tooltipKeyMovedAt } from "@/lib/ui/tooltip-keys";
 
 /**
  * One tooltip for the whole app, mounted once in the root layout. Any
@@ -39,7 +40,6 @@ const GAP = 6;
 const EDGE = 8;
 const SIDES: Side[] = ["top", "bottom", "right", "left"];
 /** The keys that move focus, and how long after one a focus counts as its */
-const MOVING_KEYS = new Set(["Tab", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"]);
 const MOVED_MS = 500;
 /** The layers an Escape closes */
 const LAYER = 'dialog[open], [popover], [role="dialog"], [role="menu"], [role="listbox"], [cmdk-root]';
@@ -156,8 +156,9 @@ export function TooltipLayer() {
     let closedAt = 0;
     // A click closes the tooltip until the pointer leaves that control
     let clicked: HTMLElement | null = null;
-    // When Tab or an arrow key last went down: the focus that follows it
-    let movedAt = -Infinity;
+    // When Tab or an arrow key last went down (here or in the book's
+    // pages): the focus that follows it is the reader's own
+    resetTooltipKeys();
 
     const show = (next: Tip, delay: number) => {
       window.clearTimeout(timer);
@@ -198,7 +199,7 @@ export function TooltipLayer() {
       // Focus the app moves itself (a dialog's or menu's first control,
       // after the key that opened it) shows no tooltip: only Tab and the
       // arrow keys move the reader's own focus
-      if (performance.now() - movedAt > MOVED_MS) {
+      if (performance.now() - tooltipKeyMovedAt() > MOVED_MS) {
         if (shown.current?.byKeyboard) hide();
         return;
       }
@@ -216,7 +217,7 @@ export function TooltipLayer() {
       }
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      movedAt = MOVING_KEYS.has(e.key) ? performance.now() : -Infinity;
+      noteTooltipKey(e);
       if (!(shown.current || pending)) return;
       // Pressing the control (it may open a menu) closes its tooltip
       if (e.key === "Enter" || e.key === " ") return hide();

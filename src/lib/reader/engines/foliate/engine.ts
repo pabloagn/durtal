@@ -71,6 +71,7 @@ import {
 import { findPageMap, parsePageMap } from "./page-map";
 import { buildAnchorIndex, indexFragment, scanMarkup } from "./position-index";
 import { matchQuote } from "./quote-match";
+import { watchTooltipKeys } from "@/lib/ui/tooltip-keys";
 import type {
   Contributor,
   EpubModule,
@@ -997,6 +998,8 @@ class FoliateEngine implements ReaderEngine {
   #pageInkLifetime = new WeakMap<Document, AbortSignal>();
   #onLoad({ doc, index, signal: loadSignal, waitUntil }: { doc: Document; index: number; signal?: AbortSignal; waitUntil?: (promise: Promise<void>) => void }) {
     this.#nameFrame(doc, index);
+    // Tab from the book onto the reader's controls shows their tooltips
+    watchTooltipKeys(doc);
     doc.addEventListener("focusin", (event) => {
       const target = event.target as Element | null;
       if (

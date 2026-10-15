@@ -38,8 +38,11 @@ Escape close only the tooltip, so a dialog took two presses.
   now closes the tooltip and the layer together. A focus tooltip also shows
   only for focus that Tab or an arrow key moved, not for focus the app
   moves itself (a dialog's first control, or the button a closed dialog
-  gives focus back to, which showed its tooltip after every Escape). The
-  `dialogs` row keeps a single Escape. `docs/03_DESIGN_LANGUAGE.md`,
+  gives focus back to, which showed its tooltip after every Escape). Keys
+  pressed in the book never reach the top window, so each book page
+  reports them (`src/lib/ui/tooltip-keys.ts`, watched by the reader engine
+  on load): Tab from the book onto the toolbar shows Previous page's
+  tooltip (review). The `dialogs` row keeps a single Escape. `docs/03_DESIGN_LANGUAGE.md`,
   Tooltips, says so.
 - `reader-navigation-checks.mjs`: Contents renders its text a moment before
   it opens and takes the focus; the check pressed Escape in between in
