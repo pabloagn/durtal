@@ -152,6 +152,16 @@ export function displayFraming(crop: AppliedCrop) {
   return { cropX: crop.x, cropY: crop.y, cropZoom: NO_CROP.zoom };
 }
 
+/** The owner's image policy for a stored image: its sizes, and whether it is
+ * cut to its frame (cover) or always shown whole (contain). */
+export async function mediaPolicy(row: MediaRow) {
+  const owner = mediaOwnerOf(row);
+  return imagePolicy(
+    { type: owner.type, kind: await mediaOwnerKind(owner) },
+    row.type as MediaType,
+  );
+}
+
 /**
  * Write display files that show `crop`. Reads the stored uncropped image, or
  * uses `uncropped` (a new uncropped image, e.g. after monochrome tuning).
@@ -170,10 +180,7 @@ export async function buildDisplayFiles(
   const rotated = !isUpright(asked);
   // Sizes follow the owner's image policy; a contained image is never cut.
   const owner = mediaOwnerOf(row);
-  const policy = imagePolicy(
-    { type: owner.type, kind: await mediaOwnerKind(owner) },
-    row.type as MediaType,
-  );
+  const policy = await mediaPolicy(row);
   if (framing && policy.fit === "contain")
     throw new Error("This image is always shown whole and cannot be cropped");
   if (!uncropped && sameCrop(displayedCrop(row), asked)) return null;

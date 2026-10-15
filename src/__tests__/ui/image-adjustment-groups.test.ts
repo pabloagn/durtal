@@ -64,6 +64,19 @@ describe("image adjustment groups", () => {
     expect(sliders()).toEqual(["Zoom", "Horizontal", "Vertical", "Straighten"]);
   });
 
+  it("offers a painting or a perfume only Straighten and the turns, and previews it whole", async () => {
+    await open({ crop: UPRIGHT, contained: true });
+    expect(groups()).toEqual(["Tone", "Colour", "Framing"]);
+    await choose("Framing");
+    expect(sliders()).toEqual(["Straighten"]);
+    const buttons = [...host.querySelectorAll("button")].map((item) => item.textContent);
+    expect(buttons).toEqual(expect.arrayContaining(["Turn left", "Turn right"]));
+    const preview = host.querySelector<HTMLElement>("[data-adjustment-preview]")!;
+    expect(preview.className).toContain("object-contain");
+    expect(preview.style.transform).toBe("");
+    expect(preview.parentElement!.className).not.toContain("cursor-grab");
+  });
+
   // SLN-333: quarter turns and a straightening are saved with the crop
   it("turns in quarter turns and saves the turn and straightening with the crop", async () => {
     await open({ crop: UPRIGHT });

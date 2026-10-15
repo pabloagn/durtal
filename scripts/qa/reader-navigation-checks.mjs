@@ -38,12 +38,38 @@ const contentsOpen = (driver) => waitUI(driver, `(() => {
   return !!panel?.open && panel.contains(document.activeElement);
 })()`);
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
+const ROMAN = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 };
+const pageValue = (label) => /^\d+$/.test(label) ? Number(label)
+  : [...label.toLowerCase()].reduce((sum, digit, at, all) =>
+    sum + (ROMAN[digit] < (ROMAN[all[at + 1]] ?? 0) ? -ROMAN[digit] : ROMAN[digit]), 0);
+/** Whether the bottom bar's "p. 12" or "pp. 11–14" takes in the page `label` */
+export function barShowsPage(footer, label) {
+  const shown = footer.match(/pp?\.\s*(\d+|[ivxlcdm]+)(?:\s*[–-]\s*(\d+|[ivxlcdm]+))?/i);
+  if (!shown) return false;
+  const [, from, to = from] = shown;
+  // Roman front matter and Arabic body pages are separate sequences
+  if (/^\d+$/.test(from) !== /^\d+$/.test(label)) return false;
+  const page = pageValue(label);
+  return pageValue(from) <= page && page <= pageValue(to);
+}
+/** The bottom bar names the page. Where the screen holds several printed
+ * pages (WebKit fits more on one) it names their range, "pp. x–xii" */
+async function footerShows(driver, label, message) {
+  const end = Date.now() + 5000;
+  let place;
+  do {
+    place = await driver.evaluate(readerPlace);
+    if (barShowsPage(place.footer, label)) return;
+    await pause(50);
+  } while (Date.now() < end);
+  throw new Error(`${message}: the bottom bar reads "${place.footer}" at "${place.first}"`);
+}
 export async function checkNavigation(driver) {
   await driver.open(19);
-  const roman = await goto(driver, "Page", "xii");
-  assert(roman.footer.includes("p. xii"), "EPUB 3 Roman page label missing");
-  const page57 = await goto(driver, "Page", "57");
-  assert(page57.footer.includes("p. 57"), "EPUB 3 numeric page label missing");
+  await goto(driver, "Page", "xii");
+  await footerShows(driver, "xii", "EPUB 3 Roman page label missing");
+  await goto(driver, "Page", "57");
+  await footerShows(driver, "57", "EPUB 3 numeric page label missing");
   if (driver.savedPage) assert(await driver.savedPage("57"), "Saved locator lost pageLabel");
   await goto(driver, "Chapter", "Chapitre II");
   await driver.key("t", "KeyT");

@@ -9,6 +9,7 @@ export const metadata = { title: "Film not found" };
 export default function FilmNotFound() {
   return (
     <EmptyState
+      heading="h1"
       icon={SearchX}
       title="Film not found"
       description="It may have been deleted, or the address may be mistyped."

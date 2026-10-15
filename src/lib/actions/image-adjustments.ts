@@ -20,12 +20,13 @@ import {
   type StoredImageAdjustments,
 } from "@/lib/utils/image-adjustments";
 import { updateMediaCropSchema } from "@/lib/validations/media";
-import { MAX_STRAIGHTEN, mediaFrameAspect } from "@/lib/media/crop";
+import { MAX_STRAIGHTEN, NO_CROP, mediaFrameAspect } from "@/lib/media/crop";
 import {
   buildDisplayFiles,
   commitDisplay,
   displayFraming,
   editorCrop,
+  mediaPolicy,
 } from "@/lib/media/display";
 
 /** The stored image behind an editor source. E-book covers have no adjustments. */
@@ -122,6 +123,10 @@ export async function getImagePresentation(source: string) {
   );
   const framed = asset.media && mediaFrameAspect(asset.media.type) ? asset.media : null;
   const crop = framed ? editorCrop(framed) : null;
+  // A painting or a perfume is shown whole: it turns and straightens, but
+  // has no framing to zoom or move, so it starts and saves centred
+  const contained = !!framed && (await mediaPolicy(framed)).fit === "contain";
+  const centre = contained ? NO_CROP : crop;
   return {
     assetKey: asset.assetKey,
     source: s3ImageSource(asset.assetKey),
@@ -129,10 +134,11 @@ export async function getImagePresentation(source: string) {
     preview: s3ImageSource(framed?.uncroppedS3Key ?? asset.assetKey),
     monochrome: asset.monochrome,
     settings: enforceImagePolicy(settings, asset.monochrome),
-    crop: crop
-      ? { cropX: crop.x, cropY: crop.y, cropZoom: crop.zoom, turn: crop.turn ?? 0, straighten: crop.straighten ?? 0 }
+    crop: crop && centre
+      ? { cropX: centre.x, cropY: centre.y, cropZoom: centre.zoom, turn: crop.turn ?? 0, straighten: crop.straighten ?? 0 }
       : null,
-    aspect: framed ? mediaFrameAspect(framed.type) : null,
+    aspect: framed && !contained ? mediaFrameAspect(framed.type) : null,
+    contained,
   };
 }
 

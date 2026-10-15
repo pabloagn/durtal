@@ -9,6 +9,7 @@ export const metadata = { title: "Book not found" };
 export default function BookNotFound() {
   return (
     <EmptyState
+      heading="h1"
       icon={SearchX}
       title="Book not found"
       description="It may have been deleted or merged, or the address may be mistyped."
