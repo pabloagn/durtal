@@ -284,7 +284,7 @@ function LoadedEditor({
               disabled={!dirty}
               onClick={save}
             >
-Save
+              Save
             </Button>
           </div>
         </div>
