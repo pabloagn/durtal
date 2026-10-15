@@ -9,6 +9,7 @@ export const metadata = { title: "Perfume not found" };
 export default function PerfumeNotFound() {
   return (
     <EmptyState
+      heading="h1"
       icon={SearchX}
       title="Perfume not found"
       description="It may have been deleted, or the address may be mistyped."

@@ -43,6 +43,7 @@ export function SectionError({
       <title>Something went wrong | Durtal</title>
       <EmptyState
         tone="error"
+        heading="h1"
         icon={AlertCircle}
         title="Something went wrong"
         description={description}
@@ -51,7 +52,7 @@ export function SectionError({
             <Button onClick={retry} busy={retrying}>
               Try again
             </Button>
-            <Link href={backHref} className={buttonClass("ghost")}>
+            <Link href={backHref} className={buttonClass("secondary")}>
               {backLabel}
             </Link>
           </div>

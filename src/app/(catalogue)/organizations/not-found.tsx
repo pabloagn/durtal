@@ -9,6 +9,7 @@ export const metadata = { title: "Organization not found" };
 export default function OrganizationNotFound() {
   return (
     <EmptyState
+      heading="h1"
       icon={SearchX}
       title="Organization not found"
       description="It may have been deleted or merged, or the address may be mistyped."

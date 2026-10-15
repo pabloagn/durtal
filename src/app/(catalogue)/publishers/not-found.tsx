@@ -9,6 +9,7 @@ export const metadata = { title: "Publisher not found" };
 export default function PublisherNotFound() {
   return (
     <EmptyState
+      heading="h1"
       icon={SearchX}
       title="Publisher not found"
       description="It may have been merged or deleted, or the address may be mistyped."
