@@ -70,6 +70,8 @@ export interface ReaderInputOptions {
   turning?(): boolean;
   now?(): number;
   selectionTab?(event: KeyboardEvent): void;
+  /** Tab inside a book's page, when the selection's toolbar did not take it (SLN-810) */
+  bookTab?(event: KeyboardEvent): void;
   selectionEscape?(): boolean;
 }
 
@@ -415,6 +417,7 @@ export function createReaderInput(options: ReaderInputOptions): ReaderInput {
     if (event.shiftKey && event.key.startsWith("Arrow")) return;
     if (event.key === "Tab") {
       options.selectionTab?.(event);
+      if (!event.defaultPrevented && event.currentTarget !== document) options.bookTab?.(event);
       return;
     }
     // Real controls keep native Space/Enter activation, including slot buttons.
