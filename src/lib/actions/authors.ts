@@ -677,7 +677,8 @@ export async function updateAuthor(id: string, rawInput: UpdateAuthorInput) {
     }
   }
 
-  return { id };
+  // The new address when the name gave one, for the page to move to
+  return { id, slug: slug && slug !== prev?.slug ? slug : null };
 }
 
 export async function deleteAuthor(id: string) {

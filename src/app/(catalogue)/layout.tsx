@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IconSprite } from "@/components/ui/sprite-icon";
 import { FavouriteStarSprite } from "@/components/shared/favourite-star";
+import { NavigationFocus } from "@/components/shared/navigation-focus";
 import { rootFontClassName } from "@/styles/root-fonts";
 import { Shell } from "@/components/layout/shell";
 import { ImageGuard } from "@/components/shared/image-guard";
@@ -63,6 +64,7 @@ export default async function RootLayout({
         <ImageGuard />
         <TooltipLayer />
         <FavouriteStarSprite />
+        <NavigationFocus />
         <AppSettingsProvider settings={settings}><PreferencesProvider initial={preferences}><ImageAdjustmentProvider><Shell>{children}</Shell><UnlinkDialogHost /></ImageAdjustmentProvider></PreferencesProvider></AppSettingsProvider>
       </body>
     </html>

@@ -110,6 +110,11 @@ html {
     outline: 2px solid var(--color-accent-primary);
     outline-offset: 2px;
   }
+  /* A page heading that takes the focus so the next Tab goes on from it
+     (after a navigation, or when a list's last row went) is not a control */
+  h1[tabindex="-1"]:focus-visible {
+    outline: none;
+  }
 }
 
 body {

@@ -431,11 +431,12 @@ describe.skipIf(!url)("atomic book writes", () => {
       const mann = await createAuthor({ name: "Thomas Mann" });
       expect(mann.slug).toBe("thomas-mann");
       expect((await createAuthor({ name: "Thomas Mann" })).slug).toBe("thomas-mann-2");
-      await updateAuthor(mann.id, { name: "Heinrich Mann" });
+      // The new address goes back to the page, which moves to it
+      expect((await updateAuthor(mann.id, { name: "Heinrich Mann" })).slug).toBe("heinrich-mann");
       const [renamed] = await c`select slug from authors where id=${mann.id}`;
       expect(renamed.slug).toBe("heinrich-mann");
       // A name that keeps the same base keeps the author's own slug
-      await updateAuthor(mann.id, { name: "Heinrich  Mann" });
+      expect((await updateAuthor(mann.id, { name: "Heinrich  Mann" })).slug).toBeNull();
       expect((await c`select slug from authors where id=${mann.id}`)[0].slug).toBe(
         "heinrich-mann",
       );

@@ -109,8 +109,13 @@ export function acquireSurface(close: () => void, origin = captureFocusOrigin())
       const index = stack.indexOf(entry);
       if (index === -1) return;
       stack.splice(index, 1);
+      // A surface that opens as this one closes (the palette's "Keyboard
+      // shortcuts") gives the focus back to where this one had it. It opens
+      // in the render after the close, so the origin is kept for a frame
       transferredOrigin = entry.origin;
-      queueMicrotask(() => { if (transferredOrigin === entry.origin) transferredOrigin = null; });
+      const clear = () => { if (transferredOrigin === entry.origin) transferredOrigin = null; };
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(clear);
+      else queueMicrotask(clear);
       if (!stack.length) document.removeEventListener("keydown", handleSurfaceEscape);
     },
     guard(guard) {
