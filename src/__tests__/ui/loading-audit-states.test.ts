@@ -1,0 +1,134 @@
+// @vitest-environment happy-dom
+import { describe, expect, it, vi } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...rest }: { href: string; children: unknown }) =>
+    createElement("a", { href, ...rest }, children as never),
+}));
+
+const navigation = vi.hoisted(() => ({ pathname: "/publishers", query: "" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => navigation.pathname,
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(navigation.query),
+}));
+vi.mock("@/lib/hooks/use-preference", () => ({ usePreference: () => [4, () => {}], useViewModePreference: () => ["grid", () => {}] }));
+vi.mock("@/components/shared/pagination", () => ({ Pagination: () => null }));
+vi.mock("@/components/ebooks/ebook-card", () => ({ EbookCard: () => null }));
+vi.mock("@/components/ebooks/ebook-row", () => ({ EbookRow: () => null }));
+vi.mock("../../app/(catalogue)/ebooks/ebooks-filters", () => ({ EbooksFilters: () => null }));
+vi.mock("@/lib/actions/harmonization", () => ({
+  scanLibrary: vi.fn(), applyFindingFixes: vi.fn(), dismissFinding: vi.fn(), getHarmonizationOperation: vi.fn(),
+  getMergePreview: vi.fn(), mergeRecords: vi.fn(), restoreFinding: vi.fn(),
+}));
+
+import PersonLoading from "../../app/(catalogue)/people/[slug]/loading";
+import EbookLoading from "../../app/(catalogue)/ebooks/[ebookId]/loading";
+import HarmonizeLoading from "../../app/(catalogue)/harmonize/loading";
+import PublishersError from "../../app/(catalogue)/publishers/error";
+import EbooksError from "../../app/(catalogue)/ebooks/error";
+import CollectionsError from "../../app/(catalogue)/collections/error";
+import ReadingError from "../../app/(catalogue)/reading/error";
+import { EbooksView } from "../../app/(catalogue)/ebooks/ebooks-view";
+import { HarmonizeWorkspace } from "../../app/(catalogue)/harmonize/workspace";
+import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
+import { buttonClass } from "@/components/ui/button";
+
+// Loading, empty and error states audit, 15 Oct (tasks 0610 to 0612)
+function html(element: React.ReactElement) {
+  const host = document.createElement("div");
+  host.innerHTML = renderToStaticMarkup(element);
+  return host;
+}
+
+describe("loading screens", () => {
+  // A click on a person or an eBook kept the last page with no sign
+  it.each([
+    ["a person", PersonLoading, "Loading the person", "/people"],
+    ["an eBook", EbookLoading, "Loading the eBook", "/ebooks"],
+  ] as const)("%s says it is loading and keeps the way back", (_, Loading, label, back) => {
+    const status = html(createElement(Loading)).querySelector("[role=status]")!;
+    expect(status.getAttribute("aria-label")).toBe(label);
+    expect(status.querySelector("a")!.getAttribute("href")).toBe(back);
+  });
+
+  it("draws Harmonize's own header, cards and toolbar", () => {
+    const host = html(createElement(HarmonizeLoading));
+    const status = host.querySelector(".harmonize[role=status]")!;
+    expect(status.querySelector(".h-header h1")!.textContent).toBe("Harmonize.");
+    expect(status.querySelector(".h-eyebrow")!.textContent).toContain("Catalogue quality");
+    expect(status.querySelector(".h-scan-control button")!.getAttribute("aria-busy")).toBe("true");
+    expect([...status.querySelectorAll(".h-stat .h-stat-number")].map((n) => n.textContent)).toEqual(["—", "—", "—", "—"]);
+    expect(status.querySelector(".h-toolbar input")!.hasAttribute("disabled")).toBe(true);
+  });
+});
+
+describe("Harmonize with no findings to show", () => {
+  // A failed scan offered "Clear filters", which does nothing for it
+  it("offers to scan again when the scan failed", () => {
+    const empty = html(createElement(HarmonizeWorkspace, { initialScan: null, initialError: "The database could not complete this action." })).querySelector(".h-empty")!;
+    expect(empty.querySelector("h2")!.textContent).toBe("Scan unavailable");
+    expect([...empty.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Scan library"]);
+  });
+});
+
+describe("no results", () => {
+  // The only way out of an empty search: a ghost link read as plain text
+  it("leads out with a secondary button", () => {
+    const clear = html(createElement(NoResults, { noun: "books", search: "zz", hasFilters: false, clearHref: "/library" })).querySelector("a")!;
+    expect(clear.textContent).toBe("Clear search");
+    expect(clear.className).toBe(buttonClass("secondary"));
+    const first = html(createElement(PageOutOfRange, { firstPageHref: "/library" })).querySelector("a")!;
+    expect(first.className).toBe(buttonClass("secondary"));
+  });
+});
+
+describe("the eBook library when it shows nothing", () => {
+  const counts = (n: number) => ({ total: 0, active: n, excluded: 0, review: 0, formats: [], languages: [] });
+  const view = (query: string, active: number) => {
+    navigation.query = query;
+    return html(createElement(EbooksView, { books: [], counts: counts(active), page: 1, perPage: 48 }));
+  };
+
+  it("has the shared empty view, with Upload eBooks, when there are none", () => {
+    const host = view("", 0);
+    expect(host.querySelector("h3")!.textContent).toBe("No eBooks yet");
+    expect(host.querySelector("svg")).not.toBeNull();
+    const upload = host.querySelector("a")!;
+    expect([upload.textContent, upload.getAttribute("href"), upload.className]).toEqual(["Upload eBooks", "/ebooks/upload", buttonClass("secondary")]);
+  });
+
+  it("has the shared no-results view for a search", () => {
+    const host = view("q=zz", 40);
+    expect(host.querySelector("h3")!.textContent).toBe("No eBooks found");
+    expect(host.textContent).toContain('No eBooks match "zz".');
+    expect(host.querySelector("a")!.textContent).toBe("Clear search");
+  });
+});
+
+describe("error views that lead back to their own list", () => {
+  const error = Object.assign(new Error("boom"), { digest: "x" });
+  const back = (Error: (props: { error: Error; reset: () => void }) => React.ReactElement, pathname: string) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    navigation.pathname = pathname;
+    const host = html(createElement(Error, { error, reset: () => {} }));
+    const link = host.querySelector("a")!;
+    return [link.getAttribute("href"), link.textContent, host.querySelector("p")!.textContent];
+  };
+
+  it.each([
+    [PublishersError, "/publishers", ["/", "Go to the dashboard", "Publishers could not be loaded."]],
+    [PublishersError, "/publishers/gallimard", ["/publishers", "Back to publishers", "This publisher could not be loaded."]],
+    [PublishersError, "/publishers/review", ["/publishers", "Back to publishers", "An error occurred while loading this page."]],
+    [EbooksError, "/ebooks/00000000-0000-4000-a000-000000000019", ["/ebooks", "Back to eBooks", "This eBook could not be loaded."]],
+    [EbooksError, "/ebooks/review", ["/ebooks", "Back to eBooks", "An error occurred while loading this page."]],
+    [EbooksError, "/ebooks", ["/", "Go to the dashboard", "eBooks could not be loaded."]],
+    [CollectionsError, "/collections/7", ["/collections", "Back to collections", "This collection could not be loaded."]],
+    [ReadingError, "/reading/journal", ["/reading", "Back to reading", "An error occurred while loading this page."]],
+    [ReadingError, "/reading", ["/", "Go to the dashboard", "Reading could not be loaded."]],
+  ] as const)("%o on %s", (Error, pathname, expected) => {
+    expect(back(Error, pathname)).toEqual(expected);
+  });
+});

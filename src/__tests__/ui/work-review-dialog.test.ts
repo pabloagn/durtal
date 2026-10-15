@@ -26,6 +26,10 @@ function button(label: string): HTMLButtonElement {
 }
 async function click(label: string) { await act(async () => button(label).click()); }
 describe("guarded status/history UI", () => {
+  it("makes each step's next action the main one, so Enter and ⌘Enter press it", async () => {
+    expect(button("Preview accessioned status").dataset.variant).toBe("primary");
+    await click("Preview accessioned status"); expect(button("Confirm status change").dataset.variant).toBe("primary");
+  });
   it("shows the exact transition before writing and binds Undo to the receipt", async () => {
     await click("Preview accessioned status"); expect(host.textContent).toContain("wanted → accessioned");
     expect(api.confirmWorkReviewUi).not.toHaveBeenCalled(); await click("Confirm status change");

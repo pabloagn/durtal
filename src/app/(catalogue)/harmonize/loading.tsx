@@ -1,28 +1,58 @@
+import { RefreshCw, Sparkles } from "lucide-react";
+import { CATEGORIES, HarmonizeTitle, IconLabel, StatContent } from "./frame";
+import "./harmonize.css";
+
+/**
+ * Harmonize while the catalogue is scanned, drawn in the page's own layout:
+ * its header with the scan under way, the four category cards, the tabs and
+ * the toolbar, held, then the workspace's box. Each sits where the page puts it
+ * (task 0611).
+ */
 export default function Loading() {
   return (
-    <div
-      className="space-y-8 py-4"
-      role="status"
-      aria-label="Scanning catalogue quality"
-    >
-      <div>
-        <p className="type-caption">
-          Library care
-        </p>
-        <h1 className="type-page-title mt-3">Harmonize</h1>
-        <p className="mt-3 text-sm text-fg-secondary">
-          Looking for records that need a little attention…
-        </p>
-      </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[0, 1, 2, 3].map((n) => (
-          <div
-            key={n}
-            className="h-28 animate-pulse rounded-sm border border-glass-border bg-bg-secondary"
-          />
+    <div className="harmonize" role="status" aria-label="Scanning catalogue quality">
+      <header className="h-header">
+        <HarmonizeTitle />
+        <div className="h-scan-control">
+          <button className="h-button" disabled aria-busy="true">
+            <IconLabel icon={RefreshCw} busy>
+              Scan library
+            </IconLabel>
+          </button>
+          <p>Scanning the entire catalogue</p>
+        </div>
+      </header>
+      <div className="h-stats">
+        {CATEGORIES.map((key, index) => (
+          <div key={key} className="h-stat">
+            <StatContent category={key} index={index} count="—" />
+          </div>
         ))}
       </div>
-      <div className="h-96 animate-pulse rounded-sm border border-glass-border bg-bg-secondary" />
+      <div className="h-workspace-top">
+        <div className="h-tabs">
+          {["To resolve", "Dismissed", "Activity"].map((label) => (
+            <button key={label} disabled className={label === "To resolve" ? "h-tab-active" : ""}>
+              {label}
+              <span>—</span>
+            </button>
+          ))}
+        </div>
+        <span className="h-scan-time">Scanning</span>
+      </div>
+      {/* The toolbar's own controls, held until the scan is in */}
+      <div className="h-toolbar">
+        <input aria-label="Search findings" disabled placeholder="Find a record or an issue…" />
+        <select aria-label="Filter by record type" disabled>
+          <option>All record types</option>
+        </select>
+        <button className="h-filter" disabled>
+          <IconLabel icon={Sparkles}>
+            Ready to fix <span className="h-filter-count">—</span>
+          </IconLabel>
+        </button>
+      </div>
+      <div className="h-workspace motion-safe:animate-pulse" />
     </div>
   );
 }

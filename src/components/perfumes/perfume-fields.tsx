@@ -53,8 +53,12 @@ export function OrganizationRolesField({
   return (
     <FieldRow label="House">
       {value.map((entry, index) => (
-        <span key={`${entry.organizationId}:${entry.role}`} className={CHIP}>
-          <span className="truncate">{entry.name}</span>
+        // On touch the name takes a line of its own, as a credit's does: beside
+        // a 44px role menu and cross it kept two letters at 320px
+        <span key={`${entry.organizationId}:${entry.role}`} className={`${CHIP} pointer-coarse:flex-wrap`}>
+          <span className="truncate pointer-coarse:order-first pointer-coarse:basis-full pointer-coarse:whitespace-normal pointer-coarse:break-words pointer-coarse:py-2.5 pointer-coarse:leading-6">
+            {entry.name}
+          </span>
           <select
             aria-label={`Role of ${entry.name}`}
             value={entry.role}

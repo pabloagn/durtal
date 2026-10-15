@@ -14,14 +14,9 @@ import { useRouter } from "next/navigation";
 import {
   Check,
   GitMerge,
-  ImageIcon,
-  LoaderCircle,
   RefreshCw,
-  ShieldCheck,
   Sparkles,
-  TextCursorInput,
   X,
-  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { CapAligned } from "@/components/shared/cap-aligned";
@@ -53,44 +48,9 @@ import type {
 } from "@/lib/harmonization/types";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
+import { CATEGORIES, HarmonizeTitle, IconLabel, StatContent } from "./frame";
 
-const ICONS: Record<Category, LucideIcon> = {
-  duplicates: GitMerge,
-  artwork: ImageIcon,
-  metadata: TextCursorInput,
-  integrity: ShieldCheck,
-};
-const NOTES: Record<Category, string> = {
-  duplicates: "Bring scattered records together",
-  artwork: "Complete the visual library",
-  metadata: "Give every detail its place",
-  integrity: "Keep relationships consistent",
-};
-const CATEGORIES = Object.keys(CATEGORY_LABELS) as Category[];
 const token = (f: Finding) => ({ key: f.key, fingerprint: f.fingerprint });
-/** A busy label keeps its words: its icon turns into a spinner (contract section 8) */
-function IconLabel({
-  icon: Icon,
-  busy = false,
-  children,
-}: {
-  icon: LucideIcon;
-  busy?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <span className="h-icon-label">
-      <CapAligned height={14}>
-        {busy ? (
-          <LoaderCircle size={14} strokeWidth={1.5} className="animate-spin" aria-hidden="true" />
-        ) : (
-          <Icon size={14} strokeWidth={1.5} />
-        )}
-      </CapAligned>
-      <span>{children}</span>
-    </span>
-  );
-}
 function Value({ value }: { value: unknown }) {
   if (value === null || value === undefined || value === "")
     return <span className="h-muted">Not recorded</span>;
@@ -369,14 +329,7 @@ export function HarmonizeWorkspace({
   return (
     <div className="harmonize">
       <header className="h-header">
-        <div>
-          <p className="h-eyebrow">
-            Library care <span>/</span> Catalogue quality
-          </p>
-          <h1 className="type-page-title mt-3">
-            Harmonize<span className="h-title-dot">.</span>
-          </h1>
-        </div>
+        <HarmonizeTitle />
         <div className="h-scan-control">
           <button
             className="h-button"
@@ -398,9 +351,17 @@ export function HarmonizeWorkspace({
       {error && (
         <div className="h-error" role="alert">
           <p>{error}</p>
-          <button aria-label="Dismiss error" data-tooltip="Dismiss error" onClick={() => setError(null)}>
-            <X size={14} />
-          </button>
+          {/* On the first line's cap height, 44px on touch (task 0611) */}
+          <CapAligned height={14} coarseHeight={44}>
+            <button
+              aria-label="Dismiss error"
+              data-tooltip="Dismiss error"
+              onClick={() => setError(null)}
+              className="flex h-full w-3.5 items-center justify-center focus-visible:-outline-offset-2 pointer-coarse:w-11"
+            >
+              <X size={14} strokeWidth={1.5} />
+            </button>
+          </CapAligned>
         </div>
       )}
       {scan && !scan.persistenceAvailable && (
@@ -422,14 +383,11 @@ export function HarmonizeWorkspace({
             }}
             aria-pressed={category === key}
           >
-            <div className="h-stat-label">
-              <IconLabel icon={ICONS[key]}>{CATEGORY_LABELS[key]}</IconLabel>
-              <span className="h-stat-index">0{index + 1}</span>
-            </div>
-            <div className="h-stat-number">
-              {scan ? scan.counts.categories[key].toLocaleString() : "—"}
-            </div>
-            <p>{NOTES[key]}</p>
+            <StatContent
+              category={key}
+              index={index}
+              count={scan ? scan.counts.categories[key].toLocaleString() : "—"}
+            />
           </button>
         ))}
       </section>
@@ -614,9 +572,25 @@ export function HarmonizeWorkspace({
                           : "No findings need your attention right now."
                     }
                     action={
-                      <button className="h-text-button" onClick={resetFilters}>
-                        Clear filters
-                      </button>
+                      // The way on fits the view: scan again after a failed
+                      // scan, clear filters that hide findings, nothing when
+                      // all is in order (task 0611)
+                      !scan ? (
+                        <button
+                          className="h-button"
+                          onClick={refresh}
+                          disabled={busy}
+                          aria-busy={scanning || undefined}
+                        >
+                          <IconLabel icon={RefreshCw} busy={scanning}>
+                            Scan library
+                          </IconLabel>
+                        </button>
+                      ) : scan.counts.inbox ? (
+                        <button className="h-text-button" onClick={resetFilters}>
+                          Clear filters
+                        </button>
+                      ) : undefined
                     }
                   />
                 )}

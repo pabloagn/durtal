@@ -25,6 +25,8 @@ vi.mock("@/lib/db", () => ({
   ),
 }));
 import {
+  authorExists,
+  ebookExists,
   organizationExists,
   publisherExists,
   workRecordExists,
@@ -94,5 +96,19 @@ describe.skipIf(!url)("detail layouts know a missing record before the page star
     expect(await publisherExists("gallimard")).toBe(true);
     expect(await publisherExists("guerlain")).toBe(false);
     expect(await publisherExists("nobody")).toBe(false);
+  });
+
+  // The person and eBook pages took loading screens (task 0610)
+  it("finds a person by slug and an eBook by id, in either case", async () => {
+    await c`insert into authors(name, slug) values ('André Breton', 'andre-breton')`;
+    const [{ id: ebook }] = await c`insert into ebooks(title, language, import_source) values ('Nadja', 'fr', 'folder') returning id`;
+
+    expect(await authorExists("andre-breton")).toBe(true);
+    expect(await authorExists("nobody")).toBe(false);
+    expect(await authorExists("x".repeat(1001))).toBe(false);
+    expect(await ebookExists(ebook as string)).toBe(true);
+    expect(await ebookExists((ebook as string).toUpperCase())).toBe(true);
+    expect(await ebookExists("00000000-0000-4000-a000-000000000000")).toBe(false);
+    expect(await ebookExists("nadja")).toBe(false);
   });
 });
