@@ -26,9 +26,11 @@ vi.mock("@/lib/db", () => ({
 }));
 import {
   authorExists,
+  collectionExists,
   ebookExists,
   organizationExists,
   publisherExists,
+  seriesExists,
   workRecordExists,
 } from "@/lib/catalogue/record-exists";
 
@@ -110,5 +112,19 @@ describe.skipIf(!url)("detail layouts know a missing record before the page star
     expect(await ebookExists((ebook as string).toUpperCase())).toBe(true);
     expect(await ebookExists("00000000-0000-4000-a000-000000000000")).toBe(false);
     expect(await ebookExists("nadja")).toBe(false);
+  });
+
+  // A collection and a series took loading screens (SLN-751)
+  it("finds a collection and a series by id, in either case", async () => {
+    const [{ id: collection }] = await c`insert into collections(name) values ('Decadents') returning id`;
+    const [{ id: series }] = await c`insert into series(title, slug) values ('Durtal cycle', 'durtal-cycle') returning id`;
+
+    expect(await collectionExists(collection as string)).toBe(true);
+    expect(await collectionExists((collection as string).toUpperCase())).toBe(true);
+    expect(await collectionExists(series as string)).toBe(false);
+    expect(await collectionExists("decadents")).toBe(false);
+    expect(await seriesExists(series as string)).toBe(true);
+    expect(await seriesExists(collection as string)).toBe(false);
+    expect(await seriesExists("durtal-cycle")).toBe(false);
   });
 });

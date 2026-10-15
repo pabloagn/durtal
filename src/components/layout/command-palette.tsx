@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useState, useTransition } from "react";
+import { useEffect, useCallback, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import {
@@ -10,6 +10,7 @@ import {
   Search,
   Keyboard,
   Loader2,
+  RotateCw,
   Copy,
   Link2,
   BookMarked,
@@ -151,6 +152,10 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
   const [selected, setSelected] = useState("");
   const [results, setResults] = useState<QuickSearchResult>(NO_RESULTS);
   const [searching, setSearching] = useState(false);
+  // A search that failed says so, with a way to run it again (SLN-752)
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [recentFromQuery, setRecentFromQuery] = useState<WorkEbookDTO | null>(null);
 
   const navigate = useCallback(
@@ -219,6 +224,7 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
     if (trimmed.length < 2) {
       setResults(NO_RESULTS);
       setSearching(false);
+      setFailed(false);
       return;
     }
     let stale = false;
@@ -226,9 +232,15 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
     const timer = setTimeout(async () => {
       try {
         const found = await quickSearch(trimmed);
-        if (!stale) setResults(found);
+        if (!stale) {
+          setResults(found);
+          setFailed(false);
+        }
       } catch {
-        if (!stale) setResults(NO_RESULTS);
+        if (!stale) {
+          setResults(NO_RESULTS);
+          setFailed(true);
+        }
       } finally {
         if (!stale) setSearching(false);
       }
@@ -237,7 +249,7 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
       stale = true;
       clearTimeout(timer);
     };
-  }, [trimmed]);
+  }, [trimmed, attempt]);
 
   // "This page" shows when the page has its own entries, or when searched
   // The page's E and R entries, each with its full label ("Edit work", "Log progress")
@@ -371,6 +383,7 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
           <div className="flex items-center border-b border-glass-border px-4">
             <Search className="mr-2 h-4 w-4 shrink-0 text-fg-muted" strokeWidth={1.5} />
             <Command.Input
+              ref={inputRef}
               value={query}
               onValueChange={setQuery}
               placeholder="Search the catalogue, or type a command..."
@@ -378,10 +391,14 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
               autoFocus
             />
             {searching && (
-              <Loader2
-                className="ml-2 h-4 w-4 shrink-0 animate-spin text-fg-muted"
-                strokeWidth={1.5}
-              />
+              <span role="status" className="contents">
+                <Loader2
+                  aria-hidden="true"
+                  className="ml-2 h-4 w-4 shrink-0 animate-spin text-fg-muted"
+                  strokeWidth={1.5}
+                />
+                <span className="sr-only">Searching</span>
+              </span>
             )}
           </div>
 
@@ -512,6 +529,26 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
                     </span>
                   </Command.Item>
                 ))}
+              </Command.Group>
+            )}
+
+            {trimmed && !searching && failed && (
+              <Command.Group heading="Search failed" className={GROUP_CLASS} data-palette-failed="">
+                <p role="status" className="px-2 pb-1.5 text-sm text-fg-secondary">
+                  The catalogue could not be searched.
+                </p>
+                <Command.Item
+                  value="search:again"
+                  onSelect={() => {
+                    setAttempt((n) => n + 1);
+                    // A click keeps typing in the field, as Enter does
+                    inputRef.current?.focus();
+                  }}
+                  className={ITEM_CLASS}
+                >
+                  <RotateCw className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                  <span className="min-w-0 flex-1 truncate">Search again</span>
+                </Command.Item>
               </Command.Group>
             )}
 

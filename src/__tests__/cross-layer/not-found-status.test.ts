@@ -53,6 +53,14 @@ describe("missing records answer 404", () => {
     for (const kind of ["library", "films", "perfumes", "paintings", "organizations", "publishers"]) {
       expect(streamed).toContain(path.join(app, "(catalogue)", kind, "[slug]", "page.tsx"));
     }
+    // A collection and a series took loading screens (SLN-751)
+    for (const kind of ["collections", "series"]) {
+      expect(streamed).toContain(path.join(app, "(catalogue)", kind, "[id]", "page.tsx"));
+    }
+    // The reading tabs' loading screen sits in a route group: a year in review
+    // and an import stay outside it and answer 404 themselves (SLN-749)
+    expect(streamed).not.toContain(path.join(app, "(catalogue)", "reading", "year", "[year]", "page.tsx"));
+    expect(streamed).not.toContain(path.join(app, "(catalogue)", "reading", "import", "[id]", "page.tsx"));
   });
 
   it("every page under a loading screen has a layout that checks its record first", () => {
