@@ -313,7 +313,6 @@ export default async function PaintingPage({
     null;
   const size = primary ? { widthCm: primary.widthCm, heightCm: primary.heightCm } : null;
   const ratio = paintingRatio(image, size);
-  const year = catalogueDateYears(painting.creationDate?.value ?? null);
   const painted = catalogueDateText(painting.creationDate?.value ?? null);
   const counts = {
     pictures: media.filter((m) => m.type === "poster").length,
@@ -416,7 +415,6 @@ export default async function PaintingPage({
                 <PaintingImage
                   image={image}
                   title={painting.title}
-                  year={year}
                   size={size}
                   frame="native"
                   alt={painting.title}

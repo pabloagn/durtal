@@ -787,20 +787,23 @@ function ReaderSession({
 
   // While the book opens, the input layer waits for the reader's features;
   // Escape still asks before leaving, so one press does it (SLN-811). A press
-  // before this code ran was noted by the page's script.
+  // before this code ran was noted by the page's script. A book that did not
+  // open has no input layer either: Escape asks there too (SLN-864).
   const inputListening = useRef(false);
-  const opening = status.kind === "opening";
+  const opening = status.kind === "opening" || status.kind === "error";
   useEffect(() => {
     if (!opening) return;
     if (takeEarlyEscape() && !isBlocked()) actions.current?.escape();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.defaultPrevented || inputListening.current || isBlocked()) return;
+      // The input layer takes it once the reader's features are ready
+      if (event.defaultPrevented || isBlocked() ||
+        (inputListening.current && bridge.getControllerReadinessSnapshot().ready)) return;
       actions.current?.escape();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [opening]);
+  }, [opening, bridge]);
 
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
@@ -1024,6 +1027,7 @@ function ReaderSession({
       cancelled = true;
       startupAbort.abort();
       input.destroy();
+      inputListening.current = false;
       historyInput.destroy();
       engine?.destroy();
       setStatus({
@@ -1523,6 +1527,7 @@ function ReaderSession({
         cancelled = true;
         startupAbort.abort();
         input.destroy();
+        inputListening.current = false;
         historyInput.destroy();
         engine?.destroy();
         clearTimeout(timeout);
@@ -1952,6 +1957,7 @@ function ReaderSession({
           } : undefined
         }
         markingActions={annotations.markingActions}
+        markingMore={annotations.markingMore}
         speechReady={speech?.selectionReady}
         bottomInset={speechHeight + footHeight}
         topInset={bars.visible ? topHeight : 0}

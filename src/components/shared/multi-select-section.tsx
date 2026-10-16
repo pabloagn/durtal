@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { searchScore } from "@/lib/utils/search-text";
 
 export interface MultiSelectSectionProps {
   title: string;
@@ -21,12 +22,13 @@ export function MultiSelectSection({
 }: MultiSelectSectionProps) {
   const [filter, setFilter] = useState("");
 
-  // Chosen items stay in the list while a filter narrows the others
+  // Chosen items stay in the list while a filter narrows the others; accents,
+  // case and punctuation ignored, as every search (SLN-881)
   const filtered = filter
     ? items.filter(
         (i) =>
           selectedIds.includes(i.id) ||
-          i.name.toLowerCase().includes(filter.toLowerCase()),
+          searchScore(filter, i.name) >= 0,
       )
     : items;
 

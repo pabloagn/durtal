@@ -91,10 +91,10 @@ export function SuggestionItem({ row }: { row: SuggestionRow }) {
       </Link>
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex gap-1.5 text-sm">
-          {/* The title cuts off inside the link: the link's touch area is not clipped */}
-          <h3 className="min-w-0">
+          {/* Title and author wrap in full, as on every card (SLN-879) */}
+          <h3 className="min-w-0 [overflow-wrap:anywhere]">
             <Link href={row.href} className="text-fg-primary transition-colors hover:text-accent-primary touch-hit">
-              <span className="lines-1">{row.title}</span>
+              {row.title}
             </Link>
           </h3>
           {row.isPoison && (
@@ -105,7 +105,7 @@ export function SuggestionItem({ row }: { row: SuggestionRow }) {
             </CapAligned>
           )}
         </div>
-        {row.author && <p className="lines-1 text-xs text-fg-secondary">{row.author}</p>}
+        {row.author && <p className="text-xs text-fg-secondary [overflow-wrap:anywhere]">{row.author}</p>}
         {row.line && <p className="text-xs text-fg-secondary">{row.line}</p>}
         {row.reasons.length > 0 && (
           <ul className="space-y-0.5 pt-1 text-xs text-fg-primary" data-suggestion-reasons="">

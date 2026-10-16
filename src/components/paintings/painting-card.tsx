@@ -83,7 +83,6 @@ export function PaintingCard({
         <PaintingImage
           image={painting.poster}
           title={painting.title}
-          year={catalogueDateYears(painting.creationDate)}
           size={objectSize(painting)}
         />
         {owned > 0 && (
@@ -133,7 +132,6 @@ export function PaintingRow({ painting }: { painting: PaintingCardData }) {
           image={painting.poster}
           title={painting.title}
           size={objectSize(painting)}
-          small
           className="w-10 shrink-0 rounded-sm"
         />
       }

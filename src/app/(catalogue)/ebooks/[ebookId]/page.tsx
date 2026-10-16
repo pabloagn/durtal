@@ -69,7 +69,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   return { title: ebook.workTitle ? `${ebook.workTitle} · eBook` : ebook.title };
 }
 export default async function EbookPage({ params, searchParams }: Props) {
-  // proxy returns 400 for malformed ids before page or metadata can query.
+  // A malformed id finds nothing: the layout answers it with eBook not found (SLN-864)
   const allDevices = await allDevicesOf(searchParams);
   const ebook = await load((await params).ebookId, allDevices);
   if (!ebook) notFound();
@@ -114,6 +114,9 @@ export default async function EbookPage({ params, searchParams }: Props) {
   const replaceHref = (fileId: string) => `/ebooks/upload?kind=replace&ebookId=${ebook.id}&fileId=${fileId}`;
   const target = descriptor ? ebook.files.find((file) => file.id === descriptor.target.id) : undefined;
   const damaged = target && openFailureOf(target.metadata) ? target : undefined;
+  // With nothing else to read, the damaged file's replacement leads and Read
+  // stays to try it again (SLN-864)
+  const replaceLeads = !!damaged && alternatives.length === 0;
   const locked = descriptor || ebook.matchState === "excluded" ? undefined
     : ebook.files.find((file) => file.drm !== null && (file.status === "stored" || file.status === "verified"));
   const files = ebook.files.map((file) => ({
@@ -171,9 +174,16 @@ export default async function EbookPage({ params, searchParams }: Props) {
         }
         actions={
           descriptor && (
-            <ReaderEntryLink readerPath={descriptor.href} returnTo={returnTo} className={buttonClass("primary")}>
-              {readLabel}
-            </ReaderEntryLink>
+            <>
+              {replaceLeads && (
+                <Link href={replaceHref(damaged.id)} className={buttonClass("primary")}>
+                  Replace file…
+                </Link>
+              )}
+              <ReaderEntryLink readerPath={descriptor.href} returnTo={returnTo} className={buttonClass(replaceLeads ? "secondary" : "primary")}>
+                {readLabel}
+              </ReaderEntryLink>
+            </>
           )
         }
       />
@@ -236,8 +246,10 @@ export default async function EbookPage({ params, searchParams }: Props) {
             </p>
             {damaged && (
               <p className="mt-3 text-sm text-fg-primary">
-                This {formatLabel(damaged.format)} file is damaged ·{" "}
-                <Link href={replaceHref(damaged.id)} className="touch-hit text-command">Replace file…</Link>
+                {replaceLeads ? `This ${formatLabel(damaged.format)} file is damaged.` : <>
+                  This {formatLabel(damaged.format)} file is damaged ·{" "}
+                  <Link href={replaceHref(damaged.id)} className="touch-hit text-command">Replace file…</Link>
+                </>}
               </p>
             )}
             {locked?.drm && (
