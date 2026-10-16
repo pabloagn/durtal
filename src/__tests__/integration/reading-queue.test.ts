@@ -293,6 +293,7 @@ describe.skipIf(!url)("Up next with PostgreSQL", () => {
       const ams = await place("Amsterdam");
       const kindle = await place("Kindle", "digital");
       const [lent, digital, gone] = [await book("Lent"), await book("Digital"), await book("Gone")];
+      await q(`update works set catalogue_status = 'accessioned' where id in ($1, $2, $3)`, [lent, digital, gone]);
       await copy(await edition(lent), ams, "lent_out", { lentTo: "M.", lentDate: "2026-05-03" });
       await copy(await edition(digital), kindle);
       await copy(await edition(gone), ams, "deaccessioned");
@@ -307,6 +308,15 @@ describe.skipIf(!url)("Up next with PostgreSQL", () => {
       expect(g.owned).toBe(false);
       expect(queueWhereabouts(g.editions, g.atHandCopyId, "2026-10-05")).toBe("Not owned");
       expect(l.owned).toBe(true);
+      expect(d.owned).toBe(true);
+    });
+
+    it.each(["tracked", "wanted", "on_order"])("does not call a queued %s book owned just because it has an active copy", async (status) => {
+      const workId = await book(`Still ${status}`);
+      await q(`update works set catalogue_status = $1 where id = $2`, [status, workId]);
+      await copy(await edition(workId), await place("Study"));
+      await addToQueue({ workId });
+      expect(await getQueue()).toMatchObject([{ workId, owned: false }]);
     });
 
     it("gives each edition its last known audio length and the book's reading history", async () => {

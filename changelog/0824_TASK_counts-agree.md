@@ -52,3 +52,12 @@ in others, and pages named the same things with different words.
 - Audits clean on the dashboard, Statistics, Settings Data, series, a
   collection, Places, Locations and the perfume notes pages in Chromium,
   Firefox and WebKit at 1440, 390 and 320; page weight passes.
+
+
+## Recovery review — 16 October 2026
+
+- Integrated current main without rewriting the original branch.
+- Corrected the reading picker and Up next fixtures: intended owned books are explicitly accessioned; an accessioned book with only a deaccessioned copy remains unowned.
+- Added regressions for tracked, wanted and on-order books with active copies in both query paths. Ownership still requires both accessioned status and an active copy.
+- The home page's Authors figure remains explicitly under Books, consistent with SLN-419's book-credit scope; it does not present that number as the global People total.
+- The owner authorized resolving and merging this PR on 16 October. The historical 237→176 example is a query-semantic change, not authorization to alter stored catalogue statuses. No live data was changed.
