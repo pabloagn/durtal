@@ -29,7 +29,7 @@ import { SuggestionActions } from "@/components/reading/suggestions/suggestion-l
 import { storedHomeId } from "@/lib/reading/home-cookie";
 import { getSuggestionContext } from "@/lib/reading/suggest/context";
 import { DEFAULT_SUGGESTION_PARAMS } from "@/lib/reading/suggest/params";
-import { suggest } from "@/lib/reading/suggest/score";
+import { suggestTop } from "@/lib/reading/suggest/score";
 import { suggestionRow } from "@/lib/reading/suggest/view";
 import { readingEstimates } from "@/lib/reading/estimates";
 import { appTimeZone } from "@/lib/utils/date";
@@ -63,9 +63,8 @@ export default async function ReadingPage() {
     // Estimates of the books being read, without waiting for their ids (SLN-837)
     readingEstimates("reading", day.today),
   ]);
-  const suggestions = suggest(suggestionContext, DEFAULT_SUGGESTION_PARAMS)
-    .slice(0, 3)
-    .map((s) => suggestionRow(s, suggestionContext));
+  // Only the three shown are varied, not every book (SLN-885)
+  const suggestions = suggestTop(suggestionContext, DEFAULT_SUGGESTION_PARAMS, 3).top.map((s) => suggestionRow(s, suggestionContext));
   // In January, a link to the year just ended: this year and last, as the browser's year may differ by a day
   const year = Number(day.today.slice(0, 4));
   const reviewYears = years.map((y) => y.year).filter((y) => y === year || y === year - 1);
