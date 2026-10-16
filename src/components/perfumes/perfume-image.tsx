@@ -1,5 +1,5 @@
 import { FadeImage } from "@/components/shared/fade-image";
-import { Flacon } from "@/components/shared/no-photo";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { coverToneStyle } from "@/lib/utils/media-style";
 import { mediaUrl } from "@/lib/s3/media-url";
 
@@ -14,15 +14,15 @@ export function imageUrl(
 
 /**
  * A perfume's picture in its square frame: the whole bottle, never cropped,
- * over a tone of its own color (a cut-out bottle sits on it), or a flacon
- * drawn from its name when it has no picture. The parent sets the size.
+ * over a tone of its own color (a cut-out bottle sits on it), or the title's
+ * letter when it has no picture (`CoverLetter`), as every blank cover shows.
+ * The parent sets the size.
  */
 export function PerfumeImage({
   image,
   title,
   alt = "",
   thumbnail = true,
-  small = false,
   className = "",
   eager = false,
 }: {
@@ -30,8 +30,6 @@ export function PerfumeImage({
   title: string;
   alt?: string;
   thumbnail?: boolean;
-  /** A small thumbnail: the stand-in flacon carries no lettering */
-  small?: boolean;
   className?: string;
   /** The page's main image: load it at once */
   eager?: boolean;
@@ -51,7 +49,9 @@ export function PerfumeImage({
           className="protected-image absolute inset-0 h-full w-full object-contain"
         />
       ) : (
-        <Flacon name={title} initials={!small} />
+        <span className={`absolute inset-0 ${COVER_BLANK}`}>
+          <CoverLetter title={title} />
+        </span>
       )}
     </div>
   );

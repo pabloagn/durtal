@@ -37,7 +37,8 @@ export function MemberCard({
   mark?: ReactNode;
 }) {
   return (
-    <article className="flex gap-4 rounded-sm border border-glass-border bg-bg-secondary p-4">
+    // A row of the collection's list: removing it hands the focus to the next (FocusKeeper)
+    <article data-focus-row="" className="flex gap-4 rounded-sm border border-glass-border bg-bg-secondary p-4">
       {/* The title link is the card's tab stop; the image repeats it for the pointer */}
       <Link
         href={href}

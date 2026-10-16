@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { DomainTile } from "@/lib/catalogue/domain-homes";
 import type { WorkKind } from "@/lib/catalogue/kinds";
-import { Flacon, Monogram } from "@/components/shared/no-photo";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { CardHeading } from "@/components/shared/card-heading";
 import { WORK_CARD, WORK_CARD_BODY, WorkCardArt, WorkCardInfo } from "@/components/shared/work-card";
 
@@ -37,7 +37,9 @@ export function DomainTileCard({
         src={tile.imageUrl}
         tone={tile.tone}
         fallback={
-          kind === "perfume" ? <Flacon name={tile.title} /> : <Monogram name={tile.title} />
+          <span className={`absolute inset-0 ${COVER_BLANK}`}>
+            <CoverLetter title={tile.title} />
+          </span>
         }
       />
       <div className={WORK_CARD_BODY}>

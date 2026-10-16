@@ -280,6 +280,7 @@ export function TaxonomyFamilyShell({
             value={searchQuery}
             onChange={(e) => setFilter("q", e.target.value)}
             placeholder="Filter items..."
+            aria-label="Filter items"
             className="h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-primary/80 pl-8 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none"
           />
         </div>

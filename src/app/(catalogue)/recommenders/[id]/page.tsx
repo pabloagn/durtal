@@ -11,7 +11,7 @@ import { PaginatedSection } from "@/components/shared/pagination";
 import { BookCard } from "@/components/books/book-card";
 import { cardReadingOf } from "@/lib/reading/card";
 import { recommenderStats } from "@/lib/reading/stats";
-import { CapAlignedControls } from "@/components/shared/cap-aligned";
+import { DetailControls, DetailTitleRow } from "@/components/shared/detail-layout";
 import { getRecommender } from "@/lib/actions/recommenders";
 import { websiteLabel } from "@/lib/validations/recommenders";
 import { mediaCrop } from "@/lib/utils/media-style";
@@ -62,67 +62,64 @@ export default async function RecommenderPage({
         Back to recommenders
       </Link>
 
-      {/* Header, as on author pages (no poster or cover) */}
-      <header className="mb-8 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-        <div className="min-w-0">
-          <h1 className="type-page-title break-words">
-            {recommender.name}
-          </h1>
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-            {recommender.url && (
-              <a
-                href={recommender.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-w-0 items-center gap-1.5 font-medium text-fg-primary transition-colors hover:text-accent-primary touch-hit"
-              >
-                <ExternalLink
-                  className="h-3.5 w-3.5 shrink-0"
-                  strokeWidth={1.5}
-                />
-                <span className="truncate">
-                  {websiteLabel(recommender.url)}
-                </span>
-              </a>
-            )}
-            <span className="font-mono text-xs text-fg-secondary">
-              {count} {count === 1 ? "book" : "books"} recommended
+      {/* Header, as on series pages (no poster or cover): a long name steps
+          down on a phone, and the controls go under it when it will not fit */}
+      <header className="mb-8 min-w-0">
+        <DetailTitleRow title={recommender.name} controls="free">
+          <DetailControls>
+            <FavouriteToggle
+              favourite={recommender.isFavourite}
+              target={{ entity: "recommender", id: recommender.id }}
+              name={recommender.name}
+              shortcut
+            />
+            <RecommenderActions
+              recommender={{
+                id: recommender.id,
+                name: recommender.name,
+                url: recommender.url,
+              }}
+              bookCount={count}
+            />
+          </DetailControls>
+        </DetailTitleRow>
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+          {recommender.url && (
+            <a
+              href={recommender.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-w-0 items-center gap-1.5 font-medium text-fg-primary transition-colors hover:text-accent-primary touch-hit"
+            >
+              <ExternalLink
+                className="h-3.5 w-3.5 shrink-0"
+                strokeWidth={1.5}
+              />
+              <span className="truncate">
+                {websiteLabel(recommender.url)}
+              </span>
+            </a>
+          )}
+          <span className="font-mono text-xs text-fg-secondary">
+            {count} {count === 1 ? "book" : "books"} recommended
+          </span>
+          {read > 0 && (
+            <span className="text-xs text-fg-secondary" data-recommender-read="">
+              {`You have read ${read} of their ${count} ${count === 1 ? "pick" : "picks"}`}
             </span>
-            {read > 0 && (
-              <span className="text-xs text-fg-secondary" data-recommender-read="">
-                {`You have read ${read} of their ${count} ${count === 1 ? "pick" : "picks"}`}
-              </span>
-            )}
-            {record && record.rated > 0 && record.avgRating !== null && (
-              <span className="text-xs text-fg-secondary" data-recommender-record="">
-                {`You rated ${record.liked} of their ${record.rated} ${record.rated === 1 ? "pick" : "picks"} 4 or more; average ${(Math.round(record.avgRating * 10) / 10).toFixed(1)}`}
-              </span>
-            )}
-          </div>
+          )}
+          {record && record.rated > 0 && record.avgRating !== null && (
+            <span className="text-xs text-fg-secondary" data-recommender-record="">
+              {`You rated ${record.liked} of their ${record.rated} ${record.rated === 1 ? "pick" : "picks"} 4 or more; average ${(Math.round(record.avgRating * 10) / 10).toFixed(1)}`}
+            </span>
+          )}
         </div>
-        {/* On the cap-height center of the name's first line */}
-        <CapAlignedControls height={32} coarseHeight={44} className="type-page-title">
-          <FavouriteToggle
-            favourite={recommender.isFavourite}
-            target={{ entity: "recommender", id: recommender.id }}
-            name={recommender.name}
-            shortcut
-          />
-          <RecommenderActions
-            recommender={{
-              id: recommender.id,
-              name: recommender.name,
-              url: recommender.url,
-            }}
-            bookCount={count}
-          />
-        </CapAlignedControls>
       </header>
 
       <section className="mb-8">
         <SectionHeading title="Books" count={count} />
         {count === 0 ? (
-          <p className="rounded-sm border border-dashed border-glass-border px-6 py-10 text-center text-sm text-fg-secondary">
+          <p className="rounded-sm border border-dashed border-glass-border px-6 py-10 text-center text-sm text-fg-secondary [overflow-wrap:anywhere]">
             {`No books yet. Add ${recommender.name} in a book's Edit dialog, under Recommended by.`}
           </p>
         ) : (

@@ -9,8 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import type { VenueType } from "@/lib/catalogue/venues";
 import { FadeImage } from "@/components/shared/fade-image";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
-import { PlacePlate } from "@/components/shared/no-photo";
-import { cityFromAddress, streetFromAddress } from "@/lib/utils/address";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 
 
 
@@ -50,7 +49,9 @@ export function VenueCard({
 
   return (
     <div className="@container catalogue-card group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive">
-      <Link href={href} className="block">
+      {/* The card's one tab stop (its title link is out of the tab order):
+          named by the place, since a plate without a picture is decoration */}
+      <Link href={href} aria-label={name} className="block">
         {/* Image / color band */}
         <div className="shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
           <div
@@ -66,13 +67,11 @@ export function VenueCard({
                 className="h-full w-full object-cover group-hover:scale-[1.02]"
               />
             ) : (
-              // A venue's own color stays its background
-              <PlacePlate
-                kind={VENUE_TYPE_LABELS[type]}
-                city={cityFromAddress(formattedAddress)}
-                street={streetFromAddress(formattedAddress)}
-                tone={color ? undefined : badgeVariant}
-              />
+              // The name's letter, as on the place's page; a venue's own
+              // color stays its background
+              <span className={`absolute inset-0 ${COVER_BLANK}`}>
+                <CoverLetter title={name} />
+              </span>
             )}
           </div>
         </div>
