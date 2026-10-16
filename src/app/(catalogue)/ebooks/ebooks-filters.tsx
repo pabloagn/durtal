@@ -167,7 +167,7 @@ export function EbooksFilters({
           </button>
         )}
       </div>
-      <div className="flex flex-wrap items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1 pointer-coarse:gap-2">
         {EBOOK_SORT_OPTIONS.map((option) => (
           <button
             key={option.value}

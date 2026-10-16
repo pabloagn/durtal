@@ -13,7 +13,9 @@ import { lookupSettingsSchema, type LookupSettings, type LookupSource } from "@/
 import { defaultLookupSettings } from "@/lib/reader/lookup/sources";
 import { afterLookupFirstPaint, readLocalLookupSettings, writeLocalLookupSettings } from "@/lib/reader/lookup/preferences";
 type Draft = { v: LookupSettings["v"]; sources: (LookupSource & { key: string })[]; translateTo: string };
-const draftOf = (value: LookupSettings): Draft => ({ ...value, sources: value.sources.map(source => ({ ...source, key: crypto.randomUUID() })) });
+/** Keys are random, except for the settings the page came with, which the server renders too */
+const draftOf = (value: LookupSettings, stable = false): Draft =>
+  ({ ...value, sources: value.sources.map((source, index) => ({ ...source, key: stable ? "source-" + index : crypto.randomUUID() })) });
 /** The site a source opens, for its row: "merriam-webster.com". */
 const siteOf = (url: string) => {
   try { return new URL(url.replaceAll("{word}", "word")).hostname.replace(/^www\./, ""); } catch { return "No address yet"; }
@@ -22,24 +24,31 @@ const siteOf = (url: string) => {
 export const hostBreaks = (host: string) =>
   host.split(".").map((part, index) => index ? <Fragment key={index}>.<wbr />{part}</Fragment> : part);
 const valueOf = (draft: Draft) => ({ v: draft.v, sources: draft.sources.map(({ key: _key, ...source }) => source), translateTo: draft.translateTo });
-export function LookupSettingsGroup() {
-  const [draft, setDraft] = useState<Draft | null>(null);
+/** `initial` is the server's copy, read with the page. Without it (it could not be read) the
+ * group starts from this browser's copy. Either way it asks the server after the first paint:
+ * a page brought back by Back keeps the copy it first came with, which another device may have changed. */
+export function LookupSettingsGroup({ initial = null }: { initial?: LookupSettings | null }) {
+  const [draft, setDraft] = useState<Draft | null>(() => initial ? draftOf(initial, true) : null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const form = useRef<HTMLDivElement>(null), before = useRef<Draft | null>(null);
-  const current = useRef<Draft | null>(null), revision = useRef(0), alive = useRef(false);
+  const current = useRef<Draft | null>(draft), revision = useRef(0), alive = useRef(false);
   const queued = useRef<{ value: LookupSettings | null; revision: number } | null>(null), busy = useRef(false);
+  const served = useRef(initial ? { draft: draft!, settings: initial } : null);
   useEffect(() => {
     alive.current = true;
-    const local = draftOf(readLocalLookupSettings()); current.current = local; setDraft(local);
+    const shown = served.current?.settings;
+    if (shown) writeLocalLookupSettings(shown);
+    else { const local = draftOf(readLocalLookupSettings()); current.current = local; setDraft(local); }
     const initial = revision.current;
     const cancel = afterLookupFirstPaint(() => {
       void getLookupSettings().then(value => {
-        if (!alive.current || revision.current !== initial) return;
+        // The same sources as the page came with change nothing, so no row comes and goes
+        if (!alive.current || revision.current !== initial || (shown && JSON.stringify(value) === JSON.stringify(shown))) return;
         const next = draftOf(value); current.current = next; setDraft(next); writeLocalLookupSettings(value);
-      }).catch(() => { if (alive.current) setNotice("Showing the settings saved in this browser."); });
+      }).catch(() => { if (alive.current && !shown) setNotice("Showing the settings saved in this browser."); });
     });
     return () => { alive.current = false; cancel(); queued.current = null; };
   }, []);

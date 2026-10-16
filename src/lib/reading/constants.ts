@@ -43,10 +43,10 @@ export type ReadingSource = (typeof READING_SOURCES)[number];
 export const SESSION_SOURCES = ["manual", "timer", "reader", "import"] as const;
 export type SessionSource = (typeof SESSION_SOURCES)[number];
 
-/** Where an Up Next item came from (SLN-452) */
+/** Where an Up next item came from (SLN-452) */
 export const QUEUE_SOURCES = ["manual", "import", "suggestion"] as const;
 export type QueueSource = (typeof QUEUE_SOURCES)[number];
-/** The gap between Up Next positions: a move between two items takes the middle */
+/** The gap between Up next positions: a move between two items takes the middle */
 export const QUEUE_GAP = 1024;
 
 /** A passage he keeps, or his own note (SLN-453) */

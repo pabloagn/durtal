@@ -114,6 +114,18 @@ export function TaxonomyFamilyShell({
   const [familyDialog, setFamilyDialog] = useState<"edit" | "delete" | null>(
     null,
   );
+  // The first item replaces the empty state, and with it the New item that
+  // opened the dialog: the toolbar's New item takes the focus (SLN-920)
+  const newItemButton = useRef<HTMLButtonElement>(null);
+  const firstItem = useRef(false);
+  useEffect(() => {
+    if (!firstItem.current || items.length === 0) return;
+    firstItem.current = false;
+    const active = document.activeElement;
+    if (!active || active === document.body || !active.isConnected) {
+      newItemButton.current?.focus({ preventScroll: true });
+    }
+  }, [items]);
   const enabled = new Set<WorkKind>(getEnabledWorkKinds());
   const scopeLabels = family.applicability
     .filter((scope) => enabled.has(scope.kind))
@@ -360,6 +372,8 @@ export function TaxonomyFamilyShell({
           variant="primary"
           size="sm"
           onClick={() => setCreateDialogOpen(true)}
+          ref={newItemButton}
+          data-focus-empty="taxonomy-items"
         >
           <Plus className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.5} />
           New item
@@ -389,6 +403,7 @@ export function TaxonomyFamilyShell({
                 variant="primary"
                 size="sm"
                 onClick={() => setCreateDialogOpen(true)}
+                data-focus-empty="taxonomy-items"
               >
                 <Plus className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.5} />
                 New item
@@ -430,7 +445,10 @@ export function TaxonomyFamilyShell({
         familyName={family.name}
         hierarchical={family.hierarchical}
         existingItems={items.map((i) => ({ id: i.id, name: i.name }))}
-        onCreated={refresh}
+        onCreated={() => {
+          if (items.length === 0) firstItem.current = true;
+          refresh();
+        }}
       />
 
       {/* Merge dialog */}

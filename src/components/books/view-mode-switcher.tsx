@@ -26,7 +26,13 @@ export function ViewModeSwitcher({ value, onChange, availableModes }: ViewModeSw
     : ALL_MODES.filter((m) => m.value === "grid" || m.value === "list" || m.value === "detailed");
 
   return (
-    <div data-catalogue-view={value} className="flex items-center rounded-sm border border-glass-border">
+    // On touch the 44px buttons sit 8px apart, closer only where a phone is
+    // too narrow for all of them in the row (six views at 320: 4.4px)
+    <div
+      data-catalogue-view={value}
+      style={{ "--view-modes": MODES.length } as React.CSSProperties}
+      className="flex items-center rounded-sm border border-glass-border pointer-coarse:gap-[clamp(4px,calc((100vw_-_34px_-_var(--view-modes)_*_44px)_/_(var(--view-modes)_-_1)),8px)]"
+    >
       {MODES.map((mode) => {
         const Icon = mode.icon;
         return (

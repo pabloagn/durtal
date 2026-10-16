@@ -125,11 +125,11 @@ export function EditionEditDialog({ edition }: EditionEditDialogProps) {
         draft
         open={open}
         onClose={() => setOpen(false)}
-        title="Edit Edition"
+        title="Edit edition"
         description={edition.title}
         className="max-w-3xl"
       >
-        <div className="max-h-[75vh] overflow-y-auto">
+        <div>
           <EditionForm
             initialValues={editionToFormValues(edition)}
             availableGenres={withChosen(lists.options.genres, edition.editionGenres.map((eg) => eg.genre))}

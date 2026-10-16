@@ -456,7 +456,7 @@ async function moveToExistingEditionOnce(placeholderId: string, editionId: strin
       where edition_id = ${placeholderId}::uuid`),
     d.execute(sql`update reading_sessions set edition_id = ${editionId}::uuid, updated_at = now()
       where edition_id = ${placeholderId}::uuid`),
-    // So does the edition he queued in Up Next (SLN-452)
+    // So does the edition he queued in Up next (SLN-452)
     d.execute(sql`update reading_queue set edition_id = ${editionId}::uuid
       where edition_id = ${placeholderId}::uuid`),
     // And the quotes and notes taken against it (SLN-453)

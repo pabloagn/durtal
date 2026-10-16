@@ -63,7 +63,7 @@ export function StartReadingDialog({ data, request, home: storedHome, setHome, o
   const homeId = home === NOT_HOME ? null : home;
   const initial = useMemo(
     () => {
-      // The edition queued in Up Next, with its copy at hand, else its first copy held
+      // The edition queued in Up next, with its copy at hand, else its first copy held
       const queued = request.editionId ? data.editions.find((e) => e.id === request.editionId) : null;
       if (queued) {
         const held = queued.copies.filter((c) => c.status !== "deaccessioned").sort((a, b) => Number(b.status === "available") - Number(a.status === "available"));
@@ -154,7 +154,7 @@ export function StartReadingDialog({ data, request, home: storedHome, setHome, o
         ...position.value,
         timeZone: browserZone(),
       });
-      toast.success(started.unqueued ? `Started ${data.workTitle} · removed from Up Next` : `Started ${data.workTitle}`);
+      toast.success(started.unqueued ? `Started ${data.workTitle} · removed from Up next` : `Started ${data.workTitle}`);
       onClose();
       changed();
     } catch (err) {

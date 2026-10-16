@@ -1,9 +1,11 @@
 "use client";
+import Link from "next/link";
 import { BookOpenText } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { NoResults } from "@/components/shared/no-results";
 import { Pagination } from "@/components/shared/pagination";
 import { EmptyState } from "@/components/ui/empty-state";
+import { buttonClass } from "@/components/ui/button";
 import { COL_CLASSES, maxCardWidth } from "@/components/shared/grid-columns";
 import {
   usePreference,
@@ -85,9 +87,31 @@ export function EbooksView({
           // As every list: the shared views, with their mark and a way on (task 0611)
           filtered ? (
             <NoResults noun="eBooks" search={params.q || null} hasFilters={otherFilters} clearHref={clearHref} />
+          ) : params.state === "excluded" ? (
+            // No filter, but this side of the library is empty while the other
+            // is not (SLN-816). With none at all the page draws its own empty
+            // state (SLN-842)
+            <EmptyState
+              icon={BookOpenText}
+              title="Nothing set aside"
+              description="An eBook you set aside leaves the library and waits here."
+              action={
+                <Link href="/ebooks" className={buttonClass("secondary")}>
+                  Back to eBooks
+                </Link>
+              }
+            />
           ) : (
-            // With none at all, the page draws its own empty state (SLN-842)
-            <EmptyState icon={BookOpenText} title="No eBooks found" description="No eBooks match these filters." />
+            <EmptyState
+              icon={BookOpenText}
+              title="No eBooks in the library"
+              description="Every eBook is set aside."
+              action={
+                <Link href="/ebooks?state=excluded" className={buttonClass("secondary")}>
+                  Show set aside
+                </Link>
+              }
+            />
           )
         ) : (
           <>

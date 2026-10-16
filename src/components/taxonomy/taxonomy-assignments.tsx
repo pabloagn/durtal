@@ -42,7 +42,7 @@ export function TaxonomyAssignments({
 }: TaxonomyAssignmentsProps) {
   if (!families.length) return null;
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pointer-coarse:space-y-6.5">
       {families.map((family) => (
         <FamilyAssignment
           key={family.id}
@@ -114,11 +114,14 @@ function FamilyAssignment({
       >
         {family.name}
       </span>
-      <div className="flex min-w-0 flex-1 flex-wrap items-start gap-1.5">
+      {/* On touch each 44px press area (a chip's cross, Add) reaches 9px past
+          its 26px line: rows and rows of families sit 26px apart, and a chip's
+          cross stays inside it, so press areas keep 8px between them */}
+      <div className="flex min-w-0 flex-1 flex-wrap items-start gap-1.5 pointer-coarse:gap-x-4 pointer-coarse:gap-y-6.5">
         {items.map((item) => (
           <span
             key={item.id}
-            className="inline-flex items-start gap-1 rounded-sm border border-glass-border bg-bg-secondary/60 py-0.5 pl-2 pr-1 text-xs leading-5 text-fg-secondary"
+            className="inline-flex items-start gap-1 rounded-sm border border-glass-border bg-bg-secondary/60 py-0.5 pl-2 pr-1 text-xs leading-5 text-fg-secondary pointer-coarse:pr-4"
           >
             {item.parentName && (
               <span className="text-fg-secondary">{item.parentName} ›</span>

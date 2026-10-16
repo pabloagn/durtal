@@ -505,7 +505,7 @@ export function SearchPanel({
           data-reader-chrome
           data-reader-widget
           data-reader-search-bar
-          className="glass-bar fixed inset-x-0 bottom-0 z-30 border-t border-glass-border pb-[env(safe-area-inset-bottom)]"
+          className="glass-bar fixed inset-x-reader bottom-0 z-30 border-t border-glass-border pb-[env(safe-area-inset-bottom)]"
         >
           <div
             role="toolbar"

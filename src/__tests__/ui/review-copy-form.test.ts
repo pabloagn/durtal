@@ -16,7 +16,8 @@ vi.mock("@/lib/notifications/toast", () => ({ toast: { success: vi.fn(), error: 
 vi.mock("@/lib/activity/refresh-event", () => ({ triggerActivityRefresh: vi.fn() }));
 vi.mock("@/lib/hooks/use-app-settings", () => ({ useAppSettings: () => ({ newCopyLocationId: "99999999-9999-4999-8999-999999999999", newCopyFormat: "ebook", newCopyCondition: "mint" }) }));
 vi.mock("@/components/ui/dialog", () => ({ Dialog: ({ open, children, onClose }: { open: boolean; children: ReactNode; onClose: () => void }) =>
-  open ? createElement("div", { role: "dialog", "aria-modal": "true" }, children, createElement("button", { onClick: onClose }, "Close dialog")) : null }));
+  open ? createElement("div", { role: "dialog", "aria-modal": "true" }, children, createElement("button", { onClick: onClose }, "Close dialog")) : null,
+  DialogFooter: ({ children }: { children: ReactNode }) => createElement("div", null, children) }));
 vi.mock("@/components/ebooks/ebook-picker", () => ({ EbookPicker: ({ onChange, disabled }: { onChange: (value: ReturnType<typeof reviewRow>) => void; disabled: boolean }) =>
   createElement("button", { disabled, onClick: () => onChange(reviewRow()) }, "Choose Nadja eBook") }));
 vi.mock("@/components/books/instance-form", async (importOriginal) => ({

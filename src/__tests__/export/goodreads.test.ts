@@ -96,7 +96,7 @@ describe("goodreadsRow", () => {
     expect(goodreadsRow(book({ state: "reading" }))).toMatchObject({ "Exclusive Shelf": "currently-reading", Bookshelves: "currently-reading" });
   });
 
-  it("leaves out an unread book that is not in Up Next", () => {
+  it("leaves out an unread book that is not in Up next", () => {
     expect(goodreadsRow(book({ state: "unread", inUpNext: false, readCount: 0 }))).toBeNull();
   });
 

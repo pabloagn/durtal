@@ -450,7 +450,7 @@ export function CommitImport({ importId, label, disabled }: { importId: string; 
                 `${written} ${written === 1 ? "reading" : "readings"} written`,
                 present ? `${present} already in Durtal` : null,
                 refused ? `${refused} refused` : null,
-                queued ? `${queued} ${queued === 1 ? "book" : "books"} added to Up Next` : null,
+                queued ? `${queued} ${queued === 1 ? "book" : "books"} added to Up next` : null,
                 notes ? `${notes} ${notes === 1 ? "note" : "notes"} imported` : null,
               ]
                 .filter(Boolean)
@@ -487,7 +487,7 @@ export function UndoImport({
   const [asking, setAsking] = useState(false);
   const removes = [
     readings ? `the ${readings === 1 ? "reading" : `${readings} readings`} it wrote` : null,
-    queued ? `the ${queued === 1 ? "book" : `${queued} books`} it added to Up Next` : null,
+    queued ? `the ${queued === 1 ? "book" : `${queued} books`} it added to Up next` : null,
     notes ? `the ${notes === 1 ? "note" : `${notes} notes`} it imported` : null,
     "the book ratings it set while they are unchanged",
     goodreadsIds ? "the Goodreads ids it recorded" : null,
@@ -503,7 +503,7 @@ export function UndoImport({
           <p className="text-sm text-fg-secondary">
             This removes {removes.slice(0, -1).join(", ")}
             {removes.length > 1 ? ", and " : ""}
-            {removes[removes.length - 1]}. Readings{notes ? " and notes" : ""} you edited since, and Up Next items you moved or edited, are kept. You can import it
+            {removes[removes.length - 1]}. Readings{notes ? " and notes" : ""} you edited since, and Up next items you moved or edited, are kept. You can import it
             again later.
           </p>
           <div className="flex justify-end gap-2 pt-4">
@@ -533,8 +533,8 @@ export function UndoImport({
                       [
                         `${removed} ${removed === 1 ? "reading" : "readings"} removed`,
                         kept ? `${kept} edited after the import and kept` : null,
-                        queueRemoved ? `${queueRemoved} ${queueRemoved === 1 ? "book" : "books"} taken off Up Next` : null,
-                        queueKept ? `${queueKept} Up Next ${queueKept === 1 ? "item was" : "items were"} moved or edited after the import and ${queueKept === 1 ? "was" : "were"} kept` : null,
+                        queueRemoved ? `${queueRemoved} ${queueRemoved === 1 ? "book" : "books"} taken off Up next` : null,
+                        queueKept ? `${queueKept} Up next ${queueKept === 1 ? "item was" : "items were"} moved or edited after the import and ${queueKept === 1 ? "was" : "were"} kept` : null,
                         notesRemoved ? `${notesRemoved} ${notesRemoved === 1 ? "note" : "notes"} removed` : null,
                         notesKept ? `${notesKept} ${notesKept === 1 ? "note was" : "notes were"} edited after the import and ${notesKept === 1 ? "was" : "were"} kept` : null,
                       ]

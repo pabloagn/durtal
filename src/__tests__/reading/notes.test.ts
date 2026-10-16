@@ -161,7 +161,7 @@ describe("Goodreads private notes", () => {
     expect(noteReadingId({ readings: [{ n: 2, readingId: "r2" }] }, match)).toBe("r2");
     expect(noteReadingId(null, { verdicts: [] })).toBeNull();
   });
-  it("counts a row as committed by its readings or Up Next item, never by its note alone", () => {
+  it("counts a row as committed by its readings or Up next item, never by its note alone", () => {
     expect(readingsCommitted(null)).toBe(false);
     expect(readingsCommitted({ readings: [], noteIds: ["n1"] })).toBe(false);
     expect(readingsCommitted({ readings: [{ n: 1, readingId: "r1" }], noteIds: ["n1"] })).toBe(true);

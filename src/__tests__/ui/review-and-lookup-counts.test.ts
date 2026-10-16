@@ -31,6 +31,20 @@ describe("lookup history's count", () => {
   });
 });
 
+describe("lookup history before its first read (SLN-875)", () => {
+  it("says it is loading on the count's line, with no row that comes and goes", async () => {
+    history.count = 0;
+    host = document.createElement("div"); document.body.append(host); root = createRoot(host);
+    act(() => root.render(createElement(LookupHistoryGroup)));
+    const rows = () => host.querySelectorAll("section > div > div").length;
+    const before = rows();
+    expect(host.querySelector('[role="status"]')?.textContent).toBe("Loading lookup history");
+    await act(async () => {});
+    expect([...host.querySelectorAll("p")].map((p) => p.textContent)).toContain("0 lookups");
+    expect(rows()).toBe(before);
+  });
+});
+
 describe("Review all in a review section", () => {
   it("groups thousands in its count", async () => {
     await render(createElement(ReviewSection, {

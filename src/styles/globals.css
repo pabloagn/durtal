@@ -206,6 +206,13 @@ dialog::backdrop {
    Component Utilities
    ========================================================================== */
 
+/* The reader's bars and strips fixed to the screen's edges: from 1024px they
+   stand beside an open drawer, as the book does (side-panel.tsx, SLN-892) */
+@utility inset-x-reader {
+  left: var(--reader-inset-left, 0px);
+  right: var(--reader-inset-right, 0px);
+}
+
 @utility card-interactive {
   transition: border-color 200ms ease, box-shadow 200ms ease;
   &:hover {
@@ -269,6 +276,20 @@ dialog::backdrop {
   margin-block: calc(var(--cap-h) / -2);
   @media (pointer: coarse) {
     --cap-h: var(--cap-box-coarse, 44px);
+  }
+}
+
+/* A facts list (dl) on touch: a row whose value holds a link with a grown
+   press area (text-command, touch-hit) gets 12px above and below, label
+   too, so two such rows sit 32px apart and their press areas keep apart.
+   Plain-text rows and 44px buttons (the rating) keep the list's own gap
+   (SLN-862) */
+@utility facts-touch {
+  @media (pointer: coarse) {
+    & > dd:has(:is(a.text-command, a.touch-hit)),
+    & > dt:has(+ dd :is(a.text-command, a.touch-hit)) {
+      padding-block: 12px;
+    }
   }
 }
 
@@ -597,7 +618,7 @@ dialog::backdrop {
 /* One material behind adjacent artwork actions. The pseudo layer avoids
    containing fixed menus; each button remains a separate accessible target. */
 @utility artwork-actions {
-  @apply absolute bottom-1 right-1 z-20 flex gap-0.5 rounded-sm p-0.5 @[220px]:bottom-2 @[220px]:right-2;
+  @apply absolute bottom-1 right-1 z-20 flex gap-0.5 pointer-coarse:gap-2 rounded-sm p-0.5 @[220px]:bottom-2 @[220px]:right-2;
   isolation: isolate;
   &::before {
     content: "";

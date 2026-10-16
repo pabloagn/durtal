@@ -73,7 +73,7 @@ export interface ImportMatch {
   note: string | null;
   /** What matching changed: "Edition not in Durtal; the reading is kept without it" */
   warnings: string[];
-  /** A to-read row's book in Up Next and in reading (SLN-452) */
+  /** A to-read row's book in Up next and in reading (SLN-452) */
   queue?: QueueState | null;
   /**
    * An e-book library row's rating against its book's (SLN-658), settled by the row
@@ -91,20 +91,20 @@ export function ratingState(rowRating: number | null, bookRating: number | null)
   return bookRating === rowRating ? "same" : "differs";
 }
 
-/** Where a to-read row's book stands: its place in Up Next, the row's own key there, an open reading, the last finish */
+/** Where a to-read row's book stands: its place in Up next, the row's own key there, an open reading, the last finish */
 export interface QueueState {
   place: number | null;
-  /** The row's own key is in Up Next: an earlier import of the same file */
+  /** The row's own key is in Up next: an earlier import of the same file */
   sameKey: boolean;
   open: "reading" | "paused" | null;
   readYear: string | null;
 }
 
-/** "Already in Up Next, at 3", "Being read now", "Read in 2019", or null */
+/** "Already in Up next, at 3", "Being read now", "Read in 2019", or null */
 export function queueNote(q: QueueState | null | undefined): string | null {
   if (!q) return null;
-  if (q.place) return `Already in Up Next, at ${q.place}`;
-  if (q.sameKey) return "Already in Up Next";
+  if (q.place) return `Already in Up next, at ${q.place}`;
+  if (q.sameKey) return "Already in Up next";
   if (q.open) return q.open === "paused" ? "Being read now, paused" : "Being read now";
   return q.readYear ? `Read in ${q.readYear}` : null;
 }
@@ -218,7 +218,7 @@ export function sectionOf(
 ): { section: ImportSection; note: string | null } {
   if (row.error) return { section: "cannot", note: row.error };
   if (row.kind === "to_read") {
-    // A shelf that is neither read nor to-read stays out; to-read rows go to Up Next (SLN-452)
+    // A shelf that is neither read nor to-read stays out; to-read rows go to Up next (SLN-452)
     if (!row.queueKey) return { section: "not_imported", note: "Want to read" };
     if (!workId) return { section: found === "possible" ? "choose" : "none", note: null };
     return { section: "to_read", note: queueNote(queue) };

@@ -16,7 +16,8 @@ vi.mock("@/lib/activity/refresh-event", () => ({ triggerActivityRefresh: vi.fn()
 vi.mock("@/lib/notifications/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/lib/hooks/use-app-settings", () => ({ useAppSettings: () => ({ newCopyLocationId: locationId }) }));
 vi.mock("@/components/ui/dialog", () => ({ Dialog: ({ open, children, onClose }: { open: boolean; children: ReactNode; onClose: () => void }) =>
-  open ? createElement("div", { role: "dialog" }, children, createElement("button", { onClick: onClose }, "Close dialog")) : null }));
+  open ? createElement("div", { role: "dialog" }, children, createElement("button", { onClick: onClose }, "Close dialog")) : null,
+  DialogFooter: ({ children }: { children: ReactNode }) => createElement("div", null, children) }));
 vi.mock("@/components/ebooks/ebook-picker", () => ({ EbookPicker: ({ value, disabled, onChange }: { value: unknown; disabled: boolean; onChange: (value: ReturnType<typeof reviewRow> | null) => void }) =>
   createElement("button", { disabled, onClick: () => onChange(value ? null : reviewRow()) }, value ? "Clear eBook" : "Choose eBook") }));
 vi.mock("@/components/books/instance-form", async (importOriginal) => ({

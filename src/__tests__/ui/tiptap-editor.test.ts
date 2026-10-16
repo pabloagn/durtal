@@ -44,7 +44,7 @@ describe("TiptapEditor", () => {
     const area = host.querySelector('[aria-label="Review"][contenteditable]') as HTMLElement;
     expect(area.innerHTML).toContain("<strong>review</strong>");
     expect(host.querySelector("label")?.textContent).toBe("Review");
-    expect(labels()).toEqual(["Bold", "Italic", "Bullet List", "Numbered List", "Blockquote", "Link"]);
+    expect(labels()).toEqual(["Bold", "Italic", "Bullet list", "Numbered list", "Blockquote", "Link"]);
     await act(async () => {
       editor!.commands.selectAll();
       editor!.commands.toggleItalic();
@@ -67,7 +67,7 @@ describe("CommentEditor", () => {
     await act(async () => (host.querySelector("button") as HTMLButtonElement).click());
     await settle();
     expect(labels()).toEqual(
-      expect.arrayContaining(["Bold", "Italic", "Underline", "Strikethrough", "Code", "Code Block", "Bullet List", "Numbered List", "Blockquote", "Link", "Attach file", "Post comment"]),
+      expect.arrayContaining(["Bold", "Italic", "Underline", "Strikethrough", "Code", "Code block", "Bullet list", "Numbered list", "Blockquote", "Link", "Attach file", "Post comment"]),
     );
     await settle();
     await act(async () => (host.querySelector('button[aria-label="Post comment"]') as HTMLButtonElement).click());

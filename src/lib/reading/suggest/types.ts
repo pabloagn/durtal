@@ -70,7 +70,7 @@ export interface SuggestBook {
   /** A reading started after the last finish */
   readSinceFinish: boolean;
   owned: boolean;
-  /** Its place in Up Next (1 for the top), else null */
+  /** Its place in Up next (1 for the top), else null */
   queuePlace: number | null;
   queueEditionId: string | null;
   /** The earliest and latest acquisition date of a copy that is not deaccessioned */
