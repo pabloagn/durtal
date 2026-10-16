@@ -4,7 +4,7 @@ import { expect, it, vi } from "vitest";
 import { SearchStep } from "@/app/(catalogue)/library/new/steps/search-step";
 
 const base = {
-  query: "No such book", setQuery: vi.fn(), results: [], notices: [],
+  query: "No such book", setQuery: vi.fn(), results: [], notices: [] as string[],
   isSearching: false, clearResults: vi.fn(), hasSearched: true,
 };
 function draw(search = base) {
