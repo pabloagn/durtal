@@ -77,6 +77,9 @@ export interface TaxonomyItem {
   sortOrder: number;
   level: number | null;
   entityCount: number;
+  /** All catalogue links, including scopes outside the visible count. */
+  linkCount?: number;
+  childCount?: number;
 }
 export function itemProjection(storage: TaxonomyStorage) {
   const optional = (column: string, fallback: SQL) =>

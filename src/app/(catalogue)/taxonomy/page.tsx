@@ -3,7 +3,7 @@ import { Tags } from "lucide-react";
 import { getTaxonomyFamilies } from "@/lib/actions/taxonomy-families";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Spinner } from "@/components/ui/spinner";
+import { TaxonomySkeleton } from "@/components/taxonomy/taxonomy-skeleton";
 import { FamilyCard } from "@/components/taxonomy/family-card";
 import { TaxonomyActions } from "./taxonomy-actions";
 
@@ -53,13 +53,7 @@ async function TaxonomyDirectory() {
 
 export default function TaxonomyPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center py-16">
-          <Spinner className="h-6 w-6" />
-        </div>
-      }
-    >
+    <Suspense fallback={<TaxonomySkeleton kind="directory" />}>
       <TaxonomyDirectory />
     </Suspense>
   );

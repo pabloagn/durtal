@@ -24,7 +24,7 @@ vi.mock("@/lib/actions/publishers", () => actions.publishers);
 vi.mock("@/lib/actions/authors", () => actions.people);
 vi.mock("@/lib/actions/venues", () => actions.places);
 vi.mock("@/lib/actions/venue-pages", () => ({ getVenueCountries: async () => [] }));
-vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/navigation", () => ({ redirect: vi.fn(), useRouter: () => ({replace:vi.fn(),refresh:vi.fn()}), useSearchParams: () => new URLSearchParams(), usePathname: () => "/taxonomy/empty" }));
 vi.mock("next/link", () => ({
   default: ({ href, children }: { href: string; children: ReactNode }) =>
     createElement("a", { href, ...(href.endsWith("/new") ? { "data-add": "" } : {}) }, children),
@@ -141,10 +141,11 @@ describe.each(pages)("/$name", ({ page, has, list, empty, says }) => {
 });
 
 it("a taxonomy family with no items has no toolbar or count line, only its empty state's New item", async () => {
-  const { readFileSync } = await import("fs");
-  const path = await import("path");
-  const shell = readFileSync(path.resolve(__dirname, "../../app/(catalogue)/taxonomy/[familySlug]/taxonomy-family-shell.tsx"), "utf8");
-  expect(shell).toContain('{items.length > 0 && <div className="mb-4 flex flex-wrap items-center gap-3">');
-  expect(shell).toContain('{items.length > 0 && <>{items.length} item{items.length === 1 ? "" : "s"}{" · "}</>}');
-  expect(shell).toMatch(/<EmptyState\s+icon=\{Tags\}\s+heading="h2"/);
+  const { TaxonomyFamilyShell } = await import("@/app/(catalogue)/taxonomy/[familySlug]/taxonomy-family-shell");
+  const html=renderToStaticMarkup(createElement(TaxonomyFamilyShell, { family:{id:"empty",name:"Empty",slug:"empty",description:null,icon:null,color:null,isSystem:false,entityLevel:"work",hierarchical:false,sortOrder:0,applicability:[]},items:[],browse:{total:0,familyTotal:0,wholeTree:false,page:1,perPage:48,nested:false} }));
+  expect(html).toContain("No items yet");
+  expect(html).not.toContain('aria-label="Filter items"');
+  expect(html).not.toContain('aria-label="Sort"');
+  expect(html.match(/New item/g)).toHaveLength(1);
+  expect(html.replace(/<[^>]*>/g, "")).not.toContain("0 items");
 });

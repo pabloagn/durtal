@@ -63,7 +63,7 @@ export function CreateItemDialog({
       try {
         // Dynamic import to avoid circular dependency — action may not exist yet
         const { createTaxonomyItem } = await import(
-          "@/lib/actions/taxonomy-families"
+          "@/lib/actions/taxonomy-client"
         );
         const created = await createTaxonomyItem(familySlug, {
           name: trimmedName,

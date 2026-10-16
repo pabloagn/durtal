@@ -1,26 +1,42 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { loadFamily } from "./load";
-import { getTaxonomyItems } from "@/lib/actions/taxonomy-families";
-import { Spinner } from "@/components/ui/spinner";
+import { getTaxonomyBrowsePage } from "@/lib/actions/taxonomy-browse";
+import {
+  lastPage,
+  pageHref,
+  type ListSearchParams,
+} from "@/lib/utils/pagination";
+import { taxonomyStorage } from "@/lib/catalogue/taxonomy-storage";
+import { TaxonomySkeleton } from "@/components/taxonomy/taxonomy-skeleton";
 import { TaxonomyFamilyShell } from "./taxonomy-family-shell";
 
-async function FamilyContent({ familySlug }: { familySlug: string }) {
-  const [family, items] = await Promise.all([
+async function FamilyContent({
+  familySlug,
+  query,
+}: {
+  familySlug: string;
+  query: ListSearchParams;
+}) {
+  const [family, browse] = await Promise.all([
     loadFamily(familySlug),
-    getTaxonomyItems(familySlug),
+    getTaxonomyBrowsePage(familySlug, query),
   ]);
-
-  if (!family) notFound();
-
-  // Normalize items: some system families may return nullable slugs
-  const normalizedItems = items.map((item) => ({
-    ...item,
-    slug: item.slug ?? item.id,
-  }));
-
-  return <TaxonomyFamilyShell family={family} items={normalizedItems} />;
+  if (!family || !browse) notFound();
+  const end = lastPage(browse.total, browse.perPage);
+  if (browse.page > end)
+    redirect(pageHref(`/taxonomy/${familySlug}`, query, end));
+  return (
+    <TaxonomyFamilyShell
+      family={{
+        ...family,
+        manualOrdering: taxonomyStorage(family).columns.has("sort_order"),
+      }}
+      items={browse.items.map((i) => ({ ...i, slug: i.slug ?? i.id }))}
+      browse={browse}
+    />
+  );
 }
 
 export async function generateMetadata({
@@ -34,20 +50,17 @@ export async function generateMetadata({
 
 export default async function TaxonomyFamilyPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ familySlug: string }>;
+  searchParams: Promise<ListSearchParams>;
 }) {
   const { familySlug } = await params;
+  const query = await searchParams;
 
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center py-16">
-          <Spinner className="h-6 w-6" />
-        </div>
-      }
-    >
-      <FamilyContent familySlug={familySlug} />
+    <Suspense fallback={<TaxonomySkeleton kind="family" />}>
+      <FamilyContent familySlug={familySlug} query={query} />
     </Suspense>
   );
 }
