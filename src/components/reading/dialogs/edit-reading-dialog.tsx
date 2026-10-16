@@ -12,7 +12,7 @@ import {
   TiptapEditor,
   type RichValue,
 } from "@/components/shared/tiptap-editor";
-import { updateReading } from "@/lib/actions/reading";
+import { updateReading } from "@/lib/actions/catalogue-client";
 import {
   ABANDON_REASONS,
   ABANDON_REASON_LABELS,

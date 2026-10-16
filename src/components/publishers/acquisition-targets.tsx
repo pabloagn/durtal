@@ -9,12 +9,8 @@ import { Select } from "@/components/ui/select";
 import { PublisherChoice, type PublisherOption } from "./publisher-picker";
 import { languageName } from "@/lib/utils/language";
 import { updateOrderStatus } from "@/lib/actions/orders";
-import {
-  fulfilTargetWithCopy,
-  createAcquisitionTarget,
-  cancelAcquisitionTarget,
-  type getAcquisitionTargets,
-} from "@/lib/actions/publishers";
+import { type getAcquisitionTargets } from "@/lib/actions/publishers";
+import { fulfilTargetWithCopy, createAcquisitionTarget, cancelAcquisitionTarget } from "@/lib/actions/catalogue-client";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";

@@ -5,7 +5,8 @@ import { BookOpen, ChevronDown, ChevronRight, Download, MoreHorizontal, PenLine,
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
-import { deleteSession, getReadingSessions, restoreSession, type SessionRow } from "@/lib/actions/reading";
+import { getReadingSessions, type SessionRow } from "@/lib/actions/reading";
+import { deleteSession, restoreSession } from "@/lib/actions/catalogue-client";
 import type { ReadingFormat, SessionSource } from "@/lib/reading/constants";
 import { formatReadingDate } from "@/lib/reading/dates";
 import { durationWords, elapsedSeconds, wallTime, zoneCity } from "@/lib/reading/timer";

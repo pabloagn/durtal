@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { RatingInput } from "@/components/shared/rating";
 import { TiptapEditor, type RichValue } from "@/components/shared/tiptap-editor";
-import { addPastReading } from "@/lib/actions/reading";
+import { addPastReading } from "@/lib/actions/catalogue-client";
 import { ABANDON_REASONS, ABANDON_REASON_LABELS, formatOfCopy, type AbandonReason, type ReadingFormat } from "@/lib/reading/constants";
 import { showError } from "../reading-client";
 import type { ReadingDialogProps } from "../reading-provider";

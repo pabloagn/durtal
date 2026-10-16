@@ -1,3 +1,4 @@
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { randomUUID } from "node:crypto";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -75,16 +76,16 @@ export function runningMessage(title: string) {
 /** The message when a reading cannot close or be deleted while its timer runs */
 export async function refuseWhileTiming(readingId: string) {
   const timer = await runningTimer();
-  if (timer && timer.readingId === readingId) throw new Error(`Stop or discard the timer for ${timer.title} first`);
+  if (timer && timer.readingId === readingId) throw new ExpectedActionError(`Stop or discard the timer for ${timer.title} first`);
 }
 
 /** Starts the timer on an open reading; a paused one resumes first */
 export async function startTimerOn(readingId: string, timeZone: string | null | undefined) {
   const reading = await loadReading(readingId);
-  if (!reading) throw new Error("This reading no longer exists");
-  if (!isOpenStatus(reading.status)) throw new Error("Reopen this reading to time it");
+  if (!reading) throw new ExpectedActionError("This reading no longer exists");
+  if (!isOpenStatus(reading.status)) throw new ExpectedActionError("Reopen this reading to time it");
   const running = await runningTimer();
-  if (running) throw new Error(runningMessage(running.title));
+  if (running) throw new ExpectedActionError(runningMessage(running.title));
   const zone = timeZone ?? appTimeZone();
   const now = new Date();
   // The day it started, even when it stops after the day boundary or on a device elsewhere
@@ -121,7 +122,7 @@ export async function startTimerOn(readingId: string, timeZone: string | null | 
     // Another device started one meanwhile: the unique index refused this one
     if (databaseErrorCode(err) === "23505") {
       const other = await runningTimer();
-      throw new Error(runningMessage(other?.title ?? "another book"));
+      throw new ExpectedActionError(runningMessage(other?.title ?? "another book"));
     }
     throw err;
   }
@@ -131,7 +132,7 @@ export async function startTimerOn(readingId: string, timeZone: string | null | 
 /** The running row, or the message a stopped or discarded timer gives */
 async function runningRow(sessionId: string): Promise<Session> {
   const [row] = await db.select().from(readingSessions).where(eq(readingSessions.id, sessionId));
-  if (!row || row.source !== "timer" || row.endedAt) throw new Error(TIMER_GONE);
+  if (!row || row.source !== "timer" || row.endedAt) throw new ExpectedActionError(TIMER_GONE);
   return row;
 }
 
@@ -173,7 +174,7 @@ export async function discardTimerRow(sessionId: string) {
     .delete(readingSessions)
     .where(and(eq(readingSessions.id, sessionId), isNull(readingSessions.endedAt)))
     .returning({ id: readingSessions.id });
-  if (!gone.length) throw new Error(TIMER_GONE);
+  if (!gone.length) throw new ExpectedActionError(TIMER_GONE);
   return { readingId: row.readingId, seconds: elapsedSeconds({ startedAt: row.startedAt ?? row.createdAt, pausedAt: row.pausedAt, pausedSeconds: row.pausedSeconds }) };
 }
 
@@ -184,12 +185,12 @@ export async function discardTimerRow(sessionId: string) {
  */
 export async function undoStop(sessionId: string, fingerprint: string, undo: UndoProgress) {
   const running = await runningTimer();
-  if (running) throw new Error(`A timer is running for ${running.title}`);
+  if (running) throw new ExpectedActionError(`A timer is running for ${running.title}`);
   const [row] = await db.select().from(readingSessions).where(eq(readingSessions.id, sessionId));
-  if (!row || row.source !== "timer" || !row.endedAt) throw new Error("This timer session no longer exists");
+  if (!row || row.source !== "timer" || !row.endedAt) throw new ExpectedActionError("This timer session no longer exists");
   const reading = await loadReading(row.readingId);
-  if (!reading) throw new Error("This reading no longer exists");
-  if (reading.fingerprint !== fingerprint) throw new Error("This reading changed elsewhere; reload before saving");
+  if (!reading) throw new ExpectedActionError("This reading no longer exists");
+  if (reading.fingerprint !== fingerprint) throw new ExpectedActionError("This reading changed elsewhere; reload before saving");
   const sessions = await loadSessions(reading.id);
   const fixedId = undo.timer?.fixedSessionId ?? null;
   const now = new Date();

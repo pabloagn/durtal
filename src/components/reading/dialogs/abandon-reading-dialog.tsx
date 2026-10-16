@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { abandonReading, pauseReading, reopenReading } from "@/lib/actions/reading";
+import { abandonReading, pauseReading, reopenReading } from "@/lib/actions/catalogue-client";
 import { ABANDON_REASONS, ABANDON_REASON_LABELS, type AbandonReason } from "@/lib/reading/constants";
 import { browserZone, showError, todayReadingDay, undoToast } from "../reading-client";
 import type { ReadingDialogProps } from "../reading-provider";

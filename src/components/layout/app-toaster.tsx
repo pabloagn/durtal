@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { CircleAlert, CircleCheck, Info, LoaderCircle, TriangleAlert, X } from "lucide-react";
 import { Toaster, useSonner, type ToastT } from "sonner";
 import { syncShownToasts } from "@/lib/notifications/toast";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { NotificationRecorder } from "./notification-recorder";
 
 /** Clear of the phone's home indicator and of the screen's edge */
@@ -53,7 +54,7 @@ export function AppToaster() {
           offset={{ bottom, right: 16 }}
           mobileOffset={{ bottom, left: 16, right: 16 }}
           icons={{
-            close: <X className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />,
+            close: <CapAligned height={14}><X className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden /></CapAligned>,
             success: <CircleCheck className={`${ICON} text-fg-secondary`} strokeWidth={1.5} aria-hidden />,
             info: <Info className={`${ICON} text-fg-secondary`} strokeWidth={1.5} aria-hidden />,
             warning: <TriangleAlert className={`${ICON} text-accent-gold`} strokeWidth={1.5} aria-hidden />,

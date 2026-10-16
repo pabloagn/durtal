@@ -10,7 +10,7 @@ import type { PreparedAnnotationDelete } from "@/lib/reader/annotation-deletion"
 import type { ReaderSelection } from "@/lib/reader/events";
 import { registerReaderKey } from "@/lib/reader/input";
 import { getReaderTracking, prepareReaderQuoteDelete, saveReaderQuote, startReaderReading } from "@/lib/actions/reader-tracking";
-import { deleteReading, pauseReading, resumeReading } from "@/lib/actions/reading";
+import { deleteReading, pauseReading, resumeReading } from "@/lib/actions/catalogue-client";
 import { createReadingReaderController, READER_TRACKING_CONTROLLER_ID, type ReadingReaderEvents } from "@/lib/reading/reader-controller";
 import { createReaderSittingQueue } from "@/lib/reading/reader-sitting-queue";
 import { readerTrackingDataSchema, type ReaderTrackingData } from "@/lib/reading/reader-tracking-data";

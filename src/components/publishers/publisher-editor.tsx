@@ -5,7 +5,7 @@ import { PlacePicker, type PlaceValue } from "@/components/shared/place-picker";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
-import { savePublisher } from "@/lib/actions/publishers";
+import { savePublisher } from "@/lib/actions/catalogue-client";
 import type { PublisherInput } from "@/lib/validations/publishers";
 import { PARENT_KIND, type HouseKind } from "@/lib/publishers/kinds";
 import { Button } from "@/components/ui/button";
@@ -39,8 +39,10 @@ export function PublisherEditor({
   cancelHref: string;
 }) {
   const router = useRouter();
+  const notices = toast.forAction(`publisher:${publisher?.id ?? "new"}`);
   const [pending, start] = useTransition();
   const [typedName, setTypedName] = useState(publisher?.name ?? "");
+  const [nameError, setNameError] = useState<string>();
   const [kind, setKind] = useState<HouseKind>(publisher?.kind ?? "publisher");
   const [parent, setParent] = useState<PublisherOption | null>(initialParent);
   const [chosen, setChosen] = useState(publisher?.specialtyIds ?? []);
@@ -49,10 +51,15 @@ export function PublisherEditor({
   );
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    // Enter from a field must move off the fieldset before it is disabled.
-    e.currentTarget.querySelector<HTMLButtonElement>('button[type="submit"]')?.focus();
     const f = new FormData(e.currentTarget);
     const text = (k: string) => String(f.get(k) ?? "").trim();
+    if (!text("name")) {
+      setNameError("Give the publisher a name");
+      e.currentTarget.querySelector<HTMLInputElement>('[name="name"]')?.focus();
+      return;
+    }
+    setNameError(undefined);
+    e.currentTarget.querySelector<HTMLButtonElement>('button[type="submit"]')?.focus();
     start(async () => {
       try {
         const saved = await savePublisher(
@@ -78,11 +85,11 @@ export function PublisherEditor({
           },
           publisher?.id,
         );
-        toast.success("Publisher saved");
+        notices.success("Publisher saved");
         router.push(`/publishers/${saved.slug}`);
         router.refresh();
       } catch (err) {
-        toast.error(
+        notices.error(
           err instanceof Error ? err.message : "Could not save publisher",
         );
       }
@@ -106,7 +113,8 @@ export function PublisherEditor({
             name="name"
             label="Name"
             defaultValue={publisher?.name ?? ""}
-            onChange={(e) => setTypedName(e.target.value)}
+            error={nameError}
+            onChange={(e) => { setTypedName(e.target.value); setNameError(undefined); }}
             required
           /><NameDuplicateNotice kind="publisher" name={typedName} enabled={!publisher} /></div>
           <Input
