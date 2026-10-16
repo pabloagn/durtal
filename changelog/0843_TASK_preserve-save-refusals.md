@@ -1,6 +1,6 @@
 # Task 0843: Preserve expected save refusals and recovery feedback
 
-**Status**: In Progress
+**Status**: Complete
 **Created**: 2026-10-16
 **Priority**: HIGH
 **Type**: Fix
@@ -23,4 +23,4 @@ Return intentional catalogue write refusals as data across the UI server-action 
 
 ## Completion Notes
 
-Validation in progress. No live catalogue writes, migrations, ingestion or deployment.
+Production build, explicit typecheck and lint passed. The local catalogue/reading harness passed 157 tests with no skips. The shared-UI recovery run passed 937 tests; 12 final toast lifecycle/dismissal tests also passed after the alignment correction. Nine production-browser acceptance cases passed in Chromium, Firefox and WebKit, including exact duplicate messages, blank publisher validation and offline-to-online person saves. Twenty-seven populated refusal layout checks passed at 1440, 390 and 320 px across those engines. Page-weight passed for 40 available routes; five unseeded routes were explicitly skipped. No live catalogue writes, migrations, ingestion or deployment.
