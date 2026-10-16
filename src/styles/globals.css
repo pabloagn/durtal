@@ -12,7 +12,7 @@
   --color-fg-heading: #d8dcd8;
   --color-fg-primary: #c5cacb;
   --color-fg-secondary: #9ba4ad;
-  --color-fg-muted: #727b83;
+  --color-fg-muted: #7d868e;
   --color-accent-primary: #8c9fae;
   --color-selection-bg: #17232d;
   --color-selection-fg: #d8dcd8;
@@ -314,9 +314,11 @@ dialog::backdrop {
 }
 
 /* Shared action chrome. Inset focus survives cap boxes and glass clipping;
-   states change only paint, never control geometry. Sidebar controls opt out. */
+   states change only paint, never control geometry. Sidebar controls opt out.
+   Disabled is 60% (docs/03, Contrast): quiet, but a primary button's label
+   still reads at 4.7:1 and a ghost's at 3.4:1 (at 40% they were 1.5 to 2.2) */
 @utility action-control {
-  @apply inline-flex shrink-0 items-center justify-center rounded-sm transition-colors duration-150 disabled:pointer-events-none disabled:opacity-40;
+  @apply inline-flex shrink-0 items-center justify-center rounded-sm transition-colors duration-150 disabled:pointer-events-none disabled:opacity-60;
   &:focus-visible {
     outline-offset: -2px;
   }
