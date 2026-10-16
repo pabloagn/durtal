@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
+import { callsNamedFunction, createDelegationProof, hasParserCall, helperParsesInput } from "../helpers/action-validation";
 
 // Server actions are public HTTP endpoints: every exported create*/update* action must
-// validate its input (a Zod `.parse(...)`, `.safeParse(...)` or `parseId(...)` in its body).
+// validate its input directly, through a reviewed helper, or through a proven forwarding chain.
 
 const SRC = path.resolve(__dirname, "../..");
 const ACTIONS_DIR = path.join(SRC, "lib/actions");
 const VALIDATIONS_DIR = path.join(SRC, "lib/validations");
-const VALIDATES = /\.(?:safeParse|parse)\(|parseId\(/;
 
 /** Actions that only hand their input to another validating action of the same file. */
 const DELEGATES: Record<string, string> = {
-  createPublisherFromName: "savePublisher",
+  "lib/actions/publishers.ts createPublisherFromName": "savePublisher",
 };
 /** Reviewed shared parser: the action must call it and it must use its schema. */
 const HELPER_VALIDATORS: Record<string, { helper: string; module: string; schema: string }> = {
@@ -22,45 +22,42 @@ const HELPER_VALIDATORS: Record<string, { helper: string; module: string; schema
   },
 };
 
-function exportedFunctions(file: string): { name: string; body: string }[] {
-  const source = readFileSync(file, "utf8");
-  const starts = [...source.matchAll(/^export async function (\w+)\s*\(/gm)];
-  return starts.map((m, i) => ({
-    name: m[1],
-    body: source.slice(m.index!, i + 1 < starts.length ? starts[i + 1].index : source.length),
-  }));
-}
-
 const actionFiles = readdirSync(ACTIONS_DIR)
   .filter((f) => f.endsWith(".ts"))
   .map((f) => path.join(ACTIONS_DIR, f));
 
-const actions = actionFiles.flatMap((file) =>
-  exportedFunctions(file).map((fn) => ({ ...fn, file: path.relative(SRC, file) })),
-);
+const sources = Object.fromEntries(actionFiles.map(file => [path.relative(SRC, file).split(path.sep).join("/"), readFileSync(file, "utf8")]));
+// These two existing actions validate inside an audited local reader-lock retry.
+sources["lib/reading/reader-write-locks.ts"] = readFileSync(path.join(SRC, "lib/reading/reader-write-locks.ts"), "utf8");
+const validation = createDelegationProof(sources);
+const actions = validation.actions;
 const mutating = actions.filter((fn) => /^(create|update)[A-Z]/.test(fn.name));
 
 describe("server action input validation", () => {
+  it("does not silently omit unsupported exported async shapes", () => {
+    expect(actions.filter(action => action.unsupported).map(action => `${action.file} ${action.name}: ${action.unsupported}`)).toEqual([]);
+  });
   it("finds the mutating actions to check", () => {
     expect(mutating.length).toBeGreaterThan(40);
   });
 
   it.each(mutating.map((m) => [`${m.file} ${m.name}`, m]))("%s validates its input", (_label, action) => {
-    const delegate = DELEGATES[action.name];
+    const delegate = DELEGATES[`${action.file} ${action.name}`];
     const validator = HELPER_VALIDATORS[`${action.file} ${action.name}`];
     if (validator) {
-      expect(action.body).toContain(`${validator.helper}(input)`);
+      expect(callsNamedFunction(action, validator.helper, "input")).toBe(true);
       const actionSource = readFileSync(path.join(SRC, action.file), "utf8");
       expect(actionSource).toContain(`from "@/${validator.module.replace(/\.ts$/, "")}"`);
       const parserSource = readFileSync(path.join(SRC, validator.module), "utf8");
       expect(parserSource).toContain(`export function ${validator.helper}(input: unknown)`);
-      expect(parserSource).toContain(`${validator.schema}.parse(input)`);
+      expect(helperParsesInput(parserSource, validator.helper, validator.schema)).toBe(true);
     } else if (delegate) {
-      expect(action.body).toMatch(new RegExp(`\\b${delegate}\\(`));
+      expect(callsNamedFunction(action, delegate)).toBe(true);
       const target = actions.find((fn) => fn.file === action.file && fn.name === delegate);
-      expect(target?.body).toMatch(VALIDATES);
+      expect(target && hasParserCall(target)).toBe(true);
     } else {
-      expect(action.body).toMatch(VALIDATES);
+      const proof = validation.prove(`${action.file} ${action.name}`);
+      expect(proof.error, proof.chain.join(" → ")).toBeUndefined();
     }
   });
 
