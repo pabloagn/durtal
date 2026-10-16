@@ -175,7 +175,9 @@ describe.skipIf(!url)("the Durtal interchange file", () => {
     await createFilmVersion({ workId: film.id, label: "Theatrical", runtimeSeconds: 8160 });
     await createWorkRelation({ type: "adaptation", fromWorkId: film.id, toWorkId: ids.book });
 
-    const painting = await createPainting({ title: "Girl with a Pearl Earring", credits: [{ personId: vermeer, roleId: "painting.painter" }] });
+    // A painting's movements travel in its record, as a book's do
+    const goldenAge = await createTaxonomyItem("art-movements", { name: "Dutch Golden Age" });
+    const painting = await createPainting({ title: "Girl with a Pearl Earring", credits: [{ personId: vermeer, roleId: "painting.painter" }], artMovementIds: [goldenAge.id] });
     ids.painting = painting.id;
     const original = await createArtObject({ workId: painting.id, kind: "original", ownership: "institutional", ownerOrganizationId: mauritshuis, accessionNumber: "670" });
     ids.object = original.id;
@@ -210,7 +212,7 @@ describe.skipIf(!url)("the Durtal interchange file", () => {
 
     const run = await importInterchange(file, { policy: "keep", dryRun: false });
     expect(run.counts).toEqual({ created: 4, unchanged: 0, added: 0, kept: 0, failed: 0 });
-    expect(run.records.find((r) => r.domain === "painting")!.written).toMatchObject({ art_object_whereabouts: 2, works: 1 });
+    expect(run.records.find((r) => r.domain === "painting")!.written).toMatchObject({ art_object_whereabouts: 2, work_art_movements: 1, works: 1 });
     expect(await tableCounts()).toEqual(before);
     expect(strip(await exportInterchange())).toEqual(strip(file));
 
