@@ -2,7 +2,6 @@
 
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Copy, Check, Merge, Pencil, ImageIcon, Trash2 } from "lucide-react";
@@ -11,6 +10,7 @@ import { AuthorEditDialog } from "./author-edit-dialog";
 import { AuthorMergeDialog } from "./author-merge-dialog";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { CoarseImageSource } from "@/components/shared/coarse-image-source";
+import { FadeImage } from "@/components/shared/fade-image";
 import { ImageLightbox } from "@/components/shared/image-lightbox";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
@@ -60,6 +60,8 @@ export function AuthorDetailHeader({
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
+  // A portrait that fails shows what none does: the name's letter
+  const [failedPortrait, setFailedPortrait] = useState<string | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -92,7 +94,7 @@ export function AuthorDetailHeader({
 
   const actionItems = [
     {
-      label: copied ? "Copied!" : "Copy Name",
+      label: copied ? "Copied!" : "Copy name",
       icon: copied ? Check : Copy,
       onClick: handleCopyName,
     },
@@ -108,7 +110,7 @@ export function AuthorDetailHeader({
       shortcut: editHint(EDIT_KEYS.person),
     },
     {
-      label: "Manage Media",
+      label: "Manage media",
       icon: ImageIcon,
       onClick: () => setMediaOpen(true),
       shortcut: editHint(EDIT_KEYS.media),
@@ -125,7 +127,7 @@ export function AuthorDetailHeader({
   return (
     <>
       <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:gap-8">
-        {posterUrl ? (
+        {posterUrl && posterUrl !== failedPortrait ? (
           <ProtectedImageWrapper
             className="h-64 w-48 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary cursor-pointer"
           >
@@ -144,14 +146,12 @@ export function AuthorDetailHeader({
             >
               <picture>
                 <CoarseImageSource src={posterUrl} />
-                <Image
+                <FadeImage
                   src={posterUrl}
                   alt={`${name} portrait`}
-                  fill
-                  sizes="192px"
-                  className="protected-image object-cover transition-transform duration-300 hover:scale-[1.03]"
+                  className="protected-image absolute inset-0 h-full w-full object-cover hover:scale-[1.03]"
                   style={mediaImageStyle(posterCrop)}
-                  unoptimized
+                  onError={() => setFailedPortrait(posterUrl)}
                 />
               </picture>
             </div>

@@ -162,19 +162,19 @@ export function WorkActionsMenu({
       onClick: handleCopy,
     },
     {
-      label: "Edit Work",
+      label: "Edit work",
       icon: Pencil,
       onClick: () => setEditOpen(true),
       shortcut: editHint(EDIT_KEYS.work),
     },
     {
-      label: "Edit Taxonomy",
+      label: "Edit taxonomy",
       icon: Tag,
       onClick: () => setTaxonomyOpen(true),
       shortcut: editHint(EDIT_KEYS.taxonomy),
     },
     {
-      label: "Manage Media",
+      label: "Manage media",
       icon: ImageIcon,
       onClick: () => setMediaOpen(true),
       shortcut: editHint(EDIT_KEYS.media),
@@ -186,21 +186,21 @@ export function WorkActionsMenu({
           { label: "Log a past read", icon: CalendarClock, onClick: () => reading.run("past"), shortcut: "R L" },
         ]
       : []),
-    // Up Next (SLN-452), while no reading is open
+    // Up next (SLN-452), while no reading is open
     ...(reading?.queuable
       ? [
           reading.data.queuePlace
-            ? { label: `In Up Next, ${ordinal(reading.data.queuePlace)} · Remove`, icon: ListMinus, onClick: () => void reading.toggleQueue(), shortcut: "R N" }
-            : { label: "Add to Up Next", icon: ListPlus, onClick: () => void reading.toggleQueue(), shortcut: "R N" },
+            ? { label: `In Up next, ${ordinal(reading.data.queuePlace)} · Remove`, icon: ListMinus, onClick: () => void reading.toggleQueue(), shortcut: "R N" }
+            : { label: "Add to Up next", icon: ListPlus, onClick: () => void reading.toggleQueue(), shortcut: "R N" },
         ]
       : []),
     {
-      label: "Add Edition",
+      label: "Add edition",
       icon: Plus,
       onClick: () => setAddEditionOpen(true),
     },
     {
-      label: "Link a Work",
+      label: "Link a work",
       icon: Link2,
       onClick: () => setLinkOpen(true),
     },
@@ -213,7 +213,7 @@ export function WorkActionsMenu({
       hasLinkedEbook && ["tracked", "shortlisted", "wanted", "on_order"].includes(work.catalogueStatus)
         ? [{ label: "Mark book accessioned…", icon: BookPlus, onClick: () => setStatusReviewOpen(true) }] : []),
     {
-      label: "Delete Work",
+      label: "Delete work",
       icon: Trash2,
       onClick: () => setDeleteOpen(true),
       variant: "destructive" as const,

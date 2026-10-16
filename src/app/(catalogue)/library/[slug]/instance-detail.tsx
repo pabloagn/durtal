@@ -167,7 +167,7 @@ export function InstanceDetail({
         instance.isSigned ||
         instance.isFirstPrinting) && (
         <div className="mb-2 flex flex-wrap gap-1.5">
-          {instance.hasDustJacket && <Badge variant="muted">Dust Jacket</Badge>}
+          {instance.hasDustJacket && <Badge variant="muted">Dust jacket</Badge>}
           {instance.hasSlipcase && <Badge variant="muted">Slipcase</Badge>}
           {instance.isSigned && <Badge variant="gold">Signed</Badge>}
           {instance.isFirstPrinting && (
@@ -321,7 +321,7 @@ export function InstanceDetail({
             {/* The eBook line names its size already */}
             {instance.fileSizeBytes != null && !ebook?.sizeBytes && (
               <>
-                <dt className="text-fg-secondary">File Size</dt>
+                <dt className="text-fg-secondary">File size</dt>
                 <dd className="font-mono text-fg-secondary">
                   {formatFileSize(instance.fileSizeBytes)}
                 </dd>
@@ -334,7 +334,7 @@ export function InstanceDetail({
       {/* Lending status */}
       {isLentOut && (
         <div className="mt-3 border-t border-glass-border pt-2">
-          <p className="type-caption mb-1.5">On Loan</p>
+          <p className="type-caption mb-1.5">On loan</p>
           {instance.lentTo && (
             <p className="text-fg-secondary">
               <span className="text-fg-secondary">Lent to:</span>{" "}

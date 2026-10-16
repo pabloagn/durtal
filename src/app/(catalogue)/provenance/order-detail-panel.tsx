@@ -125,7 +125,7 @@ export function OrderDetailPanel({
       <div ref={panel} className="flex h-full flex-col">
         {/* Panel header */}
         <div className="flex items-start justify-between border-b border-glass-border px-5 py-3.5">
-          <h2 className="type-item-title">Order Details</h2>
+          <h2 className="type-item-title">Order details</h2>
           {/* Carries the title's type: the buttons sit on its cap-height center, 44px high on touch */}
           <CapAligned height={24} coarseHeight={44} className="type-item-title">
             <div className="flex h-full items-center gap-1">
@@ -168,7 +168,6 @@ export function OrderDetailPanel({
                 variant="danger"
                 size="sm"
                 onClick={handleDelete}
-                disabled={isPending}
                 busy={isPending}
               >
                 Delete

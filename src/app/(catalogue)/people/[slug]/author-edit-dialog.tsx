@@ -81,10 +81,13 @@ export function AuthorEditDialog({
 
     startTransition(async () => {
       try {
-        await updateAuthor(authorId, authorPayload(values));
+        const result = await updateAuthor(authorId, authorPayload(values));
         toast.success("Person updated");
         onClose();
-        router.refresh();
+        // A new name gives the person a new address; the old one does not
+        // redirect, so go to the new one
+        if (result.slug) router.replace(`/people/${result.slug}`);
+        else router.refresh();
         triggerActivityRefresh();
       } catch (err) {
         toast.error(

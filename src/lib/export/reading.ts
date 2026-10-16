@@ -226,7 +226,7 @@ export async function commonplaceNotes(filter: NotesFilter): Promise<Commonplace
 
 /**
  * The facts of every book the Goodreads file holds: a book with a reading or
- * in Up Next. "The latest reading" is the last in the order of
+ * in Up next. "The latest reading" is the last in the order of
  * `readingOrdinalSql`: the open one, else the latest by date.
  */
 export async function loadGoodreadsBooks(): Promise<GoodreadsBook[]> {

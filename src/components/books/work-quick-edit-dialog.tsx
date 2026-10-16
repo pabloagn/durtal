@@ -131,7 +131,7 @@ export function WorkQuickEditDialog({
       onClose={() => {
         if (!isPending) onClose();
       }}
-      title="Edit Work"
+      title="Edit work"
     >
       {loading || !loaded ? (
         <div className="flex items-center justify-center py-12">

@@ -55,6 +55,7 @@ export function FilmPoster({
           alt={alt}
           loading={eager ? "eager" : "lazy"}
           decoding="async"
+          fallback={<span className={`absolute inset-0 ${COVER_BLANK}`}><CoverLetter title={title} /></span>}
           className="protected-image absolute inset-0 h-full w-full object-cover"
           style={mediaImageStyle(mediaCrop(image ?? {}))}
         />

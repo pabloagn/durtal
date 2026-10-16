@@ -35,9 +35,9 @@ interface ReadingContextValue {
   toggleTimer: () => void;
   /** After a write: refresh the page and the activity timeline */
   changed: () => void;
-  /** The book can go in Up Next: a book page with no open reading (SLN-452) */
+  /** The book can go in Up next: a book page with no open reading (SLN-452) */
   queuable: boolean;
-  /** Adds the book to Up Next, or removes it with Undo */
+  /** Adds the book to Up next, or removes it with Undo */
   toggleQueue: () => Promise<void>;
 }
 
@@ -115,14 +115,14 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
     void timer.start({ readingId: openRow.reading.id, workId: data.workId, title: data.workTitle });
   }, [openRow, timer, open, data.workId, data.workTitle]);
 
-  // Up Next (SLN-452): add the book, or take it off; an open reading is never queued
+  // Up next (SLN-452): add the book, or take it off; an open reading is never queued
   const queuable = data.queuePlace !== undefined && !openRow;
   const toggleQueue = useCallback(async () => {
     try {
       if (data.queuePlace) {
         const removed = await removeFromQueue({ workId: data.workId });
         changed();
-        undoToast(`Removed ${data.workTitle} from Up Next`, async () => {
+        undoToast(`Removed ${data.workTitle} from Up next`, async () => {
           try {
             await restoreQueueItem(removed);
             changed();
@@ -133,7 +133,7 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
       } else {
         const { place } = await addToQueue({ workId: data.workId });
         changed();
-        toast.success(`Added ${data.workTitle} to Up Next, ${ordinal(place)}`);
+        toast.success(`Added ${data.workTitle} to Up next, ${ordinal(place)}`);
       }
     } catch (err) {
       showError(err, changed);
@@ -165,8 +165,8 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
   if (queuable)
     items.push(
       data.queuePlace
-        ? { key: READING_KEYS.queue, label: "Remove from Up Next", icon: ListMinus, run: () => void toggleQueue() }
-        : { key: READING_KEYS.queue, label: "Add to Up Next", icon: ListPlus, run: () => void toggleQueue() },
+        ? { key: READING_KEYS.queue, label: "Remove from Up next", icon: ListMinus, run: () => void toggleQueue() }
+        : { key: READING_KEYS.queue, label: "Add to Up next", icon: ListPlus, run: () => void toggleQueue() },
     );
   items.push({ key: READING_KEYS.past, label: "Log a past read", icon: CalendarClock, run: () => run("past") });
   items.push({

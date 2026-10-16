@@ -15,8 +15,10 @@ Try again should be the primary button. #376 (task 0619) already did that,
 through its review fix, and made Try again reload the page. What was left:
 - The app-wide error view's way back said "Go to dashboard", while every
   in-app view says "Go to the dashboard".
-- The app-wide not-found view, shown for an address outside the app's
-  sections, said the same, in the old fallback button style.
+- The app-wide not-found view (served at `/_not-found`; every unknown
+  address inside the app reaches the in-app view through the
+  `(catalogue)/[...missing]` catch-all) said the same, in the old fallback
+  button style.
 
 ## Implementation Details
 
@@ -33,9 +35,11 @@ through its review fix, and made Try again reload the page. What was left:
 
 ## Completion Notes
 
-- **Browser.** In a production preview, an address outside the app's
-  sections answers 404 with "Page not found" and one secondary button, "Go
-  to the dashboard", in Chromium, Firefox and WebKit at 1440, 390 and 320.
+- **Browser.** In a production preview, the app-wide view at `/_not-found`
+  answers 404 with "Page not found" and one secondary button, "Go to the
+  dashboard", in Chromium, Firefox and WebKit at 1440, 390 and 320 (checked
+  there by the review of #434; the addresses first tried here reach the
+  in-app view through the catch-all, which already said this).
   The alignment, touch and design audits report nothing there, and the page
   does not scroll sideways. The app-wide error view only shows when the root
   layout itself fails, which a preview cannot cause, so its label is checked

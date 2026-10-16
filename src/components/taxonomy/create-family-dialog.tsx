@@ -77,7 +77,7 @@ export function CreateFamilyDialog({
             type="submit"
             variant="primary"
             size="sm"
-            disabled={submitting || !value.name.trim() || !value.scopes.length}
+            disabled={!value.name.trim() || !value.scopes.length}
             busy={submitting}
           >
             Create family

@@ -108,6 +108,7 @@ export function AuthorCard({
                   alt={name}
                   loading="lazy"
                   decoding="async"
+                  fallback={coverPreviews.length ? <CoverFan covers={coverPreviews} /> : <Monogram name={name} />}
                   className="protected-image absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02]"
                   style={mediaImageStyle(posterCrop)}
                 />

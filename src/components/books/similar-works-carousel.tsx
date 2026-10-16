@@ -11,7 +11,7 @@ export function SimilarWorksCarousel({ works, ebooks, readerReturnTo }: {
 }) {
   if (!works.length) return null;
   return (
-    <HorizontalCarousel title="Similar Works">
+    <HorizontalCarousel title="Similar works">
       {works.map((work) => (
         <div key={work.id} className="carousel-card">
           {work.kind === "book" ? (

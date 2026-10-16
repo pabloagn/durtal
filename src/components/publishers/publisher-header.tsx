@@ -7,6 +7,7 @@ import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { DetailControls, DetailEditButton, DetailTitleRow } from "@/components/shared/detail-layout";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { Monogram } from "@/components/shared/no-photo";
+import { FadeImage } from "@/components/shared/fade-image";
 import { FactsRow } from "@/components/shared/facts-row";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
@@ -70,10 +71,11 @@ export function PublisherHeader({
           className={`relative flex ${logoIsCard ? "h-40 w-60" : "size-40"} shrink-0 items-center justify-center overflow-hidden rounded-sm border border-glass-border bg-bg-tertiary`}
         >
           {logoUrl ? (
-            <img
+            <FadeImage
               src={logoUrl}
               alt={`${name} logo`}
               className={`protected-image ${logoIsCard ? "h-full w-full object-cover" : "max-h-[85%] max-w-[85%] object-contain"}`}
+              fallback={<Monogram name={name} />}
             />
           ) : (
             <Monogram name={name} />

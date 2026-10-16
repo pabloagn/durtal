@@ -5,6 +5,7 @@ import { X, Plus, Loader2 } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { SeriesFields } from "@/components/books/series-fields";
 import { Button } from "@/components/ui/button";
+import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,7 +34,7 @@ const CATALOGUE_STATUS_OPTIONS = [
   { value: "tracked", label: "Tracked" },
   { value: "shortlisted", label: "Shortlisted" },
   { value: "wanted", label: "Wanted" },
-  { value: "on_order", label: "On Order" },
+  { value: "on_order", label: "On order" },
   { value: "accessioned", label: "Accessioned" },
   { value: "deaccessioned", label: "Deaccessioned" },
 ];
@@ -295,14 +296,13 @@ export function WorkForm({
 
   return (
     <>
-      {/* Room on the left for the rating's first star target and its focus ring, which reach past the column (SLN-641),
-          and on the right for the open title field's padding and ring (SLN-850) */}
-      <div className="-ml-5 max-h-[75vh] overflow-y-auto pl-5 pr-3">
+      {/* The dialog's body scrolls, with room in its padding for the rating's first star target and its focus ring, which reach past the column (SLN-641) */}
+      <div>
         <div className="space-y-6">
-          {/* Core Details */}
+          {/* Core details */}
           <section>
             <h3 className="type-group-title mb-3">
-              Core Details
+              Core details
             </h3>
             <div className="space-y-3">
               <TitleInput
@@ -318,14 +318,14 @@ export function WorkForm({
               <div className="grid grid-cols-2 gap-3">
                 <Select
                   id={id("language")}
-                  label="Original Language"
+                  label="Original language"
                   options={LANGUAGE_OPTIONS}
                   value={values.originalLanguage}
                   onChange={(e) => set("originalLanguage", e.target.value)}
                 />
                 <Input
                   id={id("year")}
-                  label="Original Year"
+                  label="Original year"
                   type="number"
                   min={-3000}
                   max={2100}
@@ -337,7 +337,7 @@ export function WorkForm({
               <div className="grid grid-cols-2 gap-3">
                 <Select
                   id={id("work-type")}
-                  label="Work Type"
+                  label="Work type"
                   options={workTypeOptions}
                   value={values.workTypeId}
                   onChange={(e) => set("workTypeId", e.target.value)}
@@ -371,14 +371,14 @@ export function WorkForm({
             <div className="grid grid-cols-2 gap-3">
               <Select
                 id={id("catalogue-status")}
-                label="Catalogue Status"
+                label="Catalogue status"
                 options={CATALOGUE_STATUS_OPTIONS}
                 value={values.catalogueStatus}
                 onChange={(e) => set("catalogueStatus", e.target.value)}
               />
               <Select
                 id={id("acq-priority")}
-                label="Acquisition Priority"
+                label="Acquisition priority"
                 options={ACQUISITION_PRIORITY_OPTIONS}
                 value={values.acquisitionPriority}
                 onChange={(e) => set("acquisitionPriority", e.target.value)}
@@ -399,7 +399,7 @@ export function WorkForm({
             </div>
           </section>
 
-          {/* Description & Notes */}
+          {/* Description & notes */}
           <section>
             <h3 className="type-group-title mb-3">
               Description &amp; Notes
@@ -604,8 +604,7 @@ export function WorkForm({
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="mt-5 flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+      <DialogFooter>
         {notice && <div className="mr-auto min-w-0">{notice}</div>}
         <Button data-dismiss="" variant="secondary" size="sm" onClick={onCancel} disabled={pending}>
           Cancel
@@ -619,7 +618,7 @@ export function WorkForm({
         >
           Save changes
         </Button>
-      </div>
+      </DialogFooter>
     </>
   );
 }

@@ -164,10 +164,10 @@ export function TiptapEditor({
             </ToolbarButton>
             {editor && extraTools?.(editor)}
             <ToolbarDivider />
-            <ToolbarButton onClick={() => editor?.chain().focus().toggleBulletList().run()} label="Bullet List" active={is("bulletList")}>
+            <ToolbarButton onClick={() => editor?.chain().focus().toggleBulletList().run()} label="Bullet list" active={is("bulletList")}>
               <List className={ICON} strokeWidth={1.5} />
             </ToolbarButton>
-            <ToolbarButton onClick={() => editor?.chain().focus().toggleOrderedList().run()} label="Numbered List" active={is("orderedList")}>
+            <ToolbarButton onClick={() => editor?.chain().focus().toggleOrderedList().run()} label="Numbered list" active={is("orderedList")}>
               <ListOrdered className={ICON} strokeWidth={1.5} />
             </ToolbarButton>
             <ToolbarDivider />

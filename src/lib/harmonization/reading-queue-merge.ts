@@ -1,7 +1,7 @@
 import { sql, type SQL } from "drizzle-orm";
 
 /**
- * Moves the merged book's Up Next row (reading_queue) to the kept book (SLN-452).
+ * Moves the merged book's Up next row (reading_queue) to the kept book (SLN-452).
  * A book is queued at most once, so when both are queued the row with the
  * later position goes and the earlier one keeps its place, note and edition.
  * Called after the merge executor moved the editions, so a queued edition of

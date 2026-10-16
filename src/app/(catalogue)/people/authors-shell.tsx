@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
 import type { ColumnDef } from "@/components/books/column-config-dialog";
 import Link from "next/link";
+import { FadeImage } from "@/components/shared/fade-image";
 import { Badge } from "@/components/ui/badge";
 import { getAuthorsForMap } from "@/lib/actions/author-map";
 import { getAuthorsForTimeline } from "@/lib/actions/author-timeline";
@@ -106,6 +107,8 @@ const DEFAULT_COLUMN_CONFIG = ALL_AUTHOR_COLUMNS.map((c) => ({
 function renderAuthorCell(author: AuthorItem, key: string, filteredRoles: string[] | null) {
   switch (key) {
     case "name": {
+      // No photo, or one that fails: the name's letter
+      const blank = <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/40">{author.name[0]}</span>;
       return (
         <Link
           href={`/people/${author.slug}`}
@@ -113,14 +116,17 @@ function renderAuthorCell(author: AuthorItem, key: string, filteredRoles: string
         >
           <div className="relative flex h-20 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-tertiary">
             {author.photoUrl ? (
-              <img
+              <FadeImage
                 src={author.photoUrl}
                 alt={author.name}
+                loading="lazy"
+                decoding="async"
                 className="h-full w-full object-cover"
                 style={mediaImageStyle(author.posterCrop)}
+                fallback={blank}
               />
             ) : (
-              <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/40">{author.name[0]}</span>
+              blank
             )}
           </div>
           <span className="truncate">{author.name}</span>

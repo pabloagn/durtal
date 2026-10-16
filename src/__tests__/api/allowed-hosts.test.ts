@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { hostName, isAllowedHost, parseAllowedHosts } from "@/lib/api/allowed-hosts";
 import { serverEnv } from "@/lib/env";
+import { perPageCookieName } from "@/lib/utils/preference-cookies";
 import { config, proxy } from "@/proxy";
 
 // Task 0608: requests on a name that is not Durtal's (DNS rebinding) are refused.
@@ -114,8 +115,46 @@ describe("which requests the guard sees", () => {
     },
   );
 
-  it("leaves the build's own files and the dev server's hot reload alone", () => {
-    for (const path of ["/_next/static/chunks/app.js", "/_next/webpack-hmr"])
-      expect(unstable_doesMiddlewareMatch({ config, url: `http://localhost:3100${path}` })).toBe(false);
+  it("runs under /_next/ too, where Next.js also runs a server action posted to any path", () => {
+    for (const path of ["/_next/static/chunks/app.js", "/_next/image", "/_next/x"])
+      expect(unstable_doesMiddlewareMatch({ config, url: `http://evil.example${path}` })).toBe(true);
+  });
+});
+
+describe("the build's own files", () => {
+  const files = [
+    "/_next/static/chunks/app.js",
+    "/_next/static/media/cirka.woff2",
+    "/_next/webpack-hmr",
+    "/_next/image?url=%2Ficons%2Fdurtal-192.png&w=64&q=85",
+  ];
+
+  it.each(files)("load on any name: %s", (path) => {
+    for (const method of ["GET", "HEAD"]) {
+      expect(proxy(request(`http://evil.example${path}`, "evil.example", { method }))).toBeUndefined();
+      expect(proxy(request(`http://localhost:3100${path}`, "localhost:3100", { method }))).toBeUndefined();
+    }
+  });
+
+  it("are never redirected to a saved page size", () => {
+    const response = proxy(request("http://localhost:3100/_next/static/chunks/app.js", "localhost:3100", {
+      headers: { cookie: `${perPageCookieName("/_next/static/chunks/app.js")}=48` },
+    }));
+    expect(response).toBeUndefined();
+  });
+
+  it.each([
+    ["a server action", { method: "POST", headers: { "next-action": "7f00", origin: "http://evil.example" } }],
+    ["a form posted without JavaScript", { method: "POST", headers: { "content-type": "multipart/form-data; boundary=x" } }],
+    ["a PUT", { method: "PUT" }],
+    ["a DELETE", { method: "DELETE" }],
+  ])("refuse %s under /_next/ on another name with 421", async (_, init) => {
+    for (const path of ["/_next/x", "/_next/static/chunks/app.js", "/_next/image"]) {
+      const response = proxy(request(`http://evil.example${path}`, "evil.example", init));
+      expect(response?.status).toBe(421);
+      expect(await response?.text()).toContain("add the name to DURTAL_ALLOWED_HOSTS");
+      // On Durtal's own name it goes on to Next.js as before
+      expect(proxy(request(`http://localhost:3100${path}`, "localhost:3100", init))).toBeUndefined();
+    }
   });
 });
