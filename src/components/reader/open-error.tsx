@@ -1,3 +1,5 @@
+"use client";
+import { useEffect, useRef } from "react";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { Button, buttonClass } from "@/components/ui/button";
 
@@ -25,11 +27,17 @@ export function OpenError({
   ebookId: string;
   backHref: string;
 }) {
+  // Focus starts on the first way out, never on the page body (SLN-864)
+  const actions = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (document.activeElement?.closest("dialog[open], [role=dialog]")) return;
+    actions.current?.querySelector<HTMLElement>("a, button")?.focus({ preventScroll: true });
+  }, []);
   return (
     <div role="alert" className="absolute inset-0 flex items-center justify-center overflow-y-auto p-6">
       <div className="w-full max-w-md">
         <SectionHeading title={title} description={message} />
-        <div className="flex flex-wrap gap-2">
+        <div ref={actions} className="flex flex-wrap gap-2">
           {onRetry && (
             <Button variant="secondary" onClick={onRetry}>
               Retry

@@ -5,6 +5,7 @@ import { resultRows } from "@/lib/harmonization/store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { getPaceContext } from "@/lib/actions/reading";
 import { predictionGateSchema, type PredictionGate } from "@/lib/validations/settings";
+import { isUuid } from "@/lib/utils/uuid";
 import { homeOptions } from "../at-hand";
 import { readingToday } from "../day";
 import { buildContext } from "./build";
@@ -70,18 +71,23 @@ export async function predictionGateOn(): Promise<boolean> {
  * durtal-reading-home cookie): one that is not a home now counts as none.
  */
 export async function getSuggestionContext({ homeId: stored = null, now = new Date() }: { homeId?: string | null; now?: Date } = {}): Promise<SuggestContext> {
-  const places = resultRows<{ id: string; name: string; type: string; isActive: boolean }>(
-    await db.execute(sql`select id::text as id, name, type, is_active as "isActive" from locations order by name`),
-  );
-  const homes = homeOptions(places).map((h) => ({ id: h.id, name: h.name }));
-  const homeId = homes.some((h) => h.id === stored) ? stored : null;
-  const [today, settingsRows, rows, pace, queue] = await Promise.all([
+  // The books are read with the remembered home at the same time as the
+  // homes, and again without it only when it is not a home now: one round
+  // trip instead of two (SLN-837)
+  const guess = isUuid(stored) ? stored : null;
+  const [places, guessRows, today, settingsRows, pace, queue] = await Promise.all([
+    db
+      .execute(sql`select id::text as id, name, type, is_active as "isActive" from locations order by name`)
+      .then((result) => resultRows<{ id: string; name: string; type: string; isActive: boolean }>(result)),
+    loadBooks(withoutJit, guess),
     readingToday(),
     db.execute(sql`select reading_suggest_hide_anathema as "hideAnathema", reading_prediction_gate as gate from app_settings limit 1`),
-    loadBooks(withoutJit, homeId),
     getPaceContext([]),
     db.execute(sql`select count(*)::int as n from reading_queue`),
   ]);
+  const homes = homeOptions(places).map((h) => ({ id: h.id, name: h.name }));
+  const homeId = homes.some((h) => h.id === stored) ? stored : null;
+  const rows = homeId === guess ? guessRows : await loadBooks(withoutJit, homeId);
   const [settings] = resultRows<{ hideAnathema: boolean; gate: unknown }>(settingsRows);
   const parsedGate = predictionGateSchema.safeParse(settings?.gate);
   const books = toBooks(rows, homes);

@@ -127,6 +127,33 @@ describe("shared dropdown keyboard and focus", () => {
     expect(run).toHaveBeenCalledTimes(1);
     expect(host.querySelector('[role="menu"]')).toBeNull();
   });
+  it("returns the focus to its button after an item that acts in place (focus survey, cause 3)", async () => {
+    const run = vi.fn();
+    act(() => root.render(h(Menu, { run })));
+    act(() => trigger().click());
+    await settle();
+    key(items()[1], "Enter");
+    expect(run).toHaveBeenCalledOnce();
+    await settle();
+    expect(document.activeElement).toBe(trigger());
+    // With the mouse too
+    act(() => trigger().click());
+    await settle();
+    act(() => items()[1].click());
+    await settle();
+    expect(document.activeElement).toBe(trigger());
+  });
+  it("leaves the focus where an item put it (a field, a dialog)", async () => {
+    const field = document.createElement("input");
+    document.body.append(field);
+    act(() => root.render(h(Menu, { run: () => field.focus() })));
+    act(() => trigger().click());
+    await settle();
+    key(items()[1], "Enter");
+    await settle();
+    expect(document.activeElement).toBe(field);
+    field.remove();
+  });
   it("retains the floated menu's trigger ancestry for dialog focus restoration", async () => {
     function Probe() {
       const [open, setOpen] = useState(false);
