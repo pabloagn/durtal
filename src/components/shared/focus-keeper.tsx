@@ -22,12 +22,22 @@ import { useEffect } from "react";
 const FOCUSABLE =
   'a[href], button, input:not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
-type Place = { list: string; index: number; control: number; row: Element };
+type Place = { list: string; index: number; control: number; verb: string; row: Element };
 
 let place: Place | null = null;
 
 function shown(el: Element): boolean {
   return el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
+}
+
+/**
+ * What a control does, from the first word of its name ("Delete", "Remove",
+ * "More"): rows of one list can hold different controls (the first has no
+ * Move earlier, a book with an e-book has Read), so a place by count alone
+ * can land on another control
+ */
+function verb(el: Element): string {
+  return (el.getAttribute("aria-label") || el.textContent || "").trim().split(/\s+/)[0].toLowerCase();
 }
 
 function controls(row: Element): HTMLElement[] {
@@ -53,6 +63,7 @@ function placeOf(el: Element): Place | null {
     list: list.getAttribute("data-focus-list") ?? "",
     index: rows(list).indexOf(row),
     control: controls(row).indexOf(el as HTMLElement),
+    verb: verb(el),
     row,
   };
 }
@@ -66,7 +77,11 @@ export function focusSuccessor(gone: Place): HTMLElement | null {
   const row = left[Math.min(gone.index, left.length - 1)];
   if (row) {
     const own = controls(row);
-    return own[gone.control] ?? own[0] ?? null;
+    // The control at the same count when it does the same, else the first
+    // that does (Remove after a Remove), else the same count, else the first
+    const same = (el?: HTMLElement) => !!el && !!gone.verb && verb(el) === gone.verb;
+    if (same(own[gone.control])) return own[gone.control];
+    return own.find(same) ?? own[gone.control] ?? own[0] ?? null;
   }
   const empty = [...document.querySelectorAll<HTMLElement>("[data-focus-empty]")].find(
     (el) => el.getAttribute("data-focus-empty") === gone.list && shown(el),

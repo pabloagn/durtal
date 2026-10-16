@@ -24,7 +24,7 @@ afterEach(() => {
 });
 const frame = () => act(() => new Promise((resolve) => setTimeout(resolve, 40)));
 
-function Page({ names, dialog = false }: { names: string[]; dialog?: boolean }) {
+function Page({ names, dialog = false, read = [] }: { names: string[]; dialog?: boolean; read?: string[] }) {
   return h(
     "main",
     null,
@@ -40,6 +40,7 @@ function Page({ names, dialog = false }: { names: string[]; dialog?: boolean }) 
             "li",
             { key: name, "data-focus-row": "" },
             h("button", null, `Edit ${name}`),
+            read.includes(name) && h("button", null, `Read ${name}`),
             h("button", null, `Delete ${name}`),
           ),
         ),
@@ -57,6 +58,14 @@ describe("FocusKeeper", () => {
     act(() => root.render(h(Page, { names: ["Attic", "Cellar"] })));
     await frame();
     expect(document.activeElement).toBe(button("Delete Cellar"));
+  });
+
+  it("finds the same control when the next row holds fewer controls", async () => {
+    act(() => root.render(h(Page, { names: ["Attic", "Study"], read: ["Attic"] })));
+    button("Delete Attic").focus();
+    act(() => root.render(h(Page, { names: ["Study"], read: ["Attic"] })));
+    await frame();
+    expect(document.activeElement).toBe(button("Delete Study"));
   });
 
   it("goes to the row before when the last row goes, then to Add when none is left", async () => {
