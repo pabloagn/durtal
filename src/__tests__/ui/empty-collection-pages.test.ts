@@ -11,7 +11,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 // the toolbar and the header's Add stay.
 
 const actions = vi.hoisted(() => ({
-  works: { getWorkCount: vi.fn(async (..._args: unknown[]) => 0), getWorks: vi.fn(async () => [] as unknown[]) },
+  works: { getWorkCount: vi.fn(async (..._args: unknown[]) => 0), getWorksWith: vi.fn(async (..._args: unknown[]) => [[], new Map()] as unknown[]) },
   films: { getFilmCount: vi.fn(async () => 0), getFilms: vi.fn(async () => []) },
   perfumes: { getPerfumeCount: vi.fn(async () => 0) },
   paintings: { getPaintingCount: vi.fn(async () => 0) },
@@ -128,19 +128,19 @@ describe.each(pages)("/$name", ({ page, set, empty, says, tabs }) => {
 
 describe("/library reads its books in one wave", () => {
   it("starts the list before the check answers", async () => {
-    actions.works.getWorks.mockClear();
+    actions.works.getWorksWith.mockClear();
     let answer!: (value: number) => void;
     actions.works.getWorkCount.mockReturnValueOnce(new Promise<number>((resolve) => { answer = resolve; }));
     const rendering = LibraryPage({ searchParams: Promise.resolve({}) });
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(actions.works.getWorks).toHaveBeenCalledTimes(1);
+    expect(actions.works.getWorksWith).toHaveBeenCalledTimes(1);
     answer(1);
     await rendering;
   });
 
   it("with none, a failed list read does not go unhandled", async () => {
     actions.works.getWorkCount.mockResolvedValue(0);
-    actions.works.getWorks.mockRejectedValueOnce(new Error("connection terminated"));
+    actions.works.getWorksWith.mockRejectedValueOnce(new Error("connection terminated"));
     const unhandled = vi.fn();
     process.on("unhandledRejection", unhandled);
     await LibraryPage({ searchParams: Promise.resolve({}) });

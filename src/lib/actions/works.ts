@@ -205,7 +205,7 @@ async function buildWorkConditions(
   return and(...conditions);
 }
 
-export async function getWorks(opts?: {
+export type WorksQuery = {
   search?: string;
   limit?: number;
   offset?: number;
@@ -220,7 +220,22 @@ export async function getWorks(opts?: {
     | "queue";
   order?: "asc" | "desc";
   filters?: WorkFilters;
-}) {
+};
+
+export async function getWorks(opts?: WorksQuery) {
+  const [results] = await getWorksWith(opts, async () => undefined);
+  return results;
+}
+
+/**
+ * The library's page of works, with a read of their ids alongside. When the
+ * sort picks the page's ids first (title, author), that read runs with the
+ * page's details instead of after them: one round trip fewer (SLN-828).
+ */
+export async function getWorksWith<T>(
+  opts: WorksQuery | undefined,
+  alongside: (workIds: string[]) => Promise<T>,
+) {
   const {
     search,
     limit = 50,
@@ -268,9 +283,7 @@ export async function getWorks(opts?: {
       : sort === "authorFirstName" || sort === "authorLastName"
         ? await authorOrderedBookIds(where, sort, resolvedOrder, limit, offset)
         : undefined;
-  if (pageIds?.length === 0) return [];
-
-  const results = await db.query.works.findMany({
+  const details = db.query.works.findMany({
     where: pageIds ? inArray(works.id, pageIds) : where,
     orderBy: [...(Array.isArray(orderBy) ? orderBy : [orderBy]), asc(works.id)],
     limit,
@@ -315,6 +328,11 @@ export async function getWorks(opts?: {
       },
     },
   });
+  const [results, extra] = pageIds?.length === 0
+    ? [[] as Awaited<typeof details>, await alongside([])] as const
+    : pageIds
+    ? await Promise.all([details, alongside(pageIds)])
+    : await details.then(async (rows) => [rows, await alongside(rows.map((row) => row.id))] as const);
 
   if (sort === "title") {
     results.sort((a, b) => compareWorks(a, b, resolvedOrder));
@@ -325,7 +343,7 @@ export async function getWorks(opts?: {
     results.sort((a, b) => positions.get(a.id)! - positions.get(b.id)!);
   }
 
-  return results;
+  return [results, extra] as const;
 }
 
 export async function getWorkCount(search?: string, filters?: WorkFilters) {

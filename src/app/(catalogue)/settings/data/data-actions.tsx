@@ -143,14 +143,10 @@ export function RefreshCacheRow() {
       <Button
         id="refresh-cache"
         onClick={refresh}
-        disabled={pending}
+        busy={pending}
         aria-describedby={settingDescriptionId("refresh-cache")}
       >
-        <RefreshCw
-          className={`h-4 w-4 ${pending ? "motion-safe:animate-spin" : ""}`}
-          strokeWidth={1.5}
-          aria-hidden
-        />
+        <RefreshCw className="h-4 w-4" strokeWidth={1.5} aria-hidden />
         Refresh
       </Button>
     </SettingRow>
