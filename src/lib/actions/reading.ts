@@ -874,6 +874,11 @@ export async function updateReading(input: UpdateReadingInput) {
   // Stage one coherent, valid reading row before any query is built: totals,
   // start and corrected current counters must satisfy constraints together.
   const finalReading = { ...nextReading, ...values } as Reading;
+  let addedPosition: typeof readingSessions.$inferInsert | null = null;
+  if (correction?.insertSession) {
+    const { pagesRead: _pagesRead, readerWentBack: _readerWentBack, ...stored } = correction.corrected;
+    addedPosition = stored;
+  }
   checkWithinTotals(patch.currentPosition ?? {}, totals);
   if (totals.totalPages != null && Math.max(finalReading.startPage ?? 0, finalReading.currentPage ?? 0) > totals.totalPages)
     throw new ExpectedActionError(`You are on p. ${Math.max(finalReading.startPage ?? 0, finalReading.currentPage ?? 0).toLocaleString("en")}; the book cannot have ${countLabel(totals.totalPages, "page")}`);
@@ -893,7 +898,7 @@ export async function updateReading(input: UpdateReadingInput) {
         .where(eq(readings.id, reading.id)),
       ...(correction?.writeSession
         ? [
-            d
+            addedPosition ? d.insert(readingSessions).values(addedPosition) : d
               .update(readingSessions)
               .set({
                 endPage: correction.corrected.endPage,

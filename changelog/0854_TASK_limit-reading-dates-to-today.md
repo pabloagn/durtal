@@ -26,3 +26,8 @@ Source preparation only, on a separate branch based on `bdc1f24d`. No tests, typ
 ### Combined date validation — 17 October 2026
 
 Grant #9 passed **170 tests in 9 suites, 0 skipped**, followed serially by a passing `pnpm typecheck`. The fresh disposable database was removed (`containerRemoved: true`). The same run covers SLN-927 and SLN-928, including the direct-action omitted-date regression. Reports are in `/private/tmp/sln927-928-guarded-tests/`; the full receipt is recorded in task 0855. No build/browser process ran. Full-suite, production-build and rendered calendar/dialog audits remain pending before merge.
+
+
+## Combined reading integration
+
+The source-only merge with SLN-926 retains the capped DatePicker together with the derived, read-only session-duration input. Both submission guards remain: invalid duration before timer handling, and future-date rejection for a normal log. New mounted desktop/touch regressions assert these behaviors together and reject form submission despite a valid 192-minute duration. These added integration cases have not run yet; the fresh reading validation worker owns the combined-head checks.

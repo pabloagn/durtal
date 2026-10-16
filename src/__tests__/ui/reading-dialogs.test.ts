@@ -158,6 +158,62 @@ const choose = (label: string, option: string) => {
 };
 
 describe("Log progress", () => {
+  it.each([false, true])("keeps a time-only duration read-only while rejecting a future date (touch: %s)", async (touch) => {
+    coarse = touch;
+    act(() => root.render(createElement(LogProgressDialog, props({
+      row: { ...row, reading: { ...reading, totalPages: 240, currentPage: 60, currentPercent: 25 } } as never,
+      request: {
+        kind: "progress", readingId: "r1",
+        draft: { segment: "page", fields: { page: "", percent: "", hours: "", minutes: "", chapter: "" }, readOn: "2099-01-01", minutesRead: "15", otherId: "" },
+      },
+    }))));
+    if (touch) {
+      const time = [...host.ownerDocument.querySelectorAll('[role="radio"], [role="tab"], button')].find((button) => button.textContent === "Time") as HTMLElement;
+      act(() => time.click());
+      type(field("Hours"), "3");
+      type(field("Minutes"), "12");
+    } else type(field("Where are you?"), "3:12");
+    expect(field("Minutes read (optional)").value).toBe("192");
+    expect(field("Minutes read (optional)").readOnly).toBe(true);
+    expect(text()).toContain("3 h 12 min read · stays at p. 60 · 25%");
+    expect(text()).toContain("Choose today or an earlier date");
+    const log = [...host.querySelectorAll<HTMLButtonElement>('button[type="submit"]')].find(button => button.textContent === "Log")!;
+    expect(log.disabled).toBe(true);
+    await submit();
+    expect(actions.logProgress).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("explains and submits time without moving a page-tracked place (touch: %s)", async (touch) => {
+    coarse = touch;
+    actions.logProgress.mockResolvedValue({ reading: { fingerprint: "b".repeat(32) }, undo: { sessionId: "s1", restoreEnd: null, repause: false }, reachedEnd: false });
+    act(() => root.render(createElement(LogProgressDialog, props({ row: { ...row, reading: { ...reading, totalPages: 240, currentPage: 60, currentPercent: 25 } } as never }))));
+    // An earlier optional duration must not override the time now being entered.
+    type(field("Minutes read (optional)"), "15");
+    if (touch) {
+      const time = [...host.ownerDocument.querySelectorAll('[role="radio"], [role="tab"], button')].find((b) => b.textContent === "Time") as HTMLElement;
+      act(() => time.click());
+      type(field("Hours"), "3");
+      type(field("Minutes"), "12");
+    } else type(field("Where are you?"), "3:12");
+    expect(text()).toContain("3 h 12 min read · stays at p. 60 · 25%");
+    expect(field("Minutes read (optional)").value).toBe("192");
+    expect(field("Minutes read (optional)").readOnly).toBe(true);
+    await submit();
+    const sent = actions.logProgress.mock.calls[0][0];
+    expect(sent).toMatchObject({ readingId: "r1", minutes: 192 });
+    expect(sent).not.toHaveProperty("durationSeconds");
+    expect(sent).not.toHaveProperty("page");
+    expect(toasts.list.some((t) => t.message === "Logged 3 h 12 min")).toBe(true);
+  });
+
+  it.each(["0:00", "24:01"])("explains and blocks an unstorable session time %s", async (time) => {
+    act(() => root.render(createElement(LogProgressDialog, props())));
+    type(field("Where are you?"), time);
+    expect(text()).toContain("Enter a session time between 1 minute and 24 hours");
+    await submit();
+    expect(actions.logProgress).not.toHaveBeenCalled();
+  });
+
   it("parses live, asks how to move back, and sends the choice", async () => {
     actions.logProgress.mockResolvedValue({ reading: { fingerprint: "b".repeat(32) }, undo: { sessionId: "s1", restoreEnd: { page: 400, percent: 83.33, minutes: null, chapter: null }, repause: false }, reachedEnd: false });
     act(() => root.render(createElement(LogProgressDialog, props())));
