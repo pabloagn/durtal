@@ -65,7 +65,6 @@ export function FilmCard({
         <FilmPoster
           image={film.poster}
           title={film.title}
-          year={catalogueDateYears(film.releaseDate)}
         />
         {held && (
           <div className={`${COVER_CORNER.topRight} z-20` /* above the card's link, so its tooltip opens */}>
@@ -109,7 +108,7 @@ export function FilmRow({ film }: { film: FilmCardData }) {
   return (
     <WorkRow
       href={filmHref(film)}
-      thumbnail={<FilmPoster image={film.poster} title={film.title} small className="w-8 shrink-0 rounded-sm" />}
+      thumbnail={<FilmPoster image={film.poster} title={film.title} className="w-8 shrink-0 rounded-sm" />}
       title={film.title}
       facts={[filmDirectors(film) ?? "Director unknown", ...filmFactParts(film)]}
       held={filmHoldingsText(film.holdings)}

@@ -195,7 +195,7 @@ async function PlaceContent({ slug }: { slug: string }) {
           </div>
 
           {locationDisplay && (
-            <p className="mb-2 flex items-start gap-1.5 text-sm text-fg-secondary">
+            <p className="mb-2 flex items-start gap-1.5 text-sm text-fg-secondary [overflow-wrap:anywhere]">
               <CapAligned height={14}><MapPin className="h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={1.5} /></CapAligned>
               {locationDisplay}
             </p>
@@ -338,7 +338,7 @@ async function PlaceContent({ slug }: { slug: string }) {
               />
             )}
             {hasTags && (
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 [overflow-wrap:anywhere]">
                 <Tag className="h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} />
                 {venue.tags!.map((tag) => (
                   <Badge key={tag} variant="muted">

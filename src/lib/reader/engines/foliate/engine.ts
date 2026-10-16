@@ -72,6 +72,7 @@ import {
 import { findPageMap, parsePageMap } from "./page-map";
 import { buildAnchorIndex, indexFragment, scanMarkup } from "./position-index";
 import { matchQuote } from "./quote-match";
+import { keepSelectionOnScreen } from "@/lib/reader/selection-edge";
 import { watchTooltipKeys } from "@/lib/ui/tooltip-keys";
 import type {
   Contributor,
@@ -202,6 +203,7 @@ class FoliateEngine implements ReaderEngine {
   #nativeSelectionRevision = 0;
   #selectionCaptures = new WeakMap<SelectionDetails, { revision: number; range: Range; doc: Document }>();
   #keyboardSelection = false;
+  #pointerHeld = false;
   /** A reflowable EPUB's large images, shown after its text */
   #images: DeferredImages | null = null;
   #info: BookInfo | null = null;
@@ -1136,7 +1138,16 @@ class FoliateEngine implements ReaderEngine {
     });
     doc.addEventListener("pointerdown", () => {
       this.#keyboardSelection = false;
+      this.#pointerHeld = true;
     });
+    // A drag ends: what it selected past the screen's edge goes (SLN-682)
+    const released = () => {
+      if (!this.#pointerHeld) return;
+      this.#pointerHeld = false;
+      this.#keepSelectionOnScreen(doc);
+    };
+    doc.addEventListener("pointerup", released);
+    doc.addEventListener("pointercancel", released);
     doc.addEventListener(
       "touchstart",
       () => {
@@ -1151,7 +1162,30 @@ class FoliateEngine implements ReaderEngine {
       else if (this.#selectionDocument?.deref() !== doc) return;
       ++this.#nativeSelectionRevision;
       if (this.#selectionTimer) clearTimeout(this.#selectionTimer);
-      this.#selectionTimer = setTimeout(() => this.#selectionChanged(this.#selected(doc)), 150);
+      this.#selectionTimer = setTimeout(() => {
+        // Keys and touch handles move the selection with no drag to end;
+        // a trimmed selection reports again with its next change
+        if (!this.#pointerHeld && this.#keepSelectionOnScreen(doc)) return;
+        this.#selectionChanged(this.#selected(doc));
+      }, 150);
+    });
+  }
+
+  /**
+   * Trims a paginated book's selection to the screen. The frame holds every
+   * column of the section, so a drag past the last line otherwise went on
+   * into the next, unseen page. True when the selection changed.
+   */
+  #keepSelectionOnScreen(doc: Document): boolean {
+    const frame = doc.defaultView?.frameElement;
+    const container = this.#textContainer();
+    if (this.#destroyed || !frame || !container || this.#isPdf() ||
+      this.#book?.rendition?.layout === "pre-paginated" ||
+      this.#view?.renderer.getAttribute("flow") === "scrolled") return false;
+    const area = container.getBoundingClientRect(), at = frame.getBoundingClientRect();
+    return keepSelectionOnScreen(doc, (rect) => {
+      const x = at.left + (rect.left + rect.right) / 2, y = at.top + (rect.top + rect.bottom) / 2;
+      return x >= area.left && x <= area.right && y >= area.top && y <= area.bottom;
     });
   }
 
