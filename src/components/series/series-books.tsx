@@ -20,6 +20,8 @@ import { readingBadge } from "@/lib/reading/card";
 import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
 import { EbookMark } from "@/components/books/ebook-mark";
 import { COVER_CORNER } from "@/components/books/cover-chip";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
+import { FadeImage } from "@/components/shared/fade-image";
 import { CatalogueReadLink } from "@/components/ebooks/catalogue-read-action";
 
 /** A volume's reading: "Reading 44%", "Read", "Read 2×", "Abandoned" */
@@ -183,14 +185,19 @@ export function SeriesBooks({
               href={`/library/${book.slug}`}
               aria-label={`Open ${book.title}`}
             >
-              <div className="relative h-16 w-11 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
-                {book.cover && (
-                  <img
+              {/* The title's letter with no cover, or one that fails */}
+              <div className={`relative h-16 w-11 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary ${COVER_BLANK}`}>
+                {book.cover ? (
+                  <FadeImage
                     src={mediaUrl(book.cover)}
                     alt=""
-                    className="protected-image h-full w-full object-cover"
+                    loading="lazy"
+                    className="protected-image absolute inset-0 h-full w-full object-cover"
                     style={mediaImageStyle(book.coverCrop)}
+                    fallback={<CoverLetter title={book.title} />}
                   />
+                ) : (
+                  <CoverLetter title={book.title} />
                 )}
                 {book.ebook?.readable && <div className={COVER_CORNER.bottomLeft}><EbookMark ebook={book.ebook} /></div>}
               </div>

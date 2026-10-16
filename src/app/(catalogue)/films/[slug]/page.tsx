@@ -57,6 +57,7 @@ import { sourceChoices, sourceViews } from "@/lib/catalogue/source-views";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import type { ListSearchParams } from "@/lib/utils/pagination";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { FadeImage } from "@/components/shared/fade-image";
 
 /** One read per request for the page and its title */
 const loadFilm = cache((slug: string) => getFilm(decodeURIComponent(slug)));
@@ -376,11 +377,12 @@ export default async function FilmPage({
         <div className={still ? "relative z-[1] -mx-6 -mt-6 mb-8" : "relative z-[1] mb-8"}>
           {still && (
             <div className="absolute inset-0 -z-0 overflow-hidden">
-              <img
+              <FadeImage
                 src={mediaUrl(still.s3Key)}
                 alt=""
                 className="h-full w-full object-cover"
                 style={mediaImageStyle(mediaCrop(still))}
+                fallback={null}
               />
               <div className="absolute inset-0 bg-scrim" />
               <div
