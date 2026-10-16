@@ -1,4 +1,4 @@
-# Task 0842: Validate enrichment source extraction and field coverage
+# Task 0852: Validate enrichment source extraction and field coverage
 
 **Status**: In Review
 **Created**: 2026-10-16
