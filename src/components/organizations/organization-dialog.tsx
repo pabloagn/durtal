@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -94,6 +94,7 @@ function OrganizationForm({
   const router = useRouter();
   const [roles, setRoles] = useState<Role[]>(organization?.roles ?? []);
   const [error, setError] = useState<string | null>(null);
+  const formId = useId();
   const close = () => {
     if (!saving) onClose();
   };
@@ -143,6 +144,7 @@ function OrganizationForm({
 
   return (
   <form
+    id={formId}
     className="space-y-5"
     onSubmit={(e) => {
       e.preventDefault();
@@ -228,19 +230,20 @@ function OrganizationForm({
       rows={4}
       disabled={saving}
     />
-    {error && (
-      <p role="alert" className="text-sm text-accent-red-text">
-        {error}
-      </p>
-    )}
-    <div className="flex justify-end gap-2 border-t border-glass-border pt-4">
+    {/* Over Cancel and Save, so the reason it did not save is in view however far the fields have scrolled */}
+    <DialogFooter>
+      {error && (
+        <p role="alert" className="basis-full text-sm text-accent-red-text">
+          {error}
+        </p>
+      )}
       <Button data-dismiss="" type="button" size="sm" onClick={close} disabled={saving}>
         Cancel
       </Button>
-      <Button type="submit" variant="primary" size="sm" data-shortcut="save" busy={saving}>
+      <Button type="submit" form={formId} variant="primary" size="sm" data-shortcut="save" busy={saving}>
         {organization ? "Save" : "Add"}
       </Button>
-    </div>
+    </DialogFooter>
   </form>
   );
 }

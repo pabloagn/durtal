@@ -27,7 +27,7 @@ const SECTION_NOTES: Partial<Record<ImportSection, string>> = {
   exact: "The same Durtal book, Goodreads id or link, or ISBN.",
   present: "Every read of these rows is already in Durtal. Nothing is written for them.",
   cannot: "A rule of the reading tracker is broken. The reason is on each row.",
-  to_read: "Books on the to-read shelf. Imported, they go to the bottom of Up Next, oldest added first.",
+  to_read: "Books on the to-read shelf. Imported, they go to the bottom of Up next, oldest added first.",
   not_imported: "Books on shelves that are neither read nor to-read stay with the import.",
 };
 

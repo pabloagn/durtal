@@ -1,7 +1,7 @@
 import { z } from "zod/v4";
 import { QUEUE_SOURCES } from "@/lib/reading/constants";
 
-/* Up Next (SLN-452): every queue action's input */
+/* Up next (SLN-452): every queue action's input */
 
 const note = z.string().trim().max(500, "A note is at most 500 characters");
 

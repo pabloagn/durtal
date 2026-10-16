@@ -121,7 +121,7 @@ export function WorkEditDialog({
         </Button>
       )}
 
-      <Dialog draft open={open} onClose={closeDialog} title="Edit Work">
+      <Dialog draft open={open} onClose={closeDialog} title="Edit work">
         <WorkForm
           idPrefix="edit"
           values={values}

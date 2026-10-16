@@ -219,11 +219,11 @@ const atHand: Feature = {
 
 const upNext: Feature = {
   key: "upNext",
-  label: "Up Next",
+  label: "Up next",
   compute(book, ctx) {
     if (book.queuePlace === null) return null;
     const share = ctx.queueLength > 1 ? (book.queuePlace - 1) / (ctx.queueLength - 1) : 0;
-    return { score: 1 - share / 2, reason: `In your Up Next, ${ordinal(book.queuePlace)}`, meets: true, evidence: [{ label: "Up Next", href: "/reading/next" }] };
+    return { score: 1 - share / 2, reason: `In your Up next, ${ordinal(book.queuePlace)}`, meets: true, evidence: [{ label: "Up next", href: "/reading/next" }] };
   },
 };
 

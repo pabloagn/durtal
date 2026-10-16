@@ -265,7 +265,7 @@ export function CollectionControls({
           <Button data-dismiss="" disabled={busy} onClick={() => setDeleting(false)}>
             Cancel
           </Button>
-          <Button variant="danger" disabled={busy} onClick={remove} busy={busy}>
+          <Button variant="danger" onClick={remove} busy={busy}>
             Delete collection
           </Button>
         </div>
@@ -323,7 +323,7 @@ export function CollectionMemberControls({
   // Last in its card's foot, on the right even when it wraps to its own
   // line; the remove button's padding goes past the text's right edge
   return (
-    <div className="-mr-2.5 ml-auto flex gap-1 pointer-coarse:-mr-3.5">
+    <div className="-mr-2.5 ml-auto flex gap-1 pointer-coarse:-mr-3.5 pointer-coarse:gap-2">
       <Button
         size="sm"
         variant="ghost"

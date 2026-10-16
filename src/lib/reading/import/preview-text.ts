@@ -120,15 +120,15 @@ export function summaryLine(s: SummaryCounts): string {
     .join(" · ");
 }
 
-/** The commit button and the line under it: readings, private notes (SLN-453), books for Up Next (SLN-452) */
+/** The commit button and the line under it: readings, private notes (SLN-453), books for Up next (SLN-452) */
 export function commitWords(toImport: number, pending: number, toQueue = 0, toNotes = 0, toRate = 0): { label: string; note: string | null } {
   const imported = [toImport ? plural(toImport, "reading") : null, toNotes ? plural(toNotes, "note") : null, toRate ? plural(toRate, "rating") : null].filter(Boolean);
-  const queue = toQueue ? `add ${plural(toQueue, "book")} to Up Next` : null;
+  const queue = toQueue ? `add ${plural(toQueue, "book")} to Up next` : null;
   return {
     label: imported.length
       ? `Import ${imported.length > 2 ? `${imported.slice(0, -1).join(", ")} and ${imported[imported.length - 1]}` : imported.join(" and ")}${queue ? `${imported.length > 1 ? "," : ""} and ${queue}` : ""}`
       : queue
-        ? `Add ${plural(toQueue, "book")} to Up Next`
+        ? `Add ${plural(toQueue, "book")} to Up next`
         : "Nothing to import",
     note: pending ? `${plural(pending, "row")} not decided yet ${pending === 1 ? "is" : "are"} left out` : null,
   };
@@ -164,7 +164,7 @@ export function outcomeWords(outcome: "written" | "already_present" | "possible_
 /** The reason a row shows: "Same ISBN", "Title and author, 92%", "Chosen by you" */
 export function reasonWords(match: Pick<ImportMatch, "reason" | "chosen" | "section" | "note">): string | null {
   if (match.section === "cannot" || match.section === "present") return match.note;
-  // A to-read book: how it was found, and where it stands in Up Next (SLN-452)
+  // A to-read book: how it was found, and where it stands in Up next (SLN-452)
   if (match.section === "to_read") return [match.chosen ? "Chosen by you" : match.reason, match.note].filter(Boolean).join(" · ") || null;
   if (match.chosen) return "Chosen by you";
   return match.reason;

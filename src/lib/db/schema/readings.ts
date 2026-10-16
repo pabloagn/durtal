@@ -227,7 +227,7 @@ export const readingStatusHistory = pgTable(
 );
 
 /**
- * Up Next (SLN-452): the books he wants to read next, in his order. One row
+ * Up next (SLN-452): the books he wants to read next, in his order. One row
  * per book, separate from what he wants to buy: it never changes
  * catalogue_status. Positions leave gaps of QUEUE_GAP so a move takes the
  * middle; a full renumber restores them. A guard trigger keeps the edition

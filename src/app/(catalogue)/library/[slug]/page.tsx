@@ -192,7 +192,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     // Quotes and notes (SLN-453): books only
     canRead ? getNotesForWork(work.id) : Promise.resolve([]),
     readingDayStartHour(),
-    // The book's place in Up Next (SLN-452)
+    // The book's place in Up next (SLN-452)
     getQueuePlace(work.id),
     // The predicted rating (SLN-457) shows only while the gate is on
     canRead ? predictionGateOn() : Promise.resolve(false),
@@ -503,7 +503,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                   comma stays with the name before it, so a wrapped line never
                   starts with one */}
               {primaryAuthors.length > 0 && (
-                <div className="mt-2 flex flex-wrap items-center gap-1">
+                <div className="mt-2 flex flex-wrap items-center gap-1 pointer-coarse:mt-4">
                   {primaryAuthors.map((author, i) => (
                     <span key={author.id} className="min-w-0 text-sm text-fg-secondary [overflow-wrap:anywhere]">
                       {author.slug ? (
@@ -525,7 +525,9 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
               {/* Year and rating. The row carries the year's type: icons
                   and buttons sit on its cap-height center */}
               {/* py-1: the 28px buttons fit in the row, which keeps its height */}
-              <div className="mt-2 flex flex-wrap items-start gap-3 py-1 font-mono text-xs">
+              {/* On touch, the marks' 44px press areas clear the author link's
+                  (44px around its line) by 8px: a tap on a name never toggles a mark */}
+              <div className="mt-2 flex flex-wrap items-start gap-3 py-1 font-mono text-xs pointer-coarse:mt-7">
                 {work.originalYear && (
                   <span className="text-fg-secondary">{work.originalYear}</span>
                 )}
@@ -545,7 +547,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                   <div
                     role="group"
                     aria-label={MARKS_LABEL}
-                    className="-mx-1.5 flex items-center pointer-coarse:mx-0"
+                    className="-mx-1.5 flex items-center pointer-coarse:mx-0 pointer-coarse:gap-2"
                   >
                     <HuntAssessmentControl
                       workId={work.id}
@@ -566,7 +568,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
 
               {/* An eBook's Read button is the one way in; the reading control states the reading (SLN-683) */}
               {(canRead || digitalBooks.length > 0) && (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="mt-3 flex flex-wrap items-center gap-2 pointer-coarse:mt-4">
                   {digitalBooks.length > 0 && <ReadButton primary availability={digitalBooks} originalLanguage={work.originalLanguage} returnTo={readerReturnTo} />}
                   {canRead && <ReadingControl ebook={digitalBooks.some((ebook) => ebook.continue)} />}
                 </div>
@@ -753,7 +755,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
       )}
 
       {similarWorks.length > 0 && (
-        <section className="mb-8" aria-label="Similar Works">
+        <section className="mb-8" aria-label="Similar works">
           <SimilarWorksCarousel works={similarWorks} ebooks={digitalCards} readerReturnTo={readerReturnTo} />
         </section>
       )}

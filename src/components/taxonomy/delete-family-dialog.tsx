@@ -111,7 +111,6 @@ export function DeleteFamilyDialog({
                 type="button"
                 variant="danger"
                 size="sm"
-                disabled={deleting}
                 onClick={handleDelete}
                 busy={deleting}
               >

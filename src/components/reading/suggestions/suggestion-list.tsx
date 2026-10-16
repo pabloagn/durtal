@@ -21,7 +21,7 @@ import { toast } from "@/lib/notifications/toast";
 const menuButton =
   "action-icon";
 
-/** A suggestion's actions: Start reading, Add to Up Next, Not now, Why this? and a menu (Never, Not for me because…, Already read it) */
+/** A suggestion's actions: Start reading, Add to Up next, Not now, Why this? and a menu (Never, Not for me because…, Already read it) */
 export function SuggestionActions({ row, compact = false }: { row: SuggestionRow; compact?: boolean }) {
   const { open } = useReadingDialogs();
   const router = useRouter();
@@ -33,7 +33,7 @@ export function SuggestionActions({ row, compact = false }: { row: SuggestionRow
     try {
       await addToQueue({ workId: row.workId, from: "suggestion" });
       setQueued(true);
-      toast.success(`${row.title} added to Up Next`);
+      toast.success(`${row.title} added to Up next`);
       router.refresh();
     } catch (err) {
       showError(err, () => router.refresh());
@@ -41,14 +41,14 @@ export function SuggestionActions({ row, compact = false }: { row: SuggestionRow
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1" data-suggestion-actions={row.workId}>
+    <div className="flex flex-wrap items-center gap-1 pointer-coarse:gap-2" data-suggestion-actions={row.workId}>
       <Button size="sm" onClick={() => void open({ kind: "start", workId: row.workId, editionId: row.editionId })} className="pointer-coarse:h-11" data-suggestion-start="">
         Start reading
       </Button>
       {!compact && (
         <Button size="sm" variant="ghost" onClick={() => void queue()} disabled={queued} className="pointer-coarse:h-11" data-suggestion-queue="">
           <SpriteIcon name="list-plus" />
-          {queued ? "In Up Next" : "Add to Up Next"}
+          {queued ? "In Up next" : "Add to Up next"}
         </Button>
       )}
       <Button size="sm" variant="ghost" onClick={() => void give(row.workId, row.title, "not_now")} className="pointer-coarse:h-11" data-suggestion-not-now="">
@@ -71,7 +71,7 @@ export function SuggestionActions({ row, compact = false }: { row: SuggestionRow
           </button>
         }
       >
-        {compact && <DropdownMenuItem onClick={() => void queue()}>Add to Up Next</DropdownMenuItem>}
+        {compact && <DropdownMenuItem onClick={() => void queue()}>Add to Up next</DropdownMenuItem>}
         <DropdownMenuItem onClick={() => void give(row.workId, row.title, "never")}>Never</DropdownMenuItem>
         <DropdownMenuItem onClick={() => setNotForMe(true)}>Not for me because…</DropdownMenuItem>
         <DropdownMenuSeparator />

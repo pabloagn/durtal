@@ -77,7 +77,7 @@ export function MergeDialog({
       draft
       open={open}
       onClose={handleClose}
-      title="Merge Item"
+      title="Merge item"
       description={`Merge "${sourceItem.name}" into another item. All associated works will be reassigned.`}
       className="max-w-lg"
       expandable={false}
@@ -161,7 +161,7 @@ export function MergeDialog({
             variant="danger"
             size="sm"
             onClick={() => void handleMerge()}
-            disabled={submitting || !targetId}
+            disabled={!targetId}
             busy={submitting}
           >
             Merge

@@ -158,7 +158,7 @@ export function EntityFilters({
       {/* Sort: chips from sm up, outlined like a segmented control (SLN-693); on
           a phone one menu for the field and one button for the direction, so
           eight sorts take one row (SLN-639) */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 pointer-coarse:gap-2">
         <select
           aria-label="Sort by"
           value={currentSort}

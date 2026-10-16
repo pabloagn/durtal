@@ -9,7 +9,7 @@ export function SettingsNav() {
   const pathname = usePathname();
   return (
     <nav aria-label="Settings" className="md:sticky md:top-6 md:self-start">
-      <ul className="flex flex-wrap gap-1 md:flex-col md:gap-0.5">
+      <ul className="flex flex-wrap gap-1 pointer-coarse:gap-2 md:flex-col md:gap-0.5">
         {SETTINGS_SECTIONS.map(({ href, label, icon: Icon }) => {
           // A page inside a section (Reading's history recovery) keeps it marked
           const active = pathname === href || (href !== "/settings" && pathname.startsWith(`${href}/`));

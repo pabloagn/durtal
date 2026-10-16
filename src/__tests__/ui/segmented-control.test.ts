@@ -33,6 +33,6 @@ describe("SegmentedControl fill", () => {
   });
 
   it("leaves the default row as it was", () => {
-    expect(render(false).className).toBe("flex flex-wrap gap-1");
+    expect(render(false).className).toBe("flex flex-wrap gap-1 pointer-coarse:gap-2");
   });
 });

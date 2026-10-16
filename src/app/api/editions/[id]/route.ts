@@ -20,7 +20,7 @@ const patchEditionSchema = z
   .strict();
 
 /**
- * PATCH /api/editions/[id] — rename an edition, as the Edit Edition dialog
+ * PATCH /api/editions/[id] — rename an edition, as the Edit edition dialog
  * does (activity log included). Other fields stay as they are.
  */
 export async function PATCH(
