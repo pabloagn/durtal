@@ -4,13 +4,14 @@ import {
   FormSection as Section,
   FormColumns,
 } from "@/components/shared/form-section";
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { DialogFooter } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { BINDING_TYPES, EDITION_CONTRIBUTOR_ROLES } from "@/lib/types/index";
 import { languageOptions } from "@/lib/utils/language";
@@ -271,8 +272,9 @@ export function EditionForm({
     await onSubmit(values);
   }
 
+  const formId = useId();
   return (
-    <form onSubmit={handleSubmit} className="@container">
+    <form id={formId} onSubmit={handleSubmit} className="@container">
       {/* While it saves, the fields wait: an edit made then would be lost */}
       <fieldset disabled={isPending} className="min-w-0">
       {/* Section 1: Title & Identifiers */}
@@ -807,8 +809,8 @@ export function EditionForm({
       </Section>
       </fieldset>
 
-      {/* Submit */}
-      <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+      {/* In a dialog, under its body: the submit names this form */}
+      <DialogFooter>
         {notice && <div className="mr-auto min-w-0">{notice}</div>}
         {onCancel && (
           <Button data-dismiss=""
@@ -823,6 +825,7 @@ export function EditionForm({
         )}
         <Button
           type="submit"
+          form={formId}
           variant="primary"
           size="sm"
           disabled={!values.title.trim()}
@@ -830,7 +833,7 @@ export function EditionForm({
         >
           {submitLabel}
         </Button>
-      </div>
+      </DialogFooter>
     </form>
   );
 }

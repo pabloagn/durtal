@@ -5,6 +5,7 @@ import { X, Plus, Loader2 } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { SeriesFields } from "@/components/books/series-fields";
 import { Button } from "@/components/ui/button";
+import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
@@ -295,8 +296,8 @@ export function WorkForm({
 
   return (
     <>
-      {/* Room on the left for the rating's first star target and its focus ring, which reach past the column (SLN-641) */}
-      <div className="-ml-5 max-h-[75vh] overflow-y-auto pl-5 pr-1">
+      {/* The dialog's body scrolls, with room in its padding for the rating's first star target and its focus ring, which reach past the column (SLN-641) */}
+      <div>
         <div className="space-y-6">
           {/* Core Details */}
           <section>
@@ -609,8 +610,7 @@ export function WorkForm({
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="mt-5 flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+      <DialogFooter>
         {notice && <div className="mr-auto min-w-0">{notice}</div>}
         <Button data-dismiss="" variant="secondary" size="sm" onClick={onCancel} disabled={pending}>
           Cancel
@@ -624,7 +624,7 @@ export function WorkForm({
         >
           Save changes
         </Button>
-      </div>
+      </DialogFooter>
     </>
   );
 }
