@@ -3,7 +3,7 @@
 import { sql, inArray, asc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { works, workAuthors } from "@/lib/db/schema";
-import { getTaxonomyFamily } from "./taxonomy-families";
+import { loadTaxonomyFamily as getTaxonomyFamily } from "@/lib/catalogue/taxonomy-read";
 import { familyItemCondition, itemProjection, linkRows, taxonomyStorage, type TaxonomyItem } from "@/lib/catalogue/taxonomy-storage";
 import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
@@ -47,8 +47,8 @@ export async function getTaxonomyBrowsePage(familySlug: string, params: ListSear
     mode as (select count(*)::int as n,${family.hierarchical} and count(*)<=${SMALL_TREE} as whole from all_items),
     matched as (select * from all_items i where ((select whole from mode) and ${!parent} or ${condition})
       and (${parent ? sql`"parentId"=${parent}::uuid` : sql`(select whole from mode) or not ${family.hierarchical} or ${!!query.trim()} or "parentId" is null`})),
-    shown as (select * from matched order by ${order} limit (case when (select whole from mode) and ${!parent} then ${SMALL_TREE} else ${perPage} end)
-      offset (case when (select whole from mode) and ${!parent} then 0 else ${parent?offset:pageOffset} end))
+    shown as (select * from matched order by ${order} limit (case when (select whole from mode) and ${!parent} then ${SMALL_TREE}::bigint else ${perPage}::bigint end)
+      offset (case when (select whole from mode) and ${!parent} then 0 else ${parent?offset:pageOffset}::bigint end))
     select coalesce((select jsonb_agg(shown) from shown),'[]'::jsonb) items,(select count(*)::int from matched) total,
       (select n from mode) as "familyTotal",(select whole from mode) as "wholeTree",
       exists(select 1 from all_items where "parentId" is not null) nested`));
@@ -68,21 +68,20 @@ export async function getTaxonomyTerm(familySlug:string,itemSlug:string) {
   const family=await getTaxonomyFamily(familySlug);
   if(!family) return null;
   const s=taxonomyStorage(family), kinds=visibleKinds(family);
-  const [item]=resultRows<TaxonomyItem>(await db.execute(sql`select ${itemProjection(s)},0 as "entityCount" from ${sql.identifier(s.table)} i where ${familyItemCondition(s,family.id)} and (i.slug=${itemSlug} or i.id::text=${itemSlug})`));
-  if(!item) return null;
   const parent=s.columns.has("parent_id")?sql`i.parent_id`:sql`null::uuid`;
-  const [context]=resultRows<{parents:{id:string;name:string;slug:string}[];children:{id:string;name:string;slug:string}[];direct:number;below:number;kindCounts:{kind:WorkKind;count:number}[]}>(await db.execute(sql`
-    with recursive family_items as (select i.id,i.name,coalesce(i.slug,i.id::text) slug,${parent} as parent from ${sql.identifier(s.table)} i where ${familyItemCondition(s,family.id)}),
-    ancestors as (select *,1 as depth,array[id] path from family_items where id=${item.parentId}::uuid union all select p.*,a.depth+1,a.path||p.id from family_items p join ancestors a on p.id=a.parent where not p.id=any(a.path)),
-    descendants as (select id,array[id] path from family_items where parent=${item.id}::uuid union all select c.id,d.path||c.id from family_items c join descendants d on c.parent=d.id where not c.id=any(d.path)),
+  const [context]=resultRows<TaxonomyItem & {parents:{id:string;name:string;slug:string}[];children:{id:string;name:string;slug:string}[];direct:number;below:number;kindCounts:{kind:WorkKind;count:number}[]}>(await db.execute(sql`
+    with recursive selected as (select ${itemProjection(s)},0 as "entityCount" from ${sql.identifier(s.table)} i where ${familyItemCondition(s,family.id)} and (i.slug=${itemSlug} or i.id::text=${itemSlug})),
+    family_items as (select i.id,i.name,coalesce(i.slug,i.id::text) slug,${parent} as parent from ${sql.identifier(s.table)} i where ${familyItemCondition(s,family.id)}),
+    ancestors as (select *,1 as depth,array[id] path from family_items where id=(select "parentId" from selected) union all select p.*,a.depth+1,a.path||p.id from family_items p join ancestors a on p.id=a.parent where not p.id=any(a.path)),
+    descendants as (select id,array[id] path from family_items where parent=(select id from selected) union all select c.id,d.path||c.id from family_items c join descendants d on c.parent=d.id where not c.id=any(d.path)),
     links as materialized (select * from (${linkRows(s,kinds.length?kinds:["book"])}) l where level=${family.entityLevel}),
-    counts as (select kind,count(distinct owner_id)::int count from links where item_id=${item.id}::uuid group by kind)
-    select coalesce((select jsonb_agg(jsonb_build_object('id',id,'name',name,'slug',slug) order by depth desc) from ancestors),'[]'::jsonb) parents,
-      coalesce((select jsonb_agg(jsonb_build_object('id',id,'name',name,'slug',slug) order by name,id) from family_items where parent=${item.id}::uuid),'[]'::jsonb) children,
-      (select count(distinct owner_id)::int from links where item_id=${item.id}::uuid) direct,
+    counts as (select kind,count(distinct owner_id)::int count from links where item_id=(select id from selected) group by kind)
+    select selected.*,coalesce((select jsonb_agg(jsonb_build_object('id',id,'name',name,'slug',slug) order by depth desc) from ancestors),'[]'::jsonb) parents,
+      coalesce((select jsonb_agg(jsonb_build_object('id',id,'name',name,'slug',slug) order by name,id) from family_items where parent=(select id from selected)),'[]'::jsonb) children,
+      (select count(distinct owner_id)::int from links where item_id=(select id from selected)) direct,
       (select count(distinct owner_id)::int from links where item_id in (select id from descendants)) below,
-      coalesce((select jsonb_agg(counts) from counts),'[]'::jsonb) as "kindCounts"`));
-  return {...item,...context,kinds};
+      coalesce((select jsonb_agg(counts) from counts),'[]'::jsonb) as "kindCounts" from selected`));
+  return context ? {...context,kinds} : null;
 }
 
 /** SQL chooses only the requested book page; editions map to their parent works without duplicates. */

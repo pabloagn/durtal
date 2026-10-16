@@ -1,3 +1,4 @@
+import { redirectMergedRecord } from "@/lib/harmonization/redirect";
 import { getTaxonomyBrowsePage, getTaxonomyBookPage, getTaxonomyBookCards, getTaxonomyTerm, getTaxonomyEditorChoices } from "@/lib/actions/taxonomy-browse";
 import { compareWorks } from "@/lib/utils/title-order";
 import { deleteTaxonomyItem as deleteItemUi, mergeTaxonomyItems as mergeItemsUi } from "@/lib/actions/taxonomy-ui";
@@ -137,6 +138,14 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     expect((await getTaxonomyTerm("genres",genre.slug))?.direct).toBe(2);
     const page=await getTaxonomyBookPage("genres",genre.id,{});
     expect(page.total).toBe(1); expect(page.ids).toEqual([work.book]);
+  });
+  it("redirects merged custom terms only inside their family", async () => {
+    const f=await createTaxonomyFamily({name:"Redirect family",scopes:[{kind:"book",level:"work"}]});
+    const other=await createTaxonomyFamily({name:"Other family",scopes:[{kind:"book",level:"work"}]});
+    const source=await createTaxonomyItem(f.slug,{name:"Old term"}),target=await createTaxonomyItem(f.slug,{name:"Survivor"});
+    await mergeTaxonomyItems(f.slug,{sourceId:source.id,targetId:target.id});
+    await expect(redirectMergedRecord("custom-taxonomy",source.slug,`/taxonomy/${f.slug}`,f.id)).rejects.toMatchObject({digest:expect.stringContaining(`/taxonomy/${f.slug}/${target.slug}`)});
+    await expect(redirectMergedRecord("custom-taxonomy",source.slug,`/taxonomy/${other.slug}`,other.id)).resolves.toBeUndefined();
   });
   it("seeds distinct vocabularies and shares only intentional work families", async () => {
     for (const definition of DOMAIN_TAXONOMIES) {
