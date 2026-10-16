@@ -35,6 +35,7 @@ import { readCatalogueFile } from "@/lib/ebooks/delivery/files";
 import { fileUrlFor } from "@/lib/ebooks/delivery/url";
 import { GET as fileRoute } from "@/app/api/ebooks/files/[fileId]/route";
 import { GET as urlRoute } from "@/app/api/ebooks/files/[fileId]/url/route";
+import { DELETE as clearFailureRoute, POST as failureRoute } from "@/app/api/ebooks/files/[fileId]/open-failure/route";
 import { ebookOrphans, runEbookVerification } from "@/lib/ebooks/verify";
 
 /*
@@ -163,6 +164,35 @@ describe.skipIf(!url)("e-book delivery and verification", () => {
       const ok = await file("readable");
       const res = await urlRoute(new NextRequest(`http://localhost/api/ebooks/files/${ok.id}/url`), { params: Promise.resolve({ fileId: ok.id }) });
       expect(await res.json()).toEqual({ url: `/api/ebooks/files/${ok.id}`, expiresAt: null });
+    });
+
+    it("records why a file did not open, keeps its status and metadata, and clears it when it opens (SLN-685)", async () => {
+      const stored = await file("Damaged");
+      await c`update ebook_files set metadata = '{"title":"À rebours"}'::jsonb where id = ${stored.id}`;
+      const before = (await c`select status, updated_at from ebook_files where id = ${stored.id}`)[0];
+      const post = (id: string, body: unknown) => failureRoute(
+        new NextRequest(`http://localhost/api/ebooks/files/${id}/open-failure`, { method: "POST", body: JSON.stringify(body) }),
+        { params: Promise.resolve({ fileId: id }) });
+      expect((await post(stored.id, { reason: "zip: central directory not found" })).status).toBe(204);
+      const [row] = await c`select status, updated_at, metadata from ebook_files where id = ${stored.id}`;
+      expect(row.status).toBe("stored");
+      expect(row.updated_at).toEqual(before.updated_at);
+      expect(row.metadata.title).toBe("À rebours");
+      expect(row.metadata.openFailure.reason).toBe("zip: central directory not found");
+      expect(Date.now() - new Date(row.metadata.openFailure.at).getTime()).toBeLessThan(60_000);
+      // Still served: Retry and downloads keep working
+      const served = await urlRoute(new NextRequest(`http://localhost/api/ebooks/files/${stored.id}/url`), { params: Promise.resolve({ fileId: stored.id }) });
+      expect(served.status).toBe(200);
+      expect((await post(stored.id, { reason: "x".repeat(400) })).status).toBe(204);
+      expect((await c`select metadata from ebook_files where id = ${stored.id}`)[0].metadata.openFailure.reason).toHaveLength(300);
+      const clear = await clearFailureRoute(new NextRequest(`http://localhost/api/ebooks/files/${stored.id}/open-failure`, { method: "DELETE" }), { params: Promise.resolve({ fileId: stored.id }) });
+      expect(clear.status).toBe(204);
+      expect((await c`select metadata from ebook_files where id = ${stored.id}`)[0].metadata).toEqual({ title: "À rebours" });
+      // Files the reader is never given, an unknown file, a bad id and a missing reason
+      for (const refused of [await file("drm", { drm: "adobe-adept" }), await file("gone", { status: "replaced" }), { id: randomUUID() }])
+        expect((await post(refused.id, { reason: "x" })).status, refused.id).toBe(404);
+      expect((await post("not-a-uuid", { reason: "x" })).status).toBe(400);
+      expect((await post(stored.id, {})).status).toBe(400);
     });
 
     it("serves a range of a catalogued file from the bucket", async () => {

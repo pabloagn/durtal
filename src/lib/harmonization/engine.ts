@@ -296,23 +296,6 @@ export function scanDataset(data: Dataset): Finding[] {
             : []),
         ];
       };
-      const buckets = new Map<string, Row[]>();
-      // Deletion neighborhoods find single-character insertions, deletions and substitutions.
-      // This avoids comparing every record to every other record in the catalogue.
-      for (const row of rows) {
-        const name = names.get(row.id)!;
-        if (!name) continue;
-        const keys = new Set([...nameForms.get(row.id)!, ...identifiers(row)]);
-        for (const form of nameForms.get(row.id)!)
-          if (entity.fuzzy && form.length >= 7)
-            for (let i = 0; i < form.length; i++)
-              keys.add(form.slice(0, i) + form.slice(i + 1));
-        for (const key of keys) {
-          const bucket = buckets.get(key) || [];
-          bucket.push(row);
-          buckets.set(key, bucket);
-        }
-      }
       // Once per record, not per pair (SLN-690): titles that differ only by
       // a number ("Book 1443", "Book 1453") share deletion keys, so a large
       // catalogue can hold tens of thousands of pairs.
@@ -326,6 +309,29 @@ export function scanDataset(data: Dataset): Finding[] {
           (entity.scope || []).map((key) => normalize(r[key])),
         ]),
       );
+      const buckets = new Map<string, Row[]>();
+      // Deletion neighborhoods find single-character insertions, deletions and substitutions.
+      // This avoids comparing every record to every other record in the catalogue.
+      // A bucket holds only records of one scope and one number signature,
+      // since records that differ in either never pair: 3,000 editions titled
+      // "Second edition" across 3,000 books no longer make tens of millions of
+      // pairs to rule out (SLN-807)
+      for (const row of rows) {
+        const name = names.get(row.id)!;
+        if (!name) continue;
+        const group = JSON.stringify([signatureOf.get(row.id), scopeOf.get(row.id)]);
+        const keys = new Set([...nameForms.get(row.id)!, ...identifiers(row)]);
+        for (const form of nameForms.get(row.id)!)
+          if (entity.fuzzy && form.length >= 7)
+            for (let i = 0; i < form.length; i++)
+              keys.add(form.slice(0, i) + form.slice(i + 1));
+        for (const key of keys) {
+          const bucketKey = `${group}\u0000${key}`;
+          const bucket = buckets.get(bucketKey) || [];
+          bucket.push(row);
+          buckets.set(bucketKey, bucket);
+        }
+      }
       const pairs = new Set<string>();
       for (const bucket of buckets.values()) {
         for (let i = 0; i < bucket.length; i++)

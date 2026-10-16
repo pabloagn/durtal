@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Clock, ListPlus, MoreHorizontal } from "lucide-react";
+import { SpriteIcon } from "@/components/ui/sprite-icon";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { CapAligned } from "@/components/shared/cap-aligned";
@@ -47,12 +47,12 @@ export function SuggestionActions({ row, compact = false }: { row: SuggestionRow
       </Button>
       {!compact && (
         <Button size="sm" variant="ghost" onClick={() => void queue()} disabled={queued} className="pointer-coarse:h-11" data-suggestion-queue="">
-          <ListPlus aria-hidden strokeWidth={1.5} />
+          <SpriteIcon name="list-plus" />
           {queued ? "In Up Next" : "Add to Up Next"}
         </Button>
       )}
       <Button size="sm" variant="ghost" onClick={() => void give(row.workId, row.title, "not_now")} className="pointer-coarse:h-11" data-suggestion-not-now="">
-        <Clock aria-hidden strokeWidth={1.5} />
+        <SpriteIcon name="clock" />
         Not now
       </Button>
       {!compact && (
@@ -67,7 +67,7 @@ export function SuggestionActions({ row, compact = false }: { row: SuggestionRow
         align="end"
         trigger={
           <button type="button" aria-label={`More for ${row.title}`} data-tooltip="More" className={menuButton} data-suggestion-menu={row.workId}>
-            <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
+            <SpriteIcon name="ellipsis" className="h-4 w-4" />
           </button>
         }
       >
