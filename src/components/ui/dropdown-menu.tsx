@@ -79,8 +79,6 @@ export function DropdownMenu({
     [isControlled, onOpenChange],
   );
 
-  const close = useCallback(() => setOpen(false), [setOpen]);
-
   // An item that acts in place (Copy, Export, Add to Up next) closes the
   // menu, and the focus went with the item: it goes back to the menu's
   // button, as after Escape. An item that opened a dialog, or moved the
