@@ -15,6 +15,7 @@ import { fingerprint } from "./fingerprint";
 import { sourceRequests, type SourceField } from "./source-profiles";
 import { assessSourceContent, blockedSourceText, usableSourceQuality, type SourceIdentity, type SourceQuality } from "./source-quality";
 import type { SourceSection } from "./source-extract";
+import { assertionScopeSchema, sameAssertionScope, type AssertionScopeInput } from "./assertion-scope";
 import { EVIDENCE_KINDS, evidencePagePayloadSchema, evidenceTextPayloadSchema, type EvidencePagePayload } from "./evidence-payload";
 
 /**
@@ -78,6 +79,9 @@ async function insertEvidence(
   if (row.url) sourceUrlSchema.parse(row.url);
   const columns = await ownerColumns(database, owner);
   const json = JSON.stringify(row.payload);
+  // Hash exactly the JSON representation persisted by PostgreSQL, omitting
+  // undefined optional metadata rather than hashing it as a null field.
+  const storedPayload = JSON.parse(json) as Record<string, unknown>;
   if (Buffer.byteLength(json, "utf8") > 1_000_000) throw new Error("A source observation must be at most 1 MB");
   const [inserted] = (await atomicOn(database, (d) => [
     d
@@ -90,8 +94,8 @@ async function insertEvidence(
         retrievedAt: row.retrievedAt,
         verifiedAt: row.retrievedAt,
         reviewStatus: "accepted",
-        payload: row.payload,
-        payloadHash: sourcePayloadHash(row.payload),
+          payload: storedPayload,
+          payloadHash: sourcePayloadHash(storedPayload),
         supersedesId: row.supersedesId,
       })
       .returning(),
@@ -141,6 +145,7 @@ export interface StorePageInput {
   outletName: (key: string) => string;
   outletKind?: string;
   expectedIdentity?: SourceIdentity;
+  assertionScope?: AssertionScopeInput;
 }
 
 function requireUsable(quality: SourceQuality) {
@@ -152,6 +157,8 @@ function requireUsable(quality: SourceQuality) {
 /** Recheck old cache entries; nonempty legacy text is not a quality certificate. */
 async function validateCached(record: StoredEvidence, input: StorePageInput) {
   const payload = evidencePagePayloadSchema.parse(record.payload);
+  if (input.assertionScope && !sameAssertionScope(assertionScopeSchema.parse(input.assertionScope), payload.assertionScope ?? null))
+    throw new EvidenceFetchError("extraction_failed", "Cached source scope differs; an explicit refresh is required");
   const read = await readEvidenceText(payload.textSha256, input.objects);
   if (read.status !== "ok") throw new EvidenceFetchError("extraction_failed", "Cached source text was purged; refresh required");
   const quality = assessSourceContent(
@@ -178,6 +185,9 @@ async function validateCached(record: StoredEvidence, input: StorePageInput) {
  */
 export async function storeEvidencePage(input: StorePageInput): Promise<{ record: StoredEvidence; fetched: boolean; created: boolean }> {
   const { database, owner } = input;
+  if (input.assertionScope && assertionScopeSchema.parse(input.assertionScope).unresolvedSourceId)
+    throw new Error("Unresolved source scope is assigned after storage; omit the scope until identity is resolved");
+  if (input.assertionScope?.kind === "edition" && input.owner.kind !== "edition") throw new Error("Publication scope requires an edition-owned source");
   // The owner is checked before any fetch or upload
   await ownerColumns(database, owner);
 
@@ -261,6 +271,7 @@ export async function storeEvidencePage(input: StorePageInput): Promise<{ record
     quality,
     sections: extracted.sections,
     identityText: extracted.identityText?.slice(0, 2000),
+    assertionScope: input.assertionScope ? assertionScopeSchema.parse(input.assertionScope) : undefined,
   });
   // A refresh of the same owner, outlet and final URL supersedes the newest row of that chain
   const [previous] = input.refresh
@@ -312,7 +323,11 @@ export async function storeEvidenceText(input: {
   jobId?: string | null;
   objects: EvidenceObjects;
   expectedIdentity?: SourceIdentity;
+  assertionScope?: AssertionScopeInput;
 }): Promise<StoredEvidence> {
+  if (input.assertionScope && assertionScopeSchema.parse(input.assertionScope).unresolvedSourceId)
+    throw new Error("Unresolved source scope is assigned after storage; omit the scope until identity is resolved");
+  if (input.assertionScope?.kind === "edition" && input.owner.kind !== "edition") throw new Error("Publication scope requires an edition-owned source");
   await ownerColumns(input.database, input.owner);
   const quality = assessSourceContent({ text: input.text }, input.url ?? "https://snippet.invalid", { identity: input.expectedIdentity, snippet: true });
   requireUsable(quality);
@@ -330,6 +345,7 @@ export async function storeEvidenceText(input: {
     runId: input.runId,
     jobId: input.jobId ?? null,
     quality,
+    assertionScope: input.assertionScope ? assertionScopeSchema.parse(input.assertionScope) : undefined,
   });
   return insertEvidence(input.database, input.owner, {
     provider: input.outlet,

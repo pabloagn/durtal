@@ -5,6 +5,7 @@ import type { Fingerprint } from "../fingerprint";
 import type { OUTLET_KINDS } from "../outlets";
 import { checkIndependence } from "./independence";
 import type { SourceQuality } from "../source-quality";
+import type { AssertionScope } from "../assertion-scope";
 
 /*
  * The documents research stored for a book (SLN-469): the `source_records`
@@ -28,6 +29,8 @@ export interface StoredDocument {
   quality?: SourceQuality;
   identityText?: string;
   evidenceKind?: string;
+  assertionScope?: AssertionScope;
+  editionId?: string | null;
 }
 
 export async function storedDocuments(conn: Db, workIds: string[]): Promise<StoredDocument[]> {
@@ -41,7 +44,8 @@ export async function storedDocuments(conn: Db, workIds: string[]): Promise<Stor
         o.kind as "outletKind", o.weight::float8 as weight, o.syndication_group as "syndicationGroup", s.url,
         s.payload ->> 'textSha256' as "textSha256", (s.payload ->> 'textChars')::int as "textChars",
         s.payload ->> 'byline' as byline, s.payload -> 'fingerprint' as fingerprint,
-        s.payload -> 'quality' as quality, s.payload ->> 'identityText' as "identityText", s.payload ->> 'kind' as "evidenceKind"
+        s.payload -> 'quality' as quality, s.payload ->> 'identityText' as "identityText", s.payload ->> 'kind' as "evidenceKind",
+        s.payload -> 'assertionScope' as "assertionScope", s.edition_id as "editionId"
       from source_records s join evidence_outlets o on o.key = s.provider left join editions e on e.id = s.edition_id
       where (s.work_id in (${ids}) or e.work_id in (${ids})) and s.payload ->> 'kind' in ('evidence_page', 'evidence_text')
         and not exists (select 1 from source_records successor where successor.supersedes_id = s.id)

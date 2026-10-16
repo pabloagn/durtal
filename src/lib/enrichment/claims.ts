@@ -22,6 +22,7 @@ import {
 } from "./model";
 import { APPLY_TARGETS, type ApplyContext, type TargetValue } from "./targets";
 import { claimColumns, proposalOutcome, ruleCap, type ClaimColumns } from "./rules";
+import type { AssertionScope } from "./assertion-scope";
 
 /*
  * The enrichment services (SLN-462, section 5): proposing claims with their
@@ -105,6 +106,7 @@ const statesJson = (ids: string[]) =>
 
 /** A claim with what its target needs */
 interface LoadedClaim extends ApplyContext {
+  scope: AssertionScope | null;
   status: ClaimStatus;
   method: "api" | "agent" | "human";
   confidence: number;
@@ -115,7 +117,7 @@ interface LoadedClaim extends ApplyContext {
 async function loadClaim(conn: Db, claimId: string): Promise<LoadedClaim | null> {
   const [c] = await rows<Row & { dimension: DimensionRow }>(
     conn,
-    sql`select c.id, c.work_id as "workId", c.edition_id as "editionId", c.status, c.method, c.confidence::float8 as confidence,
+    sql`select c.id, c.work_id as "workId", c.edition_id as "editionId", c.scope, c.status, c.method, c.confidence::float8 as confidence,
         c.updated_at::text as "updatedAt", c.term_id as "termId", c.number_value::float8 as "numberValue", c.text_value as "textValue",
         c.place_id as "placeId", c.person_id as "personId",
         coalesce(t.system_item_id, t.custom_item_id) as "itemId", t.work_type_id as "workTypeId",
@@ -126,6 +128,7 @@ async function loadClaim(conn: Db, claimId: string): Promise<LoadedClaim | null>
   const d = c.dimension;
   return {
     claimId,
+    scope: (c.scope as AssertionScope | null) ?? null,
     workId: c.workId as string,
     editionId: (c.editionId as string | null) ?? null,
     status: c.status as ClaimStatus,
@@ -172,10 +175,11 @@ export async function currentFingerprint(conn: Db, claimId: string) {
   return claimFingerprint({ ...claim, id: claim.claimId }, await evidenceIds(conn, claimId), value);
 }
 
-const SAME_VALUE = (alias: string, c: ClaimColumns & { workId: string; editionId: string | null; dimensionId: string }) =>
+const SAME_VALUE = (alias: string, c: ClaimColumns & { workId: string; editionId: string | null; dimensionId: string; scope?: AssertionScope | null }) =>
   sql`${sql.raw(alias)}.work_id = ${uuid(c.workId)} and ${sql.raw(alias)}.dimension_id = ${uuid(c.dimensionId)}
     and (${sql.raw(alias)}.edition_id, ${sql.raw(alias)}.term_id, ${sql.raw(alias)}.number_value, ${sql.raw(alias)}.text_value, ${sql.raw(alias)}.place_id, ${sql.raw(alias)}.person_id)
-    is not distinct from (${c.editionId}::uuid, ${c.termId}::uuid, ${c.numberValue}::numeric, ${c.textValue}::text, ${c.placeId}::uuid, ${c.personId}::uuid)`;
+    is not distinct from (${c.editionId}::uuid, ${c.termId}::uuid, ${c.numberValue}::numeric, ${c.textValue}::text, ${c.placeId}::uuid, ${c.personId}::uuid)
+    and ${sql.raw(alias)}.scope is not distinct from ${c.scope ? JSON.stringify(c.scope) : null}::jsonb`;
 
 // ── Apply ───────────────────────────────────────────────────────────────────
 
@@ -187,7 +191,7 @@ export type ApplyBy =
 /** The claims an apply supersedes: open proposals, and on a single value the replaced one */
 async function supersededBy(conn: Db, claim: LoadedClaim, columns: ClaimColumns) {
   const single = SINGLE_VALUE_KINDS.includes(claim.dimension.valueKind);
-  const scope = sql`c.work_id = ${uuid(claim.workId)} and c.dimension_id = ${uuid(claim.dimension.id)} and c.edition_id is not distinct from ${claim.editionId}::uuid and c.id <> ${uuid(claim.claimId)}`;
+  const scope = sql`c.work_id = ${uuid(claim.workId)} and c.dimension_id = ${uuid(claim.dimension.id)} and c.edition_id is not distinct from ${claim.editionId}::uuid and c.scope is null and c.id <> ${uuid(claim.claimId)}`;
   return rows<ClaimState>(
     conn,
     single
@@ -286,6 +290,7 @@ function applyQueries(d: Db, plan: ApplyPlan) {
 export async function applyClaim(claimId: string, by: ApplyBy, conn: Db = appDb) {
   const claim = await loadClaim(conn, claimId);
   if (!claim) throw new Error("Claim not found");
+  if (claim.scope) throw new Error("Scoped assertions await scope-aware review; catalogue application is disabled");
   if (claim.status !== "proposed") throw new Error("Only a proposed claim can be accepted");
   const target = targetOf(claim.dimension.applyTarget);
   const current = await currentValue(conn, claim);
@@ -350,6 +355,7 @@ export async function createHumanClaim(
   const columns = claimColumns(dimension.valueKind, parsed.value, term);
   const claimId = randomUUID();
   const claim: LoadedClaim = {
+    scope: null,
     claimId,
     workId: parsed.workId,
     editionId: parsed.editionId ?? null,
@@ -425,6 +431,7 @@ export async function undoApplication(applicationId: string, conn: Db = appDb) {
       ? d.execute(sql`update enrichment_claims c set status = 'proposed', decided_by = null, decided_at = null, rule_id = null, superseded_by_claim_id = null
           where c.id = ${uuid(s.id)} and c.status = 'superseded' and ${HAS_EVIDENCE} and not exists (
             select 1 from enrichment_claims n where n.status = 'proposed' and n.id <> c.id and n.work_id = c.work_id and n.dimension_id = c.dimension_id
+              and n.scope is not distinct from c.scope
               and (n.edition_id, n.term_id, n.number_value, n.text_value, n.place_id, n.person_id) is not distinct from (c.edition_id, c.term_id, c.number_value, c.text_value, c.place_id, c.person_id))`)
       : d.execute(sql`update enrichment_claims c set status = ${s.status}, decided_by = ${s.decidedBy}, decided_at = ${s.decidedAt}::timestamptz,
           rule_id = ${s.ruleId}::uuid, superseded_by_claim_id = ${s.supersededByClaimId}::uuid
@@ -492,6 +499,8 @@ async function proposeOne(input: ProposalInput, conn: Db, retry: boolean): Promi
   const p = parsed.data;
   const dimension = await dimensionAt(conn, p.dimension, p.vocabularyVersion);
   if (!dimension) return { status: "refused", reason: `Unknown or retired dimension: ${p.dimension}` };
+  if (p.scope && dimension.applyTarget.startsWith("work.original_") && p.scope.kind !== "work")
+    return { status: "refused", reason: "Original Work facts require an identified Work baseline, not a translation or publication" };
   const term = "term" in p.value ? await termAt(conn, dimension.id, p.value.term, p.vocabularyVersion) : null;
   if ("term" in p.value && !term) return { status: "refused", reason: `Unknown or retired term: ${p.value.term}` };
   let columns: ClaimColumns;
@@ -512,7 +521,7 @@ async function proposeOne(input: ProposalInput, conn: Db, retry: boolean): Promi
       return { status: "refused", reason: "A proposed human claim cites only Pablo's own export" };
   }
   const editionId = p.editionId ?? null;
-  const key = { ...columns, workId: p.workId, editionId, dimensionId: dimension.id };
+  const key = { ...columns, workId: p.workId, editionId, dimensionId: dimension.id, scope: p.scope ?? null };
   const same = await rows<{ id: string; status: ClaimStatus; decisionReason: DecisionReason | null; sourceIds: string[] }>(
     conn,
     sql`select c.id, c.status, c.decision_reason as "decisionReason",
@@ -523,7 +532,7 @@ async function proposeOne(input: ProposalInput, conn: Db, retry: boolean): Promi
       from enrichment_claims c where ${SAME_VALUE("c", key)}`,
   );
   let linked = false;
-  if (dimension.applyTarget === "taxonomy" && term?.itemId) {
+  if (!p.scope && dimension.applyTarget === "taxonomy" && term?.itemId) {
     const value = await currentValue(conn, {
       claimId: "",
       workId: p.workId,
@@ -549,11 +558,12 @@ async function proposeOne(input: ProposalInput, conn: Db, retry: boolean): Promi
           ]
         : [
             d.execute(sql`insert into enrichment_claims (id, work_id, edition_id, dimension_id, term_id, number_value, text_value, place_id, person_id,
-                method, confidence, vocabulary_version, run_id, job_id, note, status, decided_by, decided_at, decision_reason)
+                method, confidence, vocabulary_version, run_id, job_id, note, status, decided_by, decided_at, decision_reason, scope, assessment)
               values (${uuid(claimId)}, ${uuid(p.workId)}, ${editionId}::uuid, ${uuid(dimension.id)}, ${columns.termId}::uuid, ${columns.numberValue}::numeric,
                 ${columns.textValue}, ${columns.placeId}::uuid, ${columns.personId}::uuid, ${p.method}, ${p.confidence}, ${p.vocabularyVersion},
                 ${p.runId ?? null}::uuid, ${p.jobId ?? null}::uuid, ${p.note ?? null},
-                ${rejected ? "rejected" : "proposed"}, ${rejected ? "check" : null}, ${rejected ? sql`now()` : null}, ${rejected ? "not_independent" : null})`),
+                ${rejected ? "rejected" : "proposed"}, ${rejected ? "check" : null}, ${rejected ? sql`now()` : null}, ${rejected ? "not_independent" : null},
+                ${p.scope ? JSON.stringify(p.scope) : null}::jsonb, ${p.assessment ? JSON.stringify(p.assessment) : null}::jsonb)`),
             ...evidence(d),
           ],
     );

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { sourceQualitySchema } from "./source-quality";
+import { assertionScopeSchema } from "./assertion-scope";
 
 /**
  * The payload of an evidence document in `source_records` (SLN-468): what an
@@ -46,6 +47,8 @@ const common = {
     )
     .optional(),
   identityText: z.string().max(2000).optional(),
+  /** Explicit source identity supplied by a curator/resolver, never inferred from a page's language. */
+  assertionScope: assertionScopeSchema.optional(),
 };
 
 /** A page the fetcher retrieved */
