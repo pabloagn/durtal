@@ -91,9 +91,11 @@ export function SuggestionItem({ row }: { row: SuggestionRow }) {
       </Link>
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex gap-1.5 text-sm">
-          {/* The title cuts off inside the link: the link's touch area is not clipped */}
+          {/* The title cuts off inside the link: the link's touch area is not clipped.
+              The link is a block: Chromium draws no focus ring round an inline
+              link whose only child is a block (SLN-871) */}
           <h3 className="min-w-0">
-            <Link href={row.href} className="text-fg-primary transition-colors hover:text-accent-primary touch-hit">
+            <Link href={row.href} className="block text-fg-primary transition-colors hover:text-accent-primary touch-hit">
               <span className="lines-1">{row.title}</span>
             </Link>
           </h3>
