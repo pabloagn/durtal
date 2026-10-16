@@ -9,10 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CatalogueDateField } from "@/components/shared/catalogue-date-field";
-import {
-  createPerfumeVariant,
-  updatePerfumeVariant,
-} from "@/lib/actions/perfumes";
+import { createPerfumeVariant, updatePerfumeVariant } from "@/lib/actions/catalogue-client";
 import { PERFUME_CONCENTRATIONS } from "@/lib/catalogue/perfumes";
 import {
   CONCENTRATION_LABELS,
@@ -159,6 +156,7 @@ function FormulationForm({
   onDone: () => void;
 }) {
   const router = useRouter();
+  const notices = toast.forAction(`formulation:${formulation?.id ?? perfumeId}`);
   const [concentration, setConcentration] = useState<PerfumeConcentration | null>(
     formulation?.concentration ?? null,
   );
@@ -220,13 +218,13 @@ function FormulationForm({
     try {
       if (formulation) await updatePerfumeVariant(formulation.id, fields, formulation.fingerprint);
       else await createPerfumeVariant({ workId: perfumeId, ...fields });
-      toast.success(formulation ? "Formulation saved" : "Formulation added");
+      notices.success(formulation ? "Formulation saved" : "Formulation added");
       onDone();
       router.refresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not save the formulation";
       setError(message);
-      toast.error(message);
+      notices.error(message);
       setSaving(false);
     }
   }
