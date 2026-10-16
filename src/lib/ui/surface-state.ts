@@ -98,6 +98,8 @@ export function handleSurfaceEscape(event: KeyboardEvent): boolean {
   const top = stack.at(-1);
   if (!top) return false;
   event.preventDefault();
+  // A held Escape belongs to this press, not to the layer exposed by it.
+  if (event.repeat) return true;
   if (!top.guard?.()) top.close();
   return true;
 }
