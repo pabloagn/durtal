@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { createTaxonomyFamily } from "@/lib/actions/taxonomy-families";
+import { createTaxonomyFamily } from "@/lib/actions/taxonomy-client";
 import { FamilyForm, type FamilyFormValue } from "./family-form";
 
 interface CreateFamilyDialogProps {

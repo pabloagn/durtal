@@ -380,9 +380,10 @@ export function Pagination({
 
 export function PaginatedSection({
   children,
-  noun,
+  noun, hideSingleSummary = false,
   ...pagination
-}: PaginationData & { children: React.ReactNode; noun: string }) {
+}: PaginationData & { children: React.ReactNode; noun: string; hideSingleSummary?: boolean }) {
+  if (hideSingleSummary && pagination.total <= pagination.perPage) return <>{children}</>;
   return (
     <>
       <Pagination {...pagination} noun={noun} compact />

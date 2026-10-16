@@ -1,3 +1,7 @@
+import { redirectMergedRecord } from "@/lib/harmonization/redirect";
+import { getTaxonomyBrowsePage, getTaxonomyBookPage, getTaxonomyBookCards, getTaxonomyTerm, getTaxonomyEditorChoices } from "@/lib/actions/taxonomy-browse";
+import { compareWorks } from "@/lib/utils/title-order";
+import { deleteTaxonomyItem as deleteItemUi, mergeTaxonomyItems as mergeItemsUi } from "@/lib/actions/taxonomy-ui";
 import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
@@ -83,6 +87,66 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
       await c`insert into editions(work_id,title) values (${work.book},'Edition') returning id`;
     editionId = edition.id;
   }, 30000);
+  it("pages and filters 900 terms without shipping off-page records or descriptions", async () => {
+    await c`insert into subjects(name,slug) select case when n=889 then 'Étrange subject' else 'Scale subject '||n end,'scale-'||n from generate_series(1,900) n`;
+    const first=(await getTaxonomyBrowsePage("subjects",{}))!;
+    const second=(await getTaxonomyBrowsePage("subjects",{page:"2"}))!;
+    expect(first.total).toBe(900); expect(first.items).toHaveLength(48);
+    expect(new Set([...first.items,...second.items].map(i=>i.id)).size).toBe(96);
+    expect(first.items.every(i=>!("description" in i))).toBe(true);
+    expect((await getTaxonomyBrowsePage("subjects",{q:"ETRANGE"}))?.items.map(i=>i.name)).toEqual(["Étrange subject"]);
+    expect((await getTaxonomyBrowsePage("subjects",{page:"999"}))?.items).toEqual([]);
+    expect(await getTaxonomyEditorChoices("subjects")).toHaveLength(900);
+  });
+  it("keeps small trees whole and loads only the opened large branch", async () => {
+    const f=await createTaxonomyFamily({name:"Tree scale",hierarchical:true,scopes:[{kind:"book",level:"work"}]});
+    const root=await createTaxonomyItem(f.slug,{name:"Root"});
+    const child=await createTaxonomyItem(f.slug,{name:"Child",parentId:root.id});
+    expect((await getTaxonomyBrowsePage(f.slug))?.items).toHaveLength(2);
+    await c`insert into custom_taxonomy_items(family_id,name,slug,parent_id) select ${f.id},'Branch '||n,'branch-'||n,${root.id} from generate_series(1,220) n`;
+    const list=(await getTaxonomyBrowsePage(f.slug))!;
+    expect(list.wholeTree).toBe(false); expect(list.items.map(i=>i.id)).toEqual([root.id]);
+    const branch=(await getTaxonomyBrowsePage(f.slug,{},root.id))!;
+    expect(branch.total).toBe(221); expect(branch.items).toHaveLength(48);
+    const more=(await getTaxonomyBrowsePage(f.slug,{},root.id,48))!;
+    expect(new Set([...branch.items,...more.items].map(i=>i.id)).size).toBe(96);
+    expect((await getTaxonomyTerm(f.slug,child.slug))?.parents.map(i=>i.id)).toEqual([root.id]);
+  });
+  it("paginates 250 linked books with lean cards and preserves natural title ordering", async () => {
+    const term=await createTaxonomyItem("subjects",{name:"Scale books"});
+    const rows=await c`insert into works(title,slug,kind) select 'Volume '||n,'volume-'||n,'book' from generate_series(1,250) n returning id,title`;
+    await c`insert into work_subjects(work_id,subject_id) select id,${term.id} from works where slug like 'volume-%'`;
+    const page=await getTaxonomyBookPage("subjects",term.id,{});
+    expect(page.total).toBe(250); expect(page.ids).toHaveLength(48);
+    expect(page.ids).toEqual(rows.map(r=>({id:String(r.id),title:String(r.title)})).sort(compareWorks).slice(0,48).map(i=>i.id));
+    const cards=await getTaxonomyBookCards(page.ids); expect(cards).toHaveLength(48);
+    expect(cards.map(w=>w.id)).toEqual(page.ids); expect(cards.every(w=>!("description" in w))).toBe(true);
+    const next=await getTaxonomyBookPage("subjects",term.id,{page:"2"});
+    expect(new Set([...page.ids,...next.ids]).size).toBe(96);
+  });
+  it("counts descendants distinctly and maps edition terms to their parent book once", async () => {
+    const root=await createTaxonomyItem("categories",{name:"Root"});
+    const mid=await createTaxonomyItem("categories",{name:"Middle",parentId:root.id});
+    const leaf=await createTaxonomyItem("categories",{name:"Leaf",parentId:mid.id});
+    await c`insert into work_categories(work_id,category_id) values (${work.book},${mid.id}),(${work.book},${leaf.id})`;
+    const term=(await getTaxonomyTerm("categories",leaf.slug))!;
+    expect(term.parents.map(p=>p.id)).toEqual([root.id,mid.id]);
+    expect((await getTaxonomyTerm("categories",root.slug))).toMatchObject({direct:0,below:1});
+    const genre=await createTaxonomyItem("genres",{name:"Edition genre"});
+    const [second]=await c`insert into editions(work_id,title) values (${work.book},'Second edition') returning id`;
+    await c`insert into edition_genres(edition_id,genre_id) values (${editionId},${genre.id}),(${second.id},${genre.id})`;
+    expect((await getTaxonomyTerm("genres",genre.slug))?.direct).toBe(2);
+    const page=await getTaxonomyBookPage("genres",genre.id,{});
+    expect(page.total).toBe(1); expect(page.ids).toEqual([work.book]);
+  });
+  it("redirects merged custom terms only inside their family", async () => {
+    const f=await createTaxonomyFamily({name:"Redirect family",scopes:[{kind:"book",level:"work"}]});
+    const other=await createTaxonomyFamily({name:"Other family",scopes:[{kind:"book",level:"work"}]});
+    const source=await createTaxonomyItem(f.slug,{name:"Old term"}),target=await createTaxonomyItem(f.slug,{name:"Survivor"});
+    await mergeTaxonomyItems(f.slug,{sourceId:source.id,targetId:target.id});
+    await expect(redirectMergedRecord("custom-taxonomy",source.slug,`/taxonomy/${f.slug}`,f.id)).rejects.toMatchObject({digest:expect.stringContaining(`/taxonomy/${f.slug}/${target.slug}`)});
+    await expect(redirectMergedRecord("custom-taxonomy",source.slug,`/taxonomy/${other.slug}`,other.id)).resolves.toBeUndefined();
+  });
   it("seeds distinct vocabularies and shares only intentional work families", async () => {
     for (const definition of DOMAIN_TAXONOMIES) {
       const family = await getTaxonomyFamily(definition.slug);
@@ -120,6 +184,33 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
       getApplicableTaxonomyFamilies("book", "film_version"),
     ).rejects.toThrow();
   });
+  it("keeps partial reorders stable and appends concurrent creations without ties", async () => {
+    await createTaxonomyFamily({ name: "Ordering proof", hierarchical: true, scopes: [{ kind: "book", level: "work" }] });
+    const a = await createTaxonomyItem("ordering-proof", { name: "A" });
+    const b = await createTaxonomyItem("ordering-proof", { name: "B" });
+    const cItem = await createTaxonomyItem("ordering-proof", { name: "C" });
+    await reorderTaxonomyItems("ordering-proof", [cItem.id, a.id]);
+    let items = await getTaxonomyItems("ordering-proof");
+    expect(items.map(i => i.id)).toEqual([cItem.id, b.id, a.id]);
+    expect(items.map(i => i.sortOrder)).toEqual([0, 1, 2]);
+    await Promise.all([createTaxonomyItem("ordering-proof", { name: "D" }), createTaxonomyItem("ordering-proof", { name: "E" })]);
+    items = await getTaxonomyItems("ordering-proof");
+    expect(items.map(i => i.sortOrder)).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it("returns child and context protections as data without removing records", async () => {
+    await createTaxonomyFamily({ name: "Protected tree", hierarchical: true, scopes: [{ kind: "book", level: "work" }] });
+    const parent = await createTaxonomyItem("protected-tree", { name: "Parent" });
+    const other = await createTaxonomyItem("protected-tree", { name: "Other" });
+    const child = await createTaxonomyItem("protected-tree", { name: "Child", parentId: parent.id });
+    const cousin = await createTaxonomyItem("protected-tree", { name: "Cousin", parentId: other.id });
+    expect(await deleteItemUi("protected-tree", parent.id)).toMatchObject({ ok: false, error: "Move this item's children before deleting it" });
+    const refused = await mergeItemsUi("protected-tree", { sourceId: child.id, targetId: cousin.id });
+    expect(refused).toMatchObject({ ok: false, error: expect.stringContaining("different contexts") });
+    expect((await getTaxonomyItems("protected-tree")).map(i => i.id).sort()).toEqual([parent.id, other.id, child.id, cousin.id].sort());
+    expect((await getTaxonomyItems("protected-tree")).find(i => i.id === parent.id)?.childCount).toBe(1);
+  });
+
   it("enforces domain and level assignment through services and direct SQL", async () => {
     const genre = await createTaxonomyItem("film-genres", { name: "Drama" });
     await replaceTaxonomyAssignments({

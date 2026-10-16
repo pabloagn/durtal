@@ -115,7 +115,7 @@ function Family({ names }: { names: string[] }) {
       }),
   );
 }
-const actions = () => [...host.querySelectorAll<HTMLButtonElement>('button[aria-label="Actions"]')];
+const actions = () => [...host.querySelectorAll<HTMLButtonElement>('button[aria-label^="Actions for "]')];
 
 describe("a merged or deleted taxonomy item", () => {
   it("hands the focus to the next row's Actions", async () => {
