@@ -129,7 +129,7 @@ interface EditionFormProps {
   existingCoverUrl?: string | null;
   /** A line at the footer's start, such as the lists' loading state */
   notice?: ReactNode;
-  /** What Genres & Tags says while both lists are empty: "Loading…", or "Not loaded" after a failed load */
+  /** What Genres & tags says while both lists are empty: "Loading…", or "Not loaded" after a failed load */
   listsNote?: string;
 }
 
@@ -277,8 +277,8 @@ export function EditionForm({
     <form id={formId} onSubmit={handleSubmit} className="@container">
       {/* While it saves, the fields wait: an edit made then would be lost */}
       <fieldset disabled={isPending} className="min-w-0">
-      {/* Section 1: Title & Identifiers */}
-      <Section title="Title & Identifiers" defaultOpen>
+      {/* Section 1: Title & identifiers */}
+      <Section title="Title & identifiers" defaultOpen>
         <TitleInput
           label="Title"
           id="ed-title"
@@ -342,7 +342,7 @@ export function EditionForm({
               className="font-mono"
             />
             <Input
-              label="Open Library Key"
+              label="Open Library key"
               id="ed-ol-key"
               value={values.openLibraryKey}
               onChange={(e) => update("openLibraryKey", e.target.value)}
@@ -730,8 +730,8 @@ export function EditionForm({
         </div>
       </Section>
 
-      {/* Section 9: Genres & Tags */}
-      <Section title="Genres & Tags">
+      {/* Section 9: Genres & tags */}
+      <Section title="Genres & tags">
         {listsNote &&
           availableGenres.length === 0 &&
           availableTags.length === 0 && (

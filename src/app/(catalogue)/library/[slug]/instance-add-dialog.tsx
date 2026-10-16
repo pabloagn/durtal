@@ -138,7 +138,7 @@ export function InstanceAddDialog({
         draft
         open={open}
         onClose={close}
-        title="Add Instance"
+        title="Add instance"
         description={editionTitle}
       >
         <fieldset disabled={isPending || review.prepared !== null || review.phase === "confirming"} >

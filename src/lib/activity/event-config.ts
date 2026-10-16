@@ -85,7 +85,7 @@ export const EVENT_CONFIG: Record<string, EventDisplayConfig> = {
   "work.reading_abandoned":         { icon: "BookX",        color: MUTED,     category: "update" },
   "work.reading_edition_changed":   { icon: "ArrowLeftRight", color: MUTED,   category: "update" },
   "work.reading_deleted":           { icon: "Trash2",       color: RED,       category: "delete" },
-  // ── Up Next (SLN-452) ────────────────────────────────────────────────────
+  // ── Up next (SLN-452) ────────────────────────────────────────────────────
   "work.queued":                    { icon: "ListPlus",     color: MUTED,     category: "update" },
   "work.unqueued":                  { icon: "ListMinus",    color: MUTED,     category: "update" },
   // ── Quotes and notes (SLN-453) ───────────────────────────────────────────
@@ -263,8 +263,8 @@ const DESCRIPTION_MAP: Record<string, DescriptionBuilder> = {
     ...(m?.extra?.reason ? [text(": "), label(abandonWords(String(m.extra.reason)))] : [])],
   "work.reading_edition_changed":   (m) => [text("Switched the reading to "), label(String(m?.extra?.editionTitle ?? "another edition"))],
   "work.reading_deleted":           () => [text("Deleted a reading")],
-  "work.queued":                    (m) => [text("Added to Up Next"), ...(m?.extra?.position ? [text(", "), label(String(m.extra.position))] : [])],
-  "work.unqueued":                  () => [text("Removed from Up Next")],
+  "work.queued":                    (m) => [text("Added to Up next"), ...(m?.extra?.position ? [text(", "), label(String(m.extra.position))] : [])],
+  "work.unqueued":                  () => [text("Removed from Up next")],
   "work.notes_added":               (m) => [text(`Added ${notesCountText(Number(m?.extra?.quotes ?? 0), Number(m?.extra?.notes ?? 0)) || "a note"}`)],
   "work.location_recorded":         (m) => {
     const custody = m?.extra?.custody, certainty = m?.extra?.certainty;

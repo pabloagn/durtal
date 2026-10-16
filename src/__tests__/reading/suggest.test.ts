@@ -173,7 +173,7 @@ describe("the taste feature", () => {
   });
 });
 
-describe("shelf time, at hand, Up Next and recent copies", () => {
+describe("shelf time, at hand, Up next and recent copies", () => {
   it("counts years on the shelf from the earliest acquisition date, capped at 10, and nothing without one", () => {
     const ctx = context([]);
     expect(feature("shelf").compute(book("Old", { firstAcquired: "2014-03-01" }), ctx)).toMatchObject({ reason: "On your shelves since 2014", meets: true });
@@ -199,9 +199,9 @@ describe("shelf time, at hand, Up Next and recent copies", () => {
     expect(row.line.split(" · ")).not.toContain("Digital");
   });
 
-  it("weighs Up Next by place and says when a copy came", () => {
+  it("weighs Up next by place and says when a copy came", () => {
     const ctx = context([book("First", { queuePlace: 1 }), book("Third", { queuePlace: 3 }), book("Second", { queuePlace: 2 })]);
-    expect(feature("upNext").compute(ctx.books[1], ctx)).toMatchObject({ reason: "In your Up Next, 3rd", score: 0.5 });
+    expect(feature("upNext").compute(ctx.books[1], ctx)).toMatchObject({ reason: "In your Up next, 3rd", score: 0.5 });
     expect(feature("upNext").compute(ctx.books[0], ctx)!.score).toBe(1);
     expect([3, 10, 21, 40, 75].map(boughtText)).toEqual(["Bought this week", "Bought last week", "Bought 3 weeks ago", "Bought last month", "Bought 2 months ago"]);
     expect(feature("recent").compute(book("New", { lastAcquired: "2026-09-01" }), ctx)).toMatchObject({ reason: "Bought last month" });
@@ -236,8 +236,8 @@ describe("scoring and reasons", () => {
     expect(s.contributions.map((c) => c.key).sort()).toEqual(["shelf", "upNext"]);
     expect(s.score).toBeCloseTo(s.contributions.reduce((t, c) => t + c.value, 0), 10);
     const tiny = { key: "shelf" as const, label: "Shelf time", weight: 1, score: 0.1, value: 0.1, share: REASON_SHARE - 0.01, reason: "On your shelves since 2025", meets: true, evidence: [] };
-    const big = { ...tiny, key: "upNext" as const, share: 0.86, value: 0.86, reason: "In your Up Next, 1st" };
-    expect(reasonsOf([tiny, big])).toEqual(["In your Up Next, 1st"]);
+    const big = { ...tiny, key: "upNext" as const, share: 0.86, value: 0.86, reason: "In your Up next, 1st" };
+    expect(reasonsOf([tiny, big])).toEqual(["In your Up next, 1st"]);
     expect(reasonsOf([{ ...tiny, share: REASON_SHARE }])).toEqual(["On your shelves since 2025"]);
     expect(reasonsOf([{ ...big, meets: false }])).toEqual([]);
     expect(ctx.books).toEqual([]);
@@ -444,7 +444,7 @@ describe("Pick one for me", () => {
     expect(weightedPick([], () => 1)).toBeNull();
   });
 
-  it("with no ratings at all, gives only Series, Shelf time, At hand, Up Next and Recent copy reasons", () => {
+  it("with no ratings at all, gives only Series, Shelf time, At hand, Up next and Recent copy reasons", () => {
     const s = { seriesId: "s1", seriesTitle: "S" };
     const kindle = edition(300, [{ locationType: "digital", locationId: "00000000-0000-4000-8000-0000000000d1" }]);
     const books = [

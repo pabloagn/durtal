@@ -29,7 +29,7 @@ export interface ReadingPageData {
   zone: string;
   /** The open reading's time left and finish date, by reading id (SLN-451); the book page only */
   estimates?: Record<string, ReadingEstimate>;
-  /** The book's place in Up Next, null when not queued (SLN-452); the book page only */
+  /** The book's place in Up next, null when not queued (SLN-452); the book page only */
   queuePlace?: number | null;
 }
 

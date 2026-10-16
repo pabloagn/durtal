@@ -263,25 +263,25 @@ export function AuthorForm({
                 />
               )}
               <Input
-                label="Sort Name"
+                label="Sort name"
                 value={values.sortName}
                 onChange={(e) => set("sortName", e.target.value)}
                 placeholder={mode === "create" ? "Last, First (auto-generated if empty)" : "Last, First"}
               />
               <div className="grid grid-cols-2 gap-3">
                 <Input
-                  label="First Name"
+                  label="First name"
                   value={values.firstName}
                   onChange={(e) => set("firstName", e.target.value)}
                 />
                 <Input
-                  label="Last Name"
+                  label="Last name"
                   value={values.lastName}
                   onChange={(e) => set("lastName", e.target.value)}
                 />
               </div>
               <Input
-                label="Real Name"
+                label="Real name"
                 value={values.realName}
                 onChange={(e) => set("realName", e.target.value)}
                 placeholder="If different from pen name"
@@ -313,7 +313,7 @@ export function AuthorForm({
           {/* Life dates */}
           <section>
             <h3 className="type-group-title mb-3">
-              Life Dates
+              Life dates
             </h3>
             <div className="space-y-3">
               <DateFields prefix="birth" values={values} set={set} />
@@ -329,13 +329,13 @@ export function AuthorForm({
             {/* One picker a row on a phone, so its results have the width to show a name in full */}
             <div className="grid gap-3 sm:grid-cols-2">
               <PlacePicker
-                label="Birth Place"
+                label="Birth place"
                 value={values.birthPlace}
                 onChange={(place) => set("birthPlace", place)}
                 disabled={pending}
               />
               <PlacePicker
-                label="Death Place"
+                label="Death place"
                 value={values.deathPlace}
                 onChange={(place) => set("deathPlace", place)}
                 disabled={pending}
@@ -373,7 +373,7 @@ export function AuthorForm({
               />
               <div className="grid grid-cols-2 gap-3">
                 <Input
-                  label="Open Library Key"
+                  label="Open Library key"
                   value={values.openLibraryKey}
                   onChange={(e) => set("openLibraryKey", e.target.value)}
                   placeholder="/authors/OL..."

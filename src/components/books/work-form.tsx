@@ -34,7 +34,7 @@ const CATALOGUE_STATUS_OPTIONS = [
   { value: "tracked", label: "Tracked" },
   { value: "shortlisted", label: "Shortlisted" },
   { value: "wanted", label: "Wanted" },
-  { value: "on_order", label: "On Order" },
+  { value: "on_order", label: "On order" },
   { value: "accessioned", label: "Accessioned" },
   { value: "deaccessioned", label: "Deaccessioned" },
 ];
@@ -299,10 +299,10 @@ export function WorkForm({
       {/* The dialog's body scrolls, with room in its padding for the rating's first star target and its focus ring, which reach past the column (SLN-641) */}
       <div>
         <div className="space-y-6">
-          {/* Core Details */}
+          {/* Core details */}
           <section>
             <h3 className="type-group-title mb-3">
-              Core Details
+              Core details
             </h3>
             <div className="space-y-3">
               <TitleInput
@@ -318,14 +318,14 @@ export function WorkForm({
               <div className="grid grid-cols-2 gap-3">
                 <Select
                   id={id("language")}
-                  label="Original Language"
+                  label="Original language"
                   options={LANGUAGE_OPTIONS}
                   value={values.originalLanguage}
                   onChange={(e) => set("originalLanguage", e.target.value)}
                 />
                 <Input
                   id={id("year")}
-                  label="Original Year"
+                  label="Original year"
                   type="number"
                   min={-3000}
                   max={2100}
@@ -337,7 +337,7 @@ export function WorkForm({
               <div className="grid grid-cols-2 gap-3">
                 <Select
                   id={id("work-type")}
-                  label="Work Type"
+                  label="Work type"
                   options={workTypeOptions}
                   value={values.workTypeId}
                   onChange={(e) => set("workTypeId", e.target.value)}
@@ -371,14 +371,14 @@ export function WorkForm({
             <div className="grid grid-cols-2 gap-3">
               <Select
                 id={id("catalogue-status")}
-                label="Catalogue Status"
+                label="Catalogue status"
                 options={CATALOGUE_STATUS_OPTIONS}
                 value={values.catalogueStatus}
                 onChange={(e) => set("catalogueStatus", e.target.value)}
               />
               <Select
                 id={id("acq-priority")}
-                label="Acquisition Priority"
+                label="Acquisition priority"
                 options={ACQUISITION_PRIORITY_OPTIONS}
                 value={values.acquisitionPriority}
                 onChange={(e) => set("acquisitionPriority", e.target.value)}
@@ -399,7 +399,7 @@ export function WorkForm({
             </div>
           </section>
 
-          {/* Description & Notes */}
+          {/* Description & notes */}
           <section>
             <h3 className="type-group-title mb-3">
               Description &amp; Notes

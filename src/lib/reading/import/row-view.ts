@@ -47,10 +47,10 @@ function outcomes(written: NonNullable<PreviewRow["written"]>) {
   return [...[...counts].map(([w, n]) => (n > 1 ? `${w} (${n})` : w)), rating].filter(Boolean).join(" · ");
 }
 
-/** A to-read row's commit (SLN-452): "Added to Up Next", "Already in Up Next", or why it was skipped */
+/** A to-read row's commit (SLN-452): "Added to Up next", "Already in Up next", or why it was skipped */
 function queueOutcome(written: NonNullable<PreviewRow["written"]>) {
-  if (written.queueOutcome === "written") return "Added to Up Next";
-  if (written.queueOutcome === "already_present") return "Already in Up Next";
+  if (written.queueOutcome === "written") return "Added to Up next";
+  if (written.queueOutcome === "already_present") return "Already in Up next";
   return `Skipped: ${written.queueReason ?? "not written"}`;
 }
 
@@ -62,7 +62,7 @@ export function rowView(row: PreviewRow, today: string): RowView {
   // An e-book library row writes its rating even when its read is already in Durtal (SLN-658)
   const writes = !written && (match.verdicts.some((v) => v.verdict === "new") || match.rating === "set" || match.rating === "differs");
   const rating = ratingLine({ section: row.section, fileRating: data.rating, bookRating: book?.rating, useFileRating: row.useFileRating, writes });
-  const what = written || closed ? null : toRead ? (book ? "Goes to the bottom of Up Next" : null) : writeLine(data.readings, match.verdicts, today, { anyway: anyway && row.decision === "import" });
+  const what = written || closed ? null : toRead ? (book ? "Goes to the bottom of Up next" : null) : writeLine(data.readings, match.verdicts, today, { anyway: anyway && row.decision === "import" });
   const reason = reasonWords(match);
   const lines: [RowLineKind, string][] = [];
   if (reason) lines.push(["reason", reason]);

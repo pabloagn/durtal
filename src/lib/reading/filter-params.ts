@@ -6,7 +6,7 @@
  *
  * To add a filter: a key in `ReadingFilterParams`, its check below, and its
  * condition in `buildWorkConditions` (`src/lib/actions/works.ts`). The
- * reading value `queued` (in Up Next, SLN-452) is not a reading state: a
+ * reading value `queued` (in Up next, SLN-452) is not a reading state: a
  * queued book can be read or unread. The enrichment filters come later.
  */
 import { z } from "zod/v4";
@@ -16,7 +16,7 @@ import { catalogueStatusEnum } from "@/lib/db/schema/enums";
 export type CatalogueStatus = (typeof catalogueStatusEnum.enumValues)[number];
 export const CATALOGUE_STATUSES = catalogueStatusEnum.enumValues;
 
-/** The Reading filter's values: the reading states, and "queued" (in Up Next) */
+/** The Reading filter's values: the reading states, and "queued" (in Up next) */
 export const READING_FILTER_VALUES = [...WORK_READING_STATES, "queued"] as const;
 export type ReadingFilterValue = WorkReadingState | "queued";
 
@@ -29,7 +29,7 @@ export type LibrarySort = (typeof LIBRARY_SORTS)[number];
 export const API_SORTS = ["title", "recent", "year", "rating", "lastRead", "queue"] as const satisfies readonly LibrarySort[];
 
 export interface ReadingFilterParams {
-  /** Any of these reading states (`readingStateSql`), or in Up Next */
+  /** Any of these reading states (`readingStateSql`), or in Up next */
   reading?: ReadingFilterValue[];
   /** A finished reading in these years, at any precision; reversed years are swapped */
   readFrom?: number;

@@ -97,7 +97,7 @@ export function CreateItemDialog({
       draft
       open={open}
       onClose={handleClose}
-      title={`New ${familyName} Item`}
+      title={`Add to ${familyName}`}
       className="max-w-lg"
       expandable={false}
     >

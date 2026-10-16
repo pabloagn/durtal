@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 /*
- * The only builders of `readings.source_key` (and of the Up Next and note
+ * The only builders of `readings.source_key` (and of the Up next and note
  * keys of later steps). A key says where a record came from and keeps a
  * re-run from writing it twice; nothing writes one by hand (SLN-444). The
  * seed step's Python copy is checked against the same fixture
@@ -101,12 +101,12 @@ export function readerReadingKey(ebookId: string) {
   return key("reader", id);
 }
 
-/** A Goodreads to-read row, for Up Next */
+/** A Goodreads to-read row, for Up next */
 export function goodreadsToReadKey(b: BookIdentity) {
   return key("goodreadsToRead", goodreadsIdentity(b));
 }
 
-/** A StoryGraph to-read row, for Up Next */
+/** A StoryGraph to-read row, for Up next */
 export function storygraphToReadKey(b: { title: string; firstAuthor: string; isbn13?: string | null }) {
   return key("storygraphToRead", keyHash(b.title, b.firstAuthor, isbnDigits(b.isbn13)));
 }

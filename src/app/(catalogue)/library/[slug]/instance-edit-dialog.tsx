@@ -200,7 +200,7 @@ export function InstanceEditDialog({
         draft
         open={open}
         onClose={close}
-        title="Edit Instance"
+        title="Edit instance"
       >
         {loading && <p role="status" className="mb-3 text-sm text-fg-secondary">Loading current copy…</p>}
         <fieldset disabled={fieldsDisabled}>

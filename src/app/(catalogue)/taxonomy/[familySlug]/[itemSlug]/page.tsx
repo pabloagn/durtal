@@ -226,7 +226,7 @@ async function ItemContent({
 
       {family.entityLevel === "edition" && entityIds.length > 0 && (
         <div>
-          <SectionHeading title="Associated Editions" />
+          <SectionHeading title="Associated editions" />
           <p className="text-sm text-fg-secondary">
             {entityIds.length} edition{entityIds.length === 1 ? "" : "s"}{" "}
             linked to this item.

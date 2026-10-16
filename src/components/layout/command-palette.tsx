@@ -318,7 +318,7 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
     })),
     { value: "reading:quote", label: "Add a quote...", icon: Quote, run: () => reading.pick("quote") },
     { value: "reading:notes", label: "Go to Notes", icon: NotebookText, run: () => navigate("/reading/notes") },
-    // Up Next (SLN-452); "Add to Up Next" on a book page comes from its R menu under "This page"
+    // Up next (SLN-452); "Add to Up next" on a book page comes from its R menu under "This page"
     { value: "reading:next", label: "Go to Up next", icon: ListOrdered, run: () => navigate("/reading/next") },
     // Suggestions (SLN-457): Pick one for me
     { value: "reading:suggest", label: "Suggest a book", icon: Sparkles, run: () => navigate("/reading/suggestions?pick=1") },

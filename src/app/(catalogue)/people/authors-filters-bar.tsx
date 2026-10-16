@@ -23,7 +23,7 @@ const RELEVANCE_SORT = { value: "relevance", label: "Best match" };
 
 const SORT_OPTIONS = [
   { value: "name", label: "Name" },
-  { value: "lastName", label: "Last Name" },
+  { value: "lastName", label: "Last name" },
   { value: "recent", label: "Recent" },
   { value: "birth", label: "Born" },
   { value: "works", label: "Books" },
@@ -110,11 +110,11 @@ export function AuthorsFiltersBar({
 
   const activeRangeCount = (birthRangeActive ? 1 : 0) + (deathRangeActive ? 1 : 0);
 
-  // All 12 zodiac signs in canonical order, plus "Not Available"
+  // All 12 zodiac signs in canonical order, plus "Not available"
   const zodiacOptions: { value: string; label: string }[] = ZODIAC_SIGNS.map(
     (sign) => ({ value: sign, label: ZODIAC_LABELS[sign] }),
   );
-  zodiacOptions.push({ value: "__none__", label: "Not Available" });
+  zodiacOptions.push({ value: "__none__", label: "Not available" });
   // Filter to only signs present in DB + __none__
   const presentSigns = new Set(zodiacSigns);
   const filteredZodiacOptions = zodiacOptions.filter(
@@ -170,7 +170,7 @@ export function AuthorsFiltersBar({
       ? [
           {
             key: "zodiac",
-            label: "Zodiac Sign",
+            label: "Zodiac sign",
             options: filteredZodiacOptions,
           } satisfies AnyFilterGroup,
         ]
@@ -188,7 +188,7 @@ export function AuthorsFiltersBar({
           {
             type: "range" as const,
             key: "birthYear",
-            label: "Birth Year",
+            label: "Birth year",
             min: birthMin,
             max: birthMax,
             value: activeBirthRange,
@@ -214,7 +214,7 @@ export function AuthorsFiltersBar({
           {
             type: "range" as const,
             key: "deathYear",
-            label: "Death Year",
+            label: "Death year",
             min: deathMin,
             max: deathMax,
             value: activeDeathRange,

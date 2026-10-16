@@ -91,7 +91,7 @@ export function PausedRow({ open, day }: { open: OpenReading; day: DayContext })
           </CapAlignedControls>
         </div>
         <p className="min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">
-          {[open.author, positionText(r), since ? `paused ${agoText(since, day)}` : null].filter(Boolean).join(" · ")}
+          {[open.author, positionText(r), since ? `paused ${agoText(since, day)}` : null].filter(Boolean).join("\u00a0· ")}
         </p>
       </div>
     </li>
