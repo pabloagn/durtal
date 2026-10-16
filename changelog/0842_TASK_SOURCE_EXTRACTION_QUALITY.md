@@ -32,5 +32,13 @@ blurbs could masquerade as bibliographic records or book descriptions.
 
 ## Completion Notes
 
-Validation pending final local suite; synthetic regressions cover the observed
-pilot failure classes without exporting owner data.
+Type checking and lint pass (81 existing warnings, no errors). The affected
+enrichment, evidence, service and network suites pass: 345 tests in 19 files,
+zero skipped, using `pnpm test:local` with explicit file filters and disposable
+databases. All Python preflight tests pass. Synthetic regressions cover the
+observed pilot failure classes without exporting owner data.
+
+The broader unfiltered run was interrupted after a new fixture failed; its
+container was removed. The fixture and an optional-metadata hash mismatch
+found in the affected rerun were corrected and verified by the passing suite.
+This does not claim a completed unfiltered suite or live source reliability.
