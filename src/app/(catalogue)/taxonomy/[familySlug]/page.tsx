@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { loadFamily } from "./load";
 import { getTaxonomyItems } from "@/lib/actions/taxonomy-families";
+import { taxonomyStorage } from "@/lib/catalogue/taxonomy-storage";
 import { Spinner } from "@/components/ui/spinner";
 import { TaxonomyFamilyShell } from "./taxonomy-family-shell";
 
@@ -20,7 +21,7 @@ async function FamilyContent({ familySlug }: { familySlug: string }) {
     slug: item.slug ?? item.id,
   }));
 
-  return <TaxonomyFamilyShell family={family} items={normalizedItems} />;
+  return <TaxonomyFamilyShell family={{ ...family, manualOrdering: taxonomyStorage(family).columns.has("sort_order") }} items={normalizedItems} />;
 }
 
 export async function generateMetadata({

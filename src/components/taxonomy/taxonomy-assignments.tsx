@@ -5,13 +5,8 @@ import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
-import {
-  createTaxonomyItem,
-  replaceTaxonomyAssignments,
-  searchTaxonomyItems,
-  type AssignedTaxonomyItem,
-  type getTaxonomyAssignments,
-} from "@/lib/actions/taxonomy-families";
+import { createTaxonomyItem, searchTaxonomyItems, type AssignedTaxonomyItem, type getTaxonomyAssignments } from "@/lib/actions/taxonomy-families";
+import { replaceTaxonomyAssignments } from "@/lib/actions/taxonomy-client";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 
 type Family = Awaited<ReturnType<typeof getTaxonomyAssignments>>[number];

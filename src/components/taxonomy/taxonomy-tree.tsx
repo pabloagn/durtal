@@ -23,6 +23,7 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import {
   TaxonomyItemRow,
@@ -41,6 +42,8 @@ interface TaxonomyTreeProps {
   items: TaxonomyItemData[];
   familySlug: string;
   hierarchical: boolean;
+  canReorder?: boolean;
+  entityNoun?: string;
   selectedIds: Set<string>;
   onSelectionChange: (ids: Set<string>) => void;
   onReorder: (ids: string[]) => Promise<void>;
@@ -72,13 +75,6 @@ function buildTree(items: TaxonomyItemData[]): TreeNode[] {
     }
   }
 
-  // Sort children by sortOrder
-  function sortChildren(nodes: TreeNode[]) {
-    nodes.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    for (const n of nodes) sortChildren(n.children);
-  }
-  sortChildren(roots);
-
   return roots;
 }
 
@@ -105,6 +101,9 @@ interface SortableRowProps {
   depth: number;
   isSelected: boolean;
   hasChildren: boolean;
+  hierarchical: boolean;
+  canReorder: boolean;
+  entityNoun: string;
   isCollapsed: boolean;
   onToggleCollapse: (id: string) => void;
   onSelect: (id: string) => void;
@@ -120,6 +119,9 @@ function SortableRow({
   depth,
   isSelected,
   hasChildren,
+  hierarchical,
+  canReorder,
+  entityNoun,
   isCollapsed,
   onToggleCollapse,
   onSelect,
@@ -136,7 +138,7 @@ function SortableRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.id });
+  } = useSortable({ id: item.id, disabled: !canReorder });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -146,43 +148,31 @@ function SortableRow({
 
   return (
     <div ref={setNodeRef} style={style} data-focus-row="">
-      <div className="flex items-center pointer-coarse:items-start">
-        {/* Collapse toggle for hierarchical items */}
-        {depth >= 0 && hasChildren && (
-          <button
-            aria-label={isCollapsed ? "Expand" : "Collapse"}
-            data-tooltip={isCollapsed ? "Expand" : "Collapse"}
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleCollapse(item.id);
-            }}
-            className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-fg-muted transition-colors hover:text-fg-secondary pointer-coarse:mt-0.5 pointer-coarse:size-11"
-            style={{ marginLeft: `${depth * 20}px` }}
-          >
-            {isCollapsed ? (
-              <ChevronRight className="h-3 w-3" strokeWidth={1.5} />
-            ) : (
-              <ChevronDown className="h-3 w-3" strokeWidth={1.5} />
-            )}
-          </button>
-        )}
+      <div className="flex items-start text-sm leading-5 pointer-coarse:leading-11" style={{ paddingLeft: depth * 20 }}>
+        {hierarchical && <div className="w-5 shrink-0 pt-1.5 pointer-coarse:w-11 pointer-coarse:pt-0.5">
+          {hasChildren ? <CapAligned height={20} coarseHeight={44}>
+            <button
+              aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${item.name}`}
+              data-tooltip={isCollapsed ? "Expand" : "Collapse"}
+              type="button"
+              onClick={e => { e.stopPropagation(); onToggleCollapse(item.id); }}
+              className="flex h-5 w-5 items-center justify-center text-fg-muted hover:text-fg-secondary pointer-coarse:size-11"
+            >{isCollapsed ? <ChevronRight className="h-3 w-3" strokeWidth={1.5} /> : <ChevronDown className="h-3 w-3" strokeWidth={1.5} />}</button>
+          </CapAligned> : <span aria-hidden="true" className="block h-5 pointer-coarse:h-11" />}
+        </div>}
         <div className="min-w-0 flex-1">
           <TaxonomyItemRow
             item={item}
             familySlug={familySlug}
-            depth={hasChildren ? 0 : depth}
+            depth={0}
+            entityNoun={entityNoun}
             isSelected={isSelected}
             onSelect={onSelect}
             onColorChange={onColorChange}
             onRename={onRename}
             onDelete={onDelete}
             onMerge={onMerge}
-            dragHandleProps={{
-              listeners,
-              attributes,
-              setActivatorNodeRef,
-            }}
+            dragHandleProps={canReorder ? { listeners, attributes, setActivatorNodeRef } : undefined}
           />
         </div>
       </div>
@@ -202,7 +192,7 @@ function DragOverlayRow({ item }: { item: TaxonomyItemData }) {
             style={{ backgroundColor: item.color }}
           />
         )}
-        <span className="truncate text-sm text-fg-primary">{item.name}</span>
+        <span className="whitespace-normal break-words text-sm text-fg-primary">{item.name}</span>
       </div>
     </div>
   );
@@ -214,6 +204,8 @@ export function TaxonomyTree({
   items,
   familySlug,
   hierarchical,
+  canReorder = true,
+  entityNoun = "work",
   selectedIds,
   onSelectionChange,
   onReorder,
@@ -256,10 +248,7 @@ export function TaxonomyTree({
   const visibleRows = useMemo(() => {
     if (!hierarchical) {
       // Flat mode: simple sortable list
-      const sorted = [...items].sort(
-        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
-      );
-      return sorted.map((item) => ({ item, depth: 0 }));
+      return items.map((item) => ({ item, depth: 0 }));
     }
     return flattenTree(treeNodes, collapsedIds);
   }, [items, hierarchical, treeNodes, collapsedIds]);
@@ -291,14 +280,14 @@ export function TaxonomyTree({
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-  }, []);
+    if (canReorder) setActiveId(event.active.id as string);
+  }, [canReorder]);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       setActiveId(null);
       const { active, over } = event;
-      if (!over || active.id === over.id) return;
+      if (!canReorder || !over || active.id === over.id) return;
 
       const oldIndex = sortableIds.indexOf(active.id as string);
       const newIndex = sortableIds.indexOf(over.id as string);
@@ -307,7 +296,7 @@ export function TaxonomyTree({
       const reordered = arrayMove(sortableIds, oldIndex, newIndex);
       onReorder(reordered);
     },
-    [sortableIds, onReorder],
+    [sortableIds, onReorder, canReorder],
   );
 
   const activeItem = activeId
@@ -353,6 +342,9 @@ export function TaxonomyTree({
                 depth={depth}
                 isSelected={selectedIds.has(item.id)}
                 hasChildren={hasChildren}
+                hierarchical={hierarchical}
+                canReorder={canReorder}
+                entityNoun={entityNoun}
                 isCollapsed={collapsedIds.has(item.id)}
                 onToggleCollapse={toggleCollapse}
                 onSelect={handleSelect}

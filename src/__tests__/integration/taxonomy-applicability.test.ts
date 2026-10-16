@@ -1,3 +1,4 @@
+import { deleteTaxonomyItem as deleteItemUi, mergeTaxonomyItems as mergeItemsUi } from "@/lib/actions/taxonomy-ui";
 import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
@@ -120,6 +121,33 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
       getApplicableTaxonomyFamilies("book", "film_version"),
     ).rejects.toThrow();
   });
+  it("keeps partial reorders stable and appends concurrent creations without ties", async () => {
+    await createTaxonomyFamily({ name: "Ordering proof", hierarchical: true, scopes: [{ kind: "book", level: "work" }] });
+    const a = await createTaxonomyItem("ordering-proof", { name: "A" });
+    const b = await createTaxonomyItem("ordering-proof", { name: "B" });
+    const cItem = await createTaxonomyItem("ordering-proof", { name: "C" });
+    await reorderTaxonomyItems("ordering-proof", [cItem.id, a.id]);
+    let items = await getTaxonomyItems("ordering-proof");
+    expect(items.map(i => i.id)).toEqual([cItem.id, b.id, a.id]);
+    expect(items.map(i => i.sortOrder)).toEqual([0, 1, 2]);
+    await Promise.all([createTaxonomyItem("ordering-proof", { name: "D" }), createTaxonomyItem("ordering-proof", { name: "E" })]);
+    items = await getTaxonomyItems("ordering-proof");
+    expect(items.map(i => i.sortOrder)).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it("returns child and context protections as data without removing records", async () => {
+    await createTaxonomyFamily({ name: "Protected tree", hierarchical: true, scopes: [{ kind: "book", level: "work" }] });
+    const parent = await createTaxonomyItem("protected-tree", { name: "Parent" });
+    const other = await createTaxonomyItem("protected-tree", { name: "Other" });
+    const child = await createTaxonomyItem("protected-tree", { name: "Child", parentId: parent.id });
+    const cousin = await createTaxonomyItem("protected-tree", { name: "Cousin", parentId: other.id });
+    expect(await deleteItemUi("protected-tree", parent.id)).toMatchObject({ ok: false, error: "Move this item's children before deleting it" });
+    const refused = await mergeItemsUi("protected-tree", { sourceId: child.id, targetId: cousin.id });
+    expect(refused).toMatchObject({ ok: false, error: expect.stringContaining("different contexts") });
+    expect((await getTaxonomyItems("protected-tree")).map(i => i.id).sort()).toEqual([parent.id, other.id, child.id, cousin.id].sort());
+    expect((await getTaxonomyItems("protected-tree")).find(i => i.id === parent.id)?.childCount).toBe(1);
+  });
+
   it("enforces domain and level assignment through services and direct SQL", async () => {
     const genre = await createTaxonomyItem("film-genres", { name: "Drama" });
     await replaceTaxonomyAssignments({

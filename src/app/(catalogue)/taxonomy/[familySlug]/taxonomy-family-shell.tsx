@@ -21,6 +21,7 @@ import { DeleteItemDialog } from "@/components/taxonomy/delete-item-dialog";
 import { EditFamilyDialog } from "@/components/taxonomy/edit-family-dialog";
 import { DeleteFamilyDialog } from "@/components/taxonomy/delete-family-dialog";
 import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
+import { taxonomyMergeTargets } from "@/lib/catalogue/taxonomy-management";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import {
   taxonomyScopeLabel,
@@ -39,6 +40,7 @@ interface Family {
   isSystem: boolean;
   entityLevel: string;
   hierarchical: boolean;
+  manualOrdering?: boolean;
   sortOrder: number;
   applicability: { kind: WorkKind; level: TaxonomyLevel }[];
 }
@@ -104,7 +106,9 @@ export function TaxonomyFamilyShell({
     writeFilter("");
     searchRef.current?.focus();
   }
-  const sortMode = (params.get("sort") ?? "manual") as SortMode;
+  const requestedSort = params.get("sort");
+  const sortMode: SortMode = requestedSort === "alphabetical" || requestedSort === "most-used" ? requestedSort : family.manualOrdering === false ? "alphabetical" : "manual";
+  const canReorder = family.manualOrdering !== false && sortMode === "manual" && !searchQuery.trim();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Dialog state
@@ -187,7 +191,7 @@ export function TaxonomyFamilyShell({
     async (ids: string[]) => {
       try {
         const { reorderTaxonomyItems } = await import(
-          "@/lib/actions/taxonomy-families"
+          "@/lib/actions/taxonomy-client"
         );
         await reorderTaxonomyItems(family.slug, ids);
         refresh();
@@ -204,7 +208,7 @@ export function TaxonomyFamilyShell({
     async (itemId: string, newParentId: string | null) => {
       try {
         const { moveTaxonomyItem } = await import(
-          "@/lib/actions/taxonomy-families"
+          "@/lib/actions/taxonomy-client"
         );
         await moveTaxonomyItem(family.slug, itemId, newParentId);
         refresh();
@@ -221,7 +225,7 @@ export function TaxonomyFamilyShell({
     async (id: string, color: string | null) => {
       try {
         const { updateTaxonomyItem } = await import(
-          "@/lib/actions/taxonomy-families"
+          "@/lib/actions/taxonomy-client"
         );
         await updateTaxonomyItem(family.slug, id, { color });
         refresh();
@@ -238,7 +242,7 @@ export function TaxonomyFamilyShell({
     async (id: string, name: string) => {
       try {
         const { updateTaxonomyItem } = await import(
-          "@/lib/actions/taxonomy-families"
+          "@/lib/actions/taxonomy-client"
         );
         await updateTaxonomyItem(family.slug, id, { name });
         toast.success(`Renamed to "${name}"`);
@@ -366,7 +370,7 @@ export function TaxonomyFamilyShell({
           onChange={(e) => setFilter("sort", e.target.value)}
           className="h-8 pointer-coarse:h-11 rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-sm text-fg-secondary transition-colors focus:border-accent-primary focus:outline-none"
         >
-          <option value="manual">Manual order</option>
+          {family.manualOrdering !== false && <option value="manual">Manual order</option>}
           <option value="alphabetical">Alphabetical</option>
           <option value="most-used">Most used</option>
         </select>
@@ -429,6 +433,8 @@ export function TaxonomyFamilyShell({
             items={processedItems}
             familySlug={family.slug}
             hierarchical={family.hierarchical}
+            canReorder={canReorder}
+            entityNoun={family.entityLevel === "edition" ? "edition" : "work"}
             selectedIds={selectedIds}
             onSelectionChange={setSelectedIds}
             onReorder={handleReorder}
@@ -466,8 +472,7 @@ export function TaxonomyFamilyShell({
             entityCount: mergeItem.entityCount,
           }}
           familySlug={family.slug}
-          availableTargets={items
-            .filter((i) => i.id !== mergeItem.id)
+          availableTargets={taxonomyMergeTargets(mergeItem, items)
             .map((i) => ({ id: i.id, name: i.name }))}
           onMerged={refresh}
         />
@@ -481,11 +486,11 @@ export function TaxonomyFamilyShell({
           item={{
             id: deleteItem.id,
             name: deleteItem.name,
-            entityCount: deleteItem.entityCount,
+            entityCount: deleteItem.linkCount ?? deleteItem.entityCount,
+            childCount: deleteItem.childCount ?? items.filter(i => i.parentId === deleteItem.id).length,
           }}
           familySlug={family.slug}
-          availableReassignTargets={items
-            .filter((i) => i.id !== deleteItem.id)
+          availableReassignTargets={taxonomyMergeTargets(deleteItem, items)
             .map((i) => ({ id: i.id, name: i.name }))}
           onDeleted={refresh}
         />
