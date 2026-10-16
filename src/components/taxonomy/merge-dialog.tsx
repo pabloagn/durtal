@@ -161,7 +161,7 @@ export function MergeDialog({
             variant="danger"
             size="sm"
             onClick={() => void handleMerge()}
-            disabled={submitting || !targetId}
+            disabled={!targetId}
             busy={submitting}
           >
             Merge

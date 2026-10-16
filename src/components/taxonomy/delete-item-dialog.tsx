@@ -126,7 +126,6 @@ export function DeleteItemDialog({
             type="submit"
             variant="danger"
             size="sm"
-            disabled={submitting}
             busy={submitting}
           >
             Delete

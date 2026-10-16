@@ -59,7 +59,6 @@ export function DeleteConfirmDialog({
             variant="danger"
             size="sm"
             onClick={handleConfirm}
-            disabled={isPending}
             busy={isPending}
           >
             Delete
