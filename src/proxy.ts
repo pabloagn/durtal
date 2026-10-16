@@ -9,6 +9,10 @@ import { LIBRARY_SORT_COOKIE, parseLibrarySortPreference } from "@/lib/library/s
 /**
  * A request on a name that is not Durtal's is refused first, so a page that
  * points its own name at the Mac (DNS rebinding) reaches nothing (task 0608).
+ * Only the build's own files skip that check: a GET or HEAD under /_next/,
+ * which loads on any name. Next.js runs a server action, or a form posted
+ * without JavaScript, on any path, /_next/ included, so anything else there is
+ * checked like a page.
  *
  * API routes refuse calls from web pages on other origins (task 0255).
  *
@@ -25,6 +29,7 @@ import { LIBRARY_SORT_COOKIE, parseLibrarySortPreference } from "@/lib/library/s
  * (src/lib/reader/device-handshake.ts).
  */
 export function proxy(request: NextRequest) {
+  if (buildFile(request)) return;
   const misdirected = hostRefusal(request);
   if (misdirected) return misdirected;
   if (request.nextUrl.pathname.startsWith("/api/")) {
@@ -47,6 +52,13 @@ export function proxy(request: NextRequest) {
   if (url.href !== request.nextUrl.href) return NextResponse.redirect(url);
 }
 
+/** A script, style, font, image or hot reload of the build, read on any name */
+function buildFile(request: NextRequest) {
+  return (
+    request.nextUrl.pathname.startsWith("/_next/") && (request.method === "GET" || request.method === "HEAD")
+  );
+}
+
 /** The reader's policy on the request (Next.js puts its nonce on its own scripts) and on the answer */
 function readerPage(request: NextRequest) {
   const nonce = makeNonce();
@@ -63,8 +75,9 @@ function readerPage(request: NextRequest) {
 }
 
 export const config = {
-  // Everything but the build's own files. A path with a dot is a page too: the
-  // catch-all not-found page answers it and runs any server action posted to
-  // it, so the host guard has to see it (task 0608)
-  matcher: ["/((?!api/|_next/).*)", "/api/:path*", "/ebooks/:path*"],
+  // Every path. A path with a dot is a page too: the catch-all not-found page
+  // answers it and runs any server action posted to it, so the host guard has
+  // to see it (task 0608). So does /_next/: a matcher can't tell a GET from a
+  // POST, so the build's files pass in the proxy (buildFile)
+  matcher: ["/((?!api/|_next/).*)", "/api/:path*", "/ebooks/:path*", "/_next/:path*"],
 };
