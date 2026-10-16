@@ -5,7 +5,7 @@ import { requireReadingsToken } from "@/lib/api/readings";
 import { getSuggestionContext } from "@/lib/reading/suggest/context";
 import { SUGGESTIONS_PER_PAGE, parseSuggestionParams } from "@/lib/reading/suggest/params";
 import { predict, predictionText } from "@/lib/reading/suggest/predict";
-import { suggest } from "@/lib/reading/suggest/score";
+import { suggestTop } from "@/lib/reading/suggest/score";
 
 /**
  * GET /api/readings/suggestions (SLN-457): what to read next, the engine of
@@ -34,11 +34,13 @@ export async function GET(req: NextRequest) {
     );
   try {
     const ctx = await getSuggestionContext({ homeId: params.home ?? null });
-    const list = suggest(ctx, params);
-    const pages = Math.max(1, Math.ceil(list.length / SUGGESTIONS_PER_PAGE));
+    // Varied only as far as the page asked for (SLN-885)
+    const pagesOf = (total: number) => Math.max(1, Math.ceil(total / SUGGESTIONS_PER_PAGE));
+    const { top: list, total } = suggestTop(ctx, params, (n) => Math.min(params.page, pagesOf(n)) * SUGGESTIONS_PER_PAGE);
+    const pages = pagesOf(total);
     const page = Math.min(params.page, pages);
     return NextResponse.json({
-      total: list.length,
+      total,
       page,
       pages,
       predictions: !!ctx.gate?.on,
