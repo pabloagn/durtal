@@ -33,15 +33,20 @@ import {
 const LISTS: ListPreference[] = Object.values(LIST_PREFERENCES);
 const GRID_OPTIONS = GRID_SIZES.map((size) => ({
   value: String(size),
-  label: `${size} per row`,
+  // Cards keep a readable width, so a narrow window may show fewer (SLN-925)
+  label: `Up to ${size} per row`,
 }));
 const PAGE_SIZE_OPTIONS = PAGE_SIZES.map((size) => ({
   value: String(size),
   label: `${size} per page`,
 }));
-/** The list table's columns: the list, its view, its grid size, its page size */
+/**
+ * The list table's columns: the list, its view, its grid size (wider, for
+ * "Up to 6 per row"), its page size. Narrower, the controls go two a row,
+ * then one a row where "Up to 6 per row" would not fit in half (SLN-925).
+ */
 const LIST_COLUMNS =
-  "@min-[640px]:grid-cols-[minmax(0,1fr)_8.5rem_8.5rem_8.5rem]";
+  "@min-[400px]:grid-cols-2 @min-[640px]:grid-cols-[minmax(0,1fr)_8.5rem_10rem_8.5rem]";
 
 function SidebarSetting() {
   const { width, toggle } = useSidebarPreference();
@@ -134,14 +139,14 @@ function ListRow({ list }: { list: ListPreference }) {
   );
   return (
     <div
-      className={`grid grid-cols-1 items-center gap-3 px-5 py-3 @min-[22rem]:grid-cols-2 ${LIST_COLUMNS} @min-[640px]:gap-4`}
+      className={`grid grid-cols-1 items-center gap-3 px-5 py-3 ${LIST_COLUMNS} @min-[640px]:gap-4`}
     >
-      <p className="text-sm text-fg-primary @min-[22rem]:col-span-2 @min-[640px]:col-span-1">
+      <p className="text-sm text-fg-primary @min-[400px]:col-span-2 @min-[640px]:col-span-1">
         {list.label}
       </p>
       {list.view ? <ViewSelect list={list} view={list.view} /> : none}
       {list.grid ? <GridSelect list={list} grid={list.grid} /> : none}
-      <PageSizeSelect list={list} />
+      {list.perPage === false ? none : <PageSizeSelect list={list} />}
     </div>
   );
 }
@@ -165,7 +170,7 @@ function ResetSetting() {
       <SettingRow
         id="display-reset"
         label="Reset display settings"
-        description="Every list goes back to its default view, grid size, columns and page size, and the sidebar opens."
+        description="Every list goes back to its default view, grid size, columns and page size, Books to its default sort, and the sidebar opens."
       >
         <Button
           id="display-reset"
@@ -184,7 +189,9 @@ function ResetSetting() {
       >
         <p className="text-sm text-fg-secondary">
           This browser forgets the view, grid size, columns and page size of
-          every list, and the sidebar width. The catalogue does not change.
+          every list, the sort of Books, the sidebar width, and the
+          &ldquo;I&rsquo;m at&rdquo; place in Up next. The catalogue does not
+          change.
         </p>
         <div className="mt-6 flex justify-end gap-2">
           <Button variant="ghost" onClick={() => setConfirming(false)}>
@@ -208,7 +215,8 @@ export function DisplaySettings() {
 
       </SettingsIntro>
 
-      <SettingsGroup title="Sidebar">
+      {/* On a phone the sidebar is a drawer, which a collapsed width doesn't change */}
+      <SettingsGroup title="Sidebar" className="max-md:hidden">
         <SidebarSetting />
       </SettingsGroup>
 

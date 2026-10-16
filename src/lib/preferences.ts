@@ -53,6 +53,8 @@ export interface ListPreference {
   label: string;
   /** The list's page: its page size is saved per path (perPageCookieName) */
   path: string;
+  /** False where the page size is saved per page instead, as for each publisher's books */
+  perPage?: false;
   /** The views the list offers; a saved view outside them shows the fallback */
   view?: { key: string; modes: ViewMode[]; fallback: ViewMode };
   /** Cards per row in the grid view */
@@ -61,7 +63,10 @@ export interface ListPreference {
   columns?: { key: string };
 }
 
-/** The lists that remember how they look, in sidebar order. */
+/** The views of the other kinds of work: the same three for each (domain-home-shell.tsx) */
+const HOME_VIEW_MODES: ViewMode[] = ["grid", "mosaic", "list"];
+
+/** Every list that remembers how it looks, in sidebar order, the other kinds of work beside Books. */
 export const LIST_PREFERENCES = {
   library: {
     label: "Books",
@@ -69,6 +74,24 @@ export const LIST_PREFERENCES = {
     view: { key: "durtal-view-mode", modes: ["grid", "mosaic", "list", "detailed", "timeline"], fallback: "grid" },
     grid: { key: "durtal-grid-columns", fallback: 6 },
     columns: { key: "durtal-column-config" },
+  },
+  films: {
+    label: "Films",
+    path: "/films",
+    view: { key: "durtal-films-view-mode", modes: HOME_VIEW_MODES, fallback: "grid" },
+    grid: { key: "durtal-films-grid-columns", fallback: 4 },
+  },
+  perfumes: {
+    label: "Perfumes",
+    path: "/perfumes",
+    view: { key: "durtal-perfumes-view-mode", modes: HOME_VIEW_MODES, fallback: "grid" },
+    grid: { key: "durtal-perfumes-grid-columns", fallback: 4 },
+  },
+  paintings: {
+    label: "Paintings",
+    path: "/paintings",
+    view: { key: "durtal-paintings-view-mode", modes: HOME_VIEW_MODES, fallback: "grid" },
+    grid: { key: "durtal-paintings-grid-columns", fallback: 4 },
   },
   ebooks: {
     label: "eBooks",
@@ -93,6 +116,13 @@ export const LIST_PREFERENCES = {
     view: { key: "durtal-publishers-view-mode", modes: ["grid", "list", "detailed"], fallback: "grid" },
     grid: { key: "durtal-publishers-grid-columns", fallback: 4 },
     columns: { key: "durtal-publishers-column-config" },
+  },
+  publisherBooks: {
+    label: "A publisher's books",
+    path: "/publishers/*",
+    perPage: false,
+    view: { key: "durtal-publisher-books-view-mode", modes: ["grid", "list"], fallback: "grid" },
+    grid: { key: "durtal-publisher-books-grid-columns", fallback: 5 },
   },
   recommenders: {
     label: "Recommenders",

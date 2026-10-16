@@ -9,6 +9,7 @@ import { Pagination, type PaginationData } from "@/components/shared/pagination"
 import { LibraryView } from "@/components/books/library-view";
 import type { ViewMode } from "@/components/books/view-mode-switcher";
 import { usePreference, useViewModePreference } from "@/lib/hooks/use-preference";
+import { LIST_PREFERENCES } from "@/lib/preferences";
 import { firstPageHref } from "@/lib/utils/list-params";
 import { WORK_MARKS, MARKS_LABEL } from "@/lib/constants/marks";
 import { languageName } from "@/lib/utils/language";
@@ -16,9 +17,8 @@ import { bindingLabel } from "@/lib/utils/binding";
 import type { PublisherBook, PublisherBookFacets } from "@/lib/publishers/books";
 import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
 
-const VIEW_MODES: ViewMode[] = ["grid", "list"];
-const VIEW_KEY = "durtal-publisher-books-view-mode";
-const GRID_KEY = "durtal-publisher-books-grid-columns";
+const { view: VIEW, grid: GRID } = LIST_PREFERENCES.publisherBooks;
+const VIEW_MODES: ViewMode[] = VIEW.modes;
 /** The grid size slider's range */
 const MIN_COLUMNS = 2;
 const MAX_COLUMNS = 8;
@@ -65,7 +65,7 @@ function useUrlPreference<T extends string | number>(
 
 /** The books' grid or list view (`?view=`) */
 function usePublisherView() {
-  const [stored, setStored] = useViewModePreference(VIEW_KEY, VIEW_MODES, "grid");
+  const [stored, setStored] = useViewModePreference(VIEW.key, VIEW_MODES, VIEW.fallback);
   return useUrlPreference<ViewMode>("view", stored, setStored, (raw) =>
     VIEW_MODES.includes(raw as ViewMode) ? (raw as ViewMode) : null,
   );
@@ -73,7 +73,7 @@ function usePublisherView() {
 
 /** The grid's columns (`?cols=`) */
 function usePublisherColumns() {
-  const [stored, setStored] = usePreference(GRID_KEY, 5);
+  const [stored, setStored] = usePreference(GRID.key, GRID.fallback);
   return useUrlPreference<number>("cols", stored, setStored, (raw) => {
     const n = Number(raw);
     return Number.isInteger(n) && n >= MIN_COLUMNS && n <= MAX_COLUMNS ? n : null;
