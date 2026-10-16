@@ -127,8 +127,22 @@ export function acquireSurface(close: () => void, origin = captureFocusOrigin())
 }
 
 export function restoreFocusOrigin(origin: FocusOrigin | null) {
-  if (hasOpenSurface()) return;
   const active = document.activeElement;
+  if (hasOpenSurface()) {
+    // A dialog over another one closed (a confirm, a nested editor, an
+    // unsaved-changes question): the focus goes back to the control in the
+    // dialog under it that opened it (SLN-902). A surface that opened in its
+    // place, or a control that already took the focus, keeps it.
+    const lost = !(active instanceof HTMLElement) || active === document.body || !active.isConnected || !active.closest("dialog[open]");
+    if (!lost) return;
+    for (const element of [origin?.target, origin?.menuButton]) {
+      if (element?.isConnected && element.closest("dialog[open]")) {
+        element.focus({ preventScroll: true });
+        return;
+      }
+    }
+    return;
+  }
   // A connected control outside a removed dialog represents newer user intent.
   if (active instanceof HTMLElement && active !== document.body && active.isConnected && !active.closest("dialog")) return;
   for (const element of [origin?.target, origin?.menuButton]) {
