@@ -3,13 +3,12 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, X } from "lucide-react";
+import { X } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  moveSeriesWork,
   removeWorkFromSeries,
   setSeriesPosition,
 } from "@/lib/actions/series";
@@ -99,7 +98,11 @@ function PositionField({
   );
 }
 
-/** Books of a series in reading order: position, move up/down, remove. */
+/**
+ * Books of a series in reading order: by volume number, then title. The order
+ * changes only through the numbers typed here, so nothing rewrites one
+ * (SLN-912).
+ */
 export function SeriesBooks({
   seriesId,
   books,
@@ -110,17 +113,13 @@ export function SeriesBooks({
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
 
-  async function act(book: SeriesBook, action: "up" | "down" | "remove") {
+  async function remove(book: SeriesBook) {
     if (busy) return;
     setBusy(book.id);
     try {
-      if (action === "remove") {
-        await removeWorkFromSeries(seriesId, book.id);
-        toast.success(`${book.title} removed from the series. Book kept.`);
-        triggerActivityRefresh();
-      } else {
-        await moveSeriesWork(seriesId, book.id, action === "up" ? -1 : 1);
-      }
+      await removeWorkFromSeries(seriesId, book.id);
+      toast.success(`${book.title} removed from the series. Book kept.`);
+      triggerActivityRefresh();
       router.refresh();
     } catch {
       toast.error("Could not update the series");
@@ -131,46 +130,24 @@ export function SeriesBooks({
 
   return (
     <ol className="space-y-2">
-      {books.map((book, index) => {
-        // Read, move and remove: beside the title, or on their own row on a phone
+      {books.map((book) => {
+        // Read and remove: beside the title, or on their own row on a phone
         const readable = !!(book.ebook?.readable && book.ebook.readerPath);
         const read = <CatalogueReadLink ebook={book.ebook ?? null} returnTo={book.readerReturnTo} />;
-        const moves = (
-          <>
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label={`Move ${book.title} earlier`}
-              data-tooltip="Move earlier"
-              disabled={!!busy || index === 0}
-              onClick={() => act(book, "up")}
-            >
-              <ArrowUp size={14} />
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label={`Move ${book.title} later`}
-              data-tooltip="Move later"
-              disabled={!!busy || index === books.length - 1}
-              onClick={() => act(book, "down")}
-            >
-              <ArrowDown size={14} />
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label={`Remove ${book.title} from the series`}
-              data-tooltip="Remove from series"
-              disabled={!!busy}
-              onClick={() => act(book, "remove")}
-            >
-              <X size={14} />
-            </Button>
-          </>
+        const removeButton = (
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-label={`Remove ${book.title} from the series`}
+            data-tooltip="Remove from series"
+            disabled={!!busy}
+            onClick={() => remove(book)}
+          >
+            <X size={14} />
+          </Button>
         );
-        // Centred: Read is 32px tall, the buttons 28px
-        const controls = <div className="flex items-center gap-1 pointer-coarse:gap-2">{read}{moves}</div>;
+        // Centred: Read is 32px tall, the button 28px
+        const controls = <div className="flex items-center gap-1 pointer-coarse:gap-2">{read}{removeButton}</div>;
         return (
           <li
             key={book.id}
@@ -241,16 +218,11 @@ export function SeriesBooks({
                 )}
               </div>
               {/* Pulled out by the first button's padding, so its icon sits on the title's edge:
-                  Read's 8px, or a ghost icon button's 10px (14px on touch). Where the column
-                  is too narrow for Read and the three buttons (320px), the buttons take a line
-                  of their own, pulled out by their own padding */}
-              <div className="@container mt-1 sm:hidden">
-                <div className={`flex flex-wrap items-center ${readable ? "-ml-2" : "-ml-2.5 pointer-coarse:-ml-3.5"}`}>
+                  Read's 8px, or a ghost icon button's 10px (14px on touch) */}
+              <div className="mt-1 sm:hidden">
+                <div className={`flex items-center gap-1 pointer-coarse:gap-2 ${readable ? "-ml-2" : "-ml-2.5 pointer-coarse:-ml-3.5"}`}>
                   {read}
-                  <div className={`flex items-center gap-1 pointer-coarse:gap-2 ${readable
-                    ? "ml-1 @max-[13rem]:-ml-0.5 @max-[13rem]:basis-full @max-[13rem]:pointer-coarse:-ml-1.5" : ""}`}>
-                    {moves}
-                  </div>
+                  {removeButton}
                 </div>
               </div>
             </div>

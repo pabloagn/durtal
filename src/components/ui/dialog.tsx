@@ -319,9 +319,10 @@ export function UnsavedChangesPrompt({ prompt }: { prompt: UnsavedPrompt }) {
         onClose={prompt.keepEditing}
         title="Unsaved changes"
         description={
-          prompt.canSave
+          prompt.question ??
+          (prompt.canSave
             ? "Save your changes before closing?"
-            : "Your changes have not been saved. Discard them?"
+            : "Your changes have not been saved. Discard them?")
         }
         className="max-w-sm"
         expandable={false}

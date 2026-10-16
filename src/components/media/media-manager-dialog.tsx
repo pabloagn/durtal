@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Loader2, X, Check, Trash2, SlidersHorizontal } from "lucide-react";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, UnsavedChangesPrompt } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,11 @@ import {
   deleteMedia,
   bulkDeleteMedia,
 } from "@/lib/actions/media";
-import { ImageAdjustmentEditor, ImageAdjustButton } from "@/components/media/image-adjustment-editor";
+import {
+  ImageAdjustmentEditor,
+  ImageAdjustButton,
+  type DraftSave,
+} from "@/components/media/image-adjustment-editor";
 import { ImageDetailsEditor } from "@/components/media/image-details-editor";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
@@ -174,17 +178,38 @@ export function MediaManagerDialog({
           ? "image"
           : activeTab;
 
-  const fetchItems = useCallback(async () => {
-    setLoading(true);
+  // The first load of a tab shows the spinner. A refresh after a change keeps
+  // what is shown, so the editors stay open, on their group and their focus
+  const fetchItems = useCallback(async (refresh = false) => {
+    if (!refresh) setLoading(true);
     try {
       const data = await getMediaByType(entityId, activeTab, entityType);
       setItems(data as MediaItem[]);
     } catch {
       toast.error("Failed to load media");
     } finally {
-      setLoading(false);
+      if (!refresh) setLoading(false);
     }
   }, [entityId, activeTab, entityType]);
+  const refreshItems = useCallback(() => fetchItems(true), [fetchItems]);
+
+  // Unsaved work in the open image's editors (SLN-901): a close, a switch to
+  // another image or tab asks first, as an edit dialog does
+  const [adjustDraft, setAdjustDraft] = useState<DraftSave>(null);
+  const [detailsDraft, setDetailsDraft] = useState<DraftSave>(null);
+  const onAdjustDraft = useCallback((save: DraftSave) => setAdjustDraft(() => save), []);
+  const onDetailsDraft = useCallback((save: DraftSave) => setDetailsDraft(() => save), []);
+  const dirty = !!adjustDraft || !!detailsDraft;
+  async function saveDrafts() {
+    for (const save of [adjustDraft, detailsDraft]) if (save && !(await save())) return false;
+    return true;
+  }
+  // A switch waiting on the question: Save or Discard, then it happens
+  const [leaving, setLeaving] = useState<{ go: () => void; focus: Element | null } | null>(null);
+  function unlessUnsaved(go: () => void) {
+    if (!dirty) return go();
+    setLeaving({ go, focus: document.activeElement });
+  }
 
   // Fetch on open and tab change
   useEffect(() => {
@@ -223,11 +248,12 @@ export function MediaManagerDialog({
   }
 
   async function handleSetActive(id: string) {
-    if (isGallery) return;
+    // One at a time: a second press while one saves does nothing
+    if (isGallery || settingActive) return;
     setSettingActive(id);
     try {
       await setActiveMedia(id);
-      await fetchItems();
+      await refreshItems();
       router.refresh();
       triggerActivityRefresh();
       toast.success(`Active ${noun} updated`);
@@ -248,7 +274,7 @@ export function MediaManagerDialog({
         return next;
       });
       if (tuningId === id) setTuningId(null);
-      await fetchItems();
+      await refreshItems();
       router.refresh();
       triggerActivityRefresh();
       toast.success("Media deleted");
@@ -266,7 +292,7 @@ export function MediaManagerDialog({
       await bulkDeleteMedia(Array.from(selected));
       setSelected(new Set());
       setTuningId(null);
-      await fetchItems();
+      await refreshItems();
       router.refresh();
       triggerActivityRefresh();
       toast.success(`Deleted ${selected.size} item${selected.size > 1 ? "s" : ""}`);
@@ -297,7 +323,7 @@ export function MediaManagerDialog({
   }
 
   function handleUploadComplete() {
-    fetchItems();
+    void refreshItems();
     router.refresh();
   }
 
@@ -326,7 +352,7 @@ export function MediaManagerDialog({
 
       setUrl("");
       toast.success(`${noun.charAt(0).toUpperCase() + noun.slice(1)} added`);
-      await fetchItems();
+      await refreshItems();
       router.refresh();
       triggerActivityRefresh();
     } catch (err) {
@@ -349,7 +375,7 @@ export function MediaManagerDialog({
       });
       if (!res.ok) throw new Error("Reprocessing failed");
       progress.success("Image reprocessed");
-      await fetchItems();
+      await refreshItems();
       router.refresh();
       triggerActivityRefresh();
     } catch {
@@ -369,6 +395,12 @@ export function MediaManagerDialog({
       description={title}
       className="max-w-3xl"
       done
+      dirty={dirty}
+      onSave={() => {
+        void saveDrafts().then((saved) => {
+          if (saved) handleClose();
+        });
+      }}
     >
       <div className="space-y-4">
         {/* Tabs */}
@@ -377,7 +409,9 @@ export function MediaManagerDialog({
             <button
               key={tab.key}
               type="button"
-              onClick={() => handleTabChange(tab.key)}
+              onClick={() => {
+                if (tab.key !== activeTab) unlessUnsaved(() => handleTabChange(tab.key));
+              }}
               className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors pointer-coarse:min-h-11 ${
                 activeTab === tab.key
                   ? "bg-bg-tertiary text-fg-primary"
@@ -403,13 +437,15 @@ export function MediaManagerDialog({
                     <ImageAdjustmentEditor
                       key={`${activeItem.id}-${adjustmentVersion}`}
                       source={mediaUrl(activeItem.s3Key)}
-                      onSaved={() => { void fetchItems(); router.refresh(); triggerActivityRefresh(); }}
+                      onDraft={onAdjustDraft}
+                      onSaved={() => { void refreshItems(); router.refresh(); triggerActivityRefresh(); }}
                     />
                     <ImageDetailsEditor
                       key={activeItem.id}
                       mediaId={activeItem.id}
                       details={activeItem}
-                      onSaved={() => { void fetchItems(); router.refresh(); }}
+                      onDraft={onDetailsDraft}
+                      onSaved={() => { void refreshItems(); router.refresh(); }}
                     />
                   </>
                 ) : (
@@ -448,7 +484,7 @@ export function MediaManagerDialog({
                       <div key={item.id} className="group relative">
                         {/* On touch the controls are 44px: Select and Adjust on
                             the left, Delete and Monochrome settings on the right */}
-                        <ImageAdjustButton source={mediaUrl(item.s3Key)} className="absolute bottom-7 left-1.5 z-10 pointer-coarse:bottom-auto pointer-coarse:top-14 pointer-coarse:size-11" onSaved={() => { setAdjustmentVersion((v) => v + 1); void fetchItems(); router.refresh(); }} />
+                        <ImageAdjustButton source={mediaUrl(item.s3Key)} className="absolute bottom-7 left-1.5 z-10 pointer-coarse:bottom-auto pointer-coarse:top-14 pointer-coarse:size-11" onSaved={() => { setAdjustmentVersion((v) => v + 1); void refreshItems(); router.refresh(); }} />
                         {/* Selection checkbox */}
                         <button
                           aria-label={isSelected ? "Deselect image" : "Select image"}
@@ -518,10 +554,16 @@ export function MediaManagerDialog({
                         <button
                           type="button"
                           onClick={() => {
-                            if (isGallery) setDetailsId(item.id === detailsId ? null : item.id);
-                            else handleSetActive(item.id);
+                            if (isGallery) {
+                              if (item.id !== detailsId) unlessUnsaved(() => setDetailsId(item.id));
+                              else unlessUnsaved(() => setDetailsId(null));
+                            } else if (!item.isActive && !settingActive) unlessUnsaved(() => void handleSetActive(item.id));
                           }}
-                          disabled={isSettingThisActive || (item.isActive && !isGallery)}
+                          // The active image, and every image while one is being
+                          // set, read as off but keep the focus (SLN-902): the
+                          // pressed thumbnail becomes the active one
+                          aria-disabled={(!isGallery && (item.isActive || !!settingActive)) || undefined}
+                          aria-busy={isSettingThisActive || undefined}
                           aria-pressed={isGallery ? item.id === detailsId : undefined}
                           aria-label={isGallery ? `Image details: ${item.altText || item.originalFilename || "gallery image"}` : undefined}
                           className={`relative w-full overflow-hidden rounded-sm border transition-all ${square && activeTab === "poster" ? "aspect-square bg-bg-tertiary" : ASPECT_CLASSES[activeTab]} ${
@@ -607,7 +649,8 @@ export function MediaManagerDialog({
                 key={detailsItem.id}
                 mediaId={detailsItem.id}
                 details={detailsItem}
-                onSaved={() => { void fetchItems(); router.refresh(); }}
+                onDraft={onDetailsDraft}
+                onSaved={() => { void refreshItems(); router.refresh(); }}
               />
             )}
 
@@ -717,6 +760,31 @@ export function MediaManagerDialog({
   return (
     <>
       {manager}
+      {leaving && (
+        <UnsavedChangesPrompt
+          prompt={{
+            canSave: true,
+            question: "Save your changes first?",
+            save() {
+              const { go } = leaving;
+              setLeaving(null);
+              void saveDrafts().then((saved) => {
+                if (saved) go();
+              });
+            },
+            discard() {
+              const { go } = leaving;
+              setLeaving(null);
+              go();
+            },
+            keepEditing() {
+              const { focus } = leaving;
+              setLeaving(null);
+              if (focus instanceof HTMLElement) setTimeout(() => focus.focus({ preventScroll: true }), 0);
+            },
+          }}
+        />
+      )}
       <DeleteConfirmDialog
         open={pendingDelete !== null}
         onClose={() => setPendingDelete(null)}

@@ -58,7 +58,6 @@ import {
   addWorksToSeries,
   removeWorkFromSeries,
   setSeriesPosition,
-  moveSeriesWork,
   getSeriesDetail,
   getOtherWorksInSeries,
   getSeriesList,
@@ -179,14 +178,18 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
       seriesPosition: "9",
     });
     const d = await book("Dancing in the Dark");
-    expect(await addWorksToSeries(s.id, [d.id, c.id, a.id, d.id])).toEqual({
-      added: 2,
+    // Named but not linked, with its own number (an imported e-book's index)
+    const e = await book("Some Rain Must Fall", { seriesName: "My Struggle", seriesPosition: "8" });
+    expect(await addWorksToSeries(s.id, [d.id, c.id, a.id, d.id, e.id])).toEqual({
+      added: 3,
     });
     expect((await read(d.id)).seriesPosition).toBe("3");
     expect(await read(c.id)).toMatchObject({
       seriesId: s.id,
       seriesPosition: "4",
     });
+    // Nothing rewrites a number a book already carries (SLN-912)
+    expect(await read(e.id)).toMatchObject({ seriesId: s.id, seriesPosition: "8" });
     expect((await read(b.id)).seriesPosition).toBe("2.5");
     await expect(
       addWorksToSeries("00000000-0000-4000-8000-000000000000", [d.id]),
@@ -199,7 +202,7 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
     expect(await removeWorkFromSeries(s.id, c.id)).toEqual({ removed: 0 });
   });
 
-  it("orders books numerically, edits positions, and moves books", async () => {
+  it("orders books by number then title, and only typed numbers change it (SLN-912)", async () => {
     const s = await make("Numbers");
     const ten = await book("Ten", { seriesId: s.id, seriesPosition: "10" });
     const two = await book("Two", { seriesId: s.id, seriesPosition: "2" });
@@ -208,9 +211,11 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
       seriesPosition: "2.5",
     });
     const none = await book("Unplaced", { seriesId: s.id });
+    await book("Also two", { seriesId: s.id, seriesPosition: "2" });
     const order = async () =>
       (await getSeriesDetail(s.id))!.works.map((w) => w.title);
-    expect(await order()).toEqual(["Two", "Two and a half", "Ten", "Unplaced"]);
+    // Equal numbers by title, no number last
+    expect(await order()).toEqual(["Also two", "Two", "Two and a half", "Ten", "Unplaced"]);
     expect(await setSeriesPosition(s.id, ten.id, "abc")).toMatchObject({
       ok: false,
     });
@@ -218,15 +223,11 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
       ok: true,
       value: "1",
     });
-    expect(await order()).toEqual(["Ten", "Two", "Two and a half", "Unplaced"]);
-    // One member has no position: the series is numbered first, then swapped.
-    await moveSeriesWork(s.id, none.id, -1);
-    expect(await order()).toEqual(["Ten", "Two", "Unplaced", "Two and a half"]);
-    expect((await read(none.id)).seriesPosition).toBe("3");
-    expect((await read(half.id)).seriesPosition).toBe("4");
-    await moveSeriesWork(s.id, ten.id, -1); // already first: no change
-    expect(await order()).toEqual(["Ten", "Two", "Unplaced", "Two and a half"]);
+    expect(await order()).toEqual(["Ten", "Also two", "Two", "Two and a half", "Unplaced"]);
+    // Setting one number leaves every other as typed
     expect((await read(two.id)).seriesPosition).toBe("2");
+    expect((await read(half.id)).seriesPosition).toBe("2.5");
+    expect((await read(none.id)).seriesPosition).toBeNull();
   });
 
   it("suggests books whose titles match series parts, ignoring accents, flags other series", async () => {
