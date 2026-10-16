@@ -29,6 +29,7 @@ export function SearchStep({
     results: searchResults,
     notices: searchNotices,
     isSearching,
+    hasSearched,
     clearResults,
   } = search;
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -107,7 +108,7 @@ export function SearchStep({
 
         {/* Autocomplete dropdown */}
         {searchQuery.trim().length >= 2 &&
-          (searchResults.length > 0 || isSearching || searchNotices.length > 0) && (
+          (isSearching || hasSearched || searchResults.length > 0 || searchNotices.length > 0) && (
             // The glass never scrolls: its list does, inside it
             <div className="glass absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden">
               <div className="max-h-[420px] overflow-y-auto">
