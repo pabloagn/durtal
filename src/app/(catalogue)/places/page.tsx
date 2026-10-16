@@ -108,7 +108,7 @@ async function PlacesContent({
 
   return (
     <>
-      <PaginatedSection page={page} perPage={limit} total={total} noun="venues"><PlacesShell venues={venues} total={total} /></PaginatedSection>
+      <PaginatedSection page={page} perPage={limit} total={total} noun="places"><PlacesShell venues={venues} total={total} /></PaginatedSection>
     </>
   );
 }

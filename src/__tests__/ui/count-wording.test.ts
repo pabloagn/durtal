@@ -3,6 +3,7 @@ import { readFileSync } from "fs";
 import path from "path";
 import { countLabel } from "@/lib/utils/format";
 import { pagerNoun } from "@/components/shared/pagination";
+import { locationItemCount, NO_LOCATION_ITEMS } from "@/lib/catalogue/location-items";
 
 // From findings/wording-survey-2026-10-15.md: counts that read "1 works",
 // thousands left ungrouped, "0 pp." and stored values shown as they are kept
@@ -76,7 +77,8 @@ it("groups the thousands of every count it shows", () => {
   expect(harmonize).toContain("<b>{r.count.toLocaleString(\"en\")}</b>");
   expect(harmonize).toContain("(scan?.counts.ready || 0).toLocaleString(\"en\")");
   expect(harmonize).toContain('"linked record")');
-  expect(source("app/(catalogue)/locations/location-card.tsx")).toContain('{countLabel(itemCount, "item")}');
+  expect(locationItemCount({ ...NO_LOCATION_ITEMS, copies: 1200 })).toBe("1,200 copies");
+  expect(locationItemCount({ ...NO_LOCATION_ITEMS, paintings: 1200 })).toBe("1,200 paintings");
   expect(source("components/shared/selection-toolbar.tsx")).toContain("{selectedCount.toLocaleString(\"en\")}");
   const edition = source("app/(catalogue)/library/[slug]/edition-detail-card.tsx");
   expect(edition).toContain("Number(edition.pageCount).toLocaleString(\"en\")");
