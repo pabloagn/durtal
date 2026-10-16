@@ -23,9 +23,14 @@ dashboard's top-rated query loaded relationships before limiting candidates.
 - Select top-rated IDs with the existing rating/date order and shelf limit
   before hydrating authors, editions, copies and media. Use the same ordering
   for the returned cards and keep the existing book/non-null-rating filter.
+  Equal ratings and creation timestamps resolve by ascending work ID in both
+  selection and hydration, making the shelf boundary deterministic without
+  changing the primary rating/date ordering.
 - Add regression cases for held and unheld page counts, disposed copies,
   null/zero pages, ties, compact chart transport, top-rated order and relations.
   The top-rated database test also inspects execution-plan relation loops.
+  Its tied ratings and timestamps cross the shelf edge, with reverse-ID
+  insertion order and repeated reads to check stable selection and ordering.
 - Exercise the real chart and its frame in both tabs: rendered axis labels,
   table values, the earlier-years footnote, and keyboard captions/live values.
 

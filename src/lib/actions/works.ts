@@ -729,8 +729,9 @@ export async function getLibraryStats({ shelf = 8 }: { shelf?: number } = {}) {
     shelf,
   );
   // Limit the candidate IDs before loading authors, editions and media. The
-  // same ordering is used below when the selected books are hydrated.
-  const topRatedOrder = [sql`${works.rating} desc nulls last`, desc(works.createdAt)];
+  // same total ordering is used below when the selected books are hydrated:
+  // equal ratings and timestamps resolve by ID, including at the shelf edge.
+  const topRatedOrder = [sql`${works.rating} desc nulls last`, desc(works.createdAt), asc(works.id)];
   const topRatedIds = db.select({ id: works.id }).from(works)
     .where(and(bookCondition, isNotNull(works.rating)))
     .orderBy(...topRatedOrder).limit(shelf);

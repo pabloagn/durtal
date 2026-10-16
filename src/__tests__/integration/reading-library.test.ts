@@ -102,20 +102,26 @@ describe.skipIf(!url)("reading across the library with PostgreSQL", () => {
   };
   const fromUrl = (query: string) => parseReadingFilters(new URLSearchParams(query), { sorts: LIBRARY_SORTS }).filters;
 
-  it("hydrates only the top-rated shelf while retaining rating/date order and relations", async () => {
+  it("hydrates a stable top-rated shelf when ratings and timestamps tie across its edge", async () => {
+    const tiedId = (i: number) => `88410000-0000-4000-8000-${String(17-i).padStart(12, "0")}`;
     for (let i = 1; i <= 16; i++) {
-      const id = await book(`Rated ${i}`, { rating: i % 3 === 0 ? 5 : 4 });
-      await q("update works set created_at = $2::timestamptz where id = $1", [id, `2026-01-${String(i).padStart(2, "0")}T12:00:00Z`]);
+      // Insert in reverse ID order. The old partial sort cannot accidentally
+      // agree with the stable order just because of the fixture's heap order.
+      const id = tiedId(i);
+      await q("insert into works(id,title,slug,rating,catalogue_status,created_at) values ($1,$2,$3,$4,'accessioned',$5::timestamptz)",
+        [id, `Rated ${i}`, `tied-rating-${i}`, i % 3 === 0 ? 5 : 4,
+          i <= 2 ? "2026-01-02T12:00:00Z" : "2026-01-01T12:00:00Z"]);
       const author = await value("insert into authors (name) values ($1) returning id", [`Author ${i}`]);
       await q("insert into work_authors (work_id, author_id) values ($1, $2)", [id, author]);
       await copy(id);
     }
     await book("Unrated");
     await q("insert into works (title, kind, rating, original_language) values ('Excluded film', 'film', 5, null)");
-    const reference = await q("select id from works where kind = 'book' and rating is not null order by rating desc nulls last, created_at desc limit 10");
+    const expected = [15, 12, 9, 6, 3, 2, 1, 16, 14, 13].map(tiedId);
     loggedQueries.length = 0;
     const stats = await getLibraryStats({ shelf: 10 });
-    expect(stats.topRatedWorks.map((row) => row.id)).toEqual(reference.map((row) => row.id));
+    expect(stats.topRatedWorks.map((row) => row.id)).toEqual(expected);
+    expect((await getLibraryStats({ shelf: 10 })).topRatedWorks.map((row) => row.id)).toEqual(expected);
     expect(stats.topRatedWorks).toHaveLength(10);
     for (const row of stats.topRatedWorks) {
       expect(row.workAuthors).toHaveLength(1);
