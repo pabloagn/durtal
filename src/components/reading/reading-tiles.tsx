@@ -143,8 +143,15 @@ export function DashboardReading({
     <>
       {tiles.length > 0 && (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {tiles.map((tile) => (
-            <article key={tile.reading.readingId} className="@container flex gap-3 rounded-sm border border-glass-border bg-bg-secondary p-3 @xs:gap-4 @xs:p-4" data-dashboard-reading={tile.reading.readingId}>
+          {tiles.map((tile, i) => (
+            <article
+              key={tile.reading.readingId}
+              // Two a row below 1280 leave a third card alone under the first:
+              // the row ends full, and the section's own link leads to the rest
+              // (SLN-891). One a row on a phone shows all three.
+              className={`@container flex gap-3 rounded-sm border border-glass-border bg-bg-secondary p-3 @xs:gap-4 @xs:p-4${i === 2 ? " md:max-xl:hidden" : ""}`}
+              data-dashboard-reading={tile.reading.readingId}
+            >
               {/* A narrow card (a 320px phone) keeps its text column for the estimate */}
               <Cover s3Key={tile.cover} title={tile.title} className="aspect-[2/3] w-12 self-start @xs:w-20" />
               <div className="flex min-w-0 flex-1 flex-col">
