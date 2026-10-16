@@ -226,7 +226,7 @@ export function Select({
             }
           }}
           onKeyDown={handleKeyDown}
-          className={`flex items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 text-left text-xs transition-colors duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:text-sm ${
+          className={`flex items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 text-left text-xs transition-colors duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-60 pointer-coarse:h-11 pointer-coarse:text-sm ${
             compact ? "h-5 px-1.5 leading-5 pointer-coarse:min-w-11 pointer-coarse:px-2" : "h-8 w-full px-3"
           } ${
             error ? "border-accent-red" : ""
