@@ -29,6 +29,12 @@ Five other hot junction lookups have the same problem.
 
 ## Validation
 
-Pending migration 0090 generation after migration 0089 is integrated, then
-disposable database tests and catalogue-scale before/after measurements.
+Migration `0090_hot_join_indexes` was generated on the frozen PR #467
+dependency (`d42f0249`), after its genuine migration 0089. Source inspection
+confirms exactly six non-unique B-tree indexes, no other snapshot changes,
+and an unchanged journal prefix followed by 0090. This branch depends on
+PR #467 and must not merge before it.
+
+Disposable database tests and catalogue-scale before/after measurements
+remain pending. The migration has not been applied to any database.
 No live database changes are part of this task.
