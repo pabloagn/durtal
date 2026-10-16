@@ -677,8 +677,11 @@ export async function updateAuthor(id: string, rawInput: UpdateAuthorInput) {
     }
   }
 
-  // The new address when the name gave one, for the page to move to
-  return { id, slug: slug && slug !== prev?.slug ? slug : null };
+  // The new address when the name gave one, for the page to move to. The
+  // person's pages are read again, so the move does not race a stale page
+  const moved = slug && slug !== prev?.slug ? slug : null;
+  if (moved) invalidate(CACHE_TAGS.authors);
+  return { id, slug: moved };
 }
 
 export async function deleteAuthor(id: string) {
