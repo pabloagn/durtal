@@ -40,8 +40,12 @@ const sizeStyles: Record<Size, string> = {
 
 /** On a touch screen every button is at least 44 x 44 px (docs/03, Keyboard, touch and motion) */
 const COARSE = "pointer-coarse:min-h-11 pointer-coarse:min-w-11";
-/** A busy button looks as a disabled one does, without being disabled */
-const HELD = "aria-disabled:pointer-events-none aria-disabled:opacity-40";
+/**
+ * A busy button looks as a disabled one does, without being disabled. It
+ * still takes a click (ignorePress swallows it), so a second click keeps the
+ * focus on it rather than passing through to what lies behind (SLN-920)
+ */
+const HELD = "aria-disabled:cursor-default aria-disabled:opacity-40";
 const BASE = "action-control whitespace-nowrap font-medium [&>svg]:size-4 [&>svg]:shrink-0";
 
 /** Button styles for a link that should look like a Button. */
