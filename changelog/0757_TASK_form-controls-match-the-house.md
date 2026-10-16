@@ -22,7 +22,7 @@ SLN-850. Design polish pass 5, item 4 (`findings/design-polish-5-2026-10-15.md`)
 - "Recommended by" (`work-form.tsx`) is the house Select, with "Add recommender…" as its placeholder.
 - The role pickers use the compact Select: `film-fields.tsx`, `perfume-fields.tsx` (the house's role and a credit's role), and `painting-fields.tsx` (attribution).
 - `date-picker.tsx`: its value takes the input's size, a step up on touch as the input's does.
-- `input.tsx`: an open field keeps its text on the column's edge with 8px of room inside its focus ring, which reaches 8px past the column. This applies to Edit work's title, a new collection's name and the add-book wizard's title.
+- `input.tsx`: an open field keeps its text on the column's edge with 8px of room inside its focus ring, which reaches 8px past the column. Its padding gives way to its 1px border, so the text starts exactly on the edge. This applies to Edit work's title, a new collection's name and the add-book wizard's title. The work form's own scroller gets room on its right for it (`pr-3`); #439 removes that scroller, and the dialog's padding then gives the room.
 - Test: `chip-touch-targets.test.ts` pins the compact Select's touch size.
 
 ## Completion Notes
