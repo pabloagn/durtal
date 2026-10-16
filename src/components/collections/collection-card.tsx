@@ -9,6 +9,7 @@ import { CollectionIcon } from "./collection-icon";
 import { CardHeading } from "@/components/shared/card-heading";
 import { CountParts } from "./count-parts";
 import { FadeImage } from "@/components/shared/fade-image";
+import { CoverCells } from "@/components/shared/cover-cells";
 import { mediaUrl } from "@/lib/s3/media-url";
 
 type ArtworkRow = {
@@ -67,6 +68,12 @@ export function CollectionCard({
   footer?: React.ReactNode;
 }) {
   const poster = collectionPoster(collection.media);
+  // No artwork, nothing in it, or artwork that fails: the name's letter, as every blank cover
+  const blank = (
+    <div className={`h-full ${COVER_BLANK}`}>
+      <CoverLetter title={collection.name} />
+    </div>
+  );
   const count = collection.countLine ?? collectionCountLine(collection) ?? "Empty";
   return (
     <div className="catalogue-card group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive">
@@ -83,26 +90,19 @@ export function CollectionCard({
             loading="lazy"
             className="protected-image h-full w-full object-cover group-hover:scale-[1.02]"
             style={mediaImageStyle(mediaCrop(poster))}
+            fallback={blank}
           />
         ) : covers.length ? (
-          <div
+          <CoverCells
+            srcs={covers.map((key) => mediaUrl(key))}
             className={`grid h-full ${covers.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}
-          >
-            {covers.map((key, index) => (
-              <FadeImage
-                key={key}
-                src={mediaUrl(key)}
-                alt=""
-                loading="lazy"
-                className={`h-full min-h-0 w-full object-cover ${covers.length === 3 && index === 2 ? "col-span-2" : ""}`}
-              />
-            ))}
-          </div>
+            cellClassNames={covers.map(
+              (_, index) => `h-full min-h-0 w-full object-cover ${covers.length === 3 && index === 2 ? "col-span-2" : ""}`,
+            )}
+            fallback={blank}
+          />
         ) : (
-          // No artwork and nothing in it: the name's letter, as every blank cover
-          <div className={`h-full ${COVER_BLANK}`}>
-            <CoverLetter title={collection.name} />
-          </div>
+          blank
         )}
 
         {/* Like the other cards' controls: shown on hover and keyboard focus */}

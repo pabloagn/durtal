@@ -8,7 +8,8 @@ import { CatalogueReadLink } from "@/components/ebooks/catalogue-read-action";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 
 import Link from "next/link";
-import Image from "next/image";
+import { FadeImage } from "@/components/shared/fade-image";
+import { COVER_BLANK, CoverLetter } from "./cover-letter";
 import { HuntBadge } from "./hunt-badge";
 import { PoisonBadge } from "./poison-badge";
 import { Badge } from "@/components/ui/badge";
@@ -95,7 +96,13 @@ function renderBookCell(book: DetailedBookItem, key: string, isSelecting = false
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const val = (book as any)[key];
   switch (key) {
-    case "title":
+    case "title": {
+      // No cover, or one that fails: the title's letter, as on every blank cover
+      const blank = (
+        <div className={`absolute inset-0 ${COVER_BLANK}`}>
+          <CoverLetter title={book.title} />
+        </div>
+      );
       return (
         <div className="flex items-center gap-2">
         <Link
@@ -104,19 +111,17 @@ function renderBookCell(book: DetailedBookItem, key: string, isSelecting = false
         >
           <div className="relative h-20 w-14 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
             {book.coverUrl ? (
-              <Image
+              <FadeImage
                 src={book.coverUrl}
                 alt=""
-                fill
-                sizes="56px"
-                className="object-cover"
+                loading="lazy"
+                decoding="async"
+                className="absolute inset-0 h-full w-full object-cover"
                 style={mediaImageStyle(book.coverCrop)}
-              unoptimized
+                fallback={blank}
               />
             ) : (
-              <div className="flex h-full items-center justify-center">
-                <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/40">{book.title[0]}</span>
-              </div>
+              blank
             )}
             {!isSelecting && book.ebook?.readable && <div className={COVER_CORNER.bottomLeft}><EbookMark ebook={book.ebook} /></div>}
           </div>
@@ -132,6 +137,7 @@ function renderBookCell(book: DetailedBookItem, key: string, isSelecting = false
         </span>
         </div>
       );
+    }
     case "catalogueStatus": {
       const statusInfo = val ? STATUS_CONFIG[val as CatalogueStatus] : null;
       return statusInfo ? <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge> : null;
