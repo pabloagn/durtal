@@ -65,7 +65,7 @@ describe("one recommended choice per row", () => {
     expect(host.textContent).toContain("1 edition");
     expect(host.textContent).not.toContain("1 editions");
     expect(host.textContent).toContain("1 copy");
-    expect(host.textContent).toContain("On Order");
+    expect(host.textContent).toContain("On order");
     expect(host.textContent).not.toContain("on_order");
   });
 });

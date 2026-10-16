@@ -33,7 +33,7 @@ export interface Written {
   bookRating: { workId: string; before: number | null; after: number | null } | null;
   /** Goodreads identifiers the commit recorded */
   identifiers: string[];
-  /** A to-read row (SLN-452): the Up Next item the commit wrote, or why it wrote none */
+  /** A to-read row (SLN-452): the Up next item the commit wrote, or why it wrote none */
   queueItem?: { id: string; workId: string; position: number; editionId: string | null; note: string | null } | null;
   queueOutcome?: "written" | "already_present" | "skipped";
   queueReason?: string | null;
@@ -323,7 +323,7 @@ export interface CommitResult {
   present: number;
   refused: number;
   rows: number;
-  /** Up Next items written, already there from an earlier commit, and skipped (queued by hand or started meanwhile) */
+  /** Up next items written, already there from an earlier commit, and skipped (queued by hand or started meanwhile) */
   queued: number;
   queuePresent: number;
   queueSkipped: number;
@@ -492,7 +492,7 @@ export async function commitImport(importId: string): Promise<CommitResult> {
     result.ratingsKept = ratings.kept;
   }
 
-  // To-read rows (SLN-452): Up Next items at the bottom, oldest added first
+  // To-read rows (SLN-452): Up next items at the bottom, oldest added first
   const queued = await commitQueueItems(importId, all);
   result.queued = queued.written;
   result.queuePresent = queued.present;
@@ -560,9 +560,9 @@ async function commitLibraryRatings(importId: string, counted: StoredRow[], now:
 }
 
 /**
- * Writes the to-read rows decided "import" as Up Next items (SLN-452):
+ * Writes the to-read rows decided "import" as Up next items (SLN-452):
  * appended at the bottom in the file's Date Added order, oldest first (file
- * order without it), in chunks of 100. A row whose key is already in Up Next
+ * order without it), in chunks of 100. A row whose key is already in Up next
  * writes nothing, so a second commit never duplicates; a book queued by hand
  * or started meanwhile is skipped with its reason.
  */
@@ -590,7 +590,7 @@ async function commitQueueItems(importId: string, all: StoredRow[]) {
     const seen = new Set<string>();
     const plan = chunk.map((r) => {
       const why = presentKeys.has(r.data.queueKey!)
-        ? ({ outcome: "already_present", reason: "Already in Up Next" } as const)
+        ? ({ outcome: "already_present", reason: "Already in Up next" } as const)
         : queuedWorks.has(r.workId!) || seen.has(r.workId!)
           ? ({ outcome: "skipped", reason: "Queued by hand meanwhile" } as const)
           : openWorks.has(r.workId!)
@@ -632,7 +632,7 @@ async function commitQueueItems(importId: string, all: StoredRow[]) {
           identifiers: [],
           queueItem: item ? { id: item.id, workId: item.workId, position: item.position, editionId: item.editionId, note: null } : null,
           queueOutcome: outcome,
-          queueReason: why?.reason ?? (item ? null : "Already in Up Next"),
+          queueReason: why?.reason ?? (item ? null : "Already in Up next"),
         } satisfies Written,
       };
     });
@@ -651,7 +651,7 @@ export interface UndoResult {
   removed: number;
   /** Readings edited after the import, kept */
   kept: number;
-  /** Up Next items removed, and kept because they were moved or edited after the import (SLN-452) */
+  /** Up next items removed, and kept because they were moved or edited after the import (SLN-452) */
   queueRemoved: number;
   queueKept: number;
   /** Notes removed, and kept because they were edited after the import (SLN-453) */
@@ -687,7 +687,7 @@ export async function undoImport(importId: string): Promise<UndoResult> {
     ]);
   }
   const rows = await loadRows(importId, sql`${readingImportRows.written} is not null`);
-  // Up Next items (SLN-452): each one removed while it still has the place, edition and note it was written with
+  // Up next items (SLN-452): each one removed while it still has the place, edition and note it was written with
   const items = rows.flatMap((r) => (r.written?.queueItem ? [r.written.queueItem] : []));
   const removedItems = items.length
     ? resultRows<{ id: string }>(

@@ -41,7 +41,7 @@ describe("work rating validation", () => {
   });
 });
 
-describe("the Edit Work form", () => {
+describe("the Edit work form", () => {
   it("keeps a half-star rating through an unrelated save", () => {
     const work = {
       title: "Watt", originalLanguage: "en", originalYear: null, workTypeId: null, isAnthology: false,

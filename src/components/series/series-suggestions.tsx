@@ -104,7 +104,7 @@ export function SeriesSuggestions({
                 <Button
                   size="sm"
                   variant="ghost"
-                  disabled={!!busy}
+                  disabled={!!busy && busy !== item.workId}
                   onClick={() => link(seriesId, [item], item.workId)}
                   busy={busy === item.workId}
                 >

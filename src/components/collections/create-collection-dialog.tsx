@@ -123,7 +123,7 @@ export function CreateCollectionDialog({
             <Button
               type="submit"
               variant="primary"
-              disabled={saving || !name.trim()}
+              disabled={!name.trim()}
               busy={saving}
             >
               Create collection

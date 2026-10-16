@@ -16,7 +16,7 @@ export function notifyReviewOutcome(outcome: ReviewOutcome, refresh: () => void)
     const retry = result === null || (!result.ok && result.error.retryOriginal);
     toast.error(result && !result.ok ? result.error.message : "Undo could not be confirmed. Retry this same Undo.", {
       duration: retry ? Infinity : 10_000,
-      ...(retry ? { action: { label: "Retry Undo", onClick: () => void undoOriginal() } } : {}),
+      ...(retry ? { action: { label: "Try undoing again", onClick: () => void undoOriginal() } } : {}),
     });
   }
   toast.success(outcome.message, { duration: 10_000,

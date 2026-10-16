@@ -18,21 +18,32 @@ const HELD: Record<string, { label: string; menu?: boolean }[]> = {
   "/reading/suggestions": [{ label: "Pick one for me" }],
 };
 
+/** The title, label and buttons of the reading page at this address */
+function screen(pathname: string): { title: string; label: string; held: { label: string; menu?: boolean }[] } {
+  if (pathname === "/reading/year") return { title: "Year in review", label: "Loading the years in review", held: [] };
+  // One year in review (SLN-815): Print, then that year's stats
+  const year = /^\/reading\/year\/(\d{4})$/.exec(pathname)?.[1];
+  if (year) return { title: `${year} in review`, label: "Loading the year in review", held: [{ label: "Print" }, { label: `Stats for ${year}` }] };
+  // One import's preview (SLN-815) keeps the hub's header and buttons
+  if (pathname.startsWith("/reading/import/")) return { title: "Reading", label: "Loading the import", held: HELD["/reading/import"] };
+  return { title: "Reading", label: "Loading reading", held: HELD[pathname] ?? [] };
+}
+
 /**
  * A reading page while it loads (SLN-749): its header, with the tab just
  * clicked current and its buttons held, then its first section held. A
  * prefetched link draws this one screen for every tab, so the address says
  * which title and buttons are coming; the buttons keep their labels' widths,
- * hidden, so on a phone they go under the title where the page's do.
+ * hidden, so on a phone they go under the title where the page's do. A year
+ * in review and an import preview draw it too, from their own loading
+ * screens (SLN-815).
  */
 export function ReadingPending() {
-  const pathname = usePathname();
-  const years = pathname === "/reading/year";
-  const held = HELD[pathname] ?? [];
+  const { title, label, held } = screen(usePathname());
   return (
-    <div role="status" aria-label={years ? "Loading the years in review" : "Loading reading"}>
+    <div role="status" aria-label={label}>
       <PageHeader
-        title={years ? "Year in review" : "Reading"}
+        title={title}
         actions={
           held.length
             ? held.map(({ label, menu }) => (

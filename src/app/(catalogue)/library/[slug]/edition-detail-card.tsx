@@ -286,15 +286,15 @@ export function EditionDetailCard({
               </DetailRow>
             )}
             {edition.editionName && (
-              <DetailRow label="Edition Name">{edition.editionName}</DetailRow>
+              <DetailRow label="Edition name">{edition.editionName}</DetailRow>
             )}
             {edition.editionNumber && (
-              <DetailRow label="Edition Number">
+              <DetailRow label="Edition number">
                 <span className="font-mono">{edition.editionNumber}</span>
               </DetailRow>
             )}
             {edition.printingNumber && (
-              <DetailRow label="Printing Number">
+              <DetailRow label="Printing number">
                 <span className="font-mono">{edition.printingNumber}</span>
               </DetailRow>
             )}
@@ -304,7 +304,7 @@ export function EditionDetailCard({
               </DetailRow>
             )}
             {publicationDateFormatted && (
-              <DetailRow label="Publication Date">
+              <DetailRow label="Publication date">
                 <span className="font-mono">{publicationDateFormatted}</span>
               </DetailRow>
             )}
@@ -317,7 +317,7 @@ export function EditionDetailCard({
               </DetailRow>
             )}
             {edition.isLimitedEdition && edition.limitedEditionCount && (
-              <DetailRow label="Limited Edition Count">
+              <DetailRow label="Limited edition count">
                 <span className="font-mono">{edition.limitedEditionCount}</span>
               </DetailRow>
             )}
@@ -337,7 +337,7 @@ export function EditionDetailCard({
         </div>
       )}
 
-      {/* Genres & Tags */}
+      {/* Genres & tags */}
       {(hasGenres || hasTags) && (
         <div className="border-b border-glass-border px-5 py-4">
           <div className="space-y-4">

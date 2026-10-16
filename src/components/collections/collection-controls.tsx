@@ -265,7 +265,7 @@ export function CollectionControls({
           <Button data-dismiss="" disabled={busy} onClick={() => setDeleting(false)}>
             Cancel
           </Button>
-          <Button variant="danger" disabled={busy} onClick={remove} busy={busy}>
+          <Button variant="danger" onClick={remove} busy={busy}>
             Delete collection
           </Button>
         </div>

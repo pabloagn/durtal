@@ -8,7 +8,7 @@ import { FEATURES, WITHOUT_RATINGS, bayesianMean, betaTrust, boughtText } from "
 import { parseSuggestionParams, suggestionQuery, DEFAULT_SUGGESTION_PARAMS } from "@/lib/reading/suggest/params";
 import { GATE_MIN_BOOKS, evaluatePredictions, gateDue, nextGate, predict, predictionText, type Evaluation } from "@/lib/reading/suggest/predict";
 import { worthRereading } from "@/lib/reading/suggest/rereads";
-import { MMR_LAMBDA, REASON_SHARE, candidates, dayOrder, diversify, hiddenByFeedback, likeness, passes, pausedAuthors, pickOne, reasonsOf, scoreBook, suggest, weightedPick, type Scored } from "@/lib/reading/suggest/score";
+import { MMR_LAMBDA, REASON_SHARE, candidates, dayOrder, diversify, hiddenByFeedback, likeness, passes, pausedAuthors, pickOne, reasonsOf, scoreBook, suggest, suggestTop, weightedPick, type Scored } from "@/lib/reading/suggest/score";
 import { suggestionRow } from "@/lib/reading/suggest/view";
 import type { QueueEdition } from "@/lib/reading/queue";
 import type { SuggestBook, SuggestLoad } from "@/lib/reading/suggest/types";
@@ -173,7 +173,7 @@ describe("the taste feature", () => {
   });
 });
 
-describe("shelf time, at hand, Up Next and recent copies", () => {
+describe("shelf time, at hand, Up next and recent copies", () => {
   it("counts years on the shelf from the earliest acquisition date, capped at 10, and nothing without one", () => {
     const ctx = context([]);
     expect(feature("shelf").compute(book("Old", { firstAcquired: "2014-03-01" }), ctx)).toMatchObject({ reason: "On your shelves since 2014", meets: true });
@@ -199,9 +199,9 @@ describe("shelf time, at hand, Up Next and recent copies", () => {
     expect(row.line.split(" · ")).not.toContain("Digital");
   });
 
-  it("weighs Up Next by place and says when a copy came", () => {
+  it("weighs Up next by place and says when a copy came", () => {
     const ctx = context([book("First", { queuePlace: 1 }), book("Third", { queuePlace: 3 }), book("Second", { queuePlace: 2 })]);
-    expect(feature("upNext").compute(ctx.books[1], ctx)).toMatchObject({ reason: "In your Up Next, 3rd", score: 0.5 });
+    expect(feature("upNext").compute(ctx.books[1], ctx)).toMatchObject({ reason: "In your Up next, 3rd", score: 0.5 });
     expect(feature("upNext").compute(ctx.books[0], ctx)!.score).toBe(1);
     expect([3, 10, 21, 40, 75].map(boughtText)).toEqual(["Bought this week", "Bought last week", "Bought 3 weeks ago", "Bought last month", "Bought 2 months ago"]);
     expect(feature("recent").compute(book("New", { lastAcquired: "2026-09-01" }), ctx)).toMatchObject({ reason: "Bought last month" });
@@ -236,8 +236,8 @@ describe("scoring and reasons", () => {
     expect(s.contributions.map((c) => c.key).sort()).toEqual(["shelf", "upNext"]);
     expect(s.score).toBeCloseTo(s.contributions.reduce((t, c) => t + c.value, 0), 10);
     const tiny = { key: "shelf" as const, label: "Shelf time", weight: 1, score: 0.1, value: 0.1, share: REASON_SHARE - 0.01, reason: "On your shelves since 2025", meets: true, evidence: [] };
-    const big = { ...tiny, key: "upNext" as const, share: 0.86, value: 0.86, reason: "In your Up Next, 1st" };
-    expect(reasonsOf([tiny, big])).toEqual(["In your Up Next, 1st"]);
+    const big = { ...tiny, key: "upNext" as const, share: 0.86, value: 0.86, reason: "In your Up next, 1st" };
+    expect(reasonsOf([tiny, big])).toEqual(["In your Up next, 1st"]);
     expect(reasonsOf([{ ...tiny, share: REASON_SHARE }])).toEqual(["On your shelves since 2025"]);
     expect(reasonsOf([{ ...big, meets: false }])).toEqual([]);
     expect(ctx.books).toEqual([]);
@@ -293,8 +293,23 @@ describe("scoring and reasons", () => {
       // Few distinct scores, so many ties: the order of the day and the title break them
       const scored = books.map((b) => ({ book: b, score: Math.floor(random() * 4) / 2, contributions: [], reasons: [] }));
       const tie = dayOrder(TODAY);
-      expect(diversify(scored, lambda, tie)).toEqual(reference(scored, lambda, tie));
+      const whole = reference(scored, lambda, tie);
+      expect(diversify(scored, lambda, tie)).toEqual(whole);
+      // Stopped early, the first picks of the same order (SLN-885)
+      for (const limit of [0, 1, 3, 24, 119, 500]) expect(diversify(scored, lambda, tie, limit)).toEqual(whole.slice(0, limit));
     }
+  });
+
+  it("gives the first suggestions of the whole order, and how many there are, with the limit from the total (SLN-885)", () => {
+    const books = "ABCDEFGHIJKLMNOPQRST".split("").map((t) => book(`${t} book`, { editions: [edition(300, [{}])] }));
+    books.forEach((b) => (b.atHandCopyId = b.editions[0].copies[0].id));
+    const ctx = context(books);
+    const whole = suggest(ctx, DEFAULT_SUGGESTION_PARAMS);
+    expect(suggestTop(ctx, DEFAULT_SUGGESTION_PARAMS, 3)).toEqual({ top: whole.slice(0, 3), total: 20 });
+    const totals: number[] = [];
+    const { top } = suggestTop(ctx, DEFAULT_SUGGESTION_PARAMS, (total) => (totals.push(total), total - 5));
+    expect(totals).toEqual([20]);
+    expect(top).toEqual(whole.slice(0, 15));
   });
 
   it("orders equal scores by the day, not by title: the same all day, another the next", () => {
@@ -429,7 +444,7 @@ describe("Pick one for me", () => {
     expect(weightedPick([], () => 1)).toBeNull();
   });
 
-  it("with no ratings at all, gives only Series, Shelf time, At hand, Up Next and Recent copy reasons", () => {
+  it("with no ratings at all, gives only Series, Shelf time, At hand, Up next and Recent copy reasons", () => {
     const s = { seriesId: "s1", seriesTitle: "S" };
     const kindle = edition(300, [{ locationType: "digital", locationId: "00000000-0000-4000-8000-0000000000d1" }]);
     const books = [

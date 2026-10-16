@@ -143,18 +143,18 @@ export function RichTextEditor({
           <Underline className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
         <div className="mx-1 h-4 w-px bg-glass-border pointer-coarse:hidden" />
-        <ToolbarButton onClick={handleLink} label="Insert Link" disabled={disabled}>
+        <ToolbarButton onClick={handleLink} label="Insert link" disabled={disabled}>
           <Link className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
         <div className="mx-1 h-4 w-px bg-glass-border pointer-coarse:hidden" />
-        <ToolbarButton onClick={handleUnorderedList} label="Bullet List" disabled={disabled}>
+        <ToolbarButton onClick={handleUnorderedList} label="Bullet list" disabled={disabled}>
           <List className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
-        <ToolbarButton onClick={handleOrderedList} label="Numbered List" disabled={disabled}>
+        <ToolbarButton onClick={handleOrderedList} label="Numbered list" disabled={disabled}>
           <ListOrdered className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
         <div className="mx-1 h-4 w-px bg-glass-border pointer-coarse:hidden" />
-        <ToolbarButton onClick={handleRemoveFormat} label="Clear Formatting" disabled={disabled}>
+        <ToolbarButton onClick={handleRemoveFormat} label="Clear formatting" disabled={disabled}>
           <RemoveFormatting className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>
       </div>

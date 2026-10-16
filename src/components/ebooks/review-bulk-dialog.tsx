@@ -125,7 +125,7 @@ export function ReviewBulkDialog({ rows, action, onClose, onCommitted, onUndone,
         {changed.length > 0 && !locked && <Button onClick={skipChanged}>Skip these {changed.length} refused eBooks</Button>}
         {remaining.length > 0 && !prepared && changed.length === 0 && action !== "accession" &&
           <Button variant="primary" disabled={editingDisabled} onClick={() => void prepare()}>Preview next group</Button>}
-        {prepared && <Button variant="primary" busy={phase === "applying"} disabled={phase !== "prepared" && phase !== "unknown"} onClick={() => void confirm()}>
+        {prepared && <Button variant="primary" busy={phase === "applying"} disabled={phase !== "prepared" && phase !== "unknown" && phase !== "applying"} onClick={() => void confirm()}>
           {phase === "unknown" || (phase === "applying" && retrying) ? "Retry this same group" : `Confirm ${prepared.preparedCount} ${prepared.preparedCount === 1 ? "decision" : "decisions"}`}
         </Button>}
       </div>

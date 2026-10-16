@@ -90,7 +90,7 @@ export function mapGoodreads(headers: string[], records: Record<string, string>[
       return row;
     }
     if (exclusive === "to-read") {
-      // Up Next (SLN-452), oldest added first
+      // Up next (SLN-452), oldest added first
       row.kind = "to_read";
       row.queueKey = goodreadsToReadKey(identity);
       row.addedOn = day(r["Date Added"]);

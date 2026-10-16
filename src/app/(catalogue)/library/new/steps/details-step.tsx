@@ -177,7 +177,7 @@ export function DetailsStep({
                 { value: "tracked", label: "Tracked" },
                 { value: "shortlisted", label: "Shortlisted" },
                 { value: "wanted", label: "Wanted" },
-                { value: "on_order", label: "On Order" },
+                { value: "on_order", label: "On order" },
                 { value: "accessioned", label: "Accessioned" },
               ]}
             />

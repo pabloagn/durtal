@@ -192,7 +192,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     // Quotes and notes (SLN-453): books only
     canRead ? getNotesForWork(work.id) : Promise.resolve([]),
     readingDayStartHour(),
-    // The book's place in Up Next (SLN-452)
+    // The book's place in Up next (SLN-452)
     getQueuePlace(work.id),
     // The predicted rating (SLN-457) shows only while the gate is on
     canRead ? predictionGateOn() : Promise.resolve(false),
@@ -753,7 +753,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
       )}
 
       {similarWorks.length > 0 && (
-        <section className="mb-8" aria-label="Similar Works">
+        <section className="mb-8" aria-label="Similar works">
           <SimilarWorksCarousel works={similarWorks} ebooks={digitalCards} readerReturnTo={readerReturnTo} />
         </section>
       )}
