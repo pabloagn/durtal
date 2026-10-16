@@ -12,6 +12,14 @@ import { Ellipsis } from "lucide-react";
 import type { ReaderBridgeController } from "@/lib/reader/bridge-state";
 import type { EngineEvents } from "@/lib/reader/engine";
 
+/**
+ * One look for every action on a passage, new or marked: the selection's
+ * toolbar and an existing mark's menu share it (SLN-682). 32px, the
+ * toolbar's text, 44px on touch.
+ */
+export const MARK_ACTION =
+  "flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-sm px-3 hover:bg-bg-tertiary disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:min-w-11";
+
 export const selectionToolbarPosition = (
   rect: { left: number; top: number; right: number; bottom: number },
   size: { width: number; height: number },
@@ -43,6 +51,8 @@ export const SelectionToolbar = forwardRef<
     bridge: ReaderBridgeController;
     onClear(): void;
     markingActions?: ReactNode;
+    /** Marking actions that wait behind More on touch */
+    markingMore?: ReactNode;
     onReadAloud?(): void;
     speechReady?: boolean;
     /** What covers the bottom of the screen (the bar, the player), for the docked toolbar */
@@ -53,7 +63,7 @@ export const SelectionToolbar = forwardRef<
     covered?: boolean;
   }
 >(function SelectionToolbar(
-  { selection, bridge, onClear, markingActions, onReadAloud, speechReady, bottomInset = 0, topInset = 0, covered = false },
+  { selection, bridge, onClear, markingActions, markingMore, onReadAloud, speechReady, bottomInset = 0, topInset = 0, covered = false },
   forwardedRef,
 ) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -171,7 +181,7 @@ export const SelectionToolbar = forwardRef<
       aria-label="Copy selected text"
       data-tooltip="Copy selected text"
       onClick={() => void copy()}
-      className="h-8 shrink-0 rounded-sm px-3 hover:bg-bg-tertiary [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+      className={MARK_ACTION}
     >
       {failed ? "Copy failed" : copied ? "Copied" : "Copy"}
     </button>
@@ -183,7 +193,7 @@ export const SelectionToolbar = forwardRef<
       data-tooltip="Read aloud from here"
       onClick={onReadAloud}
       disabled={!speechReady}
-      className="h-8 shrink-0 rounded-sm px-3 hover:bg-bg-tertiary disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+      className={MARK_ACTION}
     >
       Read aloud from here
     </button>
@@ -250,6 +260,7 @@ export const SelectionToolbar = forwardRef<
             hidden={!more}
             className="flex flex-wrap items-center gap-0.5 border-t border-glass-border pt-0.5"
           >
+            {markingMore}
             {copyButton}
             {readAloud}
             <div ref={mountMore} className="flex items-center" />

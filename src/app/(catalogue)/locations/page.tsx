@@ -24,25 +24,27 @@ async function LocationsContent() {
   }
 
   return (
-    <div className="space-y-4">
+    // A deleted location hands the focus to the next one (FocusKeeper)
+    <div className="space-y-4" data-focus-list="locations">
       {locations.map((location) => (
-        <LocationCard
-          key={location.id}
-          id={location.id}
-          name={location.name}
-          type={location.type}
-          street={location.street}
-          city={location.city}
-          region={location.region}
-          country={location.country}
-          countryCode={location.countryCode}
-          postalCode={location.postalCode}
-          latitude={location.latitude}
-          longitude={location.longitude}
-          isActive={location.isActive}
-          items={itemCounts.get(location.id) ?? NO_LOCATION_ITEMS}
-          subLocations={location.subLocations}
-        />
+        <div key={location.id} data-focus-row="">
+          <LocationCard
+            id={location.id}
+            name={location.name}
+            type={location.type}
+            street={location.street}
+            city={location.city}
+            region={location.region}
+            country={location.country}
+            countryCode={location.countryCode}
+            postalCode={location.postalCode}
+            latitude={location.latitude}
+            longitude={location.longitude}
+            isActive={location.isActive}
+            items={itemCounts.get(location.id) ?? NO_LOCATION_ITEMS}
+            subLocations={location.subLocations}
+          />
+        </div>
       ))}
     </div>
   );

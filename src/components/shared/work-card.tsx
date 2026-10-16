@@ -92,7 +92,7 @@ export function WorkCardArt({
   src: string | null | undefined;
   /** The picture's main color: the frame shows it while the picture loads */
   tone?: string | null;
-  /** A flacon, a monogram: absolutely placed, it fills the frame */
+  /** The title's letter, a monogram: absolutely placed, it fills the frame */
   fallback: ReactNode;
 }) {
   return (

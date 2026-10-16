@@ -5,7 +5,7 @@ import Link from "next/link";
 import { BackLink } from "@/components/shared/back-link";
 import { notFound, redirect } from "next/navigation";
 import { Library } from "lucide-react";
-import { getPublisher } from "@/lib/actions/publishers";
+import { findPublisher, getPublisher } from "@/lib/actions/publishers";
 import { getPublisherSuggestionSummary } from "@/lib/actions/publisher-names";
 import {
   getPublisherBookFacets,
@@ -80,29 +80,35 @@ export default async function PublisherPage({
 }) {
   const { slug } = await params;
   const raw = await searchParams;
-  const p = await loadPublisher(slug);
-  if (!p) notFound();
+  // The page's reads start from the house's id, beside its details (SLN-839)
+  const house = await findPublisher(slug);
+  if (!house) notFound();
   const query = parsePublisherBookQuery(raw);
-  const basePath = `/publishers/${p.slug}`;
+  const booksRead = getPublisherBooks(house.id, query);
+  // The books wanted from the house, one card each (a book can be wanted
+  // from the house and from an imprint), the first WANTED_SHELF of them
+  const targetsRead = getPublisherTargets(house.id);
+  const wantedRead = targetsRead.then((targets) => [...new Set(targets.map((t) => t.work.id))].slice(0, WANTED_SHELF));
 
-  const [{ books, total }, facets, counts, images, targets, suggested] = await Promise.all([
-    getPublisherBooks(p.id, query),
-    getPublisherBookFacets(p.id),
-    getPublisherCounts(p.id),
-    getPublisherImages(p.id),
-    getPublisherTargets(p.id),
-    getPublisherSuggestionSummary(p.id),
+  const [p, { books, total }, facets, counts, images, targets, suggested, digital, wanted] = await Promise.all([
+    loadPublisher(slug),
+    booksRead,
+    getPublisherBookFacets(house.id),
+    getPublisherCounts(house.id),
+    getPublisherImages(house.id),
+    targetsRead,
+    getPublisherSuggestionSummary(house.id),
+    Promise.all([booksRead, wantedRead]).then(([{ books }, wantedIds]) =>
+      catalogueAvailability([...books.map((book) => book.workId), ...wantedIds]),
+    ),
+    wantedRead.then((wantedIds) => loadRelatedBooks(wantedIds.map((workId) => ({ workId })))),
   ]);
+  if (!p) notFound();
+  const basePath = `/publishers/${p.slug}`;
   if (query.page > lastPage(total, query.perPage))
     redirect(pageHref(basePath, raw, lastPage(total, query.perPage)));
 
-  // The books wanted from the house, one card each (a book can be wanted
-  // from the house and from an imprint), the first WANTED_SHELF of them
   const wantedIds = [...new Set(targets.map((t) => t.work.id))];
-  const [digital, wanted] = await Promise.all([
-    catalogueAvailability([...books.map((book) => book.workId), ...wantedIds.slice(0, WANTED_SHELF)]),
-    loadRelatedBooks(wantedIds.slice(0, WANTED_SHELF).map((workId) => ({ workId }))),
-  ]);
   const wantedWorks = wantedIds.slice(0, WANTED_SHELF).flatMap((id) => {
     const work = wanted.books.get(id);
     return work ? [{ ...work, targets: targets.filter((t) => t.work.id === id) }] : [];
