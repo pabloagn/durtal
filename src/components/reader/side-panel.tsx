@@ -13,14 +13,21 @@ const nonModal: { close: () => void; side: "left" | "right" }[] = [];
 /** How far the book insets from each side for the panels open beside it */
 export type ReaderPanelInset = { left: number; right: number };
 const insetListeners = new Set<(inset: ReaderPanelInset) => void>();
-function panelInset(): ReaderPanelInset {
+export function readerPanelInset(): ReaderPanelInset {
   return {
     left: nonModal.some((entry) => entry.side === "left") ? READER_PANEL_WIDTH : 0,
     right: nonModal.some((entry) => entry.side === "right") ? READER_PANEL_WIDTH : 0,
   };
 }
 function publishInset() {
-  const inset = panelInset();
+  const inset = readerPanelInset();
+  // The bars and the other strips fixed to the screen's edges inset with the
+  // book (`inset-x-reader`), so none of them lies under the drawer (SLN-892)
+  const style = document.documentElement.style;
+  for (const [name, value] of [["--reader-inset-left", inset.left], ["--reader-inset-right", inset.right]] as const) {
+    if (value) style.setProperty(name, `${value}px`);
+    else style.removeProperty(name);
+  }
   for (const listener of insetListeners) listener(inset);
 }
 
@@ -28,7 +35,7 @@ function publishInset() {
  * under it (SLN-728). Phones keep their panels modal, over the book. */
 export function subscribeReaderPanelInset(listener: (inset: ReaderPanelInset) => void) {
   insetListeners.add(listener);
-  listener(panelInset());
+  listener(readerPanelInset());
   return () => {
     insetListeners.delete(listener);
   };

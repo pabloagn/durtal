@@ -141,7 +141,7 @@ export function SpeechPlayer({
       ref={bar}
       data-reader-chrome
       data-speech-player
-      className="glass-bar fixed inset-x-0 z-30 overflow-hidden border-t border-glass-border text-fg-primary motion-reduce:transition-none"
+      className="glass-bar fixed inset-x-reader z-30 overflow-hidden border-t border-glass-border text-fg-primary motion-reduce:transition-none"
       style={{ bottom: bottomInset }}
     >
       <div
