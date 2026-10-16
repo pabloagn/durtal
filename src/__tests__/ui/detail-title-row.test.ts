@@ -9,7 +9,7 @@ import { DetailControls, DetailEditButton, DetailTitleRow, titleLength } from "@
 // A detail page's title on a phone takes the row's width, its controls going
 // under it, decided by a container query alone (SLN-641, from #260). The
 // browser layout is measured by hand; this pins the classes it rests on.
-function render(controls?: "standard" | "wide" | "stacked" | "free") {
+function render(controls?: "standard" | "wide" | "stacked" | "free" | "button") {
   const host = document.createElement("div");
   host.innerHTML = renderToStaticMarkup(createElement(DetailTitleRow, {
     title: "Ada or Ardor: A Family Chronicle",
@@ -48,6 +48,10 @@ describe("DetailTitleRow", () => {
     expect(wide).not.toContain("@min-[24rem]:flex-nowrap");
     expect(classes(render("stacked").row)).toContain("sm:flex-nowrap");
     expect(classes(render("free").row).filter((c) => c.endsWith("flex-nowrap"))).toEqual([]);
+    // A bordered button has no padding to give back: 16px on any pointer
+    const button = classes(render("button").row);
+    expect(button).toEqual(expect.arrayContaining(["gap-x-4", "sm:flex-nowrap"]));
+    expect(button.filter((c) => c.startsWith("pointer-coarse:"))).toEqual([]);
   });
 
   it("is the header row of every detail kind", () => {
@@ -63,6 +67,8 @@ describe("DetailTitleRow", () => {
       ["app/(catalogue)/perfumes/[slug]/page.tsx", '<DetailTitleRow title={perfume.title} controls="wide">'],
       ["app/(catalogue)/organizations/[slug]/page.tsx", '<DetailTitleRow title={organization.name} controls="wide">'],
       ["app/(catalogue)/places/[slug]/page.tsx", '<DetailTitleRow title={venue.name} controls="wide">'],
+      // An e-book's title steps down too, its Read on the title's edge (SLN-877)
+      ["app/(catalogue)/ebooks/[ebookId]/page.tsx", '<DetailTitleRow title={book?.title ?? ebook.title} controls="button">'],
     ];
     for (const [file, row] of pages) expect(read(file), file).toContain(row);
     for (const file of ["films/film-actions", "paintings/painting-actions", "perfumes/perfume-actions", "organizations/organization-actions"])
@@ -137,6 +143,13 @@ describe("DetailTitleRow's long titles", () => {
     // Only a word too long for the line breaks inside itself
     expect(page).not.toContain("[overflow-wrap:anywhere]\">");
     expect(titleLength("x".repeat(40))).toBe("long");
+  });
+
+  it("marks a taxonomy item's name on its h1 and the row its colour sits on", () => {
+    const page = read("app/(catalogue)/taxonomy/[familySlug]/[itemSlug]/page.tsx");
+    expect(page.match(/data-title-length=\{titleLength\(item\.name\)\}/g)).toHaveLength(2);
+    // The colour sits on the first line's cap height, not the block's middle (SLN-877)
+    expect(page).toMatch(/<CapAligned height=\{14\}>\s*<span\s+className="block h-3\.5 w-3\.5 rounded-full"/);
   });
 
   it("leaves a title that is not plain text unmarked", () => {
