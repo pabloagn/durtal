@@ -180,6 +180,35 @@ describe.skipIf(!url)("the evidence store", () => {
   });
 
   describe("documents", () => {
+    it("resolves real Open Library author references through bounded guarded fetches, retaining lineage", async () => {
+      const workId = await book("Kaputt author references");
+      const link = "https://openlibrary.org/works/OL1272994W.json";
+      const authorUrl = "https://openlibrary.org/authors/OL128744A.json";
+      const calls: string[] = [];
+      const get = async (url: string) => {
+        calls.push(url);
+        const raw = JSON.stringify(url === link ? { key: "/works/OL1272994W", title: "Kaputt", authors: [{ type: "/type/author_role", author: { key: "/authors/OL128744A" } }] } : { key: "/authors/OL128744A", name: "Curzio Malaparte" });
+        return { ...await fetcher(url)(url), html: raw, raw: Buffer.from(raw), contentType: "application/json" };
+      };
+      const input = { database, owner: { kind: "book" as const, workId }, url: link, runId: randomUUID(), extractor: sourcePageExtractor, objects, outletName: () => "Test", expectedIdentity: { titles: ["Kaputt"], authors: ["Curzio Malaparte"] }, fetchPage: get };
+      const result = await storeEvidencePage(input);
+      expect(calls).toEqual([link, authorUrl]);
+      expect(result.record.payload).toMatchObject({ byline: "Curzio Malaparte", relatedRecords: [{ url: authorUrl, key: "/authors/OL128744A", name: "Curzio Malaparte", payloadSha256: expect.stringMatching(/^[a-f0-9]{64}$/) }], quality: { status: "partial" } });
+      const bad = async (url: string) => {
+        const page = await get(url);
+        return url === link ? page : { ...page, html: JSON.stringify({ key: "/authors/OL999A", name: "Curzio Malaparte" }) };
+      };
+      await expect(storeEvidencePage({ ...input, refresh: true, fetchPage: bad })).rejects.toMatchObject({ reason: "identity_mismatch" });
+      const many = async (url: string) => {
+        const page = await get(url);
+        const key = new URL(url).pathname.replace(/\.json$/, "");
+        const raw = JSON.stringify(url === link ? { key: "/works/OL1272994W", title: "Kaputt", authors: Array.from({ length: 8 }, (_, i) => ({ author: { key: `/authors/OL${i + 1}A` } })) } : { key, name: "Curzio Malaparte" });
+        return { ...page, html: raw, raw: Buffer.from(raw) };
+      };
+      calls.length = 0;
+      await storeEvidencePage({ ...input, refresh: true, fetchPage: many });
+      expect(calls).toHaveLength(5); // One book and at most four author lookups.
+    });
     it("rejects unusable responses before storage and validates the identity of reused evidence", async () => {
       const workId = await book("Source quality");
       const before = Object.keys(bucket).length;

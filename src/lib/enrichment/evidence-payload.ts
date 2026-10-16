@@ -46,6 +46,8 @@ const common = {
     )
     .optional(),
   identityText: z.string().max(2000).optional(),
+  /** Bounded author identity lookups: retained fields plus the retrieved payload hash. */
+  relatedRecords: z.array(z.object({ url: z.url().max(4000), key: z.string().max(100), name: z.string().min(1).max(500), retrievedAt: z.iso.datetime(), payloadSha256: sha256 })).max(4).optional(),
 };
 
 /** A page the fetcher retrieved */

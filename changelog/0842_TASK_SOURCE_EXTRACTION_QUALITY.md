@@ -32,11 +32,18 @@ blurbs could masquerade as bibliographic records or book descriptions.
 
 ## Completion Notes
 
-Type checking and lint pass (81 existing warnings, no errors). The affected
-enrichment, evidence, service and network suites pass: 345 tests in 19 files,
-zero skipped, using `pnpm test:local` with explicit file filters and disposable
-databases. All Python preflight tests pass. Synthetic regressions cover the
-observed pilot failure classes without exporting owner data.
+Type checking and lint pass (existing warnings, no errors). The latest affected
+enrichment, evidence, service and network suites pass: 347 tests in 19 files,
+zero skipped, using the repository's disposable-database harness. The standard
+345-test run previously passed every Python preflight; a repeated, unchanged
+FIFO preflight later stalled, so the latest focused run reused that historical
+Python result. Unfiltered CI at the final head remains a merge gate.
+
+Source review fixes resolve recorded Open Library Work/Edition author-reference
+shapes via at most four guarded author lookups, preserving name/key/hash
+lineage. BnF identity is checked on the returned record, never an echoed query.
+Regressions include wrong author records, bounded lookups and an adversarial
+SRU echo. No owner data was exported.
 
 The broader unfiltered run was interrupted after a new fixture failed; its
 container was removed. The fixture and an optional-metadata hash mismatch
