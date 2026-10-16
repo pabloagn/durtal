@@ -18,7 +18,9 @@
  * - drift: in a card, a block whose ink (its first line's text or icon, or
  *   the box of a boxed element such as a badge or field) starts between 0.5
  *   and 12px off the left edge of the column holding it. A wrapping row of
- *   controls is checked on every line. Mark an intended inset with
+ *   controls is checked on every line. The rows of a divided list
+ *   (`divide-y`) are not boxes for their rule, and when they all carry the
+ *   same padding, their ink is measured from it. Mark an intended inset with
  *   `data-inset` on the block or any element around it. A label and value
  *   list laid out as a grid (a `dl`, such as a film's facts) is checked the
  *   same way, up to 16px: each term's and value's ink against its own cell.
@@ -66,13 +68,15 @@
     return (x + 0.05) / (y + 0.05);
   };
   const transparent = (color) => rgba(color).a < 0.05;
-  /** A box the eye sees: a fill or a border */
-  function boxed(el) {
+  const ruled = (el, side) => {
+    const s = css(el);
+    return parseFloat(s[`border${side}Width`]) > 0 && !transparent(s[`border${side}Color`]) && s[`border${side}Style`] !== "none";
+  };
+  /** A box the eye sees: a fill or a border (`apart`: a divided list's rule) */
+  function boxed(el, apart) {
     const s = css(el);
     if (!transparent(s.backgroundColor) || s.backgroundImage !== "none") return true;
-    return ["Top", "Right", "Bottom", "Left"].some(
-      (side) => parseFloat(s[`border${side}Width`]) > 0 && !transparent(s[`border${side}Color`]) && s[`border${side}Style`] !== "none",
-    );
+    return ["Top", "Right", "Bottom", "Left"].some((side) => side !== apart && ruled(el, side));
   }
 
   // ── Squeezed title ──────────────────────────────────────────────────────
@@ -166,9 +170,9 @@
     return true;
   };
   /** Where a block's first line of ink starts: text, an icon or a boxed element */
-  /** `layered`: count absolutely placed ink too (a star drawn in layers) */
-  function inkLeft(block, layered = false) {
-    if (boxed(block)) return block.getBoundingClientRect().left;
+  /** `layered`: count absolutely placed ink too (a star drawn in layers); `apart` as in `boxed` */
+  function inkLeft(block, layered = false, apart) {
+    if (boxed(block, apart)) return block.getBoundingClientRect().left;
     const marks = [];
     const walk = (el) => {
       if (!visible(el) || (!layered && ["absolute", "fixed"].includes(css(el).position))) return;
@@ -206,9 +210,16 @@
       if (kids.length < 2) continue;
       if (kids.some((c, i) => i && c.getBoundingClientRect().top < kids[i - 1].getBoundingClientRect().bottom - 1)) continue;
       const r = column.getBoundingClientRect();
-      const left = r.left + parseFloat(s.borderLeftWidth) + parseFloat(s.paddingLeft);
+      let left = r.left + parseFloat(s.borderLeftWidth) + parseFloat(s.paddingLeft);
+      // A divided list (`divide-y`): its rule doesn't make a row a box. The
+      // list pads its rows rather than itself, so the rules run to the box's
+      // edges: when every row carries the same padding, ink is measured from
+      // that padding (SLN-893)
+      const divider = kids.slice(1).every((k) => ruled(k, "Top")) ? "Top" : kids.slice(0, -1).every((k) => ruled(k, "Bottom")) ? "Bottom" : null;
+      const pads = kids.map((k) => parseFloat(css(k).paddingLeft));
+      if (divider && pads[0] > 0 && pads.every((p) => p === pads[0]) && kids.every((k) => Math.abs(k.getBoundingClientRect().left - left) < 0.5)) left += pads[0];
       for (const kid of kids) {
-        if (cards.has(kid) || boxed(kid) || css(kid).textAlign === "center") continue;
+        if (cards.has(kid) || boxed(kid, divider) || css(kid).textAlign === "center") continue;
         // A wrapping row of controls: the first control of every line
         const ks = css(kid);
         const lines = [];
@@ -222,7 +233,7 @@
         } else lines.push(kid);
         for (const start of lines) {
           if (seen.has(start) || intended(start, card)) continue;
-          const ink = inkLeft(start);
+          const ink = inkLeft(start, false, start === kid ? divider : undefined);
           if (ink === null) continue;
           const off = ink - left;
           if (Math.abs(off) > DRIFT_MIN && Math.abs(off) <= DRIFT_MAX) {

@@ -230,16 +230,24 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
           // The cover starts on the title's first line, as in Up next, however far the title wraps
           <li key={row.reading.readingId} className="flex items-start gap-3 px-3 py-2" data-journal-row={row.reading.readingId}>
             <Cover s3Key={row.cover} title={row.title} className="h-12 w-8" />
-            <div className="min-w-0 flex-1">
-              {/* The title names the row; its marks and menu sit on its first line, as in Up next */}
-              <div className="flex gap-3 text-sm">
+            <div className="@container min-w-0 flex-1">
+              {/*
+               * The title names the row; its marks and menu sit on its first line, as in Up next.
+               * Where they would leave the title under 9rem (a phone; sooner with Log or Resume),
+               * they go under it instead, clear of the lines around them (SLN-893)
+               */}
+              <div className={`flex gap-3 text-sm ${row.status === "reading" || row.status === "paused" ? "@max-[25rem]:flex-col" : "@max-[17.5rem]:flex-col"}`}>
                 <h3 className="min-w-0 flex-1">
                   {/* The full title wraps inside the link and keeps its touch area */}
                   <Link href={row.href} className="block text-fg-primary transition-colors hover:text-accent-primary touch-hit">
                     <span className="block min-h-[1lh] [overflow-wrap:anywhere]">{row.title}</span>
                   </Link>
                 </h3>
-                <CapAlignedControls height={32} coarseHeight={44}>
+                <CapAlignedControls
+                  height={32}
+                  coarseHeight={44}
+                  className={row.status === "reading" || row.status === "paused" ? "@max-[25rem]:my-3.5" : "@max-[17.5rem]:my-3.5"}
+                >
                   <span className="flex items-center gap-3">
                     {row.translated && (
                       <span className="hidden sm:inline-flex">
