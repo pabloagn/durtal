@@ -171,7 +171,7 @@ export function IntegrationChecks({ overview }: { overview: IntegrationsOverview
       <SettingsGroup
         title="Services"
         action={
-          <Button size="sm" onClick={runAll} disabled={checking}>
+          <Button size="sm" onClick={runAll} busy={checking}>
             <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
             Check again
           </Button>

@@ -105,7 +105,8 @@ describe("Log a past read", () => {
 
     actions.addPastReading.mockImplementationOnce(() => held({ outcome: "created" }));
     await press("Save anyway");
-    expect(button("Save anyway").disabled).toBe(true);
+    // Busy, not disabled: it keeps the focus (SLN-853)
+    expect(button("Save anyway").getAttribute("aria-disabled")).toBe("true");
     expect(button("Save anyway").getAttribute("aria-busy")).toBe("true");
     await press("Save anyway");
     expect(actions.addPastReading).toHaveBeenCalledTimes(2);
@@ -160,7 +161,7 @@ describe("Hidden suggestions", () => {
     expect(suggestions.removeSuggestionFeedback).toHaveBeenCalledTimes(1);
     await act(async () => pending.release());
     // The row stays busy until the refresh takes it away
-    expect(undo("w1").disabled).toBe(true);
+    expect(undo("w1").getAttribute("aria-disabled")).toBe("true");
     act(() => root.render(createElement(HiddenList, { rows: rows.slice(1) })));
     // Brought back by the toast's Undo, it can be pressed again
     act(() => root.render(createElement(HiddenList, { rows })));
