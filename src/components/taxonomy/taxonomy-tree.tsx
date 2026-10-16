@@ -25,10 +25,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { ChevronRight, ChevronDown } from "lucide-react";
-import {
-  TaxonomyItemRow,
-  type TaxonomyItemData,
-} from "./taxonomy-item-row";
+import { TaxonomyItemRow, type TaxonomyItemData } from "./taxonomy-item-row";
 
 // ── Tree node type ──────────────────────────────────────────────────────────
 
@@ -44,7 +41,10 @@ interface TaxonomyTreeProps {
   hierarchical: boolean;
   canReorder?: boolean;
   paging?: { page: number; perPage: number; total: number };
-  loadChildren?: (parent: string, offset: number) => Promise<{items:TaxonomyItemData[];total:number}>;
+  loadChildren?: (
+    parent: string,
+    offset: number,
+  ) => Promise<{ items: TaxonomyItemData[]; total: number }>;
   entityNoun?: string;
   selectedIds: Set<string>;
   onSelectionChange: (ids: Set<string>) => void;
@@ -52,8 +52,8 @@ interface TaxonomyTreeProps {
   onMove: (itemId: string, newParentId: string | null) => Promise<void>;
   onColorChange: (id: string, color: string | null) => Promise<void>;
   onRename: (id: string, name: string) => Promise<void>;
-  onDelete: (id: string, item?:TaxonomyItemData) => void;
-  onMerge: (id: string, item?:TaxonomyItemData) => void;
+  onDelete: (id: string, item?: TaxonomyItemData) => void;
+  onMerge: (id: string, item?: TaxonomyItemData) => void;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -111,8 +111,8 @@ interface SortableRowProps {
   onSelect: (id: string) => void;
   onColorChange: (id: string, color: string | null) => void;
   onRename: (id: string, name: string) => void;
-  onDelete: (id: string, item?:TaxonomyItemData) => void;
-  onMerge: (id: string, item?:TaxonomyItemData) => void;
+  onDelete: (id: string, item?: TaxonomyItemData) => void;
+  onMerge: (id: string, item?: TaxonomyItemData) => void;
 }
 
 function SortableRow({
@@ -150,18 +150,39 @@ function SortableRow({
 
   return (
     <div ref={setNodeRef} style={style} data-focus-row="">
-      <div className="flex items-start text-sm leading-5 pointer-coarse:leading-11" style={{ paddingLeft: depth * 20 }}>
-        {hierarchical && <div className="w-5 shrink-0 pt-1.5 pointer-coarse:w-11 pointer-coarse:pt-0.5">
-          {hasChildren ? <CapAligned height={20} coarseHeight={44}>
-            <button
-              aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${item.name}`}
-              data-tooltip={isCollapsed ? "Expand" : "Collapse"}
-              type="button"
-              onClick={e => { e.stopPropagation(); onToggleCollapse(item.id); }}
-              className="flex h-5 w-5 items-center justify-center text-fg-muted hover:text-fg-secondary pointer-coarse:size-11"
-            >{isCollapsed ? <ChevronRight className="h-3 w-3" strokeWidth={1.5} /> : <ChevronDown className="h-3 w-3" strokeWidth={1.5} />}</button>
-          </CapAligned> : <span aria-hidden="true" className="block h-5 pointer-coarse:h-11" />}
-        </div>}
+      <div
+        className="flex items-start text-sm leading-5 pointer-coarse:leading-11"
+        style={{ paddingLeft: depth * 20 }}
+      >
+        {hierarchical && (
+          <div className="w-5 shrink-0 pt-1.5 pointer-coarse:w-11 pointer-coarse:pt-0.5">
+            {hasChildren ? (
+              <CapAligned height={20} coarseHeight={44}>
+                <button
+                  aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${item.name}`}
+                  data-tooltip={isCollapsed ? "Expand" : "Collapse"}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleCollapse(item.id);
+                  }}
+                  className="flex h-5 w-5 items-center justify-center text-fg-muted hover:text-fg-secondary pointer-coarse:size-11"
+                >
+                  {isCollapsed ? (
+                    <ChevronRight className="h-3 w-3" strokeWidth={1.5} />
+                  ) : (
+                    <ChevronDown className="h-3 w-3" strokeWidth={1.5} />
+                  )}
+                </button>
+              </CapAligned>
+            ) : (
+              <span
+                aria-hidden="true"
+                className="block h-5 pointer-coarse:h-11"
+              />
+            )}
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <TaxonomyItemRow
             item={item}
@@ -174,7 +195,11 @@ function SortableRow({
             onRename={onRename}
             onDelete={onDelete}
             onMerge={onMerge}
-            dragHandleProps={canReorder ? { listeners, attributes, setActivatorNodeRef } : undefined}
+            dragHandleProps={
+              canReorder
+                ? { listeners, attributes, setActivatorNodeRef }
+                : undefined
+            }
           />
         </div>
       </div>
@@ -194,7 +219,9 @@ function DragOverlayRow({ item }: { item: TaxonomyItemData }) {
             style={{ backgroundColor: item.color }}
           />
         )}
-        <span className="whitespace-normal break-words text-sm text-fg-primary">{item.name}</span>
+        <span className="whitespace-normal break-words text-sm text-fg-primary">
+          {item.name}
+        </span>
       </div>
     </div>
   );
@@ -206,7 +233,8 @@ export function TaxonomyTree({
   items,
   familySlug,
   hierarchical,
-  paging: serverPaging, loadChildren,
+  paging: serverPaging,
+  loadChildren,
   canReorder = true,
   entityNoun = "work",
   selectedIds,
@@ -218,23 +246,52 @@ export function TaxonomyTree({
   onMerge,
 }: TaxonomyTreeProps) {
   const searchParams = useSearchParams();
-  const [branches, setBranches] = useState<Record<string,{items:TaxonomyItemData[];total:number}>>({});
+  const [branches, setBranches] = useState<
+    Record<string, { items: TaxonomyItemData[]; total: number }>
+  >({});
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const generation = useRef(0);
-  useEffect(() => { generation.current++; setBranches({}); setCollapsedIds(new Set()); setLoading(null); }, [items]);
-  const loadedItems = useMemo(() => [...items, ...Object.values(branches).flatMap(b => b.items)], [items, branches]);
-  async function fetchChildren(id:string, more=false) {
+  useEffect(() => {
+    generation.current++;
+    setBranches({});
+    setCollapsedIds(new Set());
+    setLoading(null);
+  }, [items]);
+  const loadedItems = useMemo(
+    () => [...items, ...Object.values(branches).flatMap((b) => b.items)],
+    [items, branches],
+  );
+  async function fetchChildren(id: string, more = false) {
     if (!loadChildren || loading) return;
     const version = generation.current;
-    setLoading(id); setError(null);
+    setLoading(id);
+    setError(null);
     try {
-      const result = await loadChildren(id, more ? branches[id]?.items.length ?? 0 : 0);
+      const result = await loadChildren(
+        id,
+        more ? (branches[id]?.items.length ?? 0) : 0,
+      );
       if (version !== generation.current) return;
-      setBranches(prev => ({...prev, [id]: {items: more ? [...(prev[id]?.items ?? []),...result.items] : result.items,total:result.total}}));
-      setCollapsedIds(prev => { const next=new Set(prev); next.delete(id); return next; });
-    } catch { setError("Could not load child items. Try expanding the item again."); }
-    finally { if(version === generation.current) setLoading(null); }
+      setBranches((prev) => ({
+        ...prev,
+        [id]: {
+          items: more
+            ? [...(prev[id]?.items ?? []), ...result.items]
+            : result.items,
+          total: result.total,
+        },
+      }));
+      setCollapsedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    } catch {
+      setError("Could not load child items. Try expanding the item again.");
+    } finally {
+      if (version === generation.current) setLoading(null);
+    }
   }
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -271,10 +328,29 @@ export function TaxonomyTree({
       // Flat mode: simple sortable list
       return loadedItems.map((item) => ({ item, depth: 0 }));
     }
-    return flattenTree(treeNodes, new Set([...collapsedIds, ...loadedItems.filter(i => loadChildren && (i.childCount ?? 0)>0 && !branches[i.id]).map(i=>i.id)]));
-  }, [loadedItems, hierarchical, treeNodes, collapsedIds, branches, loadChildren]);
+    return flattenTree(
+      treeNodes,
+      new Set([
+        ...collapsedIds,
+        ...loadedItems
+          .filter(
+            (i) => loadChildren && (i.childCount ?? 0) > 0 && !branches[i.id],
+          )
+          .map((i) => i.id),
+      ]),
+    );
+  }, [
+    loadedItems,
+    hierarchical,
+    treeNodes,
+    collapsedIds,
+    branches,
+    loadChildren,
+  ]);
 
-  const paging = serverPaging ? { ...serverPaging, items: visibleRows } : paginateItems(visibleRows, searchParams);
+  const paging = serverPaging
+    ? { ...serverPaging, items: visibleRows }
+    : paginateItems(visibleRows, searchParams);
 
   const sortableIds = useMemo(
     () => visibleRows.map((r) => r.item.id),
@@ -282,7 +358,10 @@ export function TaxonomyTree({
   );
 
   const toggleCollapse = (id: string) => {
-    if (loadChildren && !branches[id]) { void fetchChildren(id); return; }
+    if (loadChildren && !branches[id]) {
+      void fetchChildren(id);
+      return;
+    }
     setCollapsedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -301,9 +380,12 @@ export function TaxonomyTree({
     [selectedIds, onSelectionChange],
   );
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    if (canReorder) setActiveId(event.active.id as string);
-  }, [canReorder]);
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      if (canReorder) setActiveId(event.active.id as string);
+    },
+    [canReorder],
+  );
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -322,79 +404,108 @@ export function TaxonomyTree({
   );
 
   const activeItem = activeId
-    ? items.find((i) => i.id === activeId) ?? null
+    ? (items.find((i) => i.id === activeId) ?? null)
     : null;
 
   if (visibleRows.length === 0) {
     return (
       <div className="flex h-32 items-center justify-center">
-        <p className="text-sm text-fg-secondary">No items in this family yet.</p>
+        <p className="text-sm text-fg-secondary">
+          No items in this family yet.
+        </p>
       </div>
     );
   }
 
   return (
     <div>
-    {error && <p role="alert" className="p-3 text-sm text-accent-red-text">{error}</p>}
-    <PaginatedSection {...paging} noun="items" hideSingleSummary>
-    <DndContext
-      // A fixed id: dnd-kit's own counter gives the server and the browser
-      // different aria-describedby ids, a hydration mismatch on every row
-      id="taxonomy-tree"
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <SortableContext
-        items={sortableIds}
-        strategy={verticalListSortingStrategy}
-      >
-        {/* A merged or deleted row hands the focus to the same control of
+      {error && (
+        <p role="alert" className="p-3 text-sm text-accent-red-text">
+          {error}
+        </p>
+      )}
+      <PaginatedSection {...paging} noun="items" hideSingleSummary>
+        <DndContext
+          // A fixed id: dnd-kit's own counter gives the server and the browser
+          // different aria-describedby ids, a hydration mismatch on every row
+          id="taxonomy-tree"
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={sortableIds}
+            strategy={verticalListSortingStrategy}
+          >
+            {/* A merged or deleted row hands the focus to the same control of
             the next row, else New item (FocusKeeper, SLN-920) */}
-        <div className="divide-y-0" data-focus-list="taxonomy-items">
-          {paging.items.map(({ item, depth }) => {
-            const treeNode = treeNodeMap.get(item.id);
-            const hasChildren = treeNode
-              ? treeNode.children.length > 0 || (treeNode.childCount ?? 0) > 0
-              : false;
-            return (
-              <div key={item.id}>
-              <SortableRow
-                key={item.id}
-                item={item}
-                familySlug={familySlug}
-                depth={depth}
-                isSelected={selectedIds.has(item.id)}
-                hasChildren={hasChildren}
-                hierarchical={hierarchical}
-                canReorder={canReorder}
-                entityNoun={entityNoun}
-                isCollapsed={collapsedIds.has(item.id) || !!loadChildren && !branches[item.id]}
-                onToggleCollapse={toggleCollapse}
-                onSelect={handleSelect}
-                onColorChange={(id, color) => {
-                  onColorChange(id, color);
-                }}
-                onRename={(id, name) => {
-                  onRename(id, name);
-                }}
-                onDelete={id=>onDelete(id,item)}
-                onMerge={id=>onMerge(id,item)}
-              />
-              {loading===item.id && <p role="status" className="px-3 py-2 text-sm text-fg-secondary">Loading child items…</p>}
-              {branches[item.id] && !collapsedIds.has(item.id) && branches[item.id].items.length < branches[item.id].total && <button type="button" className="px-3 py-2 text-sm text-command touch-hit" onClick={() => void fetchChildren(item.id,true)} disabled={!!loading}>More child items of {item.name}</button>}
-              </div>
-            );
-          })}
-        </div>
-      </SortableContext>
+            <div className="divide-y-0" data-focus-list="taxonomy-items">
+              {paging.items.map(({ item, depth }) => {
+                const treeNode = treeNodeMap.get(item.id);
+                const hasChildren = treeNode
+                  ? treeNode.children.length > 0 ||
+                    (treeNode.childCount ?? 0) > 0
+                  : false;
+                return (
+                  <div key={item.id}>
+                    <SortableRow
+                      key={item.id}
+                      item={item}
+                      familySlug={familySlug}
+                      depth={depth}
+                      isSelected={selectedIds.has(item.id)}
+                      hasChildren={hasChildren}
+                      hierarchical={hierarchical}
+                      canReorder={canReorder}
+                      entityNoun={entityNoun}
+                      isCollapsed={
+                        collapsedIds.has(item.id) ||
+                        (!!loadChildren && !branches[item.id])
+                      }
+                      onToggleCollapse={toggleCollapse}
+                      onSelect={handleSelect}
+                      onColorChange={(id, color) => {
+                        onColorChange(id, color);
+                      }}
+                      onRename={(id, name) => {
+                        onRename(id, name);
+                      }}
+                      onDelete={(id) => onDelete(id, item)}
+                      onMerge={(id) => onMerge(id, item)}
+                    />
+                    {loading === item.id && (
+                      <p
+                        role="status"
+                        className="px-3 py-2 text-sm text-fg-secondary"
+                      >
+                        Loading child items…
+                      </p>
+                    )}
+                    {branches[item.id] &&
+                      !collapsedIds.has(item.id) &&
+                      branches[item.id].items.length <
+                        branches[item.id].total && (
+                        <button
+                          type="button"
+                          className="px-3 py-2 text-sm text-command touch-hit"
+                          onClick={() => void fetchChildren(item.id, true)}
+                          disabled={!!loading}
+                        >
+                          More child items of {item.name}
+                        </button>
+                      )}
+                  </div>
+                );
+              })}
+            </div>
+          </SortableContext>
 
-      <DragOverlay dropAnimation={null}>
-        {activeItem ? <DragOverlayRow item={activeItem} /> : null}
-      </DragOverlay>
-    </DndContext>
-    </PaginatedSection>
+          <DragOverlay dropAnimation={null}>
+            {activeItem ? <DragOverlayRow item={activeItem} /> : null}
+          </DragOverlay>
+        </DndContext>
+      </PaginatedSection>
     </div>
   );
 }

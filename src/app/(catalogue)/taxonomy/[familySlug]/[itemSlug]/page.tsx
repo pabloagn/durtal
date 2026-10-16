@@ -9,7 +9,10 @@ import { loadFamily, loadItem } from "../load";
 import Link from "next/link";
 import { Tag } from "lucide-react";
 import { TaxonomySkeleton } from "@/components/taxonomy/taxonomy-skeleton";
-import { getTaxonomyBookPage, getTaxonomyBookCards } from "@/lib/actions/taxonomy-browse";
+import {
+  getTaxonomyBookPage,
+  getTaxonomyBookCards,
+} from "@/lib/actions/taxonomy-browse";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { BookCard } from "@/components/books/book-card";
@@ -35,7 +38,11 @@ const FILTER_KEYS: Record<string, string> = {
   "painting-media": "medium",
   "painting-supports": "support",
 };
-const DEFAULT_KEYS: Partial<Record<WorkKind, string>> = { perfume: "family", film: "genre", painting: "genre" };
+const DEFAULT_KEYS: Partial<Record<WorkKind, string>> = {
+  perfume: "family",
+  film: "genre",
+  painting: "genre",
+};
 function filteredListHref(kind: WorkKind, familySlug: string, itemId: string) {
   const key = FILTER_KEYS[familySlug] ?? DEFAULT_KEYS[kind] ?? "genre";
   return `${WORK_DOMAINS[kind].basePath}?${key}=${itemId}`;
@@ -60,17 +67,32 @@ async function ItemContent({
   if (!family || !item) notFound();
 
   const books = item.kinds.includes("book");
-  const paging = books ? await getTaxonomyBookPage(familySlug,item.id,searchParams) : {ids:[],page:1,perPage:48,total:0};
-  const end = lastPage(paging.total,paging.perPage);
-  if(paging.page>end) redirect(pageHref(`/taxonomy/${familySlug}/${itemSlug}`,searchParams,end));
-  const [entityWorks,digital] = await Promise.all([getTaxonomyBookCards(paging.ids),catalogueAvailability(paging.ids)]);
-  const readerReturnTo = pageHref(`/taxonomy/${familySlug}/${itemSlug}`, searchParams, paging.page);
+  const paging = books
+    ? await getTaxonomyBookPage(familySlug, item.id, searchParams)
+    : { ids: [], page: 1, perPage: 48, total: 0 };
+  const end = lastPage(paging.total, paging.perPage);
+  if (paging.page > end)
+    redirect(
+      pageHref(`/taxonomy/${familySlug}/${itemSlug}`, searchParams, end),
+    );
+  const [entityWorks, digital] = await Promise.all([
+    getTaxonomyBookCards(paging.ids),
+    catalogueAvailability(paging.ids),
+  ]);
+  const readerReturnTo = pageHref(
+    `/taxonomy/${familySlug}/${itemSlug}`,
+    searchParams,
+    paging.page,
+  );
   const entityCount = item.direct;
 
   return (
     <div>
       {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="mb-6 flex flex-wrap items-center gap-1.5 text-sm text-fg-secondary">
+      <nav
+        aria-label="Breadcrumb"
+        className="mb-6 flex flex-wrap items-center gap-1.5 text-sm text-fg-secondary"
+      >
         <Link
           href="/taxonomy"
           className="transition-colors hover:text-fg-secondary min-w-0 break-words pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center"
@@ -85,15 +107,33 @@ async function ItemContent({
           {family.name}
         </Link>
         <span aria-hidden="true">/</span>
-        {item.parents.map(parent => <span key={parent.id} className="contents"><Link href={`/taxonomy/${family.slug}/${parent.slug}`} className="text-command break-words touch-hit">{parent.name}</Link><span aria-hidden="true">/</span></span>)}
-        <span aria-current="page" className="min-w-0 break-words text-fg-secondary">{item.name}</span>
+        {item.parents.map((parent) => (
+          <span key={parent.id} className="contents">
+            <Link
+              href={`/taxonomy/${family.slug}/${parent.slug}`}
+              className="text-command break-words touch-hit"
+            >
+              {parent.name}
+            </Link>
+            <span aria-hidden="true">/</span>
+          </span>
+        ))}
+        <span
+          aria-current="page"
+          className="min-w-0 break-words text-fg-secondary"
+        >
+          {item.name}
+        </span>
       </nav>
 
       {/* Item header */}
       <div className="mb-8">
         {/* The name steps down on a phone like every record title, its
             colour on the first line's cap height (SLN-877) */}
-        <div data-title-length={titleLength(item.name)} className="type-page-title flex items-start gap-3">
+        <div
+          data-title-length={titleLength(item.name)}
+          className="type-page-title flex items-start gap-3"
+        >
           {item.color && (
             <CapAligned height={14}>
               <span
@@ -102,7 +142,10 @@ async function ItemContent({
               />
             </CapAligned>
           )}
-          <h1 data-title-length={titleLength(item.name)} className="type-page-title min-w-0 [overflow-wrap:anywhere]">
+          <h1
+            data-title-length={titleLength(item.name)}
+            className="type-page-title min-w-0 [overflow-wrap:anywhere]"
+          >
             {item.name}
           </h1>
         </div>
@@ -113,7 +156,9 @@ async function ItemContent({
         )}
         <div className="mt-2 flex items-center gap-3">
           <Badge variant="muted">
-            {entityCount} {family.entityLevel}{entityCount === 1 ? "" : "s"}{item.children.length > 0 ? ` here, ${item.below} below` : ""}
+            {entityCount} {family.entityLevel}
+            {entityCount === 1 ? "" : "s"}
+            {item.children.length > 0 ? ` here, ${item.below} below` : ""}
           </Badge>
           {"createdAt" in item && item.createdAt && (
             <span className="font-mono text-micro text-fg-secondary">
@@ -124,71 +169,111 @@ async function ItemContent({
         </div>
       </div>
 
-      {(item.parents.length>0 || item.children.length>0) && <section className="mb-8 space-y-3" aria-label="Classification hierarchy">
-        {item.parents.length>0 && <p className="text-sm text-fg-secondary">Parent: <Link className="text-command touch-hit" href={`/taxonomy/${family.slug}/${item.parents.at(-1)!.slug}`}>{item.parents.at(-1)!.name}</Link></p>}
-        {item.children.length>0 && <div><SectionHeading title="Child classifications" /><ul className="flex flex-wrap gap-x-4 gap-y-2">{item.children.map(child=><li key={child.id}><Link className="text-sm text-command touch-hit" href={`/taxonomy/${family.slug}/${child.slug}`}>{child.name}</Link></li>)}</ul></div>}
-      </section>}
+      {(item.parents.length > 0 || item.children.length > 0) && (
+        <section
+          className="mb-8 space-y-3"
+          aria-label="Classification hierarchy"
+        >
+          {item.parents.length > 0 && (
+            <p className="text-sm text-fg-secondary">
+              Parent:{" "}
+              <Link
+                className="text-command touch-hit"
+                href={`/taxonomy/${family.slug}/${item.parents.at(-1)!.slug}`}
+              >
+                {item.parents.at(-1)!.name}
+              </Link>
+            </p>
+          )}
+          {item.children.length > 0 && (
+            <div>
+              <SectionHeading title="Child classifications" />
+              <ul className="flex flex-wrap gap-x-4 gap-y-2">
+                {item.children.map((child) => (
+                  <li key={child.id}>
+                    <Link
+                      className="text-sm text-command touch-hit"
+                      href={`/taxonomy/${family.slug}/${child.slug}`}
+                    >
+                      {child.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
       {/* Entity grid */}
       {entityWorks.length > 0 && (
         <div>
-          <SectionHeading title={family.entityLevel === "edition" ? "Books with associated editions" : "Associated works"} />
+          <SectionHeading
+            title={
+              family.entityLevel === "edition"
+                ? "Books with associated editions"
+                : "Associated works"
+            }
+          />
           <PaginatedSection {...paging} noun="works" hideSingleSummary>
-          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {entityWorks.map((work) => {
-              const authorName = work.workAuthors
-                .map((wa) => wa.author?.name ?? "Unknown")
-                .join(", ");
+            <div className="@container">
+              <div className="catalogue-grid catalogue-density-compact">
+                {entityWorks.map((work) => {
+                  const authorName = work.workAuthors
+                    .map((wa) => wa.author?.name ?? "Unknown")
+                    .join(", ");
 
-              // Find active poster media
-              const poster = work.media?.find(
-                (m) => m.type === "poster" && m.isActive,
-              );
-              const posterKey = poster?.thumbnailS3Key ?? poster?.s3Key;
+                  // Find active poster media
+                  const poster = work.media?.find(
+                    (m) => m.type === "poster" && m.isActive,
+                  );
+                  const posterKey = poster?.thumbnailS3Key ?? poster?.s3Key;
 
-              // Fallback to edition cover
-              const primaryEdition = work.editions?.[0];
-              const coverKey =
-                posterKey ??
-                primaryEdition?.thumbnailS3Key ??
-                primaryEdition?.coverS3Key;
-              const coverUrl = coverKey ? mediaUrl(coverKey) : null;
+                  // Fallback to edition cover
+                  const primaryEdition = work.editions?.[0];
+                  const coverKey =
+                    posterKey ??
+                    primaryEdition?.thumbnailS3Key ??
+                    primaryEdition?.coverS3Key;
+                  const coverUrl = coverKey ? mediaUrl(coverKey) : null;
 
-              const coverCrop = poster ? mediaCrop(poster) : null;
+                  const coverCrop = poster ? mediaCrop(poster) : null;
 
-              const instanceCount = work.editions?.reduce(
-                (sum, ed) => sum + (ed.instances?.length ?? 0),
-                0,
-              ) ?? 0;
+                  const instanceCount =
+                    work.editions?.reduce(
+                      (sum, ed) => sum + (ed.instances?.length ?? 0),
+                      0,
+                    ) ?? 0;
 
-              return (
-                <BookCard
-                  key={work.id}
-                  workId={work.id}
-                  ebook={digital.get(work.id)?.read ?? null}
-                  readerReturnTo={readerReturnTo}
-                  slug={work.slug ?? work.id}
-                  title={work.title}
-                  authorName={authorName}
-                  authorNames={work.workAuthors.map((wa) => wa.author.name)}
-                  coverUrl={coverUrl}
-                  coverCrop={coverCrop}
-                  coverTone={poster?.tone ?? null}
-                  publicationYear={primaryEdition?.publicationYear}
-                  language={primaryEdition?.language}
-                  instanceCount={instanceCount}
-                  rating={work.rating}
-                  catalogueStatus={work.catalogueStatus}
-                  acquisitionPriority={work.acquisitionPriority}
-                  isRare={work.isRare}
-                  huntAssessedOn={work.huntAssessedOn}
-                  isPoison={work.isPoison}
-                  isFavourite={work.isFavourite}
-                  primaryEditionId={primaryEdition?.id}
-                  reading={cardReadingOf(work)}
-                />
-              );
-            })}
-          </div>
+                  return (
+                    <BookCard
+                      key={work.id}
+                      workId={work.id}
+                      ebook={digital.get(work.id)?.read ?? null}
+                      readerReturnTo={readerReturnTo}
+                      slug={work.slug ?? work.id}
+                      title={work.title}
+                      authorName={authorName}
+                      authorNames={work.workAuthors.map((wa) => wa.author.name)}
+                      coverUrl={coverUrl}
+                      coverCrop={coverCrop}
+                      coverTone={poster?.tone ?? null}
+                      publicationYear={primaryEdition?.publicationYear}
+                      language={primaryEdition?.language}
+                      instanceCount={instanceCount}
+                      rating={work.rating}
+                      catalogueStatus={work.catalogueStatus}
+                      acquisitionPriority={work.acquisitionPriority}
+                      isRare={work.isRare}
+                      huntAssessedOn={work.huntAssessedOn}
+                      isPoison={work.isPoison}
+                      isFavourite={work.isFavourite}
+                      primaryEditionId={primaryEdition?.id}
+                      reading={cardReadingOf(work)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
           </PaginatedSection>
         </div>
       )}
@@ -201,9 +286,15 @@ async function ItemContent({
               .filter(({ count }) => count > 0)
               .map(({ kind, count }) => (
                 <li key={kind}>
-                  <Link href={filteredListHref(kind, family.slug, item.id)} className="text-command touch-hit">
+                  <Link
+                    href={filteredListHref(kind, family.slug, item.id)}
+                    className="text-command touch-hit"
+                  >
                     {count.toLocaleString("en-US")}{" "}
-                    {(count === 1 ? WORK_DOMAINS[kind].label : WORK_DOMAINS[kind].pluralLabel).toLowerCase()}
+                    {(count === 1
+                      ? WORK_DOMAINS[kind].label
+                      : WORK_DOMAINS[kind].pluralLabel
+                    ).toLowerCase()}
                   </Link>
                 </li>
               ))}
@@ -239,7 +330,10 @@ export async function generateMetadata({
     loadFamily(familySlug),
     loadItem(familySlug, itemSlug),
   ]);
-  return { title: family && item ? `${item.name} · ${family.name}` : "Taxonomy not found" };
+  return {
+    title:
+      family && item ? `${item.name} · ${family.name}` : "Taxonomy not found",
+  };
 }
 
 export default async function TaxonomyItemPage({
@@ -253,8 +347,15 @@ export default async function TaxonomyItemPage({
   const query = await searchParams;
 
   return (
-    <Suspense key={JSON.stringify(query)} fallback={<TaxonomySkeleton kind="term" />}>
-      <ItemContent familySlug={familySlug} itemSlug={itemSlug} searchParams={query} />
+    <Suspense
+      key={JSON.stringify(query)}
+      fallback={<TaxonomySkeleton kind="term" />}
+    >
+      <ItemContent
+        familySlug={familySlug}
+        itemSlug={itemSlug}
+        searchParams={query}
+      />
     </Suspense>
   );
 }
