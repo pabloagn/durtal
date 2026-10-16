@@ -1,6 +1,5 @@
 import { BackLink } from "@/components/shared/back-link";
-import { CapAlignedControls } from "@/components/shared/cap-aligned";
-import { DETAIL_TITLE_ROW } from "@/components/shared/detail-layout";
+import { DETAIL_TITLE_ROW, DetailControls } from "@/components/shared/detail-layout";
 import { SkeletonBlock, SkeletonLine } from "@/components/shared/skeleton";
 
 /**
@@ -17,15 +16,15 @@ export default function RecommenderLoading() {
       <BackLink href="/recommenders">Back to recommenders</BackLink>
       <header className="mb-8 min-w-0">
         {/* The name with the star and menu (72px, 96px on touch) at the row's end,
-            in the row's type as on the page */}
+            as the page draws them */}
         <div className="@container">
           {/* A person's name fits beside the star and menu on a 390px phone, not on a 320px one */}
           <div data-title-length="short" className={`type-page-title flex flex-wrap items-start ${DETAIL_TITLE_ROW.free}`}>
             <SkeletonLine titleLength="short" className="type-page-title w-full min-w-0 @min-[22rem]:w-1/2" />
             <div className="shrink-0 @min-[22rem]:ml-auto">
-              <CapAlignedControls height={32} coarseHeight={44} className="-ml-2 pointer-coarse:-ml-3.5">
+              <DetailControls>
                 <SkeletonBlock className="h-8 w-[72px] pointer-coarse:h-11 pointer-coarse:w-24" />
-              </CapAlignedControls>
+              </DetailControls>
             </div>
           </div>
         </div>

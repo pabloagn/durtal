@@ -34,14 +34,8 @@ SLN-817, from the third loading and error states survey
 - **`recommenders/[id]/page.tsx`**:
   - **Reads.** The stats read starts first and runs beside the recommender and
     their books' eBooks, so the page waits for two reads in a row, not three.
-  - **Header.** It is drawn with `DetailTitleRow`, as a series is:
-    - The star and menu go under a name that is too long for them. Before,
-      they went under the whole block of name and counts.
-    - The way back is `BackLink`, the same markup as before.
-    - The controls take the row's own type, not `DetailControls`. Beside a
-      short name on a phone under 375px the name steps down a size, while
-      `DetailControls` keeps the full size, which put them 2.4px off its cap
-      height. No other page shows its controls beside a title at that width.
+  - **Header.** #422 (SLN-843) already draws it with `DetailTitleRow` and
+    `DetailControls`, as a series is, so this task only matches it.
   - **Count line.** It is 24px tall with or without a website, so the loading
     screen can draw it.
 - **Tests**:
@@ -84,8 +78,7 @@ SLN-817, from the third loading and error states survey
 - **Audits.** The alignment, touch and design audits report nothing on the
   page and on its loading screen, in all three browsers at all three widths.
   This was checked for a short name, a long name, and a recommender with no
-  books. Before the header change, the star and menu sat 2.4px off a short
-  name at 320, in all three browsers.
+  books.
 - **Other.**
   - A missing recommender answers 404, and an address that is not an id
     answers 404.
