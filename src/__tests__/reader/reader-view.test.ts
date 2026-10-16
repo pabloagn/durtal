@@ -970,6 +970,18 @@ describe("a file that does not open (SLN-685)", () => {
     expect(failures()).toHaveLength(0);
   });
 
+  it("starts focus on the error's first way out, and one Escape asks before leaving (SLN-864)", async () => {
+    fail("damaged", "zip: central directory not found");
+    await render(own, own, other, false, { until: "error" });
+    const alert = host.querySelector('[role="alert"]')!;
+    expect(document.activeElement).toBe(alert.querySelector("a, button"));
+    act(() => {
+      document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true, cancelable: true }));
+    });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    expect(host.querySelector("[data-reader-leave-prompt]")?.closest("dialog")?.textContent).toContain("Leave the book?");
+  });
+
   it("clears the record once the file opens, and sends nothing for a file with none", async () => {
     await render(own, own, other, false, { openFailed: true });
     expect(failures()).toHaveLength(1);

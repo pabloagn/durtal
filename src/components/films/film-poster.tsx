@@ -1,5 +1,5 @@
 import { FadeImage } from "@/components/shared/fade-image";
-import { TitleCard } from "@/components/shared/no-photo";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { coverToneStyle, mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import { mediaUrl } from "@/lib/s3/media-url";
 
@@ -24,27 +24,21 @@ export function filmImageUrl(
 
 /**
  * A film's poster in its 2:3 frame, cropped as it was framed, over its own
- * tone while it loads; a title card when it has no poster. The parent sets
- * the width.
+ * tone while it loads; the title's letter when it has no poster
+ * (`CoverLetter`), as every blank cover shows. The parent sets the width.
  */
 export function FilmPoster({
   image,
   title,
-  year,
   alt = "",
   thumbnail = true,
-  small = false,
   className = "",
   eager = false,
 }: {
   image: FilmPosterImage | null | undefined;
   title: string;
-  /** Shown on the title card */
-  year?: string | null;
   alt?: string;
   thumbnail?: boolean;
-  /** A small thumbnail: the title card carries no lettering */
-  small?: boolean;
   className?: string;
   /** The page's main image: load it at once */
   eager?: boolean;
@@ -66,7 +60,9 @@ export function FilmPoster({
           style={mediaImageStyle(mediaCrop(image ?? {}))}
         />
       ) : (
-        <TitleCard title={title} year={year} lettering={!small} />
+        <span className={`absolute inset-0 ${COVER_BLANK}`}>
+          <CoverLetter title={title} />
+        </span>
       )}
     </div>
   );
