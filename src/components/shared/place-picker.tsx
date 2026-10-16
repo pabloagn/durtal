@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Globe, MapPin, Plus, X } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { toast } from "@/lib/notifications/toast";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,8 +29,11 @@ interface PlacePickerProps {
 
 type LocalPlace = Awaited<ReturnType<typeof searchPlaces>>[number];
 
+// A row shows its whole name, wrapping as it must (names are never cut): the
+// icon sits on the first line's cap height
 const rowClass =
-  "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-40";
+  "flex w-full items-start gap-2 px-3 py-1.5 text-left text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-40";
+const rowText = "min-w-0 [overflow-wrap:anywhere]";
 
 function localDetail(p: LocalPlace) {
   return p.fullName ?? [p.name, p.parent?.name, p.country?.name].filter(Boolean).join(", ");
@@ -157,11 +161,14 @@ export function PlacePicker({ label, value, onChange, disabled }: PlacePickerPro
       />
 
       {q && (
-        <div className="max-h-48 overflow-y-auto rounded-sm border border-glass-border bg-bg-secondary">
+        // contain:inline-size: a long place name wraps inside the list
+        // instead of widening the form, which sizes a fieldset to its
+        // content's narrowest width (SLN-820)
+        <div className="max-h-48 overflow-y-auto rounded-sm border border-glass-border bg-bg-secondary [contain:inline-size]">
           {local.map((p) => (
             <button key={p.id} type="button" disabled={busy} onClick={() => select(p)} className={rowClass}>
-              <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
-              <span className="truncate">{localDetail(p)}</span>
+              <CapAligned height={14}><MapPin className="h-3.5 w-3.5" strokeWidth={1.5} /></CapAligned>
+              <span className={rowText}>{localDetail(p)}</span>
             </button>
           ))}
           {geo?.map((g, i) => (
@@ -172,8 +179,8 @@ export function PlacePicker({ label, value, onChange, disabled }: PlacePickerPro
               onClick={() => run(() => createPlaceFromGeocode(g))}
               className={rowClass}
             >
-              <Globe className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
-              <span className="truncate">{g.displayName}</span>
+              <CapAligned height={14}><Globe className="h-3.5 w-3.5" strokeWidth={1.5} /></CapAligned>
+              <span className={rowText}>{g.displayName}</span>
             </button>
           ))}
           {geo?.length === 0 && (
@@ -181,8 +188,8 @@ export function PlacePicker({ label, value, onChange, disabled }: PlacePickerPro
           )}
           {geo === null && (
             <button type="button" disabled={busy || searching} onClick={searchWorldwide} className={rowClass}>
-              <Globe className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
-              <span className="truncate">Search worldwide for &ldquo;{q}&rdquo;</span>
+              <CapAligned height={14}><Globe className="h-3.5 w-3.5" strokeWidth={1.5} /></CapAligned>
+              <span className={rowText}>Search worldwide for &ldquo;{q}&rdquo;</span>
             </button>
           )}
           <button
@@ -191,8 +198,8 @@ export function PlacePicker({ label, value, onChange, disabled }: PlacePickerPro
             onClick={() => run(() => createPlace({ name: q, type: "city" }))}
             className={rowClass}
           >
-            <Plus className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
-            <span className="truncate">Add &ldquo;{q}&rdquo; without coordinates</span>
+            <CapAligned height={14}><Plus className="h-3.5 w-3.5" strokeWidth={1.5} /></CapAligned>
+            <span className={rowText}>Add &ldquo;{q}&rdquo; without coordinates</span>
           </button>
         </div>
       )}
