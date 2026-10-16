@@ -2,6 +2,9 @@ import { DOMParser, parseHTML } from "linkedom";
 import type { ExtractedPage } from "./evidence-store";
 import { extractMainText } from "./extract";
 import { sourceProfile, structuredSourceType, type SourceField } from "./source-profiles";
+import { openLibraryAuthorKeys } from "./identity";
+
+export interface RelatedAuthor { key: string; name: string }
 
 export interface SourceSection {
   role: SourceField;
@@ -57,7 +60,7 @@ function record(parts: { field: SourceField; value: string; locator: string }[],
   };
 }
 
-function openLibrary(raw: string, url: string): ExtractedPage | null {
+function openLibrary(raw: string, url: string, authors: RelatedAuthor[] = []): ExtractedPage | null {
   let obj: Record<string, unknown>;
   try {
     obj = JSON.parse(raw);
@@ -80,15 +83,19 @@ function openLibrary(raw: string, url: string): ExtractedPage | null {
     ["language", "languages"],
     ["extent", "number_of_pages"],
   ];
+  const references = openLibraryAuthorKeys(obj);
+  const resolved = authors.filter((author) => references.includes(author.key));
   const parts = [
     { field: "record" as const, value: key, locator: "$.key" },
-    ...mapping.map(([field, name]) => ({
+    ...mapping.filter(([, name]) => name !== "authors" || !references.length).map(([field, name]) => ({
       field,
       value: strings(obj[name]).join("; "),
       locator: `$.${name}`,
     })),
+    ...resolved.map((author) => ({ field: "contributors" as const, value: author.name, locator: `$.authors -> ${author.key}#name` })),
   ];
-  return record(parts, url);
+  const result = record(parts, url);
+  return result ? { ...result, partial: references.length > resolved.length } : null;
 }
 
 function bnf(raw: string, url: string): ExtractedPage | null {
@@ -102,10 +109,15 @@ function bnf(raw: string, url: string): ExtractedPage | null {
   const root = records[0];
   const fields = [...root.querySelectorAll("*")].filter((el) => local(el) === "datafield");
   const parts: { field: SourceField; value: string; locator: string }[] = [];
-  const identity = elements.find((el) => local(el) === "recordIdentifier")?.textContent?.trim();
+  let envelope = root.parentElement;
+  while (envelope && local(envelope) !== "record") envelope = envelope.parentElement;
+  const transportIdentity = envelope ? [...envelope.children].find((el) => local(el) === "recordIdentifier")?.textContent?.trim() : undefined;
+  const normalizeArk = (value: string) => /^(?:https?:\/\/catalogue\.bnf\.fr\/|\/)?(ark:\/12148\/cb[0-9a-z]+)\/?$/i.exec(value.trim())?.[1].toLowerCase();
+  const identities = [transportIdentity, ...[...root.querySelectorAll("*")].filter((el) => local(el) === "controlfield" && el.getAttribute("tag") === "003").map((el) => el.textContent)].filter((value): value is string => !!value).map(normalizeArk).filter((value): value is string => !!value);
   const query = new URL(url).searchParams.get("query") ?? "";
   const expectedArk = /ark:\/12148\/cb[0-9a-z]+/i.exec(query)?.[0];
-  if (expectedArk && !raw.includes(expectedArk)) return null;
+  if (expectedArk && (!identities.length || identities.some((id) => id !== expectedArk.toLowerCase()))) return null;
+  const identity = identities.find((id) => !!id);
   parts.push({
     field: "record",
     value: identity || expectedArk || "UNIMARC record",
@@ -244,10 +256,10 @@ function publisher(html: string, url: string): ExtractedPage | null {
 }
 
 /** Selects a format-aware extractor; unknown sources retain Readability. */
-export function extractSourcePage(body: string, url: string, kind?: string): ExtractedPage | null {
+export function extractSourcePage(body: string, url: string, kind?: string, authors?: RelatedAuthor[]): ExtractedPage | null {
   switch (structuredSourceType(url)) {
     case "json":
-      return openLibrary(body, url);
+      return openLibrary(body, url, authors);
     case "xml":
       return bnf(body, url);
   }

@@ -12,9 +12,10 @@ import type { EvidenceObjects } from "@/lib/s3/evidence-objects";
 import { EvidenceFetchError, type FetchedPage } from "@/lib/net/safe-fetch-page";
 import { canonicalEvidenceUrl } from "./evidence-url";
 import { fingerprint } from "./fingerprint";
-import { sourceRequests, type SourceField } from "./source-profiles";
+import { MAX_RELATED_AUTHORS, sourceRequests, type SourceField } from "./source-profiles";
+import { openLibraryAuthorKeys } from "./identity";
 import { assessSourceContent, blockedSourceText, usableSourceQuality, type SourceIdentity, type SourceQuality } from "./source-quality";
-import type { SourceSection } from "./source-extract";
+import type { SourceSection, RelatedAuthor } from "./source-extract";
 import { assertionScopeSchema, sameAssertionScope, type AssertionScopeInput } from "./assertion-scope";
 import { EVIDENCE_KINDS, evidencePagePayloadSchema, evidenceTextPayloadSchema, type EvidencePagePayload } from "./evidence-payload";
 
@@ -42,11 +43,12 @@ export interface ExtractedPage {
   fields?: SourceField[];
   identityText?: string;
   sections?: SourceSection[];
+  partial?: boolean;
 }
 export interface MainTextExtractor {
   name: string;
   version: string;
-  extract: (html: string, url: string, kind?: string) => ExtractedPage | null;
+  extract: (html: string, url: string, kind?: string, authors?: RelatedAuthor[]) => ExtractedPage | null;
 }
 
 export type StoredEvidence = typeof sourceRecords.$inferSelect;
@@ -225,7 +227,25 @@ export async function storeEvidencePage(input: StorePageInput): Promise<{ record
   // result, never for a refusal, broken response or mismatched identity.
   if (route.urls[1] && /<(?:\w+:)?numberOfRecords>\s*0\s*<\//.test(page.html)) page = await input.fetchPage(route.urls[1]);
   if (blockedSourceText(page.html)) throw new EvidenceFetchError("source_blocked", "Source returned a verification or access page");
-  const extracted = input.extractor.extract(page.html, page.finalUrl, input.outletKind);
+  let extracted = input.extractor.extract(page.html, page.finalUrl, input.outletKind);
+  const relatedRecords: { url: string; key: string; name: string; retrievedAt: string; payloadSha256: string }[] = [];
+  if (extracted && route.profile.key === "open-library") {
+    let record: Record<string, unknown>;
+    try { record = JSON.parse(page.html); } catch { throw new EvidenceFetchError("extraction_failed", "Invalid Open Library JSON"); }
+    for (const key of openLibraryAuthorKeys(record).slice(0, MAX_RELATED_AUTHORS)) {
+      const url = `https://openlibrary.org${key}.json`;
+      const authorPage = await input.fetchPage(url);
+      let author: { key?: unknown; name?: unknown };
+      try { author = JSON.parse(authorPage.html); } catch { throw new EvidenceFetchError("extraction_failed", "Invalid Open Library author JSON"); }
+      if (!author || typeof author !== "object" || Array.isArray(author)) throw new EvidenceFetchError("extraction_failed", "Invalid Open Library author record");
+      if (new URL(authorPage.finalUrl).origin !== "https://openlibrary.org" || new URL(authorPage.finalUrl).pathname !== `${key}.json` || author.key !== key)
+        throw new EvidenceFetchError("identity_mismatch", "Open Library returned another author record");
+      if (typeof author.name !== "string" || !author.name.trim() || author.name.length > 500)
+        throw new EvidenceFetchError("extraction_failed", "Open Library author record has no usable name");
+      relatedRecords.push({ url, key, name: author.name, retrievedAt: new Date().toISOString(), payloadSha256: sha256(authorPage.raw) });
+    }
+    extracted = input.extractor.extract(page.html, page.finalUrl, input.outletKind, relatedRecords);
+  }
   const quality = assessSourceContent(extracted, page.finalUrl, {
     profile: route.profile,
     identity: input.expectedIdentity,
@@ -272,6 +292,7 @@ export async function storeEvidencePage(input: StorePageInput): Promise<{ record
     sections: extracted.sections,
     identityText: extracted.identityText?.slice(0, 2000),
     assertionScope: input.assertionScope ? assertionScopeSchema.parse(input.assertionScope) : undefined,
+    ...(relatedRecords.length ? { relatedRecords } : {}),
   });
   // A refresh of the same owner, outlet and final URL supersedes the newest row of that chain
   const [previous] = input.refresh

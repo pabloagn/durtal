@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { extractSourcePage } from "@/lib/enrichment/source-extract";
 import { assessSourceContent, blockedSourceText, usableSourceQuality } from "@/lib/enrichment/source-quality";
 import { sourceProfile, sourceRequests, structuredSourceType } from "@/lib/enrichment/source-profiles";
@@ -85,7 +86,22 @@ describe("source profiles and extraction quality", () => {
       present: ["record", "title", "contributors", "language"],
     });
     expect(extractSourcePage(xml.replace("cb12345678x", "cb99999999x"), url)).toBeNull();
+    const echoed = xml.replace("cb12345678x", "cb99999999x").replace("</srw:searchRetrieveResponse>", '<srw:echoedSearchRetrieveRequest><srw:query>ark:/12148/cb12345678x</srw:query></srw:echoedSearchRetrieveRequest></srw:searchRetrieveResponse>');
+    expect(extractSourcePage(echoed, url)).toBeNull();
     expect(extractSourcePage("<searchRetrieveResponse><numberOfRecords>0</numberOfRecords></searchRetrieveResponse>", url)).toBeNull();
+  });
+
+  it("reads recorded Open Library author_role references and flat Edition references", () => {
+    const recorded = JSON.parse(readFileSync("src/__tests__/fixtures/enrichment/identity/recorded.json", "utf8"));
+    const url = "https://openlibrary.org/works/OL1272994W.json";
+    const raw = JSON.stringify(recorded.answers[url]);
+    const result = extractSourcePage(raw, url, undefined, [{ key: "/authors/OL128744A", name: "Curzio Malaparte" }]);
+    expect(assessSourceContent(result, url, { identity: { titles: ["Kaputt"], authors: ["Curzio Malaparte"] } }).status).toBe("partial");
+    expect(result?.byline).toBe("Curzio Malaparte");
+    const edition = JSON.stringify({ key: "/books/OL123M", title: "Kaputt", authors: [{ key: "/authors/OL128744A" }] });
+    expect(extractSourcePage(edition, "https://openlibrary.org/books/OL123M.json", undefined, [{ key: "/authors/OL128744A", name: "Curzio Malaparte" }])?.byline).toBe("Curzio Malaparte");
+    expect(structuredSourceType("https://openlibrary.org/authors/OL128744A.json")).toBe("json");
+    expect(structuredSourceType("https://elsewhere.example/authors/OL128744A.json")).toBeNull();
   });
 
   it("does not select a recommendation's JSON-LD when several products appear", () => {

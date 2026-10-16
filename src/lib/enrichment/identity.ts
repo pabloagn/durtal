@@ -71,6 +71,16 @@ export interface OpenLibraryWork {
   authors: { author: { key: string } }[];
   identifiers: { wikidata: string[] };
 }
+
+/** Official Work author_role references and Edition author references. */
+export function openLibraryAuthorKeys(record: Record<string, unknown>): string[] {
+  return [...new Set((Array.isArray(record.authors) ? record.authors : []).flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const author = "author" in entry ? entry.author : entry;
+    if (!author || typeof author !== "object" || !("key" in author)) return [];
+    return typeof author.key === "string" && /^\/authors\/OL\d+A$/.test(author.key) ? [author.key] : [];
+  }))];
+}
 /** The Wikidata properties identity reads, with Wikidata's best-ranked values */
 export const ITEM_PROPERTIES = ["P31", "P50", "P577", "P629", "P648", "P5331"] as const;
 export interface WikidataItem {

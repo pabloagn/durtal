@@ -4,6 +4,7 @@
  * Authority-field interpretation belongs to the facts stage (SLN-465).
  */
 export const SOURCE_PROFILE_VERSION = "sln969.1";
+export const MAX_RELATED_AUTHORS = 4;
 
 export type SourceRoute = "article" | "publisher" | "open-library" | "bnf-sru";
 export type SourceField = "mainText" | "record" | "title" | "description" | "contributors" | "identifiers" | "publication" | "language" | "extent";
@@ -96,6 +97,7 @@ export function structuredSourceType(url: string): "json" | "xml" | null {
   const profile = sourceProfile(url);
   const u = new URL(url);
   if (profile.key === "open-library" && u.pathname.endsWith(".json")) return "json";
+  if (u.hostname === "openlibrary.org" && /^\/authors\/OL\d+A\.json$/.test(u.pathname)) return "json";
   if (profile.key === "bnf-sru" && u.pathname === "/api/SRU") return "xml";
   return null;
 }

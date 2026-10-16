@@ -305,6 +305,14 @@ show per-document coverage and refused sources; counts describe this run, not
 production reliability. Full owned books remain local and are not inputs to
 this public-source fetcher.
 
+Open Library Work `author_role.author.key` and Edition `authors[].key` use
+the shared identity parser. At most four referenced author JSON records are
+resolved through the same registry/robots/pacing safeguards; response key and
+final URL must match. Retained author name/key, URL, retrieval time and raw
+payload hash document the identity lookup; no extra full author body is kept.
+Unresolved additional contributors remain partial. BnF matches the returned
+record's own ARK (recordIdentifier or MARC 003), never an echoed query.
+
 - **Allowlist.** Only a URL of an active outlet of the registry
   (`evidence_outlets`, docs/02) whose policy is `fetch`; every hop is checked
   again, so a redirect off the registry fails as `off_registry`.
