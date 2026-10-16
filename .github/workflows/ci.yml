@@ -16,7 +16,7 @@ permissions:
 
 concurrency:
   # PR updates supersede their predecessor; main and tag pushes keep running.
-  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
