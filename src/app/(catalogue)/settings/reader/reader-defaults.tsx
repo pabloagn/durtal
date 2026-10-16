@@ -20,13 +20,15 @@ export function ReaderDefaults({ initial, initialOverrides }: { initial: ReaderP
 }
 function SavedDefaults({ rows, initialOverrides }: { rows: readonly PresentationRow[]; initialOverrides: Overrides }) {
   const [deviceClass, setDeviceClass] = useState<DeviceClass>("desktop");
+  // The overrides that came with the page are current only until the first switch
+  const [switched, setSwitched] = useState(false);
   return <><SettingsIntro>Choose defaults for each device size. Books can keep their own overrides.</SettingsIntro>
     {/* The device switch keeps the groups' gap from the first group's title */}
-    <div className="mb-8"><SegmentedControl ariaLabel="Reader device size" value={deviceClass} onChange={setDeviceClass} options={[{ value: "desktop", label: "Desktop" }, { value: "tablet", label: "Tablet" }, { value: "phone", label: "Phone" }]} /></div>
-    <DeviceDefaults key={deviceClass} deviceClass={deviceClass} rows={rows} initialOverrides={deviceClass === "desktop" ? initialOverrides : null} />
+    <div className="mb-8"><SegmentedControl ariaLabel="Reader device size" value={deviceClass} onChange={value => { setSwitched(true); setDeviceClass(value); }} options={[{ value: "desktop", label: "Desktop" }, { value: "tablet", label: "Tablet" }, { value: "phone", label: "Phone" }]} /></div>
+    <DeviceDefaults key={deviceClass} deviceClass={deviceClass} rows={rows} initialOverrides={deviceClass === "desktop" ? initialOverrides : null} served={!switched} />
   </>;
 }
-function DeviceDefaults({ deviceClass, rows, initialOverrides }: { deviceClass: DeviceClass; rows: readonly PresentationRow[]; initialOverrides: Overrides | null }) {
+function DeviceDefaults({ deviceClass, rows, initialOverrides, served: fresh }: { deviceClass: DeviceClass; rows: readonly PresentationRow[]; initialOverrides: Overrides | null; served: boolean }) {
   const preferences = useReaderPreferences({ deviceClass, ebookId: null, initialRows: rows });
   const p = useMemo(() => effectivePresentation(deviceClass, preferences.rows), [deviceClass, preferences.rows]);
   const colors = themeColours(p);
@@ -39,7 +41,11 @@ function DeviceDefaults({ deviceClass, rows, initialOverrides }: { deviceClass: 
   const [overrides, setOverrides] = useState<Overrides | null>(initialOverrides);
   const [clearing, setClearing] = useState<string | null>(null);
   const scope = useRef(0);
+  // The page came with the first page of overrides: reading it again at once would only show
+  // a loading row that comes and goes (SLN-875)
+  const served = useRef(fresh && initialOverrides?.ok === true);
   useEffect(() => {
+    if (served.current) { served.current = false; return; }
     const generation = ++scope.current; let active = true;
     const timer = setTimeout(() => { if (active && scope.current === generation) { active = false; setLoading(false); setError("Book overrides took too long to load. Try again."); } }, 10000);
     setLoading(true);

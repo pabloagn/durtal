@@ -16,6 +16,11 @@ it("does not adopt a late override list from a device size that was left", async
   let resolve!: (value: ReturnType<typeof list>) => void;
   actions.list.mockImplementation(({ deviceClass }) => deviceClass === "desktop" ? new Promise(done => { resolve = done; }) : Promise.resolve(list("phone","Phone book")));
   await act(async () => root.render(createElement(ReaderDefaults,{ initial: { ok: true, ebookId: null, rows: [] }, initialOverrides: list("desktop","Initial desktop") })));
+  // The page came with the desktop list, so it is read again only on a return to desktop
+  expect(actions.list).not.toHaveBeenCalled();
+  await click("Phone");
+  await click("Desktop");
+  expect(actions.list).toHaveBeenLastCalledWith({ deviceClass: "desktop", page: 1 });
   await click("Phone");
   await act(async () => resolve(list("desktop","Late desktop")));
   expect(host.textContent).toContain("Phone book"); expect(host.textContent).not.toContain("Late desktop");

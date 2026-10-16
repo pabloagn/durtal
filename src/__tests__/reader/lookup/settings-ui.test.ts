@@ -77,3 +77,17 @@ it("lets a source's site wrap only after a dot", async () => {
     .toBe("<p>logeion.<wbr/>uchicago.<wbr/>edu</p>");
   expect(renderToStaticMarkup(createElement("p", null, hostBreaks("No address yet")))).toBe("<p>No address yet</p>");
 });
+
+it("renders the sources the page came with on the server, and does not read them again (SLN-875)", async () => {
+  const { renderToString } = await import("react-dom/server");
+  const html = renderToString(createElement(LookupSettingsGroup, { initial: defaultLookupSettings() }));
+  expect(html).not.toContain("Loading lookup settings");
+  expect(html).toContain("Merriam-Webster");
+  await act(async () => root.render(createElement(LookupSettingsGroup, { initial: defaultLookupSettings() }))); await wait();
+  expect(host.querySelectorAll('button[data-tooltip="Edit"]')).toHaveLength(10);
+  expect(actions.get).not.toHaveBeenCalled();
+  await click("Edit source Merriam-Webster");
+  await type("Name", "Webster");
+  await click("Done");
+  expect(actions.update.mock.calls[0][0].sources[0]).toMatchObject({ language: "en", name: "Webster" });
+});
