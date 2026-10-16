@@ -27,4 +27,8 @@ The authorized rerun at source commit `66439eeede2bf2aa56b1b368eb8a95f083a2d898`
 
 Root's independent static review of that source found no blocking issue. This final receipt commit changes only this changelog; the tested implementation is unchanged.
 
-`git diff --check` passes. Full typecheck and hosted CI remain required before landing. The branch has not been pushed.
+Full typecheck on `76f5f6b2` exposed two TS2339 errors where TypeScript did not retain a call-expression narrowing inside the argument-check callback. The follow-up stores the already-checked expression in a local constant; no proof logic changes.
+
+Under grant 11b, the combined focused check passed **146/146 tests**, with **0 failures and 0 skips**, and the subsequent full `pnpm typecheck` exited **0** on Node 22.23.3. Reports: `/private/tmp/sln976-977-grant11b-focused.json`, `/private/tmp/sln976-977-grant11b-focused.log` and `/private/tmp/sln976-977-grant11b-typecheck.log`.
+
+`git diff --check` passes. Full final-head hosted CI remains required before landing. The branch has not been pushed.

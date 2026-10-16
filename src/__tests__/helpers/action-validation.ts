@@ -201,9 +201,10 @@ export function createDelegationProof(sources: Record<string, string>) {
     const callback = returned.arguments[0];
     if (!ts.isArrowFunction(callback) || callback.parameters.length || !ts.isCallExpression(callback.body)
       || !ts.isIdentifier(callback.body.expression) || callback.body.expression.text !== target) return false;
-    if (callback.body.arguments.length !== fn.parameters.length || fn.parameters.some((parameter, index) =>
+    const targetCall = callback.body;
+    if (targetCall.arguments.length !== fn.parameters.length || fn.parameters.some((parameter, index) =>
       !ts.isIdentifier(parameter.name) || parameter.dotDotDotToken || parameter.initializer
-      || !ts.isIdentifier(callback.body.arguments[index]) || callback.body.arguments[index].getText() !== parameter.name.text)) return false;
+      || !ts.isIdentifier(targetCall.arguments[index]) || targetCall.arguments[index].getText() !== parameter.name.text)) return false;
     return helperParsesInput(sources[action.file], target, schema, false);
   }
   function prove(key: string, visited = new Set<string>()): { chain: string[]; error?: string } {
