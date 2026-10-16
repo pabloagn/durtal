@@ -417,6 +417,8 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
               value={query}
               onValueChange={setQuery}
               placeholder={narrow ? "Search, or type a command…" : "Search the catalogue, or type a command…"}
+              // A combobox takes no name from its placeholder
+              aria-label="Search the catalogue, or type a command"
               className="h-11 w-full bg-transparent text-sm text-fg-primary outline-none placeholder:text-fg-muted"
               autoFocus
             />

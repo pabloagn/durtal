@@ -156,7 +156,7 @@ async function ItemContent({
       {/* Entity grid */}
       {family.entityLevel === "work" && entityWorks.length > 0 && (
         <div>
-          <SectionHeading title="Associated Works" />
+          <SectionHeading title="Associated works" />
           <PaginatedSection {...paging} noun="works">
           <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {paging.items.map((work) => {

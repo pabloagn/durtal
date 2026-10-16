@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
-describe("ebook detail identifier refusal", () => {
+describe("ebook detail addresses", () => {
+  // The page's own not-found view answers them, with Back to eBooks (SLN-864)
   it.each(["bad", "bad.id", "123", "not-a-uuid", "offline-copy"])(
-    "returns a real 400 for %s before a page-size redirect",
+    "leaves the mistyped address %s to the page",
     (id) => {
       const response = proxy(new NextRequest(`http://localhost/ebooks/${id}`));
-      expect(response?.status).toBe(400);
+      expect(response?.status).not.toBe(400);
+      expect(response?.headers.get("content-type") ?? "").not.toContain("text/plain");
     },
   );
   it.each(["runs", "review", "highlights", "upload", "offline"])(

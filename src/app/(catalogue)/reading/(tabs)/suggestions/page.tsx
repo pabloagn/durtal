@@ -19,7 +19,7 @@ import { getSuggestionContext } from "@/lib/reading/suggest/context";
 import { SUGGESTIONS_PER_PAGE, parseSuggestionParams, suggestionQuery } from "@/lib/reading/suggest/params";
 import { worthRereading } from "@/lib/reading/suggest/rereads";
 import { candidates, hiddenByFeedback, pausedAuthors, suggest } from "@/lib/reading/suggest/score";
-import { suggestionRow } from "@/lib/reading/suggest/view";
+import { pickRow, suggestionRow } from "@/lib/reading/suggest/view";
 import { languageName } from "@/lib/utils/language";
 
 export const metadata = { title: "Suggestions" };
@@ -93,7 +93,7 @@ export default async function SuggestionsPage({ searchParams }: { searchParams: 
 
   return (
     <>
-      <PageHeader title="Reading" actions={<PickOne top={top} initiallyOpen={!!params.pick} />} tabs={<ReadingTabs />} />
+      <PageHeader title="Reading" actions={<PickOne top={top.map(pickRow)} initiallyOpen={!!params.pick} />} tabs={<ReadingTabs />} />
       <SuggestionConstraints params={params} languages={languages} homes={ctx.homes.map((h) => ({ value: h.id, label: h.name }))} workTypes={workTypes} />
       <div className="mb-6 space-y-1 text-xs text-fg-secondary">
         {unreadRated > 0 && (

@@ -47,7 +47,7 @@ export function WorkCardInfo({
   year?: ReactNode;
 }) {
   return (
-    <div className="mt-2.5 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1">
+    <div className="card-meta-row">
       {reading ? (
         <CardReading reading={reading} status={status} priority={priority} copies={copies} />
       ) : (
@@ -98,7 +98,7 @@ export function WorkCardArt({
   return (
     <div className="cover-shadow">
       <div
-        className="relative aspect-[2/3] overflow-hidden bg-bg-tertiary"
+        className="card-cover"
         style={src ? coverToneStyle(tone) : undefined}
       >
         {src ? (
