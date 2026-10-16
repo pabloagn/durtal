@@ -15,7 +15,7 @@ import {
   SingleChoiceField,
   useOrganizationSearch,
 } from "@/components/catalogue/record-fields";
-import { createFilmVersion, updateFilmVersion } from "@/lib/actions/films";
+import { createFilmVersion, updateFilmVersion } from "@/lib/actions/catalogue-client";
 import { FILM_RELEASE_FORMATS, MAX_FILM_RUNTIME_SECONDS } from "@/lib/catalogue/films";
 import {
   FILM_RELEASE_FORMAT_LABELS,
@@ -224,6 +224,7 @@ function VersionForm({
   onDone: () => void;
 }) {
   const router = useRouter();
+  const notices = toast.forAction(`film-version:${version?.id ?? filmId}`);
   const [label, setLabel] = useState(version?.label ?? "");
   const [runtime, setRuntime] = useState(runtimeText(version?.runtimeSeconds));
   const [notes, setNotes] = useState(version?.notes ?? "");
@@ -271,13 +272,13 @@ function VersionForm({
     try {
       if (version) await updateFilmVersion(version.id, fields, version.fingerprint);
       else await createFilmVersion({ workId: filmId, ...fields });
-      toast.success(version ? "Version saved" : "Version added");
+      notices.success(version ? "Version saved" : "Version added");
       onDone();
       router.refresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not save the version";
       setError(message);
-      toast.error(message);
+      notices.error(message);
       setSaving(false);
     }
   }

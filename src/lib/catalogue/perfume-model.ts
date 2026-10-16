@@ -1,3 +1,4 @@
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { z } from "zod";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -18,7 +19,7 @@ async function requirePerfume(workId: string, variantId?: string) {
     where: eq(perfumeDetails.workId, workId),
     columns: { workId: true },
   });
-  if (!profile) throw new Error("Perfume not found");
+  if (!profile) throw new ExpectedActionError("Perfume not found");
   if (
     variantId &&
     !(await db.query.perfumeVariants.findFirst({
@@ -29,7 +30,7 @@ async function requirePerfume(workId: string, variantId?: string) {
       columns: { id: true },
     }))
   )
-    throw new Error("Formulation does not belong to this perfume");
+    throw new ExpectedActionError("Formulation does not belong to this perfume");
 }
 /** Connect the shared personal-holdings contract to real perfume containers. */
 export async function loadPerfumeHoldings(workId: string) {

@@ -55,7 +55,14 @@ function showing(kind: Kind, message: Message): Id | null {
   return onScreen.find((t) => t.type === kind && t.title === message)?.id ?? null;
 }
 
+export const CONNECTION_SAVE_ERROR = "Not saved: Durtal could not be reached. Check the connection and try again.";
+const NETWORK_FAILURES = new Set(["Failed to fetch", "NetworkError when attempting to fetch resource.", "Load failed"]);
+function errorMessage(message: Message): Message {
+  return typeof message === "string" && NETWORK_FAILURES.has(message.trim()) ? CONNECTION_SAVE_ERROR : message;
+}
+
 function show(kind: Kind, message: Message, data?: ExternalToast): Id {
+  if (kind === "error") message = errorMessage(message);
   const own = data?.id !== undefined || data?.action !== undefined || data?.cancel !== undefined;
   if (!own) {
     const same = showing(kind, message);
@@ -91,7 +98,7 @@ export interface PendingToast {
 export function pendingToast(message: Message, data?: ExternalToast): PendingToast {
   const id = sonner.loading(message, { ...data, duration: TOAST_DURATION.success });
   const settle = (kind: Kind) => (next: Message, more?: ExternalToast) =>
-    sonner[kind](next, { ...more, id, duration: more?.duration ?? (kind === "error" ? Infinity : TOAST_DURATION.success) });
+    sonner[kind](kind === "error" ? errorMessage(next) : next, { ...more, id, duration: more?.duration ?? (kind === "error" ? Infinity : TOAST_DURATION.success) });
   return {
     id,
     success: settle("success"),
@@ -100,6 +107,19 @@ export function pendingToast(message: Message, data?: ExternalToast): PendingToa
     warning: (next, more) => sonner.warning(next, { ...more, id, duration: more?.duration ?? Infinity }),
     error: settle("error"),
     dismiss: () => void sonner.dismiss(id),
+  };
+}
+
+/** Scope retry feedback to a particular write and record. Success removes
+ * only its own previous failure; other operations' messages stay visible. */
+function forAction(action: string) {
+  const failureId = `action-failure:${action}`;
+  return {
+    error: (message: Message, data?: ExternalToast) => show("error", message, { ...data, id: failureId }),
+    success: (message: Message, data?: ExternalToast) => {
+      sonner.dismiss(failureId);
+      return show("success", message, data);
+    },
   };
 }
 
@@ -116,4 +136,5 @@ export const toast = Object.assign(base, {
   promise: sonner.promise,
   dismiss: sonner.dismiss,
   pending: pendingToast,
+  forAction,
 });

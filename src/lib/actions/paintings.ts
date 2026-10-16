@@ -1,4 +1,5 @@
 "use server";
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 
 import { recordWorkChanges, recordWorkEvents, workSnapshot } from "@/lib/activity/work-changes";
 import { randomUUID } from "node:crypto";
@@ -100,14 +101,14 @@ function changedCatalogue() {
 }
 function fresh(expected: string) {
   return (actual: string | null) => {
-    if (actual === null) throw new Error("Record not found");
-    if (actual !== expected) throw new Error(STALE_RECORD);
+    if (actual === null) throw new ExpectedActionError("Record not found");
+    if (actual !== expected) throw new ExpectedActionError(STALE_RECORD);
   };
 }
 async function paintingCreditRoles(credits: { roleId: string }[]) {
   const roles = new Set((await getCreditRoles("painting")).map((r) => r.id));
   if (credits.some((credit) => !roles.has(credit.roleId)))
-    throw new Error("Contribution role does not apply to paintings");
+    throw new ExpectedActionError("Contribution role does not apply to paintings");
 }
 function uniqueIdentity(
   workId: string,
@@ -441,7 +442,7 @@ export async function createPainting(input: CreatePaintingInput) {
   const v = createPaintingSchema.parse(input);
   await paintingCreditRoles(v.credits);
   if (v.credits.some((credit) => credit.id))
-    throw new Error("A new painting has no existing credits");
+    throw new ExpectedActionError("A new painting has no existing credits");
   const id = randomUUID();
   const creation = newDate(v.creationDate);
   await write((d) => [
@@ -565,7 +566,7 @@ export async function deletePainting(id: string) {
   const details = await db.query.paintingDetails.findFirst({
     where: eq(paintingDetails.workId, id),
   });
-  if (!details) throw new Error("Painting not found");
+  if (!details) throw new ExpectedActionError("Painting not found");
   const [objectDates, locationDates, stored] = await Promise.all([
     db
       .select({ id: artObjects.creationDateId })
@@ -823,7 +824,7 @@ export async function deleteArtObject(id: string) {
   const object = await db.query.artObjects.findFirst({
     where: eq(artObjects.id, id),
   });
-  if (!object) throw new Error("Object not found");
+  if (!object) throw new ExpectedActionError("Object not found");
   // Read the file keys first: the cascade removes the media rows that name them.
   const stored = await ownedMediaObjects("art_object", id);
   const locationDates = await db
