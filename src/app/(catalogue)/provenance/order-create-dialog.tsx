@@ -157,7 +157,7 @@ export function OrderCreateDialog({
         type="button"
       >
         <Plus className="h-4 w-4" strokeWidth={1.5} />
-        New Order
+        New order
       </Button>
 
       <Dialog
@@ -166,7 +166,7 @@ export function OrderCreateDialog({
         onSave={handleSubmit}
         open={open}
         onClose={handleClose}
-        title="New Order"
+        title="New order"
         description={`Step ${step + 1} of ${STEP_LABELS.length} — ${STEP_LABELS[step]}`}
         className="max-w-3xl"
       >

@@ -4,10 +4,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Layers, Sparkles } from "lucide-react";
 import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
-import { hasListQuery } from "@/lib/utils/list-params";
-import { getSeriesList, getSeriesSuggestions } from "@/lib/actions/series";
+import { getSeriesList, getSeriesSuggestions, hasSeries } from "@/lib/actions/series";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyIndex } from "@/components/shared/empty-index";
 import { Spinner } from "@/components/ui/spinner";
 import { buttonClass } from "@/components/ui/button";
 import { SeriesFormDialog } from "@/components/series/series-form-dialog";
@@ -25,8 +24,8 @@ interface SearchParams {
   favourites?: string;
 }
 
-async function SeriesContent({ params }: { params: SearchParams }) {
-  const { page, perPage, offset } = parsePagination(params);
+function listOptions(params: SearchParams) {
+  const { perPage, offset } = parsePagination(params);
   const sort = ["relevance", "title", "books", "recent"].includes(
     params.sort ?? "",
   )
@@ -34,31 +33,29 @@ async function SeriesContent({ params }: { params: SearchParams }) {
     : undefined;
   const order =
     params.order === "asc" || params.order === "desc"
-      ? params.order
+      ? (params.order as "asc" | "desc")
       : undefined;
-  const { rows, total } = await getSeriesList({
+  return {
     search: params.q,
     sort,
     order,
     limit: perPage,
     offset,
     favourites: favouritesOnly(params.favourites) || undefined,
-  });
+  };
+}
+
+async function SeriesContent({
+  params,
+  list,
+}: {
+  params: SearchParams;
+  list: ReturnType<typeof getSeriesList>;
+}) {
+  const { page, perPage } = parsePagination(params);
+  const { rows, total } = await list;
   if (page > lastPage(total, perPage))
     redirect(pageHref("/series", params, lastPage(total, perPage)));
-  const flat = new URLSearchParams(
-    Object.entries(params).filter(
-      (e): e is [string, string] => typeof e[1] === "string",
-    ),
-  );
-  if (total === 0 && !hasListQuery(flat))
-    return (
-      <EmptyState
-        icon={Layers}
-        title="No series yet"
-        action={<SeriesFormDialog />}
-      />
-    );
   return <SeriesShell series={rows} pagination={{ page, perPage, total }} />;
 }
 
@@ -82,7 +79,24 @@ export default async function SeriesPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  // Whether there is any series and the list itself, read side by side
+  const any = hasSeries();
   const params = await searchParams;
+  const list = getSeriesList(listOptions(params));
+  // With none the list is never awaited: its failure must not go unhandled
+  list.catch(() => {});
+  // With none, no toolbar over nothing: one empty state with one Add
+  if (!(await any)) {
+    return (
+      <EmptyIndex
+        title="Series"
+        icon={Layers}
+        empty="No series yet"
+        description="A series is a run of books that belong together in order, such as a trilogy. Add one, then add its books by their place in it."
+        action={<SeriesFormDialog />}
+      />
+    );
+  }
   return (
     <>
       <PageHeader
@@ -105,7 +119,7 @@ export default async function SeriesPage({
           </div>
         }
       >
-        <SeriesContent params={params} />
+        <SeriesContent params={params} list={list} />
       </Suspense>
     </>
   );

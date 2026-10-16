@@ -19,15 +19,17 @@ import {
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
+import { EmptyIndex } from "@/components/shared/empty-index";
 import { CreateCollectionDialog } from "./create-collection-dialog";
 import { CollectionsView, CollectionsViewSwitcher } from "@/components/collections/collections-view";
 
 export const metadata = { title: "Collections" };
 
-async function CollectionsContent({ params }: { params: ListSearchParams }) {
-  const { page, perPage, offset } = parsePagination(params);
+/** The list's first read, started before the page knows whether any collection exists */
+function collectionsQuery(params: ListSearchParams) {
+  const { perPage, offset } = parsePagination(params);
   const favourites = favouritesOnly(params[FAVOURITES_PARAM]);
-  const [collections, total] = await Promise.all([
+  const first = Promise.all([
     getCollections({
       limit: perPage,
       offset,
@@ -36,6 +38,21 @@ async function CollectionsContent({ params }: { params: ListSearchParams }) {
     }),
     getCollectionCount(typeof params.q === "string" ? params.q : "", favourites),
   ]);
+  // With none the list is never awaited: its failure must not go unhandled
+  first.catch(() => {});
+  return first;
+}
+
+async function CollectionsContent({
+  params,
+  list,
+}: {
+  params: ListSearchParams;
+  list: ReturnType<typeof collectionsQuery>;
+}) {
+  const { page, perPage } = parsePagination(params);
+  const favourites = favouritesOnly(params[FAVOURITES_PARAM]);
+  const [collections, total] = await list;
   if (page > lastPage(total, perPage))
     redirect(pageHref("/collections", params, lastPage(total, perPage)));
 
@@ -87,7 +104,21 @@ export default async function CollectionsPage({
 }: {
   searchParams: Promise<ListSearchParams>;
 }) {
+  // Whether any collection exists and the list itself, read side by side
+  const any = getCollectionCount("", false);
   const params = await searchParams;
+  const list = collectionsQuery(params);
+  if (!(await any)) {
+    return (
+      <EmptyIndex
+        title="Collections"
+        icon={FolderOpen}
+        empty="No collections yet"
+        description="A collection gathers the works you choose: a shelf, a theme, a reading list. Make one, then add works to it."
+        action={<CreateCollectionDialog />}
+      />
+    );
+  }
   return (
     <>
       <PageHeader
@@ -128,7 +159,7 @@ export default async function CollectionsPage({
           </div>
         }
       >
-        <CollectionsContent params={params} />
+        <CollectionsContent params={params} list={list} />
       </Suspense>
     </>
   );

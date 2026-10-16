@@ -200,6 +200,17 @@ describe("catalogue identity heuristics", () => {
     expect(found.map((f) => f.records.map((r) => r.id).sort())).toEqual([["typo", "w1442"]]);
     expect(found[0].rule).toBe("duplicate-spelling");
   });
+  it("keeps editions of other books apart at catalogue scale, and still pairs two of one book (SLN-807)", () => {
+    // One title across thousands of books: never a duplicate, and no longer a pair to rule out each
+    const editions = Array.from({ length: 3000 }, (_, i) =>
+      row(`e${i}`, { title: "Second edition", work_id: `w${i}`, language: "en" }),
+    );
+    editions.push(row("twin", { title: "Second editon", work_id: "w1442", language: "en" }));
+    editions.push(row("other-language", { title: "Second edition", work_id: "w1442", language: "fr" }));
+    const found = duplicates({ editions });
+    expect(found.map((f) => f.records.map((r) => r.id).sort())).toEqual([["e1442", "twin"]]);
+    expect(found[0].rule).toBe("duplicate-spelling");
+  });
 });
 
 describe("data quality beyond duplicates", () => {

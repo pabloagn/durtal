@@ -4,7 +4,8 @@ import { Button, buttonClass } from "@/components/ui/button";
 /**
  * When a book does not open (eBooks sub-issue 3): what went wrong in plain
  * words, Retry, the book's other readable files, and the way back. Never an
- * endless spinner.
+ * endless spinner. Retry is secondary and only where opening again can help;
+ * a damaged or locked file offers its replacement instead (SLN-685).
  */
 export function OpenError({
   title = "This eBook could not be opened",
@@ -13,10 +14,13 @@ export function OpenError({
   alternatives,
   ebookId,
   backHref,
+  replaceHref,
 }: {
   title?: string;
   message: string;
   onRetry?: () => void;
+  /** Where to replace the file that did not open */
+  replaceHref?: string;
   alternatives: { id: string; label: string }[];
   ebookId: string;
   backHref: string;
@@ -27,7 +31,7 @@ export function OpenError({
         <SectionHeading title={title} description={message} />
         <div className="flex flex-wrap gap-2">
           {onRetry && (
-            <Button variant="primary" onClick={onRetry}>
+            <Button variant="secondary" onClick={onRetry}>
               Retry
             </Button>
           )}
@@ -36,7 +40,14 @@ export function OpenError({
               Open the {file.label} instead
             </a>
           ))}
-          <a href={backHref} className={buttonClass("ghost")}>
+          {/* Recovery leaves the failed reader through a fresh catalogue document */}
+          {replaceHref && (
+            <a href={replaceHref} className={buttonClass("secondary")}>
+              Replace file…
+            </a>
+          )}
+          {/* Alone in the row, it starts on the text's edge */}
+          <a href={backHref} className={`${buttonClass("ghost")} first:-ml-3`}>
             Back
           </a>
         </div>

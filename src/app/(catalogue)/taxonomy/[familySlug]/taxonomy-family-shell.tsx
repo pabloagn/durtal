@@ -238,8 +238,8 @@ export function TaxonomyFamilyShell({
               </p>
             )}
             <p className="mt-1 font-mono text-xs text-fg-secondary">
-              {items.length} item{items.length === 1 ? "" : "s"}
-              {" · "}
+              {/* With no items, no count line over nothing (SLN-842) */}
+              {items.length > 0 && <>{items.length} item{items.length === 1 ? "" : "s"}{" · "}</>}
               {scopeLabels.join(", ")}
               {family.hierarchical ? " · hierarchical" : ""}
             </p>
@@ -267,8 +267,8 @@ export function TaxonomyFamilyShell({
         </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      {/* Toolbar: with no items, none over nothing; the empty state has the one Add (SLN-842) */}
+      {items.length > 0 && <div className="mb-4 flex flex-wrap items-center gap-3">
         {/* Search */}
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search
@@ -305,7 +305,7 @@ export function TaxonomyFamilyShell({
           <Plus className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.5} />
           New item
         </Button>
-      </div>
+      </div>}
 
       {/* Loading indicator for transitions */}
       {isPending && (
@@ -317,8 +317,14 @@ export function TaxonomyFamilyShell({
         items.length === 0 ? (
           <EmptyState
             icon={Tags}
+            heading="h2"
             title="No items yet"
-            description={`Add items to ${family.name} to start classifying with it`}
+            // Say what it applies to: a family can be for editions, perfumes or paintings, not only works
+            description={
+              scopeLabels.length > 0
+                ? `Each item is one value of ${family.name} for ${scopeLabels.join(", ").toLowerCase()}. Add the first, then choose it when you edit one.`
+                : `Each item is one value of ${family.name}. Add the first, then choose it when you edit a record.`
+            }
             action={
               <Button
                 variant="primary"

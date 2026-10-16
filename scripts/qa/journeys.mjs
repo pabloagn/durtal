@@ -1299,7 +1299,7 @@ async function booksJourney() {
       const order = await evaluate(`[...${hunt}.querySelectorAll('a')].find((a) => a.textContent.trim() === 'Order')?.getAttribute('href') ?? ''`);
       if (!order) throw new Error("The hunt has no Order link");
       await go(order);
-      await waitFor(`${DIALOG}?.textContent.includes('New Order') && ${labelled("Ordered edition", DIALOG)}`, "the order form with the hunt");
+      await waitFor(`${DIALOG}?.textContent.includes('New order') && ${labelled("Ordered edition", DIALOG)}`, "the order form with the hunt");
       await pickOption("Ordered edition", new RegExp(house), DIALOG);
       await click("Next", DIALOG);
       await click("Next", DIALOG);

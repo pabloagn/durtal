@@ -10,7 +10,7 @@ import {
 } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { sql } from "drizzle-orm";
+import { isNotNull, sql } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 
 // Explicit opt-in only: never load DATABASE_URL or any live environment files.
@@ -44,7 +44,7 @@ vi.mock("@/lib/cache", () => ({
   cached: (fn: () => unknown) => fn,
   CACHE_TAGS: new Proxy({}, { get: (_, prop) => String(prop) }),
 }));
-import { getPublishers, getPublisherCountries } from "@/lib/actions/publishers";
+import { getPublishers, getPublisherCountries, hasPublishers } from "@/lib/actions/publishers";
 import {
   authorSearchCondition,
   authorSearchRank,
@@ -113,6 +113,18 @@ describe.skipIf(!url)("publisher list with PostgreSQL", () => {
   }, 30000);
   const names = async (options: Parameters<typeof getPublishers>[0]) =>
     (await getPublishers(options)).rows.map((r) => r.publisher.name);
+
+  it("says whether the list has any publisher, as the empty page needs", async () => {
+    expect(await hasPublishers()).toBe(true);
+    await db.delete(schema.editionPublishers);
+    await db.delete(schema.publisherAliases);
+    await db.delete(schema.publishingHouses).where(isNotNull(schema.publishingHouses.parentId));
+    await db.delete(schema.publishingHouses);
+    // An organization that is not a publisher does not count
+    await db.insert(schema.publishingHouses).values({ name: "A bookshop", slug: "a-bookshop", kind: null });
+    expect(await hasPublishers()).toBe(false);
+    expect((await getPublishers()).total).toBe(0);
+  });
 
   it("finds publishers ignoring accents, word order and typos, and by alias", async () => {
     expect(await names({ search: "gallimard editions" })).toEqual([
