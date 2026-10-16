@@ -591,7 +591,7 @@ dialog::backdrop {
 /* One material behind adjacent artwork actions. The pseudo layer avoids
    containing fixed menus; each button remains a separate accessible target. */
 @utility artwork-actions {
-  @apply absolute bottom-1 right-1 z-20 flex gap-0.5 rounded-sm p-0.5 @[220px]:bottom-2 @[220px]:right-2;
+  @apply absolute bottom-1 right-1 z-20 flex gap-0.5 pointer-coarse:gap-2 rounded-sm p-0.5 @[220px]:bottom-2 @[220px]:right-2;
   isolation: isolate;
   &::before {
     content: "";

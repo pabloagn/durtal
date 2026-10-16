@@ -214,7 +214,7 @@ export function RatingInput({
   const text = value === null ? "Not rated" : `${formatRating(value)} ${value === 1 ? "star" : "stars"}`;
   // The Clear button wraps under the stars where the row is too narrow for both
   return (
-    <div className={`flex flex-wrap items-start gap-y-6 ${PULL[size]}`}>
+    <div className={`flex flex-wrap items-start gap-y-6 pointer-coarse:gap-x-2 ${PULL[size]}`}>
       <CapAligned height={24} coarseHeight={44}>
         <div
           ref={row}

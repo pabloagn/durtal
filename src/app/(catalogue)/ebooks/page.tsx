@@ -98,7 +98,7 @@ export default async function EbooksPage({
       />
       <nav
         aria-label="eBook states"
-        className="-mt-5 mb-8 flex flex-wrap gap-x-2 gap-y-1 text-sm text-fg-secondary"
+        className="-mt-5 mb-8 flex flex-wrap gap-x-2 gap-y-1 text-sm text-fg-secondary pointer-coarse:-mt-4 pointer-coarse:gap-y-8"
       >
         <Link
           href="/ebooks"

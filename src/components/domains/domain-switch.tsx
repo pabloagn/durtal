@@ -29,7 +29,7 @@ export function DomainSwitch({
     <nav aria-label="Collections" className="mt-6 max-sm:mt-4">
       {/* On a phone one row of equal tabs without icons; a row too narrow
           for every label scrolls inside itself, never the page (SLN-639) */}
-      <ul className="flex flex-wrap gap-1 max-sm:grid max-sm:auto-cols-[minmax(max-content,1fr)] max-sm:grid-flow-col max-sm:overflow-x-auto">
+      <ul className="flex flex-wrap gap-1 pointer-coarse:gap-2 max-sm:grid max-sm:auto-cols-[minmax(max-content,1fr)] max-sm:grid-flow-col max-sm:overflow-x-auto">
         {kinds.map((kind) => {
           const Icon = DOMAIN_ICONS[kind];
           const active = kind === current;

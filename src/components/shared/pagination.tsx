@@ -215,7 +215,7 @@ export function Pagination({
       </p>}
       {/* Tighter on a phone above the list, so a 17-page count, its arrows
           and Select share one row at 390 */}
-      {!onePage && <div className={`flex flex-wrap items-center gap-2 ${compact ? "max-sm:gap-1" : ""}`}>
+      {!onePage && <div className={`flex flex-wrap items-center gap-2 ${compact ? "not-pointer-coarse:max-sm:gap-1" : ""}`}>
         {!compact && (
           <span className="hidden md:contents">
             {pageLink(

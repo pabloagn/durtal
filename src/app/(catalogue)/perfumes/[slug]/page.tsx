@@ -429,7 +429,7 @@ export default async function PerfumePage({
           </DetailTitleRow>
 
           {houses.length > 0 && (
-            <p className="mt-2 text-sm text-fg-secondary">
+            <p className="mt-2 text-sm text-fg-secondary pointer-coarse:mt-4">
               {houses.map((house, i) => (
                 <span key={`${house.organizationId}:${house.role}`}>
                   {i > 0 && ", "}
@@ -445,7 +445,7 @@ export default async function PerfumePage({
             </p>
           )}
 
-          <dl className="mt-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
+          <dl className="mt-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm pointer-coarse:mt-8 pointer-coarse:gap-y-8">
             <dt className="text-fg-secondary">{perfumers.length === 1 ? "Perfumer" : "Perfumers"}</dt>
             <dd className="text-fg-primary">
               {perfumers.length === 0 ? (
@@ -496,7 +496,7 @@ export default async function PerfumePage({
                     of chips sit 18px apart so those areas do not overlap */}
                 <dt className="self-baseline text-fg-secondary">Concentration</dt>
                 <dd className="self-baseline">
-                  <nav aria-label="Formulations" className="flex flex-wrap gap-1.5 pointer-coarse:gap-y-4.5">
+                  <nav aria-label="Formulations" className="flex flex-wrap gap-1.5 pointer-coarse:gap-x-2 pointer-coarse:gap-y-6.5">
                     {perfume.variants.map((v) => {
                       const current = v.id === selected?.id;
                       return (
@@ -565,7 +565,7 @@ export default async function PerfumePage({
           }
         />
         {selected ? (
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm pointer-coarse:gap-y-8">
             {vocabularies.map((v) => {
               const terms = selected.classification.filter((c) => c.familyId === v.familyId);
               return (
