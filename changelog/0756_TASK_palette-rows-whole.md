@@ -21,6 +21,7 @@ SLN-849. Design polish pass 5, item 3 (`findings/design-polish-5-2026-10-15.md`)
   - On a phone a person's, organization's or place's roles go on a second line, as a book's authors do. The " · " before them is held to the name, so a wrapped line never starts with it.
   - A row's icon sits on the cap height of its first line (`RowIcon`, through `CapAligned`), so a row that wraps keeps its icon beside its first words.
   - A shorter placeholder below 640px: "Search, or type a command…".
+  - On touch a row reaches 44px through padding round its 24px line, not a minimum height, so a one-line label sits on its icon's line (with `min-h-11` the label was centered in the row and the icon sat 4px above it).
 - `src/components/ebooks/catalogue-read-action.tsx`: "Read" stays a button on every row, but its ⌘↵ keys show only on the selected row (and never on a phone).
 
 ## Completion Notes
