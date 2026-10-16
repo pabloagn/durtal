@@ -43,11 +43,13 @@ export interface ReaderBook {
   otherPlaces: ReaderPlace[];
   /** The newest place of the device `from` names, which the book opens at (SLN-665) */
   startPlace: ReaderPlace | null;
+  /** With no readable file, a file DRM locks, which the reader names (SLN-685) */
+  locked: { fileId: string; drm: string } | null;
 }
 
 type Row = Omit<
   ReaderBook,
-  "file" | "place" | "devicePlace" | "otherPlace" | "otherPlaces" | "startPlace" | "files"
+  "file" | "place" | "devicePlace" | "otherPlace" | "otherPlaces" | "startPlace" | "files" | "locked"
 > & {
   preferredFileId: string | null;
   matchState: string;
@@ -114,6 +116,8 @@ export async function readReaderBook(
   const place = file
     ? (places.find((p) => p.thisDevice && p.fileId === file.id) ?? null)
     : null;
+  const lockedFile = files.length || row.matchState === "excluded" ? undefined
+    : row.files.find((f) => f.drm !== null && (f.status === "stored" || f.status === "verified"));
   return {
     id: row.id,
     title: row.title,
@@ -128,5 +132,6 @@ export async function readReaderBook(
     otherPlace: places.find((p) => !p.thisDevice) ?? null,
     otherPlaces: places.filter((p) => !p.thisDevice),
     startPlace,
+    locked: lockedFile?.drm ? { fileId: lockedFile.id, drm: lockedFile.drm } : null,
   };
 }

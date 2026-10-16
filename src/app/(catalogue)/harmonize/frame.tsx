@@ -62,7 +62,7 @@ export function HarmonizeTitle() {
         Library care <span>/</span> Catalogue quality
       </p>
       <h1 className="type-page-title mt-3">
-        Harmonize<span className="h-title-dot">.</span>
+        Harmonize
       </h1>
     </div>
   );

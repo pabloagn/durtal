@@ -312,6 +312,7 @@ Multiple semantic variants:
 - The title in `type-item-title`, then one sentence in secondary text
 - Where there is something to do, one Button
 - A section of a detail page with nothing to show is left out, and its Add goes in the page's menu (Detail pages)
+- A list page with nothing in it at all (`EmptyIndex`, `src/components/shared/empty-index.tsx`, SLN-842) is its title, any collection tabs, and one empty state that says what the page holds, with the one Add. No toolbar over nothing, no Add in the header, no count line. It reads whether anything exists alongside the list, never before it, so the page still waits on one database wave. A search or filter that matches nothing keeps the toolbar, so the query can change
 - No illustrations, no emoji
 
 **Errors, loading and busy controls.**
@@ -358,9 +359,9 @@ Every image of a person is monochrome: the portrait, the background banner and i
 
 A card never shows an empty box. `src/components/shared/no-photo.tsx` holds one family of placeholders, on the dark frame with a faint tint:
 
-- Author with books: up to three of their covers, fanned (`CoverFan`). Author with no books: initials in the serif (`Monogram`).
+- Author with books: up to three of their covers, fanned (`CoverFan`). Author with no books: initials in the serif (`Monogram`), their line trimmed to the cap height like the cover letter's, so the frame centers the capitals.
 - Series with no book yet: a shelf of spines, one per known volume (`ShelfSpines`).
-- Book, film, perfume, painting or place with no picture, wherever its cover box shows (cards, the reading lists, a collection's items, an edition, a reading): the title's first letter in the serif, faint, on the `bg-tertiary` blank (`CoverLetter`, `src/components/books/cover-letter.tsx`). The letter keeps to the type scale as the box grows: 14px in a thumbnail, 21px from 56px wide, 38px from 120px. Only the timer chip's tiny thumb stays blank.
+- Book, film, perfume, painting or place with no picture, wherever its cover box shows (cards, the reading lists, a collection's items, an edition, a reading): the title's first letter or digit, uppercased, after any leading quote marks or punctuation (`coverLetter`), in the serif, faint, on the `bg-tertiary` blank (`CoverLetter`, `src/components/books/cover-letter.tsx`). The letter keeps to the type scale as the box grows: 14px in a thumbnail, 21px from 56px wide, 38px from 120px. Only the timer chip's tiny thumb stays blank.
 - While an image loads, its frame shows the poster's main color, dimmed, and the image fades in (`FadeImage`, `coverToneStyle`).
 
 ### Reading timer chip

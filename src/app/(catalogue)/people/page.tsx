@@ -24,12 +24,11 @@ import {
   parseNationalityCodes,
 } from "@/lib/utils/nationality-param";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyIndex } from "@/components/shared/empty-index";
 import { ListPending, ListPendingProvider, ListPendingSwap } from "@/components/shared/list-pending";
 import { AuthorsShell, type AuthorItem } from "./authors-shell";
 import { AuthorsFiltersBar } from "./authors-filters-bar";
 import { AuthorCreateDialog } from "./author-create-dialog";
-import { hasListQuery } from "@/lib/utils/list-params";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { stripHtmlToText } from "@/lib/utils/sanitize";
 import { countryDisplayName } from "@/lib/utils/labels";
@@ -58,28 +57,27 @@ interface PageProps {
   }>;
 }
 
-async function AuthorsContent({
-  searchParams,
-}: {
-  searchParams: {
-    q?: string;
-    sort?: string;
-    page?: string;
-    perPage?: string;
-    order?: string;
-    nationality?: string;
-    gender?: string;
-    zodiac?: string;
-    birthYearMin?: string;
-    birthYearMax?: string;
-    deathYearMin?: string;
-    deathYearMax?: string;
-    alive?: string;
-    collection?: string;
-    role?: string;
-    favourites?: string;
-  };
-}) {
+type PeopleParams = {
+  q?: string;
+  sort?: string;
+  page?: string;
+  perPage?: string;
+  order?: string;
+  nationality?: string;
+  gender?: string;
+  zodiac?: string;
+  birthYearMin?: string;
+  birthYearMax?: string;
+  deathYearMin?: string;
+  deathYearMax?: string;
+  alive?: string;
+  collection?: string;
+  role?: string;
+  favourites?: string;
+  }
+
+/** The list's options and its first read, started before the page knows whether anyone exists */
+function peopleQuery(searchParams: PeopleParams) {
   const search = searchParams.q;
   // A search orders by best match unless the user picks another sort
   const sort = (searchParams.sort ?? (search?.trim() ? "relevance" : "name")) as
@@ -133,30 +131,26 @@ async function AuthorsContent({
     favourites: favouritesOnly(searchParams.favourites) || undefined,
   };
 
-  const [rawAuthors, total] = await Promise.all([
+  const first = Promise.all([
     getAuthors({ search, sort, order, limit, offset, filters }),
     getAuthorCount({ search, filters }),
   ]);
+  // With no people the list is never awaited: its failure must not go unhandled
+  first.catch(() => {});
+  return { search, filters, timelineFilters, collections, roles, page, limit, first };
+}
+
+async function AuthorsContent({
+  searchParams,
+  query,
+}: {
+  searchParams: PeopleParams;
+  query: ReturnType<typeof peopleQuery>;
+}) {
+  const { search, filters, timelineFilters, collections, roles, page, limit } = query;
+  const [rawAuthors, total] = await query.first;
 
   if (page > lastPage(total, limit)) redirect(pageHref("/people", searchParams, lastPage(total, limit)));
-
-  // Full-page empty state only when the catalogue has no authors at all.
-  // A search or filter with no match is handled by the shell, below the
-  // toolbar, so the query can still be edited.
-  const hasQuery = hasListQuery(
-    new URLSearchParams(
-      Object.entries(searchParams).filter((e): e is [string, string] => typeof e[1] === "string"),
-    ),
-  );
-  if (total === 0 && !hasQuery) {
-    return (
-      <EmptyState
-        icon={Users}
-        title="No people yet"
-        description="People are added with books, films, perfumes and paintings"
-      />
-    );
-  }
 
   const authors: AuthorItem[] = rawAuthors.map((a) => {
     // Prefer active poster from media table, fall back to legacy photoS3Key
@@ -283,6 +277,20 @@ export default async function AuthorsPage({ searchParams }: PageProps) {
     redirect(`/people?${next.toString()}`);
   }
 
+  // Whether anyone exists and the list itself, read side by side
+  const anyone = getAuthorCount();
+  const query = peopleQuery(params);
+  if (!(await anyone)) {
+    return (
+      <EmptyIndex
+        title="People"
+        icon={Users}
+        empty="No people yet"
+        description="People are the writers, translators, directors, perfumers and painters behind your works. They come with the books, films, perfumes and paintings you add, or add one here."
+        action={<AuthorCreateDialog />}
+      />
+    );
+  }
   return (
     <>
       <PageHeader
@@ -298,7 +306,7 @@ export default async function AuthorsPage({ searchParams }: PageProps) {
 
         <ListPendingSwap>
           <Suspense key={JSON.stringify(params)} fallback={<ListPending />}>
-            <AuthorsContent searchParams={params} />
+            <AuthorsContent searchParams={params} query={query} />
           </Suspense>
         </ListPendingSwap>
       </ListPendingProvider>

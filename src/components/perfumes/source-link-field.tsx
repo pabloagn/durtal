@@ -64,7 +64,7 @@ export function SourceLinkField({
         label="Source link"
         type="url"
         value={value.link}
-        placeholder="https:// (a Fragrantica, Basenotes, Parfumo or Wikidata page, or the house's own)"
+        placeholder="Fragrantica or Basenotes link"
         maxLength={4000}
         error={invalid ? "Enter an address that starts with http:// or https://" : undefined}
         onChange={(e) => {

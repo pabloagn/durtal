@@ -66,7 +66,7 @@ describe("loading screens", () => {
   it("draws Harmonize's own header, cards and toolbar", () => {
     const host = html(createElement(HarmonizeLoading));
     const status = host.querySelector(".harmonize[role=status]")!;
-    expect(status.querySelector(".h-header h1")!.textContent).toBe("Harmonize.");
+    expect(status.querySelector(".h-header h1")!.textContent).toBe("Harmonize");
     expect(status.querySelector(".h-eyebrow")!.textContent).toContain("Catalogue quality");
     expect(status.querySelector(".h-scan-control button")!.getAttribute("aria-busy")).toBe("true");
     expect([...status.querySelectorAll(".h-stat .h-stat-number")].map((n) => n.textContent)).toEqual(["—", "—", "—", "—"]);

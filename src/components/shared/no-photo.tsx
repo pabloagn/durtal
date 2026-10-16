@@ -88,7 +88,13 @@ export function CoverFan({ covers }: { covers: string[] }) {
   );
 }
 
-/** Initials in the serif on a tint taken from the name */
+/**
+ * Initials in the serif on a tint taken from the name. Their line is trimmed
+ * to the cap height and baseline, as a blank cover's letter is
+ * (`CoverLetter`), so the frame centers the capitals themselves: the serif's
+ * line box put them 4 to 5px above the middle, and letter spacing after the
+ * last letter put them half a pixel left of it.
+ */
 export function Monogram({ name }: { name: string }) {
   const words = name.replace(/[^\p{L}\s]/gu, " ").trim().split(/\s+/).filter(Boolean);
   const initials =
@@ -101,7 +107,7 @@ export function Monogram({ name }: { name: string }) {
       style={monogramTint(name)}
       aria-hidden
     >
-      <span className="font-serif text-4xl leading-none tracking-wide text-fg-secondary">
+      <span className="font-serif text-4xl leading-none text-fg-secondary [text-box:trim-both_cap_alphabetic]">
         {initials.toUpperCase()}
       </span>
     </div>
