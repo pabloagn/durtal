@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
 import {
   AddButton,
   ROLE_CHIP,
@@ -51,9 +52,11 @@ export function PaintersField({
       {value.map((entry, index) => (
         <span key={entry.key} className={ROLE_CHIP}>
           {entry.personId && (
-            <select
-              aria-label={`Attribution of ${painterName(entry)}`}
+            <Select
+              compact
+              ariaLabel={`Attribution of ${painterName(entry)}`}
               value={entry.attribution}
+              options={ATTRIBUTION_CHOICES.map((choice) => ({ value: choice.value, label: choice.label }))}
               onChange={(e) =>
                 onChange(
                   value.map((c, i) =>
@@ -61,14 +64,7 @@ export function PaintersField({
                   ),
                 )
               }
-              className="h-5 shrink-0 rounded-sm border border-transparent bg-transparent px-0.5 text-xs leading-5 text-fg-secondary hover:border-glass-border focus:border-accent-primary focus:outline-none pointer-coarse:h-11 pointer-coarse:min-w-11"
-            >
-              {ATTRIBUTION_CHOICES.map((choice) => (
-                <option key={choice.value} value={choice.value}>
-                  {choice.label}
-                </option>
-              ))}
-            </select>
+            />
           )}
           <span className={`${ROLE_CHIP_NAME} ${entry.personId ? "" : "italic"}`}>
             {painterName(entry)}

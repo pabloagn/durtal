@@ -94,7 +94,7 @@ export function DatePicker({
           // The chosen day is a draft's state (SLN-631): a dialog asks before losing it
           data-draft-value={value ?? ""}
           onClick={() => setOpen((prev) => !prev)}
-          className={`flex h-8 w-full items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-left text-sm transition-all duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus pointer-coarse:h-11 ${
+          className={`flex h-8 w-full items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-left text-xs transition-all duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus pointer-coarse:h-11 pointer-coarse:text-sm ${
             error ? "border-accent-red" : ""
           } ${open ? "border-accent-primary" : ""}`}
         >
