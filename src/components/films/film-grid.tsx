@@ -9,7 +9,6 @@ import { clearedListHref, firstPageHref } from "@/lib/utils/list-params";
 import { FilmCard, FilmRow, filmDirectors, filmHref, type FilmCardData } from "./film-card";
 import { FilmPoster } from "./film-poster";
 import { Mosaic, mosaicPerRow } from "@/components/shared/mosaic";
-import { catalogueDateYears } from "@/lib/catalogue/dates";
 
 /** The films of the home in the saved view (grid, mosaic or list), with paging. */
 export function FilmGrid({
@@ -49,7 +48,7 @@ export function FilmGrid({
             title: film.title,
             subtitle: filmDirectors(film),
             aspect: 2 / 3,
-            media: <FilmPoster image={film.poster} title={film.title} year={catalogueDateYears(film.releaseDate)} />,
+            media: <FilmPoster image={film.poster} title={film.title} />,
           }))}
         />
       ) : viewMode === "grid" ? (

@@ -43,6 +43,7 @@ import OrganizationsError from "../../app/(catalogue)/organizations/error";
 import RecommendersError from "../../app/(catalogue)/recommenders/error";
 import TaxonomyError from "../../app/(catalogue)/taxonomy/error";
 import LocationsError from "../../app/(catalogue)/locations/error";
+import GlobalNotFound from "../../app/global-not-found";
 import { EbooksView } from "../../app/(catalogue)/ebooks/ebooks-view";
 import { HarmonizeWorkspace } from "../../app/(catalogue)/harmonize/workspace";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
@@ -108,12 +109,11 @@ describe("the eBook library when it shows nothing", () => {
     return html(createElement(EbooksView, { books: [], counts: counts(active), page: 1, perPage: 48 }));
   };
 
-  it("has the shared empty view, with Upload eBooks, when there are none", () => {
-    const host = view("", 0);
-    expect(host.querySelector("h3")!.textContent).toBe("No eBooks yet");
-    expect(host.querySelector("svg")).not.toBeNull();
-    const upload = host.querySelector("a")!;
-    expect([upload.textContent, upload.getAttribute("href"), upload.className]).toEqual(["Upload eBooks", "/ebooks/upload", buttonClass("secondary")]);
+  // With none at all the page draws its own empty state (SLN-842): the view
+  // only says nothing matched
+  it("says nothing matched when the list is empty under a state", () => {
+    const host = view("state=excluded", 40);
+    expect(host.querySelector("h3")!.textContent).toBe("No eBooks found");
   });
 
   it("has the shared no-results view for a search", () => {
@@ -204,6 +204,16 @@ describe("a page that is only an error or not-found view", () => {
     expect(back(`/reader/${id}`)).toEqual([`/ebooks/${id}`, "Back to the eBook"]);
     expect(back("/reader/offline")).toEqual(["/library", "Back to library"]);
     expect(back("/reader/not-an-id")).toEqual(["/library", "Back to library"]);
+  });
+
+  it("words the root's own way back as the app's views do (SLN-814)", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const failed = html(createElement(GlobalError, { error: new Error("boom"), reset: () => {} }));
+    const missing = html(createElement(GlobalNotFound));
+    for (const view of [failed, missing]) {
+      const back = view.querySelector("a")!;
+      expect([back.textContent, back.getAttribute("href"), back.className]).toEqual(["Go to the dashboard", "/", buttonClass("secondary")]);
+    }
   });
 
   it("keeps the shared empty view's h3 everywhere else", () => {

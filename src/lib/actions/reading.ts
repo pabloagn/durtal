@@ -170,10 +170,15 @@ export interface PaceContext {
  * ended sessions with countedPagesSql pages (the running timer left out),
  * their paused intervals, and his priors over the last two years by
  * language and format, by format and overall. `getPaceContext([])` gives
- * the priors alone. Computed per request, never cached.
+ * the priors alone; `getPaceContext("reading")` every reading in progress,
+ * without reading their ids first (SLN-837). Computed per request, never
+ * cached.
  */
-export async function getPaceContext(readingIds: string[]): Promise<PaceContext> {
-  const ids = z.array(z.uuid()).max(500).parse(readingIds);
+export async function getPaceContext(readingIds: string[] | "reading"): Promise<PaceContext> {
+  const ids =
+    readingIds === "reading"
+      ? sql`select id from readings where status = 'reading'`
+      : sql`select value::uuid as id from jsonb_array_elements_text(${JSON.stringify(z.array(z.uuid()).max(500).parse(readingIds))}::jsonb)`;
   const zone = appTimeZone();
   const [row] = resultRows<{
     data: {
@@ -184,7 +189,7 @@ export async function getPaceContext(readingIds: string[]): Promise<PaceContext>
     };
   }>(
     await db.execute(sql`
-      with ids as (select value::uuid as id from jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb)),
+      with ids as (${ids}),
       counted as (select c.session_id, c.pages from ${countedPagesSql()} c where c.session_id is not null),
       priors as (
         select e.language, s.format, grouping(e.language, s.format)::int as level,
@@ -1269,15 +1274,9 @@ function camelReading(row: Record<string, unknown>): Reading {
 
 /** Every open reading: for the hub, the dashboard and the command palette */
 export async function getOpenReadings() {
-  const rows = resultRows<{
-    reading: Reading;
-    fingerprint: string;
-    work: { id: string; title: string; slug: string | null };
-    author: string | null;
-    cover: string | null;
-    pausedAt: string | null;
-  }>(
-    await db.execute(sql`select to_jsonb(r) as reading, md5(to_jsonb(r)::text) as fingerprint,
+  const { getReaderLinksForOpenReadings } = await import("@/lib/ebooks/queries");
+  const [found, links] = await Promise.all([
+    db.execute(sql`select to_jsonb(r) as reading, md5(to_jsonb(r)::text) as fingerprint,
         jsonb_build_object('id', w.id, 'title', w.title, 'slug', w.slug) as work,
         (select max(h.changed_at) from reading_status_history h where h.reading_id = r.id and h.to_status = 'paused') as "pausedAt",
         (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.sort_order limit 1) as author,
@@ -1286,9 +1285,16 @@ export async function getOpenReadings() {
       from readings r join works w on w.id = r.work_id
       where r.status in ('reading','paused')
       order by r.last_read_at desc nulls last, r.started_on desc nulls last, r.created_at desc`),
-  ).map((row) => ({ ...row, reading: camelReading(row.reading as unknown as Record<string, unknown>) }));
-  const { getReaderLinksForWorks } = await import("@/lib/ebooks/queries");
-  const links = await getReaderLinksForWorks(rows.map((row) => row.work.id));
+    getReaderLinksForOpenReadings(),
+  ]);
+  const rows = resultRows<{
+    reading: Reading;
+    fingerprint: string;
+    work: { id: string; title: string; slug: string | null };
+    author: string | null;
+    cover: string | null;
+    pausedAt: string | null;
+  }>(found).map((row) => ({ ...row, reading: camelReading(row.reading as unknown as Record<string, unknown>) }));
   return rows.map((row) => ({ ...row, ebookId: links.get(row.work.id) ?? null }));
 }
 

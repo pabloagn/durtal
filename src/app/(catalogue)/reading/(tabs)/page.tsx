@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { ReadingTabs } from "@/components/reading/reading-tabs";
-import { HubActions, HubMenu, QueueStartButton, StartBookButton } from "@/components/reading/hub-actions";
+import { HubActions, HubMenu, QueueStartButton } from "@/components/reading/hub-actions";
 import { GoalCards } from "@/components/reading/goal-card";
 import { Rhythm } from "@/components/reading/rhythm";
 import { GoalDialogButton } from "@/components/reading/goal-dialog-button";
@@ -49,7 +49,7 @@ export default async function ReadingPage() {
   // The passage of the day (SLN-453): the server's reading day, so every device shows the same one
   // Goals and the rhythm (SLN-455): computed per request, never cached
   // On this day (SLN-456): the server's day and one on each side; the line shows the browser's
-  const [open, finished, next, passage, goals, rhythm, past, years, suggestionContext] = await Promise.all([
+  const [open, finished, next, passage, goals, rhythm, past, years, suggestionContext, estimates] = await Promise.all([
     getOpenReadings(),
     getRecentlyFinished(6),
     getQueueHead(5),
@@ -60,6 +60,8 @@ export default async function ReadingPage() {
     finishedYears(),
     // Suggestions (SLN-457): the top three Owned, computed per request
     storedHomeId().then((homeId) => getSuggestionContext({ homeId })),
+    // Estimates of the books being read, without waiting for their ids (SLN-837)
+    readingEstimates("reading", day.today),
   ]);
   const suggestions = suggest(suggestionContext, DEFAULT_SUGGESTION_PARAMS)
     .slice(0, 3)
@@ -68,10 +70,6 @@ export default async function ReadingPage() {
   const year = Number(day.today.slice(0, 4));
   const reviewYears = years.map((y) => y.year).filter((y) => y === year || y === year - 1);
   const reading = open.filter((o) => o.reading.status === "reading");
-  const estimates = await readingEstimates(
-    reading.map((o) => o.reading.id),
-    day.today,
-  );
   const paused = open.filter((o) => o.reading.status === "paused");
   const empty = open.length === 0 && finished.length === 0 && next.length === 0 && !passage && goals.length === 0 && !rhythm.target && suggestions.length === 0;
 
@@ -88,17 +86,16 @@ export default async function ReadingPage() {
         tabs={<ReadingTabs />}
       />
       {empty ? (
+        // Start a book is the header's: the empty state adds only the import (SLN-842)
         <EmptyState
           icon={BookMarked}
+          heading="h2"
           title="Nothing read yet"
           description="Start a book to follow your progress here, or bring your reading history in."
           action={
-            <div className="flex flex-wrap justify-center gap-2">
-              <StartBookButton />
-              <Link href="/reading/import" className={`${buttonClass("secondary")} pointer-coarse:h-11`} data-hub-import="">
-                Import from Goodreads or StoryGraph
-              </Link>
-            </div>
+            <Link href="/reading/import" className={`${buttonClass("secondary")} pointer-coarse:h-11`} data-hub-import="">
+              Import from Goodreads or StoryGraph
+            </Link>
           }
         />
       ) : (
@@ -110,7 +107,7 @@ export default async function ReadingPage() {
               {/* Each card at least 30rem wide, so Open eBook, Log progress,
                   the timer and the menu share one line under the text: a third
                   of the column (357px at 1440) stacked them like a phone's */}
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,30rem),1fr))] gap-4">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,30rem),1fr))] gap-4" data-focus-list="reading">
                 {reading.map((o) => (
                   <CurrentReadingCard key={o.reading.id} open={o} day={day} estimate={estimates[o.reading.id]} />
                 ))}
@@ -170,9 +167,9 @@ export default async function ReadingPage() {
                   </Link>
                 }
               />
-              <ol className="grid gap-6 md:grid-cols-3">
+              <ol className="grid gap-6 md:grid-cols-3" data-focus-list="suggestions">
                 {suggestions.map((row) => (
-                  <li key={row.workId} className="flex min-w-0 gap-3" data-hub-suggestion={row.workId}>
+                  <li key={row.workId} className="flex min-w-0 gap-3" data-hub-suggestion={row.workId} data-focus-row="">
                     <Link href={row.href} tabIndex={-1} aria-label={row.title} className="shrink-0">
                       <Cover s3Key={row.cover} title={row.title} className="h-20 w-14" />
                     </Link>
@@ -195,7 +192,7 @@ export default async function ReadingPage() {
           {paused.length > 0 && (
             <section>
               <SectionHeading title="Paused" count={paused.length} />
-              <ul className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary">
+              <ul className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary" data-focus-list="paused">
                 {paused.map((o) => (
                   <PausedRow key={o.reading.id} open={o} day={day} />
                 ))}

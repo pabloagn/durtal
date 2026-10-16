@@ -26,7 +26,8 @@ import { EbooksMenu } from "./ebooks-menu";
 import { ListPendingProvider } from "@/components/shared/list-pending";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { buttonClass } from "@/components/ui/button";
-import { Upload } from "lucide-react";
+import { BookOpenText, Upload } from "lucide-react";
+import { EmptyIndex } from "@/components/shared/empty-index";
 export const metadata = { title: "eBooks" };
 const requestTime = cache(() => Date.now());
 /** The state counts are text commands; the one in view reads as plain text */
@@ -60,6 +61,24 @@ export default async function EbooksPage({
     redirect(
       pageHref("/ebooks", search, lastPage(counts.total, params.perPage)),
     );
+  // With none at all, no toolbar or counts over nothing: one empty state
+  // with one Upload (SLN-842). Set-aside eBooks still count as some.
+  if (counts.active + counts.excluded === 0) {
+    return (
+      <EmptyIndex
+        title="eBooks"
+        icon={BookOpenText}
+        empty="No eBooks yet"
+        description="An eBook is a file you read here, linked to its book in your library. Upload your files to start."
+        action={
+          <Link href="/ebooks/upload" className={`${buttonClass("secondary")} whitespace-nowrap`}>
+            <Upload className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Upload eBooks
+          </Link>
+        }
+      />
+    );
+  }
   const base = ebookPageCoverBase();
   const now = requestTime();
   const continuation = recent.flatMap(({ ebook, descriptor, bookTitle, bookAuthors }) =>

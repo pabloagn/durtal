@@ -1,5 +1,6 @@
 "use server";
 
+import { cache } from "react";
 import { requireBookWork } from "@/lib/catalogue/book-boundary";
 import { publisherCondition } from "@/lib/catalogue/publisher-boundary";
 import { assertSql } from "@/lib/harmonization/store";
@@ -220,11 +221,25 @@ export async function getPublisherCountries() {
   return rows.map((r) => r.country);
 }
 
-export async function getPublisher(slug: string) {
+/** The house with this slug, read once per request */
+const houseBySlug = cache(async (slug: string) => {
   const [publisher] = await db
     .select()
     .from(houses)
     .where(and(publisherCondition, eq(houses.slug, slug)));
+  return publisher ?? null;
+});
+
+/**
+ * The house with this slug, without its details: its page starts its own
+ * reads from the id while getPublisher reads the rest (SLN-839)
+ */
+export async function findPublisher(slug: string) {
+  return houseBySlug(slug);
+}
+
+export async function getPublisher(slug: string) {
+  const publisher = await houseBySlug(slug);
   if (!publisher) return null;
   const [aliases, specialties, children, parent, prefixes, automatic, foundedPlace] = await Promise.all([
     db
