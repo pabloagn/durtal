@@ -14,6 +14,11 @@ import { LIBRARY_SORT_COOKIE, parseLibrarySortPreference } from "@/lib/library/s
  * without JavaScript, on any path, /_next/ included, so anything else there is
  * checked like a page.
  *
+ * An address with a broken percent code (/library/%ff) cannot be matched to a
+ * page, and Next.js answers it with a bare 500 (SLN-898). An API route or a
+ * build file answers 400; a page shows its not-found view, with the broken
+ * part read as plain text.
+ *
  * API routes refuse calls from web pages on other origins (task 0255).
  *
  * A list page opened without `perPage` redirects to the page size saved for
@@ -29,9 +34,13 @@ import { LIBRARY_SORT_COOKIE, parseLibrarySortPreference } from "@/lib/library/s
  * (src/lib/reader/device-handshake.ts).
  */
 export function proxy(request: NextRequest) {
+  const readable = readableAddress(request.nextUrl);
+  if (readable && /^\/(api|_next)\//.test(request.nextUrl.pathname))
+    return NextResponse.json({ error: "The address has a broken percent code" }, { status: 400 });
   if (buildFile(request)) return;
   const misdirected = hostRefusal(request);
   if (misdirected) return misdirected;
+  if (readable) return NextResponse.rewrite(readable);
   if (request.nextUrl.pathname.startsWith("/api/")) {
     return crossOriginRefusal(request) ?? undefined;
   }
@@ -57,6 +66,33 @@ function buildFile(request: NextRequest) {
   return (
     request.nextUrl.pathname.startsWith("/_next/") && (request.method === "GET" || request.method === "HEAD")
   );
+}
+
+/**
+ * The address with each path segment that does not decode escaped as text
+ * ("%ff" becomes "%25ff"), or null when the whole path decodes
+ */
+function readableAddress(url: NextRequest["nextUrl"]) {
+  try {
+    decodeURIComponent(url.pathname);
+    return null;
+  } catch {
+    const readable = url.clone();
+    readable.pathname = url.pathname
+      .split("/")
+      .map((segment) => (decodes(segment) ? segment : segment.replaceAll("%", "%25")))
+      .join("/");
+    return readable;
+  }
+}
+
+function decodes(segment: string) {
+  try {
+    decodeURIComponent(segment);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** The reader's policy on the request (Next.js puts its nonce on its own scripts) and on the answer */

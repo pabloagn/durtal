@@ -106,7 +106,8 @@ export async function POST(req: NextRequest) {
   }
 
   const requestBody: Record<string, unknown> = {
-    textQuery: query.trim(),
+    // As long as a quick search's query: a longer one only costs more (SLN-900)
+    textQuery: query.trim().slice(0, 200),
     maxResultCount: 8,
     languageCode: "en",
   };
