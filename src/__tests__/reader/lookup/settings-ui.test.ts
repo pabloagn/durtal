@@ -78,16 +78,27 @@ it("lets a source's site wrap only after a dot", async () => {
   expect(renderToStaticMarkup(createElement("p", null, hostBreaks("No address yet")))).toBe("<p>No address yet</p>");
 });
 
-it("renders the sources the page came with on the server, and does not read them again (SLN-875)", async () => {
+it("renders the sources the page came with on the server, and keeps the rows when the server has the same (SLN-875)", async () => {
   const { renderToString } = await import("react-dom/server");
   const html = renderToString(createElement(LookupSettingsGroup, { initial: defaultLookupSettings() }));
   expect(html).not.toContain("Loading lookup settings");
   expect(html).toContain("Merriam-Webster");
   await act(async () => root.render(createElement(LookupSettingsGroup, { initial: defaultLookupSettings() }))); await wait();
+  const first = host.querySelector('button[data-tooltip="Edit"]');
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 100)));
+  expect(actions.get).toHaveBeenCalledTimes(1);
   expect(host.querySelectorAll('button[data-tooltip="Edit"]')).toHaveLength(10);
-  expect(actions.get).not.toHaveBeenCalled();
+  expect(host.querySelector('button[data-tooltip="Edit"]')).toBe(first);
   await click("Edit source Merriam-Webster");
   await type("Name", "Webster");
   await click("Done");
   expect(actions.update.mock.calls[0][0].sources[0]).toMatchObject({ language: "en", name: "Webster" });
+});
+
+it("shows the server's sources when the page came back by Back with an older copy (SLN-875)", async () => {
+  const older = { ...defaultLookupSettings(), translateTo: "fr" };
+  await act(async () => root.render(createElement(LookupSettingsGroup, { initial: older })));
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 100)));
+  expect(actions.get).toHaveBeenCalledTimes(1);
+  expect(host.querySelector("button#lookup-translate-to")!.textContent).toContain("English");
 });

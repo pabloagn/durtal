@@ -41,15 +41,16 @@ function DeviceDefaults({ deviceClass, rows, initialOverrides, served: fresh }: 
   const [overrides, setOverrides] = useState<Overrides | null>(initialOverrides);
   const [clearing, setClearing] = useState<string | null>(null);
   const scope = useRef(0);
-  // The page came with the first page of overrides: reading it again at once would only show
-  // a loading row that comes and goes (SLN-875)
-  const served = useRef(fresh && initialOverrides?.ok === true);
+  // The page came with the first page of overrides: it is read again without a loading row,
+  // which would come and go, and replaces the list only if it changed, as it can on a page
+  // brought back by Back (SLN-875)
+  const served = useRef(fresh && initialOverrides?.ok === true ? initialOverrides : null);
   useEffect(() => {
-    if (served.current) { served.current = false; return; }
+    const shown = served.current; served.current = null;
     const generation = ++scope.current; let active = true;
-    const timer = setTimeout(() => { if (active && scope.current === generation) { active = false; setLoading(false); setError("Book overrides took too long to load. Try again."); } }, 10000);
-    setLoading(true);
-    void listReaderBookOverrides({ deviceClass, page }).then(result => { if (active && scope.current === generation) { setOverrides(result); setLoading(false); } }).catch(() => { if (active && scope.current === generation) { setError("Book overrides could not be loaded."); setLoading(false); } }).finally(() => clearTimeout(timer));
+    const timer = shown ? undefined : setTimeout(() => { if (active && scope.current === generation) { active = false; setLoading(false); setError("Book overrides took too long to load. Try again."); } }, 10000);
+    if (!shown) setLoading(true);
+    void listReaderBookOverrides({ deviceClass, page }).then(result => { if (active && scope.current === generation) { if (!shown || JSON.stringify(result) !== JSON.stringify(shown)) setOverrides(result); setLoading(false); } }).catch(() => { if (active && scope.current === generation) { if (!shown) setError("Book overrides could not be loaded."); setLoading(false); } }).finally(() => clearTimeout(timer));
     return () => { active = false; clearTimeout(timer); scope.current++; };
   }, [deviceClass,page,refresh]);
   const clear = async (ebookId: string) => {

@@ -16,14 +16,35 @@ it("does not adopt a late override list from a device size that was left", async
   let resolve!: (value: ReturnType<typeof list>) => void;
   actions.list.mockImplementation(({ deviceClass }) => deviceClass === "desktop" ? new Promise(done => { resolve = done; }) : Promise.resolve(list("phone","Phone book")));
   await act(async () => root.render(createElement(ReaderDefaults,{ initial: { ok: true, ebookId: null, rows: [] }, initialOverrides: list("desktop","Initial desktop") })));
-  // The page came with the desktop list, so it is read again only on a return to desktop
-  expect(actions.list).not.toHaveBeenCalled();
+  // The page came with the desktop list: it is checked once with no loading row
+  expect(actions.list).toHaveBeenCalledTimes(1);
+  expect(host.textContent).not.toContain("Loading book overrides");
+  expect(host.textContent).toContain("Initial desktop");
   await click("Phone");
   await click("Desktop");
   expect(actions.list).toHaveBeenLastCalledWith({ deviceClass: "desktop", page: 1 });
   await click("Phone");
   await act(async () => resolve(list("desktop","Late desktop")));
   expect(host.textContent).toContain("Phone book"); expect(host.textContent).not.toContain("Late desktop");
+});
+it("shows the server's overrides when the page came back by Back with an older list (SLN-875)", async () => {
+  actions.list.mockResolvedValue(list("desktop","Current book"));
+  await act(async () => root.render(createElement(ReaderDefaults,{ initial: { ok: true, ebookId: null, rows: [] }, initialOverrides: list("desktop","Older book") })));
+  expect(host.textContent).toContain("Current book"); expect(host.textContent).not.toContain("Older book");
+});
+it("keeps the list the page came with when the server has the same, and says nothing if the check fails (SLN-875)", async () => {
+  let resolve!: (value: ReturnType<typeof list>) => void;
+  actions.list.mockImplementation(() => new Promise(done => { resolve = done; }));
+  await act(async () => root.render(createElement(ReaderDefaults,{ initial: { ok: true, ebookId: null, rows: [] }, initialOverrides: list("desktop","Named book") })));
+  const row = () => [...host.querySelectorAll("a")].find(item => item.textContent === "Named book");
+  const before = row();
+  expect(before).toBeDefined();
+  await act(async () => resolve(list("desktop","Named book")));
+  expect(row()).toBe(before);
+  await act(async () => root.unmount()); root = createRoot(host);
+  actions.list.mockRejectedValue(new Error("offline"));
+  await act(async () => root.render(createElement(ReaderDefaults,{ initial: { ok: true, ebookId: null, rows: [] }, initialOverrides: list("desktop","Named book") })));
+  expect(host.textContent).toContain("Named book"); expect(host.textContent).not.toContain("could not be loaded");
 });
 it("clears exactly the displayed book and device, and retains server failure", async () => {
   actions.list.mockResolvedValue(list("desktop","Named book")); actions.reset.mockResolvedValue({ ok: false, error: "Preferences migration is unavailable." });

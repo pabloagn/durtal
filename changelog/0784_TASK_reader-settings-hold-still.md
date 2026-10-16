@@ -22,9 +22,12 @@ Everything below moved each time.
 - `page.tsx` reads the lookup settings with the page, beside the reading
   defaults and overrides, and hands them to `LookupSettingsGroup` as
   `initial`. The group renders them on the server (with stable keys, so
-  the source rows' ids match on hydration) and does not ask again; it only
-  copies them to this browser. If the read fails, the group works as before:
-  this browser's copy first, then the server's after the first paint.
+  the source rows' ids match on hydration) and copies them to this browser.
+  After the first paint it still asks the server once, as before, because a
+  page brought back by Back keeps the copy it first came with; the rows change
+  only if the server's copy differs, so the next edit never saves an old list
+  back. If the read with the page fails, the group works as before: this
+  browser's copy first, then the server's after the first paint.
 - `dictionaries.tsx`: the first read of this device's dictionaries is
   announced only to screen readers, and Add dictionary waits for it. Later
   operations (add, remove) keep their visible status and Cancel.
@@ -32,9 +35,10 @@ Everything below moved each time.
   "Loading lookup history" instead of a row of its own. Loading more still
   shows its row.
 - `reader-defaults.tsx`: the first page of overrides the page came with is
-  not read again on mount. Only the first view skips the read: the panel
-  remounts for each device size, so a return to Desktop reads its list again
-  (a clear made meanwhile shows).
+  checked once without a loading row, and replaces the list only if it
+  changed (again for Back); a failed check keeps the list and says nothing.
+  The panel remounts for each device size, so a return to Desktop reads its
+  list again the usual way.
 
 ## Completion Notes
 
@@ -49,10 +53,12 @@ Everything below moved each time.
 - 0 alignment, design-audit and overflow findings at 1440 and 390 in all three
   engines, and no console errors.
 - Tests: `settings-ui.test.ts` (the sources the page came with render on the
-  server and are not read again; editing one still saves it);
+  server and keep their rows when the server has the same; an older copy from
+  Back gives way to the server's; editing one still saves it);
   `review-and-lookup-counts.test.ts` (the history's first read changes no
-  rows); `settings-overrides-ui.test.ts` (no read on the first view, a read on
-  a return to Desktop, and a late one still ignored after leaving);
+  rows); `settings-overrides-ui.test.ts` (one quiet check on the first view,
+  an older list from Back replaced, the same list kept, a failed check silent,
+  and a late reply still ignored after leaving);
   `settings-reader-panels.test.ts` (the history's loading row).
 - Not done: at 390 the reading preview's sample text changes height when its
   font arrives (a cold cache moves the groups below by 38 to 60px, out of

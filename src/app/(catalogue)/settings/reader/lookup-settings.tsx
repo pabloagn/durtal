@@ -25,7 +25,8 @@ export const hostBreaks = (host: string) =>
   host.split(".").map((part, index) => index ? <Fragment key={index}>.<wbr />{part}</Fragment> : part);
 const valueOf = (draft: Draft) => ({ v: draft.v, sources: draft.sources.map(({ key: _key, ...source }) => source), translateTo: draft.translateTo });
 /** `initial` is the server's copy, read with the page. Without it (it could not be read) the
- * group starts from this browser's copy and asks the server after the first paint. */
+ * group starts from this browser's copy. Either way it asks the server after the first paint:
+ * a page brought back by Back keeps the copy it first came with, which another device may have changed. */
 export function LookupSettingsGroup({ initial = null }: { initial?: LookupSettings | null }) {
   const [draft, setDraft] = useState<Draft | null>(() => initial ? draftOf(initial, true) : null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -38,17 +39,16 @@ export function LookupSettingsGroup({ initial = null }: { initial?: LookupSettin
   const served = useRef(initial ? { draft: draft!, settings: initial } : null);
   useEffect(() => {
     alive.current = true;
-    if (served.current) {
-      writeLocalLookupSettings(served.current.settings);
-      return () => { alive.current = false; queued.current = null; };
-    }
-    const local = draftOf(readLocalLookupSettings()); current.current = local; setDraft(local);
+    const shown = served.current?.settings;
+    if (shown) writeLocalLookupSettings(shown);
+    else { const local = draftOf(readLocalLookupSettings()); current.current = local; setDraft(local); }
     const initial = revision.current;
     const cancel = afterLookupFirstPaint(() => {
       void getLookupSettings().then(value => {
-        if (!alive.current || revision.current !== initial) return;
+        // The same sources as the page came with change nothing, so no row comes and goes
+        if (!alive.current || revision.current !== initial || (shown && JSON.stringify(value) === JSON.stringify(shown))) return;
         const next = draftOf(value); current.current = next; setDraft(next); writeLocalLookupSettings(value);
-      }).catch(() => { if (alive.current) setNotice("Showing the settings saved in this browser."); });
+      }).catch(() => { if (alive.current && !shown) setNotice("Showing the settings saved in this browser."); });
     });
     return () => { alive.current = false; cancel(); queued.current = null; };
   }, []);
