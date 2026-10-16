@@ -1,4 +1,4 @@
-# Task 0843: Scope enrichment claims to texts and components
+# Task 0853: Scope enrichment claims to texts and components
 
 **Status**: In Review
 **Created**: 2026-10-16
