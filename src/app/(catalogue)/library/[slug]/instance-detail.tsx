@@ -97,7 +97,7 @@ export function InstanceDetail({
   return (
     <div data-focus-row="" className="@container rounded-sm border border-glass-border bg-bg-primary px-4 py-3 text-xs [overflow-wrap:anywhere]">
       {/* Location row */}
-      <div className="mb-2 flex flex-col items-start gap-3 @min-[440px]:flex-row @min-[440px]:justify-between">
+      <div className="mb-2 flex flex-col items-start gap-3 pointer-coarse:gap-y-4.5 @min-[440px]:flex-row @min-[440px]:justify-between">
         <div className="min-w-0 flex flex-wrap items-center gap-2">
           <span className="text-sm text-fg-primary">
             {instance.location.name}
@@ -144,7 +144,7 @@ export function InstanceDetail({
         {hasActions && (
           // The buttons' padding reaches past the text edges: Edit's ink starts on the
           // left edge when stacked, and Delete's ends on the right edge beside the place
-          <div className="-ml-2.5 flex items-center gap-1 @min-[440px]:-mr-2.5 @min-[440px]:ml-0">
+          <div className="-ml-2.5 flex items-center gap-1 pointer-coarse:gap-2 @min-[440px]:-mr-2.5 @min-[440px]:ml-0">
             <InstanceEditDialog
               instance={instance}
               editionId={instance.editionId}
@@ -268,11 +268,12 @@ export function InstanceDetail({
               <>
                 <dt className="text-fg-secondary">eBook</dt>
                 {/* The size, then the commands, each whole: a command that
-                    wraps starts on the column's edge, 12px from the one before; on
-                    touch, wrapped rows sit 28px apart, and 4px more below the line keeps
-                    the next fact's command off the last row, so 44px press areas never overlap.
+                    wraps starts on the column's edge, 12px from the one before (16px on
+                    touch); on touch, wrapped rows sit 38px apart, so their 44px press areas
+                    keep 8px between them, and 4px more below the line keeps the next
+                    fact's command off the last row.
                     A flex item is no inline text link, so a short Read takes a 44px-wide press area */}
-                <dd className="flex min-w-0 flex-wrap items-baseline gap-x-3 pointer-coarse:gap-y-7 pointer-coarse:pb-1 text-fg-secondary">
+                <dd className="flex min-w-0 flex-wrap items-baseline gap-x-3 pointer-coarse:gap-x-4 pointer-coarse:gap-y-9.5 pointer-coarse:pb-1 text-fg-secondary">
                   {/* The size, its number and unit on one line; an e-book with no file has none.
                       The formats are the copy's chips above, not named again here (SLN-805) */}
                   {ebook.sizeBytes ? (

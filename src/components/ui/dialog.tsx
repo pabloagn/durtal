@@ -248,7 +248,7 @@ export function Dialog({
         </div>
         {/* 44px targets on touch */}
         <CapAligned height={28} coarseHeight={44} className="ml-4">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 pointer-coarse:gap-2">
             {expandable && (
               <button
                 type="button"

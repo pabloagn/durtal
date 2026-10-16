@@ -217,13 +217,13 @@ export function EditionDetailCard({
               <div
                 role="group"
                 aria-label={`Actions for ${edition.title}`}
-                className="-ml-2.5 -mr-1.5 flex flex-wrap items-center gap-1 pointer-coarse:-mr-3.5"
+                className="-ml-2.5 -mr-1.5 flex flex-wrap items-center gap-1 pointer-coarse:-mr-3.5 pointer-coarse:gap-2"
               >
                 <EditionEditDialog edition={edition} />
                 <EditionCoverDialog edition={edition} poster={poster} />
                 {/* Add instance and the menu wrap together: a narrow row
                     keeps the menu at the right, beside a labelled button */}
-                <div className="flex flex-[1_0_auto] items-center gap-1">
+                <div className="flex flex-[1_0_auto] items-center gap-1 pointer-coarse:gap-2">
                   <InstanceAddDialog
                     workId={edition.workId}
                     editionId={edition.id}

@@ -132,7 +132,7 @@ export function RichTextEditor({
         </label>
       )}
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-0.5 rounded-t-sm border border-b-0 border-glass-border bg-bg-secondary px-1.5 py-1">
+      <div className="flex flex-wrap items-center gap-0.5 pointer-coarse:gap-2 rounded-t-sm border border-b-0 border-glass-border bg-bg-secondary px-1.5 py-1">
         <ToolbarButton onClick={handleBold} label="Bold" disabled={disabled}>
           <Bold className="h-3.5 w-3.5" strokeWidth={1.5} />
         </ToolbarButton>

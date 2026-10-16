@@ -41,7 +41,7 @@ export function SuggestionActions({ row, compact = false }: { row: SuggestionRow
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1" data-suggestion-actions={row.workId}>
+    <div className="flex flex-wrap items-center gap-1 pointer-coarse:gap-2" data-suggestion-actions={row.workId}>
       <Button size="sm" onClick={() => void open({ kind: "start", workId: row.workId, editionId: row.editionId })} className="pointer-coarse:h-11" data-suggestion-start="">
         Start reading
       </Button>

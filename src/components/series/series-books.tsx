@@ -170,7 +170,7 @@ export function SeriesBooks({
           </>
         );
         // Centred: Read is 32px tall, the buttons 28px
-        const controls = <div className="flex items-center gap-1">{read}{moves}</div>;
+        const controls = <div className="flex items-center gap-1 pointer-coarse:gap-2">{read}{moves}</div>;
         return (
           <li
             key={book.id}
@@ -247,7 +247,7 @@ export function SeriesBooks({
               <div className="@container mt-1 sm:hidden">
                 <div className={`flex flex-wrap items-center ${readable ? "-ml-2" : "-ml-2.5 pointer-coarse:-ml-3.5"}`}>
                   {read}
-                  <div className={`flex items-center gap-1 ${readable
+                  <div className={`flex items-center gap-1 pointer-coarse:gap-2 ${readable
                     ? "ml-1 @max-[13rem]:-ml-0.5 @max-[13rem]:basis-full @max-[13rem]:pointer-coarse:-ml-1.5" : ""}`}>
                     {moves}
                   </div>

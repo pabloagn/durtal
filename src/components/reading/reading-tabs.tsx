@@ -41,7 +41,7 @@ export function ReadingTabs() {
   // On a phone the row wraps onto a second line: a tab is never cut (SLN-800)
   return (
     <nav aria-label="Reading" className="mt-6">
-      <ul className="flex flex-wrap gap-1" data-reading-tabs="">
+      <ul className="flex flex-wrap gap-1 pointer-coarse:gap-2" data-reading-tabs="">
         {readingTabs(pathname).map((tab) => (
           <li key={tab.href} className="shrink-0">
             <Link
