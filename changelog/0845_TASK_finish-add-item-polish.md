@@ -1,6 +1,6 @@
 # Task 0845: Finish Add-item notices and keyboard polish
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-17
 **Priority**: MEDIUM
 **Type**: Fix
@@ -22,4 +22,4 @@ Advise about same-name records without blocking intentional additions, and compl
 
 ## Completion Notes
 
-Implementation and validation in progress. No deployment or live catalogue writes.
+Validated with 987 tests across 171 suites using the disposable-database harness (no skipped Vitest tests). Reused the already-passed, byte-identical Python preflight. Production build, typecheck and lint pass; lint retains 80 pre-existing warnings. All eight item kinds were exercised in Chromium, Firefox and WebKit; advisory notices, intentional duplicate creation, one-Escape search exit, safe draft cancellation, cover letters and organization shortcuts pass. Fifty-four empty-form width checks and eighteen keyboard checks pass. Page-weight passes 37 available routes, with eight unseeded routes explicitly skipped. No deployment or live catalogue writes.
