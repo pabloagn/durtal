@@ -49,11 +49,20 @@ describe("a busy button", () => {
     expect(button.getAttribute("aria-disabled")).toBe("true");
   });
 
+  it("focuses an async action before its first press", () => {
+    let focused = false;
+    act(() => root.render(h(Button, { busy: false, onClick: () => { focused = document.activeElement === host.querySelector("button"); } }, "Save")));
+    act(() => host.querySelector<HTMLButtonElement>("button")!.click());
+    expect(focused).toBe(true);
+  });
+
   it("ignores that click", () => {
     const onClick = vi.fn();
     act(() => root.render(h(Button, { busy: true, onClick }, "Merge")));
     const button = host.querySelector("button")!;
-    button.focus();
+    // A pointer click must acquire focus in Safari as well as retain it.
+    host.tabIndex = -1;
+    host.focus();
     act(() => button.click());
     expect(onClick).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(button);

@@ -70,14 +70,24 @@ function busyChildren(children: ReactNode) {
 }
 
 function ignorePress(event: MouseEvent<HTMLButtonElement>) {
+  // Safari does not focus a button on pointer click by default.
+  event.currentTarget.focus({ preventScroll: true });
   event.preventDefault();
   event.stopPropagation();
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = "secondary", size = "md", className = "", busy = false, disabled, onClick, children, ...props }, ref) => {
+  ({ variant = "secondary", size = "md", className = "", busy, disabled, onClick, children, ...props }, ref) => {
     // Busy, not disabled: presses do nothing (no second save), the focus stays
-    const held = busy && !disabled;
+    const held = !!busy && !disabled;
+    // Async actions retain a predictable focus target in Safari too. Plain
+    // buttons keep their caller's native focus behavior.
+    const press = busy !== undefined && onClick
+      ? (event: MouseEvent<HTMLButtonElement>) => {
+          event.currentTarget.focus({ preventScroll: true });
+          onClick(event);
+        }
+      : onClick;
     return (
       <button
         ref={ref}
@@ -92,7 +102,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         // A press while busy, including Enter in a form (it presses the submit
         // button), neither runs the action again nor submits. Only then is
         // there a handler of its own: a server component's Button takes none
-        onClick={held ? ignorePress : onClick}
+        onClick={held ? ignorePress : press}
       >
         {busy ? busyChildren(children) : children}
       </button>
