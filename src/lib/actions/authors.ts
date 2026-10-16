@@ -35,12 +35,14 @@ import { computeZodiacSign } from "@/lib/utils/zodiac";
 import { recordActivity } from "@/lib/activity/record";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { posterTone, workReadingExtras } from "@/lib/actions/utils/work-card-query";
-import { cleanBioForStorage, sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
+import { cleanBioForStorage, sanitizeDescriptionHtml, stripHtmlToText } from "@/lib/utils/sanitize";
 import { z } from "zod";
 import { mediaUrl } from "@/lib/s3/media-url";
 
 export async function getAuthors(opts?: {
   search?: string;
+  /** Directory pages fetch the optional biography column only when it is shown. */
+  includeBiography?: boolean;
   limit?: number;
   offset?: number;
   /** "relevance" orders by search match quality (needs `search`) */
@@ -119,6 +121,8 @@ export async function getAuthors(opts?: {
     if (ids.length === 0) return [];
 
     const results = await db.query.authors.findMany({
+      columns: { bio: false },
+      extras: { bio: (opts?.includeBiography === false ? sql<string | null>`null::text` : sql<string | null>`${authors.bio}`).as("bio") },
       where: inArray(authors.id, ids),
       with: {
         country: { columns: { name: true, alpha2: true } },
@@ -154,6 +158,8 @@ export async function getAuthors(opts?: {
   })();
 
   const results = await db.query.authors.findMany({
+      columns: { bio: false },
+      extras: { bio: (opts?.includeBiography === false ? sql<string | null>`null::text` : sql<string | null>`${authors.bio}`).as("bio") },
     where,
     orderBy: [...(Array.isArray(orderBy) ? orderBy : [orderBy]), asc(authors.id)],
     limit,
@@ -179,6 +185,14 @@ export async function getAuthors(opts?: {
  * cover is its active poster, else its first edition's cover. Returns
  * `/api/s3/read` URLs by author id.
  */
+/** Optional table-column data; bounded to the current page of people. */
+export async function getPersonBiographies(ids: string[]): Promise<Record<string, string | null>> {
+  z.array(z.uuid()).max(192).parse(ids);
+  if (!ids.length) return {};
+  const rows = await db.select({ id: authors.id, bio: authors.bio }).from(authors).where(inArray(authors.id, ids));
+  return Object.fromEntries(rows.map(row => [row.id, row.bio ? stripHtmlToText(row.bio) || null : null]));
+}
+
 export async function getAuthorCoverPreviews(
   authorIds: string[],
 ): Promise<Record<string, string[]>> {
