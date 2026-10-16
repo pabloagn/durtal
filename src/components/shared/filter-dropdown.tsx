@@ -328,7 +328,7 @@ export function FilterDropdown({
                   [group.key]: e.target.value,
                 }))
               }
-              className="w-full rounded-sm border border-glass-border bg-bg-primary py-1 pl-7 pr-2 text-xs pointer-coarse:h-11 text-fg-secondary outline-none placeholder:text-fg-muted/60 focus:border-accent-primary"
+              className="w-full rounded-sm border border-glass-border bg-bg-primary py-1 pl-7 pr-2 text-xs pointer-coarse:h-11 text-fg-secondary outline-none placeholder:text-fg-muted focus:border-accent-primary"
             />
           </div>
         )}
