@@ -1,12 +1,11 @@
+import { loadBookPageData } from "@/lib/catalogue/book-page-data";
+import { canUseWorkCapability } from "@/lib/catalogue/domains";
+import { linkedBookIds } from "@/lib/catalogue/linked-work-ebooks";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { getReadingsForWork } from "@/lib/actions/reading";
-import { getNotesForWork } from "@/lib/actions/reading-notes";
 import { NotesSection } from "@/components/reading/notes-section";
 import { noteGroups, quotesAnchor, slimNote } from "@/lib/reading/notes-text";
 import { labelEditionOf, noteEditionsOf } from "@/lib/reading/edition-label";
-import { readingEstimates } from "@/lib/reading/estimates";
-import { getQueuePlace } from "@/lib/actions/reading-queue";
 import { ReadingProvider } from "@/components/reading/reading-provider";
 import { ReadingThen } from "@/components/reading/reading-then";
 import { addBookParams } from "@/lib/reading/book-picker";
@@ -14,13 +13,8 @@ import { ReadingControl } from "@/components/reading/reading-control";
 import { ReadingSection } from "@/components/reading/reading-section";
 import { readingEditions, readingHomes } from "@/lib/reading/page-data";
 import { readingRecord } from "@/lib/reading/labels";
-import { readingDay } from "@/lib/reading/dates";
-import { readingDayStartHour } from "@/lib/reading/day";
-import { canUseWorkCapability } from "@/lib/catalogue/domains";
-import { appTimeZone } from "@/lib/utils/date";
 import { READING_HOME_KEY } from "@/lib/preferences";
 import { EstimateInfo } from "@/components/reading/estimate-info";
-import { getBookPredictionContext, predictionGateOn } from "@/lib/reading/suggest/context";
 import { predict, predictionSource, predictionText } from "@/lib/reading/suggest/predict";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { RatingStars } from "@/components/shared/rating";
@@ -28,9 +22,6 @@ import { formatRating } from "@/lib/utils/rating";
 import { cache } from "react";
 import { CollectionButton } from "@/components/books/add-to-collection-dialog";
 import { CopyBookButton } from "@/components/books/copy-book-button";
-import {
-  getAcquisitionTargets,
-} from "@/lib/actions/publishers";
 import { AcquisitionTargets } from "@/components/publishers/acquisition-targets";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -40,20 +31,12 @@ import { PoisonToggle } from "@/components/books/poison-toggle";
 import { BookLinks } from "@/components/books/book-links";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { ExternalLink } from "lucide-react";
-import {
-  getWorkBySlug,
-  getWorksWithMark,
-} from "@/lib/actions/works";
-import { MARKS_LABEL, marksOf, otherMarkedTitle } from "@/lib/constants/marks";
-import { getOrdersForWork } from "@/lib/actions/orders";
-import { getOtherWorksInSeries } from "@/lib/actions/series";
+import { getWorkBySlug } from "@/lib/actions/works";
+import { MARKS_LABEL, otherMarkedTitle } from "@/lib/constants/marks";
 import { getLocations } from "@/lib/actions/locations";
-import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
 import { catalogueReadLabel } from "@/lib/ebooks/read-target";
-import { getEbookSuggestionCount } from "@/lib/ebooks/review-queue/suggestions";
 import { EbookSuggestionLine } from "@/components/ebooks/ebook-suggestion-line";
 import { formatLabel } from "@/lib/ebooks/formats";
-import { getEbookReach } from "@/lib/ebooks/highlights";
 import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
 import { ReadButton } from "@/components/reader/read-button";
 import { Badge } from "@/components/ui/badge";
@@ -65,17 +48,10 @@ import { EditionAddDialog } from "./edition-add-dialog";
 import { WorkActionsMenu } from "./work-actions-menu";
 import { HorizontalCarousel } from "@/components/shared/horizontal-carousel";
 import {
-  getCollectionsForWork,
-  getCollectionCoverPreviews,
-} from "@/lib/actions/collections";
-import {
   CollectionCard,
-  collectionPoster,
 } from "@/components/collections/collection-card";
 import { WorkCarousel } from "@/components/books/work-carousel";
 import { SimilarWorksCarousel } from "@/components/books/similar-works-carousel";
-import { getBookRelatedGroups } from "@/lib/actions/book-related";
-import { getSimilarWorks } from "@/lib/actions/similar-works";
 import { WorkPosterImage, WorkPosterPlaceholder } from "./work-poster-image";
 import { cardEdition } from "./card-edition";
 import {
@@ -93,8 +69,6 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { Prose } from "@/components/shared/prose";
 import { DetailColumns, DetailControls, DetailTitleRow } from "@/components/shared/detail-layout";
 import { LinkedWorksSection } from "@/components/catalogue/work-relations";
-import { getWorkRelations } from "@/lib/actions/work-relations";
-import { linkedBookIds } from "@/lib/catalogue/linked-work-ebooks";
 import { catalogueStatusLabel, priorityLabel } from "@/lib/utils/labels";
 import { languageName } from "@/lib/utils/language";
 import { mediaUrl } from "@/lib/s3/media-url";
@@ -152,80 +126,11 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   preloadGallery("work", work.id);
   void workTaxonomyAssignments(work.id);
   const canRead = canUseWorkCapability(work.kind, "reading");
-
-  // Get orders, e-books, and related works for this work
   const primaryAuthor = work.workAuthors[0]?.author;
-  const [
-    workOrders,
-    ebookSuggestionCount,
-    relatedGroups,
-    acquisitionTargets,
-    workCollections,
-    similarWorks,
-    markRows,
-    seriesWorks,
-    links,
-    readingRows,
-    readingNotes,
-    dayStartHour,
-    queued,
-    gateOn,
-  ] = await Promise.all([
-    getOrdersForWork(work.id),
-    getEbookSuggestionCount(work.id),
-    getBookRelatedGroups(work.id, 12),
-    getAcquisitionTargets(work.id),
-    getCollectionsForWork(work.id),
-    getSimilarWorks(work.id, 12),
-    // One row of other books for each mark this book has
-    Promise.all(
-      marksOf(work).map(async (mark) => ({
-        mark,
-        works: await getWorksWithMark(mark.key, work.id, 12),
-      })),
-    ),
-    work.seriesId
-      ? getOtherWorksInSeries(work.seriesId, work.id)
-      : Promise.resolve([]),
-    getWorkRelations(work.id),
-    getReadingsForWork(work.id),
-    // Quotes and notes (SLN-453): books only
-    canRead ? getNotesForWork(work.id) : Promise.resolve([]),
-    readingDayStartHour(),
-    // The book's place in Up next (SLN-452)
-    getQueuePlace(work.id),
-    // The predicted rating (SLN-457) shows only while the gate is on
-    canRead ? predictionGateOn() : Promise.resolve(false),
-  ]);
-  const zone = appTimeZone();
-  const today = readingDay(new Date(), zone, dayStartHour);
-  // Everything that needs the reads above goes out together
-  const [[digital, reach], estimates, predictionContext, collectionCovers] = await Promise.all([
-    catalogueAvailability([
-      work.id,
-      ...seriesWorks.map((related) => related.id),
-      ...relatedGroups.flatMap((group) => group.works.map((related) => related.id)),
-      ...markRows.flatMap((row) => row.works.map((related) => related.id)),
-      ...similarWorks.filter((related) => related.kind === "book").map((related) => related.id),
-      ...linkedBookIds(links),
-    ]).then(async (digital) => {
-      const ebooks = digital.get(work.id)?.ebooks ?? [];
-      return [digital, await getEbookReach(ebooks.map((e) => e.ebookId))] as const;
-    }),
-    // Time left and the finish date of the open reading (SLN-451)
-    readingEstimates(
-      readingRows.filter((r) => r.reading.status === "reading" || r.reading.status === "paused").map((r) => r.reading.id),
-      today,
-    ),
-    // Only for an unread book, and only with enough similar books
-    canRead && gateOn && !readingRows.some((r) => r.reading.status === "finished")
-      ? getBookPredictionContext(work.id)
-      : Promise.resolve(null),
-    // Member-cover collage only for collections without a poster
-    getCollectionCoverPreviews(
-      workCollections.filter((c) => !collectionPoster(c.media)).map((c) => c.id),
-    ),
-  ]);
+  const { workOrders, ebookSuggestionCount, relatedGroups, acquisitionTargets,
+    workCollections, similarWorks, markRows, seriesWorks, links, readingRows,
+    readingNotes, dayStartHour, queued, zone, today, estimates, predictionContext,
+    collectionCovers, digital, reach } = await loadBookPageData(work);
   const digitalBooks = digital.get(work.id)?.ebooks ?? [];
   const digitalCards = new Map([...digital].map(([id, value]) => [id, value.read]));
   const readerReturnTo = `/library/${slug}`;

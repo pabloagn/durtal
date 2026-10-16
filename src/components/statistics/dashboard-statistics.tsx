@@ -5,23 +5,22 @@ import { WrittenChart } from "./written-chart";
 import { YearCovers } from "./covers";
 import { n } from "@/lib/reading/charts";
 import { percentOf } from "@/lib/statistics/charts";
-import { breakdown, busiestYears, libraryNumbers, writtenYears } from "@/lib/statistics/library";
+import type { DashboardStatisticsData } from "@/lib/statistics/dashboard";
 
 /*
  * The body of the dashboard's Statistics section (SLN-742): four numbers the
  * dashboard does not show elsewhere, the year with the most books as its
  * covers, and when the books were written. The
  * dashboard draws the section around it (its rule, the "Statistics" heading
- * and View all, to /statistics). Self-contained: it loads in its own
- * Suspense boundary, so the rest of the dashboard never waits for it.
+ * and View all, to /statistics). Its data starts with the dashboard's other
+ * reads and resolves in this Suspense boundary without delaying its shelves.
  */
 
 const CHART_HEIGHT = 140;
 
-async function Content() {
-  const [numbers, written, split] = await Promise.all([libraryNumbers(), writtenYears(), breakdown()]);
+async function Content({ data }: { data: Promise<DashboardStatisticsData> }) {
+  const { numbers, written, split, busiest } = await data;
   if (numbers.books === 0) return <p className="text-sm text-fg-secondary">No books on your shelves yet.</p>;
-  const [busiest] = await busiestYears(written.years, 1);
   return (
     <div className="space-y-6" data-dashboard-statistics="">
       <NumberTiles
@@ -61,10 +60,10 @@ function Pending() {
   );
 }
 
-export function DashboardStatistics() {
+export function DashboardStatistics({ data }: { data: Promise<DashboardStatisticsData> }) {
   return (
     <Suspense fallback={<Pending />}>
-      <Content />
+      <Content data={data} />
     </Suspense>
   );
 }

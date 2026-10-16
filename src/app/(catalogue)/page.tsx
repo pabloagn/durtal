@@ -37,6 +37,7 @@ import { mediaUrl } from "@/lib/s3/media-url";
 import { appTimeZone } from "@/lib/utils/date";
 import { PhonePairGrid } from "@/components/shared/phone-pair-grid";
 import { DashboardStatistics } from "@/components/statistics/dashboard-statistics";
+import { loadDashboardStatistics } from "@/lib/statistics/dashboard";
 
 // The root layout's title template skips a page in its own segment
 export const metadata = { title: { absolute: "Dashboard | Durtal" } };
@@ -241,6 +242,10 @@ async function otherDomains() {
 }
 
 async function DashboardContent() {
+  const statisticsRead = loadDashboardStatistics();
+  // The section awaits and surfaces errors. Attach a handler while the parent
+  // is loading so an early failure cannot become an unhandled rejection.
+  void statisticsRead.catch(() => {});
   // Each read starts once what it needs is in, not when every read above is
   const statsRead = getLibraryStats({ shelf: SHELF });
   const collectionsRead = getCollections({ limit: 4, offset: 0 });
@@ -313,7 +318,7 @@ async function DashboardContent() {
     });
   }
   // The numbers, between what is new and what is curated (SLN-742); the body loads on its own
-  sections.push({ id: "statistics", title: "Statistics", href: "/statistics", content: <DashboardStatistics /> });
+  sections.push({ id: "statistics", title: "Statistics", href: "/statistics", content: <DashboardStatistics data={statisticsRead} /> });
   if (collections.length > 0) {
     sections.push({
       id: "collections",
