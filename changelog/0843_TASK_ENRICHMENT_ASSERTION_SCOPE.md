@@ -30,9 +30,12 @@ or an introduction cannot be treated as an unrestricted Work assertion.
 
 ## Completion Notes
 
-Type checking and lint pass. `pnpm test:local` with explicit affected
-enrichment/network/service filters passes 356 tests in 20 files, zero skipped;
-all Python preflight checks pass and the disposable container is removed.
+Type checking and lint pass. After incorporating the reviewed SLN-969 fixes,
+the affected enrichment/network/service suite passes 358 tests in 20 files,
+zero skipped, through the repository's disposable-database harness. Python
+preflight passed in the earlier standard run; the unchanged FIFO check later
+stalled on repetition, so this latest run reused that historical result. The
+disposable container is removed. Full final-head CI remains a merge gate.
 Synthetic fixtures cover the original/translation boundary, same versus
 different publication, Labyrinths-style aggregates, unknown translations,
 coverage, concurrent deduplication and direct database bypass attempts.
