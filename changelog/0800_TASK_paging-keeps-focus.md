@@ -16,9 +16,9 @@ On any paged list (Books, Films, People and the rest), pressing Next, Previous, 
 - `src/components/shared/pagination.tsx`:
   - Each control carries `data-pager-control` (first, previous, page-N, next, last, jump, size).
   - Using one notes it, with its pager: the anchor and "overview" (above the list) or "bottom".
-  - When the new page's pager of the same name mounts with the focus on the body, the same control takes it back, without scrolling. Enter again keeps paging.
-  - A control that is gone (Next on the last page) hands it to its counterpart: Previous for Next and Last, Next for Previous and First.
+  - The new page opens at the list's top, so the pager above the list takes the focus when it shows the used control or a stand-in; else the pager below does. Enter again keeps paging.
+  - A control that is gone (Next on the last page) hands it to its counterpart: Previous for Next and Last, Next for Previous and First. A hidden control is skipped; the phone's page jump hands it to the "N / M" button.
 - Test: `src/__tests__/ui/pagination-keeps-focus.test.ts`.
 
 ## Completion Notes
-See the PR for the browser checks.
+Browser checks (review, Chromium, Firefox and WebKit at 1440, 390 and 320, 120 films at 48 a page): bottom Next lands on top Next, onscreen, and Enter again lands on top Previous on the last page; top Next stays on top Next; bottom Last lands on top Previous; the phone jump, from either pager, and desktop Go land on the top "N / M" button; Per page keeps its select (the bottom one on a phone, where only it shows); a bottom page number keeps it (the top has none); a mouse click shows no ring.

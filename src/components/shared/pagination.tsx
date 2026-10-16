@@ -40,11 +40,13 @@ interface Props extends PaginationData {
  * The pager control just used. A new page remounts the list and both pagers
  * (each list route keys its Suspense by the page), and the focused link went
  * with them: the focus fell to the page body (focus survey, cause 1). The new
- * pager gives it back to the same control, so Enter again keeps paging.
+ * page gives it back to the same control, so Enter again keeps paging: in the
+ * pager above the list when it has one shown, since the new page opens at the
+ * list's start, and otherwise in the pager below.
  */
-let used: { pager: string; control: string; at: number } | null = null;
-const remember = (pager: string, control: string) => {
-  used = { pager, control, at: Date.now() };
+let used: { list: string; control: string; at: number } | null = null;
+const remember = (list: string, control: string) => {
+  used = { list, control, at: Date.now() };
 };
 /** Where a control that is gone (Next on the last page) hands the focus */
 const STAND_IN: Record<string, string[]> = {
@@ -52,6 +54,8 @@ const STAND_IN: Record<string, string[]> = {
   last: ["previous", "first"],
   previous: ["next"],
   first: ["next", "last"],
+  // A phone's jump closes on the new page: its button opens it again
+  jump: ["jump-toggle"],
 };
 
 const control =
@@ -79,21 +83,25 @@ export function Pagination({
   const query = params.toString();
   const href = (p: number, size?: number) =>
     `${pageHref(pathname, params, p, size)}#${anchor}`;
-  const pager = `${anchor}:${compact ? "overview" : "bottom"}`;
   const nav = useRef<HTMLElement>(null);
 
-  // The control used on the page before, in this same pager
+  // The control used on the page before. The pager above the list mounts
+  // first and takes it when it shows that control (or its stand-in); a
+  // control hidden at this width (the size above the list on a phone, a
+  // closed jump) is passed over
   useEffect(() => {
-    if (!used || used.pager !== pager || Date.now() - used.at > 10_000) return;
+    if (!used || used.list !== anchor || Date.now() - used.at > 10_000) return;
     const active = document.activeElement;
     if (active && active !== document.body) return;
-    const { control: name } = used;
+    const shown = (n: string) =>
+      [...(nav.current?.querySelectorAll<HTMLElement>(`[data-pager-control="${n}"]:not(:disabled)`) ?? [])].find(
+        (el) => el.checkVisibility?.() ?? true,
+      );
+    const target = [used.control, ...(STAND_IN[used.control] ?? [])].map(shown).find(Boolean);
+    if (!target) return;
     used = null;
-    const find = (n: string) =>
-      nav.current?.querySelector<HTMLElement>(`[data-pager-control="${n}"]:not(:disabled)`);
-    const target = [name, ...(STAND_IN[name] ?? [])].map(find).find(Boolean);
-    target?.focus({ preventScroll: true });
-  }, [pager, current, perPage]);
+    target.focus({ preventScroll: true });
+  }, [anchor, current, perPage]);
 
   useEffect(() => {
     setJump(String(current));
@@ -163,7 +171,7 @@ export function Pagination({
   }, [compact, current, totalPages, pathname, query, anchor, router]);
 
   function changeSize(size: number) {
-    remember(pager, "size");
+    remember(anchor, "size");
     writeCookie(perPageCookieName(pathname), String(size));
     // Open the page that holds the first item shown now
     router.push(href(Math.floor(((current - 1) * perPage) / size) + 1, size));
@@ -172,7 +180,7 @@ export function Pagination({
     event.preventDefault();
     const value = Number(jump);
     if (!Number.isFinite(value) || !jump.trim()) return;
-    remember(pager, "jump");
+    remember(anchor, "jump");
     router.push(href(Math.max(1, Math.min(totalPages, Math.trunc(value)))));
     setMobileJump(false);
   }
@@ -194,7 +202,7 @@ export function Pagination({
         <span className={labelClass}>{label}</span>
       </button>
     ) : (
-      <Link className={control} href={href(p)} rel={rel} aria-label={label} data-pager-control={name} onClick={() => remember(pager, name)}>
+      <Link className={control} href={href(p)} rel={rel} aria-label={label} data-pager-control={name} onClick={() => remember(anchor, name)}>
         <CapAligned height={14}>{icon}</CapAligned>
         <span className={labelClass}>{label}</span>
       </Link>
@@ -288,7 +296,7 @@ export function Pagination({
                   href={href(p)}
                   aria-label={`Page ${p}`}
                   data-pager-control={`page-${p}`}
-                  onClick={() => remember(pager, `page-${p}`)}
+                  onClick={() => remember(anchor, `page-${p}`)}
                   aria-current={p === current ? "page" : undefined}
                   className={`${control} ${p === current ? "border-accent-primary bg-selection-bg text-fg-primary" : ""}`}
                 >
@@ -302,6 +310,7 @@ export function Pagination({
           type="button"
           className={`${control} ${compact ? "" : "md:hidden"}`}
           aria-label={`Page ${current} of ${totalPages}, jump to page`}
+          data-pager-control="jump-toggle"
           onClick={() => {
             setMobileJump(!mobileJump);
             requestAnimationFrame(() => jumpRef.current?.focus());

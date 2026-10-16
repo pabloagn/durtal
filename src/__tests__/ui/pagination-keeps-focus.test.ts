@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 
 // Focus survey, cause 1: each list route keys its Suspense by the page, so a
 // new page remounts both pagers and the focused link went with them. The new
-// pager gives the focus back to the control used, in the same pager.
+// page gives the focus back to the control used, above the list when it can.
 
 vi.mock("next/link", () => ({
   default: ({ children, ...props }: Record<string, unknown>) =>
@@ -43,13 +43,23 @@ const pagers = () => [...host.querySelectorAll("nav")];
 const control = (nav: Element, name: string) => nav.querySelector<HTMLElement>(`[data-pager-control="${name}"]`)!;
 
 describe("paging keeps the focus", () => {
-  it("on the same control of the same pager", () => {
+  it("on the same control, in the pager above the list where the new page opens", () => {
     show(1);
     const next = control(pagers()[1], "next");
     next.focus();
     act(() => next.click());
     show(2);
-    expect(document.activeElement).toBe(control(pagers()[1], "next"));
+    expect(document.activeElement).toBe(control(pagers()[0], "next"));
+  });
+
+  it("in the pager below when the one above has no such control", () => {
+    show(1);
+    const last = control(pagers()[1], "last");
+    last.focus();
+    act(() => last.click());
+    show(3);
+    // Above the list: Previous stands in for Last, which only the pager below has
+    expect(document.activeElement).toBe(control(pagers()[0], "previous"));
   });
 
   it("on a page number", () => {
