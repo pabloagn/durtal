@@ -9,6 +9,7 @@ import {
   type ReaderFile,
 } from "@/lib/ebooks/delivery/reader-book";
 import { fileUrlFor } from "@/lib/ebooks/delivery/url";
+import { openFailureOf } from "@/lib/ebooks/open-failure";
 import { DEVICE_COOKIE, isDeviceId } from "@/lib/reader/device";
 import type { ReaderFormat } from "@/lib/reader/engine";
 import {
@@ -97,6 +98,7 @@ async function viewFile(file: ReaderFile): Promise<ReaderViewFile> {
     cdOffset,
     charCount: file.charCount,
     cdnBases: process.env.EBOOK_CDN_URL ? [process.env.EBOOK_CDN_URL] : [],
+    openFailed: openFailureOf(file.metadata) !== null,
   };
 }
 
@@ -194,6 +196,7 @@ export default async function ReaderPage(props: PageProps) {
         plugins={plugins}
         requiredControllerIds={requiredControllerIds}
         preferences={preferences}
+        locked={book.locked}
       />
       </ReaderRuntimeProvider>
       </PreferencesProvider>
