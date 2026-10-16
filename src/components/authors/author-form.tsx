@@ -268,7 +268,7 @@ export function AuthorForm({
                 onChange={(e) => set("sortName", e.target.value)}
                 placeholder={mode === "create" ? "Last, First (auto-generated if empty)" : "Last, First"}
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Input
                   label="First name"
                   value={values.firstName}
@@ -294,7 +294,7 @@ export function AuthorForm({
             <h3 className="type-group-title mb-3">
               Demographics
             </h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Select
                 label="Gender"
                 options={GENDER_OPTIONS}
@@ -371,7 +371,7 @@ export function AuthorForm({
                 onChange={(e) => set("website", e.target.value)}
                 placeholder="https://..."
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Input
                   label="Open Library key"
                   value={values.openLibraryKey}
