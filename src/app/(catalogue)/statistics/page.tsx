@@ -90,10 +90,11 @@ export default async function StatisticsPage() {
                 { label: "Authors", value: n(numbers.authors) },
                 { label: "Publishers", value: n(numbers.publishers) },
                 { label: "Languages", value: n(numbers.languages) },
-                { label: "Countries", value: n(numbers.countries) },
+                // Named as on the dashboard (SLN-886)
+                { label: "Authors' countries", value: n(numbers.countries) },
               ]}
             />
-            <Footnote>Books you own: a book counts once one of its copies is on your shelves. Countries are your authors&apos; nationalities.</Footnote>
+            <Footnote>Books you own: a book counts once it is accessioned and one of its copies is on your shelves. Authors&apos; countries are their nationalities.</Footnote>
           </StatsSection>
 
           {written.years.length > 0 && (

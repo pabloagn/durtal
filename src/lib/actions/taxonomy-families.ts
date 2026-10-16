@@ -25,6 +25,7 @@ import {
   familyItemCondition,
   itemProjection,
   linkedEntities,
+  linkRows,
   type TaxonomyItem,
 } from "@/lib/catalogue/taxonomy-storage";
 import {
@@ -393,21 +394,23 @@ export async function reorderFamilies(ids: string[]) {
   return { success: true };
 }
 
-export async function getTaxonomyItems(
-  familySlug: string,
-  kind: WorkKind = "book",
-) {
-  z.enum(WORK_KINDS).parse(kind);
+/**
+ * The kinds an item's count and page cover: books where the family applies
+ * to books, as its items list books; else every open collection it applies
+ * to, so a perfume note counts its perfumes (SLN-886)
+ */
+function itemKinds(family: { applicability?: { kind: WorkKind }[] }): WorkKind[] {
+  const enabled = new Set(getEnabledWorkKinds());
+  const kinds = [...new Set((family.applicability ?? []).map((scope) => scope.kind))].filter((kind) => enabled.has(kind));
+  return kinds.length === 0 || kinds.includes("book") ? ["book"] : kinds;
+}
+
+export async function getTaxonomyItems(familySlug: string, kind?: WorkKind) {
+  if (kind !== undefined) z.enum(WORK_KINDS).parse(kind);
   const family = await getTaxonomyFamily(familySlug);
   if (!family) return [];
   const storage = taxonomyStorage(family);
-  const counts = sql.join(
-    storage.links.map(
-      (link) =>
-        sql`select l.${sql.identifier(link.item)} as item_id,l.${sql.identifier(link.owner)} as owner_id,${link.level}::text as level from ${sql.identifier(link.table)} l ${link.level === "work" ? sql`join works w on w.id=l.work_id` : sql`join editions e on e.id=l.edition_id join works w on w.id=e.work_id`} where w.kind=${kind}`,
-    ),
-    sql` union `,
-  );
+  const counts = linkRows(storage, kind ? [kind] : itemKinds(family));
   return resultRows<TaxonomyItem>(
     await db.execute(
       sql`select ${itemProjection(storage)},coalesce(c.total,0)::int as "entityCount" from ${sql.identifier(storage.table)} i left join (select item_id,count(*) as total from (${counts}) links group by item_id) c on c.item_id=i.id where ${familyItemCondition(storage, family.id)} order by "sortOrder",lower(i.name),i.id`,
@@ -424,15 +427,20 @@ export async function getTaxonomyItem(familySlug: string, itemSlug: string) {
     ),
   );
   if (!item) return null;
-  const rows = resultRows<{ id: string; level: string }>(
-    await db.execute(linkedEntities(storage, family.id, "book", item.id)),
-  );
+  const kinds = itemKinds(family);
+  const rows = resultRows<{ id: string; level: string; kind: WorkKind }>(
+    await db.execute(
+      sql`select distinct l.owner_id as id,l.level,l.kind from (${linkRows(storage, kinds)}) l where l.item_id=${item.id}::uuid`,
+    ),
+  ).filter((r) => r.level === family.entityLevel);
   return {
     ...item,
     createdAt: storage.custom ? item.createdAt : undefined,
-    entityIds: rows
-      .filter((r) => r.level === family.entityLevel)
-      .map((r) => r.id),
+    /** The kinds counted: books, or the other collections the family applies to */
+    kinds,
+    entityIds: rows.map((r) => r.id),
+    /** How many of each kind, in `kinds` order */
+    kindCounts: kinds.map((k) => ({ kind: k, count: rows.filter((r) => r.kind === k).length })),
   };
 }
 

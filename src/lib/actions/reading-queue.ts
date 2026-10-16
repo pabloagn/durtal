@@ -10,7 +10,7 @@ import { resultRows } from "@/lib/harmonization/store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
 import { requireBookWork, requireBookWorks } from "@/lib/catalogue/book-boundary";
-import { ownedBookCondition } from "@/lib/catalogue/holdings";
+import { ownedWorkCondition } from "@/lib/catalogue/holdings";
 import { atHandCopySql } from "@/lib/reading/at-hand";
 import { QUEUE_GAP } from "@/lib/reading/constants";
 import { readingToday } from "@/lib/reading/day";
@@ -256,7 +256,7 @@ export async function getQueue(input?: z.input<typeof getQueueSchema>): Promise<
       select q.id::text as id, w.id::text as "workId", w.title, w.slug, q.edition_id::text as "editionId", q.position, q.note, q.source,
         q.added_at::text as "addedAt",
         (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.sort_order, a.name limit 1) as author,
-        ${ownedBookCondition(sql`w.id`)} as owned,
+        ${ownedWorkCondition(sql`w.id`)} as owned,
         (${atHandCopySql(sql`w.id`, homeId)} limit 1)::text as "atHandCopyId",
         (select m.thumbnail_s3_key from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1) as "workCover",
         ${readCountSql(sql`w.id`)}::int as "readCount",

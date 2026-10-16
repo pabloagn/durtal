@@ -1409,7 +1409,7 @@ export interface BookToRead {
 export async function searchBooksToRead(query: string) {
   const q = z.string().max(200).parse(query).trim();
   const { textSearchCondition } = await import("@/lib/actions/utils/text-search");
-  const { ownedBookCondition } = await import("@/lib/catalogue/holdings");
+  const { ownedWorkCondition } = await import("@/lib/catalogue/holdings");
   const { readingStateSql, readCountSql, openReadingPercentSql } = await import("@/lib/reading/summary");
   const authors = sql`coalesce((select string_agg(a.name, ' ') from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id), '')`;
   const match = q ? textSearchCondition(sql`search_normalize(w.title || ' ' || ${authors})`, q, { fuzzy: false }) : undefined;
@@ -1418,12 +1418,12 @@ export async function searchBooksToRead(query: string) {
         (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.sort_order limit 1) as author,
         (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = w.id and (e.thumbnail_s3_key is not null or e.cover_s3_key is not null)
           order by e.publication_year nulls last, e.id limit 1) as cover,
-        ${ownedBookCondition(sql`w.id`)} as owned, w.catalogue_status as "catalogueStatus",
+        ${ownedWorkCondition(sql`w.id`)} as owned, w.catalogue_status as "catalogueStatus",
         ${readingStateSql(sql`w.id`)} as state, ${readCountSql(sql`w.id`)} as reads, ${openReadingPercentSql(sql`w.id`)} as percent,
         (select r.id from readings r where r.work_id = w.id and r.status in ('reading','paused') limit 1) as "openReadingId",
         (select md5(to_jsonb(r)::text) from readings r where r.work_id = w.id and r.status in ('reading','paused') limit 1) as "openFingerprint"
       from works w where w.kind = 'book' ${match ? sql`and ${match}` : sql``}
-      order by ${ownedBookCondition(sql`w.id`)} desc, search_normalize(w.title), w.id limit 20`),
+      order by ${ownedWorkCondition(sql`w.id`)} desc, search_normalize(w.title), w.id limit 20`),
   );
 }
 

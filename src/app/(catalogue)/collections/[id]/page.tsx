@@ -17,7 +17,7 @@ import { loadFilmCards } from "@/lib/catalogue/film-store";
 import { loadPerfumeCards } from "@/lib/catalogue/perfume-store";
 import { loadPaintingCards } from "@/lib/catalogue/painting-store";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
-import { collectableNouns, collectionCountLine } from "@/lib/collections/counts";
+import { collectableNouns, collectionCountLine, collectionMembersNoun } from "@/lib/collections/counts";
 import { MemberCard } from "@/components/collections/member-card";
 import { CountParts } from "@/components/collections/count-parts";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -411,7 +411,7 @@ export default async function CollectionPage({
           page={page}
           perPage={perPage}
           total={total}
-          noun="items"
+          noun={collectionMembersNoun(collection)}
         >
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2" data-focus-list="collection">
             {members.slice(offset, offset + perPage).map((member, index) => (

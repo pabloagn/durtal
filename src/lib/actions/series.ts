@@ -1,6 +1,7 @@
 "use server";
 
 import { bookCondition, requireBookWorks } from "@/lib/catalogue/book-boundary";
+import { ownedWorkCondition } from "@/lib/catalogue/holdings";
 
 import { workCardExtras, workCardWith, workReadingExtras } from "@/lib/actions/utils/work-card-query";
 import { z } from "zod/v4";
@@ -105,8 +106,8 @@ const haystack = sql`search_normalize(${series.title} || ' ' || coalesce(${serie
 const bookCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id")`;
 /** Volumes with a finished reading: a volume being re-read counts as read (SLN-449) */
 const readCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id" and exists (select 1 from readings r where r.work_id = w.id and r.status = 'finished'))`;
-/** Volumes whose catalogue status is Accessioned, each once (SLN-635) */
-const accessionedCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id" and w.catalogue_status = 'accessioned')`;
+/** Volumes owned, each once: accessioned with a copy, as everywhere (SLN-886) */
+const ownedCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id" and ${ownedWorkCondition(sql`w.id`)})`;
 
 const listSchema = z.object({
   search: z.string().max(200).optional(),
@@ -156,7 +157,7 @@ export async function getSeriesList(options: z.input<typeof listSchema> = {}) {
         isFavourite: series.isFavourite,
         createdAt: series.createdAt,
         bookCount,
-        accessionedCount,
+        ownedCount,
         readCount,
       })
       .from(series)
@@ -208,7 +209,11 @@ function seriesWithWorks(id: string) {
           sql`lower(${works.title})`,
         ],
         // Reading (SLN-449): "Read 4 of 20" and each volume's state
-        extras: workReadingExtras,
+        // Owned as everywhere: accessioned with a copy (SLN-886)
+        extras: (work) => ({
+          ...workReadingExtras(work),
+          owned: sql<boolean>`${ownedWorkCondition(work.id)}`.as("owned"),
+        }),
         with: {
           workAuthors: {
             with: { author: true },

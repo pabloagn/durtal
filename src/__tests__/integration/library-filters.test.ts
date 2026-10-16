@@ -95,7 +95,7 @@ describe.skipIf(!url)("library filters with PostgreSQL", () => {
   }, 30000);
 
   const book = (title: string, { language = "en", year = 1900 as number | null, seriesName = null as string | null } = {}) =>
-    value(`insert into works(title, slug, original_language, original_year, series_name) values ($1, $2, $3, $4, $5) returning id`, [
+    value(`insert into works(title, slug, original_language, original_year, series_name, catalogue_status) values ($1, $2, $3, $4, $5, 'accessioned') returning id`, [
       title,
       `book-${++serial}`,
       language,

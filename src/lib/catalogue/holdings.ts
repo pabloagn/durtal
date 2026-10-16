@@ -8,12 +8,23 @@ import {
 } from "@/lib/utils/ownership";
 
 /**
- * The one owned rule for a book (SLN-448): a copy of one of its editions that
- * is not deaccessioned, as `ownedCount` and `bookHoldings().personallyOwned`
- * count it. `workIdSql` names the work's id column.
+ * A book with a copy (SLN-448): one of its editions has a copy that is not
+ * deaccessioned, as `bookHoldings().personallyOwned` counts it. The page rule
+ * builds on it (docs/02, Pages of a Work). What the app calls owned is
+ * `ownedWorkCondition`. `workIdSql` names the work's id column.
  */
 export function ownedBookCondition(workIdSql: SQL | unknown) {
   return sql<boolean>`exists (select 1 from editions e join instances i on i.edition_id = e.id where e.work_id = ${workIdSql} and i.status <> 'deaccessioned')`;
+}
+
+/**
+ * Owned, as every count and filter shows it (CLAUDE.md, docs/02 Derived
+ * Ownership; SLN-886): the work is accessioned and holds at least one copy
+ * that is not deaccessioned. Statistics, Reading, the library's Owned filter
+ * and the series page all use it. `workIdSql` names the work's id column.
+ */
+export function ownedWorkCondition(workIdSql: SQL | unknown) {
+  return sql<boolean>`(exists (select 1 from works ow where ow.id = ${workIdSql} and ow.catalogue_status = 'accessioned') and ${ownedBookCondition(workIdSql)})`;
 }
 
 /** Book adapters preserve all legacy lifecycle and partial-holdings semantics. */
