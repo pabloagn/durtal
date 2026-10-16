@@ -116,7 +116,7 @@ export function PerfumeRow({ perfume }: { perfume: PerfumeCardData }) {
   return (
     <WorkRow
       href={perfumeHref(perfume)}
-      thumbnail={<PerfumeImage image={perfume.poster} title={perfume.title} small className="h-12 w-12 shrink-0 rounded-sm" />}
+      thumbnail={<PerfumeImage image={perfume.poster} title={perfume.title} className="h-12 w-12 shrink-0 rounded-sm" />}
       title={perfume.title}
       facts={[perfumeMakers(perfume) ?? "Unknown house", ...perfumeFactParts(perfume)]}
       held={holdingsSummary(heldCounts(perfume))}

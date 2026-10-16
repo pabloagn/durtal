@@ -16,7 +16,6 @@ import { getCollection } from "@/lib/actions/collections";
 import { loadFilmCards } from "@/lib/catalogue/film-store";
 import { loadPerfumeCards } from "@/lib/catalogue/perfume-store";
 import { loadPaintingCards } from "@/lib/catalogue/painting-store";
-import { catalogueDateYears } from "@/lib/catalogue/dates";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { collectableNouns, collectionCountLine } from "@/lib/collections/counts";
 import { MemberCard } from "@/components/collections/member-card";
@@ -178,8 +177,6 @@ async function collectionMembers(
               <FilmPoster
                 image={film.poster}
                 title={film.title}
-                year={catalogueDateYears(film.releaseDate)}
-                small
               />
             ),
             title: film.title,
@@ -198,7 +195,7 @@ async function collectionMembers(
           ...base,
           card: {
             href: perfumeHref(perfume),
-            image: <PerfumeImage image={perfume.poster} title={perfume.title} small />,
+            image: <PerfumeImage image={perfume.poster} title={perfume.title} />,
             title: perfume.title,
             byline: perfumeMakers(perfume),
             facts: perfumeFacts(perfume) || null,
@@ -214,7 +211,7 @@ async function collectionMembers(
         ...base,
         card: {
           href: paintingHref(painting),
-          image: <PaintingImage image={painting.poster} title={painting.title} small />,
+          image: <PaintingImage image={painting.poster} title={painting.title} />,
           title: painting.title,
           byline: paintingPainters(painting),
           facts: paintingFacts(painting) || null,
