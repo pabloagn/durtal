@@ -183,7 +183,7 @@ export function BookCard({
           <div className="cover-shadow">
           {/* While the cover loads, the frame shows the poster's main color */}
           <div
-            className="relative aspect-[2/3] overflow-hidden bg-bg-tertiary"
+            className="card-cover"
             style={coverToneStyle(coverTone)}
           >
             {coverUrl ? (

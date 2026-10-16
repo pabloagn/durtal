@@ -117,6 +117,12 @@ const listSchema = z.object({
   favourites: z.boolean().optional(),
 });
 
+/** Whether there is any series: with none, the list page shows only its empty state */
+export async function hasSeries() {
+  const [row] = await db.select({ id: series.id }).from(series).limit(1);
+  return !!row;
+}
+
 /** Series list with counts and up to four member covers, searched like authors. */
 export async function getSeriesList(options: z.input<typeof listSchema> = {}) {
   const o = listSchema.parse(options);

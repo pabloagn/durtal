@@ -63,6 +63,7 @@ import {
   getOtherWorksInSeries,
   getSeriesList,
   getSeriesSuggestions,
+  hasSeries,
   searchWorksForSeries,
 } from "@/lib/actions/series";
 
@@ -110,6 +111,12 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
   }
   const read = async (id: string) =>
     (await db.select().from(schema.works).where(eq(schema.works.id, id)))[0];
+
+  it("says whether there is any series, as the empty page needs", async () => {
+    expect(await hasSeries()).toBe(false);
+    await make("The Rougon-Macquart");
+    expect(await hasSeries()).toBe(true);
+  });
 
   it("creates, edits and deletes a series; books stay and lose only series and position", async () => {
     const s = await make("  In Search of Lost Time ");

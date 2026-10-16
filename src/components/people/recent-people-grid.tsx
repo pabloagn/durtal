@@ -46,7 +46,7 @@ export function RecentPeopleGrid({
         >
           {/* While the photo loads, the frame shows its main color */}
           <div
-            className="relative aspect-[2/3] overflow-hidden bg-bg-tertiary"
+            className="card-cover"
             style={coverToneStyle(author.photoTone)}
           >
             {author.photoS3Key ? (
