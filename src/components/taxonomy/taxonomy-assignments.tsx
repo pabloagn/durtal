@@ -1,17 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
-import {
-  createTaxonomyItem,
-  replaceTaxonomyAssignments,
-  searchTaxonomyItems,
-  type AssignedTaxonomyItem,
-  type getTaxonomyAssignments,
-} from "@/lib/actions/taxonomy-families";
+import { createTaxonomyItem, searchTaxonomyItems, type AssignedTaxonomyItem, type getTaxonomyAssignments } from "@/lib/actions/taxonomy-families";
+import { replaceTaxonomyAssignments } from "@/lib/actions/taxonomy-client";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 
 type Family = Awaited<ReturnType<typeof getTaxonomyAssignments>>[number];
@@ -126,7 +122,7 @@ function FamilyAssignment({
             {item.parentName && (
               <span className="text-fg-secondary">{item.parentName} ›</span>
             )}
-            {item.name}
+            <Link href={`/taxonomy/${family.slug}/${item.slug ?? item.id}`} className="min-w-0 break-words text-command touch-hit">{item.name}</Link>
             {/* CapAlignedControls clips nothing, so the button's 44px press area reaches past the chip on touch */}
             <CapAlignedControls height={16}>
               <button

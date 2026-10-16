@@ -1,137 +1,55 @@
 "use client";
 
-import { useState, useCallback, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { toast } from "@/lib/notifications/toast";
-import { AlertTriangle } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { deleteTaxonomyItem } from "@/lib/actions/taxonomy-client";
 
-interface DeleteItemDialogProps {
+interface Props {
   open: boolean;
   onClose: () => void;
-  item: { id: string; name: string; entityCount: number };
+  item: { id: string; name: string; entityCount: number; childCount?: number };
   familySlug: string;
   availableReassignTargets: { id: string; name: string }[];
   onDeleted: () => void;
 }
-
-export function DeleteItemDialog({
-  open,
-  onClose,
-  item,
-  familySlug,
-  availableReassignTargets,
-  onDeleted,
-}: DeleteItemDialogProps) {
-  const [reassignTargetId, setReassignTargetId] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleClose = useCallback(() => {
-    setReassignTargetId("");
-    onClose();
-  }, [onClose]);
-
-  const handleSubmit = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault();
-      setSubmitting(true);
-
-      try {
-        const { deleteTaxonomyItem } = await import(
-          "@/lib/actions/taxonomy-families"
-        );
-        await deleteTaxonomyItem(
-          familySlug,
-          item.id,
-          reassignTargetId || undefined,
-        );
-        toast.success(`Deleted "${item.name}"`);
-        handleClose();
-        onDeleted();
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to delete item";
-        toast.error(message);
-      } finally {
-        setSubmitting(false);
-      }
-    },
-    [familySlug, item, reassignTargetId, handleClose, onDeleted],
-  );
-
-  const reassignOptions = availableReassignTargets.map((t) => ({
-    value: t.id,
-    label: t.name,
-  }));
-
-  return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      title={`Delete ${item.name}`}
-      className="max-w-lg"
-      expandable={false}
-    >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Warning for items with entities */}
-        {item.entityCount > 0 && (
-          <div className="flex items-start gap-2.5 rounded-sm border border-accent-red/15 bg-accent-red/5 px-3 py-2.5">
-            <AlertTriangle
-              className="mt-0.5 h-4 w-4 flex-shrink-0 text-accent-red"
-              strokeWidth={1.5}
-            />
-            <div className="min-w-0 space-y-1">
-              <p className="text-sm text-fg-primary">
-                This item is associated with{" "}
-                <Badge variant="red">{item.entityCount}</Badge> work
-                {item.entityCount === 1 ? "" : "s"}.
-              </p>
-              <p className="text-xs text-fg-secondary">
-                You can optionally reassign these works to another item before
-                deleting.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Reassign dropdown (only shown when there are entities) */}
-        {item.entityCount > 0 && reassignOptions.length > 0 && (
-          <Select
-            label="Reassign works to"
-            options={reassignOptions}
-            placeholder="No reassignment (unlink works)"
-            value={reassignTargetId}
-            onChange={(e) => setReassignTargetId(e.target.value)}
-          />
-        )}
-
-        {/* Confirmation text */}
-        <p className="text-xs text-fg-secondary">
-          This action cannot be undone.
-        </p>
-
-        {/* Actions */}
-        <div className="flex items-center justify-end gap-2 pt-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleClose}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="danger"
-            size="sm"
-            busy={submitting}
-          >
-            Delete
-          </Button>
-        </div>
-      </form>
-    </Dialog>
-  );
+export function DeleteItemDialog({ open, onClose, item, familySlug, availableReassignTargets, onDeleted }: Props) {
+  const [target, setTarget] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const children = item.childCount ?? 0;
+  const needsTarget = item.entityCount > 0;
+  const blocked = children > 0 || (needsTarget && !availableReassignTargets.some(t => t.id === target));
+  const close = () => { if (!busy) { setTarget(""); setError(null); onClose(); } };
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (blocked || busy) return;
+    setBusy(true); setError(null);
+    try {
+      await deleteTaxonomyItem(familySlug, item.id, needsTarget ? target : undefined);
+      toast.success(`Deleted "${item.name}"`);
+      onClose(); onDeleted();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not delete this item";
+      setError(message); toast.error(message);
+    } finally { setBusy(false); }
+  }
+  return <Dialog open={open} onClose={close} title={`Delete ${item.name}`} className="max-w-lg" expandable={false}>
+    <form onSubmit={submit} className="space-y-4">
+      {children > 0 ? <p className="text-sm text-fg-secondary">This item has {children} child {children === 1 ? "item" : "items"}. Move the children first, then delete it.</p>
+        : needsTarget ? <>
+          <p className="text-sm text-fg-secondary">This item has {item.entityCount} catalogue {item.entityCount === 1 ? "link" : "links"}. Reassign them to another item before deleting it.</p>
+          {availableReassignTargets.length ? <Select label="Reassign links to" placeholder="Choose another item" value={target} options={availableReassignTargets.map(t => ({ value: t.id, label: t.name }))} onChange={e => { setTarget(e.target.value); setError(null); }} disabled={busy} />
+            : <p className="text-xs text-fg-secondary">There is no sibling item to receive these links. Add one or move this item first.</p>}
+        </> : <p className="text-sm text-fg-secondary">This item has no catalogue links or children.</p>}
+      {error && <p role="alert" className="text-sm text-accent-red-text">{error}</p>}
+      <p className="text-xs text-fg-secondary">This action cannot be undone.</p>
+      <div className="flex items-center justify-end gap-2 pt-2">
+        <Button data-dismiss="" type="button" variant="ghost" size="sm" onClick={close} disabled={busy}>Cancel</Button>
+        <Button type="submit" variant="danger" size="sm" busy={busy} disabled={blocked}>Delete</Button>
+      </div>
+    </form>
+  </Dialog>;
 }

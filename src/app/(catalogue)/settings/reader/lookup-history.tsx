@@ -11,6 +11,8 @@ export function LookupHistoryGroup() {
   const [entries, setEntries] = useState<LookupHistoryEntry[]>([]), [count, setCount] = useState(0);
   const [limit, setLimit] = useState(20), [refresh, setRefresh] = useState(0), [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
+  // Until the first read the count's line says it is loading, so no row comes and goes (SLN-875)
+  const [loaded, setLoaded] = useState(false);
   const store = useRef<LookupHistoryStore | null>(null), scope = useRef<AbortController | null>(null);
   useEffect(() => {
     const value = browserLookupHistoryStore(); store.current = value;
@@ -21,7 +23,7 @@ export function LookupHistoryGroup() {
     setBusy(true); setError(null);
     const value = store.current;
     if (value) void Promise.all([value.count(controller.signal), value.list(limit, 0, controller.signal)]).then(([total, rows]) => {
-      if (!controller.signal.aborted) { setCount(total); setEntries(rows); }
+      if (!controller.signal.aborted) { setCount(total); setEntries(rows); setLoaded(true); }
     }).catch(() => { if (!controller.signal.aborted) setError("Lookup history could not be read in this browser."); })
       .finally(() => { if (!controller.signal.aborted) setBusy(false); });
     return () => controller.abort();
@@ -29,7 +31,8 @@ export function LookupHistoryGroup() {
   return <div id="lookup-history" className="scroll-mt-8"><SettingsGroup title="Lookup history"
     description="Kept only in this browser. Durtal’s server never sees it.">
     <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4">
-      <p className="text-sm text-fg-secondary">{count.toLocaleString("en")} {count === 1 ? "lookup" : "lookups"}</p>
+      {loaded || error ? <p className="text-sm text-fg-secondary">{count.toLocaleString("en")} {count === 1 ? "lookup" : "lookups"}</p>
+        : <p role="status" className="text-sm text-fg-secondary">Loading lookup history</p>}
       <Button variant="ghost" size="sm" disabled={busy || count === 0} onClick={() => setConfirm(true)}><Trash2 aria-hidden strokeWidth={1.5} />Clear history</Button>
     </div>
     {entries.map(entry => <div key={entry.id} className="px-5 py-4">
@@ -38,8 +41,8 @@ export function LookupHistoryGroup() {
       <p className="lines-2 mt-2 text-sm text-fg-secondary">{entry.sentence}</p>
     </div>)}
     {/* Loading, an error or Show more: a row only when there is one */}
-    {(busy || error || entries.length < count) && <div className="px-5 py-4">
-      {busy && <p role="status" className="text-sm text-fg-secondary">Loading lookup history</p>}
+    {((busy && loaded) || error || entries.length < count) && <div className="px-5 py-4">
+      {busy && loaded && <p role="status" className="text-sm text-fg-secondary">Loading lookup history</p>}
       {error && <p role="alert" className="text-sm text-accent-red-text">{error}</p>}
       {/* Ghost buttons starting a line under text pull out by their padding, so their icons start on its edge */}
       {(entries.length < count || error) && <div className="-ml-3 flex flex-wrap gap-3">

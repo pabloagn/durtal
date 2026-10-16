@@ -205,8 +205,7 @@ function WhereaboutsForm({
   const blocked =
     (placeKind === "venue" && !venue) ||
     needsStart ||
-    Object.values(dateErrors).some(Boolean) ||
-    saving;
+    Object.values(dateErrors).some(Boolean);
 
   function choosePlace(next: WhereaboutsPlace) {
     setPlaceKind(next);
@@ -218,7 +217,7 @@ function WhereaboutsForm({
   }
 
   async function save() {
-    if (blocked) return;
+    if (blocked || saving) return;
     setSaving(true);
     setError(null);
     const fields = {

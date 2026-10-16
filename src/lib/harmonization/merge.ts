@@ -1,3 +1,4 @@
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { randomUUID } from "node:crypto";
 import { bookCreditMergeQueries } from "./book-credit-merge";
 import { workRelationMergeQueries } from "./work-relation-merge";
@@ -286,7 +287,7 @@ export async function previewMerge(
   sourceId: string,
   targetId: string,
 ): Promise<MergePreview> {
-  if (sourceId === targetId) throw new Error("Choose two different records");
+  if (sourceId === targetId) throw new ExpectedActionError("Choose two different records");
   const entity = entityDefinition(entityKey);
   const { data, fingerprint } = await loadSnapshot(entity.table, [
     sourceId,
@@ -295,7 +296,7 @@ export async function previewMerge(
   const source = data.records.find((r) => r.id === sourceId),
     target = data.records.find((r) => r.id === targetId);
   if (!source || !target)
-    throw new Error(
+    throw new ExpectedActionError(
       "A record has changed or was removed. Scan the library again.",
     );
   const fields = mergeFields(source, target);
@@ -433,13 +434,13 @@ async function executeMergeOnce(input: MergeInput) {
     input.targetId,
   ]);
   if (fingerprint !== input.fingerprint)
-    throw new Error(
+    throw new ExpectedActionError(
       "The records or their relationships changed. Review a fresh merge preview.",
     );
   const source = data.records.find((r) => r.id === input.sourceId),
     target = data.records.find((r) => r.id === input.targetId);
   if (!source || !target || source.id === target.id)
-    throw new Error("Choose two existing, different records");
+    throw new ExpectedActionError("Choose two existing, different records");
   const blockers = mergeBlockers(
     input.entity,
     source,
@@ -447,7 +448,7 @@ async function executeMergeOnce(input: MergeInput) {
     data,
     await loadEnrichmentMergeContext(input.entity, [source.id, target.id]),
   );
-  if (blockers.length) throw new Error(blockers[0]);
+  if (blockers.length) throw new ExpectedActionError(blockers[0]);
   const detailTable = mergedDetail(input.entity, source, target);
   const workChoices: Record<string, "source" | "target"> = {};
   const detailChoices: Record<string, "source" | "target"> = {};
@@ -465,7 +466,7 @@ async function executeMergeOnce(input: MergeInput) {
     !String(target.name).includes(",") &&
     String(changes.name || target.name).includes(",")
   )
-    throw new Error("The canonical author name must not contain a comma");
+    throw new ExpectedActionError("The canonical author name must not contain a comma");
   const refs = mergeReferences(entity.table);
   const operationId = randomUUID();
   const foreignRefs = refs.filter((r) => !r.polymorphic);

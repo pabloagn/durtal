@@ -1,6 +1,6 @@
 import { sql, type SQL } from "drizzle-orm";
 import { batchedRows } from "@/lib/db/read-batch";
-import { ownedBookCondition } from "@/lib/catalogue/holdings";
+import { ownedWorkCondition } from "@/lib/catalogue/holdings";
 import { atHandCopySql } from "./at-hand";
 import { countedPagesSql, readingOrdinalSql, readingRatingSql, readingStateSql, rereadSql, tasteRatingSql } from "./summary";
 import { WORK_AUTHOR_ROLES } from "@/lib/types";
@@ -498,7 +498,7 @@ export interface UnreadPile {
 }
 
 /** The owned unread books: the library's reading=unread and holding=owned */
-const PILE = sql`w.kind = 'book' and ${readingStateSql(sql`w.id`)} = 'unread' and ${ownedBookCondition(sql`w.id`)}`;
+const PILE = sql`w.kind = 'book' and ${readingStateSql(sql`w.id`)} = 'unread' and ${ownedWorkCondition(sql`w.id`)}`;
 
 export async function unreadPile(today: string): Promise<UnreadPile> {
   // The homes (active physical locations, as homeOptions picks them) come

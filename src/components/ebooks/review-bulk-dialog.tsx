@@ -10,6 +10,7 @@ import { ReviewIssues } from "./review-issues";
 import { prepareReviewSelectionUi, prepareAcceptReviewSelectionUi, confirmReviewSelectionUi } from "@/lib/actions/ebook-review-selection-ui";
 import type { PreparedReviewSelection } from "@/lib/ebooks/review/bulk";
 import type { PrepareEbookReview, ReviewOutcome, ReviewQueueRow, ReviewPreparationIssue } from "@/lib/ebooks/review-queue/types";
+import { countLabel } from "@/lib/utils/format";
 
 export type ReviewBulkAction = "accept" | "keep" | "exclude" | "accession";
 const titles = { accept: "Review selected matches", keep: "Keep selected eBooks", exclude: "Set aside selected eBooks", accession: "Create selected books" };
@@ -107,7 +108,7 @@ export function ReviewBulkDialog({ rows, action, onClose, onCommitted, onUndone,
       </>}
       {prepared && <div className="space-y-3 rounded-sm border border-glass-border bg-glass-highlight p-4">
         <p className="type-label">This confirmation covers {prepared.preparedCount} {prepared.preparedCount === 1 ? "eBook" : "eBooks"}</p>
-        {prepared.accessionCounts && <p className="text-sm">{prepared.accessionCounts.books} books · {prepared.accessionCounts.editions} editions · {prepared.accessionCounts.copies} copies · {prepared.accessionCounts.newAuthors} new authors · {prepared.accessionCounts.newSeries} new series</p>}
+        {prepared.accessionCounts && <p className="text-sm">{countLabel(prepared.accessionCounts.books, "book")} · {countLabel(prepared.accessionCounts.editions, "edition")} · {countLabel(prepared.accessionCounts.copies, "copy", "copies")} · {countLabel(prepared.accessionCounts.newAuthors, "new author")} · {countLabel(prepared.accessionCounts.newSeries, "new series", "new series")}</p>}
         <ul className="max-h-64 space-y-2 overflow-auto text-sm">{prepared.rows.map((row) => <li key={row.ebookId}>{row.text}
           <span className="block text-xs text-fg-secondary">{[row.format?.toUpperCase(), row.fileSizeBytes !== null ? `${(row.fileSizeBytes / 1024 / 1024).toFixed(1)} MB` : null].filter(Boolean).join(" · ")}</span>
         </li>)}</ul>

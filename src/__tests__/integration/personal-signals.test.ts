@@ -81,7 +81,7 @@ describe.skipIf(!url)("read status and personal signals with PostgreSQL", () => 
     failing.on = 0;
     failing.calls = 0;
   }, 30000);
-  const book = (title: string) => value(`insert into works(title, slug) values ($1, $2) returning id`, [title, `book-${++serial}`]);
+  const book = (title: string) => value(`insert into works(title, slug, catalogue_status) values ($1, $2, 'accessioned') returning id`, [title, `book-${++serial}`]);
   const copy = async (workId: string, { status = "available", format = "paperback" } = {}) => {
     const e = await value(`insert into editions(work_id, title, language) values ($1, 'E', 'en') returning id`, [workId]);
     await q(`insert into instances(edition_id, location_id, status, format) values ($1, $2, $3, $4)`, [e, home, status, format]);
@@ -197,6 +197,10 @@ describe.skipIf(!url)("read status and personal signals with PostgreSQL", () => 
     await book("Unread, no copy");
     const gone = await book("Unread, copy deaccessioned");
     await copy(gone, { status: "deaccessioned" });
+    // A copy alone is not owned: the book must be accessioned too (SLN-886)
+    const tracked = await book("Unread, tracked with a copy");
+    await q(`update works set catalogue_status = 'tracked' where id = $1`, [tracked]);
+    await copy(tracked);
     const res = await listWorks(new NextRequest("http://localhost/api/works?reading=unread&holding=owned"));
     const body = await res.json();
     expect(body.works.map((w: { title: string }) => w.title)).toEqual(["Owned unread"]);

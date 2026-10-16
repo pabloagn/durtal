@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
 import {
   AddButton,
   CHIP,
@@ -61,26 +62,21 @@ export function OrganizationRolesField({
           <span className={ROLE_CHIP_NAME}>
             {entry.name}
           </span>
-          <select
-            aria-label={`Role of ${entry.name}`}
+          <Select
+            compact
+            ariaLabel={`Role of ${entry.name}`}
             value={entry.role}
+            options={Object.entries(PERFUME_ORGANIZATION_ROLE_LABELS).map(([role, label]) => ({
+              value: role,
+              label,
+              disabled: taken(entry.organizationId, role, index),
+            }))}
             onChange={(e) => {
               const role = e.target.value as PerfumeOrganizationRole;
               if (taken(entry.organizationId, role, index)) return;
               onChange(value.map((o, i) => (i === index ? { ...o, role } : o)));
             }}
-            className="h-5 shrink-0 rounded-sm border border-transparent bg-transparent px-0.5 text-xs leading-5 text-fg-secondary hover:border-glass-border focus:border-accent-primary focus:outline-none pointer-coarse:h-11 pointer-coarse:min-w-11"
-          >
-            {Object.entries(PERFUME_ORGANIZATION_ROLE_LABELS).map(([role, label]) => (
-              <option
-                key={role}
-                value={role}
-                disabled={taken(entry.organizationId, role, index)}
-              >
-                {label}
-              </option>
-            ))}
-          </select>
+          />
           <RemoveButton
             label={`Remove ${entry.name}`}
             onClick={() => onChange(value.filter((_, i) => i !== index))}
@@ -173,9 +169,11 @@ export function CreditListField({
             {creditName(entry)}
           </span>
           {roles && (
-            <select
-              aria-label={`Role of ${creditName(entry)}`}
+            <Select
+              compact
+              ariaLabel={`Role of ${creditName(entry)}`}
               value={entry.roleId ?? "perfume.perfumer"}
+              options={Object.entries(PERFUME_CREDIT_ROLE_LABELS).map(([role, roleLabel]) => ({ value: role, label: roleLabel }))}
               onChange={(e) =>
                 onChange(
                   value.map((c, i) =>
@@ -183,14 +181,7 @@ export function CreditListField({
                   ),
                 )
               }
-              className="h-5 shrink-0 rounded-sm border border-transparent bg-transparent px-0.5 text-xs leading-5 text-fg-secondary hover:border-glass-border focus:border-accent-primary focus:outline-none pointer-coarse:h-11 pointer-coarse:min-w-11"
-            >
-              {Object.entries(PERFUME_CREDIT_ROLE_LABELS).map(([role, roleLabel]) => (
-                <option key={role} value={role}>
-                  {roleLabel}
-                </option>
-              ))}
-            </select>
+            />
           )}
           <RemoveButton
             label={`Remove ${creditName(entry)}`}

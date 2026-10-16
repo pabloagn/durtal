@@ -315,7 +315,7 @@ export function WorkForm({
                 language={values.originalLanguage}
                 required
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Select
                   id={id("language")}
                   label="Original language"
@@ -334,7 +334,7 @@ export function WorkForm({
                   placeholder="e.g. 1984"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Select
                   id={id("work-type")}
                   label="Work type"
@@ -368,7 +368,7 @@ export function WorkForm({
             <h3 className="type-group-title mb-3">
               Status
             </h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Select
                 id={id("catalogue-status")}
                 label="Catalogue status"
@@ -454,26 +454,20 @@ export function WorkForm({
                     })}
                   </div>
                 )}
-                <select
+                <Select
                   id={id("recommender")}
                   value=""
+                  placeholder="Add recommender…"
+                  options={recommenders
+                    .filter((r) => !values.recommenderIds.includes(r.id))
+                    .map((r) => ({ value: r.id, label: r.name }))}
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val && !values.recommenderIds.includes(val)) {
                       set("recommenderIds", [...values.recommenderIds, val]);
                     }
                   }}
-                  className="h-9 w-full appearance-none rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary transition-colors focus:border-accent-primary focus:outline-none pointer-coarse:h-11"
-                >
-                  <option value="">Add recommender...</option>
-                  {recommenders
-                    .filter((r) => !values.recommenderIds.includes(r.id))
-                    .map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                </select>
+                />
               </div>
             </div>
           </section>

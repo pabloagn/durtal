@@ -1,3 +1,4 @@
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { and, eq, inArray, sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -43,7 +44,7 @@ export async function requireBookWorks(workIds: string[], conn: Pick<typeof db, 
       ),
     );
   if (found.length !== ids.length)
-    throw new Error("Book not found: this action only accepts existing books");
+    throw new ExpectedActionError("Book not found: this action only accepts existing books");
 }
 
 export async function requireBookWork(workId: string, conn: Pick<typeof db, "select"> = db): Promise<void> {

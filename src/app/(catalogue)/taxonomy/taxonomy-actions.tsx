@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { Dialog } from "@/components/ui/dialog";
 import { CreateFamilyDialog } from "@/components/taxonomy/create-family-dialog";
-import { reorderFamilies } from "@/lib/actions/taxonomy-families";
+import { reorderFamilies } from "@/lib/actions/taxonomy-client";
 
 interface FamilyRef {
   id: string;

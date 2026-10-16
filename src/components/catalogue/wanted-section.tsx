@@ -16,7 +16,8 @@ import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { StorageFields, priceError, readNumber, type StorageLocation } from "@/components/catalogue/holding-fields";
 import { SingleChoiceField } from "@/components/catalogue/record-fields";
 import type { PickerChoice } from "@/components/catalogue/search-picker";
-import { createTypedTarget, orderTypedTarget, removeTypedTarget, type TypedTargetView } from "@/lib/actions/acquisitions";
+import { type TypedTargetView } from "@/lib/actions/acquisitions";
+import { createTypedTarget, orderTypedTarget, removeTypedTarget } from "@/lib/actions/catalogue-client";
 import { searchVenues } from "@/lib/actions/venues";
 import {
   ACQUISITION_METHOD_LABELS,

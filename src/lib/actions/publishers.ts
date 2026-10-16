@@ -1,4 +1,5 @@
 "use server";
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 
 import { cache } from "react";
 import { requireBookWork } from "@/lib/catalogue/book-boundary";
@@ -329,7 +330,7 @@ export async function savePublisher(input: PublisherInput, id?: string) {
         .where(and(publisherCondition, eq(houses.id, id)))
     ).length
   )
-    throw new Error("Publisher not found");
+    throw new ExpectedActionError("Publisher not found");
   const { aliases, specialtyIds, isbnPrefixes, ...data } = parsed;
   // The first country the text names, matched exactly (SLN-330)
   const countryId = data.country
@@ -487,9 +488,9 @@ export async function setEditionPublisherLinks(
   const unmatched = requested.length ? await getUnmatchedEditionNames(editionId) : [];
   const names = requested.filter((n) => unmatched.some((u) => u.name === n));
   if (names.length !== requested.length)
-    throw new Error("Only an unmatched name of this edition can become an alias");
+    throw new ExpectedActionError("Only an unmatched name of this edition can become an alias");
   if (names.length && ids.length !== 1)
-    throw new Error("Choose exactly one publisher to save a name as its alias");
+    throw new ExpectedActionError("Choose exactly one publisher to save a name as its alias");
   await atomic((d) => [
     ...(names.length
       ? [
@@ -596,7 +597,7 @@ export async function createAcquisitionTarget(input: TargetInput) {
     .values(data)
     .onConflictDoNothing()
     .returning();
-  if (!row) throw new Error("This acquisition target already exists");
+  if (!row) throw new ExpectedActionError("This acquisition target already exists");
   changed();
   return row;
 }
@@ -607,7 +608,7 @@ export async function cancelAcquisitionTarget(id: string) {
     .set({ isCancelled: true })
     .where(eq(acquisitionTargets.id, z.uuid().parse(id)))
     .returning();
-  if (!row) throw new Error("Target not found");
+  if (!row) throw new ExpectedActionError("Target not found");
   changed();
 }
 

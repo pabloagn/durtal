@@ -12,7 +12,7 @@ import {
   TiptapEditor,
   type RichValue,
 } from "@/components/shared/tiptap-editor";
-import { updateReading } from "@/lib/actions/reading";
+import { updateReading } from "@/lib/actions/catalogue-client";
 import {
   ABANDON_REASONS,
   ABANDON_REASON_LABELS,
@@ -38,6 +38,7 @@ import {
 } from "./fields";
 import { finishDateError } from "./finish-reading-dialog";
 import { readNumber, startPosition } from "./start-reading-dialog";
+import { countLabel } from "@/lib/utils/format";
 
 const UNITS = [
   { value: "pages", label: "Page" },
@@ -207,7 +208,7 @@ export function EditReadingDialog({
           newTotal !== null &&
           effectiveCurrent.page !== null &&
           newTotal < effectiveCurrent.page
-        ? `You are on p. ${effectiveCurrent.page}; the book cannot have ${newTotal} pages`
+        ? `You are on p. ${effectiveCurrent.page.toLocaleString("en")}; the book cannot have ${countLabel(newTotal, "page")}`
         : null;
   const lengthError =
     format === "audio" && length.trim() && parseLength(length) === null

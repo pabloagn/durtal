@@ -16,16 +16,35 @@ export function collectionCounts(collection: {
   return { editionCount: editions.length, workCount: works.length };
 }
 
+type CountedCollection = {
+  collectionEditions?: { edition?: { workId: string } | null }[];
+  collectionWorks?: { workId: string; work?: { kind: WorkKind } | null }[];
+};
+
 /**
  * A collection's one count line, the same on its card and its page: "6
  * books", "4 editions", "3 books · 1 perfume", "1,050 films". Counted as `collectionCounts`
  * counts (an edition stands for its book); `null` when it holds nothing, so
  * the card says "Empty" and the page leaves the line out.
  */
-export function collectionCountLine(collection: {
-  collectionEditions?: { edition?: { workId: string } | null }[];
-  collectionWorks?: { workId: string; work?: { kind: WorkKind } | null }[];
-}) {
+export function collectionCountLine(collection: CountedCollection) {
+  const shown = countParts(collection);
+  return shown.length
+    ? shown.map(([n, one, many]) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`).join(" · ")
+    : null;
+}
+
+/**
+ * What the pager calls a collection's members: the count line's one noun
+ * ("books") when it has one, else "items" (SLN-886)
+ */
+export function collectionMembersNoun(collection: CountedCollection) {
+  const shown = countParts(collection);
+  return shown.length === 1 ? shown[0][2] : "items";
+}
+
+/** The count line's parts with members, each once: a book collected both ways counts as its editions */
+function countParts(collection: CountedCollection) {
   const editions = collection.collectionEditions ?? [];
   const byEdition = new Set(editions.flatMap((m) => (m.edition ? [m.edition.workId] : [])));
   const works = (collection.collectionWorks ?? []).filter((m) => !byEdition.has(m.workId));
@@ -37,10 +56,7 @@ export function collectionCountLine(collection: {
     [of("perfume"), "perfume", "perfumes"],
     [of("painting"), "painting", "paintings"],
   ];
-  const shown = parts.filter(([n]) => n > 0);
-  return shown.length
-    ? shown.map(([n, one, many]) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`).join(" · ")
-    : null;
+  return parts.filter(([n]) => n > 0);
 }
 
 /**

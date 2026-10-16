@@ -1,5 +1,7 @@
 "use server";
 
+import { ExpectedActionError } from "./expected-error";
+
 import { recordWorkChanges, workSnapshot } from "@/lib/activity/work-changes";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -25,6 +27,7 @@ import {
   familyItemCondition,
   itemProjection,
   linkedEntities,
+  linkRows,
   type TaxonomyItem,
 } from "@/lib/catalogue/taxonomy-storage";
 import {
@@ -161,7 +164,7 @@ export async function getTaxonomyFamily(slug: string) {
 }
 async function requiredFamily(slug: string) {
   const family = await getTaxonomyFamily(slug);
-  if (!family) throw new Error("Taxonomy family not found");
+  if (!family) throw new ExpectedActionError("Taxonomy family not found");
   return family;
 }
 /** The family's scopes exactly as given; used scopes are protected in PostgreSQL. */
@@ -227,7 +230,7 @@ export async function updateTaxonomyFamily(
   z.uuid().parse(id);
   const { scopes, ...fields } = updateTaxonomyFamilySchema.parse(input);
   if (!Object.keys(fields).length && !scopes)
-    throw new Error("No editable fields supplied");
+    throw new ExpectedActionError("No editable fields supplied");
   await withReadableErrors(
     () =>
       atomic((d) => [
@@ -362,7 +365,7 @@ export async function deleteTaxonomyFamily(id: string) {
 export async function reorderFamilies(ids: string[]) {
   z.array(z.uuid()).min(1).max(500).parse(ids);
   if (new Set(ids).size !== ids.length)
-    throw new Error("Each family must appear once");
+    throw new ExpectedActionError("Each family must appear once");
   const listed = sql.join(
     ids.map((id) => sql`${id}::uuid`),
     sql`,`,
@@ -393,24 +396,34 @@ export async function reorderFamilies(ids: string[]) {
   return { success: true };
 }
 
-export async function getTaxonomyItems(
-  familySlug: string,
-  kind: WorkKind = "book",
-) {
-  z.enum(WORK_KINDS).parse(kind);
+/**
+ * The kinds an item's count and page cover: books where the family applies
+ * to books, as its items list books; else every open collection it applies
+ * to, so a perfume note counts its perfumes (SLN-886)
+ */
+function itemKinds(family: { applicability?: { kind: WorkKind }[] }): WorkKind[] {
+  const enabled = new Set(getEnabledWorkKinds());
+  const kinds = [...new Set((family.applicability ?? []).map((scope) => scope.kind))].filter((kind) => enabled.has(kind));
+  return kinds.length === 0 || kinds.includes("book") ? ["book"] : kinds;
+}
+
+export async function getTaxonomyItems(familySlug: string, kind?: WorkKind) {
+  if (kind !== undefined) z.enum(WORK_KINDS).parse(kind);
   const family = await getTaxonomyFamily(familySlug);
   if (!family) return [];
   const storage = taxonomyStorage(family);
-  const counts = sql.join(
-    storage.links.map(
-      (link) =>
-        sql`select l.${sql.identifier(link.item)} as item_id,l.${sql.identifier(link.owner)} as owner_id,${link.level}::text as level from ${sql.identifier(link.table)} l ${link.level === "work" ? sql`join works w on w.id=l.work_id` : sql`join editions e on e.id=l.edition_id join works w on w.id=e.work_id`} where w.kind=${kind}`,
-    ),
-    sql` union `,
-  );
+  const shownKinds = kind ? [kind] : itemKinds(family);
+  const counts = linkRows(storage, WORK_KINDS);
+  const children = storage.columns.has("parent_id")
+    ? sql`select parent_id,count(*)::int as total from ${sql.identifier(storage.table)} c where ${familyItemCondition(storage, family.id, "c")} group by parent_id`
+    : sql`select null::uuid as parent_id,0::int as total where false`;
   return resultRows<TaxonomyItem>(
     await db.execute(
-      sql`select ${itemProjection(storage)},coalesce(c.total,0)::int as "entityCount" from ${sql.identifier(storage.table)} i left join (select item_id,count(*) as total from (${counts}) links group by item_id) c on c.item_id=i.id where ${familyItemCondition(storage, family.id)} order by "sortOrder",lower(i.name),i.id`,
+      sql`select ${itemProjection(storage)},coalesce(c.total,0)::int as "entityCount",coalesce(c.all_links,0)::int as "linkCount",coalesce(children.total,0)::int as "childCount"
+      from ${sql.identifier(storage.table)} i
+      left join (select item_id,count(*) filter(where kind in (${sql.join(shownKinds.map(k => sql`${k}`), sql`, `)})) as total,count(*) as all_links from (${counts}) links group by item_id) c on c.item_id=i.id
+      left join (${children}) children on children.parent_id=i.id
+      where ${familyItemCondition(storage, family.id)} order by "sortOrder",lower(i.name),i.id`,
     ),
   );
 }
@@ -424,15 +437,20 @@ export async function getTaxonomyItem(familySlug: string, itemSlug: string) {
     ),
   );
   if (!item) return null;
-  const rows = resultRows<{ id: string; level: string }>(
-    await db.execute(linkedEntities(storage, family.id, "book", item.id)),
-  );
+  const kinds = itemKinds(family);
+  const rows = resultRows<{ id: string; level: string; kind: WorkKind }>(
+    await db.execute(
+      sql`select distinct l.owner_id as id,l.level,l.kind from (${linkRows(storage, kinds)}) l where l.item_id=${item.id}::uuid`,
+    ),
+  ).filter((r) => r.level === family.entityLevel);
   return {
     ...item,
     createdAt: storage.custom ? item.createdAt : undefined,
-    entityIds: rows
-      .filter((r) => r.level === family.entityLevel)
-      .map((r) => r.id),
+    /** The kinds counted: books, or the other collections the family applies to */
+    kinds,
+    entityIds: rows.map((r) => r.id),
+    /** How many of each kind, in `kinds` order */
+    kindCounts: kinds.map((k) => ({ kind: k, count: rows.filter((r) => r.kind === k).length })),
   };
 }
 
@@ -444,7 +462,7 @@ export async function createTaxonomyItem(familySlug: string, input: unknown) {
     parsed.parentId &&
     (!family.hierarchical || !storage.columns.has("parent_id"))
   )
-    throw new Error("This family has no hierarchy");
+    throw new ExpectedActionError("This family has no hierarchy");
   const id = randomUUID();
   const values: Record<string, unknown> = {
     id,
@@ -460,10 +478,12 @@ export async function createTaxonomyItem(familySlug: string, input: unknown) {
     values.description = parsed.description ?? null;
   if (storage.columns.has("scope_notes"))
     values.scope_notes = parsed.description ?? null;
+  if (storage.columns.has("sort_order")) values.sort_order = sql`(select coalesce(max(i.sort_order),-1)+1 from ${sql.identifier(storage.table)} i where ${familyItemCondition(storage, family.id)})`;
   const fields = Object.entries(values);
   await withReadableErrors(
-    () =>
-      db.execute(
+    () => atomic(d => [
+      d.execute(lockSql([storage.table])),
+      d.execute(
         sql`insert into ${sql.identifier(storage.table)} (${sql.join(
           fields.map(([key]) => sql.identifier(key)),
           sql`,`,
@@ -472,6 +492,7 @@ export async function createTaxonomyItem(familySlug: string, input: unknown) {
           sql`,`,
         )})`,
       ),
+    ]),
     { unique: ITEM_NAME_TAKEN },
   );
   changed();
@@ -490,7 +511,7 @@ export async function updateTaxonomyItem(
     parsed.parentId &&
     (!family.hierarchical || !storage.columns.has("parent_id"))
   )
-    throw new Error("This family has no hierarchy");
+    throw new ExpectedActionError("This family has no hierarchy");
   const values: Record<string, unknown> = {};
   if (parsed.name !== undefined) values.name = parsed.name;
   if (parsed.color !== undefined) values.color = parsed.color;
@@ -503,7 +524,7 @@ export async function updateTaxonomyItem(
       values.scope_notes = parsed.description;
   }
   const fields = Object.entries(values);
-  if (!fields.length) throw new Error("No editable fields supplied");
+  if (!fields.length) throw new ExpectedActionError("No editable fields supplied");
   // A rename to a name another item has is refused with the create's message
   const rows = resultRows<{ id: string }>(
     await withReadableErrors(
@@ -518,7 +539,7 @@ export async function updateTaxonomyItem(
     ),
   );
   if (!rows.length)
-    throw new Error("Item does not belong to this taxonomy family");
+    throw new ExpectedActionError("Item does not belong to this taxonomy family");
   changed();
   return { id: itemId };
 }
@@ -533,7 +554,7 @@ export async function mergeTaxonomyItems(familySlug: string, input: unknown) {
       ),
     );
     if (row.total !== 2)
-      throw new Error("Choose two items from this taxonomy family");
+      throw new ExpectedActionError("Choose two items from this taxonomy family");
   }
   const preview = await previewMerge(storage.entity, sourceId, targetId);
   const choices = Object.fromEntries(
@@ -567,23 +588,26 @@ export async function deleteTaxonomyItem(
   const family = await requiredFamily(familySlug),
     storage = taxonomyStorage(family);
   const rows = resultRows<{ id: string }>(
-    await db.execute(
-      sql`delete from ${sql.identifier(storage.table)} i where i.id=${itemId}::uuid and ${familyItemCondition(storage, family.id)} returning i.id`,
-    ),
+    (await withReadableErrors(() => atomic((d) => [
+      d.execute(lockSql([storage.table])),
+      d.execute(assertSql(sql`not exists(select 1 from (${linkRows(storage, WORK_KINDS)}) links where links.item_id=${itemId}::uuid)`, "Reassign this item's catalogue links before deleting it")),
+      ...(storage.columns.has("parent_id") ? [d.execute(assertSql(sql`not exists(select 1 from ${sql.identifier(storage.table)} where parent_id=${itemId}::uuid)`, "Move this item's children before deleting it"))] : []),
+      d.execute(sql`delete from ${sql.identifier(storage.table)} i where i.id=${itemId}::uuid and ${familyItemCondition(storage, family.id)} returning i.id`),
+    ]))).at(-1),
   );
   if (!rows.length)
-    throw new Error("Item does not belong to this taxonomy family");
+    throw new ExpectedActionError("Item does not belong to this taxonomy family");
   changed();
   return { id: itemId };
 }
 export async function reorderTaxonomyItems(familySlug: string, ids: string[]) {
   z.array(z.uuid()).max(2000).parse(ids);
   if (new Set(ids).size !== ids.length)
-    throw new Error("Each item must appear once");
+    throw new ExpectedActionError("Each item must appear once");
   const family = await requiredFamily(familySlug),
     storage = taxonomyStorage(family);
   if (!storage.columns.has("sort_order"))
-    throw new Error("This family uses alphabetical ordering");
+    throw new ExpectedActionError("This family uses alphabetical ordering");
   if (ids.length)
     await atomic((d) => [
       d.execute(lockSql([storage.table])),
@@ -596,11 +620,19 @@ export async function reorderTaxonomyItems(familySlug: string, ids: string[]) {
           "Item does not belong to this taxonomy family",
         ),
       ),
-      ...ids.map((id, position) =>
-        d.execute(
-          sql`update ${sql.identifier(storage.table)} set sort_order=${position} where id=${id}::uuid`,
-        ),
-      ),
+      // Replace only the selected slots, then number the whole family. A
+      // partial order preserves unlisted rows and never creates tied ranks.
+      d.execute(sql`with wanted as (
+        select value::uuid as id,ordinality::int as ordinal from jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb) with ordinality
+      ), ranked as (
+        select i.id,(row_number() over(order by i.sort_order,lower(i.name),i.id)-1)::int as position
+        from ${sql.identifier(storage.table)} i where ${familyItemCondition(storage, family.id)}
+      ), slots as (
+        select r.position,row_number() over(order by r.position)::int as ordinal from ranked r join wanted w on w.id=r.id
+      ), replacements as (
+        select w.id,s.position from wanted w join slots s using(ordinal)
+      ) update ${sql.identifier(storage.table)} target set sort_order=coalesce(p.position,r.position)
+        from ranked r left join replacements p on p.id=r.id where target.id=r.id`),
     ]);
   changed();
   return { success: true };
@@ -612,7 +644,7 @@ export async function moveTaxonomyItem(
 ) {
   z.uuid().nullable().parse(newParentId);
   const family = await requiredFamily(familySlug);
-  if (!family.hierarchical) throw new Error("This family has no hierarchy");
+  if (!family.hierarchical) throw new ExpectedActionError("This family has no hierarchy");
   return updateTaxonomyItem(familySlug, itemId, { parentId: newParentId });
 }
 
@@ -622,6 +654,7 @@ const assignmentOwnerSchema = z.strictObject({
   ownerId: z.uuid(),
 });
 export interface AssignedTaxonomyItem {
+  slug?: string | null;
   id: string;
   name: string;
   parentName: string | null;
@@ -645,7 +678,7 @@ export async function getTaxonomyAssignments(
       ? sql`custom_taxonomy_item_works l on l.item_id=i.id and l.work_id=${ownerId}::uuid`
       : sql`custom_taxonomy_item_editions l on l.item_id=i.id and l.edition_id=${ownerId}::uuid`;
   const rows = resultRows<AssignedTaxonomyItem & { familyId: string }>(
-    await db.execute(sql`select i.id,i.name,i.family_id as "familyId",p.name as "parentName"
+    await db.execute(sql`select i.id,i.name,i.slug,i.family_id as "familyId",p.name as "parentName"
       from custom_taxonomy_items i join ${link} left join custom_taxonomy_items p on p.id=i.parent_id
       where i.family_id in (${sql.join(
         families.map((f) => sql`${f.id}::uuid`),
@@ -678,7 +711,7 @@ export async function searchTaxonomyItems(
   const { query, limit } = itemSearchSchema.parse(input);
   const family = await requiredFamily(familySlug);
   if (!taxonomyStorage(family).custom)
-    throw new Error("This family is edited on its own page");
+    throw new ExpectedActionError("This family is edited on its own page");
   const match = query
     ? sql`and search_normalize(i.name) like '%' || search_normalize(${query}) || '%'`
     : sql``;
@@ -686,7 +719,7 @@ export async function searchTaxonomyItems(
     ? sql`order by (search_normalize(i.name)=search_normalize(${query})) desc,(search_normalize(i.name) like search_normalize(${query}) || '%') desc,lower(i.name),i.id`
     : sql`order by i.sort_order,lower(i.name),i.id`;
   const rows = resultRows<AssignedTaxonomyItem>(
-    await db.execute(sql`select i.id,i.name,p.name as "parentName" from custom_taxonomy_items i
+    await db.execute(sql`select i.id,i.name,i.slug,p.name as "parentName" from custom_taxonomy_items i
       left join custom_taxonomy_items p on p.id=i.parent_id
       where i.family_id=${family.id}::uuid ${match} ${order} limit ${limit + 1}`),
   );
@@ -715,7 +748,7 @@ export async function replaceTaxonomyAssignments(input: {
     storage = taxonomyStorage(family);
   const link = storage.links.find((link) => link.level === parsed.level);
   if (!link)
-    throw new Error("Taxonomy family has no assignment store at this level");
+    throw new ExpectedActionError("Taxonomy family has no assignment store at this level");
   const ids = [...new Set(parsed.itemIds)];
   const owner = parsed.level === "work" ? works : editions;
   // A work's history notes each item added or removed

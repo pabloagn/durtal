@@ -1,7 +1,7 @@
 "use client";
 
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
-import { deleteReading, restoreReading } from "@/lib/actions/reading";
+import { deleteReading, restoreReading } from "@/lib/actions/catalogue-client";
 import { ordinalRead } from "@/lib/reading/labels";
 import { keptNotesText } from "@/lib/reading/notes-text";
 import { showError, undoToast } from "../reading-client";

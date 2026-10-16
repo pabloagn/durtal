@@ -1,3 +1,4 @@
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { randomUUID } from "node:crypto";
 import { inArray, sql, type SQL } from "drizzle-orm";
 import type { z } from "zod";
@@ -162,7 +163,7 @@ export function requireOwnIds(
 ) {
   const ids = new Set(existing.map((row) => row.id));
   if (list.some((row) => row.id && !ids.has(row.id)))
-    throw new Error(`A ${label} ID belongs to another record or was removed`);
+    throw new ExpectedActionError(`A ${label} ID belongs to another record or was removed`);
 }
 export function lockWork(d: Db, workId: string, kind: WorkKind): Query {
   return d.execute(

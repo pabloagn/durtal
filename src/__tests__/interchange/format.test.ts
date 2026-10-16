@@ -132,4 +132,17 @@ describe("reading a file", () => {
     const otherKind = readRecord(record("perfume", { identity: { works: [workRow("film")] } }), 3);
     expect(otherKind).toMatchObject({ ok: false, problems: ["sections.identity.works[0].kind: must be perfume"] });
   });
+
+  it("reads a painting's art movements, as the export writes them", () => {
+    const movements = { work_art_movements: [{ work_id: id, art_movement_id: randomUUID() }] };
+    const painting = readRecord(record("painting", { identity: { works: [workRow("painting")] }, taxonomy: movements }), 0);
+    expect(painting.ok, painting.ok ? "" : painting.problems.join("\n")).toBe(true);
+    const book = readRecord(record("book", { identity: { works: [workRow("book")] }, taxonomy: movements }), 1);
+    expect(book.ok, book.ok ? "" : book.problems.join("\n")).toBe(true);
+    // Films and perfumes keep none
+    expect(readRecord(record("film", { identity: { works: [workRow("film")] }, taxonomy: movements }), 2)).toMatchObject({
+      ok: false,
+      problems: ["sections.taxonomy.work_art_movements: a film record cannot carry it"],
+    });
+  });
 });

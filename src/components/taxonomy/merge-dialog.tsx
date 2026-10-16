@@ -5,7 +5,9 @@ import { toast } from "@/lib/notifications/toast";
 import { Merge } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { Badge } from "@/components/ui/badge";
+import { countLabel } from "@/lib/utils/format";
 import { searchScore } from "@/lib/utils/search-text";
 
 interface MergeDialogProps {
@@ -15,6 +17,7 @@ interface MergeDialogProps {
   familySlug: string;
   availableTargets: { id: string; name: string }[];
   onMerged: () => void;
+  entityNoun?: string;
 }
 
 export function MergeDialog({
@@ -23,11 +26,12 @@ export function MergeDialog({
   sourceItem,
   familySlug,
   availableTargets,
-  onMerged,
+  onMerged, entityNoun = "work",
 }: MergeDialogProps) {
   const [targetId, setTargetId] = useState("");
   const [search, setSearch] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const filteredTargets = useMemo(() => {
     // Accents, case and punctuation ignored, as every search (SLN-881)
@@ -38,19 +42,22 @@ export function MergeDialog({
   const targetItem = availableTargets.find((t) => t.id === targetId);
 
   const handleClose = useCallback(() => {
+    if (submitting) return;
     setTargetId("");
     setSearch("");
+    setError(null);
     onClose();
-  }, [onClose]);
+  }, [onClose, submitting]);
 
   const handleMerge = useCallback(
     async () => {
-      if (!targetId) return;
+      if (submitting || !availableTargets.some(t => t.id === targetId)) return;
 
       setSubmitting(true);
+      setError(null);
       try {
         const { mergeTaxonomyItems } = await import(
-          "@/lib/actions/taxonomy-families"
+          "@/lib/actions/taxonomy-client"
         );
         await mergeTaxonomyItems(familySlug, {
           sourceId: sourceItem.id,
@@ -59,17 +66,20 @@ export function MergeDialog({
         toast.success(
           `Merged "${sourceItem.name}" into "${targetItem?.name}"`,
         );
-        handleClose();
+        setTargetId("");
+        setSearch("");
+        onClose();
         onMerged();
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to merge items";
+        setError(message);
         toast.error(message);
       } finally {
         setSubmitting(false);
       }
     },
-    [targetId, familySlug, sourceItem, targetItem, handleClose, onMerged],
+    [targetId, submitting, availableTargets, familySlug, sourceItem, targetItem, onClose, onMerged],
   );
 
   return (
@@ -78,7 +88,7 @@ export function MergeDialog({
       open={open}
       onClose={handleClose}
       title="Merge item"
-      description={`Merge "${sourceItem.name}" into another item. All associated works will be reassigned.`}
+      description={`Merge "${sourceItem.name}" into another item. All associated ${entityNoun}s will be reassigned.`}
       className="max-w-lg"
       expandable={false}
     >
@@ -86,10 +96,10 @@ export function MergeDialog({
       <div className="space-y-4">
         {/* Source info */}
         <div className="rounded-sm border border-glass-border bg-bg-primary/60 px-3 py-2.5">
-          <div className="flex items-center gap-2">
-            <Merge className="h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} />
+          <div className="flex items-start gap-2 text-sm">
+            <CapAligned height={14}><Merge className="h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} /></CapAligned>
             <span className="text-sm text-fg-primary">{sourceItem.name}</span>
-            <Badge variant="muted">{sourceItem.entityCount} works</Badge>
+            <Badge variant="muted">{countLabel(sourceItem.entityCount, entityNoun)}</Badge>
           </div>
         </div>
 
@@ -107,13 +117,13 @@ export function MergeDialog({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search items..."
+            placeholder="Search items…"
             className="h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none"
           />
           <div className="max-h-40 overflow-y-auto rounded-sm border border-glass-border bg-bg-primary/40">
             {filteredTargets.length === 0 ? (
               <div className="px-3 py-2 text-xs text-fg-secondary">
-                No matching items
+                {availableTargets.length ? "No matching items" : "No sibling items to merge into. Move this item or add a sibling first."}
               </div>
             ) : (
               filteredTargets.map((target) => (
@@ -144,6 +154,8 @@ export function MergeDialog({
           </p>
         )}
 
+        {error && <p role="alert" className="text-sm text-accent-red-text">{error}</p>}
+
         {/* Actions */}
         <div className="flex items-center justify-end gap-2 pt-2">
           <Button data-dismiss=""
@@ -151,6 +163,7 @@ export function MergeDialog({
             variant="ghost"
             size="sm"
             onClick={handleClose}
+            disabled={submitting}
           >
             Cancel
           </Button>

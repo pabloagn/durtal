@@ -725,7 +725,7 @@ Single series view.
 
 **Authors** (SLN-636): read from the series' books, never stored on the series. They are the people credited as writer or co-author of a volume (`work_authors`), each once: the one with most volumes first, then in the books' credit order, then by name. A translator or editor (an edition credit) is never one. Each name links to its person page (`/people/[slug]`); a person with no address yet is plain text. A series with no books names none, and adding or removing a volume changes the list. `getSeriesAuthors` in `src/lib/actions/series.ts` reads them for the detail and for a page of the list in one query.
 
-**Works list**: Ordered by `series_position`. Each entry shows cover thumbnail, title, authors, position number.
+**Works list**: Ordered by `series_position`, then title; books with no number come last. Only a typed number changes the order: there are no move buttons, so nothing rewrites a volume number (SLN-912). Each entry shows cover thumbnail, title, authors, position number.
 
 ---
 

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
 import { OutsideTapBackdrop } from "./outside-tap-backdrop";
+import { readerPanelInset, subscribeReaderPanelInset } from "./side-panel";
 import { FitWords } from "./fit-words";
 import {
   DropdownMenu,
@@ -39,31 +40,27 @@ const READER_THEME_CHOICES = [
   { id: "sepia", label: "Sepia page", icon: Sunset },
 ] as const satisfies readonly { id: ReaderThemeId; label: string; icon: unknown }[];
 
-/** Below this width the bar keeps its main controls and moves the rest into More */
-const COMPACT_QUERY = "(max-width: 639.98px)";
-const subscribeCompact = (change: () => void) => {
-  const query = window.matchMedia(COMPACT_QUERY);
-  query.addEventListener("change", change);
-  return () => query.removeEventListener("change", change);
+/** The bar's own width: from 1024px it stands beside an open drawer, as the
+ * book does, so it is the screen less that drawer (SLN-892) */
+const barWidth = () => {
+  const { left, right } = readerPanelInset();
+  return window.innerWidth - left - right;
 };
-const compactNow = () => window.matchMedia(COMPACT_QUERY).matches;
+const subscribeBarWidth = (change: () => void) => {
+  window.addEventListener("resize", change);
+  const stop = subscribeReaderPanelInset(change);
+  return () => {
+    window.removeEventListener("resize", change);
+    stop();
+  };
+};
+/** Below 640px the bar keeps its main controls and moves the rest into More */
+const compactNow = () => barWidth() < 640;
 // A phone under 400px moves Settings into More, so the title keeps a few words (SLN-686)
-const NARROW_QUERY = "(max-width: 399.98px)";
-const subscribeNarrow = (change: () => void) => {
-  const query = window.matchMedia(NARROW_QUERY);
-  query.addEventListener("change", change);
-  return () => query.removeEventListener("change", change);
-};
-const narrowNow = () => window.matchMedia(NARROW_QUERY).matches;
+const narrowNow = () => barWidth() < 400;
 // Under 360px Bookmark moves into More too, and Contents beside Page controls,
 // so the title keeps two words (SLN-730)
-const TINY_QUERY = "(max-width: 359.98px)";
-const subscribeTiny = (change: () => void) => {
-  const query = window.matchMedia(TINY_QUERY);
-  query.addEventListener("change", change);
-  return () => query.removeEventListener("change", change);
-};
-const tinyNow = () => window.matchMedia(TINY_QUERY).matches;
+const tinyNow = () => barWidth() < 360;
 
 /** Dark, light and sepia pages, one tap away in the bar */
 function ThemeMenu({
@@ -175,9 +172,9 @@ export function ReaderToolbar({
   /** A menu of the bar is open: the bars stay while it is */
   onMenuChange?(open: boolean): void;
 }) {
-  const compact = useSyncExternalStore(subscribeCompact, compactNow, () => false);
-  const narrow = useSyncExternalStore(subscribeNarrow, narrowNow, () => false);
-  const tiny = useSyncExternalStore(subscribeTiny, tinyNow, () => false);
+  const compact = useSyncExternalStore(subscribeBarWidth, compactNow, () => false);
+  const narrow = useSyncExternalStore(subscribeBarWidth, narrowNow, () => false);
+  const tiny = useSyncExternalStore(subscribeBarWidth, tinyNow, () => false);
   const [menu, setMenuState] = useState<"more" | "theme" | null>(null);
   const setMenu = (next: "more" | "theme" | null) => {
     setMenuState(next);
@@ -243,7 +240,7 @@ export function ReaderToolbar({
       data-reader-top-bar
       data-reader-chrome
       inert={!visible}
-      className={`glass-bar fixed inset-x-0 top-0 z-30 border-b border-glass-border pt-[env(safe-area-inset-top)] transition-opacity duration-150 motion-reduce:transition-none ${
+      className={`glass-bar fixed inset-x-reader top-0 z-30 border-b border-glass-border pt-[env(safe-area-inset-top)] transition-opacity duration-150 motion-reduce:transition-none ${
         visible ? "" : "pointer-events-none opacity-0"
       }`}
     >

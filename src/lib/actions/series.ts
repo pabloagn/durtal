@@ -1,6 +1,7 @@
 "use server";
 
 import { bookCondition, requireBookWorks } from "@/lib/catalogue/book-boundary";
+import { ownedWorkCondition } from "@/lib/catalogue/holdings";
 
 import { workCardExtras, workCardWith, workReadingExtras } from "@/lib/actions/utils/work-card-query";
 import { z } from "zod/v4";
@@ -105,8 +106,8 @@ const haystack = sql`search_normalize(${series.title} || ' ' || coalesce(${serie
 const bookCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id")`;
 /** Volumes with a finished reading: a volume being re-read counts as read (SLN-449) */
 const readCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id" and exists (select 1 from readings r where r.work_id = w.id and r.status = 'finished'))`;
-/** Volumes whose catalogue status is Accessioned, each once (SLN-635) */
-const accessionedCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id" and w.catalogue_status = 'accessioned')`;
+/** Volumes owned, each once: accessioned with a copy, as everywhere (SLN-886) */
+const ownedCount = sql<number>`(select count(*)::int from works w where w.kind = 'book' and w.series_id = "series"."id" and ${ownedWorkCondition(sql`w.id`)})`;
 
 const listSchema = z.object({
   search: z.string().max(200).optional(),
@@ -156,7 +157,7 @@ export async function getSeriesList(options: z.input<typeof listSchema> = {}) {
         isFavourite: series.isFavourite,
         createdAt: series.createdAt,
         bookCount,
-        accessionedCount,
+        ownedCount,
         readCount,
       })
       .from(series)
@@ -208,7 +209,11 @@ function seriesWithWorks(id: string) {
           sql`lower(${works.title})`,
         ],
         // Reading (SLN-449): "Read 4 of 20" and each volume's state
-        extras: workReadingExtras,
+        // Owned as everywhere: accessioned with a copy (SLN-886)
+        extras: (work) => ({
+          ...workReadingExtras(work),
+          owned: sql<boolean>`${ownedWorkCondition(work.id)}`.as("owned"),
+        }),
         with: {
           workAuthors: {
             with: { author: true },
@@ -338,7 +343,7 @@ export async function addWorksToSeries(seriesId: string, workIds: string[]) {
   if (!target) throw new Error("This series no longer exists");
   const [current, members] = await Promise.all([
     db
-      .select({ id: works.id, seriesId: works.seriesId, title: works.title })
+      .select({ id: works.id, seriesId: works.seriesId, title: works.title, position: works.seriesPosition })
       .from(works)
       .where(inArray(works.id, ids)),
     db
@@ -363,7 +368,9 @@ export async function addWorksToSeries(seriesId: string, workIds: string[]) {
         .set({
           seriesId,
           seriesName: null,
-          seriesPosition: String(++next),
+          // A book outside any series keeps the number it carries (an e-book's
+          // series index, SLN-912); the others follow the highest number
+          seriesPosition: !w.seriesId && w.position ? w.position : String(++next),
           updatedAt: new Date(),
         })
         .where(eq(works.id, w.id)),
@@ -418,52 +425,6 @@ export async function setSeriesPosition(
   if (!row) return { ok: false, error: "This book is no longer in the series" };
   changed();
   return { ok: true, value: row.position };
-}
-
-/**
- * Move a work one place earlier or later in reading order. Positions are
- * swapped with the neighbour; if any member has no position yet, the whole
- * series is first numbered 1, 2, 3… in its current order.
- */
-export async function moveSeriesWork(
-  seriesId: string,
-  workId: string,
-  direction: -1 | 1,
-) {
-  z.uuid().parse(seriesId);
-  z.uuid().parse(workId);
-  z.union([z.literal(-1), z.literal(1)]).parse(direction);
-  const members = await db
-    .select({
-      id: works.id,
-      position: works.seriesPosition,
-      title: works.title,
-    })
-    .from(works)
-    .where(eq(works.seriesId, seriesId))
-    .orderBy(sql`${positionOrder} nulls last`, sql`lower(${works.title})`);
-  const index = members.findIndex((m) => m.id === workId);
-  const other = members[index + direction];
-  if (index < 0 || !other) return;
-  const numbered = members.every((m) =>
-    Number.isFinite(positionValue(m.position)),
-  );
-  const positions = numbered
-    ? members.map((m) => m.position!)
-    : members.map((_, i) => String(i + 1));
-  [positions[index], positions[index + direction]] = [
-    positions[index + direction],
-    positions[index],
-  ];
-  await atomic((d) =>
-    members.map((m, i) =>
-      d
-        .update(works)
-        .set({ seriesPosition: positions[i] })
-        .where(eq(works.id, m.id)),
-    ),
-  );
-  changed();
 }
 
 export interface SeriesSuggestion {

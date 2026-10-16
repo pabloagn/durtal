@@ -12,7 +12,7 @@
   --color-fg-heading: #d8dcd8;
   --color-fg-primary: #c5cacb;
   --color-fg-secondary: #9ba4ad;
-  --color-fg-muted: #727b83;
+  --color-fg-muted: #7d868e;
   --color-accent-primary: #8c9fae;
   --color-selection-bg: #17232d;
   --color-selection-fg: #d8dcd8;
@@ -206,6 +206,13 @@ dialog::backdrop {
    Component Utilities
    ========================================================================== */
 
+/* The reader's bars and strips fixed to the screen's edges: from 1024px they
+   stand beside an open drawer, as the book does (side-panel.tsx, SLN-892) */
+@utility inset-x-reader {
+  left: var(--reader-inset-left, 0px);
+  right: var(--reader-inset-right, 0px);
+}
+
 @utility card-interactive {
   transition: border-color 200ms ease, box-shadow 200ms ease;
   &:hover {
@@ -307,9 +314,11 @@ dialog::backdrop {
 }
 
 /* Shared action chrome. Inset focus survives cap boxes and glass clipping;
-   states change only paint, never control geometry. Sidebar controls opt out. */
+   states change only paint, never control geometry. Sidebar controls opt out.
+   Disabled is 60% (docs/03, Contrast): quiet, but a primary button's label
+   still reads at 4.7:1 and a ghost's at 3.4:1 (at 40% they were 1.5 to 2.2) */
 @utility action-control {
-  @apply inline-flex shrink-0 items-center justify-center rounded-sm transition-colors duration-150 disabled:pointer-events-none disabled:opacity-40;
+  @apply inline-flex shrink-0 items-center justify-center rounded-sm transition-colors duration-150 disabled:pointer-events-none disabled:opacity-60;
   &:focus-visible {
     outline-offset: -2px;
   }
@@ -1188,7 +1197,7 @@ dialog::backdrop {
   color: var(--color-fg-primary);
 }
 
-/* A toast's cross (SLN-567): small, in the top-right corner, inside the toast.
+/* A toast's cross (SLN-567): small, aligned with its first text line at the right.
    The text and the actions keep clear of it; on a touch screen it is a 44px
    target that still keeps clear of an action. Unlayered and under :root, so
    it wins over the styles Sonner injects */
@@ -1196,7 +1205,12 @@ dialog::backdrop {
   padding-right: 36px;
 }
 :root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button] {
-  top: 6px;
+  top: 16px;
+  display: block;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.5;
+  text-align: center;
   right: 6px;
   left: auto;
   width: 20px;

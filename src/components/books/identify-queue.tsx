@@ -28,6 +28,7 @@ import { languageName } from "@/lib/utils/language";
 import { bindingLabel } from "@/lib/utils/binding";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { Check, Search } from "lucide-react";
+import { countLabel } from "@/lib/utils/format";
 
 type SearchState =
   | { status: "loading" }
@@ -71,7 +72,7 @@ function CandidateCard({
   const details = [
     candidate.publicationYear,
     format,
-    candidate.pageCount && `${candidate.pageCount} pages`,
+    candidate.pageCount && countLabel(candidate.pageCount, "page"),
     languageName(candidate.language),
   ].filter(Boolean);
   return (

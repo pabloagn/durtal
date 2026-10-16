@@ -1,3 +1,4 @@
+import { createArtObject as createArtObjectUi } from "@/lib/actions/catalogue-ui";
 import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
@@ -215,6 +216,7 @@ describe.skipIf(!url)("paintings, originals, versions and reproductions", () => 
       "Label each original or version when the painting has more than one",
     );
     const all = (await getPainting(painting.id))!;
+    expect(await createArtObjectUi({ workId: painting.id, kind: "original" })).toEqual({ ok: false, error: "Label each original or version when the painting has more than one" });
     expect(all.objects.map((o) => [o.kind, o.label])).toEqual([
       ["original", "1893 tempera"],
       ["original", "1910 tempera"],

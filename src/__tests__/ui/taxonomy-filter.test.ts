@@ -101,4 +101,14 @@ describe("taxonomy item filter", () => {
     expect(new URLSearchParams(window.location.search).get("q")).toBeNull();
     expect(route.push).not.toHaveBeenCalled();
   });
+  it("keeps typing and focus when a slow server filter response arrives", () => {
+    const browse={total:900,familyTotal:900,wholeTree:false,page:1,perPage:48,nested:false};
+    const draw=()=>act(()=>root.render(createElement(TaxonomyFamilyShell,{family,items,browse})));
+    draw(); key("decadent"); advance(300);
+    expect(route.replace).toHaveBeenCalledWith("/taxonomy/film-genres?q=decadent",{scroll:false});
+    key("decadentism"); route.query="q=decadent"; draw();
+    expect(input().value).toBe("decadentism");
+    expect(document.activeElement).toBe(input());
+  });
+
 });

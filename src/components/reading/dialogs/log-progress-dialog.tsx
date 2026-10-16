@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { logProgress, stopTimer, undoProgress, undoStopTimer, updateReading } from "@/lib/actions/reading";
+import { logProgress, stopTimer, undoProgress, undoStopTimer, updateReading } from "@/lib/actions/catalogue-client";
 import { toast } from "@/lib/notifications/toast";
 import { durationWords, stopTimes, TIMER_GONE } from "@/lib/reading/timer";
 import { useOptionalTimer } from "../timer-provider";
