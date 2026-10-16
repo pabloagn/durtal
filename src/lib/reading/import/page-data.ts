@@ -30,7 +30,7 @@ export interface ImportListItem {
   errorRecords: number;
   rawKept: boolean;
   readings: number;
-  /** Up Next items it added (SLN-452) */
+  /** Up next items it added (SLN-452) */
   queued: number;
   /** Notes it wrote from private notes (SLN-453) */
   notes: number;
@@ -78,7 +78,7 @@ export interface ImportSummary {
   toImport: number;
   /** E-book library ratings the commit would write to their books (SLN-658) */
   toRate: number;
-  /** To-read rows the commit would add to Up Next (SLN-452) */
+  /** To-read rows the commit would add to Up next (SLN-452) */
   toQueue: number;
   /** To-read rows on shelves that are not imported */
   otherShelves: number;

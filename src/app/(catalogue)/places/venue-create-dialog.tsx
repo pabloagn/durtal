@@ -379,7 +379,7 @@ export function VenueCreateDialog({
                   placeholder="e.g. rare books, first editions, art books"
                 />
                 <Textarea
-                  label="Personal Notes"
+                  label="Personal notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={4}

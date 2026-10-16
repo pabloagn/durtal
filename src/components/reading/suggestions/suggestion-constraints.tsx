@@ -10,7 +10,7 @@ const BASE = "/reading/suggestions";
 
 const SCOPES = [
   { value: "owned", label: "Owned" },
-  { value: "next", label: "Up Next" },
+  { value: "next", label: "Up next" },
   { value: "wanted", label: "Wanted" },
   { value: "all", label: "All" },
 ] as const;

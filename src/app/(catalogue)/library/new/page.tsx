@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { addBookParams } from "@/lib/reading/book-picker";
 import { AddBookWizard } from "./wizard";
 
-export const metadata = { title: "Add Book" };
+export const metadata = { title: "Add book" };
 
 export default async function AddBookPage({
   searchParams,

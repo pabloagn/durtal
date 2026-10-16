@@ -151,7 +151,7 @@ export function ResumeButton({ reading }: { reading: ReadingRef }) {
   );
 }
 
-/** Up Next's Start (SLN-452): the Start dialog with the queued edition */
+/** Up next's Start (SLN-452): the Start dialog with the queued edition */
 export function QueueStartButton({ workId, editionId, title }: { workId: string; editionId: string | null; title: string }) {
   const { open } = useReadingDialogs();
   return (

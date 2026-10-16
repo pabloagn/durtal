@@ -120,7 +120,7 @@ export function mapStorygraph(headers: string[], records: Record<string, string>
       return row;
     }
     if (status === "to_read") {
-      // Up Next (SLN-452), oldest added first
+      // Up next (SLN-452), oldest added first
       row.kind = "to_read";
       row.queueKey = storygraphToReadKey({ title, firstAuthor, isbn13 });
       row.addedOn = day(r["Date Added"]);

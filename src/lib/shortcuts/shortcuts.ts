@@ -219,7 +219,7 @@ export const SHORTCUT_GROUPS: {
       { keys: ["r", READING_KEYS.abandon], label: "Abandon", then: true },
       { keys: ["r", READING_KEYS.past], label: "Log a past read", then: true },
       { keys: ["r", READING_KEYS.timer], label: "Start or stop the timer", then: true },
-      { keys: ["r", READING_KEYS.queue], label: "Add to or remove from Up Next", then: true },
+      { keys: ["r", READING_KEYS.queue], label: "Add to or remove from Up next", then: true },
       { keys: ["r", READING_KEYS.quote], label: "Add a quote", then: true },
       { keys: ["r", READING_KEYS.history], label: "Go to the Reading section", then: true },
     ],
@@ -435,7 +435,7 @@ function lastShown(root: Element, selector: string) {
     .pop();
 }
 
-/** The dialog on top, else the page part that takes Enter (the Add Book steps) */
+/** The dialog on top, else the page part that takes Enter (the Add book steps) */
 function shortcutScope(from: Element | null): Element | null {
   const dialogs = document.querySelectorAll("dialog[open]");
   if (dialogs.length) return dialogs[dialogs.length - 1];

@@ -238,7 +238,8 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
                   </span>
                 </CapAlignedControls>
               </div>
-              <p className="min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">{row.line}</p>
+              {/* Each "·" stays with the item before it, so no line starts with one */}
+              <p className="min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">{row.line.replaceAll(" · ", "\u00a0· ")}</p>
             </div>
           </li>
         );

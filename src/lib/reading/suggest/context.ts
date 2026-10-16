@@ -16,7 +16,7 @@ import type { SuggestContext } from "./types";
 /*
  * getSuggestionContext (SLN-457): every book with what the engine needs, in
  * one query (authors, translators, recommenders, taxonomy, series, copies,
- * Up Next, feedback, taste evidence), plus the homes, Up Next's length, his
+ * Up next, feedback, taste evidence), plus the homes, Up next's length, his
  * pace and two settings. Computed per request and never cached, so a copy
  * added, moved or lent shows on the next request. Only the prediction gate's
  * daily check is stored.

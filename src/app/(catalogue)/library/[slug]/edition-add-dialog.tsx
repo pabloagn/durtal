@@ -100,7 +100,7 @@ export function EditionAddDialog({
         draft
         open={open}
         onClose={() => setOpen(false)}
-        title="Add Edition"
+        title="Add edition"
         description={workTitle}
         className="max-w-3xl"
       >

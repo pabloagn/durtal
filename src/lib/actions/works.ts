@@ -271,7 +271,7 @@ export async function getWorksWith<T>(
     authorLastName: orderFn(works.createdAt), // page membership is selected below
     // The later of the last finish and the last progress; never read last either way
     lastRead: resolvedOrder === "asc" ? sql`${lastReadAtSql(works.id)} asc nulls last` : sql`${lastReadAtSql(works.id)} desc nulls last`,
-    // Up Next order (SLN-452); books not queued last either way
+    // Up next order (SLN-452); books not queued last either way
     queue: sql`(select q.position from reading_queue q where q.work_id = ${works.id}) ${sql.raw(resolvedOrder === "asc" ? "asc" : "desc")} nulls last`,
   }[sort];
 

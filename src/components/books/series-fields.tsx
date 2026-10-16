@@ -43,7 +43,7 @@ export function SeriesFields({
           }}
         />
         <Input
-          label="Series Position"
+          label="Series position"
           value={position}
           onChange={(event) => onPosition(event.target.value)}
           placeholder="e.g. 1, 2.5"

@@ -13,7 +13,7 @@ import { STATUS_LABELS } from "@/app/(catalogue)/provenance/order-model";
 
 describe("labels (SLN-400)", () => {
   it("labels catalogue statuses and priorities from their config", () => {
-    expect(catalogueStatusLabel("on_order")).toBe("On Order");
+    expect(catalogueStatusLabel("on_order")).toBe("On order");
     expect(catalogueStatusLabel("accessioned")).toBe("Accessioned");
     expect(priorityLabel("high")).toBe("High");
     expect(catalogueStatusLabel(null)).toBe("");
@@ -64,7 +64,7 @@ describe("labels (SLN-400)", () => {
         oldValue: "on_order",
         newValue: "accessioned",
       }),
-    ).toBe("Changed catalogue status from On Order to Accessioned");
+    ).toBe("Changed catalogue status from On order to Accessioned");
     expect(
       formatEventDescription("work.language_changed", { newValue: "de" }),
     ).toBe("Set original language to German");

@@ -68,7 +68,7 @@ describe("related shelf presentation", () => {
       }),
     );
     act(() => root.render(createElement(SimilarWorksCarousel, { works })));
-    expect(host.querySelector("h2")?.textContent).toBe("Similar Works");
+    expect(host.querySelector("h2")?.textContent).toBe("Similar works");
     expect(
       [...host.querySelectorAll("a")].map((link) => link.getAttribute("href")),
     ).toEqual(

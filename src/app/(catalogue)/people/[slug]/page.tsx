@@ -454,7 +454,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
             {/* Edition contributions */}
             {contributions.length > 0 && (
               <section className="mb-8">
-                <SectionHeading title="Edition Contributions" count={contributions.length} />
+                <SectionHeading title="Edition contributions" count={contributions.length} />
                 <div className="space-y-2">
                   {contributions.map((edition) => (
                     <div

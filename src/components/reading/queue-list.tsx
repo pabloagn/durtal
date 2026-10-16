@@ -27,7 +27,7 @@ import { useReadingDialogs } from "./reading-dialogs-provider";
 import { Cover } from "./reading-tiles";
 
 /*
- * The Up Next list (SLN-452): drag a row by its handle, or lift it with the
+ * The Up next list (SLN-452): drag a row by its handle, or lift it with the
  * keyboard (Space, the arrows, Space), or use the row menu. Each move saves
  * at once and says where the book went. Start reading opens the Start
  * dialog with the queued edition.
@@ -35,7 +35,7 @@ import { Cover } from "./reading-tiles";
 
 export interface QueueRow {
   workId: string;
-  /** Its place in all of Up Next, 1 for the top: what a filtered list shows */
+  /** Its place in all of Up next, 1 for the top: what a filtered list shows */
   place: number;
   title: string;
   href: string;
@@ -66,7 +66,7 @@ function Row({
   row: QueueRow;
   /** Its place among the rows shown, 1 for the first */
   index: number;
-  /** The number it shows: its place in all of Up Next under a filter, else its index */
+  /** The number it shows: its place in all of Up next under a filter, else its index */
   shownPlace: number;
   total: number;
   onMove: (workId: string, to: number) => void;
@@ -152,7 +152,7 @@ function Row({
             {index < total && <DropdownMenuItem onClick={() => onMove(row.workId, index + 1)}>Move down</DropdownMenuItem>}
             {total > 1 && <DropdownMenuSeparator />}
             <DropdownMenuItem variant="danger" onClick={() => onRemove(row)}>
-              Remove from Up Next
+              Remove from Up next
             </DropdownMenuItem>
           </DropdownMenu>
         </span>
@@ -162,7 +162,7 @@ function Row({
 }
 
 /**
- * `filtered`: the rows are a part of Up Next (At hand): each shows its place
+ * `filtered`: the rows are a part of Up next (At hand): each shows its place
  * in the whole list, and Move to top puts the book above every other one.
  */
 export function QueueList({ rows: initial, filtered = false }: { rows: QueueRow[]; filtered?: boolean }) {
@@ -187,10 +187,10 @@ export function QueueList({ rows: initial, filtered = false }: { rows: QueueRow[
 
   /**
    * Saves the row at its new index, between its new neighbours (none: the top
-   * of all of Up Next); puts it back on a refusal
+   * of all of Up next); puts it back on a refusal
    */
   async function save(workId: string, from: number, to: number, top = false) {
-    // The first row shown under a filter may still go to the top of all of Up Next
+    // The first row shown under a filter may still go to the top of all of Up next
     if (from === to && !top) return;
     const before = rows;
     const next = arrayMove(rows, from, to);
@@ -220,7 +220,7 @@ export function QueueList({ rows: initial, filtered = false }: { rows: QueueRow[
       const removed = await removeFromQueue({ workId: row.workId });
       setRows(rows.filter((r) => r.workId !== row.workId));
       changed();
-      undoToast(`Removed ${row.title} from Up Next`, async () => {
+      undoToast(`Removed ${row.title} from Up next`, async () => {
         try {
           await restoreQueueItem(removed);
           changed();

@@ -92,7 +92,7 @@ export function AuthorDetailHeader({
 
   const actionItems = [
     {
-      label: copied ? "Copied!" : "Copy Name",
+      label: copied ? "Copied!" : "Copy name",
       icon: copied ? Check : Copy,
       onClick: handleCopyName,
     },
@@ -108,7 +108,7 @@ export function AuthorDetailHeader({
       shortcut: editHint(EDIT_KEYS.person),
     },
     {
-      label: "Manage Media",
+      label: "Manage media",
       icon: ImageIcon,
       onClick: () => setMediaOpen(true),
       shortcut: editHint(EDIT_KEYS.media),

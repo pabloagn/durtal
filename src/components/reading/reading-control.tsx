@@ -71,7 +71,7 @@ export function ReadingControl({ ebook = false }: { ebook?: boolean }) {
           {READING_ACTION_LABELS[action]}
         </DropdownMenuItem>
       ))}
-      {/* Up Next (SLN-452), for an unread or read book */}
+      {/* Up next (SLN-452), for an unread or read book */}
       {queuable && (state === "unread" || state === "read") && (
         <>
           <DropdownMenuSeparator />
@@ -81,8 +81,8 @@ export function ReadingControl({ ebook = false }: { ebook?: boolean }) {
           >
             <span data-queue-toggle="">
               {data.queuePlace
-                ? `In Up Next, ${ordinal(data.queuePlace)} · Remove`
-                : "Add to Up Next"}
+                ? `In Up next, ${ordinal(data.queuePlace)} · Remove`
+                : "Add to Up next"}
             </span>
           </DropdownMenuItem>
         </>

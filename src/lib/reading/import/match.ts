@@ -341,9 +341,9 @@ export async function withVerdicts(source: ImportSource, rows: MatchedRow[]): Pr
 }
 
 /**
- * Where to-read rows' books stand (SLN-452): each one's place in Up Next,
+ * Where to-read rows' books stand (SLN-452): each one's place in Up next,
  * whether the row's own key is there, an open reading, the last finish year.
- * Up Next is short, so its order comes whole in one query.
+ * Up next is short, so its order comes whole in one query.
  */
 async function queueStates(rows: MatchedRow[]): Promise<(workId: string, key: string | null) => QueueState | undefined> {
   if (!rows.length) return () => undefined;
