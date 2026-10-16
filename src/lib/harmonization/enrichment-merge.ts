@@ -24,7 +24,7 @@ const CLAIM_VALUE = ["edition_id", "term_id", "number_value", "text_value", "pla
 const sameValue = (a: string, b: string, except: string) => {
   const columns = CLAIM_VALUE.filter((c) => c !== except);
   return sql.raw(
-    `(${columns.map((c) => `${a}.${c}`).join(", ")}) is not distinct from (${columns.map((c) => `${b}.${c}`).join(", ")})`,
+    `(${columns.map((c) => `${a}.${c}`).join(", ")}) is not distinct from (${columns.map((c) => `${b}.${c}`).join(", ")}) and (${a}.assessment - 'justification') is not distinct from (${b}.assessment - 'justification')`,
   );
 };
 

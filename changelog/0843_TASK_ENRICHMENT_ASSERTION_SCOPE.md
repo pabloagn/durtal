@@ -31,7 +31,7 @@ or an introduction cannot be treated as an unrestricted Work assertion.
 ## Completion Notes
 
 Type checking and lint pass. After incorporating the reviewed SLN-969 fixes,
-the affected enrichment/network/service suite passes 358 tests in 20 files,
+the affected enrichment/network/service suite passes 363 tests in 20 files,
 zero skipped, through the repository's disposable-database harness. Python
 preflight passed in the earlier standard run; the unchanged FIFO check later
 stalled on repetition, so this latest run reused that historical result. The
@@ -40,3 +40,10 @@ Synthetic fixtures cover the original/translation boundary, same versus
 different publication, Labyrinths-style aggregates, unknown translations,
 coverage, concurrent deduplication and direct database bypass attempts.
 The generated migration was exercised only in these disposable databases.
+
+Review corrections also require edition-owned evidence for an edition-bound
+scoped claim and reject explicitly mismatched source text/component contexts.
+Knowledge, coverage and evidence basis participate in semantic claim identity
+and all deduplication/merge/undo paths; free-text justification does not. Opposite
+assessments stay separate, with conflict detection in either arrival order.
+Concurrent proposals and Harmonize merges are covered by database regressions.

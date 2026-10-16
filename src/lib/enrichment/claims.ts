@@ -22,7 +22,7 @@ import {
 } from "./model";
 import { APPLY_TARGETS, type ApplyContext, type TargetValue } from "./targets";
 import { claimColumns, proposalOutcome, ruleCap, type ClaimColumns } from "./rules";
-import type { AssertionScope } from "./assertion-scope";
+import { sameAssessment, assessmentsConflict, type AssertionScope, type AssertionAssessment } from "./assertion-scope";
 
 /*
  * The enrichment services (SLN-462, section 5): proposing claims with their
@@ -175,11 +175,12 @@ export async function currentFingerprint(conn: Db, claimId: string) {
   return claimFingerprint({ ...claim, id: claim.claimId }, await evidenceIds(conn, claimId), value);
 }
 
-const SAME_VALUE = (alias: string, c: ClaimColumns & { workId: string; editionId: string | null; dimensionId: string; scope?: AssertionScope | null }) =>
+const SAME_VALUE = (alias: string, c: ClaimColumns & { workId: string; editionId: string | null; dimensionId: string; scope?: AssertionScope | null; assessment?: AssertionAssessment | null }, compareAssessment = true) =>
   sql`${sql.raw(alias)}.work_id = ${uuid(c.workId)} and ${sql.raw(alias)}.dimension_id = ${uuid(c.dimensionId)}
     and (${sql.raw(alias)}.edition_id, ${sql.raw(alias)}.term_id, ${sql.raw(alias)}.number_value, ${sql.raw(alias)}.text_value, ${sql.raw(alias)}.place_id, ${sql.raw(alias)}.person_id)
     is not distinct from (${c.editionId}::uuid, ${c.termId}::uuid, ${c.numberValue}::numeric, ${c.textValue}::text, ${c.placeId}::uuid, ${c.personId}::uuid)
-    and ${sql.raw(alias)}.scope is not distinct from ${c.scope ? JSON.stringify(c.scope) : null}::jsonb`;
+    and ${sql.raw(alias)}.scope is not distinct from ${c.scope ? JSON.stringify(c.scope) : null}::jsonb
+    ${compareAssessment ? sql`and (${sql.raw(alias)}.assessment - 'justification') is not distinct from (${c.assessment ? JSON.stringify(c.assessment) : null}::jsonb - 'justification')` : sql``}`;
 
 // ── Apply ───────────────────────────────────────────────────────────────────
 
@@ -432,6 +433,7 @@ export async function undoApplication(applicationId: string, conn: Db = appDb) {
           where c.id = ${uuid(s.id)} and c.status = 'superseded' and ${HAS_EVIDENCE} and not exists (
             select 1 from enrichment_claims n where n.status = 'proposed' and n.id <> c.id and n.work_id = c.work_id and n.dimension_id = c.dimension_id
               and n.scope is not distinct from c.scope
+              and (n.assessment - 'justification') is not distinct from (c.assessment - 'justification')
               and (n.edition_id, n.term_id, n.number_value, n.text_value, n.place_id, n.person_id) is not distinct from (c.edition_id, c.term_id, c.number_value, c.text_value, c.place_id, c.person_id))`)
       : d.execute(sql`update enrichment_claims c set status = ${s.status}, decided_by = ${s.decidedBy}, decided_at = ${s.decidedAt}::timestamptz,
           rule_id = ${s.ruleId}::uuid, superseded_by_claim_id = ${s.supersededByClaimId}::uuid
@@ -476,8 +478,8 @@ function evidenceQueries(d: Db, claimId: string, evidence: EvidenceInput[], runI
 }
 
 export type ProposalResult =
-  | { status: "created"; claimId: string }
-  | { status: "merged"; claimId: string }
+  | { status: "created"; claimId: string; conflictsWith?: string[] }
+  | { status: "merged"; claimId: string; conflictsWith?: string[] }
   | { status: "skipped"; reason: string }
   | { status: "refused"; reason: string };
 
@@ -521,16 +523,18 @@ async function proposeOne(input: ProposalInput, conn: Db, retry: boolean): Promi
       return { status: "refused", reason: "A proposed human claim cites only Pablo's own export" };
   }
   const editionId = p.editionId ?? null;
-  const key = { ...columns, workId: p.workId, editionId, dimensionId: dimension.id, scope: p.scope ?? null };
-  const same = await rows<{ id: string; status: ClaimStatus; decisionReason: DecisionReason | null; sourceIds: string[] }>(
+  const key = { ...columns, workId: p.workId, editionId, dimensionId: dimension.id, scope: p.scope ?? null, assessment: p.assessment ?? null };
+  const candidates = await rows<{ id: string; status: ClaimStatus; decisionReason: DecisionReason | null; sourceIds: string[]; assessment: AssertionAssessment | null }>(
     conn,
-    sql`select c.id, c.status, c.decision_reason as "decisionReason",
+    sql`select c.id, c.status, c.assessment, c.decision_reason as "decisionReason",
         coalesce((select array_agg(distinct e.source_record_id::text) from claim_evidence e where e.claim_id = c.id
           -- An R6 rejection stays, but the evidence of an undone extraction run no longer backs it
           and not (c.decision_reason = 'not_independent'
             and exists (select 1 from enrichment_extractions x where x.run_id = e.run_id and x.undone_at is not null))), '{}') as "sourceIds"
-      from enrichment_claims c where ${SAME_VALUE("c", key)}`,
+      from enrichment_claims c where ${SAME_VALUE("c", key, false)}`,
   );
+  const same = candidates.filter((candidate) => sameAssessment(candidate.assessment ?? null, p.assessment ?? null));
+  const conflicts = candidates.filter((candidate) => ["proposed", "accepted"].includes(candidate.status) && assessmentsConflict(candidate.assessment ?? null, p.assessment ?? null)).map((candidate) => candidate.id);
   let linked = false;
   if (!p.scope && dimension.applyTarget === "taxonomy" && term?.itemId) {
     const value = await currentValue(conn, {
@@ -574,7 +578,7 @@ async function proposeOne(input: ProposalInput, conn: Db, retry: boolean): Promi
     if (readable) return { status: "refused", reason: readable };
     throw error;
   }
-  return { status: outcome.kind === "merge" ? "merged" : "created", claimId };
+  return { status: outcome.kind === "merge" ? "merged" : "created", claimId, ...(conflicts.length ? { conflictsWith: conflicts } : {}) };
 }
 
 /** A guard's message, for a refused proposal; null for an unexpected error */

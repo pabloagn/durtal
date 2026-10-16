@@ -81,7 +81,7 @@ CREATE FUNCTION enrichment_scope_hash(jsonb) RETURNS bytea LANGUAGE sql IMMUTABL
  AS $$ SELECT sha256(convert_to($1::text, 'UTF8')) $$;
 --> statement-breakpoint
 CREATE UNIQUE INDEX enrichment_claim_open_unique ON enrichment_claims
- (work_id, edition_id, dimension_id, term_id, number_value, text_value, place_id, person_id, enrichment_scope_hash(scope))
+ (work_id, edition_id, dimension_id, term_id, number_value, text_value, place_id, person_id, enrichment_scope_hash(scope), enrichment_scope_hash(assessment - 'justification'))
  NULLS NOT DISTINCT WHERE status = 'proposed';
 --> statement-breakpoint
 CREATE FUNCTION guard_enrichment_scope() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -91,7 +91,7 @@ BEGIN
     PERFORM enrichment_rule_error('Scope and assessment never change; propose a new assertion', 'enrichment_scope_identity');
   END IF;
   IF NEW.superseded_by_claim_id IS NOT NULL AND EXISTS (SELECT 1 FROM enrichment_claims c WHERE c.id = NEW.superseded_by_claim_id
-      AND (c.scope, c.edition_id) IS DISTINCT FROM (NEW.scope, NEW.edition_id)) THEN
+      AND (c.scope, c.edition_id, c.assessment - 'justification') IS DISTINCT FROM (NEW.scope, NEW.edition_id, NEW.assessment - 'justification')) THEN
     PERFORM enrichment_rule_error('Only compatible scoped assertions may supersede each other', 'enrichment_scope_identity');
   END IF;
   IF s IS NULL THEN RETURN NEW; END IF;
@@ -162,6 +162,13 @@ BEGIN
   IF EXISTS (SELECT 1 FROM enrichment_claims c WHERE c.id = claim_key AND c.scope->>'unresolvedSourceId' IS NOT NULL
       AND NOT EXISTS (SELECT 1 FROM claim_evidence e WHERE e.claim_id = c.id AND e.source_record_id::text = c.scope->>'unresolvedSourceId')) THEN
     PERFORM enrichment_rule_error('Unresolved scope must cite its source observation', 'enrichment_scope_evidence');
+  END IF;
+  IF EXISTS (SELECT 1 FROM enrichment_claims c JOIN claim_evidence e ON e.claim_id=c.id
+      JOIN source_records s ON s.id=e.source_record_id WHERE c.id=claim_key AND c.scope IS NOT NULL AND
+      ((c.edition_id IS NOT NULL AND s.edition_id IS DISTINCT FROM c.edition_id)
+       OR (jsonb_typeof(s.payload->'assertionScope')='object'
+           AND ((s.payload->'assertionScope') - 'relation') IS DISTINCT FROM (c.scope - 'relation')))) THEN
+    PERFORM enrichment_rule_error('Evidence belongs to another edition or text/component scope', 'enrichment_scope_evidence');
   END IF;
   RETURN NULL;
 END $$;

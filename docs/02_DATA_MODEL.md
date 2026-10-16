@@ -396,6 +396,9 @@ foreign key can also identify the publication embodying a scoped text.
 
 Scope is immutable and participates in open-claim uniqueness (SHA-256 of its
 canonical JSON), service deduplication, conflicts, merge and undo comparisons.
+Knowledge, coverage and basis are compared and hashed separately; justification
+wording is excluded. Conflicting assessments remain separate. Scoped evidence
+must match any edition binding and explicit source text/component context.
 Assessment records knowledge separately from decision, with coverage, basis
 and justification. Unknown means no fabricated value; absence requires a
 documented complete examination. Source-local unknown identity must cite the

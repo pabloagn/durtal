@@ -6,6 +6,8 @@ import {
   canUseAssertionAt,
   sameAssertionScope,
   unresolvedTextScope,
+  sameAssessment,
+  assessmentsConflict,
 } from "@/lib/enrichment/assertion-scope";
 
 const scope = (value: Record<string, unknown>) => assertionScopeSchema.parse({ version: 1, ...value });
@@ -80,5 +82,11 @@ describe("assertion contract 1", () => {
     const absent = assertionAssessmentSchema.parse({ ...partial, knowledge: "established_absent", coverage: "complete", basis: "complete_reading" });
     expect(assertionTruth(absent, "accepted")).toBe(false);
     expect(assertionTruth({ ...absent, knowledge: "disputed" }, "accepted")).toBeNull();
+    const present = { ...absent, knowledge: "present" as const };
+    expect(assessmentsConflict(present, absent)).toBe(true);
+    expect(assessmentsConflict(absent, present)).toBe(true);
+    expect(sameAssessment(present, { ...present, justification: "Another valid explanation." })).toBe(true);
+    expect(sameAssessment(present, { ...present, coverage: "partial" })).toBe(false);
+    expect(sameAssessment(present, { ...present, basis: "critical_account" })).toBe(false);
   });
 });

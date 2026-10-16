@@ -66,6 +66,20 @@ export const assertionAssessmentSchema = z
   });
 export type AssertionAssessment = z.infer<typeof assertionAssessmentSchema>;
 
+/** Coverage and knowledge affect identity; free-text justification does not. */
+export function assessmentKey(assessment: AssertionAssessment | null): string {
+  return stableStringify(assessment ? { knowledge: assessment.knowledge, coverage: assessment.coverage, basis: assessment.basis } : null);
+}
+export function sameAssessment(a: AssertionAssessment | null, b: AssertionAssessment | null): boolean {
+  return assessmentKey(a) === assessmentKey(b);
+}
+export function assessmentsConflict(a: AssertionAssessment | null, b: AssertionAssessment | null): boolean {
+  if (!a || !b) return false;
+  const positive = (x: AssertionAssessment) => x.knowledge === "present" || x.knowledge === "partially_assessed";
+  const negative = (x: AssertionAssessment) => x.knowledge === "established_absent" || x.knowledge === "not_applicable";
+  return (positive(a) && negative(b)) || (negative(a) && positive(b));
+}
+
 export function scopeKey(scope: AssertionScope | null, editionId: string | null = null): string {
   return stableStringify({ scope: scope ? assertionScopeSchema.parse(scope) : null, editionId });
 }

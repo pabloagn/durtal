@@ -9,7 +9,7 @@ import { enqueueEnrichmentJob } from "../jobs";
 import { readEvidenceText } from "../evidence-store";
 import { assessSourceContent, usableSourceQuality } from "../source-quality";
 import { sourceProfile } from "../source-profiles";
-import { assertionScopeSchema, sameAssertionScope, scopeKey, unresolvedTextScope, type AssertionScope } from "../assertion-scope";
+import { assertionScopeSchema, sameAssertionScope, scopeKey, unresolvedTextScope, assessmentKey, assessmentsConflict, type AssertionScope, type AssertionAssessment } from "../assertion-scope";
 import { costOf, priceFor } from "../prices";
 import { capLine, metered, monthSpend, WorkCeilingStop } from "../meter";
 import { goldSetHiddenCondition, GOLD_SET_WORK_IDS } from "../gold-set";
@@ -155,6 +155,7 @@ function valuesOf(answer: ModelAnswer, dimensions: ExtractDimension[]) {
 interface ValueEvidence extends EvidenceRow {
   scope: AssertionScope | null;
   editionId: string | null;
+  assessment: AssertionAssessment | null;
   start: number;
   end: number;
   textSha256: string;
@@ -168,7 +169,7 @@ async function earlierEvidence(conn: Db, workId: string, dimensionKeys: string[]
   if (!dimensionKeys.length) return [];
   return rows<ValueEvidence & { dimension: string; term: string }>(
     conn,
-    sql`select c.scope, c.edition_id as "editionId", d.key as dimension, t.key as term, e.source_record_id as "sourceRecordId", 'agent' as method, o.key as outlet, o.kind as "outletKind",
+    sql`select c.scope, c.assessment, c.edition_id as "editionId", d.key as dimension, t.key as term, e.source_record_id as "sourceRecordId", 'agent' as method, o.key as outlet, o.kind as "outletKind",
         o.weight::float8 as weight, o.syndication_group as "syndicationGroup", s.payload ->> 'byline' as byline, s.payload -> 'fingerprint' as fingerprint,
         e.excerpt, e.start_offset as start, e.end_offset as "end", e.text_sha256 as "textSha256", e.extractor_version as "extractorVersion", e.run_id as "runId"
       from enrichment_claims c join enrichment_dimensions d on d.id = c.dimension_id join enrichment_terms t on t.id = c.term_id
@@ -182,9 +183,9 @@ async function earlierEvidence(conn: Db, workId: string, dimensionKeys: string[]
 /** The book's open and accepted values of these dimensions, by any method, for the conflict check */
 async function otherValues(conn: Db, workId: string, dimensionKeys: string[]) {
   if (!dimensionKeys.length) return [];
-  return rows<OtherValue & { dimension: string; scope: AssertionScope | null; editionId: string | null }>(
+  return rows<OtherValue & { dimension: string; scope: AssertionScope | null; editionId: string | null; assessment: AssertionAssessment | null }>(
     conn,
-    sql`select c.scope, c.edition_id as "editionId", d.key as dimension, t.key as term, c.method, c.status,
+    sql`select c.scope, c.assessment, c.edition_id as "editionId", d.key as dimension, t.key as term, c.method, c.status,
         case c.method when 'human' then 'Pablo' when 'api' then coalesce((select s.provider from claim_evidence e join source_records s on s.id = e.source_record_id where e.claim_id = c.id limit 1), 'an API')
           else coalesce((select o.name from claim_evidence e join source_records s on s.id = e.source_record_id join evidence_outlets o on o.key = s.provider where e.claim_id = c.id limit 1), 'research') end as source
       from enrichment_claims c join enrichment_dimensions d on d.id = c.dimension_id join enrichment_terms t on t.id = c.term_id
@@ -213,6 +214,7 @@ async function decide(
     hidden: boolean;
     scope?: AssertionScope | null;
     editionId?: string | null;
+    assessment?: AssertionAssessment | null;
   },
 ) {
   const counts = { proposed: 0, merged: 0, rejectedR6: 0, conflicts: 0, confirmed: 0 };
@@ -229,8 +231,12 @@ async function decide(
     const notes = conflictsOf(
       dimension,
       verified,
-      others.filter((o) => o.dimension === dimension.key && !verified.has(o.term)),
+      others.filter((o) => o.dimension === dimension.key && !verified.has(o.term) && (!o.assessment || ["present", "partially_assessed"].includes(o.assessment.knowledge))),
     );
+    for (const term of verified.keys()) {
+      const opposed = others.filter((o) => o.dimension === dimension.key && o.term === term && assessmentsConflict(input.assessment ?? null, o.assessment));
+      if (opposed.length) notes.set(term, [...(notes.get(term) ?? []), `conflicting knowledge assessment (${opposed.map((o) => o.source).join(", ")})`]);
+    }
     const items = mine.map(([key, evidence]) => {
       const term = key.split("\u0000")[1];
       const { sources, passes } = checkIndependence(evidence);
@@ -244,7 +250,7 @@ async function decide(
         proposal: {
           workId: input.workId,
           editionId: input.editionId ?? undefined,
-          ...(input.scope ? { scope: input.scope, assessment: { knowledge: "partially_assessed" as const, coverage: "partial" as const, basis: "local_evidence" as const, justification: "The cited passages support a proposal within this scope; complete textual coverage has not been established." } } : {}),
+          ...(input.scope ? { scope: input.scope, assessment: input.assessment! } : {}),
           dimension: dimension.key,
           value: { term },
           method: "agent" as const,
@@ -491,6 +497,7 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
         for (const v of r.verified)
           add(valueKey(v.dimension, v.term), {
             scope: r.document.assertionScope ? assertionScopeSchema.parse(r.document.assertionScope) : unresolvedTextScope(r.document.sourceRecordId),
+            assessment: { knowledge: "partially_assessed", coverage: "partial", basis: "local_evidence", justification: "The cited passages support a proposal within this scope; complete textual coverage has not been established." },
             editionId: r.document.assertionScope?.kind === "work" ? null : r.document.editionId ?? null,
             sourceRecordId: r.document.sourceRecordId,
             method: "agent",
@@ -507,18 +514,18 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
             extractorVersion: EXTRACTOR_VERSION,
             runId: ctx.runId,
           });
-      const fresh = new Set([...values].flatMap(([key, evidence]) => evidence.map((e) => `${key}\u0000${scopeKey(e.scope, e.editionId)}`)));
+      const fresh = new Set([...values].flatMap(([key, evidence]) => evidence.map((e) => `${key}\u0000${scopeKey(e.scope, e.editionId)}\u0000${assessmentKey(e.assessment)}`)));
       for (const e of await earlierEvidence(tx, job.workId, keys))
-        if (fresh.has(`${valueKey(e.dimension, e.term)}\u0000${scopeKey(e.scope, e.editionId)}`)) add(valueKey(e.dimension, e.term), e);
+        if (fresh.has(`${valueKey(e.dimension, e.term)}\u0000${scopeKey(e.scope, e.editionId)}\u0000${assessmentKey(e.assessment)}`)) add(valueKey(e.dimension, e.term), e);
       const names = new Map(plan.documents.map((d) => [d.outlet, d.outletName]));
       // A gold-set book's values stay hidden until Pablo labels it: counts only
       const hidden = GOLD_SET_WORK_IDS.includes(job.workId);
       const counts = { proposed: 0, merged: 0, rejectedR6: 0, conflicts: 0, confirmed: 0 };
       const proposals: Awaited<ReturnType<typeof decide>>["proposals"] = [];
-      const scopes = new Map<string, { scope: AssertionScope | null; editionId: string | null; values: Map<string, ValueEvidence[]> }>();
+      const scopes = new Map<string, { scope: AssertionScope | null; editionId: string | null; assessment: AssertionAssessment | null; values: Map<string, ValueEvidence[]> }>();
       for (const [key, evidence] of values) for (const e of evidence) {
-        const identity = scopeKey(e.scope, e.editionId);
-        const group = scopes.get(identity) ?? { scope: e.scope, editionId: e.editionId, values: new Map() };
+        const identity = `${scopeKey(e.scope, e.editionId)}\u0000${assessmentKey(e.assessment)}`;
+        const group = scopes.get(identity) ?? { scope: e.scope, editionId: e.editionId, assessment: e.assessment, values: new Map() };
         group.values.set(key, [...(group.values.get(key) ?? []), e]);
         scopes.set(identity, group);
       }
@@ -585,7 +592,7 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
         const ids = withdrawn.filter((w) => w.workId === workId).map((w) => w.id);
         const kept = await rows<ValueEvidence & { dimension: string; term: string }>(
           tx,
-          sql`select c.scope, c.edition_id as "editionId", d.key as dimension, t.key as term, e.source_record_id as "sourceRecordId", 'agent' as method, o.key as outlet, o.kind as "outletKind",
+          sql`select c.scope, c.assessment, c.edition_id as "editionId", d.key as dimension, t.key as term, e.source_record_id as "sourceRecordId", 'agent' as method, o.key as outlet, o.kind as "outletKind",
               o.weight::float8 as weight, o.syndication_group as "syndicationGroup", s.payload ->> 'byline' as byline, s.payload -> 'fingerprint' as fingerprint,
               e.excerpt, e.start_offset as start, e.end_offset as "end", e.text_sha256 as "textSha256", e.extractor_version as "extractorVersion", e.run_id as "runId"
             from enrichment_claims c join enrichment_dimensions d on d.id = c.dimension_id join enrichment_terms t on t.id = c.term_id
@@ -601,7 +608,7 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
         if (!kept.length) continue;
         const dimensions = await extractDimensions(tx, version, [...new Set(kept.map((k) => k.dimension))]);
         // Each value goes back under the run of its newest remaining evidence
-        for (const [, evidence] of Object.entries(Object.groupBy(kept, (k) => `${valueKey(k.dimension, k.term)}\u0000${scopeKey(k.scope, k.editionId)}`))) {
+        for (const [, evidence] of Object.entries(Object.groupBy(kept, (k) => `${valueKey(k.dimension, k.term)}\u0000${scopeKey(k.scope, k.editionId)}\u0000${assessmentKey(k.assessment)}`))) {
           const latestRun = evidence!
             .map((e) => e.runId)
             .sort()
@@ -615,6 +622,7 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
             values: new Map([[valueKey(evidence![0].dimension, evidence![0].term), evidence!]]),
             scope: evidence![0].scope,
             editionId: evidence![0].editionId,
+            assessment: evidence![0].assessment,
             names: new Map(),
             hidden: GOLD_SET_WORK_IDS.includes(workId),
           });

@@ -33,6 +33,12 @@ is never treated as a negative label. Source and excerpt provenance remain in
 
 - Scope and relation participate in deduplication, conflict comparison and
   immutable claim identity. A topic mention cannot merge with a theme.
+- Knowledge, coverage and evidence basis are also semantic identity fields;
+  opposite assessments cannot merge. Justification wording is not an identity
+  field. Compatible evidence may accumulate without replacing its assessment.
+- An edition-bound scoped claim requires evidence owned by that edition.
+  Explicit source text/component identity must match; source relation labels
+  do not prevent one document from supporting several distinct claim roles.
 - Different translations, editions, components or unresolved source identities
   cannot contribute to one unrestricted claim. No automatic inheritance.
 - Newly extracted literary claims default to the identified source text, or
