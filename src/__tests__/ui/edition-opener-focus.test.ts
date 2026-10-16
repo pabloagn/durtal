@@ -91,6 +91,8 @@ describe("Edit edition opener focus", () => {
     await click(button);
     const field = input();
     act(() => {
+      // The draft records the value before the person's first edit.
+      field.dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true }));
       field.value = "A changed edition";
       field.dispatchEvent(new Event("input", { bubbles: true }));
     });
