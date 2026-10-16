@@ -3,18 +3,20 @@
 import Link from "next/link";
 import { SectionHeading } from "@/components/shared/section-heading";
 import type { Rhythm as RhythmData } from "@/lib/actions/reading-goals";
-import { rhythmView } from "@/lib/reading/goals";
+import { rhythmView, rhythmWeekText } from "@/lib/reading/goals";
 import { useBrowserReadingDay } from "./reading-client";
 
 /*
  * The weekly reading rhythm (SLN-455): this week's seven days, filled when he
- * read, today marked, "4 of 5 days this week", and the 12 weeks before it as
+ * read, today marked, "4 of 5 days this week" (past the target, "6 days this
+ * week" over "5 is the aim"), and the 12 weeks before it as
  * small bars, "kept 9 of the last 12 weeks". No streak, nothing lost. Drawn
  * with the server's day, then the browser's.
  */
 export function Rhythm({ rhythm, dayStartHour }: { rhythm: RhythmData & { target: number }; dayStartHour: number }) {
   const today = useBrowserReadingDay(dayStartHour) ?? rhythm.today;
   const view = rhythmView(rhythm.days, today, rhythm.weekStart, rhythm.target);
+  const line = rhythmWeekText(view.thisWeek, rhythm.target);
   return (
     <section data-hub-rhythm="">
       <SectionHeading
@@ -49,7 +51,8 @@ export function Rhythm({ rhythm, dayStartHour }: { rhythm: RhythmData & { target
           ))}
         </ol>
         <p className="text-sm text-fg-secondary" data-rhythm-week="">
-          {view.thisWeek} of {rhythm.target} {rhythm.target === 1 ? "day" : "days"} this week
+          {line.days}
+          {line.aim && <span className="block text-xs">{line.aim}</span>}
         </p>
       </div>
       <div className="mt-5 flex items-end gap-3">

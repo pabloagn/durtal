@@ -158,9 +158,14 @@ export function unreadPileText(pile: { books: number; pages: number; withoutPage
   return `${books}, ${pages}${which}${time}.`;
 }
 
-/** A year's reading days by week: the weeks of the year (calendar rows), the weeks with a reading day, and those with `target` days or more */
-export function yearRhythm(days: Iterable<string>, year: number, weekStart: 1 | 7, target: number | null): { weeks: number; weeksRead: number; kept: number | null } {
-  const cells = calendarCells(year, weekStart);
+/**
+ * A year's reading days by week: the weeks of the year (calendar rows), the
+ * weeks with a reading day, and those with `target` days or more. In the year
+ * holding `today`, only the weeks up to today's count (SLN-923).
+ */
+export function yearRhythm(days: Iterable<string>, year: number, weekStart: 1 | 7, target: number | null, today?: string): { weeks: number; weeksRead: number; kept: number | null } {
+  const all = calendarCells(year, weekStart);
+  const cells = today?.startsWith(`${year}-`) ? all.filter((c) => c.day <= today) : all;
   const rowOf = new Map(cells.map((c) => [c.day, c.row]));
   const perWeek = new Map<number, number>();
   for (const day of new Set(days)) {
@@ -172,6 +177,12 @@ export function yearRhythm(days: Iterable<string>, year: number, weekStart: 1 | 
     weeksRead: perWeek.size,
     kept: target === null ? null : [...perWeek.values()].filter((d) => d >= target).length,
   };
+}
+
+/** The year review's rhythm line: "You read on 61 days, in 22 of 42 weeks; 9 weeks had 3 reading days or more." */
+export function yearRhythmText(readingDays: number, rhythm: { weeks: number; weeksRead: number; kept: number | null }, target: number | null): string {
+  const kept = rhythm.kept === null || target === null ? "" : `; ${n(rhythm.kept)} ${rhythm.kept === 1 ? "week" : "weeks"} had ${n(target)} reading ${target === 1 ? "day" : "days"} or more`;
+  return `You read on ${n(readingDays)} ${readingDays === 1 ? "day" : "days"}, in ${n(rhythm.weeksRead)} of ${n(rhythm.weeks)} ${rhythm.weeks === 1 ? "week" : "weeks"}${kept}.`;
 }
 
 /** When a book was finished, at its precision: "3 Jan", "January", "2026" */
