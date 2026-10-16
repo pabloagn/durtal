@@ -23,9 +23,9 @@ import { formatLabel } from "@/lib/ebooks/formats";
 import { openFailureOf } from "@/lib/ebooks/open-failure";
 import { lockName, lockedFileMessage } from "@/lib/ebooks/locked-file";
 import { languageName } from "@/lib/utils/language";
-import { PageHeader } from "@/components/layout/page-header";
 import {
   DetailColumns,
+  DetailTitleRow,
   RecordPanel,
   RecordGroup,
   RecordFields,
@@ -146,6 +146,9 @@ export default async function EbookPage({ params, searchParams }: Props) {
               ? "Replaced"
               : "Stored",
   }));
+  const description = book
+    ? `The eBook of this book${own ? `, titled “${own}” in its files` : ""}.`
+    : ebook.subtitle;
   return (
     <>
       {/* A page under its book: eBooks / the book, titled after it (SLN-683) */}
@@ -162,21 +165,24 @@ export default async function EbookPage({ params, searchParams }: Props) {
           </>
         )}
       </nav>
-      <PageHeader
-        title={book?.title ?? ebook.title}
-        description={
-          book
-            ? `The eBook of this book${own ? `, titled “${own}” in its files` : ""}.`
-            : (ebook.subtitle ?? undefined)
-        }
-        actions={
-          descriptor && (
-            <ReaderEntryLink readerPath={descriptor.href} returnTo={returnTo} className={buttonClass("primary")}>
-              {readLabel}
-            </ReaderEntryLink>
-          )
-        }
-      />
+      {/* The title steps down on a phone like every record's, Read on its
+          edge (SLN-877) */}
+      <header className="mb-8 min-w-0">
+        <DetailTitleRow title={book?.title ?? ebook.title} controls="button">
+          {descriptor && (
+            <CapAlignedControls height={32} coarseHeight={44}>
+              <ReaderEntryLink readerPath={descriptor.href} returnTo={returnTo} className={buttonClass("primary")}>
+                {readLabel}
+              </ReaderEntryLink>
+            </CapAlignedControls>
+          )}
+        </DetailTitleRow>
+        {description && (
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-fg-secondary [overflow-wrap:anywhere]">
+            {description}
+          </p>
+        )}
+      </header>
       <DetailColumns
         record={
           <RecordPanel>

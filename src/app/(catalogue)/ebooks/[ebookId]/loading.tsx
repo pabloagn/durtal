@@ -16,15 +16,18 @@ export default function EbookLoading() {
           eBooks
         </Link>
       </div>
-      {/* The page header: the title and its line, and Read */}
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
-        {/* A title on a phone takes the row, as nearly every title does there */}
-        <div className="w-full min-w-0 max-w-full sm:w-auto sm:flex-1">
-          <SkeletonLine className="type-page-title w-2/3" />
-          <SkeletonLine className="mt-2 w-1/2 text-sm leading-relaxed" />
+      {/* The page header: the title with Read on its edge, as a short title
+          has it at every width, and the line under it (SLN-877) */}
+      <div className="mb-8">
+        <div data-title-length="short" className="type-page-title flex items-start gap-x-4">
+          {/* Sized as a short title: under 375px that is one step down */}
+          <SkeletonLine titleLength="short" className="type-page-title w-1/2 min-w-0 sm:w-2/3" />
+          {/* Read, the label of a book not yet begun */}
+          <div className="type-page-title flex h-[1lh] shrink-0 items-center">
+            <SkeletonBlock className="h-8 w-15 pointer-coarse:h-11" />
+          </div>
         </div>
-        {/* Read, the label of a book not yet begun */}
-        <SkeletonBlock className="h-8 w-15 pointer-coarse:h-11" />
+        <SkeletonLine className="mt-2 w-1/2 text-sm leading-relaxed" />
       </div>
 
       <DetailColumns record={<SkeletonBlock className="mb-8 h-64" />}>
