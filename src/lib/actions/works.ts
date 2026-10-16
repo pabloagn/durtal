@@ -728,6 +728,12 @@ export async function getLibraryStats({ shelf = 8 }: { shelf?: number } = {}) {
     inArray(works.catalogueStatus, ["wanted", "shortlisted"]),
     shelf,
   );
+  // Limit the candidate IDs before loading authors, editions and media. The
+  // same ordering is used below when the selected books are hydrated.
+  const topRatedOrder = [sql`${works.rating} desc nulls last`, desc(works.createdAt)];
+  const topRatedIds = db.select({ id: works.id }).from(works)
+    .where(and(bookCondition, isNotNull(works.rating)))
+    .orderBy(...topRatedOrder).limit(shelf);
   const [
     [workCount],
     [editionCount],
@@ -752,8 +758,8 @@ export async function getLibraryStats({ shelf = 8 }: { shelf?: number } = {}) {
     }),
     // Top rated
     db.query.works.findMany({
-      where: and(bookCondition, isNotNull(works.rating)),
-      orderBy: [sql`${works.rating} desc nulls last`, desc(works.createdAt)],
+      where: inArray(works.id, topRatedIds),
+      orderBy: topRatedOrder,
       limit: shelf,
       extras: readingExtras,
       with: worksWith,

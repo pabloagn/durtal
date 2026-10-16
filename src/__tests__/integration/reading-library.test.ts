@@ -14,7 +14,10 @@ if (url) {
     throw new Error("Reading library tests require a disposable local sln449_reading_library database");
 }
 const client = url ? postgres(url, { prepare: false, max: 4, onnotice: () => {} }) : null;
-const testDb = client ? drizzle(client, { schema }) : null;
+const loggedQueries: { query: string; params: unknown[] }[] = [];
+const testDb = client ? drizzle(client, { schema, logger: {
+  logQuery(query, params) { loggedQueries.push({ query, params }); },
+} }) : null;
 vi.mock("@/lib/db", () => ({
   db: new Proxy(
     {},
@@ -98,6 +101,40 @@ describe.skipIf(!url)("reading across the library with PostgreSQL", () => {
     return sort ? titles : titles.sort();
   };
   const fromUrl = (query: string) => parseReadingFilters(new URLSearchParams(query), { sorts: LIBRARY_SORTS }).filters;
+
+  it("hydrates only the top-rated shelf while retaining rating/date order and relations", async () => {
+    for (let i = 1; i <= 16; i++) {
+      const id = await book(`Rated ${i}`, { rating: i % 3 === 0 ? 5 : 4 });
+      await q("update works set created_at = $2::timestamptz where id = $1", [id, `2026-01-${String(i).padStart(2, "0")}T12:00:00Z`]);
+      const author = await value("insert into authors (name) values ($1) returning id", [`Author ${i}`]);
+      await q("insert into work_authors (work_id, author_id) values ($1, $2)", [id, author]);
+      await copy(id);
+    }
+    await book("Unrated");
+    await q("insert into works (title, kind, rating, original_language) values ('Excluded film', 'film', 5, null)");
+    const reference = await q("select id from works where kind = 'book' and rating is not null order by rating desc nulls last, created_at desc limit 10");
+    loggedQueries.length = 0;
+    const stats = await getLibraryStats({ shelf: 10 });
+    expect(stats.topRatedWorks.map((row) => row.id)).toEqual(reference.map((row) => row.id));
+    expect(stats.topRatedWorks).toHaveLength(10);
+    for (const row of stats.topRatedWorks) {
+      expect(row.workAuthors).toHaveLength(1);
+      expect(row.workAuthors[0].author.name).toMatch(/^Author /);
+      expect(row.editions).toHaveLength(1);
+      expect(row.editions[0].instances).toHaveLength(1);
+    }
+    const topQuery = loggedQueries.find(({ query }) => /\bin\s*\(\s*select\b/i.test(query) && query.includes('"rating" desc nulls last'));
+    expect(topQuery).toBeDefined();
+    const [explained] = await q(`explain (analyze, format json) ${topQuery!.query}`, topQuery!.params);
+    const relatedNodes: Record<string, unknown>[] = [];
+    const visit = (plan: Record<string, unknown>) => {
+      if (["authors", "editions", "instances", "media"].includes(String(plan["Relation Name"]))) relatedNodes.push(plan);
+      for (const child of (plan.Plans ?? []) as Record<string, unknown>[]) visit(child);
+    };
+    visit(explained["QUERY PLAN"][0].Plan);
+    expect(relatedNodes.length).toBeGreaterThan(0);
+    for (const node of relatedNodes) expect(Number(node["Actual Loops"])).toBeLessThanOrEqual(10);
+  });
 
   /** The library: owned and not, every reading state, re-reads, read in several years */
   async function library() {

@@ -1,7 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { decadeBuckets, decadeLabel, percentOf, yearBuckets, yearLabel } from "@/lib/statistics/charts";
+import { compactYearCounts, decadeBuckets, decadeLabel, percentOf, yearBuckets, yearLabel } from "@/lib/statistics/charts";
 
 /* The library statistics' chart buckets (SLN-742). */
+
+describe("compact year transport", () => {
+  it.each([
+    { years: [] },
+    { years: [{ year: -800, count: 2 }, { year: 0, count: 1 }, { year: 1884, count: 9 }, { year: 2026, count: 3 }] },
+    { years: Array.from({ length: 573 }, (_, i) => ({ year: 1451 + i, count: 1 + i % 8 })) },
+  ])("preserves both chart views, labels, gaps and earlier counts", ({ years }) => {
+    const restored = compactYearCounts(years).map(([year, count]) => ({ year, count }));
+    expect(restored).toEqual(years);
+    expect(yearBuckets(restored)).toEqual(yearBuckets(years));
+    expect(decadeBuckets(restored)).toEqual(decadeBuckets(years));
+  });
+
+  it("cuts the 573-year payload by more than half without losing counts", () => {
+    const years = Array.from({ length: 573 }, (_, i) => ({ year: 1451 + i, count: 1 + i % 8 }));
+    expect(JSON.stringify(compactYearCounts(years)).length).toBeLessThan(JSON.stringify(years).length / 2);
+  });
+});
 
 describe("labels", () => {
   it("writes years and decades before the common era with BC", () => {

@@ -4,7 +4,7 @@ import { NumberTiles } from "@/components/reading/stats-parts";
 import { WrittenChart } from "./written-chart";
 import { YearCovers } from "./covers";
 import { n } from "@/lib/reading/charts";
-import { percentOf } from "@/lib/statistics/charts";
+import { compactYearCounts, percentOf } from "@/lib/statistics/charts";
 import { breakdown, busiestYears, libraryNumbers, writtenYears } from "@/lib/statistics/library";
 
 /*
@@ -34,7 +34,7 @@ async function Content() {
         ]}
       />
       {busiest && <YearCovers year={busiest} caption="Most books from one year" />}
-      {written.years.length > 0 && <WrittenChart years={written.years} height={CHART_HEIGHT} />}
+      {written.years.length > 0 && <WrittenChart years={compactYearCounts(written.years)} height={CHART_HEIGHT} />}
     </div>
   );
 }
