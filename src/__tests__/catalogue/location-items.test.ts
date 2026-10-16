@@ -25,5 +25,7 @@ describe("location items", () => {
     expect(locationItemCount({ ...NO_LOCATION_ITEMS, perfumes: 1 })).toBe("1 perfume bottle");
     expect(locationItemCount(items)).toBe("6 items");
     expect(locationItemCount(NO_LOCATION_ITEMS)).toBe("0 items");
+    expect(locationItemCount({ ...NO_LOCATION_ITEMS, copies: 1200 })).toBe("1,200 copies");
+    expect(locationItemCount({ ...NO_LOCATION_ITEMS, copies: 1200, films: 1 })).toBe("1,201 items");
   });
 });

@@ -37,8 +37,9 @@ export function describeLocationItems(
  */
 export function locationItemCount(counts: LocationItemCounts): string {
   const total = locationItemTotal(counts);
+  const shown = total.toLocaleString("en");
   const held = KINDS.filter(([key]) => counts[key] > 0);
-  if (held.length !== 1) return `${total} ${total === 1 ? "item" : "items"}`;
+  if (held.length !== 1) return `${shown} ${total === 1 ? "item" : "items"}`;
   const [key, one, many] = held[0];
-  return key === "copies" ? `${total} ${total === 1 ? "copy" : "copies"}` : `${total} ${total === 1 ? one : many}`;
+  return key === "copies" ? `${shown} ${total === 1 ? "copy" : "copies"}` : `${shown} ${total === 1 ? one : many}`;
 }
