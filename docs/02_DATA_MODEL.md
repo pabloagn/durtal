@@ -1119,6 +1119,9 @@ Links authors to works as primary creators.
 
 **PK**: `(work_id, author_id, role)`
 
+**Lookup index**: `work_authors_author_id_idx` on `(author_id)` supports
+person-to-work joins without scanning every work's credits.
+
 Roles: `author`, `co_author`, plus registered historical roles. A trigger enforces
 book/work role scope. Legacy membership edits preserve credit IDs and attribution.
 
@@ -1138,6 +1141,9 @@ Links contributors to editions with edition-specific roles (translator, editor, 
 
 **PK**: `(edition_id, author_id, role)`
 
+**Lookup index**: `edition_contributors_author_id_idx` on `(author_id)` supports
+person-to-edition joins.
+
 Roles: `translator`, `editor`, `illustrator`, `foreword`, `afterword`, `introduction`, `narrator`, `photographer`, `compiler`, `contributor`, `other`, plus registered historical roles. A trigger enforces book/edition role scope.
 
 **Why separate from `work_authors`**: A translator is not the author of Don Quixote — Cervantes is. The translator's contribution exists only in the context of a specific edition. This separation ensures: (a) searching "books by Borges" returns books Borges *wrote*, not books he merely translated; (b) the edition detail page can show "Translated by X, Introduction by Y" distinctly from "Written by Z"; (c) the same person can be author of one work and translator of another without role confusion.
@@ -1150,6 +1156,9 @@ Roles: `translator`, `editor`, `illustrator`, `foreword`, `afterword`, `introduc
 | `subject_id` | UUID FK → `subjects.id`, CASCADE |
 
 **PK**: `(work_id, subject_id)`
+
+**Lookup index**: `work_subjects_subject_id_idx` on `(subject_id)` supports
+subject-to-work joins.
 
 ### `edition_genres`
 
@@ -1168,6 +1177,9 @@ Roles: `translator`, `editor`, `illustrator`, `foreword`, `afterword`, `introduc
 | `tag_id` | UUID FK → `tags.id`, CASCADE |
 
 **PK**: `(edition_id, tag_id)`
+
+**Lookup index**: `edition_tags_tag_id_idx` on `(tag_id)` supports tag-to-edition
+joins.
 
 ### `collection_editions`
 
@@ -1247,6 +1259,9 @@ edition shows the whole book again. Existing edition members are unchanged.
 | `art_movement_id` | UUID FK → `art_movements.id`, CASCADE |
 
 **PK**: `(work_id, art_movement_id)`
+
+**Lookup index**: `work_art_movements_art_movement_id_idx` on `(art_movement_id)`
+supports movement-to-work joins.
 
 ### `work_keywords`
 
@@ -1664,6 +1679,9 @@ Custom items link to records through two junction tables
 |---|---|---|
 | `custom_taxonomy_item_works` | `item_id` FK → custom_taxonomy_items, CASCADE; `work_id` FK → works, CASCADE | PK `(item_id, work_id)` |
 | `custom_taxonomy_item_editions` | `item_id` FK → custom_taxonomy_items, CASCADE; `edition_id` FK → editions, CASCADE | PK `(item_id, edition_id)` |
+
+`custom_taxonomy_item_works_work_id_idx` indexes `(work_id)` for work-to-item
+joins; the primary key already supports lookups starting with `item_id`.
 
 Migration `0041_taxonomy_applicability` adds `taxonomy_applicability`:
 

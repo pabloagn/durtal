@@ -5,6 +5,7 @@ import {
   integer,
   timestamp,
   primaryKey,
+  index,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -32,7 +33,10 @@ export const workSubjects = pgTable(
       .notNull()
       .references(() => subjects.id, { onDelete: "cascade" }),
   },
-  (t) => [primaryKey({ columns: [t.workId, t.subjectId] })],
+  (t) => [
+    primaryKey({ columns: [t.workId, t.subjectId] }),
+    index("work_subjects_subject_id_idx").on(t.subjectId),
+  ],
 );
 
 export const workSubjectsRelations = relations(workSubjects, ({ one }) => ({
@@ -113,7 +117,10 @@ export const editionTags = pgTable(
       .notNull()
       .references(() => tags.id, { onDelete: "cascade" }),
   },
-  (t) => [primaryKey({ columns: [t.editionId, t.tagId] })],
+  (t) => [
+    primaryKey({ columns: [t.editionId, t.tagId] }),
+    index("edition_tags_tag_id_idx").on(t.tagId),
+  ],
 );
 
 export const editionTagsRelations = relations(editionTags, ({ one }) => ({
