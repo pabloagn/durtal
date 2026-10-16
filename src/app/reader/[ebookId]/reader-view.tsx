@@ -1916,6 +1916,7 @@ function ReaderSession({
           } : undefined
         }
         markingActions={annotations.markingActions}
+        markingMore={annotations.markingMore}
         speechReady={speech?.selectionReady}
         bottomInset={speechHeight + footHeight}
         topInset={bars.visible ? topHeight : 0}

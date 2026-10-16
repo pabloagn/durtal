@@ -36,7 +36,7 @@ function Actions({ owner }: { owner: ReaderBridgeController }) {
   const annotations = useReaderAnnotations({ book: { id: id(2), title: "Selection test", authors: [] },
     fileId: id(3), deviceId: id(4), engine, painted: true, bridge: owner, selection: word,
     locator, palette: QUIET_GLASS_ANNOTATION_PALETTE, onJump: async () => true, onNotice: vi.fn() });
-  return h("div", null, annotations.markingActions);
+  return h("div", null, annotations.markingActions, annotations.overlays);
 }
 beforeEach(async () => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -72,6 +72,16 @@ beforeEach(async () => {
   expect(host.querySelector('[aria-label="Highlight in ochre"]')).not.toBeNull();
 });
 afterEach(() => { act(() => root.unmount()); document.getSelection()?.removeAllRanges(); book.remove(); host.remove(); vi.restoreAllMocks(); });
+async function saveNote(text: string) {
+  const area = document.querySelector<HTMLTextAreaElement>("dialog textarea")!;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(area, text);
+    area.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await act(async () => {
+    [...document.querySelectorAll<HTMLButtonElement>("dialog button")].find(item => item.textContent === "Save note")!.click();
+  });
+}
 function selectParagraph() {
   const range = document.createRange(); range.selectNodeContents(book);
   document.getSelection()!.removeAllRanges(); document.getSelection()!.addRange(range);
@@ -81,14 +91,53 @@ describe("annotation action-time selection", () => {
     selectParagraph();
     await act(async () => {
       const button = action === "highlight" ? host.querySelector<HTMLButtonElement>('[aria-label="Highlight in ochre"]')! :
-        [...host.querySelectorAll<HTMLButtonElement>("button")].find(item => item.textContent === "Note")!;
+        host.querySelector<HTMLButtonElement>('[aria-label="Add a note"]')!;
       button.click();
     });
+    if (action === "note") {
+      // Note makes its mark only when the note is saved (SLN-682)
+      expect(enqueued).toHaveLength(0);
+      expect(document.querySelector("[data-note-passage]")?.textContent).toBe(paragraph);
+      await saveNote("By the door.");
+    }
     expect(enqueued).toHaveLength(1);
     expect(enqueued[0]).toMatchObject({ ebookId: id(2), fileId: id(3), expectedDeviceId: id(4), revision: 1,
-      local: { mutation: { text: paragraph, locator: paragraphLocator, fileId: id(3) } } });
+      local: { mutation: { text: paragraph, locator: paragraphLocator, fileId: id(3), note: action === "note" ? "By the door." : null } } });
     expect(JSON.parse(enqueued[0].body)).toMatchObject({ upserts: [{ text: paragraph, locator: paragraphLocator }], deletes: [] });
     expect(engine.clearSelection).toHaveBeenCalledOnce();
+  });
+  it("leaves no mark when a new note is cancelled (SLN-682)", async () => {
+    selectParagraph();
+    await act(async () => { host.querySelector<HTMLButtonElement>('[aria-label="Add a note"]')!.click(); });
+    const cancel = [...document.querySelectorAll<HTMLButtonElement>("dialog button")].find(item => item.textContent === "Cancel")!;
+    const save = [...document.querySelectorAll<HTMLButtonElement>("dialog button")].find(item => item.textContent === "Save note")!;
+    expect(save.disabled).toBe(true);
+    await act(async () => { cancel.click(); });
+    expect(document.querySelector("dialog")).toBeNull();
+    expect(enqueued).toHaveLength(0);
+  });
+  it("changes the mark already on the words rather than marking them twice (SLN-682)", async () => {
+    selectParagraph();
+    await act(async () => { host.querySelector<HTMLButtonElement>('[aria-label="Highlight in ochre"]')!.click(); });
+    selectParagraph();
+    await act(async () => { host.querySelector<HTMLButtonElement>('[aria-label="Highlight in sage"]')!.click(); });
+    expect(enqueued).toHaveLength(2);
+    expect(enqueued[1].local.mutation).toMatchObject({ op: "put", id: enqueued[0].local.mutation.id, color: "sage", style: "highlight" });
+    selectParagraph();
+    await act(async () => { [...host.querySelectorAll<HTMLButtonElement>("button")].find(item => item.textContent === "Underline")!.click(); });
+    expect(enqueued).toHaveLength(3);
+    expect(enqueued[2].local.mutation).toMatchObject({ id: enqueued[0].local.mutation.id, color: "ochre", style: "underline" });
+    // A note on the same words opens the mark's own note
+    selectParagraph();
+    await act(async () => { host.querySelector<HTMLButtonElement>('[aria-label="Add a note"]')!.click(); });
+    expect(document.querySelector("dialog")?.textContent).not.toContain("Save note");
+    expect(document.querySelector("[data-note-passage]")?.textContent).toBe(paragraph);
+  });
+  it("underlines a fresh selection", async () => {
+    selectParagraph();
+    await act(async () => { [...host.querySelectorAll<HTMLButtonElement>("button")].find(item => item.textContent === "Underline")!.click(); });
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0].local.mutation).toMatchObject({ op: "put", kind: "highlight", style: "underline", color: "ochre", text: paragraph });
   });
   it("does not enqueue the stale word when the native range has collapsed", async () => {
     document.getSelection()!.removeAllRanges();
