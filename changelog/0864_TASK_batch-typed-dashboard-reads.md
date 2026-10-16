@@ -26,6 +26,9 @@ follow-up using the installed Neon driver's public batch API.
   writes, prepared queries, duplicate builders, placeholders, auth tokens,
   explicit cache settings, locking and CTE options. A failed batch rejects its
   whole chunk; other chunks remain independent. No automatic retry.
+- Inspect nested SQL locking clauses while respecting quoted text and comments.
+  Reject sparse batch results before resolving any caller; explicit `undefined`
+  remains a valid result for a missing `findFirst` row.
 - Prepare type checks and tests using actual Drizzle builders, plus the real
   Neon HTTP client against disposable local PostgreSQL for mapping, decoding,
   ordered results, missing rows, bounded chunks, errors and fallback execution.

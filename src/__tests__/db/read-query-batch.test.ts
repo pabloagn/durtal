@@ -101,6 +101,63 @@ describe("function-scoped typed read batching", () => {
     expect(failures.map((result) => result.status)).toEqual(["rejected", "rejected"]);
   });
 
+  it("rejects sparse results before resolving any read, while accepting explicit undefined", async () => {
+    const sparseFirst = Array<unknown>(2);
+    sparseFirst[1] = [];
+    const sparseLast = Array<unknown>(2);
+    sparseLast[0] = [];
+    const inherited = Array<unknown>(2);
+    inherited[0] = [];
+    Object.setPrototypeOf(inherited, { 1: undefined });
+    for (const result of [sparseFirst, sparseLast, inherited]) {
+      const reads = createReadBatch({ batch: async () => result });
+      const settled = await Promise.allSettled([reads.read(select()), reads.read(select())]);
+      expect(settled.map((item) => item.status)).toEqual(["rejected", "rejected"]);
+      for (const item of settled)
+        if (item.status === "rejected") expect(item.reason.message).toContain("missing result entry");
+    }
+    const reads = createReadBatch({ batch: async () => [undefined, []] });
+    expect(await Promise.all([reads.read(db.query.works.findFirst()), reads.read(select())]))
+      .toEqual([undefined, []]);
+  });
+
+  it("rejects locking nested in subqueries, including all four PostgreSQL lock strengths", async () => {
+    const batch = vi.fn();
+    const reads = createReadBatch({ batch });
+    for (const strength of ["update", "no key update", "share", "key share"] as const) {
+      const locked = db.select().from(schema.works).for(strength).as("locked");
+      await expect(reads.read(db.select().from(locked))).rejects.toThrow("locking");
+    }
+    const nestedLocks = [
+      "(select * from works for/* outer /* inner */ still outer */update) as locked",
+      "(select * from works FOR-- lock strength\nKEY SHARE) as locked",
+      String.raw`(select '\'::text as value from works for update) as locked`,
+    ];
+    for (const nested of nestedLocks)
+      await expect(reads.read(db.select().from(sql.raw(nested)))).rejects.toThrow("locking");
+    expect(batch).not.toHaveBeenCalled();
+  });
+
+  it("allows lock-like text in quoted values, identifiers, parameters and comments", async () => {
+    const expressions = [
+      "'for update'",
+      "'it''s for no key update'",
+      String.raw`E'it\'s for share'`,
+      "$$for key share$$",
+      "$note$for update$note$",
+      "1 /* for update /* for share */ */",
+      "1 -- for no key update\n",
+    ];
+    const queries = [
+      ...expressions.map((expression) => db.select({ value: sql.raw(expression) }).from(schema.works)),
+      db.select({ value: sql`${"for update"}`.as("for update") }).from(schema.works),
+    ];
+    const batch = vi.fn(async (items: ReadQuery[]) => items.map(() => []));
+    const reads = createReadBatch({ batch });
+    expect(await Promise.all(queries.map((query) => reads.read(query)))).toEqual(queries.map(() => []));
+    expect(batch).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects unsupported options before execution", async () => {
     const cte = db.$with("titles").as(select());
     const queries = [
