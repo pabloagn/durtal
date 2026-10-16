@@ -84,16 +84,17 @@ export default async function StatisticsPage() {
               tiles={[
                 { label: "Books", value: n(numbers.books) },
                 { label: "Editions", value: n(numbers.editions) },
-                { label: "Copies", value: n(numbers.copies) },
+                { label: "Owned copies", value: n(numbers.copies) },
                 // No page count is not zero pages (SLN-824): a dash, and the tile stays so the rows end full
                 numbers.pages > 0 ? { label: "Pages", value: n(numbers.pages) } : { label: "No page counts yet", value: "\u2014" },
                 { label: "Authors", value: n(numbers.authors) },
                 { label: "Publishers", value: n(numbers.publishers) },
                 { label: "Languages", value: n(numbers.languages) },
-                { label: "Countries", value: n(numbers.countries) },
+                // Named as on the dashboard (SLN-886)
+                { label: "Authors' countries", value: n(numbers.countries) },
               ]}
             />
-            <Footnote>Books you own: a book counts once one of its copies is on your shelves. Countries are your authors&apos; nationalities.</Footnote>
+            <Footnote>Books you own: a book counts once it is accessioned and one of its copies is on your shelves. Authors&apos; countries are their nationalities.</Footnote>
           </StatsSection>
 
           {written.years.length > 0 && (

@@ -301,7 +301,7 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
     expect(rows[0]).toMatchObject({
       title: "The Alexandria Quartet",
       bookCount: 1,
-      accessionedCount: 0,
+      ownedCount: 0,
       covers: ["justine.webp"],
     });
     expect(
@@ -375,7 +375,7 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
     await volume("A Thousand Plateaus", pair.id, [deleuze.id, "author"], [guattari.id, "co_author"]);
     expect((await getSeriesDetail(pair.id))!.authors.map((a) => a.name)).toEqual(["Gilles Deleuze", "Félix Guattari"]);
   });
-  it("counts Accessioned volumes by catalogue status, the same in the list and the detail (SLN-635)", async () => {
+  it("counts owned volumes, accessioned with a copy, the same in the list and the detail (SLN-635, SLN-886)", async () => {
     const s = await make("My Struggle");
     const [home] = await db
       .insert(schema.locations)
@@ -409,12 +409,12 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
     ]);
 
     const [row] = (await getSeriesList()).rows;
-    expect(row).toMatchObject({ title: "My Struggle", bookCount: 6, accessionedCount: 5 });
+    // Only volume 2 is owned: volume 1 has no copy, and volume 6 is on order
+    // however many copies it has
+    expect(row).toMatchObject({ title: "My Struggle", bookCount: 6, ownedCount: 1 });
     const detail = await getSeriesDetail(s.id);
     expect(detail!.works.map((w) => w.catalogueStatus)).toEqual([...statuses]);
-    expect(detail!.works.filter((w) => w.catalogueStatus === "accessioned")).toHaveLength(
-      row.accessionedCount,
-    );
+    expect(detail!.works.map((w) => w.owned)).toEqual([false, true, false, false, false, false]);
   });
   it("creates a real series through normal book creation and reuses an exact normalized title", async () => {
     const [author] = await db

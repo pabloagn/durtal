@@ -18,6 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import { BookCard } from "@/components/books/book-card";
 import { mediaCrop } from "@/lib/utils/media-style";
 import { SectionHeading } from "@/components/shared/section-heading";
+import { WORK_DOMAINS } from "@/lib/catalogue/domains";
+import type { WorkKind } from "@/lib/catalogue/kinds";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { titleLength } from "@/components/shared/detail-layout";
 import { posterTone, workCardExtras } from "@/lib/actions/utils/work-card-query";
@@ -75,6 +77,23 @@ async function getWorksByIds(ids: string[]) {
   return results.sort(compareWorks);
 }
 
+/**
+ * A collection's list filtered by one item (SLN-886): every key below feeds
+ * the list's taxonomy filter, named for the item's family so its chip shows
+ */
+const FILTER_KEYS: Record<string, string> = {
+  "perfume-accords": "accord",
+  "perfume-notes": "note",
+  "painting-techniques": "technique",
+  "painting-media": "medium",
+  "painting-supports": "support",
+};
+const DEFAULT_KEYS: Partial<Record<WorkKind, string>> = { perfume: "family", film: "genre", painting: "genre" };
+function filteredListHref(kind: WorkKind, familySlug: string, itemId: string) {
+  const key = FILTER_KEYS[familySlug] ?? DEFAULT_KEYS[kind] ?? "genre";
+  return `${WORK_DOMAINS[kind].basePath}?${key}=${itemId}`;
+}
+
 // ── Content component ──────────────────────────────────────────────────────
 
 async function ItemContent({
@@ -95,8 +114,11 @@ async function ItemContent({
 
   // Fetch associated works
   const entityIds = item.entityIds ?? [];
+  // Books show here as cards; a family of other collections (a perfume
+  // note, a film genre) links to each collection's list filtered by the item
+  const books = item.kinds[0] === "book";
   const entityWorks =
-    family.entityLevel === "work" ? await getWorksByIds(entityIds) : [];
+    family.entityLevel === "work" && books ? await getWorksByIds(entityIds) : [];
 
   const paging = paginateItems(entityWorks, searchParams);
   const digital = await catalogueAvailability(paging.items.map((work) => work.id));
@@ -221,6 +243,24 @@ async function ItemContent({
             })}
           </div>
           </PaginatedSection>
+        </div>
+      )}
+
+      {family.entityLevel === "work" && !books && entityIds.length > 0 && (
+        <div>
+          <SectionHeading title="Associated works" />
+          <ul className="space-y-2 text-sm" data-item-kinds="">
+            {item.kindCounts
+              .filter(({ count }) => count > 0)
+              .map(({ kind, count }) => (
+                <li key={kind}>
+                  <Link href={filteredListHref(kind, family.slug, item.id)} className="text-command touch-hit">
+                    {count.toLocaleString("en-US")}{" "}
+                    {(count === 1 ? WORK_DOMAINS[kind].label : WORK_DOMAINS[kind].pluralLabel).toLowerCase()}
+                  </Link>
+                </li>
+              ))}
+          </ul>
         </div>
       )}
 

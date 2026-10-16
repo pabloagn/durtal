@@ -97,13 +97,15 @@ describe.skipIf(!url)("reading stats with PostgreSQL", () => {
 
   let serial = 0;
   const book = async (title: string, o: { rating?: number | null; language?: string | null; year?: number | null; kind?: string } = {}) =>
-    value(`insert into works(title, slug, rating, original_language, original_year, kind) values ($1, $2, $3, $4, $5, $6) returning id`, [
+    value(`insert into works(title, slug, rating, original_language, original_year, kind, catalogue_status) values ($1, $2, $3, $4, $5, $6, $7) returning id`, [
       title,
       `book-${++serial}`,
       o.rating ?? null,
       o.language === undefined ? "en" : o.language,
       o.year ?? null,
       o.kind ?? "book",
+      // Owned is an accessioned book with a copy (SLN-886); other kinds stay tracked
+      (o.kind ?? "book") === "book" ? "accessioned" : "tracked",
     ]);
   const edition = (workId: string, o: { pages?: number | null; language?: string } = {}) =>
     value(`insert into editions(work_id, title, language, page_count) values ($1, 'E', $2, $3) returning id`, [workId, o.language ?? "en", o.pages === undefined ? 300 : o.pages]);

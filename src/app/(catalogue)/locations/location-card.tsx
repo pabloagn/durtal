@@ -20,10 +20,9 @@ import type { CreateLocationInput } from "@/lib/validations/locations";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import {
   describeLocationItems,
-  locationItemTotal,
+  locationItemCount,
   type LocationItemCounts,
 } from "@/lib/catalogue/location-items";
-import { countLabel } from "@/lib/utils/format";
 
 type LocationType = CreateLocationInput["type"];
 
@@ -66,7 +65,6 @@ export function LocationCard({
   items,
   subLocations,
 }: LocationCardProps) {
-  const itemCount = locationItemTotal(items);
   // Film copies, paintings and bottles keep the location (the database refuses
   // the delete); book copies are deleted with it
   const blocking = describeLocationItems(items, ["films", "paintings", "perfumes"]);
@@ -158,7 +156,7 @@ export function LocationCard({
             <div className="type-item-title flex items-start gap-2">
               <CapAligned height={20}>
                 <span className="block font-mono text-xs text-fg-secondary">
-                  {countLabel(itemCount, "item")}
+                  {locationItemCount(items)}
                 </span>
               </CapAligned>
               <CapAligned height={24} coarseHeight={44}>
