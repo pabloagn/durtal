@@ -1,6 +1,6 @@
 # Task 0844: Finish Add-book entry, validation and source feedback
 
-**Status**: In Progress
+**Status**: Complete
 **Created**: 2026-10-17
 **Priority**: MEDIUM
 **Type**: Fix
@@ -22,4 +22,4 @@ Manual entry goes through duplicate detection before advancing or saving with Fa
 
 ## Completion Notes
 
-Forty focused regression tests pass. Browser and complete local-harness validation remain in progress. No live catalogue data changed.
+The local harness passed 79 tests, including atomic writes and duplicate-name regressions, with no skips. Production checks cover the four entry/validation cases, empty and failed searches, and all five form steps at 1440/390/320 in Chromium, Firefox and WebKit. Required-field focus was asserted after its scheduled frame. The integrated build and smoke passed after the save-error recovery merged. Lint passed with existing warnings only; page-weight passed on 37 available routes, with eight unseeded routes explicitly skipped. No live catalogue data changed.
