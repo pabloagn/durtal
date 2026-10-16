@@ -162,7 +162,7 @@ export function CreateItemDialog({
             type="submit"
             variant="primary"
             size="sm"
-            disabled={submitting || !name.trim()}
+            disabled={!name.trim()}
             busy={submitting}
           >
             Create
