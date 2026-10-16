@@ -215,6 +215,34 @@ describe("Log progress", () => {
 });
 
 describe("Finish and Abandon", () => {
+  it.each([
+    ["America/Los_Angeles", "2026-10-16T00:30:00Z", "2026-10-16", "2026-10-16"],
+    ["Europe/Amsterdam", "2026-10-17T12:00:00Z", "2026-10-16", "2026-10-17"],
+    ["Europe/Amsterdam", "2026-10-17T12:00:00Z", null, "2026-10-17"],
+  ])("prefills an enabled Finish dialog in %s for start %s", async (timeZone, now, startedOn, expected) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(now!));
+    const options = new Intl.DateTimeFormat().resolvedOptions();
+    const zone = vi.spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions").mockReturnValue({ ...options, timeZone: timeZone! });
+    actions.finishReading.mockResolvedValue({ reading: { fingerprint: "e".repeat(32) }, undo: {} });
+    try {
+      act(() => root.render(createElement(FinishReadingDialog, props({
+        row: { ...row, reading: { ...reading, startedOn, startedPrecision: startedOn ? "day" : "unknown" } } as never,
+        request: { kind: "finish", readingId: "r1" },
+      }))));
+      expect(host.ownerDocument.querySelector(`[data-draft-value="${expected}"]`)).not.toBeNull();
+      expect(text()).not.toContain("The finish date is before the start date");
+      const finish = [...host.ownerDocument.querySelectorAll<HTMLButtonElement>('button[type="submit"]')]
+        .find((button) => button.textContent === "Finish")!;
+      expect(finish.disabled).toBe(false);
+      await submit();
+      expect(actions.finishReading).toHaveBeenCalledWith(expect.objectContaining({ finishedOn: expected, finishedPrecision: "day", timeZone }));
+    } finally {
+      zone.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("Undo of Finish passes the payload back and shows the server's message", async () => {
     const undo = { toStatus: "paused", position: { page: 400, percent: 83.33, minutes: null, chapter: null }, closingSessionId: "s9", restoreBookRating: { before: 4, after: 4.5 } };
     actions.finishReading.mockResolvedValue({ reading: { fingerprint: "e".repeat(32) }, undo });

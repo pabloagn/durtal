@@ -76,6 +76,11 @@ export function readingPeriodStart(date: string, precision: ReadingDatePrecision
 
 export const FUTURE_READING_DATE = "Choose today or an earlier date";
 
+/** Default to the local reading day, never earlier than this reading's start. */
+export function defaultFinishDate(today: string, startedOn: string | null): string {
+  return startedOn && startedOn > today ? startedOn : today;
+}
+
 /** A stored start can be ahead after travelling west, but never beyond today anywhere on Earth. */
 export function readingDateLimit(timeZone: string, existingStart: string | null = null, now = new Date()): string {
   const today = readingDay(now, timeZone, 0);
