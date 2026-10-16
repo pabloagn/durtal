@@ -46,7 +46,11 @@ const parent = () => [...document.querySelectorAll("dialog[open]")].find(dialog 
   dialog.querySelector("h2")?.textContent === "Parent");
 function open(dirty = false) {
   act(() => root.render(h(Parent, { dirty })));
-  act(() => (document.getElementById("opener") as HTMLButtonElement).click());
+  act(() => {
+    const opener = document.getElementById("opener") as HTMLButtonElement;
+    opener.focus();
+    opener.click();
+  });
   act(() => { trigger().focus(); trigger().click(); });
   expect(grid()).not.toBeNull();
 }
@@ -61,7 +65,7 @@ const day = (date: string) => document.querySelector<HTMLButtonElement>(`[data-d
 describe("calendar surface ownership", () => {
   it("closes only the calendar first, restores its trigger, then closes a clean parent", async () => {
     open();
-    day("2026-10-16").focus();
+    act(() => day("2026-10-16").focus());
     expect(escape().defaultPrevented).toBe(true);
     expect(grid()).toBeNull();
     expect(parent()).toBeTruthy();
