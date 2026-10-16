@@ -356,7 +356,7 @@ export function EditionDetailCard({
             {hasTags && (
               <div>
                 <SectionHeading as="h4" title="Tags" />
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5 [overflow-wrap:anywhere]">
                   {edition.editionTags.map(({ tag }) => (
                     <Badge key={tag.id} variant="muted">
                       {tag.name}
@@ -379,7 +379,8 @@ export function EditionDetailCard({
           count={edition.instances.length}
         />
         {edition.instances.length > 0 ? (
-          <div className="space-y-2">
+          // A deleted copy hands the focus to the next one (FocusKeeper)
+          <div className="space-y-2" data-focus-list={`copies-${edition.id}`}>
             {edition.instances.map((instance) => (
               <InstanceDetail
                 key={instance.id}

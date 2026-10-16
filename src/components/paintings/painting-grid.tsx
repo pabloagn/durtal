@@ -10,7 +10,6 @@ import { PaintingCard, PaintingRow, paintingHref, paintingPainters, type Paintin
 import { PaintingImage } from "./painting-image";
 import { Mosaic, mosaicPerRow } from "@/components/shared/mosaic";
 import { paintingRatio } from "@/lib/catalogue/painting-labels";
-import { catalogueDateYears } from "@/lib/catalogue/dates";
 
 /** The paintings of the home in the saved view (grid, mosaic or list), with paging. */
 export function PaintingGrid({
@@ -58,7 +57,6 @@ export function PaintingGrid({
                 <PaintingImage
                   image={painting.poster}
                   title={painting.title}
-                  year={catalogueDateYears(painting.creationDate)}
                   size={size}
                   frame="native"
                 />

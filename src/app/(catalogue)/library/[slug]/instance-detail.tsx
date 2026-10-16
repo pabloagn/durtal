@@ -95,7 +95,7 @@ export function InstanceDetail({
   const hasActions = availableLocations.length > 0;
 
   return (
-    <div className="@container rounded-sm border border-glass-border bg-bg-primary px-4 py-3 text-xs [overflow-wrap:anywhere]">
+    <div data-focus-row="" className="@container rounded-sm border border-glass-border bg-bg-primary px-4 py-3 text-xs [overflow-wrap:anywhere]">
       {/* Location row */}
       <div className="mb-2 flex flex-col items-start gap-3 @min-[440px]:flex-row @min-[440px]:justify-between">
         <div className="min-w-0 flex flex-wrap items-center gap-2">

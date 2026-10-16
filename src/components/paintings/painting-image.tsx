@@ -1,5 +1,5 @@
 import { FadeImage } from "@/components/shared/fade-image";
-import { TitleCard } from "@/components/shared/no-photo";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { coverToneStyle } from "@/lib/utils/media-style";
 import { paintingRatio } from "@/lib/catalogue/painting-labels";
 import { mediaUrl } from "@/lib/s3/media-url";
@@ -24,7 +24,8 @@ export function paintingImageUrl(
 
 /**
  * A painting's picture, whole and never cropped, over a tone of its own
- * color while it loads; a title card when it has no picture.
+ * color while it loads; the title's letter when it has no picture
+ * (`CoverLetter`), as every blank cover shows.
  *
  * - `frame="card"`: a fixed 4:5 frame, so every card of a grid has one
  *   height; a wide or tall painting sits inside it with margins.
@@ -34,26 +35,20 @@ export function paintingImageUrl(
 export function PaintingImage({
   image,
   title,
-  year,
   size,
   frame = "card",
   alt = "",
   thumbnail = true,
-  small = false,
   className = "",
   eager = false,
 }: {
   image: PaintingImageData | null | undefined;
   title: string;
-  /** Shown on the title card */
-  year?: string | null;
   /** The primary object's size, for the proportions of a painting without a picture */
   size?: { widthCm: number | null; heightCm: number | null } | null;
   frame?: "card" | "native";
   alt?: string;
   thumbnail?: boolean;
-  /** A small thumbnail: the title card carries no lettering */
-  small?: boolean;
   className?: string;
   /** The page's main image: load it at once */
   eager?: boolean;
@@ -76,7 +71,9 @@ export function PaintingImage({
           className="protected-image absolute inset-0 h-full w-full object-contain"
         />
       ) : (
-        <TitleCard title={title} year={year} lettering={!small} />
+        <span className={`absolute inset-0 ${COVER_BLANK}`}>
+          <CoverLetter title={title} />
+        </span>
       )}
     </div>
   );

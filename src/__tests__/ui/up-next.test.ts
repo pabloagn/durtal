@@ -188,6 +188,8 @@ describe("the Up Next page", () => {
   it("shows an empty state that adds from the unread books he owns", async () => {
     const html = renderToStaticMarkup(await UpNextPage({ searchParams: Promise.resolve({}) }));
     expect(html).toContain("Nothing in Up Next");
+    // SLN-842: and a sentence that says what Up Next is
+    expect(html).toContain("Up Next keeps the books you mean to read, in your order.");
     expect(html).toContain('href="/library?reading=unread&amp;holding=owned"');
     expect(html).toContain("Add from your library");
     // SLN-457: and See suggestions, from the books he owns
