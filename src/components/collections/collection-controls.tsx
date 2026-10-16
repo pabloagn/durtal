@@ -53,6 +53,10 @@ type Collection = {
   name: string;
   description: string | null;
 };
+
+/** A labelled header button with no icon in a narrow row */
+const NARROW_NO_ICON = "@max-[19rem]:[&>svg]:hidden";
+
 export function CollectionControls({
   collection,
   editionIds,
@@ -151,12 +155,16 @@ export function CollectionControls({
   }
   return (
     <>
+      {/* In a row too narrow for all four (300px on touch), the labelled
+          buttons drop their icons, so Delete never wraps alone (SLN-879) */}
+      <div className="@container">
       <div className="flex flex-wrap items-center gap-2">
-        <Button ref={addButton} variant="secondary" size="sm" onClick={() => setAdd(true)}>
+        <Button ref={addButton} variant="secondary" size="sm" onClick={() => setAdd(true)} className={NARROW_NO_ICON}>
           <Plus size={14} strokeWidth={1.5} />
           Add
         </Button>
         <Button
+          className={NARROW_NO_ICON}
           data-tooltip="Edit collection"
           data-tooltip-keys={editTooltipKeys(EDIT_KEYS.collection)}
           onClick={openEdit}
@@ -165,6 +173,7 @@ export function CollectionControls({
           Edit
         </Button>
         <Button
+          className={NARROW_NO_ICON}
           data-tooltip="Edit artwork"
           data-tooltip-keys={editTooltipKeys(EDIT_KEYS.media)}
           onClick={() => setArtwork(true)}
@@ -180,6 +189,7 @@ export function CollectionControls({
         >
           <Trash2 size={14} strokeWidth={1.5} />
         </Button>
+      </div>
       </div>
       {add && (
         <AddCollectionBooksDialog

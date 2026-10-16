@@ -26,15 +26,18 @@ export function DomainSwitch({
     if (first) params.set(key, first);
   }
   return (
-    <nav aria-label="Collections" className="mt-6 max-sm:mt-4">
-      {/* On a phone one row of equal tabs without icons; a row too narrow
-          for every label scrolls inside itself, never the page (SLN-639) */}
-      <ul className="flex flex-wrap gap-1 max-sm:grid max-sm:auto-cols-[minmax(max-content,1fr)] max-sm:grid-flow-col max-sm:overflow-x-auto">
+    <nav aria-label="Collections" className="@container mt-6 max-sm:mt-4">
+      {/* On a phone one row of tabs without icons, equal where the row has
+          room and each as wide as its label where it has not; a row too
+          narrow for four labels (about 330px) takes two rows of two, so
+          none is cut (SLN-879), and anything narrower still scrolls inside
+          itself, never the page (SLN-639) */}
+      <ul className={`flex flex-wrap gap-1 pointer-coarse:gap-2 max-sm:flex-nowrap max-sm:overflow-x-auto ${kinds.length > 3 ? "max-sm:@max-[21rem]:grid max-sm:@max-[21rem]:grid-cols-2" : ""}`}>
         {kinds.map((kind) => {
           const Icon = DOMAIN_ICONS[kind];
           const active = kind === current;
           return (
-            <li key={kind}>
+            <li key={kind} className="max-sm:flex-1">
               <Link
                 href={domainSwitchHref(kind, params)}
                 aria-current={active ? "page" : undefined}
