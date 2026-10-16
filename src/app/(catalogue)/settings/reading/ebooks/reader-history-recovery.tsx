@@ -9,6 +9,8 @@ import { Select } from "@/components/ui/select";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { beginReaderHistory, commitReaderHistory, finishReaderHistory, undoReaderHistory,
   type previewReaderHistory, type readerHistoryOperations } from "@/lib/actions/reader-history";
+import { formatReadingDate } from "@/lib/reading/dates";
+import { calendarDate } from "@/lib/utils/date";
 import { countLabel } from "@/lib/utils/format";
 
 type Row = Awaited<ReturnType<typeof previewReaderHistory>>[number];
@@ -134,7 +136,7 @@ export function ReaderHistoryRecovery({ rows, operations }: { rows: Row[]; opera
       <SectionHeading as="h3" title="Recovery operations" />
       <div className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary">
         {operations.map((operation) => <div key={operation.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm text-fg-primary">
-          <span>{new Date(operation.createdAt).toLocaleDateString()} · {OPERATION_STATUS[operation.status] ?? "Not known"} · {countLabel(operation.processedRecords, "reading")}</span>
+          <span>{formatReadingDate(calendarDate(new Date(operation.createdAt)), "day")} · {OPERATION_STATUS[operation.status] ?? "Not known"} · {countLabel(operation.processedRecords, "reading")}</span>
           <Button disabled={busy || operation.status === "undone"} onClick={() => void undo(operation.id)}>Undo recovery</Button>
         </div>)}
       </div>

@@ -1241,8 +1241,9 @@ function MergeReview({
               will be transferred or combined.
             </p>
             <p>
-              {filled.length} missing fields will be filled. {conflicts.length}{" "}
-              field choices will be applied.
+              {countLabel(filled.length, "missing field")}{" "}
+              will be filled. {countLabel(conflicts.length, "field choice")}{" "}
+              will be applied.
             </p>
             <p>
               The source record will be removed and its old links will follow

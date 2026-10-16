@@ -82,3 +82,17 @@ it("groups the thousands of every count it shows", () => {
   expect(edition).toContain("Number(edition.pageCount).toLocaleString(\"en\")");
   expect(edition).toContain("Number(edition.limitedEditionCount).toLocaleString(\"en\")");
 });
+
+// Review of #448: the merge summary, a dictionary's word count and a recovery's date
+it("words the merge summary, word counts and recovery dates the app's way", () => {
+  const harmonize = source("app/(catalogue)/harmonize/workspace.tsx");
+  expect(harmonize).toContain('{countLabel(filled.length, "missing field")}');
+  expect(harmonize).toContain('{countLabel(conflicts.length, "field choice")}');
+  const dictionaries = source("app/(catalogue)/settings/reader/dictionaries.tsx");
+  expect(dictionaries).not.toContain("toLocaleString()");
+  expect(dictionaries).toContain('{countLabel(metadata.wordCount, "word")}');
+  expect(dictionaries).toContain('{countLabel(record.wordCount, "word")}');
+  const recovery = source("app/(catalogue)/settings/reading/ebooks/reader-history-recovery.tsx");
+  expect(recovery).not.toContain("toLocaleDateString()");
+  expect(recovery).toContain('formatReadingDate(calendarDate(new Date(operation.createdAt)), "day")');
+});

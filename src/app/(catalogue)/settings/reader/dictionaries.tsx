@@ -6,6 +6,7 @@ import { Select } from "@/components/ui/select";
 import { SettingsGroup } from "@/components/settings/settings-group";
 import { LookupPacksClient } from "@/lib/reader/lookup/packs";
 import type { PackRecord } from "@/lib/reader/lookup/pack-store";
+import { countLabel } from "@/lib/utils/format";
 import { languageName, languageOptions } from "@/lib/utils/language";
 /** Free StarDict packs built from Wiktionary, one per language (SLN-687). */
 const FREE_PACKS = "https://github.com/Vuizur/Wiktionary-Dictionaries";
@@ -62,7 +63,7 @@ export function DictionariesGroup() {
         <Button disabled={!secure || !!busy || records.length >= 32} onClick={() => picker.current?.click()}
           data-tooltip={records.length >= 32 ? "Use at most 32 dictionaries" : undefined}>Add dictionary</Button>
         {metadata && <div className="mt-4 space-y-3">
-          <p className="text-sm">{metadata.name} <span className="font-mono text-xs text-fg-secondary">{metadata.wordCount.toLocaleString()} words</span></p>
+          <p className="text-sm">{metadata.name} <span className="font-mono text-xs text-fg-secondary">{countLabel(metadata.wordCount, "word")}</span></p>
           <Select label="Dictionary language" options={languageOptions(language)} value={language}
             disabled={!!busy} onChange={event => setLanguage(event.target.value)} />
           <Button disabled={!!busy} onClick={() => { void perform("Adding dictionary", async (value, signal) => {
@@ -81,7 +82,7 @@ export function DictionariesGroup() {
       </div>
       {records.map(record => <div key={record.id} className="flex items-start justify-between gap-3 px-5 py-4">
         <div className="min-w-0"><p className="break-words text-sm">{record.name}</p>
-          <p className="mt-1 text-xs text-fg-secondary">{languageName(record.language)} · <span className="font-mono">{record.wordCount.toLocaleString()} words · {size(record.sizeBytes)}</span></p>
+          <p className="mt-1 text-xs text-fg-secondary">{languageName(record.language)} · <span className="font-mono">{countLabel(record.wordCount, "word")} · {size(record.sizeBytes)}</span></p>
           <p className="mt-2 text-xs text-fg-secondary">{persisted ? "Kept until you remove it" : "The browser may clear this when space runs low"}</p>
         </div>
         <button type="button" className="action-icon-sm" disabled={!!busy} aria-label={"Remove dictionary " + record.name}
