@@ -61,7 +61,7 @@ export function OrganizationFilters({
         }`}
       >
         {label}
-        <span className="tabular-nums text-fg-secondary">{count}</span>
+        <span className="tabular-nums text-fg-secondary">{count.toLocaleString("en")}</span>
       </Link>
     );
   };

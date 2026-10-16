@@ -173,9 +173,8 @@ export default async function StatisticsPage() {
                 bars={ratings.map((r) => ({
                   label: formatRating(r.rating),
                   value: r.count,
-                  text: `${formatRating(r.rating)} stars: ${count(r.count, "book")}`,
+                  text: `${formatRating(r.rating)} ${r.rating === 1 ? "star" : "stars"}: ${count(r.count, "book")}`,
                 }))}
-                summaryUnit="books"
                 tone="blue"
                 columns={["Rating", "Books"]}
                 footnote={unrated ? `${count(unrated, "book")} without a rating ${unrated === 1 ? "is" : "are"} not shown.` : undefined}
@@ -241,7 +240,6 @@ export default async function StatisticsPage() {
                   value: a.count,
                   text: `${a.year}: ${count(a.count, "copy", "copies")}`,
                 }))}
-                summaryUnit="copies"
                 columns={["Year", "Copies"]}
                 footnote={copies.undated ? `${count(copies.undated, "copy", "copies")} with no acquisition date ${copies.undated === 1 ? "is" : "are"} not shown.` : undefined}
                 />

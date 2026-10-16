@@ -272,7 +272,7 @@ export function EditionDetailCard({
             ))}
             {edition.pageCount && (
               <DetailRow label="Pages">
-                <span className="font-mono">{edition.pageCount}</span>
+                <span className="font-mono">{Number(edition.pageCount).toLocaleString("en")}</span>
               </DetailRow>
             )}
             {dimensions && (
@@ -318,7 +318,7 @@ export function EditionDetailCard({
             )}
             {edition.isLimitedEdition && edition.limitedEditionCount && (
               <DetailRow label="Limited edition count">
-                <span className="font-mono">{edition.limitedEditionCount}</span>
+                <span className="font-mono">{Number(edition.limitedEditionCount).toLocaleString("en")}</span>
               </DetailRow>
             )}
           </DetailFacts>
