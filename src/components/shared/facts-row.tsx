@@ -25,7 +25,7 @@ export function FactsRow({
   if (facts.length === 0) return null;
   return (
     <p
-      className={`-ml-5 flex flex-wrap items-baseline ${small ? "text-xs" : "text-sm"} text-fg-secondary [clip-path:inset(-0.5rem_-0.5rem_-0.5rem_1rem)] ${className}`}
+      className={`-ml-5 flex flex-wrap items-baseline ${small ? "text-xs" : "text-sm"} text-fg-secondary [clip-path:inset(-0.5rem_-0.5rem_-0.5rem_1rem)] [overflow-wrap:anywhere] ${className}`}
     >
       {facts.map((fact, i) => (
         <span key={i} className="relative ml-5 min-w-0">

@@ -185,7 +185,7 @@ export function LocationCard({
           {addressLine && (
             <Link
               href={`/library?location=${id}`}
-              className="mt-1 block text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+              className="mt-1 block text-xs text-fg-secondary transition-colors hover:text-fg-primary [overflow-wrap:anywhere]"
             >
               {addressLine}
             </Link>
