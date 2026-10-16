@@ -146,9 +146,11 @@ function ResultThumb({ src, name, kind }: { src: string | null; name: string; ki
 
 const GROUP_CLASS =
   "text-xs font-medium text-fg-secondary [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5";
-// 44px rows on touch, like every other control a finger presses
+// 44px rows on touch, like every other control a finger presses: from
+// padding around the 24px line, not a minimum height, so a one-line label
+// sits at the top of the row, on the icon's line (SLN-849)
 const ITEM_CLASS =
-  "group flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 pointer-coarse:min-h-11 text-sm text-fg-secondary transition-colors aria-selected:bg-selection-bg/60 aria-selected:text-fg-primary";
+  "group flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 pointer-coarse:py-2.5 text-sm text-fg-secondary transition-colors aria-selected:bg-selection-bg/60 aria-selected:text-fg-primary";
 
 // A row's words wrap in full at every width, never cut: a title, a person's
 // or a house's roles, a command (pass 5, SLN-849)
