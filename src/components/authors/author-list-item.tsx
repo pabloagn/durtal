@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { FadeImage } from "@/components/shared/fade-image";
 import Link from "next/link";
 import { AuthorCardActionsMenu } from "./author-card-actions-menu";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
@@ -72,6 +72,14 @@ export function AuthorListItem({
 
   const selectionBg = isSelected ? "bg-accent-primary/5" : "";
 
+  // No photo, or one that fails: the name's letter
+  const blank = (
+    <div className="flex h-full items-center justify-center">
+      <span aria-hidden="true" data-decorative className="font-serif text-micro text-fg-muted/40">
+        {name[0]}
+      </span>
+    </div>
+  );
   return (
     <div
       className={`group relative flex items-start gap-3 rounded-sm px-3 py-2 transition-colors hover:bg-bg-secondary ${selectionBg}`}
@@ -85,21 +93,17 @@ export function AuthorListItem({
         {/* Small thumbnail; in selection mode it carries the checkbox */}
         <div className="relative h-10 w-7 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary" onContextMenu={(e) => e.preventDefault()}>
           {photoUrl ? (
-            <Image
+            <FadeImage
               src={photoUrl}
               alt={name}
-              fill
-              sizes="28px"
-              className="protected-image object-cover"
+              loading="lazy"
+              decoding="async"
+              className="protected-image absolute inset-0 h-full w-full object-cover"
               style={mediaImageStyle(posterCrop)}
-              unoptimized
+              fallback={blank}
             />
           ) : (
-            <div className="flex h-full items-center justify-center">
-              <span className="font-serif text-micro text-fg-muted/40">
-                {name[0]}
-              </span>
-            </div>
+            blank
           )}
           {isSelecting && <RowCheckbox checked={isSelected} />}
         </div>

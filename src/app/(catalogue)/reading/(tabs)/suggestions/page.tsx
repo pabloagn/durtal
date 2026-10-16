@@ -18,7 +18,7 @@ import { bookEdition } from "@/lib/reading/suggest/build";
 import { getSuggestionContext } from "@/lib/reading/suggest/context";
 import { SUGGESTIONS_PER_PAGE, parseSuggestionParams, suggestionQuery } from "@/lib/reading/suggest/params";
 import { worthRereading } from "@/lib/reading/suggest/rereads";
-import { candidates, hiddenByFeedback, pausedAuthors, suggest } from "@/lib/reading/suggest/score";
+import { candidates, hiddenByFeedback, pausedAuthors, suggestTop } from "@/lib/reading/suggest/score";
 import { pickRow, suggestionRow } from "@/lib/reading/suggest/view";
 import { languageName } from "@/lib/utils/language";
 
@@ -74,8 +74,10 @@ export default async function SuggestionsPage({ searchParams }: { searchParams: 
     );
   }
 
-  const list = suggest(ctx, params);
-  const pages = Math.max(1, Math.ceil(list.length / SUGGESTIONS_PER_PAGE));
+  // Varied only as far as this page and Pick one's ten, not every book (SLN-885)
+  const pagesOf = (total: number) => Math.max(1, Math.ceil(total / SUGGESTIONS_PER_PAGE));
+  const { top: list, total } = suggestTop(ctx, params, (n) => Math.max(10, Math.min(params.page, pagesOf(n)) * SUGGESTIONS_PER_PAGE));
+  const pages = pagesOf(total);
   const page = Math.min(params.page, pages);
   const rows = list.slice((page - 1) * SUGGESTIONS_PER_PAGE, page * SUGGESTIONS_PER_PAGE).map((s) => suggestionRow(s, ctx));
   const top = list.slice(0, 10).map((s) => suggestionRow(s, ctx));
@@ -113,7 +115,7 @@ export default async function SuggestionsPage({ searchParams }: { searchParams: 
 
       <div className="space-y-12">
         <section id="list-start" className="scroll-mt-24">
-          <SectionHeading title="Read next" count={list.length} action={hiddenLink} />
+          <SectionHeading title="Read next" count={total} action={hiddenLink} />
           {rows.length ? (
             <>
               <SuggestionList rows={rows} />

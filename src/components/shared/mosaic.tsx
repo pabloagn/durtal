@@ -138,6 +138,7 @@ export function MosaicImage({
           alt=""
           loading="lazy"
           decoding="async"
+          fallback={fallback}
           className={`protected-image absolute inset-0 h-full w-full ${fit === "cover" ? "object-cover" : "object-contain"}`}
           style={fit === "cover" ? mediaImageStyle(crop) : undefined}
         />

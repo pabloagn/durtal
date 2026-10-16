@@ -131,6 +131,19 @@ describe.skipIf(!url)("library filters with PostgreSQL", () => {
     (await getWorks({ filters, sort: "title", limit: 100 })).map((w) => w.title).sort();
   const fromUrl = (query: string) => parseBookFilters(new URLSearchParams(query)).filters;
 
+  it("searches the timeline as the list: title, author and series, accents and case ignored (SLN-881)", async () => {
+    const rebours = await book("À rebours", { year: 1884 });
+    await book("Nadja", { year: 1928, seriesName: "Surréalistes" });
+    await book("Ulysses", { year: 1922 });
+    const [author] = await db.insert(schema.authors).values({ name: "Joris-Karl Huÿsmans" }).returning();
+    await db.insert(schema.workAuthors).values({ workId: rebours, authorId: author.id });
+    const search = async (text: string) => (await getWorksForTimeline({ search: text })).map((w) => w.title);
+    expect(await search("A REBOURS")).toEqual(["À rebours"]);
+    expect(await search("huysmans")).toEqual(["À rebours"]);
+    expect(await search("surrealistes")).toEqual(["Nadja"]);
+    expect(await search("")).toEqual(["À rebours", "Ulysses", "Nadja"]);
+  });
+
   it("filters by edition language, original language, first published years and series", async () => {
     const quixote = await book("Quixote", { language: "es", year: 1605 });
     await edition(quixote, { language: "fr" });

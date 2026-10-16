@@ -64,27 +64,36 @@ const PARTS: Record<string, string> = {
  * left out without data. Computed per request; never cached.
  */
 export default async function ReadingStatsPage({ searchParams }: { searchParams: Promise<{ year?: string | string[] }> }) {
-  const [{ year: param }, settings, years, finished] = await Promise.all([searchParams, getAppSettings(), statsYears(), finishedYears()]);
+  // The settings come from the cache, so the year's sections start at once
+  // with the year the address names, beside the list of years they are
+  // checked against: one round trip instead of two (SLN-885). Only a year
+  // with no reading, typed into the address, reads again for this year.
+  const [{ year: param }, settings] = await Promise.all([searchParams, getAppSettings()]);
   const today = readingDay(new Date(), appTimeZone(), settings.readingDayStartHour);
   const current = Number(today.slice(0, 4));
+  const sections = (year: number | null) =>
+    Promise.all([
+      yearNumbers(year),
+      overTheYear(year),
+      readingDays(year),
+      ratings(year),
+      lengthAndPace(year),
+      languages(year),
+      authorStats(year),
+      eras(year),
+      whereAndHow(year),
+      shelfTime(year),
+      unreadPile(today),
+      recommenderStats(year),
+      abandoned(year),
+      insightInputs(year),
+      year === null ? Promise.resolve([]) : getGoalProgress(year),
+    ]);
+  const named = parseStatsYear(param, [Number(Array.isArray(param) ? param[0] : param)], current);
+  const [years, finished, first] = await Promise.all([statsYears(), finishedYears(), sections(named)]);
   const year = parseStatsYear(param, years, current);
-  const [numbers, months, days, rated, length, langs, authors, written, where, shelf, pile, recommenders, dropped, inputs, goals] = await Promise.all([
-    yearNumbers(year),
-    overTheYear(year),
-    readingDays(year),
-    ratings(year),
-    lengthAndPace(year),
-    languages(year),
-    authorStats(year),
-    eras(year),
-    whereAndHow(year),
-    shelfTime(year),
-    unreadPile(today),
-    recommenderStats(year),
-    abandoned(year),
-    insightInputs(year),
-    year === null ? Promise.resolve([]) : getGoalProgress(year),
-  ]);
+  const [numbers, months, days, rated, length, langs, authors, written, where, shelf, pile, recommenders, dropped, inputs, goals] =
+    year === named ? first : await sections(year);
   const review = year !== null && finished.some((f) => f.year === year) ? `/reading/year/${year}` : "/reading/year";
   const empty = numbers.books === 0 && numbers.pages === 0 && numbers.hours === 0 && numbers.abandoned === 0;
   const found = insights(inputs, year);

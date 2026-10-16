@@ -33,7 +33,6 @@ import {
   ne,
   sql,
 } from "drizzle-orm";
-import { containsPattern } from "@/lib/utils/like";
 import type { SQL } from "drizzle-orm";
 import type {
   OrderStatus,
@@ -902,10 +901,11 @@ export async function deleteOrder(id: string) {
 
 export async function searchWorksForOrder(query: string) {
   const { works } = await import("@/lib/db/schema");
-  const { ilike } = await import("drizzle-orm");
+  const { textContains } = await import("@/lib/actions/utils/text-search");
 
   return db.query.works.findMany({
-    where: and(bookCondition, ilike(works.title, containsPattern(query))),
+    // Accents and case ignored, as every search (SLN-881)
+    where: and(bookCondition, textContains(works.title, query)),
     limit: 20,
     orderBy: asc(works.title),
     with: {

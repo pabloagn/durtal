@@ -182,7 +182,7 @@ export function AddSeriesBooksDialog({
           <Button
             type="button"
             variant="primary"
-            disabled={saving || !chosen.length}
+            disabled={!chosen.length}
             onClick={add}
             busy={saving}
           >

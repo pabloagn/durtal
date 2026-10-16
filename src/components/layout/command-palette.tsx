@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useCallback, useRef, useState, useTransition } from "react";
+import { FadeImage } from "@/components/shared/fade-image";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import {
@@ -113,23 +114,27 @@ const RESULT_KINDS = getEnabledWorkKinds();
  * put them 1px above the middle.
  */
 function ResultThumb({ src, name, kind }: { src: string | null; name: string; kind: "book" | "author" }) {
+  // A picture that fails shows what no picture does: the letter, or the initials on their tint
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const shown = src === failedSrc ? null : src;
   const words = name.replace(/[^\p{L}\s]/gu, " ").trim().split(/\s+/).filter(Boolean);
   const initials = words.length > 1 ? `${words[0][0]}${words[words.length - 1][0]}` : (words[0]?.[0] ?? "?");
   const frame = kind === "book" ? "h-9 w-6" : "size-7";
-  const blankWork = !src && kind === "book";
+  const blankWork = !shown && kind === "book";
   return (
     <span className="flex h-9 shrink-0 items-center">
       <span
         className={`relative ${frame} overflow-hidden rounded-[2px] bg-bg-tertiary ring-1 ring-glass-border ${blankWork ? COVER_BLANK : "flex items-center justify-center"}`}
-        style={src || blankWork ? undefined : monogramTint(name)}
+        style={shown || blankWork ? undefined : monogramTint(name)}
       >
-        {src ? (
-          <img
-            src={mediaUrl(src)}
+        {shown ? (
+          <FadeImage
+            src={mediaUrl(shown)}
             alt=""
             loading="lazy"
             decoding="async"
             className={`protected-image absolute inset-0 h-full w-full object-cover ${kind === "author" ? "object-[50%_25%]" : ""}`}
+            onError={() => setFailedSrc(shown)}
           />
         ) : blankWork ? (
           <CoverLetter title={name} />

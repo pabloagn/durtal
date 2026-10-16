@@ -7,6 +7,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { countLabel } from "@/lib/utils/format";
+import { searchScore } from "@/lib/utils/search-text";
 
 interface MergeDialogProps {
   open: boolean;
@@ -30,11 +31,9 @@ export function MergeDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const filteredTargets = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    if (!q) return availableTargets;
-    return availableTargets.filter((t) =>
-      t.name.toLowerCase().includes(q),
-    );
+    // Accents, case and punctuation ignored, as every search (SLN-881)
+    if (!search.trim()) return availableTargets;
+    return availableTargets.filter((t) => searchScore(search, t.name) >= 0);
   }, [availableTargets, search]);
 
   const targetItem = availableTargets.find((t) => t.id === targetId);
@@ -163,7 +162,7 @@ export function MergeDialog({
             variant="danger"
             size="sm"
             onClick={() => void handleMerge()}
-            disabled={submitting || !targetId}
+            disabled={!targetId}
             busy={submitting}
           >
             Merge

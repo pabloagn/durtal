@@ -14,13 +14,15 @@ interface NoResultsProps {
   hasFilters: boolean;
   /** URL with the search and filters removed */
   clearHref: string;
+  /** Clears in place instead, when it calls `preventDefault()` (a list filtered in the browser) */
+  onClear?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 }
 
 /**
  * Shown below a list toolbar when the search or filters match nothing.
  * The toolbar stays visible so the query can be edited.
  */
-export function NoResults({ noun, search, hasFilters, clearHref }: NoResultsProps) {
+export function NoResults({ noun, search, hasFilters, clearHref, onClear }: NoResultsProps) {
   const description = search
     ? hasFilters
       ? `No ${noun} match "${search}" with the current filters.`
@@ -37,7 +39,7 @@ export function NoResults({ noun, search, hasFilters, clearHref }: NoResultsProp
       action={
         // A link styled as a button (a button inside a link is two controls),
         // in the secondary look: a ghost link here read as plain text (task 0611)
-        <Link href={clearHref} className={buttonClass("secondary")}>
+        <Link href={clearHref} onClick={onClear} className={buttonClass("secondary")}>
           {clearLabel}
         </Link>
       }

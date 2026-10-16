@@ -8,7 +8,7 @@ import { FEATURES, WITHOUT_RATINGS, bayesianMean, betaTrust, boughtText } from "
 import { parseSuggestionParams, suggestionQuery, DEFAULT_SUGGESTION_PARAMS } from "@/lib/reading/suggest/params";
 import { GATE_MIN_BOOKS, evaluatePredictions, gateDue, nextGate, predict, predictionText, type Evaluation } from "@/lib/reading/suggest/predict";
 import { worthRereading } from "@/lib/reading/suggest/rereads";
-import { MMR_LAMBDA, REASON_SHARE, candidates, dayOrder, diversify, hiddenByFeedback, likeness, passes, pausedAuthors, pickOne, reasonsOf, scoreBook, suggest, weightedPick, type Scored } from "@/lib/reading/suggest/score";
+import { MMR_LAMBDA, REASON_SHARE, candidates, dayOrder, diversify, hiddenByFeedback, likeness, passes, pausedAuthors, pickOne, reasonsOf, scoreBook, suggest, suggestTop, weightedPick, type Scored } from "@/lib/reading/suggest/score";
 import { suggestionRow } from "@/lib/reading/suggest/view";
 import type { QueueEdition } from "@/lib/reading/queue";
 import type { SuggestBook, SuggestLoad } from "@/lib/reading/suggest/types";
@@ -293,8 +293,23 @@ describe("scoring and reasons", () => {
       // Few distinct scores, so many ties: the order of the day and the title break them
       const scored = books.map((b) => ({ book: b, score: Math.floor(random() * 4) / 2, contributions: [], reasons: [] }));
       const tie = dayOrder(TODAY);
-      expect(diversify(scored, lambda, tie)).toEqual(reference(scored, lambda, tie));
+      const whole = reference(scored, lambda, tie);
+      expect(diversify(scored, lambda, tie)).toEqual(whole);
+      // Stopped early, the first picks of the same order (SLN-885)
+      for (const limit of [0, 1, 3, 24, 119, 500]) expect(diversify(scored, lambda, tie, limit)).toEqual(whole.slice(0, limit));
     }
+  });
+
+  it("gives the first suggestions of the whole order, and how many there are, with the limit from the total (SLN-885)", () => {
+    const books = "ABCDEFGHIJKLMNOPQRST".split("").map((t) => book(`${t} book`, { editions: [edition(300, [{}])] }));
+    books.forEach((b) => (b.atHandCopyId = b.editions[0].copies[0].id));
+    const ctx = context(books);
+    const whole = suggest(ctx, DEFAULT_SUGGESTION_PARAMS);
+    expect(suggestTop(ctx, DEFAULT_SUGGESTION_PARAMS, 3)).toEqual({ top: whole.slice(0, 3), total: 20 });
+    const totals: number[] = [];
+    const { top } = suggestTop(ctx, DEFAULT_SUGGESTION_PARAMS, (total) => (totals.push(total), total - 5));
+    expect(totals).toEqual([20]);
+    expect(top).toEqual(whole.slice(0, 15));
   });
 
   it("orders equal scores by the day, not by title: the same all day, another the next", () => {

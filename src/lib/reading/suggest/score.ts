@@ -176,8 +176,13 @@ export const dayOrder = (day: string) => (s: Scored) => hash(`${day}:${s.book.id
  * against the newer picks and goes back, and one that is up to date is the
  * next pick. The order is the same as comparing every book with every pick,
  * which took 300 ms at 2,000 books.
+ *
+ * With `limit`, it stops after that many picks: each pick depends only on the
+ * picks before it, so they are the first `limit` of the whole order. A page
+ * that shows the first few needs no more (SLN-885: the whole order of 4,400
+ * books took a second).
  */
-export function diversify(items: Scored[], lambda = MMR_LAMBDA, tie: (s: Scored) => number = () => 0): Scored[] {
+export function diversify(items: Scored[], lambda = MMR_LAMBDA, tie: (s: Scored) => number = () => 0, limit = Infinity): Scored[] {
   const max = Math.max(...items.map((i) => i.score), 0);
   const sorted = [...items].sort((a, b) => b.score - a.score || tie(a) - tie(b) || a.book.title.localeCompare(b.book.title));
   // Per book, by its place in `sorted`: its likeness to the nearest pick, and how many picks that covers
@@ -189,7 +194,7 @@ export function diversify(items: Scored[], lambda = MMR_LAMBDA, tie: (s: Scored)
   const before = (a: number, b: number) => values[a] > values[b] || (values[a] === values[b] && a < b);
   const heap = new MaxHeap(sorted.map((_, i) => i), before);
   const picked: Scored[] = [];
-  while (heap.size) {
+  while (heap.size && picked.length < limit) {
     const top = heap.peek();
     // Likeness is at most 1: a book that far from the picks is up to date
     if (seen[top] === picked.length || nearest[top] === 1) {
@@ -250,13 +255,24 @@ class MaxHeap {
 
 /** The suggestions for these constraints: scored, then varied */
 export function suggest(ctx: SuggestContext, p: SuggestionParams): Scored[] {
-  return diversify(
-    candidates(ctx)
-      .filter((b) => passes(b, ctx, p))
-      .map((b) => scoreBook(b, ctx)),
-    MMR_LAMBDA,
-    dayOrder(ctx.today),
-  );
+  return suggestTop(ctx, p, Infinity).top;
+}
+
+/**
+ * The first `limit` suggestions for these constraints, in the order `suggest`
+ * gives, and how many there are in all (SLN-885). `limit` can follow from
+ * the total, as a page number past the last page does.
+ */
+export function suggestTop(
+  ctx: SuggestContext,
+  p: SuggestionParams,
+  limit: number | ((total: number) => number),
+): { top: Scored[]; total: number } {
+  const scored = candidates(ctx)
+    .filter((b) => passes(b, ctx, p))
+    .map((b) => scoreBook(b, ctx));
+  const count = typeof limit === "function" ? limit(scored.length) : limit;
+  return { top: diversify(scored, MMR_LAMBDA, dayOrder(ctx.today), count), total: scored.length };
 }
 
 /** A weighted draw: each item's chance follows its weight (at least 0.01); `random` returns 0 to 1 */

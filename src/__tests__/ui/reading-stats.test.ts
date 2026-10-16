@@ -31,7 +31,7 @@ vi.mock("@/lib/reading/stats", () => {
   return {
     statsYears: async () => [2025, 2024],
     finishedYears: async () => [{ year: 2025, books: 7 }],
-    yearNumbers: async () => ({ books: 7, pages: 2_310, hours: 31, readingDays: 4, avgRating: 4.1, rereads: 1, abandoned: 1, avgLength: 330, audioWithoutPages: 0, undated: 0 }),
+    yearNumbers: vi.fn(async (_year: number | null) => ({ books: 7, pages: 2_310, hours: 31, readingDays: 4, avgRating: 4.1, rereads: 1, abandoned: 1, avgLength: 330, audioWithoutPages: 0, undated: 0 })),
     overTheYear: async () => ({
       bars: Array.from({ length: 12 }, (_, i) => ({ key: i + 1, books: [3, 1, 0, 2, 0, 0, 0, 0, 0, 0, 1, 0][i], pages: [900, 300, 0, 700, 0, 0, 0, 0, 0, 0, 410, 0][i] })),
       unknown: null,
@@ -77,6 +77,9 @@ vi.mock("@/lib/reading/stats", () => {
 });
 
 import ReadingStatsPage from "@/app/(catalogue)/reading/(tabs)/stats/page";
+import { yearNumbers } from "@/lib/reading/stats";
+import { readingDay } from "@/lib/reading/dates";
+import { appTimeZone } from "@/lib/utils/date";
 import { ReadingTabs } from "@/components/reading/reading-tabs";
 
 // The dialog's modules take 1 to 4 s to load the first time, more under a full run's load, and that time
@@ -124,6 +127,23 @@ const page = async () => render((await ReadingStatsPage({ searchParams: Promise.
 const chart = (label: string) => host.querySelector(`[data-chart="${label}"]`) as HTMLElement;
 const key = (el: Element, k: string) => act(() => void el.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true })));
 const TABBABLE = 'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+describe("the stats page's reads", () => {
+  // The sections start beside the list of years (SLN-885)
+  it("reads the year the address names once, and reads again only for a year with no reading", async () => {
+    const asked = async (year?: string) => {
+      vi.mocked(yearNumbers).mockClear();
+      await ReadingStatsPage({ searchParams: Promise.resolve(year ? { year } : {}) });
+      return vi.mocked(yearNumbers).mock.calls.map(([y]) => y);
+    };
+    expect(await asked("2024")).toEqual([2024]);
+    expect(await asked("all")).toEqual([null]);
+    // The reading day's year, as the page counts it (the mocked day start hour is 4)
+    const current = Number(readingDay(new Date(), appTimeZone(), 4).slice(0, 4));
+    expect(await asked()).toEqual([current]);
+    expect(await asked("1999")).toEqual([1999, current]);
+  });
+});
 
 describe("the stats charts", () => {
   it("give each chart one tab stop, with an SVG image that holds nothing focusable", async () => {

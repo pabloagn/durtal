@@ -64,6 +64,7 @@ export function VenueCard({
                 alt={name}
                 loading="lazy"
                 decoding="async"
+                fallback={<span className={`absolute inset-0 ${COVER_BLANK}`}><CoverLetter title={name} /></span>}
                 className="h-full w-full object-cover group-hover:scale-[1.02]"
               />
             ) : (

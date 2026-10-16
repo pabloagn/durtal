@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
+import { FadeImage } from "@/components/shared/fade-image";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { DetailTitleRow } from "@/components/shared/detail-layout";
 import { SectionHeading } from "@/components/shared/section-heading";
@@ -127,10 +129,16 @@ async function PlaceContent({ slug }: { slug: string }) {
             className="relative h-40 w-56 flex-shrink-0 overflow-hidden rounded-sm bg-bg-secondary"
             style={venue.color ? { backgroundColor: venue.color } : undefined}
           >
-            <img
+            <FadeImage
               src={displayImage}
               alt={venue.name}
               className="h-full w-full object-cover"
+              fallback={
+                // An image that fails: the name's letter, as every blank cover
+                <div className={`h-full ${COVER_BLANK}`}>
+                  <CoverLetter title={venue.name} />
+                </div>
+              }
             />
             <ImageAdjustButton source={displayImage} className="absolute bottom-2 right-2" />
           </div>

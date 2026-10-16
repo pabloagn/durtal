@@ -67,12 +67,13 @@ export function HiddenList({ rows }: { rows: HiddenRow[] }) {
         <li key={row.workId} className="flex items-start gap-4 border-t border-glass-border px-3 py-3 first:border-t-0" data-hidden={row.workId}>
           <Cover s3Key={row.cover} title={row.title} className="h-16 w-11" />
           <div className="min-w-0 flex-1 space-y-0.5">
-            <h3>
+            {/* Title and author wrap in full (SLN-879) */}
+            <h3 className="[overflow-wrap:anywhere]">
               <Link href={row.href} className="block text-sm text-fg-primary transition-colors hover:text-accent-primary touch-hit">
-                <span className="lines-1">{row.title}</span>
+                {row.title}
               </Link>
             </h3>
-            {row.author && <p className="lines-1 text-xs text-fg-secondary">{row.author}</p>}
+            {row.author && <p className="text-xs text-fg-secondary [overflow-wrap:anywhere]">{row.author}</p>}
             <p className="text-xs text-fg-primary" data-hidden-verdict="">
               {row.verdict}
             </p>

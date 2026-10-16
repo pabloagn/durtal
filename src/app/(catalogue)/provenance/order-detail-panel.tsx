@@ -168,7 +168,6 @@ export function OrderDetailPanel({
                 variant="danger"
                 size="sm"
                 onClick={handleDelete}
-                disabled={isPending}
                 busy={isPending}
               >
                 Delete

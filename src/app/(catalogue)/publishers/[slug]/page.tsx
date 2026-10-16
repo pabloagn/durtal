@@ -40,6 +40,7 @@ import { loadRelatedBooks } from "@/lib/catalogue/related-books";
 import { PublisherBooksFilters, PublisherBooksView } from "@/components/publishers/publisher-books";
 import { ListPendingProvider, ListPendingSwap } from "@/components/shared/list-pending";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { FadeImage } from "@/components/shared/fade-image";
 
 const LINK = "text-command";
 /** Wanted books shown on the house's page; its heading opens them all */
@@ -234,11 +235,12 @@ export default async function PublisherPage({
       <div className={background ? "relative -mx-6 -mt-6 mb-8" : ""}>
         {background && (
           <FullBleedLayer className="-z-0">
-            <img
+            <FadeImage
               src={mediaUrl(background.s3Key)}
               alt=""
               className="protected-image h-full w-full object-cover"
               style={mediaImageStyle(mediaCrop(background))}
+              fallback={null}
             />
             {/* Dark overlay for readability */}
             <div className="absolute inset-0 bg-scrim" />
