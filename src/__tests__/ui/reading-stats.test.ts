@@ -178,7 +178,8 @@ describe("the stats charts", () => {
     const frame = figure.querySelector("[data-chart-frame]")!;
     const caption = () => figure.querySelector("[data-chart-caption]")!.textContent;
     const live = () => figure.querySelector("[data-chart-live]")!.textContent;
-    expect(caption()).toMatch(/^Books finished by month: Jan 3, Feb 1/);
+    // Every bar's count with its noun in the right form, not "... Dec 0 books"
+    expect(caption()).toMatch(/^Books finished by month: January 2025: 3 books; February 2025: 1 book; March 2025: 0 books;/);
     await key(frame, "ArrowRight");
     expect([caption(), live()]).toEqual(["January 2025: 3 books", "January 2025: 3 books"]);
     await key(frame, "ArrowRight");
@@ -217,9 +218,11 @@ describe("the stats charts", () => {
       act(() => toggle.click());
       expect([toggle.getAttribute("aria-expanded"), toggle.textContent]).toEqual(["true", "Hide table"]);
       const rows = [...figure.querySelectorAll("[data-chart-table] tbody tr")].map((tr) => [...tr.querySelectorAll("td")].map((td) => td.textContent));
-      // "Books finished by month: Jan 3, Feb 1, ... books"
-      const said = figure.querySelector("svg")!.getAttribute("aria-label")!.replace(`${label}: `, "").replace(/ \w+$/, "");
-      expect(rows.map(([name, value]) => `${name} ${value}`).join(", ")).toBe(said);
+      // "Books finished by month: January 2025: 3 books; February 2025: 1 book; ..."
+      const said = figure.querySelector("svg")!.getAttribute("aria-label")!.replace(`${label}: `, "").split("; ");
+      expect(said).toHaveLength(rows.length);
+      // Counts of books read the same; the weekday's minutes read as "1 h" in words
+      if (label !== "Reading by weekday") said.forEach((text, i) => expect(text).toMatch(new RegExp(`: ${rows[i][1]} books?$`)));
     }
   });
 

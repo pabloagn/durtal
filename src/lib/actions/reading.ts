@@ -91,6 +91,7 @@ import {
   type StartReadingInput,
   type UpdateReadingInput,
 } from "@/lib/validations/reading";
+import { countLabel } from "@/lib/utils/format";
 
 /*
  * The reading tracker's page actions (SLN-444). Each write parses its input,
@@ -867,7 +868,7 @@ export async function updateReading(input: UpdateReadingInput) {
   const finalReading = { ...nextReading, ...values } as Reading;
   checkWithinTotals(patch.currentPosition ?? {}, totals);
   if (totals.totalPages != null && Math.max(finalReading.startPage ?? 0, finalReading.currentPage ?? 0) > totals.totalPages)
-    throw new Error(`You are on p. ${Math.max(finalReading.startPage ?? 0, finalReading.currentPage ?? 0)}; the book cannot have ${totals.totalPages} pages`);
+    throw new Error(`You are on p. ${Math.max(finalReading.startPage ?? 0, finalReading.currentPage ?? 0).toLocaleString("en")}; the book cannot have ${countLabel(totals.totalPages, "page")}`);
   checkWithinTotals({ minutes: Math.max(finalReading.startMinutes ?? 0, finalReading.currentMinutes ?? 0) }, totals);
   const now = new Date();
   // Its notes on the old edition (or with none) follow it to the new one when asked; pages stay as typed, updated_at stays

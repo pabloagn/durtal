@@ -18,6 +18,7 @@ import { showError, useCoarsePointer } from "../reading-client";
 import type { ReadingDialogProps } from "../reading-provider";
 import { DialogFooter } from "./fields";
 import { readNumber } from "./start-reading-dialog";
+import { countLabel } from "@/lib/utils/format";
 
 // The editor loads only once the dialog shows a quote
 const loadEditor = () => import("@/components/shared/tiptap-editor").then((m) => m.TiptapEditor);
@@ -132,8 +133,8 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
   const pageHint =
     !byPercent && edition?.pageCount
       ? lastPage != null && lastPage > edition.pageCount
-        ? `This edition has ${edition.pageCount} pages`
-        : `Of ${edition.pageCount} pages`
+        ? `This edition has ${countLabel(edition.pageCount, "page")}`
+        : `Of ${countLabel(edition.pageCount, "page")}`
       : null;
   const close = () => (request.back ? open(request.back) : onClose());
 

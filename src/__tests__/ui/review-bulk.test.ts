@@ -95,7 +95,7 @@ describe("actual bounded bulk dialog", () => {
     await click("Choose group author and language");
     expect(api.prepareReviewSelectionUi).toHaveBeenCalledWith({ intents: selected.map((row) => ({ action: "accession", ebookId: row.id,
       authors: [{ name: "André Breton" }], language: "fr", isbn13: null })), stamps: selected.map((row) => ({ ebookId: row.id, stamp })) });
-    expect(host.textContent).toContain("2 books · 2 editions · 2 copies · 1 new authors · 0 new series");
+    expect(host.textContent).toContain("2 books · 2 editions · 2 copies · 1 new author · 0 new series");
     expect(api.confirmReviewSelectionUi).not.toHaveBeenCalled();
   });
 });

@@ -21,6 +21,7 @@ import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { useFocusThroughBusy } from "@/hooks/use-focus-through-busy";
 import { CollectionIconLazy } from "@/components/collections/collection-icon-lazy";
 import { CountParts } from "@/components/collections/count-parts";
+import { countLabel } from "@/lib/utils/format";
 
 type Data = Awaited<ReturnType<typeof getCollectionSelection>>;
 
@@ -261,7 +262,7 @@ export function AddToCollectionDialog({
             {data.editions.length > 1 && (
               <details>
                 <summary className="cursor-pointer text-xs text-fg-secondary pointer-coarse:py-3">
-                  {selected.length} of {data.editions.length} editions selected
+                  {selected.length.toLocaleString("en")} of {countLabel(data.editions.length, "edition")} selected
                   · Choose editions
                 </summary>
                 <div className="mt-2 max-h-36 space-y-2 overflow-y-auto">

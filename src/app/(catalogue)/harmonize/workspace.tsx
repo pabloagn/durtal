@@ -49,6 +49,7 @@ import type {
 import { mediaUrl } from "@/lib/s3/media-url";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { CATEGORIES, HarmonizeTitle, IconLabel, StatContent } from "./frame";
+import { countLabel } from "@/lib/utils/format";
 
 const token = (f: Finding) => ({ key: f.key, fingerprint: f.fingerprint });
 function Value({ value }: { value: unknown }) {
@@ -411,7 +412,7 @@ export function HarmonizeWorkspace({
               className={view === key ? "h-tab-active" : ""}
             >
               {label}
-              <span>{count}</span>
+              <span>{count.toLocaleString("en")}</span>
             </button>
           ))}
         </div>
@@ -489,7 +490,7 @@ export function HarmonizeWorkspace({
               <IconLabel icon={Sparkles}>
                 Ready to fix{" "}
                 <span className="h-filter-count">
-                  {scan?.counts.ready || 0}
+                  {(scan?.counts.ready || 0).toLocaleString("en")}
                 </span>
               </IconLabel>
             </button>
@@ -552,7 +553,7 @@ export function HarmonizeWorkspace({
                     className="h-load-more"
                     onClick={() => setLimit(visible.length + 60)}
                   >
-                    Show 60 more · {total - visible.length} remaining
+                    Show {Math.min(60, total - visible.length)} more · {(total - visible.length).toLocaleString("en")} remaining
                   </button>
                 )}
                 {!total && (
@@ -1196,7 +1197,7 @@ function MergeReview({
           {preview.relationships.length ? (
             preview.relationships.map((r) => (
               <span key={r.label}>
-                <b>{r.count}</b> {r.label.toLowerCase()}
+                <b>{r.count.toLocaleString("en")}</b> {r.label.toLowerCase()}
               </span>
             ))
           ) : (
@@ -1236,12 +1237,13 @@ function MergeReview({
           <p>{preview.source.name}</p>
           <div className="h-confirm-summary">
             <p>
-              {preview.relationships.reduce((n, r) => n + r.count, 0)} linked
-              records will be transferred or combined.
+              {countLabel(preview.relationships.reduce((n, r) => n + r.count, 0), "linked record")}{" "}
+              will be transferred or combined.
             </p>
             <p>
-              {filled.length} missing fields will be filled. {conflicts.length}{" "}
-              field choices will be applied.
+              {countLabel(filled.length, "missing field")}{" "}
+              will be filled. {countLabel(conflicts.length, "field choice")}{" "}
+              will be applied.
             </p>
             <p>
               The source record will be removed and its old links will follow

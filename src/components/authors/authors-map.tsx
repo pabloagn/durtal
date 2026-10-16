@@ -34,6 +34,7 @@ import { shortCountryName, withNationalityFilter } from "@/lib/utils/nationality
 import { displayYear } from "@/lib/utils/years";
 import { LIST_PREFERENCES } from "@/lib/preferences";
 import { publicEnv } from "@/lib/env";
+import { countLabel } from "@/lib/utils/format";
 
 interface AuthorProperties {
   id: string;
@@ -547,7 +548,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
                   : selection.group.locationName || "People here"}
               </p>
               <p className="mt-0.5 font-mono text-xs text-fg-secondary">
-                {selection.group.authors.length} authors
+                {countLabel(selection.group.authors.length, "author")}
               </p>
 
               <ul
