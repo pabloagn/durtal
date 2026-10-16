@@ -6,6 +6,7 @@ import { Merge } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { countLabel } from "@/lib/utils/format";
 import { searchScore } from "@/lib/utils/search-text";
 
 interface MergeDialogProps {
@@ -89,7 +90,7 @@ export function MergeDialog({
           <div className="flex items-center gap-2">
             <Merge className="h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} />
             <span className="text-sm text-fg-primary">{sourceItem.name}</span>
-            <Badge variant="muted">{sourceItem.entityCount} works</Badge>
+            <Badge variant="muted">{countLabel(sourceItem.entityCount, "work")}</Badge>
           </div>
         </div>
 

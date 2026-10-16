@@ -23,6 +23,7 @@ import {
   locationItemTotal,
   type LocationItemCounts,
 } from "@/lib/catalogue/location-items";
+import { countLabel } from "@/lib/utils/format";
 
 type LocationType = CreateLocationInput["type"];
 
@@ -157,7 +158,7 @@ export function LocationCard({
             <div className="type-item-title flex items-start gap-2">
               <CapAligned height={20}>
                 <span className="block font-mono text-xs text-fg-secondary">
-                  {itemCount} {itemCount === 1 ? "item" : "items"}
+                  {countLabel(itemCount, "item")}
                 </span>
               </CapAligned>
               <CapAligned height={24} coarseHeight={44}>

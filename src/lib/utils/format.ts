@@ -92,3 +92,8 @@ export function formatDate(dateStr: string | null): string | null {
 export function ebooksAvailableText(count: number): string {
   return `${count.toLocaleString("en")} available as ${count === 1 ? "an eBook" : "eBooks"}`;
 }
+
+/** A count and its noun in the right form, thousands grouped: "1 book", "1,107 books", "2 copies" */
+export function countLabel(count: number, one: string, many = `${one}s`): string {
+  return `${count.toLocaleString("en")} ${count === 1 ? one : many}`;
+}
