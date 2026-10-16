@@ -89,7 +89,12 @@ function CoverImage({
   const maxRetries = 3;
 
   if (retries >= maxRetries) {
-    return <CoverPlaceholder title={alt} />;
+    return (
+      <>
+        <CoverPlaceholder title={alt} />
+        <span className="sr-only">{alt}</span>
+      </>
+    );
   }
 
   // Append retry count to bust the browser's failed-request cache
@@ -171,11 +176,12 @@ export function BookCard({
     >
       {/* Cover area — relative wrapper so the dropdown menu escapes overflow-hidden */}
       <div className="relative">
-        {/* Named by the title: a blank cover shows one letter, or none for a
-            title with no letter or digit ("!!!") */}
+        {/* Named by what it holds: the cover's alt, or on a blank cover the
+            title as hidden text (its letter is decoration, and a title with
+            no letter or digit, "!!!", shows none), then the cover's marks
+            ("Rare", "eBook available"), which a label would hide */}
         <Link
           href={href}
-          aria-label={title}
           className={`block ${isSelecting ? "pointer-events-none" : ""}`}
           tabIndex={isSelecting ? -1 : undefined}
           {...coverMenu}
@@ -195,7 +201,10 @@ export function BookCard({
                 priority={coverPriority}
               />
             ) : (
-              <CoverPlaceholder title={title} />
+              <>
+                <CoverPlaceholder title={title} />
+                <span className="sr-only">{title}</span>
+              </>
             )}
 
             {/* The cover shows its art: only the marks that make a copy

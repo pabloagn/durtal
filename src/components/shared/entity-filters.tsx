@@ -139,6 +139,8 @@ export function EntityFilters({
           // Focus falls back here with no Filter button (SLN-838)
           data-list-focus="search"
           placeholder={searchPlaceholder}
+          // A placeholder is not a name: it goes once text is typed
+          aria-label={searchPlaceholder.replace(/(\.\.\.|…)$/, "")}
           defaultValue={currentQuery}
           onChange={(e) => {
             const val = e.target.value;
