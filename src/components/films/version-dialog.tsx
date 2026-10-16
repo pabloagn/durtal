@@ -246,11 +246,10 @@ function VersionForm({
           : null;
   const blocked =
     !!runtimeError ||
-    releases.some((r) => dateErrors[r.key]) ||
-    saving;
+    releases.some((r) => dateErrors[r.key]);
 
   async function save() {
-    if (blocked) return;
+    if (blocked || saving) return;
     setSaving(true);
     setError(null);
     const fields = {

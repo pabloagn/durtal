@@ -132,8 +132,9 @@ describe("a merged or deleted taxonomy item", () => {
   it("marks both of the family page's New item buttons as the list's Add", () => {
     const text = source("app/(catalogue)/taxonomy/[familySlug]/taxonomy-family-shell.tsx");
     expect(text.match(/data-focus-empty="taxonomy-items"/g)).toHaveLength(2);
-    // The first item replaces the empty state's New item with the toolbar's
-    expect(text).toContain("firstItem.current = true");
+    // The newly created item, not the replacement toolbar, receives focus.
+    expect(text).toContain("firstItem.current = id");
+    expect(text).toContain("data-taxonomy-item-name");
   });
 });
 

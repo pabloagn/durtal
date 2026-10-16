@@ -114,18 +114,22 @@ export function TaxonomyFamilyShell({
   const [familyDialog, setFamilyDialog] = useState<"edit" | "delete" | null>(
     null,
   );
-  // The first item replaces the empty state, and with it the New item that
-  // opened the dialog: the toolbar's New item takes the focus (SLN-920)
+  // Once the first item replaces the empty state, land on its name after
+  // the dialog's own focus restoration has finished.
   const newItemButton = useRef<HTMLButtonElement>(null);
-  const firstItem = useRef(false);
+  const firstItem = useRef<string | null>(null);
   useEffect(() => {
-    if (!firstItem.current || items.length === 0) return;
-    firstItem.current = false;
-    const active = document.activeElement;
-    if (!active || active === document.body || !active.isConnected) {
-      newItemButton.current?.focus({ preventScroll: true });
-    }
-  }, [items]);
+    const id = firstItem.current;
+    if (!id || createDialogOpen || !items.some((item) => item.id === id)) return;
+    const frame = requestAnimationFrame(() => {
+      const name = document.querySelector<HTMLElement>(`[data-taxonomy-item-name="${id}"]`);
+      if (name) {
+        firstItem.current = null;
+        name.focus({ preventScroll: true });
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [items, createDialogOpen]);
   const enabled = new Set<WorkKind>(getEnabledWorkKinds());
   const scopeLabels = family.applicability
     .filter((scope) => enabled.has(scope.kind))
@@ -445,8 +449,8 @@ export function TaxonomyFamilyShell({
         familyName={family.name}
         hierarchical={family.hierarchical}
         existingItems={items.map((i) => ({ id: i.id, name: i.name }))}
-        onCreated={() => {
-          if (items.length === 0) firstItem.current = true;
+        onCreated={(id) => {
+          if (items.length === 0) firstItem.current = id;
           refresh();
         }}
       />
