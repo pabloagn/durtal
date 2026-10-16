@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DetailColumns } from "@/components/shared/detail-layout";
+import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { SkeletonBlock, SkeletonLine } from "@/components/shared/skeleton";
 
 /**
@@ -16,16 +17,19 @@ export default function EbookLoading() {
           eBooks
         </Link>
       </div>
-      {/* The page header: the title with Read on its edge, as a short title
-          has it at every width, and the line under it (SLN-877) */}
+      {/* The page header: the title row as DetailTitleRow lays it out, Read
+          at the row's end from sm and under the title on a phone, as most
+          titles have it there, and the line under it (SLN-877) */}
       <div className="mb-8">
-        <div data-title-length="short" className="type-page-title flex items-start gap-x-4">
-          {/* Sized as a short title: under 375px that is one step down */}
-          <SkeletonLine titleLength="short" className="type-page-title w-1/2 min-w-0 sm:w-2/3" />
-          {/* Read, the label of a book not yet begun */}
-          <div className="type-page-title flex h-[1lh] shrink-0 items-center">
-            <SkeletonBlock className="h-8 w-15 pointer-coarse:h-11" />
+        <div data-title-length="short" className="type-page-title flex flex-wrap items-start gap-x-4 sm:flex-nowrap">
+          {/* The h1's place; sized as a short title: under 375px that is one step down */}
+          <div className="min-w-0 basis-full sm:basis-auto sm:flex-[1_1_auto]">
+            <SkeletonLine titleLength="short" className="type-page-title w-2/3" />
           </div>
+          {/* Read, the label of a book not yet begun, on the cap height as the page has it */}
+          <CapAlignedControls height={32} coarseHeight={44}>
+            <SkeletonBlock className="h-8 w-15 pointer-coarse:h-11" />
+          </CapAlignedControls>
         </div>
         <SkeletonLine className="mt-2 w-1/2 text-sm leading-relaxed" />
       </div>
