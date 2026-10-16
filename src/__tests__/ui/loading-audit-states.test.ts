@@ -109,12 +109,11 @@ describe("the eBook library when it shows nothing", () => {
     return html(createElement(EbooksView, { books: [], counts: counts(active), page: 1, perPage: 48 }));
   };
 
-  it("has the shared empty view, with Upload eBooks, when there are none", () => {
-    const host = view("", 0);
-    expect(host.querySelector("h3")!.textContent).toBe("No eBooks yet");
-    expect(host.querySelector("svg")).not.toBeNull();
-    const upload = host.querySelector("a")!;
-    expect([upload.textContent, upload.getAttribute("href"), upload.className]).toEqual(["Upload eBooks", "/ebooks/upload", buttonClass("secondary")]);
+  // With none at all the page draws its own empty state (SLN-842): the view
+  // only says nothing matched
+  it("says nothing matched when the list is empty under a state", () => {
+    const host = view("state=excluded", 40);
+    expect(host.querySelector("h3")!.textContent).toBe("No eBooks found");
   });
 
   it("has the shared no-results view for a search", () => {

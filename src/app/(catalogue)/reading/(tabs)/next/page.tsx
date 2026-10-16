@@ -83,7 +83,9 @@ export default async function UpNextPage({ searchParams }: { searchParams: Promi
       {rows.length === 0 ? (
         <EmptyState
           icon={ListOrdered}
+          heading="h2"
           title="Nothing in Up Next"
+          description="Up Next keeps the books you mean to read, in your order. Add one from its page in your library, or from the suggestions."
           action={
             <div className="flex flex-wrap justify-center gap-2">
               <Link href="/library?reading=unread&holding=owned" className={`${buttonClass("secondary")} pointer-coarse:h-11`} data-queue-empty="" data-focus-empty="up-next">

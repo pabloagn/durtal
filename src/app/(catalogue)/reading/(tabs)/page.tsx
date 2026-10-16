@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { ReadingTabs } from "@/components/reading/reading-tabs";
-import { HubActions, HubMenu, QueueStartButton, StartBookButton } from "@/components/reading/hub-actions";
+import { HubActions, HubMenu, QueueStartButton } from "@/components/reading/hub-actions";
 import { GoalCards } from "@/components/reading/goal-card";
 import { Rhythm } from "@/components/reading/rhythm";
 import { GoalDialogButton } from "@/components/reading/goal-dialog-button";
@@ -86,17 +86,16 @@ export default async function ReadingPage() {
         tabs={<ReadingTabs />}
       />
       {empty ? (
+        // Start a book is the header's: the empty state adds only the import (SLN-842)
         <EmptyState
           icon={BookMarked}
+          heading="h2"
           title="Nothing read yet"
           description="Start a book to follow your progress here, or bring your reading history in."
           action={
-            <div className="flex flex-wrap justify-center gap-2">
-              <StartBookButton />
-              <Link href="/reading/import" className={`${buttonClass("secondary")} pointer-coarse:h-11`} data-hub-import="">
-                Import from Goodreads or StoryGraph
-              </Link>
-            </div>
+            <Link href="/reading/import" className={`${buttonClass("secondary")} pointer-coarse:h-11`} data-hub-import="">
+              Import from Goodreads or StoryGraph
+            </Link>
           }
         />
       ) : (
