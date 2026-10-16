@@ -78,6 +78,9 @@ async function insertEvidence(
   if (row.url) sourceUrlSchema.parse(row.url);
   const columns = await ownerColumns(database, owner);
   const json = JSON.stringify(row.payload);
+  // Hash exactly the JSON representation persisted by PostgreSQL, omitting
+  // undefined optional metadata rather than hashing it as a null field.
+  const storedPayload = JSON.parse(json) as Record<string, unknown>;
   if (Buffer.byteLength(json, "utf8") > 1_000_000) throw new Error("A source observation must be at most 1 MB");
   const [inserted] = (await atomicOn(database, (d) => [
     d
@@ -90,8 +93,8 @@ async function insertEvidence(
         retrievedAt: row.retrievedAt,
         verifiedAt: row.retrievedAt,
         reviewStatus: "accepted",
-        payload: row.payload,
-        payloadHash: sourcePayloadHash(row.payload),
+          payload: storedPayload,
+          payloadHash: sourcePayloadHash(storedPayload),
         supersedesId: row.supersedesId,
       })
       .returning(),

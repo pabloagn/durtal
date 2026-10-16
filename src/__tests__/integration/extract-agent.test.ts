@@ -351,8 +351,8 @@ describe.skipIf(!url)("the extract stage", () => {
     bucket[textKey] = Buffer.from(text);
     // Historical payload, before source-quality metadata existed.
     const payload = { kind: "evidence_text", textSha256, textKey, textChars: text.length };
-    await c`insert into source_records (entity_kind, work_id, provider, url, payload, payload_hash)
-      values ('book', ${w.id}, 'nyrb', 'https://nyrb.example/legacy-verification', ${c.json(payload)}, ${sourcePayloadHash(payload)})`;
+    await c`insert into source_records (entity_kind, work_id, provider, url, retrieved_at, payload, payload_hash)
+      values ('book', ${w.id}, 'nyrb', 'https://nyrb.example/legacy-verification', now(), ${JSON.stringify(payload)}::jsonb, ${sourcePayloadHash(payload)})`;
     const report = await run();
     expect(sent).toHaveLength(0);
     expect(await claims(w.id)).toEqual([]);
