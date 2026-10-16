@@ -78,4 +78,10 @@ next, unseen page, over a thousand characters. Now:
   saved, Cancel leaves none, a repeat merges, Underline on a selection);
   `same-mark.test.ts`; `selection-edge.test.ts`.
 - `reader-engine-check.mjs` 284 of 284; `page-weight.js` within budget (the reader 24 of 400 KB).
+- Not done: a delete made within the 10-second Undo window before the tab
+  closes reaches the server only when the reader next opens on that device
+  (measured in all three engines; with the tab open it lands after the
+  window). A closing page does not finish the replay's device check and
+  IndexedDB work; sending it needs a change to the shared replay's claim
+  rules.
 - No migration and no new packages.
