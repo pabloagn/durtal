@@ -413,7 +413,7 @@ export default async function CollectionPage({
           total={total}
           noun="items"
         >
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2" data-focus-list="collection">
             {members.slice(offset, offset + perPage).map((member, index) => (
               <MemberCard
                 key={`${member.kind}:${member.id}`}

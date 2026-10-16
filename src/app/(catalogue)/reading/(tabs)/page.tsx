@@ -108,7 +108,7 @@ export default async function ReadingPage() {
               {/* Each card at least 30rem wide, so Open eBook, Log progress,
                   the timer and the menu share one line under the text: a third
                   of the column (357px at 1440) stacked them like a phone's */}
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,30rem),1fr))] gap-4">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,30rem),1fr))] gap-4" data-focus-list="reading">
                 {reading.map((o) => (
                   <CurrentReadingCard key={o.reading.id} open={o} day={day} estimate={estimates[o.reading.id]} />
                 ))}
@@ -168,9 +168,9 @@ export default async function ReadingPage() {
                   </Link>
                 }
               />
-              <ol className="grid gap-6 md:grid-cols-3">
+              <ol className="grid gap-6 md:grid-cols-3" data-focus-list="suggestions">
                 {suggestions.map((row) => (
-                  <li key={row.workId} className="flex min-w-0 gap-3" data-hub-suggestion={row.workId}>
+                  <li key={row.workId} className="flex min-w-0 gap-3" data-hub-suggestion={row.workId} data-focus-row="">
                     <Link href={row.href} tabIndex={-1} aria-label={row.title} className="shrink-0">
                       <Cover s3Key={row.cover} title={row.title} className="h-20 w-14" />
                     </Link>
@@ -193,7 +193,7 @@ export default async function ReadingPage() {
           {paused.length > 0 && (
             <section>
               <SectionHeading title="Paused" count={paused.length} />
-              <ul className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary">
+              <ul className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary" data-focus-list="paused">
                 {paused.map((o) => (
                   <PausedRow key={o.reading.id} open={o} day={day} />
                 ))}

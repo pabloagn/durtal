@@ -1,0 +1,104 @@
+// @vitest-environment happy-dom
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { act, createElement as h } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { FocusKeeper } from "@/components/shared/focus-keeper";
+
+// Focus survey, cause 4: removing a row (a location, a copy, a collection's
+// book, a dictionary source) left the focus on the page body. It now goes to
+// the same control of the next row, else the row before, else the list's Add.
+
+beforeAll(() => {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
+let host: HTMLDivElement;
+let root: Root;
+beforeEach(() => {
+  host = document.createElement("div");
+  document.body.append(host);
+  root = createRoot(host);
+});
+afterEach(() => {
+  act(() => root.unmount());
+  host.remove();
+});
+const frame = () => act(() => new Promise((resolve) => setTimeout(resolve, 40)));
+
+function Page({ names, dialog = false, read = [] }: { names: string[]; dialog?: boolean; read?: string[] }) {
+  return h(
+    "main",
+    null,
+    h(FocusKeeper),
+    h("h1", null, "Locations"),
+    h("button", { "data-focus-empty": "places" }, "Add location"),
+    names.length > 0 &&
+      h(
+        "ul",
+        { "data-focus-list": "places" },
+        names.map((name) =>
+          h(
+            "li",
+            { key: name, "data-focus-row": "" },
+            h("button", null, `Edit ${name}`),
+            read.includes(name) && h("button", null, `Read ${name}`),
+            h("button", null, `Delete ${name}`),
+          ),
+        ),
+      ),
+    dialog && h("dialog", { open: true }, h("button", null, "Delete")),
+  );
+}
+const button = (name: string) =>
+  [...host.querySelectorAll("button")].find((b) => b.textContent === name)!;
+
+describe("FocusKeeper", () => {
+  it("moves the focus to the next row's same control when a row goes", async () => {
+    act(() => root.render(h(Page, { names: ["Attic", "Study", "Cellar"] })));
+    button("Delete Study").focus();
+    act(() => root.render(h(Page, { names: ["Attic", "Cellar"] })));
+    await frame();
+    expect(document.activeElement).toBe(button("Delete Cellar"));
+  });
+
+  it("finds the same control when the next row holds fewer controls", async () => {
+    act(() => root.render(h(Page, { names: ["Attic", "Study"], read: ["Attic"] })));
+    button("Delete Attic").focus();
+    act(() => root.render(h(Page, { names: ["Study"], read: ["Attic"] })));
+    await frame();
+    expect(document.activeElement).toBe(button("Delete Study"));
+  });
+
+  it("goes to the row before when the last row goes, then to Add when none is left", async () => {
+    act(() => root.render(h(Page, { names: ["Attic", "Study"] })));
+    button("Edit Study").focus();
+    act(() => root.render(h(Page, { names: ["Attic"] })));
+    await frame();
+    expect(document.activeElement).toBe(button("Edit Attic"));
+    act(() => root.render(h(Page, { names: [] })));
+    await frame();
+    expect(document.activeElement).toBe(button("Add location"));
+  });
+
+  it("keeps the row's place through the confirmation dialog it opened", async () => {
+    act(() => root.render(h(Page, { names: ["Attic", "Study"] })));
+    button("Delete Attic").focus();
+    act(() => root.render(h(Page, { names: ["Attic", "Study"], dialog: true })));
+    button("Delete").focus();
+    // The row goes while the dialog is up; nothing moves until it closes
+    act(() => root.render(h(Page, { names: ["Study"], dialog: true })));
+    await frame();
+    expect(document.activeElement).toBe(button("Delete"));
+    act(() => root.render(h(Page, { names: ["Study"] })));
+    await frame();
+    expect(document.activeElement).toBe(button("Delete Study"));
+  });
+
+  it("leaves the focus alone when it is somewhere else", async () => {
+    act(() => root.render(h(Page, { names: ["Attic", "Study"] })));
+    button("Delete Attic").focus();
+    button("Add location").focus();
+    act(() => root.render(h(Page, { names: ["Study"] })));
+    await frame();
+    expect(document.activeElement).toBe(button("Add location"));
+  });
+});
