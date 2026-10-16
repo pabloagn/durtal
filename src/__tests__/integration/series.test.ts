@@ -178,14 +178,18 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
       seriesPosition: "9",
     });
     const d = await book("Dancing in the Dark");
-    expect(await addWorksToSeries(s.id, [d.id, c.id, a.id, d.id])).toEqual({
-      added: 2,
+    // Named but not linked, with its own number (an imported e-book's index)
+    const e = await book("Some Rain Must Fall", { seriesName: "My Struggle", seriesPosition: "8" });
+    expect(await addWorksToSeries(s.id, [d.id, c.id, a.id, d.id, e.id])).toEqual({
+      added: 3,
     });
     expect((await read(d.id)).seriesPosition).toBe("3");
     expect(await read(c.id)).toMatchObject({
       seriesId: s.id,
       seriesPosition: "4",
     });
+    // Nothing rewrites a number a book already carries (SLN-912)
+    expect(await read(e.id)).toMatchObject({ seriesId: s.id, seriesPosition: "8" });
     expect((await read(b.id)).seriesPosition).toBe("2.5");
     await expect(
       addWorksToSeries("00000000-0000-4000-8000-000000000000", [d.id]),

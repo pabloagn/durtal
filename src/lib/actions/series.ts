@@ -338,7 +338,7 @@ export async function addWorksToSeries(seriesId: string, workIds: string[]) {
   if (!target) throw new Error("This series no longer exists");
   const [current, members] = await Promise.all([
     db
-      .select({ id: works.id, seriesId: works.seriesId, title: works.title })
+      .select({ id: works.id, seriesId: works.seriesId, title: works.title, position: works.seriesPosition })
       .from(works)
       .where(inArray(works.id, ids)),
     db
@@ -363,7 +363,9 @@ export async function addWorksToSeries(seriesId: string, workIds: string[]) {
         .set({
           seriesId,
           seriesName: null,
-          seriesPosition: String(++next),
+          // A book outside any series keeps the number it carries (an e-book's
+          // series index, SLN-912); the others follow the highest number
+          seriesPosition: !w.seriesId && w.position ? w.position : String(++next),
           updatedAt: new Date(),
         })
         .where(eq(works.id, w.id)),
