@@ -158,8 +158,8 @@ export async function getAuthors(opts?: {
   })();
 
   const results = await db.query.authors.findMany({
-      columns: { bio: false },
-      extras: { bio: (opts?.includeBiography === false ? sql<string | null>`null::text` : sql<string | null>`${authors.bio}`).as("bio") },
+    columns: { bio: false },
+    extras: { bio: (opts?.includeBiography === false ? sql<string | null>`null::text` : sql<string | null>`${authors.bio}`).as("bio") },
     where,
     orderBy: [...(Array.isArray(orderBy) ? orderBy : [orderBy]), asc(authors.id)],
     limit,
@@ -179,12 +179,6 @@ export async function getAuthors(opts?: {
   return results;
 }
 
-/**
- * Up to three book covers per author, for the cards of authors with no
- * portrait: their highest-rated works first, then the earliest. A work's
- * cover is its active poster, else its first edition's cover. Returns
- * `/api/s3/read` URLs by author id.
- */
 /** Optional table-column data; bounded to the current page of people. */
 export async function getPersonBiographies(ids: string[]): Promise<Record<string, string | null>> {
   z.array(z.uuid()).max(192).parse(ids);
@@ -193,6 +187,12 @@ export async function getPersonBiographies(ids: string[]): Promise<Record<string
   return Object.fromEntries(rows.map(row => [row.id, row.bio ? stripHtmlToText(row.bio) || null : null]));
 }
 
+/**
+ * Up to three book covers per author, for the cards of authors with no
+ * portrait: their highest-rated works first, then the earliest. A work's
+ * cover is its active poster, else its first edition's cover. Returns
+ * `/api/s3/read` URLs by author id.
+ */
 export async function getAuthorCoverPreviews(
   authorIds: string[],
 ): Promise<Record<string, string[]>> {

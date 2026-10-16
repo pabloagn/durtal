@@ -1,6 +1,6 @@
 # Task 0848: Keep full biographies out of the People list payload
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-17
 **Priority**: MEDIUM
 **Type**: Fix
@@ -19,4 +19,10 @@ SLN-974: the People list sends complete biographies even when no biography is sh
 
 ## Completion Notes
 
-Validation in progress against disposable fixtures.
+- The synthetic scale fixture's People response fell from 535 KB to 221 KB without truncating biography content.
+- All 40 seeded page-weight routes pass; eight routes lack seeded content and are explicitly skipped.
+- Nineteen affected database checks and four lazy-view state checks pass. Database runs used fresh disposable databases; the unchanged Python preflight result was reused because of the known host Python FIFO hang.
+- Production build, TypeScript and lint pass (80 pre-existing warnings, no lint errors).
+- Nine Chromium/Firefox/WebKit scenarios pass: hidden payload, full optional column, full detail biography, and grid alignment/design audits at 1440/390/320 px.
+- Viewport assertions wait for responsive controls to settle after resizing; no persistent overflow was found.
+- No migrations, provider requests, catalogue writes, or deployment.
