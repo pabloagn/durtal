@@ -380,6 +380,8 @@ export interface AnnotationItemOutcome {
 /** The annotation owner decodes its response. A 2xx alone cannot acknowledge
  * marks: unknown/duplicate/missing results preserve every original claim.
  */
+/** Server reasons for a delete whose mark was already removed */
+const DELETE_DONE = ["deleted", "already-retired", "retired"];
 export function annotationAcknowledgments(
   references: readonly OperationReference[],
   outcomes: readonly AnnotationItemOutcome[],
@@ -393,6 +395,7 @@ export function annotationAcknowledgments(
       ids: [...body.upserts, ...body.deletes].map((item) =>
         String(item.id).toLowerCase(),
       ),
+      deletes: new Set(body.deletes.map((item) => String(item.id).toLowerCase())),
     };
   });
   const ids = itemsByReference.flatMap((item) => item.ids);
@@ -407,10 +410,20 @@ export function annotationAcknowledgments(
     outcomes.some((item) => item.kind === "ignored" && !item.reason)
   )
     throw new Error("Incomplete annotation acknowledgment");
-  return itemsByReference.map(({ reference, ids }) => ({
+  // A delete of a mark that is already gone is done, not a problem: a closing
+  // page sends its deletes before their rows are settled, so the next visit
+  // sends them again (SLN-869).
+  return itemsByReference.map(({ reference, ids, deletes }) => ({
     reference,
     ignored: ids
       .map((id) => replies.get(id)!)
-      .filter((item) => item.kind === "ignored"),
+      .filter(
+        (item) =>
+          item.kind === "ignored" &&
+          !(
+            deletes.has(item.id.toLowerCase()) &&
+            DELETE_DONE.includes(item.reason ?? "")
+          ),
+      ),
   }));
 }

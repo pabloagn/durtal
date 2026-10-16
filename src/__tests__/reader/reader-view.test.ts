@@ -1104,7 +1104,9 @@ it.each(["valid", "malformed"] as const)("lifecycle replay retains exact intent 
   let flight!: Promise<void>;
   try {
     await act(async () => {
-      window.dispatchEvent(new Event("pagehide"));
+      // A page kept for the back button: a closing page's own unclaimed send
+      // (SLN-869) is covered in transport-closing.test.ts
+      window.dispatchEvent(Object.assign(new Event("pagehide"), { persisted: true }));
       flight = persistence.runtime.requestReplay("lifecycle");
       await vi.waitFor(() => expect(posts).toHaveLength(1));
     });
