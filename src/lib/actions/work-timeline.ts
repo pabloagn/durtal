@@ -6,11 +6,11 @@ import { readingFiltersSchema, type ReadingFilterParams } from "@/lib/reading/fi
 import { readingFilterConditions } from "@/lib/reading/filter-conditions";
 import { db } from "@/lib/db";
 import { works, editions } from "@/lib/db/schema";
-import { and, eq, asc, ilike, isNotNull } from "drizzle-orm";
-import { containsPattern } from "@/lib/utils/like";
+import { and, eq, asc, isNotNull } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { mediaCrop, type MediaCrop } from "@/lib/utils/media-style";
 import { bookFilterConditions } from "@/lib/library/filter-conditions";
+import { workSearchCondition } from "@/lib/library/search-condition";
 import { bookFiltersSchema, type BookFilterParams } from "@/lib/library/filter-params";
 import { z } from "zod/v4";
 import { mediaUrl } from "@/lib/s3/media-url";
@@ -51,8 +51,10 @@ export async function getWorksForTimeline(opts?: {
 
   const conditions: SQL[] = [bookCondition, isNotNull(works.originalYear)];
 
+  // As the library's lists search: title, authors, series, publishers and
+  // ISBN, accents and case ignored (SLN-881)
   if (search) {
-    conditions.push(ilike(works.title, containsPattern(search)));
+    conditions.push(workSearchCondition(search));
   }
 
   if (flags.isRare !== undefined) conditions.push(eq(works.isRare, flags.isRare));
