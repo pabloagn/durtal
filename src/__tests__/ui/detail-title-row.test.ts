@@ -32,8 +32,8 @@ describe("DetailTitleRow", () => {
     expect(classes(h1)).toEqual(expect.arrayContaining(["min-w-0", "flex-[1_1_auto]", "break-words"]));
     // Under the title the star's padding is pulled out, so its icon lines up with the title
     expect(classes(controls)).toEqual(expect.arrayContaining(["-ml-2", "pointer-coarse:-ml-3.5"]));
-    // Their size is the row's, which steps down with the title: their own
-    // type-page-title held 46px beside a 38px title under 375px (SLN-843)
+    // Their size is the row's, which steps down with the title, not a
+    // type-page-title of their own (SLN-843)
     expect(classes(controls)).not.toContain("type-page-title");
     expect(classes(row)).toContain("type-page-title");
     expect(row.getAttribute("data-title-length")).toBe("long");

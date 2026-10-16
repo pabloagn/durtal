@@ -25,10 +25,9 @@ beside them.
   the page sideways (Firefox and WebKit at 390 and 320).
 - `DetailControls` (`src/components/shared/detail-layout.tsx`) no longer
   carries `type-page-title` itself: it takes the row's size, which steps
-  down with the title. Its own class held 46px, so beside a short title
-  under 375px (38px) the star and menu sat 2.4px off the cap height. That
-  showed on recommenders and on series with a short title; the other kinds
-  put their controls under the title at that width.
+  down with the title. A cleanup: on main its own class already matched the
+  step-down rule inside the marked row, so the controls render as before
+  (the second reviewer measured them on the cap height on main and here).
 
 ## Completion Notes
 
