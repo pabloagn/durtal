@@ -6,6 +6,7 @@ import { Shell } from "@/components/layout/shell";
 import { ImageGuard } from "@/components/shared/image-guard";
 import { TooltipLayer } from "@/components/ui/tooltip";
 import { UnlinkDialogHost } from "@/components/ebooks/unlink-dialog-host";
+import { FocusKeeper } from "@/components/shared/focus-keeper";
 import "@/styles/globals.css";
 import {
   IMAGE_ADJUSTMENTS_STYLESHEET,
@@ -63,6 +64,7 @@ export default async function RootLayout({
         <ImageGuard />
         <TooltipLayer />
         <FavouriteStarSprite />
+        <FocusKeeper />
         <AppSettingsProvider settings={settings}><PreferencesProvider initial={preferences}><ImageAdjustmentProvider><Shell>{children}</Shell><UnlinkDialogHost /></ImageAdjustmentProvider></PreferencesProvider></AppSettingsProvider>
       </body>
     </html>

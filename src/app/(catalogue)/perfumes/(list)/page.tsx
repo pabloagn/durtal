@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyIndex } from "@/components/shared/empty-index";
 import { Spinner } from "@/components/ui/spinner";
 import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
 import { DomainSwitch } from "@/components/domains/domain-switch";
@@ -22,37 +22,42 @@ export default async function PerfumesPage({
 }: {
   searchParams: Promise<ListSearchParams>;
 }) {
+  // Whether any perfume exists, read beside the address
+  const any = getPerfumeCount();
   const params = await searchParams;
-  const catalogued = await getPerfumeCount();
+  const tabs = <DomainSwitch current="perfume" searchParams={params} />;
+  // With none, no toolbar over nothing: one empty state with one Add (SLN-842)
+  if (!(await any)) {
+    return (
+      <EmptyIndex
+        title="Perfumes"
+        tabs={tabs}
+        icon={DOMAIN_ICONS.perfume}
+        empty="No perfumes yet"
+        description="A perfume keeps its house, perfumers, notes and the bottles you hold. Add one by its name."
+        action={<DomainAddLink kind="perfume" />}
+      />
+    );
+  }
 
   return (
     <>
       <PageHeader
         title="Perfumes"
         actions={<DomainAddLink kind="perfume" />}
-        tabs={<DomainSwitch current="perfume" searchParams={params} />}
+        tabs={tabs}
       />
-      {catalogued === 0 ? (
-        <EmptyState
-          icon={DOMAIN_ICONS.perfume}
-          title="No perfumes yet"
-          action={<DomainAddLink kind="perfume" />}
-        />
-      ) : (
-        <>
-          <PerfumeFilters />
-          <Suspense
-            key={JSON.stringify(params)}
-            fallback={
-              <div className="py-16">
-                <Spinner />
-              </div>
-            }
-          >
-            <PerfumeResults params={params} />
-          </Suspense>
-        </>
-      )}
+      <PerfumeFilters />
+      <Suspense
+        key={JSON.stringify(params)}
+        fallback={
+          <div className="py-16">
+            <Spinner />
+          </div>
+        }
+      >
+        <PerfumeResults params={params} />
+      </Suspense>
     </>
   );
 }

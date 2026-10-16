@@ -1,5 +1,5 @@
 "use client";
-import { buttonClass } from "@/components/ui/button";
+import { X } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { acquireSurface } from "@/lib/ui/surface-state";
 import type {
@@ -7,7 +7,7 @@ import type {
   ReaderAnnotation,
 } from "@/lib/reader/annotations";
 import { AnnotationSwatches } from "./annotation-swatches";
-import { selectionToolbarPosition } from "./selection-toolbar";
+import { MARK_ACTION, selectionToolbarPosition } from "./selection-toolbar";
 
 export function HighlightMenu({
   annotation,
@@ -110,7 +110,8 @@ export function HighlightMenu({
           />
           <button
             type="button"
-            className={buttonClass("ghost", "sm")}
+            className={MARK_ACTION}
+            data-tooltip={annotation.style === "underline" ? "Show as a highlight" : "Underline"}
             onClick={() =>
               onEdit({
                 style:
@@ -124,8 +125,8 @@ export function HighlightMenu({
       )}
       <button
         type="button"
-        className={buttonClass("ghost", "sm")}
-        data-tooltip="Edit note"
+        className={MARK_ACTION}
+        data-tooltip={annotation.note ? "Edit note" : "Add a note"}
         data-tooltip-keys="n"
         onClick={onNote}
       >
@@ -133,7 +134,8 @@ export function HighlightMenu({
       </button>
       <button
         type="button"
-        className={buttonClass("ghost", "sm")}
+        className={MARK_ACTION}
+        data-tooltip="Copy the marked text"
         onClick={() => {
           void navigator.clipboard.writeText(annotation.text ?? "").then(
             () => setCopy("copied"),
@@ -149,17 +151,21 @@ export function HighlightMenu({
       </button>
       <button
         type="button"
-        className={buttonClass("danger", "sm")}
+        className={MARK_ACTION}
+        data-tooltip="Delete this mark"
         onClick={onDelete}
       >
         Delete
       </button>
       <button
         type="button"
-        className={buttonClass("ghost", "sm")}
+        aria-label="Close"
+        data-tooltip="Close"
+        data-tooltip-keys="esc"
+        className={`${MARK_ACTION} w-8 px-0`}
         onClick={() => close.current()}
       >
-        Close
+        <X aria-hidden className="h-4 w-4" strokeWidth={1.5} />
       </button>
     </div>
   );

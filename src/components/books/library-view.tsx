@@ -12,7 +12,7 @@ import type { ViewMode } from "./view-mode-switcher";
 import type { CoverCrop } from "./book-card";
 import { LIST_PREFERENCES } from "@/lib/preferences";
 import { Mosaic, MosaicImage, mosaicPerRow } from "@/components/shared/mosaic";
-import { TitleCard } from "@/components/shared/no-photo";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { useViewData } from "@/lib/hooks/use-view-data";
 import { getReadingSummaries } from "@/lib/actions/reading";
 import type { CardReadingValue } from "@/lib/reading/card";
@@ -119,7 +119,7 @@ export function LibraryView({ books, viewMode, gridColumns, isSelecting, selecte
                 src={book.coverUrl}
                 crop={book.coverCrop}
                 tone={book.coverTone}
-                fallback={<TitleCard title={book.title} year={book.publicationYear ? String(book.publicationYear) : null} />}
+                fallback={<span className={`absolute inset-0 ${COVER_BLANK}`}><CoverLetter title={book.title} /></span>}
               />
             ),
           }))}

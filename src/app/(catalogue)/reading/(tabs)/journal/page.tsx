@@ -6,13 +6,13 @@ import { Pagination } from "@/components/shared/pagination";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
 import { ReadingTabs } from "@/components/reading/reading-tabs";
 import { BookMarked } from "lucide-react";
-import { HubActions, StartBookButton } from "@/components/reading/hub-actions";
+import { HubActions } from "@/components/reading/hub-actions";
 import { JournalRows, type JournalItem } from "@/components/reading/reading-tiles";
 import { getJournalFacets, queryJournal, type JournalRow } from "@/lib/reading/journal";
 import { journalGroup, parseJournalQuery } from "@/lib/reading/journal-params";
 import { formatReadingSpan } from "@/lib/reading/dates";
 import { readingToday } from "@/lib/reading/day";
-import { clearedListHref, firstPageHref, hasListQuery, exportFilters } from "@/lib/utils/list-params";
+import { clearedListHref, firstPageHref, exportFilters } from "@/lib/utils/list-params";
 import { ExportMenu } from "@/components/shared/export-menu";
 import { toSearchParams, type ListSearchParams } from "@/lib/utils/pagination";
 import { languageName } from "@/lib/utils/language";
@@ -60,16 +60,15 @@ async function JournalResults({ params }: { params: ListSearchParams }) {
   const { rows, summary } = await queryJournal(query);
   const search = toSearchParams(params);
   const today = await readingToday();
+  // With no reading at all, the page draws its own empty state (SLN-842)
   if (summary.readings === 0) {
-    return hasListQuery(search) ? (
+    return (
       <NoResults
         noun="readings"
         search={query.q}
         hasFilters={Boolean(query.status.length || query.formats.length || query.yearMin || query.yearMax || query.minRating || query.rereads)}
         clearHref={clearedListHref("/reading/journal", search)}
       />
-    ) : (
-      <EmptyState icon={BookMarked} title="No readings yet" action={<StartBookButton />} />
     );
   }
   if (rows.length === 0) return <PageOutOfRange firstPageHref={firstPageHref("/reading/journal", search)} />;
@@ -113,6 +112,22 @@ export default async function ReadingJournalPage({ searchParams }: { searchParam
   const params = await searchParams;
   // The filters' choices come from every reading, not the filtered ones
   const { yearRange, formats } = await getJournalFacets();
+  // Every reading has a format: none means no reading at all. Then no
+  // toolbar over nothing, even under a stale search, and no second Start a
+  // book: the header has it (SLN-842)
+  if (formats.length === 0) {
+    return (
+      <>
+        <PageHeader title="Reading" actions={<HubActions />} tabs={<ReadingTabs />} />
+        <EmptyState
+          icon={BookMarked}
+          heading="h2"
+          title="No readings yet"
+          description="The journal keeps each time you read a book, from its start to its end. Start a book, or log one you read before."
+        />
+      </>
+    );
+  }
   return (
     <>
       <PageHeader title="Reading" actions={<HubActions />} tabs={<ReadingTabs />} />

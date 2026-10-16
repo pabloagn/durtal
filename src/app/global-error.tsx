@@ -30,7 +30,7 @@ export default function GlobalError({
           </button>
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- A root failure needs a fresh document independent of the failed router. */}
           <a href="/" className={buttonClass("secondary")}>
-            Go to dashboard
+            Go to the dashboard
           </a>
         </RouteFallback>
       </main>
