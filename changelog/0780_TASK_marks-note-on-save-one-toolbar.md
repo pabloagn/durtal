@@ -24,7 +24,8 @@ next, unseen page, over a thousand characters. Now:
   too.
 - A second highlight, underline or note on the words of an existing mark
   changes that mark (its colour or style, or opens its note) instead of
-  adding another. A quote stays a quote and the reader says so.
+  adding another; Underline keeps the mark's colour. A quote stays a quote
+  and the reader says so.
 - The selection toolbar offers Underline beside the colours (behind More on
   touch).
 - An existing mark's menu uses the toolbar's buttons: 32px (44px on touch),

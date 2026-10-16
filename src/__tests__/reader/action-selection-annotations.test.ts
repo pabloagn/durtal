@@ -126,7 +126,8 @@ describe("annotation action-time selection", () => {
     selectParagraph();
     await act(async () => { [...host.querySelectorAll<HTMLButtonElement>("button")].find(item => item.textContent === "Underline")!.click(); });
     expect(enqueued).toHaveLength(3);
-    expect(enqueued[2].local.mutation).toMatchObject({ id: enqueued[0].local.mutation.id, color: "ochre", style: "underline" });
+    // Underline picks no colour: the mark keeps its sage
+    expect(enqueued[2].local.mutation).toMatchObject({ id: enqueued[0].local.mutation.id, color: "sage", style: "underline" });
     // A note on the same words opens the mark's own note
     selectParagraph();
     await act(async () => { host.querySelector<HTMLButtonElement>('[aria-label="Add a note"]')!.click(); });

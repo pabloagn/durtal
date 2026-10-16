@@ -140,7 +140,8 @@ export function useReaderAnnotations(input: {
   /** The mark already on the selected words: a second mark there changes it instead (SLN-682) */
   const marked = (captured: Captured) =>
     markOnPassage(captured.controller.getSnapshot().annotations, captured.selected.fileId, captured.selected.locator);
-  const create = async (color: AnnotationColor = "ochre", style: "highlight" | "underline" = "highlight", origin?: Document) => {
+  /** No `color` (Underline) keeps the colour of a mark already on the words */
+  const create = async (color?: AnnotationColor, style: "highlight" | "underline" = "highlight", origin?: Document) => {
     const captured = capture(origin);
     if (!captured) return;
     const { controller, selected } = captured;
@@ -148,11 +149,11 @@ export function useReaderAnnotations(input: {
     if (existing) {
       bridge.clearCapturedSelection(selected);
       if (existing.style === "quote") input.onNotice("These words are already a quote.");
-      else if (existing.color !== color || existing.style !== style) await controller.edit(existing.id, { color, style });
+      else if ((color && existing.color !== color) || existing.style !== style) await controller.edit(existing.id, color ? { color, style } : { style });
       return;
     }
     await controller.createHighlight({ text: selected.text, locator: selected.locator,
-      chapter: selected.locator.tocLabel ?? null, color, style });
+      chapter: selected.locator.tocLabel ?? null, color: color ?? "ochre", style });
     if (!stillCurrent(captured) || !bridge.isSelectionCaptureCurrent(selected)) return;
     bridge.clearCapturedSelection(selected);
   };
@@ -220,7 +221,7 @@ export function useReaderAnnotations(input: {
     markingActions: ready ? <>
       <AnnotationSwatches onPick={color => perform(create(color))} />
       {/* On touch the one-row toolbar has room only for icons: Underline waits behind More (SLN-678) */}
-      <button type="button" data-tooltip="Underline" onClick={() => perform(create("ochre", "underline"))}
+      <button type="button" data-tooltip="Underline" onClick={() => perform(create(undefined, "underline"))}
         className={`${MARK_ACTION} pointer-coarse:hidden`}>
         Underline
       </button>
@@ -231,7 +232,7 @@ export function useReaderAnnotations(input: {
       </button>
     </> : undefined,
     /** Behind More on touch */
-    markingMore: ready ? <button type="button" data-tooltip="Underline" onClick={() => perform(create("ochre", "underline"))}
+    markingMore: ready ? <button type="button" data-tooltip="Underline" onClick={() => perform(create(undefined, "underline"))}
       className={MARK_ACTION}>Underline</button> : undefined,
     overlays: <>
       {open && <AnnotationsPanel open onClose={() => setOpen(false)} book={input.book} annotations={snapshot.annotations} imagesOnly={input.imagesOnly}
