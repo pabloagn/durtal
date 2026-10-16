@@ -173,8 +173,12 @@ beforeEach(async () => {
   );
   view = host.querySelector("foliate-view") as TestView;
 });
-afterEach(() => {
+afterEach(async () => {
   engine.destroy();
+  // The engine loads some modules without waiting (media handling, the
+  // overlayer). Let them finish here, so none is still loading when the
+  // file's environment is torn down on a busy machine (SLN-865).
+  await vi.dynamicImportSettled();
   host.remove();
   vi.useRealTimers();
   vi.restoreAllMocks();

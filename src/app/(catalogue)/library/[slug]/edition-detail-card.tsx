@@ -379,7 +379,8 @@ export function EditionDetailCard({
           count={edition.instances.length}
         />
         {edition.instances.length > 0 ? (
-          <div className="space-y-2">
+          // A deleted copy hands the focus to the next one (FocusKeeper)
+          <div className="space-y-2" data-focus-list={`copies-${edition.id}`}>
             {edition.instances.map((instance) => (
               <InstanceDetail
                 key={instance.id}

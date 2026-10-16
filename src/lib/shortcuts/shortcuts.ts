@@ -466,16 +466,32 @@ export function shortcutButton(
   if (!inside && from && from !== document.body) return null;
 
   if (mode === "save") return saveButtonIn(scope);
+  return usable(nextButton(scope, inside) ?? undefined);
+}
 
+/** The button Enter presses from `inside`, whether or not it is on */
+function nextButton(scope: Element, inside: Element | null): HTMLButtonElement | null {
   const next = lastShown(scope, 'button[data-shortcut="next"]');
-  if (next) return usable(next);
+  if (next) return next;
   // From the field's group outward; from the dialog itself, the dialog
   let el = inside === scope ? scope : inside?.parentElement ?? null;
   for (; el; el = el === scope ? null : el.parentElement) {
     const main = lastShown(el, MAIN_BUTTON);
-    if (main) return usable(main);
+    if (main) return main;
   }
   return null;
+}
+
+/**
+ * Enter from `from` has a button to press, but it is off (the form is not
+ * valid yet, or it is saving). Enter then does nothing at all: in a dialog's
+ * text box it starts no new line either.
+ */
+export function enterButtonOff(from: Element | null): boolean {
+  const scope = shortcutScope(from);
+  if (!scope || !from || !scope.contains(from)) return false;
+  const button = nextButton(scope, from);
+  return !!button && !usable(button);
 }
 
 /**
