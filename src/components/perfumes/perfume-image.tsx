@@ -48,6 +48,7 @@ export function PerfumeImage({
           alt={alt}
           loading={eager ? "eager" : "lazy"}
           decoding="async"
+          fallback={<Flacon name={title} initials={!small} />}
           className="protected-image absolute inset-0 h-full w-full object-contain"
         />
       ) : (

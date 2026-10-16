@@ -73,6 +73,7 @@ export function PaintingImage({
           alt={alt}
           loading={eager ? "eager" : "lazy"}
           decoding="async"
+          fallback={<TitleCard title={title} year={year} lettering={!small} />}
           className="protected-image absolute inset-0 h-full w-full object-contain"
         />
       ) : (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FadeImage } from "@/components/shared/fade-image";
 import { BookText, Check, Headphones, MoreHorizontal, Pause, PenLine, Play, RotateCcw, Square, Tablet, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -59,8 +60,12 @@ function CurrentReading({ row }: { row: ReadingRow }) {
     <div className="mb-6 flex gap-4 rounded-sm border border-glass-border p-4" data-reading="current">
       <div className={`h-16 w-11 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary ${COVER_BLANK}`}>
         {edition?.cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={mediaUrl(edition.cover)} alt="" className="h-full w-full object-cover" />
+          <FadeImage
+            src={mediaUrl(edition.cover)}
+            alt=""
+            className="h-full w-full object-cover"
+            fallback={<CoverLetter title={data.workTitle} />}
+          />
         ) : (
           <CoverLetter title={data.workTitle} />
         )}

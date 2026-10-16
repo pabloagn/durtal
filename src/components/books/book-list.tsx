@@ -5,7 +5,8 @@ import { CopyBookButton } from "./copy-book-button";
 import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
 import { CatalogueReadLink } from "@/components/ebooks/catalogue-read-action";
 
-import Image from "next/image";
+import { FadeImage } from "@/components/shared/fade-image";
+import { COVER_BLANK, CoverLetter } from "./cover-letter";
 import Link from "next/link";
 import { HuntBadge } from "./hunt-badge";
 import { PoisonBadge } from "./poison-badge";
@@ -108,6 +109,12 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
     <div className="@container/list space-y-px">
       {books.map((book) => {
         const isSelected = selectedIds?.has(book.workId) ?? false;
+        // No cover, or one that fails: the title's letter, as on every blank cover
+        const blank = (
+          <div className={`absolute inset-0 ${COVER_BLANK}`}>
+              <CoverLetter title={book.title} />
+            </div>
+        );
 
         function handleRowClick(e: React.MouseEvent) {
           if (isSelecting && onSelect) {
@@ -164,21 +171,17 @@ export function BookList({ books, isSelecting = false, selectedIds, onSelect }: 
               row's Read says it can be read here, so no mark covers it. */}
           <div className="relative h-10 w-7 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
             {book.coverUrl ? (
-              <Image
+              <FadeImage
                 src={book.coverUrl}
                 alt={book.title}
-                fill
-                sizes="28px"
-                className="object-cover"
+                loading="lazy"
+                decoding="async"
+                className="absolute inset-0 h-full w-full object-cover"
                 style={mediaImageStyle(book.coverCrop)}
-              unoptimized
+                fallback={blank}
               />
             ) : (
-              <div className="flex h-full items-center justify-center">
-                <span aria-hidden="true" data-decorative className="font-serif text-micro text-fg-muted/40">
-                  {book.title[0]}
-                </span>
-              </div>
+              blank
             )}
             {isSelecting && <RowCheckbox checked={isSelected} />}
           </div>

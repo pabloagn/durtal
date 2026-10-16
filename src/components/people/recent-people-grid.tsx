@@ -55,6 +55,7 @@ export function RecentPeopleGrid({
                 alt={author.name}
                 loading="lazy"
                 decoding="async"
+                fallback={covers[author.id]?.length ? <CoverFan covers={covers[author.id]} /> : <Monogram name={author.name} />}
                 className="absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02]"
               />
             ) : covers[author.id]?.length ? (

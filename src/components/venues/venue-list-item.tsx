@@ -3,6 +3,8 @@
 import { VENUE_TYPE_LABELS } from "@/lib/catalogue/venues";
 import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
 import Link from "next/link";
+import { FadeImage } from "@/components/shared/fade-image";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { Star, MapPin, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
@@ -38,6 +40,12 @@ export function VenueListItem({
   archived = false,
 }: VenueListItemProps) {
   const location = formattedAddress ?? placeName ?? null;
+  // No photo, or one that fails: the name's letter, as every blank cover
+  const blank = (
+    <div className={`h-full ${COVER_BLANK}`}>
+      <CoverLetter title={name} />
+    </div>
+  );
 
   const meta = (
     <>
@@ -77,17 +85,16 @@ export function VenueListItem({
         {/* Small thumbnail */}
         <div className="relative h-10 w-14 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
           {thumbnailUrl ? (
-            <img
+            <FadeImage
               src={thumbnailUrl}
               alt={name}
+              loading="lazy"
+              decoding="async"
               className="h-full w-full object-cover"
+              fallback={blank}
             />
           ) : (
-            <div className="flex h-full items-center justify-center">
-              <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/40">
-                {name[0]}
-              </span>
-            </div>
+            blank
           )}
         </div>
 

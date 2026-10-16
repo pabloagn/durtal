@@ -47,7 +47,7 @@ const crop = { x: 25, y: 65, zoom: 110, brightness: 90, contrast: 105 };
 function renderPoster(src = source) {
   act(() =>
     root.render(
-      createElement(WorkPosterImage, { src, alt: "Fixture poster", crop }),
+      createElement(WorkPosterImage, { src, alt: "Fixture poster", title: "Fixture", crop }),
     ),
   );
 }

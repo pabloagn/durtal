@@ -40,6 +40,11 @@ export function EditionImageBox({
               : undefined
           }
           loading="lazy"
+          fallback={
+            <span className={`h-full ${COVER_BLANK}`}>
+              <CoverLetter title={title} />
+            </span>
+          }
           className="h-full w-full object-cover"
           style={mediaImageStyle(image.crop)}
         />

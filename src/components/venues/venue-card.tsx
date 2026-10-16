@@ -65,6 +65,14 @@ export function VenueCard({
                 alt={name}
                 loading="lazy"
                 decoding="async"
+                fallback={
+                  <PlacePlate
+                    kind={VENUE_TYPE_LABELS[type]}
+                    city={cityFromAddress(formattedAddress)}
+                    street={streetFromAddress(formattedAddress)}
+                    tone={color ? undefined : badgeVariant}
+                  />
+                }
                 className="h-full w-full object-cover group-hover:scale-[1.02]"
               />
             ) : (
