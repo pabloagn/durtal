@@ -41,6 +41,7 @@ export function AddToCollectionButton() {
     <Button
       variant="secondary"
       onClick={() => window.dispatchEvent(new CustomEvent(ADD_EVENT))}
+      data-focus-empty="collection"
     >
       <Plus size={14} strokeWidth={1.5} />
       Add to the collection

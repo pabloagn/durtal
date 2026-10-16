@@ -36,7 +36,7 @@ import { getCatalogueProvenance } from "@/lib/actions/catalogue-provenance";
 import { getTaxonomyAssignments } from "@/lib/actions/taxonomy-families";
 import { getMediaForWork } from "@/lib/actions/media";
 import { getLocations } from "@/lib/actions/locations";
-import { catalogueDateText, catalogueDateYears } from "@/lib/catalogue/dates";
+import { catalogueDateText } from "@/lib/catalogue/dates";
 import {
   FILM_CREDIT_ROLE_IDS,
   FILM_GENRES_FAMILY,
@@ -180,7 +180,6 @@ export default async function FilmPage({
     .filter((role) => role.people.length)
     .map((role) => ({ ...role, heading: creditHeading(role.roleId, role.people.length) }));
   const released = catalogueDateText(film.releaseDate?.value ?? null);
-  const year = catalogueDateYears(film.releaseDate?.value ?? null);
   const runtimes = film.versions.filter((v) => v.runtimeSeconds !== null);
   const runtime = runtimes.length
     ? runtimes.length === 1 || runtimes.every((v) => v.runtimeSeconds === runtimes[0].runtimeSeconds)
@@ -402,7 +401,6 @@ export default async function FilmPage({
                   <FilmPoster
                     image={posterImage}
                     title={film.title}
-                    year={year}
                     alt={`${film.title} poster`}
                     thumbnail={false}
                     eager
