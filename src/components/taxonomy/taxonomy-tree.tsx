@@ -145,7 +145,7 @@ function SortableRow({
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setNodeRef} style={style} data-focus-row="">
       <div className="flex items-center pointer-coarse:items-start">
         {/* Collapse toggle for hierarchical items */}
         {depth >= 0 && hasChildren && (
@@ -337,7 +337,9 @@ export function TaxonomyTree({
         items={sortableIds}
         strategy={verticalListSortingStrategy}
       >
-        <div className="divide-y-0">
+        {/* A merged or deleted row hands the focus to the same control of
+            the next row, else New item (FocusKeeper, SLN-920) */}
+        <div className="divide-y-0" data-focus-list="taxonomy-items">
           {paging.items.map(({ item, depth }) => {
             const treeNode = treeNodeMap.get(item.id);
             const hasChildren = treeNode

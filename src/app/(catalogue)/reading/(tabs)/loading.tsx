@@ -1,4 +1,4 @@
-import { ReadingPending } from "./reading-pending";
+import { ReadingPending } from "@/components/reading/reading-pending";
 
 /**
  * Every reading tab while it loads (SLN-749). The tabs sit in a route group so

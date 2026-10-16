@@ -8,6 +8,7 @@ import {
 import {
   annotationAcknowledgments,
   OUTBOX_CLAIM_MS,
+  planReplayClaim,
   replayDelay,
   replayOutcome,
   type AnnotationItemOutcome,
@@ -81,6 +82,43 @@ export function createReaderTransport(options: TransportOptions) {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let controller: AbortController | null = null;
   let probedBlocked = false;
+  // The queue as last read, for a closing page that cannot wait for
+  // IndexedDB (SLN-869). It is dropped while a book transaction, which can
+  // take an operation back (Undo), is under way, and read again after it.
+  let lastRows: StoredOperation[] | null = null,
+    rowsVersion = 0,
+    undoing = 0;
+  const ownTokens = new Set<string>();
+  const remember = (rows: StoredOperation[], version: number) => {
+    if (version === rowsVersion && !undoing) lastRows = rows;
+  };
+  const reread = () => {
+    const version = rowsVersion;
+    options.store
+      .inspect()
+      .then((rows) => remember(rows, version))
+      .catch(() => {});
+  };
+  /** A new operation is read again once it commits, as a replay may already
+   * be under way. A book transaction (Undo among them) forgets the queue
+   * until it commits. Every other change is followed by a replay, which reads
+   * the queue anyway. */
+  const store: OfflineStore = {
+    ...options.store,
+    enqueue: (input) => options.store.enqueue(input).finally(reread),
+    async transactBook(ebookId, reduce) {
+      undoing++;
+      rowsVersion++;
+      lastRows = null;
+      try {
+        return await options.store.transactBook(ebookId, reduce);
+      } finally {
+        undoing--;
+        rowsVersion++;
+        reread();
+      }
+    },
+  };
   const clearTimer = () => {
     if (timer) clearTimeout(timer);
     timer = null;
@@ -185,7 +223,10 @@ export function createReaderTransport(options: TransportOptions) {
   }
   async function replay(mode: "foreground" | "lifecycle") {
     while (!stopped && reachable() && (visible() || mode === "lifecycle")) {
-      const head = (await options.store.inspect())[0];
+      const version = rowsVersion;
+      const rows = await store.inspect();
+      remember(rows, version);
+      const head = rows[0];
       if (!head) return;
       // A blocked head is probed once per page, only to learn whether its
       // device id was superseded; it is never sent from here.
@@ -228,7 +269,7 @@ export function createReaderTransport(options: TransportOptions) {
           "device_identity_changed"
       ) {
         if (
-          await options.store.adoptDevice(
+          await store.adoptDevice(
             head.mutation.deviceId,
             identity.deviceId,
           )
@@ -241,19 +282,21 @@ export function createReaderTransport(options: TransportOptions) {
         identity.authenticated &&
         deviceReplayPolicy(head.mutation.deviceId, identity.deviceId) ===
           "ready";
-      const plan = await options.store.claim({
+      const claimToken = token();
+      ownTokens.add(claimToken);
+      const plan = await store.claim({
         visible: visible(),
         reachable: reachable(),
         currentDeviceId: ready ? identity.deviceId : head.mutation.deviceId,
         nowMs: now(),
-        token: token(),
+        token: claimToken,
         mode,
       });
       if (plan.kind === "stop") {
         if (plan.reason === "busy") {
           // A peer may have acquired the head after our initial inspection.
           // Read its persisted lease, never an old claim snapshot or later row.
-          const current = (await options.store.inspect())[0];
+          const current = (await store.inspect())[0];
           if (current?.state === "claimed" && current.claim)
             schedule(Math.max(1, current.claim.expiresAt - now()));
         }
@@ -265,11 +308,11 @@ export function createReaderTransport(options: TransportOptions) {
         return;
       }
       if (stopped) {
-        await options.store.settle(plan.references, "retry");
+        await store.settle(plan.references, "retry");
         return;
       }
       if (!ready) {
-        await options.store.settle(plan.references, "blocked");
+        await store.settle(plan.references, "blocked");
         return;
       }
       try {
@@ -282,14 +325,14 @@ export function createReaderTransport(options: TransportOptions) {
         if (outcome === "acknowledge") {
           if (!options.positionAcknowledged(response.body))
             throw new Error("Invalid position acknowledgment");
-          await options.store.settle(plan.references, "acknowledged");
+          await store.settle(plan.references, "acknowledged");
         } else if (outcome === "inspect_annotations") {
           const decoded = options.decodeAnnotations(response.body, plan);
           const acks = annotationAcknowledgments(
             plan.references,
             decoded.outcomes,
           );
-          await options.store.settle(plan.references, "acknowledged", {
+          await store.settle(plan.references, "acknowledged", {
             updateBook: decoded.updateBook,
             ignored: acks
               .filter((ack) => ack.ignored.length)
@@ -300,10 +343,10 @@ export function createReaderTransport(options: TransportOptions) {
               })),
           });
         } else if (outcome === "blocked") {
-          await options.store.settle(plan.references, "blocked");
+          await store.settle(plan.references, "blocked");
           return;
         } else if (outcome === "reject") {
-          await options.store.settle(plan.references, "rejected", {
+          await store.settle(plan.references, "rejected", {
             reason: response.code ?? `HTTP ${response.status}`,
           });
         } else {
@@ -322,7 +365,7 @@ export function createReaderTransport(options: TransportOptions) {
   }
   async function retry(plan: ClaimedPlan, retryAfterMs?: number) {
     const delay = replayDelay(plan.rows[0].attempts, true, retryAfterMs)!;
-    await options.store.settle(plan.references, "retry", {
+    await store.settle(plan.references, "retry", {
       retryAt: now() + delay,
     });
     schedule(delay);
@@ -331,7 +374,7 @@ export function createReaderTransport(options: TransportOptions) {
     if (stopped) return;
     // Even an existing foreground request, unavailable identity or oversized
     // lifecycle body must not leave hidden delete intents Undo-able.
-    await options.store.sealDeletes(mode);
+    await store.sealDeletes(mode);
     return startReplay(mode);
   }
   function startReplay(mode: "foreground" | "lifecycle"): Promise<void> {
@@ -360,8 +403,59 @@ export function createReaderTransport(options: TransportOptions) {
     if (!visible()) onPageHide();
     else kick();
   };
-  const onPageHide = () => {
+  /** A closing page does not live to finish the device check and IndexedDB
+   * work of a replay, so a delete still in its Undo window was lost until the
+   * reader opened again on this device (SLN-869). It sends the head of the
+   * queue as last read at once, in one keepalive body, unclaimed. The server
+   * applies each operation once by its id, so the replay that follows on a
+   * later visit, or one that got further on this page, is acknowledged
+   * without applying anything twice. The device header still has to match
+   * the cookie on the server.
+   */
+  function sendWhileClosing(): boolean {
+    const rows = lastRows,
+      head = rows?.[0],
+      at = now();
+    if (!rows || !head || stopped || !reachable()) return false;
+    if (head.state === "blocked" || (head.retryAt !== null && head.retryAt > at))
+      return false;
+    // Claims this page holds or that have lapsed are free; a live claim of
+    // another page stays with that page.
+    const free = rows.map((row) =>
+      row.state === "claimed" &&
+      row.claim &&
+      (ownTokens.has(row.claim.token) || row.claim.expiresAt <= at)
+        ? { ...row, state: "waiting" as const, claim: null }
+        : row,
+    );
+    const plan = planReplayClaim(free, {
+      visible: false,
+      reachable: true,
+      currentDeviceId: head.mutation.deviceId,
+      nowMs: at,
+      token: token(),
+      mode: "lifecycle",
+    });
+    if (plan.kind !== "claim") return false;
+    send(plan, new AbortController().signal, "lifecycle").catch((error) =>
+      options.onError?.(error),
+    );
+    return true;
+  }
+  const onPageHide = (event?: Event) => {
     clearTimer();
+    // A page kept for the back button (persisted) may come back and finish
+    // its own replay.
+    if (
+      event?.type === "pagehide" &&
+      !(event as Partial<PageTransitionEvent>).persisted &&
+      sendWhileClosing()
+    ) {
+      void store
+        .sealDeletes("lifecycle")
+        .catch((error) => options.onError?.(error));
+      return;
+    }
     void requestReplay("lifecycle").catch((error) => options.onError?.(error));
   };
   win?.document.addEventListener("visibilitychange", onVisibility);
@@ -371,9 +465,9 @@ export function createReaderTransport(options: TransportOptions) {
   // persisted queue. Reuse foreground replay and its Undo/device/claim guards.
   if (win && visible()) kick();
   return {
-    store: options.store,
+    store,
     async enqueue(input: DurableInput) {
-      await options.store.enqueue(input);
+      await store.enqueue(input);
       kick();
     },
     requestReplay,
@@ -384,12 +478,12 @@ export function createReaderTransport(options: TransportOptions) {
       probedBlocked = false;
       // A person pressing Retry is the explicit reconciliation a blocked head
       // waits for: signed in again under this device, it can go (review #273)
-      const head = (await options.store.inspect())[0];
+      const head = (await store.inspect())[0];
       if (head?.state === "blocked") {
         try {
           const identity = await deadline(preflight);
           if (identity.authenticated)
-            await options.store.reconcile(
+            await store.reconcile(
               {
                 seq: head.seq,
                 operationId: head.mutation.operationId,
@@ -406,7 +500,7 @@ export function createReaderTransport(options: TransportOptions) {
           options.onError?.(error);
         }
       }
-      await options.store.retryNow();
+      await store.retryNow();
       return requestReplay("foreground");
     },
     /** The caller explicitly completed authentication reconciliation. This does
@@ -416,7 +510,7 @@ export function createReaderTransport(options: TransportOptions) {
     async reconcile(reference: BlockedOperationReference) {
       const identity = await deadline(preflight);
       if (!identity.authenticated) return false;
-      const changed = await options.store.reconcile(
+      const changed = await store.reconcile(
         reference,
         identity.deviceId,
       );

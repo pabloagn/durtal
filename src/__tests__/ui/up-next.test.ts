@@ -4,7 +4,7 @@ import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 
-// Up Next's list and page (SLN-452), with the server actions mocked.
+// Up next's list and page (SLN-452), with the server actions mocked.
 
 const actions = vi.hoisted(() => ({
   moveQueueItem: vi.fn(async (input: { workId: string }) => ({ workId: input.workId, place: 1, total: 3 })),
@@ -82,7 +82,7 @@ async function menu(workId: string, item: string) {
   await flush();
 }
 
-describe("the Up Next list", () => {
+describe("the Up next list", () => {
   it("moves a book up, down and to the top from its menu, saves each move, and says where it went", async () => {
     act(() => root.render(createElement(QueueList, { rows })));
     expect(order()).toEqual(["a", "b", "c"]);
@@ -96,28 +96,28 @@ describe("the Up Next list", () => {
     expect(actions.moveQueueItem).toHaveBeenLastCalledWith({ workId: "a", afterWorkId: "c", beforeWorkId: "b" });
     await menu("b", "Move to top");
     expect(order()).toEqual(["b", "c", "a"]);
-    // The top of all of Up Next: no neighbours
+    // The top of all of Up next: no neighbours
     expect(actions.moveQueueItem).toHaveBeenLastCalledWith({ workId: "b", afterWorkId: null, beforeWorkId: null });
     expect(host.querySelector("[data-queue-said]")!.textContent).toBe("Watt moved to position 1 of 3");
   });
 
-  it("under a filter, shows each book's place in all of Up Next and sends Move to top with no neighbours", async () => {
+  it("under a filter, shows each book's place in all of Up next and sends Move to top with no neighbours", async () => {
     const some = [row("a", "Nadja", 2), row("b", "Watt", 5), row("c", "La Curée", 9)];
     act(() => root.render(createElement(QueueList, { rows: some, filtered: true })));
     expect([...host.querySelectorAll("[data-queue-place]")].map((p) => p.textContent)).toEqual(["2", "5", "9"]);
     await menu("c", "Move up");
     expect(actions.moveQueueItem).toHaveBeenLastCalledWith({ workId: "c", afterWorkId: "a", beforeWorkId: "b" });
-    // The first row shown is 2nd in Up Next: it can still go to the top
+    // The first row shown is 2nd in Up next: it can still go to the top
     await menu("a", "Move to top");
     expect(actions.moveQueueItem).toHaveBeenLastCalledWith({ workId: "a", afterWorkId: null, beforeWorkId: null });
   });
 
   it("puts a row back when the server refuses the move", async () => {
-    actions.moveQueueItem.mockRejectedValueOnce(new Error("Up Next changed elsewhere; reload"));
+    actions.moveQueueItem.mockRejectedValueOnce(new Error("Up next changed elsewhere; reload"));
     act(() => root.render(createElement(QueueList, { rows })));
     await menu("c", "Move to top");
     expect(order()).toEqual(["a", "b", "c"]);
-    expect(toasts.list.map((t) => t.message)).toContain("Up Next changed elsewhere; reload");
+    expect(toasts.list.map((t) => t.message)).toContain("Up next changed elsewhere; reload");
   });
 
   it("lifts a row with the keyboard: its handle is a named button with the instructions", () => {
@@ -134,11 +134,11 @@ describe("the Up Next list", () => {
     coarse = true;
     act(() => root.render(createElement(QueueList, { rows })));
     act(() => (host.querySelector('[data-queue-menu="a"]') as HTMLButtonElement).click());
-    expect([...host.querySelectorAll('[role="menuitem"]')].map((m) => m.textContent?.trim())).toEqual(["Move down", "Remove from Up Next"]);
+    expect([...host.querySelectorAll('[role="menuitem"]')].map((m) => m.textContent?.trim())).toEqual(["Move down", "Remove from Up next"]);
     await act(async () => ([...host.querySelectorAll('[role="menuitem"]')].find((m) => m.textContent?.includes("Remove")) as HTMLElement).click());
     await flush();
     expect(order()).toEqual(["b", "c"]);
-    const undo = toasts.list.find((t) => t.message === "Removed Nadja from Up Next")!.undo!;
+    const undo = toasts.list.find((t) => t.message === "Removed Nadja from Up next")!.undo!;
     await act(async () => undo());
     expect(actions.restoreQueueItem).toHaveBeenCalledWith({ id: "q1" });
   });
@@ -150,7 +150,7 @@ describe("the Up Next list", () => {
   });
 });
 
-describe("the Up Next page", () => {
+describe("the Up next page", () => {
   const queued = (n: number) =>
     Array.from({ length: n }, (_, i) => ({
       workId: `w${i}`,
@@ -187,9 +187,9 @@ describe("the Up Next page", () => {
 
   it("shows an empty state that adds from the unread books he owns", async () => {
     const html = renderToStaticMarkup(await UpNextPage({ searchParams: Promise.resolve({}) }));
-    expect(html).toContain("Nothing in Up Next");
-    // SLN-842: and a sentence that says what Up Next is
-    expect(html).toContain("Up Next keeps the books you mean to read, in your order.");
+    expect(html).toContain("Nothing in Up next");
+    // SLN-842: and a sentence that says what Up next is
+    expect(html).toContain("Up next keeps the books you mean to read, in your order.");
     expect(html).toContain('href="/library?reading=unread&amp;holding=owned"');
     expect(html).toContain("Add from your library");
     // SLN-457: and See suggestions, from the books he owns

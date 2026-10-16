@@ -20,6 +20,7 @@ async function TaxonomyContent({
       <EmptyState
         icon={Tags}
         title="No taxonomy families"
+        description="A family groups the terms you tag works with, such as genres or themes. Add one with New family."
       />
     );
   }

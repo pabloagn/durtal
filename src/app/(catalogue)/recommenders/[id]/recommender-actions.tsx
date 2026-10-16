@@ -52,7 +52,7 @@ export function RecommenderActions({
       <EntityActionMenu
         items={[
           {
-            label: copied ? "Copied!" : "Copy Name",
+            label: copied ? "Copied!" : "Copy name",
             icon: copied ? Check : Copy,
             onClick: copyName,
           },

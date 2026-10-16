@@ -63,7 +63,7 @@ function Menu({ run }: { run: () => void }) {
         icon: h("svg"),
         shortcut: "E W",
         onClick: run,
-        children: "Edit Taxonomy",
+        children: "Edit taxonomy",
       }),
       h(DropdownMenuItem, {
         key: "long",
@@ -118,7 +118,7 @@ describe("shared dropdown keyboard and focus", () => {
     act(() => trigger().click());
     await settle();
     expect(items()[1].querySelector(".dropdown-label")?.textContent).toBe(
-      "Edit Taxonomy",
+      "Edit taxonomy",
     );
     expect(items()[1].querySelector(".dropdown-shortcut")?.textContent).toBe(
       "E W",

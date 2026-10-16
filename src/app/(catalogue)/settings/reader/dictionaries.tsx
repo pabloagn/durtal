@@ -20,6 +20,9 @@ export function DictionariesGroup() {
   const [files, setFiles] = useState<File[]>([]), [metadata, setMetadata] = useState<Inspected | null>(null);
   const [language, setLanguage] = useState("en"), [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null), [persisted, setPersisted] = useState<boolean | null>(null);
+  // The first read of this device's dictionaries says so only to screen readers: a status row
+  // that came and went would move the groups below it (SLN-875)
+  const [listing, setListing] = useState(false);
   const client = useRef<LookupPacksClient | null>(null), operation = useRef<AbortController | null>(null);
   const generation = useRef(0), picker = useRef<HTMLInputElement>(null);
   const perform = async (label: string, work: (value: LookupPacksClient, signal: AbortSignal) => Promise<void>) => {
@@ -38,18 +41,18 @@ export function DictionariesGroup() {
     if (!supported) return;
     const value = new LookupPacksClient(); client.current = value;
     const controller = new AbortController(); operation.current = controller;
-    let alive = true; setBusy("Loading dictionaries");
+    let alive = true; setListing(true);
     void Promise.all([value.list(controller.signal), navigator.storage.persisted().catch(() => false)]).then(([rows, retained]) => {
       if (alive) { setRecords(rows); setPersisted(retained); }
     }).catch(failure => { if (alive) setError(failure instanceof Error ? failure.message : "Dictionaries could not be read."); })
-      .finally(() => { if (alive) { setBusy(null); operation.current = null; } });
+      .finally(() => { if (alive) { setListing(false); operation.current = null; } });
     return () => { alive = false; ++generation.current; operation.current?.abort(); controller.abort(); value.close(); client.current = null; };
   }, []);
   return <div id="dictionaries" className="scroll-mt-8"><SettingsGroup title="Dictionaries on this device"
     description="Dictionary files stay on this device and work without a connection.">
     {secure === false ? <p className="px-5 py-4 text-sm text-fg-secondary">Offline dictionaries need Durtal’s secure (https) address and a browser with private file storage.</p> : <>
       <div className="px-5 py-4">
-        <p className="mb-3 text-sm text-fg-secondary">Look up reads StarDict dictionaries: a .zip, or its .ifo, .idx and .dict files together. Free ones for many languages, made from Wiktionary: <a className="text-accent-primary underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center" href={FREE_PACKS} target="_blank" rel="noopener noreferrer">Wiktionary dictionaries ↗</a></p>
+        <p className="mb-3 text-sm text-fg-secondary">Look up reads StarDict dictionaries: a&nbsp;.zip, or its&nbsp;.ifo,&nbsp;.idx and&nbsp;.dict files together. Free ones for many languages, made from Wiktionary: <a className="text-accent-primary underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center" href={FREE_PACKS} target="_blank" rel="noopener noreferrer">Wiktionary dictionaries ↗</a></p>
         <input ref={picker} type="file" multiple accept=".zip,.ifo,.idx,.gz,.dict,.dz,.syn" className="sr-only" tabIndex={-1}
           aria-label="Dictionary pack files" onChange={event => {
             const selected = Array.from(event.target.files ?? []); event.target.value = "";
@@ -59,7 +62,8 @@ export function DictionariesGroup() {
               signal.throwIfAborted(); setMetadata(result); setFiles(selected); setLanguage(result.language ?? "en");
             });
           }} />
-        <Button disabled={!secure || !!busy || records.length >= 32} onClick={() => picker.current?.click()}
+        {listing && <p role="status" className="sr-only">Loading dictionaries</p>}
+        <Button disabled={!secure || !!busy || listing || records.length >= 32} onClick={() => picker.current?.click()}
           data-tooltip={records.length >= 32 ? "Use at most 32 dictionaries" : undefined}>Add dictionary</Button>
         {metadata && <div className="mt-4 space-y-3">
           <p className="text-sm">{metadata.name} <span className="font-mono text-xs text-fg-secondary">{metadata.wordCount.toLocaleString()} words</span></p>

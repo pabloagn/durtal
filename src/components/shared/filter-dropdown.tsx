@@ -94,8 +94,10 @@ function OptionRow({
   // A colour no cover has stays in its place, but cannot narrow to nothing
   const empty = swatch && option.count === 0 && !checked;
   return (
+    // The input is hidden, so the label shows its keyboard focus, inset so
+    // the panel's scroller doesn't cut the ring (SLN-870)
     <label
-      className={`flex items-center gap-2 rounded-sm px-1.5 py-1 text-xs transition-colors pointer-coarse:min-h-11 ${
+      className={`flex items-center gap-2 rounded-sm px-1.5 py-1 text-xs transition-colors pointer-coarse:min-h-11 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-solid has-[:focus-visible]:outline-accent-primary has-[:focus-visible]:-outline-offset-2 ${
         empty
           ? "cursor-default text-fg-muted"
           : "cursor-pointer text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary"
@@ -233,6 +235,19 @@ export function FilterDropdown({
 
     document.addEventListener("mousedown", handleMouseDown);
     return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [open]);
+
+  // Tab past the panel's last control (or back past the button) closes it, as
+  // a menu does: the next stop is often under it (SLN-870)
+  useEffect(() => {
+    if (!open) return;
+    const container = containerRef.current;
+    function handleFocusOut(e: FocusEvent) {
+      const next = e.relatedTarget;
+      if (next instanceof Node && !container?.contains(next)) setOpen(false);
+    }
+    container?.addEventListener("focusout", handleFocusOut);
+    return () => container?.removeEventListener("focusout", handleFocusOut);
   }, [open]);
 
   // Esc closes the panel, from its search fields too, and focus goes back to
@@ -420,7 +435,7 @@ export function FilterDropdown({
                       role="tab"
                       aria-selected={selected}
                       onClick={() => setSection(name)}
-                      className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition-colors pointer-coarse:min-h-11 ${
+                      className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition-colors pointer-coarse:min-h-11 focus-visible:-outline-offset-2 ${
                         selected
                           ? "bg-bg-tertiary text-fg-primary"
                           : "text-fg-secondary hover:bg-bg-tertiary/60 hover:text-fg-primary"

@@ -321,7 +321,8 @@ Multiple semantic variants:
 - **Loading** keeps the page's final layout: skeletons the size of the content they replace, so nothing jumps when the page arrives. The SLN-641 slice 3 audit (`sln-641-slice-3.md`) found pages without a loading state and a film skeleton that does not match its page; its pieces A and B make this hold.
 - **A busy button keeps its width.**
   - A button with an icon swaps the icon for a same-size spinner and keeps its label, as Export does.
-  - A button without an icon keeps its label, is disabled and sets `aria-busy`.
+  - A button without an icon keeps its label.
+  - Either way it reads as off (`aria-disabled`, `aria-busy`, the disabled dimming) and ignores presses, but is never `disabled`: a disabled button drops the keyboard focus to the page. A button's own busy flag never goes into its `disabled` (SLN-853, SLN-867).
   - Slice 3 found Save buttons that change width while they save; its piece C makes this hold.
 
 ### Toasts

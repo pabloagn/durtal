@@ -31,6 +31,8 @@ export interface UnsavedGuardOptions {
 
 export interface UnsavedPrompt {
   canSave: boolean;
+  /** The question, when it is not about closing (a switch to another image) */
+  question?: string;
   save(): void;
   discard(): void;
   keepEditing(): void;

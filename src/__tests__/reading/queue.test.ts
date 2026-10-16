@@ -3,7 +3,7 @@ import { QUEUE_GAP } from "@/lib/reading/constants";
 import { ordinal, positionBetween, queueSummary, readHistory, renumbered, timeToRead, timeToReadText } from "@/lib/reading/queue";
 import type { PacePriors } from "@/lib/reading/pace";
 
-/* Up Next's arithmetic (SLN-452): positions and the time a list takes. */
+/* Up next's arithmetic (SLN-452): positions and the time a list takes. */
 
 const none: PacePriors = { byLanguageFormat: {}, byFormat: {}, overall: null };
 const mine: PacePriors = { byLanguageFormat: { "fr|print": 25 }, byFormat: { print: 40, ebook: 50 }, overall: 45 };

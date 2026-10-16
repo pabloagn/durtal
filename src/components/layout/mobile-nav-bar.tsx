@@ -21,7 +21,7 @@ export const MobileNavBar = forwardRef<
       // Behind the open drawer, the bar takes no focus
       inert={navOpen}
     >
-      <div className="flex w-full font-serif text-lg tracking-tight">
+      <div className="flex w-full gap-2 font-serif text-lg tracking-tight">
         <CapAligned height={44}>
           <button
             ref={menuButtonRef}
@@ -40,7 +40,7 @@ export const MobileNavBar = forwardRef<
         <Link href="/" className="px-1 text-fg-primary touch-hit">
           Durtal
         </Link>
-        <div className="ml-auto flex">
+        <div className="ml-auto flex gap-2">
         {/* The running timer, between the name and Search (SLN-451) */}
         <TimerChip layout="phone" />
         <CapAligned height={44}>

@@ -64,8 +64,9 @@ export function PaletteEbookReadAction({
       }}
     >
       Read
-      {/* A phone has no keys to press, and its title needs the room */}
-      <span className="max-sm:hidden"><KeyCombo keys={["mod", "enter"]} /></span>
+      {/* The keys act on the selected row only, so only it shows them; a
+          phone has no keys to press, and its title needs the room */}
+      <span className="hidden sm:group-aria-selected:inline"><KeyCombo keys={["mod", "enter"]} /></span>
     </ReaderEntryLink>
   );
 }

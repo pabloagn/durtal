@@ -5,11 +5,14 @@ import { editTooltipKeys } from "@/lib/shortcuts/shortcuts";
 
 /**
  * The body of a detail page, under its header: the reading column (what the
- * page is about: description, editions, books) and, from lg up, a narrower
- * record column on the right (facts, taxonomy, orders, links). Below lg the
- * record follows the reading content. With no record, the reading column
- * takes the full width; with nothing to read (pass no children), the record
- * keeps its own width.
+ * page is about: description, editions, books) and, where the page itself is
+ * 56rem (896px) wide or more, a narrower record column on the right (facts,
+ * taxonomy, orders, links). Narrower, the record follows the reading content.
+ * The page's own width decides, not the screen's: with the sidebar open at
+ * 1024 the page is 752px, too narrow for both columns, while the sidebar's
+ * rail at 1024 or a 1180 screen leave room for them (SLN-889). With no
+ * record, the reading column takes the full width; with nothing to read
+ * (pass no children), the record keeps its own width.
  */
 export function DetailColumns({
   children,
@@ -21,11 +24,13 @@ export function DetailColumns({
   if (!record) return <>{children}</>;
   if (!children) return <div className="max-w-[18rem]">{record}</div>;
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-12">
-      <div className="min-w-0">{children}</div>
-      <aside aria-label="Record" className="min-w-0">
-        {record}
-      </aside>
+    <div className="@container">
+      <div className="@4xl:grid @4xl:grid-cols-[minmax(0,1fr)_18rem] @4xl:items-start @4xl:gap-12">
+        <div className="min-w-0">{children}</div>
+        <aside aria-label="Record" className="min-w-0">
+          {record}
+        </aside>
+      </div>
     </div>
   );
 }
@@ -108,6 +113,9 @@ export const DETAIL_TITLE_ROW = {
   stacked: "gap-x-5 pointer-coarse:gap-x-6.5 sm:flex-nowrap",
   // A series' set: under any title too long for it
   free: "gap-x-5 pointer-coarse:gap-x-6.5",
+  // One bordered button, an e-book's Read: 16px from the title, with no
+  // padding to give back; under a title too long for it below sm
+  button: "gap-x-4 sm:flex-nowrap",
 };
 
 /**

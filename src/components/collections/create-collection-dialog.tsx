@@ -96,7 +96,9 @@ export function CreateCollectionDialog({
             maxLength={160}
             required
             autoFocus
-            disabled={saving}
+            // Read-only, not disabled, while it saves: Enter here is the usual
+            // way to create, and a disabled field drops the focus (SLN-920)
+            readOnly={saving}
           />
           <details>
             <summary className="cursor-pointer text-xs text-fg-secondary pointer-coarse:py-3">
@@ -108,7 +110,7 @@ export function CreateCollectionDialog({
               onChange={(e) => setDescription(e.target.value)}
               maxLength={5000}
               rows={3}
-              disabled={saving}
+              readOnly={saving}
             />
           </details>
           <div className="flex justify-end gap-2">
@@ -123,7 +125,7 @@ export function CreateCollectionDialog({
             <Button
               type="submit"
               variant="primary"
-              disabled={saving || !name.trim()}
+              disabled={!name.trim()}
               busy={saving}
             >
               Create collection
