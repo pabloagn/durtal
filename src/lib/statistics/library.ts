@@ -5,9 +5,9 @@ import { WORK_AUTHOR_ROLES } from "@/lib/types";
 
 /*
  * Library statistics (SLN-742): the books he owns, counted the way the
- * library counts them. A book is owned when one of its editions has a copy
- * that is not deaccessioned (`ownedBookCondition`); copies count the same
- * way. Aggregate queries only, never one per book, every number cast to
+ * library counts them. A book is owned when it is accessioned and one of its
+ * editions has a copy that is not deaccessioned (`ownedWorkCondition`,
+ * SLN-886); copies count the same way. Aggregate queries only, never one per book, every number cast to
  * float8. Computed per request, never cached. Reading numbers stay on
  * /reading/stats (`src/lib/reading/stats.ts`).
  */
@@ -16,7 +16,7 @@ import { WORK_AUTHOR_ROLES } from "@/lib/types";
 const OWNED = sql`held as (
     select i.id, i.edition_id, i.location_id, i.format, i.acquisition_date, e.work_id
     from instances i join editions e on e.id = i.edition_id join works w on w.id = e.work_id
-    where w.kind = 'book' and i.status <> 'deaccessioned'),
+    where w.kind = 'book' and w.catalogue_status = 'accessioned' and i.status <> 'deaccessioned'),
   owned as (select distinct work_id as id from held),
   held_editions as (select distinct edition_id as id from held)`;
 

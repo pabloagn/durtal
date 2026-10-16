@@ -1,3 +1,4 @@
+import { CoverLetter, COVER_BLANK } from "@/components/books/cover-letter";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,9 +29,7 @@ function DuplicateCover({ work }: { work: DuplicateWork }) {
           style={poster ? mediaImageStyle(mediaCrop(poster)) : undefined}
         />
       ) : (
-        <span className="flex h-full items-center justify-center text-center text-micro text-fg-secondary">
-          No cover
-        </span>
+        <span className={`${COVER_BLANK} h-full w-full`}><CoverLetter title={work.title} /></span>
       )}
     </div>
   );
@@ -59,8 +58,9 @@ export function DuplicateStep({
           Possible duplicate found
         </h3>
         <p className="mt-1 text-xs text-fg-secondary">
-          A work with a similar title and author already exists in your
-          catalogue.
+          {duplicateWork.matchedBy === "isbn"
+            ? "This ISBN already belongs to a book in your catalogue."
+            : "A work with a similar title and author already exists in your catalogue."}
         </p>
       </div>
 

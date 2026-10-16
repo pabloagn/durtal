@@ -21,6 +21,7 @@ vi.mock("@/app/(catalogue)/people/author-create-dialog", () => ({
 vi.mock("@/app/(catalogue)/places/venue-create-dialog", () => ({ VenueCreateDialog: () => null }));
 vi.mock("@/components/collections/create-collection-dialog", () => ({ CreateCollectionDialog: () => null }));
 vi.mock("@/components/recommenders/recommender-form-dialog", () => ({ RecommenderFormDialog: () => null }));
+vi.mock("@/components/organizations/organization-dialog", () => ({ OrganizationDialog: () => createElement("div", { id: "add-organization" }) }));
 vi.mock("@/components/series/series-form-dialog", () => ({ SeriesFormDialog: () => null }));
 vi.mock("@/components/shortcuts/shortcuts-help", () => ({ ShortcutsHelp: () => null }));
 
@@ -94,6 +95,12 @@ describe("N and A (SLN-632)", () => {
     press("a");
     press("a");
     expect(document.getElementById("add-person")).not.toBeNull();
+  });
+
+  it("opens an organization with A O and from the N menu", () => {
+    press("a"); press("o");
+    expect(document.getElementById("add-organization")).not.toBeNull();
+    expect(ADD.find(a => a.key === "o")).toMatchObject({ label: "Organization", dialog: "organization" });
   });
 
   it("does nothing after A for Esc, an unknown key, Shift or a modifier", () => {

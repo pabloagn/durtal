@@ -104,7 +104,7 @@ export function ReaderBottomBar({
       <div
         data-reader-progress-line
         aria-hidden
-        className={`pointer-events-none fixed inset-x-0 bottom-[env(safe-area-inset-bottom)] z-30 h-0.5 transition-opacity duration-150 motion-reduce:transition-none ${
+        className={`pointer-events-none fixed inset-x-reader bottom-[env(safe-area-inset-bottom)] z-30 h-0.5 transition-opacity duration-150 motion-reduce:transition-none ${
           visible ? "opacity-0" : ""
         }`}
       >
@@ -115,7 +115,7 @@ export function ReaderBottomBar({
       <div
         data-reader-top-fade
         aria-hidden
-        className="pointer-events-none fixed inset-x-0 top-0 z-20 h-6"
+        className="pointer-events-none fixed inset-x-reader top-0 z-20 h-6"
         style={{ background: `linear-gradient(to top, transparent, ${quiet.background})` }}
       />
     )}
@@ -124,7 +124,7 @@ export function ReaderBottomBar({
       <div
         data-reader-quiet-chapter
         aria-hidden
-        className={`pointer-events-none fixed inset-x-0 bottom-0 z-20 pt-6 pb-[env(safe-area-inset-bottom)] transition-opacity duration-150 motion-reduce:transition-none ${
+        className={`pointer-events-none fixed inset-x-reader bottom-0 z-20 pt-6 pb-[env(safe-area-inset-bottom)] transition-opacity duration-150 motion-reduce:transition-none ${
           visible ? "opacity-0" : ""
         }`}
         style={{
@@ -142,7 +142,7 @@ export function ReaderBottomBar({
       data-reader-chrome
       data-reader-index={index?.complete ? "ready" : "pending"}
       inert={!visible}
-      className={`glass-bar fixed inset-x-0 bottom-0 z-30 border-t border-glass-border pb-[env(safe-area-inset-bottom)] transition-opacity duration-150 motion-reduce:transition-none ${
+      className={`glass-bar fixed inset-x-reader bottom-0 z-30 border-t border-glass-border pb-[env(safe-area-inset-bottom)] transition-opacity duration-150 motion-reduce:transition-none ${
         visible ? "" : "pointer-events-none opacity-0"
       }`}
     >

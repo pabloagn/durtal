@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { SettingRow, SettingsGroup, SettingsIntro, settingDescriptionId, settingLabelId } from "@/components/settings/settings-group";
 import { updateAppSettings, type AppSettings } from "@/lib/actions/settings";
 import { GoalDialogButton } from "@/components/reading/goal-dialog-button";
+import { countLabel } from "@/lib/utils/format";
 
 type ReadingValues = Pick<AppSettings, "readingDayStartHour" | "readingWeekStart" | "readingTimerCheckMinutes" | "readingRhythmDays" | "readingSuggestHideAnathema" | "readingAutoTrackEbooks">;
 
@@ -154,7 +155,7 @@ export function ReadingSettings({ settings: saved }: { settings: ReadingValues }
             options={
               CHECKS.some((c) => c.value === String(settings.readingTimerCheckMinutes))
                 ? CHECKS
-                : [...CHECKS, { value: String(settings.readingTimerCheckMinutes), label: `${settings.readingTimerCheckMinutes} minutes` }]
+                : [...CHECKS, { value: String(settings.readingTimerCheckMinutes), label: countLabel(settings.readingTimerCheckMinutes, "minute") }]
             }
             onChange={(v) => save({ readingTimerCheckMinutes: Number(v) }, "Saved the timer's question")}
           />

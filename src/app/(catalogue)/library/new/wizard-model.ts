@@ -33,6 +33,7 @@ export const STEPS: { key: Step; label: string }[] = [
 // ── Data from the server ─────────────────────────────────────────────────────
 
 export interface DuplicateWork {
+  matchedBy?: "isbn" | "title_author";
   id: string;
   slug: string | null;
   title: string;
@@ -324,4 +325,17 @@ export function cameFromApp(): boolean {
   } catch {
     return false;
   }
+}
+
+/** Required work fields are checked before every forward/save path. */
+export function workDraftErrors(work: Pick<WorkDraft, "title" | "authorName">) {
+  return {
+    title: work.title.trim() ? undefined : "Give the book a title",
+    authorName: work.authorName.trim() ? undefined : "Give the book an author",
+  };
+}
+
+/** An explicit Create as new choice applies only to this precise draft. */
+export function duplicateIdentity(work: Pick<WorkDraft, "title" | "authorName">, isbn: string) {
+  return JSON.stringify([work.title.trim(), work.authorName.trim(), isbn.replace(/[\s-]/g, "")]);
 }

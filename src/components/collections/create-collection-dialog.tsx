@@ -1,4 +1,8 @@
 "use client";
+
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
+
+import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -10,8 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { createCollection } from "@/lib/actions/collections";
 
 /**
- * New collection. With `open` and `onOpenChange` the caller controls it (the
- * A menu); otherwise it shows its own "New collection" button.
+ * Add collection. With `open` and `onOpenChange` the caller controls it (the
+ * A menu); otherwise it shows its own "Add collection" button.
  */
 export function CreateCollectionDialog({
   open: controlledOpen,
@@ -68,11 +72,11 @@ export function CreateCollectionDialog({
             setOpen(true);
           }}
           variant="secondary" size="sm"
-          data-tooltip="New collection"
+          data-tooltip="Add collection"
           data-tooltip-keys="a then c"
         >
           <Plus size={14} strokeWidth={1.5} />
-          New collection
+          Add collection
         </Button>
       )}
       <Dialog
@@ -81,12 +85,12 @@ export function CreateCollectionDialog({
         onClose={() => {
           if (!busy.current) setOpen(false);
         }}
-        title="New collection"
+        title="Add collection"
         className="max-w-md"
         expandable={false}
       >
         <form onSubmit={submit} className="space-y-4">
-          <Input
+          <div className="min-w-0 space-y-2"><Input
             label="Name"
             appearance="open"
             className="font-medium text-lg"
@@ -96,8 +100,10 @@ export function CreateCollectionDialog({
             maxLength={160}
             required
             autoFocus
-            disabled={saving}
-          />
+            // Read-only, not disabled, while it saves: Enter here is the usual
+            // way to create, and a disabled field drops the focus (SLN-920)
+            readOnly={saving}
+          /><NameDuplicateNotice kind="collection" name={name} /></div>
           <details>
             <summary className="cursor-pointer text-xs text-fg-secondary pointer-coarse:py-3">
               Add a description
@@ -108,10 +114,11 @@ export function CreateCollectionDialog({
               onChange={(e) => setDescription(e.target.value)}
               maxLength={5000}
               rows={3}
-              disabled={saving}
+              readOnly={saving}
             />
           </details>
           <div className="flex justify-end gap-2">
+        <RequiredNameHint value={name} message="Give the collection a name" />
             <Button data-dismiss=""
               type="button"
               variant="ghost"
@@ -126,7 +133,7 @@ export function CreateCollectionDialog({
               disabled={!name.trim()}
               busy={saving}
             >
-              Create collection
+              Add
             </Button>
           </div>
         </form>

@@ -1,7 +1,7 @@
 import type { SearchResult } from "./types";
 import { GOOGLE_BOOKS_QUOTA_MESSAGE, googleBooksOverQuota } from "./google-books-quota";
 import { normalizeSearchText } from "@/lib/utils/search-text";
-import { reportSearchFailure } from "./search-diagnostics";
+import { reportSearchFailure, withSearchDiagnostics } from "./search-diagnostics";
 import {
   classifyQuery,
   type ClassifiedQuery,
@@ -355,4 +355,16 @@ export async function searchBooks(query: string): Promise<SearchResult[]> {
  */
 export function searchNotices(): string[] {
   return googleBooksOverQuota() ? [GOOGLE_BOOKS_QUOTA_MESSAGE] : [];
+}
+
+/** Request-local source evidence; concurrent searches never share failures. */
+export async function searchBooksWithNotices(query: string) {
+  const { value: results, failedProviders } = await withSearchDiagnostics(() => searchBooks(query));
+  const notices = searchNotices();
+  const names = { isbndb: "ISBNdb", google_books: "Google Books", open_library: "Open Library" };
+  for (const provider of failedProviders) {
+    if (provider === "google_books" && googleBooksOverQuota()) continue;
+    notices.push(`${names[provider]} could not complete this search. Try again or enter details manually.`);
+  }
+  return { results, notices };
 }

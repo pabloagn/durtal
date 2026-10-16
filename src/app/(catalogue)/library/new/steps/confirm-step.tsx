@@ -20,6 +20,7 @@ import {
   type TaxonomySelection,
   type WorkDraft,
 } from "../wizard-model";
+import { countLabel } from "@/lib/utils/format";
 
 type BadgeVariant = "default" | "blue" | "sage" | "muted" | "gold";
 
@@ -146,7 +147,8 @@ export function ConfirmStep({
                   <span className="font-mono">{edition.publicationYear}</span>
                 )}
                 {edition.binding && <Badge variant="muted">{bindingLabel(edition.binding)}</Badge>}
-                {edition.pageCount && <span>{edition.pageCount} pp.</span>}
+                {/* The count is typed text: "0" or "" is no count, not "0 pages" */}
+                {Number(edition.pageCount) > 0 && <span>{countLabel(Number(edition.pageCount), "page")}</span>}
               </div>
               {edition.coverUrl && (
                 <img

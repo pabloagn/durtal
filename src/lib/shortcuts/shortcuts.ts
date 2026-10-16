@@ -35,7 +35,7 @@ export const GO_TO: { key: string; label: string; href: string }[] = [
 ];
 
 /** Add dialogs that open on any page */
-export type AddDialog = "author" | "recommender" | "series" | "collection" | "place";
+export type AddDialog = "author" | "recommender" | "series" | "collection" | "place" | "organization";
 
 /**
  * What can be added from any page (SLN-632): A then one of these keys adds it
@@ -54,6 +54,7 @@ export const ADD: ({ key: string; label: string; section: string } & (
   { key: "a", label: "Person", section: "/people", dialog: "author" },
   // P is Perfume (the owner's A then P), so a publisher is A then U
   { key: "u", label: "Publisher", section: "/publishers", href: "/publishers/new" },
+  { key: "o", label: "Organization", section: "/organizations", dialog: "organization" },
   { key: "r", label: "Recommender", section: "/recommenders", dialog: "recommender" },
   { key: "s", label: "Series", section: "/series", dialog: "series" },
   { key: "c", label: "Collection", section: "/collections", dialog: "collection" },

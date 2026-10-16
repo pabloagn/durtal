@@ -11,5 +11,5 @@ it("keeps the lookup save status out of sight until it says something", () => {
 });
 
 it("gives the lookup history's last row room only for loading, an error or Show more", () => {
-  expect(read("lookup-history.tsx")).toContain('{(busy || error || entries.length < count) && <div className="px-5 py-4">');
+  expect(read("lookup-history.tsx")).toContain('{((busy && loaded) || error || entries.length < count) && <div className="px-5 py-4">');
 });

@@ -3,6 +3,7 @@ import {
   collectableNouns,
   collectionCreatedMessage,
   collectionDeletedMessage,
+  collectionMembersNoun,
   worksNoun,
 } from "@/lib/collections/counts";
 
@@ -34,5 +35,16 @@ describe("what a collection's works are called (SLN-545)", () => {
 
   it("lists every kind a collection can hold", () => {
     expect(collectableNouns()).toBe("books, perfumes, films and paintings");
+  });
+});
+
+// The pager names a collection's members as its count line does (SLN-886)
+describe("what a collection's pager calls its members", () => {
+  const book = (workId: string) => ({ workId, work: { kind: "book" as const } });
+  it("uses the count line's one noun, else items", () => {
+    expect(collectionMembersNoun({ collectionWorks: [book("a"), book("b"), book("c")] })).toBe("books");
+    expect(collectionMembersNoun({ collectionEditions: [{ edition: { workId: "a" } }], collectionWorks: [book("a")] })).toBe("editions");
+    expect(collectionMembersNoun({ collectionWorks: [book("a"), { workId: "f", work: { kind: "film" as const } }] })).toBe("items");
+    expect(collectionMembersNoun({})).toBe("items");
   });
 });

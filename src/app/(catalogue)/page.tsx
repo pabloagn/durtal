@@ -88,8 +88,10 @@ function LibraryIndex({ books, others }: IndexCounts) {
       <IndexGroup kind="book" wide>
         <Figure label="Books" value={books?.works} />
         <Figure label="Editions" value={books?.editions} />
-        <Figure label="Instances" value={books?.instances} />
-        <Figure label="People" value={books?.authors} />
+        {/* Named as on Statistics and Settings, and the authors of books as
+            the other collections name their creators (SLN-886) */}
+        <Figure label="Copies" value={books?.instances} />
+        <Figure label="Authors" value={books?.authors} />
       </IndexGroup>
       {kinds.map((kind) => (
         <IndexGroup key={kind} kind={kind}>

@@ -9,7 +9,7 @@ import { usePreference } from "@/lib/hooks/use-preference";
 import { READING_HOME_KEY } from "@/lib/preferences";
 import { READING_KEYS } from "@/lib/shortcuts/shortcuts";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
-import { pauseReading, reopenReading, resumeReading } from "@/lib/actions/reading";
+import { pauseReading, reopenReading, resumeReading } from "@/lib/actions/catalogue-client";
 import { bookReadingState, readingMenu, READING_ACTION_LABELS, type ReadingMenuAction } from "@/lib/reading/labels";
 import { addToQueue, removeFromQueue, restoreQueueItem } from "@/lib/actions/reading-queue";
 import { ordinal } from "@/lib/reading/queue";

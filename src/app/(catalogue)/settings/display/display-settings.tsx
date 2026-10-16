@@ -120,7 +120,11 @@ function PageSizeSelect({ list }: { list: ListPreference }) {
   );
 }
 
-/** A list's name, then its view, grid size and page size; a dash where the list has none. */
+/**
+ * A list's name, then its view, grid size and page size; a dash where the
+ * list has none. On the narrowest phones each select has a row of its own,
+ * under the name, so its value shows whole.
+ */
 function ListRow({ list }: { list: ListPreference }) {
   const none = (
     <span className="hidden text-sm text-fg-secondary @min-[640px]:block">
@@ -130,9 +134,9 @@ function ListRow({ list }: { list: ListPreference }) {
   );
   return (
     <div
-      className={`grid grid-cols-2 items-center gap-3 px-5 py-3 ${LIST_COLUMNS} @min-[640px]:gap-4`}
+      className={`grid grid-cols-1 items-center gap-3 px-5 py-3 @min-[22rem]:grid-cols-2 ${LIST_COLUMNS} @min-[640px]:gap-4`}
     >
-      <p className="col-span-2 text-sm text-fg-primary @min-[640px]:col-span-1">
+      <p className="text-sm text-fg-primary @min-[22rem]:col-span-2 @min-[640px]:col-span-1">
         {list.label}
       </p>
       {list.view ? <ViewSelect list={list} view={list.view} /> : none}

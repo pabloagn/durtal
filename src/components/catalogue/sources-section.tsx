@@ -164,7 +164,7 @@ function SourceForm({
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const validUrl = !url.trim() || /^https?:\/\/[^\s@/]+/.test(url.trim());
-  const blocked = !attribution.trim() || !validUrl || !day || day > today() || saving;
+  const blocked = !attribution.trim() || !validUrl || !day || day > today();
   return (
     <div className="space-y-4">
       <Input
@@ -200,7 +200,9 @@ function SourceForm({
           variant="primary"
           data-shortcut="save"
           disabled={blocked}
+          busy={saving}
           onClick={async () => {
+            if (blocked || saving) return;
             setSaving(true);
             try {
               await citeSource({
@@ -219,6 +221,7 @@ function SourceForm({
             }
           }}
         >
+          <Plus className="h-4 w-4" strokeWidth={1.5} />
           Add source
         </Button>
       </div>

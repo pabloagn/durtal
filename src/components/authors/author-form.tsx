@@ -1,5 +1,9 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
+
+import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
+
 import type { Dispatch, SetStateAction } from "react";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -165,7 +169,7 @@ function DateFields({
     <>
       <div className="grid grid-cols-3 gap-3">
         <Input
-          label={`${word} Year`}
+          label={`${word} year`}
           type="number"
           min={-3000}
           max={2100}
@@ -173,7 +177,7 @@ function DateFields({
           onChange={(e) => set(year, e.target.value)}
         />
         <Input
-          label={`${word} Month`}
+          label={`${word} month`}
           type="number"
           min={1}
           max={12}
@@ -181,7 +185,7 @@ function DateFields({
           onChange={(e) => set(month, e.target.value)}
         />
         <Input
-          label={`${word} Day`}
+          label={`${word} day`}
           type="number"
           min={1}
           max={31}
@@ -238,7 +242,7 @@ export function AuthorForm({
             </h3>
             <div className="space-y-3">
               {mode === "create" ? (
-                <AuthorNameInput
+                <div className="min-w-0 space-y-2"><AuthorNameInput
                   label="Name"
                   value={values.name}
                   onValueChange={(name) => set("name", name)}
@@ -253,7 +257,7 @@ export function AuthorForm({
                   }
                   required
                   autoFocus
-                />
+                /><NameDuplicateNotice kind="person" name={values.name} /></div>
               ) : (
                 <Input
                   label="Name"
@@ -268,7 +272,7 @@ export function AuthorForm({
                 onChange={(e) => set("sortName", e.target.value)}
                 placeholder={mode === "create" ? "Last, First (auto-generated if empty)" : "Last, First"}
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Input
                   label="First name"
                   value={values.firstName}
@@ -294,7 +298,7 @@ export function AuthorForm({
             <h3 className="type-group-title mb-3">
               Demographics
             </h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Select
                 label="Gender"
                 options={GENDER_OPTIONS}
@@ -371,7 +375,7 @@ export function AuthorForm({
                 onChange={(e) => set("website", e.target.value)}
                 placeholder="https://..."
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Input
                   label="Open Library key"
                   value={values.openLibraryKey}
@@ -390,6 +394,7 @@ export function AuthorForm({
       </div>
 
       <DialogFooter>
+        <RequiredNameHint value={values.name} message="Give the person a name" />
         <Button data-dismiss="" variant="secondary" size="sm" onClick={onCancel} disabled={pending}>
           Cancel
         </Button>

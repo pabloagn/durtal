@@ -1,5 +1,7 @@
 "use client";
 
+import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
+
 import { useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -95,6 +97,7 @@ function OrganizationForm({
   const [roles, setRoles] = useState<Role[]>(organization?.roles ?? []);
   const [error, setError] = useState<string | null>(null);
   const formId = useId();
+  const [typedName, setTypedName] = useState(organization?.name ?? "");
   const close = () => {
     if (!saving) onClose();
   };
@@ -151,14 +154,15 @@ function OrganizationForm({
       void submit(new FormData(e.currentTarget));
     }}
   >
-    <Input
+    <div className="min-w-0 space-y-2"><Input
       name="name"
       label="Name"
       defaultValue={organization?.name ?? ""}
+      onChange={(e) => setTypedName(e.target.value)}
       maxLength={200}
       required
       disabled={saving}
-    />
+    /><NameDuplicateNotice kind="organization" name={typedName} enabled={!organization} /></div>
     <fieldset className="space-y-3" disabled={saving}>
       <legend className="type-label mb-1.5">Roles</legend>
       {organization?.kind && (
@@ -176,6 +180,7 @@ function OrganizationForm({
                   <label className="flex cursor-pointer items-center gap-2 text-sm text-fg-primary pointer-coarse:min-h-11">
                     <input
                       type="checkbox"
+                      className="h-4 w-4 rounded-sm border-glass-border accent-accent-primary"
                       checked={roles.includes(role)}
                       onChange={(e) =>
                         setRoles((old) =>

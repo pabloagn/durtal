@@ -1,3 +1,4 @@
+import { createFilmVersion as createFilmVersionUi } from "@/lib/actions/catalogue-ui";
 import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
@@ -307,6 +308,7 @@ describe.skipIf(!url)("film catalogue, versions and optional copies", () => {
     );
     await createFilmVersion({ workId: film.id });
     expect(await failure(createFilmVersion({ workId: film.id }))).toBe("This film already has an unlabelled version");
+    expect(await createFilmVersionUi({ workId: film.id })).toEqual({ ok: false, error: "This film already has an unlabelled version" });
     expect(
       await failure(
         updateFilmVersion(theatrical.id, { releases: [{ format: "theatrical", countryId: lang.en }] }, theatrical.fingerprint),

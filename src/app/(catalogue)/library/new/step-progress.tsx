@@ -10,24 +10,27 @@ export function StepProgress({
   step,
   disabled,
   onStep,
+  duplicateAfter,
 }: {
   step: Step;
   /** While Fast Track saves, no step can be opened */
   disabled: boolean;
   onStep: (step: Step) => void;
+  duplicateAfter?: "search" | "details" | null;
 }) {
-  // "duplicate" is not in STEPS: it shows as the search step
-  const currentIdx = step === "duplicate" ? 0 : STEPS.findIndex((s) => s.key === step);
+  const steps = [...STEPS];
+  if (duplicateAfter) steps.splice(steps.findIndex(s => s.key === duplicateAfter) + 1, 0, { key: "duplicate", label: "Existing book" });
+  const currentIdx = Math.max(0, steps.findIndex(s => s.key === step));
   return (
     <div className="mb-6">
       {/* Six labels need about 600px: a narrow screen shows the current
           step and a bar, as the order dialog does */}
       <div className="sm:hidden">
         <p className="text-micro font-medium text-accent-primary">
-          Step {currentIdx + 1} of {STEPS.length} — {STEPS[currentIdx].label}
+          Step {currentIdx + 1} of {steps.length} — {steps[currentIdx].label}
         </p>
         <div className="mt-1 flex gap-1.5">
-          {STEPS.map((s, i) => (
+          {steps.map((s, i) => (
             <button
               key={s.key}
               type="button"
@@ -51,7 +54,7 @@ export function StepProgress({
         </div>
       </div>
       <div className="hidden items-center gap-1 sm:flex">
-        {STEPS.map((s, i) => {
+        {steps.map((s, i) => {
           const isCompleted = i < currentIdx;
           const isCurrent = i === currentIdx;
           return (

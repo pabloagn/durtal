@@ -103,24 +103,33 @@ describe("no results", () => {
 });
 
 describe("the eBook library when it shows nothing", () => {
-  const counts = (n: number) => ({ total: 0, active: n, excluded: 0, review: 0, formats: [], languages: [] });
-  const view = (query: string, active: number) => {
+  const counts = (n: number, excluded = 0) => ({ total: 0, active: n, excluded, review: 0, formats: [], languages: [] });
+  const view = (query: string, active: number, excluded = 0) => {
     navigation.query = query;
-    return html(createElement(EbooksView, { books: [], counts: counts(active), page: 1, perPage: 48 }));
+    return html(createElement(EbooksView, { books: [], counts: counts(active, excluded), page: 1, perPage: 48 }));
   };
 
-  // With none at all the page draws its own empty state (SLN-842): the view
-  // only says nothing matched
-  it("says nothing matched when the list is empty under a state", () => {
-    const host = view("state=excluded", 40);
-    expect(host.querySelector("h3")!.textContent).toBe("No eBooks found");
-  });
+  // With none at all the page draws its own empty state (SLN-842); the view
+  // says why one side is empty (below) or that nothing matched
 
   it("has the shared no-results view for a search", () => {
     const host = view("q=zz", 40);
     expect(host.querySelector("h3")!.textContent).toBe("No eBooks found");
     expect(host.textContent).toContain('No eBooks match "zz".');
     expect(host.querySelector("a")!.textContent).toBe("Clear search");
+  });
+
+  // SLN-816: one side of the library empty while the other is not said
+  // "No eBooks match these filters." with no filter and no way on
+  it.each([
+    ["state=excluded", 40, 0, "Nothing set aside", "An eBook you set aside leaves the library and waits here.", ["Back to eBooks", "/ebooks"]],
+    ["", 0, 3, "No eBooks in the library", "Every eBook is set aside.", ["Show set aside", "/ebooks?state=excluded"]],
+  ])("says why the list is empty on %o and leads to the other side", (query, active, excluded, title, description, link) => {
+    const host = view(query, active, excluded);
+    expect(host.querySelector("h3")!.textContent).toBe(title);
+    expect(host.textContent).toContain(description);
+    const a = host.querySelector("a")!;
+    expect([a.textContent, a.getAttribute("href"), a.className]).toEqual([...link, buttonClass("secondary")]);
   });
 });
 

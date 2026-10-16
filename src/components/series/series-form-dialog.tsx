@@ -1,5 +1,9 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
+
+import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
+
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -124,7 +128,7 @@ export function SeriesFormDialog({
         expandable={false}
       >
         <form onSubmit={submit} noValidate className="space-y-4">
-          <TitleInput
+          <div className="min-w-0 space-y-2"><TitleInput
             ref={titleRef}
             label="Title"
             value={title}
@@ -133,7 +137,7 @@ export function SeriesFormDialog({
             placeholder="e.g. In Search of Lost Time"
             disabled={pending}
             required
-          />
+          /><NameDuplicateNotice kind="series" name={title} enabled={!series} /></div>
           <TitleInput
             label="Original title"
             value={originalTitle}
@@ -173,6 +177,7 @@ export function SeriesFormDialog({
             </label>
           </div>
           <div className="flex justify-end gap-2">
+        <RequiredNameHint value={title} message="Give the series a title" />
             <Button data-dismiss="" type="button" disabled={pending} onClick={close}>
               Cancel
             </Button>
