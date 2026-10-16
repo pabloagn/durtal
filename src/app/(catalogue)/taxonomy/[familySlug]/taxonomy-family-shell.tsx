@@ -220,16 +220,32 @@ export function TaxonomyFamilyShell({
       <div className="mb-8">
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="type-page-title">
+            {/* The badge and the dot follow the name's last word on its cap
+                height, so the name never breaks to make room for them; with
+                no room after it they take the next line, on the text's edge:
+                the gap is a space, which a line start drops (SLN-879). An
+                inline box holding only a float takes its bottom edge as its
+                baseline, as CapAligned's does, and clips nothing */}
+            <div className="type-page-title">
+              <h1 className="type-page-title inline [overflow-wrap:anywhere]">
                 {family.name}
               </h1>
-              {family.isSystem && <Badge variant="muted">System</Badge>}
+              {family.isSystem && " "}
+              {family.isSystem && (
+                <span className="inline-block h-5 -my-2.5 align-[0.5cap]">
+                  <span className="float-left flex h-5 items-center">
+                    <Badge variant="muted">System</Badge>
+                  </span>
+                </span>
+              )}
+              {family.color && " "}
               {family.color && (
-                <span
-                  className="block h-3 w-3 rounded-full"
-                  style={{ backgroundColor: family.color }}
-                />
+                <span className="inline-block h-3 -my-1.5 align-[0.5cap]">
+                  <span
+                    className="float-left block h-3 w-3 rounded-full"
+                    style={{ backgroundColor: family.color }}
+                  />
+                </span>
               )}
             </div>
             {family.description && (

@@ -128,6 +128,7 @@ export function InstanceAddDialog({
           setOpen(true);
         }}
         data-tooltip={`Add instance for ${editionTitle}`}
+        data-focus-empty={`copies-${editionId}`}
       >
         <Plus className="h-4 w-4" strokeWidth={1.5} />
         Add instance

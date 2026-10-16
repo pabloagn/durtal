@@ -1,6 +1,6 @@
 # Task 0739: Lists with nothing show one empty state
 
-**Status**: In Progress
+**Status**: Completed
 **Created**: 2026-10-15
 **Priority**: MEDIUM
 **Type**: Fix
@@ -39,7 +39,24 @@ First part (this PR):
   Loading and error states thread is changing.
 - A taxonomy family with no items (Tags) hides its toolbar and the "0 items"
   count; its empty state is an `h2` with what an item is and one New item.
-- Wording: "Add person" and "Add publisher" in sentence case.
+- Wording: "Add person", "Add publisher" and "Add place" in sentence case;
+  a tag family's empty text names what its items are for (review of #415).
+
+Second part:
+- Books (`getWorkCount()`, with its list read started beside it, as above),
+  Films, Perfumes and Paintings (their unfiltered counts, started beside the
+  address) return `EmptyIndex` with the collection tabs. Books drops
+  "Identify editions" and the filters bar with none.
+- Organizations: a stale search counts only what it matches, so with a
+  search the page also reads the unfiltered count, in the same wave.
+- eBooks: with no eBook at all (set-aside ones count as some), no state
+  counts, no menu and no filters; one Upload eBooks. The view's own "No
+  eBooks yet" branch goes.
+- Reading: the tabs share a header with Start a book and Log a past read,
+  which stay. Now offers only the import beside them; Up next gains its
+  sentence; Journal (no reading has a format, so none exist) drops its
+  filters and its second Start a book; Notes moves its one Add a quote out of
+  the header into the empty state. docs/03 records the exception.
 
 ## Completion Notes
 
@@ -52,4 +69,16 @@ First part:
 - Browsers: each page empty, with entries, and with a search that matches
   nothing, in Chromium, Firefox and WebKit at 1440, 390 and 320: alignment,
   design, overflow, layout and touch audits clean.
+- Page weight: every route within budget.
+
+Second part:
+- Tests: `src/__tests__/ui/empty-collection-pages.test.ts` (Books, Films,
+  Perfumes, Paintings and Organizations rendered empty, with a stale `?q=`
+  and with some; Books' list read starts before the check answers; eBooks
+  and the Reading tabs by their source), `up-next.test.ts` and
+  `loading-audit-states.test.ts` updated.
+- Browsers: the ten pages seeded and emptied, in Chromium, Firefox and
+  WebKit at 1440, 390 and 320: alignment, design, overflow, layout and touch
+  audits clean (189 loads). Each empty page shows one h2, no search or
+  filter field, and one Add (Reading: one Start a book).
 - Page weight: every route within budget.

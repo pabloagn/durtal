@@ -121,7 +121,6 @@ function SameTitle({ title, dirty }: { title: string; dirty: boolean }) {
               <FilmPoster
                 image={film.poster}
                 title={film.title}
-                small
                 className="w-12 shrink-0 self-start rounded-sm"
               />
               <div className="min-w-0 flex-1 space-y-2">

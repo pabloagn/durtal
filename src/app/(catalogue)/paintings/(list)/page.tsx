@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyIndex } from "@/components/shared/empty-index";
 import { Spinner } from "@/components/ui/spinner";
 import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
 import { DomainSwitch } from "@/components/domains/domain-switch";
@@ -25,37 +25,42 @@ export default async function PaintingsPage({
 }: {
   searchParams: Promise<ListSearchParams>;
 }) {
+  // Whether any painting exists, read beside the address
+  const any = getPaintingCount();
   const params = await searchParams;
-  const catalogued = await getPaintingCount();
+  const tabs = <DomainSwitch current="painting" searchParams={params} />;
+  // With none, no toolbar over nothing: one empty state with one Add (SLN-842)
+  if (!(await any)) {
+    return (
+      <EmptyIndex
+        title="Paintings"
+        tabs={tabs}
+        icon={DOMAIN_ICONS.painting}
+        empty="No paintings yet"
+        description="A painting keeps its painters, date and where it hangs. Add one by its title."
+        action={<DomainAddLink kind="painting" />}
+      />
+    );
+  }
 
   return (
     <>
       <PageHeader
         title="Paintings"
         actions={<DomainAddLink kind="painting" />}
-        tabs={<DomainSwitch current="painting" searchParams={params} />}
+        tabs={tabs}
       />
-      {catalogued === 0 ? (
-        <EmptyState
-          icon={DOMAIN_ICONS.painting}
-          title="No paintings yet"
-          action={<DomainAddLink kind="painting" />}
-        />
-      ) : (
-        <>
-          <PaintingFilters />
-          <Suspense
-            key={JSON.stringify(params)}
-            fallback={
-              <div className="py-16">
-                <Spinner />
-              </div>
-            }
-          >
-            <PaintingResults params={params} />
-          </Suspense>
-        </>
-      )}
+      <PaintingFilters />
+      <Suspense
+        key={JSON.stringify(params)}
+        fallback={
+          <div className="py-16">
+            <Spinner />
+          </div>
+        }
+      >
+        <PaintingResults params={params} />
+      </Suspense>
     </>
   );
 }

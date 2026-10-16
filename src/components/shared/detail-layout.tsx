@@ -76,7 +76,7 @@ export function RecordField({
   return (
     <div>
       <dt className="text-xs text-fg-secondary">{label}</dt>
-      <dd className="mt-0.5 text-sm text-fg-primary">{children}</dd>
+      <dd className="mt-0.5 text-sm text-fg-primary [overflow-wrap:anywhere]">{children}</dd>
     </div>
   );
 }
