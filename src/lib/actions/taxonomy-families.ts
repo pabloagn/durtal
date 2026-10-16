@@ -654,6 +654,7 @@ const assignmentOwnerSchema = z.strictObject({
   ownerId: z.uuid(),
 });
 export interface AssignedTaxonomyItem {
+  slug?: string | null;
   id: string;
   name: string;
   parentName: string | null;
@@ -677,7 +678,7 @@ export async function getTaxonomyAssignments(
       ? sql`custom_taxonomy_item_works l on l.item_id=i.id and l.work_id=${ownerId}::uuid`
       : sql`custom_taxonomy_item_editions l on l.item_id=i.id and l.edition_id=${ownerId}::uuid`;
   const rows = resultRows<AssignedTaxonomyItem & { familyId: string }>(
-    await db.execute(sql`select i.id,i.name,i.family_id as "familyId",p.name as "parentName"
+    await db.execute(sql`select i.id,i.name,i.slug,i.family_id as "familyId",p.name as "parentName"
       from custom_taxonomy_items i join ${link} left join custom_taxonomy_items p on p.id=i.parent_id
       where i.family_id in (${sql.join(
         families.map((f) => sql`${f.id}::uuid`),
@@ -718,7 +719,7 @@ export async function searchTaxonomyItems(
     ? sql`order by (search_normalize(i.name)=search_normalize(${query})) desc,(search_normalize(i.name) like search_normalize(${query}) || '%') desc,lower(i.name),i.id`
     : sql`order by i.sort_order,lower(i.name),i.id`;
   const rows = resultRows<AssignedTaxonomyItem>(
-    await db.execute(sql`select i.id,i.name,p.name as "parentName" from custom_taxonomy_items i
+    await db.execute(sql`select i.id,i.name,i.slug,p.name as "parentName" from custom_taxonomy_items i
       left join custom_taxonomy_items p on p.id=i.parent_id
       where i.family_id=${family.id}::uuid ${match} ${order} limit ${limit + 1}`),
   );

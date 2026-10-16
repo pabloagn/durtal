@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { paginateItems } from "@/lib/utils/pagination";
 import { PaginatedSection } from "@/components/shared/pagination";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -43,6 +43,8 @@ interface TaxonomyTreeProps {
   familySlug: string;
   hierarchical: boolean;
   canReorder?: boolean;
+  paging?: { page: number; perPage: number; total: number };
+  loadChildren?: (parent: string, offset: number) => Promise<{items:TaxonomyItemData[];total:number}>;
   entityNoun?: string;
   selectedIds: Set<string>;
   onSelectionChange: (ids: Set<string>) => void;
@@ -50,8 +52,8 @@ interface TaxonomyTreeProps {
   onMove: (itemId: string, newParentId: string | null) => Promise<void>;
   onColorChange: (id: string, color: string | null) => Promise<void>;
   onRename: (id: string, name: string) => Promise<void>;
-  onDelete: (id: string) => void;
-  onMerge: (id: string) => void;
+  onDelete: (id: string, item?:TaxonomyItemData) => void;
+  onMerge: (id: string, item?:TaxonomyItemData) => void;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -109,8 +111,8 @@ interface SortableRowProps {
   onSelect: (id: string) => void;
   onColorChange: (id: string, color: string | null) => void;
   onRename: (id: string, name: string) => void;
-  onDelete: (id: string) => void;
-  onMerge: (id: string) => void;
+  onDelete: (id: string, item?:TaxonomyItemData) => void;
+  onMerge: (id: string, item?:TaxonomyItemData) => void;
 }
 
 function SortableRow({
@@ -204,6 +206,7 @@ export function TaxonomyTree({
   items,
   familySlug,
   hierarchical,
+  paging: serverPaging, loadChildren,
   canReorder = true,
   entityNoun = "work",
   selectedIds,
@@ -215,6 +218,24 @@ export function TaxonomyTree({
   onMerge,
 }: TaxonomyTreeProps) {
   const searchParams = useSearchParams();
+  const [branches, setBranches] = useState<Record<string,{items:TaxonomyItemData[];total:number}>>({});
+  const [loading, setLoading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const generation = useRef(0);
+  useEffect(() => { generation.current++; setBranches({}); setCollapsedIds(new Set()); setLoading(null); }, [items]);
+  const loadedItems = useMemo(() => [...items, ...Object.values(branches).flatMap(b => b.items)], [items, branches]);
+  async function fetchChildren(id:string, more=false) {
+    if (!loadChildren || loading) return;
+    const version = generation.current;
+    setLoading(id); setError(null);
+    try {
+      const result = await loadChildren(id, more ? branches[id]?.items.length ?? 0 : 0);
+      if (version !== generation.current) return;
+      setBranches(prev => ({...prev, [id]: {items: more ? [...(prev[id]?.items ?? []),...result.items] : result.items,total:result.total}}));
+      setCollapsedIds(prev => { const next=new Set(prev); next.delete(id); return next; });
+    } catch { setError("Could not load child items. Try expanding the item again."); }
+    finally { if(version === generation.current) setLoading(null); }
+  }
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -227,8 +248,8 @@ export function TaxonomyTree({
 
   // Build the tree structure for hierarchical families
   const treeNodes = useMemo(
-    () => (hierarchical ? buildTree(items) : []),
-    [items, hierarchical],
+    () => (hierarchical ? buildTree(loadedItems) : []),
+    [loadedItems, hierarchical],
   );
 
   // Map from id → TreeNode for checking children
@@ -248,26 +269,27 @@ export function TaxonomyTree({
   const visibleRows = useMemo(() => {
     if (!hierarchical) {
       // Flat mode: simple sortable list
-      return items.map((item) => ({ item, depth: 0 }));
+      return loadedItems.map((item) => ({ item, depth: 0 }));
     }
-    return flattenTree(treeNodes, collapsedIds);
-  }, [items, hierarchical, treeNodes, collapsedIds]);
+    return flattenTree(treeNodes, new Set([...collapsedIds, ...loadedItems.filter(i => loadChildren && (i.childCount ?? 0)>0 && !branches[i.id]).map(i=>i.id)]));
+  }, [loadedItems, hierarchical, treeNodes, collapsedIds, branches, loadChildren]);
 
-  const paging = paginateItems(visibleRows, searchParams);
+  const paging = serverPaging ? { ...serverPaging, items: visibleRows } : paginateItems(visibleRows, searchParams);
 
   const sortableIds = useMemo(
     () => visibleRows.map((r) => r.item.id),
     [visibleRows],
   );
 
-  const toggleCollapse = useCallback((id: string) => {
+  const toggleCollapse = (id: string) => {
+    if (loadChildren && !branches[id]) { void fetchChildren(id); return; }
     setCollapsedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  }, []);
+  };
 
   const handleSelect = useCallback(
     (id: string) => {
@@ -312,7 +334,9 @@ export function TaxonomyTree({
   }
 
   return (
-    <PaginatedSection {...paging} noun="items">
+    <div>
+    {error && <p role="alert" className="p-3 text-sm text-accent-red-text">{error}</p>}
+    <PaginatedSection {...paging} noun="items" hideSingleSummary>
     <DndContext
       // A fixed id: dnd-kit's own counter gives the server and the browser
       // different aria-describedby ids, a hydration mismatch on every row
@@ -332,9 +356,10 @@ export function TaxonomyTree({
           {paging.items.map(({ item, depth }) => {
             const treeNode = treeNodeMap.get(item.id);
             const hasChildren = treeNode
-              ? treeNode.children.length > 0
+              ? treeNode.children.length > 0 || (treeNode.childCount ?? 0) > 0
               : false;
             return (
+              <div key={item.id}>
               <SortableRow
                 key={item.id}
                 item={item}
@@ -345,7 +370,7 @@ export function TaxonomyTree({
                 hierarchical={hierarchical}
                 canReorder={canReorder}
                 entityNoun={entityNoun}
-                isCollapsed={collapsedIds.has(item.id)}
+                isCollapsed={collapsedIds.has(item.id) || !!loadChildren && !branches[item.id]}
                 onToggleCollapse={toggleCollapse}
                 onSelect={handleSelect}
                 onColorChange={(id, color) => {
@@ -354,9 +379,12 @@ export function TaxonomyTree({
                 onRename={(id, name) => {
                   onRename(id, name);
                 }}
-                onDelete={onDelete}
-                onMerge={onMerge}
+                onDelete={id=>onDelete(id,item)}
+                onMerge={id=>onMerge(id,item)}
               />
+              {loading===item.id && <p role="status" className="px-3 py-2 text-sm text-fg-secondary">Loading child items…</p>}
+              {branches[item.id] && !collapsedIds.has(item.id) && branches[item.id].items.length < branches[item.id].total && <button type="button" className="px-3 py-2 text-sm text-command touch-hit" onClick={() => void fetchChildren(item.id,true)} disabled={!!loading}>More child items of {item.name}</button>}
+              </div>
             );
           })}
         </div>
@@ -367,5 +395,6 @@ export function TaxonomyTree({
       </DragOverlay>
     </DndContext>
     </PaginatedSection>
+    </div>
   );
 }

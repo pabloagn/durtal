@@ -17,6 +17,7 @@ interface MergeDialogProps {
   familySlug: string;
   availableTargets: { id: string; name: string }[];
   onMerged: () => void;
+  entityNoun?: string;
 }
 
 export function MergeDialog({
@@ -25,7 +26,7 @@ export function MergeDialog({
   sourceItem,
   familySlug,
   availableTargets,
-  onMerged,
+  onMerged, entityNoun = "work",
 }: MergeDialogProps) {
   const [targetId, setTargetId] = useState("");
   const [search, setSearch] = useState("");
@@ -87,7 +88,7 @@ export function MergeDialog({
       open={open}
       onClose={handleClose}
       title="Merge item"
-      description={`Merge "${sourceItem.name}" into another item. All associated works will be reassigned.`}
+      description={`Merge "${sourceItem.name}" into another item. All associated ${entityNoun}s will be reassigned.`}
       className="max-w-lg"
       expandable={false}
     >
@@ -98,7 +99,7 @@ export function MergeDialog({
           <div className="flex items-start gap-2 text-sm">
             <CapAligned height={14}><Merge className="h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} /></CapAligned>
             <span className="text-sm text-fg-primary">{sourceItem.name}</span>
-            <Badge variant="muted">{countLabel(sourceItem.entityCount, "work")}</Badge>
+            <Badge variant="muted">{countLabel(sourceItem.entityCount, entityNoun)}</Badge>
           </div>
         </div>
 
@@ -116,7 +117,7 @@ export function MergeDialog({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search items..."
+            placeholder="Search items…"
             className="h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none"
           />
           <div className="max-h-40 overflow-y-auto rounded-sm border border-glass-border bg-bg-primary/40">

@@ -1,5 +1,6 @@
+import { getTaxonomyTerm } from "@/lib/actions/taxonomy-browse";
 import { cache } from "react";
-import { getTaxonomyFamily, getTaxonomyItem } from "@/lib/actions/taxonomy-families";
+import { getTaxonomyFamily } from "@/lib/actions/taxonomy-families";
 
 /**
  * One read of the family and of the item per request, shared by the layouts
@@ -7,4 +8,4 @@ import { getTaxonomyFamily, getTaxonomyItem } from "@/lib/actions/taxonomy-famil
  * pages and their titles.
  */
 export const loadFamily = cache(getTaxonomyFamily);
-export const loadItem = cache(getTaxonomyItem);
+export const loadItem = cache(getTaxonomyTerm);

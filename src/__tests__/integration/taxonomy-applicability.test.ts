@@ -1,3 +1,5 @@
+import { getTaxonomyBrowsePage, getTaxonomyBookPage, getTaxonomyBookCards, getTaxonomyTerm, getTaxonomyEditorChoices } from "@/lib/actions/taxonomy-browse";
+import { compareWorks } from "@/lib/utils/title-order";
 import { deleteTaxonomyItem as deleteItemUi, mergeTaxonomyItems as mergeItemsUi } from "@/lib/actions/taxonomy-ui";
 import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
@@ -84,6 +86,58 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
       await c`insert into editions(work_id,title) values (${work.book},'Edition') returning id`;
     editionId = edition.id;
   }, 30000);
+  it("pages and filters 900 terms without shipping off-page records or descriptions", async () => {
+    await c`insert into subjects(name,slug) select case when n=889 then 'Étrange subject' else 'Scale subject '||n end,'scale-'||n from generate_series(1,900) n`;
+    const first=(await getTaxonomyBrowsePage("subjects",{}))!;
+    const second=(await getTaxonomyBrowsePage("subjects",{page:"2"}))!;
+    expect(first.total).toBe(900); expect(first.items).toHaveLength(48);
+    expect(new Set([...first.items,...second.items].map(i=>i.id)).size).toBe(96);
+    expect(first.items.every(i=>!("description" in i))).toBe(true);
+    expect((await getTaxonomyBrowsePage("subjects",{q:"ETRANGE"}))?.items.map(i=>i.name)).toEqual(["Étrange subject"]);
+    expect((await getTaxonomyBrowsePage("subjects",{page:"999"}))?.items).toEqual([]);
+    expect(await getTaxonomyEditorChoices("subjects")).toHaveLength(900);
+  });
+  it("keeps small trees whole and loads only the opened large branch", async () => {
+    const f=await createTaxonomyFamily({name:"Tree scale",hierarchical:true,scopes:[{kind:"book",level:"work"}]});
+    const root=await createTaxonomyItem(f.slug,{name:"Root"});
+    const child=await createTaxonomyItem(f.slug,{name:"Child",parentId:root.id});
+    expect((await getTaxonomyBrowsePage(f.slug))?.items).toHaveLength(2);
+    await c`insert into custom_taxonomy_items(family_id,name,slug,parent_id) select ${f.id},'Branch '||n,'branch-'||n,${root.id} from generate_series(1,220) n`;
+    const list=(await getTaxonomyBrowsePage(f.slug))!;
+    expect(list.wholeTree).toBe(false); expect(list.items.map(i=>i.id)).toEqual([root.id]);
+    const branch=(await getTaxonomyBrowsePage(f.slug,{},root.id))!;
+    expect(branch.total).toBe(221); expect(branch.items).toHaveLength(48);
+    const more=(await getTaxonomyBrowsePage(f.slug,{},root.id,48))!;
+    expect(new Set([...branch.items,...more.items].map(i=>i.id)).size).toBe(96);
+    expect((await getTaxonomyTerm(f.slug,child.slug))?.parents.map(i=>i.id)).toEqual([root.id]);
+  });
+  it("paginates 250 linked books with lean cards and preserves natural title ordering", async () => {
+    const term=await createTaxonomyItem("subjects",{name:"Scale books"});
+    const rows=await c`insert into works(title,slug,kind) select 'Volume '||n,'volume-'||n,'book' from generate_series(1,250) n returning id,title`;
+    await c`insert into work_subjects(work_id,subject_id) select id,${term.id} from works where slug like 'volume-%'`;
+    const page=await getTaxonomyBookPage("subjects",term.id,{});
+    expect(page.total).toBe(250); expect(page.ids).toHaveLength(48);
+    expect(page.ids).toEqual(rows.map(r=>({id:String(r.id),title:String(r.title)})).sort(compareWorks).slice(0,48).map(i=>i.id));
+    const cards=await getTaxonomyBookCards(page.ids); expect(cards).toHaveLength(48);
+    expect(cards.map(w=>w.id)).toEqual(page.ids); expect(cards.every(w=>!("description" in w))).toBe(true);
+    const next=await getTaxonomyBookPage("subjects",term.id,{page:"2"});
+    expect(new Set([...page.ids,...next.ids]).size).toBe(96);
+  });
+  it("counts descendants distinctly and maps edition terms to their parent book once", async () => {
+    const root=await createTaxonomyItem("categories",{name:"Root"});
+    const mid=await createTaxonomyItem("categories",{name:"Middle",parentId:root.id});
+    const leaf=await createTaxonomyItem("categories",{name:"Leaf",parentId:mid.id});
+    await c`insert into work_categories(work_id,category_id) values (${work.book},${mid.id}),(${work.book},${leaf.id})`;
+    const term=(await getTaxonomyTerm("categories",leaf.slug))!;
+    expect(term.parents.map(p=>p.id)).toEqual([root.id,mid.id]);
+    expect((await getTaxonomyTerm("categories",root.slug))).toMatchObject({direct:0,below:1});
+    const genre=await createTaxonomyItem("genres",{name:"Edition genre"});
+    const [second]=await c`insert into editions(work_id,title) values (${work.book},'Second edition') returning id`;
+    await c`insert into edition_genres(edition_id,genre_id) values (${editionId},${genre.id}),(${second.id},${genre.id})`;
+    expect((await getTaxonomyTerm("genres",genre.slug))?.direct).toBe(2);
+    const page=await getTaxonomyBookPage("genres",genre.id,{});
+    expect(page.total).toBe(1); expect(page.ids).toEqual([work.book]);
+  });
   it("seeds distinct vocabularies and shares only intentional work families", async () => {
     for (const definition of DOMAIN_TAXONOMIES) {
       const family = await getTaxonomyFamily(definition.slug);
