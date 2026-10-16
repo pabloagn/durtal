@@ -287,8 +287,10 @@ describe("descriptor-driven catalogue eBook controls", () => {
     expect(parent).not.toHaveBeenCalled();
     expect(read.getAttribute("data-tooltip-keys")).toBe("mod enter");
     // On a phone the keys go, so the title beside it keeps whole words
-    // (review of #319: at 320px "Again / st / Natur / e")
-    expect(read.querySelector("kbd")!.closest(".max-sm\\:hidden")).not.toBeNull();
+    // (review of #319: at 320px "Again / st / Natur / e"); from sm they show
+    // on the selected row only (pass 5, SLN-849)
+    const keys = read.querySelector("kbd")!.closest(".hidden");
+    expect(keys?.className).toContain("sm:group-aria-selected:inline");
     expect(read.textContent).toMatch(/^Read/);
   });
 });
