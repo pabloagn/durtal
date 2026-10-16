@@ -199,7 +199,7 @@ export function CommentEditor({
           <ToolbarButton onClick={() => e.chain().focus().toggleCode().run()} label="Code" active={e.isActive("code")}>
             <Code className="h-3.5 w-3.5" strokeWidth={1.5} />
           </ToolbarButton>
-          <ToolbarButton onClick={() => e.chain().focus().toggleCodeBlock().run()} label="Code Block" active={e.isActive("codeBlock")}>
+          <ToolbarButton onClick={() => e.chain().focus().toggleCodeBlock().run()} label="Code block" active={e.isActive("codeBlock")}>
             <Braces className="h-3.5 w-3.5" strokeWidth={1.5} />
           </ToolbarButton>
         </>

@@ -261,7 +261,7 @@ export function ReviewView({ queue, params, differences }: { queue: ReviewQueue;
       {Object.entries(outcomes).map(([id, entry]) => <div key={id} className="rounded-sm border border-glass-border px-3 py-2">
         <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm">{entry.title} · {effectWords(entry.outcome.message, "done")}</p>
           {entry.outcome.undo.available && <Button size="sm" busy={undoBusy === id}
-            disabled={busy || modal !== null || (undoUnknown.size > 0 && !undoUnknown.has(id))}
+            disabled={(busy && undoBusy !== id) || modal !== null || (undoUnknown.size > 0 && !undoUnknown.has(id))}
             onClick={() => void undo(id)}>{undoUnknown.has(id) ? "Retry this Undo" : "Undo"}</Button>}
         </div>{errors[id] && <p role="alert" className="mt-1 text-xs text-accent-red-text">{errors[id]}</p>}
       </div>)}

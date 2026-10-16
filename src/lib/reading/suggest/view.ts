@@ -10,7 +10,7 @@ import type { SuggestContext } from "./types";
 /*
  * A suggestion as the pages show it (SLN-457): slim, so a list of 24 stays
  * within the page budget. Its line reads "320 p. · On your shelf in
- * Amsterdam · About 9 h", as Up Next computes it, without the place when a
+ * Amsterdam · About 9 h", as Up next computes it, without the place when a
  * reason already says it.
  */
 

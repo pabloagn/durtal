@@ -32,7 +32,7 @@ export function WrittenChart({ years, height = HEIGHT }: { years: YearCount[]; h
 
   return (
     <div className="space-y-3" data-stats-written="">
-      <div role="group" aria-label="Show by" className="flex justify-end gap-1">
+      <div role="group" aria-label="Show by" className="flex justify-end gap-1 pointer-coarse:gap-2">
         {(["years", "decades"] as const).map((v) => (
           <button
             key={v}

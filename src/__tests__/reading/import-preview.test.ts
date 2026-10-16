@@ -159,14 +159,14 @@ describe("the preview's words", () => {
     ).toBe("1,204 rows · 980 exact · 120 likely · 60 to choose · 44 not in Durtal · 412 want to read · 18 already in Durtal · 6 book ratings differ");
     expect(commitWords(1142, 60)).toEqual({ label: "Import 1,142 readings", note: "60 rows not decided yet are left out" });
     expect(commitWords(1, 0)).toEqual({ label: "Import 1 reading", note: null });
-    // To-read rows go to Up Next (SLN-452); a re-imported file offers only them
-    expect(commitWords(0, 0, 412).label).toBe("Add 412 books to Up Next");
-    expect(commitWords(3, 0, 1).label).toBe("Import 3 readings and add 1 book to Up Next");
+    // To-read rows go to Up next (SLN-452); a re-imported file offers only them
+    expect(commitWords(0, 0, 412).label).toBe("Add 412 books to Up next");
+    expect(commitWords(3, 0, 1).label).toBe("Import 3 readings and add 1 book to Up next");
     // Private notes (SLN-453): named beside the readings
     expect(commitWords(1142, 0, 0, 23).label).toBe("Import 1,142 readings and 23 notes");
     expect(commitWords(0, 0, 0, 1).label).toBe("Import 1 note");
-    expect(commitWords(3, 0, 2, 1).label).toBe("Import 3 readings and 1 note, and add 2 books to Up Next");
-    expect(commitWords(0, 0, 2, 4).label).toBe("Import 4 notes and add 2 books to Up Next");
+    expect(commitWords(3, 0, 2, 1).label).toBe("Import 3 readings and 1 note, and add 2 books to Up next");
+    expect(commitWords(0, 0, 2, 4).label).toBe("Import 4 notes and add 2 books to Up next");
   });
   it("says what each format cannot carry", () => {
     // Private notes are imported now (SLN-453): the box no longer counts them

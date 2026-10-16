@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
@@ -13,6 +13,8 @@ import {
   works,
 } from "@/lib/db/schema";
 import { publisherCondition } from "@/lib/catalogue/publisher-boundary";
+import { resultRows } from "@/lib/harmonization/store";
+import { IMPORT_SOURCES } from "@/lib/reading/import/page-data";
 import { isUuid } from "@/lib/utils/uuid";
 
 /**
@@ -122,4 +124,24 @@ export async function seriesExists(id: string): Promise<boolean> {
   if (!z.uuid().safeParse(id).success) return false;
   const [row] = await db.select({ id: series.id }).from(series).where(eq(series.id, id)).limit(1);
   return !!row;
+}
+
+/** A year in review, as its page finds it: four digits, and a book finished
+ * that year at a known date (`finishedYears`) */
+export async function reviewYearExists(param: string): Promise<boolean> {
+  if (!/^\d{4}$/.test(param)) return false;
+  const rows = resultRows<{ found: number }>(
+    await db.execute(sql`select 1 as found from readings where status = 'finished' and finished_precision <> 'unknown'
+      and finished_on is not null and extract(year from finished_on)::int = ${Number(param)} limit 1`),
+  );
+  return rows.length > 0;
+}
+
+/** A reading import by id, as `getImportPreview` finds it */
+export async function readingImportExists(id: string): Promise<boolean> {
+  if (!isUuid(id)) return false;
+  const rows = resultRows<{ found: number }>(
+    await db.execute(sql`select 1 as found from imports where id = ${id}::uuid and source in ${IMPORT_SOURCES} limit 1`),
+  );
+  return rows.length > 0;
 }

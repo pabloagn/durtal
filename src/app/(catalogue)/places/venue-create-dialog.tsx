@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { GooglePlacesSearch } from "@/components/venues/google-places-search";
 import type { GooglePlaceResult } from "@/components/venues/google-places-search";
 import { createVenue, updateVenue } from "@/lib/actions/venues";
@@ -220,7 +220,7 @@ export function VenueCreateDialog({
         title={venue ? "Edit place" : "Add place"}
         description={venue?.name}
       >
-        <div className="max-h-[75vh] overflow-y-auto pr-1">
+        <div>
           <div className="space-y-6">
             {/* Identity */}
             <section>
@@ -379,7 +379,7 @@ export function VenueCreateDialog({
                   placeholder="e.g. rare books, first editions, art books"
                 />
                 <Textarea
-                  label="Personal Notes"
+                  label="Personal notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={4}
@@ -396,8 +396,7 @@ export function VenueCreateDialog({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="mt-5 flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+        <DialogFooter>
           <Button data-dismiss=""
             variant="secondary"
             size="sm"
@@ -415,7 +414,7 @@ export function VenueCreateDialog({
           >
             {venue ? "Save" : "Create venue"}
           </Button>
-        </div>
+        </DialogFooter>
       </Dialog>
     </>
   );

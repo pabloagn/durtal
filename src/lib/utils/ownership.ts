@@ -106,7 +106,7 @@ const CATALOGUE_LABELS: Record<CatalogueStatusValue, string> = {
   tracked: "Tracked",
   shortlisted: "Shortlisted",
   wanted: "Wanted",
-  on_order: "On Order",
+  on_order: "On order",
   accessioned: "Accessioned",
   deaccessioned: "Deaccessioned",
 };
@@ -201,7 +201,7 @@ export function getCatalogueStatusConfig(
       color: "var(--color-accent-blue)",
     },
     wanted: { label: "Wanted", icon: "heart", color: "var(--color-accent-gold)" },
-    on_order: { label: "On Order", icon: "package", color: "var(--color-accent-gold)" },
+    on_order: { label: "On order", icon: "package", color: "var(--color-accent-gold)" },
     accessioned: { label: "Accessioned", icon: "library", color: "var(--color-accent-sage)" },
     deaccessioned: {
       label: "Deaccessioned",
@@ -236,9 +236,9 @@ export function getInstanceStatusConfig(
     { label: string; icon: string; color: string }
   > = {
     available: { label: "Available", icon: "check-circle", color: "var(--color-accent-sage)" },
-    lent_out: { label: "Lent Out", icon: "share-2", color: "var(--color-accent-gold)" },
-    in_transit: { label: "In Transit", icon: "truck", color: "var(--color-accent-blue)" },
-    in_storage: { label: "In Storage", icon: "box", color: "var(--color-accent-slate)" },
+    lent_out: { label: "Lent out", icon: "share-2", color: "var(--color-accent-gold)" },
+    in_transit: { label: "In transit", icon: "truck", color: "var(--color-accent-blue)" },
+    in_storage: { label: "In storage", icon: "box", color: "var(--color-accent-slate)" },
     missing: { label: "Missing", icon: "search", color: "var(--color-accent-red-text)" },
     damaged: { label: "Damaged", icon: "alert-triangle", color: "var(--color-accent-gold)" },
     deaccessioned: {

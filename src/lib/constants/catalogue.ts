@@ -19,7 +19,7 @@ export const STATUS_CONFIG: Record<
   wanted: { label: "Wanted", shortLabel: "W", variant: "gold" },
   tracked: { label: "Tracked", shortLabel: "T", variant: "muted" },
   shortlisted: { label: "Shortlisted", shortLabel: "S", variant: "blue" },
-  on_order: { label: "On Order", shortLabel: "O", variant: "accent" },
+  on_order: { label: "On order", shortLabel: "O", variant: "accent" },
   deaccessioned: { label: "Deaccessioned", shortLabel: "D", variant: "red" },
 };
 
