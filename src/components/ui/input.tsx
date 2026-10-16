@@ -24,9 +24,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         ref={ref}
         id={id}
         aria-describedby={error ? errorId : undefined}
-        className={`h-8 w-full rounded-sm border text-fg-primary placeholder:text-fg-muted transition-colors duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11 ${
+        className={`h-8 rounded-sm border text-fg-primary placeholder:text-fg-muted transition-colors duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11 ${
           error ? "border-accent-red" : ""
-        } ${suffix ? "pr-8 pointer-coarse:pr-12" : appearance === "open" ? "pr-0" : ""} ${appearance === "open" ? "input-open pl-0 text-lg" : "border-glass-border bg-bg-primary/80 px-3 text-xs pointer-coarse:text-sm"} ${className}`}
+        } ${suffix ? "pr-8 pointer-coarse:pr-12" : ""} ${
+          // An open field's text keeps the column's edge, with room inside
+          // its focus ring: the ring reaches 8px past the column
+          appearance === "open"
+            ? "input-open -mx-2 w-[calc(100%+1rem)] px-2 text-lg"
+            : "w-full border-glass-border bg-bg-primary/80 px-3 text-xs pointer-coarse:text-sm"
+        } ${className}`}
         {...props}
       />
     );
