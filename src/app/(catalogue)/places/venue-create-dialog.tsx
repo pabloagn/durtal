@@ -42,9 +42,9 @@ export interface EditableVenue {
 }
 
 /**
- * Add Venue, or edit one when `venue` is given. With `open` and
+ * Add venue, or edit one when `venue` is given. With `open` and
  * `onOpenChange` the caller controls it (the A menu, the venue page's menu);
- * otherwise it shows its own "Add Venue" button. Mount an edit dialog per
+ * otherwise it shows its own "Add venue" button. Mount an edit dialog per
  * opening, so it starts from the venue as it is now. A Google place is
  * optional: every field can be typed by hand.
  */
@@ -204,12 +204,12 @@ export function VenueCreateDialog({
           size="sm"
           onClick={() => setOpen(true)}
           type="button"
-          data-tooltip="Add Venue"
+          data-tooltip="Add place"
           data-tooltip-keys="a then l"
           className="shrink-0 whitespace-nowrap"
         >
           <Plus className="h-4 w-4" strokeWidth={1.5} />
-          Add Venue
+          Add place
         </Button>
       )}
 
@@ -217,7 +217,7 @@ export function VenueCreateDialog({
         draft
         open={open}
         onClose={handleClose}
-        title={venue ? "Edit venue" : "Add Venue"}
+        title={venue ? "Edit place" : "Add place"}
         description={venue?.name}
       >
         <div className="max-h-[75vh] overflow-y-auto pr-1">

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { pickOne } from "@/lib/reading/suggest/score";
-import type { SuggestionRow } from "@/lib/reading/suggest/view";
+import type { PickRow } from "@/lib/reading/suggest/view";
 import { useReadingDialogs } from "../reading-dialogs-provider";
 import { Cover } from "../reading-tiles";
 
@@ -14,11 +14,11 @@ import { Cover } from "../reading-tiles";
  * with its reasons, Start reading and Another. The palette's "Suggest a
  * book" opens it (`?pick=1`).
  */
-export function PickOne({ top, initiallyOpen = false }: { top: SuggestionRow[]; initiallyOpen?: boolean }) {
+export function PickOne({ top, initiallyOpen = false }: { top: PickRow[]; initiallyOpen?: boolean }) {
   const { open } = useReadingDialogs();
   const [shown, setShown] = useState<string[]>([]);
   // Opened from the palette: the first draw is fixed, so the server and the browser draw the same book; Another draws at random
-  const [current, setCurrent] = useState<SuggestionRow | null>(() =>
+  const [current, setCurrent] = useState<PickRow | null>(() =>
     initiallyOpen
       ? pickOne(
           top,
