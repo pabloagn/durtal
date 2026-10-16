@@ -15,7 +15,7 @@ SLN-978: an open DatePicker must close before its parent dialog, return focus to
 
 - The calendar acquires a child surface lease while open and releases it on close/unmount. Remove its competing document Escape listener.
 - Escape and date selection return focus to the trigger. Outside-click closure leaves focus at the clicked destination.
-- The shared surface handler consumes repeated Escape without closing a layer or invoking its guard; existing IME, modifier and upstream-event ownership rules remain unchanged.
+- The shared surface handler consumes repeated Escape without closing a layer or invoking its guard; IME and upstream-event ownership remain unchanged. Modified Escape keeps every layer open and prevents native dialog dismissal while a surface is active.
 - Mounted regressions cover clean/dirty parent, focus, date limits/selection/clear, outside clicks, newer surface ownership, unmount cleanup, modifiers, IME/keyCode 229 and held Escape.
 - Select was inspected as an analogy only. No Select change or separate reproduced Select finding is included.
 
@@ -31,3 +31,21 @@ Grant 15-L ran the calendar, date-limit and related Escape/reader-surface suites
 The same bounded grant 15-L2 rerun passed **61/61 tests** across seven files, **0 failures and 0 skips**, in 8.81 seconds on Node 22.23.3, with no React `act` warning. Original evidence remains at `/private/tmp/sln978-focused.json`, `/private/tmp/sln978-focused.log` and `/private/tmp/sln978-grant15L-receipt.json`; passing evidence is `/private/tmp/sln978-focused-r2.json` and `/private/tmp/sln978-focused-r2.log`.
 
 Full typecheck and actual pointer/touch calendar acceptance in Chromium, Firefox and WebKit remain pending. The corrected synthetic focus setup does not establish Safari pointer behavior.
+
+
+### Native modified-Escape follow-up
+
+Grant 15-C reproduced native parent dismissal in Chromium when Shift+Escape
+then Ctrl+Escape were pressed from a calendar day, both rapidly and with 150 ms
+between keys. Both keydowns reached the browser without default prevention;
+the second native close request closed the parent and its calendar. The original
+trace is preserved at `/private/tmp/calendar-grant15c/sequence-probe/report.json`.
+
+The shared surface handler now prevents the browser default for modified Escape
+while a surface is open, without closing that surface or invoking its guard.
+Composition (including keyCode 229), upstream-owned events and native popovers
+retain their existing handling. `isFreeEscape` still excludes modifiers for page
+editors; the native dialog cancel handler is unchanged. Mounted regressions cover
+individual modifiers, consecutive modifiers with clean/dirty parents, composition
+with a modifier, no open surface and an open native popover. These new changes
+have not run tests, typecheck or browser validation; they await a new grant.

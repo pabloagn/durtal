@@ -4,7 +4,7 @@ import { act, createElement as h, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Dialog } from "@/components/ui/dialog";
-import { acquireSurface, hasOpenSurface, type SurfaceLease } from "@/lib/ui/surface-state";
+import { acquireSurface, handleSurfaceEscape, hasOpenSurface, type SurfaceLease } from "@/lib/ui/surface-state";
 
 let root: Root, host: HTMLDivElement;
 let extra: SurfaceLease | null = null;
@@ -105,12 +105,62 @@ describe("calendar surface ownership", () => {
     expect(parentClosed).not.toHaveBeenCalled();
   });
 
-  it.each([
-    { isComposing: true }, { metaKey: true }, { ctrlKey: true },
-    { altKey: true }, { shiftKey: true },
-  ])("does not claim composition or modified Escape: %j", init => {
+  it.each([{ isComposing: true }, { isComposing: true, shiftKey: true }])(
+    "does not claim composition Escape: %j", init => {
+      open();
+      expect(escape(init).defaultPrevented).toBe(false);
+      expect(grid()).not.toBeNull();
+      expect(parentClosed).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([{ metaKey: true }, { ctrlKey: true }, { altKey: true }, { shiftKey: true }])(
+    "prevents native dismissal without closing a layer for modified Escape: %j", init => {
+      open();
+      act(() => day("2026-10-16").focus());
+      expect(escape(init).defaultPrevented).toBe(true);
+      expect(grid()).not.toBeNull();
+      expect(parent()).toBeTruthy();
+      expect(parentClosed).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(day("2026-10-16"));
+    },
+  );
+
+  it.each([false, true])("keeps every layer through consecutive modified Escapes (dirty=%s)", dirty => {
+    open(dirty);
+    act(() => day("2026-10-16").focus());
+    // Without keydown prevention, Chromium can close the native parent after
+    // Shift+Escape then Ctrl+Escape, even when its cancel handler asks to keep it open.
+    for (const init of [{ shiftKey: true }, { ctrlKey: true }, { altKey: true }, { metaKey: true }, { shiftKey: true, repeat: true }]) {
+      expect(escape(init).defaultPrevented).toBe(true);
+      expect(grid()).not.toBeNull();
+      expect(parent()).toBeTruthy();
+      expect(parentClosed).not.toHaveBeenCalled();
+      expect(document.body.textContent).not.toContain("Unsaved changes");
+    }
+    expect(escape().defaultPrevented).toBe(true);
+    expect(grid()).toBeNull();
+    expect(parent()).toBeTruthy();
+    expect(document.activeElement).toBe(trigger());
+    expect(escape({ ctrlKey: true }).defaultPrevented).toBe(true);
+    expect(parent()).toBeTruthy();
+    expect(parentClosed).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toContain("Unsaved changes");
+  });
+
+  it("leaves modified Escape alone when no surface is open", () => {
+    expect(escape({ shiftKey: true }).defaultPrevented).toBe(false);
+  });
+
+  it("leaves modified Escape with an open native popover", () => {
     open();
-    expect(escape(init).defaultPrevented).toBe(false);
+    const query = vi.spyOn(document, "querySelector").mockReturnValue(document.createElement("div"));
+    const event = new KeyboardEvent("keydown", { key: "Escape", shiftKey: true, cancelable: true });
+    try {
+      expect(handleSurfaceEscape(event)).toBe(false);
+      expect(event.defaultPrevented).toBe(false);
+      expect(query).toHaveBeenCalledWith('[popover="auto"]:popover-open');
+    } finally { query.mockRestore(); }
     expect(grid()).not.toBeNull();
     expect(parentClosed).not.toHaveBeenCalled();
   });
@@ -122,9 +172,9 @@ describe("calendar surface ownership", () => {
     expect(parentClosed).not.toHaveBeenCalled();
   });
 
-  it("keeps upstream ownership of an already prevented Escape", () => {
+  it.each([{}, { shiftKey: true }])("keeps upstream ownership of an already prevented Escape: %j", init => {
     open();
-    const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true, ...init });
     event.preventDefault();
     act(() => trigger().dispatchEvent(event));
     expect(grid()).not.toBeNull();
