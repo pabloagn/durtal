@@ -19,7 +19,7 @@ import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 import type { StorageLocation } from "@/components/catalogue/holding-fields";
-import { deleteArtObject } from "@/lib/actions/paintings";
+import { deleteArtObject } from "@/lib/actions/catalogue-client";
 import { deleteWhereabouts, verifyWhereabouts } from "@/lib/actions/whereabouts";
 import type { ArtObjectKind } from "@/lib/catalogue/painting-labels";
 import {

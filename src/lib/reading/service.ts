@@ -1,3 +1,4 @@
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { randomUUID } from "node:crypto";
 import { and, eq, getTableColumns, inArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -204,9 +205,9 @@ function positionValues(p: Pos) {
 /** Pages past the last one, or minutes past the end, in the words of the field */
 function checkWithinTotals(p: { page?: number | null; minutes?: number | null }, totals: { totalPages: number | null; totalMinutes: number | null }) {
   if (p.page != null && totals.totalPages != null && p.page > totals.totalPages)
-    throw new Error(`Page ${p.page} is past the last page, ${totals.totalPages}`);
+    throw new ExpectedActionError(`Page ${p.page} is past the last page, ${totals.totalPages}`);
   if (p.minutes != null && totals.totalMinutes != null && p.minutes > totals.totalMinutes)
-    throw new Error(`${formatMinutes(p.minutes)} is past the end, ${formatMinutes(totals.totalMinutes)}`);
+    throw new ExpectedActionError(`${formatMinutes(p.minutes)} is past the end, ${formatMinutes(totals.totalMinutes)}`);
 }
 
 /** Books only: the message every reading writer gives for anything else */
@@ -266,9 +267,9 @@ export async function createReading(
     const [existing] = await db.select({ id: readings.id }).from(readings).where(eq(readings.sourceKey, opts.sourceKey));
     if (existing) return { ...(await loadReading(existing.id))!, unqueued: false };
   }
-  if (!(await requireReadableWorks([input.workId])).has(input.workId)) throw new Error("Only books can be read");
+  if (!(await requireReadableWorks([input.workId])).has(input.workId)) throw new ExpectedActionError("Only books can be read");
   const open = await openReadingOf(input.workId);
-  if (open) throw new Error(openReadingMessage(open.status));
+  if (open) throw new ExpectedActionError(openReadingMessage(open.status));
 
   // The copy decides the edition, the home and the format when they are not given
   let editionId = input.editionId ?? null;
@@ -279,17 +280,17 @@ export async function createReading(
       .from(instances)
       .leftJoin(locations, eq(locations.id, instances.locationId))
       .where(eq(instances.id, input.instanceId));
-    if (!row) throw new Error("This copy no longer exists");
+    if (!row) throw new ExpectedActionError("This copy no longer exists");
     copy = row;
     editionId ??= row.editionId;
   }
   const edition = await editionPages(editionId);
-  if (editionId && (!edition || edition.workId !== input.workId)) throw new Error("This edition belongs to another book");
+  if (editionId && (!edition || edition.workId !== input.workId)) throw new ExpectedActionError("This edition belongs to another book");
   let locationId = input.locationId ?? null;
   if (locationId) {
     const [place] = await db.select({ type: locations.type }).from(locations).where(eq(locations.id, locationId));
-    if (!place) throw new Error("This place no longer exists");
-    if (place.type !== "physical") throw new Error("A reading's home is a physical place");
+    if (!place) throw new ExpectedActionError("This place no longer exists");
+    if (place.type !== "physical") throw new ExpectedActionError("A reading's home is a physical place");
   } else if (copy?.locationType === "physical") locationId = copy.locationId;
   const format: ReadingFormat = input.format ?? formatOfCopy(copy?.format);
   const unit = input.unit ?? (format === "audio" ? "minutes" : "pages");
@@ -383,19 +384,19 @@ export async function recordProgress(
   const input = progressSchema.parse(raw);
   const attempt = async (): Promise<ProgressResult> => {
     const reading = await loadReading(input.readingId);
-    if (!reading) throw new Error("This reading no longer exists");
-    if (opts.fingerprint && reading.fingerprint !== opts.fingerprint) throw new Error(STALE_READING);
-    if (!isOpenStatus(reading.status)) throw new Error("Reopen this reading to log progress");
+    if (!reading) throw new ExpectedActionError("This reading no longer exists");
+    if (opts.fingerprint && reading.fingerprint !== opts.fingerprint) throw new ExpectedActionError(STALE_READING);
+    if (!isOpenStatus(reading.status)) throw new ExpectedActionError("Reopen this reading to log progress");
     const sessions = await loadSessions(reading.id);
     const ordered = sessionOrder(sessions);
     // Stopping a timer completes its running row (SLN-451)
     const timer = input.timerSessionId ? (sessions.find((s) => s.id === input.timerSessionId) ?? null) : null;
-    if (input.timerSessionId && (!timer || !isRunningTimer(timer))) throw new Error(TIMER_GONE);
+    if (input.timerSessionId && (!timer || !isRunningTimer(timer))) throw new ExpectedActionError(TIMER_GONE);
     const sessionEditionId = opts.editionId === undefined ? reading.editionId : opts.editionId;
     let sessionPagesTotal = reading.totalPages;
     if (sessionEditionId && sessionEditionId !== reading.editionId) {
       const edition = await editionPages(sessionEditionId);
-      if (!edition || edition.workId !== reading.workId) throw new Error("This edition belongs to another book");
+      if (!edition || edition.workId !== reading.workId) throw new ExpectedActionError("This edition belongs to another book");
       sessionPagesTotal = edition.pageCount ?? reading.totalPages;
     }
     const sessionTotals = { totalPages: sessionPagesTotal, totalMinutes: reading.totalMinutes };
@@ -425,14 +426,14 @@ export async function recordProgress(
     // A session after today is the latest in the order and would hold the position until that day
     if (!timer) {
       const ahead = (at: Date | undefined) => !!at && at.getTime() - now.getTime() > 60_000;
-      if (readOn > readingDay(now, timeZone, 0) || ahead(input.startedAt) || ahead(input.endedAt)) throw new Error(FUTURE_SESSION);
+      if (readOn > readingDay(now, timeZone, 0) || ahead(input.startedAt) || ahead(input.endedAt)) throw new ExpectedActionError(FUTURE_SESSION);
     }
     let stop: ReturnType<typeof stopTimes> | null = null;
     if (timer) {
       const clock = { startedAt: timer.startedAt ?? timer.createdAt, pausedAt: timer.pausedAt, pausedSeconds: timer.pausedSeconds };
       const [work] = await db.select({ title: works.title }).from(works).where(eq(works.id, reading.workId));
       const problem = stopProblem({ ...clock, title: work?.title ?? "this book" }, input.endedAt ?? null, (await getAppSettings()).readingTimerCheckMinutes, now);
-      if (problem) throw new Error(problem);
+      if (problem) throw new ExpectedActionError(problem);
       stop = stopTimes(clock, input.endedAt ?? null, now);
     }
     const latest = ordered.at(-1) ?? null;
@@ -618,11 +619,11 @@ export function correctLastLog(
   const ordered = sessionOrder(sessions);
   const latest = ordered.at(-1);
   if (!latest)
-    throw new Error(
+    throw new ExpectedActionError(
       "Log progress once before editing the current position or chapter",
     );
   if (sessions.some(isRunningTimer))
-    throw new Error(
+    throw new ExpectedActionError(
       "Stop or discard the timer before editing the current position or chapter",
     );
   checkWithinTotals(position ?? {}, reading);
@@ -636,7 +637,7 @@ export function correctLastLog(
         )
       : end;
   if (end && latest.editionId !== reading.editionId && end.percent === null)
-    throw new Error(
+    throw new ExpectedActionError(
       "Give a percent, or add the total, to correct a log in another edition",
     );
   // A chapter belongs at the effective place. Behind-progress reader logs did not

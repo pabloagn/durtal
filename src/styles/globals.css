@@ -1197,7 +1197,7 @@ dialog::backdrop {
   color: var(--color-fg-primary);
 }
 
-/* A toast's cross (SLN-567): small, in the top-right corner, inside the toast.
+/* A toast's cross (SLN-567): small, aligned with its first text line at the right.
    The text and the actions keep clear of it; on a touch screen it is a 44px
    target that still keeps clear of an action. Unlayered and under :root, so
    it wins over the styles Sonner injects */
@@ -1205,7 +1205,12 @@ dialog::backdrop {
   padding-right: 36px;
 }
 :root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button] {
-  top: 6px;
+  top: 16px;
+  display: block;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.5;
+  text-align: center;
   right: 6px;
   left: auto;
   width: 20px;

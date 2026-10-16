@@ -1,4 +1,5 @@
 "use server";
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { z } from "zod/v4";
 import { and, eq, isNull, asc, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -28,7 +29,7 @@ export async function recordRetailerObservation(input: RetailerObservationInput)
 export async function archivePerfumeRetailerLink(id: string, archived = true) {
   z.uuid().parse(id); z.boolean().parse(archived);
   const [row] = await db.update(links).set({ archivedAt: archived ? new Date() : null }).where(eq(links.id, id)).returning({ id: links.id });
-  if (!row) throw new Error("Retailer link not found");
+  if (!row) throw new ExpectedActionError("Retailer link not found");
   changed(); return row;
 }
 export async function deletePerfumeRetailerLink(id: string) {
@@ -37,7 +38,7 @@ export async function deletePerfumeRetailerLink(id: string) {
     () => db.delete(links).where(eq(links.id, id)).returning({ id: links.id }),
     { reference: "This listing has recorded prices, which stay as history; archive it instead" },
   );
-  if (!row) throw new Error("Retailer link not found");
+  if (!row) throw new ExpectedActionError("Retailer link not found");
   changed(); return row;
 }
 const querySchema = z.strictObject({

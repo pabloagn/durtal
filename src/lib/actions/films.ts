@@ -1,4 +1,5 @@
 "use server";
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 
 import { recordWorkChanges, recordWorkEvents, workSnapshot } from "@/lib/activity/work-changes";
 import { randomUUID } from "node:crypto";
@@ -112,14 +113,14 @@ function changedHoldings() {
 }
 function fresh(expected: string) {
   return (actual: string | null) => {
-    if (actual === null) throw new Error("Record not found");
-    if (actual !== expected) throw new Error(STALE_RECORD);
+    if (actual === null) throw new ExpectedActionError("Record not found");
+    if (actual !== expected) throw new ExpectedActionError(STALE_RECORD);
   };
 }
 async function filmCreditRoles(credits: { roleId: string }[]) {
   const roles = new Set((await getCreditRoles("film")).map((r) => r.id));
   if (credits.some((credit) => !roles.has(credit.roleId)))
-    throw new Error("Contribution role does not apply to films");
+    throw new ExpectedActionError("Contribution role does not apply to films");
 }
 function uniqueLabel(workId: string, label: string | null, excludeId?: string) {
   return assertSql(
@@ -610,7 +611,7 @@ export async function createFilm(input: CreateFilmInput) {
   const v = createFilmSchema.parse(input);
   await filmCreditRoles(v.credits);
   if (v.credits.some((credit) => credit.id))
-    throw new Error("A new film has no existing credits");
+    throw new ExpectedActionError("A new film has no existing credits");
   const id = randomUUID();
   const release = newDate(v.releaseDate);
   for (let attempt = 0; ; attempt++) {
@@ -682,7 +683,7 @@ export async function updateFilm(
       v.versionOrder.length !== known.size ||
       v.versionOrder.some((versionId) => !known.has(versionId))
     )
-      throw new Error("List every version of this film once");
+      throw new ExpectedActionError("List every version of this film once");
   }
   const dates = await loadDates([details!.releaseDateId]);
   const release = replaceDate(
@@ -791,7 +792,7 @@ export async function deleteFilm(id: string) {
   const details = await db.query.filmDetails.findFirst({
     where: eq(filmDetails.workId, id),
   });
-  if (!details) throw new Error("Film not found");
+  if (!details) throw new ExpectedActionError("Film not found");
   const [releaseDateRows, stored] = await Promise.all([
     db
       .select({ id: filmReleases.releaseDateId })
@@ -995,7 +996,7 @@ export async function deleteFilmVersion(id: string) {
   const version = await db.query.filmVersions.findFirst({
     where: eq(filmVersions.id, id),
   });
-  if (!version) throw new Error("Version not found");
+  if (!version) throw new ExpectedActionError("Version not found");
   const releaseDateRows = await db
     .select({ id: filmReleases.releaseDateId })
     .from(filmReleases)
@@ -1143,7 +1144,7 @@ export async function deleteFilmHolding(id: string) {
     where: eq(filmHoldings.id, id),
     columns: { acquisitionDateId: true, dispositionDateId: true },
   });
-  if (!holding) throw new Error("Copy not found");
+  if (!holding) throw new ExpectedActionError("Copy not found");
   await write((d) => [
     d.delete(filmHoldings).where(eq(filmHoldings.id, id)),
     ...releaseDates(d, [holding.acquisitionDateId, holding.dispositionDateId]),
