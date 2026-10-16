@@ -29,7 +29,9 @@ FROM generate_series(1, 5503) n;
 INSERT INTO works (id, kind, title, slug, catalogue_status, original_language, original_year)
 SELECT ('93520000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
   (CASE WHEN n <= 5000 THEN 'book' ELSE 'painting' END)::work_kind_enum,
-  'Scale work ' || lpad(n::text, 5, '0'), 'sln935-work-' || n, 'accessioned', 'en', 1500 + n % 525
+  'Scale work ' || lpad(n::text, 5, '0'), 'sln935-work-' || n,
+  (CASE WHEN n <= 5000 THEN 'accessioned' ELSE 'tracked' END)::catalogue_status_enum,
+  CASE WHEN n <= 5000 THEN 'en' ELSE null END, 1500 + n % 525
 FROM generate_series(1, 5006) n;
 
 INSERT INTO work_authors (work_id, author_id, role, sort_order)

@@ -48,8 +48,9 @@ describe.skipIf(!url)("hot join index migration", () => {
       const [subject] = await client`insert into subjects (name, slug) values ('Index subject', 'index-subject') returning id`;
       const [tag] = await client`insert into tags (name, slug) values ('Index tag', 'index-tag') returning id`;
       const [movement] = await client`insert into art_movements (name, slug) values ('Index movement', 'index-movement') returning id`;
-      const paintings = await client`insert into works (kind, title)
-        values ('painting', 'First index painting'), ('painting', 'Second index painting') returning id`;
+      const paintings = await client`insert into works (kind, title, original_language, catalogue_status)
+        values ('painting', 'First index painting', null, 'tracked'),
+          ('painting', 'Second index painting', null, 'tracked') returning id`;
       const [family] = await client`insert into taxonomy_families (name, slug) values ('Index family', 'index-family') returning id`;
       const items = await client`insert into custom_taxonomy_items (family_id, name, slug)
         values (${family.id}, 'First index item', 'first-index-item'), (${family.id}, 'Second index item', 'second-index-item') returning id`;
