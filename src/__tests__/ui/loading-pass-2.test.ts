@@ -13,6 +13,8 @@ vi.mock("next/navigation", () => ({ usePathname: () => navigation.pathname }));
 import ReadingLoading from "../../app/(catalogue)/reading/(tabs)/loading";
 import CollectionLoading from "../../app/(catalogue)/collections/[id]/loading";
 import SeriesLoading from "../../app/(catalogue)/series/[id]/loading";
+import YearInReviewLoading from "../../app/(catalogue)/reading/year/[year]/loading";
+import ImportPreviewLoading from "../../app/(catalogue)/reading/import/[id]/loading";
 
 // Second loading audit, 15 Oct (SLN-749, SLN-751): a click on a reading tab,
 // a collection or a series showed nothing until the page arrived
@@ -38,6 +40,20 @@ describe("the reading tabs' loading screen", () => {
     const held = [...screen.querySelectorAll("span[aria-hidden=true].action-control")];
     expect(held.map((b) => b.textContent)).toEqual(buttons);
     // Held, not live: nothing to press while the page loads
+    expect(screen.querySelector("button")).toBeNull();
+  });
+});
+
+describe("a year in review's and an import's loading screens (SLN-815)", () => {
+  it.each([
+    ["/reading/year/2019", YearInReviewLoading, "Loading the year in review", "2019 in review", ["Print", "Stats for 2019"]],
+    ["/reading/import/7d9b6a52-6f0e-4a8c-9d65-2f1b1d0c8e11", ImportPreviewLoading, "Loading the import", "Reading", ["Log a past read", "Start a book"]],
+  ] as const)("on %s draws its header and buttons, held", (pathname, Loading, label, title, buttons) => {
+    navigation.pathname = pathname;
+    const screen = status(createElement(Loading));
+    expect(screen.getAttribute("aria-label")).toBe(label);
+    expect(screen.querySelector("h1")!.textContent).toBe(title);
+    expect([...screen.querySelectorAll("span[aria-hidden=true].action-control")].map((b) => b.textContent)).toEqual(buttons);
     expect(screen.querySelector("button")).toBeNull();
   });
 });
