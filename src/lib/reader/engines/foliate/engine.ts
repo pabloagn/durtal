@@ -46,7 +46,7 @@ import { FoliateAnnotationResolver } from "./annotation-resolver";
 import { FoliateDecorations } from "./decorations";
 import { presentationCss, policyTypographyCss } from "@/lib/reader/presentation";
 import { bookCSS } from "@/lib/reader/presentation/book-css";
-import { themeColours } from "@/lib/reader/presentation/themes";
+import { markInk, themeColours } from "@/lib/reader/presentation/themes";
 import { paginatorAttributes, turnAttributes } from "@/lib/reader/presentation/layout";
 import { CHAR_WIDTH_EM } from "@/lib/reader/presentation/fonts";
 import { canPreflightCoreFonts, routeFontPresentation, fontPresentationChangeKind } from "@/lib/reader/presentation/font-route";
@@ -153,6 +153,12 @@ export function openErrorKind(error: unknown): OpenErrorKind {
   if (/Failed to fetch|NetworkError|Load failed|network/i.test(message))
     return "network";
   return "damaged";
+}
+
+/** What the file's own failure said, for the record of a damaged file (SLN-685) */
+function errorCause(error: unknown): string {
+  const text = error instanceof Error ? error.message || error.name : String(error);
+  return text.trim().slice(0, 300) || "The file could not be opened.";
 }
 
 const ERROR_MESSAGES: Record<OpenErrorKind, string> = {
@@ -287,7 +293,7 @@ class FoliateEngine implements ReaderEngine {
     this.#pdfSearchProvider = undefined;
         this.#pdfCss = "";
         const kind = openErrorKind(error);
-        this.#emit("error", { kind, message: ERROR_MESSAGES[kind] });
+        this.#emit("error", { kind, message: ERROR_MESSAGES[kind], cause: errorCause(error) });
       });
       try {
         const book = await makePdfBook(session, api, this.#pdfCss, this.#presentation?.policy);
@@ -393,7 +399,7 @@ class FoliateEngine implements ReaderEngine {
       if (!book.sections?.length) throw new Error("The book has no pages");
     } catch (error) {
       const kind = openErrorKind(error);
-      this.#emit("error", { kind, message: ERROR_MESSAGES[kind] });
+      this.#emit("error", { kind, message: ERROR_MESSAGES[kind], cause: errorCause(error) });
       throw error;
     }
     if (this.#destroyed) return { resolved: null };
@@ -921,6 +927,12 @@ class FoliateEngine implements ReaderEngine {
   #nameFrames() {
     for (const { doc, index } of this.#view?.renderer.getContents() ?? [])
       this.#nameFrame(doc, index);
+  }
+
+  bookDocuments() {
+    return [...(this.#view?.renderer.getContents() ?? [])]
+      .sort((a, b) => a.index - b.index)
+      .map((item) => item.doc);
   }
 
   focusBook() {
@@ -1553,6 +1565,12 @@ class FoliateEngine implements ReaderEngine {
     if (presentation.policy) {
       const change = fontPresentationChangeKind(this.#appliedPresentation, presentation);
       for (const { doc } of renderer.getContents()) this.#applyPagePolicy(doc, change === "layout");
+      // The overlayer's fills take the page's ink; a fixed layout keeps its own page colours
+      if (this.#book?.rendition?.layout !== "pre-paginated") {
+        const ink = markInk(presentation.policy.theme);
+        renderer.style.setProperty("--overlayer-highlight-blend-mode", ink.blend);
+        renderer.style.setProperty("--durtal-mark-opacity", String(ink.opacity));
+      }
       // Changing colours owns only a page-local sheet. Never call setStyles or paginator attributes.
       if (change === "layout") {
         this.#applyLayout();
@@ -2235,7 +2253,11 @@ class FoliateEngine implements ReaderEngine {
   }
   #drawPdfMarks() {
     if (this.#isPdf() && this.#view && this.#book && this.#source && this.#presentation && !this.#destroyed)
-      this.#pdfMarks.render(this.#view, this.#book, this.#source.sha256, this.#presentation.colors);
+      this.#pdfMarks.render(this.#view, this.#book, this.#source.sha256, {
+        link: this.#presentation.colors.link,
+        // Themed pages take the theme's ink; an unthemed page is white paper
+        ...markInk(this.#presentation.policy?.pdfThemePages ? this.#presentation.policy.theme : "paper"),
+      });
   }
   #pdfLocatorVisible(locator: DurtalLocator) {
     const content = this.#view?.renderer.getContents().find(item => item.index + 1 === locator.pdf?.page);

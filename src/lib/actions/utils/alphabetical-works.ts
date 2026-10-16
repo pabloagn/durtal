@@ -18,12 +18,24 @@ export async function alphabeticalWorkIds(
   order: "asc" | "desc" = "asc",
   domain: SQL = bookCondition,
 ) {
+  return (await alphabeticalWorkPage(where, limit, offset, order, domain)).ids;
+}
+
+/** `alphabeticalWorkIds` with how many works match: the one read gives both */
+export async function alphabeticalWorkPage(
+  where: SQL | undefined,
+  limit: number,
+  offset = 0,
+  order: "asc" | "desc" = "asc",
+  domain: SQL = bookCondition,
+) {
   const matches = await db
     .select({ id: works.id, title: works.title })
     .from(works)
     .where(and(domain, where));
-  return matches
+  const ids = matches
     .sort((a, b) => compareWorks(a, b, order))
     .slice(offset, offset + limit)
     .map((work) => work.id);
+  return { ids, total: matches.length };
 }

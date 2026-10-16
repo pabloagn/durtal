@@ -188,6 +188,18 @@ describe.skipIf(!url)("shared organization directory", () => {
     expect(page).toMatchObject({ total: 3, rows: [expect.objectContaining({ name: "Maison Lumière" })] });
   });
 
+  it("sorts names with their numbers in numeric order", async () => {
+    for (const name of ["Galerie 10", "Galerie 2", "Galerie 1", "Galerie", "Atelier 3"])
+      await saveOrganization({ name, roles: ["gallery"] });
+    const names = (await getOrganizationDirectory()).rows.map((r) => r.name);
+    expect(names).toEqual(["Atelier 3", "Galerie", "Galerie 1", "Galerie 2", "Galerie 10"]);
+    // Paging keeps that order
+    expect((await getOrganizationDirectory({ limit: 2, offset: 2 })).rows.map((r) => r.name)).toEqual([
+      "Galerie 1",
+      "Galerie 2",
+    ]);
+  });
+
   it("stops a row's counts at the cap and keeps the page's counts exact", async () => {
     const org = (await saveOrganization({ name: "Penguin", roles: ["publisher"] }))!;
     await editions(org.id, 1001);

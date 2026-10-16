@@ -229,6 +229,12 @@ describe.skipIf(!url)("venue pages", () => {
     expect(await getVenueBySlug(unused.slug!)).toBeUndefined();
   });
 
+  it("sorts names with their numbers in numeric order, both ways", async () => {
+    for (const name of ["Museum 10", "Museum 2", "Museum 1"]) await createVenue({ name, type: "museum" });
+    expect((await getVenues({ sort: "name" })).map((v) => v.name)).toEqual(["Museum 1", "Museum 2", "Museum 10"]);
+    expect((await getVenues({ sort: "name", order: "desc" })).map((v) => v.name)).toEqual(["Museum 10", "Museum 2", "Museum 1"]);
+  });
+
   it("finds a venue's country through the places above it", async () => {
     const [country] = await c`insert into countries(name, alpha_2, alpha_3) values ('Testland', 'TL', 'TLD') returning id`;
     const [city] = await c`insert into places(name, type, country_id) values ('Capital', 'city', ${country.id}) returning id`;

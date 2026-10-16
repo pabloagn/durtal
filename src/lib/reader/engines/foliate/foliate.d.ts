@@ -147,6 +147,8 @@ export interface FoliateOverlayer {
     options: Record<string, unknown>,
   ): void;
   remove(key: string): void;
+  /** The layer's SVG, laid over the section's frame */
+  readonly element?: SVGSVGElement;
 }
 export interface FoliateRenderer extends HTMLElement {
   setStyles?(styles: string | [string, string]): void;

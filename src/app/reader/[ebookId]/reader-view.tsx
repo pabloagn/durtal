@@ -2,7 +2,7 @@
 import type { ReaderSpeech, SpeechSnapshot } from "@/lib/reader/speech/session";
 import { useReaderAnnotations } from "@/components/reader/use-reader-annotations";
 import { QUIET_GLASS_ANNOTATION_PALETTE } from "@/lib/reader/annotation-colors";
-import { highlightColours, LIGHT_THEME_HIGHLIGHTS } from "@/lib/reader/presentation/themes";
+import { highlightColours, LIGHT_THEME_HIGHLIGHTS, markInk } from "@/lib/reader/presentation/themes";
 import { SkipToBook } from "@/components/reader/skip-to-book";
 import { ReaderAnnouncer } from "@/components/reader/reader-announcer";
 import { LeavePrompt } from "@/components/reader/leave-prompt";
@@ -18,7 +18,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { flushSync } from "react-dom";
-import { besideBook, nextInBook } from "@/lib/reader/book-tab";
+import { besideBook, enterBook, entersBook, nextInBook, onBookScreen } from "@/lib/reader/book-tab";
 import {
   ReaderBridgeProvider,
   useReaderSlotFilled,
@@ -62,6 +62,7 @@ import {
 } from "@/lib/reader/running-lines";
 import { lazy, Suspense } from "react";
 import { OpenError } from "@/components/reader/open-error";
+import { lockedFileMessage } from "@/lib/ebooks/locked-file";
 import { QUIET_TOP_FADE_PX, quietChapter, ReaderBottomBar } from "@/components/reader/reader-bottom-bar";
 import { ReaderShell, useReaderBars } from "@/components/reader/reader-shell";
 import { PageEdges } from "@/components/reader/page-edges";
@@ -165,15 +166,31 @@ export interface ReaderViewFile {
   cdOffset: number | null;
   charCount?: number | null;
   cdnBases?: string[];
+  /** The reader failed to open it last time; opening it now clears that (SLN-685) */
+  openFailed?: boolean;
 }
 
 /** A book that has not opened by then shows the error, never an endless wait */
 const OPEN_TIMEOUT_MS = 30_000;
 
+/**
+ * `retry`: whether opening again can help (a connection, a link, a reader
+ * feature), not a file that is damaged, locked or of a kind the reader cannot
+ * read; `replace`: the file to offer a replacement for (SLN-685)
+ */
 type Status =
   | { kind: "opening" }
   | { kind: "ready" }
-  | { kind: "error"; message: string };
+  | { kind: "error"; message: string; retry: boolean; replace?: string };
+
+/** Records, or clears, that the reader could not open a file (SLN-685) */
+function reportOpenFailure(fileId: string, reason: string | null) {
+  void fetch(`/api/ebooks/files/${fileId}/open-failure`, {
+    method: reason === null ? "DELETE" : "POST",
+    keepalive: true,
+    ...(reason === null ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason }) }),
+  }).catch(() => {});
+}
 
 /** The first range the page's inline script started for this file, taken once */
 function takePrefetch(fileId: string): Promise<Prefetched[]> | undefined {
@@ -246,6 +263,8 @@ type ReaderViewProps = {
   settingsCookie?: string | null;
   preferences?: ReaderPreferencesRead;
   localPreferenceAdmission?: boolean;
+  /** With no readable file, a file DRM locks: the error names the lock (SLN-685) */
+  locked?: { fileId: string; drm: string } | null;
 };
 export function ReaderView(props: ReaderViewProps) {
   const [attempt, setAttempt] = useState(0);
@@ -301,6 +320,7 @@ function ReaderSession({
   preferenceClass,
   preferenceRows,
   localPreferenceAdmission,
+  locked,
 }: ReaderViewProps & { bridge: ReaderBridgeController; onRetry(): void; preferenceClass: DeviceClass; preferenceRows: readonly PresentationRow[] }) {
   const openingPlace = startPlace ?? devicePlace ?? ownPlace ?? otherPlace;
   // The engine's code starts downloading as the view first renders, not after it mounts
@@ -311,7 +331,7 @@ function ReaderSession({
   const edgeTapsRef = useRef(settings.edgeTaps);
   useEffect(() => { edgeTapsRef.current = settings.edgeTaps; }, [settings.edgeTaps]);
   const annotationPalette = useMemo(() => ({
-    fills: highlightColours(settings, settings.theme === "durtal-dark" ? QUIET_GLASS_ANNOTATION_PALETTE.fills : LIGHT_THEME_HIGHLIGHTS[settings.theme], QUIET_GLASS_ANNOTATION_PALETTE.fillOpacity),
+    fills: highlightColours(settings, settings.theme === "durtal-dark" ? QUIET_GLASS_ANNOTATION_PALETTE.fills : LIGHT_THEME_HIGHLIGHTS[settings.theme], markInk(settings.theme).opacity),
     quote: highlightColours(settings, { quote: QUIET_GLASS_ANNOTATION_PALETTE.quote }).quote,
   }), [settings]);
   const [preferencesTimedOut, setPreferencesTimedOut] = useState(false);
@@ -347,7 +367,9 @@ function ReaderSession({
       ? { kind: "opening" }
       : {
           kind: "error",
-          message: "This eBook has no file the reader can open.",
+          message: locked ? lockedFileMessage(locked.drm) : "This eBook has no file the reader can open.",
+          retry: false,
+          replace: locked?.fileId,
         },
   );
   const [index, setIndex] = useState<PositionIndex | null>(null);
@@ -616,6 +638,7 @@ function ReaderSession({
     palette: annotationPalette,
     onJump: locator => navigate(locator, "annotation"), onNotice: setNotice,
     openAt: openAt ?? null,
+    imagesOnly: file?.format === "cbz",
   });
 
   const bars = useReaderBars({
@@ -868,19 +891,34 @@ function ReaderSession({
         // Tab visits the links on this screen, then leaves the book for the
         // bars, which it brings back first (SLN-810)
         const doc = event.currentTarget as Document;
-        const frame = doc.defaultView?.frameElement;
         const book = bookRef.current;
-        if (!frame || !book) return;
-        const area = book.getBoundingClientRect();
-        const next = nextInBook(doc, event.shiftKey, (el) => {
-          const at = frame.getBoundingClientRect(), rect = el.getBoundingClientRect();
-          const left = at.left + rect.left, top = at.top + rect.top;
-          return left < area.right && left + rect.width > area.left && top < area.bottom && top + rect.height > area.top;
-        });
+        if (!doc.defaultView?.frameElement || !book) return;
+        const next = nextInBook(doc, event.shiftKey, onBookScreen(book));
         event.preventDefault();
         if (next) return next.focus({ preventScroll: true });
         flushSync(() => actions.current?.showBars?.());
-        besideBook(book, event.shiftKey)?.focus({ preventScroll: true });
+        const beside = besideBook(book, event.shiftKey);
+        beside?.focus({ preventScroll: true });
+        // Firefox can keep focus in the frame once Tab has been out to its
+        // own toolbar: the page's window takes it first, then the control
+        if (beside && document.activeElement !== beside) {
+          window.focus();
+          beside.focus({ preventScroll: true });
+        }
+      },
+      intoBook: (event) => {
+        // Tab from a bar into the book lands on this screen's first link, or
+        // its last with Shift, or on the page itself: the browser's own order
+        // would take a link in another chapter and move the book (SLN-826)
+        const book = bookRef.current, engine = engineRef.current;
+        const from = document.activeElement;
+        if (!book || !engine?.bookDocuments || !from || !entersBook(book, from, event.shiftKey)) return;
+        event.preventDefault();
+        const next = enterBook(engine.bookDocuments(), event.shiftKey, onBookScreen(book));
+        if (!next) return engine.focusBook?.();
+        // Firefox moves focus into a frame only once the frame itself has it
+        (next.ownerDocument.defaultView?.frameElement as HTMLElement | null)?.focus({ preventScroll: true });
+        next.focus({ preventScroll: true });
       },
     });
     const historyInput = createHistoryInput({
@@ -902,7 +940,7 @@ function ReaderSession({
         if (opened && !recoveryTimeout) recoveryTimeout = setTimeout(() => {
           recoveryTimeout = null;
           if (!cancelled && !bridge.getControllerReadinessSnapshot().ready)
-            setStatus({ kind: "error", message: "A reader feature could not start. Try opening the book again." });
+            setStatus({ kind: "error", message: "A reader feature could not start. Try opening the book again.", retry: true });
         }, OPEN_TIMEOUT_MS);
       }
     });
@@ -993,6 +1031,7 @@ function ReaderSession({
         message: phase === "controllers"
           ? "A reader feature could not start. Try opening the book again."
           : "The file took too long to download. Check the connection.",
+        retry: true,
       });
     }, OPEN_TIMEOUT_MS);
 
@@ -1033,9 +1072,14 @@ function ReaderSession({
           };
         });
         let latest: EngineEvents["relocate"] | null = null;
-        engine.on("error", ({ message }) => {
+        engine.on("error", ({ kind, message, cause }) => {
           reported = true;
-          setStatus({ kind: "error", message });
+          // Only the file's own failure rules Retry out: a feature that could
+          // not start (the book's colours) asks for another try
+          const theFile = !!cause && (kind === "damaged" || kind === "unsupported");
+          setStatus({ kind: "error", message, retry: !theFile, replace: theFile ? file.id : undefined });
+          // The e-book page says the file is damaged until it opens (SLN-685)
+          if (kind === "damaged" && cause) reportOpenFailure(file.id, cause);
         });
         engine.on("capabilities", (capabilities) =>
           setCanSearch(capabilities.search),
@@ -1174,6 +1218,7 @@ function ReaderSession({
               kind: "error",
               message:
                 "The original page could not be restored. Reopen the book to continue.",
+              retry: true,
             }),
         });
         navigationRef.current = navigation;
@@ -1281,6 +1326,7 @@ function ReaderSession({
         opened = true;
         clearTimeout(timeout);
         setStatus({ kind: "ready" });
+        if (file.openFailed) reportOpenFailure(file.id, null);
         // A reopen lines up its spread with the text hidden: the opening line
         // stays over the empty page until the text shows, adding no wait
         const textShows = () => {
@@ -1488,6 +1534,7 @@ function ReaderSession({
               error instanceof Error
                 ? error.message
                 : "The file is damaged or not a valid eBook.",
+            retry: true,
           });
       }
     })();
@@ -1656,15 +1703,19 @@ function ReaderSession({
     );
   };
 
+  const settingsFailed = !preferences.ready && !!(preferences.error || preferencesTimedOut);
+  // An error keeps only Back in the bars (SLN-685)
+  const failed = settingsFailed || status.kind === "error";
   const overlay =
-    !preferences.ready && (preferences.error || preferencesTimedOut) ? (
+    settingsFailed ? (
       <OpenError message={preferences.error ?? "Reading settings took too long to load. Try opening the book again."} ebookId={ebook.id} backHref={backHref} alternatives={alternatives}
         onRetry={() => { if (preferencesTimedOut) window.location.reload(); else void preferences.flush(); }} />
     ) : status.kind === "error" ? (
       <OpenError
         title={file ? undefined : "This eBook cannot be read here"}
         message={status.message}
-        onRetry={file ? onRetry : undefined}
+        onRetry={status.retry ? onRetry : undefined}
+        replaceHref={status.replace && `/ebooks/upload?kind=replace&ebookId=${ebook.id}&fileId=${status.replace}`}
         alternatives={alternatives}
         ebookId={ebook.id}
         backHref={backHref}
@@ -1712,7 +1763,8 @@ function ReaderSession({
               </Suspense>
             )
           }
-          visible={bars.visible}
+          visible={bars.visible || failed}
+          backOnly={failed}
           title={ebook.title}
           chapter={chapter}
           backHref={backHref}
@@ -1742,7 +1794,7 @@ function ReaderSession({
           onRight={() => actions.current?.right()}
         />
       )}
-      bottomBar={
+      bottomBar={!failed && (
         <ReaderBottomBar
           visible={bottomShown}
           chapter={chapter}
@@ -1782,7 +1834,7 @@ function ReaderSession({
             if (active) paceRef.current?.interrupt();
           }}
         />
-      }
+      )}
       player={
         speech && (
           <Suspense fallback={null}>

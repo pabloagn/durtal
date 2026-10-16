@@ -203,8 +203,8 @@ the identify queue and the harmonize workspace (16 files).
 | 17 | Add person | `app/(catalogue)/people/author-create-dialog.tsx:108` | Edit form | Save / Create (submit) | draft |
 | 18 | Link an institution | `app/(catalogue)/places/[slug]/venue-institutions.tsx:181` | Edit form | Save / Create (submit) | draft |
 | 19 | venue ? "Edit venue | `app/(catalogue)/places/venue-create-dialog.tsx:216` | Edit form | Save / Create (submit) | draft |
-| 20 | New Order | `app/(catalogue)/provenance/order-create-dialog.tsx:163` | Step form | Next, then Create Order | draft, picked book, method or status |
-| 21 | Edit Order | `app/(catalogue)/provenance/order-edit-dialog.tsx:171` | Edit form | Save / Create (submit) | draft |
+| 20 | New order | `app/(catalogue)/provenance/order-create-dialog.tsx:163` | Step form | Next, then Create order | draft, picked book, method or status |
+| 21 | Edit order | `app/(catalogue)/provenance/order-edit-dialog.tsx:171` | Edit form | Save / Create (submit) | draft |
 | 22 | Export for Goodreads | `app/(catalogue)/settings/data/data-actions.tsx:90` | Action | Export | none |
 | 23 | Reset display settings? | `app/(catalogue)/settings/display/display-settings.tsx:174` | Confirm | Reset | none |
 | 24 | Reorder families | `app/(catalogue)/taxonomy/taxonomy-actions.tsx:102` | Edit form | Save order | dirty |
@@ -297,7 +297,7 @@ the identify queue and the harmonize workspace (16 files).
 - SLN-634: 11 dialogs (seven forms, two viewers or managers, the
   Collections picker, Delete collection) at 1280 and 390px, each through
   Enter, Shift+Enter, Esc clean and with typed work, the question's Esc and
-  Discard, Close, the backdrop and Done; New Order's steps by keyboard.
+  Discard, Close, the backdrop and Done; New order's steps by keyboard.
 
 ### Gaps found by this inventory
 
@@ -315,9 +315,9 @@ the identify queue and the harmonize workspace (16 files).
    timer): plain Enter does nothing by design; ⌘Enter presses Delete in the
    shared delete confirmation and Undo import (section 1). SLN-629 says "Plain Enter invokes
    the primary Accept". This needs the owner's word before Enter may delete.
-4. **Step dialogs** (browser-checked in SLN-634). In New Order, Enter
+4. **Step dialogs** (browser-checked in SLN-634). In New order, Enter
    presses the visible step's main button: Next on each step, then Create
-   Order. A picked book, method or status is unsaved work, so Esc asks
+   order. A picked book, method or status is unsaved work, so Esc asks
    first (fixed in SLN-634: Esc closed it before). Review bulk eBooks is
    read from source only.
 5. **E and A** as in sections 2 and 3.
