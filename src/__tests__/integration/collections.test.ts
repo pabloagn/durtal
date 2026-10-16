@@ -353,6 +353,9 @@ describe.skipIf(!url)("collection workflows with PostgreSQL", () => {
     expect(await searchEditionsForPicker("nadas peter")).toHaveLength(2);
     expect(await searchEditionsForPicker("9780141183848")).toHaveLength(1);
     expect(await searchEditionsForPicker("")).toHaveLength(3);
+    // Titles as the authors: accents and case ignored (SLN-881)
+    await book("À rebours");
+    expect((await searchEditionsForPicker("A REBOURS")).map((e) => e.workTitle)).toEqual(["À rebours"]);
   });
   it("filters collection names literally and generates previews without needing uploaded artwork", async () => {
     const b = await book();
@@ -365,6 +368,11 @@ describe.skipIf(!url)("collection workflows with PostgreSQL", () => {
     ]);
     await createCollection({ name: "Other" });
     expect(await getCollectionCount("%")).toBe(1);
+    // Accents and case ignored, both ways (SLN-881)
+    await createCollection({ name: "Décadents" });
+    expect(await getCollectionCount("DECADENTS")).toBe(1);
+    expect(await getCollectionCount("décadents")).toBe(1);
+    expect((await getCollections({ limit: 48, offset: 0, query: "Óther" })).map((x) => x.name)).toEqual(["Other"]);
     expect(
       await getCollections({ limit: 48, offset: 0, query: "%" }),
     ).toHaveLength(1);

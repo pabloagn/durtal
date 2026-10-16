@@ -50,6 +50,7 @@ vi.mock("@/lib/activity/record", () => ({ recordActivity }));
 import {
   createOrder,
   deleteOrder,
+  searchWorksForOrder,
   updateOrderStatus,
 } from "@/lib/actions/orders";
 
@@ -101,6 +102,13 @@ describe.skipIf(!url)("order status sync with PostgreSQL (SLN-280)", () => {
         .orderBy(asc(schema.workStatusHistory.changedAt))
     ).map((h) => `${h.from}→${h.to}`);
   }
+
+  it("finds a book to order by title, accents and case ignored (SLN-881)", async () => {
+    await db.insert(schema.works).values([{ title: "À rebours" }, { title: "Là-bas" }]);
+    expect((await searchWorksForOrder("A REBOURS")).map((w) => w.title)).toEqual(["À rebours"]);
+    expect((await searchWorksForOrder("rebours")).map((w) => w.title)).toEqual(["À rebours"]);
+    expect((await searchWorksForOrder("la bas")).map((w) => w.title)).toEqual(["Là-bas"]);
+  });
 
   it("follows a wanted work through order and delivery", async () => {
     const id = await work("wanted");

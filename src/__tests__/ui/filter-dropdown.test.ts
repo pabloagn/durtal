@@ -106,6 +106,25 @@ describe("FilterDropdown", () => {
     expect(countLine()).toBe("202 of 250 shown. Type to narrow.");
   });
 
+  it("searches a long group's options ignoring accents and case (SLN-881)", () => {
+    const names = ["Jean-Luc Godard", "Agnès Varda", "Éric Rohmer", ...people.slice(0, 20).map((p) => p.label)];
+    render({ groups: [{ key: "cast", label: "Cast", options: names.map((label, i) => ({ value: `n${i}`, label })) }] });
+    click(button("Filter"));
+    const search = host.querySelector('input[aria-label="Search cast"]') as HTMLInputElement;
+    const typeIn = (value: string) =>
+      act(() => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, value);
+        search.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    const labels = () => [...host.querySelectorAll("label")].map((l) => l.textContent);
+    typeIn("ERIC");
+    expect(labels()).toEqual(["Éric Rohmer"]);
+    typeIn("agnés");
+    expect(labels()).toEqual(["Agnès Varda"]);
+    typeIn("jean luc");
+    expect(labels()).toEqual(["Jean-Luc Godard"]);
+  });
+
   it("has no count line when every option is listed", () => {
     render({ groups: [{ key: "cast", label: "Cast", options: people.slice(0, 20) }] });
     click(button("Filter"));

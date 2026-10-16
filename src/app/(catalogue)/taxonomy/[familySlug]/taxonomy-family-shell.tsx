@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useTransition } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, useTransition } from "react";
 import Link from "next/link";
 import { firstPageHref } from "@/lib/utils/list-params";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -9,6 +9,8 @@ import { toast } from "@/lib/notifications/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { NoResults } from "@/components/shared/no-results";
+import { searchScore } from "@/lib/utils/search-text";
 import {
   TaxonomyTree,
 } from "@/components/taxonomy/taxonomy-tree";
@@ -65,8 +67,43 @@ export function TaxonomyFamilyShell({
   }
   const [isPending, startTransition] = useTransition();
 
-  // Local state
-  const searchQuery = params.get("q") ?? "";
+  // The filter's text is the field's own: the list is filtered here, with no
+  // server request, so a key never waits on the URL (typed letters were lost
+  // when the field showed the URL until the server answered, SLN-881). The URL
+  // follows after a pause, without a server request. When the address changes
+  // from elsewhere (back, forward), its query wins; our own write coming back
+  // doesn't overwrite what was typed since.
+  const urlQuery = params.get("q") ?? "";
+  const [searchQuery, setSearchQuery] = useState(urlQuery);
+  const [urlBefore, setUrlBefore] = useState(urlQuery);
+  const [written, setWritten] = useState<string | null>(null);
+  if (urlQuery !== urlBefore) {
+    setUrlBefore(urlQuery);
+    if (urlQuery !== written) setSearchQuery(urlQuery);
+  }
+  const searchRef = useRef<HTMLInputElement>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(searchTimer.current), []);
+  function writeFilter(value: string) {
+    const next = new URLSearchParams(window.location.search);
+    if (value) next.set("q", value); else next.delete("q");
+    setWritten(value);
+    window.history.replaceState(null, "", firstPageHref(`/taxonomy/${family.slug}`, next));
+  }
+  function typeFilter(value: string) {
+    setSearchQuery(value);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => writeFilter(value), 300);
+  }
+  // Clear search empties the field here, with no server request, and leaves
+  // focus in it to type again
+  function clearFilter(event: React.MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    clearTimeout(searchTimer.current);
+    setSearchQuery("");
+    writeFilter("");
+    searchRef.current?.focus();
+  }
   const sortMode = (params.get("sort") ?? "manual") as SortMode;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -90,14 +127,18 @@ export function TaxonomyFamilyShell({
     ? items.find((i) => i.id === deleteItemId) ?? null
     : null;
 
+  const withoutSearch = new URLSearchParams(params.toString());
+  withoutSearch.delete("q");
+  const clearSearchHref = firstPageHref(`/taxonomy/${family.slug}`, withoutSearch);
+
   // Filter & sort items
   const processedItems = useMemo(() => {
     let result = [...items];
 
     // Search filter
+    // Accents, case and punctuation ignored, as every search (SLN-881)
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter((item) => item.name.toLowerCase().includes(q));
+      result = result.filter((item) => searchScore(searchQuery, item.name) >= 0);
     }
 
     // Sort
@@ -276,9 +317,10 @@ export function TaxonomyFamilyShell({
             strokeWidth={1.5}
           />
           <input
+            ref={searchRef}
             type="text"
             value={searchQuery}
-            onChange={(e) => setFilter("q", e.target.value)}
+            onChange={(e) => typeFilter(e.target.value)}
             placeholder="Filter items..."
             aria-label="Filter items"
             className="h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-primary/80 pl-8 pr-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none"
@@ -338,11 +380,13 @@ export function TaxonomyFamilyShell({
             }
           />
         ) : (
-          <div className="flex h-32 items-center justify-center">
-            <p className="text-sm text-fg-secondary">
-              No items matching &ldquo;{searchQuery}&rdquo;
-            </p>
-          </div>
+          <NoResults
+            noun="items"
+            search={searchQuery}
+            hasFilters={false}
+            clearHref={clearSearchHref}
+            onClear={clearFilter}
+          />
         )
       ) : (
         <div className="rounded-sm border border-glass-border bg-bg-secondary/40">
