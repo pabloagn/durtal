@@ -57,4 +57,9 @@ all 179 original hashes. Refuse historical rewrites, noncontiguous indexes,
 duplicate tags and backdated appends. Run historical cases on exact pinned
 bytes and add an explicit latest-chain test that applies every later migration,
 checks the latest snapshot/ledger, preserves reader rows and verifies no-op replay.
-Validation is pending the shared local slot and final-head hosted CI.
+On 6ee35b14, the targeted cycle passed 48 tests in 3 files with zero skips:
+all 15 reader-chain cases, 28 enrichment-model cases and 5 prefix regressions.
+Serial typecheck passed and the disposable container was removed. All 11 Python
+preflights reuse the prior tests-954 pass after exact source and script-list
+equivalence to a426d630; no fresh host Python pass is claimed. Full final-head
+hosted CI remains required.
