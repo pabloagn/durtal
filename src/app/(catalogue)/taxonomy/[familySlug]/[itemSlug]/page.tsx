@@ -229,10 +229,15 @@ async function ItemContent({
       )}
 
       {entityIds.length === 0 && (
+        // What is tagged, in the catalogue's words, and where to tag it (SLN-816)
         <EmptyState
           icon={Tag}
-          title="No associated entities"
-          description={`No ${family.entityLevel}s are linked to this item yet`}
+          title="Nothing tagged yet"
+          description={
+            family.entityLevel === "work"
+              ? `No book, film, perfume or painting is tagged ${item.name} yet. Tag one from its page.`
+              : `No edition is tagged ${item.name} yet.`
+          }
         />
       )}
     </div>
