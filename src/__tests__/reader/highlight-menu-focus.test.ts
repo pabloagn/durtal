@@ -56,7 +56,7 @@ describe("a mark's actions after a click on it (SLN-670 review)", () => {
     focusMark(false);
     const { onClose } = open();
     const focused = vi.spyOn(mark, "focus");
-    act(() => [...host.querySelectorAll("button")].find((button) => button.textContent === "Close")!.click());
+    act(() => [...host.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Close")!.click());
     expect(onClose).toHaveBeenCalledOnce();
     expect(focused).toHaveBeenCalledWith({ preventScroll: true });
   });
