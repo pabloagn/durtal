@@ -12,7 +12,8 @@ import {
 import postgres from "postgres";
 import { neon, neonConfig } from "@neondatabase/serverless";
 import { drizzle as neonDrizzle } from "drizzle-orm/neon-http";
-import { sql } from "drizzle-orm";
+import { drizzle as postgresDrizzle } from "drizzle-orm/postgres-js";
+import { and, asc, count, eq, sql } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_NEON_BATCH_TEST_DATABASE_URL;
@@ -41,6 +42,9 @@ vi.mock("@/lib/db", () => ({
   ),
 }));
 import { atomic } from "@/lib/db/atomic";
+import { createReadBatch } from "@/lib/db/read-query-batch";
+import { getLibraryStats } from "@/lib/actions/works";
+import { getCollectionsForWork } from "@/lib/actions/collections";
 import {
   recordSourceObservation,
   refreshSourceObservation,
@@ -160,6 +164,105 @@ describe.skipIf(!url)("production Neon driver batch contract", () => {
     await resetDisposableDatabase(url!, "sln348_batch_test");
     requests.length = 0;
   }, 30000);
+
+  it("maps mixed typed reads exactly like separate queries, including nested, empty and missing results", async () => {
+    const id = randomUUID();
+    const missingId = randomUUID();
+    const createdAt = new Date("2025-02-03T04:05:06.000Z");
+    await c`insert into works(id,title,rating,is_favourite,created_at) values (${id},'Mapped book',4.5,true,${createdAt})`;
+    await c`insert into editions(work_id,title,page_count) values (${id},'Z edition',240),(${id},'A edition',null)`;
+    const queries = () => [
+      httpDb!.select({ title: schema.works.title, rating: schema.works.rating, favourite: schema.works.isFavourite, createdAt: schema.works.createdAt })
+        .from(schema.works).where(eq(schema.works.id, id)),
+      httpDb!.query.works.findMany({
+        columns: { title: true, rating: true, isFavourite: true, createdAt: true },
+        orderBy: asc(schema.works.title),
+        with: { editions: { columns: { title: true, pageCount: true }, orderBy: asc(schema.editions.title) } },
+      }),
+      httpDb!.query.works.findFirst({ columns: { title: true }, where: eq(schema.works.id, id) }),
+      httpDb!.query.works.findFirst({ where: eq(schema.works.id, missingId) }),
+      httpDb!.select({ title: schema.works.title }).from(schema.works).where(eq(schema.works.id, missingId)),
+      httpDb!.select({ count: count() }).from(schema.works),
+      httpDb!.select({ work: { title: schema.works.title }, edition: { title: schema.editions.title } })
+        .from(schema.works).leftJoin(schema.editions, and(eq(schema.editions.workId, schema.works.id), eq(schema.editions.title, "Missing edition"))),
+    ] as const;
+    const expected = await Promise.all(queries());
+    requests.length = 0;
+    const reads = createReadBatch(httpDb!);
+    const actual = await Promise.all(queries().map((query) => reads.read(query)));
+    expect(actual).toEqual(expected);
+    expect(actual[0]).toEqual([{ title: "Mapped book", rating: 4.5, favourite: true, createdAt }]);
+    expect(actual[1]).toEqual([{
+      title: "Mapped book", rating: 4.5, isFavourite: true, createdAt,
+      editions: [{ title: "A edition", pageCount: null }, { title: "Z edition", pageCount: 240 }],
+    }]);
+    expect(actual[2]).toEqual({ title: "Mapped book" });
+    expect(actual[3]).toBeUndefined();
+    expect(actual[4]).toEqual([]);
+    expect(actual[5]).toEqual([{ count: 1 }]);
+    expect(actual[6]).toEqual([{ work: { title: "Mapped book" }, edition: null }]);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].queries).toHaveLength(7);
+  });
+
+  it("keeps HTTP batches bounded and returns results in input order", async () => {
+    const reads = createReadBatch(httpDb!);
+    const result = await Promise.all(Array.from({ length: 17 }, (_, index) =>
+      reads.read(httpDb!.select({ index: sql<number>`${index}::int` }).from(sql`(values (1)) as seed(n)`))));
+    expect(result).toEqual(Array.from({ length: 17 }, (_, index) => [{ index }]));
+    expect(requests.map((request) => request.queries?.length)).toEqual([6, 6, 5]);
+  });
+
+  it("settles a failed HTTP chunk without failing another chunk", async () => {
+    const reads = createReadBatch(httpDb!);
+    const result = await Promise.allSettled(Array.from({ length: 10 }, (_, index) =>
+      reads.read(httpDb!.select({ value: index === 0 ? sql<number>`missing_batch_column` : sql<number>`${index}::int` })
+        .from(sql`(values (1)) as seed(n)`))));
+    expect(result.map((item) => item.status)).toEqual([
+      ...Array(5).fill("rejected"), ...Array(5).fill("fulfilled"),
+    ]);
+    expect(result[5]).toEqual({ status: "fulfilled", value: [{ value: 5 }] });
+    expect(requests.map((request) => request.queries?.length)).toEqual([5, 5]);
+  });
+
+  it("uses ordinary execution for one read and keeps independent instances separate", async () => {
+    expect(await createReadBatch(httpDb!).read(httpDb!.query.works.findMany())).toEqual([]);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].queries).toBeUndefined();
+    requests.length = 0;
+    const a = createReadBatch(httpDb!);
+    const b = createReadBatch(httpDb!);
+    await Promise.all([
+      a.read(httpDb!.query.works.findMany()), a.read(httpDb!.query.editions.findMany()),
+      b.read(httpDb!.query.works.findMany()), b.read(httpDb!.query.editions.findMany()),
+    ]);
+    expect(requests.map((request) => request.queries?.length)).toEqual([2, 2]);
+  });
+
+  it("awaits each original PostgreSQL builder once when the driver has no batch", async () => {
+    await c`insert into works(title) values ('Fallback book')`;
+    const localDb = postgresDrizzle(c, { schema });
+    const a = localDb.select({ title: schema.works.title }).from(schema.works);
+    const b = localDb.query.works.findFirst({ columns: { title: true } });
+    const executeA = vi.spyOn(a, "execute");
+    const executeB = vi.spyOn(b, "execute");
+    const reads = createReadBatch(localDb);
+    expect(await Promise.all([reads.read(a), reads.read(b)]))
+      .toEqual([[{ title: "Fallback book" }], { title: "Fallback book" }]);
+    expect(executeA).toHaveBeenCalledTimes(1);
+    expect(executeB).toHaveBeenCalledTimes(1);
+    expect(requests).toHaveLength(0);
+  });
+
+  it("batches the eight library reads and two independent collection reads", async () => {
+    const stats = await getLibraryStats();
+    expect(stats.works).toBe(0);
+    expect(stats.recentWorks).toEqual([]);
+    expect(requests.filter((request) => request.queries).map((request) => request.queries?.length)).toEqual([8]);
+    requests.length = 0;
+    expect(await getCollectionsForWork(randomUUID())).toEqual([]);
+    expect(requests.map((request) => request.queries?.length)).toEqual([2]);
+  });
 
   it("sends one HTTP batch with ordered queries and maps returning rows", async () => {
     const id = randomUUID();

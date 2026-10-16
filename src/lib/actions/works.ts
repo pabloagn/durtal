@@ -12,6 +12,7 @@ import { bookAuthorQueries } from "@/lib/catalogue/book-credits";
 import { curationQueries } from "@/lib/catalogue/curation-store";
 import { planBookWork, workSubjectQueries } from "@/lib/catalogue/book-store";
 import { db } from "@/lib/db";
+import { createReadBatch } from "@/lib/db/read-query-batch";
 import { atomic } from "@/lib/db/atomic";
 import { ebooksForWork, lockReaderBindings, lockReaderNotes, withReaderWriteRetry } from "@/lib/reading/reader-write-locks";
 import { workSeriesPlan, resultRows } from "@/lib/series/work-series";
@@ -728,6 +729,7 @@ export async function getLibraryStats({ shelf = 8 }: { shelf?: number } = {}) {
     inArray(works.catalogueStatus, ["wanted", "shortlisted"]),
     shelf,
   );
+  const reads = createReadBatch();
   const [
     [workCount],
     [editionCount],
@@ -738,34 +740,34 @@ export async function getLibraryStats({ shelf = 8 }: { shelf?: number } = {}) {
     wantedWorks,
     recentWorksForAuthors,
   ] = await Promise.all([
-    db.select({ count: count() }).from(works).where(bookCondition),
-    db.select({ count: count() }).from(editions),
-    db.select({ count: count() }).from(instances),
-    db.select({ count: count() }).from(authors).where(bookPersonCondition),
+    reads.read(db.select({ count: count() }).from(works).where(bookCondition)),
+    reads.read(db.select({ count: count() }).from(editions)),
+    reads.read(db.select({ count: count() }).from(instances)),
+    reads.read(db.select({ count: count() }).from(authors).where(bookPersonCondition)),
     // Recent additions
-    db.query.works.findMany({
+    reads.read(db.query.works.findMany({
       where: bookCondition,
       orderBy: desc(works.createdAt),
       limit: shelf,
       extras: readingExtras,
       with: worksWith,
-    }),
+    })),
     // Top rated
-    db.query.works.findMany({
+    reads.read(db.query.works.findMany({
       where: and(bookCondition, isNotNull(works.rating)),
       orderBy: [sql`${works.rating} desc nulls last`, desc(works.createdAt)],
       limit: shelf,
       extras: readingExtras,
       with: worksWith,
-    }),
+    })),
     // Wanted / shortlisted
-    db.query.works.findMany({
+    reads.read(db.query.works.findMany({
       where: inArray(works.id, wantedIds),
       extras: readingExtras,
       with: worksWith,
-    }),
+    })),
     // For recent authors: get more works so we can extract unique authors
-    db.query.works.findMany({
+    reads.read(db.query.works.findMany({
       where: bookCondition,
       orderBy: desc(works.createdAt),
       limit: 40,
@@ -792,7 +794,7 @@ export async function getLibraryStats({ shelf = 8 }: { shelf?: number } = {}) {
           limit: 1,
         },
       },
-    }),
+    })),
   ]);
 
   // De-duplicate authors from recent works, preserving recency order
