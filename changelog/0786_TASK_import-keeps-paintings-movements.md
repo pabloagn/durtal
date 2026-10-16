@@ -34,3 +34,11 @@ those paintings.
 - `interchange/format.test.ts`: a painting record and a book record read
   their movements; a film record is still refused one. Fails without the fix.
 - No migration and no new packages.
+
+
+## SLN-954 recovery completion — 16 October 2026
+
+- Recovered the existing implementation from Claude commit `c3f8361f`; its original reference to SLN-894 is corrected here to SLN-954.
+- Added an explicit fixture covering every taxonomy table and all four work kinds, including book/edition custom terms, perfume formulation notes and terms, and painting object classifications. Coverage is pinned independently of the importer's domain allowlist.
+- Every exported record passes `readRecord`; all three dry-run policies leave the populated database unchanged. An empty-database dry run writes nothing, and an actual disposable restore reproduces every table count and the canonical export exactly.
+- Typecheck and scoped `test:local` pass: 23 tests, zero skipped; all Python preflight tests pass; the disposable container is removed. No live export/import, migration, catalogue write or new dependency.

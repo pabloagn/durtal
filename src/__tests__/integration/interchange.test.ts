@@ -33,12 +33,12 @@ vi.mock("@/lib/s3/cleanup", async (importOriginal) => ({
 }));
 import { exportInterchange } from "@/lib/interchange/export";
 import { importInterchange } from "@/lib/interchange/import";
-import { InterchangeFileError, type InterchangeDocument } from "@/lib/interchange/format";
+import { InterchangeFileError, readRecord, type InterchangeDocument } from "@/lib/interchange/format";
 import { TABLES } from "@/lib/interchange/tables";
 import { createPerson } from "@/lib/actions/people";
 import { saveOrganization } from "@/lib/actions/organizations";
 import { createVenue } from "@/lib/actions/venues";
-import { createTaxonomyItem } from "@/lib/actions/taxonomy-families";
+import { createTaxonomyFamily, createTaxonomyItem } from "@/lib/actions/taxonomy-families";
 import { addPerfumeBottle, createPerfume, createPerfumeVariant } from "@/lib/actions/perfumes";
 import { createFilm, createFilmVersion } from "@/lib/actions/films";
 import { createArtObject, createPainting } from "@/lib/actions/paintings";
@@ -226,6 +226,96 @@ describe.skipIf(!url)("the Durtal interchange file", () => {
       ["Tokyo Metropolitan Art Museum", "temporary_loan"],
     ]);
     expect(history!.current?.venueId).toBe(ids.tokyo);
+  });
+
+  it("round-trips every kind with every supported taxonomy table populated", async () => {
+    await library();
+    // Explicit writer/storage expectations: deriving these from carries() would
+    // repeat the importer's mistake instead of detecting an omitted domain.
+    const bookLinks = [
+      ["subjects", "work_subjects", "subject_id", "work_id", ids.book],
+      ["themes", "work_themes", "theme_id", "work_id", ids.book],
+      ["keywords", "work_keywords", "keyword_id", "work_id", ids.book],
+      ["categories", "work_categories", "category_id", "work_id", ids.book],
+      ["attributes", "work_attributes", "attribute_id", "work_id", ids.book],
+      ["literary-movements", "work_literary_movements", "literary_movement_id", "work_id", ids.book],
+      ["art-types", "work_art_types", "art_type_id", "work_id", ids.book],
+      ["art-movements", "work_art_movements", "art_movement_id", "work_id", ids.book],
+      ["genres", "edition_genres", "genre_id", "edition_id", ids.chosenEdition],
+      ["tags", "edition_tags", "tag_id", "edition_id", ids.chosenEdition],
+    ] as const;
+    for (const [family, junction, itemColumn, ownerColumn, ownerId] of bookLinks) {
+      const item = await createTaxonomyItem(family, { name: `Round-trip ${family}` });
+      await c.unsafe(`insert into ${junction} (${ownerColumn}, ${itemColumn}) values ($1, $2)`, [ownerId, item.id]);
+    }
+    const custom = await createTaxonomyFamily({
+      name: "Round-trip book classification",
+      scopes: [{ kind: "book", level: "work" }, { kind: "book", level: "edition" }],
+    });
+    const customItem = await createTaxonomyItem(custom.slug, { name: "Both levels" });
+    await c`insert into custom_taxonomy_item_works (work_id, item_id) values (${ids.book}, ${customItem.id})`;
+    await c`insert into custom_taxonomy_item_editions (edition_id, item_id) values (${ids.chosenEdition}, ${customItem.id})`;
+
+    // All domain families, including formulation and physical-object overrides.
+    for (const [kind, families] of [
+      ["film", ["film-genres"]],
+      ["perfume", ["perfume-families", "perfume-accords"]],
+      ["painting", ["painting-genres", "painting-techniques", "painting-media", "painting-supports"]],
+    ] as const) {
+      for (const familySlug of families) {
+        const item = await createTaxonomyItem(familySlug, { name: `Round-trip ${familySlug}` });
+        await c`insert into custom_taxonomy_item_works (work_id, item_id) values (${ids[kind]}, ${item.id})`;
+        if (kind === "perfume") {
+          const familyId = await value(`select family_id from custom_taxonomy_items where id = $1`, [item.id]);
+          const variantId = await value(`select id from perfume_variants where work_id = $1 limit 1`, [ids.perfume]);
+          await c`insert into perfume_variant_overrides (variant_id, family_id) values (${variantId}, ${familyId})`;
+          await c`insert into perfume_variant_taxa (variant_id, item_id) values (${variantId}, ${item.id})`;
+        } else if (kind === "painting" && familySlug !== "painting-genres") {
+          await c`insert into art_object_taxa (object_id, item_id) values (${ids.object}, ${item.id})`;
+        }
+      }
+    }
+    const notesFamily = await value(`select id from taxonomy_families where slug = 'perfume-notes'`);
+    const variantId = await value(`select id from perfume_variants where work_id = $1 limit 1`, [ids.perfume]);
+    await c`insert into perfume_variant_overrides (variant_id, family_id) values (${variantId}, ${notesFamily})`;
+    await c`insert into perfume_variant_notes (variant_id, item_id, position) values (${variantId}, ${ids.bergamot}, 'top')`;
+
+    const expectedTaxonomy = {
+      book: [...bookLinks.map(([, junction]) => junction), "custom_taxonomy_item_works", "custom_taxonomy_item_editions"],
+      film: ["custom_taxonomy_item_works"],
+      perfume: ["custom_taxonomy_item_works", "perfume_notes", "perfume_variant_taxa", "perfume_variant_notes"],
+      painting: ["custom_taxonomy_item_works", "work_art_movements", "art_object_taxa"],
+    };
+    const before = await tableCounts();
+    const file = clone(await exportInterchange());
+    expect(file.records.map((r) => r.domain).sort()).toEqual(Object.keys(expectedTaxonomy).sort());
+    for (const [index, record] of file.records.entries()) {
+      const result = readRecord(record, index);
+      expect(result.ok, result.ok ? "" : result.problems.join("\n")).toBe(true);
+      const tables = expectedTaxonomy[record.domain];
+      expect(Object.keys(record.sections.taxonomy!).sort()).toEqual([...tables].sort());
+      for (const name of tables) expect(record.sections.taxonomy![name].length, `${record.domain}.${name}`).toBeGreaterThan(0);
+    }
+    // Also catches a new taxonomy table added without extending this fixture.
+    expect(new Set(Object.values(expectedTaxonomy).flat())).toEqual(new Set(
+      [...TABLES.values()].filter((t) => t.spec.mode === "record" && t.spec.section === "taxonomy").map((t) => t.shape.name),
+    ));
+    for (const policy of ["keep", "add", "fail"] as const) {
+      const dry = await importInterchange(file, { policy, dryRun: true });
+      expect(dry.counts).toEqual({ created: 0, unchanged: 4, added: 0, kept: 0, failed: 0 });
+      expect(dry.records.flatMap((r) => r.problems)).toEqual([]);
+    }
+    expect(await tableCounts()).toEqual(before);
+    expect(strip(await exportInterchange())).toEqual(strip(file));
+
+    await wipe();
+    const dryRestore = await importInterchange(file, { policy: "keep", dryRun: true });
+    expect(dryRestore.counts).toEqual({ created: 4, unchanged: 0, added: 0, kept: 0, failed: 0 });
+    expect(await value<number>(`select count(*)::int from works`)).toBe(0);
+    const restored = await importInterchange(file, { policy: "keep", dryRun: false });
+    expect(restored.counts).toEqual({ created: 4, unchanged: 0, added: 0, kept: 0, failed: 0 });
+    expect(await tableCounts()).toEqual(before);
+    expect(strip(await exportInterchange())).toEqual(strip(file));
   });
 
   it("leaves a cover's derived colour out of the file; an import leaves it empty for the backfill (PR #113)", async () => {
