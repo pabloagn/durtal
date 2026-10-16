@@ -146,7 +146,7 @@ describe.skipIf(!url)("detail layouts know a missing record before the page star
 
   it("finds a reading import by id, in either case, and no other kind of import (SLN-815)", async () => {
     const [{ id: reading }] = await c`insert into imports(source, status) values ('goodreads', 'pending') returning id`;
-    const [{ id: other }] = await c`insert into imports(source, status) values ('calibre', 'pending') returning id`;
+    const [{ id: other }] = await c`insert into imports(source, status) values ('isbndb', 'pending') returning id`;
     expect(await readingImportExists(reading as string)).toBe(true);
     expect(await readingImportExists((reading as string).toUpperCase())).toBe(true);
     expect(await readingImportExists(other as string)).toBe(false);
