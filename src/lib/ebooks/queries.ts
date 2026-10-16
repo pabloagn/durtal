@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { uuids } from "@/lib/catalogue/work-store";
@@ -59,11 +59,20 @@ export async function getEbook(id: string): Promise<EbookRow | null> {
 /** One batch for reading cards; apply the same delivery rules as the Read button. */
 export async function getReaderLinksForWorks(workIds: string[]): Promise<Map<string, string>> {
   if (!workIds.length) return new Map();
+  return readerLinks(sql`select value::uuid from jsonb_array_elements_text(${JSON.stringify(workIds)}::jsonb)`);
+}
+
+/** The reader links of every book being read or paused, read without waiting for those readings (SLN-837) */
+export async function getReaderLinksForOpenReadings(): Promise<Map<string, string>> {
+  return readerLinks(sql`select work_id from readings where status in ('reading','paused')`);
+}
+
+async function readerLinks(workIds: SQL): Promise<Map<string, string>> {
   const rows = resultRows<EbookRow & { workId: string }>(await db.execute(sql`
     select e.work_id as "workId", ${EBOOK_COLUMNS}
     from ebooks eb join instances i on i.id=eb.instance_id join editions e on e.id=i.edition_id
     where eb.match_state='linked' and i.status<>'deaccessioned'
-      and e.work_id in (select value::uuid from jsonb_array_elements_text(${JSON.stringify(workIds)}::jsonb))
+      and e.work_id in (${workIds})
     order by eb.created_at,eb.id`));
   const links = new Map<string, string>();
   for (const row of rows) {

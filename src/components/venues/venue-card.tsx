@@ -50,7 +50,9 @@ export function VenueCard({
 
   return (
     <div className="@container catalogue-card group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive">
-      <Link href={href} className="block">
+      {/* The card's one tab stop (its title link is out of the tab order):
+          named by the place, since a plate without a picture is decoration */}
+      <Link href={href} aria-label={name} className="block">
         {/* Image / color band */}
         <div className="shadow-[0_2px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]">
           <div

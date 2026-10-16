@@ -11,6 +11,8 @@ export function OfflineReader() {
     let active = true;
     void (async () => {
       const params = new URLSearchParams(location.search), ebookId=params.get("ebookId"), fileId=params.get("file"), sha=params.get("sha");
+      // An address that names no book asks for one, rather than saying it is not downloaded (SLN-685)
+      if (!ebookId) { if (active) setMessage("No book was chosen. Choose one of your downloaded books to read it."); return; }
       const records = await (await getReaderRuntime()).store.listDownloads();
       const saved = records.find(row => row.state === "ready" && row.identity.ebookId === ebookId &&
         (!fileId || row.identity.fileId === fileId) && (!sha || row.identity.sha256 === sha));

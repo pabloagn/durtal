@@ -64,11 +64,17 @@ export function TaxonomyItemRow({
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
   const inputRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLAnchorElement>(null);
+  // Enter or Esc ends a rename on its name, not on the page
+  const refocus = useRef(false);
 
   useEffect(() => {
     if (editing && inputRef.current) {
       inputRef.current.focus();
       inputRef.current.select();
+    } else if (!editing && refocus.current) {
+      refocus.current = false;
+      nameRef.current?.focus();
     }
   }, [editing]);
 
@@ -144,10 +150,14 @@ export function TaxonomyItemRow({
             onChange={(e) => setEditName(e.target.value)}
             onBlur={commitRename}
             onKeyDown={(e) => {
-              if (e.key === "Enter") commitRename();
+              if (e.key === "Enter") {
+                refocus.current = true;
+                commitRename();
+              }
               if (e.key === "Escape") {
                 // One layer per Esc: the rename only
                 e.preventDefault();
+                refocus.current = true;
                 cancelRename();
               }
             }}
@@ -156,6 +166,7 @@ export function TaxonomyItemRow({
           />
         ) : (
           <Link
+            ref={nameRef}
             href={`/taxonomy/${familySlug}/${item.slug}`}
             onClick={(e) => e.stopPropagation()}
             onDoubleClick={(e) => {

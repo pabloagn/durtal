@@ -1,3 +1,4 @@
+import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -12,7 +13,13 @@ import { countsLine, reconciliationLine, runStateLabel, RUN_KIND_LABEL } from "@
 import { getRun, runSections, RUN_ROWS_STEP, RUN_SECTIONS, shownRows, type RunSectionKey } from "@/lib/ebooks/runs";
 import { isUuid } from "@/lib/utils/uuid";
 
-export const metadata = { title: "Ingestion run" };
+/** One read per request, for the title and the page */
+const loadRun = cache(async (runId: string) => (isUuid(runId) ? getRun(runId) : null));
+
+// The tab says so when there is no such run, like its heading (SLN-685)
+export async function generateMetadata({ params }: { params: Promise<{ runId: string }> }) {
+  return { title: (await loadRun((await params).runId)) ? "Ingestion run" : "Run not found" };
+}
 
 type Params = Record<string, string | string[] | undefined>;
 
@@ -35,8 +42,7 @@ const list = "divide-y divide-glass-border rounded-sm border border-glass-border
 /** One ingestion run (SLN-494): the reconciliation, then its files by outcome. Read only. */
 export default async function IngestionRunPage({ params, searchParams }: { params: Promise<{ runId: string }>; searchParams: Promise<Params> }) {
   const [{ runId }, query] = await Promise.all([params, searchParams]);
-  if (!isUuid(runId)) notFound();
-  const run = await getRun(runId);
+  const run = await loadRun(runId);
   if (!run) notFound();
   const shown = Object.fromEntries(RUN_SECTIONS.map((s) => [s.key, shownRows(query[s.key])])) as Record<RunSectionKey, number>;
   const sections = await runSections(run.id, shown);

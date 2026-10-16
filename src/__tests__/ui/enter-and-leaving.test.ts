@@ -107,7 +107,7 @@ function withShortcuts(...children: Parameters<typeof createElement>[2][]) {
   });
 }
 
-function EditDialog({ onSave, onDelete, aliases = false }: { onSave: () => void; onDelete?: () => void; aliases?: boolean }) {
+function EditDialog({ onSave, onDelete, aliases = false, saveOff = false }: { onSave: () => void; onDelete?: () => void; aliases?: boolean; saveOff?: boolean }) {
   return createElement(
     Dialog,
     { open: true, onClose: () => {}, title: "Edit collection", draft: true, children: null },
@@ -116,7 +116,7 @@ function EditDialog({ onSave, onDelete, aliases = false }: { onSave: () => void;
     createElement("button", { type: "button", "data-dismiss": "" }, "Cancel"),
     onDelete
       ? createElement("button", { type: "button", "data-variant": "danger", onClick: onDelete }, "Delete")
-      : createElement("button", { type: "button", "data-variant": "primary", onClick: onSave }, "Save"),
+      : createElement("button", { type: "button", "data-variant": "primary", disabled: saveOff, onClick: onSave }, "Save"),
   );
 }
 
@@ -131,6 +131,16 @@ describe("Enter in a dialog", () => {
     const plain = enter(box);
     expect(plain.defaultPrevented).toBe(true);
     expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("does nothing from a text box while its Save is off: no save and no new line", () => {
+    const onSave = vi.fn();
+    act(() => root.render(withShortcuts(createElement(EditDialog, { onSave, saveOff: true }))));
+    const box = document.getElementById("description")!;
+    expect(enter(box).defaultPrevented).toBe(true);
+    expect(onSave).not.toHaveBeenCalled();
+    // Shift+Enter still makes its new line
+    expect(enter(box, { shiftKey: true }).defaultPrevented).toBe(false);
   });
 
   it("keeps the new line in a text box marked for lines", () => {

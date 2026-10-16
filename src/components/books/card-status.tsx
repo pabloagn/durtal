@@ -49,7 +49,7 @@ export function CardStatus({
   if (!details) return null;
   return (
     <span
-      className="relative z-20 flex min-w-0 gap-1.5 text-micro text-fg-secondary"
+      className="card-status-line"
       data-tooltip={details.tooltip}
     >
       <CapAligned height={6}>
@@ -82,7 +82,7 @@ export function CardReading({
   const details = statusDetails(status, priority, copies);
   return (
     <span
-      className="relative z-20 flex min-w-0 gap-1.5 text-micro text-fg-secondary"
+      className="card-status-line"
       data-tooltip={cardReadingTooltip(details?.tooltip ?? "", reading)}
       data-card-reading={reading.state}
     >

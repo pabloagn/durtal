@@ -49,7 +49,7 @@ export default async function ReadingPage() {
   // The passage of the day (SLN-453): the server's reading day, so every device shows the same one
   // Goals and the rhythm (SLN-455): computed per request, never cached
   // On this day (SLN-456): the server's day and one on each side; the line shows the browser's
-  const [open, finished, next, passage, goals, rhythm, past, years, suggestionContext] = await Promise.all([
+  const [open, finished, next, passage, goals, rhythm, past, years, suggestionContext, estimates] = await Promise.all([
     getOpenReadings(),
     getRecentlyFinished(6),
     getQueueHead(5),
@@ -60,6 +60,8 @@ export default async function ReadingPage() {
     finishedYears(),
     // Suggestions (SLN-457): the top three Owned, computed per request
     storedHomeId().then((homeId) => getSuggestionContext({ homeId })),
+    // Estimates of the books being read, without waiting for their ids (SLN-837)
+    readingEstimates("reading", day.today),
   ]);
   const suggestions = suggest(suggestionContext, DEFAULT_SUGGESTION_PARAMS)
     .slice(0, 3)
@@ -68,10 +70,6 @@ export default async function ReadingPage() {
   const year = Number(day.today.slice(0, 4));
   const reviewYears = years.map((y) => y.year).filter((y) => y === year || y === year - 1);
   const reading = open.filter((o) => o.reading.status === "reading");
-  const estimates = await readingEstimates(
-    reading.map((o) => o.reading.id),
-    day.today,
-  );
   const paused = open.filter((o) => o.reading.status === "paused");
   const empty = open.length === 0 && finished.length === 0 && next.length === 0 && !passage && goals.length === 0 && !rhythm.target && suggestions.length === 0;
 

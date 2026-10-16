@@ -74,8 +74,8 @@ export const PIPELINE_COLUMNS: { status: OrderStatus; label: string }[] = [
   { status: "confirmed", label: "Confirmed" },
   { status: "processing", label: "Processing" },
   { status: "shipped", label: "Shipped" },
-  { status: "in_transit", label: "In Transit" },
-  { status: "out_for_delivery", label: "Out for Delivery" },
+  { status: "in_transit", label: "In transit" },
+  { status: "out_for_delivery", label: "Out for delivery" },
   { status: "delivered", label: "Delivered" },
 ];
 
@@ -115,8 +115,8 @@ export const STATUS_BADGE_VARIANT: Record<
 };
 
 export const METHOD_LABELS: Record<AcquisitionMethod, string> = {
-  online_order: "Online Order",
-  in_store_purchase: "In-Store",
+  online_order: "Online order",
+  in_store_purchase: "In store",
   gift: "Gift",
   digital_purchase: "Digital",
   auction: "Auction",
@@ -151,7 +151,7 @@ export function getPosterStyle(work: OrderWork) {
 }
 
 export function getAuthorName(work: OrderWork): string {
-  return work.workAuthors[0]?.author?.name ?? "Unknown Author";
+  return work.workAuthors[0]?.author?.name ?? "Unknown author";
 }
 
 export function formatDate(dateStr: string | null | undefined): string {

@@ -5,7 +5,6 @@ import { PAGE_SIZES } from "@/lib/utils/pagination";
 import { perPageCookieName } from "@/lib/utils/preference-cookies";
 import { makeNonce, READER_PAGE_RE, readerCsp } from "@/lib/reader/csp";
 import { LIBRARY_SORT_COOKIE, parseLibrarySortPreference } from "@/lib/library/sort-preference";
-import { isUuid } from "@/lib/utils/uuid";
 
 /**
  * A request on a name that is not Durtal's is refused first, so a page that
@@ -16,6 +15,9 @@ import { isUuid } from "@/lib/utils/uuid";
  * A list page opened without `perPage` redirects to the page size saved for
  * it, before anything renders. The list loads once, at the right size.
  * Books also restores the last explicitly selected sort and direction.
+ *
+ * A mistyped e-book address is left to its page, whose not-found view leads
+ * back to eBooks (SLN-864); the pages never query with an id that is not one.
  *
  * A reader page gets its Content-Security-Policy with a fresh nonce. Its
  * durtal-device cookie is not made here: two reader pages opened at once
@@ -28,9 +30,6 @@ export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/api/")) {
     return crossOriginRefusal(request) ?? undefined;
   }
-  const ebookPath = /^\/ebooks\/([^/]+)\/?$/.exec(request.nextUrl.pathname);
-  if (ebookPath && !["runs", "review", "highlights", "upload", "offline"].includes(ebookPath[1]) && !isUuid(ebookPath[1]))
-    return new NextResponse("Invalid eBook id", { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } });
   if (READER_PAGE_RE.test(request.nextUrl.pathname)) return readerPage(request);
   if (request.method !== "GET") return;
   const url = request.nextUrl.clone();

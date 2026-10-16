@@ -45,10 +45,6 @@
   color: var(--color-fg-secondary);
   margin-inline: 10px;
 }
-/* Rose for text: accent-primary is 2.6:1 here, under 3:1 even at 46px */
-.h-title-dot {
-  color: var(--color-accent-primary);
-}
 .h-scan-control {
   text-align: right;
   padding-bottom: 3px;
@@ -1033,6 +1029,10 @@
 
 /* Touch targets: 44px on a coarse pointer (docs/03, Keyboard, touch and motion) */
 @media (pointer: coarse) {
+  /* Key hints mean nothing without a keyboard */
+  .h-queue-footer {
+    display: none;
+  }
   .h-button,
   .h-filter,
   .h-toolbar input,
