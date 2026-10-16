@@ -401,9 +401,24 @@ export async function recordProgress(
     }
     const sessionTotals = { totalPages: sessionPagesTotal, totalMinutes: reading.totalMinutes };
     const current = currentOf(reading);
+    // Without an audio position, a time entry describes this sitting, not a
+    // replacement for the page/share already reached (SLN-926).
+    const timeInput = input.minutes ?? input.addMinutes;
+    const sessionMinutes = timeInput != null && !sessionTotals.totalMinutes
+      && reading.format !== "audio" && reading.unit !== "minutes"
+      ? timeInput : null;
+    if (sessionMinutes !== null) {
+      if (sessionMinutes < 1 || sessionMinutes > 1440)
+        throw new ExpectedActionError("Enter a session time between 1 minute and 24 hours");
+      if (timer) throw new ExpectedActionError("The timer records your time; enter a page, a percent or a chapter");
+      if (input.durationSeconds != null && input.durationSeconds !== sessionMinutes * 60)
+        throw new ExpectedActionError("Enter the session time only once");
+    }
     // The new end, in the session's edition
     let given: { page?: number | null; percent?: number | null; minutes?: number | null } = {};
-    if (input.addPages != null) {
+    if (sessionMinutes !== null) {
+      given = sessionEditionId === reading.editionId ? current : { percent: current.percent };
+    } else if (input.addPages != null) {
       const from =
         sessionEditionId === reading.editionId
           ? (current.page ?? 0)
@@ -418,7 +433,8 @@ export async function recordProgress(
     else given = sessionEditionId === reading.editionId ? { page: current.page, percent: current.percent, minutes: current.minutes } : { percent: current.percent };
     checkWithinTotals(given, sessionTotals);
     const end = completePosition(given, sessionTotals);
-    const chapter = input.chapter ?? (planPositions(reading, ordered).lastPositionSession ? null : reading.currentChapter);
+    const chapter = input.chapter ?? (sessionMinutes !== null ? reading.currentChapter
+      : planPositions(reading, ordered).lastPositionSession ? null : reading.currentChapter);
     const now = new Date();
     // A timer keeps the zone and the reading day it started with
     const timeZone = timer ? timer.timeZone : (input.timeZone ?? appTimeZone());
@@ -508,7 +524,7 @@ export async function recordProgress(
         timeZone,
         startedAt: input.startedAt ?? null,
         endedAt: input.endedAt ?? null,
-        durationSeconds: input.durationSeconds ?? null,
+        durationSeconds: sessionMinutes !== null ? sessionMinutes * 60 : input.durationSeconds ?? null,
         startPage: null,
         endPage: end.page,
         startPercent: null,
@@ -594,7 +610,7 @@ export async function recordProgress(
     return {
       reading: fresh,
       session: stored,
-      reachedEnd: (end.percent ?? 0) >= 100,
+      reachedEnd: sessionMinutes === null && (end.percent ?? 0) >= 100,
       wentBack: mode === "fix" ? "fixed_last_log" : mode === "went_back" ? "went_back" : null,
       undo,
       resumed,

@@ -322,6 +322,65 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
   });
 
   describe("positions and progress", () => {
+    it.each(["action", "service"] as const)("keeps p60/240 through a time-only log and later chapter via %s", async (writer) => {
+      const { reading, workId } = await started({ pages: 240 });
+      const first = await log(reading.id, { page: 60, chapter: "6", readOn: "2026-09-02" });
+      const input = { readingId: reading.id, minutes: 192, readOn: "2026-09-03", timeZone: "UTC" };
+      const timed = writer === "action" ? await log(reading.id, input) : await recordProgress(input, { source: "manual" });
+      expect(timed.reading).toMatchObject({ currentPage: 60, currentPercent: 25, currentMinutes: null, currentChapter: "6" });
+      expect(timed.session).toMatchObject({ startPage: 60, endPage: 60, startPercent: 25, endPercent: 25, endMinutes: null, endChapter: "6", durationSeconds: 11520, pagesRead: 0 });
+      expect(timed.reachedEnd).toBe(false);
+      const chapter = await log(reading.id, { chapter: "7", readOn: "2026-09-04" });
+      expect(chapter.reading).toMatchObject({ currentPage: 60, currentPercent: 25, currentChapter: "7" });
+      expect((await getReadingsForWork(workId))[0].reading).toMatchObject({ currentPage: 60, currentPercent: 25 });
+      const [summary] = await q(`select ${dialect.sqlToQuery(openReadingPercentSql(sql.raw("w.id"))).sql} as p from works w where w.id = $1`, [workId]);
+      expect(Number(summary.p)).toBe(25);
+      expect(await counted(workId)).toBe(60);
+      expect(await q(`select end_page, end_percent, duration_seconds from reading_sessions where id = $1`, [first.session.id]))
+        .toEqual([{ end_page: 60, end_percent: "25.00", duration_seconds: null }]);
+      await undoProgress({ readingId: reading.id, fingerprint: chapter.reading.fingerprint, undo: chapter.undo });
+      await undoProgress({ readingId: reading.id, fingerprint: await fp(reading.id), undo: timed.undo });
+      expect(await loadReading(reading.id)).toMatchObject({ currentPage: 60, currentPercent: 25, currentChapter: "6" });
+      expect(await value<number>(`select count(*)::int from reading_sessions where reading_id = $1`, [reading.id])).toBe(1);
+    });
+
+    it("records relative time as session duration and preserves an unknown page's share", async () => {
+      const { reading } = await started({ pages: null });
+      await log(reading.id, { percent: 25, readOn: "2026-09-02" });
+      const timed = await log(reading.id, { addMinutes: 15, readOn: "2026-09-03" });
+      expect(timed.reading).toMatchObject({ currentPage: null, currentPercent: 25, currentMinutes: null });
+      expect(timed.session).toMatchObject({ endPercent: 25, endMinutes: null, durationSeconds: 900 });
+    });
+
+    it.each(["print", "audio"] as const)("keeps the place when a time-only sitting uses another %s edition", async (format) => {
+      const { reading, workId } = await started({ pages: 240, startPage: 60 });
+      const otherId = await edition(workId, 360);
+      const timed = await log(reading.id, { minutes: 192, editionId: otherId, format });
+      expect(timed.reading).toMatchObject({ currentPage: 60, currentPercent: 25, currentMinutes: null });
+      expect(timed.session).toMatchObject({ editionId: otherId, endPage: 90, endPercent: 25, endMinutes: null, durationSeconds: 11520 });
+    });
+
+    it.each([0, 1441])("refuses an unstorable session time of %i minutes without changing history", async (minutes) => {
+      const { reading } = await started({ pages: 240, startPage: 60 });
+      await expect(log(reading.id, { minutes })).rejects.toThrow("Enter a session time between 1 minute and 24 hours");
+      expect(await loadReading(reading.id)).toMatchObject({ fingerprint: reading.fingerprint, currentPage: 60, currentPercent: 25 });
+      expect(await value<number>(`select count(*)::int from reading_sessions where reading_id = $1`, [reading.id])).toBe(0);
+    });
+
+    it("refuses conflicting session durations without changing the position", async () => {
+      const { reading } = await started({ pages: 240, startPage: 60 });
+      await expect(log(reading.id, { minutes: 192, durationSeconds: 900 })).rejects.toThrow("Enter the session time only once");
+      expect(await loadReading(reading.id)).toMatchObject({ fingerprint: reading.fingerprint, currentPage: 60, currentPercent: 25 });
+    });
+
+    it.each([600, null])("keeps native audio positions with total minutes %j", async (totalMinutes) => {
+      const workId = await book("Time positions");
+      const reading = await startReading({ workId, format: "audio", totalMinutes });
+      const timed = await log(reading.id, { minutes: 192 });
+      expect(timed.reading).toMatchObject({ currentMinutes: 192, currentPercent: totalMinutes ? 32 : null });
+      expect(timed.session).toMatchObject({ endMinutes: 192, durationSeconds: null });
+    });
+
     it("starts where tracking began and counts only what was read after", async () => {
       const { workId, reading } = await started({ startPage: 150 });
       expect(reading).toMatchObject({ startPage: 150, currentPage: 150, startPercent: 31.25 });
