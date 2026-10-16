@@ -92,7 +92,7 @@ export function WorkCardArt({
   src: string | null | undefined;
   /** The picture's main color: the frame shows it while the picture loads */
   tone?: string | null;
-  /** A flacon, a monogram: absolutely placed, it fills the frame */
+  /** The title's letter, a monogram: absolutely placed, it fills the frame */
   fallback: ReactNode;
 }) {
   return (
@@ -109,6 +109,7 @@ export function WorkCardArt({
               aria-hidden
               loading="lazy"
               decoding="async"
+              fallback={null}
               className="protected-image absolute inset-0 h-full w-full scale-125 object-cover opacity-60 blur-xl brightness-50 saturate-[0.8]"
             />
             <FadeImage
@@ -116,6 +117,7 @@ export function WorkCardArt({
               alt=""
               loading="lazy"
               decoding="async"
+              fallback={fallback}
               className="protected-image absolute inset-0 h-full w-full object-contain group-hover:scale-[1.02]"
             />
           </>

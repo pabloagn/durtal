@@ -10,6 +10,7 @@ import { randomizeLayout } from "@/lib/actions/gallery-layouts";
 import type { CollageLayoutData } from "@/lib/utils/collage-layout";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { FadeImage } from "./fade-image";
 
 interface SerializedMedia {
   id: string;
@@ -49,6 +50,9 @@ export function GallerySectionClient({
     .filter((m): m is SerializedMedia => m !== undefined);
 
   const getImageUrl = mediaUrl;
+  // A lone image's shape, when its size is known
+  const single = mediaItems.length === 1 ? mediaItems[0] : null;
+  const singleRatio = single?.width && single.height ? `${single.width} / ${single.height}` : null;
 
   function handleRandomize() {
     startTransition(async () => {
@@ -133,18 +137,27 @@ export function GallerySectionClient({
             }
           }}
         >
-          <img
-            src={getImageUrl(
-              mediaItems[0].thumbnailS3Key ?? mediaItems[0].s3Key,
-            )}
-            alt={
-              mediaItems[0].caption ??
-              mediaItems[0].originalFilename ??
-              "Gallery image"
-            }
-            className="protected-image w-full max-w-sm rounded-sm object-cover transition-[filter] duration-200 hover:brightness-110"
-            loading="lazy"
-          />
+          {/* With its size known the frame keeps the image's shape while it
+              loads; an image that fails leaves that frame (or a 3:2 one)
+              blank, never the browser's broken mark */}
+          <div
+            className="relative w-full max-w-sm overflow-hidden rounded-sm bg-bg-tertiary"
+            style={singleRatio ? { aspectRatio: singleRatio } : undefined}
+          >
+            <FadeImage
+              src={getImageUrl(
+                mediaItems[0].thumbnailS3Key ?? mediaItems[0].s3Key,
+              )}
+              alt={
+                mediaItems[0].caption ??
+                mediaItems[0].originalFilename ??
+                "Gallery image"
+              }
+              className={`protected-image w-full rounded-sm object-cover transition-[filter] duration-200 hover:brightness-110 ${singleRatio ? "absolute inset-0 h-full" : "block"}`}
+              loading="lazy"
+              fallback={singleRatio ? null : <span className="block aspect-[3/2] w-full" />}
+            />
+          </div>
         </div>
       )}
 

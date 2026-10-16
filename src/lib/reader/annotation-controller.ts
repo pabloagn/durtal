@@ -486,6 +486,8 @@ export function createAnnotationController(
       chapter: string | null;
       color: AnnotationColor;
       style?: "highlight" | "underline";
+      /** A note written before the mark existed: Note makes its mark on save (SLN-682) */
+      note?: string | null;
     }) {
       await ready;
       const id = uuid();
@@ -499,7 +501,7 @@ export function createAnnotationController(
         locator: input.locator,
         text: input.text,
         chapter: input.chapter,
-        note: null,
+        note: input.note ?? null,
         clientUpdatedAt: clientTime(),
       });
       await enqueueMutation(mutation, options.fileId);

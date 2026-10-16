@@ -98,7 +98,7 @@ export function LookupSettingsGroup() {
     if (!current.current) return;
     edit({ ...current.current, sources: current.current.sources.map((value, at) => at === index ? { ...value, ...patch } : value) });
   };
-  return <div id="lookup-sources" className="scroll-mt-8"><SettingsGroup title="Lookup"
+  return <div id="lookup-sources" className="scroll-mt-8" data-focus-list="lookup-sources"><SettingsGroup title="Lookup"
     description="Sources and the translation target are shared across your devices.">
     {!draft ? <p role="status" className="px-5 py-4 text-sm text-fg-secondary">Loading lookup settings</p> : <>
       <SettingRow id="lookup-translate-to" label="Translate into" description="Look up translates a selected passage into this language.">
@@ -110,7 +110,7 @@ export function LookupSettingsGroup() {
         <p className="text-fg-primary">Sources</p>
         <p className="mt-1 text-xs text-fg-secondary">Sites that open a word, for books in their language.</p>
       </div>
-      {draft.sources.map((item, index) => editing === item.key ? <div key={item.key} ref={form} className="px-5 py-4" data-shortcut-scope>
+      {draft.sources.map((item, index) => editing === item.key ? <div key={item.key} ref={form} className="px-5 py-4" data-shortcut-scope data-focus-row="">
         <div className="grid min-w-0 gap-3 sm:grid-cols-2">
           <Select label="Language" options={[{ value: "*", label: "Any language" }, ...languageOptions(item.language === "*" ? null : item.language)]}
             value={item.language} error={errors["sources." + index + ".language"]} onChange={event => source(index, { language: event.target.value })} />
@@ -124,7 +124,7 @@ export function LookupSettingsGroup() {
           <Button variant="primary" onClick={() => done(item.key)}>Done</Button>
           <Button variant="ghost" data-dismiss onClick={cancel}>Cancel</Button>
         </div>
-      </div> : <div key={item.key} className="flex items-start justify-between gap-3 px-5 py-3 text-sm">
+      </div> : <div key={item.key} className="flex items-start justify-between gap-3 px-5 py-3 text-sm" data-focus-row="">
         <div className="min-w-0">
           <p className="break-words text-fg-primary">{item.name || "Unnamed source"}</p>
           <p className="mt-1 break-words text-xs text-fg-secondary">{item.language === "*" ? "Any language" : languageName(item.language)} · {hostBreaks(siteOf(item.url))}</p>
@@ -142,7 +142,7 @@ export function LookupSettingsGroup() {
           (the live region stays for screen readers, and a row of its own would end the panel in an empty band) */}
       <div className="px-5 py-4">
       <div className="flex flex-wrap gap-3">
-        <Button id="lookup-source-add" disabled={draft.sources.length >= 50 || editing !== null} data-tooltip={draft.sources.length >= 50 ? "Use at most 50 sources" : undefined}
+        <Button id="lookup-source-add" data-focus-empty="lookup-sources" disabled={draft.sources.length >= 50 || editing !== null} data-tooltip={draft.sources.length >= 50 ? "Use at most 50 sources" : undefined}
           onClick={() => {
             const key = crypto.randomUUID(); before.current = current.current;
             edit({ ...current.current!, sources: [...current.current!.sources, { key, language: "*", name: "", url: "" }] }); setEditing(key);

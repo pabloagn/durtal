@@ -1,6 +1,7 @@
 "use client";
 
 import type { CollageLayoutData, CollageCell } from "@/lib/utils/collage-layout";
+import { FadeImage } from "./fade-image";
 
 export interface CollageMediaItem {
   id: string;
@@ -36,7 +37,7 @@ function CellImage({
 
   return (
     <div
-      className="group relative cursor-pointer overflow-hidden rounded-sm"
+      className="group relative cursor-pointer overflow-hidden rounded-sm bg-bg-tertiary"
       style={{
         gridRow: `${cell.row + 1} / span ${cell.rowSpan}`,
         gridColumn: `${cell.col + 1} / span ${cell.colSpan}`,
@@ -52,11 +53,13 @@ function CellImage({
       }}
       aria-label={alt}
     >
-      <img
+      {/* An image that fails leaves its cell blank, never the browser's broken mark */}
+      <FadeImage
         src={src}
         alt={alt}
         className="h-full w-full object-cover transition-[filter] duration-200 group-hover:brightness-110"
         loading="lazy"
+        fallback={null}
       />
       {media.caption && (
         <div className="absolute inset-x-0 bottom-0 translate-y-full bg-gradient-to-t from-black/70 to-transparent px-2 pb-2 pt-6 transition-transform duration-200 group-hover:translate-y-0">

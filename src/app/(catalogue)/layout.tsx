@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { IconSprite } from "@/components/ui/sprite-icon";
 import { FavouriteStarSprite } from "@/components/shared/favourite-star";
+import { NavigationFocus } from "@/components/shared/navigation-focus";
 import { rootFontClassName } from "@/styles/root-fonts";
 import { Shell } from "@/components/layout/shell";
 import { ImageGuard } from "@/components/shared/image-guard";
 import { TooltipLayer } from "@/components/ui/tooltip";
 import { UnlinkDialogHost } from "@/components/ebooks/unlink-dialog-host";
+import { FocusKeeper } from "@/components/shared/focus-keeper";
 import "@/styles/globals.css";
 import {
   IMAGE_ADJUSTMENTS_STYLESHEET,
@@ -63,6 +65,8 @@ export default async function RootLayout({
         <ImageGuard />
         <TooltipLayer />
         <FavouriteStarSprite />
+        <FocusKeeper />
+        <NavigationFocus />
         <AppSettingsProvider settings={settings}><PreferencesProvider initial={preferences}><ImageAdjustmentProvider><Shell>{children}</Shell><UnlinkDialogHost /></ImageAdjustmentProvider></PreferencesProvider></AppSettingsProvider>
       </body>
     </html>

@@ -412,6 +412,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
               <WorkPosterImage
                 src={mediaUrl(poster.s3Key)}
                 alt={`${work.title} poster`}
+                title={work.title}
                 crop={mediaCrop(poster)}
                 palette={crystalPalette}
               />
@@ -419,6 +420,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
               <WorkPosterImage
                 src={mediaUrl(editionCoverKey, { version: firstEdition?.updatedAt })}
                 alt={`${work.title} cover`}
+                title={work.title}
                 crop={mediaCrop({})}
               />
             ) : (

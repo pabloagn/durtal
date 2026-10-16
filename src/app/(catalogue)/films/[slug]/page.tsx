@@ -36,7 +36,7 @@ import { getCatalogueProvenance } from "@/lib/actions/catalogue-provenance";
 import { getTaxonomyAssignments } from "@/lib/actions/taxonomy-families";
 import { getMediaForWork } from "@/lib/actions/media";
 import { getLocations } from "@/lib/actions/locations";
-import { catalogueDateText, catalogueDateYears } from "@/lib/catalogue/dates";
+import { catalogueDateText } from "@/lib/catalogue/dates";
 import {
   FILM_CREDIT_ROLE_IDS,
   FILM_GENRES_FAMILY,
@@ -57,6 +57,7 @@ import { sourceChoices, sourceViews } from "@/lib/catalogue/source-views";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import type { ListSearchParams } from "@/lib/utils/pagination";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { FadeImage } from "@/components/shared/fade-image";
 
 /** One read per request for the page and its title */
 const loadFilm = cache((slug: string) => getFilm(decodeURIComponent(slug)));
@@ -180,7 +181,6 @@ export default async function FilmPage({
     .filter((role) => role.people.length)
     .map((role) => ({ ...role, heading: creditHeading(role.roleId, role.people.length) }));
   const released = catalogueDateText(film.releaseDate?.value ?? null);
-  const year = catalogueDateYears(film.releaseDate?.value ?? null);
   const runtimes = film.versions.filter((v) => v.runtimeSeconds !== null);
   const runtime = runtimes.length
     ? runtimes.length === 1 || runtimes.every((v) => v.runtimeSeconds === runtimes[0].runtimeSeconds)
@@ -376,11 +376,12 @@ export default async function FilmPage({
         <div className={still ? "relative z-[1] -mx-6 -mt-6 mb-8" : "relative z-[1] mb-8"}>
           {still && (
             <div className="absolute inset-0 -z-0 overflow-hidden">
-              <img
+              <FadeImage
                 src={mediaUrl(still.s3Key)}
                 alt=""
                 className="h-full w-full object-cover"
                 style={mediaImageStyle(mediaCrop(still))}
+                fallback={null}
               />
               <div className="absolute inset-0 bg-scrim" />
               <div
@@ -402,7 +403,6 @@ export default async function FilmPage({
                   <FilmPoster
                     image={posterImage}
                     title={film.title}
-                    year={year}
                     alt={`${film.title} poster`}
                     thumbnail={false}
                     eager

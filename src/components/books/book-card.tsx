@@ -102,23 +102,27 @@ function CoverImage({
   // The route resizes each candidate; the browser picks one for `sizes`
   const srcSet = MEDIA_WIDTHS.map((w) => `${withMediaWidth(retrySrc, w)} ${w}w`).join(", ");
 
+  // While it retries, the letter shows under the image
   return (
-    <FadeImage
-      key={retries}
-      src={withMediaWidth(retrySrc, 400)}
-      srcSet={srcSet}
-      sizes={sizes}
-      alt={alt}
-      loading={priority ? "eager" : "lazy"}
-      fetchPriority={priority ? "high" : undefined}
-      decoding="async"
-      className="protected-image cover-image"
-      style={mediaImageStyle(crop)}
-      onError={() => {
-        // Retry after a short delay — the server was likely just overloaded
-        setTimeout(() => setRetries((r) => r + 1), 500 * (retries + 1));
-      }}
-    />
+    <>
+      {retries > 0 && <CoverPlaceholder title={alt} />}
+      <FadeImage
+        key={retries}
+        src={withMediaWidth(retrySrc, 400)}
+        srcSet={srcSet}
+        sizes={sizes}
+        alt={alt}
+        loading={priority ? "eager" : "lazy"}
+        fetchPriority={priority ? "high" : undefined}
+        decoding="async"
+        className="protected-image cover-image"
+        style={mediaImageStyle(crop)}
+        onError={() => {
+          // Retry after a short delay — the server was likely just overloaded
+          setTimeout(() => setRetries((r) => r + 1), 500 * (retries + 1));
+        }}
+      />
+    </>
   );
 }
 

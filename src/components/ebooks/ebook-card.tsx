@@ -7,6 +7,7 @@ import { WORK_CARD, WORK_CARD_BODY } from "@/components/shared/work-card";
 import { formatLabel } from "@/lib/ebooks/formats";
 import { fractionPercent } from "@/lib/reader/place-label";
 import type { EbookCardData } from "@/lib/ebooks/library-view";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 
 export function EbookLinkedMark() {
   return (
@@ -26,6 +27,12 @@ export function EbookCover({
   book: EbookCardData;
   sizes?: string;
 }) {
+  // The title's letter, as on every blank cover
+  const blank = (
+    <div className={`h-full ${COVER_BLANK}`}>
+      <CoverLetter title={book.title} />
+    </div>
+  );
   return (
     <div className="card-cover">
       {book.cover ? (
@@ -36,18 +43,11 @@ export function EbookCover({
           alt=""
           loading="lazy"
           decoding="async"
+          fallback={blank}
           className="h-full w-full object-contain"
         />
       ) : (
-        <div className="flex h-full items-center justify-center">
-          <span
-            aria-hidden="true"
-            data-decorative
-            className="font-serif text-3xl text-fg-muted/30"
-          >
-            {book.title[0]}
-          </span>
-        </div>
+        blank
       )}
     </div>
   );

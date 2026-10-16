@@ -9,6 +9,7 @@ import { CatalogueReadLink } from "@/components/ebooks/catalogue-read-action";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { cache } from "react";
 import Link from "next/link";
+import { FadeImage } from "@/components/shared/fade-image";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { ArrowLeft, BookOpen, FolderOpen } from "lucide-react";
@@ -16,7 +17,6 @@ import { getCollection } from "@/lib/actions/collections";
 import { loadFilmCards } from "@/lib/catalogue/film-store";
 import { loadPerfumeCards } from "@/lib/catalogue/perfume-store";
 import { loadPaintingCards } from "@/lib/catalogue/painting-store";
-import { catalogueDateYears } from "@/lib/catalogue/dates";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import { collectableNouns, collectionCountLine } from "@/lib/collections/counts";
 import { MemberCard } from "@/components/collections/member-card";
@@ -73,19 +73,26 @@ interface Member {
   copy?: React.ReactNode;
 }
 
-const cover = (key: string | null | undefined, alt: string) =>
-  key ? (
-    <img
-      src={mediaUrl(key)}
-      alt={alt}
-      className="max-h-32 w-full object-contain"
-    />
-  ) : (
-    // The title's letter on the cover's blank, as on every other card
+const cover = (key: string | null | undefined, alt: string) => {
+  // The title's letter on the cover's blank, as on every other card: with no cover, or one that fails
+  const blank = (
     <span className={`h-32 w-full bg-bg-tertiary ${COVER_BLANK}`}>
       <CoverLetter title={alt} />
     </span>
   );
+  return key ? (
+    <FadeImage
+      src={mediaUrl(key)}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      className="max-h-32 w-full object-contain"
+      fallback={blank}
+    />
+  ) : (
+    blank
+  );
+};
 
 /**
  * Every member the page shows, in the collection's one order: each edition,
@@ -178,8 +185,6 @@ async function collectionMembers(
               <FilmPoster
                 image={film.poster}
                 title={film.title}
-                year={catalogueDateYears(film.releaseDate)}
-                small
               />
             ),
             title: film.title,
@@ -198,7 +203,7 @@ async function collectionMembers(
           ...base,
           card: {
             href: perfumeHref(perfume),
-            image: <PerfumeImage image={perfume.poster} title={perfume.title} small />,
+            image: <PerfumeImage image={perfume.poster} title={perfume.title} />,
             title: perfume.title,
             byline: perfumeMakers(perfume),
             facts: perfumeFacts(perfume) || null,
@@ -214,7 +219,7 @@ async function collectionMembers(
         ...base,
         card: {
           href: paintingHref(painting),
-          image: <PaintingImage image={painting.poster} title={painting.title} small />,
+          image: <PaintingImage image={painting.poster} title={painting.title} />,
           title: painting.title,
           byline: paintingPainters(painting),
           facts: paintingFacts(painting) || null,
@@ -297,6 +302,12 @@ export default async function CollectionPage({
   const counts = memberCounts(collection, reading);
   const poster = collectionPoster(collection.media);
   const background = collectionBackground(collection.media);
+  // No artwork, or artwork that fails: the name's letter, as every blank cover
+  const nameLetter = (
+    <div className={`h-full ${COVER_BLANK}`}>
+      <CoverLetter title={collection.name} />
+    </div>
+  );
   return (
     <>
       <CopyShortcuts name={collection.name} />
@@ -304,11 +315,12 @@ export default async function CollectionPage({
       <div className={background ? "relative -mx-4 -mt-6 mb-8 md:-mx-6" : "mb-8"}>
         {background && (
           <FullBleedLayer className="-z-0">
-            <img
+            <FadeImage
               src={mediaUrl(background.s3Key)}
               alt=""
               className="protected-image h-full w-full object-cover"
               style={mediaImageStyle(mediaCrop(background))}
+              fallback={null}
             />
             <div className="absolute inset-0 bg-scrim" />
             <div
@@ -331,17 +343,15 @@ export default async function CollectionPage({
           <header className="mb-6 flex flex-wrap items-start gap-8">
             <div className="h-64 w-48 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
               {poster ? (
-                <img
+                <FadeImage
                   src={mediaUrl(poster.s3Key)}
                   alt={`${collection.name} poster`}
                   className="protected-image h-full w-full object-cover"
                   style={mediaImageStyle(mediaCrop(poster))}
+                  fallback={nameLetter}
                 />
               ) : (
-                // No artwork: the name's letter, as every blank cover
-                <div className={`h-full ${COVER_BLANK}`}>
-                  <CoverLetter title={collection.name} />
-                </div>
+                nameLetter
               )}
             </div>
             <div className="min-w-0 flex-1 basis-64">
@@ -416,7 +426,7 @@ export default async function CollectionPage({
           total={total}
           noun="items"
         >
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2" data-focus-list="collection">
             {members.slice(offset, offset + perPage).map((member, index) => (
               <MemberCard
                 key={`${member.kind}:${member.id}`}

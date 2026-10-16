@@ -14,6 +14,7 @@ import {
 } from "@/components/catalogue/record-fields";
 import { SearchPicker, type PickerChoice } from "@/components/catalogue/search-picker";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { filterBySearch } from "@/lib/utils/search-text";
 import {
   FILM_CREDIT_ROLES,
   filmCreditName,
@@ -30,18 +31,15 @@ export interface Choice {
   name: string;
 }
 
-/** A local search over a fixed list, by the start of any word first */
+/**
+ * A local search over a fixed list, by the start of any word first; accents,
+ * case and punctuation ignored, as every search ("cote" finds "Côte d'Ivoire",
+ * SLN-881)
+ */
 export function useListSearch(list: Choice[]) {
   return useCallback(
     async (query: string): Promise<PickerChoice[]> => {
-      const q = query.toLowerCase();
-      const found = q
-        ? list.filter((c) => c.name.toLowerCase().includes(q))
-        : list;
-      const starts = (c: Choice) =>
-        c.name.toLowerCase().startsWith(q) ||
-        c.name.toLowerCase().includes(` ${q}`);
-      return [...found.filter(starts), ...found.filter((c) => !starts(c))]
+      return filterBySearch(list, query, (c) => c.name)
         .slice(0, 12)
         .map((c) => ({ id: c.id, label: c.name }));
     },

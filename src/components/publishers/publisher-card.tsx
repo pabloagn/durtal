@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { CardHeading } from "@/components/shared/card-heading";
 import { Monogram } from "@/components/shared/no-photo";
+import { FadeImage } from "@/components/shared/fade-image";
 
 export interface PublisherItem {
   id: string;
@@ -24,8 +25,8 @@ export interface PublisherItem {
 }
 
 /**
- * The house's logo, whole on a dark tile; with no logo, its initials on a
- * faint tint, like an author with no portrait (`Monogram`)
+ * The house's logo, whole on a dark tile; with no logo, or one that fails,
+ * its initials on a faint tint, like an author with no portrait (`Monogram`)
  */
 export function PublisherLogo({
   name,
@@ -42,11 +43,12 @@ export function PublisherLogo({
   return (
     <div className={`relative flex items-center justify-center overflow-hidden bg-bg-tertiary ${className}`}>
       {url ? (
-        <img
+        <FadeImage
           src={url}
           alt=""
           loading="lazy"
           className={`protected-image ${card ? "h-full w-full object-cover" : "max-h-[80%] max-w-[80%] object-contain"}`}
+          fallback={<Monogram name={name} />}
         />
       ) : (
         <Monogram name={name} />
