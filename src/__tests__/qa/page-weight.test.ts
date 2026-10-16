@@ -1,9 +1,9 @@
 import { execFile } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 /* scripts/qa/page-weight.js (SLN-479): a detail row with no record to
    measure is skipped when it says so, and fails otherwise. A small server
@@ -26,12 +26,17 @@ const pages: Record<string, string> = {
   "/shelf": '<main><a href="/reader/r1?file=f1&amp;returnTo=%2Fshelf">Read</a></main>',
   "/reader/r1": "<main>The reader</main>",
 };
+type BudgetRoute = { path: string; maxKB: number; maxMs: number; ifNone?: string; list?: string };
+const taxonomyRoutes = (JSON.parse(readFileSync("scripts/qa/page-weight.json", "utf8")) as { routes: BudgetRoute[] })
+  .routes.filter(route => route.path.startsWith("/taxonomy"));
+const requests: string[] = [];
 let server: Server;
 let base = "";
 const dir = mkdtempSync(join(tmpdir(), "page-weight-"));
 
 beforeAll(async () => {
   server = createServer((req, res) => {
+    requests.push(req.url ?? "");
     const body = pages[req.url ?? ""];
     res.writeHead(body ? 200 : 404, { "content-type": "text/html" });
     res.end(body ?? "not found");
@@ -39,6 +44,12 @@ beforeAll(async () => {
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   const address = server.address();
   base = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+});
+beforeEach(() => {
+  requests.length = 0;
+  pages["/taxonomy"] = '<main><a href="/taxonomy/subjects">Subjects</a></main>';
+  pages["/taxonomy/subjects"] = "<main>No subject terms</main>";
+  pages["/taxonomy/subjects/term"] = "<main>A subject term</main>";
 });
 afterAll(() => {
   server.close();
@@ -56,6 +67,43 @@ function run(routes: unknown[]): Promise<{ code: number; out: string }> {
 }
 
 describe("page-weight.js", () => {
+  it("keeps taxonomy root and family mandatory and only the term optional, at the original budgets", () => {
+    expect(taxonomyRoutes).toEqual([
+      { path: "/taxonomy", maxKB: 300, maxMs: 1000 },
+      { path: "/taxonomy/subjects", maxKB: 300, maxMs: 1000 },
+      { path: "/taxonomy/subjects/*", maxKB: 300, maxMs: 1000, ifNone: "no subject terms" },
+    ]);
+  });
+  it("measures taxonomy root and family while skipping a genuinely empty term selection", async () => {
+    const { code, out } = await run(taxonomyRoutes);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^ok {4}\/taxonomy +/m);
+    expect(out).toMatch(/^ok {4}\/taxonomy\/subjects +/m);
+    expect(out).toContain("skip  /taxonomy/subjects/*");
+    expect(out).toContain("skipped: no subject terms (no link on /taxonomy/subjects)");
+    expect(out).toContain("1 of 3 routes skipped");
+    expect(requests.filter(path => path === "/taxonomy")).toHaveLength(2);
+    expect(requests.filter(path => path === "/taxonomy/subjects")).toHaveLength(3);
+  });
+  it("measures a populated taxonomy term despite the optional-empty note", async () => {
+    pages["/taxonomy/subjects"] = '<main><a href="/taxonomy/subjects/term">A term</a></main>';
+    const { code, out } = await run(taxonomyRoutes);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^ok {4}\/taxonomy\/subjects\/term +/m);
+    expect(out).not.toContain("skip");
+    expect(requests.filter(path => path === "/taxonomy/subjects/term")).toHaveLength(2);
+  });
+  it("fails a populated taxonomy term over 300 KB instead of treating it as empty", async () => {
+    pages["/taxonomy/subjects"] = '<main><a href="/taxonomy/subjects/term">A term</a></main>';
+    pages["/taxonomy/subjects/term"] = "<main>" + "x".repeat(301 * 1024) + "</main>";
+    const { code, out } = await run(taxonomyRoutes);
+    expect(code).toBe(1);
+    expect(out).toMatch(/^FAIL {2}\/taxonomy\/subjects\/term +/m);
+    expect(out).toContain("301 / 300 KB");
+    expect(out).toContain("1 of 3 routes failed the budget");
+    expect(out).not.toContain("skip");
+    expect(requests.filter(path => path === "/taxonomy/subjects/term")).toHaveLength(2);
+  });
   it("skips a detail row with no link when it has an ifNone note", async () => {
     const { code, out } = await run([{ path: "/empty/*", maxKB: 400, maxMs: 5000, ifNone: "no import" }]);
     expect(code).toBe(0);
@@ -111,9 +159,10 @@ describe("page-weight.js", () => {
     ]);
     expect(config.routes.some((r) => r.path === "/library/new")).toBe(true);
   });
-  it("gives the quoted book, the import preview, the Year in review, one book's marks, the reader and the ingestion run rows their notes, and no other row", async () => {
+  it("gives only the explicitly permitted empty-record rows their exemption notes", async () => {
     const { readFileSync } = await import("node:fs");
     const config = JSON.parse(readFileSync("scripts/qa/page-weight.json", "utf8")) as { routes: { path: string; ifNone?: string; list?: string }[] };
+    expect(config.routes.find((r) => r.path === "/taxonomy/subjects/*")?.ifNone).toBe("no subject terms");
     expect(config.routes.find((r) => r.path === "/reading/import/*")?.ifNone).toBe("no import");
     expect(config.routes.find((r) => r.path === "/reading/year/*")?.ifNone).toBe("no finished year");
     expect(config.routes.find((r) => r.list === "/reading/notes")?.ifNone).toBe("no quotes");
@@ -123,6 +172,6 @@ describe("page-weight.js", () => {
     // The most recently opened e-book: with --seed-places 1000, one read on many devices (SLN-665)
     expect(config.routes.find((r) => r.list === "/ebooks?sort=opened")?.ifNone).toBe("no e-book");
     expect(config.routes.find((r) => r.path === "/ebooks/highlights?ebook=*")?.ifNone).toBe("no book with more than five marks");
-    expect(config.routes.filter((r) => r.ifNone).map((r) => r.path)).toEqual(["/library/*", "/reading/year/*", "/reading/import/*", "/ebooks/highlights?ebook=*", "/ebooks/*", "/ebooks/*", "/ebooks/runs/*", "/reader/*"]);
+    expect(config.routes.filter((r) => r.ifNone).map((r) => r.path)).toEqual(["/library/*", "/reading/year/*", "/reading/import/*", "/ebooks/highlights?ebook=*", "/ebooks/*", "/ebooks/*", "/ebooks/runs/*", "/reader/*", "/taxonomy/subjects/*"]);
   });
 });
