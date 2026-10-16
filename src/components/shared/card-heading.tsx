@@ -23,7 +23,7 @@ export function CardHeading({
     <div className="card-heading min-w-0">
       <div className="type-item-title flow-root">
         {action && (
-          <CapAligned height={32} coarseHeight={44} className="relative z-20 float-right ml-2 icon-hit-end">
+          <CapAligned height={32} coarseHeight={44} className="card-heading-action icon-hit-end">
             {action}
           </CapAligned>
         )}

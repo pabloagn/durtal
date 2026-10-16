@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, ChevronDown, MoreHorizontal, PenLine, Play, Square, Timer } from "lucide-react";
+import { SpriteIcon } from "@/components/ui/sprite-icon";
 import { useOptionalTimer } from "./timer-provider";
 import { useStopTimer } from "./timer-chip";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -197,7 +198,7 @@ export function JournalRowMenu({ reading, title }: { reading: ReadingRef; title:
       align="end"
       trigger={
         <button type="button" aria-label={label} data-tooltip="More" className={menuButton} data-journal-menu={reading.readingId}>
-          <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
+          <SpriteIcon name="ellipsis" className="h-4 w-4" />
         </button>
       }
     >

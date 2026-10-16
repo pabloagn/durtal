@@ -326,7 +326,8 @@ export function AuthorForm({
             <h3 className="type-group-title mb-3">
               Places
             </h3>
-            <div className="grid grid-cols-2 gap-3">
+            {/* One picker a row on a phone, so its results have the width to show a name in full */}
+            <div className="grid gap-3 sm:grid-cols-2">
               <PlacePicker
                 label="Birth Place"
                 value={values.birthPlace}

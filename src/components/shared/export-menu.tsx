@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, LoaderCircle } from "lucide-react";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -149,8 +149,9 @@ export function ExportMenu({
       align={align}
       side={side}
       trigger={
-        <Button variant={variant} size={size} disabled={isExporting} aria-busy={isExporting} aria-label={isExporting ? "Exporting…" : undefined}>
-          {isExporting ? <LoaderCircle className="h-4 w-4 animate-spin" strokeWidth={1.5} /> : <Download className="h-4 w-4" strokeWidth={1.5} />}
+        // Busy, not disabled, so the focus stays on it while the file is made
+        <Button variant={variant} size={size} busy={isExporting} aria-label={isExporting ? "Exporting…" : undefined}>
+          <Download className="h-4 w-4" strokeWidth={1.5} />
           Export
         </Button>
       }

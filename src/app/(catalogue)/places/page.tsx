@@ -8,12 +8,11 @@ import { getVenues, getVenueCount } from "@/lib/actions/venues";
 import { getVenueCountries } from "@/lib/actions/venue-pages";
 import { VENUE_TYPES, type VenueType } from "@/lib/catalogue/venues";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyIndex } from "@/components/shared/empty-index";
 import { Spinner } from "@/components/ui/spinner";
 import { PlacesShell, type VenueItem } from "./places-shell";
 import { PlacesFiltersBar } from "./places-filters-bar";
 import { VenueCreateDialog } from "./venue-create-dialog";
-import { hasListQuery } from "@/lib/utils/list-params";
 import { mediaUrl } from "@/lib/s3/media-url";
 
 export const metadata = { title: "Places" };
@@ -32,21 +31,20 @@ interface PageProps {
   }>;
 }
 
-async function PlacesContent({
-  searchParams,
-}: {
-  searchParams: {
-    q?: string;
-    sort?: string;
-    order?: string;
-    page?: string;
-    perPage?: string;
-    type?: string;
-    favourites?: string;
-    country?: string;
-    archived?: string;
-  };
-}) {
+type PlacesParams = {
+  q?: string;
+  sort?: string;
+  order?: string;
+  page?: string;
+  perPage?: string;
+  type?: string;
+  favourites?: string;
+  country?: string;
+  archived?: string;
+};
+
+/** The list's first read, started before the page knows whether any place exists */
+function placesQuery(searchParams: PlacesParams) {
   const search = searchParams.q?.slice(0, 200);
   const sort = searchParams.sort === "recent" || searchParams.sort === "rating" ? searchParams.sort : "name";
   const order = searchParams.order === "asc" || searchParams.order === "desc" ? searchParams.order : undefined;
@@ -68,29 +66,26 @@ async function PlacesContent({
     archived: archivedFilter,
   };
 
-  const [rawVenues, total] = await Promise.all([
+  const first = Promise.all([
     getVenues({ search, sort, order, limit, offset, filters }),
     getVenueCount({ search, filters }),
   ]);
+  // With none the list is never awaited: its failure must not go unhandled
+  first.catch(() => {});
+  return { page, limit, first };
+}
+
+async function PlacesContent({
+  searchParams,
+  query,
+}: {
+  searchParams: PlacesParams;
+  query: ReturnType<typeof placesQuery>;
+}) {
+  const { page, limit } = query;
+  const [rawVenues, total] = await query.first;
 
   if (page > lastPage(total, limit)) redirect(pageHref("/places", searchParams, lastPage(total, limit)));
-
-  // Full-page empty state only when there are no venues at all. A search or
-  // filter with no match is handled by the shell, below the toolbar.
-  const hasQuery = hasListQuery(
-    new URLSearchParams(
-      Object.entries(searchParams).filter((e): e is [string, string] => typeof e[1] === "string"),
-    ),
-  );
-  if (total === 0 && !hasQuery) {
-    return (
-      <EmptyState
-        icon={MapPin}
-        title="No venues yet"
-        action={<VenueCreateDialog />}
-      />
-    );
-  }
 
   const venues: VenueItem[] = rawVenues.map((v) => ({
     id: v.id,
@@ -119,7 +114,22 @@ async function PlacesContent({
 }
 
 export default async function PlacesPage({ searchParams }: PageProps) {
-  const [params, countries] = await Promise.all([searchParams, getVenueCountries()]);
+  // Whether any place exists (archived ones too) and the list itself, read side by side
+  const any = getVenueCount({ filters: { archived: "include" } });
+  const params = await searchParams;
+  const query = placesQuery(params);
+  const [countries, count] = await Promise.all([getVenueCountries(), any]);
+  if (!count) {
+    return (
+      <EmptyIndex
+        title="Places"
+        icon={MapPin}
+        empty="No places yet"
+        description="A place is somewhere your works come from or live: a bookshop, a library, a museum, a perfumery, a cinema. Add one to keep its address and what you found there."
+        action={<VenueCreateDialog />}
+      />
+    );
+  }
 
   return (
     <>
@@ -138,7 +148,7 @@ export default async function PlacesPage({ searchParams }: PageProps) {
           </div>
         }
       >
-        <PlacesContent searchParams={params} />
+        <PlacesContent searchParams={params} query={query} />
       </Suspense>
     </>
   );

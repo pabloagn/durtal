@@ -169,8 +169,10 @@ export function DetailTitleRow({
  * under a wrapped title its icon lines up with the title's edge.
  */
 export function DetailControls({ children }: { children: ReactNode }) {
+  // The title's size comes from the row, which steps down with the title
+  // (SLN-843)
   return (
-    <CapAlignedControls height={32} coarseHeight={44} className="type-page-title -ml-2 pointer-coarse:-ml-3.5">
+    <CapAlignedControls height={32} coarseHeight={44} className="-ml-2 pointer-coarse:-ml-3.5">
       {children}
     </CapAlignedControls>
   );

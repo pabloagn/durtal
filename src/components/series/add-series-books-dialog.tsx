@@ -86,7 +86,7 @@ export function AddSeriesBooksDialog({
 
   return (
     <Dialog
-      draft
+      dirty={chosen.length > 0}
       open={open}
       onClose={() => !saving && onClose()}
       title="Add books"

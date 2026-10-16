@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
 import { Library } from "lucide-react";
-import { getWorks, getWorkCount } from "@/lib/actions/works";
+import { getWorksWith, getWorkCount } from "@/lib/actions/works";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NoResults } from "@/components/shared/no-results";
 import { clearedListHref, hasListQuery } from "@/lib/utils/list-params";
@@ -52,8 +52,10 @@ async function LibraryContent({ searchParams }: { searchParams: LibraryParams })
   const { filters: book } = parseBookFilters(searchParams);
   const filters = { ...reading, ...book };
 
-  const [works, total] = await Promise.all([
-    getWorks({ search, sort, order, limit, offset, filters }),
+  // Reader availability and target selection: one query for this page's
+  // works, run with their details when the sort knows the page's ids first
+  const [[works, digital], total] = await Promise.all([
+    getWorksWith({ search, sort, order, limit, offset, filters }, catalogueAvailability),
     getWorkCount(search, filters),
   ]);
 
@@ -84,10 +86,6 @@ async function LibraryContent({ searchParams }: { searchParams: LibraryParams })
       />
     );
   }
-
-  // Reader availability and target selection: one query for this page's works.
-  const workIds = works.map((w) => w.id);
-  const digital = await catalogueAvailability(workIds);
 
   const books = works.map((work) => {
     const firstEdition = work.editions[0];

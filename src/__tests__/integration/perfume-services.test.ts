@@ -540,7 +540,8 @@ describe.skipIf(!url)("perfume catalogue and inventory services", () => {
     expect(rows.map((r) => [r.table_name, r.column_name])).toEqual(
       [...CATALOGUE_DATE_REFERENCES].map(([t, col]) => [t, col]).sort((a, b) => a.join().localeCompare(b.join())),
     );
-  });
+    // information_schema is slow under load: 3.4 s alone, 7.7 s in a full run
+  }, 30000);
 
   it("exports perfumes one row each, and leaves other kinds out", async () => {
     const perfume = await fullPerfume();

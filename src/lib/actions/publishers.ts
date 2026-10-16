@@ -134,6 +134,12 @@ const publisherListSchema = z.object({
 });
 export type PublisherListOptions = z.input<typeof publisherListSchema>;
 
+/** Whether there is any publisher the list shows: with none, the page shows only its empty state */
+export async function hasPublishers() {
+  const [row] = await db.select({ id: houses.id }).from(houses).where(publisherCondition).limit(1);
+  return !!row;
+}
+
 /**
  * Publisher list with the same search engine as authors (accent-insensitive,
  * typo-tolerant, ranked; names and aliases), sorts and filters.

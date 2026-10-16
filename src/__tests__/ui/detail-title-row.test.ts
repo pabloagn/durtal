@@ -32,6 +32,11 @@ describe("DetailTitleRow", () => {
     expect(classes(h1)).toEqual(expect.arrayContaining(["min-w-0", "flex-[1_1_auto]", "break-words"]));
     // Under the title the star's padding is pulled out, so its icon lines up with the title
     expect(classes(controls)).toEqual(expect.arrayContaining(["-ml-2", "pointer-coarse:-ml-3.5"]));
+    // Their size is the row's, which steps down with the title, not a
+    // type-page-title of their own (SLN-843)
+    expect(classes(controls)).not.toContain("type-page-title");
+    expect(classes(row)).toContain("type-page-title");
+    expect(row.getAttribute("data-title-length")).toBe("long");
   });
 
   it("wraps by the controls' width and each kind's free wrapping, 12px from the title but on the publisher page", () => {
@@ -51,6 +56,8 @@ describe("DetailTitleRow", () => {
       ["components/publishers/publisher-header.tsx", "<DetailTitleRow title={name}>"],
       ["app/(catalogue)/people/[slug]/author-detail-header.tsx", '<DetailTitleRow title={name} controls="wide">'],
       ["app/(catalogue)/series/[id]/page.tsx", '<DetailTitleRow title={s.title} controls="free">'],
+      // A recommender's name steps down on a phone as a series' title does (SLN-843)
+      ["app/(catalogue)/recommenders/[id]/page.tsx", '<DetailTitleRow title={recommender.name} controls="free">'],
       ["app/(catalogue)/films/[slug]/page.tsx", '<DetailTitleRow title={film.title} controls="stacked">'],
       ["app/(catalogue)/paintings/[slug]/page.tsx", '<DetailTitleRow title={painting.title} controls="wide">'],
       ["app/(catalogue)/perfumes/[slug]/page.tsx", '<DetailTitleRow title={perfume.title} controls="wide">'],
@@ -61,6 +68,7 @@ describe("DetailTitleRow", () => {
     for (const file of ["films/film-actions", "paintings/painting-actions", "perfumes/perfume-actions", "organizations/organization-actions"])
       expect(read(`components/${file}.tsx`), file).toContain("<DetailControls>");
     expect(read("app/(catalogue)/places/[slug]/venue-actions.tsx")).toContain("<DetailControls>");
+    expect(read("app/(catalogue)/recommenders/[id]/page.tsx")).toContain("<DetailControls>");
   });
 
   // One visible set on every kind but the book: the favourite, a labelled

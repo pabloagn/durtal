@@ -20,6 +20,8 @@ import {
   isEbookFileNativeReadable,
 } from "@/lib/ebooks/conditions";
 import { formatLabel } from "@/lib/ebooks/formats";
+import { openFailureOf } from "@/lib/ebooks/open-failure";
+import { lockName, lockedFileMessage } from "@/lib/ebooks/locked-file";
 import { languageName } from "@/lib/utils/language";
 import { PageHeader } from "@/components/layout/page-header";
 import {
@@ -67,7 +69,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   return { title: ebook.workTitle ? `${ebook.workTitle} · eBook` : ebook.title };
 }
 export default async function EbookPage({ params, searchParams }: Props) {
-  // proxy returns 400 for malformed ids before page or metadata can query.
+  // A malformed id finds nothing: the layout answers it with eBook not found (SLN-864)
   const allDevices = await allDevicesOf(searchParams);
   const ebook = await load((await params).ebookId, allDevices);
   if (!ebook) notFound();
@@ -107,6 +109,16 @@ export default async function EbookPage({ params, searchParams }: Props) {
   const alternatives = readableFiles(ebook).filter(
     (file) => file.id !== descriptor?.target.id,
   );
+  // A file the reader could not open, or, with nothing to read, one DRM
+  // locks: said in plain words beside the cover, with its replacement (SLN-685)
+  const replaceHref = (fileId: string) => `/ebooks/upload?kind=replace&ebookId=${ebook.id}&fileId=${fileId}`;
+  const target = descriptor ? ebook.files.find((file) => file.id === descriptor.target.id) : undefined;
+  const damaged = target && openFailureOf(target.metadata) ? target : undefined;
+  // With nothing else to read, the damaged file's replacement leads and Read
+  // stays to try it again (SLN-864)
+  const replaceLeads = !!damaged && alternatives.length === 0;
+  const locked = descriptor || ebook.matchState === "excluded" ? undefined
+    : ebook.files.find((file) => file.drm !== null && (file.status === "stored" || file.status === "verified"));
   const files = ebook.files.map((file) => ({
     id: file.id,
     format: file.format,
@@ -124,7 +136,9 @@ export default async function EbookPage({ params, searchParams }: Props) {
       ebook.matchState !== "excluded" && isEbookFileNativeReadable(file),
     replaceable: file.status !== "replaced",
     status: file.drm
-      ? `Protected by ${file.drm}, cannot be opened`
+      ? `Locked with ${lockName(file.drm)}, cannot be opened`
+      : (file.status === "stored" || file.status === "verified") && openFailureOf(file.metadata)
+        ? `Damaged: did not open on ${openFailureOf(file.metadata)!.at.slice(0, 10)}`
       : file.status === "verified"
         ? `Verified${file.verifiedAt ? ` ${file.verifiedAt.slice(0, 10)}` : ""}`
         : file.status === "missing"
@@ -160,9 +174,16 @@ export default async function EbookPage({ params, searchParams }: Props) {
         }
         actions={
           descriptor && (
-            <ReaderEntryLink readerPath={descriptor.href} returnTo={returnTo} className={buttonClass("primary")}>
-              {readLabel}
-            </ReaderEntryLink>
+            <>
+              {replaceLeads && (
+                <Link href={replaceHref(damaged.id)} className={buttonClass("primary")}>
+                  Replace file…
+                </Link>
+              )}
+              <ReaderEntryLink readerPath={descriptor.href} returnTo={returnTo} className={buttonClass(replaceLeads ? "secondary" : "primary")}>
+                {readLabel}
+              </ReaderEntryLink>
+            </>
           )
         }
       />
@@ -223,6 +244,20 @@ export default async function EbookPage({ params, searchParams }: Props) {
             <p className="type-item-title [overflow-wrap:anywhere]">
               {(book?.authors.length ? book.authors : ebook.authors).join(", ") || "Unknown author"}
             </p>
+            {damaged && (
+              <p className="mt-3 text-sm text-fg-primary">
+                {replaceLeads ? `This ${formatLabel(damaged.format)} file is damaged.` : <>
+                  This {formatLabel(damaged.format)} file is damaged ·{" "}
+                  <Link href={replaceHref(damaged.id)} className="touch-hit text-command">Replace file…</Link>
+                </>}
+              </p>
+            )}
+            {locked?.drm && (
+              <p className="mt-3 text-sm text-fg-primary">
+                {lockedFileMessage(locked.drm)}{" "}
+                <Link href={replaceHref(locked.id)} className="touch-hit text-command">Replace file…</Link>
+              </p>
+            )}
             {descriptor?.projection === "pending-reanchor" && (
               <p className="mt-3 text-sm text-fg-secondary">
                 Your saved place will be located in the current{" "}
