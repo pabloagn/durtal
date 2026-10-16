@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sourceQualitySchema } from "./source-quality";
 
 /**
  * The payload of an evidence document in `source_records` (SLN-468): what an
@@ -32,6 +33,19 @@ const common = {
   fingerprint: z.object({ method: z.string().max(100), values: z.array(z.number().int().nonnegative()).length(128) }),
   runId: z.uuid().nullable(),
   jobId: z.uuid().nullable(),
+  /** Optional for historical immutable observations; all new observations set it. */
+  quality: sourceQualitySchema.optional(),
+  sections: z
+    .array(
+      z.object({
+        role: z.string().max(30),
+        start: z.number().int().nonnegative(),
+        end: z.number().int().nonnegative(),
+        locator: z.string().max(300),
+      }),
+    )
+    .optional(),
+  identityText: z.string().max(2000).optional(),
 };
 
 /** A page the fetcher retrieved */

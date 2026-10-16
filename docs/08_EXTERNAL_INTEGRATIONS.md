@@ -282,8 +282,28 @@ The book enrichment fetches review and publisher pages as evidence through
 `fetch`. It shares the guarded request loop of `safeFetchImage`: every resolved
 address is checked when the socket connects, redirects are followed by hand and
 checked again, one deadline counts network time (30 s), and the body is capped
-while it streams (5 MB). HTTPS only; HTML, XHTML or plain text only (a PDF fails
-as `unsupported_type`).
+while it streams (5 MB). HTTPS only; HTML, XHTML or plain text. JSON is also
+accepted at explicit Open Library record API URLs, XML at BnF SRU; a PDF still
+fails as `unsupported_type`. Profiles grant no registry or robots exception.
+
+SLN-969 validates source quality before storage and again before extraction.
+Open Library record URLs route to their JSON endpoints; BnF ARKs route to SRU,
+with one authority-record alternative only after an explicit zero-result
+bibliographic response. Refusals never trigger an alternative. Publisher pages
+use the primary Book JSON-LD or explicitly labelled book fields/description;
+reviews, biographies and recommendations are excluded. Other articles retain
+Readability. Unsupported page layouts fail closed or report missing fields;
+there is no promise of complete coverage for every publisher.
+
+Every new evidence payload records the profile/version, usable/partial status,
+present/missing fields, and source section locators with code-point offsets.
+Verification/interstitial, navigation-only, malformed and wrong-identity content
+is refused. Historical payloads remain immutable; cached documents without the
+required record fields require a permitted refresh. A partial source supplies
+only its actual evidence, never inferred values for missing fields. Reports
+show per-document coverage and refused sources; counts describe this run, not
+production reliability. Full owned books remain local and are not inputs to
+this public-source fetcher.
 
 - **Allowlist.** Only a URL of an active outlet of the registry
   (`evidence_outlets`, docs/02) whose policy is `fetch`; every hop is checked

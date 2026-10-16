@@ -12,12 +12,10 @@ import type { EvidenceObjects } from "@/lib/s3/evidence-objects";
 import { EvidenceFetchError, type FetchedPage } from "@/lib/net/safe-fetch-page";
 import { canonicalEvidenceUrl } from "./evidence-url";
 import { fingerprint } from "./fingerprint";
-import {
-  EVIDENCE_KINDS,
-  evidencePagePayloadSchema,
-  evidenceTextPayloadSchema,
-  type EvidencePagePayload,
-} from "./evidence-payload";
+import { sourceRequests, type SourceField } from "./source-profiles";
+import { assessSourceContent, blockedSourceText, usableSourceQuality, type SourceIdentity, type SourceQuality } from "./source-quality";
+import type { SourceSection } from "./source-extract";
+import { EVIDENCE_KINDS, evidencePagePayloadSchema, evidenceTextPayloadSchema, type EvidencePagePayload } from "./evidence-payload";
 
 /**
  * The evidence store (SLN-468): a fetched page or a search snippet, kept as
@@ -40,11 +38,14 @@ export interface ExtractedPage {
   publishedOn: string | null;
   language: string | null;
   canonicalUrl: string | null;
+  fields?: SourceField[];
+  identityText?: string;
+  sections?: SourceSection[];
 }
 export interface MainTextExtractor {
   name: string;
   version: string;
-  extract: (html: string, url: string) => ExtractedPage | null;
+  extract: (html: string, url: string, kind?: string) => ExtractedPage | null;
 }
 
 export type StoredEvidence = typeof sourceRecords.$inferSelect;
@@ -65,8 +66,7 @@ async function ownerColumns(database: Db, owner: EvidenceOwner) {
     : { entityKind: "edition" as const, workId: null, editionId: owner.editionId };
 }
 
-const ownerWhere = (owner: EvidenceOwner) =>
-  owner.kind === "book" ? eq(sourceRecords.workId, owner.workId) : eq(sourceRecords.editionId, owner.editionId);
+const ownerWhere = (owner: EvidenceOwner) => (owner.kind === "book" ? eq(sourceRecords.workId, owner.workId) : eq(sourceRecords.editionId, owner.editionId));
 
 /** Insert one evidence row; the payload is checked and hashed as source records require */
 async function insertEvidence(
@@ -80,21 +80,21 @@ async function insertEvidence(
   const json = JSON.stringify(row.payload);
   if (Buffer.byteLength(json, "utf8") > 1_000_000) throw new Error("A source observation must be at most 1 MB");
   const [inserted] = (await atomicOn(database, (d) => [
-      d
-        .insert(sourceRecords)
-        .values({
-          ...columns,
-          provider: row.provider,
-          url: row.url,
-          attribution: row.attribution,
-          retrievedAt: row.retrievedAt,
-          verifiedAt: row.retrievedAt,
-          reviewStatus: "accepted",
-          payload: row.payload,
-          payloadHash: sourcePayloadHash(row.payload),
-          supersedesId: row.supersedesId,
-        })
-        .returning(),
+    d
+      .insert(sourceRecords)
+      .values({
+        ...columns,
+        provider: row.provider,
+        url: row.url,
+        attribution: row.attribution,
+        retrievedAt: row.retrievedAt,
+        verifiedAt: row.retrievedAt,
+        reviewStatus: "accepted",
+        payload: row.payload,
+        payloadHash: sourcePayloadHash(row.payload),
+        supersedesId: row.supersedesId,
+      })
+      .returning(),
   ])) as StoredEvidence[][];
   return inserted[0];
 }
@@ -139,6 +139,35 @@ export interface StorePageInput {
   objects: EvidenceObjects;
   /** The outlet's name, for the row's attribution */
   outletName: (key: string) => string;
+  outletKind?: string;
+  expectedIdentity?: SourceIdentity;
+}
+
+function requireUsable(quality: SourceQuality) {
+  if (usableSourceQuality(quality)) return;
+  const reason = quality.status === "blocked" ? "source_blocked" : quality.status === "identity_mismatch" ? "identity_mismatch" : "extraction_failed";
+  throw new EvidenceFetchError(reason, `Source rejected: ${quality.reasons.join(", ")}`);
+}
+
+/** Recheck old cache entries; nonempty legacy text is not a quality certificate. */
+async function validateCached(record: StoredEvidence, input: StorePageInput) {
+  const payload = evidencePagePayloadSchema.parse(record.payload);
+  const read = await readEvidenceText(payload.textSha256, input.objects);
+  if (read.status !== "ok") throw new EvidenceFetchError("extraction_failed", "Cached source text was purged; refresh required");
+  const quality = assessSourceContent(
+    {
+      text: read.value,
+      title: payload.title,
+      identityText: payload.identityText,
+      fields: payload.quality?.present,
+    },
+    payload.finalUrl,
+    {
+      profile: sourceRequests(input.url, input.outletKind).profile,
+      identity: input.expectedIdentity,
+    },
+  );
+  requireUsable(quality);
 }
 
 /**
@@ -155,6 +184,7 @@ export async function storeEvidencePage(input: StorePageInput): Promise<{ record
   if (!input.refresh) {
     const stored = await findStoredPage(database, input.url);
     if (stored) {
+      await validateCached(stored, input);
       // The owner's newest row of this URL, whichever run wrote it
       const [own] = await database
         .select()
@@ -162,7 +192,10 @@ export async function storeEvidencePage(input: StorePageInput): Promise<{ record
         .where(and(isEvidence, sql`${sourceRecords.payload} ->> 'kind' = 'evidence_page'`, ownerWhere(owner), eq(sourceRecords.url, stored.url!)))
         .orderBy(desc(sourceRecords.retrievedAt), desc(sourceRecords.id))
         .limit(1);
-      if (own) return { record: own, fetched: false, created: false };
+      if (own) {
+        await validateCached(own, input);
+        return { record: own, fetched: false, created: false };
+      }
       const payload = { ...(stored.payload as EvidencePagePayload), runId: input.runId, jobId: input.jobId ?? null };
       const record = await insertEvidence(database, owner, {
         provider: stored.provider,
@@ -176,9 +209,19 @@ export async function storeEvidencePage(input: StorePageInput): Promise<{ record
     }
   }
 
-  const page = await input.fetchPage(input.url);
-  const extracted = input.extractor.extract(page.html, page.finalUrl);
-  if (!extracted?.text.trim()) throw new EvidenceFetchError("no_main_text", "The page has no main text");
+  const route = sourceRequests(input.url, input.outletKind);
+  let page = await input.fetchPage(route.urls[0]);
+  // A single authority fallback is allowed only for an explicitly empty BnF
+  // result, never for a refusal, broken response or mismatched identity.
+  if (route.urls[1] && /<(?:\w+:)?numberOfRecords>\s*0\s*<\//.test(page.html)) page = await input.fetchPage(route.urls[1]);
+  if (blockedSourceText(page.html)) throw new EvidenceFetchError("source_blocked", "Source returned a verification or access page");
+  const extracted = input.extractor.extract(page.html, page.finalUrl, input.outletKind);
+  const quality = assessSourceContent(extracted, page.finalUrl, {
+    profile: route.profile,
+    identity: input.expectedIdentity,
+  });
+  requireUsable(quality);
+  if (!extracted) throw new EvidenceFetchError("no_main_text", "The page has no main text");
   const text = await storeText(input.objects, extracted.text);
   const rawSha256 = sha256(page.raw);
   const rawKey = evidenceRawKey(rawSha256);
@@ -215,6 +258,9 @@ export async function storeEvidencePage(input: StorePageInput): Promise<{ record
     fingerprint: fingerprint(text.stored),
     runId: input.runId,
     jobId: input.jobId ?? null,
+    quality,
+    sections: extracted.sections,
+    identityText: extracted.identityText?.slice(0, 2000),
   });
   // A refresh of the same owner, outlet and final URL supersedes the newest row of that chain
   const [previous] = input.refresh
@@ -227,7 +273,12 @@ export async function storeEvidencePage(input: StorePageInput): Promise<{ record
             ownerWhere(owner),
             eq(sourceRecords.provider, page.outlet),
             eq(sourceRecords.url, finalUrl),
-            notExists(database.select({ id: sql`1` }).from(sql`source_records successor`).where(sql`successor.supersedes_id = ${sourceRecords.id}`)),
+            notExists(
+              database
+                .select({ id: sql`1` })
+                .from(sql`source_records successor`)
+                .where(sql`successor.supersedes_id = ${sourceRecords.id}`),
+            ),
           ),
         )
         .orderBy(desc(sourceRecords.retrievedAt))
@@ -260,8 +311,11 @@ export async function storeEvidenceText(input: {
   runId: string;
   jobId?: string | null;
   objects: EvidenceObjects;
+  expectedIdentity?: SourceIdentity;
 }): Promise<StoredEvidence> {
   await ownerColumns(input.database, input.owner);
+  const quality = assessSourceContent({ text: input.text }, input.url ?? "https://snippet.invalid", { identity: input.expectedIdentity, snippet: true });
+  requireUsable(quality);
   const text = await storeText(input.objects, input.text);
   const payload = evidenceTextPayloadSchema.parse({
     kind: "evidence_text",
@@ -275,6 +329,7 @@ export async function storeEvidenceText(input: {
     fingerprint: fingerprint(text.stored),
     runId: input.runId,
     jobId: input.jobId ?? null,
+    quality,
   });
   return insertEvidence(input.database, input.owner, {
     provider: input.outlet,

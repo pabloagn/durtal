@@ -550,7 +550,12 @@ its retrieval time, with one row per document and owner (the book, or one of its
 editions). Readers recognise it by `payload.kind`.
 
 **The evidence payload** (`src/lib/enrichment/evidence-payload.ts`) holds no
-page text (R10), only hashes, keys and short metadata: `kind` (`evidence_page`,
+page text (R10), only hashes, keys and short metadata. SLN-969 adds optional
+`quality` (profile/version, status, available and missing fields, coverage and
+reasons), `identityText` (primary record identity, at most 2,000 characters),
+and `sections` (role, locator, code-point start/end in the hashed NFC text).
+These are present on new observations and optional for historical payloads;
+no DDL migration or rewrite is needed. Remaining fields: `kind` (`evidence_page`,
 `evidence_text`), `retrievedVia` (`fetch`, `search:<provider>`), `outlet`, the
 `query` of a snippet; the requested, final and canonical URLs, HTTP status,
 content type and charset; `rawSha256`, `rawBytes`, `rawStoredBytes`, `rawKey`
