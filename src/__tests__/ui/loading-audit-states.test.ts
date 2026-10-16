@@ -38,6 +38,11 @@ import SeriesError from "../../app/(catalogue)/series/error";
 import SettingsError from "../../app/(catalogue)/settings/error";
 import ReaderError from "../../app/reader/error";
 import GlobalError from "../../app/global-error";
+import PlacesError from "../../app/(catalogue)/places/error";
+import OrganizationsError from "../../app/(catalogue)/organizations/error";
+import RecommendersError from "../../app/(catalogue)/recommenders/error";
+import TaxonomyError from "../../app/(catalogue)/taxonomy/error";
+import LocationsError from "../../app/(catalogue)/locations/error";
 import { EbooksView } from "../../app/(catalogue)/ebooks/ebooks-view";
 import { HarmonizeWorkspace } from "../../app/(catalogue)/harmonize/workspace";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
@@ -146,6 +151,14 @@ describe("error views that lead back to their own list", () => {
     [SeriesError, "/series/suggestions", ["/series", "Back to series", "An error occurred while loading this page."]],
     [SettingsError, "/settings/data", ["/settings", "Back to settings", "An error occurred while loading this page."]],
     [SettingsError, "/settings", ["/", "Go to the dashboard", "Settings could not be loaded."]],
+    // SLN-813: these fell through to the catalogue's view, which led to the dashboard
+    [PlacesError, "/places/cafe-de-flore", ["/places", "Back to places", "This place could not be loaded."]],
+    [PlacesError, "/places", ["/", "Go to the dashboard", "Places could not be loaded."]],
+    [OrganizationsError, "/organizations/gallimard", ["/organizations", "Back to organizations", "This organization could not be loaded."]],
+    [RecommendersError, "/recommenders/7", ["/recommenders", "Back to recommenders", "This recommender could not be loaded."]],
+    [TaxonomyError, "/taxonomy/genres", ["/taxonomy", "Back to taxonomy", "This family could not be loaded."]],
+    [TaxonomyError, "/taxonomy/genres/gothic", ["/taxonomy", "Back to taxonomy", "An error occurred while loading this page."]],
+    [LocationsError, "/locations", ["/", "Go to the dashboard", "Locations could not be loaded."]],
   ] as const)("%o on %s", (Error, pathname, expected) => {
     expect(back(Error, pathname)).toEqual(expected);
   });
