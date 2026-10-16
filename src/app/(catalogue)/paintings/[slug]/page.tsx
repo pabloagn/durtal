@@ -440,7 +440,7 @@ export default async function PaintingPage({
               </PaintingActions>
             </DetailTitleRow>
 
-            <dl className="mt-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm pointer-coarse:mt-8 pointer-coarse:gap-y-8">
+            <dl className="mt-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm facts-touch">
               <dt className="text-fg-secondary">Painted by</dt>
               <dd className="text-fg-primary">
                 <Painters painting={painting} />

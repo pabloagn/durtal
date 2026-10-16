@@ -445,7 +445,7 @@ export default async function PerfumePage({
             </p>
           )}
 
-          <dl className="mt-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm pointer-coarse:mt-8 pointer-coarse:gap-y-8">
+          <dl className="mt-5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm facts-touch">
             <dt className="text-fg-secondary">{perfumers.length === 1 ? "Perfumer" : "Perfumers"}</dt>
             <dd className="text-fg-primary">
               {perfumers.length === 0 ? (
@@ -565,7 +565,7 @@ export default async function PerfumePage({
           }
         />
         {selected ? (
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm pointer-coarse:gap-y-8">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm facts-touch">
             {vocabularies.map((v) => {
               const terms = selected.classification.filter((c) => c.familyId === v.familyId);
               return (

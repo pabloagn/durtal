@@ -311,6 +311,20 @@ dialog::backdrop {
   }
 }
 
+/* A facts list (dl) on touch: a row whose value holds a link with a grown
+   press area (text-command, touch-hit) gets 12px above and below, label
+   too, so two such rows sit 32px apart and their press areas keep apart.
+   Plain-text rows and 44px buttons (the rating) keep the list's own gap
+   (SLN-862) */
+@utility facts-touch {
+  @media (pointer: coarse) {
+    & > dd:has(:is(a.text-command, a.touch-hit)),
+    & > dt:has(+ dd :is(a.text-command, a.touch-hit)) {
+      padding-block: 12px;
+    }
+  }
+}
+
 /* Touch targets (docs/03, Keyboard, touch and motion): on a coarse pointer a
    small control's press area grows to at least 44 x 44 px around it, with no
    change to its look or to the layout. It positions the control (`relative`);

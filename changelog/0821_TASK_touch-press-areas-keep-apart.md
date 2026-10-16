@@ -25,9 +25,12 @@ Press areas that crossed:
   wrapped rows are 38px apart. Edit and Delete instance are 8px apart, and the
   row below the status is 18px lower.
 - eBooks: the state counts wrap 32px apart and sit 4px lower under the header.
-- Painting and perfume facts (`dl`): rows are 32px apart, as is the gap
-  below the title or house line. The perfume's formulation links are 26px
-  apart in rows and 8px across.
+- Painting and perfume facts (`dl`, the `facts-touch` utility): a row
+  whose value holds a link gets 12px above and below, label too, so two
+  linked rows are 32px apart, as is a linked first row from the title or
+  house line. Plain-text rows and the rating keep the list's 8px, so the
+  list does not read loose (review of #435). The perfume's formulation
+  links are 26px apart in rows and 8px across.
 - Taxonomy chips on record pages (`taxonomy-assignments.tsx`): a chip's
   cross stays inside it (`pr-4`), chips are 16px apart across and 26px
   between rows, and families are 26px apart.

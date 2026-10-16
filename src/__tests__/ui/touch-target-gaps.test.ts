@@ -18,8 +18,11 @@ describe("press areas that crossed", () => {
 
   it("spaces wrapped eBook state counts and record facts", () => {
     expect(read("app/(catalogue)/ebooks/page.tsx")).toContain("pointer-coarse:-mt-4 pointer-coarse:gap-y-8");
+    // Only rows with a link get the room: plain rows keep the list's 8px
     for (const file of ["app/(catalogue)/paintings/[slug]/page.tsx", "app/(catalogue)/perfumes/[slug]/page.tsx"])
-      expect(read(file), file).toContain("gap-y-2 text-sm pointer-coarse:mt-8 pointer-coarse:gap-y-8");
+      expect(read(file), file).toContain("gap-x-6 gap-y-2 text-sm facts-touch\"");
+    const css = read("styles/globals.css");
+    expect(css).toMatch(/@utility facts-touch \{\s*@media \(pointer: coarse\) \{\s*& > dd:has\(:is\(a\.text-command, a\.touch-hit\)\),\s*& > dt:has\(\+ dd :is\(a\.text-command, a\.touch-hit\)\) \{\s*padding-block: 12px;/);
   });
 
   it("keeps a chip's cross inside it and its rows apart", () => {
