@@ -1,4 +1,6 @@
 "use client";
+
+import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
 import { PlacePicker, type PlaceValue } from "@/components/shared/place-picker";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -39,6 +41,7 @@ export function PublisherEditor({
   const router = useRouter();
   const notices = toast.forAction(`publisher:${publisher?.id ?? "new"}`);
   const [pending, start] = useTransition();
+  const [typedName, setTypedName] = useState(publisher?.name ?? "");
   const [nameError, setNameError] = useState<string>();
   const [kind, setKind] = useState<HouseKind>(publisher?.kind ?? "publisher");
   const [parent, setParent] = useState<PublisherOption | null>(initialParent);
@@ -106,14 +109,14 @@ export function PublisherEditor({
     <form ref={form} onSubmit={submit} className="max-w-2xl space-y-5">
       <fieldset disabled={pending} className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input
+          <div className="min-w-0 space-y-2"><Input
             name="name"
             label="Name"
             defaultValue={publisher?.name ?? ""}
             error={nameError}
-            onChange={() => setNameError(undefined)}
+            onChange={(e) => { setTypedName(e.target.value); setNameError(undefined); }}
             required
-          />
+          /><NameDuplicateNotice kind="publisher" name={typedName} enabled={!publisher} /></div>
           <Input
             name="country"
             label="Country"

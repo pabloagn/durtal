@@ -363,7 +363,7 @@ export async function findDuplicateWork(opts: {
       where: eq(editions.isbn13, opts.isbn13),
       with: { work: { with: duplicateWith } },
     });
-    if (byIsbn?.work) return byIsbn.work;
+    if (byIsbn?.work) return { ...byIsbn.work, matchedBy: "isbn" as const };
   }
 
   // Same title, ignoring accents, case and punctuation ("Agua Viva" and
@@ -392,7 +392,7 @@ export async function findDuplicateWork(opts: {
     }),
   );
 
-  return match ?? null;
+  return match ? { ...match, matchedBy: "title_author" as const } : null;
 }
 
 export async function createWork(input: CreateWorkInput) {

@@ -26,6 +26,8 @@ import {
   newWorkDraft,
   wizardBookInput,
   workInput,
+  workDraftErrors,
+  duplicateIdentity,
   type DuplicateWork,
   type EditionDraft,
   type MetadataSource,
@@ -71,6 +73,10 @@ export function AddBookWizard({
   const [fastTrackSaving, setFastTrackSaving] = useState(false);
   const [fastTrackError, setFastTrackError] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("search");
+  const [detailsErrors, setDetailsErrors] = useState<ReturnType<typeof workDraftErrors>>({ title: undefined, authorName: undefined });
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+  const duplicateCheckInFlight = useRef(false);
+  const allowedDuplicate = useRef<string | null>(null);
 
   // Search autocomplete
   const search = useDebouncedSearch(300);
@@ -83,6 +89,7 @@ export function AddBookWizard({
   }, [initialIsbn, initialQuery, setSearchQuery]);
 
   // Duplicate detection
+  const [duplicateAfter, setDuplicateAfter] = useState<"search" | "details" | null>(null);
   const [duplicateWork, setDuplicateWork] = useState<DuplicateWork | null>(null);
   const [existingWorkId, setExistingWorkId] = useState<string | null>(null);
 
@@ -96,7 +103,13 @@ export function AddBookWizard({
   const [source, setSource] = useState<MetadataSource>({ source: "", sourceId: "" });
   // The person has entered something in a step (a search result alone is not that)
   const [edited, setEdited] = useState(false);
-  const updateWork = (patch: Partial<WorkDraft>) => setWork((w) => ({ ...w, ...patch }));
+  const updateWork = (patch: Partial<WorkDraft>) => {
+    setWork((w) => ({ ...w, ...patch }));
+    setDetailsErrors((errors) => ({
+      title: patch.title !== undefined ? undefined : errors.title,
+      authorName: patch.authorName !== undefined ? undefined : errors.authorName,
+    }));
+  };
   const updateEdition = (patch: Partial<EditionDraft>) => setEdition((e) => ({ ...e, ...patch }));
 
   const wishlist = isWishlistStatus(work.catalogueStatus);
@@ -140,6 +153,8 @@ export function AddBookWizard({
 
   function selectResult(result: SearchResult) {
     clearResults();
+    setExistingWorkId(null);
+    allowedDuplicate.current = null;
     const filled = fromSearchResult(result, appSettings.newBookLanguage);
     updateWork(filled.work);
     setEdition(filled.edition);
@@ -163,6 +178,7 @@ export function AddBookWizard({
         authorName: author,
       });
       if (dup) {
+        setDuplicateAfter("search");
         setDuplicateWork(dup as DuplicateWork);
         setStep("duplicate");
       } else {
@@ -175,7 +191,49 @@ export function AddBookWizard({
 
   // ── Submit ───────────────────────────────────────────────────────────────
 
-  function handleFastTrack() {
+  function validateWork() {
+    if (existingWorkId) return true;
+    const errors = workDraftErrors(work);
+    setDetailsErrors(errors);
+    if (!errors.title && !errors.authorName) return true;
+    setStep("details");
+    requestAnimationFrame(() => root.current?.querySelector<HTMLInputElement>(errors.title ? "#title" : "#author")?.focus());
+    return false;
+  }
+
+  async function advanceDetails(next: "fast" | "edition") {
+    if (duplicateCheckInFlight.current || fastTrackInFlight.current || createInFlight.current || !validateWork()) return;
+    duplicateCheckInFlight.current = true;
+    setCheckingDuplicate(true);
+    setFastTrackError(null);
+    try {
+      const identity = duplicateIdentity(work, edition.isbn13);
+      if (!existingWorkId && allowedDuplicate.current !== identity) {
+        const duplicate = await findDuplicateWork({
+          isbn13: edition.isbn13.replace(/[\s-]/g, "") || undefined,
+          title: work.title.trim(),
+          authorName: work.authorName.trim(),
+        });
+        if (duplicate) {
+          setDuplicateAfter("details");
+          setDuplicateWork(duplicate as DuplicateWork);
+          setStep("duplicate");
+          return;
+        }
+      }
+      if (next === "fast") saveFastTrack();
+      else setStep("edition");
+    } catch {
+      setFastTrackError("Could not check for an existing book. Try again before continuing.");
+    } finally {
+      duplicateCheckInFlight.current = false;
+      setCheckingDuplicate(false);
+    }
+  }
+
+  function handleFastTrack() { void advanceDetails("fast"); }
+
+  function saveFastTrack() {
     // A synchronous guard covers rapid clicks before React disables the button.
     if (
       existingWorkId ||
@@ -218,7 +276,7 @@ export function AddBookWizard({
   }
 
   async function handleSubmit() {
-    if (createInFlight.current || fastTrackInFlight.current) return;
+    if (createInFlight.current || fastTrackInFlight.current || !validateWork()) return;
     createInFlight.current = true;
     const input = wizardBookInput({ work, edition, source, existingWorkId, taxonomy, copies: copiesToCreate });
     startTransition(async () => {
@@ -279,11 +337,22 @@ export function AddBookWizard({
   // does, else "Add to catalogue" with what the steps hold so far. A new
   // work needs its title and author first.
   const root = useRef<HTMLDivElement>(null);
+  const stepRoot = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      stepRoot.current?.querySelector<HTMLElement>('input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled), a[href]')?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [step]);
+  useEffect(() => {
+    if (isbnClash) root.current?.querySelector<HTMLInputElement>("#isbn13")?.focus();
+  }, [isbnClash]);
   const canSave = !!existingWorkId || (!!work.title.trim() && !!work.authorName.trim());
   const unsavedPrompt = useEscapeToCancel({
     root,
+    searchEscCancels: step === "search",
     cancel,
-    enabled: !fastTrackSaving && !isPending,
+    enabled: !fastTrackSaving && !isPending && !checkingDuplicate,
     dirty: touched && draft !== startingPoint,
     save:
       !canSave || step === "search" || step === "duplicate" ? null
@@ -296,7 +365,7 @@ export function AddBookWizard({
     <Button
       variant="ghost"
       className={className}
-      disabled={fastTrackSaving || isPending}
+      disabled={fastTrackSaving || isPending || checkingDuplicate}
       onClick={cancel}
       data-dismiss=""
     >
@@ -313,13 +382,19 @@ export function AddBookWizard({
     <>
     {unsavedPrompt}
     <div ref={root} className="max-w-2xl" data-shortcut-scope="">
-      <StepProgress step={step} disabled={fastTrackSaving} onStep={setStep} />
+      <StepProgress step={step} disabled={fastTrackSaving || isPending || checkingDuplicate} onStep={setStep} duplicateAfter={duplicateAfter} />
+      <div ref={stepRoot} data-wizard-step={step}>
 
       {step === "search" && (
         <SearchStep
           search={search}
           onSelect={selectResult}
-          onManual={() => setStep("details")}
+          onManual={() => {
+            setExistingWorkId(null);
+            allowedDuplicate.current = null;
+            setDuplicateAfter(null);
+            setStep("details");
+          }}
           cancel={cancelButton()}
         />
       )}
@@ -334,6 +409,7 @@ export function AddBookWizard({
           }}
           onNewWork={() => {
             setExistingWorkId(null);
+            allowedDuplicate.current = duplicateIdentity(work, edition.isbn13);
             setStep("details");
           }}
           cancel={cancelButton()}
@@ -350,11 +426,12 @@ export function AddBookWizard({
           }}
           recommenders={recommenders}
           addingEdition={!!existingWorkId}
-          fastTrackSaving={fastTrackSaving}
+          fastTrackSaving={fastTrackSaving || checkingDuplicate}
           fastTrackError={fastTrackError}
+          errors={detailsErrors}
           onFastTrack={handleFastTrack}
           onBack={() => setStep("search")}
-          onNext={() => setStep("edition")}
+          onNext={() => { void advanceDetails("edition"); }}
           cancel={cancelButton("mr-auto")}
         />
       )}
@@ -437,6 +514,7 @@ export function AddBookWizard({
           cancel={cancelButton("mr-auto")}
         />
       )}
+      </div>
     </div>
     </>
   );

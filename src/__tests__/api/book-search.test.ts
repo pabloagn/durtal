@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { searchIsbndb, searchIsbndbByAuthor, searchIsbndbByIsbn } from "@/lib/api/isbndb";
 import { searchGoogleBooks } from "@/lib/api/google-books";
 import { searchOpenLibrary } from "@/lib/api/open-library";
-import { searchBooks, searchNotices } from "@/lib/api/search-engine";
+import { searchBooks, searchBooksWithNotices, searchNotices } from "@/lib/api/search-engine";
 import { resetGoogleBooksQuota } from "@/lib/api/google-books-quota";
 
 // Pruned live ISBNdb record/response shape; no credentials or signed image URLs.
@@ -159,5 +159,30 @@ describe("search orchestration with real adapters", () => {
     });
     expect(await searchBooks("Lanark")).toEqual([expect.objectContaining({ source: "open_library", title: "Lanark" })]);
     expect(console.warn).toHaveBeenCalledExactlyOnceWith("[book-search] isbndb: request failed");
+  });
+});
+
+
+describe("request-local source failures", () => {
+  it.each(["Lanark", "9780857865618"])("explains unavailable sources for %s", async query => {
+    fetchMock.mockImplementation(async input => {
+      const url = String(input);
+      if (url.includes("api2.isbndb.com")) return response({}, 503);
+      if (url.includes("googleapis.com")) return response({ items: [] });
+      return response({ docs: [] });
+    });
+    const result = await searchBooksWithNotices(query);
+    expect(result.results).toEqual([]);
+    expect(result.notices).toEqual(["ISBNdb could not complete this search. Try again or enter details manually."]);
+  });
+  it("does not leak source failures into the next search", async () => {
+    fetchMock.mockRejectedValue(new Error("private request detail"));
+    expect((await searchBooksWithNotices("First" )).notices).toHaveLength(3);
+    fetchMock.mockImplementation(async () => response({ items: [], docs: [], books: [] }));
+    expect((await searchBooksWithNotices("Second")).notices).toEqual([]);
+  });
+  it("treats an ISBN absent at a source as an empty result", async () => {
+    fetchMock.mockImplementation(async input => String(input).includes("api2.isbndb.com") ? response({},404) : response({ items: [], docs: [] }));
+    expect((await searchBooksWithNotices("9780857865618")).notices).toEqual([]);
   });
 });

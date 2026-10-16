@@ -7,6 +7,7 @@ import { NextRequest } from "next/server";
  */
 vi.mock("@/lib/api/search-engine", () => ({
   searchBooks: vi.fn(async () => []),
+  searchBooksWithNotices: vi.fn(async () => ({ results: [], notices: ["Google Books is over its quota."] })),
   searchNotices: vi.fn(() => ["Google Books is over its quota."]),
 }));
 // The overview counts rows; these tests need no database
