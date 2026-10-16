@@ -408,6 +408,51 @@ dialog::backdrop {
   }
 }
 
+/* Card parts that repeat on every card of a grid, one class each (page
+   weight, SLN-828): /library draws 48 cards a page */
+@utility fav-hit {
+  @apply action-control flex icon-hit hover:bg-glass-highlight active:bg-bg-tertiary/80;
+}
+/* With icon-hit-end, which the Compact grid resets by name */
+@utility card-heading-action {
+  @apply relative z-20 float-right ml-2;
+}
+@utility card-status-line {
+  @apply relative z-20 flex min-w-0 gap-1.5 text-micro text-fg-secondary;
+}
+@utility card-meta-row {
+  @apply mt-2.5 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1;
+}
+@utility card-cover {
+  @apply relative aspect-[2/3] overflow-hidden bg-bg-tertiary;
+}
+
+/* Badge (ui/badge.tsx): the shape and one class per variant (page weight) */
+@utility badge {
+  @apply inline-flex items-center rounded-sm px-1.5 py-0.5 font-mono text-micro tracking-wider;
+}
+@utility badge-default {
+  @apply badge border border-glass-border bg-bg-tertiary/60 text-fg-secondary;
+}
+@utility badge-accent {
+  @apply badge border border-accent-primary/15 bg-accent-primary/10 text-accent-primary;
+}
+@utility badge-gold {
+  @apply badge border border-accent-gold/15 bg-accent-gold/10 text-accent-gold;
+}
+@utility badge-sage {
+  @apply badge border border-accent-sage/15 bg-accent-sage/10 text-accent-sage;
+}
+@utility badge-blue {
+  @apply badge border border-accent-blue/15 bg-accent-blue/10 text-accent-blue-text;
+}
+@utility badge-red {
+  @apply badge border border-accent-red/15 bg-accent-red/10 text-accent-red-text;
+}
+@utility badge-muted {
+  @apply badge border border-glass-border bg-bg-tertiary/40 text-fg-secondary;
+}
+
 /* A small button on a list row (the reading import's rows, SLN-450): one
    class, so 50 rows a section stay light. `data-on` is the chosen one */
 @utility row-chip {

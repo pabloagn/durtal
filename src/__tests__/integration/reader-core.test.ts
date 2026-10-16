@@ -186,6 +186,8 @@ describe.skipIf(!url)("reader core", () => {
       expect(book).toMatchObject({ title: "À rebours", authors: ["J.-K. Huysmans"], workSlug: null, place: null });
       expect(book!.files.map((f) => f.id)).toEqual([epub.id, pdf.id]);
       expect(book!.file?.id).toBe(epub.id);
+      // A DRM file is named only when nothing else can be read (SLN-685)
+      expect(book!.locked).toBeNull();
 
       await c`update ebooks set preferred_file_id = ${pdf.id} where id = ${ebookId}`;
       book = await readReaderBook(ebookId);
@@ -193,6 +195,14 @@ describe.skipIf(!url)("reader core", () => {
       // ?file= wins when it names a readable file of this e-book, in any case
       expect((await readReaderBook(ebookId, { fileId: epub.id.toUpperCase() }))!.file?.id).toBe(epub.id);
       expect((await readReaderBook(ebookId, { fileId: randomUUID() }))!.file?.id).toBe(pdf.id);
+    });
+
+    it("names the lock of a DRM file when it is all the e-book has (SLN-685)", async () => {
+      await file("pdf", { status: "missing" });
+      const locked = await file("epub", { drm: "adobe-adept" });
+      const book = await readReaderBook(ebookId);
+      expect(book!.file).toBeNull();
+      expect(book!.locked).toEqual({ fileId: locked.id, drm: "adobe-adept" });
     });
 
     it("gives this device's place in the file it opens, and no other device's", async () => {
