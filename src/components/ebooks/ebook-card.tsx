@@ -27,7 +27,7 @@ export function EbookCover({
   sizes?: string;
 }) {
   return (
-    <div className="relative aspect-[2/3] overflow-hidden bg-bg-tertiary">
+    <div className="card-cover">
       {book.cover ? (
         <FadeImage
           src={book.cover.src}
