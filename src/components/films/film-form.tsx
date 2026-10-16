@@ -337,13 +337,14 @@ export function FilmForm(props: Props) {
         />
       </Section>
 
-      {error && (
-        <p role="alert" className="text-sm text-accent-red-text">
-          {error}
-        </p>
-      )}
-      {/* In the edit dialog, under its body and always in view */}
+      {/* In the edit dialog, under its body and always in view, with the
+          reason a save failed over the buttons */}
       <DialogFooter outside="">
+        {error && (
+          <p role="alert" className="basis-full text-sm text-accent-red-text">
+            {error}
+          </p>
+        )}
         <Button
           variant="ghost"
           data-dismiss=""

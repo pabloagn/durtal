@@ -157,8 +157,8 @@ export function InstanceAddDialog({
           <ReviewDecisionControls state={review} onClose={close} onConfirm={() => void confirmEbook()}
             onEdit={() => dispatch({ type: "edit", generation: ++generation.current })} />
         </div> : <>
-        {review.error && <p role="alert" className="mt-3 text-sm text-accent-red-text">{review.error}</p>}
         <DialogFooter>
+          {review.error && <p role="alert" className="basis-full text-sm text-accent-red-text">{review.error}</p>}
           <Button data-dismiss=""
             variant="secondary"
             size="sm"

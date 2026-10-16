@@ -2,6 +2,8 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement as h, useId } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { readFileSync } from "fs";
+import path from "path";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 
 // Pass 5, item 1 (SLN-847): an edit dialog's Cancel and Save sit under its
@@ -71,5 +73,23 @@ describe("a dialog's footer", () => {
     const dialog = document.querySelector("dialog")!;
     expect(dialog.querySelector(".overflow-y-auto")!.className).toContain("pb-6");
     expect(dialog.lastElementChild!.childElementCount).toBe(0);
+  });
+});
+
+// With Save always in view, a form's reason for not saving goes over it:
+// at the end of the scrolling body it would be out of view whenever the
+// fields are scrolled to the top
+describe("a form's save error", () => {
+  const footers = (file: string) =>
+    readFileSync(path.resolve(__dirname, "../..", file), "utf8").match(/<DialogFooter[\s\S]*?<\/DialogFooter>/g) ?? [];
+  it.each([
+    "components/organizations/organization-dialog.tsx",
+    "components/films/film-form.tsx",
+    "components/paintings/painting-form.tsx",
+    "components/perfumes/perfume-form.tsx",
+    "app/(catalogue)/library/[slug]/instance-add-dialog.tsx",
+    "app/(catalogue)/library/[slug]/instance-edit-dialog.tsx",
+  ])("sits in the footer, over Cancel and Save: %s", (file) => {
+    expect(footers(file).some((footer) => footer.includes('role="alert"'))).toBe(true);
   });
 });

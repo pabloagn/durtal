@@ -230,12 +230,13 @@ function OrganizationForm({
       rows={4}
       disabled={saving}
     />
-    {error && (
-      <p role="alert" className="text-sm text-accent-red-text">
-        {error}
-      </p>
-    )}
+    {/* Over Cancel and Save, so the reason it did not save is in view however far the fields have scrolled */}
     <DialogFooter>
+      {error && (
+        <p role="alert" className="basis-full text-sm text-accent-red-text">
+          {error}
+        </p>
+      )}
       <Button data-dismiss="" type="button" size="sm" onClick={close} disabled={saving}>
         Cancel
       </Button>
