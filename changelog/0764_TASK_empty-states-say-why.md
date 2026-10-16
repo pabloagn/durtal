@@ -25,6 +25,8 @@ four.
     you set aside leaves the library and waits here.", with Back to eBooks.
   - The library, with every eBook set aside, now says "No eBooks in the
     library / Every eBook is set aside.", with Show set aside.
+  - With no eBook at all, the page draws its own empty state since #418
+    (SLN-842), so these two states replace the view's last generic one.
 - **`taxonomy/page.tsx`**: "No taxonomy families" had no text. It now says
   what a family is, and that New family adds one.
 - **`taxonomy/[familySlug]/[itemSlug]/page.tsx`**:
