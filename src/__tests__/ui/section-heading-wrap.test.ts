@@ -35,3 +35,13 @@ it("keeps the count with the title's last word", () => {
   expect(heading.textContent).toBe("Formulations (3)");
   expect(heading.querySelector("span")!.className.split(" ")).toContain("whitespace-nowrap");
 });
+
+// "Not in Durtal (1107)": a count groups its thousands, as every other count
+// does (SLN-827)
+it("groups the thousands of its count", () => {
+  const host = document.createElement("div");
+  host.innerHTML = renderToStaticMarkup(createElement(SectionHeading, { title: "Not in Durtal", count: 1107 }));
+  expect(host.querySelector("h2")!.textContent).toBe("Not in Durtal (1,107)");
+  host.innerHTML = renderToStaticMarkup(createElement(SectionHeading, { title: "Books", count: 0 }));
+  expect(host.querySelector("h2")!.textContent).toBe("Books (0)");
+});
