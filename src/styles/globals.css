@@ -206,6 +206,13 @@ dialog::backdrop {
    Component Utilities
    ========================================================================== */
 
+/* The reader's bars and strips fixed to the screen's edges: from 1024px they
+   stand beside an open drawer, as the book does (side-panel.tsx, SLN-892) */
+@utility inset-x-reader {
+  left: var(--reader-inset-left, 0px);
+  right: var(--reader-inset-right, 0px);
+}
+
 @utility card-interactive {
   transition: border-color 200ms ease, box-shadow 200ms ease;
   &:hover {
