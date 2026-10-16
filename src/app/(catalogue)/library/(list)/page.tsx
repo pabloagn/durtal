@@ -3,9 +3,10 @@ import { redirect } from "next/navigation";
 import { parsePagination, pageHref, lastPage } from "@/lib/utils/pagination";
 import { Library } from "lucide-react";
 import { getWorksWith, getWorkCount } from "@/lib/actions/works";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyIndex } from "@/components/shared/empty-index";
+import { DomainSwitch } from "@/components/domains/domain-switch";
 import { NoResults } from "@/components/shared/no-results";
-import { clearedListHref, hasListQuery } from "@/lib/utils/list-params";
+import { clearedListHref } from "@/lib/utils/list-params";
 import { LibraryShell } from "../library-shell";
 import { LibraryFiltersBar } from "../library-filters-bar";
 import { ListPendingProvider, ListPendingSwap } from "@/components/shared/list-pending";
@@ -39,7 +40,8 @@ interface PageProps {
   searchParams: Promise<LibraryParams>;
 }
 
-async function LibraryContent({ searchParams }: { searchParams: LibraryParams }) {
+/** The list's first read, from the address: started before the page knows whether any book exists */
+function libraryQuery(searchParams: LibraryParams) {
   const search = searchParams.q;
   // Reading, holding, status and sort (SLN-449): unknown values are dropped here,
   // so `status=owned` never reaches the enum's SQL
@@ -54,10 +56,24 @@ async function LibraryContent({ searchParams }: { searchParams: LibraryParams })
 
   // Reader availability and target selection: one query for this page's
   // works, run with their details when the sort knows the page's ids first
-  const [[works, digital], total] = await Promise.all([
+  const first = Promise.all([
     getWorksWith({ search, sort, order, limit, offset, filters }, catalogueAvailability),
     getWorkCount(search, filters),
   ]);
+  // With no books the list is never awaited: its failure must not go unhandled
+  first.catch(() => {});
+  return { search, reading, book, filters, page, limit, first };
+}
+
+async function LibraryContent({
+  searchParams,
+  query,
+}: {
+  searchParams: LibraryParams;
+  query: ReturnType<typeof libraryQuery>;
+}) {
+  const { search, reading, book, filters, page, limit } = query;
+  const [[works, digital], total] = await query.first;
 
   if (page > lastPage(total, limit)) redirect(pageHref("/library", searchParams, lastPage(total, limit)));
 
@@ -67,22 +83,13 @@ async function LibraryContent({ searchParams }: { searchParams: LibraryParams })
         (e): e is [string, string] => typeof e[1] === "string",
       ),
     );
-    if (hasListQuery(params)) {
-      // The filters bar is rendered by the page, so it stays visible here
-      return (
-        <NoResults
-          noun="books"
-          search={search}
-          hasFilters={hasReadingFilters(reading) || hasBookFilters(book)}
-          clearHref={clearedListHref("/library", params)}
-        />
-      );
-    }
+    // The filters bar is rendered by the page, so it stays visible here
     return (
-      <EmptyState
-        icon={Library}
-        title="No books yet"
-        action={<DomainAddLink kind="book" />}
+      <NoResults
+        noun="books"
+        search={search}
+        hasFilters={hasReadingFilters(reading) || hasBookFilters(book)}
+        clearHref={clearedListHref("/library", params)}
       />
     );
   }
@@ -151,7 +158,23 @@ async function LibraryContent({ searchParams }: { searchParams: LibraryParams })
 }
 
 export default async function LibraryPage({ searchParams }: PageProps) {
+  // Whether any book exists and the list itself, read side by side
+  const any = getWorkCount();
   const params = await searchParams;
+  const query = libraryQuery(params);
+  // With none, no toolbar over nothing: one empty state with one Add (SLN-842)
+  if (!(await any)) {
+    return (
+      <EmptyIndex
+        title="Books"
+        tabs={<DomainSwitch current="book" searchParams={params} />}
+        icon={Library}
+        empty="No books yet"
+        description="A book is a work you own, have read or want, with its editions and copies. Add one by its ISBN or title."
+        action={<DomainAddLink kind="book" />}
+      />
+    );
+  }
 
   return (
     <>
@@ -162,7 +185,7 @@ export default async function LibraryPage({ searchParams }: PageProps) {
       <ListPendingProvider>
         <LibraryFiltersBar />
         <ListPendingSwap>
-          <Suspense key={JSON.stringify(params)} fallback={<LibraryPending />}><LibraryContent searchParams={params} /></Suspense>
+          <Suspense key={JSON.stringify(params)} fallback={<LibraryPending />}><LibraryContent searchParams={params} query={query} /></Suspense>
         </ListPendingSwap>
       </ListPendingProvider>
     </>

@@ -101,7 +101,7 @@ Seven sizes, defined in `src/styles/globals.css`. Tailwind's own sizes are clear
 Two things are drawn outside the scale on purpose, so the design audit's off-scale findings for them are expected:
 
 - the reader settings' type preview (`/settings/reader`) shows the reader's own chosen size, 20px by default;
-- text drawn inside a picture's SVG, such as the stand-in flacon's initials (`flacon` in `globals.css`), uses 11px.
+- text drawn inside a picture's SVG uses 11px.
 
 ### Roles
 
@@ -208,7 +208,7 @@ In CSS, write `-webkit-backdrop-filter` before `backdrop-filter`. In the other o
 Every work card, whatever its collection, is cut like a book's card (`src/components/shared/work-card.tsx`): the picture's frame, then `CardHeading` (naturally wrapping titles and people), then the info row (`WorkCardInfo`): the status on the left, the rating and the year, or the collection's own date, on the right. The status is a book's: films, perfumes and paintings have none yet, so their row holds the rating and the date. So a row that mixes collections reads as one family: artwork and title starts align, and footer rows align at the bottom. Long text remains fully visible.
 
 - Film, perfume and painting cards keep their collection's frame in their own grids and rows: the poster, the bottle's square, the picture's frame. A chip on the frame counts what is held.
-- Where collections mix in one row (the dashboard's recent additions), every card has the book cover's 2:3 frame. `WorkCardArt` contains the picture whole and centered; a blurred, dimmed copy of it fills the bands, like frosted glass behind it. Without a picture, the collection's stand-in (a flacon, a monogram) fills the frame.
+- Where collections mix in one row (the dashboard's recent additions), every card has the book cover's 2:3 frame. `WorkCardArt` contains the picture whole and centered; a blurred, dimmed copy of it fills the bands, like frosted glass behind it. Without a picture, the collection's stand-in (the title's letter, a monogram) fills the frame.
 - Domain-specific film/perfume rows may identify their association ("With Kurt Russell", "Shares iris, vanilla") under the card. The book page's Similar Works shelf has no reason captions, scores or explanation controls. Translator/publishing shelves identify their matching edition as card metadata.
 
 Author, series, collection and dashboard cards follow the same layout. Author cards: name, nationality, then the years and the number of books. Series cards: title, original title, then the counts and "Complete" in gold. Collection cards: the complete name with its icon, a description preview limited to two lines, then the edition count. Descriptive prose is not identifying metadata: keep its preview bounded so long descriptions cannot stretch an entire row; the collection detail page displays the full description. No count or status sits on a portrait or a cover.
@@ -218,7 +218,7 @@ Author, series, collection and dashboard cards follow the same layout. Author ca
 A view of the pictures alone: no card, no text, no chips (`<Mosaic>`, `src/components/shared/mosaic.tsx`; `mosaic*` utilities in `globals.css`). Every list with posters offers it beside the grid: books, people, films, perfumes, paintings and collections, and the choice is kept like the other views.
 
 - Justified rows: each picture keeps its own proportions (a painting is not cropped to a poster), every picture of a row has one height, and every row but the last fills the width, in reading order. A full row holds the size slider's value plus two pictures of the list's usual proportions, or fewer where they would be under 150px tall (a phone). The last row has the height of a full row; it does not stretch.
-- 4px between pictures, 4px corners, a hairline edge; each picture over its own tone while it loads, and the list's own stand-in (a title card, a monogram, a fan of covers) when there is none.
+- 4px between pictures, 4px corners, a hairline edge; each picture over its own tone while it loads, and the list's own stand-in (the title's letter, a monogram, a fan of covers) when there is none.
 - Hover: the picture eases forward (4%) and its title, and the author or house under it, appear at its foot on glass; the other pictures dim to 62%. Keyboard focus shows the title and a steel focus ring. In selection mode a click selects; a selected picture has a steel focus ring. A right-click opens the browser's menu for the link, not for the picture, so pictures stay protected.
 
 ### Buttons
@@ -312,7 +312,7 @@ Multiple semantic variants:
 - The title in `type-item-title`, then one sentence in secondary text
 - Where there is something to do, one Button
 - A section of a detail page with nothing to show is left out, and its Add goes in the page's menu (Detail pages)
-- A list page with nothing in it at all (`EmptyIndex`, `src/components/shared/empty-index.tsx`, SLN-842) is its title, any collection tabs, and one empty state that says what the page holds, with the one Add. No toolbar over nothing, no Add in the header, no count line. It reads whether anything exists alongside the list, never before it, so the page still waits on one database wave. A search or filter that matches nothing keeps the toolbar, so the query can change
+- A list page with nothing in it at all (`EmptyIndex`, `src/components/shared/empty-index.tsx`, SLN-842) is its title, any collection tabs, and one empty state that says what the page holds, with the one Add. No toolbar over nothing, no Add in the header, no count line. It reads whether anything exists alongside the list, never before it, so the page still waits on one database wave. A search or filter that matches nothing keeps the toolbar, so the query can change. The Reading tabs share one header with Start a book and Log a past read: those stay, and an empty tab offers only what they lack (Notes' Add a quote, Now's import), never a second Start a book
 - No illustrations, no emoji
 
 **Errors, loading and busy controls.**
@@ -361,9 +361,8 @@ Every image of a person is monochrome: the portrait, the background banner and i
 A card never shows an empty box. `src/components/shared/no-photo.tsx` holds one family of placeholders, on the dark frame with a faint tint:
 
 - Author with books: up to three of their covers, fanned (`CoverFan`). Author with no books: initials in the serif (`Monogram`), their line trimmed to the cap height like the cover letter's, so the frame centers the capitals.
-- Place: a label with its kind and city in small capitals, a rule, and its street in the serif (`PlacePlate`).
 - Series with no book yet: a shelf of spines, one per known volume (`ShelfSpines`).
-- Book (or film, perfume, painting) with no cover, wherever its cover box shows (cards, the reading lists, a collection's items, an edition, a reading): the title's first letter or digit, uppercased, after any leading quote marks or punctuation (`coverLetter`), in the serif, faint, on the `bg-tertiary` blank (`CoverLetter`, `src/components/books/cover-letter.tsx`). The letter keeps to the type scale as the box grows: 14px in a thumbnail, 21px from 56px wide, 38px from 120px. Only the timer chip's tiny thumb stays blank.
+- Book, film, perfume, painting or place with no picture, wherever its cover box shows (cards, the reading lists, a collection's items, an edition, a reading): the title's first letter or digit, uppercased, after any leading quote marks or punctuation (`coverLetter`), in the serif, faint, on the `bg-tertiary` blank (`CoverLetter`, `src/components/books/cover-letter.tsx`). The letter keeps to the type scale as the box grows: 14px in a thumbnail, 21px from 56px wide, 38px from 120px. Only the timer chip's tiny thumb stays blank.
 - While an image loads, its frame shows the poster's main color, dimmed, and the image fades in (`FadeImage`, `coverToneStyle`).
 
 ### Reading timer chip
@@ -483,7 +482,7 @@ Rules:
 - A chosen emblem, such as a collection's own icon, is the record's picture and not an interface icon. It may be larger than 16px, like a cover, and it sits in a 44px button (`collection-icon-picker.tsx`). The interface icons beside it, such as the favourite star and the menu, stay at 16px
 - No emoji anywhere in the interface
 - Icons inherit text color. A mark or status icon takes its accent: rare in gold, poison in red
-- An icon or drawing that repeats on every card of a grid stays light (page weight, SLN-481). The star draws the page's star symbol (`<svg><use href="#favourite-star"/></svg>`, `favourite-star.tsx`, in the root layout): the favourite toggle and the card rating (`CardRating`) both do. A drawing's colors go in a CSS utility, not inline on each shape: the stand-in flacon (`Flacon`) uses `flacon` in `globals.css`. A Lucide icon inline costs about 650 bytes a card, its symbol about 100
+- An icon or drawing that repeats on every card of a grid stays light (page weight, SLN-481). The star draws the page's star symbol (`<svg><use href="#favourite-star"/></svg>`, `favourite-star.tsx`, in the root layout): the favourite toggle and the card rating (`CardRating`) both do. A drawing's colors go in a CSS utility, not inline on each shape. A Lucide icon inline costs about 650 bytes a card, its symbol about 100
 
 ---
 
