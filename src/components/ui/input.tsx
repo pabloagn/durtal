@@ -28,9 +28,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           error ? "border-accent-red" : ""
         } ${suffix ? "pr-8 pointer-coarse:pr-12" : ""} ${
           // An open field's text keeps the column's edge, with room inside
-          // its focus ring: the ring reaches 8px past the column
+          // its focus ring: the ring reaches 8px past the column, and the
+          // padding gives way to the 1px border so the text starts on it
           appearance === "open"
-            ? "input-open -mx-2 w-[calc(100%+1rem)] px-2 text-lg"
+            ? "input-open -mx-2 w-[calc(100%+1rem)] px-[calc(0.5rem-1px)] text-lg"
             : "w-full border-glass-border bg-bg-primary/80 px-3 text-xs pointer-coarse:text-sm"
         } ${className}`}
         {...props}

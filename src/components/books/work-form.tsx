@@ -295,8 +295,9 @@ export function WorkForm({
 
   return (
     <>
-      {/* Room on the left for the rating's first star target and its focus ring, which reach past the column (SLN-641) */}
-      <div className="-ml-5 max-h-[75vh] overflow-y-auto pl-5 pr-1">
+      {/* Room on the left for the rating's first star target and its focus ring, which reach past the column (SLN-641),
+          and on the right for the open title field's padding and ring (SLN-850) */}
+      <div className="-ml-5 max-h-[75vh] overflow-y-auto pl-5 pr-3">
         <div className="space-y-6">
           {/* Core Details */}
           <section>
