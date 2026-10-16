@@ -89,6 +89,7 @@ export function AddBookWizard({
   }, [initialIsbn, initialQuery, setSearchQuery]);
 
   // Duplicate detection
+  const [duplicateAfter, setDuplicateAfter] = useState<"search" | "details" | null>(null);
   const [duplicateWork, setDuplicateWork] = useState<DuplicateWork | null>(null);
   const [existingWorkId, setExistingWorkId] = useState<string | null>(null);
 
@@ -177,6 +178,7 @@ export function AddBookWizard({
         authorName: author,
       });
       if (dup) {
+        setDuplicateAfter("search");
         setDuplicateWork(dup as DuplicateWork);
         setStep("duplicate");
       } else {
@@ -213,6 +215,7 @@ export function AddBookWizard({
           authorName: work.authorName.trim(),
         });
         if (duplicate) {
+          setDuplicateAfter("details");
           setDuplicateWork(duplicate as DuplicateWork);
           setStep("duplicate");
           return;
@@ -347,6 +350,7 @@ export function AddBookWizard({
   const canSave = !!existingWorkId || (!!work.title.trim() && !!work.authorName.trim());
   const unsavedPrompt = useEscapeToCancel({
     root,
+    searchEscCancels: step === "search",
     cancel,
     enabled: !fastTrackSaving && !isPending && !checkingDuplicate,
     dirty: touched && draft !== startingPoint,
@@ -378,7 +382,7 @@ export function AddBookWizard({
     <>
     {unsavedPrompt}
     <div ref={root} className="max-w-2xl" data-shortcut-scope="">
-      <StepProgress step={step} disabled={fastTrackSaving || isPending || checkingDuplicate} onStep={setStep} />
+      <StepProgress step={step} disabled={fastTrackSaving || isPending || checkingDuplicate} onStep={setStep} duplicateAfter={duplicateAfter} />
       <div ref={stepRoot} data-wizard-step={step}>
 
       {step === "search" && (
@@ -388,6 +392,7 @@ export function AddBookWizard({
           onManual={() => {
             setExistingWorkId(null);
             allowedDuplicate.current = null;
+            setDuplicateAfter(null);
             setStep("details");
           }}
           cancel={cancelButton()}

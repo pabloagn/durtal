@@ -1,5 +1,9 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
+
+import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
+
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
@@ -139,14 +143,14 @@ export function PaintingForm(props: Props) {
     {unsavedPrompt}
     <div ref={root} className="space-y-8" data-shortcut-scope="">
       <Section title="Identity">
-        <TitleInput
+        <div className="min-w-0 space-y-2"><TitleInput
           label="Title"
           value={title}
           onValueChange={setTitle}
           placeholder="The Garden of Earthly Delights"
           maxLength={500}
           required
-        />
+        /><NameDuplicateNotice kind="painting" name={title} enabled={props.mode === "create"} /></div>
         <PaintersField value={painters} onChange={setPainters} />
       </Section>
 
@@ -209,6 +213,7 @@ export function PaintingForm(props: Props) {
       {/* In the edit dialog, under its body and always in view, with the
           reason a save failed over the buttons */}
       <DialogFooter outside="">
+        <RequiredNameHint value={title} message="Give the painting a title" />
         {error && (
           <p role="alert" className="basis-full text-sm text-accent-red-text">
             {error}

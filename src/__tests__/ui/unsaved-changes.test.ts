@@ -124,8 +124,8 @@ describe("a dialog with a draft", () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(prompt()).not.toBeNull();
     expect(prompt()!.textContent).toContain("Save your changes before closing?");
-    // Save is the main button: Enter saves
-    expect(document.activeElement?.textContent).toBe("Save");
+    // A draft-loss prompt starts on the safe choice.
+    expect(document.activeElement?.textContent).toBe("Keep editing");
 
     // Esc on the question is that layer's own: the dialog stays, with its draft
     escape();
@@ -163,7 +163,7 @@ describe("a dialog with a draft", () => {
     expect(prompt()!.textContent).toContain("Discard them?");
     const saves = [...prompt()!.querySelectorAll("button")].filter((b) => b.textContent === "Save");
     expect(saves).toHaveLength(0);
-    expect(document.activeElement?.textContent).toBe("Discard");
+    expect(document.activeElement?.textContent).toBe("Keep editing");
   });
 
   it("asks the same way from Cancel, Close and the backdrop", () => {

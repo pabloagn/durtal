@@ -15,6 +15,7 @@ import { handleSurfaceEscape, hasOpenSurface, isPassedThrough } from "@/lib/ui/s
 import { leavePage } from "@/components/ui/unsaved-guard";
 import { Copy, Link2, type LucideIcon } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
+import { OrganizationDialog } from "@/components/organizations/organization-dialog";
 import { AuthorCreateDialog } from "@/app/(catalogue)/people/author-create-dialog";
 import { VenueCreateDialog } from "@/app/(catalogue)/places/venue-create-dialog";
 import { CreateCollectionDialog } from "@/components/collections/create-collection-dialog";
@@ -632,6 +633,7 @@ export function ShortcutsProvider({
       {addDialog === "collection" && (
         <CreateCollectionDialog open onOpenChange={(open) => !open && closeAddDialog()} />
       )}
+      {addDialog === "organization" && <OrganizationDialog open onClose={closeAddDialog} />}
       {addDialog === "place" && (
         <VenueCreateDialog open onOpenChange={(open) => !open && closeAddDialog()} />
       )}

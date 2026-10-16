@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Search, Plus, ArrowRight, Loader2, ImageIcon } from "lucide-react";
+import { Search, Plus, ArrowRight, Loader2 } from "lucide-react";
 import type { useDebouncedSearch } from "@/lib/hooks/use-debounced-search";
 import type { SearchResult } from "@/lib/api/types";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { Button } from "@/components/ui/button";
+import { CoverLetter, COVER_BLANK } from "@/components/books/cover-letter";
 import { Badge } from "@/components/ui/badge";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
 
@@ -143,12 +145,7 @@ export function SearchStep({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full items-center justify-center">
-                          <ImageIcon
-                            className="h-3 w-3 text-fg-muted/40"
-                            strokeWidth={1.5}
-                          />
-                        </div>
+                        <div className={`${COVER_BLANK} h-full w-full`}><CoverLetter title={result.title} /></div>
                       )}
                     </div>
 
@@ -211,17 +208,18 @@ export function SearchStep({
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-glass-border pt-4">
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={onManual}
-          className="flex items-start gap-2 text-left text-sm text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
+          className="min-h-11 whitespace-normal px-0 text-left sm:min-h-8"
         >
           {/* On the first line when the label wraps at 320px */}
           <CapAligned height={14}>
             <Plus className="block h-3.5 w-3.5" strokeWidth={1.5} />
           </CapAligned>
           Enter details manually
-        </button>
+        </Button>
         {cancel}
       </div>
     </div>

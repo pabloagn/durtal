@@ -33,6 +33,7 @@ export const STEPS: { key: Step; label: string }[] = [
 // ── Data from the server ─────────────────────────────────────────────────────
 
 export interface DuplicateWork {
+  matchedBy?: "isbn" | "title_author";
   id: string;
   slug: string | null;
   title: string;
