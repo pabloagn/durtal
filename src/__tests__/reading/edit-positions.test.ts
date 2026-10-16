@@ -62,6 +62,27 @@ describe("reader sessions that start ahead (SLN-677)", () => {
 });
 
 describe("reading edit session plan", () => {
+  it("ignores a duration-only row for positions, starts and the target of a correction", () => {
+    const duration = { ...session("duration", 0, "2026-09-03"), endPage: null, endPercent: null, endMinutes: null, endChapter: null };
+    const plan = planPositions(reading, [...sessions, duration]);
+    expect(plan.position).toEqual(planPositions(reading, sessions).position);
+    expect(plan.starts.get("duration")).toEqual({ startPage: null, startPercent: null, startMinutes: null });
+    const correction = correctLastLog(reading, [...sessions, duration], { page: 280 });
+    expect(correction.corrected.id).toBe("last");
+    expect(correction.sessions.at(-1)).toEqual(duration);
+    expect(planPositions(reading, sessionOrder(correction.sessions)).position.page).toBe(280);
+  });
+
+  it("adds an explicit position after duration-only history without repurposing that history", () => {
+    const duration = { ...session("duration", 0, "2026-09-03"), endPage: null, endPercent: null, endMinutes: null, endChapter: null };
+    const correction = correctLastLog(reading, [duration], { page: 280 });
+    expect(correction).toMatchObject({ writeSession: true, insertSession: true });
+    expect(correction.sessions[0]).toBe(duration);
+    expect(correction.corrected).toMatchObject({ source: "manual", readOn: duration.readOn, endPage: 280, durationSeconds: null, note: null });
+    expect(correction.corrected.id).not.toBe(duration.id);
+    expect(planPositions(reading, sessionOrder(correction.sessions)).position.page).toBe(280);
+  });
+
   it.each([{ page: 180 }, { percent: 30 }, { minutes: 180 }, { page: 420 }])(
     "corrects the last log for %j without replacing its history",
     (position) => {

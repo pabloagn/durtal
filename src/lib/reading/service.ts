@@ -119,6 +119,10 @@ const currentOf = (r: Reading): Pos => ({
   chapter: r.currentChapter,
 });
 
+/** A duration-only row never supplies a place or changes the next row's start. */
+const sessionHasPosition = (s: Pick<Session, "endPage" | "endPercent" | "endMinutes">) =>
+  s.endPage != null || s.endPercent != null || s.endMinutes != null;
+
 /**
  * Each session's start and the reading's position, from the sessions in
  * order: a session starts where the one before it ended (the reading's start
@@ -136,6 +140,15 @@ export function planPositions(reading: Reading, ordered: Session[]) {
   if (reading.startPage == null && reading.startPercent == null && reading.startMinutes == null)
     position = { page: reading.totalPages ? 0 : null, percent: 0, minutes: reading.totalMinutes ? 0 : null, chapter: null };
   for (const s of ordered) {
+    if (!sessionHasPosition(s)) {
+      starts.set(s.id, { startPage: null, startPercent: null, startMinutes: null });
+      // An explicitly supplied chapter is independent of numeric position.
+      if (s.endChapter != null) {
+        position.chapter = s.endChapter;
+        lastPositionSession = s;
+      }
+      continue;
+    }
     const sameEdition = s.editionId === prevEdition;
     // A reader sitting starts where the reader opened, or where it read on from a
     // short jump: the pages it jumped over were not read (SLN-677).
@@ -417,7 +430,8 @@ export async function recordProgress(
     // The new end, in the session's edition
     let given: { page?: number | null; percent?: number | null; minutes?: number | null } = {};
     if (sessionMinutes !== null) {
-      given = sessionEditionId === reading.editionId ? current : { percent: current.percent };
+      // No snapshot: a backdated duration must not claim pages on its date.
+      given = {};
     } else if (input.addPages != null) {
       const from =
         sessionEditionId === reading.editionId
@@ -432,8 +446,12 @@ export async function recordProgress(
     else if (input.minutes != null) given = { minutes: input.minutes };
     else given = sessionEditionId === reading.editionId ? { page: current.page, percent: current.percent, minutes: current.minutes } : { percent: current.percent };
     checkWithinTotals(given, sessionTotals);
-    const end = completePosition(given, sessionTotals);
-    const chapter = input.chapter ?? (sessionMinutes !== null ? reading.currentChapter
+    const positionGiven = [input.page, input.percent, input.minutes, input.addPages, input.addMinutes].some((value) => value != null);
+    const end = sessionMinutes !== null ? { page: null, percent: null, minutes: null }
+      : !positionGiven && sessionEditionId === reading.editionId
+        ? { page: current.page, percent: current.percent, minutes: current.minutes }
+        : completePosition(given, sessionTotals);
+    const chapter = input.chapter ?? (sessionMinutes !== null ? null
       : planPositions(reading, ordered).lastPositionSession ? null : reading.currentChapter);
     const now = new Date();
     // A timer keeps the zone and the reading day it started with
@@ -452,7 +470,7 @@ export async function recordProgress(
       if (problem) throw new ExpectedActionError(problem);
       stop = stopTimes(clock, input.endedAt ?? null, now);
     }
-    const latest = ordered.at(-1) ?? null;
+    const latest = ordered.filter(sessionHasPosition).at(-1) ?? null;
     const behind = end.percent != null && current.percent != null && end.percent < current.percent;
     let mode: "new" | "fix" | "went_back" | "reader_behind" = "new";
     if (behind) {
@@ -593,7 +611,8 @@ export async function recordProgress(
       d
         .update(readings)
         .set({
-          ...positionValues(plan.position),
+          ...(sessionMinutes === null ? positionValues(plan.position)
+            : input.chapter != null ? { currentChapter: plan.position.chapter } : {}),
           status: "reading",
           // A backdated session does not make the book read today
           lastReadAt: next.at(-1)?.id === (timerRow?.id ?? session.id) || mode === "fix" ? now : reading.lastReadAt,
@@ -633,7 +652,7 @@ export function correctLastLog(
   chapter?: string | null,
 ) {
   const ordered = sessionOrder(sessions);
-  const latest = ordered.at(-1);
+  const latest = ordered.filter(sessionHasPosition).at(-1) ?? ordered.at(-1);
   if (!latest)
     throw new ExpectedActionError(
       "Log progress once before editing the current position or chapter",
@@ -644,6 +663,22 @@ export function correctLastLog(
     );
   checkWithinTotals(position ?? {}, reading);
   const end = positionChanges(position, currentOf(reading), reading) ? completePosition(position!, reading) : null;
+  if (end && !sessionHasPosition(latest)) {
+    // An explicit edit can establish a position after time-only logs. Keep the
+    // original sitting intact and add a manual position on that log's day.
+    const now = new Date();
+    const corrected: Session = {
+      id: randomUUID(), readingId: reading.id, editionId: reading.editionId,
+      format: reading.format, readOn: latest.readOn, timeZone: latest.timeZone,
+      startedAt: null, endedAt: null, durationSeconds: null,
+      startPage: null, startPercent: null, startMinutes: null,
+      endPage: end.page, endPercent: end.percent, endMinutes: end.minutes,
+      endChapter: chapter === undefined ? reading.currentChapter : chapter,
+      pagesTotal: reading.totalPages, pagesRead: null, note: null, source: "manual",
+      pausedAt: null, pausedSeconds: 0, createdAt: now, updatedAt: now,
+    };
+    return { corrected, sessions: [...sessions, corrected], writeSession: true, insertSession: true };
+  }
   // A latest log in another edition keeps its own page count and format.
   const mapped =
     end && latest.editionId !== reading.editionId
@@ -662,7 +697,7 @@ export function correctLastLog(
     ? planPositions(reading, ordered).lastPositionSession : latest;
   // A reading can have logs without any of them setting its place. Its chapter
   // belongs on the reading, not on an ignored reader log.
-  if (!target) return { corrected: latest, sessions, writeSession: false };
+  if (!target) return { corrected: latest, sessions, writeSession: false, insertSession: false };
   const corrected = {
     ...target,
     // An explicit correction is manual: automatic reader updates alone must not move behind earlier progress.
@@ -680,7 +715,7 @@ export function correctLastLog(
     ...(chapter !== undefined ? { endChapter: chapter } : {}),
   };
   const next = sessions.map((s) => (s.id === target.id ? corrected : s));
-  return { corrected, sessions: next, writeSession: true };
+  return { corrected, sessions: next, writeSession: true, insertSession: false };
 }
 
 /** Recomputes session starts and an open reading's position after sessions changed */
