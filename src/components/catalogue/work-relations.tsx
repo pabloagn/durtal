@@ -144,11 +144,10 @@ function RelationForm({ work, onDone }: { work: RelatedWorkOwner; onDone: () => 
     !other ||
     !validUrl ||
     (!!sourceUrl.trim() && !sourceName.trim()) ||
-    (needsSource && !sourceId && !sourceName.trim()) ||
-    saving;
+    (needsSource && !sourceId && !sourceName.trim());
 
   async function save() {
-    if (blocked || !current || !other) return;
+    if (blocked || saving || !current || !other) return;
     setSaving(true);
     setError(null);
     try {

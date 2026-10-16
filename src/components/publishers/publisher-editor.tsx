@@ -46,6 +46,8 @@ export function PublisherEditor({
   );
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Enter from a field must move off the fieldset before it is disabled.
+    e.currentTarget.querySelector<HTMLButtonElement>('button[type="submit"]')?.focus();
     const f = new FormData(e.currentTarget);
     const text = (k: string) => String(f.get(k) ?? "").trim();
     start(async () => {
@@ -184,10 +186,10 @@ export function PublisherEditor({
           Alternative names help match imported editions. Shared or ambiguous
           names stay unresolved for review.
         </p>
+      </fieldset>
         <Button type="submit" data-shortcut="save" busy={pending}>
           Save publisher
         </Button>
-      </fieldset>
     </form>
     </>
   );

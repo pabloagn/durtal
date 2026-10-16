@@ -167,6 +167,7 @@ export function TaxonomyItemRow({
         ) : (
           <Link
             ref={nameRef}
+            data-taxonomy-item-name={item.id}
             href={`/taxonomy/${familySlug}/${item.slug}`}
             onClick={(e) => e.stopPropagation()}
             onDoubleClick={(e) => {

@@ -26,10 +26,12 @@ export default function PublisherLoading() {
       <DetailColumns record={<SkeletonBlock className="mb-8 h-64" />}>
         <section className="mb-8">
           <SkeletonLine className="type-section-title mb-4 w-32" />
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <div className="@container">
+          <div className="catalogue-grid catalogue-density-compact">
             {Array.from({ length: 6 }, (_, i) => (
               <SkeletonBlock key={i} className="aspect-[2/3]" />
             ))}
+          </div>
           </div>
         </section>
       </DetailColumns>

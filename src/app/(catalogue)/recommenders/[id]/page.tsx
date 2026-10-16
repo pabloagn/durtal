@@ -124,7 +124,8 @@ export default async function RecommenderPage({
           </p>
         ) : (
           <PaginatedSection {...paging} noun="books">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="@container">
+            <div className="catalogue-grid catalogue-density-compact" data-recommender-books="">
               {paging.items.map((work) => {
                 const poster = work.media?.find(
                   (m) => m.type === "poster" && m.isActive,
@@ -167,6 +168,7 @@ export default async function RecommenderPage({
                   />
                 );
               })}
+            </div>
             </div>
           </PaginatedSection>
         )}

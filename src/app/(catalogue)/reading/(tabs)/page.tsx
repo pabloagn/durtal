@@ -166,7 +166,8 @@ export default async function ReadingPage() {
                   </Link>
                 }
               />
-              <ol className="grid gap-6 md:grid-cols-3" data-focus-list="suggestions">
+              <div className="@container">
+              <ol className="catalogue-grid" data-focus-list="suggestions">
                 {suggestions.map((row) => (
                   <li key={row.workId} className="flex min-w-0 gap-3" data-hub-suggestion={row.workId} data-focus-row="">
                     <Link href={row.href} tabIndex={-1} aria-label={row.title} className="shrink-0">
@@ -185,6 +186,7 @@ export default async function ReadingPage() {
                   </li>
                 ))}
               </ol>
+              </div>
             </section>
           )}
           {passage && <PassageOfTheDay day={day.today} initial={passage.note} initialEdition={passage.edition} candidates={passage.candidates} />}

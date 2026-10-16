@@ -49,11 +49,20 @@ describe("a busy button", () => {
     expect(button.getAttribute("aria-disabled")).toBe("true");
   });
 
+  it("focuses an async action before its first press", () => {
+    let focused = false;
+    act(() => root.render(h(Button, { busy: false, onClick: () => { focused = document.activeElement === host.querySelector("button"); } }, "Save")));
+    act(() => host.querySelector<HTMLButtonElement>("button")!.click());
+    expect(focused).toBe(true);
+  });
+
   it("ignores that click", () => {
     const onClick = vi.fn();
     act(() => root.render(h(Button, { busy: true, onClick }, "Merge")));
     const button = host.querySelector("button")!;
-    button.focus();
+    // A pointer click must acquire focus in Safari as well as retain it.
+    host.tabIndex = -1;
+    host.focus();
     act(() => button.click());
     expect(onClick).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(button);
@@ -132,8 +141,9 @@ describe("a merged or deleted taxonomy item", () => {
   it("marks both of the family page's New item buttons as the list's Add", () => {
     const text = source("app/(catalogue)/taxonomy/[familySlug]/taxonomy-family-shell.tsx");
     expect(text.match(/data-focus-empty="taxonomy-items"/g)).toHaveLength(2);
-    // The first item replaces the empty state's New item with the toolbar's
-    expect(text).toContain("firstItem.current = true");
+    // The newly created item, not the replacement toolbar, receives focus.
+    expect(text).toContain("firstItem.current = id");
+    expect(text).toContain("data-taxonomy-item-name");
   });
 });
 
