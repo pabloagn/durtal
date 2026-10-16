@@ -47,3 +47,14 @@ Knowledge, coverage and evidence basis participate in semantic claim identity
 and all deduplication/merge/undo paths; free-text justification does not. Opposite
 assessments stay separate, with conflict detection in either arrival order.
 Concurrent proposals and Harmonize merges are covered by database regressions.
+
+## CI repair — 17 October 2026
+
+The first unfiltered CI failed before all 14 historical reader-chain cases:
+0089 correctly appended the journal, but the suite pinned its mutable current
+file to the old 0000–0088 bytes. Preserve that genuine journal as a fixture and
+all 179 original hashes. Refuse historical rewrites, noncontiguous indexes,
+duplicate tags and backdated appends. Run historical cases on exact pinned
+bytes and add an explicit latest-chain test that applies every later migration,
+checks the latest snapshot/ledger, preserves reader rows and verifies no-op replay.
+Validation is pending the shared local slot and final-head hosted CI.
