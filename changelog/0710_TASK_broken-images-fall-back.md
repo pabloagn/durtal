@@ -26,7 +26,8 @@ Now every image that fails shows what no image shows, in the same frame, with no
   - The name's letter: the collection card and page poster; the place page and the place list. A person's letter: the person page portrait, people list rows and the people table.
   - Initials on their tint: the palette's people thumbs.
   - `CoverFan` / `Monogram`: people cards and the dashboard's Recent people.
-  - `TitleCard`: film and painting posters. `Flacon`: perfumes. `PlacePlate`: place cards. `ShelfSpines`: series cards.
+  - The title's letter on film and painting posters, perfumes and place cards, as their no-image state since #405 (SLN-830). `ShelfSpines`: series cards.
+  - Review fix: the series page's book rows (the title's letter), a film's still and a publisher's background (blank), and publisher logos on cards and the header (`Monogram`).
   - A blank frame: backdrops (book, collection, person), collage cells (now on the `bg-tertiary` tone), and a lone gallery image. A lone gallery image's frame takes the image's shape from its stored width and height, or 3:2 when those are unknown.
 - **Images moved to `FadeImage`:** six `next/image` thumbnails (`unoptimized`, `fill`) and the raw `<img>` surfaces. Each is an absolutely placed `FadeImage` with `loading="lazy"`.
 - **Tests:** `src/__tests__/ui/fade-image-fallback.test.ts` covers:
