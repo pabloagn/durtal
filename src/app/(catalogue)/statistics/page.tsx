@@ -84,7 +84,7 @@ export default async function StatisticsPage() {
               tiles={[
                 { label: "Books", value: n(numbers.books) },
                 { label: "Editions", value: n(numbers.editions) },
-                { label: "Copies", value: n(numbers.copies) },
+                { label: "Owned copies", value: n(numbers.copies) },
                 // No page count is not zero pages (SLN-824): a dash, and the tile stays so the rows end full
                 numbers.pages > 0 ? { label: "Pages", value: n(numbers.pages) } : { label: "No page counts yet", value: "\u2014" },
                 { label: "Authors", value: n(numbers.authors) },

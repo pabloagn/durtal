@@ -30,9 +30,12 @@ in others, and pages named the same things with different words.
   family that does not apply to books counts its own kinds (`itemKinds`), and
   its item page links each kind to that kind's filtered list.
 - **Publishers.** Settings, Data counts publishers through
-  `publisherCondition`, as the Publishers page does.
+  `publisherCondition`, as the Publishers page does. A publisher's page counts
+  an edition as owned only when its book is accessioned (review fix).
 - **Names.** The dashboard says Copies (not Instances) and Authors;
-  Statistics says "Authors' countries" and explains what a book you own is;
+  Statistics says "Owned copies" (the copies of owned books, fewer than the
+  dashboard's Copies) and "Authors' countries", and explains what a book you
+  own is;
   Places says places (not venues); a location's count names book copies as
   copies and one other kind by its name; a collection's pager uses the noun
   of its count line.

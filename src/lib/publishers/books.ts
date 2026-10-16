@@ -125,7 +125,8 @@ const s3Url = (key: string | null) => (key ? mediaUrl(key) : null);
 /** Per edition of the family: owned, on order, wanted (as the old tabs had them) */
 function editionState(edition: SQL) {
   return {
-    owned: sql`exists (select 1 from instances i where i.edition_id = ${edition} and i.status <> 'deaccessioned')`,
+    // Owned as everywhere (SLN-886): an accessioned book, here with a copy of this edition
+    owned: sql`(w.catalogue_status = 'accessioned' and exists (select 1 from instances i where i.edition_id = ${edition} and i.status <> 'deaccessioned'))`,
     onOrder: sql`exists (select 1 from orders o where o.edition_id = ${edition} and o.status not in ('cancelled', 'returned', 'delivered', 'received', 'purchased'))`,
     // The same rule as the house's old tabs (getPublisherCatalogue)
     wanted: sql`(exists (select 1 from acquisition_targets where work_id = e.work_id and target_accepts_edition(id, ${edition}) and (${targetState}) = 'wanted')
