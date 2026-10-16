@@ -49,3 +49,7 @@ HTTP request to the database held 40 ms or 200 ms (one Neon round trip):
   390 and 320. Folio fails at 320 only (the favourite and Actions icons sit
   2.4-2.9px off "Folio"'s cap height), the same on main; reported, not
   changed here. Page weight: every main route within budget.
+- From the #431 review (`findings/review-pr-431.md`, notes):
+  `reading-sessions.test.ts` now calls `getPaceContext("reading")` itself.
+  It returns the reading in progress as `getPaceContext([id])` does, and
+  leaves out a paused one.
