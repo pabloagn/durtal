@@ -26,7 +26,7 @@ import { appTimeZone } from "@/lib/utils/date";
 import { PAGE_SIZES } from "@/lib/utils/pagination";
 import { sanitizeCommentHtml } from "@/lib/utils/sanitize";
 import { isOpenStatus, type ReadingFormat, type ReadingStatus } from "@/lib/reading/constants";
-import { formatReadingDate, readingDay, readingPeriodStart } from "@/lib/reading/dates";
+import { defaultFinishDate, formatReadingDate, readingDay, readingPeriodStart } from "@/lib/reading/dates";
 import { readingDayStartHour, readingToday } from "@/lib/reading/day";
 import { positionChanges, positionInUnit, remapPosition } from "@/lib/reading/positions";
 import { countedPagesSql, readingOrdinalSql } from "@/lib/reading/summary";
@@ -432,7 +432,10 @@ export async function finishReading(input: z.input<typeof finishReadingSchema>) 
   const timeZone = data.timeZone ?? appTimeZone();
   const precision = data.finishedPrecision ?? "day";
   const finishedOn =
-    precision === "unknown" ? null : readingPeriodStart(data.finishedOn ?? readingDay(new Date(), timeZone, await readingDayStartHour()), precision);
+    precision === "unknown" ? null : readingPeriodStart(data.finishedOn ?? defaultFinishDate(readingDay(new Date(), timeZone, await readingDayStartHour()), reading.startedOn), precision);
+  // The implicit default has the same trusted-start bound as an explicit date.
+  // An old invalid future start cannot become a way around date validation.
+  finishReadingSchemaFor(reading.startedOn).parse({ ...data, finishedOn, finishedPrecision: finishedOn ? precision : "unknown" });
   const end = {
     page: reading.totalPages ?? reading.currentPage,
     percent: 100,

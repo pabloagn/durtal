@@ -291,6 +291,22 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       expect(result.reading).toMatchObject({ status: "finished", startedOn: east, finishedOn: east });
     });
 
+    it("defaults an omitted finish date to the valid eastward start, but still rejects explicit future dates", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-16T00:30:00Z"));
+      try {
+        const workId = await book("Implicit finish across time zones");
+        const reading = await startReading({ workId, startedOn: "2026-10-16", startedPrecision: "day", timeZone: "Europe/Amsterdam" });
+        await expect(finishReading({ readingId: reading.id, fingerprint: reading.fingerprint, finishedOn: "2026-10-17", finishedPrecision: "day", timeZone: "America/Los_Angeles" }))
+          .rejects.toThrow("Choose today or an earlier date");
+        const result = await finishReading({ readingId: reading.id, fingerprint: reading.fingerprint, timeZone: "America/Los_Angeles" });
+        expect(result.reading).toMatchObject({ status: "finished", startedOn: "2026-10-16", finishedOn: "2026-10-16", finishedPrecision: "day" });
+        await settle();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("refuses bad ratings, misplaced reasons and dates, and a missing precision", async () => {
       const workId = await book();
       const insert = (cols: string, vals: string) => q(`insert into readings(work_id, ${cols}) values ($1, ${vals})`, [workId]);

@@ -22,3 +22,7 @@ SLN-927: reject future start, finish, abandon and past-read dates in the dialog 
 ## Completion Notes
 
 Source preparation only, on a separate branch based on `bdc1f24d`. No tests, typecheck, builds, database fixtures or browser checks have run for this patch; the heavy validation slot belongs to the CI lane. Full validation and shared-calendar call-site checks remain required before review or landing. No schema migration, historical-data rewrite or live catalogue changes.
+
+### Combined date validation — 17 October 2026
+
+Grant #9 passed **170 tests in 9 suites, 0 skipped**, followed serially by a passing `pnpm typecheck`. The fresh disposable database was removed (`containerRemoved: true`). The same run covers SLN-927 and SLN-928, including the direct-action omitted-date regression. Reports are in `/private/tmp/sln927-928-guarded-tests/`; the full receipt is recorded in task 0855. No build/browser process ran. Full-suite, production-build and rendered calendar/dialog audits remain pending before merge.
