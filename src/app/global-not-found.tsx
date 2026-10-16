@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { MinimalRoot } from "@/components/layout/minimal-root";
-import {
-  RouteFallback,
-  routeFallbackActionClass,
-} from "@/components/shared/route-fallback";
+import { RouteFallback } from "@/components/shared/route-fallback";
+import { buttonClass } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Page not found | Durtal",
@@ -19,9 +17,10 @@ export default function GlobalNotFound() {
           title="Page not found"
           description="The page you are looking for does not exist or has been moved."
         >
+          {/* Worded and drawn as the app's own not-found view's way back (SLN-814) */}
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- This independent fallback returns to the catalogue with a fresh document. */}
-          <a href="/" className={routeFallbackActionClass}>
-            Go to dashboard
+          <a href="/" className={buttonClass("secondary")}>
+            Go to the dashboard
           </a>
         </RouteFallback>
       </main>
