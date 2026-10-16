@@ -334,7 +334,7 @@ export async function createReading(
       }),
       ...(opts.afterInsert?.(d, { id, editionId, totalPages: totals.totalPages, start }) ?? []),
       d.insert(readingStatusHistory).values({ readingId: id, fromStatus: null, toStatus: status, notes: `Started (${opts.source})` }),
-      // Starting a book takes it off Up Next (SLN-452)
+      // Starting a book takes it off Up next (SLN-452)
       d.delete(readingQueue).where(eq(readingQueue.workId, input.workId)).returning({ id: readingQueue.id }),
     ]),
   );
@@ -698,7 +698,7 @@ export interface WriteOutcome {
   match?: { readingId: string; reason: string };
   reason?: string;
   bookRating?: { before: number | null; after: number | null };
-  /** An open row started a book that was in Up Next, which it left (SLN-452) */
+  /** An open row started a book that was in Up next, which it left (SLN-452) */
   unqueued?: true;
 }
 
@@ -796,7 +796,7 @@ export async function writeReadings(
   const toWrite = parsed
     .map((row, i) => ({ row, i }))
     .filter((x): x is { row: NonNullable<typeof x.row>; i: number } => !!x.row && !outcomes[x.i]);
-  // Books an open row starts, and which of them are in Up Next (SLN-452)
+  // Books an open row starts, and which of them are in Up next (SLN-452)
   const openWorkIds = [...new Set(toWrite.filter((x) => isOpenStatus(x.row.status)).map((x) => x.row.workId))];
   const queued = openWorkIds.length
     ? new Set((await db.select({ workId: readingQueue.workId }).from(readingQueue).where(inArray(readingQueue.workId, openWorkIds))).map((r) => r.workId))
@@ -900,7 +900,7 @@ export async function writeReadings(
               ? [d.update(works).set({ rating: bookRating.after, updatedAt: new Date() }).where(and(eq(works.id, row.workId),
                   sql`exists (select 1 from readings where id = ${id}::uuid)`))]
               : []),
-          // An open row starts the book: it leaves Up Next, only when the row was written
+          // An open row starts the book: it leaves Up next, only when the row was written
           ...(isOpenStatus(row.status)
             ? [d.execute(sql`delete from reading_queue where work_id = ${row.workId}::uuid and exists (select 1 from readings where id = ${id}::uuid)`)]
             : []),

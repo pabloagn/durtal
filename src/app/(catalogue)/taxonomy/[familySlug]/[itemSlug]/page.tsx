@@ -20,6 +20,8 @@ import { mediaCrop } from "@/lib/utils/media-style";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
+import { CapAligned } from "@/components/shared/cap-aligned";
+import { titleLength } from "@/components/shared/detail-layout";
 import { posterTone, workCardExtras } from "@/lib/actions/utils/work-card-query";
 import { cardReadingOf } from "@/lib/reading/card";
 import { mediaUrl } from "@/lib/s3/media-url";
@@ -145,14 +147,18 @@ async function ItemContent({
 
       {/* Item header */}
       <div className="mb-8">
-        <div className="flex items-center gap-3">
+        {/* The name steps down on a phone like every record title, its
+            colour on the first line's cap height (SLN-877) */}
+        <div data-title-length={titleLength(item.name)} className="type-page-title flex items-start gap-3">
           {item.color && (
-            <span
-              className="block h-3.5 w-3.5 flex-shrink-0 rounded-full"
-              style={{ backgroundColor: item.color }}
-            />
+            <CapAligned height={14}>
+              <span
+                className="block h-3.5 w-3.5 rounded-full"
+                style={{ backgroundColor: item.color }}
+              />
+            </CapAligned>
           )}
-          <h1 className="type-page-title min-w-0 [overflow-wrap:anywhere]">
+          <h1 data-title-length={titleLength(item.name)} className="type-page-title min-w-0 [overflow-wrap:anywhere]">
             {item.name}
           </h1>
         </div>
@@ -260,7 +266,7 @@ async function ItemContent({
 
       {family.entityLevel === "edition" && entityIds.length > 0 && (
         <div>
-          <SectionHeading title="Associated Editions" />
+          <SectionHeading title="Associated editions" />
           <p className="text-sm text-fg-secondary">
             {entityIds.length} edition{entityIds.length === 1 ? "" : "s"}{" "}
             linked to this item.

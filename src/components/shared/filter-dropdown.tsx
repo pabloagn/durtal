@@ -6,6 +6,7 @@ import { RangeSlider } from "@/components/ui/range-slider";
 import { Button } from "@/components/ui/button";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
 import { inkOn } from "@/lib/color/color-math";
+import { searchScore } from "@/lib/utils/search-text";
 import { CapAligned } from "./cap-aligned";
 
 /** Minimum number of options before showing the search box in a filter group */
@@ -288,9 +289,10 @@ export function FilterDropdown({
 
   /** A checkbox or swatch group's rows, with a search when the list is long */
   const renderOptions = (group: FilterGroup) => {
-    const searchTerm = (groupSearchTerms[group.key] ?? "").toLowerCase();
+    // Accents, case and punctuation ignored, as every search (SLN-881)
+    const searchTerm = groupSearchTerms[group.key] ?? "";
     const filteredOptions = searchTerm
-      ? group.options.filter((o) => o.label.toLowerCase().includes(searchTerm))
+      ? group.options.filter((o) => searchScore(searchTerm, o.label) >= 0)
       : group.options;
     // Past the limit only chosen options stay listed, and a line says how many there are
     const chosen = activeFilters[group.key] ?? [];

@@ -1,11 +1,9 @@
 "use client";
-import Link from "next/link";
 import { BookOpenText } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { NoResults } from "@/components/shared/no-results";
 import { Pagination } from "@/components/shared/pagination";
 import { EmptyState } from "@/components/ui/empty-state";
-import { buttonClass } from "@/components/ui/button";
 import { COL_CLASSES, maxCardWidth } from "@/components/shared/grid-columns";
 import {
   usePreference,
@@ -87,18 +85,9 @@ export function EbooksView({
           // As every list: the shared views, with their mark and a way on (task 0611)
           filtered ? (
             <NoResults noun="eBooks" search={params.q || null} hasFilters={otherFilters} clearHref={clearHref} />
-          ) : counts.active + counts.excluded ? (
-            <EmptyState icon={BookOpenText} title="No eBooks found" description="No eBooks match these filters." />
           ) : (
-            <EmptyState
-              icon={BookOpenText}
-              title="No eBooks yet"
-              action={
-                <Link href="/ebooks/upload" className={buttonClass("secondary")}>
-                  Upload eBooks
-                </Link>
-              }
-            />
+            // With none at all, the page draws its own empty state (SLN-842)
+            <EmptyState icon={BookOpenText} title="No eBooks found" description="No eBooks match these filters." />
           )
         ) : (
           <>

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { Badge } from "@/components/ui/badge";
 import { FadeImage } from "@/components/shared/fade-image";
+import { CoverCells } from "@/components/shared/cover-cells";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { ShelfSpines } from "@/components/shared/no-photo";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { CardHeading } from "@/components/shared/card-heading";
@@ -42,20 +44,15 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
         className="absolute inset-0 z-10 rounded-sm"
       />
       <div className="relative aspect-[3/2] overflow-hidden rounded-t-sm bg-bg-tertiary">
+        {/* No book in the catalogue yet, or no cover that loads: one spine per known volume */}
         {s.covers.length ? (
-          <div className="flex h-full">
-            {s.covers.map((key) => (
-              <FadeImage
-                key={key}
-                src={mediaUrl(key)}
-                alt=""
-                loading="lazy"
-                className="protected-image h-full min-w-0 flex-1 object-cover group-hover:scale-[1.02]"
-              />
-            ))}
-          </div>
+          <CoverCells
+            srcs={s.covers.map((key) => mediaUrl(key))}
+            className="flex h-full"
+            cellClassNames={s.covers.map(() => "protected-image h-full min-w-0 flex-1 object-cover group-hover:scale-[1.02]")}
+            fallback={<ShelfSpines seed={s.id} volumes={s.totalVolumes ?? null} />}
+          />
         ) : (
-          // No book in the catalogue yet: one spine per known volume
           <ShelfSpines seed={s.id} volumes={s.totalVolumes ?? null} />
         )}
       </div>
@@ -102,17 +99,16 @@ export function SeriesListItem({ series: s }: { series: SeriesItem }) {
         aria-label={`Open ${s.title}`}
         className="absolute inset-0 z-10 rounded-sm"
       />
-      <div className="flex h-12 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-tertiary">
+      <div className={`${COVER_BLANK} h-12 w-8 flex-shrink-0 overflow-hidden rounded-sm bg-bg-tertiary`}>
         {s.covers[0] ? (
-          <img
+          <FadeImage
             src={mediaUrl(s.covers[0])}
             alt=""
             className="h-full w-full object-cover"
+            fallback={<CoverLetter title={s.title} />}
           />
         ) : (
-          <span data-decorative="" aria-hidden="true" className="font-serif text-xs text-fg-muted/40">
-            {s.title[0]}
-          </span>
+          <CoverLetter title={s.title} />
         )}
       </div>
       <div className="min-w-0 flex-1">

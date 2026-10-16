@@ -76,7 +76,7 @@ export function RecordField({
   return (
     <div>
       <dt className="text-xs text-fg-secondary">{label}</dt>
-      <dd className="mt-0.5 text-sm text-fg-primary">{children}</dd>
+      <dd className="mt-0.5 text-sm text-fg-primary [overflow-wrap:anywhere]">{children}</dd>
     </div>
   );
 }
@@ -108,6 +108,9 @@ export const DETAIL_TITLE_ROW = {
   stacked: "gap-x-5 pointer-coarse:gap-x-6.5 sm:flex-nowrap",
   // A series' set: under any title too long for it
   free: "gap-x-5 pointer-coarse:gap-x-6.5",
+  // One bordered button, an e-book's Read: 16px from the title, with no
+  // padding to give back; under a title too long for it below sm
+  button: "gap-x-4 sm:flex-nowrap",
 };
 
 /**

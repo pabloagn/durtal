@@ -126,7 +126,7 @@ export default async function SeriesDetailPage({
         )}
         {/* Who wrote it, from its books' authors (SLN-636) */}
         {s.authors.length > 0 && (
-          <p className="mt-2 text-sm text-fg-secondary" data-series-authors="">
+          <p className="mt-2 text-sm text-fg-secondary [overflow-wrap:anywhere]" data-series-authors="">
             {s.authors.map((author, i) => (
               <Fragment key={author.id}>
                 {i > 0 && ", "}

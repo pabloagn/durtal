@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { readFileSync } from "fs";
 import path from "path";
 
-// Review of #341: the book's Edit Work dialog cut its author names ("Joris-Karl
+// Review of #341: the book's Edit work dialog cut its author names ("Joris-Karl
 // Huysmans" at 320) beside the role menu, and the Remove cross was 22px on
 // touch. Browser behaviour is measured by hand; this pins the markup.
 const form = readFileSync(path.resolve(__dirname, "../../components/books/work-form.tsx"), "utf8");

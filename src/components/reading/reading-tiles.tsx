@@ -21,6 +21,7 @@ import type { GoalProgress } from "@/lib/actions/reading-goals";
 import type { ReadingRef } from "./reading-dialogs-provider";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
+import { FadeImage } from "@/components/shared/fade-image";
 
 /*
  * The reading lists that repeat (SLN-448): the dashboard's tiles, the finished
@@ -38,8 +39,15 @@ export function Cover({ s3Key, className, title, eager = false }: { s3Key: strin
   return (
     <span className={`${COVER_BLANK} shrink-0 overflow-hidden rounded-sm bg-bg-tertiary ${className}`}>
       {s3Key ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={mediaUrl(s3Key)} alt="" loading={eager ? "eager" : "lazy"} decoding="async" className="h-full w-full object-cover" />
+        <FadeImage
+          src={mediaUrl(s3Key)}
+          alt=""
+          loading={eager ? "eager" : "lazy"}
+          decoding="async"
+          className="h-full w-full object-cover"
+          // A cover that fails shows the letter, or with no title the bare blank
+          fallback={title ? <CoverLetter title={title} /> : null}
+        />
       ) : (
         title && <CoverLetter title={title} />
       )}
@@ -238,7 +246,8 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
                   </span>
                 </CapAlignedControls>
               </div>
-              <p className="min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">{row.line}</p>
+              {/* Each "·" stays with the item before it, so no line starts with one */}
+              <p className="min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">{row.line.replaceAll(" · ", "\u00a0· ")}</p>
             </div>
           </li>
         );

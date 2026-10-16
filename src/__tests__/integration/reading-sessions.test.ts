@@ -371,6 +371,16 @@ describe.skipIf(!url)("reading sessions and the timer with PostgreSQL", () => {
       expect(after.readings[r.id].sessions.filter((x) => x.durationSeconds).length).toBe(1);
     });
 
+    it("reads the readings in progress by status, the same as by their ids, leaving out a paused one", async () => {
+      const a = await started("Nadja");
+      await log(a.reading.id, { page: 150, readOn: "2026-09-10", durationSeconds: 3600 });
+      const b = await started("La Curée");
+      await pauseReading({ readingId: b.reading.id, fingerprint: await fp(b.reading.id) });
+      const byStatus = await getPaceContext("reading");
+      expect(Object.keys(byStatus.readings)).toEqual([a.reading.id]);
+      expect(byStatus.readings[a.reading.id]).toEqual((await getPaceContext([a.reading.id])).readings[a.reading.id]);
+    });
+
     it("gives his priors by language and format, by format and overall, also with no reading", async () => {
       const fr = await started("Nadja");
       await log(fr.reading.id, { page: 160, readOn: "2026-09-02", durationSeconds: 7200 });

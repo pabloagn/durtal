@@ -195,24 +195,17 @@ export async function getPublisherBooks(publisherId: string, query: PublisherBoo
     order by e.work_id, ${state.owned} desc, (e.thumbnail_s3_key is not null or e.cover_s3_key is not null) desc,
       e.publication_year nulls last, e.id`;
 
-  const [pageRows, [{ total }]] = await Promise.all([
-    db.execute(sql`select * from (${picked}) p order by ${orderBy} limit ${query.perPage} offset ${query.offset}`).then((r) =>
-      resultRows<{ work_id: string; edition_id: string }>(r),
-    ),
+  // The page's cards are read with the count, not after the page's ids (SLN-839)
+  const [books, [{ total }]] = await Promise.all([
+    cards(sql`select edition_id, row_number() over (order by ${orderBy}) as place
+      from (${picked}) p order by ${orderBy} limit ${query.perPage} offset ${query.offset}`),
     db.execute(sql`select count(*)::int as total from (${picked}) p`).then((r) => resultRows<{ total: number }>(r)),
   ]);
-
-  const books = pageRows.length ? await cards(pageRows.map((r) => r.edition_id)) : [];
-  const byEdition = new Map(books.map((b) => [b.primaryEditionId, b]));
-  return {
-    books: pageRows.map((r) => byEdition.get(r.edition_id)!).filter(Boolean),
-    total,
-  };
+  return { books, total };
 }
 
-/** Card data for these editions, in no particular order */
-async function cards(editionIds: string[]): Promise<PublisherBook[]> {
-  const ids = sql.join(editionIds.map((id) => sql`${id}::uuid`), sql`, `);
+/** Card data for a page of editions (`edition_id`, and `place` for their order) */
+async function cards(page: SQL): Promise<PublisherBook[]> {
   const rows = resultRows<{
     edition_id: string;
     work_id: string;
@@ -244,8 +237,8 @@ async function cards(editionIds: string[]): Promise<PublisherBook[]> {
         (select count(*)::int from instances i where i.edition_id = e.id and i.status <> 'deaccessioned') as copies,
         w.rating::float8 as rating, w.catalogue_status, w.is_rare, w.hunt_assessed_on, w.is_poison, w.is_favourite, w.acquisition_priority,
         ${readingStateSql(sql`w.id`)} as reading_state, ${openReadingPercentSql(sql`w.id`)} as reading_percent
-      from editions e join works w on w.id = e.work_id
-      where e.id in (${ids})`),
+      from (${page}) pg join editions e on e.id = pg.edition_id join works w on w.id = e.work_id
+      order by pg.place`),
   );
   return rows.map((r) => {
     // This house's edition cover first; the work's poster only when it has none

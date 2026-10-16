@@ -9,7 +9,7 @@ import { paginateItems, type ListSearchParams } from "@/lib/utils/pagination";
 import { PaginatedSection } from "@/components/shared/pagination";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import { FadeImage } from "@/components/shared/fade-image";
 import { ArrowLeft } from "lucide-react";
 import { getAuthorBySlug, getPersonWorkCredits } from "@/lib/actions/authors";
 import { getPersonNoteCounts } from "@/lib/actions/reading-notes";
@@ -225,11 +225,12 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
         {/* Background image layer: always spans the full main area */}
         {bgMedia && backgroundUrl && (
           <FullBleedLayer className="isolate -z-0 pointer-events-none">
-            <img
+            <FadeImage
               src={backgroundUrl}
               alt=""
               className="protected-image h-full w-full object-cover"
               style={mediaImageStyle(mediaCrop(bgMedia))}
+              fallback={null}
             />
             {/* Static grain belongs only to this backdrop, beneath both fades. */}
             <div aria-hidden="true" className={backdropStyles.grain} />
@@ -454,7 +455,7 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
             {/* Edition contributions */}
             {contributions.length > 0 && (
               <section className="mb-8">
-                <SectionHeading title="Edition Contributions" count={contributions.length} />
+                <SectionHeading title="Edition contributions" count={contributions.length} />
                 <div className="space-y-2">
                   {contributions.map((edition) => (
                     <div
@@ -462,14 +463,19 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                       className="flex items-center gap-4 rounded-sm border border-glass-border bg-bg-secondary px-4 py-3"
                     >
                       {edition.thumbnailS3Key ? (
-                        <div className="relative h-12 w-8 flex-shrink-0 overflow-hidden rounded-sm bg-bg-primary">
-                          <Image
+                        <div className="relative flex h-12 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-primary">
+                          <FadeImage
                             src={mediaUrl(edition.thumbnailS3Key)}
                             alt={edition.title ?? "Edition cover"}
-                            fill
-                            sizes="32px"
-                            className="protected-image object-cover"
-                          unoptimized
+                            loading="lazy"
+                            decoding="async"
+                            className="protected-image absolute inset-0 h-full w-full object-cover"
+                            // A cover that fails shows the title's letter, as with none
+                            fallback={
+                              <span aria-hidden="true" data-decorative className="font-serif text-xs text-fg-muted/30">
+                                {(edition.title ?? "?")[0]}
+                              </span>
+                            }
                           />
                         </div>
                       ) : (

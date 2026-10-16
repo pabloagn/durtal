@@ -31,7 +31,7 @@ export function buildContext(load: SuggestLoad): SuggestContext {
 
 const editions = new WeakMap<SuggestBook, Map<string | null, QueueEdition | null>>();
 
-/** The edition he would read at the remembered home (as in Up Next): the queued one, else the Start dialog's default */
+/** The edition he would read at the remembered home (as in Up next): the queued one, else the Start dialog's default */
 export function bookEdition(book: SuggestBook, ctx: Pick<SuggestContext, "homeId">): QueueEdition | null {
   const byHome = editions.get(book) ?? new Map<string | null, QueueEdition | null>();
   editions.set(book, byHome);

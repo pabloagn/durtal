@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Tag } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { MultiSelectSection } from "@/components/shared/multi-select-section";
 import { OptionsNotice } from "@/components/shared/options-notice";
@@ -102,7 +102,7 @@ export function WorkTaxonomyEditDialog({
         title="Edit taxonomy"
         className="max-w-3xl"
       >
-        <div className="max-h-[75vh] space-y-5 overflow-y-auto pr-1">
+        <div className="space-y-5">
           {SECTIONS.map((s) => (
             <MultiSelectSection
               key={s.group}
@@ -115,7 +115,7 @@ export function WorkTaxonomyEditDialog({
           ))}
         </div>
 
-        <div className="mt-5 flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+        <DialogFooter>
           <div className="mr-auto min-w-0">
             <OptionsNotice loading={lists.loading} failed={lists.failed} onRetry={lists.retry} />
           </div>
@@ -135,7 +135,7 @@ export function WorkTaxonomyEditDialog({
           >
             Save
           </Button>
-        </div>
+        </DialogFooter>
       </Dialog>
     </>
   );

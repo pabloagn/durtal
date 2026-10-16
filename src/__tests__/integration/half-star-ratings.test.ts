@@ -90,7 +90,7 @@ describe.skipIf(!url)("half-star ratings with PostgreSQL", () => {
     expect((await getWorks({ sort: "rating" }))[0].rating).toBe(4.5);
   });
 
-  it("keeps 3.5 through an unrelated Edit Work save", async () => {
+  it("keeps 3.5 through an unrelated Edit work save", async () => {
     const id = await book("Watt", 3.5);
     const author = await value(`insert into authors(name, slug) values ('Samuel Beckett', $1) returning id`, [`samuel-beckett-${++serial}`]);
     await q(`insert into work_authors(work_id, author_id, role) values ($1, $2, 'author')`, [id, author]);

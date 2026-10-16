@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyIndex } from "@/components/shared/empty-index";
 import { Spinner } from "@/components/ui/spinner";
 import { DOMAIN_ICONS } from "@/components/shortcuts/section-icons";
 import { DomainSwitch } from "@/components/domains/domain-switch";
@@ -47,37 +47,42 @@ export default async function FilmsPage({
 }: {
   searchParams: Promise<ListSearchParams>;
 }) {
+  // Whether any film exists, read beside the address
+  const any = getFilmCount();
   const params = await searchParams;
-  const catalogued = await getFilmCount();
+  const tabs = <DomainSwitch current="film" searchParams={params} />;
+  // With none, no toolbar over nothing: one empty state with one Add (SLN-842)
+  if (!(await any)) {
+    return (
+      <EmptyIndex
+        title="Films"
+        tabs={tabs}
+        icon={DOMAIN_ICONS.film}
+        empty="No films yet"
+        description="A film keeps its directors, cast and the copies you hold. Add one by its title."
+        action={<DomainAddLink kind="film" />}
+      />
+    );
+  }
 
   return (
     <>
       <PageHeader
         title="Films"
         actions={<DomainAddLink kind="film" />}
-        tabs={<DomainSwitch current="film" searchParams={params} />}
+        tabs={tabs}
       />
-      {catalogued === 0 ? (
-        <EmptyState
-          icon={DOMAIN_ICONS.film}
-          title="No films yet"
-          action={<DomainAddLink kind="film" />}
-        />
-      ) : (
-        <>
-          <FilmFilters />
-          <Suspense
-            key={JSON.stringify(params)}
-            fallback={
-              <div className="py-16">
-                <Spinner />
-              </div>
-            }
-          >
-            <FilmResults params={params} />
-          </Suspense>
-        </>
-      )}
+      <FilmFilters />
+      <Suspense
+        key={JSON.stringify(params)}
+        fallback={
+          <div className="py-16">
+            <Spinner />
+          </div>
+        }
+      >
+        <FilmResults params={params} />
+      </Suspense>
     </>
   );
 }

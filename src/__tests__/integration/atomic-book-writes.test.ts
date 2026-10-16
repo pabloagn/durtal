@@ -41,7 +41,7 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/cache", () => ({
   invalidate: vi.fn(),
   cached: (fn: unknown) => fn,
-  CACHE_TAGS: {},
+  CACHE_TAGS: { authors: "ref:authors" },
 }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
 vi.mock("@/lib/s3/covers", () => ({
@@ -58,6 +58,7 @@ import {
   updateOrderStatus,
 } from "@/lib/actions/orders";
 import { processAndUploadCover, deleteFromS3 } from "@/lib/s3/covers";
+import { invalidate } from "@/lib/cache";
 vi.mock("@/lib/s3/client", async () => ({ S3_BUCKET: "local-test", s3: { send: (await import("../s3/cover-stage-fixture")).catalogueSend } }));
 import { mintCover, coverBucket, resetCoverBucket } from "../s3/cover-stage-fixture";
 import { createHash } from "node:crypto";
@@ -431,11 +432,18 @@ describe.skipIf(!url)("atomic book writes", () => {
       const mann = await createAuthor({ name: "Thomas Mann" });
       expect(mann.slug).toBe("thomas-mann");
       expect((await createAuthor({ name: "Thomas Mann" })).slug).toBe("thomas-mann-2");
-      await updateAuthor(mann.id, { name: "Heinrich Mann" });
+      // The new address goes back to the page, which moves to it. The
+      // person's pages are read again, or the move to a person with no
+      // books is cut short and the page keeps the old name
+      vi.mocked(invalidate).mockClear();
+      expect((await updateAuthor(mann.id, { name: "Heinrich Mann" })).slug).toBe("heinrich-mann");
+      expect(vi.mocked(invalidate).mock.calls.flat()).toContain("ref:authors");
       const [renamed] = await c`select slug from authors where id=${mann.id}`;
       expect(renamed.slug).toBe("heinrich-mann");
       // A name that keeps the same base keeps the author's own slug
-      await updateAuthor(mann.id, { name: "Heinrich  Mann" });
+      vi.mocked(invalidate).mockClear();
+      expect((await updateAuthor(mann.id, { name: "Heinrich  Mann" })).slug).toBeNull();
+      expect(vi.mocked(invalidate).mock.calls.flat()).not.toContain("ref:authors");
       expect((await c`select slug from authors where id=${mann.id}`)[0].slug).toBe(
         "heinrich-mann",
       );

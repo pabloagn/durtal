@@ -109,6 +109,7 @@ export function WorkCardArt({
               aria-hidden
               loading="lazy"
               decoding="async"
+              fallback={null}
               className="protected-image absolute inset-0 h-full w-full scale-125 object-cover opacity-60 blur-xl brightness-50 saturate-[0.8]"
             />
             <FadeImage
@@ -116,6 +117,7 @@ export function WorkCardArt({
               alt=""
               loading="lazy"
               decoding="async"
+              fallback={fallback}
               className="protected-image absolute inset-0 h-full w-full object-contain group-hover:scale-[1.02]"
             />
           </>

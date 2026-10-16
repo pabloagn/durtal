@@ -21,7 +21,7 @@ import {
 } from "@/lib/db/schema";
 import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
-import { textSearchCondition } from "@/lib/actions/utils/text-search";
+import { textContains, textSearchCondition } from "@/lib/actions/utils/text-search";
 import { eq, asc, count, ilike, or, sql, inArray, and } from "drizzle-orm";
 import { containsPattern } from "@/lib/utils/like";
 import { authorSearchCondition } from "@/lib/actions/utils/author-search";
@@ -95,7 +95,8 @@ export async function getCollectionCount(query = "", favourites = false) {
 /** The collections a list shows: by name, and favourites only when asked */
 function collectionListCondition(search: string, favourites?: boolean) {
   return and(
-    search ? ilike(collections.name, containsPattern(search)) : undefined,
+    // Accents and case ignored, as every search (SLN-881)
+    search ? textContains(collections.name, search) : undefined,
     favourites ? eq(collections.isFavourite, true) : undefined,
   );
 }
@@ -483,8 +484,9 @@ export async function searchEditionsForPicker(search: string, limit = 30) {
     .where(
       value
         ? or(
-            ilike(editions.title, term),
-            ilike(works.title, term),
+            // Accents and case ignored, as the author match (SLN-881)
+            textContains(editions.title, value),
+            textContains(works.title, value),
             ilike(editions.isbn13, term),
             ilike(editions.isbn10, term),
             sql`exists(select 1 from work_authors wa join authors on authors.id=wa.author_id where wa.work_id=${works.id} and ${authorCondition})`,

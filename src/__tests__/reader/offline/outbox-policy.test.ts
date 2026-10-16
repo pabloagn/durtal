@@ -342,4 +342,19 @@ describe("annotation acknowledgments", () => {
         annotationAcknowledgments(result.references, malformed),
       ).toThrow("Incomplete");
   });
+  it("counts a delete of a mark already gone as done, an edit of one as ignored (SLN-869)", () => {
+    const result = claim([annotations(1, { deleting: true }), annotations(2)]);
+    if (result.kind !== "claim" || !("upserts" in result.body))
+      throw new Error("Expected annotations");
+    const removed = String(result.body.deletes[0].id),
+      edited = String(result.body.upserts[0].id);
+    const acks = annotationAcknowledgments(result.references, [
+      { id: removed, kind: "ignored", reason: "deleted" },
+      { id: edited, kind: "ignored", reason: "deleted" },
+    ]);
+    expect(acks[0].ignored).toEqual([]);
+    expect(acks[1].ignored).toEqual([
+      { id: edited, kind: "ignored", reason: "deleted" },
+    ]);
+  });
 });

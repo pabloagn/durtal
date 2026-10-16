@@ -155,7 +155,7 @@ export function TiptapEditor({
       <div className="rounded-sm border border-glass-border bg-bg-secondary/30 focus-within:border-accent-primary">
         <EditorContent editor={editor} />
         <div className="flex items-center justify-between border-t border-glass-border px-1.5 py-1">
-          <div className="flex flex-wrap items-center gap-0.5" role="toolbar" aria-label={`${label} formatting`}>
+          <div className="flex flex-wrap items-center gap-0.5 pointer-coarse:gap-2" role="toolbar" aria-label={`${label} formatting`}>
             <ToolbarButton onClick={() => editor?.chain().focus().toggleBold().run()} label="Bold" active={is("bold")}>
               <Bold className={ICON} strokeWidth={1.5} />
             </ToolbarButton>
@@ -164,10 +164,10 @@ export function TiptapEditor({
             </ToolbarButton>
             {editor && extraTools?.(editor)}
             <ToolbarDivider />
-            <ToolbarButton onClick={() => editor?.chain().focus().toggleBulletList().run()} label="Bullet List" active={is("bulletList")}>
+            <ToolbarButton onClick={() => editor?.chain().focus().toggleBulletList().run()} label="Bullet list" active={is("bulletList")}>
               <List className={ICON} strokeWidth={1.5} />
             </ToolbarButton>
-            <ToolbarButton onClick={() => editor?.chain().focus().toggleOrderedList().run()} label="Numbered List" active={is("orderedList")}>
+            <ToolbarButton onClick={() => editor?.chain().focus().toggleOrderedList().run()} label="Numbered list" active={is("orderedList")}>
               <ListOrdered className={ICON} strokeWidth={1.5} />
             </ToolbarButton>
             <ToolbarDivider />

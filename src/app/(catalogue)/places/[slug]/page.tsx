@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
+import { FadeImage } from "@/components/shared/fade-image";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { DetailTitleRow } from "@/components/shared/detail-layout";
 import { SectionHeading } from "@/components/shared/section-heading";
@@ -127,10 +129,16 @@ async function PlaceContent({ slug }: { slug: string }) {
             className="relative h-40 w-56 flex-shrink-0 overflow-hidden rounded-sm bg-bg-secondary"
             style={venue.color ? { backgroundColor: venue.color } : undefined}
           >
-            <img
+            <FadeImage
               src={displayImage}
               alt={venue.name}
               className="h-full w-full object-cover"
+              fallback={
+                // An image that fails: the name's letter, as every blank cover
+                <div className={`h-full ${COVER_BLANK}`}>
+                  <CoverLetter title={venue.name} />
+                </div>
+              }
             />
             <ImageAdjustButton source={displayImage} className="absolute bottom-2 right-2" />
           </div>
@@ -195,7 +203,7 @@ async function PlaceContent({ slug }: { slug: string }) {
           </div>
 
           {locationDisplay && (
-            <p className="mb-2 flex items-start gap-1.5 text-sm text-fg-secondary">
+            <p className="mb-2 flex items-start gap-1.5 text-sm text-fg-secondary [overflow-wrap:anywhere]">
               <CapAligned height={14}><MapPin className="h-3.5 w-3.5 shrink-0 text-fg-muted" strokeWidth={1.5} /></CapAligned>
               {locationDisplay}
             </p>
@@ -338,7 +346,7 @@ async function PlaceContent({ slug }: { slug: string }) {
               />
             )}
             {hasTags && (
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 [overflow-wrap:anywhere]">
                 <Tag className="h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} />
                 {venue.tags!.map((tag) => (
                   <Badge key={tag} variant="muted">

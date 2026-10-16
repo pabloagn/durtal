@@ -22,7 +22,7 @@ export function enumLabel(value: string | null | undefined): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-/** "on_order" → "On Order", from the status config */
+/** "on_order" → "On order", from the status config */
 export function catalogueStatusLabel(status: string | null | undefined): string {
   if (!status) return "";
   return STATUS_CONFIG[status as CatalogueStatus]?.label ?? enumLabel(status);

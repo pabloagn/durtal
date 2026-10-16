@@ -8,7 +8,7 @@ import { READING_HOME_KEY } from "@/lib/preferences";
 import type { HomeOption } from "@/lib/reading/page-data";
 
 /*
- * Up Next's "At hand in Amsterdam" filter (SLN-452): the home is the "I'm at"
+ * Up next's "At hand in Amsterdam" filter (SLN-452): the home is the "I'm at"
  * one the Start dialog remembers on this device. With none, it asks for it.
  */
 export function QueueHomeFilter({ home, homes, on }: { home: HomeOption | null; homes: HomeOption[]; on: boolean }) {
