@@ -81,4 +81,11 @@ it("keeps long place names inside the list's width", async () => {
   await act(async () => pending.get("par")!(place("Paris 6e Arrondissement, Saint-Germain-des-Prés, Île-de-France, France")));
   const list = host.querySelector("button")!.parentElement!;
   expect(list.className.split(" ")).toEqual(expect.arrayContaining(["overflow-y-auto", "[contain:inline-size]"]));
+  // and shows each name in full, wrapping it: names are never cut
+  const names = [...list.querySelectorAll("button > span:last-child")];
+  expect(names.length).toBeGreaterThan(0);
+  for (const name of names) {
+    expect(name.className.split(" ")).toContain("[overflow-wrap:anywhere]");
+    expect(name.className).not.toContain("truncate");
+  }
 });
