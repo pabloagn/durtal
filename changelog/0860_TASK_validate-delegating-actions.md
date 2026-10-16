@@ -21,6 +21,10 @@ SLN-976: the cross-layer input-validation guard mistook the catalogue result ada
 
 ## Completion Notes
 
-The first authorized focused run used Node 22.23.3 and one Vitest worker, with no database, build or browser. It passed 129 checks and identified two existing reader-lock delegates (`updateEdition` and `updateReadingNote`) whose validators are local helpers. Their precise forwarding paths were inspected and explicit proof plus regression fixtures were added. The adjusted source awaits a further authorized focused run and full hosted CI; no passing result is claimed for the final source yet. Reports from the first run: `/private/tmp/sln976-focused.json` and `/private/tmp/sln976-focused.log`.
+The first authorized focused run used Node 22.23.3 and one Vitest worker, with no database, build or browser. It passed 129 checks and identified two existing reader-lock delegates (`updateEdition` and `updateReadingNote`) whose validators are local helpers. Their precise forwarding paths were inspected and explicit proof plus regression fixtures were added. Reports from the first run: `/private/tmp/sln976-focused.json` and `/private/tmp/sln976-focused.log`.
 
-`git diff --check` passes. Full typecheck and hosted CI remain required before landing. The branch is prepared for independent review and has not been pushed.
+The authorized rerun at source commit `66439eeede2bf2aa56b1b368eb8a95f083a2d898` passed **133/133 tests** across two files, with **0 failures, 0 pending tests and 0 skipped tests**: 98 action-validation checks and 35 proof fixtures. It ran with one Vitest worker on Node 22.23.3 in 636 ms, with no database, build or browser. Final reports: `/private/tmp/sln976-final-66439eee.json` and `/private/tmp/sln976-final-66439eee.log`.
+
+Root's independent static review of that source found no blocking issue. This final receipt commit changes only this changelog; the tested implementation is unchanged.
+
+`git diff --check` passes. Full typecheck and hosted CI remain required before landing. The branch has not been pushed.
