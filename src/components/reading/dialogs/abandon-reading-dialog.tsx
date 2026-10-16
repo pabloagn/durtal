@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { abandonReading, pauseReading, reopenReading } from "@/lib/actions/catalogue-client";
 import { ABANDON_REASONS, ABANDON_REASON_LABELS, type AbandonReason } from "@/lib/reading/constants";
 import { browserZone, showError, todayReadingDay, undoToast } from "../reading-client";
+import { readingDateError, readingDateLimit } from "@/lib/reading/dates";
 import type { ReadingDialogProps } from "../reading-provider";
 import { DialogFooter, ReadingDateField, type ReadingDate } from "./fields";
 import { finishDateError } from "./finish-reading-dialog";
@@ -27,7 +28,8 @@ export function AbandonReadingDialog({ data, row, onClose, changed }: ReadingDia
   const [pausing, setPausing] = useState(false);
   // One write at a time: Abandon and Pause instead each wait for the other
   const inFlight = useRef(false);
-  const error = finishDateError(r, stopped);
+  const maxDate = readingDateLimit(browserZone(), r.startedOn);
+  const error = readingDateError(stopped.date, stopped.precision, maxDate) ?? finishDateError(r, stopped);
   const value = readNumber(reached);
   const reachedError =
     reached.trim() && (value === null || (byPage ? !Number.isInteger(value) || value > (r.totalPages ?? Infinity) : value > 100))
@@ -90,7 +92,7 @@ export function AbandonReadingDialog({ data, row, onClose, changed }: ReadingDia
   return (
     <Dialog draft open onClose={onClose} title="Abandon" description={data.workTitle} className="max-w-lg">
       <form onSubmit={save} className="space-y-4">
-        <ReadingDateField label="Stopped on" value={stopped} onChange={setStopped} />
+        <ReadingDateField label="Stopped on" value={stopped} onChange={setStopped} max={maxDate} />
         {error && (
           <p className="text-xs text-accent-red-text" role="alert">
             {error}

@@ -16,6 +16,7 @@ import { formatOfCopy, type ReadingFormat } from "@/lib/reading/constants";
 import { parseProgressInput, percentOf, type ProgressInput } from "@/lib/reading/positions";
 import { logPreview, moveBackText, type SessionEdition } from "@/lib/reading/log-preview";
 import { browserZone, showError, todayReadingDay, undoToast, useCoarsePointer } from "../reading-client";
+import { readingDateError, readingDateLimit } from "@/lib/reading/dates";
 import type { ReadingDialogProps } from "../reading-provider";
 import { DialogFooter } from "./fields";
 import { readNumber } from "./start-reading-dialog";
@@ -77,6 +78,8 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
   const [segment, setSegment] = useState<Segment>(draft?.segment ?? (r.unit === "minutes" ? "time" : r.unit === "percent" ? "percent" : "page"));
   const [fields, setFields] = useState(draft?.fields ?? { page: "", percent: "", hours: "", minutes: "", chapter: "" });
   const [readOn, setReadOn] = useState(() => draft?.readOn ?? todayReadingDay(data.dayStartHour));
+  const maxDate = readingDateLimit(browserZone());
+  const dateError = stopping ? null : readingDateError(readOn, "day", maxDate);
   const [minutesRead, setMinutesRead] = useState(draft?.minutesRead ?? "");
   const [note, setNote] = useState("");
   const [showNote, setShowNote] = useState(false);
@@ -188,7 +191,7 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (stopping) return stop();
-    if (!preview) return;
+    if (!preview || dateError) return;
     setSaving(true);
     try {
       let fingerprint = row!.fingerprint;
@@ -294,7 +297,7 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
         )}
         {!stopping && (
           <div className="grid grid-cols-2 gap-3">
-            <DatePicker label="Date" value={readOn} onChange={(d) => d && setReadOn(d)} />
+            <DatePicker label="Date" value={readOn} onChange={(d) => d && setReadOn(d)} max={maxDate} error={dateError ?? undefined} />
             <Input label="Minutes read (optional)" inputMode="numeric" value={minutesRead} onChange={(e) => setMinutesRead(e.target.value)} />
           </div>
         )}
@@ -343,7 +346,7 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
               Read in another edition or format
             </button>
           ))}
-        <DialogFooter onCancel={onClose} saving={saving} saveLabel={stopping ? "Stop timer" : "Log"} disabled={stopping ? !!error : !preview || !!error} />
+        <DialogFooter onCancel={onClose} saving={saving} saveLabel={stopping ? "Stop timer" : "Log"} disabled={stopping ? !!error : !preview || !!error || !!dateError} />
       </form>
     </Dialog>
   );

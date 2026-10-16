@@ -68,10 +68,12 @@ import {
 } from "@/lib/reading/service";
 import {
   abandonReadingSchema,
+  abandonReadingSchemaFor,
   addPastReadingSchema,
   addSessionSchema,
   deleteSessionSchema,
   finishReadingSchema,
+  finishReadingSchemaFor,
   logProgressSchema,
   reopenReadingSchema,
   sessionPatchSchema,
@@ -421,9 +423,10 @@ function closingSession(reading: Reading, sessions: Session[], end: { page: numb
 
 /** Finishes a reading: the end, the date, a rating and review, and the book's rating */
 export async function finishReading(input: z.input<typeof finishReadingSchema>) {
-  const data = finishReadingSchema.parse(input);
-  await refuseWhileTiming(data.readingId);
-  const reading = await readingFor(data.readingId, data.fingerprint);
+  const { readingId, fingerprint } = statusChangeSchema.parse(input);
+  await refuseWhileTiming(readingId);
+  const reading = await readingFor(readingId, fingerprint);
+  const data = finishReadingSchemaFor(reading.startedOn).parse(input);
   await requireBookWork(reading.workId);
   if (!isOpenStatus(reading.status)) throw new ExpectedActionError("Only an open reading can be finished");
   const timeZone = data.timeZone ?? appTimeZone();
@@ -481,9 +484,10 @@ export async function finishReading(input: z.input<typeof finishReadingSchema>) 
 
 /** Abandons a reading: when, why, and the page reached */
 export async function abandonReading(input: z.input<typeof abandonReadingSchema>) {
-  const data = abandonReadingSchema.parse(input);
-  await refuseWhileTiming(data.readingId);
-  const reading = await readingFor(data.readingId, data.fingerprint);
+  const { readingId, fingerprint } = statusChangeSchema.parse(input);
+  await refuseWhileTiming(readingId);
+  const reading = await readingFor(readingId, fingerprint);
+  const data = abandonReadingSchemaFor(reading.startedOn).parse(input);
   await requireBookWork(reading.workId);
   if (!isOpenStatus(reading.status)) throw new ExpectedActionError("Only an open reading can be abandoned");
   const timeZone = data.timeZone ?? appTimeZone();

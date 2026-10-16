@@ -6,7 +6,9 @@ import {
   READING_STATUSES,
   READING_UNITS,
 } from "@/lib/reading/constants";
-import { readingPeriodEnd, timeZoneSchema } from "@/lib/reading/dates";
+import { FUTURE_READING_DATE, isTimeZone, readingDateError, readingDateLimit, readingPeriodEnd, timeZoneSchema } from "@/lib/reading/dates";
+import { appTimeZone } from "@/lib/utils/date";
+import type { ReadingDatePrecision } from "@/lib/reading/constants";
 
 /*
  * The reading tracker's input rules (SLN-444), shared by the page actions,
@@ -45,6 +47,10 @@ function datedPair(date: string | null | undefined, precision: string | undefine
   return precision === undefined || (precision === "unknown") === !date;
 }
 
+function notFuture(date: string | null | undefined, precision: ReadingDatePrecision | undefined, zone?: string, existingStart: string | null = null) {
+  return !readingDateError(date, precision, readingDateLimit(isTimeZone(zone) ? zone : appTimeZone(), existingStart));
+}
+
 /** The finish period ends on or after the start */
 export function finishAfterStart(r: {
   startedOn?: string | null;
@@ -75,6 +81,7 @@ const startFields = {
 
 export const startReadingSchema = z
   .object(startFields)
+  .refine((r) => notFuture(r.startedOn, r.startedPrecision, r.timeZone), { path: ["startedOn"], message: FUTURE_READING_DATE })
   .refine((r) => datedPair(r.startedOn, r.startedPrecision), "A start date needs its precision, and unknown needs none")
   .refine(
     (r) => [r.startPage, r.startPercent, r.startMinutes].filter((v) => v != null).length <= 1,
@@ -85,6 +92,7 @@ export type StartReadingInput = z.input<typeof startReadingSchema>;
 /** The service's create: the page fields plus the status a new open reading takes */
 export const createReadingSchema = z
   .object({ ...startFields, status: z.enum(["reading", "paused"]).optional() })
+  .refine((r) => notFuture(r.startedOn, r.startedPrecision, r.timeZone), { path: ["startedOn"], message: FUTURE_READING_DATE })
   .refine((r) => datedPair(r.startedOn, r.startedPrecision), "A start date needs its precision, and unknown needs none")
   .refine(
     (r) => [r.startPage, r.startPercent, r.startMinutes].filter((v) => v != null).length <= 1,
@@ -152,7 +160,7 @@ const reviewFields = {
   reviewJson: z.unknown().nullable().optional(),
 };
 
-export const finishReadingSchema = z
+const finishReadingBaseSchema = z
   .object({
     readingId: readingIdSchema,
     fingerprint: fingerprintSchema,
@@ -165,7 +173,12 @@ export const finishReadingSchema = z
   })
   .refine((r) => datedPair(r.finishedOn, r.finishedPrecision), "A finish date needs its precision, and unknown needs none");
 
-export const abandonReadingSchema = z
+/** Only a trusted start loaded from the stored reading may extend the local date limit. */
+export const finishReadingSchemaFor = (existingStart: string | null = null) => finishReadingBaseSchema
+  .refine((r) => notFuture(r.finishedOn, r.finishedPrecision, r.timeZone, existingStart), { path: ["finishedOn"], message: FUTURE_READING_DATE });
+export const finishReadingSchema = finishReadingSchemaFor();
+
+const abandonReadingBaseSchema = z
   .object({
     readingId: readingIdSchema,
     fingerprint: fingerprintSchema,
@@ -179,6 +192,10 @@ export const abandonReadingSchema = z
     timeZone: timeZoneSchema.optional(),
   })
   .refine((r) => datedPair(r.stoppedOn, r.stoppedPrecision), "A date needs its precision, and unknown needs none");
+
+export const abandonReadingSchemaFor = (existingStart: string | null = null) => abandonReadingBaseSchema
+  .refine((r) => notFuture(r.stoppedOn, r.stoppedPrecision, r.timeZone, existingStart), { path: ["stoppedOn"], message: FUTURE_READING_DATE });
+export const abandonReadingSchema = abandonReadingSchemaFor();
 
 export const reopenReadingSchema = z.object({
   readingId: readingIdSchema,
@@ -248,10 +265,13 @@ export const addPastReadingSchema = z
     note: z.string().trim().max(2000).nullable().optional(),
     page: page.nullable().optional(),
     allowPossibleDuplicate: z.boolean().optional(),
+    timeZone: timeZoneSchema.optional(),
   })
   .refine((r) => datedPair(r.startedOn, r.startedPrecision), "A start date needs its precision, and unknown needs none")
   .refine((r) => datedPair(r.finishedOn, r.finishedPrecision), "A finish date needs its precision, and unknown needs none")
   .refine(finishAfterStart, "The finish date is before the start date")
+  .refine((r) => notFuture(r.startedOn, r.startedPrecision, r.timeZone), { path: ["startedOn"], message: FUTURE_READING_DATE })
+  .refine((r) => notFuture(r.finishedOn, r.finishedPrecision, r.timeZone), { path: ["finishedOn"], message: FUTURE_READING_DATE })
   .refine((r) => r.status === "abandoned" || (!r.reason && !r.note), "Only an abandoned read has a reason");
 export type AddPastReadingInput = z.input<typeof addPastReadingSchema>;
 

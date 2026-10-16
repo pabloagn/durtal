@@ -12,6 +12,7 @@ interface DatePickerProps {
   error?: string;
   required?: boolean;
   min?: string;
+  max?: string;
   placeholder?: string;
   id?: string;
 }
@@ -23,6 +24,7 @@ export function DatePicker({
   error,
   required,
   min,
+  max,
   placeholder = "YYYY-MM-DD",
   id,
 }: DatePickerProps) {
@@ -31,6 +33,7 @@ export function DatePicker({
 
   const selected = value ? new Date(value + "T00:00:00") : undefined;
   const minDate = min ? new Date(min + "T00:00:00") : undefined;
+  const maxDate = max ? new Date(max + "T00:00:00") : undefined;
 
   const handleSelect = useCallback(
     (day: Date | undefined) => {
@@ -114,7 +117,7 @@ export function DatePicker({
               mode="single"
               selected={selected}
               onSelect={handleSelect}
-              disabled={minDate ? { before: minDate } : undefined}
+              disabled={[...(minDate ? [{ before: minDate }] : []), ...(maxDate ? [{ after: maxDate }] : [])]}
               defaultMonth={selected ?? new Date()}
               showOutsideDays
               classNames={{

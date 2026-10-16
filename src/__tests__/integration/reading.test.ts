@@ -61,7 +61,7 @@ import {
 } from "@/lib/actions/reading";
 import { createReading, loadReading, readingFingerprintSql, recordProgress, writeReadings } from "@/lib/reading/service";
 import { countedPagesSql, openReadingPercentSql, readCountSql, readingOrdinalSql, readingStateSql } from "@/lib/reading/summary";
-import { readingPeriodEnd } from "@/lib/reading/dates";
+import { readingDay, readingPeriodEnd } from "@/lib/reading/dates";
 import { deleteEdition, updateEdition } from "@/lib/actions/editions";
 import { deleteInstance } from "@/lib/actions/instances";
 import { deleteLocation } from "@/lib/actions/locations";
@@ -267,6 +267,30 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
   });
 
   describe("constraints", () => {
+    it("rejects future start, finish, abandon and past-read dates without changing readings", async () => {
+      const workId = await book("Future dates");
+      const future = "2099-01-01";
+      await expect(startReading({ workId, startedOn: future, startedPrecision: "day", timeZone: "UTC" })).rejects.toThrow("Choose today or an earlier date");
+      expect(await value<number>(`select count(*)::int from readings where work_id = $1`, [workId])).toBe(0);
+      const reading = await startReading({ workId, startedOn: "2026-09-01", startedPrecision: "day", timeZone: "UTC" });
+      await expect(finishReading({ readingId: reading.id, fingerprint: reading.fingerprint, finishedOn: future, finishedPrecision: "day", timeZone: "UTC" })).rejects.toThrow("Choose today or an earlier date");
+      await expect(abandonReading({ readingId: reading.id, fingerprint: reading.fingerprint, stoppedOn: future, stoppedPrecision: "day", reason: "lost_interest", timeZone: "UTC" })).rejects.toThrow("Choose today or an earlier date");
+      await expect(addPastReading({ workId, format: "print", status: "finished", startedOn: null, startedPrecision: "unknown", finishedOn: future, finishedPrecision: "day", timeZone: "UTC" })).rejects.toThrow("Choose today or an earlier date");
+      expect(await loadReading(reading.id)).toMatchObject({ fingerprint: reading.fingerprint, status: "reading", finishedOn: null });
+      expect(await value<number>(`select count(*)::int from readings where work_id = $1`, [workId])).toBe(1);
+    });
+
+    it("finishes a valid existing start after travelling to an earlier local day", async () => {
+      const workId = await book("Across time zones");
+      const now = new Date();
+      const east = readingDay(now, "Pacific/Kiritimati", 0);
+      const west = readingDay(now, "Etc/GMT+12", 0);
+      expect(east > west).toBe(true);
+      const reading = await startReading({ workId, startedOn: east, startedPrecision: "day", timeZone: "Pacific/Kiritimati" });
+      const result = await finishReading({ readingId: reading.id, fingerprint: reading.fingerprint, finishedOn: east, finishedPrecision: "day", timeZone: "Etc/GMT+12" });
+      expect(result.reading).toMatchObject({ status: "finished", startedOn: east, finishedOn: east });
+    });
+
     it("refuses bad ratings, misplaced reasons and dates, and a missing precision", async () => {
       const workId = await book();
       const insert = (cols: string, vals: string) => q(`insert into readings(work_id, ${cols}) values ($1, ${vals})`, [workId]);
