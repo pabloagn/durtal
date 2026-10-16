@@ -2626,6 +2626,12 @@ layout and direction, a PDF's page count, a comic's pages), `problem` (why a
 quarantined file was quarantined), `textReason` (why the text has no counts)
 and `coverReason` (why there is no cover).
 
+The reader adds `openFailure` (`{ reason, at }`, SLN-685) when a file does not
+open as a book, through `POST /api/ebooks/files/[fileId]/open-failure`, and
+removes it the next time the file opens. The e-book page shows such a file as
+damaged; its `status` and `updated_at` do not change, so Retry and downloads
+still work.
+
 ### `ebook_positions`
 
 The reader's place in one file, per device, written by the reader (SLN-492) through

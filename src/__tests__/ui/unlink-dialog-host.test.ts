@@ -34,7 +34,7 @@ describe("the layout's Unlink dialog (#247 review)", () => {
     await act(async () => button("Unlink…").click());
     expect(host.querySelector('[data-card] [data-dialog]')).toBeNull();
     expect(host.querySelector('[data-dialog="Against Nature"]')).not.toBeNull();
-    expect(button("Unlink…").disabled).toBe(true);
+    expect(button("Unlink…").getAttribute("aria-disabled")).toBe("true");
     await act(async () => button("Commit").click());
     expect(refresh).toHaveBeenCalledOnce();
     act(() => hideCard());

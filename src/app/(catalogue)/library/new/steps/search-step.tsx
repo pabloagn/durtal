@@ -92,6 +92,7 @@ export function SearchStep({
           <input
             type="text"
             placeholder="Search by title, author, or ISBN..."
+            aria-label="Search by title, author, or ISBN"
             data-shortcut-search=""
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

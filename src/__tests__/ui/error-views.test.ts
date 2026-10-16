@@ -106,7 +106,7 @@ describe("error files", () => {
 // button look, so it never reads as plain text (main audit, 15 Oct)
 describe("not-found files", () => {
   const app = path.resolve(__dirname, "../../app/(catalogue)");
-  it.each(["", "library", "people", "films", "paintings", "perfumes", "publishers", "organizations"])(
+  it.each(["", "library", "people", "films", "paintings", "perfumes", "publishers", "organizations", "ebooks", "ebooks/runs"])(
     "%s/not-found.tsx leads back with a secondary button",
     (dir) => {
       const source = readFileSync(path.join(app, dir, "not-found.tsx"), "utf8");
@@ -114,4 +114,17 @@ describe("not-found files", () => {
       expect(source).not.toContain('buttonClass("ghost")');
     },
   );
+});
+
+// An e-book that is not there leads back to eBooks, wherever it was asked
+// for (SLN-685)
+describe("eBook not-found views", () => {
+  it("lead back to eBooks from the catalogue and from the reader", () => {
+    for (const file of ["../../app/(catalogue)/ebooks/not-found.tsx", "../../app/reader/not-found.tsx"]) {
+      const source = readFileSync(path.resolve(__dirname, file), "utf8");
+      expect(source, file).toContain('title: "eBook not found"');
+      expect(source, file).toContain('href="/ebooks"');
+      expect(source, file).toContain("Back to eBooks");
+    }
+  });
 });

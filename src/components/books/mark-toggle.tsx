@@ -149,13 +149,16 @@ export function MarkToggle({
       <button
         ref={button}
         type="button"
-        disabled={pending}
+        // Saving, not disabled: a disabled button drops the focus onto the page
+        aria-disabled={pending || undefined}
         aria-pressed={marked}
         aria-busy={pending}
         aria-label={action}
         data-tooltip={action}
         aria-describedby={position ? cardId : undefined}
-        onClick={onToggle}
+        onClick={() => {
+          if (!pending) onToggle();
+        }}
         onPointerEnter={openSoon}
         onPointerLeave={closeSoon}
         onFocus={(e) => {
@@ -171,7 +174,7 @@ export function MarkToggle({
             card.current?.querySelector<HTMLElement>("button, input")?.focus();
           }
         }}
-        className={`inline-flex h-7 w-7 items-center justify-center rounded-sm transition-colors hover:bg-bg-tertiary disabled:opacity-50 pointer-coarse:size-11 ${marked ? tone : "text-fg-muted/70 hover:text-fg-secondary"}`}
+        className={`inline-flex h-7 w-7 items-center justify-center rounded-sm transition-colors hover:bg-bg-tertiary aria-disabled:opacity-50 pointer-coarse:size-11 ${marked ? tone : "text-fg-muted/70 hover:text-fg-secondary"}`}
       >
         <Icon
           className="h-4 w-4"
@@ -282,9 +285,11 @@ export function MarkToggle({
               )}
               <button
                 type="button"
-                disabled={pending}
-                onClick={onToggle}
-                className="-mr-1.5 ml-auto rounded-sm px-1.5 py-0.5 text-micro text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-50"
+                aria-disabled={pending || undefined}
+                onClick={() => {
+                  if (!pending) onToggle();
+                }}
+                className="-mr-1.5 ml-auto rounded-sm px-1.5 py-0.5 text-micro text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary aria-disabled:opacity-50"
               >
                 {action}
               </button>

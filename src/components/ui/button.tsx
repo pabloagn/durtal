@@ -3,6 +3,7 @@ import {
   forwardRef,
   isValidElement,
   type ButtonHTMLAttributes,
+  type MouseEvent,
   type ReactNode,
 } from "react";
 import { LoaderCircle } from "lucide-react";
@@ -16,8 +17,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /**
    * The button's action is running (saving, deleting). The button keeps its
    * label and width: a leading icon turns into a spinner of the same size, a
-   * button with no icon gains none. It is disabled and says it is busy with
-   * `aria-busy` (contract section 8, "A busy button keeps its width").
+   * button with no icon gains none. It says it is busy with `aria-busy`
+   * (contract section 8, "A busy button keeps its width"). It ignores presses
+   * but is not `disabled`: a focused button that turns disabled drops the
+   * focus onto the page, so it is `aria-disabled` instead and keeps it.
    */
   busy?: boolean;
 }
@@ -37,6 +40,8 @@ const sizeStyles: Record<Size, string> = {
 
 /** On a touch screen every button is at least 44 x 44 px (docs/03, Keyboard, touch and motion) */
 const COARSE = "pointer-coarse:min-h-11 pointer-coarse:min-w-11";
+/** A busy button looks as a disabled one does, without being disabled */
+const HELD = "aria-disabled:pointer-events-none aria-disabled:opacity-40";
 const BASE = "action-control whitespace-nowrap font-medium [&>svg]:size-4 [&>svg]:shrink-0";
 
 /** Button styles for a link that should look like a Button. */
@@ -60,18 +65,30 @@ function busyChildren(children: ReactNode) {
   ];
 }
 
+function ignorePress(event: MouseEvent<HTMLButtonElement>) {
+  event.preventDefault();
+  event.stopPropagation();
+}
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = "secondary", size = "md", className = "", busy = false, disabled, children, ...props }, ref) => {
+  ({ variant = "secondary", size = "md", className = "", busy = false, disabled, onClick, children, ...props }, ref) => {
+    // Busy, not disabled: presses do nothing (no second save), the focus stays
+    const held = busy && !disabled;
     return (
       <button
         ref={ref}
         // Keyboard shortcuts find a dialog's main button by this mark
         data-variant={variant}
         // A label never wraps: a narrow row wraps whole buttons instead
-        className={`${buttonClass(variant, size)} ${className}`}
-        disabled={disabled || busy}
+        className={`${buttonClass(variant, size)} ${HELD} ${className}`}
+        disabled={disabled}
+        aria-disabled={held || undefined}
         aria-busy={busy || undefined}
         {...props}
+        // A press while busy, including Enter in a form (it presses the submit
+        // button), neither runs the action again nor submits. Only then is
+        // there a handler of its own: a server component's Button takes none
+        onClick={held ? ignorePress : onClick}
       >
         {busy ? busyChildren(children) : children}
       </button>

@@ -52,7 +52,7 @@ export function FilmPoster({
   const src = filmImageUrl(image, { thumbnail });
   return (
     <div
-      className={`@container relative aspect-[2/3] overflow-hidden bg-bg-tertiary ${className}`}
+      className={`@container card-cover ${className}`}
       style={src ? coverToneStyle(image?.tone) : undefined}
     >
       {src ? (

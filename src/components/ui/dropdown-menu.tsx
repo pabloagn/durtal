@@ -22,6 +22,7 @@ import { placeMenu } from "@/lib/utils/menu-placement";
 /* ── Context ────────────────────────────────────────────────────────────── */
 
 interface DropdownMenuContextValue {
+  /** Closes the menu after an item acted, and keeps the focus (see `closeAfterAction`) */
   close: () => void;
 }
 
@@ -78,7 +79,18 @@ export function DropdownMenu({
     [isControlled, onOpenChange],
   );
 
-  const close = useCallback(() => setOpen(false), [setOpen]);
+  // An item that acts in place (Copy, Export, Add to Up next) closes the
+  // menu, and the focus went with the item: it goes back to the menu's
+  // button, as after Escape. An item that opened a dialog, or moved the
+  // focus anywhere else, keeps it there (focus survey, cause 3).
+  const closeAfterAction = useCallback(() => {
+    setOpen(false);
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      if (triggerRef.current?.isConnected) triggerRef.current.focus({ preventScroll: true });
+    });
+  }, [setOpen]);
 
   // The native top layer escapes card/toolbar clipping while keeping the
   // menu beside its trigger in the DOM (dialog focus restoration uses this).
@@ -230,7 +242,7 @@ export function DropdownMenu({
   }, [isOpen]);
 
   return (
-    <DropdownMenuContext.Provider value={{ close }}>
+    <DropdownMenuContext.Provider value={{ close: closeAfterAction }}>
       <div ref={containerRef} className="relative inline-flex">
         {/* Trigger */}
         {cloneElement(trigger, {

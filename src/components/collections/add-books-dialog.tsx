@@ -138,7 +138,7 @@ export function AddCollectionBooksDialog({
   const shown = mode === "editions" ? results.length : works.length;
   return (
     <Dialog
-      draft
+      dirty={count > 0}
       open={open}
       onClose={() => {
         if (!busy.current) onClose();

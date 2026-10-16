@@ -19,7 +19,7 @@ function FavouriteShortcut({ run }: { run: () => void }) {
 
 const VARIANTS = {
   /** A 32px target around the 16px star (44px on touch): cards, rows, headers */
-  icon: "action-control flex icon-hit hover:bg-glass-highlight active:bg-bg-tertiary/80",
+  icon: "fav-hit",
   /** Legacy detail-page variant, now the same quiet 32px action family. */
   boxed:
     "action-control flex size-8 hover:bg-glass-highlight active:bg-bg-tertiary/80 pointer-coarse:size-11",
@@ -94,18 +94,20 @@ export function FavouriteToggle({
         aria-label={label}
         data-tooltip={tooltip}
         data-tooltip-keys={shortcut ? `a then ${FAVOURITE_SHORTCUT}` : undefined}
-        disabled={pending}
+        // Saving, not disabled: a disabled button drops the focus onto the page
+        aria-disabled={pending || undefined}
         onClick={(event) => {
           // A star inside a clickable card never opens the card
           event.preventDefault();
           event.stopPropagation();
+          if (pending) return;
           const next = !on;
           setOn(next);
           startTransition(async () => {
             if (!(await save(next))) setOn(!next);
           });
         }}
-        className={`${VARIANTS[variant]} text-accent-gold disabled:opacity-40${className ? ` ${className}` : ""}`}
+        className={`${VARIANTS[variant]} text-accent-gold aria-disabled:opacity-40${className ? ` ${className}` : ""}`}
       >
         <svg
           aria-hidden="true"

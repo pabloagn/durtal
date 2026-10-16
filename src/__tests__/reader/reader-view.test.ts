@@ -132,6 +132,7 @@ const render = async (
   devicePlace: ReaderPlace | null = own,
   otherPlace: ReaderPlace | null = other,
   localPreferenceAdmission = false,
+  { until = "ready", openFailed }: { until?: "ready" | "error"; openFailed?: boolean } = {},
 ) => {
   await act(async () => {
     root.render(
@@ -146,6 +147,7 @@ const render = async (
           expiresAt: null,
           fallbackUrl: "/file",
           cdOffset: null,
+          openFailed,
         },
         alternatives: [],
         place,
@@ -164,8 +166,8 @@ const render = async (
   // Startup reads this device's committed position before opening/resuming.
   // Wait for the actual landing, not elapsed UI-clock time or microtasks.
   await persistence.waitFor(
-    () => host.querySelector('[data-reader="ready"]') !== null,
-    "the reader's initial resumed landing",
+    () => host.querySelector(`[data-reader="${until}"]`) !== null,
+    until === "ready" ? "the reader's initial resumed landing" : "the reader's open error",
   );
 };
 const positionReads = () => vi.mocked(fetch).mock.calls.filter(([input, options]) => {
@@ -924,6 +926,71 @@ it("mounted speech saves a painted location without tracker activity, pace event
   expect(committed[0].mutation.body.locator.cfi).toBe("speech-sentence");
   expect(committed[0].mutation.createdAt).toBe(committed[0].mutation.body.clientUpdatedAt);
   expect(navigator.sendBeacon).not.toHaveBeenCalled();
+});
+
+describe("a file that does not open (SLN-685)", () => {
+  const failures = () => vi.mocked(fetch).mock.calls.filter(([input]) => String(input).endsWith("/open-failure"));
+  beforeEach(() => {
+    const ordinary = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (input, options) =>
+      String(input) === `/api/ebooks/files/${epubId}/open-failure` ? new Response(null, { status: 204 }) : ordinary(input, options));
+  });
+  const fail = (kind: "damaged" | "network", cause?: string) =>
+    fake.engine.open.mockImplementationOnce(async () => {
+      fake.emit("error", { kind, message: kind === "damaged" ? "The file is damaged or not a valid eBook." : "The file could not be downloaded. Check the connection.", cause });
+      throw new Error(cause ?? "Failed to fetch");
+    });
+
+  it("says a damaged file is damaged, offers its replacement and no Retry, keeps only Back in the bar, and records why", async () => {
+    fail("damaged", "zip: central directory not found");
+    await render(own, own, other, false, { until: "error" });
+    const alert = host.querySelector('[role="alert"]')!;
+    expect(alert.textContent).toContain("The file is damaged or not a valid eBook.");
+    expect([...alert.querySelectorAll("button")].map((b) => b.textContent)).toEqual([]);
+    expect(alert.querySelector<HTMLAnchorElement>('a[href^="/ebooks/upload"]')?.getAttribute("href"))
+      .toBe(`/ebooks/upload?kind=replace&ebookId=${bookId}&fileId=${epubId}`);
+    const header = host.querySelector<HTMLElement>("header[data-reader-chrome]")!;
+    expect(header.inert).toBe(false);
+    expect([...header.querySelectorAll("a, button")].map((el) => el.getAttribute("aria-label"))).toEqual(["Back"]);
+    expect(host.querySelector("footer[data-reader-chrome]")).toBeNull();
+    expect(failures()).toHaveLength(1);
+    const [, request] = failures()[0];
+    expect(request?.method).toBe("POST");
+    expect(JSON.parse(String(request?.body))).toEqual({ reason: "zip: central directory not found" });
+  });
+
+  it("offers Retry, as a secondary button, only when the connection failed, and records nothing", async () => {
+    fail("network");
+    await render(own, own, other, false, { until: "error" });
+    const alert = host.querySelector('[role="alert"]')!;
+    const retry = [...alert.querySelectorAll("button")].find((b) => b.textContent === "Retry")!;
+    expect(retry).toBeDefined();
+    expect(retry.className).not.toContain("action-fill");
+    expect(alert.querySelector('a[href^="/ebooks/upload"]')).toBeNull();
+    expect(failures()).toHaveLength(0);
+  });
+
+  it("starts focus on the error's first way out, and one Escape asks before leaving (SLN-864)", async () => {
+    fail("damaged", "zip: central directory not found");
+    await render(own, own, other, false, { until: "error" });
+    const alert = host.querySelector('[role="alert"]')!;
+    expect(document.activeElement).toBe(alert.querySelector("a, button"));
+    act(() => {
+      document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", keyCode: 27, bubbles: true, cancelable: true }));
+    });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    expect(host.querySelector("[data-reader-leave-prompt]")?.closest("dialog")?.textContent).toContain("Leave the book?");
+  });
+
+  it("clears the record once the file opens, and sends nothing for a file with none", async () => {
+    await render(own, own, other, false, { openFailed: true });
+    expect(failures()).toHaveLength(1);
+    expect(failures()[0][1]?.method).toBe("DELETE");
+    act(() => root.render(h("div")));
+    vi.mocked(fetch).mockClear();
+    await render();
+    expect(failures()).toHaveLength(0);
+  });
 });
 
 it("puts Skip to the book before top-bar controls and delegates focus to the actual engine", async () => {

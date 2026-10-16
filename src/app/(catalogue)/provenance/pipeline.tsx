@@ -84,7 +84,7 @@ export function PipelineOrderCard({
       onClick={() => onClick(order)}
       {...listeners}
       {...attributes}
-      className={`w-full rounded-sm border border-glass-border bg-bg-primary/60 p-2.5 text-left transition-all duration-150 hover:border-fg-muted/15 hover:bg-bg-primary active:scale-[0.99] ${
+      className={`flex w-full flex-col rounded-sm border border-glass-border bg-bg-primary/60 p-2.5 text-left transition-all duration-150 hover:border-fg-muted/15 hover:bg-bg-primary active:scale-[0.99] ${
         isDragging && !isDragOverlay ? "opacity-30" : ""
       } ${isDragOverlay ? "shadow-[0_8px_24px_rgba(0,0,0,0.5)] ring-1 ring-accent-primary/40" : ""}`}
     >
@@ -112,22 +112,23 @@ export function PipelineOrderCard({
 
         {/* Info */}
         <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 text-xs font-medium leading-snug text-fg-primary">
+          <p className="text-xs font-medium leading-snug [overflow-wrap:break-word] text-fg-primary">
             {order.work.title}
           </p>
-          <p className="mt-0.5 truncate font-mono text-micro text-fg-secondary">
+          <p className="mt-0.5 font-mono text-micro [overflow-wrap:break-word] text-fg-secondary">
             {authorName}
           </p>
           {order.venue && (
-            <p className="mt-1 truncate font-mono text-micro text-fg-secondary">
+            <p className="mt-1 font-mono text-micro [overflow-wrap:break-word] text-fg-secondary">
               {order.venue.name}
             </p>
           )}
         </div>
       </div>
 
-      {/* Footer badges */}
-      <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+      {/* Footer badges: at the card's foot, so a row's cards, stretched to its
+          tallest, start their titles and end their footers on one line */}
+      <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-2">
         <span className="font-mono text-micro text-fg-secondary">
           {days === 0 ? "today" : `${days}d ago`}
         </span>
@@ -172,7 +173,8 @@ export function PipelineColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`flex min-w-[160px] max-w-[200px] flex-shrink-0 flex-col rounded-sm border transition-colors ${
+      data-pipeline-column={status}
+      className={`min-w-0 rounded-sm border transition-colors ${
         isOver && isDropTarget
           ? "border-accent-primary/50 bg-accent-primary/5"
           : isActive
@@ -180,38 +182,33 @@ export function PipelineColumn({
             : "border-glass-border/50 bg-bg-secondary/20"
       }`}
     >
-      {/* Column header */}
-      <div className="flex items-center justify-between border-b border-glass-border px-3 py-2.5">
-        <div className="flex items-center gap-1.5">
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${isActive ? STATUS_COLORS[status].replace("text-", "bg-") : "bg-fg-muted/30"}`}
-          />
-          <span className="type-caption">
-            {label}
-          </span>
+      {/* Status header: the label wraps whole words; the dot sits on its first line */}
+      <div className={`type-caption flex items-start justify-between gap-2 px-3 py-2.5 ${isActive ? "border-b border-glass-border" : ""}`}>
+        <div className="flex min-w-0 items-start gap-1.5">
+          <CapAligned height={6}>
+            <span
+              className={`block h-1.5 w-1.5 rounded-full ${isActive ? STATUS_COLORS[status].replace("text-", "bg-") : "bg-fg-muted/30"}`}
+            />
+          </CapAligned>
+          <span className="min-w-0">{label}</span>
         </div>
-        <span
-          className={`font-mono text-micro ${isActive ? "text-fg-primary" : "text-fg-secondary"}`}
-        >
+        <span className={isActive ? "text-fg-primary" : "text-fg-secondary"}>
           {count}
         </span>
       </div>
 
-      {/* Cards */}
-      <div className="flex flex-1 flex-col gap-2 p-2">
-        {orders.map((order) => (
-          <PipelineOrderCard
-            key={order.id}
-            order={order}
-            onClick={onCardClick}
-          />
-        ))}
-        {count === 0 && (
-          <div className="flex flex-1 items-center justify-center py-6">
-            <span className="font-mono text-micro text-fg-secondary">—</span>
-          </div>
-        )}
-      </div>
+      {/* Its orders side by side, as many a row as fit; an empty status is its header alone */}
+      {count > 0 && (
+        <div className="grid gap-2 p-2 [grid-template-columns:repeat(auto-fill,minmax(min(100%,13rem),1fr))]">
+          {orders.map((order) => (
+            <PipelineOrderCard
+              key={order.id}
+              order={order}
+              onClick={onCardClick}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
