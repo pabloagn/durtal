@@ -54,8 +54,8 @@ function render(props: Parameters<typeof EditionDraft>[0]) {
 }
 const parent = () => host.querySelector<HTMLDialogElement>("dialog[open]")!;
 const field = (id: string) => host.querySelector<HTMLInputElement>("#" + id)!;
-const section = (name: string) => [...host.querySelectorAll<HTMLElement>("section")].find(el => el.querySelector("h3 > button > span")?.textContent === name)!;
-const toggle = (name: string) => section(name).querySelector<HTMLButtonElement>("h3 > button")!;
+const section = (name: string) => [...host.querySelectorAll<HTMLElement>("section")].find(el => el.querySelector(":scope > h3 > button")?.textContent?.trim() === name)!;
+const toggle = (name: string) => section(name).querySelector<HTMLButtonElement>(":scope > h3 > button")!;
 const prompt = () => [...host.querySelectorAll<HTMLDialogElement>("dialog[open]")].find(el => el.querySelector("h2")?.textContent === "Unsaved changes");
 const option = (name: string) => [...host.querySelectorAll<HTMLElement>('[role="option"]')].find(el => el.querySelector("span")?.textContent === name)!;
 function pointer(el: HTMLElement) {
