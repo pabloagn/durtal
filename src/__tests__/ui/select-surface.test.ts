@@ -176,5 +176,9 @@ it("unmounting the Select releases its lease without moving newer focus", () => 
   const onClose = vi.fn(); render({ onClose, hydrated: true }); pointer(trigger());
   const outside = host.querySelector<HTMLButtonElement>("[data-outside]")!;
   act(() => outside.focus()); render({ onClose, hydrated: true, show: false });
-  expect(document.activeElement).toBe(outside); key(outside, "Escape"); expect(onClose).toHaveBeenCalledTimes(1);
+  expect(document.activeElement).toBe(outside);
+  key(outside, "Escape");
+  // Removing a tracked field changes the parent draft; the released child
+  // lease must let that parent's guard handle Escape, without losing focus.
+  expect(prompt()).toBeDefined(); expect(onClose).not.toHaveBeenCalled();
 });
