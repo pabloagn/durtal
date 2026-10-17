@@ -23,6 +23,7 @@ import { places } from "./places";
 import { workTypes } from "./work-types";
 import { taxonomyFamilies, customTaxonomyItems } from "./taxonomy-families";
 import { sourceRecords } from "./provenance";
+import type { AssertionScope, AssertionAssessment } from "@/lib/enrichment/assertion-scope";
 import {
   APPLY_TARGET_RULES,
   APPLIED_BY,
@@ -296,6 +297,9 @@ export const enrichmentClaims = pgTable(
       .references(() => works.id, { onDelete: "cascade" }),
     /** Edition-level dimensions only */
     editionId: uuid("edition_id").references(() => editions.id, { onDelete: "cascade" }),
+    /** Null is the historical contract, not a certified canonical baseline. */
+    scope: jsonb("scope").$type<AssertionScope>(),
+    assessment: jsonb("assessment").$type<AssertionAssessment>(),
     dimensionId: uuid("dimension_id")
       .notNull()
       .references(() => enrichmentDimensions.id, { onDelete: "restrict" }),
@@ -328,6 +332,7 @@ export const enrichmentClaims = pgTable(
       "enrichment_claim_value_check",
       sql`num_nonnulls(${t.termId}, ${t.numberValue}, ${t.textValue}, ${t.placeId}, ${t.personId}) between 1 and 2 and (${t.textValue} is null or (${t.textValue} = btrim(${t.textValue}) and length(${t.textValue}) between 1 and 500)) and (${t.note} is null or length(${t.note}) <= 2000)`,
     ),
+    check("enrichment_claim_scope_pair", sql`(${t.scope} is null) = (${t.assessment} is null)`),
     check(
       "enrichment_claim_method_check",
       sql`${t.method} in (${sql.raw(sqlList(CLAIM_METHODS))}) and ${t.confidence} between 0 and 1 and (${t.method} <> 'human' or ${t.confidence} = 1) and (${t.method} = 'human' or ${t.runId} is not null)`,

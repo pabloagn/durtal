@@ -385,6 +385,32 @@ Domain models retain the specific measurement meaning and original unit as neede
 
 ## Book enrichment
 
+### Assertion scope contract 1 (SLN-970)
+
+Migration `0089_claim_scope` adds nullable `scope` and `assessment` JSON to the
+existing claims table. Historical rows keep null in both columns; null does
+not certify a canonical baseline. Scope carries version, target kind, reviewed
+text/baseline identity, languages, realization kind, component identity and
+role, unresolved source anchor, and assertion relation. The existing edition
+foreign key can also identify the publication embodying a scoped text.
+
+Scope is immutable and participates in open-claim uniqueness (SHA-256 of its
+canonical JSON), service deduplication, conflicts, merge and undo comparisons.
+Knowledge, coverage and basis are compared and hashed separately; justification
+wording is excluded. Conflicting assessments remain separate. Scoped evidence
+must match any edition binding and explicit source text/component context.
+Assessment records knowledge separately from decision, with coverage, basis
+and justification. Unknown means no fabricated value; absence requires a
+documented complete examination. Source-local unknown identity must cite the
+same source observation in `claim_evidence` (checked at commit).
+
+All contract-1 claims remain proposals or rejected/superseded history; accepting
+or applying them is blocked in both the service and database. Legacy manual
+edits and identity rules exclude them. The existing accepted catalogue and
+owner corrections are unchanged. No inheritance, catalogue migration or
+vocabulary load is implied. See `docs/ENRICHMENT_SCOPE_CONTRACT.md` for the gap
+analysis, scope cases and guarded rollback plan.
+
 Migration `0077_book_enrichment` (SLN-462) adds the tables of the book
 enrichment pipeline (SLN-460): proposed values with their evidence, the approved
 vocabulary, the apply log with undo, auto-accept rules, popularity snapshots and
@@ -550,7 +576,12 @@ its retrieval time, with one row per document and owner (the book, or one of its
 editions). Readers recognise it by `payload.kind`.
 
 **The evidence payload** (`src/lib/enrichment/evidence-payload.ts`) holds no
-page text (R10), only hashes, keys and short metadata: `kind` (`evidence_page`,
+page text (R10), only hashes, keys and short metadata. SLN-969 adds optional
+`quality` (profile/version, status, available and missing fields, coverage and
+reasons), `identityText` (primary record identity, at most 2,000 characters),
+and `sections` (role, locator, code-point start/end in the hashed NFC text).
+These are present on new observations and optional for historical payloads;
+no DDL migration or rewrite is needed. Remaining fields: `kind` (`evidence_page`,
 `evidence_text`), `retrievedVia` (`fetch`, `search:<provider>`), `outlet`, the
 `query` of a snippet; the requested, final and canonical URLs, HTTP status,
 content type and charset; `rawSha256`, `rawBytes`, `rawStoredBytes`, `rawKey`

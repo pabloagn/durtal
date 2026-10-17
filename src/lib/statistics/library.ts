@@ -276,18 +276,20 @@ export interface Extremes {
 }
 
 export async function extremes(): Promise<Extremes> {
-  const pick = (value: SQL, order: SQL, where: SQL) => sql`(select row_to_json(x) from (
+  const pick = (value: SQL, order: SQL, where: SQL, join = sql``) => sql`(select row_to_json(x) from (
       select w.id::text as "workId", w.slug, w.title, ${value} as value,
         (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id and ${WRITER} order by wa.sort_order, a.name limit 1) as author,
         ${COVER(sql`w.id`)} as cover
-      from works w join owned o on o.id = w.id where ${where} order by ${order}, w.title, w.id limit 1) x)`;
-  const longestPages = sql`(select max(e.page_count) from held_editions h join editions e on e.id = h.id where e.work_id = w.id)`;
-  const [row] = await rows<{ [K in keyof Extremes]: (Omit<Extreme, "value"> & { value: number | string }) | null }>(sql`with ${OWNED}
+      from works w join owned o on o.id = w.id ${join} where ${where} order by ${order}, w.title, w.id limit 1) x)`;
+  const pageJoin = sql`join pages p on p.work_id = w.id`;
+  const [row] = await rows<{ [K in keyof Extremes]: (Omit<Extreme, "value"> & { value: number | string }) | null }>(sql`with ${OWNED},
+    pages as (select e.work_id, max(e.page_count) as pages
+      from held_editions h join editions e on e.id = h.id group by e.work_id)
     select
       ${pick(sql`w.original_year`, sql`w.original_year asc`, sql`w.original_year is not null`)} as oldest,
       ${pick(sql`w.original_year`, sql`w.original_year desc`, sql`w.original_year is not null`)} as newest,
-      ${pick(longestPages, sql`${longestPages} desc`, sql`${longestPages} > 0`)} as longest,
-      ${pick(longestPages, sql`${longestPages} asc`, sql`${longestPages} > 0`)} as shortest`);
+      ${pick(sql`p.pages`, sql`p.pages desc`, sql`p.pages > 0`, pageJoin)} as longest,
+      ${pick(sql`p.pages`, sql`p.pages asc`, sql`p.pages > 0`, pageJoin)} as shortest`);
   const parse = (x: (Omit<Extreme, "value"> & { value: number | string }) | null): Extreme | null => (x ? { ...x, value: Number(x.value) } : null);
   return { oldest: parse(row.oldest), newest: parse(row.newest), longest: parse(row.longest), shortest: parse(row.shortest) };
 }

@@ -254,6 +254,76 @@ describe.skipIf(!url)("production Neon driver batch contract", () => {
     expect(requests).toHaveLength(0);
   });
 
+  it("keeps a tied top-rated shelf bounded and typed inside the eight-read HTTP batch", async () => {
+    const shelf = 10;
+    const workId = (i: number) => `88510000-0000-4000-8000-${String(17 - i).padStart(12, "0")}`;
+    const editionUpdatedAt = new Date("2025-02-03T04:05:06.000Z");
+    const fixtures = new Map<string, { i: number; authorId: string; editionId: string; copyId: string }>();
+    const homeId = randomUUID();
+    await c`insert into locations(id,name,type) values (${homeId},'Batch shelf home','physical')`;
+    for (let i = 1; i <= 16; i++) {
+      const id = workId(i), authorId = randomUUID(), editionId = randomUUID(), copyId = randomUUID();
+      // Reverse ID insertion makes heap order disagree with the tie-breaker.
+      const createdAt = i <= 2 ? "2026-01-02T12:00:00Z" : "2026-01-01T12:00:00Z";
+      await c`insert into works(id,title,slug,rating,catalogue_status,created_at,is_favourite)
+        values (${id},${`Rated ${i}`},${`neon-tied-rating-${i}`},${i % 3 === 0 ? 5 : 4},'accessioned',${createdAt}::timestamptz,${i % 2 === 0})`;
+      await c`insert into authors(id,name) values (${authorId},${`Author ${i}`})`;
+      await c`insert into work_authors(work_id,author_id,sort_order) values (${id},${authorId},0)`;
+      await c`insert into editions(id,work_id,title,language,publication_year,updated_at)
+        values (${editionId},${id},${`Edition ${i}`},'en',${2000 + i},${editionUpdatedAt})`;
+      await c`insert into instances(id,edition_id,location_id,status)
+        values (${copyId},${editionId},${homeId},'available')`;
+      fixtures.set(id, { i, authorId, editionId, copyId });
+    }
+    await c`insert into works(title) values ('Unrated')`;
+    await c`alter table works drop constraint works_kind_enabled_check`;
+    try {
+      await c`insert into works(title,kind,rating,original_language) values ('Excluded film','film',5,null)`;
+      const expected = [15, 12, 9, 6, 3, 2, 1, 16, 14, 13].map(workId);
+      let topQuery: Query | undefined;
+      for (let run = 0; run < 2; run++) {
+        requests.length = 0;
+        const stats = await getLibraryStats({ shelf });
+        expect(stats.topRatedWorks.map((row) => row.id)).toEqual(expected);
+        expect(stats.topRatedWorks).toHaveLength(shelf);
+        expect(stats).toMatchObject({ works: 17, authors: 16, editions: 16, instances: 16 });
+        // The existing wanted-ID dependency, then exactly eight independent
+        // reads. Top-rated IDs are a subquery, never a ninth HTTP request.
+        expect(requests).toHaveLength(2);
+        expect(requests[0].queries).toBeUndefined();
+        expect(requests[1].queries).toHaveLength(8);
+        topQuery = requests[1].queries![5];
+        expect(topQuery.query).toMatch(/\bin\s*\(\s*select\b/i);
+        for (const row of stats.topRatedWorks) {
+          const { i, authorId, editionId, copyId } = fixtures.get(row.id)!;
+          expect(row).toMatchObject({
+            rating: i % 3 === 0 ? 5 : 4,
+            isFavourite: i % 2 === 0,
+            createdAt: new Date(i <= 2 ? "2026-01-02T12:00:00Z" : "2026-01-01T12:00:00Z"),
+            workAuthors: [{ author: { id: authorId, name: `Author ${i}` } }],
+            editions: [{ id: editionId, language: "en", publicationYear: 2000 + i,
+              updatedAt: editionUpdatedAt, instances: [{ id: copyId }] }],
+            media: [],
+          });
+        }
+      }
+      const [explained] = await c.unsafe<{ "QUERY PLAN": { Plan: Record<string, unknown> }[] }[]>(
+        `explain (analyze, format json) ${topQuery!.query}`, topQuery!.params,
+      );
+      const relatedNodes: Record<string, unknown>[] = [];
+      const visit = (plan: Record<string, unknown>) => {
+        if (["authors", "editions", "instances", "media"].includes(String(plan["Relation Name"]))) relatedNodes.push(plan);
+        for (const child of (plan.Plans ?? []) as Record<string, unknown>[]) visit(child);
+      };
+      visit(explained["QUERY PLAN"][0].Plan);
+      expect(relatedNodes.length).toBeGreaterThan(0);
+      for (const node of relatedNodes) expect(Number(node["Actual Loops"])).toBeLessThanOrEqual(shelf);
+    } finally {
+      await c`delete from works where kind = 'film'`;
+      await c`alter table works add constraint works_kind_enabled_check check (kind = 'book')`;
+    }
+  }, 30000);
+
   it("batches the eight library reads and two independent collection reads", async () => {
     const stats = await getLibraryStats();
     expect(stats.works).toBe(0);

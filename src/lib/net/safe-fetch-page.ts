@@ -4,6 +4,7 @@ import { guardedFetch, SafeFetchError, type HopResult } from "@/lib/net/safe-fet
 import { robotsDecision, robotsFromAnswer, type RobotsRules } from "@/lib/net/robots";
 import { serialThrottle } from "@/lib/api/external-fetch";
 import { enrichmentUserAgent, ROBOTS_PRODUCT_TOKEN } from "@/lib/enrichment/user-agent";
+import { structuredSourceType } from "@/lib/enrichment/source-profiles";
 
 /**
  * The evidence fetcher (SLN-468): a review or publisher page from an outlet
@@ -40,6 +41,9 @@ export const EVIDENCE_FETCH_REASONS = [
   "too_many_redirects",
   "network",
   "no_main_text",
+  "source_blocked",
+  "identity_mismatch",
+  "extraction_failed",
 ] as const;
 export type EvidenceFetchReason = (typeof EVIDENCE_FETCH_REASONS)[number];
 
@@ -203,7 +207,12 @@ export function createPageFetcher(options: PageFetcherOptions) {
     const target = new URL(url);
     const entry = await robotsFor(target.origin);
     if (entry.rules === "unreachable") return { status: entry.status, readable: false as const };
-    return { status: entry.status, readable: true as const, crawlDelay: entry.rules.crawlDelay, ...robotsDecision(entry.rules, target.pathname + target.search) };
+    return {
+      status: entry.status,
+      readable: true as const,
+      crawlDelay: entry.rules.crawlDelay,
+      ...robotsDecision(entry.rules, target.pathname + target.search),
+    };
   }
 
   return { fetchPage, readRobots };
@@ -212,6 +221,7 @@ export function createPageFetcher(options: PageFetcherOptions) {
     let robots: RobotsRecord | null = null;
     let outlet: OutletPolicy | null = null;
     let answer;
+    let structured: "json" | "xml" | null = null;
     try {
       if (URL.canParse(requestedUrl) && isBlockedHost(new URL(requestedUrl).hostname))
         throw new EvidenceFetchError("blocked_host", "Goodreads and StoryGraph are never fetched");
@@ -221,11 +231,12 @@ export function createPageFetcher(options: PageFetcherOptions) {
         timeoutMs,
         maxRedirects,
         maxBytes,
-        headers: { "User-Agent": userAgent, Accept: "text/html,application/xhtml+xml,text/plain;q=0.9" },
+        headers: { "User-Agent": userAgent, Accept: "text/html,application/xhtml+xml,application/json,application/xml,text/plain;q=0.9" },
         noun: "Page",
         readBody: (status, headers) =>
-          status >= 200 && status < 300 && ACCEPTED_TYPES.includes((headers["content-type"] ?? "").split(";")[0].trim().toLowerCase()),
+          status >= 200 && status < 300 && acceptsEvidenceType((headers["content-type"] ?? "").split(";")[0].trim().toLowerCase(), structured),
         beforeHop: async (url) => {
+          structured = structuredSourceType(url.href);
           if (isBlockedHost(url.hostname)) throw new EvidenceFetchError("blocked_host", "Goodreads and StoryGraph are never fetched");
           const skipped = skippedHosts.get(url.origin);
           if (skipped) throw new EvidenceFetchError("bad_status", `${url.hostname} is skipped for this run: ${skipped}`);
@@ -312,4 +323,12 @@ export function createPageFetcher(options: PageFetcherOptions) {
       return result;
     }
   }
+}
+
+export function acceptsEvidenceType(type: string, structured: "json" | "xml" | null): boolean {
+  return (
+    ACCEPTED_TYPES.includes(type) ||
+    (structured === "json" && type === "application/json") ||
+    (structured === "xml" && ["text/xml", "application/xml"].includes(type))
+  );
 }

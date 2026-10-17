@@ -39,3 +39,25 @@ Source and tests prepared only. Tests, typecheck, build and performance
 measurements have not run; they await the coordinator's validation slot.
 No performance improvement is claimed until comparative measurement.
 No migration, dependency change, live data change or deployment.
+
+
+## Source-only statistics integration
+
+Prepared on top of batch `5a011b55b21dfd9a631257f3f54a639a4bd86a44` by
+merging statistics `066087e4a405ef09228da7c95a9282006033dab0`, which includes
+reviewed main `385241a375126b4ae1a023f806b604e782c8f805`.
+
+- Keep the eight typed dashboard reads, with the deterministic top-rated ID
+  subquery inside its relational read. Both selection and hydration order by
+  rating descending, creation descending, then ID ascending; neither an extra
+  ID request nor full-catalogue hydration is introduced.
+- Keep early dashboard statistics loading together with compact chart transport,
+  and keep raw read batching together with grouped held-edition page maxima.
+- Add a nonempty real-Neon regression for ties across the shelf boundary, typed
+  nested author/edition/copy and date/boolean mapping, excluded/unrated works,
+  the existing wanted-ID request followed by one eight-query batch, and bounded
+  related-table hydration under EXPLAIN ANALYZE.
+
+This integration and its new test have not been executed or published. Earlier
+branch receipts stay attached to their exact source revisions; combined tests,
+typecheck, production/browser acceptance and measurements require a fresh grant.

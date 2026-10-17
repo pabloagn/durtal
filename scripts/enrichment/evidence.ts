@@ -62,26 +62,25 @@ const { OUTLET_SEED, OUTLET_SEED_VERSION } = await import("@/lib/enrichment/outl
 const { proposeOutlets, costsReport, evidenceOrphans, EVIDENCE_RETENTION_DAYS } = await import("@/lib/enrichment/evidence-runs");
 const { findStoredPage, storeEvidencePage, undoEvidenceRun } = await import("@/lib/enrichment/evidence-store");
 const { createPageFetcher } = await import("@/lib/net/safe-fetch-page");
-const { mainTextExtractor } = await import("@/lib/enrichment/extract");
+const { sourcePageExtractor } = await import("@/lib/enrichment/source-extract");
 const { bucketEvidenceObjects } = await import("@/lib/s3/evidence-objects");
 type Db = import("@/lib/catalogue/work-store").Db;
 
 const writes = values.apply || Boolean(values.undo);
-if (values.apply && !recentBackup(values.backup))
-  throw new Error("--apply needs --backup FILE: a pg_dump custom-format backup taken in the last hour");
+if (values.apply && !recentBackup(values.backup)) throw new Error("--apply needs --backup FILE: a pg_dump custom-format backup taken in the last hour");
 const session = writes ? postgres(url, { max: 1, onnotice: () => {} }) : null;
 const runId = randomUUID();
 const lines: string[] = [];
 const say = (line = "") => lines.push(line);
 
 const run = async (database: Db) => {
-
   if (values.outlets) {
     const plan = planOutletSeed(await loadOutlets(database), OUTLET_SEED);
     say(`# Outlet registry, seed version ${OUTLET_SEED_VERSION}${values.apply ? ` (applied, run ${runId})` : " (plan)"}`);
     say();
     say(`## Added (${plan.added.length})`);
-    for (const o of plan.added) say(`- ${o.key}: ${o.name}, ${o.domains.join(", ")}, ${o.kind}, weight ${o.weight}, ${o.fetchPolicy}${o.termsNote ? ` (${o.termsNote})` : ""}`);
+    for (const o of plan.added)
+      say(`- ${o.key}: ${o.name}, ${o.domains.join(", ")}, ${o.kind}, weight ${o.weight}, ${o.fetchPolicy}${o.termsNote ? ` (${o.termsNote})` : ""}`);
     say();
     say(`## Changed (${plan.changed.length})`);
     for (const { before, after } of plan.changed) say(`- ${after.key}: ${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
@@ -121,7 +120,9 @@ const run = async (database: Db) => {
       );
     }
     const stored = await findStoredPage(database, values.fetch);
-    say(`- Stored already: ${stored ? `yes, row ${stored.id} of ${stored.retrievedAt.toISOString()}: apply reuses it without a fetch${values.refresh ? " (unless --refresh)" : ""}` : "no"}`);
+    say(
+      `- Stored already: ${stored ? `yes, row ${stored.id} of ${stored.retrievedAt.toISOString()}: apply reuses it without a fetch${values.refresh ? " (unless --refresh)" : ""}` : "no"}`,
+    );
     if (values.apply) {
       const { record, fetched, created } = await storeEvidencePage({
         database,
@@ -130,9 +131,10 @@ const run = async (database: Db) => {
         runId,
         refresh: values.refresh,
         fetchPage: fetcher.fetchPage,
-        extractor: mainTextExtractor,
+        extractor: sourcePageExtractor,
         objects: bucketEvidenceObjects,
         outletName: (key) => outlets.find((o) => o.key === key)?.name ?? key,
+        outletKind: outlet?.kind,
       });
       const payload = record.payload as { textSha256: string; rawSha256?: string; robots?: { rule: string | null } };
       say(`- Stored: ${created ? "a new row" : "the owner's row already held it"}, ${fetched ? "fetched" : "reused without a fetch"}`);
@@ -151,11 +153,14 @@ const run = async (database: Db) => {
     const report = await costsReport(database);
     say(`# Costs, ${report.start.toISOString().slice(0, 10)} to ${report.end.toISOString().slice(0, 10)}`);
     say();
-    for (const l of report.lines) say(`- ${l.provider} ${l.operation}: ${l.calls} calls, settled $${l.settled_usd.toFixed(4)}, reserved $${l.reserved_usd.toFixed(4)}`);
+    for (const l of report.lines)
+      say(`- ${l.provider} ${l.operation}: ${l.calls} calls, settled $${l.settled_usd.toFixed(4)}, reserved $${l.reserved_usd.toFixed(4)}`);
     say();
     say(`## Open reservations (${report.open.length})`);
     for (const o of report.open)
-      say(`- ${o.id} ${o.provider} ${o.operation}: $${o.estimated_cost_usd.toFixed(4)}, ${o.age_minutes} min${o.age_minutes > 60 ? " (over an hour: still counted at its estimate)" : ""}`);
+      say(
+        `- ${o.id} ${o.provider} ${o.operation}: $${o.estimated_cost_usd.toFixed(4)}, ${o.age_minutes} min${o.age_minutes > 60 ? " (over an hour: still counted at its estimate)" : ""}`,
+      );
   } else if (values.purge) {
     const { scanned, orphans } = await evidenceOrphans(database);
     say("# Evidence purge (plan: nothing is deleted)");

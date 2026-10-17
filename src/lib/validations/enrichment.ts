@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { assertionScopeSchema, assertionAssessmentSchema } from "@/lib/enrichment/assertion-scope";
 import {
   APPLY_TARGET_RULES,
   CLAIM_METHODS,
@@ -96,6 +97,15 @@ export const proposalSchema = z.object({
   evidence: z.array(evidenceInputSchema).max(50).default([]),
   /** A check with valid evidence may store the proposal already rejected */
   rejectAs: z.literal("not_independent").optional(),
+  scope: assertionScopeSchema.optional(),
+  assessment: assertionAssessmentSchema.optional(),
+}).superRefine((p, ctx) => {
+  const fail = (message: string) => ctx.addIssue({ code: "custom", message });
+  if (Boolean(p.scope) !== Boolean(p.assessment)) fail("A scoped assertion requires both scope and assessment");
+  if (p.scope?.kind === "edition" && !p.editionId) fail("A publication scope requires its existing editionId");
+  if (p.scope?.kind === "work" && p.editionId) fail("A Work baseline cannot be bound to one publication");
+  if (p.scope?.unresolvedSourceId && !p.evidence.some((e) => e.sourceRecordId === p.scope!.unresolvedSourceId)) fail("The unresolved scope must cite its source observation");
+  if (p.assessment?.knowledge === "unassessed") fail("Unassessed has no value to propose");
 });
 export type ProposalInput = z.input<typeof proposalSchema>;
 
