@@ -89,8 +89,10 @@ export function ChartFrame({
       >
         {width > 0 && children(width, focus)}
       </div>
-      <figcaption className="mt-2 flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-        <p id={captionId} className="min-h-4 text-xs text-fg-secondary" data-chart-caption="">
+      {/* A blur replaces the focused value with the longer summary. Keep
+          the toggle in its own column so that change cannot move its hit area. */}
+      <figcaption className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1">
+        <p id={captionId} className="min-h-4 min-w-0 break-words text-xs text-fg-secondary" data-chart-caption="">
           {caption}
         </p>
         <button
@@ -98,7 +100,7 @@ export function ChartFrame({
           aria-expanded={showTable}
           aria-controls={tableId}
           onClick={() => setShowTable(!showTable)}
-          className="text-xs text-command pointer-coarse:my-0 pointer-coarse:min-h-11 pointer-coarse:py-0"
+          className="justify-self-end whitespace-nowrap text-xs text-command pointer-coarse:my-0 pointer-coarse:min-h-11 pointer-coarse:py-0"
           data-chart-table-toggle=""
         >
           {showTable ? "Hide table" : "Show as table"}
