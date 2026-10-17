@@ -30,6 +30,7 @@ let root: Root;
 let host: HTMLElement;
 beforeEach(() => {
   route.path = "/library/a";
+  window.history.replaceState(null, "", "/library/a");
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
@@ -138,5 +139,43 @@ describe("a layer the palette opened as it closed", () => {
     act(() => closeHelp());
     await frames();
     expect(document.activeElement).toBe(opener);
+  });
+});
+
+
+describe("the explicit book-history return", () => {
+  const marked = () => h("section", { id: "reading", "data-navigation-focus": "", tabIndex: -1 }, "Reading history");
+  async function navigate(extra?: ReactNode, hash = "#reading") {
+    act(() => root.render(page("/library/a")));
+    host.querySelector<HTMLElement>('[aria-label="Actions"]')!.focus();
+    route.path = "/library/b";
+    window.history.replaceState(null, "", `/library/b${hash}`);
+    act(() => root.render(page("/library/b", extra)));
+    await frames();
+  }
+  it("focuses only the marked reading section for its exact return hash", async () => {
+    await navigate(marked());
+    expect(document.activeElement).toBe(host.querySelector("#reading"));
+  });
+  it.each(["", "#other"])("preserves unmarked navigation for hash %s", async hash => {
+    await navigate(marked(), hash);
+    expect(document.activeElement).toBe(host.querySelector('[aria-label="Actions"]'));
+  });
+  it("treats a stale hash or an unmarked matching id like ordinary navigation", async () => {
+    await navigate(h("section", { id: "reading", tabIndex: -1 }, "Unmarked"));
+    expect(document.activeElement).toBe(host.querySelector('[aria-label="Actions"]'));
+  });
+  it("does not replace a newer user's focus or dialog focus", async () => {
+    await navigate(h("div", null, marked(), h("input", { autoFocus: true, "aria-label": "New choice" })));
+    expect(document.activeElement).toBe(host.querySelector('[aria-label="New choice"]'));
+  });
+  it("follows a streamed target only while its own fallback still holds focus", async () => {
+    await navigate();
+    act(() => root.render(page("/library/b", marked())));
+    await frames();
+    expect(document.activeElement).toBe(host.querySelector("#reading"));
+    act(() => root.render(page("/library/b")));
+    await frames();
+    expect(document.activeElement).toBe(host.querySelector('[aria-label="Actions"]'));
   });
 });

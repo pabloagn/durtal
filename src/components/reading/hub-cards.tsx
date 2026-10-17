@@ -6,7 +6,7 @@ import { buttonClass } from "@/components/ui/button";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { formatReadingDate } from "@/lib/reading/dates";
 import { agoText, lastReadText, positionText, type DayContext } from "@/lib/reading/labels";
-import type { getOpenReadings } from "@/lib/actions/reading";
+import type { getReadingHubOpen } from "@/lib/actions/reading";
 import type { FinishedRead } from "@/lib/reading/journal";
 import type { ReadingEstimate } from "@/lib/reading/pace";
 import { ReadingCardActions, ResumeButton } from "./hub-actions";
@@ -18,7 +18,7 @@ import { Cover, type FinishedItem, type TileItem } from "./reading-tiles";
  * server; only their buttons are client islands.
  */
 
-export type OpenReading = Awaited<ReturnType<typeof getOpenReadings>>[number];
+export type OpenReading = Awaited<ReturnType<typeof getReadingHubOpen>>["reading"][number];
 
 const bookHref = (work: { id: string; slug: string | null }) => `/library/${work.slug ?? work.id}`;
 const refOf = (o: OpenReading) => ({ workId: o.work.id, readingId: o.reading.id, fingerprint: o.fingerprint });

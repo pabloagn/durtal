@@ -1,4 +1,6 @@
 "use server";
+import { queryBookReadingOverview, queryReadingChoices, queryReadingChoice } from "@/lib/reading/overview";
+import { HUB_OPEN_LIMIT } from "@/lib/reading/overview-types";
 import { ExpectedActionError } from "@/lib/actions/expected-error";
 
 import { randomUUID } from "node:crypto";
@@ -1286,7 +1288,50 @@ function camelReading(row: Record<string, unknown>): Reading {
   return out as Reading;
 }
 
-/** Every open reading: for the hub, the dashboard and the command palette */
+/** The book page's bounded rows and complete-history facts (SLN-930). */
+export async function getBookReadingOverview(workId: string) {
+  return queryBookReadingOverview(z.uuid().parse(workId));
+}
+export async function getReadingChoicePage(workId: string, page = 1, query = "") {
+  return queryReadingChoices(workId, page, query);
+}
+export async function getReadingChoice(workId: string, readingId: string) {
+  return queryReadingChoice(workId, readingId);
+}
+
+/** Eight current/eight paused cards; shared callers of getOpenReadings stay unchanged. */
+export async function getReadingHubOpen(today: string) {
+  const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).parse(today);
+  const [result] = resultRows<{
+    counts: { reading: number; paused: number };
+    duplicateOpenWorks: number;
+    rows: { reading: Pick<Reading, "id" | "status" | "format" | "unit" | "currentPage" | "currentPercent" | "currentMinutes" | "totalPages" | "totalMinutes"> & { lastReadAt: string | null; updatedAt: string }; work: { id: string; title: string; slug: string | null }; fingerprint: string; author: string | null; cover: string | null; pausedAt: string | null }[];
+  }>(await db.execute(sql`with ranked as (
+    select r.id,r.status,row_number() over(partition by r.status order by r.last_read_at desc nulls last,r.started_on desc nulls last,r.created_at desc,r.id desc) as place
+    from readings r where r.status in ('reading','paused')
+  ) select
+    (select count(*)::int from (select work_id from readings where status in ('reading','paused') group by work_id having count(*)>1) duplicates) as "duplicateOpenWorks",
+    (select jsonb_build_object('reading',count(*) filter(where status='reading'),'paused',count(*) filter(where status='paused')) from ranked) as counts,
+    coalesce((select jsonb_agg(jsonb_build_object(
+      'reading',jsonb_build_object('id',r.id,'status',r.status,'format',r.format,'unit',r.unit,'currentPage',r.current_page,'currentPercent',r.current_percent::float8,'currentMinutes',r.current_minutes,
+        'totalPages',r.total_pages,'totalMinutes',r.total_minutes,'lastReadAt',r.last_read_at,'updatedAt',r.updated_at),
+      'fingerprint',md5(to_jsonb(r)::text),'work',jsonb_build_object('id',w.id,'title',w.title,'slug',w.slug),
+      'author',(select a.name from work_authors wa join authors a on a.id=wa.author_id where wa.work_id=w.id order by wa.sort_order limit 1),
+      'cover',coalesce((select e.thumbnail_s3_key from editions e where e.id=r.edition_id),(select m.thumbnail_s3_key from media m where m.work_id=w.id and m.type='poster' and m.is_active order by m.sort_order limit 1)),
+      'pausedAt',(select max(h.changed_at) from reading_status_history h where h.reading_id=r.id and h.to_status='paused')
+    ) order by n.status,n.place) from ranked n join readings r on r.id=n.id join works w on w.id=r.work_id where n.place<=${HUB_OPEN_LIMIT}),'[]'::jsonb) as rows`));
+  if (result?.duplicateOpenWorks) throw new ExpectedActionError("A book has more than one open reading; its history needs checking");
+  const rows = (result?.rows ?? []).map(row => ({ ...row, reading: { ...row.reading, lastReadAt: row.reading.lastReadAt ? new Date(row.reading.lastReadAt) : null, updatedAt: new Date(row.reading.updatedAt) } }));
+  const [{ getReaderLinksForWorks }, { readingEstimates }] = await Promise.all([import("@/lib/ebooks/queries"), import("@/lib/reading/estimates")]);
+  const [links, estimates] = await Promise.all([
+    getReaderLinksForWorks([...new Set(rows.map(row => row.work.id))]),
+    readingEstimates(rows.filter(row => row.reading.status === "reading").map(row => row.reading.id), day),
+  ]);
+  const linked = rows.map(row => ({ ...row, ebookId: links.get(row.work.id) ?? null }));
+  return { reading: linked.filter(row => row.reading.status === "reading"), paused: linked.filter(row => row.reading.status === "paused"), counts: result?.counts ?? { reading: 0, paused: 0 }, estimates };
+}
+
+/** Every open reading: unchanged for the dashboard and command palette. */
 export async function getOpenReadings() {
   const { getReaderLinksForOpenReadings } = await import("@/lib/ebooks/queries");
   const [found, links] = await Promise.all([
@@ -1446,15 +1491,15 @@ export async function searchBooksToRead(query: string) {
  * hub, the dashboard, the palette): its readings, editions with their
  * copies, the homes, its rating.
  */
-export async function getReadingDialogData(workId: string, homeId: string | null = null) {
+export async function getReadingDialogData(workId: string, homeId: string | null = null, targetReadingId: string | null = null) {
   const id = z.uuid().parse(workId);
   const home = homeId === null ? null : z.uuid().parse(homeId);
   await requireBookWork(id);
-  const [{ getWork }, { getLocations }, { readingEditions, readingHomes }, rows] = await Promise.all([
+  const [{ getWork }, { getLocations }, { readingEditions, readingHomes }, overview] = await Promise.all([
     import("@/lib/actions/works"),
     import("@/lib/actions/locations"),
     import("@/lib/reading/page-data"),
-    getReadingsForWork(id),
+    queryBookReadingOverview(id, targetReadingId),
   ]);
   const [work, locations] = await Promise.all([getWork(id), getLocations()]);
   if (!work) throw new ExpectedActionError("Book not found");
@@ -1466,7 +1511,10 @@ export async function getReadingDialogData(workId: string, homeId: string | null
     workTitle: work.title,
     bookRating: work.rating ?? null,
     dayStartHour,
-    rows,
+    rows: overview.rows,
+    summary: overview.summary,
+    defaults: overview.defaults,
+    history: overview.history,
     editions: readingEditions(work.editions, { today, homeId: home, workTitle: work.title }),
     homes: readingHomes(locations),
     today,

@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { readingPageFixture } from "../fixtures/reading-page";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -81,7 +82,6 @@ const row = { reading, fingerprint: "a".repeat(32) };
 const data = { workId: "w1", workTitle: "Watt", dayStartHour: 4, rows: [row], editions: [], homes: [] };
 function props(over: Partial<ReadingDialogProps> = {}): ReadingDialogProps {
   return {
-    data: data as never,
     row: row as never,
     request: { kind: "abandon", readingId: "r1" },
     home: "",
@@ -90,6 +90,7 @@ function props(over: Partial<ReadingDialogProps> = {}): ReadingDialogProps {
     changed: () => {},
     open: () => {},
     ...over,
+    data: readingPageFixture(over.data ?? data),
   };
 }
 const button = (label: string) =>

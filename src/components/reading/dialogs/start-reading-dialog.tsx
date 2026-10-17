@@ -60,7 +60,7 @@ export function startPosition(
 
 /** Start a reading: where, which edition and copy, the format, the pages, when and from where */
 export function StartReadingDialog({ data, request, home: storedHome, setHome, onClose, changed }: ReadingDialogProps) {
-  const lastEditionId = data.rows.find((r) => r.reading.editionId)?.reading.editionId ?? null;
+  const lastEditionId = data.defaults.lastEditionId;
   const [home, setHomeState] = useState<string>(storedHome ?? data.homes[0]?.id ?? NOT_HOME);
   const homeId = home === NOT_HOME ? null : home;
   const initial = useMemo(
@@ -85,7 +85,7 @@ export function StartReadingDialog({ data, request, home: storedHome, setHome, o
   const [format, setFormat] = useState<ReadingFormat>(formatOfCopy(copy?.format));
   const [pages, setPages] = useState(edition?.pageCount ? String(edition.pageCount) : "");
   const lastLength = (id: string) =>
-    data.rows.find((r) => r.reading.editionId === id && r.reading.totalMinutes)?.reading.totalMinutes ?? null;
+    data.defaults.latestMinutesByEdition[id] ?? null;
   const [length, setLength] = useState(() => {
     const m = initial.editionId ? lastLength(initial.editionId) : null;
     return m ? formatMinutes(m) : "";
