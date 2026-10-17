@@ -278,7 +278,7 @@ export function EditionForm({
       {/* While it saves, the fields wait: an edit made then would be lost */}
       <fieldset disabled={isPending} className="min-w-0">
       {/* Section 1: Title & identifiers */}
-      <Section title="Title & identifiers" defaultOpen>
+      <Section keepMounted title="Title & identifiers" defaultOpen>
         <TitleInput
           label="Title"
           id="ed-title"
@@ -316,7 +316,7 @@ export function EditionForm({
             className="font-mono"
           />
         </FormColumns>
-        <Section title="More identifiers">
+        <Section keepMounted title="More identifiers">
           <FormColumns>
             <Input
               label="ASIN"
@@ -369,7 +369,7 @@ export function EditionForm({
       </Section>
 
       {/* Section 2: Publication */}
-      <Section title="Publication" defaultOpen>
+      <Section keepMounted title="Publication" defaultOpen>
         <label className="flex items-center gap-2 text-sm text-fg-secondary pointer-coarse:min-h-11">
           <input
             type="checkbox"
@@ -451,7 +451,7 @@ export function EditionForm({
       </Section>
 
       {/* Section 3: Edition Details */}
-      <Section title="Edition details">
+      <Section keepMounted title="Edition details">
         <FormColumns>
           <Input
             label="Edition name"
@@ -508,7 +508,7 @@ export function EditionForm({
       </Section>
 
       {/* Section 4: Language */}
-      <Section title="Language">
+      <Section keepMounted title="Language">
         <Select
           label="Language"
           id="ed-language"
@@ -528,7 +528,7 @@ export function EditionForm({
       </Section>
 
       {/* Section 5: Physical Description */}
-      <Section title="Physical description">
+      <Section keepMounted title="Physical description">
         <FormColumns>
           <Input
             label="Page count"
@@ -591,7 +591,7 @@ export function EditionForm({
       </Section>
 
       {/* Section 6: Content */}
-      <Section title="Content">
+      <Section keepMounted title="Content">
         <Textarea
           label="Description"
           id="ed-description"
@@ -618,12 +618,13 @@ export function EditionForm({
       </Section>
 
       {/* Section 7: Cover */}
-      <Section title="Cover">
+      <Section keepMounted title="Cover">
         {existingCoverUrl && (
           <div className="mb-2">
             <p className="mb-1.5 text-xs text-fg-secondary">Current cover</p>
             <img
               src={existingCoverUrl}
+              loading="lazy"
               alt="Current cover"
               className="h-24 w-auto rounded-sm border border-glass-border object-cover"
             />
@@ -643,7 +644,7 @@ export function EditionForm({
       </Section>
 
       {/* Section 8: Contributors */}
-      <Section title="Contributors">
+      <Section keepMounted title="Contributors">
         {values.contributors.length > 0 && (
           <div className="space-y-1.5">
             {values.contributors.map((c, i) => (
@@ -731,7 +732,7 @@ export function EditionForm({
       </Section>
 
       {/* Section 9: Genres & tags */}
-      <Section title="Genres & tags">
+      <Section keepMounted title="Genres & tags">
         {listsNote &&
           availableGenres.length === 0 &&
           availableTags.length === 0 && (
@@ -788,7 +789,7 @@ export function EditionForm({
       </Section>
 
       {/* Section 10: Metadata */}
-      <Section title="Metadata">
+      <Section keepMounted title="Metadata">
         <label className="flex items-center gap-2 text-xs text-fg-secondary pointer-coarse:min-h-11">
           <input
             type="checkbox"
