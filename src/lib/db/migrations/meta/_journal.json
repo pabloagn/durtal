@@ -631,6 +631,13 @@
       "when": 1792163943815,
       "tag": "0089_claim_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1792191872510,
+      "tag": "0090_hot_join_indexes",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, boolean, integer, timestamp, primaryKey, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, boolean, integer, timestamp, primaryKey, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { works } from "./works";
 import { editions } from "./editions";
@@ -65,6 +65,7 @@ export const customTaxonomyItemWorks = pgTable("custom_taxonomy_item_works", {
   workId: uuid("work_id").notNull().references(() => works.id, { onDelete: "cascade" }),
 }, (t) => [
   primaryKey({ columns: [t.itemId, t.workId] }),
+  index("custom_taxonomy_item_works_work_id_idx").on(t.workId),
 ]);
 
 export const customTaxonomyItemWorksRelations = relations(customTaxonomyItemWorks, ({ one }) => ({
