@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { createReadBatch } from "@/lib/db/read-query-batch";
 import { atomic } from "@/lib/db/atomic";
 import {
   addMembers,
@@ -566,21 +567,24 @@ export async function getCollectionCoverPreviews(collectionIds: string[]) {
  */
 export async function getCollectionsForWork(workId: string) {
   z.string().uuid().parse(workId);
-  const memberships = await db
-    .select({
-      collectionId: collectionEditions.collectionId,
-      editionId: editions.id,
-      editionTitle: editions.title,
-      publicationYear: editions.publicationYear,
-    })
-    .from(collectionEditions)
-    .innerJoin(editions, eq(editions.id, collectionEditions.editionId))
-    .where(eq(editions.workId, workId));
-  // Collections that hold the work itself, with no edition chosen
-  const asWork = await db
-    .select({ collectionId: collectionWorks.collectionId })
-    .from(collectionWorks)
-    .where(eq(collectionWorks.workId, workId));
+  const reads = createReadBatch();
+  const [memberships, asWork] = await Promise.all([
+    reads.read(db
+      .select({
+        collectionId: collectionEditions.collectionId,
+        editionId: editions.id,
+        editionTitle: editions.title,
+        publicationYear: editions.publicationYear,
+      })
+      .from(collectionEditions)
+      .innerJoin(editions, eq(editions.id, collectionEditions.editionId))
+      .where(eq(editions.workId, workId))),
+    // Collections that hold the work itself, with no edition chosen
+    reads.read(db
+      .select({ collectionId: collectionWorks.collectionId })
+      .from(collectionWorks)
+      .where(eq(collectionWorks.workId, workId))),
+  ]);
   const ids = [
     ...new Set([...memberships, ...asWork].map((m) => m.collectionId)),
   ];

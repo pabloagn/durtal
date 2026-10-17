@@ -12,7 +12,8 @@ import {
 import postgres from "postgres";
 import { neon, neonConfig } from "@neondatabase/serverless";
 import { drizzle as neonDrizzle } from "drizzle-orm/neon-http";
-import { sql } from "drizzle-orm";
+import { drizzle as postgresDrizzle } from "drizzle-orm/postgres-js";
+import { and, asc, count, eq, sql } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_NEON_BATCH_TEST_DATABASE_URL;
@@ -41,6 +42,9 @@ vi.mock("@/lib/db", () => ({
   ),
 }));
 import { atomic } from "@/lib/db/atomic";
+import { createReadBatch } from "@/lib/db/read-query-batch";
+import { getLibraryStats } from "@/lib/actions/works";
+import { getCollectionsForWork } from "@/lib/actions/collections";
 import {
   recordSourceObservation,
   refreshSourceObservation,
@@ -160,6 +164,175 @@ describe.skipIf(!url)("production Neon driver batch contract", () => {
     await resetDisposableDatabase(url!, "sln348_batch_test");
     requests.length = 0;
   }, 30000);
+
+  it("maps mixed typed reads exactly like separate queries, including nested, empty and missing results", async () => {
+    const id = randomUUID();
+    const missingId = randomUUID();
+    const createdAt = new Date("2025-02-03T04:05:06.000Z");
+    await c`insert into works(id,title,rating,is_favourite,created_at) values (${id},'Mapped book',4.5,true,${createdAt})`;
+    await c`insert into editions(work_id,title,page_count) values (${id},'Z edition',240),(${id},'A edition',null)`;
+    const queries = () => [
+      httpDb!.select({ title: schema.works.title, rating: schema.works.rating, favourite: schema.works.isFavourite, createdAt: schema.works.createdAt })
+        .from(schema.works).where(eq(schema.works.id, id)),
+      httpDb!.query.works.findMany({
+        columns: { title: true, rating: true, isFavourite: true, createdAt: true },
+        orderBy: asc(schema.works.title),
+        with: { editions: { columns: { title: true, pageCount: true }, orderBy: asc(schema.editions.title) } },
+      }),
+      httpDb!.query.works.findFirst({ columns: { title: true }, where: eq(schema.works.id, id) }),
+      httpDb!.query.works.findFirst({ where: eq(schema.works.id, missingId) }),
+      httpDb!.select({ title: schema.works.title }).from(schema.works).where(eq(schema.works.id, missingId)),
+      httpDb!.select({ count: count() }).from(schema.works),
+      httpDb!.select({ work: { title: schema.works.title }, edition: { title: schema.editions.title } })
+        .from(schema.works).leftJoin(schema.editions, and(eq(schema.editions.workId, schema.works.id), eq(schema.editions.title, "Missing edition"))),
+    ] as const;
+    const expected = await Promise.all(queries());
+    requests.length = 0;
+    const reads = createReadBatch(httpDb!);
+    const actual = await Promise.all(queries().map((query) => reads.read(query)));
+    expect(actual).toEqual(expected);
+    expect(actual[0]).toEqual([{ title: "Mapped book", rating: 4.5, favourite: true, createdAt }]);
+    expect(actual[1]).toEqual([{
+      title: "Mapped book", rating: 4.5, isFavourite: true, createdAt,
+      editions: [{ title: "A edition", pageCount: null }, { title: "Z edition", pageCount: 240 }],
+    }]);
+    expect(actual[2]).toEqual({ title: "Mapped book" });
+    expect(actual[3]).toBeUndefined();
+    expect(actual[4]).toEqual([]);
+    expect(actual[5]).toEqual([{ count: 1 }]);
+    expect(actual[6]).toEqual([{ work: { title: "Mapped book" }, edition: null }]);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].queries).toHaveLength(7);
+  });
+
+  it("keeps HTTP batches bounded and returns results in input order", async () => {
+    const reads = createReadBatch(httpDb!);
+    const result = await Promise.all(Array.from({ length: 17 }, (_, index) =>
+      reads.read(httpDb!.select({ index: sql<number>`${index}::int` }).from(sql`(values (1)) as seed(n)`))));
+    expect(result).toEqual(Array.from({ length: 17 }, (_, index) => [{ index }]));
+    expect(requests.map((request) => request.queries?.length)).toEqual([6, 6, 5]);
+  });
+
+  it("settles a failed HTTP chunk without failing another chunk", async () => {
+    const reads = createReadBatch(httpDb!);
+    const result = await Promise.allSettled(Array.from({ length: 10 }, (_, index) =>
+      reads.read(httpDb!.select({ value: index === 0 ? sql<number>`missing_batch_column` : sql<number>`${index}::int` })
+        .from(sql`(values (1)) as seed(n)`))));
+    expect(result.map((item) => item.status)).toEqual([
+      ...Array(5).fill("rejected"), ...Array(5).fill("fulfilled"),
+    ]);
+    expect(result[5]).toEqual({ status: "fulfilled", value: [{ value: 5 }] });
+    expect(requests.map((request) => request.queries?.length)).toEqual([5, 5]);
+  });
+
+  it("uses ordinary execution for one read and keeps independent instances separate", async () => {
+    expect(await createReadBatch(httpDb!).read(httpDb!.query.works.findMany())).toEqual([]);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].queries).toBeUndefined();
+    requests.length = 0;
+    const a = createReadBatch(httpDb!);
+    const b = createReadBatch(httpDb!);
+    await Promise.all([
+      a.read(httpDb!.query.works.findMany()), a.read(httpDb!.query.editions.findMany()),
+      b.read(httpDb!.query.works.findMany()), b.read(httpDb!.query.editions.findMany()),
+    ]);
+    expect(requests.map((request) => request.queries?.length)).toEqual([2, 2]);
+  });
+
+  it("awaits each original PostgreSQL builder once when the driver has no batch", async () => {
+    await c`insert into works(title) values ('Fallback book')`;
+    const localDb = postgresDrizzle(c, { schema });
+    const a = localDb.select({ title: schema.works.title }).from(schema.works);
+    const b = localDb.query.works.findFirst({ columns: { title: true } });
+    const executeA = vi.spyOn(a, "execute");
+    const executeB = vi.spyOn(b, "execute");
+    const reads = createReadBatch(localDb);
+    expect(await Promise.all([reads.read(a), reads.read(b)]))
+      .toEqual([[{ title: "Fallback book" }], { title: "Fallback book" }]);
+    expect(executeA).toHaveBeenCalledTimes(1);
+    expect(executeB).toHaveBeenCalledTimes(1);
+    expect(requests).toHaveLength(0);
+  });
+
+  it("keeps a tied top-rated shelf bounded and typed inside the eight-read HTTP batch", async () => {
+    const shelf = 10;
+    const workId = (i: number) => `88510000-0000-4000-8000-${String(17 - i).padStart(12, "0")}`;
+    const editionUpdatedAt = new Date("2025-02-03T04:05:06.000Z");
+    const fixtures = new Map<string, { i: number; authorId: string; editionId: string; copyId: string }>();
+    const homeId = randomUUID();
+    await c`insert into locations(id,name,type) values (${homeId},'Batch shelf home','physical')`;
+    for (let i = 1; i <= 16; i++) {
+      const id = workId(i), authorId = randomUUID(), editionId = randomUUID(), copyId = randomUUID();
+      // Reverse ID insertion makes heap order disagree with the tie-breaker.
+      const createdAt = i <= 2 ? "2026-01-02T12:00:00Z" : "2026-01-01T12:00:00Z";
+      await c`insert into works(id,title,slug,rating,catalogue_status,created_at,is_favourite)
+        values (${id},${`Rated ${i}`},${`neon-tied-rating-${i}`},${i % 3 === 0 ? 5 : 4},'accessioned',${createdAt}::timestamptz,${i % 2 === 0})`;
+      await c`insert into authors(id,name) values (${authorId},${`Author ${i}`})`;
+      await c`insert into work_authors(work_id,author_id,sort_order) values (${id},${authorId},0)`;
+      await c`insert into editions(id,work_id,title,language,publication_year,updated_at)
+        values (${editionId},${id},${`Edition ${i}`},'en',${2000 + i},${editionUpdatedAt.toISOString()}::timestamptz)`;
+      await c`insert into instances(id,edition_id,location_id,status)
+        values (${copyId},${editionId},${homeId},'available')`;
+      fixtures.set(id, { i, authorId, editionId, copyId });
+    }
+    await c`insert into works(title) values ('Unrated')`;
+    await c`alter table works drop constraint works_kind_enabled_check`;
+    try {
+      await c`insert into works(title,kind,rating,original_language) values ('Excluded film','film',5,null)`;
+      const expected = [15, 12, 9, 6, 3, 2, 1, 16, 14, 13].map(workId);
+      let topQuery: Query | undefined;
+      for (let run = 0; run < 2; run++) {
+        requests.length = 0;
+        const stats = await getLibraryStats({ shelf });
+        expect(stats.topRatedWorks.map((row) => row.id)).toEqual(expected);
+        expect(stats.topRatedWorks).toHaveLength(shelf);
+        expect(stats).toMatchObject({ works: 17, authors: 16, editions: 16, instances: 16 });
+        // The existing wanted-ID dependency, then exactly eight independent
+        // reads. Top-rated IDs are a subquery, never a ninth HTTP request.
+        expect(requests).toHaveLength(2);
+        expect(requests[0].queries).toBeUndefined();
+        expect(requests[1].queries).toHaveLength(8);
+        topQuery = requests[1].queries![5];
+        expect(topQuery.query).toMatch(/\bin\s*\(\s*select\b/i);
+        for (const row of stats.topRatedWorks) {
+          const { i, authorId, editionId, copyId } = fixtures.get(row.id)!;
+          expect(row).toMatchObject({
+            rating: i % 3 === 0 ? 5 : 4,
+            isFavourite: i % 2 === 0,
+            createdAt: new Date(i <= 2 ? "2026-01-02T12:00:00Z" : "2026-01-01T12:00:00Z"),
+            workAuthors: [{ author: { id: authorId, name: `Author ${i}` } }],
+            editions: [{ id: editionId, language: "en", publicationYear: 2000 + i,
+              updatedAt: editionUpdatedAt, instances: [{ id: copyId }] }],
+            media: [],
+          });
+        }
+      }
+      const [explained] = await c.unsafe<{ "QUERY PLAN": { Plan: Record<string, unknown> }[] }[]>(
+        `explain (analyze, format json) ${topQuery!.query}`, topQuery!.params,
+      );
+      const relatedNodes: Record<string, unknown>[] = [];
+      const visit = (plan: Record<string, unknown>) => {
+        if (["authors", "editions", "instances", "media"].includes(String(plan["Relation Name"]))) relatedNodes.push(plan);
+        for (const child of (plan.Plans ?? []) as Record<string, unknown>[]) visit(child);
+      };
+      visit(explained["QUERY PLAN"][0].Plan);
+      expect(relatedNodes.length).toBeGreaterThan(0);
+      for (const node of relatedNodes) expect(Number(node["Actual Loops"])).toBeLessThanOrEqual(shelf);
+    } finally {
+      await c`delete from works where kind = 'film'`;
+      await c`alter table works add constraint works_kind_enabled_check check (kind = 'book')`;
+    }
+  }, 30000);
+
+  it("batches the eight library reads and two independent collection reads", async () => {
+    const stats = await getLibraryStats();
+    expect(stats.works).toBe(0);
+    expect(stats.recentWorks).toEqual([]);
+    expect(requests.filter((request) => request.queries).map((request) => request.queries?.length)).toEqual([8]);
+    requests.length = 0;
+    expect(await getCollectionsForWork(randomUUID())).toEqual([]);
+    expect(requests.map((request) => request.queries?.length)).toEqual([2]);
+  });
 
   it("sends one HTTP batch with ordered queries and maps returning rows", async () => {
     const id = randomUUID();

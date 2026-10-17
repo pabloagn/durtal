@@ -1,6 +1,5 @@
 import { sql, type SQL } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { resultRows } from "@/lib/harmonization/store";
+import { batchedRows } from "@/lib/db/read-batch";
 import { WORK_AUTHOR_ROLES } from "@/lib/types";
 
 /*
@@ -29,7 +28,7 @@ const COVER = (work: SQL) => sql`coalesce(
     (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = ${work} order by e.created_at, e.id limit 1))`;
 
 async function rows<T>(query: SQL): Promise<T[]> {
-  return resultRows<T>(await db.execute(query));
+  return batchedRows<T>(query);
 }
 
 /* ── Numbers ────────────────────────────────────────────────────────────── */
