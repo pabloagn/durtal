@@ -43,6 +43,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { FilterDropdown } from "@/components/shared/filter-dropdown";
 import { Select } from "@/components/ui/select";
+import { CLEAR_LIST_SEARCH } from "@/lib/ui/list-search";
 import { WorkSearchStep } from "@/app/(catalogue)/provenance/order-create-steps";
 
 beforeAll(() => {
@@ -62,6 +63,7 @@ afterEach(() => {
   act(() => root.unmount());
   host.remove();
   document.querySelectorAll("dialog").forEach((d) => d.remove());
+  vi.restoreAllMocks();
 });
 
 /** A keydown as the browser sends it; returns the event, to read defaultPrevented */
@@ -193,6 +195,48 @@ describe("S opens the search", () => {
 });
 
 describe("Esc", () => {
+  function listSearch(withFilter = true) {
+    const cleared = vi.fn();
+    act(() => root.render(createElement(ShortcutsProvider, { paletteOpen: false, onPaletteOpenChange: () => {},
+      children: createElement("main", null,
+        createElement("h1", null, "Library"),
+        createElement("input", { "data-list-focus": "search", "data-shortcut-search": "", "aria-label": "List search", defaultValue: "missing" }),
+        withFilter && createElement("button", { "data-list-focus": "filters" }, "Filter"))
+    })));
+    vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}] as never);
+    const input = field("List search");
+    input.addEventListener(CLEAR_LIST_SEARCH, cleared);
+    input.focus();
+    return { input, cleared };
+  }
+
+  it("clears a list search first, then leaves the empty field for Filter", () => {
+    const { input, cleared } = listSearch();
+    expect(press("Escape").defaultPrevented).toBe(true);
+    expect(input.value).toBe("");
+    expect(document.activeElement).toBe(input);
+    expect(cleared).toHaveBeenCalledOnce();
+    expect(press("Escape", { repeat: true }).defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(input);
+    press("Escape");
+    expect(document.activeElement).toBe(host.querySelector('[data-list-focus="filters"]'));
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it("leaves an empty search at its page heading when no Filter is present", () => {
+    const { input } = listSearch(false);
+    input.value = "";
+    press("Escape");
+    expect(document.activeElement).toBe(host.querySelector("h1"));
+  });
+
+  it("leaves list search composition untouched", () => {
+    const { input, cleared } = listSearch();
+    expect(press("Escape", { isComposing: true }).defaultPrevented).toBe(false);
+    expect(input.value).toBe("missing");
+    expect(cleared).not.toHaveBeenCalled();
+  });
+
   it("closes the palette", () => {
     const onPalette = renderApp();
     press("s");

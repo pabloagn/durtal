@@ -32,6 +32,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }
 import { findStoredPage, readEvidenceText, storeEvidencePage, storeEvidenceText, undoEvidenceRun } from "@/lib/enrichment/evidence-store";
 import { evidencePayloadSchema } from "@/lib/enrichment/evidence-payload";
 import { mainTextExtractor } from "@/lib/enrichment/extract";
+import { sourcePageExtractor } from "@/lib/enrichment/source-extract";
 import { applyOutletSeed, loadOutlets } from "@/lib/enrichment/outlet-registry";
 import { BudgetStop, metered } from "@/lib/enrichment/meter";
 import { claimNextEnrichmentJob, enqueueEnrichmentJob, holdEnrichmentJob } from "@/lib/enrichment/jobs";
@@ -76,22 +77,41 @@ describe.skipIf(!url)("the evidence store", () => {
   };
   let fetches = 0;
   /** A fetcher that answers with the given final URL and text */
-  const fetcher = (finalUrl: string, text = PAGE_TEXT) => async (requestedUrl: string): Promise<FetchedPage> => {
-    fetches++;
-    return {
-      requestedUrl,
-      finalUrl,
-      httpStatus: 200,
-      contentType: "text/html",
-      charset: "utf-8",
-      raw: Buffer.from(`<html><body><p>${text}</p></body></html>`),
-      html: `<html><body><p>${text}</p></body></html>`,
-      outlet: "lrb",
-      robots: { url: "https://www.lrb.co.uk/robots.txt", status: 200, group: "*", rule: null, decision: "allowed", crawlDelay: null, fetchedAt: new Date().toISOString() },
+  const fetcher =
+    (finalUrl: string, text = PAGE_TEXT) =>
+    async (requestedUrl: string): Promise<FetchedPage> => {
+      fetches++;
+      return {
+        requestedUrl,
+        finalUrl,
+        httpStatus: 200,
+        contentType: "text/html",
+        charset: "utf-8",
+        raw: Buffer.from(`<html><body><p>${text}</p></body></html>`),
+        html: `<html><body><p>${text}</p></body></html>`,
+        outlet: "lrb",
+        robots: {
+          url: "https://www.lrb.co.uk/robots.txt",
+          status: 200,
+          group: "*",
+          rule: null,
+          decision: "allowed",
+          crawlDelay: null,
+          fetchedAt: new Date().toISOString(),
+        },
+      };
     };
+  const extractor = {
+    name: "test",
+    version: "1",
+    extract: (html: string) => ({ text: html.replace(/<[^>]+>/g, ""), title: "A review", byline: null, publishedOn: null, language: "en", canonicalUrl: null }),
   };
-  const extractor = { name: "test", version: "1", extract: (html: string) => ({ text: html.replace(/<[^>]+>/g, ""), title: "A review", byline: null, publishedOn: null, language: "en", canonicalUrl: null }) };
-  const store = (owner: Parameters<typeof storeEvidencePage>[0]["owner"], requested: string, finalUrl = requested, more: { refresh?: boolean; runId?: string; text?: string } = {}) =>
+  const store = (
+    owner: Parameters<typeof storeEvidencePage>[0]["owner"],
+    requested: string,
+    finalUrl = requested,
+    more: { refresh?: boolean; runId?: string; text?: string } = {},
+  ) =>
     storeEvidencePage({
       database,
       owner,
@@ -105,7 +125,8 @@ describe.skipIf(!url)("the evidence store", () => {
     });
   const book = async (title: string, kind = "book") => {
     // Only a book has an original language
-    const [w] = await c`insert into works(title, slug, kind, original_language) values (${title}, ${`${title.toLowerCase().replace(/\W+/g, "-")}-${randomUUID().slice(0, 8)}`}, ${kind}, ${kind === "book" ? "en" : null}) returning id`;
+    const [w] =
+      await c`insert into works(title, slug, kind, original_language) values (${title}, ${`${title.toLowerCase().replace(/\W+/g, "-")}-${randomUUID().slice(0, 8)}`}, ${kind}, ${kind === "book" ? "en" : null}) returning id`;
     return w.id as string;
   };
 
@@ -159,11 +180,133 @@ describe.skipIf(!url)("the evidence store", () => {
   });
 
   describe("documents", () => {
+    it("resolves real Open Library author references through bounded guarded fetches, retaining lineage", async () => {
+      const workId = await book("Kaputt author references");
+      const link = "https://openlibrary.org/works/OL1272994W.json";
+      const authorUrl = "https://openlibrary.org/authors/OL128744A.json";
+      const calls: string[] = [];
+      const get = async (url: string) => {
+        calls.push(url);
+        const raw = JSON.stringify(url === link ? { key: "/works/OL1272994W", title: "Kaputt", authors: [{ type: "/type/author_role", author: { key: "/authors/OL128744A" } }] } : { key: "/authors/OL128744A", name: "Curzio Malaparte" });
+        return { ...await fetcher(url)(url), html: raw, raw: Buffer.from(raw), contentType: "application/json" };
+      };
+      const input = { database, owner: { kind: "book" as const, workId }, url: link, runId: randomUUID(), extractor: sourcePageExtractor, objects, outletName: () => "Test", expectedIdentity: { titles: ["Kaputt"], authors: ["Curzio Malaparte"] }, fetchPage: get };
+      const result = await storeEvidencePage(input);
+      expect(calls).toEqual([link, authorUrl]);
+      expect(result.record.payload).toMatchObject({ byline: "Curzio Malaparte", relatedRecords: [{ url: authorUrl, key: "/authors/OL128744A", name: "Curzio Malaparte", payloadSha256: expect.stringMatching(/^[a-f0-9]{64}$/) }], quality: { status: "partial" } });
+      const bad = async (url: string) => {
+        const page = await get(url);
+        return url === link ? page : { ...page, html: JSON.stringify({ key: "/authors/OL999A", name: "Curzio Malaparte" }) };
+      };
+      await expect(storeEvidencePage({ ...input, refresh: true, fetchPage: bad })).rejects.toMatchObject({ reason: "identity_mismatch" });
+      const many = async (url: string) => {
+        const page = await get(url);
+        const key = new URL(url).pathname.replace(/\.json$/, "");
+        const raw = JSON.stringify(url === link ? { key: "/works/OL1272994W", title: "Kaputt", authors: Array.from({ length: 8 }, (_, i) => ({ author: { key: `/authors/OL${i + 1}A` } })) } : { key, name: "Curzio Malaparte" });
+        return { ...page, html: raw, raw: Buffer.from(raw) };
+      };
+      calls.length = 0;
+      await storeEvidencePage({ ...input, refresh: true, fetchPage: many });
+      expect(calls).toHaveLength(5); // One book and at most four author lookups.
+    });
+    it("rejects unusable responses before storage and validates the identity of reused evidence", async () => {
+      const workId = await book("Source quality");
+      const before = Object.keys(bucket).length;
+      const input = {
+        database,
+        owner: { kind: "book" as const, workId },
+        runId: randomUUID(),
+        extractor: sourcePageExtractor,
+        objects,
+        outletName: () => "Test",
+        expectedIdentity: { titles: ["The Example"], authors: ["Jane Author"] },
+      };
+      for (const [index, text] of ["Human verification: verify you are human", "Home Menu Search Account", "Another Novel by Jane Author"].entries()) {
+        const link = `https://review.example/quality-${index}`;
+        await expect(
+          storeEvidencePage({
+            ...input,
+            url: link,
+            fetchPage: fetcher(link, text),
+          }),
+        ).rejects.toMatchObject({ name: "EvidenceFetchError" });
+      }
+      expect(Object.keys(bucket)).toHaveLength(before);
+      const link = "https://review.example/quality-reuse";
+      await storeEvidencePage({
+        ...input,
+        url: link,
+        fetchPage: fetcher(link, "The Example by Jane Author discusses memory."),
+      });
+      const noFetch = vi.fn();
+      await expect(
+        storeEvidencePage({
+          ...input,
+          url: link,
+          fetchPage: noFetch,
+          expectedIdentity: {
+            titles: ["Other Book"],
+            authors: ["Jane Author"],
+          },
+        }),
+      ).rejects.toMatchObject({ reason: "identity_mismatch" });
+      expect(noFetch).not.toHaveBeenCalled();
+      expect((await c`select count(*)::int as n from source_records where work_id=${workId}`)[0].n).toBe(1);
+    });
+
+    it("uses the catalogue API and only falls back after an explicit empty BnF record", async () => {
+      const workId = await book("API routes");
+      const calls: string[] = [];
+      const link = "https://catalogue.bnf.fr/ark:/12148/cb12345678x";
+      const fetchPage = async (requested: string) => {
+        calls.push(requested);
+        return fetcher(requested, "<searchRetrieveResponse><numberOfRecords>0</numberOfRecords></searchRetrieveResponse>")(requested);
+      };
+      await expect(
+        storeEvidencePage({
+          database,
+          owner: { kind: "book", workId },
+          url: link,
+          runId: randomUUID(),
+          extractor: sourcePageExtractor,
+          objects,
+          outletName: () => "Test",
+          fetchPage,
+        }),
+      ).rejects.toMatchObject({ reason: "extraction_failed" });
+      expect(calls).toHaveLength(2);
+      expect(new URL(calls[0]).pathname).toBe("/api/SRU");
+      expect(new URL(calls[1]).searchParams.get("query")).toMatch(/^aut\./);
+      calls.length = 0;
+      await expect(
+        storeEvidencePage({
+          database,
+          owner: { kind: "book", workId },
+          url: link,
+          runId: randomUUID(),
+          extractor: sourcePageExtractor,
+          objects,
+          outletName: () => "Test",
+          fetchPage: async (requested) => {
+            calls.push(requested);
+            throw new Error("offline");
+          },
+        }),
+      ).rejects.toThrow("offline");
+      expect(calls).toHaveLength(1);
+    });
     it("stores one accepted row per owner with the payload's hash and no page text, and the text under its hash", async () => {
       const work = await book("Kaputt");
       const { record, fetched } = await store({ kind: "book", workId: work }, "https://www.lrb.co.uk/the-paper/v1/n1/kaputt?utm_source=x");
       expect(fetched).toBe(true);
-      expect(record).toMatchObject({ entityKind: "book", workId: work, provider: "lrb", url: "https://www.lrb.co.uk/the-paper/v1/n1/kaputt", reviewStatus: "accepted", attribution: "London Review of Books" });
+      expect(record).toMatchObject({
+        entityKind: "book",
+        workId: work,
+        provider: "lrb",
+        url: "https://www.lrb.co.uk/the-paper/v1/n1/kaputt",
+        reviewStatus: "accepted",
+        attribution: "London Review of Books",
+      });
       expect(record.verifiedAt).toEqual(record.retrievedAt);
       const payload = evidencePayloadSchema.parse(record.payload);
       expect(record.payloadHash).toBe(sourcePayloadHash(record.payload));
@@ -183,7 +326,11 @@ describe.skipIf(!url)("the evidence store", () => {
         owner: { kind: "book", workId: work },
         url: "https://www.lrb.co.uk/the-paper/v1/n2/rain",
         runId: randomUUID(),
-        fetchPage: async (requestedUrl) => ({ ...(await fetcher("https://www.lrb.co.uk/the-paper/v1/n2/rain")(requestedUrl)), raw: Buffer.from(page), html: page }),
+        fetchPage: async (requestedUrl) => ({
+          ...(await fetcher("https://www.lrb.co.uk/the-paper/v1/n2/rain")(requestedUrl)),
+          raw: Buffer.from(page),
+          html: page,
+        }),
         extractor: mainTextExtractor,
         objects,
         outletName: () => "London Review of Books",
@@ -230,7 +377,18 @@ describe.skipIf(!url)("the evidence store", () => {
 
     it("stores a snippet with its search provider and query", async () => {
       const work = await book("Snippet");
-      const row = await storeEvidenceText({ database, owner: { kind: "book", workId: work }, outlet: "lrb", outletName: "LRB", url: "https://www.lrb.co.uk/x", text: "A snippet.", searchProvider: "search", query: "kaputt review", runId: randomUUID(), objects });
+      const row = await storeEvidenceText({
+        database,
+        owner: { kind: "book", workId: work },
+        outlet: "lrb",
+        outletName: "LRB",
+        url: "https://www.lrb.co.uk/x",
+        text: "A snippet.",
+        searchProvider: "search",
+        query: "kaputt review",
+        runId: randomUUID(),
+        objects,
+      });
       expect(row.payload).toMatchObject({ kind: "evidence_text", retrievedVia: "search:search", query: "kaputt review", textSha256: sha("A snippet.") });
     });
 
@@ -249,7 +407,8 @@ describe.skipIf(!url)("the evidence store", () => {
       const [dimension] = await c`select id from enrichment_dimensions where key = 'composition_year'`;
       await c.begin(async (tx) => {
         const t = tx as unknown as postgres.Sql;
-        const [claim] = await t`insert into enrichment_claims ${t({ work_id: work, dimension_id: dimension.id, number_value: 1943, method: "agent", confidence: 0.8, vocabulary_version: 1, run_id: run })} returning id`;
+        const [claim] =
+          await t`insert into enrichment_claims ${t({ work_id: work, dimension_id: dimension.id, number_value: 1943, method: "agent", confidence: 0.8, vocabulary_version: 1, run_id: run })} returning id`;
         await t`insert into claim_evidence(claim_id, source_record_id, outlet, extractor_version, run_id, locator, excerpt, excerpt_sha256, start_offset, end_offset, text_sha256)
           values (${claim.id}, ${cited.record.id}, 'lrb', 'agent-v1', ${run}, 'text', 'Kaputt', ${sha("Kaputt")}, 0, 6, ${sha(PAGE_TEXT)})`;
       });
@@ -274,17 +433,24 @@ describe.skipIf(!url)("the evidence store", () => {
   describe("the cost ledger and the meter", () => {
     it("never deletes a row, never changes a settled one, and keeps book_parent_required on its work", async () => {
       const film = await book("Ledger film", "film");
-      await expect(c`insert into enrichment_costs(provider, operation, estimated_units, estimated_cost_usd, price_version, work_id) values ('search', 'query', '{}', 0, 'v', ${film})`).rejects.toThrow();
-      const [row] = await c`insert into enrichment_costs(provider, operation, estimated_units, estimated_cost_usd, price_version) values ('search', 'query', '{"queries":1}', 1, 'v') returning id`;
+      await expect(
+        c`insert into enrichment_costs(provider, operation, estimated_units, estimated_cost_usd, price_version, work_id) values ('search', 'query', '{}', 0, 'v', ${film})`,
+      ).rejects.toThrow();
+      const [row] =
+        await c`insert into enrichment_costs(provider, operation, estimated_units, estimated_cost_usd, price_version) values ('search', 'query', '{"queries":1}', 1, 'v') returning id`;
       await c`update enrichment_costs set status = 'settled', units = '{"queries":1}', cost_usd = 1, settled_at = now() where id = ${row.id}`;
       await expect(c`update enrichment_costs set cost_usd = 2 where id = ${row.id}`).rejects.toMatchObject({ constraint_name: "enrichment_cost_ledger" });
       await expect(c`delete from enrichment_costs where id = ${row.id}`).rejects.toMatchObject({ constraint_name: "enrichment_cost_ledger" });
     });
 
     it("lets only one of two parallel reservations through when together they pass the cap", async () => {
-      const capUsd = 10_000 + Number((await c`select coalesce(sum(coalesce(cost_usd, estimated_cost_usd)), 0)::float8 as n from enrichment_costs where status <> 'released'`)[0].n);
+      const capUsd =
+        10_000 +
+        Number((await c`select coalesce(sum(coalesce(cost_usd, estimated_cost_usd)), 0)::float8 as n from enrichment_costs where status <> 'released'`)[0].n);
       const call = async () => ({ result: "answer", units: { queries: 6000 } });
-      const results = await Promise.allSettled([1, 2].map(() => metered({ database, provider: "search", operation: "query", estimate: { queries: 6000 }, prices: PRICES, capUsd }, call)));
+      const results = await Promise.allSettled(
+        [1, 2].map(() => metered({ database, provider: "search", operation: "query", estimate: { queries: 6000 }, prices: PRICES, capUsd }, call)),
+      );
       expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
       expect(results.find((r) => r.status === "rejected")).toMatchObject({ reason: expect.any(BudgetStop) });
     });
@@ -297,7 +463,9 @@ describe.skipIf(!url)("the evidence store", () => {
       await metered(input, call);
       await expect(metered(input, call)).rejects.toThrow("Stopped: run limit reached");
       expect(calls).toBe(1);
-      const used = Number((await c`select coalesce(sum(coalesce(cost_usd, estimated_cost_usd)), 0)::float8 as n from enrichment_costs where status <> 'released'`)[0].n);
+      const used = Number(
+        (await c`select coalesce(sum(coalesce(cost_usd, estimated_cost_usd)), 0)::float8 as n from enrichment_costs where status <> 'released'`)[0].n,
+      );
       await expect(metered({ ...input, runId: randomUUID(), runLimitUsd: 1e9, capUsd: used + 0.5 }, call)).rejects.toThrow("Stopped: monthly budget reached");
       expect(calls).toBe(1);
     });
@@ -306,12 +474,22 @@ describe.skipIf(!url)("the evidence store", () => {
       const work = await book("Metered job");
       await enqueueEnrichmentJob({ workId: work, kind: "research", reason: "manual" }, database);
       const job = await claimNextEnrichmentJob({ worker: "test", kinds: ["research"], workIds: [work] }, database);
-      await metered({ database, provider: "search", operation: "query", estimate: { queries: 2 }, prices: PRICES, capUsd: 1e9, workId: work, jobId: job!.id }, async () => ({ result: 1, units: { queries: 3 } }));
+      await metered(
+        { database, provider: "search", operation: "query", estimate: { queries: 2 }, prices: PRICES, capUsd: 1e9, workId: work, jobId: job!.id },
+        async () => ({ result: 1, units: { queries: 3 } }),
+      );
       expect(Number((await c`select cost from enrichment_jobs where id = ${job!.id}`)[0].cost)).toBe(3);
-      const stop = await metered({ database, provider: "search", operation: "query", estimate: { queries: 1 }, prices: PRICES, capUsd: 0, workId: work, jobId: job!.id }, async () => ({ result: 1, units: { queries: 1 } })).catch((e) => e);
+      const stop = await metered(
+        { database, provider: "search", operation: "query", estimate: { queries: 1 }, prices: PRICES, capUsd: 0, workId: work, jobId: job!.id },
+        async () => ({ result: 1, units: { queries: 1 } }),
+      ).catch((e) => e);
       expect(stop).toBeInstanceOf(BudgetStop);
       await holdEnrichmentJob({ id: job!.id, worker: "test", reason: "budget" }, database);
-      expect((await c`select status, held_reason, attempts from enrichment_jobs where id = ${job!.id}`)[0]).toMatchObject({ status: "held", held_reason: "budget", attempts: 0 });
+      expect((await c`select status, held_reason, attempts from enrichment_jobs where id = ${job!.id}`)[0]).toMatchObject({
+        status: "held",
+        held_reason: "budget",
+        attempts: 0,
+      });
     });
   });
 });

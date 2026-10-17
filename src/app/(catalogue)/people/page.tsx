@@ -132,7 +132,7 @@ function peopleQuery(searchParams: PeopleParams) {
   };
 
   const first = Promise.all([
-    getAuthors({ search, sort, order, limit, offset, filters }),
+    getAuthors({ search, sort, order, limit, offset, filters, includeBiography: false }),
     getAuthorCount({ search, filters }),
   ]);
   // With no people the list is never awaited: its failure must not go unhandled

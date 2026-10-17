@@ -20,11 +20,11 @@ import type { Row } from "./types";
 
 const OPEN = sql.raw(sqlList(OPEN_JOB_STATUSES));
 /** The columns that make one claim's value */
-const CLAIM_VALUE = ["edition_id", "term_id", "number_value", "text_value", "place_id", "person_id"];
+const CLAIM_VALUE = ["edition_id", "term_id", "number_value", "text_value", "place_id", "person_id", "scope"];
 const sameValue = (a: string, b: string, except: string) => {
   const columns = CLAIM_VALUE.filter((c) => c !== except);
   return sql.raw(
-    `(${columns.map((c) => `${a}.${c}`).join(", ")}) is not distinct from (${columns.map((c) => `${b}.${c}`).join(", ")})`,
+    `(${columns.map((c) => `${a}.${c}`).join(", ")}) is not distinct from (${columns.map((c) => `${b}.${c}`).join(", ")}) and (${a}.assessment - 'justification') is not distinct from (${b}.assessment - 'justification')`,
   );
 };
 

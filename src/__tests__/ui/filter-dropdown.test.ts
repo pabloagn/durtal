@@ -125,6 +125,22 @@ describe("FilterDropdown", () => {
     expect(labels()).toEqual(["Jean-Luc Godard"]);
   });
 
+  it("announces no matches under a group search and clears the message when matches return", () => {
+    render();
+    click(button("Filter"));
+    const search = host.querySelector<HTMLInputElement>('input[aria-label="Search cast"]')!;
+    const type = (value: string) => act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, value);
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    type("zzzz-no-match");
+    expect(host.querySelector('[role="status"]')?.textContent).toBe("No matches");
+    expect(rows()).toBe(0);
+    type("Person 1");
+    expect(host.querySelector('[role="status"]')).toBeNull();
+    expect(rows()).toBeGreaterThan(0);
+  });
+
   it("has no count line when every option is listed", () => {
     render({ groups: [{ key: "cast", label: "Cast", options: people.slice(0, 20) }] });
     click(button("Filter"));

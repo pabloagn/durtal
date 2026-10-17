@@ -343,7 +343,7 @@ async function reviewFile(conn: Db, ctx: StageContext, review: Record<string, Id
       const open = await rows<{ id: string; value: string }>(
         conn,
         sql`select c.id, c.text_value as value from enrichment_claims c join enrichment_dimensions d on d.id = c.dimension_id
-          where c.work_id = ${uuid(book.id)} and d.key = ${decision.dimension} and c.status = 'proposed'
+          where c.work_id = ${uuid(book.id)} and d.key = ${decision.dimension} and c.status = 'proposed' and c.scope is null
             and c.edition_id is not distinct from ${edition?.id ?? null}::uuid order by c.created_at, c.id`,
       );
       const match = open.find((c) => c.value === decision.value);
@@ -413,7 +413,7 @@ const sweepable = (conn: Db) =>
     conn,
     sql`select c.id, r.id as "ruleId" from enrichment_claims c join enrichment_dimensions d on d.id = c.dimension_id
         join enrichment_auto_accept_rules r on r.dimension_id = d.id
-      where c.status = 'proposed' and c.method = 'api' and r.enabled and r.basis = 'exact_identifier_match'
+      where c.status = 'proposed' and c.scope is null and c.method = 'api' and r.enabled and r.basis = 'exact_identifier_match'
         and c.confidence >= r.minimum_confidence and d.key in (${list(IDENTITY_DIMENSIONS)})
         and not exists (select 1 from enrichment_applications a where a.claim_id = c.id and a.undone_at is not null)
       order by array_position(array[${list(IDENTITY_DIMENSIONS)}]::text[], d.key), c.created_at, c.id`,
@@ -487,7 +487,7 @@ async function report(conn: Db) {
         exists (select 1 from enrichment_auto_accept_rules r where r.dimension_id = d.id and r.enabled) as "ruleOn"
       from enrichment_claims c join enrichment_dimensions d on d.id = c.dimension_id join works w on w.id = c.work_id
         left join editions e on e.id = c.edition_id
-      where c.status = 'proposed' and d.key in (${list(IDENTITY_DIMENSIONS)})
+      where c.status = 'proposed' and c.scope is null and d.key in (${list(IDENTITY_DIMENSIONS)})
       order by w.slug, array_position(array[${list(IDENTITY_DIMENSIONS)}]::text[], d.key), c.confidence desc, c.text_value`,
   );
   const line = (c: (typeof claims)[number]) => `- ${c.slug}: ${c.dimension}${c.isbn ? ` of ${c.isbn}` : ""} ${[c.value, PAGES[c.dimension]?.(c.value)].filter(Boolean).join(" ")}`;
@@ -586,7 +586,7 @@ export function identityStage(review: Record<string, IdentityReviewEntry> = IDEN
         tx,
         sql`update enrichment_claims c set status = 'rejected', decided_by = 'check', decided_at = now(), decision_reason = 'run_undone'
           from enrichment_dimensions d where d.id = c.dimension_id and d.key in (${list(IDENTITY_DIMENSIONS)})
-            and c.run_id = ${uuid(runId)} and c.status = 'proposed' and c.method = 'api'
+            and c.run_id = ${uuid(runId)} and c.status = 'proposed' and c.scope is null and c.method = 'api'
             and not exists (select 1 from enrichment_applications a where a.claim_id = c.id)
           returning c.id`,
       );

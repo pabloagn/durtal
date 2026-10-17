@@ -49,8 +49,10 @@ function SessionLine({ s, row, today }: { s: SessionRow; row: ReadingRow; today:
   const parts: string[] = [];
   if (s.startedAt) parts.push(`${wallTime(s.startedAt, s.timeZone)}${s.timeZone !== zone ? ` ${zoneCity(s.timeZone)}` : ""}`);
   if (s.durationSeconds) parts.push(durationWords(s.durationSeconds));
-  if (s.pagesRead != null) parts.push(`${s.pagesRead} p.`);
-  else parts.push(`to ${atText({ page: s.endPage, percent: s.endPercent, minutes: s.endMinutes }, r.unit)}`);
+  if (s.endPage != null || s.endPercent != null || s.endMinutes != null) {
+    if (s.pagesRead != null) parts.push(`${s.pagesRead} p.`);
+    else parts.push(`to ${atText({ page: s.endPage, percent: s.endPercent, minutes: s.endMinutes }, r.unit)}`);
+  }
   // A pace from a few seconds says nothing
   if (s.pagesRead && s.durationSeconds && s.durationSeconds >= MIN_PACE_SECONDS) parts.push(`${Math.round(s.pagesRead / (s.durationSeconds / 3600))} p. an hour`);
   if (s.format !== r.format) parts.push(FORMAT_LABEL[s.format as ReadingFormat] ?? s.format);
