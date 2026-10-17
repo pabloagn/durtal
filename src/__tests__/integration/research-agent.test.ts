@@ -118,7 +118,7 @@ describe.skipIf(!url)("the research agent", () => {
     fetched.push(requested);
     if (refusals[requested]) throw new EvidenceFetchError(refusals[requested], "refused");
     const outletKey = new URL(requested).hostname.split(".")[0];
-    const html = `<p>A review of the book at ${requested}.</p>`;
+    const html = `<p>A review of ${searches.at(-1)?.request.text ?? "Kaputt Curzio Malaparte"} at ${requested}.</p>`;
     return {
       requestedUrl: requested,
       finalUrl: requested,
@@ -359,7 +359,7 @@ describe.skipIf(!url)("the research agent", () => {
 
   it("stores a snippet only when the provider's terms allow it and it is the page's own text, under the outlet's key", async () => {
     const w = await book("Snippet");
-    answers.tavily = () => [result("https://quiet.example/snippet", 1, "A quiet outlet's snippet of the book.")];
+    answers.tavily = () => [result("https://quiet.example/snippet", 1, "Snippet by Curzio Malaparte: a quiet outlet's review.")];
     await run({ stages: { research: stage({ storable: true, copiedFromPage: true }) } });
     expect(await documents(w.id)).toEqual([{ provider: "quiet", url: "https://quiet.example/snippet", kind: "evidence_text", via: "search:tavily" }]);
     expect(fetched).toEqual([]);

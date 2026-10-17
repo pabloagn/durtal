@@ -4,12 +4,14 @@ import {
   useState,
   useRef,
   useEffect,
+  useLayoutEffect,
   useCallback,
   useId,
   type ChangeEvent,
 } from "react";
 import { ChevronDown, HelpCircle } from "lucide-react";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
+import { acquireSurface } from "@/lib/ui/surface-state";
 
 export interface SelectOption {
   value: string;
@@ -66,6 +68,7 @@ export function Select({
   const [activeHint, setActiveHint] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [focusIndex, setFocusIndex] = useState(-1);
 
   // Build full options list including placeholder
@@ -92,21 +95,21 @@ export function Select({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [isOpen]);
 
-  // Esc closes an open list wherever focus is: Safari does not focus a
-  // button on click, so the trigger may not have the key. The dialog around
-  // the field stays until the next Esc (SLN-477)
-  useEffect(() => {
+  const closeList = useCallback(() => {
+    setIsOpen(false);
+    setActiveHint(null);
+    setFocusIndex(-1);
+    triggerRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  // The list owns Escape above its parent, including when a pointer leaves
+  // focus on the dialog instead of the trigger. Outside clicks and Tab keep
+  // their own focus destination; releasing a lease never moves focus.
+  useLayoutEffect(() => {
     if (!isOpen) return;
-    function handleKey(e: KeyboardEvent) {
-      if (e.key !== "Escape" || e.defaultPrevented || isComposing(e)) return;
-      e.preventDefault();
-      setIsOpen(false);
-      setActiveHint(null);
-      containerRef.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
-    }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [isOpen]);
+    const lease = acquireSurface(closeList);
+    return () => lease.release();
+  }, [isOpen, closeList]);
 
   // Scroll active item into view
   useEffect(() => {
@@ -135,10 +138,11 @@ export function Select({
     setIsOpen(false);
     setActiveHint(null);
     setFocusIndex(-1);
+    containerRef.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (disabled) return;
+    if (disabled || isComposing(e.nativeEvent)) return;
     // ⌘Enter saves the form (shortcuts provider); keys with a modifier are not the list's
     if (e.metaKey || e.ctrlKey || e.altKey) return;
 
@@ -173,15 +177,6 @@ export function Select({
           setFocusIndex((prev) => (prev > 0 ? prev - 1 : prev));
         }
         break;
-      case "Escape":
-        // An open list closes first; a closed one lets Escape reach the
-        // dialog around it
-        if (!isOpen) break;
-        e.preventDefault();
-        setIsOpen(false);
-        setActiveHint(null);
-        setFocusIndex(-1);
-        break;
       case "Tab":
         setIsOpen(false);
         setActiveHint(null);
@@ -210,7 +205,10 @@ export function Select({
         <button
           type="button"
           id={id}
+          ref={triggerRef}
           role="combobox"
+          // Labels can hydrate independently; only a changed value is a draft edit.
+          data-draft-value={value ?? ""}
           aria-label={ariaLabel}
           aria-describedby={ariaDescribedby}
           aria-expanded={isOpen}

@@ -1,5 +1,7 @@
 "use client";
 
+import { useListSearchClear } from "@/lib/hooks/use-list-search-clear";
+
 import { firstPageHref } from "@/lib/utils/list-params";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -94,6 +96,11 @@ export function EntityFilters({
     },
     [go, searchParams, basePath],
   );
+
+  useListSearchClear(inputRef, (navigate) => {
+    clearTimeout((window as unknown as Record<string, ReturnType<typeof setTimeout>>).__searchTimeout);
+    if (navigate) updateParams("q", "");
+  });
 
   // The same field again reverses its direction; another field starts at
   // its default direction
