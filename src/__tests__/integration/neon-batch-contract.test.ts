@@ -270,7 +270,7 @@ describe.skipIf(!url)("production Neon driver batch contract", () => {
       await c`insert into authors(id,name) values (${authorId},${`Author ${i}`})`;
       await c`insert into work_authors(work_id,author_id,sort_order) values (${id},${authorId},0)`;
       await c`insert into editions(id,work_id,title,language,publication_year,updated_at)
-        values (${editionId},${id},${`Edition ${i}`},'en',${2000 + i},${editionUpdatedAt})`;
+        values (${editionId},${id},${`Edition ${i}`},'en',${2000 + i},${editionUpdatedAt.toISOString()}::timestamptz)`;
       await c`insert into instances(id,edition_id,location_id,status)
         values (${copyId},${editionId},${homeId},'available')`;
       fixtures.set(id, { i, authorId, editionId, copyId });
