@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -43,6 +43,8 @@ import { applyOutletSeed } from "@/lib/enrichment/outlet-registry";
 import { applyVocabulary } from "@/lib/enrichment/loader";
 import { enqueueEnrichmentJob } from "@/lib/enrichment/jobs";
 import { storeEvidenceText } from "@/lib/enrichment/evidence-store";
+import { evidenceTextKey } from "@/lib/s3/keys";
+import { sourcePayloadHash } from "@/lib/publishers/enrichment";
 import { SourceCache } from "@/lib/enrichment/source-cache";
 import { vocabularySeedSchema } from "@/lib/validations/enrichment";
 import { GOLD_SET_WORK_IDS } from "@/lib/enrichment/gold-set";
@@ -339,6 +341,22 @@ describe.skipIf(!url)("the extract stage", () => {
     await enqueueEnrichmentJob({ workId: w.id, kind: "extract", reason: "manual" }, conn);
     await run({ only: [w.slug] });
     expect(await extractions(w.id)).toHaveLength(1);
+  });
+
+  it("rechecks an old verification body before any model call or claim", async () => {
+    const w = await book();
+    const text = "Kaputt by Curzio Malaparte. Human verification failed.";
+    const textSha256 = createHash("sha256").update(text).digest("hex");
+    const textKey = evidenceTextKey(textSha256);
+    bucket[textKey] = Buffer.from(text);
+    // Historical payload, before source-quality metadata existed.
+    const payload = { kind: "evidence_text", textSha256, textKey, textChars: text.length };
+    await c`insert into source_records (entity_kind, work_id, provider, url, retrieved_at, payload, payload_hash)
+      values ('book', ${w.id}, 'nyrb', 'https://nyrb.example/legacy-verification', now(), ${JSON.stringify(payload)}::jsonb, ${sourcePayloadHash(payload)})`;
+    const report = await run();
+    expect(sent).toHaveLength(0);
+    expect(await claims(w.id)).toEqual([]);
+    expect(report.jobs[0].outcome).toMatchObject({ calls: 0, skipped: ["source quality: blocked (interstitial)"] });
   });
 
   it("fails the job, with no row, when the stored text cannot be read; a hash mismatch only skips its document", async () => {

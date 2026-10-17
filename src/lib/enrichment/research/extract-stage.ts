@@ -7,6 +7,8 @@ import { bucketEvidenceObjects, type EvidenceObjects } from "@/lib/s3/evidence-o
 import { currentVocabularyVersion, proposeClaims } from "../claims";
 import { enqueueEnrichmentJob } from "../jobs";
 import { readEvidenceText } from "../evidence-store";
+import { assessSourceContent, usableSourceQuality } from "../source-quality";
+import { sourceProfile } from "../source-profiles";
 import { costOf, priceFor } from "../prices";
 import { capLine, metered, monthSpend, WorkCeilingStop } from "../meter";
 import { goldSetHiddenCondition, GOLD_SET_WORK_IDS } from "../gold-set";
@@ -36,7 +38,11 @@ import { anthropicModel, type ExtractionModel, type ModelAnswer } from "./model"
  */
 
 const rows = async <T>(conn: Db, query: SQL) => resultRows<T>(await conn.execute(query));
-const list = (values: readonly string[]) => sql.join(values.map((v) => sql`${v}`), sql`, `);
+const list = (values: readonly string[]) =>
+  sql.join(
+    values.map((v) => sql`${v}`),
+    sql`, `,
+  );
 const sha256 = (value: unknown) => createHash("sha256").update(stableStringify(value)).digest("hex");
 /** Characters per token for a plan's estimate, until the trial measures it; an apply counts tokens */
 const CHARS_PER_TOKEN = 4;
@@ -206,12 +212,20 @@ async function decide(
 ) {
   const counts = { proposed: 0, merged: 0, rejectedR6: 0, conflicts: 0, confirmed: 0 };
   const proposals: { dimension: string; term: string; confidence: number; outlet: string; excerpt: string }[] = [];
-  const others = await otherValues(tx, input.workId, input.dimensions.map((d) => d.key));
+  const others = await otherValues(
+    tx,
+    input.workId,
+    input.dimensions.map((d) => d.key),
+  );
   for (const dimension of input.dimensions) {
     const mine = [...input.values].filter(([key]) => key.startsWith(`${dimension.key}\u0000`));
     if (!mine.length) continue;
     const verified = new Map(mine.map(([key, evidence]) => [key.split("\u0000")[1], input.names.get(evidence[0].outlet) ?? evidence[0].outlet]));
-    const notes = conflictsOf(dimension, verified, others.filter((o) => o.dimension === dimension.key && !verified.has(o.term)));
+    const notes = conflictsOf(
+      dimension,
+      verified,
+      others.filter((o) => o.dimension === dimension.key && !verified.has(o.term)),
+    );
     const items = mine.map(([key, evidence]) => {
       const term = key.split("\u0000")[1];
       const { sources, passes } = checkIndependence(evidence);
@@ -376,6 +390,32 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
           result.reason = "its text is not in Unicode NFC";
           continue;
         }
+        const profile = sourceProfile(document.url ?? "https://evidence.invalid", document.outletKind);
+        const quality = assessSourceContent(
+          {
+            text,
+            identityText: document.identityText,
+            fields: document.quality?.present,
+          },
+          document.url ?? "https://evidence.invalid",
+          {
+            profile,
+            snippet: document.evidenceKind === "evidence_text",
+            // Article relevance is recorded by aboutWork below. Product/record
+            // identity must be verified against the isolated primary record.
+            identity:
+              profile.key === "article" || document.evidenceKind === "evidence_text"
+                ? undefined
+                : {
+                    titles: plan.profile.titles,
+                    authors: plan.profile.authors.flatMap((a) => [a.name, a.surname]),
+                  },
+          },
+        );
+        if (!usableSourceQuality(quality)) {
+          result.reason = `source quality: ${quality.status} (${quality.reasons.join(", ")})`;
+          continue;
+        }
         const gate = aboutWork(text, plan.profile);
         if (!gate.about) {
           // Not sent: its row names the gate and the inputs it read
@@ -462,7 +502,16 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
       const names = new Map(plan.documents.map((d) => [d.outlet, d.outletName]));
       // A gold-set book's values stay hidden until Pablo labels it: counts only
       const hidden = GOLD_SET_WORK_IDS.includes(job.workId);
-      const { counts, proposals } = await decide(tx, { workId: job.workId, dimensions: plan.dimensions, version: plan.version, runId: ctx.runId, jobId: job.id, values, names, hidden });
+      const { counts, proposals } = await decide(tx, {
+        workId: job.workId,
+        dimensions: plan.dimensions,
+        version: plan.version,
+        runId: ctx.runId,
+        jobId: job.id,
+        values,
+        names,
+        hidden,
+      });
 
       const failures: Record<string, number> = {};
       for (const r of results) for (const f of r.failures) failures[f.check] = (failures[f.check] ?? 0) + 1;
@@ -481,7 +530,10 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
         outlets: Object.fromEntries(
           [...new Set(results.map((r) => r.document.outlet))].map((o) => [
             o,
-            { about: results.filter((r) => r.document.outlet === o && r.status === "answered").length, verified: results.filter((r) => r.document.outlet === o).reduce((n, r) => n + r.verified.length, 0) },
+            {
+              about: results.filter((r) => r.document.outlet === o && r.status === "answered").length,
+              verified: results.filter((r) => r.document.outlet === o).reduce((n, r) => n + r.verified.length, 0),
+            },
           ]),
         ),
         ...(hidden ? { hidden: true } : { proposals }),
@@ -500,7 +552,10 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
     },
 
     async undo(tx, runId) {
-      const undone = await rows<{ id: string }>(tx, sql`update enrichment_extractions set undone_at = now() where run_id = ${runId}::uuid and undone_at is null returning id`);
+      const undone = await rows<{ id: string }>(
+        tx,
+        sql`update enrichment_extractions set undone_at = now() where run_id = ${runId}::uuid and undone_at is null returning id`,
+      );
       // Every open claim holding this run's evidence is withdrawn, whichever run created it
       const withdrawn = await rows<{ id: string; workId: string; vocabularyVersion: number }>(
         tx,
@@ -520,7 +575,10 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
               e.excerpt, e.start_offset as start, e.end_offset as "end", e.text_sha256 as "textSha256", e.extractor_version as "extractorVersion", e.run_id as "runId"
             from enrichment_claims c join enrichment_dimensions d on d.id = c.dimension_id join enrichment_terms t on t.id = c.term_id
               join claim_evidence e on e.claim_id = c.id join source_records s on s.id = e.source_record_id join evidence_outlets o on o.key = s.provider
-            where c.id in (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}) and e.run_id <> ${runId}::uuid
+            where c.id in (${sql.join(
+              ids.map((id) => sql`${id}::uuid`),
+              sql`, `,
+            )}) and e.run_id <> ${runId}::uuid
               and not exists (select 1 from enrichment_extractions x where x.run_id = e.run_id and x.undone_at is not null)
               -- A retired dimension or term is not proposed again
               and d.retired_in is null and t.retired_in is null`,
@@ -529,7 +587,10 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
         const dimensions = await extractDimensions(tx, version, [...new Set(kept.map((k) => k.dimension))]);
         // Each value goes back under the run of its newest remaining evidence
         for (const [key, evidence] of Object.entries(Object.groupBy(kept, (k) => valueKey(k.dimension, k.term)))) {
-          const latestRun = evidence!.map((e) => e.runId).sort().at(-1)!;
+          const latestRun = evidence!
+            .map((e) => e.runId)
+            .sort()
+            .at(-1)!;
           const { counts } = await decide(tx, {
             workId,
             dimensions,
@@ -543,7 +604,9 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
           again += counts.proposed + counts.rejectedR6;
         }
       }
-      return [`Extraction: ${undone.length} extractions undone; ${withdrawn.length} claims withdrawn; ${again} values proposed again from other runs' evidence`];
+      return [
+        `Extraction: ${undone.length} extractions undone; ${withdrawn.length} claims withdrawn; ${again} values proposed again from other runs' evidence`,
+      ];
     },
 
     outcomes(outcomes) {
@@ -554,13 +617,18 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
       return [
         `## Extraction: what the run did (${done.length} books)`,
         `- Documents ${sum("documents")}, not about the book ${sum("notAboutWork")}; model calls ${sum("calls")}, invalid answers ${sum("invalidAnswers")}`,
-        `- Values returned ${sum("valuesReturned")}, verified ${sum("valuesVerified")}; failed: ${Object.entries(failures).map(([k, n]) => `${k} ${n}`).join(", ") || "none"}`,
+        `- Values returned ${sum("valuesReturned")}, verified ${sum("valuesVerified")}; failed: ${
+          Object.entries(failures)
+            .map(([k, n]) => `${k} ${n}`)
+            .join(", ") || "none"
+        }`,
         `- Claims proposed ${sum("proposed")}, merged ${sum("merged")}, rejected for R6 ${sum("rejectedR6")}, in conflict ${sum("conflicts")}, confirmed ${sum("confirmed")}; closed for a vocabulary change ${sum("closed")}`,
         "## Extraction: proposals (gold-set books hidden)",
-        ...done.flatMap((o) =>
-          (o.proposals as { dimension: string; term: string; confidence: number; outlet: string; excerpt: string }[] | undefined)?.map(
-            (p) => `- ${p.dimension} ${p.term} (${p.confidence}, ${p.outlet}): "${p.excerpt}"`,
-          ) ?? [`- (a gold-set book: ${Number(o.proposed ?? 0) + Number(o.merged ?? 0)} proposals hidden)`],
+        ...done.flatMap(
+          (o) =>
+            (o.proposals as { dimension: string; term: string; confidence: number; outlet: string; excerpt: string }[] | undefined)?.map(
+              (p) => `- ${p.dimension} ${p.term} (${p.confidence}, ${p.outlet}): "${p.excerpt}"`,
+            ) ?? [`- (a gold-set book: ${Number(o.proposed ?? 0) + Number(o.merged ?? 0)} proposals hidden)`],
         ),
       ];
     },
@@ -581,9 +649,16 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
   async function ask(conn: Db, ctx: StageContext, model: ExtractionModel, request: ExtractionRequest, hash: string, ids: { workId: string; jobId: string }) {
     const cached = ctx.cache.get(`extract:${hash}`);
     if (cached) return (cached.answer as { answer: ModelAnswer }).answer;
-    const estimate = { input_tokens: await model.countTokens(request), output_tokens: request.max_tokens, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
+    const estimate = {
+      input_tokens: await model.countTokens(request),
+      output_tokens: request.max_tokens,
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+    };
     if ((await monthSpend(conn, { workId: ids.workId })) + costOf(estimate, price()) > RESEARCH_CONFIG.maxCostPerWork)
-      throw new WorkCeilingStop(`The book's extraction would pass its ceiling of $${RESEARCH_CONFIG.maxCostPerWork} this month; its answers so far stay in the cache`);
+      throw new WorkCeilingStop(
+        `The book's extraction would pass its ceiling of $${RESEARCH_CONFIG.maxCostPerWork} this month; its answers so far stay in the cache`,
+      );
     const answer = await metered(
       { database: conn, provider: EXTRACTION_MODEL.provider, operation: "extract", estimate, workId: ids.workId, jobId: ids.jobId, runId: ctx.runId },
       async () => {
@@ -637,7 +712,12 @@ export async function determinismCheck(conn: Db, options: { n: number; cache: So
         database: conn,
         provider: EXTRACTION_MODEL.provider,
         operation: "extract",
-        estimate: { input_tokens: await options.model.countTokens(request), output_tokens: request.max_tokens, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+        estimate: {
+          input_tokens: await options.model.countTokens(request),
+          output_tokens: request.max_tokens,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+        },
         runId: options.runId,
       },
       async () => {
