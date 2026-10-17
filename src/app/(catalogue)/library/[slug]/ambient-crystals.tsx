@@ -224,7 +224,9 @@ export function PosterGlow({ palette }: PosterGlowProps) {
       <div
         className="book-ambient-coarse absolute inset-0"
         style={{
-          background: `radial-gradient(ellipse 100% 90% at 50% 50%, ${glowColor}40 0%, transparent 75%), radial-gradient(ellipse 80% 100% at 40% 60%, ${secondaryColor}30 0%, transparent 75%)`,
+          // Each ellipse reaches transparency at its nearest box sides, so
+          // the finite, unblurred plane cannot expose a rectangular color edge.
+          background: `radial-gradient(ellipse closest-side at 50% 50%, ${glowColor}40 0%, transparent 100%), radial-gradient(ellipse closest-side at 40% 60%, ${secondaryColor}30 0%, transparent 100%)`,
         }}
       />
       <div
