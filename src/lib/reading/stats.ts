@@ -2,7 +2,8 @@ import { sql, type SQL } from "drizzle-orm";
 import { batchedRows } from "@/lib/db/read-batch";
 import { ownedWorkCondition } from "@/lib/catalogue/holdings";
 import { atHandCopySql } from "./at-hand";
-import { countedPagesSql, readingOrdinalSql, readingRatingSql, readingStateSql, rereadSql, tasteRatingSql } from "./summary";
+import { readingFactsSql } from "./analytics";
+import { countedPagesSql, readingOrdinalSql, readingStateSql, tasteRatingSql } from "./summary";
 import { WORK_AUTHOR_ROLES } from "@/lib/types";
 
 /*
@@ -20,7 +21,7 @@ import { WORK_AUTHOR_ROLES } from "@/lib/types";
 export type StatsYear = number | null;
 
 /** Every reading with its re-read flag and the read's rating; windows run over all readings */
-const BASE = sql`rr as (select r.*, ${rereadSql("r")} as reread, ${readingRatingSql("r")} as read_rating from readings r),
+const BASE = sql`rr as ${readingFactsSql()},
   cp as ${countedPagesSql()},
   ss as (select s.* from reading_sessions s where not (s.source = 'timer' and s.ended_at is null))`;
 
@@ -697,10 +698,14 @@ export interface ReviewBook {
   reads: number;
 }
 
+export const YEAR_REVIEW_MONTH_LIMIT = 12;
+
 export interface YearReview {
   numbers: YearNumbers;
-  /** The year's finished books in finish order; month null when dated only by year */
+  /** Up to twelve finished readings per month, in finish order; null is year-only. */
   books: (ReviewBook & { month: number | null })[];
+  /** All readings in each month, including those beyond the cover preview. */
+  monthCounts: { month: number | null; books: number }[];
   first: ReviewBook | null;
   last: ReviewBook | null;
   longest: ReviewBook | null;
@@ -711,19 +716,45 @@ export interface YearReview {
 }
 
 export async function yearReview(year: number): Promise<YearReview> {
-  const [numbers, books, passage] = await Promise.all([
+  const [numbers, [review], passage] = await Promise.all([
     yearNumbers(year),
-    rows<ReviewBook & { month: number | null }>(sql`with ${BASE}
-      select w.id::text as "workId", w.title, w.slug, rr.finished_on::text as "finishedOn", rr.finished_precision as precision,
-        rr.read_rating::float8 as rating, rr.total_pages::float8 as pages,
-        (select count(*)::int from readings f where f.work_id = w.id and f.status = 'finished') as reads,
-        case when rr.finished_precision = 'year' then null else extract(month from rr.finished_on)::int end as month,
-        coalesce((select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = rr.edition_id),
-          (select m.thumbnail_s3_key from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1),
-          (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = w.id and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null order by e.created_at limit 1)) as cover
-      from rr join works w on w.id = rr.work_id
-      where ${finishedIn(year)}
-      order by rr.finished_on, (rr.finished_precision = 'day') desc, rr.created_at, rr.id`),
+    rows<Omit<YearReview, "numbers" | "favouritePassage">>(sql`with ${BASE},
+      finished as (
+        select rr.*, case when rr.finished_precision = 'year' then null else extract(month from rr.finished_on)::int end as month
+        from rr where ${finishedIn(year)}
+      ), ranked as materialized (
+        select f.*,
+          row_number() over (order by f.finished_on, (f.finished_precision = 'day') desc, f.created_at, f.id) as finish_order,
+          row_number() over (partition by f.month order by f.finished_on, (f.finished_precision = 'day') desc, f.created_at, f.id) as month_row
+        from finished f
+      ), months as (
+        select month, count(*)::int as books from ranked group by month
+      ), picks as (
+        (select 'first' as kind, id from ranked where finished_precision <> 'year' order by finish_order limit 1)
+        union all (select 'last', id from ranked where finished_precision <> 'year' order by finish_order desc limit 1)
+        union all (select 'longest', id from ranked where total_pages is not null order by total_pages desc, finish_order limit 1)
+        union all (select 'highestRated', id from ranked where read_rating is not null order by read_rating desc, finish_order limit 1)
+        union all (select 'mostReread', id from ranked where finished_count >= 2 order by finished_count desc, finish_order limit 1)
+      ), selected as materialized (
+        select * from ranked where month_row <= ${YEAR_REVIEW_MONTH_LIMIT} or id in (select id from picks)
+      ), hydrated as materialized (
+        select f.id, f.month_row, f.finish_order, w.id::text as "workId", w.title, w.slug,
+          f.finished_on::text as "finishedOn", f.finished_precision as precision,
+          f.read_rating::float8 as rating, f.total_pages::float8 as pages, f.finished_count as reads, f.month,
+          coalesce((select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = f.edition_id),
+            (select m.thumbnail_s3_key from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1),
+            (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = w.id and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null order by e.created_at limit 1)) as cover
+        from selected f join works w on w.id = f.work_id
+      )
+      select
+        coalesce((select jsonb_agg(to_jsonb(h) - 'id' - 'month_row' - 'finish_order' order by h.finish_order) from hydrated h where h.month_row <= ${YEAR_REVIEW_MONTH_LIMIT}), '[]'::jsonb) as books,
+        coalesce((select jsonb_agg(to_jsonb(m) order by m.month nulls last) from months m), '[]'::jsonb) as "monthCounts",
+        (select to_jsonb(h) - 'id' - 'month_row' - 'finish_order' from hydrated h where h.id = (select id from picks where kind = 'first')) as first,
+        (select to_jsonb(h) - 'id' - 'month_row' - 'finish_order' from hydrated h where h.id = (select id from picks where kind = 'last')) as last,
+        (select to_jsonb(h) - 'id' - 'month_row' - 'finish_order' from hydrated h where h.id = (select id from picks where kind = 'longest')) as longest,
+        (select to_jsonb(h) - 'id' - 'month_row' - 'finish_order' from hydrated h where h.id = (select id from picks where kind = 'highestRated')) as "highestRated",
+        (select to_jsonb(h) - 'id' - 'month_row' - 'finish_order' from hydrated h where h.id = (select id from picks where kind = 'mostReread')) as "mostReread",
+        (select to_jsonb(m) from months m where m.month is not null order by m.books desc, m.month limit 1) as "busiestMonth"`),
     rows<{ noteId: string; body: string; page: number | null; workId: string; title: string; slug: string | null }>(sql`
       select n.id::text as "noteId", n.body, n.page, w.id::text as "workId", w.title, w.slug
       from reading_notes n join works w on w.id = n.work_id
@@ -733,22 +764,5 @@ export async function yearReview(year: number): Promise<YearReview> {
       order by exists (select 1 from readings r where r.work_id = n.work_id and r.status = 'finished' and extract(year from r.finished_on) = ${year}) desc, n.created_at desc
       limit 1`),
   ]);
-  const dated = books.filter((b) => b.precision !== "year");
-  const months = new Map<number, number>();
-  for (const b of dated) months.set(b.month!, (months.get(b.month!) ?? 0) + 1);
-  const busiest = [...months].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0];
-  const pick = (list: typeof books, by: (b: ReviewBook) => number | null) =>
-    [...list].filter((b) => by(b) !== null).sort((a, b) => by(b)! - by(a)! || a.finishedOn.localeCompare(b.finishedOn))[0] ?? null;
-  const reread = pick(books, (b) => (b.reads >= 2 ? b.reads : null));
-  return {
-    numbers,
-    books,
-    first: dated[0] ?? null,
-    last: dated.at(-1) ?? null,
-    longest: pick(books, (b) => b.pages),
-    highestRated: pick(books, (b) => b.rating),
-    mostReread: reread,
-    busiestMonth: busiest ? { month: busiest[0], books: busiest[1] } : null,
-    favouritePassage: passage[0] ?? null,
-  };
+  return { numbers, ...review, favouritePassage: passage[0] ?? null };
 }

@@ -673,4 +673,100 @@ describe.skipIf(!url)("reading stats with PostgreSQL", () => {
       expect(await onThisDay([])).toEqual([]);
     });
   });
+
+  describe("all-history aggregate facts and bounded year previews", () => {
+    it("returns an empty year envelope without inventing highlights", async () => {
+      const review = await yearReview(YEAR);
+      expect(review).toMatchObject({ books: [], monthCounts: [], first: null, last: null, longest: null, highestRated: null, mostReread: null, busiestMonth: null, favouritePassage: null });
+      expect(review.numbers.books).toBe(0);
+    });
+
+    it("keeps precision and stable finish-order ties when selecting year highlights", async () => {
+      const year = await past(await book("Year"), { on: `${YEAR}-01-01`, precision: "year", pages: 100, rating: 4 });
+      const month = await past(await book("Month"), { on: `${YEAR}-01-01`, precision: "month", pages: 100, rating: 4 });
+      const day = await past(await book("Day"), { on: `${YEAR}-01-01`, pages: 100, rating: 4 });
+      await q(`update readings set created_at = case id when $1::uuid then '2000-01-01'::timestamptz when $2::uuid then '2001-01-01'::timestamptz else '2002-01-01'::timestamptz end where id in ($1, $2, $3)`, [year, month, day]);
+      const review = await yearReview(YEAR);
+      expect(review.books.map((b) => b.title)).toEqual(["Day", "Year", "Month"]);
+      expect(review.monthCounts).toEqual([{ month: 1, books: 2 }, { month: null, books: 1 }]);
+      expect(review.first?.title).toBe("Day"); expect(review.last?.title).toBe("Month");
+      expect(review.longest?.title).toBe("Day"); expect(review.highestRated?.title).toBe("Day");
+    });
+
+    it("keeps rating fallback and re-read evidence global when the selected year hides earlier finishes", async () => {
+      const repeated = await book("Across years", { rating: 5 });
+      await past(repeated, { on: "2023-01-01" });
+      await past(repeated, { on: `${YEAR}-01-02`, rating: 4 });
+      await past(repeated, { on: `${YEAR}-02-01`, precision: "month" });
+      await past(repeated, { status: "reading", on: null });
+      const single = await book("One finish", { rating: 4.5 });
+      await past(single, { status: "abandoned", on: null });
+      await past(single, { on: `${YEAR}-01-01`, precision: "year" });
+
+      // The repeated book's two unrated finishes never inherit its 5 stars.
+      // The other book's abandoned attempt does not prevent its sole fallback.
+      expect(await yearNumbers(YEAR)).toMatchObject({ books: 3, avgRating: 4.25, rereads: 2, abandoned: 0 });
+      expect(await yearNumbers(null)).toMatchObject({ books: 4, avgRating: 4.25, rereads: 2, abandoned: 1 });
+      const result = await ratings(YEAR);
+      expect(result.distribution.filter((r) => r.count)).toEqual([{ rating: 4, count: 1 }, { rating: 4.5, count: 1 }]);
+      expect(result.reread.find((r) => r.workId === repeated)?.reads).toEqual([null, 4, null]);
+    });
+
+    it("counts every finish while selecting highlights outside twelve-per-month cover previews", async () => {
+      const january: string[] = [];
+      for (let day = 1; day <= 15; day++) {
+        const id = await book(`January ${day}`); january.push(id);
+        await past(id, { on: `${YEAR}-01-${String(day).padStart(2, "0")}`, pages: 200, rating: 3 });
+      }
+      const highlight = await book("Outside the cover preview");
+      await past(highlight, { on: "2018-01-01", pages: 100 });
+      await past(highlight, { on: "2019-01-01", pages: 100 });
+      await past(highlight, { on: `${YEAR}-01-31`, pages: 999, rating: 5 });
+      for (let i = 0; i < 14; i++) await past(await book(`Year only ${i}`), { on: `${YEAR}-01-01`, precision: "year", pages: 100 });
+      await q(`insert into reading_notes(work_id, kind, body, is_favourite) values ($1, 'quote', 'A retained passage.', true)`, [highlight]);
+
+      const review = await yearReview(YEAR);
+      expect(review.numbers).toMatchObject({ books: 30, pages: 5399 });
+      expect(review.monthCounts).toEqual([{ month: 1, books: 16 }, { month: null, books: 14 }]);
+      expect(review.books).toHaveLength(24);
+      expect(review.books.filter((b) => b.month === 1).map((b) => b.workId)).toEqual(january.slice(0, 12));
+      expect(review.books.filter((b) => b.month === null)).toHaveLength(12);
+      expect(review.books.some((b) => b.workId === highlight)).toBe(false);
+      expect(review.first?.workId).toBe(january[0]);
+      for (const key of ["last", "longest", "highestRated", "mostReread"] as const) expect(review[key]).toMatchObject({ workId: highlight, reads: 3 });
+      expect(review.busiestMonth).toEqual({ month: 1, books: 16 });
+      expect(review.favouritePassage?.body).toBe("A retained passage.");
+      const html = renderToStaticMarkup(await YearInReviewPage({ params: Promise.resolve({ year: String(YEAR) }) }));
+      expect(html).toContain('aria-label="4 more in the journal"');
+      expect(html).toContain('aria-label="2 more in the journal"');
+    });
+
+    it("preserves page denominators, prior-year progress and positionless duration without counting a live timer", async () => {
+      const work = await book("Across the calendar");
+      const reading = await past(work, { on: `${YEAR}-01-02`, pages: 200, startPage: 40 });
+      await q(`update readings set start_percent = 20 where id = $1`, [reading]);
+      await session(reading, { on: "2024-12-31", from: 20, to: 50, total: 200, seconds: 600 });
+      await session(reading, { on: `${YEAR}-01-01`, from: 50, to: 40, total: 200, seconds: 900 });
+      await session(reading, { on: `${YEAR}-01-02`, from: 40, to: 90, total: 300, seconds: 1200 });
+      await q(`insert into reading_sessions(reading_id, format, source, read_on, time_zone, duration_seconds)
+        values ($1, 'audio', 'manual', $2, 'America/Mexico_City', 1800)`, [reading, `${YEAR}-01-03`]);
+      const running = await past(await book("Still running"), { status: "reading", on: null });
+      await q(`insert into reading_sessions(reading_id, format, source, read_on, time_zone, started_at)
+        values ($1, 'print', 'timer', $2, 'Europe/Amsterdam', $3::timestamptz)`, [running, `${YEAR}-01-04`, `${YEAR}-01-04T10:00:00Z`]);
+      await past(await book("Year precision"), { on: `${YEAR}-01-01`, precision: "year", pages: 100 });
+      await past(await book("Unknown finish"), { on: null, pages: 70 });
+
+      const selected = await yearNumbers(YEAR);
+      expect(selected).toMatchObject({ books: 2, pages: 220, readingDays: 3, undated: 1 });
+      expect(selected.hours).toBeCloseTo(3900 / 3600, 10);
+      expect(await yearNumbers(null)).toMatchObject({ books: 3, pages: 350 });
+      const months = await overTheYear(YEAR);
+      expect(months.bars[0].pages).toBe(120);
+      expect(months.unknown).toEqual({ key: null, books: 1, pages: 100 });
+      expect((await readingDays(YEAR)).calendar.map((d) => [d.day, d.pages])).toEqual([
+        [`${YEAR}-01-01`, 0], [`${YEAR}-01-02`, 120], [`${YEAR}-01-03`, 0],
+      ]);
+    });
+  });
+
 });

@@ -9,7 +9,8 @@ import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { textSearchCondition } from "@/lib/actions/utils/text-search";
 import type { ReadingDatePrecision, ReadingFormat, ReadingStatus } from "./constants";
-import { readingOrdinalSql, readingRatingSql, rereadSql } from "./summary";
+import { readingRatingSql } from "./summary";
+import { readingFactsSql } from "./analytics";
 import type { JournalQuery } from "./journal-params";
 
 export interface JournalRow {
@@ -46,14 +47,9 @@ export interface JournalSummary {
  * all readings, before any filter.
  */
 const base = sql`(
-  select r.id, r.work_id, r.status, r.started_on, r.started_precision, r.finished_on, r.finished_precision,
-    r.format, r.edition_id, r.last_read_at, r.created_at,
-    md5(to_jsonb(r)::text) as fingerprint,
-    ${readingRatingSql("r")} as read_rating,
-    ${rereadSql("r")} as reread,
-    ${readingOrdinalSql("r")} as ordinal,
-    case when r.finished_precision <> 'unknown' and r.finished_on is not null then extract(year from r.finished_on)::int end as finish_year
-  from readings r
+  select f.*,
+    case when f.finished_precision <> 'unknown' and f.finished_on is not null then extract(year from f.finished_on)::int end as finish_year
+  from ${readingFactsSql()} f
 )`;
 
 const authorsOf = sql`coalesce((select string_agg(a.name, ' ') from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id), '')`;
@@ -91,10 +87,17 @@ function orderBy(q: JournalQuery): SQL {
   return sql`search_normalize(w.title) ${dir}, b.id asc`;
 }
 
+/** One snapshot for the exact total and page; only selected full rows are fingerprinted. */
 export async function queryJournal(q: JournalQuery) {
-  const where = conditions(q);
-  const [rows, [summary]] = await Promise.all([
-    db.execute(sql`select b.id, b.ordinal, b.work_id as "workId", w.title, w.slug,
+  const [result] = resultRows<{ rows: JournalRow[]; summary: JournalSummary }>(await db.execute(sql`
+    with filtered as materialized (
+      select b.* from ${base} b join works w on w.id = b.work_id where ${conditions(q)}
+    ), page as materialized (
+      select b.*, row_number() over (order by ${orderBy(q)}) as page_order
+      from filtered b join works w on w.id = b.work_id
+      order by ${orderBy(q)} limit ${q.perPage} offset ${q.offset}
+    ), hydrated as (
+      select b.id, b.ordinal, b.work_id as "workId", w.title, w.slug,
         (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.sort_order limit 1) as author,
         coalesce((select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = b.edition_id),
           (select m.thumbnail_s3_key from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1)) as cover,
@@ -102,21 +105,17 @@ export async function queryJournal(q: JournalQuery) {
         b.finished_on::text as "finishedOn", b.finished_precision as "finishedPrecision", b.format,
         b.read_rating as rating, b.reread,
         (select e.language from editions e where e.id = b.edition_id) as "editionLanguage", w.original_language as "originalLanguage",
-        b.fingerprint
-      from ${base} b join works w on w.id = b.work_id
-      where ${where}
-      order by ${orderBy(q)}
-      limit ${q.perPage} offset ${q.offset}`),
-    db.execute(sql`select count(*)::int as readings,
-        count(*) filter (where b.status = 'finished')::int as finished,
-        count(*) filter (where b.status = 'abandoned')::int as abandoned,
-        count(*) filter (where b.reread)::int as rereads
-      from ${base} b join works w on w.id = b.work_id where ${where}`).then((r) => resultRows<JournalSummary>(r)),
-  ]);
-  return {
-    rows: resultRows<JournalRow>(rows),
-    summary: summary ?? { readings: 0, finished: 0, abandoned: 0, rereads: 0 },
-  };
+        md5(to_jsonb(r)::text) as fingerprint, b.page_order
+      from page b join works w on w.id = b.work_id join readings r on r.id = b.id
+    )
+    select coalesce((select jsonb_agg(to_jsonb(h) - 'page_order' order by h.page_order) from hydrated h), '[]'::jsonb) as rows,
+      (select jsonb_build_object(
+        'readings', count(*)::int,
+        'finished', count(*) filter (where status = 'finished')::int,
+        'abandoned', count(*) filter (where status = 'abandoned')::int,
+        'rereads', count(*) filter (where reread)::int
+      ) from filtered) as summary`));
+  return result;
 }
 
 /** Every reading the journal's filters keep, in the page's order: the export of what it shows (SLN-458) */
