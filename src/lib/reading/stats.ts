@@ -211,7 +211,7 @@ export async function ratings(year: StatsYear): Promise<RatingsStats> {
       where ${finishedIn(year)} and rr.read_rating is not null group by 1 order by 1`),
     rows<{ workId: string; title: string; slug: string | null; reads: (number | null)[] }>(sql`with ${BASE}
       select w.id::text as "workId", w.title, w.slug,
-        (select array_agg(o.read_rating::float8 order by o.ord) from (select f.read_rating, f.status, ${readingOrdinalSql("f")} as ord from rr f where f.work_id = w.id) o
+        (select jsonb_agg(o.read_rating::float8 order by o.ord) from (select f.read_rating, f.status, ${readingOrdinalSql("f")} as ord from rr f where f.work_id = w.id) o
           where o.status = 'finished') as reads
       from works w
       where (select count(*) from rr f where f.work_id = w.id and f.status = 'finished') >= 2
