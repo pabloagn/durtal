@@ -1,5 +1,7 @@
 "use client";
 
+import { useListSearchClear } from "@/lib/hooks/use-list-search-clear";
+
 import {
   useState,
   useMemo,
@@ -128,6 +130,11 @@ export function TaxonomyFamilyShell({
         firstPageHref(`/taxonomy/${family.slug}`, next),
       );
   }
+  useListSearchClear(searchRef, (navigate) => {
+    clearTimeout(searchTimer.current);
+    setSearchQuery("");
+    if (navigate) writeFilter("");
+  });
   function typeFilter(value: string) {
     setSearchQuery(value);
     clearTimeout(searchTimer.current);
@@ -446,6 +453,8 @@ export function TaxonomyFamilyShell({
             <input
               ref={searchRef}
               type="text"
+              data-list-focus="search"
+              data-shortcut-search=""
               value={searchQuery}
               onChange={(e) => typeFilter(e.target.value)}
               placeholder="Filter items…"

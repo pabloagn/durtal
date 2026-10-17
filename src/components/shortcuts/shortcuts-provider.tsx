@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { clearListSearch, leaveListSearch } from "@/lib/ui/list-search";
 import { usePathname, useRouter } from "next/navigation";
 import { handleSurfaceEscape, hasOpenSurface, isPassedThrough } from "@/lib/ui/surface-state";
 import { leavePage } from "@/components/ui/unsaved-guard";
@@ -455,8 +456,8 @@ export function ShortcutsProvider({
       }
 
       // Esc in a search field on the page (no dialog around it, and no list
-      // or popover of its own that took the key): leave the field, keep the
-      // text. Inside a dialog, Esc closes the dialog.
+      // or popover of its own that took the key): list searches clear first,
+      // then leave the empty field. Other pickers retain their own behavior.
       if (
         event.key === "Escape" &&
         target instanceof HTMLInputElement &&
@@ -464,8 +465,16 @@ export function ShortcutsProvider({
         (target.hasAttribute("data-shortcut-search") || isPickerField(target)) &&
         !target.closest("dialog")
       ) {
-        event.preventDefault();
-        target.blur();
+        if (target.matches('[data-list-focus="search"]')) {
+          if (hasOpenSurface()) return;
+          event.preventDefault();
+          if (event.repeat) return;
+          if (target.value) clearListSearch(target);
+          else leaveListSearch(target);
+        } else {
+          event.preventDefault();
+          target.blur();
+        }
         return;
       }
 

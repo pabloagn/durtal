@@ -135,6 +135,7 @@ export function Select({
     setIsOpen(false);
     setActiveHint(null);
     setFocusIndex(-1);
+    containerRef.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {

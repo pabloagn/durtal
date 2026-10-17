@@ -343,6 +343,9 @@ export function FilterDropdown({
             />
           ))}
         </div>
+        {searchTerm.trim() && filteredOptions.length === 0 && (
+          <p role="status" className="px-1.5 py-1 text-xs text-fg-secondary">No matches</p>
+        )}
         {shown.length < filteredOptions.length && (
           <p className="px-1.5 py-1 text-xs text-fg-secondary">
             {shown.length} of {filteredOptions.length.toLocaleString("en")} shown. Type to narrow.
