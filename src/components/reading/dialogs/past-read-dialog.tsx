@@ -11,7 +11,8 @@ import { RatingInput } from "@/components/shared/rating";
 import { TiptapEditor, type RichValue } from "@/components/shared/tiptap-editor";
 import { addPastReading } from "@/lib/actions/catalogue-client";
 import { ABANDON_REASONS, ABANDON_REASON_LABELS, formatOfCopy, type AbandonReason, type ReadingFormat } from "@/lib/reading/constants";
-import { showError } from "../reading-client";
+import { browserZone, showError } from "../reading-client";
+import { readingDateError, readingDateLimit } from "@/lib/reading/dates";
 import type { ReadingDialogProps } from "../reading-provider";
 import { DialogFooter, ReadingDateField, type ReadingDate } from "./fields";
 import { finishDateError } from "./finish-reading-dialog";
@@ -46,7 +47,10 @@ export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
   // first returns would log the read twice
   const inFlight = useRef(false);
   const [duplicate, setDuplicate] = useState<string | null>(null);
-  const error = finishDateError({ startedOn: start.date, startedPrecision: start.precision }, finish);
+  const maxDate = readingDateLimit(browserZone());
+  const error = readingDateError(start.date, start.precision, maxDate)
+    ?? readingDateError(finish.date, finish.precision, maxDate)
+    ?? finishDateError({ startedOn: start.date, startedPrecision: start.precision }, finish);
 
   function chooseCopy(id: string) {
     setInstanceId(id);
@@ -76,6 +80,7 @@ export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
         ...(review ? { reviewHtml: review.html, reviewJson: review.json } : {}),
         ...(status === "abandoned" ? { reason, note: note.trim() || null } : {}),
         allowPossibleDuplicate,
+        timeZone: browserZone(),
       });
       if (result.outcome === "possible_duplicate") {
         setDuplicate(result.message ?? "This may be a read you already logged");
@@ -134,8 +139,8 @@ export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
             options={[{ value: "", label: "Not recorded" }, ...data.homes.map((h) => ({ value: h.id, label: h.name }))]}
           />
         )}
-        <ReadingDateField label="Started" value={start} onChange={setStart} />
-        <ReadingDateField label={status === "finished" ? "Finished" : "Stopped"} value={finish} onChange={setFinish} />
+        <ReadingDateField label="Started" value={start} onChange={setStart} max={maxDate} />
+        <ReadingDateField label={status === "finished" ? "Finished" : "Stopped"} value={finish} onChange={setFinish} max={maxDate} />
         {error && (
           <p className="text-xs text-accent-red-text" role="alert">
             {error}
