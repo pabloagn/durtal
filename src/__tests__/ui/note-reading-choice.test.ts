@@ -22,6 +22,20 @@ beforeEach(()=>{actions.getReadingChoicePage.mockReset().mockResolvedValue(page(
 afterEach(()=>{act(()=>root.unmount());host.remove();});
 const flush=()=>act(async()=>{await Promise.resolve();await Promise.resolve();});
 const click=(text:string)=>act(()=>{const button=[...document.querySelectorAll("button")].findLast(button=>button.textContent?.trim()===text);expect(button).toBeTruthy();button!.click();});
+function dialogNamed(title: string): HTMLDialogElement {
+  const dialog = [...document.querySelectorAll<HTMLDialogElement>("dialog[open]")].find(dialog => {
+    const label = dialog.getAttribute("aria-label") ?? (dialog.getAttribute("aria-labelledby") ?? "").split(/\s+/).map(id => document.getElementById(id)?.textContent ?? "").join(" ");
+    return label.trim() === title;
+  });
+  expect(dialog, `Open dialog named ${title}`).toBeTruthy();
+  return dialog!;
+}
+function cancelChooser() {
+  const button = [...dialogNamed("Choose a reading").querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent?.trim() === "Cancel");
+  expect(button).toBeTruthy();
+  act(() => button!.click());
+}
+
 function write(label: string, value: string) {
   const node = [...document.querySelectorAll("label")].find(node => node.textContent === label)!;
   const input = document.getElementById(node.htmlFor);
@@ -38,7 +52,7 @@ function write(label: string, value: string) {
 
 it("keeps a selected off-page read alongside twenty choices with its true ordinal",async()=>{act(()=>root.render(h(NoteDialog,props())));await flush();const label=[...document.querySelectorAll("label")].find(node=>node.textContent==="Reading")!;act(()=>(document.getElementById(label.htmlFor) as HTMLElement).click());expect(document.querySelectorAll('[role="option"]')).toHaveLength(22);expect(document.body.textContent).toContain("42nd read");expect(actions.getReadingChoice).toHaveBeenCalledWith("w","r42");});
 it("discards late search results and preserves manual edition, passage and Roman pages",async()=>{act(()=>root.render(h(NoteDialog,props())));await flush();const body=write("Note","Private words remain here");write("Page","xiv");const editionLabel=[...document.querySelectorAll("label")].find(node=>node.textContent==="Edition")!;act(()=>(document.getElementById(editionLabel.htmlFor) as HTMLElement).click());act(()=>([...document.querySelectorAll('[role="option"]')].find(node=>node.textContent?.includes("First")) as HTMLElement).click());click("Choose an older reading");await flush();let old!:(page:ReadingChoicePage)=>void;let latest!:(page:ReadingChoicePage)=>void;actions.getReadingChoicePage.mockImplementationOnce(()=>new Promise<ReadingChoicePage>(resolve=>{old=resolve;})).mockImplementationOnce(()=>new Promise<ReadingChoicePage>(resolve=>{latest=resolve;}));write("Search readings","older");click("Search");await flush();write("Search readings","latest");click("Search");await flush();await act(async()=>latest(page([choice(7)])));await act(async()=>old(page([choice(9)])));expect(document.body.textContent).toContain("7th read");expect(document.body.textContent).not.toContain("9th read");click("7th read · Second · finished");expect(body.value).toBe("Private words remain here");const position=document.querySelector<HTMLInputElement>('[data-note-position]')!;expect(position.value).toBe("xiv");expect(document.getElementById(editionLabel.htmlFor)?.textContent).toContain("First");});
-it("offers retry after a failed page and cancel returns to the unchanged note",async()=>{act(()=>root.render(h(NoteDialog,props())));await flush();const body=write("Note","Draft");actions.getReadingChoicePage.mockRejectedValueOnce(new Error("offline"));click("Choose an older reading");await flush();expect(document.querySelector('[role="alert"]')?.textContent).toContain("could not load");actions.getReadingChoicePage.mockResolvedValueOnce(page([choice(12)]));click("Retry");await flush();expect(document.body.textContent).toContain("12th read");click("Cancel");expect(document.querySelectorAll("dialog[open]")).toHaveLength(1);expect(body.value).toBe("Draft");});
+it("offers retry after a failed page and cancel returns to the unchanged note",async()=>{act(()=>root.render(h(NoteDialog,props())));await flush();const body=write("Note","Draft");actions.getReadingChoicePage.mockRejectedValueOnce(new Error("offline"));click("Choose an older reading");await flush();expect(document.querySelector('[role="alert"]')?.textContent).toContain("could not load");actions.getReadingChoicePage.mockResolvedValueOnce(page([choice(12)]));click("Retry");await flush();expect(document.body.textContent).toContain("12th read");cancelChooser();expect(document.querySelectorAll("dialog[open]")).toHaveLength(1);expect(body.value).toBe("Draft");});
 
 
 // The hub/journal host supplies a real shared lease to the outer NoteDialog.
@@ -67,7 +81,7 @@ it.each(["Escape", "Cancel", "selection"])("closes only the nested chooser and r
     const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
     act(() => document.activeElement!.dispatchEvent(event));
     expect(event.defaultPrevented).toBe(true);
-  } else if (method === "Cancel") click("Cancel");
+  } else if (method === "Cancel") cancelChooser();
   else click("100th read · Second · finished");
   await flush();
   expect(close).not.toHaveBeenCalled();
@@ -103,4 +117,24 @@ it("cannot detach a pending off-page selection through its loading option", asyn
   await act(async () => resolveChoice(choice(42)));
   expect(trigger.textContent).toContain("42nd read");
   expect(body.value).toBe("Still attached while its label loads");
+});
+
+
+it("keeps the parent Cancel guarded after a nested chooser is dismissed", async () => {
+  const close = vi.fn();
+  act(() => root.render(h(SharedNoteHost, { onClose: close })));
+  await flush();
+  const body = write("Note", "Parent Cancel must retain this draft");
+  click("Choose an older reading");
+  await flush();
+  cancelChooser();
+  await flush();
+  expect(document.querySelectorAll("dialog[open]")).toHaveLength(1);
+  const parentCancel = dialogNamed("Add a note").querySelector<HTMLButtonElement>("button[data-dismiss]");
+  expect(parentCancel).toBeTruthy();
+  act(() => parentCancel!.click());
+  await flush();
+  expect(dialogNamed("Unsaved changes")).toBeTruthy();
+  expect(close).not.toHaveBeenCalled();
+  expect(body.value).toBe("Parent Cancel must retain this draft");
 });
