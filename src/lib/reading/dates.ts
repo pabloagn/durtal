@@ -74,6 +74,25 @@ export function readingPeriodStart(date: string, precision: ReadingDatePrecision
   return date;
 }
 
+export const FUTURE_READING_DATE = "Choose today or an earlier date";
+
+/** Default to the local reading day, never earlier than this reading's start. */
+export function defaultFinishDate(today: string, startedOn: string | null): string {
+  return startedOn && startedOn > today ? startedOn : today;
+}
+
+/** A stored start can be ahead after travelling west, but never beyond today anywhere on Earth. */
+export function readingDateLimit(timeZone: string, existingStart: string | null = null, now = new Date()): string {
+  const today = readingDay(now, timeZone, 0);
+  const latestToday = readingDay(now, "Pacific/Kiritimati", 0);
+  return existingStart && existingStart > today && existingStart <= latestToday ? existingStart : today;
+}
+
+/** A partial period may end in the future; its first day must have arrived. */
+export function readingDateError(date: string | null | undefined, precision: ReadingDatePrecision | undefined, max: string): string | null {
+  return date && precision !== "unknown" && readingPeriodStart(date, precision ?? "day") > max ? FUTURE_READING_DATE : null;
+}
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** "14 Apr 2019", "Apr 2019", "2019", "Date unknown" */

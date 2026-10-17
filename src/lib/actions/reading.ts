@@ -26,7 +26,7 @@ import { appTimeZone } from "@/lib/utils/date";
 import { PAGE_SIZES } from "@/lib/utils/pagination";
 import { sanitizeCommentHtml } from "@/lib/utils/sanitize";
 import { isOpenStatus, type ReadingFormat, type ReadingStatus } from "@/lib/reading/constants";
-import { formatReadingDate, readingDay, readingPeriodStart } from "@/lib/reading/dates";
+import { defaultFinishDate, formatReadingDate, readingDay, readingPeriodStart } from "@/lib/reading/dates";
 import { readingDayStartHour, readingToday } from "@/lib/reading/day";
 import { positionChanges, positionInUnit, remapPosition } from "@/lib/reading/positions";
 import { countedPagesSql, readingOrdinalSql } from "@/lib/reading/summary";
@@ -68,10 +68,12 @@ import {
 } from "@/lib/reading/service";
 import {
   abandonReadingSchema,
+  abandonReadingSchemaFor,
   addPastReadingSchema,
   addSessionSchema,
   deleteSessionSchema,
   finishReadingSchema,
+  finishReadingSchemaFor,
   logProgressSchema,
   reopenReadingSchema,
   sessionPatchSchema,
@@ -421,15 +423,19 @@ function closingSession(reading: Reading, sessions: Session[], end: { page: numb
 
 /** Finishes a reading: the end, the date, a rating and review, and the book's rating */
 export async function finishReading(input: z.input<typeof finishReadingSchema>) {
-  const data = finishReadingSchema.parse(input);
-  await refuseWhileTiming(data.readingId);
-  const reading = await readingFor(data.readingId, data.fingerprint);
+  const { readingId, fingerprint } = statusChangeSchema.parse(input);
+  await refuseWhileTiming(readingId);
+  const reading = await readingFor(readingId, fingerprint);
+  const data = finishReadingSchemaFor(reading.startedOn).parse(input);
   await requireBookWork(reading.workId);
   if (!isOpenStatus(reading.status)) throw new ExpectedActionError("Only an open reading can be finished");
   const timeZone = data.timeZone ?? appTimeZone();
   const precision = data.finishedPrecision ?? "day";
   const finishedOn =
-    precision === "unknown" ? null : readingPeriodStart(data.finishedOn ?? readingDay(new Date(), timeZone, await readingDayStartHour()), precision);
+    precision === "unknown" ? null : readingPeriodStart(data.finishedOn ?? defaultFinishDate(readingDay(new Date(), timeZone, await readingDayStartHour()), reading.startedOn), precision);
+  // The implicit default has the same trusted-start bound as an explicit date.
+  // An old invalid future start cannot become a way around date validation.
+  finishReadingSchemaFor(reading.startedOn).parse({ ...data, finishedOn, finishedPrecision: finishedOn ? precision : "unknown" });
   const end = {
     page: reading.totalPages ?? reading.currentPage,
     percent: 100,
@@ -481,9 +487,10 @@ export async function finishReading(input: z.input<typeof finishReadingSchema>) 
 
 /** Abandons a reading: when, why, and the page reached */
 export async function abandonReading(input: z.input<typeof abandonReadingSchema>) {
-  const data = abandonReadingSchema.parse(input);
-  await refuseWhileTiming(data.readingId);
-  const reading = await readingFor(data.readingId, data.fingerprint);
+  const { readingId, fingerprint } = statusChangeSchema.parse(input);
+  await refuseWhileTiming(readingId);
+  const reading = await readingFor(readingId, fingerprint);
+  const data = abandonReadingSchemaFor(reading.startedOn).parse(input);
   await requireBookWork(reading.workId);
   if (!isOpenStatus(reading.status)) throw new ExpectedActionError("Only an open reading can be abandoned");
   const timeZone = data.timeZone ?? appTimeZone();

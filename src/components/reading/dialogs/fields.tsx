@@ -23,11 +23,15 @@ export function ReadingDateField({
   value,
   onChange,
   partialLabel = "Date not exact",
+  max,
+  error,
 }: {
   label: string;
   value: ReadingDate;
   onChange: (value: ReadingDate) => void;
   partialLabel?: string;
+  max?: string;
+  error?: string | null;
 }) {
   const [partial, setPartial] = useState(value.precision !== "day");
   return (
@@ -41,7 +45,7 @@ export function ReadingDateField({
           onChange={(next) => onChange(readingDateOf(next as never))}
         />
       ) : (
-        <DatePicker label={label} value={value.date ?? ""} onChange={(day) => onChange({ date: day || null, precision: day ? "day" : "unknown" })} />
+        <DatePicker label={label} max={max} value={value.date ?? ""} onChange={(day) => onChange({ date: day || null, precision: day ? "day" : "unknown" })} />
       )}
       <button
         type="button"
@@ -50,6 +54,7 @@ export function ReadingDateField({
       >
         {partial ? "Pick a day" : partialLabel}
       </button>
+      {error && <p role="alert" className="text-xs text-accent-red-text">{error}</p>}
     </div>
   );
 }
