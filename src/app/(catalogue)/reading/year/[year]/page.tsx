@@ -13,7 +13,7 @@ import { getGoalProgress } from "@/lib/actions/reading-goals";
 import { getAppSettings } from "@/lib/actions/settings";
 import { MONTHS, finishText, n, yearRhythm } from "@/lib/reading/charts";
 import { pastGoalText, reachedText } from "@/lib/reading/goals";
-import { authorStats, finishedYears, languages, readingDays, yearReview, type ReviewBook } from "@/lib/reading/stats";
+import { authorStats, finishedYears, languages, readingDays, yearReview, YEAR_REVIEW_MONTH_LIMIT, type ReviewBook } from "@/lib/reading/stats";
 import { languageName } from "@/lib/utils/language";
 import { nationalityFilterHref, shortCountryName } from "@/lib/utils/nationality-param";
 import { formatRating } from "@/lib/utils/rating";
@@ -26,7 +26,7 @@ const book = (b: { slug: string | null; workId: string }) => `/library/${b.slug 
 const link = "text-fg-primary transition-colors hover:text-accent-primary";
 const evidence = "text-xs whitespace-nowrap text-fg-secondary transition-colors hover:text-fg-primary touch-hit";
 /** Covers a month shows at most; the rest are a "+38" tile to the journal, so a year of hundreds stays within the page budget */
-const WALL_MONTH = 12;
+const WALL_MONTH = YEAR_REVIEW_MONTH_LIMIT;
 
 /**
  * Year in review (SLN-456): one year's reading as a long page that also
@@ -56,7 +56,7 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
     settings.readingWeekStart,
     settings.readingRhythmDays,
   );
-  const months = [...Array.from({ length: 12 }, (_, i) => i + 1), null].map((month) => ({ month, books: review.books.filter((b) => b.month === month) })).filter((m) => m.books.length);
+  const months = review.monthCounts.map(({ month, books: total }) => ({ month, total, books: review.books.filter((b) => b.month === month) }));
   const highlights = (
     [
       ["First of the year", review.first, (b: ReviewBook) => `Finished ${finishText(b.finishedOn, b.precision)}`],
@@ -123,11 +123,11 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
 
         <StatsSection title="The books, month by month" id="books">
           <div className="space-y-4" data-review-wall="">
-            {months.map(({ month, books }) => (
+            {months.map(({ month, total, books }) => (
               <div key={month ?? "unknown"} id={month ? `month-${month}` : "month-unknown"} className="grid scroll-mt-24 gap-x-4 gap-y-2 break-inside-avoid sm:grid-cols-[6rem_1fr]">
                 <p className="text-xs text-fg-secondary">
                   {month ? MONTHS[month - 1] : "Month unknown"}
-                  <span className="ml-2 tabular-nums sm:ml-0 sm:block">{n(books.length)}</span>
+                  <span className="ml-2 tabular-nums sm:ml-0 sm:block">{n(total)}</span>
                 </p>
                 <ul className="flex flex-wrap gap-2">
                   {books.slice(0, WALL_MONTH).map((b) => (
@@ -142,16 +142,16 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
                       </Link>
                     </li>
                   ))}
-                  {books.length > WALL_MONTH && (
+                  {total > WALL_MONTH && (
                     <li>
                       <Link
                         href={`${journal}&status=finished`}
-                        aria-label={`${n(books.length - WALL_MONTH)} more in the journal`}
+                        aria-label={`${n(total - WALL_MONTH)} more in the journal`}
                         data-tooltip="See them in the journal"
                         className="flex aspect-[2/3] w-14 items-center justify-center rounded-sm border border-glass-border text-xs text-fg-secondary tabular-nums transition-colors hover:text-fg-primary"
                         data-review-more=""
                       >
-                        +{n(books.length - WALL_MONTH)}
+                        +{n(total - WALL_MONTH)}
                       </Link>
                     </li>
                   )}

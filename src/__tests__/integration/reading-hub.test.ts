@@ -264,4 +264,52 @@ describe.skipIf(!url)("the reading hub with PostgreSQL", () => {
     expect(await journalReadingIds(invalid)).toEqual([]);
   });
 
+
+  it("returns a coherent paged journal with global ordinals, full fingerprints and unchanged export scope", async () => {
+    const work = await book("Paged history", { rating: 5, author: "History Writer" });
+    await read(work, { status: "abandoned", sourceKey: "aggregate-test:a" });
+    await read(work, { sourceKey: "aggregate-test:b" });
+    await read(work, { finished: ["2019-01-01", "year"] });
+    const current: string[] = [];
+    for (let day = 1; day <= 25; day++) current.push(await read(work, {
+      finished: [`2025-01-${String(day).padStart(2, "0")}`, "day"], rating: day % 2 ? 4 : null,
+    }));
+    await read(work, { status: "paused", started: ["2026-01-01", "day"] });
+    await q(`update readings set review_html = '<p>Full selected row.</p>', current_chapter = 'Chapter XVII' where id = $1`, [current[0]]);
+    const solo = await book("Sole fallback", { rating: 4.5 });
+    const soloRead = await read(solo, { finished: ["2025-06-01", "day"] });
+    const params = { work, status: "finished", yearMin: "2025", yearMax: "2025", perPage: "24", sort: "finished", order: "asc", q: "History Writer" };
+
+    const execute = vi.spyOn(db, "execute");
+    const first = await (async () => {
+      try {
+        const result = await journal(params);
+        expect(execute).toHaveBeenCalledTimes(1);
+        return result;
+      } finally { execute.mockRestore(); }
+    })();
+    expect(first.summary).toEqual({ readings: 25, finished: 25, abandoned: 0, rereads: 25 });
+    expect(first.rows.map((r) => r.id)).toEqual(current.slice(0, 24));
+    expect(first.rows.map((r) => r.ordinal)).toEqual(Array.from({ length: 24 }, (_, i) => i + 4));
+    expect(first.rows.every((r) => r.reread)).toBe(true);
+    expect(first.rows.map((r) => r.rating)).toEqual(Array.from({ length: 24 }, (_, i) => i % 2 ? null : 4));
+    expect(first.rows[0].fingerprint).toBe(await value(`select md5(to_jsonb(r)::text) from readings r where id = $1`, [current[0]]));
+    expect(first.rows[0]).not.toHaveProperty("review_html");
+    expect(first.rows[0]).not.toHaveProperty("page_order");
+    const second = await journal({ ...params, page: "2" });
+    expect(second.rows.map((r) => r.id)).toEqual(current.slice(24));
+    expect(second.rows[0].ordinal).toBe(28);
+    expect(second.summary).toEqual(first.summary);
+    expect((await journal({ ...params, page: "3" })).rows).toEqual([]);
+    const beyond = await journal({ ...params, page: "999" });
+    expect(beyond.rows).toEqual([]); expect(beyond.summary).toEqual(first.summary);
+    expect(await journalReadingIds(parseJournalQuery({ ...params, page: "2" }))).toEqual(current);
+    expect((await journal({ yearMin: "2025", minRating: "4.5" })).rows.map((r) => r.id)).toEqual([soloRead]);
+    for (const filters of [{ ...params, q: "no matching reading" }, { work: "invalid" }]) {
+      const empty = await journal(filters);
+      expect(empty).toEqual({ rows: [], summary: { readings: 0, finished: 0, abandoned: 0, rereads: 0 } });
+      expect(await journalReadingIds(parseJournalQuery(filters))).toEqual([]);
+    }
+  });
+
 });
