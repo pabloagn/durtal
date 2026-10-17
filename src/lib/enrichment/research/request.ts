@@ -3,6 +3,7 @@ import { z } from "zod";
 import { stableStringify } from "@/lib/harmonization/normalize";
 import { EXTRACTION_MODEL } from "./config";
 import type { ResearchProfile } from "./profile";
+import type { AssertionScope } from "../assertion-scope";
 import type { Passage } from "./text";
 
 /*
@@ -14,7 +15,7 @@ import type { Passage } from "./text";
  * researchConfidence: SLN-471's guard test relies on it.
  */
 
-export const PROMPT_VERSION = "research-prompt-1";
+export const PROMPT_VERSION = "research-prompt-2";
 
 /** A research dimension as the model sees it */
 export interface ExtractDimension {
@@ -32,6 +33,8 @@ const INSTRUCTIONS = `You read passages of one stored document (a review, an ess
 Rules:
 - Use only the passages. Ignore anything you know about the book, its author or its reputation.
 - Give a term only when a passage says it of this book: the book named below, not another book the document mentions.
+- Stay within the supplied text/component scope. Do not transfer an introduction, another story or a translation's wording to the whole Work or another version. An unresolved scope stays unresolved; never invent its identity or language.
+- Local passages do not establish whole-text uniformity or absence. Empty output means unassessed, not absent.
 - For every term you give, copy an excerpt from one passage exactly, character for character, and name that passage's id. Do not shorten, join or change the excerpt in any way, and do not use "..." to skip text.
 - Each excerpt says why the term applies, in the document's own words.
 - When nothing in the passages fits a dimension, give an empty list for it.
@@ -74,7 +77,7 @@ export interface ExtractionRequest {
 }
 
 /** One document's request; dimensions without a current term are left out */
-export function buildRequest(profile: Pick<ResearchProfile, "titles" | "authors">, dimensions: ExtractDimension[], passages: Passage[]): ExtractionRequest {
+export function buildRequest(profile: Pick<ResearchProfile, "titles" | "authors">, dimensions: ExtractDimension[], passages: Passage[], scope?: AssertionScope): ExtractionRequest {
   const asked = dimensions.filter((d) => d.terms.length);
   const book = `The book: ${profile.titles.map((t) => `"${t}"`).join(" or ")} by ${profile.authors.map((a) => a.name).join(", ")}.`;
   const text = passages.map((p) => `<passage id="${p.id}">\n${p.text}\n</passage>`).join("\n\n");
@@ -83,7 +86,7 @@ export function buildRequest(profile: Pick<ResearchProfile, "titles" | "authors"
     max_tokens: EXTRACTION_MODEL.maxOutputTokens,
     // The instructions and the vocabulary first, cached across the documents of a version
     system: [{ type: "text", text: `${INSTRUCTIONS}\n\n# Vocabulary\n\n${vocabularyText(asked)}`, cache_control: { type: "ephemeral" } }],
-    messages: [{ role: "user", content: `${book}\n\n${text}` }],
+    messages: [{ role: "user", content: `${book}${scope ? `\nAssertion scope: ${JSON.stringify(scope)}` : ""}\n\n${text}` }],
     output_config: { effort: EXTRACTION_MODEL.effort, format: { type: "json_schema", schema: z.toJSONSchema(answerSchema(asked)) as Record<string, unknown> } },
   };
 }

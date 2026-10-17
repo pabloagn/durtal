@@ -7,6 +7,7 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { readMigrationFiles } from "drizzle-orm/migrator";
+import { readPinnedReaderChain, type Journal } from "../helpers/reader-migration-chain";
 
 // Root supplies a fresh local database and accepted complete source. Never dotenv/live.
 const url = process.env.DURTAL_READER_MIGRATIONS_TEST_DATABASE_URL;
@@ -19,12 +20,11 @@ if (url) {
   if ([...parsed.searchParams.keys()].some((key) => ["host", "hostaddr", "dbname", "service"].includes(key.toLowerCase())))
     throw new Error("Database URL must not override its guarded host/database");
 }
-const folder = resolve("src/lib/db/migrations");
+const sourceFolder = resolve("src/lib/db/migrations");
+let folder = sourceFolder;
 const fixtureRoot = new URL("./fixtures/reader-full-chain/", import.meta.url);
 type Queries = Pick<postgres.Sql, "unsafe">;
 type Params = postgres.ParameterOrJSON<never>[];
-type Journal = { entries: { idx: number; tag: string; when: number; breakpoints: boolean }[] };
-type FilePin = { path: string; sha256: string; bytes: number };
 const q = (on: Queries, text: string, params: Params = []) => on.unsafe(text, params);
 async function value<T = string>(on: Queries, text: string, params: Params = []): Promise<T> {
   const rows = await q(on, text, params);
@@ -64,16 +64,9 @@ let baseline81 = "";
 let baseline82 = "";
 
 async function assertSourcePins() {
-  const pins = JSON.parse(await readFile(new URL("chain-pins.json", fixtureRoot), "utf8")) as { files: FilePin[] };
-  expect(pins.files).toHaveLength(179);
-  for (const row of pins.files) {
-    const bytes = await readFile(join(folder, row.path));
-    expect({ sha256: hash(bytes), bytes: bytes.length }, row.path)
-      .toEqual({ sha256: row.sha256, bytes: row.bytes });
-  }
-  journal = JSON.parse(await readFile(join(folder, "meta/_journal.json"), "utf8")) as Journal;
-  expect(journal.entries).toHaveLength(89);
-  expect(journal.entries.map((entry) => entry.idx)).toEqual(Array.from({ length: 89 }, (_, i) => i));
+  const chain = await readPinnedReaderChain(sourceFolder, fixtureRoot);
+  journal = chain.journal;
+  return chain;
 }
 async function prefixFolder(slot: 81 | 82) {
   const dest = await mkdtemp(join(tmpdir(), "sln497-reader-prefix-"));
@@ -135,8 +128,8 @@ async function fingerprint() {
   const migrations = await value<string>(c!, "select coalesce(jsonb_agg(to_jsonb(t) order by created_at,id),'[]'::jsonb)::text from drizzle.__drizzle_migrations t");
   return { data, schema: hash(Buffer.from(schema)), migrations: hash(Buffer.from(migrations)) };
 }
-async function assertInstalledSchema() {
-  const snapshot = JSON.parse(await readFile(join(folder, "meta/0088_snapshot.json"), "utf8")) as {
+async function assertInstalledSchema(migrationsFolder = folder, slot = 88) {
+  const snapshot = JSON.parse(await readFile(join(migrationsFolder, `meta/${slot.toString().padStart(4, "0")}_snapshot.json`), "utf8")) as {
     tables: Record<string, { name: string; schema: string; columns: Record<string, { name: string }>; checkConstraints: Record<string, { name: string }>; foreignKeys: Record<string, { name: string }>; indexes: Record<string, { name: string }> }>;
   };
   const identifierLimit = await value<number>(c!, "select current_setting('max_identifier_length')::int");
@@ -212,7 +205,12 @@ async function uploadFixture(on: Queries = c!, used = true) {
 
 describe.skipIf(!url).sequential("reader full real migration chain", () => {
   beforeAll(async () => {
-    await assertSourcePins();
+    const chain = await assertSourcePins();
+    // Exercise the exact frozen 0000..0088 source, not a mutable latest journal.
+    folder = await mkdtemp(join(tmpdir(), "sln497-reader-history-"));
+    temporaryFolders.push(folder);
+    await mkdir(join(folder, "meta"));
+    for (const file of chain.files) await writeFile(join(folder, file.path), file.bytes);
     expect(await value(c!, "select current_database()")).toBe("sln497_reader_migrations");
     expect(await value<number>(c!, "select current_setting('server_version_num')::int")).toBeGreaterThanOrEqual(160000);
     expect(await value<number>(c!, "select current_setting('server_version_num')::int")).toBeLessThan(170000);
@@ -232,6 +230,21 @@ describe.skipIf(!url).sequential("reader full real migration chain", () => {
 
   it("empty_full_chain: applies genuine0000..0088 and installs final policies", async () => {
     await apply(); await journalMatches(); await assertInstalledSchema();
+  }, 120000);
+
+  it("latest_full_chain: applies every later migration and preserves reader rows", async () => {
+    await apply(); await fixture();
+    const tables = ["ebooks", "ebook_files", "ebook_annotations", "reading_notes", "ebook_positions"];
+    const before = new Map(await Promise.all(tables.map(async (table) => [table, await tableRows(table)] as const)));
+    const { currentJournal } = await assertSourcePins();
+    const last = currentJournal.entries.length - 1;
+    await apply(sourceFolder);
+    await journalMatches(last, sourceFolder);
+    await assertInstalledSchema(sourceFolder, last);
+    for (const table of tables) expect(await tableRows(table), table).toBe(before.get(table));
+    const settled = await fingerprint();
+    await apply(sourceFolder);
+    expect(await fingerprint()).toEqual(settled);
   }, 120000);
 
   it("healthy_populated_upgrade: upgrades actual0082 without losing rows or inventing history", async () => {
