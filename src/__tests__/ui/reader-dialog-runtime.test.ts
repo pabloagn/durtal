@@ -136,4 +136,13 @@ describe("the invocation-only reader dialog facade", () => {
     await act(async () => { click("Close rendered"); await Promise.resolve(); });
     expect(document.activeElement).toBe(trigger); expect(hasOpenSurface()).toBe(false);
   });
+  it("requests a hidden timer target explicitly and preserves the caller fingerprint", async () => {
+    const hidden = {...book("one"), rows:[{reading:{id:"hidden-timer"},fingerprint:"fresh"}]} as unknown as ReadingPageData;
+    actions.getReadingDialogData.mockResolvedValueOnce(hidden);
+    await act(async () => { await dialogs.open({kind:"progress",workId:"one",readingId:"hidden-timer",fingerprint:"timer-snapshot",timer:{sessionId:"timer",startedAt:"2026-10-17T10:00:00Z",pausedAt:null,pausedSeconds:0}}); });
+    expect(actions.getReadingDialogData).toHaveBeenLastCalledWith("one",null,"hidden-timer");
+    expect(rendered.mock.lastCall?.[0]?.row.fingerprint).toBe("timer-snapshot");
+    expect(host.querySelector("[data-request]")?.textContent).toContain("hidden-timer");
+  });
+
 });

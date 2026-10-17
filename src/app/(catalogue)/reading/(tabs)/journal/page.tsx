@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ordinalRead } from "@/lib/reading/labels";
 import { Fragment, Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -8,7 +10,7 @@ import { ReadingTabs } from "@/components/reading/reading-tabs";
 import { BookMarked } from "lucide-react";
 import { HubActions } from "@/components/reading/hub-actions";
 import { JournalRows, type JournalItem } from "@/components/reading/reading-tiles";
-import { getJournalFacets, queryJournal, type JournalRow } from "@/lib/reading/journal";
+import { getJournalFacets, queryJournal, journalWork, type JournalRow } from "@/lib/reading/journal";
 import { journalGroup, parseJournalQuery } from "@/lib/reading/journal-params";
 import { formatReadingSpan } from "@/lib/reading/dates";
 import { readingToday } from "@/lib/reading/day";
@@ -25,7 +27,7 @@ const OUTCOME: Record<JournalRow["status"], string> = { reading: "Reading", paus
 const count = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
 /** A journal row, as the list takes it */
-function journalItem(row: JournalRow, today: string): JournalItem {
+function journalItem(row: JournalRow, today: string, exactWork = false): JournalItem {
   // A translation: the edition's language when it is not the original's
   const translated =
     row.editionLanguage && row.originalLanguage && row.editionLanguage !== row.originalLanguage
@@ -34,9 +36,10 @@ function journalItem(row: JournalRow, today: string): JournalItem {
   return {
     reading: { workId: row.workId, readingId: row.id, fingerprint: row.fingerprint },
     title: row.title,
+    status: row.status,
     href: `/library/${row.slug ?? row.workId}`,
     cover: row.cover,
-    line: [row.author, formatReadingSpan(row, today), `${OUTCOME[row.status]}${row.reread ? " · re-read" : ""}`].filter(Boolean).join(" · "),
+    line: [exactWork ? ordinalRead(row.ordinal) : null, row.author, formatReadingSpan(row, today), `${OUTCOME[row.status]}${row.reread ? " · re-read" : ""}`].filter(Boolean).join(" · "),
     format: row.format,
     translated,
     rating: row.rating,
@@ -66,7 +69,7 @@ async function JournalResults({ params }: { params: ListSearchParams }) {
       <NoResults
         noun="readings"
         search={query.q}
-        hasFilters={Boolean(query.status.length || query.formats.length || query.yearMin || query.yearMax || query.minRating || query.rereads)}
+        hasFilters={Boolean(query.workId || query.invalidWork || query.status.length || query.formats.length || query.yearMin || query.yearMax || query.minRating || query.rereads)}
         clearHref={clearedListHref("/reading/journal", search)}
       />
     );
@@ -96,7 +99,7 @@ async function JournalResults({ params }: { params: ListSearchParams }) {
         {grouped(rows, query.sort === "finished").map((group, i) => (
           <section key={`${group.title}-${i}`}>
             {group.title && <SectionHeading as="h3" title={group.title} />}
-            <JournalRows rows={group.rows.map((row) => journalItem(row, today))} />
+            <JournalRows rows={group.rows.map((row) => journalItem(row, today, !!query.workId))} />
           </section>
         ))}
       </div>
@@ -110,6 +113,8 @@ async function JournalResults({ params }: { params: ListSearchParams }) {
 /** Every reading, newest first, in years (SLN-448) */
 export default async function ReadingJournalPage({ searchParams }: { searchParams: Promise<ListSearchParams> }) {
   const params = await searchParams;
+  const query = parseJournalQuery(params);
+  const work = query.workId ? await journalWork(query.workId) : null;
   // The filters' choices come from every reading, not the filtered ones
   const { yearRange, formats } = await getJournalFacets();
   // Every reading has a format: none means no reading at all. Then no
@@ -131,6 +136,11 @@ export default async function ReadingJournalPage({ searchParams }: { searchParam
   return (
     <>
       <PageHeader title="Reading" actions={<HubActions />} tabs={<ReadingTabs />} />
+      {(work || query.invalidWork || query.workId) && <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-fg-secondary" data-journal-work="">
+        <span>{work ? `Readings of ${work.title}` : "This book is unavailable"}</span>
+        {work && <Link href={`/library/${work.slug ?? work.id}#reading`} className="underline underline-offset-2 touch-hit">Back to book history</Link>}
+        <Link href="/reading/journal" className="underline underline-offset-2 touch-hit">All books</Link>
+      </div>}
       <JournalFilters yearRange={yearRange} formats={formats} />
       <Suspense key={toSearchParams(params).toString()} fallback={<div className="h-96" />}>
         <JournalResults params={params} />

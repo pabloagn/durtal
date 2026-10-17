@@ -2,6 +2,7 @@
  * The reading journal's URL (SLN-448), read into a query. Unknown and bad
  * values are dropped, as `parsePublisherBookQuery` does.
  */
+import { z } from "zod/v4";
 import { READING_FORMATS, READING_STATUSES, type ReadingFormat, type ReadingStatus } from "./constants";
 import { parsePagination, toSearchParams, type ListSearchParams } from "@/lib/utils/pagination";
 
@@ -23,6 +24,9 @@ export const JOURNAL_PER_PAGE = 48;
 
 export interface JournalQuery {
   q?: string;
+  workId?: string;
+  /** A supplied but malformed work filter must never expand to the whole journal. */
+  invalidWork?: boolean;
   status: ReadingStatus[];
   yearMin?: number;
   yearMax?: number;
@@ -45,6 +49,8 @@ const oneOf = <T extends string>(values: readonly T[], value: string) => (values
 
 export function parseJournalQuery(raw: ListSearchParams): JournalQuery {
   const params = toSearchParams(raw);
+  const rawWork = params.get("work");
+  const work = rawWork === null ? null : z.uuid().safeParse(rawWork);
   const sortParam = params.get("sort") ?? "";
   const sort = oneOf(JOURNAL_SORTS, sortParam) ? (sortParam as JournalSort) : "finished";
   const orderParam = params.get("order");
@@ -54,6 +60,8 @@ export function parseJournalQuery(raw: ListSearchParams): JournalQuery {
   if (yearMin !== undefined && yearMax !== undefined && yearMin > yearMax) [yearMin, yearMax] = [yearMax, yearMin];
   const { page, perPage, offset } = parsePagination(raw, { defaultPerPage: JOURNAL_PER_PAGE });
   return {
+    workId: work?.success ? work.data : undefined,
+    invalidWork: work !== null && !work.success,
     q: params.get("q")?.trim().slice(0, 200) || undefined,
     status: [...new Set(list(params.get("status")).filter((s): s is ReadingStatus => oneOf(READING_STATUSES, s)))],
     yearMin,

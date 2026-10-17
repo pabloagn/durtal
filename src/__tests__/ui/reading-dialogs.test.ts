@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { readingPageFixture } from "../fixtures/reading-page";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -122,7 +123,6 @@ const data = {
 const opened: unknown[] = [];
 function props(over: Partial<ReadingDialogProps> = {}): ReadingDialogProps {
   return {
-    data: data as never,
     row: row as never,
     request: { kind: "progress", readingId: "r1" },
     home: "ams",
@@ -131,6 +131,7 @@ function props(over: Partial<ReadingDialogProps> = {}): ReadingDialogProps {
     changed: () => {},
     open: (request) => opened.push(request),
     ...over,
+    data: readingPageFixture(over.data ?? data),
   };
 }
 

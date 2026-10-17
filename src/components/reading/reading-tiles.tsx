@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import type { ReadingFormat } from "@/lib/reading/constants";
 import type { ReadingEstimate } from "@/lib/reading/pace";
 import { EstimateLine } from "./estimate-line";
-import { JournalRowMenu, LogButton } from "./hub-actions";
+import { JournalRowMenu, LogButton, ResumeButton } from "./hub-actions";
 import { GoalLine } from "./goal-card";
 import type { GoalProgress } from "@/lib/actions/reading-goals";
 import type { ReadingRef } from "./reading-dialogs-provider";
@@ -208,6 +208,7 @@ const FORMAT_ICON: Record<ReadingFormat, SpriteIconName> = { print: "book-text",
 const FORMAT_LABEL: Record<ReadingFormat, string> = { print: "Print", ebook: "eBook", audio: "Audiobook" };
 
 export interface JournalItem {
+  status?: "reading" | "paused" | "finished" | "abandoned";
   reading: ReadingRef;
   title: string;
   href: string;
@@ -249,6 +250,8 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
                       <SpriteIcon name={FORMAT_ICON[row.format]} className="h-4 w-4" />
                     </span>
                     <RatingStars value={row.rating} />
+                    {row.status === "reading" && <LogButton reading={row.reading} title={row.title} />}
+                    {row.status === "paused" && <ResumeButton reading={row.reading} />}
                     <JournalRowMenu reading={row.reading} title={row.title} />
                   </span>
                 </CapAlignedControls>

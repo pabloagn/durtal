@@ -9,11 +9,12 @@ import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { textSearchCondition } from "@/lib/actions/utils/text-search";
 import type { ReadingDatePrecision, ReadingFormat, ReadingStatus } from "./constants";
-import { readingRatingSql, rereadSql } from "./summary";
+import { readingOrdinalSql, readingRatingSql, rereadSql } from "./summary";
 import type { JournalQuery } from "./journal-params";
 
 export interface JournalRow {
   id: string;
+  ordinal: number;
   workId: string;
   title: string;
   slug: string | null;
@@ -50,6 +51,7 @@ const base = sql`(
     md5(to_jsonb(r)::text) as fingerprint,
     ${readingRatingSql("r")} as read_rating,
     ${rereadSql("r")} as reread,
+    ${readingOrdinalSql("r")} as ordinal,
     case when r.finished_precision <> 'unknown' and r.finished_on is not null then extract(year from r.finished_on)::int end as finish_year
   from readings r
 )`;
@@ -58,6 +60,8 @@ const authorsOf = sql`coalesce((select string_agg(a.name, ' ') from work_authors
 
 function conditions(q: JournalQuery): SQL {
   const parts: SQL[] = [sql`w.kind = 'book'`];
+  if (q.invalidWork) parts.push(sql`false`);
+  else if (q.workId) parts.push(sql`b.work_id = ${q.workId}::uuid`);
   if (q.status.length) parts.push(sql`b.status in (${sql.join(q.status.map((s) => sql`${s}`), sql`, `)})`);
   if (q.yearMin !== undefined) parts.push(sql`b.finish_year >= ${q.yearMin}`);
   if (q.yearMax !== undefined) parts.push(sql`b.finish_year <= ${q.yearMax}`);
@@ -90,7 +94,7 @@ function orderBy(q: JournalQuery): SQL {
 export async function queryJournal(q: JournalQuery) {
   const where = conditions(q);
   const [rows, [summary]] = await Promise.all([
-    db.execute(sql`select b.id, b.work_id as "workId", w.title, w.slug,
+    db.execute(sql`select b.id, b.ordinal, b.work_id as "workId", w.title, w.slug,
         (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.sort_order limit 1) as author,
         coalesce((select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = b.edition_id),
           (select m.thumbnail_s3_key from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1)) as cover,
@@ -157,4 +161,10 @@ export async function getRecentlyFinished(limit: number): Promise<FinishedRead[]
       order by r.finished_on desc nulls last, r.last_read_at desc nulls last, r.created_at desc, r.id
       limit ${limit}`),
   );
+}
+
+/** The exact-work filter's identity, without hydrating a book or its history. */
+export async function journalWork(workId: string) {
+  const [work] = resultRows<{ id: string; title: string; slug: string | null }>(await db.execute(sql`select id,title,slug from works where id=${workId}::uuid and kind='book'`));
+  return work ?? null;
 }
