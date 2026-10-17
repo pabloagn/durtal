@@ -21,3 +21,5 @@ SLN-982: expanding Language in Edit edition registered an unsaved change before 
 ## Completion Notes
 
 Source-only implementation on reviewed Select head f8fc8b34. Unit tests, full typecheck, build and native acceptance are pending a validation grant. InstanceForm retains the default mounting policy and is outside this repair. Original browser failures and the two-build diagnostic are preserved under `/private/tmp/sln930-grant25c-browser-retry1` and `/private/tmp/sln982-draft-diagnosis-retry1`.
+
+The first unit attempt exposed a section-title test selector mismatch; the corrected run passed 95 of 96 tests and full typecheck. Its remaining failure was happy-dom's input validation ignoring an ancestor disabled fieldset. The DOM regression checks the actual collapsed fieldset flags and retained value, while still checking invalidity when expanded. A separate real three-engine FormSection fixture must verify open-invalid, collapsed-valid and reopened-invalid behavior before acceptance. These original failures remain preserved; native validation has not yet run.

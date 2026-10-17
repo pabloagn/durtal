@@ -170,7 +170,12 @@ it("keeps collapsed fields hidden, inert and outside native validation until exp
   const cover = field("ed-cover-url");
   pointer(toggle("Cover")); type(cover, "invalid url");
   expect(cover.checkValidity()).toBe(false);
-  pointer(toggle("Cover")); expect(cover.checkValidity()).toBe(true);
+  pointer(toggle("Cover"));
+  // happy-dom checks only input.disabled, not an ancestor fieldset. The
+  // three-engine native fixture covers checkValidity() while collapsed.
+  expect(cover.closest("fieldset")).toBe(pane);
+  expect(pane.disabled).toBe(true); expect(pane.hidden).toBe(true);
+  expect(pane.hasAttribute("inert")).toBe(true);
   expect(cover.value).toBe("invalid url");
   pointer(toggle("Cover")); expect(cover.checkValidity()).toBe(false);
   expect(section("Cover").querySelector("img")?.getAttribute("loading")).toBe("lazy");
