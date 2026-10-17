@@ -221,6 +221,35 @@ describe.skipIf(!url)("library statistics with PostgreSQL", () => {
     expect((await favouriteCovers()).map((c) => c.title)).toEqual(["Against Nature", "En Route"]);
   });
 
+  it("keeps page maxima, held-edition scope, nulls and title/id ties unchanged", async () => {
+    const added: string[] = [];
+    try {
+      for (let i = 0; i < 2; i++) {
+        const id = await work("Index statistics tie", { year: 100 });
+        added.push(id);
+        await copy(await edition(id, { pages: 100 }));
+        await copy(await edition(id, { pages: 900 }));
+        await edition(id, { pages: 2000 }); // unheld: not a candidate
+        await copy(await edition(id, { pages: 3000 }), { status: "deaccessioned" });
+      }
+      const tiny = await work("Index statistics tiny");
+      added.push(tiny);
+      await copy(await edition(tiny, { pages: 1 }));
+      for (const pages of [0, null]) {
+        const id = await work(`Index statistics absent pages ${pages}`);
+        added.push(id);
+        await copy(await edition(id, { pages }));
+      }
+      const ends = await extremes();
+      const firstTie = [...added.slice(0, 2)].sort()[0];
+      expect(ends.oldest).toMatchObject({ workId: firstTie, value: 100 });
+      expect(ends.longest).toMatchObject({ workId: firstTie, value: 900 });
+      expect(ends.shortest).toMatchObject({ workId: tiny, value: 1 });
+    } finally {
+      await q("delete from works where id = any($1::uuid[])", [added]);
+    }
+  });
+
   // Last: it adds a book
   it("shows a year's covered books before its blank ones, best rated first among each", async () => {
     const blank = await work("A Rebours", { year: 1884, rating: 5 });

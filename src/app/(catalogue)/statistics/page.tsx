@@ -13,7 +13,7 @@ import { loadDomainCounts, type HomeKind } from "@/lib/catalogue/domain-homes";
 import { COPY_FORMAT_LABELS } from "@/lib/constants/catalogue";
 import { n } from "@/lib/reading/charts";
 import { yearNumbers } from "@/lib/reading/stats";
-import { originsTitle, yearLabel } from "@/lib/statistics/charts";
+import { compactYearCounts, originsTitle, yearLabel } from "@/lib/statistics/charts";
 import {
   breakdown,
   busiestYears,
@@ -99,7 +99,7 @@ export default async function StatisticsPage() {
 
           {written.years.length > 0 && (
             <StatsSection title="When they were written" id="written">
-              <WrittenChart years={written.years} />
+              <WrittenChart years={compactYearCounts(written.years)} />
               {written.undated > 0 && <Footnote>{count(written.undated, "book")} with no known year {written.undated === 1 ? "is" : "are"} not shown.</Footnote>}
             </StatsSection>
           )}
