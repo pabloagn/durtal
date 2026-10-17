@@ -40,6 +40,7 @@ interface At {
 }
 
 const endAt = (s: SessionRow): At => ({ page: s.endPage, percent: s.endPercent, minutes: s.endMinutes });
+const hasEnd = (s: SessionRow) => s.endPage != null || s.endPercent != null || s.endMinutes != null;
 const startAt = (s: SessionRow): At => ({ page: s.startPage, percent: s.startPercent, minutes: s.startMinutes });
 const orderKey = (readOn: string, at: Date | string | null) => `${readOn}|${at ? new Date(at).toISOString() : "~"}`;
 
@@ -47,6 +48,7 @@ const orderKey = (readOn: string, at: Date | string | null) => `${readOn}|${at ?
 export function startOfNew(sessions: SessionRow[], readOn: string, at: Date | null, readingStart: At): { at: At; before: SessionRow | null } {
   const key = orderKey(readOn, at);
   const before = sessions
+    .filter(hasEnd)
     .filter((s) => orderKey(s.readOn, s.endedAt ?? s.startedAt ?? s.createdAt) <= key)
     .sort((a, b) => (orderKey(a.readOn, a.endedAt ?? a.startedAt ?? a.createdAt) < orderKey(b.readOn, b.endedAt ?? b.startedAt ?? b.createdAt) ? -1 : 1))
     .at(-1);
@@ -82,6 +84,7 @@ function endText(s: SessionRow, unit: string) {
 export function SessionDialog({ data, row, request, onClose, changed }: ReadingDialogProps) {
   const r = row!.reading;
   const editing = request.session ?? null;
+  const editingWithoutPosition = !!editing && !hasEnd(editing);
   const coarse = useCoarsePointer();
   const [sessions, setSessions] = useState<SessionRow[] | null>(null);
   const [running, setRunning] = useState<SessionRow | null>(null);
@@ -140,7 +143,10 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
   const durationSeconds = durationMinutes ? durationMinutes * 60 : null;
   const sessionEnd = startedAt && durationSeconds ? new Date(startedAt.getTime() + durationSeconds * 1000) : startedAt;
 
-  const readingStart: At = { page: r.startPage ?? (r.unit === "pages" ? 0 : null), percent: r.startPercent ?? 0, minutes: r.startMinutes ?? (r.unit === "minutes" ? 0 : null) };
+  const hasReadingStart = r.startPage != null || r.startPercent != null || r.startMinutes != null;
+  const readingStart: At = hasReadingStart
+    ? { page: r.startPage, percent: r.startPercent, minutes: r.startMinutes }
+    : { page: r.unit === "pages" ? 0 : null, percent: 0, minutes: r.unit === "minutes" ? 0 : null };
   const start = editing ? { at: startAt(editing), before: null } : sessions ? startOfNew(sessions, readOn, sessionEnd ?? new Date(), readingStart) : null;
 
   const parsed = coarse ? null : text.trim() ? parseProgressInput(text, { unit, ...totals }) : null;
@@ -149,6 +155,10 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
   if (input?.kind === "addPages") input = start?.at.page != null ? { kind: "page", page: start.at.page + input.pages } : null;
   if (input?.kind === "addMinutes") input = start?.at.minutes != null ? { kind: "minutes", minutes: start.at.minutes + input.minutes } : null;
   const to = input?.kind === "page" ? { page: input.page } : input?.kind === "percent" ? { percent: input.percent } : input?.kind === "minutes" ? { minutes: input.minutes } : null;
+  const hasEndInput = coarse
+    ? !!(segment === "page" ? fields.page.trim() : segment === "percent" ? fields.percent.trim() : fields.hours.trim() || fields.minutes.trim())
+    : !!text.trim();
+  const canKeepEmptyEnd = editingWithoutPosition && !hasEndInput;
   const chapter = coarse ? fields.chapter.trim() || null : editing?.endChapter ?? null;
   const textError = !coarse && parsed && !parsed.ok ? parsed.error : !coarse && text.trim() && !to ? "Give where the session ended: a page, a percent or a time" : null;
   const endsBefore = !editing && start && input && below(input, start.at);
@@ -159,10 +169,11 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (!to) return;
+    if ((!to && !canKeepEmptyEnd) || durationError || textError || overlapError) return;
     setSaving(true);
     try {
       if (editing) {
+        const endChanged = !!to || chapter !== editing.endChapter;
         const updated = await updateSession({
           sessionId: editing.id,
           fingerprint: row!.fingerprint,
@@ -171,7 +182,7 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
           // A new start or length moves the end; a timer's own end, with its pauses, stays otherwise
           ...(startedAt && durationSeconds && (time !== initialTime || durationMinutes !== read) ? { endedAt: sessionEnd } : {}),
           durationSeconds,
-          end: { ...to, chapter },
+          ...(endChanged ? { end: { ...to, chapter } } : {}),
           note: note.trim() || null,
         });
         onClose();
@@ -185,7 +196,7 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
               startedAt: editing.startedAt,
               endedAt: editing.endedAt,
               durationSeconds: editing.durationSeconds,
-              end: endOf(editing, r.unit),
+              ...(endChanged ? { end: endOf(editing, r.unit) } : {}),
               note: editing.note,
             });
             changed();
@@ -200,7 +211,7 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
           readOn,
           ...(startedAt ? { startedAt } : {}),
           ...(durationSeconds ? { durationSeconds } : {}),
-          to,
+          to: to!,
           ...(chapter ? { chapter } : {}),
           ...(other ? { editionId: other.id, format: otherFormat ?? r.format } : {}),
           ...(note.trim() ? { note: note.trim() } : {}),
@@ -226,6 +237,7 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
 
   const fromLine = !start
     ? ""
+    : editingWithoutPosition ? "No position recorded"
     : editing
       ? `From ${atText(start.at, r.unit)}`
       : start.before
@@ -268,7 +280,7 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
           </div>
         ) : (
           <Input
-            label="Where did it end?"
+            label={editingWithoutPosition ? "Where did it end? (optional)" : "Where did it end?"}
             placeholder={unit === "minutes" ? "3:12, 44%" : "212, 44%, +20"}
             autoFocus={!editing}
             value={text}
@@ -290,7 +302,7 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
           />
         )}
         <Textarea aria-label="Note" placeholder="A note on this sitting (optional)" value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={2000} />
-        <DialogFooter onCancel={onClose} saving={saving} saveLabel={editing ? "Save" : "Add session"} disabled={!to || !!durationError || !!textError || !!overlapError} />
+        <DialogFooter onCancel={onClose} saving={saving} saveLabel={editing ? "Save" : "Add session"} disabled={(!to && !canKeepEmptyEnd) || !!durationError || !!textError || !!overlapError} />
       </form>
     </Dialog>
   );

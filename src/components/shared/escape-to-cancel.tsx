@@ -13,7 +13,7 @@ import { hasOpenSurface, isFreeEscape } from "@/lib/ui/surface-state";
 const layers: object[] = [];
 const takes = new WeakMap<object, (event: KeyboardEvent) => boolean>();
 
-/** A search field on the page: its first Esc leaves the field (shortcuts) */
+/** A page search owns Escape before this page cancellation layer (shortcuts). */
 function pageSearchField(target: EventTarget | null) {
   return (
     target instanceof HTMLInputElement &&

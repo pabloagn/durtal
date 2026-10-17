@@ -76,6 +76,11 @@ read from the source and covered by unit tests at most.
 
 ### Esc
 
+- In a list's page search, the first Esc clears nonempty text and keeps the
+  field focused. A subsequent Esc on the empty field moves focus to Filter,
+  or the page heading when there is no Filter button. A held Esc acts once.
+  Clearing from the no-results message also focuses the empty search field.
+
 - Closes the topmost layer only. A list in a field closes before its
   dialog; a dialog closes before the page draft.
 - A layer with unsaved work asks first: **Save** (when the form has one;

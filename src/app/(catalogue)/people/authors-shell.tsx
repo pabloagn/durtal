@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+import { getPersonBiographies } from "@/lib/actions/authors";
 import { FAVOURITES_PARAM } from "@/lib/constants/favourites";
 import { useSearchParams } from "next/navigation";
 import { Pagination, type PaginationData } from "@/components/shared/pagination";
@@ -233,6 +235,9 @@ export function AuthorsShell({
   const mapAuthors = useViewData(viewMode === "map", mapQuery, getAuthorsForMap);
   const timelineAuthors = useViewData(viewMode === "timeline", timelineQuery, getAuthorsForTimeline);
 
+  const biographyIds = useMemo(() => authors.map(a => a.id), [authors]);
+  const showBiographies = viewMode === "detailed" && columnConfig.some(c => c.key === "bio" && c.visible);
+  const biographies = useViewData(showBiographies, biographyIds, getPersonBiographies);
   const selection = useSelection();
   const allIds = authors.map((a) => a.id);
   const nameMap = new Map(authors.map((a) => [a.id, a.name]));
@@ -403,7 +408,11 @@ export function AuthorsShell({
           allColumns={ALL_AUTHOR_COLUMNS}
           columns={columnConfig}
           onColumnsChange={setColumnConfig}
-          renderCell={(author, key) => renderAuthorCell(author, key, preferRoles)}
+          renderCell={(author, key) => key === "bio" && showBiographies
+            ? biographies.status === "ready" ? renderAuthorCell({ ...author, bio: biographies.data[author.id] ?? null }, key, preferRoles)
+              : biographies.status === "error" ? <button type="button" className="text-command" onClick={biographies.retry}>Try loading biography again</button>
+              : <span role="status" className="text-fg-secondary">Loading biography…</span>
+            : renderAuthorCell(author, key, preferRoles)}
           isSelecting={selection.isSelecting}
           selectedIds={selection.selectedIds}
           onSelect={selection.toggleSelection}
