@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
+import { DialogFocusScope } from "@/components/ui/dialog-focus-scope";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -45,15 +46,29 @@ export function ReadingChoiceField({ workId, total, value, selected, initialChoi
   const options = [...visible];
   if (value && !listed && selected?.id === value) options.push(selected);
   return <div className="space-y-1.5">
-    <Select label="Reading" value={value} className="pointer-coarse:h-11" onChange={event => onChange(options.find(row => row.id === event.target.value) ?? null)} options={[
+    <Select label="Reading" value={value} className="pointer-coarse:h-11" onChange={event => {
+      const id = event.target.value;
+      if (!id) return onChange(null);
+      const choice = options.find(row => row.id === id);
+      // A loading/unavailable selection is still the note's reading. Only
+      // the explicit None option may detach it while metadata is absent.
+      if (choice) onChange(choice);
+    }} options={[
       { value: "", label: "None" },
       ...options.map(row => ({ value: row.id, label: label(row) })),
-      ...(value && !options.some(row => row.id === value) ? [{ value, label: "Selected reading (loading…)" }] : []),
+      ...(value && !options.some(row => row.id === value) ? [{ value, label: "Selected reading (loading…)", disabled: true }] : []),
     ]} />
     {!first && !error && <p role="status" className="text-xs text-fg-secondary">Loading readings…</p>}
     {error && <p role="alert" className="text-xs text-fg-secondary">{error} <button type="button" className="underline touch-hit" onClick={() => { setError(null); setRetry(n => n + 1); }}>Retry</button></p>}
-    {total > 20 && <Button type="button" size="sm" variant="ghost" onClick={() => setChoosing(true)} className="pointer-coarse:h-11">Choose an older reading</Button>}
-    {choosing && <OlderReadingChooser workId={workId} value={value} label={label} onClose={() => setChoosing(false)} onChoose={row => { onChange(row); setChoosing(false); }} />}
+    {total > 20 && <Button type="button" size="sm" variant="ghost" onClick={event => {
+      // Safari pointer activation need not focus a button. Give the child
+      // dialog the actual opener before it captures its focus origin.
+      event.currentTarget.focus();
+      setChoosing(true);
+    }} className="pointer-coarse:h-11">Choose an older reading</Button>}
+    {choosing && <DialogFocusScope.Provider value={null}>
+      <OlderReadingChooser workId={workId} value={value} label={label} onClose={() => setChoosing(false)} onChoose={row => { onChange(row); setChoosing(false); }} />
+    </DialogFocusScope.Provider>}
   </div>;
 }
 

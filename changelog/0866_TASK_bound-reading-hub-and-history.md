@@ -18,6 +18,7 @@ The reading hub serializes every open reading, and a book page sends every histo
 - Load an explicitly selected older dialog target with its original full-row fingerprint. The independent timer can still open and stop a reading outside the hub's visible rows.
 - Reuse the journal with a validated exact-work filter, shared pagination and matching export scope. Add current Log and paused Resume actions. The book-history return uses the existing NavigationFocus observer, opting in only with #reading and a marked Reading section.
 - Let notes choose older readings twenty at a time, retaining an off-page selection, true ordinal and edition label. Keep manual edition/position text, and fence dismissed or superseded loads.
+- Reset the nested older-reading chooser's inherited dialog scope so it owns Escape and restores its actual pointer opener; an unavailable selected option cannot detach a note.
 - Author guarded PostgreSQL and mounted UI regressions. Full 1k/5k history/statistics and latency acceptance remain a separate phase under task 0867; SLN-930 remains open.
 
 ## Completion Notes
