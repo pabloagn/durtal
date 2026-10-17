@@ -90,8 +90,8 @@ export function ReadingDialogsProvider({ children }: { children: ReactNode }) {
     try {
       const [module, data] = await Promise.all([
         loadDialogHost(),
-        "request" in pending.intent ? getReadingDialogData(pending.intent.request.workId, pending.home)
-          : "continuation" in pending.intent ? getReadingDialogData(pending.intent.workId, pending.home) : Promise.resolve(null),
+        "request" in pending.intent ? getReadingDialogData(pending.intent.request.workId, pending.home, "readingId" in pending.intent.request ? pending.intent.request.readingId ?? null : null)
+          : "continuation" in pending.intent ? getReadingDialogData(pending.intent.workId, pending.home, pending.intent.continuation.readingId ?? null) : Promise.resolve(null),
       ]);
       if (!live.current || generation.current !== pending.generation) return;
       let request: DialogRequest | null = "continuation" in pending.intent ? pending.intent.continuation : null;
@@ -152,7 +152,7 @@ export function ReadingDialogsProvider({ children }: { children: ReactNode }) {
     router.refresh(); triggerActivityRefresh();
     const before = current.current;
     if (!before?.data || before.generation !== expected) return;
-    void getReadingDialogData(before.data.workId, before.home).then((data) => {
+    void getReadingDialogData(before.data.workId, before.home, before.request?.readingId ?? null).then((data) => {
       const latest = current.current;
       if (live.current && latest?.generation === expected && generation.current === expected) commit({ ...latest, data });
     }).catch((error: unknown) => {

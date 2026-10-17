@@ -10,7 +10,7 @@ import { READING_HOME_KEY } from "@/lib/preferences";
 import { READING_KEYS } from "@/lib/shortcuts/shortcuts";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { pauseReading, reopenReading, resumeReading } from "@/lib/actions/catalogue-client";
-import { bookReadingState, readingMenu, READING_ACTION_LABELS, type ReadingMenuAction } from "@/lib/reading/labels";
+import { readingMenu, READING_ACTION_LABELS, type ReadingMenuAction } from "@/lib/reading/labels";
 import { addToQueue, removeFromQueue, restoreQueueItem } from "@/lib/actions/reading-queue";
 import { ordinal } from "@/lib/reading/queue";
 import { showError, undoToast, type ReadingPageData, type ReadingRow } from "./reading-client";
@@ -75,7 +75,7 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
         if (action === "start" || action === "reread" || action === "startAgain") return open({ kind: "start" });
         if (action === "past") return open({ kind: "past" });
         // "Resume this reading" acts on the latest read, which is abandoned
-        if (action === "resumeAbandoned" && !row) row = data.rows.find((r) => r.reading.status === "abandoned") ?? null;
+        if (action === "resumeAbandoned" && !row) row = data.rows.find((r) => r.reading.id === data.summary.latestClosedId && r.reading.status === "abandoned") ?? null;
         if (!row) return;
         const readingId = row.reading.id;
         if (action === "progress") return open({ kind: "progress", readingId });
@@ -97,7 +97,7 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
         showError(err, changed);
       }
     },
-    [openRow, open, changed, data.rows],
+    [openRow, open, changed, data.rows, data.summary.latestClosedId],
   );
 
   // The timer (SLN-451): start it on the open reading, or stop it in stop mode when it runs here
@@ -141,7 +141,7 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
   }, [data.queuePlace, data.workId, data.workTitle, changed]);
 
   // The R menu and the palette: the actions that make sense now
-  const state = bookReadingState(data.rows.map((r) => r.reading));
+  const state = data.summary.state;
   const menu = readingMenu(state);
   const items: EditItem[] = [];
   const startAction = menu.find((a) => a === "start" || a === "reread" || a === "startAgain");
@@ -175,7 +175,7 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
     icon: Quote,
     run: () => open({ kind: "note", noteKind: "quote", readingId: openRow?.reading.id }),
   });
-  if (data.rows.length)
+  if (data.summary.readingCount)
     items.push({
       key: READING_KEYS.history,
       label: "Go to the Reading section",

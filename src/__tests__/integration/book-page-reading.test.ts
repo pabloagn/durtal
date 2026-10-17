@@ -36,7 +36,10 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
 import { atHandCopySql, isAtHand } from "@/lib/reading/at-hand";
 import { nextToRead } from "@/lib/reading/series";
-import { getNextInSeries } from "@/lib/actions/reading";
+import { queryBookReadingOverview, queryReadingChoices, queryReadingChoice } from "@/lib/reading/overview";
+import { readingRecord } from "@/lib/reading/labels";
+import { readingRecordFromSummary } from "@/lib/reading/overview-summary";
+import { getReadingsForWork, getNextInSeries } from "@/lib/actions/reading";
 
 describe.skipIf(!url)("the book page's reading rules with PostgreSQL", () => {
   const db = testDb!;
@@ -108,4 +111,81 @@ describe.skipIf(!url)("the book page's reading rules with PostgreSQL", () => {
     const noSeries = await book("Alone");
     expect(await getNextInSeries(noSeries, ams)).toBeNull();
   });
+  it("bounds details while preserving every history aggregate, fingerprint, ordinal and default", async () => {
+    const workId = await book("Bounded history");
+    const oldEdition = await edition(workId);
+    const newerEdition = await edition(workId);
+    const ids: string[] = [];
+    for (let i=0; i<25; i++) ids.push(await value(`insert into readings(work_id,edition_id,status,started_on,started_precision,finished_on,finished_precision,total_minutes,rating,review_html)
+      values ($1,$2,'finished',$3,'year',$4,'day',$5,$6,$7) returning id`, [workId,i===0 || i===20 ? oldEdition : i===21 ? newerEdition : null,`${1990+i}-01-01`,`${1990+i}-02-01`,i===0?580:null,i%3===0?4:null,"<p>"+"Long historical review. ".repeat(100)+"</p>"]));
+    const open = await value(`insert into readings(work_id,edition_id,started_precision) values ($1,$2,'unknown') returning id`,[workId,newerEdition]);
+    await q(`insert into reading_sessions(reading_id,read_on,duration_seconds,source,format,time_zone) values ($1,'1990-02-01',11520,'manual','print','Europe/Amsterdam')`,[ids[0]]);
+    const all = await getReadingsForWork(workId);
+    const bounded = await queryBookReadingOverview(workId);
+    expect(bounded.rows).toHaveLength(5);
+    expect(bounded.rows[0].reading.id).toBe(open);
+    expect(bounded.summary).toMatchObject({readingCount:26,openCount:1,finishedCount:25,sessionCount:1,state:"reading"});
+    expect(readingRecordFromSummary(bounded.summary)).toEqual(readingRecord(all));
+    expect(bounded.defaults).toEqual({lastEditionId:newerEdition,latestMinutesByEdition:{[oldEdition]:580}});
+    expect(bounded.history).toEqual({closedCount:25,hasMore:true});
+    for (const row of bounded.rows) {
+      const original = all.find(item=>item.reading.id===row.reading.id)!;
+      expect(row.fingerprint).toBe(original.fingerprint);
+      expect(row.ordinal).toBe(original.ordinal);
+    }
+    expect(bounded.rows.at(-1)?.previousClosed).toEqual({editionId:oldEdition});
+    const oldest = await queryBookReadingOverview(workId,ids[0]);
+    expect(oldest.rows).toHaveLength(6);
+    expect(oldest.rows.find(row=>row.reading.id===ids[0])?.fingerprint).toBe(all.find(row=>row.reading.id===ids[0])?.fingerprint);
+    const first = await queryReadingChoices(workId);
+    const second = await queryReadingChoices(workId,2);
+    expect(first).toMatchObject({total:26,page:1,hasNext:true});
+    expect(first.items).toHaveLength(20);
+    expect(second.items).toHaveLength(6);
+    expect(new Set([...first.items,...second.items].map(row=>row.id)).size).toBe(26);
+    expect(await queryReadingChoice(workId,ids[0])).toMatchObject({id:ids[0],ordinal:all.find(row=>row.reading.id===ids[0])!.ordinal});
+    expect((await queryReadingChoices(workId,1,"%" )).items).toEqual([]);
+    const other = await book("Other work");
+    expect(await queryReadingChoice(other,ids[0])).toBeNull();
+    await expect(queryBookReadingOverview(other,ids[0])).rejects.toThrow("no longer exists");
+  });
+
+  it("keeps a latest abandoned reading resumable after older finished history", async () => {
+    const workId = await book("Latest abandoned");
+    await q(`insert into readings(work_id,status,started_precision,finished_on,finished_precision) values ($1,'finished','unknown','2020-01-01','year')`,[workId]);
+    const abandoned = await value(`insert into readings(work_id,status,started_precision,finished_on,finished_precision) values ($1,'abandoned','unknown','2024-01-01','year') returning id`,[workId]);
+    expect((await queryBookReadingOverview(workId)).summary).toMatchObject({state:"abandoned",latestClosedId:abandoned,finishedCount:1});
+  });
+
+  it("matches legacy known-date fallback even with inconsistent imported precision", async () => {
+    const workId = await book("Legacy unknown dates");
+    // This intentionally inconsistent legacy row needs a temporary relaxation
+    // in this disposable database only; restore the constraint in finally.
+    await q(`alter table readings drop constraint reading_precision_check`);
+    try {
+      await q(`insert into readings(work_id,status,started_on,started_precision,finished_on,finished_precision) values
+        ($1,'finished','1900-01-01','unknown','2020-06-01','month'),
+        ($1,'finished','1800-01-01','unknown','1801-01-01','unknown')`,[workId]);
+      const all = await getReadingsForWork(workId);
+      const bounded = await queryBookReadingOverview(workId);
+      expect(bounded.summary.record.firstKnown).toEqual({date:"2020-06-01",precision:"month"});
+      expect(readingRecordFromSummary(bounded.summary)).toEqual(readingRecord(all));
+    } finally {
+      await q(`delete from readings where work_id=$1`,[workId]);
+      await q(`alter table readings add constraint reading_precision_check check ((started_on is null)=(started_precision='unknown') and (finished_on is null)=(finished_precision='unknown'))`);
+    }
+  });
+
+  it("refuses duplicate open history instead of silently picking a row", async () => {
+    const workId = await book("Invalid duplicate open");
+    await q(`drop index reading_open_unique`);
+    try {
+      await q(`insert into readings(work_id,status,started_precision) values ($1,'reading','unknown'),($1,'paused','unknown')`,[workId]);
+      await expect(queryBookReadingOverview(workId)).rejects.toThrow("more than one open reading");
+    } finally {
+      await q(`delete from readings where work_id=$1`,[workId]);
+      await q(`create unique index reading_open_unique on readings(work_id) where status in ('reading','paused')`);
+    }
+  });
+
 });

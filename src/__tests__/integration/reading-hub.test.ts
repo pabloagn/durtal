@@ -32,9 +32,9 @@ vi.mock("@/lib/cache", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
-import { getJournalFacets, getRecentlyFinished, queryJournal } from "@/lib/reading/journal";
+import { getJournalFacets, getRecentlyFinished, journalReadingIds, queryJournal } from "@/lib/reading/journal";
 import { parseJournalQuery } from "@/lib/reading/journal-params";
-import { getOpenReadings, searchBooksToRead } from "@/lib/actions/reading";
+import { getReadingHubOpen, getOpenReadings, searchBooksToRead } from "@/lib/actions/reading";
 
 // The reading hub's queries (SLN-448): the journal, the read's rating, re-reads and the book picker.
 
@@ -239,4 +239,29 @@ describe.skipIf(!url)("the reading hub with PostgreSQL", () => {
     expect(zona.openFingerprint).toBe((await getOpenReadings())[0].fingerprint);
     expect(all[2]).toMatchObject({ state: "read", reads: 2, catalogueStatus: "wanted", openReadingId: null });
   });
+  it("bounds both hub sections without truncating their counts or global consumers", async () => {
+    for (let i=0;i<20;i++) await read(await book(`Bounded open ${i}`),{status:i<10?"reading":"paused"});
+    const result = await getReadingHubOpen("2026-10-17");
+    expect(result.counts).toEqual({reading:10,paused:10});
+    expect(result.reading).toHaveLength(8);
+    expect(result.paused).toHaveLength(8);
+    expect(await getOpenReadings()).toHaveLength(20);
+    expect(result.reading[0].reading.updatedAt).toBeInstanceOf(Date);
+    expect(Object.keys(result.estimates).every(id=>result.reading.some(row=>row.reading.id===id))).toBe(true);
+  });
+
+  it("keeps exact-work journal rows, counts and export scope together", async () => {
+    const one = await book("Exact one"), two = await book("Exact two");
+    const wanted = await read(one,{status:"paused"});
+    await read(two,{status:"paused"});
+    const query = parseJournalQuery({work:one,status:"paused"});
+    const result = await queryJournal(query);
+    expect(result.rows.map(row=>row.id)).toEqual([wanted]);
+    expect(result.summary.readings).toBe(1);
+    expect(await journalReadingIds(query)).toEqual([wanted]);
+    const invalid = parseJournalQuery({work:"broken"});
+    expect((await queryJournal(invalid)).summary.readings).toBe(0);
+    expect(await journalReadingIds(invalid)).toEqual([]);
+  });
+
 });

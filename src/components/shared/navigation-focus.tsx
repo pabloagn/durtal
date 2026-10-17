@@ -68,15 +68,25 @@ export function NavigationFocus() {
     if (shown.current === pathname) return;
     shown.current = pathname;
     const was = last.current;
+    // The book history return is an explicit opt-in. Other hashes and pages
+    // retain the existing named-control/heading behavior.
+    const historyReturn = window.location.hash === "#reading";
+    const historyTarget = () => {
+      const target = document.querySelector<HTMLElement>('main #reading[data-navigation-focus]');
+      return target?.getClientRects().length ? target : null;
+    };
     let placed: HTMLElement | null = null;
     let frame = 0;
     const place = () => {
       frame = 0;
       // The reader put the focus somewhere: theirs to keep
       if (!lost() && document.activeElement !== placed) return stop();
-      if (!lost() || document.querySelector("dialog[open]")) return;
-      const target = (was?.name && !was.el.isConnected ? counterpart(was.name) : null) ?? headingOf();
+      const history = historyReturn ? historyTarget() : null;
+      if (document.querySelector("dialog[open]")) return;
+      if (!lost() && !(history && document.activeElement === placed)) return;
+      const target = history ?? (was?.name && !was.el.isConnected ? counterpart(was.name) : null) ?? headingOf();
       if (!target) return;
+      if (!target.hasAttribute("tabindex") && history) target.tabIndex = -1;
       target.focus({ preventScroll: true });
       placed = target;
     };
