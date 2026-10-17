@@ -8,10 +8,13 @@ import { CapAligned } from "@/components/shared/cap-aligned";
 export function FormSection({
   title,
   defaultOpen = false,
+  keepMounted = false,
   children,
 }: {
   title: string;
   defaultOpen?: boolean;
+  /** Keep state-bearing fields in the draft while the section is collapsed. */
+  keepMounted?: boolean;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -23,7 +26,7 @@ export function FormSection({
         <button
           type="button"
           aria-expanded={open}
-          aria-controls={open ? id : undefined}
+          aria-controls={open || keepMounted ? id : undefined}
           onClick={() => setOpen(!open)}
           className="flex w-full items-start gap-2 text-left hover:text-fg-primary pointer-coarse:min-h-11"
         >
@@ -33,7 +36,19 @@ export function FormSection({
           <span>{title}</span>
         </button>
       </h3>
-      {open && (
+      {keepMounted ? (
+        // Preserve draft values while collapsed; disabled fields also stay
+        // out of native validation until the person opens the section.
+        <fieldset
+          id={id}
+          hidden={!open}
+          inert={!open}
+          disabled={!open}
+          className="mx-0 mb-0 mt-4 min-w-0 space-y-4 border-0 p-0"
+        >
+          {children}
+        </fieldset>
+      ) : open && (
         <div id={id} className="mt-4 space-y-4">
           {children}
         </div>
