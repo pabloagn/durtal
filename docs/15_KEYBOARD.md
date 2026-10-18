@@ -98,8 +98,10 @@ read from the source and covered by unit tests at most.
 
 ### Leader menus
 
-N, G, Y, E and R open a menu (`LeaderMenu`); a letter, or ↑ ↓ then Enter,
-picks; Esc closes; a click outside or a new page closes. A opens no menu: it
+N, G, Y, E and R open a menu (`LeaderMenu`); a letter, or ↑ ↓ (or Tab and
+Shift+Tab, Home and End) then Enter or Space, picks; Esc closes; a click
+outside or a new page closes. The focus is on the active item, so a screen
+reader reads each one, and goes back to where it was when the menu closes. A opens no menu: it
 waits for the key that says what to add (section 2). E and R open only where the page
 registered actions (`useEditActions`, `useReadingActions`).
 

@@ -37,4 +37,9 @@ describe("bounded review URLs", () => {
     { language: "not-a-language" }, { q: ["a", "b"] }])("refuses malformed filter %j", (raw) => {
     expect(() => parseReviewParams(raw)).toThrow();
   });
+  it("drops a NUL from the search, which Postgres text cannot hold (SLN-933)", () => {
+    expect(parseReviewParams({ q: "\u0000" }).filters.q).toBe("");
+    expect(parseReviewParams({ q: " Nad\u0000ja " }).filters.q).toBe("Nadja");
+    expect(reviewParamsSearch(parseReviewParams({ q: "\u0000" })).has("q")).toBe(false);
+  });
 });

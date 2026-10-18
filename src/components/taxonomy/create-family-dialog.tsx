@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { Dialog } from "@/components/ui/dialog";
+import { useId, useState, type FormEvent } from "react";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { createTaxonomyFamily } from "@/lib/actions/taxonomy-client";
 import { FamilyForm, type FamilyFormValue } from "./family-form";
@@ -27,6 +27,8 @@ export function CreateFamilyDialog({
   onClose,
   onCreated,
 }: CreateFamilyDialogProps) {
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   const [value, setValue] = useState<FamilyFormValue>(EMPTY);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,19 +64,22 @@ export function CreateFamilyDialog({
       className="max-w-lg"
       expandable={false}
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id={formId} onSubmit={handleSubmit} className="space-y-4">
         <FamilyForm value={value} onChange={setValue} />
-        {error && (
-          <p role="alert" className="text-xs text-accent-red-text">
-            {error}
-          </p>
-        )}
-        <div className="flex items-center justify-end gap-2 pt-2">
+        {/* Under the dialog's body and always in view, with the reason a save
+            failed over the buttons (SLN-943) */}
+        <DialogFooter>
+          {error && (
+            <p role="alert" className="basis-full text-xs text-accent-red-text">
+              {error}
+            </p>
+          )}
           <Button data-dismiss="" type="button" variant="ghost" size="sm" onClick={onClose}>
             Cancel
           </Button>
           <Button
             type="submit"
+            form={formId}
             variant="primary"
             size="sm"
             disabled={!value.name.trim() || !value.scopes.length}
@@ -82,7 +87,7 @@ export function CreateFamilyDialog({
           >
             Create family
           </Button>
-        </div>
+        </DialogFooter>
       </form>
     </Dialog>
   );

@@ -6,11 +6,12 @@ import { useRef, useCallback, useEffect, useState } from "react";
 import { PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { NAV_SECTIONS, isSectionActive } from "@/lib/navigation";
 import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
-import { GO_TO } from "@/lib/shortcuts/shortcuts";
+import { GO_TO, shortcutProps } from "@/lib/shortcuts/shortcuts";
 import { SIDEBAR } from "@/lib/preferences";
 import { TimerChip } from "@/components/reading/timer-chip";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { NotificationCentre } from "./notification-centre";
+import { useIsMac } from "@/components/shortcuts/kbd";
 
 /**
  * From md up: the fixed sidebar, resizable and collapsible (`width`).
@@ -37,6 +38,7 @@ export function Sidebar({
   onDrawerClose: () => void;
 }) {
   const pathname = usePathname();
+  const mac = useIsMac();
   const isDragging = useRef(false);
   const sidebarRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -144,7 +146,7 @@ export function Sidebar({
               onClick={onDrawerClose}
               aria-label="Close navigation"
               data-tooltip="Close navigation"
-              data-tooltip-keys="escape"
+              {...shortcutProps("escape")}
               data-tooltip-side="bottom"
               className="inline-flex h-11 w-11 items-center justify-center rounded-sm text-fg-secondary transition-colors duration-150 hover:bg-bg-tertiary/50 hover:text-fg-primary"
             >
@@ -161,7 +163,7 @@ export function Sidebar({
           // Collapsed, the button is an icon: its tooltip names it
           aria-label="Search"
           data-tooltip={rail ? "Search" : undefined}
-          data-tooltip-keys="mod k"
+          {...shortcutProps("mod k", mac)}
           data-tooltip-side="right"
           className="flex h-11 w-full min-w-11 items-center gap-2.5 rounded-sm border border-glass-border bg-bg-primary/50 px-[13px] text-sm text-fg-secondary transition-colors duration-150 hover:border-fg-muted/20 hover:text-fg-primary focus-visible:-outline-offset-2 md:h-[38px] pointer-coarse:h-11"
         >
@@ -197,7 +199,7 @@ export function Sidebar({
                   aria-label={label}
                   aria-current={isActive ? "page" : undefined}
                   data-tooltip={rail ? label : undefined}
-                  data-tooltip-keys={go ? `g then ${go.key}` : undefined}
+                  {...shortcutProps(go ? `g then ${go.key}` : undefined)}
                   data-tooltip-side="right"
                   className={`flex h-11 min-w-11 items-center gap-2.5 rounded-sm px-[13px] text-sm transition-colors duration-150 focus-visible:-outline-offset-2 md:h-[38px] pointer-coarse:h-11 ${
                     isActive

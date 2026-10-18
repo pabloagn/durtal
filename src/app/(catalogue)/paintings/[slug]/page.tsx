@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
+import { WorkCollectionsSection, loadWorkCollections } from "@/components/collections/work-collections";
 import { renderStamp } from "@/lib/activity/render-stamp";
 import Link from "next/link";
 import { BackLink } from "@/components/shared/back-link";
@@ -283,7 +284,7 @@ export default async function PaintingPage({
   const painting = await loadPainting(slug);
   if (!painting) notFound();
   const owner = { kind: "painting" as const, id: painting.id };
-  const [media, curation, provenance, families, allLocations, choices, histories, links, wanted] =
+  const [media, curation, provenance, families, allLocations, choices, histories, links, wanted, inCollections] =
     await Promise.all([
       getMediaForWork(painting.id),
       getWorkCuration(owner),
@@ -294,6 +295,7 @@ export default async function PaintingPage({
       Promise.all(painting.objects.map((o) => getWhereabouts(o.id))),
       getWorkRelations(painting.id),
       getTypedTargets(painting.id),
+      loadWorkCollections(painting.id),
     ]);
   // The e-book marks of linked books' cards
   const linkedEbooks = await linkedWorkEbooks(links);
@@ -631,6 +633,8 @@ export default async function PaintingPage({
         </DetailColumns>
 
         <GallerySection entityType="work" entityId={painting.id} />
+
+        <WorkCollectionsSection {...inCollections} />
 
         <ActivityTimeline entityType="work" entityId={painting.id} refreshKey={renderStamp()} />
       </div>

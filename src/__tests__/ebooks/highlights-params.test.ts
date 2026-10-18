@@ -4,6 +4,11 @@ import { GROUPS_PER_PAGE, highlightReaderHref, parseHighlightParams } from "@/li
 const BOOK = "0E6F1B4A-1C7E-4C55-9D2B-3B1C2D4E5F60";
 
 describe("parseHighlightParams (SLN-500)", () => {
+  it("drops a NUL from the search, so it never reaches Postgres (SLN-933)", () => {
+    expect(parseHighlightParams({ q: "\u0000" })).toMatchObject({ q: "", normalizedSearch: "" });
+    expect(parseHighlightParams({ q: "nad\u0000ja" })).toMatchObject({ q: "nadja", normalizedSearch: "nadja" });
+  });
+
   it("defaults to every live mark, newest book first", () => {
     expect(parseHighlightParams({})).toMatchObject({
       q: "",

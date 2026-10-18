@@ -515,6 +515,11 @@ describe.skipIf(!url)("collection workflows with PostgreSQL", () => {
     expect(await getCollectionCoverPreviews([c.id])).toEqual([
       { collectionId: c.id, s3Key: "en-route.jpg" },
     ]);
+    // A whole book with no poster shows its edition's cover (SLN-914)
+    await db.update(schema.editions).set({ coverS3Key: "durtal-edition.jpg" }).where(eq(schema.editions.id, b.editions[0].id));
+    expect((await getCollectionCoverPreviews([c.id])).map((p) => p.s3Key).sort()).toEqual(["durtal-edition.jpg", "en-route.jpg"]);
+    const whole = (await getCollection(c.id))!.collectionWorks.find((m) => m.workId === b.work.id)!;
+    expect(whole.work.editions).toEqual([{ thumbnailS3Key: null, coverS3Key: "durtal-edition.jpg" }]);
   });
 
   it("removes whole works, drops them with a deleted work, and records the activity", async () => {

@@ -1,10 +1,12 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { Highlighter } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NoResults, PageOutOfRange } from "@/components/shared/no-results";
 import { Pagination } from "@/components/shared/pagination";
 import { HighlightGroup } from "@/components/ebooks/highlight-group";
+import { BackScroll } from "@/components/shared/back-scroll";
 import {
   GROUPS_PER_PAGE,
   getHighlightBooks,
@@ -16,7 +18,7 @@ import {
 import { ebookCoverImage, ebookPageCoverBase } from "@/lib/ebooks/library-cover";
 import { ebookCardData } from "@/lib/ebooks/library-view";
 import { clearedListHref, firstPageHref, hasListQuery } from "@/lib/utils/list-params";
-import { toSearchParams, type ListSearchParams } from "@/lib/utils/pagination";
+import { lastPage, pageHref, toSearchParams, type ListSearchParams } from "@/lib/utils/pagination";
 import { HighlightsFilters } from "./highlights-filters";
 
 export const metadata = { title: "Highlights" };
@@ -43,7 +45,11 @@ async function HighlightResults({ search }: { search: ListSearchParams }) {
         description="Highlights, notes and bookmarks made in the reader appear here, from every eBook."
       />
     );
-  // Filtered to one book, pages count its marks; otherwise books
+  // Filtered to one book, pages count its marks; otherwise books. A page past
+  // the end goes to the last one, as every list does (SLN-933)
+  const last = lastPage(params.ebookId ? summary.marks : summary.books, params.perPage);
+  if (params.page > last) redirect(pageHref(BASE, search, last));
+  // Marks removed between the count and the page
   if (groups.length === 0 || (params.ebookId && groups[0].marks.length === 0))
     return <PageOutOfRange firstPageHref={firstPageHref(BASE, query)} />;
   const base = ebookPageCoverBase();
@@ -70,6 +76,8 @@ async function HighlightResults({ search }: { search: ListSearchParams }) {
           );
         })}
       </div>
+      {/* Back from one book's marks lands where the reader left (SLN-933) */}
+      <BackScroll href={here} />
       <div className="mt-8">
         {params.ebookId ? (
           <Pagination page={params.page} perPage={params.perPage} total={summary.marks} noun="marks" />

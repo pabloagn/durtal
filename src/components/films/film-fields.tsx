@@ -194,7 +194,7 @@ export function creditKey() {
 const SMALL_INPUT =
   "h-7 min-w-0 rounded-sm border border-glass-border bg-bg-primary/80 px-2 text-xs text-fg-primary placeholder:text-fg-muted focus:border-accent-primary focus:outline-none pointer-coarse:h-11";
 const ICON_BUTTON =
-  "flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary pointer-coarse:size-11";
+  "flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:pointer-events-none disabled:opacity-40 focus-visible:-outline-offset-2 pointer-coarse:size-11";
 
 function CreditRow({
   entry,

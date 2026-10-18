@@ -41,9 +41,16 @@ describe("what a collection's works are called (SLN-545)", () => {
 // The pager names a collection's members as its count line does (SLN-886)
 describe("what a collection's pager calls its members", () => {
   const book = (workId: string) => ({ workId, work: { kind: "book" as const } });
-  it("uses the count line's one noun, else items", () => {
+  const edition = (workId: string) => ({ edition: { workId } });
+  it("names one card each: books, editions, a kind, else items", () => {
     expect(collectionMembersNoun({ collectionWorks: [book("a"), book("b"), book("c")] })).toBe("books");
-    expect(collectionMembersNoun({ collectionEditions: [{ edition: { workId: "a" } }], collectionWorks: [book("a")] })).toBe("editions");
+    // A book held both ways shows once, as its edition: one card, one book
+    expect(collectionMembersNoun({ collectionEditions: [edition("a")], collectionWorks: [book("a")] })).toBe("books");
+    expect(collectionMembersNoun({ collectionEditions: [edition("a")], collectionWorks: [book("b")] })).toBe("books");
+    // Two editions of one book are two cards (SLN-915)
+    expect(collectionMembersNoun({ collectionEditions: [edition("a"), edition("a")] })).toBe("editions");
+    expect(collectionMembersNoun({ collectionEditions: [edition("a"), edition("a")], collectionWorks: [book("b")] })).toBe("items");
+    expect(collectionMembersNoun({ collectionWorks: [{ workId: "f", work: { kind: "film" as const } }] })).toBe("films");
     expect(collectionMembersNoun({ collectionWorks: [book("a"), { workId: "f", work: { kind: "film" as const } }] })).toBe("items");
     expect(collectionMembersNoun({})).toBe("items");
   });

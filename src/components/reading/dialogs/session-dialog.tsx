@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useId } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -88,6 +88,8 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
   const coarse = useCoarsePointer();
   const [sessions, setSessions] = useState<SessionRow[] | null>(null);
   const [running, setRunning] = useState<SessionRow | null>(null);
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   const [readOn, setReadOn] = useState(() => editing?.readOn ?? todayReadingDay(data.dayStartHour));
   // An edited session's time is in its own zone; a new one is in the browser's
   const zone = editing?.timeZone ?? browserZone();
@@ -246,7 +248,7 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
 
   return (
     <Dialog draft open onClose={onClose} title={editing ? "Edit session" : "Add a session"} description={data.workTitle} className="max-w-lg">
-      <form onSubmit={save} className="space-y-4">
+      <form id={formId} onSubmit={save} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <DatePicker label="Date" value={readOn} onChange={(d) => d && setReadOn(d)} />
           <Input label="Start time (optional)" type="time" value={time} onChange={(e) => setTime(e.target.value)} error={overlapError ?? undefined} />
@@ -302,7 +304,7 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
           />
         )}
         <Textarea aria-label="Note" placeholder="A note on this sitting (optional)" value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={2000} />
-        <DialogFooter onCancel={onClose} saving={saving} saveLabel={editing ? "Save" : "Add session"} disabled={(!to && !canKeepEmptyEnd) || !!durationError || !!textError || !!overlapError} />
+        <DialogFooter form={formId} onCancel={onClose} saving={saving} saveLabel={editing ? "Save" : "Add session"} disabled={(!to && !canKeepEmptyEnd) || !!durationError || !!textError || !!overlapError} />
       </form>
     </Dialog>
   );

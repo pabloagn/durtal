@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createCollection } from "@/lib/actions/collections";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /**
  * Add collection. With `open` and `onOpenChange` the caller controls it (the
@@ -73,7 +74,7 @@ export function CreateCollectionDialog({
           }}
           variant="secondary" size="sm"
           data-tooltip="Add collection"
-          data-tooltip-keys="a then c"
+          {...shortcutProps("a then c")}
         >
           <Plus size={14} strokeWidth={1.5} />
           Add collection

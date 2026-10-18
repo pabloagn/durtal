@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useId } from "react";
 import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
@@ -30,6 +30,8 @@ const FORMATS = [
 /** A read from the past, at any date precision: "2009", "Apr 2019" */
 export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
   const [status, setStatus] = useState<"finished" | "abandoned">("finished");
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   const [editionId, setEditionId] = useState("");
   const [instanceId, setInstanceId] = useState("");
   const [format, setFormat] = useState<ReadingFormat>("print");
@@ -100,7 +102,7 @@ export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
 
   return (
     <Dialog draft open onClose={onClose} title="Log a past read" description={data.workTitle} className="max-w-lg">
-      <form
+      <form id={formId}
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
@@ -164,15 +166,21 @@ export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
           </>
         )}
         <TiptapEditor label="Review" value={review} onChange={setReview} placeholder="What stayed with you" />
-        {duplicate && (
-          <div className="flex flex-wrap items-center gap-2 rounded-sm border border-glass-border p-3 text-sm text-fg-secondary" role="alert">
-            {duplicate}
-            <Button type="button" size="sm" variant="ghost" onClick={() => void submit(true)} busy={saving} className="pointer-coarse:h-11">
-              Save anyway
-            </Button>
-          </div>
-        )}
-        <DialogFooter onCancel={onClose} saving={saving} saveLabel="Log read" disabled={!!error} />
+        <DialogFooter
+          form={formId}
+          onCancel={onClose}
+          saving={saving}
+          saveLabel="Log read"
+          disabled={!!error}
+          notice={duplicate && (
+            <div className="flex basis-full flex-wrap items-center gap-2 rounded-sm border border-glass-border p-3 text-sm text-fg-secondary" role="alert">
+              {duplicate}
+              <Button type="button" size="sm" variant="ghost" onClick={() => void submit(true)} busy={saving} className="pointer-coarse:h-11">
+                Save anyway
+              </Button>
+            </div>
+          )}
+        />
       </form>
     </Dialog>
   );

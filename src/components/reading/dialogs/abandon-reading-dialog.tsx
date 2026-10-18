@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useId } from "react";
 import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,8 @@ export function AbandonReadingDialog({ data, row, onClose, changed }: ReadingDia
   const r = row!.reading;
   const [stopped, setStopped] = useState<ReadingDate>(() => ({ date: todayReadingDay(data.dayStartHour), precision: "day" }));
   const byPage = r.unit === "pages" && !!r.totalPages;
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   const [reached, setReached] = useState(byPage ? String(r.currentPage ?? "") : String(Math.round(r.currentPercent ?? 0)));
   const [reason, setReason] = useState<AbandonReason>("lost_interest");
   const [note, setNote] = useState("");
@@ -91,7 +93,7 @@ export function AbandonReadingDialog({ data, row, onClose, changed }: ReadingDia
 
   return (
     <Dialog draft open onClose={onClose} title="Abandon" description={data.workTitle} className="max-w-lg">
-      <form onSubmit={save} className="space-y-4">
+      <form id={formId} onSubmit={save} className="space-y-4">
         <ReadingDateField label="Stopped on" value={stopped} onChange={setStopped} max={maxDate} />
         {error && (
           <p className="text-xs text-accent-red-text" role="alert">
@@ -121,7 +123,7 @@ export function AbandonReadingDialog({ data, row, onClose, changed }: ReadingDia
             Pause instead
           </Button>
         </p>
-        <DialogFooter onCancel={onClose} saving={saving} saveLabel="Abandon" disabled={!!error || !!reachedError || pausing} />
+        <DialogFooter form={formId} onCancel={onClose} saving={saving} saveLabel="Abandon" disabled={!!error || !!reachedError || pausing} />
       </form>
     </Dialog>
   );

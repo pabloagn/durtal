@@ -13,6 +13,7 @@ import { GooglePlacesSearch } from "@/components/venues/google-places-search";
 import type { GooglePlaceResult } from "@/components/venues/google-places-search";
 import { createVenue, updateVenue } from "@/lib/actions/venues";
 import { VENUE_TYPES, VENUE_TYPE_LABELS, type VenueType } from "@/lib/catalogue/venues";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 const VENUE_TYPE_OPTIONS = VENUE_TYPES.map(value => ({ value, label: VENUE_TYPE_LABELS[value] }));
 const RATING_OPTIONS = [
@@ -205,7 +206,7 @@ export function VenueCreateDialog({
           onClick={() => setOpen(true)}
           type="button"
           data-tooltip="Add place"
-          data-tooltip-keys="a then l"
+          {...shortcutProps("a then l")}
           className="shrink-0 whitespace-nowrap"
         >
           <Plus className="h-4 w-4" strokeWidth={1.5} />

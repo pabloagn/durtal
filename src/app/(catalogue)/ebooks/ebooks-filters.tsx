@@ -145,6 +145,7 @@ export function EbooksFilters({
           maxLength={200}
           aria-label="Search eBooks"
           data-shortcut-search=""
+          aria-keyshortcuts="/"
           data-list-focus="search"
           placeholder="Search eBooks…"
           value={query}

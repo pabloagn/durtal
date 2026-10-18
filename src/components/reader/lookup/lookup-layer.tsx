@@ -22,6 +22,7 @@ import { LookupPopover, type LookupTab } from "./lookup-popover";
 import { OutsideTapBackdrop } from "../outside-tap-backdrop";
 import type { DictionaryState } from "./dictionary-tab";
 import type { WikipediaState } from "./wikipedia-tab";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 type Model = { dictionary: DictionaryState; wikipedia: WikipediaState };
 type OpenLookup = { id: number; details: SelectionDetails; language: string; guessed: boolean;
   word: string; passage: boolean; keyboard: boolean; reference?: HTMLElement;
@@ -241,7 +242,7 @@ export function LookupLayer({ engine, ebook, toolbarRef, enabled = true, onSheet
   };
   return <>
     <ReaderSlotFill slot="selection-actions" placement="last"><button type="button" aria-label="Look up"
-      data-tooltip="Look up" data-tooltip-keys="d" disabled={!enabled || !resources}
+      data-tooltip="Look up" {...shortcutProps("d")} disabled={!enabled || !resources}
       className="flex h-8 shrink-0 items-center justify-center rounded-sm px-3 hover:bg-bg-tertiary disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:px-0"
       onClick={event => {
         const details = engine.selectionDetails() ?? lastDetails.current;

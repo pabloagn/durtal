@@ -218,6 +218,12 @@ describe.skipIf(!url)(
       expect(counts.excluded).toBe(1);
       expect(counts.languages).not.toContain("de");
       expect(counts.formats).not.toContain("pdf");
+      // A NUL in the search (/ebooks?q=%00) is dropped, not sent to Postgres (SLN-933)
+      for (const q of ["\u0000", "nad\u0000ja"]) {
+        const params = parseEbookLibraryParams(new URLSearchParams(`q=${encodeURIComponent(q)}`));
+        expect((await getEbookLibraryCounts(params, database!)).total, JSON.stringify(q)).toBeGreaterThan(0);
+        expect((await getEbooksPage(params, database!)).length, JSON.stringify(q)).toBeGreaterThan(0);
+      }
       const excludedCounts = await getEbookLibraryCounts(
         parseEbookLibraryParams({ state: "excluded" }),
         database!,

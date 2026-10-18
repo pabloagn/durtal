@@ -155,6 +155,13 @@ export async function getCollection(id: string) {
                   and(eq(m.type, "poster"), eq(m.isActive, true)),
                 limit: 1,
               },
+              // A whole book with no poster shows its first edition cover
+              editions: {
+                columns: { thumbnailS3Key: true, coverS3Key: true },
+                where: (e, { or, isNotNull }) => or(isNotNull(e.thumbnailS3Key), isNotNull(e.coverS3Key)),
+                orderBy: (e, { asc }) => [asc(e.createdAt), asc(e.id)],
+                limit: 1,
+              },
             },
           },
         },
@@ -542,7 +549,8 @@ export async function getCollectionCoverPreviews(collectionIds: string[]) {
   const ids = collectionIdsSchema.parse(collectionIds);
   if (!ids.length) return [];
   // The first four images in each collection's one order: an edition's
-  // cover (else its book's poster), a whole work's active image
+  // cover (else its book's poster), a whole work's active image (else, for a
+  // book, its first edition cover, as a series takes it)
   const poster = (work: ReturnType<typeof sql>) =>
     sql`(select coalesce(m.thumbnail_s3_key,m.s3_key) from media m where m.work_id=${work} and m.type='poster' and m.is_active order by m.id limit 1)`;
   const result =
@@ -552,7 +560,8 @@ export async function getCollectionCoverPreviews(collectionIds: string[]) {
         coalesce(e.thumbnail_s3_key,e.cover_s3_key,${poster(sql`e.work_id`)}) as cover
       from collection_editions ce join editions e on e.id=ce.edition_id where ce.collection_id=any(${idArray(ids)})
       union all
-      select cw.collection_id,cw.sort_order,cw.added_at,cw.work_id,${poster(sql`cw.work_id`)}
+      select cw.collection_id,cw.sort_order,cw.added_at,cw.work_id,coalesce(${poster(sql`cw.work_id`)},
+        (select coalesce(e.thumbnail_s3_key,e.cover_s3_key) from editions e where e.work_id=cw.work_id and coalesce(e.thumbnail_s3_key,e.cover_s3_key) is not null order by e.created_at,e.id limit 1))
       from collection_works cw where cw.collection_id=any(${idArray(ids)})
         and not exists(select 1 from collection_editions ce join editions e on e.id=ce.edition_id where ce.collection_id=cw.collection_id and e.work_id=cw.work_id)
     ) members where cover is not null
