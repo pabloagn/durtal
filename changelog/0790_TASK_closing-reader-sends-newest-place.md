@@ -46,7 +46,8 @@ on this device until the reader opened there again.
   E06), a fresh browser each time:
   - Delete a rose mark, turn three pages (13% to 53%), close 1.5 s later: the
     device's `ebook_positions` row is at 53% and the mark is deleted, in
-    Chromium, Firefox and WebKit. Before, the device had no row.
+    Chromium, Firefox and WebKit. Before, the device had no row (as the review
+    of #446 found).
   - Turn pages and close with no delete: the place is saved.
   - Delete, Undo, turn pages and close: the mark stays live and the place is
     saved.
