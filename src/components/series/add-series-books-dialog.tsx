@@ -145,14 +145,15 @@ export function AddSeriesBooksDialog({
                       />
                     )}
                   </div>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm">{w.title}</span>
-                    <span className="block truncate text-xs text-fg-secondary">
+                  {/* Titles and names wrap in full, never cut; a long one-word name breaks anywhere */}
+                  <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+                    <span className="block text-sm">{w.title}</span>
+                    <span className="block text-xs text-fg-secondary">
                       {w.authors}
                     </span>
                     {w.seriesTitle && (
                       <span
-                        className={`block truncate text-xs ${inThis ? "text-fg-secondary" : "text-accent-gold"}`}
+                        className={`block text-xs ${inThis ? "text-fg-secondary" : "text-accent-gold"}`}
                       >
                         {inThis
                           ? "Already in this series"
