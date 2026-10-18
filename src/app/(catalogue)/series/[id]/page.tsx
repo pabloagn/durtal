@@ -12,7 +12,8 @@ import { getSeriesDetail, getSeriesSuggestions } from "@/lib/actions/series";
 import { getSeriesNextToRead } from "@/lib/actions/reading";
 import { Badge } from "@/components/ui/badge";
 import { DetailControls, DetailTitleRow } from "@/components/shared/detail-layout";
-import { SeriesActions } from "@/components/series/series-actions";
+import { AddSeriesBooksButton, SeriesActions } from "@/components/series/series-actions";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SeriesBooks, type SeriesBook } from "@/components/series/series-books";
 import { SeriesSuggestions } from "@/components/series/series-suggestions";
 import { STATUS_CONFIG } from "@/lib/constants/catalogue";
@@ -179,23 +180,21 @@ export default async function SeriesDetailPage({
         )}
       </header>
 
-      <section className="mb-8">
-        <SectionHeading title="Books" />
-        {count ? (
+      {/* Empty, one state with the page's one Add, as an empty collection (SLN-918) */}
+      {count ? (
+        <section className="mb-8">
+          <SectionHeading title="Books" />
           <SeriesBooks seriesId={s.id} books={books} />
-        ) : (
-          <div className="rounded-sm border border-dashed border-glass-border px-6 py-12 text-center">
-            <Layers
-              className="mx-auto mb-3 text-fg-muted"
-              size={24}
-              strokeWidth={1}
-            />
-            <p className="text-sm text-fg-secondary">
-              No books yet.
-            </p>
-          </div>
-        )}
-      </section>
+        </section>
+      ) : (
+        <EmptyState
+          icon={Layers}
+          heading="h2"
+          title="No books in this series yet"
+          description="Add its books to keep them in reading order, by their volume numbers."
+          action={<AddSeriesBooksButton />}
+        />
+      )}
 
       {suggestions.length > 0 && (
         <section className="mb-8">
