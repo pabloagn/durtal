@@ -12,6 +12,7 @@ const upload = vi.hoisted(() => ({ uploadMediaFile: vi.fn(), mediaResponseError:
 vi.mock("@/lib/utils/media-upload", () => upload);
 import { UploadZone } from "@/components/media/upload-zone";
 import { IMAGE_ACCEPT, imageFileRefusal, MAX_MEDIA_SIZE_BYTES } from "@/lib/validations/media-security";
+import { acquireSurface, captureFocusOrigin } from "@/lib/ui/surface-state";
 
 let root: Root;
 let host: HTMLElement;
@@ -98,5 +99,29 @@ describe("the media manager", () => {
   it("calls a painting's main image an image", () => {
     expect(painting).toContain('mainImage="image"');
     expect(source).toContain('{ ...tab, label: "Image" }');
+  });
+});
+
+// The review of #459 (findings/review-pr-459.md, notes 1 and 2)
+describe("after the review of the media manager", () => {
+  it("opens a dialog from what was just pressed, not from the layer that closed a moment before", () => {
+    const dialog = document.createElement("dialog");
+    const done = document.createElement("button");
+    const del = document.createElement("button");
+    dialog.append(done, del);
+    document.body.append(dialog);
+    done.focus();
+    // "Unsaved changes" opens from Done, and Keep editing closes it
+    const prompt = acquireSurface(() => {}, captureFocusOrigin());
+    prompt.release();
+    // Delete image pressed within the same frame, before the hand-over clears
+    del.focus();
+    expect(captureFocusOrigin()?.target).toBe(del);
+    dialog.remove();
+  });
+
+  it("names each poster thumbnail by its place and whether it is shown", () => {
+    const source = readFileSync(join(__dirname, "../../components/media/media-manager-dialog.tsx"), "utf8");
+    expect(source).toContain("${index + 1} of ${items.length}${item.isActive ? \", active\" : \"\"}");
   });
 });

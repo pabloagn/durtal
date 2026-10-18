@@ -480,7 +480,7 @@ export function MediaManagerDialog({
                       : "grid-cols-2 sm:grid-cols-3 max-sm:pointer-coarse:grid-cols-1"
                   }`}
                 >
-                  {items.map((item) => {
+                  {items.map((item, index) => {
                     const isSelected = selected.has(item.id);
                     const isSettingThisActive = settingActive === item.id;
                     const isDeletingThis = deletingSingle === item.id;
@@ -571,7 +571,12 @@ export function MediaManagerDialog({
                           aria-disabled={(!isGallery && (item.isActive || !!settingActive)) || undefined}
                           aria-busy={isSettingThisActive || undefined}
                           aria-pressed={isGallery ? item.id === detailsId : undefined}
-                          aria-label={isGallery ? `Image details: ${item.altText || item.originalFilename || "gallery image"}` : undefined}
+                          // Which one of how many, and whether it is the one shown: "Poster 2 of 3, active"
+                          aria-label={
+                            isGallery
+                              ? `Image details: ${item.altText || item.originalFilename || "gallery image"}`
+                              : `${noun.charAt(0).toUpperCase() + noun.slice(1)} ${index + 1} of ${items.length}${item.isActive ? ", active" : ""}`
+                          }
                           className={`relative w-full overflow-hidden rounded-sm border transition-all ${square && activeTab === "poster" ? "aspect-square bg-bg-tertiary" : ASPECT_CLASSES[activeTab]} ${
                             (item.isActive && !isGallery) || (isGallery && item.id === detailsId)
                               ? "ring-2 ring-accent-primary border-accent-primary/30"

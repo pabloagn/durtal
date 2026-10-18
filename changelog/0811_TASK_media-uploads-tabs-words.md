@@ -30,6 +30,17 @@ SLN-903 to SLN-906, from the media editor survey (`findings/`).
   images", sizes read "1200×1800" and the URL field's placeholder ends in an
   ellipsis.
 
+- From the review of #459 (`findings/review-pr-459.md`, notes 1 and 2):
+  - `surface-state.ts`: a closed surface hands its focus origin to one that
+    opens as it closes only until the focus next lands somewhere. Delete image
+    pressed within a frame of Keep editing (Firefox) opened its confirm with
+    Done as its origin, so Escape returned the focus to Done.
+  - Each poster thumbnail is named by its place and state: "Poster 2 of 3,
+    active".
+- The Images tabs keep #459's question: a change of tab with unsaved
+  adjustments asks first.
+
 ## Completion Notes
 - `media-upload-tabs-words.test.ts` covers the refusals, the accept list, the
-  keyboard button, the tab radio group and the painting wording.
+  keyboard button, the tab radio group, the painting wording, the focus
+  hand-over and the thumbnail names.
