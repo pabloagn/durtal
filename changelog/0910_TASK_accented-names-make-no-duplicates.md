@@ -27,6 +27,9 @@ only, so a name typed without its accents made a second record:
   (accents, case and punctuation aside), as the book form's author match does.
 - `search-picker.tsx`: the Create offer is hidden when a result has the
   typed name once both are normalized.
+- `taxonomy-assignments.tsx`, `TaxonomyItemSearch` (genres, subjects and the
+  other families on every record): the same, so "decadence" offers only
+  "Décadence" (from the review).
 - `places.ts`, `getOrCreatePlaceChain`: a place is reused when
   `search_normalize(name)` matches, with the same type and parent as before;
   where both spellings exist, the one as given comes first.

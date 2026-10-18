@@ -26,11 +26,11 @@ import { normalizeSearchText } from "@/lib/utils/search-text";
 
 type Data = Awaited<ReturnType<typeof getCollectionSelection>>;
 
-/** A work joining a collection, with its kind for the row's count line */
 /** One collection name: accents, case and punctuation aside */
 const sameName = (a: string, b: string) =>
   normalizeSearchText(a) === normalizeSearchText(b);
 
+/** A work joining a collection, with its kind for the row's count line */
 function workKind(data: Data, workId: string) {
   return { kind: data.works.find((w) => w.id === workId)?.kind ?? ("book" as const) };
 }
