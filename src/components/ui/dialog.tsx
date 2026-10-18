@@ -301,8 +301,8 @@ export function Dialog({
 }
 
 /**
- * The question before unsaved work is closed. Save is the main action (Enter)
- * when the form can save as it is; else Discard. Esc keeps editing, with the
+ * The question before unsaved work is closed. Keep editing receives focus;
+ * the reader must choose Save or Discard deliberately. Esc keeps editing, with the
  * draft and the focus as they were. It is its own layer: Enter and Esc here
  * never reach the form or the page under it.
  */
@@ -328,19 +328,18 @@ export function UnsavedChangesPrompt({ prompt }: { prompt: UnsavedPrompt }) {
         expandable={false}
       >
         <div className="flex flex-wrap justify-end gap-2">
-          <Button type="button" variant="ghost" className="mr-auto" onClick={prompt.keepEditing}>
+          <Button type="button" ref={main} variant="ghost" className="mr-auto" onClick={prompt.keepEditing}>
             Keep editing
           </Button>
           <Button
             type="button"
-            ref={prompt.canSave ? undefined : main}
             variant={prompt.canSave ? "secondary" : "primary"}
             onClick={prompt.discard}
           >
             Discard
           </Button>
           {prompt.canSave && (
-            <Button type="button" ref={main} variant="primary" onClick={prompt.save}>
+            <Button type="button" variant="primary" onClick={prompt.save}>
               Save
             </Button>
           )}

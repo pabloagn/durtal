@@ -5,9 +5,9 @@ import { WORK_AUTHOR_ROLES } from "@/lib/types";
 
 /*
  * Library statistics (SLN-742): the books he owns, counted the way the
- * library counts them. A book is owned when one of its editions has a copy
- * that is not deaccessioned (`ownedBookCondition`); copies count the same
- * way. Aggregate queries only, never one per book, every number cast to
+ * library counts them. A book is owned when it is accessioned and one of its
+ * editions has a copy that is not deaccessioned (`ownedWorkCondition`,
+ * SLN-886); copies count the same way. Aggregate queries only, never one per book, every number cast to
  * float8. Computed per request, never cached. Reading numbers stay on
  * /reading/stats (`src/lib/reading/stats.ts`).
  */
@@ -16,7 +16,7 @@ import { WORK_AUTHOR_ROLES } from "@/lib/types";
 const OWNED = sql`held as (
     select i.id, i.edition_id, i.location_id, i.format, i.acquisition_date, e.work_id
     from instances i join editions e on e.id = i.edition_id join works w on w.id = e.work_id
-    where w.kind = 'book' and i.status <> 'deaccessioned'),
+    where w.kind = 'book' and w.catalogue_status = 'accessioned' and i.status <> 'deaccessioned'),
   owned as (select distinct work_id as id from held),
   held_editions as (select distinct edition_id as id from held)`;
 
@@ -277,18 +277,20 @@ export interface Extremes {
 }
 
 export async function extremes(): Promise<Extremes> {
-  const pick = (value: SQL, order: SQL, where: SQL) => sql`(select row_to_json(x) from (
+  const pick = (value: SQL, order: SQL, where: SQL, join = sql``) => sql`(select row_to_json(x) from (
       select w.id::text as "workId", w.slug, w.title, ${value} as value,
         (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id and ${WRITER} order by wa.sort_order, a.name limit 1) as author,
         ${COVER(sql`w.id`)} as cover
-      from works w join owned o on o.id = w.id where ${where} order by ${order}, w.title, w.id limit 1) x)`;
-  const longestPages = sql`(select max(e.page_count) from held_editions h join editions e on e.id = h.id where e.work_id = w.id)`;
-  const [row] = await rows<{ [K in keyof Extremes]: (Omit<Extreme, "value"> & { value: number | string }) | null }>(sql`with ${OWNED}
+      from works w join owned o on o.id = w.id ${join} where ${where} order by ${order}, w.title, w.id limit 1) x)`;
+  const pageJoin = sql`join pages p on p.work_id = w.id`;
+  const [row] = await rows<{ [K in keyof Extremes]: (Omit<Extreme, "value"> & { value: number | string }) | null }>(sql`with ${OWNED},
+    pages as (select e.work_id, max(e.page_count) as pages
+      from held_editions h join editions e on e.id = h.id group by e.work_id)
     select
       ${pick(sql`w.original_year`, sql`w.original_year asc`, sql`w.original_year is not null`)} as oldest,
       ${pick(sql`w.original_year`, sql`w.original_year desc`, sql`w.original_year is not null`)} as newest,
-      ${pick(longestPages, sql`${longestPages} desc`, sql`${longestPages} > 0`)} as longest,
-      ${pick(longestPages, sql`${longestPages} asc`, sql`${longestPages} > 0`)} as shortest`);
+      ${pick(sql`p.pages`, sql`p.pages desc`, sql`p.pages > 0`, pageJoin)} as longest,
+      ${pick(sql`p.pages`, sql`p.pages asc`, sql`p.pages > 0`, pageJoin)} as shortest`);
   const parse = (x: (Omit<Extreme, "value"> & { value: number | string }) | null): Extreme | null => (x ? { ...x, value: Number(x.value) } : null);
   return { oldest: parse(row.oldest), newest: parse(row.newest), longest: parse(row.longest), shortest: parse(row.shortest) };
 }

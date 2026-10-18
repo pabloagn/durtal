@@ -32,9 +32,8 @@ function shown(el: Element): boolean {
 
 /**
  * What a control does, from the first word of its name ("Delete", "Remove",
- * "More"): rows of one list can hold different controls (the first has no
- * Move earlier, a book with an e-book has Read), so a place by count alone
- * can land on another control
+ * "More"): rows of one list can hold different controls (a book with an
+ * e-book has Read), so a place by count alone can land on another control
  */
 function verb(el: Element): string {
   return (el.getAttribute("aria-label") || el.textContent || "").trim().split(/\s+/)[0].toLowerCase();

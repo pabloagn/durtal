@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { FadeImage } from "@/components/shared/fade-image";
 import { BookText, Check, Headphones, MoreHorizontal, Pause, PenLine, Play, RotateCcw, Square, Tablet, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,10 +29,10 @@ const FORMAT_ICON: Record<ReadingFormat, typeof BookText> = { print: BookText, e
 const FORMAT_LABEL: Record<ReadingFormat, string> = { print: "Print", ebook: "eBook", audio: "Audiobook" };
 
 /** A read's rating: its own, else the book's when it is the book's only finished read */
-export function readRating(row: ReadingRow, rows: ReadingRow[], bookRating: number | null) {
+export function readRating(row: ReadingRow, rows: ReadingRow[] | number, bookRating: number | null) {
   if (row.reading.rating != null) return Number(row.reading.rating);
-  const finished = rows.filter((r) => r.reading.status === "finished");
-  return row.reading.status === "finished" && finished.length === 1 ? bookRating : null;
+  const finishedCount = typeof rows === "number" ? rows : rows.filter((r) => r.reading.status === "finished").length;
+  return row.reading.status === "finished" && finishedCount === 1 ? bookRating : null;
 }
 
 function editionLine(row: ReadingRow, data: ReadingPageData) {
@@ -173,7 +174,7 @@ function RowMenu({
   );
 }
 
-function HistoryRow({ row, previous }: { row: ReadingRow; previous: ReadingRow | null }) {
+function HistoryRow({ row, previous }: { row: ReadingRow; previous: { editionId: string | null } | null }) {
   const { data, open } = useReading();
   const [showReview, setShowReview] = useState(false);
   const r = row.reading;
@@ -184,8 +185,8 @@ function HistoryRow({ row, previous }: { row: ReadingRow; previous: ReadingRow |
           r.abandonReason ? ` · ${ABANDON_REASON_LABELS[r.abandonReason as AbandonReason]}` : ""
         }`
       : "Finished";
-  const editionChanged = previous && previous.reading.editionId !== r.editionId && r.editionId;
-  const rating = readRating(row, data.rows, data.bookRating);
+  const editionChanged = previous && previous.editionId !== r.editionId && r.editionId;
+  const rating = readRating(row, data.summary.finishedCount, data.bookRating);
   return (
     <li className="border-t border-glass-border py-3 first:border-t-0" data-reading="history">
       <div className="flex items-start gap-3">
@@ -231,18 +232,14 @@ function HistoryRow({ row, previous }: { row: ReadingRow; previous: ReadingRow |
 /** The book page's Reading section; nothing while the book has no readings */
 export function ReadingSection() {
   const { data, openRow, run } = useReading();
-  if (!data.rows.length) return null;
+  if (!data.summary.readingCount) return null;
   const history = data.rows.filter((r) => r !== openRow);
-  const rated = data.rows
-    .filter((r) => r.reading.status === "finished")
-    .map((r) => ({ rating: readRating(r, data.rows, data.bookRating), year: r.reading.finishedOn?.slice(0, 4) ?? null, ordinal: r.ordinal }))
-    .filter((r) => r.rating != null)
-    .sort((a, b) => a.ordinal - b.ordinal);
+  const rated = data.summary.ratings.preview;
   return (
-    <section className="mb-8 scroll-mt-16" id="reading">
+    <section className="mb-8 scroll-mt-16" id="reading" data-navigation-focus="" tabIndex={-1}>
       <SectionHeading
         title="Reading"
-        count={data.rows.length}
+        count={data.summary.readingCount}
         action={
           <Button variant="ghost" size="sm" onClick={() => run(openRow ? "progress" : "reread")} className="pointer-coarse:h-11">
             {openRow ? <PenLine aria-hidden strokeWidth={1.5} /> : <RotateCcw aria-hidden strokeWidth={1.5} />}
@@ -253,14 +250,15 @@ export function ReadingSection() {
       {openRow && <CurrentReading row={openRow} />}
       {history.length > 0 && (
         <ol className="max-w-2xl">
-          {history.map((row, i) => (
-            <HistoryRow key={row.reading.id} row={row} previous={history[i + 1] ?? null} />
+          {history.map((row) => (
+            <HistoryRow key={row.reading.id} row={row} previous={row.previousClosed} />
           ))}
         </ol>
       )}
-      {rated.length >= 2 && (
+      {data.history.hasMore && <Link href={`/reading/journal?work=${data.workId}`} className="mt-3 inline-flex text-xs text-fg-secondary hover:text-fg-primary touch-hit">View all {data.history.closedCount} past readings</Link>}
+      {data.summary.ratings.count >= 2 && (
         <p className="mt-3 text-xs text-fg-secondary">
-          Your ratings: {rated.map((r) => `${formatRating(r.rating)}${r.year ? ` (${r.year})` : ""}`).join(", ")}
+          {data.summary.ratings.hasMore ? "Latest ratings" : "Your ratings"}: {rated.map((r) => `${formatRating(r.rating)}${r.year ? ` (${r.year})` : ""}`).join(", ")}
         </p>
       )}
     </section>

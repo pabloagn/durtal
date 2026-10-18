@@ -55,7 +55,7 @@ export function PlacesShell({ venues, total }: PlacesShellProps) {
   if (total === 0) {
     return (
       <NoResults
-        noun="venues"
+        noun="places"
         search={searchParams.get("q")}
         hasFilters={PLACE_FILTER_PARAMS.some((key) => searchParams.get(key))}
         clearHref={clearedListHref("/places", searchParams)}

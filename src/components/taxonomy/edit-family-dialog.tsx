@@ -4,10 +4,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  getTaxonomyFamilyUsage,
-  updateTaxonomyFamily,
-} from "@/lib/actions/taxonomy-families";
+import { getTaxonomyFamilyUsage } from "@/lib/actions/taxonomy-families";
+import { updateTaxonomyFamily } from "@/lib/actions/taxonomy-client";
 import {
   FamilyForm,
   scopeKey,

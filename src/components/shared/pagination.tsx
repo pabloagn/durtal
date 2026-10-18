@@ -27,7 +27,16 @@ export interface PaginationData {
   perPage: number;
   total: number;
 }
+/** Nouns whose one is not the plural without its "s" */
+const ONE: Record<string, string> = { people: "person", series: "series", "quotes and notes": "quote or note" };
+
+/** The pager's noun for its total: "of 1 publisher", "of 2 publishers" */
+export function pagerNoun(noun: string, total: number) {
+  return total === 1 ? (ONE[noun] ?? noun.replace(/s$/, "")) : noun;
+}
+
 interface Props extends PaginationData {
+  /** The plural: "books", "people"; the pager says the one form for a total of 1 */
   noun: string;
   compact?: boolean;
   anchor?: string;
@@ -59,7 +68,7 @@ const STAND_IN: Record<string, string[]> = {
 };
 
 const control =
-  "inline-flex h-8 min-w-8 items-center justify-center gap-1 rounded-sm border border-glass-border px-2 text-xs text-fg-secondary hover:bg-bg-tertiary disabled:pointer-events-none disabled:opacity-35 pointer-coarse:h-11 pointer-coarse:min-w-11";
+  "inline-flex h-8 min-w-8 items-center justify-center gap-1 rounded-sm border border-glass-border px-2 text-xs text-fg-secondary hover:bg-bg-tertiary disabled:pointer-events-none disabled:opacity-60 pointer-coarse:h-11 pointer-coarse:min-w-11";
 
 export function Pagination({
   page,
@@ -257,7 +266,7 @@ export function Pagination({
         {total ? ((current - 1) * perPage + 1).toLocaleString("en-US") : 0}–
         {Math.min(current * perPage, total).toLocaleString("en-US")} of{" "}
         {total.toLocaleString("en-US")}
-        <span className={wordsClass}> {noun}</span>
+        <span className={wordsClass}> {pagerNoun(noun, total)}</span>
       </p>}
       {/* Tighter on a phone above the list, so a 17-page count, its arrows
           and Select share one row at 390 */}
@@ -371,9 +380,10 @@ export function Pagination({
 
 export function PaginatedSection({
   children,
-  noun,
+  noun, hideSingleSummary = false,
   ...pagination
-}: PaginationData & { children: React.ReactNode; noun: string }) {
+}: PaginationData & { children: React.ReactNode; noun: string; hideSingleSummary?: boolean }) {
+  if (hideSingleSummary && pagination.total <= pagination.perPage) return <>{children}</>;
   return (
     <>
       <Pagination {...pagination} noun={noun} compact />

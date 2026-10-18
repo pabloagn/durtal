@@ -25,7 +25,7 @@ export function SeriesFields({
   return (
     <section>
       <h3 className="type-group-title mb-3">Series</h3>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Select
           id={id}
           label="Series"

@@ -55,6 +55,7 @@ import {
   loadPerfumePerfumers,
   loadVariantsInheritance,
 } from "@/lib/catalogue/perfume-model";
+import { getTaxonomyFamilies, getTaxonomyItem, getTaxonomyItems } from "@/lib/actions/taxonomy-families";
 import { recordSourceObservation } from "@/lib/actions/catalogue-provenance";
 import {
   saveOrganization,
@@ -289,6 +290,37 @@ describe.skipIf(!url)("perfume relational model", () => {
       "does not belong",
     );
   });
+  it("counts note links once per fragrance across identity and formulation storage (SLN-886)", async () => {
+    await c`insert into perfume_notes(work_id,item_id,position) values
+      (${workId},${items.rose},'top'),(${workId},${items.rose},'heart'),(${workId},${items.wood},'base')`;
+    await c`insert into perfume_variant_overrides(variant_id,family_id) values
+      (${variantId},${family["perfume-notes"]}),(${variantId},${family["perfume-families"]})`;
+    await c`insert into perfume_variant_notes(variant_id,item_id,position) values (${variantId},${items.rose},'base')`;
+    await c`insert into custom_taxonomy_item_works(work_id,item_id) values (${workId},${items.amber})`;
+    await c`insert into perfume_variant_taxa(variant_id,item_id) values (${variantId},${items.amber})`;
+    const [otherVariant] = await testDb!.insert(schema.perfumeVariants)
+      .values(perfumeVariantSchema.parse({ workId: otherId })).returning();
+    await c`insert into perfume_variant_overrides(variant_id,family_id) values (${otherVariant.id},${family["perfume-notes"]})`;
+    await c`insert into perfume_variant_notes(variant_id,item_id,position) values (${otherVariant.id},${items.wood},'top')`;
+
+    const notes = await getTaxonomyItems("perfume-notes");
+    expect(notes.find((item) => item.id === items.rose)?.entityCount).toBe(1);
+    expect(notes.find((item) => item.id === items.wood)?.entityCount).toBe(2);
+    const rose = await getTaxonomyItem("perfume-notes", "rose");
+    expect(rose?.entityIds).toEqual([workId]);
+    expect(rose?.kindCounts).toEqual([{ kind: "perfume", count: 1 }]);
+    expect((await getTaxonomyItem("perfume-notes", "wood"))?.entityIds.sort()).toEqual([workId, otherId].sort());
+    const families = await getTaxonomyFamilies();
+    expect(families.find((item) => item.slug === "perfume-notes")?.entityCount).toBe(2);
+    expect(families.find((item) => item.slug === "perfume-families")?.entityCount).toBe(1);
+    expect((await getTaxonomyItems("perfume-families")).find((item) => item.id === items.amber)?.entityCount).toBe(1);
+
+    await c`delete from perfume_notes where work_id=${workId} and item_id=${items.rose}`;
+    expect((await getTaxonomyItems("perfume-notes")).find((item) => item.id === items.rose)?.entityCount).toBe(1);
+    await c`delete from perfume_variant_notes where variant_id=${variantId} and item_id=${items.rose}`;
+    expect((await getTaxonomyItems("perfume-notes")).find((item) => item.id === items.rose)?.entityCount).toBe(0);
+  });
+
   it("reads every formulation's perfumers and classification in two queries, the same as one by one", async () => {
     const perfumer = await createPerson({ name: "House perfumer", domains: ["perfume"] });
     const reformulator = await createPerson({ name: "Reformulator", domains: ["perfume"] });

@@ -156,3 +156,20 @@ describe("the toast lifecycle", () => {
     expect(said("polite")).toEqual(["Collection created"]);
   });
 });
+
+
+describe("save failure feedback", () => {
+  it.each(["Failed to fetch", "NetworkError when attempting to fetch resource.", "Load failed"])("normalizes %s", async (message) => {
+    act(() => void toast.error(message));
+    await wait(50);
+    expect(titles()).toEqual(["Not saved: Durtal could not be reached. Check the connection and try again."]);
+  });
+  it("removes only the successful action's previous failure", async () => {
+    const person = toast.forAction("person:one"), other = toast.forAction("person:two");
+    act(() => { person.error("Failed to fetch"); other.error("Another record still needs attention"); });
+    await wait(50);
+    act(() => void person.success("Person updated"));
+    await wait(450);
+    expect(titles().sort()).toEqual(["Another record still needs attention", "Person updated"]);
+  });
+});

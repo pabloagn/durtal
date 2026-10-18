@@ -241,7 +241,7 @@ export function InstanceEditDialog({
             variant="primary"
             size="sm"
             onClick={handleSubmit}
-            disabled={fieldsDisabled || !draft.locationId || (!!ebook && !choiceReady)}
+            disabled={loading || review.prepared !== null || review.phase === "unknown" || !draft.locationId || (!!ebook && !choiceReady)}
             busy={isPending || review.phase === "preparing"}
           >
             {ebook ? "Preview edits and Link" : "Save"}

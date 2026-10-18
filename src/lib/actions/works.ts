@@ -363,7 +363,7 @@ export async function findDuplicateWork(opts: {
       where: eq(editions.isbn13, opts.isbn13),
       with: { work: { with: duplicateWith } },
     });
-    if (byIsbn?.work) return byIsbn.work;
+    if (byIsbn?.work) return { ...byIsbn.work, matchedBy: "isbn" as const };
   }
 
   // Same title, ignoring accents, case and punctuation ("Agua Viva" and
@@ -392,7 +392,7 @@ export async function findDuplicateWork(opts: {
     }),
   );
 
-  return match ?? null;
+  return match ? { ...match, matchedBy: "title_author" as const } : null;
 }
 
 export async function createWork(input: CreateWorkInput) {
@@ -728,6 +728,13 @@ export async function getLibraryStats({ shelf = 8 }: { shelf?: number } = {}) {
     inArray(works.catalogueStatus, ["wanted", "shortlisted"]),
     shelf,
   );
+  // Limit the candidate IDs before loading authors, editions and media. The
+  // same total ordering is used below when the selected books are hydrated:
+  // equal ratings and timestamps resolve by ID, including at the shelf edge.
+  const topRatedOrder = [sql`${works.rating} desc nulls last`, desc(works.createdAt), asc(works.id)];
+  const topRatedIds = db.select({ id: works.id }).from(works)
+    .where(and(bookCondition, isNotNull(works.rating)))
+    .orderBy(...topRatedOrder).limit(shelf);
   const [
     [workCount],
     [editionCount],
@@ -752,8 +759,8 @@ export async function getLibraryStats({ shelf = 8 }: { shelf?: number } = {}) {
     }),
     // Top rated
     db.query.works.findMany({
-      where: and(bookCondition, isNotNull(works.rating)),
-      orderBy: [sql`${works.rating} desc nulls last`, desc(works.createdAt)],
+      where: inArray(works.id, topRatedIds),
+      orderBy: topRatedOrder,
       limit: shelf,
       extras: readingExtras,
       with: worksWith,

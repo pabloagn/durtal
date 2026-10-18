@@ -8,8 +8,10 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { RatingInput } from "@/components/shared/rating";
 import { TiptapEditor, type RichValue } from "@/components/shared/tiptap-editor";
-import { finishReading, getNextInSeries, reopenReading } from "@/lib/actions/reading";
+import { getNextInSeries } from "@/lib/actions/reading";
+import { finishReading, reopenReading } from "@/lib/actions/catalogue-client";
 import { finishAfterStart } from "@/lib/validations/reading";
+import { defaultFinishDate, readingDateError, readingDateLimit } from "@/lib/reading/dates";
 import { formatRating } from "@/lib/utils/rating";
 import { browserZone, showError, todayReadingDay, undoToast } from "../reading-client";
 import type { ReadingDialogProps } from "../reading-provider";
@@ -31,13 +33,14 @@ export function finishDateError(
 export function FinishReadingDialog({ data, row, request, home, onClose, changed }: ReadingDialogProps) {
   const r = row!.reading;
   const switchId = useId();
-  const [finish, setFinish] = useState<ReadingDate>(() => ({ date: request.finishedOn ?? todayReadingDay(data.dayStartHour), precision: "day" }));
+  const [finish, setFinish] = useState<ReadingDate>(() => ({ date: request.finishedOn ?? defaultFinishDate(todayReadingDay(data.dayStartHour), r.startedOn), precision: "day" }));
   const [rating, setRating] = useState<number | null>(r.rating != null ? Number(r.rating) : null);
   const [setBook, setSetBook] = useState(true);
   const [review, setReview] = useState<RichValue | null>(r.reviewHtml ? { html: r.reviewHtml, json: r.reviewJson ?? null } : null);
   const [saving, setSaving] = useState(false);
   const [next, setNext] = useState<NextVolume>(null);
-  const error = finishDateError(r, finish);
+  const maxDate = readingDateLimit(browserZone(), r.startedOn);
+  const error = readingDateError(finish.date, finish.precision, maxDate) ?? finishDateError(r, finish);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -107,7 +110,7 @@ export function FinishReadingDialog({ data, row, request, home, onClose, changed
       className="max-w-lg"
     >
       <form onSubmit={save} className="space-y-4">
-        <ReadingDateField label="Finished on" value={finish} onChange={setFinish} />
+        <ReadingDateField label="Finished on" value={finish} onChange={setFinish} max={maxDate} />
         {error && (
           <p className="text-xs text-accent-red-text" role="alert">
             {error}

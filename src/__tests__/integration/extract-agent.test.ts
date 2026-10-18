@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -43,6 +43,9 @@ import { applyOutletSeed } from "@/lib/enrichment/outlet-registry";
 import { applyVocabulary } from "@/lib/enrichment/loader";
 import { enqueueEnrichmentJob } from "@/lib/enrichment/jobs";
 import { storeEvidenceText } from "@/lib/enrichment/evidence-store";
+import { evidenceTextKey } from "@/lib/s3/keys";
+import { sourcePayloadHash } from "@/lib/publishers/enrichment";
+import { assertionScopeSchema, type AssertionScopeInput } from "@/lib/enrichment/assertion-scope";
 import { SourceCache } from "@/lib/enrichment/source-cache";
 import { vocabularySeedSchema } from "@/lib/validations/enrichment";
 import { GOLD_SET_WORK_IDS } from "@/lib/enrichment/gold-set";
@@ -145,7 +148,7 @@ describe.skipIf(!url)("the extract stage", () => {
     await enqueueEnrichmentJob({ workId: w.id, kind: "extract", reason: "research" }, conn);
     return w as { id: string; slug: string };
   };
-  const store = (workId: string, outletKey: string, text: string) =>
+  const store = (workId: string, outletKey: string, text: string, scope: AssertionScopeInput | null = assertionScopeSchema.parse({ version: 1, kind: "work", identityKey: `urn:fixture:baseline:${workId}`, languages: ["en"], textKind: "original" })) =>
     storeEvidenceText({
       database: conn,
       owner: { kind: "book", workId },
@@ -157,6 +160,7 @@ describe.skipIf(!url)("the extract stage", () => {
       query: "Kaputt Curzio Malaparte review",
       runId: randomUUID(),
       objects,
+      assertionScope: scope ?? undefined,
     });
   const claims = (workId: string) =>
     c`select d.key as dimension, t.key as term, c.status, c.decision_reason as reason, c.confidence::float8 as confidence, c.note,
@@ -339,6 +343,48 @@ describe.skipIf(!url)("the extract stage", () => {
     await enqueueEnrichmentJob({ workId: w.id, kind: "extract", reason: "manual" }, conn);
     await run({ only: [w.slug] });
     expect(await extractions(w.id)).toHaveLength(1);
+  });
+
+  it("rechecks an old verification body before any model call or claim", async () => {
+    const w = await book();
+    const text = "Kaputt by Curzio Malaparte. Human verification failed.";
+    const textSha256 = createHash("sha256").update(text).digest("hex");
+    const textKey = evidenceTextKey(textSha256);
+    bucket[textKey] = Buffer.from(text);
+    // Historical payload, before source-quality metadata existed.
+    const payload = { kind: "evidence_text", textSha256, textKey, textChars: text.length };
+    await c`insert into source_records (entity_kind, work_id, provider, url, retrieved_at, payload, payload_hash)
+      values ('book', ${w.id}, 'nyrb', 'https://nyrb.example/legacy-verification', now(), ${JSON.stringify(payload)}::jsonb, ${sourcePayloadHash(payload)})`;
+    const report = await run();
+    expect(sent).toHaveLength(0);
+    expect(await claims(w.id)).toEqual([]);
+    expect(report.jobs[0].outcome).toMatchObject({ calls: 0, skipped: ["source quality: blocked (interstitial)"] });
+  });
+
+  it("does not pool independent reviews of different translations into one Work claim", async () => {
+    const w = await book();
+    const first = assertionScopeSchema.parse({ version: 1, kind: "text", identityKey: "urn:fixture:translation-one", languages: ["en"], textKind: "translation" });
+    const second = assertionScopeSchema.parse({ ...first, identityKey: "urn:fixture:translation-two" });
+    await store(w.id, "nyrb", review(DARK), first);
+    await store(w.id, "lrb", review(DARK_TOO), second);
+    answer = (request) => ({ values: { tone: [{ term: "dark", excerpt: request.messages[0].content.includes(DARK) ? DARK : DARK_TOO }] } });
+    const report = await run();
+    expect(report.jobs[0].outcome).toMatchObject({ calls: 2, proposed: 0, rejectedR6: 2 });
+    const rows = await c`select scope->>'identityKey' as version, status, assessment->>'knowledge' as knowledge from enrichment_claims where work_id=${w.id} order by version`;
+    expect(rows).toEqual([
+      { version: "urn:fixture:translation-one", status: "rejected", knowledge: "partially_assessed" },
+      { version: "urn:fixture:translation-two", status: "rejected", knowledge: "partially_assessed" },
+    ]);
+    expect(sent.every((request) => request.messages[0].content.includes("Assertion scope:"))).toBe(true);
+  });
+
+  it("keeps a source with unidentified version local instead of assigning the catalogue language", async () => {
+    const w = await book();
+    const doc = await store(w.id, "nyrb", review(SLOW), null);
+    answer = () => ({ values: { pace: [{ term: "slow", excerpt: SLOW }] } });
+    await run();
+    const [claim] = await c`select scope from enrichment_claims where work_id=${w.id}`;
+    expect(claim.scope).toMatchObject({ kind: "text", unresolvedSourceId: doc.id, languages: [], identityKey: null });
   });
 
   it("fails the job, with no row, when the stored text cannot be read; a hash mismatch only skips its document", async () => {

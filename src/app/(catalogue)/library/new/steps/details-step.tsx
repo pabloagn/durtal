@@ -27,6 +27,7 @@ export function DetailsStep({
   addingEdition,
   fastTrackSaving,
   fastTrackError,
+  errors,
   onFastTrack,
   onBack,
   onNext,
@@ -39,6 +40,7 @@ export function DetailsStep({
   addingEdition: boolean;
   fastTrackSaving: boolean;
   fastTrackError: string | null;
+  errors: { title?: string; authorName?: string };
   onFastTrack: () => void;
   onBack: () => void;
   onNext: () => void;
@@ -46,17 +48,15 @@ export function DetailsStep({
 }) {
   const { recommenderIds } = work;
   return (
-    <fieldset
-      disabled={fastTrackSaving}
-      className="min-w-0 space-y-6"
-      aria-busy={fastTrackSaving}
-    >
+    <div className="min-w-0 space-y-6" aria-busy={fastTrackSaving}>
+    <fieldset disabled={fastTrackSaving} className="min-w-0">
       <div className="space-y-4">
         <TitleInput
           label="Title"
             appearance="open"
             className="font-medium text-lg"
           id="title"
+          error={errors.title}
           value={work.title}
           onValueChange={(title) => onChange({ title })}
           language={work.originalLanguage}
@@ -67,6 +67,7 @@ export function DetailsStep({
         <AuthorNameInput
           label="Author"
           id="author"
+          error={errors.authorName}
           value={work.authorName}
           onValueChange={(authorName) => onChange({ authorName })}
           placeholder="Mikhail Bulgakov"
@@ -203,12 +204,14 @@ export function DetailsStep({
         </div>
       </div>
 
+    </fieldset>
+      {(!work.title.trim() || !work.authorName.trim()) && <p className="text-xs text-fg-secondary">Add a title and author to use Fast Track or continue.</p>}
       {fastTrackError && (
         <p role="alert" className="text-sm text-accent-red-text">
           {fastTrackError}
         </p>
       )}
-      <StepFooter onBack={onBack} cancel={cancel}>
+      <StepFooter onBack={() => { if (!fastTrackSaving) onBack(); }} cancel={cancel}>
         {!addingEdition && (
           <Button
             type="button"
@@ -216,7 +219,7 @@ export function DetailsStep({
             data-shortcut="next"
             onClick={onFastTrack}
             busy={fastTrackSaving}
-            disabled={!work.title.trim() || !work.authorName.trim()}
+            
             data-tooltip="Save now, skipping copies and categorization"
             data-tooltip-keys="enter"
           >
@@ -226,11 +229,12 @@ export function DetailsStep({
         <Button
           data-shortcut={addingEdition ? "next" : undefined}
           onClick={onNext}
+          busy={fastTrackSaving}
         >
           Edition details
           <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
         </Button>
       </StepFooter>
-    </fieldset>
+    </div>
   );
 }

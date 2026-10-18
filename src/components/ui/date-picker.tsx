@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { DayPicker } from "react-day-picker";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
-import { isComposing } from "@/lib/shortcuts/shortcuts";
+import { acquireSurface } from "@/lib/ui/surface-state";
 
 interface DatePickerProps {
   label?: string;
@@ -12,6 +12,7 @@ interface DatePickerProps {
   error?: string;
   required?: boolean;
   min?: string;
+  max?: string;
   placeholder?: string;
   id?: string;
 }
@@ -23,14 +24,21 @@ export function DatePicker({
   error,
   required,
   min,
+  max,
   placeholder = "YYYY-MM-DD",
   id,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeCalendar = useCallback(() => {
+    setOpen(false);
+    triggerRef.current?.focus({ preventScroll: true });
+  }, []);
 
   const selected = value ? new Date(value + "T00:00:00") : undefined;
   const minDate = min ? new Date(min + "T00:00:00") : undefined;
+  const maxDate = max ? new Date(max + "T00:00:00") : undefined;
 
   const handleSelect = useCallback(
     (day: Date | undefined) => {
@@ -42,9 +50,9 @@ export function DatePicker({
         const d = String(day.getDate()).padStart(2, "0");
         onChange?.(`${y}-${m}-${d}`);
       }
-      setOpen(false);
+      closeCalendar();
     },
-    [onChange],
+    [onChange, closeCalendar],
   );
 
   // Close on outside click
@@ -62,18 +70,13 @@ export function DatePicker({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
-  // Close on Escape
-  useEffect(() => {
+  // A calendar is a child surface, even inside a dialog with its own guard.
+  // The shared Escape owner closes this layer before it can reach the parent.
+  useLayoutEffect(() => {
     if (!open) return;
-    function handleKey(e: KeyboardEvent) {
-      if (e.key !== "Escape" || isComposing(e)) return;
-      // The calendar closes; the dialog around it stays (one layer per Esc)
-      e.preventDefault();
-      setOpen(false);
-    }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [open]);
+    const lease = acquireSurface(closeCalendar);
+    return () => lease.release();
+  }, [open, closeCalendar]);
 
   return (
     <div className="space-y-1.5" ref={containerRef}>
@@ -90,11 +93,12 @@ export function DatePicker({
       <div className="relative">
         <button
           type="button"
+          ref={triggerRef}
           id={id}
           // The chosen day is a draft's state (SLN-631): a dialog asks before losing it
           data-draft-value={value ?? ""}
-          onClick={() => setOpen((prev) => !prev)}
-          className={`flex h-8 w-full items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-left text-sm transition-all duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus pointer-coarse:h-11 ${
+          onClick={() => open ? closeCalendar() : setOpen(true)}
+          className={`flex h-8 w-full items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-left text-xs transition-all duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus pointer-coarse:h-11 pointer-coarse:text-sm ${
             error ? "border-accent-red" : ""
           } ${open ? "border-accent-primary" : ""}`}
         >
@@ -114,7 +118,7 @@ export function DatePicker({
               mode="single"
               selected={selected}
               onSelect={handleSelect}
-              disabled={minDate ? { before: minDate } : undefined}
+              disabled={[...(minDate ? [{ before: minDate }] : []), ...(maxDate ? [{ after: maxDate }] : [])]}
               defaultMonth={selected ?? new Date()}
               showOutsideDays
               classNames={{

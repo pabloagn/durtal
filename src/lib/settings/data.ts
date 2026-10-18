@@ -14,6 +14,7 @@ import {
   works,
 } from "@/lib/db/schema";
 import { bookCondition } from "@/lib/catalogue/book-boundary";
+import { publisherCondition } from "@/lib/catalogue/publisher-boundary";
 import { PLACEHOLDER_SOURCE } from "@/lib/match/identify";
 import { getSeriesSuggestions } from "@/lib/actions/series";
 import { resultRows } from "@/lib/harmonization/store";
@@ -35,7 +36,8 @@ export async function catalogueCounts(): Promise<CatalogueCount[]> {
     total(db.select({ n: count() }).from(instances)),
     // Every person, in every collection (SLN-419)
     total(db.select({ n: count() }).from(authors)),
-    total(db.select({ n: count() }).from(publishingHouses)),
+    // The houses /publishers lists, not every organization (SLN-886)
+    total(db.select({ n: count() }).from(publishingHouses).where(publisherCondition)),
     total(db.select({ n: count() }).from(series)),
     total(db.select({ n: count() }).from(collections)),
     total(db.select({ n: count() }).from(recommenders)),

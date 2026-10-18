@@ -1,4 +1,5 @@
 "use server";
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 
 import { recordWorkChanges, recordWorkEvents, workSnapshot } from "@/lib/activity/work-changes";
 import { randomUUID } from "node:crypto";
@@ -115,14 +116,14 @@ function changedHoldings() {
 }
 function fresh(expected: string) {
   return (actual: string | null) => {
-    if (actual === null) throw new Error("Record not found");
-    if (actual !== expected) throw new Error(STALE_RECORD);
+    if (actual === null) throw new ExpectedActionError("Record not found");
+    if (actual !== expected) throw new ExpectedActionError(STALE_RECORD);
   };
 }
 async function perfumeCreditRoles(credits: { roleId: string }[]) {
   const roles = new Set((await getCreditRoles("perfume")).map((r) => r.id));
   if (credits.some((credit) => !roles.has(credit.roleId)))
-    throw new Error("Contribution role does not apply to perfumes");
+    throw new ExpectedActionError("Contribution role does not apply to perfumes");
 }
 async function notesFamilyId() {
   const family = await db.query.taxonomyFamilies.findFirst({
@@ -584,7 +585,7 @@ export async function createPerfume(input: CreatePerfumeInput) {
   const v = createPerfumeSchema.parse(input);
   await perfumeCreditRoles(v.credits);
   if (v.credits.some((credit) => credit.id))
-    throw new Error("A new perfume has no existing credits");
+    throw new ExpectedActionError("A new perfume has no existing credits");
   const id = randomUUID();
   const release = newDate(v.releaseDate),
     discontinued = newDate(v.discontinuedDate);
@@ -734,7 +735,7 @@ export async function deletePerfume(id: string) {
   const details = await db.query.perfumeDetails.findFirst({
     where: eq(perfumeDetails.workId, id),
   });
-  if (!details) throw new Error("Perfume not found");
+  if (!details) throw new ExpectedActionError("Perfume not found");
   const [variantDates, stored] = await Promise.all([
     db
       .select({
@@ -810,7 +811,7 @@ function familyItems(
   notesFamily: string,
 ) {
   if (entries.some((e) => e.familyId === notesFamily))
-    throw new Error("Record formulation notes in the note pyramid");
+    throw new ExpectedActionError("Record formulation notes in the note pyramid");
   return entries
     .filter((e) => e.itemIds.length)
     .map((e) =>
@@ -904,7 +905,7 @@ export async function updatePerfumeVariant(
         : variant.formulationLabel,
   };
   if (identity.concentration === "other" && !identity.concentrationLabel)
-    throw new Error("Describe the other concentration");
+    throw new ExpectedActionError("Describe the other concentration");
   const notesFamily = await notesFamilyId();
   const checks = v.classification
     ? familyItems(v.classification, notesFamily)
@@ -1027,7 +1028,7 @@ export async function deletePerfumeVariant(id: string) {
   const variant = await db.query.perfumeVariants.findFirst({
     where: eq(perfumeVariants.id, id),
   });
-  if (!variant) throw new Error("Formulation not found");
+  if (!variant) throw new ExpectedActionError("Formulation not found");
   // Read the file keys first: the cascade removes the media rows that name them.
   const stored = await ownedMediaObjects("perfume_variant", id);
   await write((d) => [
@@ -1208,7 +1209,7 @@ export async function updatePerfumeBottle(
 export async function deletePerfumeBottle(id: string) {
   z.uuid().parse(id);
   const bottle = await getPerfumeBottle(id);
-  if (!bottle) throw new Error("Container not found");
+  if (!bottle) throw new ExpectedActionError("Container not found");
   await write((d) => [
     d.delete(perfumeBottles).where(eq(perfumeBottles.id, id)),
     ...releaseDates(d, [bottle.acquisitionDateId, bottle.dispositionDateId]),

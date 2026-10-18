@@ -7,7 +7,8 @@ import { usePreference } from "@/lib/hooks/use-preference";
 import { READING_HOME_KEY } from "@/lib/preferences";
 import { isUuid } from "@/lib/utils/uuid";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
-import { getReadingDialogData, pauseReading, resumeReading } from "@/lib/actions/reading";
+import { getReadingDialogData } from "@/lib/actions/reading";
+import { pauseReading, resumeReading } from "@/lib/actions/catalogue-client";
 import { showError, type ReadingPageData } from "./reading-client";
 import type { DialogRequest, ReadingDialog, ReadingDialogProps, StopRequest } from "./reading-dialog-types";
 import type { ReadingDialogHostProps } from "./reading-dialog-host";
@@ -89,8 +90,8 @@ export function ReadingDialogsProvider({ children }: { children: ReactNode }) {
     try {
       const [module, data] = await Promise.all([
         loadDialogHost(),
-        "request" in pending.intent ? getReadingDialogData(pending.intent.request.workId, pending.home)
-          : "continuation" in pending.intent ? getReadingDialogData(pending.intent.workId, pending.home) : Promise.resolve(null),
+        "request" in pending.intent ? getReadingDialogData(pending.intent.request.workId, pending.home, "readingId" in pending.intent.request ? pending.intent.request.readingId ?? null : null)
+          : "continuation" in pending.intent ? getReadingDialogData(pending.intent.workId, pending.home, pending.intent.continuation.readingId ?? null) : Promise.resolve(null),
       ]);
       if (!live.current || generation.current !== pending.generation) return;
       let request: DialogRequest | null = "continuation" in pending.intent ? pending.intent.continuation : null;
@@ -151,7 +152,7 @@ export function ReadingDialogsProvider({ children }: { children: ReactNode }) {
     router.refresh(); triggerActivityRefresh();
     const before = current.current;
     if (!before?.data || before.generation !== expected) return;
-    void getReadingDialogData(before.data.workId, before.home).then((data) => {
+    void getReadingDialogData(before.data.workId, before.home, before.request?.readingId ?? null).then((data) => {
       const latest = current.current;
       if (live.current && latest?.generation === expected && generation.current === expected) commit({ ...latest, data });
     }).catch((error: unknown) => {

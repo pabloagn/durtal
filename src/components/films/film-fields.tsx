@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
 import { useCallback } from "react";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import {
@@ -227,18 +228,13 @@ function CreditRow({
           {name}
         </span>
         {roles.length > 1 && (
-          <select
-            aria-label={`Role of ${name}`}
+          <Select
+            compact
+            ariaLabel={`Role of ${name}`}
             value={entry.roleId}
+            options={roles.map((role) => ({ value: role, label: FILM_CREDIT_ROLES[role].one }))}
             onChange={(e) => onChange({ ...entry, roleId: e.target.value as FilmCreditRole })}
-            className="h-6 shrink-0 rounded-sm border border-glass-border bg-transparent px-1 text-xs text-fg-secondary hover:border-fg-muted focus:border-accent-primary focus:outline-none pointer-coarse:h-11"
-          >
-            {roles.map((role) => (
-              <option key={role} value={role}>
-                {FILM_CREDIT_ROLES[role].one}
-              </option>
-            ))}
-          </select>
+          />
         )}
         <CapAligned height={24} coarseHeight={44}>
           <div className="flex items-center">

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { logProgress, stopTimer, undoProgress, undoStopTimer, updateReading } from "@/lib/actions/reading";
+import { logProgress, stopTimer, undoProgress, undoStopTimer, updateReading } from "@/lib/actions/catalogue-client";
 import { toast } from "@/lib/notifications/toast";
 import { durationWords, stopTimes, TIMER_GONE } from "@/lib/reading/timer";
 import { useOptionalTimer } from "../timer-provider";
@@ -16,6 +16,7 @@ import { formatOfCopy, type ReadingFormat } from "@/lib/reading/constants";
 import { parseProgressInput, percentOf, type ProgressInput } from "@/lib/reading/positions";
 import { logPreview, moveBackText, type SessionEdition } from "@/lib/reading/log-preview";
 import { browserZone, showError, todayReadingDay, undoToast, useCoarsePointer } from "../reading-client";
+import { readingDateError, readingDateLimit } from "@/lib/reading/dates";
 import type { ReadingDialogProps } from "../reading-provider";
 import { DialogFooter } from "./fields";
 import { readNumber } from "./start-reading-dialog";
@@ -77,6 +78,8 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
   const [segment, setSegment] = useState<Segment>(draft?.segment ?? (r.unit === "minutes" ? "time" : r.unit === "percent" ? "percent" : "page"));
   const [fields, setFields] = useState(draft?.fields ?? { page: "", percent: "", hours: "", minutes: "", chapter: "" });
   const [readOn, setReadOn] = useState(() => draft?.readOn ?? todayReadingDay(data.dayStartHour));
+  const maxDate = readingDateLimit(browserZone());
+  const dateError = stopping ? null : readingDateError(readOn, "day", maxDate);
   const [minutesRead, setMinutesRead] = useState(draft?.minutesRead ?? "");
   const [note, setNote] = useState("");
   const [showNote, setShowNote] = useState(false);
@@ -88,14 +91,12 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
   const others = data.editions.filter((e) => e.id !== r.editionId);
   const otherEdition = others.find((e) => e.id === otherId) ?? null;
   const otherFormat: ReadingFormat | null = otherEdition ? formatOfCopy(otherEdition.copies[0]?.format) : null;
-  const otherMinutes = otherEdition
-    ? (data.rows.find((x) => x.reading.editionId === otherEdition.id && x.reading.totalMinutes)?.reading.totalMinutes ?? null)
-    : null;
   const session: SessionEdition | null = otherEdition
     ? {
         id: otherEdition.id,
         pageCount: otherEdition.pageCount,
-        totalMinutes: otherMinutes,
+        // The service uses this reading's audio length for every session.
+        totalMinutes: r.totalMinutes,
         unit: otherFormat === "audio" ? "minutes" : otherEdition.pageCount ? "pages" : "percent",
       }
     : null;
@@ -119,7 +120,11 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
                 ? percentOf({ minutes: input.minutes }, { totalPages: null, totalMinutes: session.totalMinutes })
                 : null,
         };
-  const error = !coarse && parsed && !parsed.ok ? parsed.error : null;
+  const error = !coarse && parsed && !parsed.ok ? parsed.error
+    : preview?.sessionMinutes !== undefined
+      ? stopping ? "The timer records your time; enter a page, a percent or a chapter"
+        : preview.sessionMinutes < 1 || preview.sessionMinutes > 1440 ? "Enter a session time between 1 minute and 24 hours" : null
+      : null;
 
   /** +5 pages (or +5% or +15 min) from where the reading is */
   function quick(step: number) {
@@ -187,8 +192,9 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (error) return;
     if (stopping) return stop();
-    if (!preview) return;
+    if (!preview || dateError) return;
     setSaving(true);
     try {
       let fingerprint = row!.fingerprint;
@@ -202,7 +208,7 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
         fingerprint,
         ...preview.send,
         readOn,
-        ...(duration ? { durationSeconds: Math.round(duration * 60) } : {}),
+        ...(preview.sessionMinutes === undefined && duration ? { durationSeconds: Math.round(duration * 60) } : {}),
         ...(note.trim() ? { note: note.trim() } : {}),
         ...(preview.behind ? { goingBack } : {}),
         ...(session ? { editionId: session.id, format: otherFormat ?? r.format } : {}),
@@ -266,6 +272,7 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
         <p className="min-h-4 text-xs text-fg-secondary" aria-live="polite" data-live-line>
           {preview?.line ?? ""}
         </p>
+        {coarse && error && <p role="alert" className="text-xs text-accent-red-text">{error}</p>}
         <div className="flex flex-wrap gap-2">
           {steps.map((n) => (
             <Button key={n} type="button" size="sm" variant="ghost" onClick={() => quick(n)} className="pointer-coarse:h-11">
@@ -294,8 +301,8 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
         )}
         {!stopping && (
           <div className="grid grid-cols-2 gap-3">
-            <DatePicker label="Date" value={readOn} onChange={(d) => d && setReadOn(d)} />
-            <Input label="Minutes read (optional)" inputMode="numeric" value={minutesRead} onChange={(e) => setMinutesRead(e.target.value)} />
+            <DatePicker label="Date" value={readOn} onChange={(d) => d && setReadOn(d)} max={maxDate} error={dateError ?? undefined} />
+            <Input label="Minutes read (optional)" inputMode="numeric" value={preview?.sessionMinutes === undefined ? minutesRead : String(preview.sessionMinutes)} readOnly={preview?.sessionMinutes !== undefined} onChange={(e) => setMinutesRead(e.target.value)} />
           </div>
         )}
         {showNote ? (
@@ -343,7 +350,7 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
               Read in another edition or format
             </button>
           ))}
-        <DialogFooter onCancel={onClose} saving={saving} saveLabel={stopping ? "Stop timer" : "Log"} disabled={stopping ? !!error : !preview || !!error} />
+        <DialogFooter onCancel={onClose} saving={saving} saveLabel={stopping ? "Stop timer" : "Log"} disabled={stopping ? !!error : !preview || !!error || !!dateError} />
       </form>
     </Dialog>
   );

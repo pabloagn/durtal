@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { clearListSearch, listSearchField } from "@/lib/ui/list-search";
 import { FileQuestion, SearchX } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { buttonClass } from "@/components/ui/button";
@@ -39,7 +40,12 @@ export function NoResults({ noun, search, hasFilters, clearHref, onClear }: NoRe
       action={
         // A link styled as a button (a button inside a link is two controls),
         // in the secondary look: a ghost link here read as plain text (task 0611)
-        <Link href={clearHref} onClick={onClear} className={buttonClass("secondary")}>
+        <Link href={clearHref} onClick={(event) => {
+          onClear?.(event);
+          if (!search || event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+          const field = listSearchField(event.currentTarget.closest("main") ?? document);
+          if (field) clearListSearch(field, false);
+        }} className={buttonClass("secondary")}>
           {clearLabel}
         </Link>
       }

@@ -17,9 +17,11 @@ describe("text that wraps at its natural breaks on a phone", () => {
 
   it("puts a book's author on its own line in the palette on a phone, never cut off", () => {
     // At 390px it read "The Cathedral · Joris-Karl Hu…"
+    // Since pass 5 (SLN-849) every palette row wraps in full at every width
     const palette = read("components/layout/command-palette.tsx");
-    expect(palette).toContain('<span className="min-w-0 flex-1 truncate max-sm:whitespace-normal max-sm:break-words">');
+    expect(palette).toContain('const LABEL_CLASS = "min-w-0 flex-1 break-words";');
+    expect(palette).not.toMatch(/LABEL_CLASS = "[^"]*truncate/);
     expect(palette).toContain('<span className="text-fg-secondary max-sm:block">');
-    expect(palette).toContain('<span className="max-sm:hidden">{"  ·  "}</span>');
+    expect(palette).toContain('<span className="max-sm:hidden">{"\\u00a0· "}</span>');
   });
 });

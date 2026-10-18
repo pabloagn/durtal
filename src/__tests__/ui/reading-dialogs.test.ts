@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { readingPageFixture } from "../fixtures/reading-page";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -122,7 +123,6 @@ const data = {
 const opened: unknown[] = [];
 function props(over: Partial<ReadingDialogProps> = {}): ReadingDialogProps {
   return {
-    data: data as never,
     row: row as never,
     request: { kind: "progress", readingId: "r1" },
     home: "ams",
@@ -131,6 +131,7 @@ function props(over: Partial<ReadingDialogProps> = {}): ReadingDialogProps {
     changed: () => {},
     open: (request) => opened.push(request),
     ...over,
+    data: readingPageFixture(over.data ?? data),
   };
 }
 
@@ -158,6 +159,62 @@ const choose = (label: string, option: string) => {
 };
 
 describe("Log progress", () => {
+  it.each([false, true])("keeps a time-only duration read-only while rejecting a future date (touch: %s)", async (touch) => {
+    coarse = touch;
+    act(() => root.render(createElement(LogProgressDialog, props({
+      row: { ...row, reading: { ...reading, totalPages: 240, currentPage: 60, currentPercent: 25 } } as never,
+      request: {
+        kind: "progress", readingId: "r1",
+        draft: { segment: "page", fields: { page: "", percent: "", hours: "", minutes: "", chapter: "" }, readOn: "2099-01-01", minutesRead: "15", otherId: "" },
+      },
+    }))));
+    if (touch) {
+      const time = [...host.ownerDocument.querySelectorAll('[role="radio"], [role="tab"], button')].find((button) => button.textContent === "Time") as HTMLElement;
+      act(() => time.click());
+      type(field("Hours"), "3");
+      type(field("Minutes"), "12");
+    } else type(field("Where are you?"), "3:12");
+    expect(field("Minutes read (optional)").value).toBe("192");
+    expect(field("Minutes read (optional)").readOnly).toBe(true);
+    expect(text()).toContain("3 h 12 min read · stays at p. 60 · 25%");
+    expect(text()).toContain("Choose today or an earlier date");
+    const log = [...host.querySelectorAll<HTMLButtonElement>('button[type="submit"]')].find(button => button.textContent === "Log")!;
+    expect(log.disabled).toBe(true);
+    await submit();
+    expect(actions.logProgress).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("explains and submits time without moving a page-tracked place (touch: %s)", async (touch) => {
+    coarse = touch;
+    actions.logProgress.mockResolvedValue({ reading: { fingerprint: "b".repeat(32) }, undo: { sessionId: "s1", restoreEnd: null, repause: false }, reachedEnd: false });
+    act(() => root.render(createElement(LogProgressDialog, props({ row: { ...row, reading: { ...reading, totalPages: 240, currentPage: 60, currentPercent: 25 } } as never }))));
+    // An earlier optional duration must not override the time now being entered.
+    type(field("Minutes read (optional)"), "15");
+    if (touch) {
+      const time = [...host.ownerDocument.querySelectorAll('[role="radio"], [role="tab"], button')].find((b) => b.textContent === "Time") as HTMLElement;
+      act(() => time.click());
+      type(field("Hours"), "3");
+      type(field("Minutes"), "12");
+    } else type(field("Where are you?"), "3:12");
+    expect(text()).toContain("3 h 12 min read · stays at p. 60 · 25%");
+    expect(field("Minutes read (optional)").value).toBe("192");
+    expect(field("Minutes read (optional)").readOnly).toBe(true);
+    await submit();
+    const sent = actions.logProgress.mock.calls[0][0];
+    expect(sent).toMatchObject({ readingId: "r1", minutes: 192 });
+    expect(sent).not.toHaveProperty("durationSeconds");
+    expect(sent).not.toHaveProperty("page");
+    expect(toasts.list.some((t) => t.message === "Logged 3 h 12 min")).toBe(true);
+  });
+
+  it.each(["0:00", "24:01"])("explains and blocks an unstorable session time %s", async (time) => {
+    act(() => root.render(createElement(LogProgressDialog, props())));
+    type(field("Where are you?"), time);
+    expect(text()).toContain("Enter a session time between 1 minute and 24 hours");
+    await submit();
+    expect(actions.logProgress).not.toHaveBeenCalled();
+  });
+
   it("parses live, asks how to move back, and sends the choice", async () => {
     actions.logProgress.mockResolvedValue({ reading: { fingerprint: "b".repeat(32) }, undo: { sessionId: "s1", restoreEnd: { page: 400, percent: 83.33, minutes: null, chapter: null }, repause: false }, reachedEnd: false });
     act(() => root.render(createElement(LogProgressDialog, props())));
@@ -215,6 +272,34 @@ describe("Log progress", () => {
 });
 
 describe("Finish and Abandon", () => {
+  it.each([
+    ["America/Los_Angeles", "2026-10-16T00:30:00Z", "2026-10-16", "2026-10-16"],
+    ["Europe/Amsterdam", "2026-10-17T12:00:00Z", "2026-10-16", "2026-10-17"],
+    ["Europe/Amsterdam", "2026-10-17T12:00:00Z", null, "2026-10-17"],
+  ])("prefills an enabled Finish dialog in %s for start %s", async (timeZone, now, startedOn, expected) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(now!));
+    const options = new Intl.DateTimeFormat().resolvedOptions();
+    const zone = vi.spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions").mockReturnValue({ ...options, timeZone: timeZone! });
+    actions.finishReading.mockResolvedValue({ reading: { fingerprint: "e".repeat(32) }, undo: {} });
+    try {
+      act(() => root.render(createElement(FinishReadingDialog, props({
+        row: { ...row, reading: { ...reading, startedOn, startedPrecision: startedOn ? "day" : "unknown" } } as never,
+        request: { kind: "finish", readingId: "r1" },
+      }))));
+      expect(host.ownerDocument.querySelector(`[data-draft-value="${expected}"]`)).not.toBeNull();
+      expect(text()).not.toContain("The finish date is before the start date");
+      const finish = [...host.ownerDocument.querySelectorAll<HTMLButtonElement>('button[type="submit"]')]
+        .find((button) => button.textContent === "Finish")!;
+      expect(finish.disabled).toBe(false);
+      await submit();
+      expect(actions.finishReading).toHaveBeenCalledWith(expect.objectContaining({ finishedOn: expected, finishedPrecision: "day", timeZone }));
+    } finally {
+      zone.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("Undo of Finish passes the payload back and shows the server's message", async () => {
     const undo = { toStatus: "paused", position: { page: 400, percent: 83.33, minutes: null, chapter: null }, closingSessionId: "s9", restoreBookRating: { before: 4, after: 4.5 } };
     actions.finishReading.mockResolvedValue({ reading: { fingerprint: "e".repeat(32) }, undo });

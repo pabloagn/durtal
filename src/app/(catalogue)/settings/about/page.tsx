@@ -44,7 +44,8 @@ export default async function AboutSettingsPage() {
           )}
         </SettingFact>
         <SettingFact label="Latest migration">
-          <span className="font-mono text-xs">{migrations.latest ?? "None"}</span>
+          {/* Its number alone: the file name ("0088_ebook_upload") is a developer's */}
+          {migrations.latest ? <span className="font-mono text-xs">{migrations.latest.split("_")[0]}</span> : "None"}
         </SettingFact>
         <SettingFact label="Migrations in this build">{migrations.known}</SettingFact>
       </SettingsGroup>

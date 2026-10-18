@@ -58,7 +58,10 @@ describe("Record form touch targets", () => {
 
 
   it("makes a house's role menu, date precision and checkbox lists 44px on touch", () => {
-    expect(read("components/perfumes/perfume-fields.tsx")).toMatch(/aria-label=\{`Role of \$\{entry\.name\}`\}[\s\S]*?pointer-coarse:h-11 pointer-coarse:min-w-11"/);
+    // The house's compact Select: 44px tall and wide on touch (pass 5, SLN-850)
+    expect(read("components/perfumes/perfume-fields.tsx")).toMatch(/<Select\s+compact\s+ariaLabel=\{`Role of \$\{entry\.name\}`\}/);
+    expect(read("components/ui/select.tsx")).toMatch(/compact \? "h-5 [^"]*pointer-coarse:min-w-11[^"]*"/);
+    expect(read("components/ui/select.tsx")).toContain("pointer-coarse:h-11");
     expect(read("components/shared/catalogue-date-field.tsx")).toContain('<label className="flex h-8 items-center gap-2 text-xs text-fg-secondary pointer-coarse:h-11">');
     expect(read("components/organizations/organization-dialog.tsx")).toContain('<label className="flex cursor-pointer items-center gap-2 text-sm text-fg-primary pointer-coarse:min-h-11">');
     expect(read("components/taxonomy/family-form.tsx")).toContain("has-[:disabled]:cursor-default pointer-coarse:min-h-11");

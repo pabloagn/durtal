@@ -40,8 +40,12 @@ const sizeStyles: Record<Size, string> = {
 
 /** On a touch screen every button is at least 44 x 44 px (docs/03, Keyboard, touch and motion) */
 const COARSE = "pointer-coarse:min-h-11 pointer-coarse:min-w-11";
-/** A busy button looks as a disabled one does, without being disabled */
-const HELD = "aria-disabled:pointer-events-none aria-disabled:opacity-40";
+/**
+ * A busy button looks as a disabled one does, without being disabled. It
+ * still takes a click (ignorePress swallows it), so a second click keeps the
+ * focus on it rather than passing through to what lies behind (SLN-920)
+ */
+const HELD = "aria-disabled:cursor-default aria-disabled:opacity-40";
 const BASE = "action-control whitespace-nowrap font-medium [&>svg]:size-4 [&>svg]:shrink-0";
 
 /** Button styles for a link that should look like a Button. */
@@ -66,14 +70,24 @@ function busyChildren(children: ReactNode) {
 }
 
 function ignorePress(event: MouseEvent<HTMLButtonElement>) {
+  // Safari does not focus a button on pointer click by default.
+  event.currentTarget.focus({ preventScroll: true });
   event.preventDefault();
   event.stopPropagation();
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = "secondary", size = "md", className = "", busy = false, disabled, onClick, children, ...props }, ref) => {
+  ({ variant = "secondary", size = "md", className = "", busy, disabled, onClick, children, ...props }, ref) => {
     // Busy, not disabled: presses do nothing (no second save), the focus stays
-    const held = busy && !disabled;
+    const held = !!busy && !disabled;
+    // Async actions retain a predictable focus target in Safari too. Plain
+    // buttons keep their caller's native focus behavior.
+    const press = busy !== undefined && onClick
+      ? (event: MouseEvent<HTMLButtonElement>) => {
+          event.currentTarget.focus({ preventScroll: true });
+          onClick(event);
+        }
+      : onClick;
     return (
       <button
         ref={ref}
@@ -88,7 +102,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         // A press while busy, including Enter in a form (it presses the submit
         // button), neither runs the action again nor submits. Only then is
         // there a handler of its own: a server component's Button takes none
-        onClick={held ? ignorePress : onClick}
+        onClick={held ? ignorePress : press}
       >
         {busy ? busyChildren(children) : children}
       </button>

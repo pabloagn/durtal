@@ -113,7 +113,7 @@
   // ── Commands that look like text ────────────────────────────────────────
   const plainCommands = [];
   // The text colours (fg-heading, fg-primary, fg-secondary, fg-muted): a command in one reads as text
-  const TEXT_COLOURS = new Set(["d8dcd8", "c5cacb", "9ba4ad", "727b83"]);
+  const TEXT_COLOURS = new Set(["d8dcd8", "c5cacb", "9ba4ad", "7d868e"]);
   const SKIP_ROLES = new Set(["tab", "menuitem", "menuitemradio", "menuitemcheckbox", "option", "combobox", "switch", "checkbox", "radio"]);
   for (const el of main.querySelectorAll("a[href], button, [role=button]")) {
     if (!visible(el) || !text(el) || el.closest("[inert], [aria-hidden=true], dialog, [popover]")) continue;

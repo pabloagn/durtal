@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
@@ -32,7 +32,17 @@ export function SeriesActions({
   initialAdd?: boolean;
 }) {
   const router = useRouter();
-  const [addOpen, setAddOpen] = useState(initialAdd);
+  const [addOpen, setAddOpen] = useState(false);
+  const addButton = useRef<HTMLButtonElement>(null);
+  // A new series opens on its Add books dialog: it opens from Add books, so
+  // the focus comes back there when it closes, not to the page body (SLN-920)
+  useEffect(() => {
+    if (!initialAdd) return;
+    addButton.current?.focus();
+    setAddOpen(true);
+    // Once, on arrival: initialAdd is the address it opened with
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   // E then S: the same dialog as the menu's Edit (SLN-633)
@@ -52,7 +62,7 @@ export function SeriesActions({
 
   return (
     <div className="flex items-center gap-2">
-      <Button variant="secondary" size="sm" onClick={() => setAddOpen(true)}>
+      <Button ref={addButton} variant="secondary" size="sm" onClick={() => setAddOpen(true)}>
         <Plus className="h-4 w-4" strokeWidth={1.5} />
         Add books
       </Button>

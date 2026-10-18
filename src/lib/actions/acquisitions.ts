@@ -1,4 +1,5 @@
 "use server";
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -148,8 +149,8 @@ export async function getTypedTargets(workId: string): Promise<TypedTargetView[]
 export async function createTypedTarget(input: TypedTargetInput) {
   const data = typedTargetSchema.parse(input);
   const [work] = await db.select({ kind: works.kind }).from(works).where(eq(works.id, data.workId));
-  if (!work) throw new Error("This record no longer exists");
-  if (work.kind !== data.kind) throw new Error(`This is not a ${data.kind}`);
+  if (!work) throw new ExpectedActionError("This record no longer exists");
+  if (work.kind !== data.kind) throw new ExpectedActionError(`This is not a ${data.kind}`);
   const values =
     data.kind === "perfume"
       ? {
@@ -173,7 +174,7 @@ export async function createTypedTarget(input: TypedTargetInput) {
   const [row] = await withReadableErrors(() =>
     db.insert(acquisitionTargets).values(values).onConflictDoNothing().returning(),
   );
-  if (!row) throw new Error("This is already on your list");
+  if (!row) throw new ExpectedActionError("This is already on your list");
   invalidate(CACHE_TAGS.works);
   return row;
 }
@@ -188,7 +189,7 @@ export async function removeTypedTarget(id: string) {
       .where(and(eq(acquisitionTargets.id, id), sql`num_nonnulls(${acquisitionTargets.perfumeVariantId}, ${acquisitionTargets.filmVersionId}, ${acquisitionTargets.artObjectId}, ${acquisitionTargets.artReproducesObjectId}) > 0`))
       .returning(),
   );
-  if (!row) throw new Error("This target no longer exists");
+  if (!row) throw new ExpectedActionError("This target no longer exists");
   invalidate(CACHE_TAGS.works);
 }
 
@@ -199,7 +200,7 @@ export async function removeTypedTarget(id: string) {
 export async function orderTypedTarget(input: TypedOrderInput) {
   const data = typedOrderSchema.parse(input);
   const [target] = await db.select().from(acquisitionTargets).where(eq(acquisitionTargets.id, data.targetId));
-  if (!target || target.isCancelled || !typedKind(target)) throw new Error("This target no longer exists");
+  if (!target || target.isCancelled || !typedKind(target)) throw new ExpectedActionError("This target no longer exists");
   const { targetId, ...order } = data;
   return createOrder({ ...order, workId: target.workId, acquisitionTargetId: targetId });
 }

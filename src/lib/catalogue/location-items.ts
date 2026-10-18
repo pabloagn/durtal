@@ -29,3 +29,17 @@ export function describeLocationItems(
   );
   return parts.length < 2 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
 }
+
+/**
+ * A location's one count: "15 copies" when it holds only book copies, as
+ * Statistics names them, one other kind by its own name ("2 paintings"), and
+ * "items" for more than one kind (SLN-886)
+ */
+export function locationItemCount(counts: LocationItemCounts): string {
+  const total = locationItemTotal(counts);
+  const shown = total.toLocaleString("en");
+  const held = KINDS.filter(([key]) => counts[key] > 0);
+  if (held.length !== 1) return `${shown} ${total === 1 ? "item" : "items"}`;
+  const [key, one, many] = held[0];
+  return key === "copies" ? `${shown} ${total === 1 ? "copy" : "copies"}` : `${shown} ${total === 1 ? one : many}`;
+}

@@ -7,12 +7,14 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { findPageCount, startReading } from "@/lib/actions/reading";
+import { findPageCount } from "@/lib/actions/reading";
+import { startReading } from "@/lib/actions/catalogue-client";
 import { formatOfCopy, type ReadingFormat } from "@/lib/reading/constants";
 import { isAtHand } from "@/lib/reading/at-hand";
 import { pickDefaultEdition } from "@/lib/reading/defaults";
 import { formatMinutes, percentOf } from "@/lib/reading/positions";
 import { browserZone, showError, todayReadingDay } from "../reading-client";
+import { readingDateError, readingDateLimit } from "@/lib/reading/dates";
 import type { ReadingDialogProps } from "../reading-provider";
 import { DialogFooter, parseLength, ReadingDateField, type ReadingDate } from "./fields";
 
@@ -58,7 +60,7 @@ export function startPosition(
 
 /** Start a reading: where, which edition and copy, the format, the pages, when and from where */
 export function StartReadingDialog({ data, request, home: storedHome, setHome, onClose, changed }: ReadingDialogProps) {
-  const lastEditionId = data.rows.find((r) => r.reading.editionId)?.reading.editionId ?? null;
+  const lastEditionId = data.defaults.lastEditionId;
   const [home, setHomeState] = useState<string>(storedHome ?? data.homes[0]?.id ?? NOT_HOME);
   const homeId = home === NOT_HOME ? null : home;
   const initial = useMemo(
@@ -83,12 +85,14 @@ export function StartReadingDialog({ data, request, home: storedHome, setHome, o
   const [format, setFormat] = useState<ReadingFormat>(formatOfCopy(copy?.format));
   const [pages, setPages] = useState(edition?.pageCount ? String(edition.pageCount) : "");
   const lastLength = (id: string) =>
-    data.rows.find((r) => r.reading.editionId === id && r.reading.totalMinutes)?.reading.totalMinutes ?? null;
+    data.defaults.latestMinutesByEdition[id] ?? null;
   const [length, setLength] = useState(() => {
     const m = initial.editionId ? lastLength(initial.editionId) : null;
     return m ? formatMinutes(m) : "";
   });
   const [start, setStart] = useState<ReadingDate>(() => ({ date: todayReadingDay(data.dayStartHour), precision: "day" }));
+  const maxDate = readingDateLimit(browserZone());
+  const dateError = readingDateError(start.date, start.precision, maxDate);
   const [already, setAlready] = useState("");
   const [saving, setSaving] = useState(false);
   const [finding, setFinding] = useState(false);
@@ -137,7 +141,7 @@ export function StartReadingDialog({ data, request, home: storedHome, setHome, o
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (position.error) return;
+    if (position.error || dateError) return;
     setSaving(true);
     try {
       const started = await startReading({
@@ -229,7 +233,7 @@ export function StartReadingDialog({ data, request, home: storedHome, setHome, o
         ) : (
           <Input label="Audio length (h:mm)" placeholder="9:40" value={length} onChange={(e) => setLength(e.target.value)} className="w-32" />
         )}
-        <ReadingDateField label="Start date" value={start} onChange={setStart} partialLabel="Earlier, date not exact" />
+        <ReadingDateField label="Start date" value={start} onChange={setStart} partialLabel="Earlier, date not exact" max={maxDate} error={dateError} />
         <div className="space-y-1">
           <Input
             label={`Already at (optional, ${unit === "pages" ? "page" : unit === "minutes" ? "h:mm" : "%"})`}
@@ -240,7 +244,7 @@ export function StartReadingDialog({ data, request, home: storedHome, setHome, o
           />
           {live && <p className={`text-xs ${position.error ? "text-accent-red-text" : "text-fg-secondary"}`}>{live}</p>}
         </div>
-        <DialogFooter onCancel={onClose} saving={saving} saveLabel="Start reading" disabled={!!position.error} />
+        <DialogFooter onCancel={onClose} saving={saving} saveLabel="Start reading" disabled={!!position.error || !!dateError} />
       </form>
     </Dialog>
   );

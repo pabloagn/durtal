@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import { ChartFrame } from "@/components/reading/charts/chart-frame";
-import { decadeBuckets, yearBuckets, yearLabel, type YearCount } from "@/lib/statistics/charts";
+import { decadeBuckets, yearBuckets, yearLabel, type YearCountTuple } from "@/lib/statistics/charts";
 import { n } from "@/lib/reading/charts";
 
 /*
@@ -18,11 +18,12 @@ const AXIS = 20;
 
 const books = (count: number) => `${n(count)} ${count === 1 ? "book" : "books"}`;
 
-export function WrittenChart({ years, height = HEIGHT }: { years: YearCount[]; height?: number }) {
+export function WrittenChart({ years, height = HEIGHT }: { years: readonly YearCountTuple[]; height?: number }) {
   const [view, setView] = useState<"years" | "decades">("years");
   const gradient = useId();
-  const byYear = yearBuckets(years);
-  const bars = view === "years" ? byYear.bars : decadeBuckets(years);
+  const counts = years.map(([year, count]) => ({ year, count }));
+  const byYear = yearBuckets(counts);
+  const bars = view === "years" ? byYear.bars : decadeBuckets(counts);
   if (!bars.length) return null;
   const max = Math.max(1, ...bars.map((b) => b.count));
   const unit = view === "years" ? "year" : "decade";

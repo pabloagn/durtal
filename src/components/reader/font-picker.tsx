@@ -33,7 +33,9 @@ export function FontPicker({
   return (
     <>
       {origin && <style>{readerFontPreviewCSS(origin)}</style>}
-      <div role="radiogroup" aria-labelledby={labelledBy} className="grid grid-cols-2 gap-1">
+      {/* Every row as tall as the tallest: "Atkinson Hyperlegible" takes two lines in
+          full, and the grid stays even around it (SLN-892) */}
+      <div role="radiogroup" aria-labelledby={labelledBy} className="grid auto-rows-fr grid-cols-2 gap-1">
         {FONTS.map((font, index) => {
           const active = index === chosen;
           return (

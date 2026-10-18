@@ -3,7 +3,8 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "@/lib/notifications/toast";
 import { readingDay } from "@/lib/reading/dates";
-import type { getReadingsForWork } from "@/lib/actions/reading";
+import type { ReadingDetailRow } from "@/lib/reading/overview";
+import type { BookReadingSummary, ReadingStartDefaults } from "@/lib/reading/overview-types";
 import type { EditionOption, HomeOption } from "@/lib/reading/page-data";
 import type { ReadingEstimate } from "@/lib/reading/pace";
 
@@ -12,7 +13,7 @@ import type { ReadingEstimate } from "@/lib/reading/pace";
  * browser's zone and reading day, the pointer type, and the page's data.
  */
 
-export type ReadingRow = Awaited<ReturnType<typeof getReadingsForWork>>[number];
+export type ReadingRow = ReadingDetailRow;
 
 export interface ReadingPageData {
   workId: string;
@@ -20,7 +21,11 @@ export interface ReadingPageData {
   bookRating: number | null;
   /** The hour a reading day starts (4: 01:30 counts for the evening before) */
   dayStartHour: number;
+  /** Bounded display rows plus, for a dialog, its explicitly requested row. */
   rows: ReadingRow[];
+  summary: BookReadingSummary;
+  defaults: ReadingStartDefaults;
+  history: { closedCount: number; hasMore: boolean };
   editions: EditionOption[];
   homes: HomeOption[];
   /** Today's reading day on the server, for lines on the page only */

@@ -1,5 +1,7 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
+
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
@@ -339,6 +341,7 @@ export function FilmForm(props: Props) {
       {/* In the edit dialog, under its body and always in view, with the
           reason a save failed over the buttons */}
       <DialogFooter outside="">
+        <RequiredNameHint value={title} message="Give the film a title" />
         {error && (
           <p role="alert" className="basis-full text-sm text-accent-red-text">
             {error}

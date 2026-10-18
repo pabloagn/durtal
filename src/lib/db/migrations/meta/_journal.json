@@ -624,6 +624,20 @@
       "when": 1791698272754,
       "tag": "0088_ebook_upload",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1792163943815,
+      "tag": "0089_claim_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1792191872510,
+      "tag": "0090_hot_join_indexes",
+      "breakpoints": true
     }
   ]
 }

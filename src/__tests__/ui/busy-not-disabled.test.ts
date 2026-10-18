@@ -52,7 +52,15 @@ describe("a busy button", () => {
   it("never disables itself with the flag it is busy with", () => {
     const found: string[] = [];
     for (const file of files(SRC)) {
-      for (const { line, attrs } of buttonTags(readFileSync(file, "utf8"))) {
+      const source = readFileSync(file, "utf8");
+      const expressions = new Map([...source.matchAll(/\bconst\s+(\w+)\s*=\s*([^;]+);/g)].map((match) => [match[1], match[2]]));
+      const containsFlag = (expression: string, flag: string, seen = new Set<string>()): boolean =>
+        [...expression.matchAll(/\b[A-Za-z_$][\w$]*\b/g)].some(([name]) => {
+          if (name === flag) return true;
+          if (seen.has(name) || !expressions.has(name)) return false;
+          return containsFlag(expressions.get(name)!, flag, new Set([...seen, name]));
+        });
+      for (const { line, attrs } of buttonTags(source)) {
         const busy = attr(attrs, "busy");
         const disabled = attr(attrs, "disabled");
         if (!busy || !disabled) continue;
@@ -60,7 +68,7 @@ describe("a busy button", () => {
         const disabled1 = disabled.trim();
         // The same flag, or one alternative of an "||"
         const parts = disabled1.split("||").map((part) => part.trim().replace(/^!!/, ""));
-        if (parts.includes(busy1)) found.push(`${path.relative(SRC, file)}:${line}: busy={${busy1}} disabled={${disabled1}}`);
+        if (parts.includes(busy1) || (/^[A-Za-z_$][\w$]*$/.test(busy1) && containsFlag(disabled1, busy1))) found.push(`${path.relative(SRC, file)}:${line}: busy={${busy1}} disabled={${disabled1}}`);
       }
     }
     expect(found).toEqual([]);

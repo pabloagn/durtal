@@ -4,10 +4,8 @@ import { useEffect, useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  deleteTaxonomyFamily,
-  getTaxonomyFamilyUsage,
-} from "@/lib/actions/taxonomy-families";
+import { getTaxonomyFamilyUsage } from "@/lib/actions/taxonomy-families";
+import { deleteTaxonomyFamily } from "@/lib/actions/taxonomy-client";
 import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { taxonomyScopeLabel } from "@/lib/catalogue/taxonomies";
 

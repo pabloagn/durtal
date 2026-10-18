@@ -84,7 +84,7 @@ export function HorizontalCarousel({
                   disabled={!canScrollLeft}
                   aria-label="Scroll left"
                   data-tooltip="Scroll left"
-                  className="block rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary disabled:opacity-30 pointer-coarse:p-3.5"
+                  className="block rounded-sm p-1 text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-60 pointer-coarse:p-3.5"
                 >
                   <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
                 </button>
@@ -93,7 +93,7 @@ export function HorizontalCarousel({
                   disabled={!canScrollRight}
                   aria-label="Scroll right"
                   data-tooltip="Scroll right"
-                  className="block rounded-sm p-1 text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary disabled:opacity-30 pointer-coarse:p-3.5"
+                  className="block rounded-sm p-1 text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-60 pointer-coarse:p-3.5"
                 >
                   <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
                 </button>

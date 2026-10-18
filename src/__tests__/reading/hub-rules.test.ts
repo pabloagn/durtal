@@ -8,6 +8,11 @@ import { agoText, lastReadText } from "@/lib/reading/labels";
 // The reading hub's pure rules (SLN-448).
 
 describe("parseJournalQuery", () => {
+  it("retains an exact work through paging/export and fails closed for malformed work", () => {
+    const id = "b54189d9-79a3-4d7a-87da-e03cf7c252a4";
+    expect(parseJournalQuery({ work: id, status: "paused", page: "2" })).toMatchObject({ workId: id, invalidWork: false, status: ["paused"], offset: 48 });
+    for (const work of ["", "not-a-uuid", `${id},${id}`]) expect(parseJournalQuery({ work })).toMatchObject({ workId: undefined, invalidWork: true });
+  });
   it("reads every parameter", () => {
     const q = parseJournalQuery({
       q: "  proust ",
@@ -24,6 +29,8 @@ describe("parseJournalQuery", () => {
     });
     expect(q).toEqual({
       q: "proust",
+      workId: undefined,
+      invalidWork: false,
       status: ["finished", "abandoned"],
       yearMin: 2012,
       yearMax: 2020,

@@ -28,7 +28,7 @@ Approved in SLN-556. Neutral ink, charcoal and smoke, with muted steel interacti
 | `fg-heading` | #D8DCD8 | Page headings |
 | `fg-primary` | #C5CACB | Body text |
 | `fg-secondary` | #9BA4AD | Labels, metadata, needed secondary text |
-| `fg-muted` | #727B83 | Decoration, placeholders and disabled content |
+| `fg-muted` | #7D868E | Decoration, placeholders and disabled content |
 | `accent-primary` | #8C9FAE | Interaction, focus, links |
 | `selection-bg` / `selection-fg` | #17232D / #D8DCD8 | Selected regions |
 | `action-fill` / `action-hover` | #C5CDCF / #D4DADB | Main confirmation |
@@ -44,7 +44,7 @@ Approved in SLN-556. Neutral ink, charcoal and smoke, with muted steel interacti
 
 All tokens have the `--color-` prefix in CSS. Named roles replace the old rose/plum/crimson theme. Status still has a label or icon; colour is supplementary.
 
-**Contrast.** Needed text is at least 4.5:1 (3:1 for qualifying large text). Secondary text is at least 6.65:1 across the three opaque surfaces. `fg-muted` is reserved for decoration and disabled content. Use `scripts/qa/design-audit.js`, then separately inspect pixels over glass and imagery: a DOM audit cannot fully measure the composited backdrop. Essential state indicators or boundaries meet 3:1; decorative panel edges need not.
+**Contrast.** Needed text is at least 4.5:1 (3:1 for qualifying large text). Secondary text is at least 6.65:1 across the three opaque surfaces. `fg-muted` is reserved for decoration, placeholders and disabled content; at #7D868E a placeholder reads 4.5:1 or more on all three surfaces, and an icon-only control in it 3:1 or more. A disabled control is the control at 60% opacity: clearly quiet, yet its label or icon still reads at about 3:1 or more (a primary button's 4.7:1, a ghost's 3.4:1). Use `scripts/qa/design-audit.js`, then separately inspect pixels over glass and imagery: a DOM audit cannot fully measure the composited backdrop. Essential state indicators or boundaries meet 3:1; decorative panel edges need not.
 
 ### Artwork, atmosphere and gradients
 
@@ -543,7 +543,7 @@ Findings in `scripts/qa/layout-audit-known.json` show as known, with their ticke
 ### Keyboard, touch and motion
 
 - Every control takes focus with Tab and shows it: the steel focus outline. Menus open with Enter, move with the arrow keys and close with Escape; a dialog keeps Tab inside it, and Escape closes it and returns focus to the control that opened it. A keyboard tooltip on the focused control takes the first Escape. Escape also cancels a form page, a panel and a step-by-step flow (Add book), as their Cancel does. With unsaved work, Escape, Cancel, Close and the backdrop first ask Save, Discard or Keep editing; Escape on that question keeps editing (`Dialog` `draft`, `useEscapeToCancel`, SLN-631).
-- Search: `S` opens the command palette from any page but the e-book reader (where `S` opens the reader's settings), as `⌘K` does; `/` goes to the page's own search field. Escape closes every search surface, one layer per press: the palette, a popover or menu, then the dialog around it. A list under a search field closes first (the field's text clears, as in the publisher and place pickers), and focus goes back to where it was. In a search field on a page, Escape leaves the field and keeps its text.
+- Search: `S` opens the command palette from any page but the e-book reader (where `S` opens the reader's settings), as `⌘K` does; `/` goes to the page's own search field. Escape closes every search surface, one layer per press: the palette, a popover or menu, then the dialog around it. A list under a search field closes first (the field's text clears, as in the publisher and place pickers), and focus goes back to where it was. In a list’s page search, Escape clears nonempty text and keeps focus; another Escape on the empty field moves focus to Filter, or the page heading. Other page search pickers retain their own Escape behavior.
 - On a touch screen (a coarse pointer), every control's press area is at least 44 × 44px (WCAG 2.5.5), and the desktop look does not change. A link inside running text, and a plain text link with no box of its own (a name in a detail list), are exempt. A control that shows on hover also shows on a touch screen. Three ways, in this order:
   - **The control grows** where its row has room: `pointer-coarse:min-h-11` (or `h-11`, `size-11`). Buttons (`Button`, `buttonClass`), menu items, fields and selects, the filter row (search, sorts, Filter, views, the size slider), pagination, the collection switch and the settings nav do this.
   - **Beside text**, the control sits in `CapAligned` or `CapAlignedControls` with `coarseHeight={44}` and grows with it: the favourite star (cards, rows, headers), the header action menus, the book's marks.

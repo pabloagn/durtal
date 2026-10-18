@@ -8,6 +8,13 @@ export interface YearCount {
   count: number;
 }
 
+/** Compact server-to-client transport; the chart expands the same counts. */
+export type YearCountTuple = readonly [year: number, count: number];
+
+export function compactYearCounts(years: readonly YearCount[]): YearCountTuple[] {
+  return years.map(({ year, count }) => [year, count]);
+}
+
 export interface Bucket {
   /** The first year in the bucket; null for the "Earlier" bucket */
   start: number | null;

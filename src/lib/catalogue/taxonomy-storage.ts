@@ -77,6 +77,9 @@ export interface TaxonomyItem {
   sortOrder: number;
   level: number | null;
   entityCount: number;
+  /** All catalogue links, including scopes outside the visible count. */
+  linkCount?: number;
+  childCount?: number;
 }
 export function itemProjection(storage: TaxonomyStorage) {
   const optional = (column: string, fallback: SQL) =>
@@ -85,21 +88,41 @@ export function itemProjection(storage: TaxonomyStorage) {
     ${optional("description", optional("scope_notes", sql`null::text`))} as description,
     ${optional("parent_id", sql`null::uuid`)} as "parentId",${optional("sort_order", sql`0`)} as "sortOrder",${optional("level", sql`null::int`)} as level`;
 }
+/**
+ * Work-level links kept outside the item tables, read for counts only: a
+ * perfume's notes, and its formulations' notes and terms (SLN-886). Their
+ * own editors write them.
+ */
+const PERFUME_LINKS = sql`select work_id,item_id from perfume_notes
+  union select v.work_id,n.item_id from perfume_variant_notes n join perfume_variants v on v.id=n.variant_id
+  union select v.work_id,t.item_id from perfume_variant_taxa t join perfume_variants v on v.id=t.variant_id`;
+
+/**
+ * Every link of a storage's items to works of the kinds given, as rows of
+ * item_id, owner_id (a work or an edition), level and the work's kind
+ */
+export function linkRows(storage: TaxonomyStorage, kinds: readonly WorkKind[]) {
+  const kindIn = sql`w.kind in (${sql.join(
+    kinds.map((kind) => sql`${kind}`),
+    sql`,`,
+  )})`;
+  const own = storage.links.map(
+    (link) =>
+      sql`select l.${sql.identifier(link.item)} as item_id,l.${sql.identifier(link.owner)} as owner_id,${link.level}::text as level,w.kind::text as kind from ${sql.identifier(link.table)} l ${link.level === "work" ? sql`join works w on w.id=l.work_id` : sql`join editions e on e.id=l.edition_id join works w on w.id=e.work_id`} where ${kindIn}`,
+  );
+  const perfume = storage.custom
+    ? [sql`select l.item_id,l.work_id as owner_id,'work'::text as level,w.kind::text as kind from (${PERFUME_LINKS}) l join works w on w.id=l.work_id where ${kindIn}`]
+    : [];
+  return sql.join([...own, ...perfume], sql` union `);
+}
+
 export function linkedEntities(
   storage: TaxonomyStorage,
   familyId: string,
   kind: WorkKind = "book",
   itemId?: string,
 ) {
-  return sql.join(
-    storage.links.map(
-      (link) => sql`
-    select distinct l.${sql.identifier(link.owner)} as id, ${link.level}::text as level
-    from ${sql.identifier(link.table)} l join ${sql.identifier(storage.table)} i on i.id=l.${sql.identifier(link.item)}
-    ${link.level === "work" ? sql`join works w on w.id=l.work_id` : sql`join editions e on e.id=l.edition_id join works w on w.id=e.work_id`}
-    where ${familyItemCondition(storage, familyId)} and w.kind=${kind} ${itemId ? sql`and i.id=${itemId}::uuid` : sql``}
-  `,
-    ),
-    sql` union `,
-  );
+  return sql`select distinct l.owner_id as id, l.level
+    from (${linkRows(storage, [kind])}) l join ${sql.identifier(storage.table)} i on i.id=l.item_id
+    where ${familyItemCondition(storage, familyId)} ${itemId ? sql`and i.id=${itemId}::uuid` : sql``}`;
 }

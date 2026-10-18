@@ -102,7 +102,10 @@ export const workAuthors = pgTable(
     role: text("role").notNull().default("author"),
     sortOrder: smallint("sort_order").notNull().default(0),
   },
-  (t) => [primaryKey({ columns: [t.workId, t.authorId, t.role] })],
+  (t) => [
+    primaryKey({ columns: [t.workId, t.authorId, t.role] }),
+    index("work_authors_author_id_idx").on(t.authorId),
+  ],
 );
 
 export const workAuthorsRelations = relations(workAuthors, ({ one }) => ({
@@ -132,7 +135,10 @@ export const editionContributors = pgTable(
     role: text("role").notNull(),
     sortOrder: smallint("sort_order").notNull().default(0),
   },
-  (t) => [primaryKey({ columns: [t.editionId, t.authorId, t.role] })],
+  (t) => [
+    primaryKey({ columns: [t.editionId, t.authorId, t.role] }),
+    index("edition_contributors_author_id_idx").on(t.authorId),
+  ],
 );
 
 export const editionContributorsRelations = relations(

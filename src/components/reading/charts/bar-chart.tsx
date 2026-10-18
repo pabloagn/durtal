@@ -30,7 +30,6 @@ export function barChartHeight(count: number) {
 export function BarChart({
   label,
   bars,
-  summaryUnit,
   tone = "sage",
   footnote,
   columns,
@@ -38,8 +37,6 @@ export function BarChart({
 }: {
   label: string;
   bars: Bar[];
-  /** "books": the summary reads "Books by month: Jan 2 books, ..." */
-  summaryUnit: string;
   tone?: "sage" | "blue";
   footnote?: React.ReactNode;
   /** The table's two column names */
@@ -50,7 +47,8 @@ export function BarChart({
   const max = Math.max(0, ...bars.map((b) => b.value));
   const top = niceMax(max);
   const height = barChartHeight(Math.max(bars.length, minRows));
-  const summary = `${label}: ${bars.map((b) => `${b.label} ${b.value.toLocaleString("en-US")}`).join(", ")} ${summaryUnit}`;
+  // Each bar's own caption, so every count has its noun in the right form
+  const summary = `${label}: ${bars.map((b) => b.text).join("; ")}`;
   const fill = tone === "sage" ? "fill-accent-sage" : "fill-accent-blue";
   return (
     <ChartFrame

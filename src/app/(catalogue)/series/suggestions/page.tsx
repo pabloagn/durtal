@@ -7,6 +7,7 @@ import { buttonClass } from "@/components/ui/button";
 import { DomainAddLink } from "@/components/domains/domain-add-link";
 import { SeriesFormDialog } from "@/components/series/series-form-dialog";
 import { SeriesSuggestions } from "@/components/series/series-suggestions";
+import { countLabel } from "@/lib/utils/format";
 
 export const metadata = { title: "Suggested books" };
 
@@ -28,7 +29,7 @@ export default async function SeriesSuggestionsPage() {
         title="Suggested books"
         description={
           suggestions.length
-            ? `${suggestions.length} books match ${seriesCount} series by title. Nothing is linked until you confirm.`
+            ? `${countLabel(suggestions.length, "book")} ${suggestions.length === 1 ? "matches" : "match"} ${countLabel(seriesCount, "series", "series")} by title. Nothing is linked until you confirm.`
             : undefined
         }
       />

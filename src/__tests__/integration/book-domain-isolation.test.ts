@@ -1,3 +1,4 @@
+import { getAuthors, getPersonBiographies } from "@/lib/actions/authors";
 import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
@@ -220,6 +221,17 @@ describe.skipIf(!url)("legacy book adapters with all four work kinds", () => {
       ).toEqual([books[0]]);
     },
   );
+  it("omits list biographies but retains the complete optional biography and ordinary API reads", async () => {
+    const bio='<p>'+"Full biography. ".repeat(300)+'</p>';
+    const [person]=await c`insert into authors(name,slug,bio) values ('Payload Person','payload-person',${bio}) returning id`;
+    for (const sort of ["name","works"] as const) {
+      const rows=await getAuthors({search:"Payload Person",sort,includeBiography:false});
+      expect(rows.find(p=>p.id===person.id)?.bio).toBeNull();
+    }
+    expect((await getAuthors({search:"Payload Person"})).find(p=>p.id===person.id)?.bio).toBe(bio);
+    expect((await getPersonBiographies([person.id]))[person.id]).toBe("Full biography. ".repeat(300).trim());
+    await expect(getPersonBiographies(["bad-id"])).rejects.toThrow();
+  });
   it("sorts the entire book selection by the selected author name", async () => {
     expect((await getWorks({ sort: "authorFirstName", limit: 1 }))[0].id).toBe(
       books[1],

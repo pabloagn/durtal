@@ -18,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
 import { Badge } from "@/components/ui/badge";
 import { TaxonomyColorPicker } from "./taxonomy-color-picker";
 
@@ -27,6 +28,8 @@ export interface TaxonomyItemData {
   slug: string;
   color: string | null;
   entityCount: number;
+  linkCount?: number;
+  childCount?: number;
   parentId?: string | null;
   sortOrder?: number;
 }
@@ -35,6 +38,7 @@ interface TaxonomyItemRowProps {
   item: TaxonomyItemData;
   familySlug: string;
   depth: number;
+  entityNoun?: string;
   isSelected: boolean;
   onSelect: (id: string) => void;
   onColorChange: (id: string, color: string | null) => void;
@@ -53,6 +57,7 @@ export function TaxonomyItemRow({
   item,
   familySlug,
   depth,
+  entityNoun = "work",
   isSelected,
   onSelect,
   onColorChange,
@@ -106,7 +111,7 @@ export function TaxonomyItemRow({
 
   return (
     <div
-      className={`group flex h-9 items-center gap-1.5 border-b border-glass-border/40 px-2 transition-colors pointer-coarse:h-auto pointer-coarse:min-h-12 pointer-coarse:items-start pointer-coarse:py-0.5 ${
+      className={`group flex min-h-9 items-start gap-1.5 py-1.5 text-sm leading-5 border-b border-glass-border/40 px-2 transition-colors pointer-coarse:min-h-12 pointer-coarse:py-0.5 pointer-coarse:leading-11 ${
         isSelected
           ? "bg-accent-primary/6 border-accent-primary/10"
           : "hover:bg-bg-tertiary/30"
@@ -114,7 +119,8 @@ export function TaxonomyItemRow({
       onClick={() => onSelect(item.id)}
     >
       {/* Drag handle */}
-      <div
+      <CapAligned height={24} coarseHeight={44}>
+      {dragHandleProps ? <div
         ref={dragHandleProps?.setActivatorNodeRef}
         className="flex h-6 w-4 flex-shrink-0 cursor-grab items-center justify-center text-fg-muted opacity-0 transition-opacity group-hover:opacity-60 focus-visible:opacity-100 active:cursor-grabbing pointer-coarse:size-11 pointer-coarse:opacity-60"
         {...dragHandleProps?.listeners}
@@ -122,7 +128,8 @@ export function TaxonomyItemRow({
         aria-label={`Reorder ${item.name}`}
       >
         <GripVertical className="h-3 w-3" strokeWidth={1.5} />
-      </div>
+      </div> : <span aria-hidden="true" className="block h-6 w-4 pointer-coarse:size-11" />}
+      </CapAligned>
 
       {/* Indent */}
       {depth > 0 && (
@@ -133,12 +140,13 @@ export function TaxonomyItemRow({
       )}
 
       {/* Color dot */}
-      <div className="flex shrink-0 items-center pointer-coarse:h-11">
+      <CapAlignedControls height={20} coarseHeight={44}>
         <TaxonomyColorPicker
+          label={`Pick color for ${item.name}`}
           value={item.color}
           onChange={(color) => onColorChange(item.id, color)}
         />
-      </div>
+      </CapAlignedControls>
 
       {/* Name */}
       <div className="min-w-0 flex-1">
@@ -167,6 +175,7 @@ export function TaxonomyItemRow({
         ) : (
           <Link
             ref={nameRef}
+            data-taxonomy-item-name={item.id}
             href={`/taxonomy/${familySlug}/${item.slug}`}
             onClick={(e) => e.stopPropagation()}
             onDoubleClick={(e) => {
@@ -174,7 +183,7 @@ export function TaxonomyItemRow({
               e.stopPropagation();
               startRename();
             }}
-            className="block truncate text-sm text-fg-primary transition-colors hover:text-accent-primary pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:whitespace-normal pointer-coarse:break-words pointer-coarse:first-line:leading-11"
+            className="block whitespace-normal break-words text-sm leading-5 text-fg-primary transition-colors hover:text-accent-primary pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:leading-11"
           >
             {item.name}
           </Link>
@@ -182,14 +191,17 @@ export function TaxonomyItemRow({
       </div>
 
       {/* Entity count */}
-      <div className="shrink-0 pointer-coarse:flex pointer-coarse:h-11 pointer-coarse:items-center">
-        <Badge variant="muted" className="flex-shrink-0">
+      <CapAligned height={20} coarseHeight={44}>
+        <span className="flex h-5 items-center pointer-coarse:h-11">
+        <Badge variant="muted" className="flex-shrink-0" aria-label={`${item.entityCount} ${entityNoun}${item.entityCount === 1 ? "" : "s"}`}>
           {item.entityCount}
         </Badge>
-      </div>
+        </span>
+      </CapAligned>
 
       {/* Action menu */}
-      <DropdownMenu trigger={trigger} label="Actions" align="end">
+      <CapAlignedControls height={24} coarseHeight={44}>
+      <DropdownMenu trigger={trigger} label={`Actions for ${item.name}`} align="end">
         <DropdownMenuItem
           onClick={() => {
             startRename();
@@ -213,6 +225,7 @@ export function TaxonomyItemRow({
           Delete
         </DropdownMenuItem>
       </DropdownMenu>
+      </CapAlignedControls>
     </div>
   );
 }

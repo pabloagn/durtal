@@ -44,6 +44,7 @@ vi.mock("@/lib/s3/covers", () => ({
   processAndUploadCover: vi.fn(async () => null),
   deleteFromS3: vi.fn(),
 }));
+import { findNamedDuplicates, type NamedKind } from "@/lib/actions/named-duplicates";
 import { createTaxonomyItem, updateTaxonomyItem } from "@/lib/actions/taxonomy-families";
 import { createEdition, updateEdition } from "@/lib/actions/editions";
 import { fastTrackBook } from "@/lib/actions/fast-track";
@@ -79,6 +80,25 @@ describe.skipIf(!url)("duplicate names and numbers with PostgreSQL", () => {
     expect(error!.message).not.toMatch(RAW);
     return error!.message;
   }
+
+  it("looks up same-name records across all eight kinds without changing them", async () => {
+    const c = client!;
+    for (const kind of ["film", "perfume", "painting", "publisher", "person", "organization", "series", "collection"] as NamedKind[]) {
+      let rows;
+      if (["film", "perfume", "painting"].includes(kind))
+        rows = await c`insert into works(title,slug,kind,original_language) values ('Étoile',${kind + "-etoile"},${kind},null) returning id`;
+      else if (kind === "publisher" || kind === "organization")
+        rows = await c`insert into publishing_houses(name,slug,kind) values ('Étoile',${kind + "-etoile"},${kind === "publisher" ? "publisher" : null}) returning id`;
+      else if (kind === "person") rows = await c`insert into authors(name,slug) values ('Étoile','person-etoile') returning id`;
+      else if (kind === "series") rows = await c`insert into series(title,slug) values ('Étoile','series-etoile') returning id`;
+      else rows = await c`insert into collections(name) values ('Étoile') returning id`;
+      const found = await findNamedDuplicates({ kind, name: "  ETOILE  " });
+      expect(found.some(row => row.id === rows[0].id), kind).toBe(true);
+      expect(found.every(row => row.href.startsWith("/"))).toBe(true);
+      expect((await findNamedDuplicates({ kind, name: "Etoile", excludeId: rows[0].id })).some(row => row.id === rows[0].id)).toBe(false);
+      expect(await findNamedDuplicates({ kind, name: "No such name" })).toEqual([]);
+    }
+  });
 
   describe("taxonomy items", () => {
     it("a rename to a name another item has gets the create's message", async () => {

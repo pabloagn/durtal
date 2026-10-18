@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { getReadingsForWork } from "@/lib/actions/reading";
+import { getBookReadingOverview } from "@/lib/actions/reading";
 import { getNotesForWork } from "@/lib/actions/reading-notes";
 import { NotesSection } from "@/components/reading/notes-section";
 import { noteGroups, quotesAnchor, slimNote } from "@/lib/reading/notes-text";
@@ -13,7 +13,8 @@ import { addBookParams } from "@/lib/reading/book-picker";
 import { ReadingControl } from "@/components/reading/reading-control";
 import { ReadingSection } from "@/components/reading/reading-section";
 import { readingEditions, readingHomes } from "@/lib/reading/page-data";
-import { readingRecord } from "@/lib/reading/labels";
+import { readingRecordFromSummary } from "@/lib/reading/overview-summary";
+import { emptyReadingSummary, emptyStartDefaults } from "@/lib/reading/overview-types";
 import { readingDay } from "@/lib/reading/dates";
 import { readingDayStartHour } from "@/lib/reading/day";
 import { canUseWorkCapability } from "@/lib/catalogue/domains";
@@ -165,7 +166,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     markRows,
     seriesWorks,
     links,
-    readingRows,
+    readingOverview,
     readingNotes,
     dayStartHour,
     queued,
@@ -188,7 +189,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
       ? getOtherWorksInSeries(work.seriesId, work.id)
       : Promise.resolve([]),
     getWorkRelations(work.id),
-    getReadingsForWork(work.id),
+    canRead ? getBookReadingOverview(work.id) : Promise.resolve({ rows: [], summary: emptyReadingSummary(), defaults: emptyStartDefaults(), history: { closedCount: 0, hasMore: false } }),
     // Quotes and notes (SLN-453): books only
     canRead ? getNotesForWork(work.id) : Promise.resolve([]),
     readingDayStartHour(),
@@ -197,6 +198,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     // The predicted rating (SLN-457) shows only while the gate is on
     canRead ? predictionGateOn() : Promise.resolve(false),
   ]);
+  const readingRows = readingOverview.rows;
   const zone = appTimeZone();
   const today = readingDay(new Date(), zone, dayStartHour);
   // Everything that needs the reads above goes out together
@@ -218,7 +220,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
       today,
     ),
     // Only for an unread book, and only with enough similar books
-    canRead && gateOn && !readingRows.some((r) => r.reading.status === "finished")
+    canRead && gateOn && readingOverview.summary.finishedCount === 0
       ? getBookPredictionContext(work.id)
       : Promise.resolve(null),
     // Member-cover collage only for collections without a poster
@@ -261,8 +263,8 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
       ]),
   );
   const readingCounts = {
-    readings: readingRows.length,
-    sessions: readingRows.reduce((sum, r) => sum + r.sessionCount, 0),
+    readings: readingOverview.summary.readingCount,
+    sessions: readingOverview.summary.sessionCount,
     quotes: readingNotes.filter((n) => n.kind === "quote").length,
     notes: readingNotes.filter((n) => n.kind === "note").length,
   };
@@ -280,6 +282,9 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     bookRating: work.rating ?? null,
     dayStartHour,
     rows: readingRows,
+    summary: readingOverview.summary,
+    defaults: readingOverview.defaults,
+    history: readingOverview.history,
     editions: readingEditions(work.editions, { today, homeId: homeCookie && homeCookie !== "none" ? homeCookie : null, workTitle: work.title }),
     homes: readingHomes(allLocations),
     today,
@@ -658,7 +663,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
               gallery: galleryMedia.length,
             }}
             links={uniqueExternalLinks}
-            reading={readingRows.length ? readingRecord(readingRows) : null}
+            reading={readingOverview.summary.readingCount ? readingRecordFromSummary(readingOverview.summary) : null}
           />
         }
       >

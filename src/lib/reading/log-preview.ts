@@ -1,5 +1,6 @@
-import type { ReadingUnit } from "./constants";
+import type { ReadingFormat, ReadingUnit } from "./constants";
 import { formatMinutes, percentOf, remapPosition, type ProgressInput } from "./positions";
+import { durationWords } from "./timer";
 
 /*
  * What a progress log will do, before it is saved (SLN-447): the new
@@ -11,6 +12,7 @@ import { formatMinutes, percentOf, remapPosition, type ProgressInput } from "./p
 export interface LogReading {
   editionId: string | null;
   unit: ReadingUnit;
+  format?: ReadingFormat;
   totalPages: number | null;
   totalMinutes: number | null;
   currentPage: number | null;
@@ -36,6 +38,8 @@ export interface LogPreview {
   line: string;
   /** "Logged p. 212" */
   done: string;
+  /** A time entry on a non-audio reading with no audio length. */
+  sessionMinutes?: number;
   send: { page?: number; percent?: number; minutes?: number; addPages?: number; addMinutes?: number; chapter?: string };
 }
 
@@ -46,7 +50,7 @@ export function logPreview(reading: LogReading, input: ProgressInput | null, ses
   if (!input) return null;
   const other = session && session.id !== reading.editionId ? session : null;
   const totals = other
-    ? { totalPages: other.pageCount ?? reading.totalPages, totalMinutes: other.totalMinutes ?? reading.totalMinutes }
+    ? { totalPages: other.pageCount ?? reading.totalPages, totalMinutes: reading.totalMinutes }
     : { totalPages: reading.totalPages, totalMinutes: reading.totalMinutes };
   // Where the reading is now, in the session's edition
   const fromPage = other
@@ -55,6 +59,25 @@ export function logPreview(reading: LogReading, input: ProgressInput | null, ses
       : 0
     : (reading.currentPage ?? 0);
   const fromMinutes = reading.currentMinutes ?? 0;
+  if ((input.kind === "minutes" || input.kind === "addMinutes") && !reading.totalMinutes
+    && reading.unit !== "minutes" && reading.format !== "audio") {
+    const duration = durationWords(input.minutes * 60);
+    const place = [
+      reading.currentPage !== null ? `p. ${reading.currentPage}` : null,
+      reading.currentPercent !== null ? pct(reading.currentPercent) : null,
+    ].filter(Boolean).join(" · ");
+    return {
+      percent: reading.currentPercent,
+      page: reading.currentPage,
+      minutes: reading.currentMinutes,
+      sessionMinutes: input.minutes,
+      behind: false,
+      reachedEnd: false,
+      line: `${duration} read · ${place ? `stays at ${place}` : "keeps your place"}`,
+      done: `Logged ${duration}`,
+      send: input.kind === "minutes" ? { minutes: input.minutes } : { addMinutes: input.minutes },
+    };
+  }
   if (input.kind === "chapter")
     return {
       percent: reading.currentPercent,

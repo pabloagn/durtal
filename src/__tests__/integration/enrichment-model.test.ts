@@ -4,6 +4,9 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import * as schema from "@/lib/db/schema";
+import { assertionScopeSchema } from "@/lib/enrichment/assertion-scope";
+import { proposeClaims, applyClaim } from "@/lib/enrichment/claims";
+import type { Db } from "@/lib/catalogue/work-store";
 
 const url = process.env.DURTAL_ENRICHMENT_MODEL_TEST_DATABASE_URL;
 if (url) {
@@ -128,6 +131,126 @@ describe.skipIf(!url)("the book enrichment model", () => {
     });
   const accept = (claimId: string) =>
     c`update enrichment_claims set status = 'accepted', decided_by = 'pablo', decided_at = now() where id = ${claimId}`;
+
+  it("isolates versioned claims, preserves legacy values, and blocks scoped application", async () => {
+    const work = await book("Scope contract");
+    const s = await source({ work });
+    const assessment = { knowledge: "partially_assessed", coverage: "partial", basis: "local_evidence", justification: "Synthetic scope fixture." };
+    const original = assertionScopeSchema.parse({ version: 1, kind: "work", identityKey: "urn:fixture:baseline", textKind: "original", languages: ["fr"] });
+    const translation = assertionScopeSchema.parse({ version: 1, kind: "text", identityKey: "urn:fixture:translation", textKind: "translation", languages: ["en"] });
+    const fields = { work_id: work, dimension_id: ids.composition, number_value: 2006, assessment: JSON.stringify(assessment) };
+    const a = await claim({ ...fields, scope: JSON.stringify(original) }, [s]);
+    const b = await claim({ ...fields, scope: JSON.stringify(translation) }, [s]);
+    const legacy = await claim({ work_id: work, dimension_id: ids.composition, number_value: 2006 }, [s]);
+    expect(a.id).not.toBe(b.id);
+    await accept(legacy.id);
+    await expect(accept(a.id)).rejects.toMatchObject({ constraint_name: "enrichment_scope_application" });
+    await expect(c`update enrichment_claims set scope=${JSON.stringify(translation)}::jsonb where id=${a.id}`).rejects.toMatchObject({ constraint_name: "enrichment_scope_identity" });
+    await expect(c`update enrichment_claims set assessment=${JSON.stringify({ ...assessment, coverage: "complete" })}::jsonb where id=${a.id}`).rejects.toMatchObject({ constraint_name: "enrichment_scope_identity" });
+    await expect(claim({ ...fields, scope: JSON.stringify(original) }, [s])).rejects.toMatchObject({ constraint_name: "enrichment_claim_open_unique" });
+    await expect(c`update enrichment_claims set status='superseded', decided_by='check', decided_at=now(), superseded_by_claim_id=${b.id} where id=${a.id}`).rejects.toMatchObject({ constraint_name: "enrichment_scope_identity" });
+    expect((await c`select scope, status from enrichment_claims where id=${legacy.id}`)[0]).toMatchObject({ scope: null, status: "accepted" });
+  });
+
+  it("enforces unknown-scope evidence and negative coverage in the database", async () => {
+    const work = await book("Unknown scope");
+    const s = await source({ work });
+    const other = await source({ work });
+    const scoped = assertionScopeSchema.parse({ version: 1, kind: "text", unresolvedSourceId: s });
+    const assessment = { knowledge: "partially_assessed", coverage: "partial", basis: "local_evidence", justification: "One passage, unidentified translation." };
+    const fields = { work_id: work, dimension_id: ids.composition, number_value: 1962, scope: JSON.stringify(scoped), assessment: JSON.stringify(assessment) };
+    await expect(claim(fields, [other])).rejects.toMatchObject({ constraint_name: "enrichment_scope_evidence" });
+    await expect(claim({ ...fields, assessment: JSON.stringify({ ...assessment, knowledge: "established_absent" }) }, [s])).rejects.toMatchObject({ constraint_name: "enrichment_scope_assessment" });
+    const a = await claim(fields, [s]);
+    await expect(c`delete from claim_evidence where claim_id=${a.id}`).rejects.toThrow();
+    await expect(claim({ ...fields, scope: JSON.stringify({ ...scoped, version: 2 }) }, [s])).rejects.toMatchObject({ constraint_name: "enrichment_scope_shape" });
+    await expect(claim({ ...fields, dimension_id: ids.originalYear }, [s])).rejects.toMatchObject({ constraint_name: "enrichment_scope_target" });
+  });
+
+  it("deduplicates simultaneous proposals only within the same scope and refuses applying them", async () => {
+    const workId = await book("Concurrent scoped proposals");
+    const sourceRecordId = await source({ work: workId });
+    const scope = assertionScopeSchema.parse({ version: 1, kind: "text", identityKey: "urn:fixture:english", languages: ["en"], textKind: "translation" });
+    const input = { workId, dimension: "composition_year", value: { number: 1951 }, method: "api" as const, confidence: 0.8, vocabularyVersion: 1, runId: run, scope,
+      assessment: { knowledge: "partially_assessed" as const, coverage: "partial" as const, basis: "local_evidence" as const, justification: "Fixture evidence." },
+      evidence: [{ sourceRecordId, locator: "payload" as const, excerpt: "Dark", extractorVersion: "map-v1", payloadPath: ["labels", "en"] }] };
+    const conn = testDb as unknown as Db;
+    const results = (await Promise.all([proposeClaims([input], conn), proposeClaims([input], conn)])).flat();
+    expect(results.map((r) => r.status).sort()).toEqual(["created", "merged"]);
+    const [row] = await c`select id from enrichment_claims where work_id=${workId}`;
+    await expect(applyClaim(row.id, { by: "pablo" }, conn)).rejects.toThrow("application is disabled");
+    const another = await proposeClaims([{ ...input, scope: { ...scope, identityKey: "urn:fixture:another-translation" } }], conn);
+    expect(another[0].status).toBe("created");
+    expect((await c`select count(*)::int as n from enrichment_claims where work_id=${workId}`)[0].n).toBe(2);
+  });
+
+  it("keeps The Kindly Ones' French 2006 baseline apart from an English 2010 publication", async () => {
+    const work = await book("The Kindly Ones scope fixture");
+    const ed = await edition(work);
+    const baseline = assertionScopeSchema.parse({ version: 1, kind: "work", identityKey: "urn:fixture:les-bienveillantes:2006", languages: ["fr"], textKind: "original" });
+    const publication = assertionScopeSchema.parse({ version: 1, kind: "edition", languages: ["en"] });
+    const assessment = JSON.stringify({ knowledge: "present", coverage: "partial", basis: "local_evidence", justification: "Exact source record for each distinct date." });
+    const originalSource = await source({ work }, "wikidata", { year: "2006" });
+    const editionSource = await source({ edition: ed }, "open_library", { year: "2010" });
+    const [dimension] = await c`insert into enrichment_dimensions (key, label, definition, introduced_in, layer, value_kind, apply_target)
+      values ('publication_year', 'Publication year', 'Scoped publication-date observation', 1, 'facts', 'number', 'values') returning id`;
+    await claim({ work_id: work, dimension_id: ids.originalYear, number_value: 2006, scope: JSON.stringify(baseline), assessment }, [originalSource], { excerpt: "2006", path: ["year"] });
+    await claim({ work_id: work, edition_id: ed, dimension_id: dimension.id, number_value: 2010, scope: JSON.stringify(publication), assessment }, [editionSource], { excerpt: "2010", path: ["year"], outlet: "open_library" });
+    await expect(claim({ work_id: work, edition_id: ed, dimension_id: ids.originalYear, number_value: 2010, scope: JSON.stringify(publication), assessment }, [editionSource], { excerpt: "2010", path: ["year"], outlet: "open_library" })).rejects.toMatchObject({ constraint_name: "enrichment_scope_target" });
+    const rows = await c`select number_value::int as year, scope->>'kind' as kind, scope->'languages' as languages from enrichment_claims where work_id=${work} order by number_value`;
+    expect(rows).toEqual([{ year: 2006, kind: "work", languages: ["fr"] }, { year: 2010, kind: "edition", languages: ["en"] }]);
+    expect((await c`select original_year from works where id=${work}`)[0].original_year).toBeNull();
+  });
+
+  it("rejects evidence from another edition or a different explicitly scoped component", async () => {
+    const work = await book("Scope evidence ownership");
+    const first = await edition(work);
+    const second = await edition(work);
+    const wrongEdition = await source({ edition: second });
+    const assessment = JSON.stringify({ knowledge: "partially_assessed", coverage: "partial", basis: "local_evidence", justification: "Scope fixture." });
+    const publication = assertionScopeSchema.parse({ version: 1, kind: "edition" });
+    await expect(claim({ work_id: work, edition_id: first, dimension_id: ids.composition, number_value: 2000, scope: JSON.stringify(publication), assessment }, [wrongEdition])).rejects.toMatchObject({ constraint_name: "enrichment_scope_evidence" });
+    const part = assertionScopeSchema.parse({ version: 1, kind: "component", identityKey: "urn:fixture:volume", languages: ["en"], componentKey: "urn:fixture:story-one", componentKind: "independent_work" });
+    const otherPart = { ...part, componentKey: "urn:fixture:story-two" };
+    const wrongPart = await source({ work }, "wikidata", { labels: { en: "Dark" }, assertionScope: otherPart });
+    await expect(claim({ work_id: work, dimension_id: ids.composition, number_value: 2001, scope: JSON.stringify(part), assessment }, [wrongPart])).rejects.toMatchObject({ constraint_name: "enrichment_scope_evidence" });
+    // The same source context can support a different relation when its actual
+    // quoted passage supports it; role is not a different text identity.
+    await claim({ work_id: work, dimension_id: ids.composition, number_value: 2001, scope: JSON.stringify({ ...otherPart, relation: "mentions" }), assessment }, [wrongPart]);
+  });
+
+  it.each([false, true])("preserves opposite assessments in either arrival order (reversed=%s)", async (reversed) => {
+    const workId = await book("Opposite assessments");
+    const sourceRecordId = await source({ work: workId });
+    const scope = assertionScopeSchema.parse({ version: 1, kind: "text", identityKey: "urn:fixture:opposed", languages: ["en"] });
+    const base = { workId, dimension: "composition_year", value: { number: 1951 }, method: "api" as const, confidence: 0.8, vocabularyVersion: 1, runId: run, scope,
+      evidence: [{ sourceRecordId, locator: "payload" as const, excerpt: "Dark", extractorVersion: "fixture", payloadPath: ["labels", "en"] }] };
+    const present = { knowledge: "present" as const, coverage: "complete" as const, basis: "complete_reading" as const, justification: "Presence fixture." };
+    const absent = { ...present, knowledge: "established_absent" as const, justification: "Absence fixture." };
+    const [one, two] = reversed ? [absent, present] : [present, absent];
+    const conn = testDb as unknown as Db;
+    const first = (await proposeClaims([{ ...base, assessment: one }], conn))[0];
+    const second = (await proposeClaims([{ ...base, assessment: two }], conn))[0];
+    expect(first.status).toBe("created");
+    expect(second).toMatchObject({ status: "created", conflictsWith: ["claimId" in first ? first.claimId : "missing"] });
+    expect((await c`select assessment->>'knowledge' as knowledge from enrichment_claims where work_id=${workId} order by knowledge`).map((r) => r.knowledge)).toEqual(["established_absent", "present"]);
+  });
+
+  it("keeps concurrent and differently covered assessments separate, but merges another justification", async () => {
+    const workId = await book("Assessment concurrency");
+    const sourceRecordId = await source({ work: workId });
+    const base = { workId, dimension: "composition_year", value: { number: 1951 }, method: "api" as const, confidence: 0.8, vocabularyVersion: 1, runId: run,
+      scope: assertionScopeSchema.parse({ version: 1, kind: "text", identityKey: "urn:fixture:concurrent", languages: ["en"] }),
+      evidence: [{ sourceRecordId, locator: "payload" as const, excerpt: "Dark", extractorVersion: "fixture", payloadPath: ["labels", "en"] }] };
+    const present = { knowledge: "present" as const, coverage: "complete" as const, basis: "complete_reading" as const, justification: "Fixture." };
+    const absent = { ...present, knowledge: "established_absent" as const };
+    const conn = testDb as unknown as Db;
+    const results = (await Promise.all([proposeClaims([{ ...base, assessment: present }], conn), proposeClaims([{ ...base, assessment: absent }], conn)])).flat();
+    expect(results.every((r) => r.status === "created")).toBe(true);
+    expect((await proposeClaims([{ ...base, assessment: { ...present, coverage: "partial", basis: "local_evidence" } }], conn))[0].status).toBe("created");
+    expect((await proposeClaims([{ ...base, assessment: { ...present, justification: "Another explanation." } }], conn))[0].status).toBe("merged");
+    expect((await c`select count(*)::int as n from enrichment_claims where work_id=${workId}`)[0].n).toBe(3);
+  });
 
   beforeAll(async () => {
     await migrate(testDb!, { migrationsFolder: "src/lib/db/migrations" });
@@ -463,6 +586,23 @@ describe.skipIf(!url)("the book enrichment model", () => {
         choices: Object.fromEntries(preview.fields.filter((f) => f.conflict).map((f) => [f.key, "target" as const])),
       });
     };
+
+    it("preserves opposite knowledge when works merge and folds only compatible assessments", async () => {
+      const kept = await book("Kept assessment");
+      const merged = await book("Merged assessment");
+      const keptSource = await source({ work: kept });
+      const mergedSource = await source({ work: merged });
+      const scope = JSON.stringify(assertionScopeSchema.parse({ version: 1, kind: "text", identityKey: "urn:fixture:shared", languages: ["en"] }));
+      const present = { knowledge: "present", coverage: "complete", basis: "complete_reading", justification: "First." };
+      const values = { dimension_id: ids.composition, number_value: 1951, scope };
+      await claim({ ...values, work_id: kept, assessment: JSON.stringify(present) }, [keptSource]);
+      const duplicate = await claim({ ...values, work_id: merged, assessment: JSON.stringify({ ...present, justification: "Second." }) }, [mergedSource]);
+      const opposite = await claim({ ...values, work_id: merged, assessment: JSON.stringify({ ...present, knowledge: "established_absent" }) }, [mergedSource]);
+      await merge("works", merged, kept);
+      expect((await c`select status from enrichment_claims where id=${duplicate.id}`)[0].status).toBe("superseded");
+      expect((await c`select work_id,status from enrichment_claims where id=${opposite.id}`)[0]).toMatchObject({ work_id: kept, status: "proposed" });
+      expect((await c`select count(*)::int as n from enrichment_claims where work_id=${kept} and status='proposed'`)[0].n).toBe(2);
+    });
 
     it("merges two books with claims, evidence, values, snapshots and jobs", async () => {
       const kept = await book("Kept");

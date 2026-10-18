@@ -6,7 +6,8 @@ import { createPageFetcher, EvidenceFetchError, type FetchedPage } from "@/lib/n
 import { enqueueEnrichmentJob } from "../jobs";
 import { loadOutlets } from "../outlet-registry";
 import { outletForUrl, type Outlet } from "../outlets";
-import { mainTextExtractor } from "../extract";
+import { sourcePageExtractor } from "../source-extract";
+import type { SourceQuality } from "../source-quality";
 import { storeEvidencePage, storeEvidenceText, type MainTextExtractor } from "../evidence-store";
 import { costOf, priceFor } from "../prices";
 import { capLine, monthSpend } from "../meter";
@@ -48,8 +49,9 @@ export interface ResearchLog extends SearchLog {
   fallbackForBook: boolean;
   candidates: number;
   dropped: Record<string, number>;
-  documents: { outlet: string; url: string; fetched: boolean }[];
+  documents: { outlet: string; url: string; fetched: boolean; quality?: SourceQuality }[];
   refused: Record<string, number>;
+  sourceFailures?: { url: string; reason: string }[];
   outlets: Record<string, { candidates: number; stored: number; refused: number }>;
   spend: number;
 }
@@ -69,9 +71,12 @@ export interface ResearchDeps {
 const DEFAULTS: ResearchDeps = {
   main: tavily,
   fallback: brave,
-  keys: () => ({ TAVILY_API_KEY: process.env.TAVILY_API_KEY?.trim() || undefined, BRAVE_SEARCH_API_KEY: process.env.BRAVE_SEARCH_API_KEY?.trim() || undefined }),
+  keys: () => ({
+    TAVILY_API_KEY: process.env.TAVILY_API_KEY?.trim() || undefined,
+    BRAVE_SEARCH_API_KEY: process.env.BRAVE_SEARCH_API_KEY?.trim() || undefined,
+  }),
   pageFetcher: (outlets) => createPageFetcher({ outletFor: (url) => outletForUrl(url, outlets) }).fetchPage,
-  extractor: mainTextExtractor,
+  extractor: sourcePageExtractor,
   objects: bucketEvidenceObjects,
   storePage: storeEvidencePage,
   storeText: storeEvidenceText,
@@ -150,7 +155,10 @@ export function researchStage(overrides: Partial<ResearchDeps> = {}): Enrichment
       const summary = [
         `${queries.length} queries, ${plan.stored} documents stored, estimate ${usd(plan.estimate.main)} (${usd(plan.estimate.fallback)} on the fallback)`,
         `    profile: ${profile.titles.map((t) => `"${t}"`).join(", ")} by ${profile.authors.map((a) => a.name).join(", ")}${translators ? `, translated by ${translators}` : ""}; original language ${profile.originalLanguage ?? "unknown"}`,
-        ...queries.map((q) => `    ${q.group}: "${q.text}"${q.outlets.length ? ` [${q.outlets.length} outlets: ${q.outlets.slice(0, 5).join(", ")}${q.outlets.length > 5 ? ", …" : ""}]` : ""}${q.dimensions.length ? ` (${q.dimensions.join(", ")})` : ""}`),
+        ...queries.map(
+          (q) =>
+            `    ${q.group}: "${q.text}"${q.outlets.length ? ` [${q.outlets.length} outlets: ${q.outlets.slice(0, 5).join(", ")}${q.outlets.length > 5 ? ", …" : ""}]` : ""}${q.dimensions.length ? ` (${q.dimensions.join(", ")})` : ""}`,
+        ),
         ...(withoutTopic.length ? [`    no topic words for ${withoutTopic.join(", ")}`] : []),
       ].join("\n");
       return { plan, summary };
@@ -203,36 +211,41 @@ export function researchStage(overrides: Partial<ResearchDeps> = {}): Enrichment
       log.dropped = ranking.dropped;
 
       const owner = { kind: "book" as const, workId: job.workId };
+      const expectedIdentity = {
+        titles: plan.profile.titles,
+        authors: plan.profile.authors.flatMap((a) => [a.name, a.surname]),
+      };
       const outletLog = (key: string) => (log.outlets[key] ??= { candidates: 0, stored: 0, refused: 0 });
       for (const c of ranking.candidates) outletLog(c.outlet.key).candidates++;
       for (const c of ranking.candidates) {
         if (log.documents.length >= RESEARCH_CONFIG.maxDocumentsPerWork) break;
-        if (c.outlet.fetchPolicy === "snippet_only") {
-          // Never fetched; its snippet only where the provider's terms allow storing it and it is the page's own text
-          const provider = [deps.main, deps.fallback].find((p) => p.key === c.provider)!;
-          if (!usableSnippet(c) || !c.snippet) {
-            log.refused.snippet_only = (log.refused.snippet_only ?? 0) + 1;
-            outletLog(c.outlet.key).refused++;
+        try {
+          if (c.outlet.fetchPolicy === "snippet_only") {
+            // Never fetched; its snippet only where the provider's terms allow storing it and it is the page's own text
+            const provider = [deps.main, deps.fallback].find((p) => p.key === c.provider)!;
+            if (!usableSnippet(c) || !c.snippet) {
+              log.refused.snippet_only = (log.refused.snippet_only ?? 0) + 1;
+              outletLog(c.outlet.key).refused++;
+              continue;
+            }
+            await deps.storeText({
+              database: conn,
+              owner,
+              outlet: c.outlet.key,
+              outletName: c.outlet.name,
+              url: c.url,
+              text: c.snippet,
+              searchProvider: provider.key,
+              query: c.query,
+              runId: ctx.runId,
+              jobId: job.id,
+              objects: deps.objects,
+              expectedIdentity,
+            });
+            log.documents.push({ outlet: c.outlet.key, url: c.url, fetched: false });
+            outletLog(c.outlet.key).stored++;
             continue;
           }
-          await deps.storeText({
-            database: conn,
-            owner,
-            outlet: c.outlet.key,
-            outletName: c.outlet.name,
-            url: c.url,
-            text: c.snippet,
-            searchProvider: provider.key,
-            query: c.query,
-            runId: ctx.runId,
-            jobId: job.id,
-            objects: deps.objects,
-          });
-          log.documents.push({ outlet: c.outlet.key, url: c.url, fetched: false });
-          outletLog(c.outlet.key).stored++;
-          continue;
-        }
-        try {
           const stored = await deps.storePage({
             database: conn,
             owner,
@@ -243,13 +256,24 @@ export function researchStage(overrides: Partial<ResearchDeps> = {}): Enrichment
             extractor: deps.extractor,
             objects: deps.objects,
             outletName: (key) => byKey.get(key)?.name ?? key,
+            outletKind: c.outlet.kind,
+            expectedIdentity,
           });
-          log.documents.push({ outlet: c.outlet.key, url: stored.record.url ?? c.url, fetched: stored.fetched });
+          log.documents.push({
+            outlet: c.outlet.key,
+            url: stored.record.url ?? c.url,
+            fetched: stored.fetched,
+            quality: (stored.record.payload as { quality?: SourceQuality }).quality,
+          });
           outletLog(c.outlet.key).stored++;
         } catch (error) {
           // A refusal (robots.txt, terms, paywall, 404, too large): the next candidate
           if (!(error instanceof EvidenceFetchError)) throw error;
           log.refused[error.reason] = (log.refused[error.reason] ?? 0) + 1;
+          (log.sourceFailures ??= []).push({
+            url: c.url,
+            reason: error.reason,
+          });
           outletLog(c.outlet.key).refused++;
         }
       }
@@ -281,8 +305,12 @@ export function researchStage(overrides: Partial<ResearchDeps> = {}): Enrichment
         `- ${capLine(Math.max(0, ...plans.map((p) => p.spentThisMonth)))}; ceiling per book ${usd(RESEARCH_CONFIG.maxCostPerWork)}`,
         "## Research: the query table and the limits, for Pablo's approval",
         `- Limits: ${RESEARCH_CONFIG.maxBaseQueries} base queries, ${RESEARCH_CONFIG.maxOutletQueries} outlet queries, ${RESEARCH_CONFIG.maxTopicQueries} topic queries, ${RESEARCH_CONFIG.resultsPerQuery} results each; ${RESEARCH_CONFIG.maxPerOutlet} documents per outlet and ${RESEARCH_CONFIG.maxDocumentsPerWork} per book`,
-        `- The word for "review": ${Object.entries(REVIEW_WORDS).map(([language, word]) => `${language} ${word}`).join(", ")}`,
-        `- Topic words: ${Object.entries(TOPIC_WORDS).map(([dimension, words]) => `${dimension} "${words}"`).join(", ")}`,
+        `- The word for "review": ${Object.entries(REVIEW_WORDS)
+          .map(([language, word]) => `${language} ${word}`)
+          .join(", ")}`,
+        `- Topic words: ${Object.entries(TOPIC_WORDS)
+          .map(([dimension, words]) => `${dimension} "${words}"`)
+          .join(", ")}`,
       ];
     },
 
@@ -292,7 +320,11 @@ export function researchStage(overrides: Partial<ResearchDeps> = {}): Enrichment
       const merged = (pick: (o: ResearchLog) => Record<string, number>) => {
         const out: Record<string, number> = {};
         for (const o of researched) for (const [k, n] of Object.entries(pick(o))) out[k] = (out[k] ?? 0) + n;
-        return Object.entries(out).map(([k, n]) => `${k} ${n}`).join(", ") || "none";
+        return (
+          Object.entries(out)
+            .map(([k, n]) => `${k} ${n}`)
+            .join(", ") || "none"
+        );
       };
       const outlets = new Map<string, { candidates: number; stored: number; refused: number }>();
       for (const o of researched)
@@ -306,6 +338,17 @@ export function researchStage(overrides: Partial<ResearchDeps> = {}): Enrichment
         `- Queries by provider: ${merged((o) => o.queries)}; answered from the cache: ${sum((o) => o.cached)}; the fallback for too few candidates: ${researched.filter((o) => o.fallbackForBook).length} books`,
         `- Results ${sum((o) => o.results)}; allowlisted candidates ${sum((o) => o.candidates)}; dropped: ${merged((o) => o.dropped)}`,
         `- Documents stored ${sum((o) => o.documents.length)} (${sum((o) => o.documents.filter((d) => d.fetched).length)} fetched); refused: ${merged((o) => o.refused)}`,
+        `- Partial sources: ${sum((o) => o.documents.filter((d) => d.quality?.status === "partial").length)}; unique origins: ${new Set(researched.flatMap((o) => o.documents.map((d) => new URL(d.url).origin))).size}`,
+        ...researched.flatMap((o) =>
+          o.documents
+            .filter((d) => d.quality)
+            .map(
+              (d) =>
+                `- ${d.url}: ${d.quality!.status}; available ${d.quality!.present.join(", ") || "none"}; missing ${d.quality!.missing.join(", ") || "none"}`,
+            ),
+        ),
+        ...researched.flatMap((o) => (o.sourceFailures ?? []).map((failure) => `- ${failure.url}: refused (${failure.reason})`)),
+        "- Refusals require source review or a later permitted refresh; no bypass or automatic manual intervention was attempted.",
         `- Spend on search ${usd(spend)}, ${usd(researched.length ? spend / researched.length : 0)} a book`,
         "## Research: per outlet (candidates, stored, refused)",
         ...[...outlets].sort(([a], [b]) => a.localeCompare(b)).map(([key, n]) => `- ${key}: ${n.candidates}, ${n.stored}, ${n.refused}`),

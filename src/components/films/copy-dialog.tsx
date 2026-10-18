@@ -153,11 +153,10 @@ function CopyForm({
   const releases = versions.find((v) => v.id === versionId)?.releases ?? [];
   const blocked =
     !!priceError(acquisition.price, acquisition.currency) ||
-    Object.values(dateErrors).some(Boolean) ||
-    saving;
+    Object.values(dateErrors).some(Boolean);
 
   async function save() {
-    if (blocked) return;
+    if (blocked || saving) return;
     setSaving(true);
     setError(null);
     const isDisposed = status === "disposed";

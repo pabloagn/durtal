@@ -8,12 +8,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { READING_KEYS } from "@/lib/shortcuts/shortcuts";
 import {
-  bookReadingState,
-  readingControlLabel,
   readingMenu,
   READING_ACTION_LABELS,
   type ReadingMenuAction,
 } from "@/lib/reading/labels";
+import { readingControlFromSummary } from "@/lib/reading/overview-summary";
 import { ordinal } from "@/lib/reading/queue";
 import { useReading } from "./reading-provider";
 
@@ -38,10 +37,9 @@ const KEY_OF: Partial<Record<ReadingMenuAction, string>> = {
  * book"): Read is the way in (SLN-683, SLN-801).
  */
 export function ReadingControl({ ebook = false }: { ebook?: boolean }) {
-  const { data, run, queuable, toggleQueue } = useReading();
-  const readings = data.rows.map((r) => r.reading);
-  const state = bookReadingState(readings);
-  const label = readingControlLabel(readings, { ebook });
+  const { data, openRow, run, queuable, toggleQueue } = useReading();
+  const state = data.summary.state;
+  const label = readingControlFromSummary(data.summary, openRow?.reading ?? data.rows.find((row) => row.reading.id === data.summary.latestClosedId)?.reading ?? null, { ebook });
   return (
     <DropdownMenu
       label="Reading"
