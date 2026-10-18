@@ -129,7 +129,8 @@ export function SeriesBooks({
   }
 
   return (
-    <ol className="space-y-2">
+    // Removing a row hands the focus to the next, else to Add books (FocusKeeper)
+    <ol className="space-y-2" data-focus-list="series">
       {books.map((book) => {
         // Read and remove: beside the title, or on their own row on a phone
         const readable = !!(book.ebook?.readable && book.ebook.readerPath);
@@ -140,7 +141,8 @@ export function SeriesBooks({
             variant="ghost"
             aria-label={`Remove ${book.title} from the series`}
             data-tooltip="Remove from series"
-            disabled={!!busy}
+            // Busy, not disabled, so the focus stays on it until its row goes
+            busy={busy === book.id}
             onClick={() => remove(book)}
           >
             <X size={14} />
@@ -151,6 +153,7 @@ export function SeriesBooks({
         return (
           <li
             key={book.id}
+            data-focus-row=""
             className="flex items-center gap-4 rounded-sm border border-glass-border bg-bg-secondary px-3 py-2.5"
           >
             <PositionField
