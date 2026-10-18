@@ -156,3 +156,12 @@ describe("a new collection or series", () => {
     }
   });
 });
+
+describe("a book removed from a series", () => {
+  it("hands the focus to the next row, else to Add books (SLN-913)", () => {
+    const rows = source("components/series/series-books.tsx");
+    expect(rows).toContain('data-focus-list="series"');
+    expect(rows).toContain('data-focus-row=""');
+    expect(source("components/series/series-actions.tsx")).toContain('data-focus-empty="series"');
+  });
+});
