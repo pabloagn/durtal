@@ -19,10 +19,14 @@ function leave(target: URL) {
   else window.location.assign(target.href);
 }
 
+/** A request dropped on a flaky connection: ask again by itself, after these waits, before saying so (SLN-911) */
+export const HANDSHAKE_RETRY_MS = [500, 1500] as const;
+
 /**
  * The reader's first page in a browser with no device id (SLN-668): it gets
  * one under a lock shared with any other reader tab, then reloads to open the
- * book with it. Escape asks before leaving, as in the book (SLN-811); the
+ * book with it. A failed request is tried twice more before the error shows
+ * (SLN-911). Escape asks before leaving, as in the book (SLN-811); the
  * reload waits while the question is up.
  */
 export function DeviceHandshake({ ebookId, backHref }: { ebookId: string; backHref: string }) {
@@ -33,17 +37,23 @@ export function DeviceHandshake({ ebookId, backHref }: { ebookId: string; backHr
   const readyRef = useRef(false);
   useEffect(() => {
     let live = true;
-    settleDeviceId().then(
+    let wait: ReturnType<typeof setTimeout> | undefined;
+    const settle = (tries: number) => settleDeviceId().then(
       (result) => {
         if (!live) return;
         if (result !== "ready")
-          setFailure("This browser is not keeping cookies for Durtal, so the reader cannot remember your place. Allow cookies for this site, then retry.");
+          setFailure("This browser is not keeping cookies for Durtal, so the reader cannot remember your place. Allow cookies for this site, then try again.");
         else if (askingRef.current) readyRef.current = true;
         else window.location.reload();
       },
-      () => { if (live) setFailure("Durtal could not be reached. Check the connection, then retry."); },
+      () => {
+        if (!live) return;
+        if (tries < HANDSHAKE_RETRY_MS.length) wait = setTimeout(() => settle(tries + 1), HANDSHAKE_RETRY_MS[tries]);
+        else setFailure("Durtal could not be reached. Check the connection, then try again.");
+      },
     );
-    return () => { live = false; };
+    settle(0);
+    return () => { live = false; clearTimeout(wait); };
   }, [attempt]);
 
   const ask = useCallback(() => {
