@@ -460,6 +460,7 @@ One tooltip for the whole app (`src/components/ui/tooltip.tsx`, mounted once in 
 - `data-tooltip-keys` shows the control's shortcut as key caps: `"b"`, `"alt f"`, `"g then b"` (a sequence).
 - `data-tooltip-side`: `top` (default), `bottom`, `right`, `left`. It flips when it does not fit.
 - A control whose menu or panel is open (`aria-expanded="true"`, or the popover its `popovertarget` names) shows no tooltip, and opening the panel closes it, so the first Escape closes the panel.
+- A control whose label hides where room is short, leaving an icon button (Resume on a journal row on a phone), marks the label `data-tooltip-label`: its `data-tooltip` shows only while the label is hidden.
 - Text cut by `truncate`, `lines-1` or `lines-2` shows its full text on hover, with no attribute, and on keyboard focus of the link or button that holds it or sits in it (a ranking's one-line title).
 - Style: glass (`glass`), 14px text, 6px from the control. It renders in the top layer, above dialogs.
 
@@ -526,7 +527,7 @@ The same run reports what those audits pass but a reader still sees (`scripts/qa
 
 - **Squeezed title**: the h1 wraps while it takes under 60% of its row, because controls share the row, or it runs past 2 lines on a phone.
 - **Text-looking command**: a button or link with no box, border, underline or icon, in a text colour or within 1.25:1 of the text beside it, so only hover tells it apart (see Text commands).
-- **Drifting edge**: in a card, a block whose first ink (text, icon, or a badge's or field's box) starts 0.5 to 12px off its column's edge. In a label and value grid (a `dl`, such as a film's facts), a term or value whose first ink starts 0.5 to 16px inside its cell. Mark an intended inset with `data-inset`.
+- **Drifting edge**: in a card, a block whose first ink (text, icon, or a badge's or field's box) starts 0.5 to 12px off its column's edge. A divided list (`divide-y`) pads its rows so its rules reach the box's edges: each row's ink is measured from the padding most rows carry, so a row padded differently is the one reported. In a label and value grid (a `dl`, such as a film's facts), a term or value whose first ink starts 0.5 to 16px inside its cell. Mark an intended inset with `data-inset`.
 - **First card**: on a list page, the first card starts below the top 60% of the phone's first screen.
 
 Findings in `scripts/qa/layout-audit-known.json` show as known, with their ticket; the run says when one is no longer found on a page it checked, so its line can go. A known squeezed, plain or drift finding is keyed with its text (`plain /library/* a.transition-colors "Read"`, numbers as `#`), so another command with the same classes on that page still shows as new. A new finding is listed but fails the run only with `--strict`. A backdrop that bleeds to the edges of `main` (`-mx-4 md:-mx-6`) must match the page gutter.
