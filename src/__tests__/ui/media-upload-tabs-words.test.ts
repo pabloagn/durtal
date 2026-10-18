@@ -70,6 +70,11 @@ describe("an image upload", () => {
     await act(async () => button.click());
     expect(picked).toHaveBeenCalled();
   });
+
+  it("says image once when the main image is called an image", async () => {
+    await act(async () => root.render(createElement(UploadZone, { entityType: "work", entityId: "00000000-0000-4000-8000-000000000001", mediaType: "poster", noun: "image" })));
+    expect(host.querySelector("button")!.textContent).toContain("Drop image here");
+  });
 });
 
 describe("a file that is not an image", () => {

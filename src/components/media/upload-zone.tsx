@@ -302,7 +302,8 @@ export function UploadZone({
       >
         <Upload className="mb-2 h-5 w-5 text-fg-muted" strokeWidth={1.5} />
         <span className="block text-xs text-fg-secondary">
-          Drop {noun ?? mediaType} image{multiple ? "s" : ""} here or click to browse
+          {/* "Drop poster image here"; a main image called an image is not said twice */}
+          Drop {(noun ?? mediaType) === "image" ? "" : `${noun ?? mediaType} `}image{multiple ? "s" : ""} here or click to browse
         </span>
         <span className="mt-0.5 block text-micro text-fg-secondary">
           Drag from browser or file system
