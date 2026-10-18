@@ -46,13 +46,13 @@ export interface AppSettings {
   readingPredictionGate: PredictionGate | null;
 }
 
-/** The values before migration 0052: the same as its seeded row, without a location. */
+/** The values before migration 0052: its seeded row, without a location, and with no condition for new copies (SLN-924). */
 const DEFAULT_SETTINGS: AppSettings = {
   newBookStatus: "tracked",
   newBookLanguage: "en",
   newCopyLocationId: null,
   newCopyFormat: "paperback",
-  newCopyCondition: "mint",
+  newCopyCondition: null,
   homeCurrency: DEFAULT_CURRENCY,
   readingDayStartHour: 4,
   readingWeekStart: 1,
