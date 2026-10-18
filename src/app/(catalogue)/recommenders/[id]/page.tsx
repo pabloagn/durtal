@@ -3,9 +3,9 @@ import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
 import { pageHref } from "@/lib/utils/pagination";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { cache } from "react";
-import Link from "next/link";
+import { BackLink } from "@/components/shared/back-link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { paginateItems, type ListSearchParams } from "@/lib/utils/pagination";
 import { PaginatedSection } from "@/components/shared/pagination";
 import { BookCard } from "@/components/books/book-card";
@@ -38,29 +38,31 @@ export default async function RecommenderPage({
   searchParams,
 }: PageProps) {
   const { id } = await params;
+  // Their track record from taste evidence (SLN-457), the stats page's All time
+  // numbers, needs nothing from the recommender: it runs beside their books and
+  // the books' eBooks rather than after them (SLN-817)
+  const stats = recommenderStats(null);
+  // Awaited below; a page that ends sooner (not found) leaves no unhandled rejection
+  stats.catch(() => {});
   const recommender = await loadRecommender(id);
   if (!recommender) notFound();
   const books = recommender.books;
   const query = await searchParams;
   const paging = paginateItems(books, query);
-  const digital = await catalogueAvailability(paging.items.map((work) => work.id));
+  const [digital, allStats] = await Promise.all([
+    catalogueAvailability(paging.items.map((work) => work.id)),
+    stats,
+  ]);
   const readerReturnTo = pageHref(`/recommenders/${id}`, query, paging.page);
   const count = books.length;
   // Read: a finished reading at least (SLN-449)
   const read = books.filter((w) => Number(w.timesRead) >= 1).length;
-  // Their track record from taste evidence (SLN-457): the stats page's All time numbers
-  const record = (await recommenderStats(null)).find((r) => r.recommenderId === recommender.id);
+  const record = allStats.find((r) => r.recommenderId === recommender.id);
 
   return (
     <>
       <CopyShortcuts name={recommender.name} />
-      <Link
-        href="/recommenders"
-        className="mb-6 inline-flex items-center gap-1.5 text-xs text-fg-secondary transition-colors hover:text-fg-primary touch-hit"
-      >
-        <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
-        Back to recommenders
-      </Link>
+      <BackLink href="/recommenders">Back to recommenders</BackLink>
 
       {/* Header, as on series pages (no poster or cover): a long name steps
           down on a phone, and the controls go under it when it will not fit */}
@@ -83,7 +85,8 @@ export default async function RecommenderPage({
             />
           </DetailControls>
         </DetailTitleRow>
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+        {/* As tall as the website link (24px), with or without one, as the loading screen draws it */}
+        <div className="mt-3 flex min-h-6 flex-wrap items-center gap-3 text-sm">
           {recommender.url && (
             <a
               href={recommender.url}
