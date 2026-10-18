@@ -179,7 +179,7 @@ only those drawn:
 5. **Highest rated** (`#highest-rated`), **Wanted** (`#wanted`) and **Recent
    people** (`#people`): book sections.
 
-**Statistics** (SLN-742): pages on the shelves, languages, authors' countries and the share read, then the year with the most books as five of its covers, then when the books were written (years or decades), with "View all" to `/statistics`. Its body (`DashboardStatistics`, `src/components/statistics/dashboard-statistics.tsx`) loads in its own Suspense boundary; the dashboard draws the section and its heading.
+**Statistics** (SLN-742): pages on the shelves, languages, authors' countries and the share read, then the year with the most books as five of its covers, then when the books were written (years or decades), with "View all" to `/statistics`. Its body (`DashboardStatistics`, `src/components/statistics/dashboard-statistics.tsx`) loads in its own Suspense boundary; the dashboard draws the section and its heading. Its reads (`statisticsReads`) start with the dashboard's first ones (SLN-795).
 
 The card shelves (Recent additions, Collections, Highest rated, Wanted, Recent
 people) end on a full row (`PhonePairGrid`): a shelf takes 10 books (12
@@ -187,6 +187,13 @@ people), two full rows at five columns, and at another column count the
 cards that would sit alone on a last row are left out. A shelf no longer than
 one row keeps all its cards. `getLibraryStats` takes the shelf size; the API
 keeps 8.
+
+The dashboard reads in two round trips (SLN-795). Every read starts at once;
+those that need another's result wait for that one alone. The library's
+reads come apart (`libraryStatsReads`, `src/lib/actions/utils/library-stats.ts`):
+the counts and the recent, highest rated and people shelves, the wanted
+shelf's ids, then its cards. So the e-book marks, author covers and roles go
+out in the second round trip with the wanted cards.
 
 ### Statistics (`/statistics`)
 

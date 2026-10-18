@@ -1,7 +1,5 @@
 "use server";
 
-import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
-
 import {
   bookCondition,
   requireBookWork,
@@ -20,7 +18,6 @@ import {
   works,
   workAuthors,
   editions,
-  instances,
   authors,
   comments,
   activityEvents,
@@ -35,7 +32,6 @@ import {
   count,
   and,
   inArray,
-  isNotNull,
   ne,
 } from "drizzle-orm";
 import { z } from "zod";
@@ -53,22 +49,17 @@ import { recordActivity } from "@/lib/activity/record";
 import { authorOrderedBookIds } from "@/lib/actions/utils/author-ordered-books";
 import { alphabeticalWorkIds } from "@/lib/actions/utils/alphabetical-works";
 import { compareWorks } from "@/lib/utils/title-order";
-import { posterTone, workCardExtras, workCardWith } from "@/lib/actions/utils/work-card-query";
+import { posterTone, readingExtras, workCardExtras, workCardWith } from "@/lib/actions/utils/work-card-query";
+import { libraryStatsReads } from "@/lib/actions/utils/library-stats";
 import { markColumn } from "@/lib/actions/utils/work-marks";
 import { WORK_MARKS, type WorkMarkKey } from "@/lib/constants/marks";
 import { normalizeSearchText } from "@/lib/utils/search-text";
-import type { AnyColumn, SQL } from "drizzle-orm";
-import { countryDisplayName } from "@/lib/utils/labels";
+import type { SQL } from "drizzle-orm";
 import { readingFilterConditions } from "@/lib/reading/filter-conditions";
 import { bookFilterConditions } from "@/lib/library/filter-conditions";
 import { workSearchCondition } from "@/lib/library/search-condition";
 import type { BookFilterParams } from "@/lib/library/filter-params";
-import {
-  lastFinishedOnSql,
-  lastFinishedPrecisionSql,
-  lastReadAtSql,
-  readCountSql,
-} from "@/lib/reading/summary";
+import { lastReadAtSql } from "@/lib/reading/summary";
 import type { ReadingFilterParams } from "@/lib/reading/filter-params";
 import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
 
@@ -77,14 +68,6 @@ export type WorkFilters = ReadingFilterParams &
     isRare?: boolean;
     isPoison?: boolean;
   };
-
-/** The library cards' and the API's reading data, one correlated subquery each over the root work (SLN-449) */
-const readingExtras = (work: { id: AnyColumn }) => ({
-  ...workCardExtras(work),
-  timesRead: readCountSql(work.id).as("times_read"),
-  lastFinishedOn: lastFinishedOnSql(work.id).as("last_finished_on"),
-  lastFinishedPrecision: lastFinishedPrecisionSql(work.id).as("last_finished_precision"),
-});
 
 /**
  * The where clause of the library list and its count, so both apply the same
@@ -683,176 +666,8 @@ export async function getWorksWithMark(
 
 /** Dashboard stats; `shelf` is how many books each shelf takes (the API keeps 8) */
 export async function getLibraryStats({ shelf = 8 }: { shelf?: number } = {}) {
-  // The library card's first edition, so a shelf shows the cover the library shows
-  const firstEdition = [asc(editions.createdAt), asc(editions.id)];
-  const worksWith = {
-    workAuthors: {
-      with: { author: true },
-      orderBy: asc(workAuthors.sortOrder),
-      limit: 1,
-    },
-    editions: {
-      columns: {
-        id: true,
-        thumbnailS3Key: true,
-        publicationYear: true,
-        language: true,
-        updatedAt: true,
-      },
-      orderBy: firstEdition,
-      limit: 1,
-      with: {
-        instances: {
-          columns: { id: true },
-        },
-      },
-    },
-    media: {
-      columns: {
-        s3Key: true,
-        thumbnailS3Key: true,
-        type: true,
-        isActive: true,
-        cropX: true,
-        cropY: true,
-        cropZoom: true,
-        brightness: true,
-        contrast: true,
-        createdAt: true,
-      },
-      extras: posterTone,
-    },
-  } as const;
-
-  const wantedIds = await alphabeticalWorkIds(
-    inArray(works.catalogueStatus, ["wanted", "shortlisted"]),
-    shelf,
-  );
-  // Limit the candidate IDs before loading authors, editions and media. The
-  // same total ordering is used below when the selected books are hydrated:
-  // equal ratings and timestamps resolve by ID, including at the shelf edge.
-  const topRatedOrder = [sql`${works.rating} desc nulls last`, desc(works.createdAt), asc(works.id)];
-  const topRatedIds = db.select({ id: works.id }).from(works)
-    .where(and(bookCondition, isNotNull(works.rating)))
-    .orderBy(...topRatedOrder).limit(shelf);
-  const [
-    [workCount],
-    [editionCount],
-    [instanceCount],
-    [authorCount],
-    recentWorks,
-    topRatedWorks,
-    wantedWorks,
-    recentWorksForAuthors,
-  ] = await Promise.all([
-    db.select({ count: count() }).from(works).where(bookCondition),
-    db.select({ count: count() }).from(editions),
-    db.select({ count: count() }).from(instances),
-    db.select({ count: count() }).from(authors).where(bookPersonCondition),
-    // Recent additions
-    db.query.works.findMany({
-      where: bookCondition,
-      orderBy: desc(works.createdAt),
-      limit: shelf,
-      extras: readingExtras,
-      with: worksWith,
-    }),
-    // Top rated
-    db.query.works.findMany({
-      where: inArray(works.id, topRatedIds),
-      orderBy: topRatedOrder,
-      limit: shelf,
-      extras: readingExtras,
-      with: worksWith,
-    }),
-    // Wanted / shortlisted
-    db.query.works.findMany({
-      where: inArray(works.id, wantedIds),
-      extras: readingExtras,
-      with: worksWith,
-    }),
-    // For recent authors: get more works so we can extract unique authors
-    db.query.works.findMany({
-      where: bookCondition,
-      orderBy: desc(works.createdAt),
-      limit: 40,
-      with: {
-        workAuthors: {
-          with: {
-            author: {
-              with: {
-                country: { columns: { name: true, alpha2: true } },
-                workAuthors: { columns: { workId: true } },
-                media: {
-                  columns: {
-                    s3Key: true,
-                    thumbnailS3Key: true,
-                    type: true,
-                    isActive: true,
-                  },
-                  extras: posterTone,
-                },
-              },
-            },
-          },
-          orderBy: asc(workAuthors.sortOrder),
-          limit: 1,
-        },
-      },
-    }),
-  ]);
-
-  // De-duplicate authors from recent works, preserving recency order
-  const seenAuthorIds = new Set<string>();
-  const recentAuthors: Array<{
-    id: string;
-    slug: string | null;
-    name: string;
-    photoS3Key: string | null;
-    photoTone: string | null;
-    nationality: string | null;
-    birthYear: number | null;
-    deathYear: number | null;
-    worksCount: number;
-  }> = [];
-  for (const work of recentWorksForAuthors) {
-    const author = work.workAuthors[0]?.author;
-    if (author && !seenAuthorIds.has(author.id)) {
-      seenAuthorIds.add(author.id);
-      // Prefer active poster from media table, fall back to legacy photoS3Key
-      const activePoster = author.media?.find(
-        (m: { type: string; isActive: boolean }) =>
-          m.type === "poster" && m.isActive,
-      );
-      const photoKey =
-        (activePoster as { thumbnailS3Key?: string; s3Key: string } | undefined)
-          ?.thumbnailS3Key ??
-        (activePoster as { s3Key: string } | undefined)?.s3Key ??
-        author.photoS3Key;
-      recentAuthors.push({
-        id: author.id,
-        slug: author.slug,
-        name: author.name,
-        photoS3Key: photoKey,
-        photoTone:
-          (activePoster as { tone?: string | null } | undefined)?.tone ?? null,
-        nationality: countryDisplayName(author.country),
-        birthYear: author.birthYear,
-        deathYear: author.deathYear,
-        worksCount: author.workAuthors.length,
-      });
-      if (recentAuthors.length >= 12) break;
-    }
-  }
-
-  return {
-    works: workCount.count,
-    editions: editionCount.count,
-    instances: instanceCount.count,
-    authors: authorCount.count,
-    recentWorks,
-    topRatedWorks,
-    wantedWorks: wantedWorks.sort(compareWorks),
-    recentAuthors,
-  };
+  const { library, wanted } = libraryStatsReads({ shelf });
+  const [{ recentAuthors, ...stats }, wantedWorks] = await Promise.all([library, wanted]);
+  // The API's order: the shelves, then the people
+  return { ...stats, wantedWorks, recentAuthors };
 }
