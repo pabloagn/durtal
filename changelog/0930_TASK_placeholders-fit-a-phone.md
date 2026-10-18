@@ -27,7 +27,7 @@ SLN-946, finding 5 of `findings/forms-survey-2026-10-15.md`. Thirteen forms had 
   - Add book and Match again: `Title, author or ISBN`; Match again's field gets that as its name, which it had only from the placeholder.
   - Add painting: `e.g. The Night Watch`.
   - Log progress: `212, 44% or +20`, with every format in the hint line.
-- Add a quote: Page and Chapter stack on a phone, so the page formats show whole.
+- Add a quote: Page and Chapter stack on a phone, so the page formats show whole, and the Edition field wraps a long edition name (the `wrap` of SLN-932), as Start reading's does.
 
 ## Completion Notes
 
