@@ -66,6 +66,7 @@ export default async function SeriesDetailPage({
         poster?.thumbnailS3Key ??
         poster?.s3Key ??
         w.editions[0]?.thumbnailS3Key ??
+        w.editions[0]?.coverS3Key ??
         null,
       coverCrop: poster ? mediaCrop(poster) : null,
       owned: w.owned,

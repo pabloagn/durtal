@@ -532,4 +532,25 @@ describe.skipIf(!url)("series with PostgreSQL", () => {
     expect(w?.seriesName).toBeNull();
     expect(w?.seriesPosition).toBe("3");
   });
+
+  it("shows a book's first edition cover on its row, card and Add books result (SLN-914)", async () => {
+    const s = await make("Cover Cycle");
+    const covered = await book("Edition Covered", { seriesId: s.id, seriesPosition: "1" });
+    await book("Edition Bare", { seriesId: s.id, seriesPosition: "2" });
+    // The first edition has no cover; the second does
+    await db.insert(schema.editions).values({ workId: covered.id, title: "Edition Covered", createdAt: new Date("2020-01-01") });
+    await db.insert(schema.editions).values({ workId: covered.id, title: "Edition Covered", coverS3Key: "covers/second.jpg", createdAt: new Date("2021-01-01") });
+
+    const detail = (await getSeriesDetail(s.id))!;
+    expect(detail.works.map((w) => [w.title, w.editions[0]?.coverS3Key ?? null])).toEqual([
+      ["Edition Covered", "covers/second.jpg"],
+      ["Edition Bare", null],
+    ]);
+    expect((await getSeriesList({ search: "cover cycle" })).rows[0].covers).toEqual(["covers/second.jpg"]);
+    const found = await searchWorksForSeries("edition");
+    expect(Object.fromEntries(found.map((w) => [w.title, w.cover]))).toEqual({
+      "Edition Covered": "covers/second.jpg",
+      "Edition Bare": null,
+    });
+  });
 });
