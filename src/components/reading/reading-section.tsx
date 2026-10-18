@@ -82,7 +82,7 @@ function CurrentReading({ row }: { row: ReadingRow }) {
         <p className="font-mono text-xs text-fg-secondary">
           {r.status === "paused" ? `Paused · ${position}` : position}
         </p>
-        {data.estimates?.[r.id] && <EstimateLine estimate={data.estimates[r.id]} onAddLength={() => open({ kind: "edit", readingId: r.id })} />}
+        {data.estimates?.[r.id] && <EstimateLine estimate={data.estimates[r.id]} onAddLength={() => open({ kind: "edit", readingId: r.id, focusLength: true })} />}
         <p className="text-xs text-fg-secondary">
           {started}
           {home}
