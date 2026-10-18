@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { addWorksToSeries, searchWorksForSeries } from "@/lib/actions/series";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { CapAligned } from "@/components/shared/cap-aligned";
 
 type Work = Awaited<ReturnType<typeof searchWorksForSeries>>[number];
 
@@ -119,23 +120,26 @@ export function AddSeriesBooksDialog({
               return (
                 <label
                   key={w.id}
-                  className={`flex items-center gap-3 rounded-sm px-2 py-2 ${inThis ? "opacity-50" : "cursor-pointer hover:bg-bg-tertiary"}`}
+                  className={`flex items-start gap-3 rounded-sm px-2 py-2 text-sm ${inThis ? "opacity-50" : "cursor-pointer hover:bg-bg-tertiary"}`}
                 >
-                  <input
-                    type="checkbox"
-                    aria-label={`Select ${w.title}`}
-                    checked={inThis || !!selected[w.id]}
-                    disabled={saving || inThis}
-                    onChange={(event) =>
-                      setSelected((old) => {
-                        const next = { ...old };
-                        if (event.target.checked) next[w.id] = w;
-                        else delete next[w.id];
-                        return next;
-                      })
-                    }
-                    className="h-4 w-4 rounded-sm border-glass-border accent-accent-primary"
-                  />
+                  {/* On the title's first line once it wraps */}
+                  <CapAligned height={16}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${w.title}`}
+                      checked={inThis || !!selected[w.id]}
+                      disabled={saving || inThis}
+                      onChange={(event) =>
+                        setSelected((old) => {
+                          const next = { ...old };
+                          if (event.target.checked) next[w.id] = w;
+                          else delete next[w.id];
+                          return next;
+                        })
+                      }
+                      className="block h-4 w-4 rounded-sm border-glass-border accent-accent-primary"
+                    />
+                  </CapAligned>
                   <div className="flex h-12 w-8 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-tertiary">
                     {w.cover && (
                       <img
