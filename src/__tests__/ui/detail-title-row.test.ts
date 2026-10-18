@@ -96,7 +96,7 @@ describe("DetailTitleRow", () => {
       expect(source.indexOf("<DetailEditButton"), file).toBeLessThan(source.indexOf("<EntityActionMenu"));
       expect(source, file).not.toContain("<ExportMenu");
     }
-    expect(read("app/(catalogue)/people/[slug]/author-detail-header.tsx")).toContain('...exportActionItems("authors", [authorId], "person")');
+    expect(read("app/(catalogue)/people/[slug]/author-detail-header.tsx")).toContain('...exportActionItems("authors", [authorId])');
     expect(read("app/(catalogue)/organizations/[slug]/page.tsx")).toContain('target={{ entity: "organization", id }}');
   });
 

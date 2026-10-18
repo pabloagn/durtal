@@ -77,21 +77,25 @@ describe("additive book JSON export", () => {
     expect(response.headers.get("content-type")).toBe(
       "application/json; charset=utf-8",
     );
-    expect(response.headers.get("content-disposition")).toMatch(
-      /^attachment; filename="durtal-.+-2026-10-09\.json"$/,
+    expect(response.headers.get("content-disposition")).toBe(
+      'attachment; filename="durtal-a-rebours-2026-10-09.json"',
     );
     const text = await response.text();
     const [row] = JSON.parse(text);
     expect(row).toMatchObject({
       title: "À rebours",
       original_year: 1884,
-      rating: "4.5",
+      rating: 4.5,
+      is_anthology: false,
       notes: book.notes,
       catalogue_status: "wanted",
       instance_count: 0,
-      acquisition_targets: "[]",
-      edition_publishers: "[]",
-      ebook_formats: "",
+      // Nested data stays data, a missing value is null (SLN-894)
+      acquisition_targets: [],
+      edition_publishers: [],
+      ebook_formats: null,
+      isbn_13: null,
+      page_count: null,
     });
     expect(text).not.toMatch(/gold\/|private|coverS3Key|metadata|https:\/\//);
     expect(store.books).toHaveBeenCalledOnce();
@@ -128,7 +132,7 @@ describe("additive book JSON export", () => {
     const [row] = await response.json();
     expect(row.ebook_formats).toBe("EPUB; PDF");
     expect(store.digital).toHaveBeenCalledExactlyOnceWith([id], { includePositions: false });
-    expect(row.acquisition_targets).toBe("[]");
+    expect(row.acquisition_targets).toEqual([]);
     expect(row.notes).toBe(notes);
     for (const field of [
       "readerPath", "reader_path", "continue", "target", "targetFile", "editionId",
@@ -141,21 +145,33 @@ describe("additive book JSON export", () => {
     }
   });
 
-  it.each([
-    "authors",
-    "films",
-    "perfumes",
-    "paintings",
-    "readings",
-    "reading-sessions",
-    "reading-notes",
-    "goodreads",
-  ])("does not add JSON to %s exports", async (entity) => {
-    expect(exportFormatsFor(entity)).not.toContain("json");
-    expect(
-      (await POST(request({ entity, all: true, format: "json" }))).status,
-    ).toBe(400);
-    expect(store.books).not.toHaveBeenCalled();
+  it("offers JSON for every kind but the Goodreads file (SLN-894)", async () => {
+    for (const entity of ["works", "authors", "films", "perfumes", "paintings", "readings", "reading-sessions", "reading-notes"])
+      expect(exportFormatsFor(entity), entity).toContain("json");
+    expect(exportFormatsFor("goodreads")).toEqual(["csv"]);
+    expect((await POST(request({ entity: "goodreads", all: true, format: "json" }))).status).toBe(400);
+  });
+
+  it("sorts books by title, accents and case aside, then by id", async () => {
+    store.books.mockResolvedValue([
+      { ...book, id: "33333333-3333-3333-3333-333333333333", title: "the Magic Mountain" },
+      { ...book, id: "22222222-2222-2222-2222-222222222222", title: "Zazie" },
+      book,
+      { ...book, id: "00000000-0000-0000-0000-000000000000", title: "A rebours" },
+    ]);
+    const rows = await (await POST(request({ entity: "works", all: true, format: "json" }))).json();
+    expect(rows.map((r: { title: string }) => r.title)).toEqual(["A rebours", "À rebours", "the Magic Mountain", "Zazie"]);
+  });
+
+  it("names a record whose title slugs to nothing by its kind and id, and a selection by its kind", async () => {
+    store.books.mockResolvedValue([{ ...book, title: "Война и мир" }]);
+    const one = await POST(request({ entity: "works", ids: [id], format: "csv" }));
+    expect(one.headers.get("content-disposition")).toBe('attachment; filename="durtal-book-11111111-2026-10-09.csv"');
+    expect(one.headers.get("content-type")).toBe("text/csv; charset=utf-8");
+    store.books.mockResolvedValue([book, { ...book, id: "22222222-2222-2222-2222-222222222222" }]);
+    const two = await POST(request({ entity: "works", ids: [id, "22222222-2222-2222-2222-222222222222"], format: "tsv" }));
+    expect(two.headers.get("content-disposition")).toBe('attachment; filename="durtal-books-2026-10-09.tsv"');
+    expect(two.headers.get("content-type")).toBe("text/tab-separated-values; charset=utf-8");
   });
 
   it.each([[], ["invalid"], Array.from({ length: 501 }, () => id)])(
@@ -177,6 +193,9 @@ describe("additive book JSON export", () => {
     expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
     const text = new TextDecoder().decode(bytes);
     expect(text).toContain("'=a formula-like note");
+    // Nested data in a spreadsheet is JSON text, a boolean yes or no
+    expect(text).toContain(',no,');
+    expect(text).toContain(',[],[],');
     expect(exportFormatsFor("works")).toEqual([
       "csv",
       "tsv",

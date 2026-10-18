@@ -563,7 +563,7 @@ describe.skipIf(!url)("perfume catalogue and inventory services", () => {
       base_notes: "vanilla",
       bottles: 1,
       samples: 0,
-      favourite: "no",
+      favourite: false,
       description: "Aldehydic floral",
     });
     // The route names the file after the collection and refuses a closed one
