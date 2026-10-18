@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  createContext,
+  useContext,
   useEffect,
   useLayoutEffect,
   useId,
@@ -9,6 +11,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { X, Maximize2, Minimize2 } from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { acquireSurface, captureFocusOrigin, restoreFocusOrigin, type FocusOrigin, type SurfaceLease } from "@/lib/ui/surface-state";
@@ -52,6 +55,39 @@ const CONTROL =
   'input:not([type="hidden"]), select, textarea, button, a[href], [contenteditable="true"], [tabindex]:not([tabindex="-1"])';
 
 /**
+ * The row under a dialog's body that holds its Cancel and Save. Undefined
+ * outside a dialog; null until the dialog's row is in the page.
+ */
+const FooterSlot = createContext<{ slot: HTMLElement | null; shown: (on: boolean) => void } | undefined>(undefined);
+
+/**
+ * A form's Cancel, Save and notice. In a dialog they sit in a row under the
+ * scrolling body, always in view, as the dialog's own Done does: the fields
+ * scroll, not the footer, and nothing else in the dialog scrolls. Outside a
+ * dialog (a form on a page) the row follows the fields. A submit button in
+ * the row names its form (`form`), since the row is not inside it.
+ */
+export function DialogFooter({
+  children,
+  outside = "mt-5 border-t border-glass-border pt-4",
+}: {
+  children: ReactNode;
+  /** The row's own spacing and rule on a page, where it follows the fields */
+  outside?: string;
+}) {
+  const footer = useContext(FooterSlot);
+  const shown = footer?.shown;
+  useLayoutEffect(() => {
+    if (!shown) return;
+    shown(true);
+    return () => shown(false);
+  }, [shown]);
+  const row = <div className="flex flex-wrap items-center justify-end gap-2">{children}</div>;
+  if (!footer) return <div className={outside}>{row}</div>;
+  return footer.slot ? createPortal(row, footer.slot) : null;
+}
+
+/**
  * Where focus goes back to when a dialog closes. A dialog opened from a menu
  * item opens after the menu is gone, with focus already on the page body, so
  * the last focused element and the button of the menu that held it are kept
@@ -75,6 +111,9 @@ export function Dialog({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
+  const [footerSlot, setFooterSlot] = useState<HTMLDivElement | null>(null);
+  const [footers, setFooters] = useState(0);
+  const footerShown = useCallback((on: boolean) => setFooters((n) => n + (on ? 1 : -1)), []);
   const scope = useDialogFocusScope();
   const ownLease = useRef<SurfaceLease | null>(null);
   const closeRef = useRef(onClose);
@@ -209,7 +248,7 @@ export function Dialog({
         </div>
         {/* 44px targets on touch */}
         <CapAligned height={28} coarseHeight={44} className="ml-4">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 pointer-coarse:gap-2">
             {expandable && (
               <button
                 type="button"
@@ -242,9 +281,11 @@ export function Dialog({
       {/* Body. It scrolls, not the dialog: the glass stays behind every
           line, and the header stays in view. It grows from its content
           (flex-auto): from a zero basis, Safari gives it no height */}
-      <div ref={bodyRef} className={`min-h-0 flex-auto overflow-y-auto px-6 pt-3 ${done ? "pb-4" : "pb-6"}`}>
-        {children}
+      <div ref={bodyRef} className={`min-h-0 flex-auto overflow-y-auto px-6 pt-3 ${done || footers > 0 ? "pb-4" : "pb-6"}`}>
+        <FooterSlot.Provider value={{ slot: footerSlot, shown: footerShown }}>{children}</FooterSlot.Provider>
       </div>
+      {/* A form's Cancel and Save (DialogFooter): outside the scrolling body */}
+      <div ref={setFooterSlot} className="shrink-0 border-t border-glass-border px-6 py-4 empty:hidden" />
       {/* Outside the scrolling body, so it stays in view */}
       {done && (
         <div className="flex shrink-0 justify-end border-t border-glass-border px-6 py-4">
@@ -260,8 +301,8 @@ export function Dialog({
 }
 
 /**
- * The question before unsaved work is closed. Save is the main action (Enter)
- * when the form can save as it is; else Discard. Esc keeps editing, with the
+ * The question before unsaved work is closed. Keep editing receives focus;
+ * the reader must choose Save or Discard deliberately. Esc keeps editing, with the
  * draft and the focus as they were. It is its own layer: Enter and Esc here
  * never reach the form or the page under it.
  */
@@ -278,27 +319,27 @@ export function UnsavedChangesPrompt({ prompt }: { prompt: UnsavedPrompt }) {
         onClose={prompt.keepEditing}
         title="Unsaved changes"
         description={
-          prompt.canSave
+          prompt.question ??
+          (prompt.canSave
             ? "Save your changes before closing?"
-            : "Your changes have not been saved. Discard them?"
+            : "Your changes have not been saved. Discard them?")
         }
         className="max-w-sm"
         expandable={false}
       >
         <div className="flex flex-wrap justify-end gap-2">
-          <Button type="button" variant="ghost" className="mr-auto" onClick={prompt.keepEditing}>
+          <Button type="button" ref={main} variant="ghost" className="mr-auto" onClick={prompt.keepEditing}>
             Keep editing
           </Button>
           <Button
             type="button"
-            ref={prompt.canSave ? undefined : main}
             variant={prompt.canSave ? "secondary" : "primary"}
             onClick={prompt.discard}
           >
             Discard
           </Button>
           {prompt.canSave && (
-            <Button type="button" ref={main} variant="primary" onClick={prompt.save}>
+            <Button type="button" variant="primary" onClick={prompt.save}>
               Save
             </Button>
           )}

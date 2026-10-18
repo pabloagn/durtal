@@ -4,17 +4,21 @@ import {
   useState,
   useRef,
   useEffect,
+  useLayoutEffect,
   useCallback,
   useId,
   type ChangeEvent,
 } from "react";
 import { ChevronDown, HelpCircle } from "lucide-react";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
+import { acquireSurface } from "@/lib/ui/surface-state";
 
 export interface SelectOption {
   value: string;
   label: string;
   hint?: string;
+  /** Shown, but not chosen (a role a person already has) */
+  disabled?: boolean;
 }
 
 interface SelectProps {
@@ -33,6 +37,12 @@ interface SelectProps {
   ariaLabel?: string;
   /** The id of the text that explains the field */
   ariaDescribedby?: string;
+  /**
+   * A compact select inside a line of text or a chip (a credit's role): one
+   * line tall, as wide as its value, which shows whole. It takes `ariaLabel`
+   * and no label.
+   */
+  compact?: boolean;
 }
 
 export function Select({
@@ -49,6 +59,7 @@ export function Select({
   name,
   ariaLabel,
   ariaDescribedby,
+  compact = false,
 }: SelectProps) {
   // The label names the field through its id, so a field always has one
   const generatedId = useId();
@@ -57,6 +68,7 @@ export function Select({
   const [activeHint, setActiveHint] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [focusIndex, setFocusIndex] = useState(-1);
 
   // Build full options list including placeholder
@@ -83,21 +95,21 @@ export function Select({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [isOpen]);
 
-  // Esc closes an open list wherever focus is: Safari does not focus a
-  // button on click, so the trigger may not have the key. The dialog around
-  // the field stays until the next Esc (SLN-477)
-  useEffect(() => {
+  const closeList = useCallback(() => {
+    setIsOpen(false);
+    setActiveHint(null);
+    setFocusIndex(-1);
+    triggerRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  // The list owns Escape above its parent, including when a pointer leaves
+  // focus on the dialog instead of the trigger. Outside clicks and Tab keep
+  // their own focus destination; releasing a lease never moves focus.
+  useLayoutEffect(() => {
     if (!isOpen) return;
-    function handleKey(e: KeyboardEvent) {
-      if (e.key !== "Escape" || e.defaultPrevented || isComposing(e)) return;
-      e.preventDefault();
-      setIsOpen(false);
-      setActiveHint(null);
-      containerRef.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
-    }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [isOpen]);
+    const lease = acquireSurface(closeList);
+    return () => lease.release();
+  }, [isOpen, closeList]);
 
   // Scroll active item into view
   useEffect(() => {
@@ -121,14 +133,16 @@ export function Select({
   );
 
   function handleSelect(optionValue: string) {
+    if (allOptions.find((o) => o.value === optionValue)?.disabled) return;
     emitChange(optionValue);
     setIsOpen(false);
     setActiveHint(null);
     setFocusIndex(-1);
+    containerRef.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (disabled) return;
+    if (disabled || isComposing(e.nativeEvent)) return;
     // ⌘Enter saves the form (shortcuts provider); keys with a modifier are not the list's
     if (e.metaKey || e.ctrlKey || e.altKey) return;
 
@@ -163,15 +177,6 @@ export function Select({
           setFocusIndex((prev) => (prev > 0 ? prev - 1 : prev));
         }
         break;
-      case "Escape":
-        // An open list closes first; a closed one lets Escape reach the
-        // dialog around it
-        if (!isOpen) break;
-        e.preventDefault();
-        setIsOpen(false);
-        setActiveHint(null);
-        setFocusIndex(-1);
-        break;
       case "Tab":
         setIsOpen(false);
         setActiveHint(null);
@@ -183,7 +188,7 @@ export function Select({
   const hasAnyHints = allOptions.some((o) => o.hint);
 
   return (
-    <div className="space-y-1.5" ref={containerRef}>
+    <div className={compact ? "inline-block shrink-0" : "space-y-1.5"} ref={containerRef}>
       {label && (
         <label
           id={`${id}-label`}
@@ -200,7 +205,10 @@ export function Select({
         <button
           type="button"
           id={id}
+          ref={triggerRef}
           role="combobox"
+          // Labels can hydrate independently; only a changed value is a draft edit.
+          data-draft-value={value ?? ""}
           aria-label={ariaLabel}
           aria-describedby={ariaDescribedby}
           aria-expanded={isOpen}
@@ -216,14 +224,16 @@ export function Select({
             }
           }}
           onKeyDown={handleKeyDown}
-          className={`flex h-8 w-full items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 px-3 text-left text-xs transition-colors duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:text-sm ${
+          className={`flex items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 text-left text-xs transition-colors duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-60 pointer-coarse:h-11 pointer-coarse:text-sm ${
+            compact ? "h-5 px-1.5 leading-5 pointer-coarse:min-w-11 pointer-coarse:px-2" : "h-8 w-full px-3"
+          } ${
             error ? "border-accent-red" : ""
           } ${isOpen ? "border-accent-primary" : ""} ${className}`}
         >
           {/* One line: a narrow trigger cuts the label with an ellipsis (the
               tooltip shows it whole) instead of wrapping out of its 32px */}
           <span
-            className={`min-w-0 truncate ${
+            className={`min-w-0 ${compact ? "whitespace-nowrap" : "truncate"} ${
               value === "" || value === undefined
                 ? "text-fg-secondary"
                 : "text-fg-primary"
@@ -232,7 +242,7 @@ export function Select({
             {displayLabel}
           </span>
           <ChevronDown
-            className={`ml-2 h-3.5 w-3.5 shrink-0 text-fg-secondary transition-transform duration-150 ${
+            className={`${compact ? "ml-1 h-3 w-3" : "ml-2 h-3.5 w-3.5"} shrink-0 text-fg-secondary transition-transform duration-150 ${
               isOpen ? "rotate-180" : ""
             }`}
             strokeWidth={1.5}
@@ -242,7 +252,7 @@ export function Select({
         {/* Dropdown */}
         {isOpen && (
           // The glass never scrolls: its list does, inside it
-          <div className="glass absolute z-50 mt-1 w-full overflow-hidden">
+          <div className={`glass absolute z-50 mt-1 overflow-hidden ${compact ? "min-w-full w-max" : "w-full"}`}>
             <div
               ref={listRef}
               role="listbox"
@@ -261,9 +271,10 @@ export function Select({
                     key={opt.value}
                     role="option"
                     aria-selected={isSelected}
+                    aria-disabled={opt.disabled || undefined}
                     onClick={() => handleSelect(opt.value)}
                     onMouseEnter={() => setFocusIndex(idx)}
-                    className={`flex cursor-pointer items-center justify-between px-3 py-1.5 text-xs transition-colors ${
+                    className={`flex cursor-pointer items-center justify-between px-3 py-1.5 text-xs transition-colors aria-disabled:cursor-not-allowed aria-disabled:opacity-40 ${
                       isSelected
                         ? "bg-accent-primary/10 text-fg-primary"
                         : isFocused

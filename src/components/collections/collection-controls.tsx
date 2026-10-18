@@ -75,7 +75,7 @@ export function CollectionControls({
 }) {
   const router = useRouter();
   const params = useSearchParams();
-  const [add, setAdd] = useState(initialAdd),
+  const [add, setAdd] = useState(false),
     [edit, setEdit] = useState(false),
     [artwork, setArtwork] = useState(false),
     [deleting, setDeleting] = useState(false),
@@ -91,7 +91,13 @@ export function CollectionControls({
       setAdd(true);
     };
     window.addEventListener(ADD_EVENT, onAdd);
+    // A new collection opens on its Add dialog: it opens from the header's
+    // Add in the same way, so the focus comes back there after Add rather
+    // than to the page body (SLN-920)
+    if (initialAdd) onAdd();
     return () => window.removeEventListener(ADD_EVENT, onAdd);
+    // Once, on arrival: initialAdd is the address it opened with
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   function openEdit() {
     setName(collection.name);
@@ -323,7 +329,7 @@ export function CollectionMemberControls({
   // Last in its card's foot, on the right even when it wraps to its own
   // line; the remove button's padding goes past the text's right edge
   return (
-    <div className="-mr-2.5 ml-auto flex gap-1 pointer-coarse:-mr-3.5">
+    <div className="-mr-2.5 ml-auto flex gap-1 pointer-coarse:-mr-3.5 pointer-coarse:gap-2">
       <Button
         size="sm"
         variant="ghost"

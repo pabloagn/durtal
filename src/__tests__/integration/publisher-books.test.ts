@@ -121,14 +121,16 @@ describe.skipIf(!url)("a publishing house's books as a catalogue", () => {
     const twice = await book("The Dud Avocado", "Elaine Dundy", [
       { publisher: house, year: 2007 },
       { publisher: house, year: 2018, owned: true },
-    ]);
+    ], { catalogueStatus: "accessioned" });
     await book("Wanted Book", "A Writer", [{ publisher: house, year: 2001 }], { catalogueStatus: "wanted" });
+    // A copy of a book that is only tracked is not owned, as on the library's Owned filter (SLN-886)
+    await book("Tracked Copy", "A Writer", [{ publisher: house, year: 2003, owned: true }]);
     expect((await run()).books.find((b) => b.title === "The Dud Avocado")).toMatchObject({ primaryEditionId: twice.editions[1], instanceCount: 1 });
     expect((await run({ state: "owned" })).books.map((b) => b.title)).toEqual(["The Dud Avocado"]);
     expect((await run({ state: "wanted" })).books.map((b) => b.title)).toEqual(["Wanted Book"]);
     expect((await run({ state: "on_order" })).total).toBe(0);
     expect((await run({ state: "owned,wanted" })).total).toBe(2);
-    expect(await getPublisherCounts(house)).toEqual({ books: 2, editions: 3, owned: 1, wanted: 1, onOrder: 0, read: 0 });
+    expect(await getPublisherCounts(house)).toEqual({ books: 3, editions: 4, owned: 1, wanted: 1, onOrder: 0, read: 0 });
     // Read (SLN-449): a book with a finished reading counts once; an open one does not
     await db.execute(sql`insert into readings(work_id, status, started_precision, finished_on, finished_precision)
       values (${twice.work.id}, 'finished', 'unknown', '2020-01-01', 'year'), (${twice.work.id}, 'reading', 'unknown', null, 'unknown')`);

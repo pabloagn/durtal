@@ -5,7 +5,7 @@ import { copyWhereabouts, isAtHand, type CopyPlace } from "./at-hand";
 import { DEFAULT_PAGES_PER_HOUR, hoursWords, priorFor, type PacePriors } from "./pace";
 
 /*
- * Up Next (SLN-452), pure: positions with gaps, the edition and copy of each
+ * Up next (SLN-452), pure: positions with gaps, the edition and copy of each
  * item, and the time the list would take at his pace. getQueue reads the
  * rows; these decide what they say.
  */

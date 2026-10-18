@@ -114,7 +114,7 @@ describe("the duplicate panel opens the existing work (SLN-667)", () => {
     expect(host.querySelector("img")?.getAttribute("src")).toContain("key=posters%2Fp-thumb.jpg");
     render(work({ editions: [{ id: "e1", coverS3Key: null, thumbnailS3Key: null, instances: [] }] }));
     expect(host.querySelector("img")).toBeNull();
-    expect(host.textContent).toContain("No cover");
+    expect(host.querySelector("[data-decorative]")?.textContent).toBe("T");
     expect(host.textContent).toContain("0 copies");
   });
 

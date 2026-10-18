@@ -19,11 +19,13 @@ const PRESET_COLORS = [
 ];
 
 interface TaxonomyColorPickerProps {
+  label?: string;
   value: string | null;
   onChange: (color: string | null) => void;
 }
 
 export function TaxonomyColorPicker({
+  label = "Pick color",
   value,
   onChange,
 }: TaxonomyColorPickerProps) {
@@ -113,8 +115,8 @@ export function TaxonomyColorPicker({
         onClick={() => setOpen((prev) => !prev)}
         className="flex h-5 w-5 items-center justify-center rounded-sm transition-colors hover:bg-bg-tertiary pointer-coarse:size-11"
         aria-expanded={open}
-        data-tooltip="Pick color"
-        aria-label="Pick color"
+        data-tooltip={label}
+        aria-label={label}
       >
         {value ? (
           <span

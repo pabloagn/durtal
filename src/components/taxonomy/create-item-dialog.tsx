@@ -16,7 +16,7 @@ interface CreateItemDialogProps {
   familyName: string;
   hierarchical: boolean;
   existingItems: { id: string; name: string }[];
-  onCreated: () => void;
+  onCreated: (id: string) => void;
 }
 
 export function CreateItemDialog({
@@ -63,9 +63,9 @@ export function CreateItemDialog({
       try {
         // Dynamic import to avoid circular dependency — action may not exist yet
         const { createTaxonomyItem } = await import(
-          "@/lib/actions/taxonomy-families"
+          "@/lib/actions/taxonomy-client"
         );
-        await createTaxonomyItem(familySlug, {
+        const created = await createTaxonomyItem(familySlug, {
           name: trimmedName,
           description: description.trim() || null,
           color,
@@ -73,7 +73,7 @@ export function CreateItemDialog({
         });
         toast.success(`Created "${trimmedName}"`);
         resetForm();
-        onCreated();
+        onCreated(created.id);
         onClose();
       } catch (err) {
         const message =
@@ -97,7 +97,7 @@ export function CreateItemDialog({
       draft
       open={open}
       onClose={handleClose}
-      title={`New ${familyName} Item`}
+      title={`Add to ${familyName}`}
       className="max-w-lg"
       expandable={false}
     >

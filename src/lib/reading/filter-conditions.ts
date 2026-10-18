@@ -1,5 +1,5 @@
 import { sql, type SQL } from "drizzle-orm";
-import { ownedBookCondition } from "@/lib/catalogue/holdings";
+import { ownedWorkCondition } from "@/lib/catalogue/holdings";
 import { catalogueStatusCondition } from "@/lib/publishers/conditions";
 import { readCountSql, readInCondition, readingStateSql } from "./summary";
 import type { ReadingFilterParams } from "./filter-params";
@@ -13,7 +13,7 @@ export function readingFilterConditions(workId: SQL | unknown, filters: ReadingF
   if (!filters) return out;
   if (filters.catalogueStatus?.length) out.push(catalogueStatusCondition(filters.catalogueStatus));
   if (filters.reading?.length) {
-    // Any one of the values: a reading state, or in Up Next (SLN-452)
+    // Any one of the values: a reading state, or in Up next (SLN-452)
     const states = filters.reading.filter((r) => r !== "queued");
     const any = [
       ...(states.length ? [sql`${readingStateSql(workId)} in (${sql.join(states.map((r) => sql`${r}`), sql`, `)})`] : []),
@@ -21,8 +21,8 @@ export function readingFilterConditions(workId: SQL | unknown, filters: ReadingF
     ];
     out.push(any.length === 1 ? any[0] : sql`(${sql.join(any, sql` or `)})`);
   }
-  if (filters.holding === "owned") out.push(ownedBookCondition(workId));
-  if (filters.holding === "not_owned") out.push(sql`not ${ownedBookCondition(workId)}`);
+  if (filters.holding === "owned") out.push(ownedWorkCondition(workId));
+  if (filters.holding === "not_owned") out.push(sql`not ${ownedWorkCondition(workId)}`);
   if (filters.readFrom !== undefined || filters.readTo !== undefined) out.push(readInCondition(workId, filters.readFrom, filters.readTo));
   if (filters.reread) out.push(sql`${readCountSql(workId)} >= 2`);
   return out;

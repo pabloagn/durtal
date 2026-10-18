@@ -27,7 +27,7 @@ interface WrittenShape {
   noteIds?: string[];
 }
 
-/** The row's readings, Up Next item or library rating were committed; a row with only its note written was not */
+/** The row's readings, Up next item or library rating were committed; a row with only its note written was not */
 export function readingsCommitted(written: WrittenShape | null | undefined): boolean {
   return !!written && ((written.readings?.length ?? 0) > 0 || written.queueOutcome !== undefined || written.ratingOutcome !== undefined);
 }

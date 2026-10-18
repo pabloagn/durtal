@@ -45,7 +45,7 @@ export async function readTaxonomyGovernance(conn: Db, workId: string, families:
         (select jsonb_build_object('id', c.id, 'decidedBy', c.decided_by, 'decidedAt', c.decided_at::text, 'ruleId', c.rule_id)
           from enrichment_claims c where c.work_id = ${workId}::uuid and c.term_id = t.id and c.status = 'accepted' order by c.decided_at desc limit 1) as accepted,
         coalesce((select jsonb_agg(jsonb_build_object('id', c.id) order by c.id) from enrichment_claims c
-          where c.work_id = ${workId}::uuid and c.term_id = t.id and c.status = 'proposed'), '[]'::jsonb) as "openProposals"
+          where c.work_id = ${workId}::uuid and c.term_id = t.id and c.status = 'proposed' and c.scope is null), '[]'::jsonb) as "openProposals"
       from enrichment_terms t join enrichment_dimensions d on d.id = t.dimension_id join taxonomy_families f on f.id = d.taxonomy_family_id
       where t.retired_in is null and d.retired_in is null and coalesce(t.system_item_id, t.custom_item_id) is not null
         and f.slug in (${sql.join(families.map((f) => sql`${f}`), sql`, `)})`),

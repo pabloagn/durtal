@@ -13,7 +13,7 @@ import { hasOpenSurface, isFreeEscape } from "@/lib/ui/surface-state";
 const layers: object[] = [];
 const takes = new WeakMap<object, (event: KeyboardEvent) => boolean>();
 
-/** A search field on the page: its first Esc leaves the field (shortcuts) */
+/** A page search owns Escape before this page cancellation layer (shortcuts). */
 function pageSearchField(target: EventTarget | null) {
   return (
     target instanceof HTMLInputElement &&
@@ -44,6 +44,7 @@ export function useEscapeToCancel({
   dirty,
   save,
   within = false,
+  searchEscCancels = false,
 }: {
   /** The form or editor; none for a question with nothing to type */
   root?: RefObject<HTMLElement | null>;
@@ -58,6 +59,8 @@ export function useEscapeToCancel({
   save?: (() => void) | null;
   /** Only an Esc from inside `root` (an editor among others on a page) */
   within?: boolean;
+  /** A form page may treat its idle search field as part of the form. */
+  searchEscCancels?: boolean;
 }): ReactNode {
   const none = useRef<HTMLElement | null>(null);
   const root = given ?? none;
@@ -75,7 +78,7 @@ export function useEscapeToCancel({
       if (!isFreeEscape(event) || layers.findLast((l) => takes.get(l)?.(event)) !== layer) return;
       // A dialog or a floating layer on the page closes first
       if (hasOpenSurface() || document.querySelector("dialog[open]")) return;
-      if (pageSearchField(event.target)) return;
+      if (pageSearchField(event.target) && !searchEscCancels) return;
       event.preventDefault();
       latest.current.request();
     }
@@ -94,7 +97,7 @@ export function useEscapeToCancel({
       document.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("beforeunload", onBeforeUnload);
     };
-  }, [enabled, within, root]);
+  }, [enabled, within, root, searchEscCancels]);
 
   return guard.prompt ? <UnsavedChangesPrompt prompt={guard.prompt} /> : null;
 }

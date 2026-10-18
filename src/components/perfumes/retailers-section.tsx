@@ -12,12 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
-import {
-  addPerfumeRetailerLink,
-  archivePerfumeRetailerLink,
-  deletePerfumeRetailerLink,
-  recordRetailerObservation,
-} from "@/lib/actions/perfume-retailers";
+import { addPerfumeRetailerLink, archivePerfumeRetailerLink, deletePerfumeRetailerLink, recordRetailerObservation } from "@/lib/actions/catalogue-client";
 import type { getPerfumeRetailerLinks } from "@/lib/actions/perfume-retailers";
 import { RETAILER_AVAILABILITY, AVAILABILITY_LABELS } from "@/lib/catalogue/retailers";
 import { PERFUME_CONTAINERS } from "@/lib/catalogue/perfumes";

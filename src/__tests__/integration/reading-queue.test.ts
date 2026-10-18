@@ -10,7 +10,7 @@ if (url) requireDisposableDatabaseUrl(url, "sln452_reading_queue");
 if (url) {
   const parsed = new URL(url);
   if (!["localhost", "127.0.0.1"].includes(parsed.hostname) || parsed.pathname !== "/sln452_reading_queue")
-    throw new Error("Up Next tests require a disposable local sln452_reading_queue database");
+    throw new Error("Up next tests require a disposable local sln452_reading_queue database");
 }
 const client = url ? postgres(url, { prepare: false, max: 6, onnotice: () => {} }) : null;
 const testDb = client ? drizzle(client, { schema }) : null;
@@ -59,9 +59,9 @@ import { LIBRARY_SORTS, parseReadingFilters } from "@/lib/reading/filter-params"
 import { GET as listWorks } from "@/app/api/works/route";
 import { activitySettled } from "@/lib/activity/record";
 
-/* Up Next against PostgreSQL (SLN-452). */
+/* Up next against PostgreSQL (SLN-452). */
 
-describe.skipIf(!url)("Up Next with PostgreSQL", () => {
+describe.skipIf(!url)("Up next with PostgreSQL", () => {
   const q = (text: string, params: unknown[] = []) => client!.unsafe(text, params as postgres.ParameterOrJSON<never>[]);
   const value = async <T = string>(text: string, params: unknown[] = []) => Object.values((await q(text, params))[0] ?? {})[0] as T;
 
@@ -103,7 +103,7 @@ describe.skipIf(!url)("Up Next with PostgreSQL", () => {
       await addToQueue({ workId: b, note: "M. says start with this one" });
       expect(await addToQueue({ workId: c, at: "top" })).toMatchObject({ place: 1 });
       expect(await order()).toEqual(["Watt", "Nadja", "La Curée"]);
-      await expect(addToQueue({ workId: b })).rejects.toThrow("Already in Up Next, at 3");
+      await expect(addToQueue({ workId: b })).rejects.toThrow("Already in Up next, at 3");
       const d = await book("Moby-Dick");
       await startReading({ workId: d });
       await expect(addToQueue({ workId: d })).rejects.toThrow("Moby-Dick is being read");
@@ -140,7 +140,7 @@ describe.skipIf(!url)("Up Next with PostgreSQL", () => {
       expect(await value<number>(`select position from reading_queue where work_id = $1`, [b])).toBe(again.position + 1);
       const gone = await removeFromQueue({ workId: a });
       await addToQueue({ workId: a });
-      await expect(restoreQueueItem(gone)).rejects.toThrow("A is in Up Next again");
+      await expect(restoreQueueItem(gone)).rejects.toThrow("A is in Up next again");
       const started = await removeFromQueue({ workId: c });
       await startReading({ workId: c });
       await expect(restoreQueueItem(started)).rejects.toThrow("C was started meanwhile");
@@ -180,7 +180,7 @@ describe.skipIf(!url)("Up Next with PostgreSQL", () => {
     });
   });
 
-  describe("starting a book takes it off Up Next", () => {
+  describe("starting a book takes it off Up next", () => {
     it("through startReading", async () => {
       const a = await book("Nadja");
       await addToQueue({ workId: a });
@@ -293,6 +293,7 @@ describe.skipIf(!url)("Up Next with PostgreSQL", () => {
       const ams = await place("Amsterdam");
       const kindle = await place("Kindle", "digital");
       const [lent, digital, gone] = [await book("Lent"), await book("Digital"), await book("Gone")];
+      await q(`update works set catalogue_status = 'accessioned' where id in ($1, $2, $3)`, [lent, digital, gone]);
       await copy(await edition(lent), ams, "lent_out", { lentTo: "M.", lentDate: "2026-05-03" });
       await copy(await edition(digital), kindle);
       await copy(await edition(gone), ams, "deaccessioned");
@@ -307,6 +308,15 @@ describe.skipIf(!url)("Up Next with PostgreSQL", () => {
       expect(g.owned).toBe(false);
       expect(queueWhereabouts(g.editions, g.atHandCopyId, "2026-10-05")).toBe("Not owned");
       expect(l.owned).toBe(true);
+      expect(d.owned).toBe(true);
+    });
+
+    it.each(["tracked", "wanted", "on_order"])("does not call a queued %s book owned just because it has an active copy", async (status) => {
+      const workId = await book(`Still ${status}`);
+      await q(`update works set catalogue_status = $1 where id = $2`, [status, workId]);
+      await copy(await edition(workId), await place("Study"));
+      await addToQueue({ workId });
+      expect(await getQueue()).toMatchObject([{ workId, owned: false }]);
     });
 
     it("gives each edition its last known audio length and the book's reading history", async () => {
@@ -322,7 +332,7 @@ describe.skipIf(!url)("Up Next with PostgreSQL", () => {
   });
 
   describe("the library", () => {
-    it("filters to the books in Up Next and sorts by its order, on the page and in GET /api/works", async () => {
+    it("filters to the books in Up next and sorts by its order, on the page and in GET /api/works", async () => {
       const [a, b, c, d] = [await book("Alpha"), await book("Beta"), await book("Gamma"), await book("Delta")];
       await addToQueue({ workId: c });
       await addToQueue({ workId: a });
@@ -420,9 +430,9 @@ describe.skipIf(!url)("Up Next with PostgreSQL", () => {
       const again = await createReadingImport({ text: file, fileName: "goodreads.csv" });
       const second = await rowsOf(again.importId);
       expect(second.slice(0, 3).map((r) => [r.match.note, r.decision])).toEqual([
-        ["Already in Up Next, at 2", "skip"],
-        ["Already in Up Next, at 1", "skip"],
-        ["Already in Up Next, at 3", "skip"],
+        ["Already in Up next, at 2", "skip"],
+        ["Already in Up next, at 1", "skip"],
+        ["Already in Up next, at 3", "skip"],
       ]);
       for (const r of second.slice(0, 3)) await decideRow({ importId: again.importId, rowNo: r.row_no, decision: "import" });
       expect(await commitImport(again.importId)).toMatchObject({ queued: 0, queuePresent: 3 });

@@ -11,13 +11,15 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import type { RichValue } from "@/components/shared/tiptap-editor";
 import { createReadingNote, updateReadingNote } from "@/lib/actions/reading-notes";
 import { NOTE_MAX, type NoteKind } from "@/lib/reading/constants";
-import { ordinalRead } from "@/lib/reading/labels";
+import type { ReadingChoice } from "@/lib/reading/overview-types";
+import { ReadingChoiceField } from "./reading-choice-field";
 import { noteDefaultMode, noteEditionDefault, type EditionSource } from "@/lib/reading/note-defaults";
 import { formatPageInput, joinHyphenatedLines, parsePageInput } from "@/lib/reading/notes-text";
 import { showError, useCoarsePointer } from "../reading-client";
 import type { ReadingDialogProps } from "../reading-provider";
 import { DialogFooter } from "./fields";
 import { readNumber } from "./start-reading-dialog";
+import { countLabel } from "@/lib/utils/format";
 
 // The editor loads only once the dialog shows a quote
 const loadEditor = () => import("@/components/shared/tiptap-editor").then((m) => m.TiptapEditor);
@@ -30,7 +32,7 @@ const KINDS = [
 /** The hint under an empty text area on a touch screen: iOS reads a printed page with Live Text */
 export const SCAN_TEXT_HINT = "To copy a printed page, tap and hold here, then Scan Text.";
 
-const STATUS_WORDS: Record<string, string> = { reading: "reading now", paused: "paused", finished: "finished", abandoned: "abandoned" };
+
 
 /** Where the reading is, as the position field shows it in this mode; empty when not known */
 function readingPlace(reading: { currentPage: number | null; currentPercent: number | null } | null, percent: boolean) {
@@ -58,11 +60,14 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
   const [kind, setKind] = useState<NoteKind>(editing?.kind ?? request.noteKind ?? "quote");
   const [body, setBody] = useState(editing?.body ?? "");
   const [readingId, setReadingId] = useState(editing ? (editing.readingId ?? "") : (request.readingId ?? openRow?.reading.id ?? ""));
-  const readingOf = (id: string) => data.rows.find((r) => r.reading.id === id)?.reading ?? null;
-  const reading = readingOf(readingId);
+  const [selectedChoice, setSelectedChoice] = useState<ReadingChoice | null>(() => {
+    const row = data.rows.find(row => row.reading.id === readingId);
+    return row ? { ...row.reading, ordinal: row.ordinal, editionLabel: row.edition?.title ?? null } : null;
+  });
+  const reading = selectedChoice;
   // The edition defaults as Start reading's do: the "I'm at" home and the last reading's edition
   const homeId = home === "none" ? null : (home ?? data.homes[0]?.id ?? null);
-  const lastReadingEditionId = data.rows.find((r) => r.reading.editionId)?.reading.editionId ?? null;
+  const lastReadingEditionId = data.defaults.lastEditionId;
   const editionDefault = (readingEditionId: string | null, callerEditionId: string | null = null) =>
     noteEditionDefault(data.editions, { callerEditionId, readingEditionId, homeId, lastReadingEditionId });
   const [initial] = useState(() => {
@@ -110,11 +115,12 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
   }
 
   /** Another reading: the edition follows it only while it holds a default */
-  function chooseReading(id: string) {
-    setReadingId(id);
+  function chooseReading(choice: ReadingChoice | null) {
+    setReadingId(choice?.id ?? "");
+    setSelectedChoice(choice);
     if (editionSource !== "reading" && editionSource !== "default") return;
-    const next = editionDefault(readingOf(id)?.editionId ?? null);
-    if ((next.editionId ?? "") !== editionId) changeEdition(next.editionId ?? "", next.source, readingOf(id));
+    const next = editionDefault(choice?.editionId ?? null);
+    if ((next.editionId ?? "") !== editionId) changeEdition(next.editionId ?? "", next.source, choice);
     else setEditionSource(next.source);
   }
 
@@ -132,8 +138,8 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
   const pageHint =
     !byPercent && edition?.pageCount
       ? lastPage != null && lastPage > edition.pageCount
-        ? `This edition has ${edition.pageCount} pages`
-        : `Of ${edition.pageCount} pages`
+        ? `This edition has ${countLabel(edition.pageCount, "page")}`
+        : `Of ${countLabel(edition.pageCount, "page")}`
       : null;
   const close = () => (request.back ? open(request.back) : onClose());
 
@@ -264,28 +270,7 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
           </div>
           <Input label="Chapter" value={chapter} onChange={(e) => setChapter(e.target.value)} maxLength={300} className="pointer-coarse:h-11 pointer-coarse:text-base" />
         </div>
-        {data.rows.length > 0 && (
-          <Select
-            label="Reading"
-            value={readingId}
-            onChange={(e) => chooseReading(e.target.value)}
-            className="pointer-coarse:h-11"
-            options={[
-              { value: "", label: "None" },
-              ...data.rows.map((r) => ({
-                value: r.reading.id,
-                // With more than one edition, the reading's names its own: "2nd read · Penguin Classics, 2003 · reading now"
-                label: [
-                  ordinalRead(r.ordinal),
-                  data.editions.length > 1 ? data.editions.find((ed) => ed.id === r.reading.editionId)?.short : null,
-                  STATUS_WORDS[r.reading.status],
-                ]
-                  .filter(Boolean)
-                  .join(" · "),
-              })),
-            ]}
-          />
-        )}
+        {data.summary.readingCount > 0 && <ReadingChoiceField workId={data.workId} total={data.summary.readingCount} initialChoices={data.rows.map(row => ({ ...row.reading, ordinal: row.ordinal, editionLabel: row.edition?.title ?? null }))} editionNames={Object.fromEntries(data.editions.map(edition => [edition.id, data.editions.length > 1 ? edition.short : ""]))} value={readingId} selected={selectedChoice} onHydrate={setSelectedChoice} onChange={chooseReading} />}
         {kind === "quote" && (
           <DeferredFeature
             load={loadEditor}

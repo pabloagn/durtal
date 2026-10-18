@@ -385,6 +385,32 @@ Domain models retain the specific measurement meaning and original unit as neede
 
 ## Book enrichment
 
+### Assertion scope contract 1 (SLN-970)
+
+Migration `0089_claim_scope` adds nullable `scope` and `assessment` JSON to the
+existing claims table. Historical rows keep null in both columns; null does
+not certify a canonical baseline. Scope carries version, target kind, reviewed
+text/baseline identity, languages, realization kind, component identity and
+role, unresolved source anchor, and assertion relation. The existing edition
+foreign key can also identify the publication embodying a scoped text.
+
+Scope is immutable and participates in open-claim uniqueness (SHA-256 of its
+canonical JSON), service deduplication, conflicts, merge and undo comparisons.
+Knowledge, coverage and basis are compared and hashed separately; justification
+wording is excluded. Conflicting assessments remain separate. Scoped evidence
+must match any edition binding and explicit source text/component context.
+Assessment records knowledge separately from decision, with coverage, basis
+and justification. Unknown means no fabricated value; absence requires a
+documented complete examination. Source-local unknown identity must cite the
+same source observation in `claim_evidence` (checked at commit).
+
+All contract-1 claims remain proposals or rejected/superseded history; accepting
+or applying them is blocked in both the service and database. Legacy manual
+edits and identity rules exclude them. The existing accepted catalogue and
+owner corrections are unchanged. No inheritance, catalogue migration or
+vocabulary load is implied. See `docs/ENRICHMENT_SCOPE_CONTRACT.md` for the gap
+analysis, scope cases and guarded rollback plan.
+
 Migration `0077_book_enrichment` (SLN-462) adds the tables of the book
 enrichment pipeline (SLN-460): proposed values with their evidence, the approved
 vocabulary, the apply log with undo, auto-accept rules, popularity snapshots and
@@ -550,7 +576,12 @@ its retrieval time, with one row per document and owner (the book, or one of its
 editions). Readers recognise it by `payload.kind`.
 
 **The evidence payload** (`src/lib/enrichment/evidence-payload.ts`) holds no
-page text (R10), only hashes, keys and short metadata: `kind` (`evidence_page`,
+page text (R10), only hashes, keys and short metadata. SLN-969 adds optional
+`quality` (profile/version, status, available and missing fields, coverage and
+reasons), `identityText` (primary record identity, at most 2,000 characters),
+and `sections` (role, locator, code-point start/end in the hashed NFC text).
+These are present on new observations and optional for historical payloads;
+no DDL migration or rewrite is needed. Remaining fields: `kind` (`evidence_page`,
 `evidence_text`), `retrievedVia` (`fetch`, `search:<provider>`), `outlet`, the
 `query` of a snippet; the requested, final and canonical URLs, HTTP status,
 content type and charset; `rawSha256`, `rawBytes`, `rawStoredBytes`, `rawKey`
@@ -1088,6 +1119,9 @@ Links authors to works as primary creators.
 
 **PK**: `(work_id, author_id, role)`
 
+**Lookup index**: `work_authors_author_id_idx` on `(author_id)` supports
+person-to-work joins without scanning every work's credits.
+
 Roles: `author`, `co_author`, plus registered historical roles. A trigger enforces
 book/work role scope. Legacy membership edits preserve credit IDs and attribution.
 
@@ -1107,6 +1141,9 @@ Links contributors to editions with edition-specific roles (translator, editor, 
 
 **PK**: `(edition_id, author_id, role)`
 
+**Lookup index**: `edition_contributors_author_id_idx` on `(author_id)` supports
+person-to-edition joins.
+
 Roles: `translator`, `editor`, `illustrator`, `foreword`, `afterword`, `introduction`, `narrator`, `photographer`, `compiler`, `contributor`, `other`, plus registered historical roles. A trigger enforces book/edition role scope.
 
 **Why separate from `work_authors`**: A translator is not the author of Don Quixote — Cervantes is. The translator's contribution exists only in the context of a specific edition. This separation ensures: (a) searching "books by Borges" returns books Borges *wrote*, not books he merely translated; (b) the edition detail page can show "Translated by X, Introduction by Y" distinctly from "Written by Z"; (c) the same person can be author of one work and translator of another without role confusion.
@@ -1119,6 +1156,9 @@ Roles: `translator`, `editor`, `illustrator`, `foreword`, `afterword`, `introduc
 | `subject_id` | UUID FK → `subjects.id`, CASCADE |
 
 **PK**: `(work_id, subject_id)`
+
+**Lookup index**: `work_subjects_subject_id_idx` on `(subject_id)` supports
+subject-to-work joins.
 
 ### `edition_genres`
 
@@ -1137,6 +1177,9 @@ Roles: `translator`, `editor`, `illustrator`, `foreword`, `afterword`, `introduc
 | `tag_id` | UUID FK → `tags.id`, CASCADE |
 
 **PK**: `(edition_id, tag_id)`
+
+**Lookup index**: `edition_tags_tag_id_idx` on `(tag_id)` supports tag-to-edition
+joins.
 
 ### `collection_editions`
 
@@ -1216,6 +1259,9 @@ edition shows the whole book again. Existing edition members are unchanged.
 | `art_movement_id` | UUID FK → `art_movements.id`, CASCADE |
 
 **PK**: `(work_id, art_movement_id)`
+
+**Lookup index**: `work_art_movements_art_movement_id_idx` on `(art_movement_id)`
+supports movement-to-work joins.
 
 ### `work_keywords`
 
@@ -1633,6 +1679,9 @@ Custom items link to records through two junction tables
 |---|---|---|
 | `custom_taxonomy_item_works` | `item_id` FK → custom_taxonomy_items, CASCADE; `work_id` FK → works, CASCADE | PK `(item_id, work_id)` |
 | `custom_taxonomy_item_editions` | `item_id` FK → custom_taxonomy_items, CASCADE; `edition_id` FK → editions, CASCADE | PK `(item_id, edition_id)` |
+
+`custom_taxonomy_item_works_work_id_idx` indexes `(work_id)` for work-to-item
+joins; the primary key already supports lookups starting with `item_id`.
 
 Migration `0041_taxonomy_applicability` adds `taxonomy_applicability`:
 

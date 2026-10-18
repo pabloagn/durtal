@@ -1,3 +1,4 @@
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { randomUUID } from "node:crypto";
 import { and, eq, getTableColumns, inArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -118,6 +119,10 @@ const currentOf = (r: Reading): Pos => ({
   chapter: r.currentChapter,
 });
 
+/** A duration-only row never supplies a place or changes the next row's start. */
+const sessionHasPosition = (s: Pick<Session, "endPage" | "endPercent" | "endMinutes">) =>
+  s.endPage != null || s.endPercent != null || s.endMinutes != null;
+
 /**
  * Each session's start and the reading's position, from the sessions in
  * order: a session starts where the one before it ended (the reading's start
@@ -135,6 +140,15 @@ export function planPositions(reading: Reading, ordered: Session[]) {
   if (reading.startPage == null && reading.startPercent == null && reading.startMinutes == null)
     position = { page: reading.totalPages ? 0 : null, percent: 0, minutes: reading.totalMinutes ? 0 : null, chapter: null };
   for (const s of ordered) {
+    if (!sessionHasPosition(s)) {
+      starts.set(s.id, { startPage: null, startPercent: null, startMinutes: null });
+      // An explicitly supplied chapter is independent of numeric position.
+      if (s.endChapter != null) {
+        position.chapter = s.endChapter;
+        lastPositionSession = s;
+      }
+      continue;
+    }
     const sameEdition = s.editionId === prevEdition;
     // A reader sitting starts where the reader opened, or where it read on from a
     // short jump: the pages it jumped over were not read (SLN-677).
@@ -204,9 +218,9 @@ function positionValues(p: Pos) {
 /** Pages past the last one, or minutes past the end, in the words of the field */
 function checkWithinTotals(p: { page?: number | null; minutes?: number | null }, totals: { totalPages: number | null; totalMinutes: number | null }) {
   if (p.page != null && totals.totalPages != null && p.page > totals.totalPages)
-    throw new Error(`Page ${p.page} is past the last page, ${totals.totalPages}`);
+    throw new ExpectedActionError(`Page ${p.page} is past the last page, ${totals.totalPages}`);
   if (p.minutes != null && totals.totalMinutes != null && p.minutes > totals.totalMinutes)
-    throw new Error(`${formatMinutes(p.minutes)} is past the end, ${formatMinutes(totals.totalMinutes)}`);
+    throw new ExpectedActionError(`${formatMinutes(p.minutes)} is past the end, ${formatMinutes(totals.totalMinutes)}`);
 }
 
 /** Books only: the message every reading writer gives for anything else */
@@ -266,9 +280,9 @@ export async function createReading(
     const [existing] = await db.select({ id: readings.id }).from(readings).where(eq(readings.sourceKey, opts.sourceKey));
     if (existing) return { ...(await loadReading(existing.id))!, unqueued: false };
   }
-  if (!(await requireReadableWorks([input.workId])).has(input.workId)) throw new Error("Only books can be read");
+  if (!(await requireReadableWorks([input.workId])).has(input.workId)) throw new ExpectedActionError("Only books can be read");
   const open = await openReadingOf(input.workId);
-  if (open) throw new Error(openReadingMessage(open.status));
+  if (open) throw new ExpectedActionError(openReadingMessage(open.status));
 
   // The copy decides the edition, the home and the format when they are not given
   let editionId = input.editionId ?? null;
@@ -279,17 +293,17 @@ export async function createReading(
       .from(instances)
       .leftJoin(locations, eq(locations.id, instances.locationId))
       .where(eq(instances.id, input.instanceId));
-    if (!row) throw new Error("This copy no longer exists");
+    if (!row) throw new ExpectedActionError("This copy no longer exists");
     copy = row;
     editionId ??= row.editionId;
   }
   const edition = await editionPages(editionId);
-  if (editionId && (!edition || edition.workId !== input.workId)) throw new Error("This edition belongs to another book");
+  if (editionId && (!edition || edition.workId !== input.workId)) throw new ExpectedActionError("This edition belongs to another book");
   let locationId = input.locationId ?? null;
   if (locationId) {
     const [place] = await db.select({ type: locations.type }).from(locations).where(eq(locations.id, locationId));
-    if (!place) throw new Error("This place no longer exists");
-    if (place.type !== "physical") throw new Error("A reading's home is a physical place");
+    if (!place) throw new ExpectedActionError("This place no longer exists");
+    if (place.type !== "physical") throw new ExpectedActionError("A reading's home is a physical place");
   } else if (copy?.locationType === "physical") locationId = copy.locationId;
   const format: ReadingFormat = input.format ?? formatOfCopy(copy?.format);
   const unit = input.unit ?? (format === "audio" ? "minutes" : "pages");
@@ -334,7 +348,7 @@ export async function createReading(
       }),
       ...(opts.afterInsert?.(d, { id, editionId, totalPages: totals.totalPages, start }) ?? []),
       d.insert(readingStatusHistory).values({ readingId: id, fromStatus: null, toStatus: status, notes: `Started (${opts.source})` }),
-      // Starting a book takes it off Up Next (SLN-452)
+      // Starting a book takes it off Up next (SLN-452)
       d.delete(readingQueue).where(eq(readingQueue.workId, input.workId)).returning({ id: readingQueue.id }),
     ]),
   );
@@ -383,26 +397,42 @@ export async function recordProgress(
   const input = progressSchema.parse(raw);
   const attempt = async (): Promise<ProgressResult> => {
     const reading = await loadReading(input.readingId);
-    if (!reading) throw new Error("This reading no longer exists");
-    if (opts.fingerprint && reading.fingerprint !== opts.fingerprint) throw new Error(STALE_READING);
-    if (!isOpenStatus(reading.status)) throw new Error("Reopen this reading to log progress");
+    if (!reading) throw new ExpectedActionError("This reading no longer exists");
+    if (opts.fingerprint && reading.fingerprint !== opts.fingerprint) throw new ExpectedActionError(STALE_READING);
+    if (!isOpenStatus(reading.status)) throw new ExpectedActionError("Reopen this reading to log progress");
     const sessions = await loadSessions(reading.id);
     const ordered = sessionOrder(sessions);
     // Stopping a timer completes its running row (SLN-451)
     const timer = input.timerSessionId ? (sessions.find((s) => s.id === input.timerSessionId) ?? null) : null;
-    if (input.timerSessionId && (!timer || !isRunningTimer(timer))) throw new Error(TIMER_GONE);
+    if (input.timerSessionId && (!timer || !isRunningTimer(timer))) throw new ExpectedActionError(TIMER_GONE);
     const sessionEditionId = opts.editionId === undefined ? reading.editionId : opts.editionId;
     let sessionPagesTotal = reading.totalPages;
     if (sessionEditionId && sessionEditionId !== reading.editionId) {
       const edition = await editionPages(sessionEditionId);
-      if (!edition || edition.workId !== reading.workId) throw new Error("This edition belongs to another book");
+      if (!edition || edition.workId !== reading.workId) throw new ExpectedActionError("This edition belongs to another book");
       sessionPagesTotal = edition.pageCount ?? reading.totalPages;
     }
     const sessionTotals = { totalPages: sessionPagesTotal, totalMinutes: reading.totalMinutes };
     const current = currentOf(reading);
+    // Without an audio position, a time entry describes this sitting, not a
+    // replacement for the page/share already reached (SLN-926).
+    const timeInput = input.minutes ?? input.addMinutes;
+    const sessionMinutes = timeInput != null && !sessionTotals.totalMinutes
+      && reading.format !== "audio" && reading.unit !== "minutes"
+      ? timeInput : null;
+    if (sessionMinutes !== null) {
+      if (sessionMinutes < 1 || sessionMinutes > 1440)
+        throw new ExpectedActionError("Enter a session time between 1 minute and 24 hours");
+      if (timer) throw new ExpectedActionError("The timer records your time; enter a page, a percent or a chapter");
+      if (input.durationSeconds != null && input.durationSeconds !== sessionMinutes * 60)
+        throw new ExpectedActionError("Enter the session time only once");
+    }
     // The new end, in the session's edition
     let given: { page?: number | null; percent?: number | null; minutes?: number | null } = {};
-    if (input.addPages != null) {
+    if (sessionMinutes !== null) {
+      // No snapshot: a backdated duration must not claim pages on its date.
+      given = {};
+    } else if (input.addPages != null) {
       const from =
         sessionEditionId === reading.editionId
           ? (current.page ?? 0)
@@ -416,8 +446,13 @@ export async function recordProgress(
     else if (input.minutes != null) given = { minutes: input.minutes };
     else given = sessionEditionId === reading.editionId ? { page: current.page, percent: current.percent, minutes: current.minutes } : { percent: current.percent };
     checkWithinTotals(given, sessionTotals);
-    const end = completePosition(given, sessionTotals);
-    const chapter = input.chapter ?? (planPositions(reading, ordered).lastPositionSession ? null : reading.currentChapter);
+    const positionGiven = [input.page, input.percent, input.minutes, input.addPages, input.addMinutes].some((value) => value != null);
+    const end = sessionMinutes !== null ? { page: null, percent: null, minutes: null }
+      : !positionGiven && sessionEditionId === reading.editionId
+        ? { page: current.page, percent: current.percent, minutes: current.minutes }
+        : completePosition(given, sessionTotals);
+    const chapter = input.chapter ?? (sessionMinutes !== null ? null
+      : planPositions(reading, ordered).lastPositionSession ? null : reading.currentChapter);
     const now = new Date();
     // A timer keeps the zone and the reading day it started with
     const timeZone = timer ? timer.timeZone : (input.timeZone ?? appTimeZone());
@@ -425,17 +460,17 @@ export async function recordProgress(
     // A session after today is the latest in the order and would hold the position until that day
     if (!timer) {
       const ahead = (at: Date | undefined) => !!at && at.getTime() - now.getTime() > 60_000;
-      if (readOn > readingDay(now, timeZone, 0) || ahead(input.startedAt) || ahead(input.endedAt)) throw new Error(FUTURE_SESSION);
+      if (readOn > readingDay(now, timeZone, 0) || ahead(input.startedAt) || ahead(input.endedAt)) throw new ExpectedActionError(FUTURE_SESSION);
     }
     let stop: ReturnType<typeof stopTimes> | null = null;
     if (timer) {
       const clock = { startedAt: timer.startedAt ?? timer.createdAt, pausedAt: timer.pausedAt, pausedSeconds: timer.pausedSeconds };
       const [work] = await db.select({ title: works.title }).from(works).where(eq(works.id, reading.workId));
       const problem = stopProblem({ ...clock, title: work?.title ?? "this book" }, input.endedAt ?? null, (await getAppSettings()).readingTimerCheckMinutes, now);
-      if (problem) throw new Error(problem);
+      if (problem) throw new ExpectedActionError(problem);
       stop = stopTimes(clock, input.endedAt ?? null, now);
     }
-    const latest = ordered.at(-1) ?? null;
+    const latest = ordered.filter(sessionHasPosition).at(-1) ?? null;
     const behind = end.percent != null && current.percent != null && end.percent < current.percent;
     let mode: "new" | "fix" | "went_back" | "reader_behind" = "new";
     if (behind) {
@@ -507,7 +542,7 @@ export async function recordProgress(
         timeZone,
         startedAt: input.startedAt ?? null,
         endedAt: input.endedAt ?? null,
-        durationSeconds: input.durationSeconds ?? null,
+        durationSeconds: sessionMinutes !== null ? sessionMinutes * 60 : input.durationSeconds ?? null,
         startPage: null,
         endPage: end.page,
         startPercent: null,
@@ -576,7 +611,8 @@ export async function recordProgress(
       d
         .update(readings)
         .set({
-          ...positionValues(plan.position),
+          ...(sessionMinutes === null ? positionValues(plan.position)
+            : input.chapter != null ? { currentChapter: plan.position.chapter } : {}),
           status: "reading",
           // A backdated session does not make the book read today
           lastReadAt: next.at(-1)?.id === (timerRow?.id ?? session.id) || mode === "fix" ? now : reading.lastReadAt,
@@ -593,7 +629,7 @@ export async function recordProgress(
     return {
       reading: fresh,
       session: stored,
-      reachedEnd: (end.percent ?? 0) >= 100,
+      reachedEnd: sessionMinutes === null && (end.percent ?? 0) >= 100,
       wentBack: mode === "fix" ? "fixed_last_log" : mode === "went_back" ? "went_back" : null,
       undo,
       resumed,
@@ -616,17 +652,33 @@ export function correctLastLog(
   chapter?: string | null,
 ) {
   const ordered = sessionOrder(sessions);
-  const latest = ordered.at(-1);
+  const latest = ordered.filter(sessionHasPosition).at(-1) ?? ordered.at(-1);
   if (!latest)
-    throw new Error(
+    throw new ExpectedActionError(
       "Log progress once before editing the current position or chapter",
     );
   if (sessions.some(isRunningTimer))
-    throw new Error(
+    throw new ExpectedActionError(
       "Stop or discard the timer before editing the current position or chapter",
     );
   checkWithinTotals(position ?? {}, reading);
   const end = positionChanges(position, currentOf(reading), reading) ? completePosition(position!, reading) : null;
+  if (end && !sessionHasPosition(latest)) {
+    // An explicit edit can establish a position after time-only logs. Keep the
+    // original sitting intact and add a manual position on that log's day.
+    const now = new Date();
+    const corrected: Session = {
+      id: randomUUID(), readingId: reading.id, editionId: reading.editionId,
+      format: reading.format, readOn: latest.readOn, timeZone: latest.timeZone,
+      startedAt: null, endedAt: null, durationSeconds: null,
+      startPage: null, startPercent: null, startMinutes: null,
+      endPage: end.page, endPercent: end.percent, endMinutes: end.minutes,
+      endChapter: chapter === undefined ? reading.currentChapter : chapter,
+      pagesTotal: reading.totalPages, pagesRead: null, note: null, source: "manual",
+      pausedAt: null, pausedSeconds: 0, createdAt: now, updatedAt: now,
+    };
+    return { corrected, sessions: [...sessions, corrected], writeSession: true, insertSession: true };
+  }
   // A latest log in another edition keeps its own page count and format.
   const mapped =
     end && latest.editionId !== reading.editionId
@@ -636,7 +688,7 @@ export function correctLastLog(
         )
       : end;
   if (end && latest.editionId !== reading.editionId && end.percent === null)
-    throw new Error(
+    throw new ExpectedActionError(
       "Give a percent, or add the total, to correct a log in another edition",
     );
   // A chapter belongs at the effective place. Behind-progress reader logs did not
@@ -645,7 +697,7 @@ export function correctLastLog(
     ? planPositions(reading, ordered).lastPositionSession : latest;
   // A reading can have logs without any of them setting its place. Its chapter
   // belongs on the reading, not on an ignored reader log.
-  if (!target) return { corrected: latest, sessions, writeSession: false };
+  if (!target) return { corrected: latest, sessions, writeSession: false, insertSession: false };
   const corrected = {
     ...target,
     // An explicit correction is manual: automatic reader updates alone must not move behind earlier progress.
@@ -663,7 +715,7 @@ export function correctLastLog(
     ...(chapter !== undefined ? { endChapter: chapter } : {}),
   };
   const next = sessions.map((s) => (s.id === target.id ? corrected : s));
-  return { corrected, sessions: next, writeSession: true };
+  return { corrected, sessions: next, writeSession: true, insertSession: false };
 }
 
 /** Recomputes session starts and an open reading's position after sessions changed */
@@ -698,7 +750,7 @@ export interface WriteOutcome {
   match?: { readingId: string; reason: string };
   reason?: string;
   bookRating?: { before: number | null; after: number | null };
-  /** An open row started a book that was in Up Next, which it left (SLN-452) */
+  /** An open row started a book that was in Up next, which it left (SLN-452) */
   unqueued?: true;
 }
 
@@ -796,7 +848,7 @@ export async function writeReadings(
   const toWrite = parsed
     .map((row, i) => ({ row, i }))
     .filter((x): x is { row: NonNullable<typeof x.row>; i: number } => !!x.row && !outcomes[x.i]);
-  // Books an open row starts, and which of them are in Up Next (SLN-452)
+  // Books an open row starts, and which of them are in Up next (SLN-452)
   const openWorkIds = [...new Set(toWrite.filter((x) => isOpenStatus(x.row.status)).map((x) => x.row.workId))];
   const queued = openWorkIds.length
     ? new Set((await db.select({ workId: readingQueue.workId }).from(readingQueue).where(inArray(readingQueue.workId, openWorkIds))).map((r) => r.workId))
@@ -900,7 +952,7 @@ export async function writeReadings(
               ? [d.update(works).set({ rating: bookRating.after, updatedAt: new Date() }).where(and(eq(works.id, row.workId),
                   sql`exists (select 1 from readings where id = ${id}::uuid)`))]
               : []),
-          // An open row starts the book: it leaves Up Next, only when the row was written
+          // An open row starts the book: it leaves Up next, only when the row was written
           ...(isOpenStatus(row.status)
             ? [d.execute(sql`delete from reading_queue where work_id = ${row.workId}::uuid and exists (select 1 from readings where id = ${id}::uuid)`)]
             : []),

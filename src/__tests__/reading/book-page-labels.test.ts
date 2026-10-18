@@ -79,6 +79,32 @@ describe("the log preview", () => {
     const p = logPreview(reading, { kind: "percent", percent: 33 }, { id: "audio", pageCount: null, totalMinutes: 580, unit: "minutes" })!;
     expect(p.line).toBe("33% · the reading moves to p. 158 of 480");
   });
+  it("previews a time as session duration while preserving the page and share", () => {
+    const at60 = { ...reading, totalPages: 240, currentPage: 60, currentPercent: 25 };
+    for (const kind of ["minutes", "addMinutes"] as const) {
+      const preview = logPreview(at60, { kind, minutes: 192 })!;
+      expect(preview).toMatchObject({ page: 60, percent: 25, minutes: null, sessionMinutes: 192, behind: false, reachedEnd: false });
+      expect(preview.line).toBe("3 h 12 min read · stays at p. 60 · 25%");
+      expect(preview.done).toBe("Logged 3 h 12 min");
+      expect(preview.send).toEqual(kind === "minutes" ? { minutes: 192 } : { addMinutes: 192 });
+    }
+    expect(logPreview(at60, { kind: "chapter", chapter: "7" })).toMatchObject({ page: 60, percent: 25 });
+    expect(readingControlLabel([{ ...base, ...at60 }])).toBe("Reading · p. 60 of 240 · 25%");
+  });
+  it("keeps time positions for audio, including audio without a known length", () => {
+    const audio = { ...reading, format: "audio" as const, unit: "minutes" as const, totalMinutes: 600 };
+    expect(logPreview(audio, { kind: "minutes", minutes: 192 })).toMatchObject({ minutes: 192, percent: 32 });
+    expect(logPreview({ ...audio, totalMinutes: null }, { kind: "minutes", minutes: 192 })).toMatchObject({ minutes: 192, percent: null });
+    expect(logPreview({ ...reading, totalMinutes: 600 }, { kind: "minutes", minutes: 192 }, { id: "audio", pageCount: null, totalMinutes: 300, unit: "minutes" }))
+      .toMatchObject({ minutes: 192, page: 154, percent: 32 });
+  });
+  it("uses this reading's audio length for alternate editions, as the service does", () => {
+    const at60 = { ...reading, totalPages: 240, currentPage: 60, currentPercent: 25 };
+    for (const unit of ["pages", "minutes"] as const) {
+      expect(logPreview(at60, { kind: "minutes", minutes: 192 }, { id: "other", pageCount: 360, totalMinutes: 300, unit }))
+        .toMatchObject({ page: 60, percent: 25, sessionMinutes: 192 });
+    }
+  });
 });
 
 describe("partial dates", () => {

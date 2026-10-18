@@ -1,5 +1,5 @@
 import { sql, type SQL } from "drizzle-orm";
-import { ownedBookCondition } from "@/lib/catalogue/holdings";
+import { ownedWorkCondition } from "@/lib/catalogue/holdings";
 import { WORK_AUTHOR_ROLES } from "@/lib/types";
 import { languageName } from "@/lib/utils/language";
 import { atHandCopySql, isAtHand } from "../at-hand";
@@ -91,7 +91,7 @@ export async function loadBooks(execute: Execute, homeId: string | null): Promis
           and coalesce(o.started_on, o.created_at::date) > rd.last_finished)) as "readSinceFinish",
         w.series_id::text as "seriesId", s.title as "seriesTitle", w.series_position as "seriesPosition",
         w.work_type_id::text as "workTypeId", wt.name as "workTypeName", w.original_language as "originalLanguage", w.original_year::int as "originalYear",
-        ${ownedBookCondition(sql`w.id`)} as owned,
+        ${ownedWorkCondition(sql`w.id`)} as owned,
         q.place::int as "queuePlace", q.edition_id::text as "queueEditionId",
         (select min(i.acquisition_date)::text from instances i join editions e on e.id = i.edition_id
           where e.work_id = w.id and i.status <> 'deaccessioned') as "firstAcquired",

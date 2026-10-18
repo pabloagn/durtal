@@ -37,14 +37,16 @@ describe.skipIf(!url)("library statistics with PostgreSQL", () => {
   const q = (text: string, params: unknown[] = []) => client!.unsafe(text, params as postgres.ParameterOrJSON<never>[]);
   const value = async (text: string, params: unknown[] = []) => Object.values((await q(text, params))[0] ?? {})[0] as string;
   let serial = 0;
-  const work = (title: string, o: { year?: number | null; language?: string; rating?: number | null; kind?: string } = {}) =>
-    value(`insert into works(title, slug, kind, original_year, original_language, rating) values ($1, $2, $3, $4, $5, $6) returning id`, [
+  const work = (title: string, o: { year?: number | null; language?: string; rating?: number | null; kind?: string; status?: string } = {}) =>
+    value(`insert into works(title, slug, kind, original_year, original_language, rating, catalogue_status) values ($1, $2, $3, $4, $5, $6, $7) returning id`, [
       title,
       `work-${++serial}`,
       o.kind ?? "book",
       o.year ?? null,
       o.kind && o.kind !== "book" ? null : (o.language ?? "fr"),
       o.rating ?? null,
+      // Owned is an accessioned book with a copy (SLN-886); other kinds stay tracked
+      o.status ?? ((o.kind ?? "book") === "book" ? "accessioned" : "tracked"),
     ]);
   const edition = (workId: string, o: { pages?: number | null; language?: string; cover?: string | null } = {}) =>
     value(`insert into editions(work_id, title, language, page_count, thumbnail_s3_key) values ($1, 'E', $2, $3, $4) returning id`, [
@@ -106,12 +108,16 @@ describe.skipIf(!url)("library statistics with PostgreSQL", () => {
     await writer(bruges, rodenbach);
     await q(`insert into edition_contributors(edition_id, author_id, role, sort_order) values ($1, $2, 'translator', 0)`, [brugesEdition, translator]);
 
-    // Not owned: wanted with no copy, only a deaccessioned copy, and a film
+    // Not owned: wanted with no copy, only a deaccessioned copy, a tracked
+    // book with a copy (owned needs accessioned too, SLN-886) and a film
     houseOfPleasures = await work("The Woman Who Was Poor", { year: 1897, rating: 4 });
     await writer(houseOfPleasures, bloy);
     const gone = await work("Gone", { year: 1700 });
     await copy(await edition(gone, { pages: 900 }), { status: "deaccessioned" });
     await writer(gone, bloy);
+    const tracked = await work("Tracked", { year: 1890, status: "tracked" });
+    await copy(await edition(tracked, { pages: 999 }), { acquired: "2022-01-01" });
+    await writer(tracked, bloy);
     await work("A Film", { year: 1957, kind: "film" });
   }, 60000);
 
@@ -213,6 +219,35 @@ describe.skipIf(!url)("library statistics with PostgreSQL", () => {
     expect(ends.longest).toMatchObject({ title: "En Route", value: 450, cover: "covers/b.jpg" });
     expect(ends.shortest).toMatchObject({ title: "Bruges-la-Morte", value: 120, cover: null });
     expect((await favouriteCovers()).map((c) => c.title)).toEqual(["Against Nature", "En Route"]);
+  });
+
+  it("keeps page maxima, held-edition scope, nulls and title/id ties unchanged", async () => {
+    const added: string[] = [];
+    try {
+      for (let i = 0; i < 2; i++) {
+        const id = await work("Index statistics tie", { year: 100 });
+        added.push(id);
+        await copy(await edition(id, { pages: 100 }));
+        await copy(await edition(id, { pages: 900 }));
+        await edition(id, { pages: 2000 }); // unheld: not a candidate
+        await copy(await edition(id, { pages: 3000 }), { status: "deaccessioned" });
+      }
+      const tiny = await work("Index statistics tiny");
+      added.push(tiny);
+      await copy(await edition(tiny, { pages: 1 }));
+      for (const pages of [0, null]) {
+        const id = await work(`Index statistics absent pages ${pages}`);
+        added.push(id);
+        await copy(await edition(id, { pages }));
+      }
+      const ends = await extremes();
+      const firstTie = [...added.slice(0, 2)].sort()[0];
+      expect(ends.oldest).toMatchObject({ workId: firstTie, value: 100 });
+      expect(ends.longest).toMatchObject({ workId: firstTie, value: 900 });
+      expect(ends.shortest).toMatchObject({ workId: tiny, value: 1 });
+    } finally {
+      await q("delete from works where id = any($1::uuid[])", [added]);
+    }
   });
 
   // Last: it adds a book

@@ -201,7 +201,7 @@ describe.skipIf(!url)("the reading exports with PostgreSQL", () => {
     const file = await exportFile("goodreads");
     const [header, ...cells] = parseCsv(file.text);
     expect(header).toEqual([...GOODREADS_EXPORT_HEADER]);
-    // One row per book with a reading or in Up Next
+    // One row per book with a reading or in Up next
     expect(cells).toHaveLength(Number(await value(`select count(distinct work_id) from readings`)) + 1);
     const { importId, source } = await createReadingImport({ text: file.text, fileName: "goodreads_library_export.csv" });
     expect(source).toBe("goodreads");

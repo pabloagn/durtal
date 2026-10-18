@@ -1,4 +1,7 @@
 "use server";
+import { queryBookReadingOverview, queryReadingChoices, queryReadingChoice } from "@/lib/reading/overview";
+import { HUB_OPEN_LIMIT } from "@/lib/reading/overview-types";
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
@@ -25,7 +28,7 @@ import { appTimeZone } from "@/lib/utils/date";
 import { PAGE_SIZES } from "@/lib/utils/pagination";
 import { sanitizeCommentHtml } from "@/lib/utils/sanitize";
 import { isOpenStatus, type ReadingFormat, type ReadingStatus } from "@/lib/reading/constants";
-import { formatReadingDate, readingDay, readingPeriodStart } from "@/lib/reading/dates";
+import { defaultFinishDate, formatReadingDate, readingDay, readingPeriodStart } from "@/lib/reading/dates";
 import { readingDayStartHour, readingToday } from "@/lib/reading/day";
 import { positionChanges, positionInUnit, remapPosition } from "@/lib/reading/positions";
 import { countedPagesSql, readingOrdinalSql } from "@/lib/reading/summary";
@@ -67,10 +70,12 @@ import {
 } from "@/lib/reading/service";
 import {
   abandonReadingSchema,
+  abandonReadingSchemaFor,
   addPastReadingSchema,
   addSessionSchema,
   deleteSessionSchema,
   finishReadingSchema,
+  finishReadingSchemaFor,
   logProgressSchema,
   reopenReadingSchema,
   sessionPatchSchema,
@@ -91,6 +96,7 @@ import {
   type StartReadingInput,
   type UpdateReadingInput,
 } from "@/lib/validations/reading";
+import { countLabel } from "@/lib/utils/format";
 
 /*
  * The reading tracker's page actions (SLN-444). Each write parses its input,
@@ -106,8 +112,8 @@ function changed() {
 /** A reading checked against the fingerprint the page holds */
 async function readingFor(readingId: string, fingerprint: string) {
   const reading = await loadReading(readingId);
-  if (!reading) throw new Error("This reading no longer exists");
-  if (reading.fingerprint !== fingerprint) throw new Error(STALE_READING);
+  if (!reading) throw new ExpectedActionError("This reading no longer exists");
+  if (reading.fingerprint !== fingerprint) throw new ExpectedActionError(STALE_READING);
   return reading;
 }
 
@@ -149,7 +155,7 @@ export async function logProgress(input: LogProgressInput) {
   // A timer stops through stopTimer only
   const { fingerprint, editionId, format, timerSessionId: _timer, ...progress } = data;
   const before = await loadReading(data.readingId);
-  if (!before) throw new Error("This reading no longer exists");
+  if (!before) throw new ExpectedActionError("This reading no longer exists");
   await requireBookWork(before.workId);
   const result = await recordProgress(progress, { fingerprint, source: "manual", editionId, format });
   if (result.resumed) event(before.workId, "work.reading_resumed", result.reading);
@@ -249,7 +255,7 @@ export async function getRunningTimer() {
 export async function startTimer(input: z.input<typeof startTimerSchema>) {
   const data = startTimerSchema.parse(input);
   const reading = await loadReading(data.readingId);
-  if (!reading) throw new Error("This reading no longer exists");
+  if (!reading) throw new ExpectedActionError("This reading no longer exists");
   await requireBookWork(reading.workId);
   const result = await startTimerOn(reading.id, data.timeZone);
   if (result.resumed) event(reading.workId, "work.reading_resumed", result.reading);
@@ -277,9 +283,9 @@ export async function resumeTimer(input: z.input<typeof timerSessionSchema>) {
 export async function stopTimer(input: StopTimerInput) {
   const { sessionId, editionId, format, ...rest } = stopTimerSchema.parse(input);
   const [row] = await db.select({ readingId: readingSessions.readingId }).from(readingSessions).where(eq(readingSessions.id, sessionId));
-  if (!row) throw new Error(TIMER_GONE);
+  if (!row) throw new ExpectedActionError(TIMER_GONE);
   const before = await loadReading(row.readingId);
-  if (!before) throw new Error("This reading no longer exists");
+  if (!before) throw new ExpectedActionError("This reading no longer exists");
   await requireBookWork(before.workId);
   const result = await recordProgress({ readingId: row.readingId, ...rest, timerSessionId: sessionId }, { source: "timer", editionId, format });
   if (result.resumed) event(before.workId, "work.reading_resumed", result.reading);
@@ -313,7 +319,7 @@ export async function undoProgress(input: z.input<typeof undoProgressSchema>) {
   const reading = await readingFor(readingId, fingerprint);
   const sessions = await loadSessions(reading.id);
   const target = sessions.find((s) => s.id === undo.sessionId);
-  if (!target) throw new Error("This log no longer exists");
+  if (!target) throw new ExpectedActionError("This log no longer exists");
   const now = new Date();
   const remaining: Session[] = undo.restoreEnd
     ? sessions.map((s) =>
@@ -360,7 +366,7 @@ export async function undoProgress(input: z.input<typeof undoProgressSchema>) {
 async function changeStatus(readingId: string, fingerprint: string, from: ReadingStatus[], to: ReadingStatus, eventKey: string) {
   const reading = await readingFor(readingId, fingerprint);
   await requireBookWork(reading.workId);
-  if (!from.includes(reading.status)) throw new Error(`This reading is ${reading.status}`);
+  if (!from.includes(reading.status)) throw new ExpectedActionError(`This reading is ${reading.status}`);
   const now = new Date();
   await withReadableErrors(() =>
     atomic((d) => [
@@ -419,15 +425,19 @@ function closingSession(reading: Reading, sessions: Session[], end: { page: numb
 
 /** Finishes a reading: the end, the date, a rating and review, and the book's rating */
 export async function finishReading(input: z.input<typeof finishReadingSchema>) {
-  const data = finishReadingSchema.parse(input);
-  await refuseWhileTiming(data.readingId);
-  const reading = await readingFor(data.readingId, data.fingerprint);
+  const { readingId, fingerprint } = statusChangeSchema.parse(input);
+  await refuseWhileTiming(readingId);
+  const reading = await readingFor(readingId, fingerprint);
+  const data = finishReadingSchemaFor(reading.startedOn).parse(input);
   await requireBookWork(reading.workId);
-  if (!isOpenStatus(reading.status)) throw new Error("Only an open reading can be finished");
+  if (!isOpenStatus(reading.status)) throw new ExpectedActionError("Only an open reading can be finished");
   const timeZone = data.timeZone ?? appTimeZone();
   const precision = data.finishedPrecision ?? "day";
   const finishedOn =
-    precision === "unknown" ? null : readingPeriodStart(data.finishedOn ?? readingDay(new Date(), timeZone, await readingDayStartHour()), precision);
+    precision === "unknown" ? null : readingPeriodStart(data.finishedOn ?? defaultFinishDate(readingDay(new Date(), timeZone, await readingDayStartHour()), reading.startedOn), precision);
+  // The implicit default has the same trusted-start bound as an explicit date.
+  // An old invalid future start cannot become a way around date validation.
+  finishReadingSchemaFor(reading.startedOn).parse({ ...data, finishedOn, finishedPrecision: finishedOn ? precision : "unknown" });
   const end = {
     page: reading.totalPages ?? reading.currentPage,
     percent: 100,
@@ -479,11 +489,12 @@ export async function finishReading(input: z.input<typeof finishReadingSchema>) 
 
 /** Abandons a reading: when, why, and the page reached */
 export async function abandonReading(input: z.input<typeof abandonReadingSchema>) {
-  const data = abandonReadingSchema.parse(input);
-  await refuseWhileTiming(data.readingId);
-  const reading = await readingFor(data.readingId, data.fingerprint);
+  const { readingId, fingerprint } = statusChangeSchema.parse(input);
+  await refuseWhileTiming(readingId);
+  const reading = await readingFor(readingId, fingerprint);
+  const data = abandonReadingSchemaFor(reading.startedOn).parse(input);
   await requireBookWork(reading.workId);
-  if (!isOpenStatus(reading.status)) throw new Error("Only an open reading can be abandoned");
+  if (!isOpenStatus(reading.status)) throw new ExpectedActionError("Only an open reading can be abandoned");
   const timeZone = data.timeZone ?? appTimeZone();
   const precision = data.stoppedPrecision ?? "day";
   const stoppedOn =
@@ -540,9 +551,9 @@ export async function reopenReading(input: z.input<typeof reopenReadingSchema>) 
   const data = reopenReadingSchema.parse(input);
   const reading = await readingFor(data.readingId, data.fingerprint);
   await requireBookWork(reading.workId);
-  if (isOpenStatus(reading.status)) throw new Error("This reading is already open");
+  if (isOpenStatus(reading.status)) throw new ExpectedActionError("This reading is already open");
   const open = await openReadingOf(reading.workId);
-  if (open) throw new Error(openReadingMessage(open.status));
+  if (open) throw new ExpectedActionError(openReadingMessage(open.status));
   const toStatus = data.toStatus ?? "reading";
   const restore = data.restoreBookRating ?? null;
   let ratingMessage: string | null = null;
@@ -629,7 +640,7 @@ export async function addPastReading(input: AddPastReadingInput) {
     ],
     { source: "manual" },
   );
-  if (outcome.outcome === "refused") throw new Error(outcome.reason ?? "This read could not be saved");
+  if (outcome.outcome === "refused") throw new ExpectedActionError(outcome.reason ?? "This read could not be saved");
   if (outcome.outcome === "written") {
     const reading = (await loadReading(outcome.readingId!))!;
     event(data.workId, data.status === "finished" ? "work.reading_finished" : "work.reading_abandoned", reading, {
@@ -676,7 +687,7 @@ export async function updateReading(input: UpdateReadingInput) {
     ? await loadSessions(reading.id) : [];
   const orderedSessions = sessionOrder(sessions);
   if (patch.currentPosition && !orderedSessions.length)
-    throw new Error("Log progress once before editing the current position");
+    throw new ExpectedActionError("Log progress once before editing the current position");
   const values: Partial<typeof readings.$inferInsert> = {};
   if (patch.totalMinutes !== undefined) values.totalMinutes = patch.totalMinutes;
   let editionChanged = false;
@@ -692,7 +703,7 @@ export async function updateReading(input: UpdateReadingInput) {
         .select({ editionId: instances.editionId })
         .from(instances)
         .where(eq(instances.id, patch.instanceId));
-      if (!copy) throw new Error("This copy no longer exists");
+      if (!copy) throw new ExpectedActionError("This copy no longer exists");
       editionId = copy.editionId;
     }
   }
@@ -700,7 +711,7 @@ export async function updateReading(input: UpdateReadingInput) {
   if (editionId !== reading.editionId) {
     const edition = await editionPages(editionId);
     if (editionId && (!edition || edition.workId !== reading.workId))
-      throw new Error("This edition belongs to another book");
+      throw new ExpectedActionError("This edition belongs to another book");
     editionChanged = true;
     values.editionId = editionId;
     if (patch.instanceId === undefined) values.instanceId = null;
@@ -760,9 +771,9 @@ export async function updateReading(input: UpdateReadingInput) {
         .select({ type: locations.type })
         .from(locations)
         .where(eq(locations.id, patch.locationId));
-      if (!place) throw new Error("This place no longer exists");
+      if (!place) throw new ExpectedActionError("This place no longer exists");
       if (place.type !== "physical")
-        throw new Error("A reading's home is a physical place");
+        throw new ExpectedActionError("A reading's home is a physical place");
     }
     values.locationId = patch.locationId;
   }
@@ -786,7 +797,7 @@ export async function updateReading(input: UpdateReadingInput) {
   }
   if (patch.finishedPrecision !== undefined || patch.finishedOn !== undefined) {
     if (isOpenStatus(reading.status))
-      throw new Error("An open reading has no finish date");
+      throw new ExpectedActionError("An open reading has no finish date");
     const precision = patch.finishedPrecision ?? reading.finishedPrecision;
     const on =
       patch.finishedOn !== undefined ? patch.finishedOn : reading.finishedOn;
@@ -807,7 +818,7 @@ export async function updateReading(input: UpdateReadingInput) {
       finishedPrecision: values.finishedPrecision ?? reading.finishedPrecision,
     })
   )
-    throw new Error("The finish date is before the start date");
+    throw new ExpectedActionError("The finish date is before the start date");
   if (patch.rating !== undefined) values.rating = patch.rating;
   if (patch.reviewHtml !== undefined)
     values.reviewHtml = patch.reviewHtml
@@ -817,7 +828,7 @@ export async function updateReading(input: UpdateReadingInput) {
     values.reviewJson = patch.reviewJson ?? null;
   if (patch.abandonReason !== undefined || patch.abandonNote !== undefined) {
     if (reading.status !== "abandoned")
-      throw new Error("Only an abandoned read has a reason");
+      throw new ExpectedActionError("Only an abandoned read has a reason");
     if (patch.abandonReason !== undefined)
       values.abandonReason = patch.abandonReason;
     if (patch.abandonNote !== undefined) values.abandonNote = patch.abandonNote;
@@ -865,9 +876,14 @@ export async function updateReading(input: UpdateReadingInput) {
   // Stage one coherent, valid reading row before any query is built: totals,
   // start and corrected current counters must satisfy constraints together.
   const finalReading = { ...nextReading, ...values } as Reading;
+  let addedPosition: typeof readingSessions.$inferInsert | null = null;
+  if (correction?.insertSession) {
+    const { pagesRead: _pagesRead, readerWentBack: _readerWentBack, ...stored } = correction.corrected;
+    addedPosition = stored;
+  }
   checkWithinTotals(patch.currentPosition ?? {}, totals);
   if (totals.totalPages != null && Math.max(finalReading.startPage ?? 0, finalReading.currentPage ?? 0) > totals.totalPages)
-    throw new Error(`You are on p. ${Math.max(finalReading.startPage ?? 0, finalReading.currentPage ?? 0)}; the book cannot have ${totals.totalPages} pages`);
+    throw new ExpectedActionError(`You are on p. ${Math.max(finalReading.startPage ?? 0, finalReading.currentPage ?? 0).toLocaleString("en")}; the book cannot have ${countLabel(totals.totalPages, "page")}`);
   checkWithinTotals({ minutes: Math.max(finalReading.startMinutes ?? 0, finalReading.currentMinutes ?? 0) }, totals);
   const now = new Date();
   // Its notes on the old edition (or with none) follow it to the new one when asked; pages stay as typed, updated_at stays
@@ -884,7 +900,7 @@ export async function updateReading(input: UpdateReadingInput) {
         .where(eq(readings.id, reading.id)),
       ...(correction?.writeSession
         ? [
-            d
+            addedPosition ? d.insert(readingSessions).values(addedPosition) : d
               .update(readingSessions)
               .set({
                 endPage: correction.corrected.endPage,
@@ -972,7 +988,7 @@ export async function restoreReading(input: z.input<typeof snapshotSchema>) {
   await requireBookWork(r.workId);
   if (isOpenStatus(r.status)) {
     const open = await openReadingOf(r.workId);
-    if (open) throw new Error(openReadingMessage(open.status));
+    if (open) throw new ExpectedActionError(openReadingMessage(open.status));
   }
   const exists = async (table: typeof editions | typeof instances | typeof locations, id: string | null) =>
     id ? (await db.select({ id: table.id }).from(table).where(eq(table.id, id))).length > 0 : false;
@@ -1037,8 +1053,8 @@ export async function restoreReading(input: z.input<typeof snapshotSchema>) {
 export async function updateSession(input: SessionPatchInput) {
   const { sessionId, fingerprint, end, ...patch } = sessionPatchSchema.parse(input);
   const [session] = await db.select().from(readingSessions).where(eq(readingSessions.id, sessionId));
-  if (!session) throw new Error("This session no longer exists");
-  if (session.source === "timer" && !session.endedAt) throw new Error("Stop the timer before editing its session");
+  if (!session) throw new ExpectedActionError("This session no longer exists");
+  if (session.source === "timer" && !session.endedAt) throw new ExpectedActionError("Stop the timer before editing its session");
   const reading = await readingFor(session.readingId, fingerprint);
   await requireBookWork(reading.workId);
   const sessions = await loadSessions(reading.id);
@@ -1046,7 +1062,7 @@ export async function updateSession(input: SessionPatchInput) {
   const editionId = patch.editionId !== undefined ? patch.editionId : session.editionId;
   if (patch.editionId !== undefined && editionId !== session.editionId) {
     const edition = await editionPages(editionId);
-    if (editionId && (!edition || edition.workId !== reading.workId)) throw new Error("This edition belongs to another book");
+    if (editionId && (!edition || edition.workId !== reading.workId)) throw new ExpectedActionError("This edition belongs to another book");
     pagesTotal = editionId && editionId !== reading.editionId ? (edition?.pageCount ?? reading.totalPages) : reading.totalPages;
   }
   const totals = { totalPages: pagesTotal, totalMinutes: reading.totalMinutes };
@@ -1067,11 +1083,11 @@ export async function updateSession(input: SessionPatchInput) {
     startedAt: patch.startedAt !== undefined ? patch.startedAt : session.startedAt,
     endedAt: patch.endedAt !== undefined ? patch.endedAt : session.endedAt,
   } as Session;
-  if (updated.startedAt && updated.endedAt && updated.endedAt < updated.startedAt) throw new Error("The session ends before it starts");
+  if (updated.startedAt && updated.endedAt && updated.endedAt < updated.startedAt) throw new ExpectedActionError("The session ends before it starts");
   refuseOverlap(sessions, updated, updated.timeZone, updated.id, session);
   // A session moved after today would hold the position until that day, as in logProgress
   const ahead = (at: Date | null | undefined) => !!at && at.getTime() - Date.now() > 60_000;
-  if (updated.readOn > readingDay(new Date(), updated.timeZone, 0) || ahead(patch.startedAt) || ahead(patch.endedAt)) throw new Error(FUTURE_SESSION);
+  if (updated.readOn > readingDay(new Date(), updated.timeZone, 0) || ahead(patch.startedAt) || ahead(patch.endedAt)) throw new ExpectedActionError(FUTURE_SESSION);
   const now = new Date();
   await withReadableErrors(() =>
     atomic((d) => [
@@ -1109,7 +1125,7 @@ export async function updateSession(input: SessionPatchInput) {
  */
 function refuseOverlap(sessions: Session[], session: Omit<TimedSession, "id">, zone: string, exceptId?: string, was?: Session) {
   const other = newOverlap(sessions, sessionSpan(session), was ?? null, exceptId);
-  if (other) throw new Error(`${overlapMessage(other, zone)}. Change the start time or the time read.`);
+  if (other) throw new ExpectedActionError(`${overlapMessage(other, zone)}. Change the start time or the time read.`);
 }
 
 /**
@@ -1123,7 +1139,7 @@ export async function addSession(input: AddSessionInput) {
   await requireBookWork(before.workId);
   const hour = await readingDayStartHour();
   for (const at of [data.startedAt, data.endedAt])
-    if (at && readingDay(at, data.timeZone, hour) !== data.readOn) throw new Error("The start and end times must fall on the session's day");
+    if (at && readingDay(at, data.timeZone, hour) !== data.readOn) throw new ExpectedActionError("The start and end times must fall on the session's day");
   const durationSeconds =
     data.durationSeconds ?? (data.startedAt && data.endedAt ? Math.max(1, Math.round((data.endedAt.getTime() - data.startedAt.getTime()) / 1000)) : null);
   refuseOverlap(await loadSessions(before.id), { startedAt: data.startedAt ?? null, endedAt: data.endedAt ?? null, durationSeconds }, data.timeZone);
@@ -1152,12 +1168,12 @@ export async function addSession(input: AddSessionInput) {
 export async function restoreSession(input: z.input<typeof restoreSessionSchema>) {
   const data = restoreSessionSchema.parse(input);
   const snap = data.snapshot as unknown as Session;
-  if (snap.readingId !== data.readingId) throw new Error("This session belongs to another reading");
-  if (snap.source === "timer" && !snap.endedAt) throw new Error("A running timer cannot be put back");
+  if (snap.readingId !== data.readingId) throw new ExpectedActionError("This session belongs to another reading");
+  if (snap.source === "timer" && !snap.endedAt) throw new ExpectedActionError("A running timer cannot be put back");
   const reading = await readingFor(data.readingId, data.fingerprint);
   await requireBookWork(reading.workId);
   const sessions = await loadSessions(reading.id);
-  if (sessions.some((s) => s.id === snap.id)) throw new Error("This session is already there");
+  if (sessions.some((s) => s.id === snap.id)) throw new ExpectedActionError("This session is already there");
   const editionOk = snap.editionId ? (await editionPages(snap.editionId))?.workId === reading.workId : true;
   const { pagesRead: _p, ...values } = snap;
   const row: Session = {
@@ -1186,8 +1202,8 @@ export async function restoreSession(input: z.input<typeof restoreSessionSchema>
 export async function deleteSession(input: z.input<typeof deleteSessionSchema>) {
   const { sessionId, fingerprint } = deleteSessionSchema.parse(input);
   const [session] = await db.select().from(readingSessions).where(eq(readingSessions.id, sessionId));
-  if (!session) throw new Error("This session no longer exists");
-  if (session.source === "timer" && !session.endedAt) throw new Error("Stop the timer before deleting its session");
+  if (!session) throw new ExpectedActionError("This session no longer exists");
+  if (session.source === "timer" && !session.endedAt) throw new ExpectedActionError("Stop the timer before deleting its session");
   const reading = await readingFor(session.readingId, fingerprint);
   const sessions = await loadSessions(reading.id);
   const now = new Date();
@@ -1272,7 +1288,50 @@ function camelReading(row: Record<string, unknown>): Reading {
   return out as Reading;
 }
 
-/** Every open reading: for the hub, the dashboard and the command palette */
+/** The book page's bounded rows and complete-history facts (SLN-930). */
+export async function getBookReadingOverview(workId: string) {
+  return queryBookReadingOverview(z.uuid().parse(workId));
+}
+export async function getReadingChoicePage(workId: string, page = 1, query = "") {
+  return queryReadingChoices(workId, page, query);
+}
+export async function getReadingChoice(workId: string, readingId: string) {
+  return queryReadingChoice(workId, readingId);
+}
+
+/** Eight current/eight paused cards; shared callers of getOpenReadings stay unchanged. */
+export async function getReadingHubOpen(today: string) {
+  const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).parse(today);
+  const [result] = resultRows<{
+    counts: { reading: number; paused: number };
+    duplicateOpenWorks: number;
+    rows: { reading: Pick<Reading, "id" | "status" | "format" | "unit" | "currentPage" | "currentPercent" | "currentMinutes" | "totalPages" | "totalMinutes"> & { lastReadAt: string | null; updatedAt: string }; work: { id: string; title: string; slug: string | null }; fingerprint: string; author: string | null; cover: string | null; pausedAt: string | null }[];
+  }>(await db.execute(sql`with ranked as (
+    select r.id,r.status,row_number() over(partition by r.status order by r.last_read_at desc nulls last,r.started_on desc nulls last,r.created_at desc,r.id desc) as place
+    from readings r where r.status in ('reading','paused')
+  ) select
+    (select count(*)::int from (select work_id from readings where status in ('reading','paused') group by work_id having count(*)>1) duplicates) as "duplicateOpenWorks",
+    (select jsonb_build_object('reading',count(*) filter(where status='reading'),'paused',count(*) filter(where status='paused')) from ranked) as counts,
+    coalesce((select jsonb_agg(jsonb_build_object(
+      'reading',jsonb_build_object('id',r.id,'status',r.status,'format',r.format,'unit',r.unit,'currentPage',r.current_page,'currentPercent',r.current_percent::float8,'currentMinutes',r.current_minutes,
+        'totalPages',r.total_pages,'totalMinutes',r.total_minutes,'lastReadAt',r.last_read_at,'updatedAt',r.updated_at),
+      'fingerprint',md5(to_jsonb(r)::text),'work',jsonb_build_object('id',w.id,'title',w.title,'slug',w.slug),
+      'author',(select a.name from work_authors wa join authors a on a.id=wa.author_id where wa.work_id=w.id order by wa.sort_order limit 1),
+      'cover',coalesce((select e.thumbnail_s3_key from editions e where e.id=r.edition_id),(select m.thumbnail_s3_key from media m where m.work_id=w.id and m.type='poster' and m.is_active order by m.sort_order limit 1)),
+      'pausedAt',(select max(h.changed_at) from reading_status_history h where h.reading_id=r.id and h.to_status='paused')
+    ) order by n.status,n.place) from ranked n join readings r on r.id=n.id join works w on w.id=r.work_id where n.place<=${HUB_OPEN_LIMIT}),'[]'::jsonb) as rows`));
+  if (result?.duplicateOpenWorks) throw new ExpectedActionError("A book has more than one open reading; its history needs checking");
+  const rows = (result?.rows ?? []).map(row => ({ ...row, reading: { ...row.reading, lastReadAt: row.reading.lastReadAt ? new Date(row.reading.lastReadAt) : null, updatedAt: new Date(row.reading.updatedAt) } }));
+  const [{ getReaderLinksForWorks }, { readingEstimates }] = await Promise.all([import("@/lib/ebooks/queries"), import("@/lib/reading/estimates")]);
+  const [links, estimates] = await Promise.all([
+    getReaderLinksForWorks([...new Set(rows.map(row => row.work.id))]),
+    readingEstimates(rows.filter(row => row.reading.status === "reading").map(row => row.reading.id), day),
+  ]);
+  const linked = rows.map(row => ({ ...row, ebookId: links.get(row.work.id) ?? null }));
+  return { reading: linked.filter(row => row.reading.status === "reading"), paused: linked.filter(row => row.reading.status === "paused"), counts: result?.counts ?? { reading: 0, paused: 0 }, estimates };
+}
+
+/** Every open reading: unchanged for the dashboard and command palette. */
 export async function getOpenReadings() {
   const { getReaderLinksForOpenReadings } = await import("@/lib/ebooks/queries");
   const [found, links] = await Promise.all([
@@ -1368,7 +1427,7 @@ export async function findPageCount(editionId: string) {
     .select({ isbn13: editions.isbn13, openLibraryKey: editions.openLibraryKey })
     .from(editions)
     .where(eq(editions.id, id));
-  if (!edition) throw new Error("This edition no longer exists");
+  if (!edition) throw new ExpectedActionError("This edition no longer exists");
   const { fetchSourceRecord } = await import("@/lib/match/source");
   const tries: [string, string | null][] = [
     ["isbndb", edition.isbn13],
@@ -1409,7 +1468,7 @@ export interface BookToRead {
 export async function searchBooksToRead(query: string) {
   const q = z.string().max(200).parse(query).trim();
   const { textSearchCondition } = await import("@/lib/actions/utils/text-search");
-  const { ownedBookCondition } = await import("@/lib/catalogue/holdings");
+  const { ownedWorkCondition } = await import("@/lib/catalogue/holdings");
   const { readingStateSql, readCountSql, openReadingPercentSql } = await import("@/lib/reading/summary");
   const authors = sql`coalesce((select string_agg(a.name, ' ') from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id), '')`;
   const match = q ? textSearchCondition(sql`search_normalize(w.title || ' ' || ${authors})`, q, { fuzzy: false }) : undefined;
@@ -1418,12 +1477,12 @@ export async function searchBooksToRead(query: string) {
         (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.sort_order limit 1) as author,
         (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = w.id and (e.thumbnail_s3_key is not null or e.cover_s3_key is not null)
           order by e.publication_year nulls last, e.id limit 1) as cover,
-        ${ownedBookCondition(sql`w.id`)} as owned, w.catalogue_status as "catalogueStatus",
+        ${ownedWorkCondition(sql`w.id`)} as owned, w.catalogue_status as "catalogueStatus",
         ${readingStateSql(sql`w.id`)} as state, ${readCountSql(sql`w.id`)} as reads, ${openReadingPercentSql(sql`w.id`)} as percent,
         (select r.id from readings r where r.work_id = w.id and r.status in ('reading','paused') limit 1) as "openReadingId",
         (select md5(to_jsonb(r)::text) from readings r where r.work_id = w.id and r.status in ('reading','paused') limit 1) as "openFingerprint"
       from works w where w.kind = 'book' ${match ? sql`and ${match}` : sql``}
-      order by ${ownedBookCondition(sql`w.id`)} desc, search_normalize(w.title), w.id limit 20`),
+      order by ${ownedWorkCondition(sql`w.id`)} desc, search_normalize(w.title), w.id limit 20`),
   );
 }
 
@@ -1432,18 +1491,18 @@ export async function searchBooksToRead(query: string) {
  * hub, the dashboard, the palette): its readings, editions with their
  * copies, the homes, its rating.
  */
-export async function getReadingDialogData(workId: string, homeId: string | null = null) {
+export async function getReadingDialogData(workId: string, homeId: string | null = null, targetReadingId: string | null = null) {
   const id = z.uuid().parse(workId);
   const home = homeId === null ? null : z.uuid().parse(homeId);
   await requireBookWork(id);
-  const [{ getWork }, { getLocations }, { readingEditions, readingHomes }, rows] = await Promise.all([
+  const [{ getWork }, { getLocations }, { readingEditions, readingHomes }, overview] = await Promise.all([
     import("@/lib/actions/works"),
     import("@/lib/actions/locations"),
     import("@/lib/reading/page-data"),
-    getReadingsForWork(id),
+    queryBookReadingOverview(id, targetReadingId),
   ]);
   const [work, locations] = await Promise.all([getWork(id), getLocations()]);
-  if (!work) throw new Error("Book not found");
+  if (!work) throw new ExpectedActionError("Book not found");
   const zone = appTimeZone();
   const dayStartHour = await readingDayStartHour();
   const today = readingDay(new Date(), zone, dayStartHour);
@@ -1452,7 +1511,10 @@ export async function getReadingDialogData(workId: string, homeId: string | null
     workTitle: work.title,
     bookRating: work.rating ?? null,
     dayStartHour,
-    rows,
+    rows: overview.rows,
+    summary: overview.summary,
+    defaults: overview.defaults,
+    history: overview.history,
     editions: readingEditions(work.editions, { today, homeId: home, workTitle: work.title }),
     homes: readingHomes(locations),
     today,

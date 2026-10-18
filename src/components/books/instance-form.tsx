@@ -242,7 +242,7 @@ export function InstanceForm({
             placeholder="Select location..."
             options={sortedLocations.map((l) => ({
               value: l.id,
-              label: `${l.name} (${l.type})`,
+              label: `${l.name}, ${l.type === "digital" ? "digital" : "physical"}`,
             }))}
           />
           {subLocations.length > 0 && (

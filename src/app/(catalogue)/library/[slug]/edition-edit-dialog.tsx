@@ -112,7 +112,12 @@ export function EditionEditDialog({ edition }: EditionEditDialogProps) {
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => setOpen(true)}
+        onClick={(event) => {
+          // Safari leaves pointer-opened buttons unfocused; the dialog needs
+          // this opener before it moves focus into the edition form.
+          event.currentTarget.focus({ preventScroll: true });
+          setOpen(true);
+        }}
         onPointerEnter={() => preloadEditOptions(EDITION_GROUPS)}
         onFocus={() => preloadEditOptions(EDITION_GROUPS)}
         data-tooltip="Edit edition"
@@ -125,11 +130,11 @@ export function EditionEditDialog({ edition }: EditionEditDialogProps) {
         draft
         open={open}
         onClose={() => setOpen(false)}
-        title="Edit Edition"
+        title="Edit edition"
         description={edition.title}
         className="max-w-3xl"
       >
-        <div className="max-h-[75vh] overflow-y-auto">
+        <div>
           <EditionForm
             initialValues={editionToFormValues(edition)}
             availableGenres={withChosen(lists.options.genres, edition.editionGenres.map((eg) => eg.genre))}

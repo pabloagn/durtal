@@ -10,7 +10,7 @@ import { resultRows } from "@/lib/harmonization/store";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
 import { requireBookWork, requireBookWorks } from "@/lib/catalogue/book-boundary";
-import { ownedBookCondition } from "@/lib/catalogue/holdings";
+import { ownedWorkCondition } from "@/lib/catalogue/holdings";
 import { atHandCopySql } from "@/lib/reading/at-hand";
 import { QUEUE_GAP } from "@/lib/reading/constants";
 import { readingToday } from "@/lib/reading/day";
@@ -27,7 +27,7 @@ import {
 } from "@/lib/validations/reading-queue";
 
 /*
- * Up Next (SLN-452): the books he wants to read next, in his order. Books
+ * Up next (SLN-452): the books he wants to read next, in his order. Books
  * only; it never changes catalogue_status. Starting a book takes it off the
  * list (createReading and writeReadings). Every write invalidates the reading
  * and works tags: the library's filter and sort read the queue.
@@ -81,12 +81,12 @@ async function queueEvent(workId: string, key: "work.queued" | "work.unqueued", 
   recordActivity("work", workId, key, { extra: { day, ...extra } });
 }
 
-/** Adds a book to Up Next, at the bottom unless `at: "top"`; refused for a queued book or one being read */
+/** Adds a book to Up next, at the bottom unless `at: "top"`; refused for a queued book or one being read */
 export async function addToQueue(input: z.input<typeof addToQueueSchema>) {
   const data = addToQueueSchema.parse(input);
   await requireBookWork(data.workId);
   const queued = await queuedPlace(data.workId);
-  if (queued) throw new Error(`Already in Up Next, at ${queued.place}`);
+  if (queued) throw new Error(`Already in Up next, at ${queued.place}`);
   const refusal = await openReadingRefusal(data.workId);
   if (refusal) throw new Error(refusal);
   await requireEditionOf(data.editionId, data.workId);
@@ -106,7 +106,7 @@ export async function addToQueue(input: z.input<typeof addToQueueSchema>) {
   return { workId: data.workId, place: place.place };
 }
 
-/** The bulk toolbar's Add to Up Next: appended in the given order; queued books and books being read are counted, not added */
+/** The bulk toolbar's Add to Up next: appended in the given order; queued books and books being read are counted, not added */
 export async function addManyToQueue(input: z.input<typeof addManyToQueueSchema>) {
   const workIds = [...new Set(addManyToQueueSchema.parse(input).workIds)];
   await requireBookWorks(workIds);
@@ -137,12 +137,12 @@ export async function addManyToQueue(input: z.input<typeof addManyToQueueSchema>
   return { added: toAdd.length, alreadyQueued: workIds.filter((id) => queued.has(id)).length, beingRead: workIds.filter((id) => open.has(id) && !queued.has(id)).length };
 }
 
-/** Takes a book off Up Next; returns the row for its Undo */
+/** Takes a book off Up next; returns the row for its Undo */
 export async function removeFromQueue(input: z.input<typeof queueWorkSchema>) {
   const { workId } = queueWorkSchema.parse(input);
   await requireBookWork(workId);
   const [row] = await db.delete(readingQueue).where(eq(readingQueue.workId, workId)).returning();
-  if (!row) throw new Error("Not in Up Next");
+  if (!row) throw new Error("Not in Up next");
   changed();
   await queueEvent(workId, "work.unqueued");
   return row;
@@ -152,7 +152,7 @@ export async function removeFromQueue(input: z.input<typeof queueWorkSchema>) {
 export async function restoreQueueItem(input: z.input<typeof queueSnapshotSchema>) {
   const snap = queueSnapshotSchema.parse(input);
   await requireBookWork(snap.workId);
-  if (await queuedPlace(snap.workId)) throw new Error(`${await titleOf(snap.workId)} is in Up Next again`);
+  if (await queuedPlace(snap.workId)) throw new Error(`${await titleOf(snap.workId)} is in Up next again`);
   if (await openReadingRefusal(snap.workId)) throw new Error(`${await titleOf(snap.workId)} was started meanwhile`);
   // An edition deleted or moved meanwhile comes back empty
   const [edition] = snap.editionId ? await db.select({ workId: editions.workId }).from(editions).where(eq(editions.id, snap.editionId)) : [];
@@ -182,10 +182,10 @@ export async function moveQueueItem(input: z.input<typeof moveQueueItemSchema>) 
     .from(readingQueue)
     .orderBy(readingQueue.position, readingQueue.workId);
   const item = rows.find((r) => r.workId === data.workId);
-  if (!item) throw new Error("Not in Up Next");
+  if (!item) throw new Error("Not in Up next");
   const above = data.afterWorkId ? rows.find((r) => r.workId === data.afterWorkId) : null;
   const below = data.beforeWorkId ? rows.find((r) => r.workId === data.beforeWorkId) : null;
-  if ((data.afterWorkId && !above) || (data.beforeWorkId && !below)) throw new Error("Up Next changed elsewhere; reload");
+  if ((data.afterWorkId && !above) || (data.beforeWorkId && !below)) throw new Error("Up next changed elsewhere; reload");
   const others = rows.filter((r) => r.workId !== data.workId);
   // Where it goes among the others: right after the item above, else right before the item below, else the top
   const index = above ? others.indexOf(above) + 1 : below ? others.indexOf(below) : 0;
@@ -218,7 +218,7 @@ export async function updateQueueItem(input: z.input<typeof updateQueueItemSchem
   if (data.note !== undefined) set.note = data.note || null;
   if (!Object.keys(set).length) return { workId: data.workId };
   const [row] = await withReadableErrors(() => db.update(readingQueue).set(set).where(eq(readingQueue.workId, data.workId)).returning({ id: readingQueue.id }));
-  if (!row) throw new Error("Not in Up Next");
+  if (!row) throw new Error("Not in Up next");
   changed();
   return { workId: data.workId };
 }
@@ -256,7 +256,7 @@ export async function getQueue(input?: z.input<typeof getQueueSchema>): Promise<
       select q.id::text as id, w.id::text as "workId", w.title, w.slug, q.edition_id::text as "editionId", q.position, q.note, q.source,
         q.added_at::text as "addedAt",
         (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.sort_order, a.name limit 1) as author,
-        ${ownedBookCondition(sql`w.id`)} as owned,
+        ${ownedWorkCondition(sql`w.id`)} as owned,
         (${atHandCopySql(sql`w.id`, homeId)} limit 1)::text as "atHandCopyId",
         (select m.thumbnail_s3_key from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1) as "workCover",
         ${readCountSql(sql`w.id`)}::int as "readCount",
@@ -291,7 +291,7 @@ export async function getQueueHead(limit = 5) {
   );
 }
 
-/** A book's place in Up Next, for its page: null when not queued */
+/** A book's place in Up next, for its page: null when not queued */
 export async function getQueuePlace(workId: string) {
   const row = await queuedPlace(z.uuid().parse(workId));
   return row ? { place: row.place } : null;

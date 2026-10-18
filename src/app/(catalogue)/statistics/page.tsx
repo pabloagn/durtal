@@ -13,7 +13,7 @@ import { loadDomainCounts, type HomeKind } from "@/lib/catalogue/domain-homes";
 import { COPY_FORMAT_LABELS } from "@/lib/constants/catalogue";
 import { n } from "@/lib/reading/charts";
 import { yearNumbers } from "@/lib/reading/stats";
-import { originsTitle, yearLabel } from "@/lib/statistics/charts";
+import { compactYearCounts, originsTitle, yearLabel } from "@/lib/statistics/charts";
 import {
   breakdown,
   busiestYears,
@@ -84,21 +84,22 @@ export default async function StatisticsPage() {
               tiles={[
                 { label: "Books", value: n(numbers.books) },
                 { label: "Editions", value: n(numbers.editions) },
-                { label: "Copies", value: n(numbers.copies) },
+                { label: "Owned copies", value: n(numbers.copies) },
                 // No page count is not zero pages (SLN-824): a dash, and the tile stays so the rows end full
                 numbers.pages > 0 ? { label: "Pages", value: n(numbers.pages) } : { label: "No page counts yet", value: "\u2014" },
                 { label: "Authors", value: n(numbers.authors) },
                 { label: "Publishers", value: n(numbers.publishers) },
                 { label: "Languages", value: n(numbers.languages) },
-                { label: "Countries", value: n(numbers.countries) },
+                // Named as on the dashboard (SLN-886)
+                { label: "Authors' countries", value: n(numbers.countries) },
               ]}
             />
-            <Footnote>Books you own: a book counts once one of its copies is on your shelves. Countries are your authors&apos; nationalities.</Footnote>
+            <Footnote>Books you own: a book counts once it is accessioned and one of its copies is on your shelves. Authors&apos; countries are their nationalities.</Footnote>
           </StatsSection>
 
           {written.years.length > 0 && (
             <StatsSection title="When they were written" id="written">
-              <WrittenChart years={written.years} />
+              <WrittenChart years={compactYearCounts(written.years)} />
               {written.undated > 0 && <Footnote>{count(written.undated, "book")} with no known year {written.undated === 1 ? "is" : "are"} not shown.</Footnote>}
             </StatsSection>
           )}
@@ -173,9 +174,8 @@ export default async function StatisticsPage() {
                 bars={ratings.map((r) => ({
                   label: formatRating(r.rating),
                   value: r.count,
-                  text: `${formatRating(r.rating)} stars: ${count(r.count, "book")}`,
+                  text: `${formatRating(r.rating)} ${r.rating === 1 ? "star" : "stars"}: ${count(r.count, "book")}`,
                 }))}
-                summaryUnit="books"
                 tone="blue"
                 columns={["Rating", "Books"]}
                 footnote={unrated ? `${count(unrated, "book")} without a rating ${unrated === 1 ? "is" : "are"} not shown.` : undefined}
@@ -241,7 +241,6 @@ export default async function StatisticsPage() {
                   value: a.count,
                   text: `${a.year}: ${count(a.count, "copy", "copies")}`,
                 }))}
-                summaryUnit="copies"
                 columns={["Year", "Copies"]}
                 footnote={copies.undated ? `${count(copies.undated, "copy", "copies")} with no acquisition date ${copies.undated === 1 ? "is" : "are"} not shown.` : undefined}
                 />

@@ -1,3 +1,4 @@
+import { createPerfumeVariant as createPerfumeVariantUi } from "@/lib/actions/catalogue-ui";
 import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 import {
   beforeAll,
@@ -329,6 +330,7 @@ describe.skipIf(!url)("perfume catalogue and inventory services", () => {
       ["woody", false],
     ]);
     await expect(createPerfumeVariant({ workId: perfume.id, concentration: "eau_de_parfum" })).rejects.toThrow(/^This perfume already has a formulation with this concentration and labels$/);
+    expect(await createPerfumeVariantUi({ workId: perfume.id, concentration: "eau_de_parfum" })).toEqual({ ok: false, error: "This perfume already has a formulation with this concentration and labels" });
     await expect(
       updatePerfumeVariant(extrait.id, { concentration: "eau_de_parfum" }, extrait.fingerprint),
     ).rejects.toThrow(/^This perfume already has a formulation with this concentration and labels$/);

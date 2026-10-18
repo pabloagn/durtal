@@ -37,7 +37,7 @@ describe("MemberCard", () => {
     expect(foot.className.split(/\s+/)).toEqual(expect.arrayContaining(["mt-auto", "flex", "flex-wrap"]));
     expect(foot.className).not.toContain("justify-between");
     expect(read("app/(catalogue)/collections/[id]/page.tsx")).toContain('<div className="-ml-1.5 flex items-center gap-1 pointer-coarse:-ml-3.5">');
-    expect(read("components/collections/collection-controls.tsx")).toContain('<div className="-mr-2.5 ml-auto flex gap-1 pointer-coarse:-mr-3.5">');
+    expect(read("components/collections/collection-controls.tsx")).toContain('<div className="-mr-2.5 ml-auto flex gap-1 pointer-coarse:-mr-3.5 pointer-coarse:gap-2">');
   });
 
   it("gives a collection card with no description no blank lines under its name", () => {

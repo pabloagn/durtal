@@ -26,6 +26,7 @@ export function AuthorEditDialog({
   authorId,
 }: AuthorEditDialogProps) {
   const router = useRouter();
+  const notices = toast.forAction(`edit-person:${authorId}`);
   const [isPending, startTransition] = useTransition();
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -75,14 +76,14 @@ export function AuthorEditDialog({
 
   function handleSubmit() {
     if (!values.name.trim()) {
-      toast.error("Name is required");
+      notices.error("Name is required");
       return;
     }
 
     startTransition(async () => {
       try {
         const result = await updateAuthor(authorId, authorPayload(values));
-        toast.success("Person updated");
+        notices.success("Person updated");
         onClose();
         // A new name gives the person a new address; the old one does not
         // redirect, so go to the new one
@@ -90,7 +91,7 @@ export function AuthorEditDialog({
         else router.refresh();
         triggerActivityRefresh();
       } catch (err) {
-        toast.error(
+        notices.error(
           err instanceof Error ? err.message : "Could not update the person",
         );
       }

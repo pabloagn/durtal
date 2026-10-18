@@ -151,12 +151,21 @@ function formatValue(value: number, step: number, unit: string, signed: boolean)
   return `${signed && value > 0 ? "+" : ""}${text}${unit}`;
 }
 
+/**
+ * Unsaved work the editor's owner can save: a save that resolves true when
+ * it stored the work, or null while there is nothing to save
+ */
+export type DraftSave = (() => Promise<boolean>) | null;
+
 function LoadedEditor({
   initial,
   onSaved,
+  onDraft,
 }: {
   initial: Presentation;
-  onSaved?: () => void;
+  /** After a save, with the image's new source */
+  onSaved?: (source: string) => void;
+  onDraft?: (save: DraftSave) => void;
 }) {
   // A saved crop writes new files, so the image key can change after a save
   const [source, setSource] = useState(initial.source);
@@ -170,6 +179,11 @@ function LoadedEditor({
     crop: initial.crop,
   });
   const savingRef = useRef(false);
+  const saveButton = useRef<HTMLButtonElement>(null);
+  const firstControl = useRef<HTMLInputElement>(null);
+  // Saved from Save: once saved it has nothing to save and turns off, so the
+  // focus goes to the open group's first control instead of the page
+  const [refocus, setRefocus] = useState(false);
   const drag = useRef<{ x: number; y: number } | null>(null);
   const update = useImageAdjustmentUpdate();
   const router = useRouter();
@@ -199,31 +213,53 @@ function LoadedEditor({
   const previewSettings = compare ? baseline.settings : settings;
   const previewCrop = compare ? baseline.crop : crop;
 
-  async function save() {
-    if (savingRef.current) return;
+  async function save(): Promise<boolean> {
+    if (savingRef.current) return false;
     savingRef.current = true;
     setSaving(true);
+    const fromSave = document.activeElement === saveButton.current;
     try {
       const record = await saveImagePresentation(source, {
         settings,
         ...(crop ? { crop } : {}),
       });
-      setSource(s3ImageSource(record.assetKey));
+      const next = s3ImageSource(record.assetKey);
+      setSource(next);
       update(record);
       setBaseline({ settings: record.settings, crop });
       setSettings(record.settings);
       toast.success("Image adjustments saved");
       router.refresh();
-      onSaved?.();
+      onSaved?.(next);
+      if (fromSave) setRefocus(true);
+      return true;
     } catch {
       toast.error(
         "Could not save image adjustments. Your changes are still here.",
       );
+      return false;
     } finally {
       savingRef.current = false;
       setSaving(false);
     }
   }
+
+  useLayoutEffect(() => {
+    if (!refocus || saving) return;
+    setRefocus(false);
+    firstControl.current?.focus();
+  }, [refocus, saving]);
+
+  // The owner (the media manager) asks before a close or a switch would lose
+  // the work, and its Save saves it here
+  const latestSave = useRef(save);
+  useLayoutEffect(() => {
+    latestSave.current = save;
+  });
+  useEffect(() => {
+    onDraft?.(dirty ? () => latestSave.current() : null);
+  }, [dirty, onDraft]);
+  useEffect(() => () => onDraft?.(null), [onDraft]);
 
   return (
     <div className="space-y-4">
@@ -291,6 +327,7 @@ function LoadedEditor({
           Author monochrome stays on
         </p>
       )}
+      <div className="space-y-3">
       <fieldset disabled={saving} className="space-y-3">
         <legend className="sr-only">Image adjustments</legend>
         {/* One group at a time, every control in it in view: a label, its
@@ -308,7 +345,7 @@ function LoadedEditor({
         <div className="space-y-4 pointer-coarse:space-y-0">
           {available
             .filter((control) => control.group === shown)
-            .map((control) => {
+            .map((control, index) => {
               const value = valueOf(control.key);
               const changed = value !== defaultOf(control.key);
               return (
@@ -325,6 +362,7 @@ function LoadedEditor({
                     </output>
                   </div>
                   <input
+                    ref={index === 0 ? firstControl : undefined}
                     id={`${id}-${control.key}`}
                     type="range"
                     min={control.min}
@@ -371,6 +409,9 @@ function LoadedEditor({
             </div>
           )}
         </div>
+      </fieldset>
+        {/* Outside the locked fieldset: Save keeps the focus while it saves,
+            reading as busy, never disabled (docs/03, busy controls) */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button
             type="button"
@@ -378,6 +419,7 @@ function LoadedEditor({
             variant="ghost"
             // Its label starts on the sliders' edge (docs/03, Spacing Scale)
             className="-ml-2.5"
+            disabled={saving}
             aria-pressed={compare}
             onClick={() => setCompare((previous) => !previous)}
           >
@@ -388,6 +430,7 @@ function LoadedEditor({
               type="button"
               size="sm"
               variant="ghost"
+              disabled={saving}
               onClick={() => {
                 setSettings(
                   enforceImagePolicy(
@@ -402,6 +445,7 @@ function LoadedEditor({
               Reset all
             </Button>
             <Button
+              ref={saveButton}
               type="button"
               size="sm"
               variant="primary"
@@ -413,7 +457,7 @@ function LoadedEditor({
             </Button>
           </div>
         </div>
-      </fieldset>
+      </div>
     </div>
   );
 }
@@ -421,30 +465,41 @@ function LoadedEditor({
 export function ImageAdjustmentEditor({
   source,
   onSaved,
+  onDraft,
 }: {
   source: string;
   onSaved?: () => void;
+  /** The editor's unsaved work, for an owner that asks before losing it */
+  onDraft?: (save: DraftSave) => void;
 }) {
   const [result, setResult] = useState<{
     source: string;
+    /** The editor's key: the source it was opened on */
+    key: string;
     data?: Presentation;
     error?: boolean;
   } | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // The file this editor's own save wrote. When the owner hands it back as
+  // the new source, the editor stays open as it is, on the same group and
+  // control, and only its picture of the stored image is brought up to date
+  const [written, setWritten] = useState<string | null>(null);
+  const own = written === source;
   useEffect(() => {
     let cancelled = false;
     getImagePresentation(source)
       .then((data) => {
-        if (!cancelled) setResult({ source, data });
+        if (!cancelled)
+          setResult((previous) => ({ source, key: own && previous ? previous.key : source, data }));
       })
       .catch(() => {
-        if (!cancelled) setResult({ source, error: true });
+        if (!cancelled && !own) setResult({ source, key: source, error: true });
       });
     return () => {
       cancelled = true;
     };
-  }, [source, attempt]);
-  if (!result || result.source !== source)
+  }, [source, attempt, own]);
+  if (!result || (result.source !== source && !(own && result.data)))
     return (
       <p className="py-8 text-center text-sm text-fg-secondary" role="status">
         Loading image adjustments…
@@ -466,7 +521,17 @@ export function ImageAdjustmentEditor({
         </Button>
       </div>
     );
-  return <LoadedEditor key={source} initial={result.data} onSaved={onSaved} />;
+  return (
+    <LoadedEditor
+      key={result.key}
+      initial={result.data}
+      onSaved={(next) => {
+        setWritten(next);
+        onSaved?.();
+      }}
+      onDraft={onDraft}
+    />
+  );
 }
 
 export function ImageAdjustButton({

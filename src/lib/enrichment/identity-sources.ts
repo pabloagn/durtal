@@ -8,6 +8,7 @@ import {
   isEditionItem,
   linkedQids,
   searchTitles,
+  openLibraryAuthorKeys,
   type IdentityBook,
   type OpenLibraryEdition,
   type OpenLibraryWork,
@@ -68,11 +69,10 @@ export function readOpenLibraryEdition(d: Record<string, unknown>): OpenLibraryE
 
 /** The fields identity reads from a work record, as Open Library gives them */
 export function readOpenLibraryWork(d: Record<string, unknown>): OpenLibraryWork {
-  const authors = (Array.isArray(d.authors) ? d.authors : []) as { author?: { key?: unknown } }[];
   return {
     key: String(d.key),
     title: typeof d.title === "string" ? d.title : null,
-    authors: authors.filter((a) => typeof a?.author?.key === "string").map((a) => ({ author: { key: a.author!.key as string } })),
+    authors: openLibraryAuthorKeys(d).map((key) => ({ author: { key } })),
     identifiers: { wikidata: strings((d.identifiers as { wikidata?: unknown } | undefined)?.wikidata) },
   };
 }

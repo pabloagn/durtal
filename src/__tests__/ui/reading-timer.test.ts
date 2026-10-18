@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { readingPageFixture } from "../fixtures/reading-page";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -283,7 +284,6 @@ const data = {
 };
 function props(over: Partial<ReadingDialogProps> = {}): ReadingDialogProps {
   return {
-    data: data as never,
     row: row as never,
     request: { kind: "progress", readingId: "r1" },
     home: null,
@@ -292,6 +292,7 @@ function props(over: Partial<ReadingDialogProps> = {}): ReadingDialogProps {
     changed: () => {},
     open: (request) => opened.list.push(request),
     ...over,
+    data: readingPageFixture(over.data ?? data),
   };
 }
 
@@ -356,6 +357,46 @@ const session = (over: Record<string, unknown>) => ({
 });
 
 describe("Add a session", () => {
+  it.each([false, true])("adds +20 from the previous position while skipping a later duration-only row (start fallback: %s)", async (onlyDuration) => {
+    const duration = session({ id: "duration", readOn: "2026-10-04", startPage: null, startPercent: null, startMinutes: null, endPage: null, endPercent: null, endMinutes: null, durationSeconds: 11520, pagesRead: null });
+    const position = session({ id: "position", endPage: 60, endPercent: 25 });
+    actions.getReadingSessions.mockResolvedValue({ running: null, sessions: onlyDuration ? [duration] : [duration, position] });
+    actions.addSession.mockResolvedValue({ reading: { fingerprint: "d".repeat(32) }, session: { id: "new" } });
+    act(() => root.render(createElement(SessionDialog, props({
+      row: { ...row, reading: { ...reading, startPage: onlyDuration ? 60 : 0, startPercent: onlyDuration ? 25 : 0 } } as never,
+      request: { kind: "session", readingId: "r1" },
+    }))));
+    await flush();
+    expect(host.ownerDocument.querySelector("[data-session-from]")!.textContent).toContain("From p. 60");
+    type(field("Where did it end?"), "+20");
+    await submit();
+    expect(actions.addSession).toHaveBeenCalledWith(expect.objectContaining({ to: { page: 80 } }));
+  });
+
+  it.each([false, true])("edits a duration-only session's note and time without inventing an end (touch: %s)", async (touch) => {
+    coarse = touch;
+    const old = session({ id: "duration", startPage: null, startPercent: null, startMinutes: null, endPage: null, endPercent: null, endMinutes: null, endChapter: null, durationSeconds: 11520, pagesRead: null, note: "Before" });
+    actions.getReadingSessions.mockResolvedValue({ running: null, sessions: [old] });
+    actions.updateSession.mockResolvedValue({ fingerprint: "e".repeat(32) });
+    act(() => root.render(createElement(SessionDialog, props({ request: { kind: "session", readingId: "r1", session: old as never } }))));
+    await flush();
+    expect(text()).toContain("No position recorded");
+    type(field("Minutes"), "15");
+    act(() => {
+      const note = host.ownerDocument.querySelector("textarea")!;
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(note, "After");
+      note.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const save = [...host.ownerDocument.querySelectorAll<HTMLButtonElement>('button[type="submit"]')].find((button) => button.textContent === "Save")!;
+    expect(save.disabled).toBe(false);
+    await submit();
+    expect(actions.updateSession).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "duration", durationSeconds: 11700, note: "After" }));
+    expect(actions.updateSession.mock.calls[0][0]).not.toHaveProperty("end");
+    await act(async () => toasts.list.find((toast) => toast.message === "Saved the session")!.undo!());
+    expect(actions.updateSession).toHaveBeenLastCalledWith(expect.objectContaining({ durationSeconds: 11520, note: "Before" }));
+    expect(actions.updateSession.mock.calls.at(-1)![0]).not.toHaveProperty("end");
+  });
+
   it("shows where it starts, warns when it ends before that, and adds it with Undo", async () => {
     actions.getReadingSessions.mockResolvedValue({ running: null, sessions: [session({ id: "s2", readOn: "2026-10-03", startPage: 150, endPage: 180 }), session({ id: "s1", readOn: "2026-10-01", startPage: 0, endPage: 150 })] });
     actions.addSession.mockResolvedValue({ reading: { fingerprint: "d".repeat(32) }, session: { id: "new" } });

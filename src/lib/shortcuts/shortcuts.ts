@@ -35,7 +35,7 @@ export const GO_TO: { key: string; label: string; href: string }[] = [
 ];
 
 /** Add dialogs that open on any page */
-export type AddDialog = "author" | "recommender" | "series" | "collection" | "place";
+export type AddDialog = "author" | "recommender" | "series" | "collection" | "place" | "organization";
 
 /**
  * What can be added from any page (SLN-632): A then one of these keys adds it
@@ -54,6 +54,7 @@ export const ADD: ({ key: string; label: string; section: string } & (
   { key: "a", label: "Person", section: "/people", dialog: "author" },
   // P is Perfume (the owner's A then P), so a publisher is A then U
   { key: "u", label: "Publisher", section: "/publishers", href: "/publishers/new" },
+  { key: "o", label: "Organization", section: "/organizations", dialog: "organization" },
   { key: "r", label: "Recommender", section: "/recommenders", dialog: "recommender" },
   { key: "s", label: "Series", section: "/series", dialog: "series" },
   { key: "c", label: "Collection", section: "/collections", dialog: "collection" },
@@ -219,7 +220,7 @@ export const SHORTCUT_GROUPS: {
       { keys: ["r", READING_KEYS.abandon], label: "Abandon", then: true },
       { keys: ["r", READING_KEYS.past], label: "Log a past read", then: true },
       { keys: ["r", READING_KEYS.timer], label: "Start or stop the timer", then: true },
-      { keys: ["r", READING_KEYS.queue], label: "Add to or remove from Up Next", then: true },
+      { keys: ["r", READING_KEYS.queue], label: "Add to or remove from Up next", then: true },
       { keys: ["r", READING_KEYS.quote], label: "Add a quote", then: true },
       { keys: ["r", READING_KEYS.history], label: "Go to the Reading section", then: true },
     ],
@@ -435,7 +436,7 @@ function lastShown(root: Element, selector: string) {
     .pop();
 }
 
-/** The dialog on top, else the page part that takes Enter (the Add Book steps) */
+/** The dialog on top, else the page part that takes Enter (the Add book steps) */
 function shortcutScope(from: Element | null): Element | null {
   const dialogs = document.querySelectorAll("dialog[open]");
   if (dialogs.length) return dialogs[dialogs.length - 1];

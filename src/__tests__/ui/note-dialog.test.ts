@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { readingPageFixture } from "../fixtures/reading-page";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -11,10 +12,19 @@ const actions = vi.hoisted(() => ({
 }));
 const toasts = vi.hoisted(() => ({ list: [] as string[] }));
 vi.mock("@/lib/actions/reading-notes", () => actions);
-vi.mock("@/lib/actions/reading", () => ({ logProgress: vi.fn(), undoProgress: vi.fn(), updateReading: vi.fn(), stopTimer: vi.fn(), undoStopTimer: vi.fn() }));
+vi.mock("@/lib/actions/reading", () => ({ logProgress: vi.fn(), undoProgress: vi.fn(), updateReading: vi.fn(), stopTimer: vi.fn(), undoStopTimer: vi.fn(), getReadingChoicePage: vi.fn(async () => ({ items: [], total: 0, page: 1, hasNext: false })), getReadingChoice: vi.fn(async () => null) }));
 vi.mock("@/lib/notifications/toast", () => {
   const push = (message: string) => toasts.list.push(message);
   return { toast: Object.assign(push, { success: push, error: push, message: push, info: push }) };
+});
+// The existing note tests isolate edition/position behavior. Paging and late
+// responses are exercised with the real field in note-reading-choice.test.ts.
+vi.mock("@/components/reading/dialogs/reading-choice-field", async () => {
+  const { Select } = await import("@/components/ui/select");
+  return { ReadingChoiceField: ({ value, initialChoices, editionNames, onChange }: { value: string; initialChoices: { id: string; ordinal: number; editionId: string | null; status: string }[]; editionNames: Record<string,string>; onChange: (row: unknown) => void }) => createElement(Select, {
+    label: "Reading", value, onChange: (event: { target: { value: string } }) => onChange(initialChoices.find(row=>row.id===event.target.value) ?? null),
+    options: [{value:"",label:"None"},...initialChoices.map(row=>({value:row.id,label:[`${row.ordinal}${row.ordinal===1?"st":row.ordinal===2?"nd":"th"} read`,row.editionId?editionNames[row.editionId]:null,row.status==="reading"?"reading now":row.status].filter(Boolean).join(" · ")}))],
+  }) };
 });
 const editorControl = vi.hoisted(() => ({ crash: false }));
 // Mock the actual editor resource; the real feature loader still runs.
@@ -99,7 +109,6 @@ const row = {
 const data = { workId: "w1", workTitle: "Nadja", bookRating: null, dayStartHour: 4, rows: [row], editions: [], homes: [], today: "2026-10-05", zone: "Europe/Amsterdam" };
 const opened: unknown[] = [];
 const props = (over: Partial<ReadingDialogProps> = {}): ReadingDialogProps => ({
-  data: data as never,
   row: row as never,
   request: { kind: "note", noteKind: "quote", readingId: "r1" },
   home: null,
@@ -108,6 +117,7 @@ const props = (over: Partial<ReadingDialogProps> = {}): ReadingDialogProps => ({
   changed: () => {},
   open: (request) => opened.push(request),
   ...over,
+  data: readingPageFixture(over.data ?? data),
 });
 
 const doc = () => host.ownerDocument;

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useListSearchClear } from "@/lib/hooks/use-list-search-clear";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, ArrowDown, ArrowUp, X } from "lucide-react";
 import {
@@ -73,6 +74,14 @@ export function EbooksFilters({
       );
     }, wait);
   }
+  useListSearchClear(input, (navigate) => {
+    if (timer.current) clearTimeout(timer.current);
+    setQuery("");
+    if (navigate) {
+      list?.begin();
+      send("", 0);
+    }
+  });
   function change(key: string, values: string[]) {
     if (timer.current) clearTimeout(timer.current);
     const params = new URLSearchParams(latest.current);
@@ -136,6 +145,7 @@ export function EbooksFilters({
           maxLength={200}
           aria-label="Search eBooks"
           data-shortcut-search=""
+          data-list-focus="search"
           placeholder="Search eBooks…"
           value={query}
           // The browser's own clear button is hidden for the one below, whose X
@@ -167,7 +177,7 @@ export function EbooksFilters({
           </button>
         )}
       </div>
-      <div className="flex flex-wrap items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1 pointer-coarse:gap-2">
         {EBOOK_SORT_OPTIONS.map((option) => (
           <button
             key={option.value}

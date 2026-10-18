@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { updateMediaDetails } from "@/lib/actions/media";
+import type { DraftSave } from "@/components/media/image-adjustment-editor";
 
 /** What an image shows and whose it is, as stored on the media row. */
 export interface ImageDetails {
@@ -37,15 +38,22 @@ export function ImageDetailsEditor({
   mediaId,
   details,
   onSaved,
+  onDraft,
 }: {
   mediaId: string;
   details: ImageDetails;
   onSaved?: () => void;
+  /** The unsaved details, for an owner that asks before losing them */
+  onDraft?: (save: DraftSave) => void;
 }) {
   const stored = formValues(details);
   const [values, setValues] = useState(stored);
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [saving, setSaving] = useState(false);
+  const form = useRef<HTMLFormElement>(null);
+  // Saved from its button: once the stored details catch up the button turns
+  // off, so the focus goes to the first field instead of the page
+  const [refocus, setRefocus] = useState(false);
   const dirty = (Object.keys(values) as Field[]).some(
     (field) => values[field].trim() !== stored[field],
   );
@@ -55,8 +63,7 @@ export function ImageDetailsEditor({
     setErrors((current) => ({ ...current, [field]: undefined }));
   }
 
-  async function save(event: React.FormEvent) {
-    event.preventDefault();
+  async function save(): Promise<boolean> {
     const invalid = Object.fromEntries(
       URL_FIELDS.filter(
         (field) =>
@@ -65,9 +72,10 @@ export function ImageDetailsEditor({
     );
     if (Object.keys(invalid).length) {
       setErrors(invalid);
-      return;
+      return false;
     }
     setSaving(true);
+    const fromButton = !!form.current?.contains(document.activeElement) && document.activeElement?.getAttribute("type") === "submit";
     try {
       const value = (field: Field) => values[field].trim() || null;
       await updateMediaDetails(mediaId, {
@@ -79,16 +87,40 @@ export function ImageDetailsEditor({
       });
       toast.success("Image details saved");
       onSaved?.();
+      if (fromButton) setRefocus(true);
+      return true;
     } catch {
       toast.error("Could not save the image details");
+      return false;
     } finally {
       setSaving(false);
     }
   }
 
+  useLayoutEffect(() => {
+    if (!refocus || dirty) return;
+    setRefocus(false);
+    form.current?.querySelector<HTMLElement>("textarea, input")?.focus();
+  }, [refocus, dirty]);
+
+  const latestSave = useRef(save);
+  useLayoutEffect(() => {
+    latestSave.current = save;
+  });
+  useEffect(() => {
+    onDraft?.(dirty ? () => latestSave.current() : null);
+  }, [dirty, onDraft]);
+  useEffect(() => () => onDraft?.(null), [onDraft]);
+
   return (
     // noValidate: the form shows its own link errors, in the app's style.
-    <form onSubmit={save} noValidate className="space-y-3" aria-label="Image details">
+    <form
+      ref={form}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save();
+      }}
+      noValidate className="space-y-3" aria-label="Image details">
       <p className="text-xs font-medium text-fg-secondary">Image details</p>
       <Textarea
         label="Alt text"

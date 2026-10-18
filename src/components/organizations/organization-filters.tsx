@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useListSearchClear } from "@/lib/hooks/use-list-search-clear";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
@@ -46,6 +47,10 @@ export function OrganizationFilters({
     else params.delete(key);
     return firstPageHref("/organizations", params);
   };
+  useListSearchClear(inputRef, (navigate) => {
+    clearTimeout(timer.current);
+    if (navigate) router.push(hrefWith("q", null));
+  });
   const roles = DIRECTORY_ROLES.filter((role) => counts.roles[role] > 0 || role === current);
   const chip = (label: string, count: number, role: DirectoryRole | null) => {
     const active = (current ?? null) === role;
@@ -61,7 +66,7 @@ export function OrganizationFilters({
         }`}
       >
         {label}
-        <span className="tabular-nums text-fg-secondary">{count}</span>
+        <span className="tabular-nums text-fg-secondary">{count.toLocaleString("en")}</span>
       </Link>
     );
   };
@@ -80,6 +85,7 @@ export function OrganizationFilters({
           aria-label="Search organizations"
           // "/" focuses this field (keyboard shortcuts)
           data-shortcut-search=""
+          data-list-focus="search"
           placeholder="Search names and other names..."
           defaultValue={query}
           maxLength={200}

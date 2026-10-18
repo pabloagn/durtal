@@ -1,15 +1,21 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
+
+import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
+
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { toast } from "@/lib/notifications/toast";
+import { DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TitleInput } from "@/components/shared/title-input";
 import { CatalogueDateField } from "@/components/shared/catalogue-date-field";
-import { createPerfume, createPerfumeVariant, updatePerfume } from "@/lib/actions/perfumes";
+import { createPerfume, updatePerfume } from "@/lib/actions/perfumes";
+import { createPerfumeVariant } from "@/lib/actions/catalogue-client";
 import { recordPerfumeEntrySource, type PerfumeSourceReview } from "@/lib/actions/perfume-sources";
 import { SourceLinkField, type SourceLinkState } from "./source-link-field";
 import type { CatalogueDateInput } from "@/lib/catalogue/dates";
@@ -203,14 +209,14 @@ export function PerfumeForm(props: Props) {
         </Section>
       )}
       <Section title="Identity">
-        <TitleInput
+        <div className="min-w-0 space-y-2"><TitleInput
           label="Title"
           value={title}
           onValueChange={setTitle}
           placeholder="Shalimar"
           maxLength={500}
           required
-        />
+        /><NameDuplicateNotice kind="perfume" name={title} enabled={props.mode === "create"} /></div>
         <div className="space-y-2 pt-1">
           <OrganizationRolesField value={organizations} onChange={setOrganizations} />
           <CreditListField label="People" value={credits} onChange={setCredits} roles />
@@ -284,12 +290,15 @@ export function PerfumeForm(props: Props) {
         </>
       )}
 
-      {error && (
-        <p role="alert" className="text-sm text-accent-red-text">
-          {error}
-        </p>
-      )}
-      <div className="flex flex-wrap justify-end gap-2">
+      {/* In the edit dialog, under its body and always in view, with the
+          reason a save failed over the buttons */}
+      <DialogFooter outside="">
+        <RequiredNameHint value={title} message="Give the perfume a title" />
+        {error && (
+          <p role="alert" className="basis-full text-sm text-accent-red-text">
+            {error}
+          </p>
+        )}
         <Button
           variant="ghost"
           data-dismiss=""
@@ -309,7 +318,7 @@ export function PerfumeForm(props: Props) {
         >
           {props.mode === "create" ? "Add perfume" : "Save"}
         </Button>
-      </div>
+      </DialogFooter>
     </div>
     </>
   );

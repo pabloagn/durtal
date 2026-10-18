@@ -37,7 +37,7 @@ export function parseBookLinkValues(
   return { ok: true, links };
 }
 
-/** "Book Links" section for the work edit dialogs. Errors show after a field loses focus. */
+/** "Book links" section for the work edit dialogs. Errors show after a field loses focus. */
 export function BookLinksFields({
   idPrefix,
   values,
@@ -53,8 +53,8 @@ export function BookLinksFields({
 
   return (
     <section>
-      <h3 className="type-group-title mb-3">Book Links</h3>
-      <div className="grid grid-cols-2 gap-3">
+      <h3 className="type-group-title mb-3">Book links</h3>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {FIELDS.map((field) => {
           const site = BOOK_LINK_SITES[field];
           const parsed = parseBookLink(field, values[field]);

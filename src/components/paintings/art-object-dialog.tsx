@@ -24,7 +24,7 @@ import {
   readNumber,
   type StorageLocation,
 } from "@/components/catalogue/holding-fields";
-import { createArtObject, updateArtObject } from "@/lib/actions/paintings";
+import { createArtObject, updateArtObject } from "@/lib/actions/catalogue-client";
 import { createVenue, searchVenues } from "@/lib/actions/venues";
 import {
   ART_OBJECT_KINDS,
@@ -150,6 +150,7 @@ function ArtObjectForm({
   onDone: () => void;
 }) {
   const router = useRouter();
+  const notices = toast.forAction(`art-object:${object?.id ?? paintingId}`);
   const [kind, setKind] = useState<ArtObjectKind>(initialKind);
   const [label, setLabel] = useState(object?.label ?? "");
   const [reproduces, setReproduces] = useState(object?.reproducesObjectId ?? "");
@@ -207,11 +208,10 @@ function ArtObjectForm({
     badSide ||
     (ownership === "institutional" && !owner) ||
     !!moneyError ||
-    Object.values(dateErrors).some(Boolean) ||
-    saving;
+    Object.values(dateErrors).some(Boolean);
 
   async function save() {
-    if (blocked) return;
+    if (blocked || saving) return;
     setSaving(true);
     setError(null);
     const isDisposed = personal && status === "disposed";
@@ -245,13 +245,13 @@ function ArtObjectForm({
     try {
       if (object) await updateArtObject(object.id, fields, object.fingerprint);
       else await createArtObject({ workId: paintingId, ...fields });
-      toast.success(object ? "Object saved" : "Object added");
+      notices.success(object ? "Object saved" : "Object added");
       onDone();
       router.refresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not save the object";
       setError(message);
-      toast.error(message);
+      notices.error(message);
       setSaving(false);
     }
   }

@@ -9,8 +9,8 @@ import { usePreference } from "@/lib/hooks/use-preference";
 import { READING_HOME_KEY } from "@/lib/preferences";
 import { READING_KEYS } from "@/lib/shortcuts/shortcuts";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
-import { pauseReading, reopenReading, resumeReading } from "@/lib/actions/reading";
-import { bookReadingState, readingMenu, READING_ACTION_LABELS, type ReadingMenuAction } from "@/lib/reading/labels";
+import { pauseReading, reopenReading, resumeReading } from "@/lib/actions/catalogue-client";
+import { readingMenu, READING_ACTION_LABELS, type ReadingMenuAction } from "@/lib/reading/labels";
 import { addToQueue, removeFromQueue, restoreQueueItem } from "@/lib/actions/reading-queue";
 import { ordinal } from "@/lib/reading/queue";
 import { showError, undoToast, type ReadingPageData, type ReadingRow } from "./reading-client";
@@ -35,9 +35,9 @@ interface ReadingContextValue {
   toggleTimer: () => void;
   /** After a write: refresh the page and the activity timeline */
   changed: () => void;
-  /** The book can go in Up Next: a book page with no open reading (SLN-452) */
+  /** The book can go in Up next: a book page with no open reading (SLN-452) */
   queuable: boolean;
-  /** Adds the book to Up Next, or removes it with Undo */
+  /** Adds the book to Up next, or removes it with Undo */
   toggleQueue: () => Promise<void>;
 }
 
@@ -75,7 +75,7 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
         if (action === "start" || action === "reread" || action === "startAgain") return open({ kind: "start" });
         if (action === "past") return open({ kind: "past" });
         // "Resume this reading" acts on the latest read, which is abandoned
-        if (action === "resumeAbandoned" && !row) row = data.rows.find((r) => r.reading.status === "abandoned") ?? null;
+        if (action === "resumeAbandoned" && !row) row = data.rows.find((r) => r.reading.id === data.summary.latestClosedId && r.reading.status === "abandoned") ?? null;
         if (!row) return;
         const readingId = row.reading.id;
         if (action === "progress") return open({ kind: "progress", readingId });
@@ -97,7 +97,7 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
         showError(err, changed);
       }
     },
-    [openRow, open, changed, data.rows],
+    [openRow, open, changed, data.rows, data.summary.latestClosedId],
   );
 
   // The timer (SLN-451): start it on the open reading, or stop it in stop mode when it runs here
@@ -115,14 +115,14 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
     void timer.start({ readingId: openRow.reading.id, workId: data.workId, title: data.workTitle });
   }, [openRow, timer, open, data.workId, data.workTitle]);
 
-  // Up Next (SLN-452): add the book, or take it off; an open reading is never queued
+  // Up next (SLN-452): add the book, or take it off; an open reading is never queued
   const queuable = data.queuePlace !== undefined && !openRow;
   const toggleQueue = useCallback(async () => {
     try {
       if (data.queuePlace) {
         const removed = await removeFromQueue({ workId: data.workId });
         changed();
-        undoToast(`Removed ${data.workTitle} from Up Next`, async () => {
+        undoToast(`Removed ${data.workTitle} from Up next`, async () => {
           try {
             await restoreQueueItem(removed);
             changed();
@@ -133,7 +133,7 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
       } else {
         const { place } = await addToQueue({ workId: data.workId });
         changed();
-        toast.success(`Added ${data.workTitle} to Up Next, ${ordinal(place)}`);
+        toast.success(`Added ${data.workTitle} to Up next, ${ordinal(place)}`);
       }
     } catch (err) {
       showError(err, changed);
@@ -141,7 +141,7 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
   }, [data.queuePlace, data.workId, data.workTitle, changed]);
 
   // The R menu and the palette: the actions that make sense now
-  const state = bookReadingState(data.rows.map((r) => r.reading));
+  const state = data.summary.state;
   const menu = readingMenu(state);
   const items: EditItem[] = [];
   const startAction = menu.find((a) => a === "start" || a === "reread" || a === "startAgain");
@@ -165,8 +165,8 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
   if (queuable)
     items.push(
       data.queuePlace
-        ? { key: READING_KEYS.queue, label: "Remove from Up Next", icon: ListMinus, run: () => void toggleQueue() }
-        : { key: READING_KEYS.queue, label: "Add to Up Next", icon: ListPlus, run: () => void toggleQueue() },
+        ? { key: READING_KEYS.queue, label: "Remove from Up next", icon: ListMinus, run: () => void toggleQueue() }
+        : { key: READING_KEYS.queue, label: "Add to Up next", icon: ListPlus, run: () => void toggleQueue() },
     );
   items.push({ key: READING_KEYS.past, label: "Log a past read", icon: CalendarClock, run: () => run("past") });
   items.push({
@@ -175,7 +175,7 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
     icon: Quote,
     run: () => open({ kind: "note", noteKind: "quote", readingId: openRow?.reading.id }),
   });
-  if (data.rows.length)
+  if (data.summary.readingCount)
     items.push({
       key: READING_KEYS.history,
       label: "Go to the Reading section",

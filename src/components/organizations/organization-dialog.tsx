@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
+
+import { useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -94,6 +96,8 @@ function OrganizationForm({
   const router = useRouter();
   const [roles, setRoles] = useState<Role[]>(organization?.roles ?? []);
   const [error, setError] = useState<string | null>(null);
+  const formId = useId();
+  const [typedName, setTypedName] = useState(organization?.name ?? "");
   const close = () => {
     if (!saving) onClose();
   };
@@ -143,20 +147,22 @@ function OrganizationForm({
 
   return (
   <form
+    id={formId}
     className="space-y-5"
     onSubmit={(e) => {
       e.preventDefault();
       void submit(new FormData(e.currentTarget));
     }}
   >
-    <Input
+    <div className="min-w-0 space-y-2"><Input
       name="name"
       label="Name"
       defaultValue={organization?.name ?? ""}
+      onChange={(e) => setTypedName(e.target.value)}
       maxLength={200}
       required
       disabled={saving}
-    />
+    /><NameDuplicateNotice kind="organization" name={typedName} enabled={!organization} /></div>
     <fieldset className="space-y-3" disabled={saving}>
       <legend className="type-label mb-1.5">Roles</legend>
       {organization?.kind && (
@@ -174,6 +180,7 @@ function OrganizationForm({
                   <label className="flex cursor-pointer items-center gap-2 text-sm text-fg-primary pointer-coarse:min-h-11">
                     <input
                       type="checkbox"
+                      className="h-4 w-4 rounded-sm border-glass-border accent-accent-primary"
                       checked={roles.includes(role)}
                       onChange={(e) =>
                         setRoles((old) =>
@@ -228,19 +235,20 @@ function OrganizationForm({
       rows={4}
       disabled={saving}
     />
-    {error && (
-      <p role="alert" className="text-sm text-accent-red-text">
-        {error}
-      </p>
-    )}
-    <div className="flex justify-end gap-2 border-t border-glass-border pt-4">
+    {/* Over Cancel and Save, so the reason it did not save is in view however far the fields have scrolled */}
+    <DialogFooter>
+      {error && (
+        <p role="alert" className="basis-full text-sm text-accent-red-text">
+          {error}
+        </p>
+      )}
       <Button data-dismiss="" type="button" size="sm" onClick={close} disabled={saving}>
         Cancel
       </Button>
-      <Button type="submit" variant="primary" size="sm" data-shortcut="save" busy={saving}>
+      <Button type="submit" form={formId} variant="primary" size="sm" data-shortcut="save" busy={saving}>
         {organization ? "Save" : "Add"}
       </Button>
-    </div>
+    </DialogFooter>
   </form>
   );
 }

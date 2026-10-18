@@ -161,12 +161,12 @@ export function CommentEditor({
           Leave a comment...
         </span>
         <Paperclip
-          className="h-3.5 w-3.5 text-fg-muted/50"
+          className="h-3.5 w-3.5 text-fg-muted"
           strokeWidth={1.5}
         />
         <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-fg-muted/10">
           <ArrowUp
-            className="h-3 w-3 text-fg-muted/50"
+            className="h-3 w-3 text-fg-muted"
             strokeWidth={2}
           />
         </div>
@@ -199,7 +199,7 @@ export function CommentEditor({
           <ToolbarButton onClick={() => e.chain().focus().toggleCode().run()} label="Code" active={e.isActive("code")}>
             <Code className="h-3.5 w-3.5" strokeWidth={1.5} />
           </ToolbarButton>
-          <ToolbarButton onClick={() => e.chain().focus().toggleCodeBlock().run()} label="Code Block" active={e.isActive("codeBlock")}>
+          <ToolbarButton onClick={() => e.chain().focus().toggleCodeBlock().run()} label="Code block" active={e.isActive("codeBlock")}>
             <Braces className="h-3.5 w-3.5" strokeWidth={1.5} />
           </ToolbarButton>
         </>

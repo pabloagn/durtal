@@ -16,7 +16,7 @@ import { CardHeading } from "@/components/shared/card-heading";
 import { WORK_CARD, WORK_CARD_BODY } from "@/components/shared/work-card";
 import { fullRowAttributes } from "@/components/shared/phone-pair-grid";
 import { getQueueHead } from "@/lib/actions/reading-queue";
-import { getOpenReadings } from "@/lib/actions/reading";
+import { getReadingHubOpen } from "@/lib/actions/reading";
 import { getPassageOfTheDay } from "@/lib/actions/reading-notes";
 import { PassageOfTheDay } from "@/components/reading/passage-of-the-day";
 import { getRecentlyFinished } from "@/lib/reading/journal";
@@ -29,9 +29,8 @@ import { SuggestionActions } from "@/components/reading/suggestions/suggestion-l
 import { storedHomeId } from "@/lib/reading/home-cookie";
 import { getSuggestionContext } from "@/lib/reading/suggest/context";
 import { DEFAULT_SUGGESTION_PARAMS } from "@/lib/reading/suggest/params";
-import { suggest } from "@/lib/reading/suggest/score";
+import { suggestTop } from "@/lib/reading/suggest/score";
 import { suggestionRow } from "@/lib/reading/suggest/view";
-import { readingEstimates } from "@/lib/reading/estimates";
 import { appTimeZone } from "@/lib/utils/date";
 
 export const metadata = { title: "Reading" };
@@ -49,8 +48,8 @@ export default async function ReadingPage() {
   // The passage of the day (SLN-453): the server's reading day, so every device shows the same one
   // Goals and the rhythm (SLN-455): computed per request, never cached
   // On this day (SLN-456): the server's day and one on each side; the line shows the browser's
-  const [open, finished, next, passage, goals, rhythm, past, years, suggestionContext, estimates] = await Promise.all([
-    getOpenReadings(),
+  const [open, finished, next, passage, goals, rhythm, past, years, suggestionContext] = await Promise.all([
+    getReadingHubOpen(day.today),
     getRecentlyFinished(6),
     getQueueHead(5),
     getPassageOfTheDay({ day: day.today }),
@@ -60,18 +59,14 @@ export default async function ReadingPage() {
     finishedYears(),
     // Suggestions (SLN-457): the top three Owned, computed per request
     storedHomeId().then((homeId) => getSuggestionContext({ homeId })),
-    // Estimates of the books being read, without waiting for their ids (SLN-837)
-    readingEstimates("reading", day.today),
   ]);
-  const suggestions = suggest(suggestionContext, DEFAULT_SUGGESTION_PARAMS)
-    .slice(0, 3)
-    .map((s) => suggestionRow(s, suggestionContext));
+  // Only the three shown are varied, not every book (SLN-885)
+  const suggestions = suggestTop(suggestionContext, DEFAULT_SUGGESTION_PARAMS, 3).top.map((s) => suggestionRow(s, suggestionContext));
   // In January, a link to the year just ended: this year and last, as the browser's year may differ by a day
   const year = Number(day.today.slice(0, 4));
   const reviewYears = years.map((y) => y.year).filter((y) => y === year || y === year - 1);
-  const reading = open.filter((o) => o.reading.status === "reading");
-  const paused = open.filter((o) => o.reading.status === "paused");
-  const empty = open.length === 0 && finished.length === 0 && next.length === 0 && !passage && goals.length === 0 && !rhythm.target && suggestions.length === 0;
+  const { reading, paused, estimates } = open;
+  const empty = open.counts.reading + open.counts.paused === 0 && finished.length === 0 && next.length === 0 && !passage && goals.length === 0 && !rhythm.target && suggestions.length === 0;
 
   return (
     <>
@@ -103,7 +98,7 @@ export default async function ReadingPage() {
           <OnThisDay hits={past} serverToday={day.today} dayStartHour={dayStartHour} reviewYears={reviewYears} />
           {reading.length > 0 && (
             <section>
-              <SectionHeading title="Currently reading" count={reading.length} />
+              <SectionHeading title="Currently reading" count={open.counts.reading} action={open.counts.reading > reading.length ? <Link href="/reading/journal?status=reading" className="text-xs text-fg-secondary hover:text-fg-primary touch-hit">View all</Link> : undefined} />
               {/* Each card at least 30rem wide, so Open eBook, Log progress,
                   the timer and the menu share one line under the text: a third
                   of the column (357px at 1440) stacked them like a phone's */}
@@ -167,7 +162,8 @@ export default async function ReadingPage() {
                   </Link>
                 }
               />
-              <ol className="grid gap-6 md:grid-cols-3" data-focus-list="suggestions">
+              <div className="@container">
+              <ol className="catalogue-grid" data-focus-list="suggestions">
                 {suggestions.map((row) => (
                   <li key={row.workId} className="flex min-w-0 gap-3" data-hub-suggestion={row.workId} data-focus-row="">
                     <Link href={row.href} tabIndex={-1} aria-label={row.title} className="shrink-0">
@@ -186,12 +182,13 @@ export default async function ReadingPage() {
                   </li>
                 ))}
               </ol>
+              </div>
             </section>
           )}
           {passage && <PassageOfTheDay day={day.today} initial={passage.note} initialEdition={passage.edition} candidates={passage.candidates} />}
           {paused.length > 0 && (
             <section>
-              <SectionHeading title="Paused" count={paused.length} />
+              <SectionHeading title="Paused" count={open.counts.paused} action={open.counts.paused > paused.length ? <Link href="/reading/journal?status=paused" className="text-xs text-fg-secondary hover:text-fg-primary touch-hit">View all</Link> : undefined} />
               <ul className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary" data-focus-list="paused">
                 {paused.map((o) => (
                   <PausedRow key={o.reading.id} open={o} day={day} />

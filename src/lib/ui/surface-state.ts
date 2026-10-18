@@ -76,14 +76,10 @@ export function keepEscape(event: KeyboardEvent) {
   passing.delete(event);
 }
 
-/**
- * A key the browser or a popover of the page still owns: an input method
- * composing, a modifier, or an open light-dismiss popover (Esc closes that
- * one first, natively).
- */
-export function isFreeEscape(event: KeyboardEvent): boolean {
+/** Leave composing, already-owned and native-popover keys with their owner. */
+function canOwnEscape(event: KeyboardEvent): boolean {
   if ((event.defaultPrevented && !passing.has(event)) || event.isComposing || event.keyCode === 229) return false;
-  if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.key !== "Escape") return false;
+  if (event.key !== "Escape") return false;
   try {
     if (document.querySelector('[popover="auto"]:popover-open')) return false;
   } catch {
@@ -92,12 +88,21 @@ export function isFreeEscape(event: KeyboardEvent): boolean {
   return true;
 }
 
+/** Only an unmodified Escape may dismiss a surface or page editor. */
+export function isFreeEscape(event: KeyboardEvent): boolean {
+  return !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && canOwnEscape(event);
+}
+
 /** Shared by the host and the input layer inside book documents. */
 export function handleSurfaceEscape(event: KeyboardEvent): boolean {
-  if (!isFreeEscape(event)) return false;
+  if (!canOwnEscape(event)) return false;
   const top = stack.at(-1);
   if (!top) return false;
   event.preventDefault();
+  // Modified Escape must not start native dialog dismissal: repeated native
+  // close requests can become non-cancelable. Keep every layer open instead.
+  // A held Escape belongs to this press, not to the layer exposed by it.
+  if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.repeat) return true;
   if (!top.guard?.()) top.close();
   return true;
 }
@@ -132,8 +137,22 @@ export function acquireSurface(close: () => void, origin = captureFocusOrigin())
 }
 
 export function restoreFocusOrigin(origin: FocusOrigin | null) {
-  if (hasOpenSurface()) return;
   const active = document.activeElement;
+  if (hasOpenSurface()) {
+    // A dialog over another one closed (a confirm, a nested editor, an
+    // unsaved-changes question): the focus goes back to the control in the
+    // dialog under it that opened it (SLN-902). A surface that opened in its
+    // place, or a control that already took the focus, keeps it.
+    const lost = !(active instanceof HTMLElement) || active === document.body || !active.isConnected || !active.closest("dialog[open]");
+    if (!lost) return;
+    for (const element of [origin?.target, origin?.menuButton]) {
+      if (element?.isConnected && element.closest("dialog[open]")) {
+        element.focus({ preventScroll: true });
+        return;
+      }
+    }
+    return;
+  }
   // A connected control outside a removed dialog represents newer user intent.
   if (active instanceof HTMLElement && active !== document.body && active.isConnected && !active.closest("dialog")) return;
   for (const element of [origin?.target, origin?.menuButton]) {

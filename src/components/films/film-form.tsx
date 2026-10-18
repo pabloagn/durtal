@@ -1,9 +1,12 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
+
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { toast } from "@/lib/notifications/toast";
+import { DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -335,12 +338,15 @@ export function FilmForm(props: Props) {
         />
       </Section>
 
-      {error && (
-        <p role="alert" className="text-sm text-accent-red-text">
-          {error}
-        </p>
-      )}
-      <div className="flex flex-wrap justify-end gap-2">
+      {/* In the edit dialog, under its body and always in view, with the
+          reason a save failed over the buttons */}
+      <DialogFooter outside="">
+        <RequiredNameHint value={title} message="Give the film a title" />
+        {error && (
+          <p role="alert" className="basis-full text-sm text-accent-red-text">
+            {error}
+          </p>
+        )}
         <Button
           variant="ghost"
           data-dismiss=""
@@ -352,7 +358,7 @@ export function FilmForm(props: Props) {
         <Button variant="primary" data-shortcut="save" onClick={save} busy={saving} disabled={blocked}>
           {props.mode === "create" ? "Add film" : "Save"}
         </Button>
-      </div>
+      </DialogFooter>
     </div>
     </>
   );

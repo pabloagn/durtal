@@ -32,8 +32,9 @@ import {
 } from "@/lib/constants/catalogue";
 import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
 import { formatRating, HALF_STEPS } from "@/lib/utils/rating";
+import { countLabel } from "@/lib/utils/format";
 
-/** The library's selection bar: status, priority, marks, rating, reading, collections, Up Next and export */
+/** The library's selection bar: status, priority, marks, rating, reading, collections, Up next and export */
 export function BulkActionToolbar({
   selectedTitles,
   ...selection
@@ -49,21 +50,21 @@ export function BulkActionToolbar({
 
   if (selectedCount === 0) return null;
 
-  /** Up Next (SLN-452): appended in the order of the selection */
+  /** Up next (SLN-452): appended in the order of the selection */
   async function queueSelected() {
     setIsUpdating(true);
-    const progress = toast.pending("Adding to Up Next");
+    const progress = toast.pending("Adding to Up next");
     try {
       const ids = allIds.filter((id) => selectedIds.has(id));
       const { added, alreadyQueued, beingRead } = await addManyToQueue({ workIds: ids.length ? ids : Array.from(selectedIds) });
       progress.success(
-        [`Added ${added}`, alreadyQueued ? `${alreadyQueued} already in Up Next` : null, beingRead ? `${beingRead} being read` : null]
+        [`Added ${added}`, alreadyQueued ? `${alreadyQueued} already in Up next` : null, beingRead ? `${beingRead} being read` : null]
           .filter(Boolean)
           .join(" · "),
       );
       router.refresh();
     } catch (err) {
-      progress.error(err instanceof Error ? err.message : "Could not add to Up Next");
+      progress.error(err instanceof Error ? err.message : "Could not add to Up next");
     } finally {
       setIsUpdating(false);
     }
@@ -85,7 +86,7 @@ export function BulkActionToolbar({
       router.refresh();
     } catch {
       progress.error(
-        `Updated ${updated} of ${ids.length} works before error`,
+        `Updated ${updated.toLocaleString("en")} of ${countLabel(ids.length, "work")} before error`,
       );
     } finally {
       setIsUpdating(false);
@@ -273,7 +274,7 @@ export function BulkActionToolbar({
             </Button>
             <Button size="sm" variant="ghost" disabled={isDeleting || isUpdating} onClick={() => void queueSelected()} data-bulk-queue="">
               <ListPlus size={14} strokeWidth={1.5} />
-              Add to Up Next
+              Add to Up next
             </Button>
             {/* Export */}
             <ExportMenu entity="works" ids={selectedIds} />

@@ -167,7 +167,8 @@ const SPECS: TableSpec[] = [
   { table: s.workAttributes, mode: "record", section: "taxonomy", domains: BOOK, parent: work },
   { table: s.workLiteraryMovements, mode: "record", section: "taxonomy", domains: BOOK, parent: work },
   { table: s.workArtTypes, mode: "record", section: "taxonomy", domains: BOOK, parent: work },
-  { table: s.workArtMovements, mode: "record", section: "taxonomy", domains: BOOK, parent: work },
+  // A painting keeps its movements here too (painting-store.ts), and the export writes them
+  { table: s.workArtMovements, mode: "record", section: "taxonomy", domains: ["book", "painting"], parent: work },
   { table: s.editionGenres, mode: "record", section: "taxonomy", domains: BOOK, parent: edition },
   { table: s.editionTags, mode: "record", section: "taxonomy", domains: BOOK, parent: edition },
   { table: s.customTaxonomyItemEditions, mode: "record", section: "taxonomy", domains: BOOK, parent: edition },

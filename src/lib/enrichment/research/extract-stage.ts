@@ -7,6 +7,9 @@ import { bucketEvidenceObjects, type EvidenceObjects } from "@/lib/s3/evidence-o
 import { currentVocabularyVersion, proposeClaims } from "../claims";
 import { enqueueEnrichmentJob } from "../jobs";
 import { readEvidenceText } from "../evidence-store";
+import { assessSourceContent, usableSourceQuality } from "../source-quality";
+import { sourceProfile } from "../source-profiles";
+import { assertionScopeSchema, sameAssertionScope, scopeKey, unresolvedTextScope, assessmentKey, assessmentsConflict, type AssertionScope, type AssertionAssessment } from "../assertion-scope";
 import { costOf, priceFor } from "../prices";
 import { capLine, metered, monthSpend, WorkCeilingStop } from "../meter";
 import { goldSetHiddenCondition, GOLD_SET_WORK_IDS } from "../gold-set";
@@ -36,7 +39,11 @@ import { anthropicModel, type ExtractionModel, type ModelAnswer } from "./model"
  */
 
 const rows = async <T>(conn: Db, query: SQL) => resultRows<T>(await conn.execute(query));
-const list = (values: readonly string[]) => sql.join(values.map((v) => sql`${v}`), sql`, `);
+const list = (values: readonly string[]) =>
+  sql.join(
+    values.map((v) => sql`${v}`),
+    sql`, `,
+  );
 const sha256 = (value: unknown) => createHash("sha256").update(stableStringify(value)).digest("hex");
 /** Characters per token for a plan's estimate, until the trial measures it; an apply counts tokens */
 const CHARS_PER_TOKEN = 4;
@@ -146,6 +153,9 @@ function valuesOf(answer: ModelAnswer, dimensions: ExtractDimension[]) {
 
 /** One evidence row of a value: a verified excerpt of a stored document */
 interface ValueEvidence extends EvidenceRow {
+  scope: AssertionScope | null;
+  editionId: string | null;
+  assessment: AssertionAssessment | null;
   start: number;
   end: number;
   textSha256: string;
@@ -159,7 +169,7 @@ async function earlierEvidence(conn: Db, workId: string, dimensionKeys: string[]
   if (!dimensionKeys.length) return [];
   return rows<ValueEvidence & { dimension: string; term: string }>(
     conn,
-    sql`select d.key as dimension, t.key as term, e.source_record_id as "sourceRecordId", 'agent' as method, o.key as outlet, o.kind as "outletKind",
+    sql`select c.scope, c.assessment, c.edition_id as "editionId", d.key as dimension, t.key as term, e.source_record_id as "sourceRecordId", 'agent' as method, o.key as outlet, o.kind as "outletKind",
         o.weight::float8 as weight, o.syndication_group as "syndicationGroup", s.payload ->> 'byline' as byline, s.payload -> 'fingerprint' as fingerprint,
         e.excerpt, e.start_offset as start, e.end_offset as "end", e.text_sha256 as "textSha256", e.extractor_version as "extractorVersion", e.run_id as "runId"
       from enrichment_claims c join enrichment_dimensions d on d.id = c.dimension_id join enrichment_terms t on t.id = c.term_id
@@ -173,9 +183,9 @@ async function earlierEvidence(conn: Db, workId: string, dimensionKeys: string[]
 /** The book's open and accepted values of these dimensions, by any method, for the conflict check */
 async function otherValues(conn: Db, workId: string, dimensionKeys: string[]) {
   if (!dimensionKeys.length) return [];
-  return rows<OtherValue & { dimension: string }>(
+  return rows<OtherValue & { dimension: string; scope: AssertionScope | null; editionId: string | null; assessment: AssertionAssessment | null }>(
     conn,
-    sql`select d.key as dimension, t.key as term, c.method, c.status,
+    sql`select c.scope, c.assessment, c.edition_id as "editionId", d.key as dimension, t.key as term, c.method, c.status,
         case c.method when 'human' then 'Pablo' when 'api' then coalesce((select s.provider from claim_evidence e join source_records s on s.id = e.source_record_id where e.claim_id = c.id limit 1), 'an API')
           else coalesce((select o.name from claim_evidence e join source_records s on s.id = e.source_record_id join evidence_outlets o on o.key = s.provider where e.claim_id = c.id limit 1), 'research') end as source
       from enrichment_claims c join enrichment_dimensions d on d.id = c.dimension_id join enrichment_terms t on t.id = c.term_id
@@ -202,16 +212,31 @@ async function decide(
     names: Map<string, string>;
     /** A gold-set book: an error names no term */
     hidden: boolean;
+    scope?: AssertionScope | null;
+    editionId?: string | null;
+    assessment?: AssertionAssessment | null;
   },
 ) {
   const counts = { proposed: 0, merged: 0, rejectedR6: 0, conflicts: 0, confirmed: 0 };
-  const proposals: { dimension: string; term: string; confidence: number; outlet: string; excerpt: string }[] = [];
-  const others = await otherValues(tx, input.workId, input.dimensions.map((d) => d.key));
+  const proposals: { dimension: string; term: string; confidence: number; outlet: string; excerpt: string; scope?: AssertionScope; editionId?: string }[] = [];
+  const others = (await otherValues(
+    tx,
+    input.workId,
+    input.dimensions.map((d) => d.key),
+  )).filter((other) => sameAssertionScope(input.scope ?? null, other.scope, input.editionId ?? null, other.editionId));
   for (const dimension of input.dimensions) {
     const mine = [...input.values].filter(([key]) => key.startsWith(`${dimension.key}\u0000`));
     if (!mine.length) continue;
     const verified = new Map(mine.map(([key, evidence]) => [key.split("\u0000")[1], input.names.get(evidence[0].outlet) ?? evidence[0].outlet]));
-    const notes = conflictsOf(dimension, verified, others.filter((o) => o.dimension === dimension.key && !verified.has(o.term)));
+    const notes = conflictsOf(
+      dimension,
+      verified,
+      others.filter((o) => o.dimension === dimension.key && !verified.has(o.term) && (!o.assessment || ["present", "partially_assessed"].includes(o.assessment.knowledge))),
+    );
+    for (const term of verified.keys()) {
+      const opposed = others.filter((o) => o.dimension === dimension.key && o.term === term && assessmentsConflict(input.assessment ?? null, o.assessment));
+      if (opposed.length) notes.set(term, [...(notes.get(term) ?? []), `conflicting knowledge assessment (${opposed.map((o) => o.source).join(", ")})`]);
+    }
     const items = mine.map(([key, evidence]) => {
       const term = key.split("\u0000")[1];
       const { sources, passes } = checkIndependence(evidence);
@@ -224,6 +249,8 @@ async function decide(
         conflict: Boolean(conflict),
         proposal: {
           workId: input.workId,
+          editionId: input.editionId ?? undefined,
+          ...(input.scope ? { scope: input.scope, assessment: input.assessment! } : {}),
           dimension: dimension.key,
           value: { term },
           method: "agent" as const,
@@ -263,6 +290,7 @@ async function decide(
       else counts.proposed++;
       if (item.conflict) counts.conflicts++;
       proposals.push({
+        ...(input.scope ? { scope: input.scope, editionId: input.editionId ?? undefined } : {}),
         dimension: dimension.key,
         term: item.term,
         confidence: item.proposal.confidence,
@@ -330,7 +358,7 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
           sum +
           costOf(
             {
-              input_tokens: Math.ceil((Math.min(d.textChars, RESEARCH_CONFIG.maxPassageChars) + vocabularyChars) / CHARS_PER_TOKEN),
+              input_tokens: Math.ceil((Math.min(d.textChars, RESEARCH_CONFIG.maxPassageChars) + vocabularyChars + JSON.stringify(d.assertionScope ?? unresolvedTextScope(d.sourceRecordId)).length) / CHARS_PER_TOKEN),
               output_tokens: EXTRACTION_MODEL.maxOutputTokens,
             },
             price(),
@@ -376,6 +404,32 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
           result.reason = "its text is not in Unicode NFC";
           continue;
         }
+        const profile = sourceProfile(document.url ?? "https://evidence.invalid", document.outletKind);
+        const quality = assessSourceContent(
+          {
+            text,
+            identityText: document.identityText,
+            fields: document.quality?.present,
+          },
+          document.url ?? "https://evidence.invalid",
+          {
+            profile,
+            snippet: document.evidenceKind === "evidence_text",
+            // Article relevance is recorded by aboutWork below. Product/record
+            // identity must be verified against the isolated primary record.
+            identity:
+              profile.key === "article" || document.evidenceKind === "evidence_text"
+                ? undefined
+                : {
+                    titles: plan.profile.titles,
+                    authors: plan.profile.authors.flatMap((a) => [a.name, a.surname]),
+                  },
+          },
+        );
+        if (!usableSourceQuality(quality)) {
+          result.reason = `source quality: ${quality.status} (${quality.reasons.join(", ")})`;
+          continue;
+        }
         const gate = aboutWork(text, plan.profile);
         if (!gate.about) {
           // Not sent: its row names the gate and the inputs it read
@@ -385,7 +439,7 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
           continue;
         }
         const passages = passagesOf(text, gate.matches);
-        const request = buildRequest(plan.profile, plan.dimensions, passages);
+        const request = buildRequest(plan.profile, plan.dimensions, passages, document.assertionScope ?? unresolvedTextScope(document.sourceRecordId));
         const hash = requestHash(request, revisions);
         if (await extractedBefore(conn, document.sourceRecordId, hash)) {
           result.reason = "sent with this request before";
@@ -442,6 +496,9 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
       for (const r of results)
         for (const v of r.verified)
           add(valueKey(v.dimension, v.term), {
+            scope: r.document.assertionScope ? assertionScopeSchema.parse(r.document.assertionScope) : unresolvedTextScope(r.document.sourceRecordId),
+            assessment: { knowledge: "partially_assessed", coverage: "partial", basis: "local_evidence", justification: "The cited passages support a proposal within this scope; complete textual coverage has not been established." },
+            editionId: r.document.assertionScope?.kind === "work" ? null : r.document.editionId ?? null,
             sourceRecordId: r.document.sourceRecordId,
             method: "agent",
             outlet: r.document.outlet,
@@ -457,12 +514,26 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
             extractorVersion: EXTRACTOR_VERSION,
             runId: ctx.runId,
           });
-      const fresh = new Set(values.keys());
-      for (const e of await earlierEvidence(tx, job.workId, keys)) if (fresh.has(valueKey(e.dimension, e.term))) add(valueKey(e.dimension, e.term), e);
+      const fresh = new Set([...values].flatMap(([key, evidence]) => evidence.map((e) => `${key}\u0000${scopeKey(e.scope, e.editionId)}\u0000${assessmentKey(e.assessment)}`)));
+      for (const e of await earlierEvidence(tx, job.workId, keys))
+        if (fresh.has(`${valueKey(e.dimension, e.term)}\u0000${scopeKey(e.scope, e.editionId)}\u0000${assessmentKey(e.assessment)}`)) add(valueKey(e.dimension, e.term), e);
       const names = new Map(plan.documents.map((d) => [d.outlet, d.outletName]));
       // A gold-set book's values stay hidden until Pablo labels it: counts only
       const hidden = GOLD_SET_WORK_IDS.includes(job.workId);
-      const { counts, proposals } = await decide(tx, { workId: job.workId, dimensions: plan.dimensions, version: plan.version, runId: ctx.runId, jobId: job.id, values, names, hidden });
+      const counts = { proposed: 0, merged: 0, rejectedR6: 0, conflicts: 0, confirmed: 0 };
+      const proposals: Awaited<ReturnType<typeof decide>>["proposals"] = [];
+      const scopes = new Map<string, { scope: AssertionScope | null; editionId: string | null; assessment: AssertionAssessment | null; values: Map<string, ValueEvidence[]> }>();
+      for (const [key, evidence] of values) for (const e of evidence) {
+        const identity = `${scopeKey(e.scope, e.editionId)}\u0000${assessmentKey(e.assessment)}`;
+        const group = scopes.get(identity) ?? { scope: e.scope, editionId: e.editionId, assessment: e.assessment, values: new Map() };
+        group.values.set(key, [...(group.values.get(key) ?? []), e]);
+        scopes.set(identity, group);
+      }
+      for (const group of scopes.values()) {
+        const result = await decide(tx, { workId: job.workId, dimensions: plan.dimensions, version: plan.version, runId: ctx.runId, jobId: job.id, ...group, names, hidden });
+        for (const key of Object.keys(counts) as (keyof typeof counts)[]) counts[key] += result.counts[key];
+        proposals.push(...result.proposals);
+      }
 
       const failures: Record<string, number> = {};
       for (const r of results) for (const f of r.failures) failures[f.check] = (failures[f.check] ?? 0) + 1;
@@ -481,7 +552,10 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
         outlets: Object.fromEntries(
           [...new Set(results.map((r) => r.document.outlet))].map((o) => [
             o,
-            { about: results.filter((r) => r.document.outlet === o && r.status === "answered").length, verified: results.filter((r) => r.document.outlet === o).reduce((n, r) => n + r.verified.length, 0) },
+            {
+              about: results.filter((r) => r.document.outlet === o && r.status === "answered").length,
+              verified: results.filter((r) => r.document.outlet === o).reduce((n, r) => n + r.verified.length, 0),
+            },
           ]),
         ),
         ...(hidden ? { hidden: true } : { proposals }),
@@ -500,7 +574,10 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
     },
 
     async undo(tx, runId) {
-      const undone = await rows<{ id: string }>(tx, sql`update enrichment_extractions set undone_at = now() where run_id = ${runId}::uuid and undone_at is null returning id`);
+      const undone = await rows<{ id: string }>(
+        tx,
+        sql`update enrichment_extractions set undone_at = now() where run_id = ${runId}::uuid and undone_at is null returning id`,
+      );
       // Every open claim holding this run's evidence is withdrawn, whichever run created it
       const withdrawn = await rows<{ id: string; workId: string; vocabularyVersion: number }>(
         tx,
@@ -515,12 +592,15 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
         const ids = withdrawn.filter((w) => w.workId === workId).map((w) => w.id);
         const kept = await rows<ValueEvidence & { dimension: string; term: string }>(
           tx,
-          sql`select d.key as dimension, t.key as term, e.source_record_id as "sourceRecordId", 'agent' as method, o.key as outlet, o.kind as "outletKind",
+          sql`select c.scope, c.assessment, c.edition_id as "editionId", d.key as dimension, t.key as term, e.source_record_id as "sourceRecordId", 'agent' as method, o.key as outlet, o.kind as "outletKind",
               o.weight::float8 as weight, o.syndication_group as "syndicationGroup", s.payload ->> 'byline' as byline, s.payload -> 'fingerprint' as fingerprint,
               e.excerpt, e.start_offset as start, e.end_offset as "end", e.text_sha256 as "textSha256", e.extractor_version as "extractorVersion", e.run_id as "runId"
             from enrichment_claims c join enrichment_dimensions d on d.id = c.dimension_id join enrichment_terms t on t.id = c.term_id
               join claim_evidence e on e.claim_id = c.id join source_records s on s.id = e.source_record_id join evidence_outlets o on o.key = s.provider
-            where c.id in (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}) and e.run_id <> ${runId}::uuid
+            where c.id in (${sql.join(
+              ids.map((id) => sql`${id}::uuid`),
+              sql`, `,
+            )}) and e.run_id <> ${runId}::uuid
               and not exists (select 1 from enrichment_extractions x where x.run_id = e.run_id and x.undone_at is not null)
               -- A retired dimension or term is not proposed again
               and d.retired_in is null and t.retired_in is null`,
@@ -528,22 +608,30 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
         if (!kept.length) continue;
         const dimensions = await extractDimensions(tx, version, [...new Set(kept.map((k) => k.dimension))]);
         // Each value goes back under the run of its newest remaining evidence
-        for (const [key, evidence] of Object.entries(Object.groupBy(kept, (k) => valueKey(k.dimension, k.term)))) {
-          const latestRun = evidence!.map((e) => e.runId).sort().at(-1)!;
+        for (const [, evidence] of Object.entries(Object.groupBy(kept, (k) => `${valueKey(k.dimension, k.term)}\u0000${scopeKey(k.scope, k.editionId)}\u0000${assessmentKey(k.assessment)}`))) {
+          const latestRun = evidence!
+            .map((e) => e.runId)
+            .sort()
+            .at(-1)!;
           const { counts } = await decide(tx, {
             workId,
             dimensions,
             version,
             runId: latestRun,
             jobId: null,
-            values: new Map([[key, evidence!]]),
+            values: new Map([[valueKey(evidence![0].dimension, evidence![0].term), evidence!]]),
+            scope: evidence![0].scope,
+            editionId: evidence![0].editionId,
+            assessment: evidence![0].assessment,
             names: new Map(),
             hidden: GOLD_SET_WORK_IDS.includes(workId),
           });
           again += counts.proposed + counts.rejectedR6;
         }
       }
-      return [`Extraction: ${undone.length} extractions undone; ${withdrawn.length} claims withdrawn; ${again} values proposed again from other runs' evidence`];
+      return [
+        `Extraction: ${undone.length} extractions undone; ${withdrawn.length} claims withdrawn; ${again} values proposed again from other runs' evidence`,
+      ];
     },
 
     outcomes(outcomes) {
@@ -554,13 +642,18 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
       return [
         `## Extraction: what the run did (${done.length} books)`,
         `- Documents ${sum("documents")}, not about the book ${sum("notAboutWork")}; model calls ${sum("calls")}, invalid answers ${sum("invalidAnswers")}`,
-        `- Values returned ${sum("valuesReturned")}, verified ${sum("valuesVerified")}; failed: ${Object.entries(failures).map(([k, n]) => `${k} ${n}`).join(", ") || "none"}`,
+        `- Values returned ${sum("valuesReturned")}, verified ${sum("valuesVerified")}; failed: ${
+          Object.entries(failures)
+            .map(([k, n]) => `${k} ${n}`)
+            .join(", ") || "none"
+        }`,
         `- Claims proposed ${sum("proposed")}, merged ${sum("merged")}, rejected for R6 ${sum("rejectedR6")}, in conflict ${sum("conflicts")}, confirmed ${sum("confirmed")}; closed for a vocabulary change ${sum("closed")}`,
         "## Extraction: proposals (gold-set books hidden)",
-        ...done.flatMap((o) =>
-          (o.proposals as { dimension: string; term: string; confidence: number; outlet: string; excerpt: string }[] | undefined)?.map(
-            (p) => `- ${p.dimension} ${p.term} (${p.confidence}, ${p.outlet}): "${p.excerpt}"`,
-          ) ?? [`- (a gold-set book: ${Number(o.proposed ?? 0) + Number(o.merged ?? 0)} proposals hidden)`],
+        ...done.flatMap(
+          (o) =>
+            (o.proposals as { dimension: string; term: string; confidence: number; outlet: string; excerpt: string }[] | undefined)?.map(
+              (p) => `- ${p.dimension} ${p.term} (${p.confidence}, ${p.outlet}): "${p.excerpt}"`,
+            ) ?? [`- (a gold-set book: ${Number(o.proposed ?? 0) + Number(o.merged ?? 0)} proposals hidden)`],
         ),
       ];
     },
@@ -581,9 +674,16 @@ export function extractStage(overrides: Partial<ExtractDeps> = {}): EnrichmentSt
   async function ask(conn: Db, ctx: StageContext, model: ExtractionModel, request: ExtractionRequest, hash: string, ids: { workId: string; jobId: string }) {
     const cached = ctx.cache.get(`extract:${hash}`);
     if (cached) return (cached.answer as { answer: ModelAnswer }).answer;
-    const estimate = { input_tokens: await model.countTokens(request), output_tokens: request.max_tokens, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
+    const estimate = {
+      input_tokens: await model.countTokens(request),
+      output_tokens: request.max_tokens,
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+    };
     if ((await monthSpend(conn, { workId: ids.workId })) + costOf(estimate, price()) > RESEARCH_CONFIG.maxCostPerWork)
-      throw new WorkCeilingStop(`The book's extraction would pass its ceiling of $${RESEARCH_CONFIG.maxCostPerWork} this month; its answers so far stay in the cache`);
+      throw new WorkCeilingStop(
+        `The book's extraction would pass its ceiling of $${RESEARCH_CONFIG.maxCostPerWork} this month; its answers so far stay in the cache`,
+      );
     const answer = await metered(
       { database: conn, provider: EXTRACTION_MODEL.provider, operation: "extract", estimate, workId: ids.workId, jobId: ids.jobId, runId: ctx.runId },
       async () => {
@@ -637,7 +737,12 @@ export async function determinismCheck(conn: Db, options: { n: number; cache: So
         database: conn,
         provider: EXTRACTION_MODEL.provider,
         operation: "extract",
-        estimate: { input_tokens: await options.model.countTokens(request), output_tokens: request.max_tokens, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+        estimate: {
+          input_tokens: await options.model.countTokens(request),
+          output_tokens: request.max_tokens,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+        },
         runId: options.runId,
       },
       async () => {

@@ -4,6 +4,7 @@ import {
   text,
   timestamp,
   primaryKey,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { works } from "./works";
@@ -30,7 +31,10 @@ export const workArtMovements = pgTable(
       .notNull()
       .references(() => artMovements.id, { onDelete: "cascade" }),
   },
-  (t) => [primaryKey({ columns: [t.workId, t.artMovementId] })],
+  (t) => [
+    primaryKey({ columns: [t.workId, t.artMovementId] }),
+    index("work_art_movements_art_movement_id_idx").on(t.artMovementId),
+  ],
 );
 
 export const workArtMovementsRelations = relations(workArtMovements, ({ one }) => ({

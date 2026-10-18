@@ -1,3 +1,5 @@
+import { ExpectedActionError } from "@/lib/actions/expected-error";
+
 /**
  * Database rule errors reach actions wrapped by the ORM ("Failed query: ..."),
  * with the PostgreSQL error as the cause. Messages raised by our own triggers
@@ -48,7 +50,7 @@ export function readableDatabaseError(
           : cause?.code === "23514"
             ? "A value breaks a catalogue rule"
             : null;
-  return message ? new Error(message, { cause: error }) : error;
+  return message ? new ExpectedActionError(message, { cause: error }) : error;
 }
 /**
  * A slug is chosen just before its write; only another save of the same name

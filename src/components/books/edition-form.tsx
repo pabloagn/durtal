@@ -4,13 +4,14 @@ import {
   FormSection as Section,
   FormColumns,
 } from "@/components/shared/form-section";
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { DialogFooter } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { BINDING_TYPES, EDITION_CONTRIBUTOR_ROLES } from "@/lib/types/index";
 import { languageOptions } from "@/lib/utils/language";
@@ -128,7 +129,7 @@ interface EditionFormProps {
   existingCoverUrl?: string | null;
   /** A line at the footer's start, such as the lists' loading state */
   notice?: ReactNode;
-  /** What Genres & Tags says while both lists are empty: "Loading…", or "Not loaded" after a failed load */
+  /** What Genres & tags says while both lists are empty: "Loading…", or "Not loaded" after a failed load */
   listsNote?: string;
 }
 
@@ -271,12 +272,13 @@ export function EditionForm({
     await onSubmit(values);
   }
 
+  const formId = useId();
   return (
-    <form onSubmit={handleSubmit} className="@container">
+    <form id={formId} onSubmit={handleSubmit} className="@container">
       {/* While it saves, the fields wait: an edit made then would be lost */}
       <fieldset disabled={isPending} className="min-w-0">
-      {/* Section 1: Title & Identifiers */}
-      <Section title="Title & Identifiers" defaultOpen>
+      {/* Section 1: Title & identifiers */}
+      <Section keepMounted title="Title & identifiers" defaultOpen>
         <TitleInput
           label="Title"
           id="ed-title"
@@ -314,7 +316,7 @@ export function EditionForm({
             className="font-mono"
           />
         </FormColumns>
-        <Section title="More identifiers">
+        <Section keepMounted title="More identifiers">
           <FormColumns>
             <Input
               label="ASIN"
@@ -340,7 +342,7 @@ export function EditionForm({
               className="font-mono"
             />
             <Input
-              label="Open Library Key"
+              label="Open Library key"
               id="ed-ol-key"
               value={values.openLibraryKey}
               onChange={(e) => update("openLibraryKey", e.target.value)}
@@ -367,7 +369,7 @@ export function EditionForm({
       </Section>
 
       {/* Section 2: Publication */}
-      <Section title="Publication" defaultOpen>
+      <Section keepMounted title="Publication" defaultOpen>
         <label className="flex items-center gap-2 text-sm text-fg-secondary pointer-coarse:min-h-11">
           <input
             type="checkbox"
@@ -449,7 +451,7 @@ export function EditionForm({
       </Section>
 
       {/* Section 3: Edition Details */}
-      <Section title="Edition details">
+      <Section keepMounted title="Edition details">
         <FormColumns>
           <Input
             label="Edition name"
@@ -506,7 +508,7 @@ export function EditionForm({
       </Section>
 
       {/* Section 4: Language */}
-      <Section title="Language">
+      <Section keepMounted title="Language">
         <Select
           label="Language"
           id="ed-language"
@@ -526,7 +528,7 @@ export function EditionForm({
       </Section>
 
       {/* Section 5: Physical Description */}
-      <Section title="Physical description">
+      <Section keepMounted title="Physical description">
         <FormColumns>
           <Input
             label="Page count"
@@ -589,7 +591,7 @@ export function EditionForm({
       </Section>
 
       {/* Section 6: Content */}
-      <Section title="Content">
+      <Section keepMounted title="Content">
         <Textarea
           label="Description"
           id="ed-description"
@@ -616,12 +618,13 @@ export function EditionForm({
       </Section>
 
       {/* Section 7: Cover */}
-      <Section title="Cover">
+      <Section keepMounted title="Cover">
         {existingCoverUrl && (
           <div className="mb-2">
             <p className="mb-1.5 text-xs text-fg-secondary">Current cover</p>
             <img
               src={existingCoverUrl}
+              loading="lazy"
               alt="Current cover"
               className="h-24 w-auto rounded-sm border border-glass-border object-cover"
             />
@@ -641,7 +644,7 @@ export function EditionForm({
       </Section>
 
       {/* Section 8: Contributors */}
-      <Section title="Contributors">
+      <Section keepMounted title="Contributors">
         {values.contributors.length > 0 && (
           <div className="space-y-1.5">
             {values.contributors.map((c, i) => (
@@ -728,8 +731,8 @@ export function EditionForm({
         </div>
       </Section>
 
-      {/* Section 9: Genres & Tags */}
-      <Section title="Genres & Tags">
+      {/* Section 9: Genres & tags */}
+      <Section keepMounted title="Genres & tags">
         {listsNote &&
           availableGenres.length === 0 &&
           availableTags.length === 0 && (
@@ -786,7 +789,7 @@ export function EditionForm({
       </Section>
 
       {/* Section 10: Metadata */}
-      <Section title="Metadata">
+      <Section keepMounted title="Metadata">
         <label className="flex items-center gap-2 text-xs text-fg-secondary pointer-coarse:min-h-11">
           <input
             type="checkbox"
@@ -807,8 +810,8 @@ export function EditionForm({
       </Section>
       </fieldset>
 
-      {/* Submit */}
-      <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+      {/* In a dialog, under its body: the submit names this form */}
+      <DialogFooter>
         {notice && <div className="mr-auto min-w-0">{notice}</div>}
         {onCancel && (
           <Button data-dismiss=""
@@ -823,6 +826,7 @@ export function EditionForm({
         )}
         <Button
           type="submit"
+          form={formId}
           variant="primary"
           size="sm"
           disabled={!values.title.trim()}
@@ -830,7 +834,7 @@ export function EditionForm({
         >
           {submitLabel}
         </Button>
-      </div>
+      </DialogFooter>
     </form>
   );
 }
