@@ -70,4 +70,10 @@ describe("a collection's, a series' and a recommender's loading screens", () => 
     expect(screen.getAttribute("aria-label")).toBe(label);
     expect(screen.querySelector("a")!.getAttribute("href")).toBe(back);
   });
+
+  it("draws a recommender's books in the page's own compact grid", () => {
+    const grid = status(createElement(RecommenderLoading)).querySelector(".catalogue-grid");
+    expect(grid?.classList.contains("catalogue-density-compact")).toBe(true);
+    expect(grid?.parentElement?.classList.contains("@container")).toBe(true);
+  });
 });

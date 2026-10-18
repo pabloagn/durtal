@@ -35,10 +35,13 @@ export default function RecommenderLoading() {
         <SkeletonLine className="type-section-title mb-4 w-32" />
         {/* "Showing 1–12 of 12 books" */}
         <SkeletonBlock text className="my-4 h-5 w-48" />
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {Array.from({ length: 8 }, (_, i) => (
-            <SkeletonBlock key={i} className="aspect-[2/3]" />
-          ))}
+        {/* The page's own compact grid, so the columns match at every width */}
+        <div className="@container">
+          <div className="catalogue-grid catalogue-density-compact">
+            {Array.from({ length: 8 }, (_, i) => (
+              <SkeletonBlock key={i} className="aspect-[2/3]" />
+            ))}
+          </div>
         </div>
       </section>
     </div>

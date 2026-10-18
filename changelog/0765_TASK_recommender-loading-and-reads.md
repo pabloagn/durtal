@@ -23,7 +23,8 @@ SLN-817, from the third loading and error states survey
   - the way back;
   - the name, with the star and menu at the row's end;
   - the count line;
-  - the Books heading, the "Showing" line and the grid of covers.
+  - the Books heading, the "Showing" line and the grid of covers, in the
+    page's own compact grid, so the columns match at every width.
   Below a 22rem row, as on a 320px phone, the star and menu go under the name,
   as they do on the page for a person's name.
 - **`recommenders/[id]/layout.tsx`** checks that the recommender exists before
