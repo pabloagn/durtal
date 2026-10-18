@@ -12,12 +12,13 @@ import {
   type EditionFormValues,
 } from "@/components/books/edition-form";
 import { OptionsNotice } from "@/components/shared/options-notice";
-import { updateEdition } from "@/lib/actions/editions";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import type { EditionWithRelations } from "@/lib/types/index";
 import { preloadEditOptions, useEditOptions } from "@/hooks/use-edit-options";
 import { EDITION_GROUPS, withChosen } from "@/lib/catalogue/edit-options";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { updateEdition } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 interface EditionEditDialogProps {
   edition: EditionWithRelations;
@@ -100,8 +101,8 @@ export function EditionEditDialog({ edition }: EditionEditDialogProps) {
       setOpen(false);
       router.refresh();
       triggerActivityRefresh();
-    } catch {
-      toast.error("Failed to update edition");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Failed to update edition"));
     } finally {
       setIsPending(false);
     }

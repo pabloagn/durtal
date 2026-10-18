@@ -18,13 +18,8 @@ import {
   SelectionToolbar,
   type SelectionToolbarProps,
 } from "@/components/shared/selection-toolbar";
-import { deleteWork, updateWork } from "@/lib/actions/works";
-import { bulkUpdateHuntAssessment } from "@/lib/actions/hunting";
 import { localToday } from "@/lib/constants/hunting";
-import { setFavourites } from "@/lib/actions/favourites";
 import { MARKS_LABEL, WORK_MARKS, type WorkMark } from "@/lib/constants/marks";
-import { bulkSetPoison } from "@/lib/actions/poison";
-import { addManyToQueue } from "@/lib/actions/reading-queue";
 import { toast } from "@/lib/notifications/toast";
 import {
   STATUS_CONFIG,
@@ -33,6 +28,8 @@ import {
 import type { CatalogueStatus, AcquisitionPriority } from "@/lib/types";
 import { formatRating, HALF_STEPS } from "@/lib/utils/rating";
 import { countLabel } from "@/lib/utils/format";
+import { deleteWork, updateWork, bulkUpdateHuntAssessment, setFavourites, bulkSetPoison, addManyToQueue } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /** The library's selection bar: status, priority, marks, rating, reading, collections, Up next and export */
 export function BulkActionToolbar({
@@ -64,7 +61,7 @@ export function BulkActionToolbar({
       );
       router.refresh();
     } catch (err) {
-      progress.error(err instanceof Error ? err.message : "Could not add to Up next");
+      progress.error(refusalMessage(err, "Could not add to Up next"));
     } finally {
       setIsUpdating(false);
     }
@@ -84,9 +81,10 @@ export function BulkActionToolbar({
         `${updated} ${updated === 1 ? "work" : "works"} updated`,
       );
       router.refresh();
-    } catch {
+    } catch (error) {
+      // How far it got, and why it stopped (SLN-1033)
       progress.error(
-        `Updated ${updated.toLocaleString("en")} of ${countLabel(ids.length, "work")} before error`,
+        `Updated ${updated.toLocaleString("en")} of ${countLabel(ids.length, "work")}. ${refusalMessage(error, "The rest were not changed.")}`,
       );
     } finally {
       setIsUpdating(false);
@@ -116,8 +114,8 @@ export function BulkActionToolbar({
           : `${mark.label}: ${updated} ${updated === 1 ? "book" : "books"} ${on ? "marked" : "unmarked"}`,
       );
       router.refresh();
-    } catch {
-      progress.error(`Could not update the ${mark.label} mark. Please try again.`);
+    } catch (error) {
+      progress.error(refusalMessage(error, `Could not update the ${mark.label} mark. Please try again.`));
     } finally {
       setIsUpdating(false);
     }
@@ -132,7 +130,6 @@ export function BulkActionToolbar({
     AcquisitionPriority,
     (typeof PRIORITY_CONFIG)[AcquisitionPriority],
   ][];
-
 
   return (
     <>

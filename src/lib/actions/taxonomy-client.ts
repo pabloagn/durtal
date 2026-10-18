@@ -2,9 +2,10 @@
 
 import * as actions from "./taxonomy-ui";
 import type { ActionResult } from "./action-result";
+import { ActionRefusal } from "./refusal";
 async function value<T>(promise: Promise<ActionResult<T>>): Promise<T> {
   const result = await promise;
-  if (!result.ok) throw new Error(result.error);
+  if (!result.ok) throw new ActionRefusal(result.error);
   return result.value;
 }
 

@@ -6,6 +6,7 @@ import { CheckCheck, Trash2, X } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /** What a list hands its selection toolbar */
 export interface SelectionToolbarProps {
@@ -76,8 +77,11 @@ export function SelectionToolbar({
       progress.success(`${deleted} ${deleted === 1 ? one : many} deleted`);
       onExitSelection();
       router.refresh();
-    } catch {
-      progress.error(`Deleted ${deleted} of ${ids.length} ${many} before error`);
+    } catch (error) {
+      // How far it got, and why it stopped (SLN-1033)
+      progress.error(
+        `Deleted ${deleted.toLocaleString("en")} of ${ids.length.toLocaleString("en")} ${many}. ${refusalMessage(error, "The rest were not deleted.")}`,
+      );
     } finally {
       setIsDeleting(false);
       setDeleteOpen(false);

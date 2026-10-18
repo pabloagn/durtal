@@ -24,8 +24,8 @@ import {
   readNumber,
   type StorageLocation,
 } from "@/components/catalogue/holding-fields";
-import { createArtObject, updateArtObject } from "@/lib/actions/catalogue-client";
-import { createVenue, searchVenues } from "@/lib/actions/venues";
+import { createArtObject, updateArtObject, createVenue } from "@/lib/actions/catalogue-client";
+import { searchVenues } from "@/lib/actions/venues";
 import {
   ART_OBJECT_KINDS,
   ART_OWNERSHIPS,
@@ -46,6 +46,7 @@ import {
 import type { CatalogueDateInput } from "@/lib/catalogue/dates";
 import { painterInput, type PainterEntry } from "@/lib/catalogue/painting-labels";
 import { PaintersField } from "./painting-fields";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /** A stored object, as the edit dialog starts from it */
 export interface EditableArtObject {
@@ -249,7 +250,7 @@ function ArtObjectForm({
       onDone();
       router.refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not save the object";
+      const message = refusalMessage(err, "Could not save the object");
       setError(message);
       notices.error(message);
       setSaving(false);

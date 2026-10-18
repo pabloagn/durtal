@@ -31,13 +31,15 @@ import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { EditionAddDialog } from "./edition-add-dialog";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
 import { WorkRelationDialog } from "@/components/catalogue/work-relations";
-import { deleteWork } from "@/lib/actions/works";
+
 const LinkEbookDialog = dynamic(() => import("@/components/ebooks/link-ebook-dialog").then((module) => module.LinkEbookDialog), { ssr: false });
 const WorkReviewDialog = dynamic(() => import("@/components/ebooks/work-review-dialog").then((module) => module.WorkReviewDialog), { ssr: false });
 import type { WorkReviewOutcome } from "@/lib/ebooks/review/work-service";
 import { workDeleteCascadeMessage } from "@/components/books/delete-cascade";
 import { preloadEditOptions } from "@/hooks/use-edit-options";
 import { EDIT_OPTION_GROUPS, type EditOption, type TaxonomyGroup } from "@/lib/catalogue/edit-options";
+import { deleteWork } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /* ── Prop types (mirrors the server component's data shapes) ─────────────── */
 
@@ -135,10 +137,10 @@ export function WorkActionsMenu({
   async function handleDelete() {
     try {
       await deleteWork(work.id);
-      toast.success("Work deleted");
+      toast.success("Book deleted");
       router.push("/library");
-    } catch {
-      toast.error("Failed to delete work");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not delete the book"));
     }
   }
 

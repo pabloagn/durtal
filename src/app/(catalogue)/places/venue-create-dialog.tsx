@@ -11,8 +11,9 @@ import { Select } from "@/components/ui/select";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { GooglePlacesSearch } from "@/components/venues/google-places-search";
 import type { GooglePlaceResult } from "@/components/venues/google-places-search";
-import { createVenue, updateVenue } from "@/lib/actions/venues";
 import { VENUE_TYPES, VENUE_TYPE_LABELS, type VenueType } from "@/lib/catalogue/venues";
+import { createVenue, updateVenue } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 const VENUE_TYPE_OPTIONS = VENUE_TYPES.map(value => ({ value, label: VENUE_TYPE_LABELS[value] }));
 const RATING_OPTIONS = [
@@ -190,7 +191,7 @@ export function VenueCreateDialog({
         router.refresh();
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : venue ? "Could not save the venue" : "Failed to create venue",
+          refusalMessage(err, venue ? "Could not save the venue" : "Failed to create venue"),
         );
       }
     });

@@ -6,8 +6,8 @@ import { toast } from "@/lib/notifications/toast";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
-import { deleteInstance } from "@/lib/actions/instances";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
+import { deleteInstance } from "@/lib/actions/catalogue-client";
 
 interface InstanceDeleteButtonProps {
   instanceId: string;

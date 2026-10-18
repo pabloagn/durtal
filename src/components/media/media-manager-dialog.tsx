@@ -15,9 +15,6 @@ import { MonochromeControls } from "@/components/media/monochrome-controls";
 import { isLogoCard, parseLogoCardOptions } from "@/lib/media/logo-card-options";
 import {
   getMediaByType,
-  setActiveMedia,
-  deleteMedia,
-  bulkDeleteMedia,
 } from "@/lib/actions/media";
 import {
   ImageAdjustmentEditor,
@@ -35,6 +32,8 @@ import {
 import { toast } from "@/lib/notifications/toast";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { useFocusThroughBusy } from "@/hooks/use-focus-through-busy";
+import { setActiveMedia, deleteMedia, bulkDeleteMedia } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 type TabType = "poster" | "background" | "gallery";
 
@@ -257,8 +256,8 @@ export function MediaManagerDialog({
       router.refresh();
       triggerActivityRefresh();
       toast.success(`Active ${noun} updated`);
-    } catch {
-      toast.error(`Failed to set active ${noun}`);
+    } catch (error) {
+      toast.error(refusalMessage(error, `Failed to set active ${noun}`));
     } finally {
       setSettingActive(null);
     }
@@ -278,8 +277,8 @@ export function MediaManagerDialog({
       router.refresh();
       triggerActivityRefresh();
       toast.success("Media deleted");
-    } catch {
-      toast.error("Failed to delete media");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Failed to delete media"));
     } finally {
       setDeletingSingle(null);
     }
@@ -296,8 +295,8 @@ export function MediaManagerDialog({
       router.refresh();
       triggerActivityRefresh();
       toast.success(`Deleted ${selected.size} item${selected.size > 1 ? "s" : ""}`);
-    } catch {
-      toast.error("Failed to delete selected media");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Failed to delete selected media"));
     } finally {
       setDeleting(false);
     }

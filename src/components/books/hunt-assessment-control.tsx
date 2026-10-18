@@ -9,9 +9,10 @@ import {
   huntAssessmentSchema,
   type HuntAssessmentInput,
 } from "@/lib/validations/hunting";
-import { updateHuntAssessment } from "@/lib/actions/hunting";
 import { MARKS } from "@/lib/constants/marks";
 import { MarkToggle } from "./mark-toggle";
+import { updateHuntAssessment } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /**
  * The rare mark on the book page. Marking dates it today; the date shows and
@@ -40,10 +41,8 @@ export function HuntAssessmentControl({
       try {
         setSaved(await updateHuntAssessment(workId, parsed.data));
         router.refresh();
-      } catch {
-        toast.error(
-          `Could not update the ${MARKS.rare.label} mark. Try again.`,
-        );
+      } catch (error) {
+        toast.error(refusalMessage(error, `Could not update the ${MARKS.rare.label} mark. Try again.`));
       }
     });
   }

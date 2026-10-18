@@ -8,6 +8,36 @@ import * as perfume_retailers from "./perfume-retailers";
 import * as acquisitions from "./acquisitions";
 import * as publishers from "./publishers";
 import * as reading from "./reading";
+import * as authors from "./authors";
+import * as catalogue_provenance from "./catalogue-provenance";
+import * as collections from "./collections";
+import * as curation from "./curation";
+import * as editions from "./editions";
+import * as favourites from "./favourites";
+import * as hunting from "./hunting";
+import * as identify from "./identify";
+import * as image_adjustments from "./image-adjustments";
+import * as instances from "./instances";
+import * as locations from "./locations";
+import * as media from "./media";
+import * as orders from "./orders";
+import * as organization_directory from "./organization-directory";
+import * as organizations from "./organizations";
+import * as people from "./people";
+import * as places from "./places";
+import * as poison from "./poison";
+import * as reading_goals from "./reading-goals";
+import * as reading_notes from "./reading-notes";
+import * as reading_queue from "./reading-queue";
+import * as recommenders from "./recommenders";
+import * as series from "./series";
+import * as suggestions from "./suggestions";
+import * as taxonomy from "./taxonomy";
+import * as venue_pages from "./venue-pages";
+import * as venues from "./venues";
+import * as whereabouts from "./whereabouts";
+import * as work_relations from "./work-relations";
+import * as works from "./works";
 
 /** UI-only adapters; service and API contracts remain unchanged. */
 
@@ -265,4 +295,576 @@ export async function deleteSession(
   ...args: Parameters<typeof reading.deleteSession>
 ) {
   return actionResult(() => reading.deleteSession(...args));
+}
+
+// Writes with deliberate refusals elsewhere in the catalogue and reading
+// (SLN-1033): their reason reaches the screen, as the ones above do.
+
+export async function createAuthor(
+  ...args: Parameters<typeof authors.createAuthor>
+) {
+  return actionResult(() => authors.createAuthor(...args));
+}
+
+export async function deleteAuthor(
+  ...args: Parameters<typeof authors.deleteAuthor>
+) {
+  return actionResult(() => authors.deleteAuthor(...args));
+}
+
+export async function mergeAuthors(
+  ...args: Parameters<typeof authors.mergeAuthors>
+) {
+  return actionResult(() => authors.mergeAuthors(...args));
+}
+
+export async function updateAuthor(
+  ...args: Parameters<typeof authors.updateAuthor>
+) {
+  return actionResult(() => authors.updateAuthor(...args));
+}
+
+export async function citeSource(
+  ...args: Parameters<typeof catalogue_provenance.citeSource>
+) {
+  return actionResult(() => catalogue_provenance.citeSource(...args));
+}
+
+export async function deleteCitedSource(
+  ...args: Parameters<typeof catalogue_provenance.deleteCitedSource>
+) {
+  return actionResult(() => catalogue_provenance.deleteCitedSource(...args));
+}
+
+export async function addToCollection(
+  ...args: Parameters<typeof collections.addToCollection>
+) {
+  return actionResult(() => collections.addToCollection(...args));
+}
+
+export async function createCollection(
+  ...args: Parameters<typeof collections.createCollection>
+) {
+  return actionResult(() => collections.createCollection(...args));
+}
+
+export async function deleteCollection(
+  ...args: Parameters<typeof collections.deleteCollection>
+) {
+  return actionResult(() => collections.deleteCollection(...args));
+}
+
+export async function moveCollectionMember(
+  ...args: Parameters<typeof collections.moveCollectionMember>
+) {
+  return actionResult(() => collections.moveCollectionMember(...args));
+}
+
+export async function removeEditionFromCollection(
+  ...args: Parameters<typeof collections.removeEditionFromCollection>
+) {
+  return actionResult(() => collections.removeEditionFromCollection(...args));
+}
+
+export async function removeFromCollection(
+  ...args: Parameters<typeof collections.removeFromCollection>
+) {
+  return actionResult(() => collections.removeFromCollection(...args));
+}
+
+export async function removeWorksFromCollection(
+  ...args: Parameters<typeof collections.removeWorksFromCollection>
+) {
+  return actionResult(() => collections.removeWorksFromCollection(...args));
+}
+
+export async function setCollectionIcon(
+  ...args: Parameters<typeof collections.setCollectionIcon>
+) {
+  return actionResult(() => collections.setCollectionIcon(...args));
+}
+
+export async function updateCollection(
+  ...args: Parameters<typeof collections.updateCollection>
+) {
+  return actionResult(() => collections.updateCollection(...args));
+}
+
+export async function updateWorkCuration(
+  ...args: Parameters<typeof curation.updateWorkCuration>
+) {
+  return actionResult(() => curation.updateWorkCuration(...args));
+}
+
+export async function createEdition(
+  ...args: Parameters<typeof editions.createEdition>
+) {
+  return actionResult(() => editions.createEdition(...args));
+}
+
+export async function deleteEdition(
+  ...args: Parameters<typeof editions.deleteEdition>
+) {
+  return actionResult(() => editions.deleteEdition(...args));
+}
+
+export async function updateEdition(
+  ...args: Parameters<typeof editions.updateEdition>
+) {
+  return actionResult(() => editions.updateEdition(...args));
+}
+
+export async function setFavourite(
+  ...args: Parameters<typeof favourites.setFavourite>
+) {
+  return actionResult(() => favourites.setFavourite(...args));
+}
+
+export async function setFavourites(
+  ...args: Parameters<typeof favourites.setFavourites>
+) {
+  return actionResult(() => favourites.setFavourites(...args));
+}
+
+
+
+
+
+
+export async function bulkUpdateHuntAssessment(
+  ...args: Parameters<typeof hunting.bulkUpdateHuntAssessment>
+) {
+  return actionResult(() => hunting.bulkUpdateHuntAssessment(...args));
+}
+
+export async function updateHuntAssessment(
+  ...args: Parameters<typeof hunting.updateHuntAssessment>
+) {
+  return actionResult(() => hunting.updateHuntAssessment(...args));
+}
+
+export async function identifyEdition(
+  ...args: Parameters<typeof identify.identifyEdition>
+) {
+  return actionResult(() => identify.identifyEdition(...args));
+}
+
+export async function keepWithoutIsbn(
+  ...args: Parameters<typeof identify.keepWithoutIsbn>
+) {
+  return actionResult(() => identify.keepWithoutIsbn(...args));
+}
+
+export async function moveToExistingEdition(
+  ...args: Parameters<typeof identify.moveToExistingEdition>
+) {
+  return actionResult(() => identify.moveToExistingEdition(...args));
+}
+
+export async function undoIdentification(
+  ...args: Parameters<typeof identify.undoIdentification>
+) {
+  return actionResult(() => identify.undoIdentification(...args));
+}
+
+export async function saveImagePresentation(
+  ...args: Parameters<typeof image_adjustments.saveImagePresentation>
+) {
+  return actionResult(() => image_adjustments.saveImagePresentation(...args));
+}
+
+export async function createInstance(
+  ...args: Parameters<typeof instances.createInstance>
+) {
+  return actionResult(() => instances.createInstance(...args));
+}
+
+export async function deleteInstance(
+  ...args: Parameters<typeof instances.deleteInstance>
+) {
+  return actionResult(() => instances.deleteInstance(...args));
+}
+
+export async function updateInstance(
+  ...args: Parameters<typeof instances.updateInstance>
+) {
+  return actionResult(() => instances.updateInstance(...args));
+}
+
+export async function createLocation(
+  ...args: Parameters<typeof locations.createLocation>
+) {
+  return actionResult(() => locations.createLocation(...args));
+}
+
+export async function deleteLocation(
+  ...args: Parameters<typeof locations.deleteLocation>
+) {
+  return actionResult(() => locations.deleteLocation(...args));
+}
+
+export async function updateLocation(
+  ...args: Parameters<typeof locations.updateLocation>
+) {
+  return actionResult(() => locations.updateLocation(...args));
+}
+
+export async function bulkDeleteMedia(
+  ...args: Parameters<typeof media.bulkDeleteMedia>
+) {
+  return actionResult(() => media.bulkDeleteMedia(...args));
+}
+
+export async function deleteMedia(
+  ...args: Parameters<typeof media.deleteMedia>
+) {
+  return actionResult(() => media.deleteMedia(...args));
+}
+
+export async function setActiveMedia(
+  ...args: Parameters<typeof media.setActiveMedia>
+) {
+  return actionResult(() => media.setActiveMedia(...args));
+}
+
+export async function updateMediaDetails(
+  ...args: Parameters<typeof media.updateMediaDetails>
+) {
+  return actionResult(() => media.updateMediaDetails(...args));
+}
+
+export async function createOrder(
+  ...args: Parameters<typeof orders.createOrder>
+) {
+  return actionResult(() => orders.createOrder(...args));
+}
+
+export async function createOrderForNewBook(
+  ...args: Parameters<typeof orders.createOrderForNewBook>
+) {
+  return actionResult(() => orders.createOrderForNewBook(...args));
+}
+
+export async function deleteOrder(
+  ...args: Parameters<typeof orders.deleteOrder>
+) {
+  return actionResult(() => orders.deleteOrder(...args));
+}
+
+export async function updateOrder(
+  ...args: Parameters<typeof orders.updateOrder>
+) {
+  return actionResult(() => orders.updateOrder(...args));
+}
+
+export async function updateOrderStatus(
+  ...args: Parameters<typeof orders.updateOrderStatus>
+) {
+  return actionResult(() => orders.updateOrderStatus(...args));
+}
+
+export async function addOrganization(
+  ...args: Parameters<typeof organization_directory.addOrganization>
+) {
+  return actionResult(() => organization_directory.addOrganization(...args));
+}
+
+export async function removeOrganization(
+  ...args: Parameters<typeof organization_directory.removeOrganization>
+) {
+  return actionResult(() => organization_directory.removeOrganization(...args));
+}
+
+export async function updateOrganizationProfile(
+  ...args: Parameters<typeof organization_directory.updateOrganizationProfile>
+) {
+  return actionResult(() => organization_directory.updateOrganizationProfile(...args));
+}
+
+export async function saveOrganization(
+  ...args: Parameters<typeof organizations.saveOrganization>
+) {
+  return actionResult(() => organizations.saveOrganization(...args));
+}
+
+export async function createPerson(
+  ...args: Parameters<typeof people.createPerson>
+) {
+  return actionResult(() => people.createPerson(...args));
+}
+
+export async function createPlace(
+  ...args: Parameters<typeof places.createPlace>
+) {
+  return actionResult(() => places.createPlace(...args));
+}
+
+export async function createPlaceFromGeocode(
+  ...args: Parameters<typeof places.createPlaceFromGeocode>
+) {
+  return actionResult(() => places.createPlaceFromGeocode(...args));
+}
+
+export async function bulkSetPoison(
+  ...args: Parameters<typeof poison.bulkSetPoison>
+) {
+  return actionResult(() => poison.bulkSetPoison(...args));
+}
+
+export async function setPoison(
+  ...args: Parameters<typeof poison.setPoison>
+) {
+  return actionResult(() => poison.setPoison(...args));
+}
+
+export async function createPublisherFromName(
+  ...args: Parameters<typeof publishers.createPublisherFromName>
+) {
+  return actionResult(() => publishers.createPublisherFromName(...args));
+}
+
+export async function resetEditionPublisherLinks(
+  ...args: Parameters<typeof publishers.resetEditionPublisherLinks>
+) {
+  return actionResult(() => publishers.resetEditionPublisherLinks(...args));
+}
+
+export async function setEditionPublisherLinks(
+  ...args: Parameters<typeof publishers.setEditionPublisherLinks>
+) {
+  return actionResult(() => publishers.setEditionPublisherLinks(...args));
+}
+
+export async function removeReadingGoal(
+  ...args: Parameters<typeof reading_goals.removeReadingGoal>
+) {
+  return actionResult(() => reading_goals.removeReadingGoal(...args));
+}
+
+export async function setReadingGoal(
+  ...args: Parameters<typeof reading_goals.setReadingGoal>
+) {
+  return actionResult(() => reading_goals.setReadingGoal(...args));
+}
+
+export async function createReadingNote(
+  ...args: Parameters<typeof reading_notes.createReadingNote>
+) {
+  return actionResult(() => reading_notes.createReadingNote(...args));
+}
+
+export async function deleteReadingNote(
+  ...args: Parameters<typeof reading_notes.deleteReadingNote>
+) {
+  return actionResult(() => reading_notes.deleteReadingNote(...args));
+}
+
+export async function restoreReadingNote(
+  ...args: Parameters<typeof reading_notes.restoreReadingNote>
+) {
+  return actionResult(() => reading_notes.restoreReadingNote(...args));
+}
+
+export async function toggleNoteFavourite(
+  ...args: Parameters<typeof reading_notes.toggleNoteFavourite>
+) {
+  return actionResult(() => reading_notes.toggleNoteFavourite(...args));
+}
+
+export async function updateReadingNote(
+  ...args: Parameters<typeof reading_notes.updateReadingNote>
+) {
+  return actionResult(() => reading_notes.updateReadingNote(...args));
+}
+
+export async function addManyToQueue(
+  ...args: Parameters<typeof reading_queue.addManyToQueue>
+) {
+  return actionResult(() => reading_queue.addManyToQueue(...args));
+}
+
+export async function addToQueue(
+  ...args: Parameters<typeof reading_queue.addToQueue>
+) {
+  return actionResult(() => reading_queue.addToQueue(...args));
+}
+
+export async function moveQueueItem(
+  ...args: Parameters<typeof reading_queue.moveQueueItem>
+) {
+  return actionResult(() => reading_queue.moveQueueItem(...args));
+}
+
+export async function removeFromQueue(
+  ...args: Parameters<typeof reading_queue.removeFromQueue>
+) {
+  return actionResult(() => reading_queue.removeFromQueue(...args));
+}
+
+export async function restoreQueueItem(
+  ...args: Parameters<typeof reading_queue.restoreQueueItem>
+) {
+  return actionResult(() => reading_queue.restoreQueueItem(...args));
+}
+
+export async function createRecommender(
+  ...args: Parameters<typeof recommenders.createRecommender>
+) {
+  return actionResult(() => recommenders.createRecommender(...args));
+}
+
+export async function deleteRecommender(
+  ...args: Parameters<typeof recommenders.deleteRecommender>
+) {
+  return actionResult(() => recommenders.deleteRecommender(...args));
+}
+
+export async function updateRecommender(
+  ...args: Parameters<typeof recommenders.updateRecommender>
+) {
+  return actionResult(() => recommenders.updateRecommender(...args));
+}
+
+export async function addWorksToSeries(
+  ...args: Parameters<typeof series.addWorksToSeries>
+) {
+  return actionResult(() => series.addWorksToSeries(...args));
+}
+
+export async function createSeries(
+  ...args: Parameters<typeof series.createSeries>
+) {
+  return actionResult(() => series.createSeries(...args));
+}
+
+export async function deleteSeries(
+  ...args: Parameters<typeof series.deleteSeries>
+) {
+  return actionResult(() => series.deleteSeries(...args));
+}
+
+export async function removeWorkFromSeries(
+  ...args: Parameters<typeof series.removeWorkFromSeries>
+) {
+  return actionResult(() => series.removeWorkFromSeries(...args));
+}
+
+export async function setSeriesPosition(
+  ...args: Parameters<typeof series.setSeriesPosition>
+) {
+  return actionResult(() => series.setSeriesPosition(...args));
+}
+
+export async function updateSeries(
+  ...args: Parameters<typeof series.updateSeries>
+) {
+  return actionResult(() => series.updateSeries(...args));
+}
+
+export async function removeSuggestionFeedback(
+  ...args: Parameters<typeof suggestions.removeSuggestionFeedback>
+) {
+  return actionResult(() => suggestions.removeSuggestionFeedback(...args));
+}
+
+export async function restoreSuggestionFeedback(
+  ...args: Parameters<typeof suggestions.restoreSuggestionFeedback>
+) {
+  return actionResult(() => suggestions.restoreSuggestionFeedback(...args));
+}
+
+export async function setSuggestionFeedback(
+  ...args: Parameters<typeof suggestions.setSuggestionFeedback>
+) {
+  return actionResult(() => suggestions.setSuggestionFeedback(...args));
+}
+
+export async function updateWorkTaxonomy(
+  ...args: Parameters<typeof taxonomy.updateWorkTaxonomy>
+) {
+  return actionResult(() => taxonomy.updateWorkTaxonomy(...args));
+}
+
+export async function linkVenueInstitution(
+  ...args: Parameters<typeof venue_pages.linkVenueInstitution>
+) {
+  return actionResult(() => venue_pages.linkVenueInstitution(...args));
+}
+
+export async function removeVenue(
+  ...args: Parameters<typeof venue_pages.removeVenue>
+) {
+  return actionResult(() => venue_pages.removeVenue(...args));
+}
+
+export async function setVenueArchived(
+  ...args: Parameters<typeof venue_pages.setVenueArchived>
+) {
+  return actionResult(() => venue_pages.setVenueArchived(...args));
+}
+
+export async function unlinkVenueInstitution(
+  ...args: Parameters<typeof venue_pages.unlinkVenueInstitution>
+) {
+  return actionResult(() => venue_pages.unlinkVenueInstitution(...args));
+}
+
+export async function createVenue(
+  ...args: Parameters<typeof venues.createVenue>
+) {
+  return actionResult(() => venues.createVenue(...args));
+}
+
+export async function updateVenue(
+  ...args: Parameters<typeof venues.updateVenue>
+) {
+  return actionResult(() => venues.updateVenue(...args));
+}
+
+export async function deleteWhereabouts(
+  ...args: Parameters<typeof whereabouts.deleteWhereabouts>
+) {
+  return actionResult(() => whereabouts.deleteWhereabouts(...args));
+}
+
+export async function recordWhereabouts(
+  ...args: Parameters<typeof whereabouts.recordWhereabouts>
+) {
+  return actionResult(() => whereabouts.recordWhereabouts(...args));
+}
+
+export async function updateWhereabouts(
+  ...args: Parameters<typeof whereabouts.updateWhereabouts>
+) {
+  return actionResult(() => whereabouts.updateWhereabouts(...args));
+}
+
+export async function verifyWhereabouts(
+  ...args: Parameters<typeof whereabouts.verifyWhereabouts>
+) {
+  return actionResult(() => whereabouts.verifyWhereabouts(...args));
+}
+
+export async function createWorkRelation(
+  ...args: Parameters<typeof work_relations.createWorkRelation>
+) {
+  return actionResult(() => work_relations.createWorkRelation(...args));
+}
+
+export async function deleteWorkRelation(
+  ...args: Parameters<typeof work_relations.deleteWorkRelation>
+) {
+  return actionResult(() => work_relations.deleteWorkRelation(...args));
+}
+
+export async function deleteWork(
+  ...args: Parameters<typeof works.deleteWork>
+) {
+  return actionResult(() => works.deleteWork(...args));
+}
+
+export async function updateWork(
+  ...args: Parameters<typeof works.updateWork>
+) {
+  return actionResult(() => works.updateWork(...args));
 }

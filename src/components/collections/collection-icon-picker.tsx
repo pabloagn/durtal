@@ -15,9 +15,10 @@ import { useRouter } from "next/navigation";
 import { Shapes } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { Spinner } from "@/components/ui/spinner";
-import { setCollectionIcon } from "@/lib/actions/collections";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
 import { coverLetter } from "@/components/books/cover-letter";
+import { setCollectionIcon } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 // Holds the whole icon set: loaded only when the picker opens.
 const IconPickerPanel = lazy(() => import("./icon-picker-panel"));
@@ -115,8 +116,8 @@ export function CollectionIconPicker({
       try {
         await setCollectionIcon(collectionId, name);
         router.refresh();
-      } catch {
-        toast.error("Could not save the icon. Try again.");
+      } catch (error) {
+        toast.error(refusalMessage(error, "Could not save the icon. Try again."));
       }
     });
   }

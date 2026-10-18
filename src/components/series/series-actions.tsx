@@ -9,10 +9,11 @@ import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
-import { deleteSeries } from "@/lib/actions/series";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { SeriesFormDialog } from "./series-form-dialog";
 import { AddSeriesBooksDialog } from "./add-series-books-dialog";
+import { deleteSeries } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /** Add books, Edit and Delete for a series page. */
 export function SeriesActions({
@@ -55,8 +56,8 @@ export function SeriesActions({
       triggerActivityRefresh();
       router.push("/series");
       router.refresh();
-    } catch {
-      toast.error("Could not delete the series");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not delete the series"));
     }
   }
 

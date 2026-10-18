@@ -12,8 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CatalogueDateField } from "@/components/shared/catalogue-date-field";
 import { SingleChoiceField } from "@/components/catalogue/record-fields";
 import type { PickerChoice } from "@/components/catalogue/search-picker";
-import { recordWhereabouts, updateWhereabouts } from "@/lib/actions/whereabouts";
-import { createVenue, searchVenues } from "@/lib/actions/venues";
+import { searchVenues } from "@/lib/actions/venues";
 import {
   DISPLAY_STATUSES,
   WHEREABOUTS_CERTAINTY,
@@ -30,6 +29,8 @@ import {
   type WhereaboutsPlace,
 } from "@/lib/catalogue/painting-labels";
 import type { CatalogueDateInput } from "@/lib/catalogue/dates";
+import { recordWhereabouts, updateWhereabouts, createVenue } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /** A stored location record, as the edit dialog starts from it */
 export interface EditableWhereabouts {
@@ -241,7 +242,7 @@ function WhereaboutsForm({
       onDone();
       router.refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not save the location";
+      const message = refusalMessage(err, "Could not save the location");
       setError(message);
       toast.error(message);
       setSaving(false);

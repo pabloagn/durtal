@@ -13,10 +13,6 @@ import { MatchAgainDialog } from "@/components/books/match-again-dialog";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import {
   findEditionCandidates,
-  identifyEdition,
-  keepWithoutIsbn,
-  undoIdentification,
-  moveToExistingEdition,
   type CandidateSearch,
   type IdentifyUndo,
   type QueueItem,
@@ -29,6 +25,8 @@ import { bindingLabel } from "@/lib/utils/binding";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { Check, Search } from "lucide-react";
 import { countLabel } from "@/lib/utils/format";
+import { identifyEdition, keepWithoutIsbn, undoIdentification, moveToExistingEdition } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 type SearchState =
   | { status: "loading" }
@@ -40,8 +38,8 @@ const NO_KEYS = { coverS3Key: null, thumbnailS3Key: null };
 
 const results = (n: number) => `${n} ${n === 1 ? "result" : "results"}`;
 
-const message = (err: unknown, fallback: string) =>
-  err instanceof Error ? err.message : fallback;
+/** The server's reason for a refusal, else the fallback (SLN-1033) */
+const message = refusalMessage;
 
 function copiesText(copies: QueueItem["copies"]) {
   if (!copies.length) return "No copies";

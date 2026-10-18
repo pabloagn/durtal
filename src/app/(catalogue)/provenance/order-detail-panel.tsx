@@ -20,7 +20,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
-import { updateOrderStatus, deleteOrder } from "@/lib/actions/orders";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
 import type { OrderStatus } from "@/lib/constants/orders";
@@ -40,6 +39,8 @@ import {
   getTimelineSteps,
   type OrderItem,
 } from "./order-model";
+import { updateOrderStatus, deleteOrder } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 // The panel of one order: its book, timeline, costs, tracking and actions.
 
@@ -89,7 +90,7 @@ export function OrderDetailPanel({
       router.refresh();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to update status",
+        refusalMessage(err, "Failed to update status"),
       );
     } finally {
       setIsPending(false);
@@ -112,7 +113,7 @@ export function OrderDetailPanel({
       onClose();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to delete order",
+        refusalMessage(err, "Failed to delete order"),
       );
     } finally {
       setIsPending(false);

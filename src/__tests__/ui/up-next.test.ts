@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
+import { ActionRefusal } from "@/lib/actions/refusal";
 
 // Up next's list and page (SLN-452), with the server actions mocked.
 
@@ -15,6 +16,8 @@ const actions = vi.hoisted(() => ({
 const opened = vi.hoisted(() => ({ list: [] as unknown[] }));
 const toasts = vi.hoisted(() => ({ list: [] as { message: string; undo?: () => void }[] }));
 vi.mock("@/lib/actions/reading-queue", () => actions);
+// Its writes go through the client adapters, which raise a refusal as ActionRefusal (SLN-1033)
+vi.mock("@/lib/actions/catalogue-client", () => actions);
 vi.mock("@/lib/actions/reading", () => ({ getPaceContext: async () => ({ readings: {}, priors: { byLanguageFormat: {}, byFormat: {}, overall: null } }) }));
 vi.mock("@/lib/reading/day", () => ({ readingToday: async () => "2026-10-05" }));
 vi.mock("@/lib/actions/locations", () => ({ getLocations: async () => [] }));
@@ -113,7 +116,7 @@ describe("the Up next list", () => {
   });
 
   it("puts a row back when the server refuses the move", async () => {
-    actions.moveQueueItem.mockRejectedValueOnce(new Error("Up next changed elsewhere; reload"));
+    actions.moveQueueItem.mockRejectedValueOnce(new ActionRefusal("Up next changed elsewhere; reload"));
     act(() => root.render(createElement(QueueList, { rows })));
     await menu("c", "Move to top");
     expect(order()).toEqual(["a", "b", "c"]);
