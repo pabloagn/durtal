@@ -36,3 +36,8 @@ it("names the edition form's new contributor fields", () => {
   expect(form).toContain('aria-label="Contributor\'s name"');
   expect(form).toContain('ariaLabel="Contributor\'s role"');
 });
+
+it("names Edit work's Recommended by list by its label", () => {
+  // The label sits above the chosen chips, outside the Select, so it carries the id the list points at
+  expect(read("components/books/work-form.tsx")).toContain('<label id={`${id("recommender")}-label`} htmlFor={id("recommender")}');
+});

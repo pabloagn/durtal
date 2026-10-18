@@ -422,7 +422,8 @@ export function WorkForm({
                 placeholder="Personal notes"
               />
               <div>
-                <label htmlFor={id("recommender")} className="type-label mb-1.5 block">
+                {/* The Select's open list is named by `${id}-label` */}
+                <label id={`${id("recommender")}-label`} htmlFor={id("recommender")} className="type-label mb-1.5 block">
                   Recommended by
                 </label>
                 {values.recommenderIds.length > 0 && (

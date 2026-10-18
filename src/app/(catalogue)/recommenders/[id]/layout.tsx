@@ -1,4 +1,6 @@
-import { redirectMergedRecord } from "@/lib/harmonization/redirect";
+import { notFound } from "next/navigation";
+import { liveRecord } from "@/lib/harmonization/redirect";
+import { recommenderExists } from "@/lib/catalogue/record-exists";
 
 export default async function RecordLayout({
   children,
@@ -7,6 +9,7 @@ export default async function RecordLayout({
   children: React.ReactNode;
   params: Promise<{ id: string }>;
 }) {
-  await redirectMergedRecord("recommenders", (await params).id);
+  // Before the loading screen starts the response, so a missing recommender answers 404
+  if (!(await liveRecord("recommenders", (await params).id, recommenderExists))) notFound();
   return children;
 }
