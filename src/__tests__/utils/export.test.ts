@@ -69,6 +69,9 @@ describe("typed rows for JSON and Parquet (SLN-894)", () => {
   it("write a missing value as null and keep numbers, booleans and nested data as they are", () => {
     expect(typedRow(row)).toEqual({ ...row, publication_year: null });
     expect(JSON.parse(toJSON([row], ["title", "publication_year", "missing"]))).toEqual([{ title: "À rebours", publication_year: null, missing: null }]);
+    const at = new Date("2026-10-16T10:20:30.123Z");
+    expect(typedRow({ at })).toEqual({ at: "2026-10-16T10:20:30.123Z" });
+    expect(toCSV([{ at }]).split("\n")[1]).toBe("2026-10-16T10:20:30.123Z");
   });
 
   it("read the same in a spreadsheet as before: yes or no, nested data as JSON text, nothing for null", () => {
@@ -95,7 +98,7 @@ describe("typed rows for JSON and Parquet (SLN-894)", () => {
     const cursor = reader.getCursor();
     const first = (await cursor.next()) as Record<string, unknown>;
     const second = (await cursor.next()) as Record<string, unknown>;
-    expect(first).toMatchObject({ original_year: 1884n, publication_year: null, rating: 4, is_anthology: false, notes: null });
+    expect(first).toMatchObject({ original_year: BigInt(1884), publication_year: null, rating: 4, is_anthology: false, notes: null });
     expect((first.started_on as Date).toISOString()).toBe("2026-01-02T00:00:00.000Z");
     expect((first.created_at as Date).toISOString()).toBe("2026-10-16T10:20:30.123Z");
     expect(first.edition_publishers).toEqual(row.edition_publishers);
@@ -110,7 +113,8 @@ describe("typed rows for JSON and Parquet (SLN-894)", () => {
     const reader = await ParquetReader.openBuffer(await toParquet([{ v: 3 }, { v: "three" }]));
     expect(reader.schema.fields.v.originalType).toBe("UTF8");
     const cursor = reader.getCursor();
-    expect([(await cursor.next())?.v, (await cursor.next())?.v]).toEqual(["3", "three"]);
+    const values = [await cursor.next(), await cursor.next()] as { v: unknown }[];
+    expect(values.map((r) => r.v)).toEqual(["3", "three"]);
   });
 });
 

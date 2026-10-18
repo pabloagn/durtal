@@ -18,7 +18,7 @@ function cellText(value: unknown, guard = true): string {
   if (typeof value === "number" || typeof value === "bigint") return String(value);
   // A typed row (SLN-894) reads in a spreadsheet as it always has: yes or no, nested data as JSON text
   if (typeof value === "boolean") return value ? "yes" : "no";
-  const str = typeof value === "object" ? JSON.stringify(value) : String(value);
+  const str = value instanceof Date ? value.toISOString() : typeof value === "object" ? JSON.stringify(value) : String(value);
   return guard && FORMULA_START.test(str) ? `'${str}` : str;
 }
 
@@ -83,11 +83,16 @@ export function toTSV(rows: Record<string, unknown>[], headers?: readonly string
 
 /**
  * A row as JSON and Parquet write it (SLN-894): `headers`' columns in order
- * (else the row's own), and a missing value, which the spreadsheet rows
- * write as "", as null.
+ * (else the row's own), a missing value, which the spreadsheet rows write as
+ * "", as null, and a Date as its ISO instant.
  */
 export function typedRow(row: Record<string, unknown>, headers?: readonly string[]): Record<string, unknown> {
-  return Object.fromEntries((headers ?? Object.keys(row)).map((h) => [h, row[h] === "" || row[h] === undefined ? null : row[h]]));
+  return Object.fromEntries(
+    (headers ?? Object.keys(row)).map((h) => {
+      const value = row[h];
+      return [h, value === "" || value === undefined ? null : value instanceof Date ? value.toISOString() : value];
+    }),
+  );
 }
 
 /** The JSON file: an array of typed rows */
