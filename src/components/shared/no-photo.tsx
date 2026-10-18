@@ -113,26 +113,3 @@ export function Monogram({ name }: { name: string }) {
     </div>
   );
 }
-
-/** A shelf of spines, one per volume of the series (three when unknown) */
-export function ShelfSpines({ seed, volumes }: { seed: string; volumes: number | null }) {
-  const count = Math.min(Math.max(volumes ?? 3, 1), 12);
-  return (
-    <div className="absolute inset-0" aria-hidden>
-      {/* The shelf zone: spines stand on its bottom edge, 72-99% of its height */}
-      <div className="absolute inset-x-0 bottom-[22%] top-[20%] flex items-end justify-center gap-1">
-        {Array.from({ length: count }, (_, i) => (
-          <span
-            key={i}
-            className="w-[5%] max-w-4 rounded-[1px] ring-1 ring-white/[0.05]"
-            style={{
-              height: `${72 + (hash(`${seed}${i}`) % 28)}%`,
-              ...tint("--color-fg-muted", 45),
-            }}
-          />
-        ))}
-      </div>
-      <span className="absolute inset-x-[18%] bottom-[22%] h-px translate-y-full bg-fg-muted" />
-    </div>
-  );
-}

@@ -13,9 +13,9 @@ const work = (workId: string, kind: "book" | "film" | "perfume" | "painting" = "
 describe("a collection's count line", () => {
   it("names each kind it holds", () => {
     expect(collectionCountLine({ collectionWorks: ["a", "b", "c", "d", "e", "f"].map((id) => work(id)) })).toBe("6 books");
-    expect(collectionCountLine({ collectionEditions: ["a", "b", "c", "d"].map(edition) })).toBe("4 editions");
+    expect(collectionCountLine({ collectionEditions: ["a", "b", "c", "d"].map(edition) })).toBe("4 books");
     expect(collectionCountLine({ collectionWorks: [work("a"), work("b"), work("c"), work("p", "perfume")] })).toBe("3 books · 1 perfume");
-    expect(collectionCountLine({ collectionEditions: [edition("a")], collectionWorks: [work("f", "film"), work("g", "painting"), work("h", "painting")] })).toBe("1 edition · 1 film · 2 paintings");
+    expect(collectionCountLine({ collectionEditions: [edition("a")], collectionWorks: [work("f", "film"), work("g", "painting"), work("h", "painting")] })).toBe("1 book · 1 film · 2 paintings");
   });
 
   it("writes thousands with a comma", () => {
@@ -24,7 +24,17 @@ describe("a collection's count line", () => {
   });
 
   it("counts a book held both ways once, as its edition", () => {
-    expect(collectionCountLine({ collectionEditions: [edition("a")], collectionWorks: [work("a")] })).toBe("1 edition");
+    expect(collectionCountLine({ collectionEditions: [edition("a")], collectionWorks: [work("a")] })).toBe("1 book");
+  });
+
+  // SLN-915: "1 book · 6 editions · 2 films · 1 perfume · 1 of 5 books read"
+  it("counts each book once, held whole or through editions, and says when editions outnumber them", () => {
+    const decadents = {
+      collectionEditions: [edition("a"), edition("a"), edition("a"), edition("b"), edition("c"), edition("d")],
+      collectionWorks: [work("e"), work("f1", "film"), work("f2", "film"), work("p", "perfume")],
+    };
+    expect(collectionCountLine(decadents)).toBe("5 books (6 editions) · 2 films · 1 perfume");
+    expect(collectionCountLine({ collectionEditions: [edition("a"), edition("a")] })).toBe("1 book (2 editions)");
   });
 
   it("is empty for an empty collection", () => {

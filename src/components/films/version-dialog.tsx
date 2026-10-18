@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -153,7 +153,7 @@ function ReleaseFields({
             aria-label={`Remove ${label.toLowerCase()}`}
             data-tooltip="Remove release"
             onClick={onRemove}
-            className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted pointer-coarse:h-11 pointer-coarse:w-11 transition-colors hover:bg-bg-tertiary hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary"
+            className="flex h-6 w-6 items-center justify-center rounded-sm text-fg-muted pointer-coarse:h-11 pointer-coarse:w-11 transition-colors hover:bg-bg-tertiary hover:text-fg-primary focus-visible:-outline-offset-2"
           >
             <X className="h-3.5 w-3.5" strokeWidth={1.5} />
           </button>
@@ -362,19 +362,21 @@ function VersionForm({
         </Button>
       </fieldset>
 
-      {error && (
-        <p role="alert" className="text-sm text-accent-red-text">
-          {error}
-        </p>
-      )}
-      <div className="flex justify-end gap-2">
+      {/* Under the dialog's body and always in view, with the reason a save
+          failed over the buttons (SLN-943) */}
+      <DialogFooter>
+        {error && (
+          <p role="alert" className="basis-full text-sm text-accent-red-text">
+            {error}
+          </p>
+        )}
         <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
         </Button>
         <Button variant="primary" data-shortcut="save" onClick={save} busy={saving} disabled={blocked}>
           {version ? "Save" : "Add version"}
         </Button>
-      </div>
+      </DialogFooter>
     </div>
   );
 }

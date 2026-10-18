@@ -23,6 +23,9 @@ const ROW = 18;
 /** Half the cap height of 12px Inter: a label's baseline this far below a mark's center puts its capitals on that center */
 export const CAP_HALF = 4.36;
 
+/** About how wide the longest of these is in 12px Inter */
+const textWidth = (texts: string[]) => 7 * Math.max(0, ...texts.map((t) => t.length));
+
 export function barChartHeight(count: number) {
   return Math.max(160, count * ROW + 8);
 }
@@ -50,6 +53,11 @@ export function BarChart({
   // Each bar's own caption, so every count has its noun in the right form
   const summary = `${label}: ${bars.map((b) => b.text).join("; ")}`;
   const fill = tone === "sage" ? "fill-accent-sage" : "fill-accent-blue";
+  // Labels sit inside the frame, clear of its focus outline (SLN-873): the label
+  // column and the tick gutter fit their longest text, at about 7px a character
+  const labelWidth = Math.max(72, 6 + textWidth(bars.map((b) => b.label)));
+  const marks = ticks(max);
+  const left = Math.max(36, 6 + textWidth(marks.map((t) => t.toLocaleString("en-US"))));
   return (
     <ChartFrame
       label={label}
@@ -66,7 +74,6 @@ export function BarChart({
         ) ? (
           <svg role="img" aria-label={summary} width={width} height={height} className="block overflow-visible" data-chart-svg="">
             {bars.map((b, i) => {
-              const labelWidth = 72;
               const room = Math.max(0, width - labelWidth - 48);
               const w = top ? (b.value / top) * room : 0;
               const y = 4 + i * ROW;
@@ -96,14 +103,13 @@ export function BarChart({
         ) : (
           <svg role="img" aria-label={summary} width={width} height={height} className="block overflow-visible" data-chart-svg="">
             {(() => {
-              const left = 36;
               const bottom = 20;
               const plot = height - bottom - 6;
               const band = (width - left) / bars.length;
               const barWidth = Math.min(40, band * 0.6);
               return (
                 <>
-                  {ticks(max).map((t) => {
+                  {marks.map((t) => {
                     const y = 6 + plot - (t / top) * plot;
                     return (
                       <g key={t}>

@@ -111,7 +111,7 @@ export function TaxonomyItemRow({
 
   return (
     <div
-      className={`group flex min-h-9 items-start gap-1.5 py-1.5 text-sm leading-5 border-b border-glass-border/40 px-2 transition-colors pointer-coarse:min-h-12 pointer-coarse:py-0.5 pointer-coarse:leading-11 ${
+      className={`group flex min-h-9 flex-wrap items-start gap-1.5 py-1.5 text-sm leading-5 border-b border-glass-border/40 px-2 transition-colors pointer-coarse:min-h-12 pointer-coarse:py-0.5 pointer-coarse:leading-11 ${
         isSelected
           ? "bg-accent-primary/6 border-accent-primary/10"
           : "hover:bg-bg-tertiary/30"
@@ -148,8 +148,11 @@ export function TaxonomyItemRow({
         />
       </CapAlignedControls>
 
-      {/* Name */}
-      <div className="min-w-0 flex-1">
+      {/* Name. In a list too narrow to keep it room beside its controls (a
+          phone, where each control is 44px), every name takes its own line
+          above them, so words never break letter by letter; the whole list
+          switches together, so a child never starts left of its parent */}
+      <div className="min-w-0 flex-1 pointer-coarse:@max-[26rem]/taxonomy-tree:order-first pointer-coarse:@max-[26rem]/taxonomy-tree:basis-full not-pointer-coarse:@max-[20rem]/taxonomy-tree:order-first not-pointer-coarse:@max-[20rem]/taxonomy-tree:basis-full">
         {editing ? (
           <input
             ref={inputRef}
@@ -183,15 +186,16 @@ export function TaxonomyItemRow({
               e.stopPropagation();
               startRename();
             }}
-            className="block whitespace-normal break-words text-sm leading-5 text-fg-primary transition-colors hover:text-accent-primary pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:leading-11"
+            className="block whitespace-normal break-words text-sm leading-5 text-fg-primary transition-colors hover:text-accent-primary pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:py-3"
           >
             {item.name}
           </Link>
         )}
       </div>
 
-      {/* Entity count */}
-      <CapAligned height={20} coarseHeight={44}>
+      {/* Entity count: it and the menu keep the row's end when the name
+          takes its own line */}
+      <CapAligned height={20} coarseHeight={44} className="ml-auto">
         <span className="flex h-5 items-center pointer-coarse:h-11">
         <Badge variant="muted" className="flex-shrink-0" aria-label={`${item.entityCount} ${entityNoun}${item.entityCount === 1 ? "" : "s"}`}>
           {item.entityCount}
@@ -214,7 +218,7 @@ export function TaxonomyItemRow({
           onClick={() => onMerge(item.id)}
           icon={<Merge className="h-3.5 w-3.5" strokeWidth={1.5} />}
         >
-          Merge into...
+          Merge into…
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

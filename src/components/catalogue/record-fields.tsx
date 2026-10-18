@@ -45,7 +45,7 @@ export function RemoveButton({ label, onClick }: { label: string; onClick: () =>
         aria-label={label}
         data-tooltip={label}
         onClick={onClick}
-        className="flex h-4 w-4 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary pointer-coarse:size-11"
+        className="flex h-4 w-4 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-fg-primary focus-visible:-outline-offset-2 pointer-coarse:size-11"
       >
         <X className="h-3 w-3" strokeWidth={1.5} />
       </button>

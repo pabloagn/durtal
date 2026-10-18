@@ -17,7 +17,8 @@ const language = z.string().trim().min(1).max(100).transform((value, context) =>
   return canonical;
 });
 export const reviewFiltersSchema = z.strictObject({
-  q: z.string().trim().max(200).optional(), language: language.optional(),
+  // A NUL can't reach Postgres text: the search drops it rather than failing (SLN-933)
+  q: z.string().transform((value) => value.replaceAll("\u0000", "")).pipe(z.string().trim().max(200)).optional(), language: language.optional(),
   format: z.enum(EBOOK_FORMATS).optional(), hasIsbn: z.enum(["yes", "no"]).optional(),
   work: z.uuid().transform((value) => value.toLowerCase()).optional(),
   run: z.uuid().transform((value) => value.toLowerCase()).optional(),

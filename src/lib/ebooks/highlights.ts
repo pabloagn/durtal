@@ -69,7 +69,8 @@ function list(params: URLSearchParams, key: string): string[] {
 /** /ebooks/highlights URL contract: q, color, kind, ebook, sort, order, page, perPage. */
 export function parseHighlightParams(input: ListSearchParams | URLSearchParams): HighlightParams {
   const params = toSearchParams(input);
-  const q = (params.get("q") ?? "").trim().slice(0, 200);
+  // A NUL can't reach Postgres text: the search drops it rather than failing (SLN-933)
+  const q = (params.get("q") ?? "").replaceAll("\u0000", "").trim().slice(0, 200);
   const requested = params.get("sort");
   const sort: HighlightSort = HIGHLIGHT_SORTS.some((value) => value === requested) ? (requested as HighlightSort) : "newest";
   const rawOrder = params.get("order");

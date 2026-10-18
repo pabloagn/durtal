@@ -104,10 +104,11 @@ export function BookPicker({
             const state = pickerReadingState(book);
             return (
               <li key={book.id}>
+                {/* The house outline, inset so the list's scroller cannot cut it */}
                 <button
                   type="button"
                   onClick={() => choose(book)}
-                  className="flex w-full items-center gap-3 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-bg-tertiary/50 focus-visible:bg-bg-tertiary/50 focus-visible:outline-none"
+                  className="flex w-full items-center gap-3 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-bg-tertiary/50 focus-visible:bg-bg-tertiary/50 focus-visible:-outline-offset-2"
                 >
                   <span className="h-12 w-8 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary">
                     {book.cover && (

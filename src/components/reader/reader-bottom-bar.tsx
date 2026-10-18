@@ -11,6 +11,7 @@ import { Hash, PanelBottom } from "lucide-react";
 import { formatPercent, samePlace } from "@/lib/reader/place-label";
 import type { ReaderPresentation } from "@/lib/validations/reader-preferences";
 import { themeColours } from "@/lib/reader/presentation/themes";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /** How far scrolled text fades into the top edge: `h-6` on the fade */
 export const QUIET_TOP_FADE_PX = 24;
@@ -204,7 +205,7 @@ export function ReaderBottomBar({
               }}
               aria-label="Go to"
               data-tooltip="Go to"
-              data-tooltip-keys="g"
+              {...shortcutProps("g")}
               className="action-icon-sm"
             >
               <Hash className="h-4 w-4" strokeWidth={1.5} />

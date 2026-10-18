@@ -462,6 +462,37 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     expect(await getTaxonomyFamily("temporary")).toBeNull();
   });
 
+  it("deletes a parent with no links by moving its narrower items up a level", async () => {
+    const fiction = await createTaxonomyItem("categories", { name: "Fiction" }),
+      novel = await createTaxonomyItem("categories", { name: "Novel", parentId: fiction.id }),
+      gothic = await createTaxonomyItem("categories", { name: "Gothic novel", parentId: novel.id });
+    // Without the choice the parent stays, with its reason
+    await expect(deleteTaxonomyItem("categories", novel.id)).rejects.toThrow(/^Move this item's children before deleting it$/);
+    await deleteTaxonomyItem("categories", novel.id, undefined, true);
+    expect((await c`select parent_id,level from book_categories where id=${gothic.id}`)[0]).toEqual({ parent_id: fiction.id, level: 2 });
+    expect(await c`select id from book_categories where id=${novel.id}`).toHaveLength(0);
+    // Links still refuse the delete, and nothing moves
+    await c`insert into work_categories(work_id,category_id) values (${work.book},${fiction.id})`;
+    await expect(deleteTaxonomyItem("categories", fiction.id, undefined, true)).rejects.toThrow(/^Reassign this item's catalogue links/);
+    expect((await c`select parent_id from book_categories where id=${gothic.id}`)[0].parent_id).toBe(fiction.id);
+    // A custom family's top-level parent leaves its children at the top level
+    await createTaxonomyFamily({ name: "Mood", scopes: [{ kind: "book", level: "work" }], hierarchical: true });
+    const dark = await createTaxonomyItem("mood", { name: "Dark" }),
+      noir = await createTaxonomyItem("mood", { name: "Noir", parentId: dark.id });
+    await deleteTaxonomyItem("mood", dark.id, undefined, true);
+    expect((await c`select parent_id from custom_taxonomy_items where id=${noir.id}`)[0].parent_id).toBeNull();
+  });
+
+  it("puts the narrower items where their deleted parent stood, in their own order", async () => {
+    const poetry = await createTaxonomyItem("categories", { name: "Poetry" }),
+      drama = await createTaxonomyItem("categories", { name: "Drama" }),
+      villanelle = await createTaxonomyItem("categories", { name: "Villanelle", parentId: poetry.id }),
+      sonnet = await createTaxonomyItem("categories", { name: "Sonnet", parentId: poetry.id });
+    await deleteTaxonomyItem("categories", poetry.id, undefined, true);
+    const top = await c`select id from book_categories where parent_id is null and id in (${drama.id},${villanelle.id},${sonnet.id}) order by sort_order,lower(name),id`;
+    expect(top.map((r) => r.id)).toEqual([villanelle.id, sonnet.id, drama.id]);
+  });
+
   it("creates families with exactly the chosen scopes and keeps their URL on rename", async () => {
     const film = await createTaxonomyFamily({ name: "Mood", scopes: [{ kind: "film", level: "work" }] });
     expect(film.slug).toBe("mood");

@@ -455,6 +455,7 @@ export function TaxonomyFamilyShell({
               type="text"
               data-list-focus="search"
               data-shortcut-search=""
+              aria-keyshortcuts="/"
               value={searchQuery}
               onChange={(e) => typeFilter(e.target.value)}
               placeholder="Filter items…"

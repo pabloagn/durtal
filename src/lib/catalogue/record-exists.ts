@@ -9,6 +9,7 @@ import {
   paintingDetails,
   perfumeDetails,
   publishingHouses,
+  recommenders,
   series,
   works,
 } from "@/lib/db/schema";
@@ -23,7 +24,7 @@ import { isUuid } from "@/lib/utils/uuid";
  * 404, not a 200 with "not found" in it. Each check matches the page's own
  * lookup (`getFilm`, `getPerfume`, `getPainting`, `getOrganization`,
  * `getPublisher`, `getAuthorBySlug`, `getEbookDetail`, `getCollection`,
- * `getSeriesDetail`) in one small query.
+ * `getSeriesDetail`, `getRecommender`) in one small query.
  * An address that is not valid text, or longer than the lookup accepts, does
  * not exist.
  */
@@ -144,4 +145,11 @@ export async function readingImportExists(id: string): Promise<boolean> {
     await db.execute(sql`select 1 as found from imports where id = ${id}::uuid and source in ${IMPORT_SOURCES} limit 1`),
   );
   return rows.length > 0;
+}
+
+/** A recommender by id, as `getRecommender` finds it */
+export async function recommenderExists(id: string): Promise<boolean> {
+  if (!z.uuid().safeParse(id).success) return false;
+  const [row] = await db.select({ id: recommenders.id }).from(recommenders).where(eq(recommenders.id, id)).limit(1);
+  return !!row;
 }

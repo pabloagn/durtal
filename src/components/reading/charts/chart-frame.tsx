@@ -83,7 +83,8 @@ export function ChartFrame({
           at.current = null;
           setFocus(null);
         }}
-        className="rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-accent-primary/60"
+        // The house outline, held clear of the axis labels at the frame's edges
+        className="rounded-sm focus-visible:outline-offset-4"
         style={{ height }}
         data-chart-frame=""
       >

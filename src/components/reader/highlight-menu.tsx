@@ -8,6 +8,7 @@ import type {
 } from "@/lib/reader/annotations";
 import { AnnotationSwatches } from "./annotation-swatches";
 import { MARK_ACTION, selectionToolbarPosition } from "./selection-toolbar";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 export function HighlightMenu({
   annotation,
@@ -127,7 +128,7 @@ export function HighlightMenu({
         type="button"
         className={MARK_ACTION}
         data-tooltip={annotation.note ? "Edit note" : "Add a note"}
-        data-tooltip-keys="n"
+        {...shortcutProps("n")}
         onClick={onNote}
       >
         Note
@@ -161,7 +162,7 @@ export function HighlightMenu({
         type="button"
         aria-label="Close"
         data-tooltip="Close"
-        data-tooltip-keys="esc"
+        {...shortcutProps("esc")}
         className={`${MARK_ACTION} w-8 px-0`}
         onClick={() => close.current()}
       >

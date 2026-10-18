@@ -56,7 +56,8 @@ export function parseEbookLibraryParams(
   input: ListSearchParams | URLSearchParams,
 ): EbookLibraryParams {
   const params = toSearchParams(input);
-  const q = (params.get("q") ?? "").trim().slice(0, 200);
+  // A NUL can't reach Postgres text: the search drops it rather than failing (SLN-933)
+  const q = (params.get("q") ?? "").replaceAll("\u0000", "").trim().slice(0, 200);
   const requestedSort = params.get("sort");
   const explicitSort = EBOOK_LIBRARY_SORTS.some(
     (sort) => sort === requestedSort,

@@ -23,6 +23,7 @@ import { CollectionIconLazy } from "@/components/collections/collection-icon-laz
 import { CountParts } from "@/components/collections/count-parts";
 import { countLabel } from "@/lib/utils/format";
 import { normalizeSearchText } from "@/lib/utils/search-text";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 type Data = Awaited<ReturnType<typeof getCollectionSelection>>;
 
@@ -432,7 +433,7 @@ export function CollectionButton({
       <button
         type="button"
         data-tooltip="Add to collection"
-        data-tooltip-keys={shortcut ? `a then ${COLLECTION_SHORTCUT}` : undefined}
+        {...shortcutProps(shortcut ? `a then ${COLLECTION_SHORTCUT}` : undefined)}
         aria-label="Add to collection"
         onClick={(e) => {
           e.preventDefault();

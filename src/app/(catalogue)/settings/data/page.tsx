@@ -139,7 +139,7 @@ export default async function DataSettingsPage() {
         <ExportRow
           entity="goodreads"
           label="Goodreads file"
-          description="Your shelves and reads in Goodreads' own export format, which Goodreads and StoryGraph import. Half stars round up, and only exact dates go out."
+          description="Your shelves and reads in Goodreads’ own export format, which Goodreads and StoryGraph import. Half stars round up, and only exact dates go out."
         />
         {WORK_DOMAINS.perfume.enabled && (
           <ExportRow

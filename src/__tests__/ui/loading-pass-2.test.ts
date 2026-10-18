@@ -15,6 +15,7 @@ import CollectionLoading from "../../app/(catalogue)/collections/[id]/loading";
 import SeriesLoading from "../../app/(catalogue)/series/[id]/loading";
 import YearInReviewLoading from "../../app/(catalogue)/reading/year/[year]/loading";
 import ImportPreviewLoading from "../../app/(catalogue)/reading/import/[id]/loading";
+import RecommenderLoading from "../../app/(catalogue)/recommenders/[id]/loading";
 
 // Second loading audit, 15 Oct (SLN-749, SLN-751): a click on a reading tab,
 // a collection or a series showed nothing until the page arrived
@@ -58,13 +59,21 @@ describe("a year in review's and an import's loading screens (SLN-815)", () => {
   });
 });
 
-describe("a collection's and a series' loading screens", () => {
+describe("a collection's, a series' and a recommender's loading screens", () => {
   it.each([
     ["a collection", CollectionLoading, "Loading the collection", "/collections"],
     ["a series", SeriesLoading, "Loading the series", "/series"],
+    // SLN-817: a click on a recommender showed nothing until the page arrived
+    ["a recommender", RecommenderLoading, "Loading the recommender", "/recommenders"],
   ] as const)("%s says it is loading and keeps the way back", (_, Loading, label, back) => {
     const screen = status(createElement(Loading));
     expect(screen.getAttribute("aria-label")).toBe(label);
     expect(screen.querySelector("a")!.getAttribute("href")).toBe(back);
+  });
+
+  it("draws a recommender's books in the page's own compact grid", () => {
+    const grid = status(createElement(RecommenderLoading)).querySelector(".catalogue-grid");
+    expect(grid?.classList.contains("catalogue-density-compact")).toBe(true);
+    expect(grid?.parentElement?.classList.contains("@container")).toBe(true);
   });
 });
