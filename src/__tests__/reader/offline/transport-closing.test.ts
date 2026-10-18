@@ -5,7 +5,7 @@ import {
 } from "@/lib/reader/offline/transport";
 import { planReplayClaim } from "@/lib/reader/offline/outbox-policy";
 import type { OfflineStore, StoredOperation } from "@/lib/reader/offline/store";
-import { annotations, DEVICE, itemId, NOW } from "./fixtures";
+import { annotations, DEVICE, itemId, NOW, OTHER, position } from "./fixtures";
 
 /** A delete still in its Undo window, as the reader leaves it in the queue */
 function deleting(seq: number, row: Partial<StoredOperation> = {}): StoredOperation {
@@ -20,9 +20,15 @@ function deleting(seq: number, row: Partial<StoredOperation> = {}): StoredOperat
     ...row,
   };
 }
+/** The place of a page turned, as the reader queues it */
+function turned(seq: number, progression: number, options: Parameters<typeof position>[2] = {}): StoredOperation {
+  return { ...position(seq, progression, options), v: 1, retryAt: null };
+}
 const never = () => new Promise<never>(() => {});
 
-function setup(initial: StoredOperation[]) {
+/** `held`: this page's own replay never gets past its claim, as when the
+ * page closes before it does */
+function setup(initial: StoredOperation[], { held = false } = {}) {
   let rows = initial;
   const document = Object.assign(new EventTarget(), {
     visibilityState: "visible",
@@ -37,7 +43,7 @@ function setup(initial: StoredOperation[]) {
     claim: vi.fn(async (options: Parameters<typeof planReplayClaim>[1]) => {
       if (
         options.mode === "foreground" &&
-        rows[0]?.annotation?.undo?.state === "undoable"
+        (held || rows[0]?.annotation?.undo?.state === "undoable")
       )
         return { kind: "stop" as const, reason: "undo_pending" as const };
       return planReplayClaim(rows, options);
@@ -161,5 +167,81 @@ describe("a page closing inside a delete's Undo window (SLN-869)", () => {
     await vi.advanceTimersByTimeAsync(0);
     page.closing();
     expect(page.send).not.toHaveBeenCalled();
+  });
+});
+
+describe("pages turned inside a delete's Undo window, then the page closes (SLN-919)", () => {
+  type Sent = [{ json: string; rows: StoredOperation[] }, AbortSignal, string];
+  const sent = (send: ReturnType<typeof setup>["send"]) =>
+    (send.mock.calls as unknown as Sent[]).map(([plan, , mode]) => ({
+      mode,
+      kind: plan.rows[0].mutation.kind,
+      body: JSON.parse(plan.json),
+    }));
+  it("sends the newest place as a second keepalive, after the delete", async () => {
+    const page = setup([deleting(1), turned(2, 0.2), turned(3, 0.3), turned(4, 0.4)]);
+    transport = page.transport;
+    await vi.advanceTimersByTimeAsync(0);
+    page.closing();
+    const requests = sent(page.send);
+    expect(requests.map(({ kind, mode }) => [kind, mode])).toEqual([
+      ["annotations", "lifecycle"],
+      ["position", "lifecycle"],
+    ]);
+    expect(requests[0].body.deletes.map((item: { id: string }) => item.id)).toEqual([itemId(1000)]);
+    expect(requests[1].body.locator.totalProgression).toBe(0.4);
+  });
+  it("picks the newest place by time, not by queue order", async () => {
+    const page = setup([
+      deleting(1),
+      turned(2, 0.6, { time: new Date(NOW + 50).toISOString() }),
+      turned(3, 0.3),
+    ]);
+    transport = page.transport;
+    await vi.advanceTimersByTimeAsync(0);
+    page.closing();
+    expect(sent(page.send)[1].body.locator.totalProgression).toBe(0.6);
+  });
+  it("still sends the place alone when nothing waits before it", async () => {
+    const page = setup([turned(1, 0.4)], { held: true });
+    transport = page.transport;
+    await vi.advanceTimersByTimeAsync(0);
+    page.closing();
+    const requests = sent(page.send);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({ kind: "position", mode: "lifecycle" });
+  });
+  it("sends the place, and not the mark, once the delete was undone", async () => {
+    const page = setup([deleting(1), turned(2, 0.4)], { held: true });
+    transport = page.transport;
+    await vi.advanceTimersByTimeAsync(0);
+    await transport.store.transactBook("book", (current) => ({
+      ...current,
+      pending: current.pending.filter((row) => row.mutation.kind === "position"),
+    }));
+    await vi.advanceTimersByTimeAsync(0);
+    page.closing();
+    expect(sent(page.send).map(({ kind }) => kind)).toEqual(["position"]);
+  });
+  it("leaves the place to a later visit when the two bodies would not fit the keepalive budget", async () => {
+    const page = setup([
+      { ...annotations(1, { note: "x".repeat(61_200) }), v: 1, retryAt: null },
+      turned(2, 0.4),
+    ], { held: true });
+    transport = page.transport;
+    await vi.advanceTimersByTimeAsync(0);
+    page.closing();
+    expect(sent(page.send).map(({ kind }) => kind)).toEqual(["annotations"]);
+  });
+  it("leaves out a place of another device, or one another page holds", async () => {
+    const page = setup([
+      deleting(1),
+      turned(2, 0.4, { deviceId: OTHER }),
+      { ...turned(3, 0.5), state: "claimed", claim: { token: "other-page", expiresAt: NOW + 30_000 } },
+    ]);
+    transport = page.transport;
+    await vi.advanceTimersByTimeAsync(0);
+    page.closing();
+    expect(sent(page.send).map(({ kind }) => kind)).toEqual(["annotations"]);
   });
 });

@@ -7,7 +7,9 @@ import {
 } from "./mutations";
 import {
   annotationAcknowledgments,
+  comparePositionTimes,
   OUTBOX_CLAIM_MS,
+  OUTBOX_KEEPALIVE_BYTES,
   planReplayClaim,
   replayDelay,
   replayOutcome,
@@ -403,10 +405,63 @@ export function createReaderTransport(options: TransportOptions) {
     if (!visible()) onPageHide();
     else kick();
   };
+  /** The newest reading place the head plan leaves behind. While a delete
+   * waits out its Undo window, the place of every page turned after it
+   * queues behind it, and the closing page sent only the delete (SLN-919).
+   * The server keeps the newest place by time, so it can go alongside, when
+   * the two bodies fit the keepalive budget together. */
+  function closingPosition(
+    rows: readonly StoredOperation[],
+    head: ClaimedPlan,
+    at: number,
+  ): ClaimedPlan | null {
+    const sent = new Set(head.rows.map((row) => row.seq)),
+      first = head.rows[0].mutation;
+    const newer = (row: StoredOperation, than: StoredOperation["mutation"]) => {
+      if (row.mutation.kind !== "position" || than.kind !== "position")
+        return than.kind !== "position";
+      const order = comparePositionTimes(
+        row.mutation.body.clientUpdatedAt,
+        than.body.clientUpdatedAt,
+      );
+      return (
+        order > 0 ||
+        (order === 0 &&
+          row.mutation.body.locator.totalProgression >
+            than.body.locator.totalProgression)
+      );
+    };
+    let newest: StoredOperation | null = null;
+    for (const row of rows)
+      if (
+        row.mutation.kind === "position" &&
+        !sent.has(row.seq) &&
+        row.state === "waiting" &&
+        (row.retryAt === null || row.retryAt <= at) &&
+        row.mutation.deviceId.toLowerCase() === first.deviceId.toLowerCase() &&
+        newer(row, newest?.mutation ?? first)
+      )
+        newest = row;
+    if (!newest) return null;
+    const plan = planReplayClaim([newest], {
+      visible: false,
+      reachable: true,
+      currentDeviceId: first.deviceId,
+      nowMs: at,
+      token: token(),
+      mode: "lifecycle",
+    });
+    const size = (json: string) => new TextEncoder().encode(json).byteLength;
+    return plan.kind === "claim" &&
+      size(head.json) + size(plan.json) <= OUTBOX_KEEPALIVE_BYTES
+      ? plan
+      : null;
+  }
   /** A closing page does not live to finish the device check and IndexedDB
    * work of a replay, so a delete still in its Undo window was lost until the
    * reader opened again on this device (SLN-869). It sends the head of the
-   * queue as last read at once, in one keepalive body, unclaimed. The server
+   * queue as last read at once, in one keepalive body, unclaimed, and the
+   * newest reading place behind it in a second (SLN-919). The server
    * applies each operation once by its id, so the replay that follows on a
    * later visit, or one that got further on this page, is acknowledged
    * without applying anything twice. The device header still has to match
@@ -437,9 +492,11 @@ export function createReaderTransport(options: TransportOptions) {
       mode: "lifecycle",
     });
     if (plan.kind !== "claim") return false;
-    send(plan, new AbortController().signal, "lifecycle").catch((error) =>
-      options.onError?.(error),
-    );
+    const place = closingPosition(free, plan, at);
+    for (const each of place ? [plan, place] : [plan])
+      send(each, new AbortController().signal, "lifecycle").catch((error) =>
+        options.onError?.(error),
+      );
     return true;
   }
   const onPageHide = (event?: Event) => {
