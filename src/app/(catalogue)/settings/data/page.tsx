@@ -1,11 +1,19 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { buttonClass } from "@/components/ui/button";
+import { SkeletonLine } from "@/components/shared/skeleton";
 import {
   SettingFact,
   SettingRow,
   SettingsGroup,
 } from "@/components/settings/settings-group";
-import { catalogueCounts, enrichmentSpend, evidenceCacheStats, reviewQueueCounts } from "@/lib/settings/data";
+import {
+  catalogueCounts,
+  enrichmentSpend,
+  evidenceCacheStats,
+  identifyQueueCount,
+  seriesSuggestionCounts,
+} from "@/lib/settings/data";
 import { ExportRow, RefreshCacheRow } from "./data-actions";
 import { WORK_DOMAINS } from "@/lib/catalogue/domains";
 
@@ -25,22 +33,28 @@ function size(bytes: number) {
   return unit === 0 ? `${value} bytes` : `${value.toFixed(1)} ${units[unit]}`;
 }
 
-/** A review queue: what it holds, how much waits, and a link to it. */
+/**
+ * A review queue: what it holds, how much waits, and a link to it. While its
+ * count streams in, `counting` holds the count's place, so Open stays put.
+ */
 function QueueRow({
   id,
   label,
   description,
   waiting,
+  counting = false,
   href,
 }: {
   id: string;
   label: string;
   description: string;
   waiting?: string;
+  counting?: boolean;
   href: string;
 }) {
   return (
     <SettingRow id={id} label={label} description={description} controlHeight={28} labelFor={false}>
+      {counting && <SkeletonLine className="w-36 text-sm" />}
       {waiting && <span className="text-sm text-fg-secondary">{waiting}</span>}
       <Link href={href} aria-describedby={`${id}-description`} className={buttonClass("secondary", "sm")}>
         Open
@@ -50,10 +64,28 @@ function QueueRow({
   );
 }
 
+const SERIES_QUEUE = {
+  id: "queue-series",
+  label: "Series suggestions",
+  description: "Books whose title names a series they are not in yet.",
+  href: "/series/suggestions",
+};
+
+/** The series queue's count, streamed: matching every title takes the longest of the page's reads (SLN-940) */
+async function SeriesQueueRow() {
+  const suggested = await seriesSuggestionCounts();
+  return (
+    <QueueRow
+      {...SERIES_QUEUE}
+      waiting={`${plural(suggested.books, "book", "books")} in ${plural(suggested.series, "series", "series")}`}
+    />
+  );
+}
+
 export default async function DataSettingsPage() {
-  const [counts, queues, spend, evidence] = await Promise.all([
+  const [counts, identify, spend, evidence] = await Promise.all([
     catalogueCounts(),
-    reviewQueueCounts(),
+    identifyQueueCount(),
     enrichmentSpend(),
     evidenceCacheStats(),
   ]);
@@ -77,16 +109,12 @@ export default async function DataSettingsPage() {
           id="queue-identify"
           label="Identify editions"
           description="Editions that hold a placeholder from the old import instead of a real book."
-          waiting={plural(queues.identify, "edition", "editions")}
+          waiting={plural(identify, "edition", "editions")}
           href="/library/identify"
         />
-        <QueueRow
-          id="queue-series"
-          label="Series suggestions"
-          description="Books whose title names a series they are not in yet."
-          waiting={`${plural(queues.suggestedBooks, "book", "books")} in ${plural(queues.suggestedSeries, "series", "series")}`}
-          href="/series/suggestions"
-        />
+        <Suspense fallback={<QueueRow {...SERIES_QUEUE} counting />}>
+          <SeriesQueueRow />
+        </Suspense>
         <QueueRow
           id="queue-publishers"
           label="Publisher names"
