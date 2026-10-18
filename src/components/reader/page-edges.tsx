@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /**
  * The page turn buttons for a mouse (SLN-662). A click in the text never
@@ -38,7 +39,7 @@ export function PageEdges({
         type="button"
         aria-label={left}
         data-tooltip={left}
-        data-tooltip-keys="←"
+        {...shortcutProps("←")}
         onClick={onLeft}
         inert={!shown.left}
         className={edge("left")}
@@ -49,7 +50,7 @@ export function PageEdges({
         type="button"
         aria-label={right}
         data-tooltip={right}
-        data-tooltip-keys="→"
+        {...shortcutProps("→")}
         onClick={onRight}
         inert={!shown.right}
         className={edge("right")}

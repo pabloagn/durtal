@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { useReaderFeatureShortcut } from "./bridge";
 import type { ReaderEngine } from "@/lib/reader/engine";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 export function FixedLayoutControls({ engine, fit, onFit, onPick, onHeldChange, enabled, isAdmitted }: { engine: ReaderEngine; fit: "page" | "width"; onFit(fit: "page" | "width"): void; onPick(href: string): Promise<boolean>; onHeldChange(held: boolean): void; enabled: boolean; isAdmitted(): boolean }) {
   const [open, setOpen] = useState(false), [page, setPage] = useState(0), [zoom, setZoom] = useState(engine.fixedZoom?.() ?? null);
   const pages = engine.fixedPages?.() ?? [];
@@ -18,7 +19,7 @@ export function FixedLayoutControls({ engine, fit, onFit, onPick, onHeldChange, 
   const resetZoom = () => { if (admitted()) engine.setFixedZoom?.(null); };
   useReaderFeatureShortcut("w", 13, () => changeFit(fit === "page" ? "width" : "page"), enabled);
   useReaderFeatureShortcut("p", 13, () => { if (admitted()) setOpen(value => !value); }, enabled);
-  return <><CapAligned height={32} coarseHeight={44}><button type="button" className="block rounded-sm p-2 text-fg-secondary hover:bg-bg-tertiary/50 pointer-coarse:p-3.5" aria-label="Page controls" data-tooltip="Page controls" data-tooltip-keys="p" disabled={!enabled} onClick={() => { if (admitted()) setOpen(true); }}><PanelsTopLeft className="h-4 w-4" strokeWidth={1.5} /></button></CapAligned>
+  return <><CapAligned height={32} coarseHeight={44}><button type="button" className="block rounded-sm p-2 text-fg-secondary hover:bg-bg-tertiary/50 pointer-coarse:p-3.5" aria-label="Page controls" data-tooltip="Page controls" {...shortcutProps("p")} disabled={!enabled} onClick={() => { if (admitted()) setOpen(true); }}><PanelsTopLeft className="h-4 w-4" strokeWidth={1.5} /></button></CapAligned>
     <Dialog open={open} onClose={() => setOpen(false)} title="Page controls" expandable={false} className="max-w-lg"><div data-reader-widget className="flex flex-col gap-4">
       <div className="flex flex-wrap gap-2"><Button variant="ghost" disabled={!enabled} onClick={() => adjustZoom(-1)} aria-label="Zoom out">−</Button><span role="status" className="self-center text-sm">{zoom === null ? fit === "page" ? "Fit page" : "Fit width" : `${zoom}%`}</span><Button variant="ghost" disabled={!enabled} onClick={() => adjustZoom(1)} aria-label="Zoom in">+</Button><Button variant="ghost" disabled={!enabled} onClick={resetZoom}>Reset zoom</Button></div>
       <div className="flex gap-2"><Button variant="ghost" disabled={!enabled} onClick={() => changeFit("page")} aria-pressed={fit === "page"}>Fit page</Button><Button variant="ghost" disabled={!enabled} onClick={() => changeFit("width")} aria-pressed={fit === "width"}>Fit width</Button></div>

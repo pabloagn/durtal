@@ -120,6 +120,63 @@ export function editTooltipKeys(key: string) {
   return `e then ${key}`;
 }
 
+/** Where a token's key has another name in aria-keyshortcuts */
+const ARIA_KEY_NAMES: Record<string, string> = {
+  alt: "Alt",
+  shift: "Shift",
+  enter: "Enter",
+  esc: "Escape",
+  escape: "Escape",
+  space: "Space",
+  tab: "Tab",
+  home: "Home",
+  end: "End",
+  pageup: "PageUp",
+  pagedown: "PageDown",
+  left: "ArrowLeft",
+  right: "ArrowRight",
+  up: "ArrowUp",
+  down: "ArrowDown",
+  arrowleft: "ArrowLeft",
+  arrowright: "ArrowRight",
+  arrowup: "ArrowUp",
+  arrowdown: "ArrowDown",
+  "←": "ArrowLeft",
+  "→": "ArrowRight",
+  "↑": "ArrowUp",
+  "↓": "ArrowDown",
+  "+": "Plus",
+};
+
+/**
+ * A control's shortcut for assistive technology (`aria-keyshortcuts`), from
+ * its tooltip's key tokens: "mod k" is "Meta+K" on a Mac and "Control+K"
+ * elsewhere, "alt left" is "Alt+ArrowLeft". A sequence ("e then w") is
+ * written as the app prints it, "E W" (SLN-964).
+ */
+export function ariaKeyShortcuts(keys: string, mac: boolean): string {
+  return keys
+    .trim()
+    .split(/\s+then\s+/)
+    .map((step) =>
+      step
+        .split(/\s+/)
+        .map((token) => (token === "mod" ? (mac ? "Meta" : "Control") : (ARIA_KEY_NAMES[token] ?? token.toUpperCase())))
+        .join("+"),
+    )
+    .join(" ");
+}
+
+/**
+ * A control's shortcut, for its tooltip (`data-tooltip-keys`) and for
+ * assistive technology (`aria-keyshortcuts`): spread it on the control.
+ * A shortcut with "mod" passes `useIsMac()`.
+ */
+export function shortcutProps(keys: string | undefined, mac = true) {
+  if (!keys) return {};
+  return { "data-tooltip-keys": keys, "aria-keyshortcuts": ariaKeyShortcuts(keys, mac) };
+}
+
 /** What A then these keys do on an item's page, before the Add entry (SLN-571) */
 export const ITEM_KEY_LABELS: Record<string, string> = {
   f: "favourite the page's item",

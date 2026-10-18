@@ -12,6 +12,7 @@ import { catalogueStatusLabel } from "@/lib/utils/labels";
 import { formatBytes } from "@/lib/ebooks/run-text";
 import type { ReviewDetail, ReviewOutcome, ReviewQueueRow, ReviewSectionKey } from "@/lib/ebooks/review-queue/types";
 import type { ReviewUnlinkMode } from "@/lib/ebooks/review-queue/unlink-types";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 export type ReviewRowAction = "accept" | "choose" | "new" | "keep" | "exclude" | "rematch";
 const flags: Record<string, string> = { omnibus: "Omnibus", sample: "Sample", periodical: "Periodical",
@@ -84,7 +85,7 @@ export function ReviewRow({ row, section, detail, selected, focused, busy, retur
         </ul>
         <div className="mt-3 flex flex-wrap gap-2">
           {native && <ReaderEntryLink readerPath={`/reader/${row.id}`} returnTo={returnTo} data-review-open={row.id}
-            data-tooltip-keys="o" className={buttonClass("secondary", "sm")}>Open</ReaderEntryLink>}
+            {...shortcutProps("o")} className={buttonClass("secondary", "sm")}>Open</ReaderEntryLink>}
           <a href={`/ebooks/${row.id}`} className={buttonClass("secondary", "sm")}>eBook details</a>
         </div>
       </div>
@@ -113,13 +114,13 @@ export function ReviewRow({ row, section, detail, selected, focused, busy, retur
               {candidate.editionCount > candidate.editions.length && <p className="mt-1">Showing the first {candidate.editions.length}. Open the book to see all editions.</p>}
             </details>
             {pending && <Button className="mt-2" size="sm" variant={!index && recommended === "accept" ? "primary" : "secondary"}
-              disabled={decisionDisabled || (actual !== undefined && !actual.eligible)} data-tooltip-keys={index ? undefined : "a"}
+              disabled={decisionDisabled || (actual !== undefined && !actual.eligible)} {...shortcutProps(index ? undefined : "a")}
               onClick={() => onAction("accept", candidate.rank)}>Review this match</Button>}
           </div>;
         })}
         {pending && <div className="flex flex-wrap gap-2 border-t border-glass-border pt-3">
           {primary && <Button size="sm" variant="primary" onClick={() => onAction(primary.action)} disabled={decisionDisabled}
-            data-tooltip-keys={primary.key}>{primary.label}</Button>}
+            {...shortcutProps(primary.key)}>{primary.label}</Button>}
           <DropdownMenu align="start" trigger={<button type="button" disabled={decisionDisabled} data-review-choices={row.id}
             className={buttonClass("secondary", "sm")}>Other choices<ChevronDown aria-hidden className="h-4 w-4" strokeWidth={1.5} /></button>}>
             {others.map((choice) => <DropdownMenuItem key={choice.action} disabled={decisionDisabled}
