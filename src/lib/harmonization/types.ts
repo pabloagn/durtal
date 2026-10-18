@@ -57,6 +57,8 @@ export interface Scan {
     ready: number;
     categories: Record<Category, number>;
   };
+  /** Names this scan, for a filter change to be answered from it (SLN-887) */
+  scanId: string;
   scannedAt: string;
   recordCount: number;
   entityCount: number;

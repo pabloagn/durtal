@@ -656,6 +656,25 @@ describe.skipIf(!url)("Harmonization with PostgreSQL", () => {
       fourth.value.findings.find((item) => item.key === f.key)?.dismissed,
     ).toBe(false);
   });
+  it("answers a search from the scan the page shows, and scans afresh otherwise (SLN-887)", async () => {
+    await author("  First  Name  ");
+    const first = await scanLibrary();
+    if (!first.ok) throw new Error(first.error);
+    await author("  Second  Name  ");
+    const has = (scan: Awaited<ReturnType<typeof scanLibrary>>, name: string) =>
+      scan.ok && scan.value.findings.some((f) => f.records.some((r) => r.name.includes(name)));
+    const filtered = await scanLibrary({ search: "name", of: first.value.scanId });
+    expect(filtered.ok && filtered.value.scanId).toBe(first.value.scanId);
+    expect(filtered.ok && filtered.value.scannedAt).toBe(first.value.scannedAt);
+    expect(has(filtered, "First")).toBe(true);
+    expect(has(filtered, "Second")).toBe(false);
+    const fresh = await scanLibrary({ search: "name" });
+    expect(fresh.ok && fresh.value.scanId).not.toBe(first.value.scanId);
+    expect(has(fresh, "Second")).toBe(true);
+    // A scan this process no longer holds is scanned again
+    const unknown = await scanLibrary({ of: first.value.scanId });
+    expect(unknown.ok && unknown.value.scanId).not.toBe(first.value.scanId);
+  });
   it("applies server-derived fixes, rejects forged changes and audits the result", async () => {
     await author("Balle, Solvej");
     const result = await scanLibrary();

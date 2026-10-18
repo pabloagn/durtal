@@ -79,7 +79,14 @@ function scanTableSql(name: string, shape: "arrays" | "objects"): SQL {
         ? sql`where exists (select 1 from person_domains pd where pd.person_id = r.id and pd.kind = 'book')`
         : name === "publishing_houses"
           ? sql`where r.kind is not null`
-          : sql``;
+          : name === "media"
+            ? // The images the scan reads, of the books, people and
+              // collections it scans: never a film's, perfume's, painting's,
+              // publisher's or object's (SLN-887)
+              sql`where r.collection_id is not null
+                or exists (select 1 from works w where w.id = r.work_id and w.kind = 'book')
+                or exists (select 1 from person_domains pd where pd.person_id = r.author_id and pd.kind = 'book')`
+            : sql``;
   // jsonb_build_array and jsonb_build_object take at most 100 arguments.
   const parts: SQL[] = [];
   for (let i = 0; i < keys.length; i += 50)
