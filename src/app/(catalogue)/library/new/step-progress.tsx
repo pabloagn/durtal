@@ -21,30 +21,38 @@ export function StepProgress({
   const steps = [...STEPS];
   if (duplicateAfter) steps.splice(steps.findIndex(s => s.key === duplicateAfter) + 1, 0, { key: "duplicate", label: "Existing book" });
   const currentIdx = Math.max(0, steps.findIndex(s => s.key === step));
+  // A phone keeps six bars: seven 44px targets do not fit across 320px, so
+  // the existing-book check shows as part of the step it was run from
+  const phoneIdx =
+    step === "duplicate" && duplicateAfter
+      ? STEPS.findIndex((s) => s.key === duplicateAfter)
+      : Math.max(0, STEPS.findIndex((s) => s.key === step));
   return (
     <div className="mb-6">
       {/* Six labels need about 600px: a narrow screen shows the current
           step and a bar, as the order dialog does */}
       <div className="sm:hidden">
         <p className="text-micro font-medium text-accent-primary">
-          Step {currentIdx + 1} of {steps.length} — {steps[currentIdx].label}
+          Step {phoneIdx + 1} of {STEPS.length} — {steps[currentIdx].label}
         </p>
-        <div className="mt-1 flex gap-1.5">
-          {steps.map((s, i) => (
+        {/* The 6px between bars is each button's own padding, so the
+            targets reach 44px across a 320px screen */}
+        <div className="-mx-[3px] mt-1 flex">
+          {STEPS.map((s, i) => (
             <button
               key={s.key}
               type="button"
               aria-label={s.label}
-              disabled={i >= currentIdx || disabled}
+              disabled={i >= phoneIdx || disabled}
               onClick={() => onStep(s.key)}
               // On touch a 44px target, with negative margins so the row keeps its height
-              className="flex-1 py-1.5 pointer-coarse:-my-[15px] pointer-coarse:py-[21px]"
+              className="flex-1 px-[3px] py-1.5 pointer-coarse:-my-[15px] pointer-coarse:py-[21px]"
             >
               <span
                 className={`block h-0.5 rounded-full transition-colors duration-300 ${
-                  i < currentIdx
+                  i < phoneIdx
                     ? "bg-accent-sage"
-                    : i === currentIdx
+                    : i === phoneIdx
                       ? "bg-accent-primary/60"
                       : "bg-bg-tertiary"
                 }`}
