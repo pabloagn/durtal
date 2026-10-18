@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useId } from "react";
 import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
@@ -111,6 +111,8 @@ export function EditReadingDialog({
 }: ReadingDialogProps) {
   const r = row!.reading;
   const done = r.status === "finished" || r.status === "abandoned";
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   const [editionId, setEditionId] = useState(r.editionId ?? "");
   const [instanceId, setInstanceId] = useState(r.instanceId ?? "");
   const [format, setFormat] = useState<ReadingFormat>(
@@ -345,7 +347,7 @@ export function EditReadingDialog({
       description={data.workTitle}
       className="max-w-lg"
     >
-      <form onSubmit={save} className="space-y-4">
+      <form id={formId} onSubmit={save} className="space-y-4">
         {data.editions.length > 0 && (
           <div className="space-y-1">
             <Select
@@ -602,7 +604,7 @@ export function EditReadingDialog({
             setReviewChanged(true);
           }}
         />
-        <DialogFooter
+        <DialogFooter form={formId}
           onCancel={onClose}
           saving={saving}
           disabled={

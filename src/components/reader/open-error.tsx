@@ -5,8 +5,8 @@ import { Button, buttonClass } from "@/components/ui/button";
 
 /**
  * When a book does not open (eBooks sub-issue 3): what went wrong in plain
- * words, Retry, the book's other readable files, and the way back. Never an
- * endless spinner. Retry is secondary and only where opening again can help;
+ * words, Try again, the book's other readable files, and the way back. Never
+ * an endless spinner. Try again is secondary and only where opening again can help;
  * a damaged or locked file offers its replacement instead (SLN-685).
  */
 export function OpenError({
@@ -40,7 +40,7 @@ export function OpenError({
         <div ref={actions} className="flex flex-wrap gap-2">
           {onRetry && (
             <Button variant="secondary" onClick={onRetry}>
-              Retry
+              Try again
             </Button>
           )}
           {alternatives.map((file) => (

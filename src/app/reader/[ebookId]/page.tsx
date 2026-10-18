@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { isUuid } from "@/lib/utils/uuid";
+import { ebookExists } from "@/lib/catalogue/record-exists";
 import { formatLabel } from "@/lib/ebooks/formats";
 import {
   readReaderBook,
@@ -112,8 +113,10 @@ async function viewFile(file: ReaderFile): Promise<ReaderViewFile> {
  */
 export default async function ReaderPage(props: PageProps) {
   const request = await readRequest(props);
-  // No device id yet: get one first, shared with any other reader tab (SLN-668)
-  if (!request.deviceId)
+  // No device id yet: get one first, shared with any other reader tab (SLN-668).
+  // An eBook that does not exist is a 404 first, as a link checker sees it (SLN-933)
+  if (!request.deviceId) {
+    if (!(await ebookExists(request.ebookId))) notFound();
     return (
       <>
         <script
@@ -124,6 +127,7 @@ export default async function ReaderPage(props: PageProps) {
         <DeviceHandshake ebookId={request.ebookId} backHref={request.returnTo ?? `/ebooks/${request.ebookId}`} />
       </>
     );
+  }
   const requiredControllerIds = getRequiredReaderControllerIds();
   const [bookResult, pluginsResult, runtimeResult, preferencesResult] = await Promise.allSettled([
     loadBook(request.ebookId, request.deviceId, request.fileId, request.from),

@@ -21,6 +21,7 @@ import { subscribeAnnotationServerChanges } from "@/lib/reader/annotation-server
 import type { ReaderSelection } from "@/lib/reader/events";
 import { markOnPassage } from "@/lib/reader/same-mark";
 import { MARK_ACTION } from "./selection-toolbar";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /** A selection taken for a mark, with the reader generation it belongs to */
 interface Captured {
@@ -225,7 +226,7 @@ export function useReaderAnnotations(input: {
         className={`${MARK_ACTION} pointer-coarse:hidden`}>
         Underline
       </button>
-      <button type="button" aria-label="Add a note" data-tooltip="Add a note" data-tooltip-keys="n" onClick={() => startNote()}
+      <button type="button" aria-label="Add a note" data-tooltip="Add a note" {...shortcutProps("n")} onClick={() => startNote()}
         className={`${MARK_ACTION} pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:px-0`}>
         <span className="pointer-coarse:hidden">Note</span>
         <NotebookPen aria-hidden className="hidden h-4 w-4 pointer-coarse:block" strokeWidth={1.5} />

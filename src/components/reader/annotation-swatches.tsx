@@ -4,6 +4,7 @@ import {
   type AnnotationColor,
 } from "@/lib/reader/annotations";
 import { QUIET_GLASS_ANNOTATION_PALETTE } from "@/lib/reader/annotation-colors";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 export function AnnotationSwatches({
   color,
@@ -29,7 +30,7 @@ export function AnnotationSwatches({
           aria-label={`Highlight in ${item}`}
           aria-pressed={color === item}
           data-tooltip={`Highlight in ${item}`}
-          data-tooltip-keys={String(index + 1)}
+          {...shortcutProps(String(index + 1))}
           disabled={disabled}
           onClick={() => onPick(item)}
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm hover:bg-bg-tertiary focus-visible:outline focus-visible:outline-accent-primary disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:w-11"

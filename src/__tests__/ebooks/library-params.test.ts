@@ -66,4 +66,8 @@ describe("ebook library URL parameters", () => {
     expect(p.q).toHaveLength(200);
     expect(p.normalizedSearch).toBe("e".repeat(200));
   });
+  it("drops a NUL from the search, which Postgres text cannot hold (SLN-933)", () => {
+    expect(parseEbookLibraryParams(new URLSearchParams("q=%00")).q).toBe("");
+    expect(parseEbookLibraryParams({ q: "nad\u0000ja" }).q).toBe("nadja");
+  });
 });

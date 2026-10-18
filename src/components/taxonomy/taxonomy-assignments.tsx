@@ -134,7 +134,7 @@ function FamilyAssignment({
                   refocus.current = true;
                   save(items.filter((i) => i.id !== item.id));
                 }}
-                className="flex h-4 w-4 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary touch-hit"
+                className="flex h-4 w-4 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-fg-primary focus-visible:-outline-offset-2 touch-hit"
               >
                 <X className="h-3 w-3" strokeWidth={1.5} />
               </button>

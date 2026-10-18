@@ -15,6 +15,7 @@ import {
   type ZoomState,
 } from "@/lib/reader/media/zoom";
 import { resolveThemeColors } from "@/lib/reader/presentation";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /** A native fullscreen modal; gesture updates write only one transform per animation frame. */
 export function ContentViewer({
@@ -321,7 +322,7 @@ export function ContentViewer({
           type="button"
           aria-label="Zoom out"
           data-tooltip="Zoom out"
-          data-tooltip-keys="-"
+          {...shortcutProps("-")}
           className="action-icon-sm"
           onClick={() => command.current("-")}
         >
@@ -331,7 +332,7 @@ export function ContentViewer({
           type="button"
           aria-label="Zoom in"
           data-tooltip="Zoom in"
-          data-tooltip-keys="+"
+          {...shortcutProps("+")}
           className="action-icon-sm"
           onClick={() => command.current("+")}
         >
@@ -341,7 +342,7 @@ export function ContentViewer({
           type="button"
           aria-label="Fit content"
           data-tooltip="Fit content"
-          data-tooltip-keys="0"
+          {...shortcutProps("0")}
           className="action-icon-sm"
           onClick={() => command.current("reset")}
         >
@@ -351,7 +352,7 @@ export function ContentViewer({
           type="button"
           aria-label="Close viewer"
           data-tooltip="Close viewer"
-          data-tooltip-keys="esc"
+          {...shortcutProps("esc")}
           className="action-icon-sm"
           onClick={onClose}
         >
