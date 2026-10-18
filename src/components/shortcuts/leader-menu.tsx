@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import type { LucideIcon } from "lucide-react";
 import { Kbd } from "@/components/shortcuts/kbd";
@@ -17,6 +17,10 @@ export interface LeaderMenuItem {
  * The menu that N ("New"), G ("Go to"), Y ("Copy"), E ("Edit") and R ("Reading") open. It stays open until a choice
  * or Esc: press an item's letter, or move with ↑ ↓ and press Enter, or click.
  * The keys are handled by ShortcutsProvider.
+ *
+ * The focus is on the active item, so a screen reader announces the menu and
+ * each item ↑ ↓ moves to (SLN-963). When the menu closes, the focus goes back
+ * to where it was, before a choice opens a dialog that returns to it.
  */
 export function LeaderMenu({
   title,
@@ -33,13 +37,29 @@ export function LeaderMenu({
   onPick: (index: number) => void;
   onClose: () => void;
 }) {
+  const menuRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
+    activeRef.current?.focus({ preventScroll: true });
     activeRef.current?.scrollIntoView({ block: "nearest" });
   }, [active]);
+  // A layout cleanup runs while the menu is still in the page, and before
+  // the effects of whatever the choice opened
+  useLayoutEffect(() => {
+    const before = document.activeElement;
+    const menu = menuRef.current;
+    return () => {
+      const focused = document.activeElement;
+      if (!(focused instanceof HTMLElement) || !menu?.contains(focused)) return;
+      if (before instanceof HTMLElement && before !== document.body && before.isConnected)
+        before.focus({ preventScroll: true });
+      else focused.blur();
+    };
+  }, []);
   return (
     <div className="fixed inset-0 z-50" onMouseDown={onClose}>
       <div
+        ref={menuRef}
         role="menu"
         aria-label={title}
         onMouseDown={(e) => e.stopPropagation()}
@@ -59,11 +79,11 @@ export function LeaderMenu({
                 type="button"
                 role="menuitem"
                 ref={i === active ? activeRef : undefined}
-                tabIndex={-1}
+                tabIndex={i === active ? 0 : -1}
                 data-active={i === active || undefined}
                 onMouseEnter={() => onActiveChange(i)}
                 onClick={() => onPick(i)}
-                className="flex w-full items-center gap-2.5 rounded-sm px-2 py-2 pointer-coarse:min-h-11 text-left text-sm text-fg-secondary transition-colors data-[active]:bg-selection-bg/60 data-[active]:text-fg-primary"
+                className="flex w-full items-center gap-2.5 rounded-sm px-2 py-2 pointer-coarse:min-h-11 text-left text-sm text-fg-secondary outline-none transition-colors data-[active]:bg-selection-bg/60 data-[active]:text-fg-primary"
               >
                 <CapAligned height={16}>
                   <item.icon className="h-4 w-4" strokeWidth={1.5} />
