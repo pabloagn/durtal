@@ -35,6 +35,8 @@ export function FinishReadingDialog({ data, row, request, home, onClose, changed
   const switchId = useId();
   const [finish, setFinish] = useState<ReadingDate>(() => ({ date: request.finishedOn ?? defaultFinishDate(todayReadingDay(data.dayStartHour), r.startedOn), precision: "day" }));
   const [rating, setRating] = useState<number | null>(r.rating != null ? Number(r.rating) : null);
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   const [setBook, setSetBook] = useState(true);
   const [review, setReview] = useState<RichValue | null>(r.reviewHtml ? { html: r.reviewHtml, json: r.reviewJson ?? null } : null);
   const [saving, setSaving] = useState(false);
@@ -109,7 +111,7 @@ export function FinishReadingDialog({ data, row, request, home, onClose, changed
       description={request.reachedEnd ? "You reached the last page. Finish the book?" : data.workTitle}
       className="max-w-lg"
     >
-      <form onSubmit={save} className="space-y-4">
+      <form id={formId} onSubmit={save} className="space-y-4">
         <ReadingDateField label="Finished on" value={finish} onChange={setFinish} max={maxDate} />
         {error && (
           <p className="text-xs text-accent-red-text" role="alert">
@@ -130,7 +132,7 @@ export function FinishReadingDialog({ data, row, request, home, onClose, changed
           </label>
         </div>
         <TiptapEditor label="Review" value={review} onChange={setReview} placeholder="What stayed with you" />
-        <DialogFooter onCancel={onClose} saving={saving} saveLabel="Finish" disabled={!!error} />
+        <DialogFooter form={formId} onCancel={onClose} saving={saving} saveLabel="Finish" disabled={!!error} />
       </form>
     </Dialog>
   );
