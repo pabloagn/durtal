@@ -128,6 +128,20 @@ export function formatReadingSpan(r: ReadingSpanInput, today: string): string {
   if (started && finished) {
     const [sy, sm] = r.startedOn!.split("-");
     const [fy, fm] = r.finishedOn!.split("-");
+    // One date when both fall in the same period at the coarser precision:
+    // "16 Oct 2026", "Oct 2026", "2019", not "16 to 16 Oct 2026" (SLN-929)
+    const RANK = { day: 3, month: 2, year: 1 } as const;
+    const startRank = RANK[r.startedPrecision as keyof typeof RANK];
+    const finishRank = RANK[r.finishedPrecision as keyof typeof RANK];
+    const width = [0, 4, 7, 10][Math.min(startRank, finishRank)];
+    if (r.startedOn!.slice(0, width) === r.finishedOn!.slice(0, width)) {
+      const closed = r.status === "abandoned" ? "Stopped" : "Finished";
+      if (startRank === finishRank) return formatReadingDate(r.finishedOn, r.finishedPrecision);
+      // A finer finish says it all: "Finished Feb 2021", not "2021 to Feb 2021"
+      if (finishRank > startRank) return `${closed} ${formatReadingDate(r.finishedOn, r.finishedPrecision)}`;
+      // A finer start goes after: "Finished 2020, started May"
+      return `${closed} ${formatReadingDate(r.finishedOn, r.finishedPrecision)}, started ${formatReadingDate(r.startedOn, r.startedPrecision, { omitYear: true })}`;
+    }
     const bothDays = r.startedPrecision === "day" && r.finishedPrecision === "day";
     if (bothDays && sy === fy && sm === fm)
       return `${Number(r.startedOn!.slice(8))} to ${formatReadingDate(r.finishedOn, "day")}`;
