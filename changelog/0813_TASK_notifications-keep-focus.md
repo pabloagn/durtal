@@ -18,7 +18,7 @@ findings 2 and 4). SLN-921 (the Select) landed separately in 0862.
   - Mark all read hands it to Clear all; Clear all to the panel, which takes
     the focus (`tabIndex={-1}`) and still closes on Escape.
   - The focus moves before the button goes, so it never falls to the page body.
-  - The panel's heading is functional: `type-dialog-title` (Inter, 14px), and
+  - The panel's heading is functional: `type-dialog-title` (Inter, 16px), as dialog titles are, and
     Mark all read and Clear all keep one line each (`whitespace-nowrap`).
 
 ## Completion Notes
