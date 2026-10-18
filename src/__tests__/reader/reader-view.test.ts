@@ -941,7 +941,7 @@ describe("a file that does not open (SLN-685)", () => {
       throw new Error(cause ?? "Failed to fetch");
     });
 
-  it("says a damaged file is damaged, offers its replacement and no Retry, keeps only Back in the bar, and records why", async () => {
+  it("says a damaged file is damaged, offers its replacement and no Try again, keeps only Back in the bar, and records why", async () => {
     fail("damaged", "zip: central directory not found");
     await render(own, own, other, false, { until: "error" });
     const alert = host.querySelector('[role="alert"]')!;
@@ -959,11 +959,11 @@ describe("a file that does not open (SLN-685)", () => {
     expect(JSON.parse(String(request?.body))).toEqual({ reason: "zip: central directory not found" });
   });
 
-  it("offers Retry, as a secondary button, only when the connection failed, and records nothing", async () => {
+  it("offers Try again, as a secondary button, only when the connection failed, and records nothing", async () => {
     fail("network");
     await render(own, own, other, false, { until: "error" });
     const alert = host.querySelector('[role="alert"]')!;
-    const retry = [...alert.querySelectorAll("button")].find((b) => b.textContent === "Retry")!;
+    const retry = [...alert.querySelectorAll("button")].find((b) => b.textContent === "Try again")!;
     expect(retry).toBeDefined();
     expect(retry.className).not.toContain("action-fill");
     expect(alert.querySelector('a[href^="/ebooks/upload"]')).toBeNull();
