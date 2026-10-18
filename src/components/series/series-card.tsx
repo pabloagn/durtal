@@ -7,6 +7,7 @@ import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { CardHeading } from "@/components/shared/card-heading";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { seriesBooksLabel } from "@/lib/series/counts";
 
 export interface SeriesItem {
   id: string;
@@ -26,9 +27,7 @@ export interface SeriesItem {
 }
 
 function countsLabel(s: SeriesItem) {
-  const books = `${s.bookCount} ${s.bookCount === 1 ? "book" : "books"}`;
-  const of = s.totalVolumes ? ` of ${s.totalVolumes}` : "";
-  return [`${books}${of}`, s.ownedCount ? `${s.ownedCount} owned` : null, s.readCount ? `${s.readCount} read` : null]
+  return [seriesBooksLabel(s.bookCount, s.totalVolumes), s.ownedCount ? `${s.ownedCount} owned` : null, s.readCount ? `${s.readCount} read` : null]
     .filter(Boolean)
     .join(" · ");
 }

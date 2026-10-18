@@ -23,40 +23,48 @@ type CountedCollection = {
 
 /**
  * A collection's one count line, the same on its card and its page: "6
- * books", "4 editions", "3 books · 1 perfume", "1,050 films". Counted as `collectionCounts`
- * counts (an edition stands for its book); `null` when it holds nothing, so
+ * books", "3 books · 1 perfume", "1,050 films". A book counts once, held
+ * whole or through its editions; more editions than the books they hold say
+ * so: "5 books (6 editions)" (SLN-915). `null` when it holds nothing, so
  * the card says "Empty" and the page leaves the line out.
  */
 export function collectionCountLine(collection: CountedCollection) {
-  const shown = countParts(collection);
-  return shown.length
-    ? shown.map(([n, one, many]) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`).join(" · ")
-    : null;
+  const { books, editions, byEdition, kinds } = members(collection);
+  const n = (count: number, one: string, many: string) => `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;
+  const shown = [
+    books && `${n(books, "book", "books")}${editions > byEdition ? ` (${n(editions, "edition", "editions")})` : ""}`,
+    ...kinds.map(([count, one, many]) => count && n(count, one, many)),
+  ].filter(Boolean);
+  return shown.length ? shown.join(" · ") : null;
 }
 
 /**
- * What the pager calls a collection's members: the count line's one noun
- * ("books") when it has one, else "items" (SLN-886)
+ * What the pager calls a collection's members, one per card: "books" when
+ * each card is a book of its own, "editions" when every card is an edition,
+ * a kind's name when all are of it, else "items" (SLN-886, SLN-915)
  */
 export function collectionMembersNoun(collection: CountedCollection) {
-  const shown = countParts(collection);
-  return shown.length === 1 ? shown[0][2] : "items";
+  const { books, editions, byEdition, wholeBooks, kinds } = members(collection);
+  const others = kinds.filter(([count]) => count > 0);
+  if (!others.length && books && editions === byEdition) return "books";
+  if (!others.length && editions && !wholeBooks) return "editions";
+  if (!books && others.length === 1) return others[0][2];
+  return "items";
 }
 
-/** The count line's parts with members, each once: a book collected both ways counts as its editions */
-function countParts(collection: CountedCollection) {
+/** What a collection holds, each once: a book collected both ways counts as its editions */
+function members(collection: CountedCollection) {
   const editions = collection.collectionEditions ?? [];
   const byEdition = new Set(editions.flatMap((m) => (m.edition ? [m.edition.workId] : [])));
   const works = (collection.collectionWorks ?? []).filter((m) => !byEdition.has(m.workId));
   const of = (kind: WorkKind) => works.filter((m) => (m.work?.kind ?? "book") === kind).length;
-  const parts: [number, string, string][] = [
-    [of("book"), "book", "books"],
-    [editions.length, "edition", "editions"],
+  const wholeBooks = of("book");
+  const kinds: [number, string, string][] = [
     [of("film"), "film", "films"],
     [of("perfume"), "perfume", "perfumes"],
     [of("painting"), "painting", "paintings"],
   ];
-  return parts.filter(([n]) => n > 0);
+  return { books: byEdition.size + wholeBooks, editions: editions.length, byEdition: byEdition.size, wholeBooks, kinds };
 }
 
 /**

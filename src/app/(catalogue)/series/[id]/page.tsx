@@ -8,6 +8,7 @@ import { cache, Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Layers } from "lucide-react";
+import { seriesBooksLabel, seriesOutOf } from "@/lib/series/counts";
 import { getSeriesDetail, getSeriesSuggestions } from "@/lib/actions/series";
 import { getSeriesNextToRead } from "@/lib/actions/reading";
 import { Badge } from "@/components/ui/badge";
@@ -147,17 +148,16 @@ export default async function SeriesDetailPage({
         )}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Badge variant="muted">
-            {count} {count === 1 ? "book" : "books"}
-            {s.totalVolumes ? ` of ${s.totalVolumes}` : ""}
+            {seriesBooksLabel(count, s.totalVolumes)}
           </Badge>
           {count > 0 && (
             <Badge variant="sage">
-              {owned} of {s.totalVolumes ?? count} owned
+              {owned} of {seriesOutOf(count, s.totalVolumes)} owned
             </Badge>
           )}
           {read > 0 && (
             <Badge variant="blue">
-              Read {read} of {s.totalVolumes ?? count}
+              Read {read} of {seriesOutOf(count, s.totalVolumes)}
             </Badge>
           )}
           {digitalCount > 0 && <Badge variant="blue">{ebooksAvailableText(digitalCount)}</Badge>}
