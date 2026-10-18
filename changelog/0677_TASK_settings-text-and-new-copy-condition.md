@@ -23,7 +23,7 @@ SLN-924, findings 6 and 7 of `findings/settings-survey-2026-10-16.md`.
 - The three apostrophes are ’.
 - `settings/reading/reading-settings.tsx`: the toast says the new value, "“Still reading?” now asks after 1 h 30 min".
 - `settings/reader/lookup-settings.tsx`: each source's Edit and Remove buttons carry its language, "Remove source Logeion (Ancient Greek)", "Edit source Merriam-Webster (English)".
-- `lib/actions/settings.ts` and `lib/hooks/use-app-settings.tsx`: the default condition for a new copy is none (null) instead of Mint. A saved setting is kept, so the live row, seeded with Mint by migration 0052, keeps Mint until it is changed in Settings, General. No migration; the column's own default is unchanged (the settings row always exists, so it is never used).
+- `lib/actions/settings.ts`, `lib/hooks/use-app-settings.tsx` and the blank copy draft (`EMPTY_INSTANCE`, `components/books/instance-form.tsx`): the default condition for a new copy is none (null) instead of Mint. A saved setting is kept, so the live row, seeded with Mint by migration 0052, keeps Mint until it is changed in Settings, General. No migration; the column's own default is unchanged (the settings row always exists, so it is never used).
 
 ## Completion Notes
 

@@ -8,6 +8,7 @@ vi.mock("@/lib/actions/settings", () => ({ refreshCachedData: vi.fn() }));
 vi.mock("@/lib/actions/reading-export", () => ({ getGoodreadsExportNotice: vi.fn() }));
 import { ExportRow } from "@/app/(catalogue)/settings/data/data-actions";
 import { useAppSettings } from "@/lib/hooks/use-app-settings";
+import { EMPTY_INSTANCE } from "@/components/books/instance-form";
 
 /*
  * Settings text (SLN-924): a proper noun keeps its capital, apostrophes are
@@ -38,4 +39,6 @@ it("starts a new copy with no condition", () => {
   function Default() { return createElement("span", null, String(useAppSettings().newCopyCondition)); }
   expect(renderToStaticMarkup(createElement(Default))).toBe("<span>null</span>");
   expect(readFileSync("src/lib/actions/settings.ts", "utf8")).toMatch(/newCopyCondition: null,/);
+  // The blank copy draft too (EMPTY_INSTANCE), which every new copy starts from
+  expect(EMPTY_INSTANCE.condition).toBe("");
 });
