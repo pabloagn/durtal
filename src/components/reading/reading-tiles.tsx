@@ -270,7 +270,7 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
                     </span>
                     <RatingStars value={row.rating} />
                     {row.status === "reading" && <LogButton reading={row.reading} title={row.title} />}
-                    {row.status === "paused" && <ResumeButton reading={row.reading} />}
+                    {row.status === "paused" && <ResumeButton reading={row.reading} compact />}
                     <JournalRowMenu reading={row.reading} title={row.title} />
                   </span>
                 </CapAlignedControls>

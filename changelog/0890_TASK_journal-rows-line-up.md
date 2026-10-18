@@ -40,9 +40,13 @@ one or two letters a line.
   the controls go under the title instead of beside it.
 - Stacked, nothing sits beside the controls, so they leave the one-line cap
   box for a block as tall as they are, 12px from the title and from the meta
-  line, and wrap when they don't fit on one line: a paused row with touch
-  targets at 320 ("Not rated", Resume and More need 238px of 218) puts More
-  on a second line, 12px under the first.
+  line, and wrap if they ever don't fit on one line.
+- Resume (`ResumeButton`, `compact`) is an icon button in a row under 15rem,
+  with its tooltip, so a paused row keeps one line on a phone: "Not rated",
+  Resume and More needed 238px of 218 with touch targets at 320, and a
+  wrapped More started its icon inside the text edge. `data-tooltip-label`
+  (`tooltip.tsx`, docs/03 Tooltips) shows the tooltip only while the label
+  is hidden, so the labelled Resume on wider rows gets none.
 
 `scripts/qa/layout-audit.js`, drifting edges:
 - A row's divider no longer makes it a box (`boxed(el, apart)`, and
@@ -62,9 +66,12 @@ The rule's description in the script and in `docs/03_DESIGN_LANGUAGE.md`
   375 and 390 in Chromium, Firefox and WebKit, where it was 0 to 50px. The
   stacked controls sit 12px under the title and 12px above the meta line,
   with a mouse and with touch targets, and no control runs past its row at
-  320, 340, 360, 375 or 390 (the review of #497 found a paused row's More
-  12px past it at 320 with touch, before they wrapped). From 640 up the
-  narrowest title is 173px and the rows look as before.
+  320, 340, 360, 375 or 390, where every row's controls keep one line (the
+  review of #497 found a paused row's More 12px past it at 320 with touch).
+  Resume is a 32px icon button (44px with touch) at 320 and 340, its icon
+  centred, with "Resume" as its name and tooltip; from 360 up it has its
+  label and no tooltip. From 640 up the narrowest title is 173px and the
+  rows look as before.
 
 - **The journal.** The alignment and layout audits report nothing on
   `/reading/journal` and `/reading` at 1440, 1024, 768, 390, 375 and 320 in Chromium, Firefox and
@@ -84,6 +91,7 @@ The rule's description in the script and in `docs/03_DESIGN_LANGUAGE.md`
 - The browser audit passes 30 of 30 page loads on `/reading/journal` and
   `/reading` at 1440, 1024, 390, 375 and 320 in three browsers. Page weight
   is within budget on every route (`/reading/journal` 251 of 300 KB);
-  `pnpm typecheck` is clean and the UI tests pass.
+  `pnpm typecheck` is clean and the UI tests pass (`ui/cut-text-focus`
+  tests the tooltip label rule).
 - The layout audit's plain-command check reports "Edit goals" on `/reading`
   in Firefox and WebKit with main's audit too; it is outside this change.
