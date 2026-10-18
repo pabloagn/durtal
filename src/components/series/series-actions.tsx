@@ -11,6 +11,7 @@ import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
 import { deleteSeries } from "@/lib/actions/series";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
+import { DetailEditButton } from "@/components/shared/detail-layout";
 import { SeriesFormDialog } from "./series-form-dialog";
 import { AddSeriesBooksDialog } from "./add-series-books-dialog";
 
@@ -72,6 +73,8 @@ export function SeriesActions({
         <Plus className="h-4 w-4" strokeWidth={1.5} />
         Add books
       </Button>
+      {/* Edit shows its E S key, as on every detail page (SLN-967) */}
+      <DetailEditButton label="Edit series" editKey={EDIT_KEYS.series} onClick={() => setEditOpen(true)} />
       <EntityActionMenu
         items={[
           { label: "Edit", icon: Pencil, onClick: () => setEditOpen(true), shortcut: editHint(EDIT_KEYS.series) },

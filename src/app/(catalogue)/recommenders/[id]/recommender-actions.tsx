@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Copy, Pencil, Trash2 } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
+import { DetailEditButton } from "@/components/shared/detail-layout";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { RecommenderFormDialog } from "@/components/recommenders/recommender-form-dialog";
@@ -49,6 +50,8 @@ export function RecommenderActions({
 
   return (
     <>
+      {/* Edit shows its E R key, as on every detail page (SLN-967) */}
+      <DetailEditButton label="Edit recommender" editKey={EDIT_KEYS.recommender} onClick={() => setEditOpen(true)} />
       <EntityActionMenu
         items={[
           {
