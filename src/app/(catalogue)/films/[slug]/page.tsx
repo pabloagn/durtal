@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
+import { WorkCollectionsSection, loadWorkCollections } from "@/components/collections/work-collections";
 import { renderStamp } from "@/lib/activity/render-stamp";
 import Link from "next/link";
 import { BackLink } from "@/components/shared/back-link";
@@ -125,7 +126,7 @@ export default async function FilmPage({
   const film = await loadFilm(slug);
   if (!film) notFound();
   const owner = { kind: "film" as const, id: film.id };
-  const [media, curation, provenance, related, genres, allLocations, choices, links, wanted] =
+  const [media, curation, provenance, related, genres, allLocations, choices, links, wanted, inCollections] =
     await Promise.all([
       getMediaForWork(film.id),
       getWorkCuration(owner),
@@ -136,6 +137,7 @@ export default async function FilmPage({
       getFilmChoices(),
       getWorkRelations(film.id),
       getTypedTargets(film.id),
+      loadWorkCollections(film.id),
     ]);
   // The e-book marks of linked books' cards
   const linkedEbooks = await linkedWorkEbooks(links);
@@ -616,6 +618,8 @@ export default async function FilmPage({
         <GallerySection entityType="work" entityId={film.id} />
 
         <RelatedFilms related={related} />
+
+        <WorkCollectionsSection {...inCollections} />
 
         <ActivityTimeline entityType="work" entityId={film.id} refreshKey={renderStamp()} />
       </div>
