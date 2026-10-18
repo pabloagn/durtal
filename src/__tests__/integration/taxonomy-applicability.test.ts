@@ -483,6 +483,16 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     expect((await c`select parent_id from custom_taxonomy_items where id=${noir.id}`)[0].parent_id).toBeNull();
   });
 
+  it("puts the narrower items where their deleted parent stood, in their own order", async () => {
+    const poetry = await createTaxonomyItem("categories", { name: "Poetry" }),
+      drama = await createTaxonomyItem("categories", { name: "Drama" }),
+      villanelle = await createTaxonomyItem("categories", { name: "Villanelle", parentId: poetry.id }),
+      sonnet = await createTaxonomyItem("categories", { name: "Sonnet", parentId: poetry.id });
+    await deleteTaxonomyItem("categories", poetry.id, undefined, true);
+    const top = await c`select id from book_categories where parent_id is null and id in (${drama.id},${villanelle.id},${sonnet.id}) order by sort_order,lower(name),id`;
+    expect(top.map((r) => r.id)).toEqual([villanelle.id, sonnet.id, drama.id]);
+  });
+
   it("creates families with exactly the chosen scopes and keeps their URL on rename", async () => {
     const film = await createTaxonomyFamily({ name: "Mood", scopes: [{ kind: "film", level: "work" }] });
     expect(film.slug).toBe("mood");

@@ -186,7 +186,7 @@ export function TaxonomyItemRow({
               e.stopPropagation();
               startRename();
             }}
-            className="block whitespace-normal break-words text-sm leading-5 text-fg-primary transition-colors hover:text-accent-primary pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:leading-11"
+            className="block whitespace-normal break-words text-sm leading-5 text-fg-primary transition-colors hover:text-accent-primary pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:py-3"
           >
             {item.name}
           </Link>

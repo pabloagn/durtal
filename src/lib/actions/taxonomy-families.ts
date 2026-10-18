@@ -594,8 +594,15 @@ export async function deleteTaxonomyItem(
     (await withReadableErrors(() => atomic((d) => [
       d.execute(lockSql([storage.table])),
       d.execute(assertSql(sql`not exists(select 1 from (${linkRows(storage, WORK_KINDS)}) links where links.item_id=${itemId}::uuid)`, "Reassign this item's catalogue links before deleting it")),
+      // Narrower items take the deleted item's place, in their own order:
+      // later items move down to make room (sort order runs family-wide)
+      ...(liftChildren && storage.columns.has("parent_id") && storage.columns.has("sort_order")
+        ? [d.execute(sql`update ${sql.identifier(storage.table)} s set sort_order=s.sort_order+greatest((select count(*)::int from ${sql.identifier(storage.table)} c where c.parent_id=i.id)-1,0) from ${sql.identifier(storage.table)} i where i.id=${itemId}::uuid and ${familyItemCondition(storage, family.id)} and ${familyItemCondition(storage, family.id, "s")} and s.sort_order>i.sort_order and s.parent_id is distinct from i.id`)]
+        : []),
       ...(liftChildren && storage.columns.has("parent_id")
-        ? [d.execute(sql`update ${sql.identifier(storage.table)} c set parent_id=i.parent_id from ${sql.identifier(storage.table)} i where i.id=${itemId}::uuid and ${familyItemCondition(storage, family.id)} and c.parent_id=i.id`)]
+        ? [d.execute(storage.columns.has("sort_order")
+          ? sql`update ${sql.identifier(storage.table)} c set parent_id=i.parent_id,sort_order=i.sort_order+k.rank from ${sql.identifier(storage.table)} i,(select id,(row_number() over(order by sort_order,lower(name),id)-1)::int as rank from ${sql.identifier(storage.table)} where parent_id=${itemId}::uuid) k where i.id=${itemId}::uuid and ${familyItemCondition(storage, family.id)} and c.id=k.id`
+          : sql`update ${sql.identifier(storage.table)} c set parent_id=i.parent_id from ${sql.identifier(storage.table)} i where i.id=${itemId}::uuid and ${familyItemCondition(storage, family.id)} and c.parent_id=i.id`)]
         : []),
       ...(storage.columns.has("parent_id") ? [d.execute(assertSql(sql`not exists(select 1 from ${sql.identifier(storage.table)} where parent_id=${itemId}::uuid)`, "Move this item's children before deleting it"))] : []),
       d.execute(sql`delete from ${sql.identifier(storage.table)} i where i.id=${itemId}::uuid and ${familyItemCondition(storage, family.id)} returning i.id`),
