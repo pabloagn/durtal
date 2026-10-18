@@ -1,4 +1,4 @@
-import { formatPersonRoles, type PersonRole } from "@/lib/catalogue/person-roles";
+import { formatPersonRoles, formatWorkCounts, type PersonRole } from "@/lib/catalogue/person-roles";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 
 /**
@@ -26,5 +26,30 @@ export function PersonRoles({
     >
       {line ? line.text : " "}
     </p>
+  );
+}
+
+/**
+ * A person's works per collection, "14 films · 1 perfume" (SLN-1025). It
+ * breaks only after a "·", so no line starts with one; nothing for none.
+ */
+export function WorkCounts({
+  counts,
+  className = "",
+}: {
+  counts?: Partial<Record<WorkKind, number>>;
+  className?: string;
+}) {
+  const works = formatWorkCounts(counts);
+  if (!works) return null;
+  return (
+    <span className={className}>
+      {works.split(" · ").map((part, i, all) => (
+        <span key={part} className="whitespace-nowrap">
+          {part}
+          {i < all.length - 1 ? " · " : ""}
+        </span>
+      ))}
+    </span>
   );
 }

@@ -8,7 +8,7 @@ import { CoverFan, Monogram } from "@/components/shared/no-photo";
 import { CardHeading } from "@/components/shared/card-heading";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
 import { displayYear } from "@/lib/utils/years";
-import { PersonRoles } from "@/components/people/person-roles";
+import { PersonRoles, WorkCounts } from "@/components/people/person-roles";
 import type { PersonRole } from "@/lib/catalogue/person-roles";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 
@@ -29,7 +29,8 @@ interface AuthorCardProps {
   photoTone?: string | null;
   /** Book covers to show when there is no portrait */
   coverPreviews?: string[];
-  worksCount: number;
+  /** Works credited per collection: "3 films · 1 perfume" (SLN-1025) */
+  workCounts?: Partial<Record<WorkKind, number>>;
   /** Roles with credit counts; the line stays, empty, without them */
   roles?: PersonRole[];
   /** On a collection's list, that collection's roles come first */
@@ -56,7 +57,7 @@ export function AuthorCard({
   posterCrop,
   photoTone,
   coverPreviews = [],
-  worksCount,
+  workCounts,
   roles,
   preferKind,
   preferRoles,
@@ -186,13 +187,10 @@ export function AuthorCard({
           />
           {/* Roles wrap as needed, with a minimum line when empty */}
           <PersonRoles roles={roles} preferKind={preferKind} preferRoles={preferRoles} className="mt-1" />
+          {/* The works of every collection, which wrap whole on a narrow card */}
           <div className="mt-2.5 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1 font-mono text-micro text-fg-secondary">
             {years && <span>{years}</span>}
-            {worksCount > 0 && (
-              <span className="ml-auto shrink-0">
-                {worksCount} {worksCount === 1 ? "book" : "books"}
-              </span>
-            )}
+            <WorkCounts counts={workCounts} className="ml-auto text-right" />
           </div>
         </div>
       </div>

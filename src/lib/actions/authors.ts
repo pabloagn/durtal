@@ -326,6 +326,38 @@ export async function getPersonWorkCounts(personIds: string[]): Promise<Record<s
   return Object.fromEntries(rows.map((r) => [r.personId, r.works]));
 }
 
+/**
+ * How many works each person is credited on, per collection: a person
+ * card's "3 films · 1 perfume" (SLN-1025). The same credits as
+ * `getPersonWorkCounts`, each work once.
+ */
+export async function getPersonWorkCountsByKind(
+  personIds: string[],
+): Promise<Record<string, Partial<Record<WorkKind, number>>>> {
+  const ids = [...new Set(personIds)].filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (!ids.length) return {};
+  const list = sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `);
+  const rows = resultRows<{ personId: string; kind: WorkKind; works: number }>(
+    await db.execute(sql`
+      select credits.person_id as "personId", w.kind, count(distinct credits.work_id)::int as works from (
+        select wa.author_id as person_id, wa.work_id from work_authors wa where wa.author_id in (${list})
+        union all
+        select ec.author_id, e.work_id from edition_contributors ec join editions e on e.id = ec.edition_id
+          where ec.author_id in (${list})
+        union all
+        select wc.person_id, wc.work_id from work_credits wc where wc.person_id in (${list})
+        union all
+        select p.person_id, v.work_id from perfume_variant_perfumers p join perfume_variants v on v.id = p.variant_id
+          where p.person_id in (${list})
+      ) credits join works w on w.id = credits.work_id
+      group by credits.person_id, w.kind
+    `),
+  );
+  const counts: Record<string, Partial<Record<WorkKind, number>>> = {};
+  for (const r of rows) (counts[r.personId] ??= {})[r.kind] = r.works;
+  return counts;
+}
+
 /** One work a person is credited on, with one of their roles on it */
 export interface PersonWorkCredit {
   kind: WorkKind;

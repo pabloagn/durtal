@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPersonRoles } from "@/lib/catalogue/person-roles";
+import { formatPersonRoles, formatWorkCounts } from "@/lib/catalogue/person-roles";
 
 describe("a person card's role line (SLN-420)", () => {
   it("shows nothing for a person with no credits, never Unknown", () => {
@@ -50,5 +50,18 @@ describe("a person card's role line (SLN-420)", () => {
         { kind: "film", label: "Editor", count: 1 },
       ]),
     ).toEqual({ text: "Editor", full: "Editor" });
+  });
+});
+
+describe("formatWorkCounts (SLN-1025)", () => {
+  it("counts a person's works per collection, in the collections' order", () => {
+    expect(formatWorkCounts({ perfume: 1, film: 3 })).toBe("3 films · 1 perfume");
+    expect(formatWorkCounts({ book: 2 })).toBe("2 books");
+    expect(formatWorkCounts({ book: 1, painting: 1200 })).toBe("1 book · 1,200 paintings");
+  });
+  it("says nothing for no works", () => {
+    expect(formatWorkCounts({})).toBeNull();
+    expect(formatWorkCounts(undefined)).toBeNull();
+    expect(formatWorkCounts({ film: 0 })).toBeNull();
   });
 });
