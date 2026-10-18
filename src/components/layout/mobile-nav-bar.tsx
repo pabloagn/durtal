@@ -6,6 +6,8 @@ import { Menu, Search } from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { TimerChip } from "@/components/reading/timer-chip";
 import { NotificationCentre } from "./notification-centre";
+import { useIsMac } from "@/components/shortcuts/kbd";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 const BUTTON =
   "inline-flex h-11 w-11 items-center justify-center rounded-sm text-fg-secondary transition-colors duration-150 hover:bg-bg-tertiary/50 hover:text-fg-primary";
@@ -15,6 +17,7 @@ export const MobileNavBar = forwardRef<
   HTMLButtonElement,
   { navOpen: boolean; onOpenNav: () => void; onSearch: () => void }
 >(function MobileNavBar({ navOpen, onOpenNav, onSearch }, menuButtonRef) {
+  const mac = useIsMac();
   return (
     <header
       className="glass-bar fixed inset-x-0 top-0 z-40 flex h-12 items-center border-b border-glass-border px-1 print:hidden md:hidden"
@@ -52,7 +55,7 @@ export const MobileNavBar = forwardRef<
             onClick={onSearch}
             aria-label="Search"
             data-tooltip="Search"
-            data-tooltip-keys="mod k"
+            {...shortcutProps("mod k", mac)}
             data-tooltip-side="bottom"
             className={BUTTON}
           >

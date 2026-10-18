@@ -25,6 +25,7 @@ import {
   type SpeechPreferences,
   type SpeechVoice,
 } from "@/lib/reader/speech/voices";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 type PlayerAction = Extract<
   SpeechAction,
@@ -48,7 +49,7 @@ function Control({
       type="button"
       aria-label={label}
       data-tooltip={label}
-      data-tooltip-keys={keys}
+      {...shortcutProps(keys)}
       disabled={disabled}
       onClick={onClick}
       className="flex size-8 shrink-0 items-center justify-center rounded-sm text-fg-secondary hover:bg-bg-tertiary/50 disabled:opacity-40 pointer-coarse:size-11 focus-visible:outline-offset-[-2px]"

@@ -18,6 +18,7 @@ import { acquireSurface, captureFocusOrigin, restoreFocusOrigin, type FocusOrigi
 import { DialogFocusScope, useDialogFocusScope } from "./dialog-focus-scope";
 import { Button } from "./button";
 import { useUnsavedGuard, type UnsavedPrompt } from "./unsaved-guard";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 interface DialogProps {
   open: boolean;
@@ -278,7 +279,7 @@ export function Dialog({
               onClick={requestClose}
               aria-label={`Close ${title}`}
               data-tooltip="Close"
-              data-tooltip-keys="esc"
+              {...shortcutProps("esc")}
               className="action-icon-sm"
             >
               <X className="h-4 w-4" strokeWidth={1.5} />

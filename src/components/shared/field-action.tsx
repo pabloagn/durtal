@@ -1,6 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /**
  * Replaces a field's text as if it was typed, so Cmd+Z undoes it and React
@@ -49,7 +50,7 @@ export function FieldActionButton({
       aria-disabled={!active}
       aria-label={label}
       data-tooltip={label}
-      data-tooltip-keys="alt f"
+      {...shortcutProps("alt f")}
       className="flex h-6 w-6 cursor-default items-center justify-center rounded-sm text-fg-muted transition-colors duration-150 disabled:opacity-40 data-[active]:cursor-pointer data-[active]:text-accent-gold/85 data-[active]:hover:bg-accent-gold/10 data-[active]:hover:text-accent-gold pointer-coarse:size-11"
     >
       <Icon className="h-4 w-4" strokeWidth={1.5} />

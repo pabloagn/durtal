@@ -15,6 +15,7 @@ import {
   type RefDataItem,
   type WorkDraft,
 } from "../wizard-model";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /**
  * The work. Fast Track saves the book from here, skipping copies and
@@ -221,7 +222,7 @@ export function DetailsStep({
             busy={fastTrackSaving}
             
             data-tooltip="Save now, skipping copies and categorization"
-            data-tooltip-keys="enter"
+            {...shortcutProps("enter")}
           >
             Fast Track
           </Button>

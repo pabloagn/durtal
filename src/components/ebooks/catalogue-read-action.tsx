@@ -2,8 +2,9 @@
 
 import { BookOpen } from "lucide-react";
 import { ReaderEntryLink } from "@/components/reader/reader-entry-link";
-import { KeyCombo } from "@/components/shortcuts/kbd";
+import { KeyCombo, useIsMac } from "@/components/shortcuts/kbd";
 import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /** Compact row action uses the same document entry as card menus. */
 export function CatalogueReadLink({ ebook, returnTo }: { ebook: WorkEbookDTO | null; returnTo?: unknown }) {
@@ -49,6 +50,7 @@ export function PaletteEbookReadAction({
   returnTo?: unknown;
   onRead?: () => void;
 }) {
+  const mac = useIsMac();
   if (!ebook?.readable || !ebook.readerPath) return null;
   return (
     <ReaderEntryLink
@@ -56,7 +58,7 @@ export function PaletteEbookReadAction({
       returnTo={returnTo}
       aria-label={`Read ${ebook.title}`}
       data-tooltip="Read eBook"
-      data-tooltip-keys="mod enter"
+      {...shortcutProps("mod enter", mac)}
       className="inline-flex min-h-8 shrink-0 items-center gap-2 rounded-sm px-2 text-xs text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:min-h-11"
       onClick={(event) => {
         event.stopPropagation();
