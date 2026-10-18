@@ -22,7 +22,7 @@ describe("the wizard's phone step bars", () => {
     render({ step: "duplicate", duplicateAfter: "details", disabled: false, onStep: () => {} });
     expect(bars()).toHaveLength(6);
     expect(phone().querySelector("p")?.textContent).toBe("Step 2 of 6 — Existing book");
-    expect(bars().map((b) => b.disabled)).toEqual([false, true, true, true, true, true]);
+    expect(bars().map((b) => b.disabled)).toEqual([false, false, true, true, true, true]);
   });
 
   it("keeps six bars on the existing-book check after Search", () => {

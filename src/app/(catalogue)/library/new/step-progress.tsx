@@ -43,7 +43,7 @@ export function StepProgress({
               key={s.key}
               type="button"
               aria-label={s.label}
-              disabled={i >= phoneIdx || disabled}
+              disabled={(step === "duplicate" ? i > phoneIdx : i >= phoneIdx) || disabled}
               onClick={() => onStep(s.key)}
               // On touch a 44px target, with negative margins so the row keeps its height
               className="flex-1 px-[3px] py-1.5 pointer-coarse:-my-[15px] pointer-coarse:py-[21px]"
