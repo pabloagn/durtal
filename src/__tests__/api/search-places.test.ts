@@ -63,6 +63,11 @@ describe("POST /api/venues/search-places", () => {
     expect(JSON.parse(init.body as string)).toMatchObject({ textQuery: "Shakespeare and Company Paris", includedType: "book_store" });
   });
 
+  it("passes Google at most 200 characters of the query, as long as a quick search's (SLN-900)", async () => {
+    expect((await search({ query: `  ${"a".repeat(20_000)}` })).status).toBe(200);
+    expect(JSON.parse(google.mock.calls[0][1]!.body as string).textQuery).toBe("a".repeat(200));
+  });
+
   it("refuses an empty query or a body that is not JSON before asking Google", async () => {
     expect((await search({ query: "   " })).status).toBe(400);
     expect((await search({})).status).toBe(400);
