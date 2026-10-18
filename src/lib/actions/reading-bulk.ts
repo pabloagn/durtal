@@ -2,6 +2,7 @@
 
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { atomic } from "@/lib/db/atomic";
 import { withReadableErrors } from "@/lib/db/errors";
 import { readings, works } from "@/lib/db/schema";
@@ -95,7 +96,12 @@ export async function markWorksRead(input: MarkWorksReadInput) {
     // The chunks before the failure are written and recorded: the same selection again marks the rest
     if (readingIds.length) invalidate(CACHE_TAGS.works, CACHE_TAGS.reading);
     const done = readingIds.length ? `Marked ${readingIds.length} before an error. Mark the same books again for the rest. ` : "";
-    throw new Error(`${done}${error instanceof Error ? error.message : "The books could not be marked"}`, { cause: error });
+    // An unknown failure with nothing written stays a server error, logged with its digest
+    if (!done && !(error instanceof ExpectedActionError)) throw error;
+    throw new ExpectedActionError(
+      `${done}${error instanceof ExpectedActionError ? error.message : "The books could not be marked"}`,
+      { cause: error },
+    );
   }
   // The read each possible duplicate matches: "already read: finished 14 Apr 2019"
   const matchIds = duplicates.map((d) => d.readingId).filter((id): id is string => !!id);

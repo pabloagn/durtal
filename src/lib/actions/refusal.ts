@@ -6,10 +6,25 @@ import { CONNECTION_SAVE_ERROR, isConnectionFailure } from "@/lib/notifications/
  * Its message is written for people.
  */
 export class ActionRefusal extends Error {
-  constructor(message: string) {
+  /** A page that settles the refusal, when the server named one */
+  readonly href?: string;
+  constructor(message: string, href?: string) {
     super(message);
     this.name = "ActionRefusal";
+    if (href) this.href = href;
   }
+}
+
+/**
+ * The toast action that opens the page a refusal named, such as the book that
+ * already holds an ISBN, as the add wizard links it (SLN-1033)
+ */
+export function refusalAction(
+  error: unknown,
+  open: (href: string) => void,
+): { action: { label: string; onClick: () => void } } | undefined {
+  const href = error instanceof ActionRefusal ? error.href : undefined;
+  return href ? { action: { label: "Open that book", onClick: () => open(href) } } : undefined;
 }
 
 /**

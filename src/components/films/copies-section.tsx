@@ -9,7 +9,8 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
-import { deleteFilmHolding } from "@/lib/actions/films";
+import { deleteFilmHolding } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import {
   CopyDialog,
   type CopyLocation,
@@ -121,7 +122,7 @@ export function CopiesSection({
             close();
             router.refresh();
           } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Could not delete the copy");
+            toast.error(refusalMessage(err, "Could not delete the copy"));
           }
         }}
       />

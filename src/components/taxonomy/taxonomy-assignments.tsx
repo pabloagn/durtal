@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
-import { createTaxonomyItem, searchTaxonomyItems, type AssignedTaxonomyItem, type getTaxonomyAssignments } from "@/lib/actions/taxonomy-families";
+import type { AssignedTaxonomyItem, getTaxonomyAssignments } from "@/lib/actions/taxonomy-families";
+import { createTaxonomyItem, searchTaxonomyItems } from "@/lib/actions/taxonomy-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { replaceTaxonomyAssignments } from "@/lib/actions/taxonomy-client";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 
@@ -95,7 +97,7 @@ function FamilyAssignment({
       router.refresh();
     } catch (err) {
       setItems(previous);
-      toast.error(err instanceof Error ? err.message : "Could not save");
+      toast.error(refusalMessage(err, "Could not save"));
     } finally {
       setSaving(false);
     }
@@ -221,7 +223,7 @@ export function TaxonomyItemSearch({
       const item = await createTaxonomyItem(family.slug, { name });
       onPick({ id: item.id, name: item.name, parentName: null });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create");
+      setError(refusalMessage(err, "Could not create"));
       setCreating(false);
     }
   }

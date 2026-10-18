@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -205,7 +206,7 @@ export async function updateCollection(
     .set({ ...data, updatedAt: new Date() })
     .where(eq(collections.id, id))
     .returning();
-  if (!row) throw new Error("Collection no longer exists");
+  if (!row) throw new ExpectedActionError("Collection no longer exists");
   changed();
   return row;
 }
@@ -268,7 +269,7 @@ export async function addToCollection(
       .select({ id: works.id })
       .from(works)
       .where(and(inArray(works.id, workIds), inArray(works.kind, getEnabledWorkKinds())));
-    if (open.length !== workIds.length) throw new Error("A work was not found");
+    if (open.length !== workIds.length) throw new ExpectedActionError("A work was not found");
   }
   const result = await atomic((d) => [
     d.execute(lockCollection(collectionId)),
@@ -518,7 +519,7 @@ export async function setCollectionIcon(id: string, icon: string | null) {
     .set({ icon: value, updatedAt: new Date() })
     .where(eq(collections.id, id))
     .returning({ icon: collections.icon });
-  if (!row) throw new Error("Collection not found");
+  if (!row) throw new ExpectedActionError("Collection not found");
   changed();
   return row;
 }

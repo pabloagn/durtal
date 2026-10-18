@@ -18,7 +18,7 @@ import { useAppSettings } from "@/lib/hooks/use-app-settings";
 import { preloadEditOptions, useEditOptions } from "@/hooks/use-edit-options";
 import { EDITION_GROUPS } from "@/lib/catalogue/edit-options";
 import { createEdition } from "@/lib/actions/catalogue-client";
-import { refusalMessage } from "@/lib/actions/refusal";
+import { refusalAction, refusalMessage } from "@/lib/actions/refusal";
 
 interface EditionAddDialogProps {
   workId: string;
@@ -73,9 +73,10 @@ export function EditionAddDialog({
       router.refresh();
       triggerActivityRefresh();
     } catch (err) {
-      const message =
-        refusalMessage(err, "Failed to create edition");
-      toast.error(message);
+      toast.error(
+        refusalMessage(err, "Failed to create edition"),
+        refusalAction(err, (href) => router.push(href)),
+      );
     } finally {
       setIsPending(false);
     }

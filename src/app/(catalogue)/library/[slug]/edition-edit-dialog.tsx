@@ -18,7 +18,7 @@ import { preloadEditOptions, useEditOptions } from "@/hooks/use-edit-options";
 import { EDITION_GROUPS, withChosen } from "@/lib/catalogue/edit-options";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { updateEdition } from "@/lib/actions/catalogue-client";
-import { refusalMessage } from "@/lib/actions/refusal";
+import { refusalAction, refusalMessage } from "@/lib/actions/refusal";
 
 interface EditionEditDialogProps {
   edition: EditionWithRelations;
@@ -102,7 +102,10 @@ export function EditionEditDialog({ edition }: EditionEditDialogProps) {
       router.refresh();
       triggerActivityRefresh();
     } catch (error) {
-      toast.error(refusalMessage(error, "Failed to update edition"));
+      toast.error(
+        refusalMessage(error, "Failed to update edition"),
+        refusalAction(error, (href) => router.push(href)),
+      );
     } finally {
       setIsPending(false);
     }

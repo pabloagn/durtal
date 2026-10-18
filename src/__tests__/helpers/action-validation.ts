@@ -150,8 +150,10 @@ export function createDelegationProof(sources: Record<string, string>) {
       && property(refusal.expression.operand, "ok") && ts.isThrowStatement(refusal.thenStatement)
       && ts.isNewExpression(refusal.thenStatement.expression) && ts.isIdentifier(refusal.thenStatement.expression.expression)
       && isRefusalError(file, refusal.thenStatement.expression.expression.text)
-      && refusal.thenStatement.expression.arguments?.length === 1
-      && property(refusal.thenStatement.expression.arguments[0], "error")
+      && [1, 2].includes(refusal.thenStatement.expression.arguments?.length ?? 0)
+      && property(refusal.thenStatement.expression.arguments![0], "error")
+      && (refusal.thenStatement.expression.arguments!.length === 1
+        || property(refusal.thenStatement.expression.arguments![1], "href"))
       && ts.isReturnStatement(returned) && property(returned.expression, "value");
   }
   function targetOf(action: CheckedAction): { target?: string; error?: string } {

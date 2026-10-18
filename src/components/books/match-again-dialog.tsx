@@ -9,11 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { getPrimaryEdition } from "@/lib/actions/editions";
-import {
-  applyMatch,
-  previewMatch,
-  type MatchPreview,
-} from "@/lib/actions/match";
+import type { MatchPreview } from "@/lib/actions/match";
+import { applyMatch, previewMatch } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import type { MatchField, MatchValue } from "@/lib/match/plan";
 import type { MatchSource } from "@/lib/match/source";
 import { MatchPreviewStep } from "@/components/books/match-preview";
@@ -146,9 +144,7 @@ export function MatchAgainDialog({
       }
       setPreview(read);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Could not read the source",
-      );
+      toast.error(refusalMessage(err, "Could not read the source"));
       setSelected(null);
     }
   }
@@ -181,9 +177,7 @@ export function MatchAgainDialog({
       triggerActivityRefresh();
       handleClose();
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to update metadata",
-      );
+      toast.error(refusalMessage(err, "Failed to update metadata"));
     } finally {
       setConfirming(false);
     }

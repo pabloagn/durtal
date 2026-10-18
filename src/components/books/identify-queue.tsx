@@ -12,7 +12,6 @@ import { EditionCover } from "@/components/books/edition-cover";
 import { MatchAgainDialog } from "@/components/books/match-again-dialog";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import {
-  findEditionCandidates,
   type CandidateSearch,
   type IdentifyUndo,
   type QueueItem,
@@ -25,7 +24,13 @@ import { bindingLabel } from "@/lib/utils/binding";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { Check, Search } from "lucide-react";
 import { countLabel } from "@/lib/utils/format";
-import { identifyEdition, keepWithoutIsbn, undoIdentification, moveToExistingEdition } from "@/lib/actions/catalogue-client";
+import {
+  findEditionCandidates,
+  identifyEdition,
+  keepWithoutIsbn,
+  undoIdentification,
+  moveToExistingEdition,
+} from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
 
 type SearchState =

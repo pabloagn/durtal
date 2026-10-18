@@ -16,6 +16,7 @@ import * as editions from "./editions";
 import * as favourites from "./favourites";
 import * as hunting from "./hunting";
 import * as identify from "./identify";
+import * as match from "./match";
 import * as image_adjustments from "./image-adjustments";
 import * as instances from "./instances";
 import * as locations from "./locations";
@@ -25,7 +26,9 @@ import * as organization_directory from "./organization-directory";
 import * as organizations from "./organizations";
 import * as people from "./people";
 import * as places from "./places";
+import * as publisher_names from "./publisher-names";
 import * as poison from "./poison";
+import * as reading_bulk from "./reading-bulk";
 import * as reading_goals from "./reading-goals";
 import * as reading_notes from "./reading-notes";
 import * as reading_queue from "./reading-queue";
@@ -867,4 +870,164 @@ export async function updateWork(
   ...args: Parameters<typeof works.updateWork>
 ) {
   return actionResult(() => works.updateWork(...args));
+}
+
+// Searches and decisions whose refusals are written for people (SLN-1033)
+
+export async function findOrCreateAuthor(
+  ...args: Parameters<typeof authors.findOrCreateAuthor>
+) {
+  return actionResult(() => authors.findOrCreateAuthor(...args));
+}
+
+export async function findEditionCandidates(
+  ...args: Parameters<typeof identify.findEditionCandidates>
+) {
+  return actionResult(() => identify.findEditionCandidates(...args));
+}
+
+export async function previewMatch(
+  ...args: Parameters<typeof match.previewMatch>
+) {
+  return actionResult(() => match.previewMatch(...args));
+}
+
+export async function applyMatch(
+  ...args: Parameters<typeof match.applyMatch>
+) {
+  return actionResult(() => match.applyMatch(...args));
+}
+
+export async function resolvePublisherNames(
+  ...args: Parameters<typeof publisher_names.resolvePublisherNames>
+) {
+  return actionResult(() => publisher_names.resolvePublisherNames(...args));
+}
+
+export async function applySafePublisherDecisions(
+  ...args: Parameters<typeof publisher_names.applySafePublisherDecisions>
+) {
+  return actionResult(() => publisher_names.applySafePublisherDecisions(...args));
+}
+
+export async function restorePublisherName(
+  ...args: Parameters<typeof publisher_names.restorePublisherName>
+) {
+  return actionResult(() => publisher_names.restorePublisherName(...args));
+}
+
+export async function undoAutomaticPublisherDecision(
+  ...args: Parameters<typeof publisher_names.undoAutomaticPublisherDecision>
+) {
+  return actionResult(() => publisher_names.undoAutomaticPublisherDecision(...args));
+}
+
+export async function findPageCount(
+  ...args: Parameters<typeof reading.findPageCount>
+) {
+  return actionResult(() => reading.findPageCount(...args));
+}
+
+export async function markWorksRead(
+  ...args: Parameters<typeof reading_bulk.markWorksRead>
+) {
+  return actionResult(() => reading_bulk.markWorksRead(...args));
+}
+
+export async function undoMarkWorksRead(
+  ...args: Parameters<typeof reading_bulk.undoMarkWorksRead>
+) {
+  return actionResult(() => reading_bulk.undoMarkWorksRead(...args));
+}
+
+// Films, paintings and perfumes: their own records and copies (SLN-1033)
+
+export async function createFilm(
+  ...args: Parameters<typeof films.createFilm>
+) {
+  return actionResult(() => films.createFilm(...args));
+}
+
+export async function updateFilm(
+  ...args: Parameters<typeof films.updateFilm>
+) {
+  return actionResult(() => films.updateFilm(...args));
+}
+
+export async function deleteFilm(
+  ...args: Parameters<typeof films.deleteFilm>
+) {
+  return actionResult(() => films.deleteFilm(...args));
+}
+
+export async function addFilmHolding(
+  ...args: Parameters<typeof films.addFilmHolding>
+) {
+  return actionResult(() => films.addFilmHolding(...args));
+}
+
+export async function updateFilmHolding(
+  ...args: Parameters<typeof films.updateFilmHolding>
+) {
+  return actionResult(() => films.updateFilmHolding(...args));
+}
+
+export async function deleteFilmHolding(
+  ...args: Parameters<typeof films.deleteFilmHolding>
+) {
+  return actionResult(() => films.deleteFilmHolding(...args));
+}
+
+export async function createPainting(
+  ...args: Parameters<typeof paintings.createPainting>
+) {
+  return actionResult(() => paintings.createPainting(...args));
+}
+
+export async function updatePainting(
+  ...args: Parameters<typeof paintings.updatePainting>
+) {
+  return actionResult(() => paintings.updatePainting(...args));
+}
+
+export async function deletePainting(
+  ...args: Parameters<typeof paintings.deletePainting>
+) {
+  return actionResult(() => paintings.deletePainting(...args));
+}
+
+export async function createPerfume(
+  ...args: Parameters<typeof perfumes.createPerfume>
+) {
+  return actionResult(() => perfumes.createPerfume(...args));
+}
+
+export async function updatePerfume(
+  ...args: Parameters<typeof perfumes.updatePerfume>
+) {
+  return actionResult(() => perfumes.updatePerfume(...args));
+}
+
+export async function deletePerfume(
+  ...args: Parameters<typeof perfumes.deletePerfume>
+) {
+  return actionResult(() => perfumes.deletePerfume(...args));
+}
+
+export async function addPerfumeBottle(
+  ...args: Parameters<typeof perfumes.addPerfumeBottle>
+) {
+  return actionResult(() => perfumes.addPerfumeBottle(...args));
+}
+
+export async function updatePerfumeBottle(
+  ...args: Parameters<typeof perfumes.updatePerfumeBottle>
+) {
+  return actionResult(() => perfumes.updatePerfumeBottle(...args));
+}
+
+export async function deletePerfumeBottle(
+  ...args: Parameters<typeof perfumes.deletePerfumeBottle>
+) {
+  return actionResult(() => perfumes.deletePerfumeBottle(...args));
 }

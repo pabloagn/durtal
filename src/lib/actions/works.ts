@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
 
 import {
@@ -461,7 +462,7 @@ export async function updateWork(id: string, input: UpdateWorkInput) {
     },
   });
 
-  if (!prev) throw new Error("Work not found");
+  if (!prev) throw new ExpectedActionError("Work not found");
 
   // One transaction: the work's fields, its curation, authors and subjects
   // are all saved, or none is.

@@ -12,7 +12,9 @@ import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
-import { deletePainting, type PaintingChoices } from "@/lib/actions/paintings";
+import type { PaintingChoices } from "@/lib/actions/paintings";
+import { deletePainting } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { PaintingForm, type EditablePainting } from "./painting-form";
 
 /**
@@ -124,7 +126,7 @@ export function PaintingActions({
             );
             router.push("/paintings");
           } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Could not delete the painting");
+            toast.error(refusalMessage(err, "Could not delete the painting"));
           }
         }}
       />

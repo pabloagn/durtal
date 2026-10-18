@@ -7,7 +7,7 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { findPageCount } from "@/lib/actions/reading";
+import { findPageCount } from "@/lib/actions/catalogue-client";
 import { startReading } from "@/lib/actions/catalogue-client";
 import { formatOfCopy, type ReadingFormat } from "@/lib/reading/constants";
 import { isAtHand } from "@/lib/reading/at-hand";

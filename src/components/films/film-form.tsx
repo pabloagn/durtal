@@ -15,7 +15,9 @@ import { TitleInput } from "@/components/shared/title-input";
 import { OpenWorkLink } from "@/components/shared/open-work-link";
 import { CatalogueDateField } from "@/components/shared/catalogue-date-field";
 import { TermListField, type TermEntry } from "@/components/catalogue/record-fields";
-import { createFilm, findFilmsByTitle, updateFilm } from "@/lib/actions/films";
+import { findFilmsByTitle } from "@/lib/actions/films";
+import { createFilm, updateFilm } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { catalogueDateYears, type CatalogueDateInput } from "@/lib/catalogue/dates";
 import {
   FILM_GENRES_FAMILY,
@@ -226,7 +228,7 @@ export function FilmForm(props: Props) {
         props.onSaved();
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not save the film";
+      const message = refusalMessage(err, "Could not save the film");
       setError(message);
       toast.error(message);
       setSaving(false);

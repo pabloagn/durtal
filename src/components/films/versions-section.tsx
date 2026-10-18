@@ -9,8 +9,8 @@ import { SectionHeading } from "@/components/shared/section-heading";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { EntityActionMenu, type EntityActionItem } from "@/components/shared/entity-action-menu";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
-import { updateFilm } from "@/lib/actions/films";
-import { deleteFilmVersion } from "@/lib/actions/catalogue-client";
+import { deleteFilmVersion, updateFilm } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { VersionDialog, type EditableVersion } from "./version-dialog";
 import { CopyDialog, type CopyLocation, type VersionChoice } from "./copy-dialog";
 import type { Choice } from "./film-fields";
@@ -74,7 +74,7 @@ export function VersionsSection({
       await updateFilm(film.id, { versionOrder: order }, film.fingerprint);
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not move the version");
+      toast.error(refusalMessage(err, "Could not move the version"));
     } finally {
       setMoving(false);
     }
@@ -192,7 +192,7 @@ export function VersionsSection({
             close();
             router.refresh();
           } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Could not delete the version");
+            toast.error(refusalMessage(err, "Could not delete the version"));
           }
         }}
       />

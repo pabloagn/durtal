@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { db } from "@/lib/db";
 import { editions, instances } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
@@ -18,7 +19,7 @@ import { copyShelfMismatch } from "@/lib/catalogue/copy-shelf";
 export async function createInstance(input: CreateInstanceInput) {
   const parsed = createInstanceSchema.parse(input);
   const mismatch = await copyShelfMismatch([parsed]);
-  if (mismatch) throw new Error(mismatch);
+  if (mismatch) throw new ExpectedActionError(mismatch);
   const [instance] = await db.insert(instances).values(parsed).returning();
 
   const edition = await db.query.editions.findFirst({
@@ -81,7 +82,7 @@ async function placeAfterEdit(
   const locationId = data.locationId ?? stored.locationId;
   if (data.subLocationId !== undefined) {
     const mismatch = await copyShelfMismatch([{ locationId, subLocationId: data.subLocationId }]);
-    if (mismatch) throw new Error(mismatch);
+    if (mismatch) throw new ExpectedActionError(mismatch);
     return {};
   }
   const stale = await copyShelfMismatch([{ locationId, subLocationId: stored.subLocationId }]);

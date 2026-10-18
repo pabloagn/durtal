@@ -7,7 +7,7 @@ import { ActionRefusal } from "./refusal";
 /** Unwrap on the client, after the deliberate refusal crossed as data. */
 async function value<T>(result: Promise<ActionResult<T>>): Promise<T> {
   const outcome = await result;
-  if (!outcome.ok) throw new ActionRefusal(outcome.error);
+  if (!outcome.ok) throw new ActionRefusal(outcome.error, outcome.href);
   return outcome.value;
 }
 
@@ -828,4 +828,160 @@ export async function updateWork(
   ...args: Parameters<typeof actions.updateWork>
 ) {
   return value(actions.updateWork(...args));
+}
+
+export async function findEditionCandidates(
+  ...args: Parameters<typeof actions.findEditionCandidates>
+) {
+  return value(actions.findEditionCandidates(...args));
+}
+
+export async function previewMatch(
+  ...args: Parameters<typeof actions.previewMatch>
+) {
+  return value(actions.previewMatch(...args));
+}
+
+export async function applyMatch(
+  ...args: Parameters<typeof actions.applyMatch>
+) {
+  return value(actions.applyMatch(...args));
+}
+
+export async function resolvePublisherNames(
+  ...args: Parameters<typeof actions.resolvePublisherNames>
+) {
+  return value(actions.resolvePublisherNames(...args));
+}
+
+export async function applySafePublisherDecisions(
+  ...args: Parameters<typeof actions.applySafePublisherDecisions>
+) {
+  return value(actions.applySafePublisherDecisions(...args));
+}
+
+export async function restorePublisherName(
+  ...args: Parameters<typeof actions.restorePublisherName>
+) {
+  return value(actions.restorePublisherName(...args));
+}
+
+export async function undoAutomaticPublisherDecision(
+  ...args: Parameters<typeof actions.undoAutomaticPublisherDecision>
+) {
+  return value(actions.undoAutomaticPublisherDecision(...args));
+}
+
+export async function findPageCount(
+  ...args: Parameters<typeof actions.findPageCount>
+) {
+  return value(actions.findPageCount(...args));
+}
+
+export async function markWorksRead(
+  ...args: Parameters<typeof actions.markWorksRead>
+) {
+  return value(actions.markWorksRead(...args));
+}
+
+export async function undoMarkWorksRead(
+  ...args: Parameters<typeof actions.undoMarkWorksRead>
+) {
+  return value(actions.undoMarkWorksRead(...args));
+}
+
+export async function createFilm(
+  ...args: Parameters<typeof actions.createFilm>
+) {
+  return value(actions.createFilm(...args));
+}
+
+export async function updateFilm(
+  ...args: Parameters<typeof actions.updateFilm>
+) {
+  return value(actions.updateFilm(...args));
+}
+
+export async function deleteFilm(
+  ...args: Parameters<typeof actions.deleteFilm>
+) {
+  return value(actions.deleteFilm(...args));
+}
+
+export async function addFilmHolding(
+  ...args: Parameters<typeof actions.addFilmHolding>
+) {
+  return value(actions.addFilmHolding(...args));
+}
+
+export async function updateFilmHolding(
+  ...args: Parameters<typeof actions.updateFilmHolding>
+) {
+  return value(actions.updateFilmHolding(...args));
+}
+
+export async function deleteFilmHolding(
+  ...args: Parameters<typeof actions.deleteFilmHolding>
+) {
+  return value(actions.deleteFilmHolding(...args));
+}
+
+export async function createPainting(
+  ...args: Parameters<typeof actions.createPainting>
+) {
+  return value(actions.createPainting(...args));
+}
+
+export async function updatePainting(
+  ...args: Parameters<typeof actions.updatePainting>
+) {
+  return value(actions.updatePainting(...args));
+}
+
+export async function deletePainting(
+  ...args: Parameters<typeof actions.deletePainting>
+) {
+  return value(actions.deletePainting(...args));
+}
+
+export async function createPerfume(
+  ...args: Parameters<typeof actions.createPerfume>
+) {
+  return value(actions.createPerfume(...args));
+}
+
+export async function updatePerfume(
+  ...args: Parameters<typeof actions.updatePerfume>
+) {
+  return value(actions.updatePerfume(...args));
+}
+
+export async function deletePerfume(
+  ...args: Parameters<typeof actions.deletePerfume>
+) {
+  return value(actions.deletePerfume(...args));
+}
+
+export async function addPerfumeBottle(
+  ...args: Parameters<typeof actions.addPerfumeBottle>
+) {
+  return value(actions.addPerfumeBottle(...args));
+}
+
+export async function updatePerfumeBottle(
+  ...args: Parameters<typeof actions.updatePerfumeBottle>
+) {
+  return value(actions.updatePerfumeBottle(...args));
+}
+
+export async function deletePerfumeBottle(
+  ...args: Parameters<typeof actions.deletePerfumeBottle>
+) {
+  return value(actions.deletePerfumeBottle(...args));
+}
+
+export async function findOrCreateAuthor(
+  ...args: Parameters<typeof actions.findOrCreateAuthor>
+) {
+  return value(actions.findOrCreateAuthor(...args));
 }
