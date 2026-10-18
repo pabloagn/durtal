@@ -585,6 +585,13 @@ function ReaderSession({
     },
     [bridge],
   );
+  // A plug-in's jump to a share of the book, such as the logged place, goes
+  // as Go to page does, so Back returns (SLN-931)
+  useEffect(
+    () => bridge.registerJump((percent) =>
+      navigate({ fraction: Math.min(1, Math.max(0, percent / 100)) }, "goto")),
+    [bridge, navigate],
+  );
   const historyStep = useCallback((direction: -1 | 1) => {
     if (!bridge.getControllerReadinessSnapshot().ready) return;
     // Through the browser while it holds the entry: its popstate makes the step
