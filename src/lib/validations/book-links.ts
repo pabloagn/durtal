@@ -5,12 +5,12 @@ export const BOOK_LINK_SITES = {
   goodreadsUrl: {
     label: "Goodreads",
     host: "goodreads.com",
-    placeholder: "https://www.goodreads.com/book/show/…",
+    placeholder: "goodreads.com/book/show/…",
   },
   storygraphUrl: {
     label: "The StoryGraph",
     host: "thestorygraph.com",
-    placeholder: "https://app.thestorygraph.com/books/…",
+    placeholder: "app.thestorygraph.com/…",
   },
 } as const;
 

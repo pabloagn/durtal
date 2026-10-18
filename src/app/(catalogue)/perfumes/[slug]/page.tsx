@@ -641,7 +641,7 @@ export default async function PerfumePage({
         title={perfume.title}
         sources={sources}
         examples={{
-          name: "Fragrantica, the house's website, a book and page",
+          name: "e.g. Fragrantica",
           says: "Launch year, perfumer",
         }}
         lookup={<PerfumeSourceLookup key="lookup" perfume={{ id: perfume.id, title: perfume.title, fingerprint: perfume.fingerprint }} />}
