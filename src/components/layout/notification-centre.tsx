@@ -24,10 +24,11 @@ function ago(at: number, now: number) {
   return TIME.format(Math.round(hours / 24), "day");
 }
 
+// One line each, beside the heading, at every width (SLN-922)
 const ACTION =
-  "rounded-sm px-2 py-1 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary/50 hover:text-fg-primary pointer-coarse:min-h-11";
+  "whitespace-nowrap rounded-sm px-2 py-1 text-xs text-fg-secondary transition-colors hover:bg-bg-tertiary/50 hover:text-fg-primary pointer-coarse:min-h-11";
 
-function Entry({ entry, now }: { entry: NotificationEntry; now: number }) {
+function Entry({ entry, now, onRemove }: { entry: NotificationEntry; now: number; onRemove: (button: HTMLButtonElement) => void }) {
   const Icon = entry.kind === "error" ? CircleAlert : TriangleAlert;
   return (
     <li className="flex gap-2.5 py-2.5 pl-3 pr-1 text-xs" data-notification={entry.read ? "read" : "unread"}>
@@ -52,8 +53,12 @@ function Entry({ entry, now }: { entry: NotificationEntry; now: number }) {
       <CapAligned height={24} coarseHeight={44}>
         <button
           type="button"
-          onClick={() => remove(entry.id)}
+          onClick={(event) => {
+            onRemove(event.currentTarget);
+            remove(entry.id);
+          }}
           aria-label={`Remove "${entry.title}"`}
+          data-notification-remove=""
           data-tooltip="Remove"
           className="flex h-full w-6 items-center justify-center rounded-sm text-fg-secondary transition-colors hover:bg-bg-tertiary/50 hover:text-fg-primary pointer-coarse:w-11"
         >
@@ -118,6 +123,17 @@ export function NotificationCentre({
       seen.current = entries.map((entry) => entry.id);
   }, [entries]);
 
+  // Each of these removes the button it is pressed on: the focus moves first,
+  // so it never falls to the page body (SLN-922). Remove hands it to the
+  // next entry's Remove, else the one before, else the panel; Mark all read
+  // to Clear all; Clear all to the panel, which Esc still closes
+  const clear = useRef<HTMLButtonElement>(null);
+  function handOn(removing: HTMLButtonElement) {
+    const all = [...(pop.current?.querySelectorAll<HTMLButtonElement>("[data-notification-remove]") ?? [])];
+    const at = all.indexOf(removing);
+    (all[at + 1] ?? all[at - 1] ?? pop.current)?.focus();
+  }
+
   const label = unread ? `Notifications, ${unread} unread` : "Notifications";
   return (
     <>
@@ -146,18 +162,37 @@ export function NotificationCentre({
         popover="auto"
         role="dialog"
         aria-label="Notifications"
-        className="glass fixed inset-auto m-0 max-h-[min(480px,70vh)] flex-col open:flex overflow-hidden border-0 bg-transparent p-0 text-fg-primary"
+        // Takes the focus when the button that had it goes (Clear all)
+        tabIndex={-1}
+        className="glass fixed outline-none inset-auto m-0 max-h-[min(480px,70vh)] flex-col open:flex overflow-hidden border-0 bg-transparent p-0 text-fg-primary"
         data-notification-popover=""
       >
         <div className="flex shrink-0 items-center gap-1 border-b border-glass-border py-1.5 pl-3 pr-1">
-          <h2 className="type-group-title mr-auto">Notifications</h2>
+          {/* A functional heading, Inter at the dialogs' size, so the two
+              actions beside it keep one line each (SLN-922) */}
+          <h2 className="type-dialog-title mr-auto">Notifications</h2>
           {unread > 0 && (
-            <button type="button" className={ACTION} onClick={() => markRead(entries.map((e) => e.id))}>
+            <button
+              type="button"
+              className={ACTION}
+              onClick={() => {
+                clear.current?.focus();
+                markRead(entries.map((e) => e.id));
+              }}
+            >
               Mark all read
             </button>
           )}
           {entries.length > 0 && (
-            <button type="button" className={ACTION} onClick={clearAll}>
+            <button
+              ref={clear}
+              type="button"
+              className={ACTION}
+              onClick={() => {
+                pop.current?.focus();
+                clearAll();
+              }}
+            >
               Clear all
             </button>
           )}
@@ -168,7 +203,7 @@ export function NotificationCentre({
           // scroll height of the whole list behind its overflow-hidden
           <ul className="relative min-h-0 flex-1 divide-y divide-glass-border overflow-y-auto overscroll-contain">
             {entries.map((entry) => (
-              <Entry key={entry.id} entry={entry} now={now} />
+              <Entry key={entry.id} entry={entry} now={now} onRemove={handOn} />
             ))}
           </ul>
         ) : (
