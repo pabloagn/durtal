@@ -21,7 +21,8 @@ SLN-933, from the Fourth reviewer's routing survey of 16 Oct (items 1 to 4):
 
 ## Implementation Details
 
-- `src/lib/ebooks/library-params.ts`, `src/lib/ebooks/review-queue/params.ts`:
+- `src/lib/ebooks/library-params.ts`, `src/lib/ebooks/review-queue/params.ts`,
+  `src/lib/ebooks/highlights.ts` (`/ebooks/highlights?q=%00`, from review):
   the search term drops `\u0000` as it is parsed, before trimming and the
   200-character bound. A term of only NULs is no search.
 - `src/app/(catalogue)/ebooks/highlights/page.tsx`:
@@ -59,7 +60,8 @@ SLN-933, from the Fourth reviewer's routing survey of 16 Oct (items 1 to 4):
   - 0 alignment, design and overflow findings on `/ebooks/highlights?page=2`
     and `/ebooks?q=%00` in all three engines at 1440 and 390; page weight
     within budget on every route.
-- Tests: the two parsers drop a NUL (`library-params`, `review-queue-params`);
+- Tests: the three parsers drop a NUL (`library-params`, `review-queue-params`,
+  `highlights-params`);
   the counts and page queries take `q=%00` and `nad%00ja` on a database
   (`integration/ebook-library`); the reader 404s an unknown eBook before the
   handshake (`reader/return-route`); Back restores the kept scroll and nothing
