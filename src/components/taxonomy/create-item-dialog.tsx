@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import { useState, useCallback, type FormEvent } from "react";
 import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
@@ -150,6 +151,7 @@ export function CreateItemDialog({
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-2 pt-2">
+          <RequiredNameHint value={name} message="Give the item a name" />
           <Button data-dismiss=""
             type="button"
             variant="ghost"

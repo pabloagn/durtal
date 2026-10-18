@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
 
 import { useId, useState } from "react";
@@ -160,7 +161,7 @@ function OrganizationForm({
       defaultValue={organization?.name ?? ""}
       onChange={(e) => setTypedName(e.target.value)}
       maxLength={200}
-      required
+      aria-required="true"
       disabled={saving}
     /><NameDuplicateNotice kind="organization" name={typedName} enabled={!organization} /></div>
     <fieldset className="space-y-3" disabled={saving}>
@@ -242,10 +243,12 @@ function OrganizationForm({
           {error}
         </p>
       )}
+      {/* The house's line beside Save, not the browser's "Please fill out this field" bubble (SLN-945) */}
+      <RequiredNameHint value={typedName} message="Give the organization a name" />
       <Button data-dismiss="" type="button" size="sm" onClick={close} disabled={saving}>
         Cancel
       </Button>
-      <Button type="submit" form={formId} variant="primary" size="sm" data-shortcut="save" busy={saving}>
+      <Button type="submit" form={formId} variant="primary" size="sm" data-shortcut="save" busy={saving} disabled={!typedName.trim()}>
         {organization ? "Save" : "Add"}
       </Button>
     </DialogFooter>

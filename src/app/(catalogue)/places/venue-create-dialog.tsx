@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -398,6 +399,7 @@ export function VenueCreateDialog({
         </div>
 
         <DialogFooter>
+          <RequiredNameHint value={name} message="Give the place a name" />
           <Button data-dismiss=""
             variant="secondary"
             size="sm"

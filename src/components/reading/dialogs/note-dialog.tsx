@@ -294,7 +294,14 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
             Favourite
           </label>
         </div>
-        <DialogFooter form={formId} onCancel={close} saving={saving} saveLabel={editing ? "Save" : "Add"} disabled={!body.trim() || !!positionError} />
+        <DialogFooter
+          form={formId}
+          onCancel={close}
+          saving={saving}
+          saveLabel={editing ? "Save" : "Add"}
+          disabled={!body.trim() || !!positionError}
+          hint={body.trim() ? null : kind === "quote" ? "Write the passage to save" : "Write the note to save"}
+        />
       </form>
     </Dialog>
   );

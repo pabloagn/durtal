@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -136,7 +137,8 @@ export function RecommenderFormDialog({
             autoComplete="off"
             spellCheck={false}
           />
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <RequiredNameHint value={name} message="Give the recommender a name" />
             <Button data-dismiss="" type="button" disabled={pending} onClick={close}>
               Cancel
             </Button>
