@@ -292,11 +292,14 @@ describe.skipIf(!url)("collection media with PostgreSQL", () => {
 
   it("uploads a collection poster as an active media row and refuses a gallery", async () => {
     const a = await collection("A");
+    // A file the upload can read as an image (SLN-903)
+    const sharp = (await import("sharp")).default;
+    const png = await sharp({ create: { width: 1, height: 1, channels: 3, background: "#000" } }).png().toBuffer();
     const form = (mediaType: string) => {
       const data = new FormData();
       data.set(
         "file",
-        new File([new Uint8Array([1, 2, 3])], "poster.png", {
+        new File([new Uint8Array(png)], "poster.png", {
           type: "image/png",
         }),
       );
