@@ -67,7 +67,7 @@ const FooterSlot = createContext<{ slot: HTMLElement | null; shown: (on: boolean
  * phone it runs edge to edge. The form's own spacing sets it off the fields.
  */
 export const PINNED_PAGE_FOOTER =
-  "glass-bar sticky bottom-0 z-10 -mx-4 border-t border-glass-border px-4 py-3 pb-[max(--spacing(3),env(safe-area-inset-bottom))] md:mx-0 md:px-0";
+  "pinned-page-footer glass-bar sticky bottom-0 z-10 -mx-4 border-t border-glass-border px-4 py-3 pb-[max(--spacing(3),env(safe-area-inset-bottom))] md:mx-0 md:px-0";
 
 /**
  * A form's Cancel, Save and notice. In a dialog they sit in a row under the
