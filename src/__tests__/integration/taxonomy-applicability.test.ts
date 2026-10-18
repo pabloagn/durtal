@@ -365,12 +365,18 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     expect(settled.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect(settled.filter((r) => r.status === "rejected")).toHaveLength(1);
   });
-  it("keeps Unicode and colliding transliterations usable and stable on rename", async () => {
+  it("keeps Unicode names usable and stable on rename, and lets only one of two accent twins in", async () => {
     const [a, b, cyrillic] = await Promise.all([
       createTaxonomyItem("subjects", { name: "Café" }),
-      createTaxonomyItem("subjects", { name: "Cafe" }),
+      createTaxonomyItem("subjects", { name: "Café noir" }),
       createTaxonomyItem("subjects", { name: "Кино" }),
     ]);
+    // Two saves of twins at once: the table lock lets one in (SLN-1016)
+    const twins = await Promise.allSettled([
+      createTaxonomyItem("subjects", { name: "Décor" }),
+      createTaxonomyItem("subjects", { name: "Decor" }),
+    ]);
+    expect(twins.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect(new Set([a.slug, b.slug, cyrillic.slug]).size).toBe(3);
     expect(cyrillic.slug).not.toBe("");
     await updateTaxonomyItem("subjects", a.id, { name: "Renamed" });

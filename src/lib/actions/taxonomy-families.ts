@@ -24,6 +24,7 @@ import {
 } from "@/lib/catalogue/taxonomies";
 import {
   taxonomyStorage,
+  type TaxonomyStorage,
   familyItemCondition,
   itemProjection,
   linkedEntities,
@@ -458,6 +459,35 @@ export async function getTaxonomyItem(familySlug: string, itemSlug: string) {
 /** A description typed for a family that keeps none is refused, never dropped (SLN-1158) */
 const noDescription = (family: string) => `${family} keep no description`;
 
+/**
+ * The item of the family whose name differs from `name` only by accents,
+ * case or punctuation ("Décadentisme" for "Decadentisme"), SLN-1016. A name
+ * of only symbols normalizes to nothing and matches nothing.
+ */
+function twinCondition(storage: TaxonomyStorage, familyId: string, name: string, exceptId?: string) {
+  return sql`${familyItemCondition(storage, familyId)} and search_normalize(${name})<>'' and search_normalize(i.name)=search_normalize(${name})${
+    exceptId ? sql` and i.id<>${exceptId}::uuid` : sql``
+  }`;
+}
+async function nameTwin(storage: TaxonomyStorage, familyId: string, name: string, exceptId?: string) {
+  const [twin] = resultRows<{ id: string; name: string; slug: string }>(
+    await db.execute(
+      sql`select i.id,i.name,coalesce(i.slug,i.id::text) as slug from ${sql.identifier(storage.table)} i where ${twinCondition(storage, familyId, name, exceptId)} order by i.name limit 1`,
+    ),
+  );
+  return twin ?? null;
+}
+function twinMessage(name: string) {
+  return `This family already has "${name}"`;
+}
+/** For the create and rename fields: the item a new name would duplicate */
+export async function findTaxonomyNameTwin(familySlug: string, name: string, exceptId?: string) {
+  z.string().trim().min(1).max(500).parse(name);
+  z.uuid().optional().parse(exceptId);
+  const family = await getTaxonomyFamily(familySlug);
+  if (!family) return null;
+  return nameTwin(taxonomyStorage(family), family.id, name.trim(), exceptId);
+}
 export async function createTaxonomyItem(familySlug: string, input: unknown) {
   const parsed = createTaxonomyItemSchema.parse(input);
   const family = await requiredFamily(familySlug),
@@ -469,6 +499,8 @@ export async function createTaxonomyItem(familySlug: string, input: unknown) {
     throw new ExpectedActionError("This family has no hierarchy");
   if (parsed.description?.trim() && !storesDescription(storage))
     throw new ExpectedActionError(noDescription(family.name));
+  const twin = await nameTwin(storage, family.id, parsed.name);
+  if (twin) throw new ExpectedActionError(twinMessage(twin.name));
   const id = randomUUID();
   const values: Record<string, unknown> = {
     id,
@@ -489,6 +521,13 @@ export async function createTaxonomyItem(familySlug: string, input: unknown) {
   await withReadableErrors(
     () => atomic(d => [
       d.execute(lockSql([storage.table])),
+      // A twin saved since the check above, under the same lock
+      d.execute(
+        assertSql(
+          sql`not exists(select 1 from ${sql.identifier(storage.table)} i where ${twinCondition(storage, family.id, parsed.name)})`,
+          "This family already has an item with this name, apart from accents or case",
+        ),
+      ),
       d.execute(
         sql`insert into ${sql.identifier(storage.table)} (${sql.join(
           fields.map(([key]) => sql.identifier(key)),
@@ -538,6 +577,10 @@ export async function updateTaxonomyItem(
   }
   const fields = Object.entries(values);
   if (!fields.length) throw new ExpectedActionError("No editable fields supplied");
+  if (parsed.name !== undefined) {
+    const twin = await nameTwin(storage, family.id, parsed.name, itemId);
+    if (twin) throw new ExpectedActionError(twinMessage(twin.name));
+  }
   // A rename to a name another item has is refused with the create's message
   const rows = resultRows<{ id: string }>(
     await withReadableErrors(

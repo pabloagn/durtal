@@ -1,8 +1,10 @@
 "use client";
 
 import { RequiredNameHint } from "@/components/shared/required-name-hint";
-import { useState, useCallback, type FormEvent } from "react";
+import { useState, useCallback, useEffect, type FormEvent } from "react";
+import Link from "next/link";
 import { toast } from "@/lib/notifications/toast";
+import { findTaxonomyNameTwin } from "@/lib/actions/taxonomy-families";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,6 +40,30 @@ export function CreateItemDialog({
   const [parentId, setParentId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The item this name repeats apart from accents, case or punctuation
+  // ("Décadentisme" for "Decadentisme"): the server refuses it, so the
+  // dialog says so as the name is typed and offers the item (SLN-1016)
+  const query = name.trim();
+  const [twin, setTwin] = useState<{
+    query: string;
+    item: { name: string; slug: string } | null;
+  }>({ query: "", item: null });
+  useEffect(() => {
+    if (!open || !query) return;
+    let live = true;
+    const timer = setTimeout(() => {
+      findTaxonomyNameTwin(familySlug, query).then(
+        (item) => live && setTwin({ query, item }),
+        // Unchecked: the server still refuses a twin on Create
+        () => live && setTwin({ query, item: null }),
+      );
+    }, 300);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [open, familySlug, query]);
+  const existing = twin.query === query ? twin.item : null;
 
   const resetForm = useCallback(() => {
     setName("");
@@ -110,6 +136,17 @@ export function CreateItemDialog({
           placeholder="Enter item name"
           error={error && !name.trim() ? "Name is required" : undefined}
         />
+        {existing && (
+          <p role="status" className="text-xs text-fg-secondary">
+            This family already has &ldquo;{existing.name}&rdquo;.{" "}
+            <Link
+              href={`/taxonomy/${familySlug}/${existing.slug}`}
+              className="text-command touch-hit break-words"
+            >
+              Open {existing.name}
+            </Link>
+          </p>
+        )}
 
         {/* Color */}
         <div className="space-y-1.5">
@@ -163,7 +200,7 @@ export function CreateItemDialog({
             type="submit"
             variant="primary"
             size="sm"
-            disabled={!name.trim()}
+            disabled={!name.trim() || !!existing}
             busy={submitting}
           >
             Create
