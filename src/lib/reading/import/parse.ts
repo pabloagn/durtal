@@ -1,6 +1,6 @@
 import { csvTable } from "./csv";
 import { mapDurtal } from "./durtal";
-import { detectFormat } from "./formats";
+import { detectFormat, ImportFileError } from "./formats";
 import { mapGoodreads } from "./goodreads";
 import { mapStorygraph } from "./storygraph";
 import type { ParsedFile } from "./types";
@@ -10,12 +10,15 @@ import type { ParsedFile } from "./types";
  * that format's mapper turns each data row into one `ImportRow`. Pure: no
  * database, so the mappers are tested with fixtures. Rows whose cells are all
  * empty are dropped; the rest keep their data row number (1 after the header).
+ * An empty file, or one with no rows, is refused: no import is kept (SLN-955).
  */
 export function parseImportFile(text: string): ParsedFile & { rowNos: number[] } {
+  if (!text.replace(/^\uFEFF/, "").trim()) throw new ImportFileError("This file is empty");
   const { headers, rows } = csvTable(text);
   const kept = rows.map((r, i) => ({ r, no: i + 1 })).filter(({ r }) => Object.values(r).some((v) => v.trim()));
   const records = kept.map((k) => k.r);
   const source = detectFormat(headers);
+  if (!kept.length) throw new ImportFileError("This file has no rows");
   const parsed =
     source === "durtal" ? mapDurtal(headers, records) : source === "goodreads" ? mapGoodreads(headers, records) : mapStorygraph(headers, records);
   return { ...parsed, rowNos: kept.map((k) => k.no) };

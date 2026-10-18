@@ -53,6 +53,18 @@ export function day(value: string | undefined): string | null {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === iso ? iso : null;
 }
 
+/**
+ * A day from a cell, as `day` reads it; a cell that holds something else is
+ * named on the row, with what the read loses: "Date Read 2022/13/45 is not a
+ * date; the read will have no date" (SLN-955)
+ */
+export function dayOrWarn(value: string | undefined, label: string, warnings: string[], loses = "the read will have no date"): string | null {
+  const on = day(value);
+  const raw = (value ?? "").trim();
+  if (raw && !on) warnings.push(`${label} ${shown(raw)} is not a date; ${loses}`);
+  return on;
+}
+
 const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 /**

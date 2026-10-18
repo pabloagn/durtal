@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { crossOriginRefusal } from "@/lib/api/same-origin";
 import { errorResponse } from "@/lib/api/rest";
-import { UnknownFormatError } from "@/lib/reading/import/formats";
+import { ImportFileError } from "@/lib/reading/import/formats";
 import { createReadingImport, safeFileName, setBronzeKey } from "@/lib/reading/import/store";
 import { bronzeImportKey } from "@/lib/s3/keys";
 import { uploadToS3 } from "@/lib/s3/covers";
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     try {
       created = await createReadingImport({ text, fileName: file.name });
     } catch (err) {
-      if (err instanceof UnknownFormatError) return NextResponse.json({ error: err.message }, { status: 400 });
+      if (err instanceof ImportFileError) return NextResponse.json({ error: err.message }, { status: 400 });
       throw err;
     }
 

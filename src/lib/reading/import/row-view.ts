@@ -62,7 +62,9 @@ export function rowView(row: PreviewRow, today: string): RowView {
   // An e-book library row writes its rating even when its read is already in Durtal (SLN-658)
   const writes = !written && (match.verdicts.some((v) => v.verdict === "new") || match.rating === "set" || match.rating === "differs");
   const rating = ratingLine({ section: row.section, fileRating: data.rating, bookRating: book?.rating, useFileRating: row.useFileRating, writes });
-  const what = written || closed ? null : toRead ? (book ? "Goes to the bottom of Up next" : null) : writeLine(data.readings, match.verdicts, today, { anyway: anyway && row.decision === "import" });
+  // A book already in Up next, or being read, stays where it is: its note says so, and the commit skips it (SLN-956)
+  const staysPut = !!(match.queue?.place || match.queue?.sameKey || match.queue?.open);
+  const what = written || closed ? null : toRead ? (book && !staysPut ? "Goes to the bottom of Up next" : null) : writeLine(data.readings, match.verdicts, today, { anyway: anyway && row.decision === "import" });
   const reason = reasonWords(match);
   const lines: [RowLineKind, string][] = [];
   if (reason) lines.push(["reason", reason]);

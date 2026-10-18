@@ -244,6 +244,15 @@ describe("a row as the page sends it", () => {
     const view = rowView({ ...base, written: { readings: [{ n: 1, outcome: "written", readingId: "r", reason: null }], bookRating: null, identifiers: [] } }, today);
     expect([view.lines, view.actions]).toEqual([[["reason", "Same ISBN"], ["outcome", "Written"]], null]);
   });
+  it("says one thing of a to-read book: it goes to Up next, or it stays where it is (SLN-956)", () => {
+    const toRead = (queue: object | null) =>
+      rowView({ ...base, section: "to_read", data: { ...base.data, kind: "to_read", queueKey: "q", readings: [] }, match: { ...base.match, section: "to_read", note: queue ? "Already in Up next, at 1" : null, queue: queue as never } }, today).lines;
+    expect(toRead(null)).toContainEqual(["writes", "Goes to the bottom of Up next"]);
+    const queued = toRead({ place: 1, sameKey: false, open: null, readYear: null });
+    expect(queued).toContainEqual(["reason", "Same ISBN · Already in Up next, at 1"]);
+    expect(queued.some(([kind]) => kind === "writes")).toBe(false);
+    expect(toRead({ place: null, sameKey: false, open: "reading", readYear: null }).some(([kind]) => kind === "writes")).toBe(false);
+  });
   it("offers Add this book on a row not in Durtal", () => {
     const view = rowView({ ...base, section: "none", book: null, match: { ...base.match, found: "none", reason: null, verdicts: [] } }, today);
     expect(view).toMatchObject({ empty: "Not in Durtal", actions: { decision: "import", canChoose: true, addHref: "/library/new?isbn=9780140449136" } });
