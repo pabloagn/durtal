@@ -576,8 +576,11 @@ export async function deleteTaxonomyItem(
   familySlug: string,
   itemId: string,
   reassignToId?: string,
+  /** Narrower items move up to the item's own parent first (SLN-957) */
+  liftChildren = false,
 ) {
   z.uuid().parse(itemId);
+  z.boolean().parse(liftChildren);
   if (reassignToId) {
     await mergeTaxonomyItems(familySlug, {
       sourceId: itemId,
@@ -591,6 +594,9 @@ export async function deleteTaxonomyItem(
     (await withReadableErrors(() => atomic((d) => [
       d.execute(lockSql([storage.table])),
       d.execute(assertSql(sql`not exists(select 1 from (${linkRows(storage, WORK_KINDS)}) links where links.item_id=${itemId}::uuid)`, "Reassign this item's catalogue links before deleting it")),
+      ...(liftChildren && storage.columns.has("parent_id")
+        ? [d.execute(sql`update ${sql.identifier(storage.table)} c set parent_id=i.parent_id from ${sql.identifier(storage.table)} i where i.id=${itemId}::uuid and ${familyItemCondition(storage, family.id)} and c.parent_id=i.id`)]
+        : []),
       ...(storage.columns.has("parent_id") ? [d.execute(assertSql(sql`not exists(select 1 from ${sql.identifier(storage.table)} where parent_id=${itemId}::uuid)`, "Move this item's children before deleting it"))] : []),
       d.execute(sql`delete from ${sql.identifier(storage.table)} i where i.id=${itemId}::uuid and ${familyItemCondition(storage, family.id)} returning i.id`),
     ]))).at(-1),
