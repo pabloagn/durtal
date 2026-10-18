@@ -119,7 +119,7 @@ export default async function DataSettingsPage() {
         <ExportRow
           entity="authors"
           label="People"
-          description="Every person: names, dates, nationality, biography and the number of books."
+          description="Every person: names, roles, dates, nationality, biography and the number of books."
         />
         <ExportRow
           entity="readings"
@@ -139,6 +139,7 @@ export default async function DataSettingsPage() {
         <ExportRow
           entity="goodreads"
           label="Goodreads file"
+          name="Goodreads file"
           description="Your shelves and reads in Goodreads' own export format, which Goodreads and StoryGraph import. Half stars round up, and only exact dates go out."
         />
         {WORK_DOMAINS.perfume.enabled && (

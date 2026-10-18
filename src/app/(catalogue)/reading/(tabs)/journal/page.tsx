@@ -92,7 +92,7 @@ async function JournalResults({ params }: { params: ListSearchParams }) {
             the counts on a phone, its label starts at their text edge; at the
             end of their line the margin only narrows the gap */}
         <div className="-ml-2.5">
-          <ExportMenu entity="readings" ids={{ filters: exportFilters(search) }} noun="readings" align="end" side="bottom" />
+          <ExportMenu entity="readings" ids={{ filters: exportFilters(search) }} align="end" side="bottom" />
         </div>
       </div>
       <div className="space-y-8" id="list-start">

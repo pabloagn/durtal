@@ -107,7 +107,7 @@ async function perfumeRows(ids: string[]) {
     samples: p.holdings.samples,
     decants: p.holdings.decants,
     rating: p.rating ?? "",
-    favourite: p.isFavourite ? "yes" : "no",
+    favourite: p.isFavourite,
     notes: texts.get(p.id)?.notes ?? "",
     description: texts.get(p.id)?.description ?? "",
   }));
@@ -147,7 +147,7 @@ async function filmRows(ids: string[]) {
     physical_copies: f.holdings.physical,
     digital_copies: f.holdings.digital,
     rating: f.rating ?? "",
-    favourite: f.isFavourite ? "yes" : "no",
+    favourite: f.isFavourite,
     notes: texts.get(f.id)?.notes ?? "",
     description: texts.get(f.id)?.description ?? "",
   }));
@@ -184,7 +184,7 @@ async function paintingRows(ids: string[]) {
       width_cm: o?.widthCm ?? "",
       objects_owned: p.personalCount,
       rating: p.rating ?? "",
-      favourite: p.isFavourite ? "yes" : "no",
+      favourite: p.isFavourite,
       notes: texts.get(p.id)?.notes ?? "",
       description: texts.get(p.id)?.description ?? "",
     };
@@ -210,7 +210,7 @@ export async function collectionExportRows(
 export async function collectionExportRows(
   entity: CollectionExport,
   ids: string[] | null,
-): Promise<Record<string, string | number>[]>;
+): Promise<Record<string, string | number | boolean>[]>;
 export async function collectionExportRows(entity: CollectionExport, ids: string[] | null) {
   const found = await exportIds(COLLECTION_EXPORTS[entity], ids);
   if (entity === "perfumes") return perfumeRows(found);

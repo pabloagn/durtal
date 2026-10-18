@@ -115,7 +115,7 @@ export function AuthorDetailHeader({
       onClick: () => setMediaOpen(true),
       shortcut: editHint(EDIT_KEYS.media),
     },
-    ...exportActionItems("authors", [authorId], "person"),
+    ...exportActionItems("authors", [authorId]),
     {
       label: "Delete",
       icon: Trash2,

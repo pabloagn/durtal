@@ -10,6 +10,7 @@ import { SettingRow, settingDescriptionId } from "@/components/settings/settings
 import { Dialog } from "@/components/ui/dialog";
 import {
   EXPORT_FORMAT_LABELS,
+  exportFormatName,
   exportFormats,
   triggerExport,
   type ExportEntity,
@@ -22,10 +23,13 @@ import { getGoodreadsExportNotice } from "@/lib/actions/reading-export";
 export function ExportRow({
   entity,
   label,
+  name = label.toLowerCase(),
   description,
 }: {
   entity: ExportEntity;
   label: string;
+  /** The label inside a sentence ("Download books"); a proper noun keeps its capital ("Goodreads file") */
+  name?: string;
   description: string;
 }) {
   const id = `export-${entity}`;
@@ -37,10 +41,10 @@ export function ExportRow({
 
   async function save() {
     setExporting(true);
-    const progress = toast.pending(`Exporting ${label.toLowerCase()}`);
+    const progress = toast.pending(`Exporting ${name}`);
     try {
       await triggerExport(entity, "all", format);
-      progress.success(`${label} exported`);
+      progress.success(`${label} exported as ${exportFormatName(format)}`);
     } catch (error) {
       progress.error(error instanceof Error ? error.message : "Export failed");
     } finally {
@@ -78,7 +82,7 @@ export function ExportRow({
         <Button
           onClick={download}
           busy={exporting}
-          aria-label={`Download ${label.toLowerCase()}`}
+          aria-label={`Download ${name}`}
         >
           <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden />
           Download
