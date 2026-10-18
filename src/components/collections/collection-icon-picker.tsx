@@ -12,11 +12,11 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Shapes } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { Spinner } from "@/components/ui/spinner";
 import { setCollectionIcon } from "@/lib/actions/collections";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
+import { coverLetter } from "@/components/books/cover-letter";
 
 // Holds the whole icon set: loaded only when the picker opens.
 const IconPickerPanel = lazy(() => import("./icon-picker-panel"));
@@ -26,14 +26,17 @@ const PANEL_HEIGHT = 440;
 
 /**
  * The collection's icon beside its name. Clicking it opens a Linear-style
- * picker. `children` is the current icon, rendered on the server.
+ * picker. `children` is the current icon, rendered on the server; with none
+ * the button shows the name's letter, faint, as a blank cover does.
  */
 export function CollectionIconPicker({
   collectionId,
+  name,
   value,
   children,
 }: {
   collectionId: string;
+  name: string;
   value: string | null;
   children?: ReactNode;
 }) {
@@ -136,12 +139,13 @@ export function CollectionIconPicker({
         {value && children ? (
           children
         ) : (
-          <Shapes
-            className="h-7 w-7 text-fg-muted/40"
-            strokeWidth={1.5}
-            absoluteStrokeWidth
+          <span
             aria-hidden="true"
-          />
+            data-decorative=""
+            className="font-serif text-2xl leading-none text-fg-muted/40 [text-box:trim-both_cap_alphabetic]"
+          >
+            {coverLetter(name)}
+          </span>
         )}
       </button>
       {position &&
