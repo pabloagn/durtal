@@ -43,6 +43,11 @@ interface SelectProps {
    * and no label.
    */
   compact?: boolean;
+  /**
+   * The value wraps onto more lines and the field grows with it, for values
+   * that identify something and must show whole, such as an edition (SLN-932)
+   */
+  wrap?: boolean;
 }
 
 export function Select({
@@ -60,6 +65,7 @@ export function Select({
   ariaLabel,
   ariaDescribedby,
   compact = false,
+  wrap = false,
 }: SelectProps) {
   // The label names the field through its id, so a field always has one
   const generatedId = useId();
@@ -224,8 +230,10 @@ export function Select({
             }
           }}
           onKeyDown={handleKeyDown}
-          className={`flex items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 text-left text-xs transition-colors duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-60 pointer-coarse:h-11 pointer-coarse:text-sm ${
-            compact ? "h-5 px-1.5 leading-5 pointer-coarse:min-w-11 pointer-coarse:px-2" : "h-8 w-full px-3"
+          className={`flex items-center justify-between rounded-sm border border-glass-border bg-bg-primary/80 text-left text-xs transition-colors duration-150 focus:border-accent-primary focus:outline-none focus:glass-input-focus disabled:cursor-not-allowed disabled:opacity-60 pointer-coarse:text-sm ${
+            compact ? "h-5 px-1.5 leading-5 pointer-coarse:h-11 pointer-coarse:min-w-11 pointer-coarse:px-2"
+              : wrap ? "min-h-8 w-full px-3 py-[5px] leading-5 pointer-coarse:min-h-11 pointer-coarse:py-[11px]"
+              : "h-8 w-full px-3 pointer-coarse:h-11"
           } ${
             error ? "border-accent-red" : ""
           } ${isOpen ? "border-accent-primary" : ""} ${className}`}
@@ -233,7 +241,7 @@ export function Select({
           {/* One line: a narrow trigger cuts the label with an ellipsis (the
               tooltip shows it whole) instead of wrapping out of its 32px */}
           <span
-            className={`min-w-0 ${compact ? "whitespace-nowrap" : "truncate"} ${
+            className={`min-w-0 ${compact ? "whitespace-nowrap" : wrap ? "[overflow-wrap:anywhere]" : "truncate"} ${
               value === "" || value === undefined
                 ? "text-fg-secondary"
                 : "text-fg-primary"

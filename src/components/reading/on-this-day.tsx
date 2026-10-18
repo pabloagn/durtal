@@ -4,6 +4,7 @@ import { Fragment } from "react";
 import Link from "next/link";
 import type { OnThisDay as Hit } from "@/lib/reading/stats";
 import { formatRating } from "@/lib/utils/rating";
+import { countLabel } from "@/lib/utils/format";
 import { useBrowserReadingDay } from "./reading-client";
 
 /**
@@ -27,7 +28,8 @@ export function OnThisDay({ hits, serverToday, dayStartHour, reviewYears }: { hi
           <Link href={`/library/${h.slug ?? h.workId}`} className="text-fg-primary transition-colors hover:text-accent-primary">
             {h.title}
           </Link>
-          {h.kind === "finished" && h.rating !== null ? ` (${formatRating(h.rating)})` : ""}
+          {/* "and rated it 1.5 stars", not a bare "(1.5)" (SLN-932) */}
+          {h.kind === "finished" && formatRating(h.rating) ? ` and rated it ${countLabel(Number(formatRating(h.rating)), "star")}` : ""}
         </Fragment>
       ))}
       {shown.length > 0 && "."}

@@ -37,6 +37,8 @@ import { mediaUrl } from "@/lib/s3/media-url";
 import { appTimeZone } from "@/lib/utils/date";
 import { PhonePairGrid } from "@/components/shared/phone-pair-grid";
 import { DashboardStatistics } from "@/components/statistics/dashboard-statistics";
+import { Dateline } from "@/components/shared/dateline";
+import { formatDateline } from "@/lib/utils/dateline";
 
 // The root layout's title template skips a page in its own segment
 export const metadata = { title: { absolute: "Dashboard | Durtal" } };
@@ -381,19 +383,13 @@ async function DashboardContent() {
   );
 }
 
-/** The date in the library's time zone, as a dateline: "Wednesday 15 October 2026" */
-function dateline() {
-  return new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: appTimeZone() })
-    .format(new Date())
-    .replace(",", "");
-}
 
 export default function DashboardPage() {
   return (
     <>
       <PageHeader
         title="Dashboard"
-        description={dateline()}
+        description={<Dateline initial={formatDateline(new Date(), appTimeZone())} />}
         actions={
           // No Import: importing books is not built yet (SLN-832)
           <DomainAddLink kind="book" size="md" />

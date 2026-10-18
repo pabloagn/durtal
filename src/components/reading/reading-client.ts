@@ -18,6 +18,8 @@ export type ReadingRow = ReadingDetailRow;
 export interface ReadingPageData {
   workId: string;
   workTitle: string;
+  /** The year the work was first published, to flag a past read dated before it (SLN-932) */
+  workYear?: number | null;
   bookRating: number | null;
   /** The hour a reading day starts (4: 01:30 counts for the evening before) */
   dayStartHour: number;

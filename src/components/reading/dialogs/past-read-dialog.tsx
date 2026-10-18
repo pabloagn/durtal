@@ -27,6 +27,17 @@ const FORMATS = [
   { value: "audio", label: "Audio" },
 ] as const;
 
+/**
+ * "This is before the book was written, in 1947": a date the work's year
+ * makes unlikely, said but not refused, since a year can be wrong (SLN-932)
+ */
+export function beforeWritten(workYear: number | null | undefined, ...dates: ReadingDate[]) {
+  if (workYear == null) return null;
+  const year = dates.map((d) => (d.date ? Number(d.date.slice(0, 4)) : null)).find((y) => y !== null && y < workYear);
+  if (year == null) return null;
+  return `This is before the book was written, in ${workYear < 0 ? `${-workYear} BC` : workYear}. You can still log it.`;
+}
+
 /** A read from the past, at any date precision: "2009", "Apr 2019" */
 export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
   const [status, setStatus] = useState<"finished" | "abandoned">("finished");
@@ -53,6 +64,7 @@ export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
   const error = readingDateError(start.date, start.precision, maxDate)
     ?? readingDateError(finish.date, finish.precision, maxDate)
     ?? finishDateError({ startedOn: start.date, startedPrecision: start.precision }, finish);
+  const early = beforeWritten(data.workYear, start, finish);
 
   function chooseCopy(id: string) {
     setInstanceId(id);
@@ -113,6 +125,7 @@ export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
         {data.editions.length > 0 && (
           <Select
             label="Edition (optional)"
+            wrap
             value={editionId}
             onChange={(e) => {
               setEditionId(e.target.value);
@@ -148,6 +161,7 @@ export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
             {error}
           </p>
         )}
+        {!error && early && <p className="text-xs text-fg-secondary">{early}</p>}
         <div className="space-y-1.5">
           <span className="type-label block">Rating</span>
           <div className="text-sm">

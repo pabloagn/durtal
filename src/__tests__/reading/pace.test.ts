@@ -79,7 +79,7 @@ describe("time left", () => {
 describe("the finish date", () => {
   const today = "2026-10-12";
   it("needs three sessions on two days", () => {
-    expect(finishEstimate(reading({ sessions: [session({}), session({})] }), today)).toEqual({ kind: "none", text: "Log a few sessions for an estimate" });
+    expect(finishEstimate(reading({ sessions: [session({}), session({})] }), today)).toEqual({ kind: "none", text: "Log a few sessions for a finish date" });
     expect(finishEstimate(reading({ sessions: [session({}), session({}), session({})] }), today).kind).toBe("none");
   });
   it("divides what is left by a weighted daily rate, days without reading included", () => {
@@ -132,6 +132,6 @@ describe("the estimate line", () => {
   });
 
   it("says when there are too few sessions for a date", () => {
-    expect(readingEstimate(reading({}), noPriors, "2026-10-03").text).toBe("About 6 h 40 min left · Log a few sessions for an estimate");
+    expect(readingEstimate(reading({}), noPriors, "2026-10-03").text).toBe("About 6 h 40 min left · Log a few sessions for a finish date");
   });
 });
