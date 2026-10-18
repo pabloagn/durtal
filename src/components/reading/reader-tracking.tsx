@@ -66,6 +66,7 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   const controller = useRef<Controller | null>(null);
   const queue = useRef<Queue | null>(null);
   const live = useRef(false);
+  const statusRef = useRef<HTMLSpanElement>(null);
   const generation = useRef(0);
   const manualStart = useRef(false);
   const undo = useRef<{ timer: ReturnType<typeof setTimeout>; toast: string | number } | null>(null);
@@ -287,11 +288,16 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   // The place shown follows the reader, also after a jump that is not counted yet
   const percent = context.percent ?? snapshot?.counted?.percent ?? reading?.percent;
   const jumpShown = !!reading && behind && jumpDoneAt !== reading.percent;
+  // The jump and its dismiss leave the bar, so the focus goes to the tracking control in their place
+  const jumpDone = (at: number | null) => {
+    setJumpDoneAt(at);
+    requestAnimationFrame(() => statusRef.current?.querySelector<HTMLElement>("button")?.focus());
+  };
   const status = timerOwns ? "Manual timer active" : snapshot?.held ? "Starting tracking" : reading?.status === "paused" ? "Paused" : "Tracking";
   return <>
     <ReaderSlotFill slot="toolbar-status">
       {/* On a phone the jump takes the tracking control's room until it is used or dismissed */}
-      <span className={jumpShown ? "contents max-sm:hidden" : "contents"}>
+      <span ref={statusRef} className={jumpShown ? "contents max-sm:hidden" : "contents"}>
       {reading ? <DropdownMenu label="Reading actions" trigger={<Button disabled={busy} variant="ghost">{status}{percent == null ? "" : ` · ${formatPercent(percent)}`}</Button>}>
         <DropdownMenuItem disabled={busy} onClick={() => void readingAction("progress")}>Log progress</DropdownMenuItem>
         <DropdownMenuItem disabled={busy || timerOwns} onClick={() => void readingAction("pause")}>{reading.status === "paused" ? "Resume reading" : "Pause reading"}</DropdownMenuItem>
@@ -311,11 +317,11 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
       {/* On a phone, an arrow and "p. 120", in the tracking control's room */}
       <Button variant="ghost" aria-label={loggedPlaceLabel(reading)} data-tooltip="Go to the place you logged" onClick={() => {
         const at = reading.percent;
-        if (at !== null) void jump(at).then((moved) => { if (moved && live.current) setJumpDoneAt(at); });
+        if (at !== null) void jump(at).then((moved) => { if (moved && live.current) jumpDone(at); });
       }}><ArrowRight aria-hidden strokeWidth={1.5} className="sm:hidden" /><span className="max-sm:hidden">{loggedPlaceLabel(reading)}</span>
         <span className="sm:hidden">{loggedPlaceWhere(reading)}</span></Button>
       <Button variant="ghost" className="w-8 px-0" aria-label="Stay at this place" data-tooltip="Stay at this place"
-        onClick={() => setJumpDoneAt(reading.percent)}><X aria-hidden strokeWidth={1.5} /></Button>
+        onClick={() => jumpDone(reading.percent)}><X aria-hidden strokeWidth={1.5} /></Button>
     </span></ReaderSlotFill>}
     <ReaderSlotFill slot="selection-more"><Button disabled={busy || !selection} variant="ghost" onClick={() => void quote()}>Save quote</Button></ReaderSlotFill>
     {notice && <aside role="status" data-reader-chrome className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-xl flex-wrap items-center gap-3 rounded-xl bg-bg-primary p-4 text-sm shadow-lg">
