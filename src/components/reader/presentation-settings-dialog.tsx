@@ -37,7 +37,7 @@ function RangeField({ label, value, min, max, step, unit, bookValue, onChange }:
 }) {
   const id = useId();
   const floor = bookValue ? min - step : min;
-  const shown = value === null ? "Book's value" : `${Number(value.toFixed(2))}${unit}`;
+  const shown = value === null ? "Book’s value" : `${Number(value.toFixed(2))}${unit}`;
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between gap-3 text-sm">

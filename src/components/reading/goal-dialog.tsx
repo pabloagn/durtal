@@ -41,6 +41,8 @@ export function GoalDialog({ onClose }: { onClose: () => void }) {
   const [data, setData] = useState<Data | null>(null);
   const [year, setYear] = useState<number | null>(null);
   const [form, setForm] = useState<ReturnType<typeof formOf> | null>(null);
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -101,7 +103,7 @@ export function GoalDialog({ onClose }: { onClose: () => void }) {
       {!data || !form || year === null ? (
         <div className="h-64" aria-busy="true" />
       ) : (
-        <form onSubmit={save} className="space-y-5" data-goal-dialog="">
+        <form id={formId} onSubmit={save} className="space-y-5" data-goal-dialog="">
           <SegmentedControl
             options={[
               { value: String(data.year), label: String(data.year) },
@@ -164,7 +166,7 @@ export function GoalDialog({ onClose }: { onClose: () => void }) {
               </ul>
             </section>
           )}
-          <DialogFooter onCancel={onClose} saving={saving} disabled={Object.values(errors).some(Boolean)} />
+          <DialogFooter form={formId} onCancel={onClose} saving={saving} disabled={Object.values(errors).some(Boolean)} />
         </form>
       )}
     </Dialog>

@@ -103,6 +103,12 @@ html {
   }
 }
 
+/* A page with Save pinned to the bottom (PINNED_PAGE_FOOTER, two rows at
+   320): a field reached with Tab stops above the bar, not under it */
+html:has(.pinned-page-footer) {
+  scroll-padding-bottom: 8rem;
+}
+
 /* One keyboard focus ring for every control. In the base layer, so a text
    field can replace it with its own steel outline (focus:outline-none). */
 @layer base {

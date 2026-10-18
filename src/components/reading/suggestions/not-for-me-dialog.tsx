@@ -14,6 +14,8 @@ const REASONS = FEEDBACK_REASONS.filter((r) => r !== "already_read");
 export function NotForMeDialog({ workId, title, onClose }: { workId: string; title: string; onClose: () => void }) {
   const give = useSuggestionFeedback();
   const [reasons, setReasons] = useState<FeedbackReason[]>([]);
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const legend = useId();
@@ -30,7 +32,7 @@ export function NotForMeDialog({ workId, title, onClose }: { workId: string; tit
 
   return (
     <Dialog draft open onClose={onClose} title="Not for me because…" description={title} className="max-w-md">
-      <form onSubmit={save} className="space-y-4" data-not-for-me="">
+      <form id={formId} onSubmit={save} className="space-y-4" data-not-for-me="">
         <fieldset aria-labelledby={legend}>
           <p id={legend} className="type-label mb-2">
             Reasons
@@ -45,7 +47,7 @@ export function NotForMeDialog({ workId, title, onClose }: { workId: string; tit
           </div>
         </fieldset>
         <Textarea label="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} maxLength={FEEDBACK_NOTE_MAX} rows={3} />
-        <DialogFooter onCancel={onClose} saving={saving} saveLabel="Hide it" disabled={!reasons.length} />
+        <DialogFooter form={formId} onCancel={onClose} saving={saving} saveLabel="Hide it" disabled={!reasons.length} />
       </form>
     </Dialog>
   );

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { ReaderSidePanel } from "./side-panel";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 const storage = () => {
   try {
@@ -540,7 +541,7 @@ export function SearchPanel({
               type="button"
               aria-label="Close search"
               data-tooltip="Close search"
-              data-tooltip-keys="esc"
+              {...shortcutProps("esc")}
               className="action-icon-sm"
               onClick={end}
             >

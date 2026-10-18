@@ -440,7 +440,9 @@ export function TaxonomyTree({
           >
             {/* A merged or deleted row hands the focus to the same control of
             the next row, else New item (FocusKeeper, SLN-920) */}
-            <div className="divide-y-0" data-focus-list="taxonomy-items">
+            {/* The list's width decides, for every row at once, whether names
+                keep their line beside the controls (taxonomy-item-row) */}
+            <div className="@container/taxonomy-tree divide-y-0" data-focus-list="taxonomy-items">
               {paging.items.map(({ item, depth }) => {
                 const treeNode = treeNodeMap.get(item.id);
                 const hasChildren = treeNode

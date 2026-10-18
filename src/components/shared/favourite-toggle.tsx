@@ -8,6 +8,7 @@ import { FAVOURITE_STAR_ID } from "@/components/shared/favourite-star";
 import type { FavouriteEntity } from "@/lib/constants/favourites";
 import { setFavourite } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /** A then this key toggles the favourite on a detail page (SLN-571) */
 export const FAVOURITE_SHORTCUT = "f";
@@ -94,7 +95,7 @@ export function FavouriteToggle({
         aria-pressed={on}
         aria-label={label}
         data-tooltip={tooltip}
-        data-tooltip-keys={shortcut ? `a then ${FAVOURITE_SHORTCUT}` : undefined}
+        {...shortcutProps(shortcut ? `a then ${FAVOURITE_SHORTCUT}` : undefined)}
         // Saving, not disabled: a disabled button drops the focus onto the page
         aria-disabled={pending || undefined}
         onClick={(event) => {

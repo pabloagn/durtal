@@ -85,6 +85,7 @@ export function OrganizationFilters({
           aria-label="Search organizations"
           // "/" focuses this field (keyboard shortcuts)
           data-shortcut-search=""
+          aria-keyshortcuts="/"
           data-list-focus="search"
           placeholder="Search names and other names..."
           defaultValue={query}

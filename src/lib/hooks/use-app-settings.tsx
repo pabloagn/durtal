@@ -9,7 +9,7 @@ const AppSettingsContext = createContext<AppSettings>({
   newBookLanguage: "en",
   newCopyLocationId: null,
   newCopyFormat: "paperback",
-  newCopyCondition: "mint",
+  newCopyCondition: null,
   homeCurrency: DEFAULT_CURRENCY,
   readingDayStartHour: 4,
   readingWeekStart: 1,

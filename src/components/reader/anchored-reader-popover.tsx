@@ -3,6 +3,7 @@ import { useLayoutEffect, useId, useRef, useState, type ReactNode } from "react"
 import { X } from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { lookupPopoverPosition, type LookupRect } from "@/lib/reader/lookup/placement";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /** Shared collision-aware surface for notes and lookup; only the body scrolls. */
 export function AnchoredReaderPopover({
@@ -158,7 +159,7 @@ export function AnchoredReaderPopover({
               type="button"
               aria-label={closeLabel}
               data-tooltip="Close"
-              data-tooltip-keys="esc"
+              {...shortcutProps("esc")}
               className="action-icon-sm"
               onClick={() => onClose("button")}
             >

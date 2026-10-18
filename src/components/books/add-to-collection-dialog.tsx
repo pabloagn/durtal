@@ -21,6 +21,7 @@ import { CountParts } from "@/components/collections/count-parts";
 import { countLabel } from "@/lib/utils/format";
 import { createCollection, addToCollection, removeFromCollection } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 type Data = Awaited<ReturnType<typeof getCollectionSelection>>;
 
@@ -431,7 +432,7 @@ export function CollectionButton({
       <button
         type="button"
         data-tooltip="Add to collection"
-        data-tooltip-keys={shortcut ? `a then ${COLLECTION_SHORTCUT}` : undefined}
+        {...shortcutProps(shortcut ? `a then ${COLLECTION_SHORTCUT}` : undefined)}
         aria-label="Add to collection"
         onClick={(e) => {
           e.preventDefault();

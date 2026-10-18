@@ -15,6 +15,7 @@ import {
 import { getCountries } from "@/lib/actions/authors";
 import { createAuthor } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /**
  * Add Author. With `open` and `onOpenChange` the caller controls it (the
@@ -100,7 +101,7 @@ export function AuthorCreateDialog({
           onClick={() => setOpen(true)}
           type="button"
           data-tooltip="Add person"
-          data-tooltip-keys="a then a"
+          {...shortcutProps("a then a")}
         >
           <Plus className="h-4 w-4" strokeWidth={1.5} />
           Add person

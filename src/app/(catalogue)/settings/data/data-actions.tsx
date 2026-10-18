@@ -18,6 +18,11 @@ import {
 import { refreshCachedData } from "@/lib/actions/settings";
 import { getGoodreadsExportNotice } from "@/lib/actions/reading-export";
 
+/** "books" for "Books", inside a sentence; a name such as Goodreads keeps its capital (SLN-924) */
+function inSentence(label: string) {
+  return /^Goodreads\b/.test(label) ? label : label.charAt(0).toLowerCase() + label.slice(1);
+}
+
 /** Every record of one kind as one file, in the format picked beside it. */
 export function ExportRow({
   entity,
@@ -37,7 +42,7 @@ export function ExportRow({
 
   async function save() {
     setExporting(true);
-    const progress = toast.pending(`Exporting ${label.toLowerCase()}`);
+    const progress = toast.pending(`Exporting ${inSentence(label)}`);
     try {
       await triggerExport(entity, "all", format);
       progress.success(`${label} exported`);
@@ -78,7 +83,7 @@ export function ExportRow({
         <Button
           onClick={download}
           busy={exporting}
-          aria-label={`Download ${label.toLowerCase()}`}
+          aria-label={`Download ${inSentence(label)}`}
         >
           <Download className="h-4 w-4" strokeWidth={1.5} aria-hidden />
           Download

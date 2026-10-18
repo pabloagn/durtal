@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
-import { EDIT_KEYS, editTooltipKeys } from "@/lib/shortcuts/shortcuts";
+import { EDIT_KEYS, editTooltipKeys, shortcutProps } from "@/lib/shortcuts/shortcuts";
 import { AddCollectionBooksDialog } from "./add-books-dialog";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { collectionDeletedMessage } from "@/lib/collections/counts";
@@ -168,7 +168,7 @@ export function CollectionControls({
         <Button
           className={NARROW_NO_ICON}
           data-tooltip="Edit collection"
-          data-tooltip-keys={editTooltipKeys(EDIT_KEYS.collection)}
+          {...shortcutProps(editTooltipKeys(EDIT_KEYS.collection))}
           onClick={openEdit}
         >
           <Pencil size={14} strokeWidth={1.5} />
@@ -177,7 +177,7 @@ export function CollectionControls({
         <Button
           className={NARROW_NO_ICON}
           data-tooltip="Edit artwork"
-          data-tooltip-keys={editTooltipKeys(EDIT_KEYS.media)}
+          {...shortcutProps(editTooltipKeys(EDIT_KEYS.media))}
           onClick={() => setArtwork(true)}
         >
           <ImageIcon size={14} strokeWidth={1.5} />

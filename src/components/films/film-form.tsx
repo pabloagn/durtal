@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 import { toast } from "@/lib/notifications/toast";
-import { DialogFooter } from "@/components/ui/dialog";
+import { DialogFooter, PINNED_PAGE_FOOTER } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -340,9 +340,10 @@ export function FilmForm(props: Props) {
         />
       </Section>
 
-      {/* In the edit dialog, under its body and always in view, with the
-          reason a save failed over the buttons */}
-      <DialogFooter outside="">
+      {/* Always in view, with the reason a save failed over the buttons:
+          under the edit dialog's body, or pinned to the bottom of the add
+          page (SLN-943) */}
+      <DialogFooter outside={PINNED_PAGE_FOOTER}>
         <RequiredNameHint value={title} message="Give the film a title" />
         {error && (
           <p role="alert" className="basis-full text-sm text-accent-red-text">

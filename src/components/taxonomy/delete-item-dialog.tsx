@@ -21,14 +21,18 @@ export function DeleteItemDialog({ open, onClose, item, familySlug, availableRea
   const [error, setError] = useState<string | null>(null);
   const children = item.childCount ?? 0;
   const needsTarget = item.entityCount > 0;
-  const blocked = children > 0 || (needsTarget && !availableReassignTargets.some(t => t.id === target));
+  // Links move to the chosen item, narrower items with them (a merge); with
+  // no links, narrower items move up a level. Nothing is left a dead end (SLN-957)
+  const lift = !needsTarget && children > 0;
+  const blocked = needsTarget && !availableReassignTargets.some(t => t.id === target);
+  const narrower = `${children.toLocaleString("en-US")} narrower ${children === 1 ? "item" : "items"}`;
   const close = () => { if (!busy) { setTarget(""); setError(null); onClose(); } };
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (blocked || busy) return;
     setBusy(true); setError(null);
     try {
-      await deleteTaxonomyItem(familySlug, item.id, needsTarget ? target : undefined);
+      await deleteTaxonomyItem(familySlug, item.id, needsTarget ? target : undefined, lift);
       toast.success(`Deleted "${item.name}"`);
       onClose(); onDeleted();
     } catch (error) {
@@ -38,11 +42,11 @@ export function DeleteItemDialog({ open, onClose, item, familySlug, availableRea
   }
   return <Dialog open={open} onClose={close} title={`Delete ${item.name}`} className="max-w-lg" expandable={false}>
     <form onSubmit={submit} className="space-y-4">
-      {children > 0 ? <p className="text-sm text-fg-secondary">This item has {children} child {children === 1 ? "item" : "items"}. Move the children first, then delete it.</p>
+      {lift ? <p className="text-sm text-fg-secondary">This item has {narrower}. {children === 1 ? "It moves" : "They move"} up one level, to where {item.name} sits now, and {item.name} is deleted.</p>
         : needsTarget ? <>
-          <p className="text-sm text-fg-secondary">This item has {item.entityCount} catalogue {item.entityCount === 1 ? "link" : "links"}. Reassign them to another item before deleting it.</p>
+          <p className="text-sm text-fg-secondary">This item has {item.entityCount} catalogue {item.entityCount === 1 ? "link" : "links"}. Reassign them to another item before deleting it{children > 0 ? <>; its {narrower} {children === 1 ? "moves" : "move"} there too</> : null}.</p>
           {availableReassignTargets.length ? <Select label="Reassign links to" placeholder="Choose another item" value={target} options={availableReassignTargets.map(t => ({ value: t.id, label: t.name }))} onChange={e => { setTarget(e.target.value); setError(null); }} disabled={busy} />
-            : <p className="text-xs text-fg-secondary">There is no sibling item to receive these links. Add one or move this item first.</p>}
+            : <p className="text-xs text-fg-secondary">There is no sibling item to receive these links. Add one beside it, or remove this item from those records first.</p>}
         </> : <p className="text-sm text-fg-secondary">This item has no catalogue links or children.</p>}
       {error && <p role="alert" className="text-sm text-accent-red-text">{error}</p>}
       <p className="text-xs text-fg-secondary">This action cannot be undone.</p>

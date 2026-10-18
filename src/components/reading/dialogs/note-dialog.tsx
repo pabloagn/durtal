@@ -58,6 +58,8 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
   const pageHintId = useId();
   const openRow = data.rows.find((r) => r.reading.status === "reading" || r.reading.status === "paused") ?? null;
   const [kind, setKind] = useState<NoteKind>(editing?.kind ?? request.noteKind ?? "quote");
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   const [body, setBody] = useState(editing?.body ?? "");
   const [readingId, setReadingId] = useState(editing ? (editing.readingId ?? "") : (request.readingId ?? openRow?.reading.id ?? ""));
   const [selectedChoice, setSelectedChoice] = useState<ReadingChoice | null>(() => {
@@ -191,7 +193,7 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
   const noun = kind === "quote" ? "quote" : "note";
   return (
     <Dialog draft open onClose={close} title={editing ? `Edit ${noun}` : `Add a ${noun}`} description={data.workTitle} className="max-w-lg">
-      <form ref={form} onSubmit={save} className="space-y-4" data-note-dialog="">
+      <form id={formId} ref={form} onSubmit={save} className="space-y-4" data-note-dialog="">
         <SegmentedControl options={KINDS} value={kind} onChange={setKind} ariaLabel="Quote or note" />
         <div className="space-y-1.5">
           <label htmlFor={bodyId} className="type-label block">
@@ -292,7 +294,7 @@ export function NoteDialog({ data, request, home, onClose, changed, open }: Read
             Favourite
           </label>
         </div>
-        <DialogFooter onCancel={close} saving={saving} saveLabel={editing ? "Save" : "Add"} disabled={!body.trim() || !!positionError} />
+        <DialogFooter form={formId} onCancel={close} saving={saving} saveLabel={editing ? "Save" : "Add"} disabled={!body.trim() || !!positionError} />
       </form>
     </Dialog>
   );

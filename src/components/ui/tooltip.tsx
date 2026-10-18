@@ -12,7 +12,8 @@ import { noteTooltipKey, resetTooltipKeys, tooltipKeyMovedAt } from "@/lib/ui/to
  * the attributes are plain HTML.
  *
  * - `data-tooltip-keys`: the control's shortcut as key tokens (see
- *   `keyLabel`): "b", "alt f", or "a then l" for a sequence.
+ *   `keyLabel`): "b", "alt f", or "a then l" for a sequence. Set it with
+ *   `shortcutProps`, which adds the same keys as `aria-keyshortcuts`.
  * - `data-tooltip-side`: "top" (default), "bottom", "right" or "left". The
  *   tooltip goes to the other side when it does not fit.
  *
@@ -22,6 +23,10 @@ import { noteTooltipKey, resetTooltipKeys, tooltipKeyMovedAt } from "@/lib/ui/to
  *
  * An icon-only control keeps its own `aria-label`. A tooltip that says more
  * than the control's name is its description while it shows.
+ *
+ * A control whose label hides where room is short (an icon button there)
+ * marks the label `data-tooltip-label`: its tooltip shows only while the
+ * label is hidden.
  */
 
 type Side = "top" | "bottom" | "right" | "left";
@@ -71,6 +76,9 @@ function tipFor(target: EventTarget | null, byKeyboard: boolean): Tip | null {
     // No tooltip on a control whose menu is open. A persistent layout
     // toggle can opt in: its expanded state does not cover its tooltip.
     if (!text || isOpen(anchor)) return null;
+    // The label it names is on show: the tooltip would only repeat it
+    const label = anchor.querySelector("[data-tooltip-label]");
+    if (label && label.getBoundingClientRect().width > 1) return null;
     const tokens = anchor.dataset.tooltipKeys?.trim().split(/\s+/) ?? null;
     const side = anchor.dataset.tooltipSide as Side | undefined;
     return {

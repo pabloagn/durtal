@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { DialogFooter as SharedDialogFooter } from "@/components/ui/dialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { CatalogueDateField } from "@/components/shared/catalogue-date-field";
 import { catalogueDateOf, READING_DATE_KINDS, readingDateOf } from "@/lib/reading/dates";
@@ -69,25 +70,36 @@ export function parseLength(text: string): number | null {
   return minutes ? Number(minutes[1]) : null;
 }
 
+/**
+ * Cancel and Save, under the dialog's scrolling body and always in view on a
+ * phone (SLN-943). The row sits outside the form, so Save names it (`form`).
+ */
 export function DialogFooter({
+  form,
   onCancel,
   saving,
   saveLabel = "Save",
   disabled = false,
+  notice,
 }: {
+  /** The id of the form Save submits */
+  form: string;
   onCancel: () => void;
   saving: boolean;
   saveLabel?: string;
   disabled?: boolean;
+  /** What a press of Save turned up (a duplicate), over the buttons and in view */
+  notice?: ReactNode;
 }) {
   return (
-    <div className="flex justify-end gap-2 pt-2">
+    <SharedDialogFooter outside="pt-2">
+      {notice}
       <Button data-dismiss="" type="button" variant="ghost" onClick={onCancel} className="pointer-coarse:h-11">
         Cancel
       </Button>
-      <Button type="submit" variant="primary" data-shortcut="save" disabled={disabled} busy={saving} className="pointer-coarse:h-11">
+      <Button type="submit" form={form} variant="primary" data-shortcut="save" disabled={disabled} busy={saving} className="pointer-coarse:h-11">
         {saveLabel}
       </Button>
-    </div>
+    </SharedDialogFooter>
   );
 }
