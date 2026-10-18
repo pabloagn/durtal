@@ -117,9 +117,9 @@ export interface ReadingSpanInput {
 }
 
 /**
- * A read-through's dates in words: "3 to 14 Apr 2019", "Mar 2019 to 14 Apr
- * 2019", "Finished 2009", "Started 2 Oct" (the year left out when it is this
- * year), "Dates unknown".
+ * A read-through's dates in words: "3 to 14 Apr 2019", "Mar to 14 Apr 2019",
+ * "Mar 2019 to Jan 2020", "Finished 2009", "Started 2 Oct" (the year left out
+ * when it is this year), "Dates unknown".
  */
 export function formatReadingSpan(r: ReadingSpanInput, today: string): string {
   const thisYear = today.slice(0, 4);
@@ -145,8 +145,9 @@ export function formatReadingSpan(r: ReadingSpanInput, today: string): string {
     const bothDays = r.startedPrecision === "day" && r.finishedPrecision === "day";
     if (bothDays && sy === fy && sm === fm)
       return `${Number(r.startedOn!.slice(8))} to ${formatReadingDate(r.finishedOn, "day")}`;
-    if (bothDays && sy === fy)
-      return `${formatReadingDate(r.startedOn, "day", { omitYear: true })} to ${formatReadingDate(r.finishedOn, "day")}`;
+    // One year, said once: "Apr to May 2026", "3 Apr to 14 May 2026" (SLN-1097)
+    if (sy === fy && r.startedPrecision !== "year" && r.finishedPrecision !== "year")
+      return `${formatReadingDate(r.startedOn, r.startedPrecision, { omitYear: true })} to ${formatReadingDate(r.finishedOn, r.finishedPrecision)}`;
     return `${formatReadingDate(r.startedOn, r.startedPrecision)} to ${formatReadingDate(r.finishedOn, r.finishedPrecision)}`;
   }
   if (finished)

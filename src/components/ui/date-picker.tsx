@@ -4,6 +4,15 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback, useId } from
 import { DayPicker } from "react-day-picker";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { acquireSurface } from "@/lib/ui/surface-state";
+import { useAppSettings } from "@/lib/hooks/use-app-settings";
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** A chosen day as the app writes dates, "18 Oct 2026"; the value stays "2026-10-18" (SLN-1097) */
+function dayWords(value: string): string {
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : value;
+}
 
 interface DatePickerProps {
   label?: string;
@@ -25,13 +34,15 @@ export function DatePicker({
   required,
   min,
   max,
-  placeholder = "YYYY-MM-DD",
+  placeholder = "Choose a date",
   id,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   // The label names the field even when the caller passes no id (SLN-932)
   const ownId = useId();
   const fieldId = id ?? ownId;
+  // Weeks start where the reading settings start them, as the heatmap does: Monday unless Sunday is chosen
+  const { readingWeekStart } = useAppSettings();
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeCalendar = useCallback(() => {
@@ -105,9 +116,9 @@ export function DatePicker({
             error ? "border-accent-red" : ""
           } ${open ? "border-accent-primary" : ""}`}
         >
-          {/* One line: a narrow field would break "YYYY-MM-DD" at its hyphens, off the icon's line */}
+          {/* One line, on the icon's line */}
           <span className={`min-w-0 truncate ${value ? "text-fg-primary" : "text-fg-secondary"}`}>
-            {value || placeholder}
+            {value ? dayWords(value) : placeholder}
           </span>
           <CalendarDays
             className="h-3.5 w-3.5 shrink-0 text-fg-muted"
@@ -123,6 +134,7 @@ export function DatePicker({
               onSelect={handleSelect}
               disabled={[...(minDate ? [{ before: minDate }] : []), ...(maxDate ? [{ after: maxDate }] : [])]}
               defaultMonth={selected ?? new Date()}
+              weekStartsOn={readingWeekStart === 7 ? 0 : 1}
               showOutsideDays
               classNames={{
                 root: "p-3",

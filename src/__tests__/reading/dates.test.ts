@@ -68,12 +68,22 @@ describe("imprecise dates", () => {
     const today = "2026-10-04";
     const r = { status: "finished" as const, startedOn: "2019-04-03", startedPrecision: "day" as const, finishedOn: "2019-04-14", finishedPrecision: "day" as const };
     expect(formatReadingSpan(r, today)).toBe("3 to 14 Apr 2019");
-    expect(formatReadingSpan({ ...r, startedOn: "2019-03-01", startedPrecision: "month" }, today)).toBe("Mar 2019 to 14 Apr 2019");
+    expect(formatReadingSpan({ ...r, startedOn: "2019-03-01", startedPrecision: "month" }, today)).toBe("Mar to 14 Apr 2019");
     expect(formatReadingSpan({ ...r, startedOn: null, startedPrecision: "unknown", finishedOn: "2009-01-01", finishedPrecision: "year" }, today)).toBe("Finished 2009");
     expect(
       formatReadingSpan({ status: "reading", startedOn: "2026-10-02", startedPrecision: "day", finishedOn: null, finishedPrecision: "unknown" }, today),
     ).toBe("Started 2 Oct");
     expect(formatReadingSpan({ ...r, startedOn: null, startedPrecision: "unknown", finishedOn: null, finishedPrecision: "unknown" }, today)).toBe("Dates unknown");
+  });
+  it("says a shared year once, and keeps both years across years (SLN-1097)", () => {
+    const today = "2026-10-18";
+    const span = (startedOn: string, startedPrecision: "day" | "month", finishedOn: string, finishedPrecision: "day" | "month") =>
+      formatReadingSpan({ status: "finished", startedOn, startedPrecision, finishedOn, finishedPrecision }, today);
+    expect(span("2026-04-01", "month", "2026-05-01", "month")).toBe("Apr to May 2026");
+    expect(span("2026-04-03", "day", "2026-05-01", "month")).toBe("3 Apr to May 2026");
+    expect(span("2026-04-03", "day", "2026-05-14", "day")).toBe("3 Apr to 14 May 2026");
+    expect(span("2025-11-01", "month", "2026-02-01", "month")).toBe("Nov 2025 to Feb 2026");
+    expect(span("2025-12-30", "day", "2026-01-02", "day")).toBe("30 Dec 2025 to 2 Jan 2026");
   });
   it("writes one date when a span starts and ends in the same period (SLN-929)", () => {
     const today = "2026-10-16";
