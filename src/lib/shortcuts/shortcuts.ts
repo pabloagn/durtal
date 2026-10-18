@@ -151,20 +151,17 @@ const ARIA_KEY_NAMES: Record<string, string> = {
 /**
  * A control's shortcut for assistive technology (`aria-keyshortcuts`), from
  * its tooltip's key tokens: "mod k" is "Meta+K" on a Mac and "Control+K"
- * elsewhere, "alt left" is "Alt+ArrowLeft". A sequence ("e then w") is
- * written as the app prints it, "E W" (SLN-964).
+ * elsewhere, "alt left" is "Alt+ArrowLeft". A space in the attribute
+ * separates alternative shortcuts, so a sequence ("e then w") has none:
+ * "E W" would say E or W alone does it (SLN-964).
  */
-export function ariaKeyShortcuts(keys: string, mac: boolean): string {
+export function ariaKeyShortcuts(keys: string, mac: boolean): string | undefined {
+  if (/\sthen\s/.test(keys)) return undefined;
   return keys
     .trim()
-    .split(/\s+then\s+/)
-    .map((step) =>
-      step
-        .split(/\s+/)
-        .map((token) => (token === "mod" ? (mac ? "Meta" : "Control") : (ARIA_KEY_NAMES[token] ?? token.toUpperCase())))
-        .join("+"),
-    )
-    .join(" ");
+    .split(/\s+/)
+    .map((token) => (token === "mod" ? (mac ? "Meta" : "Control") : (ARIA_KEY_NAMES[token] ?? token.toUpperCase())))
+    .join("+");
 }
 
 /**
@@ -174,7 +171,8 @@ export function ariaKeyShortcuts(keys: string, mac: boolean): string {
  */
 export function shortcutProps(keys: string | undefined, mac = true) {
   if (!keys) return {};
-  return { "data-tooltip-keys": keys, "aria-keyshortcuts": ariaKeyShortcuts(keys, mac) };
+  const aria = ariaKeyShortcuts(keys, mac);
+  return aria ? { "data-tooltip-keys": keys, "aria-keyshortcuts": aria } : { "data-tooltip-keys": keys };
 }
 
 /** What A then these keys do on an item's page, before the Add entry (SLN-571) */

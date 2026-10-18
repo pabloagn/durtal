@@ -13,7 +13,7 @@ No control carried `aria-keyshortcuts`: the keys showed only in tooltips (`data-
 
 ## Implementation Details
 
-- `src/lib/shortcuts/shortcuts.ts`: `ariaKeyShortcuts(keys, mac)` turns the tooltip's key tokens into the attribute's form ("mod k" is "Meta+K" on a Mac and "Control+K" elsewhere, "alt left" is "Alt+ArrowLeft", "esc" is "Escape", "+" is "Plus"). A sequence ("e then w") is written as the app prints it, "E W"; the attribute has no notation of its own for a sequence. `shortcutProps(keys, mac)` returns both attributes, to spread on a control.
+- `src/lib/shortcuts/shortcuts.ts`: `ariaKeyShortcuts(keys, mac)` turns the tooltip's key tokens into the attribute's form ("mod k" is "Meta+K" on a Mac and "Control+K" elsewhere, "alt left" is "Alt+ArrowLeft", "esc" is "Escape", "+" is "Plus"). A sequence ("e then w") gets no `aria-keyshortcuts`: the attribute has no notation for a sequence, and its spaces separate alternative shortcuts, so "E W" would say E or W alone does it. `shortcutProps(keys, mac)` returns both attributes, to spread on a control.
 - Every control that set `data-tooltip-keys` (29 files) now spreads `shortcutProps`. The three with "mod" (the sidebar and phone bar Search buttons that open the palette, and the palette's Read action) pass `useIsMac()`.
 - Each page search field that `/` focuses (`data-shortcut-search`) carries `aria-keyshortcuts="/"`.
 - `docs/03_DESIGN_LANGUAGE.md`, Tooltips, and the tooltip layer's comment name `shortcutProps`.
@@ -21,4 +21,4 @@ No control carried `aria-keyshortcuts`: the keys showed only in tooltips (`data-
 
 ## Completion Notes
 
-Checked on a production build in headless Chromium, Firefox and WebKit at 1440 and 390, on the dashboard, Books, a book page, eBooks, Organizations, a taxonomy page, People and Add a book: every control with tooltip keys carries the matching `aria-keyshortcuts`, and every page search field carries "/". Chromium's accessibility tree lists them (Search: Control+K; Search works: /; Dashboard: G D). With a Mac platform the palette buttons read Meta+K. Alignment audit: no deviations. Page weight within budget. `pnpm test`: 6,732 passed.
+Checked on a production build in headless Chromium, Firefox and WebKit at 1440 and 390, on the dashboard, Books, a book page, eBooks, Organizations, a taxonomy page, People and Add a book: every control with a single-key or modifier shortcut carries the matching `aria-keyshortcuts`, sequences carry none, and every page search field carries "/". Chromium's accessibility tree lists them (Search: Control+K; Search works: /). With a Mac platform the palette buttons read Meta+K. Alignment audit: no deviations. Page weight within budget. `pnpm test`: 6,732 passed.

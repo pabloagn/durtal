@@ -7,9 +7,9 @@ import { ariaKeyShortcuts, shortcutProps } from "@/lib/shortcuts/shortcuts";
 // assistive technology does not read as shortcuts.
 
 describe("ariaKeyShortcuts", () => {
-  it("writes a leader sequence as the app prints it", () => {
-    expect(ariaKeyShortcuts("e then w", true)).toBe("E W");
-    expect(ariaKeyShortcuts("a then l", false)).toBe("A L");
+  it("gives a leader sequence none, since a space means another shortcut", () => {
+    expect(ariaKeyShortcuts("e then w", true)).toBeUndefined();
+    expect(ariaKeyShortcuts("a then l", false)).toBeUndefined();
   });
 
   it("writes a modifier key for the platform", () => {
@@ -32,7 +32,8 @@ describe("ariaKeyShortcuts", () => {
 
 describe("shortcutProps", () => {
   it("gives the tooltip's keys and the same keys for assistive technology", () => {
-    expect(shortcutProps("g then b")).toEqual({ "data-tooltip-keys": "g then b", "aria-keyshortcuts": "G B" });
+    expect(shortcutProps("alt f")).toEqual({ "data-tooltip-keys": "alt f", "aria-keyshortcuts": "Alt+F" });
+    expect(shortcutProps("g then b")).toEqual({ "data-tooltip-keys": "g then b" });
     expect(shortcutProps("mod k", false)).toEqual({ "data-tooltip-keys": "mod k", "aria-keyshortcuts": "Control+K" });
   });
 
