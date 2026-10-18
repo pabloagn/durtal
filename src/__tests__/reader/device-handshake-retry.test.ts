@@ -2,12 +2,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement as h } from "react";
 import { createRoot, type Root } from "react-dom/client";
-const settle = vi.hoisted(() => ({ answers: [] as ("ready" | "drop")[], calls: 0 }));
+const settle = vi.hoisted(() => ({ answers: [] as ("ready" | "drop" | "hang" | "hang-webkit")[], calls: 0 }));
 vi.mock("@/lib/reader/device-handshake", () => ({
   settleDeviceId: async () => {
     settle.calls++;
     const answer = settle.answers.shift() ?? "drop";
     if (answer === "drop") throw new TypeError("Failed to fetch");
+    if (answer === "hang") throw new DOMException("signal timed out", "TimeoutError");
+    if (answer === "hang-webkit") throw new DOMException("Fetch is aborted", "AbortError");
     return answer;
   },
 }));
@@ -75,5 +77,25 @@ describe("the reader's first request on a flaky connection (SLN-911)", () => {
     root = createRoot(host);
     await wait(HANDSHAKE_RETRY_MS[0] + HANDSHAKE_RETRY_MS[1]);
     expect(settle.calls).toBe(1);
+  });
+
+  it.each(["hang", "hang-webkit"] as const)("shows the error at once after a request that hung (%s), without asking again", async (answer) => {
+    settle.answers = [answer];
+    await mount();
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain("Durtal could not be reached");
+    await wait(HANDSHAKE_RETRY_MS[0] + HANDSHAKE_RETRY_MS[1]);
+    expect(settle.calls).toBe(1);
+  });
+
+  it("does not bring back a Leave the book? that the error replaced", async () => {
+    await mount();
+    await act(async () => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); await vi.advanceTimersByTimeAsync(0); });
+    expect(document.body.textContent).toContain("Leave the book?");
+    await wait(HANDSHAKE_RETRY_MS[0] + HANDSHAKE_RETRY_MS[1]);
+    expect(host.querySelector('[role="alert"]')).not.toBeNull();
+    settle.answers = ["ready"];
+    await act(async () => tryAgain()!.click());
+    expect(document.body.textContent).not.toContain("Leave the book?");
+    expect(reload).toHaveBeenCalledOnce();
   });
 });

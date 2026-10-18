@@ -20,8 +20,12 @@ Retry and Back, in all three browsers. Retry recovered.
 - `src/components/reader/device-handshake.tsx`: a failed handshake is asked
   again by itself after 0.5 s, then after 1.5 s more (`HANDSHAKE_RETRY_MS`).
   Only when all three fail does the error show. A browser that does not keep
-  the cookie is not retried: asking again cannot help. Leaving the page stops
-  the waits.
+  the cookie is not retried: asking again cannot help, and neither is a
+  request that hung for its whole 15 s (`TimeoutError`, or `AbortError` in
+  WebKit), so a hung connection still shows the error after about 15 s, not
+  three times that. Leaving the page stops the waits.
+- When the error shows, a "Leave the book?" still up is cleared, so Try again
+  starts afresh (from review).
 - `src/components/reader/open-error.tsx`: the button is "Try again", as the
   house error views name it, here and where the reader's file failed to load.
   The two messages end "then try again."
@@ -31,7 +35,9 @@ Retry and Back, in all three browsers. Retry recovered.
 - `reader/device-handshake-retry.test.ts`: one dropped request, then the book
   opens with no error; the waits are 0.5 s and 1.5 s; after three failures the
   error shows with Try again, which starts over and recovers; nothing is asked
-  once the page is gone.
+  once the page is gone; a hung request (both names) shows the error at once,
+  without asking again; Try again does not bring back a "Leave the book?" the
+  error replaced.
 - `reader/reader-view.test.ts`: the reader's own error offers "Try again".
 - Production build on the preview database (`--seed-reader`), a fresh browser
   with `POST /api/reader/device` aborted: one or two drops open the book with
