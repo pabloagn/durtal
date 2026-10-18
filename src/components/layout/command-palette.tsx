@@ -405,6 +405,10 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
           value={selected}
           onValueChange={setSelected}
           loop
+          // cmdk's Ctrl+J/K/N/P list moves swallow Ctrl+K, which closes the
+          // palette on Windows and Linux, and the browser's Ctrl+N and Ctrl+P
+          // (SLN-962). The arrow keys move through the list
+          vimBindings={false}
           onKeyDownCapture={(event) => {
             if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey || isComposing(event.nativeEvent)) return;
             const workId = selected.startsWith("work:") ? selected.slice(5) : null;

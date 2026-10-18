@@ -3,6 +3,8 @@ import { PDFJS_VERSION, PDF_WORKER_CSP } from "./src/lib/reader/pdf-assets";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // No "X-Powered-By: Next.js" on every answer (SLN-899)
+  poweredByHeader: false,
   // Node PDF inspection needs the native canvas loader and pdf.js's own
   // package-relative worker. Keep both outside server JavaScript bundles.
   serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist"],
@@ -35,6 +37,10 @@ const nextConfig: NextConfig = {
   // new file name.
   async headers() {
     return [
+      // Only Durtal's own pages may frame a page, as the reader's policy
+      // already says (frame-ancestors 'self'): a page on another site cannot
+      // lay decoys over one (SLN-897)
+      { source: "/:path*", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
       { source: "/fonts/reader/:file*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
       { source: `/vendor/pdfjs/${PDFJS_VERSION}/:asset*`, headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
       { source: `/vendor/pdfjs/${PDFJS_VERSION}/pdf.worker.min.mjs`, headers: [{ key: "Content-Security-Policy", value: PDF_WORKER_CSP }] },

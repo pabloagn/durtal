@@ -62,7 +62,13 @@ export function SeriesActions({
 
   return (
     <div className="flex items-center gap-2">
-      <Button ref={addButton} variant="secondary" size="sm" onClick={() => setAddOpen(true)}>
+      <Button
+        ref={addButton}
+        variant="secondary"
+        size="sm"
+        onClick={() => setAddOpen(true)}
+        data-focus-empty="series"
+      >
         <Plus className="h-4 w-4" strokeWidth={1.5} />
         Add books
       </Button>

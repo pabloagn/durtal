@@ -302,12 +302,14 @@ export function CollectionMemberControls({
   last: boolean;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
+  // The press that runs: busy, not disabled, so the focus stays on it until
+  // its card goes (FocusKeeper); the others ignore presses meanwhile
+  const [busy, setBusy] = useState<-1 | 1 | 0 | null>(null);
   const pending = useRef(false);
   async function act(direction?: -1 | 1) {
     if (pending.current) return;
     pending.current = true;
-    setBusy(true);
+    setBusy(direction ?? 0);
     try {
       if (direction)
         await moveCollectionMember(collectionId, member, direction);
@@ -323,7 +325,7 @@ export function CollectionMemberControls({
       toast.error("Could not update collection");
     } finally {
       pending.current = false;
-      setBusy(false);
+      setBusy(null);
     }
   }
   // Last in its card's foot, on the right even when it wraps to its own
@@ -335,7 +337,8 @@ export function CollectionMemberControls({
         variant="ghost"
         data-tooltip="Move earlier"
         aria-label={`Move ${title} earlier`}
-        disabled={busy || first}
+        busy={busy === -1}
+        disabled={first}
         onClick={() => act(-1)}
       >
         <ArrowUp size={14} />
@@ -345,7 +348,8 @@ export function CollectionMemberControls({
         variant="ghost"
         data-tooltip="Move later"
         aria-label={`Move ${title} later`}
-        disabled={busy || last}
+        busy={busy === 1}
+        disabled={last}
         onClick={() => act(1)}
       >
         <ArrowDown size={14} />
@@ -355,7 +359,7 @@ export function CollectionMemberControls({
         variant="ghost"
         data-tooltip="Remove from collection"
         aria-label={`Remove ${title} from collection`}
-        disabled={busy}
+        busy={busy === 0}
         onClick={() => act()}
       >
         <X size={14} />
