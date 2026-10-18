@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { addWorksToSeries, searchWorksForSeries } from "@/lib/actions/series";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
+import { FadeImage } from "@/components/shared/fade-image";
 
 type Work = Awaited<ReturnType<typeof searchWorksForSeries>>[number];
 
@@ -136,13 +138,18 @@ export function AddSeriesBooksDialog({
                     }
                     className="h-4 w-4 rounded-sm border-glass-border accent-accent-primary"
                   />
-                  <div className="flex h-12 w-8 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-bg-tertiary">
-                    {w.cover && (
-                      <img
+                  {/* The title's letter with no cover, or one that fails */}
+                  <div className={`relative h-12 w-8 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary ${COVER_BLANK}`}>
+                    {w.cover ? (
+                      <FadeImage
                         src={mediaUrl(w.cover)}
                         alt=""
-                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        className="protected-image absolute inset-0 h-full w-full object-cover"
+                        fallback={<CoverLetter title={w.title} />}
                       />
+                    ) : (
+                      <CoverLetter title={w.title} />
                     )}
                   </div>
                   <span className="min-w-0 flex-1">

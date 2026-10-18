@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { DetailTitleRow } from "@/components/shared/detail-layout";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
+import { WorkCollectionsSection, loadWorkCollections } from "@/components/collections/work-collections";
 import { renderStamp } from "@/lib/activity/render-stamp";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -105,7 +106,7 @@ export default async function PerfumePage({
   const perfume = await loadPerfume(slug);
   if (!perfume) notFound();
   const owner = { kind: "perfume" as const, id: perfume.id };
-  const [media, curation, provenance, related, families, notesFamily, allLocations, links, wanted] =
+  const [media, curation, provenance, related, families, notesFamily, allLocations, links, wanted, inCollections] =
     await Promise.all([
       getMediaForWork(perfume.id),
       getWorkCuration(owner),
@@ -116,6 +117,7 @@ export default async function PerfumePage({
       getLocations(),
       getWorkRelations(perfume.id),
       getTypedTargets(perfume.id),
+      loadWorkCollections(perfume.id),
     ]);
   // The e-book marks of linked books' cards
   const linkedEbooks = await linkedWorkEbooks(links);
@@ -643,6 +645,8 @@ export default async function PerfumePage({
       <PersonalNotes notes={curation?.notes ?? null} placeholder="How it wears on you, when you reach for it" />
 
       <RelatedPerfumes related={related} />
+
+      <WorkCollectionsSection {...inCollections} />
 
       <ActivityTimeline entityType="work" entityId={perfume.id} refreshKey={renderStamp()} />
     </CurationProvider>

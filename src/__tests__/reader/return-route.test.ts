@@ -5,6 +5,7 @@ const store = vi.hoisted(() => ({
   book: vi.fn(),
   plugins: vi.fn(),
   view: vi.fn(),
+  exists: vi.fn(async (id: string) => id === "11111111-1111-1111-1111-111111111111"),
   device: "33333333-3333-4333-8333-333333333333" as string | undefined,
 }));
 vi.mock("next/headers", () => ({
@@ -15,6 +16,7 @@ vi.mock("@/lib/ebooks/delivery/reader-book", () => ({
   readReaderBook: store.book,
 }));
 vi.mock("@/lib/ebooks/delivery/url", () => ({ fileUrlFor: vi.fn() }));
+vi.mock("@/lib/catalogue/record-exists", () => ({ ebookExists: store.exists }));
 vi.mock("@/lib/ebooks/preferences", () => ({
   getReaderPreferences: async () => ({ ok: true, rows: [] }),
 }));
@@ -123,5 +125,14 @@ describe("a browser with no device id yet (SLN-668)", () => {
       && part.type === "script" && part.props.dangerouslySetInnerHTML?.__html.includes("__durtalEarlyEscape"))).toBe(true);
     expect(store.book).not.toHaveBeenCalled();
     expect(store.plugins).not.toHaveBeenCalled();
+  });
+
+  it("is a 404 for an eBook that does not exist, before anything streams (SLN-933)", async () => {
+    store.device = undefined;
+    await expect(ReaderPage({
+      params: Promise.resolve({ ebookId: "44444444-4444-4444-8444-444444444444" }),
+      searchParams: Promise.resolve({}),
+    })).rejects.toThrow(/NEXT_HTTP_ERROR_FALLBACK;404|NEXT_NOT_FOUND/);
+    expect(store.book).not.toHaveBeenCalled();
   });
 });
