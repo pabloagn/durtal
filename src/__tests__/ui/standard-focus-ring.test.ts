@@ -43,3 +43,11 @@ it("lets a chart's frame take the global outline", () => {
   expect(frame).not.toContain("focus-visible:ring");
   expect(frame).toContain('className="rounded-sm focus-visible:outline-offset-4"');
 });
+
+it("keeps a bar chart's labels inside its frame, clear of that outline", () => {
+  const bars = readFileSync(path.join(src, "components/reading/charts/bar-chart.tsx"), "utf8");
+  // "800 or more" beside a phone's bars and "2,000" on the tick gutter outgrew fixed widths
+  expect(bars).toContain("const labelWidth = Math.max(72, 6 + textWidth(bars.map((b) => b.label)));");
+  expect(bars).toContain('const left = Math.max(36, 6 + textWidth(marks.map((t) => t.toLocaleString("en-US"))));');
+  expect(bars).not.toMatch(/const (labelWidth|left) = \d+;/);
+});
