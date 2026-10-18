@@ -62,6 +62,8 @@ describe("missing records answer 404", () => {
     // check (SLN-815)
     expect(streamed).toContain(path.join(app, "(catalogue)", "reading", "year", "[year]", "page.tsx"));
     expect(streamed).toContain(path.join(app, "(catalogue)", "reading", "import", "[id]", "page.tsx"));
+    // And a recommender (SLN-817)
+    expect(streamed).toContain(path.join(app, "(catalogue)", "recommenders", "[id]", "page.tsx"));
   });
 
   it("every page under a loading screen has a layout that checks its record first", () => {
