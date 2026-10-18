@@ -19,8 +19,8 @@
  *   the box of a boxed element such as a badge or field) starts between 0.5
  *   and 12px off the left edge of the column holding it. A wrapping row of
  *   controls is checked on every line. The rows of a divided list
- *   (`divide-y`) are not boxes for their rule, and when they all carry the
- *   same padding, their ink is measured from it. Mark an intended inset with
+ *   (`divide-y`) are not boxes for their rule, and their ink is measured
+ *   from the padding most of them carry. Mark an intended inset with
  *   `data-inset` on the block or any element around it. A label and value
  *   list laid out as a grid (a `dl`, such as a film's facts) is checked the
  *   same way, up to 16px: each term's and value's ink against its own cell.
@@ -213,11 +213,13 @@
       let left = r.left + parseFloat(s.borderLeftWidth) + parseFloat(s.paddingLeft);
       // A divided list (`divide-y`): its rule doesn't make a row a box. The
       // list pads its rows rather than itself, so the rules run to the box's
-      // edges: when every row carries the same padding, ink is measured from
-      // that padding (SLN-893)
+      // edges: ink is measured from the padding most rows carry, so a row
+      // padded differently is the one reported (SLN-893)
       const divider = kids.slice(1).every((k) => ruled(k, "Top")) ? "Top" : kids.slice(0, -1).every((k) => ruled(k, "Bottom")) ? "Bottom" : null;
       const pads = kids.map((k) => parseFloat(css(k).paddingLeft));
-      if (divider && pads[0] > 0 && pads.every((p) => p === pads[0]) && kids.every((k) => Math.abs(k.getBoundingClientRect().left - left) < 0.5)) left += pads[0];
+      const count = (p) => pads.filter((q) => q === p).length;
+      const common = pads.reduce((best, p) => (count(p) > count(best) ? p : best), pads[0]);
+      if (divider && common > 0 && kids.every((k) => Math.abs(k.getBoundingClientRect().left - left) < 0.5)) left += common;
       for (const kid of kids) {
         if (cards.has(kid) || boxed(kid, divider) || css(kid).textAlign === "center") continue;
         // A wrapping row of controls: the first control of every line

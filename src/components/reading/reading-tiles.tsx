@@ -222,6 +222,16 @@ export interface JournalItem {
 }
 
 /** One group of the journal's rows */
+/*
+ * A journal row's controls once stacked under the title: nothing sits beside them, so they leave
+ * the one-line cap box for a block as tall as they are, which can wrap, 12px from the title and
+ * the line under them (SLN-893). With Log or Resume they stack from a wider row.
+ */
+const STACKED_CONTROLS =
+  "@max-[17.5rem]:mb-3 @max-[17.5rem]:h-auto @max-[17.5rem]:[&>span]:my-0 @max-[17.5rem]:[&>span]:block @max-[17.5rem]:[&>span]:h-auto @max-[17.5rem]:[&>span>span]:float-none @max-[17.5rem]:[&>span>span]:h-auto";
+const STACKED_CONTROLS_WIDE =
+  "@max-[25rem]:mb-3 @max-[25rem]:h-auto @max-[25rem]:[&>span]:my-0 @max-[25rem]:[&>span]:block @max-[25rem]:[&>span]:h-auto @max-[25rem]:[&>span>span]:float-none @max-[25rem]:[&>span>span]:h-auto";
+
 export function JournalRows({ rows }: { rows: JournalItem[] }) {
   return (
     <ul className="divide-y divide-glass-border rounded-sm border border-glass-border bg-bg-secondary">
@@ -234,7 +244,8 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
               {/*
                * The title names the row; its marks and menu sit on its first line, as in Up next.
                * Where they would leave the title under 9rem (a phone; sooner with Log or Resume),
-               * they go under it instead, clear of the lines around them (SLN-893)
+               * they go under it instead, clear of the lines around them, and wrap where they
+               * don't fit on one line (SLN-893)
                */}
               <div className={`flex gap-3 text-sm ${row.status === "reading" || row.status === "paused" ? "@max-[25rem]:flex-col" : "@max-[17.5rem]:flex-col"}`}>
                 <h3 className="min-w-0 flex-1">
@@ -246,9 +257,9 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
                 <CapAlignedControls
                   height={32}
                   coarseHeight={44}
-                  className={row.status === "reading" || row.status === "paused" ? "@max-[25rem]:my-3.5" : "@max-[17.5rem]:my-3.5"}
+                  className={row.status === "reading" || row.status === "paused" ? STACKED_CONTROLS_WIDE : STACKED_CONTROLS}
                 >
-                  <span className="flex items-center gap-3">
+                  <span className={`flex items-center gap-3 ${row.status === "reading" || row.status === "paused" ? "@max-[25rem]:flex-wrap" : "@max-[17.5rem]:flex-wrap"}`}>
                     {row.translated && (
                       <span className="hidden sm:inline-flex">
                         <Badge variant="blue">{row.translated}</Badge>
