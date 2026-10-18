@@ -193,7 +193,7 @@ function HistoryRow({ row, previous }: { row: ReadingRow; previous: { editionId:
         <div className="min-w-0 flex-1 space-y-1">
           <p className="flex flex-wrap items-center gap-x-2 text-sm text-fg-primary">
             <span>{ordinalRead(row.ordinal)}</span>
-            <span className="text-fg-secondary">{formatReadingSpan(r, data.today)}</span>
+            <span className="text-fg-secondary">{formatReadingSpan(r, data.today, { bare: true })}</span>
           </p>
           <p className="flex flex-wrap items-center gap-x-2 text-xs text-fg-secondary">
             <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-label={FORMAT_LABEL[r.format as ReadingFormat] ?? "Print"} />

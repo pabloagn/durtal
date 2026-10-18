@@ -135,6 +135,14 @@ describe("the preview's words", () => {
     expect(writeLine([reading({ n: 1 })], [undated], today, { anyway: true })).toBe("Finished, date unknown");
     expect(writeLine([reading({ status: "reading", startedOn: "2026-09-01", startedPrecision: "day" })], [fresh], today)).toBe("Reading, started 1 Sep");
   });
+  it("names an abandoned read whatever its dates (SLN-1099)", () => {
+    const line = (over: Partial<ImportReading>) => fileLine({ authors: ["A"], fileRating: null, kind: "readings", readings: [reading({ status: "abandoned", ...over })] }, today);
+    expect(line({ finishedOn: "2019-04-14", finishedPrecision: "day" })).toBe("A · Abandoned 14 Apr 2019");
+    expect(line({ startedOn: "2019-04-14", startedPrecision: "day", finishedOn: "2019-04-14", finishedPrecision: "day" })).toBe("A · Abandoned, 14 Apr 2019");
+    expect(line({ startedOn: "2019-04-03", startedPrecision: "day", finishedOn: "2019-04-14", finishedPrecision: "day" })).toBe("A · Abandoned, 3 to 14 Apr 2019");
+    expect(line({ startedOn: "2018-12-01", startedPrecision: "month", finishedOn: "2019-02-01", finishedPrecision: "month" })).toBe("A · Abandoned, Dec 2018 to Feb 2019");
+    expect(line({})).toBe("A · Abandoned, date unknown");
+  });
   it("never changes a book rating without saying so", () => {
     const base = { section: "exact" as const, fileRating: 4, useFileRating: false, writes: true };
     expect(ratingLine({ ...base, bookRating: null })).toEqual({ text: "Book rating set to 4: the book has none", choice: false });

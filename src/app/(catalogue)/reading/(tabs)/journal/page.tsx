@@ -39,7 +39,7 @@ function journalItem(row: JournalRow, today: string, exactWork = false): Journal
     status: row.status,
     href: `/library/${row.slug ?? row.workId}`,
     cover: row.cover,
-    line: [exactWork ? ordinalRead(row.ordinal) : null, row.author, formatReadingSpan(row, today), `${OUTCOME[row.status]}${row.reread ? " · re-read" : ""}`].filter(Boolean).join(" · "),
+    line: [exactWork ? ordinalRead(row.ordinal) : null, row.author, formatReadingSpan(row, today, { bare: true }), `${OUTCOME[row.status]}${row.reread ? " · re-read" : ""}`].filter(Boolean).join(" · "),
     format: row.format,
     translated,
     rating: row.rating,

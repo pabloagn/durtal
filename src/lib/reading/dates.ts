@@ -119,9 +119,11 @@ export interface ReadingSpanInput {
 /**
  * A read-through's dates in words: "3 to 14 Apr 2019", "Mar to 14 Apr 2019",
  * "Mar 2019 to Jan 2020", "Finished 2009", "Started 2 Oct" (the year left out
- * when it is this year), "Dates unknown".
+ * when it is this year), "Dates unknown". With `bare`, a line that names the
+ * outcome after it gets no leading "Finished" or "Stopped": "27 Nov 2024 ·
+ * Finished", not "Finished 27 Nov 2024 · Finished" (SLN-1098).
  */
-export function formatReadingSpan(r: ReadingSpanInput, today: string): string {
+export function formatReadingSpan(r: ReadingSpanInput, today: string, { bare = false }: { bare?: boolean } = {}): string {
   const thisYear = today.slice(0, 4);
   const started = r.startedOn && r.startedPrecision !== "unknown";
   const finished = r.finishedOn && r.finishedPrecision !== "unknown";
@@ -135,12 +137,12 @@ export function formatReadingSpan(r: ReadingSpanInput, today: string): string {
     const finishRank = RANK[r.finishedPrecision as keyof typeof RANK];
     const width = [0, 4, 7, 10][Math.min(startRank, finishRank)];
     if (r.startedOn!.slice(0, width) === r.finishedOn!.slice(0, width)) {
-      const closed = r.status === "abandoned" ? "Stopped" : "Finished";
+      const closed = bare ? "" : r.status === "abandoned" ? "Stopped " : "Finished ";
       if (startRank === finishRank) return formatReadingDate(r.finishedOn, r.finishedPrecision);
       // A finer finish says it all: "Finished Feb 2021", not "2021 to Feb 2021"
-      if (finishRank > startRank) return `${closed} ${formatReadingDate(r.finishedOn, r.finishedPrecision)}`;
+      if (finishRank > startRank) return `${closed}${formatReadingDate(r.finishedOn, r.finishedPrecision)}`;
       // A finer start goes after: "Finished 2020, started May"
-      return `${closed} ${formatReadingDate(r.finishedOn, r.finishedPrecision)}, started ${formatReadingDate(r.startedOn, r.startedPrecision, { omitYear: true })}`;
+      return `${closed}${formatReadingDate(r.finishedOn, r.finishedPrecision)}, started ${formatReadingDate(r.startedOn, r.startedPrecision, { omitYear: true })}`;
     }
     const bothDays = r.startedPrecision === "day" && r.finishedPrecision === "day";
     if (bothDays && sy === fy && sm === fm)
@@ -150,8 +152,10 @@ export function formatReadingSpan(r: ReadingSpanInput, today: string): string {
       return `${formatReadingDate(r.startedOn, r.startedPrecision, { omitYear: true })} to ${formatReadingDate(r.finishedOn, r.finishedPrecision)}`;
     return `${formatReadingDate(r.startedOn, r.startedPrecision)} to ${formatReadingDate(r.finishedOn, r.finishedPrecision)}`;
   }
-  if (finished)
+  if (finished) {
+    if (bare) return formatReadingDate(r.finishedOn, r.finishedPrecision);
     return `${r.status === "abandoned" ? "Stopped" : "Finished"} ${formatReadingDate(r.finishedOn, r.finishedPrecision)}`;
+  }
   if (started)
     return `Started ${formatReadingDate(r.startedOn, r.startedPrecision, {
       omitYear: r.startedPrecision !== "year" && r.startedOn!.startsWith(thisYear),

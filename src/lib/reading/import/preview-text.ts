@@ -16,14 +16,18 @@ export const SOURCE_LABELS: Record<ImportSource, string> = { goodreads: "Goodrea
 
 type Reading = Pick<ImportReading, "status" | "startedOn" | "startedPrecision" | "finishedOn" | "finishedPrecision" | "rating" | "note"> & { hasReview?: boolean };
 
-/** "Finished 14 Apr 2019", "Reading, started 2 Oct", "Abandoned, dates unknown" */
+/** "Finished 14 Apr 2019", "Reading, started 2 Oct", "Abandoned, 3 to 14 Apr 2019", "Abandoned, date unknown" */
 export function readingWords(r: Reading, today: string): string {
   const span = formatReadingSpan(r, today);
   if (r.status === "reading" || r.status === "paused") {
     const label = r.status === "reading" ? "Reading" : "Paused";
     return span === "Dates unknown" ? label : `${label}, ${span.charAt(0).toLowerCase()}${span.slice(1)}`;
   }
-  if (r.status === "abandoned") return span === "Dates unknown" ? "Abandoned, date unknown" : span.replace(/^Stopped/, "Abandoned");
+  if (r.status === "abandoned") {
+    if (span === "Dates unknown") return "Abandoned, date unknown";
+    // A one-date or cross-period read has no "Stopped" to swap: "Abandoned, 3 to 14 Apr 2019" (SLN-1099)
+    return span.startsWith("Stopped ") ? span.replace(/^Stopped/, "Abandoned") : `Abandoned, ${span}`;
+  }
   return span === "Dates unknown" ? "Finished, date unknown" : span;
 }
 
