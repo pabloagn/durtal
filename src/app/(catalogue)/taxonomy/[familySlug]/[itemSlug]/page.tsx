@@ -24,6 +24,11 @@ import { CapAligned } from "@/components/shared/cap-aligned";
 import { titleLength } from "@/components/shared/detail-layout";
 import { cardReadingOf } from "@/lib/reading/card";
 import { mediaUrl } from "@/lib/s3/media-url";
+import {
+  storesDescription,
+  taxonomyStorage,
+} from "@/lib/catalogue/taxonomy-storage";
+import { TermActions } from "./term-actions";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -162,8 +167,9 @@ async function ItemContent({
         </span>
       </nav>
 
-      {/* Item header */}
-      <div className="mb-8">
+      {/* Item header, with Edit on its right as the family page has it */}
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
         {/* The name steps down on a phone like every record title, its
             colour on the first line's cap height (SLN-877) */}
         <div
@@ -202,6 +208,24 @@ async function ItemContent({
               {new Date(item.createdAt as string | Date).toLocaleDateString()}
             </span>
           )}
+        </div>
+        </div>
+        <div className="shrink-0">
+          <TermActions
+            item={{
+              id: item.id,
+              name: item.name,
+              slug: item.slug,
+              color: item.color,
+              parentId: item.parentId,
+            }}
+            family={{
+              slug: family.slug,
+              name: family.name,
+              hierarchical: family.hierarchical,
+              describable: storesDescription(taxonomyStorage(family)),
+            }}
+          />
         </div>
       </div>
 

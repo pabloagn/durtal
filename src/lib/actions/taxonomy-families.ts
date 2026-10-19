@@ -28,6 +28,7 @@ import {
   itemProjection,
   linkedEntities,
   linkRows,
+  storesDescription,
   type TaxonomyItem,
 } from "@/lib/catalogue/taxonomy-storage";
 import {
@@ -454,6 +455,9 @@ export async function getTaxonomyItem(familySlug: string, itemSlug: string) {
   };
 }
 
+/** A description typed for a family that keeps none is refused, never dropped (SLN-1158) */
+const noDescription = (family: string) => `${family} keep no description`;
+
 export async function createTaxonomyItem(familySlug: string, input: unknown) {
   const parsed = createTaxonomyItemSchema.parse(input);
   const family = await requiredFamily(familySlug),
@@ -463,6 +467,8 @@ export async function createTaxonomyItem(familySlug: string, input: unknown) {
     (!family.hierarchical || !storage.columns.has("parent_id"))
   )
     throw new ExpectedActionError("This family has no hierarchy");
+  if (parsed.description?.trim() && !storesDescription(storage))
+    throw new ExpectedActionError(noDescription(family.name));
   const id = randomUUID();
   const values: Record<string, unknown> = {
     id,
@@ -512,11 +518,18 @@ export async function updateTaxonomyItem(
     (!family.hierarchical || !storage.columns.has("parent_id"))
   )
     throw new ExpectedActionError("This family has no hierarchy");
+  if (parsed.description?.trim() && !storesDescription(storage))
+    throw new ExpectedActionError(noDescription(family.name));
   const values: Record<string, unknown> = {};
   if (parsed.name !== undefined) values.name = parsed.name;
   if (parsed.color !== undefined) values.color = parsed.color;
   if (parsed.parentId !== undefined && storage.columns.has("parent_id"))
     values.parent_id = parsed.parentId;
+  // A moved item goes last among its new siblings, as a new one does
+  if (parsed.parentId !== undefined && storage.columns.has("sort_order"))
+    values.sort_order = sql`case when i.parent_id is distinct from ${parsed.parentId}::uuid
+    then (select coalesce(max(o.sort_order),-1)+1 from ${sql.identifier(storage.table)} o where ${familyItemCondition(storage, family.id, "o")})
+    else i.sort_order end`;
   if (parsed.description !== undefined) {
     if (storage.columns.has("description"))
       values.description = parsed.description;
@@ -613,6 +626,8 @@ export async function deleteTaxonomyItem(
   changed();
   return { id: itemId };
 }
+const SIBLINGS_ONLY =
+  "Items are reordered among their siblings. Use Move to… to put one under another item.";
 export async function reorderTaxonomyItems(familySlug: string, ids: string[]) {
   z.array(z.uuid()).max(2000).parse(ids);
   if (new Set(ids).size !== ids.length)
@@ -621,8 +636,9 @@ export async function reorderTaxonomyItems(familySlug: string, ids: string[]) {
     storage = taxonomyStorage(family);
   if (!storage.columns.has("sort_order"))
     throw new ExpectedActionError("This family uses alphabetical ordering");
+  // A refused order reaches the caller as its rule's message, never as SQL
   if (ids.length)
-    await atomic((d) => [
+    await withReadableErrors(() => atomic((d) => [
       d.execute(lockSql([storage.table])),
       d.execute(
         assertSql(
@@ -633,6 +649,20 @@ export async function reorderTaxonomyItems(familySlug: string, ids: string[]) {
           "Item does not belong to this taxonomy family",
         ),
       ),
+      // A drag reorders siblings; a new parent is a move (SLN-1158)
+      ...(storage.columns.has("parent_id")
+        ? [
+            d.execute(
+              assertSql(
+                sql`(select count(distinct coalesce(i.parent_id::text,'')) from ${sql.identifier(storage.table)} i where i.id in (${sql.join(
+                  ids.map((id) => sql`${id}::uuid`),
+                  sql`,`,
+                )}))<=1`,
+                SIBLINGS_ONLY,
+              ),
+            ),
+          ]
+        : []),
       // Replace only the selected slots, then number the whole family. A
       // partial order preserves unlisted rows and never creates tied ranks.
       d.execute(sql`with wanted as (
@@ -646,7 +676,7 @@ export async function reorderTaxonomyItems(familySlug: string, ids: string[]) {
         select w.id,s.position from wanted w join slots s using(ordinal)
       ) update ${sql.identifier(storage.table)} target set sort_order=coalesce(p.position,r.position)
         from ranked r left join replacements p on p.id=r.id where target.id=r.id`),
-    ]);
+    ]));
   changed();
   return { success: true };
 }
