@@ -129,6 +129,7 @@ export function InstanceDetail({
             <InstanceStatusButton
               instanceId={instance.id}
               currentStatus={instance.status ?? "available"}
+              lastHeldOf={lastHeld && workId ? workId : null}
             />
           ) : (
             instance.status &&
