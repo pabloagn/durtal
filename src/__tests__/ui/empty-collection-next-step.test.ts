@@ -25,10 +25,11 @@ describe("an empty collection", () => {
     const controls = source("components/collections/collection-controls.tsx");
     expect(controls).toMatch(/export function AddToCollectionButton[\s\S]*?dispatchEvent\(new CustomEvent\(ADD_EVENT\)\)/);
     expect(controls).toMatch(/addEventListener\(ADD_EVENT, onAdd\)/);
-    // From the header's Add, which outlives the empty state, so focus has
-    // somewhere to return after an add
-    expect(controls).toMatch(/const onAdd = \(\) => \{\s*addButton\.current\?\.focus\(\);\s*setAdd\(true\);/);
-    expect(controls).toMatch(/<Button ref=\{addButton\}/);
+    // Empty, the empty state's Add is the page's only one (SLN-918): the
+    // header's shows once something is in it, and takes the focus when the
+    // empty state's leaves with the dialog's add
+    expect(controls).toMatch(/\{!empty && \(\s*<Button ref=\{addButton\}/);
+    expect(controls).toMatch(/if \(wasEmpty\.current && !empty\) focusAddIfLost\(\);/);
   });
 });
 
@@ -36,5 +37,17 @@ describe("an empty publisher's Books section", () => {
   it("offers to add a book, unless its Review line is the next step", () => {
     const page = source("app/(catalogue)/publishers/[slug]/page.tsx");
     expect(page).toMatch(/title="No books yet"[\s\S]*?action=\{suggested\.editions > 0 \? undefined : <DomainAddLink kind="book" size="md" \/>\}/);
+  });
+});
+
+// SLN-918: an empty series showed a dashed box saying only "No books yet."
+describe("an empty series", () => {
+  it("shows one empty state with a sentence and the page's only Add", () => {
+    const page = source("app/(catalogue)/series/[id]/page.tsx");
+    expect(page).not.toContain("No books yet.");
+    expect(page).toMatch(/<EmptyState[\s\S]*?title="No books in this series yet"[\s\S]*?description="[^"]+"[\s\S]*?action=\{<AddSeriesBooksButton \/>\}/);
+    const actions = source("components/series/series-actions.tsx");
+    expect(actions).toMatch(/\{!empty && \(\s*<Button\s+ref=\{addButton\}/);
+    expect(actions).toMatch(/export function AddSeriesBooksButton[\s\S]*?data-focus-empty="series"/);
   });
 });

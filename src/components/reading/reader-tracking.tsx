@@ -3,8 +3,9 @@
 import { readerUuid } from "@/lib/reader/uuid";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ArrowRight, X } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
-import { ReaderSlotFill, useBeforeAnnotationDelete, useBeforeReaderLeave, useReaderContext, useReaderController, useReaderControllerFailure, useReaderSelectionCapture } from "@/components/reader/bridge";
+import { ReaderSlotFill, useBeforeAnnotationDelete, useBeforeReaderLeave, useReaderContext, useReaderController, useReaderControllerFailure, useReaderJump, useReaderSelectionCapture } from "@/components/reader/bridge";
 import type { ReaderControllerFailureProps } from "@/lib/reader/bridge-state";
 import type { PreparedAnnotationDelete } from "@/lib/reader/annotation-deletion";
 import type { ReaderSelection } from "@/lib/reader/events";
@@ -22,13 +23,13 @@ import { useReadingDialogs } from "./reading-dialogs-provider";
 import { browserZone } from "./reading-client";
 import { hoursWords } from "@/lib/reading/pace";
 import { formatPercent } from "@/lib/reader/place-label";
+import { loggedPlaceAhead, loggedPlaceLabel, loggedPlaceWhere } from "@/lib/reading/logged-place";
 import { saveQuoteWithRefresh } from "@/lib/reader/annotation-server-changes";
 import { onActivityRefresh } from "@/lib/activity/refresh-event";
 
 type Controller = ReturnType<typeof createReadingReaderController>;
 type Queue = ReturnType<typeof createReaderSittingQueue>;
 type QuoteChoice = { settle(value: "keep-quote" | "delete-quote" | null): void };
-
 export function ReaderTrackingFailure({ id, code, onRetry }: ReaderControllerFailureProps) {
   const notice = useRef<HTMLElement>(null);
   useReaderControllerFailure(id, code, notice);
@@ -49,6 +50,7 @@ export function ReaderTracking({ data }: { data: unknown }) {
 
 function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   const context = useReaderContext();
+  const jump = useReaderJump();
   const actionSelection = useReaderSelectionCapture();
   const dialogs = useReadingDialogs();
   const timer = useOptionalTimer();
@@ -60,9 +62,12 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   const [busy, setBusy] = useState(false);
   const [endPrompt, setEndPrompt] = useState(false);
   const [quoteChoice, setQuoteChoice] = useState<QuoteChoice | null>(null);
+  // The logged place the jump was dismissed at, or reached: a later log offers it again
+  const [jumpDoneAt, setJumpDoneAt] = useState<number | null>(null);
   const controller = useRef<Controller | null>(null);
   const queue = useRef<Queue | null>(null);
   const live = useRef(false);
+  const statusRef = useRef<HTMLSpanElement>(null);
   const generation = useRef(0);
   const manualStart = useRef(false);
   const undo = useRef<{ timer: ReturnType<typeof setTimeout>; toast: string | number } | null>(null);
@@ -189,6 +194,13 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
     }).catch(showFailure);
   }), [initial.ebookId]);
 
+  const loggedPercent = data.linked?.reading?.percent ?? null;
+  const behind = loggedPlaceAhead(data.linked?.reading, context.percent);
+  // Once the reader reaches or passes the logged place, the jump goes
+  useEffect(() => {
+    if (loggedPercent !== null && context.percent !== null && !behind) setJumpDoneAt(loggedPercent);
+  }, [loggedPercent, context.percent, behind]);
+
   const handle = <K extends keyof ReadingReaderEvents>(name: K, event: ReadingReaderEvents[K]) => {
     const active = controller.current;
     if (!active) throw new Error("Reading controller is not initialized");
@@ -295,9 +307,17 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   const reading = data.linked.reading;
   // The place shown follows the reader, also after a jump that is not counted yet
   const percent = context.percent ?? snapshot?.counted?.percent ?? reading?.percent;
+  const jumpShown = !!reading && behind && jumpDoneAt !== reading.percent;
+  // The jump and its dismiss leave the bar, so the focus goes to the tracking control in their place
+  const jumpDone = (at: number | null) => {
+    setJumpDoneAt(at);
+    requestAnimationFrame(() => statusRef.current?.querySelector<HTMLElement>("button")?.focus());
+  };
   const status = timerOwns ? "Manual timer active" : snapshot?.held ? "Starting tracking" : reading?.status === "paused" ? "Paused" : "Tracking";
   return <>
     <ReaderSlotFill slot="toolbar-status">
+      {/* On a phone the jump takes the tracking control's room until it is used or dismissed */}
+      <span ref={statusRef} className={jumpShown ? "contents max-sm:hidden" : "contents"}>
       {reading ? <DropdownMenu label="Reading actions" trigger={<Button disabled={busy} variant="ghost">{status}{percent == null ? "" : ` · ${formatPercent(percent)}`}</Button>}>
         <DropdownMenuItem disabled={busy} onClick={() => void readingAction("progress")}>Log progress</DropdownMenuItem>
         <DropdownMenuItem disabled={busy || timerOwns} onClick={() => void readingAction("pause")}>{reading.status === "paused" ? "Resume reading" : "Pause reading"}</DropdownMenuItem>
@@ -307,9 +327,21 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
         manualStart.current = true;
         void controller.current?.startTracking();
       }}>{data.linked.hasClosedHistory ? "Start a re-read" : "Track this book"}</Button>}
+      </span>
     </ReaderSlotFill>
-    {reading && data.estimate && percent != null && <ReaderSlotFill slot="top-bar"><span className="text-xs text-fg-secondary" title={data.estimate.explanation}>
+    {reading && data.estimate && percent != null && <ReaderSlotFill slot="top-bar"><span className="text-xs text-fg-secondary" data-tooltip={data.estimate.explanation}>
       About {hoursWords((100 - percent) * data.estimate.minutesPerPercent)} left
+    </span></ReaderSlotFill>}
+    {/* The reader keeps its own place; the logged one further on is a jump away (SLN-931) */}
+    {reading && jumpShown && <ReaderSlotFill slot="toolbar-status"><span className="flex items-center">
+      {/* On a phone, an arrow and "p. 120", in the tracking control's room */}
+      <Button variant="ghost" aria-label={loggedPlaceLabel(reading)} data-tooltip="Go to the place you logged" onClick={() => {
+        const at = reading.percent;
+        if (at !== null) void jump(at).then((moved) => { if (moved && live.current) jumpDone(at); });
+      }}><ArrowRight aria-hidden strokeWidth={1.5} className="sm:hidden" /><span className="max-sm:hidden">{loggedPlaceLabel(reading)}</span>
+        <span className="sm:hidden">{loggedPlaceWhere(reading)}</span></Button>
+      <Button variant="ghost" className="w-8 px-0" aria-label="Stay at this place" data-tooltip="Stay at this place"
+        onClick={() => jumpDone(reading.percent)}><X aria-hidden strokeWidth={1.5} /></Button>
     </span></ReaderSlotFill>}
     <ReaderSlotFill slot="selection-more"><Button disabled={busy || !selection} variant="ghost" onClick={() => void quote()}>Save quote</Button></ReaderSlotFill>
     {notice && <aside role="status" data-reader-chrome className="fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-xl flex-wrap items-center gap-3 rounded-xl bg-bg-primary p-4 text-sm shadow-lg">

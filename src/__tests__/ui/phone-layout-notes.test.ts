@@ -29,7 +29,10 @@ describe("phone layout notes", () => {
   it("never breaks a taxonomy family's name to make room for its badge", () => {
     const shell = read("app/(catalogue)/taxonomy/[familySlug]/taxonomy-family-shell.tsx");
     expect(shell).toContain('<h1 className="type-page-title inline [overflow-wrap:anywhere]">');
-    expect(shell).toContain('{family.isSystem && " "}');
+    // The space before the marks is where the line may break; the badge and
+    // the colour dot then move together (SLN-918)
+    expect(shell).toContain('{(family.isSystem || family.color) && " "}');
+    expect(shell).toContain('<span className="whitespace-nowrap">');
     expect(shell).toMatch(/<span className="inline-block h-5 -my-2\.5 align-\[0\.5cap\]">\s*<span className="float-left flex h-5 items-center">\s*<Badge variant="muted">System<\/Badge>/);
   });
 

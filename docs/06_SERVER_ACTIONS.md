@@ -111,10 +111,13 @@ getLibraryStats(): Promise<{
   instances: number;
   authors: number;
   recentWorks: WorkWithRelations[];
+  topRatedWorks: WorkWithRelations[];
+  wantedWorks: WorkWithRelations[];
+  recentAuthors: RecentAuthor[];
 }>
 ```
 
-Dashboard statistics. Returns counts for all major entities and the 8 most recently added works with full relations.
+Dashboard statistics. Returns counts for all major entities, the 8 most recently added, best rated and wanted works with full relations, and the recent people. It awaits `libraryStatsReads` (`src/lib/actions/utils/library-stats.ts`), which hands each part back as its own promise so the dashboard can go on from one without waiting for the others (SLN-795).
 
 ---
 

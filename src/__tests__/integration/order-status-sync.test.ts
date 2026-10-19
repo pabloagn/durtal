@@ -53,6 +53,8 @@ import {
   searchWorksForOrder,
   updateOrderStatus,
 } from "@/lib/actions/orders";
+import { deleteWork, getWorkDeleteSummary } from "@/lib/actions/works";
+import { deleteWork as deleteWorkForScreen } from "@/lib/actions/catalogue-ui";
 
 type Status = typeof schema.works.$inferSelect.catalogueStatus;
 
@@ -164,5 +166,37 @@ describe.skipIf(!url)("order status sync with PostgreSQL (SLN-280)", () => {
       'Cannot delete a "Delivered" order. Consider updating its status instead.',
     );
     await expect(updateOrderStatus(o.id, "placed")).rejects.toThrow('Invalid transition from "Delivered" to "Placed"');
+  });
+
+  it("refuses to delete a book whose order has it in hand, naming the order, and counts what goes (SLN-1112)", async () => {
+    const id = await work("wanted");
+    const [venue] = await db
+      .insert(schema.venues)
+      .values({ name: "Shakespeare and Company", type: "bookshop" })
+      .returning();
+    const o = await createOrder({
+      workId: id,
+      acquisitionMethod: "online_order",
+      orderDate: "2026-09-25",
+      venueId: venue.id,
+    });
+    await db.insert(schema.acquisitionTargets).values({ workId: id });
+    await updateOrderStatus(o.id, "delivered");
+    const refusal =
+      '"Against Nature" has an order marked Delivered (from Shakespeare and Company, 25 September 2026), which is its acquisition record. Mark the order Returned before deleting the book.';
+
+    expect(await getWorkDeleteSummary([id])).toMatchObject({ orders: 1, targets: 1, editions: 0, copies: 0, refusal });
+    // The reason reaches the screen as data, not as the generic production error
+    expect(await deleteWorkForScreen(id)).toEqual({ ok: false, error: refusal });
+    await expect(deleteWork(id)).rejects.toThrow(refusal);
+    expect(await status(id)).toBe("accessioned");
+
+    // Once the order is returned, the book goes with its order, history and target
+    await updateOrderStatus(o.id, "returned");
+    expect((await getWorkDeleteSummary([id])).refusal).toBeNull();
+    expect(await deleteWorkForScreen(id)).toMatchObject({ ok: true });
+    expect(await db.select().from(schema.orders)).toEqual([]);
+    expect(await db.select().from(schema.orderStatusHistory)).toEqual([]);
+    expect(await db.select().from(schema.acquisitionTargets)).toEqual([]);
   });
 });
