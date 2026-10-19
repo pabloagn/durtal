@@ -369,22 +369,18 @@ describe("offline annotation admission and owned reconnect refresh", () => {
     { name: "non-JSON server response", receive: async () => new Response("Login", { headers: { "content-type": "text/html" } }) },
     { name: "invalid server payload", receive: async () => new Response("{}", { headers: { "content-type": "application/json" } }) },
     { name: "network rejection despite online admission", receive: async (): Promise<Response> => { throw new TypeError("Network request failed"); } },
-  ])("still reports $name and rejects a committed-write refresh while online", async ({ receive }) => {
+  ])("shows $name in the snapshot, not as a failed save, and rejects a committed-write refresh while online", async ({ receive }) => {
     const f = fixture({ annotations: [annotation()], pending: [], cursor: at });
     f.fetch.mockImplementation(receive);
     await f.controller.ready;
     connected = true;
     f.controller.firstPaint();
     await f.controller.pull();
-    expect(f.onError).toHaveBeenCalledTimes(1);
-    expect(f.onError).toHaveBeenCalledWith(expect.any(Error));
-    const failure = f.onError.mock.calls[0][0];
-    if (!(failure instanceof Error)) throw new Error("Expected the original refresh error");
-    expect(f.controller.getSnapshot().error).toBe(failure.message);
+    expect(f.controller.getSnapshot().error).toEqual(expect.any(String));
     expect(f.getBook()).toEqual({ annotations: [annotation()], pending: [], cursor: at });
     await expect(f.controller.serverChanged()).rejects.toThrow();
     expect(f.fetch).toHaveBeenCalledTimes(2);
-    expect(f.onError).toHaveBeenCalledTimes(2);
+    expect(f.onError).not.toHaveBeenCalled();
     expect(f.transport.transactBook).not.toHaveBeenCalled();
   });
 
@@ -400,7 +396,7 @@ describe("offline annotation admission and owned reconnect refresh", () => {
     await f.controller.pull();
     await expect(f.controller.serverChanged()).resolves.toBeUndefined();
     expect(f.fetch).toHaveBeenCalledTimes(1);
-    expect(f.onError).toHaveBeenCalledTimes(1);
+    expect(f.onError).not.toHaveBeenCalled();
     expect(f.controller.getSnapshot().error).toBe("Annotations could not be refreshed");
   });
 });

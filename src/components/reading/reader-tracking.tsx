@@ -44,7 +44,8 @@ export function ReaderTrackingFailure(props: ReaderControllerFailureProps) {
 export function ReaderTracking({ data }: { data: unknown }) {
   const parsed = readerTrackingDataSchema.safeParse(data);
   const timer = useOptionalTimer();
-  if (!parsed.success || (parsed.data.linked && (!timer || timer.availability !== "ready")))
+  // An unreachable timer keeps tracking mounted: sittings queue on this device until it returns
+  if (!parsed.success || (parsed.data.linked && (!timer || !timer.known)))
     return <ReaderTrackingFailure id={READER_TRACKING_CONTROLLER_ID} code="reader_controller_unavailable" />;
   return <ActiveReaderTracking data={parsed.data} key={parsed.data.ebookId} />;
 }
@@ -83,6 +84,12 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
   function showFailure(error: unknown) {
     if (live.current) setNotice(error instanceof Error ? error.message : "Reading has not synced. Try again when connected.");
   }
+  // A failed send's notice goes once a later send gets through (SLN-1274)
+  const syncNotice = useRef<string | null>(null);
+  function showSyncFailure(error: unknown) {
+    showFailure(error);
+    syncNotice.current = error instanceof Error ? error.message : "Reading has not synced. Try again when connected.";
+  }
   function endUndo() {
     if (undo.current) { clearTimeout(undo.current.timer); toast.dismiss(undo.current.toast); undo.current = null; }
   }
@@ -97,9 +104,14 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
     try {
       ownQueue = createReaderSittingQueue({ ebookId: initial.ebookId, deviceId: initial.deviceId,
         timeZone: browserZone(), storage: window.localStorage,
-        beacon: (url, payload) => navigator.sendBeacon(url, payload), failed: showFailure,
+        beacon: (url, payload) => navigator.sendBeacon(url, payload), failed: showSyncFailure,
         setAside: (count) => { setAside = count; },
         acknowledged: (sitting) => {
+          if (live.current && generation.current === ownGeneration && syncNotice.current) {
+            const sent = syncNotice.current;
+            syncNotice.current = null;
+            setNotice((current) => current === sent ? null : current);
+          }
           if (live.current && generation.current === ownGeneration) setData((current) =>
             current.linked?.reading?.id === sitting.readingId ? { ...current, linked: { ...current.linked,
               reading: { ...current.linked.reading, status: "reading" } } } : current);

@@ -13,7 +13,7 @@ import { id, locator } from "./fixtures/annotation";
 vi.mock("@/lib/actions/reader-tracking", () => ({ saveReaderQuote: vi.fn(),
   getReaderTracking: vi.fn(), prepareReaderQuoteDelete: vi.fn(), startReaderReading: vi.fn() }));
 vi.mock("@/lib/actions/catalogue-client", () => ({ deleteReading: vi.fn(), pauseReading: vi.fn(), resumeReading: vi.fn() }));
-vi.mock("@/components/reading/timer-provider", () => ({ useOptionalTimer: () => ({ availability: "ready", timer: null }) }));
+vi.mock("@/components/reading/timer-provider", () => ({ useOptionalTimer: () => ({ availability: "ready", known: true, timer: null }) }));
 vi.mock("@/components/reading/reading-dialogs-provider", () => ({ useReadingDialogs: () => ({ open: vi.fn() }) }));
 
 const data = (percent: number, readingId = id(8)) => ({ version: 1 as const, ebookId: id(2), deviceId: id(4), autoTrack: true,

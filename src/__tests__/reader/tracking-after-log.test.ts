@@ -16,7 +16,7 @@ const actions = vi.hoisted(() => ({ tracking: vi.fn() }));
 vi.mock("@/lib/actions/reader-tracking", () => ({ saveReaderQuote: vi.fn(),
   getReaderTracking: actions.tracking, prepareReaderQuoteDelete: vi.fn(), startReaderReading: vi.fn() }));
 vi.mock("@/lib/actions/catalogue-client", () => ({ deleteReading: vi.fn(), pauseReading: vi.fn(), resumeReading: vi.fn() }));
-vi.mock("@/components/reading/timer-provider", () => ({ useOptionalTimer: () => ({ availability: "ready", timer: null }) }));
+vi.mock("@/components/reading/timer-provider", () => ({ useOptionalTimer: () => ({ availability: "ready", known: true, timer: null }) }));
 vi.mock("@/components/reading/reading-dialogs-provider", () => ({ useReadingDialogs: () => ({ open: vi.fn() }) }));
 
 const reading = (fingerprint: string, percent: number) => ({ id: id(8), fingerprint, status: "reading" as const, unit: "percent" as const,
