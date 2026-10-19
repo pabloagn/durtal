@@ -51,8 +51,8 @@ export function CreateCollectionDialog({
         requestId.current,
       );
       setOpen(false);
+      // The new page renders fresh: a refresh would render it twice (SLN-1330)
       router.push(`/collections/${collection.id}?add=1`);
-      router.refresh();
       toast.success("Collection created");
     } catch (error) {
       toast.error(refusalMessage(error, "Could not create the collection. Your details are still here."));

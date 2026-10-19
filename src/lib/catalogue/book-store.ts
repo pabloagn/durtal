@@ -17,6 +17,7 @@ import { processAndUploadCover } from "@/lib/s3/covers";
 import { requireVerifiedCover, retainCoverAttempt, type VerifiedCoverStage } from "@/lib/s3/cover-stage";
 import { editionCoverPaletteFields } from "@/lib/color/color-buckets";
 import { defaultSortName } from "@/lib/utils/author-names";
+import { cleanText } from "@/lib/utils/clean-text";
 import { generateAuthorSlug, generateWorkSlug } from "@/lib/utils/slugify";
 import type { createEditionSchema } from "@/lib/validations/editions";
 import type { createWorkSchema } from "@/lib/validations/works";
@@ -36,13 +37,15 @@ import type { Db } from "./work-store";
 /**
  * The author a book names: the one with that name, or a new row to insert with
  * the book. `taken` holds slugs already chosen for other new authors of the
- * same write.
+ * same write. The name is matched and stored without invisible characters, as
+ * every form stores names (SLN-1393).
  */
 export async function bookAuthorFor(
-  name: string,
+  typed: string,
   taken?: Iterable<string>,
   conn: Db = db,
 ) {
+  const name = cleanText(typed).trim();
   const existing = await conn.query.authors.findFirst({
     where: authorNameEquals(name),
     orderBy: [desc(sql`${authors.name} = ${name}`), asc(authors.createdAt)],

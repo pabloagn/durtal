@@ -39,7 +39,7 @@ import { workDeleteCascade } from "@/lib/catalogue/delete-cascade";
 import { useDeleteSummary } from "@/components/books/use-delete-summary";
 import { preloadEditOptions } from "@/hooks/use-edit-options";
 import { EDIT_OPTION_GROUPS, type EditOption, type TaxonomyGroup } from "@/lib/catalogue/edit-options";
-import { deleteWork } from "@/lib/actions/catalogue-client";
+import { deleteWorkFromPage } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
 
 /* ── Prop types (mirrors the server component's data shapes) ─────────────── */
@@ -134,9 +134,9 @@ export function WorkActionsMenu({
 
   async function handleDelete() {
     try {
-      await deleteWork(work.id);
+      // On to the library in the action's own response (SLN-1330)
+      await deleteWorkFromPage(work.id);
       toast.success("Book deleted");
-      router.push("/library");
     } catch (error) {
       toast.error(refusalMessage(error, "Could not delete the book. Try again."));
     }

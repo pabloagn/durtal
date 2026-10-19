@@ -130,8 +130,12 @@ export function timeLeft(r: PaceReading, priors: PacePriors): TimeLeft {
     const pace = pagesPerHour(r, priors);
     return { kind: "pages", minutes: (remainingPages / pace.value) * 60, remainingPages, pace };
   }
-  return { kind: "none", text: "Add the page count for an estimate" };
+  return { kind: "none", text: missingLength(r) };
 }
+
+/** What an estimate waits for, as a plain sentence (SLN-1102): the book page adds the control */
+const missingLength = (r: Pick<PaceReading, "format">) =>
+  r.format === "audio" ? "No estimate without the audio length" : "No estimate without a page count";
 
 /** "About 6 h 40 min left" */
 export function timeLeftText(t: TimeLeft): string {
@@ -159,7 +163,7 @@ export function finishEstimate(r: PaceReading, today: string): FinishEstimate {
   // Beside "About 4 h left" this names what is missing: the date, not an estimate (SLN-932)
   if (ended.length < 3 || new Set(ended.map((s) => s.readOn)).size < 2) return { kind: "none", text: "Log a few sessions for a finish date" };
   const left = audio ? Math.max(0, (r.totalMinutes ?? 0) - (r.currentMinutes ?? 0)) : r.totalPages ? (r.totalPages * (100 - (r.currentPercent ?? 0))) / 100 : null;
-  if (left === null) return { kind: "none", text: "Add the page count for an estimate" };
+  if (left === null) return { kind: "none", text: missingLength(r) };
   const perDayAmount = new Map<number, number>();
   for (const s of ended) {
     const amount = audio ? (s.minutesAdvanced ?? 0) : s.pages;
@@ -243,11 +247,14 @@ export interface ReadingEstimate {
   explanation: string | null;
   /** No page count and no audio length: on the book page the line opens Edit reading */
   needsLength: boolean;
+  /** The book page's control for it: "Add the page count", "Add the audio length" */
+  addLength?: string;
 }
 
 /** Time left and the finish date as one line, with its explanation */
 export function readingEstimate(r: PaceReading, priors: PacePriors, today: string): ReadingEstimate {
   const left = timeLeft(r, priors);
-  if (left.kind === "none") return { text: left.text, explanation: null, needsLength: true };
+  if (left.kind === "none")
+    return { text: left.text, explanation: null, needsLength: true, addLength: r.format === "audio" ? "Add the audio length" : "Add the page count" };
   return { text: `${timeLeftText(left)} · ${finishText(finishEstimate(r, today), today)}`, explanation: paceExplanation(r, priors, today), needsLength: false };
 }

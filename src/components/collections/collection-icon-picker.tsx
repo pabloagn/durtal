@@ -30,18 +30,22 @@ const PANEL_HEIGHT = 440;
  * The collection's icon beside its name. Clicking it opens a Linear-style
  * picker. `children` is the current icon, rendered on the server; with none
  * the button shows the name's letter, faint, as a blank cover does (the plain
- * icon mark when the name has no letter or digit).
+ * icon mark when the name has no letter or digit, or when `letterShown`: the
+ * poster beside it already shows the letter, SLN-1059).
  */
 export function CollectionIconPicker({
   collectionId,
   name,
   value,
   children,
+  letterShown = false,
 }: {
   collectionId: string;
   name: string;
   value: string | null;
   children?: ReactNode;
+  /** The poster beside it is the name's letter: show it once */
+  letterShown?: boolean;
 }) {
   const router = useRouter();
   const panelId = useId();
@@ -141,8 +145,9 @@ export function CollectionIconPicker({
       >
         {value && children ? (
           children
-        ) : !coverLetter(name) ? (
-          // A name with no letter or digit ("★★★"): the plain icon mark
+        ) : letterShown || !coverLetter(name) ? (
+          // A name with no letter or digit ("★★★"), or one whose letter the
+          // poster already shows: the plain icon mark
           <Shapes
             className="h-7 w-7 text-fg-muted/40"
             strokeWidth={1.5}

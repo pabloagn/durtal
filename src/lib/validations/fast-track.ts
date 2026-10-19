@@ -1,11 +1,12 @@
 import { z } from "zod/v4";
 import { createWorkSchema } from "./works";
 import { createEditionSchema } from "./editions";
+import { cleanString } from "./helpers";
 
 // Only fields available in Details and the edition metadata already fetched.
 // Skipped copy, taxonomy and collection drafts cannot enter this write path.
 export const fastTrackBookSchema = z.object({
-  authorName: z.string().trim().min(1, "Author is required").max(300),
+  authorName: cleanString().trim().min(1, "Author is required").max(300),
   work: createWorkSchema
     .pick({
       kind: true,
@@ -21,7 +22,7 @@ export const fastTrackBookSchema = z.object({
       metadataSource: true,
       metadataSourceId: true,
     })
-    .extend({ title: z.string().trim().min(1, "Title is required").max(500) }),
+    .extend({ title: cleanString().trim().min(1, "Title is required").max(500) }),
   edition: createEditionSchema.pick({
     isbn13: true,
     publisher: true,

@@ -72,7 +72,8 @@ describe("time left", () => {
     expect(paceExplanation(fast, noPriors, "2026-10-05")).toMatch(/^From 1 session: you listen at about 1\.4×, so 5 h of the book takes about 3 h 29 min\./);
   });
   it("needs a page count or an audio length", () => {
-    expect(timeLeft(reading({ totalPages: null }), priors)).toEqual({ kind: "none", text: "Add the page count for an estimate" });
+    expect(timeLeft(reading({ totalPages: null }), priors)).toEqual({ kind: "none", text: "No estimate without a page count" });
+    expect(timeLeft(reading({ totalPages: null, format: "audio", unit: "minutes" }), priors)).toEqual({ kind: "none", text: "No estimate without the audio length" });
   });
 });
 
@@ -125,10 +126,12 @@ describe("the estimate line", () => {
 
   it("asks for the page count when there is nothing to measure", () => {
     expect(readingEstimate(reading({ totalPages: null }), noPriors, "2026-10-03")).toEqual({
-      text: "Add the page count for an estimate",
+      text: "No estimate without a page count",
       explanation: null,
       needsLength: true,
+      addLength: "Add the page count",
     });
+    expect(readingEstimate(reading({ totalPages: null, format: "audio", unit: "minutes" }), noPriors, "2026-10-03").addLength).toBe("Add the audio length");
   });
 
   it("says when there are too few sessions for a date", () => {

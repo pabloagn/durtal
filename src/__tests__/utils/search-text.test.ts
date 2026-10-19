@@ -29,6 +29,18 @@ describe("normalizeSearchText", () => {
   it("keeps non-Latin letters", () => {
     expect(normalizeSearchText("Фёдор Достоевский")).toBe("федор достоевскии");
   });
+
+  // SLN-1393: text pasted from a web page or an e-book
+  it("drops invisible format characters instead of splitting the word", () => {
+    for (const hidden of ["\u00ad", "\u200b", "\u200c", "\u200d", "\u2060", "\ufeff", "\u200e"])
+      expect(normalizeSearchText(`Ver${hidden}schwinden`), JSON.stringify(hidden)).toBe("verschwinden");
+  });
+
+  it("folds ligatures and fullwidth letters", () => {
+    expect(normalizeSearchText("Le ﬁls")).toBe(normalizeSearchText("Le fils"));
+    expect(normalizeSearchText("Ｈｕｘｌｅｙ")).toBe("huxley");
+    expect(normalizeSearchText("Ｎｉｎｅｔｅｅｎ　Ｅｉｇｈｔｙ－Ｆｏｕｒ")).toBe("nineteen eighty four");
+  });
 });
 
 // ── searchTokens ───────────────────────────────────────────────────────────────

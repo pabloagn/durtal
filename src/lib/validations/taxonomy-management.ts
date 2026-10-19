@@ -1,7 +1,7 @@
 import { z } from "zod/v4";
+import { cleanString, toUpdateSchema } from "./helpers";
 import { WORK_KINDS } from "@/lib/catalogue/kinds";
 import { TAXONOMY_LEVELS, validTaxonomyScope } from "@/lib/catalogue/taxonomies";
-import { toUpdateSchema } from "./helpers";
 
 // ── Taxonomy Family Schemas ─────────────────────────────────────────────────
 
@@ -22,7 +22,7 @@ export const taxonomyScopesSchema = z
   );
 
 const familyFields = {
-  name: z.string().trim().min(1).max(200),
+  name: cleanString().trim().min(1).max(200),
   description: z.string().trim().max(1000).nullable(),
   icon: z.string().max(50).nullable(),
   color: z
@@ -58,7 +58,7 @@ export type UpdateTaxonomyFamilyInput = z.input<
 // ── Taxonomy Item Schemas ───────────────────────────────────────────────────
 
 export const createTaxonomyItemSchema = z.object({
-  name: z.string().trim().min(1).max(500),
+  name: cleanString().trim().min(1).max(500),
   description: z.string().max(2000).nullable().optional(),
   color: z.string().max(7).nullable().optional(),
   parentId: z.string().uuid().nullable().optional(),

@@ -1,13 +1,12 @@
 import { z } from "zod/v4";
+import { cleanString } from "./helpers";
 
 export const seriesInputSchema = z.object({
-  title: z
-    .string()
+  title: cleanString()
     .trim()
     .min(1, "Title is required")
     .max(300, "Title is too long"),
-  originalTitle: z
-    .string()
+  originalTitle: cleanString()
     .trim()
     .max(300)
     .nullable()

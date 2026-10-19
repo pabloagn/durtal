@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cleanString } from "./helpers";
 import { catalogueDateSchema, datesInOrder } from "@/lib/catalogue/dates";
 import {
   ART_OBJECT_KINDS,
@@ -32,7 +33,7 @@ function uniqueIds(message: string) {
 }
 
 const paintingFields = {
-  title: z.string().trim().min(1).max(500),
+  title: cleanString().trim().min(1).max(500),
   description: z.string().trim().max(50000).nullable(),
   /** When the work was made; a range such as 1503–1519 is common. */
   creationDate: date,

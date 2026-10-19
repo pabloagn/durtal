@@ -9,12 +9,15 @@ import { n } from "@/lib/reading/charts";
  * When the books were written (SLN-742), after Letterboxd's premiere dates:
  * a timeline of thin bars, one a year or one a decade, empty ones included,
  * shading from sage (the oldest) to blue (the newest), the first and last
- * year under it. A chart of the shared family (docs/03, Charts): one tab
- * stop, arrow keys, the caption line and "Show as table".
+ * year under it, and one tick at the tallest bar's count (SLN-1172). A chart
+ * of the shared family (docs/03, Charts): one tab stop, arrow keys, the
+ * caption line and "Show as table".
  */
 
 const HEIGHT = 168;
 const AXIS = 20;
+/** Room over the tallest bar for its tick */
+const TOP = 16;
 
 const books = (count: number) => `${n(count)} ${count === 1 ? "book" : "books"}`;
 
@@ -29,7 +32,8 @@ export function WrittenChart({ years, height = HEIGHT }: { years: readonly YearC
   const unit = view === "years" ? "year" : "decade";
   const text = (b: (typeof bars)[number]) => `${b.start === null ? b.label : view === "years" ? b.label : `The ${b.label}`}: ${books(b.count)}`;
   const summary = `Books by the ${unit} they were written, ${bars[0].label} to ${bars[bars.length - 1].label}`;
-  const plot = height - AXIS - 4;
+  const total = bars.reduce((sum, b) => sum + b.count, 0);
+  const plot = height - AXIS - TOP;
 
   return (
     <div className="space-y-3" data-stats-written="">
@@ -51,7 +55,7 @@ export function WrittenChart({ years, height = HEIGHT }: { years: readonly YearC
       <ChartFrame
         key={view}
         label={`Books by the ${unit} they were written`}
-        summary={summary}
+        brief={`${books(total)}, ${bars[0].label} to ${bars[bars.length - 1].label}`}
         points={bars.map((b) => ({ text: text(b) }))}
         height={height}
         table={{ columns: [view === "years" ? "Year" : "Decade", "Books"], rows: bars.filter((b) => b.count).map((b) => [b.label, b.count]) }}
@@ -68,17 +72,21 @@ export function WrittenChart({ years, height = HEIGHT }: { years: readonly YearC
                   <stop offset="1" stopColor="var(--color-accent-blue)" />
                 </linearGradient>
               </defs>
-              <line x1={0} x2={width} y1={plot + 4.5} y2={plot + 4.5} className="stroke-glass-border" strokeWidth={1} />
+              <line x1={0} x2={width} y1={TOP + 0.5} y2={TOP + 0.5} className="stroke-glass-border" strokeWidth={1} data-written-top="" />
+              <text x={0} y={TOP - 5} className="fill-fg-secondary text-micro tabular-nums" data-written-max="">
+                {n(max)}
+              </text>
+              <line x1={0} x2={width} y1={TOP + plot + 0.5} y2={TOP + plot + 0.5} className="stroke-glass-border" strokeWidth={1} />
               {bars.map((b, i) => {
                 const h = (b.count / max) * plot;
                 const x = i * band + (band - barWidth) / 2;
                 return (
                   <g key={b.label}>
                     {/* The whole band answers hover, so a 1px bar is easy to point at */}
-                    <rect x={i * band} y={0} width={band} height={plot + 4} fill="transparent" data-tooltip={text(b)} />
-                    {b.count > 0 && <rect x={x} y={4 + plot - h} width={barWidth} height={Math.max(2, h)} rx={Math.min(1, barWidth / 2)} fill={`url(#${gradient})`} pointerEvents="none" />}
+                    <rect x={i * band} y={TOP} width={band} height={plot} fill="transparent" data-tooltip={text(b)} />
+                    {b.count > 0 && <rect x={x} y={TOP + plot - h} width={barWidth} height={Math.max(2, h)} rx={Math.min(1, barWidth / 2)} fill={`url(#${gradient})`} pointerEvents="none" />}
                     {focus === i && (
-                      <rect x={x - 3} y={1} width={barWidth + 6} height={plot + 6} rx={2} fill="none" stroke="var(--color-accent-primary)" strokeWidth={1.5} />
+                      <rect x={x - 3} y={TOP - 3} width={barWidth + 6} height={plot + 6} rx={2} fill="none" stroke="var(--color-accent-primary)" strokeWidth={1.5} />
                     )}
                   </g>
                 );

@@ -106,6 +106,7 @@ export function switchPreview(
 export function EditReadingDialog({
   data,
   row,
+  request,
   onClose,
   changed,
 }: ReadingDialogProps) {
@@ -475,6 +476,7 @@ export function EditReadingDialog({
               <Input
                 label="Pages to read"
                 inputMode="numeric"
+                data-dialog-focus={request.focusLength && format !== "audio" ? "" : undefined}
                 value={pages}
                 onChange={(e) => setPages(e.target.value)}
                 error={totalError ?? undefined}
@@ -489,6 +491,7 @@ export function EditReadingDialog({
             <Input
               label="Audio length (h:mm)"
               placeholder="9:40"
+              data-dialog-focus={request.focusLength ? "" : undefined}
               value={length}
               onChange={(e) => setLength(e.target.value)}
               error={lengthError ?? undefined}

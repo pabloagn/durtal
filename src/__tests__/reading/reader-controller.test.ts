@@ -146,4 +146,26 @@ describe("eager reading controller", () => {
     expect(t.start).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  // "Track this book" on a book that has not landed yet starts at the landing (SLN-1274)
+  it("starts on one click made before the reader has a place", async () => {
+    const t = setup({ readingId: null, initialPlace: undefined });
+    await t.controller.startTracking();
+    expect(t.start).not.toHaveBeenCalled();
+    t.location(4, "jump", true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.start).toHaveBeenCalledExactlyOnceWith(4, null);
+    expect(t.controller.getSnapshot().readingId).toBe(readingId);
+    await t.controller.dispose();
+  });
+
+  it("drops a click made before the place once tracking is stopped", async () => {
+    const t = setup({ readingId: null, initialPlace: undefined });
+    await t.controller.startTracking();
+    t.controller.stopTracking();
+    t.location(4, "jump", true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.start).not.toHaveBeenCalled();
+    await t.controller.dispose();
+  });
 });

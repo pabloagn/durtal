@@ -3,6 +3,8 @@ import { afterEach, beforeEach, expect, it } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { DatePicker } from "@/components/ui/date-picker";
+import { AppSettingsProvider } from "@/lib/hooks/use-app-settings";
+import type { AppSettings } from "@/lib/actions/settings";
 
 let root: Root;
 let host: HTMLDivElement;
@@ -31,4 +33,25 @@ it("keeps future dates selectable when no maximum is supplied", () => {
   act(() => host.querySelector("button")!.click());
   const nextDay = [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.trim() === "17")!;
   expect(nextDay.disabled).toBe(false);
+});
+
+// The button writes the chosen day as the app writes dates; weeks start as the reading settings say (SLN-1097)
+it("shows the chosen day as 18 Oct 2026, and an empty one as Choose a date", () => {
+  act(() => root.render(createElement(DatePicker, { value: "2026-10-18" })));
+  expect(host.querySelector("button")!.textContent).toBe("18 Oct 2026");
+  expect(host.querySelector("button")!.getAttribute("data-draft-value")).toBe("2026-10-18");
+  act(() => root.render(createElement(DatePicker, { value: "" })));
+  expect(host.querySelector("button")!.textContent).toBe("Choose a date");
+});
+
+it("starts the calendar's weeks on Monday, or on Sunday when the reading week does", () => {
+  const firstWeekday = (weekStart: 1 | 7) => {
+    act(() => root.render(createElement(AppSettingsProvider, { settings: { readingWeekStart: weekStart } as AppSettings, children: createElement(DatePicker, { value: "2026-10-18" }) })));
+    act(() => host.querySelector("button")!.click());
+    const day = host.querySelector("thead th, [role='columnheader']")?.getAttribute("aria-label");
+    act(() => host.querySelector("button")!.click());
+    return day;
+  };
+  expect(firstWeekday(1)).toBe("Monday");
+  expect(firstWeekday(7)).toBe("Sunday");
 });

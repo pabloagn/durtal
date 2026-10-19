@@ -40,7 +40,7 @@ function journalItem(row: JournalRow, today: string, exactWork = false): Journal
     href: `/library/${row.slug ?? row.workId}`,
     cover: row.cover,
     author: row.author ? { name: row.author, href: row.authorSlug ? `/people/${row.authorSlug}` : null } : null,
-    line: [exactWork ? ordinalRead(row.ordinal) : null, formatReadingSpan(row, today), `${OUTCOME[row.status]}${row.reread ? " · re-read" : ""}`].filter(Boolean).join(" · "),
+    line: [exactWork ? ordinalRead(row.ordinal) : null, formatReadingSpan(row, today, { bare: true }), `${OUTCOME[row.status]}${row.reread ? " · re-read" : ""}`].filter(Boolean).join(" · "),
     format: row.format,
     translated,
     rating: row.rating,

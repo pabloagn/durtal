@@ -23,7 +23,7 @@ import { AddCollectionBooksDialog } from "./add-books-dialog";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { collectionDeletedMessage } from "@/lib/collections/counts";
 import type { WorkKind } from "@/lib/catalogue/kinds";
-import { updateCollection, deleteCollection, moveCollectionMember, removeEditionFromCollection, removeWorksFromCollection } from "@/lib/actions/catalogue-client";
+import { updateCollection, deleteCollectionFromPage, moveCollectionMember, removeEditionFromCollection, removeWorksFromCollection } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
 
 const ADD_EVENT = "durtal:collection-add";
@@ -158,12 +158,12 @@ export function CollectionControls({
     pending.current = true;
     setBusy(true);
     try {
-      const result = await deleteCollection(collection.id);
-      if (result.cleanupPending)
+      // On to the list in the action's own response (SLN-1330)
+      const stayed = await deleteCollectionFromPage(collection.id);
+      if (stayed?.cleanupPending) {
         toast.warning("Collection deleted; some artwork still needs cleanup.");
-      else toast.success(collectionDeletedMessage(kinds));
-      router.push("/collections");
-      router.refresh();
+        router.push("/collections");
+      } else toast.success(collectionDeletedMessage(kinds));
       triggerActivityRefresh();
     } catch (error) {
       toast.error(refusalMessage(error, "Could not delete the collection"));

@@ -48,7 +48,6 @@ export function TaxonomyActions({ families }: { families: FamilyRef[] }) {
           onCreated={(slug) => {
             setOpen(null);
             router.push(`/taxonomy/${slug}`);
-            router.refresh();
           }}
         />
       )}
