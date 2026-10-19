@@ -109,7 +109,10 @@ export async function getCollections(pagination?: {
   const sort = COLLECTION_SORTS.find((s) => s === pagination?.sort) ?? "name";
   // Name reads A to Z, the others newest or largest first, unless reversed
   const dir = (pagination?.order ?? (sort === "name" ? "asc" : "desc")) === "asc" ? asc : desc;
-  const tieBreak = [asc(collections.name), asc(collections.id)];
+  // Names in the app's title order, whatever the database's collation: "café"
+  // beside "Café", "Élégies" among the E's, as the taxonomy lists sort
+  const byName = sql`${collections.name} collate "en-x-icu"`;
+  const tieBreak = [asc(byName), asc(collections.id)];
   return db.query.collections.findMany({
     where: collectionListCondition(search, pagination?.favourites),
     orderBy:
@@ -117,7 +120,7 @@ export async function getCollections(pagination?: {
         ? [dir(collections.createdAt), ...tieBreak]
         : sort === "size"
           ? [dir(memberCount), ...tieBreak]
-          : [dir(collections.sortOrder), dir(collections.name), dir(collections.id)],
+          : [dir(collections.sortOrder), dir(byName), dir(collections.id)],
     limit: pagination?.limit,
     offset: pagination?.offset,
     with: { media: activeArtwork },

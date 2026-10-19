@@ -404,6 +404,13 @@ describe.skipIf(!url)("collection workflows with PostgreSQL", () => {
     // An unknown sort reads as Name
     expect(await names("nonsense")).toEqual(["Alone", "Big", "Small"]);
   });
+  it("sorts names as titles are sorted, whatever the database's collation (SLN-1059)", async () => {
+    for (const name of ["Zebra", "Élégies", "apple", "café noir", "Mixed kinds"]) await createCollection({ name });
+    const names = async (order?: string) =>
+      (await getCollections({ limit: 48, offset: 0, sort: "name", order })).map((c) => c.name);
+    expect(await names()).toEqual(["apple", "café noir", "Élégies", "Mixed kinds", "Zebra"]);
+    expect(await names("desc")).toEqual(["Zebra", "Mixed kinds", "Élégies", "café noir", "apple"]);
+  });
   it("rolls membership changes back when the paired activity write fails", async () => {
     const b = await book();
     const c = await createCollection({ name: "Collection" });
