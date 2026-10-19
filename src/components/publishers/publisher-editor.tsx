@@ -88,7 +88,6 @@ export function PublisherEditor({
         );
         notices.success("Publisher saved");
         router.push(`/publishers/${saved.slug}`);
-        router.refresh();
       } catch (err) {
         notices.error(
           err instanceof Error ? err.message : "Could not save publisher",

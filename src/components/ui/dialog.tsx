@@ -184,8 +184,9 @@ export function Dialog({
       el.showModal();
       // The browser focuses the header's first button; start in the first
       // field instead, so typing (and Enter to confirm) works at once. With
-      // no field, the dialog itself takes the focus.
-      (el.querySelector<HTMLElement>(FIRST_FIELD) ?? el).focus();
+      // no field, the dialog itself takes the focus. A field marked
+      // data-dialog-focus goes first (Edit reading's page count, SLN-1102).
+      (el.querySelector<HTMLElement>("[data-dialog-focus]") ?? el.querySelector<HTMLElement>(FIRST_FIELD) ?? el).focus();
     }
     if (!open && el.open) el.close();
   }, [open]);

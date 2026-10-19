@@ -27,9 +27,10 @@ describe("MemberCard", () => {
     expect(host.querySelectorAll("p")).toHaveLength(0);
     // One line is 29px: on touch the title link grows to 44px
     expect(host.querySelector("a.type-item-title")!.className).toContain("touch-hit");
-    const full = render({ byline: "Marguerite Yourcenar", facts: "Gallimard · 1968", note: "Book", noteMono: true });
+    const full = render({ byline: "Marguerite Yourcenar", facts: "Gallimard · 1968", note: "Book" });
     expect([...full.querySelectorAll("p")].map((p) => p.textContent)).toEqual(["Marguerite Yourcenar", "Gallimard · 1968", "Book"]);
-    expect(full.querySelectorAll("p")[2].className).toContain("font-mono");
+    // The note is body text, as the facts above it (SLN-1059)
+    expect(full.querySelectorAll("p")[2].className).not.toContain("font-mono");
   });
 
   it("puts the actions in the card's foot, Copy and Read pulled to the text's edge and the controls pushed right", () => {
@@ -40,7 +41,7 @@ describe("MemberCard", () => {
     expect(read("components/collections/collection-controls.tsx")).toContain('<div className="-mr-2.5 ml-auto flex gap-1 pointer-coarse:-mr-3.5 pointer-coarse:gap-2">');
   });
 
-  it("gives a collection card with no description no blank lines under its name", () => {
-    expect(read("components/collections/collection-card.tsx")).toContain("subtitle={collection.description || undefined}");
+  it("keeps a collection's description off its card, where a clamp would cut it (SLN-1059)", () => {
+    expect(read("components/collections/collection-card.tsx")).not.toMatch(/subtitle=|lines-2/);
   });
 });

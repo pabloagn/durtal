@@ -14,8 +14,9 @@ import { TimerAlertGuardContext } from "./timer-alert-guard";
 
 /*
  * The one reading timer, wherever Durtal is open (SLN-451). It loads after
- * mount, on window focus and when the tab becomes visible, so a timer started
- * on the phone shows on the desktop when he looks: no polling, no sockets.
+ * mount, on window focus, when the tab becomes visible and when the network
+ * returns, so a timer started on the phone shows on the desktop when he
+ * looks: no polling, no sockets.
  * The time ticks in the browser from the start and the pauses.
  */
 
@@ -27,6 +28,8 @@ export interface TimerTarget {
 
 interface TimerValue {
   availability: "loading" | "ready" | "unavailable";
+  /** The timer has loaded at least once; an unreachable server keeps the last state it gave */
+  known: boolean;
   timer: RunningTimer | null;
   /** Seconds of reading so far, ticking */
   elapsed: number;
@@ -70,6 +73,7 @@ export function TimerProvider({ children, initial }: {
   const { readingTimerCheckMinutes } = useAppSettings();
   const [timer, setTimer] = useState<RunningTimer | null>(() => initial?.timer ?? null);
   const [availability, setAvailability] = useState<TimerValue["availability"]>(initial ? "ready" : "loading");
+  const [known, setKnown] = useState(!!initial);
   const availabilityRef = useRef(availability);
   availabilityRef.current = availability;
   const [now, setNow] = useState(() => Date.now());
@@ -99,6 +103,7 @@ export function TimerProvider({ children, initial }: {
       if (expected !== generation.current) return refresh();
       if (live.current) {
         setTimer(next);
+        setKnown(true);
         availabilityRef.current = "ready";
         setAvailability("ready");
       }
@@ -136,7 +141,7 @@ export function TimerProvider({ children, initial }: {
     return result;
   }, [refresh]);
 
-  // After mount, on focus and when the tab shows again
+  // After mount, on focus, when the tab shows again and when the network returns
   useEffect(() => {
     live.current = true;
     const onFocus = () => { void refresh().catch(() => undefined); };
@@ -146,12 +151,14 @@ export function TimerProvider({ children, initial }: {
     // A successful server snapshot already did this read for this request.
     const first = initial ? null : window.setTimeout(onFocus, 0);
     window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onFocus);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       live.current = false;
       generation.current++;
       if (first !== null) window.clearTimeout(first);
       window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onFocus);
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [refresh, initial]);
@@ -266,6 +273,7 @@ export function TimerProvider({ children, initial }: {
     () => ({
       timer,
       availability,
+      known,
       elapsed,
       checkMinutes: initial?.checkMinutes ?? readingTimerCheckMinutes,
       refresh,
@@ -281,7 +289,7 @@ export function TimerProvider({ children, initial }: {
       discarding,
       setDiscarding,
     }),
-    [timer, availability, elapsed, initial?.checkMinutes, readingTimerCheckMinutes, refresh, runMutation, start, pause, resume, discard, pendingStart, conflict, setConflict, discarding, setDiscarding],
+    [timer, availability, known, elapsed, initial?.checkMinutes, readingTimerCheckMinutes, refresh, runMutation, start, pause, resume, discard, pendingStart, conflict, setConflict, discarding, setDiscarding],
   );
   return <TimerContext.Provider value={value}>
     {children}

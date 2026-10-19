@@ -13,7 +13,7 @@ import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 import type { PaintingChoices } from "@/lib/actions/paintings";
-import { deletePainting } from "@/lib/actions/catalogue-client";
+import { deletePaintingFromPage } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
 import { PaintingForm, type EditablePainting } from "./painting-form";
 
@@ -119,13 +119,15 @@ export function PaintingActions({
         }
         onConfirm={async () => {
           try {
-            const { cleanupPending } = await deletePainting(painting.id);
+            // On to the list in the action's own response (SLN-1330)
+            const stayed = await deletePaintingFromPage(painting.id);
+            const cleanupPending = !!stayed?.cleanupPending;
             toast.success(
               cleanupPending
                 ? "Painting deleted; some image files could not be removed yet"
                 : "Painting deleted",
             );
-            router.push("/paintings");
+            if (cleanupPending) router.push("/paintings");
           } catch (err) {
             toast.error(refusalMessage(err, "Could not delete the painting"));
           }

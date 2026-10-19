@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { cleanString } from "./helpers";
 import { createAuthorSchema } from "./authors";
 import { ATTRIBUTIONS } from "@/lib/catalogue/credits";
 import { WORK_KINDS } from "@/lib/catalogue/kinds";
 
-const aliases = z.array(z.string().trim().min(1).max(300)).max(50);
+const aliases = z.array(cleanString().trim().min(1).max(300)).max(50);
 const personFields = createAuthorSchema.extend({
-  name: z.string().trim().min(1).max(300),
+  name: cleanString().trim().min(1).max(300),
   birthPlaceId: z.uuid().nullable().optional(),
   deathPlaceId: z.uuid().nullable().optional(),
 });

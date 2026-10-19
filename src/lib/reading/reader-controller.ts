@@ -48,6 +48,8 @@ export function createReadingReaderController(options: ReaderControllerOptions) 
   let disposed = false;
   let generation = 0;
   let startFlight: Promise<void> | null = null;
+  // "Track this book" before the reader has landed starts at the landing (SLN-1274)
+  let startWanted = false;
   let autoStart = options.autoStart;
   let held = false;
   let rawEnd = false;
@@ -128,7 +130,9 @@ export function createReadingReaderController(options: ReaderControllerOptions) 
   }
 
   function startTracking(): Promise<void> {
+    if (!position && !disposed && !suspended && !readingId) startWanted = true;
     if (disposed || suspended || readingId || !position || startFlight) return startFlight ?? Promise.resolve();
+    startWanted = false;
     const expected = generation;
     writing = true;
     save(time.at);
@@ -196,6 +200,7 @@ export function createReadingReaderController(options: ReaderControllerOptions) 
         else ensureSegment(at);
       } else settlePosition({ kind: event.kind, activeMs: time.totalActiveMs, percent: event.percent, chapter: event.chapter }, at);
       if (event.percent < 99.5) { rawEnd = false; offeredEnd = false; }
+      if (startWanted) void startTracking();
       offerEnd(); options.changed(); schedule();
     },
     end(event) {
@@ -223,14 +228,14 @@ export function createReadingReaderController(options: ReaderControllerOptions) 
     suspend(value: boolean) {
       if (suspended === value) return;
       if (value) advance({ kind: "close", at: clock() });
-      suspended = value;
+      suspended = value; startWanted = false;
       segment = null;
       time = initialActiveTime(clock(), visible);
       if (position) position = initialReaderPosition(position.counted.percent, position.counted.chapter);
       options.changed(); schedule();
     },
     stopTracking() {
-      generation++; autoStart = false; writing = false; readingId = null;
+      generation++; autoStart = false; writing = false; readingId = null; startWanted = false;
       staged.clear(); held = false;
       segment = null;
       time = initialActiveTime(clock(), time.visible);
@@ -238,7 +243,7 @@ export function createReadingReaderController(options: ReaderControllerOptions) 
       options.changed(); schedule();
     },
     setReading(id: string | null) {
-      generation++; readingId = id; writing = id !== null; segment = null;
+      generation++; readingId = id; writing = id !== null; segment = null; startWanted = false;
       staged.clear(); held = false;
       time = initialActiveTime(clock(), time.visible);
       if (position) position = initialReaderPosition(position.counted.percent, position.counted.chapter);

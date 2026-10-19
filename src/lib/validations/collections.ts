@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { cleanString } from "./helpers";
 
 export const collectionDetailsSchema = z
   .object({
-    name: z.string().trim().min(1, "Collection name is required").max(160),
+    name: cleanString().trim().min(1, "Collection name is required").max(160),
     description: z.string().trim().max(5000).nullable().optional(),
     sortOrder: z.number().int().min(0).max(1000000).optional(),
   })

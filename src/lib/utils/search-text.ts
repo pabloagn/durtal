@@ -7,11 +7,16 @@
  */
 import { transliterate } from "@/lib/utils/slugify";
 
-/** Normalize text for accent- and case-insensitive comparison. */
+/**
+ * Normalize text for accent- and case-insensitive comparison. Compatibility
+ * forms fold first, so "ﬁ" reads "fi" and fullwidth "Ｈｕｘｌｅｙ" reads
+ * "Huxley"; invisible format characters (a soft hyphen, a zero-width space)
+ * are dropped, not turned into a space (SLN-1393).
+ */
 export function normalizeSearchText(text: string): string {
-  return transliterate(text)
+  return transliterate(text.normalize("NFKC"))
     .normalize("NFD")
-    .replace(/\p{M}/gu, "") // strip combining marks (accents)
+    .replace(/[\p{M}\p{Cf}]/gu, "") // strip combining marks (accents) and format characters
     .toLowerCase()
     .replace(/[\s\p{P}\p{S}]+/gu, " ") // punctuation, symbols, spaces -> one space
     .trim();

@@ -1,11 +1,11 @@
 import { z } from "zod/v4";
+import { cleanString, toUpdateSchema } from "./helpers";
 import { normalizeBinding } from "@/lib/utils/binding";
-import { toUpdateSchema } from "./helpers";
 
 export const createEditionSchema = z.object({
   workId: z.string().uuid(),
-  title: z.string().min(1, "Title is required").max(500),
-  subtitle: z.string().max(500).nullable().optional(),
+  title: cleanString().min(1, "Title is required").max(500),
+  subtitle: cleanString().max(500).nullable().optional(),
 
   // Identifiers
   isbn13: z
