@@ -4,6 +4,7 @@ import type { SupervisorHostLock } from "@/lib/ebooks/upload/host-lock";
 import type { InspectorContainerState } from "@/lib/ebooks/upload/container-runtime";
 import { supervisorBindingSha256, type InspectorBuildEvidence, type InspectorIdentity, type InspectorRuntimeConfig } from "@/lib/ebooks/upload/runtime-contract";
 import { UPLOAD_LIMITS } from "@/lib/ebooks/upload/limits";
+import { UploadItemFailed, UploadItemRefusal } from "@/lib/ebooks/upload/job-failure";
 
 function setup(beforeRelease?: () => Promise<void>) {
   let now = 1000;
@@ -156,10 +157,14 @@ describe("restart-safe owned supervisor", () => {
       s.setContainers([{ id: "d".repeat(64), identity, status: "created", exitCode: 0, oomKilled: false }]);
       throw new Error("create response lost");
     });
-    await expect(s.supervisor.inspect(s.fence)).rejects.toThrow("response lost");
+    const failed = await s.supervisor.inspect(s.fence).catch((error: unknown) => error);
+    expect(failed).toBeInstanceOf(UploadItemFailed);
+    expect((failed as Error).cause).toMatchObject({ message: "create response lost" });
     expect(s.inspector.execute).not.toHaveBeenCalled();
     expect(vi.mocked(s.persistence.persistCleanupAndReleaseWorker).mock.calls).toHaveLength(2);
-    expect(s.supervisor.readiness().state).toBe("quiescing");
+    // The discovered container's exit and the cleanup were proved: only this item failed (SLN-1388)
+    expect(s.persistence.recordJobFailure).toHaveBeenCalledWith(expect.any(Object), s.fence, { reason: "check_failed", what: null });
+    expect(s.supervisor.readiness().state).toBe("ready");
   });
   it("returns a bounded result only after current-operation validation and confirmed cleanup", async () => {
     const s = setup(); await s.supervisor.start();
@@ -235,11 +240,12 @@ describe("restart-safe owned supervisor", () => {
   });
   it("never creates a process when request publication fails", async () => {
     const s = setup(); await s.supervisor.start(); const consume = vi.fn();
-    await expect(s.supervisor.runJob(s.fence, { prepare: async () => { throw new Error('request response lost'); }, consume })).rejects.toThrow('request response lost');
+    await expect(s.supervisor.runJob(s.fence, { prepare: async () => { throw new Error('request response lost'); }, consume }))
+      .rejects.toMatchObject({ name: 'UploadItemFailed', cause: expect.objectContaining({ message: 'request response lost' }) });
     expect(s.inspector.create).not.toHaveBeenCalled(); expect(consume).not.toHaveBeenCalled();
     expect(s.hostLock.release).not.toHaveBeenCalled();
     expect(vi.mocked(s.persistence.persistCleanupAndReleaseWorker).mock.calls[1][1]).toMatchObject({ inspector: 'never_started', transportRemoved: false });
-    expect(s.persistence.recordJobFailure).toHaveBeenCalledWith(expect.any(Object), s.fence);
+    expect(s.persistence.recordJobFailure).toHaveBeenCalledWith(expect.any(Object), s.fence, { reason: 'check_failed', what: null });
     expect(s.events.indexOf('failed_without_receipt')).toBeLessThan(s.events.lastIndexOf('proof_and_worker_release'));
   });
   it("keeps ownership on shutdown while host publication remains uncertain", async () => {
@@ -257,6 +263,58 @@ describe("restart-safe owned supervisor", () => {
       expect(s.supervisor.readiness().state).toBe('blocked');
       finish(); await pending; // settle the fixture without pretending it exited earlier
     } finally { vi.useRealTimers(); }
+  });
+  // SLN-1388: one refused or failed file used to quiesce the whole service
+  describe("a failure of one job", () => {
+    it("fails only that item, with the worker's reason, and keeps the service ready for the next", async () => {
+      const s = setup(); await s.supervisor.start();
+      const refused = s.supervisor.runJob(s.fence, { prepare: async () => {}, consume: async () => { throw new UploadItemRefusal("PNG image"); } });
+      await expect(refused).rejects.toBeInstanceOf(UploadItemFailed);
+      expect(s.persistence.recordJobFailure).toHaveBeenCalledWith(expect.any(Object), s.fence, { reason: "not_an_ebook", what: "PNG image" });
+      // Exit proved, scratch removed and the proof persisted before the slot reopens
+      expect(s.events.lastIndexOf("failed_without_receipt")).toBeLessThan(s.events.lastIndexOf("proof_and_worker_release"));
+      expect(s.events.lastIndexOf("exit_proof")).toBeLessThan(s.events.lastIndexOf("proof_and_worker_release"));
+      expect(s.supervisor.readiness().state).toBe("ready");
+      expect(s.supervisor.io.snapshot().accepting).toBe(true);
+      expect(s.persistence.markQuiescing).not.toHaveBeenCalled();
+      const next = { ...s.fence, generation: 4 };
+      expect(await s.supervisor.runJob(next, { prepare: async () => {}, consume: async (output) => output })).toBe("bounded-report");
+      expect(s.supervisor.readiness().state).toBe("ready");
+    });
+    it("fails only that item when the inspector exits non-zero", async () => {
+      const s = setup(); await s.supervisor.start();
+      vi.mocked(s.inspector.execute).mockImplementation(async (identity) => {
+        s.setContainers([{ id: "d".repeat(64), identity, status: "exited", exitCode: 1, oomKilled: false }]);
+        throw new Error("Inspector did not complete successfully");
+      });
+      await expect(s.supervisor.inspect(s.fence)).rejects.toMatchObject({ name: "UploadItemFailed",
+        failure: { reason: "check_failed", what: null } });
+      expect(s.supervisor.readiness().state).toBe("ready");
+    });
+    it("fails only that item when it is canceled while its inspector runs", async () => {
+      const s = setup(); await s.supervisor.start();
+      vi.mocked(s.inspector.execute).mockImplementation(async (_identity, signal) => {
+        s.supervisor.cancelJob(s.fence.operationId); signal.throwIfAborted(); return "never";
+      });
+      await expect(s.supervisor.inspect(s.fence)).rejects.toBeInstanceOf(UploadItemFailed);
+      expect(s.supervisor.readiness().state).toBe("ready");
+    });
+    it("still blocks the service when the inspector's exit can't be proved", async () => {
+      const s = setup(); await s.supervisor.start();
+      vi.mocked(s.inspector.execute).mockRejectedValue(new Error("Inspector did not complete successfully"));
+      vi.mocked(s.inspector.stop).mockImplementation(async (identity) => ({ id: "d".repeat(64), identity, status: "running", exitCode: 0, oomKilled: false }));
+      await expect(s.supervisor.inspect(s.fence)).rejects.toThrow("did not prove owned process-tree exit");
+      expect(s.supervisor.readiness().state).toBe("blocked");
+      expect(s.supervisor.io.snapshot().accepting).toBe(false);
+    });
+    it("still quiesces the service when its lease is lost during the job", async () => {
+      const s = setup(); await s.supervisor.start();
+      vi.mocked(s.inspector.execute).mockImplementation(async (_identity, signal) => {
+        s.setNow(UPLOAD_LIMITS.workerLeaseMs); s.supervisor.readiness(); signal.throwIfAborted(); return "never";
+      });
+      await expect(s.supervisor.inspect(s.fence)).rejects.not.toBeInstanceOf(UploadItemFailed);
+      expect(s.supervisor.readiness().state).not.toBe("ready");
+    });
   });
   it("drains the owned app bridge before releasing the physical host lock", async () => {
     const events: string[] = []; const s = setup(async () => { events.push('bridge_drained'); });

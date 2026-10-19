@@ -12,8 +12,8 @@ import type { LoadedMatchCatalogue } from "../match/load";
 import type { MatchOperationIdentity, MatchResult } from "../match/types";
 import type { UploadAtomicBinding } from "../upload/atomic-extension";
 import { UploadError, uploadOutcomeSchema, type UploadCommand } from "../upload/protocol";
-import { readStoredInspection, type StoredUploadInspection } from "./inspection";
-import { lockName } from "../locked-file";
+import { readStoredInspection } from "./inspection";
+import { quarantineMessage } from "./refusal";
 import { readCoreOperationOn, type CoreOperationRow, type CoreScope } from "./store";
 import { readUploadSnapshotsOn, targetFingerprintFromRows, type UploadSnapshots } from "./snapshots";
 import { newUploadIdentity } from "./receipts";
@@ -28,18 +28,6 @@ export interface UploadEffectPreview {
 }
 const metadataSources:Partial<Record<PlanFile["format"],MetadataSource>>={epub:"epub",kepub:"epub",azw3:"azw3",
   azw:"mobi",mobi:"mobi",fb2:"fb2",fbz:"fb2",pdf:"pdf",cbz:"cbz"};
-/** Why a checked file can't be added, in plain words, or null when it can: a
- * password is a password, a damaged file says what is wrong (SLN-1388) */
-export function quarantineMessage(inspected:Pick<StoredUploadInspection,"prepared"|"publication">):string|null {
-  const p=inspected.prepared;
-  if (p.validation.downloadable && !p.problem && !p.drm && inspected.publication.medallion.gold[0]) return null;
-  if (p.drm) return `Not added: the file is locked with ${lockName(p.drm)}. Upload a copy without it.`;
-  if (p.problem) {
-    const problem=p.problem.slice(0,800).trim(),first=/^[A-Z][a-z]/.test(problem) ? problem[0].toLowerCase()+problem.slice(1) : problem;
-    return `Not added: ${first}${/[.!?]$/.test(first) ? "" : "."}`;
-  }
-  return "Not added: Durtal can't check files of this format yet.";
-}
 export function inspectionPlanFile(upload:CoreOperationRow):{group:PlanGroup;file:PlanFile} {
   const inspected=readStoredInspection(upload),p=inspected.prepared,stages=inspected.publication;
   const refused=quarantineMessage(inspected);

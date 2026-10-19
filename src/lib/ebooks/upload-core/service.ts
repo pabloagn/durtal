@@ -21,7 +21,8 @@ import { commitTransportCommandOn } from "./commands";
 import { assertInspectionCurrentOn, settleInspectionOn, readStoredInspection } from "./inspection";
 import { readUploadSnapshotsOn, targetFingerprintFromRows, settledUploadSql } from "./snapshots";
 import { readUploadTargetSnapshotOn } from "../upload/atomic-snapshots";
-import { prepareUploadEffectOn, quarantineMessage, type UploadEffectPreview } from "./plans";
+import { prepareUploadEffectOn, type UploadEffectPreview } from "./plans";
+import { quarantineMessage } from "./refusal";
 import { UploadPreviewCache } from "./preview-cache";
 import { commitUploadPreviewOn, confirmUploadEffectOn, bindConfirmationPreviewOn } from "./effect-store";
 
