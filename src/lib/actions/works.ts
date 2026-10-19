@@ -256,8 +256,15 @@ const workDetailWith = {
     with: { subject: true },
   },
   editions: {
-    // The id breaks ties, so the Editions section and the quotes' edition groups (SLN-480) agree
-    orderBy: [desc(editions.publicationYear), asc(editions.id)] as SQL[],
+    // The original-language editions first, then the newest, then by title
+    // (SLN-1132); the id breaks ties, so the Editions section and the quotes'
+    // edition groups (SLN-480) agree
+    orderBy: [
+      sql`(${editions.language} is distinct from (select w.original_language from works w where w.id = ${editions.workId}))`,
+      sql`${editions.publicationYear} desc nulls last`,
+      asc(editions.title),
+      asc(editions.id),
+    ] as SQL[],
     with: {
       publisherLinks: { with: { publisher: true } },
       instances: {

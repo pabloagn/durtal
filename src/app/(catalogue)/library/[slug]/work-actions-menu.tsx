@@ -251,6 +251,7 @@ export function WorkActionsMenu({
       <EditionAddDialog
         workId={work.id}
         workTitle={work.title}
+        workLanguage={work.originalLanguage}
         open={addEditionOpen}
         onOpenChange={setAddEditionOpen}
       />
