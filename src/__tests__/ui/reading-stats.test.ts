@@ -161,7 +161,10 @@ describe("the stats charts", () => {
       const frame = figure.querySelector("[data-chart-frame]")!;
       expect([frame.getAttribute("tabindex"), frame.getAttribute("role")]).toEqual(["0", "group"]);
       expect(frame.getAttribute("aria-label")).toBe(figure.getAttribute("data-chart"));
-      expect(document.getElementById(frame.getAttribute("aria-describedby")!)).toBe(figure.querySelector("[data-chart-caption]"));
+      // The caption describes the chart unless it only repeats its name (SLN-1172)
+      const caption = figure.querySelector("[data-chart-caption]")!;
+      const described = frame.getAttribute("aria-describedby");
+      expect(described && document.getElementById(described)).toBe(caption.textContent === figure.getAttribute("data-chart") ? null : caption);
       // The chart, then its table toggle: nothing else to tab to
       expect([...figure.querySelectorAll(TABBABLE)]).toEqual([frame, figure.querySelector("[data-chart-table-toggle]")]);
       const svg = figure.querySelector("svg")!;

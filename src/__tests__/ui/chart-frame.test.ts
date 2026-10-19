@@ -104,6 +104,9 @@ describe("chart caption and table activation", () => {
     let { figure, caption } = render(undefined);
     expect(caption.textContent).toBe("Books by year");
     expect(figure.getAttribute("aria-label")).toBe("Books by year");
+    // The caption only repeats the name, so it is hidden and describes nothing
+    expect(caption.getAttribute("aria-hidden")).toBe("true");
+    expect(host.querySelector("[data-chart-frame]")!.hasAttribute("aria-describedby")).toBe(false);
     expect(host.querySelector("[data-chart-title]")).toBeNull();
     expect(host.textContent).not.toContain(summary);
     ({ figure, caption } = render("23 books in all", 1, "Books finished"));

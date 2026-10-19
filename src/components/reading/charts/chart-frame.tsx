@@ -90,7 +90,8 @@ export function ChartFrame({
         tabIndex={0}
         role="group"
         aria-label={label}
-        aria-describedby={captionId}
+        // The caption describes the chart only when it says more than its name
+        aria-describedby={caption !== label ? captionId : undefined}
         onKeyDown={onKeyDown}
         onBlur={() => {
           at.current = null;
@@ -106,7 +107,7 @@ export function ChartFrame({
       {/* A blur replaces the focused value with the short line. Keep the
           toggle in its own column so that change cannot move its hit area. */}
       <figcaption className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1">
-        <p id={captionId} className="min-h-4 min-w-0 break-words text-xs text-fg-secondary" data-chart-caption="">
+        <p id={captionId} aria-hidden={caption === label || undefined} className="min-h-4 min-w-0 break-words text-xs text-fg-secondary" data-chart-caption="">
           {caption}
         </p>
         <button
