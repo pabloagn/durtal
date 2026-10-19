@@ -19,6 +19,8 @@ export interface JournalRow {
   title: string;
   slug: string | null;
   author: string | null;
+  /** The first author's page */
+  authorSlug: string | null;
   cover: string | null;
   status: ReadingStatus;
   startedOn: string | null;
@@ -87,15 +89,16 @@ function orderBy(q: JournalQuery): SQL {
   if (q.sort === "started")
     return sql`(b.started_precision = 'unknown' or b.started_on is null) asc, b.started_on ${dir} nulls last, b.id asc`;
   if (q.sort === "rating") return sql`b.read_rating ${dir} nulls last, b.id asc`;
-  // Accents aside, whatever the database's collation: Árbol sorts with Arbol
-  return sql`search_normalize(w.title) ${dir}, b.id asc`;
+  // Accents aside, whatever the database's collation: Árbol sorts with Arbol.
+  // A book's readings stay together, in the order they were read (SLN-1075)
+  return sql`search_normalize(w.title) ${dir}, w.id ${dir}, b.ordinal ${dir}, b.id asc`;
 }
 
 export async function queryJournal(q: JournalQuery) {
   const where = conditions(q);
   const [rows, [summary]] = await Promise.all([
     db.execute(sql`select b.id, b.ordinal, b.work_id as "workId", w.title, w.slug,
-        (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.sort_order limit 1) as author,
+        fa.name as author, fa.slug as "authorSlug",
         coalesce((select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = b.edition_id),
           (select m.thumbnail_s3_key from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1)) as cover,
         b.status, b.started_on::text as "startedOn", b.started_precision as "startedPrecision",
@@ -104,6 +107,8 @@ export async function queryJournal(q: JournalQuery) {
         (select e.language from editions e where e.id = b.edition_id) as "editionLanguage", w.original_language as "originalLanguage",
         b.fingerprint
       from ${base} b join works w on w.id = b.work_id
+        left join lateral (select a.name, a.slug from work_authors wa join authors a on a.id = wa.author_id
+          where wa.work_id = w.id order by wa.sort_order limit 1) fa on true
       where ${where}
       order by ${orderBy(q)}
       limit ${q.perPage} offset ${q.offset}`),

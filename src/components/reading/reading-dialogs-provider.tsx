@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
 import { usePreference } from "@/lib/hooks/use-preference";
@@ -68,19 +68,31 @@ export function ReadingDialogsProvider({ children }: { children: ReactNode }) {
   const current = useRef<Display | null>(null);
   const lastOrigin = useRef<FocusOrigin | null>(null);
   const live = useRef(true);
+  // The focus goes back once the dialog is gone: while the modal dialog is
+  // still in the page, everything under it is inert and refuses the focus
+  // (the journal's rows after Save, SLN-1074)
+  const restoring = useRef<{ expected: number; origin: FocusOrigin | null } | null>(null);
+  const restore = useCallback(() => {
+    const pending = restoring.current;
+    restoring.current = null;
+    if (!pending || generation.current !== pending.expected) return;
+    restoreFocusOrigin(pending.origin);
+    lastOrigin.current = null;
+  }, []);
   const close = useCallback(() => {
     const previous = current.current;
     const expected = ++generation.current;
     current.current = null;
     previous?.lease.release();
     lastOrigin.current = previous?.origin ?? null;
+    restoring.current = { expected, origin: previous?.origin ?? null };
     setDisplay(null);
-    queueMicrotask(() => {
-      if (generation.current !== expected) return;
-      restoreFocusOrigin(previous?.origin ?? null);
-      lastOrigin.current = null;
-    });
-  }, []);
+    // Nothing was showing, so nothing re-renders: restore now
+    if (!previous) queueMicrotask(restore);
+  }, [restore]);
+  useLayoutEffect(() => {
+    if (!display) restore();
+  }, [display, restore]);
   const commit = useCallback((next: Display) => {
     if (!live.current || generation.current !== next.generation) return;
     current.current = next;

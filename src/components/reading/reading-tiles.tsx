@@ -213,7 +213,9 @@ export interface JournalItem {
   title: string;
   href: string;
   cover: string | null;
-  /** "Author · 3 to 14 Apr 2019 · Finished · re-read" */
+  /** The first author, linking to their page; the line follows it */
+  author?: { name: string; href: string | null } | null;
+  /** "3 to 14 Apr 2019 · Finished · re-read" */
   line: string;
   format: ReadingFormat;
   /** The edition's language when it is not the original's */
@@ -238,7 +240,7 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
       {rows.map((row) => {
         return (
           // The cover starts on the title's first line, as in Up next, however far the title wraps
-          <li key={row.reading.readingId} className="flex items-start gap-3 px-3 py-2" data-journal-row={row.reading.readingId}>
+          <li key={row.reading.readingId} className="flex items-start gap-3 px-3 py-2" data-journal-row={row.reading.readingId} data-focus-row="">
             <Cover s3Key={row.cover} title={row.title} className="h-12 w-8" />
             <div className="@container min-w-0 flex-1">
               {/*
@@ -276,7 +278,18 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
                 </CapAlignedControls>
               </div>
               {/* Each "·" stays with the item before it, so no line starts with one */}
-              <p className="min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">{row.line.replaceAll(" · ", "\u00a0· ")}</p>
+              <p className="min-h-[1lh] [overflow-wrap:anywhere] text-xs text-fg-secondary">
+                {row.author &&
+                  (row.author.href ? (
+                    <Link href={row.author.href} className="transition-colors hover:text-fg-primary">
+                      {row.author.name}
+                    </Link>
+                  ) : (
+                    row.author.name
+                  ))}
+                {row.author && row.line && "\u00a0· "}
+                {row.line.replaceAll(" · ", "\u00a0· ")}
+              </p>
             </div>
           </li>
         );

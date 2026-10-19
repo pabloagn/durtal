@@ -177,11 +177,14 @@ describe.skipIf(!url)("the reading hub with PostgreSQL", () => {
     expect(await ids({ q: "eloge" })).toEqual([paused, month2024, unknown]);
     expect(await ids({ q: "tanizaki" })).toEqual([paused, month2024, unknown]);
     expect(await ids({ q: "beckett watt" })).toEqual([day2024, stopped2021]);
-    // Started: newest first, unknown starts last; Title: A to Z, ties by id
+    // Started: newest first, unknown starts last; Title: A to Z, a book's readings in the order they were read (SLN-1075)
     expect(await ids({ sort: "started" })).toEqual([reading, paused, day2024, stopped2021, ...[month2024, year2019, unknown].sort()]);
     const byTitle = (await journal({ sort: "title" })).rows;
-    expect(byTitle.slice(0, 2).map((r) => r.id)).toEqual([reading, year2019].sort());
-    // One book's readings stay together, by id
+    expect(byTitle.slice(0, 2).map((r) => r.id)).toEqual([year2019, reading]);
+    expect((await ids({ sort: "title", order: "desc" })).slice(-2)).toEqual([reading, year2019]);
+    // The first author, with their page
+    expect(byTitle[0]).toMatchObject({ author: "W. G. Sebald", authorSlug: expect.any(String) });
+    // One book's readings stay together
     const titles = byTitle.map((r) => r.title);
     expect(titles.filter((t, i) => t !== titles[i - 1])).toHaveLength(3);
     // Paging
