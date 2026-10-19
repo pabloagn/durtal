@@ -281,7 +281,7 @@ export function EditionForm({
   }
 
   const formId = useId();
-  const nameReason = useSaveReason(!values.title.trim() && "Give the edition a title");
+  const nameReason = useSaveReason(!values.title.trim() && !work && "Give the edition a title");
   return (
     <form id={formId} onSubmit={handleSubmit} className="@container">
       {/* While it saves, the fields wait: an edit made then would be lost */}

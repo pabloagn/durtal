@@ -397,7 +397,7 @@ function WantForm({ workId, choices, onDone }: { workId: string; choices: Wanted
           choices.kind === "perfume"
             ? !variantId
               ? "Choose a formulation"
-              : !capacity.trim() && "Enter the size"
+              : !capacity && "Enter the size"
             : choices.kind === "film"
               ? !versionId && "Choose the version"
               : !objectChoice && "Choose what to buy"
@@ -516,7 +516,7 @@ function OrderForm({ target, locations, onDone }: { target: TypedTargetView; loc
         onSubLocation={setSubLocationId}
         placeholder="Decide when it arrives"
       />
-      <FormFooter saving={saving} error={error} blocked={blocked} reason={!orderDate && "Give the order date"} label="Order" onCancel={onDone} onSave={save} />
+      <FormFooter saving={saving} error={error} blocked={blocked} reason={!orderDate && "Add the order date"} label="Order" onCancel={onDone} onSave={save} />
     </div>
   );
 }

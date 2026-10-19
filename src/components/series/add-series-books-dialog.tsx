@@ -90,7 +90,7 @@ export function AddSeriesBooksDialog({
     }
   }
 
-  const saveReason = useSaveReason(!chosen.length && "Choose a book to add");
+  const saveReason = useSaveReason(!chosen.length && "Tick the books to add");
   return (
     <Dialog
       dirty={chosen.length > 0}

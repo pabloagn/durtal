@@ -250,7 +250,7 @@ function WhereaboutsForm({
     }
   }
 
-  const saveReason = useSaveReason(placeKind === "venue" && !venue ? "Choose the place" : needsStart && "Give the start date");
+  const saveReason = useSaveReason(placeKind === "venue" && !venue ? "Choose the place" : needsStart && "Give the date of the move");
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">

@@ -168,7 +168,7 @@ export function OrderEditDialog({
     });
   }
 
-  const saveReason = useSaveReason(!orderDate && "Give the order a date");
+  const saveReason = useSaveReason(!orderDate && "Add the order date");
   return (
     <Dialog
       draft

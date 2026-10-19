@@ -208,7 +208,7 @@ function BottleForm({
   }
 
   // A size that was typed wrong says so under its field
-  const saveReason = useSaveReason(!variantId ? "Choose a formulation" : !capacity.trim() && "Enter the size");
+  const saveReason = useSaveReason(!variantId ? "Choose a formulation" : !capacity && "Enter the size");
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
