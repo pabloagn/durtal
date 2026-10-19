@@ -57,3 +57,11 @@ with stale content.
   Move in 0.11-0.26 s, 50 of 50. The extra `router.refresh()` after a
   revalidating action costs a second server render but does not drop the
   redraw once the ping is recovered.
+- The book page's Hunting for section no longer hides a removed target
+  itself (added by SLN-1029 because the new list was sometimes dropped). The
+  page's own redraw takes the row away. Remove keeps its busy state, which
+  holds the focus until the row goes. On the rebased build, in Chromium,
+  Firefox and WebKit: Add and Remove target 10 of 10 each, in 0.11-0.51 s; a
+  collection Move 10 of 10, in 0.09-0.15 s; after Remove with two targets the
+  focus moves to the other Remove, and after the last one to Add target, 3 of
+  3 each.
