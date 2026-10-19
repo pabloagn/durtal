@@ -16,7 +16,7 @@ const actions = vi.hoisted(() => ({ save: vi.fn(), open: vi.fn(), clear: vi.fn()
 vi.mock("@/lib/actions/reader-tracking", () => ({ saveReaderQuote: actions.save,
   getReaderTracking: vi.fn(), prepareReaderQuoteDelete: vi.fn(), startReaderReading: vi.fn() }));
 vi.mock("@/lib/actions/reading", () => ({ deleteReading: vi.fn(), pauseReading: vi.fn(), resumeReading: vi.fn() }));
-vi.mock("@/components/reading/timer-provider", () => ({ useOptionalTimer: () => ({ availability: "ready", timer: null }) }));
+vi.mock("@/components/reading/timer-provider", () => ({ useOptionalTimer: () => ({ availability: "ready", known: true, timer: null }) }));
 vi.mock("@/components/reading/reading-dialogs-provider", () => ({ useReadingDialogs: () => ({ open: actions.open }) }));
 
 const word: ReaderSelection = { text: "Table", locator, fileId: id(3), chapter: null, percent: 44 };

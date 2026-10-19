@@ -60,6 +60,7 @@ export interface AnnotationControllerOptions {
   now?: () => number;
   uuid?: () => string;
   yieldWork?: () => Promise<void>;
+  /** A failure on this device. A failed server refresh shows only in the snapshot. */
   onError?: (error: unknown) => void;
 }
 const emptyBook = (): AnnotationBookState => ({
@@ -153,9 +154,9 @@ export function createAnnotationController(
   const visible = () => !win || win.document.visibilityState === "visible";
   const online = () => !win || win.navigator.onLine !== false;
   const canPull = () => !destroyed && painted && visible() && online();
-  const report = (error: unknown) => {
+  const report = (error: unknown, notify = true) => {
     if (destroyed) return;
-    options.onError?.(error);
+    if (notify) options.onError?.(error);
     snapshot = {
       ...snapshot,
       error:
@@ -363,6 +364,8 @@ export function createAnnotationController(
     if (!canPull()) return;
     if (pulling) return pulling;
     pullFailure = null;
+    // A failed server refresh is not a failed save: the next refresh catches up (SLN-1274)
+    let fromServer = false;
     pulling = (async () => {
       const current = await options.transport.readBook(options.ebookId);
       // Local reads may outlive this reader or a connectivity change.
@@ -370,6 +373,7 @@ export function createAnnotationController(
       const query = current.cursor
         ? `?since=${encodeURIComponent(current.cursor)}`
         : "";
+      fromServer = true;
       const response = await doFetch(
         `/api/reader/${options.ebookId}/annotations${query}`,
         {
@@ -385,6 +389,7 @@ export function createAnnotationController(
       )
         throw new Error("Annotations could not be refreshed");
       const received = annotationPullSchema.parse(await response.json());
+      fromServer = false;
       if (destroyed) return;
       await options.transport.transactBook(options.ebookId, (latest) => {
         if (destroyed) return latest;
@@ -409,7 +414,7 @@ export function createAnnotationController(
       });
       await refresh();
     })()
-      .catch((error: unknown) => { pullFailure = error; report(error); })
+      .catch((error: unknown) => { pullFailure = error; report(error, !fromServer); })
       .finally(() => {
         pulling = null;
       });
