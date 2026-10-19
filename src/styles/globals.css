@@ -340,6 +340,18 @@ dialog::backdrop {
    line without moving it: padding, cancelled by a negative margin on a
    button (inline-block); a link ignores both for layout. */
 @utility text-command {
+  @apply text-command-ink;
+  @media (pointer: coarse) {
+    --text-command-grow: calc((44px - 1em) / 2);
+    padding-block: var(--text-command-grow);
+    margin-block: calc(-1 * var(--text-command-grow));
+  }
+}
+
+/* The text command's paint without its touch growth, for a link whose row
+   already gives the 44px or whose box is a flex item, where the growth would
+   reach into the next row */
+@utility text-command-ink {
   color: var(--color-accent-primary);
   text-decoration-line: underline;
   text-decoration-thickness: 1px;
@@ -350,11 +362,6 @@ dialog::backdrop {
   &:hover {
     color: var(--color-fg-primary);
     text-decoration-color: currentColor;
-  }
-  @media (pointer: coarse) {
-    --text-command-grow: calc((44px - 1em) / 2);
-    padding-block: var(--text-command-grow);
-    margin-block: calc(-1 * var(--text-command-grow));
   }
 }
 

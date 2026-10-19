@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { CapAligned } from "@/components/shared/cap-aligned";
+import { pagerControl } from "@/components/shared/pager-control";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ChevronLeft,
@@ -67,8 +68,7 @@ const STAND_IN: Record<string, string[]> = {
   jump: ["jump-toggle"],
 };
 
-const control =
-  "inline-flex h-8 min-w-8 items-center justify-center gap-1 rounded-sm border border-glass-border px-2 text-xs text-fg-secondary hover:bg-bg-tertiary disabled:pointer-events-none disabled:opacity-60 pointer-coarse:h-11 pointer-coarse:min-w-11";
+const control = pagerControl;
 
 export function Pagination({
   page,

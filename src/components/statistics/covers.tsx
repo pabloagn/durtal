@@ -84,7 +84,7 @@ export function YearCovers({ year, caption }: { year: BusiestYear; /** Where no 
     <div className="grid gap-4 sm:grid-cols-[8rem_1fr]" data-stats-year={year.year}>
       <div>
         {caption && <p className="type-caption mb-1">{caption}</p>}
-        <Link href={yearHref(year.year)} className="type-stat block text-fg-primary transition-colors hover:text-accent-primary">
+        <Link href={yearHref(year.year)} className="type-stat block w-fit text-command">
           {yearLabel(year.year)}
         </Link>
         <p className="text-xs text-fg-secondary">

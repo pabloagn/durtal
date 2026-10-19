@@ -35,7 +35,7 @@ it("draws the unmarked mark toggles and the comment box's icons in fg-muted, not
 
 it("shows a disabled control at 60%: quiet, but readable", () => {
   expect(read("styles/globals.css")).toContain("disabled:pointer-events-none disabled:opacity-60;");
-  expect(read("components/shared/pagination.tsx")).toContain("disabled:opacity-60");
+  expect(read("components/shared/pager-control.ts")).toContain("disabled:opacity-60");
   expect(read("components/ui/select.tsx")).toContain("disabled:opacity-60");
   const carousel = read("components/shared/horizontal-carousel.tsx");
   expect(carousel.match(/text-fg-secondary [^"]*disabled:opacity-60/g)).toHaveLength(2);
