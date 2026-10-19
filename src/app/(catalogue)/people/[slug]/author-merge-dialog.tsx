@@ -7,9 +7,10 @@ import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { CapAligned } from "@/components/shared/cap-aligned";
-import { mergeAuthors } from "@/lib/actions/authors";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { useAuthorSearch, type AuthorOption } from "@/hooks/use-author-search";
+import { mergeAuthors } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 interface AuthorMergeDialogProps {
   open: boolean;
@@ -72,7 +73,7 @@ export function AuthorMergeDialog({
         triggerActivityRefresh();
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "Could not merge the people",
+          refusalMessage(err, "Could not merge the people"),
         );
       }
     });

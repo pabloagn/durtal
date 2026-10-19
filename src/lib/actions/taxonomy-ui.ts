@@ -50,3 +50,7 @@ export async function setTaxonomyApplicability(...args: Parameters<typeof action
 export async function replaceTaxonomyAssignments(...args: Parameters<typeof actions.replaceTaxonomyAssignments>) {
   return actionResult(() => actions.replaceTaxonomyAssignments(...args));
 }
+
+export async function searchTaxonomyItems(...args: Parameters<typeof actions.searchTaxonomyItems>) {
+  return actionResult(() => actions.searchTaxonomyItems(...args));
+}

@@ -9,9 +9,10 @@ import {
   DropdownMenu,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { setFavourites } from "@/lib/actions/favourites";
 import type { FavouriteEntity } from "@/lib/constants/favourites";
 import { MARKS } from "@/lib/constants/marks";
+import { setFavourites } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /**
  * "Mark as favourite" and "Remove favourite" for the selected items of a
@@ -45,8 +46,8 @@ export function FavouriteBulkMenu({
           : `Favourites: ${updated} ${updated === 1 ? noun[0] : noun[1]} ${favourite ? "marked" : "removed"}`,
       );
       router.refresh();
-    } catch {
-      progress.error("Could not update the favourites. Try again.");
+    } catch (error) {
+      progress.error(refusalMessage(error, "Could not update the favourites. Try again."));
     } finally {
       setPending(false);
     }

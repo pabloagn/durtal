@@ -7,7 +7,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { undoToast } from "@/components/reading/reading-client";
-import { markWorksRead, undoMarkWorksRead } from "@/lib/actions/reading-bulk";
+import { markWorksRead, undoMarkWorksRead } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import type { PossibleDuplicate, SkippedBook } from "@/lib/actions/reading-bulk";
 import { formatReadingDate } from "@/lib/reading/dates";
 
@@ -40,7 +41,7 @@ export function MarkReadDialog({ workIds, onClose }: { workIds: string[]; onClos
         toast.success(`Removed ${undone.removed} ${undone.removed === 1 ? "read" : "reads"}${kept ? `. Kept ${kept}` : ""}`);
         router.refresh();
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Could not undo");
+        toast.error(refusalMessage(err, "Could not undo"));
       }
     });
   }
@@ -53,7 +54,7 @@ export function MarkReadDialog({ workIds, onClose }: { workIds: string[]; onClos
       if (done.marked) toastFor(done.readingIds, `Marked ${done.marked} ${done.marked === 1 ? "book" : "books"} as read`);
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not mark the books as read");
+      toast.error(refusalMessage(err, "Could not mark the books as read"));
     } finally {
       setPending(false);
     }
@@ -69,7 +70,7 @@ export function MarkReadDialog({ workIds, onClose }: { workIds: string[]; onClos
       }
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not mark the book as read");
+      toast.error(refusalMessage(err, "Could not mark the book as read"));
     } finally {
       setPending(false);
     }

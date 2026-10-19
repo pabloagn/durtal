@@ -15,10 +15,11 @@ import {
   SingleChoiceField,
   useOrganizationSearch,
 } from "@/components/catalogue/record-fields";
-import { linkVenueInstitution, unlinkVenueInstitution } from "@/lib/actions/venue-pages";
 import type { getVenueInstitutions } from "@/lib/actions/venue-pages";
 import type { OrganizationRole } from "@/lib/catalogue/organizations";
 import { VENUE_TYPE_LABELS, type VenueType } from "@/lib/catalogue/venues";
+import { linkVenueInstitution, unlinkVenueInstitution } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 type Institution = Awaited<ReturnType<typeof getVenueInstitutions>>[number];
 
@@ -69,7 +70,7 @@ export function VenueInstitutions({
       toast.success(`${institution.name} removed`);
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not remove the institution");
+      toast.error(refusalMessage(err, "Could not remove the institution"));
     }
   }
 
@@ -171,7 +172,7 @@ function LinkInstitutionDialog({
       onClose();
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not link the institution");
+      setError(refusalMessage(err, "Could not link the institution"));
     } finally {
       setSaving(false);
     }

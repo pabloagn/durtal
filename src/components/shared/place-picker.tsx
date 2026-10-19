@@ -7,12 +7,11 @@ import { CapAligned } from "@/components/shared/cap-aligned";
 import { toast } from "@/lib/notifications/toast";
 import { Input } from "@/components/ui/input";
 import {
-  createPlace,
-  createPlaceFromGeocode,
   searchPlaces,
 } from "@/lib/actions/places";
 import type { GeocodingResult } from "@/app/api/geocode/route";
 import { isComposing } from "@/lib/shortcuts/shortcuts";
+import { createPlace, createPlaceFromGeocode } from "@/lib/actions/catalogue-client";
 
 export interface PlaceValue {
   id: string;

@@ -14,9 +14,11 @@ const { data, card, stub } = vi.hoisted(() => ({
 
 vi.mock("@/lib/actions/authors", () => ({
   getAuthorBySlug: async (slug: string) => ({
-    id: "00000000-0000-4000-8000-000000000001", slug, name: "Ana Example", workAuthors: [], editionContributors: [], media: [],
+    id: "00000000-0000-4000-8000-000000000001", slug, name: "Ana Example", editionContributors: [], media: [],
     isFavourite: false, country: null,
   }),
+  getPersonBooks: async () => [],
+  getPersonBookCards: async () => [],
   getPersonWorkCredits: async () => data.credits,
 }));
 vi.mock("@/lib/actions/reading-notes", () => ({ getPersonNoteCounts: async () => ({ quotes: 0, notes: 0, translatedQuotes: 0, translatedNotes: 0 }) }));

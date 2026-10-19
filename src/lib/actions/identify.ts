@@ -7,6 +7,7 @@
  * collections stay attached; the save goes through Match's guardrails and
  * can be undone.
  */
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { eq, sql, type SQL } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
@@ -245,9 +246,9 @@ export interface Identified {
 async function placeholder(editionId: string) {
   const edition = await loadMatchEdition(editionId);
   if (!isPlaceholderEdition(edition))
-    throw new Error("This edition is already identified. Use Match on the book page.");
+    throw new ExpectedActionError("This edition is already identified. Use Match on the book page.");
   if (edition.metadataLocked)
-    throw new Error("Unlock this edition before you identify it");
+    throw new ExpectedActionError("Unlock this edition before you identify it");
   return edition;
 }
 
@@ -264,7 +265,7 @@ export async function identifyEdition(
   const record = await fetchSourceRecord("isbndb", isbn13);
   const { rows } = await planRecord(edition, record);
   const blocked = rows.find((r) => r.blocked);
-  if (blocked) throw new Error(`ISBN ${blocked.next}: ${blocked.blocked}`);
+  if (blocked) throw new ExpectedActionError(`ISBN ${blocked.next}: ${blocked.blocked}`);
   const saved = await saveMatch(edition, {
     source: "isbndb",
     sourceId: isbn13,
@@ -348,9 +349,9 @@ export async function undoIdentification(editionId: string, input: IdentifyUndo)
   const kept = !fields.length && edition.metadataSource === KEPT_WITHOUT_ISBN;
   const refused = "The edition changed after this. Undo it by hand.";
   if (changed || (!fields.length && !kept) || (fields.length && edition.metadataSource !== "isbndb"))
-    throw new Error(refused);
+    throw new ExpectedActionError(refused);
   if (undo.before.cover !== undefined && undo.before.cover !== null)
-    throw new Error("The old cover cannot be restored. Undo it by hand.");
+    throw new ExpectedActionError("The old cover cannot be restored. Undo it by hand.");
 
   const updates: Partial<typeof editions.$inferInsert> = {
     metadataSource: undo.previousSource,
@@ -413,16 +414,16 @@ async function moveToExistingEditionOnce(placeholderId: string, editionId: strin
   const source = await placeholder(placeholderId);
   const target = await db.query.editions.findFirst({ where: eq(editions.id, editionId) });
   if (!target || target.workId !== source.workId || target.id === source.id)
-    throw new Error("Choose an edition of the same book");
-  if (isPlaceholderEdition(target)) throw new Error("Choose an identified edition");
+    throw new ExpectedActionError("Choose an edition of the same book");
+  if (isPlaceholderEdition(target)) throw new ExpectedActionError("Choose an identified edition");
   if (source.coverS3Key || source.thumbnailS3Key)
-    throw new Error("The placeholder has a cover. Delete it by hand.");
+    throw new ExpectedActionError("The placeholder has a cover. Delete it by hand.");
   const [counts] = resultRows<{ counts: number[] }>(
     await db.execute(sql`select array[${sql.join(referencesOf(placeholderId, sql`select count(*)::int`), sql`, `)}] as counts`),
   );
   const held = PLACEHOLDER_REFERENCES.filter((_, i) => counts.counts[i] > 0).map(([, label]) => label);
   if (held.length)
-    throw new Error(`The placeholder still has ${held.join(", ")}. Move them by hand first.`);
+    throw new ExpectedActionError(`The placeholder still has ${held.join(", ")}. Move them by hand first.`);
 
   const [moved] = resultRows<{ copies: number; collections: number }>(
     await db.execute(sql`select

@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { recordWorkEvents } from "@/lib/activity/work-changes";
 import {
   ART_OBJECT_KIND_LABELS,
@@ -71,12 +72,12 @@ async function freshHistory(objectId: string, expected: string) {
     where: eq(artObjects.id, objectId),
     columns: { id: true },
   });
-  if (!object) throw new Error("Object not found");
+  if (!object) throw new ExpectedActionError("Object not found");
   if (
     (await readFingerprint(whereaboutsFingerprint(sql`${objectId}::uuid`))) !==
     expected
   )
-    throw new Error(STALE_RECORD);
+    throw new ExpectedActionError(STALE_RECORD);
 }
 function rowValues(
   record: WhereaboutsRecord,
@@ -208,7 +209,7 @@ export async function recordWhereabouts(
         })
       : undefined;
   if (current && !record.startsOn)
-    throw new Error(
+    throw new ExpectedActionError(
       "Give the date of the move, so the current location can be closed",
     );
   const starts = newDate(record.startsOn),
@@ -294,7 +295,7 @@ export async function updateWhereabouts(
   const stored = await db.query.artObjectWhereabouts.findFirst({
     where: eq(artObjectWhereabouts.id, id),
   });
-  if (!stored) throw new Error("Location record not found");
+  if (!stored) throw new ExpectedActionError("Location record not found");
   await freshHistory(stored.objectId, expected);
   const dates = await loadDates([stored.startsOnId, stored.endsOnId]);
   const startsOn = storedDate(dates, stored.startsOnId);
@@ -355,7 +356,7 @@ export async function deleteWhereabouts(id: string, fingerprint: string) {
   const stored = await db.query.artObjectWhereabouts.findFirst({
     where: eq(artObjectWhereabouts.id, id),
   });
-  if (!stored) throw new Error("Location record not found");
+  if (!stored) throw new ExpectedActionError("Location record not found");
   await freshHistory(stored.objectId, expected);
   await write((d) => [
     lockObject(d, stored.objectId),

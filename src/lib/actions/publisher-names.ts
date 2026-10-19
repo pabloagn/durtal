@@ -3,6 +3,7 @@
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { atomic } from "@/lib/db/atomic";
 import {
   publisherAliases,
@@ -161,7 +162,7 @@ export async function resolvePublisherNames(items: z.input<typeof resolveSchema>
       created.push(house.name);
       publisherId = house.id;
     }
-    if (!publisherId) throw new Error("Choose a publisher");
+    if (!publisherId) throw new ExpectedActionError("Choose a publisher");
     const suggestion = row.suggestions.find((s) => s.publisher.id === publisherId);
     const byIsbnOnly = item.action === "link" && suggestion?.via === "isbn";
     if (row.candidates > 1 || byIsbnOnly)

@@ -9,9 +9,10 @@ import { AddToCollectionDialog } from "@/components/books/add-to-collection-dial
 import { MatchAgainDialog } from "@/components/books/match-again-dialog";
 import { editPublisherLinks } from "@/components/publishers/edition-publishers";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
-import { deleteEdition } from "@/lib/actions/editions";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { keptNotesText } from "@/lib/reading/notes-text";
+import { deleteEdition } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /**
  * An edition card's less frequent actions (SLN-693), in the same Actions menu
@@ -56,7 +57,15 @@ export function EditionActionsMenu({
   ];
 
   async function handleDelete() {
-    await deleteEdition(editionId);
+    try {
+      await deleteEdition(editionId);
+    } catch (error) {
+      // The server's reason, such as an accepted enrichment value resting on
+      // this edition's sources (SLN-1033)
+      toast.error(refusalMessage(error, "Could not delete the edition"));
+      close();
+      return;
+    }
     toast.success("Edition deleted");
     close();
     router.refresh();

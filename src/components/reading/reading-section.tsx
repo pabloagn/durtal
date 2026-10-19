@@ -58,7 +58,7 @@ function CurrentReading({ row }: { row: ReadingRow }) {
   const home = row.home?.name ? ` in ${row.home.name}` : "";
   const last = lastReadText(r.lastReadAt, data);
   return (
-    <div className="mb-6 flex gap-4 rounded-sm border border-glass-border p-4" data-reading="current">
+    <div className="mb-6 flex gap-4 rounded-sm border border-glass-border p-4" data-reading="current" data-focus-row="">
       <div className={`h-16 w-11 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary ${COVER_BLANK}`}>
         {edition?.cover ? (
           <FadeImage
@@ -181,14 +181,14 @@ function HistoryRow({ row, previous }: { row: ReadingRow; previous: { editionId:
   const Icon = FORMAT_ICON[r.format as ReadingFormat] ?? BookText;
   const outcome =
     r.status === "abandoned"
-      ? `Abandoned at ${r.unit === "pages" && r.currentPage != null ? `p. ${r.currentPage}` : `${Math.round(r.currentPercent ?? 0)}%`}${
+      ? `Abandoned at ${r.unit === "pages" && r.currentPage != null ? `p. ${r.currentPage.toLocaleString("en")}` : `${Math.round(r.currentPercent ?? 0)}%`}${
           r.abandonReason ? ` · ${ABANDON_REASON_LABELS[r.abandonReason as AbandonReason]}` : ""
         }`
       : "Finished";
   const editionChanged = previous && previous.editionId !== r.editionId && r.editionId;
   const rating = readRating(row, data.summary.finishedCount, data.bookRating);
   return (
-    <li className="border-t border-glass-border py-3 first:border-t-0" data-reading="history">
+    <li className="border-t border-glass-border py-3 first:border-t-0" data-reading="history" data-focus-row="">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1 space-y-1">
           <p className="flex flex-wrap items-center gap-x-2 text-sm text-fg-primary">
@@ -219,7 +219,7 @@ function HistoryRow({ row, previous }: { row: ReadingRow; previous: { editionId:
         <CapAlignedControls height={32} coarseHeight={44} className="text-sm">
           <RowMenu
             row={row}
-            label={`${ordinalRead(row.ordinal)}: actions`}
+            label={`More actions for the ${ordinalRead(row.ordinal)}`}
             onEdit={() => open({ kind: "edit", readingId: r.id })}
             onDelete={() => open({ kind: "delete", readingId: r.id })}
           />
@@ -247,14 +247,18 @@ export function ReadingSection() {
           </Button>
         }
       />
-      {openRow && <CurrentReading row={openRow} />}
-      {history.length > 0 && (
-        <ol className="max-w-2xl">
-          {history.map((row) => (
-            <HistoryRow key={row.reading.id} row={row} previous={row.previousClosed} />
-          ))}
-        </ol>
-      )}
+      {/* One list for the focus: a deleted reading hands it to the next one
+          (FocusKeeper), each by its More menu */}
+      <div data-focus-list="book-readings">
+        {openRow && <CurrentReading row={openRow} />}
+        {history.length > 0 && (
+          <ol className="max-w-2xl">
+            {history.map((row) => (
+              <HistoryRow key={row.reading.id} row={row} previous={row.previousClosed} />
+            ))}
+          </ol>
+        )}
+      </div>
       {data.history.hasMore && <Link href={`/reading/journal?work=${data.workId}`} className="mt-3 inline-flex text-xs text-fg-secondary hover:text-fg-primary touch-hit">View all {data.history.closedCount} past readings</Link>}
       {data.summary.ratings.count >= 2 && (
         <p className="mt-3 text-xs text-fg-secondary">

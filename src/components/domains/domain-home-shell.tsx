@@ -4,23 +4,20 @@ import {
   usePreference,
   useViewModePreference,
 } from "@/lib/hooks/use-preference";
-import type { ViewMode } from "@/components/books/view-mode-switcher";
-import { WORK_DOMAINS } from "@/lib/catalogue/domains";
+import { LIST_PREFERENCES } from "@/lib/preferences";
 import type { HomeKind } from "@/lib/catalogue/domain-homes";
 
-const VIEW_MODES: ViewMode[] = ["grid", "mosaic", "list"];
+/** Each home's saved view and grid size: Settings → Display shows the same (SLN-925) */
+const HOME_LISTS = {
+  film: LIST_PREFERENCES.films,
+  perfume: LIST_PREFERENCES.perfumes,
+  painting: LIST_PREFERENCES.paintings,
+} satisfies Record<HomeKind, unknown>;
 
 /** The saved view of one home: a cookie per collection, checked against its views. */
 export function useHomeView(kind: HomeKind) {
-  const name = WORK_DOMAINS[kind].basePath.slice(1);
-  const [viewMode, setViewMode] = useViewModePreference(
-    `durtal-${name}-view-mode`,
-    VIEW_MODES,
-    "grid",
-  );
-  const [gridColumns, setGridColumns] = usePreference(
-    `durtal-${name}-grid-columns`,
-    4,
-  );
+  const { view, grid } = HOME_LISTS[kind];
+  const [viewMode, setViewMode] = useViewModePreference(view.key, view.modes, view.fallback);
+  const [gridColumns, setGridColumns] = usePreference(grid.key, grid.fallback);
   return { viewMode, setViewMode, gridColumns, setGridColumns };
 }

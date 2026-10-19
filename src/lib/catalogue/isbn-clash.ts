@@ -1,7 +1,8 @@
 import { and, eq, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { editions } from "@/lib/db/schema";
+import { editions, works } from "@/lib/db/schema";
 import { uniqueConstraint } from "@/lib/db/errors";
+import { workHref } from "@/lib/catalogue/work-href";
 
 /**
  * One ISBN belongs to one edition: `editions_isbn_13_unique` and
@@ -33,6 +34,36 @@ export async function isbnClash(
   return message(isbn13 && clash.isbn13 === isbn13 ? isbn13 : isbn10!, clash.title);
 }
 
+/**
+ * An ISBN clash with the page of the book that holds the number, or null, so
+ * an edition form can link it as the add wizard does (SLN-1033)
+ */
+export async function isbnHolder(
+  { isbn13, isbn10 }: { isbn13?: string | null; isbn10?: string | null },
+  exceptId?: string,
+): Promise<{ message: string; href: string } | null> {
+  const numbers = [
+    isbn13 ? eq(editions.isbn13, isbn13) : undefined,
+    isbn10 ? eq(editions.isbn10, isbn10) : undefined,
+  ].filter(Boolean);
+  if (!numbers.length) return null;
+  const [clash] = await db
+    .select({
+      title: editions.title,
+      isbn13: editions.isbn13,
+      isbn10: editions.isbn10,
+      work: { id: works.id, slug: works.slug, kind: works.kind },
+    })
+    .from(editions)
+    .innerJoin(works, eq(works.id, editions.workId))
+    .where(and(or(...numbers), exceptId ? ne(editions.id, exceptId) : undefined))
+    .limit(1);
+  if (!clash) return null;
+  return {
+    message: message(isbn13 && clash.isbn13 === isbn13 ? isbn13 : isbn10!, clash.title),
+    href: workHref(clash.work),
+  };
+}
 /** The message for a write an ISBN constraint refused, or null. */
 export function isbnTaken(
   error: unknown,

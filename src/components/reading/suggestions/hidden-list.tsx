@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { removeSuggestionFeedback, restoreSuggestionFeedback } from "@/lib/actions/suggestions";
 import { showError, undoToast } from "../reading-client";
 import { Cover } from "../reading-tiles";
 import { Undo2 } from "lucide-react";
+import { removeSuggestionFeedback, restoreSuggestionFeedback } from "@/lib/actions/catalogue-client";
 
 export interface HiddenRow {
   workId: string;

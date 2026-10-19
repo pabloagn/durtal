@@ -12,7 +12,8 @@ import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
-import { deleteFilm } from "@/lib/actions/films";
+import { deleteFilm } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { FilmForm, type EditableFilm, type FilmChoices } from "./film-form";
 
 /**
@@ -125,7 +126,7 @@ export function FilmActions({
             );
             router.push("/films");
           } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Could not delete the film");
+            toast.error(refusalMessage(err, "Could not delete the film"));
           }
         }}
       />

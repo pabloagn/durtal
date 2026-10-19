@@ -9,9 +9,6 @@ import { Input } from "@/components/ui/input";
 import { useShortcut } from "@/components/shortcuts/shortcuts-provider";
 import {
   getCollectionSelection,
-  createCollection,
-  addToCollection,
-  removeFromCollection,
 } from "@/lib/actions/collections";
 import {
   collectionCountLine,
@@ -22,6 +19,8 @@ import { useFocusThroughBusy } from "@/hooks/use-focus-through-busy";
 import { CollectionIconLazy } from "@/components/collections/collection-icon-lazy";
 import { CountParts } from "@/components/collections/count-parts";
 import { countLabel } from "@/lib/utils/format";
+import { createCollection, addToCollection, removeFromCollection } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { normalizeSearchText } from "@/lib/utils/search-text";
 import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
@@ -154,9 +153,9 @@ export function AddToCollectionDialog({
       );
       toast.success(remove ? "Removed from collection" : "Added to collection");
       refreshed();
-    } catch {
+    } catch (error) {
       // Nothing was changed; a book may have gone meanwhile, so read again
-      toast.error("Could not update this collection. Nothing was changed.");
+      toast.error(refusalMessage(error, "Could not update this collection. Nothing was changed."));
       keepChoice.current = true;
       setAttempt((n) => n + 1);
     } finally {
@@ -215,8 +214,8 @@ export function AddToCollectionDialog({
       ];
       toast.success(collectionCreatedMessage(kinds));
       refreshed();
-    } catch {
-      toast.error("Could not create and add. Your selection is still here.");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not create and add. Your selection is still here."));
     } finally {
       saving.current = false;
       setBusy(false);

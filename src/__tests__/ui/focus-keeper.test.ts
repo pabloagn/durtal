@@ -93,6 +93,28 @@ describe("FocusKeeper", () => {
     expect(document.activeElement).toBe(button("Delete Study"));
   });
 
+  it("stays in its own list when the page holds two of one name (SLN-1028)", async () => {
+    // Two grids of books on one page, as on a person's page
+    const Grids = ({ second }: { second: string[] }) =>
+      h(
+        "main",
+        null,
+        h(FocusKeeper),
+        ...[["Written", ["Attic"]], ["Translated", second]].map(([title, names]) =>
+          h(
+            "div",
+            { key: title as string, "data-focus-list": "books" },
+            (names as string[]).map((name) => h("div", { key: name, "data-focus-row": "" }, h("button", null, `Actions ${name}`))),
+          ),
+        ),
+      );
+    act(() => root.render(h(Grids, { second: ["Study", "Cellar"] })));
+    button("Actions Study").focus();
+    act(() => root.render(h(Grids, { second: ["Cellar"] })));
+    await frame();
+    expect(document.activeElement).toBe(button("Actions Cellar"));
+  });
+
   it("leaves the focus alone when it is somewhere else", async () => {
     act(() => root.render(h(Page, { names: ["Attic", "Study"] })));
     button("Delete Attic").focus();

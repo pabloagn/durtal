@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readdirSync, readFileSync } from "fs";
 import path from "path";
 import { expect, it } from "vitest";
 
@@ -14,4 +14,17 @@ it("keeps wrapped file commands' press areas apart on touch", () => {
   const cell = source.slice(source.indexOf('if (column === "actions")'));
   expect(cell).toContain("text-command");
   expect(cell).toMatch(/<div className="flex flex-wrap gap-2 pointer-coarse:gap-y-7">/);
+});
+
+// SLN-1036: a Next Link prefetches its target as it scrolls into view, and the
+// target here is the whole file: a 300 MB PDF was fetched twice before any
+// click. No link anywhere may point at a stored e-book file.
+it("downloads a file with a plain link, which fetches nothing ahead", () => {
+  const source = read("components/ebooks/ebook-files-table.tsx");
+  expect(source).toMatch(/<a\s+href=\{`\/api\/ebooks\/files\/\$\{file\.id\}\?download=1`\}\s+download\s/);
+  const files = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory() ? files(path.join(dir, entry.name)) : /\.tsx?$/.test(entry.name) ? [path.join(dir, entry.name)] : []);
+  const linked = files(path.join(process.cwd(), "src")).filter((file) =>
+    /<Link[^>]*href=\{?[`"']\/api\/ebooks\/files\//.test(readFileSync(file, "utf8")));
+  expect(linked).toEqual([]);
 });

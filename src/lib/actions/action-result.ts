@@ -4,7 +4,7 @@ import { ExpectedActionError } from "./expected-error";
 
 export type ActionResult<T> =
   | { ok: true; value: T }
-  | { ok: false; error: string };
+  | { ok: false; error: string; href?: string };
 
 /** Expected catalogue refusals cross a server action as data. Unknown failures
  * still throw, so Next protects their details and records its error digest. */
@@ -16,7 +16,9 @@ export async function actionResult<T>(
   } catch (error) {
     const readable = readableDatabaseError(error);
     if (readable instanceof ExpectedActionError)
-      return { ok: false, error: readable.message };
+      return readable.href
+        ? { ok: false, error: readable.message, href: readable.href }
+        : { ok: false, error: readable.message };
     if (error instanceof ZodError)
       return {
         ok: false,

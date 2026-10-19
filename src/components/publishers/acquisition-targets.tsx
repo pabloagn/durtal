@@ -8,12 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { PublisherChoice, type PublisherOption } from "./publisher-picker";
 import { languageName } from "@/lib/utils/language";
-import { updateOrderStatus } from "@/lib/actions/orders";
 import { type getAcquisitionTargets } from "@/lib/actions/publishers";
-import { fulfilTargetWithCopy, createAcquisitionTarget, cancelAcquisitionTarget } from "@/lib/actions/catalogue-client";
+import { fulfilTargetWithCopy, createAcquisitionTarget, cancelAcquisitionTarget, updateOrderStatus } from "@/lib/actions/catalogue-client";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
+import { refusalMessage } from "@/lib/actions/refusal";
 export function AcquisitionTargets({
   workId,
   targets,
@@ -48,7 +48,7 @@ export function AcquisitionTargets({
         toast.success("Added to acquisition targets");
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "Could not add target",
+          refusalMessage(err, "Could not add target"),
         );
       }
     });
@@ -126,8 +126,8 @@ export function AcquisitionTargets({
                         await fulfilTargetWithCopy(target.id, id);
                         router.refresh();
                         toast.success("Acquisition target fulfilled");
-                      } catch {
-                        toast.error("This copy does not match the target");
+                      } catch (error) {
+                        toast.error(refusalMessage(error, "This copy does not match the target"));
                       }
                     });
                 }}
@@ -161,8 +161,8 @@ export function AcquisitionTargets({
                               await updateOrderStatus(o.id, "returned");
                               router.refresh();
                               toast.success("Return recorded");
-                            } catch {
-                              toast.error("Could not record return");
+                            } catch (error) {
+                              toast.error(refusalMessage(error, "Could not record return"));
                             }
                           })
                         }
@@ -191,9 +191,7 @@ export function AcquisitionTargets({
                         router.refresh();
                       } catch (err) {
                         toast.error(
-                          err instanceof Error
-                            ? err.message
-                            : "Could not remove target",
+                          refusalMessage(err, "Could not remove target"),
                         );
                       }
                     })

@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { z } from "zod";
 import { eq, and, asc, desc, inArray, not } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -81,7 +82,7 @@ export async function updateMediaDetails(id: string, input: MediaAttribution) {
   const [row] = await withReadableErrors(() =>
     db.update(media).set(data).where(eq(media.id, id)).returning(),
   );
-  if (!row) throw new Error("Image not found");
+  if (!row) throw new ExpectedActionError("Image not found");
   mediaChanged();
   return row;
 }

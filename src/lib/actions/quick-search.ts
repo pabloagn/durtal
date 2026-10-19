@@ -1,6 +1,6 @@
 "use server";
 
-import { sql, type SQL } from "drizzle-orm";
+import { getTableName, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { textSearchCondition, textSearchRank } from "@/lib/actions/utils/text-search";
@@ -11,6 +11,7 @@ import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
 import type { PaletteEbook } from "@/lib/ebooks/palette-group";
 import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
 import { paletteContinueReading, paletteEbooks } from "@/lib/ebooks/palette-queries";
+import { SYSTEM_FAMILY_SLUGS, getSystemRegistry } from "@/lib/db/taxonomy-resolver";
 
 export interface QuickSearchWork {
   id: string;
@@ -34,6 +35,18 @@ export interface QuickSearchResult {
   organizations: { id: string; name: string; href: string; roles: string }[];
   venues: { id: string; name: string; href: string; type: string }[];
   ebooks?: readonly PaletteEbook[];
+  series?: QuickSearchRecord[];
+  collections?: QuickSearchRecord[];
+  recommenders?: QuickSearchRecord[];
+  /** Items of every taxonomy family an open collection uses; `detail` is the family */
+  taxonomy?: QuickSearchRecord[];
+}
+/** A record found by its name; `detail` says what it is when the group does not */
+export interface QuickSearchRecord {
+  id: string;
+  name: string;
+  href: string;
+  detail?: string;
 }
 
 /** Matches per collection, and per group of people, organizations, venues */
@@ -256,9 +269,64 @@ async function searchVenues(q: string) {
 }
 
 /**
+ * Records of one small table found by their name: series, collections,
+ * recommenders (SLN-966). `also` is searched with the name, as the list's own
+ * search does: a series' original title
+ */
+async function searchNamed(from: SQL, name: SQL, q: string, href: (id: string) => string, also?: SQL): Promise<QuickSearchRecord[]> {
+  const hay = also ? sql`search_normalize(${name} || ' ' || coalesce(${also}, ''))` : sql`search_normalize(${name})`;
+  const match = textSearchCondition(hay, q);
+  if (!match) return [];
+  const rows = resultRows<{ id: string; name: string }>(
+    await db.execute(sql`select x.id, ${name} as name from ${from}
+      where ${match}
+      order by ${textSearchRank(hay, name, q)} desc, lower(${name}), x.id
+      limit ${PER_KIND}`),
+  );
+  return rows.map((row) => ({ id: row.id, name: row.name, href: href(row.id) }));
+}
+
+/**
+ * Taxonomy items by name, in every family an open collection uses: the system
+ * families' own tables and the items of families made in the app (SLN-966)
+ */
+async function searchTaxonomy(q: string, kinds: WorkKind[]): Promise<QuickSearchRecord[]> {
+  const hay = sql`search_normalize(t.name)`;
+  // Whole words, as a family's own search finds them: a typo measured against
+  // every item of every family costs too much for a keystroke
+  const match = textSearchCondition(hay, q, { fuzzy: false });
+  if (!match || !kinds.length) return [];
+  const items = sql.join(
+    [
+      ...SYSTEM_FAMILY_SLUGS.map((slug) => {
+        const table = getTableName(getSystemRegistry(slug).table);
+        return sql`select i.id, i.name, coalesce(i.slug, i.id::text) as slug, f.id as family_id
+          from ${sql.identifier(table)} i join taxonomy_families f on f.is_system and f.system_table = ${table}`;
+      }),
+      sql`select i.id, i.name, i.slug, i.family_id from custom_taxonomy_items i`,
+    ],
+    sql` union all `,
+  );
+  const open = sql.join(
+    kinds.map((k) => sql`${k}`),
+    sql`, `,
+  );
+  const rows = resultRows<{ id: string; name: string; slug: string; family: string; familySlug: string }>(
+    await db.execute(sql`select t.id, t.name, t.slug, f.name as family, f.slug as "familySlug"
+      from (${items}) t join taxonomy_families f on f.id = t.family_id
+      where exists (select 1 from taxonomy_applicability a where a.family_id = f.id and a.kind::text in (${open}))
+        and ${match}
+      order by ${textSearchRank(hay, sql`t.name`, q)} desc, lower(t.name), t.id
+      limit ${PER_KIND}`),
+  );
+  return rows.map((row) => ({ id: row.id, name: row.name, href: `/taxonomy/${row.familySlug}/${row.slug}`, detail: row.family }));
+}
+
+/**
  * Search for the command palette: works of every open collection by title,
  * series, makers or ISBN, each linking to its own collection; people by any
- * name or other name, with what they are; organizations; venues. Accent-
+ * name or other name, with what they are; organizations; venues; series,
+ * collections, recommenders and taxonomy items by name. Accent-
  * insensitive and typo-tolerant, best matches first. The search text is
  * normalized to letters and digits, so "%" and "_" match nothing special.
  */
@@ -266,15 +334,22 @@ export async function quickSearch(query: string): Promise<QuickSearchResult> {
   const q = query.trim().slice(0, 200);
   if (q.length < 2) return EMPTY;
   const kinds = getEnabledWorkKinds();
-  const [works, people, organizations, venues, ebooks] = await Promise.all([
+  const [works, people, organizations, venues, ebooks, series, collections, recommenders, taxonomy] = await Promise.all([
     searchWorks(q, kinds),
     searchPeople(q, kinds),
     searchOrganizations(q, kinds),
     searchVenues(q),
     kinds.includes("book") ? paletteEbooks(q) : Promise.resolve([]),
+    searchNamed(sql`series x`, sql`x.title`, q, (id) => `/series/${id}`, sql`x.original_title`),
+    searchNamed(sql`collections x`, sql`x.name`, q, (id) => `/collections/${id}`),
+    searchNamed(sql`recommenders x`, sql`x.name`, q, (id) => `/recommenders/${id}`),
+    searchTaxonomy(q, kinds),
   ]);
   const digital = await catalogueAvailability(works.filter((work) => work.kind === "book").map((work) => work.id));
-  return { works: works.map((work) => work.kind === "book" ? { ...work, ebook: digital.get(work.id)?.read ?? null } : work), people, organizations, venues, ebooks };
+  return {
+    works: works.map((work) => work.kind === "book" ? { ...work, ebook: digital.get(work.id)?.read ?? null } : work),
+    people, organizations, venues, ebooks, series, collections, recommenders, taxonomy,
+  };
 }
 
 /** Open-time fetch only; this adds no catalogue page payload. */

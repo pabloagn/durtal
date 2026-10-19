@@ -352,6 +352,7 @@ export function EditReadingDialog({
           <div className="space-y-1">
             <Select
               label="Edition"
+              wrap
               value={editionId}
               onChange={(e) => {
                 setEditionId(e.target.value);

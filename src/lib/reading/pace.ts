@@ -156,7 +156,8 @@ export type FinishEstimate =
 export function finishEstimate(r: PaceReading, today: string): FinishEstimate {
   const audio = isAudio(r);
   const ended = r.sessions;
-  if (ended.length < 3 || new Set(ended.map((s) => s.readOn)).size < 2) return { kind: "none", text: "Log a few sessions for an estimate" };
+  // Beside "About 4 h left" this names what is missing: the date, not an estimate (SLN-932)
+  if (ended.length < 3 || new Set(ended.map((s) => s.readOn)).size < 2) return { kind: "none", text: "Log a few sessions for a finish date" };
   const left = audio ? Math.max(0, (r.totalMinutes ?? 0) - (r.currentMinutes ?? 0)) : r.totalPages ? (r.totalPages * (100 - (r.currentPercent ?? 0))) / 100 : null;
   if (left === null) return { kind: "none", text: "Add the page count for an estimate" };
   const perDayAmount = new Map<number, number>();
@@ -182,7 +183,7 @@ export function finishEstimate(r: PaceReading, today: string): FinishEstimate {
   }
   // Rounded, so a steady 30 pages a day is 30, not 30.000000000000004
   const rate = weights ? Math.round((sum / weights) * 1e6) / 1e6 : 0;
-  if (rate <= 0) return { kind: "none", text: "Log a few sessions for an estimate" };
+  if (rate <= 0) return { kind: "none", text: "Log a few sessions for a finish date" };
   const spread = Math.sqrt(Math.max(0, squares / weights - rate * rate)) / rate;
   const daysLeft = Math.ceil(left / rate);
   const unsteady = spread > 1.2;

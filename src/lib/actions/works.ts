@@ -1,5 +1,7 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
+
 import {
   bookCondition,
   requireBookWork,
@@ -64,7 +66,6 @@ import type { ReadingFilterParams } from "@/lib/reading/filter-params";
 import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
 import { assertSql } from "@/lib/harmonization/store";
 import { KEPT_ORDER_STATUSES, keptOrderRefusalFor, workDeleteSummary } from "@/lib/catalogue/delete-summary";
-import { ExpectedActionError } from "./expected-error";
 
 export type WorkFilters = ReadingFilterParams &
   BookFilterParams & {
@@ -447,7 +448,7 @@ export async function updateWork(id: string, input: UpdateWorkInput) {
     },
   });
 
-  if (!prev) throw new Error("Work not found");
+  if (!prev) throw new ExpectedActionError("Work not found");
 
   // One transaction: the work's fields, its curation, authors and subjects
   // are all saved, or none is.

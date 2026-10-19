@@ -21,10 +21,10 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { CapAligned, CapAlignedControls } from "@/components/shared/cap-aligned";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
-import { moveQueueItem, removeFromQueue, restoreQueueItem } from "@/lib/actions/reading-queue";
 import { showError, undoToast } from "./reading-client";
 import { useReadingDialogs } from "./reading-dialogs-provider";
 import { Cover } from "./reading-tiles";
+import { moveQueueItem, removeFromQueue, restoreQueueItem } from "@/lib/actions/catalogue-client";
 
 /*
  * The Up next list (SLN-452): drag a row by its handle, or lift it with the

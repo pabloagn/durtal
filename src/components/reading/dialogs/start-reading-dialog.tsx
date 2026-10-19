@@ -7,11 +7,12 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { findPageCount } from "@/lib/actions/reading";
+import { findPageCount } from "@/lib/actions/catalogue-client";
 import { startReading } from "@/lib/actions/catalogue-client";
 import { formatOfCopy, type ReadingFormat } from "@/lib/reading/constants";
 import { isAtHand } from "@/lib/reading/at-hand";
 import { pickDefaultEdition } from "@/lib/reading/defaults";
+import { READING_ACTION_LABELS, type BookReadingState } from "@/lib/reading/labels";
 import { formatMinutes, percentOf } from "@/lib/reading/positions";
 import { browserZone, showError, todayReadingDay } from "../reading-client";
 import { readingDateError, readingDateLimit } from "@/lib/reading/dates";
@@ -56,6 +57,11 @@ export function startPosition(
   if (n === null || !Number.isInteger(n)) return { value: {}, error: "Enter a whole page number" };
   if (totals.totalPages && n > totals.totalPages) return { value: {}, error: `Page ${n} is past the last page, ${totals.totalPages}` };
   return { value: { startPage: n }, error: null };
+}
+
+/** The title the book's menu led here by: "Start a re-read" after a finished read, "Start again" after an abandoned one (SLN-932) */
+export function startTitle(state: BookReadingState) {
+  return state === "read" ? READING_ACTION_LABELS.reread : state === "abandoned" ? READING_ACTION_LABELS.startAgain : "Start reading";
 }
 
 /** Start a reading: where, which edition and copy, the format, the pages, when and from where */
@@ -185,7 +191,7 @@ export function StartReadingDialog({ data, request, home: storedHome, setHome, o
   }
 
   return (
-    <Dialog draft open onClose={onClose} title="Start reading" description={data.workTitle} className="max-w-lg">
+    <Dialog draft open onClose={onClose} title={startTitle(data.summary.state)} description={data.workTitle} className="max-w-lg">
       <form id={formId} onSubmit={save} className="space-y-4">
         <Select
           label="I'm at"
@@ -196,6 +202,7 @@ export function StartReadingDialog({ data, request, home: storedHome, setHome, o
         {data.editions.length > 0 && (
           <Select
             label="Edition"
+            wrap
             value={editionId}
             onChange={(e) => {
               setTouched(true);

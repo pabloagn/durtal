@@ -10,7 +10,6 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { MAX_STRAIGHTEN, nextTurn, rotatedFrame } from "@/lib/media/crop";
 import {
   getImagePresentation,
-  saveImagePresentation,
 } from "@/lib/actions/image-adjustments";
 import {
   DEFAULT_IMAGE_ADJUSTMENTS,
@@ -21,6 +20,8 @@ import {
   type ImageAdjustments,
 } from "@/lib/utils/image-adjustment-css";
 import { useImageAdjustmentUpdate } from "./image-adjustment-provider";
+import { saveImagePresentation } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 type Presentation = Awaited<ReturnType<typeof getImagePresentation>>;
 type Group = "tone" | "colour" | "framing";
@@ -233,10 +234,8 @@ function LoadedEditor({
       onSaved?.(next);
       if (fromSave) setRefocus(true);
       return true;
-    } catch {
-      toast.error(
-        "Could not save image adjustments. Your changes are still here.",
-      );
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not save image adjustments. Your changes are still here."));
       return false;
     } finally {
       savingRef.current = false;

@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { and, eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -88,7 +89,7 @@ async function resolveImage(source: string): Promise<{
   else if (edition) keys = [edition.coverS3Key, edition.thumbnailS3Key];
   else if (venue) keys = [venue.posterS3Key, venue.thumbnailS3Key];
   else if (attachment) keys = [attachment.s3Key];
-  else throw new Error("Image not found");
+  else throw new ExpectedActionError("Image not found");
   const validKeys = [...new Set(keys.filter((k): k is string => !!k))];
   return {
     assetKey: validKeys[0],
@@ -164,7 +165,7 @@ export async function saveImagePresentation(
   const asset = await resolveImage(source);
   const item = asset.media;
   if (data.crop && (!item || !mediaFrameAspect(item.type)))
-    throw new Error("This image does not support framed cropping");
+    throw new ExpectedActionError("This image does not support framed cropping");
   const settings = enforceImagePolicy(data.settings, asset.monochrome);
 
   if (!item) {
@@ -204,7 +205,7 @@ export async function saveImagePresentation(
     { settings, monochrome: asset.monochrome },
   );
   if (!updated)
-    throw new Error("This image changed while you edited it. Reload and try again.");
+    throw new ExpectedActionError("This image changed while you edited it. Reload and try again.");
   invalidateImages();
   return {
     assetKey: updated.s3Key,
