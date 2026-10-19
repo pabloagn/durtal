@@ -10,7 +10,7 @@ import { db } from "@/lib/db";
 import { SLUG_RACE_MESSAGE, uniqueConstraint } from "@/lib/db/errors";
 import { atomic } from "@/lib/db/atomic";
 import { series, works, workAuthors } from "@/lib/db/schema";
-import { eq, asc, desc, count, sql, and, inArray, ne } from "drizzle-orm";
+import { eq, asc, desc, count, sql, and, inArray } from "drizzle-orm";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
 import {
@@ -526,12 +526,30 @@ export async function searchWorksForSeries(query: string) {
     .limit(30);
 }
 
-/** Sibling works in reading order, excluding the currently open book. */
-export async function getOtherWorksInSeries(seriesId: string, workId: string) {
+/**
+ * Sibling works in reading order, excluding the currently open book: the
+ * `limit` volumes nearest it (SLN-1163). Every volume of a 60-book series
+ * added about 250 KB to each of its pages; the shelf's title links to the
+ * whole series. One query: the window is a subquery of the card query.
+ */
+export async function getOtherWorksInSeries(seriesId: string, workId: string, limit = 12) {
   z.uuid().parse(seriesId);
   z.uuid().parse(workId);
+  z.number().int().min(1).max(50).parse(limit);
+  const nearest = sql`(
+    with ordered as (
+      select w.id, row_number() over (
+        order by case when w.series_position ~ '^[0-9]+(\\.[0-9]+)?$' then w.series_position::numeric end nulls last, w.title, w.id
+      ) as place
+      from works w where w.kind = 'book' and w.series_id = ${seriesId}::uuid
+    ), here as (select place from ordered where id = ${workId}::uuid)
+    select o.id from ordered o left join here on true
+    where o.id <> ${workId}::uuid
+    order by abs(o.place - coalesce(here.place, 0)), o.place
+    limit ${limit}
+  )`;
   return db.query.works.findMany({
-    where: and(bookCondition, eq(works.seriesId, seriesId), ne(works.id, workId)),
+    where: and(bookCondition, eq(works.seriesId, seriesId), inArray(works.id, nearest)),
     orderBy: [
       sql`${positionOrder} nulls last`,
       asc(works.title),

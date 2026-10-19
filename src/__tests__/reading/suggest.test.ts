@@ -121,6 +121,15 @@ describe("the author feature", () => {
     expect(r.score).toBeGreaterThan(0.5);
     expect(feature("author").compute(book("Unknown author", { authors: [author("Nobody")] }), ctx)).toBeNull();
   });
+
+  it("finds the author's books from an index of the rated books, built again when they change (SLN-934)", () => {
+    // A book naming the author twice counts once, as scanning every rated book did
+    const ctx = context([read("Là-bas", 4.5, { authors: [huysmans, huysmans] }), read("Other", 2), read("Other 2", 3)]);
+    const cathedrale = book("La Cathédrale", { authors: [huysmans] });
+    expect(feature("author").compute(cathedrale, ctx)!.meets).toBe(false);
+    ctx.rated = [...ctx.rated, read("À rebours", 4, { authors: [huysmans] })];
+    expect(feature("author").compute(cathedrale, ctx)!.reason).toBe("You rated 2 of Huysmans's books 4.3 on average");
+  });
 });
 
 describe("the recommender feature", () => {

@@ -20,6 +20,10 @@
  * before it is measured, so dev-server compilation is not counted.
  *
  * PAGE_WEIGHT_CONFIG names another budget file (the script's own test).
+ * page-weight-heavy.json is the worst-case book page, on a preview started
+ * with --seed-heavy-book (SLN-1163). It runs apart from the gated routes
+ * until its editions and notes are slimmed (SLN-1132, SLN-1079); the gated
+ * book rows skip it, so one preview serves both.
  *
  * Every front-end change must pass this before it is called done, like the
  * alignment audit.

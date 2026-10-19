@@ -1,4 +1,5 @@
-import type { WorkKind } from "./kinds";
+import { WORK_KINDS, type WorkKind } from "./kinds";
+import { countLabel } from "@/lib/utils/format";
 
 /** One of a person's roles, with how many credits they hold in it */
 export interface PersonRole {
@@ -45,4 +46,17 @@ export function formatPersonRoles(
     text: rest > 0 ? `${shown} +${rest}` : shown,
     full: ordered.map((r) => r.label).join(", "),
   };
+}
+
+const KIND_NOUNS: Record<WorkKind, string> = { book: "book", film: "film", perfume: "perfume", painting: "painting" };
+
+/**
+ * A person card's works, per collection in the collections' order: "2 books",
+ * "3 films · 1 perfume" (SLN-1025). Null with none.
+ */
+export function formatWorkCounts(counts: Partial<Record<WorkKind, number>> | undefined): string | null {
+  const parts = WORK_KINDS.filter((kind) => (counts?.[kind] ?? 0) > 0).map((kind) =>
+    countLabel(counts![kind]!, KIND_NOUNS[kind]),
+  );
+  return parts.length ? parts.join(" · ") : null;
 }
