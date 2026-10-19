@@ -2,6 +2,7 @@
 
 import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { db } from "@/lib/db";
+import { copyDeleteSummary } from "@/lib/catalogue/delete-summary";
 import { editions, instances } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { atomic } from "@/lib/db/atomic";
@@ -87,6 +88,11 @@ async function placeAfterEdit(
   }
   const stale = await copyShelfMismatch([{ locationId, subLocationId: stored.subLocationId }]);
   return stale ? { subLocationId: null } : {};
+}
+
+/** What deleting a copy takes with it, for its delete dialog (SLN-1112) */
+export async function getCopyDeleteSummary(id: string) {
+  return copyDeleteSummary(parseId(id));
 }
 
 export async function deleteInstance(id: string) {

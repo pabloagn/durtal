@@ -3,7 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { act, createElement, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ActionRefusal } from "@/lib/actions/refusal";
+import { ActionRefusal } from "@/lib/actions/action-refusal";
 
 // Up next's list and page (SLN-452), with the server actions mocked.
 

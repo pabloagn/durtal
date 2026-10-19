@@ -2,7 +2,7 @@
 
 import * as actions from "./catalogue-ui";
 import type { ActionResult } from "./action-result";
-import { ActionRefusal } from "./refusal";
+import { ActionRefusal } from "./action-refusal";
 
 /** Unwrap on the client, after the deliberate refusal crossed as data. */
 async function value<T>(result: Promise<ActionResult<T>>): Promise<T> {

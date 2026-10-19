@@ -47,9 +47,15 @@ import { refusalMessage } from "@/lib/actions/refusal";
 export function OrderDetailPanel({
   order,
   onClose,
+  onDeleted,
+  takeFocus = false,
 }: {
   order: OrderItem;
   onClose: () => void;
+  /** After the order is deleted: its card goes, so the focus goes elsewhere */
+  onDeleted: () => void;
+  /** A sheet over the board takes the focus when it opens */
+  takeFocus?: boolean;
 }) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
@@ -57,6 +63,9 @@ export function OrderDetailPanel({
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const deleteButton = useRef<HTMLButtonElement>(null);
+  const cancelDelete = useRef<HTMLButtonElement>(null);
   const posterUrl = getPosterUrl(order.work);
   const authorName = getAuthorName(order.work);
 
@@ -97,6 +106,22 @@ export function OrderDetailPanel({
     }
   }
 
+  // A sheet covers the board, so the focus moves into it
+  useEffect(() => {
+    if (takeFocus) heading.current?.focus();
+    // On opening only; another order shown in the same panel keeps the focus
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The delete question takes the focus on its safe answer; answered No, the
+  // focus goes back to Delete order (SLN-1118). It stayed behind, unannounced.
+  const asked = useRef(false);
+  useEffect(() => {
+    if (confirmDelete) cancelDelete.current?.focus();
+    else if (asked.current && deleteButton.current?.isConnected) deleteButton.current.focus();
+    asked.current = confirmDelete;
+  }, [confirmDelete]);
+
   // Esc closes the innermost first: the status list, the delete question,
   // then the panel. While a change saves, Esc waits.
   const panel = useRef<HTMLDivElement>(null);
@@ -110,12 +135,11 @@ export function OrderDetailPanel({
       await deleteOrder(order.id);
       toast.success("Order deleted");
       router.refresh();
-      onClose();
+      onDeleted();
     } catch (err) {
       toast.error(
         refusalMessage(err, "Failed to delete order"),
       );
-    } finally {
       setIsPending(false);
       setConfirmDelete(false);
     }
@@ -126,7 +150,7 @@ export function OrderDetailPanel({
       <div ref={panel} className="flex h-full flex-col">
         {/* Panel header */}
         <div className="flex items-start justify-between border-b border-glass-border px-5 py-3.5">
-          <h2 className="type-item-title">Order details</h2>
+          <h2 ref={heading} tabIndex={-1} className="type-item-title focus:outline-none">Order details</h2>
           {/* Carries the title's type: the buttons sit on its cap-height center, 44px high on touch */}
           <CapAligned height={24} coarseHeight={44} className="type-item-title">
             <div className="flex h-full items-center gap-1">
@@ -139,6 +163,7 @@ export function OrderDetailPanel({
                 <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
               </button>
               <button
+                ref={deleteButton}
                 onClick={() => setConfirmDelete(true)}
                 aria-label="Delete order"
                 data-tooltip="Delete order"
@@ -160,8 +185,8 @@ export function OrderDetailPanel({
 
         {/* Delete confirmation */}
         {confirmDelete && (
-          <div className="border-b border-accent-red/30 bg-accent-red/5 px-5 py-3">
-            <p className="text-xs text-fg-secondary">
+          <div role="group" aria-labelledby="order-delete-question" className="border-b border-accent-red/30 bg-accent-red/5 px-5 py-3">
+            <p id="order-delete-question" className="text-xs text-fg-secondary">
               Delete this order? This cannot be undone.
             </p>
             <div className="mt-2 flex gap-2">
@@ -174,6 +199,7 @@ export function OrderDetailPanel({
                 Delete
               </Button>
               <Button
+                ref={cancelDelete}
                 variant="ghost"
                 size="sm"
                 onClick={() => setConfirmDelete(false)}

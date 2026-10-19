@@ -9,7 +9,8 @@ import path from "node:path";
 const ui = vi.hoisted(() => ({ deleteEdition: vi.fn() }));
 vi.mock("@/lib/actions/catalogue-ui", () => ui);
 
-import { ActionRefusal, refusalAction, refusalMessage } from "@/lib/actions/refusal";
+import { ActionRefusal } from "@/lib/actions/action-refusal";
+import { refusalAction, refusalMessage } from "@/lib/actions/refusal";
 import { actionResult } from "@/lib/actions/action-result";
 import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { CONNECTION_SAVE_ERROR } from "@/lib/notifications/connection";

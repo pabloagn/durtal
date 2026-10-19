@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { searchWorksForSeries } from "@/lib/actions/series";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { CapAligned } from "@/components/shared/cap-aligned";
 import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { FadeImage } from "@/components/shared/fade-image";
 import { addWorksToSeries } from "@/lib/actions/catalogue-client";
@@ -123,23 +124,26 @@ export function AddSeriesBooksDialog({
               return (
                 <label
                   key={w.id}
-                  className={`flex items-center gap-3 rounded-sm px-2 py-2 ${inThis ? "opacity-50" : "cursor-pointer hover:bg-bg-tertiary"}`}
+                  className={`flex items-start gap-3 rounded-sm px-2 py-2 text-sm ${inThis ? "opacity-50" : "cursor-pointer hover:bg-bg-tertiary"}`}
                 >
-                  <input
-                    type="checkbox"
-                    aria-label={`Select ${w.title}`}
-                    checked={inThis || !!selected[w.id]}
-                    disabled={saving || inThis}
-                    onChange={(event) =>
-                      setSelected((old) => {
-                        const next = { ...old };
-                        if (event.target.checked) next[w.id] = w;
-                        else delete next[w.id];
-                        return next;
-                      })
-                    }
-                    className="h-4 w-4 rounded-sm border-glass-border accent-accent-primary"
-                  />
+                  {/* On the title's first line once it wraps */}
+                  <CapAligned height={16}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${w.title}`}
+                      checked={inThis || !!selected[w.id]}
+                      disabled={saving || inThis}
+                      onChange={(event) =>
+                        setSelected((old) => {
+                          const next = { ...old };
+                          if (event.target.checked) next[w.id] = w;
+                          else delete next[w.id];
+                          return next;
+                        })
+                      }
+                      className="block h-4 w-4 rounded-sm border-glass-border accent-accent-primary"
+                    />
+                  </CapAligned>
                   {/* The title's letter with no cover, or one that fails */}
                   <div className={`relative h-12 w-8 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary ${COVER_BLANK}`}>
                     {w.cover ? (
@@ -154,14 +158,15 @@ export function AddSeriesBooksDialog({
                       <CoverLetter title={w.title} />
                     )}
                   </div>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm">{w.title}</span>
-                    <span className="block truncate text-xs text-fg-secondary">
+                  {/* Titles and names wrap in full, never cut; a long one-word name breaks anywhere */}
+                  <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+                    <span className="block text-sm">{w.title}</span>
+                    <span className="block text-xs text-fg-secondary">
                       {w.authors}
                     </span>
                     {w.seriesTitle && (
                       <span
-                        className={`block truncate text-xs ${inThis ? "text-fg-secondary" : "text-accent-gold"}`}
+                        className={`block text-xs ${inThis ? "text-fg-secondary" : "text-accent-gold"}`}
                       >
                         {inThis
                           ? "Already in this series"

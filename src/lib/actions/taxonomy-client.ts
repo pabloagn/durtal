@@ -2,7 +2,7 @@
 
 import * as actions from "./taxonomy-ui";
 import type { ActionResult } from "./action-result";
-import { ActionRefusal } from "./refusal";
+import { ActionRefusal } from "./action-refusal";
 async function value<T>(promise: Promise<ActionResult<T>>): Promise<T> {
   const result = await promise;
   if (!result.ok) throw new ActionRefusal(result.error, result.href);

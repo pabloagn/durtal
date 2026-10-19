@@ -1,19 +1,5 @@
 import { CONNECTION_SAVE_ERROR, isConnectionFailure } from "@/lib/notifications/connection";
-
-/**
- * A deliberate refusal the server sent as data (`actionResult`), raised again
- * on the client by the UI adapters (`catalogue-client`, `taxonomy-client`).
- * Its message is written for people.
- */
-export class ActionRefusal extends Error {
-  /** A page that settles the refusal, when the server named one */
-  readonly href?: string;
-  constructor(message: string, href?: string) {
-    super(message);
-    this.name = "ActionRefusal";
-    if (href) this.href = href;
-  }
-}
+import { ActionRefusal } from "./action-refusal";
 
 /**
  * The toast action that opens the page a refusal named, such as the book that

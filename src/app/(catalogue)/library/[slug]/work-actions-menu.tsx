@@ -31,11 +31,12 @@ import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { EditionAddDialog } from "./edition-add-dialog";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
 import { WorkRelationDialog } from "@/components/catalogue/work-relations";
-
+import { getWorkDeleteSummary } from "@/lib/actions/works";
 const LinkEbookDialog = dynamic(() => import("@/components/ebooks/link-ebook-dialog").then((module) => module.LinkEbookDialog), { ssr: false });
 const WorkReviewDialog = dynamic(() => import("@/components/ebooks/work-review-dialog").then((module) => module.WorkReviewDialog), { ssr: false });
 import type { WorkReviewOutcome } from "@/lib/ebooks/review/work-service";
-import { workDeleteCascadeMessage } from "@/components/books/delete-cascade";
+import { workDeleteCascade } from "@/lib/catalogue/delete-cascade";
+import { useDeleteSummary } from "@/components/books/use-delete-summary";
 import { preloadEditOptions } from "@/hooks/use-edit-options";
 import { EDIT_OPTION_GROUPS, type EditOption, type TaxonomyGroup } from "@/lib/catalogue/edit-options";
 import { deleteWork } from "@/lib/actions/catalogue-client";
@@ -81,11 +82,8 @@ interface WorkActionsMenuProps {
   work: WorkData;
   workAuthors: WorkAuthorRow[];
   authorName: string;
-  editionCount: number;
-  instanceCount: number;
   hasLinkedEbook?: boolean;
   /** The reading history the delete removes */
-  readingCounts?: { readings: number; sessions: number; quotes?: number; notes?: number };
   posterCount: number;
   backgroundCount: number;
   galleryCount: number;
@@ -96,10 +94,7 @@ export function WorkActionsMenu({
   work,
   workAuthors,
   authorName: _authorName,
-  editionCount,
-  instanceCount,
   hasLinkedEbook = false,
-  readingCounts,
   posterCount: _posterCount,
   backgroundCount: _backgroundCount,
   galleryCount: _galleryCount,
@@ -115,6 +110,7 @@ export function WorkActionsMenu({
   const [statusReviewOpen, setStatusReviewOpen] = useState(false);
   const [statusOutcome, setStatusOutcome] = useState<WorkReviewOutcome | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const deleteSummary = useDeleteSummary(deleteOpen, work.id, () => getWorkDeleteSummary([work.id]));
   const [copied, setCopied] = useState(false);
   // E then W, M or T (the Edit menu)
   useEditActions([
@@ -140,20 +136,8 @@ export function WorkActionsMenu({
       toast.success("Book deleted");
       router.push("/library");
     } catch (error) {
-      toast.error(refusalMessage(error, "Could not delete the book"));
+      toast.error(refusalMessage(error, "Could not delete the book. Try again."));
     }
-  }
-
-  function buildCascadeMessage(): string | undefined {
-    const cascade = workDeleteCascadeMessage({
-      editions: editionCount,
-      instances: instanceCount,
-      readings: readingCounts?.readings ?? 0,
-      sessions: readingCounts?.sessions ?? 0,
-      quotes: readingCounts?.quotes ?? 0,
-      notes: readingCounts?.notes ?? 0,
-    });
-    return [cascade, "Linked eBooks return to review; their files, reading positions and annotations are kept."].filter(Boolean).join(" ");
   }
 
   const reading = useOptionalReading();
@@ -289,7 +273,8 @@ export function WorkActionsMenu({
         title="Delete work"
         description="This cannot be undone."
         itemName={work.title}
-        cascade={buildCascadeMessage()}
+        cascade={workDeleteCascade(deleteSummary)}
+        refusal={deleteSummary?.refusal}
       />
     </>
   );
