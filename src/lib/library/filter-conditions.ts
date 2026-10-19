@@ -1,4 +1,4 @@
-import { gte, inArray, isNotNull, isNull, lte, or, and, sql, type SQL } from "drizzle-orm";
+import { asc, desc, gte, inArray, isNotNull, isNull, lte, or, and, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { works } from "@/lib/db/schema";
 import { publisherWorkCondition } from "@/lib/publishers/conditions";
 import { marksCondition } from "@/lib/actions/utils/work-marks";
@@ -28,17 +28,62 @@ const WRITER = sql.raw(`wa.role in (${WORK_AUTHOR_ROLES.map((r) => `'${r}'`).joi
 const uuids = (values: string[]) => sql`array[${sql.join(values.map((v) => sql`${v}`), sql`, `)}]::uuid[]`;
 const texts = (values: string[]) => sql`(${sql.join(values.map((v) => sql`${v}`), sql`, `)})`;
 
+/*
+ * The cover that stands for a book (SLN-1286), one rule for every list:
+ * 1. the book's own chosen cover, its active poster;
+ * 2. else the cover of the edition of its most recently added copy (not
+ *    deaccessioned) whose edition has one;
+ * 3. else the cover of its earliest edition with one;
+ * 4. else none, and the card draws its CoverLetter.
+ */
+
+/** The active poster first, as the media manager lists posters; SQL for a `media m` */
+export const POSTER_ORDER = sql.raw("m.sort_order, m.created_at desc, m.id");
+
+/** `POSTER_ORDER` for a relational `media` */
+export function posterFirst(m: { sortOrder: AnyColumn; createdAt: AnyColumn; id: AnyColumn }) {
+  return [asc(m.sortOrder), desc(m.createdAt), asc(m.id)];
+}
+
+/** An edition with a cover image */
+const EDITION_HAS_COVER = sql.raw("coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null");
+
+/** The edition whose cover stands for the book when it has no chosen cover (steps 2 and 3), or null */
+export function workCoverEditionSql(workId: SQL | unknown) {
+  return sql<string | null>`coalesce(
+    (select e.id from instances i join editions e on e.id = i.edition_id
+      where e.work_id = ${workId} and i.status <> 'deaccessioned' and ${EDITION_HAS_COVER}
+      order by i.created_at desc, i.id desc limit 1),
+    (select e.id from editions e where e.work_id = ${workId} and ${EDITION_HAS_COVER} order by e.created_at, e.id limit 1))`;
+}
+
+/**
+ * The image key of the cover that stands for the book, thumbnail first, or
+ * null. Another kind has no editions, so it gets its poster.
+ */
+export function workCoverSql(workId: SQL | unknown) {
+  return sql<string | null>`coalesce(
+    (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = ${workId} and m.type = 'poster' and m.is_active order by ${POSTER_ORDER} limit 1),
+    (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = ${workCoverEditionSql(workId)}))`;
+}
+
+/**
+ * Edition order for a book's relational `editions`: the cover edition first,
+ * then the earliest, so `editions[0]` is the edition a card shows.
+ */
+export function coverEditionFirst(edition: { id: AnyColumn; workId: AnyColumn; createdAt: AnyColumn }) {
+  return [sql`(${edition.id} = ${workCoverEditionSql(edition.workId)}) desc nulls last`, asc(edition.createdAt), asc(edition.id)];
+}
+
 /**
  * The colour of the cover a library card shows (SLN-405): the active
- * poster's, or else the first edition's cover (oldest first, as the card's
- * `editions` relation is ordered). Null when that image has no colour yet.
+ * poster's, or else the cover edition's. Null when that image has no colour yet.
  */
 export function coverColorSql(workId: SQL | unknown) {
   return sql<string | null>`(case
     when exists (select 1 from media m where m.work_id = ${workId} and m.type = 'poster' and m.is_active)
-    then (select m.color_bucket from media m where m.work_id = ${workId} and m.type = 'poster' and m.is_active order by m.created_at desc, m.id limit 1)
-    else (select case when e.thumbnail_s3_key is not null then e.cover_color_bucket end
-      from editions e where e.work_id = ${workId} order by e.created_at, e.id limit 1)
+    then (select m.color_bucket from media m where m.work_id = ${workId} and m.type = 'poster' and m.is_active order by ${POSTER_ORDER} limit 1)
+    else (select e.cover_color_bucket from editions e where e.id = ${workCoverEditionSql(workId)})
   end)`;
 }
 

@@ -136,7 +136,8 @@ export default async function RecommenderPage({
                 const coverKey =
                   poster?.thumbnailS3Key ??
                   poster?.s3Key ??
-                  work.editions[0]?.thumbnailS3Key;
+                  work.editions[0]?.thumbnailS3Key ??
+                  work.editions[0]?.coverS3Key;
                 return (
                   <BookCard
                     key={work.id}

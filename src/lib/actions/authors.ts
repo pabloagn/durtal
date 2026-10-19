@@ -47,6 +47,7 @@ import { cleanBioForStorage, sanitizeDescriptionHtml, stripHtmlToText } from "@/
 import { cleanText } from "@/lib/utils/clean-text";
 import { z } from "zod";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { workCoverSql } from "@/lib/library/filter-conditions";
 
 export async function getAuthors(opts?: {
   search?: string;
@@ -210,13 +211,7 @@ export async function getAuthorCoverPreviews(
   const result = await db.execute(sql`
     select author_id as "authorId", cover as "s3Key" from (
       select wa.author_id,
-        coalesce(
-          (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m
-            where m.work_id = w.id and m.type = 'poster' and m.is_active
-            order by m.id limit 1),
-          (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e
-            where e.work_id = w.id order by e.created_at, e.id limit 1)
-        ) as cover,
+        ${workCoverSql(sql`w.id`)} as cover,
         row_number() over (
           partition by wa.author_id
           order by w.rating desc nulls last, w.original_year nulls last, w.id

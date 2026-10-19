@@ -5,6 +5,7 @@
  * its imprints (`publisher_family`).
  */
 import { and, asc, eq, sql, type SQL } from "drizzle-orm";
+import { POSTER_ORDER } from "@/lib/library/filter-conditions";
 import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { acquisitionTargets, media, publishingHouses as houses, works } from "@/lib/db/schema";
@@ -232,7 +233,7 @@ async function cards(page: SQL): Promise<PublisherBook[]> {
         coalesce(e.thumbnail_s3_key, e.cover_s3_key) as edition_cover,
         (select json_build_object('s3Key', m.s3_key, 'thumbnailS3Key', m.thumbnail_s3_key, 'cropX', m.crop_x, 'cropY', m.crop_y,
             'cropZoom', m.crop_zoom, 'brightness', m.brightness, 'contrast', m.contrast, 'tone', m.color_palette->'dominant'->>'hex')
-          from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.created_at, m.id limit 1) as poster,
+          from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by ${POSTER_ORDER} limit 1) as poster,
         e.publication_year as year, e.language,
         (select count(*)::int from instances i where i.edition_id = e.id and i.status <> 'deaccessioned') as copies,
         w.rating::float8 as rating, w.catalogue_status, w.is_rare, w.hunt_assessed_on, w.is_poison, w.is_favourite, w.acquisition_priority,

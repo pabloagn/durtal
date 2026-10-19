@@ -4,6 +4,7 @@ import { ownedWorkCondition } from "@/lib/catalogue/holdings";
 import { atHandCopySql } from "./at-hand";
 import { countedPagesSql, readingOrdinalSql, readingRatingOverAllSql, readingStateSql, rereadSql, tasteRatingSql } from "./summary";
 import { WORK_AUTHOR_ROLES } from "@/lib/types";
+import { workCoverSql } from "@/lib/library/filter-conditions";
 
 /*
  * Reading stats (SLN-456): every number of /reading/stats and the Year in
@@ -733,9 +734,7 @@ export async function yearReview(year: number): Promise<YearReview> {
         rr.read_rating::float8 as rating, rr.total_pages::float8 as pages,
         (select count(*)::int from readings f where f.work_id = w.id and f.status = 'finished') as reads,
         case when rr.finished_precision = 'year' then null else extract(month from rr.finished_on)::int end as month,
-        coalesce((select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = rr.edition_id),
-          (select m.thumbnail_s3_key from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1),
-          (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = w.id and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null order by e.created_at limit 1)) as cover
+        coalesce((select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = rr.edition_id), ${workCoverSql(sql`w.id`)}) as cover
       from rr join works w on w.id = rr.work_id
       where ${finishedIn(year)}
       order by rr.finished_on, (rr.finished_precision = 'day') desc, rr.created_at, rr.id`),

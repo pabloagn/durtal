@@ -73,7 +73,6 @@ import { SimilarWorksCarousel } from "@/components/books/similar-works-carousel"
 import { relatedBookRows, relatedGroupsFrom } from "@/lib/catalogue/related-groups";
 import { rankSimilarWorks, similarWorksFrom } from "@/lib/catalogue/similar-ranking";
 import { WorkPosterImage, WorkPosterPlaceholder } from "./work-poster-image";
-import { cardEdition } from "./card-edition";
 import {
   CoarseImageSource,
   coarseImageFallback,
@@ -327,7 +326,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
     (m) => m.type === "background" && m.isActive,
   );
   // Without a poster the header shows the cover the book's card shows, else a placeholder
-  const firstEdition = cardEdition(work.editions);
+  const firstEdition = work.editions.find((e) => e.id === work.coverEditionId);
   const editionCoverKey = poster ? null : (firstEdition?.coverS3Key ?? firstEdition?.thumbnailS3Key ?? null);
   const allPosters = work.media?.filter((m) => m.type === "poster") ?? [];
   const allBackgrounds =

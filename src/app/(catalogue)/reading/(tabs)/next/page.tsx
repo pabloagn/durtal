@@ -56,7 +56,7 @@ export default async function UpNextPage({ searchParams }: { searchParams: Promi
       title: item.title,
       href: `/library/${item.slug ?? item.workId}`,
       author: item.author,
-      cover: edition?.thumbnail ?? item.workCover ?? item.editions.find((e) => e.thumbnail)?.thumbnail ?? null,
+      cover: edition?.thumbnail ?? item.workCover,
       editionId: edition?.id ?? null,
       line: [length, queueWhereabouts(item.editions, item.atHandCopyId, today), timeToReadText(time)].filter(Boolean).join(" · "),
       note: item.note,

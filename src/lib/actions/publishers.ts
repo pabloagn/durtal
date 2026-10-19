@@ -8,6 +8,7 @@ import { assertSql } from "@/lib/harmonization/store";
 
 import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, or, sql, count } from "drizzle-orm";
+import { POSTER_ORDER } from "@/lib/library/filter-conditions";
 import { z } from "zod/v4";
 import { parsePagination } from "@/lib/utils/pagination";
 import { compareWorks } from "@/lib/utils/title-order";
@@ -713,7 +714,7 @@ export async function getPublisherCatalogue(
           wanted,
           authors: sql<string>`(select string_agg(a.name, ', ' order by wa.sort_order) from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = ${works.id})`,
           // The book's active poster: the image of an edition without a cover
-          poster: sql<PosterImage | null>`(select json_build_object('s3Key', m.s3_key, 'thumbnailS3Key', m.thumbnail_s3_key, 'cropX', m.crop_x, 'cropY', m.crop_y, 'cropZoom', m.crop_zoom, 'brightness', m.brightness, 'contrast', m.contrast) from media m where m.work_id = ${works.id} and m.type = 'poster' and m.is_active order by m.created_at, m.id limit 1)`,
+          poster: sql<PosterImage | null>`(select json_build_object('s3Key', m.s3_key, 'thumbnailS3Key', m.thumbnail_s3_key, 'cropX', m.crop_x, 'cropY', m.crop_y, 'cropZoom', m.crop_zoom, 'brightness', m.brightness, 'contrast', m.contrast) from media m where m.work_id = ${works.id} and m.type = 'poster' and m.is_active order by ${POSTER_ORDER} limit 1)`,
         })
         .from(editions)
         .innerJoin(works, eq(works.id, editions.workId))

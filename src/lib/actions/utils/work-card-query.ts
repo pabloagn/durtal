@@ -1,5 +1,6 @@
 import { asc, inArray, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { editions, media, workAuthors } from "@/lib/db/schema";
+import { coverEditionFirst, posterFirst } from "@/lib/library/filter-conditions";
 import {
   lastFinishedOnSql,
   lastFinishedPrecisionSql,
@@ -39,7 +40,7 @@ export const workCardWith = {
       publicationYear: true,
       language: true,
     },
-    orderBy: [asc(editions.createdAt), asc(editions.id)] as SQL[],
+    orderBy: coverEditionFirst(editions),
     limit: 1,
     with: {
       instances: { columns: { id: true } },
@@ -47,7 +48,7 @@ export const workCardWith = {
   },
   media: {
     where: sql`${media.type} = 'poster' and ${media.isActive}`,
-    orderBy: asc(media.id),
+    orderBy: posterFirst(media),
     limit: 1,
     columns: {
       s3Key: true,

@@ -2,7 +2,8 @@
 
 import { sql, inArray, asc } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { works, workAuthors } from "@/lib/db/schema";
+import { editions, works, workAuthors } from "@/lib/db/schema";
+import { coverEditionFirst } from "@/lib/library/filter-conditions";
 import { loadTaxonomyFamily as getTaxonomyFamily } from "@/lib/catalogue/taxonomy-read";
 import {
   familyItemCondition,
@@ -217,6 +218,7 @@ export async function getTaxonomyBookCards(ids: string[]) {
           publicationYear: true,
           language: true,
         },
+        orderBy: coverEditionFirst(editions),
         with: { instances: { columns: { id: true } } },
       },
       media: {

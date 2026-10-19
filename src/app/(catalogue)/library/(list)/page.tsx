@@ -109,7 +109,8 @@ async function LibraryContent({
     const coverS3Key =
       activePoster?.thumbnailS3Key ??
       activePoster?.s3Key ??
-      firstEdition?.thumbnailS3Key;
+      firstEdition?.thumbnailS3Key ??
+      firstEdition?.coverS3Key;
     // Edition cover keys are reused when the cover changes: version the URL
     const coverVersion = activePoster
       ? activePoster.createdAt

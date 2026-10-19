@@ -20,6 +20,7 @@ import {
   works,
   media,
 } from "@/lib/db/schema";
+import { POSTER_ORDER, coverEditionFirst, posterFirst, workCoverSql } from "@/lib/library/filter-conditions";
 import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { WORK_KINDS, type WorkKind } from "@/lib/catalogue/kinds";
 import { textContains, textSearchCondition } from "@/lib/actions/utils/text-search";
@@ -35,6 +36,7 @@ import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { collectionCountLine, collectionCounts, type MemberTally } from "@/lib/collections/counts";
 import { byAddRecency } from "@/lib/collections/recency";
 import { resultRows } from "@/lib/harmonization/store";
+import { batchedRows } from "@/lib/db/read-batch";
 import { icons } from "lucide-react";
 
 function changed() {
@@ -197,13 +199,13 @@ export async function getCollection(id: string) {
               media: {
                 where: (m, { and, eq }) =>
                   and(eq(m.type, "poster"), eq(m.isActive, true)),
+                orderBy: posterFirst(media),
                 limit: 1,
               },
-              // A whole book with no poster shows its first edition cover
+              // A whole book with no poster shows its cover edition's cover
               editions: {
                 columns: { thumbnailS3Key: true, coverS3Key: true },
-                where: (e, { or, isNotNull }) => or(isNotNull(e.thumbnailS3Key), isNotNull(e.coverS3Key)),
-                orderBy: (e, { asc }) => [asc(e.createdAt), asc(e.id)],
+                orderBy: coverEditionFirst(editions),
                 limit: 1,
               },
             },
@@ -425,7 +427,7 @@ export async function searchWorksForCollection(search: string, kind: WorkKind, l
         (select string_agg(coalesce(a.name, c.credited_as), ' & ' order by c.sort_order, c.id) from work_credits c left join authors a on a.id=c.person_id
           where c.work_id=w.id and c.role_id in ('film.director','perfume.perfumer','painting.painter') and coalesce(a.name, c.credited_as) is not null)
       ) as creators,
-      (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id=w.id and m.type='poster' and m.is_active order by m.id limit 1) as "imageS3Key"
+      ${workCoverSql(sql`w.id`)} as "imageS3Key"
       from works w where w.kind=${k} ${match ? sql`and ${match}` : sql``}
       order by lower(w.title), w.id limit ${size}`),
   );
@@ -575,7 +577,7 @@ export async function searchEditionsForPicker(search: string, limit = 30) {
       editionTitle: editions.title,
       thumbnailS3Key: sql<
         string | null
-      >`coalesce(${editions.thumbnailS3Key},${editions.coverS3Key},(select coalesce(m.thumbnail_s3_key,m.s3_key) from media m where m.work_id=${works.id} and m.type='poster' and m.is_active order by m.id limit 1))`,
+      >`coalesce(${editions.thumbnailS3Key},${editions.coverS3Key},(select coalesce(m.thumbnail_s3_key,m.s3_key) from media m where m.work_id=${works.id} and m.type='poster' and m.is_active order by ${POSTER_ORDER} limit 1))`,
       publicationYear: editions.publicationYear,
       publisher: editions.publisher,
       isbn13: editions.isbn13,
@@ -649,24 +651,22 @@ export async function getCollectionCoverPreviews(collectionIds: string[]) {
   const ids = collectionIdsSchema.parse(collectionIds);
   if (!ids.length) return [];
   // The first four images in each collection's one order: an edition's
-  // cover (else its book's poster), a whole work's active image (else, for a
-  // book, its first edition cover, as a series takes it)
+  // cover (else its book's poster), a whole work's cover (SLN-1286)
   const poster = (work: ReturnType<typeof sql>) =>
-    sql`(select coalesce(m.thumbnail_s3_key,m.s3_key) from media m where m.work_id=${work} and m.type='poster' and m.is_active order by m.id limit 1)`;
-  const result =
-    await db.execute(sql`select collection_id as "collectionId",cover as "s3Key" from (
+    sql`(select coalesce(m.thumbnail_s3_key,m.s3_key) from media m where m.work_id=${work} and m.type='poster' and m.is_active order by ${POSTER_ORDER} limit 1)`;
+  // Without JIT (SLN-1309): every member's cover puts the planned cost past
+  // jit_above_cost, and the compile took 2 s where the read takes milliseconds
+  return batchedRows<{ collectionId: string; s3Key: string }>(sql`select collection_id as "collectionId",cover as "s3Key" from (
     select collection_id, cover, row_number() over(partition by collection_id order by sort_order,added_at,member_id) as position from (
       select ce.collection_id,ce.sort_order,ce.added_at,ce.edition_id as member_id,
         coalesce(e.thumbnail_s3_key,e.cover_s3_key,${poster(sql`e.work_id`)}) as cover
       from collection_editions ce join editions e on e.id=ce.edition_id where ce.collection_id=any(${idArray(ids)})
       union all
-      select cw.collection_id,cw.sort_order,cw.added_at,cw.work_id,coalesce(${poster(sql`cw.work_id`)},
-        (select coalesce(e.thumbnail_s3_key,e.cover_s3_key) from editions e where e.work_id=cw.work_id and coalesce(e.thumbnail_s3_key,e.cover_s3_key) is not null order by e.created_at,e.id limit 1))
+      select cw.collection_id,cw.sort_order,cw.added_at,cw.work_id,${workCoverSql(sql`cw.work_id`)}
       from collection_works cw where cw.collection_id=any(${idArray(ids)})
         and not exists(select 1 from collection_editions ce join editions e on e.id=ce.edition_id where ce.collection_id=cw.collection_id and e.work_id=cw.work_id)
     ) members where cover is not null
-  ) previews where position<=4 order by collection_id,position`);
-  return rows<{ collectionId: string; s3Key: string }>(result);
+  ) previews where position<=4 order by collection_id,position`, { jit: false });
 }
 
 /**

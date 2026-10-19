@@ -160,6 +160,7 @@ function workToCardProps(work: {
   editions: Array<{
     id: string;
     thumbnailS3Key: string | null;
+    coverS3Key?: string | null;
     publicationYear: number | null;
     language: string | null;
     updatedAt: Date;
@@ -193,7 +194,8 @@ function workToCardProps(work: {
   const coverS3Key =
     activePoster?.thumbnailS3Key ??
     activePoster?.s3Key ??
-    edition?.thumbnailS3Key;
+    edition?.thumbnailS3Key ??
+    edition?.coverS3Key;
   // Versioned as the library's card is, so both share one cached image
   const coverVersion = activePoster ? activePoster.createdAt : edition?.updatedAt;
 

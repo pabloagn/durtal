@@ -9,7 +9,7 @@ import { z } from "zod/v4";
 import { db } from "@/lib/db";
 import { SLUG_RACE_MESSAGE, uniqueConstraint } from "@/lib/db/errors";
 import { atomic } from "@/lib/db/atomic";
-import { series, works, workAuthors } from "@/lib/db/schema";
+import { editions, series, works, workAuthors } from "@/lib/db/schema";
 import { eq, asc, desc, count, sql, and, inArray } from "drizzle-orm";
 import { invalidate, CACHE_TAGS } from "@/lib/cache";
 import { recordActivity } from "@/lib/activity/record";
@@ -20,6 +20,7 @@ import {
 import { slugify } from "@/lib/utils/slugify";
 import { WORK_AUTHOR_ROLES } from "@/lib/types";
 import { uniqueSlug } from "@/lib/catalogue/slugs";
+import { coverEditionFirst, workCoverSql } from "@/lib/library/filter-conditions";
 import {
   positionValue,
   seriesInputSchema,
@@ -172,10 +173,7 @@ export async function getSeriesList(options: z.input<typeof listSchema> = {}) {
   const covers = ids.length
     ? rows<{ seriesId: string; s3Key: string }>(
         await db.execute(sql`select series_id as "seriesId", cover as "s3Key" from (
-          select w.series_id, coalesce(
-            (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1),
-            (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = w.id and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null order by e.created_at, e.id limit 1)
-          ) as cover,
+          select w.series_id, ${workCoverSql(sql`w.id`)} as cover,
           row_number() over (partition by w.series_id order by case when w.series_position ~ '^[0-9]+(\\.[0-9]+)?$' then w.series_position::numeric end nulls last, lower(w.title)) as n
           from works w where w.kind = 'book' and w.series_id = any(${uuidArray(ids)})
         ) c where n <= 4 and cover is not null order by series_id, n`),
@@ -220,7 +218,7 @@ function seriesWithWorks(id: string) {
             with: { author: true },
             orderBy: asc(workAuthors.sortOrder),
           },
-          // The cover of the first edition that has one, as on the list card
+          // The book's cover edition, as on the list card
           editions: {
             columns: {
               id: true,
@@ -229,8 +227,7 @@ function seriesWithWorks(id: string) {
               publicationYear: true,
               language: true,
             },
-            where: (e, { or, isNotNull }) => or(isNotNull(e.thumbnailS3Key), isNotNull(e.coverS3Key)),
-            orderBy: (e, { asc }) => [asc(e.createdAt), asc(e.id)],
+            orderBy: coverEditionFirst(editions),
             limit: 1,
           },
           media: {
@@ -509,13 +506,9 @@ export async function searchWorksForSeries(query: string) {
       authors: sql<
         string | null
       >`(select string_agg(a.name, ' & ' order by wa.sort_order) from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = "works"."id")`,
-      // The poster, else the first edition cover, as on the series pages
-      cover: sql<
-        string | null
-      >`coalesce(
-        (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = "works"."id" and m.type = 'poster' and m.is_active order by m.sort_order limit 1),
-        (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = "works"."id" and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null order by e.created_at, e.id limit 1)
-      )`,
+      // The book's cover, as on the series pages (qualified: a one-table
+      // select drops the table from a bare column, and the subqueries have their own ids)
+      cover: workCoverSql(sql`"works"."id"`),
     })
     .from(works)
     .where(and(bookCondition, textSearchCondition(titleHaystack, q)))

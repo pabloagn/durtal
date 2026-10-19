@@ -13,6 +13,7 @@ import type { PaletteEbook } from "@/lib/ebooks/palette-group";
 import { catalogueAvailability } from "@/lib/ebooks/catalogue-availability";
 import { paletteContinueReading, paletteEbooks } from "@/lib/ebooks/palette-queries";
 import { SYSTEM_FAMILY_SLUGS, getSystemRegistry } from "@/lib/db/taxonomy-resolver";
+import { workCoverSql } from "@/lib/library/filter-conditions";
 
 export interface QuickSearchWork {
   id: string;
@@ -23,7 +24,7 @@ export interface QuickSearchWork {
   year: number | null;
   /** Its makers as the collection names them: authors, directors, the house, painters */
   creators: string[];
-  /** The cover or poster thumbnail: the active poster, else (books) an edition's */
+  /** The cover or poster thumbnail: the active poster, else (books) the cover edition's (SLN-1286) */
   cover: string | null;
   /** Optional shared availability projection; populated by the catalogue adapter. */
   ebook?: WorkEbookDTO | null;
@@ -90,10 +91,7 @@ const workCreators = (w: SQL) => sql`case ${w}.kind
     where c.work_id = ${w}.id and c.role_id in ('film.director', 'painting.painter') and coalesce(c.credited_as, a.name) is not null)
   end`;
 
-const workCover = (w: SQL) => sql`coalesce(
-  (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = ${w}.id and m.type = 'poster' and m.is_active order by m.created_at, m.id limit 1),
-  case when ${w}.kind = 'book' then (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = ${w}.id
-    and coalesce(e.thumbnail_s3_key, e.cover_s3_key) is not null order by e.publication_year desc nulls last, e.id limit 1) end)`;
+const workCover = (w: SQL) => workCoverSql(sql`${w}.id`);
 
 /** A work's address in its collection; a book needs its slug, the others accept the id */
 function workHref(kind: WorkKind, id: string, slug: string | null) {
