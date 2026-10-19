@@ -66,7 +66,8 @@ describe("GoalDialogButton", () => {
     // The dialog's module loads on the first open: wait for it, then for its data
     for (let i = 0; i < 100 && !document.querySelector("[data-goal-dialog]"); i++) await act(async () => new Promise((r) => setTimeout(r, 20)));
     const dialog = document.querySelector("dialog[open]")!;
-    expect(dialog.textContent).toContain("Set a reading goal");
+    // This year has a goal: the dialog edits it (SLN-1096)
+    expect(dialog.querySelector("h2")!.textContent).toBe("Edit reading goals");
     expect((dialog.querySelector('[data-goal-target="books"]') as HTMLInputElement).value).toBe("30");
     expect(dialog.querySelector("[data-goal-history]")!.textContent).toContain("28 of 30 books in 2025");
     expect(dialog.querySelector("[data-goal-types]")!.textContent).toContain("Reference");

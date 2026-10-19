@@ -103,4 +103,41 @@ describe("Dialog focus with fields that load late", () => {
     await wait();
     expect(document.activeElement?.id).toBe("body");
   });
+
+  it("starts in the control it marks, itself or the first inside the mark (SLN-1094)", async () => {
+    act(() =>
+      root.render(
+        createElement(Dialog, {
+          open: true,
+          onClose: () => {},
+          title: "Log a past read",
+          children: [
+            createElement("select", { key: "status", "aria-label": "Status" }),
+            createElement("div", { key: "date", "data-autofocus": "" }, createElement("button", { id: "started", type: "button" }, "Started")),
+          ],
+        }),
+      ),
+    );
+    expect(document.activeElement?.id).toBe("started");
+  });
+
+  it("starts in a marked field that arrives late, under other controls (SLN-1094)", async () => {
+    render(false);
+    expect(document.activeElement).toBe(dialog());
+    act(() =>
+      root.render(
+        createElement(Dialog, {
+          open: true,
+          onClose: () => {},
+          title: "Set a reading goal",
+          children: [
+            createElement("button", { key: "year", type: "button" }, "2026"),
+            createElement("input", { key: "books", id: "books", "aria-label": "Books", "data-autofocus": "" }),
+          ],
+        }),
+      ),
+    );
+    await wait();
+    expect(document.activeElement?.id).toBe("books");
+  });
 });

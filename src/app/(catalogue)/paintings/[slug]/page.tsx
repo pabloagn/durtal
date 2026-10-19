@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { formatMoney } from "@/lib/utils/money";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { WorkCollectionsSection, loadWorkCollections } from "@/components/collections/work-collections";
 import { renderStamp } from "@/lib/activity/render-stamp";
@@ -60,7 +61,6 @@ import {
   type WhereaboutsCustody,
   type WhereaboutsPlace,
 } from "@/lib/catalogue/painting-labels";
-import { formatPrice } from "@/lib/catalogue/perfume-labels";
 import { sourceChoices, sourceViews } from "@/lib/catalogue/source-views";
 import type { Attribution } from "@/lib/catalogue/credits";
 
@@ -166,7 +166,7 @@ function objectView(
             acquired ? `Acquired ${acquired}` : null,
             object.venueName,
             object.acquisitionPrice !== null && object.acquisitionCurrency
-              ? formatPrice(object.acquisitionPrice, object.acquisitionCurrency)
+              ? formatMoney(object.acquisitionPrice, object.acquisitionCurrency)
               : null,
             object.holdingStatus === "disposed"
               ? [gone ? `Gone since ${gone}` : "Gone", object.dispositionReason]

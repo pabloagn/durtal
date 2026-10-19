@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { logProgress, stopTimer, undoProgress, undoStopTimer, updateReading } from "@/lib/actions/catalogue-client";
+import { logProgress, stopTimer, undoProgress, undoStopTimer, updateEdition, updateReading } from "@/lib/actions/catalogue-client";
 import { toast } from "@/lib/notifications/toast";
 import { durationWords, stopTimes, TIMER_GONE } from "@/lib/reading/timer";
 import { useOptionalTimer } from "../timer-provider";
 import { formatOfCopy, type ReadingFormat } from "@/lib/reading/constants";
 import { parseProgressInput, percentOf, type ProgressInput } from "@/lib/reading/positions";
-import { logPreview, moveBackText, type SessionEdition } from "@/lib/reading/log-preview";
+import { asksPageTotal, logPreview, moveBackText, type SessionEdition } from "@/lib/reading/log-preview";
 import { browserZone, showError, todayReadingDay, undoToast, useCoarsePointer } from "../reading-client";
 import { readingDateError, readingDateLimit } from "@/lib/reading/dates";
 import type { ReadingDialogProps } from "../reading-provider";
@@ -30,6 +30,7 @@ export interface LogDraft {
   readOn: string;
   minutesRead: string;
   otherId: string;
+  pageTotal?: string;
 }
 const SEGMENTS = [
   { value: "page", label: "Page" },
@@ -83,6 +84,7 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
   const maxDate = readingDateLimit(browserZone());
   const dateError = stopping ? null : readingDateError(readOn, "day", maxDate);
   const [minutesRead, setMinutesRead] = useState(draft?.minutesRead ?? "");
+  const [pageTotalText, setPageTotalText] = useState(draft?.pageTotal ?? "");
   const [note, setNote] = useState("");
   const [showNote, setShowNote] = useState(false);
   const [showOther, setShowOther] = useState(!!draft?.otherId);
@@ -106,7 +108,15 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
   const totals = session ? { totalPages: session.pageCount, totalMinutes: session.totalMinutes } : { totalPages: r.totalPages, totalMinutes: r.totalMinutes };
   const parsed = coarse ? null : text.trim() ? parseProgressInput(text, { unit, ...totals }) : null;
   const input: ProgressInput | null = coarse ? segmentInput(segment, fields) : parsed?.ok ? parsed.value : null;
-  const preview = logPreview(r, input, session);
+  // No page total: a page logged counts no pages until the book has one, so the dialog asks for it (SLN-1095)
+  const asksTotal = !stopping && asksPageTotal(r, input, session);
+  const ownEdition = data.editions.find((e) => e.id === r.editionId) ?? null;
+  const typedTotal = asksTotal && pageTotalText.trim() ? readNumber(pageTotalText) : null;
+  const pageTotal = typedTotal !== null && Number.isInteger(typedTotal) && typedTotal > 0 ? typedTotal : null;
+  const preview = logPreview(pageTotal ? { ...r, totalPages: pageTotal } : r, input, session);
+  const pageTotalError = !asksTotal || !pageTotalText.trim() ? null
+    : pageTotal === null ? "Enter the number of pages as a whole number above 0"
+      : preview?.page != null && preview.page > pageTotal ? `Page ${preview.page} is past the last page, ${pageTotal}` : null;
   // A quote added from here: on this reading's edition at the page typed (else where the reading is), or on the session's
   // other edition (SLN-480) at its page, or as a percent of it for a session counted in percent or time
   const quotePlace: { editionId?: string; page?: number; percent?: number | null } = !session
@@ -196,13 +206,15 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
     e.preventDefault();
     if (error) return;
     if (stopping) return stop();
-    if (!preview || dateError) return;
+    if (!preview || dateError || pageTotalError) return;
     setSaving(true);
     try {
       let fingerprint = row!.fingerprint;
-      // "212/480" also gives the page count
-      if (input?.kind === "page" && input.totalPages && input.totalPages !== r.totalPages && !session) {
-        fingerprint = (await updateReading({ readingId: r.id, fingerprint, totalPages: input.totalPages })).fingerprint;
+      // "212/480" also gives the page count, as does "Pages in this edition"; an edition without one keeps it (SLN-1095)
+      const totalPages = input?.kind === "page" && input.totalPages ? input.totalPages : pageTotal;
+      if (pageTotal && ownEdition && !ownEdition.pageCount) await updateEdition(ownEdition.id, { pageCount: pageTotal });
+      if (totalPages && totalPages !== r.totalPages && !session) {
+        fingerprint = (await updateReading({ readingId: r.id, fingerprint, totalPages })).fingerprint;
       }
       const duration = readNumber(minutesRead);
       const result = await logProgress({
@@ -283,6 +295,15 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
             </Button>
           ))}
         </div>
+        {asksTotal && (
+          <Input
+            label={ownEdition ? "Pages in this edition (optional)" : "Pages in this book (optional)"}
+            inputMode="numeric"
+            value={pageTotalText}
+            onChange={(e) => setPageTotalText(e.target.value)}
+            error={pageTotalError ?? undefined}
+          />
+        )}
         {preview?.behind && (
           <fieldset className="space-y-2 rounded-sm border border-glass-border p-3">
             <legend className="px-1 text-xs text-fg-primary">{moveBackText(r, preview)}</legend>
@@ -329,7 +350,7 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
                     readingId: r.id,
                     prefill: !coarse && text.trim() ? text : undefined,
                     timer: request.timer,
-                    draft: { segment, fields, readOn, minutesRead, otherId },
+                    draft: { segment, fields, readOn, minutesRead, otherId, ...(pageTotalText ? { pageTotal: pageTotalText } : {}) },
                   },
                 })
               }
@@ -353,7 +374,7 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
               Read in another edition or format
             </button>
           ))}
-        <DialogFooter form={formId} onCancel={onClose} saving={saving} saveLabel={stopping ? "Stop timer" : "Log"} disabled={stopping ? !!error : !preview || !!error || !!dateError} />
+        <DialogFooter form={formId} onCancel={onClose} saving={saving} saveLabel={stopping ? "Stop timer" : "Log"} disabled={stopping ? !!error : !preview || !!error || !!dateError || !!pageTotalError} />
       </form>
     </Dialog>
   );

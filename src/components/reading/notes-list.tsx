@@ -14,7 +14,8 @@ export type NotesListRow = NoteEdit & { book: { id: string; title: string; href:
 
 /** "p. 212 · Penguin Classics, 2003 · ch. 7 · 2nd read · Note"; with `withBook`, the book's title (a link) and author first */
 function meta(note: NotesListRow, withBook: boolean, edition: NoteEdition | null) {
-  const where = [noteWhereText(note, edition), note.readingOrdinal ? ordinalRead(note.readingOrdinal) : null, note.kind === "note" ? "Note" : null]
+  // A book with one edition: naming it on every note says nothing (SLN-1096)
+  const where = [noteWhereText(note, edition?.only ? undefined : edition), note.readingOrdinal ? ordinalRead(note.readingOrdinal) : null, note.kind === "note" ? "Note" : null]
     .filter(Boolean)
     .join(" · ");
   if (!withBook) return where;

@@ -1554,6 +1554,7 @@ export async function searchBooksToRead(query: string) {
   const q = z.string().max(200).parse(query).trim();
   const { textSearchCondition } = await import("@/lib/actions/utils/text-search");
   const { ownedWorkCondition } = await import("@/lib/catalogue/holdings");
+  const { naturalOrder } = await import("@/lib/actions/utils/natural-order");
   const { readingStateSql, readCountSql, openReadingPercentSql } = await import("@/lib/reading/summary");
   const authors = sql`coalesce((select string_agg(a.name, ' ') from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id), '')`;
   const match = q ? textSearchCondition(sql`search_normalize(w.title || ' ' || ${authors})`, q, { fuzzy: false }) : undefined;
@@ -1567,7 +1568,7 @@ export async function searchBooksToRead(query: string) {
         (select r.id from readings r where r.work_id = w.id and r.status in ('reading','paused') limit 1) as "openReadingId",
         (select md5(to_jsonb(r)::text) from readings r where r.work_id = w.id and r.status in ('reading','paused') limit 1) as "openFingerprint"
       from works w where w.kind = 'book' ${match ? sql`and ${match}` : sql``}
-      order by ${ownedWorkCondition(sql`w.id`)} desc, search_normalize(w.title), w.id limit 20`),
+      order by ${ownedWorkCondition(sql`w.id`)} desc, ${naturalOrder(sql`search_normalize(w.title)`)}, search_normalize(w.title), w.id limit 20`),
   );
 }
 

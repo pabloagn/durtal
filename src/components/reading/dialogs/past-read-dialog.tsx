@@ -154,7 +154,10 @@ export function PastReadDialog({ data, onClose, changed }: ReadingDialogProps) {
             options={[{ value: "", label: "Not recorded" }, ...data.homes.map((h) => ({ value: h.id, label: h.name }))]}
           />
         )}
-        <ReadingDateField label="Started" value={start} onChange={setStart} max={maxDate} />
+        {/* The dialog starts here, in the first date, under the lists a book's record fills (SLN-1094) */}
+        <div data-autofocus="">
+          <ReadingDateField label="Started" value={start} onChange={setStart} max={maxDate} />
+        </div>
         <ReadingDateField label={status === "finished" ? "Finished" : "Stopped"} value={finish} onChange={setFinish} max={maxDate} />
         {error && (
           <p className="text-xs text-accent-red-text" role="alert">

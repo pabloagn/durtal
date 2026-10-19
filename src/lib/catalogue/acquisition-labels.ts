@@ -1,4 +1,5 @@
-import { CONTAINER_LABELS, formatPrice, formatVolume, formulationName } from "./perfume-labels";
+import { formatMoney } from "@/lib/utils/money";
+import { CONTAINER_LABELS, formatVolume, formulationName } from "./perfume-labels";
 import { FILM_MEDIUM_LABELS, FILM_RELEASE_FORMAT_LABELS, releaseTerritory, versionName } from "./film-labels";
 import { ART_OBJECT_KIND_LABELS, objectName } from "./painting-labels";
 import type { PerfumeConcentration, PerfumeContainer } from "./perfume-labels";
@@ -74,6 +75,6 @@ export function targetTitle(t: TargetDescription) {
 /** "€120.00", or null for an order without a price */
 export function orderCost(total: string | null, price: string | null, currency: string | null) {
   const amount = total ?? price;
-  return amount !== null && currency ? formatPrice(Number(amount), currency) : null;
+  return amount !== null && currency ? formatMoney(amount, currency) : null;
 }
 

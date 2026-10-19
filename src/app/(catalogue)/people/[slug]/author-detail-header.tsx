@@ -240,7 +240,7 @@ export function AuthorDetailHeader({
         itemName={name}
         cascade={
           workCount > 0
-            ? "This will NOT delete the person's books, films, perfumes or paintings, but will remove their credits."
+            ? "Their books, films, perfumes and paintings stay in your library; only their credits go."
             : undefined
         }
       />

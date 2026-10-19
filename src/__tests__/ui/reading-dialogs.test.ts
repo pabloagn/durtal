@@ -18,8 +18,10 @@ const actions = vi.hoisted(() => ({
   getNextInSeries: vi.fn(async () => null),
   findPageCount: vi.fn(async () => null),
 }));
+const editionActions = vi.hoisted(() => ({ updateEdition: vi.fn(async (id: string) => ({ id })) }));
 const toasts = vi.hoisted(() => ({ list: [] as { message: string; undo?: () => void }[] }));
 vi.mock("@/lib/actions/reading", () => actions);
+vi.mock("@/lib/actions/editions", () => editionActions);
 vi.mock("@/lib/notifications/toast", () => {
   const push = (message: string, opts?: { action?: { onClick: () => void } }) => toasts.list.push({ message, undo: opts?.action?.onClick });
   return { toast: Object.assign(push, { success: push, error: push, message: push, info: push }) };
@@ -56,6 +58,7 @@ beforeEach(() => {
   coarse = false;
   toasts.list = [];
   Object.values(actions).forEach((fn) => fn.mockClear());
+  editionActions.updateEdition.mockClear();
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
@@ -241,6 +244,45 @@ describe("Log progress", () => {
     await submit();
     expect(actions.logProgress).toHaveBeenCalledWith(expect.objectContaining({ goingBack: "went_back" }));
     expect(opened.at(-1)).toMatchObject({ kind: "finish", readingId: "r1", reachedEnd: true });
+  });
+
+  it.each([false, true])("asks for the page count on a book without one, and saves it with the log (SLN-1095, touch: %s)", async (touch) => {
+    coarse = touch;
+    actions.updateReading.mockResolvedValue({ fingerprint: "h".repeat(32) });
+    actions.logProgress.mockResolvedValue({ reading: { fingerprint: "i".repeat(32) }, undo: { sessionId: "s9", restoreEnd: null, repause: false }, reachedEnd: false });
+    const noTotal = { ...reading, unit: "pages", totalPages: null, currentPage: null, currentPercent: null };
+    const bare = { ...data, editions: data.editions.map((e) => (e.id === "e1" ? { ...e, pageCount: null, label: "English · Grove, 1970" } : e)) };
+    act(() => root.render(createElement(LogProgressDialog, props({ row: { ...row, reading: noTotal } as never, data: bare as never }))));
+    expect(text()).not.toContain("Pages in this edition");
+    if (touch) type(field("Page"), "120");
+    else type(field("Where are you?"), "120");
+    // No page total: the line promises no pages
+    expect(host.ownerDocument.querySelector("[data-live-line]")!.textContent).toBe("Page 120");
+    type(field("Pages in this edition (optional)"), "100");
+    expect(text()).toContain("Page 120 is past the last page, 100");
+    await submit();
+    expect(actions.logProgress).not.toHaveBeenCalled();
+    type(field("Pages in this edition (optional)"), "12.5");
+    expect(text()).toContain("Enter the number of pages as a whole number above 0");
+    type(field("Pages in this edition (optional)"), "300");
+    expect(host.ownerDocument.querySelector("[data-live-line]")!.textContent).toBe("Page 120 of 300 · 40% · 120 pages since last time");
+    await submit();
+    expect(editionActions.updateEdition).toHaveBeenCalledWith("e1", { pageCount: 300 });
+    expect(actions.updateReading).toHaveBeenCalledWith({ readingId: "r1", fingerprint: FP, totalPages: 300 });
+    expect(actions.logProgress).toHaveBeenCalledWith(expect.objectContaining({ readingId: "r1", fingerprint: "h".repeat(32), page: 120 }));
+  });
+
+  it("logs a page without a page count, and leaves the book's alone when none is given (SLN-1095)", async () => {
+    actions.logProgress.mockResolvedValue({ reading: { fingerprint: "i".repeat(32) }, undo: { sessionId: "s9", restoreEnd: null, repause: false }, reachedEnd: false });
+    const noTotal = { ...reading, unit: "pages", totalPages: null, currentPage: null, currentPercent: null, editionId: null };
+    act(() => root.render(createElement(LogProgressDialog, props({ row: { ...row, reading: noTotal } as never }))));
+    type(field("Where are you?"), "+20");
+    expect(host.ownerDocument.querySelector("[data-live-line]")!.textContent).toBe("Page 20");
+    expect(field("Pages in this book (optional)").value).toBe("");
+    await submit();
+    expect(editionActions.updateEdition).not.toHaveBeenCalled();
+    expect(actions.updateReading).not.toHaveBeenCalled();
+    expect(actions.logProgress).toHaveBeenCalledWith(expect.objectContaining({ addPages: 20 }));
   });
 
   it("logs a sitting in another edition without changing the reading's", async () => {

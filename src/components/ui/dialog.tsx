@@ -56,6 +56,16 @@ const CONTROL =
   'input:not([type="hidden"]), select, textarea, button, a[href], [contenteditable="true"], [tabindex]:not([tabindex="-1"])';
 
 /**
+ * The control a dialog marks to start in (`data-autofocus`), itself or the
+ * first control inside it: the first goal under the year, the first date of
+ * a past read under its lists (SLN-1094)
+ */
+function markedStart(el: HTMLElement): HTMLElement | null {
+  const mark = el.querySelector<HTMLElement>("[data-autofocus]");
+  return mark && (mark.matches(CONTROL) ? mark : mark.querySelector<HTMLElement>(CONTROL));
+}
+
+/**
  * The row under a dialog's body that holds its Cancel and Save. Undefined
  * outside a dialog; null until the dialog's row is in the page.
  */
@@ -185,8 +195,9 @@ export function Dialog({
       // The browser focuses the header's first button; start in the first
       // field instead, so typing (and Enter to confirm) works at once. With
       // no field, the dialog itself takes the focus. A field marked
-      // data-dialog-focus goes first (Edit reading's page count, SLN-1102).
-      (el.querySelector<HTMLElement>("[data-dialog-focus]") ?? el.querySelector<HTMLElement>(FIRST_FIELD) ?? el).focus();
+      // data-dialog-focus goes first (Edit reading's page count, SLN-1102),
+      // then one marked data-autofocus.
+      (el.querySelector<HTMLElement>("[data-dialog-focus]") ?? markedStart(el) ?? el.querySelector<HTMLElement>(FIRST_FIELD) ?? el).focus();
     }
     if (!open && el.open) el.close();
   }, [open]);
@@ -199,7 +210,7 @@ export function Dialog({
   useEffect(() => {
     const el = dialogRef.current;
     const body = bodyRef.current;
-    if (!open || !el || !body || el.querySelector(FIRST_FIELD)) return;
+    if (!open || !el || !body || markedStart(el) || el.querySelector(FIRST_FIELD)) return;
     if (body.querySelector(CONTROL)) return;
     const observer = new MutationObserver(() => {
       if (document.activeElement !== el) {
@@ -209,7 +220,9 @@ export function Dialog({
       const first = body.querySelector<HTMLElement>(CONTROL);
       if (!first) return;
       observer.disconnect();
-      if (first.matches(FIRST_FIELD)) first.focus();
+      const marked = markedStart(el);
+      if (marked) marked.focus();
+      else if (first.matches(FIRST_FIELD)) first.focus();
     });
     observer.observe(el, { childList: true, subtree: true });
     return () => observer.disconnect();

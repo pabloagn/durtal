@@ -173,6 +173,14 @@ describe.skipIf(!url)("recommenders with PostgreSQL", () => {
     expect((await getRecommenderList({ search: "zzzz" })).total).toBe(0);
   });
 
+  it("sorts names with their numbers in numeric order (SLN-1123)", async () => {
+    for (const name of ["Recommender 10", "Recommender 2", "recommender 1", "Recommender 20", "Recommender 11"]) await created({ name });
+    const order = ["recommender 1", "Recommender 2", "Recommender 10", "Recommender 11", "Recommender 20"];
+    expect((await getRecommenderList({})).rows.map((r) => r.name)).toEqual(order);
+    expect((await getRecommenderList({ sort: "name", order: "desc" })).rows.map((r) => r.name)).toEqual([...order].reverse());
+    expect((await getRecommenders()).map((r) => r.name)).toEqual(order);
+  });
+
   it("returns the recommended books by title with authors and posters", async () => {
     const r = await created({ name: "Life on Books" });
     const z = await book("Zazie");

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { formatMoney } from "@/lib/utils/money";
 import {
-  formatPrice,
   formatVolume,
   formulationName,
   holdingsSummary,
@@ -52,8 +52,8 @@ describe("perfume names and amounts", () => {
       "2 bottles, 1 sample",
     );
     expect(holdingsSummary({ bottle: 0, sample: 0, decant: 0 })).toBeNull();
-    expect(formatPrice(120, "EUR")).toBe("€120.00");
-    expect(formatPrice(9800, "JPY")).toBe("¥9,800");
+    expect(formatMoney(120, "EUR")).toBe("€120.00");
+    expect(formatMoney(9800, "JPY")).toBe("¥9,800");
   });
 
   it("groups notes by position in pyramid order, keeping their order", () => {

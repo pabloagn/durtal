@@ -37,4 +37,26 @@ describe("a journal row's line", () => {
     const line = host.querySelector("li p")!.textContent!;
     expect(line).toBe("Author 117 · Nov 2024 to 27 Nov 2024 · Finished");
   });
+
+  it("links the first author to their page, the dot kept with the name (SLN-1075)", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    root = createRoot(host);
+    const row = {
+      reading: { readingId: "r1" },
+      title: "Stats",
+      href: "/library/stats",
+      cover: null,
+      author: { name: "Author 117", href: "/people/author-117" },
+      line: "Nov 2024 to 27 Nov 2024 · Finished",
+      format: "print",
+      translated: null,
+      rating: null,
+    };
+    act(() => root!.render(h(JournalRows, { rows: [row] as never })));
+    const line = host.querySelector("li p")!;
+    expect(line.textContent).toBe("Author 117 · Nov 2024 to 27 Nov 2024 · Finished");
+    expect(line.querySelector("a")!.getAttribute("href")).toBe("/people/author-117");
+    expect(host.querySelector("li")!.hasAttribute("data-focus-row")).toBe(true);
+  });
 });

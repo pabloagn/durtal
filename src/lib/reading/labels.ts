@@ -45,9 +45,11 @@ const percent = (r: Pick<ReadingSummary, "currentPercent">) => `${Math.round(r.c
 export function positionText(r: Omit<ReadingSummary, "id" | "status" | "finishedOn" | "finishedPrecision">) {
   if (r.unit === "minutes" && r.currentMinutes !== null)
     return r.totalMinutes ? `${formatMinutes(r.currentMinutes)} of ${formatMinutes(r.totalMinutes)}` : formatMinutes(r.currentMinutes);
-  // "p. 0 of 240" before the first page reads as nothing; the share says it (SLN-932)
+  // "p. 0 of 240" before the first page reads as nothing; the share says it (SLN-932).
+  // A reading with no stored share works it out from the page, never "0%" (SLN-1096)
   if (r.unit === "pages" && r.currentPage && r.totalPages)
-    return `p. ${pageNumber(r.currentPage)} of ${pageNumber(r.totalPages)} · ${percent(r)}`;
+    return `p. ${pageNumber(r.currentPage)} of ${pageNumber(r.totalPages)} · ${percent({ currentPercent: r.currentPercent ?? (r.currentPage / r.totalPages) * 100 })}`;
+  if (r.unit === "pages" && r.currentPage && r.currentPercent === null) return `p. ${pageNumber(r.currentPage)}`;
   return percent(r);
 }
 

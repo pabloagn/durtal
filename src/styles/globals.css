@@ -976,6 +976,8 @@ dialog::backdrop {
   color: var(--color-fg-primary);
   max-width: 26em; /* about 65 characters per line */
   text-wrap: pretty;
+  /* An unbroken word or a pasted URL breaks at the column's edge (SLN-1072) */
+  overflow-wrap: break-word;
   hanging-punctuation: first;
   font-variant-numeric: oldstyle-nums proportional-nums;
   & p + p {

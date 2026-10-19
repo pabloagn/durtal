@@ -69,7 +69,9 @@ export function BookCardActionsMenu({
       <DropdownMenu
         align="end"
         side="top"
-        label="Actions"
+        // Named for its book: a page of cards would have many controls called Actions (SLN-1123)
+        label={`Actions for ${title}`}
+        tooltip="Actions"
         open={open}
         onOpenChange={onOpenChange}
         trigger={

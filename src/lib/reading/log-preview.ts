@@ -126,7 +126,8 @@ export function logPreview(reading: LogReading, input: ProgressInput | null, ses
       // "250/480" also gives the page count: the line shows that one (SLN-932)
       `Page ${given.page}${pageTotal ? ` of ${pageTotal}` : ""}`,
       percent !== null ? pct(percent) : null,
-      since > 0 ? `${since} ${since === 1 ? "page" : "pages"} since last time` : null,
+      // Without a page total the session counts no pages (countedPagesSql), so the line promises none (SLN-1095)
+      since > 0 && pageTotal ? `${since} ${since === 1 ? "page" : "pages"} since last time` : null,
     ]
       .filter(Boolean)
       .join(" · ");
@@ -154,4 +155,14 @@ export function moveBackText(reading: LogReading, preview: LogPreview) {
   return pages
     ? `This moves you back from p. ${reading.currentPage} to p. ${preview.page}`
     : `This moves you back from ${pct(reading.currentPercent)} to ${pct(preview.percent)}`;
+}
+
+/**
+ * A page logged on a reading with no page total counts no pages, so the
+ * dialog asks for the page count with it (SLN-1095). Not for a sitting in
+ * another edition, nor when "212/480" already gives the count.
+ */
+export function asksPageTotal(reading: Pick<LogReading, "totalPages">, input: ProgressInput | null, session: SessionEdition | null = null): boolean {
+  if (reading.totalPages || session || !input) return false;
+  return (input.kind === "page" && !input.totalPages) || input.kind === "addPages";
 }

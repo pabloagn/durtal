@@ -40,8 +40,11 @@ export function CopyBookButton({ title, authorNames, authorName, className = "",
   }
 
   const label = copied ? "Copied" : `Copy ${what}`;
+  // Named for its record: a page of cards would have many buttons of one
+  // name (SLN-1123). "film title and director" names "the title and director of"
+  const name = copied ? label : `Copy the ${what.replace(/^\S+ /, "")} of ${title}`;
 
-  return <button type="button" onClick={handleCopy} aria-label={label} data-tooltip={label}
+  return <button type="button" onClick={handleCopy} aria-label={name} data-tooltip={label}
     className={`inline-flex ${glass ? "chip-button glass-chip" : (size === "sm" ? "action-icon-sm" : "action-icon")} ${className}`}>
     {copied ? (
       <Check className="h-4 w-4" strokeWidth={1.5} aria-hidden />
