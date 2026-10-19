@@ -220,7 +220,7 @@ Client                          API                              S3
   |<-- { media: {...} }          |                               |
 ```
 
-`/api/media/upload`, `/api/media/from-url` and `/api/media/process` all call `ingestMedia()` (`src/lib/media/ingest.ts`). If an upload or the database write fails, the files already stored are deleted again (`deleteUnusedObjects`), so no file is left without a row. Images from a URL record that URL as their source. Optional alt text, credit, license and source can be sent with the upload and edited later with `updateMediaDetails()`.
+`/api/media/upload`, `/api/media/from-url` and `/api/media/process` all call `ingestMedia()` (`src/lib/media/ingest.ts`). If an upload or the database write fails, the files already stored are deleted again (`deleteUnusedObjects`), so no file is left without a row. An image's id comes from its owner, its type, its settings and its bytes (SLN-1276): the same picture uploaded again to the same record, or a retry after a lost answer, returns the image already there without storing anything, and a poster or background among them becomes the active one again, as a new upload would. Two at once collide on the id; the one that loses removes its own files and returns the other's row. Images from a URL record that URL as their source. Optional alt text, credit, license and source can be sent with the upload and edited later with `updateMediaDetails()`.
 
 ### Processing Dimensions
 

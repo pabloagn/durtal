@@ -286,13 +286,15 @@ getAuthor(id: string): Promise<AuthorWithRelations | null>
 
 Returns author with: `workAuthors` (with work data), `editionContributors` (with edition data), `media`.
 
-### `createAuthor(input)`
+### `createAuthor(input, options?)`
 
 ```typescript
-createAuthor(input: CreateAuthorInput): Promise<Author>
+createAuthor(input: CreateAuthorInput, options?: { id?: string }): Promise<Author>
 ```
 
-Creates author record. Auto-generates `sortName` from `name` if not provided (inverts "First Last" to "Last, First"). The unique slug is decided first and written with the row; `updateAuthor` writes a renamed author's new slug in the same update.
+Creates author record. Auto-generates `sortName` from `name` if not provided (inverts "First Last" to "Last, First"). The unique slug is decided first and written with the row; `updateAuthor` writes a renamed author's new slug in the same update. `options.id` (SLN-1276) is the id Add person makes each time it opens: the person is written under it, and a resend or a second press after a lost answer returns the stored person with no second `author.created`. Every create that takes such an id runs through `createOnce` (`src/lib/actions/utils/create-once.ts`), which also returns the stored row when a resend racing the first loses on the primary key.
+
+`createRecommender(input, id?)` does the same for Add recommender. A name another recommender holds is refused with `existingId`, and the dialog's toast opens that recommender; `updateRecommender` names it too.
 
 ### `findOrCreateAuthor(name)`
 

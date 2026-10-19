@@ -1,5 +1,6 @@
 "use server";
 
+import { createOnce } from "@/lib/actions/utils/create-once";
 import { bookReferenceCondition } from "@/lib/catalogue/book-boundary";
 
 import { z } from "zod/v4";
@@ -142,10 +143,10 @@ export async function getRecommender(id: string) {
   return { ...recommender, books };
 }
 
-/** The existing name that clashes with `name` (ignoring case and accents), if any. */
+/** The recommender whose name clashes with `name` (ignoring case and accents), if any. */
 async function nameClash(name: string, exceptId?: string) {
   const [clash] = await db
-    .select({ name: recommenders.name })
+    .select({ id: recommenders.id, name: recommenders.name })
     .from(recommenders)
     .where(
       and(
@@ -154,7 +155,7 @@ async function nameClash(name: string, exceptId?: string) {
       ),
     )
     .limit(1);
-  return clash?.name ?? null;
+  return clash ?? null;
 }
 
 function changed() {
@@ -176,7 +177,8 @@ async function unlessTaken<T>(write: () => Promise<T>): Promise<T | null> {
 
 type Saved =
   | { ok: true; recommender: typeof recommenders.$inferSelect }
-  | { ok: false; error: string };
+  /** `existingId`: the recommender holding the name, to open */
+  | { ok: false; error: string; existingId?: string };
 
 /** Validation problems come back as `{ ok: false, error }`: thrown messages are hidden in production. */
 function invalid(error: unknown): Saved {
@@ -184,24 +186,43 @@ function invalid(error: unknown): Saved {
   return { ok: false, error: issue ?? "Check the name and website" };
 }
 
+/**
+ * Adds a recommender; `id` is the dialog's own, so a resend or a second press
+ * after a lost answer gives the one it saved (SLN-1276). A name taken by
+ * another names that recommender, so the dialog can open it.
+ */
 export async function createRecommender(
   input: RecommenderInput,
+  id?: string,
 ): Promise<Saved> {
   const parsed = recommenderInputSchema.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
   const data = parsed.data;
-  const clash = await nameClash(data.name);
-  if (clash) return { ok: false, error: `"${clash}" already exists` };
-  const rows = await unlessTaken(() =>
-    db
-      .insert(recommenders)
-      .values({ name: data.name, url: data.url ?? null })
-      .returning(),
-  );
-  if (!rows) return { ok: false, error: `"${data.name}" already exists` };
-  const [row] = rows;
-  changed();
-  return { ok: true, recommender: row };
+  const stored = async (key: string): Promise<Saved | null> => {
+    const [saved] = await db.select().from(recommenders).where(eq(recommenders.id, key));
+    return saved ? { ok: true, recommender: saved } : null;
+  };
+  const { row, created } = await createOnce<Saved>(id, stored, async (key) => {
+    const clash = await nameClash(data.name);
+    if (clash) return taken(clash);
+    const rows = await unlessTaken(() =>
+      db
+        .insert(recommenders)
+        .values({ ...(key ? { id: key } : {}), name: data.name, url: data.url ?? null })
+        .returning(),
+    );
+    if (rows) return { ok: true, recommender: rows[0] };
+    // The name was taken meanwhile: by this id's own resend, or by another
+    const mine = key ? await stored(key) : null;
+    if (mine) return mine;
+    return taken((await nameClash(data.name)) ?? { id: null, name: data.name });
+  });
+  if (created && row.ok) changed();
+  return row;
+}
+
+function taken(clash: { id: string | null; name: string }): Saved {
+  return { ok: false, error: `"${clash.name}" already exists`, ...(clash.id ? { existingId: clash.id } : {}) };
 }
 
 export async function updateRecommender(
@@ -213,7 +234,7 @@ export async function updateRecommender(
   if (!parsed.success) return invalid(parsed.error);
   const data = parsed.data;
   const clash = await nameClash(data.name, id);
-  if (clash) return { ok: false, error: `"${clash}" already exists` };
+  if (clash) return taken(clash);
   const rows = await unlessTaken(() =>
     db
       .update(recommenders)
@@ -221,7 +242,7 @@ export async function updateRecommender(
       .where(eq(recommenders.id, id))
       .returning(),
   );
-  if (!rows) return { ok: false, error: `"${data.name}" already exists` };
+  if (!rows) return taken((await nameClash(data.name, id)) ?? { id: null, name: data.name });
   const [row] = rows;
   if (!row) return { ok: false, error: "This recommender no longer exists" };
   changed();

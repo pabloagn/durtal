@@ -427,6 +427,22 @@ describe.skipIf(!url)("atomic book writes", () => {
     });
   });
 
+  describe("Add person's id (SLN-1276)", () => {
+    it("adds a person once for a repeated id, a resend at the same time included", async () => {
+      const id = "3c9b1f2e-5d7a-4b8c-9e0f-1a2b3c4d5e01";
+      const { recordActivity } = await import("@/lib/activity/record");
+      vi.mocked(recordActivity).mockClear();
+      const first = await createAuthor({ name: "Unica Zürn" }, { id });
+      expect(first).toMatchObject({ id, slug: "unica-zurn" });
+      expect(await createAuthor({ name: "Unica Zürn" }, { id })).toEqual(first);
+      const raced = "3c9b1f2e-5d7a-4b8c-9e0f-1a2b3c4d5e02";
+      const [x, y] = await Promise.all([createAuthor({ name: "Leonora Carrington" }, { id: raced }), createAuthor({ name: "Leonora Carrington" }, { id: raced })]);
+      expect(x).toEqual(y);
+      expect(await client!`select count(*)::int as n from authors where name in ('Unica Zürn', 'Leonora Carrington')`).toEqual([{ n: 2 }]);
+      expect(vi.mocked(recordActivity).mock.calls.filter((c) => c[2] === "author.created")).toHaveLength(2);
+    });
+  });
+
   describe("author slugs", () => {
     it("writes the slug with the author and with a new name", async () => {
       const mann = await createAuthor({ name: "Thomas Mann" });

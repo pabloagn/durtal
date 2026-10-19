@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
@@ -36,7 +36,7 @@ import type { WorkKind } from "@/lib/catalogue/kinds";
 import type { ColorPalette, MediaType } from "@/lib/types";
 import { imagePolicy } from "./policy";
 import type { LogoCardOptions } from "./logo-card";
-import { MEDIA_OWNER_COLUMN, mediaOwnerFields, supportsMediaType } from "./owner";
+import { MEDIA_OWNER_COLUMN, mediaOwnerFields, mediaOwnerOf, supportsMediaType } from "./owner";
 
 /** A request the caller can correct; routes answer it with its status. */
 export class MediaIngestError extends Error {
@@ -135,6 +135,34 @@ export async function readableImage(buffer: Buffer) {
  * the files already stored are deleted again, so no file is left without a
  * row and no row points at a missing file.
  */
+/**
+ * One image per picture per record (SLN-1276): its id comes from the owner,
+ * the type, the settings and the bytes, so a retry after a lost answer, or
+ * the same file again, is the image already there. A UUID v4 in form.
+ */
+function imageId(input: IngestInput, params: MonochromeParams | null) {
+  const hash = createHash("sha256");
+  hash.update(JSON.stringify([input.owner.type, input.owner.id, input.mediaType, params, input.logoCard?.options ?? null]));
+  hash.update(input.buffer);
+  const hex = hash.digest("hex");
+  const variant = ((parseInt(hex[16], 16) & 3) | 8).toString(16);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+/** The image already there for a repeat: a poster or background it was becomes the active one again, as a new upload would */
+async function repeated(row: typeof media.$inferSelect) {
+  if (row.type === "gallery" || row.isActive) return row;
+  const owner = mediaOwnerOf(row);
+  const results = await atomic((d) => [
+    d.update(media).set({ isActive: false }).where(and(eq(MEDIA_OWNER_COLUMN[owner.type], owner.id), eq(media.type, row.type))),
+    d.update(media).set({ isActive: true }).where(eq(media.id, row.id)).returning(),
+  ]);
+  invalidate(CACHE_TAGS.works, CACHE_TAGS.media, CACHE_TAGS.collections);
+  return resultRows<typeof media.$inferSelect>(results.at(-1))[0] ?? row;
+}
+
+const storedImage = async (id: string) => (await db.select().from(media).where(eq(media.id, id)))[0];
+
 export async function ingestMedia(input: IngestInput) {
   const { owner, mediaType } = input;
   if (!supportsMediaType(owner.type, mediaType))
@@ -146,6 +174,9 @@ export async function ingestMedia(input: IngestInput) {
   const params = policy.monochrome
     ? (input.processingParams ?? DEFAULT_MONOCHROME_PARAMS)
     : null;
+  const id = imageId(input, params);
+  const already = await storedImage(id);
+  if (already) return repeated(already);
   const rendered = params
     ? await renderAuthorImage(input.buffer, policy, params)
     : await renderImage(input.buffer, policy);
@@ -174,7 +205,6 @@ export async function ingestMedia(input: IngestInput) {
       : []),
   ];
   const stored: string[] = [];
-  const id = randomUUID();
   const column = MEDIA_OWNER_COLUMN[owner.type];
   let row: typeof media.$inferSelect;
   try {
@@ -222,12 +252,16 @@ export async function ingestMedia(input: IngestInput) {
     );
     row = resultRows<typeof media.$inferSelect>(results.at(-1))[0];
   } catch (error) {
-    // Compensation: nothing references these new keys, so they are removed.
+    // Compensation: nothing references these new keys, so they are removed
+    // (a key a row uses, as a retried bronze upload's would, stays).
     if (stored.length)
       await deleteUnusedObjects(
         { keys: stored, prefixes: [] },
         `failed ${mediaType} upload for ${owner.type} ${owner.id}`,
       );
+    // The same picture saved meanwhile by a retry that overtook this one
+    const raced = await storedImage(id);
+    if (raced) return repeated(raced);
     throw error;
   }
   if (owner.type === "work" || owner.type === "author")

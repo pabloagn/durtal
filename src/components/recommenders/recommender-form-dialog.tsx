@@ -10,6 +10,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { parseWebsite } from "@/lib/utils/website";
 import { createRecommender, updateRecommender } from "@/lib/actions/catalogue-client";
+import { createId } from "@/lib/utils/create-id";
 import { refusalMessage } from "@/lib/actions/refusal";
 
 interface Existing {
@@ -40,12 +41,16 @@ export function RecommenderFormDialog({
   const [urlTouched, setUrlTouched] = useState(false);
   const [pending, startTransition] = useTransition();
   const nameRef = useRef<HTMLInputElement>(null);
+  // Each opening's own id, sent with every press: a resend or a second press
+  // after a lost answer adds the recommender once (SLN-1276)
+  const [saveId, setSaveId] = useState(createId);
 
   useEffect(() => {
     if (!open) return;
     setName(recommender?.name ?? "");
     setUrl(recommender?.url ?? "");
     setUrlTouched(false);
+    setSaveId(createId());
     // The modal focuses its first button when it opens; start in Name instead.
     const frame = requestAnimationFrame(() => nameRef.current?.focus());
     return () => cancelAnimationFrame(frame);
@@ -72,9 +77,13 @@ export function RecommenderFormDialog({
         const input = { name, url: website.value };
         const result = isEdit
           ? await updateRecommender(recommender.id, input)
-          : await createRecommender(input);
+          : await createRecommender(input, saveId);
         if (!result.ok) {
-          toast.error(result.error);
+          // A name already taken links the recommender that has it
+          const existing = result.existingId;
+          toast.error(result.error, existing
+            ? { action: { label: "Open", onClick: () => { close(); router.push(`/recommenders/${existing}`); } } }
+            : undefined);
           return;
         }
         toast.success(
