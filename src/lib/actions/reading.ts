@@ -27,7 +27,18 @@ import { requireBookWork } from "@/lib/catalogue/book-boundary";
 import { appTimeZone } from "@/lib/utils/date";
 import { PAGE_SIZES } from "@/lib/utils/pagination";
 import { sanitizeCommentHtml } from "@/lib/utils/sanitize";
-import { isOpenStatus, type ReadingFormat, type ReadingStatus } from "@/lib/reading/constants";
+import {
+  ABANDON_REASONS,
+  READING_DATE_PRECISIONS,
+  READING_FORMATS,
+  READING_SOURCES,
+  READING_STATUSES,
+  READING_UNITS,
+  SESSION_SOURCES,
+  isOpenStatus,
+  type ReadingFormat,
+  type ReadingStatus,
+} from "@/lib/reading/constants";
 import { defaultFinishDate, formatReadingDate, readingDay, readingPeriodStart } from "@/lib/reading/dates";
 import { readingDayStartHour, readingToday } from "@/lib/reading/day";
 import { positionChanges, positionInUnit, remapPosition } from "@/lib/reading/positions";
@@ -972,19 +983,101 @@ export async function deleteReading(input: z.input<typeof statusChangeSchema>) {
   return { reading: row, sessions, history, noteIds: notes.map((n) => n.id) };
 }
 
-const snapshotSchema = z.object({
-  reading: z.record(z.string(), z.unknown()),
-  sessions: z.array(z.record(z.string(), z.unknown())),
-  history: z.array(z.record(z.string(), z.unknown())),
-  noteIds: z.array(z.uuid()).max(100_000).optional(),
-});
+const uuidOrNull = z.uuid().nullable();
+const intOrNull = z.number().int().nullable();
+const numberOrNull = z.number().nullable();
+const textOrNull = z.string().nullable();
+const dayOrNull = z.iso.date().nullable();
+/** A timestamp as JSON carries it, or as a Date */
+const instant = z.union([z.date(), z.iso.datetime({ offset: true })]).transform((v) => new Date(v));
 
-const asDate = (v: unknown) => (v == null ? null : new Date(v as string));
+/*
+ * A deleted reading, as deleteReading returned it, for its Undo: only the
+ * tables' own columns, each typed, so a snapshot can't write a column or a
+ * value a reading never has (SLN-1239). Keys it doesn't name are dropped.
+ */
+const snapshotSchema = z
+  .object({
+    reading: z.object({
+      id: z.uuid(),
+      workId: z.uuid(),
+      editionId: uuidOrNull,
+      instanceId: uuidOrNull,
+      locationId: uuidOrNull,
+      format: z.enum(READING_FORMATS),
+      status: z.enum(READING_STATUSES),
+      startedOn: dayOrNull,
+      startedPrecision: z.enum(READING_DATE_PRECISIONS),
+      finishedOn: dayOrNull,
+      finishedPrecision: z.enum(READING_DATE_PRECISIONS),
+      unit: z.enum(READING_UNITS),
+      totalPages: intOrNull,
+      totalMinutes: intOrNull,
+      startPage: intOrNull,
+      startPercent: numberOrNull,
+      startMinutes: intOrNull,
+      currentPage: intOrNull,
+      currentPercent: numberOrNull,
+      currentMinutes: intOrNull,
+      currentChapter: textOrNull,
+      lastReadAt: instant.nullable(),
+      rating: numberOrNull,
+      reviewHtml: textOrNull,
+      reviewJson: z.unknown().nullable(),
+      abandonReason: z.enum(ABANDON_REASONS).nullable(),
+      abandonNote: textOrNull,
+      source: z.enum(READING_SOURCES),
+      importId: uuidOrNull,
+      sourceKey: textOrNull,
+      createdAt: instant.nullable(),
+    }),
+    sessions: z.array(
+      z.object({
+        id: z.uuid(),
+        readingId: z.uuid(),
+        editionId: uuidOrNull,
+        format: z.enum(READING_FORMATS),
+        readOn: z.iso.date(),
+        timeZone: z.string(),
+        startedAt: instant.nullable(),
+        endedAt: instant.nullable(),
+        durationSeconds: intOrNull,
+        startPage: intOrNull,
+        endPage: intOrNull,
+        startPercent: numberOrNull,
+        endPercent: numberOrNull,
+        startMinutes: intOrNull,
+        endMinutes: intOrNull,
+        endChapter: textOrNull,
+        pagesTotal: intOrNull,
+        note: textOrNull,
+        source: z.enum(SESSION_SOURCES),
+        pausedAt: instant.nullable(),
+        pausedSeconds: z.number().int(),
+        createdAt: instant.nullable(),
+        updatedAt: instant.nullable(),
+      }),
+    ),
+    history: z.array(
+      z.object({
+        id: z.uuid(),
+        readingId: z.uuid(),
+        fromStatus: z.enum(READING_STATUSES).nullable(),
+        toStatus: z.enum(READING_STATUSES),
+        changedAt: instant.nullable(),
+        notes: textOrNull,
+      }),
+    ),
+    noteIds: z.array(z.uuid()).max(100_000).optional(),
+  })
+  .refine(
+    (s) => [...s.sessions, ...s.history].every((row) => row.readingId === s.reading.id),
+    "These sessions belong to another reading",
+  );
 
 /** Puts a deleted reading back with the same ids; an edition, copy or place gone meanwhile comes back empty */
 export async function restoreReading(input: z.input<typeof snapshotSchema>) {
-  const snap = snapshotSchema.parse(input);
-  const r = snap.reading as unknown as Reading;
+  const { reading: r, sessions, history, noteIds } = snapshotSchema.parse(input);
   await requireBookWork(r.workId);
   if (isOpenStatus(r.status)) {
     const open = await openReadingOf(r.workId);
@@ -996,51 +1089,41 @@ export async function restoreReading(input: z.input<typeof snapshotSchema>) {
   const instanceOk = editionOk && (await exists(instances, r.instanceId));
   const locationOk = await exists(locations, r.locationId);
   const sessionEditions = new Set<string>();
-  for (const s of snap.sessions as unknown as Session[])
-    if (s.editionId && (await exists(editions, s.editionId))) sessionEditions.add(s.editionId);
+  for (const s of sessions) if (s.editionId && (await exists(editions, s.editionId))) sessionEditions.add(s.editionId);
   await withReadableErrors(() =>
     atomic((d) => [
-      lockReaderNotes(d, sql`select jsonb_array_elements_text(${JSON.stringify(snap.noteIds ?? [])}::jsonb)::uuid`),
+      lockReaderNotes(d, sql`select jsonb_array_elements_text(${JSON.stringify(noteIds ?? [])}::jsonb)::uuid`),
       d.insert(readings).values({
         ...r,
         editionId: editionOk ? r.editionId : null,
         instanceId: instanceOk ? r.instanceId : null,
         locationId: locationOk ? r.locationId : null,
-        lastReadAt: asDate(r.lastReadAt),
-        createdAt: asDate(r.createdAt) ?? new Date(),
+        reviewHtml: r.reviewHtml ? sanitizeCommentHtml(r.reviewHtml) : null,
+        createdAt: r.createdAt ?? new Date(),
         updatedAt: new Date(),
       }),
-      ...(snap.sessions.length
+      ...(sessions.length
         ? [
             d.insert(readingSessions).values(
-              (snap.sessions as unknown as Session[]).map(({ pagesRead: _p, ...s }) => ({
+              sessions.map((s) => ({
                 ...s,
                 editionId: s.editionId && sessionEditions.has(s.editionId) ? s.editionId : null,
-                startedAt: asDate(s.startedAt),
-                endedAt: asDate(s.endedAt),
-                createdAt: asDate(s.createdAt) ?? new Date(),
-                updatedAt: asDate(s.updatedAt) ?? new Date(),
+                createdAt: s.createdAt ?? new Date(),
+                updatedAt: s.updatedAt ?? new Date(),
               })),
             ),
           ]
         : []),
-      ...(snap.history.length
-        ? [
-            d.insert(readingStatusHistory).values(
-              (snap.history as unknown as (typeof readingStatusHistory.$inferSelect)[]).map((h) => ({
-                ...h,
-                changedAt: asDate(h.changedAt) ?? new Date(),
-              })),
-            ),
-          ]
+      ...(history.length
+        ? [d.insert(readingStatusHistory).values(history.map((h) => ({ ...h, changedAt: h.changedAt ?? new Date() })))]
         : []),
       // Its notes come back to it where nothing else claimed them and they are still on the book
-      ...(snap.noteIds?.length
+      ...(noteIds?.length
         ? [
             d
               .update(readingNotes)
               .set({ readingId: r.id })
-              .where(and(inArray(readingNotes.id, snap.noteIds), isNull(readingNotes.readingId), eq(readingNotes.workId, r.workId))),
+              .where(and(inArray(readingNotes.id, noteIds), isNull(readingNotes.readingId), eq(readingNotes.workId, r.workId))),
           ]
         : []),
     ]),
@@ -1163,6 +1246,8 @@ export async function addSession(input: AddSessionInput) {
   changed();
   return result;
 }
+
+const asDate = (v: unknown) => (v == null ? null : new Date(v as string));
 
 /** Puts a deleted session back with its id and source (the Undo of a delete); refused for a running timer */
 export async function restoreSession(input: z.input<typeof restoreSessionSchema>) {

@@ -106,8 +106,16 @@ const BOOK_COLUMN = sql`(select jsonb_build_object('id', w.id, 'title', w.title,
     'author', (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.sort_order, a.name limit 1))
   from works w where w.id = n.work_id) as book`;
 
+/**
+ * Rows of NOTE_COLUMNS with each thought sanitized again on the way out, so
+ * a row stored before every write sanitized it can't carry script (SLN-1239)
+ */
+function noteRows<T extends NoteItem>(result: unknown): T[] {
+  return resultRows<T>(result).map((n) => (n.commentHtml ? { ...n, commentHtml: sanitizeCommentHtml(n.commentHtml) } : n));
+}
+
 async function loadNote(id: string): Promise<NoteItem | null> {
-  const [row] = resultRows<NoteItem>(await db.execute(sql`select ${NOTE_COLUMNS} from reading_notes n where n.id = ${id}::uuid`));
+  const [row] = noteRows<NoteItem>(await db.execute(sql`select ${NOTE_COLUMNS} from reading_notes n where n.id = ${id}::uuid`));
   return row ?? null;
 }
 
@@ -358,8 +366,7 @@ async function restoreNote(input: z.input<typeof noteSnapshotSchema>): Promise<N
         readingId: reading?.id ?? null,
         editionId: edition?.id ?? null,
         importId: imported?.id ?? null,
-        commentHtml: snap.kind === "quote" ? snap.commentHtml : null,
-        commentJson: snap.kind === "quote" ? (snap.commentJson ?? null) : null,
+        ...(snap.kind === "quote" ? thought("quote", snap.commentHtml, snap.commentJson) : { commentHtml: null, commentJson: null }),
       }),
     ]),
   );
@@ -378,7 +385,7 @@ const IN_GROUP_ORDER = sql`(case when n.page is not null and n.page_roman then 0
 /** A book's quotes and notes in their edition group's order (the page groups them); each with its reading's number */
 export async function getNotesForWork(workId: string): Promise<NoteItem[]> {
   const id = z.uuid().parse(workId);
-  return resultRows<NoteItem>(await db.execute(sql`select ${NOTE_COLUMNS} from reading_notes n where n.work_id = ${id}::uuid order by ${IN_GROUP_ORDER}`));
+  return noteRows<NoteItem>(await db.execute(sql`select ${NOTE_COLUMNS} from reading_notes n where n.work_id = ${id}::uuid order by ${IN_GROUP_ORDER}`));
 }
 
 /**
@@ -411,7 +418,7 @@ async function noteEditionsFor(editionIds: (string | null)[]): Promise<Record<st
 /** One quote or note with its book and its edition's summary (the notes routes, SLN-480); null when it no longer exists */
 export async function getReadingNote(noteId: string): Promise<{ note: NoteWithBook; edition: NoteEdition | null } | null> {
   const id = z.uuid().parse(noteId);
-  const [note] = resultRows<NoteWithBook>(await db.execute(sql`select ${NOTE_COLUMNS}, ${BOOK_COLUMN} from reading_notes n where n.id = ${id}::uuid`));
+  const [note] = noteRows<NoteWithBook>(await db.execute(sql`select ${NOTE_COLUMNS}, ${BOOK_COLUMN} from reading_notes n where n.id = ${id}::uuid`));
   if (!note) return null;
   const editionsUsed = await noteEditionsFor([note.editionId]);
   return { note, edition: note.editionId ? (editionsUsed[note.editionId] ?? null) : null };
@@ -437,7 +444,7 @@ export async function searchNotes(input: z.input<typeof searchNotesSchema>) {
         ? sql`${textSearchRank(haystack, sql`left(n.body, 300)`, query.q!)} desc, n.created_at desc, n.id asc`
         : sql`n.created_at ${direction}, n.id asc`;
   const offset = (query.page - 1) * query.perPage;
-  const rows = resultRows<NoteWithBook & { total: number }>(
+  const rows = noteRows<NoteWithBook & { total: number }>(
     await db.execute(sql`select ${NOTE_COLUMNS}, ${BOOK_COLUMN}, count(*) over ()::int as total
       from reading_notes n join works w on w.id = n.work_id left join editions ne on ne.id = n.edition_id ${where}
       order by ${order} limit ${query.perPage} offset ${offset}`),
@@ -510,7 +517,7 @@ export async function getPassageOfTheDay(
     .where(eq(readingNotes.kind, "quote"));
   const chosen = choosePassage(quotes, day, offset ?? 0);
   if (!chosen) return null;
-  const [note] = resultRows<NoteWithBook>(
+  const [note] = noteRows<NoteWithBook>(
     await db.execute(sql`select ${NOTE_COLUMNS}, ${BOOK_COLUMN} from reading_notes n where n.id = ${chosen.id}::uuid`),
   );
   if (!note) return null;
