@@ -152,7 +152,7 @@ describe("the screens", () => {
       .filter(({ mod, name }) => routed.get(mod)?.has(name))
       .map(({ file, name }) => `${file}: ${name}`);
     expect(direct).toEqual([]);
-  });
+  }, 30_000);
 
   it("route every write they call that can refuse, through any module, so its reason is not hidden", () => {
     const hidden = hiddenRefusals(SRC);
@@ -160,7 +160,8 @@ describe("the screens", () => {
     expect(unexplained).toEqual([]);
     // An allowance that no longer applies goes
     expect(Object.keys(UNROUTED_REFUSALS).filter((key) => !hidden.has(key))).toEqual([]);
-  });
+    // It reads every source file: about 3 s alone, longer beside the database suites
+  }, 30_000);
 
   it("find a refusal raised in another module, as the reading import's were", () => {
     const root = mkdtempSync(path.join(tmpdir(), "refusal-reach-"));
