@@ -4,6 +4,7 @@ import { crossOriginRefusal } from "@/lib/api/same-origin";
 import { PAGE_SIZES } from "@/lib/utils/pagination";
 import { perPageCookieName } from "@/lib/utils/preference-cookies";
 import { makeNonce, READER_PAGE_RE, readerCsp } from "@/lib/reader/csp";
+import { catalogueCsp } from "@/lib/page-csp";
 import { LIBRARY_SORT_COOKIE, parseLibrarySortPreference } from "@/lib/library/sort-preference";
 
 /**
@@ -28,10 +29,12 @@ import { LIBRARY_SORT_COOKIE, parseLibrarySortPreference } from "@/lib/library/s
  * A mistyped e-book address is left to its page, whose not-found view leads
  * back to eBooks (SLN-864); the pages never query with an id that is not one.
  *
- * A reader page gets its Content-Security-Policy with a fresh nonce. Its
- * durtal-device cookie is not made here: two reader pages opened at once
- * would make two (SLN-668); the reader asks for one under a lock instead
- * (src/lib/reader/device-handshake.ts).
+ * Every page gets a Content-Security-Policy with a fresh nonce: the reader's
+ * own, or the catalogue's (SLN-1240). A file of public/ gets none: the
+ * service worker would take it as its own and could no longer fetch a map
+ * tile. A reader page's durtal-device cookie is not made here: two reader
+ * pages opened at once would make two (SLN-668); the reader asks for one
+ * under a lock instead (src/lib/reader/device-handshake.ts).
  */
 export function proxy(request: NextRequest) {
   const readable = readableAddress(request.nextUrl);
@@ -44,8 +47,17 @@ export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/api/")) {
     return crossOriginRefusal(request) ?? undefined;
   }
-  if (READER_PAGE_RE.test(request.nextUrl.pathname)) return readerPage(request);
-  if (request.method !== "GET") return;
+  if (PUBLIC_FILE_RE.test(request.nextUrl.pathname)) return;
+  if (READER_PAGE_RE.test(request.nextUrl.pathname)) return withPolicy(request, readerCsp);
+  return (request.method === "GET" && savedPreferences(request)) || withPolicy(request, catalogueCsp);
+}
+
+/** A file of public/ or one of the app's icons */
+const PUBLIC_FILE_RE =
+  /^\/(?:(?:fonts|icons|textures|vendor)\/|(?:sw\.js|offline-assets\.json|favicon\.ico|icon\.svg|apple-icon\.png|manifest\.webmanifest)$)/;
+
+/** A list page opened without its saved page size or sort, sent to the address with them */
+function savedPreferences(request: NextRequest) {
   const url = request.nextUrl.clone();
   if (url.pathname === "/library" && !url.searchParams.has("sort")) {
     const savedSort = parseLibrarySortPreference(request.cookies.get(LIBRARY_SORT_COOKIE)?.value);
@@ -58,7 +70,7 @@ export function proxy(request: NextRequest) {
     const saved = Number(request.cookies.get(perPageCookieName(url.pathname))?.value);
     if (PAGE_SIZES.some((size) => size === saved)) url.searchParams.set("perPage", String(saved));
   }
-  if (url.href !== request.nextUrl.href) return NextResponse.redirect(url);
+  return url.href !== request.nextUrl.href ? NextResponse.redirect(url) : null;
 }
 
 /** A script, style, font, image or hot reload of the build, read on any name */
@@ -95,10 +107,10 @@ function decodes(segment: string) {
   }
 }
 
-/** The reader's policy on the request (Next.js puts its nonce on its own scripts) and on the answer */
-function readerPage(request: NextRequest) {
+/** A page's policy on the request (Next.js puts its nonce on its own scripts) and on the answer */
+function withPolicy(request: NextRequest, policy: typeof readerCsp) {
   const nonce = makeNonce();
-  const csp = readerCsp(nonce, {
+  const csp = policy(nonce, {
     development: process.env.NODE_ENV === "development",
     cdnUrl: process.env.EBOOK_CDN_URL,
   });
