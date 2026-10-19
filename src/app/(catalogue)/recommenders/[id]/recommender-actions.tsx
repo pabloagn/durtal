@@ -10,7 +10,7 @@ import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { RecommenderFormDialog } from "@/components/recommenders/recommender-form-dialog";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
-import { deleteRecommender } from "@/lib/actions/catalogue-client";
+import { deleteRecommenderFromPage } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
 
 /** Copy / Edit / Delete for a recommender page, like the author header menu. */
@@ -40,10 +40,9 @@ export function RecommenderActions({
 
   async function remove() {
     try {
-      await deleteRecommender(recommender.id);
+      // On to the list in the action's own response (SLN-1330)
+      await deleteRecommenderFromPage(recommender.id);
       toast.success(`${recommender.name} deleted. Books kept.`);
-      router.push("/recommenders");
-      router.refresh();
     } catch (error) {
       toast.error(refusalMessage(error, "Could not delete the recommender"));
     }

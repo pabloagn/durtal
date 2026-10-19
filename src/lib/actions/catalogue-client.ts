@@ -4,6 +4,24 @@ import * as actions from "./catalogue-ui";
 import type { ActionResult } from "./action-result";
 import { ActionRefusal } from "./action-refusal";
 
+/** Next's redirect, which the router follows on its own */
+const isRedirect = (error: unknown) =>
+  typeof error === "object" && error !== null && typeof (error as { digest?: unknown }).digest === "string" && (error as { digest: string }).digest.startsWith("NEXT_REDIRECT;");
+
+/**
+ * A delete from the record's page: null once its action redirected to the
+ * list (SLN-1330), else the outcome the page must still report. The router
+ * goes to the list with the response it already has.
+ */
+async function leaving<T>(result: Promise<ActionResult<T>>): Promise<T | null> {
+  try {
+    return await value(result);
+  } catch (error) {
+    if (isRedirect(error)) return null;
+    throw error;
+  }
+}
+
 /** Unwrap on the client, after the deliberate refusal crossed as data. */
 async function value<T>(result: Promise<ActionResult<T>>): Promise<T> {
   const outcome = await result;
@@ -984,4 +1002,44 @@ export async function findOrCreateAuthor(
   ...args: Parameters<typeof actions.findOrCreateAuthor>
 ) {
   return value(actions.findOrCreateAuthor(...args));
+}
+
+export async function deleteCollectionFromPage(id: string) {
+  return leaving(actions.deleteCollectionFromPage(id));
+}
+
+export async function deleteFilmFromPage(id: string) {
+  return leaving(actions.deleteFilmFromPage(id));
+}
+
+export async function deleteWorkFromPage(id: string) {
+  return leaving(actions.deleteWorkFromPage(id));
+}
+
+export async function removeOrganizationFromPage(id: string) {
+  return leaving(actions.removeOrganizationFromPage(id));
+}
+
+export async function deletePaintingFromPage(id: string) {
+  return leaving(actions.deletePaintingFromPage(id));
+}
+
+export async function deleteAuthorFromPage(id: string) {
+  return leaving(actions.deleteAuthorFromPage(id));
+}
+
+export async function deletePerfumeFromPage(id: string) {
+  return leaving(actions.deletePerfumeFromPage(id));
+}
+
+export async function removeVenueFromPage(id: string) {
+  return leaving(actions.removeVenueFromPage(id));
+}
+
+export async function deleteRecommenderFromPage(id: string) {
+  return leaving(actions.deleteRecommenderFromPage(id));
+}
+
+export async function deleteSeriesFromPage(id: string) {
+  return leaving(actions.deleteSeriesFromPage(id));
 }
