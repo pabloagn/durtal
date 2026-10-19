@@ -270,7 +270,8 @@ export function JournalRows({ rows }: { rows: JournalItem[] }) {
                     <span className="hidden text-fg-secondary sm:inline-flex" aria-label={FORMAT_LABEL[row.format]} data-tooltip={FORMAT_LABEL[row.format]} role="img">
                       <SpriteIcon name={FORMAT_ICON[row.format]} className="h-4 w-4" />
                     </span>
-                    <RatingStars value={row.rating} />
+                    {/* No empty stars on a reading without a rating (SLN-1096) */}
+                    {row.rating != null && <RatingStars value={row.rating} />}
                     {row.status === "reading" && <LogButton reading={row.reading} title={row.title} />}
                     {row.status === "paused" && <ResumeButton reading={row.reading} compact />}
                     <JournalRowMenu reading={row.reading} title={row.title} />

@@ -18,8 +18,10 @@ vi.mock("next/dynamic", async () => {
     },
   };
 });
+const goalState = vi.hoisted(() => ({ has: false }));
 vi.mock("@/lib/actions/reading-goals", () => ({
   getGoalProgress: vi.fn(async () => []),
+  hasReadingGoals: vi.fn(async () => goalState.has),
   getGoalDialogData: vi.fn(async () => ({ year: 2025, goals: [], workTypes: [], history: [] })),
   setReadingGoal: vi.fn(async () => ({})),
   removeReadingGoal: vi.fn(async () => ({})),
@@ -235,6 +237,16 @@ describe("the stats charts", () => {
     expect(document.querySelector("dialog[open]")!.textContent).toContain("Set a reading goal");
     // The Year in review: the year's own review, since 2025 has finished books
     expect(host.querySelector("[data-stats-review]")!.getAttribute("href")).toBe("/reading/year/2025");
+  });
+
+  it("says Edit reading goals when this year has one (SLN-1096)", async () => {
+    goalState.has = true;
+    try {
+      await page();
+      expect((host.querySelector("[data-goal-open]") as HTMLButtonElement).textContent).toBe("Edit reading goals");
+    } finally {
+      goalState.has = false;
+    }
   });
 });
 

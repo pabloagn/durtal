@@ -31,6 +31,9 @@ describe("the header control", () => {
     expect(readingControlLabel([base], { ebook: true })).toBe("Reading · p. 212 of 480 · 44%");
     expect(readingControlLabel([base])).toBe("Reading · p. 212 of 480 · 44%");
     expect(readingControlLabel([{ ...base, unit: "percent" }])).toBe("Reading · 44%");
+    // No stored share: worked out from the page, else left out, never "0%" (SLN-1096)
+    expect(readingControlLabel([{ ...base, currentPage: 250, totalPages: 500, currentPercent: null }])).toBe("Reading · p. 250 of 500 · 50%");
+    expect(readingControlLabel([{ ...base, currentPage: 250, totalPages: null, currentPercent: null }])).toBe("Reading · p. 250");
     expect(readingControlLabel([{ ...base, unit: "minutes", currentMinutes: 192, totalMinutes: 580 }])).toBe("Reading · 3:12 of 9:40");
     expect(readingControlLabel([{ ...base, status: "paused" }])).toBe("Paused at 44%");
     expect(readingControlLabel([done("2024-04-14")])).toBe("Read · 14 Apr 2024");

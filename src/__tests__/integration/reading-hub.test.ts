@@ -242,6 +242,10 @@ describe.skipIf(!url)("the reading hub with PostgreSQL", () => {
     expect(zona.openFingerprint).toBe((await getOpenReadings())[0].fingerprint);
     expect(all[2]).toMatchObject({ state: "read", reads: 2, catalogueStatus: "wanted", openReadingId: null });
   });
+  it("lists the picker's numbered titles in numeric order (SLN-1096)", async () => {
+    for (const title of ["Survey Book 10", "Survey Book 2", "Survey Book 1", "Survey Book 20", "Survey Book 11"]) await book(title);
+    expect((await searchBooksToRead("survey")).map((b) => b.title)).toEqual(["Survey Book 1", "Survey Book 2", "Survey Book 10", "Survey Book 11", "Survey Book 20"]);
+  });
   it("bounds both hub sections without truncating their counts or global consumers", async () => {
     for (let i=0;i<20;i++) await read(await book(`Bounded open ${i}`),{status:i<10?"reading":"paused"});
     const result = await getReadingHubOpen("2026-10-17");

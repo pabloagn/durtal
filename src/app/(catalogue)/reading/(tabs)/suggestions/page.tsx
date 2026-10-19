@@ -142,7 +142,19 @@ export default async function SuggestionsPage({ searchParams }: { searchParams: 
               )}
             </>
           ) : (
-            <EmptyState
+            // Owned is the default scope: with nothing owned left to read, the way out is the wider scope (SLN-1096)
+            params.scope === "owned" && pool.length > 0 && !pool.some((b) => b.owned) ? (
+              <EmptyState
+                icon={Sparkles}
+                title={ctx.books.some((b) => b.owned) ? "You have read every book you own" : "You don't own any books yet"}
+                description="Suggestions start from the books you own. Every book in your catalogue can be suggested instead."
+                action={
+                  <Link href={`/reading/suggestions${suggestionQuery({ ...params, scope: "all", page: 1, pick: undefined })}`} className={`${buttonClass("secondary")} pointer-coarse:h-11`}>
+                    Suggest from every book
+                  </Link>
+                }
+              />
+            ) : <EmptyState
               icon={Sparkles}
               title={pool.length ? "Nothing matches these constraints" : "Nothing to suggest yet"}
               description={pool.length ? "Widen the length, the language or the scope." : "Books you own and have not read show here, with their reasons."}

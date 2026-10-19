@@ -12,7 +12,7 @@ import { BarChart } from "@/components/reading/charts/bar-chart";
 import { CalendarHeatmap } from "@/components/reading/charts/calendar-heatmap";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { Footnote, NameList, NumberTiles, RankList, StatsSection, audioNote } from "@/components/reading/stats-parts";
-import { getGoalProgress } from "@/lib/actions/reading-goals";
+import { getGoalProgress, hasReadingGoals } from "@/lib/actions/reading-goals";
 import { getAppSettings } from "@/lib/actions/settings";
 import { readingDay } from "@/lib/reading/dates";
 import { appTimeZone } from "@/lib/utils/date";
@@ -90,7 +90,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
       year === null ? Promise.resolve([]) : getGoalProgress(year),
     ]);
   const named = parseStatsYear(param, [Number(Array.isArray(param) ? param[0] : param)], current);
-  const [years, finished, first] = await Promise.all([statsYears(), finishedYears(), sections(named)]);
+  const [years, finished, first, hasGoals] = await Promise.all([statsYears(), finishedYears(), sections(named), hasReadingGoals(current)]);
   const year = parseStatsYear(param, years, current);
   const [numbers, months, days, rated, length, langs, authors, written, where, shelf, pile, recommenders, dropped, inputs, goals] =
     year === named ? first : await sections(year);
@@ -104,7 +104,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
         title="Reading"
         actions={
           <>
-            <GoalDialogButton />
+            <GoalDialogButton editing={hasGoals} />
             <Link href={review} className={`${buttonClass("secondary")} pointer-coarse:h-11`} data-stats-review="">
               Year in review
             </Link>
@@ -238,7 +238,8 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                           }))}
                           columns={["Weekday", timed ? "Minutes" : "Sessions"]}
                         />
-                        <BarChart
+                        {/* Only sessions with a start time have a part of day; by hand, Log progress asks for none (SLN-1096) */}
+                        {days.partsOfDay.some((p) => p.sessions > 0) && <BarChart
                           label="Reading by time of day"
                           bars={days.partsOfDay.map((p) => ({
                             label: PARTS[p.part],
@@ -248,7 +249,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                           tone="blue"
                           columns={["Time of day", timed ? "Minutes" : "Sessions"]}
                           footnote={days.withoutStart ? `${count(days.withoutStart, "session")} with no start time ${days.withoutStart === 1 ? "is" : "are"} left out.` : undefined}
-                        />
+                        />}
                       </>
                     );
                   })()}
