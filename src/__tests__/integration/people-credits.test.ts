@@ -74,7 +74,10 @@ import {
   getPersonRoles,
   getPersonWorkCounts,
   getPersonWorkCountsByKind,
+  getPersonEditFingerprint,
+  updateAuthor,
 } from "@/lib/actions/authors";
+import { STALE_PERSON } from "@/lib/catalogue/person-fingerprint";
 import { updateWork, getLibraryStats } from "@/lib/actions/works";
 import { updateEdition } from "@/lib/actions/editions";
 import { loadDataset } from "@/lib/harmonization/store";
@@ -524,6 +527,35 @@ describe.skipIf(!url)("shared people and domain-scoped credits", () => {
     ).toContain(p.id);
     await updatePerson(p.id, { birthDay: null });
     expect((await getPerson(p.id))?.zodiacSign).toBeNull();
+  });
+  it("refuses a save from a stale Edit person, and saves from a current one (SLN-1244)", async () => {
+    const p = await person("Jean Genet", ["book"]);
+    const read = () => getPersonEditFingerprint(p.id);
+    // Tabs A and B open Edit person on the same person
+    const seen = await read();
+    // A sets the real name with what it read
+    await updateAuthor(p.id, { realName: "Jean Genet (A)" }, seen!);
+    // B, opened before A saved, saves the website and its old real name: refused
+    await expect(
+      updateAuthor(p.id, { website: "https://example.org/b", realName: null }, seen!),
+    ).rejects.toMatchObject({ name: "ExpectedActionError", message: STALE_PERSON });
+    const [stored] = await c`select real_name, website from authors where id=${p.id}`;
+    expect(stored).toEqual({ real_name: "Jean Genet (A)", website: null });
+    // After a reload, B's save lands
+    await updateAuthor(p.id, { website: "https://example.org/b", realName: "Jean Genet (A)" }, (await read())!);
+    const [after] = await c`select real_name, website from authors where id=${p.id}`;
+    expect(after).toEqual({ real_name: "Jean Genet (A)", website: "https://example.org/b" });
+    // A save with no fingerprint works as before; an alias does not touch it
+    await updateAuthor(p.id, { goodreadsId: "123" });
+    const before = await read();
+    await updatePerson(p.id, { aliases: ["Genet"] });
+    expect(await read()).toBe(before);
+    // Deleted in another tab: said so, not "reload"
+    const gone = await person("Jean Genet II", ["book"]);
+    const goneSeen = await getPersonEditFingerprint(gone.id);
+    await c`delete from authors where id=${gone.id}`;
+    await expect(updateAuthor(gone.id, { website: "https://example.org/c" }, goneSeen!))
+      .rejects.toMatchObject({ message: "This person no longer exists." });
   });
   it("rolls back shared and legacy deletion when credits protect the identity", async () => {
     const p = await person();

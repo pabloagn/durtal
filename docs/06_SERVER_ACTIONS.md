@@ -304,11 +304,15 @@ findOrCreateAuthor(name: string): Promise<Author>
 
 Finds an existing author by name (case-insensitive `ilike` match) or creates a new one. The work edit dialogs use it when the user adds a new author. The wizard, fast track and the edition dialogs do not: they send the name and the new author is written with the book.
 
-### `updateAuthor(id, input)`
+### `updateAuthor(id, input, fingerprint?)`
 
 ```typescript
-updateAuthor(id: string, input: Partial<CreateAuthorInput>): Promise<Author>
+updateAuthor(id: string, input: Partial<CreateAuthorInput>, fingerprint?: string): Promise<{ id: string; slug: string | null }>
 ```
+
+Returns `slug` when a new name gave the person a new address.
+
+`fingerprint` (SLN-1244) is `personEditFingerprint` (`src/lib/catalogue/person-fingerprint.ts`): md5 of every field Edit person shows, which the dialog reads with `getPersonEditFingerprint(id)` just before the person when it opens. When given, the write locks the person and checks it in the same atomic; a stale one is refused with "This person changed in another tab or window. Reload to see it, then save again." and the dialog stays open with its values. Aliases, photos, credits and the favourite mark do not change it. A person deleted or merged away since the dialog opened is refused with "This person no longer exists."
 
 ### `deleteAuthor(id)`
 

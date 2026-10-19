@@ -11,6 +11,11 @@ import { deletePerson, getPersonMergePreview, mergePeople } from "./people";
 
 import { db } from "@/lib/db";
 import { SLUG_RACE_MESSAGE, withReadableErrors } from "@/lib/db/errors";
+import { ExpectedActionError } from "@/lib/actions/expected-error";
+import { assertSql } from "@/lib/harmonization/store";
+import { personEditFingerprint, STALE_PERSON } from "@/lib/catalogue/person-fingerprint";
+import { readFingerprint } from "@/lib/catalogue/work-store";
+import { fingerprintSchema } from "@/lib/validations/records";
 import { compareWorks } from "@/lib/utils/title-order";
 import { authors, workAuthors, editionContributors, countries, comments, activityEvents, galleryLayouts, media, works } from "@/lib/db/schema";
 import { authorObjects, deleteUnusedObjects } from "@/lib/s3/cleanup";
@@ -699,8 +704,18 @@ export async function searchAuthorsLite(query: string) {
   });
 }
 
-export async function updateAuthor(id: string, rawInput: UpdateAuthorInput) {
+/** Edit person reads this before the person it shows (SLN-1244) */
+export async function getPersonEditFingerprint(id: string) {
+  return readFingerprint(personEditFingerprint(parseId(id)));
+}
+
+/**
+ * `fingerprint`: what Edit person read when it opened (`personEditFingerprint`).
+ * Given, a save over a change made since then is refused (SLN-1244).
+ */
+export async function updateAuthor(id: string, rawInput: UpdateAuthorInput, fingerprint?: string) {
   parseId(id);
+  const expected = fingerprint === undefined ? null : fingerprintSchema.parse(fingerprint);
   const input = updateAuthorSchema.parse(rawInput);
   // Snapshot for activity diffing + zodiac recomputation
   const prev = await db.query.authors.findFirst({
@@ -711,6 +726,8 @@ export async function updateAuthor(id: string, rawInput: UpdateAuthorInput) {
       birthMonth: true, birthDay: true,
     },
   });
+  // Deleted or merged away since Edit person opened: not a change to reload
+  if (expected && !prev) throw new ExpectedActionError("This person no longer exists.");
 
   // Recompute zodiac sign if birth month or day is changing
   let zodiacSign: string | null | undefined;
@@ -736,7 +753,15 @@ export async function updateAuthor(id: string, rawInput: UpdateAuthorInput) {
   };
 
   await withReadableErrors(
-    () => db.update(authors).set(updatePayload).where(eq(authors.id, id)),
+    async () => {
+      if (!expected) return void (await db.update(authors).set(updatePayload).where(eq(authors.id, id)));
+      // Checked with the person locked: two saves of one view never both land
+      await atomic((d) => [
+        d.execute(sql`select id from authors where id = ${id}::uuid for update`),
+        d.execute(assertSql(sql`coalesce(${personEditFingerprint(id)}=${expected},false)`, STALE_PERSON)),
+        d.update(authors).set(updatePayload).where(eq(authors.id, id)),
+      ]);
+    },
     { unique: SLUG_RACE_MESSAGE },
   );
 
