@@ -6,10 +6,11 @@ import { CapAligned } from "@/components/shared/cap-aligned";
 import { Input } from "@/components/ui/input";
 import { usePublisherSearch } from "@/hooks/use-publisher-search";
 import {
-  createPublisherFromName,
   type getPublisherOptions,
 } from "@/lib/actions/publishers";
 import { normalizeSearchText } from "@/lib/utils/search-text";
+import { createPublisherFromName } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 export type PublisherOption = Omit<
   Awaited<ReturnType<typeof getPublisherOptions>>[number],
   "parentName" | "groupName"
@@ -86,8 +87,8 @@ export function PublisherSearch({
       onSelect(created);
       setQuery("");
       toast.success(`Created ${created.name}`);
-    } catch {
-      toast.error("Could not create the publisher");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not create the publisher"));
     } finally {
       setCreating(false);
     }

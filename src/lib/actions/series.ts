@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { bookCondition, requireBookWorks } from "@/lib/catalogue/book-boundary";
 import { ownedWorkCondition } from "@/lib/catalogue/holdings";
 
@@ -344,7 +345,7 @@ export async function addWorksToSeries(seriesId: string, workIds: string[]) {
     .select({ id: series.id })
     .from(series)
     .where(eq(series.id, seriesId));
-  if (!target) throw new Error("This series no longer exists");
+  if (!target) throw new ExpectedActionError("This series no longer exists");
   const [current, members] = await Promise.all([
     db
       .select({ id: works.id, seriesId: works.seriesId, title: works.title, position: works.seriesPosition })

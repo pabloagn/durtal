@@ -1250,6 +1250,15 @@ dialog::backdrop {
     width: 44px;
     height: 44px;
   }
+  /* Its action (Undo, Open that book) is a 44px tall target too */
+  :root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] :is([data-button], [data-cancel]) {
+    position: relative;
+  }
+  :root [data-sonner-toaster] [data-sonner-toast][data-styled="true"] :is([data-button], [data-cancel])::after {
+    content: "";
+    position: absolute;
+    inset: -10px 0;
+  }
 }
 
 /* A toast's icon sits on its first line (a 1.5 line-height title), not in the

@@ -6,10 +6,11 @@ import { toast } from "@/lib/notifications/toast";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "./delete-confirm-dialog";
-import { deleteInstance, getCopyDeleteSummary } from "@/lib/actions/instances";
+import { getCopyDeleteSummary } from "@/lib/actions/instances";
 import { copyDeleteCascadeMessage, DELETE_CASCADE_COUNTING } from "@/lib/catalogue/delete-cascade";
 import { useDeleteSummary } from "@/components/books/use-delete-summary";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
+import { deleteInstance } from "@/lib/actions/catalogue-client";
 
 interface InstanceDeleteButtonProps {
   instanceId: string;

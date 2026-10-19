@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
-import { updatePerfume } from "@/lib/actions/perfumes";
+import { updatePerfume } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import type { NotePosition } from "@/lib/catalogue/perfume-labels";
 import { NotePyramid } from "./note-pyramid";
 import { NotePyramidEditor, type NoteEntry } from "./perfume-fields";
@@ -88,7 +89,7 @@ export function NotesSection({
       setEditing(false);
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not save the notes");
+      toast.error(refusalMessage(err, "Could not save the notes"));
     } finally {
       setSaving(false);
     }

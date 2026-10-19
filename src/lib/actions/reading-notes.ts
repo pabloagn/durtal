@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { randomUUID } from "node:crypto";
 import { eq, getTableColumns, sql } from "drizzle-orm";
 import { z } from "zod/v4";
@@ -114,7 +115,7 @@ async function noteOrThrow(id: string) {
   const [row] = await db.select({ ...getTableColumns(readingNotes),
     fingerprint: sql<string>`md5(to_jsonb(${readingNotes})::text)`,
   }).from(readingNotes).where(eq(readingNotes.id, id));
-  if (!row) throw new Error("This note no longer exists");
+  if (!row) throw new ExpectedActionError("This note no longer exists");
   return row;
 }
 
@@ -134,8 +135,8 @@ async function references(workId: string, readingId: string | null | undefined, 
       .select({ id: readings.id, workId: readings.workId, editionId: readings.editionId, totalPages: readings.totalPages })
       .from(readings)
       .where(eq(readings.id, readingId));
-    if (!row) throw new Error("This reading no longer exists");
-    if (row.workId !== workId) throw new Error("This reading belongs to another book");
+    if (!row) throw new ExpectedActionError("This reading no longer exists");
+    if (row.workId !== workId) throw new ExpectedActionError("This reading belongs to another book");
     reading = row;
   }
   // A note on a reading is on its edition unless it names another
@@ -143,8 +144,8 @@ async function references(workId: string, readingId: string | null | undefined, 
   let pageCount: number | null = null;
   if (edition) {
     const [row] = await db.select({ workId: editions.workId, pageCount: editions.pageCount }).from(editions).where(eq(editions.id, edition));
-    if (!row) throw new Error("This edition no longer exists");
-    if (row.workId !== workId) throw new Error("This edition belongs to another book");
+    if (!row) throw new ExpectedActionError("This edition no longer exists");
+    if (row.workId !== workId) throw new ExpectedActionError("This edition belongs to another book");
     pageCount = row.pageCount;
   }
   // A page's total (SLN-480): the reading's when the reading is on the note's own edition, else the edition's page count
@@ -160,7 +161,7 @@ function pagePercent(page: number | null, pageRoman: boolean, totalPages: number
 /** His thought, sanitized; an empty editor is no thought */
 function thought(kind: NoteKind, html: string | null | undefined, json: unknown) {
   if (html == null && json == null) return { commentHtml: null, commentJson: null };
-  if (kind !== "quote") throw new Error("Only a quote carries a thought");
+  if (kind !== "quote") throw new ExpectedActionError("Only a quote carries a thought");
   const clean = html ? sanitizeCommentHtml(html) : "";
   if (!stripHtmlToText(clean).trim()) return { commentHtml: null, commentJson: null };
   return { commentHtml: clean, commentJson: json ?? null };
@@ -254,8 +255,8 @@ async function updateNote(input: z.input<typeof updateReadingNoteSchema>): Promi
     pageRoman: patch.pageRoman !== undefined ? patch.pageRoman : page == null ? false : note.pageRoman,
   };
   const placeError = pagePlaceError(place);
-  if (placeError) throw new Error(placeError);
-  if (patch.percent != null && page != null) throw new Error(PAGE_AND_PERCENT);
+  if (placeError) throw new ExpectedActionError(placeError);
+  if (patch.percent != null && page != null) throw new ExpectedActionError(PAGE_AND_PERCENT);
   Object.assign(values, place);
   // The percent is a snapshot: worked out again only when the page, the edition or the reading changes
   const moved =
@@ -337,7 +338,7 @@ async function restoreNote(input: z.input<typeof noteSnapshotSchema>): Promise<N
           'The highlight or book changed, or Undo expired. Nothing was restored.') from restored`),
     ]));
     const restored = await loadNote(snap.id);
-    if (!restored) throw new Error("This quote no longer exists");
+    if (!restored) throw new ExpectedActionError("This quote no longer exists");
     changed();
     return restored;
   }

@@ -13,7 +13,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
-import { createSeries, updateSeries } from "@/lib/actions/series";
+import { createSeries, updateSeries } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 interface Existing {
   id: string;
@@ -100,8 +101,8 @@ export function SeriesFormDialog({
         close();
         if (isEdit) router.refresh();
         else router.push(`/series/${result.value.id}?add=1`);
-      } catch {
-        toast.error("Could not save the series. Try again.");
+      } catch (error) {
+        toast.error(refusalMessage(error, "Could not save the series. Try again."));
       }
     });
   }

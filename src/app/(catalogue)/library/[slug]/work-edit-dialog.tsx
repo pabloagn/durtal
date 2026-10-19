@@ -7,7 +7,6 @@ import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { OptionsNotice } from "@/components/shared/options-notice";
-import { updateWork } from "@/lib/actions/works";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import {
   WorkForm,
@@ -17,6 +16,8 @@ import {
 } from "@/components/books/work-form";
 import { useEditOptions } from "@/hooks/use-edit-options";
 import { WORK_EDIT_GROUPS, withChosen, type EditOption } from "@/lib/catalogue/edit-options";
+import { updateWork } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 interface WorkEditDialogProps {
   work: {
@@ -106,7 +107,7 @@ export function WorkEditDialog({
         triggerActivityRefresh();
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "Failed to update work",
+          refusalMessage(err, "Failed to update work"),
         );
       }
     });

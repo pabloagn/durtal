@@ -1,5 +1,6 @@
 "use server";
 
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { and, desc, eq, sql, type SQL } from "drizzle-orm";
@@ -225,30 +226,30 @@ const KIND_NAMES: Record<WorkKind, string> = {
  */
 export async function createWorkRelation(input: WorkRelationInput) {
   const v = relationSchema.parse(input);
-  if (v.fromWorkId === v.toWorkId) throw new Error("A work cannot be linked to itself");
-  if (v.sourceRecordId && v.newSource) throw new Error("Cite one source");
+  if (v.fromWorkId === v.toWorkId) throw new ExpectedActionError("A work cannot be linked to itself");
+  if (v.sourceRecordId && v.newSource) throw new ExpectedActionError("Cite one source");
   const ends = await db
     .select({ id: works.id, kind: works.kind, title: works.title })
     .from(works)
     .where(sql`${works.id} in (${v.fromWorkId}::uuid, ${v.toWorkId}::uuid)`);
   const from = ends.find((w) => w.id === v.fromWorkId);
   const to = ends.find((w) => w.id === v.toWorkId);
-  if (!from || !to) throw new Error("Work not found");
+  if (!from || !to) throw new ExpectedActionError("Work not found");
   if (!relationAllowed(v.type, from.kind, to.kind)) {
     const pairs = WORK_RELATION_PAIRS[v.type] ?? [];
-    throw new Error(
+    throw new ExpectedActionError(
       `${TYPE_NAMES[v.type]} joins ${pairs.map(([f, t]) => `${KIND_NAMES[f]} to ${KIND_NAMES[t]}`).join(" or ")}`,
     );
   }
   if (relationNeedsSource(v.type) && !v.sourceRecordId && !v.newSource)
-    throw new Error("An inspiration needs a source: say where it is stated");
+    throw new ExpectedActionError("An inspiration needs a source: say where it is stated");
   if (v.sourceRecordId) {
     const [source] = await db
       .select({ workId: sourceRecords.workId })
       .from(sourceRecords)
       .where(eq(sourceRecords.id, v.sourceRecordId));
     if (source?.workId !== from.id)
-      throw new Error(`Cite a source of ${from.title}`);
+      throw new ExpectedActionError(`Cite a source of ${from.title}`);
   }
   const cited = v.newSource
     ? await citeSource({
@@ -290,7 +291,7 @@ export async function deleteWorkRelation(id: string) {
     .delete(workRelations)
     .where(eq(workRelations.id, id))
     .returning({ id: workRelations.id });
-  if (!row) throw new Error("Link not found");
+  if (!row) throw new ExpectedActionError("Link not found");
   invalidate(CACHE_TAGS.works);
   return row;
 }

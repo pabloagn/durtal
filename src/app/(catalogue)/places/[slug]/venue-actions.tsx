@@ -10,8 +10,9 @@ import { EntityActionMenu } from "@/components/shared/entity-action-menu";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
-import { removeVenue, setVenueArchived } from "@/lib/actions/venue-pages";
 import { VenueCreateDialog, type EditableVenue } from "../venue-create-dialog";
+import { removeVenue, setVenueArchived } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /**
  * The venue's own actions beside its name, on the name's cap-height center:
@@ -45,7 +46,7 @@ export function VenueActions({
       toast.success(next ? `${venue.name} archived` : `${venue.name} restored`);
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not change the venue");
+      toast.error(refusalMessage(err, "Could not change the venue"));
     }
   }
 
@@ -96,7 +97,7 @@ export function VenueActions({
                   toast.success(`${venue.name} deleted`);
                   router.push("/places");
                 } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Could not delete the venue");
+                  toast.error(refusalMessage(err, "Could not delete the venue"));
                 }
               }}
             />

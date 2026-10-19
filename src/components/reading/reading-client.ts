@@ -7,6 +7,7 @@ import type { ReadingDetailRow } from "@/lib/reading/overview";
 import type { BookReadingSummary, ReadingStartDefaults } from "@/lib/reading/overview-types";
 import type { EditionOption, HomeOption } from "@/lib/reading/page-data";
 import type { ReadingEstimate } from "@/lib/reading/pace";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 /*
  * What the book page's reading pieces share in the browser (SLN-447): the
@@ -83,7 +84,7 @@ export const STALE = "This reading changed elsewhere";
 
 /** A failed write: the server's words in a toast; a stale reading refreshes the page */
 export function showError(err: unknown, refresh: () => void) {
-  const message = err instanceof Error ? err.message : "Could not save";
+  const message = refusalMessage(err, "Could not save");
   toast.error(message);
   if (message.startsWith(STALE)) refresh();
 }
