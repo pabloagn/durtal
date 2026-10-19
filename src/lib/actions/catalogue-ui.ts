@@ -31,6 +31,7 @@ import * as publisher_names from "./publisher-names";
 import * as poison from "./poison";
 import * as reading_bulk from "./reading-bulk";
 import * as reading_goals from "./reading-goals";
+import * as reading_import from "./reading-import";
 import * as reading_notes from "./reading-notes";
 import * as reading_queue from "./reading-queue";
 import * as recommenders from "./recommenders";
@@ -1084,4 +1085,46 @@ export async function deleteRecommenderFromPage(id: string) {
 
 export async function deleteSeriesFromPage(id: string) {
   return deleteThenLeave("/series", () => series.deleteSeries(id));
+}
+
+export async function decideImportRow(
+  ...args: Parameters<typeof reading_import.decideImportRow>
+) {
+  return actionResult(() => reading_import.decideImportRow(...args));
+}
+
+export async function decideImportSection(
+  ...args: Parameters<typeof reading_import.decideImportSection>
+) {
+  return actionResult(() => reading_import.decideImportSection(...args));
+}
+
+export async function rematchImport(
+  ...args: Parameters<typeof reading_import.rematchImport>
+) {
+  return actionResult(() => reading_import.rematchImport(...args));
+}
+
+export async function commitReadingImport(
+  ...args: Parameters<typeof reading_import.commitReadingImport>
+) {
+  return actionResult(() => reading_import.commitReadingImport(...args));
+}
+
+export async function undoReadingImport(
+  ...args: Parameters<typeof reading_import.undoReadingImport>
+) {
+  return actionResult(() => reading_import.undoReadingImport(...args));
+}
+
+export async function decideImportNote(
+  ...args: Parameters<typeof reading_import.decideImportNote>
+) {
+  return actionResult(() => reading_import.decideImportNote(...args));
+}
+
+export async function decideAllImportNotes(
+  ...args: Parameters<typeof reading_import.decideAllImportNotes>
+) {
+  return actionResult(() => reading_import.decideAllImportNotes(...args));
 }

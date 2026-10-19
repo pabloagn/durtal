@@ -1043,3 +1043,45 @@ export async function deleteRecommenderFromPage(id: string) {
 export async function deleteSeriesFromPage(id: string) {
   return leaving(actions.deleteSeriesFromPage(id));
 }
+
+export async function decideImportRow(
+  ...args: Parameters<typeof actions.decideImportRow>
+) {
+  return value(actions.decideImportRow(...args));
+}
+
+export async function decideImportSection(
+  ...args: Parameters<typeof actions.decideImportSection>
+) {
+  return value(actions.decideImportSection(...args));
+}
+
+export async function rematchImport(
+  ...args: Parameters<typeof actions.rematchImport>
+) {
+  return value(actions.rematchImport(...args));
+}
+
+export async function commitReadingImport(
+  ...args: Parameters<typeof actions.commitReadingImport>
+) {
+  return value(actions.commitReadingImport(...args));
+}
+
+export async function undoReadingImport(
+  ...args: Parameters<typeof actions.undoReadingImport>
+) {
+  return value(actions.undoReadingImport(...args));
+}
+
+export async function decideImportNote(
+  ...args: Parameters<typeof actions.decideImportNote>
+) {
+  return value(actions.decideImportNote(...args));
+}
+
+export async function decideAllImportNotes(
+  ...args: Parameters<typeof actions.decideAllImportNotes>
+) {
+  return value(actions.decideAllImportNotes(...args));
+}
