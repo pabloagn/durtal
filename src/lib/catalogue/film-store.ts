@@ -13,6 +13,7 @@ import { dateFromColumns } from "./dates";
 import { newDate, orderWithin, organizationRoleQueries, uuids, type Db } from "./work-store";
 import { textSearchCondition } from "@/lib/actions/utils/text-search";
 import { resultRows } from "@/lib/harmonization/store";
+import { systemWorkTaxonomyMatch } from "./taxonomy-storage";
 import type {
   filmOrganizationInputSchema,
   filmQuerySchema,
@@ -136,9 +137,9 @@ export function insertReleases(
 type FilmQuery = z.output<typeof filmQuerySchema>;
 
 function taxonomyMatch(itemId: string) {
-  return sql`exists(with recursive narrower(id) as (
+  return sql`(exists(with recursive narrower(id) as (
       select ${itemId}::uuid union select i.id from custom_taxonomy_items i join narrower n on i.parent_id=n.id)
-    select 1 from narrower n join custom_taxonomy_item_works t on t.item_id=n.id where t.work_id=${works.id})`;
+    select 1 from narrower n join custom_taxonomy_item_works t on t.item_id=n.id where t.work_id=${works.id}) or ${systemWorkTaxonomyMatch(works.id, itemId)})`;
 }
 /** Any of these people holds this role on the film */
 function creditedAs(roleId: string, personIds: string[]) {

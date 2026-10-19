@@ -1061,7 +1061,9 @@ Items in one family. **Actions**: Create, merge and delete items.
 
 ### Taxonomy Item (`/taxonomy/[familySlug]/[itemSlug]`)
 
-The works or editions linked to one item.
+The works or editions linked to one item. The count under the name, the item's row on its family page and the family's card count every open collection the family applies to (SLN-1157): a theme on two books and three films counts five. Books show as cards ("Books" when other kinds are tagged too, else "Associated works"); each other kind is a link with its count ("3 films") to its list filtered by the item, which also takes in narrower items. With nothing tagged, the empty state names only the kinds the family applies to ("No book or film is tagged Melancholy yet. Tag one from its page."); book genres and tags say they are chosen under Genres & tags in the edition form.
+
+A film, perfume or painting page tags its record in place with every family that applies to its kind, built-in ones included (Subjects, Themes, Keywords; Art types on a painting). A book's built-in families keep the work dialog, a perfume's positioned notes their own editor, and a painting's movements the painting form.
 
 ---
 
