@@ -242,6 +242,60 @@ Ruff configuration in `pyproject.toml`:
 
 ---
 
+## Local Preview and QA
+
+Front-end and speed checks run against a disposable preview, never the live app or database. CLAUDE.md requires the alignment audit, the design audit and `page-weight.js` before a front-end change is done.
+
+### The local preview
+
+`python3 scripts/qa/preview-local.py [flags]` starts PostgreSQL 16 in Docker on a loopback port, applies every migration, loads a small synthetic catalogue and serves the app on http://127.0.0.1:3410. The app's Neon driver is bridged to that database (`scripts/qa/neon-local-bridge.mjs`), which refuses any other host. No environment file, live database or S3 credential is read. Ctrl-C stops it and removes the container. The script's docstring has the detail of each flag.
+
+| Flag | What it does |
+|---|---|
+| `--port PORT` | Serve on PORT instead of 3410 |
+| `--start` | Serve the production build in `.next` (run `pnpm build` first) instead of `next dev` |
+| `--from-dump FILE` | Restore a `pg_dump --format=custom` backup (pg_dump 16) instead of the synthetic catalogue, apply the pending migrations and print the rows they changed: the rehearsal of a live migration |
+| `--seed-large N` | Add N perfumes, N films and N paintings (`seed-large.sql`) |
+| `--log-sql FILE` | Append every query the app sends, with its time and rows, to FILE as JSON lines |
+| `--s3-dir DIR` | Keep S3 objects as files under DIR, so uploads, imports and e-books work |
+| `--seed-reader` | Store and catalogue the e-book fixtures (needs `--s3-dir`) |
+| `--reader-large DIR` | With `--seed-reader`, also the large fixtures `make-ebook-fixtures.mjs --large DIR` wrote |
+| `--ebooks M` | Add M synthetic e-books with valid files and covers (needs `--s3-dir`) |
+| `--ebooks-acceptance` | With `--ebooks 6000` or `7000`, the library acceptance fixtures |
+| `--seed-highlights N` | Reader marks on the first N e-books (`seed-highlights.sql`) |
+| `--seed-places N` | N saved places on the first e-book (`seed-places.sql`) |
+| `--seed-review` | Spread the synthetic pending e-books over the review queue (`seed-review.sql`) |
+| `--seed-heavy-book` | A well-used book for `page-weight-heavy.json` (`seed-heavy-book.sql`) |
+| `--api-token` | A random `DURTAL_API_TOKEN` for this run, printed once |
+| `--upload-service DIR` | Run an e-book upload service for this preview, its state in the new folder DIR (needs `--s3-dir`) |
+
+For checks at scale, `scripts/qa/seed-scale.sql` adds about 5,000 books with their people, publishers, series, collections and venues to a running preview: `docker exec -i <durtal-preview container> psql -U durtal_preview -d durtal_preview < scripts/qa/seed-scale.sql` (`docker ps` names the container).
+
+**Seeded ids are valid UUIDs.** Use `gen_random_uuid()`, or, where a seed must refer to its own rows, a version-4 id built from a name (`seed_uuid` in `seed-scale.sql`, `vu` in `seed-heavy-book.sql`). Never `md5(…)::uuid`: `z.uuid()` refuses it, so every page that checks its id answers 404 (SLN-1167).
+
+### Audits in the page
+
+These run in a page after it has painted. Paste the file into the browser console, or evaluate its text with a headless browser (Playwright's `page.evaluate(source)`). Each returns JSON. Check at 1440, 390 and 320 px in Chromium, Firefox and WebKit.
+
+| Script | Finds | Passes when |
+|---|---|---|
+| `scripts/qa/alignment-audit.js` | Icons off the cap-height center of their text, controls off a heading's cap height, ghost buttons off their text edge | `issues` is empty (tolerance 0.5 px) |
+| `scripts/qa/design-audit.js` | Text under 4.5:1 (3:1 at 24 px or more), unnamed controls, nested controls; the sizes, colours, radii and icons in use | `lowContrast`, `unnamed` and `nested` are 0 |
+| `scripts/qa/overflow-audit.js` | Sideways scroll and the elements past the right edge, at phone width | `overflow` is 0 and `offenders` is empty |
+| `scripts/qa/touch-audit.js` | Controls under 44 × 44 px, with a coarse pointer emulated | `issues` is empty |
+| `scripts/qa/layout-audit.js` | Squeezed titles, commands that look like plain text, drifting edges in cards | No new finding (`phone-audit.mjs` marks those in `layout-audit-known.json` as known) |
+
+### Command-line checks
+
+Point these at a running preview.
+
+- `node scripts/qa/page-weight.js [baseUrl]`: each main route's HTML size and server time against its budget in `scripts/qa/page-weight.json`; exits 1 when one is over. `PAGE_WEIGHT_CONFIG=scripts/qa/page-weight-heavy.json` checks the heavy book (`--seed-heavy-book`).
+- `node scripts/qa/phone-audit.mjs [--base URL] [--strict] [route...]`: the overflow and layout audits at phone widths in headless Chrome.
+- `node scripts/qa/interaction-audit.mjs --disposable [--base URL] [route...]`: keyboard, focus, dialogs, reduced motion and touch with real key presses. It opens dialogs, so it refuses to run without `--disposable`.
+- `node scripts/qa/journeys.mjs --disposable [baseUrl] [journey ...]`: each open collection created, edited, found, exported and deleted the way a reader would.
+
+---
+
 ## Dependencies
 
 ### Node.js (Runtime)
