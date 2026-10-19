@@ -1,8 +1,8 @@
 /** What a location holds, by kind (SLN-575 follow-up) */
 export interface LocationItemCounts {
-  /** Book copies: deleted with the location */
+  /** Book copies. Any held item keeps a location from being deleted (SLN-1060) */
   copies: number;
-  /** Film copies, paintings and perfume bottles: they keep a location from being deleted */
+  /** Film copies, paintings and perfume bottles */
   films: number;
   paintings: number;
   perfumes: number;

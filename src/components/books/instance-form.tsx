@@ -113,6 +113,13 @@ export function newCopyDraft(
   };
 }
 
+/** Where a copy of this format is kept: printed books in a physical place, files in a digital one */
+function locationKindFor(format: string): "physical" | "digital" | null {
+  if (format === "hardcover" || format === "paperback") return "physical";
+  if (format === "ebook" || format === "pdf" || format === "epub") return "digital";
+  return null;
+}
+
 /** The default location (Settings, General) first; the others keep their order. */
 function sortLocations(
   locs: LocationOption[],
@@ -210,6 +217,14 @@ export function InstanceForm({
     value.format,
   );
   const isPhysicalFormat = ["hardcover", "paperback"].includes(value.format);
+  // A printed book is kept in a physical place and a file in a digital one, as
+  // a film copy is; an audiobook or other format may be either. A location the
+  // copy already has stays listed, so a saved place never reads as empty
+  // (SLN-1060)
+  const placeKind = locationKindFor(value.format);
+  const placeOptions = sortedLocations.filter(
+    (l) => !placeKind || l.type === placeKind || l.id === value.locationId,
+  );
 
   return (
     <div className="@container rounded-sm border border-glass-border bg-bg-secondary p-4">
@@ -227,47 +242,22 @@ export function InstanceForm({
 
       <div className="space-y-3">
         {ebookField}
-        {/* Location (required) */}
-        <FormColumns>
-          <Select
-            label="Location"
-            id={`inst-${index}-location`}
-            value={value.locationId}
-            onChange={(e) => {
-              onChange({
-                ...value,
-                locationId: e.target.value,
-                subLocationId: "",
-              });
-            }}
-            placeholder="Select location..."
-            options={sortedLocations.map((l) => ({
-              value: l.id,
-              label: `${l.name}, ${l.type === "digital" ? "digital" : "physical"}`,
-            }))}
-          />
-          {subLocations.length > 0 && (
-            <Select
-              label="Sub-location"
-              id={`inst-${index}-sublocation`}
-              value={value.subLocationId}
-              onChange={(e) => update("subLocationId", e.target.value)}
-              placeholder="Optional..."
-              options={subLocations.map((s) => ({
-                value: s.id,
-                label: s.name,
-              }))}
-            />
-          )}
-        </FormColumns>
-
         {/* Format & Condition */}
         <FormColumns>
           <Select
             label="Format"
             id={`inst-${index}-format`}
             value={value.format}
-            onChange={(e) => update("format", e.target.value)}
+            onChange={(e) => {
+              const format = e.target.value;
+              const kind = locationKindFor(format);
+              const keeps = !kind || selectedLocation?.type === kind;
+              onChange({
+                ...value,
+                format,
+                ...(keeps ? {} : { locationId: "", subLocationId: "" }),
+              });
+            }}
             placeholder="Select format..."
             options={INSTANCE_FORMATS.map((f) => ({
               value: f,
@@ -285,6 +275,40 @@ export function InstanceForm({
               label: COPY_CONDITION_LABELS[c],
             }))}
           />
+        </FormColumns>
+
+        {/* Location (required) */}
+        <FormColumns>
+          <Select
+            label="Location"
+            id={`inst-${index}-location`}
+            value={value.locationId}
+            onChange={(e) => {
+              onChange({
+                ...value,
+                locationId: e.target.value,
+                subLocationId: "",
+              });
+            }}
+            placeholder="Select location..."
+            options={placeOptions.map((l) => ({
+              value: l.id,
+              label: `${l.name}, ${l.type === "digital" ? "digital" : "physical"}`,
+            }))}
+          />
+          {subLocations.length > 0 && (
+            <Select
+              label="Sub-location"
+              id={`inst-${index}-sublocation`}
+              value={value.subLocationId}
+              onChange={(e) => update("subLocationId", e.target.value)}
+              placeholder="Optional..."
+              options={subLocations.map((s) => ({
+                value: s.id,
+                label: s.name,
+              }))}
+            />
+          )}
         </FormColumns>
 
         {isPhysicalFormat && (

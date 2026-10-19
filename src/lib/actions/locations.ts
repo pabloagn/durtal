@@ -2,9 +2,8 @@
 
 import { db } from "@/lib/db";
 import { locations, subLocations } from "@/lib/db/schema";
-import { eq, asc, sql } from "drizzle-orm";
+import { eq, asc, sql, type SQL } from "drizzle-orm";
 import { atomic } from "@/lib/db/atomic";
-import { lockReaderEbooks, withReaderWriteRetry } from "@/lib/reading/reader-write-locks";
 import { cached, invalidate, CACHE_TAGS } from "@/lib/cache";
 import {
   createLocationSchema,
@@ -17,8 +16,14 @@ import {
   type UpdateSubLocationInput,
 } from "@/lib/validations/locations";
 import { parseId } from "@/lib/validations/helpers";
-import { NO_LOCATION_ITEMS, type LocationItemCounts } from "@/lib/catalogue/location-items";
-import { resultRows } from "@/lib/harmonization/store";
+import {
+  describeLocationItems,
+  locationItemTotal,
+  NO_LOCATION_ITEMS,
+  type LocationItemCounts,
+} from "@/lib/catalogue/location-items";
+import { assertSql, resultRows } from "@/lib/harmonization/store";
+import { ExpectedActionError } from "./expected-error";
 
 export const getLocations = cached(
   () =>
@@ -42,15 +47,19 @@ export const getLocations = cached(
  * the cached locations (SLN-575).
  */
 export async function getLocationItemCounts(): Promise<Map<string, LocationItemCounts>> {
+  return locationItemCounts(sql`location_id is not null`);
+}
+
+async function locationItemCounts(where: SQL): Promise<Map<string, LocationItemCounts>> {
   const rows = resultRows<{ location_id: string; kind: keyof LocationItemCounts; count: number }>(
     await db.execute(sql`
-      select location_id, 'copies' as kind, count(*)::int as count from instances group by location_id
+      select location_id, 'copies' as kind, count(*)::int as count from instances where ${where} group by location_id
       union all
-      select location_id, 'films', count(*)::int from film_holdings where location_id is not null group by location_id
+      select location_id, 'films', count(*)::int from film_holdings where ${where} group by location_id
       union all
-      select location_id, 'paintings', count(*)::int from art_objects where location_id is not null group by location_id
+      select location_id, 'paintings', count(*)::int from art_objects where ${where} group by location_id
       union all
-      select location_id, 'perfumes', count(*)::int from perfume_bottles where location_id is not null group by location_id`),
+      select location_id, 'perfumes', count(*)::int from perfume_bottles where ${where} group by location_id`),
   );
   const counts = new Map<string, LocationItemCounts>();
   for (const row of rows) {
@@ -80,12 +89,38 @@ export async function updateLocation(id: string, input: UpdateLocationInput) {
   return { id };
 }
 
+/**
+ * Deletes an empty location. One that still holds anything, book copies
+ * included, is refused with what to move first: a copy is never deleted with
+ * the place it sits in (SLN-1060)
+ */
 export async function deleteLocation(id: string) {
   parseId(id);
-  await withReaderWriteRetry(() => atomic((d) => [
-    lockReaderEbooks(d, sql`select eb.id from ebooks eb join instances i on i.id=eb.instance_id where i.location_id=${id}::uuid`),
+  const [location] = await db
+    .select({ name: locations.name })
+    .from(locations)
+    .where(eq(locations.id, id));
+  if (!location) return { id };
+  const held = (await locationItemCounts(sql`location_id=${id}::uuid`)).get(id);
+  if (held && locationItemTotal(held) > 0)
+    throw new ExpectedActionError(
+      `${location.name} holds ${describeLocationItems(held)}. Move ${locationItemTotal(held) === 1 ? "it" : "them"} to another location first.`,
+    );
+  await atomic((d) => [
+    // A copy, film, painting or bottle saved here meanwhile waits on this lock
+    // and then fails its reference check, or is seen by the check below
+    d.execute(sql`select id from locations where id=${id}::uuid for update`),
+    d.execute(
+      assertSql(
+        sql`not exists (select 1 from instances where location_id=${id}::uuid)
+          and not exists (select 1 from film_holdings where location_id=${id}::uuid)
+          and not exists (select 1 from art_objects where location_id=${id}::uuid)
+          and not exists (select 1 from perfume_bottles where location_id=${id}::uuid)`,
+        `${location.name} holds items now. Move them to another location first.`,
+      ),
+    ),
     d.delete(locations).where(eq(locations.id, id)),
-  ]));
+  ]);
   // The database clears the default location when it is this one
   invalidate(CACHE_TAGS.locations, CACHE_TAGS.settings);
   return { id };

@@ -755,7 +755,7 @@ Management interface for physical and digital storage locations.
 - Item count: the book copies, film copies, paintings and perfume bottles held there, read live
 - Address details (if physical)
 
-**Actions**: Create location, edit, delete. Create sub-location. Delete says that the location's book copies are deleted with it; a location that still holds film copies, paintings or perfume bottles cannot be deleted, and the dialog says to move them first. Three input modes for address entry:
+**Actions**: Create location, edit, delete. Create sub-location. A location that still holds anything (book copies, film copies, paintings or perfume bottles) cannot be deleted: the dialog names what it holds and says to move it first, and `deleteLocation` refuses the same way, so a copy is never deleted with its place (SLN-1060). Three input modes for address entry:
 - Manual form (street, city, region, country, postal code)
 - Postal code lookup (via Nominatim geocoder)
 - Interactive map picker (Leaflet with Carto Dark Matter tiles)
