@@ -18,14 +18,17 @@ import {
   type RecommenderInput,
 } from "@/lib/validations/recommenders";
 import { posterTone, workReadingExtras } from "@/lib/actions/utils/work-card-query";
+import { naturalOrder } from "./utils/natural-order";
 
 export const getRecommenders = cached(
-  () => db.select().from(recommenders).orderBy(asc(recommenders.name)),
+  () => db.select().from(recommenders).orderBy(asc(naturalOrder(sql`lower(${recommenders.name})`)), asc(recommenders.name)),
   ["recommenders"],
   [CACHE_TAGS.recommenders],
 );
 
 const haystack = sql`search_normalize(${recommenders.name})`;
+/** By name with its numbers in numeric order: Recommender 2 before Recommender 10 (SLN-1123) */
+const byName = naturalOrder(sql`lower(${recommenders.name})`);
 const bookCount = sql<number>`(select count(*)::int from work_recommenders wr join works w on w.id = wr.work_id and w.kind = 'book' where wr.recommender_id = "recommenders"."id")`;
 
 const listSchema = z.object({
@@ -60,13 +63,13 @@ export async function getRecommenderList(
     sort === "relevance" && q
       ? [
           dir(textSearchRank(haystack, sql`${recommenders.name}`, q)),
-          asc(recommenders.name),
+          asc(byName),
         ]
       : sort === "books"
-        ? [dir(bookCount), asc(recommenders.name)]
+        ? [dir(bookCount), asc(byName)]
         : sort === "recent"
-          ? [dir(recommenders.createdAt), asc(recommenders.name)]
-          : [dir(sql`lower(${recommenders.name})`)];
+          ? [dir(recommenders.createdAt), asc(byName)]
+          : [dir(byName), dir(sql`lower(${recommenders.name})`)];
   const [rows, [total]] = await Promise.all([
     db
       .select({

@@ -19,7 +19,7 @@ export function AuthorBulkActionToolbar({
       names={selectedNames}
       noun={["person", "people"]}
       deleteOne={deleteAuthor}
-      cascade="This will NOT delete their books, films, perfumes or paintings, but will remove their credits."
+      cascade="Their books, films, perfumes and paintings stay in your library; only their credits go."
     >
       {() => (
         <>

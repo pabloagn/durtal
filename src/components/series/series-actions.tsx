@@ -15,6 +15,7 @@ import { SeriesFormDialog } from "./series-form-dialog";
 import { AddSeriesBooksDialog } from "./add-series-books-dialog";
 import { deleteSeries } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { countLabel } from "@/lib/utils/format";
 
 const ADD_EVENT = "durtal:series-add";
 
@@ -150,7 +151,7 @@ export function SeriesActions({
         itemName={series.title}
         cascade={
           bookCount > 0
-            ? `This will NOT delete the ${bookCount} ${bookCount === 1 ? "book" : "books"}; they only leave the series.`
+            ? `Its ${countLabel(bookCount, "book")} ${bookCount === 1 ? "stays" : "stay"} in your library; only the series goes.`
             : undefined
         }
       />

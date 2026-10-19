@@ -47,6 +47,8 @@ interface DropdownMenuProps {
   trigger: ReactElement<TriggerProps>;
   /** Names an icon-only trigger, and shows as its tooltip */
   label?: string;
+  /** A shorter tooltip, when the label also names the item ("Actions for Watt" shows "Actions") */
+  tooltip?: string;
   children: ReactNode;
   align?: "start" | "center" | "end";
   side?: "top" | "bottom";
@@ -57,6 +59,7 @@ interface DropdownMenuProps {
 export function DropdownMenu({
   trigger,
   label,
+  tooltip,
   children,
   align = "end",
   side = "bottom",
@@ -250,7 +253,7 @@ export function DropdownMenu({
           type: "button",
           "aria-haspopup": "menu",
           "aria-expanded": isOpen,
-          ...(label && { "aria-label": label, "data-tooltip": label }),
+          ...(label && { "aria-label": label, "data-tooltip": tooltip ?? label }),
           onClick: (e: MouseEvent) => {
             e.stopPropagation();
             e.preventDefault();
