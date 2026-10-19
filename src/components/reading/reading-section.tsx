@@ -181,7 +181,7 @@ function HistoryRow({ row, previous }: { row: ReadingRow; previous: { editionId:
   const Icon = FORMAT_ICON[r.format as ReadingFormat] ?? BookText;
   const outcome =
     r.status === "abandoned"
-      ? `Abandoned at ${r.unit === "pages" && r.currentPage != null ? `p. ${r.currentPage}` : `${Math.round(r.currentPercent ?? 0)}%`}${
+      ? `Abandoned at ${r.unit === "pages" && r.currentPage != null ? `p. ${r.currentPage.toLocaleString("en")}` : `${Math.round(r.currentPercent ?? 0)}%`}${
           r.abandonReason ? ` · ${ABANDON_REASON_LABELS[r.abandonReason as AbandonReason]}` : ""
         }`
       : "Finished";

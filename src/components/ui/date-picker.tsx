@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useId } from "react";
 import { DayPicker } from "react-day-picker";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { acquireSurface } from "@/lib/ui/surface-state";
@@ -29,6 +29,9 @@ export function DatePicker({
   id,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
+  // The label names the field even when the caller passes no id (SLN-932)
+  const ownId = useId();
+  const fieldId = id ?? ownId;
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeCalendar = useCallback(() => {
@@ -82,7 +85,7 @@ export function DatePicker({
     <div className="space-y-1.5" ref={containerRef}>
       {label && (
         <label
-          htmlFor={id}
+          htmlFor={fieldId}
           className="type-label block"
         >
           {label}
@@ -94,7 +97,7 @@ export function DatePicker({
         <button
           type="button"
           ref={triggerRef}
-          id={id}
+          id={fieldId}
           // The chosen day is a draft's state (SLN-631): a dialog asks before losing it
           data-draft-value={value ?? ""}
           onClick={() => open ? closeCalendar() : setOpen(true)}

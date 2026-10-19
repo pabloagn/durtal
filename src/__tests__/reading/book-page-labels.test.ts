@@ -49,7 +49,7 @@ describe("the header control", () => {
   it("offers the actions that make sense", () => {
     expect(readingMenu("unread")).toEqual(["start", "past"]);
     expect(readingMenu("reading")).toEqual(["progress", "pause", "finish", "abandon", "edit"]);
-    expect(readingMenu("paused")).toEqual(["resume", "progress", "finish", "abandon"]);
+    expect(readingMenu("paused")).toEqual(["resume", "progress", "finish", "abandon", "edit"]);
     expect(readingMenu("read")).toEqual(["reread", "past"]);
     expect(readingMenu("abandoned")).toEqual(["resumeAbandoned", "startAgain", "past"]);
   });
@@ -68,6 +68,10 @@ describe("the log preview", () => {
     expect(p.send).toEqual({ page: 212 });
     expect(p.behind).toBe(false);
     expect(logPreview(reading, { kind: "addPages", pages: 20 })!.send).toEqual({ addPages: 20 });
+  });
+  it("shows the page count a \"250/480\" gives, not the old one (SLN-932)", () => {
+    const short = { ...reading, totalPages: 240, currentPage: 60, currentPercent: 25 };
+    expect(logPreview(short, { kind: "page", page: 250, totalPages: 480 })!.line).toBe("Page 250 of 480 · 52.08% · 190 pages since last time");
   });
   it("sees a move back and the end", () => {
     const back = logPreview({ ...reading, currentPage: 400, currentPercent: 83.33 }, { kind: "page", page: 212 })!;

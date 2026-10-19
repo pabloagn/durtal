@@ -270,6 +270,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   const readingData = {
     workId: work.id,
     workTitle: work.title,
+    workYear: work.originalYear ?? null,
     bookRating: work.rating ?? null,
     dayStartHour,
     rows: readingRows,
