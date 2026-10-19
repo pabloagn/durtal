@@ -6,7 +6,7 @@
 
 ## Quick Reference
 
-- **Docs**: `docs/` directory (14 numbered documents, start with `00_README.md` and `01_ARCHITECTURE.md`)
+- **Docs**: `docs/` directory (16 numbered documents, `00` to `15`, start with `00_README.md` and `01_ARCHITECTURE.md`)
 - **Data model**: `docs/02_DATA_MODEL.md` (three-tier model, all tables, relationships)
 - **Changelog**: `changelog/NNNN_TASK_description.md` (task-by-task implementation log)
 - **Stack**: Next.js 16, TypeScript, Tailwind CSS 4, shadcn/ui, Drizzle ORM, Neon Postgres, AWS S3
@@ -42,12 +42,11 @@
 src/                    Next.js application (TypeScript)
   app/                  App Router pages and API routes
   components/           React components (ui/, catalogue/, layout/, shared/)
-  lib/                  Server-side logic (db/, s3/, api/, import/, utils/)
+  lib/                  Server-side logic (db/, actions/, s3/, api/, interchange/, reading/, types/, hooks/, utils/)
   hooks/                Custom React hooks
   styles/               Global CSS
-  types/                TypeScript type definitions
 
-scripts/                Python ingestion scripts (not part of Docker image)
+scripts/                Python ingestion and TUI, plus TypeScript e-book, QA and deploy tools (none in the image)
   ingest/               Seed data ETL pipeline
 
 docs/                   Specifications and documentation

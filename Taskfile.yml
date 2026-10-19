@@ -90,11 +90,6 @@ tasks:
     cmds:
       - uv run python -m scripts.ingest.main --step {{.CLI_ARGS}}
 
-  ingest:report:
-    desc: Generate ingestion quality report
-    cmds:
-      - uv run python -m scripts.ingest.main --step report
-
   # ===========================================================================
   # Docker
   # ===========================================================================

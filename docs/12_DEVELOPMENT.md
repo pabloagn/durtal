@@ -67,50 +67,47 @@ durtal/
 |
 +-- src/                       Next.js application (TypeScript)
 |   +-- app/                   App Router pages and API routes
-|   |   +-- page.tsx           Dashboard
-|   |   +-- layout.tsx         Root layout (fonts, shell)
-|   |   +-- library/           Library pages (browse, detail, add, import)
-|   |   +-- authors/           Author pages (index, detail)
-|   |   +-- series/            Series pages (index, detail)
-|   |   +-- locations/         Location management
-|   |   +-- collections/       Collection management
-|   |   +-- tags/              Tag management
-|   |   +-- settings/          Settings page
-|   |   +-- api/               REST API routes
-|   |       +-- health/        Health check
-|   |       +-- stats/         Library statistics
-|   |       +-- search/        External book search
-|   |       +-- works/         Works endpoints
-|   |       +-- authors/       Authors endpoints
-|   |       +-- media/         Media upload/process
-|   |       +-- s3/            S3 pre-signing
-|   |       +-- geocode/       Nominatim geocoding proxy
+|   |   +-- (catalogue)/       The app's pages under one layout (fonts, shell, force-dynamic)
+|   |   |   +-- page.tsx       Dashboard
+|   |   |   +-- library/       Books: browse, detail, add
+|   |   |   +-- people/        People: index, detail, map
+|   |   |   +-- series/  collections/  publishers/  organizations/  places/  locations/
+|   |   |   +-- reading/       Reading: hub, journal, notes, stats, year, suggestions, import
+|   |   |   +-- statistics/  ebooks/  taxonomy/  recommenders/  provenance/  harmonize/
+|   |   |   +-- films/  perfumes/  paintings/
+|   |   |   +-- settings/      Settings pages
+|   |   +-- (offline)/         Offline pages (offline e-books, the offline notice)
+|   |   +-- reader/            The e-book reader, with its own layout
+|   |   +-- api/               REST API routes, one folder per resource
 |   |
-|   +-- components/            React components
-|   |   +-- ui/                Primitives (button, card, badge, input, table, dialog, etc.)
-|   |   +-- layout/            Shell, sidebar, command palette, page header
-|   |   +-- books/             Book card, grid, list, table, view switcher
-|   |   +-- locations/         Address input modes (manual, postal, map)
-|   |   +-- media/             Gallery, upload zone, lightbox, hero background
+|   +-- components/            React components, one folder per area (ui/, layout/, shared/, books/, reading/, ...)
+|   +-- hooks/                 Custom React hooks used by components
 |   |
 |   +-- lib/                   Server-side logic
-|   |   +-- db/                Database (Drizzle ORM)
-|   |   |   +-- schema/        Table definitions (10 files)
-|   |   |   +-- index.ts       Connection singleton (Neon HTTP)
-|   |   |   +-- migrations/    SQL migration files
+|   |   +-- db/                Drizzle schema, connection (Neon HTTP), migrations
 |   |   +-- actions/           Server actions (business logic)
-|   |   +-- s3/                S3 client, keys, covers, media processing
-|   |   +-- api/               External API clients (Google Books, Open Library)
-|   |   +-- validations/       Zod schemas for input validation
+|   |   +-- catalogue/  library/  works/  books/  authors/  series/  publishers/  collections/
+|   |   +-- reading/           Reading history, stats, journal, suggestions, imports
+|   |   +-- ebooks/  reader/   E-book ingestion and the reader's server side
+|   |   +-- interchange/       Import and export of the catalogue
+|   |   +-- s3/  media/  color/  Storage, images and cover colours
+|   |   +-- api/  providers/  wikidata/  match/  External lookups
 |   |   +-- types/             TypeScript type definitions and enums
-|   |   +-- hooks/             Custom React hooks
+|   |   +-- hooks/             Shared React hooks (settings, preferences, selection, search)
+|   |   +-- validations/  utils/  ui/  ...
 |   |
 |   +-- styles/
-|       +-- globals.css        Tailwind 4 theme + base styles
+|   |   +-- globals.css        Tailwind 4 theme + base styles
+|   |   +-- root-fonts.ts      The three font families
+|   +-- vendor/                Vendored foliate-js
 |
-+-- scripts/                   Python scripts
-|   +-- tui/                   Terminal UI (Textual)
-|   +-- ingest/                Seed data ETL pipeline
++-- scripts/                   Tools that run outside the app (none in the Docker image)
+|   +-- ingest/                Python: seed data from the spreadsheet (docs/09)
+|   +-- tui/                   Python: terminal UI (docs/10)
+|   +-- ebooks/                TypeScript: e-book ingest, matching and imports
+|   +-- qa/                    Audits, page weight, the local preview and its seeds
+|   +-- deploy/                The Mac release and launcher (docs/11)
+|   +-- aws/  maintenance/  reader-fonts/  review/  authors/  books/  publishers/  enrich/  enrichment/
 |
 +-- drizzle.config.ts          Drizzle ORM configuration
 +-- next.config.ts             Next.js configuration
@@ -153,7 +150,6 @@ All commands can be run via `task <name>`:
 | `task ingest` | Run full ingestion pipeline |
 | `task ingest:dry` | Dry run ingestion |
 | `task ingest:step -- <name>` | Run single ingestion step |
-| `task ingest:report` | Generate ingestion quality report |
 | `task docker:build` | Build production Docker image |
 | `task docker:run` | Run Docker image locally |
 | `task tui` | Launch terminal UI |

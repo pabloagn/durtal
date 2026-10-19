@@ -81,7 +81,7 @@ that calls `requireEnabledDomain(kind)`, so every page below it (home, and later
 detail and new) answers 404 while the collection is unready. Books stay at
 `/library`; no book URL changes.
 
-All pages use `force-dynamic` rendering (set once in `src/app/layout.tsx`) — no static generation, no ISR. Every request fetches fresh data from Neon.
+All catalogue pages use `force-dynamic` rendering (set in `src/app/(catalogue)/layout.tsx`, and again in `publishers/layout.tsx`; the reader has its own layout) — no static generation, no ISR. Every request fetches fresh data from Neon.
 
 ---
 
@@ -263,7 +263,7 @@ The Filter button opens one panel with a rail of six sections (`FilterDropdown` 
 
 ### Perfumes (`/perfumes`)
 
-Reachable once perfumes open (see Route Map). `src/app/perfumes/page.tsx` shows
+Reachable once perfumes open (see Route Map). `src/app/(catalogue)/perfumes/(list)/page.tsx` shows
 the title, "Add perfume", the collection switch, search (titles and houses), the
 sorts (title, release, added, rating), grid and list views (saved:
 `durtal-perfumes-view-mode`, `durtal-perfumes-grid-columns`), paging, and the
@@ -341,7 +341,7 @@ different tiers are both kept, and the pyramid names the note under it.
 
 ### Films (`/films`)
 
-Open since SLN-367. `src/app/films/page.tsx` shows the title, "Add film", the
+Open since SLN-367. `src/app/(catalogue)/films/(list)/page.tsx` shows the title, "Add film", the
 collection switch, search (titles and original titles), the sorts (title,
 release, runtime, added, rating), grid and list views (saved:
 `durtal-films-view-mode`, `durtal-films-grid-columns`), paging, and the empty,
@@ -420,7 +420,7 @@ source.
 ### Paintings (`/paintings`)
 
 Built in SLN-368; reachable once the collection opens (see Route Map).
-`src/app/paintings/page.tsx` shows the title, "Add painting", the collection
+`src/app/(catalogue)/paintings/(list)/page.tsx` shows the title, "Add painting", the collection
 switch, search, the sorts (title, date, added, rating), grid and list views
 (saved: `durtal-paintings-view-mode`, `durtal-paintings-grid-columns`), paging,
 and the empty, no-results, loading and error states. An empty catalogue shows
@@ -1141,7 +1141,7 @@ The engine tags relocation origin as human, layout or speech. Owned page turns a
 
 ### Settings (`/settings`)
 
-A settings menu: `src/app/settings/layout.tsx` renders the page title and the menu (`SettingsNav`, a column beside the content from `md`, a row above it below that), and each part is its own page. The parts are listed in `SETTINGS_SECTIONS` (`src/components/settings/sections.ts`), which the command palette also searches ("Settings: Display"…). Blocks use `SettingsGroup` (a `SectionHeading` over a panel) with `SettingRow`s: the name and what it does on the left, the control on the name's cap-height center (`CapAlignedControls`), or under it (`stacked`).
+A settings menu: `src/app/(catalogue)/settings/layout.tsx` renders the page title and the menu (`SettingsNav`, a column beside the content from `md`, a row above it below that), and each part is its own page. The parts are listed in `SETTINGS_SECTIONS` (`src/components/settings/sections.ts`), which the command palette also searches ("Settings: Display"…). Blocks use `SettingsGroup` (a `SectionHeading` over a panel) with `SettingRow`s: the name and what it does on the left, the control on the name's cap-height center (`CapAlignedControls`), or under it (`stacked`).
 
 - **General** (`/settings`): saved in the database (`app_settings`), for every device; each change saves at once with a toast.
   - New books: status, language (the add-book wizard and Fast Track start with these; a new edition takes the language).
