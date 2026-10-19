@@ -66,6 +66,7 @@ import {
   getTaxonomyFamilyUsage,
   getTaxonomyAssignments,
   searchTaxonomyItems,
+  findTaxonomyNameTwin,
 } from "@/lib/actions/taxonomy-families";
 import { systemWorkTaxonomyMatch } from "@/lib/catalogue/taxonomy-storage";
 import { and, count, eq } from "drizzle-orm";
@@ -669,5 +670,48 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     const theme = await createTaxonomyItem("themes", { name: "Plain theme", description: null });
     await expect(updateTaxonomyItem("themes", theme.id, { description: "Lost words" })).rejects.toThrow(/keep no description/);
     expect(await getTaxonomyItemDescription("themes", theme.id)).toBeNull();
+  });
+  it("names a sibling with the same name on create, rename and move, and saves anyway only when asked (SLN-1159)", async () => {
+    const f = await createTaxonomyFamily({ name: "Forms", hierarchical: true, scopes: [{ kind: "book", level: "work" }] });
+    const families = [f.slug, "categories", "themes", "literary-movements"];
+    for (const slug of families) {
+      const fiction = await createTaxonomyItem(slug, { name: `Fiction ${slug}` });
+      const other = await createTaxonomyItem(slug, { name: `Verse ${slug}` });
+      const novel = await createTaxonomyItem(slug, { name: "Novel", parentId: fiction.id });
+      const message = `This family already has "Novel" under Fiction ${slug}`;
+      // Create: the exact name, or the name with other accents or case
+      for (const name of ["Novel", "NOVÉL"]) {
+        await expect(createTaxonomyItem(slug, { name, parentId: fiction.id })).rejects.toThrow(message);
+        expect(await findTaxonomyNameTwin(slug, name, { parentId: fiction.id })).toMatchObject({
+          id: novel.id,
+          slug: novel.slug,
+          parentName: `Fiction ${slug}`,
+          saveAnyway: true,
+        });
+      }
+      // Under another parent, or at the top level, it is no twin
+      const elsewhere = await createTaxonomyItem(slug, { name: "Novel", parentId: other.id });
+      expect(await findTaxonomyNameTwin(slug, "Novel", { parentId: null })).toBeNull();
+      // Saved anyway when asked
+      await createTaxonomyItem(slug, { name: "Novel", parentId: fiction.id, allowDuplicateName: true });
+      // Rename: refused with the sibling's name, saved anyway when asked
+      const story = await createTaxonomyItem(slug, { name: "Short story", parentId: fiction.id });
+      await expect(updateTaxonomyItem(slug, story.id, { name: "novel" })).rejects.toThrow(message);
+      expect(await findTaxonomyNameTwin(slug, "novel", { parentId: fiction.id, exceptId: story.id })).toMatchObject({ saveAnyway: true });
+      await updateTaxonomyItem(slug, story.id, { name: "novel", allowDuplicateName: true });
+      // A move beside a twin is the same: refused, then saved anyway
+      await expect(updateTaxonomyItem(slug, elsewhere.id, { parentId: fiction.id })).rejects.toThrow(message);
+      await updateTaxonomyItem(slug, elsewhere.id, { parentId: fiction.id, allowDuplicateName: true });
+      // Its own name with other accents is no twin of itself
+      await updateTaxonomyItem(slug, other.id, { name: `VERSE ${slug}` });
+    }
+    // At the top level the message says so
+    await expect(createTaxonomyItem("themes", { name: "fiction THEMES" })).rejects.toThrow('This family already has "Fiction themes" at the top level');
+    // Where each exact name is kept once, only a variant can be saved anyway
+    await createTaxonomyItem("keywords", { name: "Qa spleen" });
+    expect(await findTaxonomyNameTwin("keywords", "Qa spleen")).toMatchObject({ saveAnyway: false });
+    await expect(createTaxonomyItem("keywords", { name: "Qa spleen", allowDuplicateName: true })).rejects.toThrow('This family already has "Qa spleen"');
+    expect(await findTaxonomyNameTwin("keywords", "qa spléen")).toMatchObject({ name: "Qa spleen", saveAnyway: true });
+    await createTaxonomyItem("keywords", { name: "qa spléen", allowDuplicateName: true });
   });
 });
