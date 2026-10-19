@@ -14,6 +14,7 @@ import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { FadeImage } from "@/components/shared/fade-image";
 import { addWorksToSeries } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 type Work = Awaited<ReturnType<typeof searchWorksForSeries>>[number];
 
@@ -89,6 +90,7 @@ export function AddSeriesBooksDialog({
     }
   }
 
+  const saveReason = useSaveReason(!chosen.length && "Choose a book to add");
   return (
     <Dialog
       dirty={chosen.length > 0}
@@ -190,7 +192,7 @@ export function AddSeriesBooksDialog({
           </p>
         )}
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {!chosen.length && <p className="mr-auto text-xs text-fg-secondary">Choose a book to add</p>}
+          {saveReason.hint}
           <Button data-dismiss="" type="button" disabled={saving} onClick={onClose}>
             Cancel
           </Button>
@@ -198,6 +200,7 @@ export function AddSeriesBooksDialog({
             type="button"
             variant="primary"
             disabled={!chosen.length}
+            aria-describedby={saveReason.describedBy}
             onClick={add}
             busy={saving}
           >

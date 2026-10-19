@@ -1,6 +1,6 @@
 "use client";
 
-import { RequiredNameHint } from "@/components/shared/required-name-hint";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
 
@@ -107,6 +107,7 @@ export function SeriesFormDialog({
     });
   }
 
+  const nameReason = useSaveReason(!title.trim() && "Give the series a title");
   return (
     <>
       {!isEdit && controlledOpen === undefined && (
@@ -178,11 +179,11 @@ export function SeriesFormDialog({
             </label>
           </div>
           <div className="flex justify-end gap-2">
-        <RequiredNameHint value={title} message="Give the series a title" />
+        {nameReason.hint}
             <Button data-dismiss="" type="button" disabled={pending} onClick={close}>
               Cancel
             </Button>
-            <Button
+            <Button aria-describedby={nameReason.describedBy}
               type="submit"
               variant="primary"
               disabled={!title.trim()}

@@ -24,6 +24,7 @@ import {
 } from "@/lib/catalogue/perfume-labels";
 import { SingleChoiceField, useOrganizationSearch } from "@/components/catalogue/record-fields";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 type Listing = Awaited<ReturnType<typeof getPerfumeRetailerLinks>>[number];
 
@@ -199,6 +200,7 @@ function ListingForm({
   const [url, setUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const validUrl = /^https?:\/\/[^\s@/]+/.test(url.trim());
+  const saveReason = useSaveReason(!retailer ? "Choose a retailer" : !url.trim() && "Add the address of the listing");
   return (
     <div className="space-y-4">
       <SingleChoiceField
@@ -226,11 +228,7 @@ function ListingForm({
         error={url && !validUrl ? "Enter an address that starts with http:// or https://" : undefined}
       />
       <div className="flex flex-wrap items-center justify-end gap-2">
-        {!retailer ? (
-          <p className="mr-auto text-xs text-fg-secondary">Choose a retailer</p>
-        ) : (
-          !url.trim() && <p className="mr-auto text-xs text-fg-secondary">Add the address of the listing</p>
-        )}
+        {saveReason.hint}
         <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
         </Button>
@@ -238,6 +236,7 @@ function ListingForm({
           variant="primary"
           data-shortcut="save"
           disabled={!retailer || !validUrl || saving}
+          aria-describedby={saveReason.describedBy}
           onClick={async () => {
             if (!retailer) return;
             setSaving(true);

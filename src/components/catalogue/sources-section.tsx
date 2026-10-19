@@ -1,6 +1,6 @@
 "use client";
 
-import { RequiredNameHint } from "@/components/shared/required-name-hint";
+import { useSaveReason } from "@/components/shared/save-reason";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ExternalLink, Plus, Trash2 } from "lucide-react";
@@ -171,6 +171,12 @@ function SourceForm({
   const [saving, setSaving] = useState(false);
   const validUrl = !url.trim() || /^https?:\/\/[^\s@/]+/.test(url.trim());
   const blocked = !attribution.trim() || !validUrl || !day || day > today();
+  // A wrong address says so under its field; the rest is said beside Save
+  const nameReason = useSaveReason(
+    !attribution.trim()
+      ? "Name the source to save"
+      : validUrl && (!day || day > today()) && "Give the day you consulted it, today or earlier",
+  );
   return (
     <div className="space-y-4">
       <Input
@@ -200,14 +206,11 @@ function SourceForm({
         placeholder={examples.says}
       />
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <RequiredNameHint value={attribution} message="Name the source to save" />
-        {attribution.trim() && validUrl && (!day || day > today()) && (
-          <p className="mr-auto text-xs text-fg-secondary">Give the day you consulted it, today or earlier</p>
-        )}
+        {nameReason.hint}
         <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
         </Button>
-        <Button
+        <Button aria-describedby={nameReason.describedBy}
           variant="primary"
           data-shortcut="save"
           disabled={blocked}

@@ -47,6 +47,7 @@ import type { CatalogueDateInput } from "@/lib/catalogue/dates";
 import { painterInput, type PainterEntry } from "@/lib/catalogue/painting-labels";
 import { PaintersField } from "./painting-fields";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 /** A stored object, as the edit dialog starts from it */
 export interface EditableArtObject {
@@ -257,6 +258,7 @@ function ArtObjectForm({
     }
   }
 
+  const saveReason = useSaveReason(ownership === "institutional" && !owner && "Choose the institution");
   return (
     <div className="space-y-6">
       <fieldset className="space-y-3">
@@ -471,10 +473,11 @@ function ArtObjectForm({
             {error}
           </p>
         )}
+        {saveReason.hint}
         <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
         </Button>
-        <Button variant="primary" data-shortcut="save" onClick={save} busy={saving} disabled={blocked}>
+        <Button variant="primary" data-shortcut="save" onClick={save} busy={saving} disabled={blocked} aria-describedby={saveReason.describedBy}>
           {object ? "Save" : "Add"}
         </Button>
       </DialogFooter>

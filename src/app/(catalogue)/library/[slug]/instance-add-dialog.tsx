@@ -24,6 +24,7 @@ import { prepareReviewUi, confirmReviewUi } from "@/lib/actions/ebook-review-ui"
 import type { PreparedReview, ReviewOutcome, ReviewQueueRow, ReviewUiResult } from "@/lib/ebooks/review-queue/types";
 import { createInstance } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 interface LocationOption {
   id: string;
@@ -116,6 +117,7 @@ export function InstanceAddDialog({
     setDraft(freshDraft()); setEbook(null); setOpen(false); router.refresh(); triggerActivityRefresh();
   }
 
+  const saveReason = useSaveReason(!draft.locationId && "Choose a location");
   return (
     <>
       <Button
@@ -161,6 +163,7 @@ export function InstanceAddDialog({
         </div> : <>
         <DialogFooter>
           {review.error && <p role="alert" className="basis-full text-sm text-accent-red-text">{review.error}</p>}
+          {saveReason.hint}
           <Button data-dismiss=""
             variant="secondary"
             size="sm"
@@ -175,6 +178,7 @@ export function InstanceAddDialog({
             onClick={handleSubmit}
             busy={isPending}
             disabled={!draft.locationId}
+            aria-describedby={saveReason.describedBy}
           >
             {ebook ? "Preview copy and eBook" : "Create instance"}
           </Button>

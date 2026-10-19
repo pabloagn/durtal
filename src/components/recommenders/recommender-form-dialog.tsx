@@ -1,6 +1,6 @@
 "use client";
 
-import { RequiredNameHint } from "@/components/shared/required-name-hint";
+import { useSaveReason } from "@/components/shared/save-reason";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
@@ -98,6 +98,7 @@ export function RecommenderFormDialog({
     });
   }
 
+  const nameReason = useSaveReason(!name.trim() && "Give the recommender a name");
   return (
     <>
       {!isEdit && controlledOpen === undefined && (
@@ -145,11 +146,11 @@ export function RecommenderFormDialog({
             spellCheck={false}
           />
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <RequiredNameHint value={name} message="Give the recommender a name" />
+            {nameReason.hint}
             <Button data-dismiss="" type="button" disabled={pending} onClick={close}>
               Cancel
             </Button>
-            <Button
+            <Button aria-describedby={nameReason.describedBy}
               type="submit"
               variant="primary"
               disabled={!name.trim()}

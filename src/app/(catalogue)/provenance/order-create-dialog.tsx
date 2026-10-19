@@ -24,6 +24,7 @@ import {
 } from "./order-create-steps";
 import { createOrder, createOrderForNewBook } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 const STEP_LABELS = ["Work", "Method", "Details", "Notes"];
 
@@ -149,6 +150,10 @@ export function OrderCreateDialog({
     });
   }
 
+  const saveReason = useSaveReason(
+    step === 0 && !selectedWork ? "Choose a book" : step === 2 && !details.orderDate && "Add the order date",
+    "ml-auto",
+  );
   return (
     <>
       <Button
@@ -242,14 +247,14 @@ export function OrderCreateDialog({
             )}
           </Button>
 
-          {step === 0 && !selectedWork && <p className="ml-auto text-xs text-fg-secondary">Choose a book</p>}
-          {step === 2 && !details.orderDate && <p className="ml-auto text-xs text-fg-secondary">Add the order date</p>}
+          {saveReason.hint}
           {step < STEP_LABELS.length - 1 ? (
             <Button
               variant="primary"
               size="sm"
               onClick={() => setStep((s) => s + 1)}
               disabled={!canProceed()}
+              aria-describedby={saveReason.describedBy}
             >
               Next
               <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -261,6 +266,7 @@ export function OrderCreateDialog({
               onClick={handleSubmit}
               busy={isPending}
               disabled={!selectedWork}
+              aria-describedby={saveReason.describedBy}
             >
               Create order
             </Button>

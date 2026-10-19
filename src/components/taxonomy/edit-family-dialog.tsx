@@ -1,6 +1,6 @@
 "use client";
 
-import { RequiredNameHint } from "@/components/shared/required-name-hint";
+import { useSaveReason } from "@/components/shared/save-reason";
 import { useEffect, useState, type FormEvent } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -93,6 +93,7 @@ export function EditFamilyDialog({
     }
   }
 
+  const nameReason = useSaveReason(!value.name.trim() && "Give the family a name");
   return (
     <Dialog
       draft
@@ -122,11 +123,11 @@ export function EditFamilyDialog({
             </p>
           )}
           <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
-            <RequiredNameHint value={value.name} message="Give the family a name" />
+            {nameReason.hint}
             <Button data-dismiss="" type="button" variant="ghost" size="sm" onClick={onClose}>
               Cancel
             </Button>
-            <Button
+            <Button aria-describedby={nameReason.describedBy}
               type="submit"
               variant="primary"
               size="sm"

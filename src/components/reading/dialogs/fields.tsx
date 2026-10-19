@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { DialogFooter as SharedDialogFooter } from "@/components/ui/dialog";
+import { useSaveReason } from "@/components/shared/save-reason";
 import { DatePicker } from "@/components/ui/date-picker";
 import { CatalogueDateField } from "@/components/shared/catalogue-date-field";
 import { catalogueDateOf, READING_DATE_KINDS, readingDateOf } from "@/lib/reading/dates";
@@ -91,17 +92,18 @@ export function DialogFooter({
   disabled?: boolean;
   /** What a press of Save turned up (a duplicate), over the buttons and in view */
   notice?: ReactNode;
-  /** What a disabled save waits for, said beside it: "Write the passage to add it" (SLN-945) */
+  /** What a disabled save waits for, said beside it and read with it: "Write the passage to add it" (SLN-945, SLN-1057) */
   hint?: string | null;
 }) {
+  const reason = useSaveReason(hint);
   return (
     <SharedDialogFooter outside="pt-2">
       {notice}
-      {hint && <p className="mr-auto text-xs text-fg-secondary">{hint}</p>}
+      {reason.hint}
       <Button data-dismiss="" type="button" variant="ghost" onClick={onCancel} className="pointer-coarse:h-11">
         Cancel
       </Button>
-      <Button type="submit" form={form} variant="primary" data-shortcut="save" disabled={disabled} busy={saving} className="pointer-coarse:h-11">
+      <Button type="submit" form={form} variant="primary" data-shortcut="save" disabled={disabled} busy={saving} aria-describedby={reason.describedBy} className="pointer-coarse:h-11">
         {saveLabel}
       </Button>
     </SharedDialogFooter>

@@ -7,6 +7,7 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { languageOptions } from "@/lib/utils/language";
 import type { PrepareEbookReview, ReviewQueueRow, ReviewPreparationIssue } from "@/lib/ebooks/review-queue/types";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 export function NewBookFields({ row, disabled, onPrepare, issues = [] }: {
   row: ReviewQueueRow; disabled: boolean; onPrepare: (intent: PrepareEbookReview) => void;
@@ -27,6 +28,7 @@ export function NewBookFields({ row, disabled, onPrepare, issues = [] }: {
     } catch { if (current === generation.current) setError("The author search could not be loaded."); }
     finally { if (current === generation.current) setLoading(false); }
   }
+  const saveReason = useSaveReason(!name.trim() ? (language ? "Add the author's name" : "Add the author's name and choose a language") : !language && "Choose a language");
   return <form className="space-y-4" onSubmit={(event) => { event.preventDefault();
     if (name.trim() && language) onPrepare({ action: "accession", ebookId: row.id,
       authors: [authorId ? { id: authorId } : { name: name.trim() }], language, isbn13: null }); }}>
@@ -51,9 +53,7 @@ export function NewBookFields({ row, disabled, onPrepare, issues = [] }: {
       placeholder="Choose a language" onChange={(event) => setLanguage(event.target.value)} />
     <p className="text-xs text-fg-secondary">The new edition will have no ISBN. Link to an existing book when its ISBN is already in the catalogue.</p>
     {error && <p role="alert" className="text-sm text-accent-red-text">{error}</p>}
-    {(!name.trim() || !language) && <p className="text-xs text-fg-secondary">
-      {!name.trim() ? (language ? "Add the author's name" : "Add the author's name and choose a language") : "Choose a language"}
-    </p>}
-    <Button type="submit" variant="primary" disabled={disabled || !name.trim() || !language}>Preview new book</Button>
+    {saveReason.hint}
+    <Button type="submit" variant="primary" disabled={disabled || !name.trim() || !language} aria-describedby={saveReason.describedBy}>Preview new book</Button>
   </form>;
 }

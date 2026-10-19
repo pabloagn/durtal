@@ -1,6 +1,6 @@
 "use client";
 
-import { RequiredNameHint } from "@/components/shared/required-name-hint";
+import { useSaveReason } from "@/components/shared/save-reason";
 import { useId, useState, type FormEvent } from "react";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,11 @@ export function CreateFamilyDialog({
     }
   }
 
+  const nameReason = useSaveReason(
+    !value.name.trim()
+      ? "Give the family a name"
+      : !value.scopes.length && "Choose at least one place this family applies",
+  );
   return (
     <Dialog
       draft
@@ -75,14 +80,11 @@ export function CreateFamilyDialog({
               {error}
             </p>
           )}
-          <RequiredNameHint value={value.name} message="Give the family a name" />
-          {value.name.trim() && !value.scopes.length && (
-            <p className="mr-auto text-xs text-fg-secondary">Choose at least one place this family applies</p>
-          )}
+          {nameReason.hint}
           <Button data-dismiss="" type="button" variant="ghost" size="sm" onClick={onClose}>
             Cancel
           </Button>
-          <Button
+          <Button aria-describedby={nameReason.describedBy}
             type="submit"
             form={formId}
             variant="primary"

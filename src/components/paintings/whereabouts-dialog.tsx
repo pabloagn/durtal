@@ -31,6 +31,7 @@ import {
 import type { CatalogueDateInput } from "@/lib/catalogue/dates";
 import { recordWhereabouts, updateWhereabouts, createVenue } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 /** A stored location record, as the edit dialog starts from it */
 export interface EditableWhereabouts {
@@ -249,6 +250,7 @@ function WhereaboutsForm({
     }
   }
 
+  const saveReason = useSaveReason(placeKind === "venue" && !venue ? "Choose the place" : needsStart && "Give the start date");
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
@@ -373,10 +375,11 @@ function WhereaboutsForm({
             {error}
           </p>
         )}
+        {saveReason.hint}
         <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
         </Button>
-        <Button variant="primary" data-shortcut="save" onClick={save} busy={saving} disabled={blocked}>
+        <Button variant="primary" data-shortcut="save" onClick={save} busy={saving} disabled={blocked} aria-describedby={saveReason.describedBy}>
           {record ? "Save" : "Record"}
         </Button>
       </DialogFooter>

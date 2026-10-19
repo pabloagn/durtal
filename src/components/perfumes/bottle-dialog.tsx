@@ -30,6 +30,7 @@ import {
   type PerfumeContainer,
 } from "@/lib/catalogue/perfume-labels";
 import type { CatalogueDateInput } from "@/lib/catalogue/dates";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 export type { StorageLocation };
 
@@ -206,6 +207,8 @@ function BottleForm({
     }
   }
 
+  // A size that was typed wrong says so under its field
+  const saveReason = useSaveReason(!variantId ? "Choose a formulation" : !capacity.trim() && "Enter the size");
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
@@ -332,11 +335,12 @@ function BottleForm({
           {error}
         </p>
       )}
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {saveReason.hint}
         <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
         </Button>
-        <Button variant="primary" data-shortcut="save" onClick={save} busy={saving} disabled={blocked}>
+        <Button variant="primary" data-shortcut="save" onClick={save} busy={saving} disabled={blocked} aria-describedby={saveReason.describedBy}>
           {bottle ? "Save" : `Add ${CONTAINER_LABELS[container].one.toLowerCase()}`}
         </Button>
       </div>

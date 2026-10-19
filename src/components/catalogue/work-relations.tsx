@@ -33,6 +33,7 @@ import {
 } from "@/lib/catalogue/work-relations";
 import { createWorkRelation, deleteWorkRelation } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 export interface RelatedWorkOwner {
   id: string;
@@ -145,6 +146,14 @@ function RelationForm({ work, onDone }: { work: RelatedWorkOwner; onDone: () => 
     !validUrl ||
     (!!sourceUrl.trim() && !sourceName.trim()) ||
     (needsSource && !sourceId && !sourceName.trim());
+  // A wrong address says so under its field
+  const saveReason = useSaveReason(
+    !other
+      ? "Choose the work"
+      : needsSource && !sourceId && !sourceName.trim()
+        ? "Choose or name the source"
+        : !!sourceUrl.trim() && !sourceName.trim() && "Name the source",
+  );
 
   async function save() {
     if (blocked || saving || !current || !other) return;
@@ -250,11 +259,12 @@ function RelationForm({ work, onDone }: { work: RelatedWorkOwner; onDone: () => 
           {error}
         </p>
       )}
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {saveReason.hint}
         <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
         </Button>
-        <Button variant="primary" data-shortcut="save" onClick={save} busy={saving} disabled={blocked}>
+        <Button variant="primary" data-shortcut="save" onClick={save} busy={saving} disabled={blocked} aria-describedby={saveReason.describedBy}>
           Link
         </Button>
       </div>

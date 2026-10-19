@@ -21,6 +21,7 @@ import type { ReviewQueueRow } from "@/lib/ebooks/review-queue/types";
 import { updateInstance } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
 import { offerBookDeaccession } from "./last-copy-toast";
+import { useSaveReason } from "@/components/shared/save-reason";
 
 type InstanceWithLocation = Instance & {
   location: Location;
@@ -196,6 +197,7 @@ export function InstanceEditDialog({
     }
   }
 
+  const saveReason = useSaveReason(!loading && !draft.locationId && "Choose a location");
   return (
     <>
       <Button
@@ -241,6 +243,7 @@ export function InstanceEditDialog({
         {!review.prepared && <>
         <DialogFooter>
           {review.error && <p role="alert" className="basis-full text-sm text-accent-red-text">{review.error}</p>}
+          {saveReason.hint}
           <Button data-dismiss=""
             variant="secondary"
             size="sm"
@@ -254,6 +257,7 @@ export function InstanceEditDialog({
             size="sm"
             onClick={handleSubmit}
             disabled={loading || review.prepared !== null || review.phase === "unknown" || !draft.locationId || (!!ebook && !choiceReady)}
+            aria-describedby={saveReason.describedBy}
             busy={isPending || review.phase === "preparing"}
           >
             {ebook ? "Preview edits and Link" : "Save"}
