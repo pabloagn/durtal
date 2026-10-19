@@ -24,6 +24,7 @@ The collections list had no sort, a search that reloaded the page on Search or E
 - **Letter once** (`collection-icon-picker.tsx`): `letterShown` makes the icon spot show the plain mark when the poster beside it is the name's letter.
 - **One Add on an empty collection**: already so on main (SLN-918); checked.
 - `docs/04_ROUTES_AND_VIEWS.md`: the toolbar, the card and the member cards.
+- From the #580 review's optional notes: the picker's list takes `overflow-x-hidden` (a classic scrollbar made it scroll 6px sideways in WebKit on Linux), and a stray blank line in `rows()` is gone.
 
 ## Completion Notes
 
