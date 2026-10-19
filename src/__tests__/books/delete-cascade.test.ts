@@ -88,10 +88,10 @@ describe("copyDeleteCascadeMessage", () => {
 describe("keptOrderRefusal", () => {
   it("names the order by its seller and date", () => {
     expect(keptOrderRefusal({ title: "Là-bas", status: "Delivered", venue: "Shakespeare and Company", date: "3 October 2026" })).toBe(
-      '"Là-bas" has an order marked Delivered (from Shakespeare and Company, 3 October 2026), which is its acquisition record. Mark the order Returned before deleting the book.',
+      `"Là-bas" has an order marked Delivered (from Shakespeare and Company, 3 October 2026), which is its acquisition record. Record the order's return under Orders on the book's page before deleting the book.`,
     );
     expect(keptOrderRefusal({ title: "En route", status: "Received", venue: null, date: null })).toBe(
-      '"En route" has an order marked Received, which is its acquisition record. Mark the order Returned before deleting the book.',
+      `"En route" has an order marked Received, which is its acquisition record. Record the order's return under Orders on the book's page before deleting the book.`,
     );
   });
 });

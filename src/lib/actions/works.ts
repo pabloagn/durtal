@@ -634,7 +634,7 @@ async function deleteWorkOnce(id: string) {
     d.execute(
       assertSql(
         sql`not exists (select 1 from orders where work_id=${id}::uuid and status::text in ${KEPT_ORDER_STATUSES})`,
-        "This book's order now has the book in hand. Mark the order Returned before deleting the book.",
+        "This book's order now has the book in hand. Record the order's return under Orders on the book's page before deleting the book.",
       ),
     ),
     d

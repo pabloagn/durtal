@@ -1329,11 +1329,13 @@ async function booksJourney() {
       if (!text.includes("received")) throw new Error(`Hunting for reads "${text.replace(/\s+/g, " ")}"`);
       if (!(await pageText()).includes("Accessioned")) throw new Error("The book is not accessioned");
     }],
-    ["delete the first book", async () => {
-      // The wanted book stays: its delivered order is its acquisition record,
-      // and a delivered order leaves the pipeline, the one place to mark it
-      // Returned (SLN-1507)
-      await deleteBook(book);
+    ["its return is recorded from the book page, and both books are deleted", async () => {
+      // A delivered order is the book's acquisition record, so the delete
+      // waits on Returned; the order has left the pipeline (SLN-1507)
+      await go(wanted);
+      await click("Record return", "document.querySelector('main')");
+      await waitFor(toastSays("Return recorded"), "the return to be recorded");
+      for (const path of [book, wanted]) await deleteBook(path);
     }],
   ]);
 }
