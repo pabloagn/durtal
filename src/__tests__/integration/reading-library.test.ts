@@ -191,6 +191,13 @@ describe.skipIf(!url)("reading across the library with PostgreSQL", () => {
     expect(owned.length + notOwned.length).toBe(8);
   });
 
+  it("lists the books with a copy out on loan (SLN-1125)", async () => {
+    await library();
+    expect(await ids({ holding: "lent_out" })).toEqual(["Reading owned"]);
+    expect(await ids(fromUrl("holding=lent_out"))).toEqual(["Reading owned"]);
+    expect(await getWorkCount(undefined, { holding: "lent_out" })).toBe(1);
+  });
+
   it("reads in a year range at any precision, re-reads, and sorts by last read with never-read last", async () => {
     await library();
     expect(await ids({ readFrom: 2024, readTo: 2024 })).toEqual(["Read 2024 day"]);

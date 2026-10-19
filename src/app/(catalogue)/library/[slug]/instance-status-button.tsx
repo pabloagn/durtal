@@ -9,7 +9,7 @@ import { todayLocal } from "@/lib/utils/date";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { DISPOSITION_TYPES, INSTANCE_STATUSES } from "@/lib/types/index";
 import { enumLabel } from "@/lib/utils/labels";
-import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,8 @@ interface InstanceStatusButtonProps {
 
 /**
  * A copy's status, and the menu that changes it (SLN-1124). Lent out asks
- * who has it; Deaccessioned asks how the copy left and when, and saves only
+ * who has it and since when, and a lent copy offers Mark as returned
+ * (SLN-1125); Deaccessioned asks how the copy left and when, and saves only
  * on its Confirm. Escape closes one layer, and the focus comes back to this
  * button after every change.
  */
@@ -43,17 +44,19 @@ export function InstanceStatusButton({
   const [saved, setSaved] = useState<{ status: string; over: string } | null>(null);
   const status = saved && saved.over === currentStatus ? saved.status : currentStatus;
 
-  const [lentTo, setLentTo] = useState("");
+  const [lend, setLend] = useState({ to: "", date: "" });
   const [disposition, setDisposition] = useState({ type: "", date: "", to: "" });
 
   async function applyStatus(next: Status, extraFields?: Omit<UpdateInstanceInput, "status">) {
     if (busy) return;
+    // Any status but Lent out ends a loan; the copy's history keeps it (SLN-1125)
+    const returning = status === "lent_out" && next === "available";
     setBusy(true);
     try {
       await updateInstance(instanceId, { status: next, ...extraFields });
       setSaved({ status: next, over: currentStatus });
       setAsking(null);
-      toast.success(`Status: ${enumLabel(next)}`);
+      toast.success(returning ? "Marked as returned" : `Status: ${enumLabel(next)}`);
       router.refresh();
       triggerActivityRefresh();
     } catch {
@@ -66,7 +69,7 @@ export function InstanceStatusButton({
   function choose(next: Status) {
     if (next === status) return;
     if (next === "lent_out") {
-      setLentTo("");
+      setLend({ to: "", date: todayLocal() });
       setAsking("lent_out");
     } else if (next === "deaccessioned") {
       setDisposition({ type: "", date: todayLocal(), to: "" });
@@ -99,6 +102,12 @@ export function InstanceStatusButton({
           </button>
         }
       >
+        {status === "lent_out" && (
+          <>
+            <DropdownMenuItem onClick={() => applyStatus("available")}>Mark as returned</DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         {INSTANCE_STATUSES.map((s) => (
           <DropdownMenuItem key={s} checked={s === status} onClick={() => choose(s)}>
             {enumLabel(s)}
@@ -117,22 +126,32 @@ export function InstanceStatusButton({
           id={`lend-${instanceId}`}
           onSubmit={(event) => {
             event.preventDefault();
-            void applyStatus("lent_out", { lentTo: lentTo.trim() || null, lentDate: todayLocal() });
+            if (lend.date) void applyStatus("lent_out", { lentTo: lend.to.trim() || null, lentDate: lend.date });
           }}
         >
-          <Input
-            label="Lent to"
-            id={`lend-${instanceId}-to`}
-            value={lentTo}
-            onChange={(event) => setLentTo(event.target.value)}
-            placeholder="Name (optional)"
-          />
+          <div className="space-y-4">
+            <Input
+              label="Lent to"
+              id={`lend-${instanceId}-to`}
+              value={lend.to}
+              onChange={(event) => setLend((l) => ({ ...l, to: event.target.value }))}
+              placeholder="Name (optional)"
+            />
+            <DatePicker
+              label="Lent date"
+              id={`lend-${instanceId}-date`}
+              value={lend.date}
+              onChange={(date) => setLend((l) => ({ ...l, date }))}
+              required
+              error={lend.date ? undefined : "Choose the day it went"}
+            />
+          </div>
         </form>
         <DialogFooter>
           <Button type="button" variant="secondary" size="sm" onClick={() => setAsking(null)}>
             Cancel
           </Button>
-          <Button type="submit" form={`lend-${instanceId}`} variant="primary" size="sm" busy={busy}>
+          <Button type="submit" form={`lend-${instanceId}`} variant="primary" size="sm" busy={busy} disabled={!lend.date}>
             Lend
           </Button>
         </DialogFooter>

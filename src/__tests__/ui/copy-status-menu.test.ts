@@ -24,9 +24,11 @@ describe("a copy's status menu", () => {
     expect(source).not.toMatch(/disabled=\{isPending\}/);
   });
 
-  it("asks who has a lent copy", () => {
+  it("asks who has a lent copy and since when, and offers its return (SLN-1125)", () => {
+    expect(source).toContain('<DropdownMenuItem onClick={() => applyStatus("available")}>Mark as returned</DropdownMenuItem>');
     expect(source).toContain('title="Lend this copy"');
-    expect(source).toContain('applyStatus("lent_out", { lentTo: lentTo.trim() || null, lentDate: todayLocal() })');
+    expect(source).toContain('setLend({ to: "", date: todayLocal() });');
+    expect(source).toContain('applyStatus("lent_out", { lentTo: lend.to.trim() || null, lentDate: lend.date })');
   });
 
   it("deaccessions only on a confirm that records the disposition", () => {

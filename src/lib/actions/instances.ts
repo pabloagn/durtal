@@ -15,6 +15,7 @@ import {
 import { parseId } from "@/lib/validations/helpers";
 import { recordActivity } from "@/lib/activity/record";
 import { copyShelfMismatch } from "@/lib/catalogue/copy-shelf";
+import { loanNoteSql } from "@/lib/catalogue/loans";
 
 export async function createInstance(input: CreateInstanceInput) {
   const parsed = createInstanceSchema.parse(input);
@@ -39,10 +40,14 @@ export async function updateInstance(id: string, input: UpdateInstanceInput) {
   parseId(id);
   const data = updateInstanceSchema.parse(input);
   const place = await placeAfterEdit(id, data);
+  // A copy that comes back, or leaves lending another way, keeps no borrower:
+  // the history row written first keeps the loan (SLN-1125)
+  const loanEnds = data.status !== undefined && data.status !== "lent_out" ? { lentTo: null, lentDate: null } : {};
   await withReaderWriteRetry(() => atomic((d) => [
     lockReaderEbooks(d, sql`select id from ebooks where instance_id=${id}::uuid`),
+    ...(data.status ? [d.execute(statusChangeSql(id, data))] : []),
     d.update(instances)
-    .set({ ...data, ...place, updatedAt: new Date() })
+    .set({ ...data, ...loanEnds, ...place, updatedAt: new Date() })
     .where(eq(instances.id, id)),
   ]));
 
@@ -62,6 +67,24 @@ export async function updateInstance(id: string, input: UpdateInstanceInput) {
   }
 
   return { id };
+}
+
+/**
+ * The status history row for an edit that changes a copy's status, written
+ * before the update so it reads the status it changes from. A lend notes the
+ * new borrower and date; the change that ends a loan notes the stored ones.
+ */
+function statusChangeSql(id: string, data: { status?: string; lentTo?: string | null; lentDate?: string | null }) {
+  const to = data.status!;
+  const lentTo = data.lentTo !== undefined ? sql`${data.lentTo}::text` : sql`lent_to`;
+  const lentDate = data.lentDate !== undefined ? sql`${data.lentDate}::date` : sql`lent_date`;
+  return sql`insert into instance_status_history (instance_id, from_status, to_status, notes)
+    select id, status, ${to}::instance_status_enum,
+      case
+        when ${to} = 'lent_out' then ${loanNoteSql(lentTo, lentDate)}
+        when status = 'lent_out' then ${loanNoteSql(sql`lent_to`, sql`lent_date`)}
+      end
+    from instances where id = ${id}::uuid and status is distinct from ${to}::instance_status_enum`;
 }
 
 /**
