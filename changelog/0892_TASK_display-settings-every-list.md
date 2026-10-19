@@ -24,7 +24,8 @@ Settings > Display had four problems:
 
 - **`LIST_PREFERENCES`** (`src/lib/preferences.ts`) gains `films`,
   `perfumes`, `paintings` and `publisherBooks`, with the keys those lists
-  already used. The lists now read their keys from there, so the table and
+  already used, and `organizations`, whose page size is all it saves for
+  now (its views come with SLN-1021). The lists now read their keys from there, so the table and
   the list can't drift apart:
   - `useHomeView` (`domain-home-shell.tsx`) for the three other kinds of
     work;
@@ -47,6 +48,7 @@ Settings > Display had four problems:
 - **Unit test** (`ui/display-settings.test.ts`):
   - the four lists have their controls, and a publisher's books has no page
     size;
+  - Organizations has a page size and nothing else;
   - choosing List for Films is the view `useHomeView("film")` shows;
   - every grid option reads "Up to N";
   - the sidebar group is hidden below `md`;
@@ -55,7 +57,7 @@ Settings > Display had four problems:
   - a view, grid size and page size chosen in Settings show on `/films`,
     `/perfumes` and `/paintings`: List, three a row, and `?perPage=96`.
 - **Three browsers at 1440, 1024, 768, 390 and 320:**
-  - all twelve lists show;
+  - all thirteen lists show;
   - no grid label is cut;
   - the sidebar switch shows from 768 up and not on phones (in headless
     WebKit on Linux a 6px scrollbar leaves 762px at 768, so the switch hides

@@ -42,6 +42,12 @@ describe("display settings", () => {
     expect(control("A publisher's books: items per page")).toBeNull();
   });
 
+  it("lists Organizations with its page size, its one view having nothing to choose", () => {
+    expect(control("Organizations: items per page")).not.toBeNull();
+    expect(control("Organizations: view")).toBeNull();
+    expect(control("Organizations: cards per row")).toBeNull();
+  });
+
   it("changes the view the films list shows", () => {
     choose("Films: view", "List");
     expect(document.cookie).toContain(`${LIST_PREFERENCES.films.view.key}=`);

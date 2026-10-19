@@ -124,6 +124,8 @@ export const LIST_PREFERENCES = {
     view: { key: "durtal-publisher-books-view-mode", modes: ["grid", "list"], fallback: "grid" },
     grid: { key: "durtal-publisher-books-grid-columns", fallback: 5 },
   },
+  // Its page size only: one view so far (SLN-925)
+  organizations: { label: "Organizations", path: "/organizations" },
   recommenders: {
     label: "Recommenders",
     path: "/recommenders",
