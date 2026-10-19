@@ -1,22 +1,26 @@
 # Deployment
 
-Durtal runs on one Mac: `next dev` on http://localhost:3100 from the main checkout (`~/personal/durtal`), with the live Neon database and S3. A release is the order below. The Docker image further down is what CI builds on every pull request to prove the Dockerfile works; no host runs it today, and the homelab sections (osmium.rh) describe a setup that is not in use.
+Durtal runs on one Mac. The live app is the standalone release on 127.0.0.1:3110, which launchd runs as `com.durtal.production` through `scripts/deploy/runtime_launcher.py`, with the live Neon database and S3. The development server on http://localhost:3100 runs from the main checkout (`~/personal/durtal`) and is not the live app. A release is the order below. The Docker image further down is what CI builds on every pull request to prove the Dockerfile works; no host runs it today, and the homelab sections (osmium.rh) describe a setup that is not in use.
 
 ---
 
 ## Release order
 
-A release takes these steps in this order (SLN-382). A step that fails stops the release.
+A release takes these steps in this order (SLN-382). A step that fails stops the release. The old release keeps serving until step 11. `mac_release.py` is `scripts/deploy/mac_release.py` and `live_migrate.py` is `scripts/deploy/live_migrate.py` (SLN-1318). Each `live_migrate.py` step leaves a private receipt in a new folder under `--receipts`, which never lives under /tmp or /private/tmp.
 
 1. **Merge.** The pull request is green in CI: lint, typecheck, the full test suite with its database suites (`pnpm test:local`) and the Docker image build.
 2. **Update the main checkout.** Fast-forward `~/personal/durtal` to `origin/main`, only when its uncommitted files do not overlap the change.
-3. **Back up.** When the release has a migration or a data step: `pg_dump --format=custom` with pg_dump 16 into `~/personal/durtal-backups/live-before-<what>-<timestamp>.dump`. When a step deletes or overwrites files in S3, refresh the bucket's copy first (see Backups, Recovery and Rollback, Files).
-4. **Rehearse.** `python3 scripts/qa/preview-local.py --from-dump FILE` restores the backup strictly, applies the pending migrations and prints the tables whose rows changed. Only the tables the release names may change.
-5. **Check the numbering.** Each new migration's `when` in `src/lib/db/migrations/meta/_journal.json` is later than the last one applied on live (`drizzle.__drizzle_migrations`); the migrator skips an older one silently.
-6. **Migrate.** `pnpm db:migrate` from the up-to-date main checkout, and only from there: an apply from a branch can make a later merge skip another branch's migration.
-7. **Data steps.** The steps the release names, each checked first without writing (for example a reading import's preview at `/reading/import/<id>` before its commit). Catalogue changes go through the REST API, never through SQL.
-8. **Serve.** When `globals.css` or the Tailwind setup changed, restart the dev server with a fresh Turbopack cache (`.next/dev/cache/turbopack` moved aside), then wait for `GET /api/health`. Confirm the new code is served: the page or stylesheet holds the new class or text.
-9. **Verify.** The changed pages in the browser, `node scripts/qa/page-weight.js`, and the release's own checks.
+3. **Prepare.** `mac_release.py prepare --repo REPO --commit SHA --destination DIR --node NODE --pnpm PNPM --public-inputs FILE` archives that exact commit into a new private folder outside the checkout, pinned to Node 22 and pnpm 10.26.1.
+4. **Build.** `mac_release.py build --directory DIR --allow-build` installs with the frozen lockfile and runs `pnpm build` with no database URL and no secrets.
+5. **Package.** `mac_release.py package --directory DIR --destination RELEASE --retain CURRENT` copies the standalone server, its static and public files and the deploy tools, keeps the current release's served assets, and writes a hash manifest. `mac_release.py verify --release RELEASE` checks it.
+6. **Back up.** Every release, since step 10 needs the migration evidence that step 9 writes even with nothing pending: `live_migrate.py backup --config CONFIG --config-sha256 SHA --receipts DIR` dumps the live database (pg_dump 16, custom format, as Backups, Recovery and Rollback says under Database) and refuses an empty or unreadable dump. When a step deletes or overwrites files in S3, refresh the bucket's copy first (same section, Files).
+7. **Rehearse.** `live_migrate.py rehearse --preparation DIR --backup RECEIPT --receipts DIR` restores that dump into a throwaway local postgres:16, applies the pending migrations there and reads the ledger back, with no live connection. `python3 scripts/qa/preview-local.py --from-dump FILE` restores the same dump and prints the tables whose rows changed: only the tables the release names may change. A dump that does not restore stops the release.
+8. **Check the numbering.** Each new migration's `when` in `src/lib/db/migrations/meta/_journal.json` is later than the last one applied on live (`drizzle.__drizzle_migrations`); the migrator skips an older one silently.
+9. **Migrate.** The commit prepared in step 3 must be on `origin/main`: `migrate` applies that archive's journal, wherever it is run from, and an apply from a branch can make a later merge skip another branch's migration. `live_migrate.py migrate --config CONFIG --config-sha256 SHA --preparation DIR --rehearsal RECEIPT --receipts DIR` applies the journal entries the live ledger lacks, in order and in one transaction, and runs only with a backup under an hour old whose rehearsal passed against exactly the ledger live still has. With nothing pending it ends as NOTHING_PENDING and still writes `live-migrations.json`, the evidence step 10 needs. `live_migrate.py status` names the pending migrations. `pnpm db:migrate` cannot reach Neon over TLS from the Mac.
+10. **Plan the switch.** `mac_release.py launchd-plan --config CONFIG --output NEW_PLIST` writes the new release's plist. `mac_release.py transition-plan --current CURRENT --target RELEASE --compatibility FILE --live-migrations FILE` refuses unless the new release keeps the served assets and a reviewed compatibility attestation is supplied. Neither installs or starts anything. Keep the current release's plist: it is the way back.
+11. **Switch.** `mac_release.py switch --current-plist CURRENT --target-plist NEW_PLIST --receipts DIR` (SLN-1319) refuses unless the current release is the one serving. It stops the running `com.durtal.production` job, waits up to 60 s for the port to free, loads the new plist and waits up to 180 s for the new release to serve. If it doesn't, the switch stops it and loads the current plist again, and says so. Either way it writes a receipt. The launcher verifies the release again before it starts `node server.js`.
+12. **Data steps.** The steps the release names, on the new release, each checked first without writing (for example a reading import's preview at `/reading/import/<id>` before its commit). Catalogue changes go through the REST API, never through SQL.
+13. **Verify.** The changed pages on 127.0.0.1:3110, `node scripts/qa/page-weight.js http://127.0.0.1:3110`, and the release's own checks.
 
 A collection (perfumes, films, paintings, a new one) opens only when its gates pass: its switch in `src/lib/catalogue/domains.ts` (`enabled`) and, for a new kind, the activation migration that widens `works_kind_enabled_check` ship together. Closing one again is a code change only (Rolling back a collection, below).
 
@@ -217,7 +221,7 @@ access_control:
 
 Every `/api/readings` route checks `DURTAL_API_TOKEN` itself, GETs included, so the token stays their lock: without `DURTAL_API_TOKEN` they answer `503`, with a wrong token `401`. The rule is homelab configuration outside this repo; the app never changes it.
 
-When Durtal runs as `next dev -p 3100` on the Mac (no Traefik, no Authelia), no rule is needed: the server listens on every interface, so a phone on the same network calls `http://<Mac name>.local:3100`, and a phone elsewhere needs the Mac on the same tailnet.
+On the Mac (no Traefik, no Authelia) no rule is needed. The development server on :3100 listens on every interface, so a phone on the same network calls `http://<Mac name>.local:3100`, and a phone elsewhere needs the Mac on the same tailnet. The live release listens on 127.0.0.1:3110 only and is reached through the Mac's private Tailscale HTTPS (changelog 0448).
 
 ### Health Check
 
@@ -374,11 +378,15 @@ Tailscale change, cloud write or infrastructure-journal acknowledgement.
 
 ## Backups, Recovery and Rollback
 
-**Database.** Before every live migration, `pg_dump --format=custom` with pg_dump 16 into `~/personal/durtal-backups/live-before-<what>-<timestamp>.dump`. A backup counts as verified once it restores strictly: `python3 scripts/qa/preview-local.py --from-dump FILE` restores it with `pg_restore --exit-on-error` into a disposable PostgreSQL, applies the pending migrations and prints the tables whose rows changed.
+**Database.** A release's backup is `live_migrate.py backup` (Release order, step 6): only its receipt feeds the rehearsal and the migration. Any other dump, such as one before a data change outside a release, uses pg_dump 16, the major version `preview-local.py` restores with: `docker run --rm -e PGURL postgres:16 sh -c 'pg_dump --format=custom "$PGURL"' > ~/personal/durtal-backups/live-before-<what>-<timestamp>.dump`. A dump from a newer pg_dump does not restore there. An empty file is no backup. A backup counts as verified once it restores strictly: `python3 scripts/qa/preview-local.py --from-dump FILE` restores it with `pg_restore --exit-on-error` into a disposable PostgreSQL, applies the pending migrations and prints the tables whose rows changed.
 
 **Files (S3).** Checked 2026-10-04 (task 0267): every key the newest backup names (3,274) exists in the bucket (3,374 objects, 468 MB). The app's IAM user cannot read the bucket's versioning, replication or lifecycle settings, so the bucket itself may not keep deleted or overwritten files. A read-only copy of the whole bucket is in `~/personal/durtal-backups/s3-20261004/`, with `MANIFEST.json` (every key, size and ETag); every file matched its size and MD5 when copied. Refresh it the same way before a destructive change.
 
 **Checking a build against a backup.** `pnpm build`, then `python3 scripts/qa/preview-local.py --start --from-dump FILE` serves the standalone build as the Docker image does (`server.js` with its static files) against a disposable restore of the backup.
+
+**Rolling back a build.** The previous release stays in its folder, and its plist is the way back: `mac_release.py switch` with the two plists the other way round, or by hand (stop the `com.durtal.production` agent, load the previous release's plist, and wait for `GET http://127.0.0.1:3110/api/health`) when the switch refuses. Going back is safe for the schema only while every migration since that release is additive; otherwise restore the backup first.
+
+**When the service stops.** The launcher restarts a server that exits after 30 s, but a start that never becomes ready, or three exits within five minutes, stops the service for good (`runtime_launcher.py`). The plist has `KeepAlive: false`, so launchd does not start it again: someone recovers it by hand, by loading a plist as above.
 
 **Rolling back a collection.** Perfumes, films and paintings can be closed again without losing what was entered:
 
