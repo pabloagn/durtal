@@ -8,6 +8,7 @@
  */
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { ExpectedActionError } from "@/lib/actions/expected-error";
 import { editions } from "@/lib/db/schema";
 import { resultRows } from "@/lib/publishers/resolution";
 import type { MatchField, MatchPlan, MatchValue } from "@/lib/match/plan";
@@ -182,7 +183,7 @@ export async function applyMatch(
 ): Promise<{ changed: number } | SourceRefused> {
   const edition = await loadMatchEdition(editionId);
   if (edition.metadataLocked)
-    throw new Error("Unlock this edition before you match it again");
+    throw new ExpectedActionError("Unlock this edition before you match it again");
   if (!accepted.length && !(relink && edition.publisherLinksConfirmed))
     return { changed: 0 };
   const record = await readSource(source, sourceId);

@@ -119,7 +119,11 @@ function rescue() {
   if (document.querySelector("dialog[open]")) return;
   const gone = place;
   place = null;
-  focusSuccessor(gone)?.focus({ preventScroll: true });
+  const next = focusSuccessor(gone);
+  next?.focus({ preventScroll: true });
+  // An Add can go with its section (a book's last target, off the wishlist):
+  // keep watching it, so the focus goes on to the heading then
+  if (next?.hasAttribute("data-focus-empty")) place = { ...gone, row: next };
 }
 
 export function FocusKeeper() {

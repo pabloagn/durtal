@@ -14,9 +14,9 @@ import {
 } from "./publisher-picker";
 import {
   getUnmatchedEditionNames,
-  setEditionPublisherLinks,
-  resetEditionPublisherLinks,
 } from "@/lib/actions/publishers";
+import { setEditionPublisherLinks, resetEditionPublisherLinks } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 function editionsText(n: number) {
   return `${n} other edition${n === 1 ? "" : "s"}`;
@@ -101,8 +101,8 @@ export function EditionPublishers({
         }
         setEditing(false);
         router.refresh();
-      } catch {
-        toast.error("Could not save publisher links");
+      } catch (error) {
+        toast.error(refusalMessage(error, "Could not save publisher links"));
       }
     });
   }

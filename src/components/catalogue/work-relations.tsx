@@ -18,8 +18,6 @@ import { ConfirmDeleteDialog } from "./confirm-delete-dialog";
 import { SingleChoiceField } from "./record-fields";
 import type { PickerChoice } from "./search-picker";
 import {
-  createWorkRelation,
-  deleteWorkRelation,
   getWorkSourceChoices,
   searchWorksForRelation,
   type WorkRelationView,
@@ -33,6 +31,8 @@ import {
   relationTargetKinds,
   type WorkRelationType,
 } from "@/lib/catalogue/work-relations";
+import { createWorkRelation, deleteWorkRelation } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 export interface RelatedWorkOwner {
   id: string;
@@ -166,7 +166,7 @@ function RelationForm({ work, onDone }: { work: RelatedWorkOwner; onDone: () => 
       onDone();
       router.refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not link the works";
+      const message = refusalMessage(err, "Could not link the works");
       setError(message);
       toast.error(message);
       setSaving(false);
@@ -360,7 +360,7 @@ export function LinkedWorksSection({
             setRemoving(null);
             router.refresh();
           } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Could not remove the link");
+            toast.error(refusalMessage(err, "Could not remove the link"));
           }
         }}
       />

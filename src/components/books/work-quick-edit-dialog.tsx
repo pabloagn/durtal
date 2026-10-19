@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
-import { updateWork } from "@/lib/actions/works";
 import { getWork } from "@/lib/actions/works";
 import { getSeries } from "@/lib/actions/series";
 import { getWorkTypes } from "@/lib/actions/taxonomy";
@@ -16,6 +15,8 @@ import {
   workFormValues,
   workPayload,
 } from "@/components/books/work-form";
+import { updateWork } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 interface WorkQuickEditDialogProps {
   open: boolean;
@@ -118,7 +119,7 @@ export function WorkQuickEditDialog({
         router.refresh();
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "Failed to update work",
+          refusalMessage(err, "Failed to update work"),
         );
       }
     });

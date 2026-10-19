@@ -24,13 +24,13 @@ afterEach(() => {
 });
 const frame = () => act(() => new Promise((resolve) => setTimeout(resolve, 40)));
 
-function Page({ names, dialog = false, read = [] }: { names: string[]; dialog?: boolean; read?: string[] }) {
+function Page({ names, dialog = false, read = [], add = true }: { names: string[]; dialog?: boolean; read?: string[]; add?: boolean }) {
   return h(
     "main",
     null,
     h(FocusKeeper),
     h("h1", null, "Locations"),
-    h("button", { "data-focus-empty": "places" }, "Add location"),
+    add && h("button", { "data-focus-empty": "places" }, "Add location"),
     names.length > 0 &&
       h(
         "ul",
@@ -77,6 +77,18 @@ describe("FocusKeeper", () => {
     act(() => root.render(h(Page, { names: [] })));
     await frame();
     expect(document.activeElement).toBe(button("Add location"));
+  });
+
+  it("goes on to the heading when the Add goes with its section after the last row (SLN-1029)", async () => {
+    act(() => root.render(h(Page, { names: ["Attic"] })));
+    button("Delete Attic").focus();
+    act(() => root.render(h(Page, { names: [] })));
+    await frame();
+    expect(document.activeElement).toBe(button("Add location"));
+    // A book's Hunting for section leaves with its last target, Add and all
+    act(() => root.render(h(Page, { names: [], add: false })));
+    await frame();
+    expect(document.activeElement).toBe(host.querySelector("h1"));
   });
 
   it("keeps the row's place through the confirmation dialog it opened", async () => {

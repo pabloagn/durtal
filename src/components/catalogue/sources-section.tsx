@@ -10,8 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { CapAligned } from "@/components/shared/cap-aligned";
-import { citeSource, deleteCitedSource } from "@/lib/actions/catalogue-provenance";
 import type { SourceOwner } from "@/lib/catalogue/provenance";
+import { citeSource, deleteCitedSource } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 export interface SourceView {
   id: string;
@@ -123,7 +124,7 @@ export function SourcesSection({
                         toast.success("Source removed");
                         router.refresh();
                       } catch (err) {
-                        toast.error(err instanceof Error ? err.message : "Could not remove the source");
+                        toast.error(refusalMessage(err, "Could not remove the source"));
                       } finally {
                         setRemoving(null);
                       }
@@ -220,7 +221,7 @@ function SourceForm({
               onDone();
               router.refresh();
             } catch (err) {
-              toast.error(err instanceof Error ? err.message : "Could not add the source");
+              toast.error(refusalMessage(err, "Could not add the source"));
               setSaving(false);
             }
           }}

@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { EntityActionMenu } from "@/components/shared/entity-action-menu";
-import { deletePerfumeBottle } from "@/lib/actions/perfumes";
+import { deletePerfumeBottle } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 import { BottleDialog, type EditableBottle, type StorageLocation } from "./bottle-dialog";
 
@@ -155,7 +156,7 @@ export function BottlesSection({
             close();
             router.refresh();
           } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Could not delete");
+            toast.error(refusalMessage(err, "Could not delete"));
           }
         }}
       />

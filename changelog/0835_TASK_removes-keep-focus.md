@@ -23,3 +23,5 @@ SLN-1029, from findings/focus-survey-2026-10-18.md (cause 3) and findings/recomm
 ## Completion Notes
 
 Checked in Chromium, Firefox and WebKit at 1440 on the preview: after each remove (first of three, second of two, the last) the focus is on the next row's Remove, the row before's, or the section's Add; on a book page, on its actions menu after the last link. Alignment, design, overflow, layout and touch audits clean on a book page, a film page and a venue page at 1440, 390 and 320; page weight passes. Typecheck, lint and unit tests pass; the book page reading, film sources, typed acquisitions, venue pages and work relations database suites pass. A new FocusKeeper test covers a row's own card, and fails on the old row counting.
+
+Review (third reviewer): on a book off the wishlist, whose Hunting for section shows only while it has targets, the section can leave with its last target after Add target took the focus, and Firefox then dropped the focus on the page. FocusKeeper now keeps watching an Add it moved the focus to, so the focus goes on to the page heading; a FocusKeeper test covers it. The remove's error toast uses main's `refusalMessage`.

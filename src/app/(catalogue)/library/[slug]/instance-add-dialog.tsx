@@ -12,7 +12,6 @@ import {
   instancePayload,
   type InstanceDraft,
 } from "@/components/books/instance-form";
-import { createInstance } from "@/lib/actions/instances";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { useAppSettings } from "@/lib/hooks/use-app-settings";
 import { newCopyLocationId } from "@/lib/utils/instance-drafts";
@@ -23,6 +22,8 @@ import { reviewCopyMetadata } from "@/lib/ebooks/review-queue/copy-draft";
 import { notifyReviewOutcome } from "@/lib/ebooks/review-queue/feedback";
 import { prepareReviewUi, confirmReviewUi } from "@/lib/actions/ebook-review-ui";
 import type { PreparedReview, ReviewOutcome, ReviewQueueRow, ReviewUiResult } from "@/lib/ebooks/review-queue/types";
+import { createInstance } from "@/lib/actions/catalogue-client";
+import { refusalMessage } from "@/lib/actions/refusal";
 
 interface LocationOption {
   id: string;
@@ -90,13 +91,13 @@ export function InstanceAddDialog({
     setIsPending(true);
     try {
       await createInstance({ editionId, ...instancePayload(draft) });
-      toast.success("Instance added");
+      toast.success("Copy added");
       setDraft(freshDraft());
       setOpen(false);
       router.refresh();
       triggerActivityRefresh();
-    } catch {
-      toast.error("Failed to add instance");
+    } catch (error) {
+      toast.error(refusalMessage(error, "Could not add the copy"));
     } finally {
       writeLock.current = false;
       setIsPending(false);

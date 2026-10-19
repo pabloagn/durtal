@@ -13,11 +13,12 @@ import {
   type EditionFormValues,
 } from "@/components/books/edition-form";
 import { OptionsNotice } from "@/components/shared/options-notice";
-import { createEdition } from "@/lib/actions/editions";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { useAppSettings } from "@/lib/hooks/use-app-settings";
 import { preloadEditOptions, useEditOptions } from "@/hooks/use-edit-options";
 import { EDITION_GROUPS } from "@/lib/catalogue/edit-options";
+import { createEdition } from "@/lib/actions/catalogue-client";
+import { refusalAction, refusalMessage } from "@/lib/actions/refusal";
 
 interface EditionAddDialogProps {
   workId: string;
@@ -72,9 +73,10 @@ export function EditionAddDialog({
       router.refresh();
       triggerActivityRefresh();
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to create edition";
-      toast.error(message);
+      toast.error(
+        refusalMessage(err, "Failed to create edition"),
+        refusalAction(err, (href) => router.push(href)),
+      );
     } finally {
       setIsPending(false);
     }
