@@ -54,3 +54,11 @@ export function createUploadQueue(limit = UPLOADS_AT_ONCE): UploadQueue {
     },
   };
 }
+
+let pageQueue: UploadQueue | null = null;
+
+/** The page's one queue, shared by every drop zone it shows */
+export function pageUploadQueue(): UploadQueue {
+  pageQueue ??= createUploadQueue();
+  return pageQueue;
+}

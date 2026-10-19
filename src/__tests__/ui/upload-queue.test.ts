@@ -86,6 +86,9 @@ describe("a gallery drop (SLN-1461)", () => {
     await act(async () => button("Cancel")!.click());
     expect(host.textContent).toContain("Cancelled. Finishing the 2 images already sending…");
     expect(button("Cancel")).toBeUndefined();
+    // Cancel is gone, so the focus moves to the note, never to the page
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement?.textContent).toMatch(/^Cancelled\./);
     await finishNext();
     await finishNext();
     expect(upload.uploadMediaFile).toHaveBeenCalledTimes(8);
@@ -100,6 +103,18 @@ describe("a gallery drop (SLN-1461)", () => {
     await drop(photos(3));
     await act(async () => pending.shift()!.reject(new Error("This file is not an image Durtal can read.")));
     expect(host.textContent).toContain("This file is not an image Durtal can read.");
+    expect(upload.uploadMediaFile).toHaveBeenCalledTimes(3);
+  });
+
+  it("a drop zone reopened while photos are sending waits its turn", async () => {
+    await gallery();
+    await drop(photos(3));
+    act(() => root.unmount());
+    root = createRoot(host);
+    await gallery();
+    await drop(photos(2));
+    expect(upload.uploadMediaFile).toHaveBeenCalledTimes(UPLOADS_AT_ONCE);
+    await finishNext();
     expect(upload.uploadMediaFile).toHaveBeenCalledTimes(3);
   });
 

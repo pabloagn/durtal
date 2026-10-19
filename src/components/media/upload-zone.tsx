@@ -6,7 +6,7 @@ import { Upload } from "lucide-react";
 import type { MediaType } from "@/lib/types";
 import type { MonochromeParams } from "@/lib/validations/media";
 import { IMAGE_ACCEPT, imageFileRefusal } from "@/lib/validations/media-security";
-import { createUploadQueue } from "@/lib/utils/upload-queue";
+import { pageUploadQueue } from "@/lib/utils/upload-queue";
 import { countLabel } from "@/lib/utils/format";
 
 interface ZoneOptions {
@@ -132,9 +132,13 @@ export function UploadZone({
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // A few at a time, so a gallery drop never sends every photo at once (SLN-1461)
-  const [queue] = useState(createUploadQueue);
+  // A few at a time, so a gallery drop never sends every photo at once; one
+  // queue for the page, so a drop zone reopened while one is sending still
+  // waits its turn (SLN-1461)
+  const queue = pageUploadQueue();
   const [cancelled, setCancelled] = useState<number | null>(null);
+  // Cancel unmounts itself, so the focus moves to the note saying what happened
+  const focusNote = useCallback((note: HTMLParagraphElement | null) => note?.focus(), []);
 
   const enqueue = useCallback(
     (filename: string, upload: () => Promise<void>) => {
@@ -341,7 +345,7 @@ export function UploadZone({
         </div>
       )}
       {cancelled !== null && (
-        <p className="mt-2 text-xs text-fg-secondary" role="status">
+        <p ref={focusNote} tabIndex={-1} className="mt-2 text-xs text-fg-secondary outline-none" role="status">
           {sending > 0
             ? `Cancelled. Finishing the ${countLabel(sending, "image")} already sending…`
             : `Cancelled. ${countLabel(added, "image")} added, ${cancelled.toLocaleString("en")} not sent.`}
