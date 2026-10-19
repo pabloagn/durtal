@@ -13,6 +13,7 @@ import { parsePagination } from "@/lib/utils/pagination";
 import { compareWorks } from "@/lib/utils/title-order";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
+import { uniqueConstraint } from "@/lib/db/errors";
 import {
   publishingHouses as houses,
   publisherAliases,
@@ -608,6 +609,23 @@ export async function cancelAcquisitionTarget(id: string) {
     .set({ isCancelled: true })
     .where(eq(acquisitionTargets.id, z.uuid().parse(id)))
     .returning();
+  if (!row) throw new ExpectedActionError("Target not found");
+  changed();
+}
+
+/** Undo for a removal: the target is wanted again, unless the same one was added since */
+export async function restoreAcquisitionTarget(id: string) {
+  let row;
+  try {
+    [row] = await db
+      .update(acquisitionTargets)
+      .set({ isCancelled: false })
+      .where(and(eq(acquisitionTargets.id, z.uuid().parse(id)), eq(acquisitionTargets.isCancelled, true)))
+      .returning({ id: acquisitionTargets.id });
+  } catch (error) {
+    if (uniqueConstraint(error)) throw new ExpectedActionError("This acquisition target already exists");
+    throw error;
+  }
   if (!row) throw new ExpectedActionError("Target not found");
   changed();
 }

@@ -131,6 +131,12 @@ export async function cancelAcquisitionTarget(
   return actionResult(() => publishers.cancelAcquisitionTarget(...args));
 }
 
+export async function restoreAcquisitionTarget(
+  ...args: Parameters<typeof publishers.restoreAcquisitionTarget>
+) {
+  return actionResult(() => publishers.restoreAcquisitionTarget(...args));
+}
+
 export async function fulfilTargetWithCopy(
   ...args: Parameters<typeof publishers.fulfilTargetWithCopy>
 ) {

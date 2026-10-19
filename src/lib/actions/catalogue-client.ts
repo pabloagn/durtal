@@ -124,6 +124,12 @@ export async function cancelAcquisitionTarget(
   return value(actions.cancelAcquisitionTarget(...args));
 }
 
+export async function restoreAcquisitionTarget(
+  ...args: Parameters<typeof actions.restoreAcquisitionTarget>
+) {
+  return value(actions.restoreAcquisitionTarget(...args));
+}
+
 export async function fulfilTargetWithCopy(
   ...args: Parameters<typeof actions.fulfilTargetWithCopy>
 ) {

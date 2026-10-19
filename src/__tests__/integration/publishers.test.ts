@@ -67,6 +67,7 @@ import {
   createAcquisitionTarget,
   getAcquisitionTargets,
   cancelAcquisitionTarget,
+  restoreAcquisitionTarget,
   getOrderAcquisitionOptions,
   searchPublisherOptions,
   createPublisherFromName,
@@ -865,6 +866,19 @@ describe.skipIf(!url)(
       expect((await getAcquisitionTargets(w.id))[0].state).toBe("wanted");
       await cancelAcquisitionTarget(t.id);
       expect(await getAcquisitionTargets(w.id)).toHaveLength(0);
+    });
+    it("brings a removed target back with Undo, unless the same one was added since (SLN-1120)", async () => {
+      const w = await work();
+      const t = await createAcquisitionTarget({ workId: w.id });
+      await cancelAcquisitionTarget(t.id);
+      await restoreAcquisitionTarget(t.id);
+      expect((await getAcquisitionTargets(w.id)).map((r) => [r.target.id, r.state])).toEqual([[t.id, "wanted"]]);
+      // Not twice, and not over a new one with the same wish
+      await expect(restoreAcquisitionTarget(t.id)).rejects.toThrow("Target not found");
+      await cancelAcquisitionTarget(t.id);
+      const again = await createAcquisitionTarget({ workId: w.id });
+      await expect(restoreAcquisitionTarget(t.id)).rejects.toThrow("already exists");
+      expect((await getAcquisitionTargets(w.id)).map((r) => r.target.id)).toEqual([again.id]);
     });
     it("validates target scope, uniqueness and edition/copy consistency at the database boundary", async () => {
       const p = await publisher(),

@@ -34,6 +34,6 @@ describe("removes keep the focus", () => {
     expect(sources).not.toContain("disabled={removing === source.id}");
     expect(sources).toContain("aria-disabled={removing === source.id || undefined}");
     const targets = read("components/publishers/acquisition-targets.tsx");
-    expect(targets).toMatch(/aria-label="Remove target"[\s\S]*?busy=\{removing === target.id\}\s*aria-disabled=\{pending \|\| !!removing \|\| undefined\}/);
+    expect(targets).toMatch(/aria-label=\{`Remove target: \$\{targetName\(t\)\}`\}[\s\S]*?busy=\{busy === `remove:\$\{target.id\}`\}\s*aria-disabled=\{pending \|\| undefined\}/);
   });
 });
