@@ -9,7 +9,7 @@ import { buttonClass } from "@/components/ui/button";
 import { runLength, runPlace, runTime } from "@/components/ebooks/run-row";
 import { RunItemRow, shortPath } from "@/components/ebooks/run-item-row";
 import { RunRefresh } from "@/components/ebooks/run-refresh";
-import { countsLine, reconciliationLine, runStateLabel, RUN_KIND_LABEL } from "@/lib/ebooks/run-text";
+import { countsLine, reconciliationLine, runStateLabel, uploadWaitingLine, RUN_KIND_LABEL } from "@/lib/ebooks/run-text";
 import { getRun, runSections, RUN_ROWS_STEP, RUN_SECTIONS, shownRows, type RunSectionKey } from "@/lib/ebooks/runs";
 import { isUuid } from "@/lib/utils/uuid";
 
@@ -50,6 +50,8 @@ export default async function IngestionRunPage({ params, searchParams }: { param
   const r = run.reconciliation;
   const blocking = r?.exceptions.filter((e) => e.blocking) ?? [];
   const shownExceptions = shownRows(query.exceptions);
+  // A failed file stays until someone retries or cancels it, and its run waits for it (SLN-1467)
+  const waiting = run.state === "running" && run.uploadBatchId ? uploadWaitingLine(run.counts) : null;
 
   return (
     <>
@@ -76,7 +78,16 @@ export default async function IngestionRunPage({ params, searchParams }: { param
             {r.noLongerInInbox.toLocaleString("en-US")} no longer in the inbox (stored and verified) · {r.inFlight.toLocaleString("en-US")} in flight
           </p>
         )}
-        {run.state === "running" && <p className="text-fg-secondary">Running: the counts refresh every 10 seconds while this page is open.</p>}
+        {waiting ? (
+          <p className="text-fg-secondary">
+            {waiting}{" "}
+            <Link href={`/ebooks/upload?batch=${run.uploadBatchId}`} className="underline underline-offset-2 hover:text-fg-primary touch-hit">
+              Open the upload
+            </Link>
+          </p>
+        ) : (
+          run.state === "running" && <p className="text-fg-secondary">Running: the counts refresh every 10 seconds while this page is open.</p>
+        )}
         {run.state === "interrupted" && (
           <p className="text-fg-secondary">
             {run.host ? `Interrupted on ${run.host}; it resumes from there.` : "Interrupted; the upload can be sent again."}

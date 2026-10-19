@@ -319,7 +319,7 @@ export class UploadSupervisor {
       // or cancellation. It leaves the lease live until actual cleanup proof,
       // so a later explicit core retry can use the retained original bytes.
       await this.dependencies.persistence.recordJobFailure(this.owner!, fence, failure);
-      throw local ? new UploadItemFailed(failure, { cause: error }) : error;
+      throw local ? new UploadItemFailed(failure, { cause: error, canceled: active.canceled }) : error;
     } finally {
       clearTimeout(deadline); clearTimeout(inspectionDeadline);
       try {

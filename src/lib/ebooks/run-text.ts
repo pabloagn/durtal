@@ -33,6 +33,8 @@ export function reconciliationLine(r: Pick<IngestReconciliation, "onDisk" | "inN
 export const RUN_KIND_LABEL: Record<string, string> = { apply: "Apply", upload: "Upload", verify: "Verification" };
 
 const COUNT_WORDS: [key: string, one: string, many: string][] = [
+  // An upload's files (SLN-1467)
+  ["added", "added", "added"],
   ["new_ebook", "new eBook", "new eBooks"],
   ["new_format", "format added", "formats added"],
   ["replaced_file", "changed file", "changed files"],
@@ -41,6 +43,8 @@ const COUNT_WORDS: [key: string, one: string, many: string][] = [
   ["quarantined", "quarantined", "quarantined"],
   ["ignored", "ignored", "ignored"],
   ["changed_since_plan", "changed since the plan", "changed since the plan"],
+  ["canceled", "canceled", "canceled"],
+  ["expired", "expired", "expired"],
   ["failed", "failed", "failed"],
   ["pending", "waiting", "waiting"],
   // A verification's counts
@@ -55,6 +59,14 @@ const COUNT_WORDS: [key: string, one: string, many: string][] = [
 export function countsLine(counts: Record<string, number>): string {
   const parts = COUNT_WORDS.filter(([key]) => (counts[key] ?? 0) > 0).map(([key, one, many]) => `${n(counts[key])} ${counts[key] === 1 ? one : many}`);
   return parts.length ? parts.join(" · ") : "Nothing to do";
+}
+
+/** What a running upload waits on when only its failed files are open: they
+ * stay until someone retries or cancels them, so the run says so (SLN-1467) */
+export function uploadWaitingLine(counts: Record<string, number>): string | null {
+  const failed = counts.failed ?? 0;
+  if (failed === 0 || (counts.pending ?? 0) > 0) return null;
+  return failed === 1 ? "Waiting on 1 failed file: retry or cancel it." : `Waiting on ${n(failed)} failed files: retry or cancel them.`;
 }
 
 export type RunTone = "sage" | "gold" | "red" | "blue";

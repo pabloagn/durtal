@@ -1,8 +1,9 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "@/lib/db/schema";
 import { settleUploadRunSql } from "@/lib/ebooks/upload-core/run-settle";
+import { getRun, listRuns } from "@/lib/ebooks/runs";
 import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
 
 // SLN-1395: every browser-upload run stayed "running" for good, and its run
@@ -15,12 +16,19 @@ if (url) {
     throw new Error("Upload run tests require disposable local sln1395_upload_run");
 }
 const client = url ? postgres(url, { prepare: false, max: 2, onnotice: () => {} }) : null;
+const testDb = client ? drizzle(client, { schema }) : null;
+vi.mock("@/lib/db", () => ({
+  db: new Proxy({}, { get: (_, key) => {
+    if (!testDb) throw new Error("Local test database required");
+    return Reflect.get(testDb, key);
+  } }),
+}));
 const id = (n: number) => `00000000-0000-4000-8000-${n.toString().padStart(12, "0")}`;
 const hex = (c: string) => c.repeat(64);
 const volume = id(1);
 
 describe.skipIf(!url)("an upload's run settles with its last file", () => {
-  const c = client!, conn = client ? drizzle(client, { schema }) : null;
+  const c = client!, conn = testDb;
   beforeAll(async () => {
     await resetDisposableDatabase(url!, "sln1395_upload_run");
     await c`insert into ebook_upload_capacity(volume_id,binding_sha256,state,owner_token,owner_fence,owner_identity,
@@ -106,5 +114,23 @@ describe.skipIf(!url)("an upload's run settles with its last file", () => {
     await settle(empty); await settle(apply);
     expect(await runOf(empty)).toEqual({ state: "running", finished: false });
     expect(await runOf(apply)).toEqual({ state: "running", finished: false });
+  });
+
+  // SLN-1467: a settled upload run read "Nothing to do"; its counts come from its files
+  it("counts an upload run's files by how they ended, and names its batch", async () => {
+    const { run, uploads: [added, canceled, failed, open] } = await batch(5000, 4);
+    await add(run, added, 5100);
+    await c`update ebook_upload_operations set state='canceled' where id=${canceled}`;
+    await c`update ebook_upload_operations set state='failed' where id=${failed}`;
+    expect(await getRun(run)).toMatchObject({ uploadBatchId: id(5001), counts: { added: 1, canceled: 1, expired: 0, failed: 1, pending: 1 } });
+    await c`update ebook_upload_operations set state='expired' where id=${open}`;
+    await c`update ebook_upload_operations set state='canceled' where id=${failed}`; await settle(run);
+    const settled = await getRun(run);
+    expect(settled).toMatchObject({ state: "finished", counts: { added: 1, canceled: 2, expired: 1, failed: 0, pending: 0 } });
+    const listed = (await listRuns(200)).runs;
+    expect(listed.find((r) => r.id === run)).toMatchObject({ counts: settled!.counts, uploadBatchId: id(5001) });
+    const apply = id(5600);
+    await c`insert into ebook_ingest_runs(id,kind,tool_version,counts) values(${apply},'apply',2,'{"new_ebook":2}'::jsonb)`;
+    expect(await getRun(apply)).toMatchObject({ uploadBatchId: null, counts: { new_ebook: 2 } });
   });
 });

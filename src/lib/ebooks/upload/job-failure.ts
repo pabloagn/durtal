@@ -38,8 +38,20 @@ export class UploadItemRefusal extends Error {
 
 /** One item failed and was recorded; its inspector exit and cleanup were proved */
 export class UploadItemFailed extends Error {
-  constructor(readonly failure: UploadJobFailure, options: { cause: unknown }) {
-    super(uploadJobFailureMessage(failure), options); this.name = "UploadItemFailed";
+  /** Someone canceled it while it was being checked: the check itself did not fail */
+  readonly canceled: boolean;
+  constructor(readonly failure: UploadJobFailure, options: { cause: unknown; canceled?: boolean }) {
+    super(uploadJobFailureMessage(failure), { cause: options.cause }); this.name = "UploadItemFailed";
+    this.canceled = options.canceled ?? false;
+  }
+}
+
+/** Checks failed in a row, as they all do when the inspector image is missing:
+ * the service stops, so the app reads it as down (SLN-1467) */
+export const CHECK_FAILURES_BEFORE_OUTAGE = 3;
+export class UploadChecksFailing extends Error {
+  constructor(options: { cause: unknown }) {
+    super(`The last ${CHECK_FAILURES_BEFORE_OUTAGE} upload checks failed in a row`, options); this.name = "UploadChecksFailing";
   }
 }
 

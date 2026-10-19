@@ -11,7 +11,7 @@ import { writeInspectorRequest } from "./worker-request";
 import { requestRelativePath } from "./runtime-contract";
 import { UPLOAD_LIMITS } from "./limits";
 import { canonicalJson } from "./idempotency";
-import { UploadItemFailed } from "./job-failure";
+import { CHECK_FAILURES_BEFORE_OUTAGE, UploadChecksFailing, UploadItemFailed } from "./job-failure";
 import type { UploadSupervisor, UploadJobScope } from "./supervisor";
 import type { PostgresUploadStore } from "./store";
 import type { PrivateUploadSpool } from "./private-spool";
@@ -25,6 +25,8 @@ export class UploadDispatcher {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private running: Promise<void> | null = null;
   private enabled = false;
+  /** Checks that failed in a row; a refusal or a published file means the inspector works */
+  private checkFailures = 0;
   constructor(private readonly input: {
     supervisor: UploadSupervisor; store: PostgresUploadStore; spool: PrivateUploadSpool;
     core: UploadJobCoreAdapter; context: UploadCoreContext; onFailure(error: unknown): void;
@@ -60,15 +62,20 @@ export class UploadDispatcher {
     const ready = this.input.supervisor.readiness();
     if (ready.state !== "ready") throw new Error("Upload worker readiness lost");
     try {
-      await this.runNext();
+      if (await this.runNext()) this.checkFailures = 0;
     } catch (error) {
       if (!(error instanceof UploadItemFailed)) throw error;
       try { this.input.onItemFailure?.(error); } catch { /* Diagnostics cannot fail the next job. */ }
+      if (error.canceled) return;
+      if (error.failure.reason !== "check_failed") { this.checkFailures = 0; return; }
+      // Stopping makes the app say the service is down, rather than failing every file in turn (SLN-1467)
+      if (++this.checkFailures >= CHECK_FAILURES_BEFORE_OUTAGE) throw new UploadChecksFailing({ cause: error });
     }
   }
 
-  private async runNext(): Promise<void> {
-    await this.input.supervisor.runNextJob((owner) => this.input.store.claimNext(owner, randomUUID(), this.input.context.targetFingerprint), {
+  /** Whether a file was checked and published; false when none was waiting */
+  private async runNext(): Promise<boolean> {
+    return await this.input.supervisor.runNextJob((owner) => this.input.store.claimNext(owner, randomUUID(), this.input.context.targetFingerprint), {
       prepare: async (scope) => {
         const fence = scope.identity.fence;
         const owner = await scope.current();
@@ -82,8 +89,8 @@ export class UploadDispatcher {
                 throw new Error("Upload request owner changed"); return state.owner;
             } }) });
       },
-      consume: (output, scope) => this.publish(output, scope),
-    });
+      consume: async (output, scope) => { await this.publish(output, scope); return true; },
+    }) ?? false;
   }
 
   private async publish(output: string, job: UploadJobScope): Promise<void> {
