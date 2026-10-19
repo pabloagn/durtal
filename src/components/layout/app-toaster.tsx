@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { CircleAlert, CircleCheck, Info, LoaderCircle, TriangleAlert, X } from "lucide-react";
 import { Toaster, useSonner, type ToastT } from "sonner";
@@ -85,6 +85,11 @@ export function AppToaster() {
  * be seen but not dismissed; inside it they can. Their layer is a popover, in
  * the top layer, so it is placed against the screen wherever it sits, and it
  * is shown again after each move so it stays above the dialog.
+ *
+ * They move over a dialog only while a toast is showing (SLN-1464): showing
+ * the layer again costs a style recalculation, slow on a phone, and usually
+ * no toast is up when a dialog opens. A toast that arrives later moves them
+ * over the top dialog at once.
  */
 const noSubscription = () => () => {};
 
@@ -97,28 +102,37 @@ function useLayerHost(layer: React.RefObject<HTMLDivElement | null>) {
     el.dataset.toastHolder = "";
     return el;
   });
+  const { toasts } = useSonner();
+  const showing = toasts.some((t) => !t.delete);
+  const up = useRef(false);
+  const placeNow = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (!box) return;
     document.body.append(box);
     // Dialogs in the order they opened: the last one is on top
     let opened: HTMLDialogElement[] = [];
     let frame = 0;
-    const raise = () => {
+    const show = () => {
       const el = layer.current;
       if (!el || typeof el.showPopover !== "function") return;
       try {
-        if (el.matches(":popover-open")) el.hidePopover();
-        el.showPopover();
+        // A move out of the page or a dialog hides it
+        if (!el.matches(":popover-open")) el.showPopover();
       } catch {
         // Left in the page: the toasts still show
       }
     };
     const place = () => {
       opened = opened.filter((d) => d.isConnected && d.open && d.matches(":modal"));
-      const host = opened.at(-1) ?? document.body;
+      const top = opened.at(-1) ?? document.body;
+      // With no toast up they stay put, unless their dialog has closed
+      const here = box.isConnected ? box.parentNode : null;
+      const stays = here === document.body || opened.includes(here as HTMLDialogElement);
+      const host = up.current || !stays ? top : here!;
       if (box.parentNode !== host) host.append(box);
-      raise();
+      show();
     };
+    placeNow.current = place;
     const changes = new MutationObserver((records) => {
       let moved = false;
       for (const r of records) {
@@ -139,11 +153,17 @@ function useLayerHost(layer: React.RefObject<HTMLDivElement | null>) {
     for (const d of document.querySelectorAll("dialog")) if (d.open) opened.push(d);
     place();
     return () => {
+      placeNow.current = null;
       cancelAnimationFrame(frame);
       changes.disconnect();
       box.remove();
     };
   }, [box, layer]);
+  // A toast arriving while a dialog is open goes over it, before it paints
+  useLayoutEffect(() => {
+    up.current = showing;
+    if (showing) placeNow.current?.();
+  }, [showing]);
   // The layer renders a moment after hydration: up it goes
   useEffect(() => {
     const el = layer.current;

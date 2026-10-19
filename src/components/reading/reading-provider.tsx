@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
 import { BookCheck, BookMarked, BookPlus, BookX, CalendarClock, History, ListMinus, ListPlus, Pause, Play, Quote, Square, Timer } from "lucide-react";
@@ -22,6 +22,8 @@ import { useOptionalTimer } from "./timer-provider";
  */
 
 import { ReadingDialogSwitch } from "./reading-dialog-switch";
+import { readingDialogRenderers } from "./reading-dialog-renderers";
+import { preloadFeature } from "@/components/ui/feature-renderer";
 import type { DialogRequest, ReadingDialogProps } from "./reading-dialog-types";
 export type { ReadingDialog, DialogRequest, StopRequest, ReadingDialogProps } from "./reading-dialog-types";
 
@@ -138,6 +140,19 @@ export function ReadingProvider({ data, children }: { data: ReadingPageData; chi
       showError(err, changed);
     }
   }, [data.queuePlace, data.workId, data.workTitle, changed]);
+
+  // Once the page is idle, the dialog its main action opens (Log progress, or
+  // Start reading) loads, so that dialog opens first time (SLN-1464)
+  const primary = openRow ? "progress" : "start";
+  useEffect(() => {
+    const load = () => void preloadFeature(readingDialogRenderers[primary]);
+    if (typeof requestIdleCallback !== "function") {
+      const timer = setTimeout(load, 2000);
+      return () => clearTimeout(timer);
+    }
+    const idle = requestIdleCallback(load, { timeout: 5000 });
+    return () => cancelIdleCallback(idle);
+  }, [primary]);
 
   // The R menu and the palette: the actions that make sense now
   const state = data.summary.state;

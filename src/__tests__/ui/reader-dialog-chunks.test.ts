@@ -34,6 +34,7 @@ vi.mock("@/components/reading/dialogs/note-dialog", async () => {
 });
 import { ReadingDialogsProvider, useReadingDialogs } from "@/components/reading/reading-dialogs-provider";
 import { hasOpenSurface } from "@/lib/ui/surface-state";
+import { PENDING_DELAY_MS } from "@/components/ui/feature-renderer";
 let dialogs: ReturnType<typeof useReadingDialogs>;
 function Consumer() { dialogs = useReadingDialogs(); return h("p", null, "Reader remains available"); }
 let root: Root | null = null;
@@ -54,6 +55,8 @@ afterEach(() => {
   host?.remove(); opener?.remove(); vi.restoreAllMocks();
 });
 async function settle() { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); }); }
+/** "Loading…" shows only once a module is slower than this (SLN-1464) */
+async function slow() { await act(async () => { await new Promise((resolve) => setTimeout(resolve, PENDING_DELAY_MS + 10)); }); }
 async function open(kind: "start" | "past" | "note") {
   await act(async () => { await dialogs.open({ kind, workId: "one" }); });
   await settle();
@@ -64,9 +67,12 @@ async function escape() {
 it("keeps the native pending surface until the individual dialog loads and retries its failed module", async () => {
   const book = host.querySelector("p");
   await open("start");
+  expect(host.querySelector("dialog[open]"), "nothing opens before the module is slow").toBeNull();
+  expect(hasOpenSurface()).toBe(true);
+  await slow();
   expect(host.querySelector('dialog[aria-label="Loading reading action"][open]'), host.innerHTML).not.toBeNull();
   await act(async () => { control.reject(new Error("Individual dialog chunk failed")); await new Promise((resolve) => setTimeout(resolve, 10)); });
-  expect(host.querySelector('dialog[aria-label="Reading action unavailable"]')).not.toBeNull();
+  expect(host.querySelector('dialog[aria-label="Reading action unavailable"]'), host.innerHTML).not.toBeNull();
   await act(async () => { [...host.querySelectorAll("button")].find((button) => button.textContent === "Retry")!.click(); await new Promise((resolve) => setTimeout(resolve, 10)); });
   expect(control.loads, "Retry must invoke a new individual renderer load").toBe(2);
   expect(host.querySelector("[data-recovered]"), host.innerHTML).not.toBeNull();
@@ -78,7 +84,8 @@ it("keeps the native pending surface until the individual dialog loads and retri
 });
 it("does not resurrect a dismissed dialog when its individual module resolves", async () => {
   await open("past");
-  expect(host.querySelector('dialog[aria-label="Loading reading action"][open]')).not.toBeNull();
+  await slow();
+  expect(host.querySelector('dialog[aria-label="Loading reading action"][open]'), host.innerHTML).not.toBeNull();
   await escape();
   expect(hasOpenSurface()).toBe(false);
   expect(document.activeElement).toBe(opener);
@@ -89,6 +96,7 @@ it("does not resurrect a dismissed dialog when its individual module resolves", 
 it("does not replace the current dialog with an older module completion", async () => {
   const book = host.querySelector("p");
   await open("note");
+  await slow();
   expect(host.querySelector('dialog[aria-label="Loading reading action"][open]')).not.toBeNull();
   await open("start");
   const current = host.querySelector("[data-recovered]");

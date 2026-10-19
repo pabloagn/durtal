@@ -14,6 +14,17 @@ let host: HTMLElement;
 const wait = (ms: number) => act(() => new Promise((resolve) => setTimeout(resolve, ms)));
 const toasts = () => [...document.querySelectorAll<HTMLElement>("[data-sonner-toast]")];
 const textOf = (el: HTMLElement) => el.querySelector("[data-title]")?.textContent;
+const popoverCalls: string[] = [];
+const holder = () => document.querySelector<HTMLElement>("[data-toast-holder]")!;
+const layer = () => document.querySelector<HTMLElement>("[data-toast-layer]")!;
+/** A modal dialog, as the app opens one; a move out of the page hides a popover */
+async function openDialog() {
+  const dialog = document.createElement("dialog");
+  document.body.append(dialog);
+  dialog.setAttribute("open", "");
+  await wait(50);
+  return dialog;
+}
 
 beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -23,13 +34,23 @@ beforeAll(() => {
   Element.prototype.matches = function (selector: string) {
     if (selector === ":focus-visible") return this === document.activeElement;
     if (selector === ":popover-open") return this.hasAttribute("data-open");
+    if (selector === ":modal") return this instanceof HTMLDialogElement && this.hasAttribute("open");
     return matches.call(this, selector);
   };
   HTMLElement.prototype.showPopover = function () {
+    popoverCalls.push("show");
     this.setAttribute("data-open", "");
   };
   HTMLElement.prototype.hidePopover = function () {
+    popoverCalls.push("hide");
     this.removeAttribute("data-open");
+  };
+  // A browser hides an open popover that is moved: it leaves the document first
+  const append = Element.prototype.append;
+  Element.prototype.append = function (this: Element, ...nodes: (Node | string)[]) {
+    for (const node of nodes)
+      if (node instanceof Element && node.isConnected) node.querySelectorAll("[popover]").forEach((el) => el.removeAttribute("data-open"));
+    return append.apply(this, nodes);
   };
 });
 beforeEach(() => {
@@ -71,5 +92,44 @@ describe("the app's toasts", () => {
     await wait(500);
     expect(toasts().map(textOf)).toEqual(["Added to Favourites"]);
     expect(undo).not.toHaveBeenCalled();
+  });
+
+  // SLN-1464: lifting the layer costs a style recalculation, slow on a phone
+  it("leaves the toast layer alone when a dialog opens with no toast up", async () => {
+    await wait(50);
+    expect(layer().hasAttribute("data-open")).toBe(true);
+    popoverCalls.length = 0;
+    const dialog = await openDialog();
+    expect(popoverCalls).toEqual([]);
+    expect(holder().parentElement).toBe(document.body);
+    dialog.removeAttribute("open");
+    await wait(50);
+    expect(popoverCalls).toEqual([]);
+    dialog.remove();
+  });
+
+  it("puts a toast over the dialog, whether it was up first or came after", async () => {
+    await wait(50);
+    act(() => { toast.error("Could not save"); });
+    await wait(50);
+    const first = await openDialog();
+    expect(holder().parentElement).toBe(first);
+    expect(layer().hasAttribute("data-open")).toBe(true);
+    act(() => toast.dismiss());
+    await wait(500);
+    first.removeAttribute("open");
+    await wait(50);
+    expect(holder().parentElement).toBe(document.body);
+    expect(layer().hasAttribute("data-open")).toBe(true);
+    first.remove();
+
+    const second = await openDialog();
+    expect(holder().parentElement).toBe(document.body);
+    act(() => { toast.error("Could not save again"); });
+    await wait(50);
+    expect(holder().parentElement).toBe(second);
+    expect(layer().hasAttribute("data-open")).toBe(true);
+    expect(toasts().find((t) => textOf(t) === "Could not save again")?.closest("dialog")).toBe(second);
+    second.remove();
   });
 });

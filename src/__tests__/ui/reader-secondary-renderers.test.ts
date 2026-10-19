@@ -25,6 +25,7 @@ import { useTimer } from "@/components/reading/timer-provider";
 import { READER_COMMAND_EVENT } from "@/lib/ui/reader-command";
 import { Dialog } from "@/components/ui/dialog";
 import { handleSurfaceEscape, hasOpenSurface } from "@/lib/ui/surface-state";
+import { PENDING_DELAY_MS } from "@/components/ui/feature-renderer";
 class ReaderSegmentBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
@@ -92,7 +93,7 @@ describe("deferred secondary feature failures stay isolated", () => {
     control.paletteCrash = false; control.timerCrash = false;
     await act(async () => {
       [...host.querySelectorAll("button")].find((button) => button.textContent === "Retry")!.click();
-      await new Promise((yes) => setTimeout(yes, 10));
+      await new Promise((yes) => setTimeout(yes, PENDING_DELAY_MS + 10));
     });
     expect(host.querySelector('dialog[aria-label="Loading reading action"][open]')).not.toBeNull();
     await act(async () => {

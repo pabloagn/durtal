@@ -17,7 +17,8 @@ import type { NoteEdit } from "@/lib/actions/reading-notes";
 import type { NoteKind } from "@/lib/reading/constants";
 import { acquireSurface, captureFocusOrigin, restoreFocusOrigin, type FocusOrigin, type SurfaceLease } from "@/lib/ui/surface-state";
 import { DialogFocusScope } from "@/components/ui/dialog-focus-scope";
-import { PendingDialog } from "@/components/ui/feature-renderer";
+import { PendingDialog, preloadFeature } from "@/components/ui/feature-renderer";
+import { readingDialogRenderers } from "./reading-dialog-renderers";
 export { PendingDialog } from "@/components/ui/feature-renderer";
 
 export interface ReadingRef { workId: string; readingId: string; fingerprint: string }
@@ -87,6 +88,10 @@ export function ReadingDialogsProvider({ children }: { children: ReactNode }) {
     setDisplay(next);
   }, []);
   const load = useCallback(async (pending: Display) => {
+    // The dialog itself starts loading alongside its host and data, so it
+    // opens as soon as they are in, with no second "Loading…" (SLN-1464)
+    const kind = "request" in pending.intent ? pending.intent.request.kind : "continuation" in pending.intent ? pending.intent.continuation.kind : null;
+    if (kind) void preloadFeature(readingDialogRenderers[kind]);
     try {
       const [module, data] = await Promise.all([
         loadDialogHost(),
