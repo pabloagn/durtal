@@ -2,6 +2,7 @@ import { z } from "zod/v4";
 import { createWorkSchema } from "./works";
 import { createEditionSchema } from "./editions";
 import { createInstanceSchema } from "./instances";
+import { cleanString } from "./helpers";
 
 const ids = z.array(z.uuid()).max(500).optional();
 
@@ -9,7 +10,7 @@ const ids = z.array(z.uuid()).max(500).optional();
 export const wizardBookSchema = z
   .object({
     /** Primary author of a new work, found by name or created with the book. */
-    authorName: z.string().trim().max(300).optional(),
+    authorName: cleanString().trim().max(300).optional(),
     /** Add the edition to this book instead of creating one. */
     existingWorkId: z.uuid().nullable().optional(),
     /** The new work (required without an existing one). */

@@ -4,6 +4,7 @@ import { createWorkSchema } from "@/lib/validations/works";
 import { createAuthorSchema } from "@/lib/validations/authors";
 import { createEditionSchema } from "@/lib/validations/editions";
 import { seriesInputSchema } from "@/lib/validations/series";
+import { wizardBookSchema } from "@/lib/validations/wizard";
 
 // SLN-1393: a title or name pasted with invisible characters is stored without them
 describe("cleanText", () => {
@@ -38,5 +39,14 @@ describe("titles and names saved through the app", () => {
   it("refuse a title that is only invisible characters", () => {
     const result = createWorkSchema.safeParse({ title: "\u00ad\u200b", authorIds: [{ authorId: author }] });
     expect(result.error?.issues.map((issue) => issue.message)).toEqual(["Title is required"]);
+  });
+
+  // Review of #576: the wizard's author was trimmed only, so a zero-width space passed
+  it("refuses a wizard author made only of invisible characters, and cleans a real one", () => {
+    const work = { title: "Doctor Faustus" }, edition = { title: "Doctor Faustus" };
+    const refused = wizardBookSchema.safeParse({ authorName: "\u200b", work, edition });
+    expect(refused.success).toBe(false);
+    expect(refused.error?.issues.map((i) => i.message)).toContain("Author is required");
+    expect(wizardBookSchema.parse({ authorName: "Thomas\u00ad Mann\u200b", work, edition }).authorName).toBe("Thomas Mann");
   });
 });
