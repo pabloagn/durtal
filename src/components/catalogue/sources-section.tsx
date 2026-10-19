@@ -66,7 +66,7 @@ export function SourcesSection({
         action={
           <div className="flex items-center gap-2">
             {lookup}
-            <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
+            <Button variant="ghost" size="sm" onClick={() => setAdding(true)} data-focus-empty="sources">
               <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
               Add source
             </Button>
@@ -76,9 +76,9 @@ export function SourcesSection({
       {sources.length === 0 ? (
         <p className="text-sm text-fg-secondary">No sources recorded</p>
       ) : (
-        <ul className="space-y-1.5">
+        <ul className="space-y-1.5" data-focus-list="sources">
           {sources.map((source) => (
-            <li key={source.id} className="flex items-start gap-3 text-sm">
+            <li key={source.id} data-focus-row="" className="flex items-start gap-3 text-sm">
               <div className="min-w-0 flex-1">
                 <p className="flex items-start gap-1.5 text-fg-primary">
                   {source.url ? (
@@ -106,13 +106,17 @@ export function SourcesSection({
                 </p>
               </div>
               {source.removable ? (
-                <CapAligned height={20}>
+                // 44px on touch, on the same line's center
+                <CapAligned height={20} coarseHeight={44}>
                   <button
                     type="button"
                     aria-label={`Remove ${source.attribution ?? "source"}`}
                     data-tooltip="Remove source"
-                    disabled={removing === source.id}
+                    // Busy, not disabled, so the focus stays on it until its
+                    // row goes (FocusKeeper)
+                    aria-disabled={removing === source.id || undefined}
                     onClick={async () => {
+                      if (removing) return;
                       setRemoving(source.id);
                       try {
                         await deleteCitedSource(source.id);
@@ -124,7 +128,7 @@ export function SourcesSection({
                         setRemoving(null);
                       }
                     }}
-                    className="flex h-5 w-5 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-accent-red-text"
+                    className="flex h-5 w-5 items-center justify-center rounded-sm text-fg-muted transition-colors hover:text-accent-red-text pointer-coarse:size-11"
                   >
                     <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
                   </button>

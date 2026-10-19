@@ -16,7 +16,7 @@ import { CapAlignedControls } from "@/components/shared/cap-aligned";
 import { useEscapeToCancel } from "@/components/shared/escape-to-cancel";
 export function AcquisitionTargets({
   workId,
-  targets,
+  targets: given,
   editions,
 }: {
   workId: string;
@@ -53,6 +53,25 @@ export function AcquisitionTargets({
       }
     });
   }
+  // A removed target leaves at once. The action revalidates the page, but
+  // the new list it brings is sometimes dropped on this page (seen in all
+  // three browsers, with or without a refresh of its own), and the focus
+  // waits for the row to go
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
+  const targets = given.filter(({ target }) => !gone.has(target.id));
+  async function remove(id: string) {
+    if (pending || removing) return;
+    setRemoving(id);
+    try {
+      await cancelAcquisitionTarget(id);
+      setGone((before) => new Set(before).add(id));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not remove target");
+    } finally {
+      setRemoving(null);
+    }
+  }
   // Esc cancels the new target; with a choice made it asks first
   const editor = useRef<HTMLDivElement>(null);
   const unsavedPrompt = useEscapeToCancel({
@@ -63,12 +82,12 @@ export function AcquisitionTargets({
     within: true,
   });
   return (
-    <section className="mb-8 space-y-3">
+    <section className="mb-8 space-y-3" data-focus-list="acquisition-targets">
       {unsavedPrompt}
       <SectionHeading
         title="Hunting for"
         action={
-          <Button size="sm" variant="ghost" onClick={() => setOpen(!open)}>
+          <Button size="sm" variant="ghost" onClick={() => setOpen(!open)} data-focus-empty="acquisition-targets">
             <Plus className="h-4 w-4" />
             Add target
           </Button>
@@ -85,6 +104,7 @@ export function AcquisitionTargets({
           // phone: its state, Order and Remove share that line's baseline
           <div
             key={target.id}
+            data-focus-row=""
             className="flex flex-wrap items-baseline gap-3 rounded-sm border border-glass-border p-3 text-sm"
           >
             <span className="flex-1">
@@ -183,21 +203,11 @@ export function AcquisitionTargets({
                   className="w-7 px-0"
                   data-tooltip="Remove target"
                   aria-label="Remove target"
-                  disabled={pending}
-                  onClick={() =>
-                    start(async () => {
-                      try {
-                        await cancelAcquisitionTarget(target.id);
-                        router.refresh();
-                      } catch (err) {
-                        toast.error(
-                          err instanceof Error
-                            ? err.message
-                            : "Could not remove target",
-                        );
-                      }
-                    })
-                  }
+                  // Busy, not disabled, so the focus stays on it until its
+                  // row goes (FocusKeeper)
+                  busy={removing === target.id}
+                  aria-disabled={pending || !!removing || undefined}
+                  onClick={() => remove(target.id)}
                 >
                   <X className="h-4 w-4" strokeWidth={1.5} />
                 </Button>

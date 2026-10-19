@@ -23,6 +23,11 @@ interface EntityActionMenuProps {
   label?: string;
   /** The 28px tier for dense rows (an edition card) */
   size?: "sm" | "md";
+  /**
+   * The FocusKeeper list whose focus comes here once it is empty, when the
+   * menu holds that list's Add (a book's linked works)
+   */
+  focusEmpty?: string;
 }
 
 export function EntityActionMenu({
@@ -31,12 +36,13 @@ export function EntityActionMenu({
   side = "bottom",
   label = "Actions",
   size = "md",
+  focusEmpty,
 }: EntityActionMenuProps) {
   const defaultItems = items.filter((i) => i.variant !== "destructive");
   const destructiveItems = items.filter((i) => i.variant === "destructive");
 
   const trigger = (
-    <button className={size === "sm" ? "action-icon-sm" : "action-icon"}>
+    <button className={size === "sm" ? "action-icon-sm" : "action-icon"} data-focus-empty={focusEmpty}>
       <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
     </button>
   );

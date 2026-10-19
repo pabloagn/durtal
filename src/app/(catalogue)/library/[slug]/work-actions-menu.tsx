@@ -236,7 +236,8 @@ export function WorkActionsMenu({
           onPointerEnter={() => preloadEditOptions(EDIT_OPTION_GROUPS)}
           onFocus={() => preloadEditOptions(EDIT_OPTION_GROUPS)}
         >
-          <EntityActionMenu items={actionItems} />
+          {/* It holds Link a work: the focus comes here once the last link goes */}
+          <EntityActionMenu items={actionItems} focusEmpty="relations" />
         </div>
       </div>
 

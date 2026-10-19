@@ -115,6 +115,38 @@ describe("FocusKeeper", () => {
     expect(document.activeElement).toBe(button("Actions Cellar"));
   });
 
+  it("counts a row's own card as part of the row, not a row of its own (SLN-1029)", async () => {
+    // A linked work: its book card marks itself a row, inside the link's row
+    const Links = ({ names }: { names: string[] }) =>
+      h(
+        "main",
+        null,
+        h(FocusKeeper),
+        h(
+          "ul",
+          { "data-focus-list": "relations" },
+          names.map((name) =>
+            h(
+              "li",
+              { key: name, "data-focus-row": "" },
+              h("div", { "data-focus-row": "" }, h("a", { href: `#${name}` }, name)),
+              h("button", null, `Remove link to ${name}`),
+            ),
+          ),
+        ),
+      );
+    act(() => root.render(h(Links, { names: ["Attic", "Study", "Cellar"] })));
+    button("Remove link to Study").focus();
+    act(() => root.render(h(Links, { names: ["Attic", "Cellar"] })));
+    await frame();
+    expect(document.activeElement).toBe(button("Remove link to Cellar"));
+    // The last one goes to the one before: counted by the cards it would
+    // land on the card's own link
+    act(() => root.render(h(Links, { names: ["Attic"] })));
+    await frame();
+    expect(document.activeElement).toBe(button("Remove link to Attic"));
+  });
+
   it("leaves the focus alone when it is somewhere else", async () => {
     act(() => root.render(h(Page, { names: ["Attic", "Study"] })));
     button("Delete Attic").focus();

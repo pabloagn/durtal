@@ -302,7 +302,7 @@ export function LinkedWorksSection({
         title="Linked works"
         count={relations.length || undefined}
         action={
-          <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
+          <Button variant="ghost" size="sm" onClick={() => setAdding(true)} data-focus-empty="relations">
             <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
             Link a work
           </Button>
@@ -314,7 +314,7 @@ export function LinkedWorksSection({
           sourced inspiration; a shared title or genre is not a link.
         </p>
       ) : (
-        <dl className="space-y-6">
+        <dl className="space-y-6" data-focus-list="relations">
           {groups.map((group) => (
             <div key={group.key}>
               <dt className="type-label mb-3">{group.label}</dt>
@@ -324,7 +324,7 @@ export function LinkedWorksSection({
                     cards in a row are one height and the captions start level */}
                 <ul className="catalogue-grid catalogue-density-compact">
                   {group.items.map((r) => (
-                    <li key={r.id} className="row-span-2 grid min-w-0 grid-rows-subgrid gap-y-2">
+                    <li key={r.id} data-focus-row="" className="row-span-2 grid min-w-0 grid-rows-subgrid gap-y-2">
                       {r.other.card.kind === "book" ? (
                         <RelatedBookCard
                           work={r.other.card.book}
