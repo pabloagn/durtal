@@ -92,6 +92,7 @@ import { LinkedWorksSection } from "@/components/catalogue/work-relations";
 import { getWorkRelations } from "@/lib/actions/work-relations";
 import { linkedBookIds } from "@/lib/catalogue/linked-work-ebooks";
 import { catalogueStatusLabel, priorityLabel } from "@/lib/utils/labels";
+import { heldCopies, holdsNoCopy } from "@/lib/utils/ownership";
 import { languageName } from "@/lib/utils/language";
 import { mediaUrl } from "@/lib/s3/media-url";
 import { readFingerprint } from "@/lib/catalogue/work-store";
@@ -252,6 +253,9 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
   const slimNotes = readingNotes.map(slimNote);
   const noteEditions = noteEditionsOf(work.editions.map(labelEditionOf), work.title);
   const editionOrder = work.editions.map((e) => e.id);
+  // The accessioned book's one held copy: deaccessioning it offers to deaccession the book (SLN-1127)
+  const held = heldCopies(work.editions);
+  const lastHeldCopyId = work.catalogueStatus === "accessioned" && held.length === 1 ? held[0]!.id : null;
   const groupedNotes = noteGroups(slimNotes, editionOrder, noteEditions).length > 1;
   const editionQuotes = (editionId: string) => {
     const mine = readingNotes.filter((n) => n.editionId === editionId);
@@ -602,6 +606,9 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                 <Badge variant={catalogueStatusVariant(work.catalogueStatus)}>
                   {catalogueStatusLabel(work.catalogueStatus)}
                 </Badge>
+                {holdsNoCopy(work.catalogueStatus, work.editions) && (
+                  <Badge variant="muted">No copy held</Badge>
+                )}
                 {work.acquisitionPriority &&
                   work.acquisitionPriority !== "none" && (
                     <Badge variant={priorityVariant(work.acquisitionPriority)}>
@@ -730,6 +737,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                   availableLocations={allLocations}
                   quotes={canRead ? editionQuotes(edition.id) : undefined}
                   ebooksByCopy={ebooksByCopy}
+                  lastHeldCopyId={lastHeldCopyId}
                 />
               </div>
             ))}

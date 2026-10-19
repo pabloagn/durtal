@@ -1,6 +1,7 @@
 import { DetailFacts } from "@/components/shared/detail-facts";
 import { Badge } from "@/components/ui/badge";
-import { formatFileSize, formatPrice, formatDate } from "@/lib/utils/format";
+import { formatFileSize, formatDate } from "@/lib/utils/format";
+import { formatMoney } from "@/lib/utils/money";
 import { InstanceEditDialog } from "./instance-edit-dialog";
 import { InstanceDeleteButton } from "./instance-delete-button";
 import { InstanceStatusButton } from "./instance-status-button";
@@ -48,6 +49,8 @@ interface InstanceDetailProps {
   ebook?: CopyEbook | null;
   workId?: string;
   workTitle?: string;
+  /** The accessioned book's one held copy (SLN-1127) */
+  lastHeld?: boolean;
 }
 
 const DIGITAL_FORMATS = new Set(["ebook", "audiobook", "pdf", "epub"]);
@@ -64,6 +67,7 @@ export function InstanceDetail({
   ebook = null,
   workId,
   workTitle,
+  lastHeld = false,
 }: InstanceDetailProps) {
   const hasAcquisition =
     instance.acquisitionType ||
@@ -157,6 +161,7 @@ export function InstanceDetail({
               availableLocations={availableLocations}
               workId={workId}
               canLinkEbook={canLinkEbook}
+              lastHeld={lastHeld}
             />
             <InstanceDeleteButton
               instanceId={instance.id}
@@ -254,7 +259,7 @@ export function InstanceDetail({
               <>
                 <dt className="text-fg-secondary">Price</dt>
                 <dd className="font-mono text-fg-secondary">
-                  {formatPrice(
+                  {formatMoney(
                     instance.acquisitionPrice,
                     instance.acquisitionCurrency,
                   )}
@@ -389,7 +394,7 @@ export function InstanceDetail({
               <>
                 <dt className="text-fg-secondary">Price</dt>
                 <dd className="font-mono text-fg-secondary">
-                  {formatPrice(
+                  {formatMoney(
                     instance.dispositionPrice,
                     instance.dispositionCurrency,
                   )}

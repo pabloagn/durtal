@@ -62,6 +62,11 @@ interface EditionDetailCardProps {
   quotes?: { quotes: number; notes: number; href: string };
   /** The e-book linked to each copy, by copy id */
   ebooksByCopy?: Record<string, CopyEbook>;
+  /**
+   * The book's one held copy, when the book is accessioned: deaccessioning it
+   * offers to deaccession the book too (SLN-1127)
+   */
+  lastHeldCopyId?: string | null;
 }
 
 interface DetailRowProps {
@@ -86,6 +91,7 @@ export function EditionDetailCard({
   availableLocations = [],
   quotes,
   ebooksByCopy,
+  lastHeldCopyId = null,
 }: EditionDetailCardProps) {
   const dimensions = formatDimensions(
     edition.heightMm,
@@ -129,6 +135,25 @@ export function EditionDetailCard({
     edition.isbn10 ||
     edition.isFirstEdition ||
     edition.isLimitedEdition
+  );
+
+  const held = edition.instances
+    .filter((i) => i.status !== "deaccessioned")
+    .sort(
+      (a, b) =>
+        Number(b.status === "available") - Number(a.status === "available"),
+    );
+  const former = edition.instances.filter((i) => i.status === "deaccessioned");
+  const copy = (instance: InstanceWithLocation) => (
+    <InstanceDetail
+      key={instance.id}
+      instance={instance}
+      workId={edition.workId}
+      workTitle={edition.title}
+      availableLocations={availableLocations}
+      ebook={ebooksByCopy?.[instance.id] ?? null}
+      lastHeld={instance.id === lastHeldCopyId}
+    />
   );
 
   return (
@@ -373,26 +398,31 @@ export function EditionDetailCard({
 
       {quotes && <EditionQuotes editionId={edition.id} {...quotes} />}
 
-      {/* Instances */}
+      {/* Instances: held copies first (Available before the rest), then
+          the copies that have left under their own heading (SLN-1127) */}
       <CardContent>
         <SectionHeading
           as="h4"
           title="Copies"
-          count={edition.instances.length}
+          count={held.length > 0 ? held.length : undefined}
         />
         {edition.instances.length > 0 ? (
           // A deleted copy hands the focus to the next one (FocusKeeper)
           <div className="space-y-2" data-focus-list={`copies-${edition.id}`}>
-            {edition.instances.map((instance) => (
-              <InstanceDetail
-                key={instance.id}
-                instance={instance}
-                workId={edition.workId}
-                workTitle={edition.title}
-                availableLocations={availableLocations}
-                ebook={ebooksByCopy?.[instance.id] ?? null}
-              />
-            ))}
+            {held.length === 0 && (
+              <p className="text-xs text-fg-secondary">No copy held</p>
+            )}
+            {held.map(copy)}
+            {former.length > 0 && (
+              <div className="pt-4">
+                <SectionHeading
+                  as="h4"
+                  title="Former copies"
+                  count={former.length}
+                />
+                <div className="space-y-2">{former.map(copy)}</div>
+              </div>
+            )}
           </div>
         ) : (
           <p className="text-xs text-fg-secondary">No copies recorded</p>

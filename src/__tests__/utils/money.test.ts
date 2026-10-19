@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { formatMoney, sortCurrencyTotals } from "@/lib/utils/money";
-import { currencySymbol, isSupportedCurrency } from "@/lib/constants/currencies";
+import {
+  currencyOptions,
+  currencySymbol,
+  isSupportedCurrency,
+} from "@/lib/constants/currencies";
 import {
   orderCurrencySchema,
   createOrderSchema,
@@ -12,16 +16,23 @@ describe("formatMoney", () => {
     ["13.51", "GBP", "£13.51"],
     [1234.5, "USD", "$1,234.50"],
     ["0", "EUR", "€0.00"],
+    ["1450", "EUR", "€1,450.00"],
+    ["18.5", "EUR", "€18.50"],
+    [9800, "JPY", "¥9,800"],
+    [1234567.891, "GBP", "£1,234,567.89"],
   ])("formats %s %s", (amount, currency, expected) => {
     expect(formatMoney(amount, currency)).toBe(expected);
   });
 
   it("never assumes a currency when none is stored", () => {
     expect(formatMoney("19.13", null)).toBe("19.13");
+    expect(formatMoney("1450", null)).toBe("1,450.00");
   });
 
-  it("falls back to the code for an unknown currency", () => {
+  it("falls back to the code for a currency that isn't ISO 4217", () => {
     expect(formatMoney("5", "XX")).toBe("XX 5.00");
+    expect(formatMoney("1450", "XX")).toBe("XX 1,450.00");
+    expect(formatMoney(18.5, "Euros")).toBe("Euros 18.50");
   });
 
   it.each([null, undefined, "", "abc"])("shows a dash for %s", (amount) => {
@@ -72,6 +83,16 @@ describe("currency helpers", () => {
     expect(isSupportedCurrency(null)).toBe(false);
     expect(currencySymbol("GBP")).toBe("£");
     expect(currencySymbol("XX")).toBeNull();
+  });
+
+  it("offers the home currency first and keeps a stored code off the list", () => {
+    const codes = (home?: string, current?: string | null) =>
+      currencyOptions(home, current).map((o) => o.value);
+    expect(codes().slice(0, 3)).toEqual(["EUR", "USD", "GBP"]);
+    expect(codes("MXN").slice(0, 3)).toEqual(["MXN", "EUR", "USD"]);
+    expect(codes("MXN").filter((c) => c === "MXN")).toHaveLength(1);
+    expect(codes("EUR", "XYZ").at(-1)).toBe("XYZ");
+    expect(codes("EUR", "GBP").filter((c) => c === "GBP")).toHaveLength(1);
   });
 });
 

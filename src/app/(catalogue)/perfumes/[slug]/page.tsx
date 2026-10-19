@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { formatMoney } from "@/lib/utils/money";
 import { DetailTitleRow } from "@/components/shared/detail-layout";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { WorkCollectionsSection, loadWorkCollections } from "@/components/collections/work-collections";
@@ -49,7 +50,6 @@ import { catalogueDateText } from "@/lib/catalogue/dates";
 import {
   CONTAINER_LABELS,
   HOLDING_STATUS_LABELS,
-  formatPrice,
   formatVolume,
   formulationName,
   holdingsSummary,
@@ -316,7 +316,7 @@ export default async function PerfumePage({
             b.supplierName,
             b.venueName,
             b.acquisitionPrice !== null && b.acquisitionCurrency
-              ? formatPrice(b.acquisitionPrice, b.acquisitionCurrency)
+              ? formatMoney(b.acquisitionPrice, b.acquisitionCurrency)
               : null,
             b.batchCode ? `Batch ${b.batchCode}` : null,
             b.condition,

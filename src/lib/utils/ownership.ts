@@ -100,6 +100,29 @@ export function computeOwnershipSummary(
   };
 }
 
+/**
+ * The copies of a book that are still held, in order: every copy that is not
+ * deaccessioned (docs/02, Derived Ownership).
+ */
+export function heldCopies<T extends { status: string | null }>(
+  editions: { instances: T[] }[],
+): T[] {
+  return editions.flatMap((e) =>
+    e.instances.filter((i) => i.status !== "deaccessioned"),
+  );
+}
+
+/**
+ * An accessioned book that holds no copy (SLN-1127): its status still says
+ * Accessioned, so the page says "No copy held" beside it.
+ */
+export function holdsNoCopy(
+  catalogueStatus: string,
+  editions: { instances: { status: string | null }[] }[],
+): boolean {
+  return catalogueStatus === "accessioned" && heldCopies(editions).length === 0;
+}
+
 // ── Derived status ──────────────────────────────────────────────────────────
 
 const CATALOGUE_LABELS: Record<CatalogueStatusValue, string> = {

@@ -27,6 +27,7 @@ import {
 } from "@/lib/constants/catalogue";
 import { enumLabel } from "@/lib/utils/labels";
 import { todayLocal } from "@/lib/utils/date";
+import { currencyOptions } from "@/lib/constants/currencies";
 
 export interface InstanceDraft {
   locationId: string;
@@ -202,7 +203,7 @@ export function InstanceForm({
     onChange({ ...value, [field]: v });
   }
 
-  const { newCopyLocationId } = useAppSettings();
+  const { newCopyLocationId, homeCurrency } = useAppSettings();
   const sortedLocations = sortLocations(locations, newCopyLocationId);
   const selectedLocation = locations.find((l) => l.id === value.locationId);
   const subLocations = selectedLocation?.subLocations ?? [];
@@ -385,21 +386,25 @@ export function InstanceForm({
                 type="number"
                 step="0.01"
                 value={value.dispositionPrice}
-                onChange={(e) => update("dispositionPrice", e.target.value)}
+                onChange={(e) =>
+                  onChange({
+                    ...value,
+                    dispositionPrice: e.target.value,
+                    // A price starts in the home currency, as an order does
+                    dispositionCurrency:
+                      value.dispositionCurrency ||
+                      (e.target.value ? homeCurrency : ""),
+                  })
+                }
                 placeholder="0.00"
               />
-              <Input
+              <Select
                 label="Currency"
                 id={`inst-${index}-disposition-currency`}
                 value={value.dispositionCurrency}
-                onChange={(e) =>
-                  update(
-                    "dispositionCurrency",
-                    e.target.value.toUpperCase().slice(0, 3),
-                  )
-                }
-                placeholder="EUR"
-                maxLength={3}
+                onChange={(e) => update("dispositionCurrency", e.target.value)}
+                placeholder="None"
+                options={currencyOptions(homeCurrency, value.dispositionCurrency)}
               />
             </FormColumns>
             <Textarea
@@ -447,21 +452,25 @@ export function InstanceForm({
               type="number"
               step="0.01"
               value={value.acquisitionPrice}
-              onChange={(e) => update("acquisitionPrice", e.target.value)}
+              onChange={(e) =>
+                  onChange({
+                    ...value,
+                    acquisitionPrice: e.target.value,
+                    // A price starts in the home currency, as an order does
+                    acquisitionCurrency:
+                      value.acquisitionCurrency ||
+                      (e.target.value ? homeCurrency : ""),
+                  })
+                }
               placeholder="29.99"
             />
-            <Input
+            <Select
               label="Currency"
               id={`inst-${index}-acq-currency`}
               value={value.acquisitionCurrency}
-              onChange={(e) =>
-                update(
-                  "acquisitionCurrency",
-                  e.target.value.toUpperCase().slice(0, 3),
-                )
-              }
-              placeholder="EUR"
-              maxLength={3}
+              onChange={(e) => update("acquisitionCurrency", e.target.value)}
+              placeholder="None"
+              options={currencyOptions(homeCurrency, value.acquisitionCurrency)}
             />
           </FormColumns>
         </Section>
