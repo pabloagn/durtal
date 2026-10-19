@@ -28,7 +28,10 @@ export const GOODREADS_EXPORT_HEADER = [
   "Owned Copies",
 ] as const;
 
-export class UnknownFormatError extends Error {
+/** A file refused whole, with the reason the upload page shows */
+export class ImportFileError extends Error {}
+
+export class UnknownFormatError extends ImportFileError {
   constructor(headers: string[]) {
     const shown = headers.slice(0, 12).map((h) => h.slice(0, 40)).join(", ");
     super(`This file is not a Goodreads, StoryGraph or Durtal export. Its columns: ${shown || "none"}`);

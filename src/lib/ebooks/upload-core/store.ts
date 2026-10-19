@@ -220,10 +220,11 @@ export async function reserveCoreCommandOn(conn: Db, scope: CoreScope, upload: C
 export function viewedUploadState(row: Pick<CoreOperationRow,"state"|"receipt">): UploadItemView["state"] {
   return row.state==="ready" && row.receipt===null ? "processing" : row.state;
 }
-/** Why this generation's check failed, as the supervisor recorded it (SLN-1388) */
-function recordedJobFailure(row: Pick<CoreOperationRow,"progress"|"generation">): UploadJobFailure|null {
+/** Why the last check failed, as the supervisor recorded it (SLN-1388). A retry
+ * clears it; a restart bumps the generation and keeps it (SLN-1466). */
+function recordedJobFailure(row: Pick<CoreOperationRow,"progress">): UploadJobFailure|null {
   const recorded=z.object({generation:z.number(),reason:z.unknown(),what:z.unknown()}).safeParse(row.progress.jobFailureV1);
-  if (!recorded.success || recorded.data.generation!==Number(row.generation)) return null;
+  if (!recorded.success) return null;
   const failure=uploadJobFailureSchema.safeParse({reason:recorded.data.reason,what:recorded.data.what??null});
   return failure.success ? failure.data : {reason:"check_failed",what:null};
 }

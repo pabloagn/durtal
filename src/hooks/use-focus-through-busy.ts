@@ -2,10 +2,14 @@
 
 import { useLayoutEffect, useRef, type RefObject } from "react";
 
-/** Focus has nowhere to be: the page, or the dialog itself */
+/**
+ * Focus has nowhere to be: the page, the dialog itself, or a control that is
+ * now disabled. WebKit can leave the focus on a button disabled meanwhile
+ * (Create & add, with its name cleared) and drop it only after `busy` ends
+ */
 function focusLost(field: HTMLElement): boolean {
   const active = document.activeElement;
-  return !active || active === document.body || active === field.closest("dialog");
+  return !active || active === document.body || active === field.closest("dialog") || active.matches(":disabled");
 }
 
 /** A control to go back to: not the page, nor the dialog itself (Safari's click leaves the focus there) */

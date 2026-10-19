@@ -16,7 +16,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }))
 vi.mock("@/lib/notifications/toast", () => ({ toast: { success: () => {}, error: action.error } }));
 vi.mock("@/lib/activity/refresh-event", () => ({ triggerActivityRefresh: () => {} }));
 vi.mock("@/components/collections/collection-icon-lazy", () => ({ CollectionIconLazy: () => null }));
-vi.mock("@/lib/actions/collections", () => ({ getCollectionSelection: action.select }));
+vi.mock("@/lib/actions/collections", () => ({ getCollectionSelection: action.select, getCollectionTally: async () => null }));
 // Its writes go through the client adapters (SLN-1033)
 vi.mock("@/lib/actions/catalogue-client", () => ({
   createCollection: vi.fn(),
@@ -39,9 +39,9 @@ function selection(members: { editions?: string[]; works?: string[] } = {}) {
     works: [{ id: loose, title: "En route", kind: "book" }],
     collections: [{
       id: collection, name: "Decadents", icon: null,
-      collectionEditions: (members.editions ?? []).map((editionId) => ({ editionId, edition: { workId: work } })),
-      collectionWorks: (members.works ?? []).map((workId) => ({ workId })),
-      media: [],
+      tally: { editions: (members.editions ?? []).length, byEdition: 0, books: (members.works ?? []).length, films: 0, perfumes: 0, paintings: 0 },
+      editionIds: members.editions ?? [],
+      workIds: members.works ?? [],
     }],
   };
 }
@@ -111,5 +111,39 @@ describe("the Add to collection dialog after a failed change", () => {
     act(() => row().click());
     await settle();
     expect(action.add).toHaveBeenLastCalledWith(collection, { editionIds: [], workIds: [loose] });
+  });
+});
+
+// SLN-1058: a book held whole is in the collection whichever editions are chosen
+describe("the Add to collection dialog with a book held whole", () => {
+  const show = () => act(() => root.render(createElement(AddToCollectionDialog, { open: true, onClose: () => {}, workIds: [work], title: "Against Nature" })));
+  const book = (held: { editions?: string[]; works?: string[] }) => ({ ...selection(held), works: [] });
+
+  it("shows it ticked, and unticking takes the whole book out", async () => {
+    action.select.mockResolvedValue(book({ works: [work] }));
+    action.remove.mockResolvedValue({ changed: 1 });
+    show();
+    await settle();
+    expect(row().getAttribute("aria-checked")).toBe("true");
+    act(() => row().click());
+    await settle();
+    expect(action.remove).toHaveBeenCalledWith(collection, { editionIds: [hardback, paperback], workIds: [work] });
+    expect(row().getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("never adds an edition beside it", async () => {
+    // Another chosen book is out, so the row is mixed and ticking adds
+    action.select.mockResolvedValue({
+      ...book({ works: [work] }),
+      editions: [...selection().editions, { id: "00000000-0000-4000-a000-000000000013", workId: loose, title: "En route", publisher: null, publicationYear: null, language: "fr", isbn13: null }],
+    });
+    action.add.mockResolvedValue({ changed: 1 });
+    act(() => root.render(createElement(AddToCollectionDialog, { open: true, onClose: () => {}, workIds: [work, loose], title: "2 selected books" })));
+    await settle();
+    expect(row().getAttribute("aria-checked")).toBe("mixed");
+    act(() => row().click());
+    await settle();
+    expect(action.add).toHaveBeenCalledWith(collection, { editionIds: ["00000000-0000-4000-a000-000000000013"], workIds: [] });
+    expect(row().getAttribute("aria-checked")).toBe("true");
   });
 });

@@ -74,6 +74,15 @@ describe("useFocusThroughBusy", () => {
     expect(document.activeElement).toBe(byId("field"));
   });
 
+  it("goes to the field when WebKit leaves the focus on the disabled Add past the busy end (SLN-1058)", () => {
+    act(() => root.render(createElement(Row, { busy: false })));
+    byId("add").focus();
+    act(() => root.render(createElement(Row, { busy: true })));
+    // No drop yet: the focus stays on the disabled Add until after busy ends
+    act(() => root.render(createElement(Row, { busy: false, empty: true })));
+    expect(document.activeElement).toBe(byId("field"));
+  });
+
   it("goes to the field, not the dialog, when the dialog had the focus (Safari's click on Add)", () => {
     act(() => root.render(createElement(Row, { busy: false })));
     const dialog = document.querySelector("dialog") as HTMLDialogElement;

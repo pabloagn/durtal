@@ -187,12 +187,16 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       expect(await q(`select edition_id, pages_total from reading_sessions`)).toEqual([{ edition_id: null, pages_total: 480 }]);
     });
 
-    it("clears the copy and the home when the copy's place is deleted", async () => {
+    it("clears the home when the reading's place is deleted, once its copy has moved out", async () => {
       const workId = await book();
       const editionId = await edition(workId);
       const study = await place("Study");
-      const reading = await startReading({ workId, instanceId: await copy(editionId, study), timeZone: "UTC" });
+      const copyId = await copy(editionId, study);
+      const reading = await startReading({ workId, instanceId: copyId, timeZone: "UTC" });
       expect(reading.locationId).toBe(study);
+      // A place that still holds the copy is never deleted with it (SLN-1060)
+      await expect(deleteLocation(study)).rejects.toThrow("Study holds 1 book copy");
+      await deleteInstance(copyId);
       await deleteLocation(study);
       expect(await loadReading(reading.id)).toMatchObject({ editionId, instanceId: null, locationId: null });
     });

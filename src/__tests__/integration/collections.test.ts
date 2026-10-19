@@ -59,6 +59,7 @@ import {
   removeEditionsFromCollection,
   moveCollectionEdition,
   getCollectionSelection,
+  getCollectionTally,
   searchEditionsForPicker,
   deleteCollection,
   getCollectionCoverPreviews,
@@ -70,7 +71,7 @@ import {
   getCollectionsForWork,
   searchWorksForCollection,
 } from "@/lib/actions/collections";
-import { collectionCounts } from "@/lib/collections/counts";
+import { collectionCounts, memberTally } from "@/lib/collections/counts";
 import { shownMembers } from "@/lib/collections/members";
 
 describe.skipIf(!url)("collection workflows with PostgreSQL", () => {
@@ -285,7 +286,10 @@ describe.skipIf(!url)("collection workflows with PostgreSQL", () => {
     expect(selection.works).toEqual([
       { id: empty.id, title: "No edition", kind: "book" },
     ]);
-    expect(selection.collections[0].collectionEditions).toHaveLength(1);
+    // Only the chosen members' memberships, and the counts, never every row
+    expect(selection.collections[0]).toMatchObject({ editionIds: [b.editions[0].id], workIds: [] });
+    expect(selection.collections[0].tally).toMatchObject({ editions: 1, byEdition: 1 });
+    expect(selection.collections[0]).not.toHaveProperty("collectionEditions");
     expect(
       (await getCollectionSelection([], [b.editions[1].id])).editions.map(
         (e) => e.id,
@@ -505,6 +509,16 @@ describe.skipIf(!url)("collection workflows with PostgreSQL", () => {
     expect(saved.collectionEditions.map((m) => m.editionId)).toEqual([b.editions[0].id]);
     const [held] = await getCollectionsForWork(b.work.id);
     expect(held).toMatchObject({ holdsWork: true, heldEditions: [{ editionId: b.editions[0].id }] });
+    // Counted in SQL as the rows count it (SLN-1058)
+    expect(held).toMatchObject({ editionCount: 1, workCount: 1, countLine: "2 books" });
+    expect(held).not.toHaveProperty("collectionEditions");
+    expect((await getCollections())[0].tally).toEqual(memberTally(saved));
+    // The picker sees the book held whole, whichever way it is chosen
+    const fromBook = (await getCollectionSelection([b.work.id])).collections[0];
+    expect(fromBook).toMatchObject({ editionIds: [b.editions[0].id], workIds: [b.work.id] });
+    const fromEdition = (await getCollectionSelection([], [b.editions[1].id])).collections[0];
+    expect(fromEdition).toMatchObject({ editionIds: [], workIds: [b.work.id] });
+    expect(await getCollectionTally(c.id)).toEqual(memberTally(saved));
     // Removing the edition leaves the whole book, which then shows
     await removeEditionsFromCollection(c.id, [b.editions[0].id]);
     expect((await shown(c.id)).map(([kind, id]) => `${kind}:${id}`).sort()).toEqual(

@@ -1,6 +1,6 @@
 import { goodreadsReadingKey, goodreadsToReadKey } from "../source-keys";
 import type { ReadingStatus } from "../constants";
-import { datesError, day, halfStar, int, isbns, review, text } from "./fields";
+import { datesError, day, dayOrWarn, halfStar, int, isbns, review, text } from "./fields";
 import type { ImportReading, ImportRow, ParsedFile } from "./types";
 
 /*
@@ -59,9 +59,9 @@ export function mapGoodreads(headers: string[], records: Record<string, string>[
     const reviewHtml = review(r["My Review"]);
     const pages = int(r["Number of Pages"], { min: 1 });
     const readCount = int(r["Read Count"], { max: 1000 }) ?? 0;
-    const finished = day(r["Date Read"]);
-    const started = has("Date Started") ? day(r["Date Started"]) : null;
     const warnings: string[] = [];
+    const finished = dayOrWarn(r["Date Read"], "Date Read", warnings);
+    const started = has("Date Started") ? dayOrWarn(r["Date Started"], "Date Started", warnings, "the read will have no start date") : null;
     const identity = { bookId, isbn13, title, firstAuthor: author };
     const key = (n: number) => goodreadsReadingKey(identity, n);
     const row: ImportRow = {

@@ -22,8 +22,10 @@ describe("a failed upload's row", () => {
     expect(failed({ generation: 1, code: "upload_job_failed" }).message).toMatch(/couldn't be checked/);
     expect(failed({ generation: 1, code: "upload_job_failed", reason: "<b>", what: null }).message).toMatch(/couldn't be checked/);
   });
-  it("ignores an earlier generation's failure and a failure it has no record of", () => {
-    expect(failed({ generation: 1, code: "upload_job_failed", reason: "not_an_ebook", what: null }, 2)).toMatchObject({ message: null });
+  it("keeps its reason after a restart bumped the generation, and says nothing of a failure it has no record of", () => {
+    // SLN-1466: a retry clears the note; recovery at a restart bumps the generation and keeps it
+    expect(failed({ generation: 1, code: "upload_job_failed", reason: "not_an_ebook", what: null }, 2))
+      .toMatchObject({ message: "Not added: not an e-book.", refused: true });
     expect(failed(undefined)).toMatchObject({ message: null });
     expect(failed(undefined).refused).toBeUndefined();
   });
