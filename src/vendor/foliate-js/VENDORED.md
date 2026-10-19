@@ -310,3 +310,14 @@ adapter regression source added; native retesting remains pending.
     - Where the primary chapter shows only its blank end beside the next
       chapter's first page, its collapsed range made the place that
       chapter's start; the visible range is now the next chapter's text.
+
+31. `paginator.js`: chapters already read are unloaded. Views before the
+    primary were never trimmed, so every chapter read stayed loaded (17
+    frames after 300 turns). `#trimPassedViews` keeps the one just before
+    the primary, which a spread or a back turn can show, and in scrolled
+    mode whatever lies within ten screens above, which the backward preload
+    would only load again; it unloads the rest and moves the scroll
+    position back by the space they took, so the screen stays put. A back
+    turn into an unloaded chapter loads it as a jump does. The primary view
+    usually changes mid-turn, while the trim waits out the animation, so it
+    runs again once the turn settles. SLN-1292.
