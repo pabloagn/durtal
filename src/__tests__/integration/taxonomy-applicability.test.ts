@@ -631,7 +631,7 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     const nonfiction = await createTaxonomyItem(f.slug, { name: "Nonfiction" });
     const essay = await createTaxonomyItem(f.slug, { name: "Essay", parentId: nonfiction.id });
     const order = async () =>
-      Object.fromEntries((await c`select name,sort_order from custom_taxonomy_items where family_id=${f.id}`).map((r) => [r.name, r.sort_order]));
+      Object.fromEntries((await c`select name,sort_order from custom_taxonomy_items where family_id=${f.id}`).map((r) => [r.name as string, r.sort_order as number]));
     const before = await order();
     // A drag across branches is refused and renumbers nothing
     await expect(reorderTaxonomyItems(f.slug, [essay.id, story.id])).rejects.toThrow(/^Items are reordered among their siblings/);
@@ -648,6 +648,13 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     expect((await c`select parent_id from custom_taxonomy_items where id=${fiction.id}`)[0].parent_id).toBeNull();
     await updateTaxonomyItem(f.slug, essay.id, { parentId: null });
     expect((await c`select parent_id from custom_taxonomy_items where id=${essay.id}`)[0].parent_id).toBeNull();
+    // A moved item goes last, as a new one does; saving the same parent keeps its place
+    expect((await order())["Short story"]).toBeLessThan((await order()).Nonfiction);
+    await moveTaxonomyItem(f.slug, story.id, nonfiction.id);
+    const moved = await order();
+    expect(moved["Short story"]).toBeGreaterThan(Math.max(...Object.entries(moved).filter(([n]) => n !== "Short story").map(([, v]) => v)));
+    await updateTaxonomyItem(f.slug, novel.id, { parentId: fiction.id });
+    expect((await order()).Novel).toBe(moved.Novel);
     // A description is kept where the family stores one, refused where it doesn't
     await updateTaxonomyItem(f.slug, novel.id, { description: "Long prose fiction" });
     expect(await getTaxonomyItemDescription(f.slug, novel.id)).toBe("Long prose fiction");

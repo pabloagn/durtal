@@ -35,6 +35,7 @@ SLN-1158 (taxonomy survey findings 2, 3 and 8).
   - The unused `onMove` prop is gone.
 - Server (`src/lib/actions/taxonomy-families.ts`):
   - `reorderTaxonomyItems` refuses ids under more than one parent, and its refusals are readable.
+  - A move puts the item last among its new siblings, as a new item goes, in the same statement as the parent change; saving the same parent keeps its place (review of #557).
   - `createTaxonomyItem` and `updateTaxonomyItem` refuse a non-empty description for a family that keeps none ("Themes keep no description").
   - `storesDescription` is in `taxonomy-storage.ts`.
 - No schema change: adding descriptions to the five families would be a migration, which was not asked for.
@@ -45,4 +46,5 @@ SLN-1158 (taxonomy survey findings 2, 3 and 8).
   - A cross-branch reorder is refused, and `sort_order` is unchanged.
   - A sibling reorder works.
   - A move under another parent and back to the top level works, and a move under its own child is refused.
+  - A moved item comes last; an edit that keeps the parent keeps its place.
   - A description is kept for a custom family and refused for Themes, on create and on edit.

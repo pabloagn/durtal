@@ -525,6 +525,11 @@ export async function updateTaxonomyItem(
   if (parsed.color !== undefined) values.color = parsed.color;
   if (parsed.parentId !== undefined && storage.columns.has("parent_id"))
     values.parent_id = parsed.parentId;
+  // A moved item goes last among its new siblings, as a new one does
+  if (parsed.parentId !== undefined && storage.columns.has("sort_order"))
+    values.sort_order = sql`case when i.parent_id is distinct from ${parsed.parentId}::uuid
+    then (select coalesce(max(o.sort_order),-1)+1 from ${sql.identifier(storage.table)} o where ${familyItemCondition(storage, family.id, "o")})
+    else i.sort_order end`;
   if (parsed.description !== undefined) {
     if (storage.columns.has("description"))
       values.description = parsed.description;
