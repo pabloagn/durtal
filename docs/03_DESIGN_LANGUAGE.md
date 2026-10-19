@@ -356,6 +356,17 @@ A section or group with nothing to show is left out; its "Add" action lives in t
 
 Every image of a person is monochrome: the portrait, the background banner and its backdrop, gallery images, and every thumbnail that cards, lists, carousels, timelines, hover cards and the command palette show. No exceptions, for every role (writers, translators, directors, actors, perfumers, painters). The server stores the shown files in monochrome; image adjustments cannot bring colour back (saturation, grayscale and sepia are locked). Book covers, film posters, perfume and painting images, publisher logos and collection posters keep their colours.
 
+### A book's cover
+
+One cover stands for a book wherever it is listed (the library, shelves, the dashboard, the palette, search, pickers, series, people, collections, statistics and the reading lists' fallback), chosen by one rule (SLN-1286, `workCoverSql` in `src/lib/library/filter-conditions.ts`):
+
+1. the book's own chosen cover, its active poster;
+2. else the cover of the edition of its most recently added copy (not deaccessioned) whose edition has one;
+3. else the cover of its earliest added edition with one;
+4. else the `CoverLetter`.
+
+A relational query orders a book's editions with `coverEditionFirst`, so `editions[0]` is that edition and its year and language are the card's; the book page reads it as `coverEditionId`. A reading, a queued book or a publisher's edition shows its own edition's cover first and falls back to the book's. The colour filter reads the same cover (`coverColorSql`).
+
 ### Cards without a photo
 
 A card never shows an empty box. `src/components/shared/no-photo.tsx` holds one family of placeholders, on the dark frame with a faint tint:

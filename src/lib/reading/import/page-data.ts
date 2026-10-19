@@ -5,6 +5,7 @@ import { IMPORT_SECTIONS, type ImportDecision, type ImportMatch, type ImportSect
 import type { ImportErrorLog, ImportStatus, Written } from "./store";
 import type { ImportReading, ImportRow, ImportSource } from "./types";
 import { readingsCommitted, readingsUncommittedSql } from "./notes";
+import { workCoverSql } from "@/lib/library/filter-conditions";
 
 /*
  * What the import pages read (SLN-450). The preview reads each section's
@@ -123,12 +124,11 @@ export interface ImportPreview {
   sections: Record<ImportSection, PreviewRow[]>;
 }
 
-const bookColumns = (w: string, e: string) => sql.raw(`
+const bookColumns = (w: string, e: string) => sql`${sql.raw(`
   ${w}.id::text as "workId", ${w}.title, ${w}.slug, ${w}.original_year as year, ${w}.rating::float8 as rating,
   (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = ${w}.id order by wa.sort_order, a.name limit 1) as author,
-  coalesce((select coalesce(ce.thumbnail_s3_key, ce.cover_s3_key) from editions ce where ce.id = ${e}),
-    (select m.thumbnail_s3_key from media m where m.work_id = ${w}.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1),
-    (select coalesce(ce.thumbnail_s3_key, ce.cover_s3_key) from editions ce where ce.work_id = ${w}.id and coalesce(ce.thumbnail_s3_key, ce.cover_s3_key) is not null order by ce.created_at limit 1)) as cover`);
+  coalesce((select coalesce(ce.thumbnail_s3_key, ce.cover_s3_key) from editions ce where ce.id = ${e}),`)}
+    ${workCoverSql(sql.raw(`${w}.id`))}) as cover`;
 
 /** The import, its counts, and each section's first rows (`limits` per section, 50 by default) */
 export async function getImportPreview(importId: string, limits: Partial<Record<ImportSection, number>> = {}): Promise<ImportPreview | null> {
@@ -191,8 +191,7 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
           'workId', w.id, 'title', w.title, 'slug', w.slug, 'year', w.original_year, 'rating', w.rating::float8,
           'author', (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.sort_order, a.name limit 1),
           'cover', coalesce((select coalesce(ce.thumbnail_s3_key, ce.cover_s3_key) from editions ce where ce.id = (r.match->>'editionId')::uuid),
-            (select m.thumbnail_s3_key from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1),
-            (select coalesce(ce.thumbnail_s3_key, ce.cover_s3_key) from editions ce where ce.work_id = w.id and coalesce(ce.thumbnail_s3_key, ce.cover_s3_key) is not null order by ce.created_at limit 1)),
+            ${workCoverSql(sql`w.id`)}),
           'editionWithoutGoodreads', exists (select 1 from editions ce where ce.id = (r.match->>'editionId')::uuid and ce.goodreads_id is null)
         ) end as book
       from (

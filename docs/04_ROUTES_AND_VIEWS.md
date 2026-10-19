@@ -111,7 +111,7 @@ Active route is highlighted with `bg-accent-plum`.
 Full-screen overlay activated by `Cmd+K` (or `Ctrl+K` on non-Mac). Uses the `cmdk` library.
 
 Groups:
-- One group per open collection (**Books**, **Perfumes**, **Films**, **Paintings**, in `DOMAIN_ORDER`): up to five matches each, by title, series, the names the work is credited to (authors; directors and writers; perfumers and houses; painters) or ISBN. Each opens the work in its own collection (`/library/…`, `/films/…`, `/perfumes/…`, `/paintings/…`) and shows its picture (the active poster, else, for a book, an edition's cover), its makers and year. A book and a film of the same title stay two results
+- One group per open collection (**Books**, **Perfumes**, **Films**, **Paintings**, in `DOMAIN_ORDER`): up to five matches each, by title, series, the names the work is credited to (authors; directors and writers; perfumers and houses; painters) or ISBN. Each opens the work in its own collection (`/library/…`, `/films/…`, `/perfumes/…`, `/paintings/…`) and shows its picture (the active poster, else, for a book, its cover by the one rule in docs/03, A book's cover), its makers and year. A book and a film of the same title stay two results
 - **People**: matches by any name or other name, with what they are (Writer, Translator or another edition role, Director, Cast, Perfumer, Painter). A person with books opens their author page; anyone else opens their collection's list filtered to them (`/films?director=`, `/perfumes?perfumer=`, `/paintings?painter=`). A person with no credit has no page yet and is left out
 - **Organizations**: a publishing profile opens the publisher page; a perfume house or brand opens `/perfumes?house=`; a museum or gallery opens `/paintings?institution=`; any other (a retailer, manufacturer, production company or distributor) opens its page in the organization directory, `/organizations/<slug>`
 - **Places**: venues by name or address, archived ones left out
@@ -244,7 +244,7 @@ The Filter button opens one panel with a rail of six sections (`FilterDropdown` 
 - **Subjects**: Subjects (`subject`), Categories (`category`), Themes (`theme`), Literary movements (`movement`), Art types (`artType`), Art movements (`artMovement`), Keywords (`keyword`), Attributes (`attribute`), all item ids; only the taxonomies books use are shown. A broader category, theme or movement matches the books under its narrower ones; its option shows "Fiction › Gothic" for a narrower item
 - **Cover**: Colour (`color`: red, orange, yellow, green, blue, purple, pink, brown, beige, white, grey, black, as swatches; a colour no cover has cannot be chosen) and Picture (`poster`: `has` or `missing`)
 
-**Cover colour**: each cover falls under one named colour, the colour of its dominant tone (`colorBucketOf`, `src/lib/color/color-buckets.ts`). A book matches the colour of the cover its card shows: the active poster's, else its first edition's cover (`coverColorSql`). A book with no cover, or a cover whose colour is not read yet, matches no colour.
+**Cover colour**: each cover falls under one named colour, the colour of its dominant tone (`colorBucketOf`, `src/lib/color/color-buckets.ts`). A book matches the colour of the cover its card shows (`coverColorSql`, the rule in docs/03, A book's cover). A book with no cover, or a cover whose colour is not read yet, matches no colour.
 
 **Active filters**: under the filter bar, one chip per chosen value ("Language French", "First published 1850–1920"; `ActiveFilters`, `src/components/shared/active-filters.tsx`). A click on a chip removes that filter; "Clear all" removes every filter and keeps the search and the sort.
 
@@ -600,7 +600,7 @@ Multi-step wizard that creates a work + edition + instance(s) in one pass.
 
 **Step 2 — Work Confirmation**:
 - If a matching work already exists (by ISBN or title+author): prompt "Add a new edition to existing work [title]?" or "Create as new work?"
-- The prompt shows the work's cover (its poster, else its first edition's cover, as on its library card) and "Open this work", which goes to its page (SLN-667). When something was entered in a step, the click asks first, as every link away from unsaved work does (Unsaved changes: Discard, Keep editing; SLN-631); a picked search result alone opens at once.
+- The prompt shows the work's cover, as on its library card and "Open this work", which goes to its page (SLN-667). When something was entered in a step, the click asks first, as every link away from unsaved work does (Unsaved changes: Discard, Keep editing; SLN-631); a picked search result alone opens at once.
 - On the Edition step, an ISBN that another edition already has is refused with "Open that book" under the field, which asks the same way.
 - Prevents duplicate work creation
 

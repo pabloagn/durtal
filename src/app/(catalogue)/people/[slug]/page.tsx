@@ -377,17 +377,18 @@ export default async function AuthorDetailPage({ params, searchParams }: PagePro
                     every book shows, as the pager counts them (SLN-1019) */}
                 <PhonePairGrid endOnFullRow={false}>
                   {bookCards.map((work) => {
-                    // The active poster, else the first edition's cover, as in the library
+                    // The active poster, else the cover edition's cover, as in the library
                     const workActivePoster = work.media[0];
                     const coverKey =
                       workActivePoster?.thumbnailS3Key ??
                       workActivePoster?.s3Key ??
-                      work.editions[0]?.thumbnailS3Key;
+                      work.editions[0]?.thumbnailS3Key ??
+                      work.editions[0]?.coverS3Key;
                     const coverUrl = coverKey
                       ? mediaUrl(coverKey)
                       : null;
 
-                    const instanceCount = work.editions[0]?.instances.length ?? 0;
+                    const instanceCount = work.copyCount;
 
                     const authorName =
                       work.workAuthors[0]?.author?.name ?? author.name;

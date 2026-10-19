@@ -6,6 +6,7 @@ import { atHandCopySql, isAtHand } from "../at-hand";
 import { tasteRatingSql } from "../summary";
 import type { QueueEdition } from "../queue";
 import type { SuggestBook, SuggestFeedback, SuggestHome, SuggestTerm } from "./types";
+import { workCoverSql } from "@/lib/library/filter-conditions";
 
 /*
  * The suggestion engine's one book query (SLN-457), run by any executor:
@@ -104,7 +105,7 @@ export async function loadBooks(execute: Execute, homeId: string | null): Promis
         coalesce((select jsonb_agg(jsonb_build_object('id', r.id, 'name', r.name) order by r.name)
           from work_recommenders wr join recommenders r on r.id = wr.recommender_id where wr.work_id = w.id), '[]'::jsonb) as recommenders,
         coalesce(ft.terms, '[]'::jsonb) as "fineTerms",
-        (select m.thumbnail_s3_key from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1) as "workCover",
+        ${workCoverSql(sql`w.id`)} as "workCover",
         coalesce(ed.editions, '[]'::jsonb) as editions,
         (select jsonb_build_object('verdict', f.verdict, 'reasons', f.reasons, 'note', f.note, 'until', f.until::text, 'source', f.source,
             'createdAt', f.created_at, 'updatedAt', f.updated_at)

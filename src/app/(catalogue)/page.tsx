@@ -156,10 +156,13 @@ function workToCardProps(work: {
   originalYear: number | null;
   readingState?: string | null;
   readingPercent?: number | null;
+  /** Every copy of the book (workCardExtras) */
+  copyCount: number;
   workAuthors: Array<{ author: { name: string } }>;
   editions: Array<{
     id: string;
     thumbnailS3Key: string | null;
+    coverS3Key?: string | null;
     publicationYear: number | null;
     language: string | null;
     updatedAt: Date;
@@ -181,10 +184,7 @@ function workToCardProps(work: {
 }) {
   const edition = work.editions[0];
   const author = work.workAuthors[0]?.author;
-  const instanceCount = work.editions.reduce(
-    (acc, e) => acc + (e.instances?.length ?? 0),
-    0,
-  );
+  const instanceCount = work.copyCount;
 
   // Prefer active poster from media table, fall back to edition cover
   const activePoster = work.media?.find(
@@ -193,7 +193,8 @@ function workToCardProps(work: {
   const coverS3Key =
     activePoster?.thumbnailS3Key ??
     activePoster?.s3Key ??
-    edition?.thumbnailS3Key;
+    edition?.thumbnailS3Key ??
+    edition?.coverS3Key;
   // Versioned as the library's card is, so both share one cached image
   const coverVersion = activePoster ? activePoster.createdAt : edition?.updatedAt;
 

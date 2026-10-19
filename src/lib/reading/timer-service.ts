@@ -12,6 +12,7 @@ import { readingDay } from "./dates";
 import { readingDayStartHour } from "./day";
 import { guardReading, loadReading, loadSessions, recomputeQueries, type Session, type UndoProgress } from "./service";
 import { durationWords, elapsedSeconds, TIMER_GONE } from "./timer";
+import { workCoverSql } from "@/lib/library/filter-conditions";
 
 /*
  * The reading timer (SLN-451). The running timer is the one session with
@@ -53,8 +54,7 @@ export async function runningTimer(): Promise<RunningTimer | null> {
     await db.execute(sql`
       select s.id as "sessionId", r.id as "readingId", w.id as "workId", w.title, w.slug,
         (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.sort_order, a.name limit 1) as author,
-        coalesce((select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = r.edition_id),
-          (select m.thumbnail_s3_key from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1)) as cover,
+        coalesce((select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = r.edition_id), ${workCoverSql(sql`w.id`)}) as cover,
         to_char(s.started_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "startedAt",
         case when s.paused_at is null then null else to_char(s.paused_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') end as "pausedAt",
         s.paused_seconds as "pausedSeconds", s.read_on::text as "readOn", s.time_zone as "timeZone",

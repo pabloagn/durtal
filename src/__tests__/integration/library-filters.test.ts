@@ -36,6 +36,8 @@ vi.mock("@/lib/cache", () => ({
   CACHE_TAGS: new Proxy({}, { get: (_, prop) => String(prop) }),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
+// The palette reads this device's e-books from a cookie
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
 // Images: a key names its dominant colour ("…/red.webp"); "broken" fails
 vi.mock("@/lib/s3/covers", () => ({
@@ -64,6 +66,12 @@ import { parseBookFilters } from "@/lib/library/filter-params";
 import { GET as listWorks } from "@/app/api/works/route";
 import { POST as backfillRoute } from "@/app/api/media/backfill-palettes/route";
 import { setActiveMedia } from "@/lib/actions/media";
+import { getWorkBySlug } from "@/lib/actions/works";
+import { quickSearch } from "@/lib/actions/quick-search";
+import { searchBooksToRead } from "@/lib/actions/reading";
+import { workCoverSql } from "@/lib/library/filter-conditions";
+import { workCardExtras, workCardWith } from "@/lib/actions/utils/work-card-query";
+import { sql } from "drizzle-orm";
 
 function palette(rgb: [number, number, number]) {
   return { dominant: { hex: "#000000", rgb }, crystal: [], extractedAt: "2026-10-05T00:00:00Z" };
@@ -261,6 +269,71 @@ describe.skipIf(!url)("library filters with PostgreSQL", () => {
     expect(card.editions[0].thumbnailS3Key).toBe("gold/covers/c/thumb.webp");
 
     expect((await getLibraryFilterOptions()).colors).toEqual({ red: 1, blue: 1, green: 1 });
+  });
+
+  it("shows one cover for a book in every list: chosen, else the newest copy's edition, else the earliest with one (SLN-1286)", async () => {
+    const copyAt = (editionId: string, added: string, status = "available") =>
+      q(`insert into instances(edition_id, location_id, format, status, created_at) values ($1, $2, 'paperback', $3, $4)`, [editionId, study, status, added]);
+    const owned = await book("Cover owned newer");
+    const older = await edition(owned, { thumb: "gold/owned/old.webp", created: "2020-01-01" });
+    const newer = await edition(owned, { thumb: "gold/owned/new.webp", created: "2024-01-01" });
+    await copyAt(older, "2021-01-01");
+    await copyAt(newer, "2025-01-01");
+    // A copy given away later does not choose the cover
+    await copyAt(older, "2026-01-01", "deaccessioned");
+    const chosen = await book("Cover chosen poster");
+    await copyAt(await edition(chosen, { thumb: "gold/chosen/edition.webp" }), "2025-01-01");
+    await poster(chosen, { key: "gold/chosen/poster.webp" });
+    const later = await book("Cover later edition");
+    // Its one copy is of the first edition, which has no cover
+    await copyAt(await edition(later, { created: "2020-01-01" }), "2023-01-01");
+    await edition(later, { thumb: "gold/later/second.webp", created: "2022-01-01" });
+    await edition(later, { thumb: "gold/later/third.webp", created: "2024-01-01" });
+    const none = await book("Cover none");
+    await edition(none);
+
+    const want: Record<string, string | null> = {
+      "Cover owned newer": "gold/owned/new.webp",
+      "Cover chosen poster": "gold/chosen/poster.webp",
+      "Cover later edition": "gold/later/second.webp",
+      "Cover none": null,
+    };
+    const byTitle = <T,>(list: T[], title: (row: T) => string, cover: (row: T) => string | null | undefined) =>
+      Object.fromEntries(list.map((row) => [title(row), cover(row) ?? null]));
+
+    // The SQL every list reads
+    const sqlCovers = await db.execute(sql`select w.title, ${workCoverSql(sql`w.id`)} as cover from works w where w.title like 'Cover %'`);
+    expect(byTitle([...sqlCovers] as { title: string; cover: string | null }[], (r) => r.title, (r) => r.cover)).toEqual(want);
+    // The library cards: the poster, else editions[0]
+    const cards = await getWorks({ filters: {}, sort: "title", limit: 10 });
+    expect(byTitle(cards, (w) => w.title, (w) => {
+      const poster = w.media.find((m) => m.type === "poster" && m.isActive);
+      return poster?.thumbnailS3Key ?? poster?.s3Key ?? w.editions[0]?.thumbnailS3Key ?? w.editions[0]?.coverS3Key;
+    })).toEqual(want);
+    // The carousel, people and recommender cards: one edition, the cover
+    // edition, and every copy of the book counted, not that edition's
+    const carousel = await db.query.works.findMany({
+      where: (w, { like }) => like(w.title, "Cover %"),
+      extras: workCardExtras,
+      with: workCardWith,
+    });
+    expect(byTitle(carousel, (w) => w.title, (w) => {
+      const poster = w.media[0];
+      return poster?.thumbnailS3Key ?? poster?.s3Key ?? w.editions[0]?.thumbnailS3Key ?? w.editions[0]?.coverS3Key;
+    })).toEqual(want);
+    expect(Object.fromEntries(carousel.map((w) => [w.title, w.copyCount]))).toEqual({
+      "Cover owned newer": 3,
+      "Cover chosen poster": 1,
+      "Cover later edition": 1,
+      "Cover none": 0,
+    });
+    // The palette and the Start reading picker
+    const palette = await quickSearch("Cover");
+    expect(byTitle(palette.works, (w) => w.title, (w) => w.cover)).toEqual(want);
+    expect(byTitle(await searchBooksToRead("Cover"), (b) => b.title, (b) => b.cover)).toEqual(want);
+    // The book page's header, without a poster
+    const page = await getWorkBySlug((await value(`select slug from works where id = $1`, [owned])) as string);
+    expect(page!.editions.find((e) => e.id === page!.coverEditionId)?.thumbnailS3Key).toBe("gold/owned/new.webp");
   });
 
   it("keeps the list, its count, the timeline and the API in step", async () => {

@@ -10,7 +10,7 @@ import { mediaUrl } from "@/lib/s3/media-url";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import type { DuplicateWork } from "../wizard-model";
 
-/** The cover the work's library card shows: its poster, else its first edition's cover */
+/** The cover the work's library card shows: its poster, else its cover edition's cover */
 function DuplicateCover({ work }: { work: DuplicateWork }) {
   const poster = work.media[0];
   const edition = work.editions[0];

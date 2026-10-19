@@ -7,7 +7,8 @@ import { z } from "zod/v4";
 import { compareWorks } from "@/lib/utils/title-order";
 import { db } from "@/lib/db";
 import { uniqueConstraint } from "@/lib/db/errors";
-import { recommenders, workRecommenders } from "@/lib/db/schema";
+import { editions, recommenders, workRecommenders } from "@/lib/db/schema";
+import { coverEditionFirst } from "@/lib/library/filter-conditions";
 import { and, asc, count, desc, eq, ne, sql } from "drizzle-orm";
 import { cached, invalidate, CACHE_TAGS } from "@/lib/cache";
 import {
@@ -109,9 +110,11 @@ export async function getRecommender(id: string) {
                   id: true,
                   title: true,
                   thumbnailS3Key: true,
+                  coverS3Key: true,
                   publicationYear: true,
                   language: true,
                 },
+                orderBy: coverEditionFirst(editions),
                 limit: 1,
                 with: { instances: { columns: { id: true } } },
               },

@@ -7,6 +7,7 @@ import { alphabeticalWorkIds } from "@/lib/actions/utils/alphabetical-works";
 import { posterTone, readingExtras } from "@/lib/actions/utils/work-card-query";
 import { compareWorks } from "@/lib/utils/title-order";
 import { countryDisplayName } from "@/lib/utils/labels";
+import { coverEditionFirst } from "@/lib/library/filter-conditions";
 
 /**
  * The library's figures and the dashboard's book shelves (`getLibraryStats`),
@@ -19,8 +20,8 @@ import { countryDisplayName } from "@/lib/utils/labels";
  * - `wanted`: those books' cards, one round trip after.
  */
 export function libraryStatsReads({ shelf = 8 }: { shelf?: number } = {}) {
-  // The library card's first edition, so a shelf shows the cover the library shows
-  const firstEdition = [asc(editions.createdAt), asc(editions.id)];
+  // The library card's cover edition, so a shelf shows the cover the library shows
+  const firstEdition = coverEditionFirst(editions);
   const worksWith = {
     workAuthors: {
       with: { author: true },
@@ -31,6 +32,7 @@ export function libraryStatsReads({ shelf = 8 }: { shelf?: number } = {}) {
       columns: {
         id: true,
         thumbnailS3Key: true,
+        coverS3Key: true,
         publicationYear: true,
         language: true,
         updatedAt: true,

@@ -136,7 +136,8 @@ export default async function RecommenderPage({
                 const coverKey =
                   poster?.thumbnailS3Key ??
                   poster?.s3Key ??
-                  work.editions[0]?.thumbnailS3Key;
+                  work.editions[0]?.thumbnailS3Key ??
+                  work.editions[0]?.coverS3Key;
                 return (
                   <BookCard
                     key={work.id}
@@ -158,7 +159,7 @@ export default async function RecommenderPage({
                       work.editions[0]?.publicationYear ?? work.originalYear
                     }
                     language={work.editions[0]?.language}
-                    instanceCount={work.editions[0]?.instances?.length ?? 0}
+                    instanceCount={work.copyCount}
                     rating={work.rating}
                     catalogueStatus={work.catalogueStatus}
                     acquisitionPriority={work.acquisitionPriority}

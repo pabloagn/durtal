@@ -57,9 +57,9 @@ import { markedWorkCards, markedWorkIds } from "@/lib/catalogue/marked-works";
 import type { WorkMarkKey } from "@/lib/constants/marks";
 import { normalizeSearchText } from "@/lib/utils/search-text";
 import { cleanText } from "@/lib/utils/clean-text";
-import type { SQL } from "drizzle-orm";
+import type { AnyColumn, SQL } from "drizzle-orm";
 import { readingFilterConditions } from "@/lib/reading/filter-conditions";
-import { bookFilterConditions } from "@/lib/library/filter-conditions";
+import { bookFilterConditions, coverEditionFirst, workCoverEditionSql } from "@/lib/library/filter-conditions";
 import { workSearchCondition } from "@/lib/library/search-condition";
 import type { BookFilterParams } from "@/lib/library/filter-params";
 import { lastReadAtSql } from "@/lib/reading/summary";
@@ -200,8 +200,8 @@ export async function getWorksWith<T>(
           language: true,
           updatedAt: true,
         },
-        // The card shows the first edition: the order `coverColorSql` reads
-        orderBy: [asc(editions.createdAt), asc(editions.id)],
+        // The card shows the first: the book's cover edition (SLN-1286)
+        orderBy: coverEditionFirst(editions),
         with: {
           instances: {
             columns: { id: true },
@@ -249,6 +249,11 @@ export async function getWorkCount(search?: string, filters?: WorkFilters) {
   const [result] = await db.select({ count: count() }).from(works).where(where);
   return result.count;
 }
+
+/** The edition whose cover stands for the book without a poster (SLN-1286), as on its card */
+const workDetailExtras = (work: { id: AnyColumn }) => ({
+  coverEditionId: workCoverEditionSql(work.id).as("cover_edition_id"),
+});
 
 /** Relations of a book's detail page, loaded by id or by slug. */
 const workDetailWith = {
@@ -310,6 +315,7 @@ export async function getWork(id: string) {
   const result = await db.query.works.findFirst({
     where: and(bookCondition, eq(works.id, id)),
     with: workDetailWith,
+    extras: workDetailExtras,
   });
 
   return bookResult(result);
@@ -324,6 +330,7 @@ export async function getWorkBySlug(slug: string) {
   const result = await db.query.works.findFirst({
     where: and(bookCondition, eq(works.slug, slug)),
     with: workDetailWith,
+    extras: workDetailExtras,
   });
 
   return bookResult(result);
@@ -337,8 +344,8 @@ const duplicateWith = {
   },
   editions: {
     columns: { id: true, coverS3Key: true, thumbnailS3Key: true },
-    // The first edition, as on the work's library card
-    orderBy: [asc(editions.createdAt), asc(editions.id)] as SQL[],
+    // The cover edition first, as on the work's library card
+    orderBy: coverEditionFirst(editions),
     with: { instances: { columns: { id: true } } },
   },
   media: {

@@ -11,6 +11,7 @@ import { textSearchCondition } from "@/lib/actions/utils/text-search";
 import type { ReadingDatePrecision, ReadingFormat, ReadingStatus } from "./constants";
 import { readingOrdinalSql, readingRatingOverAllSql, readingRatingSql, rereadSql } from "./summary";
 import type { JournalQuery } from "./journal-params";
+import { workCoverSql } from "@/lib/library/filter-conditions";
 
 export interface JournalRow {
   id: string;
@@ -99,8 +100,7 @@ export async function queryJournal(q: JournalQuery) {
   const [rows, [summary]] = await Promise.all([
     db.execute(sql`select b.id, b.ordinal, b.work_id as "workId", w.title, w.slug,
         fa.name as author, fa.slug as "authorSlug",
-        coalesce((select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = b.edition_id),
-          (select m.thumbnail_s3_key from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1)) as cover,
+        coalesce((select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = b.edition_id), ${workCoverSql(sql`w.id`)}) as cover,
         b.status, b.started_on::text as "startedOn", b.started_precision as "startedPrecision",
         b.finished_on::text as "finishedOn", b.finished_precision as "finishedPrecision", b.format,
         b.read_rating as rating, b.reread,
@@ -158,8 +158,7 @@ export interface FinishedRead {
 export async function getRecentlyFinished(limit: number): Promise<FinishedRead[]> {
   return resultRows<FinishedRead>(
     await db.execute(sql`select r.id, r.work_id as "workId", w.title, w.slug,
-        coalesce((select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = r.edition_id),
-          (select m.thumbnail_s3_key from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1)) as cover,
+        coalesce((select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = r.edition_id), ${workCoverSql(sql`w.id`)}) as cover,
         r.finished_on::text as "finishedOn", r.finished_precision as "finishedPrecision", ${readingRatingSql("r")} as rating
       from readings r join works w on w.id = r.work_id
       where r.status = 'finished'

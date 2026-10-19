@@ -2,6 +2,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { WORK_AUTHOR_ROLES } from "@/lib/types";
+import { workCoverSql } from "@/lib/library/filter-conditions";
 
 /*
  * Library statistics (SLN-742): the books he owns, counted the way the
@@ -23,10 +24,8 @@ const OWNED = sql`held as (
 /** A book's writers: its authors and co-authors, as everywhere else in the app */
 const WRITER = sql.raw(`wa.role in (${WORK_AUTHOR_ROLES.map((r) => `'${r}'`).join(", ")})`);
 
-/** The picture a book's card shows: its active poster, else its first edition's cover */
-const COVER = (work: SQL) => sql`coalesce(
-    (select coalesce(m.thumbnail_s3_key, m.s3_key) from media m where m.work_id = ${work} and m.type = 'poster' and m.is_active order by m.id limit 1),
-    (select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.work_id = ${work} order by e.created_at, e.id limit 1))`;
+/** The picture a book's card shows (SLN-1286) */
+const COVER = (work: SQL) => workCoverSql(work);
 
 async function rows<T>(query: SQL): Promise<T[]> {
   return resultRows<T>(await db.execute(query));

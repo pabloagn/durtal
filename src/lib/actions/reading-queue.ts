@@ -17,6 +17,7 @@ import { QUEUE_GAP } from "@/lib/reading/constants";
 import { readingToday } from "@/lib/reading/day";
 import { lastFinishedOnSql, readCountSql } from "@/lib/reading/summary";
 import { positionBetween, renumbered, type QueueEdition } from "@/lib/reading/queue";
+import { workCoverSql } from "@/lib/library/filter-conditions";
 import {
   addManyToQueueSchema,
   addToQueueSchema,
@@ -259,7 +260,7 @@ export async function getQueue(input?: z.input<typeof getQueueSchema>): Promise<
         (select a.name from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id order by wa.sort_order, a.name limit 1) as author,
         ${ownedWorkCondition(sql`w.id`)} as owned,
         (${atHandCopySql(sql`w.id`, homeId)} limit 1)::text as "atHandCopyId",
-        (select m.thumbnail_s3_key from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1) as "workCover",
+        ${workCoverSql(sql`w.id`)} as "workCover",
         ${readCountSql(sql`w.id`)}::int as "readCount",
         ${lastFinishedOnSql(sql`w.id`)} as "lastFinishedOn",
         coalesce((select jsonb_agg(jsonb_build_object(
@@ -284,9 +285,7 @@ export async function getQueueHead(limit = 5) {
   return resultRows<{ workId: string; title: string; slug: string | null; editionId: string | null; cover: string | null }>(
     await db.execute(sql`
       select w.id::text as "workId", w.title, w.slug, q.edition_id::text as "editionId",
-        coalesce((select e.thumbnail_s3_key from editions e where e.id = q.edition_id),
-          (select m.thumbnail_s3_key from media m where m.work_id = w.id and m.type = 'poster' and m.is_active order by m.sort_order limit 1),
-          (select e.thumbnail_s3_key from editions e where e.work_id = w.id and e.thumbnail_s3_key is not null order by e.created_at limit 1)) as cover
+        coalesce((select coalesce(e.thumbnail_s3_key, e.cover_s3_key) from editions e where e.id = q.edition_id), ${workCoverSql(sql`w.id`)}) as cover
       from reading_queue q join works w on w.id = q.work_id
       order by q.position, q.work_id limit ${limit}`),
   );
