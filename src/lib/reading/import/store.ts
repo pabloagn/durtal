@@ -161,12 +161,19 @@ export async function setBronzeKey(importId: string, key: string) {
   await db.update(imports).set({ s3BronzeKey: key }).where(eq(imports.id, importId));
 }
 
+/** Why an import in this state cannot take the action, in words (SLN-1168) */
+const STATUS_REFUSAL: Record<ImportStatus, string> = {
+  pending: "Nothing from this import is in Durtal yet",
+  completed: "This import is already in Durtal",
+  undone: "This import was already undone",
+};
+
 /** The import, locked for the length of one write, with its status checked */
 async function lockedImport(importId: string, allowed: ImportStatus[]) {
   const [locked] = (await atomic((d) => [d.execute(sql`select id, status, source from imports where id = ${importId}::uuid for update`)])) as unknown[];
   const [row] = resultRows<{ id: string; status: ImportStatus; source: ImportSource }>(locked);
   if (!row) throw new ExpectedActionError("This import does not exist");
-  if (!allowed.includes(row.status)) throw new ExpectedActionError(`This import is ${row.status}`);
+  if (!allowed.includes(row.status)) throw new ExpectedActionError(STATUS_REFUSAL[row.status]);
   if (!(IMPORT_SOURCES as readonly string[]).includes(row.source)) throw new ExpectedActionError("This is not a reading import");
   return row;
 }

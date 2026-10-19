@@ -156,13 +156,23 @@ function useAction() {
   // A refusal says the server's reason (SLN-1168); any other failure says
   // what did not happen. The page refreshes either way: an import that stopped
   // partway then offers the rest.
-  const run = (action: () => Promise<unknown>, done?: (result: unknown) => void, failed = "Not saved. Try again.") =>
+  const run = (
+    action: () => Promise<unknown>,
+    done?: (result: unknown) => void,
+    failed = "Not saved. Try again.",
+    undo?: () => void,
+  ) =>
     start(async () => {
       try {
         const result = await action();
         done?.(result);
         router.refresh();
       } catch (err) {
+        // A choice shown before it saved goes back. A refusal often comes
+        // from a page that was out of date, and its control can go as the
+        // page refreshes: focus then goes to the import's status line
+        undo?.();
+        keepFocus(() => summaryLine() ?? document.querySelector<HTMLElement>("[data-import-item] a"));
         toast.error(refusalMessage(err, failed));
         router.refresh();
       }
@@ -182,8 +192,9 @@ function RowActions({ importId, rowNo, title, actions }: { importId: string; row
     setCurrent(actions.decision);
   }
   const decide = (next: ImportDecision) => {
+    const was = current;
     setCurrent(next);
-    run(() => decideImportRow({ importId, rowNo, decision: next }));
+    run(() => decideImportRow({ importId, rowNo, decision: next }), undefined, undefined, () => setCurrent(was));
   };
   // A chosen candidate's chips go: focus moves to the row's next control
   const rowControl = () =>
@@ -338,8 +349,9 @@ function NoteActions({ importId, rowNo, decision }: { importId: string; rowNo: n
       aria-disabled={pending || undefined}
       onClick={() => {
         if (pending || current === value) return;
+        const was = current;
         setCurrent(value);
-        run(() => decideImportNote({ importId, rowNo, decision: value }));
+        run(() => decideImportNote({ importId, rowNo, decision: value }), undefined, undefined, () => setCurrent(was));
       }}
       data-import-note-decide={value}
     >
