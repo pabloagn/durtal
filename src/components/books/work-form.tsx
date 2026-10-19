@@ -2,7 +2,7 @@
 
 import { useSaveReason } from "@/components/shared/save-reason";
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { X, Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { SeriesFields } from "@/components/books/series-fields";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,13 @@ import { TitleInput } from "@/components/shared/title-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { RatingInput } from "@/components/shared/rating";
-import { CapAligned } from "@/components/shared/cap-aligned";
+import { CHIP, CHIP_NAME, RemoveButton } from "@/components/catalogue/record-fields";
+import {
+  CREDIT_ROW,
+  CREDIT_ROW_NAME,
+  CreditRowControls,
+  moveRow,
+} from "@/components/shared/credit-row-controls";
 import { findOrCreateAuthor } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
 import { LANGUAGES } from "@/lib/constants/languages";
@@ -242,10 +248,24 @@ export function WorkForm({
   );
   const authorAlreadyAdded = (authorId: string) =>
     values.authors.some((a) => a.id === authorId);
+  // The search's choices, for the arrows and Enter as for a mouse: the
+  // authors not yet listed, then "Create" for a new name
+  const [activeAuthor, setActiveAuthor] = useState(0);
+  const typedAuthor = authorSearch.trim();
+  const authorItems: ({ author: { id: string; name: string } } | { create: string })[] = [
+    ...filteredAuthors.filter((a) => !authorAlreadyAdded(a.id)).map((author) => ({ author })),
+    ...(typedAuthor && !isSearchingAuthors && !authorExists ? [{ create: typedAuthor }] : []),
+  ];
+  const currentAuthor = Math.min(activeAuthor, Math.max(authorItems.length - 1, 0));
+  const authorListOpen = !!typedAuthor;
+  function chooseAuthor(item: (typeof authorItems)[number]) {
+    if ("author" in item) addExistingAuthor(item.author);
+    else if (!isAddingAuthor) void addNewAuthor(item.create);
+  }
 
   function removeAuthor(authorId: string) {
     if (values.authors.length <= 1) {
-      toast.error("At least one author is required");
+      toast.error("A book needs at least one author");
       return;
     }
     setAuthors((prev) => prev.filter((a) => a.id !== authorId));
@@ -434,25 +454,17 @@ export function WorkForm({
                     {values.recommenderIds.map((rid) => {
                       const r = recommenders.find((x) => x.id === rid);
                       return r ? (
-                        <span
-                          key={rid}
-                          className="inline-flex items-center gap-1 rounded-sm border border-glass-border bg-bg-secondary px-2 py-0.5 text-xs text-fg-secondary"
-                        >
-                          {r.name}
-                          <button
-                            aria-label={`Remove ${r.name}`}
-                            data-tooltip={`Remove ${r.name}`}
-                            type="button"
+                        <span key={rid} className={CHIP}>
+                          <span className={CHIP_NAME}>{r.name}</span>
+                          <RemoveButton
+                            label={`Remove ${r.name}`}
                             onClick={() =>
                               set(
                                 "recommenderIds",
                                 values.recommenderIds.filter((x) => x !== rid),
                               )
                             }
-                            className="text-fg-muted transition-colors hover:text-fg-primary"
-                          >
-                            <X className="h-3 w-3" strokeWidth={1.5} />
-                          </button>
+                          />
                         </span>
                       ) : null;
                     })}
@@ -493,44 +505,26 @@ export function WorkForm({
               Authors
             </h3>
             <div className="space-y-2">
-              {values.authors.map((author) => (
-                // The name wraps in full, never cut. On touch, where the menu
-                // and the cross are 44px, and on a phone's width, it takes a
-                // line of its own with them under it, as a record form's
-                // role chip does (record-fields.tsx)
-                <div
-                  key={author.id}
-                  className="flex flex-wrap items-start gap-x-2 rounded-sm border border-glass-border bg-bg-primary px-3 py-2 text-sm leading-7 pointer-coarse:py-0 pointer-coarse:leading-11"
-                >
-                  <span className="min-w-0 flex-1 break-words py-0.5 leading-6 text-fg-primary max-sm:basis-full pointer-coarse:basis-full pointer-coarse:py-2.5">
-                    {author.name}
-                  </span>
-                  <CapAligned height={28} coarseHeight={44}>
-                    <select
-                      aria-label={`Role of ${author.name}`}
-                      value={author.role}
-                      onChange={(e) => updateAuthorRole(author.id, e.target.value)}
-                      className="block h-7 pointer-coarse:h-11 pointer-coarse:text-sm appearance-none rounded-sm border border-glass-border bg-bg-secondary px-2 text-xs text-fg-secondary transition-colors focus:border-accent-primary focus:outline-none"
-                    >
-                      {AUTHOR_ROLE_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </CapAligned>
-                  <CapAligned height={22} coarseHeight={44}>
-                    <button
-                      type="button"
-                      onClick={() => removeAuthor(author.id)}
-                      disabled={values.authors.length <= 1}
-                      className="flex size-[22px] items-center justify-center rounded-sm text-fg-muted transition-colors hover:bg-bg-tertiary hover:text-fg-secondary disabled:pointer-events-none disabled:opacity-30 pointer-coarse:size-11"
-                      aria-label="Remove author"
-                      data-tooltip="Remove author"
-                    >
-                      <X className="h-3.5 w-3.5" strokeWidth={1.5} />
-                    </button>
-                  </CapAligned>
+              {values.authors.map((author, index) => (
+                // The name wraps in full, never cut. On touch, where the
+                // controls are 44px, and on a phone's width, it takes a line
+                // of its own with them under it, as a film's credits do
+                <div key={author.id} className={CREDIT_ROW}>
+                  <span className={CREDIT_ROW_NAME}>{author.name}</span>
+                  <Select
+                    compact
+                    ariaLabel={`Role of ${author.name}`}
+                    value={author.role}
+                    options={AUTHOR_ROLE_OPTIONS}
+                    onChange={(e) => updateAuthorRole(author.id, e.target.value)}
+                  />
+                  <CreditRowControls
+                    name={author.name}
+                    first={index === 0}
+                    last={index === values.authors.length - 1}
+                    onMove={(step) => setAuthors((prev) => moveRow(prev, index, step))}
+                    onRemove={() => removeAuthor(author.id)}
+                  />
                 </div>
               ))}
 
@@ -539,12 +533,37 @@ export function WorkForm({
                   <input
                     autoFocus
                     type="text"
+                    role="combobox"
+                    aria-label="Author's name"
+                    aria-expanded={authorListOpen}
+                    aria-controls={authorListOpen ? id("author-results") : undefined}
+                    aria-autocomplete="list"
+                    aria-activedescendant={
+                      authorListOpen && authorItems.length
+                        ? id(`author-result-${currentAuthor}`)
+                        : undefined
+                    }
                     value={authorSearch}
-                    onChange={(e) => setAuthorSearch(e.target.value)}
+                    onChange={(e) => {
+                      setAuthorSearch(e.target.value);
+                      setActiveAuthor(0);
+                    }}
                     placeholder="Search author by name..."
                     className="mb-2 h-8 pointer-coarse:h-11 w-full rounded-sm border border-glass-border bg-bg-secondary px-3 text-sm text-fg-primary placeholder:text-fg-muted transition-colors focus:border-accent-primary focus:outline-none"
                     onKeyDown={(e) => {
-                      if (e.key === "Escape" && !isComposing(e)) {
+                      if (isComposing(e)) return;
+                      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                        e.preventDefault();
+                        const step = e.key === "ArrowDown" ? 1 : -1;
+                        setActiveAuthor(
+                          Math.min(Math.max(currentAuthor + step, 0), Math.max(authorItems.length - 1, 0)),
+                        );
+                      } else if (e.key === "Enter" && authorSearch.trim()) {
+                        // Enter picks the highlighted name; it never saves the dialog
+                        e.preventDefault();
+                        const item = authorItems[currentAuthor];
+                        if (item) chooseAuthor(item);
+                      } else if (e.key === "Escape") {
                         // The author search closes; the dialog stays
                         e.preventDefault();
                         setShowAuthorAdd(false);
@@ -552,36 +571,49 @@ export function WorkForm({
                       }
                     }}
                   />
-                  <div className="max-h-40 overflow-y-auto">
-                    {filteredAuthors.length > 0
-                      ? filteredAuthors.map((a) => (
-                          <button
-                            key={a.id}
-                            type="button"
-                            onClick={() => addExistingAuthor(a)}
-                            disabled={authorAlreadyAdded(a.id)}
-                            className="flex pointer-coarse:min-h-11 w-full items-center rounded-sm px-2 py-1.5 text-left text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary disabled:opacity-40"
-                          >
-                            {a.name}
-                          </button>
-                        ))
-                      : null}
-                    {authorSearch.trim() && !isSearchingAuthors && !authorExists && (
-                      <button
-                        type="button"
-                        onClick={() => addNewAuthor(authorSearch)}
-                        disabled={isAddingAuthor}
-                        className="flex pointer-coarse:min-h-11 w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-sm text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary"
-                      >
-                        {isAddingAuthor ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
-                        ) : (
-                          <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
-                        )}
-                        Create &ldquo;{authorSearch.trim()}&rdquo;
-                      </button>
-                    )}
-                  </div>
+                  {authorListOpen && (
+                    <div
+                      id={id("author-results")}
+                      role="listbox"
+                      aria-label="Authors found"
+                      className="max-h-40 overflow-y-auto"
+                    >
+                      {authorItems.map((item, i) => (
+                        <button
+                          key={"author" in item ? item.author.id : "create"}
+                          id={id(`author-result-${i}`)}
+                          type="button"
+                          role="option"
+                          aria-selected={i === currentAuthor}
+                          tabIndex={-1}
+                          onMouseEnter={() => setActiveAuthor(i)}
+                          onClick={() => chooseAuthor(item)}
+                          disabled={"create" in item && isAddingAuthor}
+                          className={`flex pointer-coarse:min-h-11 w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-sm transition-colors ${
+                            i === currentAuthor ? "bg-bg-tertiary text-fg-primary" : "text-fg-secondary"
+                          }`}
+                        >
+                          {"author" in item ? (
+                            item.author.name
+                          ) : (
+                            <>
+                              {isAddingAuthor ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+                              ) : (
+                                <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+                              )}
+                              Create &ldquo;{item.create}&rdquo;
+                            </>
+                          )}
+                        </button>
+                      ))}
+                      {authorItems.length === 0 && (
+                        <p className="px-2 py-1.5 text-sm text-fg-secondary">
+                          {isSearchingAuthors ? "Searching…" : "No other author found"}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <button data-dismiss=""
                     type="button"
                     onClick={() => {

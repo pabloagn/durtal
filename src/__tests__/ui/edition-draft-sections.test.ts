@@ -135,7 +135,9 @@ it("keeps edited fields dirty through collapse and reopen", () => {
 
 it("preserves a contributor removal as an edit", () => {
   const onClose = vi.fn(); render({ onClose, initial: { contributors: [{ authorId: "synthetic-author", authorName: "Synthetic contributor", role: "translator" }] } });
-  pointer(toggle("Contributors")); pointer(host.querySelector<HTMLButtonElement>('[aria-label="Remove contributor"]')!);
+  // The section opens by itself when it has entries (SLN-1131)
+  expect(toggle("Contributors").getAttribute("aria-expanded")).toBe("true");
+  pointer(host.querySelector<HTMLButtonElement>('[aria-label="Remove Synthetic contributor"]')!);
   pointer(toggle("Contributors")); key(toggle("Contributors"), "Escape");
   expect(prompt()).toBeDefined(); expect(onClose).not.toHaveBeenCalled();
 });
