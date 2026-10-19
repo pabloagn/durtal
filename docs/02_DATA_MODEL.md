@@ -949,6 +949,12 @@ Audit trail for instance-level status changes.
 | `changed_at` | TIMESTAMPTZ | NOT NULL, default `NOW()` | When the change occurred |
 | `notes` | TEXT | nullable | Reason or context for the change |
 
+`updateInstance` writes a row whenever an edit changes a copy's status, in the
+same transaction as the edit (SLN-1125). A lend, and the change that ends a
+loan, note the borrower and lending date: "Lent to Léon from 2026-10-18"
+(either part may be absent; `src/lib/catalogue/loans.ts` reads it back). Ending
+a loan clears the copy's `lent_to` and `lent_date`, so the history keeps them.
+
 **Relations**: `instance` (N:1)
 
 ---
@@ -2418,7 +2424,7 @@ FROM instances i
 JOIN editions e ON e.id = i.edition_id
 JOIN works w ON w.id = e.work_id
 JOIN locations l ON l.id = i.location_id
-WHERE i.is_lent_out = true;
+WHERE i.status = 'lent_out';
 ```
 
 ---

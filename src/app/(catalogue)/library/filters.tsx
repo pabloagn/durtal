@@ -91,6 +91,7 @@ const READING_OPTIONS = [
 const HOLDING_OPTIONS = [
   { value: "owned", label: "Owned" },
   { value: "not_owned", label: "Not owned" },
+  { value: "lent_out", label: "Lent out" },
 ];
 const REREAD_OPTIONS = [{ value: "true", label: "Re-reads only" }];
 // Whether the E-book library holds a copy to read (SLN-641: in the panel,
