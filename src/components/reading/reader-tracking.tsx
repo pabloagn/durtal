@@ -5,7 +5,7 @@ import { readerUuid } from "@/lib/reader/uuid";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowRight, X } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
-import { ReaderSlotFill, useBeforeAnnotationDelete, useBeforeReaderLeave, useReaderContext, useReaderController, useReaderControllerFailure, useReaderJump, useReaderSelectionCapture } from "@/components/reader/bridge";
+import { ReaderSlotFill, useBeforeAnnotationDelete, useBeforeReaderLeave, useReaderContext, useReaderController, useReaderControllerFailure, useReaderControllerFailureProps, useReaderJump, useReaderSelectionCapture } from "@/components/reader/bridge";
 import type { ReaderControllerFailureProps } from "@/lib/reader/bridge-state";
 import type { PreparedAnnotationDelete } from "@/lib/reader/annotation-deletion";
 import type { ReaderSelection } from "@/lib/reader/events";
@@ -30,7 +30,8 @@ import { onActivityRefresh } from "@/lib/activity/refresh-event";
 type Controller = ReturnType<typeof createReadingReaderController>;
 type Queue = ReturnType<typeof createReaderSittingQueue>;
 type QuoteChoice = { settle(value: "keep-quote" | "delete-quote" | null): void };
-export function ReaderTrackingFailure({ id, code, onRetry }: ReaderControllerFailureProps) {
+export function ReaderTrackingFailure(props: ReaderControllerFailureProps) {
+  const { id, code, onRetry } = useReaderControllerFailureProps(props);
   const notice = useRef<HTMLElement>(null);
   useReaderControllerFailure(id, code, notice);
   return <aside ref={notice} role="alert" data-reader-chrome
@@ -89,10 +90,12 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
     live.current = true;
     const ownGeneration = ++generation.current;
     let ownQueue: Queue;
+    let setAside = 0;
     try {
       ownQueue = createReaderSittingQueue({ ebookId: initial.ebookId, deviceId: initial.deviceId,
         timeZone: browserZone(), storage: window.localStorage,
         beacon: (url, payload) => navigator.sendBeacon(url, payload), failed: showFailure,
+        setAside: (count) => { setAside = count; },
         acknowledged: (sitting) => {
           if (live.current && generation.current === ownGeneration) setData((current) =>
             current.linked?.reading?.id === sitting.readingId ? { ...current, linked: { ...current.linked,
@@ -155,7 +158,12 @@ function ActiveReaderTracking({ data: initial }: { data: ReaderTrackingData }) {
     window.addEventListener("pagehide", close);
     window.addEventListener("beforeunload", close);
     window.addEventListener("online", online);
-    void ownQueue.flush();
+    // Said once the first send is over: a toast before the toaster mounts is lost
+    void ownQueue.flush().then(() => {
+      if (setAside && live.current && generation.current === ownGeneration)
+        toast.info(setAside === 1 ? "One reading sitting saved on this device could not be read, so it was set aside."
+          : `${setAside} reading sittings saved on this device could not be read, so they were set aside.`);
+    });
     return () => {
       live.current = false;
       generation.current++;
