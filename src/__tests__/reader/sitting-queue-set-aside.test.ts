@@ -64,6 +64,23 @@ describe("saved sittings that no longer read (SLN-1231)", () => {
     expect(sent[0]).not.toHaveProperty("device");
   });
 
+  it("sends a set-aside sitting once this release reads it, and leaves one that still doesn't", async () => {
+    const keep = (key: string, text: string) => localStorage.setItem(`${READER_SITTING_RECOVERY_PREFIX}${deviceId}:${ebookId}:${key}`, text);
+    // Set aside by another release; this one reads it
+    keep(id(23), JSON.stringify(sitting(3)));
+    keep(id(31), JSON.stringify({ sittingId: id(31), revision: "two" }));
+    const { queue, sent, setAside } = open();
+    expect(setAside).not.toHaveBeenCalled();
+    expect(queue.pending).toBe(1);
+    expect(localStorage.getItem(`${READER_SITTING_RECOVERY_PREFIX}${deviceId}:${ebookId}:${id(23)}`)).toBeNull();
+    await queue.flush();
+    expect(sent.map((s) => s.sittingId)).toEqual([id(23)]);
+    expect(localStorage.getItem(prefix + id(23))).toBeNull();
+    // The unreadable one stays, and isn't counted again
+    expect(localStorage.getItem(`${READER_SITTING_RECOVERY_PREFIX}${deviceId}:${ebookId}:${id(31)}`)).not.toBeNull();
+    expect(open().setAside).not.toHaveBeenCalled();
+  });
+
   it("keeps loading when the recovery key can't be written", () => {
     localStorage.setItem(prefix + id(21), JSON.stringify(sitting(1)));
     localStorage.setItem(prefix + id(30), "{not json");
