@@ -14,6 +14,7 @@ vi.mock("@/lib/activity/refresh-event", () => ({ triggerActivityRefresh: () => {
 vi.mock("@/components/collections/collection-icon-lazy", () => ({ CollectionIconLazy: () => null }));
 vi.mock("@/lib/actions/collections", () => ({
   getCollectionSelection: action.select,
+  getCollectionTally: async () => null,
   createCollection: action.create,
   addToCollection: action.add,
   removeFromCollection: vi.fn(),
@@ -45,7 +46,7 @@ describe("Add to collection", () => {
     action.select.mockResolvedValue({
       editions: [{ id: edition, workId: work, title: "Against Nature", publisher: null, publicationYear: null, language: "en", isbn13: null }],
       works: [],
-      collections: [{ id: decadents, name: "Décadents", icon: null, collectionEditions: [], collectionWorks: [], media: [] }],
+      collections: [{ id: decadents, name: "Décadents", icon: null, tally: { editions: 0, byEdition: 0, books: 0, films: 0, perfumes: 0, paintings: 0 }, editionIds: [], workIds: [] }],
     });
     action.add.mockResolvedValue({ changed: 1 });
     act(() => root.render(createElement(AddToCollectionDialog, { open: true, onClose: () => {}, workIds: [work], title: "Against Nature" })));

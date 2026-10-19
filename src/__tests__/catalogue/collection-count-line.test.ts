@@ -48,7 +48,8 @@ describe("a collection's count line", () => {
     expect(source("components/collections/collections-view.tsx")).toContain('collectionCountLine(collection) ?? "Empty"');
     expect(source("components/books/add-to-collection-dialog.tsx")).toContain('collectionCountLine(c) ?? "Empty"');
     expect(source("app/(catalogue)/collections/[id]/page.tsx")).toContain("const line = collectionCountLine(collection);");
-    // the list's rows carry each whole work's kind
-    expect(source("lib/actions/collections.ts")).toContain("collectionWorks: { columns: { workId: true }, with: { work: { columns: { kind: true } } } }");
+    // the lists count in SQL, by kind, never by loading the members (SLN-1058)
+    expect(source("lib/actions/collections.ts")).toContain("extras: { tally: collectionTallySql().as(\"tally\") }");
+    expect(source("lib/actions/collections.ts")).not.toContain("memberSummary");
   });
 });
