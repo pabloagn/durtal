@@ -38,7 +38,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
 import { getLibraryStats, getWorks, getWorkCount, type WorkFilters } from "@/lib/actions/works";
 import { getReadingSummaries, getSeriesNextToRead } from "@/lib/actions/reading";
-import { getAuthorBySlug } from "@/lib/actions/authors";
+import { getPersonBookCards, getPersonBooks } from "@/lib/actions/authors";
 import { getSeriesDetail } from "@/lib/actions/series";
 import { getWorksForTimeline } from "@/lib/actions/work-timeline";
 import { parseReadingFilters, LIBRARY_SORTS } from "@/lib/reading/filter-params";
@@ -272,9 +272,10 @@ describe.skipIf(!url)("reading across the library with PostgreSQL", () => {
     // Being re-read: still read
     await read(watt, { status: "reading", percent: 20 });
     await read(molloy, { finished: ["2020-05-01", "month"], rating: 1 });
-    const author = await getAuthorBySlug("samuel-beckett");
-    const works = author!.workAuthors.map((wa) => wa.work);
-    expect(works.find((w) => w.title === "Watt")).toMatchObject({ readingState: "reading", timesRead: 1, readingPercent: 20 });
+    const works = await getPersonBooks("samuel-beckett");
+    expect(works.find((w) => w.title === "Watt")).toMatchObject({ readingState: "reading", timesRead: 1 });
+    // The card's percent comes with the page's cards (SLN-1078)
+    expect((await getPersonBookCards([watt]))[0]).toMatchObject({ readingState: "reading", readingPercent: 20 });
     const record = readingRecordOf(works);
     expect(record).toMatchObject({ total: 3, read: 2, rereads: 0, average: 3.8 });
     expect(typeof record.average).toBe("number");
