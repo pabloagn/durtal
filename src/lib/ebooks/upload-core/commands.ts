@@ -39,6 +39,7 @@ export async function commitTransportCommandOn(conn: Db, scope: CoreScope, owner
   upload: CoreOperationRow, commandRow: CoreOperationRow, command: UploadCommand): Promise<UploadOutcome> {
   const transport=readUploadTransport(upload.progress,upload.source_size_bytes!);
   let state: UploadItemView["state"]=upload.state, generation=upload.generation, status=200, message:string;
+  let progress=upload.progress;
   let extraGuard:SQL=sql`true`;
   switch(command.action) {
     case "admit":
@@ -71,6 +72,8 @@ export async function commitTransportCommandOn(conn: Db, scope: CoreScope, owner
           and c.active_part_writers=0 and o.lease_token is null and o.lease_expires_at is null
           and o.cleanup_verified_at is not null and coalesce(o.progress #> '{uploadV1,writers}','{}'::jsonb)='{}'::jsonb)`;
       generation+=1; state=transport.assembled ? "ready" : "receiving";
+      // A new check starts: the last one's failure no longer describes the file (SLN-1466)
+      progress=Object.fromEntries(Object.entries(upload.progress).filter(([key])=>key!=="jobFailureV1"));
       message="The settled upload is ready to retry using its retained bytes."; break;
     default: throw new Error("Preview and confirmation require the canonical upload writer");
   }
@@ -83,8 +86,8 @@ export async function commitTransportCommandOn(conn: Db, scope: CoreScope, owner
     d.execute(lockSql(["ebook_upload_capacity","ebook_upload_operations","ebook_ingest_runs","activity_events"])),
     d.execute(assertSql(sql`${ownerReadySql(owner)} and ${sourceSeedSql(upload,scope)}
       and ${commandSeedSql(commandRow,scope)} and ${extraGuard}`,"UPLOAD_CORE_STALE_V1")),
-    d.execute(sql`update ebook_upload_operations set state=${state},generation=${generation},revision=revision+1,
-      updated_at=statement_timestamp() where id=${upload.id}::uuid`),
+    d.execute(sql`update ebook_upload_operations set state=${state},generation=${generation},progress=${JSON.stringify(progress)}::jsonb,
+      revision=revision+1,updated_at=statement_timestamp() where id=${upload.id}::uuid`),
     d.execute(sql`update ebook_upload_operations set state='completed',receipt=${JSON.stringify(receipt)}::jsonb,
       receipt_status=${status},effect_committed_at=statement_timestamp(),revision=revision+1,updated_at=statement_timestamp()
       where id=${commandRow.id}::uuid`),
@@ -94,7 +97,7 @@ export async function commitTransportCommandOn(conn: Db, scope: CoreScope, owner
     ...(state==="canceled" ? [d.execute(settleUploadRunSql(upload.run_id!))] : []),
     d.execute(assertSql(sql`${ownerReadySql(owner)} and exists(select 1 from ebook_upload_operations o where ${accessSql(scope)}
       and o.id=${upload.id}::uuid and o.input=${JSON.stringify(upload.input)}::jsonb
-      and o.progress=${JSON.stringify(upload.progress)}::jsonb and o.state=${state} and o.generation=${generation}
+      and o.progress=${JSON.stringify(progress)}::jsonb and o.state=${state} and o.generation=${generation}
       and o.revision=${upload.revision+1} and o.reserved_bytes=${upload.reserved_bytes}
       and o.receipt is not distinct from ${upload.receipt===null ? null : JSON.stringify(upload.receipt)}::jsonb
       and o.receipt_status is not distinct from ${upload.receipt_status} and o.reservation_released_at is null)
