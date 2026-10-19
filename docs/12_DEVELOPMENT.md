@@ -292,7 +292,7 @@ Point these at a running preview.
 - `node scripts/qa/page-weight.js [baseUrl]`: each main route's HTML size and server time against its budget in `scripts/qa/page-weight.json`; exits 1 when one is over. `PAGE_WEIGHT_CONFIG=scripts/qa/page-weight-heavy.json` checks the heavy book (`--seed-heavy-book`).
 - `node scripts/qa/phone-audit.mjs [--base URL] [--strict] [route...]`: the overflow and layout audits at phone widths in headless Chrome.
 - `node scripts/qa/interaction-audit.mjs --disposable [--base URL] [route...]`: keyboard, focus, dialogs, reduced motion and touch with real key presses. It opens dialogs, so it refuses to run without `--disposable`.
-- `node scripts/qa/journeys.mjs --disposable [baseUrl] [journey ...]`: each open collection created, edited, found, exported and deleted the way a reader would.
+- `node scripts/qa/journeys.mjs --disposable [baseUrl] [journey ...]`: a reader's journeys through the app (the three open collections, `collect`, `books`, `kinds`, `reading` and the rest the file's header lists), each making what it needs and deleting its books at the end.
 
 ---
 
