@@ -94,11 +94,22 @@ describe("isolated worker allocation boundaries", () => {
       read: async (offset: number, length: number) => bytes.slice(offset, offset + length) };
     await expect(withInspectionBudget(new InspectorAttemptBudget(), async () => openZip(source))).rejects.toThrow("actual entry count exceeds");
   });
-  it("rejects oversized raster surfaces before calling the native decoder even if cover errors are caught", async () => {
+  it("leaves out an oversized raster with its reason, before calling the native decoder", async () => {
     native.mockClear();
-    await expect(withInspectionBudget(new InspectorAttemptBudget(), async () => makeCovers({ kind: "bytes", load: async () => png(16384, 16384) })))
-      .rejects.toThrow();
-    expect(native).not.toHaveBeenCalled();
+    const budget = new InspectorAttemptBudget();
+    const result = await withInspectionBudget(budget, async () => makeCovers({ kind: "bytes", load: async () => png(16384, 16384) }));
+    expect(result).toEqual({ covers: null, reason: "The cover is too large to make covers from (16384 x 16384)" });
+    expect(native).not.toHaveBeenCalled(); expect(budget.snapshot().nativeBytes).toBe(0);
+  });
+  it("reports a cover whose decoded size differs from its header as damaged, and the attempt goes on", async () => {
+    native.mockReset();
+    native.mockImplementation(() => ({ metadata: async () => ({ width: 2, height: 1 }), destroy: () => {} }));
+    Object.assign(native, { cache: () => {}, concurrency: () => {} });
+    const budget = new InspectorAttemptBudget();
+    const result = await withInspectionBudget(budget, async () => makeCovers({ kind: "bytes", load: async () => png(1, 1) }));
+    expect(result).toEqual({ covers: null, reason: "The cover image is damaged: its size differs from its header" });
+    expect(() => budget.assertHealthy()).not.toThrow();
+    native.mockReset();
   });
   it("omits unknown raster codecs without invoking native decoding", async () => {
     native.mockClear();

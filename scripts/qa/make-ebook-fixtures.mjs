@@ -11,6 +11,11 @@
  *     Japanese, MOBI, AZW3, FB2, CBZ, a text PDF, an obfuscated font, a
  *     scripted EPUB, a corrupt zip and a DRM-flagged EPUB).
  *
+ *   node scripts/qa/make-ebook-fixtures.mjs --covers
+ *     Two EPUBs with a cover the size real books carry, committed: a
+ *     1600 x 2400 JPEG cover with a PNG plate inside, and a 1600 x 2560 PNG
+ *     cover (SLN-1388). The JPEG is encoded by sharp.
+ *
  *   node scripts/qa/make-ebook-fixtures.mjs --large [DIR]
  *     The large ones, never committed, into DIR (default: a new temporary
  *     folder, printed): a 2,000-page EPUB, a 50 MB illustrated EPUB with a
@@ -1133,8 +1138,31 @@ function contentFixtures(largeDir) {
   console.log('Large search corpus in ' + largeDir);
 }
 
+/** Covers at the sizes real books carry, which a 32-bytes-a-pixel budget refused (SLN-1388) */
+async function coverFixtures() {
+  const { default: sharp } = await import("sharp");
+  const width = 1600, height = 2400;
+  const raw = Buffer.alloc(width * height * 3);
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) raw.set([60 + ((x >> 4) % 50), 50 + ((y >> 5) % 40), 70 + (((x + y) >> 6) % 30)], (y * width + x) * 3);
+  const jpeg = await sharp(raw, { raw: { width, height, channels: 3 } }).jpeg({ quality: 80 }).toBuffer();
+  const plate = png(640, 480, (x, y) => [40 + (x % 80), 50 + (y % 80), 70]);
+  const book = englishChapters(12341, 2, 12);
+  const withPlate = book.chapters.map((c, i) => i ? c : { ...c, body: `${c.body}\n<figure><img src="plate.png" alt="A generated plate" width="640" height="480"/></figure>` });
+  for (const [name, id, cover, plateFile] of [
+    ["cover-jpeg.epub", "8", { id: "cover", href: "cover.jpg", type: "image/jpeg", data: jpeg, properties: "cover-image", store: true }, true],
+    ["cover-png.epub", "9", { id: "cover", href: "cover.png", type: "image/png", data: png(1600, 2560, (x, y) => [50 + ((x >> 5) % 40), 60, 70 + ((y >> 5) % 50)]), properties: "cover-image", store: true }, false],
+  ]) {
+    const bytes = epub({ id: `urn:uuid:7d1b0c52-2f0b-4a35-9c1e-00000000000${id}`, title: "The Covered Book", author: "Durtal Fixtures",
+      chapters: plateFile ? withPlate : book.chapters,
+      files: [cover, ...(plateFile ? [{ id: "plate", href: "plate.png", type: "image/png", data: plate, store: true }] : [])] });
+    writeFileSync(path.join(SMALL_DIR, name), bytes); console.log(`${name}: ${bytes.length} bytes`);
+  }
+}
+
 const args = process.argv.slice(2);
-if (args[0] === "--content") contentFixtures(args[1] ? path.resolve(args[1]) : null);
+if (args[0] === "--covers") await coverFixtures();
+else if (args[0] === "--content") contentFixtures(args[1] ? path.resolve(args[1]) : null);
 else if (args[0] === "--navigation") navigationFixtures();
 else if (args[0] === "--large") {
   const dir = args[1] ? path.resolve(args[1]) : mkdtempSync(path.join(tmpdir(), "durtal-ebook-fixtures-"));
