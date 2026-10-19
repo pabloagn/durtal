@@ -16,6 +16,8 @@ function leaf(overrides: Partial<MapAuthorLeaf>): MapAuthorLeaf {
     slug: "someone",
     birthYear: null,
     deathYear: null,
+    birthYearIsApproximate: false,
+    deathYearIsApproximate: false,
     nationalityCode: "HU",
     nationalityName: "Hungary, Republic of",
     locationName: "Hungary, Republic of",
@@ -80,6 +82,8 @@ describe("leafFromFeature", () => {
       slug: "peter-nadas",
       birthYear: 1942,
       deathYear: null,
+      birthYearIsApproximate: false,
+      deathYearIsApproximate: false,
       nationalityCode: "HU",
       nationalityName: "Hungary, Republic of",
       locationName: "Hungary, Republic of",
@@ -106,6 +110,15 @@ describe("leafFromFeature", () => {
     });
     expect(result?.birthYear).toBe(1899);
     expect(result?.deathYear).toBe(1986);
+  });
+
+  it("reads approximate years, stored as booleans or strings (SLN-1006)", () => {
+    const result = leafFromFeature({
+      geometry: { type: "Point", coordinates: [0, 0] },
+      properties: { id: "a4", birthYear: 1450, birthYearIsApproximate: true, deathYear: 1500, deathYearIsApproximate: "true" },
+    });
+    expect(result?.birthYearIsApproximate).toBe(true);
+    expect(result?.deathYearIsApproximate).toBe(true);
   });
 
   it("returns null for a cluster feature (no author id)", () => {

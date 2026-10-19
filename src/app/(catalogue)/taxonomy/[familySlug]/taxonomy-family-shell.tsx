@@ -15,6 +15,7 @@ import {
   getTaxonomyBrowsePage,
   getTaxonomyEditorChoices,
 } from "@/lib/actions/taxonomy-browse";
+import { findTaxonomyNameTwin } from "@/lib/actions/taxonomy-families";
 import { firstPageHref } from "@/lib/utils/list-params";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Pencil, Plus, Search, Tags, Trash2 } from "lucide-react";
@@ -29,6 +30,7 @@ import type { TaxonomyItemData } from "@/components/taxonomy/taxonomy-item-row";
 import { CreateItemDialog } from "@/components/taxonomy/create-item-dialog";
 import { MergeDialog } from "@/components/taxonomy/merge-dialog";
 import { DeleteItemDialog } from "@/components/taxonomy/delete-item-dialog";
+import { EditItemDialog } from "@/components/taxonomy/edit-item-dialog";
 import { EditFamilyDialog } from "@/components/taxonomy/edit-family-dialog";
 import { DeleteFamilyDialog } from "@/components/taxonomy/delete-family-dialog";
 import { getEnabledWorkKinds } from "@/lib/catalogue/domains";
@@ -52,6 +54,8 @@ interface Family {
   entityLevel: string;
   hierarchical: boolean;
   manualOrdering?: boolean;
+  /** Whether its items keep a description (SLN-1158) */
+  describable?: boolean;
   sortOrder: number;
   applicability: { kind: WorkKind; level: TaxonomyLevel }[];
 }
@@ -167,6 +171,12 @@ export function TaxonomyFamilyShell({
   const [actionItem, setActionItem] = useState<TaxonomyItemData | null>(null);
   const [mergeItemId, setMergeItemId] = useState<string | null>(null);
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{
+    mode: "edit" | "move";
+    item: TaxonomyItemData;
+    /** A rename that repeats a sibling's name, to confirm (SLN-1159) */
+    name?: string;
+  } | null>(null);
   const [familyDialog, setFamilyDialog] = useState<"edit" | "delete" | null>(
     null,
   );
@@ -266,22 +276,6 @@ export function TaxonomyFamilyShell({
     [family.slug, refresh],
   );
 
-  const handleMove = useCallback(
-    async (itemId: string, newParentId: string | null) => {
-      try {
-        const { moveTaxonomyItem } =
-          await import("@/lib/actions/taxonomy-client");
-        await moveTaxonomyItem(family.slug, itemId, newParentId);
-        refresh();
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to move item";
-        toast.error(message);
-      }
-    },
-    [family.slug, refresh],
-  );
-
   const handleColorChange = useCallback(
     async (id: string, color: string | null) => {
       try {
@@ -298,22 +292,32 @@ export function TaxonomyFamilyShell({
     [family.slug, refresh],
   );
 
-  const handleRename = useCallback(
-    async (id: string, name: string) => {
-      try {
-        const { updateTaxonomyItem } =
-          await import("@/lib/actions/taxonomy-client");
-        await updateTaxonomyItem(family.slug, id, { name });
-        toast.success(`Renamed to "${name}"`);
-        refresh();
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to rename item";
-        toast.error(message);
+  async function handleRename(id: string, name: string, item?: TaxonomyItemData) {
+    try {
+      // A name a sibling has opens Edit item, which names the sibling and
+      // offers Open or Save anyway (SLN-1159)
+      const found = item ?? items.find((i) => i.id === id);
+      const twin =
+        found &&
+        (await findTaxonomyNameTwin(family.slug, name, {
+          parentId: found.parentId ?? null,
+          exceptId: id,
+        }).catch(() => null));
+      if (found && twin) {
+        void openEditor(() => setEditing({ mode: "edit", item: found, name }));
+        return;
       }
-    },
-    [family.slug, refresh],
-  );
+      const { updateTaxonomyItem } =
+        await import("@/lib/actions/taxonomy-client");
+      await updateTaxonomyItem(family.slug, id, { name });
+      toast.success(`Renamed to "${name}"`);
+      refresh();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to rename item";
+      toast.error(message);
+    }
+  }
 
   async function openEditor(action: () => void) {
     if (!serverPaged) {
@@ -332,6 +336,11 @@ export function TaxonomyFamilyShell({
     setActionItem(item ?? null);
     void openEditor(() => setDeleteItemId(id));
   };
+  const handleEdit =
+    (mode: "edit" | "move") => (id: string, item?: TaxonomyItemData) => {
+      const found = item ?? items.find((i) => i.id === id);
+      if (found) void openEditor(() => setEditing({ mode, item: found }));
+    };
   const handleMerge = (id: string, item?: TaxonomyItemData) => {
     setActionItem(item ?? null);
     void openEditor(() => setMergeItemId(id));
@@ -560,7 +569,8 @@ export function TaxonomyFamilyShell({
             selectedIds={selectedIds}
             onSelectionChange={setSelectedIds}
             onReorder={handleReorder}
-            onMove={handleMove}
+            onEdit={handleEdit("edit")}
+            onMoveTo={handleEdit("move")}
             onColorChange={handleColorChange}
             onRename={handleRename}
             onDelete={handleDelete}
@@ -576,12 +586,32 @@ export function TaxonomyFamilyShell({
         familySlug={family.slug}
         familyName={family.name}
         hierarchical={family.hierarchical}
-        existingItems={choices.map((i) => ({ id: i.id, name: i.name }))}
+        describable={family.describable ?? true}
+        existingItems={choices}
         onCreated={(id) => {
           if (items.length === 0) firstItem.current = id;
           refresh();
         }}
       />
+
+      {/* Edit item and Move to… (SLN-1158) */}
+      {editing && (
+        <EditItemDialog
+          mode={editing.mode}
+          item={editing.item}
+          familySlug={family.slug}
+          familyName={family.name}
+          hierarchical={family.hierarchical}
+          describable={family.describable ?? true}
+          choices={choices}
+          initialName={editing.name}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            refresh();
+          }}
+        />
+      )}
 
       {/* Merge dialog */}
       {mergeItem && (

@@ -5,7 +5,7 @@ import { ExpectedActionError } from "./expected-error";
 import { recordWorkChanges, workSnapshot } from "@/lib/activity/work-changes";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { atomic } from "@/lib/db/atomic";
 import { governedEditQueries, readTaxonomyGovernance } from "@/lib/enrichment/governance";
@@ -24,10 +24,13 @@ import {
 } from "@/lib/catalogue/taxonomies";
 import {
   taxonomyStorage,
+  type TaxonomyStorage,
   familyItemCondition,
   itemProjection,
   linkedEntities,
   linkRows,
+  storesDescription,
+  uniqueNames,
   type TaxonomyItem,
 } from "@/lib/catalogue/taxonomy-storage";
 import {
@@ -454,6 +457,68 @@ export async function getTaxonomyItem(familySlug: string, itemSlug: string) {
   };
 }
 
+/** A description typed for a family that keeps none is refused, never dropped (SLN-1158) */
+const noDescription = (family: string) => `${family} keep no description`;
+
+type TwinPlace = { parentId?: string | null; exceptId?: string };
+/**
+ * A sibling whose name is `name` apart from accents, case or punctuation
+ * ("Décadentisme" for "Decadentisme"; SLN-1016): same family and same
+ * parent, so "Romanticism" may sit under two different items (SLN-1159). A
+ * name of only symbols normalizes to nothing and matches nothing.
+ */
+function twinCondition(storage: TaxonomyStorage, familyId: string, name: string, { parentId, exceptId }: TwinPlace) {
+  return sql`${familyItemCondition(storage, familyId)} and search_normalize(${name})<>'' and search_normalize(i.name)=search_normalize(${name})${
+    storage.columns.has("parent_id") ? sql` and i.parent_id is not distinct from ${parentId ?? null}::uuid` : sql``
+  }${exceptId ? sql` and i.id<>${exceptId}::uuid` : sql``}`;
+}
+export interface TaxonomyNameTwin {
+  id: string;
+  name: string;
+  slug: string;
+  /** The parent both share; null at the top level or in a flat family */
+  parentName: string | null;
+  /**
+   * Whether the name can be saved beside it. Subjects, Genres, Tags,
+   * Keywords, Art types, Art movements and Attributes keep each exact name
+   * once, so only an accented or cased variant can be saved there.
+   */
+  saveAnyway: boolean;
+}
+async function nameTwin(storage: TaxonomyStorage, familyId: string, name: string, place: TwinPlace = {}) {
+  const table = sql.identifier(storage.table);
+  const nested = storage.columns.has("parent_id");
+  // The exact name first, when several siblings share it
+  const select = (where: SQL) =>
+    sql`select i.id,i.name,coalesce(i.slug,i.id::text) as slug,${nested ? sql`(select p.name from ${table} p where p.id=i.parent_id)` : sql`null::text`} as "parentName" from ${table} i where ${where} order by i.name=${name} desc,i.name limit 1`;
+  if (uniqueNames(storage)) {
+    const [taken] = resultRows<Omit<TaxonomyNameTwin, "saveAnyway">>(
+      await db.execute(select(sql`i.name=${name}${place.exceptId ? sql` and i.id<>${place.exceptId}::uuid` : sql``}`)),
+    );
+    if (taken) return { ...taken, saveAnyway: false };
+  }
+  const [twin] = resultRows<Omit<TaxonomyNameTwin, "saveAnyway">>(
+    await db.execute(select(twinCondition(storage, familyId, name, place))),
+  );
+  return twin ? { ...twin, saveAnyway: true } : null;
+}
+function twinMessage(twin: TaxonomyNameTwin, hierarchical: boolean) {
+  const where = twin.parentName ? ` under ${twin.parentName}` : hierarchical ? " at the top level" : "";
+  return `This family already has "${twin.name}"${where}`;
+}
+const twinPlaceSchema = z.strictObject({ parentId: z.uuid().nullable().optional(), exceptId: z.uuid().optional() });
+/** For the create, rename, edit and move fields: the sibling a name would repeat */
+export async function findTaxonomyNameTwin(
+  familySlug: string,
+  name: string,
+  place: z.input<typeof twinPlaceSchema> = {},
+): Promise<TaxonomyNameTwin | null> {
+  z.string().trim().min(1).max(500).parse(name);
+  const parsedPlace = twinPlaceSchema.parse(place);
+  const family = await getTaxonomyFamily(familySlug);
+  if (!family) return null;
+  return nameTwin(taxonomyStorage(family), family.id, name.trim(), parsedPlace);
+}
 export async function createTaxonomyItem(familySlug: string, input: unknown) {
   const parsed = createTaxonomyItemSchema.parse(input);
   const family = await requiredFamily(familySlug),
@@ -463,6 +528,12 @@ export async function createTaxonomyItem(familySlug: string, input: unknown) {
     (!family.hierarchical || !storage.columns.has("parent_id"))
   )
     throw new ExpectedActionError("This family has no hierarchy");
+  if (parsed.description?.trim() && !storesDescription(storage))
+    throw new ExpectedActionError(noDescription(family.name));
+  // A repeated sibling name is saved only when asked (SLN-1159)
+  const twin = await nameTwin(storage, family.id, parsed.name, { parentId: parsed.parentId });
+  if (twin && (!twin.saveAnyway || !parsed.allowDuplicateName))
+    throw new ExpectedActionError(twinMessage(twin, family.hierarchical));
   const id = randomUUID();
   const values: Record<string, unknown> = {
     id,
@@ -483,6 +554,17 @@ export async function createTaxonomyItem(familySlug: string, input: unknown) {
   await withReadableErrors(
     () => atomic(d => [
       d.execute(lockSql([storage.table])),
+      // A twin saved since the check above, under the same lock
+      ...(parsed.allowDuplicateName
+        ? []
+        : [
+            d.execute(
+              assertSql(
+                sql`not exists(select 1 from ${sql.identifier(storage.table)} i where ${twinCondition(storage, family.id, parsed.name, { parentId: parsed.parentId })})`,
+                "This family already has an item with this name, apart from accents or case",
+              ),
+            ),
+          ]),
       d.execute(
         sql`insert into ${sql.identifier(storage.table)} (${sql.join(
           fields.map(([key]) => sql.identifier(key)),
@@ -512,11 +594,18 @@ export async function updateTaxonomyItem(
     (!family.hierarchical || !storage.columns.has("parent_id"))
   )
     throw new ExpectedActionError("This family has no hierarchy");
+  if (parsed.description?.trim() && !storesDescription(storage))
+    throw new ExpectedActionError(noDescription(family.name));
   const values: Record<string, unknown> = {};
   if (parsed.name !== undefined) values.name = parsed.name;
   if (parsed.color !== undefined) values.color = parsed.color;
   if (parsed.parentId !== undefined && storage.columns.has("parent_id"))
     values.parent_id = parsed.parentId;
+  // A moved item goes last among its new siblings, as a new one does
+  if (parsed.parentId !== undefined && storage.columns.has("sort_order"))
+    values.sort_order = sql`case when i.parent_id is distinct from ${parsed.parentId}::uuid
+    then (select coalesce(max(o.sort_order),-1)+1 from ${sql.identifier(storage.table)} o where ${familyItemCondition(storage, family.id, "o")})
+    else i.sort_order end`;
   if (parsed.description !== undefined) {
     if (storage.columns.has("description"))
       values.description = parsed.description;
@@ -525,6 +614,21 @@ export async function updateTaxonomyItem(
   }
   const fields = Object.entries(values);
   if (!fields.length) throw new ExpectedActionError("No editable fields supplied");
+  // A rename or a move that repeats a sibling's name is saved only when asked (SLN-1159)
+  if (parsed.name !== undefined || values.parent_id !== undefined) {
+    const [current] = resultRows<{ name: string; parentId: string | null }>(
+      await db.execute(
+        sql`select i.name,${storage.columns.has("parent_id") ? sql`i.parent_id` : sql`null::uuid`} as "parentId" from ${sql.identifier(storage.table)} i where i.id=${itemId}::uuid and ${familyItemCondition(storage, family.id)}`,
+      ),
+    );
+    if (!current) throw new ExpectedActionError("Item does not belong to this taxonomy family");
+    const twin = await nameTwin(storage, family.id, parsed.name ?? current.name, {
+      parentId: values.parent_id !== undefined ? parsed.parentId : current.parentId,
+      exceptId: itemId,
+    });
+    if (twin && (!twin.saveAnyway || !parsed.allowDuplicateName))
+      throw new ExpectedActionError(twinMessage(twin, family.hierarchical));
+  }
   // A rename to a name another item has is refused with the create's message
   const rows = resultRows<{ id: string }>(
     await withReadableErrors(
@@ -613,6 +717,8 @@ export async function deleteTaxonomyItem(
   changed();
   return { id: itemId };
 }
+const SIBLINGS_ONLY =
+  "Items are reordered among their siblings. Use Move to… to put one under another item.";
 export async function reorderTaxonomyItems(familySlug: string, ids: string[]) {
   z.array(z.uuid()).max(2000).parse(ids);
   if (new Set(ids).size !== ids.length)
@@ -621,8 +727,9 @@ export async function reorderTaxonomyItems(familySlug: string, ids: string[]) {
     storage = taxonomyStorage(family);
   if (!storage.columns.has("sort_order"))
     throw new ExpectedActionError("This family uses alphabetical ordering");
+  // A refused order reaches the caller as its rule's message, never as SQL
   if (ids.length)
-    await atomic((d) => [
+    await withReadableErrors(() => atomic((d) => [
       d.execute(lockSql([storage.table])),
       d.execute(
         assertSql(
@@ -633,6 +740,20 @@ export async function reorderTaxonomyItems(familySlug: string, ids: string[]) {
           "Item does not belong to this taxonomy family",
         ),
       ),
+      // A drag reorders siblings; a new parent is a move (SLN-1158)
+      ...(storage.columns.has("parent_id")
+        ? [
+            d.execute(
+              assertSql(
+                sql`(select count(distinct coalesce(i.parent_id::text,'')) from ${sql.identifier(storage.table)} i where i.id in (${sql.join(
+                  ids.map((id) => sql`${id}::uuid`),
+                  sql`,`,
+                )}))<=1`,
+                SIBLINGS_ONLY,
+              ),
+            ),
+          ]
+        : []),
       // Replace only the selected slots, then number the whole family. A
       // partial order preserves unlisted rows and never creates tied ranks.
       d.execute(sql`with wanted as (
@@ -646,7 +767,7 @@ export async function reorderTaxonomyItems(familySlug: string, ids: string[]) {
         select w.id,s.position from wanted w join slots s using(ordinal)
       ) update ${sql.identifier(storage.table)} target set sort_order=coalesce(p.position,r.position)
         from ranked r left join replacements p on p.id=r.id where target.id=r.id`),
-    ]);
+    ]));
   changed();
   return { success: true };
 }

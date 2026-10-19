@@ -19,6 +19,7 @@ import { isPlaceholderEdition } from "@/lib/match/identify";
 import { EditionCover } from "@/components/books/edition-cover";
 import type { PosterImage } from "@/lib/utils/edition-image";
 import { sanitizeDescriptionHtml } from "@/lib/utils/sanitize";
+import type { StatusChange } from "@/lib/catalogue/loans";
 import type {
   Edition,
   Instance,
@@ -39,6 +40,7 @@ type Contributor = InferSelectModel<typeof editionContributors> & {
 type InstanceWithLocation = Instance & {
   location: Location;
   subLocation: SubLocation | null;
+  statusHistory?: StatusChange[];
 };
 
 type EditionFull = Edition & {

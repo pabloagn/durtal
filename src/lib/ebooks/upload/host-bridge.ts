@@ -12,6 +12,7 @@ import { admissionRefusalSchema, UploadAdmissionRefusal } from "./admission-refu
 import type { SupervisorHostLock } from "./host-lock";
 import type { UploadCoreContext } from "./core-contract";
 import type { UploadGateway } from "./broker";
+import { readUploadServiceStatus, UPLOAD_SIGN_IN_MESSAGE } from "./service-status";
 
 const JSON_BYTES = 64 * 1024;
 const REPLY_BYTES = 256 * 1024;
@@ -186,6 +187,11 @@ export class UploadHostBridge {
 }
 
 const notRunning = () => new UploadError(503, "upload_unavailable", "The upload service is not running. Start it, then try again.");
+/** Down because its AWS sign-in expired, when it left that note; otherwise not running (SLN-1326) */
+async function serviceDown(socketPath: string): Promise<UploadError> {
+  return await readUploadServiceStatus(socketPath) === "aws_sign_in"
+    ? new UploadError(503, "upload_sign_in_needed", UPLOAD_SIGN_IN_MESSAGE) : notRunning();
+}
 
 /** Install explicitly in the app process using installUploadBroker(client).
  * This client opens no listener and has no inspector/spool/core write access.
@@ -193,9 +199,10 @@ const notRunning = () => new UploadError(503, "upload_unavailable", "The upload 
 export class UploadHostClient implements UploadGateway {
   constructor(private readonly config: UploadBridgeConfig) { validateConfig(config); }
   private async call(method: string, url: string, channel: UploadCoreContext['channel'], body?: unknown | ReadableStream<Uint8Array>, extra: Record<string, string> = {}, allowReceipt = false): Promise<unknown> {
-    await privateSocket(this.config.socketPath).catch((error: NodeJS.ErrnoException) => {
-      if (error.code === 'ENOENT') throw notRunning(); throw error;
+    const missing = await privateSocket(this.config.socketPath).then(() => false, (error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') return true; throw error;
     });
+    if (missing) throw await serviceDown(this.config.socketPath);
     const stream = body instanceof ReadableStream ? Readable.fromWeb(body as Parameters<typeof Readable.fromWeb>[0]) : null;
     let bytes: Buffer | undefined;
     if (body !== undefined && !stream) { boundedJsonBytes(body, JSON_BYTES); bytes = Buffer.from(JSON.stringify(body)); }
@@ -228,11 +235,19 @@ export class UploadHostClient implements UploadGateway {
       const deadline = setTimeout(() => req.destroy(new Error('Upload bridge wall deadline expired')), UPLOAD_LIMITS.inspectionMs);
       req.setTimeout(UPLOAD_LIMITS.inspectionMs, () => req.destroy(new Error('Upload bridge response deadline expired')));
       // Refused before any byte was sent: the service is down, nothing happened.
-      req.once('error', (error: NodeJS.ErrnoException) => { stream?.destroy(); finish(error.code === 'ECONNREFUSED' ? notRunning() : error); });
+      req.once('error', (error: NodeJS.ErrnoException) => {
+        stream?.destroy();
+        if (error.code === 'ECONNREFUSED') void serviceDown(this.config.socketPath).then((down) => finish(down)); else finish(error);
+      });
       req.once('close', () => stream?.destroy());
       if (stream) { stream.once('error', (error) => req.destroy(error)); stream.pipe(req); }
       else req.end(bytes);
     });
+  }
+  /** What the upload page says up front while the service is down: null while its socket is there */
+  async notice(): Promise<string | null> {
+    const present = await privateSocket(this.config.socketPath).then(() => true, () => false);
+    return present ? null : (await serviceDown(this.config.socketPath)).message;
   }
   async ready(): Promise<boolean> { const reply = z.object({ ready: z.boolean() }).strict().parse(await this.call('GET', '/v1/ready', 'ui')); return reply.ready; }
   async create(input: unknown, channel: UploadCoreContext['channel']) { return uploadBatchViewSchema.parse(await this.call('POST', '/v1/batches', channel, input)); }

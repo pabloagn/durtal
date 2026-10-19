@@ -13,6 +13,8 @@ export interface MapAuthorLeaf {
   slug: string;
   birthYear: number | null;
   deathYear: number | null;
+  birthYearIsApproximate: boolean;
+  deathYearIsApproximate: boolean;
   nationalityCode: string | null;
   nationalityName: string | null;
   locationName: string;
@@ -81,6 +83,9 @@ export function leafFromFeature(feature: {
     slug: readString(props.slug) ?? "",
     birthYear: readNumber(props.birthYear),
     deathYear: readNumber(props.deathYear),
+    // GeoJSON properties may come back as strings
+    birthYearIsApproximate: String(props.birthYearIsApproximate) === "true",
+    deathYearIsApproximate: String(props.deathYearIsApproximate) === "true",
     nationalityCode: readString(props.nationalityCode),
     nationalityName: readString(props.nationalityName),
     locationName: readString(props.locationName) ?? "",

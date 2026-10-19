@@ -89,6 +89,8 @@ export async function getPeople(input: z.input<typeof searchSchema> = {}) {
         name: true,
         birthYear: true,
         deathYear: true,
+        birthYearIsApproximate: true,
+        deathYearIsApproximate: true,
         photoS3Key: true,
       },
       with: {

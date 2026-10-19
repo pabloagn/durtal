@@ -23,6 +23,9 @@ export function readingFilterConditions(workId: SQL | unknown, filters: ReadingF
   }
   if (filters.holding === "owned") out.push(ownedWorkCondition(workId));
   if (filters.holding === "not_owned") out.push(sql`not ${ownedWorkCondition(workId)}`);
+  // A copy out on loan (SLN-1125)
+  if (filters.holding === "lent_out")
+    out.push(sql`exists (select 1 from editions e join instances i on i.edition_id = e.id where e.work_id = ${workId} and i.status = 'lent_out')`);
   if (filters.readFrom !== undefined || filters.readTo !== undefined) out.push(readInCondition(workId, filters.readFrom, filters.readTo));
   if (filters.reread) out.push(sql`${readCountSql(workId)} >= 2`);
   return out;

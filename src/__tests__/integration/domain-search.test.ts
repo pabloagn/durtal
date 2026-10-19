@@ -42,6 +42,7 @@ import { createPerson } from "@/lib/actions/people";
 import { saveOrganization } from "@/lib/actions/organizations";
 import { createVenue, archiveVenue } from "@/lib/actions/venues";
 import { getOrCreatePlaceChain, searchPlaces } from "@/lib/actions/places";
+import { workSearchCondition } from "@/lib/library/search-condition";
 
 describe.skipIf(!url)("search and lists across the collections", () => {
   const c = client!;
@@ -211,6 +212,30 @@ describe.skipIf(!url)("search and lists across the collections", () => {
     expect((await quickSearch("umberto eco")).people).toEqual([
       expect.objectContaining({ name: "Umberto Eco", roles: "Writer" }),
     ]);
+  });
+
+  it("finds a book by its original title and by its editions' titles, in the library and the palette (SLN-1363)", async () => {
+    const swann = await book("Du côté de chez Swann", "Marcel Proust");
+    const rose = await book("Il nome della rosa", "Umberto Eco");
+    const against = await book("Against Nature", "Joris-Karl Huysmans");
+    await c`update works set original_title = 'À rebours' where id = ${against.id}`;
+    await c`insert into editions(work_id, title, subtitle) values (${swann.id}, 'Swann''s Way', null),
+      (${rose.id}, 'The Name of the Rose', null), (${against.id}, 'Against Nature', 'A New Translation')`;
+    const library = async (q: string) => (await testDb!.select({ title: schema.works.title }).from(schema.works)
+      .where(workSearchCondition(q)).orderBy(schema.works.title)).map((w) => w.title);
+    const palette = async (q: string) => (await quickSearch(q)).works.map((w) => w.title);
+
+    for (const [q, title] of [["Swann's Way", "Du côté de chez Swann"], ["swann’s way", "Du côté de chez Swann"],
+      ["Name of the Rose", "Il nome della rosa"], ["rebours", "Against Nature"], ["a rebours", "Against Nature"]]) {
+      expect(await library(q), q).toEqual([title]);
+      expect(await palette(q), q).toEqual([title]);
+    }
+    // The library reads subtitles too; the palette leaves them out
+    expect(await library("A New Translation")).toEqual(["Against Nature"]);
+    expect(await palette("A New Translation")).toEqual([]);
+    // Titles still find their own book, and only it
+    expect(await library("Against Nature")).toEqual(["Against Nature"]);
+    expect(await palette("nome della")).toEqual(["Il nome della rosa"]);
   });
 
   it("finds a book by the title of its series, and a perfume by a perfumer of one formulation", async () => {

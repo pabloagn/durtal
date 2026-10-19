@@ -949,6 +949,12 @@ Audit trail for instance-level status changes.
 | `changed_at` | TIMESTAMPTZ | NOT NULL, default `NOW()` | When the change occurred |
 | `notes` | TEXT | nullable | Reason or context for the change |
 
+`updateInstance` writes a row whenever an edit changes a copy's status, in the
+same transaction as the edit (SLN-1125). A lend, and the change that ends a
+loan, note the borrower and lending date: "Lent to Léon from 2026-10-18"
+(either part may be absent; `src/lib/catalogue/loans.ts` reads it back). Ending
+a loan clears the copy's `lent_to` and `lent_date`, so the history keeps them.
+
 **Relations**: `instance` (N:1)
 
 ---
@@ -2418,7 +2424,7 @@ FROM instances i
 JOIN editions e ON e.id = i.edition_id
 JOIN works w ON w.id = e.work_id
 JOIN locations l ON l.id = i.location_id
-WHERE i.is_lent_out = true;
+WHERE i.status = 'lent_out';
 ```
 
 ---
@@ -2945,7 +2951,7 @@ One apply of the ingestion, one browser upload batch or one verification
 |---|---|---|---|
 | `id` | UUID | PK, auto | |
 | `kind` | TEXT | NOT NULL, CHECK in (`apply`, `upload`, `verify`) (`ebook_ingest_runs_kind_check`) | |
-| `state` | TEXT | NOT NULL, default `'running'`, CHECK in (`running`, `finished`, `interrupted`, `failed`) (`ebook_ingest_runs_state_check`) | `finished` when its reconciliation is exact, `failed` when it is not; `interrupted` until a resume |
+| `state` | TEXT | NOT NULL, default `'running'`, CHECK in (`running`, `finished`, `interrupted`, `failed`) (`ebook_ingest_runs_state_check`) | `finished` when its reconciliation is exact, `failed` when it is not; `interrupted` until a resume. An upload's run settles in the write that settles its last file (added, canceled or expired): `failed` when a file was canceled after its check failed, else `finished` |
 | `host` | TEXT | nullable | The machine's name; null for uploads |
 | `roots` | TEXT[] | NOT NULL, default `{}` | The folders given |
 | `plan_sha256` | TEXT | nullable | The SHA-256 of the plan file an apply executed |

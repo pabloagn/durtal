@@ -15,9 +15,11 @@ export function taxonomyStorage(family: Family) {
   );
   if (family.isSystem && key) {
     const reg = getSystemRegistry(key);
+    const columns = getTableConfig(reg.table).columns;
     return {
       table: getTableName(reg.table),
-      columns: new Set(getTableConfig(reg.table).columns.map((c) => c.name)),
+      columns: new Set(columns.map((c) => c.name)),
+      uniqueNames: columns.some((c) => c.name === "name" && c.isUnique),
       entity: key,
       custom: false,
       links: [
@@ -37,6 +39,7 @@ export function taxonomyStorage(family: Family) {
     columns: new Set(
       getTableConfig(customTaxonomyItems).columns.map((c) => c.name),
     ),
+    uniqueNames: false,
     entity: "custom-taxonomy",
     custom: true,
     links: [
@@ -56,6 +59,14 @@ export function taxonomyStorage(family: Family) {
   };
 }
 export type TaxonomyStorage = ReturnType<typeof taxonomyStorage>;
+/** Whether the family's table keeps each exact name once (Subjects, Genres, Tags, Keywords…) */
+export function uniqueNames(storage: TaxonomyStorage) {
+  return storage.uniqueNames;
+}
+/** Whether the family's items keep a description (Themes, Genres, Tags, Keywords and Art movements don't) */
+export function storesDescription(storage: TaxonomyStorage) {
+  return storage.columns.has("description") || storage.columns.has("scope_notes");
+}
 export function familyItemCondition(
   storage: TaxonomyStorage,
   familyId: string,
