@@ -34,7 +34,8 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }
 vi.mock("@/lib/activity/record", () => ({ recordActivity: vi.fn() }));
 import { getJournalFacets, getRecentlyFinished, journalReadingIds, queryJournal } from "@/lib/reading/journal";
 import { parseJournalQuery } from "@/lib/reading/journal-params";
-import { getReadingHubOpen, getOpenReadings, searchBooksToRead } from "@/lib/actions/reading";
+import { getReadingHubOpen, getOpenReadings, pauseReading, resumeReading, searchBooksToRead } from "@/lib/actions/reading";
+import { STALE_READING } from "@/lib/reading/service";
 
 // The reading hub's queries (SLN-448): the journal, the read's rating, re-reads and the book picker.
 
@@ -197,6 +198,12 @@ describe.skipIf(!url)("the reading hub with PostgreSQL", () => {
     const open = await getOpenReadings();
     const fp = new Map(rows.map((r) => [r.id, r.fingerprint]));
     expect(open.map((o) => o.fingerprint)).toEqual([fp.get(reading), fp.get(paused)]);
+    // Hashed for the page's rows only, the same md5 of the whole row (SLN-1311)
+    const direct = await q(`select id::text as id, md5(to_jsonb(r)::text) as fingerprint from readings r`);
+    expect(rows.map((r) => r.fingerprint)).toEqual(rows.map((r) => direct.find((d) => d.id === r.id)!.fingerprint));
+    // A journal row's fingerprint saves; once the reading changed, the same one is refused
+    await pauseReading({ readingId: reading, fingerprint: fp.get(reading)! });
+    await expect(resumeReading({ readingId: reading, fingerprint: fp.get(reading)! })).rejects.toThrow(STALE_READING);
   });
 
   it.each(["tracked", "wanted", "on_order"])("does not call a %s book owned just because it has an active copy", async (status) => {

@@ -12,6 +12,7 @@ import type { ReadingDatePrecision, ReadingFormat, ReadingStatus } from "./const
 import { readingOrdinalSql, readingRatingOverAllSql, readingRatingSql, rereadSql } from "./summary";
 import type { JournalQuery } from "./journal-params";
 import { workCoverSql } from "@/lib/library/filter-conditions";
+import { readingFingerprintSql } from "./service";
 
 export interface JournalRow {
   id: string;
@@ -46,12 +47,12 @@ export interface JournalSummary {
 /**
  * Every reading with its read's rating, whether it is a re-read and its
  * year of finish (the stop date for an abandoned one). The windows run over
- * all readings, before any filter.
+ * all readings, before any filter. The fingerprint is not here: only the
+ * page's rows need it (SLN-1311).
  */
 const base = sql`(
   select r.id, r.work_id, r.status, r.started_on, r.started_precision, r.finished_on, r.finished_precision,
     r.format, r.edition_id, r.last_read_at, r.created_at,
-    md5(to_jsonb(r)::text) as fingerprint,
     ${readingRatingOverAllSql("r")} as read_rating,
     ${rereadSql("r")} as reread,
     ${readingOrdinalSql("r")} as ordinal,
@@ -105,7 +106,7 @@ export async function queryJournal(q: JournalQuery) {
         b.finished_on::text as "finishedOn", b.finished_precision as "finishedPrecision", b.format,
         b.read_rating as rating, b.reread,
         (select e.language from editions e where e.id = b.edition_id) as "editionLanguage", w.original_language as "originalLanguage",
-        b.fingerprint
+        ${readingFingerprintSql(sql`b.id`)} as fingerprint
       from ${base} b join works w on w.id = b.work_id
         left join lateral (select a.name, a.slug from work_authors wa join authors a on a.id = wa.author_id
           where wa.work_id = w.id order by wa.sort_order limit 1) fa on true
