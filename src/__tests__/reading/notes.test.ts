@@ -60,6 +60,9 @@ describe("the note's words", () => {
     expect(notesCountText(1, 0)).toBe("1 quote");
     expect(notesCountText(0, 1)).toBe("1 note");
     expect(notesCountText(0, 0)).toBe("");
+    // The commonplace book's count says what is there, grouped (SLN-1096)
+    expect(notesCountText(0, 14)).toBe("14 notes");
+    expect(notesCountText(1203, 0)).toBe("1,203 quotes");
   });
   it("shows the first three lines, at most 300 characters", () => {
     expect(firstLines("a\nb\nc\nd")).toBe("a\nb\nc…");
@@ -269,6 +272,18 @@ describe("the note's place, edition and citation", () => {
     expect(noteWhereText({ page: null, endPage: null, pageRoman: false, chapter: null, percent: 44 }, null)).toBe("44%");
     // On the book page the group names the edition: none is passed
     expect(noteWhereText({ page: 212, endPage: null, pageRoman: false, chapter: null, percent: 40 })).toBe("p. 212");
+  });
+  it("marks a book's only edition, which its notes need not name (SLN-1096)", () => {
+    expect(penguin.only).toBe(true);
+    const two = noteEditionsOf(
+      [
+        { id: "e1", title: "Don Quixote", language: "en", publisher: "Ecco", year: 2003, translators: [] },
+        { id: "e2", title: "Don Quixote", language: "en", publisher: "Penguin", year: 1950, translators: [] },
+      ],
+      "Don Quixote",
+    );
+    expect(two.e1.only).toBeUndefined();
+    expect(two.e2.only).toBeUndefined();
   });
   it("cites the translator, publisher and year, a range and a roman page", () => {
     const book = { title: "Don Quixote", author: "Miguel de Cervantes" };

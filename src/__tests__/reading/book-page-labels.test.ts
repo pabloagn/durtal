@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bookReadingState, ordinalRead, readingControlLabel, readingMenu, readingRecord, type ReadingSummary } from "@/lib/reading/labels";
-import { logPreview, moveBackText, type LogReading } from "@/lib/reading/log-preview";
+import { asksPageTotal, logPreview, moveBackText, type LogReading } from "@/lib/reading/log-preview";
 import { catalogueDateOf, readingDateOf } from "@/lib/reading/dates";
 import { readingHomes } from "@/lib/reading/page-data";
 
@@ -31,6 +31,9 @@ describe("the header control", () => {
     expect(readingControlLabel([base], { ebook: true })).toBe("Reading · p. 212 of 480 · 44%");
     expect(readingControlLabel([base])).toBe("Reading · p. 212 of 480 · 44%");
     expect(readingControlLabel([{ ...base, unit: "percent" }])).toBe("Reading · 44%");
+    // No stored share: worked out from the page, else left out, never "0%" (SLN-1096)
+    expect(readingControlLabel([{ ...base, currentPage: 250, totalPages: 500, currentPercent: null }])).toBe("Reading · p. 250 of 500 · 50%");
+    expect(readingControlLabel([{ ...base, currentPage: 250, totalPages: null, currentPercent: null }])).toBe("Reading · p. 250");
     expect(readingControlLabel([{ ...base, unit: "minutes", currentMinutes: 192, totalMinutes: 580 }])).toBe("Reading · 3:12 of 9:40");
     expect(readingControlLabel([{ ...base, status: "paused" }])).toBe("Paused at 44%");
     expect(readingControlLabel([done("2024-04-14")])).toBe("Read · 14 Apr 2024");
@@ -72,6 +75,25 @@ describe("the log preview", () => {
   it("shows the page count a \"250/480\" gives, not the old one (SLN-932)", () => {
     const short = { ...reading, totalPages: 240, currentPage: 60, currentPercent: 25 };
     expect(logPreview(short, { kind: "page", page: 250, totalPages: 480 })!.line).toBe("Page 250 of 480 · 52.08% · 190 pages since last time");
+  });
+  it("promises counted pages only with a page total, and asks for one without (SLN-1095)", () => {
+    const noTotal = { ...reading, totalPages: null, currentPage: null, currentPercent: null };
+    expect(logPreview(noTotal, { kind: "page", page: 120 })!.line).toBe("Page 120");
+    expect(logPreview(noTotal, { kind: "addPages", pages: 20 })!.line).toBe("Page 20");
+    expect(logPreview({ ...noTotal, currentPage: 100 }, { kind: "page", page: 120 })!.line).toBe("Page 120");
+    // The page count given in the dialog: the same log counts its pages
+    expect(logPreview({ ...noTotal, totalPages: 300 }, { kind: "page", page: 120 })!.line).toBe("Page 120 of 300 · 40% · 120 pages since last time");
+    expect(logPreview(noTotal, { kind: "page", page: 120, totalPages: 300 })!.line).toBe("Page 120 of 300 · 40% · 120 pages since last time");
+    expect(logPreview(reading, { kind: "page", page: 179 })!.line).toBe("Page 179 of 480 · 37.29% · 1 page since last time");
+
+    expect(asksPageTotal(noTotal, { kind: "page", page: 120 })).toBe(true);
+    expect(asksPageTotal(noTotal, { kind: "addPages", pages: 20 })).toBe(true);
+    expect(asksPageTotal(noTotal, { kind: "page", page: 120, totalPages: 300 })).toBe(false);
+    expect(asksPageTotal(noTotal, { kind: "percent", percent: 40 })).toBe(false);
+    expect(asksPageTotal(noTotal, { kind: "chapter", chapter: "7" })).toBe(false);
+    expect(asksPageTotal(noTotal, null)).toBe(false);
+    expect(asksPageTotal(noTotal, { kind: "page", page: 120 }, { id: "other", pageCount: 300, totalMinutes: null, unit: "pages" })).toBe(false);
+    expect(asksPageTotal(reading, { kind: "page", page: 212 })).toBe(false);
   });
   it("sees a move back and the end", () => {
     const back = logPreview({ ...reading, currentPage: 400, currentPercent: 83.33 }, { kind: "page", page: 212 })!;

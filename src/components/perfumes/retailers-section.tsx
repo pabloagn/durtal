@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatMoney } from "@/lib/utils/money";
 import { useRouter } from "next/navigation";
 import { Archive, ExternalLink, Plus, Tag, Trash2 } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
@@ -18,7 +19,6 @@ import { RETAILER_AVAILABILITY, AVAILABILITY_LABELS } from "@/lib/catalogue/reta
 import { PERFUME_CONTAINERS } from "@/lib/catalogue/perfumes";
 import {
   CONTAINER_LABELS,
-  formatPrice,
   formatVolume,
   type PerfumeContainer,
 } from "@/lib/catalogue/perfume-labels";
@@ -79,7 +79,7 @@ export function RetailersSection({
           {listings.map((listing) => {
             const o = listing.observation;
             const offer = [
-              o?.price != null && o.currency ? formatPrice(o.price, o.currency) : null,
+              o?.price != null && o.currency ? formatMoney(o.price, o.currency) : null,
               o?.container
                 ? `${CONTAINER_LABELS[o.container as PerfumeContainer].one}${o.capacityMl ? ` ${formatVolume(o.capacityMl)}` : ""}`
                 : null,

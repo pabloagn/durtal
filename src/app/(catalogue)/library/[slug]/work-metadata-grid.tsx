@@ -7,6 +7,7 @@ import {
 } from "@/components/shared/detail-layout";
 import { languageName } from "@/lib/utils/language";
 import { catalogueStatusLabel, priorityLabel } from "@/lib/utils/labels";
+import { holdsNoCopy } from "@/lib/utils/ownership";
 
 interface WorkDetailsProps {
   work: WorkWithRelations;
@@ -39,6 +40,9 @@ export function WorkDetails({ work }: WorkDetailsProps) {
         )}
         <RecordField label="Catalogue status">
           {catalogueStatusLabel(work.catalogueStatus)}
+          {holdsNoCopy(work.catalogueStatus, work.editions) && (
+            <span className="text-fg-secondary"> · No copy held</span>
+          )}
         </RecordField>
         {work.acquisitionPriority && work.acquisitionPriority !== "none" && (
           <RecordField label="Acquisition priority">

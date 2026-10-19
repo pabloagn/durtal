@@ -52,7 +52,6 @@ export function CalendarHeatmap({
   return (
     <ChartFrame
       label={`Reading days in ${year}`}
-      summary={summary}
       points={cells.map((c) => ({ text: text(c.day) }))}
       step={7}
       height={height + 12}

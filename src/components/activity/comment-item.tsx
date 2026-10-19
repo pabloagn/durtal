@@ -1,8 +1,11 @@
 "use client";
 
 import type { ActivityEntityType } from "@/lib/activity/entities";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { MessageSquare } from "lucide-react";
+import { toast } from "@/lib/notifications/toast";
+import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 import { CommentEditor } from "./comment-editor";
 import { CommentAttachmentList } from "./comment-attachment-list";
 import {
@@ -43,32 +46,39 @@ export function CommentItem({
   onUpdated,
 }: CommentItemProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  // The comment's text, read when Delete is pressed, for the confirmation to name it
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const root = useRef<HTMLDivElement>(null);
 
+  /** A comment is a record: deleting it asks first and has no Undo (SLN-1152, SLN-1460) */
   async function handleDelete() {
-    if (isDeleting) return;
-    setIsDeleting(true);
-    try {
-      const res = await fetch(`/api/comments/${comment.id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        throw new Error("Failed to delete comment");
-      }
-      onDeleted(comment.id);
-    } catch (error) {
-      console.error("Error deleting comment:", error);
-      setIsDeleting(false);
+    const ok = await fetch(`/api/comments/${comment.id}`, { method: "DELETE" }).then((res) => res.ok, () => false);
+    if (!ok) {
+      toast.error("Could not delete the comment");
+      return;
     }
+    // The focus stays in the timeline: on the next comment, else the comment box
+    const timeline = root.current?.closest("[data-activity-timeline]");
+    const comments = [...(timeline?.querySelectorAll<HTMLElement>("[data-comment]") ?? [])];
+    const next = comments[comments.indexOf(root.current!) + 1]?.querySelector<HTMLElement>("[data-comment-delete]");
+    // The dialog goes at once: while it is open the page is inert, and the
+    // focus could not move out of it
+    flushSync(() => {
+      setConfirming(null);
+      onDeleted(comment.id);
+    });
+    (next?.isConnected ? next : timeline?.querySelector<HTMLElement>("[data-comment-box] button, [data-comment-box] [contenteditable=true]"))?.focus();
   }
+  const attachments = comment.attachments.length;
 
   const relative = formatRelativeTime(createdAt);
   const full = formatFullDate(createdAt);
 
   return (
-    <div className="relative flex gap-3 py-1.5">
-      {/* Icon dot sitting on the timeline line */}
-      <div className="relative z-10 mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-bg-primary">
+    <div ref={root} className="relative flex gap-3 py-1.5" data-comment="">
+      {/* Icon dot sitting on the timeline line, centred on the "Comment" label:
+          the card's border and top padding (11px) put the label's line there */}
+      <div className="relative z-10 mt-[11px] flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-bg-primary">
         <MessageSquare className="h-3.5 w-3.5 text-fg-muted" strokeWidth={1.5} />
       </div>
 
@@ -90,7 +100,8 @@ export function CommentItem({
         ) : (
           <div className="rounded-sm border border-glass-border bg-bg-secondary/40">
             {/* Comment header */}
-            <div className="flex items-center justify-between px-3 pt-2.5 pb-0">
+            {/* Top-aligned, so taller touch buttons don't move the label off the dot */}
+            <div className="flex items-start justify-between px-3 pt-2.5 pb-0">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-fg-primary">Comment</span>
                 <time
@@ -109,15 +120,18 @@ export function CommentItem({
                   onClick={() => setIsEditing(true)}
                   className="rounded-sm px-1.5 py-0.5 text-micro text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:min-h-11 pointer-coarse:min-w-11"
                 >
-                  Edit
+                  Edit<span className="sr-only"> comment</span>
                 </button>
                 <button
                   type="button"
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                  className="rounded-sm px-1.5 py-0.5 text-micro text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-accent-red-text disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+                  onClick={() => {
+                    const text = new DOMParser().parseFromString(comment.contentHtml, "text/html").body.textContent ?? "";
+                    setConfirming(text.replace(/\s+/g, " ").trim());
+                  }}
+                  data-comment-delete=""
+                  className="rounded-sm px-1.5 py-0.5 text-micro text-fg-secondary transition-colors hover:bg-bg-tertiary hover:text-accent-red-text pointer-coarse:min-h-11 pointer-coarse:min-w-11"
                 >
-                  {isDeleting ? "..." : "Delete"}
+                  Delete<span className="sr-only"> comment</span>
                 </button>
               </div>
             </div>
@@ -136,6 +150,16 @@ export function CommentItem({
           </div>
         )}
       </div>
+      <ConfirmDeleteDialog
+        open={confirming !== null}
+        onClose={() => setConfirming(null)}
+        title="Delete comment"
+        name={!confirming ? `Comment, ${relative}` : confirming.length > 140 ? `${confirming.slice(0, 140).trimEnd()}…` : confirming}
+        description={attachments
+          ? `The comment and its ${attachments === 1 ? "attachment are" : `${attachments} attachments are`} deleted. This cannot be undone.`
+          : "The comment is deleted. This cannot be undone."}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

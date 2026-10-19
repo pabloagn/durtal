@@ -864,7 +864,7 @@ export async function writeReadings(
     : new Set<string>();
   for (let at = 0; at < toWrite.length; at += CHUNK) {
     const chunk = toWrite.slice(at, at + CHUNK).map(({ row, i }) => {
-      const id = randomUUID();
+      const id = row.id ?? randomUUID();
       const totals = { totalPages: row.totalPages ?? null, totalMinutes: row.totalMinutes ?? null };
       const pos = row.position ?? null;
       const known = pos && [pos.page, pos.percent, pos.minutes].some((v) => v != null);

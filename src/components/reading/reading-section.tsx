@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { FadeImage } from "@/components/shared/fade-image";
 import { BookText, Check, Headphones, MoreHorizontal, Pause, PenLine, Play, RotateCcw, Square, Tablet, Timer } from "lucide-react";
@@ -82,7 +82,7 @@ function CurrentReading({ row }: { row: ReadingRow }) {
         <p className="font-mono text-xs text-fg-secondary">
           {r.status === "paused" ? `Paused · ${position}` : position}
         </p>
-        {data.estimates?.[r.id] && <EstimateLine estimate={data.estimates[r.id]} onAddLength={() => open({ kind: "edit", readingId: r.id })} />}
+        {data.estimates?.[r.id] && <EstimateLine estimate={data.estimates[r.id]} onAddLength={() => open({ kind: "edit", readingId: r.id, focusLength: true })} />}
         <p className="text-xs text-fg-secondary">
           {started}
           {home}
@@ -174,9 +174,47 @@ function RowMenu({
   );
 }
 
+/**
+ * A past read's review, three lines at first. "Show review" only when the
+ * three lines hide some of it, as a toggle that names its state and what it
+ * opens (SLN-1074)
+ */
+function Review({ html }: { html: string }) {
+  const id = useId();
+  const box = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [cut, setCut] = useState(false);
+  useEffect(() => {
+    const prose = box.current?.firstElementChild;
+    if (!(prose instanceof HTMLElement) || open) return;
+    const measure = () => setCut(prose.scrollHeight > prose.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(prose);
+    return () => observer.disconnect();
+  }, [html, open]);
+  return (
+    <div>
+      <div ref={box} id={id}>
+        <Prose html={html} className={open ? "" : "line-clamp-3"} />
+      </div>
+      {(cut || open) && (
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={id}
+          onClick={() => setOpen((v) => !v)}
+          className="mt-1 text-xs text-fg-secondary underline-offset-2 hover:text-fg-primary hover:underline touch-hit"
+        >
+          {open ? "Hide review" : "Show review"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function HistoryRow({ row, previous }: { row: ReadingRow; previous: { editionId: string | null } | null }) {
   const { data, open } = useReading();
-  const [showReview, setShowReview] = useState(false);
   const r = row.reading;
   const Icon = FORMAT_ICON[r.format as ReadingFormat] ?? BookText;
   const outcome =
@@ -193,7 +231,7 @@ function HistoryRow({ row, previous }: { row: ReadingRow; previous: { editionId:
         <div className="min-w-0 flex-1 space-y-1">
           <p className="flex flex-wrap items-center gap-x-2 text-sm text-fg-primary">
             <span>{ordinalRead(row.ordinal)}</span>
-            <span className="text-fg-secondary">{formatReadingSpan(r, data.today)}</span>
+            <span className="text-fg-secondary">{formatReadingSpan(r, data.today, { bare: true })}</span>
           </p>
           <p className="flex flex-wrap items-center gap-x-2 text-xs text-fg-secondary">
             <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-label={FORMAT_LABEL[r.format as ReadingFormat] ?? "Print"} />
@@ -202,18 +240,7 @@ function HistoryRow({ row, previous }: { row: ReadingRow; previous: { editionId:
           </p>
           {rating != null && <RatingStars value={rating} size={12} />}
           {row.sessionCount > 0 && <SessionList row={row} current={false} />}
-          {r.reviewHtml && (
-            <div>
-              <Prose html={r.reviewHtml} className={showReview ? "" : "line-clamp-3"} />
-              <button
-                type="button"
-                onClick={() => setShowReview((v) => !v)}
-                className="mt-1 text-xs text-fg-secondary underline-offset-2 hover:text-fg-primary hover:underline"
-              >
-                {showReview ? "Hide review" : "Show review"}
-              </button>
-            </div>
-          )}
+          {r.reviewHtml && <Review html={r.reviewHtml} />}
         </div>
         {/* On the cap-height center of the row's first line */}
         <CapAlignedControls height={32} coarseHeight={44} className="text-sm">

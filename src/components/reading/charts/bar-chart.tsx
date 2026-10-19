@@ -32,6 +32,8 @@ export function barChartHeight(count: number) {
 
 export function BarChart({
   label,
+  title,
+  brief,
   bars,
   tone = "sage",
   footnote,
@@ -39,6 +41,10 @@ export function BarChart({
   minRows = 0,
 }: {
   label: string;
+  /** A visible title over the chart (ChartFrame) */
+  title?: string;
+  /** The caption before a bar has focus; the label when there is none */
+  brief?: string;
   bars: Bar[];
   tone?: "sage" | "blue";
   footnote?: React.ReactNode;
@@ -61,7 +67,8 @@ export function BarChart({
   return (
     <ChartFrame
       label={label}
-      summary={summary}
+      title={title}
+      brief={brief}
       points={bars.map((b) => ({ text: b.text }))}
       height={height}
       footnote={footnote}

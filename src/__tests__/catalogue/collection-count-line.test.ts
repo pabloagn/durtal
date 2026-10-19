@@ -44,11 +44,12 @@ describe("a collection's count line", () => {
   const source = (file: string) => readFileSync(path.resolve(__dirname, "../..", file), "utf8");
 
   it("is the line on the card, the mosaic, the add dialog and the page", () => {
-    expect(source("components/collections/collection-card.tsx")).toContain('collectionCountLine(collection) ?? "Empty"');
-    expect(source("components/collections/collections-view.tsx")).toContain('collectionCountLine(collection) ?? "Empty"');
-    expect(source("components/books/add-to-collection-dialog.tsx")).toContain('collectionCountLine(c) ?? "Empty"');
+    expect(source("components/collections/collection-card.tsx")).toContain('collectionCountLine(collection) ?? EMPTY_COUNT_LINE');
+    expect(source("components/collections/collections-view.tsx")).toContain('collectionCountLine(collection) ?? EMPTY_COUNT_LINE');
+    expect(source("components/books/add-to-collection-dialog.tsx")).toContain('collectionCountLine(c) ?? EMPTY_COUNT_LINE');
     expect(source("app/(catalogue)/collections/[id]/page.tsx")).toContain("const line = collectionCountLine(collection);");
-    // the list's rows carry each whole work's kind
-    expect(source("lib/actions/collections.ts")).toContain("collectionWorks: { columns: { workId: true }, with: { work: { columns: { kind: true } } } }");
+    // the lists count in SQL, by kind, never by loading the members (SLN-1058)
+    expect(source("lib/actions/collections.ts")).toContain("extras: { tally: collectionTallySql().as(\"tally\") }");
+    expect(source("lib/actions/collections.ts")).not.toContain("memberSummary");
   });
 });

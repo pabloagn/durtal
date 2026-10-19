@@ -86,17 +86,6 @@ export function holdingsSummary(counts: Record<PerfumeContainer, number>) {
   return parts.length ? parts.join(", ") : null;
 }
 
-/** "€120.00": the currency's own symbol and decimals */
-export function formatPrice(amount: number, currency: string) {
-  try {
-    return new Intl.NumberFormat("en", { style: "currency", currency }).format(
-      amount,
-    );
-  } catch {
-    return `${amount.toFixed(2)} ${currency}`;
-  }
-}
-
 /** Notes by position, each in its stored order; empty positions are left out */
 export function notesByPosition<T extends { position: NotePosition | null }>(
   notes: T[],

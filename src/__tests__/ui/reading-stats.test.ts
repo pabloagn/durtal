@@ -18,8 +18,10 @@ vi.mock("next/dynamic", async () => {
     },
   };
 });
+const goalState = vi.hoisted(() => ({ has: false }));
 vi.mock("@/lib/actions/reading-goals", () => ({
   getGoalProgress: vi.fn(async () => []),
+  hasReadingGoals: vi.fn(async () => goalState.has),
   getGoalDialogData: vi.fn(async () => ({ year: 2025, goals: [], workTypes: [], history: [] })),
   setReadingGoal: vi.fn(async () => ({})),
   removeReadingGoal: vi.fn(async () => ({})),
@@ -161,7 +163,10 @@ describe("the stats charts", () => {
       const frame = figure.querySelector("[data-chart-frame]")!;
       expect([frame.getAttribute("tabindex"), frame.getAttribute("role")]).toEqual(["0", "group"]);
       expect(frame.getAttribute("aria-label")).toBe(figure.getAttribute("data-chart"));
-      expect(document.getElementById(frame.getAttribute("aria-describedby")!)).toBe(figure.querySelector("[data-chart-caption]"));
+      // The caption describes the chart unless it only repeats its name (SLN-1172)
+      const caption = figure.querySelector("[data-chart-caption]")!;
+      const described = frame.getAttribute("aria-describedby");
+      expect(described && document.getElementById(described)).toBe(caption.textContent === figure.getAttribute("data-chart") ? null : caption);
       // The chart, then its table toggle: nothing else to tab to
       expect([...figure.querySelectorAll(TABBABLE)]).toEqual([frame, figure.querySelector("[data-chart-table-toggle]")]);
       const svg = figure.querySelector("svg")!;
@@ -177,8 +182,12 @@ describe("the stats charts", () => {
     const frame = figure.querySelector("[data-chart-frame]")!;
     const caption = () => figure.querySelector("[data-chart-caption]")!.textContent;
     const live = () => figure.querySelector("[data-chart-live]")!.textContent;
-    // Every bar's count with its noun in the right form, not "... Dec 0 books"
-    expect(caption()).toMatch(/^Books finished by month: January 2025: 3 books; February 2025: 1 book; March 2025: 0 books;/);
+    // Every bar's count with its noun in the right form, not "... Dec 0 books", said once by the image (SLN-1172)
+    expect(figure.querySelector("svg")!.getAttribute("aria-label")).toMatch(/^Books finished by month: January 2025: 3 books; February 2025: 1 book; March 2025: 0 books;/);
+    // Over it a visible title that names the figure; under it the total and the highest month
+    const title = figure.querySelector("[data-chart-title]")!;
+    expect([title.textContent, figure.getAttribute("aria-labelledby")]).toEqual(["Books finished", title.id]);
+    expect(caption()).toBe("7 books in all; the most in January 2025, 3 books");
     await key(frame, "ArrowRight");
     expect([caption(), live()]).toEqual(["January 2025: 3 books", "January 2025: 3 books"]);
     await key(frame, "ArrowRight");
@@ -234,6 +243,16 @@ describe("the stats charts", () => {
     expect(document.querySelector("dialog[open]")!.textContent).toContain("Set a reading goal");
     // The Year in review: the year's own review, since 2025 has finished books
     expect(host.querySelector("[data-stats-review]")!.getAttribute("href")).toBe("/reading/year/2025");
+  });
+
+  it("says Edit reading goals when this year has one (SLN-1096)", async () => {
+    goalState.has = true;
+    try {
+      await page();
+      expect((host.querySelector("[data-goal-open]") as HTMLButtonElement).textContent).toBe("Edit reading goals");
+    } finally {
+      goalState.has = false;
+    }
   });
 });
 

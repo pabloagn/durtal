@@ -22,7 +22,7 @@ import { ProtectedImageWrapper } from "@/components/shared/protected-image";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
 import { nationalityFilterHref } from "@/lib/utils/nationality-param";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
-import { deleteAuthor } from "@/lib/actions/catalogue-client";
+import { deleteAuthorFromPage } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
 
 type PosterCrop = MediaCrop;
@@ -87,9 +87,9 @@ export function AuthorDetailHeader({
 
   async function handleDelete() {
     try {
-      await deleteAuthor(authorId);
+      // On to the list in the action's own response (SLN-1330)
+      await deleteAuthorFromPage(authorId);
       toast.success("Person deleted");
-      router.push("/people");
     } catch (error) {
       toast.error(refusalMessage(error, "Could not delete the person"));
     }
@@ -240,7 +240,7 @@ export function AuthorDetailHeader({
         itemName={name}
         cascade={
           workCount > 0
-            ? "This will NOT delete the person's books, films, perfumes or paintings, but will remove their credits."
+            ? "Their books, films, perfumes and paintings stay in your library; only their credits go."
             : undefined
         }
       />

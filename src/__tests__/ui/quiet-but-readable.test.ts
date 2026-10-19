@@ -23,7 +23,8 @@ it("keeps a placeholder at 4.5:1 on every opaque surface", () => {
   for (const surface of ["bg-primary", "bg-secondary", "bg-tertiary"]) {
     expect(contrast(token("fg-muted"), token(surface)), surface).toBeGreaterThanOrEqual(4.5);
   }
-  expect(read("app/(catalogue)/collections/page.tsx")).toContain("placeholder:text-fg-muted");
+  // The collections list's search is the shared toolbar's field (SLN-845)
+  expect(read("components/shared/entity-filters.tsx")).toContain("placeholder:text-fg-muted");
 });
 
 it("draws the unmarked mark toggles and the comment box's icons in fg-muted, not a faded tint", () => {

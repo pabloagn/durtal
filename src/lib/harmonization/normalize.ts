@@ -49,12 +49,26 @@ export function closeSpelling(a: string, b: string): boolean {
   }
   return previous[b.length] === 1;
 }
+// localeCompare's order, worked out once per shape of object: a scan
+// fingerprints every finding, and the keys must keep this order so stored
+// fingerprints still match (SLN-887)
+const keyOrder = new Intl.Collator().compare;
+const sortedKeys = new Map<string, string[]>();
+function keysInOrder(value: object) {
+  const keys = Object.keys(value);
+  const shape = keys.join("\u0000");
+  let sorted = sortedKeys.get(shape);
+  if (!sorted) {
+    sorted = keys.sort(keyOrder);
+    if (sortedKeys.size < 1000) sortedKeys.set(shape, sorted);
+  }
+  return sorted;
+}
 export function stableStringify(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
   if (value && typeof value === "object")
-    return `{${Object.entries(value)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`)
+    return `{${keysInOrder(value)
+      .map((k) => `${JSON.stringify(k)}:${stableStringify((value as Record<string, unknown>)[k])}`)
       .join(",")}}`;
   return JSON.stringify(value) ?? "null";
 }

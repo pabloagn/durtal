@@ -32,7 +32,7 @@ vi.mock("@/lib/cache", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 import { addSession, finishReading, logProgress, startReading, startTimer } from "@/lib/actions/reading";
-import { getGoalHistory, getGoalProgress, getRhythm, removeReadingGoal, setReadingGoal, type GoalProgress } from "@/lib/actions/reading-goals";
+import { getGoalHistory, getGoalProgress, getRhythm, hasReadingGoals, removeReadingGoal, setReadingGoal, type GoalProgress } from "@/lib/actions/reading-goals";
 import { updateAppSettings } from "@/lib/actions/settings";
 import { loadReading } from "@/lib/reading/service";
 import { readingToday } from "@/lib/reading/day";
@@ -92,7 +92,11 @@ describe.skipIf(!url)("reading goals and rhythm with PostgreSQL", () => {
       await past(await book("Unknown"), { on: null });
       await past(await book("Dropped"), { on: `${YEAR}-05-01`, status: "abandoned" });
       await past(await book("Last year"), { on: `${YEAR - 1}-12-31` });
+      expect(await hasReadingGoals(YEAR)).toBe(false);
       await setReadingGoal({ year: YEAR, metric: "books", target: 3 });
+      // Its openers say "Edit reading goals" (SLN-1096)
+      expect(await hasReadingGoals(YEAR)).toBe(true);
+      expect(await hasReadingGoals(YEAR + 1)).toBe(false);
       const { books } = await progress();
       expect(books.count).toBe(3);
       // The third counted finish, in date order, reached it: the April one, at month precision

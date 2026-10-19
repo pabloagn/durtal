@@ -60,8 +60,12 @@ export default async function ReadingPage() {
     // Suggestions (SLN-457): the top three Owned, computed per request
     storedHomeId().then((homeId) => getSuggestionContext({ homeId })),
   ]);
-  // Only the three shown are varied, not every book (SLN-885)
-  const suggestions = suggestTop(suggestionContext, DEFAULT_SUGGESTION_PARAMS, 3).top.map((s) => suggestionRow(s, suggestionContext));
+  // Only the three shown are varied, not every book (SLN-885); none of them repeats Up next, shown just above (SLN-1096)
+  const inNext = new Set(next.map((item) => item.workId));
+  const suggestions = suggestTop(suggestionContext, DEFAULT_SUGGESTION_PARAMS, 3 + inNext.size)
+    .top.map((s) => suggestionRow(s, suggestionContext))
+    .filter((row) => !inNext.has(row.workId))
+    .slice(0, 3);
   // In January, a link to the year just ended: this year and last, as the browser's year may differ by a day
   const year = Number(day.today.slice(0, 4));
   const reviewYears = years.map((y) => y.year).filter((y) => y === year || y === year - 1);
@@ -75,7 +79,7 @@ export default async function ReadingPage() {
         actions={
           <>
             <HubActions />
-            <HubMenu rhythm={!!rhythm.target} />
+            <HubMenu rhythm={!!rhythm.target} goals={goals.length > 0} />
           </>
         }
         tabs={<ReadingTabs />}
@@ -111,7 +115,7 @@ export default async function ReadingPage() {
           )}
           {goals.length > 0 && (
             <section data-hub-goals="">
-              <SectionHeading title="Goals this year" action={<GoalDialogButton label="Edit goals" variant="ghost" size="sm" />} />
+              <SectionHeading title="Goals this year" action={<GoalDialogButton editing label="Edit goals" variant="ghost" size="sm" />} />
               <GoalCards goals={goals} serverToday={day.today} dayStartHour={dayStartHour} />
             </section>
           )}

@@ -9,9 +9,20 @@ import { z } from "zod/v4";
  * ready, so the app can say "sign in again" instead of "not running".
  */
 export const UPLOAD_SIGN_IN_MESSAGE = "Uploads need the Mac to sign in to AWS again.";
+/** Three file checks failed in a row: the service stopped and stays stopped (SLN-1467) */
+export const UPLOAD_CHECKS_FAILING_MESSAGE = "Uploads stopped because the last three file checks failed. Check the upload log on the Mac, then start the service again.";
 
-const statusSchema = z.object({ version: z.literal(1), reason: z.literal("aws_sign_in"), at: z.string().max(64) }).strict();
+const statusSchema = z.object({ version: z.literal(1), reason: z.enum(["aws_sign_in", "checks_failing"]), at: z.string().max(64) }).strict();
 export type UploadServiceDownReason = z.infer<typeof statusSchema>["reason"];
+
+/** The reason a failure that stopped the service leaves, from the error or its causes */
+export function downReasonOf(error: unknown): UploadServiceDownReason | null {
+  for (let at = error, depth = 0; at instanceof Error && depth < 5; at = at.cause, depth++) {
+    if (at.name === "AwsSignInNeeded") return "aws_sign_in";
+    if (at.name === "UploadChecksFailing") return "checks_failing";
+  }
+  return null;
+}
 
 /** The status file sits in the socket's private run folder */
 export const uploadServiceStatusPath = (socketPath: string) => path.join(path.dirname(socketPath), "status.json");

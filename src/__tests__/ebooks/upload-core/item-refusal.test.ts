@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { projectUploadItem } from "@/lib/ebooks/upload-core/store";
-import { quarantineMessage } from "@/lib/ebooks/upload-core/refusal";
+import { checkedItemView, quarantineMessage, UNREADABLE_CHECK_MESSAGE } from "@/lib/ebooks/upload-core/refusal";
 import { validationFor } from "@/lib/ebooks/medallion";
 import { coreOperationFixture } from "./operation-fixture";
 
@@ -49,5 +49,22 @@ describe("why a checked file can't be added", () => {
   it("says when Durtal can't check the format, and nothing for a file it can add", () => {
     expect(quarantineMessage(inspected(null, null, false))).toBe("Not added: Durtal can't check files of this format yet.");
     expect(quarantineMessage(inspected(null, null))).toBeNull();
+  });
+});
+
+// SLN-1467: one stored check that couldn't be read threw, and the whole batch failed to show
+describe("a checked file whose stored check can't be read", () => {
+  const row = coreOperationFixture;
+  it("says so on its own row, offers no Preview, and does not throw", () => {
+    const upload = row({ state: "ready", receipt: { version: 1, damaged: true }, receipt_status: 200, progress: { inspectionV1: { version: 1 } } });
+    const view = projectUploadItem(upload);
+    expect(view.state).toBe("ready");
+    expect(checkedItemView(view, upload)).toMatchObject({ state: "ready", message: UNREADABLE_CHECK_MESSAGE, refused: true });
+  });
+  it("leaves a file that is not yet checked as it is", () => {
+    for (const upload of [row({ state: "ready" }), row({ state: "receiving" }), row({ state: "failed" })]) {
+      const view = projectUploadItem(upload);
+      expect(checkedItemView(view, upload)).toEqual(view);
+    }
   });
 });

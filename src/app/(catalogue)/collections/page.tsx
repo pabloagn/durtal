@@ -1,6 +1,4 @@
 import { redirect } from "next/navigation";
-import { collectionCountLine, collectionCounts } from "@/lib/collections/counts";
-import { FavouritesFilter } from "@/components/shared/favourites-filter";
 import { FAVOURITES_PARAM, favouritesOnly } from "@/lib/constants/favourites";
 import {
   parsePagination,
@@ -18,10 +16,13 @@ import {
 } from "@/lib/actions/collections";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
+import { NoResults } from "@/components/shared/no-results";
+import { clearedListHref } from "@/lib/utils/list-params";
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyIndex } from "@/components/shared/empty-index";
 import { CreateCollectionDialog } from "./create-collection-dialog";
-import { CollectionsView, CollectionsViewSwitcher } from "@/components/collections/collections-view";
+import { CollectionsView } from "@/components/collections/collections-view";
+import { CollectionsFiltersBar } from "./collections-filters-bar";
 
 export const metadata = { title: "Collections" };
 
@@ -35,6 +36,8 @@ function collectionsQuery(params: ListSearchParams) {
       offset,
       query: typeof params.q === "string" ? params.q : undefined,
       favourites,
+      sort: typeof params.sort === "string" ? params.sort : undefined,
+      order: typeof params.order === "string" ? params.order : undefined,
     }),
     getCollectionCount(typeof params.q === "string" ? params.q : "", favourites),
   ]);
@@ -56,19 +59,21 @@ async function CollectionsContent({
   if (page > lastPage(total, perPage))
     redirect(pageHref("/collections", params, lastPage(total, perPage)));
 
+  // Gone since the page checked, with no search or filter: none to show
+  if (collections.length === 0 && !params.q && !favourites)
+    return <EmptyState icon={FolderOpen} title="No collections yet" action={<CreateCollectionDialog />} />;
+  // Nothing matched the search or filter: the way out is clearing it, as on
+  // every list (SLN-845)
   if (collections.length === 0) {
+    const query = new URLSearchParams(
+      Object.entries(params).flatMap(([key, value]) => (typeof value === "string" ? [[key, value]] : [])),
+    );
     return (
-      <EmptyState
-        icon={FolderOpen}
-        title={
-          params.q || favourites ? "No matching collections" : "No collections yet"
-        }
-        description={
-          params.q || favourites
-            ? "Try another collection name or filter."
-            : undefined
-        }
-        action={<CreateCollectionDialog />}
+      <NoResults
+        noun="collections"
+        search={typeof params.q === "string" ? params.q : null}
+        hasFilters={favourites}
+        clearHref={clearedListHref("/collections", query)}
       />
     );
   }
@@ -82,14 +87,8 @@ async function CollectionsContent({
     <PaginatedSection {...paging} noun="collections">
       <CollectionsView
         collections={collections.map((collection) => ({
-          collection: {
-            ...collection,
-            ...collectionCounts(collection),
-            // The line, not every member, goes to the client (SLN-781)
-            countLine: collectionCountLine(collection),
-            collectionEditions: undefined,
-            collectionWorks: undefined,
-          },
+          // The counts and the line, not the members, go to the client (SLN-781)
+          collection,
           covers: previews
             .filter((p) => p.collectionId === collection.id)
             .map((p) => p.s3Key),
@@ -125,32 +124,7 @@ export default async function CollectionsPage({
         title="Collections"
         actions={<CreateCollectionDialog />}
       />
-      <div className="mb-5 flex flex-wrap items-center gap-x-2 gap-y-3">
-        <form className="flex min-w-48 max-w-md flex-1 gap-2" action="/collections">
-          {/* A search keeps the favourites filter */}
-          {favouritesOnly(params[FAVOURITES_PARAM]) && (
-            <input type="hidden" name={FAVOURITES_PARAM} value="true" />
-          )}
-          <input
-            name="q"
-            defaultValue={typeof params.q === "string" ? params.q : ""}
-            aria-label="Find collections"
-            placeholder="Find collections…"
-            className="h-8 min-w-0 flex-1 rounded-sm border border-glass-border bg-bg-primary px-3 text-sm placeholder:text-fg-muted pointer-coarse:h-11"
-          />
-          <button
-            type="submit"
-            className="rounded-sm border border-glass-border px-3 text-sm pointer-coarse:min-h-11"
-          >
-            Search
-          </button>
-        </form>
-        <FavouritesFilter basePath="/collections" />
-        {/* On a phone the views and card size take a row, as on Books (SLN-641) */}
-        <div className="ml-auto pointer-coarse:max-md:basis-full">
-          <CollectionsViewSwitcher />
-        </div>
-      </div>
+      <CollectionsFiltersBar />
       <Suspense
         key={JSON.stringify(params)}
         fallback={

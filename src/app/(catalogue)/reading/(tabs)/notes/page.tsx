@@ -9,7 +9,7 @@ import { AddQuoteButton } from "@/components/reading/hub-actions";
 import { NotesList, type NotesListRow } from "@/components/reading/notes-list";
 import { getNotesFacets, searchNotes, type NoteWithBook } from "@/lib/actions/reading-notes";
 import { parseNotesQuery } from "@/lib/reading/notes-params";
-import { slimNote } from "@/lib/reading/notes-text";
+import { notesCountText, slimNote } from "@/lib/reading/notes-text";
 import { clearedListHref, firstPageHref, hasListQuery, exportFilters } from "@/lib/utils/list-params";
 import { ExportMenu } from "@/components/shared/export-menu";
 import { toSearchParams, type ListSearchParams } from "@/lib/utils/pagination";
@@ -22,7 +22,7 @@ function listRow(note: NoteWithBook): NotesListRow {
   return { ...slimNote(note), book: { id: note.book.id, title: note.book.title, author: note.book.author, href: `/library/${note.book.slug ?? note.book.id}` } };
 }
 
-async function NotesResults({ params, total }: { params: ListSearchParams; total: number }) {
+async function NotesResults({ params, total, quotes }: { params: ListSearchParams; total: number; quotes: number }) {
   const query = parseNotesQuery(params);
   const search = toSearchParams(params);
   const result = await searchNotes({
@@ -54,7 +54,7 @@ async function NotesResults({ params, total }: { params: ListSearchParams; total
     <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-fg-secondary" data-notes-summary="">
-          {filtered ? `${result.total.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}` : `${total.toLocaleString("en-US")} quotes and notes`}
+          {filtered ? `${result.total.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}` : notesCountText(quotes, total - quotes)}
         </p>
         {/* Every note the filters keep, not only this page */}
         <ExportMenu entity="reading-notes" ids={{ filters: exportFilters(search) }} noun="quotes and notes" align="end" side="bottom" />
@@ -98,7 +98,7 @@ export default async function ReadingNotesPage({ searchParams }: { searchParams:
       <PageHeader title="Reading" actions={<AddQuoteButton variant="primary" />} tabs={<ReadingTabs />} />
       <NotesFilters facets={facets} />
       <Suspense key={toSearchParams(params).toString()} fallback={<div className="h-96" />}>
-        <NotesResults params={params} total={facets.total} />
+        <NotesResults params={params} total={facets.total} quotes={facets.quotes} />
       </Suspense>
     </>
   );

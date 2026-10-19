@@ -39,7 +39,8 @@ function journalItem(row: JournalRow, today: string, exactWork = false): Journal
     status: row.status,
     href: `/library/${row.slug ?? row.workId}`,
     cover: row.cover,
-    line: [exactWork ? ordinalRead(row.ordinal) : null, row.author, formatReadingSpan(row, today), `${OUTCOME[row.status]}${row.reread ? " · re-read" : ""}`].filter(Boolean).join(" · "),
+    author: row.author ? { name: row.author, href: row.authorSlug ? `/people/${row.authorSlug}` : null } : null,
+    line: [exactWork ? ordinalRead(row.ordinal) : null, formatReadingSpan(row, today, { bare: true }), `${OUTCOME[row.status]}${row.reread ? " · re-read" : ""}`].filter(Boolean).join(" · "),
     format: row.format,
     translated,
     rating: row.rating,
@@ -95,7 +96,8 @@ async function JournalResults({ params }: { params: ListSearchParams }) {
           <ExportMenu entity="readings" ids={{ filters: exportFilters(search) }} noun="readings" align="end" side="bottom" />
         </div>
       </div>
-      <div className="space-y-8" id="list-start">
+      {/* A deleted row's focus moves on to the next row (FocusKeeper, SLN-1074) */}
+      <div className="space-y-8" id="list-start" data-focus-list="journal">
         {grouped(rows, query.sort === "finished").map((group, i) => (
           <section key={`${group.title}-${i}`}>
             {group.title && <SectionHeading as="h3" title={group.title} />}

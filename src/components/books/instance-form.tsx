@@ -27,6 +27,7 @@ import {
 } from "@/lib/constants/catalogue";
 import { enumLabel } from "@/lib/utils/labels";
 import { todayLocal } from "@/lib/utils/date";
+import { currencyOptions } from "@/lib/constants/currencies";
 
 export interface InstanceDraft {
   locationId: string;
@@ -111,6 +112,13 @@ export function newCopyDraft(
     condition: settings.newCopyCondition ?? "",
     locationId,
   };
+}
+
+/** Where a copy of this format is kept: printed books in a physical place, files in a digital one */
+function locationKindFor(format: string): "physical" | "digital" | null {
+  if (format === "hardcover" || format === "paperback") return "physical";
+  if (format === "ebook" || format === "pdf" || format === "epub") return "digital";
+  return null;
 }
 
 /** The default location (Settings, General) first; the others keep their order. */
@@ -202,7 +210,7 @@ export function InstanceForm({
     onChange({ ...value, [field]: v });
   }
 
-  const { newCopyLocationId } = useAppSettings();
+  const { newCopyLocationId, homeCurrency } = useAppSettings();
   const sortedLocations = sortLocations(locations, newCopyLocationId);
   const selectedLocation = locations.find((l) => l.id === value.locationId);
   const subLocations = selectedLocation?.subLocations ?? [];
@@ -210,6 +218,14 @@ export function InstanceForm({
     value.format,
   );
   const isPhysicalFormat = ["hardcover", "paperback"].includes(value.format);
+  // A printed book is kept in a physical place and a file in a digital one, as
+  // a film copy is; an audiobook or other format may be either. A location the
+  // copy already has stays listed, so a saved place never reads as empty
+  // (SLN-1060)
+  const placeKind = locationKindFor(value.format);
+  const placeOptions = sortedLocations.filter(
+    (l) => !placeKind || l.type === placeKind || l.id === value.locationId,
+  );
 
   return (
     <div className="@container rounded-sm border border-glass-border bg-bg-secondary p-4">
@@ -227,47 +243,22 @@ export function InstanceForm({
 
       <div className="space-y-3">
         {ebookField}
-        {/* Location (required) */}
-        <FormColumns>
-          <Select
-            label="Location"
-            id={`inst-${index}-location`}
-            value={value.locationId}
-            onChange={(e) => {
-              onChange({
-                ...value,
-                locationId: e.target.value,
-                subLocationId: "",
-              });
-            }}
-            placeholder="Select location..."
-            options={sortedLocations.map((l) => ({
-              value: l.id,
-              label: `${l.name}, ${l.type === "digital" ? "digital" : "physical"}`,
-            }))}
-          />
-          {subLocations.length > 0 && (
-            <Select
-              label="Sub-location"
-              id={`inst-${index}-sublocation`}
-              value={value.subLocationId}
-              onChange={(e) => update("subLocationId", e.target.value)}
-              placeholder="Optional..."
-              options={subLocations.map((s) => ({
-                value: s.id,
-                label: s.name,
-              }))}
-            />
-          )}
-        </FormColumns>
-
         {/* Format & Condition */}
         <FormColumns>
           <Select
             label="Format"
             id={`inst-${index}-format`}
             value={value.format}
-            onChange={(e) => update("format", e.target.value)}
+            onChange={(e) => {
+              const format = e.target.value;
+              const kind = locationKindFor(format);
+              const keeps = !kind || selectedLocation?.type === kind;
+              onChange({
+                ...value,
+                format,
+                ...(keeps ? {} : { locationId: "", subLocationId: "" }),
+              });
+            }}
             placeholder="Select format..."
             options={INSTANCE_FORMATS.map((f) => ({
               value: f,
@@ -285,6 +276,40 @@ export function InstanceForm({
               label: COPY_CONDITION_LABELS[c],
             }))}
           />
+        </FormColumns>
+
+        {/* Location (required) */}
+        <FormColumns>
+          <Select
+            label="Location"
+            id={`inst-${index}-location`}
+            value={value.locationId}
+            onChange={(e) => {
+              onChange({
+                ...value,
+                locationId: e.target.value,
+                subLocationId: "",
+              });
+            }}
+            placeholder="Select location..."
+            options={placeOptions.map((l) => ({
+              value: l.id,
+              label: `${l.name}, ${l.type === "digital" ? "digital" : "physical"}`,
+            }))}
+          />
+          {subLocations.length > 0 && (
+            <Select
+              label="Sub-location"
+              id={`inst-${index}-sublocation`}
+              value={value.subLocationId}
+              onChange={(e) => update("subLocationId", e.target.value)}
+              placeholder="Optional..."
+              options={subLocations.map((s) => ({
+                value: s.id,
+                label: s.name,
+              }))}
+            />
+          )}
         </FormColumns>
 
         {isPhysicalFormat && (
@@ -385,21 +410,25 @@ export function InstanceForm({
                 type="number"
                 step="0.01"
                 value={value.dispositionPrice}
-                onChange={(e) => update("dispositionPrice", e.target.value)}
+                onChange={(e) =>
+                  onChange({
+                    ...value,
+                    dispositionPrice: e.target.value,
+                    // A price starts in the home currency, as an order does
+                    dispositionCurrency:
+                      value.dispositionCurrency ||
+                      (e.target.value ? homeCurrency : ""),
+                  })
+                }
                 placeholder="0.00"
               />
-              <Input
+              <Select
                 label="Currency"
                 id={`inst-${index}-disposition-currency`}
                 value={value.dispositionCurrency}
-                onChange={(e) =>
-                  update(
-                    "dispositionCurrency",
-                    e.target.value.toUpperCase().slice(0, 3),
-                  )
-                }
-                placeholder="EUR"
-                maxLength={3}
+                onChange={(e) => update("dispositionCurrency", e.target.value)}
+                placeholder="None"
+                options={currencyOptions(homeCurrency, value.dispositionCurrency)}
               />
             </FormColumns>
             <Textarea
@@ -447,21 +476,25 @@ export function InstanceForm({
               type="number"
               step="0.01"
               value={value.acquisitionPrice}
-              onChange={(e) => update("acquisitionPrice", e.target.value)}
+              onChange={(e) =>
+                  onChange({
+                    ...value,
+                    acquisitionPrice: e.target.value,
+                    // A price starts in the home currency, as an order does
+                    acquisitionCurrency:
+                      value.acquisitionCurrency ||
+                      (e.target.value ? homeCurrency : ""),
+                  })
+                }
               placeholder="29.99"
             />
-            <Input
+            <Select
               label="Currency"
               id={`inst-${index}-acq-currency`}
               value={value.acquisitionCurrency}
-              onChange={(e) =>
-                update(
-                  "acquisitionCurrency",
-                  e.target.value.toUpperCase().slice(0, 3),
-                )
-              }
-              placeholder="EUR"
-              maxLength={3}
+              onChange={(e) => update("acquisitionCurrency", e.target.value)}
+              placeholder="None"
+              options={currencyOptions(homeCurrency, value.acquisitionCurrency)}
             />
           </FormColumns>
         </Section>

@@ -135,6 +135,14 @@ describe("the preview's words", () => {
     expect(writeLine([reading({ n: 1 })], [undated], today, { anyway: true })).toBe("Finished, date unknown");
     expect(writeLine([reading({ status: "reading", startedOn: "2026-09-01", startedPrecision: "day" })], [fresh], today)).toBe("Reading, started 1 Sep");
   });
+  it("names an abandoned read whatever its dates (SLN-1099)", () => {
+    const line = (over: Partial<ImportReading>) => fileLine({ authors: ["A"], fileRating: null, kind: "readings", readings: [reading({ status: "abandoned", ...over })] }, today);
+    expect(line({ finishedOn: "2019-04-14", finishedPrecision: "day" })).toBe("A · Abandoned 14 Apr 2019");
+    expect(line({ startedOn: "2019-04-14", startedPrecision: "day", finishedOn: "2019-04-14", finishedPrecision: "day" })).toBe("A · Abandoned, 14 Apr 2019");
+    expect(line({ startedOn: "2019-04-03", startedPrecision: "day", finishedOn: "2019-04-14", finishedPrecision: "day" })).toBe("A · Abandoned, 3 to 14 Apr 2019");
+    expect(line({ startedOn: "2018-12-01", startedPrecision: "month", finishedOn: "2019-02-01", finishedPrecision: "month" })).toBe("A · Abandoned, Dec 2018 to Feb 2019");
+    expect(line({})).toBe("A · Abandoned, date unknown");
+  });
   it("never changes a book rating without saying so", () => {
     const base = { section: "exact" as const, fileRating: 4, useFileRating: false, writes: true };
     expect(ratingLine({ ...base, bookRating: null })).toEqual({ text: "Book rating set to 4: the book has none", choice: false });
@@ -243,6 +251,15 @@ describe("a row as the page sends it", () => {
   it("shows a written row's outcome and no buttons", () => {
     const view = rowView({ ...base, written: { readings: [{ n: 1, outcome: "written", readingId: "r", reason: null }], bookRating: null, identifiers: [] } }, today);
     expect([view.lines, view.actions]).toEqual([[["reason", "Same ISBN"], ["outcome", "Written"]], null]);
+  });
+  it("says one thing of a to-read book: it goes to Up next, or it stays where it is (SLN-956)", () => {
+    const toRead = (queue: object | null) =>
+      rowView({ ...base, section: "to_read", data: { ...base.data, kind: "to_read", queueKey: "q", readings: [] }, match: { ...base.match, section: "to_read", note: queue ? "Already in Up next, at 1" : null, queue: queue as never } }, today).lines;
+    expect(toRead(null)).toContainEqual(["writes", "Goes to the bottom of Up next"]);
+    const queued = toRead({ place: 1, sameKey: false, open: null, readYear: null });
+    expect(queued).toContainEqual(["reason", "Same ISBN · Already in Up next, at 1"]);
+    expect(queued.some(([kind]) => kind === "writes")).toBe(false);
+    expect(toRead({ place: null, sameKey: false, open: "reading", readYear: null }).some(([kind]) => kind === "writes")).toBe(false);
   });
   it("offers Add this book on a row not in Durtal", () => {
     const view = rowView({ ...base, section: "none", book: null, match: { ...base.match, found: "none", reason: null, verdicts: [] } }, today);

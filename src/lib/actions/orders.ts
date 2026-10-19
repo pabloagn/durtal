@@ -57,7 +57,7 @@ import {
   orderStatusSchema,
   updateOrderSchema,
 } from "@/lib/validations/orders";
-import { parseId } from "@/lib/validations/helpers";
+import { cleanString, parseId } from "@/lib/validations/helpers";
 import { createWorkSchema } from "@/lib/validations/works";
 import {
   bookAuthorFor,
@@ -603,9 +603,10 @@ function receiptOrder(
   };
 }
 
+// Cleaned first, so a name of only invisible characters is refused (SLN-1393)
 const newBookSchema = z.object({
-  title: z.string().trim().min(1, "Title is required").max(500),
-  authorName: z.string().trim().min(1, "Author is required").max(300),
+  title: cleanString().trim().min(1, "Title is required").max(500),
+  authorName: cleanString().trim().min(1, "Author is required").max(300),
 });
 
 /**

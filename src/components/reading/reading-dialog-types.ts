@@ -32,6 +32,8 @@ export interface DialogRequest {
   back?: DialogRequest;
   /** Log progress on the way back from the note dialog: what was typed there */
   draft?: LogDraft;
+  /** Edit reading opens with the focus in its page count, or its audio length for an audiobook (SLN-1102) */
+  focusLength?: boolean;
 }
 
 /** The running timer a stop saves, and the end time a forgotten timer was given */

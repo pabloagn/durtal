@@ -36,8 +36,8 @@ function SettingSelect({ id, value, options, onChange }: { id: string; value: st
   );
 }
 
-/** Reading settings (SLN-451): the reading day, the week, the rhythm and goals (SLN-455), suggestions (SLN-457), and the timer's question. Each change saves at once */
-export function ReadingSettings({ settings: saved }: { settings: ReadingValues }) {
+/** Reading settings (SLN-451): the reading day, the week, the rhythm and goals (SLN-455), suggestions (SLN-457), and the timer's question. Each change saves at once. `hasGoals`: this year has a goal, so its button says "Edit reading goals" (SLN-1096) */
+export function ReadingSettings({ settings: saved, hasGoals = false }: { settings: ReadingValues; hasGoals?: boolean }) {
   const router = useRouter();
   const [settings, setSettings] = useState(saved);
   const [, startTransition] = useTransition();
@@ -125,7 +125,7 @@ export function ReadingSettings({ settings: saved }: { settings: ReadingValues }
           />
         </SettingRow>
         <SettingRow id="reading-goals" label="Reading goals" description="Optional yearly goals in books, pages or hours." labelFor={false}>
-          <GoalDialogButton />
+          <GoalDialogButton editing={hasGoals} />
         </SettingRow>
       </SettingsGroup>
       <SettingsGroup title="Suggestions">

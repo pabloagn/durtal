@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cleanString } from "./helpers";
 import { catalogueDateSchema, datesInOrder } from "@/lib/catalogue/dates";
 import {
   FILM_HOLDING_MEDIA,
@@ -14,7 +15,7 @@ import { creditListSchema } from "./people";
 
 const source = z.uuid().nullable().default(null);
 const date = catalogueDateSchema.nullable();
-const label = (max: number) => z.string().trim().min(1).max(max).nullable();
+const label = (max: number) => cleanString().trim().min(1).max(max).nullable();
 function unique<T>(key: (value: T) => string, message: string) {
   return (list: T[], ctx: z.RefinementCtx) => {
     if (new Set(list.map(key)).size !== list.length)
@@ -43,7 +44,7 @@ const organizations = z
     ),
   );
 const filmFields = {
-  title: z.string().trim().min(1).max(500),
+  title: cleanString().trim().min(1).max(500),
   originalTitle: label(500),
   description: z.string().trim().max(50000).nullable(),
   releaseDate: date,

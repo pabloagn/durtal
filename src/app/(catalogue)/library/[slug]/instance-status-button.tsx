@@ -10,6 +10,7 @@ import { DISPOSITION_TYPES, INSTANCE_STATUSES } from "@/lib/types/index";
 import { enumLabel } from "@/lib/utils/labels";
 import { updateInstance } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { offerBookDeaccession } from "./last-copy-toast";
 import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,8 @@ type DispositionType = (typeof DISPOSITION_TYPES)[number];
 interface InstanceStatusButtonProps {
   instanceId: string;
   currentStatus: string;
+  /** The book, when this is its one held copy: deaccessioning it offers to deaccession the book (SLN-1127) */
+  lastHeldOf?: string | null;
 }
 
 /**
@@ -36,6 +39,7 @@ interface InstanceStatusButtonProps {
 export function InstanceStatusButton({
   instanceId,
   currentStatus,
+  lastHeldOf = null,
 }: InstanceStatusButtonProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -57,7 +61,8 @@ export function InstanceStatusButton({
       await updateInstance(instanceId, { status: next, ...extraFields });
       setSaved({ status: next, over: currentStatus });
       setAsking(null);
-      toast.success(returning ? "Marked as returned" : `Status: ${enumLabel(next)}`);
+      if (next === "deaccessioned" && lastHeldOf) offerBookDeaccession(lastHeldOf, () => router.refresh());
+      else toast.success(returning ? "Marked as returned" : `Status: ${enumLabel(next)}`);
       router.refresh();
       triggerActivityRefresh();
     } catch (error) {

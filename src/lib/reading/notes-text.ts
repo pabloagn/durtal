@@ -1,4 +1,5 @@
 import type { NoteEdit, NoteItem } from "@/lib/actions/reading-notes";
+import { countLabel } from "@/lib/utils/format";
 import { namesText, type NoteEdition } from "./edition-label";
 
 /*
@@ -167,9 +168,9 @@ export function noteWhereText(
   return text || null;
 }
 
-/** "12 quotes and 2 notes", "1 quote", "3 notes"; empty for none */
+/** "12 quotes and 2 notes", "1 quote", "1,203 notes"; empty for none */
 export function notesCountText(quotes: number, notes: number): string {
-  const parts = [quotes ? `${quotes} ${quotes === 1 ? "quote" : "quotes"}` : null, notes ? `${notes} ${notes === 1 ? "note" : "notes"}` : null];
+  const parts = [quotes ? countLabel(quotes, "quote") : null, notes ? countLabel(notes, "note") : null];
   return parts.filter(Boolean).join(" and ");
 }
 

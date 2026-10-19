@@ -20,6 +20,7 @@ import { notifyReviewOutcome } from "@/lib/ebooks/review-queue/feedback";
 import type { ReviewQueueRow } from "@/lib/ebooks/review-queue/types";
 import { updateInstance } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { offerBookDeaccession } from "./last-copy-toast";
 
 type InstanceWithLocation = Instance & {
   location: Location;
@@ -39,6 +40,11 @@ interface InstanceEditDialogProps {
   availableLocations: LocationOption[];
   workId?: string;
   canLinkEbook?: boolean;
+  /**
+   * This is the accessioned book's one held copy: deaccessioning it offers
+   * to deaccession the book too (SLN-1127)
+   */
+  lastHeld?: boolean;
 }
 
 function instanceToDraft(instance: InstanceWithLocation): InstanceDraft {
@@ -80,6 +86,7 @@ export function InstanceEditDialog({
   availableLocations,
   workId,
   canLinkEbook = false,
+  lastHeld = false,
 }: InstanceEditDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -174,7 +181,11 @@ export function InstanceEditDialog({
     writeLock.current = true; setIsPending(true);
     try {
       await updateInstance(instance.id, instancePayload(draft));
-      toast.success("Copy updated");
+      if (lastHeld && workId && draft.status === "deaccessioned") {
+        offerBookDeaccession(workId, () => router.refresh());
+      } else {
+        toast.success("Copy updated");
+      }
       setOpen(false);
       router.refresh();
       triggerActivityRefresh();

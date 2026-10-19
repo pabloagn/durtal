@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FavouriteToggle } from "@/components/shared/favourite-toggle";
-import { collectionCountLine } from "@/lib/collections/counts";
+import { collectionCountLine, EMPTY_COUNT_LINE } from "@/lib/collections/counts";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
@@ -74,7 +74,7 @@ export function CollectionCard({
       <CoverLetter title={collection.name} />
     </div>
   );
-  const count = collection.countLine ?? collectionCountLine(collection) ?? "Empty";
+  const count = collection.countLine ?? collectionCountLine(collection) ?? EMPTY_COUNT_LINE;
   return (
     <div className="catalogue-card group relative rounded-sm border border-glass-border bg-bg-secondary card-interactive">
       <Link
@@ -117,7 +117,8 @@ export function CollectionCard({
         )}
       </div>
 
-      {/* Names wrap in full; descriptive prose is a preview, with the full text on the collection page */}
+      {/* Names wrap in full. The description is read on the collection page:
+          on a card it could only be cut (SLN-1059) */}
       <div className="card-body">
         <CardHeading
           title={collection.name}
@@ -129,10 +130,6 @@ export function CollectionCard({
               />
             )
           }
-          // No description, no line: two blank lines read as a gap under the name
-          subtitle={collection.description || undefined}
-          subtitleLines={2}
-          subtitleClassName="lines-2 text-sm text-fg-secondary"
           action={
             collection.isFavourite === undefined ? undefined : (
               <FavouriteToggle

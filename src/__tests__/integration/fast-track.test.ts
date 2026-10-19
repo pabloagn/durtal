@@ -47,6 +47,7 @@ vi.mock("@/lib/s3/covers", () => ({
 }));
 import { computeAndStoreLayout } from "@/lib/actions/gallery-layouts";
 import { fastTrackBook } from "@/lib/actions/fast-track";
+import { bookAuthorFor } from "@/lib/catalogue/book-store";
 import { processAndUploadCover, deleteFromS3 } from "@/lib/s3/covers";
 vi.mock("@/lib/s3/client", async () => ({ S3_BUCKET: "local-test", s3: { send: (await import("../s3/cover-stage-fixture")).catalogueSend } }));
 import { mintCover, coverBucket, resetCoverBucket } from "../s3/cover-stage-fixture";
@@ -125,6 +126,22 @@ describe.skipIf(!url)("Fast Track with PostgreSQL", () => {
         .from(schema.editionPublishers)
         .where(eq(schema.editionPublishers.editionId, result.editionId)),
     ).toEqual([{ editionId: result.editionId, publisherId: house.id }]);
+  });
+  // SLN-1393 review: Fast Track kept a pasted soft hyphen or zero-width space in the
+  // title and author, and the wizard and orders in the author, unlike every other form
+  it("stores the title and author without invisible characters", async () => {
+    const result = await fastTrackBook({ authorName: "Ana\u00adïs Nin\u200b", work: { title: "Ver\u00adschwinden\ufeff" }, edition: {} });
+    expect(result.ok).toBe(true);
+    const saved = await rows();
+    expect(saved.works.map((w) => w.title)).toEqual(["Verschwinden"]);
+    expect(saved.editions.map((e) => e.title)).toEqual(["Verschwinden"]);
+    expect(saved.authors.map((a) => a.name)).toEqual(["Anaïs Nin"]);
+  });
+  it("matches a pasted author name to the clean one, as the wizard and orders do through bookAuthorFor", async () => {
+    const [nin] = await db.insert(schema.authors).values({ name: "Anaïs Nin", slug: "anais-nin" }).returning();
+    expect(await bookAuthorFor("Ana\u00adïs Nin \u200b")).toEqual({ id: nin.id, name: "Anaïs Nin", row: null });
+    const fresh = await bookAuthorFor("\u200bMarcel\u00ad Schwob");
+    expect(fresh.row).toMatchObject({ name: "Marcel Schwob", slug: "marcel-schwob" });
   });
   it("creates one work and edition with unchanged defaults, no copy, and audit events", async () => {
     const result = await fastTrackBook(minimal());

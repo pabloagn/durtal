@@ -10,8 +10,9 @@ import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { RecommenderFormDialog } from "@/components/recommenders/recommender-form-dialog";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
-import { deleteRecommender } from "@/lib/actions/catalogue-client";
+import { deleteRecommenderFromPage } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { countLabel } from "@/lib/utils/format";
 
 /** Copy / Edit / Delete for a recommender page, like the author header menu. */
 export function RecommenderActions({
@@ -40,10 +41,9 @@ export function RecommenderActions({
 
   async function remove() {
     try {
-      await deleteRecommender(recommender.id);
+      // On to the list in the action's own response (SLN-1330)
+      await deleteRecommenderFromPage(recommender.id);
       toast.success(`${recommender.name} deleted. Books kept.`);
-      router.push("/recommenders");
-      router.refresh();
     } catch (error) {
       toast.error(refusalMessage(error, "Could not delete the recommender"));
     }
@@ -53,7 +53,9 @@ export function RecommenderActions({
     <>
       {/* Edit shows its E R key, as on every detail page (SLN-967) */}
       <DetailEditButton label="Edit recommender" editKey={EDIT_KEYS.recommender} onClick={() => setEditOpen(true)} />
+      {/* Named for the recommender: a book card below has its own Actions (SLN-1123) */}
       <EntityActionMenu
+        label={`Actions for ${recommender.name}`}
         items={[
           {
             label: copied ? "Copied!" : "Copy name",
@@ -83,7 +85,7 @@ export function RecommenderActions({
         itemName={recommender.name}
         cascade={
           bookCount > 0
-            ? `This will NOT delete the ${bookCount} ${bookCount === 1 ? "book" : "books"}; it only removes this recommendation.`
+            ? `Its ${countLabel(bookCount, "book")} ${bookCount === 1 ? "stays" : "stay"} in your library; only this recommendation goes.`
             : undefined
         }
       />

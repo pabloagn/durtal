@@ -26,6 +26,8 @@ export interface NoteEdition {
   publisher: string | null;
   year: number | null;
   translators: string[];
+  /** The book's only edition: a note there needs no edition named (SLN-1096) */
+  only?: boolean;
 }
 
 /** "Edith Grossman", "A and B", "A, B and C" */
@@ -105,7 +107,10 @@ export function editionLabels(editions: LabelEdition[], workTitle: string, { lan
 export function noteEditionsOf(editions: LabelEdition[], workTitle: string): Record<string, NoteEdition> {
   const labels = editionLabels(editions, workTitle);
   return Object.fromEntries(
-    editions.map((e) => [e.id, { label: labels.get(e.id)!, title: e.title, publisher: e.publisher, year: e.year, translators: e.translators }]),
+    editions.map((e) => [
+      e.id,
+      { label: labels.get(e.id)!, title: e.title, publisher: e.publisher, year: e.year, translators: e.translators, ...(editions.length === 1 ? { only: true } : {}) },
+    ]),
   );
 }
 

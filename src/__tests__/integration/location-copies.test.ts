@@ -169,16 +169,32 @@ describe.skipIf(!url)("book copies and their locations with PostgreSQL", () => {
       expect(cache.store.size).toBe(1);
     });
 
-    it("a location holding films, paintings or bottles cannot be deleted; one with book copies takes them along", async () => {
+    it("a location that holds anything, book copies included, cannot be deleted, and says what to move (SLN-1060)", async () => {
       await holdings(office);
       await createInstance({ editionId, locationId: office });
-      await expect(deleteLocation(office)).rejects.toThrow();
+      await expect(deleteLocation(office)).rejects.toThrow(
+        "Office holds 1 book copy, 2 film copies, 1 painting and 1 perfume bottle. Move them to another location first.",
+      );
       expect((await getLocationItemCounts()).get(office)).toEqual({ copies: 1, films: 2, paintings: 1, perfumes: 1 });
 
-      await createInstance({ editionId, locationId: home });
+      const copy = await createInstance({ editionId, locationId: home });
+      await expect(deleteLocation(home)).rejects.toThrow("Home holds 1 book copy. Move it to another location first.");
+      expect(await db.select().from(schema.instances)).toHaveLength(2);
+
+      // Once empty, it goes
+      await client!.unsafe(`delete from instances where id = $1`, [copy.id]);
       await deleteLocation(home);
-      expect((await getLocationItemCounts()).has(home)).toBe(false);
+      expect((await db.select().from(schema.locations)).map((l) => l.id)).toEqual([office]);
       expect(await db.select().from(schema.instances)).toHaveLength(1);
+    });
+
+    it("the refusal crosses to the page as its reason", async () => {
+      const { deleteLocation: deleteFromPage } = await import("@/lib/actions/catalogue-ui");
+      await createInstance({ editionId, locationId: home });
+      await expect(deleteFromPage(home)).resolves.toEqual({
+        ok: false,
+        error: "Home holds 1 book copy. Move it to another location first.",
+      });
     });
   });
 

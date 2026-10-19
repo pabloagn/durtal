@@ -36,9 +36,9 @@ export function HubActions() {
 }
 
 /** The hub's header menu (SLN-455): the goal dialog and the reading rhythm setting */
-export function HubMenu({ rhythm }: { rhythm: boolean }) {
+export function HubMenu({ rhythm, goals }: { rhythm: boolean; goals: boolean }) {
   const router = useRouter();
-  const [goals, setGoals] = useState(false);
+  const [goalsOpen, setGoalsOpen] = useState(false);
   // A text button like the header's others: an icon alone would sit off the 46px title's cap height
   return (
     <>
@@ -52,12 +52,12 @@ export function HubMenu({ rhythm }: { rhythm: boolean }) {
           </button>
         }
       >
-        <DropdownMenuItem onClick={() => setGoals(true)}>Set a reading goal</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setGoalsOpen(true)}>{goals ? "Edit reading goals" : "Set a reading goal"}</DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push("/settings/reading#reading-rhythm-days")}>
           {rhythm ? "Change the reading rhythm" : "Set a reading rhythm"}
         </DropdownMenuItem>
       </DropdownMenu>
-      {goals && <LazyGoalDialog onClose={() => setGoals(false)} />}
+      {goalsOpen && <LazyGoalDialog onClose={() => setGoalsOpen(false)} editing={goals} />}
     </>
   );
 }
@@ -184,7 +184,7 @@ export function QueueStartButton({ workId, editionId, title }: { workId: string;
       data-hub-queue-start={workId}
     >
       <BookOpen aria-hidden strokeWidth={1.5} />
-      Start
+      Start reading
     </Button>
   );
 }

@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { formatMoney } from "@/lib/utils/money";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
 import { WorkCollectionsSection, loadWorkCollections } from "@/components/collections/work-collections";
 import { renderStamp } from "@/lib/activity/render-stamp";
@@ -53,7 +54,6 @@ import {
   versionName,
   type FilmCreditRole,
 } from "@/lib/catalogue/film-labels";
-import { formatPrice } from "@/lib/catalogue/perfume-labels";
 import { sourceChoices, sourceViews } from "@/lib/catalogue/source-views";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
 import type { ListSearchParams } from "@/lib/utils/pagination";
@@ -290,7 +290,7 @@ export default async function FilmPage({
             h.supplierName,
             h.venueName,
             h.acquisitionPrice !== null && h.acquisitionCurrency
-              ? formatPrice(h.acquisitionPrice, h.acquisitionCurrency)
+              ? formatMoney(h.acquisitionPrice, h.acquisitionCurrency)
               : null,
             h.condition,
             h.status === "disposed"

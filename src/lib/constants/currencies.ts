@@ -50,3 +50,21 @@ export function isSupportedCurrency(
 export function currencySymbol(code: string | null | undefined): string | null {
   return CURRENCIES.find((c) => c.code === code)?.symbol ?? null;
 }
+
+/**
+ * The currencies a price field offers: the home currency first, then the
+ * rest in their usual order. A stored code that isn't on the list stays
+ * offered, so editing a copy never drops it.
+ */
+export function currencyOptions(
+  homeCurrency: string = DEFAULT_CURRENCY,
+  current?: string | null,
+): { value: string; label: string }[] {
+  const home = CURRENCY_SELECT_OPTIONS.filter((o) => o.value === homeCurrency);
+  const rest = CURRENCY_SELECT_OPTIONS.filter((o) => o.value !== homeCurrency);
+  const kept =
+    current && !isSupportedCurrency(current)
+      ? [{ value: current, label: current }]
+      : [];
+  return [...home, ...rest, ...kept];
+}

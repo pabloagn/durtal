@@ -620,37 +620,63 @@ export async function reopenReading(input: z.input<typeof reopenReadingSchema>) 
   return { reading: fresh, message: ratingMessage };
 }
 
+/** The reading a create id already saved, or null; an id saved on another book is refused */
+async function savedReading(id: string, workId: string) {
+  const reading = await loadReading(id);
+  if (reading && reading.workId !== workId) throw new ExpectedActionError("This read was saved on another book");
+  return reading;
+}
+
 /** A read from the past, written in one step; a duplicate is named, not written */
 export async function addPastReading(input: AddPastReadingInput) {
   const data = addPastReadingSchema.parse(input);
   await requireBookWork(data.workId);
-  const [outcome] = await writeReadings(
-    [
-      {
-        workId: data.workId,
-        editionId: data.editionId,
-        instanceId: data.instanceId,
-        locationId: data.locationId,
-        format: data.format,
-        unit: data.unit,
-        totalPages: data.totalPages,
-        status: data.status,
-        startedOn: data.startedOn,
-        startedPrecision: data.startedPrecision,
-        finishedOn: data.finishedOn,
-        finishedPrecision: data.finishedPrecision,
-        rating: data.rating,
-        reviewHtml: data.reviewHtml,
-        reviewJson: data.reviewJson,
-        abandonReason: data.status === "abandoned" ? (data.reason ?? null) : null,
-        abandonNote: data.status === "abandoned" ? (data.note ?? null) : null,
-        position: data.page != null ? { page: data.page } : null,
-        bookRating: "if_none",
-        allowPossibleDuplicate: data.allowPossibleDuplicate,
-      },
-    ],
-    { source: "manual" },
-  );
+  // A resend, or a second press after a lost answer, gets the read it saved
+  const saved = data.id ? await savedReading(data.id, data.workId) : null;
+  if (saved) return { outcome: "written" as const, reading: saved };
+  let outcomes: Awaited<ReturnType<typeof writeReadings>>;
+  try {
+    outcomes = await writeReadings(
+      [
+        {
+          id: data.id,
+          workId: data.workId,
+          editionId: data.editionId,
+          instanceId: data.instanceId,
+          locationId: data.locationId,
+          format: data.format,
+          unit: data.unit,
+          totalPages: data.totalPages,
+          status: data.status,
+          startedOn: data.startedOn,
+          startedPrecision: data.startedPrecision,
+          finishedOn: data.finishedOn,
+          finishedPrecision: data.finishedPrecision,
+          rating: data.rating,
+          reviewHtml: data.reviewHtml,
+          reviewJson: data.reviewJson,
+          abandonReason: data.status === "abandoned" ? (data.reason ?? null) : null,
+          abandonNote: data.status === "abandoned" ? (data.note ?? null) : null,
+          position: data.page != null ? { page: data.page } : null,
+          bookRating: "if_none",
+          allowPossibleDuplicate: data.allowPossibleDuplicate,
+        },
+      ],
+      { source: "manual" },
+    );
+  } catch (err) {
+    // The same id saved meanwhile by a resend that overtook this one
+    const raced = data.id ? await savedReading(data.id, data.workId) : null;
+    if (raced) return { outcome: "written" as const, reading: raced };
+    throw err;
+  }
+  const [outcome] = outcomes;
+  // A resend that raced this id's first press may match that press's read as
+  // a duplicate: it is this save
+  if (outcome.outcome !== "written" && data.id) {
+    const raced = await savedReading(data.id, data.workId);
+    if (raced) return { outcome: "written" as const, reading: raced };
+  }
   if (outcome.outcome === "refused") throw new ExpectedActionError(outcome.reason ?? "This read could not be saved");
   if (outcome.outcome === "written") {
     const reading = (await loadReading(outcome.readingId!))!;
@@ -1554,6 +1580,7 @@ export async function searchBooksToRead(query: string) {
   const q = z.string().max(200).parse(query).trim();
   const { textSearchCondition } = await import("@/lib/actions/utils/text-search");
   const { ownedWorkCondition } = await import("@/lib/catalogue/holdings");
+  const { naturalOrder } = await import("@/lib/actions/utils/natural-order");
   const { readingStateSql, readCountSql, openReadingPercentSql } = await import("@/lib/reading/summary");
   const authors = sql`coalesce((select string_agg(a.name, ' ') from work_authors wa join authors a on a.id = wa.author_id where wa.work_id = w.id), '')`;
   const match = q ? textSearchCondition(sql`search_normalize(w.title || ' ' || ${authors})`, q, { fuzzy: false }) : undefined;
@@ -1567,7 +1594,7 @@ export async function searchBooksToRead(query: string) {
         (select r.id from readings r where r.work_id = w.id and r.status in ('reading','paused') limit 1) as "openReadingId",
         (select md5(to_jsonb(r)::text) from readings r where r.work_id = w.id and r.status in ('reading','paused') limit 1) as "openFingerprint"
       from works w where w.kind = 'book' ${match ? sql`and ${match}` : sql``}
-      order by ${ownedWorkCondition(sql`w.id`)} desc, search_normalize(w.title), w.id limit 20`),
+      order by ${ownedWorkCondition(sql`w.id`)} desc, ${naturalOrder(sql`search_normalize(w.title)`)}, search_normalize(w.title), w.id limit 20`),
   );
 }
 

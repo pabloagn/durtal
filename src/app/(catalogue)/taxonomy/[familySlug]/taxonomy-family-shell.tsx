@@ -673,7 +673,6 @@ export function TaxonomyFamilyShell({
           onDeleted={() => {
             toast.success(`Deleted ${family.name}`);
             router.replace("/taxonomy");
-            router.refresh();
           }}
         />
       )}

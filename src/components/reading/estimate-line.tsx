@@ -34,13 +34,21 @@ export function EstimateLine({
     </Fragment>
   ));
   return (
-    <div className={`flex items-start gap-1 text-xs text-fg-secondary ${interactive ? "pointer-coarse:min-h-11 pointer-coarse:items-center" : ""} ${className}`} data-estimate="">
-      {estimate.needsLength && onAddLength ? (
-        <button type="button" onClick={onAddLength} className={`${lines} text-left underline-offset-2 hover:text-fg-primary hover:underline pointer-coarse:min-h-11 pointer-coarse:min-w-11`}>
-          {text}
+    <div
+      className={`flex items-start gap-1 text-xs text-fg-secondary ${interactive ? "flex-wrap gap-x-2 pointer-coarse:items-center" : ""} ${className}`}
+      data-estimate=""
+    >
+      <span className={`${lines} min-w-0`}>{text}</span>
+      {/* The book page names what the control does and opens Edit reading at the field (SLN-1102) */}
+      {interactive && (
+        <button
+          type="button"
+          onClick={onAddLength}
+          className="text-left text-fg-secondary underline underline-offset-2 hover:text-fg-primary pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+          data-estimate-add=""
+        >
+          {estimate.addLength ?? "Add the page count"}
         </button>
-      ) : (
-        <span className={`${lines} min-w-0`}>{text}</span>
       )}
       {estimate.explanation && (
         <CapAligned height={24} coarseHeight={44}>

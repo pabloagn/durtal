@@ -111,51 +111,92 @@ const findingQuery = z.object({
   readyOnly: z.boolean().default(DEFAULT_QUERY.readyOnly),
   search: z.string().max(200).default(DEFAULT_QUERY.search),
   limit: z.number().int().min(1).max(10000).default(DEFAULT_QUERY.limit),
+  /** The scan the page shows: a filter change is answered from it */
+  of: z.uuid().optional(),
 });
+
+type ScannedFinding = ReturnType<typeof scanDataset>[number] & { dismissed: boolean };
+interface FullScan {
+  id: string;
+  scannedAt: string;
+  findings: ScannedFinding[];
+  recordCount: number;
+  persistenceAvailable: boolean;
+  history: Scan["history"];
+}
+/**
+ * The last full scan in this server process. A search or a filter change
+ * names the scan the page shows and is answered from it, without loading and
+ * scanning the library again (SLN-887). Opening the page, Scan library and
+ * every action scan afresh.
+ */
+let lastScan: FullScan | null = null;
+
+async function fullScan(): Promise<FullScan> {
+  const [data, [ready, decisions, historyRows]] = await Promise.all([
+    loadDataset(),
+    persistenceAvailable().then(async (ready) =>
+      ready
+        ? ([
+            ready,
+            ...(await Promise.all([
+              db
+                .execute(
+                  sql`select finding_key, fingerprint from harmonization_decisions`,
+                )
+                .then((r) =>
+                  resultRows<{ finding_key: string; fingerprint: string }>(r),
+                ),
+              db
+                .execute(
+                  sql`select id, action, label, created_at::text as "createdAt" from harmonization_operations order by created_at desc limit 50`,
+                )
+                .then((r) =>
+                  resultRows<{
+                    id: string;
+                    action: string;
+                    label: string;
+                    createdAt: string;
+                  }>(r),
+                ),
+            ])),
+          ] as const)
+        : ([ready, [], []] as const),
+    ),
+  ]);
+  const ignored = new Map(
+    decisions.map((d) => [d.finding_key, d.fingerprint]),
+  );
+  // A finding's fingerprint is read only when a decision names its key: it
+  // is worked out on first read (SLN-887)
+  const findings = scanDataset(data).map((f) => {
+    const decided = ignored.get(f.key);
+    return Object.assign(f, {
+      dismissed: decided !== undefined && decided === f.fingerprint,
+    });
+  });
+  return {
+    id: randomUUID(),
+    scannedAt: new Date().toISOString(),
+    findings,
+    recordCount: ENTITIES.reduce(
+      (n, e) => n + (data[e.table]?.length || 0),
+      0,
+    ),
+    persistenceAvailable: ready,
+    history: [...historyRows],
+  };
+}
 
 /** Scans the library and returns the counts and the first page of the findings that match the query. */
 export async function scanLibrary(input: unknown = {}): Promise<Result<Scan>> {
   return attempt(async () => {
     const query = findingQuery.parse(input);
-    const [data, [ready, decisions, historyRows]] = await Promise.all([
-      loadDataset(),
-      persistenceAvailable().then(async (ready) =>
-        ready
-          ? ([
-              ready,
-              ...(await Promise.all([
-                db
-                  .execute(
-                    sql`select finding_key, fingerprint from harmonization_decisions`,
-                  )
-                  .then((r) =>
-                    resultRows<{ finding_key: string; fingerprint: string }>(r),
-                  ),
-                db
-                  .execute(
-                    sql`select id, action, label, created_at::text as "createdAt" from harmonization_operations order by created_at desc limit 50`,
-                  )
-                  .then((r) =>
-                    resultRows<{
-                      id: string;
-                      action: string;
-                      label: string;
-                      createdAt: string;
-                    }>(r),
-                  ),
-              ])),
-            ] as const)
-          : ([ready, [], []] as const),
-      ),
-    ]);
-    const history = [...historyRows];
-    const ignored = new Map(
-      decisions.map((d) => [d.finding_key, d.fingerprint]),
-    );
-    const findings = scanDataset(data).map((f) => ({
-      ...f,
-      dismissed: ignored.get(f.key) === f.fingerprint,
-    }));
+    const scan =
+      query.of && lastScan?.id === query.of
+        ? lastScan
+        : (lastScan = await fullScan());
+    const { findings } = scan;
     const inbox = findings.filter((f) => !f.dismissed);
     const search = query.search.trim().toLowerCase();
     const matches = findings.filter(
@@ -172,9 +213,10 @@ export async function scanLibrary(input: unknown = {}): Promise<Result<Scan>> {
     );
     const readyMatches = matches.filter(isReady);
     return {
-      findings: matches.slice(0, query.limit),
+      // Plain copies, fingerprint worked out, for the page
+      findings: matches.slice(0, query.limit).map((f) => ({ ...f })),
       total: matches.length,
-      ready: readyMatches.slice(0, 20),
+      ready: readyMatches.slice(0, 20).map((f) => ({ ...f })),
       readyTotal: readyMatches.length,
       counts: {
         inbox: inbox.length,
@@ -187,15 +229,13 @@ export async function scanLibrary(input: unknown = {}): Promise<Result<Scan>> {
           ]),
         ) as Record<Category, number>,
       },
-      scannedAt: new Date().toISOString(),
-      recordCount: ENTITIES.reduce(
-        (n, e) => n + (data[e.table]?.length || 0),
-        0,
-      ),
+      scanId: scan.id,
+      scannedAt: scan.scannedAt,
+      recordCount: scan.recordCount,
       entityCount: ENTITIES.length,
       ruleCount: RULES.length,
-      persistenceAvailable: ready,
-      history,
+      persistenceAvailable: scan.persistenceAvailable,
+      history: scan.history,
     };
   });
 }

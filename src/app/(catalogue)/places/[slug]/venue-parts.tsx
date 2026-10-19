@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatMoney } from "@/lib/utils/money";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { paintingHref } from "@/components/paintings/painting-card";
 import { perfumeHref } from "@/components/perfumes/perfume-card";
@@ -14,7 +15,6 @@ import {
 } from "@/lib/catalogue/painting-labels";
 import {
   CONTAINER_LABELS,
-  formatPrice,
   formatVolume,
   formulationName,
 } from "@/lib/catalogue/perfume-labels";
@@ -220,7 +220,7 @@ export function VenueRetailPart({ retail }: { retail: VenueRetail }) {
       <ul className="space-y-2">
         {retail.rows.map((row) => {
           const offer = [
-            row.price != null && row.currency ? formatPrice(row.price, row.currency) : null,
+            row.price != null && row.currency ? formatMoney(row.price, row.currency) : null,
             row.container
               ? `${CONTAINER_LABELS[row.container].one}${row.capacityMl ? ` ${formatVolume(row.capacityMl)}` : ""}`
               : null,
@@ -284,7 +284,7 @@ export function VenueOrdersPart({ orders }: { orders: Awaited<ReturnType<typeof 
               {[
                 order.orderDate,
                 orderStatusLabel(order.status),
-                order.price != null && order.currency ? formatPrice(order.price, order.currency) : null,
+                order.price != null && order.currency ? formatMoney(order.price, order.currency) : null,
               ]
                 .filter(Boolean)
                 .join(" · ")}

@@ -16,7 +16,9 @@ export function DeleteReadingDialog({ data, row, onClose, changed }: ReadingDial
       onClose={onClose}
       title="Delete reading"
       name={`${ordinalRead(r.ordinal)} of ${data.workTitle}`}
-      description={`This deletes the reading, its ${r.sessionCount} ${r.sessionCount === 1 ? "session" : "sessions"} and its history.${keptNotesText(r.quoteCount, r.noteCount)}`}
+      description={`This deletes the reading${
+        r.sessionCount ? `, its ${r.sessionCount.toLocaleString("en-US")} ${r.sessionCount === 1 ? "session" : "sessions"} and` : " and"
+      } its history.${keptNotesText(r.quoteCount, r.noteCount)}`}
       onConfirm={async () => {
         try {
           const snapshot = await deleteReading({ readingId: r.reading.id, fingerprint: r.fingerprint });

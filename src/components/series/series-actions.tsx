@@ -13,8 +13,9 @@ import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { DetailEditButton } from "@/components/shared/detail-layout";
 import { SeriesFormDialog } from "./series-form-dialog";
 import { AddSeriesBooksDialog } from "./add-series-books-dialog";
-import { deleteSeries } from "@/lib/actions/catalogue-client";
+import { deleteSeriesFromPage } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
+import { countLabel } from "@/lib/utils/format";
 
 const ADD_EVENT = "durtal:series-add";
 
@@ -89,11 +90,10 @@ export function SeriesActions({
 
   async function remove() {
     try {
-      await deleteSeries(series.id);
+      // On to the list in the action's own response (SLN-1330)
+      await deleteSeriesFromPage(series.id);
       toast.success(`${series.title} deleted. Books kept.`);
       triggerActivityRefresh();
-      router.push("/series");
-      router.refresh();
     } catch (error) {
       toast.error(refusalMessage(error, "Could not delete the series"));
     }
@@ -150,7 +150,7 @@ export function SeriesActions({
         itemName={series.title}
         cascade={
           bookCount > 0
-            ? `This will NOT delete the ${bookCount} ${bookCount === 1 ? "book" : "books"}; they only leave the series.`
+            ? `Its ${countLabel(bookCount, "book")} ${bookCount === 1 ? "stays" : "stay"} in your library; only the series goes.`
             : undefined
         }
       />

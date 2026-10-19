@@ -119,6 +119,13 @@ async function loadNote(id: string): Promise<NoteItem | null> {
   return row ?? null;
 }
 
+/** The note a create id already saved, or null; an id saved on another book is refused */
+async function savedNote(id: string, workId: string) {
+  const note = await loadNote(id);
+  if (note && note.workId !== workId) throw new ExpectedActionError("This note was saved on another book");
+  return note;
+}
+
 async function noteOrThrow(id: string) {
   const [row] = await db.select({ ...getTableColumns(readingNotes),
     fingerprint: sql<string>`md5(to_jsonb(${readingNotes})::text)`,
@@ -206,29 +213,39 @@ async function notesEvent(workId: string, kind: NoteKind) {
 export async function createReadingNote(input: z.input<typeof createReadingNoteSchema>): Promise<NoteItem> {
   const data = createReadingNoteSchema.parse(input);
   await requireBookWork(data.workId);
+  // A resend, or a second press after a lost answer, gets the note it saved
+  const saved = data.id ? await savedNote(data.id, data.workId) : null;
+  if (saved) return saved;
   const refs = await references(data.workId, data.readingId, data.editionId);
   const page = data.page ?? null;
   const place = { page, endPage: page == null ? null : (data.endPage ?? null), pageRoman: page == null ? false : (data.pageRoman ?? false) };
   const percent = data.percent ?? pagePercent(page, place.pageRoman, refs.totalPages);
-  const id = crypto.randomUUID();
-  await withReadableErrors(() =>
-    atomic((d) => [
-      d.insert(readingNotes).values({
-        id,
-        workId: data.workId,
-        readingId: refs.reading?.id ?? null,
-        editionId: refs.editionId,
-        kind: data.kind,
-        body: data.body,
-        ...thought(data.kind, data.commentHtml, data.commentJson),
-        ...place,
-        chapter: data.chapter || null,
-        percent,
-        isFavourite: data.isFavourite ?? false,
-        source: "manual",
-      }),
-    ]),
-  );
+  const id = data.id ?? crypto.randomUUID();
+  try {
+    await withReadableErrors(() =>
+      atomic((d) => [
+        d.insert(readingNotes).values({
+          id,
+          workId: data.workId,
+          readingId: refs.reading?.id ?? null,
+          editionId: refs.editionId,
+          kind: data.kind,
+          body: data.body,
+          ...thought(data.kind, data.commentHtml, data.commentJson),
+          ...place,
+          chapter: data.chapter || null,
+          percent,
+          isFavourite: data.isFavourite ?? false,
+          source: "manual",
+        }),
+      ]),
+    );
+  } catch (err) {
+    // The same id saved meanwhile by a resend that overtook this one
+    const raced = data.id ? await savedNote(data.id, data.workId) : null;
+    if (raced) return raced;
+    throw err;
+  }
   await notesEvent(data.workId, data.kind);
   changed();
   return (await loadNote(id))!;
@@ -382,6 +399,9 @@ async function restoreNote(input: z.input<typeof noteSnapshotSchema>): Promise<N
 const IN_GROUP_ORDER = sql`(case when n.page is not null and n.page_roman then 0 when n.page is not null then 1 when n.percent is not null then 2 else 3 end),
   n.page asc nulls last, n.percent asc nulls last, n.created_at asc, n.id asc`;
 
+/** Notes added at the same time, as an import adds them: by book, then in the book's order (SLN-1096) */
+const SAME_TIME_ORDER = sql`n.work_id asc, n.page asc nulls last, n.percent asc nulls last, n.id asc`;
+
 /** A book's quotes and notes in their edition group's order (the page groups them); each with its reading's number */
 export async function getNotesForWork(workId: string): Promise<NoteItem[]> {
   const id = z.uuid().parse(workId);
@@ -441,8 +461,8 @@ export async function searchNotes(input: z.input<typeof searchNotesSchema>) {
     query.sort === "book"
       ? sql`w.title ${direction}, w.id asc, (n.edition_id is null) asc, ne.publication_year desc nulls first, ne.id asc, ${IN_GROUP_ORDER}`
       : query.sort === "relevance" && query.q && textSearchCondition(haystack, query.q)
-        ? sql`${textSearchRank(haystack, sql`left(n.body, 300)`, query.q!)} desc, n.created_at desc, n.id asc`
-        : sql`n.created_at ${direction}, n.id asc`;
+        ? sql`${textSearchRank(haystack, sql`left(n.body, 300)`, query.q!)} desc, n.created_at desc, ${SAME_TIME_ORDER}`
+        : sql`n.created_at ${direction}, ${SAME_TIME_ORDER}`;
   const offset = (query.page - 1) * query.perPage;
   const rows = noteRows<NoteWithBook & { total: number }>(
     await db.execute(sql`select ${NOTE_COLUMNS}, ${BOOK_COLUMN}, count(*) over ()::int as total
@@ -476,6 +496,7 @@ export async function getNotesFacets(workId?: string) {
   const book = workId ? z.uuid().parse(workId) : null;
   const [row] = resultRows<{
     total: number;
+    quotes: number;
     books: { id: string; title: string; count: number }[];
     authors: { id: string; name: string }[];
     years: number[];
@@ -484,6 +505,7 @@ export async function getNotesFacets(workId?: string) {
     noEdition: number;
   }>(
     await db.execute(sql`select (select count(*)::int from reading_notes) as total,
+      (select count(*)::int from reading_notes where kind = 'quote') as quotes,
       coalesce((select jsonb_agg(t order by t.name) from (select distinct a.id, a.name from reading_notes n
         join edition_contributors ec on ec.edition_id = n.edition_id and ec.role = 'translator' join authors a on a.id = ec.author_id) t), '[]'::jsonb) as translators,
       coalesce((select jsonb_agg(x.id order by x.year desc nulls first, x.id) from (select distinct e.id::text as id, e.publication_year as year
@@ -496,7 +518,7 @@ export async function getNotesFacets(workId?: string) {
       coalesce((select jsonb_agg(y.year order by y.year desc) from (select distinct extract(year from n.created_at at time zone ${appTimeZone()})::int as year
         from reading_notes n) y), '[]'::jsonb) as years`),
   );
-  if (!row) return { total: 0, books: [], authors: [], years: [], translators: [], editions: [], noEdition: 0 };
+  if (!row) return { total: 0, quotes: 0, books: [], authors: [], years: [], translators: [], editions: [], noEdition: 0 };
   const { editionIds, ...rest } = row;
   const labels = await noteEditionsFor(editionIds);
   return { ...rest, editions: editionIds.map((id) => ({ id, label: labels[id]?.label ?? "Edition" })) };

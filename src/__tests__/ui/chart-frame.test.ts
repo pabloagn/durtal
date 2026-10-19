@@ -22,13 +22,16 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function render(summary: string, step = 1) {
+const summary = "Books by year: 1826: 9 books; 1827: 9 books; 2025: 8 books";
+
+function render(brief: string | undefined, step = 1, title?: string) {
   act(() => root.render(h(ChartFrame, {
-    label: "Books by year", summary, points, step, height: 168,
+    label: "Books by year", title, brief, points, step, height: 168,
     table: { columns: ["Year", "Books"], rows: [[1826, 9], [1827, 9], [2025, 8]] },
     children: () => null,
   })));
   return {
+    figure: host.querySelector<HTMLElement>("figure")!,
     frame: host.querySelector<HTMLElement>("[data-chart-frame]")!,
     caption: host.querySelector<HTMLElement>("[data-chart-caption]")!,
     live: host.querySelector<HTMLElement>("[data-chart-live]")!,
@@ -45,8 +48,8 @@ function key(target: HTMLElement, value: string) {
 // sequence without inventing rectangles; production browser checks must still
 // prove the toggle's bounds stay fixed while the caption wraps.
 describe("chart caption and table activation", () => {
-  it.each(["Books by year", longSummary, ""])("keeps the blur caption and first pointer activation intact: %s", summary => {
-    const { frame, caption, live, toggle } = render(summary);
+  it.each(["Books by year", longSummary, ""])("keeps the blur caption and first pointer activation intact: %s", brief => {
+    const { frame, caption, live, toggle } = render(brief);
     act(() => frame.focus());
     for (const value of ["Home", "ArrowRight", "End"])
       expect(key(frame, value).defaultPrevented).toBe(true);
@@ -62,7 +65,7 @@ describe("chart caption and table activation", () => {
     // Blur must run before pointer-up: no event suppression or caption delay
     // may hide the transition that originally moved the button.
     expect(down.defaultPrevented).toBe(false);
-    expect(caption.textContent).toBe(summary);
+    expect(caption.textContent).toBe(brief);
     expect(live.textContent).toBe("2025: 8 books");
     expect(host.querySelector("[data-chart-table-toggle]")).toBe(toggle);
     expect(document.activeElement).toBe(toggle);
@@ -79,7 +82,7 @@ describe("chart caption and table activation", () => {
     act(() => toggle.click());
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(host.querySelector("[data-chart-table]")).toBeNull();
-    expect(caption.textContent).toBe(summary);
+    expect(caption.textContent).toBe(brief);
   });
 
   it("preserves step navigation, boundaries and the last live announcement on blur", () => {
@@ -95,5 +98,22 @@ describe("chart caption and table activation", () => {
     act(() => toggle.focus());
     expect(caption.textContent).toBe(longSummary);
     expect(live.textContent).toBe(points[0].text);
+  });
+
+  it("says the summary once, on the SVG: the caption shows the brief or the label, and the title names the figure (SLN-1172)", () => {
+    let { figure, caption } = render(undefined);
+    expect(caption.textContent).toBe("Books by year");
+    expect(figure.getAttribute("aria-label")).toBe("Books by year");
+    // The caption only repeats the name, so it is hidden and describes nothing
+    expect(caption.getAttribute("aria-hidden")).toBe("true");
+    expect(host.querySelector("[data-chart-frame]")!.hasAttribute("aria-describedby")).toBe(false);
+    expect(host.querySelector("[data-chart-title]")).toBeNull();
+    expect(host.textContent).not.toContain(summary);
+    ({ figure, caption } = render("23 books in all", 1, "Books finished"));
+    const title = host.querySelector<HTMLElement>("[data-chart-title]")!;
+    expect(title.textContent).toBe("Books finished");
+    expect(figure.getAttribute("aria-labelledby")).toBe(title.id);
+    expect(figure.hasAttribute("aria-label")).toBe(false);
+    expect(caption.textContent).toBe("23 books in all");
   });
 });

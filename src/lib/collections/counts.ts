@@ -2,31 +2,69 @@ import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 
 /**
+ * What a collection holds, each once, counted in SQL (`collectionTallySql`)
+ * or from its member rows: every edition, the books they belong to, and the
+ * whole works by kind except a book that also has an edition there (the
+ * edition stands for it)
+ */
+export interface MemberTally {
+  editions: number;
+  /** Books held through their editions */
+  byEdition: number;
+  /** Books held whole, with no edition of theirs there */
+  books: number;
+  films: number;
+  perfumes: number;
+  paintings: number;
+}
+
+type CountedCollection =
+  | { tally: MemberTally }
+  | {
+      tally?: undefined;
+      collectionEditions?: { edition?: { workId: string } | null }[];
+      collectionWorks?: { workId: string; work?: { kind: WorkKind } | null }[];
+    };
+
+/** A collection's tally: the one counted in SQL, else from its member rows */
+export function memberTally(collection: CountedCollection): MemberTally {
+  if (collection.tally) return collection.tally;
+  const editions = collection.collectionEditions ?? [];
+  const byEdition = new Set(editions.flatMap((m) => (m.edition ? [m.edition.workId] : [])));
+  const works = (collection.collectionWorks ?? []).filter((m) => !byEdition.has(m.workId));
+  const of = (kind: WorkKind) => works.filter((m) => (m.work?.kind ?? "book") === kind).length;
+  return {
+    editions: editions.length,
+    byEdition: byEdition.size,
+    books: of("book"),
+    films: of("film"),
+    perfumes: of("perfume"),
+    paintings: of("painting"),
+  };
+}
+
+/**
+ * An empty collection's count, in the same form as an empty series' ("0
+ * books"), so the two lists read alike side by side (SLN-1059)
+ */
+export const EMPTY_COUNT_LINE = "0 books";
+
+/**
  * What a collection holds, counted as its page shows it: every edition, and
  * every whole work except a book that also has an edition there (the edition
  * stands for it). A book collected both ways counts once.
  */
-export function collectionCounts(collection: {
-  collectionEditions?: { edition?: { workId: string } | null }[];
-  collectionWorks?: { workId: string }[];
-}) {
-  const editions = collection.collectionEditions ?? [];
-  const byEdition = new Set(editions.flatMap((m) => (m.edition ? [m.edition.workId] : [])));
-  const works = (collection.collectionWorks ?? []).filter((m) => !byEdition.has(m.workId));
-  return { editionCount: editions.length, workCount: works.length };
+export function collectionCounts(collection: CountedCollection) {
+  const t = memberTally(collection);
+  return { editionCount: t.editions, workCount: t.books + t.films + t.perfumes + t.paintings };
 }
-
-type CountedCollection = {
-  collectionEditions?: { edition?: { workId: string } | null }[];
-  collectionWorks?: { workId: string; work?: { kind: WorkKind } | null }[];
-};
 
 /**
  * A collection's one count line, the same on its card and its page: "6
  * books", "3 books · 1 perfume", "1,050 films". A book counts once, held
  * whole or through its editions; more editions than the books they hold say
  * so: "5 books (6 editions)" (SLN-915). `null` when it holds nothing, so
- * the card says "Empty" and the page leaves the line out.
+ * the card says `EMPTY_COUNT_LINE` and the page leaves the line out.
  */
 export function collectionCountLine(collection: CountedCollection) {
   const { books, editions, byEdition, kinds } = members(collection);
@@ -54,17 +92,13 @@ export function collectionMembersNoun(collection: CountedCollection) {
 
 /** What a collection holds, each once: a book collected both ways counts as its editions */
 function members(collection: CountedCollection) {
-  const editions = collection.collectionEditions ?? [];
-  const byEdition = new Set(editions.flatMap((m) => (m.edition ? [m.edition.workId] : [])));
-  const works = (collection.collectionWorks ?? []).filter((m) => !byEdition.has(m.workId));
-  const of = (kind: WorkKind) => works.filter((m) => (m.work?.kind ?? "book") === kind).length;
-  const wholeBooks = of("book");
+  const t = memberTally(collection);
   const kinds: [number, string, string][] = [
-    [of("film"), "film", "films"],
-    [of("perfume"), "perfume", "perfumes"],
-    [of("painting"), "painting", "paintings"],
+    [t.films, "film", "films"],
+    [t.perfumes, "perfume", "perfumes"],
+    [t.paintings, "painting", "paintings"],
   ];
-  return { books: byEdition.size + wholeBooks, editions: editions.length, byEdition: byEdition.size, wholeBooks, kinds };
+  return { books: t.byEdition + t.books, editions: t.editions, byEdition: t.byEdition, wholeBooks: t.books, kinds };
 }
 
 /**

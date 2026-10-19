@@ -34,23 +34,6 @@ export function formatDimensions(
 }
 
 /**
- * Format a price with optional currency prefix.
- * Returns null if price is absent.
- * e.g. ("29.99", "EUR") -> "EUR 29.99"
- * e.g. (29.99, null) -> "29.99"
- */
-export function formatPrice(
-  price: string | number | null,
-  currency?: string | null,
-): string | null {
-  if (price == null || price === "") return null;
-  const priceStr =
-    typeof price === "number" ? price.toFixed(2) : String(price);
-  if (currency) return `${currency} ${priceStr}`;
-  return priceStr;
-}
-
-/**
  * Format a date string (ISO or partial) for display.
  * Returns null if absent.
  * e.g. "2023-09-15" -> "15 September 2023"

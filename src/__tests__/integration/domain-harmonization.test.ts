@@ -29,6 +29,7 @@ vi.mock("@/lib/cache", () => ({ invalidate: vi.fn(), CACHE_TAGS: {} }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { executeMerge, previewMerge } from "@/lib/harmonization/merge";
 import { redirectMergedRecord } from "@/lib/harmonization/redirect";
+import { loadDataset } from "@/lib/harmonization/store";
 import { scanLibrary } from "@/lib/actions/harmonization";
 
 describe.skipIf(!url)("Merging films, perfumes and paintings", () => {
@@ -379,6 +380,14 @@ describe.skipIf(!url)("Merging films, perfumes and paintings", () => {
     expect(await value(`select count(*)::int from harmonization_operations`)).toBe(0);
   });
 
+  it("loads the images of books only, not of films, perfumes or paintings (SLN-887)", async () => {
+    const posterFilm = await film("Poster Film", "Some Director", 1990);
+    const book = await work("book", "Poster Book");
+    for (const id of [posterFilm.id, book.id])
+      await q(`insert into media(work_id, type, s3_key) values ($1, 'poster', $2)`, [id, `test/${id}.jpg`]);
+    const data = await loadDataset();
+    expect((data.media ?? []).map((m) => m.work_id)).toEqual([book.id]);
+  });
   it("finds duplicates by title and maker, never a remake or a linked work", async () => {
     const thing = await film("The Thing", "John Carpenter", 1982);
     const thing2 = await film("The Thing", "John Carpenter", 1982);

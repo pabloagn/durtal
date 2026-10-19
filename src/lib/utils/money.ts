@@ -6,8 +6,10 @@ export interface CurrencyTotal {
 }
 
 /**
- * Format an amount in its own currency, e.g. (285.46, "EUR") -> "€285.46".
- * Without a currency the plain number is shown; no currency is assumed.
+ * Format an amount in its own currency, e.g. (1450, "EUR") -> "€1,450.00".
+ * The one price format for every kind of thing. A code that isn't ISO 4217
+ * shows before the grouped number ("XX 1,450.00"). Without a currency the
+ * plain number is shown; no currency is assumed.
  */
 export function formatMoney(
   amount: string | number | null | undefined,
@@ -16,19 +18,17 @@ export function formatMoney(
   if (amount == null || amount === "") return "—";
   const num = typeof amount === "number" ? amount : parseFloat(amount);
   if (!Number.isFinite(num)) return "—";
-  if (!currency) {
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(num);
-  }
+  const plain = new Intl.NumberFormat("en", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  if (!currency) return plain.format(num);
   try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency,
-    }).format(num);
+    return new Intl.NumberFormat("en", { style: "currency", currency }).format(
+      num,
+    );
   } catch {
-    return `${currency} ${num.toFixed(2)}`;
+    return `${currency} ${plain.format(num)}`;
   }
 }
 

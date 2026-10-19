@@ -39,4 +39,13 @@ describe("a copy's status menu", () => {
     expect(source).toMatch(/variant="danger"[\s\S]*?disabled=\{!disposition\.date\}/);
     expect(source).toMatch(/next === "deaccessioned"\) \{\s*setDisposition[^\n]*\n\s*setAsking\("deaccessioned"\);/);
   });
+
+  it("offers to deaccession the book when its last held copy leaves, as the edit dialog does (SLN-1127)", () => {
+    const detail = readFileSync(
+      path.resolve(__dirname, "../../app/(catalogue)/library/[slug]/instance-detail.tsx"),
+      "utf8",
+    );
+    expect(source).toContain('if (next === "deaccessioned" && lastHeldOf) offerBookDeaccession(lastHeldOf, () => router.refresh());');
+    expect(detail).toContain("lastHeldOf={lastHeld && workId ? workId : null}");
+  });
 });

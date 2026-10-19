@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { cleanString } from "./helpers";
 import { VENUE_TYPES } from "@/lib/catalogue/venues";
 import { sourceUrlSchema } from "@/lib/catalogue/provenance";
 
@@ -6,7 +7,7 @@ const shortText = z.string().trim().max(500).nullable().optional();
 const longText = z.string().max(50000).nullable().optional();
 const date = z.iso.date().nullable().optional();
 const venueFields = z.strictObject({
-  name: z.string().trim().min(1).max(500),
+  name: cleanString().trim().min(1).max(500),
   type: z.enum(VENUE_TYPES),
   subtype: shortText,
   description: longText,

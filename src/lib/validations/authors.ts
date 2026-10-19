@@ -1,12 +1,12 @@
 import { z } from "zod/v4";
-import { toUpdateSchema } from "./helpers";
+import { cleanString, toUpdateSchema } from "./helpers";
 
 export const createAuthorSchema = z.object({
-  name: z.string().min(1, "Name is required").max(300),
-  sortName: z.string().max(300).nullable().optional(),
-  firstName: z.string().max(200).nullable().optional(),
-  lastName: z.string().max(200).nullable().optional(),
-  realName: z.string().max(300).nullable().optional(),
+  name: cleanString().min(1, "Name is required").max(300),
+  sortName: cleanString().max(300).nullable().optional(),
+  firstName: cleanString().max(200).nullable().optional(),
+  lastName: cleanString().max(200).nullable().optional(),
+  realName: cleanString().max(300).nullable().optional(),
   gender: z.enum(["male", "female"]).nullable().optional(),
   birthYear: z.number().int().min(-3000).max(2100).nullable().optional(),
   birthMonth: z.number().int().min(1).max(12).nullable().optional(),

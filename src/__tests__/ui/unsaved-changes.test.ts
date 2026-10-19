@@ -247,6 +247,17 @@ describe("a dialog without a draft", () => {
   });
 });
 
+describe("where a dialog starts", () => {
+  it("starts in its first field, or in the field marked data-dialog-focus (SLN-1102)", () => {
+    const fields = (mark: boolean) => [createElement("input", { id: "a", key: "a" }), createElement("input", { id: "b", key: "b", "data-dialog-focus": mark ? "" : undefined })];
+    act(() => root.render(createElement(Dialog, { open: true, onClose: () => {}, title: "Edit", children: null }, ...fields(false))));
+    expect(document.activeElement?.id).toBe("a");
+    act(() => root.render(createElement("div")));
+    act(() => root.render(createElement(Dialog, { open: true, onClose: () => {}, title: "Edit", children: null }, ...fields(true))));
+    expect(document.activeElement?.id).toBe("b");
+  });
+});
+
 function FormPage({ cancel, inner }: { cancel: () => void; inner?: () => void }) {
   const form = useRef<HTMLDivElement>(null);
   const [confirming, setConfirming] = useState(false);

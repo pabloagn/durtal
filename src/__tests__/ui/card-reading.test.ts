@@ -95,8 +95,13 @@ describe("CardReading", () => {
 
   it("keeps the card menu reader link's native default and origin destination", async () => {
     act(() => root.render(createElement(BookCard, { ...card, ebook, readerReturnTo: "/people/samuel-beckett?view=books" })));
+    // Named for its book, with the short tooltip: a page of cards has one Actions each (SLN-1123)
+    const menu = host.querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]')!;
+    expect([menu.getAttribute("aria-label"), menu.dataset.tooltip]).toEqual([`Actions for ${card.title}`, "Actions"]);
+    const copy = host.querySelector<HTMLButtonElement>('button[data-tooltip="Copy book title and author"]')!;
+    expect(copy.getAttribute("aria-label")).toBe(`Copy the title and author of ${card.title}`);
     await act(async () => {
-      host.querySelector<HTMLButtonElement>('button[aria-label="Actions"]')!.click();
+      host.querySelector<HTMLButtonElement>('button[aria-label^="Actions"]')!.click();
       await new Promise((resolve) => requestAnimationFrame(resolve));
     });
     const link = host.querySelector<HTMLAnchorElement>('a[data-reader-entry]')!;
@@ -123,7 +128,7 @@ describe("CardReading", () => {
     expect(host.querySelector('a[data-reader-entry]')).toBeNull();
     act(() => root.render(createElement(BookCard, { ...card, ebook, isSelecting: false })));
     expect(host.querySelector<HTMLElement>(".artwork-actions")!.style.display).toBe("");
-    expect(host.querySelector('button[aria-label="Actions"]')).not.toBeNull();
+    expect(host.querySelector('button[aria-label^="Actions"]')).not.toBeNull();
     expect(host.querySelector('a[data-reader-entry]')).toBeNull();
     await act(async () => {
       host.querySelector<HTMLAnchorElement>('a[href="/library/watt"]')!.dispatchEvent(

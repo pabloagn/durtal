@@ -56,7 +56,11 @@ function sentRules(v: { page?: number | null; percent?: number | null; endPage?:
 }
 
 export const createReadingNoteSchema = z
-  .object({ workId: z.uuid(), kind: z.enum(NOTE_KINDS), body, ...fields })
+  .object({
+    /** Made by the dialog when it opens: a resend or a second press saves once (SLN-1276) */
+    id: z.uuid().optional(),
+    workId: z.uuid(), kind: z.enum(NOTE_KINDS), body, ...fields,
+  })
   .strict()
   .superRefine((v, ctx) => sentRules({ ...v, page: v.page ?? null }, ctx));
 

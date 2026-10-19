@@ -187,12 +187,16 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       expect(await q(`select edition_id, pages_total from reading_sessions`)).toEqual([{ edition_id: null, pages_total: 480 }]);
     });
 
-    it("clears the copy and the home when the copy's place is deleted", async () => {
+    it("clears the home when the reading's place is deleted, once its copy has moved out", async () => {
       const workId = await book();
       const editionId = await edition(workId);
       const study = await place("Study");
-      const reading = await startReading({ workId, instanceId: await copy(editionId, study), timeZone: "UTC" });
+      const copyId = await copy(editionId, study);
+      const reading = await startReading({ workId, instanceId: copyId, timeZone: "UTC" });
       expect(reading.locationId).toBe(study);
+      // A place that still holds the copy is never deleted with it (SLN-1060)
+      await expect(deleteLocation(study)).rejects.toThrow("Study holds 1 book copy");
+      await deleteInstance(copyId);
       await deleteLocation(study);
       expect(await loadReading(reading.id)).toMatchObject({ editionId, instanceId: null, locationId: null });
     });
@@ -1285,6 +1289,37 @@ describe.skipIf(!url)("the reading tracker with PostgreSQL", () => {
       expect(first.outcome).toBe("written");
       const again = await addPastReading({ workId: past, format: "print", status: "finished", startedPrecision: "unknown", finishedOn: "2019-04-14", finishedPrecision: "day" });
       expect(again).toMatchObject({ outcome: "already_present", message: "You already logged this read: finished 14 Apr 2019" });
+    });
+
+    it("saves a past read once for a repeated id, a resend at the same time included (SLN-1276)", async () => {
+      const workId = await book("Resent read");
+      const id = "7a2e0d4c-1b3f-4e6a-8c9d-2f4b6a8c0e01";
+      // Undated, so only the id tells the second press from another read
+      const sent = { id, workId, format: "print" as const, status: "finished" as const, startedPrecision: "unknown" as const, finishedPrecision: "unknown" as const };
+      const first = await addPastReading(sent);
+      expect(first).toMatchObject({ outcome: "written", reading: { id } });
+      const again = await addPastReading(sent);
+      expect(again).toMatchObject({ outcome: "written", reading: { id } });
+      const raced = { ...sent, id: "7a2e0d4c-1b3f-4e6a-8c9d-2f4b6a8c0e02", allowPossibleDuplicate: true };
+      const [x, y] = await Promise.all([addPastReading(raced), addPastReading(raced)]);
+      expect([x.outcome, y.outcome]).toEqual(["written", "written"]);
+      expect(x.reading!.id).toBe(y.reading!.id);
+      expect(await value(`select count(*)::int from readings where work_id = $1`, [workId])).toBe(2);
+      expect(await value(`select count(*)::int from reading_status_history h join readings r on r.id = h.reading_id where r.work_id = $1`, [workId])).toBe(2);
+      await expect(addPastReading({ ...sent, workId: await book("Another") })).rejects.toThrow("This read was saved on another book");
+    });
+
+    it("never reports its own read as already logged when resends race, over many tries (SLN-1276)", async () => {
+      const workId = await book("Raced read");
+      // Dated, and without allowPossibleDuplicate: the duplicate check sees the first press's row
+      for (let n = 0; n < 20; n++) {
+        const day = `2020-01-${String(n + 1).padStart(2, "0")}`;
+        const sent = { id: crypto.randomUUID(), workId, format: "print" as const, status: "finished" as const,
+          startedOn: day, startedPrecision: "day" as const, finishedOn: day, finishedPrecision: "day" as const };
+        const results = await Promise.all([addPastReading(sent), addPastReading(sent)]);
+        for (const result of results) expect(result).toMatchObject({ outcome: "written", reading: { id: sent.id } });
+      }
+      expect(await value(`select count(*)::int from readings where work_id = $1`, [workId])).toBe(20);
     });
   });
 

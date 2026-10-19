@@ -12,7 +12,7 @@ import { BarChart } from "@/components/reading/charts/bar-chart";
 import { CalendarHeatmap } from "@/components/reading/charts/calendar-heatmap";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { Footnote, NameList, NumberTiles, hoursTile, RankList, StatsSection, audioNote } from "@/components/reading/stats-parts";
-import { getGoalProgress } from "@/lib/actions/reading-goals";
+import { getGoalProgress, hasReadingGoals } from "@/lib/actions/reading-goals";
 import { getAppSettings } from "@/lib/actions/settings";
 import { readingDay } from "@/lib/reading/dates";
 import { appTimeZone } from "@/lib/utils/date";
@@ -91,7 +91,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
       year === null ? Promise.resolve([]) : getGoalProgress(year),
     ]);
   const named = parseStatsYear(param, [Number(Array.isArray(param) ? param[0] : param)], current);
-  const [years, finished, first] = await Promise.all([statsYears(), finishedYears(), sections(named)]);
+  const [years, finished, first, hasGoals] = await Promise.all([statsYears(), finishedYears(), sections(named), hasReadingGoals(current)]);
   const year = parseStatsYear(param, years, current);
   const [numbers, months, days, rated, length, langs, authors, written, where, shelf, pile, recommenders, dropped, inputs, goals] =
     year === named ? first : await sections(year);
@@ -105,7 +105,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
         title="Reading"
         actions={
           <>
-            <GoalDialogButton />
+            <GoalDialogButton editing={hasGoals} />
             <Link href={review} className={`${buttonClass("secondary")} pointer-coarse:h-11`} data-stats-review="">
               Year in review
             </Link>
@@ -191,15 +191,27 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
               {(["books", "pages"] as const).map((metric) => {
                 // The Month unknown bar only for a metric it holds something of
                 const unknown = months.unknown && months.unknown[metric] > 0 ? months.unknown : null;
-                const bars = [...months.bars, ...(unknown ? [unknown] : [])].map((b) => ({
+                const noun = metric === "books" ? "book" : "page";
+                const when = (b: (typeof months.bars)[number]) => (b.key === null ? `Month unknown, ${year}` : year === null ? String(b.key) : `${MONTHS[b.key - 1]} ${year}`);
+                const all = [...months.bars, ...(unknown ? [unknown] : [])];
+                const bars = all.map((b) => ({
                   label: b.key === null ? "?" : year === null ? String(b.key) : MONTHS_SHORT[b.key - 1],
                   value: b[metric],
-                  text: `${b.key === null ? `Month unknown, ${year}` : year === null ? b.key : `${MONTHS[b.key - 1]} ${year}`}: ${count(b[metric], metric === "books" ? "book" : "page")}`,
+                  text: `${when(b)}: ${count(b[metric], noun)}`,
                 }));
+                // The caption before a bar has focus: the total, and the first of the highest bars when there are two to compare
+                const peak =
+                  all.filter((b) => b.key !== null && b[metric] > 0).length > 1
+                    ? all.reduce<(typeof all)[number] | null>((best, b) => (b.key !== null && b[metric] > (best?.[metric] ?? 0) ? b : best), null)
+                    : null;
+                const total = all.reduce((sum, b) => sum + b[metric], 0);
+                const title = metric === "books" ? "Books finished" : "Pages read";
                 return (
                   <BarChart
                     key={metric}
-                    label={`${metric === "books" ? "Books finished" : "Pages read"} by ${year === null ? "year" : "month"}`}
+                    title={title}
+                    brief={`${count(total, noun)} in all${peak ? `; the most in ${when(peak)}, ${count(peak[metric], noun)}` : ""}`}
+                    label={`${title} by ${year === null ? "year" : "month"}`}
                     bars={bars}
                     tone={metric === "books" ? "sage" : "blue"}
                     columns={[year === null ? "Year" : "Month", metric === "books" ? "Books" : "Pages"]}
@@ -238,7 +250,8 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                           }))}
                           columns={["Weekday", timed ? "Minutes" : "Sessions"]}
                         />
-                        <BarChart
+                        {/* Only sessions with a start time have a part of day; by hand, Log progress asks for none (SLN-1096) */}
+                        {days.partsOfDay.some((p) => p.sessions > 0) && <BarChart
                           label="Reading by time of day"
                           bars={days.partsOfDay.map((p) => ({
                             label: PARTS[p.part],
@@ -248,7 +261,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                           tone="blue"
                           columns={["Time of day", timed ? "Minutes" : "Sessions"]}
                           footnote={days.withoutStart ? `${count(days.withoutStart, "session")} with no start time ${days.withoutStart === 1 ? "is" : "are"} left out.` : undefined}
-                        />
+                        />}
                       </>
                     );
                   })()}

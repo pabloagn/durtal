@@ -1,5 +1,6 @@
 "use server";
 
+import { createOnce } from "@/lib/actions/utils/create-once";
 import { PERSON_CREDITS, bookPersonCondition } from "@/lib/catalogue/person-boundary";
 import { resultRows } from "@/lib/publishers/resolution";
 import type { WorkKind } from "@/lib/catalogue/kinds";
@@ -38,6 +39,7 @@ import { posterTone, workCardExtras, workCardWith } from "@/lib/actions/utils/wo
 import { PAGE_SIZES } from "@/lib/utils/pagination";
 import { lastReadAtSql, readCountSql, readingStateSql } from "@/lib/reading/summary";
 import { cleanBioForStorage, sanitizeDescriptionHtml, stripHtmlToText } from "@/lib/utils/sanitize";
+import { cleanText } from "@/lib/utils/clean-text";
 import { z } from "zod";
 import { mediaUrl } from "@/lib/s3/media-url";
 
@@ -623,7 +625,8 @@ export async function getCountries() {
   });
 }
 
-export async function createAuthor(input: CreateAuthorInput) {
+/** Adds a person; `options.id` is Add person's own, so a resend or a second press after a lost answer adds them once (SLN-1276) */
+export async function createAuthor(input: CreateAuthorInput, options: { id?: string } = {}) {
   const parsed = createAuthorSchema.parse(input);
 
   // Auto-generate sortName if not provided (Last, First)
@@ -643,27 +646,36 @@ export async function createAuthor(input: CreateAuthorInput) {
       : null;
 
   // The slug is decided first: the author and its slug are one statement
-  const slug = await uniqueSlug(authors, generateAuthorSlug(parsed.name));
-  const [author] = await withReadableErrors(
-    () =>
-      db
-        .insert(authors)
-        .values({ ...parsed, bio: cleanBioForStorage(parsed.bio), sortName, zodiacSign, slug })
-        .returning(),
-    { unique: SLUG_RACE_MESSAGE },
+  const { row: author, created } = await createOnce(
+    options.id,
+    async (id) => (await db.select().from(authors).where(eq(authors.id, id)))[0],
+    async (id) => {
+      const slug = await uniqueSlug(authors, generateAuthorSlug(parsed.name));
+      const [row] = await withReadableErrors(
+        () =>
+          db
+            .insert(authors)
+            .values({ ...(id ? { id } : {}), ...parsed, bio: cleanBioForStorage(parsed.bio), sortName, zodiacSign, slug })
+            .returning(),
+        { unique: SLUG_RACE_MESSAGE },
+      );
+      return row;
+    },
   );
 
-  recordActivity("author", author.id, "author.created", { newValue: parsed.name });
+  if (created) recordActivity("author", author.id, "author.created", { newValue: parsed.name });
   return author;
 }
 
 /**
  * Find an existing author by name or create a new one. The match ignores
  * accents, case and punctuation, so "Peter Nadas" reuses "Péter Nádas"
- * instead of creating a duplicate. An exact spelling wins, then the oldest.
+ * instead of creating a duplicate, and a pasted name with invisible
+ * characters reuses the clean one (SLN-1393). An exact spelling wins, then
+ * the oldest.
  */
 export async function findOrCreateAuthor(name: string) {
-  const trimmed = name.trim();
+  const trimmed = cleanText(name).trim();
   const existing = await db.query.authors.findFirst({
     where: authorNameEquals(trimmed),
     orderBy: [desc(sql`${authors.name} = ${trimmed}`), asc(authors.createdAt)],

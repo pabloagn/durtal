@@ -123,6 +123,13 @@ export async function getGoalHistory(): Promise<GoalProgress[]> {
   return goalsWithProgress(sql`g.year < ${Number(today.slice(0, 4))}`, today);
 }
 
+/** Whether a year (this one by default) has a goal: its openers say "Edit reading goals" (SLN-1096) */
+export async function hasReadingGoals(year?: number): Promise<boolean> {
+  const y = year === undefined ? Number((await readingToday()).slice(0, 4)) : goalYearSchema.parse(year);
+  const [row] = await db.select({ id: readingGoals.year }).from(readingGoals).where(sql`${readingGoals.year} = ${y}`).limit(1);
+  return !!row;
+}
+
 /** What the goal dialog needs: this year's and next year's goals, the work types and the past years */
 export async function getGoalDialogData() {
   const today = await readingToday();

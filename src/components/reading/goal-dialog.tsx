@@ -35,7 +35,7 @@ function formOf(data: Data, year: number) {
  * hours, each optional; whether re-reads count; the work types left out.
  * Then the past years, plainly. Changing a goal mid-year needs no comment.
  */
-export function GoalDialog({ onClose }: { onClose: () => void }) {
+export function GoalDialog({ onClose, editing = false }: { onClose: () => void; editing?: boolean }) {
   const router = useRouter();
   const rereadsId = useId();
   const [data, setData] = useState<Data | null>(null);
@@ -98,8 +98,10 @@ export function GoalDialog({ onClose }: { onClose: () => void }) {
     }
   }
 
+  // "Edit" once the year shown has a goal; until the goals load, as the opener said (SLN-1096)
+  const has = data && year !== null ? data.goals.some((g) => g.year === year) : editing;
   return (
-    <Dialog draft open onClose={onClose} title="Set a reading goal" description="Optional. Leave a field empty for no goal." className="max-w-lg" expandable={false}>
+    <Dialog draft open onClose={onClose} title={has ? "Edit reading goals" : "Set a reading goal"} description="Optional. Leave a field empty for no goal." className="max-w-lg" expandable={false}>
       {!data || !form || year === null ? (
         <div className="h-64" aria-busy="true" />
       ) : (
@@ -114,9 +116,11 @@ export function GoalDialog({ onClose }: { onClose: () => void }) {
             ariaLabel="Year"
           />
           <div className="grid grid-cols-3 gap-3">
-            {GOAL_METRICS.map((m) => (
+            {GOAL_METRICS.map((m, i) => (
               <Input
                 key={m}
+                // The dialog starts in the first goal, under the year (SLN-1094)
+                {...(i === 0 ? { "data-autofocus": "" } : {})}
                 label={LABELS[m]}
                 inputMode="numeric"
                 value={form.targets[m]}

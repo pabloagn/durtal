@@ -16,25 +16,32 @@ export const SOURCE_LABELS: Record<ImportSource, string> = { goodreads: "Goodrea
 
 type Reading = Pick<ImportReading, "status" | "startedOn" | "startedPrecision" | "finishedOn" | "finishedPrecision" | "rating" | "note"> & { hasReview?: boolean };
 
-/** "Finished 14 Apr 2019", "Reading, started 2 Oct", "Abandoned, dates unknown" */
+/** "Finished 14 Apr 2019", "Reading, started 2 Oct", "Abandoned, 3 to 14 Apr 2019", "Abandoned, date unknown" */
 export function readingWords(r: Reading, today: string): string {
   const span = formatReadingSpan(r, today);
   if (r.status === "reading" || r.status === "paused") {
     const label = r.status === "reading" ? "Reading" : "Paused";
     return span === "Dates unknown" ? label : `${label}, ${span.charAt(0).toLowerCase()}${span.slice(1)}`;
   }
-  if (r.status === "abandoned") return span === "Dates unknown" ? "Abandoned, date unknown" : span.replace(/^Stopped/, "Abandoned");
+  if (r.status === "abandoned") {
+    if (span === "Dates unknown") return "Abandoned, date unknown";
+    // A one-date or cross-period read has no "Stopped" to swap: "Abandoned, 3 to 14 Apr 2019" (SLN-1099)
+    return span.startsWith("Stopped ") ? span.replace(/^Stopped/, "Abandoned") : `Abandoned, ${span}`;
+  }
   return span === "Dates unknown" ? "Finished, date unknown" : span;
 }
 
-/** What the file says: the author, the latest read and the rating as the file has it */
+/**
+ * What the file says: the author, the latest read and the rating as the file
+ * has it. A rating past five stars is shown as it will be saved (SLN-955)
+ */
 export function fileLine(row: { authors: string[]; fileRating: number | null; readings: Reading[]; kind: string }, today: string): string {
   const latest = row.readings.at(-1);
   return [
     row.authors[0],
     row.kind === "to_read" ? "Want to read" : latest ? readingWords(latest, today) : null,
     row.readings.length > 1 ? `${row.readings.length} reads` : null,
-    row.fileRating !== null ? stars(row.fileRating) : null,
+    row.fileRating !== null ? stars(Math.min(row.fileRating, 5)) : null,
   ]
     .filter(Boolean)
     .join(" · ");

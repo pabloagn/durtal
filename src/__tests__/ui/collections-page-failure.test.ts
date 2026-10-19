@@ -66,4 +66,14 @@ describe("/collections when its query fails", () => {
     const html = renderToStaticMarkup(await listPart());
     expect(html).toContain("No collections yet");
   });
+
+  it("offers Clear search when a search matches nothing (SLN-845)", async () => {
+    const html = renderToStaticMarkup(await listPart({ q: "zzz", sort: "size" }));
+    expect(html).toContain("No collections found");
+    expect(html).toContain("No collections match &quot;zzz&quot;.");
+    expect(html).toContain("Clear search");
+    // Clearing keeps the sort, as on every list
+    expect(html).toContain('href="/collections?sort=size"');
+    expect(html).not.toContain("No collections yet");
+  });
 });

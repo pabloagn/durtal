@@ -147,6 +147,8 @@ describe("the note dialog", () => {
     act(() => (doc().querySelector('[data-editor="Your thought"]') as HTMLButtonElement).click());
     await submit();
     expect(actions.createReadingNote).toHaveBeenCalledWith({
+      // The dialog's own id: a resend saves this quote once (SLN-1276)
+      id: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/),
       workId: "w1",
       kind: "quote",
       body: "Beauty will be convulsive",

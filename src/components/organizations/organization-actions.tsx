@@ -11,7 +11,7 @@ import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
 import { EDIT_KEYS, editHint } from "@/lib/shortcuts/shortcuts";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 import { OrganizationDialog, type EditableOrganization } from "./organization-dialog";
-import { removeOrganization } from "@/lib/actions/catalogue-client";
+import { removeOrganizationFromPage } from "@/lib/actions/catalogue-client";
 import { refusalMessage } from "@/lib/actions/refusal";
 
 /**
@@ -70,9 +70,9 @@ export function OrganizationActions({
               blockers={blockers}
               onConfirm={async () => {
                 try {
-                  await removeOrganization(organization.id);
+                  // On to the list in the action's own response (SLN-1330)
+                  await removeOrganizationFromPage(organization.id);
                   toast.success(`${organization.name} deleted`);
-                  router.push("/organizations");
                 } catch (err) {
                   toast.error(refusalMessage(err, "Could not delete the organization"));
                 }
