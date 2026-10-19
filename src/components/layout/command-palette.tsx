@@ -749,7 +749,8 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
             )}
           </Command.List>
 
-          <div className="flex items-center gap-4 border-t border-glass-border px-4 py-2 text-micro text-fg-secondary">
+          {/* Key hints only with a mouse or trackpad: a touch screen has no keys (SLN-1149) */}
+          <div className="hidden items-center gap-4 border-t border-glass-border px-4 py-2 text-micro text-fg-secondary pointer-fine:flex">
             <span className="flex items-center gap-1.5">
               <Kbd>↑</Kbd>
               <Kbd>↓</Kbd>
@@ -783,7 +784,11 @@ function PaletteRow({
     <Command.Item value={value} onSelect={onSelect} className={ITEM_CLASS}>
       <RowIcon icon={item.icon} />
       <span className={LABEL_CLASS}>{item.label}</span>
-      {item.keys && <KeyCombo keys={item.keys} then={item.then} />}
+      {item.keys && (
+        <span className="hidden pointer-fine:contents">
+          <KeyCombo keys={item.keys} then={item.then} />
+        </span>
+      )}
     </Command.Item>
   );
 }

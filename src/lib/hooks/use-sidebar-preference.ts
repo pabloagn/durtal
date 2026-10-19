@@ -4,7 +4,9 @@ import { useSyncExternalStore } from "react";
 import { usePreference } from "./use-preference";
 import { SIDEBAR, sidebarExpandedWidth, sidebarWidth } from "@/lib/preferences";
 
-const COMPACT_QUERY = "(min-width: 768px) and (max-width: 800px)";
+// A narrow tablet, or a phone held sideways (touch on a short screen, SLN-1149)
+const COMPACT_QUERY =
+  "(min-width: 768px) and (max-width: 800px), (min-width: 768px) and (pointer: coarse) and (max-height: 600px)";
 function subscribe(onChange: () => void) {
   const query = window.matchMedia(COMPACT_QUERY);
   query.addEventListener("change", onChange);
@@ -13,7 +15,7 @@ function subscribe(onChange: () => void) {
 const compactSnapshot = () => window.matchMedia(COMPACT_QUERY).matches;
 const serverSnapshot = () => false;
 
-/** The rail on tablets defaults closed; an explicit choice overrides it on this browser. */
+/** The rail on tablets and sideways phones defaults closed; an explicit choice overrides it on this browser. */
 export function useSidebarPreference() {
   const compact = useSyncExternalStore(subscribe, compactSnapshot, serverSnapshot);
   const [stored, setStored] = usePreference<number>(SIDEBAR.key, SIDEBAR.expanded);

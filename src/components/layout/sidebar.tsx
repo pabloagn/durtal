@@ -171,10 +171,10 @@ export function Sidebar({
             <Search className="mx-auto h-3.5 w-3.5" strokeWidth={1.5} />
           </CapAligned>
           <span className={`min-w-0 truncate ${isCollapsed ? "md:invisible" : ""}`}>Search...</span>
-          {/* A phone has no keyboard shortcut */}
+          {/* A touch screen has no keyboard shortcut, held sideways too (SLN-1149) */}
           <kbd
             className={`ml-auto hidden font-mono text-micro text-fg-secondary ${
-              isCollapsed ? "" : "md:inline"
+              isCollapsed ? "" : "md:pointer-fine:inline"
             }`}
           >
             <span className="text-micro">&#8984;</span>K

@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* A phone held sideways: touch on a short screen (SLN-1149). Its first screen
+   is for records, so it takes the icon rail and the phone's sort menu */
+@custom-variant sideways (@media (pointer: coarse) and (max-height: 600px));
+
 /* ==========================================================================
    Durtal — Design Tokens
    ========================================================================== */

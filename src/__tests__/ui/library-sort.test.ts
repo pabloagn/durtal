@@ -99,6 +99,9 @@ describe("books sort controls", () => {
     })));
     expect(host.querySelectorAll("button[aria-pressed]")).toHaveLength(5);
     expect(host.querySelector('select[aria-label="Sort by"]')!.className).toContain("sm:hidden");
+    // A phone held sideways gets the menu too, so its first screen holds records (SLN-1149)
+    expect(host.querySelector('select[aria-label="Sort by"]')!.className).toContain("sideways:inline-block");
+    for (const chip of host.querySelectorAll("button[aria-pressed]")) expect(chip.className).toContain("sideways:hidden");
   });
 
   it("preserves the existing URL behaviour for other lists", () => {
