@@ -1,8 +1,8 @@
-import { and, asc, count, desc, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, count, countDistinct, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { authors, editions, instances, workAuthors, works } from "@/lib/db/schema";
+import { editions, instances, workAuthors, works } from "@/lib/db/schema";
 import { bookCondition } from "@/lib/catalogue/book-boundary";
-import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
+import { WORK_AUTHOR_ROLES } from "@/lib/types";
 import { alphabeticalWorkIds } from "@/lib/actions/utils/alphabetical-works";
 import { posterTone, readingExtras } from "@/lib/actions/utils/work-card-query";
 import { compareWorks } from "@/lib/utils/title-order";
@@ -87,7 +87,11 @@ export function libraryStatsReads({ shelf = 8 }: { shelf?: number } = {}) {
     db.select({ count: count() }).from(works).where(bookCondition),
     db.select({ count: count() }).from(editions),
     db.select({ count: count() }).from(instances),
-    db.select({ count: count() }).from(authors).where(bookPersonCondition),
+    // People who wrote a book, as Statistics counts them: a person with no
+    // book yet isn't one (SLN-1184)
+    db.select({ count: countDistinct(workAuthors.authorId) }).from(workAuthors)
+      .innerJoin(works, eq(works.id, workAuthors.workId))
+      .where(and(bookCondition, inArray(workAuthors.role, [...WORK_AUTHOR_ROLES]))),
     // Recent additions
     db.query.works.findMany({
       where: bookCondition,

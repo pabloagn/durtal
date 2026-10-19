@@ -53,7 +53,7 @@ describe("the Pages tile", () => {
 
   it("is the same on the dashboard's statistics", () => {
     const source = readFileSync(path.resolve(__dirname, "../../components/statistics/dashboard-statistics.tsx"), "utf8");
-    expect(source).toContain('numbers.pages > 0 ? { label: "Pages on your shelves", value: n(numbers.pages) } : { label: "No page counts yet", value: "\\u2014" }');
+    expect(source).toContain('libraryTile("pages", numbers, "Pages on your shelves")');
   });
 });
 

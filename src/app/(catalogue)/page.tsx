@@ -10,6 +10,7 @@ import {
 } from "@/lib/actions/collections";
 import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import {
+  catalogueIsEmpty,
   loadDomainCounts,
   loadRecentTiles,
   type HomeKind,
@@ -38,6 +39,7 @@ import { appTimeZone } from "@/lib/utils/date";
 import { PhonePairGrid } from "@/components/shared/phone-pair-grid";
 import { DashboardStatistics, statisticsReads } from "@/components/statistics/dashboard-statistics";
 import { Dateline } from "@/components/shared/dateline";
+import { EmptyCatalogue } from "@/components/domains/empty-catalogue";
 import { formatDateline } from "@/lib/utils/dateline";
 
 // The root layout's title template skips a page in its own segment
@@ -243,6 +245,11 @@ async function otherDomains() {
   );
 }
 
+/** The header's Add; the empty catalogue's own state carries it instead */
+async function HeaderAdd() {
+  return (await catalogueIsEmpty()) ? null : <DomainAddLink kind="book" size="md" />;
+}
+
 async function DashboardContent() {
   // Each read starts once what it needs is in, not when every read above is:
   // two round trips in all, Statistics' own reads among them (SLN-795)
@@ -255,8 +262,10 @@ async function DashboardContent() {
       .sort((a, b) => Number(a.reading.status === "paused") - Number(b.reading.status === "paused"))
       .slice(0, 3),
   );
-  const [library, wantedWorks, others, collections, currentReads, finishedReads, digital, covers, authorCovers, personRoles, estimates, goal] =
+  // Read beside the rest, not before it: the page's reads stay two round trips
+  const [empty, library, wantedWorks, others, collections, currentReads, finishedReads, digital, covers, authorCovers, personRoles, estimates, goal] =
     await Promise.all([
+      catalogueIsEmpty(),
       statsRead,
       wanted,
       otherDomains(),
@@ -278,6 +287,7 @@ async function DashboardContent() {
         return progress ? { progress, serverToday: today, dayStartHour } : null;
       }),
     ]);
+  if (empty) return <EmptyCatalogue />;
   const stats = { ...library, wantedWorks };
   // Newest first across the open collections
   const recent = [
@@ -397,7 +407,9 @@ export default function DashboardPage() {
         description={<Dateline initial={formatDateline(new Date(), appTimeZone())} />}
         actions={
           // No Import: importing books is not built yet (SLN-832)
-          <DomainAddLink kind="book" size="md" />
+          <Suspense fallback={<DomainAddLink kind="book" size="md" />}>
+            <HeaderAdd />
+          </Suspense>
         }
       />
       <Suspense
