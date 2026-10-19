@@ -18,6 +18,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { SkeletonBlock } from "@/components/shared/skeleton";
 import { BookCard } from "@/components/books/book-card";
 import { CollectionCard } from "@/components/collections/collection-card";
+import { collectionCardIcon } from "@/components/collections/collection-icon";
 import { DomainAddLink } from "@/components/domains/domain-add-link";
 import { DomainTileCard } from "@/components/domains/domain-tile";
 import { mediaCrop } from "@/lib/utils/media-style";
@@ -333,6 +334,7 @@ async function DashboardContent() {
               covers={covers
                 .filter((preview) => preview.collectionId === collection.id)
                 .map((preview) => preview.s3Key)}
+              icon={collectionCardIcon(collection.icon)}
             />
           ))}
         </PhonePairGrid>

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { icons, type LucideProps } from "lucide-react";
 
 /**
@@ -15,4 +16,9 @@ export function CollectionIcon({
       : null;
   if (!Glyph) return null;
   return <Glyph strokeWidth={1.5} aria-hidden="true" {...props} />;
+}
+
+/** The icon beside a collection card's name, or nothing */
+export function collectionCardIcon(icon: string | null | undefined): ReactNode {
+  return icon ? <CollectionIcon icon={icon} className="block h-4 w-4 text-fg-secondary" /> : null;
 }

@@ -22,6 +22,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { EmptyIndex } from "@/components/shared/empty-index";
 import { CreateCollectionDialog } from "./create-collection-dialog";
 import { CollectionsView, CollectionsViewSwitcher } from "@/components/collections/collections-view";
+import { collectionCardIcon } from "@/components/collections/collection-icon";
 
 export const metadata = { title: "Collections" };
 
@@ -93,6 +94,7 @@ async function CollectionsContent({
           covers: previews
             .filter((p) => p.collectionId === collection.id)
             .map((p) => p.s3Key),
+          icon: collectionCardIcon(collection.icon),
         }))}
       />
     </PaginatedSection>

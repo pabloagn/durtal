@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { HorizontalCarousel } from "@/components/shared/horizontal-carousel";
 import { CollectionCard, collectionPoster } from "@/components/collections/collection-card";
+import { collectionCardIcon } from "@/components/collections/collection-icon";
 import { getCollectionCoverPreviews, getCollectionsForWork } from "@/lib/actions/collections";
 
 type WorkCollection = Awaited<ReturnType<typeof getCollectionsForWork>>[number];
@@ -38,6 +39,7 @@ export function WorkCollectionsSection({
             <CollectionCard
               collection={collection}
               covers={covers.filter((p) => p.collectionId === collection.id).map((p) => p.s3Key)}
+              icon={collectionCardIcon(collection.icon)}
               footer={footer?.(collection)}
             />
           </div>

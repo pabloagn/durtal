@@ -5,7 +5,6 @@ import type { WorkKind } from "@/lib/catalogue/kinds";
 import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { ImageAdjustButton } from "@/components/media/image-adjustment-editor";
 import { mediaCrop, mediaImageStyle } from "@/lib/utils/media-style";
-import { CollectionIcon } from "./collection-icon";
 import { CardHeading } from "@/components/shared/card-heading";
 import { CountParts } from "./count-parts";
 import { FadeImage } from "@/components/shared/fade-image";
@@ -59,9 +58,15 @@ export function collectionBackground(media: ArtworkRow[] | undefined) {
 export function CollectionCard({
   collection,
   covers = [],
+  icon,
   footer,
 }: {
   collection: CollectionCardData;
+  /**
+   * The collection's icon, drawn on the server (`collectionCardIcon`): the
+   * icon set stays out of a client page's bundle, as /collections' view is
+   */
+  icon?: React.ReactNode;
   /** Member cover keys (first four), used only without a poster */
   covers?: string[];
   /** Short text in the info row, e.g. which of the book's editions it holds */
@@ -121,14 +126,7 @@ export function CollectionCard({
       <div className="card-body">
         <CardHeading
           title={collection.name}
-          icon={
-            collection.icon && (
-              <CollectionIcon
-                icon={collection.icon}
-                className="block h-4 w-4 text-fg-secondary"
-              />
-            )
-          }
+          icon={icon || undefined}
           // No description, no line: two blank lines read as a gap under the name
           subtitle={collection.description || undefined}
           subtitleLines={2}

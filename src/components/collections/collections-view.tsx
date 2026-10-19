@@ -47,7 +47,8 @@ export function CollectionsViewSwitcher() {
 export function CollectionsView({
   collections,
 }: {
-  collections: { collection: CollectionCardData; covers: string[] }[];
+  /** Each card's icon comes drawn from the server, so the icon set stays off this page */
+  collections: { collection: CollectionCardData; covers: string[]; icon?: React.ReactNode }[];
 }) {
   const [view] = useCollectionsView();
   const [size] = useCollectionsSize();
@@ -80,8 +81,8 @@ export function CollectionsView({
   return (
     <div className="@container">
       <div data-catalogue-grid="" data-grid-density={size} className={`grid gap-4 ${COL_CLASSES[size] ?? COL_CLASSES[GRID.fallback]}`}>
-        {collections.map(({ collection, covers }) => (
-          <CollectionCard key={collection.id} collection={collection} covers={covers} />
+        {collections.map(({ collection, covers, icon }) => (
+          <CollectionCard key={collection.id} collection={collection} covers={covers} icon={icon} />
         ))}
       </div>
     </div>
