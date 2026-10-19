@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { Package, Truck, Wallet, CalendarDays, ChevronRight } from "lucide-react";
 import {
@@ -40,6 +40,17 @@ import { StatCard, PipelineOrderCard, PipelineColumn } from "./pipeline";
 
 export type { OrderItem, ProvenanceStats } from "./order-model";
 
+/** From lg the order's panel stands beside the board; under it, as a sheet over the board */
+const WIDE = "(min-width: 1024px)";
+const onWideChange = (change: () => void) => {
+  const query = window.matchMedia(WIDE);
+  query.addEventListener("change", change);
+  return () => query.removeEventListener("change", change);
+};
+
+/** Focus an order's card on the board or in a list, by its id */
+const orderCard = (id: string) => document.querySelector<HTMLElement>(`[data-order-card="${CSS.escape(id)}"]`);
+
 interface ProvenanceShellProps {
   activeOrders: OrderItem[];
   stats: ProvenanceStats;
@@ -50,6 +61,37 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
   const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
   const [draggedOrder, setDraggedOrder] = useState<OrderItem | null>(null);
   const [optimisticOrders, setOptimisticOrders] = useState(activeOrders);
+  // A phone's or a narrow window's board is too narrow to share: the panel
+  // covers it, and the board is out of reach until the panel closes (SLN-1118)
+  const wide = useSyncExternalStore(onWideChange, () => window.matchMedia(WIDE).matches, () => true);
+  const sheet = selectedOrder !== null && !wide;
+
+  // Where the focus goes once the panel has gone and the board is no longer
+  // inert: focused sooner, a card under a sheet refuses it
+  const refocus = useRef<(() => HTMLElement | null) | null>(null);
+  useEffect(() => {
+    if (selectedOrder || !refocus.current) return;
+    refocus.current()?.focus({ preventScroll: !wide });
+    refocus.current = null;
+  }, [selectedOrder, wide]);
+
+  // Closing the panel hands the focus back to its order's card
+  function closeOrder() {
+    const id = selectedOrder?.id;
+    if (id) refocus.current = () => orderCard(id);
+    setSelectedOrder(null);
+  }
+
+  // A deleted order's card goes: the focus moves to the next card, else the
+  // one before, else New order (SLN-1118); it fell to the page body
+  function orderDeleted() {
+    const id = selectedOrder?.id;
+    const cards = [...document.querySelectorAll<HTMLElement>("[data-order-card]")];
+    const at = cards.findIndex((card) => card.dataset.orderCard === id);
+    const next = cards[at + 1] ?? cards[at - 1];
+    refocus.current = () => next ?? document.querySelector<HTMLElement>('[data-focus-empty="orders"]');
+    setSelectedOrder(null);
+  }
 
   // Sync optimistic state with server data
   useEffect(() => {
@@ -183,7 +225,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
   return (
     <div className="flex gap-6">
       {/* Main content */}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1" inert={sheet}>
         {/* KPI Stats: one column on a phone, where a total in euros is wider than half the screen */}
         <div className="mb-8 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:grid-cols-4">
           <StatCard
@@ -268,6 +310,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
                   <button
                     key={order.id}
                     type="button"
+                    data-order-card={order.id}
                     onClick={() => setSelectedOrder(order)}
                     className="flex w-full items-center gap-3 rounded-sm border border-glass-border bg-bg-secondary/60 px-4 py-3 text-left transition-all hover:border-fg-muted/15 hover:bg-bg-secondary"
                   >
@@ -330,6 +373,7 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
                   <button
                     key={order.id}
                     type="button"
+                    data-order-card={order.id}
                     onClick={() => setSelectedOrder(order)}
                     className="flex w-full items-center gap-3 rounded-sm border border-glass-border bg-bg-secondary/60 px-4 py-3 text-left transition-all hover:border-fg-muted/15 hover:bg-bg-secondary"
                   >
@@ -391,15 +435,19 @@ export function ProvenanceShell({ activeOrders, stats }: ProvenanceShellProps) {
         )}
       </div>
 
-      {/* Detail panel */}
-      {selectedOrder && (
-        <div className="sticky top-6 h-[calc(100vh-6rem)] w-80 shrink-0 overflow-hidden rounded-sm border border-glass-border bg-bg-secondary shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-          <OrderDetailPanel
-            order={selectedOrder}
-            onClose={() => setSelectedOrder(null)}
-          />
-        </div>
-      )}
+      {/* Detail panel: beside the board from lg; under it, a sheet over the
+          board below the phone's bar, where beside it the board was 8px wide
+          at 390 and the panel ran past the screen at 320 (SLN-1118) */}
+      {selectedOrder &&
+        (wide ? (
+          <div className="sticky top-6 h-[calc(100vh-6rem)] w-80 shrink-0 overflow-hidden rounded-sm border border-glass-border bg-bg-secondary shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+            <OrderDetailPanel order={selectedOrder} onClose={closeOrder} onDeleted={orderDeleted} />
+          </div>
+        ) : (
+          <div className="glass fixed inset-x-0 bottom-0 top-12 z-30 overflow-hidden rounded-none! md:left-(--sidebar-w) md:top-0" data-order-sheet="">
+            <OrderDetailPanel order={selectedOrder} onClose={closeOrder} onDeleted={orderDeleted} takeFocus />
+          </div>
+        ))}
     </div>
   );
 }

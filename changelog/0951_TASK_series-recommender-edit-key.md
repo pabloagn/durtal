@@ -14,7 +14,7 @@ Every detail page shows an Edit button whose tooltip names its E-then-letter key
 ## Implementation Details
 
 - `src/components/series/series-actions.tsx` and `src/app/(catalogue)/recommenders/[id]/recommender-actions.tsx`: the shared `DetailEditButton` ("Edit series", "Edit recommender", with `EDIT_KEYS`) sits before the Actions menu, as on a book, a person or a collection.
-- The loading screens draw the wider controls: a series' block is 257px (281px on touch) and moves under the title below a 688px row, where a twenty-letter title already wraps it; a recommender's is 133px (157px on touch) and moves under the name below 480px.
+- The loading screens draw the wider controls: a series' block is 261px (285px on touch), with Add books at the default size beside the bordered Edit, and moves under the title below a 688px row, where a twenty-letter title already wraps it; a recommender's is 133px (157px on touch) and moves under the name below 480px.
 - Test: `src/__tests__/ui/series-recommender-edit-key.test.ts`.
 
 ## Completion Notes

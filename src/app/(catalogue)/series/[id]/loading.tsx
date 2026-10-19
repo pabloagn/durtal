@@ -23,7 +23,7 @@ export default function SeriesLoading() {
             <SkeletonLine titleLength="short" className="type-page-title w-full min-w-0 @min-[43rem]:w-1/2" />
             <div className="shrink-0 @min-[43rem]:ml-auto">
               <DetailControls>
-                <SkeletonBlock className="h-8 w-[257px] pointer-coarse:h-11 pointer-coarse:w-[281px]" />
+                <SkeletonBlock className="h-8 w-[261px] pointer-coarse:h-11 pointer-coarse:w-[285px]" />
               </DetailControls>
             </div>
           </div>

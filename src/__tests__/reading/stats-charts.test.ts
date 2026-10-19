@@ -14,6 +14,7 @@ import {
   shade,
   ticks,
   yearRhythm,
+  yearRhythmText,
 } from "@/lib/reading/charts";
 import { MIN_GROUP, insights, meaningful } from "@/lib/reading/insights";
 import type { InsightInputs } from "@/lib/reading/stats";
@@ -105,6 +106,22 @@ describe("the calendar", () => {
     const days = ["2026-01-05", "2026-01-06", "2026-01-07", "2026-01-12", "2026-01-12", "2025-12-31", "2027-01-01"];
     expect(yearRhythm(days, 2026, 1, 3)).toEqual({ weeks: 53, weeksRead: 2, kept: 1 });
     expect(yearRhythm(days, 2026, 1, null)).toEqual({ weeks: 53, weeksRead: 2, kept: null });
+  });
+
+  it("counts the current year's weeks only up to today, and a past year's in full (SLN-923)", () => {
+    const days = ["2026-01-05", "2026-01-06", "2026-01-07", "2026-10-12"];
+    // 16 October 2026, weeks from Monday: 1 January's week is the first, 16 October's the 42nd
+    expect(yearRhythm(days, 2026, 1, 3, "2026-10-16")).toEqual({ weeks: 42, weeksRead: 2, kept: 1 });
+    expect(yearRhythm(days, 2026, 7, 3, "2026-10-16")).toEqual({ weeks: 42, weeksRead: 2, kept: 1 });
+    expect(yearRhythm(days, 2026, 1, 3, "2026-01-01")).toEqual({ weeks: 1, weeksRead: 0, kept: 0 });
+    expect(yearRhythm(["2025-03-03"], 2025, 1, 1, "2026-10-16")).toEqual(yearRhythm(["2025-03-03"], 2025, 1, 1));
+    expect(yearRhythm(["2025-03-03"], 2025, 1, 1, "2026-10-16").weeks).toBe(53);
+  });
+
+  it("says the year's rhythm with the right plurals (SLN-923)", () => {
+    expect(yearRhythmText(61, { weeks: 42, weeksRead: 22, kept: 22 }, 1)).toBe("You read on 61 days, in 22 of 42 weeks; 22 weeks had 1 reading day or more.");
+    expect(yearRhythmText(1, { weeks: 53, weeksRead: 1, kept: 1 }, 3)).toBe("You read on 1 day, in 1 of 53 weeks; 1 week had 3 reading days or more.");
+    expect(yearRhythmText(1, { weeks: 1, weeksRead: 1, kept: null }, 3)).toBe("You read on 1 day, in 1 of 1 week.");
   });
 });
 

@@ -79,7 +79,7 @@ describe("palette eBook adapters", () => {
   it.each(["metaKey", "ctrlKey"])("opens the selected book's eligible file with %s+Enter using a document navigation", async (modifier) => {
     const assign = vi.spyOn(window.location, "assign").mockImplementation(() => {});
     await open(); const input = await search();
-    expect(host.querySelector('[aria-label="Read Watt"]')).not.toBeNull();
+    expect(host.querySelector('a[data-reader-entry][aria-hidden="true"]')).not.toBeNull();
     act(() => { input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", [modifier]: true, bubbles: true, cancelable: true })); });
     const href = assign.mock.calls[0]?.[0];
     expect(typeof href).toBe("string");

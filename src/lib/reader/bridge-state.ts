@@ -59,6 +59,7 @@ export function createReaderBridge(
   let selectionCapture: SelectionCapture | null = null;
   const captures = new WeakMap<ReaderSelection, { current(): boolean; clear(): void }>();
   const leaving = new Set<() => Promise<unknown>>();
+  let jumper: ((percent: number) => Promise<boolean>) | null = null;
   return {
     bus,
     start: controllers.start,
@@ -107,6 +108,16 @@ export function createReaderBridge(
     registerLeave(hook: () => Promise<unknown>) {
       leaving.add(hook);
       return () => { leaving.delete(hook); };
+    },
+    /** The reader's own jump to a share of the book, for a plug-in that offers
+     * one, such as the logged place (SLN-931). The host registers it. */
+    registerJump(handler: (percent: number) => Promise<boolean>) {
+      jumper = handler;
+      return () => { if (jumper === handler) jumper = null; };
+    },
+    /** Resolves false when the reader is not ready or cannot go there */
+    jump(percent: number): Promise<boolean> {
+      return jumper ? jumper(percent) : Promise.resolve(false);
     },
     /** Never holds the reader for longer than `limit` ms, and never throws. */
     async leave(limit = 2000) {

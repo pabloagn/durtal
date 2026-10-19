@@ -2,7 +2,7 @@
 
 import { AddToCollectionDialog } from "./add-to-collection-dialog";
 import { MarkReadDialog } from "./mark-read-dialog";
-import { BULK_DELETE_CASCADE } from "./delete-cascade";
+import { workDeleteCascadeMessage, workDeleteFallback } from "@/lib/catalogue/delete-cascade";
 import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tag, Signal, Star, Stamp, FolderPlus, ListPlus, BookCheck } from "lucide-react";
@@ -18,7 +18,8 @@ import {
   SelectionToolbar,
   type SelectionToolbarProps,
 } from "@/components/shared/selection-toolbar";
-import { deleteWork, updateWork } from "@/lib/actions/works";
+import { getWorkDeleteSummary, updateWork } from "@/lib/actions/works";
+import { deleteWork } from "@/lib/actions/catalogue-client";
 import { bulkUpdateHuntAssessment } from "@/lib/actions/hunting";
 import { localToday } from "@/lib/constants/hunting";
 import { setFavourites } from "@/lib/actions/favourites";
@@ -134,6 +135,11 @@ export function BulkActionToolbar({
   ][];
 
 
+  async function summarizeDelete(ids: string[]) {
+    const summary = await getWorkDeleteSummary(ids);
+    return { cascade: workDeleteCascadeMessage(summary), refusal: summary.refusal };
+  }
+
   return (
     <>
       <SelectionToolbar
@@ -141,7 +147,8 @@ export function BulkActionToolbar({
         names={selectedTitles}
         noun={["work", "works"]}
         deleteOne={deleteWork}
-        cascade={BULK_DELETE_CASCADE}
+        cascade={workDeleteFallback(true)}
+        summarize={summarizeDelete}
         busy={isUpdating}
       >
         {(isDeleting) => (

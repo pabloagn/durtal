@@ -12,16 +12,28 @@ import { breakdown, busiestYears, libraryNumbers, writtenYears } from "@/lib/sta
  * dashboard does not show elsewhere, the year with the most books as its
  * covers, and when the books were written. The
  * dashboard draws the section around it (its rule, the "Statistics" heading
- * and View all, to /statistics). Self-contained: it loads in its own
- * Suspense boundary, so the rest of the dashboard never waits for it.
+ * and View all, to /statistics). It loads in its own Suspense boundary, so
+ * the rest of the dashboard never waits for it, and its reads start with the
+ * dashboard's first ones (`statisticsReads`), not once the sections above it
+ * are in (SLN-795).
  */
 
 const CHART_HEIGHT = 140;
 
-async function Content() {
-  const [numbers, written, split] = await Promise.all([libraryNumbers(), writtenYears(), breakdown()]);
+/** The section's reads, started at once: two round trips, the busiest year's covers after the years */
+export function statisticsReads() {
+  const written = writtenYears();
+  const reads = Promise.all([libraryNumbers(), written, breakdown(), written.then((found) => busiestYears(found.years, 1))]);
+  // Read by the section once it draws; a dashboard that fails before that leaves no unhandled rejection
+  reads.catch(() => {});
+  return reads;
+}
+
+type StatisticsReads = ReturnType<typeof statisticsReads>;
+
+async function Content({ reads }: { reads: StatisticsReads }) {
+  const [numbers, written, split, [busiest]] = await reads;
   if (numbers.books === 0) return <p className="text-sm text-fg-secondary">No books on your shelves yet.</p>;
-  const [busiest] = await busiestYears(written.years, 1);
   return (
     <div className="space-y-6" data-dashboard-statistics="">
       <NumberTiles
@@ -61,10 +73,10 @@ function Pending() {
   );
 }
 
-export function DashboardStatistics() {
+export function DashboardStatistics({ reads }: { reads: StatisticsReads }) {
   return (
     <Suspense fallback={<Pending />}>
-      <Content />
+      <Content reads={reads} />
     </Suspense>
   );
 }
