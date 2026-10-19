@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { X, ArrowRight } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { triggerActivityRefresh } from "@/lib/activity/refresh-event";
 import { useAuthorSearch, type AuthorOption } from "@/hooks/use-author-search";
@@ -186,8 +186,8 @@ export function AuthorMergeDialog({
           </p>
         )}
 
-        {/* Actions */}
-        <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+        {/* Under the dialog's body and always in view (SLN-1056) */}
+        <DialogFooter>
           <Button data-dismiss=""
             variant="secondary"
             size="sm"
@@ -207,7 +207,7 @@ export function AuthorMergeDialog({
           >
             {`Merge ${sourceIds.length > 0 ? sourceIds.length : ""} ${sourceIds.length === 1 ? "person" : sourceIds.length > 1 ? "people" : ""}`.trim()}
           </Button>
-        </div>
+        </DialogFooter>
       </div>
     </Dialog>
   );

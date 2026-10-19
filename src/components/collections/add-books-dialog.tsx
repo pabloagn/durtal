@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/notifications/toast";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { languageName } from "@/lib/utils/language";
@@ -344,17 +344,17 @@ export function AddCollectionBooksDialog({
             </div>
           </details>
         )}
-        <div className="flex items-center justify-between gap-2 border-t border-glass-border pt-3">
-          {saveReason.hint ?? <span className="text-xs text-fg-secondary">{count} selected</span>}
-          <div className="flex gap-2">
-            <Button data-dismiss="" disabled={saving} onClick={onClose}>
-              Cancel
-            </Button>
-            <Button variant="primary" disabled={!count} onClick={add} busy={saving} aria-describedby={saveReason.describedBy}>
-              {count ? `Add ${count}` : "Add"}
-            </Button>
-          </div>
-        </div>
+        {/* The count at the start, the buttons at the end: under the dialog's
+            body and always in view (SLN-1056) */}
+        <DialogFooter>
+          {saveReason.hint ?? <span className="mr-auto text-xs text-fg-secondary">{count} selected</span>}
+          <Button data-dismiss="" disabled={saving} onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" disabled={!count} onClick={add} busy={saving} aria-describedby={saveReason.describedBy}>
+            {count ? `Add ${count}` : "Add"}
+          </Button>
+        </DialogFooter>
       </div>
     </Dialog>
   );

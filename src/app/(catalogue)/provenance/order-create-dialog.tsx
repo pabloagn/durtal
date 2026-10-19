@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import type { AcquisitionMethod, OrderStatus } from "@/lib/constants/orders";
 import { useAppSettings } from "@/lib/hooks/use-app-settings";
 import {
@@ -229,11 +229,13 @@ export function OrderCreateDialog({
           />
         )}
 
-        {/* Footer navigation */}
-        <div className="mt-5 flex items-center justify-between gap-2 border-t border-glass-border pt-4">
+        {/* Back or Cancel at the start, Next or Create at the end: under the
+            dialog's body and always in view (SLN-1056) */}
+        <DialogFooter>
           <Button data-dismiss=""
             variant="ghost"
             size="sm"
+            className="mr-auto"
             onClick={() => (step === 0 ? handleClose() : setStep((s) => s - 1))}
             disabled={isPending}
           >
@@ -271,7 +273,7 @@ export function OrderCreateDialog({
               Create order
             </Button>
           )}
-        </div>
+        </DialogFooter>
       </Dialog>
     </>
   );

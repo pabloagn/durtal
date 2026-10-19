@@ -3,11 +3,11 @@
 import { useSaveReason } from "@/components/shared/save-reason";
 
 import { NameDuplicateNotice } from "@/components/shared/name-duplicate-notice";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +26,8 @@ export function CreateCollectionDialog({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 } = {}) {
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   const router = useRouter();
   const [ownOpen, setOwnOpen] = useState(false),
     [name, setName] = useState(""),
@@ -90,7 +92,7 @@ export function CreateCollectionDialog({
         className="max-w-md"
         expandable={false}
       >
-        <form onSubmit={submit} className="space-y-4">
+        <form id={formId} onSubmit={submit} className="space-y-4">
           <div className="min-w-0 space-y-2"><Input
             label="Name"
             appearance="open"
@@ -118,8 +120,9 @@ export function CreateCollectionDialog({
               readOnly={saving}
             />
           </details>
-          <div className="flex justify-end gap-2">
-        {nameReason.hint}
+          {/* Under the dialog's body and always in view (SLN-1056) */}
+          <DialogFooter>
+            {nameReason.hint}
             <Button data-dismiss=""
               type="button"
               variant="ghost"
@@ -130,13 +133,14 @@ export function CreateCollectionDialog({
             </Button>
             <Button aria-describedby={nameReason.describedBy}
               type="submit"
+              form={formId}
               variant="primary"
               disabled={!name.trim()}
               busy={saving}
             >
               Add
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </Dialog>
     </>

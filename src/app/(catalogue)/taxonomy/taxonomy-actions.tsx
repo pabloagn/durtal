@@ -6,7 +6,7 @@ import { ArrowDown, ArrowUp, ListOrdered, Plus } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { CapAligned } from "@/components/shared/cap-aligned";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { CreateFamilyDialog } from "@/components/taxonomy/create-family-dialog";
 import { reorderFamilies } from "@/lib/actions/taxonomy-client";
 
@@ -143,12 +143,14 @@ function ReorderFamiliesDialog({
           </li>
         ))}
       </ol>
-      {error && (
-        <p role="alert" className="mt-3 text-xs text-accent-red-text">
-          {error}
-        </p>
-      )}
-      <div className="mt-4 flex items-center justify-end gap-2">
+      {/* Under the dialog's body and always in view, with the reason a save
+          failed over the buttons (SLN-1056) */}
+      <DialogFooter>
+        {error && (
+          <p role="alert" className="basis-full text-xs text-accent-red-text">
+            {error}
+          </p>
+        )}
         <Button data-dismiss="" type="button" variant="ghost" size="sm" onClick={onClose}>
           Cancel
         </Button>
@@ -161,7 +163,7 @@ function ReorderFamiliesDialog({
         >
           Save order
         </Button>
-      </div>
+      </DialogFooter>
     </Dialog>
   );
 }

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
 import { SectionHeading } from "@/components/shared/section-heading";
 import {
@@ -209,12 +209,14 @@ function LinkInstitutionDialog({
           value={relation}
           onChange={(e) => setRelation(e.target.value as "operator" | "owner")}
         />
-        {error && (
-          <p role="alert" className="text-sm text-accent-red-text">
-            {error}
-          </p>
-        )}
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-glass-border pt-4">
+        {/* Under the dialog's body and always in view, with the reason a save
+            failed over the buttons (SLN-1056) */}
+        <DialogFooter>
+          {error && (
+            <p role="alert" className="basis-full text-sm text-accent-red-text">
+              {error}
+            </p>
+          )}
           {saveReason.hint}
           <Button data-dismiss="" size="sm" onClick={onClose} disabled={saving}>
             Cancel
@@ -222,7 +224,7 @@ function LinkInstitutionDialog({
           <Button variant="primary" size="sm" data-shortcut="save" busy={saving} disabled={!choice} aria-describedby={saveReason.describedBy} onClick={save}>
             Link
           </Button>
-        </div>
+        </DialogFooter>
       </div>
     </Dialog>
   );

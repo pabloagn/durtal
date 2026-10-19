@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ExternalLink, Plus, Trash2 } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SectionHeading } from "@/components/shared/section-heading";
@@ -205,7 +205,8 @@ function SourceForm({
         maxLength={2000}
         placeholder={examples.says}
       />
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      {/* Under the dialog's body and always in view (SLN-1056) */}
+      <DialogFooter>
         {nameReason.hint}
         <Button data-dismiss="" variant="ghost" onClick={onDone} disabled={saving}>
           Cancel
@@ -238,7 +239,7 @@ function SourceForm({
           <Plus className="h-4 w-4" strokeWidth={1.5} />
           Add source
         </Button>
-      </div>
+      </DialogFooter>
     </div>
   );
 }

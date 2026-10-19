@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { toast } from "@/lib/notifications/toast";
 import { Merge } from "lucide-react";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { Badge } from "@/components/ui/badge";
@@ -154,10 +154,10 @@ export function MergeDialog({
           </p>
         )}
 
-        {error && <p role="alert" className="text-sm text-accent-red-text">{error}</p>}
-
-        {/* Actions */}
-        <div className="flex items-center justify-end gap-2 pt-2">
+        {/* Under the dialog's body and always in view, with the reason a merge
+            failed over the buttons (SLN-1056) */}
+        <DialogFooter>
+          {error && <p role="alert" className="basis-full text-sm text-accent-red-text">{error}</p>}
           <Button data-dismiss=""
             type="button"
             variant="ghost"
@@ -179,7 +179,7 @@ export function MergeDialog({
           >
             Merge
           </Button>
-        </div>
+        </DialogFooter>
       </div>
     </Dialog>
   );

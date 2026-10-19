@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   AddressInput,
@@ -239,7 +239,8 @@ export function LocationCard({
               <AddressInput value={editAddress} onChange={setEditAddress} />
             </div>
           )}
-          <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+          {/* Under the dialog's body and always in view (SLN-1056) */}
+          <DialogFooter>
             <Button data-dismiss=""
               variant="secondary"
               size="sm"
@@ -255,7 +256,7 @@ export function LocationCard({
             >
               Save
             </Button>
-          </div>
+          </DialogFooter>
         </div>
       </Dialog>
 
@@ -276,7 +277,8 @@ export function LocationCard({
               location before deleting it.
             </div>
           )}
-          <div className="flex items-center justify-end gap-2 border-t border-glass-border pt-4">
+          {/* Under the dialog's body and always in view (SLN-1056) */}
+          <DialogFooter>
             <Button data-dismiss=""
               variant="secondary"
               size="sm"
@@ -295,7 +297,7 @@ export function LocationCard({
             >
               Delete
             </Button>
-          </div>
+          </DialogFooter>
         </div>
       </Dialog>
     </>
