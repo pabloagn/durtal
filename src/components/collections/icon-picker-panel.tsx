@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useDeferredValue, useEffect, useRef, useState } from "react";
+import { memo, useDeferredValue, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { icons } from "lucide-react";
 
 type IconName = keyof typeof icons;
@@ -77,35 +77,94 @@ const SUGGESTED = (
 ).filter((name): name is IconName => Object.hasOwn(icons, name));
 
 export const ICON_COUNT = ALL.length;
+const EVERY = ALL.map((i) => i.name);
 
 const WORDS = new Map<string, string>(ALL.map((i) => [i.name, i.words]));
 function label(name: string) {
   return WORDS.get(name) ?? name;
 }
 
+/** Icons a row: the grid's own columns, or 8 (its column count) before layout */
+function columnsOf(buttons: HTMLElement[]) {
+  const top = buttons[0]?.offsetTop ?? 0;
+  const first = buttons.findIndex((b) => b.offsetTop !== top);
+  return first > 0 ? first : Math.min(8, buttons.length) || 1;
+}
+
+/**
+ * Where an arrow key, Home or End moves focus from `at` in a grid of `count`
+ * icons, `columns` a row; null for any other key (SLN-1302)
+ */
+export function iconGridMove(key: string, at: number, count: number, columns: number): number | null {
+  const rowStart = at - (at % columns);
+  const next = {
+    ArrowRight: at + 1,
+    ArrowLeft: at - 1,
+    ArrowDown: at + columns,
+    ArrowUp: at - columns,
+    Home: rowStart,
+    End: Math.min(rowStart + columns, count) - 1,
+  }[key];
+  if (next === undefined) return null;
+  return next < 0 || next >= count ? at : next;
+}
+
+/**
+ * One choice among icons: one Tab stop (the chosen icon, else the first),
+ * arrows across the rows, Enter or Space to choose (SLN-1302)
+ */
 const IconGrid = memo(function IconGrid({
   names,
   value,
   onPick,
+  labelledBy,
 }: {
   names: IconName[];
   value: string | null;
   onPick: (name: string) => void;
+  labelledBy: string;
 }) {
+  const grid = useRef<HTMLDivElement>(null);
+  const stop = Math.max(0, names.indexOf(value as IconName));
+  // Arrows move the stop without a render of every icon; a new list or choice resets it
+  useLayoutEffect(() => {
+    grid.current?.querySelectorAll<HTMLElement>("[role=radio]").forEach((b, i) => {
+      b.tabIndex = i === stop ? 0 : -1;
+    });
+  }, [names, stop]);
+
   return (
     // On touch each icon is a 44px press, as many to a row as the panel fits
-    <div className="grid grid-cols-8 gap-0.5 pointer-coarse:grid-cols-[repeat(auto-fill,minmax(2.75rem,1fr))]">
-      {names.map((name) => {
+    <div
+      ref={grid}
+      role="radiogroup"
+      aria-labelledby={labelledBy}
+      onKeyDown={(e) => {
+        const buttons = [...e.currentTarget.querySelectorAll<HTMLElement>("[role=radio]")];
+        const at = buttons.indexOf(e.target as HTMLElement);
+        if (at < 0) return;
+        const next = iconGridMove(e.key, at, buttons.length, columnsOf(buttons));
+        if (next === null) return;
+        e.preventDefault();
+        buttons[at].tabIndex = -1;
+        buttons[next].tabIndex = 0;
+        buttons[next].focus();
+      }}
+      className="grid grid-cols-8 gap-0.5 pointer-coarse:grid-cols-[repeat(auto-fill,minmax(2.75rem,1fr))]"
+    >
+      {names.map((name, i) => {
         const Icon = icons[name];
         const selected = name === value;
         return (
           <button
             key={name}
             type="button"
+            role="radio"
+            aria-checked={selected}
+            tabIndex={i === stop ? 0 : -1}
             onClick={() => onPick(name)}
             data-tooltip={label(name)}
             aria-label={label(name)}
-            aria-pressed={selected}
             className={`flex h-9 w-9 items-center pointer-coarse:h-11 pointer-coarse:w-full justify-center rounded-sm transition-colors hover:bg-bg-tertiary hover:text-fg-primary ${selected ? "bg-bg-tertiary text-fg-primary ring-1 ring-accent-primary/60" : "text-fg-secondary"}`}
           >
             <Icon
@@ -134,6 +193,7 @@ export default function IconPickerPanel({
   const [query, setQuery] = useState("");
   const deferred = useDeferredValue(query);
   const input = useRef<HTMLInputElement>(null);
+  const id = useId();
   useEffect(() => input.current?.focus(), []);
 
   const tokens = deferred
@@ -179,33 +239,38 @@ export default function IconPickerPanel({
           </button>
         )}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+      {/* Not a Tab stop of its own (Firefox makes a scroller one): focus moving through the grids scrolls it */}
+      <div tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto p-2">
+        {/* One polite line, there before its text changes: the match count or no match */}
+        <p
+          id={`${id}-results`}
+          role="status"
+          className={results && !results.length ? "py-8 text-center text-sm text-fg-secondary" : "type-caption mb-1.5 px-1 empty:hidden"}
+        >
+          {results
+            ? results.length
+              ? `${results.length} ${results.length === 1 ? "icon" : "icons"}`
+              : `No icons match “${deferred.trim()}”`
+            : ""}
+        </p>
         {results ? (
-          results.length ? (
-            <>
-              <p className="type-caption mb-1.5 px-1">
-                {results.length} {results.length === 1 ? "icon" : "icons"}
-              </p>
-              <IconGrid names={results} value={value} onPick={onPick} />
-            </>
-          ) : (
-            <p className="py-8 text-center text-sm text-fg-secondary">
-              No icons match “{deferred.trim()}”
-            </p>
+          results.length > 0 && (
+            <IconGrid names={results} value={value} onPick={onPick} labelledBy={`${id}-results`} />
           )
         ) : (
           <>
-            <p className="type-caption mb-1.5 px-1">
+            <p id={`${id}-suggested`} className="type-caption mb-1.5 px-1">
               Suggested
             </p>
-            <IconGrid names={SUGGESTED} value={value} onPick={onPick} />
-            <p className="type-caption mb-1.5 mt-4 px-1">
+            <IconGrid names={SUGGESTED} value={value} onPick={onPick} labelledBy={`${id}-suggested`} />
+            <p id={`${id}-all`} className="type-caption mb-1.5 mt-4 px-1">
               All icons
             </p>
             <IconGrid
-              names={ALL.map((i) => i.name)}
+              names={EVERY}
               value={value}
               onPick={onPick}
+              labelledBy={`${id}-all`}
             />
           </>
         )}
