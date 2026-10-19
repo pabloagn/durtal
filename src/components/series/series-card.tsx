@@ -7,6 +7,7 @@ import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { CardHeading } from "@/components/shared/card-heading";
 import { mediaUrl } from "@/lib/s3/media-url";
+import { CountParts } from "@/components/collections/count-parts";
 import { seriesBooksLabel } from "@/lib/series/counts";
 
 export interface SeriesItem {
@@ -80,7 +81,8 @@ export function SeriesCard({ series: s }: { series: SeriesItem }) {
           </p>
         )}
         <div className="mt-2.5 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1 font-mono text-micro text-fg-secondary">
-          <span className="min-w-0 [overflow-wrap:anywhere]">{countsLabel(s)}</span>
+          {/* Each count keeps its noun: the row wraps between them (SLN-918) */}
+          <span className="min-w-0 [overflow-wrap:anywhere]"><CountParts line={countsLabel(s)} /></span>
           {s.isComplete && (
             <span className="ml-auto shrink-0 text-accent-gold">Complete</span>
           )}
@@ -123,7 +125,7 @@ export function SeriesListItem({ series: s }: { series: SeriesItem }) {
           <div className="type-item-title hidden h-[1lh] shrink-0 items-center gap-3 sm:flex">
             {s.isComplete && <Badge variant="gold">Complete</Badge>}
             <span className="w-40 text-right font-mono text-micro text-fg-secondary">
-              {countsLabel(s)}
+              <CountParts line={countsLabel(s)} />
             </span>
           </div>
           <div className="type-item-title">
@@ -146,8 +148,8 @@ export function SeriesListItem({ series: s }: { series: SeriesItem }) {
             {s.authors.join(", ")}
           </p>
         )}
-        <p className="truncate font-mono text-micro text-fg-secondary sm:hidden">
-          {[countsLabel(s), s.isComplete ? "Complete" : null].filter(Boolean).join(" · ")}
+        <p className="font-mono text-micro text-fg-secondary sm:hidden">
+          <CountParts line={[countsLabel(s), s.isComplete ? "Complete" : null].filter(Boolean).join(" · ")} />
         </p>
       </div>
     </div>
