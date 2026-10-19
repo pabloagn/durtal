@@ -4,6 +4,7 @@ import { getTableName, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { textSearchCondition, textSearchRank } from "@/lib/actions/utils/text-search";
+import { isSearchableQuery } from "@/lib/utils/search-text";
 import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import { VENUE_TYPE_LABELS, type VenueType } from "@/lib/catalogue/venues";
@@ -336,8 +337,9 @@ async function searchTaxonomy(q: string, kinds: WorkKind[]): Promise<QuickSearch
  * NUL character, which Postgres refuses, is dropped: "nad\0ja" finds Nadja.
  */
 export async function quickSearch(query: string): Promise<QuickSearchResult> {
-  const q = query.replaceAll("\0", "").trim().slice(0, 200);
-  if (q.length < 2) return EMPTY;
+  const q = query.replaceAll(" ", "").trim().slice(0, 200);
+  // One Chinese, Japanese or Korean character is enough; symbols alone are not
+  if (!isSearchableQuery(q)) return EMPTY;
   const kinds = getEnabledWorkKinds();
   const [works, people, organizations, venues, ebooks, series, collections, recommenders, taxonomy] = await Promise.all([
     searchWorks(q, kinds),

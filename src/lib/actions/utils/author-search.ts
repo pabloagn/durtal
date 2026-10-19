@@ -10,7 +10,6 @@ import { textSearchCondition, textSearchRank } from "./text-search";
  * real name, sort name, first and last name): accents removed, lower-case,
  * punctuation turned into spaces. Query words go through the same function,
  * so "Peter Nadas", "nadas peter" and "Nádas, Péter" all find "Péter Nádas".
- * Normalized words hold only letters and digits, so they are safe inside LIKE.
  */
 
 const haystack = sql`${authors.searchText}`;

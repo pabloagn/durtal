@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
   filterBySearch,
+  isSearchableQuery,
   normalizeSearchText,
   searchScore,
   searchTokens,
+  searchWords,
 } from "@/lib/utils/search-text";
 
 // ── normalizeSearchText ────────────────────────────────────────────────────────
@@ -63,6 +65,48 @@ describe("searchTokens", () => {
   });
 });
 
+// ── searchWords (SLN-1234) ─────────────────────────────────────────────────────
+
+describe("searchWords", () => {
+  it("splits on spaces, punctuation and symbols, and folds nothing", () => {
+    expect(searchWords("Nádas, Péter")).toEqual(["Nádas", "Péter"]);
+    expect(searchWords("Gell-Mann")).toEqual(["Gell", "Mann"]);
+    expect(searchWords("한강 猫である Достоевский प्रेमचंद")).toEqual(["한강", "猫である", "Достоевский", "प्रेमचंद"]);
+  });
+
+  it("drops a NUL character, which Postgres refuses (SLN-1137)", () => {
+    expect(searchWords("nad\u0000ja")).toEqual(["nadja"]);
+    expect(searchWords("\u0000")).toEqual([]);
+  });
+
+  it("composes what was typed decomposed", () => {
+    expect(searchWords("\u1112\u1161\u11ab")).toEqual(["한"]);
+    expect(searchWords("\u3066\u3099")).toEqual(["で"]);
+  });
+
+  it("keeps no symbol-only piece, and no LIKE wildcard", () => {
+    expect(searchWords("🦉")).toEqual([]);
+    expect(searchWords("%_-")).toEqual([]);
+    expect(searchWords("owl🦉")).toEqual(["owl"]);
+  });
+});
+
+describe("isSearchableQuery", () => {
+  it("wants two characters, or one Chinese, Japanese or Korean one", () => {
+    expect(isSearchableQuery("a")).toBe(false);
+    expect(isSearchableQuery("ab")).toBe(true);
+    expect(isSearchableQuery("猫")).toBe(true);
+    expect(isSearchableQuery("ね")).toBe(true);
+    expect(isSearchableQuery("강")).toBe(true);
+  });
+
+  it("searches nothing for symbols alone", () => {
+    expect(isSearchableQuery("🦉")).toBe(false);
+    expect(isSearchableQuery("🦉🦉")).toBe(false);
+    expect(isSearchableQuery("--")).toBe(false);
+  });
+});
+
 // ── searchScore ────────────────────────────────────────────────────────────────
 
 describe("searchScore", () => {
@@ -74,6 +118,11 @@ describe("searchScore", () => {
 
   it("does not match when a word is missing", () => {
     expect(searchScore("peter borges", "Péter Nádas")).toBe(-1);
+  });
+
+  it("matches nothing for symbols alone, everything for a blank query", () => {
+    expect(searchScore("🦉", "Library")).toBe(-1);
+    expect(searchScore("  ", "Library")).toBe(0);
   });
 
   it("ranks exact > starts with > word starts > all word starts > contains", () => {

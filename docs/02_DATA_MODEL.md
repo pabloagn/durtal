@@ -1101,7 +1101,7 @@ unioned, ordered and paginated together.
 **Search** (migration `0021_author_search`, task 0119):
 
 - Extensions: `unaccent`, `pg_trgm` (schema `public`).
-- Function `search_normalize(text) → text` (IMMUTABLE): `unaccent`, strip leftover combining marks, `lower`, collapse punctuation and whitespace to one space. "Péter Nádas" → `peter nadas`. Mirrored in TypeScript by `normalizeSearchText()` (`src/lib/utils/search-text.ts`).
+- Function `search_normalize(text) → text` (IMMUTABLE): `unaccent`, strip leftover combining marks, `lower`, collapse punctuation and whitespace to one space. "Péter Nádas" → `peter nadas`. A search sends its words as typed (`searchWords()`, `src/lib/utils/search-text.ts`: NFC, split on spaces, punctuation and symbols) and this function folds each, so a query meets the stored text in every script (SLN-1234). `normalizeSearchText()` in the same file is close to it for Latin text but strips every combining mark, so its output is compared only with its own (e-books store it as their search text), never with this function's.
 - Match (`src/lib/actions/utils/author-search.ts`): every query word appears in `search_text` (any order); with typo tolerance, a word of 4+ letters may instead have `strict_word_similarity >= 0.4`, and a multi-word query may match as a whole at `>= 0.6`.
 - Rank: exact name > name prefix > word prefix > all words as word prefixes > all words anywhere, plus trigram similarity.
 

@@ -2,7 +2,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { resultRows } from "@/lib/harmonization/store";
 import { ANNOTATION_COLORS, type AnnotationColor } from "@/lib/reader/annotations";
-import { normalizeSearchText } from "@/lib/utils/search-text";
+import { searchWords } from "@/lib/utils/search-text";
 import { isUuid } from "@/lib/utils/uuid";
 import { parsePagination, toSearchParams, type ListSearchParams } from "@/lib/utils/pagination";
 import { ebookSummaryColumns, normalizedDates, type LibraryEbook } from "./library-queries";
@@ -23,7 +23,8 @@ export const SHOWN_NOTE_CHARS = 600;
 
 export interface HighlightParams {
   q: string;
-  normalizedSearch: string;
+  /** The search's words as typed; `search_normalize()` folds each in SQL (SLN-1234) */
+  words: string[];
   colors: AnnotationColor[];
   kinds: HighlightKind[];
   ebookId: string | null;
@@ -78,7 +79,7 @@ export function parseHighlightParams(input: ListSearchParams | URLSearchParams):
   const ebookId = ebook && isUuid(ebook) ? ebook.toLowerCase() : null;
   return {
     q,
-    normalizedSearch: normalizeSearchText(q),
+    words: searchWords(q),
     colors: list(params, "color").filter((value): value is AnnotationColor => ANNOTATION_COLORS.some((color) => color === value)),
     kinds: list(params, "kind").filter((value): value is HighlightKind => HIGHLIGHT_KINDS.some((kind) => kind === value)),
     ebookId,
@@ -106,9 +107,10 @@ export function highlightWhere(params: HighlightParams): SQL {
     clauses.push(sql`a.color in (${sql.join(params.colors.map((color) => sql`${color}`), sql`, `)})`);
   if (params.kinds.length)
     clauses.push(sql`(${sql.join(params.kinds.map((kind) => KIND_CONDITIONS[kind]), sql` or `)})`);
-  // normalizeSearchText leaves no % or _ in a word, so each is a plain substring
-  for (const word of params.normalizedSearch.split(" ").filter(Boolean))
-    clauses.push(sql`public.search_normalize(coalesce(a.text, '') || ' ' || coalesce(a.note, '')) like ${`%${word}%`}`);
+  // Folded by the same function as the text, so Hangul, kana and й meet
+  // their stored form; folding leaves no % or _, so each is a plain substring
+  for (const word of params.words)
+    clauses.push(sql`public.search_normalize(coalesce(a.text, '') || ' ' || coalesce(a.note, '')) like '%' || public.search_normalize(${word}) || '%'`);
   return sql.join(clauses, sql` and `);
 }
 

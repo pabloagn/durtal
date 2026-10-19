@@ -5,14 +5,14 @@ const BOOK = "0E6F1B4A-1C7E-4C55-9D2B-3B1C2D4E5F60";
 
 describe("parseHighlightParams (SLN-500)", () => {
   it("drops a NUL from the search, so it never reaches Postgres (SLN-933)", () => {
-    expect(parseHighlightParams({ q: "\u0000" })).toMatchObject({ q: "", normalizedSearch: "" });
-    expect(parseHighlightParams({ q: "nad\u0000ja" })).toMatchObject({ q: "nadja", normalizedSearch: "nadja" });
+    expect(parseHighlightParams({ q: "\u0000" })).toMatchObject({ q: "", words: [] });
+    expect(parseHighlightParams({ q: "nad\u0000ja" })).toMatchObject({ q: "nadja", words: ["nadja"] });
   });
 
   it("defaults to every live mark, newest book first", () => {
     expect(parseHighlightParams({})).toMatchObject({
       q: "",
-      normalizedSearch: "",
+      words: [],
       colors: [],
       kinds: [],
       ebookId: null,
@@ -46,10 +46,11 @@ describe("parseHighlightParams (SLN-500)", () => {
     expect(parseHighlightParams({ ebook: BOOK, perPage: "24", page: "2" })).toMatchObject({ perPage: 24, offset: 24 });
   });
 
-  it("folds the search to the index's normalised form", () => {
-    const params = parseHighlightParams({ q: "  Huysmans À REBOURS " });
-    expect(params.q).toBe("Huysmans À REBOURS");
-    expect(params.normalizedSearch).toBe("huysmans a rebours");
+  it("keeps the search's words as typed, for the database to fold (SLN-1234)", () => {
+    const params = parseHighlightParams({ q: "  Huysmans, À REBOURS " });
+    expect(params.q).toBe("Huysmans, À REBOURS");
+    expect(params.words).toEqual(["Huysmans", "À", "REBOURS"]);
+    expect(parseHighlightParams({ q: "한강 で" }).words).toEqual(["한강", "で"]);
   });
 });
 

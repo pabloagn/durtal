@@ -32,7 +32,7 @@ import { useShortcutActions } from "@/components/shortcuts/shortcuts-provider";
 import { quickSearch, getPaletteContinueReading, type QuickSearchRecord, type QuickSearchResult } from "@/lib/actions/quick-search";
 import { ADD, COPY_KEYS, GO_TO, SHORTCUTS, type Keys } from "@/lib/shortcuts/shortcuts";
 import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
-import { filterBySearch } from "@/lib/utils/search-text";
+import { filterBySearch, isSearchableQuery } from "@/lib/utils/search-text";
 import { DOMAIN_SECTIONS, NAV_SECTIONS } from "@/lib/navigation";
 import { WORK_DOMAINS, getEnabledWorkKinds } from "@/lib/catalogue/domains";
 import { SETTINGS_SECTIONS } from "@/components/settings/sections";
@@ -266,7 +266,7 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
     window.location.assign(href);
   }
   useEffect(() => {
-    if (trimmed.length < 2) {
+    if (!isSearchableQuery(trimmed)) {
       setResults(NO_RESULTS);
       setSearching(false);
       setFailed(false);
