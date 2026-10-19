@@ -32,4 +32,8 @@ describe("containsPattern", () => {
     expect(containsPattern("_")).toBe("%\\_%");
     expect(containsPattern("Dune")).toBe("%Dune%");
   });
+
+  it("drops a NUL character, which Postgres refuses (SLN-1137)", () => {
+    expect(containsPattern("Du\u0000ne")).toBe("%Dune%");
+  });
 });

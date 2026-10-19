@@ -128,4 +128,13 @@ describe.skipIf(!url)("command palette search for records found by name (SLN-966
       { id: melancholy.id, name: "Mélancolie", href: "/taxonomy/moods/melancolie", detail: "Moods" },
     ]);
   });
+
+  it("drops a NUL character, which Postgres refuses, instead of failing (SLN-1137)", async () => {
+    const [press] = await db.insert(schema.publishingHouses).values({ name: "Nadja Press", slug: "nadja-press" }).returning();
+    const [series] = await db.insert(schema.series).values({ title: "Nadja", slug: "nadja" }).returning();
+
+    const found = await quickSearch("nad\u0000ja");
+    expect(found.organizations).toEqual([{ id: press.id, name: "Nadja Press", href: "/publishers/nadja-press", roles: "Publisher" }]);
+    expect(found.series).toEqual([{ id: series.id, name: "Nadja", href: `/series/${series.id}` }]);
+  });
 });

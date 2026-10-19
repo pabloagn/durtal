@@ -26,6 +26,11 @@ import { LIBRARY_SORT_COOKIE, parseLibrarySortPreference } from "@/lib/library/s
  * it, before anything renders. The list loads once, at the right size.
  * Books also restores the last explicitly selected sort and direction.
  *
+ * Postgres refuses a NUL character in text, so one in the address failed
+ * whatever read it (SLN-1137). A query holding one redirects to the same
+ * address without it, and a path segment holding one shows the not-found view
+ * (an API route answers 404).
+ *
  * A mistyped e-book address is left to its page, whose not-found view leads
  * back to eBooks (SLN-864); the pages never query with an id that is not one.
  *
@@ -43,6 +48,8 @@ export function proxy(request: NextRequest) {
   if (buildFile(request)) return;
   const misdirected = hostRefusal(request);
   if (misdirected) return misdirected;
+  const nul = withoutNul(request);
+  if (nul) return nul;
   if (readable) return NextResponse.rewrite(readable);
   if (request.nextUrl.pathname.startsWith("/api/")) {
     return crossOriginRefusal(request) ?? undefined;
@@ -96,6 +103,30 @@ function readableAddress(url: NextRequest["nextUrl"]) {
       .join("/");
     return readable;
   }
+}
+
+/** No route has a folder starting with "_", so this reaches the catch-all not-found page */
+const NOT_FOUND_PATH = "/_missing";
+
+/** The answer to an address with a NUL character in it, or null when it has none */
+function withoutNul(request: NextRequest) {
+  const url = request.nextUrl;
+  if (url.pathname.split("/").some((segment) => decodes(segment) && decodeURIComponent(segment).includes("\0"))) {
+    if (url.pathname.startsWith("/api/")) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const missing = url.clone();
+    missing.pathname = NOT_FOUND_PATH;
+    missing.search = "";
+    return NextResponse.rewrite(missing);
+  }
+  const params = [...url.searchParams];
+  if (!params.some(([key, value]) => key.includes("\0") || value.includes("\0"))) return null;
+  const clean = url.clone();
+  clean.search = "";
+  for (const [key, value] of params) {
+    const name = key.replaceAll("\0", "");
+    if (name) clean.searchParams.append(name, value.replaceAll("\0", ""));
+  }
+  return NextResponse.redirect(clean);
 }
 
 function decodes(segment: string) {

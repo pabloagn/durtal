@@ -104,5 +104,6 @@ export function textSearchRank(haystack: SQL, name: SQL, query: string): SQL {
  * For text that is not already normalized; every plain match stays a match.
  */
 export function textContains(text: AnyColumn | SQL, search: string): SQL {
-  return sql`(${text} ilike ${containsPattern(search)} or (search_normalize(${search}) <> '' and search_normalize(${text}) like '%' || search_normalize(${search}) || '%'))`;
+  const plain = search.replaceAll("\0", "");
+  return sql`(${text} ilike ${containsPattern(plain)} or (search_normalize(${plain}) <> '' and search_normalize(${text}) like '%' || search_normalize(${plain}) || '%'))`;
 }
