@@ -238,6 +238,12 @@ describe("restart-safe owned supervisor", () => {
       expect(s.hostLock.release).not.toHaveBeenCalled(); finish(); await rejected;
     } finally { vi.useRealTimers(); }
   });
+  it("says why the check failed when the failure itself cannot be recorded", async () => {
+    const s = setup(); await s.supervisor.start();
+    vi.mocked(s.persistence.recordJobFailure).mockRejectedValueOnce(new Error("could not determine data type of parameter $8"));
+    await expect(s.supervisor.runJob(s.fence, { prepare: async () => { throw new Error("request response lost"); }, consume: vi.fn() }))
+      .rejects.toThrow("The failed upload check could not be recorded (could not determine data type of parameter $8). The check failed: request response lost");
+  });
   it("never creates a process when request publication fails", async () => {
     const s = setup(); await s.supervisor.start(); const consume = vi.fn();
     await expect(s.supervisor.runJob(s.fence, { prepare: async () => { throw new Error('request response lost'); }, consume }))

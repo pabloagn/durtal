@@ -227,7 +227,7 @@ export class PostgresUploadStore implements UploadSupervisorPersistence {
         and o.lease_expires_at > statement_timestamp() for update of o
     ), failed as (
       update ebook_upload_operations o set state = 'failed',
-        progress = jsonb_set(o.progress, '{jobFailureV1}', jsonb_build_object('generation', ${fence.generation}, 'code', 'upload_job_failed',
+        progress = jsonb_set(o.progress, '{jobFailureV1}', jsonb_build_object('generation', ${fence.generation}::bigint, 'code', 'upload_job_failed',
           'reason', ${reason}::text, 'what', ${what}::text), true),
         revision = o.revision + 1, updated_at = statement_timestamp()
       from operation observed where o.id = observed.id and observed.receipt is null

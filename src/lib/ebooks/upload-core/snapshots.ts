@@ -20,7 +20,7 @@ export interface UploadSnapshots {
  * Keeping only the digest avoids storing all reader passages in a receipt.
  */
 export function uploadReaderHashSql(scope:{ebookIds:readonly string[];runId:string}):SQL {
-  const pieces=UPLOAD_READER_TABLES.map((table)=>sql`jsonb_build_object('table',${table},'rows',
+  const pieces=UPLOAD_READER_TABLES.map((table)=>sql`jsonb_build_object('table',${table}::text,'rows',
     ${uploadTableSnapshotSql(table,scope)})`);
   return sql`encode(sha256(convert_to(jsonb_build_array(${sql.join(pieces,sql`, `)})::text,'UTF8')),'hex')`;
 }
