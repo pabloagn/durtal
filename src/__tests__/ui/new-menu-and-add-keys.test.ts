@@ -16,7 +16,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/notifications/toast", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }) }));
 vi.mock("next/image", () => ({ default: () => null }));
 vi.mock("@/app/(catalogue)/people/author-create-dialog", () => ({
-  AuthorCreateDialog: () => createElement("div", { id: "add-person" }),
+  AuthorCreateDialog: () => createElement("div", { id: "add-person" }, createElement("input", { "aria-label": "Name" })),
 }));
 vi.mock("@/app/(catalogue)/places/venue-create-dialog", () => ({ VenueCreateDialog: () => null }));
 vi.mock("@/components/collections/create-collection-dialog", () => ({ CreateCollectionDialog: () => null }));
@@ -192,6 +192,18 @@ describe("a word typed fast after a leader key", () => {
     expect(menu()).toBeNull();
     now += 400;
     expect(press("x").defaultPrevented).toBe(false);
+  });
+
+  it("keeps a name typed straight into the field the pick opened, but not its Enter", () => {
+    press("n");
+    now += 100;
+    press("a");
+    const name = document.getElementById("add-person")!.querySelector("input")!;
+    const prevented = ["n", "d", "u", "Enter"].map((key) => {
+      now += 90;
+      return press(key, {}, name).defaultPrevented;
+    });
+    expect(prevented).toEqual([false, false, false, true]);
   });
 
   it("leaves keys typed at a person's pace alone", () => {

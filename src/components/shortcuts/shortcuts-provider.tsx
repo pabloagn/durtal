@@ -423,17 +423,21 @@ export function ShortcutsProvider({
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [menu, menuIndex, menuItems, pickMenuItem]);
 
-  // Right after a pick, a fast key is the rest of a typed word: it neither
-  // types into the dialog the pick opened nor saves it (capture phase, first)
+  // Right after a pick, a fast key is the rest of a typed word: it never saves
+  // the dialog the pick opened (capture phase, first)
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const now = performance.now();
       const { from, until } = settle.current;
       if (now >= until || event.metaKey || event.ctrlKey || event.altKey || isComposing(event)) return;
       if (event.key.length !== 1 && event.key !== "Enter") return;
+      settle.current = { from, until: Math.min(now + SETTLE_MS, from + SETTLE_MAX_MS) };
+      // A letter typed into the field the pick focused stays where the
+      // person can see it; only its Enter (the save) and keys that would
+      // act on the page are dropped
+      if (event.key !== "Enter" && isTyping(event.target)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      settle.current = { from, until: Math.min(now + SETTLE_MS, from + SETTLE_MAX_MS) };
     }
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
