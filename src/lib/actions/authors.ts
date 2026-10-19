@@ -2,6 +2,7 @@
 
 import { createOnce } from "@/lib/actions/utils/create-once";
 import { PERSON_CREDITS, bookPersonCondition } from "@/lib/catalogue/person-boundary";
+import { bookCondition } from "@/lib/catalogue/book-boundary";
 import { resultRows } from "@/lib/publishers/resolution";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 import type { PersonRole } from "@/lib/catalogue/person-roles";
@@ -56,7 +57,7 @@ export async function getAuthors(opts?: {
   limit?: number;
   offset?: number;
   /** "relevance" orders by search match quality (needs `search`) */
-  sort?: "relevance" | "name" | "lastName" | "recent" | "birth" | "works";
+  sort?: "relevance" | "name" | "lastName" | "recent" | "birth" | "works" | "latestBook";
   order?: "asc" | "desc";
   filters?: {
     nationalities?: string[];
@@ -93,6 +94,7 @@ export async function getAuthors(opts?: {
         switch (sort) {
           case "recent":
           case "works":
+          case "latestBook":
           case "relevance":
             return desc;
           case "birth":
@@ -103,10 +105,10 @@ export async function getAuthors(opts?: {
         }
       })();
 
-  // For "works" sort, we need DB-level ordering by a subquery count.
-  // The relational query API doesn't support orderBy on derived counts,
+  // For "works" and "latestBook" sorts, we need DB-level ordering by a subquery.
+  // The relational query API doesn't support orderBy on derived values,
   // so we first fetch the sorted author IDs, then load full records.
-  if (sort === "works") {
+  if (sort === "works" || sort === "latestBook") {
     const worksCountSq = db
       .select({
         authorId: workAuthors.authorId,
@@ -115,17 +117,46 @@ export async function getAuthors(opts?: {
       .from(workAuthors)
       .groupBy(workAuthors.authorId)
       .as("works_count");
+    // Each writer's latest book, and their place on it: the order of the
+    // dashboard's Recent people, which walks the newest books (SLN-1070)
+    const latestBookSq = db
+      .selectDistinctOn([workAuthors.authorId], {
+        authorId: workAuthors.authorId,
+        createdAt: works.createdAt,
+        workId: works.id,
+        sortOrder: workAuthors.sortOrder,
+      })
+      .from(workAuthors)
+      .innerJoin(works, eq(works.id, workAuthors.workId))
+      .where(bookCondition)
+      .orderBy(workAuthors.authorId, desc(works.createdAt), asc(works.id), asc(workAuthors.sortOrder))
+      .as("latest_book");
 
     const direction = order === "asc" ? asc : (order === "desc" ? desc : desc);
 
-    const sortedIds = await db
-      .select({ id: authors.id })
-      .from(authors)
-      .leftJoin(worksCountSq, eq(authors.id, worksCountSq.authorId))
-      .where(where)
-      .orderBy(direction(sql`coalesce(${worksCountSq.cnt}, 0)`), asc(authors.sortName))
-      .limit(limit)
-      .offset(offset);
+    const sortedIds = sort === "works"
+      ? await db
+        .select({ id: authors.id })
+        .from(authors)
+        .leftJoin(worksCountSq, eq(authors.id, worksCountSq.authorId))
+        .where(where)
+        .orderBy(direction(sql`coalesce(${worksCountSq.cnt}, 0)`), asc(authors.sortName))
+        .limit(limit)
+        .offset(offset)
+      : await db
+        .select({ id: authors.id })
+        .from(authors)
+        .leftJoin(latestBookSq, eq(authors.id, latestBookSq.authorId))
+        .where(where)
+        // People with no book last either way; ties as the shelf meets them
+        .orderBy(
+          direction === asc ? sql`${latestBookSq.createdAt} asc nulls last` : sql`${latestBookSq.createdAt} desc nulls last`,
+          asc(latestBookSq.workId),
+          asc(latestBookSq.sortOrder),
+          asc(authors.id),
+        )
+        .limit(limit)
+        .offset(offset);
 
     const ids = sortedIds.map((r) => r.id);
     if (ids.length === 0) return [];

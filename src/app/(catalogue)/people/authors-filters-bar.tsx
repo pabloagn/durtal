@@ -25,6 +25,8 @@ const SORT_OPTIONS = [
   { value: "name", label: "Name" },
   { value: "lastName", label: "Last name" },
   { value: "recent", label: "Recent" },
+  // By each person's newest book: the dashboard's Recent people (SLN-1070)
+  { value: "latestBook", label: "Latest book" },
   { value: "birth", label: "Born" },
   { value: "works", label: "Books" },
 ];

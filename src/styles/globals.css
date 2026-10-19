@@ -107,6 +107,15 @@ html {
   }
 }
 
+/* A page with the touch section pill (the dashboard's rail on phones and
+   touch screens): a control reached with Tab stops above the pill, not
+   under it (SLN-1070) */
+@media (width < 48rem), (pointer: coarse) {
+  html:has([data-section-rail-touch]) {
+    scroll-padding-bottom: 4rem;
+  }
+}
+
 /* A page with Save pinned to the bottom (PINNED_PAGE_FOOTER, two rows at
    320): a field reached with Tab stops above the bar, not under it */
 html:has(.pinned-page-footer) {

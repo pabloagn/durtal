@@ -80,6 +80,7 @@ export function libraryStatsReads({ shelf = 8 }: { shelf?: number } = {}) {
   // same total ordering is used below when the selected books are hydrated:
   // equal ratings and timestamps resolve by ID, including at the shelf edge.
   const topRatedOrder = [sql`${works.rating} desc nulls last`, desc(works.createdAt), asc(works.id)];
+  const recentOrder = [desc(works.createdAt), asc(works.id)];
   const topRatedIds = db.select({ id: works.id }).from(works)
     .where(and(bookCondition, isNotNull(works.rating)))
     .orderBy(...topRatedOrder).limit(shelf);
@@ -92,10 +93,10 @@ export function libraryStatsReads({ shelf = 8 }: { shelf?: number } = {}) {
     db.select({ count: countDistinct(workAuthors.authorId) }).from(workAuthors)
       .innerJoin(works, eq(works.id, workAuthors.workId))
       .where(and(bookCondition, inArray(workAuthors.role, [...WORK_AUTHOR_ROLES]))),
-    // Recent additions
+    // Recent additions, in the library's newest-first order (SLN-1070)
     db.query.works.findMany({
       where: bookCondition,
-      orderBy: desc(works.createdAt),
+      orderBy: recentOrder,
       limit: shelf,
       extras: readingExtras,
       with: worksWith,
@@ -111,7 +112,7 @@ export function libraryStatsReads({ shelf = 8 }: { shelf?: number } = {}) {
     // For recent authors: get more works so we can extract unique authors
     db.query.works.findMany({
       where: bookCondition,
-      orderBy: desc(works.createdAt),
+      orderBy: recentOrder,
       limit: 40,
       with: {
         workAuthors: {
@@ -132,8 +133,7 @@ export function libraryStatsReads({ shelf = 8 }: { shelf?: number } = {}) {
               },
             },
           },
-          orderBy: asc(workAuthors.sortOrder),
-          limit: 1,
+          orderBy: [asc(workAuthors.sortOrder), asc(workAuthors.authorId)],
         },
       },
     }),
@@ -146,7 +146,9 @@ export function libraryStatsReads({ shelf = 8 }: { shelf?: number } = {}) {
     topRatedWorks,
     recentWorksForAuthors,
   ]) => {
-    // De-duplicate authors from recent works, preserving recency order
+    // Every writer of the newest books, each once, in the order of their
+    // latest book and their place on it: the people list's "Latest book"
+    // order, so View all opens on the same people (SLN-1070)
     const seenAuthorIds = new Set<string>();
     const recentAuthors: Array<{
       id: string;
@@ -161,9 +163,8 @@ export function libraryStatsReads({ shelf = 8 }: { shelf?: number } = {}) {
       deathYearIsApproximate: boolean | null;
       worksCount: number;
     }> = [];
-    for (const work of recentWorksForAuthors) {
-      const author = work.workAuthors[0]?.author;
-      if (author && !seenAuthorIds.has(author.id)) {
+    for (const author of recentWorksForAuthors.flatMap((work) => work.workAuthors.map((credit) => credit.author))) {
+      if (!seenAuthorIds.has(author.id)) {
         seenAuthorIds.add(author.id);
         // Prefer active poster from media table, fall back to legacy photoS3Key
         const activePoster = author.media?.find(
