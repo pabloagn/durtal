@@ -268,9 +268,13 @@ async function searchVenues(q: string) {
   return rows.map((v) => ({ id: v.id, name: v.name, href: `/places/${v.slug}`, type: VENUE_TYPE_LABELS[v.type] }));
 }
 
-/** Records of one small table found by their name: series, collections, recommenders (SLN-966) */
-async function searchNamed(from: SQL, name: SQL, q: string, href: (id: string) => string): Promise<QuickSearchRecord[]> {
-  const hay = sql`search_normalize(${name})`;
+/**
+ * Records of one small table found by their name: series, collections,
+ * recommenders (SLN-966). `also` is searched with the name, as the list's own
+ * search does: a series' original title
+ */
+async function searchNamed(from: SQL, name: SQL, q: string, href: (id: string) => string, also?: SQL): Promise<QuickSearchRecord[]> {
+  const hay = also ? sql`search_normalize(${name} || ' ' || coalesce(${also}, ''))` : sql`search_normalize(${name})`;
   const match = textSearchCondition(hay, q);
   if (!match) return [];
   const rows = resultRows<{ id: string; name: string }>(
@@ -336,7 +340,7 @@ export async function quickSearch(query: string): Promise<QuickSearchResult> {
     searchOrganizations(q, kinds),
     searchVenues(q),
     kinds.includes("book") ? paletteEbooks(q) : Promise.resolve([]),
-    searchNamed(sql`series x`, sql`x.title`, q, (id) => `/series/${id}`),
+    searchNamed(sql`series x`, sql`x.title`, q, (id) => `/series/${id}`, sql`x.original_title`),
     searchNamed(sql`collections x`, sql`x.name`, q, (id) => `/collections/${id}`),
     searchNamed(sql`recommenders x`, sql`x.name`, q, (id) => `/recommenders/${id}`),
     searchTaxonomy(q, kinds),

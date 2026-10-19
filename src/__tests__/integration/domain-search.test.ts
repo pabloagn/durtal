@@ -106,7 +106,7 @@ describe.skipIf(!url)("search and lists across the collections", () => {
     await book("Unrelated", "Carl Other");
     expect((await quickSearch("100%")).works.map((w) => w.title)).toEqual(["100% Pure"]);
     expect((await quickSearch("snake_case")).works.map((w) => w.title)).toEqual(["Snake_Case"]);
-    expect(await quickSearch("%%")).toEqual({ works: [], people: [], organizations: [], venues: [], ebooks: [] });
+    expect(await quickSearch("%%")).toEqual({ works: [], people: [], organizations: [], venues: [], ebooks: [], series: [], collections: [], recommenders: [], taxonomy: [] });
     expect((await quickSearch("__")).works).toEqual([]);
   });
 

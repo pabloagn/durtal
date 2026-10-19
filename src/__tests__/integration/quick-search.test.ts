@@ -104,6 +104,12 @@ describe.skipIf(!url)("command palette search for records found by name (SLN-966
     expect((await quickSearch("nothing like it")).series).toEqual([]);
   });
 
+  it("finds a series by its original title, as the series list does", async () => {
+    const [gormenghast] = await db.insert(schema.series).values({ title: "Gormenghast", originalTitle: "Titus books", slug: "gormenghast" }).returning();
+
+    expect((await quickSearch("titus")).series).toEqual([{ id: gormenghast.id, name: "Gormenghast", href: `/series/${gormenghast.id}` }]);
+  });
+
   it("finds taxonomy items of system and custom families, named by their family", async () => {
     const [subjects] = await db.select().from(schema.taxonomyFamilies).where(eq(schema.taxonomyFamilies.systemTable, "subjects"));
     const [occultism] = await db.insert(schema.subjects).values({ name: "Occultisme", slug: "occultisme" }).returning();
