@@ -11,6 +11,14 @@ export function formatRating(value: number | string | null | undefined): string 
   return String(Math.round(n * 2) / 2);
 }
 
+/**
+ * An average of ratings, to one decimal: "2.8" (SLN-1173). `formatRating`
+ * snaps to half stars, which made 2.77 read "3"; that is for one rating.
+ */
+export function formatAverageRating(value: number): string {
+  return (Math.round(value * 10) / 10).toFixed(1);
+}
+
 /** The half steps from 0.5 to 5, highest first */
 export const HALF_STEPS = [5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.5] as const;
 

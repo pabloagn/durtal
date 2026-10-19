@@ -108,20 +108,17 @@ export interface PeriodBar {
  * Books and pages by month (a year) or by year (all time). A year's readings
  * dated only by year go in a "Month unknown" bar; undated ones in no bar.
  */
-export async function overTheYear(year: StatsYear): Promise<{ bars: PeriodBar[]; unknown: PeriodBar | null; undated: number }> {
+export async function overTheYear(year: StatsYear): Promise<{ bars: PeriodBar[]; unknown: PeriodBar | null }> {
   if (year === null) {
-    // Both at once: the undated count needs nothing from the bars
-    const [bars, [{ undated }]] = await Promise.all([
-      rows<PeriodBar>(sql`with ${BASE}
+    // The undated readings are counted once, under the numbers (SLN-1173)
+    const bars = await rows<PeriodBar>(sql`with ${BASE}
       select y.key::int as key, coalesce(b.books, 0)::float8 as books, coalesce(p.pages, 0)::float8 as pages
       from (select distinct extract(year from rr.finished_on)::int as key from rr where rr.status = 'finished' and rr.finished_on is not null
             union select distinct extract(year from cp.day)::int from cp where cp.day is not null) y
       left join (select extract(year from rr.finished_on)::int as key, count(*) as books from rr where rr.status = 'finished' and rr.finished_on is not null group by 1) b on b.key = y.key
       left join (select extract(year from cp.day)::int as key, round(sum(cp.pages)) as pages from cp where cp.day is not null group by 1) p on p.key = y.key
-      order by 1`),
-      rows<{ undated: number }>(sql`select count(*)::float8 as undated from readings where status = 'finished' and finished_precision = 'unknown'`),
-    ]);
-    return { bars, unknown: null, undated };
+      order by 1`);
+    return { bars, unknown: null };
   }
   const months = await rows<PeriodBar & { precision: string }>(sql`with ${BASE}
     select key, precision, sum(books)::float8 as books, round(sum(pages))::float8 as pages from (
@@ -138,7 +135,7 @@ export async function overTheYear(year: StatsYear): Promise<{ bars: PeriodBar[];
     return { key: i + 1, books: m?.books ?? 0, pages: m?.pages ?? 0 };
   });
   const unknown = months.find((r) => r.key === null);
-  return { bars, unknown: unknown && (unknown.books || unknown.pages) ? { key: null, books: unknown.books, pages: unknown.pages } : null, undated: 0 };
+  return { bars, unknown: unknown && (unknown.books || unknown.pages) ? { key: null, books: unknown.books, pages: unknown.pages } : null };
 }
 
 /* ── 3. Reading days ────────────────────────────────────────────────────── */
