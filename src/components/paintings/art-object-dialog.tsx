@@ -327,7 +327,7 @@ function ArtObjectForm({
           label="About the size"
           value={dimensionsNote}
           onChange={(e) => setDimensionsNote(e.target.value)}
-          placeholder="Sight size; with frame 95 × 120 cm"
+          placeholder="e.g. framed, 95 × 120 cm"
           maxLength={500}
         />
       </fieldset>

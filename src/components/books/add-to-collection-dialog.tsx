@@ -299,7 +299,7 @@ export function AddToCollectionDialog({
                 <Input
                   ref={field}
                   aria-label="Find or create a collection"
-                  placeholder="Find or create a collection…"
+                  placeholder="Find or create…"
                   value={query}
                   maxLength={160}
                   onChange={(e) => {

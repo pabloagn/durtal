@@ -17,12 +17,38 @@ export function StatsSection({ title, id, children, action }: { title: string; i
   );
 }
 
-export function NumberTiles({ tiles }: { tiles: { label: string; value: string }[] }) {
+export interface NumberTile {
+  label: string;
+  value: string;
+  /** What a screen reader says for a value drawn as a dash */
+  spoken?: string;
+}
+
+/**
+ * The Hours tile: a dash when no session had a duration, as 0 pages is a
+ * dash, and "Under 1" for minutes only (SLN-1173). "0" beside 350 finished
+ * books read as no time spent, not as none recorded.
+ */
+export function hoursTile(hours: number): NumberTile {
+  if (!(hours > 0)) return { label: "Hours", value: "—", spoken: "Not timed" };
+  return { label: "Hours", value: hours < 0.5 ? "Under 1" : n(hours) };
+}
+
+export function NumberTiles({ tiles }: { tiles: NumberTile[] }) {
   return (
     <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4" data-stats-numbers="">
       {tiles.map((t) => (
         <div key={t.label} className="rounded-sm border border-glass-border bg-bg-secondary px-4 py-4">
-          <dd className="type-stat text-fg-primary tabular-nums">{t.value}</dd>
+          <dd className="type-stat text-fg-primary tabular-nums">
+            {t.spoken ? (
+              <>
+                <span aria-hidden="true">{t.value}</span>
+                <span className="sr-only">{t.spoken}</span>
+              </>
+            ) : (
+              t.value
+            )}
+          </dd>
           <dt className="mt-1 text-xs text-fg-secondary">{t.label}</dt>
         </div>
       ))}

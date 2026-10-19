@@ -7,6 +7,7 @@ import { readUploadTransport } from "../upload/store";
 import type { SupervisorOwner } from "../upload/supervisor";
 import { UploadError, uploadOutcomeSchema, type UploadCommand, type UploadOutcome, type UploadItemView } from "../upload/protocol";
 import { commandRequest, newUploadIdentity, type UploadCoreReceipt } from "./receipts";
+import { settleUploadRunSql } from "./run-settle";
 import { accessSql, requestSql, ownerReadySql, coreRowProjectionSql, decodeRow, verifyRequest,
   receiptOutcome, type CoreOperationRow, type CoreScope } from "./store";
 
@@ -79,7 +80,7 @@ export async function commitTransportCommandOn(conn: Db, scope: CoreScope, owner
   canonicalJson(receipt,128*1024);
   const activityId=newUploadIdentity(), metadata={extra:{namespace:"durtal.upload.command.v1",receipt}};
   const results=await atomicOn(conn,(d)=>[
-    d.execute(lockSql(["ebook_upload_capacity","ebook_upload_operations","activity_events"])),
+    d.execute(lockSql(["ebook_upload_capacity","ebook_upload_operations","ebook_ingest_runs","activity_events"])),
     d.execute(assertSql(sql`${ownerReadySql(owner)} and ${sourceSeedSql(upload,scope)}
       and ${commandSeedSql(commandRow,scope)} and ${extraGuard}`,"UPLOAD_CORE_STALE_V1")),
     d.execute(sql`update ebook_upload_operations set state=${state},generation=${generation},revision=revision+1,
@@ -89,6 +90,8 @@ export async function commitTransportCommandOn(conn: Db, scope: CoreScope, owner
       where id=${commandRow.id}::uuid`),
     d.execute(sql`insert into activity_events(id,entity_type,entity_id,event_key,metadata)
       values(${activityId}::uuid,'ebook_upload',${upload.id}::uuid,'upload.command',${JSON.stringify(metadata)}::jsonb)`),
+    // Canceling the last open file settles its run (SLN-1395)
+    ...(state==="canceled" ? [d.execute(settleUploadRunSql(upload.run_id!))] : []),
     d.execute(assertSql(sql`${ownerReadySql(owner)} and exists(select 1 from ebook_upload_operations o where ${accessSql(scope)}
       and o.id=${upload.id}::uuid and o.input=${JSON.stringify(upload.input)}::jsonb
       and o.progress=${JSON.stringify(upload.progress)}::jsonb and o.state=${state} and o.generation=${generation}

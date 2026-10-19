@@ -109,6 +109,8 @@ export function EditionDetailCard({
     (edition.isLimitedEdition && edition.limitedEditionCount);
 
   const hasGenres = edition.editionGenres.length > 0;
+  // No copies and no quotes or notes: one line for both (SLN-1132)
+  const bare = !!quotes && edition.instances.length === 0 && quotes.quotes + quotes.notes === 0;
   const hasTags = edition.editionTags.length > 0;
   const hasContributors = edition.contributors.length > 0;
 
@@ -134,7 +136,9 @@ export function EditionDetailCard({
   return (
     <Card>
       <CardHeader className="@container">
-        <div className="grid grid-cols-1 gap-4 @min-[400px]:grid-cols-[64px_minmax(0,1fr)]">
+        {/* The cover beside the title from a phone's width up, where a stacked
+            64px cover left most of a 400px card empty (SLN-1132) */}
+        <div className="grid grid-cols-1 gap-4 @min-[280px]:grid-cols-[64px_minmax(0,1fr)]">
           <EditionCover
             edition={edition}
             poster={poster}
@@ -371,33 +375,35 @@ export function EditionDetailCard({
         </div>
       )}
 
-      {quotes && <EditionQuotes editionId={edition.id} {...quotes} />}
+      {quotes && <EditionQuotes editionId={edition.id} {...quotes} bare={bare} />}
 
-      {/* Instances */}
-      <CardContent>
-        <SectionHeading
-          as="h4"
-          title="Copies"
-          count={edition.instances.length}
-        />
-        {edition.instances.length > 0 ? (
-          // A deleted copy hands the focus to the next one (FocusKeeper)
-          <div className="space-y-2" data-focus-list={`copies-${edition.id}`}>
-            {edition.instances.map((instance) => (
-              <InstanceDetail
-                key={instance.id}
-                instance={instance}
-                workId={edition.workId}
-                workTitle={edition.title}
-                availableLocations={availableLocations}
-                ebook={ebooksByCopy?.[instance.id] ?? null}
-              />
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-fg-secondary">No copies recorded</p>
-        )}
-      </CardContent>
+      {/* Instances; an edition with none, and no quotes, says so in the Quotes line */}
+      {!bare && (
+        <CardContent>
+          <SectionHeading
+            as="h4"
+            title="Copies"
+            count={edition.instances.length}
+          />
+          {edition.instances.length > 0 ? (
+            // A deleted copy hands the focus to the next one (FocusKeeper)
+            <div className="space-y-2" data-focus-list={`copies-${edition.id}`}>
+              {edition.instances.map((instance) => (
+                <InstanceDetail
+                  key={instance.id}
+                  instance={instance}
+                  workId={edition.workId}
+                  workTitle={edition.title}
+                  availableLocations={availableLocations}
+                  ebook={ebooksByCopy?.[instance.id] ?? null}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-fg-secondary">No copies recorded</p>
+          )}
+        </CardContent>
+      )}
     </Card>
   );
 }

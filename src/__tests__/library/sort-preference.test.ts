@@ -3,6 +3,9 @@ import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
 import { LIBRARY_SORT_COOKIE, parseLibrarySortPreference } from "@/lib/library/sort-preference";
 
+/** Goes on to Next.js: no refusal or redirect, at most the page policy on it (SLN-1240) */
+const passes = (res: Response | undefined | null | void) => !res || res.headers.get("x-middleware-next") === "1";
+
 const saved = encodeURIComponent(JSON.stringify({ sort: "recent", order: "asc" }));
 const request = (path: string, cookie = `${LIBRARY_SORT_COOKIE}=${saved}`) =>
   new NextRequest(`http://localhost:3100${path}`, { headers: { cookie } });
@@ -30,7 +33,7 @@ describe("remembering the books ordering", () => {
     const params = restored("/library", cookie)!;
     expect(params.get("perPage")).toBe("96");
     expect(params.get("sort")).toBe("recent");
-    expect(proxy(request(`/library?${params}`, cookie))).toBeUndefined();
+    expect(passes(proxy(request(`/library?${params}`, cookie)))).toBe(true);
   });
 
   it("honours explicit sort links without changing the saved selection", () => {

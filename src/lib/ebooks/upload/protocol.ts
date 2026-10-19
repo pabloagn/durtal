@@ -38,6 +38,8 @@ const itemShape = z.strictObject({
   retainedUntil: z.string().max(40).datetime({ offset: true }).nullable(), message: z.string().max(900).nullable(),
   ebookId: uuid.nullable(), fileId: uuid.nullable(),
   originalOperationId: uuid.nullable(), currentFingerprint: sha256.nullable(), undoAvailable: z.boolean(),
+  /** Checked and not added: its message says why, and trying again or Preview would give the same answer (SLN-1388) */
+  refused: z.boolean().optional(),
 });
 export const uploadItemViewSchema = itemShape.superRefine((item, context) => {
   const seen = new Set<number>();

@@ -714,7 +714,7 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
             title="Editions"
             count={work.editions.length}
             action={
-              <EditionAddDialog workId={work.id} workTitle={work.title} />
+              <EditionAddDialog workId={work.id} workTitle={work.title} workLanguage={work.originalLanguage} />
             }
           />
 

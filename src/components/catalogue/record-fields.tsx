@@ -10,6 +10,7 @@ import type { WorkKind } from "@/lib/catalogue/kinds";
 import type { OrganizationRole } from "@/lib/catalogue/organizations";
 import { SearchPicker, type PickerChoice } from "./search-picker";
 import { saveOrganization, createPerson } from "@/lib/actions/catalogue-client";
+import { lifeDates } from "@/lib/utils/format";
 
 /*
  * The pieces of a record form shared by every collection: chips with Remove,
@@ -229,10 +230,7 @@ export function usePersonSearch(domain: WorkKind) {
       (await getPeople({ query, limit: 8 })).rows.map((p) => ({
         id: p.id,
         label: p.name,
-        hint:
-          p.birthYear || p.deathYear
-            ? `${p.birthYear ?? "?"}–${p.deathYear ?? ""}`
-            : null,
+        hint: lifeDates(p),
       })),
     [],
   );

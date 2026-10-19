@@ -290,7 +290,8 @@ function VersionForm({
           label="Name"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder="Theatrical, Director's cut (empty when unnamed)"
+          placeholder="e.g. Director’s cut"
+          hint="Leave it empty when the version has no name"
           maxLength={200}
         />
         <Input

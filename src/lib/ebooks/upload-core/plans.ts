@@ -13,6 +13,7 @@ import type { MatchOperationIdentity, MatchResult } from "../match/types";
 import type { UploadAtomicBinding } from "../upload/atomic-extension";
 import { UploadError, uploadOutcomeSchema, type UploadCommand } from "../upload/protocol";
 import { readStoredInspection } from "./inspection";
+import { quarantineMessage } from "./refusal";
 import { readCoreOperationOn, type CoreOperationRow, type CoreScope } from "./store";
 import { readUploadSnapshotsOn, targetFingerprintFromRows, type UploadSnapshots } from "./snapshots";
 import { newUploadIdentity } from "./receipts";
@@ -29,8 +30,8 @@ const metadataSources:Partial<Record<PlanFile["format"],MetadataSource>>={epub:"
   azw:"mobi",mobi:"mobi",fb2:"fb2",fbz:"fb2",pdf:"pdf",cbz:"cbz"};
 export function inspectionPlanFile(upload:CoreOperationRow):{group:PlanGroup;file:PlanFile} {
   const inspected=readStoredInspection(upload),p=inspected.prepared,stages=inspected.publication;
-  if (!p.validation.downloadable || p.problem || p.drm || !stages.medallion.gold[0])
-    throw new UploadError(409,"upload_quarantined","This file is retained for review and cannot be registered as a readable upload.");
+  const refused=quarantineMessage(inspected);
+  if (refused) throw new UploadError(409,"upload_quarantined",refused);
   const filename=z.string().parse(upload.input.name),sourcePath=`upload:${upload.id}`;
   const ebook=mergeMetadata([{source:metadataSources[p.format]??"filename",metadata:p.metadata}],filename);
   const file:PlanFile={path:sourcePath,size:p.size,mtimeMs:0,sha256:p.sha256,format:p.format,contentType:p.contentType,

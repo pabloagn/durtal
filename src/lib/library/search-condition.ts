@@ -1,4 +1,5 @@
-import { eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, eq, ilike, inArray, ne, or, sql, type SQL } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import {
   authors,
@@ -12,9 +13,12 @@ import { authorSearchCondition } from "@/lib/actions/utils/author-search";
 import { textContains } from "@/lib/actions/utils/text-search";
 import { containsPattern } from "@/lib/utils/like";
 
+/** An edition's own work, to tell its title apart from the work's */
+const editionWork = alias(works, "edition_work");
+
 /**
- * Build a search condition that matches works by title, author, ISBN,
- * publisher, or series name. Detects ISBN-shaped queries and prioritises
+ * Build a search condition that matches works by title, original title,
+ * edition title or subtitle, author, ISBN, publisher, or series name. Detects ISBN-shaped queries and prioritises
  * edition-level ISBN lookup. Each related-table match is a subquery of the
  * list's own where clause, so a search adds no round trip before the list
  * and its count (SLN-750). The library's lists and its timeline search the
@@ -92,9 +96,29 @@ export function workSearchCondition(search: string): SQL {
     ),
   );
 
-  // Title match OR series name match OR related-table matches
+  // 4. Edition title or subtitle: a work catalogued under its original title
+  //    is found by its translation's title ("Swann's Way") (SLN-1363). An
+  //    edition titled as its work adds nothing, so its title isn't folded
+  related.push(
+    inArray(
+      works.id,
+      db
+        .select({ workId: editions.workId })
+        .from(editions)
+        .innerJoin(editionWork, eq(editionWork.id, editions.workId))
+        .where(
+          or(
+            and(ne(editions.title, editionWork.title), textContains(editions.title, search)),
+            textContains(editions.subtitle, search),
+          ),
+        ),
+    ),
+  );
+
+  // Title (or original title) match OR series name match OR related-table matches
   return or(
     textContains(works.title, search),
+    textContains(works.originalTitle, search),
     textContains(works.seriesName, search),
     sql`exists (select 1 from series where series.id = ${works.seriesId} and ${textContains(sql`series.title`, search)})`,
     ...related,

@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 import type { AuthorTimelineItem } from "@/lib/actions/author-timeline";
 import { monogramTint } from "@/components/shared/no-photo";
 import { mediaImageStyle } from "@/lib/utils/media-style";
-import { displayYear } from "@/lib/utils/years";
+import { lifeDates } from "@/lib/utils/format";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -160,7 +160,7 @@ export function AuthorTimelineRow({
     <div
       role="button"
       tabIndex={0}
-      aria-label={`${author.name}, ${displayYear(author.birthYear)}–${author.deathYear ? displayYear(author.deathYear) : "present"}`}
+      aria-label={`${author.name}, ${lifeDates(author)}`}
       style={barStyle}
       onPointerEnter={(e) => onHover(author.id, e.clientX, e.clientY)}
       onPointerLeave={() => onHover(null)}

@@ -612,7 +612,7 @@ export default async function PaintingPage({
             title={painting.title}
             sources={sources}
             examples={{
-              name: "The museum's collection page, a catalogue raisonné",
+              name: "e.g. the museum’s page",
               says: "Date, owner, accession number, where it hangs",
             }}
             lookup={

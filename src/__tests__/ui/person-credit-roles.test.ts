@@ -75,7 +75,8 @@ describe("a person's credits", () => {
       credit("film", "film.director", "Director", "f2", "Weekend"),
     ]);
     expect(lines).toEqual(["Director · 2 films", "Screenwriter · 1 film", "Cast · 1 film"]);
-    expect(html).toMatch(/data-card="f1"><\/div><p[^>]*>Director, Screenwriter, Cast<\/p>/);
+    // The caption is the second row of the card's own cell (SLN-1019)
+    expect(html).toMatch(/data-card="f1"><\/div><\/div><p[^>]*>Director, Screenwriter, Cast<\/p>/);
   });
 
   it("puts a role added later after the seeded ones, by its label", async () => {
