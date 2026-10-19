@@ -126,7 +126,9 @@ def main():
         print(f"Running tests with {len(manifest)} isolated databases, reset from a migrated template.", flush=True)
         with (report_dir / "vitest.log").open("w") as log:
             child = subprocess.Popen(
-                ["node", "node_modules/vitest/vitest.mjs", "run",
+                # Side by side, a template copy can wait behind others' copies:
+                # a reset in a hook gets 60 s, not the default 10 s
+                ["node", "node_modules/vitest/vitest.mjs", "run", "--hookTimeout=60000",
                  "--reporter=default", "--reporter=json", f"--outputFile.json={report_dir / 'vitest.json'}", *args.filters],
                 cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT)
             code = child.wait()
