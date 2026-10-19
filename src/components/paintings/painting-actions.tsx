@@ -102,6 +102,7 @@ export function PaintingActions({
         onClose={close}
         entityId={painting.id}
         title={painting.title}
+        mainImage="image"
       />
       <ConfirmDeleteDialog
         open={open === "delete"}

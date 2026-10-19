@@ -1,7 +1,6 @@
 "use server";
 
 import { ExpectedActionError } from "@/lib/actions/expected-error";
-import { bookPersonCondition } from "@/lib/catalogue/person-boundary";
 
 import {
   bookCondition,

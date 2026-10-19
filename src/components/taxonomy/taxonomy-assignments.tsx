@@ -11,6 +11,7 @@ import { createTaxonomyItem, searchTaxonomyItems } from "@/lib/actions/taxonomy-
 import { refusalMessage } from "@/lib/actions/refusal";
 import { replaceTaxonomyAssignments } from "@/lib/actions/taxonomy-client";
 import type { WorkKind } from "@/lib/catalogue/kinds";
+import { normalizeSearchText } from "@/lib/utils/search-text";
 
 type Family = Awaited<ReturnType<typeof getTaxonomyAssignments>>[number];
 
@@ -213,8 +214,9 @@ export function TaxonomyItemSearch({
 
   const choices = (result?.items ?? []).filter((item) => !exclude.has(item.id));
   const name = query.trim();
+  // "decadence" is "Décadence": no Create beside the item it would repeat
   const exact = (result?.items ?? []).some(
-    (item) => item.name.toLowerCase() === name.toLowerCase(),
+    (item) => normalizeSearchText(item.name) === normalizeSearchText(name),
   );
 
   async function create() {
