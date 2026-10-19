@@ -71,6 +71,15 @@ export function shade(value: number, max: number): number {
   return Math.min(4, Math.max(1, Math.ceil((value / max) * 4)));
 }
 
+/**
+ * A calendar day's shade: any day with reading takes at least the first, so
+ * a day known only by a finish (an imported history, a past read logged
+ * without sessions) is not drawn as a day without reading (SLN-1170).
+ */
+export function dayShade(read: boolean, value: number, max: number): number {
+  return read ? Math.max(1, shade(value, max)) : 0;
+}
+
 /* ── The keyboard ──────────────────────────────────────────────────────── */
 
 /**
