@@ -97,9 +97,10 @@ export function getServerEntries(): NotificationEntry[] {
 }
 
 /**
- * Keep a notification. The same toast updated (a pending one that failed)
- * changes its entry; the same message again soon after counts on the newest
- * entry instead of adding one.
+ * Keep a notification, once per time it is shown. The same toast updated (a
+ * pending one that failed) changes its entry; the same toast shown again with
+ * the same words, or the same message again soon after the newest entry,
+ * counts once more on that entry, unread and at the top (SLN-1460).
  */
 export function record(
   input: { id: string; kind: NotificationKind; title: string; description?: string | null },
@@ -109,7 +110,10 @@ export function record(
   const description = input.description ?? null;
   const same = entries.find((e) => e.id === input.id);
   if (same) {
-    if (same.kind === input.kind && same.title === input.title && same.description === description) return;
+    if (same.kind === input.kind && same.title === input.title && same.description === description) {
+      commit([{ ...same, at: now, count: same.count + 1, read: false }, ...entries.filter((e) => e !== same)], now);
+      return;
+    }
     commit(entries.map((e) => (e === same ? { ...e, ...input, description, at: now, read: false } : e)), now);
     return;
   }

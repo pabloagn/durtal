@@ -9,7 +9,8 @@ import { CONNECTION_SAVE_ERROR, isConnectionFailure } from "./connection";
  *   error stays until it is dismissed. A toast with an action (Undo, Retry)
  *   or its own duration keeps what it asks for.
  * - The same message of the same kind, while it is still on screen, is one
- *   toast: a repeat neither adds a second nor speaks again.
+ *   toast: a repeat neither adds a second nor speaks again. A repeated error
+ *   or warning still counts in the notification history.
  * - A long operation shows a pending toast that turns into its outcome under
  *   the same id ({@link pendingToast}).
  * - Info is one look: `toast.message` is an info toast.
@@ -64,12 +65,16 @@ function errorMessage(message: Message): Message {
 function show(kind: Kind, message: Message, data?: ExternalToast): Id {
   if (kind === "error") message = errorMessage(message);
   const own = data?.id !== undefined || data?.action !== undefined || data?.cancel !== undefined;
+  const keeps = data?.duration !== undefined || data?.action !== undefined || data?.cancel !== undefined;
+  const options = keeps ? data : { ...data, duration: TOAST_DURATION[kind] };
   if (!own) {
     const same = showing(kind, message);
+    // An error or a warning again is shown again under the same id: still one
+    // toast, and the notification history counts it (SLN-1460)
+    if (same !== null && (kind === "error" || kind === "warning")) sonner[kind](message, { ...options, id: same });
     if (same !== null) return same;
   }
-  const keeps = data?.duration !== undefined || data?.action !== undefined || data?.cancel !== undefined;
-  const id = sonner[kind](message, keeps ? data : { ...data, duration: TOAST_DURATION[kind] });
+  const id = sonner[kind](message, options);
   if (!own && typeof message === "string") {
     const now = Date.now();
     for (const [key, entry] of recent) if (now - entry.at >= RECENT_MS) recent.delete(key);

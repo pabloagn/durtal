@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useSonner } from "sonner";
 import { record } from "@/lib/notifications/history";
 
@@ -18,8 +18,14 @@ function text(value: unknown): string | null {
  */
 export function NotificationRecorder() {
   const { toasts } = useSonner();
+  // Sonner makes a new object each time a toast is shown or changed, and keeps
+  // the others as they are: each one is recorded once, so a toast shown again
+  // under the same id counts again (SLN-1460)
+  const seen = useRef(new WeakSet<object>());
   useEffect(() => {
     for (const toast of toasts) {
+      if (seen.current.has(toast)) continue;
+      seen.current.add(toast);
       if (toast.type !== "error" && toast.type !== "warning") continue;
       const title = text(toast.title);
       if (!title) continue;

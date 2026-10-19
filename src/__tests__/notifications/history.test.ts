@@ -44,9 +44,18 @@ describe("the notification history", () => {
     expect(getEntries()).toEqual([
       expect.objectContaining({ id: "p:1", kind: "error", title: "Upload failed", read: false, count: 1, at: T + 5 }),
     ]);
-    // The same toast rendered again with nothing new changes nothing
-    record({ id: "p:1", kind: "error", title: "Upload failed" }, T + 9);
-    expect(getEntries()[0].at).toBe(T + 5);
+  });
+
+  // SLN-1460: a toast shown again under its id, with the same words, was dropped
+  it("counts the same toast shown again with the same words, unread, latest time, at the top", () => {
+    record({ id: "p:1", kind: "error", title: "Could not update the favourite" }, T);
+    record({ id: "p:2", kind: "warning", title: "Other" }, T + 1);
+    markRead(["p:1", "p:2"]);
+    record({ id: "p:1", kind: "error", title: "Could not update the favourite" }, T + 5 * REPEAT_MS);
+    expect(getEntries()).toEqual([
+      expect.objectContaining({ id: "p:1", count: 2, read: false, at: T + 5 * REPEAT_MS }),
+      expect.objectContaining({ id: "p:2", count: 1, read: true }),
+    ]);
   });
 
   it("counts the same message again soon after on one entry", () => {

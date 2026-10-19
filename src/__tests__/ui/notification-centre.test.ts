@@ -3,9 +3,10 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { toast } from "sonner";
+import { toast as houseToast } from "@/lib/notifications/toast";
 import { AppToaster } from "@/components/layout/app-toaster";
 import { NotificationCentre } from "@/components/layout/notification-centre";
-import { getEntries, resetForTests } from "@/lib/notifications/history";
+import { getEntries, record, resetForTests } from "@/lib/notifications/history";
 
 // The notification centre (SLN-567): every page's errors and warnings, read
 // once seen, removable one by one or all at once.
@@ -25,8 +26,21 @@ function toggle(state: "open" | "closed") {
   });
 }
 
+// Rows whose place in the list is below this are out of view
+let rowsInView = Infinity;
+class RowsInViewObserver {
+  constructor(private readonly report: (records: { target: Element; isIntersecting: boolean }[]) => void) {}
+  observe(row: Element) {
+    this.report([{ target: row, isIntersecting: [...row.parentElement!.children].indexOf(row) < rowsInView }]);
+  }
+  unobserve() {}
+  disconnect() {}
+  takeRecords() { return []; }
+}
+
 beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  globalThis.IntersectionObserver = RowsInViewObserver as unknown as typeof IntersectionObserver;
   const matches = Element.prototype.matches;
   Element.prototype.matches = function (selector: string) {
     if (selector === ":focus-visible") return this === document.activeElement;
@@ -35,6 +49,7 @@ beforeAll(() => {
   };
 });
 beforeEach(() => {
+  rowsInView = Infinity;
   localStorage.clear();
   resetForTests();
   host = document.createElement("div");
@@ -112,6 +127,49 @@ describe("the notification centre", () => {
     toggle("closed");
     expect(getEntries().map((e) => [e.title, e.read])).toEqual([["Second", true], ["First", true]]);
     expect(bell().getAttribute("aria-label")).toBe("Notifications");
+  });
+
+  // SLN-1460: a repeated failure under the same toast id was lost, and closing
+  // the panel marked every entry read, seen or not
+  it("counts the same failure shown again under its id, even after the centre was opened", async () => {
+    const fail = async () => { act(() => { toast.error("Could not update the favourite", { id: "favourite" }); }); await wait(50); };
+    await fail();
+    act(() => { toast.warning("Cover skipped"); });
+    await wait(50);
+    await fail();
+    toggle("open");
+    toggle("closed");
+    await fail();
+    const favourite = getEntries().find((e) => e.title === "Could not update the favourite");
+    expect(getEntries()).toHaveLength(2);
+    expect(favourite).toMatchObject({ count: 3, read: false });
+    expect(getEntries()[0]).toBe(favourite);
+    expect(bell().getAttribute("aria-label")).toBe("Notifications, 1 unread");
+  });
+
+  // The favourite's case: the house toast folds a repeat into the error still
+  // on screen, and the history still counts it
+  it("counts a repeat the house toast folds into the error on screen", async () => {
+    const fail = async () => { act(() => { houseToast.error("Could not update the favourite. Try again."); }); await wait(50); };
+    await fail();
+    await fail();
+    toggle("open");
+    toggle("closed");
+    await fail();
+    expect(document.querySelectorAll("[data-sonner-toast]")).toHaveLength(1);
+    const favourite = getEntries().find((e) => e.title === "Could not update the favourite. Try again.");
+    expect(getEntries()).toHaveLength(1);
+    expect(favourite).toMatchObject({ count: 3, read: false });
+    expect(bell().getAttribute("aria-label")).toBe("Notifications, 1 unread");
+  });
+
+  it("closing marks read only the entries that were in view", async () => {
+    act(() => { for (let i = 0; i < 50; i++) record({ id: `p:${i}`, kind: "error", title: `Error ${i}` }, Date.now() + i); });
+    rowsInView = 8;
+    toggle("open");
+    toggle("closed");
+    expect(getEntries().filter((e) => e.read).map((e) => e.title)).toEqual(["Error 49", "Error 48", "Error 47", "Error 46", "Error 45", "Error 44", "Error 43", "Error 42"]);
+    expect(getEntries().filter((e) => !e.read)).toHaveLength(42);
   });
 
   it("removes one entry, then all of them", async () => {
