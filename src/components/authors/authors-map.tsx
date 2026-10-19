@@ -31,10 +31,9 @@ import {
   type MapAuthorLeaf,
 } from "@/lib/utils/map-groups";
 import { shortCountryName, withNationalityFilter } from "@/lib/utils/nationality-param";
-import { displayYear } from "@/lib/utils/years";
 import { LIST_PREFERENCES } from "@/lib/preferences";
 import { publicEnv } from "@/lib/env";
-import { countLabel } from "@/lib/utils/format";
+import { countLabel, lifeDates } from "@/lib/utils/format";
 
 interface AuthorProperties {
   id: string;
@@ -44,6 +43,8 @@ interface AuthorProperties {
   posterUrl: string | null;
   birthYear: number | null;
   deathYear: number | null;
+  birthYearIsApproximate: boolean | null;
+  deathYearIsApproximate: boolean | null;
   nationalityCode: string | null;
   nationalityName: string | null;
 }
@@ -58,6 +59,8 @@ interface SelectedAuthor {
   posterUrl: string | null;
   birthYear: number | null;
   deathYear: number | null;
+  birthYearIsApproximate: boolean | null;
+  deathYearIsApproximate: boolean | null;
   nationalityCode: string | null;
   nationalityName: string | null;
 }
@@ -213,13 +216,6 @@ const unclusteredPointLayer: CircleLayer = {
   },
 };
 
-function lifeYears(birthYear: number | null, deathYear: number | null): string {
-  if (birthYear == null) return "";
-  return deathYear != null
-    ? `${displayYear(birthYear)}–${displayYear(deathYear)}`
-    : displayYear(birthYear);
-}
-
 function CloseButton({ onClick }: { onClick: () => void }) {
   return (
     <button
@@ -272,6 +268,8 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
         posterUrl: a.posterUrl,
         birthYear: a.birthYear,
         deathYear: a.deathYear,
+        birthYearIsApproximate: a.birthYearIsApproximate,
+        deathYearIsApproximate: a.deathYearIsApproximate,
         nationalityCode: a.nationalityCode,
         nationalityName: a.nationalityName,
       },
@@ -504,9 +502,9 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
                       {selection.author.locationName}
                     </p>
                   )}
-                  {selection.author.birthYear != null && (
+                  {lifeDates(selection.author) && (
                     <p className="mt-1 font-mono text-xs text-fg-secondary">
-                      {lifeYears(selection.author.birthYear, selection.author.deathYear)}
+                      {lifeDates(selection.author)}
                     </p>
                   )}
                 </div>
@@ -563,7 +561,7 @@ export function AuthorsMap({ authors }: AuthorsMapProps) {
                     >
                       <span className="truncate">{a.name}</span>
                       <span className="flex-shrink-0 font-mono text-micro text-fg-secondary">
-                        {lifeYears(a.birthYear, a.deathYear)}
+                        {lifeDates(a)}
                       </span>
                     </Link>
                   </li>

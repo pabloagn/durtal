@@ -51,7 +51,7 @@ describe("headers on every answer", () => {
   const config = readFileSync(path.resolve(__dirname, "../../../next.config.ts"), "utf8");
 
   it("lets only Durtal's own pages frame a page (SLN-897)", () => {
-    expect(config).toContain('{ source: "/:path*", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] }');
+    expect(config).toMatch(/source: "\/:path\*",\s*headers: \[\s*\{ key: "X-Frame-Options", value: "SAMEORIGIN" \}/);
   });
 
   it("does not name the framework (SLN-899)", () => {

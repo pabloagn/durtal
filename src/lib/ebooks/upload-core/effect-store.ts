@@ -17,6 +17,7 @@ import { accessSql, ownerReadySql, requestSql, coreRowProjectionSql, decodeRow, 
   type CoreScope, type CoreOperationRow } from "./store";
 import { uploadReaderHashSql, UPLOAD_READER_TABLES, settledUploadSql, type UploadSnapshots } from "./snapshots";
 import type { UploadEffectPreview } from "./plans";
+import { settleUploadRunSql } from "./run-settle";
 
 export function previewProgress(plan:UploadEffectPreview):Record<string,unknown> {
   return {...plan.upload.progress,uploadCoreV1:{publication:plan.publication,preparationId:plan.prepareCommandId,
@@ -225,6 +226,8 @@ export async function confirmUploadEffectOn(conn:Db,scope:CoreScope,owner:Superv
       d.execute(sql`update ebook_upload_operations set receipt=${JSON.stringify(outcome)}::jsonb,receipt_status=200,
         effect_committed_at=clock_timestamp(),state='completed',revision=revision+1,updated_at=clock_timestamp()
         where id=${commandRow.id}::uuid`),
+      // Adding the last open file settles its run (SLN-1395)
+      d.execute(settleUploadRunSql(currentUpload.run_id!)),
       d.execute(sql`insert into activity_events(id,entity_type,entity_id,event_key,metadata)
         values(${activityId}::uuid,'ebook',${plan.ebookId}::uuid,${event},jsonb_build_object('extra',
           jsonb_build_object('ebookUpload',${JSON.stringify(facts)}::jsonb || jsonb_build_object('catalogueAfter',${actualCatalogueSql(plan.snapshots)}))))`),

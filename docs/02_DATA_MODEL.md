@@ -2951,7 +2951,7 @@ One apply of the ingestion, one browser upload batch or one verification
 |---|---|---|---|
 | `id` | UUID | PK, auto | |
 | `kind` | TEXT | NOT NULL, CHECK in (`apply`, `upload`, `verify`) (`ebook_ingest_runs_kind_check`) | |
-| `state` | TEXT | NOT NULL, default `'running'`, CHECK in (`running`, `finished`, `interrupted`, `failed`) (`ebook_ingest_runs_state_check`) | `finished` when its reconciliation is exact, `failed` when it is not; `interrupted` until a resume |
+| `state` | TEXT | NOT NULL, default `'running'`, CHECK in (`running`, `finished`, `interrupted`, `failed`) (`ebook_ingest_runs_state_check`) | `finished` when its reconciliation is exact, `failed` when it is not; `interrupted` until a resume. An upload's run settles in the write that settles its last file (added, canceled or expired): `failed` when a file was canceled after its check failed, else `finished` |
 | `host` | TEXT | nullable | The machine's name; null for uploads |
 | `roots` | TEXT[] | NOT NULL, default `{}` | The folders given |
 | `plan_sha256` | TEXT | nullable | The SHA-256 of the plan file an apply executed |

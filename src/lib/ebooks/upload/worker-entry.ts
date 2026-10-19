@@ -10,6 +10,7 @@ import { withInspectionBudget } from "../ingest/budget";
 import { installPdfBudgetHooks } from "../ingest/pdf-budget";
 import { prepareFile, sniffSource, derivedCachePath } from "../ingest/prepare";
 import type { ByteSource } from "../ingest/source";
+import { notEbookWhat } from "./job-failure";
 import { decodeInspectorRequest, INSPECTOR_REQUEST_BYTES, type InspectorWorkerRequest } from "./worker-request";
 
 const CHUNK = 64 * 1024;
@@ -81,7 +82,8 @@ export async function runInspectorWorker(): Promise<void> {
       };
       await installPdfBudgetHooks();
       const sniffed = await sniffSource(source); budget.assertHealthy();
-      if (sniffed.kind !== "ebook") throw new Error("Inspector input is not a recognized e-book");
+      // A refusal is a report, not a crash: the item fails with its reason and the service stays up (SLN-1388)
+      if (sniffed.kind !== "ebook") return { identity: input.identity, sourceSha256: input.sha256, refusal: { reason: "not_an_ebook", what: notEbookWhat(sniffed.reason) } };
       await mkdir(CACHE, { mode: 0o700 });
       const prepared = await prepareFile(source, input.sha256, sniffed.format, CACHE); budget.assertHealthy();
       const derived: { name: string; bytes: number; sha256: string; base64: string }[] = [];

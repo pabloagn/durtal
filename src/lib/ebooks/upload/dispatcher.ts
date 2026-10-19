@@ -11,6 +11,7 @@ import { writeInspectorRequest } from "./worker-request";
 import { requestRelativePath } from "./runtime-contract";
 import { UPLOAD_LIMITS } from "./limits";
 import { canonicalJson } from "./idempotency";
+import { UploadItemFailed } from "./job-failure";
 import type { UploadSupervisor, UploadJobScope } from "./supervisor";
 import type { PostgresUploadStore } from "./store";
 import type { PrivateUploadSpool } from "./private-spool";
@@ -27,6 +28,8 @@ export class UploadDispatcher {
   constructor(private readonly input: {
     supervisor: UploadSupervisor; store: PostgresUploadStore; spool: PrivateUploadSpool;
     core: UploadJobCoreAdapter; context: UploadCoreContext; onFailure(error: unknown): void;
+    /** One item failed and was recorded; the service carries on (SLN-1388) */
+    onItemFailure?(error: UploadItemFailed): void;
   }) {}
 
   start(): void {
@@ -56,6 +59,15 @@ export class UploadDispatcher {
   async dispatchOne(): Promise<void> {
     const ready = this.input.supervisor.readiness();
     if (ready.state !== "ready") throw new Error("Upload worker readiness lost");
+    try {
+      await this.runNext();
+    } catch (error) {
+      if (!(error instanceof UploadItemFailed)) throw error;
+      try { this.input.onItemFailure?.(error); } catch { /* Diagnostics cannot fail the next job. */ }
+    }
+  }
+
+  private async runNext(): Promise<void> {
     await this.input.supervisor.runNextJob((owner) => this.input.store.claimNext(owner, randomUUID(), this.input.context.targetFingerprint), {
       prepare: async (scope) => {
         const fence = scope.identity.fence;

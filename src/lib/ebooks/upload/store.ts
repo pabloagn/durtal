@@ -12,6 +12,7 @@ import type { SupervisorHostLock } from "./host-lock";
 import type { SupervisorOwner, SupervisorRecovery, UploadSupervisorPersistence } from "./supervisor";
 import type { UploadState } from "../ingest/store";
 import { boundedJsonBytes } from "./bounded-json";
+import { uploadJobFailureSchema, type UploadJobFailure } from "./job-failure";
 
 export interface UploadSqlExecutor {
   execute(query: SQL, signal?: AbortSignal): Promise<unknown>;
@@ -214,7 +215,8 @@ export class PostgresUploadStore implements UploadSupervisorPersistence {
       and c.worker_token = o.lease_token and c.worker_lease_expires_at > statement_timestamp()
       and o.lease_expires_at > statement_timestamp() and c.worker_state in ('running', 'quiescing')`));
   }
-  async recordJobFailure(owner: SupervisorOwner, fence: OperationFence): Promise<void> {
+  async recordJobFailure(owner: SupervisorOwner, fence: OperationFence, failure: UploadJobFailure): Promise<void> {
+    const { reason, what } = uploadJobFailureSchema.parse(failure);
     one(await this.execute(sql`with locked as (
       select c.* from ebook_upload_capacity c where ${uploadOwnerPredicate(owner)} and c.state in ('ready','quiescing')
         and c.worker_operation_id = ${fence.operationId}::uuid and c.worker_state in ('running','quiescing')
@@ -225,7 +227,8 @@ export class PostgresUploadStore implements UploadSupervisorPersistence {
         and o.lease_expires_at > statement_timestamp() for update of o
     ), failed as (
       update ebook_upload_operations o set state = 'failed',
-        progress = jsonb_set(o.progress, '{jobFailureV1}', jsonb_build_object('generation', ${fence.generation}, 'code', 'upload_job_failed'), true),
+        progress = jsonb_set(o.progress, '{jobFailureV1}', jsonb_build_object('generation', ${fence.generation}, 'code', 'upload_job_failed',
+          'reason', ${reason}::text, 'what', ${what}::text), true),
         revision = o.revision + 1, updated_at = statement_timestamp()
       from operation observed where o.id = observed.id and observed.receipt is null
         and observed.state in ('processing','quiescing') returning o.id

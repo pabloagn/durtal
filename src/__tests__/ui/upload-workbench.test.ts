@@ -18,7 +18,7 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals(); });
 async function flush() { for (let i = 0; i < 12; i++) await new Promise<void>((resolve) => setTimeout(resolve, 0)); }
-async function mount(target: UploadTarget = { kind: 'new' }, available = true) { await act(async () => { root.render(createElement(UploadWorkbench, { target, initialBatchId: null, available })); await flush(); }); }
+async function mount(target: UploadTarget = { kind: 'new' }, available = true, notice: string | null = null) { await act(async () => { root.render(createElement(UploadWorkbench, { target, initialBatchId: null, available, notice })); await flush(); }); }
 function button(label: string): HTMLButtonElement { const found = [...host.querySelectorAll('button')].find((b) => b.textContent === label); if (!found) throw new Error(`Missing ${label}`); return found; }
 async function click(label: string) { await act(async () => { button(label).click(); await flush(); }); }
 async function choose(input: HTMLInputElement) {
@@ -102,10 +102,59 @@ describe('the upload page says what happened (SLN-672)', () => {
     await click('Discard request');
     expect(readUploadSession().pending).toBeNull(); expect(button('Start upload').disabled).toBe(false);
   });
+  // SLN-1388: a refused file says why on its own row, and offers only Cancel
+  it('shows a refused file with its reason and Cancel, never Preview, Try again or an automatic add', async () => {
+    writeUploadSession({ version: 1, batchId: oldBatch, pending: null });
+    const second = '66666666-6666-4666-8666-666666666666';
+    const items = [{ ...summary(0), state: 'ready', refused: true, message: 'Not added: the file is locked with a password. Upload a copy without it.' },
+      { ...summary(0), id: second, name: 'photo.epub', sha256: 'c'.repeat(64), state: 'failed', refused: true, message: 'Not added: not an e-book (PNG image).' }];
+    const commands: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, options?: RequestInit) => {
+      if (options?.method) commands.push(String(options.body));
+      return Response.json({ batch: { id: oldBatch, key: oldBatch, runId, items }, ready: true });
+    }));
+    await mount();
+    expect(host.textContent?.match(/Checked · /g)).toHaveLength(2);
+    expect(host.textContent).toContain('Not added: the file is locked with a password. Upload a copy without it.');
+    expect(host.textContent).toContain('Not added: not an e-book (PNG image).');
+    const labels = [...host.querySelectorAll('button')].map((b) => b.textContent);
+    expect(labels).not.toContain('Preview'); expect(labels).not.toContain('Try again'); expect(labels).not.toContain('Preview all (2)');
+    expect(labels.filter((label) => label === 'Cancel upload')).toHaveLength(2);
+    expect(commands).toEqual([]);
+  });
+  it('refuses a file that is plainly not an e-book before sending any of it', async () => {
+    await mount();
+    const png = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13])], 'photo.epub');
+    const input = host.querySelector<HTMLInputElement>('input[aria-label="Choose eBook files"]')!;
+    Object.defineProperty(input, 'files', { value: [png, new File(['abc'], 'notes.txt')], configurable: true });
+    await act(async () => { input.dispatchEvent(new Event('change', { bubbles: true })); await flush(); });
+    expect(host.textContent).toContain('Not added: photo.epub is not an e-book (PNG image).');
+    expect(host.textContent).toContain('notes.txt');
+    expect(host.textContent).not.toContain('photo.epub · ');
+  });
+  it('says uploads are stopped once the service has been down longer than a restart takes', async () => {
+    writeUploadSession({ version: 1, batchId: oldBatch, pending: null });
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ batch: { id: oldBatch, key: oldBatch, runId, items: [summary(0)] }, ready: false })));
+    vi.useFakeTimers({ toFake: ['setInterval', 'Date'] });
+    try {
+      await mount();
+      expect(host.textContent).toContain('The upload service is restarting.');
+      await act(async () => { vi.advanceTimersByTime(60_000); await flush(); });
+      expect(host.textContent).toContain('The upload service is restarting.');
+      await act(async () => { vi.advanceTimersByTime(63_000); await flush(); });
+      expect(host.textContent).toContain('Uploads are stopped on the server.');
+      expect(host.textContent).not.toContain('restarting');
+    } finally { vi.useRealTimers(); }
+  });
   it('says up front when uploads are off', async () => {
     await mount({ kind: 'new' }, false);
     expect(host.textContent).toContain('Uploads are off on this server');
     expect(button('Choose files').disabled).toBe(true);
+  });
+  it('says up front when the upload service needs the Mac to sign in again', async () => {
+    await mount({ kind: 'new' }, true, 'Uploads need the Mac to sign in to AWS again.');
+    expect(host.querySelector('[role="note"]')?.textContent).toBe('Uploads need the Mac to sign in to AWS again.');
+    expect(host.textContent).not.toContain('Uploads are off on this server');
   });
   it('leads from a finished file to its eBook, the reader and linking', async () => {
     writeUploadSession({ version: 1, batchId: oldBatch, pending: null });

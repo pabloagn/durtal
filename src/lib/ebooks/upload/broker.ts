@@ -17,6 +17,8 @@ import { UPLOAD_BROKER_KEY } from "./availability";
  */
 export interface UploadGateway {
   ready(): boolean | Promise<boolean>;
+  /** Why uploads will be refused right now, for the upload page to say before a file is chosen */
+  notice?(): Promise<string | null>;
   create(input: unknown, channel: UploadCoreContext["channel"]): Promise<UploadBatchView>;
   batch(id: string, channel: UploadCoreContext["channel"]): Promise<UploadBatchView>;
   item(id: string, channel: UploadCoreContext["channel"]): Promise<UploadItemView>;

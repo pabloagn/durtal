@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { makeNonce, readerCsp } from "@/lib/reader/csp";
+import { catalogueCsp } from "@/lib/page-csp";
 import { proxy } from "@/proxy";
 import OfflineReaderPage, { dynamic as offlineReaderRendering } from "@/app/reader/offline/page";
 import { OfflineReader } from "@/components/reader/offline/offline-reader";
@@ -83,9 +84,10 @@ describe("the proxy on reader pages", () => {
     expect(directive(a.headers.get("content-security-policy")!, "script-src")).toBe(`script-src 'self' 'nonce-${nonceOf(a)}'`);
   });
 
-  it("leaves every other page without it", () => {
+  it("gives every other page the catalogue's policy instead (SLN-1240)", () => {
     for (const path of ["/library", "/readers", "/reading"]) {
-      expect(visit(path)?.headers.get("content-security-policy") ?? null).toBeNull();
+      const res = visit(path)!;
+      expect(res.headers.get("content-security-policy")).toBe(catalogueCsp(nonceOf(res)!));
     }
   });
 

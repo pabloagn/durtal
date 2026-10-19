@@ -10,6 +10,7 @@ import type { UploadJobCoreAdapter } from "@/lib/ebooks/upload/job-contract";
 import { storeObject } from "@/lib/ebooks/ingest/store";
 import type { OperationFence } from "@/lib/ebooks/upload/lifecycle";
 import { verifyPublication } from "@/lib/ebooks/publication";
+import { UploadItemFailed, UploadItemRefusal } from "@/lib/ebooks/upload/job-failure";
 
 vi.mock("@/lib/ebooks/ingest/store", () => ({ storeObject: vi.fn(async () => ({ adopted: false, multipart: false })) }));
 vi.mock("@/lib/ebooks/publication", () => ({ verifyPublication: vi.fn(async () => null) }));
@@ -48,7 +49,7 @@ function setup(downloadable = true) {
     }) };
   const dispatcher = new UploadDispatcher({ supervisor: supervisor as unknown as UploadSupervisor, store: store as unknown as PostgresUploadStore,
     spool: spool as unknown as PrivateUploadSpool, core: core as unknown as UploadJobCoreAdapter,
-    context: { channel: 'ui', targetFingerprint: 'c'.repeat(64), bindingSha256: owner.bindingSha256 }, onFailure: vi.fn() });
+    context: { channel: 'ui', targetFingerprint: 'c'.repeat(64), bindingSha256: owner.bindingSha256 }, onFailure: vi.fn(), onItemFailure: vi.fn() });
   return { dispatcher, store, spool, core, supervisor, events, abort };
 }
 describe('owned inspection publication', () => {
@@ -102,5 +103,27 @@ describe('owned inspection publication', () => {
       (r: ReturnType<typeof report>) => { r.derived[0].base64 = '!!!!'; },
       (r: ReturnType<typeof report>) => { r.prepared.validation.downloadable = false; },
     ]) { const altered = report(); mutate(altered); expect(() => decodePublishedInspection(JSON.stringify(altered), expected)).toThrow(); }
+  });
+  // SLN-1388: the worker reports a refusal instead of crashing; only that item fails
+  it('turns a bound worker refusal into an item refusal, and refuses one bound to another source', () => {
+    const expected = { identity, bytes: 3, sha256 };
+    const refusal = { identity, sourceSha256: sha256, refusal: { reason: 'not_an_ebook', what: 'PNG image' } };
+    const refused = (() => { try { decodePublishedInspection(JSON.stringify(refusal), expected); } catch (error) { return error; } })();
+    expect(refused).toBeInstanceOf(UploadItemRefusal);
+    expect((refused as UploadItemRefusal).failure).toEqual({ reason: 'not_an_ebook', what: 'PNG image' });
+    for (const altered of [{ ...refusal, sourceSha256: 'd'.repeat(64) }, { ...refusal, identity: { ...identity, fence: { ...fence, generation: 6 } } },
+      { ...refusal, refusal: { reason: 'not_an_ebook', what: '<script>' } }, { ...refusal, refusal: { reason: 'damaged', what: null } }]) {
+      let error: unknown; try { decodePublishedInspection(JSON.stringify(altered), expected); } catch (caught) { error = caught; }
+      expect(error).toBeInstanceOf(Error); expect(error).not.toBeInstanceOf(UploadItemRefusal);
+    }
+  });
+  it('carries on after one item fails, without stopping the service', async () => {
+    const s = setup(); const failed = new UploadItemFailed({ reason: 'not_an_ebook', what: null }, { cause: new Error('refused') });
+    s.supervisor.runNextJob.mockRejectedValueOnce(failed);
+    await s.dispatcher.dispatchOne();
+    const input = (s.dispatcher as unknown as { input: { onFailure: ReturnType<typeof vi.fn>; onItemFailure: ReturnType<typeof vi.fn> } }).input;
+    expect(input.onItemFailure).toHaveBeenCalledWith(failed); expect(input.onFailure).not.toHaveBeenCalled();
+    s.supervisor.runNextJob.mockRejectedValueOnce(new Error('Inspector stop did not prove owned process-tree exit'));
+    await expect(s.dispatcher.dispatchOne()).rejects.toThrow('process-tree exit');
   });
 });
