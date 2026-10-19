@@ -13,7 +13,7 @@ import type { WriteReadingRow } from "@/lib/validations/reading";
 import { IMPORT_SOURCES } from "@/lib/validations/reading-import";
 import { matchRows, withVerdicts, type MatchedRow } from "./match";
 import { defaultDecision, importableAnyway, type ImportDecision, type ImportMatch, type ImportSection } from "./match-rules";
-import { parseImportFile } from "./parse";
+import { parseUploadedFile } from "./parse";
 import { singleCopyLinks, type SingleLink } from "./single-copy";
 import { commitNotes, defaultNoteDecision, noteWritten, readingsCommitted, readingsUncommittedSql, undoNotes } from "./notes";
 import type { ImportReading, ImportRow, ImportSource } from "./types";
@@ -102,7 +102,7 @@ const asMatched = (r: StoredRow): MatchedRow => ({ rowNo: r.rowNo, data: r.data,
 
 /** Parses, matches and stores a file: the import and its rows in one write. Reads only until then */
 export async function createReadingImport(input: { text: string; fileName: string }): Promise<{ importId: string; source: ImportSource; rows: number }> {
-  const parsed = parseImportFile(input.text);
+  const parsed = parseUploadedFile(input.text);
   return storeImport({ ...parsed, fileName: displayFileName(input.fileName) });
 }
 

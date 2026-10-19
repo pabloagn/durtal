@@ -18,6 +18,7 @@ import {
   rematchImport,
   undoReadingImport,
 } from "@/lib/actions/reading-import";
+import { rowsChanged, undoRemoves } from "@/lib/reading/import/action-words";
 import type { ImportDecision } from "@/lib/reading/import/match-rules";
 import type { ImportNoteView } from "@/lib/reading/import/notes";
 import type { RowLineKind, RowView } from "@/lib/reading/import/row-view";
@@ -33,6 +34,32 @@ const coarse = "pointer-coarse:h-11";
 
 const message = (err: unknown) => (err instanceof Error ? err.message : "Something went wrong");
 
+/**
+ * Focus never falls to the page (SLN-956): when `from`, the control that ran
+ * an action, goes or turns off as the page refreshes and focus falls to the
+ * body, it moves to `next()`. Focus the reader moved elsewhere is kept.
+ * The latest action's watch replaces an earlier one's.
+ */
+let watching = 0;
+function keepFocus(next: () => HTMLElement | null | undefined, from: Element | null = document.activeElement) {
+  const watch = ++watching;
+  const until = performance.now() + 10_000;
+  const tick = () => {
+    if (watch !== watching) return;
+    const at = document.activeElement;
+    const gone = !(from instanceof HTMLElement) || !from.isConnected || (from as HTMLButtonElement).disabled;
+    if (gone && (!at || at === document.body)) {
+      const target = next();
+      if (target) return target.focus();
+    }
+    if (performance.now() < until) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+/** The import's status line, where focus goes once the commit or Undo has redrawn the page */
+const summaryLine = () => document.querySelector<HTMLElement>("[data-import-summary]");
+
 /** The upload area: a CSV chosen or dropped goes to the route, then to its preview */
 export function ImportUpload() {
   const router = useRouter();
@@ -40,12 +67,23 @@ export function ImportUpload() {
   const [busy, setBusy] = useState(false);
   const [over, setOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const errorLine = useRef<HTMLParagraphElement>(null);
+  // Each refusal, the same one again too: focus goes to why, not to the page (SLN-956)
+  const [refusals, setRefusals] = useState(0);
+  const refuse = (why: string) => {
+    setError(why);
+    setRefusals((n) => n + 1);
+  };
+  useEffect(() => {
+    if (refusals) errorLine.current?.focus();
+  }, [refusals]);
 
   async function send(file: File | undefined) {
     if (!file) return;
     setError(null);
-    if (!/\.csv$/i.test(file.name)) return setError("Only CSV files can be imported: a Goodreads, StoryGraph or Durtal export");
-    if (file.size > MAX_BYTES) return setError("This file is over 10 MB. Export a smaller one.");
+    if (!/\.csv$/i.test(file.name)) return refuse("Only CSV files can be imported: a Goodreads, StoryGraph or Durtal export");
+    if (file.size === 0) return refuse("This file is empty");
+    if (file.size > MAX_BYTES) return refuse("This file is over 10 MB. Export a smaller one.");
     setBusy(true);
     try {
       const form = new FormData();
@@ -55,7 +93,7 @@ export function ImportUpload() {
       if (!res.ok || !body.importId) throw new Error(body.error ?? "The file could not be imported");
       router.push(`/reading/import/${body.importId}`);
     } catch (err) {
-      setError(message(err));
+      refuse(message(err));
       setBusy(false);
     } finally {
       if (input.current) input.current.value = "";
@@ -100,7 +138,7 @@ export function ImportUpload() {
         onChange={(e) => void send(e.target.files?.[0])}
       />
       {error && (
-        <p role="alert" className="mt-3 max-w-md text-sm text-accent-red-text" data-import-error="">
+        <p ref={errorLine} role="alert" tabIndex={-1} className="mt-3 max-w-md text-sm text-accent-red-text outline-none" data-import-error="">
           {error}
         </p>
       )}
@@ -142,7 +180,16 @@ function RowActions({ importId, rowNo, title, actions }: { importId: string; row
     setCurrent(next);
     run(() => decideImportRow({ importId, rowNo, decision: next }));
   };
-  const choose = (workId: string) => run(() => decideImportRow({ importId, rowNo, workId }));
+  // A chosen candidate's chips go: focus moves to the row's next control
+  const rowControl = () =>
+    document.querySelector<HTMLElement>(
+      `[data-import-actions="${rowNo}"] :is(button, a[href]):not([aria-disabled="true"]), [data-import-row="${rowNo}"] a[data-import-book]`,
+    );
+  const choose = (workId: string) => {
+    if (pending) return;
+    keepFocus(rowControl);
+    run(() => decideImportRow({ importId, rowNo, workId }));
+  };
   const remember = () => {
     try {
       sessionStorage.setItem(ADDED_KEY, importId);
@@ -154,8 +201,9 @@ function RowActions({ importId, rowNo, title, actions }: { importId: string; row
       className="row-chip"
       data-on={current === value ? "" : undefined}
       aria-pressed={current === value}
-      disabled={pending}
-      onClick={() => current !== value && decide(value)}
+      // Not disabled while saving: a disabled button drops its focus (SLN-956)
+      aria-disabled={pending || undefined}
+      onClick={() => !pending && current !== value && decide(value)}
       data-import-decide={value}
     >
       {label}
@@ -164,7 +212,7 @@ function RowActions({ importId, rowNo, title, actions }: { importId: string; row
   return (
     <div className="flex flex-wrap items-center gap-2 pt-1" data-import-actions={rowNo}>
       {actions.candidates?.map((c) => (
-        <button key={c.workId} type="button" className="row-chip" data-on="" disabled={pending} onClick={() => choose(c.workId)} data-import-candidate={c.workId}>
+        <button key={c.workId} type="button" className="row-chip" data-on="" aria-disabled={pending || undefined} onClick={() => choose(c.workId)} data-import-candidate={c.workId}>
           <span className="truncate">{c.label}</span>
           <span className="text-fg-secondary">{c.score}</span>
         </button>
@@ -172,7 +220,7 @@ function RowActions({ importId, rowNo, title, actions }: { importId: string; row
       {actions.canImport && toggle(actions.anyway ? "Import anyway" : "Import", "import")}
       {(actions.canImport || actions.anyway) && toggle("Skip", "skip")}
       {actions.canChoose && (
-        <button type="button" className="row-chip" disabled={pending} onClick={() => setPicking(true)} data-import-pick="">
+        <button type="button" className="row-chip" aria-disabled={pending || undefined} onClick={() => !pending && setPicking(true)} data-import-pick="">
           Choose another book
         </button>
       )}
@@ -186,8 +234,8 @@ function RowActions({ importId, rowNo, title, actions }: { importId: string; row
           <input
             type="checkbox"
             checked={actions.ratingChoice}
-            disabled={pending}
-            onChange={(e) => run(() => decideImportRow({ importId, rowNo, useFileRating: e.target.checked }))}
+            aria-disabled={pending || undefined}
+            onChange={(e) => !pending && run(() => decideImportRow({ importId, rowNo, useFileRating: e.target.checked }))}
             className="h-3.5 w-3.5 accent-accent-primary"
           />
           Use the file&rsquo;s rating
@@ -199,7 +247,7 @@ function RowActions({ importId, rowNo, title, actions }: { importId: string; row
           title="Choose the book"
           initialQuery={title}
           onClose={() => setPicking(false)}
-          onPick={(book) => choose(book.id)}
+          onPick={(book) => run(() => decideImportRow({ importId, rowNo, workId: book.id }))}
           addHref={(typed) => {
             remember();
             return `/library/new?${new URLSearchParams({ q: typed }).toString()}`;
@@ -282,9 +330,9 @@ function NoteActions({ importId, rowNo, decision }: { importId: string; rowNo: n
       className="row-chip"
       data-on={current === value ? "" : undefined}
       aria-pressed={current === value}
-      disabled={pending}
+      aria-disabled={pending || undefined}
       onClick={() => {
-        if (current === value) return;
+        if (pending || current === value) return;
         setCurrent(value);
         run(() => decideImportNote({ importId, rowNo, decision: value }));
       }}
@@ -352,18 +400,19 @@ export function NotesSectionAction({ importId }: { importId: string }) {
     <Button
       size="sm"
       variant="secondary"
-      disabled={pending}
+      busy={pending}
       className={coarse}
       data-import-bulk="notes"
-      onClick={() =>
+      onClick={() => {
+        keepFocus(summaryLine);
         run(
           () => decideAllImportNotes({ importId }),
           (r) => {
             const changed = (r as { changed: number }).changed;
             toast.success(`${changed} ${changed === 1 ? "note" : "notes"} to import`);
           },
-        )
-      }
+        );
+      }}
     >
       Import all private notes
     </Button>
@@ -377,15 +426,16 @@ export function SectionAction({ importId, section, label }: { importId: string; 
     <Button
       size="sm"
       variant="secondary"
-      disabled={pending}
+      busy={pending}
       className={coarse}
       data-import-bulk={section}
-      onClick={() =>
+      onClick={() => {
+        keepFocus(summaryLine);
         run(
           () => decideImportSection({ importId, section, decision: section === "likely" ? "import" : "skip" }),
-          (r) => toast.success(`${(r as { changed: number }).changed} rows changed`),
-        )
-      }
+          (r) => toast.success(rowsChanged((r as { changed: number }).changed)),
+        );
+      }}
     >
       {label}
     </Button>
@@ -424,7 +474,7 @@ export function MatchAgain({ importId, show }: { importId: string; show: boolean
   }, [importId]);
   if (!show) return null;
   return (
-    <Button variant="secondary" disabled={pending} onClick={() => again()} className={coarse} data-import-rematch="">
+    <Button variant="secondary" busy={pending} onClick={() => again()} className={coarse} data-import-rematch="">
       Match again
     </Button>
   );
@@ -440,7 +490,9 @@ export function CommitImport({ importId, label, disabled }: { importId: string; 
       // The label grows with the import's counts: on a phone it wraps inside the button
       className="h-auto! min-h-8 max-w-full whitespace-normal! py-1.5 text-left"
       data-import-commit=""
-      onClick={() =>
+      onClick={() => {
+        // The button turns off once all is written: focus goes to the status line
+        keepFocus(summaryLine);
         run(
           () => commitReadingImport({ importId }),
           (r) => {
@@ -457,8 +509,8 @@ export function CommitImport({ importId, label, disabled }: { importId: string; 
                 .join(" · "),
             );
           },
-        )
-      }
+        );
+      }}
       busy={pending}
     >
       {label}
@@ -472,29 +524,24 @@ export function UndoImport({
   readings,
   queued = 0,
   notes = 0,
-  goodreadsIds = true,
+  goodreadsIds = 0,
   size = "md",
 }: {
   importId: string;
   readings: number;
   queued?: number;
   notes?: number;
-  /** Imports made from an e-book library record none (SLN-658) */
-  goodreadsIds?: boolean;
+  /** The Goodreads ids it recorded on editions matched by ISBN; most imports record none (SLN-956) */
+  goodreadsIds?: number;
   size?: "sm" | "md";
 }) {
   const { pending, run } = useAction();
   const [asking, setAsking] = useState(false);
-  const removes = [
-    readings ? `the ${readings === 1 ? "reading" : `${readings} readings`} it wrote` : null,
-    queued ? `the ${queued === 1 ? "book" : `${queued} books`} it added to Up next` : null,
-    notes ? `the ${notes === 1 ? "note" : `${notes} notes`} it imported` : null,
-    "the book ratings it set while they are unchanged",
-    goodreadsIds ? "the Goodreads ids it recorded" : null,
-  ].filter((part): part is string => part !== null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const removes = undoRemoves({ readings, queued, notes, goodreadsIds });
   return (
     <>
-      <Button variant="ghost" size={size} disabled={pending} onClick={() => setAsking(true)} className={coarse} data-import-undo={importId}>
+      <Button ref={trigger} variant="ghost" size={size} busy={pending} onClick={() => setAsking(true)} className={coarse} data-import-undo={importId}>
         <Undo2 aria-hidden strokeWidth={1.5} />
         Undo
       </Button>
@@ -513,7 +560,7 @@ export function UndoImport({
             <Button
               variant="danger"
               data-shortcut="save"
-              disabled={pending}
+              busy={pending}
               className={coarse}
               data-import-undo-confirm=""
               onClick={() =>
@@ -521,6 +568,8 @@ export function UndoImport({
                   () => undoReadingImport({ importId }),
                   (r) => {
                     setAsking(false);
+                    // Undo goes once nothing is left to remove: focus goes to the import's status
+                    keepFocus(() => summaryLine() ?? document.querySelector<HTMLElement>(`[data-import-item="${importId}"] a`), trigger.current);
                     const { removed, kept, queueRemoved, queueKept, notesRemoved, notesKept } = r as {
                       removed: number;
                       kept: number;

@@ -1,6 +1,6 @@
 import { storygraphReadingKey, storygraphToReadKey } from "../source-keys";
 import type { ReadingFormat, ReadingStatus } from "../constants";
-import { datesError, day, halfStar, int, isbns, review, shown, text } from "./fields";
+import { datesError, day, dayOrWarn, halfStar, int, isbns, review, shown, text } from "./fields";
 import type { ImportReading, ImportRow, ParsedFile } from "./types";
 
 /*
@@ -149,7 +149,8 @@ export function mapStorygraph(headers: string[], records: Record<string, string>
     const { ranges, unread } = storygraphRanges(r["Dates Read"]);
     for (const piece of unread) warnings.push(`A date in Dates Read could not be read: "${shown(piece)}"`);
     const readCount = int(r["Read Count"], { max: 1000 }) ?? 0;
-    const last = day(r["Last Date Read"]);
+    // Last Date Read counts only when Dates Read has no range, so only then is a bad one named
+    const last = ranges.length ? day(r["Last Date Read"]) : dayOrWarn(r["Last Date Read"], "Last Date Read", warnings);
     const open = status === "reading" || status === "paused";
     // The closed reads, oldest first, and the open read's start
     let closed: Period[];
