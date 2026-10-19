@@ -18,6 +18,7 @@ import { acquireSurface, captureFocusOrigin, restoreFocusOrigin, type FocusOrigi
 import { DialogFocusScope, useDialogFocusScope } from "./dialog-focus-scope";
 import { Button } from "./button";
 import { useUnsavedGuard, type UnsavedPrompt } from "./unsaved-guard";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 interface DialogProps {
   open: boolean;
@@ -59,6 +60,15 @@ const CONTROL =
  * outside a dialog; null until the dialog's row is in the page.
  */
 const FooterSlot = createContext<{ slot: HTMLElement | null; shown: (on: boolean) => void } | undefined>(undefined);
+
+/**
+ * `outside` for a form that is a page of its own (Add film, Add publisher):
+ * the row is a bar pinned to the bottom of the screen while the fields
+ * scroll under it, so Save is always in view, as in a dialog (SLN-943). On a
+ * phone it runs edge to edge. The form's own spacing sets it off the fields.
+ */
+export const PINNED_PAGE_FOOTER =
+  "pinned-page-footer glass-bar sticky bottom-0 z-10 -mx-4 border-t border-glass-border px-4 py-3 pb-[max(--spacing(3),env(safe-area-inset-bottom))] md:mx-0 md:px-0";
 
 /**
  * A form's Cancel, Save and notice. In a dialog they sit in a row under the
@@ -269,7 +279,7 @@ export function Dialog({
               onClick={requestClose}
               aria-label={`Close ${title}`}
               data-tooltip="Close"
-              data-tooltip-keys="esc"
+              {...shortcutProps("esc")}
               className="action-icon-sm"
             >
               <X className="h-4 w-4" strokeWidth={1.5} />

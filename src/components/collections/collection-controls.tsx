@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { MediaManagerDialog } from "@/components/media/media-manager-dialog";
 import { useEditActions } from "@/components/shortcuts/shortcuts-provider";
-import { EDIT_KEYS, editTooltipKeys } from "@/lib/shortcuts/shortcuts";
+import { EDIT_KEYS, editTooltipKeys, shortcutProps } from "@/lib/shortcuts/shortcuts";
 import {
   updateCollection,
   deleteCollection,
@@ -73,6 +73,8 @@ export function CollectionControls({
   kinds?: WorkKind[];
   initialAdd?: boolean;
 }) {
+  // Empty, the page's one Add is its empty state's (SLN-918)
+  const empty = !editionIds.length && !workIds.length;
   const router = useRouter();
   const params = useSearchParams();
   const [add, setAdd] = useState(false),
@@ -87,7 +89,8 @@ export function CollectionControls({
     // The empty state's button leaves once something is added, so the
     // dialog opens from the header's Add and hands focus back to it
     const onAdd = () => {
-      addButton.current?.focus();
+      // Empty, the header has no Add: the dialog opens from the empty state's
+      (addButton.current ?? document.querySelector<HTMLElement>('[data-focus-empty="collection"]'))?.focus();
       setAdd(true);
     };
     window.addEventListener(ADD_EVENT, onAdd);
@@ -110,8 +113,21 @@ export function CollectionControls({
     { key: EDIT_KEYS.media, label: "Artwork", icon: ImageIcon, run: () => setArtwork(true) },
   ]);
   const pending = useRef(false);
+  // Books added to an empty collection: the empty state's Add, which opened
+  // the dialog, leaves with it, so the focus goes to the header's Add that
+  // takes its place, whether the page or the dialog goes first
+  const focusAddIfLost = () => {
+    const active = document.activeElement;
+    if (!active || active === document.body || !active.isConnected) addButton.current?.focus();
+  };
+  const wasEmpty = useRef(empty);
+  useEffect(() => {
+    if (wasEmpty.current && !empty) focusAddIfLost();
+    wasEmpty.current = empty;
+  }, [empty]);
   function closeAdd() {
     setAdd(false);
+    setTimeout(focusAddIfLost, 0);
     if (params.has("add")) {
       const next = new URLSearchParams(params.toString());
       next.delete("add");
@@ -166,14 +182,16 @@ export function CollectionControls({
           buttons drop their icons, so Delete never wraps alone (SLN-879) */}
       <div className="@container">
       <div className="flex flex-wrap items-center gap-2">
-        <Button ref={addButton} variant="secondary" size="sm" onClick={() => setAdd(true)} className={NARROW_NO_ICON}>
-          <Plus size={14} strokeWidth={1.5} />
-          Add
-        </Button>
+        {!empty && (
+          <Button ref={addButton} variant="secondary" onClick={() => setAdd(true)} className={NARROW_NO_ICON}>
+            <Plus size={14} strokeWidth={1.5} />
+            Add
+          </Button>
+        )}
         <Button
           className={NARROW_NO_ICON}
           data-tooltip="Edit collection"
-          data-tooltip-keys={editTooltipKeys(EDIT_KEYS.collection)}
+          {...shortcutProps(editTooltipKeys(EDIT_KEYS.collection))}
           onClick={openEdit}
         >
           <Pencil size={14} strokeWidth={1.5} />
@@ -182,7 +200,7 @@ export function CollectionControls({
         <Button
           className={NARROW_NO_ICON}
           data-tooltip="Edit artwork"
-          data-tooltip-keys={editTooltipKeys(EDIT_KEYS.media)}
+          {...shortcutProps(editTooltipKeys(EDIT_KEYS.media))}
           onClick={() => setArtwork(true)}
         >
           <ImageIcon size={14} strokeWidth={1.5} />

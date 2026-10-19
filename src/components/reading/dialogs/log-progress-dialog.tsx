@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useId } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -67,6 +67,8 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
   const r = row!.reading;
   const stopping = request.timer ?? null;
   const timerContext = useOptionalTimer();
+  // The footer sits outside the form, under the dialog's scrolling body
+  const formId = useId();
   const [stopSeconds] = useState(() =>
     stopping ? stopTimes(stopping, stopping.endedAt ? new Date(stopping.endedAt) : null).durationSeconds : 0,
   );
@@ -241,7 +243,7 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
       description={stopping ? `You read ${durationWords(stopSeconds)}. Where are you now?` : data.workTitle}
       className="max-w-lg"
     >
-      <form onSubmit={save} className="space-y-4">
+      <form id={formId} onSubmit={save} className="space-y-4">
         {coarse ? (
           <div className="space-y-3">
             <SegmentedControl options={SEGMENTS} value={segment} onChange={setSegment} ariaLabel="Log by" />
@@ -350,7 +352,7 @@ export function LogProgressDialog({ data, row, request, onClose, changed, open }
               Read in another edition or format
             </button>
           ))}
-        <DialogFooter onCancel={onClose} saving={saving} saveLabel={stopping ? "Stop timer" : "Log"} disabled={stopping ? !!error : !preview || !!error || !!dateError} />
+        <DialogFooter form={formId} onCancel={onClose} saving={saving} saveLabel={stopping ? "Stop timer" : "Log"} disabled={stopping ? !!error : !preview || !!error || !!dateError} />
       </form>
     </Dialog>
   );

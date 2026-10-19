@@ -155,6 +155,8 @@ export function OrderCreateDialog({
         size="sm"
         onClick={() => setOpen(true)}
         type="button"
+        // Where focus goes when the board's last order is deleted (SLN-1118)
+        data-focus-empty="orders"
       >
         <Plus className="h-4 w-4" strokeWidth={1.5} />
         New order

@@ -62,7 +62,7 @@ export const EMPTY_INSTANCE: InstanceDraft = {
   locationId: "",
   subLocationId: "",
   format: "paperback",
-  condition: "mint",
+  condition: "",
   status: "available",
   acquisitionType: "",
   acquisitionDate: "",

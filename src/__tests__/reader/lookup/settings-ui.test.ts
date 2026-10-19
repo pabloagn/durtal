@@ -43,9 +43,18 @@ it("puts Translate into first and lists the sources as rows, English included", 
   expect(host.querySelectorAll('button[data-tooltip="Edit"]')).toHaveLength(10);
 });
 
+it("names each source's buttons with its language, so Logeion's two rows differ (SLN-924)", async () => {
+  await render();
+  const names = [...host.querySelectorAll("button[aria-label]")].map((b) => b.getAttribute("aria-label")!);
+  const logeion = names.filter((n) => /^Remove source Logeion/.test(n));
+  expect(logeion.length).toBeGreaterThan(1);
+  expect(new Set(logeion).size).toBe(logeion.length);
+  expect(logeion.every((n) => / \(.+\)$/.test(n))).toBe(true);
+});
+
 it("edits one source in place and saves it on Done", async () => {
   await render();
-  await click("Edit source Merriam-Webster");
+  await click("Edit source Merriam-Webster (English)");
   expect(host.querySelectorAll("input")).toHaveLength(2);
   await type("Name", "Webster");
   await click("Done");
@@ -89,7 +98,7 @@ it("renders the sources the page came with on the server, and keeps the rows whe
   expect(actions.get).toHaveBeenCalledTimes(1);
   expect(host.querySelectorAll('button[data-tooltip="Edit"]')).toHaveLength(10);
   expect(host.querySelector('button[data-tooltip="Edit"]')).toBe(first);
-  await click("Edit source Merriam-Webster");
+  await click("Edit source Merriam-Webster (English)");
   await type("Name", "Webster");
   await click("Done");
   expect(actions.update.mock.calls[0][0].sources[0]).toMatchObject({ language: "en", name: "Webster" });

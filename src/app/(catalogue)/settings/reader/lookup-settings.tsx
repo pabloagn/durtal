@@ -17,6 +17,8 @@ type Draft = { v: LookupSettings["v"]; sources: (LookupSource & { key: string })
 const draftOf = (value: LookupSettings, stable = false): Draft =>
   ({ ...value, sources: value.sources.map((source, index) => ({ ...source, key: stable ? "source-" + index : crypto.randomUUID() })) });
 /** The site a source opens, for its row: "merriam-webster.com". */
+/** "Ancient Greek", "any language": a source's language inside its buttons' names */
+const sourceLanguage = (language: string) => (language === "*" ? "any language" : languageName(language));
 const siteOf = (url: string) => {
   try { return new URL(url.replaceAll("{word}", "word")).hostname.replace(/^www\./, ""); } catch { return "No address yet"; }
 };
@@ -139,11 +141,12 @@ export function LookupSettingsGroup({ initial = null }: { initial?: LookupSettin
           <p className="mt-1 break-words text-xs text-fg-secondary">{item.language === "*" ? "Any language" : languageName(item.language)} · {hostBreaks(siteOf(item.url))}</p>
         </div>
         <CapAlignedControls height={28} coarseHeight={44}>
+          {/* The language tells apart a source listed for two languages, such as Logeion (SLN-924) */}
           <button type="button" id={"lookup-source-edit-" + item.key} className="action-icon-sm" disabled={editing !== null}
-            aria-label={"Edit source " + (item.name || "unnamed")} data-tooltip="Edit" onClick={() => open(item.key)}>
+            aria-label={`Edit source ${item.name || "unnamed"} (${sourceLanguage(item.language)})`} data-tooltip="Edit" onClick={() => open(item.key)}>
             <Pencil className="h-4 w-4" strokeWidth={1.5} /></button>
           <button type="button" className="action-icon-sm" disabled={editing !== null}
-            aria-label={"Remove source " + (item.name || "unnamed")} data-tooltip="Remove" onClick={() => remove(item.key)}>
+            aria-label={`Remove source ${item.name || "unnamed"} (${sourceLanguage(item.language)})`} data-tooltip="Remove" onClick={() => remove(item.key)}>
             <Trash2 className="h-4 w-4" strokeWidth={1.5} /></button>
         </CapAlignedControls>
       </div>)}

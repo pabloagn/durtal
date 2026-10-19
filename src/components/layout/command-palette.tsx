@@ -26,7 +26,7 @@ import {
   Timer,
   type LucideIcon,
 } from "lucide-react";
-import { KeyCombo, Kbd } from "@/components/shortcuts/kbd";
+import { KeyCombo, Kbd, useIsMac } from "@/components/shortcuts/kbd";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { useShortcutActions } from "@/components/shortcuts/shortcuts-provider";
 import { quickSearch, getPaletteContinueReading, type QuickSearchRecord, type QuickSearchResult } from "@/lib/actions/quick-search";
@@ -189,6 +189,8 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const mac = useIsMac();
   // A shorter placeholder on a phone, where the long one was cut
   const [narrow, setNarrow] = useState(false);
   useEffect(() => {
@@ -380,6 +382,25 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
     setSelected(firstValue);
   }, [firstValue]);
 
+  // cmdk names the selected option to a screen reader (aria-activedescendant)
+  // only once an arrow key has moved it: the best match selected above, and
+  // a selection kept while the options change, never reach it. The input
+  // names whichever option is selected (SLN-965).
+  useEffect(() => {
+    const list = listRef.current;
+    const input = inputRef.current;
+    if (!open || !list || !input) return;
+    const name = () => {
+      const id = list.querySelector('[cmdk-item][aria-selected="true"]')?.id;
+      if (!id) input.removeAttribute("aria-activedescendant");
+      else if (input.getAttribute("aria-activedescendant") !== id) input.setAttribute("aria-activedescendant", id);
+    };
+    name();
+    const observer = new MutationObserver(name);
+    observer.observe(list, { subtree: true, childList: true, attributes: true, attributeFilter: ["aria-selected"] });
+    return () => observer.disconnect();
+  }, [open]);
+
   if (!open) return null;
 
   const smartGroup = smartItems.length > 0 && (
@@ -452,7 +473,7 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
             )}
           </div>
 
-          <Command.List className="max-h-96 overflow-y-auto p-2">
+          <Command.List ref={listRef} className="max-h-96 overflow-y-auto p-2">
             {smartFirst && smartGroup}
 
             {RESULT_KINDS.map((kind) => {
@@ -465,6 +486,8 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
                       key={work.id}
                       value={`work:${work.id}`}
                       onSelect={() => navigate(work.href)}
+                      // The Read link is for the pointer: the keys are told here
+                      aria-describedby={ebookGroup.bookReaderPaths.has(work.id) ? `palette-read-${work.id}` : undefined}
                       className={ITEM_CLASS}
                     >
                       <ResultThumb src={work.cover} name={work.title} kind="book" />
@@ -485,6 +508,11 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
                       )}
                       {work.kind === "book" && (
                         <PaletteEbookReadAction ebook={work.ebook ?? null} returnTo={returnDestination} onRead={() => onOpenChange(false)} />
+                      )}
+                      {ebookGroup.bookReaderPaths.has(work.id) && (
+                        <span id={`palette-read-${work.id}`} hidden>
+                          {mac ? "Command" : "Control"} Enter to read
+                        </span>
                       )}
                     </Command.Item>
                   ))}

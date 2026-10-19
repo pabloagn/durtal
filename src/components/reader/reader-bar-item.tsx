@@ -3,6 +3,7 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /** A 16px icon in a 32px button, 44px on touch */
 export const READER_BAR_BUTTON =
@@ -98,7 +99,7 @@ export function ReaderBarItem({
         aria-label={label}
         aria-pressed={pressed}
         data-tooltip={tooltip}
-        data-tooltip-keys={keys}
+        {...shortcutProps(keys)}
         data-tooltip-side="bottom"
         disabled={disabled}
         className={READER_BAR_BUTTON}

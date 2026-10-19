@@ -12,7 +12,8 @@ import { noteTooltipKey, resetTooltipKeys, tooltipKeyMovedAt } from "@/lib/ui/to
  * the attributes are plain HTML.
  *
  * - `data-tooltip-keys`: the control's shortcut as key tokens (see
- *   `keyLabel`): "b", "alt f", or "a then l" for a sequence.
+ *   `keyLabel`): "b", "alt f", or "a then l" for a sequence. Set it with
+ *   `shortcutProps`, which adds the same keys as `aria-keyshortcuts`.
  * - `data-tooltip-side`: "top" (default), "bottom", "right" or "left". The
  *   tooltip goes to the other side when it does not fit.
  *

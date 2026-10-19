@@ -112,7 +112,7 @@ export function ReadingSettings({ settings: saved }: { settings: ReadingValues }
       <SettingsGroup title="Rhythm and goals">
         <SettingRow
           id="reading-rhythm-days"
-          label="Days I'd like to read each week"
+          label="Days I’d like to read each week"
           description="The Reading page shows the days you read this week. 5 of 7 leaves room for rest days."
         >
           <SettingSelect
@@ -157,7 +157,12 @@ export function ReadingSettings({ settings: saved }: { settings: ReadingValues }
                 ? CHECKS
                 : [...CHECKS, { value: String(settings.readingTimerCheckMinutes), label: countLabel(settings.readingTimerCheckMinutes, "minute") }]
             }
-            onChange={(v) => save({ readingTimerCheckMinutes: Number(v) }, "Saved the timer's question")}
+            onChange={(v) =>
+              save(
+                { readingTimerCheckMinutes: Number(v) },
+                `“Still reading?” now asks after ${CHECKS.find((c) => c.value === v)?.label ?? countLabel(Number(v), "minute")}`,
+              )
+            }
           />
         </SettingRow>
       </SettingsGroup>

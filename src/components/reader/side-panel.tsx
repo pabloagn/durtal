@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { captureFocusOrigin, type FocusOrigin } from "@/lib/ui/surface-state";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /** The drawer's width beside the book on a wide screen */
 export const READER_PANEL_WIDTH = 360;
@@ -234,7 +235,7 @@ export function ReaderSidePanel({
             onClick={onClose}
             aria-label="Close"
             data-tooltip="Close"
-            data-tooltip-keys="esc"
+            {...shortcutProps("esc")}
             className="action-icon-sm"
           >
             <X className="h-4 w-4" strokeWidth={1.5} />

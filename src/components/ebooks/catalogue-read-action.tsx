@@ -2,8 +2,9 @@
 
 import { BookOpen } from "lucide-react";
 import { ReaderEntryLink } from "@/components/reader/reader-entry-link";
-import { KeyCombo } from "@/components/shortcuts/kbd";
+import { KeyCombo, useIsMac } from "@/components/shortcuts/kbd";
 import type { WorkEbookDTO } from "@/lib/ebooks/catalogue-dto";
+import { shortcutProps } from "@/lib/shortcuts/shortcuts";
 
 /** Compact row action uses the same document entry as card menus. */
 export function CatalogueReadLink({ ebook, returnTo }: { ebook: WorkEbookDTO | null; returnTo?: unknown }) {
@@ -39,7 +40,11 @@ export function EbookReadMenuItem({
   );
 }
 
-/** Secondary palette action; the selected-row shortcut is wired by the palette adapter. */
+/**
+ * Secondary palette action; the selected-row shortcut is wired by the palette
+ * adapter. A link inside an option is hidden from a screen reader, which
+ * hears ⌘/Ctrl Enter in the option's description instead (SLN-965).
+ */
 export function PaletteEbookReadAction({
   ebook,
   returnTo,
@@ -49,14 +54,16 @@ export function PaletteEbookReadAction({
   returnTo?: unknown;
   onRead?: () => void;
 }) {
+  const mac = useIsMac();
   if (!ebook?.readable || !ebook.readerPath) return null;
   return (
     <ReaderEntryLink
       readerPath={ebook.readerPath}
       returnTo={returnTo}
-      aria-label={`Read ${ebook.title}`}
+      aria-hidden="true"
+      tabIndex={-1}
       data-tooltip="Read eBook"
-      data-tooltip-keys="mod enter"
+      {...shortcutProps("mod enter", mac)}
       className="inline-flex min-h-8 shrink-0 items-center gap-2 rounded-sm px-2 text-xs text-fg-secondary hover:bg-bg-tertiary hover:text-fg-primary pointer-coarse:min-h-11"
       onClick={(event) => {
         event.stopPropagation();
