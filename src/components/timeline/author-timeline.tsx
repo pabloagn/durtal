@@ -13,7 +13,7 @@ import { TimelineTooltip } from "./timeline-tooltip";
 import { AuthorTimelineRow, ROW_HEIGHT } from "./author-timeline-row";
 import { monogramTint } from "@/components/shared/no-photo";
 import { mediaImageStyle } from "@/lib/utils/media-style";
-import { displayYear } from "@/lib/utils/years";
+import { lifeDates } from "@/lib/utils/format";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -24,9 +24,7 @@ const CURRENT_YEAR = new Date().getFullYear();
 
 function AuthorTooltipContent({ author }: { author: AuthorTimelineItem }) {
 
-  const lifeDates = author.deathYear
-    ? `${displayYear(author.birthYear)} — ${displayYear(author.deathYear)}`
-    : `${displayYear(author.birthYear)} — present`;
+  const dates = lifeDates(author);
 
   return (
     <div
@@ -83,7 +81,7 @@ function AuthorTooltipContent({ author }: { author: AuthorTimelineItem }) {
           </span>
         )}
         <span className="font-mono text-micro tracking-wide text-fg-secondary">
-          {lifeDates}
+          {dates}
         </span>
         {author.worksCount > 0 && (
           <span className="font-sans text-micro text-fg-secondary">

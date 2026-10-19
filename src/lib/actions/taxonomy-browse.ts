@@ -20,12 +20,11 @@ import { workCardExtras, posterTone } from "./utils/work-card-query";
 import { z } from "zod";
 
 const SMALL_TREE = 192;
-function visibleKinds(family: { applicability: { kind: WorkKind }[] }) {
-  const enabled = getEnabledWorkKinds();
-  const kinds = [...new Set(family.applicability.map((s) => s.kind))].filter(
-    (k) => enabled.includes(k),
-  );
-  return kinds.includes("book") ? ["book" as const] : kinds;
+/** Every open collection the family applies to: a theme counts its films as well as its books (SLN-1157) */
+function visibleKinds(family: { applicability: { kind: WorkKind }[] }): WorkKind[] {
+  const applies = new Set(family.applicability.map((s) => s.kind));
+  const kinds = getEnabledWorkKinds().filter((k) => applies.has(k));
+  return kinds.length ? kinds : ["book"];
 }
 
 /** Bounded list data. Rich descriptions and off-page rows never enter the page payload. */
@@ -83,7 +82,7 @@ export async function getTaxonomyBrowsePage(
       from ${sql.identifier(storage.table)} i
       left join (${children}) c on c.parent_id=i.id
       left join (select item_id,count(*) filter(where kind in (${sql.join(
-        (kinds.length ? kinds : ["book"]).map((k) => sql`${k}`),
+        kinds.map((k) => sql`${k}`),
         sql`,`,
       )})) n,count(*) all_n from (${linkRows(storage, WORK_KINDS)}) links group by item_id) l on l.item_id=i.id
       where ${familyItemCondition(storage, family.id)}),
@@ -111,6 +110,20 @@ export async function getTaxonomyEditorChoices(familySlug: string) {
   );
 }
 
+/** An item's description, read when its Edit dialog opens: list rows never carry it */
+export async function getTaxonomyItemDescription(familySlug: string, itemId: string) {
+  z.uuid().parse(itemId);
+  const family = await getTaxonomyFamily(familySlug);
+  if (!family) return null;
+  const s = taxonomyStorage(family);
+  const [row] = resultRows<{ description: string | null }>(
+    await db.execute(
+      sql`select ${itemProjection(s)} from ${sql.identifier(s.table)} i where ${familyItemCondition(s, family.id)} and i.id=${itemId}::uuid`,
+    ),
+  );
+  return row?.description ?? null;
+}
+
 /** Term metadata without materializing every linked id; shared by layout and metadata. */
 export async function getTaxonomyTerm(familySlug: string, itemSlug: string) {
   const family = await getTaxonomyFamily(familySlug);
@@ -134,7 +147,7 @@ export async function getTaxonomyTerm(familySlug: string, itemSlug: string) {
     family_items as (select i.id,i.name,coalesce(i.slug,i.id::text) slug,${parent} as parent from ${sql.identifier(s.table)} i where ${familyItemCondition(s, family.id)}),
     ancestors as (select *,1 as depth,array[id] path from family_items where id=(select "parentId" from selected) union all select p.*,a.depth+1,a.path||p.id from family_items p join ancestors a on p.id=a.parent where not p.id=any(a.path)),
     descendants as (select id,array[id] path from family_items where parent=(select id from selected) union all select c.id,d.path||c.id from family_items c join descendants d on c.parent=d.id where not c.id=any(d.path)),
-    links as materialized (select * from (${linkRows(s, kinds.length ? kinds : ["book"])}) l where level=${family.entityLevel}),
+    links as materialized (select * from (${linkRows(s, kinds)}) l where level=${family.entityLevel}),
     counts as (select kind,count(distinct owner_id)::int count from links where item_id=(select id from selected) group by kind)
     select selected.*,coalesce((select jsonb_agg(jsonb_build_object('id',id,'name',name,'slug',slug) order by depth desc) from ancestors),'[]'::jsonb) parents,
       coalesce((select jsonb_agg(jsonb_build_object('id',id,'name',name,'slug',slug) order by name,id) from family_items where parent=(select id from selected)),'[]'::jsonb) children,
@@ -142,7 +155,12 @@ export async function getTaxonomyTerm(familySlug: string, itemSlug: string) {
       (select count(distinct owner_id)::int from links where item_id in (select id from descendants)) below,
       coalesce((select jsonb_agg(counts) from counts),'[]'::jsonb) as "kindCounts" from selected`),
   );
-  return context ? { ...context, kinds } : null;
+  if (!context) return null;
+  // In the order the collections are listed
+  const kindCounts = [...context.kindCounts].sort(
+    (a, b) => kinds.indexOf(a.kind) - kinds.indexOf(b.kind),
+  );
+  return { ...context, kindCounts, kinds };
 }
 
 /** SQL chooses only the requested book page; editions map to their parent works without duplicates. */

@@ -4,7 +4,7 @@ import { FadeImage } from "@/components/shared/fade-image";
 import Link from "next/link";
 import { AuthorCardActionsMenu } from "./author-card-actions-menu";
 import { mediaImageStyle, type MediaCrop } from "@/lib/utils/media-style";
-import { displayYear } from "@/lib/utils/years";
+import { lifeDates } from "@/lib/utils/format";
 import { PersonRoles, WorkCounts } from "@/components/people/person-roles";
 import type { PersonRole } from "@/lib/catalogue/person-roles";
 import type { WorkKind } from "@/lib/catalogue/kinds";
@@ -23,6 +23,8 @@ interface AuthorListItemProps {
   nationality?: string | null;
   birthYear?: number | null;
   deathYear?: number | null;
+  birthYearIsApproximate?: boolean | null;
+  deathYearIsApproximate?: boolean | null;
   photoUrl?: string | null;
   posterCrop?: PosterCrop | null;
   /** Works credited per collection: "3 films · 1 perfume" (SLN-1025) */
@@ -49,6 +51,8 @@ export function AuthorListItem({
   nationality,
   birthYear,
   deathYear,
+  birthYearIsApproximate,
+  deathYearIsApproximate,
   photoUrl,
   posterCrop,
   workCounts,
@@ -60,9 +64,7 @@ export function AuthorListItem({
   isSelected = false,
   onSelect,
 }: AuthorListItemProps) {
-  const years = birthYear
-    ? `${displayYear(birthYear)}–${deathYear ? displayYear(deathYear) : ""}`
-    : null;
+  const years = lifeDates({ birthYear, deathYear, birthYearIsApproximate, deathYearIsApproximate });
 
   function handleRowClick(e: React.MouseEvent) {
     if (isSelecting && onSelect) {

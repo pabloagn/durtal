@@ -1,13 +1,15 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import { useState, useCallback, type FormEvent } from "react";
 import { toast } from "@/lib/notifications/toast";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { TaxonomyColorPicker } from "./taxonomy-color-picker";
+import { ParentPicker, type ParentChoice } from "./parent-picker";
+import { NameTwinNotice, useTaxonomyNameTwin } from "./name-twin-notice";
 
 interface CreateItemDialogProps {
   open: boolean;
@@ -15,7 +17,9 @@ interface CreateItemDialogProps {
   familySlug: string;
   familyName: string;
   hierarchical: boolean;
-  existingItems: { id: string; name: string }[];
+  /** Whether the family's items keep a description (SLN-1158) */
+  describable: boolean;
+  existingItems: ParentChoice[];
   onCreated: (id: string) => void;
 }
 
@@ -25,6 +29,7 @@ export function CreateItemDialog({
   familySlug,
   familyName,
   hierarchical,
+  describable,
   existingItems,
   onCreated,
 }: CreateItemDialogProps) {
@@ -34,6 +39,9 @@ export function CreateItemDialog({
   const [parentId, setParentId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The sibling this name repeats, accents and case aside: the dialog names
+  // it and offers it, and Create becomes Create anyway (SLN-1016, SLN-1159)
+  const twin = useTaxonomyNameTwin(familySlug, name, { parentId: parentId || null }, open);
 
   const resetForm = useCallback(() => {
     setName("");
@@ -67,9 +75,10 @@ export function CreateItemDialog({
         );
         const created = await createTaxonomyItem(familySlug, {
           name: trimmedName,
-          description: description.trim() || null,
+          description: describable ? description.trim() || null : null,
           color,
           parentId: parentId || null,
+          ...(twin?.saveAnyway ? { allowDuplicateName: true } : {}),
         });
         toast.success(`Created "${trimmedName}"`);
         resetForm();
@@ -84,13 +93,8 @@ export function CreateItemDialog({
         setSubmitting(false);
       }
     },
-    [name, description, color, parentId, familySlug, resetForm, onCreated, onClose],
+    [name, description, describable, color, parentId, twin, familySlug, resetForm, onCreated, onClose],
   );
-
-  const parentOptions = existingItems.map((item) => ({
-    value: item.id,
-    label: item.name,
-  }));
 
   return (
     <Dialog
@@ -111,6 +115,7 @@ export function CreateItemDialog({
           placeholder="Enter item name"
           error={error && !name.trim() ? "Name is required" : undefined}
         />
+        {twin && <NameTwinNotice familySlug={familySlug} twin={twin} hierarchical={hierarchical} />}
 
         {/* Color */}
         <div className="space-y-1.5">
@@ -125,23 +130,24 @@ export function CreateItemDialog({
           </div>
         </div>
 
-        {/* Description */}
-        <Textarea
-          label="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Optional description"
-          rows={3}
-        />
+        {/* Description, where the family keeps one */}
+        {describable && (
+          <Textarea
+            label="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Optional description"
+            rows={3}
+          />
+        )}
 
         {/* Parent (only for hierarchical families) */}
-        {hierarchical && parentOptions.length > 0 && (
-          <Select
-            label="Parent"
-            options={parentOptions}
-            placeholder="None (root level)"
+        {hierarchical && existingItems.length > 0 && (
+          <ParentPicker
+            familyName={familyName}
+            choices={existingItems}
             value={parentId}
-            onChange={(e) => setParentId(e.target.value)}
+            onChange={setParentId}
           />
         )}
 
@@ -149,7 +155,8 @@ export function CreateItemDialog({
         {error && <p className="text-xs text-accent-red-text">{error}</p>}
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-2 pt-2">
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+          <RequiredNameHint value={name} message="Give the item a name" />
           <Button data-dismiss=""
             type="button"
             variant="ghost"
@@ -162,10 +169,10 @@ export function CreateItemDialog({
             type="submit"
             variant="primary"
             size="sm"
-            disabled={!name.trim()}
+            disabled={!name.trim() || (!!twin && !twin.saveAnyway)}
             busy={submitting}
           >
-            Create
+            {twin?.saveAnyway ? "Create anyway" : "Create"}
           </Button>
         </div>
       </form>

@@ -19,6 +19,23 @@ export function personalAwsEnvironment(): NodeJS.ProcessEnv {
   };
 }
 export type AwsRunner = (args: string[]) => Promise<string>;
+
+/**
+ * The profile's sign-in has expired: only a person signing in again
+ * (`aws sso login --profile durtal-personal`) brings it back, so the upload
+ * service says so instead of "not running" (SLN-1326).
+ */
+export class AwsSignInNeeded extends Error {
+  constructor(message = "The durtal-personal sign-in has expired; sign in again with aws sso login --profile durtal-personal.") {
+    super(message);
+    this.name = "AwsSignInNeeded";
+  }
+}
+
+/** Whether the AWS CLI's error output says the sign-in expired; the output itself is never shown or kept. */
+export function signInExpired(stderr: string): boolean {
+  return /sso login|token has expired|session associated with this profile has expired|error loading sso token|expiredtoken|security token included in the request is expired/i.test(stderr);
+}
 /** Only identity reads and temporary local credential export may reach the CLI. */
 export function assertPersonalReadCommand(args: string[]) {
   const allowed = [
@@ -34,7 +51,8 @@ async function runAws(args: string[]): Promise<string> {
   try {
     const result = await exec("aws", [...args, "--profile", PROFILE, "--region", REGION, "--no-cli-pager"], { env: personalAwsEnvironment(), maxBuffer: 1024 * 1024 });
     return result.stdout;
-  } catch {
+  } catch (error) {
+    if (signInExpired(String((error as { stderr?: unknown }).stderr ?? ""))) throw new AwsSignInNeeded();
     throw new Error("The durtal-personal session is unavailable; sign in with that profile. Credential output is withheld.");
   }
 }
@@ -72,13 +90,14 @@ export async function initializePersonalSession(profile: string, run: AwsRunner 
     };
     try {
       exported = JSON.parse(await run(["configure", "export-credentials", "--format", "process"]));
-    } catch {
+    } catch (error) {
+      if (error instanceof AwsSignInNeeded) throw error;
       throw new Error("The durtal-personal session could not refresh. Credential output is withheld.");
     }
     if ((await readIdentity()) !== principal) throw new Error("The durtal-personal principal changed; create a new plan");
     const expiration = new Date(exported.Expiration ?? "");
     if (!exported.AccessKeyId || !exported.SecretAccessKey || !exported.SessionToken || !Number.isFinite(expiration.getTime()) || expiration.getTime() <= Date.now())
-      throw new Error("A current temporary durtal-personal session is required");
+      throw new AwsSignInNeeded("A current temporary durtal-personal session is required; sign in again with aws sso login --profile durtal-personal.");
     cached = {
       accessKeyId: exported.AccessKeyId,
       secretAccessKey: exported.SecretAccessKey,

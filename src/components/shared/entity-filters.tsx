@@ -137,8 +137,10 @@ export function EntityFilters({
 
   return (
     // On a phone 16px to the count row, as on Books, so the first card
-    // reaches the first screen (SLN-641)
-    <div className={className ?? `mb-4 sm:mb-6 ${FILTER_ROW_CLASSES}`}>
+    // reaches the first screen (SLN-641). `data-view` is the view the switch
+    // shows: the phone's card size rules key off it (globals.css), never a
+    // :has() that restyles every page on each change (SLN-1249)
+    <div className={className ?? `mb-4 sm:mb-6 ${FILTER_ROW_CLASSES}`} data-view={onViewModeChange ? viewMode : undefined}>
       {/* Search */}
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-muted" />

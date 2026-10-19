@@ -135,7 +135,7 @@ export function SeriesFormDialog({
             value={title}
             onValueChange={setTitle}
             maxLength={300}
-            placeholder="e.g. In Search of Lost Time"
+            placeholder="e.g. The Human Comedy"
             disabled={pending}
             required
           /><NameDuplicateNotice kind="series" name={title} enabled={!series} /></div>
@@ -144,7 +144,7 @@ export function SeriesFormDialog({
             value={originalTitle}
             onValueChange={setOriginalTitle}
             maxLength={300}
-            placeholder="e.g. À la recherche du temps perdu"
+            placeholder="e.g. La Comédie humaine"
             disabled={pending}
           />
           <Textarea

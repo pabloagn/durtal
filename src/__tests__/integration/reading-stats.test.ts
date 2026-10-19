@@ -43,10 +43,11 @@ import { getWorkCount } from "@/lib/actions/works";
 import { loadReading } from "@/lib/reading/service";
 import { readingToday } from "@/lib/reading/day";
 import { addDays } from "@/lib/reading/goals";
-import { tasteRatingSql } from "@/lib/reading/summary";
+import { readingRatingOverAllSql, readingRatingSql, tasteRatingSql } from "@/lib/reading/summary";
 import { resultRows } from "@/lib/harmonization/store";
 import {
   abandoned,
+  activeIn,
   authorStats,
   eras,
   finishedYears,
@@ -191,9 +192,9 @@ describe.skipIf(!url)("reading stats with PostgreSQL", () => {
       expect(year.bars.map((b) => b.pages)).toEqual([0, 0, 300, 200, 0, 0, 0, 0, 0, 0, 0, 0]);
       expect(year.unknown).toEqual({ key: null, books: 1, pages: 100 });
 
-      // All time: the undated book is in the totals, in no bar, and named in the footnote
+      // All time: the undated book is in the totals, in no bar, and counted once, under the numbers (SLN-1173)
       expect(await yearNumbers(null)).toMatchObject({ books: 4, pages: 1000, undated: 1 });
-      expect(await overTheYear(null)).toEqual({ bars: [{ key: YEAR, books: 3, pages: 600 }], unknown: null, undated: 1 });
+      expect(await overTheYear(null)).toEqual({ bars: [{ key: YEAR, books: 3, pages: 600 }], unknown: null });
     });
   });
 
@@ -308,6 +309,23 @@ describe.skipIf(!url)("reading stats with PostgreSQL", () => {
       );
     });
 
+    it("counts a Goodreads reading with no copy as format not recorded, never print (SLN-1171)", async () => {
+      const imported = await past(await book("Imported"), { on: `${YEAR}-05-01`, pages: 120 });
+      await q(`update readings set source = 'import', source_key = 'goodreads:test#1' where id = $1`, [imported]);
+      const w = await book("Imported with its copy");
+      const e = await edition(w);
+      const linked = await past(w, { on: `${YEAR}-05-02`, pages: 80, format: "ebook", editionId: e, instanceId: await copy(e, { at: kindle }) });
+      await q(`update readings set source = 'import', source_key = 'goodreads:test#2' where id = $1`, [linked]);
+      await past(await book("Read by hand"), { on: `${YEAR}-05-03`, pages: 50 });
+      expect((await whereAndHow(YEAR)).formats).toEqual(
+        expect.arrayContaining([
+          { format: "unknown", minutes: 0, pages: 120, readings: 1 },
+          { format: "ebook", minutes: 0, pages: 80, readings: 1 },
+          { format: "print", minutes: 0, pages: 50, readings: 1 },
+        ]),
+      );
+    });
+
     it("groups Where by the reading's home, so moving a copy later changes nothing", async () => {
       const a = await book("At home");
       // A reading names a copy of its own edition
@@ -376,6 +394,63 @@ describe.skipIf(!url)("reading stats with PostgreSQL", () => {
       expect(stat.avgRating).toBeCloseTo(4.5, 10);
       // All time matches too: the 2019 read adds no pick
       expect((await recommenderStats(null))[0]).toEqual(stat);
+    });
+  });
+
+  // SLN-1309: the faster shapes give the same answer as the ones they replaced, on every reading
+  describe("the same numbers, faster", () => {
+    it("rates each read by a window as the per-row count did", async () => {
+      const once = await book("Read once", { rating: 4 });
+      await past(once, { rating: null });
+      const twice = await book("Read twice", { rating: 5 });
+      await past(twice, { rating: null, on: "2019-05-01" });
+      await past(twice, { rating: null });
+      const left = await book("Finished, then left", { rating: 3 });
+      await past(left, { rating: null, on: "2020-01-02" });
+      await past(left, { status: "abandoned", rating: null });
+      const own = await book("Its own rating", { rating: 2 });
+      await past(own, { rating: 4.5 });
+      const open = await book("Still reading", { rating: 3.5 });
+      await past(open, { status: "reading", on: null, startedOn: `${YEAR}-04-01` });
+      const rows = resultRows<{ id: string; old: number | null; now: number | null }>(
+        await testDb!.execute(sql`select r.id, ${readingRatingSql("r")} as old, ${readingRatingOverAllSql("r")} as now from readings r`),
+      );
+      expect(rows).toHaveLength(7);
+      for (const row of rows) expect(row.now).toEqual(row.old);
+      expect(rows.map((row) => row.now).sort()).toEqual([3, 4, 4.5, null, null, null, null]);
+    });
+
+    it("finds a reading active in a year from the sessions table as it did from the CTE", async () => {
+      const timer = async (readingId: string, on: string) =>
+        q(`insert into reading_sessions(reading_id, format, source, read_on, time_zone, started_at, ended_at) values ($1, 'audio', 'timer', $2::date, $3, now(), null)`, [
+          readingId,
+          on,
+          ZONE,
+        ]);
+      // Finished this year, with no session
+      await past(await book("Finished"), { format: "audio", pages: null });
+      // Read this year and finished in 2020
+      const across = await past(await book("Across years"), { format: "audio", pages: null, on: "2020-06-01" });
+      await session(across, { on: `${YEAR}-01-10`, seconds: 600, format: "audio", total: null });
+      // Only a running timer this year: not active
+      const running = await past(await book("Timer running"), { status: "reading", format: "audio", pages: null, on: null });
+      await timer(running, `${YEAR}-02-02`);
+      // Undated finish, a session in 2019
+      const undated = await past(await book("Undated"), { format: "audio", pages: null, on: null, precision: "unknown" });
+      await session(undated, { on: "2019-08-08", seconds: 900, format: "audio", total: null });
+      const old = (year: number) => sql`((rr.finished_precision <> 'unknown' and extract(year from rr.finished_on) = ${year})
+        or exists (select 1 from ss where ss.reading_id = rr.id and extract(year from ss.read_on) = ${year}))`;
+      for (const year of [2019, 2020, YEAR]) {
+        const rows = resultRows<{ title: string; old: boolean; now: boolean }>(
+          await testDb!.execute(sql`with ss as (select s.* from reading_sessions s where not (s.source = 'timer' and s.ended_at is null))
+            select w.title, ${old(year)} as old, ${activeIn(year)} as now from readings rr join works w on w.id = rr.work_id`),
+        );
+        expect(rows).toHaveLength(4);
+        for (const row of rows) expect(row.now, `${row.title} in ${year}`).toBe(row.old);
+      }
+      expect((await yearNumbers(YEAR)).audioWithoutPages).toBe(2);
+      expect((await yearNumbers(2019)).audioWithoutPages).toBe(1);
+      expect((await yearNumbers(null)).audioWithoutPages).toBe(4);
     });
   });
 

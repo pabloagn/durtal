@@ -151,6 +151,8 @@ export function libraryStatsReads({ shelf = 8 }: { shelf?: number } = {}) {
       nationality: string | null;
       birthYear: number | null;
       deathYear: number | null;
+      birthYearIsApproximate: boolean | null;
+      deathYearIsApproximate: boolean | null;
       worksCount: number;
     }> = [];
     for (const work of recentWorksForAuthors) {
@@ -177,6 +179,8 @@ export function libraryStatsReads({ shelf = 8 }: { shelf?: number } = {}) {
           nationality: countryDisplayName(author.country),
           birthYear: author.birthYear,
           deathYear: author.deathYear,
+          birthYearIsApproximate: author.birthYearIsApproximate,
+          deathYearIsApproximate: author.deathYearIsApproximate,
           worksCount: author.workAuthors.length,
         });
         if (recentAuthors.length >= 12) break;

@@ -63,6 +63,8 @@ interface WorkData {
   goodreadsUrl: string | null;
   storygraphUrl: string | null;
   recommenderIds: string[];
+  /** What Edit work saves against (SLN-1243) */
+  fingerprint: string | null;
 }
 
 interface WorkAuthorRow {
@@ -222,7 +224,8 @@ export function WorkActionsMenu({
           onPointerEnter={() => preloadEditOptions(EDIT_OPTION_GROUPS)}
           onFocus={() => preloadEditOptions(EDIT_OPTION_GROUPS)}
         >
-          <EntityActionMenu items={actionItems} />
+          {/* It holds Link a work: the focus comes here once the last link goes */}
+          <EntityActionMenu items={actionItems} focusEmpty="relations" />
         </div>
       </div>
 
@@ -251,6 +254,7 @@ export function WorkActionsMenu({
       <EditionAddDialog
         workId={work.id}
         workTitle={work.title}
+        workLanguage={work.originalLanguage}
         open={addEditionOpen}
         onOpenChange={setAddEditionOpen}
       />

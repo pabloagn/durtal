@@ -16,7 +16,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/notifications/toast", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }) }));
 vi.mock("next/image", () => ({ default: () => null }));
 vi.mock("@/app/(catalogue)/people/author-create-dialog", () => ({
-  AuthorCreateDialog: () => createElement("div", { id: "add-person" }),
+  AuthorCreateDialog: () => createElement("div", { id: "add-person" }, createElement("input", { "aria-label": "Name" })),
 }));
 vi.mock("@/app/(catalogue)/places/venue-create-dialog", () => ({ VenueCreateDialog: () => null }));
 vi.mock("@/components/collections/create-collection-dialog", () => ({ CreateCollectionDialog: () => null }));
@@ -85,13 +85,18 @@ describe("N and A (SLN-632)", () => {
   });
 
   it("adds a book, a perfume, a person and a publisher with A then B, P, A and U", () => {
+    // One pair at a time, as a person types them: a fast key after a pick
+    // is the rest of a typed word (SLN-1190)
     press("a");
     press("b");
+    now += 1000;
     press("a");
     press("p");
+    now += 1000;
     press("a");
     press("u");
     expect(nav.push.mock.calls.map((c) => c[0])).toEqual(["/library/new", "/perfumes/new", "/publishers/new"]);
+    now += 1000;
     press("a");
     press("a");
     expect(document.getElementById("add-person")).not.toBeNull();
@@ -167,5 +172,56 @@ describe("N and A (SLN-632)", () => {
     const sheet = SHORTCUT_GROUPS.find((g) => g.title === "Add")!;
     expect(sheet.items.map((i) => i.keys.join(" "))).toEqual(keys.map((k) => `a ${k}`));
     expect(SHORTCUT_GROUPS.find((g) => g.title === "Menus")!.items.some((i) => i.keys.join() === "n")).toBe(true);
+  });
+});
+
+// SLN-1190: "nandu" typed fast at the page opened New, picked Add person,
+// typed "ndu" into its name and Enter saved a person called "du"
+describe("a word typed fast after a leader key", () => {
+  it("drops the rest of the word and its Enter, and takes keys again after a pause", () => {
+    press("n");
+    now += 90;
+    press("a");
+    expect(document.getElementById("add-person")).not.toBeNull();
+    const dropped = ["n", "d", "u", "Enter"].map((key) => {
+      now += 90;
+      return press(key).defaultPrevented;
+    });
+    expect(dropped).toEqual([true, true, true, true]);
+    // The menu didn't open again behind the dialog
+    expect(menu()).toBeNull();
+    now += 400;
+    expect(press("x").defaultPrevented).toBe(false);
+  });
+
+  it("keeps a name typed straight into the field the pick opened, but not its Enter", () => {
+    press("n");
+    now += 100;
+    press("a");
+    const name = document.getElementById("add-person")!.querySelector("input")!;
+    const prevented = ["n", "d", "u", "Enter"].map((key) => {
+      now += 90;
+      return press(key, {}, name).defaultPrevented;
+    });
+    expect(prevented).toEqual([false, false, false, true]);
+  });
+
+  it("leaves keys typed at a person's pace alone", () => {
+    press("a");
+    press("p");
+    expect(nav.push).toHaveBeenCalledWith("/perfumes/new");
+    now += 400;
+    expect(press("d").defaultPrevented).toBe(false);
+  });
+
+  it("stops dropping two seconds after the pick, however fast the keys come", () => {
+    press("n");
+    press("a");
+    const ends = Array.from({ length: 30 }, () => {
+      now += 100;
+      return press("z").defaultPrevented;
+    });
+    expect(ends.slice(0, 19).every(Boolean)).toBe(true);
+    expect(ends.slice(20).some(Boolean)).toBe(false);
   });
 });

@@ -51,7 +51,7 @@ describe("empty eBook search Clear transition", () => {
       expect(url.searchParams.get("state")).toBe(state === "excluded" ? "excluded" : null);
       expect(url.searchParams.get("sort")).toBe("author"); expect(url.searchParams.get("order")).toBe("desc");
       for (const name of ["q", "page", "linked", "format", "language"]) expect(url.searchParams.has(name)).toBe(false);
-      expect(proxy(request(href))).toBeUndefined();
+      expect(proxy(request(href))?.headers.get("location") ?? null).toBeNull();
     },
   );
 });

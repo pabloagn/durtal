@@ -1,5 +1,5 @@
 import { redirectMergedRecord } from "@/lib/harmonization/redirect";
-import { getTaxonomyBrowsePage, getTaxonomyBookPage, getTaxonomyBookCards, getTaxonomyTerm, getTaxonomyEditorChoices } from "@/lib/actions/taxonomy-browse";
+import { getTaxonomyBrowsePage, getTaxonomyBookPage, getTaxonomyBookCards, getTaxonomyTerm, getTaxonomyEditorChoices, getTaxonomyItemDescription } from "@/lib/actions/taxonomy-browse";
 import { compareWorks } from "@/lib/utils/title-order";
 import { deleteTaxonomyItem as deleteItemUi, mergeTaxonomyItems as mergeItemsUi } from "@/lib/actions/taxonomy-ui";
 import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers/disposable-database";
@@ -64,7 +64,12 @@ import {
   getTaxonomyItems,
   replaceTaxonomyAssignments,
   getTaxonomyFamilyUsage,
+  getTaxonomyAssignments,
+  searchTaxonomyItems,
+  findTaxonomyNameTwin,
 } from "@/lib/actions/taxonomy-families";
+import { systemWorkTaxonomyMatch } from "@/lib/catalogue/taxonomy-storage";
+import { and, count, eq } from "drizzle-orm";
 import { updateWorkTaxonomy } from "@/lib/actions/taxonomy";
 
 describe.skipIf(!url)("domain and level-aware taxonomy", () => {
@@ -361,12 +366,18 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     expect(settled.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect(settled.filter((r) => r.status === "rejected")).toHaveLength(1);
   });
-  it("keeps Unicode and colliding transliterations usable and stable on rename", async () => {
+  it("keeps Unicode names usable and stable on rename, and lets only one of two accent twins in", async () => {
     const [a, b, cyrillic] = await Promise.all([
       createTaxonomyItem("subjects", { name: "Café" }),
-      createTaxonomyItem("subjects", { name: "Cafe" }),
+      createTaxonomyItem("subjects", { name: "Café noir" }),
       createTaxonomyItem("subjects", { name: "Кино" }),
     ]);
+    // Two saves of twins at once: the table lock lets one in (SLN-1016)
+    const twins = await Promise.allSettled([
+      createTaxonomyItem("subjects", { name: "Décor" }),
+      createTaxonomyItem("subjects", { name: "Decor" }),
+    ]);
+    expect(twins.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect(new Set([a.slug, b.slug, cyrillic.slug]).size).toBe(3);
     expect(cyrillic.slug).not.toBe("");
     await updateTaxonomyItem("subjects", a.id, { name: "Renamed" });
@@ -569,5 +580,138 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     const subjects = (await getTaxonomyFamily("subjects"))!;
     await expect(deleteTaxonomyFamily(subjects.id)).rejects.toThrow(/^System families cannot be deleted$/);
     expect((await getTaxonomyFamilyUsage(subjects.id))!.deletable).toBe(false);
+  });
+  it("counts and lists every kind a shared family applies to, and tags them in place (SLN-1157)", async () => {
+    const films = (
+      await c`insert into works(title,slug,kind,original_language) values ('Film two','film-two','film',null),('Film three','film-three','film',null) returning id`
+    ).map((r) => String(r.id));
+    const allFilms = [work.film, ...films];
+    const decadence = await createTaxonomyItem("themes", { name: "Decadence" });
+    const filmOnly = await createTaxonomyItem("themes", { name: "Film-only theme" });
+    await c`insert into work_themes(work_id,theme_id) values (${work.book},${decadence.id}),(${work.painting},${decadence.id})`;
+    // A film is tagged with a Theme from its own page
+    for (const id of allFilms)
+      await replaceTaxonomyAssignments({ familySlug: "themes", kind: "film", level: "work", ownerId: id, itemIds: [decadence.id, filmOnly.id] });
+    const counts = Object.fromEntries((await getTaxonomyItems("themes")).map((i) => [i.name, i.entityCount]));
+    expect(counts).toMatchObject({ Decadence: 5, "Film-only theme": 3 });
+    const rows = (await getTaxonomyBrowsePage("themes"))!.items;
+    for (const row of rows) expect(row.entityCount).toBe(row.linkCount);
+    expect(rows.find((r) => r.id === filmOnly.id)?.entityCount).toBe(3);
+    const term = (await getTaxonomyTerm("themes", decadence.slug))!;
+    expect(term.direct).toBe(5);
+    expect(Object.fromEntries(term.kindCounts.map((k) => [k.kind, k.count]))).toEqual({ book: 1, film: 3, painting: 1 });
+    expect((await getTaxonomyTerm("themes", filmOnly.slug))?.direct).toBe(3);
+    expect((await getTaxonomyFamilies()).find((f) => f.slug === "themes")?.entityCount).toBe(5);
+    // The term page's links open the lists filtered to the item: their
+    // filters match built-in families as they match custom ones
+    const listed = async (kind: "film" | "painting" | "perfume", itemId: string) =>
+      (await testDb!.select({ n: count() }).from(schema.works)
+        .where(and(eq(schema.works.kind, kind), systemWorkTaxonomyMatch(schema.works.id, itemId))))[0].n;
+    expect(await listed("film", decadence.id)).toBe(3);
+    expect(await listed("painting", decadence.id)).toBe(1);
+    expect(await listed("perfume", decadence.id)).toBe(0);
+    // The film page offers the built-in families; a book keeps its own editors,
+    // a painting its movements
+    const filmFamilies = await getTaxonomyAssignments({ kind: "film", level: "work", ownerId: work.film });
+    expect(filmFamilies.find((f) => f.slug === "themes")?.items.map((i) => i.name)).toEqual(["Decadence", "Film-only theme"]);
+    expect(filmFamilies.map((f) => f.slug)).toEqual(expect.arrayContaining(["film-genres", "subjects", "keywords"]));
+    expect((await getTaxonomyAssignments({ kind: "book", level: "work", ownerId: work.book })).some((f) => f.slug === "themes")).toBe(false);
+    const paintingFamilies = (await getTaxonomyAssignments({ kind: "painting", level: "work", ownerId: work.painting })).map((f) => f.slug);
+    expect(paintingFamilies).toEqual(expect.arrayContaining(["art-types", "themes"]));
+    expect(paintingFamilies).not.toContain("art-movements");
+    expect((await searchTaxonomyItems("themes", { query: "DECA" })).items.map((i) => i.name)).toEqual(["Decadence"]);
+    // A custom family for books and films counts the film tagged from its page
+    const moods = await createTaxonomyFamily({ name: "Moods", scopes: [{ kind: "book", level: "work" }, { kind: "film", level: "work" }] });
+    const melancholy = await createTaxonomyItem(moods.slug, { name: "Melancholy" });
+    for (const kind of ["book", "film"] as const)
+      await replaceTaxonomyAssignments({ familySlug: moods.slug, kind, level: "work", ownerId: work[kind], itemIds: [melancholy.id] });
+    const mood = (await getTaxonomyTerm(moods.slug, melancholy.slug))!;
+    expect(mood.direct).toBe(2);
+    expect(mood.kinds).toEqual(["book", "film"]);
+    expect((await getTaxonomyItems(moods.slug))[0].entityCount).toBe(2);
+  });
+  it("moves an item under another parent, refuses loops and cross-branch reorders, and keeps descriptions only where stored (SLN-1158)", async () => {
+    const f = await createTaxonomyFamily({ name: "Forms", hierarchical: true, scopes: [{ kind: "book", level: "work" }] });
+    const fiction = await createTaxonomyItem(f.slug, { name: "Fiction" });
+    const story = await createTaxonomyItem(f.slug, { name: "Short story", parentId: fiction.id });
+    const novel = await createTaxonomyItem(f.slug, { name: "Novel", parentId: fiction.id });
+    const nonfiction = await createTaxonomyItem(f.slug, { name: "Nonfiction" });
+    const essay = await createTaxonomyItem(f.slug, { name: "Essay", parentId: nonfiction.id });
+    const order = async () =>
+      Object.fromEntries((await c`select name,sort_order from custom_taxonomy_items where family_id=${f.id}`).map((r) => [r.name as string, r.sort_order as number]));
+    const before = await order();
+    // A drag across branches is refused and renumbers nothing
+    await expect(reorderTaxonomyItems(f.slug, [essay.id, story.id])).rejects.toThrow(/^Items are reordered among their siblings/);
+    expect(await order()).toEqual(before);
+    // Among siblings it reorders
+    await reorderTaxonomyItems(f.slug, [novel.id, story.id]);
+    const after = await order();
+    expect(after.Novel).toBeLessThan(after["Short story"]);
+    expect(after.Essay).toBe(before.Essay);
+    // Move to…: under another parent, to the top level, never under itself
+    await moveTaxonomyItem(f.slug, essay.id, fiction.id);
+    expect((await getTaxonomyTerm(f.slug, essay.slug))?.parents.map((p) => p.id)).toEqual([fiction.id]);
+    await expect(updateTaxonomyItem(f.slug, fiction.id, { parentId: story.id })).rejects.toThrow();
+    expect((await c`select parent_id from custom_taxonomy_items where id=${fiction.id}`)[0].parent_id).toBeNull();
+    await updateTaxonomyItem(f.slug, essay.id, { parentId: null });
+    expect((await c`select parent_id from custom_taxonomy_items where id=${essay.id}`)[0].parent_id).toBeNull();
+    // A moved item goes last, as a new one does; saving the same parent keeps its place
+    expect((await order())["Short story"]).toBeLessThan((await order()).Nonfiction);
+    await moveTaxonomyItem(f.slug, story.id, nonfiction.id);
+    const moved = await order();
+    expect(moved["Short story"]).toBeGreaterThan(Math.max(...Object.entries(moved).filter(([n]) => n !== "Short story").map(([, v]) => v)));
+    await updateTaxonomyItem(f.slug, novel.id, { parentId: fiction.id });
+    expect((await order()).Novel).toBe(moved.Novel);
+    // A description is kept where the family stores one, refused where it doesn't
+    await updateTaxonomyItem(f.slug, novel.id, { description: "Long prose fiction" });
+    expect(await getTaxonomyItemDescription(f.slug, novel.id)).toBe("Long prose fiction");
+    await expect(createTaxonomyItem("themes", { name: "Described theme", description: "Lost words" })).rejects.toThrow(/^Themes keep no description$/);
+    expect(await c`select id from themes where name='Described theme'`).toHaveLength(0);
+    const theme = await createTaxonomyItem("themes", { name: "Plain theme", description: null });
+    await expect(updateTaxonomyItem("themes", theme.id, { description: "Lost words" })).rejects.toThrow(/keep no description/);
+    expect(await getTaxonomyItemDescription("themes", theme.id)).toBeNull();
+  });
+  it("names a sibling with the same name on create, rename and move, and saves anyway only when asked (SLN-1159)", async () => {
+    const f = await createTaxonomyFamily({ name: "Forms", hierarchical: true, scopes: [{ kind: "book", level: "work" }] });
+    const families = [f.slug, "categories", "themes", "literary-movements"];
+    for (const slug of families) {
+      const fiction = await createTaxonomyItem(slug, { name: `Fiction ${slug}` });
+      const other = await createTaxonomyItem(slug, { name: `Verse ${slug}` });
+      const novel = await createTaxonomyItem(slug, { name: "Novel", parentId: fiction.id });
+      const message = `This family already has "Novel" under Fiction ${slug}`;
+      // Create: the exact name, or the name with other accents or case
+      for (const name of ["Novel", "NOVÉL"]) {
+        await expect(createTaxonomyItem(slug, { name, parentId: fiction.id })).rejects.toThrow(message);
+        expect(await findTaxonomyNameTwin(slug, name, { parentId: fiction.id })).toMatchObject({
+          id: novel.id,
+          slug: novel.slug,
+          parentName: `Fiction ${slug}`,
+          saveAnyway: true,
+        });
+      }
+      // Under another parent, or at the top level, it is no twin
+      const elsewhere = await createTaxonomyItem(slug, { name: "Novel", parentId: other.id });
+      expect(await findTaxonomyNameTwin(slug, "Novel", { parentId: null })).toBeNull();
+      // Saved anyway when asked
+      await createTaxonomyItem(slug, { name: "Novel", parentId: fiction.id, allowDuplicateName: true });
+      // Rename: refused with the sibling's name, saved anyway when asked
+      const story = await createTaxonomyItem(slug, { name: "Short story", parentId: fiction.id });
+      await expect(updateTaxonomyItem(slug, story.id, { name: "novel" })).rejects.toThrow(message);
+      expect(await findTaxonomyNameTwin(slug, "novel", { parentId: fiction.id, exceptId: story.id })).toMatchObject({ saveAnyway: true });
+      await updateTaxonomyItem(slug, story.id, { name: "novel", allowDuplicateName: true });
+      // A move beside a twin is the same: refused, then saved anyway
+      await expect(updateTaxonomyItem(slug, elsewhere.id, { parentId: fiction.id })).rejects.toThrow(message);
+      await updateTaxonomyItem(slug, elsewhere.id, { parentId: fiction.id, allowDuplicateName: true });
+      // Its own name with other accents is no twin of itself
+      await updateTaxonomyItem(slug, other.id, { name: `VERSE ${slug}` });
+    }
+    // At the top level the message says so
+    await expect(createTaxonomyItem("themes", { name: "fiction THEMES" })).rejects.toThrow('This family already has "Fiction themes" at the top level');
+    // Where each exact name is kept once, only a variant can be saved anyway
+    await createTaxonomyItem("keywords", { name: "Qa spleen" });
+    expect(await findTaxonomyNameTwin("keywords", "Qa spleen")).toMatchObject({ saveAnyway: false });
+    await expect(createTaxonomyItem("keywords", { name: "Qa spleen", allowDuplicateName: true })).rejects.toThrow('This family already has "Qa spleen"');
+    expect(await findTaxonomyNameTwin("keywords", "qa spléen")).toMatchObject({ name: "Qa spleen", saveAnyway: true });
+    await createTaxonomyItem("keywords", { name: "qa spléen", allowDuplicateName: true });
   });
 });

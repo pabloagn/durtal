@@ -5,6 +5,8 @@ import { hostName, isAllowedHost, parseAllowedHosts } from "@/lib/api/allowed-ho
 import { serverEnv } from "@/lib/env";
 import { perPageCookieName } from "@/lib/utils/preference-cookies";
 import { config, proxy } from "@/proxy";
+/** Goes on to Next.js: no refusal or redirect, at most the page policy on it (SLN-1240) */
+const passes = (res: Response | undefined | null | void) => !res || res.headers.get("x-middleware-next") === "1";
 
 // Task 0608: requests on a name that is not Durtal's (DNS rebinding) are refused.
 
@@ -82,14 +84,14 @@ describe("the proxy on another name", () => {
   });
 
   it("lets the app's own names through, and a name listed in DURTAL_ALLOWED_HOSTS", () => {
-    expect(proxy(request("http://localhost:3100/library", "localhost:3100"))).toBeUndefined();
+    expect(passes(proxy(request("http://localhost:3100/library", "localhost:3100")))).toBe(true);
     expect(proxy(request("http://studio.local:3110/api/stats", "studio.local:3110"))).toBeUndefined();
-    expect(proxy(request("http://studio.tail1234.ts.net:3110/library", "studio.tail1234.ts.net:3110"))).toBeUndefined();
+    expect(passes(proxy(request("http://studio.tail1234.ts.net:3110/library", "studio.tail1234.ts.net:3110")))).toBe(true);
     // A Tailscale short name (MagicDNS)
-    expect(proxy(request("http://studio:3110/library", "studio:3110"))).toBeUndefined();
+    expect(passes(proxy(request("http://studio:3110/library", "studio:3110")))).toBe(true);
     expect(proxy(request("http://durtal.example.com/library", "durtal.example.com"))?.status).toBe(421);
     vi.stubEnv("DURTAL_ALLOWED_HOSTS", "durtal.example.com");
-    expect(proxy(request("http://durtal.example.com/library", "durtal.example.com"))).toBeUndefined();
+    expect(passes(proxy(request("http://durtal.example.com/library", "durtal.example.com")))).toBe(true);
   });
 });
 
@@ -154,7 +156,7 @@ describe("the build's own files", () => {
       expect(response?.status).toBe(421);
       expect(await response?.text()).toContain("add the name to DURTAL_ALLOWED_HOSTS");
       // On Durtal's own name it goes on to Next.js as before
-      expect(proxy(request(`http://localhost:3100${path}`, "localhost:3100", init))).toBeUndefined();
+      expect(passes(proxy(request(`http://localhost:3100${path}`, "localhost:3100", init)))).toBe(true);
     }
   });
 });

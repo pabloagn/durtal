@@ -8,6 +8,8 @@ import {
   Pencil,
   Merge,
   Trash2,
+  SlidersHorizontal,
+  FolderInput,
 } from "lucide-react";
 import type {
   DraggableAttributes,
@@ -45,6 +47,10 @@ interface TaxonomyItemRowProps {
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
   onMerge: (id: string) => void;
+  /** Opens Edit item: name, colour, description, parent (SLN-1158) */
+  onEdit?: (id: string) => void;
+  /** Opens Move to…; only in a family with a hierarchy */
+  onMoveTo?: (id: string) => void;
   /** Forwarded props from useSortable for drag handle */
   dragHandleProps?: {
     listeners?: DraggableSyntheticListeners;
@@ -64,6 +70,8 @@ export function TaxonomyItemRow({
   onRename,
   onDelete,
   onMerge,
+  onEdit,
+  onMoveTo,
   dragHandleProps,
 }: TaxonomyItemRowProps) {
   const [editing, setEditing] = useState(false);
@@ -214,6 +222,22 @@ export function TaxonomyItemRow({
         >
           Rename
         </DropdownMenuItem>
+        {onEdit && (
+          <DropdownMenuItem
+            onClick={() => onEdit(item.id)}
+            icon={<SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />}
+          >
+            Edit…
+          </DropdownMenuItem>
+        )}
+        {onMoveTo && (
+          <DropdownMenuItem
+            onClick={() => onMoveTo(item.id)}
+            icon={<FolderInput className="h-3.5 w-3.5" strokeWidth={1.5} />}
+          >
+            Move to…
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           onClick={() => onMerge(item.id)}
           icon={<Merge className="h-3.5 w-3.5" strokeWidth={1.5} />}

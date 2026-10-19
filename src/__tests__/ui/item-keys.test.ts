@@ -113,9 +113,13 @@ describe("A then F and A then C (SLN-571)", () => {
     press("a");
     press("f");
     expect(nav.push).toHaveBeenCalledWith("/films/new");
+    // A pause, as a person makes: a fast key after a pick is dropped (SLN-1190)
+    const later = performance.now() + 1000;
+    const clock = vi.spyOn(performance, "now").mockReturnValue(later);
     press("a");
     press("c");
     expect(document.getElementById("create-collection")).not.toBeNull();
+    clock.mockRestore();
   });
 
   it("forgets the item's keys when the item leaves the page", () => {

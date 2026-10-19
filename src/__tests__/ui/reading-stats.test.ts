@@ -35,7 +35,6 @@ vi.mock("@/lib/reading/stats", () => {
     overTheYear: async () => ({
       bars: Array.from({ length: 12 }, (_, i) => ({ key: i + 1, books: [3, 1, 0, 2, 0, 0, 0, 0, 0, 0, 1, 0][i], pages: [900, 300, 0, 700, 0, 0, 0, 0, 0, 0, 410, 0][i] })),
       unknown: null,
-      undated: 0,
     }),
     readingDays: async () => ({
       calendar: [

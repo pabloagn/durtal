@@ -12,6 +12,7 @@ import { dateFromColumns } from "./dates";
 import { uuids, type Db } from "./work-store";
 import { textSearchCondition } from "@/lib/actions/utils/text-search";
 import { resultRows } from "@/lib/harmonization/store";
+import { systemWorkTaxonomyMatch } from "./taxonomy-storage";
 import type {
   objectCreditSchema,
   paintingQuerySchema,
@@ -203,11 +204,11 @@ export async function loadCurrentWhereabouts(objectIds: string[]) {
 type PaintingQuery = z.output<typeof paintingQuerySchema>;
 
 function taxonomyMatch(itemId: string) {
-  return sql`exists(with recursive narrower(id) as (
+  return sql`(exists(with recursive narrower(id) as (
       select ${itemId}::uuid union select i.id from custom_taxonomy_items i join narrower n on i.parent_id=n.id)
     select 1 from narrower n where
       exists(select 1 from custom_taxonomy_item_works t where t.work_id=${works.id} and t.item_id=n.id)
-      or exists(select 1 from art_object_taxa ot join art_objects o on o.id=ot.object_id where o.work_id=${works.id} and ot.item_id=n.id))`;
+      or exists(select 1 from art_object_taxa ot join art_objects o on o.id=ot.object_id where o.work_id=${works.id} and ot.item_id=n.id)) or ${systemWorkTaxonomyMatch(works.id, itemId)})`;
 }
 const personallyHeld = sql`exists(select 1 from art_objects o where o.work_id=${works.id} and o.ownership='personal' and o.holding_status<>'disposed')`;
 export const paintingCreationStart = sql`(select cd.lower_bound from painting_details pd join catalogue_dates cd on cd.id=pd.creation_date_id where pd.work_id=${works.id})`;

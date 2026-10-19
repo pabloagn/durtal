@@ -1,5 +1,6 @@
 "use client";
 
+import { RequiredNameHint } from "@/components/shared/required-name-hint";
 import {
   FormSection as Section,
   FormColumns,
@@ -131,6 +132,12 @@ interface EditionFormProps {
   notice?: ReactNode;
   /** What Genres & tags says while both lists are empty: "Loading…", or "Not loaded" after a failed load */
   listsNote?: string;
+  /**
+   * A new edition's work (SLN-1132): its title is the suggestion an empty
+   * Title saves as, and a language other than its own ticks "This is a
+   * translation" (which can be unticked)
+   */
+  work?: { title: string; language: string | null };
 }
 
 // ── Section helper ─────────────────────────────────────────────────────────
@@ -207,6 +214,7 @@ export function EditionForm({
   existingCoverUrl,
   notice,
   listsNote,
+  work,
 }: EditionFormProps) {
   const [values, setValues] = useState<EditionFormValues>(initialValues);
   const [newContributorName, setNewContributorName] = useState("");
@@ -269,7 +277,7 @@ export function EditionForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await onSubmit(values);
+    await onSubmit(values.title.trim() || !work ? values : { ...values, title: work.title });
   }
 
   const formId = useId();
@@ -285,8 +293,8 @@ export function EditionForm({
           value={values.title}
           onValueChange={(v) => update("title", v)}
           language={values.language}
-          required
-          placeholder="Edition title..."
+          required={!work}
+          placeholder={work ? work.title : "Edition title..."}
         />
         <TitleInput
           label="Subtitle"
@@ -513,7 +521,14 @@ export function EditionForm({
           label="Language"
           id="ed-language"
           value={values.language}
-          onChange={(e) => update("language", e.target.value)}
+          onChange={(e) => {
+            const language = e.target.value;
+            setValues((prev) => ({
+              ...prev,
+              language,
+              ...(work?.language && { isTranslated: language !== work.language }),
+            }));
+          }}
           options={languageOptions(initialValues.language)}
         />
         <label className="flex items-center gap-2 text-xs text-fg-secondary pointer-coarse:min-h-11">
@@ -813,6 +828,7 @@ export function EditionForm({
       {/* In a dialog, under its body: the submit names this form */}
       <DialogFooter>
         {notice && <div className="mr-auto min-w-0">{notice}</div>}
+        <RequiredNameHint value={values.title} message="Give the edition a title" />
         {onCancel && (
           <Button data-dismiss=""
             type="button"
@@ -829,7 +845,7 @@ export function EditionForm({
           form={formId}
           variant="primary"
           size="sm"
-          disabled={!values.title.trim()}
+          disabled={!values.title.trim() && !work}
           busy={isPending}
         >
           {submitLabel}

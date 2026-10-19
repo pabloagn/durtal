@@ -293,7 +293,8 @@ export function MatchAgainDialog({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Search by title, author, or ISBN..."
+                aria-label="Search by title, author or ISBN"
+                placeholder="Title, author or ISBN"
               />
             </div>
             <Button

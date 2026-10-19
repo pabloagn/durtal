@@ -85,6 +85,7 @@ export function ChooseBookFields({ row, onPrepare, disabled, issues = [], startW
       </p>
       <EditionChoiceFields options={options} row={row} choice={choice} onChange={setChoice} disabled={disabled} issues={issues} />
       {choice.kind !== "fill_copy" && <ReviewCopyFields options={options} locationId={locationId} onLocation={setLocation} disabled={disabled} issues={issues} />}
+      {choice.kind === "new_edition" && !choice.language && <p className="text-xs text-fg-secondary">Choose a language for the new edition</p>}
       <Button variant="primary" type="submit" disabled={disabled || (choice.kind === "new_edition" && !choice.language)}>Preview link</Button>
     </form>}
     {error && <p role="alert" className="text-sm text-accent-red-text">{error}</p>}

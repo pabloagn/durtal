@@ -2,7 +2,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { batchedRows } from "@/lib/db/read-batch";
 import { ownedWorkCondition } from "@/lib/catalogue/holdings";
 import { atHandCopySql } from "./at-hand";
-import { countedPagesSql, readingOrdinalSql, readingRatingSql, readingStateSql, rereadSql, tasteRatingSql } from "./summary";
+import { countedPagesSql, readingOrdinalSql, readingRatingOverAllSql, readingStateSql, rereadSql, tasteRatingSql } from "./summary";
 import { WORK_AUTHOR_ROLES } from "@/lib/types";
 
 /*
@@ -20,7 +20,7 @@ import { WORK_AUTHOR_ROLES } from "@/lib/types";
 export type StatsYear = number | null;
 
 /** Every reading with its re-read flag and the read's rating; windows run over all readings */
-const BASE = sql`rr as (select r.*, ${rereadSql("r")} as reread, ${readingRatingSql("r")} as read_rating from readings r),
+const BASE = sql`rr as (select r.*, ${rereadSql("r")} as reread, ${readingRatingOverAllSql("r")} as read_rating from readings r),
   cp as ${countedPagesSql()},
   ss as (select s.* from reading_sessions s where not (s.source = 'timer' and s.ended_at is null))`;
 
@@ -36,17 +36,29 @@ const finishedIn = (year: StatsYear, alias = "rr") => {
 const dayIn = (year: StatsYear, day: SQL, precision: SQL = sql`'day'`) =>
   year === null ? sql`true` : sql`${day} is not null and ${precision} <> 'unknown' and extract(year from ${day}) = ${year}`;
 
-/** A reading with anything in the period: a finish or stop, a session, or (all time) anything */
-const activeIn = (year: StatsYear, alias = "rr") => {
+/**
+ * A reading with anything in the period: a finish or stop, a session, or (all
+ * time) anything. The sessions come from the table, not the `ss` CTE: a CTE
+ * read more than once is materialised without an index, and probing it once
+ * per reading planned the year's numbers at 1.4 million (SLN-1309).
+ * reading_session_reading_idx serves this. Exported for its test.
+ */
+export const activeIn = (year: StatsYear, alias = "rr") => {
   const r = sql.raw(alias);
   return year === null
     ? sql`true`
     : sql`((${r}.finished_precision <> 'unknown' and extract(year from ${r}.finished_on) = ${year})
-        or exists (select 1 from ss where ss.reading_id = ${r}.id and extract(year from ss.read_on) = ${year}))`;
+        or exists (select 1 from reading_sessions s where s.reading_id = ${r}.id
+          and not (s.source = 'timer' and s.ended_at is null) and extract(year from s.read_on) = ${year}))`;
 };
 
-// The stats run many reads at once: they go to the database as one batch
-const rows = batchedRows;
+/*
+ * The stats run many reads at once: they go to the database as one batch,
+ * without JIT (SLN-1309). Their plans pass jit_above_cost on a long reading
+ * history yet run in milliseconds; on 4,000 readings the compile took 3.2 of
+ * the page's 3.4 s. `set local` holds for the batch's own transaction only.
+ */
+const rows = <T>(query: SQL) => batchedRows<T>(query, { jit: false });
 
 /* ── 1. The year in numbers ─────────────────────────────────────────────── */
 
@@ -96,20 +108,17 @@ export interface PeriodBar {
  * Books and pages by month (a year) or by year (all time). A year's readings
  * dated only by year go in a "Month unknown" bar; undated ones in no bar.
  */
-export async function overTheYear(year: StatsYear): Promise<{ bars: PeriodBar[]; unknown: PeriodBar | null; undated: number }> {
+export async function overTheYear(year: StatsYear): Promise<{ bars: PeriodBar[]; unknown: PeriodBar | null }> {
   if (year === null) {
-    // Both at once: the undated count needs nothing from the bars
-    const [bars, [{ undated }]] = await Promise.all([
-      rows<PeriodBar>(sql`with ${BASE}
+    // The undated readings are counted once, under the numbers (SLN-1173)
+    const bars = await rows<PeriodBar>(sql`with ${BASE}
       select y.key::int as key, coalesce(b.books, 0)::float8 as books, coalesce(p.pages, 0)::float8 as pages
       from (select distinct extract(year from rr.finished_on)::int as key from rr where rr.status = 'finished' and rr.finished_on is not null
             union select distinct extract(year from cp.day)::int from cp where cp.day is not null) y
       left join (select extract(year from rr.finished_on)::int as key, count(*) as books from rr where rr.status = 'finished' and rr.finished_on is not null group by 1) b on b.key = y.key
       left join (select extract(year from cp.day)::int as key, round(sum(cp.pages)) as pages from cp where cp.day is not null group by 1) p on p.key = y.key
-      order by 1`),
-      rows<{ undated: number }>(sql`select count(*)::float8 as undated from readings where status = 'finished' and finished_precision = 'unknown'`),
-    ]);
-    return { bars, unknown: null, undated };
+      order by 1`);
+    return { bars, unknown: null };
   }
   const months = await rows<PeriodBar & { precision: string }>(sql`with ${BASE}
     select key, precision, sum(books)::float8 as books, round(sum(pages))::float8 as pages from (
@@ -126,7 +135,7 @@ export async function overTheYear(year: StatsYear): Promise<{ bars: PeriodBar[];
     return { key: i + 1, books: m?.books ?? 0, pages: m?.pages ?? 0 };
   });
   const unknown = months.find((r) => r.key === null);
-  return { bars, unknown: unknown && (unknown.books || unknown.pages) ? { key: null, books: unknown.books, pages: unknown.pages } : null, undated: 0 };
+  return { bars, unknown: unknown && (unknown.books || unknown.pages) ? { key: null, books: unknown.books, pages: unknown.pages } : null };
 }
 
 /* ── 3. Reading days ────────────────────────────────────────────────────── */
@@ -208,14 +217,15 @@ export async function ratings(year: StatsYear): Promise<RatingsStats> {
     rows<{ rating: number; count: number }>(sql`with ${BASE}
       select rr.read_rating::float8 as rating, count(*)::float8 as count from rr
       where ${finishedIn(year)} and rr.read_rating is not null group by 1 order by 1`),
-    rows<{ workId: string; title: string; slug: string | null; reads: (number | null)[] }>(sql`with ${BASE}
+    // Each book's finished reads counted once, not by a scan of rr per book (SLN-1309)
+    rows<{ workId: string; title: string; slug: string | null; reads: (number | null)[] }>(sql`with ${BASE},
+      fin as (select rr.work_id, count(*) filter (where rr.status = 'finished') as n, bool_or(${finishedIn(year)}) as here from rr group by rr.work_id)
       select w.id::text as "workId", w.title, w.slug,
         (select array_agg(o.read_rating::float8 order by o.ord) from (select f.read_rating, f.status, ${readingOrdinalSql("f")} as ord from rr f where f.work_id = w.id) o
           where o.status = 'finished') as reads
-      from works w
-      where (select count(*) from rr f where f.work_id = w.id and f.status = 'finished') >= 2
-        and exists (select 1 from rr where rr.work_id = w.id and ${finishedIn(year)})
-      order by (select count(*) from rr f where f.work_id = w.id and f.status = 'finished') desc, w.title limit 6`),
+      from fin join works w on w.id = fin.work_id
+      where fin.n >= 2 and fin.here
+      order by fin.n desc, w.title limit 6`),
     rows<{ higher: number }>(sql`with ${BASE}, ordered as (
       select rr.*, lag(rr.read_rating) over (partition by rr.work_id order by ${sql.raw("coalesce(rr.started_on, rr.finished_on) asc nulls first, rr.source_key asc nulls last, rr.created_at asc, rr.id asc")}) as before
       from rr where rr.status = 'finished')
@@ -411,11 +421,15 @@ export async function eras(year: StatsYear): Promise<EraStats> {
 /* ── 9. Where and how ───────────────────────────────────────────────────── */
 
 export interface WhereHowStats {
-  /** Time and pages by format: each session under its own format; a finished reading without sessions under the reading's */
+  /**
+   * Time and pages by format: each session under its own format; a finished
+   * reading without sessions under the reading's. Goodreads keeps no format,
+   * so its readings with no copy are "unknown", never print (SLN-1171)
+   */
   formats: { format: string; minutes: number; pages: number; readings: number }[];
   /** Readings by their home (readings.location_id), never by a copy's place now */
   homes: { home: string | null; readings: number }[];
-  /** Readings that name one of his copies, and those that do not (borrowed, library) */
+  /** Readings that name one of his copies, and those that do not (borrowed, a library, or imported with no copy) */
   ownCopy: number;
   noCopy: number;
 }
@@ -428,7 +442,8 @@ export async function whereAndHow(year: StatsYear): Promise<WhereHowStats> {
         select ss.format, ss.duration_seconds::float8 / 60 as minutes, coalesce(cp.pages, 0) as pages, ss.reading_id
         from ss left join cp on cp.session_id = ss.id where ${dayIn(year, sql`ss.read_on`)}
         union all
-        select rr.format, 0, cp.pages, rr.id from cp join rr on rr.id = cp.reading_id
+        select case when rr.instance_id is null and rr.source_key like 'goodreads:%' then 'unknown' else rr.format end, 0, cp.pages, rr.id
+        from cp join rr on rr.id = cp.reading_id
         where cp.session_id is null and ${dayIn(year, sql`cp.day`, sql`cp.day_precision`)}
       ) f group by 1 order by 2 desc, 3 desc`),
     rows<{ home: string | null; readings: number }>(sql`with ${BASE}

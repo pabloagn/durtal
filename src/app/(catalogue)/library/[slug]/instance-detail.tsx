@@ -4,6 +4,9 @@ import { formatFileSize, formatPrice, formatDate } from "@/lib/utils/format";
 import { InstanceEditDialog } from "./instance-edit-dialog";
 import { InstanceDeleteButton } from "./instance-delete-button";
 import { InstanceStatusButton } from "./instance-status-button";
+import { pastLoans, pastLoanLine, type StatusChange } from "@/lib/catalogue/loans";
+import { copyWhereabouts } from "@/lib/reading/at-hand";
+import { todayLocal } from "@/lib/utils/date";
 import type { Instance, Location, SubLocation } from "@/lib/types/index";
 import { enumLabel } from "@/lib/utils/labels";
 import Link from "next/link";
@@ -14,6 +17,7 @@ import { UnlinkEbookButton } from "@/components/ebooks/unlink-ebook-button";
 type InstanceWithLocation = Instance & {
   location: Location;
   subLocation: SubLocation | null;
+  statusHistory?: StatusChange[];
 };
 
 interface LocationOption {
@@ -83,6 +87,8 @@ export function InstanceDetail({
       instance.dispositionNotes);
 
   const isLentOut = instance.status === "lent_out";
+  const today = todayLocal();
+  const loans = pastLoans(instance.statusHistory ?? [], todayLocal);
 
   const instanceLabel = [
     instance.location.name,
@@ -332,22 +338,23 @@ export function InstanceDetail({
         </div>
       )}
 
-      {/* Lending status */}
-      {isLentOut && (
+      {/* Lending: the loan now, then the ones that ended (SLN-1125) */}
+      {(isLentOut || loans.length > 0) && (
         <div className="mt-3 border-t border-glass-border pt-2">
-          <p className="type-caption mb-1.5">On loan</p>
-          {instance.lentTo && (
-            <p className="text-fg-secondary">
-              <span className="text-fg-secondary">Lent to:</span>{" "}
-              {instance.lentTo}
-            </p>
-          )}
-          {instance.lentDate && (
-            <p className="font-mono text-fg-secondary">
-              <span className="font-sans text-fg-secondary">Since:</span>{" "}
-              {formatDate(instance.lentDate)}
-            </p>
-          )}
+          <p className="type-caption mb-1.5">{loans.length ? "Loans" : "On loan"}</p>
+          <ul className="space-y-1 text-fg-secondary">
+            {isLentOut && (
+              <li>
+                {copyWhereabouts(
+                  { status: "lent_out", locationId: instance.locationId, locationType: null, lentTo: instance.lentTo, lentDate: instance.lentDate },
+                  { today },
+                )}
+              </li>
+            )}
+            {loans.map((loan, i) => (
+              <li key={i}>{pastLoanLine(loan, today)}</li>
+            ))}
+          </ul>
         </div>
       )}
 

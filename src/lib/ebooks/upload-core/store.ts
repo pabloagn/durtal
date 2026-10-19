@@ -15,6 +15,7 @@ import { createUploadBatchSchema, uploadBatchViewSchema, uploadItemViewSchema, u
 import { batchRequest, childKey, commandRequest, newUploadIdentity, readUploadCoreReceipt,
   type UploadCoreReceipt } from "./receipts";
 import { reviewTimestampSql, reviewTimestampIsValidSql } from "../review/store-sql";
+import { uploadJobFailureMessage, uploadJobFailureSchema, type UploadJobFailure } from "../upload/job-failure";
 
 export interface CoreOperationRow {
   id: string; idempotency_key: string; kind: string; request_sha256: string; target_fingerprint: string;
@@ -219,6 +220,13 @@ export async function reserveCoreCommandOn(conn: Db, scope: CoreScope, upload: C
 export function viewedUploadState(row: Pick<CoreOperationRow,"state"|"receipt">): UploadItemView["state"] {
   return row.state==="ready" && row.receipt===null ? "processing" : row.state;
 }
+/** Why this generation's check failed, as the supervisor recorded it (SLN-1388) */
+function recordedJobFailure(row: Pick<CoreOperationRow,"progress"|"generation">): UploadJobFailure|null {
+  const recorded=z.object({generation:z.number(),reason:z.unknown(),what:z.unknown()}).safeParse(row.progress.jobFailureV1);
+  if (!recorded.success || recorded.data.generation!==Number(row.generation)) return null;
+  const failure=uploadJobFailureSchema.safeParse({reason:recorded.data.reason,what:recorded.data.what??null});
+  return failure.success ? failure.data : {reason:"check_failed",what:null};
+}
 export function projectUploadItem(row: CoreOperationRow): UploadItemView {
   if (row.kind!=="upload") throw new Error("Not an upload item");
   const source=createUploadBatchSchema.parse({key:row.idempotency_key,protocol:1,files:[{
@@ -231,8 +239,10 @@ export function projectUploadItem(row: CoreOperationRow): UploadItemView {
     retainedUntil:z.string().datetime({offset:true}).nullable(),message:z.string().max(900).nullable()})
     .parse(row.progress.coreView??{ebookId:null,fileId:null,originalOperationId:null,currentFingerprint:null,
       undoAvailable:false,retainedUntil:null,message:null});
+  const failure=row.state==="failed" && facts.message===null ? recordedJobFailure(row) : null;
   return uploadItemViewSchema.parse({id:row.id,...source,generation:Number(row.generation),state:viewedUploadState(row),
     acknowledged:Object.entries(transport.parts).map(([number,part])=>({number:Number(number),...part})),...facts,
+    ...(failure ? {message:uploadJobFailureMessage(failure),refused:failure.reason==="not_an_ebook"} : {}),
     retainedUntil:row.__retainedUntil});
 }
 export async function readCoreBatchOn(conn: Db, scope: CoreScope, batchId: string): Promise<UploadBatchView|null> {

@@ -25,6 +25,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { ChevronRight, ChevronDown } from "lucide-react";
+import { toast } from "@/lib/notifications/toast";
 import { TaxonomyItemRow, type TaxonomyItemData } from "./taxonomy-item-row";
 
 // ── Tree node type ──────────────────────────────────────────────────────────
@@ -49,11 +50,12 @@ interface TaxonomyTreeProps {
   selectedIds: Set<string>;
   onSelectionChange: (ids: Set<string>) => void;
   onReorder: (ids: string[]) => Promise<void>;
-  onMove: (itemId: string, newParentId: string | null) => Promise<void>;
   onColorChange: (id: string, color: string | null) => Promise<void>;
-  onRename: (id: string, name: string) => Promise<void>;
+  onRename: (id: string, name: string, item?: TaxonomyItemData) => Promise<void>;
   onDelete: (id: string, item?: TaxonomyItemData) => void;
   onMerge: (id: string, item?: TaxonomyItemData) => void;
+  onEdit?: (id: string, item?: TaxonomyItemData) => void;
+  onMoveTo?: (id: string, item?: TaxonomyItemData) => void;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -113,6 +115,8 @@ interface SortableRowProps {
   onRename: (id: string, name: string) => void;
   onDelete: (id: string, item?: TaxonomyItemData) => void;
   onMerge: (id: string, item?: TaxonomyItemData) => void;
+  onEdit?: (id: string) => void;
+  onMoveTo?: (id: string) => void;
 }
 
 function SortableRow({
@@ -131,6 +135,8 @@ function SortableRow({
   onRename,
   onDelete,
   onMerge,
+  onEdit,
+  onMoveTo,
 }: SortableRowProps) {
   const {
     attributes,
@@ -195,6 +201,8 @@ function SortableRow({
             onRename={onRename}
             onDelete={onDelete}
             onMerge={onMerge}
+            onEdit={onEdit}
+            onMoveTo={onMoveTo}
             dragHandleProps={
               canReorder
                 ? { listeners, attributes, setActivatorNodeRef }
@@ -244,6 +252,8 @@ export function TaxonomyTree({
   onRename,
   onDelete,
   onMerge,
+  onEdit,
+  onMoveTo,
 }: TaxonomyTreeProps) {
   const searchParams = useSearchParams();
   const [branches, setBranches] = useState<
@@ -393,14 +403,25 @@ export function TaxonomyTree({
       const { active, over } = event;
       if (!canReorder || !over || active.id === over.id) return;
 
-      const oldIndex = sortableIds.indexOf(active.id as string);
-      const newIndex = sortableIds.indexOf(over.id as string);
-      if (oldIndex === -1 || newIndex === -1) return;
-
-      const reordered = arrayMove(sortableIds, oldIndex, newIndex);
-      onReorder(reordered);
+      // A drag reorders an item among its siblings; a drop under another
+      // parent is refused out loud, never a silent renumber (SLN-1158)
+      const parentOf = new Map(visibleRows.map(({ item }) => [item.id, item.parentId ?? null]));
+      const parent = parentOf.get(active.id as string);
+      if (parent === undefined || !parentOf.has(over.id as string)) return;
+      if (parentOf.get(over.id as string) !== parent) {
+        toast.error(
+          onMoveTo
+            ? "A drag keeps an item among its siblings. Use Move to… to put it under another item."
+            : "A drag keeps an item among its siblings.",
+        );
+        return;
+      }
+      const siblings = sortableIds.filter((id) => parentOf.get(id) === parent);
+      const oldIndex = siblings.indexOf(active.id as string);
+      const newIndex = siblings.indexOf(over.id as string);
+      onReorder(arrayMove(siblings, oldIndex, newIndex));
     },
-    [sortableIds, onReorder, canReorder],
+    [sortableIds, visibleRows, onReorder, onMoveTo, canReorder],
   );
 
   const activeItem = activeId
@@ -471,10 +492,16 @@ export function TaxonomyTree({
                         onColorChange(id, color);
                       }}
                       onRename={(id, name) => {
-                        onRename(id, name);
+                        onRename(id, name, item);
                       }}
                       onDelete={(id) => onDelete(id, item)}
                       onMerge={(id) => onMerge(id, item)}
+                      onEdit={onEdit && ((id) => onEdit(id, item))}
+                      onMoveTo={
+                        hierarchical && onMoveTo
+                          ? (id) => onMoveTo(id, item)
+                          : undefined
+                      }
                     />
                     {loading === item.id && (
                       <p

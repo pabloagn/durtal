@@ -16,7 +16,9 @@ import {
   yearRhythm,
   yearRhythmText,
 } from "@/lib/reading/charts";
-import { MIN_GROUP, insights, meaningful } from "@/lib/reading/insights";
+import { MIN_GROUP, finishShare, insights, meaningful } from "@/lib/reading/insights";
+import { formatAverageRating } from "@/lib/utils/rating";
+import { hoursTile } from "@/components/reading/stats-parts";
 import type { InsightInputs } from "@/lib/reading/stats";
 
 /* The reading charts' and insights' pure rules (SLN-456). */
@@ -208,5 +210,36 @@ describe("insights", () => {
     const all = insights({ ...base, short: big(4.5), long: big(3), translated: big(4.5), original: big(3), rereads: big(4.5), firstReads: big(3), ownCopy: big(4.5), noCopy: big(3), finished: 50, started: 60 }, 2025);
     expect(all.map((i) => i.key)).toEqual(["length", "translation", "rereads", "copies", "finish"]);
     expect(all.length).toBeLessThanOrEqual(6);
+  });
+});
+
+// SLN-1173 (statistics survey, items 2, 6, 7 and 8)
+describe("the statistics' numbers", () => {
+  it("writes an average rating to one decimal, not snapped to a half star", () => {
+    expect([2.77, 2.91, 3, 4.449].map(formatAverageRating)).toEqual(["2.8", "2.9", "3.0", "4.4"]);
+  });
+
+  it("shows a dash for hours when nothing was timed", () => {
+    expect(hoursTile(0)).toEqual({ label: "Hours", value: "—", spoken: "Not timed" });
+    expect(hoursTile(0.2)).toEqual({ label: "Hours", value: "Under 1" });
+    expect(hoursTile(31)).toEqual({ label: "Hours", value: "31" });
+  });
+
+  it("says the finish rate only when something was abandoned, in tens below 95%, else a percentage rounded down", () => {
+    expect(finishShare(18, 20)).toBe("9 of 10 books");
+    expect(finishShare(19, 20)).toBe("95% of the books");
+    expect(finishShare(2823, 2824)).toBe("99% of the books");
+    const none = { count: 0, avg: null };
+    const base: InsightInputs = { short: none, long: none, translated: none, original: none, rereads: none, firstReads: none, ownCopy: none, noCopy: none, finished: 2823, started: 2823 };
+    expect(insights(base, null)).toEqual([]);
+    expect(insights({ ...base, started: 2824 }, null)).toEqual([
+      { key: "finish", text: "You finish 99% of the books you start", numbers: "2,823 finished, 1 abandoned", href: "/reading/journal?status=finished,abandoned" },
+    ]);
+  });
+
+  it("groups the thousands in every insight's numbers", () => {
+    const none = { count: 0, avg: null };
+    const found = insights({ short: { count: 1200, avg: 4.4 }, long: { count: 1500, avg: 3.2 }, translated: none, original: none, rereads: none, firstReads: none, ownCopy: none, noCopy: none, finished: 0, started: 0 }, null);
+    expect(found[0].numbers).toBe("1,200 rated books under 250 pages, 1,500 longer ones");
   });
 });

@@ -70,7 +70,16 @@ export async function loadReading(id: string): Promise<ReadingWithFingerprint | 
     .select({ reading: readings, fingerprint: sql<string>`md5(to_jsonb(${readings})::text)` })
     .from(readings)
     .where(eq(readings.id, id));
-  return row ? { ...row.reading, fingerprint: row.fingerprint } : null;
+  return row ? { ...cleanReview(row.reading), fingerprint: row.fingerprint } : null;
+}
+
+/**
+ * The review sanitized again on the way out, so a row stored before every
+ * write sanitized it can't carry script (SLN-1239). The fingerprint stays the
+ * stored row's.
+ */
+export function cleanReview<T extends { reviewHtml: string | null }>(reading: T): T {
+  return reading.reviewHtml ? { ...reading, reviewHtml: sanitizeCommentHtml(reading.reviewHtml) } : reading;
 }
 
 /** The running timer: a timer session not yet stopped */
