@@ -10,7 +10,7 @@ import type { UploadJobCoreAdapter } from "@/lib/ebooks/upload/job-contract";
 import { storeObject } from "@/lib/ebooks/ingest/store";
 import type { OperationFence } from "@/lib/ebooks/upload/lifecycle";
 import { verifyPublication } from "@/lib/ebooks/publication";
-import { UploadItemFailed, UploadItemRefusal } from "@/lib/ebooks/upload/job-failure";
+import { UploadChecksFailing, UploadItemFailed, UploadItemRefusal } from "@/lib/ebooks/upload/job-failure";
 
 vi.mock("@/lib/ebooks/ingest/store", () => ({ storeObject: vi.fn(async () => ({ adopted: false, multipart: false })) }));
 vi.mock("@/lib/ebooks/publication", () => ({ verifyPublication: vi.fn(async () => null) }));
@@ -125,5 +125,29 @@ describe('owned inspection publication', () => {
     expect(input.onItemFailure).toHaveBeenCalledWith(failed); expect(input.onFailure).not.toHaveBeenCalled();
     s.supervisor.runNextJob.mockRejectedValueOnce(new Error('Inspector stop did not prove owned process-tree exit'));
     await expect(s.dispatcher.dispatchOne()).rejects.toThrow('process-tree exit');
+  });
+  // SLN-1467: with the inspector image missing, every check failed on its own and the service kept trying
+  it('stops the service after three checks fail in a row; a refusal or a published file starts the count again, a cancel leaves it', async () => {
+    const s = setup();
+    const checkFailed = (canceled = false) => new UploadItemFailed({ reason: 'check_failed', what: null }, { cause: new Error('no such image'), canceled });
+    const refused = new UploadItemFailed({ reason: 'not_an_ebook', what: null }, { cause: new Error('refused') });
+    const fail = async (error: UploadItemFailed) => { s.supervisor.runNextJob.mockRejectedValueOnce(error); await s.dispatcher.dispatchOne(); };
+    await fail(checkFailed()); await fail(checkFailed()); await fail(refused);
+    await fail(checkFailed()); await fail(checkFailed());
+    await s.dispatcher.dispatchOne(); // published
+    await fail(checkFailed()); await fail(checkFailed()); await fail(checkFailed(true));
+    s.supervisor.runNextJob.mockRejectedValueOnce(checkFailed());
+    const error = await s.dispatcher.dispatchOne().catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(UploadChecksFailing);
+    expect((error as Error).cause).toBeInstanceOf(UploadItemFailed);
+  });
+  it('does not count a check when no file was waiting', async () => {
+    const s = setup();
+    const checkFailed = () => new UploadItemFailed({ reason: 'check_failed', what: null }, { cause: new Error('no such image') });
+    s.supervisor.runNextJob.mockRejectedValueOnce(checkFailed()); await s.dispatcher.dispatchOne();
+    s.supervisor.runNextJob.mockResolvedValueOnce(undefined); await s.dispatcher.dispatchOne();
+    s.supervisor.runNextJob.mockRejectedValueOnce(checkFailed()); await s.dispatcher.dispatchOne();
+    s.supervisor.runNextJob.mockRejectedValueOnce(checkFailed());
+    await expect(s.dispatcher.dispatchOne()).rejects.toBeInstanceOf(UploadChecksFailing);
   });
 });

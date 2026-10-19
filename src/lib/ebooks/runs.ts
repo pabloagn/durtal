@@ -2,6 +2,7 @@ import { and, count, desc, eq, inArray, isNotNull, ne, sql, type SQL } from "dri
 import { db } from "@/lib/db";
 import { ebookFiles, ebookIngestItems, ebookIngestRuns, ebooks } from "@/lib/db/schema";
 import type { IngestReconciliation } from "@/lib/db/schema/ebook-ingest";
+import { resultRows } from "@/lib/harmonization/store";
 
 /*
  * The two pages of ingestion runs (SLN-494), read only: /ebooks/runs lists
@@ -26,6 +27,8 @@ export interface RunSummary {
   host: string | null;
   roots: string[];
   counts: Record<string, number>;
+  /** An upload run's batch, which its upload page opens; null for other runs */
+  uploadBatchId: string | null;
   reconciliation: IngestReconciliation | null;
   startedAt: Date;
   finishedAt: Date | null;
@@ -45,18 +48,55 @@ const RUN_COLUMNS = {
   updatedAt: ebookIngestRuns.updatedAt,
 };
 
+type StoredRun = Omit<RunSummary, "uploadBatchId">;
+
+/**
+ * An upload run keeps no counts of its own (its batch is checked against an
+ * empty `counts`), so its files are counted where they are: added once a
+ * confirmation committed, as its run settles, else by their state (SLN-1467).
+ */
+async function withUploadCounts(runs: StoredRun[]): Promise<RunSummary[]> {
+  const uploads = runs.filter((run) => run.kind === "upload").map((run) => run.id);
+  const facts = new Map<string, { counts: Record<string, number>; batchId: string | null }>();
+  if (uploads.length) {
+    const rows = resultRows<{ runId: string; batchId: string | null; added: number; canceled: number; expired: number; failed: number; pending: number }>(
+      await db.execute(sql`
+        select b.run_id as "runId", b.id as "batchId",
+          count(u.id) filter (where u.added)::int as added,
+          count(u.id) filter (where not u.added and u.state = 'canceled')::int as canceled,
+          count(u.id) filter (where not u.added and u.state = 'expired')::int as expired,
+          count(u.id) filter (where not u.added and u.state = 'failed')::int as failed,
+          count(u.id) filter (where not u.added and u.state not in ('canceled', 'expired', 'failed'))::int as pending
+        from ebook_upload_operations b
+        left join lateral (
+          select o.id, o.state, exists(select 1 from ebook_upload_operations e where e.parent_operation_id = o.id
+            and e.input->>'action' = 'confirm' and e.state = 'completed' and e.receipt_status = 200
+            and e.effect_committed_at is not null) as added
+          from ebook_upload_operations o where o.run_id = b.run_id and o.kind = 'upload'
+        ) u on true
+        where b.kind = 'batch' and b.run_id in (${sql.join(uploads.map((id) => sql`${id}::uuid`), sql`, `)})
+        group by b.run_id, b.id`),
+    );
+    for (const { runId, batchId, ...counts } of rows) facts.set(runId, { counts, batchId });
+  }
+  return runs.map((run) => {
+    const upload = facts.get(run.id);
+    return { ...run, counts: upload?.counts ?? run.counts, uploadBatchId: upload?.batchId ?? null };
+  });
+}
+
 /** The newest runs first, `limit` of them, and how many there are */
 export async function listRuns(limit: number): Promise<{ runs: RunSummary[]; total: number }> {
   const [runs, [{ total }]] = await Promise.all([
     db.select(RUN_COLUMNS).from(ebookIngestRuns).orderBy(desc(ebookIngestRuns.startedAt), desc(ebookIngestRuns.id)).limit(limit),
     db.select({ total: count() }).from(ebookIngestRuns),
   ]);
-  return { runs, total };
+  return { runs: await withUploadCounts(runs), total };
 }
 
 export async function getRun(id: string): Promise<RunSummary | null> {
   const [run] = await db.select(RUN_COLUMNS).from(ebookIngestRuns).where(eq(ebookIngestRuns.id, id));
-  return run ?? null;
+  return run ? (await withUploadCounts([run]))[0] : null;
 }
 
 const item = ebookIngestItems;

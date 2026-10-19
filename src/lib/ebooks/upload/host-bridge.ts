@@ -12,7 +12,7 @@ import { admissionRefusalSchema, UploadAdmissionRefusal } from "./admission-refu
 import type { SupervisorHostLock } from "./host-lock";
 import type { UploadCoreContext } from "./core-contract";
 import type { UploadGateway } from "./broker";
-import { readUploadServiceStatus, UPLOAD_SIGN_IN_MESSAGE } from "./service-status";
+import { readUploadServiceStatus, UPLOAD_CHECKS_FAILING_MESSAGE, UPLOAD_SIGN_IN_MESSAGE } from "./service-status";
 
 const JSON_BYTES = 64 * 1024;
 const REPLY_BYTES = 256 * 1024;
@@ -187,10 +187,12 @@ export class UploadHostBridge {
 }
 
 const notRunning = () => new UploadError(503, "upload_unavailable", "The upload service is not running. Start it, then try again.");
-/** Down because its AWS sign-in expired, when it left that note; otherwise not running (SLN-1326) */
+/** Down for the reason it left in its note (SLN-1326, SLN-1467); otherwise not running */
 async function serviceDown(socketPath: string): Promise<UploadError> {
-  return await readUploadServiceStatus(socketPath) === "aws_sign_in"
-    ? new UploadError(503, "upload_sign_in_needed", UPLOAD_SIGN_IN_MESSAGE) : notRunning();
+  const reason = await readUploadServiceStatus(socketPath);
+  if (reason === "aws_sign_in") return new UploadError(503, "upload_sign_in_needed", UPLOAD_SIGN_IN_MESSAGE);
+  if (reason === "checks_failing") return new UploadError(503, "upload_checks_failing", UPLOAD_CHECKS_FAILING_MESSAGE);
+  return notRunning();
 }
 
 /** Install explicitly in the app process using installUploadBroker(client).

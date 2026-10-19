@@ -7,8 +7,9 @@ import path from "node:path";
 import { UploadHostClient } from "@/lib/ebooks/upload/host-bridge";
 import { uploadErrorResponse } from "@/lib/api/ebook-upload";
 import {
-  clearUploadServiceStatus, readUploadServiceStatus, UPLOAD_SIGN_IN_MESSAGE, uploadServiceStatusPath, writeUploadServiceStatus,
+  clearUploadServiceStatus, downReasonOf, readUploadServiceStatus, UPLOAD_CHECKS_FAILING_MESSAGE, UPLOAD_SIGN_IN_MESSAGE, uploadServiceStatusPath, writeUploadServiceStatus,
 } from "@/lib/ebooks/upload/service-status";
+import { UploadChecksFailing } from "@/lib/ebooks/upload/job-failure";
 
 // An upload service that stopped because its AWS sign-in expired says so,
 // instead of "not running" (SLN-1326)
@@ -76,4 +77,31 @@ describe("the upload service's sign-in note", () => {
     expect(await readUploadServiceStatus(stateSocket)).toBeNull();
     expect(await readdir(path.join(state, "run"))).toEqual([]);
   }, 30_000);
+});
+
+// Three file checks failed in a row (SLN-1467): the service stops and stays
+// stopped, and the app says why instead of "not running"
+describe("the upload service's failing-checks note", () => {
+  it("names the failure that stopped the service, through its causes", () => {
+    const checks = new UploadChecksFailing({ cause: new Error("inspector exited 125") });
+    expect(downReasonOf(checks)).toBe("checks_failing");
+    expect(downReasonOf(new Error("stopped", { cause: checks }))).toBe("checks_failing");
+    const signIn = Object.assign(new Error("expired"), { name: "AwsSignInNeeded" });
+    expect(downReasonOf(new Error("refresh failed", { cause: signIn }))).toBe("aws_sign_in");
+    expect(downReasonOf(new Error("Docker hiccup"))).toBeNull();
+    expect(downReasonOf("not an error")).toBeNull();
+  });
+
+  it("turns a down service into the failing-checks message for the routes and the page", async () => {
+    await writeUploadServiceStatus(socketPath, "checks_failing");
+    expect(await readUploadServiceStatus(socketPath)).toBe("checks_failing");
+    const refused = await client().ready().then(() => null, (error: unknown) => error);
+    expect(refused).toMatchObject({ status: 503, code: "upload_checks_failing", message: UPLOAD_CHECKS_FAILING_MESSAGE });
+    const response = uploadErrorResponse(refused);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ code: "upload_checks_failing", error: UPLOAD_CHECKS_FAILING_MESSAGE });
+    expect(await client().notice()).toBe(UPLOAD_CHECKS_FAILING_MESSAGE);
+    await clearUploadServiceStatus(socketPath);
+    expect(await client().notice()).toMatch(/not running/);
+  });
 });
