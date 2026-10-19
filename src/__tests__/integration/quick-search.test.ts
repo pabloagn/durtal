@@ -2,6 +2,7 @@ import { requireDisposableDatabaseUrl, resetDisposableDatabase } from "./helpers
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
+import { eq } from "drizzle-orm";
 import * as schema from "@/lib/db/schema";
 
 const url = process.env.DURTAL_QUICK_SEARCH_TEST_DATABASE_URL;
@@ -28,14 +29,15 @@ vi.mock("@/lib/db", () => ({
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 import { quickSearch } from "@/lib/actions/quick-search";
 
+afterAll(async () => {
+  await client?.end();
+});
+
 describe.skipIf(!url)("command palette search pictures", () => {
   const db = testDb!;
   beforeAll(async () => {
     await resetDisposableDatabase(url!, "sln403_test");
   }, 30000);
-  afterAll(async () => {
-    await client?.end();
-  });
   beforeEach(async () => {
     await resetDisposableDatabase(url!, "sln403_test");
   }, 30000);
@@ -80,5 +82,50 @@ describe.skipIf(!url)("command palette search pictures", () => {
     const found = Object.fromEntries((await quickSearch("juan")).people.map((a) => [a.name, a.photo]));
     expect(found).toEqual({ "Juan Carlos Onetti": "onetti-legacy.webp", "Juan Rulfo": null });
     expect((await quickSearch("borges")).people).toMatchObject([{ name: "Jorge Luis Borges", photo: "borges-thumb.webp" }]);
+  });
+});
+
+describe.skipIf(!url)("command palette search for records found by name (SLN-966)", () => {
+  const db = testDb!;
+  beforeEach(async () => {
+    await resetDisposableDatabase(url!, "sln403_test");
+  }, 30000);
+
+  it("finds a series, a collection and a recommender, each opening its own page", async () => {
+    const [rougon] = await db.insert(schema.series).values({ title: "Les Rougon-Macquart", slug: "les-rougon-macquart" }).returning();
+    const [decadents] = await db.insert(schema.collections).values({ name: "Décadents" }).returning();
+    const [bachelard] = await db.insert(schema.recommenders).values({ name: "Gaston Bachelard" }).returning();
+    await db.insert(schema.series).values({ title: "La Comédie humaine", slug: "la-comedie-humaine" });
+
+    expect((await quickSearch("rougon")).series).toEqual([{ id: rougon.id, name: "Les Rougon-Macquart", href: `/series/${rougon.id}` }]);
+    // Accents and case are ignored
+    expect((await quickSearch("DECADENTS")).collections).toEqual([{ id: decadents.id, name: "Décadents", href: `/collections/${decadents.id}` }]);
+    expect((await quickSearch("bachelard")).recommenders).toEqual([{ id: bachelard.id, name: "Gaston Bachelard", href: `/recommenders/${bachelard.id}` }]);
+    expect((await quickSearch("nothing like it")).series).toEqual([]);
+  });
+
+  it("finds a series by its original title, as the series list does", async () => {
+    const [gormenghast] = await db.insert(schema.series).values({ title: "Gormenghast", originalTitle: "Titus books", slug: "gormenghast" }).returning();
+
+    expect((await quickSearch("titus")).series).toEqual([{ id: gormenghast.id, name: "Gormenghast", href: `/series/${gormenghast.id}` }]);
+  });
+
+  it("finds taxonomy items of system and custom families, named by their family", async () => {
+    const [subjects] = await db.select().from(schema.taxonomyFamilies).where(eq(schema.taxonomyFamilies.systemTable, "subjects"));
+    const [occultism] = await db.insert(schema.subjects).values({ name: "Occultisme", slug: "occultisme" }).returning();
+    const [moods] = await db.insert(schema.taxonomyFamilies).values({ name: "Moods", slug: "moods", systemTable: "custom_taxonomy_items" }).returning();
+    await db.insert(schema.taxonomyApplicability).values({ familyId: moods.id, kind: "book", level: "work" }).onConflictDoNothing();
+    const [melancholy] = await db.insert(schema.customTaxonomyItems).values({ familyId: moods.id, name: "Mélancolie", slug: "melancolie" }).returning();
+    // A family no collection uses is left out
+    const [unused] = await db.insert(schema.taxonomyFamilies).values({ name: "Unused", slug: "unused", systemTable: "custom_taxonomy_items" }).returning();
+    await db.delete(schema.taxonomyApplicability).where(eq(schema.taxonomyApplicability.familyId, unused.id));
+    await db.insert(schema.customTaxonomyItems).values({ familyId: unused.id, name: "Melancholia", slug: "melancholia" });
+
+    expect((await quickSearch("occultisme")).taxonomy).toEqual([
+      { id: occultism.id, name: "Occultisme", href: `/taxonomy/${subjects.slug}/occultisme`, detail: subjects.name },
+    ]);
+    expect((await quickSearch("melancolie")).taxonomy).toEqual([
+      { id: melancholy.id, name: "Mélancolie", href: "/taxonomy/moods/melancolie", detail: "Moods" },
+    ]);
   });
 });

@@ -29,7 +29,7 @@ import {
 import { KeyCombo, Kbd, useIsMac } from "@/components/shortcuts/kbd";
 import { CapAligned } from "@/components/shared/cap-aligned";
 import { useShortcutActions } from "@/components/shortcuts/shortcuts-provider";
-import { quickSearch, getPaletteContinueReading, type QuickSearchResult } from "@/lib/actions/quick-search";
+import { quickSearch, getPaletteContinueReading, type QuickSearchRecord, type QuickSearchResult } from "@/lib/actions/quick-search";
 import { ADD, COPY_KEYS, GO_TO, SHORTCUTS, type Keys } from "@/lib/shortcuts/shortcuts";
 import { SECTION_ICONS } from "@/components/shortcuts/section-icons";
 import { filterBySearch } from "@/lib/utils/search-text";
@@ -161,6 +161,14 @@ const ITEM_CLASS =
 // or a house's roles, a command (pass 5, SLN-849)
 const LABEL_CLASS = "min-w-0 flex-1 break-words";
 /** An icon on the first line of a row that wraps */
+/** The record groups after places, in the sidebar's words and icons (SLN-966) */
+const RECORD_GROUPS = [
+  { key: "series", heading: "Series", icon: SECTION_ICONS["/series"] },
+  { key: "collections", heading: "Collections", icon: SECTION_ICONS["/collections"] },
+  { key: "recommenders", heading: "Recommenders", icon: SECTION_ICONS["/recommenders"] },
+  { key: "taxonomy", heading: "Taxonomy", icon: SECTION_ICONS["/taxonomy"] },
+] as const satisfies readonly { key: keyof QuickSearchResult; heading: string; icon: LucideIcon }[];
+
 function RowIcon({ icon: Icon }: { icon: LucideIcon }) {
   return (
     <CapAligned height={16} className="self-start">
@@ -360,6 +368,7 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
     (results.people[0] && `person:${results.people[0].id}`) ||
     (results.organizations[0] && `org:${results.organizations[0].id}`) ||
     (results.venues[0] && `venue:${results.venues[0].id}`) ||
+    RECORD_GROUPS.map(({ key }) => results[key]?.[0] && `${key}:${results[key]![0].id}`).find(Boolean) ||
     (pageActions[0] && pageActions[0].value) ||
     (copyItems[0] && `copy:${copyItems[0].key}`) ||
     (readingItems[0] && readingItems[0].value) ||
@@ -599,6 +608,34 @@ export function CommandPalette({ open, onOpenChange, recentEbook, readerReturnTo
                 ))}
               </Command.Group>
             )}
+
+            {RECORD_GROUPS.map(({ key, heading, icon }) => {
+              const records: QuickSearchRecord[] = results[key] ?? [];
+              if (!records.length) return null;
+              return (
+                <Command.Group key={key} heading={heading} className={GROUP_CLASS}>
+                  {records.map((record) => (
+                    <Command.Item
+                      key={record.id}
+                      value={`${key}:${record.id}`}
+                      onSelect={() => navigate(record.href)}
+                      className={ITEM_CLASS}
+                    >
+                      <RowIcon icon={icon} />
+                      <span className={LABEL_CLASS}>
+                        {record.name}
+                        {record.detail && (
+                          <span className="text-fg-secondary max-sm:block">
+                            <span className="max-sm:hidden">{"\u00a0· "}</span>
+                            {record.detail}
+                          </span>
+                        )}
+                      </span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              );
+            })}
 
             {trimmed && !searching && failed && (
               <Command.Group heading="Search failed" className={GROUP_CLASS} data-palette-failed="">
