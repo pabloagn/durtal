@@ -2,11 +2,12 @@
 
 import * as actions from "./catalogue-ui";
 import type { ActionResult } from "./action-result";
+import { ActionRefusal } from "./action-refusal";
 
 /** Unwrap on the client, after the deliberate refusal crossed as data. */
 async function value<T>(result: Promise<ActionResult<T>>): Promise<T> {
   const outcome = await result;
-  if (!outcome.ok) throw new Error(outcome.error);
+  if (!outcome.ok) throw new ActionRefusal(outcome.error);
   return outcome.value;
 }
 
@@ -258,4 +259,10 @@ export async function deleteSession(
   ...args: Parameters<typeof actions.deleteSession>
 ) {
   return value(actions.deleteSession(...args));
+}
+
+export async function deleteWork(
+  ...args: Parameters<typeof actions.deleteWork>
+) {
+  return value(actions.deleteWork(...args));
 }

@@ -71,6 +71,9 @@ import {
 } from "@/lib/reading/summary";
 import type { ReadingFilterParams } from "@/lib/reading/filter-params";
 import { queueNewBookEnrichment } from "@/lib/enrichment/queue";
+import { assertSql } from "@/lib/harmonization/store";
+import { KEPT_ORDER_STATUSES, keptOrderRefusalFor, workDeleteSummary } from "@/lib/catalogue/delete-summary";
+import { ExpectedActionError } from "./expected-error";
 
 export type WorkFilters = ReadingFilterParams &
   BookFilterParams & {
@@ -588,8 +591,17 @@ export async function deleteWork(id: string) {
   return withReaderWriteRetry(() => deleteWorkOnce(id));
 }
 
+/** What deleting these books takes with them, for the delete dialogs (SLN-1112) */
+export async function getWorkDeleteSummary(ids: string[]) {
+  return workDeleteSummary(z.array(z.string().uuid()).max(5000).parse(ids));
+}
+
 async function deleteWorkOnce(id: string) {
   await requireBookWork(id);
+  // An order with the book in hand is its acquisition record: deleteOrder
+  // refuses it, so the book's delete does too rather than take it (SLN-1112)
+  const refusal = await keptOrderRefusalFor(sql`array[${id}::uuid]`);
+  if (refusal) throw new ExpectedActionError(refusal);
   // Read the file keys first: the cascade removes the rows that name them.
   const stored = await workObjects(id);
 
@@ -597,6 +609,16 @@ async function deleteWorkOnce(id: string) {
   const results = await atomic((d) => [
     lockReaderBindings(d, ebooksForWork(id), sql`select id from reading_notes where work_id=${id}::uuid`),
     lockReaderNotes(d, sql`select id from reading_notes where work_id=${id}::uuid`),
+    // A status change waits on its order's row, a new order on the book's;
+    // orders first, as a status change locks its order before the book
+    d.execute(sql`select id from orders where work_id=${id}::uuid for update`),
+    d.execute(sql`select id from works where id=${id}::uuid for update`),
+    d.execute(
+      assertSql(
+        sql`not exists (select 1 from orders where work_id=${id}::uuid and status::text in ${KEPT_ORDER_STATUSES})`,
+        "This book's order now has the book in hand. Mark the order Returned before deleting the book.",
+      ),
+    ),
     d
       .delete(comments)
       .where(and(eq(comments.entityType, "work"), eq(comments.entityId, id))),
