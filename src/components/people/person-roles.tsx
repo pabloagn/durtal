@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { formatPersonRoles, formatWorkCounts, type PersonRole } from "@/lib/catalogue/person-roles";
 import type { WorkKind } from "@/lib/catalogue/kinds";
 
@@ -44,11 +45,15 @@ export function WorkCounts({
   if (!works) return null;
   return (
     <span className={className}>
+      {/* The space between parts is outside them, so the line can break there */}
       {works.split(" · ").map((part, i, all) => (
-        <span key={part} className="whitespace-nowrap">
-          {part}
-          {i < all.length - 1 ? " · " : ""}
-        </span>
+        <Fragment key={part}>
+          <span className="whitespace-nowrap">
+            {part}
+            {i < all.length - 1 ? " ·" : ""}
+          </span>
+          {i < all.length - 1 ? " " : null}
+        </Fragment>
       ))}
     </span>
   );
