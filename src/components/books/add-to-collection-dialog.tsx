@@ -324,7 +324,7 @@ export function AddToCollectionDialog({
                   : "Create & add"}
               </Button>
             </form>
-            <div className="max-h-64 space-y-1 overflow-y-auto">
+            <div className="max-h-64 space-y-1 overflow-y-auto overflow-x-hidden">
               {filtered.length ? (
                 filtered.map((c) => {
                   const amount =

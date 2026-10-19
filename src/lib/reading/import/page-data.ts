@@ -37,6 +37,8 @@ export interface ImportListItem {
   notes: number;
   /** Book ratings it set (SLN-658) */
   ratings: number;
+  /** Goodreads ids it recorded on editions (SLN-956) */
+  identifiers: number;
 }
 
 /** The reading imports, newest first */
@@ -50,7 +52,9 @@ export async function listReadingImports(limit = 100): Promise<ImportListItem[]>
         (select count(*) from readings r where r.import_id = i.id)::int as readings,
         (select count(*) from reading_queue q where q.import_id = i.id)::int as queued,
         (select count(*) from reading_notes n where n.import_id = i.id)::int as notes,
-        (select count(*) from reading_import_rows x where x.import_id = i.id and coalesce(x.written->'bookRating', 'null'::jsonb) <> 'null'::jsonb)::int as ratings
+        (select count(*) from reading_import_rows x where x.import_id = i.id and coalesce(x.written->'bookRating', 'null'::jsonb) <> 'null'::jsonb)::int as ratings,
+        (select coalesce(sum(jsonb_array_length(x.written->'identifiers')), 0) from reading_import_rows x
+          where x.import_id = i.id and jsonb_typeof(x.written->'identifiers') = 'array')::int as identifiers
       from imports i
       where i.source in ${IMPORT_SOURCES}
       order by i.created_at desc, i.id
@@ -137,7 +141,9 @@ export async function getImportPreview(importId: string, limits: Partial<Record<
         (select count(*) from readings r where r.import_id = i.id)::int as readings,
         (select count(*) from reading_queue q where q.import_id = i.id)::int as queued,
         (select count(*) from reading_notes n where n.import_id = i.id)::int as notes,
-        (select count(*) from reading_import_rows x where x.import_id = i.id and coalesce(x.written->'bookRating', 'null'::jsonb) <> 'null'::jsonb)::int as ratings
+        (select count(*) from reading_import_rows x where x.import_id = i.id and coalesce(x.written->'bookRating', 'null'::jsonb) <> 'null'::jsonb)::int as ratings,
+        (select coalesce(sum(jsonb_array_length(x.written->'identifiers')), 0) from reading_import_rows x
+          where x.import_id = i.id and jsonb_typeof(x.written->'identifiers') = 'array')::int as identifiers
       from imports i where i.id = ${importId}::uuid and i.source in ${IMPORT_SOURCES}`),
   );
   if (!header) return null;

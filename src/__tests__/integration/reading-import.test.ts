@@ -538,6 +538,42 @@ describe.skipIf(!url)("the reading import with PostgreSQL", () => {
       expect(Number(await value(`select count(*) from catalogue_identifiers`))).toBe(0);
     });
 
+    it("links a book's only copy or only edition to a reading matched by title, taking a Goodreads format from the copy (SLN-1171)", async () => {
+      const shelf = await value(`insert into locations(name, type) values ('Study', 'physical') returning id`);
+      const copy = (editionId: string, format: string, status = "available") =>
+        value(`insert into instances(edition_id, location_id, format, status) values ($1, $2, $3, $4::instance_status_enum) returning id`, [editionId, shelf, format, status]);
+      // One e-book copy; one edition and no copy; two editions and one copy; two editions and no copy; one edition with two copies
+      const molloy = await book("Molloy", "Samuel Beckett");
+      const molloyEd = await edition(molloy, { pages: 240 });
+      const molloyCopy = await copy(molloyEd, "ebook");
+      const malone = await book("Malone Dies", "Samuel Beckett");
+      const maloneEd = await edition(malone);
+      const murphy = await book("Murphy", "Samuel Beckett");
+      await edition(murphy, { title: "Murphy (first)" });
+      const murphyEd = await edition(murphy, { title: "Murphy (second)" });
+      const murphyCopy = await copy(murphyEd, "audiobook");
+      await copy(await edition(murphy, { title: "Murphy (gone)" }), "paperback", "deaccessioned");
+      const mercier = await book("Mercier and Camier", "Samuel Beckett");
+      await edition(mercier, { title: "Mercier (one)" });
+      await edition(mercier, { title: "Mercier (two)" });
+      const watt = await book("Watt", "Samuel Beckett");
+      const wattEd = await edition(watt);
+      await copy(wattEd, "paperback");
+      await copy(wattEd, "hardcover");
+      const titles = ["Molloy", "Malone Dies", "Murphy", "Mercier and Camier", "Watt"];
+      const { importId } = await upload(goodreads(titles.map((Title) => ({ Title, Author: "Samuel Beckett", "Exclusive Shelf": "read", "Read Count": "1" }))));
+      expect((await rows(importId)).map((r) => r.match.editionId)).toEqual([null, null, null, null, null]);
+      await decideImportSection({ importId, section: "likely", decision: "import" });
+      expect(await commitReadingImport({ importId })).toMatchObject({ written: 5 });
+      const linked = async (workId: string) =>
+        (await q(`select edition_id, instance_id, format, total_pages from readings where work_id = $1`, [workId])).map((r) => [r.edition_id, r.instance_id, r.format, r.total_pages]);
+      expect(await linked(molloy)).toEqual([[molloyEd, molloyCopy, "ebook", 240]]);
+      expect(await linked(malone)).toEqual([[maloneEd, null, "print", null]]);
+      expect(await linked(murphy)).toEqual([[murphyEd, murphyCopy, "audio", null]]);
+      expect(await linked(mercier)).toEqual([[null, null, "print", null]]);
+      expect(await linked(watt)).toEqual([[wattEd, null, "print", null]]);
+    });
+
     it("keeps an edited reading on undo, and an undone import can be committed again", async () => {
       const a = await book("Watt", "Samuel Beckett");
       await edition(a, { goodreadsId: "1" });

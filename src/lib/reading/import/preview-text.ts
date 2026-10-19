@@ -27,14 +27,17 @@ export function readingWords(r: Reading, today: string): string {
   return span === "Dates unknown" ? "Finished, date unknown" : span;
 }
 
-/** What the file says: the author, the latest read and the rating as the file has it */
+/**
+ * What the file says: the author, the latest read and the rating as the file
+ * has it. A rating past five stars is shown as it will be saved (SLN-955)
+ */
 export function fileLine(row: { authors: string[]; fileRating: number | null; readings: Reading[]; kind: string }, today: string): string {
   const latest = row.readings.at(-1);
   return [
     row.authors[0],
     row.kind === "to_read" ? "Want to read" : latest ? readingWords(latest, today) : null,
     row.readings.length > 1 ? `${row.readings.length} reads` : null,
-    row.fileRating !== null ? stars(row.fileRating) : null,
+    row.fileRating !== null ? stars(Math.min(row.fileRating, 5)) : null,
   ]
     .filter(Boolean)
     .join(" · ");

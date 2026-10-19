@@ -29,7 +29,8 @@ export function CollectionsViewSwitcher() {
   const [view, setView] = useCollectionsView();
   const [size, setSize] = useCollectionsSize();
   return (
-    <div className="flex shrink-0 items-center justify-end gap-3">
+    // `data-view`: the view the switch shows, for the phone's card size rules (SLN-1249)
+    <div className="flex shrink-0 items-center justify-end gap-3" data-view={view}>
       <ViewModeSwitcher
         value={view}
         onChange={(mode) => {

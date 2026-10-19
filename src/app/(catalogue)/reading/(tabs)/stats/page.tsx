@@ -51,6 +51,7 @@ const FORMATS: Record<string, string> = {
   print: "Print",
   ebook: "eBook",
   audio: "Audio",
+  unknown: "Format not recorded",
 };
 const PARTS: Record<string, string> = {
   night: "Night",
@@ -483,7 +484,7 @@ export default async function ReadingStatsPage({ searchParams }: { searchParams:
                     text: count(where.ownCopy, "reading"),
                   },
                   {
-                    label: "No copy (borrowed, library)",
+                    label: "Copy not recorded",
                     value: where.noCopy,
                     text: count(where.noCopy, "reading"),
                   },

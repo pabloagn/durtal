@@ -79,14 +79,15 @@ export default async function ImportPreviewPage({ params, searchParams }: { para
             }
             action={<Badge variant={header.status === "completed" ? "sage" : header.status === "pending" ? "gold" : "muted"}>{STATUS_LABEL[header.status]}</Badge>}
           />
-          <p className="text-sm text-fg-secondary" data-import-summary="">
+          {/* Focus lands here once a commit or Undo redraws the buttons (SLN-956) */}
+          <p className="text-sm text-fg-secondary outline-none" tabIndex={-1} data-import-summary="">
             {summaryLine(summary)}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <CommitImport importId={id} label={commit.label} disabled={summary.toImport === 0 && summary.toQueue === 0 && notes.toImport === 0 && summary.toRate === 0} />
             <MatchAgain importId={id} show={summary.noBook > 0} />
             {(header.readings > 0 || header.queued > 0 || header.notes > 0 || header.ratings > 0) && (
-              <UndoImport importId={id} readings={header.readings} queued={header.queued} notes={header.notes} goodreadsIds={header.source !== "ebook_library"} />
+              <UndoImport importId={id} readings={header.readings} queued={header.queued} notes={header.notes} goodreadsIds={header.identifiers} />
             )}
             <Link href="/reading/import" className="text-sm text-fg-secondary transition-colors hover:text-fg-primary touch-hit">
               All imports

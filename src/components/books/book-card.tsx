@@ -3,7 +3,7 @@
 import { CopyBookButton } from "./copy-book-button";
 import { COVER_BLANK, CoverLetter } from "@/components/books/cover-letter";
 
-import { useState } from "react";
+import { createContext, memo, useContext, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { HuntBadge } from "./hunt-badge";
 import { PoisonBadge } from "./poison-badge";
@@ -126,7 +126,76 @@ function CoverImage({
   );
 }
 
-export function BookCard({
+/** Whether the list is choosing cards: the parts of a card that change with it read this, so the rest stays as drawn (SLN-1249) */
+const CardSelecting = createContext(false);
+
+type CardActionsProps = Pick<BookCardProps, "workId" | "slug" | "title" | "authorName" | "authorNames" | "primaryEditionId" | "ebook" | "readerReturnTo">;
+
+/** Copy and the card's menu; drawn again only when the menu opens or closes */
+const CardActions = memo(function CardActions({ actions, open, onOpenChange }: { actions: CardActionsProps; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { workId, slug, title, authorName, authorNames, primaryEditionId, ebook, readerReturnTo } = actions;
+  return (
+    <>
+      <CopyBookButton title={title} authorNames={authorNames} authorName={authorName} glass />
+      <BookCardActionsMenu workId={workId} slug={slug} title={title} authorName={authorName} primaryEditionId={primaryEditionId ?? undefined} ebook={ebook ?? null} readerReturnTo={readerReturnTo ?? `/library/${slug}`} open={open} onOpenChange={onOpenChange} />
+    </>
+  );
+});
+
+/**
+ * The cover's link and the card's actions. While selecting, the link takes no
+ * pointer or focus and the actions hide; they stay mounted, so leaving
+ * selection redraws no menu (SLN-1249).
+ */
+function CardCover({ href, cover, actions }: { href: string; cover: ReactNode; actions: CardActionsProps }) {
+  const isSelecting = useContext(CardSelecting);
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Reset before rendering selection so the menu stays closed when it ends.
+  if (isSelecting && menuOpen) setMenuOpen(false);
+  const coverMenu = useCoverMenu(!isSelecting, () => setMenuOpen(true));
+  return (
+    <div className="relative">
+      {/* Named by what it holds: the cover's alt, or on a blank cover the
+          title as hidden text (its letter is decoration, and a title with
+          no letter or digit, "!!!", shows none), then the cover's marks
+          ("Rare", "eBook available"), which a label would hide */}
+      <Link
+        href={href}
+        className={`block ${isSelecting ? "pointer-events-none" : ""}`}
+        tabIndex={isSelecting ? -1 : undefined}
+        {...coverMenu}
+      >
+        {cover}
+      </Link>
+
+      <div
+        className={`artwork-actions ${menuOpen ? "before:!opacity-100 [&>button]:!opacity-100 [&>div]:!opacity-100" : ""}`}
+        style={isSelecting ? { display: "none" } : undefined}
+        onClick={(e) => { e.stopPropagation(); }}
+      >
+        <CardActions actions={actions} open={menuOpen} onOpenChange={setMenuOpen} />
+      </div>
+    </div>
+  );
+}
+
+/** The text's link: it navigates when not selecting. It covers the text, so the favourite star can sit above it */
+function CardTextLink({ href, title }: { href: string; title: string }) {
+  const isSelecting = useContext(CardSelecting);
+  return (
+    <Link
+      href={href}
+      aria-label={title}
+      className={`absolute inset-0 z-10 ${isSelecting ? "pointer-events-none" : ""}`}
+      tabIndex={-1}
+    />
+  );
+}
+
+type CardBodyProps = Omit<BookCardProps, "isSelecting" | "isSelected" | "onSelect">;
+
+/** Everything selection leaves alone: drawn once, not on each tick or mode change (SLN-1249) */
+const CardBody = memo(function CardBody({
   workId,
   slug,
   title,
@@ -149,48 +218,24 @@ export function BookCard({
   primaryEditionId,
   ebook,
   readerReturnTo,
-  isSelecting = false,
-  isSelected = false,
-  onSelect,
   coverSizes = "(min-width: 1280px) 300px, (min-width: 768px) 250px, 200px",
   coverPriority = false,
   reading,
-}: BookCardProps) {
+}: CardBodyProps) {
   const href = `/library/${slug}`;
-  const [menuOpen, setMenuOpen] = useState(false);
-  // Reset before rendering selection so the menu stays closed when it ends.
-  if (isSelecting && menuOpen) setMenuOpen(false);
-  const coverMenu = useCoverMenu(!isSelecting, () => setMenuOpen(true));
   const digitalMark = ebook?.readable;
-
-  // In selection mode, clicking the card toggles selection instead of navigating
-  function handleCardClick(e: React.MouseEvent) {
-    if (isSelecting && onSelect) {
-      e.preventDefault();
-      onSelect(workId);
-    }
-  }
-
-  const selectionRing = isSelected ? "ring-2 ring-accent-primary/50" : "";
+  const actions = useMemo<CardActionsProps>(
+    () => ({ workId, slug, title, authorName, authorNames, primaryEditionId, ebook, readerReturnTo }),
+    [workId, slug, title, authorName, authorNames, primaryEditionId, ebook, readerReturnTo],
+  );
 
   return (
-    <div
-      data-focus-row=""
-      className={`${WORK_CARD} ${selectionRing}`}
-      onClick={handleCardClick}
-    >
+    <>
       {/* Cover area — relative wrapper so the dropdown menu escapes overflow-hidden */}
-      <div className="relative">
-        {/* Named by what it holds: the cover's alt, or on a blank cover the
-            title as hidden text (its letter is decoration, and a title with
-            no letter or digit, "!!!", shows none), then the cover's marks
-            ("Rare", "eBook available"), which a label would hide */}
-        <Link
-          href={href}
-          className={`block ${isSelecting ? "pointer-events-none" : ""}`}
-          tabIndex={isSelecting ? -1 : undefined}
-          {...coverMenu}
-        >
+      <CardCover
+        href={href}
+        actions={actions}
+        cover={
           <div className="cover-shadow">
           {/* While the cover loads, the frame shows the poster's main color */}
           <div
@@ -224,52 +269,12 @@ export function BookCard({
             )}
           </div>
           </div>
-        </Link>
+        }
+      />
 
-        {!isSelecting && (
-          <div className={`artwork-actions ${menuOpen ? "before:!opacity-100 [&>button]:!opacity-100 [&>div]:!opacity-100" : ""}`} onClick={(e) => { e.stopPropagation(); }}>
-            <CopyBookButton title={title} authorNames={authorNames} authorName={authorName} glass />
-            <BookCardActionsMenu workId={workId} slug={slug} title={title} authorName={authorName} primaryEditionId={primaryEditionId ?? undefined} ebook={ebook ?? null} readerReturnTo={readerReturnTo ?? href} open={menuOpen} onOpenChange={setMenuOpen} />
-          </div>
-        )}
-      </div>
-
-      {/* Selection checkbox -- top-left, visible in selection mode */}
-      {isSelecting && (
-        <div className="absolute left-1 top-1 z-10 @[220px]:left-2 @[220px]:top-2">
-          <div
-            className={`flex h-5 w-5 items-center justify-center rounded-sm border transition-colors ${
-              isSelected
-                ? "border-accent-primary bg-selection-bg text-fg-primary"
-                : "glass-chip text-transparent"
-            }`}
-          >
-            {isSelected && (
-              <svg
-                className="h-3 w-3"
-                viewBox="0 0 12 12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M2 6l3 3 5-5" />
-              </svg>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Meta — navigates when not selecting. The link covers the text, so
-          the favourite star can sit above it */}
+      {/* Meta — navigates when not selecting */}
       <div className="relative flex flex-1 flex-col">
-        <Link
-          href={href}
-          aria-label={title}
-          className={`absolute inset-0 z-10 ${isSelecting ? "pointer-events-none" : ""}`}
-          tabIndex={-1}
-        />
+        <CardTextLink href={href} title={title} />
         <div className={WORK_CARD_BODY}>
           {/* Names wrap naturally; row stretching aligns the footer */}
           <CardHeading
@@ -301,6 +306,69 @@ export function BookCard({
           />
         </div>
       </div>
+    </>
+  );
+});
+
+/**
+ * A book's card. Memoised, and only its frame follows the selection: a tick
+ * redraws the one card it changes, and the mode redraws only what it moves
+ * (SLN-1249). The list passes stable props (`onSelect` from `useSelection`).
+ */
+export const BookCard = memo(function BookCard({
+  isSelecting = false,
+  isSelected = false,
+  onSelect,
+  ...body
+}: BookCardProps) {
+  const { workId } = body;
+
+  // In selection mode, clicking the card toggles selection instead of navigating
+  function handleCardClick(e: React.MouseEvent) {
+    if (isSelecting && onSelect) {
+      e.preventDefault();
+      onSelect(workId);
+    }
+  }
+
+  const selectionRing = isSelected ? "ring-2 ring-accent-primary/50" : "";
+
+  return (
+    <div
+      data-focus-row=""
+      className={`${WORK_CARD} ${selectionRing}`}
+      onClick={handleCardClick}
+    >
+      <CardSelecting.Provider value={isSelecting}>
+        <CardBody {...body} />
+      </CardSelecting.Provider>
+
+      {/* Selection checkbox -- top-left, visible in selection mode */}
+      {isSelecting && (
+        <div className="absolute left-1 top-1 z-10 @[220px]:left-2 @[220px]:top-2">
+          <div
+            className={`flex h-5 w-5 items-center justify-center rounded-sm border transition-colors ${
+              isSelected
+                ? "border-accent-primary bg-selection-bg text-fg-primary"
+                : "glass-chip text-transparent"
+            }`}
+          >
+            {isSelected && (
+              <svg
+                className="h-3 w-3"
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M2 6l3 3 5-5" />
+              </svg>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+});

@@ -86,9 +86,9 @@ function counted<T extends { tally: MemberTally | string }>(row: T) {
 }
 
 function rows<T>(result: unknown): T[] {
-
   return Array.isArray(result) ? result : (result as { rows: T[] }).rows;
 }
+
 /** The collections list's sorts (SLN-1059): Name keeps the curated order first */
 export type CollectionSort = "name" | "recent" | "size";
 const COLLECTION_SORTS: readonly CollectionSort[] = ["name", "recent", "size"];

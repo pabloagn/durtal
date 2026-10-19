@@ -35,14 +35,26 @@ self.addEventListener("install",event => event.waitUntil((async () => {
     }
     await assets.put("/offline-assets.json",new Response(JSON.stringify(manifest),{ headers: { "Content-Type": "application/json" } }));
   } catch (error) { if (!hadShell) await caches.delete(SHELL); if (!hadAssets) await caches.delete(ASSETS); throw error; }
-  // No skipWaiting: retain the old working release while its clients are open.
+  // No skipWaiting here: the old release keeps its open pages until they close,
+  // or until a page asks this one to take over (SKIP_WAITING, after Reload).
 })()));
-self.addEventListener("activate",event => event.waitUntil((async () => {
-  await self.clients.claim();
-  // Preserve older releases for rollback and still-open clients; cleanup is an
-  // explicit client-confirmed maintenance action, never an activation guess.
-})()));
+// Once this release runs, its pages read its own caches, so earlier releases'
+// caches only take space (SLN-1145). Kept: downloaded books, the releases open
+// pages announced, and a release installing or waiting. It runs on the first
+// page this worker serves, not on activation: a browser that closes can
+// activate a waiting release and then forget it, leaving the old one running.
+let pruned = null;
+const prune = () => pruned ??= (async () => {
+  if (self.registration.active?.scriptURL !== self.location.href) { pruned = null; return; }
+  const keep = new Set([SHELL,ASSETS,BOOKS]);
+  for (const build of [...clientsBuild.values(),...[self.registration.installing,self.registration.waiting].map(worker => worker && new URL(worker.scriptURL).searchParams.get("build"))])
+    if (build) keep.add(`durtal-shell-${build}`).add(`durtal-assets-${build}`);
+  for (const name of await caches.keys())
+    if (/^durtal-(?:shell|assets)-/.test(name) && !keep.has(name)) await caches.delete(name);
+})().catch(() => { pruned = null; });
+self.addEventListener("activate",event => event.waitUntil(self.clients.claim()));
 self.addEventListener("message",event => {
+  if (event.data?.type === "SKIP_WAITING") { self.skipWaiting(); return; }
   if (event.data?.type === "CLIENT_BUILD" && typeof event.data.buildId === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(event.data.buildId) && event.source?.id)
     clientsBuild.set(event.source.id,event.data.buildId);
 });
@@ -101,6 +113,7 @@ self.addEventListener("fetch",event => {
   const request=event.request,url=new URL(request.url);
   if (!["GET","HEAD"].includes(request.method)) return;
   if (request.mode === "navigate" && url.origin === self.location.origin) {
+    event.waitUntil(prune());
     event.respondWith((async () => {
       const cache = await caches.open(`durtal-shell-${clientsBuild.get(event.clientId) ?? BUILD}`);
       if (SHELLS.includes(url.pathname)) {
@@ -119,7 +132,14 @@ self.addEventListener("fetch",event => {
       }
     })()); return;
   }
-  if (url.origin === self.location.origin && (/^\/_next\/static\//.test(url.pathname) || /^\/fonts\/reader\//.test(url.pathname) || /^\/vendor\/pdfjs\//.test(url.pathname) || url.pathname === "/offline-assets.json")) {
+  // The manifest says which release the server runs: ask the server first, so
+  // a newer release is found, and fall back to this release's copy offline.
+  if (url.origin === self.location.origin && url.pathname === "/offline-assets.json") {
+    event.respondWith(fetch(request).catch(async () =>
+      await (await caches.open(`durtal-assets-${clientsBuild.get(event.clientId) ?? BUILD}`)).match("/offline-assets.json") ?? Response.error()));
+    return;
+  }
+  if (url.origin === self.location.origin && (/^\/_next\/static\//.test(url.pathname) || /^\/fonts\/reader\//.test(url.pathname) || /^\/vendor\/pdfjs\//.test(url.pathname))) {
     event.respondWith((async () => {
       const cache = await caches.open(`durtal-assets-${clientsBuild.get(event.clientId) ?? BUILD}`);
       const saved = await cache.match(request);

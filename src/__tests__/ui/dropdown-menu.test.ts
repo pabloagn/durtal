@@ -191,3 +191,65 @@ describe("shared dropdown keyboard and focus", () => {
     expect(document.activeElement).toBe(trigger());
   });
 });
+
+// SLN-1249: the icon column is set by the menu, never found with :has(),
+// which made every change to any page restyle it
+describe("a menu's icon column", () => {
+  const open = (children: ReturnType<typeof h>[]) => {
+    act(() =>
+      root.render(
+        h(DropdownMenu, {
+          trigger: h("button", null, "Open") as Parameters<typeof DropdownMenu>[0]["trigger"],
+          children,
+        }),
+      ),
+    );
+    act(() => trigger().click());
+    return host.querySelector(".dropdown-list") as HTMLElement;
+  };
+
+  it("is there when an item has an icon, from the first paint", () => {
+    const list = open([
+      h(DropdownMenuItem, { key: "a", children: "Plain" }),
+      h(DropdownMenuItem, { key: "b", icon: h("svg"), children: "With icon" }),
+    ]);
+    expect(list.hasAttribute("data-icons")).toBe(true);
+  });
+
+  it("is not there when no item has one", () => {
+    const list = open([h(DropdownMenuItem, { key: "a", children: "Plain" })]);
+    expect(list.hasAttribute("data-icons")).toBe(false);
+  });
+
+  it("goes when the item with the icon goes", () => {
+    function Changing() {
+      const [withIcon, setWithIcon] = useState(true);
+      return h(DropdownMenu, {
+        trigger: h("button", null, "Open") as Parameters<typeof DropdownMenu>[0]["trigger"],
+        children: [
+          h(DropdownMenuItem, { key: "a", children: "Plain" }),
+          withIcon ? h(DropdownMenuItem, { key: "b", icon: h("svg"), children: "With icon" }) : null,
+          h("button", { key: "c", type: "button", "data-drop": "", onClick: () => setWithIcon(false) }, "Drop"),
+        ],
+      });
+    }
+    act(() => root.render(h(Changing)));
+    act(() => trigger().click());
+    const list = host.querySelector(".dropdown-list") as HTMLElement;
+    expect(list.hasAttribute("data-icons")).toBe(true);
+    act(() => (host.querySelector("[data-drop]") as HTMLElement).click());
+    expect(list.hasAttribute("data-icons")).toBe(false);
+  });
+
+  it("and the sidebar's timer slot and the phone's card size, use no :has() rule", async () => {
+    const { readFileSync } = await import("node:fs");
+    const css = readFileSync("src/styles/globals.css", "utf8");
+    const sidebar = readFileSync("src/components/layout/sidebar.tsx", "utf8");
+    expect(css).not.toMatch(/:has\(\[data-menu-icon\]\)/);
+    expect(sidebar).not.toMatch(/:has\(\[data-timer-chip\]\)/);
+    // The phone's card size rules key off the row's data-view, as do the rows that set it
+    expect(css).not.toMatch(/:has\(> \[data-catalogue-view/);
+    for (const row of ["src/components/shared/entity-filters.tsx", "src/app/(catalogue)/ebooks/ebooks-filters.tsx", "src/components/collections/collections-view.tsx"])
+      expect(readFileSync(row, "utf8"), row).toMatch(/data-view=\{/);
+  });
+});
