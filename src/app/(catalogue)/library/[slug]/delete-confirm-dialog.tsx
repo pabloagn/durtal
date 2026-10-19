@@ -12,6 +12,8 @@ interface DeleteConfirmDialogProps {
   description: string;
   itemName: string;
   cascade?: string;
+  /** Why the delete can't go ahead: shown in place of the warning, and Delete stays off */
+  refusal?: string | null;
 }
 
 export function DeleteConfirmDialog({
@@ -22,6 +24,7 @@ export function DeleteConfirmDialog({
   description,
   itemName,
   cascade,
+  refusal,
 }: DeleteConfirmDialogProps) {
   const [isPending, setIsPending] = useState(false);
 
@@ -37,11 +40,11 @@ export function DeleteConfirmDialog({
   return (
     <Dialog open={open} onClose={onClose} title={title} className="max-w-lg" expandable={false}>
       <div className="space-y-4">
-        <p className="text-sm text-fg-secondary">{description}</p>
+        <p className="text-sm text-fg-secondary">{refusal ?? description}</p>
         <div className="rounded-sm border border-glass-border bg-bg-primary px-3 py-2">
           <p className="text-sm font-medium text-fg-primary">{itemName}</p>
         </div>
-        {cascade && (
+        {cascade && !refusal && (
           <p className="rounded-sm border border-accent-red/20 bg-accent-red/5 px-3 py-2 text-xs text-accent-red-text">
             {cascade}
           </p>
@@ -58,7 +61,9 @@ export function DeleteConfirmDialog({
           <Button
             variant="danger"
             size="sm"
-            onClick={handleConfirm}
+            // Off but focusable while refused, so the focus never drops
+            onClick={refusal ? undefined : handleConfirm}
+            aria-disabled={refusal ? true : undefined}
             busy={isPending}
           >
             Delete

@@ -15,6 +15,10 @@ function originOf(target: HTMLElement): FocusOrigin {
 if (typeof document !== "undefined") {
   document.addEventListener("focusin", (event) => {
     if (event.target instanceof HTMLElement) lastFocus = originOf(event.target);
+    // A closed surface's origin is handed on only until the focus lands
+    // somewhere: a press soon after (Delete image within a frame of Keep
+    // editing, in Firefox) opens its dialog from where it was pressed
+    transferredOrigin = null;
   });
 }
 export function captureFocusOrigin(): FocusOrigin | null {

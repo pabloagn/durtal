@@ -156,32 +156,35 @@ export function SeriesBooks({
             data-focus-row=""
             className="flex items-center gap-4 rounded-sm border border-glass-border bg-bg-secondary px-3 py-2.5"
           >
-            <PositionField
-              key={`${book.id}-${book.position}`}
-              seriesId={seriesId}
-              book={book}
-            />
-            <Link
-              href={`/library/${book.slug}`}
-              aria-label={`Open ${book.title}`}
-            >
-              {/* The title's letter with no cover, or one that fails */}
-              <div className={`relative h-16 w-11 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary ${COVER_BLANK}`}>
-                {book.cover ? (
-                  <FadeImage
-                    src={mediaUrl(book.cover)}
-                    alt=""
-                    loading="lazy"
-                    className="protected-image absolute inset-0 h-full w-full object-cover"
-                    style={mediaImageStyle(book.coverCrop)}
-                    fallback={<CoverLetter title={book.title} />}
-                  />
-                ) : (
-                  <CoverLetter title={book.title} />
-                )}
-                {book.ebook?.readable && <div className={COVER_CORNER.bottomLeft}><EbookMark ebook={book.ebook} /></div>}
-              </div>
-            </Link>
+            {/* On a phone the number sits over the cover, so the title keeps its room (SLN-918) */}
+            <div className="flex shrink-0 items-center gap-4 max-sm:flex-col max-sm:gap-2">
+              <PositionField
+                key={`${book.id}-${book.position}`}
+                seriesId={seriesId}
+                book={book}
+              />
+              <Link
+                href={`/library/${book.slug}`}
+                aria-label={`Open ${book.title}`}
+              >
+                {/* The title's letter with no cover, or one that fails */}
+                <div className={`relative h-16 w-11 shrink-0 overflow-hidden rounded-sm bg-bg-tertiary ${COVER_BLANK}`}>
+                  {book.cover ? (
+                    <FadeImage
+                      src={mediaUrl(book.cover)}
+                      alt=""
+                      loading="lazy"
+                      className="protected-image absolute inset-0 h-full w-full object-cover"
+                      style={mediaImageStyle(book.coverCrop)}
+                      fallback={<CoverLetter title={book.title} />}
+                    />
+                  ) : (
+                    <CoverLetter title={book.title} />
+                  )}
+                  {book.ebook?.readable && <div className={COVER_CORNER.bottomLeft}><EbookMark ebook={book.ebook} /></div>}
+                </div>
+              </Link>
+            </div>
             <div className="min-w-0 flex-1">
               <div className="type-item-title flex items-start gap-4">
                 <Link href={`/library/${book.slug}`} className="min-w-0 flex-1 touch-hit">

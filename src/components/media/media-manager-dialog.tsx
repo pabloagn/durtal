@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { UploadZone } from "@/components/media/upload-zone";
 import { LogoCardUpload, type LogoSource } from "@/components/media/logo-card-upload";
 import { MonochromeControls } from "@/components/media/monochrome-controls";
@@ -87,6 +88,11 @@ interface MediaManagerDialogProps {
    * background.
    */
   slot?: "portrait" | "square";
+  /**
+   * What the main image is called. A painting's is its image, though it is
+   * framed as a poster is; a square frame's is always "image".
+   */
+  mainImage?: "poster" | "image";
 }
 
 const TABS: { key: TabType; label: string }[] = [
@@ -96,6 +102,9 @@ const TABS: { key: TabType; label: string }[] = [
 ];
 
 const COLLECTION_TABS = TABS.filter((tab) => tab.key !== "gallery");
+
+/** A painting: its main image is called an image (SLN-906) */
+const IMAGE_TABS = TABS.map((tab) => (tab.key === "poster" ? { ...tab, label: "Image" } : tab));
 
 const SQUARE_TABS: { key: TabType; label: string }[] = [
   { key: "poster", label: "Image" },
@@ -127,8 +136,10 @@ export function MediaManagerDialog({
   title,
   initialTab = "poster",
   slot = "portrait",
+  mainImage = "poster",
 }: MediaManagerDialogProps) {
   const square = slot === "square";
+  const calledImage = square || mainImage === "image";
   const tabs =
     entityType === "collection"
       ? COLLECTION_TABS
@@ -136,7 +147,9 @@ export function MediaManagerDialog({
         ? ORGANIZATION_TABS
         : square
           ? SQUARE_TABS
-          : TABS;
+          : calledImage
+            ? IMAGE_TABS
+            : TABS;
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -174,7 +187,7 @@ export function MediaManagerDialog({
       ? activeTab
       : entityType === "organization"
         ? "logo"
-        : square
+        : calledImage
           ? "image"
           : activeTab;
 
@@ -186,7 +199,7 @@ export function MediaManagerDialog({
       const data = await getMediaByType(entityId, activeTab, entityType);
       setItems(data as MediaItem[]);
     } catch {
-      toast.error("Failed to load media");
+      toast.error("Could not load the images");
     } finally {
       if (!refresh) setLoading(false);
     }
@@ -258,7 +271,7 @@ export function MediaManagerDialog({
       triggerActivityRefresh();
       toast.success(`Active ${noun} updated`);
     } catch {
-      toast.error(`Failed to set active ${noun}`);
+      toast.error(`Could not set the active ${noun}`);
     } finally {
       setSettingActive(null);
     }
@@ -277,9 +290,9 @@ export function MediaManagerDialog({
       await refreshItems();
       router.refresh();
       triggerActivityRefresh();
-      toast.success("Media deleted");
+      toast.success("Image deleted");
     } catch {
-      toast.error("Failed to delete media");
+      toast.error("Could not delete the image");
     } finally {
       setDeletingSingle(null);
     }
@@ -295,9 +308,9 @@ export function MediaManagerDialog({
       await refreshItems();
       router.refresh();
       triggerActivityRefresh();
-      toast.success(`Deleted ${selected.size} item${selected.size > 1 ? "s" : ""}`);
+      toast.success(`Deleted ${selected.size} image${selected.size > 1 ? "s" : ""}`);
     } catch {
-      toast.error("Failed to delete selected media");
+      toast.error("Could not delete the selected images");
     } finally {
       setDeleting(false);
     }
@@ -347,7 +360,7 @@ export function MediaManagerDialog({
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `Failed to add ${noun} from URL`);
+        throw new Error(data.error || `Could not add the ${noun} from the URL`);
       }
 
       setUrl("");
@@ -357,7 +370,7 @@ export function MediaManagerDialog({
       triggerActivityRefresh();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : `Failed to add ${noun} from URL`,
+        err instanceof Error ? err.message : `Could not add the ${noun} from the URL`,
       );
     } finally {
       setUrlLoading(false);
@@ -379,7 +392,7 @@ export function MediaManagerDialog({
       router.refresh();
       triggerActivityRefresh();
     } catch {
-      progress.error("Failed to reprocess image");
+      progress.error("Could not reprocess the image");
     }
   }
 
@@ -403,24 +416,17 @@ export function MediaManagerDialog({
       }}
     >
       <div className="space-y-4">
-        {/* Tabs */}
-        <div className="flex gap-1 border-b border-glass-border pb-2">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => {
-                if (tab.key !== activeTab) unlessUnsaved(() => handleTabChange(tab.key));
-              }}
-              className={`rounded-sm px-3 py-1.5 text-xs font-medium transition-colors pointer-coarse:min-h-11 ${
-                activeTab === tab.key
-                  ? "bg-bg-tertiary text-fg-primary"
-                  : "text-fg-secondary hover:text-fg-primary"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Which images: one choice of a few, and it says which is chosen
+            (SLN-905). Unsaved adjustments ask first (SLN-902) */}
+        <div className="border-b border-glass-border pb-2">
+          <SegmentedControl
+            options={tabs.map((tab) => ({ value: tab.key, label: tab.label }))}
+            value={activeTab}
+            onChange={(key) => {
+              if (key !== activeTab) unlessUnsaved(() => handleTabChange(key));
+            }}
+            ariaLabel="Images"
+          />
         </div>
 
         {loading ? (
@@ -474,7 +480,7 @@ export function MediaManagerDialog({
                       : "grid-cols-2 sm:grid-cols-3 max-sm:pointer-coarse:grid-cols-1"
                   }`}
                 >
-                  {items.map((item) => {
+                  {items.map((item, index) => {
                     const isSelected = selected.has(item.id);
                     const isSettingThisActive = settingActive === item.id;
                     const isDeletingThis = deletingSingle === item.id;
@@ -565,7 +571,12 @@ export function MediaManagerDialog({
                           aria-disabled={(!isGallery && (item.isActive || !!settingActive)) || undefined}
                           aria-busy={isSettingThisActive || undefined}
                           aria-pressed={isGallery ? item.id === detailsId : undefined}
-                          aria-label={isGallery ? `Image details: ${item.altText || item.originalFilename || "gallery image"}` : undefined}
+                          // Which one of how many, and whether it is the one shown: "Poster 2 of 3, active"
+                          aria-label={
+                            isGallery
+                              ? `Image details: ${item.altText || item.originalFilename || "gallery image"}`
+                              : `${noun.charAt(0).toUpperCase() + noun.slice(1)} ${index + 1} of ${items.length}${item.isActive ? ", active" : ""}`
+                          }
                           className={`relative w-full overflow-hidden rounded-sm border transition-all ${square && activeTab === "poster" ? "aspect-square bg-bg-tertiary" : ASPECT_CLASSES[activeTab]} ${
                             (item.isActive && !isGallery) || (isGallery && item.id === detailsId)
                               ? "ring-2 ring-accent-primary border-accent-primary/30"
@@ -601,7 +612,7 @@ export function MediaManagerDialog({
                         <div className="mt-1 flex flex-col">
                           {item.width && item.height && (
                             <span className="font-mono text-micro text-fg-secondary">
-                              {item.width}x{item.height}
+                              {item.width}×{item.height}
                             </span>
                           )}
                           {logoCards && isLogoCard(item.processingParams) && (
@@ -707,7 +718,7 @@ export function MediaManagerDialog({
                   <Input
                     ref={urlField}
                     aria-label="Image URL"
-                    placeholder="Paste image URL..."
+                    placeholder="Paste image URL…"
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     disabled={urlLoading}

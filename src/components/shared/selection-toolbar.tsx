@@ -6,6 +6,9 @@ import { CheckCheck, Trash2, X } from "lucide-react";
 import { toast } from "@/lib/notifications/toast";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/app/(catalogue)/library/[slug]/delete-confirm-dialog";
+import { useDeleteSummary } from "@/components/books/use-delete-summary";
+import { ActionRefusal } from "@/lib/actions/action-refusal";
+import { DELETE_CASCADE_COUNTING } from "@/lib/catalogue/delete-cascade";
 
 /** What a list hands its selection toolbar */
 export interface SelectionToolbarProps {
@@ -33,6 +36,7 @@ export function SelectionToolbar({
   noun,
   deleteOne,
   cascade,
+  summarize,
   busy = false,
   children,
 }: SelectionToolbarProps & {
@@ -43,6 +47,11 @@ export function SelectionToolbar({
   deleteOne: (id: string) => Promise<unknown>;
   /** What deleting keeps and removes, in the confirmation */
   cascade: string;
+  /**
+   * Counts what deleting the selection takes with it, and why it can't go
+   * ahead, when the confirmation opens; `cascade` stands if it can't be read
+   */
+  summarize?: (ids: string[]) => Promise<{ cascade?: string; refusal?: string | null }>;
   /** Another action of the list is running: Delete waits for it */
   busy?: boolean;
   /** The list's actions, between Deselect and Delete; `deleting` while the selection is deleted */
@@ -51,8 +60,12 @@ export function SelectionToolbar({
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const summary = useDeleteSummary(deleteOpen && !!summarize, Array.from(selectedIds).join(","), () =>
+    summarize ? summarize(Array.from(selectedIds)) : Promise.resolve({ cascade, refusal: null }),
+  );
 
   if (selectedCount === 0) return null;
+  const warning = !summarize || summary === null ? cascade : summary === undefined ? DELETE_CASCADE_COUNTING : summary.cascade;
 
   const [one, many] = noun;
   const namesList = Array.from(selectedIds)
@@ -76,8 +89,12 @@ export function SelectionToolbar({
       progress.success(`${deleted} ${deleted === 1 ? one : many} deleted`);
       onExitSelection();
       router.refresh();
-    } catch {
-      progress.error(`Deleted ${deleted} of ${ids.length} ${many} before error`);
+    } catch (error) {
+      progress.error(
+        error instanceof ActionRefusal
+          ? `Deleted ${deleted} of ${ids.length} ${many}. ${error.message}`
+          : `Deleted ${deleted} of ${ids.length} ${many} before error`,
+      );
     } finally {
       setIsDeleting(false);
       setDeleteOpen(false);
@@ -146,7 +163,8 @@ export function SelectionToolbar({
         title={`Delete ${selectedCount} ${selectedCount === 1 ? one : many}`}
         description="This cannot be undone."
         itemName={displayName}
-        cascade={cascade}
+        cascade={warning}
+        refusal={summary?.refusal}
       />
     </>
   );

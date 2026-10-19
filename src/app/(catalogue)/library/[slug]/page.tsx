@@ -259,12 +259,6 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
         },
       ]),
   );
-  const readingCounts = {
-    readings: readingOverview.summary.readingCount,
-    sessions: readingOverview.summary.sessionCount,
-    quotes: readingNotes.filter((n) => n.kind === "quote").length,
-    notes: readingNotes.filter((n) => n.kind === "note").length,
-  };
   // The reading control, section and dialogs (SLN-447)
   let homeCookie: string | null = null;
   try {
@@ -475,12 +469,6 @@ export default async function WorkDetailPage({ params, searchParams }: PageProps
                       role: wa.role,
                     }))}
                     authorName={primaryAuthors.map((a) => a.name).join(", ")}
-                    readingCounts={readingCounts}
-                    editionCount={work.editions.length}
-                    instanceCount={work.editions.reduce(
-                      (acc, e) => acc + (e.instances?.length ?? 0),
-                      0,
-                    )}
                     posterCount={allPosters.length}
                     backgroundCount={allBackgrounds.length}
                     galleryCount={galleryMedia.length}

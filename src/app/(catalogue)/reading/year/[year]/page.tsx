@@ -11,11 +11,13 @@ import { PrintButton } from "@/components/reading/print-button";
 import { Footnote, NameList, NumberTiles, StatsSection, audioNote } from "@/components/reading/stats-parts";
 import { getGoalProgress } from "@/lib/actions/reading-goals";
 import { getAppSettings } from "@/lib/actions/settings";
-import { MONTHS, finishText, n, yearRhythm } from "@/lib/reading/charts";
+import { MONTHS, finishText, n, yearRhythm, yearRhythmText } from "@/lib/reading/charts";
 import { pastGoalText, reachedText } from "@/lib/reading/goals";
+import { readingDay } from "@/lib/reading/dates";
 import { authorStats, finishedYears, languages, readingDays, yearReview, type ReviewBook } from "@/lib/reading/stats";
 import { languageName } from "@/lib/utils/language";
 import { nationalityFilterHref, shortCountryName } from "@/lib/utils/nationality-param";
+import { appTimeZone } from "@/lib/utils/date";
 import { formatRating } from "@/lib/utils/rating";
 
 export async function generateMetadata({ params }: { params: Promise<{ year: string }> }) {
@@ -55,6 +57,7 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
     year,
     settings.readingWeekStart,
     settings.readingRhythmDays,
+    readingDay(new Date(), appTimeZone(), settings.readingDayStartHour),
   );
   const months = [...Array.from({ length: 12 }, (_, i) => i + 1), null].map((month) => ({ month, books: review.books.filter((b) => b.month === month) })).filter((m) => m.books.length);
   const highlights = (
@@ -112,10 +115,7 @@ export default async function YearInReviewPage({ params }: { params: Promise<{ y
               </p>
             ))}
             {numbers.readingDays > 0 && (
-              <p data-review-rhythm="">
-                You read on {n(numbers.readingDays)} {numbers.readingDays === 1 ? "day" : "days"}, in {n(rhythm.weeksRead)} of {n(rhythm.weeks)} weeks
-                {rhythm.kept !== null ? `; ${n(rhythm.kept)} ${rhythm.kept === 1 ? "week" : "weeks"} had ${settings.readingRhythmDays} reading days or more` : ""}.
-              </p>
+              <p data-review-rhythm="">{yearRhythmText(numbers.readingDays, rhythm, settings.readingRhythmDays)}</p>
             )}
           </div>
           {audioNote(numbers.audioWithoutPages) && <Footnote>{audioNote(numbers.audioWithoutPages)}</Footnote>}

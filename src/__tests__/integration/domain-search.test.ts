@@ -41,7 +41,7 @@ import { createPerfume } from "@/lib/actions/perfumes";
 import { createPerson } from "@/lib/actions/people";
 import { saveOrganization } from "@/lib/actions/organizations";
 import { createVenue, archiveVenue } from "@/lib/actions/venues";
-import { searchPlaces } from "@/lib/actions/places";
+import { getOrCreatePlaceChain, searchPlaces } from "@/lib/actions/places";
 
 describe.skipIf(!url)("search and lists across the collections", () => {
   const c = client!;
@@ -144,6 +144,18 @@ describe.skipIf(!url)("search and lists across the collections", () => {
     expect(await names("BOGOTA")).toEqual(["Bogotá"]);
     expect(await names("saint etienne")).toEqual(["Saint-Étienne"]);
     expect(await names("%")).toEqual([]);
+  });
+
+  it("reuses a place whatever its accents when an address is geocoded", async () => {
+    await c`insert into places(name, type) values ('Schweiz', 'country')`;
+    const [{ id: swiss }] = await c`select id from places where name = 'Schweiz'`;
+    await c`insert into places(name, type, parent_id) values ('Zürich', 'city', ${swiss})`;
+    const found = await getOrCreatePlaceChain([{ name: "Zurich", type: "city" }, { name: "SCHWEIZ", type: "country" }]);
+    expect(found?.name).toBe("Zürich");
+    expect((await c`select count(*)::int as n from places`)[0].n).toBe(2);
+    // The same name under another parent, or of another type, is a place of its own
+    await getOrCreatePlaceChain([{ name: "Zurich", type: "region" }]);
+    expect((await c`select count(*)::int as n from places`)[0].n).toBe(3);
   });
 
   it("keeps in the picker's first few every place the search as typed finds", async () => {
