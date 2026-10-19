@@ -397,14 +397,14 @@ export async function reorderFamilies(ids: string[]) {
 }
 
 /**
- * The kinds an item's count and page cover: books where the family applies
- * to books, as its items list books; else every open collection it applies
- * to, so a perfume note counts its perfumes (SLN-886)
+ * The kinds an item's count and page cover: every open collection the family
+ * applies to, so a perfume note counts its perfumes (SLN-886) and a theme its
+ * films as well as its books (SLN-1157)
  */
 function itemKinds(family: { applicability?: { kind: WorkKind }[] }): WorkKind[] {
-  const enabled = new Set(getEnabledWorkKinds());
-  const kinds = [...new Set((family.applicability ?? []).map((scope) => scope.kind))].filter((kind) => enabled.has(kind));
-  return kinds.length === 0 || kinds.includes("book") ? ["book"] : kinds;
+  const applies = new Set((family.applicability ?? []).map((scope) => scope.kind));
+  const kinds = getEnabledWorkKinds().filter((kind) => applies.has(kind));
+  return kinds.length ? kinds : ["book"];
 }
 
 export async function getTaxonomyItems(familySlug: string, kind?: WorkKind) {
@@ -446,7 +446,7 @@ export async function getTaxonomyItem(familySlug: string, itemSlug: string) {
   return {
     ...item,
     createdAt: storage.custom ? item.createdAt : undefined,
-    /** The kinds counted: books, or the other collections the family applies to */
+    /** The kinds counted: every open collection the family applies to */
     kinds,
     entityIds: rows.map((r) => r.id),
     /** How many of each kind, in `kinds` order */
@@ -672,10 +672,17 @@ export interface AssignedTaxonomyItem {
   name: string;
   parentName: string | null;
 }
+/** Families a kind's own form edits */
+const OWN_EDITOR: Record<string, WorkKind> = {
+  "perfume-notes": "perfume",
+  "art-movements": "painting",
+};
 /**
- * Families a work or book edition can use, with the items it has. Only families
- * stored as custom items appear: built-in book families keep their own editors,
- * and positioned perfume notes have theirs.
+ * Families a work or book edition can use, with the items it has. A book's
+ * built-in families keep their own editors, as do positioned perfume notes
+ * and a painting's movements; a film, perfume or painting is tagged in place
+ * with every other family that applies to it, Themes and Subjects included
+ * (SLN-1157).
  */
 export async function getTaxonomyAssignments(
   input: z.input<typeof assignmentOwnerSchema>,
@@ -684,20 +691,48 @@ export async function getTaxonomyAssignments(
   scopeSchema.parse({ kind, level });
   const families = (await getApplicableTaxonomyFamilies(kind, level))
     .map((row) => row.family)
-    .filter((family) => taxonomyStorage(family).custom && family.slug !== "perfume-notes");
+    .filter(
+      (family) =>
+        (taxonomyStorage(family).custom || kind !== "book") &&
+        OWN_EDITOR[family.slug] !== kind,
+    );
   if (!families.length) return [];
-  const link =
-    level === "work"
-      ? sql`custom_taxonomy_item_works l on l.item_id=i.id and l.work_id=${ownerId}::uuid`
-      : sql`custom_taxonomy_item_editions l on l.item_id=i.id and l.edition_id=${ownerId}::uuid`;
-  const rows = resultRows<AssignedTaxonomyItem & { familyId: string }>(
-    await db.execute(sql`select i.id,i.name,i.slug,i.family_id as "familyId",p.name as "parentName"
+  // One select per store: the custom items of every custom family at once,
+  // then each built-in family's own table
+  const custom = families.filter((family) => taxonomyStorage(family).custom);
+  const selects = families
+    .filter((family) => !taxonomyStorage(family).custom)
+    .flatMap((family) => {
+      const storage = taxonomyStorage(family);
+      const link = storage.links.find((l) => l.level === level);
+      if (!link) return [];
+      const table = sql.identifier(storage.table);
+      const nested = storage.columns.has("parent_id");
+      return [
+        sql`select i.id,i.name,i.slug,${family.id}::uuid as "familyId",${nested ? sql`p.name` : sql`null::text`} as "parentName"
+          from ${table} i join ${sql.identifier(link.table)} l on l.${sql.identifier(link.item)}=i.id and l.${sql.identifier(link.owner)}=${ownerId}::uuid
+          ${nested ? sql`left join ${table} p on p.id=i.parent_id` : sql``}`,
+      ];
+    });
+  if (custom.length) {
+    const link =
+      level === "work"
+        ? sql`custom_taxonomy_item_works l on l.item_id=i.id and l.work_id=${ownerId}::uuid`
+        : sql`custom_taxonomy_item_editions l on l.item_id=i.id and l.edition_id=${ownerId}::uuid`;
+    selects.push(sql`select i.id,i.name,i.slug,i.family_id as "familyId",p.name as "parentName"
       from custom_taxonomy_items i join ${link} left join custom_taxonomy_items p on p.id=i.parent_id
       where i.family_id in (${sql.join(
-        families.map((f) => sql`${f.id}::uuid`),
+        custom.map((f) => sql`${f.id}::uuid`),
         sql`,`,
-      )}) order by lower(i.name),i.id`),
-  );
+      )})`);
+  }
+  const rows = selects.length
+    ? resultRows<AssignedTaxonomyItem & { familyId: string }>(
+        await db.execute(
+          sql`select * from (${sql.join(selects, sql` union all `)}) items order by lower(name),id`,
+        ),
+      )
+    : [];
   return families.map((family) => ({
     id: family.id,
     name: family.name,
@@ -714,7 +749,7 @@ const itemSearchSchema = z.strictObject({
   limit: z.number().int().min(1).max(50).default(20),
 });
 /**
- * At most `limit` items of one custom family, best matches first, plus
+ * At most `limit` items of one family, best matches first, plus
  * whether more exist. An empty query lists the family in its own order.
  */
 export async function searchTaxonomyItems(
@@ -722,19 +757,22 @@ export async function searchTaxonomyItems(
   input: z.input<typeof itemSearchSchema> = {},
 ) {
   const { query, limit } = itemSearchSchema.parse(input);
-  const family = await requiredFamily(familySlug);
-  if (!taxonomyStorage(family).custom)
-    throw new ExpectedActionError("This family is edited on its own page");
+  const family = await requiredFamily(familySlug),
+    storage = taxonomyStorage(family);
+  const table = sql.identifier(storage.table);
+  const nested = storage.columns.has("parent_id");
   const match = query
     ? sql`and search_normalize(i.name) like '%' || search_normalize(${query}) || '%'`
     : sql``;
   const order = query
     ? sql`order by (search_normalize(i.name)=search_normalize(${query})) desc,(search_normalize(i.name) like search_normalize(${query}) || '%') desc,lower(i.name),i.id`
-    : sql`order by i.sort_order,lower(i.name),i.id`;
+    : storage.columns.has("sort_order")
+      ? sql`order by i.sort_order,lower(i.name),i.id`
+      : sql`order by lower(i.name),i.id`;
   const rows = resultRows<AssignedTaxonomyItem>(
-    await db.execute(sql`select i.id,i.name,i.slug,p.name as "parentName" from custom_taxonomy_items i
-      left join custom_taxonomy_items p on p.id=i.parent_id
-      where i.family_id=${family.id}::uuid ${match} ${order} limit ${limit + 1}`),
+    await db.execute(sql`select i.id,i.name,i.slug,${nested ? sql`p.name` : sql`null::text`} as "parentName" from ${table} i
+      ${nested ? sql`left join ${table} p on p.id=i.parent_id` : sql``}
+      where ${familyItemCondition(storage, family.id)} ${match} ${order} limit ${limit + 1}`),
   );
   return { items: rows.slice(0, limit), hasMore: rows.length > limit };
 }

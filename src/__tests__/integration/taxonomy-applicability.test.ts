@@ -64,7 +64,11 @@ import {
   getTaxonomyItems,
   replaceTaxonomyAssignments,
   getTaxonomyFamilyUsage,
+  getTaxonomyAssignments,
+  searchTaxonomyItems,
 } from "@/lib/actions/taxonomy-families";
+import { systemWorkTaxonomyMatch } from "@/lib/catalogue/taxonomy-storage";
+import { and, count, eq } from "drizzle-orm";
 import { updateWorkTaxonomy } from "@/lib/actions/taxonomy";
 
 describe.skipIf(!url)("domain and level-aware taxonomy", () => {
@@ -569,5 +573,54 @@ describe.skipIf(!url)("domain and level-aware taxonomy", () => {
     const subjects = (await getTaxonomyFamily("subjects"))!;
     await expect(deleteTaxonomyFamily(subjects.id)).rejects.toThrow(/^System families cannot be deleted$/);
     expect((await getTaxonomyFamilyUsage(subjects.id))!.deletable).toBe(false);
+  });
+  it("counts and lists every kind a shared family applies to, and tags them in place (SLN-1157)", async () => {
+    const films = (
+      await c`insert into works(title,slug,kind,original_language) values ('Film two','film-two','film',null),('Film three','film-three','film',null) returning id`
+    ).map((r) => String(r.id));
+    const allFilms = [work.film, ...films];
+    const decadence = await createTaxonomyItem("themes", { name: "Decadence" });
+    const filmOnly = await createTaxonomyItem("themes", { name: "Film-only theme" });
+    await c`insert into work_themes(work_id,theme_id) values (${work.book},${decadence.id}),(${work.painting},${decadence.id})`;
+    // A film is tagged with a Theme from its own page
+    for (const id of allFilms)
+      await replaceTaxonomyAssignments({ familySlug: "themes", kind: "film", level: "work", ownerId: id, itemIds: [decadence.id, filmOnly.id] });
+    const counts = Object.fromEntries((await getTaxonomyItems("themes")).map((i) => [i.name, i.entityCount]));
+    expect(counts).toMatchObject({ Decadence: 5, "Film-only theme": 3 });
+    const rows = (await getTaxonomyBrowsePage("themes"))!.items;
+    for (const row of rows) expect(row.entityCount).toBe(row.linkCount);
+    expect(rows.find((r) => r.id === filmOnly.id)?.entityCount).toBe(3);
+    const term = (await getTaxonomyTerm("themes", decadence.slug))!;
+    expect(term.direct).toBe(5);
+    expect(Object.fromEntries(term.kindCounts.map((k) => [k.kind, k.count]))).toEqual({ book: 1, film: 3, painting: 1 });
+    expect((await getTaxonomyTerm("themes", filmOnly.slug))?.direct).toBe(3);
+    expect((await getTaxonomyFamilies()).find((f) => f.slug === "themes")?.entityCount).toBe(5);
+    // The term page's links open the lists filtered to the item: their
+    // filters match built-in families as they match custom ones
+    const listed = async (kind: "film" | "painting" | "perfume", itemId: string) =>
+      (await testDb!.select({ n: count() }).from(schema.works)
+        .where(and(eq(schema.works.kind, kind), systemWorkTaxonomyMatch(schema.works.id, itemId))))[0].n;
+    expect(await listed("film", decadence.id)).toBe(3);
+    expect(await listed("painting", decadence.id)).toBe(1);
+    expect(await listed("perfume", decadence.id)).toBe(0);
+    // The film page offers the built-in families; a book keeps its own editors,
+    // a painting its movements
+    const filmFamilies = await getTaxonomyAssignments({ kind: "film", level: "work", ownerId: work.film });
+    expect(filmFamilies.find((f) => f.slug === "themes")?.items.map((i) => i.name)).toEqual(["Decadence", "Film-only theme"]);
+    expect(filmFamilies.map((f) => f.slug)).toEqual(expect.arrayContaining(["film-genres", "subjects", "keywords"]));
+    expect((await getTaxonomyAssignments({ kind: "book", level: "work", ownerId: work.book })).some((f) => f.slug === "themes")).toBe(false);
+    const paintingFamilies = (await getTaxonomyAssignments({ kind: "painting", level: "work", ownerId: work.painting })).map((f) => f.slug);
+    expect(paintingFamilies).toEqual(expect.arrayContaining(["art-types", "themes"]));
+    expect(paintingFamilies).not.toContain("art-movements");
+    expect((await searchTaxonomyItems("themes", { query: "DECA" })).items.map((i) => i.name)).toEqual(["Decadence"]);
+    // A custom family for books and films counts the film tagged from its page
+    const moods = await createTaxonomyFamily({ name: "Moods", scopes: [{ kind: "book", level: "work" }, { kind: "film", level: "work" }] });
+    const melancholy = await createTaxonomyItem(moods.slug, { name: "Melancholy" });
+    for (const kind of ["book", "film"] as const)
+      await replaceTaxonomyAssignments({ familySlug: moods.slug, kind, level: "work", ownerId: work[kind], itemIds: [melancholy.id] });
+    const mood = (await getTaxonomyTerm(moods.slug, melancholy.slug))!;
+    expect(mood.direct).toBe(2);
+    expect(mood.kinds).toEqual(["book", "film"]);
+    expect((await getTaxonomyItems(moods.slug))[0].entityCount).toBe(2);
   });
 });
