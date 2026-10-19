@@ -177,8 +177,12 @@ describe("the stats charts", () => {
     const frame = figure.querySelector("[data-chart-frame]")!;
     const caption = () => figure.querySelector("[data-chart-caption]")!.textContent;
     const live = () => figure.querySelector("[data-chart-live]")!.textContent;
-    // Every bar's count with its noun in the right form, not "... Dec 0 books"
-    expect(caption()).toMatch(/^Books finished by month: January 2025: 3 books; February 2025: 1 book; March 2025: 0 books;/);
+    // Every bar's count with its noun in the right form, not "... Dec 0 books", said once by the image (SLN-1172)
+    expect(figure.querySelector("svg")!.getAttribute("aria-label")).toMatch(/^Books finished by month: January 2025: 3 books; February 2025: 1 book; March 2025: 0 books;/);
+    // Over it a visible title that names the figure; under it the total and the highest month
+    const title = figure.querySelector("[data-chart-title]")!;
+    expect([title.textContent, figure.getAttribute("aria-labelledby")]).toEqual(["Books finished", title.id]);
+    expect(caption()).toBe("7 books in all; the most in January 2025, 3 books");
     await key(frame, "ArrowRight");
     expect([caption(), live()]).toEqual(["January 2025: 3 books", "January 2025: 3 books"]);
     await key(frame, "ArrowRight");

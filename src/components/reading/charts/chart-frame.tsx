@@ -9,6 +9,9 @@ import { moveFocus } from "@/lib/reading/charts";
  * one, Up and Down by `step`, Home and End), the focused value in a caption
  * line and a polite live region, and "Show as table". It measures its width
  * with a ResizeObserver; the chart's height is fixed, so nothing shifts.
+ * The whole chart in words is said once, by the SVG (SLN-1172): the caption
+ * shows a short line until a point has focus, and the figure is named by the
+ * visible title, or by the label when there is none.
  */
 
 export interface ChartPoint {
@@ -18,7 +21,8 @@ export interface ChartPoint {
 
 export function ChartFrame({
   label,
-  summary,
+  title,
+  brief,
   points,
   step = 1,
   height,
@@ -28,8 +32,10 @@ export function ChartFrame({
 }: {
   /** Names the chart: "Books by month" */
   label: string;
-  /** The whole chart in words, for the SVG's aria-label and the caption before a point is chosen */
-  summary: string;
+  /** A visible title over the chart, which then names the figure: "Books finished" */
+  title?: string;
+  /** The caption before a point is chosen: a total and a peak, or the label when there is none */
+  brief?: string;
   points: ChartPoint[];
   /** How far Up and Down move: 7 in the calendar */
   step?: number;
@@ -48,6 +54,7 @@ export function ChartFrame({
   const [said, setSaid] = useState("");
   const [showTable, setShowTable] = useState(false);
   const captionId = useId();
+  const titleId = useId();
   const tableId = useId();
 
   useEffect(() => {
@@ -69,9 +76,15 @@ export function ChartFrame({
     setSaid(points[next].text);
   }
 
-  const caption = focus !== null ? points[focus]?.text : summary;
+  const caption = focus !== null ? points[focus]?.text : (brief ?? label);
   return (
-    <figure className="min-w-0" data-chart={label}>
+    <figure className="min-w-0" data-chart={label} {...(title ? { "aria-labelledby": titleId } : { "aria-label": label })}>
+      {title && (
+        // Hidden from assistive technology: it names the figure, so it is said there once
+        <p id={titleId} aria-hidden className="mb-3 type-caption" data-chart-title="">
+          {title}
+        </p>
+      )}
       <div
         ref={box}
         tabIndex={0}
@@ -90,8 +103,8 @@ export function ChartFrame({
       >
         {width > 0 && children(width, focus)}
       </div>
-      {/* A blur replaces the focused value with the longer summary. Keep
-          the toggle in its own column so that change cannot move its hit area. */}
+      {/* A blur replaces the focused value with the short line. Keep the
+          toggle in its own column so that change cannot move its hit area. */}
       <figcaption className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1">
         <p id={captionId} className="min-h-4 min-w-0 break-words text-xs text-fg-secondary" data-chart-caption="">
           {caption}

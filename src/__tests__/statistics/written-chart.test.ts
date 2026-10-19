@@ -42,7 +42,9 @@ describe("written chart with compact server data", () => {
       { year: 1957, count: 4 }, { year: 2026, count: 1 },
     ]);
     act(() => root.render(createElement(WrittenChart, { years })));
-    expect(axis()).toEqual(["1827", "2026"]);
+    // The tallest bar's tick, then the first and last year (SLN-1172)
+    expect(axis()).toEqual(["4", "1827", "2026"]);
+    expect(host.querySelector("[data-chart-caption]")?.textContent).toBe("10 books, 1827 to 2026");
     expect(host.querySelector("svg")?.getAttribute("aria-label"))
       .toBe("Books by the year they were written, 1827 to 2026");
     expect(host.querySelectorAll("[data-tooltip]")).toHaveLength(200);
@@ -56,7 +58,8 @@ describe("written chart with compact server data", () => {
     expect(host.querySelector("[data-chart-live]")?.textContent).toBe("2026: 1 book");
 
     click(Array.from(host.querySelectorAll("button")).find((button) => button.textContent === "Decades")!);
-    expect(axis()).toEqual(["Before 1850", "2020s"]);
+    expect(axis()).toEqual(["4", "Before 1850", "2020s"]);
+    expect(host.querySelector("[data-chart-caption]")?.textContent).toBe("11 books, Before 1850 to 2020s");
     expect(host.querySelector("svg")?.getAttribute("aria-label"))
       .toBe("Books by the decade they were written, Before 1850 to 2020s");
     expect(host.querySelectorAll("[data-tooltip]")).toHaveLength(19);
