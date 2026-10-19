@@ -129,7 +129,28 @@ const markColumns = sql`m.id, m.kind, m.style, m.color, ${shown(sql`m.text`, SHO
   m.locator->>'pageLabel' as "pageLabel", m.progression, m.anchor_state as "anchorState",
   to_char(m.updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "updatedAt"`;
 
-/** One page of books with marks, newest mark first, each with its newest marks.
+/**
+ * Each mark's CFI as an integer array, `steps`, as `cfiPlace` in
+ * `lib/reader/book-order.ts` reads it: each step's index, then the character
+ * offset, from a range's start. Null when it does not read as a CFI.
+ */
+const cfiSteps = sql`cross join lateral (select regexp_replace(
+    substring(btrim(m.locator->>'cfi') from '^epubcfi\\((.*)\\)$'), '\\[(?:\\^.|[^]^])*\\]', '', 'g') as body) cfi_body
+  cross join lateral (select regexp_replace(split_part(cfi_body.body, ',', 1) || split_part(cfi_body.body, ',', 2),
+    '[~@].*$', '') as path) cfi_path
+  cross join lateral (select case when cfi_path.path ~ '^(?:[/!:~@]|\\d|\\.)+$' then
+    (select array_agg(step[2]::integer order by n)
+      from regexp_matches(substring(cfi_path.path from '^[^:]*(?::\\d+)?'), '([/:])(\\d+)', 'g') with ordinality as found(step, n))
+    end as steps) cfi`;
+
+/**
+ * A book's marks in reading order, as the reader's panel and the export list
+ * them (compareBookPlaces): by section, then by CFI, then by progression
+ * (SLN-1000). Needs `cfiSteps` joined.
+ */
+const bookOrder = sql`(m.locator->>'sectionIndex')::integer, cfi.steps nulls last, m.progression, m.id`;
+
+/** One page of books with marks, newest mark first, each with its first marks in book order.
  * Filtered to one book: that book, with one page of its marks. */
 export function highlightGroupsQuery(params: HighlightParams): SQL {
   const perGroup = params.ebookId ? params.perPage : MARKS_PER_GROUP;
@@ -146,9 +167,10 @@ export function highlightGroupsQuery(params: HighlightParams): SQL {
     coalesce((select json_agg(json_build_object(
       'id', m.id, 'kind', m.kind, 'style', m.style, 'color', m.color, 'text', m.text, 'note', m.note,
       'chapter', m.chapter, 'pageLabel', m."pageLabel", 'progression', m.progression,
-      'anchorState', m."anchorState", 'updatedAt', m."updatedAt") order by m."updatedAt" desc, m.id)
-      from (select ${markColumns} from marks m where m.ebook_id = page.ebook_id
-        order by m.updated_at desc, m.id limit ${perGroup} offset ${markOffset}) m), '[]'::json) as marks
+      'anchorState', m."anchorState", 'updatedAt', m."updatedAt") order by m.place)
+      from (select ${markColumns}, row_number() over (order by ${bookOrder}) as place
+        from marks m ${cfiSteps} where m.ebook_id = page.ebook_id
+        order by ${bookOrder} limit ${perGroup} offset ${markOffset}) m), '[]'::json) as marks
   from page join ebooks e on e.id = page.ebook_id
   order by ${groupOrder(params, sql`page`)}`;
 }

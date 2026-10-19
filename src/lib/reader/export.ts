@@ -42,14 +42,16 @@ export function annotationsToMarkdown(input: AnnotationExportInput): string {
     `Exported ${escapeMarkdown(input.exportedAt)}`,
     "",
   ];
-  const groups = new Map<string, ReaderAnnotation[]>();
+  // Each heading covers the marks in a row under one chapter, in book order,
+  // so a heading repeats when the book comes back to it (SLN-1001)
+  const groups: { chapter: string; items: ReaderAnnotation[] }[] = [];
   for (const item of exportAnnotations(input)) {
     const chapter = item.chapter ?? item.locator.tocLabel ?? "No chapter";
-    const group = groups.get(chapter) ?? [];
-    group.push(item);
-    groups.set(chapter, group);
+    const last = groups.at(-1);
+    if (last?.chapter === chapter) last.items.push(item);
+    else groups.push({ chapter, items: [item] });
   }
-  for (const [chapter, items] of groups) {
+  for (const { chapter, items } of groups) {
     lines.push(`## ${escapeMarkdown(chapter)}`, "");
     for (const item of items.filter((mark) => mark.kind === "highlight")) {
       lines.push(
