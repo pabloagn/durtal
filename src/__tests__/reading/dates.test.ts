@@ -68,12 +68,22 @@ describe("imprecise dates", () => {
     const today = "2026-10-04";
     const r = { status: "finished" as const, startedOn: "2019-04-03", startedPrecision: "day" as const, finishedOn: "2019-04-14", finishedPrecision: "day" as const };
     expect(formatReadingSpan(r, today)).toBe("3 to 14 Apr 2019");
-    expect(formatReadingSpan({ ...r, startedOn: "2019-03-01", startedPrecision: "month" }, today)).toBe("Mar 2019 to 14 Apr 2019");
+    expect(formatReadingSpan({ ...r, startedOn: "2019-03-01", startedPrecision: "month" }, today)).toBe("Mar to 14 Apr 2019");
     expect(formatReadingSpan({ ...r, startedOn: null, startedPrecision: "unknown", finishedOn: "2009-01-01", finishedPrecision: "year" }, today)).toBe("Finished 2009");
     expect(
       formatReadingSpan({ status: "reading", startedOn: "2026-10-02", startedPrecision: "day", finishedOn: null, finishedPrecision: "unknown" }, today),
     ).toBe("Started 2 Oct");
     expect(formatReadingSpan({ ...r, startedOn: null, startedPrecision: "unknown", finishedOn: null, finishedPrecision: "unknown" }, today)).toBe("Dates unknown");
+  });
+  it("says a shared year once, and keeps both years across years (SLN-1097)", () => {
+    const today = "2026-10-18";
+    const span = (startedOn: string, startedPrecision: "day" | "month", finishedOn: string, finishedPrecision: "day" | "month") =>
+      formatReadingSpan({ status: "finished", startedOn, startedPrecision, finishedOn, finishedPrecision }, today);
+    expect(span("2026-04-01", "month", "2026-05-01", "month")).toBe("Apr to May 2026");
+    expect(span("2026-04-03", "day", "2026-05-01", "month")).toBe("3 Apr to May 2026");
+    expect(span("2026-04-03", "day", "2026-05-14", "day")).toBe("3 Apr to 14 May 2026");
+    expect(span("2025-11-01", "month", "2026-02-01", "month")).toBe("Nov 2025 to Feb 2026");
+    expect(span("2025-12-30", "day", "2026-01-02", "day")).toBe("30 Dec 2025 to 2 Jan 2026");
   });
   it("writes one date when a span starts and ends in the same period (SLN-929)", () => {
     const today = "2026-10-16";
@@ -90,6 +100,16 @@ describe("imprecise dates", () => {
     expect(span("2026-10-15", "day", "2026-10-16", "day")).toBe("15 to 16 Oct 2026");
     expect(span("2019-01-01", "year", "2020-01-01", "year")).toBe("2019 to 2020");
     expect(span("2020-05-01", "month", "2021-01-01", "year")).toBe("May 2020 to 2021");
+  });
+  it("leaves the outcome word out when the line names it after (SLN-1098)", () => {
+    const today = "2026-10-18";
+    const bare = (status: "finished" | "abandoned", startedOn: string | null, startedPrecision: "unknown" | "day" | "month" | "year", finishedOn: string, finishedPrecision: "day" | "month" | "year") =>
+      formatReadingSpan({ status, startedOn, startedPrecision, finishedOn, finishedPrecision }, today, { bare: true });
+    expect(bare("finished", null, "unknown", "2024-11-27", "day")).toBe("27 Nov 2024");
+    expect(bare("abandoned", null, "unknown", "2024-11-27", "day")).toBe("27 Nov 2024");
+    expect(bare("finished", "2021-01-01", "year", "2021-02-01", "month")).toBe("Feb 2021");
+    expect(bare("abandoned", "2020-05-03", "day", "2020-01-01", "year")).toBe("2020, started 3 May");
+    expect(bare("finished", "2019-04-03", "day", "2019-04-14", "day")).toBe("3 to 14 Apr 2019");
   });
   it("counts days to finish only between two exact days", () => {
     expect(daysToFinish({ startedOn: "2019-04-03", startedPrecision: "day", finishedOn: "2019-04-14", finishedPrecision: "day" })).toBe(12);

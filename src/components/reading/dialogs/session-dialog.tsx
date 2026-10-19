@@ -10,6 +10,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { getReadingSessions, type SessionRow } from "@/lib/actions/reading";
 import { addSession, deleteSession, updateSession } from "@/lib/actions/catalogue-client";
 import { formatOfCopy, type ReadingFormat } from "@/lib/reading/constants";
+import { readingDateLimit } from "@/lib/reading/dates";
 import { formatMinutes, parseProgressInput, type ProgressInput } from "@/lib/reading/positions";
 import { atText } from "../session-list";
 import { atWallTime, durationWords, wallTime } from "@/lib/reading/timer";
@@ -93,6 +94,8 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
   const [readOn, setReadOn] = useState(() => editing?.readOn ?? todayReadingDay(data.dayStartHour));
   // An edited session's time is in its own zone; a new one is in the browser's
   const zone = editing?.timeZone ?? browserZone();
+  // No day after today in the session's zone: the server refuses a session in the future (SLN-1097)
+  const maxDate = readingDateLimit(zone);
   const [initialTime] = useState(() => (editing?.startedAt ? wallTime(editing.startedAt, zone) : ""));
   const [time, setTime] = useState(initialTime);
   const read = editing?.durationSeconds ? Math.round(editing.durationSeconds / 60) : null;
@@ -250,7 +253,7 @@ export function SessionDialog({ data, row, request, onClose, changed }: ReadingD
     <Dialog draft open onClose={onClose} title={editing ? "Edit session" : "Add a session"} description={data.workTitle} className="max-w-lg">
       <form id={formId} onSubmit={save} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <DatePicker label="Date" value={readOn} onChange={(d) => d && setReadOn(d)} />
+          <DatePicker label="Date" value={readOn} onChange={(d) => d && setReadOn(d)} max={maxDate} />
           <Input label="Start time (optional)" type="time" value={time} onChange={(e) => setTime(e.target.value)} error={overlapError ?? undefined} />
         </div>
         <fieldset className="space-y-1.5">
