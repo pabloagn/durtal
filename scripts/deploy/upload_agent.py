@@ -22,7 +22,8 @@ from mac_release import Refusal, executable, file_hash, owned_path
 LABEL = 'com.durtal.ebook-upload'
 PROFILE = 'durtal-personal'
 # macOS empties these; nothing the agent needs may live there
-VOLATILE = (Path('/tmp'), Path('/private/tmp'), Path('/var/tmp'), Path('/private/var/tmp'))
+VOLATILE = (Path('/tmp'), Path('/private/tmp'), Path('/var/tmp'), Path('/private/var/tmp'),
+            Path('/var/folders'), Path('/private/var/folders'))
 THROTTLE_SECONDS = 60
 # launchd sends SIGTERM, then SIGKILL after this: longer than an inspection
 # (120 s) and the service's cleanup (30 s), so a stop never needs the kill
@@ -33,7 +34,7 @@ def lasting(path, what):
     path = owned_path(path)
     resolved = path.resolve()
     if any(resolved == folder or folder in resolved.parents for folder in VOLATILE):
-        raise Refusal('%s must be outside /tmp and /private/tmp' % what)
+        raise Refusal('%s must be outside /tmp, /private/tmp and the temporary folders macOS empties' % what)
     return path
 
 

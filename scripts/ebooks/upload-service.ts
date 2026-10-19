@@ -85,6 +85,12 @@ async function exitForSignIn(): Promise<never> {
   process.exit(SIGN_IN_EXIT);
 }
 
+/** Any other exit clears a sign-in note left earlier: whatever stops it now is not the sign-in */
+async function exitWith(code: number): Promise<never> {
+  await clearUploadServiceStatus(paths.socket).catch(() => {});
+  process.exit(code);
+}
+
 function revision(): string {
   return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 }
@@ -191,8 +197,12 @@ async function start() {
   let stopping: Promise<void> | null = null;
   const stop = (reason: string, code: number) => {
     stopping ??= service.stop(reason).then(
-      async () => { log(`Stopped (${reason})`); if (expired) await exitForSignIn(); process.exit(code); },
-      (error: unknown) => { log(`Stop did not settle; ownership stays held until the process exits: ${error instanceof Error ? error.message : String(error)}`); process.exit(1); },
+      async () => { log(`Stopped (${reason})`); if (expired) await exitForSignIn(); await exitWith(code); },
+      async (error: unknown) => {
+        log(`Stop did not settle; ownership stays held until the process exits: ${error instanceof Error ? error.message : String(error)}`);
+        if (expired) await exitForSignIn();
+        await exitWith(1);
+      },
     );
   };
   process.once("SIGINT", () => stop("shutdown", 0));
@@ -213,5 +223,6 @@ try {
 } catch (error) {
   console.error(`[upload-service ${new Date().toISOString()}] Error: ${error instanceof Error ? error.message : String(error)}`);
   if (command === "start" && signInNeeded(error)) await exitForSignIn();
+  if (command === "start") await exitWith(1);
   process.exit(1);
 }

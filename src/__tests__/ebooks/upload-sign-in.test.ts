@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { execFile } from "node:child_process";
 import { createServer, type Server } from "node:net";
-import { chmod, mkdtemp, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { UploadHostClient } from "@/lib/ebooks/upload/host-bridge";
@@ -60,4 +61,19 @@ describe("the upload service's sign-in note", () => {
     await clearUploadServiceStatus(socketPath);
     expect(await readUploadServiceStatus(socketPath)).toBeNull();
   });
+
+  it("drops the note when a later start fails for another reason", async () => {
+    // Signed in again, but this start fails before it is ready: here, no service.json
+    const state = path.join(run, "state");
+    await mkdir(path.join(state, "run"), { recursive: true, mode: 0o700 });
+    const stateSocket = path.join(state, "run", "bridge.sock");
+    await writeUploadServiceStatus(stateSocket, "aws_sign_in");
+    const exit = await new Promise<number | null>((resolve) => {
+      execFile(process.execPath, ["--import", "tsx", "scripts/ebooks/upload-service.ts", "start", "--state-dir", state],
+        { cwd: process.cwd(), env: { ...process.env, NODE_ENV: "production" } }, (error) => resolve(error ? (error.code as number) : 0));
+    });
+    expect(exit).toBe(1);
+    expect(await readUploadServiceStatus(stateSocket)).toBeNull();
+    expect(await readdir(path.join(state, "run"))).toEqual([]);
+  }, 30_000);
 });
