@@ -62,13 +62,13 @@ scripts/
     +-- seed_readings.py       The reading history as files (not part of --all)
 ```
 
-Each `seed_*.py` also runs on its own with `--dry-run` (and `--limit N` for authors and books, `--priority` for books).
+Each `seed_*.py` but `seed_readings.py` also runs on its own with `--dry-run` (and `--limit N` for authors and books, `--priority` for books).
 
 ---
 
 ## Execution Order
 
-Steps must run in dependency order. Reference, taxonomy, publishers, authors and series skip what already exists, so they are safe to re-run. The books step is not: it reuses a work it finds by slug but adds that row's edition and copies again.
+Steps must run in dependency order. No step is safe to re-run against a library edited since its seed: authors overwrite their seeded fields (names, dates, nationality), subjects their descriptions and series their original titles; publishers match on exact name and country, so a house renamed in the app is added again; and the books step reuses a work it finds by slug but adds that row's edition and copies again.
 
 ### Step 1: Reference Data
 
@@ -114,7 +114,6 @@ Key logic:
 - Generate full-path slugs for uniqueness (e.g., `fiction/literary-fiction/classics`)
 - Handle NULL hierarchy levels (partial definitions)
 - Art types filtered by literature-related work types
-- Link categories to editions via `edition_genres` using category assignments from `Books.Temporary Tags` or `Books.Book_Type`
 - Art types filtered by `Applicable_Work_Type(s)` to include only literature-related entries
 
 ### Step 3: Publishing Houses
@@ -161,7 +160,8 @@ Import the main book inventory, with a copy for each library column a row fills.
 | `works` | Books | 3,905 |
 | `editions` | Books | 3,905 |
 | `work_authors` | (junction) | derived |
-| `edition_genres` | (junction) | derived |
+| `work_subjects` | Books (`Tradition`) | derived |
+| `work_keywords` | Books (`Temporary Tags`) | derived |
 | `instances` | Books (`Library_*` columns) | derived |
 
 Script: `scripts/ingest/seed_books.py`
@@ -344,7 +344,7 @@ uv run python -m scripts.ingest.main --step readings --out DIR
 |---|---|
 | `--all` | Run the six steps in order |
 | `--step NAME` | Run one step: `reference`, `taxonomy`, `publishers`, `authors`, `books`, `series` or `readings` |
-| `--dry-run` | Read and report without writing |
+| `--dry-run` | Read and report without writing (the readings step writes its files regardless) |
 | `--priority 5,4,3` | The `Priority` values the books step takes (default 5, 4 and 3) |
 | `--limit N` | At most N rows, for the authors and books steps |
 | `--out DIR` | The folder the readings step writes to (required for it) |

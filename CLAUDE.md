@@ -46,7 +46,7 @@ src/                    Next.js application (TypeScript)
   hooks/                Custom React hooks
   styles/               Global CSS
 
-scripts/                Python ingestion and TUI, plus TypeScript e-book, QA and deploy tools (none in the image)
+scripts/                Python ingestion, TUI and deploy tools, plus JavaScript and TypeScript e-book and QA tools (none in the image)
   ingest/               Seed data ETL pipeline
 
 docs/                   Specifications and documentation

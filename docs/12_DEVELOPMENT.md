@@ -144,7 +144,7 @@ All commands can be run via `task <name>`:
 | `task format` | Format code with Prettier |
 | `task typecheck` | TypeScript type check only |
 | `task db:generate` | Generate Drizzle migration from schema changes |
-| `task db:migrate` | Apply pending migrations to Neon |
+| `task db:migrate` | Apply pending migrations to the database in `DATABASE_URL` (live migrations go through docs/11, Release order) |
 | `task db:push` | Push schema directly (dev only, no migration) |
 | `task db:studio` | Open Drizzle Studio browser |
 | `task ingest` | Run full ingestion pipeline |
@@ -190,7 +190,7 @@ The Taskfile loads `.env.local` and `.env` automatically (`dotenv` directive).
 1. **Modify schema** in `src/lib/db/schema/*.ts`
 2. **Generate migration**: `task db:generate` (creates SQL file in `src/lib/db/migrations/`)
 3. **Review migration**: Inspect the generated SQL
-4. **Apply migration**: `task db:migrate` (runs against Neon)
+4. **Apply migration**: locally, `pnpm test:local` and `preview-local.py` apply it to their disposable databases; live, it goes through the release's backup, rehearsal and `live_migrate.py migrate` (docs/11, Release order)
 5. **Update docs**: Update `docs/02_DATA_MODEL.md` to match the schema, and `docs/01_ARCHITECTURE.md` if the change is architectural
 
 For rapid development:

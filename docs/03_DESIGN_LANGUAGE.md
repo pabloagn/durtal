@@ -72,7 +72,7 @@ Headings are deliberately normal weight — understated. Boldness is used sparin
 
 ### Font Loading
 
-`src/styles/root-fonts.ts` loads three families, and every document root uses it: the catalogue layout (`src/app/(catalogue)/layout.tsx`) and `MinimalRoot` (`src/components/layout/minimal-root.tsx`), which the reader's layout and the global error and not-found pages render:
+`src/styles/root-fonts.ts` loads three families, and every document root uses it: the catalogue layout (`src/app/(catalogue)/layout.tsx`) and `MinimalRoot` (`src/components/layout/minimal-root.tsx`), which the reader's layout, the offline pages' layout and the global error and not-found pages render:
 
 ```typescript
 const serif = localFont({ src: [/* PPCirka-Light.otf 300, PPCirka-Bold.otf 700 */], variable: "--font-serif" });
