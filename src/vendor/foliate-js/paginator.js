@@ -4250,6 +4250,18 @@ export class Paginator extends HTMLElement {
             && index !== keep
             && (!this.scrolled || this.#getViewOffset(index)
                 + this.#views.get(index).element.getBoundingClientRect()[this.sideProp] < start - reach))
+        if (!this.scrolled) {
+            // A turn lands on whole spreads counted from the first view, so
+            // unload only up to a chapter end on a spread boundary: removing a
+            // chapter that ends mid-spread moves that grid by a column, and
+            // the next turn would skip the column it moved by
+            let width = 0, aligned = 0
+            passed.forEach(([, view], i) => {
+                width += view.element.getBoundingClientRect()[this.sideProp]
+                if (Math.abs(width / this.size - Math.round(width / this.size)) < 0.01) aligned = i + 1
+            })
+            passed.length = aligned
+        }
         if (!passed.length) return
         const position = this.containerPosition
         let removed = 0

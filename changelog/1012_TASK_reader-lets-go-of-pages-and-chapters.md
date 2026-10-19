@@ -26,7 +26,11 @@ and measured by the third reviewer.
   every chapter read stayed loaded. `#trimPassedViews` keeps the chapter
   just before, which a spread or a back turn can show, and in scrolled mode
   what lies within ten screens above; it unloads the rest and moves the
-  scroll position back by the space they took. The primary chapter usually
+  scroll position back by the space they took. With two pages on screen it
+  unloads only up to a chapter that ends on a spread boundary, as turns land
+  on whole spreads counted from the first loaded chapter: removing one that
+  ends mid-spread moved that grid by a page, and the next turn skipped it
+  (found by the reviewer). The primary chapter usually
   changes mid-turn, while the trim waits out the animation, so it runs
   again once the turn settles.
 - `scripts/qa/reader-memory.mjs`: a guard. Headless Chrome reads the 4-page
@@ -55,6 +59,11 @@ and measured by the third reviewer.
   Firefox (16) and WebKit (17). Headless WebKit here ends a page that stops
   answering while the machine is busy, on main as on this change, so its run
   was made with nothing else running.
+- Two pages on screen, the 100-chapter EPUB, 100 turns forward and 60 back
+  (the reviewer's probe): before the spread-boundary rule, 3 turns in
+  Chromium and 5 in Firefox skipped a page, each right after a chapter was
+  unloaded; with it, none in Chromium. Headless WebKit stops answering after
+  about 40 turns of that probe on main as well, so it gives no result there.
 - Not fixed, re-measured as the reviewer asked: the 4-page PDF read back and
   forth still adds nodes (877 to 1,997 over 280 turns) while its documents
   stay at 6; `pdf-raster-renderer.ts` keeps a hidden page's entry until it
