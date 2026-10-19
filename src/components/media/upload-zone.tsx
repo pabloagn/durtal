@@ -6,6 +6,8 @@ import { Upload } from "lucide-react";
 import type { MediaType } from "@/lib/types";
 import type { MonochromeParams } from "@/lib/validations/media";
 import { IMAGE_ACCEPT, imageFileRefusal } from "@/lib/validations/media-security";
+import { createUploadQueue } from "@/lib/utils/upload-queue";
+import { countLabel } from "@/lib/utils/format";
 
 interface ZoneOptions {
   onUploadComplete?: () => void;
@@ -49,7 +51,7 @@ interface UploadState {
   id: string;
   filename: string;
   error?: string;
-  status: "uploading" | "done" | "error";
+  status: "queued" | "uploading" | "done" | "error";
 }
 
 /**
@@ -130,113 +132,112 @@ export function UploadZone({
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const processFile = useCallback(
-    async (file: File) => {
+  // A few at a time, so a gallery drop never sends every photo at once (SLN-1461)
+  const [queue] = useState(createUploadQueue);
+  const [cancelled, setCancelled] = useState<number | null>(null);
+
+  const enqueue = useCallback(
+    (filename: string, upload: () => Promise<void>) => {
       const id = crypto.randomUUID();
+      setCancelled(null);
+      // A new batch starts the count of what was added afresh
+      setUploads((prev) => [
+        ...(prev.some((u) => u.status === "queued" || u.status === "uploading")
+          ? prev
+          : prev.filter((u) => u.status !== "done")),
+        { id, filename, status: "queued" },
+      ]);
+      queue.add(id, async () => {
+        setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, status: "uploading" } : u)));
+        try {
+          await upload();
+          setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, status: "done" } : u)));
+          onUploadComplete?.();
+        } catch (error) {
+          setUploads((prev) =>
+            prev.map((u) =>
+              u.id === id
+                ? {
+                    ...u,
+                    status: "error",
+                    error:
+                      error instanceof Error
+                        ? error.message
+                        : "The connection was interrupted. Check the media list before trying again.",
+                  }
+                : u,
+            ),
+          );
+        }
+      });
+    },
+    [queue, onUploadComplete],
+  );
+
+  const processFile = useCallback(
+    (file: File) => {
       // Too large, or a type the server refuses: said at once, nothing sent
       const refused = imageFileRefusal(file);
       if (refused) {
-        setUploads((prev) => [...prev, { id, filename: file.name, status: "error", error: refused }]);
+        setUploads((prev) => [
+          ...prev,
+          { id: crypto.randomUUID(), filename: file.name, status: "error", error: refused },
+        ]);
         return;
       }
-      setUploads((prev) => [
-        ...prev,
-        { id, filename: file.name, status: "uploading" },
-      ]);
-
-      try {
-        if (send) await send.file(file);
-        else
-          await uploadMediaFile(() => {
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("entityType", entityType!);
-            formData.append("entityId", entityId!);
-            formData.append("mediaType", mediaType!);
-            if (processingParams)
-              formData.append(
-                "processingParams",
-                JSON.stringify(processingParams),
-              );
-            return formData;
-          });
-
-        setUploads((prev) =>
-          prev.map((u) => (u.id === id ? { ...u, status: "done" } : u)),
-        );
-
-        onUploadComplete?.();
-      } catch (error) {
-        setUploads((prev) =>
-          prev.map((u) =>
-            u.id === id
-              ? {
-                  ...u,
-                  status: "error",
-                  error:
-                    error instanceof Error
-                      ? error.message
-                      : "The connection was interrupted. Check the media list before trying again.",
-                }
-              : u,
-          ),
-        );
-      }
+      enqueue(file.name, () =>
+        send
+          ? send.file(file)
+          : uploadMediaFile(() => {
+              const formData = new FormData();
+              formData.append("file", file);
+              formData.append("entityType", entityType!);
+              formData.append("entityId", entityId!);
+              formData.append("mediaType", mediaType!);
+              if (processingParams)
+                formData.append(
+                  "processingParams",
+                  JSON.stringify(processingParams),
+                );
+              return formData;
+            }),
+      );
     },
-    [entityType, entityId, mediaType, onUploadComplete, processingParams, send],
+    [entityType, entityId, mediaType, processingParams, send, enqueue],
   );
 
   const processUrl = useCallback(
-    async (imageUrl: string) => {
+    (imageUrl: string) => {
       const filename =
         imageUrl.split("/").pop()?.split("?")[0]?.slice(0, 40) ||
         "dragged-image";
 
-      const id = crypto.randomUUID();
-      setUploads((prev) => [...prev, { id, filename, status: "uploading" }]);
+      enqueue(filename, async () => {
+        if (send) return send.url(imageUrl);
+        const res = await fetch("/api/media/from-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            entityType,
+            entityId,
+            mediaType,
+            imageUrl,
+            ...(processingParams ? { processingParams } : {}),
+          }),
+        });
 
-      try {
-        if (send) await send.url(imageUrl);
-        else {
-          const res = await fetch("/api/media/from-url", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              entityType,
-              entityId,
-              mediaType,
-              imageUrl,
-              ...(processingParams ? { processingParams } : {}),
-            }),
-          });
-
-          if (!res.ok) throw await mediaResponseError(res);
-        }
-
-        setUploads((prev) =>
-          prev.map((u) => (u.id === id ? { ...u, status: "done" } : u)),
-        );
-
-        onUploadComplete?.();
-      } catch (error) {
-        setUploads((prev) =>
-          prev.map((u) =>
-            u.id === id
-              ? {
-                  ...u,
-                  status: "error",
-                  error:
-                    error instanceof Error
-                      ? error.message
-                      : "The connection was interrupted. Check the media list before trying again.",
-                }
-              : u,
-          ),
-        );
-      }
+        if (!res.ok) throw await mediaResponseError(res);
+      });
     },
-    [entityType, entityId, mediaType, onUploadComplete, processingParams, send],
+    [entityType, entityId, mediaType, processingParams, send, enqueue],
   );
+
+  /** Drops the photos not yet sent; the ones being sent finish and are kept */
+  const cancelWaiting = useCallback(() => {
+    const dropped = new Set(queue.cancel());
+    setUploads((prev) => prev.filter((u) => !dropped.has(u.id)));
+    setCancelled(dropped.size);
+  }, [queue]);
 
   const handleFiles = useCallback(
     (files: FileList | null) => {
@@ -281,6 +282,9 @@ export function UploadZone({
   );
 
   const activeUploads = uploads.filter((u) => u.status !== "done");
+  const waiting = uploads.filter((u) => u.status === "queued").length;
+  const sending = uploads.filter((u) => u.status === "uploading").length;
+  const added = uploads.filter((u) => u.status === "done").length;
 
   return (
     <div className={className}>
@@ -321,6 +325,29 @@ export function UploadZone({
         }}
       />
 
+      {/* Cancel keeps what is already saved, and says how many were added (SLN-1461) */}
+      {waiting > 0 && (
+        <div className="mt-2 flex items-center gap-2 text-xs" role="status">
+          <span className="min-w-0 flex-1 text-fg-secondary">
+            {sending.toLocaleString("en")} sending, {waiting.toLocaleString("en")} waiting
+          </span>
+          <button
+            type="button"
+            className="text-fg-secondary hover:text-fg-primary pointer-coarse:min-h-11"
+            onClick={cancelWaiting}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+      {cancelled !== null && (
+        <p className="mt-2 text-xs text-fg-secondary" role="status">
+          {sending > 0
+            ? `Cancelled. Finishing the ${countLabel(sending, "image")} already sending…`
+            : `Cancelled. ${countLabel(added, "image")} added, ${cancelled.toLocaleString("en")} not sent.`}
+        </p>
+      )}
+
       {/* Upload progress */}
       {activeUploads.length > 0 && (
         <div className="mt-2 space-y-1">
@@ -338,12 +365,16 @@ export function UploadZone({
                   className={
                     u.status === "error"
                       ? "text-accent-red-text"
-                      : "animate-pulse text-fg-secondary"
+                      : u.status === "queued"
+                        ? "text-fg-secondary"
+                        : "animate-pulse text-fg-secondary"
                   }
                 >
                   {u.status === "error"
                     ? "Failed"
-                    : "Uploading and processing…"}
+                    : u.status === "queued"
+                      ? "Waiting"
+                      : "Uploading and processing…"}
                 </span>
                 {u.status === "error" && (
                   <button
