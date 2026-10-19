@@ -61,6 +61,53 @@ const one = (v: number) => (Math.round(v * 10) / 10).toFixed(1);
 const possessive = (name: string) => `${name}'s`;
 const n = (v: number) => v.toLocaleString("en-US");
 
+/**
+ * The rated books by author, recommender and term, in `ctx.rated`'s order,
+ * each book once a key: built once a context, so a candidate looks its
+ * evidence up instead of scanning every rated book (a few thousand
+ * candidates against a few thousand rated reads took about a second). The
+ * profile's norm is the same for every book, so it is kept here too.
+ */
+interface RatedIndex {
+  byAuthor: Map<string, SuggestBook[]>;
+  byRecommender: Map<string, SuggestBook[]>;
+  byTerm: Map<string, SuggestBook[]>;
+  /** Σ (idf × profile)² over the profile */
+  profileNorm: number;
+  /** What it was built from: a context given new ones is indexed again */
+  from: [SuggestBook[], Map<string, number>, Map<string, number>];
+}
+const indexes = new WeakMap<SuggestContext, RatedIndex>();
+
+function group(books: SuggestBook[], keys: (b: SuggestBook) => Iterable<string>) {
+  const map = new Map<string, SuggestBook[]>();
+  for (const b of books) {
+    for (const key of new Set(keys(b))) {
+      const list = map.get(key);
+      if (list) list.push(b);
+      else map.set(key, [b]);
+    }
+  }
+  return map;
+}
+
+function ratedIndex(ctx: SuggestContext): RatedIndex {
+  let index = indexes.get(ctx);
+  if (!index || index.from[0] !== ctx.rated || index.from[1] !== ctx.idf || index.from[2] !== ctx.profile) {
+    let profileNorm = 0;
+    for (const [key, p] of ctx.profile) profileNorm += ((ctx.idf.get(key) ?? 0) * p) ** 2;
+    index = {
+      byAuthor: group(ctx.rated, (b) => b.authors.map((a) => a.id)),
+      byRecommender: group(ctx.rated, (b) => b.recommenders.map((r) => r.id)),
+      byTerm: group(ctx.rated, (b) => b.terms.map((t) => t.key)),
+      profileNorm,
+      from: [ctx.rated, ctx.idf, ctx.profile],
+    };
+    indexes.set(ctx, index);
+  }
+  return index;
+}
+
 /** Rated books and his plain average, for a list of taste evidence */
 function average(books: SuggestBook[]) {
   return books.reduce((s, b) => s + b.taste!, 0) / books.length;
@@ -99,7 +146,7 @@ const author: Feature = {
     if (ctx.meanTaste === null || !book.authors.length) return null;
     let best: FeatureResult | null = null;
     for (const a of book.authors) {
-      const others = ctx.rated.filter((b) => b.id !== book.id && b.authors.some((x) => x.id === a.id));
+      const others = (ratedIndex(ctx).byAuthor.get(a.id) ?? []).filter((b) => b.id !== book.id);
       if (!others.length) continue;
       const bayes = bayesianMean(
         others.map((b) => b.taste!),
@@ -120,7 +167,7 @@ const author: Feature = {
 
 /** Each recommender's picks with taste evidence: rated, and rated 4 or more */
 export function recommenderRecord(id: string, ctx: SuggestContext) {
-  const picks = ctx.rated.filter((b) => b.recommenders.some((r) => r.id === id));
+  const picks = ratedIndex(ctx).byRecommender.get(id) ?? [];
   return { rated: picks.length, liked: picks.filter((b) => b.taste! >= 4).length, picks };
 }
 
@@ -162,11 +209,7 @@ export function tasteCosine(keys: Set<string>, ctx: SuggestContext): number | nu
     shared++;
   }
   if (!shared || !book) return null;
-  let norm = 0;
-  for (const [key, p] of ctx.profile) {
-    const w = ctx.idf.get(key) ?? 0;
-    norm += (w * p) ** 2;
-  }
+  const norm = ratedIndex(ctx).profileNorm;
   return norm ? Math.max(-1, Math.min(1, dot / (Math.sqrt(book) * Math.sqrt(norm)))) : null;
 }
 
@@ -181,7 +224,7 @@ const taste: Feature = {
     // The reason: up to two terms of his liking (not language, century or type alone) that 3 rated books share
     const shared = book.terms
       .filter((t) => !isCoarse(t.key) && (ctx.profile.get(t.key) ?? 0) > 0)
-      .map((t) => ({ term: t, books: ctx.rated.filter((b) => b.terms.some((x) => x.key === t.key)) }))
+      .map((t) => ({ term: t, books: ratedIndex(ctx).byTerm.get(t.key) ?? [] }))
       .filter((s) => s.books.length >= 3)
       .sort((a, b) => (ctx.idf.get(b.term.key) ?? 0) * ctx.profile.get(b.term.key)! - (ctx.idf.get(a.term.key) ?? 0) * ctx.profile.get(a.term.key)!)
       .slice(0, 2);
