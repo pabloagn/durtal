@@ -3859,6 +3859,9 @@ export class Paginator extends HTMLElement {
             // a newly visible view stops being aria-hidden.
             this.#syncA11y()
         }
+        // The primary view usually changes mid-turn, while the trim waits out
+        // the animation: unload passed chapters once the turn settles
+        if (this.#views.size > 2) this.#trimPassedViews()
         const { range, index: visibleIndex } = this.#getVisibleRange() || {}
         if (!range) return
         this.#lastVisibleRange = range
@@ -4216,7 +4219,8 @@ export class Paginator extends HTMLElement {
     }
     // Trim views whose content is entirely more than 10 pages away
     // from the current viewport. Only removes views AFTER the primary
-    // — removing views before would shift scroll position.
+    // — removing views before would shift scroll position, so
+    // #trimPassedViews does that and moves the position back.
     #trimDistantViews() {
         const { size } = this
         if (!size) return
@@ -4229,6 +4233,45 @@ export class Paginator extends HTMLElement {
                 this.#destroyView(index)
             }
         }
+        this.#trimPassedViews()
+    }
+    // Durtal patch 31 (SLN-1292): views before the primary were never
+    // trimmed, so every chapter read stayed loaded (17 frames after 300
+    // turns). Keep the one just before it, which a spread or a back turn can
+    // show, and in scrolled mode whatever lies within ten screens above, which
+    // the backward preload would only load again; unload the rest and move
+    // the scroll position back by the space they took, so the screen stays
+    // put. A back turn into an unloaded chapter loads it as a jump does.
+    #trimPassedViews() {
+        if (this.#isAnimating || this.#touchState?.active || this.#filling) return
+        const keep = this.#neighbourIndex(-1, this.#primaryIndex)
+        const start = this.#renderedStart, reach = this.size * 10
+        const passed = this.#sortedViews.filter(([index]) => index < this.#primaryIndex
+            && index !== keep
+            && (!this.scrolled || this.#getViewOffset(index)
+                + this.#views.get(index).element.getBoundingClientRect()[this.sideProp] < start - reach))
+        if (!this.scrolled) {
+            // A turn lands on whole spreads counted from the first view, so
+            // unload only up to a chapter end on a spread boundary: removing a
+            // chapter that ends mid-spread moves that grid by a column, and
+            // the next turn would skip the column it moved by
+            let width = 0, aligned = 0
+            passed.forEach(([, view], i) => {
+                width += view.element.getBoundingClientRect()[this.sideProp]
+                if (Math.abs(width / this.size - Math.round(width / this.size)) < 0.01) aligned = i + 1
+            })
+            passed.length = aligned
+        }
+        if (!passed.length) return
+        const position = this.containerPosition
+        let removed = 0
+        for (const [index, view] of passed) {
+            removed += view.element.getBoundingClientRect()[this.sideProp]
+            this.#destroyView(index)
+        }
+        const sign = Math.sign(position) || 1
+        this.containerPosition = sign * Math.max(0, Math.abs(position) - removed)
+        this.#syncA11y()
     }
     #canGoToIndex(index) {
         return index >= 0 && index <= this.sections.length - 1

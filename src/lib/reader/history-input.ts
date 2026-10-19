@@ -5,7 +5,10 @@ export function createHistoryInput(options: {
   available(direction: -1 | 1): boolean;
   step(direction: -1 | 1): void;
 }) {
-  const removers = new Set<() => void>();
+  // Held weakly, as in input.ts: a page or chapter the renderer let go of must
+  // not stay alive because its listeners can still be removed (SLN-1291)
+  const attached = new Set<WeakRef<Document>>();
+  const removers = new WeakMap<Document, () => void>();
   return {
     attach(doc: Document) {
       const key = (event: KeyboardEvent) => {
@@ -40,17 +43,25 @@ export function createHistoryInput(options: {
       doc.addEventListener("keydown", key, true);
       doc.addEventListener("mousedown", mouse, true);
       doc.addEventListener("mouseup", mouse, true);
+      const ref = new WeakRef(doc);
       const remove = () => {
         doc.removeEventListener("keydown", key, true);
         doc.removeEventListener("mousedown", mouse, true);
         doc.removeEventListener("mouseup", mouse, true);
-        removers.delete(remove);
+        removers.delete(doc);
+        attached.delete(ref);
       };
-      removers.add(remove);
+      for (const old of attached) if (!old.deref()) attached.delete(old);
+      attached.add(ref);
+      removers.set(doc, remove);
       return remove;
     },
     destroy() {
-      for (const remove of [...removers]) remove();
+      for (const ref of [...attached]) {
+        const doc = ref.deref();
+        if (doc) removers.get(doc)?.();
+      }
+      attached.clear();
     },
   };
 }

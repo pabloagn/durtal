@@ -273,6 +273,19 @@ describe("owned controls", () => {
     expect(step).toHaveBeenCalledOnce();
     history.destroy();
   });
+  // Documents are held weakly now (SLN-1291): destroy still reaches every one alive
+  it("stops listening on every attached page document when destroyed", () => {
+    const step = vi.fn();
+    const history = createHistoryInput({ blocked: () => false, available: () => true, step });
+    const pages = [0, 1, 2].map(() => document.implementation.createHTMLDocument("page"));
+    const removers = pages.map((page) => history.attach(page));
+    removers[1]();
+    expect(key(pages[1], "ArrowLeft", { altKey: true }).defaultPrevented).toBe(false);
+    expect(key(pages[0], "ArrowLeft", { altKey: true }).defaultPrevented).toBe(true);
+    history.destroy();
+    for (const page of pages) expect(key(page, "ArrowRight", { altKey: true }).defaultPrevented).toBe(false);
+    expect(step).toHaveBeenCalledOnce();
+  });
   it("handles Shift-? and AltGr chapters, reserves future epic keys and reports only registered shortcuts", () => {
     const book = actions();
     const input = createReaderInput({ actions: book, isBlocked: () => false });
