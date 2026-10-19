@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { toast } from "sonner";
+import { toast as houseToast } from "@/lib/notifications/toast";
 import { AppToaster } from "@/components/layout/app-toaster";
 import { NotificationCentre } from "@/components/layout/notification-centre";
 import { getEntries, record, resetForTests } from "@/lib/notifications/history";
@@ -143,6 +144,22 @@ describe("the notification centre", () => {
     expect(getEntries()).toHaveLength(2);
     expect(favourite).toMatchObject({ count: 3, read: false });
     expect(getEntries()[0]).toBe(favourite);
+    expect(bell().getAttribute("aria-label")).toBe("Notifications, 1 unread");
+  });
+
+  // The favourite's case: the house toast folds a repeat into the error still
+  // on screen, and the history still counts it
+  it("counts a repeat the house toast folds into the error on screen", async () => {
+    const fail = async () => { act(() => { houseToast.error("Could not update the favourite. Try again."); }); await wait(50); };
+    await fail();
+    await fail();
+    toggle("open");
+    toggle("closed");
+    await fail();
+    expect(document.querySelectorAll("[data-sonner-toast]")).toHaveLength(1);
+    const favourite = getEntries().find((e) => e.title === "Could not update the favourite. Try again.");
+    expect(getEntries()).toHaveLength(1);
+    expect(favourite).toMatchObject({ count: 3, read: false });
     expect(bell().getAttribute("aria-label")).toBe("Notifications, 1 unread");
   });
 

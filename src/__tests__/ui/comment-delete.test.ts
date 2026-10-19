@@ -8,7 +8,7 @@ import type { TimelineItem } from "@/lib/actions/activity";
 // and every comment's buttons were named just "Edit" and "Delete"
 const mocks = vi.hoisted(() => ({ read: vi.fn(), error: vi.fn() }));
 vi.mock("@/lib/actions/activity", () => ({ getActivityTimeline: mocks.read }));
-vi.mock("sonner", async (original) => ({ ...await original<typeof import("sonner")>(), toast: { error: mocks.error } }));
+vi.mock("@/lib/notifications/toast", () => ({ toast: { error: mocks.error } }));
 vi.mock("@/components/shared/section-heading", () => ({ SectionHeading: () => null }));
 vi.mock("../../components/activity/activity-event-item", () => ({ ActivityEventItem: () => null }));
 vi.mock("../../components/activity/comment-editor", () => ({ CommentEditor: () => createElement("button", { type: "button" }, "Leave a comment...") }));
@@ -24,7 +24,17 @@ const wait = (ms = 0) => act(() => new Promise((resolve) => setTimeout(resolve, 
 const named = (name: string) => [...document.querySelectorAll("button")].filter((b) => b.textContent === name);
 const dialog = () => document.querySelector("dialog[open]");
 
-beforeAll(() => { (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
+beforeAll(() => {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  // As in a browser, an open modal dialog makes the rest of the page inert:
+  // nothing outside it takes the focus (happy-dom has no inert)
+  const focus = HTMLElement.prototype.focus;
+  HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions) {
+    const modal = document.querySelector("dialog[open]");
+    if (modal && !modal.contains(this)) return;
+    focus.call(this, options);
+  };
+});
 beforeEach(async () => {
   mocks.read.mockReset(); mocks.error.mockReset();
   mocks.read.mockResolvedValue({ events: [commentEvent(1, "<p>First <b>thought</b></p>"), commentEvent(2, "<p>Second</p>")], hasMore: false, nextCursor: null });
@@ -51,16 +61,17 @@ describe("deleting a comment", () => {
     expect(host.textContent).toContain("First thought");
   });
 
+  // The focus moves as the dialog goes. (A browser can run a timer while the
+  // dialog is still open and the page inert; happy-dom commits sooner, so the
+  // browser check in the PR covers that order.)
   it("deletes on confirm and moves the focus to the next comment, then to the comment box", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
     act(() => named("Delete comment")[0].click());
     await act(async () => { [...dialog()!.querySelectorAll("button")].find((b) => b.textContent === "Delete")!.click(); });
-    await wait();
     expect(host.textContent).not.toContain("First thought");
     expect(document.activeElement).toBe(named("Delete comment")[0]);
     act(() => named("Delete comment")[0].click());
     await act(async () => { [...dialog()!.querySelectorAll("button")].find((b) => b.textContent === "Delete")!.click(); });
-    await wait();
     expect(host.textContent).not.toContain("Second");
     expect(document.activeElement?.textContent).toBe("Leave a comment...");
   });

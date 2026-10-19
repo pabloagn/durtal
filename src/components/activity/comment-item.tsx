@@ -2,8 +2,9 @@
 
 import type { ActivityEntityType } from "@/lib/activity/entities";
 import { useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { MessageSquare } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { ConfirmDeleteDialog } from "@/components/catalogue/confirm-delete-dialog";
 import { CommentEditor } from "./comment-editor";
 import { CommentAttachmentList } from "./comment-attachment-list";
@@ -60,11 +61,13 @@ export function CommentItem({
     const timeline = root.current?.closest("[data-activity-timeline]");
     const comments = [...(timeline?.querySelectorAll<HTMLElement>("[data-comment]") ?? [])];
     const next = comments[comments.indexOf(root.current!) + 1]?.querySelector<HTMLElement>("[data-comment-delete]");
-    setConfirming(null);
-    onDeleted(comment.id);
-    setTimeout(() => {
-      (next?.isConnected ? next : timeline?.querySelector<HTMLElement>("[data-comment-box] button, [data-comment-box] [contenteditable=true]"))?.focus();
+    // The dialog goes at once: while it is open the page is inert, and the
+    // focus could not move out of it
+    flushSync(() => {
+      setConfirming(null);
+      onDeleted(comment.id);
     });
+    (next?.isConnected ? next : timeline?.querySelector<HTMLElement>("[data-comment-box] button, [data-comment-box] [contenteditable=true]"))?.focus();
   }
   const attachments = comment.attachments.length;
 
