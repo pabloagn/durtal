@@ -6,8 +6,11 @@
 -- series, with 12 editions, 16 copies, 4 readings, 40 quotes and notes,
 -- 10 collections, 5 recommenders and 6 subjects. Its 29 sibling volumes share
 -- its author and two of its subjects, and are rare or poison in turn, so
--- every shelf on its page is full. Ids are valid UUIDs: the book page
--- refuses others.
+-- every shelf on its page is full. Its ten translators each translated a
+-- sibling volume too, and its editions come from three publishers, two of
+-- which published siblings, so it has thirteen creator and publishing
+-- shelves to offer, of which the page shows three. Ids are valid UUIDs: the
+-- book page refuses others.
 
 \set ON_ERROR_STOP on
 -- Never on any database but the disposable preview's
@@ -60,6 +63,18 @@ select pg_temp.vu('hbe' || n), pg_temp.vu('hb-heavy'),
 from generate_series(1, 12) n;
 insert into edition_contributors (edition_id, author_id, role, sort_order)
 select pg_temp.vu('hbe' || n), pg_temp.vu('hba' || n), 'translator', 0 from generate_series(3, 12) n;
+-- Each translator also translated a sibling volume, and the siblings come from two of the book's three publishers
+insert into edition_contributors (edition_id, author_id, role, sort_order)
+select pg_temp.vu('hbve' || (n + 10)), pg_temp.vu('hba' || n), 'translator', 0 from generate_series(3, 12) n;
+insert into publishing_houses (id, name, slug, country)
+select pg_temp.vu('hbp' || n), (array['Heavy Press', 'Survey Press', 'Third Press'])[n], 'heavy-survey-house-' || n, 'FR'
+from generate_series(1, 3) n;
+insert into edition_publishers (edition_id, publisher_id)
+select pg_temp.vu('hbe' || n), pg_temp.vu('hbp' || (1 + n % 3)) from generate_series(1, 12) n
+on conflict do nothing;
+insert into edition_publishers (edition_id, publisher_id)
+select pg_temp.vu('hbve' || n), pg_temp.vu('hbp' || (1 + n % 2)) from generate_series(1, 30) n where n <> 3
+on conflict do nothing;
 insert into instances (id, edition_id, location_id, format, condition, status, lent_to, lent_date, is_signed, signed_by, is_first_printing, acquisition_date, acquisition_price, acquisition_currency, notes)
 select pg_temp.vu('hbi' || c), pg_temp.vu('hbe' || (1 + c % 12)), (select id from locations where is_active order by name limit 1 offset (c % 2)),
   (array['paperback','hardcover','paperback'])[1 + c % 3], (array['fine','good','fair','poor'])[1 + c % 4],

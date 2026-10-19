@@ -15,6 +15,9 @@ export interface RelatedBookGroup {
   works: RelatedBook[];
 }
 
+/** The most creator and publishing shelves one book page shows */
+export const RELATED_SHELVES = 3;
+
 export type RelatedBookRow = {
   kind: RelatedBookGroup["kind"];
   sourceId: string;
@@ -29,10 +32,18 @@ export type RelatedBookRow = {
  * rows pick each shelf's books, then their cards load. The page reads the
  * picked ids' e-book marks alongside the cards, not after them.
  * Independent creator/publishing rows; deduplicate before each group's LIMIT.
+ * Only the first few shelves with books come back, authors first, then
+ * translators, then publishers: a book with many editions would otherwise
+ * carry a shelf per translator and publisher (SLN-1163).
  */
-export async function relatedBookRows(workId: string, limit = 12): Promise<RelatedBookRow[]> {
+export async function relatedBookRows(
+  workId: string,
+  limit = 12,
+  shelves = RELATED_SHELVES,
+): Promise<RelatedBookRow[]> {
   z.uuid().parse(workId);
   z.number().int().min(1).max(50).parse(limit);
+  z.number().int().min(1).max(12).parse(shelves);
   return resultRows<RelatedBookRow>(
     await db.execute(sql`
     with target as (select id from works where id=${workId}::uuid and kind='book'),
@@ -66,10 +77,13 @@ export async function relatedBookRows(workId: string, limit = 12): Promise<Relat
       order by c.kind,c.source_id,c.work_id,c.edition_created,c.edition_id
     ), ranked as (
       select *,row_number() over(partition by kind,source_id order by title collate "C",work_id) as position from distinct_books
+    ), shelves as (
+      select s.*,row_number() over(order by case s.kind when 'author' then 0 when 'translator' then 1 else 2 end,s.position,s.name collate "C",s.id) as shelf
+      from sources s where exists (select 1 from distinct_books d where d.kind=s.kind and d.source_id=s.id)
     )
     select r.kind,s.id as "sourceId",s.name,s.slug,r.work_id as "workId",r.edition_id as "editionId"
-    from ranked r join sources s on s.kind=r.kind and s.id=r.source_id where r.position<=${limit}
-    order by case s.kind when 'author' then 0 when 'translator' then 1 else 2 end,s.position,s.name collate "C",s.id,r.position
+    from ranked r join shelves s on s.kind=r.kind and s.id=r.source_id where r.position<=${limit} and s.shelf<=${shelves}
+    order by s.shelf,r.position
   `),
   );
 }
