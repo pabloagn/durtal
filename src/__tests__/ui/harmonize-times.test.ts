@@ -19,7 +19,7 @@ vi.mock("@/lib/actions/harmonization", () => ({
 import { HarmonizeWorkspace } from "../../app/(catalogue)/harmonize/workspace";
 
 const scan: Scan = {
-  findings: [], total: 0, ready: [], readyTotal: 0,
+  scanId: "s1", findings: [], total: 0, ready: [], readyTotal: 0,
   counts: { inbox: 0, dismissed: 0, ready: 0, categories: { duplicates: 0, artwork: 0, metadata: 0, integrity: 0 } },
   // 21:14 in Amsterdam
   scannedAt: "2026-10-18T19:14:00.000Z", recordCount: 12345, entityCount: 9, ruleCount: 40, persistenceAvailable: true,
